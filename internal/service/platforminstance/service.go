@@ -9,35 +9,36 @@ import (
 
 	"retrom/internal/capability/content/contentprofile"
 	"retrom/internal/capability/runtime/platformcatalog"
+	model "retrom/internal/model/platforminstance"
 )
 
 type Service struct {
-	repository Repository
+	repository model.Repository
 	now        func() time.Time
 }
 
-func New(repository Repository, now func() time.Time) *Service {
+func New(repository model.Repository, now func() time.Time) *Service {
 	return &Service{repository: repository, now: now}
 }
 
 func (service *Service) ValidateCatalog(ctx context.Context) error {
 	catalog := platformcatalog.Current()
 	if err := platformcatalog.Validate(catalog); err != nil {
-		return fmt.Errorf("%w: %w", ErrCatalogInvalid, err)
+		return fmt.Errorf("%w: %w", model.ErrCatalogInvalid, err)
 	}
-	return repositoryError("validate catalog", service.repository.WithRead(ctx, func(reader Reader) error {
+	return repositoryError("validate catalog", service.repository.WithRead(ctx, func(reader model.Reader) error {
 		_, err := reader.CatalogReferences(ctx, catalog)
 		return repositoryError("resolve catalog", err)
 	}))
 }
 
-func (service *Service) Recommendations(ctx context.Context) (Recommendations, error) {
+func (service *Service) Recommendations(ctx context.Context) (model.Recommendations, error) {
 	catalog := platformcatalog.Current()
 	if err := platformcatalog.Validate(catalog); err != nil {
-		return Recommendations{}, fmt.Errorf("%w: %w", ErrCatalogInvalid, err)
+		return model.Recommendations{}, fmt.Errorf("%w: %w", model.ErrCatalogInvalid, err)
 	}
-	var result Recommendations
-	err := service.repository.WithRead(ctx, func(reader Reader) error {
+	var result model.Recommendations
+	err := service.repository.WithRead(ctx, func(reader model.Reader) error {
 		references, err := reader.CatalogReferences(ctx, catalog)
 		if err != nil {
 			return repositoryError("resolve catalog", err)
@@ -52,12 +53,15 @@ func (service *Service) Recommendations(ctx context.Context) (Recommendations, e
 	return result, repositoryError("recommendations", err)
 }
 
-func (service *Service) Create(ctx context.Context, actor AuditActor, input CreateInput) (Instance, error) {
+func (service *Service) Create(ctx context.Context, actor model.AuditActor, input model.CreateInput) (
+	model.Instance,
+	error,
+) {
 	if !validText(input.Name, 1, 200, false) || !validText(input.Description, 0, 10_000, true) {
-		return Instance{}, ErrInvalid
+		return model.Instance{}, model.ErrInvalid
 	}
-	var created Instance
-	err := service.repository.WithWrite(ctx, func(scope WriteScope) error {
+	var created model.Instance
+	err := service.repository.WithWrite(ctx, func(scope model.WriteScope) error {
 		var err error
 		created, err = service.createInstance(
 			ctx, scope, actor, input, "", "PLATFORM_INSTANCE_CREATED", service.now().UnixMilli(),
@@ -68,44 +72,49 @@ func (service *Service) Create(ctx context.Context, actor AuditActor, input Crea
 }
 
 func (service *Service) createInstance(
-	ctx context.Context, scope WriteScope, actor AuditActor, input CreateInput, catalogKey, action string, now int64,
-) (Instance, error) {
+	ctx context.Context,
+	scope model.WriteScope,
+	actor model.AuditActor,
+	input model.CreateInput,
+	catalogKey, action string,
+	now int64,
+) (model.Instance, error) {
 	enabled, err := scope.Reader.CoreEnabled(ctx, input.PlatformID, input.DefaultCoreID)
 	if err != nil {
-		return Instance{}, repositoryError("validate default core", err)
+		return model.Instance{}, repositoryError("validate default core", err)
 	}
 	if !enabled {
-		return Instance{}, ErrDefaultCoreInvalid
+		return model.Instance{}, model.ErrDefaultCoreInvalid
 	}
 	base := SlugBase(input.Name, input.PlatformID)
 	slugs, err := scope.Reader.UsedSlugs(ctx, input.PlatformID, base)
 	if err != nil {
-		return Instance{}, repositoryError("read slugs", err)
+		return model.Instance{}, repositoryError("read slugs", err)
 	}
 	slug, err := NextSlug(base, slugs)
 	if err != nil {
-		return Instance{}, err
+		return model.Instance{}, err
 	}
 	id, err := uuid.NewV7()
 	if err != nil {
-		return Instance{}, fmt.Errorf("platforminstance: create id: %w", err)
+		return model.Instance{}, fmt.Errorf("platforminstance: create id: %w", err)
 	}
-	directory := NewDirectory{ID: id.String(), Slug: slug, CatalogKey: catalogKey, Input: input, CreatedAtMS: now}
+	directory := model.NewDirectory{ID: id.String(), Slug: slug, CatalogKey: catalogKey, Input: input, CreatedAtMS: now}
 	if err := scope.Directories.Insert(ctx, directory); err != nil {
-		return Instance{}, repositoryError("insert directory", err)
+		return model.Instance{}, repositoryError("insert directory", err)
 	}
 	auditID, err := uuid.NewV7()
 	if err != nil {
-		return Instance{}, fmt.Errorf("platforminstance: create audit id: %w", err)
+		return model.Instance{}, fmt.Errorf("platforminstance: create audit id: %w", err)
 	}
-	if err := scope.Directories.RecordCreation(ctx, CreationAudit{
+	if err := scope.Directories.RecordCreation(ctx, model.CreationAudit{
 		ID: auditID.String(), Action: action, Actor: actor, Directory: directory,
 	}); err != nil {
-		return Instance{}, repositoryError("record creation", err)
+		return model.Instance{}, repositoryError("record creation", err)
 	}
 	result, err := scope.Reader.Instance(ctx, directory.ID)
 	if err != nil {
-		return Instance{}, repositoryError("read created directory", err)
+		return model.Instance{}, repositoryError("read created directory", err)
 	}
 	result.SupportedExtensions = contentprofile.SupportedExtensions(result.PlatformID)
 	return result, nil

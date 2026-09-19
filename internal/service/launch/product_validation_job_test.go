@@ -5,21 +5,23 @@ import (
 	"errors"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/launch"
 )
 
 type validationJobMemory struct {
-	current      ValidationJob
+	current      model.ValidationJob
 	found        bool
 	failure      error
 	writeFailure error
-	writes       []ValidationJobWrite
+	writes       []model.ValidationJobWrite
 }
 
-func (repository *validationJobMemory) Find(context.Context, string) (ValidationJob, bool, error) {
+func (repository *validationJobMemory) Find(context.Context, string) (model.ValidationJob, bool, error) {
 	return repository.current, repository.found, repository.failure
 }
 
-func (repository *validationJobMemory) Write(_ context.Context, plan ValidationJobWrite) error {
+func (repository *validationJobMemory) Write(_ context.Context, plan model.ValidationJobWrite) error {
 	if repository.writeFailure != nil {
 		return repository.writeFailure
 	}
@@ -30,7 +32,7 @@ func (repository *validationJobMemory) Write(_ context.Context, plan ValidationJ
 func TestValidationSchedulerRetainsStorageFailures(t *testing.T) {
 	cause := errors.New("validation storage unavailable")
 	for _, repository := range []*validationJobMemory{{failure: cause}, {writeFailure: cause}} {
-		result, err := validationSchedulerFixture(repository).Queue(t.Context(), ValidationInputs{GameVariantID: "variant"})
+		result, err := validationSchedulerFixture(repository).Queue(t.Context(), model.ValidationInputs{GameVariantID: "variant"})
 		if !errors.Is(err, cause) || result.JobID != "" || len(repository.writes) != 0 {
 			t.Fatalf("result=%+v error=%v writes=%d", result, err, len(repository.writes))
 		}
@@ -49,7 +51,7 @@ func TestValidationSchedulerChecksExecutionIdentityBeforeWriting(t *testing.T) {
 		}
 		return "", cause
 	}
-	result, err := scheduler.Queue(t.Context(), ValidationInputs{GameVariantID: "variant"})
+	result, err := scheduler.Queue(t.Context(), model.ValidationInputs{GameVariantID: "variant"})
 	if !errors.Is(err, cause) || calls != 2 || result.JobID != "" || len(repository.writes) != 0 {
 		t.Fatalf("result=%+v error=%v calls=%d writes=%d", result, err, calls, len(repository.writes))
 	}
@@ -59,7 +61,7 @@ func TestValidationSchedulerChecksIdentityBeforeWriting(t *testing.T) {
 	cause := errors.New("validation entropy")
 	repository := &validationJobMemory{}
 	scheduler := NewValidationScheduler(repository, ValidationEnvironment{Now: func() time.Time { return time.UnixMilli(100) }, NewID: func() (string, error) { return "", cause }})
-	result, err := scheduler.Queue(t.Context(), ValidationInputs{GameVariantID: "variant", ValidationInputDigest: "digest"})
+	result, err := scheduler.Queue(t.Context(), model.ValidationInputs{GameVariantID: "variant", ValidationInputDigest: "digest"})
 	if !errors.Is(err, cause) || result.JobID != "" || len(repository.writes) != 0 {
 		t.Fatalf("result=%+v error=%v writes=%d", result, err, len(repository.writes))
 	}

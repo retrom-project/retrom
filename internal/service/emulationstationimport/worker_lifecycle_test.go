@@ -5,13 +5,15 @@ import (
 	"testing"
 	"testing/synctest"
 	"time"
+
+	model "retrom/internal/model/emulationstationimport"
 )
 
 func TestWorkerStartOnceAndCloseJoinsExecution(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		worker, fixture := newWorkerFixture()
 		release := make(chan struct{})
-		fixture.run = func(ctx context.Context, _ Execution) { <-ctx.Done(); <-release }
+		fixture.run = func(ctx context.Context, _ model.Execution) { <-ctx.Done(); <-release }
 		worker.Start()
 		worker.Start()
 		synctest.Wait()
@@ -76,7 +78,7 @@ func TestWorkerCancellationSignalAndDurablePolling(t *testing.T) {
 				worker, fixture := newWorkerFixture()
 				worker.Start()
 				synctest.Wait()
-				fixture.observe(LeaseCancelled)
+				fixture.observe(model.LeaseCancelled)
 				if signal {
 					worker.Signal()
 				} else {
@@ -95,8 +97,8 @@ func TestWorkerCancellationSignalAndDurablePolling(t *testing.T) {
 func TestWorkerObservesCancellationAtExecutorReturn(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		worker, fixture := newWorkerFixture()
-		fixture.run = func(context.Context, Execution) { fixture.observe(LeaseCancelled) }
-		worker.Run(context.Background(), Execution{DeadlineAtMS: time.Now().Add(time.Hour).UnixMilli()})
+		fixture.run = func(context.Context, model.Execution) { fixture.observe(model.LeaseCancelled) }
+		worker.Run(context.Background(), model.Execution{DeadlineAtMS: time.Now().Add(time.Hour).UnixMilli()})
 		if fixture.acknowledged.Load() != 1 {
 			t.Fatal("executor return lost cancellation before monitor tick")
 		}

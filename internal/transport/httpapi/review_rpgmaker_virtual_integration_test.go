@@ -18,11 +18,11 @@ import (
 	"testing"
 	"time"
 
+	uploadsmodel "retrom/internal/model/uploads"
 	dependencypersistence "retrom/internal/repo/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 
 	"retrom/internal/adapter/integration/libraryimport"
-	"retrom/internal/service/uploads"
 	"retrom/internal/testkit/testassert"
 )
 
@@ -104,20 +104,20 @@ func completeRPGMakerHTTPUpload(
 	files []rpgMakerHTTPFixtureFile,
 ) string {
 	t.Helper()
-	declarations := make([]uploads.FileDeclaration, 0, len(files))
+	declarations := make([]uploadsmodel.FileDeclaration, 0, len(files))
 	for index, file := range files {
-		declarations = append(declarations, uploads.FileDeclaration{
+		declarations = append(declarations, uploadsmodel.FileDeclaration{
 			ClientFileID: fmt.Sprintf("rpg-%d", index), RelativePath: file.path,
 			SizeBytes: int64(len(file.contents)),
 		})
 	}
-	upload, err := server.uploads.Create(ctx, uploads.CreateRequest{
+	upload, err := server.uploads.Create(ctx, uploadsmodel.CreateRequest{
 		Purpose: "PROJECT", SourceType: "DIRECTORY", Files: declarations,
 	})
 	testassert.False(t, err != nil, err)
 	for index, file := range files {
-		for start, part := 0, 0; start < len(file.contents); start, part = start+int(uploads.PartSize), part+1 {
-			end := min(start+int(uploads.PartSize), len(file.contents))
+		for start, part := 0, 0; start < len(file.contents); start, part = start+int(uploadsmodel.PartSize), part+1 {
+			end := min(start+int(uploadsmodel.PartSize), len(file.contents))
 			digest := sha256.Sum256(file.contents[start:end])
 			if err := server.uploads.PutPart(
 				ctx, upload.ID, upload.Files[index].ID, part,

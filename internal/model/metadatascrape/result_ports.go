@@ -3,8 +3,8 @@ package metadatascrape
 import (
 	"context"
 
-	"retrom/internal/adapter/files/blobstore"
-	"retrom/internal/adapter/metadata/hasheous"
+	"retrom/internal/model/blob"
+	metadatamodel "retrom/internal/model/metadata"
 )
 
 type LookupAttempt struct {
@@ -16,9 +16,9 @@ type LookupAttempt struct {
 }
 type ResponseRecord struct {
 	ID, RequestDigest string
-	Outcome           hasheous.ProviderOutcome
-	HTTPStatus        int
-	Blob              *blobstore.Metadata
+	Outcome           metadatamodel.ProviderOutcome
+	Audit             metadatamodel.ProtocolAudit
+	Blob              *blob.PreparedBlob
 	Cacheable         bool
 	Now, ExpiresAt    int64
 }
@@ -41,7 +41,7 @@ type CandidateHit struct {
 }
 type CandidateAsset struct {
 	ID, CandidateID, ResponseID, MediaJobID string
-	Reference                               hasheous.AssetRef
+	Reference                               metadatamodel.AssetReference
 	Now                                     int64
 }
 type ResultReader interface {

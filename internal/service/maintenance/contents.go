@@ -5,13 +5,15 @@ import (
 	"encoding/hex"
 	"fmt"
 	"path/filepath"
+
+	model "retrom/internal/model/maintenance"
 )
 
-func referencedFiles(snapshot Snapshot) ([]FileEntry, error) {
+func referencedFiles(snapshot model.Snapshot) ([]FileEntry, error) {
 	files := make([]FileEntry, 0, len(snapshot.Blobs)+len(snapshot.Parts))
 	for _, blob := range snapshot.Blobs {
 		if !validDigest(blob.SHA256) || blob.SizeBytes < 0 {
-			return nil, ErrInvalidBundle
+			return nil, model.ErrInvalidBundle
 		}
 		files = append(files, FileEntry{
 			Path: "blobs/sha256/" + blob.SHA256[:2] + "/" + blob.SHA256[2:4] + "/" + blob.SHA256,
@@ -20,7 +22,7 @@ func referencedFiles(snapshot Snapshot) ([]FileEntry, error) {
 	}
 	for _, part := range snapshot.Parts {
 		if !safeStorageKey(part.StorageKey) || !validDigest(part.SHA256) || part.SizeBytes < 0 {
-			return nil, ErrInvalidBundle
+			return nil, model.ErrInvalidBundle
 		}
 		files = append(
 			files,
@@ -44,7 +46,7 @@ func validDigest(value string) bool {
 	return err == nil && hex.EncodeToString(bytes) == value
 }
 
-func copyBackupContents(ctx context.Context, snapshot Snapshot, root, staging string, manifest *Manifest) error {
+func copyBackupContents(ctx context.Context, snapshot model.Snapshot, root, staging string, manifest *Manifest) error {
 	files, err := referencedFiles(snapshot)
 	if err != nil {
 		return err
@@ -75,7 +77,7 @@ func copyBackupContents(ctx context.Context, snapshot Snapshot, root, staging st
 			return err
 		}
 		if entry.SizeBytes != file.SizeBytes {
-			return ErrInvalidBundle
+			return model.ErrInvalidBundle
 		}
 		manifest.Files = append(manifest.Files, entry)
 		if entry.Kind == "CAS_BLOB" {
@@ -87,7 +89,7 @@ func copyBackupContents(ctx context.Context, snapshot Snapshot, root, staging st
 	return nil
 }
 
-func validateRestoredContents(ctx context.Context, snapshot Snapshot, root string) error {
+func validateRestoredContents(ctx context.Context, snapshot model.Snapshot, root string) error {
 	files, err := referencedFiles(snapshot)
 	if err != nil {
 		return err
@@ -101,7 +103,7 @@ func validateRestoredContents(ctx context.Context, snapshot Snapshot, root strin
 			return err
 		}
 		if digest != file.SHA256 || size != file.SizeBytes {
-			return ErrInvalidBundle
+			return model.ErrInvalidBundle
 		}
 	}
 	return nil

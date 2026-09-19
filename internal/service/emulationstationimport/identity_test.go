@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	model "retrom/internal/model/emulationstationimport"
+
 	"github.com/google/uuid"
 )
 
@@ -27,10 +29,10 @@ func (reader *identityEntropy) Read(value []byte) (int, error) {
 func TestCreationChecksEveryIdentityBeforeOpeningTransaction(t *testing.T) {
 	for allowed := range 4 {
 		repo := &creationMemory{}
-		value, err := func() (Summary, error) {
+		value, err := func() (model.Summary, error) {
 			uuid.SetRand(&identityEntropy{remaining: allowed})
 			defer uuid.SetRand(nil)
-			return NewCreation(repo, &creationSource{}, time.Now).Create(t.Context(), CreateRequest{}, "actor")
+			return NewCreation(repo, &creationSource{}, time.Now).Create(t.Context(), model.CreateRequest{}, "actor")
 		}()
 		if !errors.Is(err, errIdentityEntropy) || value.ID != "" || repo.scopes != 0 {
 			t.Fatalf("identity %d produced value=%#v error=%v scopes=%d", allowed, value, err, repo.scopes)
@@ -39,7 +41,7 @@ func TestCreationChecksEveryIdentityBeforeOpeningTransaction(t *testing.T) {
 }
 
 func TestPlanDeletionChecksAuditIdentityBeforeMutation(t *testing.T) {
-	repo := &planLifecycleMemory{summary: Summary{ID: "plan", Version: 1, State: "EXPIRED", CreatedBy: CreatedBy{ID: "actor"}}}
+	repo := &planLifecycleMemory{summary: model.Summary{ID: "plan", Version: 1, State: "EXPIRED", CreatedBy: model.CreatedBy{ID: "actor"}}}
 	err := func() error {
 		uuid.SetRand(&identityEntropy{})
 		defer uuid.SetRand(nil)

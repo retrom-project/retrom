@@ -5,6 +5,8 @@ import (
 	"errors"
 	"strings"
 	"testing"
+
+	model "retrom/internal/model/launch"
 )
 
 func TestBuildKiriKiriProjectIndexPublishesEveryProjectFile(t *testing.T) {
@@ -44,7 +46,7 @@ func TestBuildKiriKiriProjectIndexRejectsUnsafeOrIncompleteFiles(t *testing.T) {
 	for _, files := range cases {
 		if _, err := buildProjectIndexDocument(
 			"/runtime/content/project/"+strings.Repeat("d", 64)+"/", "", profile, files,
-		); !errors.Is(err, ErrCredential) {
+		); !errors.Is(err, model.ErrCredential) {
 			t.Fatalf("build project index error = %v for %#v", err, files)
 		}
 	}

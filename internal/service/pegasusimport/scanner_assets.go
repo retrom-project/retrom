@@ -9,15 +9,16 @@ import (
 
 	"retrom/internal/adapter/files/mediaasset"
 	"retrom/internal/adapter/files/serversource"
+	model "retrom/internal/model/pegasusimport"
 )
 
 func (service *Scanner) chooseAsset(
 	ctx context.Context,
 	metadataPath, kind, title string,
 	declaredFiles, gameCandidates, collectionCandidates []string,
-	files map[string]discoveredFile,
+	files map[string]DiscoveredFile,
 	folded map[string][]string,
-) (*scannedAsset, []map[string]any, error) {
+) (*model.ScanAsset, []map[string]any, error) {
 	candidates, warnings := buildAssetCandidates(
 		metadataPath, kind, title, declaredFiles, gameCandidates, collectionCandidates,
 	)
@@ -121,9 +122,9 @@ func (service *Scanner) resolveAssetCandidate(
 	ctx context.Context,
 	kind string,
 	candidate assetCandidate,
-	files map[string]discoveredFile,
+	files map[string]DiscoveredFile,
 	folded map[string][]string,
-) (*scannedAsset, map[string]any, error) {
+) (*model.ScanAsset, map[string]any, error) {
 	resolved, warning := resolvedAssetPath(candidate, kind, folded)
 	if warning != nil || resolved == "" {
 		return nil, warning, nil
@@ -139,7 +140,7 @@ func (service *Scanner) resolveAssetCandidate(
 	if ctx.Err() != nil {
 		return nil, nil, fmt.Errorf("inspect Pegasus asset: %w", ctx.Err())
 	}
-	if errors.Is(err, ErrSourceChanged) {
+	if errors.Is(err, model.ErrSourceChanged) {
 		return nil, nil, nil
 	}
 	if err != nil {
@@ -152,7 +153,7 @@ func (service *Scanner) resolveAssetCandidate(
 		}
 		return nil, assetWarning(code, kind), nil
 	}
-	return &scannedAsset{
+	return &model.ScanAsset{
 		Kind: kind, Method: candidate.method, Path: resolved, Facts: entry.Facts, Size: entry.Size,
 		MediaType: inspection.MediaType, Width: inspection.Width, Height: inspection.Height,
 	}, nil, nil

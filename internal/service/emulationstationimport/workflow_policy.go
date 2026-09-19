@@ -4,16 +4,18 @@ import (
 	"fmt"
 	"math"
 
+	model "retrom/internal/model/emulationstationimport"
+
 	"github.com/google/uuid"
 )
 
-func validWorkflowVersion(before WorkflowSnapshot, version int64) bool {
+func validWorkflowVersion(before model.WorkflowSnapshot, version int64) bool {
 	return version > 0 && version < math.MaxInt64 && before.Summary.Version == version &&
 		before.JobVersion > 0 && before.JobVersion < math.MaxInt64 &&
 		before.Execution > 0 && (before.Summary.ImportJobID != nil || before.Summary.ScanJobID != "")
 }
 
-func canCancel(before WorkflowSnapshot, version int64) bool {
+func canCancel(before model.WorkflowSnapshot, version int64) bool {
 	if !validWorkflowVersion(before, version) {
 		return false
 	}
@@ -24,36 +26,36 @@ func canCancel(before WorkflowSnapshot, version int64) bool {
 		(before.Summary.State == "RUNNING" && before.JobState == "RUNNING")
 }
 
-func validateRetry(before RetrySnapshot, version int64) error {
+func validateRetry(before model.RetrySnapshot, version int64) error {
 	if before.Summary.ImportJobID == nil || !validWorkflowVersion(before.WorkflowSnapshot, version) ||
 		before.Execution == math.MaxInt64 ||
 		!before.Summary.Retryable || before.RetryableItems == 0 {
-		return ErrNotRetryable
+		return model.ErrNotRetryable
 	}
 	if (before.Summary.State != "FAILED" && before.Summary.State != "PARTIAL_FAILURE") ||
 		(before.JobState != "FAILED" && before.JobState != "SUCCEEDED") {
-		return ErrNotRetryable
+		return model.ErrNotRetryable
 	}
 	if before.OtherActive {
-		return ErrActive
+		return model.ErrActive
 	}
 	if !before.TargetsValid {
-		return ErrMappingTargetChanged
+		return model.ErrMappingTargetChanged
 	}
 	return nil
 }
 
-func sameRetryExecution(before, current RetrySnapshot) bool {
+func sameRetryExecution(before, current model.RetrySnapshot) bool {
 	return *before.Summary.ImportJobID == *current.Summary.ImportJobID && before.JobVersion == current.JobVersion &&
 		before.Execution == current.Execution && before.Summary.MappingVersion == current.Summary.MappingVersion
 }
 
-func newRetryPlan(before RetrySnapshot, actor string) (RetryPlan, error) {
-	plan := RetryPlan{Before: before, Execution: before.Execution + 1, ActorID: actor}
+func newRetryPlan(before model.RetrySnapshot, actor string) (model.RetryPlan, error) {
+	plan := model.RetryPlan{Before: before, Execution: before.Execution + 1, ActorID: actor}
 	for _, target := range []*string{&plan.ExecutionID, &plan.AuditID} {
 		id, err := uuid.NewV7()
 		if err != nil {
-			return RetryPlan{}, fmt.Errorf("generate EmulationStation retry identity: %w", err)
+			return model.RetryPlan{}, fmt.Errorf("generate EmulationStation retry identity: %w", err)
 		}
 		*target = id.String()
 	}

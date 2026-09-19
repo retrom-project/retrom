@@ -4,29 +4,31 @@ import (
 	"context"
 	"fmt"
 	"time"
+
+	model "retrom/internal/model/accounts"
 )
 
 type DirectoryService struct {
-	repository DirectoryRepository
+	repository model.DirectoryRepository
 	now        func() time.Time
 }
 
-func NewDirectory(repository DirectoryRepository, now func() time.Time) *DirectoryService {
+func NewDirectory(repository model.DirectoryRepository, now func() time.Time) *DirectoryService {
 	return &DirectoryService{repository: repository, now: now}
 }
 
-func (service *DirectoryService) Get(ctx context.Context, id string) (AdminUser, error) {
+func (service *DirectoryService) Get(ctx context.Context, id string) (model.AdminUser, error) {
 	user, found, err := service.repository.Get(ctx, id, service.now().UnixMilli())
 	if err != nil {
-		return AdminUser{}, fmt.Errorf("read admin user: %w", err)
+		return model.AdminUser{}, fmt.Errorf("read admin user: %w", err)
 	}
 	if !found {
-		return AdminUser{}, ErrUserNotFound
+		return model.AdminUser{}, model.ErrUserNotFound
 	}
 	return presentAdminUser(user), nil
 }
 
-func (service *DirectoryService) List(ctx context.Context, filter UserListFilter) ([]AdminUser, error) {
+func (service *DirectoryService) List(ctx context.Context, filter model.UserListFilter) ([]model.AdminUser, error) {
 	query, err := directoryQuery(filter)
 	if err != nil {
 		return nil, err
@@ -36,14 +38,14 @@ func (service *DirectoryService) List(ctx context.Context, filter UserListFilter
 	if err != nil {
 		return nil, fmt.Errorf("list admin users: %w", err)
 	}
-	result := make([]AdminUser, len(users))
+	result := make([]model.AdminUser, len(users))
 	for i, user := range users {
 		result[i] = presentAdminUser(user)
 	}
 	return result, nil
 }
 
-func presentAdminUser(user AdminUser) AdminUser {
+func presentAdminUser(user model.AdminUser) model.AdminUser {
 	if user.Status == "DELETED" {
 		user.DisplayName = "已删除用户"
 	}

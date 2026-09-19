@@ -6,10 +6,11 @@ import (
 	"testing"
 	"time"
 
+	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
 	application "retrom/internal/service/emulationstationimport"
 )
 
-func itemWorkDatabase(t *testing.T) (*sql.DB, application.Execution) {
+func itemWorkDatabase(t *testing.T) (*sql.DB, emulationstationimportmodel.Execution) {
 	t.Helper()
 	db, _ := leaseDatabase(t, true)
 	if _, err := db.ExecContext(
@@ -47,8 +48,7 @@ func TestItemWorkClaimsResumesAndPersistsAtomicProgress(t *testing.T) {
 	err = service.Finish(
 		t.Context(),
 		unit,
-		item.ID,
-		application.ItemOutcome{State: "READ_FAILED", Code: "READ_FAILED", Retryable: true},
+		item.ID, emulationstationimportmodel.ItemOutcome{State: "READ_FAILED", Code: "READ_FAILED", Retryable: true},
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -60,7 +60,7 @@ func TestItemWorkClaimsResumesAndPersistsAtomicProgress(t *testing.T) {
 	}
 }
 
-func assertItemWorkOutcome(t *testing.T, db *sql.DB, unit application.Execution, itemID string) {
+func assertItemWorkOutcome(t *testing.T, db *sql.DB, unit emulationstationimportmodel.Execution, itemID string) {
 	t.Helper()
 	summary, err := NewQueries(db).Get(t.Context(), unit.ImportID)
 	if err != nil || summary.Counts.Failed != 1 || summary.Counts.Blocked != 1 || summary.Counts.SkippedMapping != 1 {
@@ -86,8 +86,8 @@ func assertItemWorkResume(
 	t *testing.T,
 	db *sql.DB,
 	service *application.ItemWork,
-	unit application.Execution,
-	item application.ExecutionItem,
+	unit emulationstationimportmodel.Execution,
+	item emulationstationimportmodel.ExecutionItem,
 ) {
 	t.Helper()
 	before := planRows(t, db)

@@ -16,9 +16,10 @@ import (
 	"testing"
 	"time"
 
+	launchmodel "retrom/internal/model/launch"
+	uploadsmodel "retrom/internal/model/uploads"
 	validationpersistence "retrom/internal/repo/corevalidation"
 	validationservice "retrom/internal/service/corevalidation"
-	application "retrom/internal/service/launch"
 
 	uploadpersistence "retrom/internal/repo/uploads"
 
@@ -61,10 +62,9 @@ func TestPublishedGameLaunchLocksContentAndCredential(t *testing.T) {
 	contents := []byte("launchable-gba")
 	uploadService := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
 	upload, err := uploadService.Create(
-		ctx,
-		uploads.CreateRequest{
+		ctx, uploadsmodel.CreateRequest{
 			SourceType: "FILES",
-			Files: []uploads.FileDeclaration{
+			Files: []uploadsmodel.FileDeclaration{
 				{ClientFileID: "g", RelativePath: "Launch.gba", SizeBytes: int64(len(contents))},
 			},
 		},
@@ -392,7 +392,7 @@ WHERE j.id=?
 		t.Fatal(err)
 	}
 	var payload map[string]any
-	var snapshot application.ValidationSnapshot
+	var snapshot launchmodel.ValidationSnapshot
 	testassert.Falsef(t, testassert.Any(func() bool { return json.Unmarshal([]byte(payloadJSON), &payload) != nil }, func() bool { return json.Unmarshal([]byte(inputJSON), &snapshot) != nil }, func() bool { return cancellable != 0 }, func() bool { return len(dedupeKey) != 64 }, func() bool { return dedupeKey == snapshot.Inputs.ValidationInputDigest }, func() bool { return payload["inputExecutionNo"] != float64(1) }, func() bool { return snapshot.Inputs.GameVariantID == "" }), "validation job contract = cancellable:%d dedupe:%s payload:%s snapshot:%s", cancellable, dedupeKey, payloadJSON, inputJSON)
 	for deadline := time.Now().Add(3 * time.Second); ; {
 		var state string

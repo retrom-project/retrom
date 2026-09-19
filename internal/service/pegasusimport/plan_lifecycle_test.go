@@ -5,42 +5,46 @@ import (
 	"errors"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/pegasusimport"
 )
 
 type planLifecycleMemory struct {
-	summary        Summary
-	candidates     []ExpiredPlan
+	summary        model.Summary
+	candidates     []model.ExpiredPlan
 	err, commitErr error
-	deleted        *PlanDeletion
-	expired        *PlanExpiry
+	deleted        *model.PlanDeletion
+	expired        *model.PlanExpiry
 }
 
-func (m *planLifecycleMemory) WithPlanWrite(_ context.Context, work func(PlanRecords) error) error {
+func (m *planLifecycleMemory) WithPlanWrite(_ context.Context, work func(model.PlanRecords) error) error {
 	if err := work(m); err != nil {
 		return err
 	}
 	return m.commitErr
 }
 
-func (m *planLifecycleMemory) ExpiredPlans(context.Context, int64, int) ([]ExpiredPlan, error) {
+func (m *planLifecycleMemory) ExpiredPlans(context.Context, int64, int) ([]model.ExpiredPlan, error) {
 	return m.candidates, m.err
 }
 
-func (m *planLifecycleMemory) Get(context.Context, string) (Summary, error) { return m.summary, m.err }
+func (m *planLifecycleMemory) Get(context.Context, string) (model.Summary, error) {
+	return m.summary, m.err
+}
 
-func (m *planLifecycleMemory) Delete(_ context.Context, plan PlanDeletion) error {
+func (m *planLifecycleMemory) Delete(_ context.Context, plan model.PlanDeletion) error {
 	m.deleted = &plan
 	return m.err
 }
 
-func (m *planLifecycleMemory) Expire(_ context.Context, plan PlanExpiry) error {
+func (m *planLifecycleMemory) Expire(_ context.Context, plan model.PlanExpiry) error {
 	m.expired = &plan
 	return m.err
 }
 
 func TestPlanDeletionUsesCurrentVersionAndActor(t *testing.T) {
 	t.Parallel()
-	repo := &planLifecycleMemory{summary: Summary{ID: "plan", Version: 4, State: "AWAITING_MAPPING", CreatedBy: CreatedBy{ID: "creator"}}}
+	repo := &planLifecycleMemory{summary: model.Summary{ID: "plan", Version: 4, State: "AWAITING_MAPPING", CreatedBy: model.CreatedBy{ID: "creator"}}}
 	if err := NewPlanLifecycle(repo, func() time.Time { return time.UnixMilli(10) }).Delete(t.Context(), "plan", 4, "admin"); err != nil {
 		t.Fatal(err)
 	}
@@ -52,10 +56,10 @@ func TestPlanDeletionUsesCurrentVersionAndActor(t *testing.T) {
 func TestPlanDeletionRejectsStaleOrStartedPlans(t *testing.T) {
 	t.Parallel()
 	job := "job"
-	for _, summary := range []Summary{{ID: "plan", Version: 5, State: "AWAITING_MAPPING"}, {ID: "plan", Version: 4, State: "RUNNING"}, {ID: "plan", Version: 4, State: "EXPIRED", ImportJobID: &job}} {
+	for _, summary := range []model.Summary{{ID: "plan", Version: 5, State: "AWAITING_MAPPING"}, {ID: "plan", Version: 4, State: "RUNNING"}, {ID: "plan", Version: 4, State: "EXPIRED", ImportJobID: &job}} {
 		repo := &planLifecycleMemory{summary: summary}
 		err := NewPlanLifecycle(repo, time.Now).Delete(t.Context(), "plan", 4, "actor")
-		if !errors.Is(err, ErrInvalid) || repo.deleted != nil {
+		if !errors.Is(err, model.ErrInvalid) || repo.deleted != nil {
 			t.Fatalf("invalid deletion: %#v, %v", summary, err)
 		}
 	}
@@ -63,8 +67,8 @@ func TestPlanDeletionRejectsStaleOrStartedPlans(t *testing.T) {
 
 func TestPlanExpirySkipsChangedCandidates(t *testing.T) {
 	t.Parallel()
-	for _, summary := range []Summary{{ID: "plan", Version: 5, State: "AWAITING_MAPPING", ExpiresAtMS: 1}, {ID: "plan", Version: 4, State: "QUEUED", ExpiresAtMS: 1}, {ID: "plan", Version: 4, State: "AWAITING_MAPPING", ExpiresAtMS: 20}} {
-		repo := &planLifecycleMemory{summary: summary, candidates: []ExpiredPlan{{ID: "plan", Version: 4}}}
+	for _, summary := range []model.Summary{{ID: "plan", Version: 5, State: "AWAITING_MAPPING", ExpiresAtMS: 1}, {ID: "plan", Version: 4, State: "QUEUED", ExpiresAtMS: 1}, {ID: "plan", Version: 4, State: "AWAITING_MAPPING", ExpiresAtMS: 20}} {
+		repo := &planLifecycleMemory{summary: summary, candidates: []model.ExpiredPlan{{ID: "plan", Version: 4}}}
 		if err := NewPlanLifecycle(repo, func() time.Time { return time.UnixMilli(10) }).Expire(t.Context()); err != nil {
 			t.Fatal(err)
 		}
@@ -80,7 +84,7 @@ func TestPlanLifecyclePropagatesReadAndCommitFailure(t *testing.T) {
 	for _, phase := range []string{"read", "commit"} {
 		t.Run(phase, func(t *testing.T) {
 			t.Parallel()
-			repo := &planLifecycleMemory{summary: Summary{ID: "plan", Version: 4, State: "EXPIRED", CreatedBy: CreatedBy{ID: "creator"}}}
+			repo := &planLifecycleMemory{summary: model.Summary{ID: "plan", Version: 4, State: "EXPIRED", CreatedBy: model.CreatedBy{ID: "creator"}}}
 			if phase == "read" {
 				repo.err = cause
 			} else {
@@ -95,7 +99,7 @@ func TestPlanLifecyclePropagatesReadAndCommitFailure(t *testing.T) {
 
 func TestPlanExpiryWritesOnlyCurrentExpiredMappingPlan(t *testing.T) {
 	t.Parallel()
-	repo := &planLifecycleMemory{summary: Summary{ID: "plan", Version: 4, State: "AWAITING_MAPPING", ExpiresAtMS: 10}, candidates: []ExpiredPlan{{ID: "plan", Version: 4}}}
+	repo := &planLifecycleMemory{summary: model.Summary{ID: "plan", Version: 4, State: "AWAITING_MAPPING", ExpiresAtMS: 10}, candidates: []model.ExpiredPlan{{ID: "plan", Version: 4}}}
 	if err := NewPlanLifecycle(repo, func() time.Time { return time.UnixMilli(10) }).Expire(t.Context()); err != nil {
 		t.Fatal(err)
 	}

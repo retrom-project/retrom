@@ -7,35 +7,37 @@ import (
 	"errors"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/isolation"
 )
 
 type isolationMemory struct {
-	bootstrap                       Bootstrap
-	capability                      Capability
+	bootstrap                       model.Bootstrap
+	capability                      model.Capability
 	reads, writes, consumed, issued int
 }
 
-func (memory *isolationMemory) Bootstrap(context.Context, TicketQuery) (Bootstrap, error) {
+func (memory *isolationMemory) Bootstrap(context.Context, model.TicketQuery) (model.Bootstrap, error) {
 	memory.reads++
 	return memory.bootstrap, nil
 }
 
-func (memory *isolationMemory) Capability(context.Context, CredentialQuery) (Capability, error) {
+func (memory *isolationMemory) Capability(context.Context, model.CredentialQuery) (model.Capability, error) {
 	memory.reads++
 	return memory.capability, nil
 }
-func (memory *isolationMemory) Revoke(context.Context, Access, int64) error { return nil }
-func (memory *isolationMemory) WithWrite(_ context.Context, work func(Tickets) error) error {
+func (memory *isolationMemory) Revoke(context.Context, model.Access, int64) error { return nil }
+func (memory *isolationMemory) WithWrite(_ context.Context, work func(model.Tickets) error) error {
 	memory.writes++
 	return work(memory)
 }
 
-func (memory *isolationMemory) Consume(context.Context, TicketQuery, int64) error {
+func (memory *isolationMemory) Consume(context.Context, model.TicketQuery, int64) error {
 	memory.consumed++
 	return nil
 }
 
-func (memory *isolationMemory) Issue(context.Context, CapabilityWrite) error {
+func (memory *isolationMemory) Issue(context.Context, model.CapabilityWrite) error {
 	memory.issued++
 	return nil
 }
@@ -45,10 +47,10 @@ func TestInvalidCredentialsDoNotReachRepository(t *testing.T) {
 	memory := &isolationMemory{}
 	service := New(memory, "https://{launchId}.runtime.test", time.Now)
 	for _, token := range []string{"", "invalid", base64.RawURLEncoding.EncodeToString(bytes.Repeat([]byte{1}, 31))} {
-		if _, _, err := service.ConsumeTicket(t.Context(), "launch", "origin", token); !errors.Is(err, ErrCredential) {
+		if _, _, err := service.ConsumeTicket(t.Context(), "launch", "origin", token); !errors.Is(err, model.ErrCredential) {
 			t.Fatal(err)
 		}
-		if _, err := service.Authenticate(t.Context(), "launch", "origin", token); !errors.Is(err, ErrCredential) {
+		if _, err := service.Authenticate(t.Context(), "launch", "origin", token); !errors.Is(err, model.ErrCredential) {
 			t.Fatal(err)
 		}
 	}
@@ -59,22 +61,22 @@ func TestInvalidCredentialsDoNotReachRepository(t *testing.T) {
 
 func TestBootstrapEligibilityPrecedesConsumption(t *testing.T) {
 	t.Parallel()
-	active := RuntimeSession{State: "ACTIVE", HardExpiresAtMS: 200, ContentFormat: "RPG_MAKER_PROJECT"}
-	cases := []Bootstrap{
+	active := model.RuntimeSession{State: "ACTIVE", HardExpiresAtMS: 200, ContentFormat: "RPG_MAKER_PROJECT"}
+	cases := []model.Bootstrap{
 		{Session: active, Consumed: true, ExpiresAtMS: 150},
 		{Session: active, ExpiresAtMS: 100},
-		{Session: RuntimeSession{State: "ACTIVE", HardExpiresAtMS: 100, ContentFormat: "RPG_MAKER_PROJECT"}, ExpiresAtMS: 150},
-		{Session: RuntimeSession{State: "REVOKED", HardExpiresAtMS: 200, ContentFormat: "RPG_MAKER_PROJECT"}, ExpiresAtMS: 150},
-		{Session: RuntimeSession{State: "ACTIVE", HardExpiresAtMS: 200, ContentFormat: "OTHER"}, ExpiresAtMS: 150},
+		{Session: model.RuntimeSession{State: "ACTIVE", HardExpiresAtMS: 100, ContentFormat: "RPG_MAKER_PROJECT"}, ExpiresAtMS: 150},
+		{Session: model.RuntimeSession{State: "REVOKED", HardExpiresAtMS: 200, ContentFormat: "RPG_MAKER_PROJECT"}, ExpiresAtMS: 150},
+		{Session: model.RuntimeSession{State: "ACTIVE", HardExpiresAtMS: 200, ContentFormat: "OTHER"}, ExpiresAtMS: 150},
 	}
 	for _, bootstrap := range cases {
 		memory := &isolationMemory{bootstrap: bootstrap}
 		service := New(memory, "https://{launchId}.runtime.test", func() time.Time { return time.UnixMilli(100) })
-		if _, err := service.InspectBootstrap(t.Context(), "launch", "origin"); !errors.Is(err, ErrCredential) {
+		if _, err := service.InspectBootstrap(t.Context(), "launch", "origin"); !errors.Is(err, model.ErrCredential) {
 			t.Fatalf("inspect=%v bootstrap=%+v", err, bootstrap)
 		}
 		token := base64.RawURLEncoding.EncodeToString(bytes.Repeat([]byte{1}, 32))
-		if _, _, err := service.ConsumeTicket(t.Context(), "launch", "origin", token); !errors.Is(err, ErrCredential) {
+		if _, _, err := service.ConsumeTicket(t.Context(), "launch", "origin", token); !errors.Is(err, model.ErrCredential) {
 			t.Fatalf("consume=%v bootstrap=%+v", err, bootstrap)
 		}
 		if memory.consumed != 0 || memory.issued != 0 {
@@ -85,15 +87,15 @@ func TestBootstrapEligibilityPrecedesConsumption(t *testing.T) {
 
 func TestCapabilityChecksRevocationAndBothExpiries(t *testing.T) {
 	t.Parallel()
-	for _, capability := range []Capability{
-		{Revoked: true, ExpiresAtMS: 200, Session: RuntimeSession{State: "ACTIVE", HardExpiresAtMS: 200, ContentFormat: "TYRANOSCRIPT_PROJECT"}},
-		{ExpiresAtMS: 100, Session: RuntimeSession{State: "ACTIVE", HardExpiresAtMS: 200, ContentFormat: "TYRANOSCRIPT_PROJECT"}},
-		{ExpiresAtMS: 200, Session: RuntimeSession{State: "ACTIVE", HardExpiresAtMS: 100, ContentFormat: "TYRANOSCRIPT_PROJECT"}},
+	for _, capability := range []model.Capability{
+		{Revoked: true, ExpiresAtMS: 200, Session: model.RuntimeSession{State: "ACTIVE", HardExpiresAtMS: 200, ContentFormat: "TYRANOSCRIPT_PROJECT"}},
+		{ExpiresAtMS: 100, Session: model.RuntimeSession{State: "ACTIVE", HardExpiresAtMS: 200, ContentFormat: "TYRANOSCRIPT_PROJECT"}},
+		{ExpiresAtMS: 200, Session: model.RuntimeSession{State: "ACTIVE", HardExpiresAtMS: 100, ContentFormat: "TYRANOSCRIPT_PROJECT"}},
 	} {
 		memory := &isolationMemory{capability: capability}
 		service := New(memory, "https://{launchId}.runtime.test", func() time.Time { return time.UnixMilli(100) })
 		token := base64.RawURLEncoding.EncodeToString(bytes.Repeat([]byte{1}, 32))
-		if _, err := service.Authenticate(t.Context(), "launch", "origin", token); !errors.Is(err, ErrCredential) {
+		if _, err := service.Authenticate(t.Context(), "launch", "origin", token); !errors.Is(err, model.ErrCredential) {
 			t.Fatalf("error=%v capability=%+v", err, capability)
 		}
 	}

@@ -6,7 +6,7 @@ import (
 	"errors"
 	"testing"
 
-	application "retrom/internal/service/libraryimport"
+	libraryimportmodel "retrom/internal/model/libraryimport"
 )
 
 func TestOwnedESSourceRejectsChangedFrozenRequest(t *testing.T) {
@@ -39,8 +39,8 @@ func TestOwnedESSourceRejectsChangedFrozenRequest(t *testing.T) {
 
 func TestOwnedSourceRequiresExplicitKindBeforeDatabaseAccess(t *testing.T) {
 	service := &Service{}
-	for _, kind := range []application.SourceOwnerKind{"", "other"} {
-		intent := application.SourceCreationIntent{Kind: kind, ImportID: "plan", ItemID: "source"}
+	for _, kind := range []libraryimportmodel.SourceOwnerKind{"", "other"} {
+		intent := libraryimportmodel.SourceCreationIntent{Kind: kind, ImportID: "plan", ItemID: "source"}
 		result, found, err := service.LookupOwnedServerSource(t.Context(), intent)
 		if !errors.Is(err, ErrInvalid) || found || result.Created.ImportJobID != "" {
 			t.Fatalf("kind=%q found=%v result=%+v err=%v", kind, found, result, err)

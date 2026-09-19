@@ -6,12 +6,12 @@ import (
 	"net/http"
 	"strconv"
 
-	"retrom/internal/service/jobs"
-	"retrom/internal/service/uploads"
+	jobsmodel "retrom/internal/model/jobs"
+	uploadsmodel "retrom/internal/model/uploads"
 )
 
 func (server *Server) createUpload(writer http.ResponseWriter, request *http.Request) {
-	var body uploads.CreateRequest
+	var body uploadsmodel.CreateRequest
 	if err := decodeJSON(writer, request, &body, 2<<20); err != nil {
 		writeError(writer, request, http.StatusBadRequest, "INVALID_REQUEST", "上传清单无效", map[string]any{})
 		return
@@ -27,7 +27,7 @@ func (server *Server) createUpload(writer http.ResponseWriter, request *http.Req
 
 func (server *Server) getUpload(writer http.ResponseWriter, request *http.Request) {
 	session, err := server.uploads.Get(request.Context(), request.PathValue("uploadId"))
-	if errors.Is(err, uploads.ErrNotFound) {
+	if errors.Is(err, uploadsmodel.ErrNotFound) {
 		server.notFound(writer, request)
 		return
 	}
@@ -45,7 +45,7 @@ func (server *Server) putUploadPart(writer http.ResponseWriter, request *http.Re
 		writeError(writer, request, http.StatusBadRequest, "INVALID_REQUEST", "分块编号无效", map[string]any{})
 		return
 	}
-	body := http.MaxBytesReader(writer, request.Body, uploads.PartSize+1)
+	body := http.MaxBytesReader(writer, request.Body, uploadsmodel.PartSize+1)
 	err = server.uploads.PutPart(
 		request.Context(),
 		request.PathValue("uploadId"),
@@ -84,7 +84,7 @@ func (server *Server) completeUpload(writer http.ResponseWriter, request *http.R
 	}
 	jobID, finalization, err := server.uploads.Complete(request.Context(), request.PathValue("uploadId"), version)
 	if err != nil {
-		if !errors.Is(err, uploads.ErrInvalid) && !errors.Is(err, uploads.ErrNotFound) {
+		if !errors.Is(err, uploadsmodel.ErrInvalid) && !errors.Is(err, uploadsmodel.ErrNotFound) {
 			server.databaseError(writer, request, err)
 			return
 		}
@@ -131,7 +131,7 @@ func (server *Server) cancelUpload(writer http.ResponseWriter, request *http.Req
 
 func (server *Server) job(writer http.ResponseWriter, request *http.Request) {
 	snapshot, err := server.jobService.Get(request.Context(), request.PathValue("jobId"))
-	if errors.Is(err, jobs.ErrNotFound) {
+	if errors.Is(err, jobsmodel.ErrNotFound) {
 		server.notFound(writer, request)
 		return
 	}

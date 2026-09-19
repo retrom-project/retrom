@@ -18,7 +18,8 @@ import (
 	retromruntime "retrom/internal/adapter/runtime/runtime"
 	"retrom/internal/capability/security/authn"
 	"retrom/internal/foundation/cleanup"
-	launchservice "retrom/internal/service/launch"
+	launchmodel "retrom/internal/model/launch"
+	savesmodel "retrom/internal/model/saves"
 	"retrom/internal/service/saves"
 )
 
@@ -36,7 +37,7 @@ func (server *Server) createLaunch(writer http.ResponseWriter, request *http.Req
 	}
 	canonical, _ := json.Marshal(body)
 	digestBytes := sha256.Sum256(append([]byte("postLaunch\x00"+principal.UserID+"\x00"), canonical...))
-	receipt, err := server.launcher.CreateProduct(request.Context(), launchservice.ProductCreateCommand{
+	receipt, err := server.launcher.CreateProduct(request.Context(), launchmodel.ProductCreateCommand{
 		ActorID: principal.UserID, ProfileID: principal.ProfileID, Key: key,
 		Digest: hex.EncodeToString(digestBytes[:]), Request: body,
 	})
@@ -47,7 +48,7 @@ func (server *Server) createLaunch(writer http.ResponseWriter, request *http.Req
 	server.writeStoredLaunchResponse(writer, receipt)
 }
 
-func (server *Server) writeStoredLaunchResponse(writer http.ResponseWriter, receipt launchservice.ProductReceipt) {
+func (server *Server) writeStoredLaunchResponse(writer http.ResponseWriter, receipt launchmodel.ProductReceipt) {
 	if receipt.Status == http.StatusCreated {
 		server.setLaunchCookieValue(writer, receipt.Created.LaunchID, receipt.Created.Capability)
 	}
@@ -60,7 +61,7 @@ func (server *Server) writeStoredLaunchResponse(writer http.ResponseWriter, rece
 }
 
 func (server *Server) productCreationError(writer http.ResponseWriter, request *http.Request, err error) {
-	if errors.Is(err, launchservice.ErrIdempotencyKeyReused) {
+	if errors.Is(err, launchmodel.ErrIdempotencyKeyReused) {
 		writeError(writer, request, http.StatusConflict, "IDEMPOTENCY_KEY_REUSED", "幂等键已用于另一请求", map[string]any{})
 		return
 	}
@@ -313,12 +314,12 @@ func (server *Server) createSaveState(writer http.ResponseWriter, request *http.
 }
 
 func writeSaveStateResult(
-	writer http.ResponseWriter, request *http.Request, result saves.ManualResult, replayed bool, err error,
+	writer http.ResponseWriter, request *http.Request, result savesmodel.ManualResult, replayed bool, err error,
 ) {
 	switch {
-	case errors.Is(err, saves.ErrCredential):
+	case errors.Is(err, savesmodel.ErrCredential):
 		writeError(writer, request, http.StatusUnauthorized, "LAUNCH_CREDENTIAL_INVALID", "启动会话不可用", map[string]any{})
-	case errors.Is(err, saves.ErrTooLarge):
+	case errors.Is(err, savesmodel.ErrTooLarge):
 		writeError(
 			writer,
 			request,
@@ -327,13 +328,13 @@ func writeSaveStateResult(
 			"存档内容超过限制",
 			map[string]any{},
 		)
-	case errors.Is(err, saves.ErrSyncConflict):
+	case errors.Is(err, savesmodel.ErrSyncConflict):
 		writeError(writer, request, http.StatusConflict, "SAVE_SYNC_CONFLICT", "存档已被其他会话更新或删除，请重新从存档启动", map[string]any{})
-	case errors.Is(err, saves.ErrSequenceReused):
+	case errors.Is(err, savesmodel.ErrSequenceReused):
 		writeError(writer, request, http.StatusConflict, "IDEMPOTENCY_KEY_REUSED", "幂等键已用于另一请求", map[string]any{})
-	case errors.Is(err, saves.ErrCheckpointUnavailable):
+	case errors.Is(err, savesmodel.ErrCheckpointUnavailable):
 		writeError(writer, request, http.StatusConflict, "RPG_CHECKPOINT_UNAVAILABLE", "当前状态不能创建检查点", map[string]any{})
-	case errors.Is(err, saves.ErrCheckpointInvalid):
+	case errors.Is(err, savesmodel.ErrCheckpointInvalid):
 		writeError(writer, request, http.StatusUnprocessableEntity, "RPG_CHECKPOINT_INVALID", "检查点内容无效", map[string]any{})
 	case err != nil:
 		writeError(writer, request, http.StatusBadRequest, "INVALID_REQUEST", "存档请求无效", map[string]any{})
@@ -352,7 +353,7 @@ func (server *Server) checkpointStatus(writer http.ResponseWriter, request *http
 	result, err := server.saveService.CheckpointStatus(
 		request.Context(), request.PathValue("launchId"), server.launchCapability(request),
 	)
-	if errors.Is(err, saves.ErrCredential) {
+	if errors.Is(err, savesmodel.ErrCredential) {
 		writeError(writer, request, http.StatusUnauthorized, "LAUNCH_CREDENTIAL_INVALID", "启动会话不可用", map[string]any{})
 		return
 	}
@@ -390,15 +391,15 @@ func (server *Server) launchState(writer http.ResponseWriter, request *http.Requ
 		request.PathValue("launchId"),
 		server.launchCapability(request),
 	)
-	if errors.Is(err, saves.ErrCredential) {
+	if errors.Is(err, savesmodel.ErrCredential) {
 		writeError(writer, request, http.StatusUnauthorized, "LAUNCH_CREDENTIAL_INVALID", "启动会话不可用", map[string]any{})
 		return
 	}
-	if errors.Is(err, saves.ErrCheckpointIncompatible) {
+	if errors.Is(err, savesmodel.ErrCheckpointIncompatible) {
 		writeError(writer, request, http.StatusConflict, "RPG_CHECKPOINT_INCOMPATIBLE", "存档与当前启动绑定不兼容", map[string]any{})
 		return
 	}
-	if errors.Is(err, saves.ErrCheckpointInvalid) {
+	if errors.Is(err, savesmodel.ErrCheckpointInvalid) {
 		writeError(writer, request, http.StatusUnprocessableEntity, "RPG_CHECKPOINT_INVALID", "检查点内容无效", map[string]any{})
 		return
 	}

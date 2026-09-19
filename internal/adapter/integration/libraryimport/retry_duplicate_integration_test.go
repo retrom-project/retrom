@@ -17,6 +17,7 @@ import (
 	"testing"
 	"time"
 
+	uploadsmodel "retrom/internal/model/uploads"
 	uploadpersistence "retrom/internal/repo/uploads"
 
 	dependencypersistence "retrom/internal/repo/dependencies"
@@ -181,9 +182,9 @@ func TestDuplicateContentIsSkippedDuringIdentificationAndConfirmedDuringReview(t
 
 	createImport := func(name string) (Created, string) {
 		t.Helper()
-		upload, createErr := uploader.Create(ctx, uploads.CreateRequest{
+		upload, createErr := uploader.Create(ctx, uploadsmodel.CreateRequest{
 			SourceType: "FILES",
-			Files: []uploads.FileDeclaration{{
+			Files: []uploadsmodel.FileDeclaration{{
 				ClientFileID: "game", RelativePath: name, SizeBytes: int64(len(contents)),
 			}},
 		})
@@ -296,7 +297,7 @@ func TestImportGroupsSingleArchiveMemberAndReportsEveryFile(t *testing.T) {
 		".DS_Store":          []byte("sidecar"),
 	}
 	uploadService := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
-	declarations := make([]uploads.FileDeclaration, 0, len(files))
+	declarations := make([]uploadsmodel.FileDeclaration, 0, len(files))
 	paths := make([]string, 0, len(files))
 	for path := range files {
 		paths = append(paths, path)
@@ -305,13 +306,12 @@ func TestImportGroupsSingleArchiveMemberAndReportsEveryFile(t *testing.T) {
 	for _, path := range paths {
 		contents := files[path]
 		declarations = append(
-			declarations,
-			uploads.FileDeclaration{ClientFileID: path, RelativePath: path, SizeBytes: int64(len(contents))},
+			declarations, uploadsmodel.FileDeclaration{ClientFileID: path, RelativePath: path, SizeBytes: int64(len(contents))},
 		)
 	}
-	upload, err := uploadService.Create(ctx, uploads.CreateRequest{SourceType: "FILES", Files: declarations})
+	upload, err := uploadService.Create(ctx, uploadsmodel.CreateRequest{SourceType: "FILES", Files: declarations})
 	testassert.False(t, err != nil, err)
-	fileByPath := make(map[string]uploads.File, len(upload.Files))
+	fileByPath := make(map[string]uploadsmodel.File, len(upload.Files))
 	for _, file := range upload.Files {
 		fileByPath[file.RelativePath] = file
 	}

@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"retrom/internal/capability/format/importing"
+	model "retrom/internal/model/launch"
 )
 
 type runtimeProjectIndex struct {
@@ -33,9 +34,9 @@ func buildProjectIndexDocument(
 	root, title string,
 	policy projectIndexPolicy,
 	files []runtimeProjectIndexFile,
-) (ProjectIndexView, error) {
+) (model.ProjectIndexView, error) {
 	if len(files) < policy.minimum || len(files) > policy.maximum || (policy.font != "" && len(title) > 500) {
-		return ProjectIndexView{}, ErrCredential
+		return model.ProjectIndexView{}, model.ErrCredential
 	}
 	seen := make(map[string]struct{}, len(files))
 	markerFound, fontFound := false, policy.font == ""
@@ -45,11 +46,11 @@ func buildProjectIndexDocument(
 			files[index].SizeBytes,
 			policy.allowEmpty,
 		) {
-			return ProjectIndexView{}, ErrCredential
+			return model.ProjectIndexView{}, model.ErrCredential
 		}
 		folded := importing.ASCIICaseFold(normalized)
 		if _, duplicate := seen[folded]; duplicate {
-			return ProjectIndexView{}, ErrCredential
+			return model.ProjectIndexView{}, model.ErrCredential
 		}
 		seen[folded] = struct{}{}
 		markerFound = markerFound || normalized == policy.marker
@@ -57,14 +58,14 @@ func buildProjectIndexDocument(
 		files[index].URL = root + escapeProjectPath(normalized)
 	}
 	if !markerFound || !fontFound {
-		return ProjectIndexView{}, ErrCredential
+		return model.ProjectIndexView{}, model.ErrCredential
 	}
 	contents, err := marshalProjectIndex(title, policy.font, files)
 	if err != nil {
-		return ProjectIndexView{}, err
+		return model.ProjectIndexView{}, err
 	}
 	digest := sha256.Sum256(contents)
-	return ProjectIndexView{Contents: contents, SHA256: hex.EncodeToString(digest[:])}, nil
+	return model.ProjectIndexView{Contents: contents, SHA256: hex.EncodeToString(digest[:])}, nil
 }
 
 func marshalProjectIndex(title, font string, files []runtimeProjectIndexFile) ([]byte, error) {

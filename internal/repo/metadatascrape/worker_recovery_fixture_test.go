@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/service/metadatascrape"
+	metadatascrapemodel "retrom/internal/model/metadatascrape"
 	"retrom/internal/testkit/testsupport"
 )
 
@@ -37,9 +37,9 @@ func recoveryDatabase(t *testing.T) *sql.DB {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = NewScheduler(database.SQL).WithWrite(t.Context(), func(scope metadatascrape.ScheduleScope) error {
-		return scope.Writes.Create(t.Context(), metadatascrape.SchedulePlan{
-			Subject: metadatascrape.Subject{Kind: "GAME", ID: "game"}, RunID: "run", JobID: "job", Provider: "HASHEOUS",
+	err = NewScheduler(database.SQL).WithWrite(t.Context(), func(scope metadatascrapemodel.ScheduleScope) error {
+		return scope.Writes.Create(t.Context(), metadatascrapemodel.SchedulePlan{
+			Subject: metadatascrapemodel.Subject{Kind: "GAME", ID: "game"}, RunID: "run", JobID: "job", Provider: "HASHEOUS",
 			Dedupe: strings.Repeat("b", 64), PayloadJSON: `{}`, JobState: "QUEUED", RunState: "RUNNING", EventJSON: `{}`, Now: recoveryTime.UnixMilli(),
 		})
 	})
@@ -49,9 +49,9 @@ func recoveryDatabase(t *testing.T) *sql.DB {
 	return database.SQL
 }
 
-type recoveryProcess func(context.Context, metadatascrape.WorkerClaim, string) (int, string, error)
+type recoveryProcess func(context.Context, metadatascrapemodel.WorkerClaim, string) (int, string, error)
 
-func (process recoveryProcess) Process(ctx context.Context, claim metadatascrape.WorkerClaim, payload string) (int, string, error) {
+func (process recoveryProcess) Process(ctx context.Context, claim metadatascrapemodel.WorkerClaim, payload string) (int, string, error) {
 	return process(ctx, claim, payload)
 }
 

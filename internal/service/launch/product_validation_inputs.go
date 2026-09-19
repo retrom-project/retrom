@@ -7,19 +7,20 @@ import (
 
 	"retrom/internal/capability/content/corevalidation"
 	"retrom/internal/capability/content/multidisc"
+	model "retrom/internal/model/launch"
 )
 
-func ProductValidationInputs(snapshot ProductSnapshot, variantID string) (ValidationInputs, error) {
+func ProductValidationInputs(snapshot model.ProductSnapshot, variantID string) (model.ValidationInputs, error) {
 	source := snapshot.Source
 	bios, _, _, err := ResolveProductBIOS(source, snapshot.ValidationBIOS, source.ValidationLogicalName)
 	if err != nil {
-		return ValidationInputs{}, err
+		return model.ValidationInputs{}, err
 	}
 	digest, biosDigest, _, err := ProductValidationEvidence(snapshot, variantID, bios)
 	if err != nil {
-		return ValidationInputs{}, err
+		return model.ValidationInputs{}, err
 	}
-	return ValidationInputs{
+	return model.ValidationInputs{
 		GameID: source.GameID, GameVariantID: variantID, GameVersion: source.GameVersion,
 		SourceManifestDigest: source.SourceManifestDigest, ProviderID: source.ProviderID, TargetID: source.TargetID,
 		ContentPolicy: source.ContentPolicy, DATVersionID: source.ActiveDATVersionID,
@@ -32,7 +33,7 @@ func ProductValidationInputs(snapshot ProductSnapshot, variantID string) (Valida
 }
 
 func ProductValidationEvidence(
-	snapshot ProductSnapshot,
+	snapshot model.ProductSnapshot,
 	variantID string,
 	bios corevalidation.Snapshot,
 ) (string, string, corevalidation.Snapshot, error) {
@@ -59,7 +60,7 @@ func ProductValidationEvidence(
 }
 
 func productDiscValidationInputs(
-	snapshot ProductSnapshot,
+	snapshot model.ProductSnapshot,
 	variantID string,
 	bios corevalidation.Snapshot,
 ) (string, string, corevalidation.Snapshot, error) {
@@ -71,7 +72,7 @@ func productDiscValidationInputs(
 	}
 	playlist, found := productFile(snapshot.VariantFiles, "MULTI_DISC_PLAYLIST", "playlist.m3u")
 	if !found || len(ordered) < multidisc.MinDiscs || len(ordered) > multidisc.MaxDiscs {
-		return "", "", corevalidation.Snapshot{}, ErrBlocked
+		return "", "", corevalidation.Snapshot{}, model.ErrBlocked
 	}
 	biosDigest, err := corevalidation.BIOSDependencyDigest(bios)
 	if err != nil {

@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"testing"
 
+	libraryimportmodel "retrom/internal/model/libraryimport"
 	application "retrom/internal/service/libraryimport"
 )
 
@@ -17,8 +18,8 @@ func TestImportAdmissionErrorSeparatesInputFromStorage(t *testing.T) {
 		status int
 		code   string
 	}{
-		{"invalid input", fmt.Errorf("admit: %w", application.ErrInvalid), http.StatusConflict, "IMPORT_INPUT_INVALID"},
-		{"lost fence", fmt.Errorf("admit: %w", application.ErrVersionConflict), http.StatusConflict, "IMPORT_INPUT_INVALID"},
+		{"invalid input", fmt.Errorf("admit: %w", libraryimportmodel.ErrInvalid), http.StatusConflict, "IMPORT_INPUT_INVALID"},
+		{"lost fence", fmt.Errorf("admit: %w", libraryimportmodel.ErrVersionConflict), http.StatusConflict, "IMPORT_INPUT_INVALID"},
 		{"storage", errors.New("database unavailable"), http.StatusInternalServerError, "INTERNAL_ERROR"},
 		{"scraper missing", application.ErrMetadataScraperNotConfigured, http.StatusInternalServerError, "INTERNAL_ERROR"},
 	}

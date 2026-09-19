@@ -10,22 +10,23 @@ import (
 
 	"retrom/internal/adapter/files/blobstore"
 	"retrom/internal/adapter/integration/payloadrelease"
+	gamecontentmodel "retrom/internal/model/gamecontent"
 	"retrom/internal/service/gamecontent"
 	"retrom/internal/service/uploads"
 )
 
-type failingPublicationRepository struct{ gamecontent.Repository }
+type failingPublicationRepository struct{ gamecontentmodel.Repository }
 
-func (repository failingPublicationRepository) WithWrite(ctx context.Context, work func(gamecontent.WriteScope) error) error {
-	return repository.Repository.WithWrite(ctx, func(scope gamecontent.WriteScope) error {
+func (repository failingPublicationRepository) WithWrite(ctx context.Context, work func(gamecontentmodel.WriteScope) error) error {
+	return repository.Repository.WithWrite(ctx, func(scope gamecontentmodel.WriteScope) error {
 		scope.ContentWriter = failingPublicationWriter{scope.ContentWriter}
 		return work(scope)
 	})
 }
 
-type failingPublicationWriter struct{ gamecontent.ContentWriter }
+type failingPublicationWriter struct{ gamecontentmodel.ContentWriter }
 
-func (writer failingPublicationWriter) Publish(ctx context.Context, value gamecontent.Publication) error {
+func (writer failingPublicationWriter) Publish(ctx context.Context, value gamecontentmodel.Publication) error {
 	if err := writer.ContentWriter.Publish(ctx, value); err != nil {
 		return err
 	}

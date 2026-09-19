@@ -5,19 +5,21 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	model "retrom/internal/model/libraryimport"
 )
 
 // ReviewPreviewValidations coordinates the preview refresh use case. The
 // application layer supplies the clock while persistence keeps SQL details and
 // transaction lifecycle behind the repository port.
 type ReviewPreviewValidations struct {
-	repository ReviewPreviewValidationRepository
+	repository model.ReviewPreviewValidationRepository
 	validation ReviewDraftValidationPort
 	now        func() time.Time
 }
 
 func NewReviewPreviewValidations(
-	repository ReviewPreviewValidationRepository,
+	repository model.ReviewPreviewValidationRepository,
 	validation ReviewDraftValidationPort,
 	now func() time.Time,
 ) *ReviewPreviewValidations {
@@ -29,7 +31,7 @@ func NewReviewPreviewValidations(
 
 func (service *ReviewPreviewValidations) Refresh(ctx context.Context, itemID string) error {
 	if strings.TrimSpace(itemID) == "" || service == nil || service.repository == nil || service.validation == nil {
-		return ErrInvalid
+		return model.ErrInvalid
 	}
 	draft, err := service.repository.Draft(ctx, itemID)
 	if err != nil {
@@ -45,9 +47,9 @@ func (service *ReviewPreviewValidations) Refresh(ctx context.Context, itemID str
 		return nil
 	}
 	if validationPlan.SelectedValidationID == "" {
-		return ErrInvalid
+		return model.ErrInvalid
 	}
-	if err := service.repository.Commit(ctx, ReviewPreviewValidationPlan{
+	if err := service.repository.Commit(ctx, model.ReviewPreviewValidationPlan{
 		ItemID: itemID, ValidationID: validationPlan.SelectedValidationID,
 		ExpectedVersion: draft.Version, ExpectedSelectedValidation: draft.Selected,
 		ExpectedSelectedValidationPrepublishDigest: validationPlan.SelectedValidationPrepublishDigest,

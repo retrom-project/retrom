@@ -4,7 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"retrom/internal/service/importprogress"
+	importprogressmodel "retrom/internal/model/importprogress"
+	model "retrom/internal/model/libraryimport"
 )
 
 func (service *ImportExecutions) Queued(ctx context.Context) ([]string, error) {
@@ -29,7 +30,7 @@ func (service *ImportExecutions) Recover(ctx context.Context) error {
 }
 
 func (service *ImportExecutions) recoverOne(ctx context.Context, id string) error {
-	err := service.repository.WithExecution(ctx, func(scope ImportExecutionScope) error {
+	err := service.repository.WithExecution(ctx, func(scope model.ImportExecutionScope) error {
 		before, found, err := scope.Records.Current(ctx, id)
 		if err != nil {
 			return fmt.Errorf("read interrupted import: %w", err)
@@ -62,7 +63,7 @@ func (service *ImportExecutions) recoverOne(ctx context.Context, id string) erro
 	return nil
 }
 
-func importRecoveryRequired(before ImportWorkerSnapshot, now int64) bool {
+func importRecoveryRequired(before model.ImportWorkerSnapshot, now int64) bool {
 	execution := before.Creation.Execution
 	expiredBudget := before.DeadlineAtMS != nil && *before.DeadlineAtMS <= now
 	switch before.Creation.JobState {
@@ -76,7 +77,11 @@ func importRecoveryRequired(before ImportWorkerSnapshot, now int64) bool {
 	}
 }
 
-func importRecoveryProjection(before ImportWorkerSnapshot, now int64) (ImportWorkerTransition, bool, error) {
+func importRecoveryProjection(before model.ImportWorkerSnapshot, now int64) (
+	model.ImportWorkerTransition,
+	bool,
+	error,
+) {
 	if before.Creation.JobState == "CANCEL_REQUESTED" {
 		change, err := importCancelledTransition(before, "任务已取消", now)
 		return change, true, err
@@ -98,13 +103,13 @@ func importRecoveryProjection(before ImportWorkerSnapshot, now int64) (ImportWor
 	return change, false, err
 }
 
-func importProducedProjection(before ImportWorkerSnapshot, now int64) (ImportWorkerTransition, error) {
-	progress, err := importprogress.Project(importprogress.Snapshot{
+func importProducedProjection(before model.ImportWorkerSnapshot, now int64) (model.ImportWorkerTransition, error) {
+	progress, err := importprogressmodel.Project(importprogressmodel.Snapshot{
 		State: before.Creation.ImportState, Counts: before.Counts, Started: true,
 		CancelRequestedAtMS: before.ParentCancelRequestedAtMS, CompletedAtMS: before.ParentCompletedAtMS,
 	}, now)
 	if err != nil {
-		return ImportWorkerTransition{}, fmt.Errorf("recover existing import results: %w", err)
+		return model.ImportWorkerTransition{}, fmt.Errorf("recover existing import results: %w", err)
 	}
 	change := importTransition(before, now)
 	clearImportExecutionOwner(&change)
@@ -122,7 +127,7 @@ func importProducedProjection(before ImportWorkerSnapshot, now int64) (ImportWor
 		map[string]any{"schemaVersion": 1, "itemCount": before.ItemCount, "recovered": true},
 	)
 	if err != nil {
-		return ImportWorkerTransition{}, err
+		return model.ImportWorkerTransition{}, err
 	}
 	change.Event = &event
 	return change, nil

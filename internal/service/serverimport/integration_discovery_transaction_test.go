@@ -5,16 +5,18 @@ import (
 	"errors"
 	"testing"
 
+	servermodel "retrom/internal/model/serverimport"
+
 	importpersistence "retrom/internal/repo/serverimport"
 	importservice "retrom/internal/service/serverimport"
 )
 
 type failingDiscoveryRepository struct {
-	importservice.DiscoveryRepository
+	servermodel.DiscoveryRepository
 }
 
-func (repository failingDiscoveryRepository) WithWrite(ctx context.Context, work func(importservice.DiscoveryRecords) error) error {
-	return repository.DiscoveryRepository.WithWrite(ctx, func(records importservice.DiscoveryRecords) error {
+func (repository failingDiscoveryRepository) WithWrite(ctx context.Context, work func(servermodel.DiscoveryRecords) error) error {
+	return repository.DiscoveryRepository.WithWrite(ctx, func(records servermodel.DiscoveryRecords) error {
 		if err := work(records); err != nil {
 			return err
 		}
@@ -24,10 +26,10 @@ func (repository failingDiscoveryRepository) WithWrite(ctx context.Context, work
 
 func TestDiscoveryWritesRollbackAfterLateFailure(t *testing.T) {
 	legacy, database, unit, candidate := discoveryWriteFixture(t)
-	groups := map[string][]*evaluatedCandidate{candidate.Item.RequirementID: {candidate}}
+	groups := map[string][]*importservice.EvaluatedCandidate{candidate.Item.RequirementID: {candidate}}
 	service := importservice.NewDiscovery(failingDiscoveryRepository{importpersistence.NewDiscovery(database)}, legacy.NowForTest)
 	beforeImport, beforeJob := workerVersions(t, database, unit)
-	if err := service.Persist(t.Context(), unit, groups, walkCounts{}); !errors.Is(err, context.Canceled) {
+	if err := service.Persist(t.Context(), unit, groups, servermodel.DiscoveryCounts{}); !errors.Is(err, context.Canceled) {
 		t.Fatalf("persist late failure: %v", err)
 	}
 	afterImport, afterJob := workerVersions(t, database, unit)
@@ -42,7 +44,7 @@ func TestDiscoveryWritesRollbackAfterLateFailure(t *testing.T) {
 	if state != "PENDING" || candidates != 0 {
 		t.Fatalf("partial evidence write: %s count=%d", state, candidates)
 	}
-	if err := legacy.PersistCandidatesForTest(t.Context(), unit, groups, walkCounts{}); err != nil {
+	if err := legacy.PersistCandidatesForTest(t.Context(), unit, groups, servermodel.DiscoveryCounts{}); err != nil {
 		t.Fatal(err)
 	}
 	if err := service.Reset(t.Context(), unit); !errors.Is(err, context.Canceled) {

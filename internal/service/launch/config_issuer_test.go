@@ -8,26 +8,27 @@ import (
 
 	"retrom/internal/capability/runtime/runtimebundle"
 	"retrom/internal/capability/runtime/runtimelaunch"
+	model "retrom/internal/model/launch"
 )
 
 type configTestRepository struct {
-	snapshot                  ConfigSnapshot
-	current                   ConfigAuthority
+	snapshot                  model.ConfigSnapshot
+	current                   model.ConfigAuthority
 	loadErr, commitErr        error
 	transactions, activations int
 }
 
-func (repository *configTestRepository) Load(_ context.Context, _ SessionRef, authorize ConfigAuthorization) (ConfigSnapshot, bool, error) {
+func (repository *configTestRepository) Load(_ context.Context, _ model.SessionRef, authorize model.ConfigAuthorization) (model.ConfigSnapshot, bool, error) {
 	if repository.loadErr != nil {
-		return ConfigSnapshot{}, false, repository.loadErr
+		return model.ConfigSnapshot{}, false, repository.loadErr
 	}
 	if err := authorize(repository.snapshot.Authority.Source); err != nil {
-		return ConfigSnapshot{}, false, err
+		return model.ConfigSnapshot{}, false, err
 	}
 	return repository.snapshot, true, nil
 }
 
-func (repository *configTestRepository) WithActivation(_ context.Context, work func(ConfigActivation) error) error {
+func (repository *configTestRepository) WithActivation(_ context.Context, work func(model.ConfigActivation) error) error {
 	repository.transactions++
 	if err := work(repository); err != nil {
 		return err
@@ -35,11 +36,11 @@ func (repository *configTestRepository) WithActivation(_ context.Context, work f
 	return repository.commitErr
 }
 
-func (repository *configTestRepository) Current(context.Context, SessionRef) (ConfigAuthority, bool, error) {
+func (repository *configTestRepository) Current(context.Context, model.SessionRef) (model.ConfigAuthority, bool, error) {
 	return repository.current, true, nil
 }
 
-func (repository *configTestRepository) Activate(context.Context, ConfigActivationPlan) error {
+func (repository *configTestRepository) Activate(context.Context, model.ConfigActivationPlan) error {
 	repository.activations++
 	return nil
 }
@@ -64,14 +65,14 @@ func (builder *configTestBuilder) Build(runtimelaunch.Input) ([]byte, error) {
 }
 
 func configTestFixture() (*ConfigIssuer, *configTestRepository, *configTestBuilder) {
-	source := ConfigSource{
+	source := model.ConfigSource{
 		State: "CREATED", Version: 2, BootstrapEnd: 2000, HardEnd: 3000,
 		ProviderID: "provider", TargetID: "target", BundleDigest: "bundle", DetectorProfile: "RPG2000",
 		Purpose: "PRODUCT",
 	}
 	repository := &configTestRepository{
-		snapshot: ConfigSnapshot{Authority: ConfigAuthority{Source: source}},
-		current:  ConfigAuthority{Source: source},
+		snapshot: model.ConfigSnapshot{Authority: model.ConfigAuthority{Source: source}},
+		current:  model.ConfigAuthority{Source: source},
 	}
 	builder := &configTestBuilder{}
 	issuer := NewConfigIssuer(repository, builder, ConfigEnvironment{
@@ -86,7 +87,7 @@ func TestConfigBuildFailureCannotActivate(t *testing.T) {
 	issuer, repository, builder := configTestFixture()
 	cause := errors.New("provider unavailable")
 	builder.cause = cause
-	configuration, err := issuer.Issue(t.Context(), SessionRef{ID: "launch"}, "valid")
+	configuration, err := issuer.Issue(t.Context(), model.SessionRef{ID: "launch"}, "valid")
 	if !errors.Is(err, cause) || repository.transactions != 0 {
 		t.Fatalf("build failure entered activation: transactions=%d error=%v", repository.transactions, err)
 	}

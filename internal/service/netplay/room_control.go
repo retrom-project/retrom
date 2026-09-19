@@ -6,21 +6,23 @@ import (
 	"slices"
 	"time"
 
+	model "retrom/internal/model/netplay"
+	"retrom/internal/model/netplayprofile"
+
 	validation "retrom/internal/service/corevalidation"
-	"retrom/internal/transport/netplay/profile"
 )
 
 type RoomControl struct {
-	repository             RoomControlRepository
-	registry               *profile.Registry
+	repository             model.RoomControlRepository
+	registry               *netplayprofile.Registry
 	draftIdle, waitingIdle time.Duration
 	now                    func() time.Time
 	newID                  func() (string, error)
 }
 
 func NewRoomControl(
-	repository RoomControlRepository,
-	registry *profile.Registry,
+	repository model.RoomControlRepository,
+	registry *netplayprofile.Registry,
 	draftIdle, waitingIdle time.Duration,
 	now func() time.Time,
 ) *RoomControl {
@@ -44,23 +46,23 @@ type roomMutation struct {
 func (service *RoomControl) mutate(
 	ctx context.Context,
 	request roomMutation,
-	apply func(RoomControlScope, RoomControlSnapshot, int64) error,
-) (Room, error) {
+	apply func(model.RoomControlScope, model.RoomControlSnapshot, int64) error,
+) (model.Room, error) {
 	now := service.now().UnixMilli()
-	var result Room
-	err := service.repository.WithWrite(ctx, func(scope RoomControlScope) error {
+	var result model.Room
+	err := service.repository.WithWrite(ctx, func(scope model.RoomControlScope) error {
 		before, err := scope.Read.Current(ctx, request.roomID, request.actorID)
 		if err != nil {
 			return fmt.Errorf("netplay/read room control: %w", err)
 		}
 		if request.hostOnly && before.HostID != request.actorID {
-			return ErrForbidden
+			return model.ErrForbidden
 		}
 		if before.Version != request.version {
-			return ErrPrecondition
+			return model.ErrPrecondition
 		}
 		if !slices.Contains(request.states, before.State) {
-			return ErrRoomConflict
+			return model.ErrRoomConflict
 		}
 		if err := apply(scope, before, now); err != nil {
 			return err
@@ -72,16 +74,16 @@ func (service *RoomControl) mutate(
 		return nil
 	})
 	if err != nil {
-		return Room{}, fmt.Errorf("netplay/mutate room: %w", err)
+		return model.Room{}, fmt.Errorf("netplay/mutate room: %w", err)
 	}
 	return roomForViewer(result, request.actorID, now), nil
 }
 
 func (service *RoomControl) eligible(
 	ctx context.Context,
-	scope RoomControlScope,
+	scope model.RoomControlScope,
 	gameID string,
-) ([]EligibleProfile, error) {
+) ([]model.EligibleProfile, error) {
 	eligibility := NewEligibility(scope.Eligibility, service.registry, nil, validation.New(scope.BIOS))
 	profiles, err := eligibility.Profiles(ctx, gameID)
 	if err != nil {
@@ -92,12 +94,12 @@ func (service *RoomControl) eligible(
 
 func (service *RoomControl) selection(
 	ctx context.Context,
-	scope RoomControlScope,
+	scope model.RoomControlScope,
 	gameID, profileID string,
-) (RoomSelection, error) {
+) (model.RoomSelection, error) {
 	profiles, err := service.eligible(ctx, scope, gameID)
 	if err != nil {
-		return RoomSelection{}, err
+		return model.RoomSelection{}, err
 	}
 	for _, candidate := range profiles {
 		if candidate.Manifest.ID != profileID {
@@ -105,9 +107,9 @@ func (service *RoomControl) selection(
 		}
 		frozen, err := freezeRoomProfile(service.registry, gameID, candidate)
 		if err != nil {
-			return RoomSelection{}, err
+			return model.RoomSelection{}, err
 		}
 		return frozen.Selection, nil
 	}
-	return RoomSelection{}, ErrInvalidProfile
+	return model.RoomSelection{}, model.ErrInvalidProfile
 }

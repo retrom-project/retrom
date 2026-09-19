@@ -1,34 +1,38 @@
 package libraryimport
 
-import "testing"
+import (
+	"testing"
+
+	model "retrom/internal/model/libraryimport"
+)
 
 func TestImportExecutionAuthorityTracksIdentityLeaseAndTerminalPolicy(t *testing.T) {
-	expected := QueuedImportExecution{
+	expected := model.QueuedImportExecution{
 		ImportID: "import", JobID: "job", WorkerID: "worker", ActorUserID: "actor",
 		ExecutionNo: 3, Attempt: 2, StartedAtMS: 10, DeadlineMS: 100,
 	}
 	for _, test := range []struct {
 		name    string
-		mutate  func(*CreationQueuedSnapshot)
+		mutate  func(*model.CreationQueuedSnapshot)
 		allowed bool
 	}{
-		{"current", func(*CreationQueuedSnapshot) {}, true},
+		{"current", func(*model.CreationQueuedSnapshot) {}, true},
 		{
 			"cancellation retains owner",
-			func(value *CreationQueuedSnapshot) { value.JobState = "CANCEL_REQUESTED" },
+			func(value *model.CreationQueuedSnapshot) { value.JobState = "CANCEL_REQUESTED" },
 			true,
 		},
-		{"replaced worker", func(value *CreationQueuedSnapshot) { value.Execution.WorkerID = "replacement" }, false},
-		{"new execution", func(value *CreationQueuedSnapshot) { value.Execution.ExecutionNo++ }, false},
-		{"new attempt", func(value *CreationQueuedSnapshot) { value.Execution.Attempt++ }, false},
-		{"renewed deadline", func(value *CreationQueuedSnapshot) { value.Execution.DeadlineMS++ }, false},
-		{"expired lease", func(value *CreationQueuedSnapshot) { value.LeaseUntilMS = 50 }, false},
-		{"finished", func(value *CreationQueuedSnapshot) { value.JobState = "SUCCEEDED" }, false},
+		{"replaced worker", func(value *model.CreationQueuedSnapshot) { value.Execution.WorkerID = "replacement" }, false},
+		{"new execution", func(value *model.CreationQueuedSnapshot) { value.Execution.ExecutionNo++ }, false},
+		{"new attempt", func(value *model.CreationQueuedSnapshot) { value.Execution.Attempt++ }, false},
+		{"renewed deadline", func(value *model.CreationQueuedSnapshot) { value.Execution.DeadlineMS++ }, false},
+		{"expired lease", func(value *model.CreationQueuedSnapshot) { value.LeaseUntilMS = 50 }, false},
+		{"finished", func(value *model.CreationQueuedSnapshot) { value.JobState = "SUCCEEDED" }, false},
 	} {
 		t.Run(
 			test.name,
 			func(t *testing.T) {
-				current := CreationQueuedSnapshot{Execution: expected, JobState: "RUNNING", JobVersion: 1, LeaseUntilMS: 60}
+				current := model.CreationQueuedSnapshot{Execution: expected, JobState: "RUNNING", JobVersion: 1, LeaseUntilMS: 60}
 				test.mutate(&current)
 				if actual := ImportExecutionCurrent(expected, current, 50); actual != test.allowed {
 					t.Fatalf("execution authority=%t, want %t", actual, test.allowed)

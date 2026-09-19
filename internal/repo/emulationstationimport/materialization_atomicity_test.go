@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
 	application "retrom/internal/service/emulationstationimport"
 	"retrom/internal/testkit/testsupport"
 )
@@ -50,9 +51,9 @@ func runMaterialOperation(
 	ctx context.Context,
 	service *application.Materialization,
 	operation string,
-	unit application.Execution,
-	source application.MaterialSource,
-	blob application.VerifiedBlob,
+	unit emulationstationimportmodel.Execution,
+	source emulationstationimportmodel.MaterialSource,
+	blob emulationstationimportmodel.VerifiedBlob,
 ) error {
 	switch operation {
 	case "warning":
@@ -72,9 +73,9 @@ type materialLateFailure struct {
 
 func (repository materialLateFailure) WithMaterialization(
 	ctx context.Context,
-	run func(application.MaterialScope) error,
+	run func(emulationstationimportmodel.MaterialScope) error,
 ) error {
-	return repository.Materialization.WithMaterialization(ctx, func(scope application.MaterialScope) error {
+	return repository.Materialization.WithMaterialization(ctx, func(scope emulationstationimportmodel.MaterialScope) error {
 		if err := run(scope); err != nil {
 			return err
 		}

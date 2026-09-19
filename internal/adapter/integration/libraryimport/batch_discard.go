@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	libraryimportmodel "retrom/internal/model/libraryimport"
 	librarypersistence "retrom/internal/repo/libraryimport"
 	libraryservice "retrom/internal/service/libraryimport"
 )
@@ -27,7 +28,7 @@ func (service *Service) ReleaseDiscardedBatch(ctx context.Context, importID stri
 	if err := libraryservice.NewReviewBatchDiscards(
 		librarypersistence.NewReviewBatchDiscards(service.database), service.reviewDiscards(), service.now,
 	).Release(ctx, importID); err != nil {
-		if errors.Is(err, libraryservice.ErrInvalid) {
+		if errors.Is(err, libraryimportmodel.ErrInvalid) {
 			return ErrInvalid
 		}
 		return fmt.Errorf("libraryimport/release discarded batch: %w", err)

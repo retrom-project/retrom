@@ -4,13 +4,14 @@ import (
 	"context"
 
 	"retrom/internal/capability/security/authn"
+	model "retrom/internal/model/accounts"
 )
 
-func (service *Service) GetUser(ctx context.Context, id string) (AdminUser, error) {
+func (service *Service) GetUser(ctx context.Context, id string) (model.AdminUser, error) {
 	return service.modules.Directory.Get(ctx, id)
 }
 
-func (service *Service) ListUsers(ctx context.Context, filter UserListFilter) ([]AdminUser, error) {
+func (service *Service) ListUsers(ctx context.Context, filter model.UserListFilter) ([]model.AdminUser, error) {
 	return service.modules.Directory.List(ctx, filter)
 }
 
@@ -19,9 +20,9 @@ func (service *Service) UpdateUser(
 	principal authn.Principal,
 	targetID string,
 	version int64,
-	patch UserPatch,
+	patch model.UserPatch,
 	key string,
-) (AdminUser, bool, error) {
+) (model.AdminUser, bool, error) {
 	return service.modules.Administration.Update(ctx, principal.UserID, targetID, version, patch, key)
 }
 

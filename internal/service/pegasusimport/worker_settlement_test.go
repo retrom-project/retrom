@@ -5,33 +5,35 @@ import (
 	"errors"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/pegasusimport"
 )
 
 type settlementMemory struct {
-	before  ExecutionSnapshot
-	change  WorkerSettlementChange
+	before  model.ExecutionSnapshot
+	change  model.WorkerSettlementChange
 	failure error
 	writes  int
 }
 
-func (m *settlementMemory) WithSettlement(_ context.Context, work func(WorkerSettlementScope) error) error {
-	return work(WorkerSettlementScope{Payload: emptyPayloadScope(), Read: m, Write: m})
+func (m *settlementMemory) WithSettlement(_ context.Context, work func(model.WorkerSettlementScope) error) error {
+	return work(model.WorkerSettlementScope{Payload: emptyPayloadScope(), Read: m, Write: m})
 }
 
-func (m *settlementMemory) Current(context.Context, string) (ExecutionSnapshot, error) {
+func (m *settlementMemory) Current(context.Context, string) (model.ExecutionSnapshot, error) {
 	return m.before, m.failure
 }
 
-func (m *settlementMemory) Reviews(context.Context, string, int) ([]ReviewHandoffSnapshot, error) {
+func (m *settlementMemory) Reviews(context.Context, string, int) ([]model.ReviewHandoffSnapshot, error) {
 	return nil, m.failure
 }
 
-func (m *settlementMemory) CompleteReview(context.Context, RecoveryReviewChange) error {
+func (m *settlementMemory) CompleteReview(context.Context, model.RecoveryReviewChange) error {
 	m.writes++
 	return m.failure
 }
 
-func (m *settlementMemory) Close(_ context.Context, change WorkerSettlementChange) error {
+func (m *settlementMemory) Close(_ context.Context, change model.WorkerSettlementChange) error {
 	m.writes++
 	m.change = change
 	return m.failure
@@ -45,11 +47,9 @@ func TestWorkerSettlementRejectsReplacedOwnerAndFailedStorage(t *testing.T) {
 	id.WorkerID = "replacement"
 	if err := service.Fail(
 		t.Context(),
-		id,
-		ExecutionFailure{Code: "INTERNAL_ERROR", Retryable: true},
+		id, model.ExecutionFailure{Code: "INTERNAL_ERROR", Retryable: true},
 	); !errors.Is(
-		err,
-		ErrVersionConflict,
+		err, model.ErrVersionConflict,
 	) || m.writes != 0 {
 		t.Fatalf("old owner failed=%v writes=%d", err, m.writes)
 	}

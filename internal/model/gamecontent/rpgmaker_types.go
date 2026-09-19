@@ -1,8 +1,8 @@
 package gamecontent
 
 import (
-	"retrom/internal/adapter/files/blobstore"
 	"retrom/internal/capability/engine/rpgmaker/detector"
+	blobmodel "retrom/internal/model/blob"
 )
 
 type PreparedRPGMakerReplacement struct {
@@ -19,5 +19,5 @@ type PreparedRPGMakerReplacement struct {
 
 type PreparedRPGMakerVariantFile struct {
 	Role, LogicalName string
-	Metadata          blobstore.Metadata
+	Metadata          blobmodel.PreparedBlob
 }

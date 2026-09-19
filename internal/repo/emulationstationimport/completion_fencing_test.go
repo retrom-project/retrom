@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"testing"
 
-	application "retrom/internal/service/emulationstationimport"
+	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
 )
 
 func TestCompletionRepeatsFullExecutionFence(t *testing.T) {
@@ -21,7 +21,7 @@ func TestCompletionRepeatsFullExecutionFence(t *testing.T) {
 			t.Parallel()
 			db, unit := completionDatabase(t)
 			before := planRows(t, db)
-			err := NewCompletion(db).WithCompletion(t.Context(), func(scope application.CompletionScope) error {
+			err := NewCompletion(db).WithCompletion(t.Context(), func(scope emulationstationimportmodel.CompletionScope) error {
 				execution, found, err := scope.Read.Current(t.Context(), unit.JobID)
 				if err != nil || !found {
 					t.Fatalf("execution=%v error=%v", found, err)
@@ -38,8 +38,7 @@ func TestCompletionRepeatsFullExecutionFence(t *testing.T) {
 					t.Fatal(err)
 				}
 				return scope.Write.Complete(
-					t.Context(),
-					application.CompletionChange{
+					t.Context(), emulationstationimportmodel.CompletionChange{
 						Before:      execution,
 						Counts:      counts,
 						ImportState: "PARTIAL_FAILURE",
@@ -48,7 +47,7 @@ func TestCompletionRepeatsFullExecutionFence(t *testing.T) {
 					},
 				)
 			})
-			if !errors.Is(err, application.ErrVersionConflict) {
+			if !errors.Is(err, emulationstationimportmodel.ErrVersionConflict) {
 				t.Fatalf("accepted changed ownership: %v", err)
 			}
 			if !reflect.DeepEqual(before, planRows(t, db)) {

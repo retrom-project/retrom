@@ -9,20 +9,18 @@ import (
 	"strings"
 
 	"retrom/internal/capability/security/authn"
+	pegasusimportmodel "retrom/internal/model/pegasusimport"
 
 	"retrom/internal/foundation/cursor"
-	"retrom/internal/service/pegasusimport"
 )
 
 func (server *Server) createPegasusImport(writer http.ResponseWriter, request *http.Request) {
 	createFormatImport(
 		writer,
-		request,
-		pegasusimport.CreateRequest{},
-		"Pegasus 扫描配置无效",
+		request, pegasusimportmodel.CreateRequest{}, "Pegasus 扫描配置无效",
 		"/api/v1/admin/pegasus-imports/",
 		server.pegasusImports.Create,
-		func(summary pegasusimport.Summary) string { return summary.ID },
+		func(summary pegasusimportmodel.Summary) string { return summary.ID },
 		writePegasusSummary,
 		server.writePegasusImportError,
 	)
@@ -55,7 +53,7 @@ func (server *Server) pegasusImportList(writer http.ResponseWriter, request *htt
 		}
 		beforeID = payload.ID
 	}
-	items, err := server.pegasusImports.List(request.Context(), pegasusimport.ListQuery{
+	items, err := server.pegasusImports.List(request.Context(), pegasusimportmodel.ListQuery{
 		State: state, BeforeAtMS: beforeAt, BeforeID: beforeID, Limit: limit + 1,
 	})
 	if err != nil {
@@ -118,7 +116,7 @@ func (server *Server) pegasusImportCollections(writer http.ResponseWriter, reque
 		afterID = payload.ID
 	}
 	items, err := server.pegasusImports.Collections(
-		request.Context(), pegasusimport.CollectionQuery{
+		request.Context(), pegasusimportmodel.CollectionQuery{
 			ImportID: importID, AfterPath: afterPath, AfterOrdinal: afterOrdinal, AfterID: afterID, Limit: limit + 1,
 		},
 	)
@@ -151,10 +149,13 @@ func (server *Server) updatePegasusMappings(writer http.ResponseWriter, request 
 		"pegasusImportId",
 		"集合映射无效",
 		"跳过的集合不能关联标签",
-		func(mapping pegasusimport.Mapping) serverImportMappingFields {
+		func(mapping pegasusimportmodel.Mapping) serverImportMappingFields {
 			return serverImportMappingFields{action: mapping.Action, tagIDs: mapping.TagIDs}
 		},
-		func(ctx context.Context, id string, version int64, mappings []pegasusimport.Mapping) (pegasusimport.Summary, error) {
+		func(ctx context.Context, id string, version int64, mappings []pegasusimportmodel.Mapping) (
+			pegasusimportmodel.Summary,
+			error,
+		) {
 			principal, _ := authn.PrincipalFromContext(ctx)
 			return server.pegasusImports.UpdateMappings(ctx, id, version, mappings, principal.UserID)
 		},
@@ -168,7 +169,7 @@ func (server *Server) startPegasusImport(writer http.ResponseWriter, request *ht
 		writer,
 		request,
 		"pegasusImportId",
-		func(ctx context.Context, id string, version int64) (pegasusimport.Summary, error) {
+		func(ctx context.Context, id string, version int64) (pegasusimportmodel.Summary, error) {
 			principal, _ := authn.PrincipalFromContext(ctx)
 			return server.pegasusImports.StartImport(ctx, id, version, principal.UserID)
 		},
@@ -202,7 +203,7 @@ func (server *Server) pegasusImportItems(writer http.ResponseWriter, request *ht
 		afterTitle, afterID = payload.SortValues[0], payload.ID
 	}
 	items, err := server.pegasusImports.Items(
-		request.Context(), pegasusimport.ItemQuery{
+		request.Context(), pegasusimportmodel.ItemQuery{
 			ImportID: importID, Text: strings.TrimSpace(values.Get("q")), Outcome: values.Get("outcome"),
 			Warning: values.Get("warning"), CollectionID: values.Get("collectionId"),
 			AfterTitle: afterTitle, AfterID: afterID, Limit: limit + 1,
@@ -275,7 +276,7 @@ func (server *Server) deletePegasusImport(writer http.ResponseWriter, request *h
 	writer.WriteHeader(http.StatusNoContent)
 }
 
-func writePegasusSummary(writer http.ResponseWriter, status int, summary pegasusimport.Summary) {
+func writePegasusSummary(writer http.ResponseWriter, status int, summary pegasusimportmodel.Summary) {
 	writer.Header().Set("ETag", fmt.Sprintf(`"v%d"`, summary.Version))
 	writeJSON(writer, status, summary)
 }
@@ -301,26 +302,24 @@ func (server *Server) writePegasusImportError(writer http.ResponseWriter, reques
 	server.writeFormatImportError(
 		writer,
 		request,
-		err,
-		pegasusimport.ErrNotFound,
-		"Pegasus 导入请求当前不可执行",
+		err, pegasusimportmodel.ErrNotFound, "Pegasus 导入请求当前不可执行",
 		pegasusImportErrorCode,
 	)
 }
 
 func pegasusImportErrorCode(err error) string {
 	for _, sentinel := range []error{
-		pegasusimport.ErrInvalid,
-		pegasusimport.ErrMetadataAbsent,
-		pegasusimport.ErrScanLimit,
-		pegasusimport.ErrMapping,
-		pegasusimport.ErrVersionConflict,
-		pegasusimport.ErrNoSelection,
-		pegasusimport.ErrSourceChanged,
-		pegasusimport.ErrExpired,
-		pegasusimport.ErrActive,
-		pegasusimport.ErrNotCancellable,
-		pegasusimport.ErrNotRetryable,
+		pegasusimportmodel.ErrInvalid,
+		pegasusimportmodel.ErrMetadataAbsent,
+		pegasusimportmodel.ErrScanLimit,
+		pegasusimportmodel.ErrMapping,
+		pegasusimportmodel.ErrVersionConflict,
+		pegasusimportmodel.ErrNoSelection,
+		pegasusimportmodel.ErrSourceChanged,
+		pegasusimportmodel.ErrExpired,
+		pegasusimportmodel.ErrActive,
+		pegasusimportmodel.ErrNotCancellable,
+		pegasusimportmodel.ErrNotRetryable,
 	} {
 		if errors.Is(err, sentinel) {
 			return sentinel.Error()

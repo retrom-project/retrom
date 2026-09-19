@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"net/http"
 
-	libraryservice "retrom/internal/service/libraryimport"
+	libraryimportmodel "retrom/internal/model/libraryimport"
 )
 
 func (server *Server) review(writer http.ResponseWriter, request *http.Request) {
 	result, err := server.reviewDetails.Get(request.Context(), request.PathValue("importItemId"))
-	if errors.Is(err, libraryservice.ErrReviewNotFound) {
+	if errors.Is(err, libraryimportmodel.ErrReviewNotFound) {
 		server.notFound(writer, request)
 		return
 	}
@@ -23,7 +23,7 @@ func (server *Server) review(writer http.ResponseWriter, request *http.Request) 
 	writeJSON(writer, http.StatusOK, result)
 }
 
-func projectReviewDetailURLs(result *libraryservice.ReviewDetail) {
+func projectReviewDetailURLs(result *libraryimportmodel.ReviewDetail) {
 	for i := range result.UploadedAssets {
 		asset := &result.UploadedAssets[i]
 		asset.URL = "/api/v1/admin/review-assets/" + asset.ID
@@ -42,7 +42,7 @@ func projectReviewDetailURLs(result *libraryservice.ReviewDetail) {
 	projectReviewSourceMediaURLs(result.SourceMedia)
 }
 
-func projectReviewSourceMediaURLs(media *libraryservice.ReviewSourceMedia) {
+func projectReviewSourceMediaURLs(media *libraryimportmodel.ReviewSourceMedia) {
 	if media == nil {
 		return
 	}

@@ -4,18 +4,22 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+
+	metadatascrapemodel "retrom/internal/model/metadatascrape"
 )
 
-type EvidenceQueries struct{ reader ReviewEvidenceReader }
+type EvidenceQueries struct {
+	reader metadatascrapemodel.ReviewEvidenceReader
+}
 
-func NewEvidenceQueries(reader ReviewEvidenceReader) *EvidenceQueries {
+func NewEvidenceQueries(reader metadatascrapemodel.ReviewEvidenceReader) *EvidenceQueries {
 	return &EvidenceQueries{reader: reader}
 }
 
-func (service *EvidenceQueries) Review(ctx context.Context, itemID string) (ReviewEvidence, error) {
+func (service *EvidenceQueries) Review(ctx context.Context, itemID string) (metadatascrapemodel.ReviewEvidence, error) {
 	records, err := service.reader.ReviewCandidates(ctx, itemID)
 	if err != nil {
-		return ReviewEvidence{}, fmt.Errorf("read review candidates: %w", err)
+		return metadatascrapemodel.ReviewEvidence{}, fmt.Errorf("read review candidates: %w", err)
 	}
 	ids := make([]string, 0, len(records))
 	for _, record := range records {
@@ -23,28 +27,28 @@ func (service *EvidenceQueries) Review(ctx context.Context, itemID string) (Revi
 	}
 	assets, err := service.Assets(ctx, ids)
 	if err != nil {
-		return ReviewEvidence{}, err
+		return metadatascrapemodel.ReviewEvidence{}, err
 	}
-	byCandidate := make(map[string][]CandidateAssetView, len(ids))
+	byCandidate := make(map[string][]metadatascrapemodel.CandidateAssetView, len(ids))
 	for _, asset := range assets {
 		byCandidate[asset.CandidateID] = append(byCandidate[asset.CandidateID], asset)
 	}
-	result := ReviewEvidence{Candidates: make([]ReviewCandidate, 0, len(records))}
+	result := metadatascrapemodel.ReviewEvidence{Candidates: make([]metadatascrapemodel.ReviewCandidate, 0, len(records))}
 	for _, record := range records {
 		metadata, err := decodeReviewCandidateDocument(record.MetadataJSON)
 		if err != nil {
-			return ReviewEvidence{}, err
+			return metadatascrapemodel.ReviewEvidence{}, err
 		}
 		evidence, err := decodeReviewCandidateDocument(record.EvidenceJSON)
 		if err != nil {
-			return ReviewEvidence{}, err
+			return metadatascrapemodel.ReviewEvidence{}, err
 		}
 		selected := byCandidate[record.ID]
 		if selected == nil {
-			selected = []CandidateAssetView{}
+			selected = []metadatascrapemodel.CandidateAssetView{}
 		}
 		result.Candidates = append(result.Candidates,
-			ReviewCandidate{
+			metadatascrapemodel.ReviewCandidate{
 				ID:             record.ID,
 				RunID:          record.RunID,
 				ProviderGameID: record.ProviderGameID,
@@ -56,24 +60,27 @@ func (service *EvidenceQueries) Review(ctx context.Context, itemID string) (Revi
 	}
 	result.Runs, err = service.reader.ReviewRuns(ctx, itemID)
 	if err != nil {
-		return ReviewEvidence{}, fmt.Errorf("read review scrape runs: %w", err)
+		return metadatascrapemodel.ReviewEvidence{}, fmt.Errorf("read review scrape runs: %w", err)
 	}
 	if result.Runs == nil {
-		result.Runs = []ReviewRun{}
+		result.Runs = []metadatascrapemodel.ReviewRun{}
 	}
 	return result, nil
 }
 
-func (service *EvidenceQueries) Assets(ctx context.Context, ids []string) ([]CandidateAssetView, error) {
+func (service *EvidenceQueries) Assets(
+	ctx context.Context,
+	ids []string,
+) ([]metadatascrapemodel.CandidateAssetView, error) {
 	if len(ids) == 0 {
-		return []CandidateAssetView{}, nil
+		return []metadatascrapemodel.CandidateAssetView{}, nil
 	}
 	assets, err := service.reader.CandidateAssets(ctx, ids)
 	if err != nil {
 		return nil, fmt.Errorf("read candidate assets: %w", err)
 	}
 	if assets == nil {
-		assets = []CandidateAssetView{}
+		assets = []metadatascrapemodel.CandidateAssetView{}
 	}
 	return assets, nil
 }

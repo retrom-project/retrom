@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	application "retrom/internal/service/payloadrelease"
+	payloadreleasemodel "retrom/internal/model/payloadrelease"
 )
 
 type releaseEffectWaiter struct{ service *Service }
@@ -18,7 +18,7 @@ func (waiter releaseEffectWaiter) Wait(ctx context.Context, duration time.Durati
 }
 
 func (service *Service) releaseEffect(ctx context.Context, job claimedJob) error {
-	if err := service.effects.Execute(ctx, application.Execution{Work: job.Work, Input: job.Input}); err != nil {
+	if err := service.effects.Execute(ctx, payloadreleasemodel.Execution{Work: job.Work, Input: job.Input}); err != nil {
 		return fmt.Errorf("release payload effect: %w", err)
 	}
 	return nil

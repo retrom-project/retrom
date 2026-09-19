@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"testing"
 
-	application "retrom/internal/service/emulationstationimport"
+	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
 )
 
 func TestRecoveryReviewFenceIncludesFrozenSourceIdentity(t *testing.T) {
@@ -20,7 +20,7 @@ func TestRecoveryReviewFenceIncludesFrozenSourceIdentity(t *testing.T) {
 			t.Parallel()
 			db, unit := recoveryDatabase(t, true, false)
 			before := planRows(t, db)
-			err := NewRecovery(db).WithRecovery(t.Context(), func(scope application.RecoveryScope) error {
+			err := NewRecovery(db).WithRecovery(t.Context(), func(scope emulationstationimportmodel.RecoveryScope) error {
 				current, found, err := scope.Read.Current(t.Context(), unit.JobID)
 				if err != nil || !found {
 					t.Fatalf("current=%v error=%v", found, err)
@@ -34,7 +34,7 @@ func TestRecoveryReviewFenceIncludesFrozenSourceIdentity(t *testing.T) {
 				}
 				return scope.Write.Fence(t.Context(), current, 1500)
 			})
-			if !errors.Is(err, application.ErrVersionConflict) {
+			if !errors.Is(err, emulationstationimportmodel.ErrVersionConflict) {
 				t.Fatalf("changed recovery identity was accepted: %v", err)
 			}
 			if !reflect.DeepEqual(before, planRows(t, db)) {

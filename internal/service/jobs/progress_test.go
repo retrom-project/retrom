@@ -5,6 +5,8 @@ import (
 	"errors"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/jobs"
 )
 
 func TestProgressBatchDrainsTerminalBacklog(t *testing.T) {
@@ -25,7 +27,7 @@ func TestProgressBatchDrainsTerminalBacklog(t *testing.T) {
 		{"review caught up", "REVIEW_PENDING", 0, true, true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			repository := &progressRepository{state: test.state, events: make([]Event, test.count)}
+			repository := &progressRepository{state: test.state, events: make([]model.Event, test.count)}
 			service := New(repository, time.Now)
 			read := service.JobEvents
 			if test.importScope {
@@ -35,7 +37,7 @@ func TestProgressBatchDrainsTerminalBacklog(t *testing.T) {
 			if err != nil || batch.Terminal != test.terminal || len(batch.Events) != test.count {
 				t.Fatalf("batch terminal=%v count=%d error=%v", batch.Terminal, len(batch.Events), err)
 			}
-			if repository.opened != 1 || repository.query != (EventQuery{ResourceID: "target", After: 41, Limit: 1000}) {
+			if repository.opened != 1 || repository.query != (model.EventQuery{ResourceID: "target", After: 41, Limit: 1000}) {
 				t.Fatalf("batch crossed read scope or changed cursor: %+v", repository)
 			}
 		})
@@ -77,17 +79,18 @@ func TestProgressReadFailurePreservesCause(t *testing.T) {
 }
 
 type progressRepository struct {
-	Repository
-	ReadRecords
+	model.Repository
+	model.ReadRecords
+
 	state                string
-	events               []Event
+	events               []model.Event
 	opened, maximumReads int
-	query                EventQuery
+	query                model.EventQuery
 	failAt               string
 	failure              error
 }
 
-func (repository *progressRepository) WithRead(_ context.Context, work func(ReadRecords) error) error {
+func (repository *progressRepository) WithRead(_ context.Context, work func(model.ReadRecords) error) error {
 	repository.opened++
 	if repository.failAt == "begin" {
 		return repository.failure
@@ -95,15 +98,15 @@ func (repository *progressRepository) WithRead(_ context.Context, work func(Read
 	return work(repository)
 }
 
-func (repository *progressRepository) Detail(context.Context, string) (Snapshot, error) {
+func (repository *progressRepository) Detail(context.Context, string) (model.Snapshot, error) {
 	if repository.failAt == "detail" {
-		return Snapshot{}, repository.failure
+		return model.Snapshot{}, repository.failure
 	}
-	return Snapshot{State: repository.state}, nil
+	return model.Snapshot{State: repository.state}, nil
 }
 
-func (repository *progressRepository) ImportProgress(context.Context, string) (ImportProgress, error) {
-	return ImportProgress{State: repository.state}, nil
+func (repository *progressRepository) ImportProgress(context.Context, string) (model.ImportProgress, error) {
+	return model.ImportProgress{State: repository.state}, nil
 }
 
 func (repository *progressRepository) EventMaximum(context.Context) (int64, error) {
@@ -114,7 +117,7 @@ func (repository *progressRepository) EventMaximum(context.Context) (int64, erro
 	return 42, nil
 }
 
-func (repository *progressRepository) JobEvents(_ context.Context, query EventQuery) ([]Event, error) {
+func (repository *progressRepository) JobEvents(_ context.Context, query model.EventQuery) ([]model.Event, error) {
 	repository.query = query
 	if repository.failAt == "events" {
 		return nil, repository.failure
@@ -122,6 +125,6 @@ func (repository *progressRepository) JobEvents(_ context.Context, query EventQu
 	return repository.events, nil
 }
 
-func (repository *progressRepository) ImportEvents(ctx context.Context, query EventQuery) ([]Event, error) {
+func (repository *progressRepository) ImportEvents(ctx context.Context, query model.EventQuery) ([]model.Event, error) {
 	return repository.JobEvents(ctx, query)
 }

@@ -8,7 +8,7 @@ import (
 
 	"retrom/internal/adapter/files/serversource"
 	"retrom/internal/capability/format/pegasusmeta"
-	application "retrom/internal/service/pegasusimport"
+	pegasusimportmodel "retrom/internal/model/pegasusimport"
 )
 
 func TestMetadataVerificationAllowsOnlyOversizedInvalidFactsWithoutContentDigest(t *testing.T) {
@@ -30,7 +30,7 @@ func TestMetadataVerificationAllowsOnlyOversizedInvalidFactsWithoutContentDigest
 	if err != nil {
 		t.Fatal(err)
 	}
-	expected := application.MetadataEvidence{RelativePath: name, SizeBytes: info.Size(), FactsDigest: serversource.FactsDigest(info), ParseState: "INVALID", ErrorCode: pegasusmeta.ErrTooLarge.Error()}
+	expected := pegasusimportmodel.MetadataEvidence{RelativePath: name, SizeBytes: info.Size(), FactsDigest: serversource.FactsDigest(info), ParseState: "INVALID", ErrorCode: pegasusmeta.ErrTooLarge.Error()}
 	source := (&Service{}).acquireSourceReader
 	if err := verifyMetadataFile(t.Context(), root, "", expected, source); err != nil {
 		t.Fatalf("facts-only oversized evidence rejected: %v", err)

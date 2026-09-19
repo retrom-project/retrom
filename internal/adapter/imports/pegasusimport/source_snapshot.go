@@ -10,13 +10,13 @@ import (
 	"retrom/internal/adapter/files/serversource"
 	"retrom/internal/capability/format/pegasusmeta"
 	"retrom/internal/foundation/cleanup"
-	application "retrom/internal/service/pegasusimport"
+	pegasusimportmodel "retrom/internal/model/pegasusimport"
 )
 
 func (source *Sources) VerifyMetadata(
 	ctx context.Context,
 	rootID, path string,
-	evidence []application.MetadataEvidence,
+	evidence []pegasusimportmodel.MetadataEvidence,
 ) error {
 	root, ok := source.roots[rootID]
 	if !ok {
@@ -45,7 +45,7 @@ func verifyMetadataFile(
 	ctx context.Context,
 	root Root,
 	path string,
-	expected application.MetadataEvidence,
+	expected pegasusimportmodel.MetadataEvidence,
 	acquire func(context.Context) (func(), error),
 ) error {
 	release, err := acquire(ctx)

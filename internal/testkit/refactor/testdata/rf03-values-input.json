@@ -1,0 +1,80 @@
+{
+  "fixedNow": "2026-08-06T00:00:00.123456789Z",
+  "httpRawBody": " \n{\"id\":42,\"name\":\" <script>游戏🎮</script> \",\"publisher\":{\"name\":\"出版 & studio\"},\"platform\":{\"name\":\"Game Boy Advance\"},\"signature\":{\"game\":{\"description\":\"First paragraph.\\r\\n\\r\\n第二段\\t<>&\",\"year\":\"2001\",\"score\":8},\"rom\":{\"score\":4}},\"attributes\":[{\"attributeName\":\"Logo\",\"attributeType\":\"ImageId\",\"attributeRelationType\":\"None\",\"value\":\"cover-1\",\"link\":\"/api/v1/images/cover-1\"},{\"attributeName\":\"Tags\",\"attributeType\":\"EmbeddedList\",\"attributeRelationType\":\"None\",\"value\":{\"ignored\":[\"上游字段\",{\"tag\":\"future\"}]}},{\"attributeName\":\"Logo\",\"attributeType\":\"ImageId\",\"attributeRelationType\":\"None\",\"value\":\"cover-2\",\"link\":\"/api/v1/images/cover-2\"}],\"unknownUpstream\":{\"version\":99,\"nested\":[\"opaque\",\"保留  \"],\"literal\":\"<not normalized>\"}}\t\n",
+  "hashes": {
+    "MD5": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "SHA1": "cccccccccccccccccccccccccccccccccccccccc",
+    "SHA256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "CRC32": "1234abcd"
+  },
+  "blobBody": "Retrom RF03 blob fixture\u0000四哈希 🎮\n",
+  "jobs": [
+    {
+      "jobId": "01980000-0000-7000-8000-000000000001",
+      "scopeType": "GAME",
+      "scopeId": "01980000-0000-7000-8000-000000000002",
+      "kind": "METADATA_SCRAPE",
+      "state": "QUEUED",
+      "version": 1,
+      "attemptCount": 0,
+      "maxAttempts": 3,
+      "errorCode": null,
+      "retryable": false,
+      "updatedAtMs": 1785974400123
+    },
+    {
+      "jobId": "01980000-0000-7000-8000-000000000003",
+      "scopeType": "IMPORT_ITEM",
+      "scopeId": "导入<>&🎮",
+      "kind": "MEDIA_FETCH",
+      "state": "FAILED",
+      "version": 9007199254740993,
+      "attemptCount": 3,
+      "maxAttempts": 3,
+      "errorCode": "MEDIA_SOURCE_ERROR",
+      "retryable": true,
+      "updatedAtMs": 1785974400456
+    }
+  ],
+  "saves": [
+    {
+      "label": "product-null",
+      "resourceKind": "SAVE_STATE",
+      "saveStateId": "01980000-0000-7000-8000-000000000010",
+      "previewId": "ignored-preview",
+      "checkpointFormat": "RETROM_CHECKPOINT_V1",
+      "screenshotUrl": null,
+      "createdAtMs": 1785974400123,
+      "name": "被省略的名称🎮",
+      "discIndex": null,
+      "version": 8,
+      "activeDurationMs": 1234
+    },
+    {
+      "label": "product-screenshot-unicode",
+      "resourceKind": "SAVE_STATE",
+      "saveStateId": "01980000-0000-7000-8000-000000000011",
+      "previewId": "ignored-preview",
+      "checkpointFormat": "RETROM_CHECKPOINT_V1",
+      "screenshotUrl": "/api/存档/封面🎮.png?caption=<>&  ",
+      "createdAtMs": 1785974400456,
+      "name": "已保存🎮",
+      "discIndex": 2,
+      "version": 9007199254740993,
+      "activeDurationMs": 5678
+    },
+    {
+      "label": "preview-omitted-product-fields",
+      "resourceKind": "REVIEW_PREVIEW_CHECKPOINT",
+      "saveStateId": "ignored-save-id",
+      "previewId": "01980000-0000-7000-8000-000000000012",
+      "checkpointFormat": "预览_CHECKPOINT_V1🎮<>&",
+      "screenshotUrl": "ignored-product-url",
+      "createdAtMs": 1785974400789,
+      "name": "ignored-name",
+      "discIndex": 1,
+      "version": 4,
+      "activeDurationMs": 999
+    }
+  ]
+}

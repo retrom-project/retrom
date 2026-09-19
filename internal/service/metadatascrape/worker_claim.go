@@ -3,23 +3,29 @@ package metadatascrape
 import (
 	"context"
 	"fmt"
+	timecontract "time"
+
+	metadatascrapemodel "retrom/internal/model/metadatascrape"
 )
 
-func (worker *Worker) claim(ctx context.Context, run WorkerRun) (WorkerClaim, bool, error) {
+func (worker *Worker) claim(
+	ctx context.Context,
+	run metadatascrapemodel.WorkerRun,
+) (metadatascrapemodel.WorkerClaim, bool, error) {
 	workerID, err := scheduleID()
 	if err != nil {
-		return WorkerClaim{}, false, err
+		return metadatascrapemodel.WorkerClaim{}, false, err
 	}
-	claim := WorkerClaim{
+	claim := metadatascrapemodel.WorkerClaim{
 		RunID: run.RunID, JobID: run.JobID, ExecutionNo: run.ExecutionNo,
 		WorkerID: workerID, Version: run.Version, AttemptCount: run.AttemptCount,
 	}
 	claimed := false
-	err = worker.repository.WithWrite(ctx, func(scope WorkerScope) error {
+	err = worker.repository.WithWrite(ctx, func(scope metadatascrapemodel.WorkerScope) error {
 		claim.Now = worker.now().UnixMilli()
 		claim.Deadline = run.Deadline
 		if claim.Deadline == 0 {
-			claim.Deadline = claim.Now + metadataExecutionTimeout.Milliseconds()
+			claim.Deadline = claim.Now + timecontract.Hour.Milliseconds()
 		}
 		claim.Terminal = claim.Deadline <= claim.Now || run.MaxAttempts > 0 && run.AttemptCount >= run.MaxAttempts ||
 			run.JobState == "CANCEL_REQUESTED"

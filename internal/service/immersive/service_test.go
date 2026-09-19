@@ -4,45 +4,48 @@ import (
 	"context"
 	"errors"
 	"testing"
+
+	model "retrom/internal/model/immersive"
 )
 
 type snapshotRepository struct {
-	scope ReadScope
+	scope model.ReadScope
 	reads int
 }
 
-func (repository *snapshotRepository) WithRead(_ context.Context, work func(ReadScope) error) error {
+func (repository *snapshotRepository) WithRead(_ context.Context, work func(model.ReadScope) error) error {
 	repository.reads++
 	return work(repository.scope)
 }
 
 type platformReader struct {
-	PlatformReader
-	platforms []Platform
-	featured  []FeaturedGame
-	games     []Game
+	model.PlatformReader
+
+	platforms []model.Platform
+	featured  []model.FeaturedGame
+	games     []model.Game
 }
 
-func (reader platformReader) Platforms(context.Context, string) ([]Platform, error) {
+func (reader platformReader) Platforms(context.Context, string) ([]model.Platform, error) {
 	return reader.platforms, nil
 }
 
-func (reader platformReader) Platform(context.Context, string, string) (Platform, error) {
+func (reader platformReader) Platform(context.Context, string, string) (model.Platform, error) {
 	return reader.platforms[0], nil
 }
 
-func (reader platformReader) Featured(context.Context, string, string) ([]FeaturedGame, error) {
+func (reader platformReader) Featured(context.Context, string, string) ([]model.FeaturedGame, error) {
 	return reader.featured, nil
 }
 
-func (reader platformReader) Games(context.Context, string, string, int, *GameCursor) ([]Game, error) {
+func (reader platformReader) Games(context.Context, string, string, int, *model.GameCursor) ([]model.Game, error) {
 	return reader.games, nil
 }
 
 func TestPlatformsAttachOnlyMatchingFeaturedGames(t *testing.T) {
 	t.Parallel()
-	repository := &snapshotRepository{scope: ReadScope{Platforms: platformReader{
-		platforms: []Platform{{ID: "gba"}, {ID: "nes"}}, featured: []FeaturedGame{{PlatformID: "gba", ID: "first"}, {PlatformID: "unknown", ID: "hidden"}},
+	repository := &snapshotRepository{scope: model.ReadScope{Platforms: platformReader{
+		platforms: []model.Platform{{ID: "gba"}, {ID: "nes"}}, featured: []model.FeaturedGame{{PlatformID: "gba", ID: "first"}, {PlatformID: "unknown", ID: "hidden"}},
 	}}}
 	result, err := New(repository).Platforms(t.Context(), "profile")
 	if err != nil {
@@ -61,8 +64,8 @@ func TestPlatformsAttachOnlyMatchingFeaturedGames(t *testing.T) {
 
 func TestGamePageUsesLastVisibleRowForCursor(t *testing.T) {
 	t.Parallel()
-	repository := &snapshotRepository{scope: ReadScope{Platforms: platformReader{
-		platforms: []Platform{{ID: "gba"}}, games: []Game{{ID: "a", Title: "A", TitleInitial: "A"}, {ID: "b", Title: "B", TitleInitial: "B"}, {ID: "c", Title: "C", TitleInitial: "C"}},
+	repository := &snapshotRepository{scope: model.ReadScope{Platforms: platformReader{
+		platforms: []model.Platform{{ID: "gba"}}, games: []model.Game{{ID: "a", Title: "A", TitleInitial: "A"}, {ID: "b", Title: "B", TitleInitial: "B"}, {ID: "c", Title: "C", TitleInitial: "C"}},
 	}}}
 	result, err := New(repository).Games(t.Context(), "profile", "gba", 2, nil)
 	if err != nil {
@@ -80,10 +83,10 @@ func TestInvalidLibraryAndFolderDoNotOpenSnapshot(t *testing.T) {
 	t.Parallel()
 	repository := &snapshotRepository{}
 	service := New(repository)
-	if _, err := service.LibraryGames(t.Context(), "profile", "unknown", "", PageLimit, nil); !errors.Is(err, ErrLibraryNotFound) {
+	if _, err := service.LibraryGames(t.Context(), "profile", "unknown", "", model.PageLimit, nil); !errors.Is(err, model.ErrLibraryNotFound) {
 		t.Fatalf("unknown library: %v", err)
 	}
-	if _, err := service.LibraryGames(t.Context(), "profile", LibraryRecent, "folder", PageLimit, nil); !errors.Is(err, ErrFavoriteFolderNotFound) {
+	if _, err := service.LibraryGames(t.Context(), "profile", model.LibraryRecent, "folder", model.PageLimit, nil); !errors.Is(err, model.ErrFavoriteFolderNotFound) {
 		t.Fatalf("invalid folder: %v", err)
 	}
 	if repository.reads != 0 {
@@ -95,7 +98,7 @@ func TestRecentPageCursorRetainsLastPlayedTime(t *testing.T) {
 	t.Parallel()
 	recent := int64(2000)
 	earlier := int64(1000)
-	items, next := libraryPageItems([]Game{{ID: "a", LastPlayedAtMS: &recent}, {ID: "b", LastPlayedAtMS: &earlier}}, 1, LibraryRecent)
+	items, next := libraryPageItems([]model.Game{{ID: "a", LastPlayedAtMS: &recent}, {ID: "b", LastPlayedAtMS: &earlier}}, 1, model.LibraryRecent)
 	if len(items) != 1 || next == nil || next.LastPlayedAtMS == nil || *next.LastPlayedAtMS != recent {
 		t.Fatalf("recent cursor = %#v", next)
 	}

@@ -2,9 +2,14 @@ package serverimport
 
 import (
 	"context"
-
-	"retrom/internal/adapter/files/serversource"
 )
+
+type DiscoveryCounts struct {
+	Directories            int64
+	Files                  int64
+	SkippedSpecial         int64
+	SkippedUnrepresentable int64
+}
 
 type CandidateWrite struct {
 	Evidence      CandidateEvidence
@@ -23,7 +28,7 @@ type DiscoveryPlan struct {
 	Unit                 Work
 	Groups               []DiscoveryGroup
 	Total, Multiple, Now int64
-	Counts               serversource.Counts
+	Counts               DiscoveryCounts
 }
 
 type DiscoveryRecords interface {

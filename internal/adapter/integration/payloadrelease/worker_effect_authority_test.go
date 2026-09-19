@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	application "retrom/internal/service/payloadrelease"
+	payloadreleasemodel "retrom/internal/model/payloadrelease"
 	"retrom/internal/testkit/testsupport"
 )
 
@@ -26,7 +26,7 @@ func TestPayloadEffectRejectsReplacedWorkerBeforeAnyRelease(t *testing.T) {
 	err = fixture.service.execute(t.Context(), claim)
 	var payload string
 	queryErr := fixture.database.QueryRowContext(t.Context(), `SELECT payload_state FROM games WHERE id='schedule-game'`).Scan(&payload)
-	if !errors.Is(err, application.ErrExecutionLost) || queryErr != nil || payload != "RELEASING" {
+	if !errors.Is(err, payloadreleasemodel.ErrExecutionLost) || queryErr != nil || payload != "RELEASING" {
 		t.Fatalf("stale worker changed payload: %s/%v/%v", payload, err, queryErr)
 	}
 }
@@ -96,7 +96,7 @@ func TestPayloadEffectRollsBackWhenLeaseExpiresDuringWrites(t *testing.T) {
 	err = service.execute(t.Context(), claim)
 	var payload string
 	queryErr := fixture.database.QueryRowContext(t.Context(), `SELECT payload_state FROM games WHERE id='schedule-game'`).Scan(&payload)
-	if !errors.Is(err, application.ErrExecutionLost) || queryErr != nil || payload != "RELEASING" || hits.Load() != 1 {
+	if !errors.Is(err, payloadreleasemodel.ErrExecutionLost) || queryErr != nil || payload != "RELEASING" || hits.Load() != 1 {
 		t.Fatalf("expired effect escaped its transaction: payload=%s hits=%d error=%v query=%v", payload, hits.Load(), err, queryErr)
 	}
 }

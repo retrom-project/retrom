@@ -4,19 +4,21 @@ import (
 	"context"
 	"fmt"
 	"time"
+
+	model "retrom/internal/model/pegasusimport"
 )
 
 type Completion struct {
-	repository CompletionRepository
+	repository model.CompletionRepository
 	now        func() time.Time
 }
 
-func NewCompletion(repository CompletionRepository, now func() time.Time) *Completion {
+func NewCompletion(repository model.CompletionRepository, now func() time.Time) *Completion {
 	return &Completion{repository: repository, now: now}
 }
 
-func (service *Completion) Finish(ctx context.Context, identity ExecutionIdentity) error {
-	err := service.repository.WithCompletion(ctx, func(records CompletionRecords) error {
+func (service *Completion) Finish(ctx context.Context, identity model.ExecutionIdentity) error {
+	err := service.repository.WithCompletion(ctx, func(records model.CompletionRecords) error {
 		before, err := records.Current(ctx, identity.JobID)
 		if err != nil {
 			return fmt.Errorf("read Pegasus completion ownership: %w", err)
@@ -26,16 +28,16 @@ func (service *Completion) Finish(ctx context.Context, identity ExecutionIdentit
 			return err
 		}
 		if before.Kind != "SERVER_PEGASUS_IMPORT" || before.JobState != "RUNNING" {
-			return ErrVersionConflict
+			return model.ErrVersionConflict
 		}
 		counts, err := records.Counts(ctx, before.ImportID)
 		if err != nil {
 			return fmt.Errorf("read Pegasus final counts: %w", err)
 		}
 		if counts.Unfinished != 0 {
-			return ErrVersionConflict
+			return model.ErrVersionConflict
 		}
-		change := CompletionChange{
+		change := model.CompletionChange{
 			Before:      before,
 			Counts:      counts,
 			ImportState: "COMPLETED",

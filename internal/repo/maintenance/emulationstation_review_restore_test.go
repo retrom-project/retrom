@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	libraryimportmodel "retrom/internal/model/libraryimport"
+	maintenancemodel "retrom/internal/model/maintenance"
 	library "retrom/internal/repo/libraryimport"
 	libraryservice "retrom/internal/service/libraryimport"
 	application "retrom/internal/service/maintenance"
@@ -71,7 +73,7 @@ func seedRestoredReview(t *testing.T, db *sql.DB) {
 	t.Helper()
 	_, _, err := libraryservice.NewMetadataSeeder(library.NewMetadata(db), func() time.Time {
 		return time.UnixMilli(2)
-	}).Seed(t.Context(), "handoff-item", libraryservice.ServerMetadata{Title: "Restored title"}, 1971)
+	}).Seed(t.Context(), "handoff-item", libraryimportmodel.ServerMetadata{Title: "Restored title"}, 1971)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -83,7 +85,7 @@ func TestRestoreRetainsReservedEmulationStationReviews(t *testing.T) {
 		t.Run(window, func(t *testing.T) {
 			t.Parallel()
 			db, path := restoredEmulationStationReview(t, window != "reserved", window == "seeded")
-			err := New().WithRestore(t.Context(), path, func(records application.RestoreRecords) error {
+			err := New().WithRestore(t.Context(), path, func(records maintenancemodel.RestoreRecords) error {
 				if err := application.CompleteRestoredReviews(t.Context(), records.Imports().Reviews, time.UnixMilli(10)); err != nil {
 					return err
 				}

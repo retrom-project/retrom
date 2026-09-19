@@ -5,12 +5,14 @@ import (
 	"crypto/subtle"
 	"fmt"
 
+	model "retrom/internal/model/launch"
+
 	"github.com/google/uuid"
 )
 
 func (service *NetplayCreator) prepare(
 	ctx context.Context,
-	request NetplayCreateRequest,
+	request model.NetplayCreateRequest,
 ) (netplayCreationPrepared, error) {
 	snapshot, err := service.repository.Snapshot(ctx, request)
 	if err != nil {
@@ -27,7 +29,7 @@ func (service *NetplayCreator) prepare(
 		return netplayCreationPrepared{}, fmt.Errorf("prepare netplay content: %w", err)
 	}
 	if len(content.Files) != 1 || len(content.Discs) != 0 {
-		return netplayCreationPrepared{}, ErrBlocked
+		return netplayCreationPrepared{}, model.ErrBlocked
 	}
 	if service.blobs != nil {
 		for _, check := range content.Checks {
@@ -38,7 +40,7 @@ func (service *NetplayCreator) prepare(
 	}
 	prepared := netplayCreationPrepared{
 		snapshot: snapshot,
-		plan:     NetplayCreationPlan{Request: request, Source: snapshot.Product.Source, Content: content},
+		plan:     model.NetplayCreationPlan{Request: request, Source: snapshot.Product.Source, Content: content},
 	}
 	if snapshot.Existing == nil {
 		if err := service.prepareNew(&prepared); err != nil {
@@ -55,7 +57,7 @@ func (service *NetplayCreator) prepare(
 
 func (service *NetplayCreator) prepareNew(prepared *netplayCreationPrepared) error {
 	content := prepared.plan.Content
-	external, err := FreezeProductExternalBIOS(ProductExternalSnapshot{
+	external, err := FreezeProductExternalBIOS(model.ProductExternalSnapshot{
 		DependencySnapshot: prepared.snapshot.Product.Source.DependencySnapshot, ContentName: content.Files[0].LogicalName,
 	}, false)
 	if err != nil {
@@ -75,47 +77,47 @@ func (service *NetplayCreator) prepareNew(prepared *netplayCreationPrepared) err
 	return nil
 }
 
-func (service *NetplayCreator) validateProvider(source ProductSource, capabilities Capabilities) error {
+func (service *NetplayCreator) validateProvider(source model.ProductSource, capabilities model.Capabilities) error {
 	if service.provider == nil {
-		return ErrBlocked
+		return model.ErrBlocked
 	}
 	target, found := service.provider.Target(source.ProviderID, source.TargetID)
 	bundle, hasBundle := service.provider.BundleSHA256(source.ProviderID, source.TargetID)
 	if !found || !hasBundle || bundle != source.BundleSHA256 || !target.Capabilities.NetplayPort {
-		return ErrBlocked
+		return model.ErrBlocked
 	}
 	if target.Capabilities.RequiresThreads &&
 		(!capabilities.SecureContext || !capabilities.CrossOriginIsolated || !capabilities.SharedArrayBuffer) {
-		return ErrBlocked
+		return model.ErrBlocked
 	}
 	return nil
 }
 
 func (service *NetplayCreator) sign(id string) (string, []byte, error) {
 	if service.environment.SignCapability == nil {
-		return "", nil, ErrBlocked
+		return "", nil, model.ErrBlocked
 	}
 	capability, hash, err := service.environment.SignCapability(id)
 	if err != nil {
 		return "", nil, fmt.Errorf("sign netplay launch: %w", err)
 	}
 	if capability == "" || len(hash) != 32 {
-		return "", nil, ErrBlocked
+		return "", nil, model.ErrBlocked
 	}
 	return capability, hash, nil
 }
 
-func (service *NetplayCreator) existingResult(existing NetplayExistingLaunch) (Created, error) {
+func (service *NetplayCreator) existingResult(existing model.NetplayExistingLaunch) (model.Created, error) {
 	parsed, err := uuid.Parse(existing.ID)
 	if err != nil || parsed.Version() != 7 || parsed.String() != existing.ID {
-		return Created{}, ErrBlocked
+		return model.Created{}, model.ErrBlocked
 	}
 	capability, hash, err := service.sign(existing.ID)
 	if err != nil {
-		return Created{}, err
+		return model.Created{}, err
 	}
 	if subtle.ConstantTimeCompare(hash, existing.CredentialHash) != 1 {
-		return Created{}, ErrBlocked
+		return model.Created{}, model.ErrBlocked
 	}
 	result := netplayCreated(existing.ID, existing.BootstrapEnd, existing.HardEnd)
 	result.Capability, result.Existing = capability, true

@@ -90,7 +90,7 @@ func TestPrepareButterscotchDirectoryRejectsInvalidDataWin(t *testing.T) {
 func TestArchiveProjectPathsRejectsMissingMaterializedEntry(t *testing.T) {
 	t.Parallel()
 	files := []fileset.SourceFile{{Path: "data.win", SourceIndex: 7}}
-	if _, err := archiveProjectPaths(files, map[int]blobstore.Metadata{}); !errors.Is(err, importing.ErrArchiveUnsafe) {
+	if _, err := archiveProjectPaths(files, map[int]string{}); !errors.Is(err, importing.ErrArchiveUnsafe) {
 		t.Fatalf("archiveProjectPaths() error=%v, want ARCHIVE_UNSAFE", err)
 	}
 }

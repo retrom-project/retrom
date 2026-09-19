@@ -6,14 +6,15 @@ import (
 	"slices"
 
 	"retrom/internal/capability/runtime/runtimebundle"
+	model "retrom/internal/model/launch"
 )
 
-func providerRestore(id string, restore ConfigRestore, target runtimebundle.Target) (any, bool, error) {
+func providerRestore(id string, restore model.ConfigRestore, target runtimebundle.Target) (any, bool, error) {
 	if !restore.Required {
 		return nil, false, nil
 	}
 	if !restore.Found || target.Checkpoint == nil || !slices.Contains(target.Checkpoint.ReadFormats, restore.Format) {
-		return nil, false, ErrCredential
+		return nil, false, model.ErrCredential
 	}
 	return map[string]any{
 		"url": "/runtime/launches/" + id + "/state", "format": restore.Format,
@@ -21,16 +22,16 @@ func providerRestore(id string, restore ConfigRestore, target runtimebundle.Targ
 	}, true, nil
 }
 
-func providerNetplay(publicOrigin string, source ConfigSource) (any, string, error) {
+func providerNetplay(publicOrigin string, source model.ConfigSource) (any, string, error) {
 	if source.NetplayID == nil {
 		return nil, "SINGLE", nil
 	}
 	if source.NetplayRoom == nil || source.NetplayProfile == nil || source.NetplayPlayer == nil {
-		return nil, "", ErrCredential
+		return nil, "", model.ErrCredential
 	}
 	var profile map[string]any
 	if err := json.Unmarshal([]byte(*source.NetplayProfile), &profile); err != nil {
-		return nil, "", ErrCredential
+		return nil, "", model.ErrCredential
 	}
 	socket, err := netplaySocketURL(publicOrigin, *source.NetplayRoom)
 	if err != nil {
@@ -45,7 +46,7 @@ func providerNetplay(publicOrigin string, source ConfigSource) (any, string, err
 func netplaySocketURL(publicOrigin, roomID string) (string, error) {
 	origin, err := url.Parse(publicOrigin)
 	if err != nil || origin.Host == "" || origin.RawQuery != "" || origin.Fragment != "" || origin.Path != "" {
-		return "", ErrCredential
+		return "", model.ErrCredential
 	}
 	switch origin.Scheme {
 	case "http":
@@ -53,7 +54,7 @@ func netplaySocketURL(publicOrigin, roomID string) (string, error) {
 	case "https":
 		origin.Scheme = "wss"
 	default:
-		return "", ErrCredential
+		return "", model.ErrCredential
 	}
 	origin.Path = "/runtime/netplay/rooms/" + roomID + "/socket"
 	return origin.String(), nil

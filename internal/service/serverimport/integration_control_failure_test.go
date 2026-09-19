@@ -3,6 +3,8 @@ package serverimport_test
 import (
 	"errors"
 	"testing"
+
+	serverimportmodel "retrom/internal/model/serverimport"
 )
 
 func TestServerImportControlPreservesDatabaseFailures(t *testing.T) {
@@ -11,11 +13,11 @@ func TestServerImportControlPreservesDatabaseFailures(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, _, cancelErr := service.Cancel(t.Context(), "missing", 1, "stop", "01980000-0000-7000-8000-00000000b001")
-	if cancelErr == nil || errors.Is(cancelErr, ErrNotCancellable) {
+	if cancelErr == nil || errors.Is(cancelErr, serverimportmodel.ErrNotCancellable) {
 		t.Errorf("cancel hid storage failure: %v", cancelErr)
 	}
 	_, retryErr := service.Retry(t.Context(), "missing", 1, "01980000-0000-7000-8000-00000000b001")
-	if retryErr == nil || errors.Is(retryErr, ErrNotRetryable) {
+	if retryErr == nil || errors.Is(retryErr, serverimportmodel.ErrNotRetryable) {
 		t.Errorf("retry hid storage failure: %v", retryErr)
 	}
 }
@@ -23,7 +25,7 @@ func TestServerImportControlPreservesDatabaseFailures(t *testing.T) {
 func TestQueuedServerImportCancellationKeepsCompletedItems(t *testing.T) {
 	service, database, _ := archiveImportFixture(t)
 	actor := "01980000-0000-7000-8000-00000000b001"
-	created, err := service.Create(t.Context(), CreateRequest{Kind: "BIOS_DIRECTORY", RootID: "bios-root"}, actor)
+	created, err := service.Create(t.Context(), serverimportmodel.CreateRequest{Kind: "BIOS_DIRECTORY", RootID: "bios-root"}, actor)
 	if err != nil {
 		t.Fatal(err)
 	}

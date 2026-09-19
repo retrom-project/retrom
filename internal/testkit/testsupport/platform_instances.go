@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	platforminstancemodel "retrom/internal/model/platforminstance"
 	platformpersistence "retrom/internal/repo/platforminstance"
 	"retrom/internal/repo/recordstore"
 
@@ -125,7 +126,7 @@ func MustPlatformInstanceID(t testing.TB, database *sql.DB, templateKey string) 
 func fixturePlatformSlug(ctx context.Context, database *sql.DB, platformID, name string) (string, error) {
 	base := platforminstance.SlugBase(name, platformID)
 	var slugs []string
-	err := platformpersistence.New(database).WithRead(ctx, func(reader platforminstance.Reader) error {
+	err := platformpersistence.New(database).WithRead(ctx, func(reader platforminstancemodel.Reader) error {
 		var err error
 		slugs, err = reader.UsedSlugs(ctx, platformID, base)
 		if err != nil {

@@ -6,26 +6,27 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/launch"
 )
 
 type netplayCreationMemory struct {
-	before, current    NetplayCreationSnapshot
+	before, current    model.NetplayCreationSnapshot
 	cause, commitError error
 	inTransaction      bool
-	writes             []NetplayCreationPlan
+	writes             []model.NetplayCreationPlan
 }
 
 func (repository *netplayCreationMemory) Snapshot(
-	context.Context,
-	NetplayCreateRequest,
-) (NetplayCreationSnapshot, error) {
+	context.Context, model.NetplayCreateRequest,
+) (model.NetplayCreationSnapshot, error) {
 	if repository.inTransaction {
 		return repository.current, repository.cause
 	}
 	return repository.before, repository.cause
 }
 
-func (repository *netplayCreationMemory) WithCreation(_ context.Context, work func(NetplayCreationScope) error) error {
+func (repository *netplayCreationMemory) WithCreation(_ context.Context, work func(model.NetplayCreationScope) error) error {
 	repository.inTransaction = true
 	defer func() { repository.inTransaction = false }()
 	if err := work(repository); err != nil {
@@ -34,13 +35,13 @@ func (repository *netplayCreationMemory) WithCreation(_ context.Context, work fu
 	return repository.commitError
 }
 
-func (repository *netplayCreationMemory) Create(_ context.Context, plan NetplayCreationPlan) error {
+func (repository *netplayCreationMemory) Create(_ context.Context, plan model.NetplayCreationPlan) error {
 	repository.writes = append(repository.writes, plan)
 	return nil
 }
 
-func netplayTestRequest() NetplayCreateRequest {
-	return NetplayCreateRequest{
+func netplayTestRequest() model.NetplayCreateRequest {
+	return model.NetplayCreateRequest{
 		SessionID: "session", RoomID: "room", GameID: "game", GameVariantID: "variant", ProfileID: "profile", PlayerNo: 1,
 		ProviderID: "provider", TargetID: "target", BundleSHA256: strings.Repeat("a", 64), CredentialGeneration: 1,
 		NetplayCredentialSHA256: make([]byte, 32), ReturnTo: "/netplay/rooms/room",
@@ -72,7 +73,7 @@ func TestNetplayCreatorChecksIdentityBeforeWriting(t *testing.T) {
 		t.Fatalf("entropy failure=%v", err)
 	}
 	service.environment.NewID = func() (string, error) { return "not-a-uuid", nil }
-	if _, err := service.CreateNetplay(t.Context(), request); !errors.Is(err, ErrBlocked) || len(repository.writes) != 0 {
+	if _, err := service.CreateNetplay(t.Context(), request); !errors.Is(err, model.ErrBlocked) || len(repository.writes) != 0 {
 		t.Fatalf("malformed ID=%v", err)
 	}
 }

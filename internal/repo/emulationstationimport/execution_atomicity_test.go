@@ -9,11 +9,12 @@ import (
 	"testing"
 	"time"
 
+	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
 	application "retrom/internal/service/emulationstationimport"
 	"retrom/internal/testkit/testsupport"
 )
 
-func executionTestDatabase(t *testing.T, operation string) (*sql.DB, application.Execution) {
+func executionTestDatabase(t *testing.T, operation string) (*sql.DB, emulationstationimportmodel.Execution) {
 	t.Helper()
 	db, unit, projection := scanDatabase(t)
 	if operation != "cancel" {
@@ -45,8 +46,8 @@ func executionTestDatabase(t *testing.T, operation string) (*sql.DB, application
 
 func executeControlOperation(
 	t *testing.T,
-	repository application.ExecutionRepository,
-	unit application.Execution,
+	repository emulationstationimportmodel.ExecutionRepository,
+	unit emulationstationimportmodel.Execution,
 	operation string,
 ) error {
 	t.Helper()
@@ -58,7 +59,7 @@ func executeControlOperation(
 		}
 		return err
 	}
-	state, err := service.Fail(t.Context(), unit, application.ExecutionFailure{Code: "INTERNAL_ERROR", Retryable: operation == "retry"})
+	state, err := service.Fail(t.Context(), unit, emulationstationimportmodel.ExecutionFailure{Code: "INTERNAL_ERROR", Retryable: operation == "retry"})
 	if err != nil && state != "" {
 		t.Fatal("returned failure result before commit")
 	}
@@ -105,9 +106,9 @@ type executionCompletionFailure struct {
 
 func (repository executionCompletionFailure) WithExecution(
 	ctx context.Context,
-	run func(application.ExecutionScope) error,
+	run func(emulationstationimportmodel.ExecutionScope) error,
 ) error {
-	return repository.ExecutionControl.WithExecution(ctx, func(scope application.ExecutionScope) error {
+	return repository.ExecutionControl.WithExecution(ctx, func(scope emulationstationimportmodel.ExecutionScope) error {
 		if err := run(scope); err != nil {
 			return err
 		}

@@ -11,10 +11,10 @@ import (
 	"testing"
 
 	"retrom/internal/adapter/files/serversource"
-	application "retrom/internal/service/emulationstationimport"
+	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
 )
 
-func startSourceEvidence(t *testing.T) (Root, application.GamelistEvidence) {
+func startSourceEvidence(t *testing.T) (Root, emulationstationimportmodel.GamelistEvidence) {
 	t.Helper()
 	root := Root{ID: "games", path: t.TempDir()}
 	data := []byte("<gameList></gameList>")
@@ -28,7 +28,7 @@ func startSourceEvidence(t *testing.T) (Root, application.GamelistEvidence) {
 	}
 	digest := sha256.Sum256(data)
 	encoded := hex.EncodeToString(digest[:])
-	return root, application.GamelistEvidence{RelativePath: "gamelist.xml", FactsDigest: serversource.FactsDigest(info), ContentDigest: &encoded, ParseState: "VALID", SizeBytes: int64(len(data))}
+	return root, emulationstationimportmodel.GamelistEvidence{RelativePath: "gamelist.xml", FactsDigest: serversource.FactsDigest(info), ContentDigest: &encoded, ParseState: "VALID", SizeBytes: int64(len(data))}
 }
 
 func TestStartSourceReaderRejectsContentFactsAndPathDrift(t *testing.T) {
@@ -83,7 +83,7 @@ func TestStartAcceptsScannedOversizedGamelistFactsWithoutHashing(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := file.Truncate(application.MaxSnapshotGamelistBytes + 1); err != nil {
+	if err := file.Truncate(emulationstationimportmodel.MaxSnapshotGamelistBytes + 1); err != nil {
 		t.Fatal(err)
 	}
 	if err := file.Close(); err != nil {

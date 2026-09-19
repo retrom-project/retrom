@@ -7,9 +7,10 @@ import (
 	"time"
 
 	"retrom/internal/capability/security/authn"
+	model "retrom/internal/model/libraryimport"
 )
 
-func (worker *ImportWorker) Run(parent context.Context, work ImportWork) error {
+func (worker *ImportWorker) Run(parent context.Context, work model.ImportWork) error {
 	ctx, done, err := worker.register(parent, work.Execution.JobID)
 	if err != nil {
 		return err
@@ -17,7 +18,7 @@ func (worker *ImportWorker) Run(parent context.Context, work ImportWork) error {
 	return worker.runRegistered(ctx, work, done)
 }
 
-func (worker *ImportWorker) runClaimed(parent context.Context, work ImportWork) error {
+func (worker *ImportWorker) runClaimed(parent context.Context, work model.ImportWork) error {
 	ctx, done, err := worker.register(parent, work.Execution.JobID)
 	if err != nil {
 		if errors.Is(err, ErrImportWorkerClosed) {
@@ -28,7 +29,7 @@ func (worker *ImportWorker) runClaimed(parent context.Context, work ImportWork) 
 	return worker.runRegistered(ctx, work, done)
 }
 
-func (worker *ImportWorker) runRegistered(parent context.Context, work ImportWork, done func()) error {
+func (worker *ImportWorker) runRegistered(parent context.Context, work model.ImportWork, done func()) error {
 	ctx := parent
 	defer done()
 	remaining := time.Duration(work.Execution.DeadlineMS-worker.settings.Now().UnixMilli()) * time.Millisecond
@@ -49,7 +50,7 @@ func (worker *ImportWorker) runRegistered(parent context.Context, work ImportWor
 	return nil
 }
 
-func (worker *ImportWorker) execute(ctx context.Context, work ImportWork) error {
+func (worker *ImportWorker) execute(ctx context.Context, work model.ImportWork) error {
 	if work.Execution.ActorUserID != "" {
 		ctx = authn.WithPrincipal(ctx, authn.Principal{UserID: work.Execution.ActorUserID})
 	}
@@ -63,12 +64,14 @@ func (worker *ImportWorker) execute(ctx context.Context, work ImportWork) error 
 	if err := worker.dependencies.Control.Progress(ctx, work.Execution, len(plan.Groups)); err != nil {
 		return fmt.Errorf("record prepared import: %w", err)
 	}
-	result, err := worker.dependencies.Creations.CommitPrepared(ctx, plan, ImportCreationOptions{Queued: &work.Execution})
+	result, err := worker.dependencies.Creations.CommitPrepared(ctx, plan, model.ImportCreationOptions{
+		Queued: &work.Execution,
+	})
 	if err != nil {
 		return fmt.Errorf("commit import execution: %w", err)
 	}
 	if result.Created.JobID != work.Execution.JobID || result.Created.ImportJobID != work.Execution.ImportID {
-		return ErrInvalid
+		return model.ErrInvalid
 	}
 	return nil
 }
@@ -76,9 +79,9 @@ func (worker *ImportWorker) execute(ctx context.Context, work ImportWork) error 
 func (worker *ImportWorker) monitor(
 	ctx context.Context,
 	cancel context.CancelCauseFunc,
-	execution QueuedImportExecution,
+	execution model.QueuedImportExecution,
 ) {
-	ticker := time.NewTicker(ImportExecutionHeartbeat)
+	ticker := time.NewTicker(model.ImportExecutionHeartbeat)
 	defer ticker.Stop()
 	for {
 		select {
@@ -98,7 +101,7 @@ func (worker *ImportWorker) monitor(
 	}
 }
 
-func (worker *ImportWorker) settle(parent context.Context, work ImportWork, cause error) error {
+func (worker *ImportWorker) settle(parent context.Context, work model.ImportWork, cause error) error {
 	ctx, cancel := context.WithTimeout(context.WithoutCancel(parent), 30*time.Second)
 	defer cancel()
 	if err := worker.dependencies.Control.Fail(ctx, work.Execution, cause); err != nil {

@@ -13,6 +13,9 @@ import (
 	"testing"
 	"time"
 
+	runtimeprofile "retrom/internal/adapter/runtime/netplayprofile"
+	uploadsmodel "retrom/internal/model/uploads"
+
 	"retrom/internal/adapter/files/blobstore"
 	"retrom/internal/adapter/integration/libraryimport"
 	"retrom/internal/adapter/runtime/dependencies"
@@ -25,7 +28,6 @@ import (
 	netplayservice "retrom/internal/service/netplay"
 	"retrom/internal/service/uploads"
 	"retrom/internal/testkit/testsupport"
-	"retrom/internal/transport/netplay/profile"
 )
 
 const (
@@ -104,7 +106,7 @@ func publishNetplayROM(
 		t.Fatal(err)
 	}
 	service := uploads.New(uploadpersistence.New(database), blobs, dir, now)
-	upload, err := service.Create(t.Context(), uploads.CreateRequest{SourceType: "FILES", Files: []uploads.FileDeclaration{
+	upload, err := service.Create(t.Context(), uploadsmodel.CreateRequest{SourceType: "FILES", Files: []uploadsmodel.FileDeclaration{
 		{ClientFileID: "game", RelativePath: "Netplay.nes", SizeBytes: int64(len(contents))},
 	}})
 	if err != nil {
@@ -164,7 +166,7 @@ func startNetplayFixture(
 	gameID string,
 ) NetplayCreateRequest {
 	t.Helper()
-	registry, err := profile.LoadRegistry(filepath.Join("..", "..", "..", "..", "data"), deps)
+	registry, err := runtimeprofile.LoadRegistry(filepath.Join("..", "..", "..", "..", "data"), deps)
 	if err != nil {
 		t.Fatal(err)
 	}

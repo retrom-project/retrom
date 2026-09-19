@@ -6,7 +6,8 @@ import (
 	"testing"
 	"time"
 
-	payload "retrom/internal/service/payloadrelease"
+	payloadreleasemodel "retrom/internal/model/payloadrelease"
+	model "retrom/internal/model/pegasusimport"
 )
 
 type payloadLinksMemory struct {
@@ -14,17 +15,17 @@ type payloadLinksMemory struct {
 	calls int
 }
 
-func (memory *payloadLinksMemory) RetainedSources(context.Context, payload.SourceBatch, string, int) ([]string, error) {
+func (memory *payloadLinksMemory) RetainedSources(context.Context, payloadreleasemodel.SourceBatch, string, int) ([]string, error) {
 	memory.calls++
 	return nil, memory.cause
 }
 
-func (*payloadLinksMemory) BoundSources(context.Context, string, payload.Scope, int) ([]payload.Scope, error) {
+func (*payloadLinksMemory) BoundSources(context.Context, string, payloadreleasemodel.Scope, int) ([]payloadreleasemodel.Scope, error) {
 	return nil, nil
 }
 
-func emptyPayloadScope() payload.ReleaseScope {
-	return payload.ReleaseScope{Links: &payloadLinksMemory{}}
+func emptyPayloadScope() payloadreleasemodel.ReleaseScope {
+	return payloadreleasemodel.ReleaseScope{Links: &payloadLinksMemory{}}
 }
 
 type completionPayloadMemory struct {
@@ -33,7 +34,7 @@ type completionPayloadMemory struct {
 	committed bool
 }
 
-func (memory *completionPayloadMemory) WithCompletion(_ context.Context, run func(CompletionRecords) error) error {
+func (memory *completionPayloadMemory) WithCompletion(_ context.Context, run func(model.CompletionRecords) error) error {
 	if err := run(memory); err != nil {
 		return err
 	}
@@ -41,8 +42,8 @@ func (memory *completionPayloadMemory) WithCompletion(_ context.Context, run fun
 	return nil
 }
 
-func (memory *completionPayloadMemory) Payload() payload.ReleaseScope {
-	return payload.ReleaseScope{Links: memory.links}
+func (memory *completionPayloadMemory) Payload() payloadreleasemodel.ReleaseScope {
+	return payloadreleasemodel.ReleaseScope{Links: memory.links}
 }
 
 func TestCompletionRollsBackWhenPayloadLinksCannotBeRead(t *testing.T) {

@@ -7,12 +7,14 @@ import (
 	"encoding/json"
 	"fmt"
 
+	model "retrom/internal/model/jobs"
+
 	"github.com/google/uuid"
 )
 
-func retryEligibility(job Job, expectedVersion int64) error {
+func retryEligibility(job model.Job, expectedVersion int64) error {
 	if job.Version != expectedVersion || job.State != "FAILED" || !job.Retryable {
-		return ErrConflict
+		return model.ErrConflict
 	}
 	if job.Kind == "METADATA_SCRAPE" || job.Kind == "SERVER_BIOS_IMPORT" || job.Kind == "REVIEW_BULK_APPROVE" {
 		return ErrRetryViaDomain
@@ -22,7 +24,7 @@ func retryEligibility(job Job, expectedVersion int64) error {
 
 func (service *Service) Retry(ctx context.Context, jobID string, expectedVersion int64) (Result, error) {
 	var result Result
-	err := service.repository.WithWrite(ctx, func(records Records) error {
+	err := service.repository.WithWrite(ctx, func(records model.Records) error {
 		job, err := records.Get(ctx, jobID)
 		if err != nil {
 			return fmt.Errorf("read retry job: %w", err)
@@ -40,7 +42,7 @@ func (service *Service) Retry(ctx context.Context, jobID string, expectedVersion
 		}
 		digest := sha256.Sum256(input)
 		executionNo := job.ExecutionNo + 1
-		change := RetryWrite{
+		change := model.RetryWrite{
 			JobID: jobID, ExpectedVersion: expectedVersion, ExecutionNo: executionNo,
 			AtMS: service.now().UnixMilli(), Input: input, InputDigest: hex.EncodeToString(digest[:]),
 			Payload: []byte(fmt.Sprintf(`{"schemaVersion":1,"inputExecutionNo":%d}`, executionNo)),
@@ -71,15 +73,15 @@ type retryInputScope struct {
 	ID   string `json:"id"`
 }
 
-func retryInputSnapshot(previous []byte, job Job) ([]byte, error) {
+func retryInputSnapshot(previous []byte, job model.Job) ([]byte, error) {
 	var input retryInputEnvelope
 	if json.Unmarshal(previous, &input) != nil || input.SchemaVersion != 1 ||
 		input.Kind != job.Kind || input.Scope.Type != job.ScopeType || input.Scope.ID != job.ScopeID ||
 		len(input.Inputs) == 0 || !json.Valid(input.Inputs) {
-		return nil, ErrConflict
+		return nil, model.ErrConflict
 	}
 	if _, err := uuid.Parse(input.ExecutionID); err != nil {
-		return nil, ErrConflict
+		return nil, model.ErrConflict
 	}
 	executionID, err := uuid.NewV7()
 	if err != nil {

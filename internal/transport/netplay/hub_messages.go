@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"time"
+
+	"retrom/internal/model/netplayprofile"
 )
 
 // This closed dispatcher explicitly enumerates every accepted wire message type.
@@ -65,7 +67,7 @@ func (session *realtimeSession) handleInput(
 	messageBytes int,
 ) error {
 	if messageBytes > MaxInputMessageBytes || message.PlayerNo != client.participant.PlayerNo ||
-		len(message.Controls) != ControlCount || !client.allowInput(session.options.Now()) {
+		len(message.Controls) != netplayprofile.ControlCount || !client.allowInput(session.options.Now()) {
 		return ErrProtocol
 	}
 	return session.acceptInput(ctx, client.participant.PlayerNo, message.Frame, message.Controls)
@@ -247,8 +249,8 @@ func (session *realtimeSession) acceptInput(
 			"frame": frame.Frame, "occupiedSeatMask": frame.OccupiedSeatMask, "players": frame.Players,
 		})
 		session.history = append(session.history, frame)
-		if len(session.history) > CanonicalHistoryFrames {
-			session.history = session.history[len(session.history)-CanonicalHistoryFrames:]
+		if len(session.history) > netplayprofile.CanonicalHistoryFrames {
+			session.history = session.history[len(session.history)-netplayprofile.CanonicalHistoryFrames:]
 		}
 		delete(session.inputs, session.nextFrame)
 		session.nextFrame++
@@ -259,7 +261,8 @@ func (session *realtimeSession) acceptInput(
 func (session *realtimeSession) acceptHash(ctx context.Context, playerNo int, frame int64, digest string) error {
 	session.mu.Lock()
 	defer session.mu.Unlock()
-	if !validDigest(digest) || frame < 0 || (frame+1)%CheckpointEveryFrames != 0 || frame >= session.nextFrame {
+	if !netplayprofile.ValidDigest(digest) || frame < 0 || (frame+1)%netplayprofile.CheckpointEveryFrames != 0 ||
+		frame >= session.nextFrame {
 		return fmt.Errorf("hash outside canonical checkpoint: %w", ErrProtocol)
 	}
 	// The other peer's checkpoint can already be in flight when a mismatch

@@ -9,7 +9,7 @@ import (
 
 	"retrom/internal/adapter/files/blobstore"
 	"retrom/internal/foundation/cleanup"
-	application "retrom/internal/service/launch"
+	launchmodel "retrom/internal/model/launch"
 )
 
 var (
@@ -19,7 +19,7 @@ var (
 
 type productBlobVerifier struct{ blobs *blobstore.Store }
 
-func (verifier productBlobVerifier) Verify(ctx context.Context, check application.ProductBlobCheck) error {
+func (verifier productBlobVerifier) Verify(ctx context.Context, check launchmodel.ProductBlobCheck) error {
 	if err := ctx.Err(); err != nil {
 		return fmt.Errorf("verify product blob: %w", err)
 	}

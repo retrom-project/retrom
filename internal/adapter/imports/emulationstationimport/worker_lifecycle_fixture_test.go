@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"time"
 
+	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
 	persistence "retrom/internal/repo/emulationstationimport"
 	application "retrom/internal/service/emulationstationimport"
 )
@@ -20,37 +21,37 @@ func (service *Service) newWorker() *application.Worker {
 	}, func() time.Time { return service.now() })
 }
 
-func (adapter workerAdapter) Claim(ctx context.Context) (application.Execution, bool, error) {
+func (adapter workerAdapter) Claim(ctx context.Context) (emulationstationimportmodel.Execution, bool, error) {
 	return adapter.service.claim(ctx)
 }
 
-func (adapter workerAdapter) Renew(ctx context.Context, unit application.Execution) (application.LeaseState, error) {
+func (adapter workerAdapter) Renew(ctx context.Context, unit emulationstationimportmodel.Execution) (emulationstationimportmodel.LeaseState, error) {
 	state, err := application.NewLeases(persistence.NewLeases(adapter.service.database), adapter.service.now).Renew(
 		ctx,
 		unit,
 	)
 	if err != nil {
-		return application.LeaseLost, fmt.Errorf("renew EmulationStation execution: %w", err)
+		return emulationstationimportmodel.LeaseLost, fmt.Errorf("renew EmulationStation execution: %w", err)
 	}
 	return state, nil
 }
 
-func (adapter workerAdapter) Observe(ctx context.Context, unit application.Execution) (application.LeaseState, error) {
+func (adapter workerAdapter) Observe(ctx context.Context, unit emulationstationimportmodel.Execution) (emulationstationimportmodel.LeaseState, error) {
 	state, err := adapter.service.executionControl().Observe(ctx, unit)
 	if err != nil {
-		return application.LeaseLost, fmt.Errorf("observe EmulationStation execution: %w", err)
+		return emulationstationimportmodel.LeaseLost, fmt.Errorf("observe EmulationStation execution: %w", err)
 	}
 	return state, nil
 }
 
-func (adapter workerAdapter) CloseCancelled(ctx context.Context, unit application.Execution) (bool, error) {
+func (adapter workerAdapter) CloseCancelled(ctx context.Context, unit emulationstationimportmodel.Execution) (bool, error) {
 	return adapter.service.closeCancelled(ctx, unit)
 }
 
 func (adapter workerAdapter) Fail(
 	ctx context.Context,
-	unit application.Execution,
-	failure application.ExecutionFailure,
+	unit emulationstationimportmodel.Execution,
+	failure emulationstationimportmodel.ExecutionFailure,
 ) (string, error) {
 	state, err := adapter.service.executionControl().Fail(ctx, unit, failure)
 	if err != nil {
@@ -67,15 +68,15 @@ func (adapter workerAdapter) Expire(ctx context.Context) error {
 	return adapter.service.ExpirePlans(ctx)
 }
 
-func (adapter workerAdapter) Execute(ctx context.Context, unit application.Execution) {
+func (adapter workerAdapter) Execute(ctx context.Context, unit emulationstationimportmodel.Execution) {
 	adapter.service.executionDispatcher().Execute(ctx, unit)
 }
 
-func (adapter workerAdapter) CheckRoot(unit application.Execution) error {
+func (adapter workerAdapter) CheckRoot(unit emulationstationimportmodel.Execution) error {
 	return adapter.service.sources().CheckRoot(unit)
 }
 
-func (adapter workerAdapter) ForScan(unit application.Execution) (application.ScannerSource, error) {
+func (adapter workerAdapter) ForScan(unit emulationstationimportmodel.Execution) (application.ScannerSource, error) {
 	return adapter.service.sources().ForScan(unit)
 }
 

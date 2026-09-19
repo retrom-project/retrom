@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	library "retrom/internal/service/libraryimport"
+	libraryimportmodel "retrom/internal/model/libraryimport"
 )
 
 func TestInterruptedReviewKeepsExistingOmittedWarningCount(t *testing.T) {
@@ -17,7 +17,7 @@ func TestInterruptedReviewKeepsExistingOmittedWarningCount(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := appendExecutionWarnings(string(encoded), []library.ServerMetadataWarning{{Code: "FIELD_TRUNCATED", Field: "description"}})
+	result, err := AppendReviewMetadataWarnings(string(encoded), []libraryimportmodel.ServerMetadataWarning{{Code: "FIELD_TRUNCATED", Field: "description"}})
 	if err != nil {
 		t.Fatal(err)
 	}

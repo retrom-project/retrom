@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	pegasusimportmodel "retrom/internal/model/pegasusimport"
 	application "retrom/internal/service/pegasusimport"
 )
 
@@ -79,16 +80,16 @@ func TestRecoveryTransactionRejectsStaleOwnership(t *testing.T) {
 			t.Parallel()
 			db := recoveryDatabase(t)
 			before := workflowRows(t, db)
-			err := NewRecovery(db).WithRecovery(t.Context(), func(scope application.RecoveryScope) error {
+			err := NewRecovery(db).WithRecovery(t.Context(), func(scope pegasusimportmodel.RecoveryScope) error {
 				current, err := scope.Records.Current(t.Context(), "work")
 				if err != nil {
 					return err
 				}
-				change := application.RecoveryChange{Before: current, JobState: "QUEUED", ImportState: "QUEUED", ItemState: "PENDING", Event: "RETRY_SCHEDULED", NowMS: 10}
+				change := pegasusimportmodel.RecoveryChange{Before: current, JobState: "QUEUED", ImportState: "QUEUED", ItemState: "PENDING", Event: "RETRY_SCHEDULED", NowMS: 10}
 				invalidateRecovery(&change.Before, field)
 				return scope.Records.Apply(t.Context(), change)
 			})
-			if !errors.Is(err, application.ErrVersionConflict) {
+			if !errors.Is(err, pegasusimportmodel.ErrVersionConflict) {
 				t.Fatalf("stale %s: %v", field, err)
 			}
 			if !reflect.DeepEqual(before, workflowRows(t, db)) {
@@ -98,7 +99,7 @@ func TestRecoveryTransactionRejectsStaleOwnership(t *testing.T) {
 	}
 }
 
-func invalidateRecovery(before *application.RecoverySnapshot, field string) {
+func invalidateRecovery(before *pegasusimportmodel.RecoverySnapshot, field string) {
 	switch field {
 	case "job version":
 		before.JobVersion++
@@ -124,12 +125,12 @@ func TestRecoveryTransactionRollsBackLateFailureIncludingPayloadJobs(t *testing.
 	db := recoveryDatabase(t)
 	before := workflowRows(t, db)
 	cause := errors.New("late write failed")
-	err := NewRecovery(db).WithRecovery(t.Context(), func(scope application.RecoveryScope) error {
+	err := NewRecovery(db).WithRecovery(t.Context(), func(scope pegasusimportmodel.RecoveryScope) error {
 		current, err := scope.Records.Current(t.Context(), "work")
 		if err != nil {
 			return err
 		}
-		if err := scope.Records.Apply(t.Context(), application.RecoveryChange{Before: current, JobState: "FAILED", ImportState: "FAILED", ItemState: "COMMIT_FAILED", Code: "PEGASUS_EXECUTION_TIMEOUT", Event: "FAILED", NowMS: 100}); err != nil {
+		if err := scope.Records.Apply(t.Context(), pegasusimportmodel.RecoveryChange{Before: current, JobState: "FAILED", ImportState: "FAILED", ItemState: "COMMIT_FAILED", Code: "PEGASUS_EXECUTION_TIMEOUT", Event: "FAILED", NowMS: 100}); err != nil {
 			return err
 		}
 		return cause

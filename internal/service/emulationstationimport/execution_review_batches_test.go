@@ -6,7 +6,8 @@ import (
 	"testing"
 	"time"
 
-	library "retrom/internal/service/libraryimport"
+	model "retrom/internal/model/emulationstationimport"
+	libraryimportmodel "retrom/internal/model/libraryimport"
 )
 
 type executionReviewMemory struct {
@@ -14,9 +15,9 @@ type executionReviewMemory struct {
 	remaining, completed, transactions, maxBatch int
 }
 
-func (memory *executionReviewMemory) WithExecution(_ context.Context, run func(ExecutionScope) error) error {
+func (memory *executionReviewMemory) WithExecution(_ context.Context, run func(model.ExecutionScope) error) error {
 	before := memory.completed
-	if err := run(ExecutionScope{Payload: emptyPayloadScope(), Read: memory, Write: memory, Metadata: memory}); err != nil {
+	if err := run(model.ExecutionScope{Payload: emptyPayloadScope(), Read: memory, Write: memory, Metadata: memory}); err != nil {
 		return err
 	}
 	memory.transactions++
@@ -24,10 +25,10 @@ func (memory *executionReviewMemory) WithExecution(_ context.Context, run func(E
 	return nil
 }
 
-func (memory *executionReviewMemory) Reviews(context.Context, string, int) ([]ExecutionReview, error) {
-	result := make([]ExecutionReview, min(101, memory.remaining))
+func (memory *executionReviewMemory) Reviews(context.Context, string, int) ([]model.ExecutionReview, error) {
+	result := make([]model.ExecutionReview, min(101, memory.remaining))
 	for index := range result {
-		result[index] = ExecutionReview{
+		result[index] = model.ExecutionReview{
 			ItemID: fmt.Sprint(memory.completed + index), State: "VALIDATING", ReservedItemID: "ordinary", ReservedJobID: "library",
 			Version: 1, MetadataJSON: `{"title":"Game"}`, WarningsJSON: "[]",
 		}
@@ -35,18 +36,20 @@ func (memory *executionReviewMemory) Reviews(context.Context, string, int) ([]Ex
 	return result, nil
 }
 
-func (memory *executionReviewMemory) CompleteReview(context.Context, ExecutionReviewCompletion) error {
+func (memory *executionReviewMemory) CompleteReview(context.Context, model.ExecutionReviewCompletion) error {
 	memory.remaining--
 	memory.completed++
 	memory.before.ImportVersion++
 	return nil
 }
 
-func (*executionReviewMemory) CurrentMetadata(context.Context, string) (library.MetadataDraft, error) {
-	return library.MetadataDraft{Version: 1, MetadataJSON: `{"description":"","developer":"","genre":"","players":null,"publisher":"","releaseYear":null,"title":"Game"}`}, nil
+func (*executionReviewMemory) CurrentMetadata(context.Context, string) (libraryimportmodel.MetadataDraft, error) {
+	return libraryimportmodel.MetadataDraft{Version: 1, MetadataJSON: `{"description":"","developer":"","genre":"","players":null,"publisher":"","releaseYear":null,"title":"Game"}`}, nil
 }
 
-func (*executionReviewMemory) SaveMetadata(context.Context, library.MetadataChange) error { return nil }
+func (*executionReviewMemory) SaveMetadata(context.Context, libraryimportmodel.MetadataChange) error {
+	return nil
+}
 
 func TestExecutionCancellationCompletesReviewsInBoundedTransactions(t *testing.T) {
 	memory := &executionReviewMemory{executionMemory: newExecutionMemory(), remaining: 205}

@@ -4,8 +4,8 @@ import (
 	"errors"
 	"testing"
 
+	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
 	persistence "retrom/internal/repo/emulationstationimport"
-	application "retrom/internal/service/emulationstationimport"
 )
 
 func TestESCompanionWriterRepeatsFrozenAuthority(t *testing.T) {
@@ -31,12 +31,12 @@ func TestESCompanionWriterRepeatsFrozenAuthority(t *testing.T) {
 			before := materialAuthoritySnapshot(t, fixture, original.Before.Item.ID)
 			err := persistence.NewCompanions(fixture.database).WithCompanions(
 				fixture.context,
-				func(scope application.CompanionScope) error {
+				func(scope emulationstationimportmodel.CompanionScope) error {
 					owner, err := scope.Read.Owner(fixture.context, original.Before.Item.ID)
 					if err != nil {
 						return err
 					}
-					change := application.CompanionBinding{Before: owner, File: file, Blob: blob, NowMS: fixture.now.UnixMilli()}
+					change := emulationstationimportmodel.CompanionBinding{Before: owner, File: file, Blob: blob, NowMS: fixture.now.UnixMilli()}
 					mutateCompanionBinding(&change, field)
 					_, err = scope.Write.Register(fixture.context, change)
 					return err
@@ -52,7 +52,7 @@ func TestESCompanionWriterRepeatsFrozenAuthority(t *testing.T) {
 	}
 }
 
-func mutateCompanionBinding(change *application.CompanionBinding, field string) {
+func mutateCompanionBinding(change *emulationstationimportmodel.CompanionBinding, field string) {
 	switch field {
 	case "worker":
 		change.Before.Before.Execution.WorkerID = "other"
@@ -81,7 +81,7 @@ func mutateCompanionBinding(change *application.CompanionBinding, field string) 
 	}
 }
 
-func mutateCompanionFile(file *application.CompanionFile, field string) {
+func mutateCompanionFile(file *emulationstationimportmodel.CompanionFile, field string) {
 	switch field {
 	case "candidate collection":
 		file.CollectionID = "other"

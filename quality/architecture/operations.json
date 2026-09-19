@@ -2691,9 +2691,9 @@
         "retrom/internal/model/payloadrelease.validScheduleScope",
         "retrom/internal/service/emulationstationimport.BoundedWarnings",
         "retrom/internal/service/emulationstationimport.ExecutionState",
-        "retrom/internal/service/emulationstationimport.appendExecutionWarnings",
+        "retrom/internal/service/emulationstationimport.AppendReviewMetadataWarnings",
         "retrom/internal/service/emulationstationimport.planExecutionProjection",
-        "retrom/internal/service/emulationstationimport.reviewPreparation",
+        "retrom/internal/service/emulationstationimport.ReviewPreparation",
         "retrom/internal/service/emulationstationimport.runningImportState",
         "retrom/internal/service/libraryimport.NormalizeServerReviewMetadata",
         "retrom/internal/service/libraryimport.encodeMetadata",
@@ -4335,9 +4335,9 @@
       "policy_symbols": [
         "retrom/internal/service/emulationstationimport.BoundedWarnings",
         "retrom/internal/service/emulationstationimport.ExecutionState",
-        "retrom/internal/service/emulationstationimport.appendExecutionWarnings",
+        "retrom/internal/service/emulationstationimport.AppendReviewMetadataWarnings",
         "retrom/internal/service/emulationstationimport.matchesReviewHandoff",
-        "retrom/internal/service/emulationstationimport.reviewPreparation",
+        "retrom/internal/service/emulationstationimport.ReviewPreparation",
         "retrom/internal/service/emulationstationimport.runningImportState",
         "retrom/internal/service/emulationstationimport.validItemVersion",
         "retrom/internal/service/emulationstationimport.validateImportExecution",
@@ -5104,10 +5104,10 @@
         "retrom/internal/service/emulationstationimport.BoundedWarnings",
         "retrom/internal/service/emulationstationimport.ExecutionState",
         "retrom/internal/service/emulationstationimport.RecoveryDelayMS",
-        "retrom/internal/service/emulationstationimport.appendExecutionWarnings",
+        "retrom/internal/service/emulationstationimport.AppendReviewMetadataWarnings",
         "retrom/internal/service/emulationstationimport.planExecutionFailure",
         "retrom/internal/service/emulationstationimport.planExecutionProjection",
-        "retrom/internal/service/emulationstationimport.reviewPreparation",
+        "retrom/internal/service/emulationstationimport.ReviewPreparation",
         "retrom/internal/service/emulationstationimport.runningImportState",
         "retrom/internal/service/libraryimport.NormalizeServerReviewMetadata",
         "retrom/internal/service/libraryimport.encodeMetadata",
@@ -6501,12 +6501,12 @@
         "retrom/internal/model/payloadrelease.validScheduleScope",
         "retrom/internal/service/emulationstationimport.BoundedWarnings",
         "retrom/internal/service/emulationstationimport.RecoveryDelayMS",
-        "retrom/internal/service/emulationstationimport.appendExecutionWarnings",
+        "retrom/internal/service/emulationstationimport.AppendReviewMetadataWarnings",
         "retrom/internal/service/emulationstationimport.planRecovery",
         "retrom/internal/service/emulationstationimport.planRecoveryProjection",
         "retrom/internal/service/emulationstationimport.recoverableState",
         "retrom/internal/service/emulationstationimport.recoveryLeaseShape",
-        "retrom/internal/service/emulationstationimport.reviewPreparation",
+        "retrom/internal/service/emulationstationimport.ReviewPreparation",
         "retrom/internal/service/emulationstationimport.sameRecoverySnapshot",
         "retrom/internal/service/emulationstationimport.validRecoveryBudget",
         "retrom/internal/service/libraryimport.NormalizeServerReviewMetadata",
@@ -33751,8 +33751,8 @@
       "prepare": "(*retrom/internal/service/pegasusimport.ScanPublication).Finish",
       "commit": "(*retrom/internal/repo/pegasusimport.ScanPublication).WithScan",
       "policy_symbols": [
-        "(*retrom/internal/service/pegasusimport.scanResult).addEstimated",
-        "(*retrom/internal/service/pegasusimport.scanResult).collectItem",
+        "(*retrom/internal/service/pegasusimport.ScanResult).addEstimated",
+        "(*retrom/internal/service/pegasusimport.ScanResult).collectItem",
         "retrom/internal/service/pegasusimport.ValidateExecution",
         "retrom/internal/service/pegasusimport.automaticAssetCandidates",
         "retrom/internal/service/pegasusimport.buildAssetCandidates",
@@ -33952,7 +33952,7 @@
       "policy_symbols": [
         "retrom/internal/service/libraryimport.NormalizeServerReviewMetadata",
         "retrom/internal/service/pegasusimport.canCompleteReviewHandoff",
-        "retrom/internal/service/pegasusimport.mergeReviewMetadataWarnings"
+        "retrom/internal/service/pegasusimport.MergeReviewMetadataWarnings"
       ],
       "fresh_facts": [
         {
@@ -34274,8 +34274,8 @@
       "prepare": "(*retrom/internal/service/pegasusimport.ScanPublication).Headers",
       "commit": "(*retrom/internal/repo/pegasusimport.ScanPublication).WithScan",
       "policy_symbols": [
-        "(*retrom/internal/service/pegasusimport.scanResult).addEstimated",
-        "(*retrom/internal/service/pegasusimport.scanResult).collectItem",
+        "(*retrom/internal/service/pegasusimport.ScanResult).addEstimated",
+        "(*retrom/internal/service/pegasusimport.ScanResult).collectItem",
         "retrom/internal/service/pegasusimport.ValidateExecution",
         "retrom/internal/service/pegasusimport.automaticAssetCandidates",
         "retrom/internal/service/pegasusimport.buildAssetCandidates",
@@ -34444,8 +34444,8 @@
       "prepare": "(*retrom/internal/service/pegasusimport.ScanPublication).Items",
       "commit": "(*retrom/internal/repo/pegasusimport.ScanPublication).WithScan",
       "policy_symbols": [
-        "(*retrom/internal/service/pegasusimport.scanResult).addEstimated",
-        "(*retrom/internal/service/pegasusimport.scanResult).collectItem",
+        "(*retrom/internal/service/pegasusimport.ScanResult).addEstimated",
+        "(*retrom/internal/service/pegasusimport.ScanResult).collectItem",
         "retrom/internal/service/pegasusimport.ValidateExecution",
         "retrom/internal/service/pegasusimport.automaticAssetCandidates",
         "retrom/internal/service/pegasusimport.buildAssetCandidates",
@@ -34650,7 +34650,7 @@
         "retrom/internal/model/payloadrelease.ValidReason",
         "retrom/internal/model/payloadrelease.ValidScheduleScope",
         "retrom/internal/service/libraryimport.NormalizeServerReviewMetadata",
-        "retrom/internal/service/pegasusimport.mergeReviewMetadataWarnings",
+        "retrom/internal/service/pegasusimport.MergeReviewMetadataWarnings",
         "retrom/internal/service/pegasusimport.planRecovery",
         "retrom/internal/service/pegasusimport.recoveryParentActive",
         "retrom/internal/service/pegasusimport.validRecoveryExecution"
@@ -36083,7 +36083,7 @@
         "retrom/internal/model/payloadrelease.ValidScheduleScope",
         "retrom/internal/service/libraryimport.NormalizeServerReviewMetadata",
         "retrom/internal/service/pegasusimport.ValidateExecution",
-        "retrom/internal/service/pegasusimport.mergeReviewMetadataWarnings",
+        "retrom/internal/service/pegasusimport.MergeReviewMetadataWarnings",
         "retrom/internal/service/pegasusimport.validLiveExecution"
       ],
       "fresh_facts": [

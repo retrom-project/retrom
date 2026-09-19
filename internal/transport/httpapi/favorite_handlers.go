@@ -9,40 +9,40 @@ import (
 
 	"retrom/internal/capability/security/authn"
 	"retrom/internal/foundation/cursor"
-	"retrom/internal/service/favorites"
+	favoritesmodel "retrom/internal/model/favorites"
 )
 
-func favoritePrincipal(request *http.Request) favorites.Principal {
+func favoritePrincipal(request *http.Request) favoritesmodel.Principal {
 	principal, _ := authn.PrincipalFromContext(request.Context())
-	return favorites.Principal{UserID: principal.UserID, ProfileID: principal.ProfileID}
+	return favoritesmodel.Principal{UserID: principal.UserID, ProfileID: principal.ProfileID}
 }
 
 func writeFavoriteError(writer http.ResponseWriter, request *http.Request, err error) {
 	switch {
-	case errors.Is(err, favorites.ErrGameNotFound):
+	case errors.Is(err, favoritesmodel.ErrGameNotFound):
 		writeError(writer, request, http.StatusNotFound, "GAME_NOT_FOUND", "游戏不存在", map[string]any{})
-	case errors.Is(err, favorites.ErrFolderNotFound):
+	case errors.Is(err, favoritesmodel.ErrFolderNotFound):
 		writeError(writer, request, http.StatusNotFound, "FAVORITE_FOLDER_NOT_FOUND", "收藏夹不存在", map[string]any{})
-	case errors.Is(err, favorites.ErrFolderNameConflict):
+	case errors.Is(err, favoritesmodel.ErrFolderNameConflict):
 		writeError(writer, request, http.StatusConflict, "FAVORITE_FOLDER_NAME_CONFLICT", "已存在同名收藏夹", map[string]any{})
-	case errors.Is(err, favorites.ErrIdempotencyReused):
+	case errors.Is(err, favoritesmodel.ErrIdempotencyReused):
 		writeError(writer, request, http.StatusConflict, "IDEMPOTENCY_KEY_REUSED", "幂等键已用于另一请求", map[string]any{})
-	case errors.Is(err, favorites.ErrVersionConflict):
+	case errors.Is(err, favoritesmodel.ErrVersionConflict):
 		writeError(writer, request, http.StatusPreconditionFailed, "RESOURCE_VERSION_CONFLICT", "收藏夹已被修改", map[string]any{})
-	case errors.Is(err, favorites.ErrBatchTooLarge):
+	case errors.Is(err, favoritesmodel.ErrBatchTooLarge):
 		writeError(
 			writer, request, http.StatusRequestEntityTooLarge,
 			"FAVORITE_BATCH_TOO_LARGE", "收藏批量请求超过限制", map[string]any{},
 		)
-	case errors.Is(err, favorites.ErrFolderLimit):
+	case errors.Is(err, favoritesmodel.ErrFolderLimit):
 		writeError(
 			writer, request, http.StatusUnprocessableEntity,
 			"FAVORITE_FOLDER_LIMIT_REACHED", "收藏夹数量已达上限", map[string]any{},
 		)
-	case errors.Is(err, favorites.ErrInvalidCursor):
+	case errors.Is(err, favoritesmodel.ErrInvalidCursor):
 		writeError(writer, request, http.StatusBadRequest, "INVALID_CURSOR", "分页游标无效", map[string]any{})
-	case errors.Is(err, favorites.ErrInvalid), errors.Is(err, favorites.ErrInvalidFolderName),
-		errors.Is(err, favorites.ErrInvalidFavoriteListSort):
+	case errors.Is(err, favoritesmodel.ErrInvalid), errors.Is(err, favoritesmodel.ErrInvalidFolderName),
+		errors.Is(err, favoritesmodel.ErrInvalidFavoriteListSort):
 		writeError(writer, request, http.StatusBadRequest, "INVALID_REQUEST", "收藏请求无效", map[string]any{})
 	default:
 		serverError(writer, request, err)
@@ -57,7 +57,7 @@ func serverError(writer http.ResponseWriter, request *http.Request, err error) {
 	writeError(writer, request, http.StatusInternalServerError, "INTERNAL_ERROR", "数据库操作失败", map[string]any{})
 }
 
-func writeIdempotentFavoriteResponse(writer http.ResponseWriter, response favorites.IdempotentResponse) {
+func writeIdempotentFavoriteResponse(writer http.ResponseWriter, response favoritesmodel.IdempotentResponse) {
 	for name, value := range response.Headers {
 		writer.Header().Set(name, value)
 	}
@@ -84,33 +84,34 @@ func favoriteListFilterDigest(request *http.Request, scope, sortCode string) str
 	})
 }
 
-func parseFavoriteListOptions(request *http.Request) (favorites.ListOptions, string, error) {
+func parseFavoriteListOptions(request *http.Request) (favoritesmodel.ListOptions, string, error) {
 	values := request.URL.Query()
 	scope := values.Get("scope")
 	if scope == "" {
-		scope = favorites.ScopeAll
+		scope = favoritesmodel.ScopeAll
 	}
 	sortCode := values.Get("sort")
 	if sortCode == "" {
-		sortCode = favorites.SortFavoritedDesc
+		sortCode = favoritesmodel.SortFavoritedDesc
 	}
 	folderID := values.Get("folderId")
-	if (scope == favorites.ScopeFolder) != (folderID != "") ||
-		(folderID != "" && !favorites.ValidID(folderID)) {
-		return favorites.ListOptions{}, "", errUnknownQuery
+	if (scope == favoritesmodel.ScopeFolder) != (folderID != "") ||
+		(folderID != "" && !favoritesmodel.ValidID(folderID)) {
+		return favoritesmodel.ListOptions{}, "", errUnknownQuery
 	}
-	if scope != favorites.ScopeAll && scope != favorites.ScopeUncategorized && scope != favorites.ScopeFolder {
-		return favorites.ListOptions{}, "", errUnknownQuery
+	if scope != favoritesmodel.ScopeAll && scope != favoritesmodel.ScopeUncategorized &&
+		scope != favoritesmodel.ScopeFolder {
+		return favoritesmodel.ListOptions{}, "", errUnknownQuery
 	}
-	if sortCode != favorites.SortFavoritedDesc && sortCode != favorites.SortRecentlyPlayed &&
-		sortCode != favorites.SortTitleAsc && sortCode != favorites.SortReleaseYearDesc {
-		return favorites.ListOptions{}, "", errUnknownQuery
+	if sortCode != favoritesmodel.SortFavoritedDesc && sortCode != favoritesmodel.SortRecentlyPlayed &&
+		sortCode != favoritesmodel.SortTitleAsc && sortCode != favoritesmodel.SortReleaseYearDesc {
+		return favoritesmodel.ListOptions{}, "", errUnknownQuery
 	}
 	limit := 50
 	if values.Get("limit") != "" {
 		limit, _ = strconv.Atoi(values.Get("limit"))
 	}
-	options := favorites.ListOptions{
+	options := favoritesmodel.ListOptions{
 		Scope: scope, FolderID: folderID, Query: values.Get("q"), PlatformID: values.Get("platformId"),
 		Sort: sortCode, Limit: limit,
 	}
@@ -130,14 +131,14 @@ func (server *Server) favoritesList(writer http.ResponseWriter, request *http.Re
 			writeError(writer, request, http.StatusBadRequest, "INVALID_CURSOR", "分页游标无效", map[string]any{})
 			return
 		}
-		options.Cursor = &favorites.PageCursor{SortValues: payload.SortValues, ID: payload.ID}
+		options.Cursor = &favoritesmodel.PageCursor{SortValues: payload.SortValues, ID: payload.ID}
 	}
 	result, err := server.favoriteService.List(request.Context(), favoritePrincipal(request), options)
-	if errors.Is(err, favorites.ErrFolderNotFound) {
+	if errors.Is(err, favoritesmodel.ErrFolderNotFound) {
 		writeFavoriteError(writer, request, err)
 		return
 	}
-	if errors.Is(err, favorites.ErrInvalidCursor) {
+	if errors.Is(err, favoritesmodel.ErrInvalidCursor) {
 		writeError(writer, request, http.StatusBadRequest, "INVALID_CURSOR", "分页游标无效", map[string]any{})
 		return
 	}
@@ -260,7 +261,7 @@ func (server *Server) restoreFavorites(writer http.ResponseWriter, request *http
 		return
 	}
 	var body struct {
-		Items []favorites.RestoreItem `json:"items"`
+		Items []favoritesmodel.RestoreItem `json:"items"`
 	}
 	if err := decodeJSON(writer, request, &body, 262144); err != nil {
 		return

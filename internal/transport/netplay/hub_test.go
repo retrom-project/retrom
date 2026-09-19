@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/model/netplayprofile"
+
 	"retrom/internal/testkit/testassert"
 
 	"github.com/coder/websocket"
@@ -54,7 +56,7 @@ func TestPausedSessionIgnoresValidInFlightInputAndHash(t *testing.T) {
 		inputs:    make(map[int64]map[int][24]int16),
 		hashes:    make(map[int64]map[int]string),
 	}
-	controls := make([]int16, ControlCount)
+	controls := make([]int16, netplayprofile.ControlCount)
 	if err := session.acceptInput(context.Background(), 2, 127, controls); err != nil {
 		t.Fatalf("valid in-flight input at pause boundary: %v", err)
 	}
@@ -333,7 +335,7 @@ func TestAcceptanceNP012CanonicalFramesAreAtomicForTwoToFourPlayers(t *testing.T
 				peers: make(map[int]*peer), inputs: make(map[int64]map[int][24]int16),
 			}
 			for playerNo := players; playerNo >= 1; playerNo-- {
-				controls := make([]int16, ControlCount)
+				controls := make([]int16, netplayprofile.ControlCount)
 				controls[0] = playerValue[playerNo]
 				if err := session.acceptInput(ctx, playerNo, 0, controls); err != nil {
 					t.Fatal(err)
@@ -364,7 +366,7 @@ func TestAcceptanceNP010InputReplayFutureMutationAndRoomIsolation(t *testing.T) 
 		occupiedMask: 3, playerCount: 2, running: true,
 		peers: make(map[int]*peer), inputs: make(map[int64]map[int][24]int16),
 	}
-	controls := make([]int16, ControlCount)
+	controls := make([]int16, netplayprofile.ControlCount)
 	if err := first.acceptInput(ctx, 1, 121, controls); !errors.Is(err, ErrProtocol) {
 		t.Fatalf("future input error = %v", err)
 	}
@@ -374,13 +376,13 @@ func TestAcceptanceNP010InputReplayFutureMutationAndRoomIsolation(t *testing.T) 
 	if err := first.acceptInput(ctx, 1, 0, controls); err != nil {
 		t.Fatalf("byte-identical replay was not idempotent: %v", err)
 	}
-	mutated := make([]int16, ControlCount)
+	mutated := make([]int16, netplayprofile.ControlCount)
 	mutated[0] = 1
 	if err := first.acceptInput(ctx, 1, 0, mutated); !errors.Is(err, ErrProtocol) {
 		t.Fatalf("mutated replay error = %v", err)
 	}
 	for playerNo := 1; playerNo <= 2; playerNo++ {
-		input := make([]int16, ControlCount)
+		input := make([]int16, netplayprofile.ControlCount)
 		input[0] = int16(playerNo)
 		if err := second.acceptInput(ctx, playerNo, 0, input); err != nil {
 			t.Fatal(err)

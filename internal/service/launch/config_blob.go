@@ -1,13 +1,17 @@
 package launch
 
-import "strings"
+import (
+	"strings"
+
+	model "retrom/internal/model/launch"
+)
 
 func providerBlobResource(
-	source ConfigSource,
+	source model.ConfigSource,
 	kind string,
-	files []ConfigFile,
+	files []model.ConfigFile,
 ) (map[string]any, error) {
-	selected := ConfigFile{}
+	selected := model.ConfigFile{}
 	for _, file := range files {
 		if kind == "SEEKABLE_BLOB" && file.LogicalName == MKXPArchiveName {
 			selected = file
@@ -20,9 +24,9 @@ func providerBlobResource(
 		}
 	}
 	if selected.LogicalName == "" || selected.Size < 1 {
-		return nil, ErrCredential
+		return nil, model.ErrCredential
 	}
-	identity, err := ContentIdentity(ContentView{
+	identity, err := ContentIdentity(model.ContentView{
 		Digest: selected.Digest, Format: selected.Format, CoreID: source.CoreID,
 		ProviderID: source.ProviderID, TargetID: source.TargetID,
 		BundleSHA256: source.BundleDigest,
@@ -43,9 +47,9 @@ func providerBlobResource(
 
 func providerSeekableProjectResource(
 	projectIdentity string,
-	files []ConfigFile,
+	files []model.ConfigFile,
 ) (map[string]any, error) {
-	selected := ConfigFile{}
+	selected := model.ConfigFile{}
 	for _, file := range files {
 		if file.LogicalName == MKXPArchiveName {
 			selected = file
@@ -53,7 +57,7 @@ func providerSeekableProjectResource(
 		}
 	}
 	if selected.LogicalName == "" || selected.Size < 1 || !validContentDigest(selected.Digest) {
-		return nil, ErrCredential
+		return nil, model.ErrCredential
 	}
 	root, err := RuntimeProjectContentRoot(projectIdentity)
 	if err != nil {

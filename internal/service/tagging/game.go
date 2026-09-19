@@ -2,6 +2,8 @@ package tagging
 
 import (
 	"context"
+
+	model "retrom/internal/model/tagging"
 )
 
 func (service *Service) ReplaceGameTags(
@@ -9,21 +11,21 @@ func (service *Service) ReplaceGameTags(
 	actorUserID, gameID string,
 	expectedVersion int64,
 	tagIDs []string,
-) (GameTagResult, error) {
+) (model.GameTagResult, error) {
 	if !ValidID(actorUserID) || !ValidID(gameID) || expectedVersion < 1 {
-		return GameTagResult{}, ErrInvalid
+		return model.GameTagResult{}, model.ErrInvalid
 	}
 	if _, err := ValidateIDs(tagIDs); err != nil {
-		return GameTagResult{}, err
+		return model.GameTagResult{}, err
 	}
-	var result GameTagResult
-	err := service.repository.WithWrite(ctx, func(scope WriteScope) error {
+	var result model.GameTagResult
+	err := service.repository.WithWrite(ctx, func(scope model.WriteScope) error {
 		version, err := scope.Games.Version(ctx, gameID)
 		if err != nil {
 			return repositoryError("read game version", err)
 		}
 		if version != expectedVersion {
-			return ErrVersionConflict
+			return model.ErrVersionConflict
 		}
 		desired, err := ValidateActiveReferences(ctx, scope.Tags, tagIDs)
 		if err != nil {
@@ -32,27 +34,25 @@ func (service *Service) ReplaceGameTags(
 		now := service.now().UnixMilli()
 		before, after, err := replaceOwnerReferences(
 			ctx,
-			scope,
-			Owner{
-				Kind: OwnerGame,
+			scope, model.Owner{
+				Kind: model.OwnerGame,
 				ID:   gameID,
-			},
-			actorUserID,
+			}, actorUserID,
 			desired,
 			now,
 		)
 		if err != nil {
 			return err
 		}
-		if ReferencesEqual(before, after) {
-			result = GameTagResult{GameID: gameID, Version: version, Tags: before}
+		if model.ReferencesEqual(before, after) {
+			result = model.GameTagResult{GameID: gameID, Version: version, Tags: before}
 			return nil
 		}
 		if err := scope.Games.Touch(ctx, gameID, expectedVersion, now); err != nil {
 			return repositoryError("advance game version", err)
 		}
-		added, removed := ReferenceDiff(before, after)
-		result = GameTagResult{GameID: gameID, Version: version + 1, Tags: after}
+		added, removed := model.ReferenceDiff(before, after)
+		result = model.GameTagResult{GameID: gameID, Version: version + 1, Tags: after}
 		return writeAudit(
 			ctx,
 			scope.Audit,

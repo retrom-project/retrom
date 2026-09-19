@@ -4,23 +4,26 @@ import (
 	"context"
 	"fmt"
 
+	libraryimportmodel "retrom/internal/model/libraryimport"
 	repository "retrom/internal/repo/libraryimport"
 	application "retrom/internal/service/libraryimport"
 )
 
-type prepublishDigestInput = application.PrepublishDigestInput
+type prepublishDigestInput = libraryimportmodel.PrepublishDigestInput
 
-func prepublishDigest(input prepublishDigestInput) string { return application.PrepublishDigest(input) }
+func prepublishDigest(input prepublishDigestInput) string {
+	return libraryimportmodel.PrepublishDigest(input)
+}
 
 func prepublishDigestMatches(digest string, input prepublishDigestInput) bool {
-	return application.PrepublishDigestMatches(digest, input)
+	return libraryimportmodel.PrepublishDigestMatches(digest, input)
 }
 
 func preparedGroupContentKind(group preparedGroup) string {
 	return application.PreparedGroupContentKind(group)
 }
 
-type reviewValidationEvidence = application.ReviewValidationEvidence
+type reviewValidationEvidence = libraryimportmodel.ReviewValidationEvidence
 
 func (service *Service) ReviewValidationCurrent(ctx context.Context, validationID string) (bool, error) {
 	validation := application.NewReviewValidation(repository.BindReviewValidation(service.database))

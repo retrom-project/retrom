@@ -7,6 +7,7 @@ import (
 	"sort"
 
 	"retrom/internal/capability/content/corevalidation"
+	model "retrom/internal/model/libraryimport"
 )
 
 type CreationArcadeState struct {
@@ -17,7 +18,7 @@ type CreationArcadeState struct {
 
 func ResolveCreationArcade(
 	ctx context.Context,
-	reader CreationArcadeReader,
+	reader model.CreationArcadeReader,
 	providerID, targetID, previousSnapshot, previousStatus, previousCode string,
 ) (CreationArcadeState, error) {
 	snapshot, valid := ParseArcadeDraftSnapshot(previousSnapshot)
@@ -74,7 +75,7 @@ func ResolveCreationArcade(
 
 func resolveCreationArcadeDependency(
 	ctx context.Context,
-	reader CreationArcadeReader,
+	reader model.CreationArcadeReader,
 	providerID, targetID, name string,
 ) (*corevalidation.BIOSDependency, string, error) {
 	dependency, found, err := reader.BIOS(ctx, providerID, targetID, name)

@@ -3,8 +3,8 @@ package libraryimport
 import (
 	"context"
 
+	libraryimportmodel "retrom/internal/model/libraryimport"
 	librarypersistence "retrom/internal/repo/libraryimport"
-	libraryservice "retrom/internal/service/libraryimport"
 )
 
 type queuedJobRun struct {
@@ -24,4 +24,4 @@ func (service *Service) queuedJobRuns(ctx context.Context, kind string) []queued
 	return queued
 }
 
-var _ libraryservice.QueuedJobReader = (*librarypersistence.QueuedJobs)(nil)
+var _ libraryimportmodel.QueuedJobReader = (*librarypersistence.QueuedJobs)(nil)

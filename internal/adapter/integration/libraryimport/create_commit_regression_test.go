@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	libraryimportmodel "retrom/internal/model/libraryimport"
 	repository "retrom/internal/repo/libraryimport"
 	application "retrom/internal/service/libraryimport"
 	"retrom/internal/testkit/testsupport"
@@ -96,7 +97,7 @@ func preparedCommitFixture(t *testing.T) (*Service, creationPlan) {
 func commitPreparedFixture(
 	ctx context.Context, service *Service, plan creationPlan, work *queuedCreationWork,
 ) (Created, error) {
-	options := application.ImportCreationOptions{}
+	options := libraryimportmodel.ImportCreationOptions{}
 	if work != nil {
 		options.Queued = work.creationIntent()
 	}

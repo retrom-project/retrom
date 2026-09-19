@@ -6,15 +6,16 @@ import (
 	"fmt"
 
 	"retrom/internal/adapter/files/serversource"
+	model "retrom/internal/model/emulationstationimport"
 )
 
 type ScanSourceProvider interface {
-	ForScan(Execution) (ScannerSource, error)
+	ForScan(model.Execution) (ScannerSource, error)
 }
 type ScanPublisher interface {
-	Reset(context.Context, Execution) error
-	Rejected(context.Context, Execution, ScanProjection) error
-	Publish(context.Context, Execution, ScanProjection) error
+	Reset(context.Context, model.Execution) error
+	Rejected(context.Context, model.Execution, model.ScanProjection) error
+	Publish(context.Context, model.Execution, model.ScanProjection) error
 }
 type ScanExecutor struct {
 	sources   ScanSourceProvider
@@ -29,7 +30,7 @@ func NewScanExecutor(
 }
 
 type ExecutionError struct {
-	Failure ExecutionFailure
+	Failure model.ExecutionFailure
 	Cause   error
 }
 
@@ -42,10 +43,10 @@ func scanExecutionFailure(
 	retryable bool,
 	cause error,
 ) error {
-	return &ExecutionError{Failure: ExecutionFailure{Code: code, Retryable: retryable}, Cause: cause}
+	return &ExecutionError{Failure: model.ExecutionFailure{Code: code, Retryable: retryable}, Cause: cause}
 }
 
-func (executor *ScanExecutor) Execute(ctx context.Context, unit Execution) error {
+func (executor *ScanExecutor) Execute(ctx context.Context, unit model.Execution) error {
 	source, err := executor.sources.ForScan(unit)
 	if err != nil {
 		return fmt.Errorf("open EmulationStation scanner source: %w", err)
@@ -72,8 +73,7 @@ func (executor *ScanExecutor) Execute(ctx context.Context, unit Execution) error
 	}
 	if err := executor.publisher.Publish(ctx, unit, result); err != nil {
 		if errors.Is(
-			err,
-			ErrVersionConflict,
+			err, model.ErrVersionConflict,
 		) || ctx.Err() != nil {
 			return fmt.Errorf(
 				"stop EmulationStation scan publication: %w",
@@ -91,8 +91,7 @@ func scanErrorCode(err error) string {
 		serversource.ErrRootUnavailable,
 		ErrGamelistAbsent,
 		ErrNoValidGamelist,
-		ErrScanLimit,
-		ErrSourceChanged,
+		ErrScanLimit, model.ErrSourceChanged,
 	} {
 		if errors.Is(err, candidate) {
 			return candidate.Error()

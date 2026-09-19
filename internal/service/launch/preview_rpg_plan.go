@@ -6,6 +6,7 @@ import (
 	"unicode/utf8"
 
 	"retrom/internal/capability/engine/rpgmaker/nativeweb"
+	model "retrom/internal/model/launch"
 )
 
 const (
@@ -14,7 +15,7 @@ const (
 )
 
 type rpgContentPlanBuilder struct {
-	locked                                     []PreviewFile
+	locked                                     []model.PreviewFile
 	seen                                       map[string]struct{}
 	projectFiles, nativeEntries, requiredFiles int
 }
@@ -28,47 +29,47 @@ func RPGContentPolicy(deliveryProfile string) (string, bool, error) {
 	case "ISOLATED_WEB_PROJECT":
 		return "", true, nil
 	default:
-		return "", false, ErrBlocked
+		return "", false, model.ErrBlocked
 	}
 }
 
 func RPGContentFiles(
-	files []PreviewFile,
+	files []model.PreviewFile,
 	requiredRole string,
 	nativeRuntime bool,
-) ([]PreviewFile, error) {
+) ([]model.PreviewFile, error) {
 	if len(files) == 0 || len(files) > 10_006 {
-		return nil, ErrBlocked
+		return nil, model.ErrBlocked
 	}
 	builder := rpgContentPlanBuilder{
-		locked: make([]PreviewFile, 0, len(files)),
+		locked: make([]model.PreviewFile, 0, len(files)),
 		seen:   make(map[string]struct{}, len(files)),
 	}
 	for _, file := range files {
 		if err := builder.add(file, requiredRole, nativeRuntime); err != nil {
-			return nil, ErrBlocked
+			return nil, model.ErrBlocked
 		}
 	}
 	if builder.projectFiles == 0 || builder.projectFiles > 10_000 {
-		return nil, ErrBlocked
+		return nil, model.ErrBlocked
 	}
 	if nativeRuntime && builder.nativeEntries != 1 {
-		return nil, ErrBlocked
+		return nil, model.ErrBlocked
 	}
 	if requiredRole != "" && builder.requiredFiles != 1 {
-		return nil, ErrBlocked
+		return nil, model.ErrBlocked
 	}
 	return builder.locked, nil
 }
 
 func (builder *rpgContentPlanBuilder) add(
-	file PreviewFile,
+	file model.PreviewFile,
 	requiredRole string,
 	nativeRuntime bool,
 ) error {
 	logicalName, project, valid := rpgLockedLogicalName(file)
 	if !valid {
-		return ErrBlocked
+		return model.ErrBlocked
 	}
 	if !includeRPGContentFile(project, nativeRuntime, logicalName) {
 		return nil
@@ -83,13 +84,13 @@ func (builder *rpgContentPlanBuilder) add(
 		builder.requiredFiles++
 	}
 	if !validRPGProjectPath(logicalName) {
-		return ErrBlocked
+		return model.ErrBlocked
 	}
 	if _, duplicate := builder.seen[logicalName]; duplicate {
-		return ErrBlocked
+		return model.ErrBlocked
 	}
 	builder.seen[logicalName] = struct{}{}
-	builder.locked = append(builder.locked, PreviewFile{
+	builder.locked = append(builder.locked, model.PreviewFile{
 		BlobID: file.BlobID, LogicalName: logicalName,
 	})
 	return nil
@@ -103,7 +104,7 @@ func isNativeRPGEntry(nativeRuntime bool, logicalName string) bool {
 	return nativeRuntime && logicalName == "index.html"
 }
 
-func rpgLockedLogicalName(file PreviewFile) (string, bool, bool) {
+func rpgLockedLogicalName(file model.PreviewFile) (string, bool, bool) {
 	switch file.Role {
 	case "PROJECT_FILE":
 		return file.LogicalName, true, !strings.HasPrefix(file.LogicalName, "__retrom__/")

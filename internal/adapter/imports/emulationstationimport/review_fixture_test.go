@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	"retrom/internal/adapter/integration/libraryimport"
+	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
 	"retrom/internal/repo/recordstore"
-	application "retrom/internal/service/emulationstationimport"
 )
 
 func (service *Service) attachLibraryResult(
@@ -41,7 +41,7 @@ func (service *Service) prepareReviewItem(ctx context.Context, unit work, _ Root
 func (service *Service) prepareLibraryReview(ctx context.Context, unit work, item executionItem,
 	jobID string, imported libraryimport.ServerImportItem,
 ) error {
-	return service.reviewHandoff().Complete(ctx, application.ReviewHandoffRequest{
+	return service.reviewHandoff().Complete(ctx, emulationstationimportmodel.ReviewHandoffRequest{
 		Execution: unit, ItemID: item.ID, LibraryJobID: jobID, LibraryItemID: imported.ItemID,
 	})
 }

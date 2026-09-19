@@ -8,41 +8,42 @@ import (
 	"strings"
 
 	"retrom/internal/capability/format/importing"
+	model "retrom/internal/model/uploads"
 )
 
-func validateCreateRequest(request CreateRequest) (int64, error) {
+func validateCreateRequest(request model.CreateRequest) (int64, error) {
 	if !validUploadShape(request) {
-		return 0, ErrInvalid
+		return 0, model.ErrInvalid
 	}
 	if request.Purpose != "GENERAL" && request.SourceType == "FILES" &&
 		(len(request.Files) != 1 || !isProjectUpload(request.Purpose, request.Files[0].RelativePath)) {
-		return 0, ErrInvalid
+		return 0, model.ErrInvalid
 	}
 	seen := make(map[string]struct{}, len(request.Files))
 	var total int64
 	for _, file := range request.Files {
 		if !validUploadFile(file) {
-			return 0, ErrInvalid
+			return 0, model.ErrInvalid
 		}
 		if _, duplicate := seen[file.RelativePath]; duplicate {
-			return 0, ErrInvalid
+			return 0, model.ErrInvalid
 		}
 		seen[file.RelativePath] = struct{}{}
 		total += file.SizeBytes
 		if total > 32<<30 {
-			return 0, ErrInvalid
+			return 0, model.ErrInvalid
 		}
 	}
 	return total, nil
 }
 
-func validUploadShape(request CreateRequest) bool {
+func validUploadShape(request model.CreateRequest) bool {
 	validPurpose := request.Purpose == "GENERAL" || request.Purpose == "PROJECT"
 	validSource := request.SourceType == "FILES" || request.SourceType == "DIRECTORY"
 	return validPurpose && validSource && len(request.Files) >= 1 && len(request.Files) <= 10_000
 }
 
-func validUploadFile(file FileDeclaration) bool {
+func validUploadFile(file model.FileDeclaration) bool {
 	if file.ClientFileID == "" || file.SizeBytes < 0 || file.SizeBytes > 8<<30 ||
 		len([]byte(file.RelativePath)) > 1024 {
 		return false
@@ -59,7 +60,7 @@ func isProjectUpload(purpose, relativePath string) bool {
 
 func parseRange(value string) (byteRange, error) {
 	if !strings.HasPrefix(value, "bytes ") {
-		return byteRange{}, ErrInvalid
+		return byteRange{}, model.ErrInvalid
 	}
 	span, totalText, ok := strings.Cut(strings.TrimPrefix(value, "bytes "), "/")
 	startText, endText, okSpan := strings.Cut(span, "-")
@@ -68,19 +69,19 @@ func parseRange(value string) (byteRange, error) {
 	total, totalErr := strconv.ParseInt(totalText, 10, 64)
 	if !ok || !okSpan || startErr != nil || endErr != nil || totalErr != nil || start < 0 || end < start ||
 		total <= end ||
-		end-start+1 > PartSize {
-		return byteRange{}, ErrInvalid
+		end-start+1 > model.PartSize {
+		return byteRange{}, model.ErrInvalid
 	}
 	return byteRange{start: start, end: end, total: total}, nil
 }
 
 func parseDigest(value string) (string, error) {
 	if !strings.HasPrefix(value, "sha-256=:") || !strings.HasSuffix(value, ":") {
-		return "", ErrInvalid
+		return "", model.ErrInvalid
 	}
 	decoded, err := base64.StdEncoding.DecodeString(strings.TrimSuffix(strings.TrimPrefix(value, "sha-256=:"), ":"))
 	if err != nil || len(decoded) != 32 {
-		return "", ErrInvalid
+		return "", model.ErrInvalid
 	}
 	return hex.EncodeToString(decoded), nil
 }

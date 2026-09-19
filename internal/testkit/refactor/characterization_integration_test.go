@@ -4,7 +4,9 @@ package refactor
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -127,7 +129,18 @@ func captureCharacterizationBlob(t *testing.T, root, data string) blobEvidence {
 	if err != nil {
 		t.Fatal(err)
 	}
+	digest := sha256.Sum256(publicROM)
+	path := blobs.Path(hex.EncodeToString(digest[:]))
+	_, beforeErr := os.Stat(path)
+	if beforeErr != nil && !os.IsNotExist(beforeErr) {
+		t.Fatal(beforeErr)
+	}
+	firstExisting := beforeErr == nil
 	first, err := blobs.Put(bytes.NewReader(publicROM))
+	if err != nil {
+		t.Fatal(err)
+	}
+	firstInfo, err := os.Stat(path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -135,17 +148,21 @@ func captureCharacterizationBlob(t *testing.T, root, data string) blobEvidence {
 	if err != nil {
 		t.Fatal(err)
 	}
-	relative, err := filepath.Rel(data, first.Path)
+	relative, err := filepath.Rel(data, path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if first.SHA256 != second.SHA256 || first.Path != second.Path || first.Size != second.Size {
+	if first.SHA256 != second.SHA256 || blobs.Path(first.SHA256) != blobs.Path(second.SHA256) || first.Size != second.Size {
 		t.Fatal("identical public input did not converge on one CAS object")
+	}
+	secondInfo, err := os.Stat(path)
+	if err != nil || !os.SameFile(firstInfo, secondInfo) {
+		t.Fatalf("deduplication replaced the CAS object: %v", err)
 	}
 	return blobEvidence{
 		SHA256: first.SHA256, MD5: first.MD5, SHA1: first.SHA1, CRC32: first.CRC32,
 		RelativePath: filepath.ToSlash(relative), Size: first.Size,
-		FirstExisting: first.Existing, SecondExisting: second.Existing,
+		FirstExisting: firstExisting, SecondExisting: firstInfo != nil,
 	}
 }
 

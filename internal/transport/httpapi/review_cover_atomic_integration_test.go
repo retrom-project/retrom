@@ -14,6 +14,7 @@ import (
 
 	"retrom/internal/adapter/files/blobstore"
 	"retrom/internal/bootstrap/composition"
+	libraryimportmodel "retrom/internal/model/libraryimport"
 	repository "retrom/internal/repo/libraryimport"
 	application "retrom/internal/service/libraryimport"
 	"retrom/internal/testkit/testsupport"
@@ -29,9 +30,9 @@ func TestReviewCoverRollbackPreservesCauseAndCanReplay(t *testing.T) {
 		AfterExec: fault.afterExec, BeforeQuery: fault.beforeQuery,
 	})
 	service := composition.NewLibraryReviewCoverUploads(faultDB, server.blobs, server.now)
-	request := application.ReviewCoverRequest{ItemID: itemID, UploadFileID: fileID, Kind: "COVER", ExpectedVersion: 1}
+	request := libraryimportmodel.ReviewCoverRequest{ItemID: itemID, UploadFileID: fileID, Kind: "COVER", ExpectedVersion: 1}
 	result, err := service.Upload(t.Context(), request)
-	if !errors.Is(err, fault.cause) || errors.Is(err, application.ErrReviewCoverConsumed) || result != (application.ReviewCoverResult{}) || fault.inserted != 1 || fault.failed != 1 {
+	if !errors.Is(err, fault.cause) || errors.Is(err, libraryimportmodel.ErrReviewCoverConsumed) || result != (libraryimportmodel.ReviewCoverResult{}) || fault.inserted != 1 || fault.failed != 1 {
 		t.Fatalf("failure lost cause or returned partial success: result=%+v err=%v fault.inserted=%d fault.failed=%d", result, err, fault.inserted, fault.failed)
 	}
 	assertReviewCoverCounts(t, server, itemID, 0)
@@ -65,9 +66,9 @@ func TestReviewCoverRechecksRealSourceAndDraftAfterCASPreparation(t *testing.T) 
 		name, query string
 		expected    error
 	}{
-		{"draft edit", `UPDATE review_drafts SET version=version+1 WHERE import_item_id=?`, application.ErrReviewCoverVersion},
-		{"upload release", `UPDATE upload_files SET state='PURGED',final_blob_id=NULL,payload_released_at_ms=1 WHERE id=?`, application.ErrReviewCoverUploadInvalid},
-		{"new reservation", `UPDATE import_items SET review_handoff_kind='EMULATIONSTATION' WHERE id=?`, application.ErrReviewCoverVersion},
+		{"draft edit", `UPDATE review_drafts SET version=version+1 WHERE import_item_id=?`, libraryimportmodel.ErrReviewCoverVersion},
+		{"upload release", `UPDATE upload_files SET state='PURGED',final_blob_id=NULL,payload_released_at_ms=1 WHERE id=?`, libraryimportmodel.ErrReviewCoverUploadInvalid},
+		{"new reservation", `UPDATE import_items SET review_handoff_kind='EMULATIONSTATION' WHERE id=?`, libraryimportmodel.ErrReviewCoverVersion},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
@@ -91,8 +92,8 @@ func TestReviewCoverRechecksRealSourceAndDraftAfterCASPreparation(t *testing.T) 
 				changed = count == 1
 			}}
 			service := application.NewReviewCoverUploads(repository.NewReviewCoverUploads(server.database), blobs, server.now)
-			result, err := service.Upload(t.Context(), application.ReviewCoverRequest{ItemID: itemID, UploadFileID: fileID, Kind: "COVER", ExpectedVersion: 1})
-			if !changed || !errors.Is(err, test.expected) || result != (application.ReviewCoverResult{}) {
+			result, err := service.Upload(t.Context(), libraryimportmodel.ReviewCoverRequest{ItemID: itemID, UploadFileID: fileID, Kind: "COVER", ExpectedVersion: 1})
+			if !changed || !errors.Is(err, test.expected) || result != (libraryimportmodel.ReviewCoverResult{}) {
 				t.Fatalf("preparation drift accepted: changed=%v result=%+v err=%v", changed, result, err)
 			}
 			var retained int
@@ -135,12 +136,13 @@ func (fault *reviewCoverWriteFault) beforeQuery(_ context.Context, query string,
 }
 
 func assertReviewCoverReplay(
-	t *testing.T, server *Server, itemID, fileID string, saved application.ReviewCoverResult, fault *reviewCoverWriteFault,
+	t *testing.T, server *Server, itemID, fileID string, saved libraryimportmodel.ReviewCoverResult, fault *reviewCoverWriteFault,
 ) {
 	t.Helper()
 	response := requestReviewCover(t, server, itemID, fileID)
 	var replay struct {
-		application.ReviewCoverResult
+		libraryimportmodel.ReviewCoverResult
+
 		URL string `json:"url"`
 	}
 	if err := json.Unmarshal(response.Body.Bytes(), &replay); err != nil {

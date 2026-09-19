@@ -7,29 +7,31 @@ import (
 	"math"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/serverimport"
 )
 
 type controlMemory struct {
-	current          ControlSnapshot
-	cancel           Cancellation
-	retry            ManualRetry
+	current          model.ControlSnapshot
+	cancel           model.Cancellation
+	retry            model.ManualRetry
 	writes, reads    int
 	readErr, lateErr error
 }
 
-func (memory *controlMemory) WithWrite(_ context.Context, work func(ControlScope) error) error {
-	if err := work(ControlScope{Read: memory, Write: memory}); err != nil {
+func (memory *controlMemory) WithWrite(_ context.Context, work func(model.ControlScope) error) error {
+	if err := work(model.ControlScope{Read: memory, Write: memory}); err != nil {
 		return err
 	}
 	return memory.lateErr
 }
 
-func (memory *controlMemory) Current(context.Context, string) (ControlSnapshot, error) {
+func (memory *controlMemory) Current(context.Context, string) (model.ControlSnapshot, error) {
 	memory.reads++
 	return memory.current, memory.readErr
 }
 
-func (memory *controlMemory) Cancel(_ context.Context, plan Cancellation) error {
+func (memory *controlMemory) Cancel(_ context.Context, plan model.Cancellation) error {
 	memory.writes++
 	memory.cancel = plan
 	memory.current.Summary.State = plan.State
@@ -37,7 +39,7 @@ func (memory *controlMemory) Cancel(_ context.Context, plan Cancellation) error 
 	return nil
 }
 
-func (memory *controlMemory) Retry(_ context.Context, plan ManualRetry) error {
+func (memory *controlMemory) Retry(_ context.Context, plan model.ManualRetry) error {
 	memory.writes++
 	memory.retry = plan
 	memory.current.Summary.State = "QUEUED"
@@ -47,7 +49,7 @@ func (memory *controlMemory) Retry(_ context.Context, plan ManualRetry) error {
 
 func controlFixture() (*Control, *controlMemory) {
 	failure := "INTERNAL_ERROR"
-	memory := &controlMemory{current: ControlSnapshot{Summary: Summary{ID: "import", State: "FAILED", Version: 3, JobID: "job", Root: RootRef{ID: "root"}, LastErrorCode: &failure, Counts: Counts{CatalogItems: 4, NotFound: 1, Imported: 1}}, RootDigest: "root-digest", CatalogDigest: "catalog-digest", JobState: "FAILED", JobVersion: 5, Execution: 2, PendingItems: 2}}
+	memory := &controlMemory{current: model.ControlSnapshot{Summary: model.Summary{ID: "import", State: "FAILED", Version: 3, JobID: "job", Root: model.RootRef{ID: "root"}, LastErrorCode: &failure, Counts: model.Counts{CatalogItems: 4, NotFound: 1, Imported: 1}}, RootDigest: "root-digest", CatalogDigest: "catalog-digest", JobState: "FAILED", JobVersion: 5, Execution: 2, PendingItems: 2}}
 	return NewControl(memory, map[string]string{"root": "root-digest"}, func() time.Time { return time.UnixMilli(100) }), memory
 }
 
@@ -77,12 +79,12 @@ func TestRunningCancellationWaitsForWorkerAcknowledgement(t *testing.T) {
 
 func TestImportControlChecksVersionsAndStorageBeforeWriting(t *testing.T) {
 	service, memory := controlFixture()
-	if _, err := service.Retry(t.Context(), "import", 2, "actor"); !errors.Is(err, ErrNotRetryable) {
+	if _, err := service.Retry(t.Context(), "import", 2, "actor"); !errors.Is(err, model.ErrNotRetryable) {
 		t.Fatalf("stale retry: %v", err)
 	}
 	memory.current.Summary.State = "QUEUED"
 	memory.current.JobState = "QUEUED"
-	if _, _, err := service.Cancel(t.Context(), "import", 2, "stop", "actor"); !errors.Is(err, ErrNotCancellable) {
+	if _, _, err := service.Cancel(t.Context(), "import", 2, "stop", "actor"); !errors.Is(err, model.ErrNotCancellable) {
 		t.Fatalf("stale cancel: %v", err)
 	}
 	memory.readErr = context.Canceled
@@ -109,7 +111,7 @@ func TestManualRetryRequiresSameRootAndRetryableFailure(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			service, memory := controlFixture()
 			test.change(memory)
-			if _, err := service.Retry(t.Context(), "import", 3, "actor"); !errors.Is(err, ErrNotRetryable) || memory.writes != 0 {
+			if _, err := service.Retry(t.Context(), "import", 3, "actor"); !errors.Is(err, model.ErrNotRetryable) || memory.writes != 0 {
 				t.Fatalf("retry fence: %v", err)
 			}
 		})

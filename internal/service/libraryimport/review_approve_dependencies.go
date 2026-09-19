@@ -8,16 +8,17 @@ import (
 	"retrom/internal/capability/content/contentcapability"
 	"retrom/internal/capability/content/corevalidation"
 	"retrom/internal/capability/content/multidisc"
+	model "retrom/internal/model/libraryimport"
 	validation "retrom/internal/service/corevalidation"
 )
 
 func ValidateApprovalDependencies(
-	ctx context.Context, scope ApprovalDependencyScope, input ApprovalDependencyInput,
+	ctx context.Context, scope model.ApprovalDependencyScope, input model.ApprovalDependencyInput,
 ) error {
 	snapshot, err := corevalidation.ParseSnapshot(input.DependencyJSON)
 	if err != nil {
 		if input.PlatformID != "arcade" || input.ContentKind != "SINGLE_FILE" {
-			return ErrInvalid
+			return model.ErrInvalid
 		}
 		return validateApprovalArcade(ctx, scope, input.ValidationID, input.DependencyJSON)
 	}
@@ -30,7 +31,7 @@ func ValidateApprovalDependencies(
 		return fmt.Errorf("resolve current approval BIOS: %w", err)
 	}
 	if status != "READY" {
-		return ErrInvalid
+		return model.ErrInvalid
 	}
 	current.MultiDisc = snapshot.MultiDisc
 	encoded, err := current.JSON()
@@ -38,7 +39,7 @@ func ValidateApprovalDependencies(
 		return fmt.Errorf("encode current approval dependencies: %w", err)
 	}
 	if string(encoded) != input.DependencyJSON {
-		return ErrInvalid
+		return model.ErrInvalid
 	}
 	if input.ContentKind != multidisc.ContentKind {
 		return nil
@@ -47,12 +48,12 @@ func ValidateApprovalDependencies(
 }
 
 func validateApprovalMultiDisc(
-	ctx context.Context, reader ApprovalDependencyReader, input ApprovalDependencyInput,
+	ctx context.Context, reader model.ApprovalDependencyReader, input model.ApprovalDependencyInput,
 	snapshot corevalidation.Snapshot,
 ) error {
 	capabilities := contentcapability.Resolve(input.PlatformID, true, true, input.Policy)
 	if capabilities.MultiDisc == nil || snapshot.MultiDisc == nil || len(snapshot.MultiDisc.MissingEntries) != 0 {
-		return ErrInvalid
+		return model.ErrInvalid
 	}
 	facts, err := reader.MultiDisc(ctx, input.SnapshotID, input.ValidationID)
 	if err != nil {
@@ -65,16 +66,16 @@ func validateApprovalMultiDisc(
 	count := len(facts.Discs)
 	if count < 2 || count > capabilities.MultiDisc.MaxDiscs || count != snapshot.MultiDisc.DiscCount ||
 		total > capabilities.MultiDisc.MaxTotalBytes {
-		return ErrInvalid
+		return model.ErrInvalid
 	}
 	if facts.PlaylistCount != 1 || facts.DiscCount != int64(count) || facts.SourceCount != int64(count)+1 ||
 		facts.CanonicalCount != 1 {
-		return ErrInvalid
+		return model.ErrInvalid
 	}
 	return nil
 }
 
-func approvalDiscTotal(discs []ApprovalDisc) (int64, error) {
+func approvalDiscTotal(discs []model.ApprovalDisc) (int64, error) {
 	var total int64
 	for ordinal, disc := range discs {
 		if disc.Ordinal != ordinal || disc.State != "PRESENT" || disc.SourceOrdinal == nil ||
@@ -82,10 +83,10 @@ func approvalDiscTotal(discs []ApprovalDisc) (int64, error) {
 			*disc.SourceBlobID != *disc.BlobID ||
 			disc.SourceLogicalName == nil || *disc.SourceLogicalName != disc.LogicalName ||
 			disc.SizeBytes == nil || *disc.SizeBytes < 8 {
-			return 0, ErrInvalid
+			return 0, model.ErrInvalid
 		}
 		if total > math.MaxInt64-*disc.SizeBytes {
-			return 0, ErrInvalid
+			return 0, model.ErrInvalid
 		}
 		total += *disc.SizeBytes
 	}

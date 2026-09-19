@@ -16,7 +16,7 @@ import (
 	"retrom/internal/adapter/files/serversource"
 	"retrom/internal/adapter/integration/libraryimport"
 	"retrom/internal/bootstrap/composition"
-	"retrom/internal/service/emulationstationimport"
+	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
 	"retrom/internal/testkit/testassert"
 	"retrom/internal/testkit/testsupport"
 )
@@ -41,7 +41,7 @@ func TestEmulationStationReviewHandoffReservationBlocksEveryReviewEntry(t *testi
 func startReservedReviewHandoffFixture(
 	t *testing.T,
 	fault *reviewAttachFault,
-) (*Server, http.Handler, *http.Cookie, string, emulationstationimport.Summary) {
+) (*Server, http.Handler, *http.Cookie, string, emulationstationimportmodel.Summary) {
 	t.Helper()
 	server := newTestServer(t)
 	server.emulationStationImports.Close()
@@ -81,7 +81,7 @@ func createEmulationStationReviewPlan(
 	handler http.Handler,
 	cookie *http.Cookie,
 	csrf string,
-) emulationstationimport.Summary {
+) emulationstationimportmodel.Summary {
 	t.Helper()
 	request := httptest.NewRequestWithContext(
 		context.Background(),
@@ -94,7 +94,7 @@ func createEmulationStationReviewPlan(
 	setCSRFCredentials(request, cookie, csrf)
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, request)
-	var summary emulationstationimport.Summary
+	var summary emulationstationimportmodel.Summary
 	testassert.Falsef(t, testassert.Any(
 		func() bool { return response.Code != http.StatusAccepted },
 		func() bool { return json.Unmarshal(response.Body.Bytes(), &summary) != nil },
@@ -107,7 +107,7 @@ func createEmulationStationReviewPlan(
 		"/api/v1/admin/emulationstation-imports/"+summary.ID+"/collections",
 	)
 	var page struct {
-		Items []emulationstationimport.Collection `json:"items"`
+		Items []emulationstationimportmodel.Collection `json:"items"`
 	}
 	if collections.Code != http.StatusOK || json.Unmarshal(collections.Body.Bytes(), &page) != nil ||
 		len(page.Items) != 1 {
@@ -122,8 +122,8 @@ func startEmulationStationReviewPlan(
 	handler http.Handler,
 	cookie *http.Cookie,
 	csrf string,
-	summary emulationstationimport.Summary,
-) emulationstationimport.Summary {
+	summary emulationstationimportmodel.Summary,
+) emulationstationimportmodel.Summary {
 	t.Helper()
 	body := `{"version":` + jsonInt(summary.Version) + `}`
 	request := httptest.NewRequestWithContext(
@@ -305,7 +305,7 @@ func retryEmulationStationReviewHandoff(
 	handler http.Handler,
 	cookie *http.Cookie,
 	csrf string,
-	summary *emulationstationimport.Summary,
+	summary *emulationstationimportmodel.Summary,
 ) {
 	t.Helper()
 	current := emulationStationGET(
@@ -340,7 +340,7 @@ func waitForCompletedReviewHandoff(
 	server *Server,
 	handler http.Handler,
 	cookie *http.Cookie,
-	summary *emulationstationimport.Summary,
+	summary *emulationstationimportmodel.Summary,
 	itemID string,
 ) {
 	t.Helper()

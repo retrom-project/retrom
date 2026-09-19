@@ -9,9 +9,12 @@ import (
 	"strings"
 	"sync"
 
+	servermodel "retrom/internal/model/serverimport"
+
+	blobmodel "retrom/internal/model/blob"
+
 	"github.com/google/uuid"
 
-	"retrom/internal/adapter/files/blobstore"
 	"retrom/internal/adapter/files/serversource"
 	"retrom/internal/capability/content/firmware"
 	"retrom/internal/capability/format/importing"
@@ -19,33 +22,33 @@ import (
 )
 
 type association struct {
-	item catalogItem
+	item servermodel.CatalogItem
 	kind string
 }
 
 type candidateHashTask struct {
-	file         discoveredFile
+	file         serversource.File
 	associations []association
 }
 
 type candidateHashResult struct {
-	candidates  []*evaluatedCandidate
+	candidates  []*EvaluatedCandidate
 	hashedBytes int64
 	err         error
 }
 
 type candidateWalkResult struct {
-	counts walkCounts
+	counts servermodel.DiscoveryCounts
 	err    error
 }
 
 // Bounded walker, hash pool and archive evaluation coordinate one discovery barrier.
 func (service *Service) discoverCandidates(
 	ctx context.Context,
-	unit work,
+	unit servermodel.Work,
 	directory *os.File,
-	items []catalogItem,
-) (map[string][]*evaluatedCandidate, walkCounts, error) {
+	items []servermodel.CatalogItem,
+) (map[string][]*EvaluatedCandidate, servermodel.DiscoveryCounts, error) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	index := newCandidateIndex(items)
@@ -61,7 +64,7 @@ func (service *Service) discoverCandidates(
 
 func (service *Service) startCandidateHashWorkers(
 	ctx context.Context,
-	unit work,
+	unit servermodel.Work,
 ) (chan<- candidateHashTask, <-chan candidateHashResult) {
 	tasks := make(chan candidateHashTask, 4)
 	results := make(chan candidateHashResult, 4)
@@ -86,7 +89,7 @@ func (service *Service) startCandidateHashWorkers(
 
 func (service *Service) startCandidateWalk(
 	ctx context.Context,
-	unit work,
+	unit servermodel.Work,
 	directory *os.File,
 	index candidateIndex,
 	tasks chan<- candidateHashTask,
@@ -95,7 +98,7 @@ func (service *Service) startCandidateWalk(
 	go func() {
 		var physicalCandidates int64
 		var hashPhase sync.Once
-		counts, err := walkFiles(ctx, directory, service.scanLimits, func(file discoveredFile) error {
+		counts, err := walkFiles(ctx, directory, service.scanLimits, func(file serversource.File) error {
 			if service.cancelRequested(ctx, unit) {
 				return errCancelled
 			}
@@ -109,7 +112,7 @@ func (service *Service) startCandidateWalk(
 			}
 			parent, duplicateErr := duplicateDirectory(file.Parent)
 			if duplicateErr != nil {
-				return ErrRootUnavailable
+				return serversource.ErrRootUnavailable
 			}
 			file.Parent = parent
 			hashPhase.Do(func() { service.progress(ctx, unit, "HASHING", 0, physicalCandidates) })
@@ -133,8 +136,8 @@ func (service *Service) startCandidateWalk(
 func (service *Service) collectCandidateResults(
 	cancel context.CancelFunc,
 	results <-chan candidateHashResult,
-) (map[string][]*evaluatedCandidate, error) {
-	grouped := make(map[string][]*evaluatedCandidate)
+) (map[string][]*EvaluatedCandidate, error) {
+	grouped := make(map[string][]*EvaluatedCandidate)
 	var firstErr error
 	var hashedBytes int64
 	for result := range results {
@@ -163,7 +166,7 @@ func (service *Service) collectCandidateResults(
 // Read, re-stat and per-association evaluation branches are independent source-safety checks.
 func (service *Service) hashDiscoveredCandidate(
 	ctx context.Context,
-	unit work,
+	unit servermodel.Work,
 	task candidateHashTask,
 ) candidateHashResult {
 	result := candidateHashResult{}
@@ -187,7 +190,7 @@ func (service *Service) hashDiscoveredCandidate(
 		result.err = putErr
 		return result
 	}
-	if putErr != nil || statErr != nil || !sameFileFacts(before, after) {
+	if putErr != nil || statErr != nil || !serversource.SameFileFacts(before, after) {
 		return failedCandidateResult(task, "SOURCE_CHANGED")
 	}
 	result.hashedBytes = metadata.Size
@@ -213,10 +216,10 @@ func failedCandidateResult(task candidateHashTask, code string) candidateHashRes
 func (service *Service) evaluateCandidateAssociations(
 	ctx context.Context,
 	task candidateHashTask,
-	metadata blobstore.Metadata,
+	metadata blobmodel.PreparedBlob,
 	facts firmware.FileFacts,
-) ([]*evaluatedCandidate, error) {
-	result := make([]*evaluatedCandidate, 0, len(task.associations))
+) ([]*EvaluatedCandidate, error) {
+	result := make([]*EvaluatedCandidate, 0, len(task.associations))
 	for _, association := range task.associations {
 		candidate, err := service.evaluate(ctx, association.item, association.kind, task.file, metadata, facts)
 		if err != nil {
@@ -235,12 +238,15 @@ func (service *Service) evaluateCandidateAssociations(
 }
 
 type candidateIndex struct {
-	byName map[string][]catalogItem
-	bySize map[int64][]catalogItem
+	byName map[string][]servermodel.CatalogItem
+	bySize map[int64][]servermodel.CatalogItem
 }
 
-func newCandidateIndex(items []catalogItem) candidateIndex {
-	result := candidateIndex{byName: make(map[string][]catalogItem), bySize: make(map[int64][]catalogItem)}
+func newCandidateIndex(items []servermodel.CatalogItem) candidateIndex {
+	result := candidateIndex{
+		byName: make(map[string][]servermodel.CatalogItem),
+		bySize: make(map[int64][]servermodel.CatalogItem),
+	}
 	for _, item := range items {
 		if item.SourceKind != "DAT_MACHINE" || strings.HasSuffix(importing.ASCIICaseFold(item.LogicalName), ".zip") {
 			key := importing.ASCIICaseFold(item.LogicalName)
@@ -254,7 +260,7 @@ func newCandidateIndex(items []catalogItem) candidateIndex {
 	return result
 }
 
-func (index candidateIndex) associations(file discoveredFile) []association {
+func (index candidateIndex) associations(file serversource.File) []association {
 	result := make([]association, 0)
 	folded := importing.ASCIICaseFold(file.Basename)
 	for _, item := range index.byName[folded] {
@@ -274,11 +280,12 @@ func (index candidateIndex) associations(file discoveredFile) []association {
 	return result
 }
 
-func (service *Service) evaluate(ctx context.Context, item catalogItem, association string, file discoveredFile,
-	metadata blobstore.Metadata, facts firmware.FileFacts,
-) (*evaluatedCandidate, error) {
+func (service *Service) evaluate(
+	ctx context.Context, item servermodel.CatalogItem, association string, file serversource.File,
+	metadata blobmodel.PreparedBlob, facts firmware.FileFacts,
+) (*EvaluatedCandidate, error) {
 	id, _ := uuid.NewV7()
-	candidate := &evaluatedCandidate{
+	candidate := &EvaluatedCandidate{
 		ID:          id.String(),
 		Item:        item,
 		File:        file,
@@ -316,7 +323,7 @@ func (service *Service) evaluate(ctx context.Context, item catalogItem, associat
 		}
 		return candidate, fmt.Errorf("wait for archive scan slot: %w", ctx.Err())
 	}
-	entries, err := importing.ScanZIP(ctx, metadata.Path, importing.DefaultArchiveLimits())
+	entries, err := importing.ScanZIP(ctx, service.blobs.Path(metadata.SHA256), importing.DefaultArchiveLimits())
 	if err != nil {
 		return candidate, fmt.Errorf("scan server import ZIP candidate: %w", err)
 	}
@@ -347,7 +354,7 @@ func (service *Service) evaluate(ctx context.Context, item catalogItem, associat
 	return candidate, nil
 }
 
-func staticExpectation(item catalogItem) *firmware.StaticExpectation {
+func staticExpectation(item servermodel.CatalogItem) *firmware.StaticExpectation {
 	if item.SourceKind != "STATIC" || item.ArchiveMembersJSON != nil {
 		return nil
 	}
@@ -364,8 +371,8 @@ func staticExpectation(item catalogItem) *firmware.StaticExpectation {
 	return result
 }
 
-func markDuplicateBytes(candidates []*evaluatedCandidate) {
-	ranked := rankCandidates(candidates)
+func markDuplicateBytes(candidates []*EvaluatedCandidate) {
+	ranked := RankCandidates(candidates)
 	seen := make(map[string]struct{}, len(ranked))
 	for _, candidate := range ranked {
 		if candidate.Metadata.SHA256 == "" {
@@ -380,17 +387,17 @@ func markDuplicateBytes(candidates []*evaluatedCandidate) {
 	}
 }
 
-func sameMetadata(left, right blobstore.Metadata) bool {
+func sameMetadata(left, right blobmodel.PreparedBlob) bool {
 	return left.Size == right.Size && left.MD5 == right.MD5 && left.SHA1 == right.SHA1 &&
 		left.SHA256 == right.SHA256 && left.CRC32 == right.CRC32
 }
 
 func (service *Service) verifySelected(
 	ctx context.Context,
-	unit work,
+	unit servermodel.Work,
 	root Root,
-	selected *evaluatedCandidate,
-) (*evaluatedCandidate, error) {
+	selected *EvaluatedCandidate,
+) (*EvaluatedCandidate, error) {
 	release, acquireErr := serversource.AcquireReader(ctx)
 	if acquireErr != nil {
 		return nil, fmt.Errorf("serverimport/acquire reader: %w", acquireErr)
@@ -408,7 +415,8 @@ func (service *Service) verifySelected(
 	if errors.Is(putErr, errCancelled) {
 		return nil, errCancelled
 	}
-	if putErr != nil || statErr != nil || !sameFileFacts(before, after) || !sameMetadata(metadata, selected.Metadata) {
+	if putErr != nil || statErr != nil || !serversource.SameFileFacts(before, after) ||
+		!sameMetadata(metadata, selected.Metadata) {
 		return nil, errSourceChanged
 	}
 	facts := firmware.FileFacts{
@@ -430,7 +438,9 @@ func (service *Service) verifySelected(
 	return verified, nil
 }
 
-func failedCandidate(item catalogItem, file discoveredFile, association, state string) *evaluatedCandidate {
+func failedCandidate(
+	item servermodel.CatalogItem, file serversource.File, association, state string,
+) *EvaluatedCandidate {
 	id, _ := uuid.NewV7()
 	code := "SERVER_IMPORT_SOURCE_UNREADABLE"
 	switch state {
@@ -439,7 +449,7 @@ func failedCandidate(item catalogItem, file discoveredFile, association, state s
 	case "ARCHIVE_UNSAFE":
 		code = "ARCHIVE_UNSAFE"
 	}
-	return &evaluatedCandidate{
+	return &EvaluatedCandidate{
 		ID: id.String(), Item: item, File: file, Association: association, State: state,
 		Details: map[string]any{"schemaVersion": 1, "code": code},
 	}
@@ -475,7 +485,9 @@ func (reader *cancelReader) Read(buffer []byte) (int, error) {
 	return count, err
 }
 
-func (service *Service) expectedDATEntries(ctx context.Context, item catalogItem) ([]firmware.ExpectedDATEntry, error) {
+func (service *Service) expectedDATEntries(
+	ctx context.Context, item servermodel.CatalogItem,
+) ([]firmware.ExpectedDATEntry, error) {
 	result, err := service.recovery.ExpectedDATEntries(ctx, item)
 	if err != nil {
 		return nil, fmt.Errorf("read DAT expectations: %w", err)

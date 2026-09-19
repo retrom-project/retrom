@@ -5,6 +5,8 @@ import (
 	"errors"
 	"reflect"
 	"testing"
+
+	model "retrom/internal/model/libraryimport"
 )
 
 type preparationCatalogStub struct{ failure error }
@@ -17,12 +19,12 @@ func (catalog preparationCatalogStub) MachineClassification(context.Context, str
 	return "", false, catalog.failure
 }
 
-func (catalog preparationCatalogStub) ArcadeRequirements(context.Context, string, string) (ArcadeCatalogRequirements, error) {
-	return ArcadeCatalogRequirements{}, catalog.failure
+func (catalog preparationCatalogStub) ArcadeRequirements(context.Context, string, string) (model.ArcadeCatalogRequirements, error) {
+	return model.ArcadeCatalogRequirements{}, catalog.failure
 }
 
-func (catalog preparationCatalogStub) MachineRelation(context.Context, string, string) (ArcadeMachineRelation, bool, error) {
-	return ArcadeMachineRelation{}, false, catalog.failure
+func (catalog preparationCatalogStub) MachineRelation(context.Context, string, string) (model.ArcadeMachineRelation, bool, error) {
+	return model.ArcadeMachineRelation{}, false, catalog.failure
 }
 
 func TestImportPreparationPreservesCatalogFailure(t *testing.T) {
@@ -31,7 +33,7 @@ func TestImportPreparationPreservesCatalogFailure(t *testing.T) {
 	cause := errors.New("catalog read unavailable")
 	preparation := NewImportPreparation(facts, preparationCatalogStub{failure: cause}, nil, ImportPreparationOptions{})
 	result, err := preparation.Prepare(t.Context(), request)
-	if !errors.Is(err, cause) || !reflect.DeepEqual(result, PreparedImport{}) {
+	if !errors.Is(err, cause) || !reflect.DeepEqual(result, model.PreparedImport{}) {
 		t.Fatalf("result=%+v err=%v", result, err)
 	}
 	if len(facts.events) != 0 {

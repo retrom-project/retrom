@@ -8,8 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/adapter/metadata/hasheous"
-	"retrom/internal/service/metadatascrape"
+	metadatamodel "retrom/internal/model/metadata"
+
+	metadatascrapemodel "retrom/internal/model/metadatascrape"
 	"retrom/internal/testkit/testsupport"
 )
 
@@ -23,10 +24,10 @@ func TestResponseAndCacheRollbackTogether(t *testing.T) {
 			t.Error(err)
 		}
 	})
-	err = NewRecorder(database.SQL).WithWrite(t.Context(), func(scope metadatascrape.ResultScope) error {
-		if err := scope.Write.Response(t.Context(), metadatascrape.ResponseRecord{
+	err = NewRecorder(database.SQL).WithWrite(t.Context(), func(scope metadatascrapemodel.ResultScope) error {
+		if err := scope.Write.Response(t.Context(), metadatascrapemodel.ResponseRecord{
 			ID: "response", RequestDigest: strings.Repeat("a", 64),
-			Outcome: hasheous.OutcomeMiss, Cacheable: true, Now: 100, ExpiresAt: 200,
+			Outcome: metadatamodel.OutcomeMiss, Cacheable: true, Now: 100, ExpiresAt: 200,
 		}); err != nil {
 			return err
 		}

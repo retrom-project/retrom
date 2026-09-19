@@ -4,13 +4,14 @@ import (
 	"context"
 	"fmt"
 
-	"retrom/internal/adapter/files/blobstore"
+	blobmodel "retrom/internal/model/blob"
+
 	"retrom/internal/model/firmware"
 	"retrom/internal/repo/blobcatalog"
 	"retrom/internal/repo/recordstore"
 )
 
-func (store writes) Ensure(ctx context.Context, metadata blobstore.Metadata, now int64) (string, error) {
+func (store writes) Ensure(ctx context.Context, metadata blobmodel.PreparedBlob, now int64) (string, error) {
 	id, err := blobcatalog.EnsureRecord(ctx, store.transaction, metadata, "application/octet-stream", now)
 	if err != nil {
 		return "", fmt.Errorf("register BIOS blob: %w", err)

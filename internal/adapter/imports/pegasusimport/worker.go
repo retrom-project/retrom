@@ -6,13 +6,13 @@ import (
 	"fmt"
 	"io"
 
-	application "retrom/internal/service/pegasusimport"
+	pegasusimportmodel "retrom/internal/model/pegasusimport"
 )
 
 type (
-	executionItem  = application.ExecutionItem
-	executionFile  = application.ExecutionFile
-	executionAsset = application.ExecutionAsset
+	executionItem  = pegasusimportmodel.ExecutionItem
+	executionFile  = pegasusimportmodel.ExecutionFile
+	executionAsset = pegasusimportmodel.ExecutionAsset
 )
 
 type contextReader struct {

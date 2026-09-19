@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"retrom/internal/capability/runtime/runtimebundle"
+	model "retrom/internal/model/runtimeprovider"
 )
 
 func TestRejectedVersionDoesNotWriteProjection(t *testing.T) {
@@ -16,9 +17,9 @@ func TestRejectedVersionDoesNotWriteProjection(t *testing.T) {
 		version, digest string
 		expected        error
 	}{
-		{"0.9.0", "b", ErrProviderDowngrade}, {"1.0.0", "b", ErrProviderVersionRebuilt},
+		{"0.9.0", "b", model.ErrProviderDowngrade}, {"1.0.0", "b", model.ErrProviderVersionRebuilt},
 	} {
-		repo := &reconciliationRepository{current: CurrentState{Providers: map[string]CurrentProvider{
+		repo := &reconciliationRepository{current: model.CurrentState{Providers: map[string]model.CurrentProvider{
 			"provider": {Version: "1.0.0", BundleSHA256: strings.Repeat("a", 64)},
 		}}}
 		err := New(repo).Reconcile(t.Context(), businessCandidate(test.version, test.digest), time.UnixMilli(1000))
@@ -30,7 +31,7 @@ func TestRejectedVersionDoesNotWriteProjection(t *testing.T) {
 
 func TestUnchangedProjectionDoesNotInterruptSessions(t *testing.T) {
 	candidate := businessCandidate("1.0.0", "a")
-	repo := &reconciliationRepository{current: CurrentState{Providers: map[string]CurrentProvider{
+	repo := &reconciliationRepository{current: model.CurrentState{Providers: map[string]model.CurrentProvider{
 		"provider": {Version: "1.0.0", BundleSHA256: strings.Repeat("a", 64)},
 	}, CatalogSHA256: candidate.CatalogSHA256}}
 	if err := New(repo).Reconcile(t.Context(), candidate, time.UnixMilli(1000)); err != nil {
@@ -44,20 +45,20 @@ func TestUnchangedProjectionDoesNotInterruptSessions(t *testing.T) {
 func TestUnreadableCheckpointRejectsBeforeTermination(t *testing.T) {
 	repo := &reconciliationRepository{formats: []string{"legacy"}}
 	candidate := businessCandidate("1.1.0", "b")
-	candidate.Providers[0].Targets = []TargetProjection{{Target: runtimebundle.Target{
+	candidate.Providers[0].Targets = []model.TargetProjection{{Target: runtimebundle.Target{
 		ID:         "target",
 		Checkpoint: &runtimebundle.Checkpoint{ReadFormats: []string{"current"}},
 	}}}
 	err := New(repo).Reconcile(t.Context(), candidate, time.UnixMilli(1000))
-	if !errors.Is(err, ErrProviderCheckpointUnreadable) || len(repo.writes) != 0 {
+	if !errors.Is(err, model.ErrProviderCheckpointUnreadable) || len(repo.writes) != 0 {
 		t.Fatalf("checkpoint protection lost: %v %v", repo.writes, err)
 	}
 }
 
 func TestReferencedTargetCannotBeRemoved(t *testing.T) {
-	repo := &reconciliationRepository{referenced: true, current: CurrentState{Targets: []TargetIdentity{{ProviderID: "old", TargetID: "target"}}}}
+	repo := &reconciliationRepository{referenced: true, current: model.CurrentState{Targets: []model.TargetIdentity{{ProviderID: "old", TargetID: "target"}}}}
 	err := New(repo).Reconcile(t.Context(), businessCandidate("1.1.0", "b"), time.UnixMilli(1000))
-	if !errors.Is(err, ErrProviderTargetReferenced) || len(repo.writes) != 0 {
+	if !errors.Is(err, model.ErrProviderTargetReferenced) || len(repo.writes) != 0 {
 		t.Fatalf("reference protection lost: %v %v", repo.writes, err)
 	}
 }
@@ -79,14 +80,14 @@ func TestProjectionWriteFailurePreservesCause(t *testing.T) {
 	}
 }
 
-func businessCandidate(version, digest string) Projection {
-	return Projection{CatalogSHA256: strings.Repeat("c", 64), Providers: []ProviderProjection{{Active: runtimebundle.ActiveProvider{
+func businessCandidate(version, digest string) model.Projection {
+	return model.Projection{CatalogSHA256: strings.Repeat("c", 64), Providers: []model.ProviderProjection{{Active: runtimebundle.ActiveProvider{
 		ProviderID: "provider", ProviderVersion: version, BundleSHA256: strings.Repeat(digest, 64),
 	}}}}
 }
 
 type reconciliationRepository struct {
-	current      CurrentState
+	current      model.CurrentState
 	formats      []string
 	referenced   bool
 	transactions int
@@ -94,24 +95,24 @@ type reconciliationRepository struct {
 	publishError error
 }
 
-func (repo *reconciliationRepository) WithWrite(_ context.Context, work func(WriteScope) error) error {
+func (repo *reconciliationRepository) WithWrite(_ context.Context, work func(model.WriteScope) error) error {
 	repo.transactions++
-	return work(WriteScope{Catalog: repo, Projection: repo})
+	return work(model.WriteScope{Catalog: repo, Projection: repo})
 }
 
-func (repo *reconciliationRepository) Current(context.Context) (CurrentState, error) {
+func (repo *reconciliationRepository) Current(context.Context) (model.CurrentState, error) {
 	return repo.current, nil
 }
 
-func (repo *reconciliationRepository) CheckpointFormats(context.Context, TargetIdentity) ([]string, error) {
+func (repo *reconciliationRepository) CheckpointFormats(context.Context, model.TargetIdentity) ([]string, error) {
 	return repo.formats, nil
 }
 
-func (repo *reconciliationRepository) TargetReferenced(context.Context, TargetIdentity) (bool, error) {
+func (repo *reconciliationRepository) TargetReferenced(context.Context, model.TargetIdentity) (bool, error) {
 	return repo.referenced, nil
 }
 
-func (repo *reconciliationRepository) Publish(context.Context, Publication) error {
+func (repo *reconciliationRepository) Publish(context.Context, model.Publication) error {
 	repo.writes = append(repo.writes, "publish")
 	return repo.publishError
 }
@@ -121,7 +122,7 @@ func (repo *reconciliationRepository) TerminateSessions(_ context.Context, id st
 	return nil
 }
 
-func (repo *reconciliationRepository) Audit(context.Context, Audit) error {
+func (repo *reconciliationRepository) Audit(context.Context, model.Audit) error {
 	repo.writes = append(repo.writes, "audit")
 	return nil
 }

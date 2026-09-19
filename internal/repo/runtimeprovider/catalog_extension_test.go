@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	runtimeprovidermodel "retrom/internal/model/runtimeprovider"
 	service "retrom/internal/service/runtimeprovider"
 
 	"retrom/internal/capability/runtime/runtimebundle"
@@ -81,7 +82,7 @@ func assertExtensionPreservesFolder(t *testing.T, database *sql.DB, schemaBefore
 	}
 }
 
-func reconcileCatalogExtension(t *testing.T, database *sql.DB, initial service.Projection, catalog runtimecatalog.Catalog) error {
+func reconcileCatalogExtension(t *testing.T, database *sql.DB, initial runtimeprovidermodel.Projection, catalog runtimecatalog.Catalog) error {
 	t.Helper()
 	provider := initial.Providers[0].Active
 	provider.ProviderVersion = "1.1.0"
@@ -97,7 +98,7 @@ func reconcileCatalogExtension(t *testing.T, database *sql.DB, initial service.P
 		SchemaVersion: 1, Source: "candidate", SourceTreeSHA256: &provider.BundleSHA256,
 		Providers: []runtimebundle.ActiveProvider{provider},
 	}
-	candidate, err := service.NewProjection(active, map[string]runtimebundle.Manifest{"fixture": {
+	candidate, err := runtimeprovidermodel.NewProjection(active, map[string]runtimebundle.Manifest{"fixture": {
 		SchemaVersion: 1, ProviderID: "fixture", ProviderVersion: provider.ProviderVersion, ProviderAPI: 1,
 		ClientModulePath: "client.mjs", Targets: []runtimebundle.Target{extra, target},
 	}}, catalog)

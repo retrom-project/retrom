@@ -20,6 +20,7 @@ import (
 	"testing"
 	"time"
 
+	uploadsmodel "retrom/internal/model/uploads"
 	savepersistence "retrom/internal/repo/saves"
 
 	uploadpersistence "retrom/internal/repo/uploads"
@@ -332,9 +333,9 @@ func createONSReviewItem(
 	t.Helper()
 	archive := onsReviewArchive(t)
 	uploadService := uploads.New(uploadpersistence.New(database), blobs, dataDir, time.Now)
-	upload, err := uploadService.Create(ctx, uploads.CreateRequest{
+	upload, err := uploadService.Create(ctx, uploadsmodel.CreateRequest{
 		Purpose: "PROJECT", SourceType: "FILES",
-		Files: []uploads.FileDeclaration{{
+		Files: []uploadsmodel.FileDeclaration{{
 			ClientFileID: "ons", RelativePath: "ons-review.zip", SizeBytes: int64(len(archive)),
 		}},
 	})

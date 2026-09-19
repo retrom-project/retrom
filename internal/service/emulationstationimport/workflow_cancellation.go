@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"strings"
 
+	model "retrom/internal/model/emulationstationimport"
+
 	"github.com/google/uuid"
 )
 
@@ -28,7 +30,7 @@ func (service *WorkflowControl) Cancel(
 	id string,
 	version int64,
 	reason, actor string,
-) (Summary, bool, error) {
+) (model.Summary, bool, error) {
 	result, pending, err := service.cancel(ctx, cancellationRequest{
 		ID: id, Version: version, Reason: reason, ActorID: actor,
 	})
@@ -55,17 +57,17 @@ func (service *WorkflowControl) CancelJob(
 func (service *WorkflowControl) cancel(
 	ctx context.Context,
 	request cancellationRequest,
-) (WorkflowSnapshot, bool, error) {
+) (model.WorkflowSnapshot, bool, error) {
 	request.Reason = strings.TrimSpace(request.Reason)
 	if request.Reason == "" || len([]rune(request.Reason)) > 500 {
-		return WorkflowSnapshot{}, false, ErrNotCancellable
+		return model.WorkflowSnapshot{}, false, model.ErrNotCancellable
 	}
-	var result WorkflowSnapshot
+	var result model.WorkflowSnapshot
 	var pending bool
-	err := service.repository.WithControl(ctx, func(scope WorkflowScope) error {
+	err := service.repository.WithControl(ctx, func(scope model.WorkflowScope) error {
 		before, err := scope.Read.Current(ctx, request.ID)
-		if errors.Is(err, ErrNotFound) {
-			return ErrNotCancellable
+		if errors.Is(err, model.ErrNotFound) {
+			return model.ErrNotCancellable
 		}
 		if err != nil {
 			return fmt.Errorf("read EmulationStation cancellation: %w", err)
@@ -93,29 +95,29 @@ func (service *WorkflowControl) cancel(
 		return nil
 	})
 	if err != nil {
-		return WorkflowSnapshot{}, false, fmt.Errorf("finish EmulationStation cancellation: %w", err)
+		return model.WorkflowSnapshot{}, false, fmt.Errorf("finish EmulationStation cancellation: %w", err)
 	}
 	return result, pending, nil
 }
 
-func validateCancellation(before WorkflowSnapshot, request cancellationRequest) error {
+func validateCancellation(before model.WorkflowSnapshot, request cancellationRequest) error {
 	version := request.Version
 	if request.Job != nil {
 		if !matchesCancellationJob(before, *request.Job) {
-			return ErrNotCancellable
+			return model.ErrNotCancellable
 		}
 		if version < 1 || version != before.JobVersion {
-			return ErrVersionConflict
+			return model.ErrVersionConflict
 		}
 		version = before.Summary.Version
 	}
 	if !canCancel(before, version) {
-		return ErrNotCancellable
+		return model.ErrNotCancellable
 	}
 	return nil
 }
 
-func matchesCancellationJob(before WorkflowSnapshot, request JobCancellationRequest) bool {
+func matchesCancellationJob(before model.WorkflowSnapshot, request JobCancellationRequest) bool {
 	if request.ScopeID != before.Summary.ID {
 		return false
 	}
@@ -126,14 +128,14 @@ func matchesCancellationJob(before WorkflowSnapshot, request JobCancellationRequ
 }
 
 func (service *WorkflowControl) cancellationPlan(
-	before WorkflowSnapshot,
+	before model.WorkflowSnapshot,
 	request cancellationRequest,
-) (CancellationPlan, error) {
+) (model.CancellationPlan, error) {
 	audit, err := uuid.NewV7()
 	if err != nil {
-		return CancellationPlan{}, fmt.Errorf("generate EmulationStation cancellation audit: %w", err)
+		return model.CancellationPlan{}, fmt.Errorf("generate EmulationStation cancellation audit: %w", err)
 	}
-	plan := CancellationPlan{
+	plan := model.CancellationPlan{
 		Before: before, Reason: request.Reason, ActorID: request.ActorID, AuditID: audit.String(),
 		NowMS: service.now().UnixMilli(), State: "CANCELLED", Pending: before.JobState == "RUNNING",
 	}

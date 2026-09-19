@@ -7,11 +7,11 @@ import (
 	"testing"
 	"time"
 
+	libraryimportmodel "retrom/internal/model/libraryimport"
 	"retrom/internal/repo/blobcatalog"
-	application "retrom/internal/service/libraryimport"
 )
 
-func ownedSourceFixture(t *testing.T) (deduplicateFixture, application.OwnedServerSourceRequest) {
+func ownedSourceFixture(t *testing.T) (deduplicateFixture, libraryimportmodel.OwnedServerSourceRequest) {
 	t.Helper()
 	fixture := newDeduplicateFixture(t)
 	fixture.service.now = ownedSourceNow
@@ -25,8 +25,8 @@ func ownedSourceFixture(t *testing.T) (deduplicateFixture, application.OwnedServ
 	}
 	file := ServerSourceFile{RelativePath: "games/owned.gba", BlobID: blobID, SizeBytes: metadata.Size}
 	seedOwnedPegasusSource(t, fixture, file)
-	request := application.OwnedServerSourceRequest{
-		Intent:                   application.SourceCreationIntent{Kind: application.SourceOwnerPegasus, ImportID: "owner-plan", ItemID: "unlinked-source", JobID: "owner-work", WorkerID: "owner-worker", ExecutionNo: 1, Attempt: 1, PrimaryPaths: []string{file.RelativePath}},
+	request := libraryimportmodel.OwnedServerSourceRequest{
+		Intent:                   libraryimportmodel.SourceCreationIntent{Kind: libraryimportmodel.SourceOwnerPegasus, ImportID: "owner-plan", ItemID: "unlinked-source", JobID: "owner-work", WorkerID: "owner-worker", ExecutionNo: 1, Attempt: 1, PrimaryPaths: []string{file.RelativePath}},
 		TargetPlatformInstanceID: fixture.platform, ContentMode: "STANDARD", Files: []ServerSourceFile{file}, AssignedByUserID: "owner-actor",
 	}
 	return fixture, request

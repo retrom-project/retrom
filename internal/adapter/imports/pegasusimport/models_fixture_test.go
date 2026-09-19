@@ -1,35 +1,37 @@
 package pegasusimport
 
-import application "retrom/internal/service/pegasusimport"
-
-var (
-	ErrNotFound        = application.ErrNotFound
-	ErrMetadataAbsent  = application.ErrMetadataAbsent
-	ErrMapping         = application.ErrMapping
-	ErrVersionConflict = application.ErrVersionConflict
-	ErrNoSelection     = application.ErrNoSelection
-	ErrExpired         = application.ErrExpired
-	ErrActive          = application.ErrActive
-	ErrInvalid         = application.ErrInvalid
-	ErrNotCancellable  = application.ErrNotCancellable
-	ErrNotRetryable    = application.ErrNotRetryable
+import (
+	pegasusimportmodel "retrom/internal/model/pegasusimport"
 )
 
-type CreateRequest = application.CreateRequest
+var (
+	ErrNotFound        = pegasusimportmodel.ErrNotFound
+	ErrMetadataAbsent  = pegasusimportmodel.ErrMetadataAbsent
+	ErrMapping         = pegasusimportmodel.ErrMapping
+	ErrVersionConflict = pegasusimportmodel.ErrVersionConflict
+	ErrNoSelection     = pegasusimportmodel.ErrNoSelection
+	ErrExpired         = pegasusimportmodel.ErrExpired
+	ErrActive          = pegasusimportmodel.ErrActive
+	ErrInvalid         = pegasusimportmodel.ErrInvalid
+	ErrNotCancellable  = pegasusimportmodel.ErrNotCancellable
+	ErrNotRetryable    = pegasusimportmodel.ErrNotRetryable
+)
+
+type CreateRequest = pegasusimportmodel.CreateRequest
 
 type (
-	RootRef            = application.RootRef
-	CreatedBy          = application.CreatedBy
-	Counts             = application.Counts
-	Summary            = application.Summary
-	Collection         = application.Collection
-	Mapping            = application.Mapping
-	Item               = application.Item
-	FailureDetails     = application.FailureDetails
-	RuntimeCheck       = application.RuntimeCheck
-	RuntimeDependency  = application.RuntimeDependency
-	RuntimeBIOS        = application.RuntimeBIOS
-	RuntimeMissingDisc = application.RuntimeMissingDisc
-	ItemMedia          = application.ItemMedia
-	ExistingMatch      = application.ExistingMatch
+	RootRef            = pegasusimportmodel.RootRef
+	CreatedBy          = pegasusimportmodel.CreatedBy
+	Counts             = pegasusimportmodel.Counts
+	Summary            = pegasusimportmodel.Summary
+	Collection         = pegasusimportmodel.Collection
+	Mapping            = pegasusimportmodel.Mapping
+	Item               = pegasusimportmodel.Item
+	FailureDetails     = pegasusimportmodel.FailureDetails
+	RuntimeCheck       = pegasusimportmodel.RuntimeCheck
+	RuntimeDependency  = pegasusimportmodel.RuntimeDependency
+	RuntimeBIOS        = pegasusimportmodel.RuntimeBIOS
+	RuntimeMissingDisc = pegasusimportmodel.RuntimeMissingDisc
+	ItemMedia          = pegasusimportmodel.ItemMedia
+	ExistingMatch      = pegasusimportmodel.ExistingMatch
 )

@@ -5,6 +5,8 @@ import (
 	"strings"
 	"unicode"
 	"unicode/utf8"
+
+	model "retrom/internal/model/platforminstance"
 )
 
 func SlugBase(name, platformID string) string {
@@ -60,7 +62,7 @@ func NextSlug(base string, slugs []string) (string, error) {
 			return candidate, nil
 		}
 	}
-	return "", ErrSlugExhausted
+	return "", model.ErrSlugExhausted
 }
 
 func validText(value string, minimum, maximum int, allowNewline bool) bool {

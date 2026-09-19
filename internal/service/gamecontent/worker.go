@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"time"
 
+	model "retrom/internal/model/gamecontent"
+
 	"github.com/google/uuid"
 )
 
@@ -27,7 +29,7 @@ func (service *Service) Run(parent context.Context, jobID string, executionNo in
 		return fmt.Errorf("create replacement worker identity: %w", err)
 	}
 	now := service.now().UnixMilli()
-	claim := Claim{
+	claim := model.Claim{
 		GameID:      snapshot.GameID,
 		JobID:       jobID,
 		WorkerID:    workerID.String(),
@@ -37,7 +39,7 @@ func (service *Service) Run(parent context.Context, jobID string, executionNo in
 		Deadline:    now + replacementExecutionTimeout.Milliseconds(),
 	}
 	var claimed bool
-	err = service.repository.WithWrite(ctx, func(scope WriteScope) error {
+	err = service.repository.WithWrite(ctx, func(scope model.WriteScope) error {
 		var err error
 		claimed, err = scope.Leases.Claim(ctx, claim)
 		if err != nil {
@@ -64,9 +66,9 @@ func (service *Service) Run(parent context.Context, jobID string, executionNo in
 	return service.settleFailure(parent, claim, snapshot, err)
 }
 
-func (service *Service) input(ctx context.Context, id string, execution int64) (JobSnapshot, string, error) {
-	var stored StoredInput
-	err := service.repository.WithRead(ctx, func(scope ReadScope) error {
+func (service *Service) input(ctx context.Context, id string, execution int64) (model.JobSnapshot, string, error) {
+	var stored model.StoredInput
+	err := service.repository.WithRead(ctx, func(scope model.ReadScope) error {
 		var err error
 		stored, err = scope.Inputs.Input(ctx, id, execution)
 		if err != nil {
@@ -75,22 +77,22 @@ func (service *Service) input(ctx context.Context, id string, execution int64) (
 		return nil
 	})
 	if err != nil {
-		return JobSnapshot{}, "", fmt.Errorf("load replacement execution: %w", err)
+		return model.JobSnapshot{}, "", fmt.Errorf("load replacement execution: %w", err)
 	}
 	digest := sha256.Sum256(stored.Contents)
 	if hex.EncodeToString(digest[:]) != stored.Digest {
-		return JobSnapshot{}, "", ErrInvalid
+		return model.JobSnapshot{}, "", model.ErrInvalid
 	}
 	var envelope inputEnvelope
 	if err := json.Unmarshal(stored.Contents, &envelope); err != nil {
-		return JobSnapshot{}, "", fmt.Errorf("%w: decode input: %w", ErrInvalid, err)
+		return model.JobSnapshot{}, "", fmt.Errorf("%w: decode input: %w", model.ErrInvalid, err)
 	}
 	if envelope.SchemaVersion != 1 || envelope.Kind != "GAME_CONTENT_REPLACE" || envelope.Scope.Type != "GAME" ||
 		envelope.Scope.ID != envelope.Inputs.GameID {
-		return JobSnapshot{}, "", ErrInvalid
+		return model.JobSnapshot{}, "", model.ErrInvalid
 	}
 	if _, err := uuid.Parse(envelope.ExecutionID); err != nil {
-		return JobSnapshot{}, "", ErrInvalid
+		return model.JobSnapshot{}, "", model.ErrInvalid
 	}
 	// Retry changes the envelope execution identity while preserving frozen business inputs.
 	envelope.Inputs.ExecutionID = envelope.ExecutionID
@@ -100,7 +102,7 @@ func (service *Service) input(ctx context.Context, id string, execution int64) (
 func (service *Service) heartbeat(
 	ctx context.Context,
 	cancel context.CancelFunc,
-	claim Claim,
+	claim model.Claim,
 	stopped chan<- struct{},
 ) {
 	defer close(stopped)
@@ -112,7 +114,7 @@ func (service *Service) heartbeat(
 			return
 		case <-ticker.C:
 			current := false
-			err := service.repository.WithWrite(ctx, func(scope WriteScope) error {
+			err := service.repository.WithWrite(ctx, func(scope model.WriteScope) error {
 				var err error
 				current, err = scope.Leases.Refresh(ctx, claim, service.now().UnixMilli())
 				if err != nil {
@@ -128,9 +130,9 @@ func (service *Service) heartbeat(
 	}
 }
 
-func (service *Service) prepare(ctx context.Context, snapshot JobSnapshot) (PreparedReplacement, error) {
-	var files []UploadedFile
-	err := service.repository.WithRead(ctx, func(scope ReadScope) error {
+func (service *Service) prepare(ctx context.Context, snapshot model.JobSnapshot) (model.PreparedReplacement, error) {
+	var files []model.UploadedFile
+	err := service.repository.WithRead(ctx, func(scope model.ReadScope) error {
 		var err error
 		files, err = scope.Content.Files(ctx, snapshot.UploadSessionID)
 		if err != nil {
@@ -139,13 +141,13 @@ func (service *Service) prepare(ctx context.Context, snapshot JobSnapshot) (Prep
 		return nil
 	})
 	if err != nil {
-		return PreparedReplacement{}, fmt.Errorf("load replacement content: %w", err)
+		return model.PreparedReplacement{}, fmt.Errorf("load replacement content: %w", err)
 	}
 	return service.prepareReplacement(ctx, snapshot, files)
 }
 
-func failureOutcome(claim Claim, snapshot JobSnapshot, err error, now int64) Outcome {
-	outcome := Outcome{
+func failureOutcome(claim model.Claim, snapshot model.JobSnapshot, err error, now int64) model.Outcome {
+	outcome := model.Outcome{
 		Claim:     claim,
 		GameID:    snapshot.GameID,
 		Code:      "GAME_CONTENT_INPUT_UNAVAILABLE",
@@ -160,12 +162,17 @@ func failureOutcome(claim Claim, snapshot JobSnapshot, err error, now int64) Out
 	return outcome
 }
 
-func (service *Service) settleFailure(parent context.Context, claim Claim, snapshot JobSnapshot, cause error) error {
+func (service *Service) settleFailure(
+	parent context.Context,
+	claim model.Claim,
+	snapshot model.JobSnapshot,
+	cause error,
+) error {
 	ctx, cancel := context.WithTimeout(context.WithoutCancel(parent), 5*time.Second)
 	defer cancel()
 	outcome := failureOutcome(claim, snapshot, cause, service.now().UnixMilli())
 	changed := false
-	err := service.repository.WithWrite(ctx, func(scope WriteScope) error {
+	err := service.repository.WithWrite(ctx, func(scope model.WriteScope) error {
 		state, err := scope.Leases.State(ctx, claim)
 		if err != nil {
 			return fmt.Errorf("read failed replacement ownership: %w", err)

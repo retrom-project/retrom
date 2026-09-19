@@ -6,7 +6,8 @@ import (
 	"testing"
 	"time"
 
-	payload "retrom/internal/service/payloadrelease"
+	model "retrom/internal/model/emulationstationimport"
+	payloadreleasemodel "retrom/internal/model/payloadrelease"
 )
 
 type payloadLinksMemory struct {
@@ -14,17 +15,17 @@ type payloadLinksMemory struct {
 	calls int
 }
 
-func (memory *payloadLinksMemory) RetainedSources(context.Context, payload.SourceBatch, string, int) ([]string, error) {
+func (memory *payloadLinksMemory) RetainedSources(context.Context, payloadreleasemodel.SourceBatch, string, int) ([]string, error) {
 	memory.calls++
 	return nil, memory.cause
 }
 
-func (*payloadLinksMemory) BoundSources(context.Context, string, payload.Scope, int) ([]payload.Scope, error) {
+func (*payloadLinksMemory) BoundSources(context.Context, string, payloadreleasemodel.Scope, int) ([]payloadreleasemodel.Scope, error) {
 	return nil, nil
 }
 
-func emptyPayloadScope() payload.ReleaseScope {
-	return payload.ReleaseScope{Links: &payloadLinksMemory{}}
+func emptyPayloadScope() payloadreleasemodel.ReleaseScope {
+	return payloadreleasemodel.ReleaseScope{Links: &payloadLinksMemory{}}
 }
 
 type completionPayloadMemory struct {
@@ -33,8 +34,8 @@ type completionPayloadMemory struct {
 	committed bool
 }
 
-func (memory *completionPayloadMemory) WithCompletion(_ context.Context, run func(CompletionScope) error) error {
-	if err := run(CompletionScope{Read: memory.completionMemory, Write: memory.completionMemory, Payload: payload.ReleaseScope{Links: memory.links}}); err != nil {
+func (memory *completionPayloadMemory) WithCompletion(_ context.Context, run func(model.CompletionScope) error) error {
+	if err := run(model.CompletionScope{Read: memory.completionMemory, Write: memory.completionMemory, Payload: payloadreleasemodel.ReleaseScope{Links: memory.links}}); err != nil {
 		return err
 	}
 	memory.committed = true

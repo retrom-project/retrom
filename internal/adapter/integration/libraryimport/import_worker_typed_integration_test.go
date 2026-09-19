@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	libraryimportmodel "retrom/internal/model/libraryimport"
 	repository "retrom/internal/repo/libraryimport"
 	application "retrom/internal/service/libraryimport"
 	"retrom/internal/testkit/testsupport"
@@ -35,7 +36,7 @@ func TestTypedImportWorkerClaimsFrozenInput(t *testing.T) {
 		work.Execution.WorkerID == "" ||
 		work.Execution.Attempt != 1 ||
 		work.Request.UploadID != plan.Upload.ID ||
-		work.Execution.DeadlineMS-work.Execution.StartedAtMS != application.ImportExecutionBudget.Milliseconds() {
+		work.Execution.DeadlineMS-work.Execution.StartedAtMS != libraryimportmodel.ImportExecutionBudget.Milliseconds() {
 		t.Fatalf("claim work=%+v found=%t error=%v", work, found, err)
 	}
 }

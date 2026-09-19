@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"retrom/internal/bootstrap/config"
+	accountsmodel "retrom/internal/model/accounts"
 	accountservice "retrom/internal/service/accounts"
 	"retrom/internal/testkit/testassert"
 
@@ -23,7 +24,7 @@ func TestLoginRateLimitIsAtomicHashedAndExpiresWithInjectedClock(t *testing.T) {
 	for attempt := 1; attempt < 5; attempt++ {
 		if _, err := fixture.service.LoginRateLimited(
 			context.Background(), "test", "wrong password", "192.0.2.10",
-		); !errors.Is(err, accountservice.ErrAuthentication) {
+		); !errors.Is(err, accountsmodel.ErrAuthentication) {
 			t.Fatalf("login failure %d = %v", attempt, err)
 		}
 	}
@@ -44,11 +45,11 @@ func TestLoginRateLimitIsAtomicHashedAndExpiresWithInjectedClock(t *testing.T) {
 	wait.Wait()
 	close(outcomes)
 	for result := range outcomes {
-		testassert.Falsef(t, testassert.Any(func() bool { return !errors.Is(result.err, accountservice.ErrRateLimited) }, func() bool { return accountservice.RateLimitRetryAfter(result.err) != 900 }), "concurrent threshold result = %v retry=%d", result.err, accountservice.RateLimitRetryAfter(result.err))
+		testassert.Falsef(t, testassert.Any(func() bool { return !errors.Is(result.err, accountsmodel.ErrRateLimited) }, func() bool { return accountservice.RateLimitRetryAfter(result.err) != 900 }), "concurrent threshold result = %v retry=%d", result.err, accountservice.RateLimitRetryAfter(result.err))
 	}
 	if _, err := fixture.service.LoginRateLimited(
 		context.Background(), "test", "test", "192.0.2.10",
-	); !errors.Is(err, accountservice.ErrRateLimited) {
+	); !errors.Is(err, accountsmodel.ErrRateLimited) {
 		t.Fatalf("valid credentials during block = %v", err)
 	}
 
@@ -85,15 +86,15 @@ func TestSetupAndLinkRateLimitsUseIndependentIPBuckets(t *testing.T) {
 	if err := release.service.Start(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	invalidSetup := accountservice.InitializeRequest{
+	invalidSetup := accountsmodel.InitializeRequest{
 		SetupCode: "invalid", Username: "admin", DisplayName: "Administrator",
 		Password: "a sufficiently long phrase", PasswordConfirmation: "a sufficiently long phrase",
 	}
 	for attempt := 1; attempt <= 5; attempt++ {
 		_, err := release.service.InitializeRateLimited(context.Background(), invalidSetup, "198.51.100.5")
-		testassert.Falsef(t, testassert.All(func() bool { return attempt < 5 }, func() bool { return !errors.Is(err, accountservice.ErrInitializationProof) }), "setup failure %d = %v", attempt, err)
+		testassert.Falsef(t, testassert.All(func() bool { return attempt < 5 }, func() bool { return !errors.Is(err, accountsmodel.ErrInitializationProof) }), "setup failure %d = %v", attempt, err)
 		testassert.Falsef(t, testassert.All(func() bool { return attempt == 5 }, func() bool {
-			return (!errors.Is(err, accountservice.ErrRateLimited) || accountservice.RateLimitRetryAfter(err) != 900)
+			return (!errors.Is(err, accountsmodel.ErrRateLimited) || accountservice.RateLimitRetryAfter(err) != 900)
 		}), "setup threshold = %v retry=%d", err, accountservice.RateLimitRetryAfter(err))
 	}
 
@@ -107,12 +108,12 @@ func TestSetupAndLinkRateLimitsUseIndependentIPBuckets(t *testing.T) {
 		_, inspectErr := fixture.service.InspectAccountLinkRateLimited(
 			context.Background(), "INVITATION", "invalid", "203.0.113.7",
 		)
-		testassert.Falsef(t, testassert.All(func() bool { return attempt < 20 }, func() bool { return !errors.Is(inspectErr, accountservice.ErrAccountLinkUnavailable) }), "link failure %d = %v", attempt, inspectErr)
-		testassert.Falsef(t, testassert.All(func() bool { return attempt == 20 }, func() bool { return !errors.Is(inspectErr, accountservice.ErrRateLimited) }), "link threshold = %v", inspectErr)
+		testassert.Falsef(t, testassert.All(func() bool { return attempt < 20 }, func() bool { return !errors.Is(inspectErr, accountsmodel.ErrAccountLinkUnavailable) }), "link failure %d = %v", attempt, inspectErr)
+		testassert.Falsef(t, testassert.All(func() bool { return attempt == 20 }, func() bool { return !errors.Is(inspectErr, accountsmodel.ErrRateLimited) }), "link threshold = %v", inspectErr)
 	}
 	if _, err := fixture.service.InspectAccountLinkRateLimited(
 		context.Background(), "INVITATION", invitation.CapabilityToken, "203.0.113.7",
-	); !errors.Is(err, accountservice.ErrRateLimited) {
+	); !errors.Is(err, accountsmodel.ErrRateLimited) {
 		t.Fatalf("valid link during IP block = %v", err)
 	}
 }

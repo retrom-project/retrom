@@ -4,25 +4,27 @@ import (
 	"context"
 	"fmt"
 	"time"
+
+	model "retrom/internal/model/launch"
 )
 
 type ProjectQueries struct {
-	repository ProjectIdentityReader
+	repository model.ProjectIdentityReader
 	policy     accessPolicy
 }
 
 func NewProjectQueries(
-	repository ProjectIdentityReader,
+	repository model.ProjectIdentityReader,
 	now func() time.Time,
-	matches MatchCapability,
+	matches model.MatchCapability,
 ) *ProjectQueries {
 	return &ProjectQueries{repository: repository, policy: accessPolicy{now: now, matches: matches}}
 }
 
 func (service *ProjectQueries) Identity(ctx context.Context, id, capability string) (string, error) {
-	snapshot, found, err := service.repository.Project(ctx, id, func(source ConfigSource) error {
+	snapshot, found, err := service.repository.Project(ctx, id, func(source model.ConfigSource) error {
 		if !validProjectAuthority(service.policy, source, capability) {
-			return ErrCredential
+			return model.ErrCredential
 		}
 		return nil
 	})
@@ -30,12 +32,12 @@ func (service *ProjectQueries) Identity(ctx context.Context, id, capability stri
 		return "", fmt.Errorf("read project identity: %w", err)
 	}
 	if !found {
-		return "", ErrCredential
+		return "", model.ErrCredential
 	}
 	return ProjectIdentity(snapshot.Files)
 }
 
-func validProjectAuthority(policy accessPolicy, source ConfigSource, capability string) bool {
+func validProjectAuthority(policy accessPolicy, source model.ConfigSource, capability string) bool {
 	if policy.matches == nil || !policy.matches(capability, source.CredentialHash) {
 		return false
 	}

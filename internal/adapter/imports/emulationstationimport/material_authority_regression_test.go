@@ -3,7 +3,7 @@ package emulationstationimport
 import (
 	"testing"
 
-	"retrom/internal/adapter/files/blobstore"
+	blobmodel "retrom/internal/model/blob"
 )
 
 func TestESMaterialBindingRejectsReplacedWorker(t *testing.T) {
@@ -46,7 +46,7 @@ func bindMaterialRegression(
 	unit work,
 	item executionItem,
 	file executionFile,
-	metadata blobstore.Metadata,
+	metadata blobmodel.PreparedBlob,
 ) (string, error) {
 	return fixture.service.recordCopiedFile(fixture.context, unit, item.ID, file, metadata)
 }

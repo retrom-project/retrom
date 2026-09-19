@@ -3,6 +3,8 @@ package accounts
 import (
 	"context"
 	"fmt"
+
+	model "retrom/internal/model/accounts"
 )
 
 func (service *LinkService) Revoke(
@@ -25,7 +27,7 @@ func (service *LinkService) Revoke(
 		return false, err
 	}
 	var replayed bool
-	err = service.repository.WithWrite(ctx, func(scope LinkScope) error {
+	err = service.repository.WithWrite(ctx, func(scope model.LinkScope) error {
 		replay, err := scope.Read.Replay(ctx, operation)
 		if err != nil {
 			return fmt.Errorf("apply account link revocation: %w", err)
@@ -42,17 +44,16 @@ func (service *LinkService) Revoke(
 			return fmt.Errorf("apply account link revocation: %w", err)
 		}
 		if !found {
-			return ErrAccountLinkNotActive
+			return model.ErrAccountLinkNotActive
 		}
 		if record.Link.Version != version {
-			return ErrUserVersion
+			return model.ErrUserVersion
 		}
 		if accountLinkState(record.Link, operation.Now) != "ACTIVE" {
-			return ErrAccountLinkNotActive
+			return model.ErrAccountLinkNotActive
 		}
 		if err := scope.Write.Revoke(
-			ctx,
-			LinkRevocation{
+			ctx, model.LinkRevocation{
 				LinkID:  linkID,
 				ActorID: actorID,
 				Version: version,

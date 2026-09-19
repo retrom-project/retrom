@@ -4,7 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"retrom/internal/adapter/files/blobstore"
+	blobmodel "retrom/internal/model/blob"
+
 	application "retrom/internal/model/pegasusimport"
 	"retrom/internal/repo/blobcatalog"
 	"retrom/internal/repo/dbexec"
@@ -17,7 +18,13 @@ func registerVerifiedMaterial(
 	mediaType string,
 	now int64,
 ) (string, error) {
-	metadata := blobstore.Metadata{SHA256: blob.SHA256, MD5: blob.MD5, SHA1: blob.SHA1, CRC32: blob.CRC32, Size: blob.Size}
+	metadata := blobmodel.PreparedBlob{
+		SHA256: blob.SHA256,
+		MD5:    blob.MD5,
+		SHA1:   blob.SHA1,
+		CRC32:  blob.CRC32,
+		Size:   blob.Size,
+	}
 	blobID, err := blobcatalog.EnsureRecord(ctx, db, metadata, mediaType, now)
 	if err != nil {
 		return "", fmt.Errorf("register Pegasus material blob: %w", err)

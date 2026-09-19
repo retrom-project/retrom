@@ -6,39 +6,40 @@ import (
 	"time"
 
 	"retrom/internal/capability/runtime/runtimebundle"
+	model "retrom/internal/model/launch"
 )
 
 const previewTestID = "01a00000-0000-7000-8000-000000000001"
 
 type previewTestRepository struct {
-	snapshot                                                                            PreviewSnapshot
-	current                                                                             PreviewSource
-	restore                                                                             PreviewRestore
-	receipt, finalReceipt                                                               *PreviewReceipt
+	snapshot                                                                            model.PreviewSnapshot
+	current                                                                             model.PreviewSource
+	restore                                                                             model.PreviewRestore
+	receipt, finalReceipt                                                               *model.PreviewReceipt
 	replayErr, finalReplayErr, snapshotErr, currentErr, restoreErr, writeErr, commitErr error
 	missingSnapshot, missingCurrent, missingRestore                                     bool
 	inTransaction                                                                       bool
 	transactions, loads                                                                 int
-	writes                                                                              []PreviewCreatePlan
+	writes                                                                              []model.PreviewCreatePlan
 }
 
-func (repository *previewTestRepository) Replay(context.Context, string, string) (PreviewReceipt, bool, error) {
+func (repository *previewTestRepository) Replay(context.Context, string, string) (model.PreviewReceipt, bool, error) {
 	receipt, cause := repository.receipt, repository.replayErr
 	if repository.inTransaction {
 		receipt, cause = repository.finalReceipt, repository.finalReplayErr
 	}
 	if receipt == nil {
-		return PreviewReceipt{}, false, cause
+		return model.PreviewReceipt{}, false, cause
 	}
 	return *receipt, true, cause
 }
 
-func (repository *previewTestRepository) Snapshot(context.Context, string) (PreviewSnapshot, bool, error) {
+func (repository *previewTestRepository) Snapshot(context.Context, string) (model.PreviewSnapshot, bool, error) {
 	repository.loads++
 	return repository.snapshot, !repository.missingSnapshot, repository.snapshotErr
 }
 
-func (repository *previewTestRepository) WithCreation(_ context.Context, work func(PreviewCreationScope) error) error {
+func (repository *previewTestRepository) WithCreation(_ context.Context, work func(model.PreviewCreationScope) error) error {
 	repository.transactions++
 	repository.inTransaction = true
 	defer func() { repository.inTransaction = false }()
@@ -48,15 +49,15 @@ func (repository *previewTestRepository) WithCreation(_ context.Context, work fu
 	return repository.commitErr
 }
 
-func (repository *previewTestRepository) Current(context.Context, ReviewPreviewRequest) (PreviewSource, string, bool, error) {
+func (repository *previewTestRepository) Current(context.Context, model.ReviewPreviewRequest) (model.PreviewSource, string, bool, error) {
 	return repository.current, "profile", !repository.missingCurrent, repository.currentErr
 }
 
-func (repository *previewTestRepository) Restore(context.Context, string) (PreviewRestore, bool, error) {
+func (repository *previewTestRepository) Restore(context.Context, string) (model.PreviewRestore, bool, error) {
 	return repository.restore, !repository.missingRestore, repository.restoreErr
 }
 
-func (repository *previewTestRepository) Create(_ context.Context, plan PreviewCreatePlan) error {
+func (repository *previewTestRepository) Create(_ context.Context, plan model.PreviewCreatePlan) error {
 	repository.writes = append(repository.writes, plan)
 	return repository.writeErr
 }
@@ -74,15 +75,15 @@ func (provider *previewTestProvider) Target(string, string) (runtimebundle.Targe
 	return provider.target, !provider.absent
 }
 func (*previewTestProvider) BundleSHA256(string, string) (string, bool) { return "bundle", true }
-func previewFixture(t *testing.T) (*PreviewCreator, *previewTestRepository, *previewTestProvider, ReviewPreviewRequest) {
+func previewFixture(t *testing.T) (*PreviewCreator, *previewTestRepository, *previewTestProvider, model.ReviewPreviewRequest) {
 	t.Helper()
 	dat := "dat"
-	source := PreviewSource{
+	source := model.PreviewSource{
 		SourceSnapshotID: "source", PlatformInstanceID: "instance", ProviderID: "provider", TargetID: "target",
 		BundleSHA256: "bundle", CoreID: "core", DeliveryProfile: "ROM_BLOB", ContentKind: "SINGLE_FILE", DATVersionID: &dat,
 		ValidationID: "validation", ValidationStatus: "READY", DependencySnapshot: "frozen",
 	}
-	repository := &previewTestRepository{snapshot: PreviewSnapshot{Source: source, SourceFiles: []PreviewFile{{Role: "CONTENT", LogicalName: "game.bin", BlobID: "game"}}}, current: source}
+	repository := &previewTestRepository{snapshot: model.PreviewSnapshot{Source: source, SourceFiles: []model.PreviewFile{{Role: "CONTENT", LogicalName: "game.bin", BlobID: "game"}}}, current: source}
 	provider := &previewTestProvider{target: runtimebundle.Target{Inputs: []runtimebundle.Input{{Role: "game"}}}}
 	provider.before = func() {
 		if repository.inTransaction {
@@ -93,11 +94,11 @@ func previewFixture(t *testing.T) (*PreviewCreator, *previewTestRepository, *pre
 		Now: func() time.Time { return time.UnixMilli(1000) }, NewID: func() (string, error) { return previewTestID, nil },
 		SignCapability: func(string) (string, []byte, error) { return "test", make([]byte, 32), nil },
 	}
-	return NewPreviewCreator(repository, provider, environment), repository, provider, ReviewPreviewRequest{ImportItemID: "item", ActorUserID: "actor", IdempotencyKey: "key"}
+	return NewPreviewCreator(repository, provider, environment), repository, provider, model.ReviewPreviewRequest{ImportItemID: "item", ActorUserID: "actor", IdempotencyKey: "key"}
 }
 
-func previewFixtureRestore(repository *previewTestRepository) PreviewRestore {
-	return PreviewRestore{
+func previewFixtureRestore(repository *previewTestRepository) model.PreviewRestore {
+	return model.PreviewRestore{
 		ActorID: "actor", ItemID: "item", SnapshotID: "source", ProviderID: "provider", TargetID: "target",
 		State: "ACTIVE", HardExpiresAtMS: 2000, ContentBlobID: "game", ContentName: "game.bin", ContentFormat: "SOURCE_V1",
 		DependencySnapshot: repository.current.DependencySnapshot, BlobID: "saved-B", Format: "checkpoint-v1", SizeBytes: 100,

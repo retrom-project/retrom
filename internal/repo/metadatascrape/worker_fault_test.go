@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	metadatascrapemodel "retrom/internal/model/metadatascrape"
 	"retrom/internal/service/metadatascrape"
 	"retrom/internal/testkit/testsupport"
 )
@@ -25,7 +26,7 @@ func TestMetadataRecoveredLeaseAndRetryEventRollbackTogether(t *testing.T) {
 		}
 		return nil
 	}})
-	processor := recoveryProcess(func(context.Context, metadatascrape.WorkerClaim, string) (int, string, error) {
+	processor := recoveryProcess(func(context.Context, metadatascrapemodel.WorkerClaim, string) (int, string, error) {
 		t.Fatal("failed recovery processed")
 		return 0, "", nil
 	})

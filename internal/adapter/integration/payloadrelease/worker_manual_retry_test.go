@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	blobmodel "retrom/internal/model/blob"
+
 	"retrom/internal/adapter/files/blobstore"
 	"retrom/internal/repo/dbexec"
 )
@@ -58,7 +60,7 @@ func TestImmediateGCManualRetryStartsANewExecutionBudget(t *testing.T) {
 	}
 }
 
-func seedManualGC(t *testing.T, database *sql.DB, metadata blobstore.Metadata) {
+func seedManualGC(t *testing.T, database *sql.DB, metadata blobmodel.PreparedBlob) {
 	t.Helper()
 	tx, err := database.BeginTx(t.Context(), nil)
 	if err != nil {

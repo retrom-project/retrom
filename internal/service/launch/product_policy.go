@@ -5,9 +5,10 @@ import (
 	"slices"
 
 	"retrom/internal/capability/content/multidisc"
+	model "retrom/internal/model/launch"
 )
 
-func validProductRequest(command ProductCreateCommand) bool {
+func validProductRequest(command model.ProductCreateCommand) bool {
 	request := command.Request
 	if command.ProfileID == "" || request.GameID == "" || !ValidProductReturnTo(
 		request.ReturnTo,
@@ -22,19 +23,19 @@ func validProductRequest(command ProductCreateCommand) bool {
 	return command.Key == "" || command.ActorID != "" && len(command.Digest) == 64
 }
 
-func validateProductSelection(command ProductCreateCommand, snapshot ProductSnapshot) error {
+func validateProductSelection(command model.ProductCreateCommand, snapshot model.ProductSnapshot) error {
 	if command.Request.SaveStateID != nil {
 		return validateProductSavedSelection(snapshot)
 	}
 	if !snapshot.Found {
-		return ErrBlocked
+		return model.ErrBlocked
 	}
 	return nil
 }
 
-func validateProductSavedSelection(snapshot ProductSnapshot) error {
+func validateProductSavedSelection(snapshot model.ProductSnapshot) error {
 	if snapshot.Save == nil {
-		return ErrBlocked
+		return model.ErrBlocked
 	}
 	if snapshot.Found && snapshot.Source.VariantStatus == "READY" && slices.Contains(
 		snapshot.Source.ReadFormats,
@@ -43,14 +44,17 @@ func validateProductSavedSelection(snapshot ProductSnapshot) error {
 		return nil
 	}
 	if !snapshot.SaveReadable {
-		return ErrSaveIncompatible
+		return model.ErrSaveIncompatible
 	}
-	return ErrBlocked
+	return model.ErrBlocked
 }
 
 type productDOSEntryChoice struct{ Path *string }
 
-func selectedProductDOS(command ProductCreateCommand, snapshot ProductSnapshot) (productDOSEntryChoice, error) {
+func selectedProductDOS(command model.ProductCreateCommand, snapshot model.ProductSnapshot) (
+	productDOSEntryChoice,
+	error,
+) {
 	entry := command.Request.DOSEntry
 	if snapshot.Save != nil && snapshot.Save.DOSEntry != nil {
 		entry = snapshot.Save.DOSEntry
@@ -59,38 +63,38 @@ func selectedProductDOS(command ProductCreateCommand, snapshot ProductSnapshot) 
 		return productDOSEntryChoice{}, nil
 	}
 	if !snapshot.DOS.Found {
-		return productDOSEntryChoice{}, ErrDOSEntryMissing
+		return productDOSEntryChoice{}, model.ErrDOSEntryMissing
 	}
 	if !snapshot.DOS.Safe {
-		return productDOSEntryChoice{}, ErrDOSEntryUnsafe
+		return productDOSEntryChoice{}, model.ErrDOSEntryUnsafe
 	}
 	return productDOSEntryChoice{Path: entry}, nil
 }
 
-func productInitialDisc(snapshot ProductSnapshot, discCount int) (int64, error) {
+func productInitialDisc(snapshot model.ProductSnapshot, discCount int) (int64, error) {
 	var saved *int64
 	if snapshot.Save != nil {
 		saved = snapshot.Save.DiscIndex
 	}
 	if snapshot.Source.ContentKind != multidisc.ContentKind {
 		if saved != nil {
-			return 0, ErrBlocked
+			return 0, model.ErrBlocked
 		}
 		return 0, nil
 	}
 	if snapshot.Save == nil {
 		if saved != nil {
-			return 0, ErrBlocked
+			return 0, model.ErrBlocked
 		}
 		return 0, nil
 	}
 	if saved == nil || *saved < 0 || *saved >= int64(discCount) {
-		return 0, ErrBlocked
+		return 0, model.ErrBlocked
 	}
 	return *saved, nil
 }
 
-func sameProductInputs(before, after ProductSnapshot, validation bool) bool {
+func sameProductInputs(before, after model.ProductSnapshot, validation bool) bool {
 	before.SaveReadable, after.SaveReadable = false, false
 	if !before.Found || !after.Found {
 		return false
@@ -102,7 +106,7 @@ func sameProductInputs(before, after ProductSnapshot, validation bool) bool {
 		before.Source.CompatibilityCode, after.Source.CompatibilityCode = "", ""
 		before.Source.DATVersionID, after.Source.DATVersionID = nil, nil
 		before.VariantFiles, after.VariantFiles = nil, nil
-		before.BIOS, after.BIOS = ProductBIOSFacts{}, ProductBIOSFacts{}
+		before.BIOS, after.BIOS = model.ProductBIOSFacts{}, model.ProductBIOSFacts{}
 	} else {
 		before.Source.GameVersion, after.Source.GameVersion = 0, 0
 	}

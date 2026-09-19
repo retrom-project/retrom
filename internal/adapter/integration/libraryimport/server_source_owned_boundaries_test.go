@@ -9,8 +9,8 @@ import (
 	"slices"
 	"testing"
 
+	libraryimportmodel "retrom/internal/model/libraryimport"
 	"retrom/internal/repo/blobcatalog"
-	application "retrom/internal/service/libraryimport"
 )
 
 func TestOwnedSourceKeepsAllDuplicateMatchesInOneBoundItem(t *testing.T) {
@@ -53,7 +53,7 @@ func TestOwnedServerSourceRejectsUndeclaredPrimaryWithoutReview(t *testing.T) {
 	fixture, request := ownedSourceFixture(t)
 	request.Files[0].RelativePath = "games/companion.gba"
 	result, err := fixture.service.CreateOwnedServerSource(fixture.ctx, request)
-	if !errors.Is(err, ErrVersionConflict) || errors.Is(err, application.ErrSourceGrouping) || result.Created.ImportJobID != "" || ownedImportCount(t, fixture) != 0 {
+	if !errors.Is(err, ErrVersionConflict) || errors.Is(err, libraryimportmodel.ErrSourceGrouping) || result.Created.ImportJobID != "" || ownedImportCount(t, fixture) != 0 {
 		t.Fatalf("companion became unowned review: %#v %v", result, err)
 	}
 }
@@ -84,7 +84,7 @@ func TestOwnedSourceRejectsZeroContentGroupsWithoutReview(t *testing.T) {
 	request.Intent.PrimaryPaths = []string{"unsupported.txt"}
 	request.Files[0].RelativePath = "unsupported.txt"
 	result, err := fixture.service.CreateOwnedServerSource(fixture.ctx, request)
-	if !errors.Is(err, ErrInvalid) || !errors.Is(err, application.ErrSourceGrouping) || result.Created.ImportJobID != "" || ownedImportCount(t, fixture) != 0 {
+	if !errors.Is(err, ErrInvalid) || !errors.Is(err, libraryimportmodel.ErrSourceGrouping) || result.Created.ImportJobID != "" || ownedImportCount(t, fixture) != 0 {
 		t.Fatalf("rejected source created review: %#v %v", result, err)
 	}
 }

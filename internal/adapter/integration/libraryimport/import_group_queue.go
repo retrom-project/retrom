@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	libraryimportmodel "retrom/internal/model/libraryimport"
 	repository "retrom/internal/repo/libraryimport"
 	application "retrom/internal/service/libraryimport"
 )
@@ -27,6 +28,6 @@ func (service *Service) QueueCreate(ctx context.Context, request CreateRequest) 
 	return result, nil
 }
 
-func targetGuard(target creationTarget) application.ImportTargetGuard {
+func targetGuard(target creationTarget) libraryimportmodel.ImportTargetGuard {
 	return application.TargetImportGuard(importTargetFacts(target))
 }

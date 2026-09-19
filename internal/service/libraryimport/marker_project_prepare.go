@@ -16,6 +16,7 @@ import (
 	"retrom/internal/capability/engine/rpgmaker/fileset"
 	tyranodetector "retrom/internal/capability/engine/tyranoscript/detector"
 	"retrom/internal/capability/format/importing"
+	model "retrom/internal/model/libraryimport"
 )
 
 type markerProjectDefinition struct {
@@ -110,24 +111,24 @@ var tyranoScriptMarkerProject = markerProjectDefinition{
 func (service *ImportPreparation) PrepareButterscotchProject(
 	ctx context.Context,
 	sourceType string,
-	files []ImportFile,
-) ([]PreparedDisposition, []PreparedGroup, []PreparedArchive, error) {
+	files []model.ImportFile,
+) ([]model.PreparedDisposition, []model.PreparedGroup, []model.PreparedArchive, error) {
 	return service.prepareMarkerProject(ctx, sourceType, files, butterscotchMarkerProject)
 }
 
 func (service *ImportPreparation) PrepareONSProject(
 	ctx context.Context,
 	sourceType string,
-	files []ImportFile,
-) ([]PreparedDisposition, []PreparedGroup, []PreparedArchive, error) {
+	files []model.ImportFile,
+) ([]model.PreparedDisposition, []model.PreparedGroup, []model.PreparedArchive, error) {
 	return service.prepareMarkerProject(ctx, sourceType, files, onsMarkerProject)
 }
 
 func (service *ImportPreparation) PrepareTyranoScriptProject(
 	ctx context.Context,
 	sourceType string,
-	files []ImportFile,
-) ([]PreparedDisposition, []PreparedGroup, []PreparedArchive, error) {
+	files []model.ImportFile,
+) ([]model.PreparedDisposition, []model.PreparedGroup, []model.PreparedArchive, error) {
 	return service.prepareMarkerProject(ctx, sourceType, files, tyranoScriptMarkerProject)
 }
 
@@ -161,15 +162,18 @@ func detectMarkerProject[File any, Profile any](
 func (service *ImportPreparation) prepareMarkerProject(
 	ctx context.Context,
 	sourceType string,
-	files []ImportFile,
+	files []model.ImportFile,
 	definition markerProjectDefinition,
-) ([]PreparedDisposition, []PreparedGroup, []PreparedArchive, error) {
+) ([]model.PreparedDisposition, []model.PreparedGroup, []model.PreparedArchive, error) {
 	return service.prepareProject(ctx, sourceType, files,
-		func(files []ImportFile) ([]PreparedDisposition, PreparedGroup, error) {
+		func(files []model.ImportFile) ([]model.PreparedDisposition, model.PreparedGroup, error) {
 			return service.prepareMarkerProjectDirectory(files, definition)
 		},
-		func(ctx context.Context, file ImportFile) (
-			PreparedDisposition, PreparedGroup, PreparedArchive, error,
+		func(
+			ctx context.Context,
+			file model.ImportFile,
+		) (model.PreparedDisposition, model.PreparedGroup, model.PreparedArchive,
+			error,
 		) {
 			return service.prepareMarkerProjectArchive(ctx, file, definition)
 		},
@@ -177,13 +181,13 @@ func (service *ImportPreparation) prepareMarkerProject(
 }
 
 func (service *ImportPreparation) prepareMarkerProjectDirectory(
-	files []ImportFile,
+	files []model.ImportFile,
 	definition markerProjectDefinition,
-) ([]PreparedDisposition, PreparedGroup, error) {
+) ([]model.PreparedDisposition, model.PreparedGroup, error) {
 	input := directoryProjectInput(files)
 	project, err := fileset.NormalizeProjectWithMarkers(input, definition.markers)
 	if err != nil {
-		return nil, PreparedGroup{}, fmt.Errorf("normalize %s directory: %w", definition.name, err)
+		return nil, model.PreparedGroup{}, fmt.Errorf("normalize %s directory: %w", definition.name, err)
 	}
 	paths := make(map[int]string, len(project.Files))
 	for _, file := range project.Files {
@@ -191,7 +195,7 @@ func (service *ImportPreparation) prepareMarkerProjectDirectory(
 	}
 	snapshot, err := definition.detect(project.Files, paths)
 	if err != nil {
-		return nil, PreparedGroup{}, fmt.Errorf("detect %s directory: %w", definition.name, err)
+		return nil, model.PreparedGroup{}, fmt.Errorf("detect %s directory: %w", definition.name, err)
 	}
 	dispositions, sources := directoryProjectSources(files, project.Files)
 	return dispositions, markerProjectGroup(
@@ -201,56 +205,60 @@ func (service *ImportPreparation) prepareMarkerProjectDirectory(
 
 func (service *ImportPreparation) prepareMarkerProjectArchive(
 	ctx context.Context,
-	file ImportFile,
+	file model.ImportFile,
 	definition markerProjectDefinition,
-) (PreparedDisposition, PreparedGroup, PreparedArchive, error) {
+) (model.PreparedDisposition, model.PreparedGroup, model.PreparedArchive, error) {
 	format, err := service.resolveMarkerProjectArchiveFormat(file, definition)
 	if err != nil {
-		return PreparedDisposition{}, PreparedGroup{}, PreparedArchive{}, err
+		return model.PreparedDisposition{}, model.PreparedGroup{}, model.PreparedArchive{}, err
 	}
 	entries, candidates, project, entryByOrdinal, err := service.scanMarkerProjectArchive(
 		ctx, file, definition, format,
 	)
 	if err != nil {
-		return PreparedDisposition{}, PreparedGroup{}, PreparedArchive{}, err
+		return model.PreparedDisposition{}, model.PreparedGroup{}, model.PreparedArchive{}, err
 	}
 	defer func() { discardProjectArchiveCandidates(candidates) }()
 	projectEntries := archiveProjectEntries(project.Files, entryByOrdinal)
 	readMetadata, err := service.projectArchiveReadMetadata(ctx, file, projectEntries, candidates)
 	if err != nil {
-		return PreparedDisposition{}, PreparedGroup{}, PreparedArchive{}, err
+		return model.PreparedDisposition{}, model.PreparedGroup{}, model.PreparedArchive{}, err
 	}
-	paths, err := ArchiveProjectPaths(project.Files, readMetadata)
+	readPaths := make(map[int]string, len(readMetadata))
+	for ordinal, value := range readMetadata {
+		readPaths[ordinal] = value.Path
+	}
+	paths, err := ArchiveProjectPaths(project.Files, readPaths)
 	if err != nil {
-		return PreparedDisposition{}, PreparedGroup{}, PreparedArchive{}, err
+		return model.PreparedDisposition{}, model.PreparedGroup{}, model.PreparedArchive{}, err
 	}
 	snapshot, err := definition.detect(project.Files, paths)
 	if err != nil {
-		return PreparedDisposition{}, PreparedGroup{}, PreparedArchive{}, fmt.Errorf(
+		return model.PreparedDisposition{}, model.PreparedGroup{}, model.PreparedArchive{}, fmt.Errorf(
 			"detect %s archive: %w", definition.name, err,
 		)
 	}
 	materialized, err := projectArchiveMaterialization(projectEntries, candidates, readMetadata)
 	if err != nil {
-		return PreparedDisposition{}, PreparedGroup{}, PreparedArchive{}, err
+		return model.PreparedDisposition{}, model.PreparedGroup{}, model.PreparedArchive{}, err
 	}
 	sources := archiveProjectSources(file, project.Files)
-	return sourceDisposition(file), markerProjectGroup(sources, snapshot, definition, file.Path), PreparedArchive{
+	return sourceDisposition(file), markerProjectGroup(sources, snapshot, definition, file.Path), model.PreparedArchive{
 		BlobID: file.BlobID, Entries: entries, Materialized: materialized,
 	}, nil
 }
 
 func (service *ImportPreparation) resolveMarkerProjectArchiveFormat(
-	file ImportFile,
+	file model.ImportFile,
 	definition markerProjectDefinition,
 ) (contentprofile.ArchiveFormat, error) {
-	archiveFormat := profileArchiveFormat
+	archiveFormat := ImportArchiveFormat
 	if definition.archiveFormat != nil {
 		archiveFormat = definition.archiveFormat
 	}
 	format, reason := archiveFormat(file.Path)
 	if reason != "" {
-		return "", ErrInvalid
+		return "", model.ErrInvalid
 	}
 	if !definition.electronASAR || format != contentprofile.ArchiveZIP {
 		return format, nil
@@ -269,7 +277,7 @@ func (service *ImportPreparation) resolveMarkerProjectArchiveFormat(
 
 func (service *ImportPreparation) scanMarkerProjectArchive(
 	ctx context.Context,
-	file ImportFile,
+	file model.ImportFile,
 	definition markerProjectDefinition,
 	format contentprofile.ArchiveFormat,
 ) ([]importing.ArchiveEntry, map[int]*blobstore.Candidate, fileset.Project, map[int]importing.ArchiveEntry, error) {
@@ -319,7 +327,7 @@ func (service *ImportPreparation) scanWrappedTyranoScriptNWJS(
 		if !exists {
 			return nil, nil, false, importing.ErrArchiveUnsafe
 		}
-		candidatePath := candidate.Metadata().Path
+		candidatePath := candidate.Path()
 		if err := importing.ValidateNWJSExecutable(candidatePath); err != nil {
 			if errors.Is(err, importing.ErrNWJSExecutableInvalid) {
 				continue
@@ -349,10 +357,10 @@ func tyranoScriptArchiveFormat(filePath string) (contentprofile.ArchiveFormat, s
 	if strings.EqualFold(filepath.Ext(filePath), ".exe") {
 		return contentprofile.ArchiveNWJSExecutable, ""
 	}
-	return profileArchiveFormat(filePath)
+	return ImportArchiveFormat(filePath)
 }
 
-func directoryProjectInput(files []ImportFile) []fileset.SourceFile {
+func directoryProjectInput(files []model.ImportFile) []fileset.SourceFile {
 	input := make([]fileset.SourceFile, 0, len(files))
 	for index, file := range files {
 		input = append(input, fileset.SourceFile{Path: file.Path, SizeBytes: file.Size, SourceIndex: index})
@@ -361,25 +369,25 @@ func directoryProjectInput(files []ImportFile) []fileset.SourceFile {
 }
 
 func directoryProjectSources(
-	files []ImportFile,
+	files []model.ImportFile,
 	projectFiles []fileset.SourceFile,
-) ([]PreparedDisposition, []PreparedSource) {
+) ([]model.PreparedDisposition, []model.PreparedSource) {
 	included := make(map[int]fileset.SourceFile, len(projectFiles))
 	for _, file := range projectFiles {
 		included[file.SourceIndex] = file
 	}
-	dispositions := make([]PreparedDisposition, 0, len(files))
-	sources := make([]PreparedSource, 0, len(projectFiles))
+	dispositions := make([]model.PreparedDisposition, 0, len(files))
+	sources := make([]model.PreparedSource, 0, len(projectFiles))
 	for sourceIndex, source := range files {
 		file, exists := included[sourceIndex]
 		if !exists {
-			dispositions = append(dispositions, PreparedDisposition{
+			dispositions = append(dispositions, model.PreparedDisposition{
 				File: source, Disposition: "IGNORED", Reason: "IGNORED_SYSTEM_SIDECAR",
 			})
 			continue
 		}
 		dispositions = append(dispositions, sourceDisposition(source))
-		sources = append(sources, PreparedSource{File: source, Role: "PROJECT_FILE", LogicalName: file.Path})
+		sources = append(sources, model.PreparedSource{File: source, Role: "PROJECT_FILE", LogicalName: file.Path})
 	}
 	return dispositions, sources
 }
@@ -416,24 +424,24 @@ func archiveProjectEntries(
 
 func ArchiveProjectPaths(
 	files []fileset.SourceFile,
-	metadata map[int]blobstore.Metadata,
+	metadata map[int]string,
 ) (map[int]string, error) {
 	paths := make(map[int]string, len(files))
 	for _, file := range files {
 		value, exists := metadata[file.SourceIndex]
-		if !exists || value.Path == "" {
+		if !exists || value == "" {
 			return nil, importing.ErrArchiveUnsafe
 		}
-		paths[file.SourceIndex] = value.Path
+		paths[file.SourceIndex] = value
 	}
 	return paths, nil
 }
 
-func archiveProjectSources(file ImportFile, files []fileset.SourceFile) []PreparedSource {
-	sources := make([]PreparedSource, 0, len(files))
+func archiveProjectSources(file model.ImportFile, files []fileset.SourceFile) []model.PreparedSource {
+	sources := make([]model.PreparedSource, 0, len(files))
 	for _, projectFile := range files {
 		ordinal := projectFile.SourceIndex
-		sources = append(sources, PreparedSource{
+		sources = append(sources, model.PreparedSource{
 			File: file, Role: "PROJECT_FILE", LogicalName: projectFile.Path,
 			ArchiveBlobID: file.BlobID, ArchiveOrdinal: &ordinal,
 		})
@@ -442,13 +450,13 @@ func archiveProjectSources(file ImportFile, files []fileset.SourceFile) []Prepar
 }
 
 func markerProjectGroup(
-	sources []PreparedSource,
+	sources []model.PreparedSource,
 	snapshot []byte,
 	definition markerProjectDefinition,
 	titleSource string,
-) PreparedGroup {
+) model.PreparedGroup {
 	sortPreparedSources(sources)
-	return PreparedGroup{
+	return model.PreparedGroup{
 		Sources: sources, ContentKind: definition.contentKind,
 		ValidationStatus: "BLOCKED", CompatibilityCode: definition.compatibilityCode,
 		DependencySnapshot: string(snapshot), TitleSource: titleSource, TitleSourceExplicit: true,

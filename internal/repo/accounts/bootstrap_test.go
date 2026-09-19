@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/service/accounts"
+	accountsmodel "retrom/internal/model/accounts"
 	"retrom/internal/testkit/testsupport"
 )
 
@@ -21,9 +21,9 @@ func TestBootstrapLateFailureRollsBackIdentitySessionStateAndAudit(t *testing.T)
 			t.Error(err)
 		}
 	})
-	plan := accounts.BootstrapPlan{UserID: "initial-user", ProfileID: "initial-profile", Username: "admin", DisplayName: "Owner", PasswordHash: "initial-hash", Kind: "RELEASE_SETUP", ActorLabel: "release-setup", AuditID: "initial-audit", Now: 100}
-	plan.Session = accounts.SessionRecord{ID: "initial-session", UserID: plan.UserID, SessionVersion: 1, CreatedAt: 100, LastSeen: 100, IdleExpiry: 200, AbsoluteExpiry: 300}
-	err = NewInitialization(database.SQL).WithWrite(t.Context(), func(scope accounts.InitializationScope) error {
+	plan := accountsmodel.BootstrapPlan{UserID: "initial-user", ProfileID: "initial-profile", Username: "admin", DisplayName: "Owner", PasswordHash: "initial-hash", Kind: "RELEASE_SETUP", ActorLabel: "release-setup", AuditID: "initial-audit", Now: 100}
+	plan.Session = accountsmodel.SessionRecord{ID: "initial-session", UserID: plan.UserID, SessionVersion: 1, CreatedAt: 100, LastSeen: 100, IdleExpiry: 200, AbsoluteExpiry: 300}
+	err = NewInitialization(database.SQL).WithWrite(t.Context(), func(scope accountsmodel.InitializationScope) error {
 		if err := scope.Write.Bootstrap(t.Context(), plan); err != nil {
 			return err
 		}

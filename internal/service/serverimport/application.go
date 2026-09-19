@@ -8,9 +8,12 @@ import (
 	"sync"
 	"time"
 
-	"retrom/internal/adapter/files/blobstore"
+	serversourcecontract "retrom/internal/adapter/files/serversource"
+	blobmodel "retrom/internal/model/blob"
+	firmwaremodel "retrom/internal/model/firmware"
+	model "retrom/internal/model/serverimport"
+
 	"retrom/internal/foundation/cleanup"
-	firmwareservice "retrom/internal/service/firmware"
 )
 
 var ErrScanLimit = errors.New("SERVER_IMPORT_SCAN_LIMIT_EXCEEDED")
@@ -24,24 +27,24 @@ type Root struct {
 type (
 	SourceRoot struct{ ID, Label, Path, Digest string }
 	BlobStore  interface {
-		Put(io.Reader) (blobstore.Metadata, error)
+		Put(io.Reader) (blobmodel.PreparedBlob, error)
 		Path(string) string
 	}
 )
 
 type FirmwareInstaller interface {
 	InstallServerCandidate(
-		context.Context, firmwareservice.ServerInstallRequest,
-	) (firmwareservice.ServerInstallResult, error)
+		context.Context, firmwaremodel.ServerInstallRequest,
+	) (firmwaremodel.ServerInstallResult, error)
 }
 type Repositories struct {
 	Queries   QueryRepository
-	Creation  CreationRepository
-	Control   ControlRepository
+	Creation  model.CreationRepository
+	Control   model.ControlRepository
 	Recovery  RecoveryRepository
-	Discovery DiscoveryRepository
-	Leases    LeaseRepository
-	Outcomes  OutcomeRepository
+	Discovery model.DiscoveryRepository
+	Leases    model.LeaseRepository
+	Outcomes  model.OutcomeRepository
 }
 type Options struct {
 	Sources  []SourceRoot
@@ -90,10 +93,7 @@ func New(repositories Repositories, options Options) *Service {
 			repositories.Control,
 			digests,
 			options.Now,
-		), recovery: NewRecovery(
-			repositories.Recovery,
-			options.Blobs,
-		),
+		), recovery: NewRecovery(repositories.Recovery),
 		discovery: NewDiscovery(repositories.Discovery, options.Now), leases: NewLeases(repositories.Leases, options.Now),
 		outcomes: NewOutcomes(
 			repositories.Outcomes,
@@ -128,13 +128,13 @@ func (service *Service) Roots() []Root {
 	return result
 }
 
-func (service *Service) Directories(rootID, relativePath string) ([]Directory, error) {
+func (service *Service) Directories(rootID, relativePath string) ([]serversourcecontract.Directory, error) {
 	if err := ValidateRootID(rootID); err != nil {
 		return nil, err
 	}
 	root, ok := service.roots[rootID]
 	if !ok {
-		return nil, ErrRootNotFound
+		return nil, serversourcecontract.ErrRootNotFound
 	}
 	if err := ValidateRelativePath(relativePath); err != nil {
 		return nil, err
@@ -168,5 +168,3 @@ func defaultScanLimits() scanLimits {
 		hashWorkers:                 2,
 	}
 }
-
-type catalogItem = CatalogItem

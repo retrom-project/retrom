@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"io"
 
+	blobmodel "retrom/internal/model/blob"
+	model "retrom/internal/model/libraryimport"
+
 	"retrom/internal/adapter/files/blobstore"
 	"retrom/internal/capability/content/contentcapability"
 	"retrom/internal/capability/engine/rpgmaker/detector"
@@ -12,59 +15,62 @@ import (
 )
 
 type ImportPreparation struct {
-	facts           ImportFactsReader
-	catalog         ImportPreparationCatalog
+	facts           model.ImportFactsReader
+	catalog         model.ImportPreparationCatalog
 	blobs           *blobstore.Store
 	scummVMDetector *scummvm.Detector
 	options         ImportPreparationOptions
 }
 
 func NewImportPreparation(
-	facts ImportFactsReader, catalog ImportPreparationCatalog, blobs *blobstore.Store, options ImportPreparationOptions,
+	facts model.ImportFactsReader,
+	catalog model.ImportPreparationCatalog,
+	blobs *blobstore.Store,
+	options ImportPreparationOptions,
 ) *ImportPreparation {
 	return &ImportPreparation{
 		facts: facts, catalog: catalog, blobs: blobs, options: options, scummVMDetector: options.ScummVMDetector,
 	}
 }
 
-func (service *ImportPreparation) Prepare(ctx context.Context, raw ImportRequest) (PreparedImport, error) {
+func (service *ImportPreparation) Prepare(ctx context.Context, raw model.ImportRequest) (model.PreparedImport, error) {
 	request, mode, err := NormalizeImportRequest(raw)
 	if err != nil {
-		return PreparedImport{}, err
+		return model.PreparedImport{}, err
 	}
 	facts, err := readAdmissionFacts(ctx, service.facts, request)
 	if err != nil {
-		return PreparedImport{}, err
+		return model.PreparedImport{}, err
 	}
 	request, mode, err = checkImportContent(request, mode, facts, ImportAdmissionOptions{
 		MultiDiscEnabled:         service.options.MultiDiscEnabled,
 		MetadataScraperAvailable: service.options.MetadataScraperAvailable,
 	})
 	if err != nil {
-		return PreparedImport{}, err
+		return model.PreparedImport{}, err
 	}
-	plan := PreparedImport{
+	plan := model.PreparedImport{
 		Request: request, Upload: facts.Upload, Target: facts.Target, Files: facts.Files,
 		ContentMode: mode, SourceType: facts.Upload.SourceType,
 	}
 	if err := service.activeDAT(ctx, &plan); err != nil {
-		return PreparedImport{}, err
+		return model.PreparedImport{}, err
 	}
 	if err := service.prepareContent(ctx, &plan); err != nil {
-		return PreparedImport{}, err
+		return model.PreparedImport{}, err
 	}
 	if err := service.resolveRPGTarget(ctx, &plan); err != nil {
-		return PreparedImport{}, err
+		return model.PreparedImport{}, err
 	}
 	artifacts := NewImportArtifacts(preparationArtifactBlobs{store: service.blobs})
 	plan.Groups, err = artifacts.Prepare(ctx, plan.Groups, plan.Archives)
 	if err != nil {
-		return PreparedImport{}, fmt.Errorf("prepare import artifacts: %w", err)
+		return model.PreparedImport{}, fmt.Errorf("prepare import artifacts: %w", err)
 	}
 	return plan, nil
 }
 
-func (service *ImportPreparation) activeDAT(ctx context.Context, plan *PreparedImport) error {
+func (service *ImportPreparation) activeDAT(ctx context.Context, plan *model.PreparedImport) error {
 	if plan.Target.ProviderID == "" {
 		return nil
 	}
@@ -76,12 +82,12 @@ func (service *ImportPreparation) activeDAT(ctx context.Context, plan *PreparedI
 	return nil
 }
 
-func (service *ImportPreparation) resolveRPGTarget(ctx context.Context, plan *PreparedImport) error {
+func (service *ImportPreparation) resolveRPGTarget(ctx context.Context, plan *model.PreparedImport) error {
 	if plan.ContentMode != contentcapability.ModeRPGMakerProject {
 		return nil
 	}
 	if len(plan.Groups) != 1 || plan.Groups[0].RPGProfile == nil {
-		return ErrInvalid
+		return model.ErrInvalid
 	}
 	target := plan.Target
 	target.CoreID = detector.VirtualCoreID
@@ -97,7 +103,7 @@ type preparationArtifactBlobs struct{ store *blobstore.Store }
 
 func (blobs preparationArtifactBlobs) OpenDigest(digest string) (io.ReadCloser, error) {
 	if blobs.store == nil {
-		return nil, ErrInvalid
+		return nil, model.ErrInvalid
 	}
 	file, err := blobs.store.OpenDigest(digest)
 	if err != nil {
@@ -106,13 +112,13 @@ func (blobs preparationArtifactBlobs) OpenDigest(digest string) (io.ReadCloser, 
 	return file, nil
 }
 
-func (blobs preparationArtifactBlobs) Put(reader io.Reader) (blobstore.Metadata, error) {
+func (blobs preparationArtifactBlobs) Put(reader io.Reader) (blobmodel.PreparedBlob, error) {
 	if blobs.store == nil {
-		return blobstore.Metadata{}, ErrInvalid
+		return blobmodel.PreparedBlob{}, model.ErrInvalid
 	}
 	result, err := blobs.store.Put(reader)
 	if err != nil {
-		return blobstore.Metadata{}, fmt.Errorf("store prepared artifact: %w", err)
+		return blobmodel.PreparedBlob{}, fmt.Errorf("store prepared artifact: %w", err)
 	}
 	return result, nil
 }

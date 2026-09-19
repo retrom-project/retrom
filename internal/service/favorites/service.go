@@ -9,30 +9,32 @@ import (
 	"sort"
 	"time"
 
+	model "retrom/internal/model/favorites"
+
 	"github.com/google/uuid"
 )
 
 type Service struct {
-	repository Repository
+	repository model.Repository
 	now        func() time.Time
 }
 
-func New(repository Repository, now func() time.Time) *Service {
+func New(repository model.Repository, now func() time.Time) *Service {
 	return &Service{repository: repository, now: now}
 }
 
-func (service *Service) Favorite(ctx context.Context, principal Principal, gameID string) (State, error) {
-	if !ValidID(gameID) {
-		return State{}, ErrInvalid
+func (service *Service) Favorite(ctx context.Context, principal model.Principal, gameID string) (model.State, error) {
+	if !model.ValidID(gameID) {
+		return model.State{}, model.ErrInvalid
 	}
-	var state State
-	err := service.repository.WithWrite(ctx, func(connection WriteScope) error {
+	var state model.State
+	err := service.repository.WithWrite(ctx, func(connection model.WriteScope) error {
 		visible, err := connection.Games.Visible(ctx, gameID)
 		if err != nil {
 			return repositoryError("Favorite", err)
 		}
 		if !visible {
-			return ErrGameNotFound
+			return model.ErrGameNotFound
 		}
 		if err := connection.Games.Ensure(ctx, principal.ProfileID, gameID, service.now().UnixMilli()); err != nil {
 			return fmt.Errorf("favorites: insert favorite: %w", err)
@@ -43,7 +45,7 @@ func (service *Service) Favorite(ctx context.Context, principal Principal, gameI
 			return repositoryError("Favorite", err)
 		}
 		if !exists {
-			return ErrInvariant
+			return model.ErrInvariant
 		}
 		return nil
 	})
@@ -52,7 +54,7 @@ func (service *Service) Favorite(ctx context.Context, principal Principal, gameI
 
 func replaceMemberships(
 	ctx context.Context,
-	database WriteScope,
+	database model.WriteScope,
 	profileID, gameID string,
 	desired, current []string,
 	now int64,
@@ -82,17 +84,17 @@ func replaceMemberships(
 
 func (service *Service) ReplaceFolders(
 	ctx context.Context,
-	principal Principal,
+	principal model.Principal,
 	gameID string,
 	folderIDs []string,
-) (State, error) {
-	if !ValidID(gameID) || validateUniqueIDs(folderIDs, MaxFolders) != nil {
-		return State{}, ErrInvalid
+) (model.State, error) {
+	if !model.ValidID(gameID) || validateUniqueIDs(folderIDs, model.MaxFolders) != nil {
+		return model.State{}, model.ErrInvalid
 	}
 	desired := append([]string{}, folderIDs...)
 	sort.Strings(desired)
-	var state State
-	err := service.repository.WithWrite(ctx, func(connection WriteScope) error {
+	var state model.State
+	err := service.repository.WithWrite(ctx, func(connection model.WriteScope) error {
 		if err := connection.Games.RequireVisible(ctx, []string{gameID}); err != nil {
 			return repositoryError("ReplaceFolders", err)
 		}
@@ -116,7 +118,7 @@ func (service *Service) ReplaceFolders(
 	return state, repositoryError("ReplaceFolders", err)
 }
 
-func requestDigest(operation string, principal Principal, request any) string {
+func requestDigest(operation string, principal model.Principal, request any) string {
 	encoded, _ := json.Marshal(map[string]any{
 		"operationId": operation,
 		"principalId": principal.UserID,
@@ -128,23 +130,23 @@ func requestDigest(operation string, principal Principal, request any) string {
 
 func (service *Service) idempotent(
 	ctx context.Context,
-	principal Principal,
+	principal model.Principal,
 	operation, key string,
 	request any,
-	work func(WriteScope) (int, map[string]string, any, error),
-) (IdempotentResponse, error) {
+	work func(model.WriteScope) (int, map[string]string, any, error),
+) (model.IdempotentResponse, error) {
 	digest := requestDigest(operation, principal, request)
-	var response IdempotentResponse
-	err := service.repository.WithWrite(ctx, func(connection WriteScope) error {
+	var response model.IdempotentResponse
+	err := service.repository.WithWrite(ctx, func(connection model.WriteScope) error {
 		now := service.now().UnixMilli()
-		identity := IdempotencyKey{PrincipalID: principal.UserID, Operation: operation, Key: key}
+		identity := model.IdempotencyKey{PrincipalID: principal.UserID, Operation: operation, Key: key}
 		stored, found, err := connection.Idempotency.Find(ctx, identity, now)
 		if err != nil {
 			return repositoryError("idempotent", err)
 		}
 		if found {
 			if stored.Digest != digest {
-				return ErrIdempotencyReused
+				return model.ErrIdempotencyReused
 			}
 			response = stored.Response
 			response.Replayed = true
@@ -162,8 +164,8 @@ func (service *Service) idempotent(
 			}
 			body = append(body, '\n')
 		}
-		response = IdempotentResponse{Status: status, Headers: headers, Body: body}
-		if err := connection.Idempotency.Save(ctx, identity, IdempotencyRecord{
+		response = model.IdempotentResponse{Status: status, Headers: headers, Body: body}
+		if err := connection.Idempotency.Save(ctx, identity, model.IdempotencyRecord{
 			Digest: digest, Response: response, CreatedAtMS: now,
 			ExpiresAtMS: now + int64(24*time.Hour/time.Millisecond),
 		}); err != nil {
@@ -178,19 +180,19 @@ func normalizeAndValidateOrganize(
 	gameIDs, addFolderIDs, removeFolderIDs []string,
 ) ([]string, []string, []string, error) {
 	if len(gameIDs) == 0 || (len(addFolderIDs) == 0 && len(removeFolderIDs) == 0) {
-		return nil, nil, nil, ErrInvalid
+		return nil, nil, nil, model.ErrInvalid
 	}
-	if err := validateUniqueIDs(gameIDs, MaxOrganizeGames); err != nil {
+	if err := validateUniqueIDs(gameIDs, model.MaxOrganizeGames); err != nil {
 		return nil, nil, nil, repositoryError("normalizeAndValidateOrganize", err)
 	}
-	if err := validateUniqueIDs(addFolderIDs, MaxOrganizeFolders); err != nil {
+	if err := validateUniqueIDs(addFolderIDs, model.MaxOrganizeFolders); err != nil {
 		return nil, nil, nil, repositoryError("normalizeAndValidateOrganize", err)
 	}
-	if err := validateUniqueIDs(removeFolderIDs, MaxOrganizeFolders); err != nil {
+	if err := validateUniqueIDs(removeFolderIDs, model.MaxOrganizeFolders); err != nil {
 		return nil, nil, nil, repositoryError("normalizeAndValidateOrganize", err)
 	}
-	if len(gameIDs)*(len(addFolderIDs)+len(removeFolderIDs)) > MaxOrganizeEdges {
-		return nil, nil, nil, ErrBatchTooLarge
+	if len(gameIDs)*(len(addFolderIDs)+len(removeFolderIDs)) > model.MaxOrganizeEdges {
+		return nil, nil, nil, model.ErrBatchTooLarge
 	}
 	removeSet := make(map[string]struct{}, len(removeFolderIDs))
 	for _, folderID := range removeFolderIDs {
@@ -198,7 +200,7 @@ func normalizeAndValidateOrganize(
 	}
 	for _, folderID := range addFolderIDs {
 		if _, overlap := removeSet[folderID]; overlap {
-			return nil, nil, nil, ErrInvalid
+			return nil, nil, nil, model.ErrInvalid
 		}
 	}
 	games := append([]string{}, gameIDs...)
@@ -212,24 +214,24 @@ func normalizeAndValidateOrganize(
 
 func organizeGame(
 	ctx context.Context,
-	connection WriteScope,
+	connection model.WriteScope,
 	profileID, gameID string,
 	add, remove []string,
 	now int64,
-) (State, bool, error) {
+) (model.State, bool, error) {
 	if len(add) > 0 {
 		if err := connection.Games.Ensure(ctx, profileID, gameID, now); err != nil {
-			return State{}, false, repositoryError("organizeGame", err)
+			return model.State{}, false, repositoryError("organizeGame", err)
 		}
 	}
 	for _, folderID := range remove {
 		if err := connection.Memberships.Remove(ctx, profileID, folderID, gameID); err != nil {
-			return State{}, false, repositoryError("organizeGame", err)
+			return model.State{}, false, repositoryError("organizeGame", err)
 		}
 	}
 	for _, folderID := range add {
 		if err := connection.Memberships.Add(ctx, profileID, folderID, gameID, now); err != nil {
-			return State{}, false, repositoryError("organizeGame", err)
+			return model.State{}, false, repositoryError("organizeGame", err)
 		}
 	}
 	state, exists, err := connection.Games.State(ctx, profileID, gameID)
@@ -238,23 +240,23 @@ func organizeGame(
 
 func (service *Service) organizeWork(
 	ctx context.Context,
-	connection WriteScope,
-	principal Principal,
+	connection model.WriteScope,
+	principal model.Principal,
 	games, add, remove []string,
-) (BatchResult, error) {
+) (model.BatchResult, error) {
 	if err := connection.Games.RequireVisible(ctx, games); err != nil {
-		return BatchResult{}, repositoryError("organizeWork", err)
+		return model.BatchResult{}, repositoryError("organizeWork", err)
 	}
 	folders := append(append([]string{}, add...), remove...)
 	if err := connection.Folders.Require(ctx, principal.ProfileID, folders); err != nil {
-		return BatchResult{}, repositoryError("organizeWork", err)
+		return model.BatchResult{}, repositoryError("organizeWork", err)
 	}
-	result := BatchResult{Items: make([]State, 0, len(games))}
+	result := model.BatchResult{Items: make([]model.State, 0, len(games))}
 	now := service.now().UnixMilli()
 	for _, gameID := range games {
 		state, exists, err := organizeGame(ctx, connection, principal.ProfileID, gameID, add, remove, now)
 		if err != nil {
-			return BatchResult{}, repositoryError("organizeWork", err)
+			return model.BatchResult{}, repositoryError("organizeWork", err)
 		}
 		if exists {
 			result.Items = append(result.Items, state)
@@ -265,13 +267,13 @@ func (service *Service) organizeWork(
 
 func (service *Service) Organize(
 	ctx context.Context,
-	principal Principal,
+	principal model.Principal,
 	key string,
 	gameIDs, addFolderIDs, removeFolderIDs []string,
-) (IdempotentResponse, error) {
+) (model.IdempotentResponse, error) {
 	games, add, remove, err := normalizeAndValidateOrganize(gameIDs, addFolderIDs, removeFolderIDs)
 	if err != nil {
-		return IdempotentResponse{}, repositoryError("Organize", err)
+		return model.IdempotentResponse{}, repositoryError("Organize", err)
 	}
 	request := struct {
 		GameIDs         []string `json:"gameIds"`
@@ -279,7 +281,7 @@ func (service *Service) Organize(
 		RemoveFolderIDs []string `json:"removeFolderIds"`
 	}{games, add, remove}
 	return service.idempotent(ctx, principal, "postFavoriteOrganize", key, request,
-		func(connection WriteScope) (int, map[string]string, any, error) {
+		func(connection model.WriteScope) (int, map[string]string, any, error) {
 			result, err := service.organizeWork(ctx, connection, principal, games, add, remove)
 			if err != nil {
 				return 0, nil, nil, repositoryError("Organize", err)
@@ -290,15 +292,15 @@ func (service *Service) Organize(
 
 func (service *Service) Unfavorite(
 	ctx context.Context,
-	principal Principal,
+	principal model.Principal,
 	key string,
 	gameIDs []string,
-) (IdempotentResponse, error) {
+) (model.IdempotentResponse, error) {
 	if len(gameIDs) == 0 {
-		return IdempotentResponse{}, ErrInvalid
+		return model.IdempotentResponse{}, model.ErrInvalid
 	}
-	if err := validateUniqueIDs(gameIDs, MaxUnfavoriteGames); err != nil {
-		return IdempotentResponse{}, repositoryError("Unfavorite", err)
+	if err := validateUniqueIDs(gameIDs, model.MaxUnfavoriteGames); err != nil {
+		return model.IdempotentResponse{}, repositoryError("Unfavorite", err)
 	}
 	games := append([]string{}, gameIDs...)
 	sort.Strings(games)
@@ -306,8 +308,8 @@ func (service *Service) Unfavorite(
 		struct {
 			GameIDs []string `json:"gameIds"`
 		}{games},
-		func(connection WriteScope) (int, map[string]string, any, error) {
-			result := UnfavoriteResult{Items: make([]UnfavoriteItem, 0, len(games))}
+		func(connection model.WriteScope) (int, map[string]string, any, error) {
+			result := model.UnfavoriteResult{Items: make([]model.UnfavoriteItem, 0, len(games))}
 			for _, gameID := range games {
 				_, exists, err := connection.Games.State(ctx, principal.ProfileID, gameID)
 				if err != nil {
@@ -320,7 +322,7 @@ func (service *Service) Unfavorite(
 				if err != nil {
 					return 0, nil, nil, repositoryError("Unfavorite", err)
 				}
-				result.Items = append(result.Items, UnfavoriteItem{GameID: gameID, FolderIDs: folderIDs})
+				result.Items = append(result.Items, model.UnfavoriteItem{GameID: gameID, FolderIDs: folderIDs})
 				if err := connection.Games.Remove(ctx, principal.ProfileID, gameID); err != nil {
 					return 0, nil, nil, repositoryError("Unfavorite", err)
 				}
@@ -329,7 +331,7 @@ func (service *Service) Unfavorite(
 		})
 }
 
-func requestedRestoreFolderIDs(items []RestoreItem) []string {
+func requestedRestoreFolderIDs(items []model.RestoreItem) []string {
 	seen := make(map[string]struct{})
 	for _, item := range items {
 		for _, folderID := range item.FolderIDs {
@@ -346,9 +348,9 @@ func requestedRestoreFolderIDs(items []RestoreItem) []string {
 
 func restoreItem(
 	ctx context.Context,
-	connection WriteScope,
+	connection model.WriteScope,
 	profileID string,
-	item RestoreItem,
+	item model.RestoreItem,
 	existingFolders map[string]struct{},
 	skippedFolders map[string]struct{},
 	now int64,
@@ -383,17 +385,17 @@ func sortedSetValues(values map[string]struct{}) []string {
 
 func (service *Service) restoreWork(
 	ctx context.Context,
-	connection WriteScope,
-	principal Principal,
-	items []RestoreItem,
-) (RestoreResult, error) {
+	connection model.WriteScope,
+	principal model.Principal,
+	items []model.RestoreItem,
+) (model.RestoreResult, error) {
 	existingFolders, err := connection.Folders.Existing(ctx, principal.ProfileID,
 		requestedRestoreFolderIDs(items),
 	)
 	if err != nil {
-		return RestoreResult{}, repositoryError("restoreWork", err)
+		return model.RestoreResult{}, repositoryError("restoreWork", err)
 	}
-	result := RestoreResult{RestoredGameIDs: []string{}, SkippedGameIDs: []string{}, SkippedFolderIDs: []string{}}
+	result := model.RestoreResult{RestoredGameIDs: []string{}, SkippedGameIDs: []string{}, SkippedFolderIDs: []string{}}
 	skippedFolders := make(map[string]struct{})
 	now := service.now().UnixMilli()
 	for _, item := range items {
@@ -401,7 +403,7 @@ func (service *Service) restoreWork(
 			ctx, connection, principal.ProfileID, item, existingFolders, skippedFolders, now,
 		)
 		if err != nil {
-			return RestoreResult{}, repositoryError("restoreWork", err)
+			return model.RestoreResult{}, repositoryError("restoreWork", err)
 		}
 		if restored {
 			result.RestoredGameIDs = append(result.RestoredGameIDs, item.GameID)
@@ -415,19 +417,19 @@ func (service *Service) restoreWork(
 
 func (service *Service) Restore(
 	ctx context.Context,
-	principal Principal,
+	principal model.Principal,
 	key string,
-	items []RestoreItem,
-) (IdempotentResponse, error) {
+	items []model.RestoreItem,
+) (model.IdempotentResponse, error) {
 	canonical, err := normalizeRestoreItems(items)
 	if err != nil {
-		return IdempotentResponse{}, repositoryError("Restore", err)
+		return model.IdempotentResponse{}, repositoryError("Restore", err)
 	}
 	return service.idempotent(ctx, principal, "postFavoriteRestore", key,
 		struct {
-			Items []RestoreItem `json:"items"`
+			Items []model.RestoreItem `json:"items"`
 		}{canonical},
-		func(connection WriteScope) (int, map[string]string, any, error) {
+		func(connection model.WriteScope) (int, map[string]string, any, error) {
 			result, err := service.restoreWork(ctx, connection, principal, canonical)
 			if err != nil {
 				return 0, nil, nil, repositoryError("Restore", err)
@@ -436,33 +438,33 @@ func (service *Service) Restore(
 		})
 }
 
-func normalizeRestoreItems(items []RestoreItem) ([]RestoreItem, error) {
-	if len(items) == 0 || len(items) > MaxRestoreGames {
-		if len(items) > MaxRestoreGames {
-			return nil, ErrBatchTooLarge
+func normalizeRestoreItems(items []model.RestoreItem) ([]model.RestoreItem, error) {
+	if len(items) == 0 || len(items) > model.MaxRestoreGames {
+		if len(items) > model.MaxRestoreGames {
+			return nil, model.ErrBatchTooLarge
 		}
-		return nil, ErrInvalid
+		return nil, model.ErrInvalid
 	}
 	gameSeen := make(map[string]struct{}, len(items))
 	edges := 0
-	canonical := make([]RestoreItem, len(items))
+	canonical := make([]model.RestoreItem, len(items))
 	for index, item := range items {
-		if !ValidID(item.GameID) {
-			return nil, ErrInvalid
+		if !model.ValidID(item.GameID) {
+			return nil, model.ErrInvalid
 		}
 		if _, duplicate := gameSeen[item.GameID]; duplicate {
-			return nil, ErrInvalid
+			return nil, model.ErrInvalid
 		}
 		gameSeen[item.GameID] = struct{}{}
-		if err := validateUniqueIDs(item.FolderIDs, MaxFolders); err != nil {
+		if err := validateUniqueIDs(item.FolderIDs, model.MaxFolders); err != nil {
 			return nil, repositoryError("normalizeRestoreItems", err)
 		}
 		edges += len(item.FolderIDs)
-		canonical[index] = RestoreItem{GameID: item.GameID, FolderIDs: append([]string{}, item.FolderIDs...)}
+		canonical[index] = model.RestoreItem{GameID: item.GameID, FolderIDs: append([]string{}, item.FolderIDs...)}
 		sort.Strings(canonical[index].FolderIDs)
 	}
-	if edges > MaxRestoreFolderEdges {
-		return nil, ErrBatchTooLarge
+	if edges > model.MaxRestoreFolderEdges {
+		return nil, model.ErrBatchTooLarge
 	}
 	sort.Slice(canonical, func(left, right int) bool { return canonical[left].GameID < canonical[right].GameID })
 	return canonical, nil
@@ -470,16 +472,16 @@ func normalizeRestoreItems(items []RestoreItem) ([]RestoreItem, error) {
 
 func (service *Service) CreateFolder(
 	ctx context.Context,
-	principal Principal,
+	principal model.Principal,
 	key, rawName string,
 	initialGameIDs []string,
-) (IdempotentResponse, error) {
+) (model.IdempotentResponse, error) {
 	name, nameKey, err := NormalizeFolderName(rawName)
 	if err != nil {
-		return IdempotentResponse{}, ErrInvalid
+		return model.IdempotentResponse{}, model.ErrInvalid
 	}
-	if err := validateUniqueIDs(initialGameIDs, MaxUnfavoriteGames); err != nil {
-		return IdempotentResponse{}, repositoryError("CreateFolder", err)
+	if err := validateUniqueIDs(initialGameIDs, model.MaxUnfavoriteGames); err != nil {
+		return model.IdempotentResponse{}, repositoryError("CreateFolder", err)
 	}
 	games := append([]string{}, initialGameIDs...)
 	sort.Strings(games)
@@ -488,13 +490,13 @@ func (service *Service) CreateFolder(
 		InitialGameIDs []string `json:"initialGameIds"`
 	}{name, games}
 	return service.idempotent(ctx, principal, "postFavoriteFolder", key, request,
-		func(connection WriteScope) (int, map[string]string, any, error) {
+		func(connection model.WriteScope) (int, map[string]string, any, error) {
 			count, err := connection.Folders.Count(ctx, principal.ProfileID)
 			if err != nil {
 				return 0, nil, nil, repositoryError("CreateFolder", err)
 			}
-			if count >= MaxFolders {
-				return 0, nil, nil, ErrFolderLimit
+			if count >= model.MaxFolders {
+				return 0, nil, nil, model.ErrFolderLimit
 			}
 			if err := connection.Folders.RequireAvailableName(ctx, principal.ProfileID, nameKey, ""); err != nil {
 				return 0, nil, nil, repositoryError("CreateFolder", err)
@@ -507,7 +509,7 @@ func (service *Service) CreateFolder(
 				return 0, nil, nil, fmt.Errorf("favorites: new folder id: %w", err)
 			}
 			now := service.now().UnixMilli()
-			if err := connection.FolderWrites.Create(ctx, FolderWrite{
+			if err := connection.FolderWrites.Create(ctx, model.FolderWrite{
 				ProfileID: principal.ProfileID, FolderID: folderID.String(),
 				Name: name, NameKey: nameKey, NowMS: now,
 			}); err != nil {
@@ -536,16 +538,16 @@ func (service *Service) CreateFolder(
 
 func (service *Service) RenameFolder(
 	ctx context.Context,
-	principal Principal,
+	principal model.Principal,
 	key, folderID, rawName string,
 	expectedVersion int64,
-) (IdempotentResponse, error) {
-	if !ValidID(folderID) || expectedVersion < 1 {
-		return IdempotentResponse{}, ErrInvalid
+) (model.IdempotentResponse, error) {
+	if !model.ValidID(folderID) || expectedVersion < 1 {
+		return model.IdempotentResponse{}, model.ErrInvalid
 	}
 	name, nameKey, err := NormalizeFolderName(rawName)
 	if err != nil {
-		return IdempotentResponse{}, ErrInvalid
+		return model.IdempotentResponse{}, model.ErrInvalid
 	}
 	request := struct {
 		FolderID string `json:"folderId"`
@@ -553,22 +555,22 @@ func (service *Service) RenameFolder(
 		Version  int64  `json:"version"`
 	}{folderID, name, expectedVersion}
 	return service.idempotent(ctx, principal, "patchFavoriteFolder", key, request,
-		func(connection WriteScope) (int, map[string]string, any, error) {
+		func(connection model.WriteScope) (int, map[string]string, any, error) {
 			folder, err := connection.Folders.Get(ctx, principal.ProfileID, folderID)
 			if err != nil {
 				return 0, nil, nil, repositoryError("RenameFolder", err)
 			}
 			if folder.Version != expectedVersion {
-				return 0, nil, nil, ErrVersionConflict
+				return 0, nil, nil, model.ErrVersionConflict
 			}
 			if folder.Name == name {
-				return 0, nil, nil, ErrInvalid
+				return 0, nil, nil, model.ErrInvalid
 			}
 			if err := connection.Folders.RequireAvailableName(ctx, principal.ProfileID, nameKey, folderID); err != nil {
 				return 0, nil, nil, repositoryError("RenameFolder", err)
 			}
 			now := service.now().UnixMilli()
-			err = connection.FolderWrites.Rename(ctx, FolderWrite{
+			err = connection.FolderWrites.Rename(ctx, model.FolderWrite{
 				ProfileID: principal.ProfileID, FolderID: folderID, Name: name, NameKey: nameKey,
 				ExpectedVersion: expectedVersion, NowMS: now,
 			})
@@ -587,25 +589,25 @@ func (service *Service) RenameFolder(
 
 func (service *Service) DeleteFolder(
 	ctx context.Context,
-	principal Principal,
+	principal model.Principal,
 	key, folderID string,
 	expectedVersion int64,
-) (IdempotentResponse, error) {
-	if !ValidID(folderID) || expectedVersion < 1 {
-		return IdempotentResponse{}, ErrInvalid
+) (model.IdempotentResponse, error) {
+	if !model.ValidID(folderID) || expectedVersion < 1 {
+		return model.IdempotentResponse{}, model.ErrInvalid
 	}
 	request := struct {
 		FolderID string `json:"folderId"`
 		Version  int64  `json:"version"`
 	}{folderID, expectedVersion}
 	return service.idempotent(ctx, principal, "deleteFavoriteFolder", key, request,
-		func(connection WriteScope) (int, map[string]string, any, error) {
+		func(connection model.WriteScope) (int, map[string]string, any, error) {
 			folder, err := connection.Folders.Get(ctx, principal.ProfileID, folderID)
 			if err != nil {
 				return 0, nil, nil, repositoryError("DeleteFolder", err)
 			}
 			if folder.Version != expectedVersion {
-				return 0, nil, nil, ErrVersionConflict
+				return 0, nil, nil, model.ErrVersionConflict
 			}
 			if err := connection.FolderWrites.Delete(ctx, principal.ProfileID, folderID, expectedVersion); err != nil {
 				return 0, nil, nil, repositoryError("DeleteFolder", err)
@@ -614,14 +616,14 @@ func (service *Service) DeleteFolder(
 		})
 }
 
-func (service *Service) Reference(ctx context.Context, profileID, gameID string) (*FavoriteReference, error) {
+func (service *Service) Reference(ctx context.Context, profileID, gameID string) (*model.FavoriteReference, error) {
 	reference, err := service.repository.Reference(ctx, profileID, gameID)
 	return reference, repositoryError("Reference", err)
 }
 
 func (service *Service) References(
 	ctx context.Context, profileID string, gameIDs []string,
-) (map[string]FavoriteReference, error) {
+) (map[string]model.FavoriteReference, error) {
 	references, err := service.repository.References(ctx, profileID, gameIDs)
 	return references, repositoryError("References", err)
 }

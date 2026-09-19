@@ -6,9 +6,10 @@ import (
 	"reflect"
 	"testing"
 
+	libraryimportmodel "retrom/internal/model/libraryimport"
+	payloadreleasemodel "retrom/internal/model/payloadrelease"
 	"retrom/internal/repo/dbexec"
 	payloadpersistence "retrom/internal/repo/payloadrelease"
-	application "retrom/internal/service/libraryimport"
 	payloadservice "retrom/internal/service/payloadrelease"
 )
 
@@ -51,7 +52,7 @@ func finishOwnedESDuplicate(t *testing.T, fixture deduplicateFixture, gameID str
  existing_game_id=?,completed_at_ms=?,version=version+1 WHERE id='es-owner-source'`, gameID, ownedSourceNow().UnixMilli()); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := payloadservice.NewScheduler(nil).TerminalSource(fixture.ctx, payloadpersistence.BindScheduling(tx), payloadservice.Scope{Type: payloadservice.ScopeEmulationStationImportItem, ID: "es-owner-source"}, ownedSourceNow().UnixMilli()); err != nil {
+	if _, err := payloadservice.NewScheduler(nil).TerminalSource(fixture.ctx, payloadpersistence.BindScheduling(tx), payloadreleasemodel.Scope{Type: payloadreleasemodel.ScopeEmulationStationImportItem, ID: "es-owner-source"}, ownedSourceNow().UnixMilli()); err != nil {
 		t.Fatal(err)
 	}
 	if err := tx.Commit(); err != nil {
@@ -59,7 +60,7 @@ func finishOwnedESDuplicate(t *testing.T, fixture deduplicateFixture, gameID str
 	}
 }
 
-func createOwnedESDuplicate(t *testing.T, fixture deduplicateFixture, request application.OwnedServerSourceRequest) ServerImportResult {
+func createOwnedESDuplicate(t *testing.T, fixture deduplicateFixture, request libraryimportmodel.OwnedServerSourceRequest) ServerImportResult {
 	t.Helper()
 	original, err := fixture.service.CreateServerSource(fixture.ctx, fixture.platform, "STANDARD", request.Files, nil, "")
 	if err != nil {

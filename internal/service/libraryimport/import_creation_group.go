@@ -12,12 +12,14 @@ import (
 
 	"retrom/internal/capability/content/contentmanifest"
 	"retrom/internal/capability/content/multidisc"
+	model "retrom/internal/model/libraryimport"
+	payloadreleasemodel "retrom/internal/model/payloadrelease"
 	"retrom/internal/service/payloadrelease"
 )
 
 func (service *ImportCreations) prepareGroup(
-	group PreparedGroup,
-	archives []PreparedArchive,
+	group model.PreparedGroup,
+	archives []model.PreparedArchive,
 ) (creationGroup, error) {
 	record := creationGroup{group: cloneCreationGroup(group), kind: PreparedGroupContentKind(group)}
 	for _, destination := range []*string{&record.itemID, &record.snapshotID, &record.validationID, &record.draftID} {
@@ -34,7 +36,7 @@ func (service *ImportCreations) prepareGroup(
 		var archiveSHA *string
 		if source.ArchiveOrdinal != nil {
 			if source.ArchiveBlobID != source.File.BlobID {
-				return creationGroup{}, ErrInvalid
+				return creationGroup{}, model.ErrInvalid
 			}
 			archiveSHA = &source.File.SHA256
 		}
@@ -63,7 +65,7 @@ func (service *ImportCreations) prepareGroup(
 	return record, nil
 }
 
-func creationGroupIdentity(sources []PreparedSource) (string, []string, error) {
+func creationGroupIdentity(sources []model.PreparedSource) (string, []string, error) {
 	identity := make([]map[string]any, 0, len(sources))
 	names := make([]string, 0, len(sources))
 	for _, source := range sources {
@@ -83,7 +85,7 @@ func creationGroupIdentity(sources []PreparedSource) (string, []string, error) {
 
 func (run *creationCommit) persistGroup(
 	ctx context.Context,
-	scope ImportCreationScope,
+	scope model.ImportCreationScope,
 	record *creationGroup,
 ) error {
 	source, err := run.sourceChange(record)
@@ -134,8 +136,8 @@ func (run *creationCommit) persistGroup(
 	return nil
 }
 
-func (run *creationCommit) sourceChange(record *creationGroup) (CreationSource, error) {
-	value := CreationSource{
+func (run *creationCommit) sourceChange(record *creationGroup) (model.CreationSource, error) {
+	value := model.CreationSource{
 		ItemID:         record.itemID,
 		ImportID:       run.header.ImportID,
 		SnapshotID:     record.snapshotID,
@@ -155,26 +157,24 @@ func (run *creationCommit) sourceChange(record *creationGroup) (CreationSource, 
 			blobID = run.materialized[source.ArchiveBlobID][*source.ArchiveOrdinal]
 		}
 		if blobID == "" {
-			return CreationSource{}, ErrInvalid
+			return model.CreationSource{}, model.ErrInvalid
 		}
 		order := index
 		if source.SortOrder != nil {
 			order = *source.SortOrder
 		}
-		value.Files = append(value.Files, CreationSourceFile{PreparedSource: source, BlobID: blobID, Order: order})
+		value.Files = append(value.Files, model.CreationSourceFile{PreparedSource: source, BlobID: blobID, Order: order})
 	}
 	return value, nil
 }
 
 func (run *creationCommit) discardDuplicate(
 	ctx context.Context,
-	scope ImportCreationScope,
+	scope model.ImportCreationScope,
 	record *creationGroup,
 ) (bool, error) {
-	games, digest, err := NewContentDuplicates(scope.Duplicates).Inspect(
-		ctx,
-		ContentSnapshot{ID: record.snapshotID, Kind: record.kind},
-		run.plan.Target.PlatformID,
+	games, digest, err := model.NewContentDuplicates(scope.Duplicates).Inspect(
+		ctx, model.ContentSnapshot{ID: record.snapshotID, Kind: record.kind}, run.plan.Target.PlatformID,
 	)
 	if err != nil || len(games) == 0 {
 		return false, creationError("discard duplicate", err)
@@ -183,17 +183,14 @@ func (run *creationCommit) discardDuplicate(
 		return false, creationError("discard duplicate", err)
 	}
 	if err := scope.Sources.Duplicate(
-		ctx,
-		CreationDuplicate{ItemID: record.itemID, Identity: digest, Matches: games, NowMS: run.header.NowMS},
+		ctx, model.CreationDuplicate{ItemID: record.itemID, Identity: digest, Matches: games, NowMS: run.header.NowMS},
 	); err != nil {
 		return false, creationError("discard duplicate", err)
 	}
 	if _, err := payloadrelease.NewScheduler(nil).TerminalItem(
 		ctx,
 		scope.Payload,
-		record.itemID,
-		payloadrelease.ReasonImportDiscarded,
-		run.header.NowMS,
+		record.itemID, payloadreleasemodel.ReasonImportDiscarded, run.header.NowMS,
 	); err != nil {
 		return false, creationError("discard duplicate", err)
 	}
@@ -204,7 +201,7 @@ func (run *creationCommit) discardDuplicate(
 	return true, nil
 }
 
-func (run *creationCommit) draftChange(record *creationGroup) (CreationDraft, error) {
+func (run *creationCommit) draftChange(record *creationGroup) (model.CreationDraft, error) {
 	titleSource := record.group.TitleSource
 	if titleSource == "" && !record.group.TitleSourceExplicit {
 		titleSource = record.group.Sources[0].LogicalName
@@ -225,10 +222,10 @@ func (run *creationCommit) draftChange(record *creationGroup) (CreationDraft, er
 		},
 	)
 	if err != nil {
-		return CreationDraft{}, fmt.Errorf("encode creation draft: %w", err)
+		return model.CreationDraft{}, fmt.Errorf("encode creation draft: %w", err)
 	}
 	names := append([]string{record.itemID, title}, record.searchParts...)
-	value := CreationDraft{
+	value := model.CreationDraft{
 		ID:           record.draftID,
 		ItemID:       record.itemID,
 		TargetID:     run.plan.Target.ID,
@@ -253,7 +250,7 @@ func creationOptional(value string) *string {
 
 func (run *creationCommit) multidiscEvents(
 	ctx context.Context,
-	scope ImportCreationScope,
+	scope model.ImportCreationScope,
 	record *creationGroup,
 ) error {
 	if record.kind != multidisc.ContentKind {
@@ -286,7 +283,7 @@ func (run *creationCommit) multidiscEvents(
 	}
 	return creationError("multidisc events", scope.Reviews.Events(
 		ctx,
-		[]CreationEvent{
+		[]model.CreationEvent{
 			{
 				JobID:     run.header.JobID,
 				ScopeType: "IMPORT_ITEM",

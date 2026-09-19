@@ -7,16 +7,17 @@ import (
 	"time"
 
 	"retrom/internal/bootstrap/config"
+	accountsmodel "retrom/internal/model/accounts"
 	accountpersistence "retrom/internal/repo/accounts"
 	accountservice "retrom/internal/service/accounts"
 )
 
 type failingIssueRepository struct {
-	repository accountservice.LinkIssueRepository
+	repository accountsmodel.LinkIssueRepository
 }
 
-func (repository failingIssueRepository) WithIssueWrite(ctx context.Context, work func(accountservice.LinkIssueScope) error) error {
-	return repository.repository.WithIssueWrite(ctx, func(scope accountservice.LinkIssueScope) error {
+func (repository failingIssueRepository) WithIssueWrite(ctx context.Context, work func(accountsmodel.LinkIssueScope) error) error {
+	return repository.repository.WithIssueWrite(ctx, func(scope accountsmodel.LinkIssueScope) error {
 		if err := work(scope); err != nil {
 			return err
 		}
@@ -33,7 +34,7 @@ func TestPasswordResetIssuanceLateFailureKeepsOldLinkAndVersion(t *testing.T) {
 		t.Fatal(err)
 	}
 	service := accountservice.NewLinkIssuance(failingIssueRepository{accountpersistence.NewLinks(fixture.database.SQL)}, fixture.credentials, func() time.Time { return *fixture.now })
-	result, _, err := service.PasswordReset(t.Context(), accountservice.LinkCreator{UserID: admin.User.UserID, Username: admin.User.Username}, target.User.UserID, 2, "new-reset")
+	result, _, err := service.PasswordReset(t.Context(), accountsmodel.LinkCreator{UserID: admin.User.UserID, Username: admin.User.Username}, target.User.UserID, 2, "new-reset")
 	if !errors.Is(err, context.Canceled) || result.CapabilityToken != "" {
 		t.Fatalf("late issuance: %+v %v", result, err)
 	}

@@ -6,11 +6,13 @@ import (
 	"fmt"
 	"sync"
 	"time"
+
+	model "retrom/internal/model/libraryimport"
 )
 
 type ImportWorker struct {
 	lifetime        context.Context
-	dependencies    ImportWorkerDependencies
+	dependencies    model.ImportWorkerDependencies
 	settings        ImportWorkerSettings
 	mutex           sync.Mutex
 	started, closed bool
@@ -20,7 +22,7 @@ type ImportWorker struct {
 	maintenanceWake chan struct{}
 }
 
-func NewImportWorker(dependencies ImportWorkerDependencies, settings ImportWorkerSettings) *ImportWorker {
+func NewImportWorker(dependencies model.ImportWorkerDependencies, settings ImportWorkerSettings) *ImportWorker {
 	if settings.Now == nil {
 		settings.Now = time.Now
 	}
@@ -41,7 +43,7 @@ func (worker *ImportWorker) register(parent context.Context, key string) (contex
 		return nil, nil, ErrImportWorkerClosed
 	}
 	if worker.active[key] != nil {
-		return nil, nil, ErrVersionConflict
+		return nil, nil, model.ErrVersionConflict
 	}
 	ctx, cancel := context.WithCancelCause(parent)
 	worker.active[key] = cancel
@@ -130,7 +132,8 @@ func (worker *ImportWorker) Recover(parent context.Context) error {
 }
 
 func (worker *ImportWorker) report(ctx context.Context, err error) {
-	if err == nil || ctx.Err() != nil || errors.Is(err, ErrVersionConflict) || errors.Is(err, ErrImportWorkerClosed) {
+	if err == nil || ctx.Err() != nil || errors.Is(err, model.ErrVersionConflict) ||
+		errors.Is(err, ErrImportWorkerClosed) {
 		return
 	}
 	if worker.settings.Report != nil {

@@ -11,34 +11,35 @@ import (
 	"time"
 
 	"retrom/internal/capability/security/authn"
-	"retrom/internal/service/importprogress"
-	"retrom/internal/service/tagging"
+	importprogressmodel "retrom/internal/model/importprogress"
+	model "retrom/internal/model/libraryimport"
+	taggingmodel "retrom/internal/model/tagging"
 )
 
 type discardFixture struct {
-	snapshot                                         ReviewDiscardSnapshot
-	tags                                             []tagging.Reference
+	snapshot                                         model.ReviewDiscardSnapshot
+	tags                                             []taggingmodel.Reference
 	snapshotError, tagError, commitError, writeError error
 	failAt                                           string
 	steps                                            []string
-	event                                            ReviewDiscardEvent
-	change                                           ReviewDiscardChange
+	event                                            model.ReviewDiscardEvent
+	change                                           model.ReviewDiscardChange
 	transactions                                     int
 }
 
-func (fixture *discardFixture) WithDiscard(_ context.Context, work func(ReviewDiscardScope) error) error {
+func (fixture *discardFixture) WithDiscard(_ context.Context, work func(model.ReviewDiscardScope) error) error {
 	fixture.transactions++
-	if err := work(ReviewDiscardScope{Reader: fixture, Tags: fixture, Writer: fixture, Payload: fixture.releaseScope()}); err != nil {
+	if err := work(model.ReviewDiscardScope{Reader: fixture, Tags: fixture, Writer: fixture, Payload: fixture.releaseScope()}); err != nil {
 		return err
 	}
 	return fixture.commitError
 }
 
-func (fixture *discardFixture) Snapshot(context.Context, string) (ReviewDiscardSnapshot, bool, error) {
+func (fixture *discardFixture) Snapshot(context.Context, string) (model.ReviewDiscardSnapshot, bool, error) {
 	return fixture.snapshot, fixture.snapshot.DraftID != "", fixture.snapshotError
 }
 
-func (fixture *discardFixture) References(context.Context, tagging.Owner) ([]tagging.Reference, error) {
+func (fixture *discardFixture) References(context.Context, taggingmodel.Owner) ([]taggingmodel.Reference, error) {
 	return fixture.tags, fixture.tagError
 }
 
@@ -54,31 +55,31 @@ func (fixture *discardFixture) CancelAttachments(context.Context, string, int64)
 	return fixture.step("attachments")
 }
 
-func (fixture *discardFixture) DiscardItem(_ context.Context, change ReviewDiscardChange) error {
+func (fixture *discardFixture) DiscardItem(_ context.Context, change model.ReviewDiscardChange) error {
 	fixture.change = change
 	return fixture.step("item")
 }
 
-func (fixture *discardFixture) RecordEvent(_ context.Context, event ReviewDiscardEvent) error {
+func (fixture *discardFixture) RecordEvent(_ context.Context, event model.ReviewDiscardEvent) error {
 	fixture.event = event
 	return fixture.step("event")
 }
 
-func (fixture *discardFixture) TransitionOwner(context.Context, ReviewOwnerTransition) error {
+func (fixture *discardFixture) TransitionOwner(context.Context, model.ReviewOwnerTransition) error {
 	return fixture.step("owner")
 }
 
 func newDiscardFixture() *discardFixture {
-	return &discardFixture{snapshot: ReviewDiscardSnapshot{
+	return &discardFixture{snapshot: model.ReviewDiscardSnapshot{
 		DraftID: "draft", ImportID: "import", MetadataJSON: `{"title":"Retrom 自有"}`, Version: 1, State: "REVIEW_PENDING", HandoffKind: "DIRECT",
-		Aggregate: ReviewDiscardAggregate{Version: 1, Progress: importprogress.Snapshot{
-			State: "REVIEW_PENDING", Counts: importprogress.Counts{ReviewPending: 1},
+		Aggregate: model.ReviewDiscardAggregate{Version: 1, Progress: importprogressmodel.Snapshot{
+			State: "REVIEW_PENDING", Counts: importprogressmodel.Counts{ReviewPending: 1},
 		}},
-	}, tags: []tagging.Reference{{TagID: "tag", Name: "Owned tag"}}}
+	}, tags: []taggingmodel.Reference{{TagID: "tag", Name: "Owned tag"}}}
 }
 
-func discardRequest() ReviewDiscardRequest {
-	return ReviewDiscardRequest{ItemID: "item", ExpectedVersion: 1, Reason: " \n test reason \t "}
+func discardRequest() model.ReviewDiscardRequest {
+	return model.ReviewDiscardRequest{ItemID: "item", ExpectedVersion: 1, Reason: " \n test reason \t "}
 }
 
 func discardService(fixture *discardFixture) *ReviewDiscards {
@@ -97,7 +98,7 @@ func TestReviewDiscardsPreservesV2EvidenceAndActor(t *testing.T) {
 	fixture.snapshot.HasCover = true
 	fixture.snapshot.HasBackground = true
 	result, err := discardService(fixture).Discard(authn.WithPrincipal(t.Context(), authn.Principal{UserID: "actor"}), discardRequest())
-	if err != nil || result != (ReviewDecisionResult{ItemID: "item", EventID: "event", Status: "DISCARDED", Version: 2, UpdatedAtMS: 88}) {
+	if err != nil || result != (model.ReviewDecisionResult{ItemID: "item", EventID: "event", Status: "DISCARDED", Version: 2, UpdatedAtMS: 88}) {
 		t.Fatalf("discard result=%+v err=%v", result, err)
 	}
 	event := fixture.event
@@ -114,14 +115,14 @@ func TestReviewDiscardsRejectsInvalidInputsBeforeTransaction(t *testing.T) {
 	t.Parallel()
 	for _, test := range []struct {
 		name   string
-		change func(*ReviewDiscardRequest)
+		change func(*model.ReviewDiscardRequest)
 	}{
-		{"missing item", func(r *ReviewDiscardRequest) { r.ItemID = "" }},
-		{"zero version", func(r *ReviewDiscardRequest) { r.ExpectedVersion = 0 }},
-		{"unknown mode", func(r *ReviewDiscardRequest) { r.Mode = "BYPASS" }},
-		{"too many runes", func(r *ReviewDiscardRequest) { r.Reason = strings.Repeat("中", 501) }},
-		{"invalid UTF8", func(r *ReviewDiscardRequest) { r.Reason = string([]byte{255}) }},
-		{"control character", func(r *ReviewDiscardRequest) { r.Reason = "bad\x00reason" }},
+		{"missing item", func(r *model.ReviewDiscardRequest) { r.ItemID = "" }},
+		{"zero version", func(r *model.ReviewDiscardRequest) { r.ExpectedVersion = 0 }},
+		{"unknown mode", func(r *model.ReviewDiscardRequest) { r.Mode = "BYPASS" }},
+		{"too many runes", func(r *model.ReviewDiscardRequest) { r.Reason = strings.Repeat("中", 501) }},
+		{"invalid UTF8", func(r *model.ReviewDiscardRequest) { r.Reason = string([]byte{255}) }},
+		{"control character", func(r *model.ReviewDiscardRequest) { r.Reason = "bad\x00reason" }},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
@@ -129,7 +130,7 @@ func TestReviewDiscardsRejectsInvalidInputsBeforeTransaction(t *testing.T) {
 			request := discardRequest()
 			test.change(&request)
 			result, err := discardService(fixture).Discard(t.Context(), request)
-			if !errors.Is(err, ErrInvalid) || result != (ReviewDecisionResult{}) || fixture.transactions != 0 {
+			if !errors.Is(err, model.ErrInvalid) || result != (model.ReviewDecisionResult{}) || fixture.transactions != 0 {
 				t.Fatalf("invalid request reached transaction: %+v err=%v tx=%d", result, err, fixture.transactions)
 			}
 		})
@@ -140,18 +141,21 @@ func TestReviewDiscardsRechecksModeAndAuthority(t *testing.T) {
 	t.Parallel()
 	for _, test := range []struct {
 		name    string
-		change  func(*ReviewDiscardSnapshot)
-		mode    ReviewDiscardMode
+		change  func(*model.ReviewDiscardSnapshot)
+		mode    model.ReviewDiscardMode
 		allowed bool
 	}{
-		{"stale version", func(s *ReviewDiscardSnapshot) { s.Version = 2 }, ReviewDiscardSingle, false},
-		{"version overflow", func(s *ReviewDiscardSnapshot) { s.Version = math.MaxInt64 }, ReviewDiscardSingle, false},
-		{"already published", func(s *ReviewDiscardSnapshot) { s.State = "PUBLISHED" }, ReviewDiscardBatch, false},
-		{"missing draft", func(s *ReviewDiscardSnapshot) { s.DraftID = "" }, ReviewDiscardSingle, false},
-		{"single reserved", func(s *ReviewDiscardSnapshot) { s.HandoffKind = "EMULATIONSTATION" }, ReviewDiscardSingle, false},
-		{"single busy owner", func(s *ReviewDiscardSnapshot) { s.SourceBusy = true }, ReviewDiscardSingle, false},
-		{"single ready reservation", func(s *ReviewDiscardSnapshot) { s.HandoffKind = "EMULATIONSTATION"; s.EmulationStationReady = true }, ReviewDiscardSingle, true},
-		{"batch reserved", func(s *ReviewDiscardSnapshot) { s.HandoffKind = "EMULATIONSTATION"; s.SourceBusy = true }, ReviewDiscardBatch, true},
+		{"stale version", func(s *model.ReviewDiscardSnapshot) { s.Version = 2 }, model.ReviewDiscardSingle, false},
+		{"version overflow", func(s *model.ReviewDiscardSnapshot) { s.Version = math.MaxInt64 }, model.ReviewDiscardSingle, false},
+		{"already published", func(s *model.ReviewDiscardSnapshot) { s.State = "PUBLISHED" }, model.ReviewDiscardBatch, false},
+		{"missing draft", func(s *model.ReviewDiscardSnapshot) { s.DraftID = "" }, model.ReviewDiscardSingle, false},
+		{"single reserved", func(s *model.ReviewDiscardSnapshot) { s.HandoffKind = "EMULATIONSTATION" }, model.ReviewDiscardSingle, false},
+		{"single busy owner", func(s *model.ReviewDiscardSnapshot) { s.SourceBusy = true }, model.ReviewDiscardSingle, false},
+		{"single ready reservation", func(s *model.ReviewDiscardSnapshot) {
+			s.HandoffKind = "EMULATIONSTATION"
+			s.EmulationStationReady = true
+		}, model.ReviewDiscardSingle, true},
+		{"batch reserved", func(s *model.ReviewDiscardSnapshot) { s.HandoffKind = "EMULATIONSTATION"; s.SourceBusy = true }, model.ReviewDiscardBatch, true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
@@ -169,7 +173,7 @@ func TestReviewDiscardsRechecksModeAndAuthority(t *testing.T) {
 				}
 				return
 			}
-			if !errors.Is(err, ErrInvalid) || result != (ReviewDecisionResult{}) || len(fixture.steps) != 0 {
+			if !errors.Is(err, model.ErrInvalid) || result != (model.ReviewDecisionResult{}) || len(fixture.steps) != 0 {
 				t.Fatalf("unauthorized discard mutated: %+v err=%v steps=%v", result, err, fixture.steps)
 			}
 		})
@@ -198,7 +202,7 @@ func TestReviewDiscardsFailurePreservesCauseAndClearsResult(t *testing.T) {
 				fixture.writeError = cause
 			}
 			result, err := service.Discard(t.Context(), discardRequest())
-			if !errors.Is(err, cause) || errors.Is(err, ErrInvalid) || result != (ReviewDecisionResult{}) {
+			if !errors.Is(err, cause) || errors.Is(err, model.ErrInvalid) || result != (model.ReviewDecisionResult{}) {
 				t.Fatalf("failure lost cause/leaked success: %+v err=%v", result, err)
 			}
 			if (stage == "snapshot" || stage == "tags" || stage == "id") && len(fixture.steps) != 0 {
@@ -219,7 +223,7 @@ func TestReviewDiscardsReasonBoundaryAndSystemActor(t *testing.T) {
 	}
 }
 
-func assertDiscardV2Event(t *testing.T, event ReviewDiscardEvent, snapshot ReviewDiscardSnapshot, tags []tagging.Reference) {
+func assertDiscardV2Event(t *testing.T, event model.ReviewDiscardEvent, snapshot model.ReviewDiscardSnapshot, tags []taggingmodel.Reference) {
 	t.Helper()
 	var before discardedReviewEvidence
 	if err := json.Unmarshal([]byte(event.BeforeJSON), &before); err != nil {

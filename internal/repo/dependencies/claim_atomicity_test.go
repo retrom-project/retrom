@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"testing"
 
-	service "retrom/internal/service/dependencies"
+	dependenciesmodel "retrom/internal/model/dependencies"
 
 	_ "modernc.org/sqlite"
 )
@@ -33,8 +33,8 @@ INSERT INTO dat_versions(id,parse_status,version) VALUES('dat','PENDING',1);
 		t.Fatal(err)
 	}
 	ctx := context.Background()
-	err = New(database).WithWrite(ctx, func(scope service.WriteScope) error {
-		if err := scope.Jobs.Claim(ctx, service.JobClaim{JobID: "job", DATID: "dat", AtMS: 1000}); err != nil {
+	err = New(database).WithWrite(ctx, func(scope dependenciesmodel.WriteScope) error {
+		if err := scope.Jobs.Claim(ctx, dependenciesmodel.JobClaim{JobID: "job", DATID: "dat", AtMS: 1000}); err != nil {
 			return err
 		}
 		return scope.Catalog.MarkParsing(ctx, "dat", 1000)

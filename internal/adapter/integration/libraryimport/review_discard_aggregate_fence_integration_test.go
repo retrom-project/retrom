@@ -6,10 +6,10 @@ import (
 	"errors"
 	"testing"
 
+	importprogressmodel "retrom/internal/model/importprogress"
+	libraryimportmodel "retrom/internal/model/libraryimport"
 	"retrom/internal/repo/dbexec"
 	repository "retrom/internal/repo/libraryimport"
-	"retrom/internal/service/importprogress"
-	application "retrom/internal/service/libraryimport"
 )
 
 func TestDiscardWriterRequiresCurrentParentAggregate(t *testing.T) {
@@ -43,11 +43,11 @@ func verifyDiscardParentFence(t *testing.T, mutation string) {
 	if _, err := transaction.ExecContext(t.Context(), "UPDATE import_jobs SET "+mutation+" WHERE id=?", created.Created.ImportJobID); err != nil {
 		t.Fatal(err)
 	}
-	err = scope.Writer.DiscardItem(t.Context(), application.ReviewDiscardChange{
+	err = scope.Writer.DiscardItem(t.Context(), libraryimportmodel.ReviewDiscardChange{
 		ItemID: created.Items[0].ItemID, ImportID: created.Created.ImportJobID, ExpectedVersion: 1,
-		NowMS: fixture.service.now().UnixMilli(), Aggregate: application.ReviewDiscardAggregateChange{
+		NowMS: fixture.service.now().UnixMilli(), Aggregate: libraryimportmodel.ReviewDiscardAggregateChange{
 			ExpectedVersion: snapshot.Aggregate.Version, ExpectedPending: 2,
-			Projection: importprogress.Projection{State: "REVIEW_PENDING"},
+			Projection: importprogressmodel.Projection{State: "REVIEW_PENDING"},
 		},
 	})
 	if !errors.Is(err, ErrInvalid) {

@@ -8,6 +8,7 @@ import (
 
 	"retrom/internal/adapter/files/serversource"
 	"retrom/internal/capability/security/authn"
+	taggingmodel "retrom/internal/model/tagging"
 	"retrom/internal/service/tagging"
 )
 
@@ -75,7 +76,7 @@ func updateFormatImportMappings[Mapping, Summary any](
 	}
 	summary, err := update(request.Context(), request.PathValue(pathParameter), version, body.Mappings)
 	if err != nil {
-		if errors.Is(err, tagging.ErrReferenceInvalid) || errors.Is(err, tagging.ErrAssignmentLimitExceeded) {
+		if errors.Is(err, taggingmodel.ErrReferenceInvalid) || errors.Is(err, taggingmodel.ErrAssignmentLimitExceeded) {
 			writeTagError(writer, request, err)
 			return
 		}

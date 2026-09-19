@@ -11,6 +11,7 @@ import (
 	"unicode/utf8"
 
 	"retrom/internal/capability/security/authn"
+	platforminstancemodel "retrom/internal/model/platforminstance"
 	"retrom/internal/service/platforminstance"
 
 	"github.com/google/uuid"
@@ -84,13 +85,13 @@ func (server *Server) createPlatformInstance(writer http.ResponseWriter, request
 	}
 	actor := authn.ActorFromContext(request.Context(), "release-setup")
 	requestID, _ := request.Context().Value(requestIDKey).(string)
-	created, err := server.platformDirectories.Create(request.Context(), platforminstance.AuditActor{
+	created, err := server.platformDirectories.Create(request.Context(), platforminstancemodel.AuditActor{
 		Kind: actor.Kind, UserID: actor.UserID, Label: actor.Label, RequestID: requestID,
-	}, platforminstance.CreateInput{
+	}, platforminstancemodel.CreateInput{
 		PlatformID: body.PlatformID, DefaultCoreID: body.DefaultCoreID,
 		Name: body.Name, Description: body.Description, SortOrder: body.SortOrder,
 	})
-	if errors.Is(err, platforminstance.ErrDefaultCoreInvalid) {
+	if errors.Is(err, platforminstancemodel.ErrDefaultCoreInvalid) {
 		writeError(
 			writer,
 			request,
@@ -116,7 +117,7 @@ func (server *Server) createPlatformInstance(writer http.ResponseWriter, request
 
 func (server *Server) platformInstanceRecommendations(writer http.ResponseWriter, request *http.Request) {
 	result, err := server.platformDirectories.Recommendations(request.Context())
-	if errors.Is(err, platforminstance.ErrCatalogInvalid) {
+	if errors.Is(err, platforminstancemodel.ErrCatalogInvalid) {
 		writeError(
 			writer, request, http.StatusInternalServerError, "PLATFORM_CATALOG_INVALID",
 			"推荐目录配置无效", map[string]any{},
@@ -148,18 +149,16 @@ func (server *Server) applyPlatformInstanceRecommendations(writer http.ResponseW
 	actor := authn.ActorFromContext(request.Context(), "release-setup")
 	requestID, _ := request.Context().Value(requestIDKey).(string)
 	response, err := server.platformDirectories.Apply(
-		request.Context(),
-		platforminstance.AuditActor{
+		request.Context(), platforminstancemodel.AuditActor{
 			Kind: actor.Kind, UserID: actor.UserID, Label: actor.Label, RequestID: requestID,
-		},
-		principal.UserID,
+		}, principal.UserID,
 		key,
 	)
 	switch {
-	case errors.Is(err, platforminstance.ErrIdempotencyReused):
+	case errors.Is(err, platforminstancemodel.ErrIdempotencyReused):
 		writeError(writer, request, http.StatusConflict, "IDEMPOTENCY_KEY_REUSED", "幂等键已用于另一请求", map[string]any{})
 		return
-	case errors.Is(err, platforminstance.ErrCatalogInvalid):
+	case errors.Is(err, platforminstancemodel.ErrCatalogInvalid):
 		writeError(
 			writer, request, http.StatusInternalServerError, "PLATFORM_CATALOG_INVALID",
 			"推荐目录配置无效", map[string]any{},
@@ -200,7 +199,7 @@ func (server *Server) platformInstance(writer http.ResponseWriter, request *http
 
 func (server *Server) readPlatformInstance(request *http.Request, id string) (map[string]any, error) {
 	instance, err := server.platformDirectories.Read(request.Context(), id, server.config.MultiDiscImportEnabled)
-	if errors.Is(err, platforminstance.ErrNotFound) {
+	if errors.Is(err, platforminstancemodel.ErrNotFound) {
 		return nil, sql.ErrNoRows
 	}
 	if err != nil {
@@ -247,15 +246,15 @@ func (server *Server) reorderPlatformInstances(writer http.ResponseWriter, reque
 	for _, item := range body.Items {
 		items = append(items, platforminstance.PlatformInstanceOrderItem{ID: item.ID, Version: item.Version})
 	}
-	result, err := server.platformDirectories.Reorder(request.Context(), platforminstance.AuditActor{
+	result, err := server.platformDirectories.Reorder(request.Context(), platforminstancemodel.AuditActor{
 		Kind: actor.Kind, UserID: actor.UserID, Label: actor.Label,
 		RequestID: requestID,
 	}, items)
-	if errors.Is(err, platforminstance.ErrOrderStale) {
+	if errors.Is(err, platforminstancemodel.ErrOrderStale) {
 		writeError(writer, request, http.StatusConflict, "PLATFORM_INSTANCE_ORDER_STALE", "目录列表已变化，请刷新后重试", map[string]any{})
 		return
 	}
-	if errors.Is(err, platforminstance.ErrVersionConflict) {
+	if errors.Is(err, platforminstancemodel.ErrVersionConflict) {
 		writeError(writer, request, http.StatusConflict, "VERSION_CONFLICT", "目录已被修改，请刷新后重试", map[string]any{})
 		return
 	}
@@ -296,13 +295,18 @@ func (server *Server) patchPlatformInstance(writer http.ResponseWriter, request 
 	result, err := server.platformDirectories.Patch(request.Context(), platforminstance.PlatformInstancePatch{
 		ID: request.PathValue("platformInstanceId"), ExpectedVersion: expected,
 		Name: body.Name, Description: body.Description, SortOrder: body.SortOrder, Enabled: body.Enabled,
-		Actor: platforminstance.AuditActor{Kind: actor.Kind, UserID: actor.UserID, Label: actor.Label, RequestID: requestID},
+		Actor: platforminstancemodel.AuditActor{
+			Kind:      actor.Kind,
+			UserID:    actor.UserID,
+			Label:     actor.Label,
+			RequestID: requestID,
+		},
 	})
-	if errors.Is(err, platforminstance.ErrNotFound) {
+	if errors.Is(err, platforminstancemodel.ErrNotFound) {
 		writeError(writer, request, http.StatusNotFound, "PLATFORM_INSTANCE_NOT_FOUND", "平台目录不存在", map[string]any{})
 		return
 	}
-	if errors.Is(err, platforminstance.ErrVersionConflict) {
+	if errors.Is(err, platforminstancemodel.ErrVersionConflict) {
 		writeError(writer, request, http.StatusConflict, "VERSION_CONFLICT", "平台目录已被修改", map[string]any{})
 		return
 	}
@@ -336,17 +340,22 @@ func (server *Server) deletePlatformInstance(writer http.ResponseWriter, request
 	requestID, _ := request.Context().Value(requestIDKey).(string)
 	err = server.platformDirectories.Delete(request.Context(), platforminstance.PlatformInstanceDelete{
 		ID: request.PathValue("platformInstanceId"), ExpectedVersion: expected,
-		Actor: platforminstance.AuditActor{Kind: actor.Kind, UserID: actor.UserID, Label: actor.Label, RequestID: requestID},
+		Actor: platforminstancemodel.AuditActor{
+			Kind:      actor.Kind,
+			UserID:    actor.UserID,
+			Label:     actor.Label,
+			RequestID: requestID,
+		},
 	})
-	if errors.Is(err, platforminstance.ErrNotFound) {
+	if errors.Is(err, platforminstancemodel.ErrNotFound) {
 		writeError(writer, request, http.StatusNotFound, "PLATFORM_INSTANCE_NOT_FOUND", "平台目录不存在", map[string]any{})
 		return
 	}
-	if errors.Is(err, platforminstance.ErrVersionConflict) {
+	if errors.Is(err, platforminstancemodel.ErrVersionConflict) {
 		writeError(writer, request, http.StatusConflict, "VERSION_CONFLICT", "平台目录已被修改", map[string]any{})
 		return
 	}
-	if errors.Is(err, platforminstance.ErrNotEmpty) {
+	if errors.Is(err, platforminstancemodel.ErrNotEmpty) {
 		writeError(writer, request, http.StatusConflict, "PLATFORM_INSTANCE_NOT_EMPTY", "非空目录不能删除", map[string]any{})
 		return
 	}

@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	model "retrom/internal/model/jobs"
 )
 
 var ErrRetryViaDomain = errors.New("RETRY_VIA_DOMAIN_ACTION")
@@ -20,12 +22,12 @@ type Result struct {
 }
 
 type Service struct {
-	repository    Repository
+	repository    model.Repository
 	cancellations map[string]DomainCanceller
 	now           func() time.Time
 }
 
-func New(repository Repository, now func() time.Time) *Service {
+func New(repository model.Repository, now func() time.Time) *Service {
 	return &Service{repository: repository, now: now}
 }
 
@@ -42,18 +44,18 @@ func (service *Service) Cancel(
 	ctx context.Context, jobID string, expectedVersion int64, reason string,
 ) (Result, bool, error) {
 	if !validReason(reason) {
-		return Result{}, false, ErrConflict
+		return Result{}, false, model.ErrConflict
 	}
 	var result Result
 	var dispatch domainDispatch
 	pending := false
-	err := service.repository.WithWrite(ctx, func(records Records) error {
+	err := service.repository.WithWrite(ctx, func(records model.Records) error {
 		job, err := records.Get(ctx, jobID)
 		if err != nil {
 			return fmt.Errorf("read cancellation job: %w", err)
 		}
 		if job.Version != expectedVersion || !job.Cancellable || !cancellableJobState(job.State, job.Retryable) {
-			return ErrConflict
+			return model.ErrConflict
 		}
 		if job.Kind == "REVIEW_BULK_APPROVE" {
 			return ErrRetryViaDomain
@@ -66,7 +68,7 @@ func (service *Service) Cancel(
 			return nil
 		}
 		now := service.now().UnixMilli()
-		change := Cancellation{
+		change := model.Cancellation{
 			JobID: jobID, ExpectedVersion: expectedVersion, State: "CANCELLED",
 			Reason: strings.TrimSpace(reason), AtMS: now, FinishedAtMS: &now,
 		}

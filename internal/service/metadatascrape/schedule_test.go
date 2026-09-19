@@ -5,54 +5,56 @@ import (
 	"errors"
 	"testing"
 	"time"
+
+	metadatascrapemodel "retrom/internal/model/metadatascrape"
 )
 
 type scheduleMemory struct {
-	ScheduleWriter
-	plan     SchedulePlan
+	metadatascrapemodel.ScheduleWriter
+	plan     metadatascrapemodel.SchedulePlan
 	creates  int
-	evidence []HashEvidence
+	evidence []metadatascrapemodel.HashEvidence
 }
 
-func (writer *scheduleMemory) Create(_ context.Context, plan SchedulePlan) error {
+func (writer *scheduleMemory) Create(_ context.Context, plan metadatascrapemodel.SchedulePlan) error {
 	writer.plan = plan
 	writer.creates++
 	return nil
 }
 
-func (writer *scheduleMemory) Evidence(_ context.Context, values []HashEvidence) error {
+func (writer *scheduleMemory) Evidence(_ context.Context, values []metadatascrapemodel.HashEvidence) error {
 	writer.evidence = values
 	return nil
 }
 func (writer *scheduleMemory) Game(context.Context, string, int64, int64) error { return nil }
 
 type subjectMemory struct {
-	ScheduleReader
-	game  GameSubject
+	metadatascrapemodel.ScheduleReader
+	game  metadatascrapemodel.GameSubject
 	found bool
 	err   error
 }
 
-func (reader subjectMemory) Game(context.Context, string) (GameSubject, bool, error) {
+func (reader subjectMemory) Game(context.Context, string) (metadatascrapemodel.GameSubject, bool, error) {
 	return reader.game, reader.found, reader.err
 }
 
 type evidenceMemory struct {
-	ScheduleEvidenceReader
-	files []FileEvidence
+	metadatascrapemodel.ScheduleEvidenceReader
+	files []metadatascrapemodel.FileEvidence
 }
 
-func (reader evidenceMemory) Files(context.Context, Subject) ([]FileEvidence, error) {
+func (reader evidenceMemory) Files(context.Context, metadatascrapemodel.Subject) ([]metadatascrapemodel.FileEvidence, error) {
 	return reader.files, nil
 }
 
 type schedulingMemory struct {
-	scope     ScheduleScope
+	scope     metadatascrapemodel.ScheduleScope
 	lateError error
 	committed bool
 }
 
-func (repository *schedulingMemory) WithWrite(ctx context.Context, work func(ScheduleScope) error) error {
+func (repository *schedulingMemory) WithWrite(ctx context.Context, work func(metadatascrapemodel.ScheduleScope) error) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -72,13 +74,13 @@ func TestScrapeGameChecksSubjectBeforeCreatingTask(t *testing.T) {
 		reader subjectMemory
 		want   error
 	}{
-		{"missing", subjectMemory{}, ErrGameVersionConflict},
-		{"stale", subjectMemory{found: true, game: GameSubject{Version: 2}}, ErrGameVersionConflict},
+		{"missing", subjectMemory{}, metadatascrapemodel.ErrGameVersionConflict},
+		{"stale", subjectMemory{found: true, game: metadatascrapemodel.GameSubject{Version: 2}}, metadatascrapemodel.ErrGameVersionConflict},
 		{"storage failure", subjectMemory{err: context.Canceled}, context.Canceled},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			writes := &scheduleMemory{}
-			repository := &schedulingMemory{scope: ScheduleScope{Subjects: test.reader, Writes: writes}}
+			repository := &schedulingMemory{scope: metadatascrapemodel.ScheduleScope{Subjects: test.reader, Writes: writes}}
 			_, _, err := NewScheduler(repository, nil, time.Now).ScheduleGame(t.Context(), "game", 1)
 			if !errors.Is(err, test.want) || writes.creates != 0 || repository.committed {
 				t.Fatalf("invalid scheduling: writes=%d committed=%t error=%v", writes.creates, repository.committed, err)
@@ -90,7 +92,7 @@ func TestScrapeGameChecksSubjectBeforeCreatingTask(t *testing.T) {
 func TestDisabledProviderCreatesCompletedTaskWithoutReadingEvidence(t *testing.T) {
 	writer := &scheduleMemory{}
 	scheduled, err := NewScheduler(nil, nil, func() time.Time { return time.UnixMilli(100) }).
-		ScheduleImport(t.Context(), ScheduleScope{Writes: writer}, "item", "NONE")
+		ScheduleImport(t.Context(), metadatascrapemodel.ScheduleScope{Writes: writer}, "item", "NONE")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -103,12 +105,12 @@ func TestDisabledProviderCreatesCompletedTaskWithoutReadingEvidence(t *testing.T
 func TestRawAndArchiveEvidenceUseDifferentHashIdentities(t *testing.T) {
 	archive := "archive"
 	ordinal := int64(3)
-	source := evidenceMemory{files: []FileEvidence{
+	source := evidenceMemory{files: []metadatascrapemodel.FileEvidence{
 		{Name: "unexpanded.ZIP", BlobID: "skip"},
 		{Name: "game.gba", BlobID: "raw"},
 		{Name: "member.gba", BlobID: "expanded", ArchiveBlobID: &archive, ArchiveOrdinal: &ordinal},
 	}}
-	result, err := contentEvidence(t.Context(), source, SchedulePlan{RunID: "run", Now: 100})
+	result, err := contentEvidence(t.Context(), source, metadatascrapemodel.SchedulePlan{RunID: "run", Now: 100})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -122,14 +124,14 @@ func TestRawAndArchiveEvidenceUseDifferentHashIdentities(t *testing.T) {
 }
 
 func TestArcadeEvidencePrefersSHA1DeduplicatesAndCapsQueries(t *testing.T) {
-	entries := make([]ArcadeEvidence, 0, 11)
+	entries := make([]metadatascrapemodel.ArcadeEvidence, 0, 11)
 	crc := "crc"
-	entries = append(entries, ArcadeEvidence{Name: "crc-only", Size: 999, CRC32: &crc})
+	entries = append(entries, metadatascrapemodel.ArcadeEvidence{Name: "crc-only", Size: 999, CRC32: &crc})
 	for _, name := range []string{"i", "h", "g", "f", "e", "d", "c", "b", "a"} {
-		entries = append(entries, ArcadeEvidence{Name: name, SHA1: &name, Size: 10, ArchiveBlobID: name})
+		entries = append(entries, metadatascrapemodel.ArcadeEvidence{Name: name, SHA1: &name, Size: 10, ArchiveBlobID: name})
 	}
 	entries = append(entries, entries[9])
-	evidence, err := selectArcadeEvidence(entries, SchedulePlan{RunID: "run", Now: 100})
+	evidence, err := selectArcadeEvidence(entries, metadatascrapemodel.SchedulePlan{RunID: "run", Now: 100})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -146,8 +148,8 @@ func TestArcadeEvidencePrefersSHA1DeduplicatesAndCapsQueries(t *testing.T) {
 
 func TestScheduleCommitFailureIsReturned(t *testing.T) {
 	writer := &scheduleMemory{}
-	repository := &schedulingMemory{scope: ScheduleScope{
-		Subjects: subjectMemory{found: true, game: GameSubject{Version: 1, PlatformID: "gba", ManifestDigest: "manifest"}},
+	repository := &schedulingMemory{scope: metadatascrapemodel.ScheduleScope{
+		Subjects: subjectMemory{found: true, game: metadatascrapemodel.GameSubject{Version: 1, PlatformID: "gba", ManifestDigest: "manifest"}},
 		Sources:  evidenceMemory{}, Writes: writer,
 	}, lateError: context.DeadlineExceeded}
 	_, _, err := NewScheduler(repository, nil, func() time.Time { return time.UnixMilli(100) }).ScheduleGame(t.Context(), "game", 1)

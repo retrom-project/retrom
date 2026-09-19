@@ -2,14 +2,7 @@ package libraryimport
 
 import (
 	"context"
-
-	"retrom/internal/capability/engine/scummvm"
 )
-
-type ImportPreparationOptions struct {
-	MultiDiscEnabled, MetadataScraperAvailable bool
-	ScummVMDetector                            *scummvm.Detector
-}
 
 type PreparedImport struct {
 	Request                               ImportRequest

@@ -7,51 +7,53 @@ import (
 	"io"
 	"os"
 
+	blobmodel "retrom/internal/model/blob"
+	launchmodel "retrom/internal/model/launch"
+
 	"retrom/internal/adapter/files/blobstore"
 	"retrom/internal/adapter/files/mediaasset"
 	"retrom/internal/foundation/cleanup"
-	application "retrom/internal/service/launch"
 )
 
 type screenshotImages struct{ blobs *blobstore.Store }
 
-func (images screenshotImages) Read(ctx context.Context, reader io.Reader) (application.ScreenshotImage, error) {
+func (images screenshotImages) Read(ctx context.Context, reader io.Reader) (launchmodel.ScreenshotImage, error) {
 	if images.blobs == nil || reader == nil {
-		return application.ScreenshotImage{}, ErrReviewScreenshotInvalid
+		return launchmodel.ScreenshotImage{}, ErrReviewScreenshotInvalid
 	}
 	if err := ctx.Err(); err != nil {
-		return application.ScreenshotImage{}, fmt.Errorf("read screenshot bytes: %w", err)
+		return launchmodel.ScreenshotImage{}, fmt.Errorf("read screenshot bytes: %w", err)
 	}
 	candidate, err := images.blobs.Stage(
 		io.LimitReader(screenshotContextReader{context: ctx, source: reader}, mediaasset.MaxImageBytes+1),
 	)
 	if err != nil {
-		return application.ScreenshotImage{}, fmt.Errorf("stage screenshot: %w", err)
+		return launchmodel.ScreenshotImage{}, fmt.Errorf("stage screenshot: %w", err)
 	}
 	defer func() { cleanup.Error("discard screenshot candidate", candidate.Discard()) }()
 	metadata := candidate.Metadata()
-	image, err := inspectScreenshotFile(metadata)
+	image, err := inspectScreenshotFile(candidate.Path(), metadata)
 	if err != nil {
-		return application.ScreenshotImage{}, err
+		return launchmodel.ScreenshotImage{}, err
 	}
 	if err := ctx.Err(); err != nil {
-		return application.ScreenshotImage{}, fmt.Errorf("finish screenshot read: %w", err)
+		return launchmodel.ScreenshotImage{}, fmt.Errorf("finish screenshot read: %w", err)
 	}
 	metadata, err = candidate.Commit()
 	if err != nil {
-		return application.ScreenshotImage{}, fmt.Errorf("publish screenshot bytes: %w", err)
+		return launchmodel.ScreenshotImage{}, fmt.Errorf("publish screenshot bytes: %w", err)
 	}
-	return application.ScreenshotImage{
+	return launchmodel.ScreenshotImage{
 		SHA256: metadata.SHA256, MD5: metadata.MD5, SHA1: metadata.SHA1, CRC32: metadata.CRC32,
 		SizeBytes: metadata.Size, MediaType: image.MediaType, WidthPX: image.WidthPX, HeightPX: image.HeightPX,
 	}, nil
 }
 
-func inspectScreenshotFile(metadata blobstore.Metadata) (mediaasset.Image, error) {
+func inspectScreenshotFile(path string, metadata blobmodel.PreparedBlob) (mediaasset.Image, error) {
 	if metadata.Size < 1 || metadata.Size > mediaasset.MaxImageBytes {
 		return mediaasset.Image{}, ErrReviewScreenshotInvalid
 	}
-	file, err := os.Open(metadata.Path)
+	file, err := os.Open(path)
 	if err != nil {
 		return mediaasset.Image{}, fmt.Errorf("open screenshot candidate: %w", err)
 	}

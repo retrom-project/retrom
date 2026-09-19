@@ -14,6 +14,9 @@ import (
 	"testing"
 	"time"
 
+	blobmodel "retrom/internal/model/blob"
+	libraryimportmodel "retrom/internal/model/libraryimport"
+
 	dependencypersistence "retrom/internal/repo/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 
@@ -23,7 +26,6 @@ import (
 
 	"github.com/google/uuid"
 
-	"retrom/internal/adapter/files/blobstore"
 	libraryservice "retrom/internal/service/libraryimport"
 	"retrom/internal/testkit/testassert"
 	"retrom/internal/testkit/testsupport"
@@ -65,7 +67,7 @@ func TestReviewListRejectsMultipleSourceBatchFilters(t *testing.T) {
 		"importJobId":              {"01980000-0000-7000-8000-000000000001"},
 		"emulationStationImportId": {"01980000-0000-7000-8000-000000000002"},
 	}
-	_, err := libraryservice.NormalizeReviewQueueFilter(libraryservice.ReviewQueueFilter{
+	_, err := libraryservice.NormalizeReviewQueueFilter(libraryimportmodel.ReviewQueueFilter{
 		ImportJobID: values.Get("importJobId"), EmulationStationImportID: values.Get("emulationStationImportId"),
 	})
 	testassert.Truef(t, errors.Is(err, errInvalidReviewQuery), "error = %v", err)
@@ -243,7 +245,7 @@ func assertPegasusReviewSources(
 	itemID, importID string, target testsupport.RuntimeTargetIdentity, coverBlobID string,
 	manifest, digest string,
 	timestamp int64,
-	coverMetadata blobstore.Metadata,
+	coverMetadata blobmodel.PreparedBlob,
 ) {
 	pegasusImportID := "01980000-0000-7000-8000-000000000138"
 	pegasusScanJobID := "01980000-0000-7000-8000-000000000139"
@@ -392,7 +394,7 @@ func seedReviewSources(
 	uploadID, digest, importID string, target testsupport.RuntimeTargetIdentity,
 	itemID, sourceBlobID, coverBlobID string,
 	uploadFileID, coverUploadFileID, sourceSnapshotID, manifest string,
-	timestamp int64, coverMetadata blobstore.Metadata,
+	timestamp int64, coverMetadata blobmodel.PreparedBlob,
 ) {
 	mustExecHTTPTest(t, transaction, `
 INSERT INTO upload_sessions(id,

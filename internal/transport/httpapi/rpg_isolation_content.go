@@ -18,8 +18,8 @@ import (
 	"retrom/internal/adapter/runtime/launch"
 	"retrom/internal/capability/engine/rpgmaker/nativeweb"
 	"retrom/internal/foundation/cleanup"
-	"retrom/internal/service/isolation"
-	"retrom/internal/service/saves"
+	isolationmodel "retrom/internal/model/isolation"
+	savesmodel "retrom/internal/model/saves"
 )
 
 const maxNativeEntryBytes = 2 << 20
@@ -61,7 +61,7 @@ addEventListener("message",async e=>{
 func (server *Server) rpgBootstrapPage(
 	writer http.ResponseWriter,
 	request *http.Request,
-	access isolation.Access,
+	access isolationmodel.Access,
 ) {
 	setRPGFrameDocumentPolicy(writer)
 	if authorized, err := server.authenticateRPGRuntime(request, access); err == nil &&
@@ -92,7 +92,7 @@ func (server *Server) rpgBootstrapPage(
 func (server *Server) rpgBootstrapConsume(
 	writer http.ResponseWriter,
 	request *http.Request,
-	access isolation.Access,
+	access isolationmodel.Access,
 ) {
 	if !validRPGRuntimeWrite(request, access.Origin) {
 		http.NotFound(writer, request)
@@ -121,7 +121,7 @@ func (server *Server) rpgBootstrapConsume(
 	writer.WriteHeader(http.StatusNoContent)
 }
 
-func setIsolatedRuntimeCookie(writer http.ResponseWriter, access isolation.Access, credential string) {
+func setIsolatedRuntimeCookie(writer http.ResponseWriter, access isolationmodel.Access, credential string) {
 	http.SetCookie(writer, &http.Cookie{
 		Name: rpgRuntimeCookieName, Value: credential, Path: "/__retrom/", HttpOnly: true,
 		Secure: strings.HasPrefix(access.Origin, "https://"), SameSite: http.SameSiteStrictMode,
@@ -132,7 +132,7 @@ func setIsolatedRuntimeCookie(writer http.ResponseWriter, access isolation.Acces
 func (server *Server) rpgRuntimeCleanup(
 	writer http.ResponseWriter,
 	request *http.Request,
-	access isolation.Access,
+	access isolationmodel.Access,
 ) {
 	authorized, err := server.authenticateRPGRuntime(request, access)
 	if err != nil || !validRPGRuntimeWrite(request, access.Origin) ||
@@ -153,7 +153,7 @@ func (server *Server) rpgRuntimeCleanup(
 func (server *Server) rpgRuntimeEntry(
 	writer http.ResponseWriter,
 	request *http.Request,
-	access isolation.Access,
+	access isolationmodel.Access,
 ) {
 	setRPGFrameDocumentPolicy(writer)
 	authorized, err := server.authenticateRPGRuntime(request, access)
@@ -201,7 +201,7 @@ func (server *Server) rpgRuntimeEntry(
 func (server *Server) rpgRuntimeBridge(
 	writer http.ResponseWriter,
 	request *http.Request,
-	access isolation.Access,
+	access isolationmodel.Access,
 ) {
 	authorized, err := server.authenticateRPGRuntime(request, access)
 	if err != nil ||
@@ -222,7 +222,7 @@ func (server *Server) rpgRuntimeBridge(
 func (server *Server) rpgRuntimeProject(
 	writer http.ResponseWriter,
 	request *http.Request,
-	access isolation.Access,
+	access isolationmodel.Access,
 ) {
 	authorized, err := server.authenticateRPGRuntime(request, access)
 	if err != nil ||
@@ -261,7 +261,7 @@ func isRPGServiceWorkerRequest(request *http.Request) bool {
 func (server *Server) rpgRuntimeRestorePayload(
 	writer http.ResponseWriter,
 	request *http.Request,
-	access isolation.Access,
+	access isolationmodel.Access,
 ) {
 	if authorized, err := server.authenticateRPGRuntime(request, access); err != nil ||
 		authorized.ContentFormat != "RPG_MAKER_PROJECT" {
@@ -272,7 +272,7 @@ func (server *Server) rpgRuntimeRestorePayload(
 	if err != nil {
 		status := http.StatusConflict
 		code := "RPG_CHECKPOINT_INCOMPATIBLE"
-		if errors.Is(err, saves.ErrCheckpointInvalid) {
+		if errors.Is(err, savesmodel.ErrCheckpointInvalid) {
 			code = "RPG_CHECKPOINT_INVALID"
 		}
 		writeError(writer, request, status, code, "RPG Maker 恢复数据不可用", map[string]any{})

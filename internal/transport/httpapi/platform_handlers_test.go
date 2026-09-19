@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	runtimeprofile "retrom/internal/adapter/runtime/netplayprofile"
+
 	"retrom/internal/bootstrap/composition"
 
 	dependencypersistence "retrom/internal/repo/dependencies"
@@ -37,7 +39,7 @@ func TestAdminPlatformsProjectsManifestBoundNetplayCapability(t *testing.T) {
 	}
 	repositoryRoot, err := filepath.Abs(filepath.Join("..", "..", ".."))
 	testassert.False(t, err != nil, err)
-	registry, err := netplay.LoadRegistry(filepath.Join(repositoryRoot, "data"), server.dependencies)
+	registry, err := runtimeprofile.LoadRegistry(filepath.Join(repositoryRoot, "data"), server.dependencies)
 	testassert.False(t, err != nil, err)
 	credentials, err := netplay.LoadOrCreateCredentials(server.config.DataDir)
 	testassert.False(t, err != nil, err)

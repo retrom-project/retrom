@@ -8,19 +8,19 @@ import (
 	"retrom/internal/adapter/runtime/dependencies"
 	"retrom/internal/capability/format/arcadedat"
 	"retrom/internal/capability/security/authn"
+	model "retrom/internal/model/dependencies"
 	"retrom/internal/service/datindex"
 
 	"github.com/google/uuid"
 )
 
 func publishBuiltInDATCatalog(
-	ctx context.Context, repository Repository, datID, jobID string, indexed, expected int64,
+	ctx context.Context, repository model.Repository, datID, jobID string, indexed, expected int64,
 	catalog arcadedat.Catalog, now time.Time,
 ) error {
-	err := repository.WithWrite(ctx, func(scope WriteScope) error {
+	err := repository.WithWrite(ctx, func(scope model.WriteScope) error {
 		if err := scope.Catalog.Publish(
-			ctx,
-			CatalogPublication{
+			ctx, model.CatalogPublication{
 				DATID:   datID,
 				Catalog: catalog,
 				Replace: indexed != expected,
@@ -39,8 +39,7 @@ func publishBuiltInDATCatalog(
 			),
 		)
 		if err := scope.Jobs.Finish(
-			ctx,
-			JobFinish{
+			ctx, model.JobFinish{
 				JobID: jobID,
 				DATID: datID,
 				State: "SUCCEEDED",
@@ -58,7 +57,7 @@ func publishBuiltInDATCatalog(
 	return nil
 }
 
-func activateBuiltInDAT(ctx context.Context, scope WriteScope, datID string, now time.Time) error {
+func activateBuiltInDAT(ctx context.Context, scope model.WriteScope, datID string, now time.Time) error {
 	state, err := scope.DAT.Activation(ctx, datID)
 	if err != nil {
 		return fmt.Errorf("inspect DAT activation: %w", err)
@@ -73,7 +72,7 @@ func activateBuiltInDAT(ctx context.Context, scope WriteScope, datID string, now
 	if err != nil {
 		return fmt.Errorf("create activation audit ID: %w", err)
 	}
-	if err := scope.DAT.Select(ctx, DATSelection{
+	if err := scope.DAT.Select(ctx, model.DATSelection{
 		ID: datID, Target: state.Target, AtMS: now.UnixMilli(), AuditID: id.String(),
 		Actor: authn.ActorFromContext(ctx, "release-setup"),
 	}); err != nil {

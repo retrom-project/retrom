@@ -11,6 +11,7 @@ import (
 	"retrom/internal/capability/content/contentcapability"
 	"retrom/internal/capability/security/authn"
 	"retrom/internal/foundation/cleanup"
+	model "retrom/internal/model/gamecontent"
 
 	"github.com/google/uuid"
 )
@@ -26,7 +27,7 @@ func (service *Service) schedule(
 	}
 	if mode != contentcapability.ModeStandard && mode != contentcapability.ModeMultiDisc &&
 		mode != contentcapability.ModeRPGMakerProject {
-		return Scheduled{}, false, ErrInvalid
+		return Scheduled{}, false, model.ErrInvalid
 	}
 	now := service.now().UnixMilli()
 	principal, _ := authn.PrincipalFromContext(ctx)
@@ -36,7 +37,7 @@ func (service *Service) schedule(
 	}
 	var result Scheduled
 	var replayed bool
-	err := service.repository.WithWrite(ctx, func(scope WriteScope) error {
+	err := service.repository.WithWrite(ctx, func(scope model.WriteScope) error {
 		var err error
 		result, replayed, err = loadScheduled(ctx, scope.Replays, principalID, key, digest, now)
 		if err != nil || replayed {
@@ -64,7 +65,7 @@ func (service *Service) schedule(
 
 func rememberScheduled(
 	ctx context.Context,
-	records ReplayRecords,
+	records model.ReplayRecords,
 	result Scheduled,
 	principalID, key, digest string,
 	now int64,
@@ -86,8 +87,7 @@ func rememberScheduled(
 		return fmt.Errorf("encode replacement headers: %w", err)
 	}
 	if err := records.Remember(
-		ctx,
-		ReplayWrite{
+		ctx, model.ReplayWrite{
 			PrincipalID: principalID,
 			Key:         key,
 			Digest:      digest,
@@ -104,7 +104,7 @@ func rememberScheduled(
 	return nil
 }
 
-func enqueue(ctx context.Context, jobs JobWriter, snapshot JobSnapshot, now int64) (Scheduled, error) {
+func enqueue(ctx context.Context, jobs model.JobWriter, snapshot model.JobSnapshot, now int64) (Scheduled, error) {
 	jobID, err := uuid.NewV7()
 	if err != nil {
 		return Scheduled{}, fmt.Errorf("create replacement job identity: %w", err)
@@ -133,7 +133,7 @@ func enqueue(ctx context.Context, jobs JobWriter, snapshot JobSnapshot, now int6
 	}
 	dedupe := sha256.Sum256(append([]byte("retrom-job-dedupe-v1\x00GAME_CONTENT_REPLACE\x00"), dedupeInput...))
 	inputDigest := sha256.Sum256(input)
-	if err := jobs.Enqueue(ctx, ScheduleWrite{
+	if err := jobs.Enqueue(ctx, model.ScheduleWrite{
 		JobID: jobID.String(), ConsumptionID: consumptionID.String(), GameID: snapshot.GameID,
 		UploadID: snapshot.UploadSessionID, Dedupe: hex.EncodeToString(
 			dedupe[:],
@@ -146,23 +146,23 @@ func enqueue(ctx context.Context, jobs JobWriter, snapshot JobSnapshot, now int6
 	return Scheduled{GameID: snapshot.GameID, JobID: jobID.String(), State: "QUEUED", Version: snapshot.GameVersion}, nil
 }
 
-func ValidateUpload(upload Upload, mode, platformID string) error {
+func ValidateUpload(upload model.Upload, mode, platformID string) error {
 	if upload.State != "COMPLETE" || upload.FileCount == 0 || upload.Consumptions != 0 {
-		return ErrInvalid
+		return model.ErrInvalid
 	}
 	if mode == contentcapability.ModeStandard && platformID != "dos" && upload.FileCount != 1 {
-		return ErrInvalid
+		return model.ErrInvalid
 	}
 	if (mode == contentcapability.ModeMultiDisc || mode == contentcapability.ModeRPGMakerProject) &&
 		upload.SourceType != "DIRECTORY" {
-		return ErrInvalid
+		return model.ErrInvalid
 	}
 	return nil
 }
 
 func loadScheduled(
 	ctx context.Context,
-	records ReplayRecords,
+	records model.ReplayRecords,
 	principalID, key, digest string,
 	now int64,
 ) (Scheduled, bool, error) {
@@ -177,11 +177,11 @@ func loadScheduled(
 		return Scheduled{}, false, nil
 	}
 	if stored.Digest != digest {
-		return Scheduled{}, false, ErrIdempotencyKeyReused
+		return Scheduled{}, false, model.ErrIdempotencyKeyReused
 	}
 	var result Scheduled
 	if err := json.Unmarshal(stored.Body, &result); err != nil {
-		return Scheduled{}, false, fmt.Errorf("%w: decode replay: %w", ErrInvalid, err)
+		return Scheduled{}, false, fmt.Errorf("%w: decode replay: %w", model.ErrInvalid, err)
 	}
 	return result, true, nil
 }

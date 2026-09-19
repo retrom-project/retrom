@@ -3,6 +3,7 @@ package launch
 import (
 	"fmt"
 
+	launchmodel "retrom/internal/model/launch"
 	application "retrom/internal/service/launch"
 )
 
@@ -16,9 +17,9 @@ const (
 type rpgLockedFile struct{ blobID, logicalName, role string }
 
 func makeRPGContentPlan(files []rpgLockedFile, required string, native bool) (launchContentPlan, error) {
-	inputs := make([]application.PreviewFile, 0, len(files))
+	inputs := make([]launchmodel.PreviewFile, 0, len(files))
 	for _, file := range files {
-		inputs = append(inputs, application.PreviewFile{BlobID: file.blobID, LogicalName: file.logicalName, Role: file.role})
+		inputs = append(inputs, launchmodel.PreviewFile{BlobID: file.blobID, LogicalName: file.logicalName, Role: file.role})
 	}
 	prepared, err := application.RPGContentFiles(inputs, required, native)
 	if err != nil {

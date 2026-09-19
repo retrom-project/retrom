@@ -6,18 +6,20 @@ import (
 	"io"
 	"testing"
 
-	"retrom/internal/adapter/files/blobstore"
-	"retrom/internal/adapter/metadata/hasheous"
+	"retrom/internal/model/blob"
+	metadatamodel "retrom/internal/model/metadata"
+
+	metadatascrapemodel "retrom/internal/model/metadatascrape"
 )
 
 type assetFetcher struct {
-	data  hasheous.AssetData
+	data  metadatamodel.AssetData
 	err   error
 	calls int
 	limit int64
 }
 
-func (provider *assetFetcher) FetchAssetBounded(_ context.Context, _ hasheous.AssetRef, limit int64) (hasheous.AssetData, error) {
+func (provider *assetFetcher) FetchAssetBounded(_ context.Context, _ metadatamodel.AssetReference, limit int64) (metadatamodel.AssetData, error) {
 	provider.calls++
 	provider.limit = limit
 	return provider.data, provider.err
@@ -29,14 +31,14 @@ type assetBytes struct {
 	err   error
 }
 
-func (blobs *assetBytes) Put(reader io.Reader) (blobstore.Metadata, error) {
+func (blobs *assetBytes) Put(reader io.Reader) (blob.PreparedBlob, error) {
 	data, err := io.ReadAll(reader)
 	if err != nil {
-		return blobstore.Metadata{}, err
+		return blob.PreparedBlob{}, err
 	}
 	blobs.calls++
 	blobs.bytes = string(data)
-	return blobstore.Metadata{SHA256: "digest", Size: int64(len(data))}, blobs.err
+	return blob.PreparedBlob{SHA256: "digest", Size: int64(len(data))}, blobs.err
 }
 
 func TestAssetBudgetPreventsDownloadOrPublication(t *testing.T) {
@@ -45,7 +47,7 @@ func TestAssetBudgetPreventsDownloadOrPublication(t *testing.T) {
 		consumed int64
 		calls    int
 	}{
-		{"already exhausted", MediaRunBudget, 0}, {"crosses budget", MediaRunBudget - 1, 1},
+		{"already exhausted", metadatascrapemodel.MediaRunBudget, 0}, {"crosses budget", metadatascrapemodel.MediaRunBudget - 1, 1},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			memory, err := newMediaMemory()
@@ -53,10 +55,10 @@ func TestAssetBudgetPreventsDownloadOrPublication(t *testing.T) {
 				t.Fatal(err)
 			}
 			memory.snapshot.Charged = test.consumed
-			provider := &assetFetcher{data: hasheous.AssetData{ReceivedBytes: 1}, err: hasheous.ErrAssetReadLimit}
+			provider := &assetFetcher{data: metadatamodel.AssetData{ReceivedBytes: 1}, err: metadatamodel.ErrAssetReadLimit}
 			blobs := &assetBytes{}
 			err = NewMediaWorker(memory, provider, blobs, mediaUnitNow).Run(t.Context(), memory.snapshot.Job.ID)
-			if !errors.Is(err, hasheous.ErrAssetReadLimit) {
+			if !errors.Is(err, metadatamodel.ErrAssetReadLimit) {
 				t.Fatalf("budget cause=%v", err)
 			}
 			if provider.calls != test.calls || blobs.calls != 0 || memory.publication.ID != "" || memory.outcome.Code != "ASSET_RUN_BUDGET_EXCEEDED" {
@@ -71,7 +73,7 @@ func TestAssetPublicationUsesPreparedBytesAndOneTimestamp(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	provider := &assetFetcher{data: hasheous.AssetData{Bytes: []byte("image"), ReceivedBytes: 5, MediaType: "image/png", Width: 4, Height: 3}}
+	provider := &assetFetcher{data: metadatamodel.AssetData{Bytes: []byte("image"), ReceivedBytes: 5, MediaType: "image/png", Width: 4, Height: 3}}
 	blobs := &assetBytes{}
 	if err := NewMediaWorker(memory, provider, blobs, mediaUnitNow).Run(t.Context(), memory.snapshot.Job.ID); err != nil {
 		t.Fatal(err)
@@ -89,9 +91,9 @@ func TestAssetErrorsRemainStableAndPersistenceFailuresPropagate(t *testing.T) {
 		t.Fatal(err)
 	}
 	memory.failure = context.DeadlineExceeded
-	provider := &assetFetcher{err: hasheous.ErrAssetIPRejected}
+	provider := &assetFetcher{err: metadatamodel.ErrAssetIPRejected}
 	err = NewMediaWorker(memory, provider, &assetBytes{}, mediaUnitNow).Run(t.Context(), memory.snapshot.Job.ID)
-	if !errors.Is(err, context.DeadlineExceeded) || !errors.Is(err, hasheous.ErrAssetIPRejected) {
+	if !errors.Is(err, context.DeadlineExceeded) || !errors.Is(err, metadatamodel.ErrAssetIPRejected) {
 		t.Fatalf("failure=%v", err)
 	}
 }
@@ -115,7 +117,7 @@ func TestMediaCASFailureKeepsReceivedBytesCharged(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	provider := &assetFetcher{data: hasheous.AssetData{Bytes: []byte("image"), ReceivedBytes: 5}}
+	provider := &assetFetcher{data: metadatamodel.AssetData{Bytes: []byte("image"), ReceivedBytes: 5}}
 	cause := errors.New("CAS unavailable")
 	err = NewMediaWorker(memory, provider, &assetBytes{err: cause}, mediaUnitNow).Run(t.Context(), memory.snapshot.Job.ID)
 	if !errors.Is(err, cause) || memory.snapshot.Charged != 5 || memory.snapshot.Asset.Reserved != 0 || memory.outcome.State != "FAILED" {

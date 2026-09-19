@@ -7,6 +7,9 @@ import (
 	"math"
 	"time"
 
+	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
+	libraryimportmodel "retrom/internal/model/libraryimport"
+	model "retrom/internal/model/maintenance"
 	es "retrom/internal/service/emulationstationimport"
 	library "retrom/internal/service/libraryimport"
 	pegasus "retrom/internal/service/pegasusimport"
@@ -15,9 +18,9 @@ import (
 // CompleteRestoredReviews preserves already materialized ordinary reviews without
 // reading the former host's sources. The caller owns the entire restore transaction,
 // including access revocation, external job termination and the security audit.
-func CompleteRestoredReviews(ctx context.Context, scope RestoredReviewScope, now time.Time) error {
+func CompleteRestoredReviews(ctx context.Context, scope model.RestoredReviewScope, now time.Time) error {
 	for _, kind := range []string{"PEGASUS", "EMULATIONSTATION"} {
-		query := RestoredReviewQuery{Kind: kind, Limit: 100}
+		query := model.RestoredReviewQuery{Kind: kind, Limit: 100}
 		for {
 			reviews, err := scope.Records.Pending(ctx, query)
 			if err != nil {
@@ -28,7 +31,7 @@ func CompleteRestoredReviews(ctx context.Context, scope RestoredReviewScope, now
 			}
 			for _, review := range reviews {
 				if review.Kind != kind || review.ItemID <= query.AfterID {
-					return ErrInvalidBundle
+					return model.ErrInvalidBundle
 				}
 				if err := completeRestoredReview(ctx, scope, review, now); err != nil {
 					return fmt.Errorf("complete restored review: %w", err)
@@ -41,19 +44,19 @@ func CompleteRestoredReviews(ctx context.Context, scope RestoredReviewScope, now
 }
 
 func completeRestoredReview(
-	ctx context.Context, scope RestoredReviewScope, review RestoredReview, now time.Time,
+	ctx context.Context, scope model.RestoredReviewScope, review model.RestoredReview, now time.Time,
 ) error {
 	if !validRestoredReview(review) {
-		return ErrInvalidBundle
+		return model.ErrInvalidBundle
 	}
 	preparation, err := restoredReviewPreparation(review)
 	if err != nil {
 		return err
 	}
 	if review.Version > math.MaxInt64-int64(len(preparation))-1 {
-		return ErrInvalidBundle
+		return model.ErrInvalidBundle
 	}
-	var metadata library.ServerMetadata
+	var metadata libraryimportmodel.ServerMetadata
 	if err := json.Unmarshal([]byte(review.MetadataJSON), &metadata); err != nil {
 		return fmt.Errorf("decode restored source metadata: %w", err)
 	}
@@ -70,7 +73,7 @@ func completeRestoredReview(
 	if err != nil {
 		return err
 	}
-	err = scope.Records.Complete(ctx, RestoredReviewChange{
+	err = scope.Records.Complete(ctx, model.RestoredReviewChange{
 		Before: review, Preparation: preparation, WarningsJSON: warnings, NowMS: now.UnixMilli(),
 	})
 	if err != nil {
@@ -79,7 +82,7 @@ func completeRestoredReview(
 	return nil
 }
 
-func validRestoredReview(review RestoredReview) bool {
+func validRestoredReview(review model.RestoredReview) bool {
 	if !validRestoredReviewIdentity(review) || !validRestoredReviewBinding(review) {
 		return false
 	}
@@ -93,7 +96,7 @@ func validRestoredReview(review RestoredReview) bool {
 		review.ReleaseYearMax > 0
 }
 
-func validRestoredReviewIdentity(review RestoredReview) bool {
+func validRestoredReviewIdentity(review model.RestoredReview) bool {
 	for _, id := range []string{
 		review.ItemID, review.ImportID, review.JobID, review.ReservedJobID, review.ReservedItemID,
 	} {
@@ -112,7 +115,7 @@ func validRestoredReviewIdentity(review RestoredReview) bool {
 	return review.OrdinaryItemCount == 1
 }
 
-func validRestoredReviewBinding(review RestoredReview) bool {
+func validRestoredReviewBinding(review model.RestoredReview) bool {
 	if review.OwnerUpload != "" && (review.OwnerUpload != review.UploadID ||
 		review.OwnerKind != review.Kind || review.OwnerItemID != review.ItemID) {
 		return false
@@ -129,9 +132,12 @@ func activeRestoredImport(state string) bool {
 	return state == "QUEUED" || state == "RUNNING" || state == "CANCEL_REQUESTED"
 }
 
-func restoredReviewPreparation(review RestoredReview) ([]string, error) {
+func restoredReviewPreparation(review model.RestoredReview) ([]string, error) {
 	if review.Kind == "EMULATIONSTATION" {
-		states, err := es.ReviewPreparation(es.ExecutionReview{State: review.State, Retryable: review.Retryable})
+		states, err := es.ReviewPreparation(emulationstationimportmodel.ExecutionReview{
+			State:     review.State,
+			Retryable: review.Retryable,
+		})
 		if err != nil {
 			return nil, fmt.Errorf("prepare restored EmulationStation review: %w", err)
 		}
@@ -145,11 +151,14 @@ func restoredReviewPreparation(review RestoredReview) ([]string, error) {
 	case "VALIDATING":
 		return nil, nil
 	default:
-		return nil, ErrInvalidBundle
+		return nil, model.ErrInvalidBundle
 	}
 }
 
-func restoredReviewWarnings(review RestoredReview, additions []library.ServerMetadataWarning) (string, error) {
+func restoredReviewWarnings(
+	review model.RestoredReview,
+	additions []libraryimportmodel.ServerMetadataWarning,
+) (string, error) {
 	if review.Kind == "EMULATIONSTATION" {
 		warnings, err := es.AppendReviewMetadataWarnings(review.WarningsJSON, additions)
 		if err != nil {
@@ -162,7 +171,7 @@ func restoredReviewWarnings(review RestoredReview, additions []library.ServerMet
 		return "", fmt.Errorf("decode restored Pegasus warnings: %w", err)
 	}
 	if warnings == nil {
-		return "", ErrInvalidBundle
+		return "", model.ErrInvalidBundle
 	}
 	encoded, err := json.Marshal(pegasus.MergeReviewMetadataWarnings(warnings, additions))
 	if err != nil {

@@ -3,6 +3,7 @@ package emulationstationimport
 import (
 	"context"
 
+	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
 	"retrom/internal/repo/dberrors"
 	persistence "retrom/internal/repo/emulationstationimport"
 	application "retrom/internal/service/emulationstationimport"
@@ -29,7 +30,7 @@ func (adapter importExecutorAdapter) CopyFile(
 	ctx context.Context,
 	unit work,
 	file executionFile,
-) (application.VerifiedBlob, error) {
+) (emulationstationimportmodel.VerifiedBlob, error) {
 	return adapter.service.sources().CopyFile(ctx, unit, file)
 }
 
@@ -37,7 +38,7 @@ func (adapter importExecutorAdapter) CopyAsset(
 	ctx context.Context,
 	unit work,
 	asset executionAsset,
-) (application.VerifiedBlob, bool, error) {
+) (emulationstationimportmodel.VerifiedBlob, bool, error) {
 	return adapter.service.sources().CopyAsset(ctx, unit, asset)
 }
 

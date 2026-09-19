@@ -8,6 +8,7 @@ import (
 
 	"retrom/internal/capability/content/multidisc"
 	"retrom/internal/capability/format/emulationstationmeta"
+	model "retrom/internal/model/emulationstationimport"
 
 	"github.com/google/uuid"
 )
@@ -55,42 +56,32 @@ func scannerID() (string, error) {
 	return id.String(), nil
 }
 
-type (
-	discoveredFile    = DiscoveredFile
-	scannedGamelist   = ScanGamelist
-	scannedCollection = ScanCollection
-	scannedItem       = ScanItem
-	scannedItemFile   = ScanItemFile
-	scannedAsset      = ScanAsset
-	scanResult        = ScanProjection
-)
-
 func (service *Scanner) Scan(
 	ctx context.Context,
 	releaseYearMax int,
-) (scanResult, error) {
+) (model.ScanProjection, error) {
 	if err := ctx.Err(); err != nil {
-		return scanResult{}, fmt.Errorf("scan EmulationStation source: %w", err)
+		return model.ScanProjection{}, fmt.Errorf("scan EmulationStation source: %w", err)
 	}
-	index := &scanIndex{ctx: ctx, files: make(map[string]discoveredFile)}
+	index := &scanIndex{ctx: ctx, files: make(map[string]DiscoveredFile)}
 	if err := service.source.Discover(ctx, index.visit); err != nil {
-		return scanResult{}, fmt.Errorf("discover EmulationStation source: %w", err)
+		return model.ScanProjection{}, fmt.Errorf("discover EmulationStation source: %w", err)
 	}
 	if err := ctx.Err(); err != nil {
-		return scanResult{}, fmt.Errorf("complete EmulationStation discovery: %w", err)
+		return model.ScanProjection{}, fmt.Errorf("complete EmulationStation discovery: %w", err)
 	}
 	if len(index.gamelists) == 0 {
-		return scanResult{}, ErrGamelistAbsent
+		return model.ScanProjection{}, ErrGamelistAbsent
 	}
 	sort.Slice(index.gamelists, func(left, right int) bool {
 		return index.gamelists[left].Path < index.gamelists[right].Path
 	})
-	result := scanResult{Gamelists: index.gamelists}
+	result := model.ScanProjection{Gamelists: index.gamelists}
 	caches := scanCaches{discCandidates: make(map[string][]multidisc.File)}
 	valid := 0
 	for gamelistIndex := range result.Gamelists {
 		if err := ctx.Err(); err != nil {
-			return scanResult{}, fmt.Errorf("project EmulationStation gamelist: %w", err)
+			return model.ScanProjection{}, fmt.Errorf("project EmulationStation gamelist: %w", err)
 		}
 		if result.Gamelists[gamelistIndex].State == "INVALID" {
 			result.InvalidGamelists++
@@ -100,29 +91,29 @@ func (service *Scanner) Scan(
 			ctx, releaseYearMax, index.files, &caches,
 			&result, &result.Gamelists[gamelistIndex],
 		); err != nil {
-			return scanResult{}, err
+			return model.ScanProjection{}, err
 		}
 		if result.Gamelists[gamelistIndex].State == "VALID" {
 			valid++
 		}
 	}
 	if err := ctx.Err(); err != nil {
-		return scanResult{}, fmt.Errorf("complete EmulationStation projection: %w", err)
+		return model.ScanProjection{}, fmt.Errorf("complete EmulationStation projection: %w", err)
 	}
 	result.SnapshotDigest = snapshotDigest(result.Gamelists)
 	if valid == 0 {
 		return result, ErrNoValidGamelist
 	}
 	if result.EstimatedBytes > 2<<40 {
-		return scanResult{}, ErrScanLimit
+		return model.ScanProjection{}, ErrScanLimit
 	}
 	return result, nil
 }
 
 type scanIndex struct {
 	ctx           context.Context
-	files         map[string]discoveredFile
-	gamelists     []scannedGamelist
+	files         map[string]DiscoveredFile
+	gamelists     []model.ScanGamelist
 	gamelistBytes int64
 }
 
@@ -139,7 +130,7 @@ func (index *scanIndex) visit(candidate DiscoveredFile) error {
 		return ErrScanLimit
 	}
 	if entry.Size > maxGamelistBytes {
-		index.gamelists = append(index.gamelists, scannedGamelist{
+		index.gamelists = append(index.gamelists, model.ScanGamelist{
 			Path: entry.Path, Size: entry.Size, Facts: entry.Facts, State: "INVALID",
 			ErrorCode: emulationstationmeta.ErrTooLarge.Error(),
 		})
@@ -149,7 +140,7 @@ func (index *scanIndex) visit(candidate DiscoveredFile) error {
 		return ErrScanLimit
 	}
 	index.gamelistBytes += entry.Size
-	index.gamelists = append(index.gamelists, scannedGamelist{
+	index.gamelists = append(index.gamelists, model.ScanGamelist{
 		Path: entry.Path, Size: entry.Size, Facts: entry.Facts, State: "VALID",
 	})
 	return nil

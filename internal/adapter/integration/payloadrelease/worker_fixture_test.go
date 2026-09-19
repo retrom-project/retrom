@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	payloadreleasemodel "retrom/internal/model/payloadrelease"
 	application "retrom/internal/service/payloadrelease"
 )
 
@@ -20,7 +21,7 @@ func (service *Service) claim(ctx context.Context) (claimedJob, bool, error) {
 	if err != nil {
 		return claimedJob{}, false, fmt.Errorf("decode claimed release: %w", err)
 	}
-	return claimedWork(application.Execution{Work: work, Input: input}), true, nil
+	return claimedWork(payloadreleasemodel.Execution{Work: work, Input: input}), true, nil
 }
 
 func (service *Service) finish(ctx context.Context, job claimedJob, executionErr error) error {

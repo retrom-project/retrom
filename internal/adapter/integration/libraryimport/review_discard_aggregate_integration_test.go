@@ -5,7 +5,7 @@ package libraryimport
 import (
 	"testing"
 
-	"retrom/internal/service/importprogress"
+	importprogressmodel "retrom/internal/model/importprogress"
 )
 
 type discardAggregateCase struct {
@@ -57,13 +57,13 @@ func verifyDiscardUnfinishedAggregate(t *testing.T, test discardAggregateCase) {
 	if err != nil || result.Status != "DISCARDED" {
 		t.Fatalf("discard=%+v err=%v", result, err)
 	}
-	assertDiscardUnfinishedAggregate(t, fixture, created.Created.ImportJobID, test.wantState, importprogress.Counts{
+	assertDiscardUnfinishedAggregate(t, fixture, created.Created.ImportJobID, test.wantState, importprogressmodel.Counts{
 		Queued: int64(queued), Running: int64(running), ReviewPending: int64(pending - 1), Failed: int64(failed),
 	})
 }
 
 func assertDiscardUnfinishedAggregate(
-	t *testing.T, fixture deduplicateFixture, importID, wantState string, expected importprogress.Counts,
+	t *testing.T, fixture deduplicateFixture, importID, wantState string, expected importprogressmodel.Counts,
 ) {
 	t.Helper()
 	var state, payloadState string

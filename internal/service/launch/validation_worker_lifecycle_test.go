@@ -6,6 +6,8 @@ import (
 	"reflect"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/launch"
 )
 
 func TestValidationWorkerCommitsOnceAndJoinsMonitor(t *testing.T) {
@@ -39,7 +41,7 @@ func TestValidationWorkerFailurePreservesCauseAndRollsBackTerminal(t *testing.T)
 	worker, repository, _ := newValidationTestWorker(t)
 	cause := errors.New("facts unavailable")
 	eventCause := errors.New("event unavailable")
-	repository.readFacts = func(context.Context) (ValidationFacts, error) { return ValidationFacts{}, cause }
+	repository.readFacts = func(context.Context) (model.ValidationFacts, error) { return model.ValidationFacts{}, cause }
 	repository.finishError = eventCause
 	err := worker.Run(t.Context(), "job")
 	validationTestCause(t, err, cause)
@@ -61,7 +63,7 @@ func TestValidationWorkerChangedInputsCancelWithoutVariantWrites(t *testing.T) {
 func TestValidationWorkerFinalFactsRejectReplacementSelection(t *testing.T) {
 	worker, repository, _ := newValidationTestWorker(t)
 	before := repository.facts
-	repository.readFacts = func(context.Context) (ValidationFacts, error) {
+	repository.readFacts = func(context.Context) (model.ValidationFacts, error) {
 		repository.facts.Content.Source.DependencySnapshot = "new native selection"
 		return before, nil
 	}
@@ -102,10 +104,10 @@ func TestValidationWorkerRenewalFailureCancelsEvaluationAndJoins(t *testing.T) {
 	cause := errors.New("heartbeat unavailable")
 	repository.renewError = cause
 	entered := make(chan struct{})
-	repository.readFacts = func(ctx context.Context) (ValidationFacts, error) {
+	repository.readFacts = func(ctx context.Context) (model.ValidationFacts, error) {
 		close(entered)
 		<-ctx.Done()
-		return ValidationFacts{}, context.Cause(ctx)
+		return model.ValidationFacts{}, context.Cause(ctx)
 	}
 	result := make(chan error, 1)
 	go func() { result <- worker.Run(t.Context(), "job") }()
@@ -148,14 +150,17 @@ func TestValidationWorkerHeartbeatRetainsDeadlineAndAttemptAuthority(t *testing.
 		t.Fatal("heartbeat version change revoked valid attempt")
 	}
 	repository.work.ExecutionNo++
-	validationTestCause(t, worker.heartbeat(t.Context(), claim), ErrValidationOwnership)
+	validationTestCause(t, worker.heartbeat(t.Context(), claim), model.ErrValidationOwnership)
 }
 
 func TestValidationWorkerCallerCancellationPreservesCause(t *testing.T) {
 	worker, repository, ticker := newValidationTestWorker(t)
 	cause := errors.New("server shutdown")
 	ctx, cancel := context.WithCancelCause(t.Context())
-	repository.readFacts = func(ctx context.Context) (ValidationFacts, error) { cancel(cause); return ValidationFacts{}, ctx.Err() }
+	repository.readFacts = func(ctx context.Context) (model.ValidationFacts, error) {
+		cancel(cause)
+		return model.ValidationFacts{}, ctx.Err()
+	}
 	validationTestCause(t, worker.Run(ctx, "job"), cause)
 	if repository.work.State != "FAILED" || !repository.terminal.Retryable {
 		t.Fatal("cancelled attempt did not close retryably")
@@ -183,7 +188,10 @@ func TestValidationWorkerDoesNotGenerateIdentityForFutureWork(t *testing.T) {
 func TestValidationWorkerFinalVariantVersionRejectsManualChanges(t *testing.T) {
 	worker, repository, _ := newValidationTestWorker(t)
 	before := repository.facts
-	repository.readFacts = func(context.Context) (ValidationFacts, error) { repository.facts.VariantVersion++; return before, nil }
+	repository.readFacts = func(context.Context) (model.ValidationFacts, error) {
+		repository.facts.VariantVersion++
+		return before, nil
+	}
 	validationTestCause(t, worker.Run(t.Context(), "job"), ErrValidationGameChanged)
 	if repository.variants != 0 || repository.work.State != "CANCELLED" {
 		t.Fatal("manual variant change overwritten")
@@ -209,16 +217,16 @@ func TestValidationWorkerExecutionAuthorityIncludesSnapshotAndScope(t *testing.T
 	current := repository.work
 	tests := []struct {
 		name   string
-		mutate func(*ValidationWork)
+		mutate func(*model.ValidationWork)
 	}{
-		{"execution", func(work *ValidationWork) { work.ExecutionNo++ }},
-		{"attempt", func(work *ValidationWork) { work.Attempt++ }},
-		{"snapshot", func(work *ValidationWork) { work.InputDigest = "changed" }},
-		{"snapshot bytes", func(work *ValidationWork) { work.SnapshotJSON = "changed" }},
-		{"kind", func(work *ValidationWork) { work.Kind = "IMPORT_GROUP" }},
-		{"scope", func(work *ValidationWork) { work.ScopeID = "other variant" }},
-		{"deadline", func(work *ValidationWork) { value := *work.DeadlineMS + 1; work.DeadlineMS = &value }},
-		{"start", func(work *ValidationWork) { value := *work.StartedMS + 1; work.StartedMS = &value }},
+		{"execution", func(work *model.ValidationWork) { work.ExecutionNo++ }},
+		{"attempt", func(work *model.ValidationWork) { work.Attempt++ }},
+		{"snapshot", func(work *model.ValidationWork) { work.InputDigest = "changed" }},
+		{"snapshot bytes", func(work *model.ValidationWork) { work.SnapshotJSON = "changed" }},
+		{"kind", func(work *model.ValidationWork) { work.Kind = "IMPORT_GROUP" }},
+		{"scope", func(work *model.ValidationWork) { work.ScopeID = "other variant" }},
+		{"deadline", func(work *model.ValidationWork) { value := *work.DeadlineMS + 1; work.DeadlineMS = &value }},
+		{"start", func(work *model.ValidationWork) { value := *work.StartedMS + 1; work.StartedMS = &value }},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -233,7 +241,7 @@ func TestValidationWorkerExecutionAuthorityIncludesSnapshotAndScope(t *testing.T
 
 func TestValidationWorkerOwnExpiredDeadlineClosesWithoutVariantWrite(t *testing.T) {
 	worker, repository, _ := newValidationTestWorker(t)
-	repository.readFacts = func(context.Context) (ValidationFacts, error) {
+	repository.readFacts = func(context.Context) (model.ValidationFacts, error) {
 		deadline := *repository.work.DeadlineMS
 		worker.environment.Now = func() time.Time { return time.UnixMilli(deadline) }
 		return repository.facts, nil

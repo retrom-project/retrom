@@ -6,7 +6,7 @@ import (
 	"reflect"
 	"testing"
 
-	application "retrom/internal/service/pegasusimport"
+	pegasusimportmodel "retrom/internal/model/pegasusimport"
 )
 
 func workerSettlementDatabase(t *testing.T, cancel bool) *sql.DB {
@@ -48,23 +48,22 @@ func assertWorkerSettlementFence(t *testing.T, state, field string) {
 	t.Helper()
 	db := workerSettlementDatabase(t, state == "CANCELLED")
 	before := workflowRows(t, db)
-	err := NewWorkerSettlement(db).WithSettlement(t.Context(), func(scope application.WorkerSettlementScope) error {
+	err := NewWorkerSettlement(db).WithSettlement(t.Context(), func(scope pegasusimportmodel.WorkerSettlementScope) error {
 		current, err := scope.Read.Current(t.Context(), "work")
 		if err != nil {
 			return err
 		}
 		invalidateRecovery(&current, field)
 		return scope.Write.Close(
-			t.Context(),
-			application.WorkerSettlementChange{
+			t.Context(), pegasusimportmodel.WorkerSettlementChange{
 				Before:  current,
 				State:   state,
-				Failure: application.ExecutionFailure{Code: "INTERNAL_ERROR", Retryable: true},
+				Failure: pegasusimportmodel.ExecutionFailure{Code: "INTERNAL_ERROR", Retryable: true},
 				NowMS:   10,
 			},
 		)
 	})
-	if !errors.Is(err, application.ErrVersionConflict) {
+	if !errors.Is(err, pegasusimportmodel.ErrVersionConflict) {
 		t.Fatalf("%s %s=%v", state, field, err)
 	}
 	if !reflect.DeepEqual(before, workflowRows(t, db)) {
@@ -86,18 +85,17 @@ func assertWorkerSettlementRollback(t *testing.T, state string) {
 	db := workerSettlementDatabase(t, state == "CANCELLED")
 	before := workflowRows(t, db)
 	cause := errors.New("failure after worker close")
-	err := NewWorkerSettlement(db).WithSettlement(t.Context(), func(scope application.WorkerSettlementScope) error {
+	err := NewWorkerSettlement(db).WithSettlement(t.Context(), func(scope pegasusimportmodel.WorkerSettlementScope) error {
 		current, err := scope.Read.Current(t.Context(), "work")
 		if err != nil {
 			return err
 		}
-		failure := application.ExecutionFailure{}
+		failure := pegasusimportmodel.ExecutionFailure{}
 		if state == "FAILED" {
-			failure = application.ExecutionFailure{Code: "INTERNAL_ERROR", Retryable: true}
+			failure = pegasusimportmodel.ExecutionFailure{Code: "INTERNAL_ERROR", Retryable: true}
 		}
 		if err := scope.Write.Close(
-			t.Context(),
-			application.WorkerSettlementChange{Before: current, State: state, Failure: failure, NowMS: 10},
+			t.Context(), pegasusimportmodel.WorkerSettlementChange{Before: current, State: state, Failure: failure, NowMS: 10},
 		); err != nil {
 			return err
 		}

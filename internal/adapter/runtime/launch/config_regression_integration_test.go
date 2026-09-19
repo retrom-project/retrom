@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"retrom/internal/capability/runtime/runtimelaunch"
+	launchmodel "retrom/internal/model/launch"
 	persistence "retrom/internal/repo/launch"
-	application "retrom/internal/service/launch"
 )
 
 func configDraftFetch(t *testing.T, fixture reviewCheckpointFixture, created Created, preview bool) error {
@@ -103,9 +103,9 @@ func TestConfigActivationRejectsAlreadyFinishedSource(t *testing.T) {
 			before := playRows(t, fixture.database)
 			err = persistence.NewConfig(fixture.database).WithActivation(
 				t.Context(),
-				func(transaction application.ConfigActivation) error {
-					return transaction.Activate(t.Context(), application.ConfigActivationPlan{
-						Ref: application.SessionRef{
+				func(transaction launchmodel.ConfigActivation) error {
+					return transaction.Activate(t.Context(), launchmodel.ConfigActivationPlan{
+						Ref: launchmodel.SessionRef{
 							ID:      created.LaunchID,
 							Preview: preview,
 						}, Version: staleVersion, NowMS: fixture.now.UnixMilli(),

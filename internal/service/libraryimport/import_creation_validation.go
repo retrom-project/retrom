@@ -5,11 +5,14 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"retrom/internal/adapter/files/blobstore"
+	blobmodel "retrom/internal/model/blob"
+	corevalidationmodel "retrom/internal/model/corevalidation"
+	model "retrom/internal/model/libraryimport"
+
 	validation "retrom/internal/service/corevalidation"
 )
 
-func PreparedGroupContentKind(group PreparedGroup) string {
+func PreparedGroupContentKind(group model.PreparedGroup) string {
 	if group.ContentKind != "" {
 		return group.ContentKind
 	}
@@ -21,8 +24,8 @@ func PreparedGroupContentKind(group PreparedGroup) string {
 	return "SINGLE_FILE"
 }
 
-func (run *creationCommit) prepareDependencies(ctx context.Context, scope ImportCreationScope) error {
-	groups := make([]PreparedGroup, len(run.groups))
+func (run *creationCommit) prepareDependencies(ctx context.Context, scope model.ImportCreationScope) error {
+	groups := make([]model.PreparedGroup, len(run.groups))
 	for index := range run.groups {
 		groups[index] = run.groups[index].group
 	}
@@ -37,9 +40,9 @@ func (run *creationCommit) prepareDependencies(ctx context.Context, scope Import
 
 func PrepareCreationStaticBIOS(
 	ctx context.Context,
-	reader validation.Repository,
-	target ImportTarget,
-	groups []PreparedGroup,
+	reader corevalidationmodel.Repository,
+	target model.ImportTarget,
+	groups []model.PreparedGroup,
 ) error {
 	if skipsCreationStaticBIOS(target.PlatformID) {
 		return nil
@@ -57,7 +60,7 @@ func PrepareCreationStaticBIOS(
 			name = group.DefaultDOSEntry
 		}
 		if name == "" {
-			return ErrInvalid
+			return model.ErrInvalid
 		}
 		snapshot, status, code, err := validation.New(reader).ResolveBIOS(ctx, target.ProviderID, target.TargetID, name)
 		if err != nil {
@@ -75,8 +78,7 @@ func PrepareCreationStaticBIOS(
 		for _, dependency := range snapshot.BIOS {
 			if dependency.DeliveryKind == "BIOS_BUNDLE" && dependency.BlobID != nil {
 				group.ValidationFiles = append(
-					group.ValidationFiles,
-					PreparedValidationFile{
+					group.ValidationFiles, model.PreparedValidationFile{
 						Role:        "BIOS_BUNDLE",
 						LogicalName: dependency.LogicalName,
 						BlobID:      *dependency.BlobID,
@@ -100,7 +102,7 @@ func skipsCreationStaticBIOS(platform string) bool {
 
 func (run *creationCommit) persistValidation(
 	ctx context.Context,
-	scope ImportCreationScope,
+	scope model.ImportCreationScope,
 	record *creationGroup,
 ) error {
 	if err := run.registerValidationArtifacts(ctx, scope, record); err != nil {
@@ -108,9 +110,9 @@ func (run *creationCommit) persistValidation(
 	}
 	group := &record.group
 	if profile := group.RPGProfile; profile != nil {
-		analysis := RPGReviewAnalysis{SelfContained: profile.SelfContained}
+		analysis := model.RPGReviewAnalysis{SelfContained: profile.SelfContained}
 		analysis.Requirements.RTP = profile.RTPDependencies
-		state := ResolveRPGResourcePolicy(string(profile.ExpectedGeneration), false, analysis)
+		state := model.ResolveRPGResourcePolicy(string(profile.ExpectedGeneration), false, analysis)
 		group.ValidationStatus, group.CompatibilityCode = state.Status, state.Code
 		group.DependencySnapshot = state.SnapshotJSON
 	}
@@ -121,29 +123,27 @@ func (run *creationCommit) persistValidation(
 		return creationError("persist validation", err)
 	}
 	target := run.plan.Target
-	digest := PrepublishDigest(
-		PrepublishDigestInput{
-			SchemaVersion:            1,
-			SourceSnapshotID:         record.snapshotID,
-			SourceManifestDigest:     record.manifestDigest,
-			ContentKind:              record.kind,
-			TargetPlatformInstanceID: target.ID,
-			ProviderID:               target.ProviderID,
-			TargetID:                 target.TargetID,
-			ContentPolicyDigest:      target.Policy.DigestFor(record.kind),
-			DATVersionID:             creationOptional(run.plan.DATVersionID),
-			DefaultDOSEntry:          creationOptional(group.DefaultDOSEntry),
-			DependencySnapshot:       json.RawMessage(group.DependencySnapshot),
-			Status:                   group.ValidationStatus,
-			CompatibilityCode:        group.CompatibilityCode,
-		},
+	digest := model.PrepublishDigest(model.PrepublishDigestInput{
+		SchemaVersion:            1,
+		SourceSnapshotID:         record.snapshotID,
+		SourceManifestDigest:     record.manifestDigest,
+		ContentKind:              record.kind,
+		TargetPlatformInstanceID: target.ID,
+		ProviderID:               target.ProviderID,
+		TargetID:                 target.TargetID,
+		ContentPolicyDigest:      target.Policy.DigestFor(record.kind),
+		DATVersionID:             creationOptional(run.plan.DATVersionID),
+		DefaultDOSEntry:          creationOptional(group.DefaultDOSEntry),
+		DependencySnapshot:       json.RawMessage(group.DependencySnapshot),
+		Status:                   group.ValidationStatus,
+		CompatibilityCode:        group.CompatibilityCode,
+	},
 	)
 	if digest == "" {
-		return ErrInvalid
+		return model.ErrInvalid
 	}
 	return creationError("persist validation", scope.Reviews.Validation(
-		ctx,
-		CreationValidation{
+		ctx, model.CreationValidation{
 			ID:             record.validationID,
 			ItemID:         record.itemID,
 			SnapshotID:     record.snapshotID,
@@ -164,8 +164,8 @@ func (run *creationCommit) persistValidation(
 
 func (run *creationCommit) resolveArcade(
 	ctx context.Context,
-	scope ImportCreationScope,
-	group *PreparedGroup,
+	scope model.ImportCreationScope,
+	group *model.PreparedGroup,
 ) error {
 	if run.plan.Target.PlatformID != "arcade" {
 		return nil
@@ -180,8 +180,7 @@ func (run *creationCommit) resolveArcade(
 	for _, dependency := range state.Dependencies {
 		if dependency.DeliveryKind == "BIOS_BUNDLE" && dependency.BlobID != nil {
 			group.ValidationFiles = append(
-				group.ValidationFiles,
-				PreparedValidationFile{
+				group.ValidationFiles, model.PreparedValidationFile{
 					Role:        "BIOS_BUNDLE",
 					LogicalName: dependency.LogicalName,
 					BlobID:      *dependency.BlobID,
@@ -195,7 +194,7 @@ func (run *creationCommit) resolveArcade(
 
 func (run *creationCommit) registerValidationArtifacts(
 	ctx context.Context,
-	scope ImportCreationScope,
+	scope model.ImportCreationScope,
 	record *creationGroup,
 ) error {
 	group := &record.group
@@ -216,8 +215,12 @@ func (run *creationCommit) registerValidationArtifacts(
 			return creationError("register validation artifacts", err)
 		}
 		group.ValidationFiles = append(
-			group.ValidationFiles,
-			PreparedValidationFile{Role: "MULTI_DISC_PLAYLIST", LogicalName: "playlist.m3u", BlobID: id, SortOrder: 0},
+			group.ValidationFiles, model.PreparedValidationFile{
+				Role:        "MULTI_DISC_PLAYLIST",
+				LogicalName: "playlist.m3u",
+				BlobID:      id,
+				SortOrder:   0,
+			},
 		)
 	}
 	bundle := group.BundleBlobID
@@ -230,8 +233,12 @@ func (run *creationCommit) registerValidationArtifacts(
 	}
 	if bundle != "" {
 		group.ValidationFiles = append(
-			group.ValidationFiles,
-			PreparedValidationFile{Role: "DOS_LAUNCH_BUNDLE", LogicalName: "game.zip", BlobID: bundle, SortOrder: 0},
+			group.ValidationFiles, model.PreparedValidationFile{
+				Role:        "DOS_LAUNCH_BUNDLE",
+				LogicalName: "game.zip",
+				BlobID:      bundle,
+				SortOrder:   0,
+			},
 		)
 	}
 	return nil
@@ -239,11 +246,15 @@ func (run *creationCommit) registerValidationArtifacts(
 
 func (run *creationCommit) registerArtifact(
 	ctx context.Context,
-	scope ImportCreationScope,
-	metadata blobstore.Metadata,
+	scope model.ImportCreationScope,
+	metadata blobmodel.PreparedBlob,
 	kind string,
 ) (string, error) {
-	id, err := scope.Sources.Artifact(ctx, CreationArtifact{Metadata: metadata, MediaType: kind, NowMS: run.header.NowMS})
+	id, err := scope.Sources.Artifact(ctx, model.CreationArtifact{
+		Metadata:  metadata,
+		MediaType: kind,
+		NowMS:     run.header.NowMS,
+	})
 	if err != nil {
 		return "", fmt.Errorf("register creation validation artifact: %w", err)
 	}

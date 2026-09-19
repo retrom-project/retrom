@@ -9,10 +9,11 @@ import (
 	"time"
 
 	payloadcomposition "retrom/internal/bootstrap/composition/payloadrelease"
+	libraryimportmodel "retrom/internal/model/libraryimport"
+	payloadreleasemodel "retrom/internal/model/payloadrelease"
 
 	"retrom/internal/repo/dbexec"
 	payloadpersistence "retrom/internal/repo/payloadrelease"
-	application "retrom/internal/service/libraryimport"
 	payloadservice "retrom/internal/service/payloadrelease"
 )
 
@@ -68,7 +69,7 @@ func TestOwnedServerSourceRejectsAdditionalIndependentReviewGroups(t *testing.T)
 	extra.RelativePath = "games/extra.gba"
 	request.Files = append(request.Files, extra)
 	result, err := fixture.service.CreateOwnedServerSource(fixture.ctx, request)
-	if !errors.Is(err, ErrInvalid) || !errors.Is(err, application.ErrSourceGrouping) || result.Created.ImportJobID != "" || ownedImportCount(t, fixture) != 0 {
+	if !errors.Is(err, ErrInvalid) || !errors.Is(err, libraryimportmodel.ErrSourceGrouping) || result.Created.ImportJobID != "" || ownedImportCount(t, fixture) != 0 {
 		t.Fatalf("unowned review committed: %#v %v", result, err)
 	}
 }
@@ -142,7 +143,7 @@ func TestOwnedSourceRejectsExistingUnboundLegacyCreation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, found, err := fixture.service.LookupOwnedServerSource(fixture.ctx, application.SourceCreationIntent{Kind: application.SourceOwnerPegasus, ImportID: request.Intent.ImportID, ItemID: request.Intent.ItemID})
+	result, found, err := fixture.service.LookupOwnedServerSource(fixture.ctx, libraryimportmodel.SourceCreationIntent{Kind: libraryimportmodel.SourceOwnerPegasus, ImportID: request.Intent.ImportID, ItemID: request.Intent.ItemID})
 	if !errors.Is(err, ErrVersionConflict) || found || result.Created.ImportJobID != "" {
 		t.Fatalf("guessed legacy ownership: %#v found=%v err=%v", result, found, err)
 	}
@@ -158,7 +159,7 @@ func finishOwnedDuplicateFixture(t *testing.T, fixture deduplicateFixture, gameI
 	if _, err := tx.ExecContext(fixture.ctx, `UPDATE pegasus_import_items SET execution_state='SKIPPED_EXISTING',existing_game_id=?,completed_at_ms=?,version=version+1 WHERE id='unlinked-source'`, gameID, ownedSourceNow().UnixMilli()); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := payloadservice.NewScheduler(nil).TerminalSource(fixture.ctx, payloadpersistence.BindScheduling(tx), payloadservice.Scope{Type: payloadservice.ScopePegasusImportItem, ID: "unlinked-source"}, ownedSourceNow().UnixMilli()); err != nil {
+	if _, err := payloadservice.NewScheduler(nil).TerminalSource(fixture.ctx, payloadpersistence.BindScheduling(tx), payloadreleasemodel.Scope{Type: payloadreleasemodel.ScopePegasusImportItem, ID: "unlinked-source"}, ownedSourceNow().UnixMilli()); err != nil {
 		t.Fatal(err)
 	}
 	if err := tx.Commit(); err != nil {

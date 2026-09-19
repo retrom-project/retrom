@@ -6,13 +6,15 @@ import (
 	"encoding/json"
 	"fmt"
 
+	model "retrom/internal/model/serverimport"
+
 	"github.com/google/uuid"
 )
 
-func newManualRetry(before ControlSnapshot, actorID string, now int64) (ManualRetry, error) {
+func newManualRetry(before model.ControlSnapshot, actorID string, now int64) (model.ManualRetry, error) {
 	id, err := uuid.NewV7()
 	if err != nil {
-		return ManualRetry{}, fmt.Errorf("create import retry identity: %w", err)
+		return model.ManualRetry{}, fmt.Errorf("create import retry identity: %w", err)
 	}
 	summary := before.Summary
 	execution := before.Execution + 1
@@ -36,22 +38,22 @@ func newManualRetry(before ControlSnapshot, actorID string, now int64) (ManualRe
 		},
 	)
 	if err != nil {
-		return ManualRetry{}, fmt.Errorf("encode import retry input: %w", err)
+		return model.ManualRetry{}, fmt.Errorf("encode import retry input: %w", err)
 	}
 	payload, err := json.Marshal(map[string]any{"inputExecutionNo": execution})
 	if err != nil {
-		return ManualRetry{}, fmt.Errorf("encode import retry payload: %w", err)
+		return model.ManualRetry{}, fmt.Errorf("encode import retry payload: %w", err)
 	}
 	event, err := json.Marshal(map[string]any{"schemaVersion": 1, "executionNo": execution})
 	if err != nil {
-		return ManualRetry{}, fmt.Errorf("encode import retry event: %w", err)
+		return model.ManualRetry{}, fmt.Errorf("encode import retry event: %w", err)
 	}
 	evidence, err := newControlEvidence(actorID, now, event)
 	if err != nil {
-		return ManualRetry{}, err
+		return model.ManualRetry{}, err
 	}
 	digest := sha256.Sum256(input)
-	return ManualRetry{
+	return model.ManualRetry{
 		Before:    before,
 		Execution: execution,
 		Input:     input,

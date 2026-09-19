@@ -6,38 +6,39 @@ import (
 	"math"
 	"time"
 
-	library "retrom/internal/service/libraryimport"
+	libraryimportmodel "retrom/internal/model/libraryimport"
+	model "retrom/internal/model/pegasusimport"
 )
 
 type ReviewHandoff struct {
-	repository ReviewHandoffRepository
-	metadata   ReviewMetadataSeeder
+	repository model.ReviewHandoffRepository
+	metadata   model.ReviewMetadataSeeder
 	now        func() time.Time
 }
 
 func NewReviewHandoff(
-	repository ReviewHandoffRepository,
-	metadata ReviewMetadataSeeder,
+	repository model.ReviewHandoffRepository,
+	metadata model.ReviewMetadataSeeder,
 	now func() time.Time,
 ) *ReviewHandoff {
 	return &ReviewHandoff{repository: repository, metadata: metadata, now: now}
 }
 
-func (service *ReviewHandoff) Complete(ctx context.Context, request ReviewHandoffRequest) error {
-	err := service.repository.WithReviewHandoff(ctx, func(scope ReviewHandoffScope) error {
+func (service *ReviewHandoff) Complete(ctx context.Context, request model.ReviewHandoffRequest) error {
+	err := service.repository.WithReviewHandoff(ctx, func(scope model.ReviewHandoffScope) error {
 		before, err := scope.Records.CurrentReviewHandoff(ctx, request.ItemID)
 		if err != nil {
 			return fmt.Errorf("read Pegasus review handoff: %w", err)
 		}
 		if before.Identity != request || request.LibraryItemID == "" || request.LibraryJobID == "" {
-			return ErrVersionConflict
+			return model.ErrVersionConflict
 		}
 		if before.State == "REVIEW_PENDING" {
 			return nil
 		}
 		now := service.now()
 		if !canCompleteReviewHandoff(before, now.UnixMilli()) {
-			return ErrVersionConflict
+			return model.ErrVersionConflict
 		}
 		_, warnings, err := service.metadata.SeedInScope(
 			ctx,
@@ -49,9 +50,9 @@ func (service *ReviewHandoff) Complete(ctx context.Context, request ReviewHandof
 		if err != nil {
 			return fmt.Errorf("seed Pegasus review metadata: %w", err)
 		}
-		change := ReviewHandoffChange{
+		change := model.ReviewHandoffChange{
 			Before:   before,
-			Warnings: mergeReviewMetadataWarnings(before.Warnings, warnings),
+			Warnings: MergeReviewMetadataWarnings(before.Warnings, warnings),
 			NowMS:    now.UnixMilli(),
 		}
 		if err := scope.Records.FinishReviewHandoff(ctx, change); err != nil {
@@ -65,7 +66,7 @@ func (service *ReviewHandoff) Complete(ctx context.Context, request ReviewHandof
 	return nil
 }
 
-func canCompleteReviewHandoff(before ReviewHandoffSnapshot, now int64) bool {
+func canCompleteReviewHandoff(before model.ReviewHandoffSnapshot, now int64) bool {
 	if before.State != "VALIDATING" || before.Version < 1 || before.Version == math.MaxInt64 ||
 		before.ImportVersion < 1 || before.ImportVersion == math.MaxInt64 {
 		return false
@@ -77,9 +78,9 @@ func canCompleteReviewHandoff(before ReviewHandoffSnapshot, now int64) bool {
 		before.LeaseUntilMS > now && before.DeadlineMS > now
 }
 
-func mergeReviewMetadataWarnings(
+func MergeReviewMetadataWarnings(
 	existing []map[string]any,
-	additions []library.ServerMetadataWarning,
+	additions []libraryimportmodel.ServerMetadataWarning,
 ) []map[string]any {
 	result := make([]map[string]any, 0, len(existing)+len(additions))
 	result = append(result, existing...)

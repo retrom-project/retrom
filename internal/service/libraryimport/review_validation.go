@@ -3,11 +3,13 @@ package libraryimport
 import (
 	"context"
 	"fmt"
+
+	model "retrom/internal/model/libraryimport"
 )
 
-type ReviewValidation struct{ reader ReviewValidationReader }
+type ReviewValidation struct{ reader model.ReviewValidationReader }
 
-func NewReviewValidation(reader ReviewValidationReader) *ReviewValidation {
+func NewReviewValidation(reader model.ReviewValidationReader) *ReviewValidation {
 	return &ReviewValidation{reader: reader}
 }
 
@@ -17,7 +19,7 @@ func (service *ReviewValidation) Current(ctx context.Context, validationID strin
 		return false, fmt.Errorf("read review validation evidence: %w", err)
 	}
 	input, current := evidence.CurrentInput()
-	if !current || !PrepublishDigestMatches(evidence.InputDigest, input) {
+	if !current || !model.PrepublishDigestMatches(evidence.InputDigest, input) {
 		return false, nil
 	}
 	if evidence.ContentKind != "RPG_MAKER_PROJECT" {
@@ -28,11 +30,11 @@ func (service *ReviewValidation) Current(ctx context.Context, validationID strin
 		return false, fmt.Errorf("read current RPG profile: %w", err)
 	}
 	if !found {
-		return false, ErrInvalid
+		return false, model.ErrInvalid
 	}
-	dependencies, err := ResolveRPGReviewDependencies(profile)
+	dependencies, err := model.ResolveRPGReviewDependencies(profile)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("%w", err)
 	}
 	return dependencies.SnapshotJSON == evidence.DependencyJSON && dependencies.Status == evidence.Status &&
 		dependencies.Code == evidence.CompatibilityCode && dependencies.Digest == profile.DependencySHA256, nil

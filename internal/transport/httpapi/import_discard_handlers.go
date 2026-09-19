@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	"retrom/internal/capability/security/authn"
-	"retrom/internal/service/importdiscard"
+	importdiscardmodel "retrom/internal/model/importdiscard"
 )
 
 func (server *Server) getImportBatchDiscard(writer http.ResponseWriter, request *http.Request) {
@@ -40,9 +40,9 @@ func (server *Server) discardImportBatch(writer http.ResponseWriter, request *ht
 
 func writeImportDiscardError(writer http.ResponseWriter, request *http.Request, err error) {
 	switch {
-	case errors.Is(err, importdiscard.ErrNotFound):
+	case errors.Is(err, importdiscardmodel.ErrNotFound):
 		serverNotFound(writer, request)
-	case errors.Is(err, importdiscard.ErrInvalid):
+	case errors.Is(err, importdiscardmodel.ErrInvalid):
 		writeError(writer, request, http.StatusConflict, "IMPORT_BATCH_DISCARD_INVALID", "当前批次没有可丢弃的未处置内容", map[string]any{})
 	default:
 		writeError(writer, request, http.StatusInternalServerError, "INTERNAL_ERROR", "批次丢弃暂时不可用", map[string]any{})

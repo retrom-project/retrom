@@ -3,7 +3,7 @@ package platforminstance_test
 import (
 	"testing"
 
-	"retrom/internal/service/platforminstance"
+	platforminstancemodel "retrom/internal/model/platforminstance"
 )
 
 func TestPlayDirectoriesRequireManualCreation(t *testing.T) {
@@ -28,7 +28,7 @@ func TestPlayDirectoriesRequireManualCreation(t *testing.T) {
 	if count != 0 {
 		t.Fatalf("recommended directories created %d Play! directories", count)
 	}
-	manual, err := service.Create(t.Context(), actor(), platforminstance.CreateInput{
+	manual, err := service.Create(t.Context(), actor(), platforminstancemodel.CreateInput{
 		PlatformID: "ps2", DefaultCoreID: "play", Name: "我的 PS2 游戏", SortOrder: 500,
 	})
 	if err != nil {

@@ -6,6 +6,7 @@ import (
 	"sync"
 	"testing"
 
+	blobmodel "retrom/internal/model/blob"
 	"retrom/internal/testkit/testassert"
 )
 
@@ -14,21 +15,28 @@ func TestPutDeduplicatesConcurrentContent(t *testing.T) {
 	store, err := Open(t.TempDir())
 	testassert.Falsef(t, err != nil, "Open() error = %v", err)
 	payload := bytes.Repeat([]byte("retrom"), 4096)
-	results := make([]Metadata, 2)
+	results := make([]blobmodel.PreparedBlob, 2)
+	candidates := make([]*Candidate, 2)
+	for index := range candidates {
+		candidates[index], err = store.Stage(bytes.NewReader(payload))
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
 	errorsFound := make([]error, 2)
 	var wait sync.WaitGroup
 	for index := range results {
 		wait.Add(1)
 		go func() {
 			defer wait.Done()
-			results[index], errorsFound[index] = store.Put(bytes.NewReader(payload))
+			results[index], errorsFound[index] = candidates[index].Commit()
 		}()
 	}
 	wait.Wait()
 	testassert.Falsef(t, testassert.Any(func() bool { return errorsFound[0] != nil }, func() bool { return errorsFound[1] != nil }), "Put() errors = %v, %v", errorsFound[0], errorsFound[1])
-	testassert.False(t, testassert.Any(func() bool { return results[0].SHA256 != results[1].SHA256 }, func() bool { return results[0].Path != results[1].Path }), "equal content did not converge to one CAS path")
-	testassert.Falsef(t, results[0].Existing == results[1].Existing, "Existing flags = %v/%v, want one publisher", results[0].Existing, results[1].Existing)
-	contents, err := os.ReadFile(results[0].Path)
+	testassert.False(t, testassert.Any(func() bool { return results[0].SHA256 != results[1].SHA256 }, func() bool { return store.Path(results[0].SHA256) != store.Path(results[1].SHA256) }), "equal content did not converge to one CAS path")
+	testassert.Falsef(t, candidates[0].existing == candidates[1].existing, "Existing flags = %v/%v, want one publisher", candidates[0].existing, candidates[1].existing)
+	contents, err := os.ReadFile(store.Path(results[0].SHA256))
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return !bytes.Equal(contents, payload) }), "published content mismatch: %v", err)
 }
 
@@ -44,7 +52,7 @@ func TestCandidatePublishesOnlyWhenCommitted(t *testing.T) {
 	testassert.Truef(t, os.IsNotExist(statErr), "staged candidate was published before commit: %v", statErr)
 	published, err := candidate.Commit()
 	testassert.Falsef(t, err != nil, "Commit() error = %v", err)
-	contents, err := os.ReadFile(published.Path)
+	contents, err := os.ReadFile(store.Path(published.SHA256))
 	testassert.Falsef(t, testassert.Any(
 		func() bool { return err != nil },
 		func() bool { return !bytes.Equal(contents, payload) },

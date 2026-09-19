@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	gamecontentmodel "retrom/internal/model/gamecontent"
 	"retrom/internal/service/gamecontent"
 	"retrom/internal/testkit/testsupport"
 )
@@ -28,8 +29,8 @@ WHERE launch_session_id=? ORDER BY logical_name LIMIT 1`, fmt.Sprintf("companion
 			t.Fatal(err)
 		}
 	}
-	var impact gamecontent.RetirementImpact
-	err := New(fixture.db).WithWrite(t.Context(), func(scope gamecontent.WriteScope) error {
+	var impact gamecontentmodel.RetirementImpact
+	err := New(fixture.db).WithWrite(t.Context(), func(scope gamecontentmodel.WriteScope) error {
 		var err error
 		impact, err = gamecontent.RetireInScope(t.Context(), scope.Retirements, fixture.gameID, fixture.variantID, time.Now().UnixMilli())
 		return err
@@ -64,7 +65,7 @@ func TestContentRetirementPreservesLateReadCauseAndRollsBack(t *testing.T) {
 			return nil
 		},
 	})
-	err := New(fault).WithWrite(t.Context(), func(scope gamecontent.WriteScope) error {
+	err := New(fault).WithWrite(t.Context(), func(scope gamecontentmodel.WriteScope) error {
 		_, err := gamecontent.RetireInScope(t.Context(), scope.Retirements, fixture.gameID, fixture.variantID, time.Now().UnixMilli())
 		return err
 	})

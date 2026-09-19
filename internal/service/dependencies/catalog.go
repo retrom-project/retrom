@@ -12,6 +12,7 @@ import (
 	"retrom/internal/adapter/runtime/dependencies"
 	"retrom/internal/capability/format/arcadedat"
 	"retrom/internal/foundation/cleanup"
+	model "retrom/internal/model/dependencies"
 )
 
 func (service *Service) BootstrapCatalogs(ctx context.Context, now time.Time) error {
@@ -34,7 +35,7 @@ func (service *Service) BootstrapCatalogs(ctx context.Context, now time.Time) er
 
 type catalogBootstrap struct {
 	ctx          context.Context
-	repository   Repository
+	repository   model.Repository
 	set          *dependencies.Set
 	now          time.Time
 	firstFailure error
@@ -42,7 +43,7 @@ type catalogBootstrap struct {
 
 func (bootstrap *catalogBootstrap) runCore(version *dependencies.Version, index int) {
 	core := version.Manifest.Cores[index]
-	expected := CatalogStats{
+	expected := model.CatalogStats{
 		MachineCount: core.ParseStats.MachineCount, ROMEntryCount: core.ParseStats.ROMEntryCount,
 		DiskEntryCount: core.ParseStats.DiskEntryCount, BIOSSetCount: core.ParseStats.BIOSSetCount,
 		DefaultBIOSSetCount:       core.ParseStats.DefaultBIOSSetCount,
@@ -57,8 +58,7 @@ func (bootstrap *catalogBootstrap) runCore(version *dependencies.Version, index 
 		return
 	}
 	state, err := bootstrap.repository.FindDAT(
-		bootstrap.ctx,
-		DATLookup{
+		bootstrap.ctx, model.DATLookup{
 			CoreID: core.CoreID,
 			Target: target,
 			SHA256: core.DAT.SHA256,
@@ -127,23 +127,23 @@ func (bootstrap *catalogBootstrap) runCore(version *dependencies.Version, index 
 	}
 }
 
-func (bootstrap *catalogBootstrap) targetForCore(coreID string) (RuntimeTarget, error) {
+func (bootstrap *catalogBootstrap) targetForCore(coreID string) (model.RuntimeTarget, error) {
 	target, err := targetForCore(bootstrap.set.RuntimeCatalog, coreID)
 	if err != nil {
-		return RuntimeTarget{}, err
+		return model.RuntimeTarget{}, err
 	}
 	exists, err := bootstrap.repository.TargetExists(bootstrap.ctx, target)
 	if err != nil {
-		return RuntimeTarget{}, fmt.Errorf("read selected runtime target: %w", err)
+		return model.RuntimeTarget{}, fmt.Errorf("read selected runtime target: %w", err)
 	}
 	if !exists {
-		return RuntimeTarget{}, fmt.Errorf("%w: selected runtime target missing", dependencies.ErrInvalid)
+		return model.RuntimeTarget{}, fmt.Errorf("%w: selected runtime target missing", dependencies.ErrInvalid)
 	}
 	return target, nil
 }
 
 func (bootstrap *catalogBootstrap) activateReady(datID string) {
-	err := bootstrap.repository.WithWrite(bootstrap.ctx, func(scope WriteScope) error {
+	err := bootstrap.repository.WithWrite(bootstrap.ctx, func(scope model.WriteScope) error {
 		return activateBuiltInDAT(bootstrap.ctx, scope, datID, bootstrap.now)
 	})
 	if err != nil {
@@ -152,7 +152,11 @@ func (bootstrap *catalogBootstrap) activateReady(datID string) {
 }
 
 func (bootstrap *catalogBootstrap) loadCatalog(
-	version *dependencies.Version, coreID, relativePath string, expected CatalogStats, indexed int64, datID, jobID string,
+	version *dependencies.Version,
+	coreID, relativePath string,
+	expected model.CatalogStats,
+	indexed int64,
+	datID, jobID string,
 ) (arcadedat.Catalog, error) {
 	if indexed == expected.MachineCount {
 		return catalogFromStats(expected), nil

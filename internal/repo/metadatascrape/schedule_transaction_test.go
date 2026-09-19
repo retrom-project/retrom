@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/service/metadatascrape"
+	metadatascrapemodel "retrom/internal/model/metadatascrape"
 	"retrom/internal/testkit/testsupport"
 )
 
@@ -21,9 +21,9 @@ func TestMissingScrapeSubjectRollsBackCreatedJob(t *testing.T) {
 		}
 	})
 	now := int64(100)
-	err = NewScheduler(database.SQL).WithWrite(t.Context(), func(scope metadatascrape.ScheduleScope) error {
-		return scope.Writes.Create(t.Context(), metadatascrape.SchedulePlan{
-			Subject: metadatascrape.Subject{Kind: "IMPORT_ITEM", ID: "missing"}, RunID: "run", JobID: "job", Provider: "NONE",
+	err = NewScheduler(database.SQL).WithWrite(t.Context(), func(scope metadatascrapemodel.ScheduleScope) error {
+		return scope.Writes.Create(t.Context(), metadatascrapemodel.SchedulePlan{
+			Subject: metadatascrapemodel.Subject{Kind: "IMPORT_ITEM", ID: "missing"}, RunID: "run", JobID: "job", Provider: "NONE",
 			Dedupe: strings.Repeat("a", 64), PayloadJSON: `{"provider":"NONE"}`, JobState: "SUCCEEDED", RunState: "COMPLETED", EventJSON: "{}", FinishedAt: &now, Now: now,
 		})
 	})

@@ -13,8 +13,10 @@ import (
 	"testing"
 	"time"
 
+	serverimportmodel "retrom/internal/model/serverimport"
 	firmwarepersistence "retrom/internal/repo/firmware"
 	firmwareservice "retrom/internal/service/firmware"
+	serverimportcontract "retrom/internal/service/serverimport"
 
 	"retrom/internal/adapter/files/blobstore"
 	"retrom/internal/adapter/files/serversource"
@@ -33,7 +35,7 @@ func TestServerArchiveImportFreezesMembersAndRecoversEvaluations(t *testing.T) {
 	}
 }
 
-func archiveImportFixture(t *testing.T) (*Service, *sql.DB, string) {
+func archiveImportFixture(t *testing.T) (*serverimportcontract.Service, *sql.DB, string) {
 	t.Helper()
 	ctx := context.Background()
 	dir := t.TempDir()
@@ -109,7 +111,7 @@ func writeArchiveCandidate(t *testing.T, root string, complete bool) {
 	}
 }
 
-func assertRecoveredArchive(t *testing.T, service *Service, importID string, complete bool) {
+func assertRecoveredArchive(t *testing.T, service *serverimportcontract.Service, importID string, complete bool) {
 	t.Helper()
 	ctx := context.Background()
 
@@ -133,7 +135,7 @@ func testServerArchiveImport(t *testing.T, complete bool) {
 	ctx := context.Background()
 	service, database, root := archiveImportFixture(t)
 	writeArchiveCandidate(t, root, complete)
-	created, err := service.Create(ctx, CreateRequest{Kind: "BIOS_DIRECTORY", RootID: "bios-root"}, "01980000-0000-7000-8000-00000000b001")
+	created, err := service.Create(ctx, serverimportmodel.CreateRequest{Kind: "BIOS_DIRECTORY", RootID: "bios-root"}, "01980000-0000-7000-8000-00000000b001")
 	if err != nil {
 		t.Fatal(err)
 	}

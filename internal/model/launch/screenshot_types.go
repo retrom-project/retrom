@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"io"
-	"time"
 )
 
 var ErrReviewScreenshotInvalid = errors.New("REVIEW_SCREENSHOT_INVALID")
@@ -47,10 +46,4 @@ type ScreenshotScope interface {
 type ScreenshotRepository interface {
 	Preview(context.Context, string) (ScreenshotSource, bool, error)
 	WithScreenshot(context.Context, func(ScreenshotScope) error) error
-}
-
-type ScreenshotEnvironment struct {
-	Now     func() time.Time
-	Matches MatchCapability
-	NewID   func() (string, error)
 }

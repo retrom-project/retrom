@@ -6,7 +6,8 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/adapter/files/blobstore"
+	blobmodel "retrom/internal/model/blob"
+
 	service "retrom/internal/model/uploads"
 	"retrom/internal/repo/blobcatalog"
 	"retrom/internal/repo/dbexec"
@@ -95,7 +96,7 @@ state!='COMPLETE'
 	return nil
 }
 
-func (records blobRecords) Ensure(ctx context.Context, metadata blobstore.Metadata, now int64) (string, error) {
+func (records blobRecords) Ensure(ctx context.Context, metadata blobmodel.PreparedBlob, now int64) (string, error) {
 	id, err := blobcatalog.EnsureRecord(ctx, records.executor, metadata, "application/octet-stream", now)
 	if err != nil {
 		return "", fmt.Errorf("uploads/register blob: %w", err)

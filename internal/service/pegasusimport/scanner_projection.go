@@ -9,16 +9,17 @@ import (
 	"unicode/utf8"
 
 	"retrom/internal/capability/format/pegasusmeta"
+	model "retrom/internal/model/pegasusimport"
 )
 
 func (service *Scanner) scanGameAssets(ctx context.Context,
 	metadataPath string,
 	collection *pegasusmeta.Collection,
 	game pegasusmeta.Game,
-	files map[string]discoveredFile,
+	files map[string]DiscoveredFile,
 	folded map[string][]string,
-) ([]scannedAsset, []map[string]any, error) {
-	assets := make([]scannedAsset, 0, 2)
+) ([]model.ScanAsset, []map[string]any, error) {
+	assets := make([]model.ScanAsset, 0, 2)
 	warnings := make([]map[string]any, 0)
 	coverDefaults, videoDefaults := []string(nil), []string(nil)
 	if collection != nil {
@@ -53,9 +54,9 @@ func newScannedGameItem(
 	segmentOrdinal int,
 	game pegasusmeta.Game,
 	projectedFiles gameFileProjection,
-	assets []scannedAsset,
+	assets []model.ScanAsset,
 	warnings []map[string]any,
-) scannedItem {
+) model.ScanItem {
 	metadataJSON, _ := json.Marshal(game.Metadata)
 	warningsJSON, _ := json.Marshal(warnings)
 	sourceProjection := map[string]any{
@@ -81,7 +82,7 @@ func newScannedGameItem(
 		title = fmt.Sprintf("Invalid game %d", game.Ordinal+1)
 	}
 	discoveryState := discoveryState(projectedFiles.discoveryCode)
-	return scannedItem{
+	return model.ScanItem{
 		ID: itemID, CollectionID: collectionID, MetadataPath: metadataPath, GameOrdinal: int64(game.Ordinal),
 		SourceKey: hex.EncodeToString(keyDigest[:]), Title: title, DiscoveryState: discoveryState,
 		DiscoveryCode: projectedFiles.discoveryCode,

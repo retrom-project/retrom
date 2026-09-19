@@ -8,6 +8,7 @@ import (
 
 	"retrom/internal/capability/content/contentcapability"
 	"retrom/internal/capability/content/contentprofile"
+	model "retrom/internal/model/platforminstance"
 )
 
 type PlatformInstancePatch struct {
@@ -17,7 +18,7 @@ type PlatformInstancePatch struct {
 	Description     *string
 	SortOrder       *int64
 	Enabled         *bool
-	Actor           AuditActor
+	Actor           model.AuditActor
 }
 
 type PlatformInstancePatchResult struct {
@@ -45,15 +46,15 @@ type PlatformInstanceOrderResult struct {
 type PlatformInstanceDelete struct {
 	ID              string
 	ExpectedVersion int64
-	Actor           AuditActor
+	Actor           model.AuditActor
 }
 
-func (service *Service) Read(ctx context.Context, id string, multiDiscEnabled bool) (Instance, error) {
+func (service *Service) Read(ctx context.Context, id string, multiDiscEnabled bool) (model.Instance, error) {
 	if id == "" {
-		return Instance{}, ErrInvalid
+		return model.Instance{}, model.ErrInvalid
 	}
-	var result Instance
-	err := service.repository.WithRead(ctx, func(reader Reader) error {
+	var result model.Instance
+	err := service.repository.WithRead(ctx, func(reader model.Reader) error {
 		var err error
 		result, err = reader.Instance(ctx, id)
 		if err != nil {
@@ -62,25 +63,25 @@ func (service *Service) Read(ctx context.Context, id string, multiDiscEnabled bo
 		return nil
 	})
 	if err != nil {
-		return Instance{}, repositoryError("read", err)
+		return model.Instance{}, repositoryError("read", err)
 	}
-	result.SupportedExtensions = supportedExtensions(result.PlatformID)
+	result.SupportedExtensions = contentprofile.SupportedExtensions(result.PlatformID)
 	result.ImportCapabilities = importCapabilities(result, multiDiscEnabled)
 	return result, nil
 }
 
 func (service *Service) Patch(ctx context.Context, input PlatformInstancePatch) (PlatformInstancePatchResult, error) {
 	if input.ID == "" || input.ExpectedVersion < 1 || !validPatch(input) {
-		return PlatformInstancePatchResult{}, ErrInvalid
+		return PlatformInstancePatchResult{}, model.ErrInvalid
 	}
 	var result PlatformInstancePatchResult
-	err := service.repository.WithWrite(ctx, func(scope WriteScope) error {
+	err := service.repository.WithWrite(ctx, func(scope model.WriteScope) error {
 		current, err := scope.Reader.Instance(ctx, input.ID)
 		if err != nil {
 			return fmt.Errorf("read instance: %w", err)
 		}
 		if current.Version != input.ExpectedVersion {
-			return ErrVersionConflict
+			return model.ErrVersionConflict
 		}
 		if input.Name != nil {
 			current.Name = *input.Name
@@ -95,7 +96,7 @@ func (service *Service) Patch(ctx context.Context, input PlatformInstancePatch) 
 			current.Enabled = *input.Enabled
 		}
 		now := service.now().UnixMilli()
-		changed, err := scope.Directories.Update(ctx, DirectoryUpdate{
+		changed, err := scope.Directories.Update(ctx, model.DirectoryUpdate{
 			ID: input.ID, Name: current.Name, Description: current.Description, SortOrder: current.SortOrder,
 			Enabled: current.Enabled, ExpectedVersion: input.ExpectedVersion, UpdatedAtMS: now,
 		})
@@ -103,7 +104,7 @@ func (service *Service) Patch(ctx context.Context, input PlatformInstancePatch) 
 			return fmt.Errorf("update instance: %w", err)
 		}
 		if !changed {
-			return ErrVersionConflict
+			return model.ErrVersionConflict
 		}
 		after := map[string]any{
 			"name": current.Name, "description": current.Description, "sortOrder": current.SortOrder,
@@ -113,7 +114,7 @@ func (service *Service) Patch(ctx context.Context, input PlatformInstancePatch) 
 		if err != nil {
 			return err
 		}
-		if err := scope.Directories.RecordAudit(ctx, AuditEvent{
+		if err := scope.Directories.RecordAudit(ctx, model.AuditEvent{
 			ID: auditID, Action: "PLATFORM_INSTANCE_UPDATED", ResourceType: "PLATFORM_INSTANCE", ResourceID: input.ID,
 			Actor: input.Actor, Before: current, After: after, CreatedAtMS: now,
 		}); err != nil {
@@ -130,14 +131,14 @@ func (service *Service) Patch(ctx context.Context, input PlatformInstancePatch) 
 
 func (service *Service) Reorder(
 	ctx context.Context,
-	actor AuditActor,
+	actor model.AuditActor,
 	items []PlatformInstanceOrderItem,
 ) ([]PlatformInstanceOrderResult, error) {
 	if err := validateOrderItems(items); err != nil {
 		return nil, err
 	}
 	var result []PlatformInstanceOrderResult
-	err := service.repository.WithWrite(ctx, func(scope WriteScope) error {
+	err := service.repository.WithWrite(ctx, func(scope model.WriteScope) error {
 		rows, err := scope.Reader.Directories(ctx)
 		if err != nil {
 			return fmt.Errorf("read directories: %w", err)
@@ -154,34 +155,34 @@ func (service *Service) Reorder(
 
 func (service *Service) Delete(ctx context.Context, input PlatformInstanceDelete) error {
 	if input.ID == "" || input.ExpectedVersion < 1 {
-		return ErrInvalid
+		return model.ErrInvalid
 	}
-	err := service.repository.WithWrite(ctx, func(scope WriteScope) error {
+	err := service.repository.WithWrite(ctx, func(scope model.WriteScope) error {
 		current, err := scope.Reader.Instance(ctx, input.ID)
 		if err != nil {
 			return fmt.Errorf("read instance: %w", err)
 		}
 		if current.Version != input.ExpectedVersion {
-			return ErrVersionConflict
+			return model.ErrVersionConflict
 		}
 		if current.GameCount != 0 {
-			return ErrNotEmpty
+			return model.ErrNotEmpty
 		}
 		now := service.now().UnixMilli()
-		changed, err := scope.Directories.Delete(ctx, DirectoryDelete{
+		changed, err := scope.Directories.Delete(ctx, model.DirectoryDelete{
 			ID: input.ID, ExpectedVersion: input.ExpectedVersion, UpdatedAtMS: now,
 		})
 		if err != nil {
 			return fmt.Errorf("delete instance: %w", err)
 		}
 		if !changed {
-			return ErrVersionConflict
+			return model.ErrVersionConflict
 		}
 		auditID, err := newAuditID()
 		if err != nil {
 			return fmt.Errorf("create delete audit id: %w", err)
 		}
-		if err := scope.Directories.RecordAudit(ctx, AuditEvent{
+		if err := scope.Directories.RecordAudit(ctx, model.AuditEvent{
 			ID: auditID, Action: "PLATFORM_INSTANCE_DELETED", ResourceType: "PLATFORM_INSTANCE", ResourceID: input.ID,
 			Actor: input.Actor, Before: current,
 			After: map[string]any{"deletedAtMs": now, "version": input.ExpectedVersion + 1}, CreatedAtMS: now,
@@ -195,23 +196,23 @@ func (service *Service) Delete(ctx context.Context, input PlatformInstanceDelete
 
 func validateOrderItems(items []PlatformInstanceOrderItem) error {
 	if len(items) == 0 {
-		return ErrInvalid
+		return model.ErrInvalid
 	}
 	seen := make(map[string]struct{}, len(items))
 	for _, item := range items {
 		if _, err := uuid.Parse(item.ID); err != nil || item.Version < 1 {
-			return ErrInvalid
+			return model.ErrInvalid
 		}
 		if _, exists := seen[item.ID]; exists {
-			return ErrInvalid
+			return model.ErrInvalid
 		}
 		seen[item.ID] = struct{}{}
 	}
 	return nil
 }
 
-func activeDirectories(rows []Directory) map[string]Directory {
-	current := make(map[string]Directory, len(rows))
+func activeDirectories(rows []model.Directory) map[string]model.Directory {
+	current := make(map[string]model.Directory, len(rows))
 	for _, row := range rows {
 		if !row.Deleted {
 			current[row.ID] = row
@@ -220,17 +221,17 @@ func activeDirectories(rows []Directory) map[string]Directory {
 	return current
 }
 
-func verifyOrder(current map[string]Directory, items []PlatformInstanceOrderItem) error {
+func verifyOrder(current map[string]model.Directory, items []PlatformInstanceOrderItem) error {
 	if len(current) != len(items) {
-		return ErrOrderStale
+		return model.ErrOrderStale
 	}
 	for _, item := range items {
 		row, exists := current[item.ID]
 		if !exists {
-			return ErrOrderStale
+			return model.ErrOrderStale
 		}
 		if row.Version != item.Version {
-			return ErrVersionConflict
+			return model.ErrVersionConflict
 		}
 	}
 	return nil
@@ -238,9 +239,9 @@ func verifyOrder(current map[string]Directory, items []PlatformInstanceOrderItem
 
 func (service *Service) applyOrder(
 	ctx context.Context,
-	scope WriteScope,
-	actor AuditActor,
-	current map[string]Directory,
+	scope model.WriteScope,
+	actor model.AuditActor,
+	current map[string]model.Directory,
 	items []PlatformInstanceOrderItem,
 	now int64,
 ) ([]PlatformInstanceOrderResult, error) {
@@ -259,13 +260,13 @@ func (service *Service) applyOrder(
 
 func (service *Service) updateOrderItem(
 	ctx context.Context,
-	scope WriteScope,
-	actor AuditActor,
-	row Directory,
+	scope model.WriteScope,
+	actor model.AuditActor,
+	row model.Directory,
 	item PlatformInstanceOrderItem,
 	sortOrder, now int64,
 ) (PlatformInstanceOrderResult, error) {
-	changed, err := scope.Directories.Update(ctx, DirectoryUpdate{
+	changed, err := scope.Directories.Update(ctx, model.DirectoryUpdate{
 		ID: item.ID, Name: row.Name, Description: row.Description, SortOrder: sortOrder,
 		Enabled: row.Enabled, ExpectedVersion: item.Version, UpdatedAtMS: now,
 	})
@@ -273,13 +274,13 @@ func (service *Service) updateOrderItem(
 		return PlatformInstanceOrderResult{}, fmt.Errorf("update order: %w", err)
 	}
 	if !changed {
-		return PlatformInstanceOrderResult{}, ErrVersionConflict
+		return PlatformInstanceOrderResult{}, model.ErrVersionConflict
 	}
 	auditID, err := newAuditID()
 	if err != nil {
 		return PlatformInstanceOrderResult{}, fmt.Errorf("create reorder audit id: %w", err)
 	}
-	if err := scope.Directories.RecordAudit(ctx, AuditEvent{
+	if err := scope.Directories.RecordAudit(ctx, model.AuditEvent{
 		ID: auditID, Action: "PLATFORM_INSTANCE_REORDERED", ResourceType: "PLATFORM_INSTANCE", ResourceID: item.ID,
 		Actor:  actor,
 		Before: map[string]any{"version": row.Version, "sortOrder": row.SortOrder},
@@ -307,10 +308,6 @@ func newAuditID() (string, error) {
 	return id.String(), nil
 }
 
-func supportedExtensions(platformID string) []string {
-	return contentprofile.SupportedExtensions(platformID)
-}
-
-func importCapabilities(instance Instance, multiDiscEnabled bool) contentcapability.ImportCapabilities {
+func importCapabilities(instance model.Instance, multiDiscEnabled bool) contentcapability.ImportCapabilities {
 	return contentcapability.Resolve(instance.PlatformID, instance.Enabled, multiDiscEnabled, instance.ContentPolicy)
 }

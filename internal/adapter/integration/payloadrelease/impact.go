@@ -5,18 +5,18 @@ import (
 	"database/sql"
 	"fmt"
 
+	payloadreleasemodel "retrom/internal/model/payloadrelease"
 	persistence "retrom/internal/repo/payloadrelease"
-	application "retrom/internal/service/payloadrelease"
 )
 
-type GameImpact = application.GameImpact
+type GameImpact = payloadreleasemodel.GameImpact
 
 func GameDeleteAuditImpact(impact GameImpact) map[string]any {
-	return application.GameDeleteAuditImpact(impact)
+	return payloadreleasemodel.GameDeleteAuditImpact(impact)
 }
 
 func GameDeleteImpact(ctx context.Context, database *sql.DB, gameID string) (GameImpact, error) {
-	result, err := application.NewImpactQueries(persistence.NewImpactQueries(database)).Game(ctx, gameID)
+	result, err := payloadreleasemodel.NewImpactQueries(persistence.NewImpactQueries(database)).Game(ctx, gameID)
 	if err != nil {
 		return GameImpact{}, fmt.Errorf("read game deletion impact: %w", err)
 	}
@@ -24,7 +24,7 @@ func GameDeleteImpact(ctx context.Context, database *sql.DB, gameID string) (Gam
 }
 
 func GameDeleteImpactTx(ctx context.Context, transaction *sql.Tx, gameID string) (GameImpact, error) {
-	result, err := application.NewImpactQueries(persistence.BindImpact(transaction)).Game(ctx, gameID)
+	result, err := payloadreleasemodel.NewImpactQueries(persistence.BindImpact(transaction)).Game(ctx, gameID)
 	if err != nil {
 		return GameImpact{}, fmt.Errorf("read game deletion impact in transaction: %w", err)
 	}

@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	application "retrom/internal/service/emulationstationimport"
+	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
 )
 
 func (service *Service) closeItem(ctx context.Context, unit work, itemID, state, code string,
@@ -16,7 +16,7 @@ func (service *Service) closeItem(ctx context.Context, unit work, itemID, state,
 func (service *Service) closeItemWithFailure(ctx context.Context, unit work, itemID, state, code string,
 	retryable bool, failure *FailureDetails,
 ) error {
-	return service.finishItemOutcome(ctx, unit, itemID, application.ItemOutcome{
+	return service.finishItemOutcome(ctx, unit, itemID, emulationstationimportmodel.ItemOutcome{
 		State: state, Code: code, Retryable: retryable, Failure: failure,
 	})
 }

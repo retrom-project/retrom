@@ -3,14 +3,14 @@ package metadatascrape
 import (
 	"context"
 
-	"retrom/internal/adapter/metadata/hasheous"
+	metadatamodel "retrom/internal/model/metadata"
 )
 
 type WorkerEvidence struct {
 	ID          string
 	Hashes      Hashes
 	Attempts    int
-	LastOutcome hasheous.ProviderOutcome
+	LastOutcome metadatamodel.ProviderOutcome
 	LastSource  string
 }
 
@@ -24,7 +24,7 @@ type EvidenceReader interface {
 }
 
 type EvidenceLookup interface {
-	Lookup(context.Context, hasheous.ContentHashes, bool) (ResolvedLookup, error)
+	Lookup(context.Context, metadatamodel.ContentHashes, bool) (ResolvedLookup, error)
 }
 
 type EvidenceResults interface {

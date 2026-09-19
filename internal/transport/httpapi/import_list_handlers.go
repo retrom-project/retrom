@@ -15,11 +15,13 @@ import (
 	"retrom/internal/capability/format/importing"
 	"retrom/internal/capability/security/authn"
 	"retrom/internal/foundation/cursor"
+	libraryimportmodel "retrom/internal/model/libraryimport"
+	taggingmodel "retrom/internal/model/tagging"
 	libraryservice "retrom/internal/service/libraryimport"
 	"retrom/internal/service/tagging"
 )
 
-type importListItem = libraryservice.ImportListItem
+type importListItem = libraryimportmodel.ImportListItem
 
 func (server *Server) importReads() *libraryservice.ImportReads {
 	return librarycomposition.NewImportReads(server.database)
@@ -99,7 +101,7 @@ func validImportListState(state string) bool {
 	}
 }
 
-func (server *Server) importListQuery(filters importListFilters) (libraryservice.ImportListQuery, error) {
+func (server *Server) importListQuery(filters importListFilters) (libraryimportmodel.ImportListQuery, error) {
 	cursorID := ""
 	cursorValue := int64(0)
 	if filters.cursorToken != "" {
@@ -107,15 +109,15 @@ func (server *Server) importListQuery(filters importListFilters) (libraryservice
 			filters.cursorToken, "getAdminImports", filters.digest, filters.sortCode,
 		)
 		if err != nil || len(payload.SortValues) != 1 {
-			return libraryservice.ImportListQuery{}, errInvalidCursorPayload
+			return libraryimportmodel.ImportListQuery{}, errInvalidCursorPayload
 		}
 		parsed, err := strconv.ParseInt(payload.SortValues[0], 10, 64)
 		if err != nil {
-			return libraryservice.ImportListQuery{}, errInvalidCursorPayload
+			return libraryimportmodel.ImportListQuery{}, errInvalidCursorPayload
 		}
 		cursorID, cursorValue = payload.ID, parsed
 	}
-	return libraryservice.ImportListQuery{
+	return libraryimportmodel.ImportListQuery{
 		QueryText: filters.queryText, State: filters.state, PlatformID: filters.platformID,
 		SortCode: filters.sortCode, CursorID: cursorID, CursorValue: cursorValue,
 		Limit: filters.limit + 1,
@@ -174,7 +176,7 @@ func (server *Server) imports(writer http.ResponseWriter, request *http.Request)
 }
 
 func (server *Server) createImport(writer http.ResponseWriter, request *http.Request) {
-	var body libraryservice.ImportRequest
+	var body libraryimportmodel.ImportRequest
 	if err := decodeJSON(writer, request, &body, 64<<10); err != nil {
 		writeError(writer, request, http.StatusBadRequest, "INVALID_REQUEST", "导入配置无效", map[string]any{})
 		return
@@ -199,7 +201,7 @@ func (server *Server) createImport(writer http.ResponseWriter, request *http.Req
 			"MULTI_DISC_PLAYLIST_MISSING", "所选目录中没有 M3U 播放列表", map[string]any{},
 		)
 		return
-	case errors.Is(err, tagging.ErrReferenceInvalid), errors.Is(err, tagging.ErrAssignmentLimitExceeded):
+	case errors.Is(err, taggingmodel.ErrReferenceInvalid), errors.Is(err, taggingmodel.ErrAssignmentLimitExceeded):
 		writeTagError(writer, request, err)
 		return
 	case err != nil:
@@ -245,7 +247,7 @@ func importCreationError(err error) (int, string, string) {
 		return http.StatusUnprocessableEntity, "ARCHIVE_VOLUME_UNSUPPORTED", "不支持分卷项目归档"
 	case errors.Is(err, importing.ErrArchiveCasefoldCollision):
 		return http.StatusUnprocessableEntity, "RPG_PATH_COLLISION", "RPG Maker 项目路径发生冲突"
-	case errors.Is(err, libraryservice.ErrInvalid), errors.Is(err, libraryservice.ErrVersionConflict):
+	case errors.Is(err, libraryimportmodel.ErrInvalid), errors.Is(err, libraryimportmodel.ErrVersionConflict):
 		return http.StatusConflict, "IMPORT_INPUT_INVALID", "上传或目标目录不可用于导入"
 	default:
 		return http.StatusInternalServerError, "INTERNAL_ERROR", "导入创建失败"

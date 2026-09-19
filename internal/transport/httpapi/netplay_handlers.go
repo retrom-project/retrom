@@ -13,7 +13,7 @@ import (
 	"retrom/internal/adapter/runtime/launch"
 	"retrom/internal/capability/security/authn"
 	"retrom/internal/foundation/cursor"
-	"retrom/internal/service/accounts"
+	accountsmodel "retrom/internal/model/accounts"
 	"retrom/internal/transport/netplay"
 
 	"github.com/coder/websocket"
@@ -616,7 +616,7 @@ func (server *Server) netplaySocket(writer http.ResponseWriter, request *http.Re
 		if err == nil && session.Principal.ProfileID == profileID {
 			return netplay.SessionValid
 		}
-		if err == nil || errors.Is(err, accounts.ErrAuthenticationNeeded) {
+		if err == nil || errors.Is(err, accountsmodel.ErrAuthenticationNeeded) {
 			return netplay.SessionRevoked
 		}
 		return netplay.SessionUnavailable

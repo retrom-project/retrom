@@ -8,12 +8,12 @@ import (
 
 	"retrom/internal/capability/security/authn"
 	"retrom/internal/foundation/cursor"
-	"retrom/internal/service/immersive"
+	immersivemodel "retrom/internal/model/immersive"
 )
 
 const immersiveLibraryGameOperationID = "getImmersiveLibraryGames"
 
-func immersiveDestinationProjection(destination immersive.Destination) map[string]any {
+func immersiveDestinationProjection(destination immersivemodel.Destination) map[string]any {
 	featuredGames := make([]map[string]any, 0, len(destination.FeaturedGames))
 	for _, game := range destination.FeaturedGames {
 		featuredGames = append(featuredGames, map[string]any{
@@ -51,10 +51,10 @@ func (server *Server) immersiveDestinations(writer http.ResponseWriter, request 
 }
 
 func immersiveLibrarySortCode(kind string) string {
-	if kind == immersive.LibraryRecent {
-		return immersive.RecentGameSortCode
+	if kind == immersivemodel.LibraryRecent {
+		return immersivemodel.RecentGameSortCode
 	}
-	return immersive.GameSortCode
+	return immersivemodel.GameSortCode
 }
 
 func immersiveLibraryCursorDigest(profileID, kind, folderID string, limit int) string {
@@ -69,7 +69,7 @@ func immersiveLibraryCursorDigest(profileID, kind, folderID string, limit int) s
 
 func (server *Server) decodeImmersiveLibraryCursor(
 	token, digest, kind string,
-) (immersive.GameCursor, error) {
+) (immersivemodel.GameCursor, error) {
 	payload, err := server.cursors.Decode(
 		token,
 		immersiveLibraryGameOperationID,
@@ -77,24 +77,24 @@ func (server *Server) decodeImmersiveLibraryCursor(
 		immersiveLibrarySortCode(kind),
 	)
 	if err != nil {
-		return immersive.GameCursor{}, errInvalidCursorPayload
+		return immersivemodel.GameCursor{}, errInvalidCursorPayload
 	}
-	if kind == immersive.LibraryRecent {
+	if kind == immersivemodel.LibraryRecent {
 		if len(payload.SortValues) != 1 {
-			return immersive.GameCursor{}, errInvalidCursorPayload
+			return immersivemodel.GameCursor{}, errInvalidCursorPayload
 		}
 		lastPlayedAtMS, parseErr := strconv.ParseInt(payload.SortValues[0], 10, 64)
 		if parseErr != nil || lastPlayedAtMS < 0 {
-			return immersive.GameCursor{}, errInvalidCursorPayload
+			return immersivemodel.GameCursor{}, errInvalidCursorPayload
 		}
-		return immersive.GameCursor{
+		return immersivemodel.GameCursor{
 			ID: payload.ID, LastPlayedAtMS: &lastPlayedAtMS,
 		}, nil
 	}
 	if len(payload.SortValues) != 2 {
-		return immersive.GameCursor{}, errInvalidCursorPayload
+		return immersivemodel.GameCursor{}, errInvalidCursorPayload
 	}
-	return immersive.GameCursor{
+	return immersivemodel.GameCursor{
 		TitleInitial: payload.SortValues[0],
 		Title:        payload.SortValues[1],
 		ID:           payload.ID,
@@ -103,10 +103,10 @@ func (server *Server) decodeImmersiveLibraryCursor(
 
 func (server *Server) encodeImmersiveLibraryCursor(
 	digest, kind string,
-	next immersive.GameCursor,
+	next immersivemodel.GameCursor,
 ) (string, error) {
 	sortValues := []string{next.TitleInitial, next.Title}
-	if kind == immersive.LibraryRecent {
+	if kind == immersivemodel.LibraryRecent {
 		if next.LastPlayedAtMS == nil {
 			return "", errInvalidCursorPayload
 		}
@@ -125,7 +125,7 @@ func (server *Server) encodeImmersiveLibraryCursor(
 	return token, nil
 }
 
-func immersiveFavoriteFolderProjection(folder immersive.FavoriteFolder) map[string]any {
+func immersiveFavoriteFolderProjection(folder immersivemodel.FavoriteFolder) map[string]any {
 	return map[string]any{
 		"folderId":  folder.ID,
 		"name":      folder.Name,
@@ -136,7 +136,7 @@ func immersiveFavoriteFolderProjection(folder immersive.FavoriteFolder) map[stri
 func (server *Server) immersiveLibraryGames(writer http.ResponseWriter, request *http.Request) {
 	principal, _ := authn.PrincipalFromContext(request.Context())
 	kind := request.PathValue("libraryKind")
-	if !immersive.ValidLibraryKind(kind) {
+	if !immersivemodel.ValidLibraryKind(kind) {
 		writeError(writer, request, http.StatusNotFound, "RESOURCE_NOT_FOUND", "沉浸游戏分类不存在", map[string]any{})
 		return
 	}
@@ -147,7 +147,7 @@ func (server *Server) immersiveLibraryGames(writer http.ResponseWriter, request 
 	}
 	folderID := request.URL.Query().Get("folderId")
 	digest := immersiveLibraryCursorDigest(principal.ProfileID, kind, folderID, limit)
-	var pageCursor *immersive.GameCursor
+	var pageCursor *immersivemodel.GameCursor
 	if token := request.URL.Query().Get("cursor"); token != "" {
 		decoded, decodeErr := server.decodeImmersiveLibraryCursor(token, digest, kind)
 		if decodeErr != nil {
@@ -164,7 +164,7 @@ func (server *Server) immersiveLibraryGames(writer http.ResponseWriter, request 
 		limit,
 		pageCursor,
 	)
-	if errors.Is(err, immersive.ErrLibraryNotFound) || errors.Is(err, immersive.ErrFavoriteFolderNotFound) {
+	if errors.Is(err, immersivemodel.ErrLibraryNotFound) || errors.Is(err, immersivemodel.ErrFavoriteFolderNotFound) {
 		writeError(writer, request, http.StatusNotFound, "RESOURCE_NOT_FOUND", "沉浸游戏分类不存在", map[string]any{})
 		return
 	}

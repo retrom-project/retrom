@@ -9,10 +9,11 @@ import (
 	"testing"
 	"time"
 
+	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
 	application "retrom/internal/service/emulationstationimport"
 )
 
-func workflowDatabase(t *testing.T, retry bool) (*sql.DB, application.Summary) {
+func workflowDatabase(t *testing.T, retry bool) (*sql.DB, emulationstationimportmodel.Summary) {
 	t.Helper()
 	db := startDatabase(t)
 	summary, _, err := application.NewStarter(NewStarter(db), verifiedStartSource{database: db}, func() time.Time { return time.UnixMilli(10) }).Start(t.Context(), "import-0", 2, mappingActor)

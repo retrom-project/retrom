@@ -15,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	uploadsmodel "retrom/internal/model/uploads"
 	dependencypersistence "retrom/internal/repo/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 
@@ -25,7 +26,6 @@ import (
 
 	"retrom/internal/adapter/integration/libraryimport"
 	"retrom/internal/adapter/runtime/launch"
-	"retrom/internal/service/uploads"
 	"retrom/internal/testkit/testassert"
 	"retrom/internal/testkit/testsupport"
 )
@@ -42,15 +42,15 @@ func completeMultiDiscHTTPUpload(
 	files []multiDiscHTTPFile,
 ) string {
 	t.Helper()
-	declarations := make([]uploads.FileDeclaration, 0, len(files))
+	declarations := make([]uploadsmodel.FileDeclaration, 0, len(files))
 	for index, file := range files {
-		declarations = append(declarations, uploads.FileDeclaration{
+		declarations = append(declarations, uploadsmodel.FileDeclaration{
 			ClientFileID: fmt.Sprintf("disc-%d", index), RelativePath: file.path,
 			SizeBytes: int64(len(file.contents)),
 		})
 	}
 	ctx := context.Background()
-	upload, err := server.uploads.Create(ctx, uploads.CreateRequest{SourceType: sourceType, Files: declarations})
+	upload, err := server.uploads.Create(ctx, uploadsmodel.CreateRequest{SourceType: sourceType, Files: declarations})
 	testassert.False(t, err != nil, err)
 	for index, file := range files {
 		digest := sha256.Sum256(file.contents)

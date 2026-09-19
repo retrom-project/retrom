@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
+	launchmodel "retrom/internal/model/launch"
 	persistence "retrom/internal/repo/launch"
-	application "retrom/internal/service/launch"
 )
 
 func TestRPGProductRepeatedNonDefaultTargetKeepsPublishedVariant(t *testing.T) {
@@ -36,7 +36,7 @@ func TestRPGProductRepeatedNonDefaultTargetKeepsPublishedVariant(t *testing.T) {
 	}
 }
 
-func productRPGCommand(gameID, mode, saveID string, attempt int) application.ProductCreateCommand {
+func productRPGCommand(gameID, mode, saveID string, attempt int) launchmodel.ProductCreateCommand {
 	request := CreateRequest{GameID: gameID, ReturnTo: "/games/" + gameID, ClientCapabilities: Capabilities{SecureContext: true, CrossOriginIsolated: true, SharedArrayBuffer: true}}
 	if mode == "explicit" {
 		core := "rpgmaker"
@@ -45,7 +45,7 @@ func productRPGCommand(gameID, mode, saveID string, attempt int) application.Pro
 	if mode == "saved" {
 		request.SaveStateID = &saveID
 	}
-	return application.ProductCreateCommand{
+	return launchmodel.ProductCreateCommand{
 		ActorID: "rpg-product-admin", ProfileID: "local", Key: fmt.Sprintf("rpg-%s-%d", mode, attempt),
 		Digest: strings.Repeat("a", 64), Request: request,
 	}

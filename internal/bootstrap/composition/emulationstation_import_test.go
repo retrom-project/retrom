@@ -3,7 +3,7 @@ package composition
 import (
 	"testing"
 
-	application "retrom/internal/service/emulationstationimport"
+	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
 	"retrom/internal/testkit/testsupport"
 )
 
@@ -11,7 +11,7 @@ func TestEmulationStationCompositionScansAndPreparesOwnedReview(t *testing.T) {
 	fixture := newESCompositionFixture(t)
 	fixture.service.Start()
 	fixture.service.Start()
-	created, err := fixture.service.Create(fixture.ctx, application.CreateRequest{RootID: "games"}, esCompositionActor)
+	created, err := fixture.service.Create(fixture.ctx, emulationstationimportmodel.CreateRequest{RootID: "games"}, esCompositionActor)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -23,7 +23,7 @@ func TestEmulationStationCompositionScansAndPreparesOwnedReview(t *testing.T) {
 	if err != nil || len(collections) != 1 {
 		t.Fatalf("collections=%#v error=%v", collections, err)
 	}
-	mapped, err := fixture.service.UpdateMappings(fixture.ctx, created.ID, scanned.Version, []application.Mapping{{CollectionID: collections[0].ID, Action: "IMPORT", PlatformInstanceID: testsupport.MustPlatformInstanceID(t, fixture.database, "nes/fceumm"), TagIDs: []string{}}})
+	mapped, err := fixture.service.UpdateMappings(fixture.ctx, created.ID, scanned.Version, []emulationstationimportmodel.Mapping{{CollectionID: collections[0].ID, Action: "IMPORT", PlatformInstanceID: testsupport.MustPlatformInstanceID(t, fixture.database, "nes/fceumm"), TagIDs: []string{}}})
 	if err != nil {
 		t.Fatal(err)
 	}

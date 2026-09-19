@@ -7,8 +7,8 @@ import (
 	"sort"
 	"strings"
 
+	libraryimportmodel "retrom/internal/model/libraryimport"
 	librarypersistence "retrom/internal/repo/libraryimport"
-	application "retrom/internal/service/libraryimport"
 
 	"github.com/google/uuid"
 
@@ -177,7 +177,7 @@ func (service *Service) parentAttachmentRootMachine(
 	candidate parentAttachmentCandidate,
 ) (string, error) {
 	raw, err := librarypersistence.NewArcadeParentAttachmentWorker(service.database).RootValidation(
-		ctx, application.ArcadeParentAttachmentCandidate{
+		ctx, libraryimportmodel.ArcadeParentAttachmentCandidate{
 			ItemID: candidate.itemID, BaseSnapshotID: candidate.baseSnapshotID,
 			ProviderID: candidate.providerID, TargetID: candidate.targetID, DATID: candidate.datID,
 		},
@@ -208,7 +208,7 @@ func (service *Service) claimParentAttachment(
 }
 
 func parentAttachmentCandidateFromApplication(
-	candidate application.ArcadeParentAttachmentCandidate,
+	candidate libraryimportmodel.ArcadeParentAttachmentCandidate,
 ) parentAttachmentCandidate {
 	return parentAttachmentCandidate{
 		attachmentID: candidate.AttachmentID, itemID: candidate.ItemID, draftID: candidate.DraftID,

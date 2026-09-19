@@ -5,43 +5,44 @@ import (
 	"fmt"
 
 	"retrom/internal/capability/content/multidisc"
+	model "retrom/internal/model/libraryimport"
 )
 
-type ReviewDependencies struct{ reader ReviewDependencyReader }
+type ReviewDependencies struct{ reader model.ReviewDependencyReader }
 
-func NewReviewDependencies(reader ReviewDependencyReader) *ReviewDependencies {
+func NewReviewDependencies(reader model.ReviewDependencyReader) *ReviewDependencies {
 	return &ReviewDependencies{reader: reader}
 }
 
 func (service *ReviewDependencies) Arcade(
 	ctx context.Context,
 	itemID string,
-	head ReviewDependencyHead,
-) (ReviewArcade, bool, error) {
+	head model.ReviewDependencyHead,
+) (model.ReviewArcade, bool, error) {
 	if head.PlatformID != "arcade" || head.DependencyJSON == nil {
-		return ReviewArcade{}, false, nil
+		return model.ReviewArcade{}, false, nil
 	}
 	snapshot, err := CanonicalArcadeSnapshot(ctx, service.reader, *head.DependencyJSON)
 	if err != nil {
-		return ReviewArcade{}, false, err
+		return model.ReviewArcade{}, false, err
 	}
 	attachments, err := service.reader.ArcadeAttachments(ctx, itemID)
 	if err != nil {
-		return ReviewArcade{}, false, fmt.Errorf("read review arcade attachments: %w", err)
+		return model.ReviewArcade{}, false, fmt.Errorf("read review arcade attachments: %w", err)
 	}
 	byMachine, active := indexArcadeAttachments(attachments)
-	result := &ReviewArcade{
+	result := &model.ReviewArcade{
 		Machine:           snapshot.Machine,
 		Status:            optionalTextValue(head.ValidationStatus),
 		CompatibilityCode: optionalTextValue(head.CompatibilityCode),
-		Nodes: make([]ReviewArcadeNode,
+		Nodes: make([]model.ReviewArcadeNode,
 			0,
 			len(snapshot.Dependencies)),
 		ActiveAttachment: active,
 	}
 	unsupported := arcadeAttachmentUnsupported(result.CompatibilityCode)
 	for _, dependency := range snapshot.Dependencies {
-		node := ReviewArcadeNode{
+		node := model.ReviewArcadeNode{
 			Kind:                dependency.Kind,
 			Machine:             dependency.Machine,
 			RequiredBy:          dependency.RequiredBy,
@@ -72,19 +73,19 @@ func optionalTextValue(value *string) string {
 func (service *ReviewDependencies) MultiDisc(
 	ctx context.Context,
 	itemID string,
-	head ReviewDependencyHead,
-) (ReviewMultiDisc, bool, error) {
+	head model.ReviewDependencyHead,
+) (model.ReviewMultiDisc, bool, error) {
 	if head.ContentKind != multidisc.ContentKind {
-		return ReviewMultiDisc{}, false, nil
+		return model.ReviewMultiDisc{}, false, nil
 	}
 	source, err := service.reader.MultiDiscSource(ctx, head.SnapshotID)
 	if err != nil {
-		return ReviewMultiDisc{}, false, fmt.Errorf("read review multi-disc source: %w", err)
+		return model.ReviewMultiDisc{}, false, fmt.Errorf("read review multi-disc source: %w", err)
 	}
 	result := projectMultiDiscSource(source)
 	attachments, err := service.reader.MultiDiscAttachments(ctx, itemID)
 	if err != nil {
-		return ReviewMultiDisc{}, false, fmt.Errorf("read review multi-disc attachments: %w", err)
+		return model.ReviewMultiDisc{}, false, fmt.Errorf("read review multi-disc attachments: %w", err)
 	}
 	retryRequired := false
 	for i := range attachments {
@@ -104,8 +105,8 @@ func (service *ReviewDependencies) MultiDisc(
 	return *result, true, nil
 }
 
-func projectMultiDiscSource(source MultiDiscSource) *ReviewMultiDisc {
-	result := &ReviewMultiDisc{
+func projectMultiDiscSource(source model.MultiDiscSource) *model.ReviewMultiDisc {
+	result := &model.ReviewMultiDisc{
 		ContentKind:       multidisc.ContentKind,
 		Playlist:          source.Playlist,
 		DiscCount:         len(source.Entries),
@@ -130,9 +131,11 @@ func projectMultiDiscSource(source MultiDiscSource) *ReviewMultiDisc {
 	return result
 }
 
-func indexArcadeAttachments(attachments []ArcadeAttachment) (map[string]*ArcadeAttachment, *ArcadeAttachment) {
-	byMachine := make(map[string]*ArcadeAttachment)
-	var active *ArcadeAttachment
+func indexArcadeAttachments(
+	attachments []model.ArcadeAttachment,
+) (map[string]*model.ArcadeAttachment, *model.ArcadeAttachment) {
+	byMachine := make(map[string]*model.ArcadeAttachment)
+	var active *model.ArcadeAttachment
 	for i := range attachments {
 		entry := &attachments[i]
 		if _, found := byMachine[entry.Machine]; !found {

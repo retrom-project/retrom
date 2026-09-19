@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"time"
 
+	model "retrom/internal/model/libraryimport"
+
 	"github.com/google/uuid"
 )
 
@@ -19,19 +21,22 @@ type ReconfigurationRequest struct {
 	TagIDs                 []string
 }
 
-type ReconfigurationCreate func(context.Context, ImportRequest, ImportCreationOptions) (ImportCreationResult, error)
+type ReconfigurationCreate func(context.Context, model.ImportRequest, model.ImportCreationOptions) (
+	model.ImportCreationResult,
+	error,
+)
 
 // Reconfigurations coordinates reusing rejected files with the normal import
 // creation workflow. It contains no database implementation details.
 type Reconfigurations struct {
-	repository ReconfigurationRepository
+	repository model.ReconfigurationRepository
 	create     ReconfigurationCreate
 	now        func() time.Time
 	newID      func() (string, error)
 }
 
 func NewReconfigurations(
-	repository ReconfigurationRepository,
+	repository model.ReconfigurationRepository,
 	create ReconfigurationCreate,
 	now func() time.Time,
 ) *Reconfigurations {
@@ -57,25 +62,25 @@ func newReconfigurationID() (string, error) {
 func (service *Reconfigurations) Reconfigure(
 	ctx context.Context,
 	request ReconfigurationRequest,
-) (ImportCreationResult, error) {
+) (model.ImportCreationResult, error) {
 	if request.SourceImportJobID == "" || request.ExpectedVersion < 1 ||
 		service.repository == nil || service.create == nil {
-		return ImportCreationResult{}, ErrInvalid
+		return model.ImportCreationResult{}, model.ErrInvalid
 	}
 	source, found, err := service.repository.Source(
 		ctx, request.SourceImportJobID, request.ExpectedVersion,
 	)
 	if err != nil {
-		return ImportCreationResult{}, fmt.Errorf("read reconfiguration source: %w", err)
+		return model.ImportCreationResult{}, fmt.Errorf("read reconfiguration source: %w", err)
 	}
 	if !found || len(source.Files) == 0 {
-		return ImportCreationResult{}, ErrInvalid
+		return model.ImportCreationResult{}, model.ErrInvalid
 	}
 	uploadID, err := service.newID()
 	if err != nil {
-		return ImportCreationResult{}, err
+		return model.ImportCreationResult{}, err
 	}
-	clone := ReconfigurationClone{
+	clone := model.ReconfigurationClone{
 		UploadID:          uploadID,
 		SourceImportJobID: request.SourceImportJobID,
 		ExpectedVersion:   request.ExpectedVersion,
@@ -87,26 +92,26 @@ func (service *Reconfigurations) Reconfigure(
 		NowMS: service.now().UnixMilli(),
 	}
 	if err := service.repository.Clone(ctx, clone); err != nil {
-		return ImportCreationResult{}, fmt.Errorf("clone reconfiguration upload: %w", err)
+		return model.ImportCreationResult{}, fmt.Errorf("clone reconfiguration upload: %w", err)
 	}
-	created, err := service.create(ctx, ImportRequest{
+	created, err := service.create(ctx, model.ImportRequest{
 		UploadID:                 uploadID,
 		TargetPlatformInstanceID: request.TargetPlatformInstance,
 		MetadataProvider:         request.MetadataProvider,
 		TagIDs:                   request.TagIDs,
-	}, ImportCreationOptions{Reconfiguration: &ImportReconfiguration{
+	}, model.ImportCreationOptions{Reconfiguration: &model.ImportReconfiguration{
 		ImportID: request.SourceImportJobID,
 		Version:  request.ExpectedVersion,
 		FileIDs:  reconfigurationFileIDs(source.Files),
 	}})
 	if err != nil {
 		_ = service.repository.RemoveUnused(context.WithoutCancel(ctx), uploadID)
-		return ImportCreationResult{}, err
+		return model.ImportCreationResult{}, err
 	}
 	return created, nil
 }
 
-func reconfigurationFileIDs(files []PreparedReusableUploadFile) []string {
+func reconfigurationFileIDs(files []model.PreparedReusableUploadFile) []string {
 	result := make([]string, 0, len(files))
 	for _, file := range files {
 		result = append(result, file.ID)
@@ -117,7 +122,7 @@ func reconfigurationFileIDs(files []PreparedReusableUploadFile) []string {
 func ReconfigurationManifestDigest(
 	sourceImportJobID string,
 	sourceVersion int64,
-	files []PreparedReusableUploadFile,
+	files []model.PreparedReusableUploadFile,
 ) string {
 	manifestFiles := make([]map[string]any, 0, len(files))
 	for _, file := range files {

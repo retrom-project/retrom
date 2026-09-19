@@ -3,24 +3,30 @@ package pegasusimport
 import (
 	"context"
 	"errors"
+
+	model "retrom/internal/model/pegasusimport"
 )
 
 func (run *importItemRun) copyFiles(ctx context.Context) (bool, error) {
 	for index, file := range run.item.Files {
 		blob, err := run.executor.dependencies.Sources.CopyFile(ctx, run.unit, file)
 		if err != nil {
-			outcome := ItemOutcome{State: "READ_FAILED", Code: "READ_FAILED", Retryable: true}
-			if errors.Is(err, ErrSourceChanged) {
-				outcome = ItemOutcome{State: "SOURCE_CHANGED", Code: "PEGASUS_SOURCE_CHANGED"}
+			outcome := model.ItemOutcome{State: "READ_FAILED", Code: "READ_FAILED", Retryable: true}
+			if errors.Is(err, model.ErrSourceChanged) {
+				outcome = model.ItemOutcome{State: "SOURCE_CHANGED", Code: "PEGASUS_SOURCE_CHANGED"}
 			}
 			return false, run.finish(ctx, err, outcome)
 		}
-		blobID, err := run.executor.dependencies.Materials.Copy(ctx, run.unit.Identity(), MaterialSource{
-			Key:  MaterialKey{ItemID: run.item.ID, Ordinal: file.Ordinal},
+		blobID, err := run.executor.dependencies.Materials.Copy(ctx, run.unit.Identity(), model.MaterialSource{
+			Key:  model.MaterialKey{ItemID: run.item.ID, Ordinal: file.Ordinal},
 			Path: file.Path, Facts: file.Facts, Size: file.Size,
 		}, blob)
 		if err != nil {
-			return false, run.finish(ctx, err, ItemOutcome{State: "COMMIT_FAILED", Code: "INTERNAL_ERROR", Retryable: true})
+			return false, run.finish(ctx, err, model.ItemOutcome{
+				State:     "COMMIT_FAILED",
+				Code:      "INTERNAL_ERROR",
+				Retryable: true,
+			})
 		}
 		run.item.Files[index].BlobID = blobID
 	}
@@ -33,7 +39,7 @@ func (run *importItemRun) copyAssets(ctx context.Context) (bool, error) {
 		if stop := importStopCause(ctx, err); stop != nil {
 			return false, stop
 		}
-		if err != nil && !errors.Is(err, ErrSourceChanged) {
+		if err != nil && !errors.Is(err, model.ErrSourceChanged) {
 			return false, run.failure(ctx, "STORAGE", "COPY_MEDIA", err, asset.Path)
 		}
 		source := AssetMaterial(run.item.ID, asset)
@@ -54,15 +60,15 @@ func (run *importItemRun) copyAssets(ctx context.Context) (bool, error) {
 	return true, nil
 }
 
-func AssetMaterial(itemID string, asset ExecutionAsset) MaterialSource {
-	return MaterialSource{
-		Key: MaterialKey{ItemID: itemID, Kind: asset.Kind}, Path: asset.Path, Facts: asset.Facts,
+func AssetMaterial(itemID string, asset model.ExecutionAsset) model.MaterialSource {
+	return model.MaterialSource{
+		Key: model.MaterialKey{ItemID: itemID, Kind: asset.Kind}, Path: asset.Path, Facts: asset.Facts,
 		Size: asset.Size, MediaType: asset.MediaType, Width: asset.Width, Height: asset.Height,
 	}
 }
 
 func mediaWarning(kind string, err error) string {
-	if errors.Is(err, ErrSourceChanged) {
+	if errors.Is(err, model.ErrSourceChanged) {
 		return "PEGASUS_SOURCE_CHANGED"
 	}
 	if kind == "COVER" {

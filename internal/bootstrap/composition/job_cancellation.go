@@ -6,6 +6,8 @@ import (
 	"fmt"
 
 	"retrom/internal/capability/security/authn"
+	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
+	jobsmodel "retrom/internal/model/jobs"
 	es "retrom/internal/service/emulationstationimport"
 	"retrom/internal/service/jobs"
 )
@@ -28,7 +30,7 @@ func (handler emulationStationCancellation) CancelJob(
 ) (jobs.Result, bool, error) {
 	principal, ok := authn.PrincipalFromContext(ctx)
 	if !ok || principal.UserID == "" {
-		return jobs.Result{}, false, jobs.ErrConflict
+		return jobs.Result{}, false, jobsmodel.ErrConflict
 	}
 	result, pending, err := handler.source.CancelJob(ctx, es.JobCancellationRequest{
 		JobID: command.JobID, Kind: command.Kind, ScopeID: command.ScopeID, Reason: command.Reason,
@@ -44,8 +46,11 @@ func (handler emulationStationCancellation) CancelJob(
 }
 
 func emulationStationCancellationError(err error) error {
-	if errors.Is(err, es.ErrVersionConflict) || errors.Is(err, es.ErrNotCancellable) || errors.Is(err, es.ErrNotFound) {
-		return fmt.Errorf("%w: %w", jobs.ErrConflict, err)
+	if errors.Is(err, emulationstationimportmodel.ErrVersionConflict) ||
+		errors.Is(err, emulationstationimportmodel.ErrNotCancellable) ||
+
+		errors.Is(err, emulationstationimportmodel.ErrNotFound) {
+		return fmt.Errorf("%w: %w", jobsmodel.ErrConflict, err)
 	}
 	return fmt.Errorf("cancel EmulationStation domain job: %w", err)
 }

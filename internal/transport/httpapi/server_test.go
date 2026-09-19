@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	accountsmodel "retrom/internal/model/accounts"
 	dependencypersistence "retrom/internal/repo/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 
@@ -22,7 +23,6 @@ import (
 
 	"retrom/internal/bootstrap/config"
 	"retrom/internal/capability/security/authn"
-	"retrom/internal/service/accounts"
 	"retrom/internal/testkit/testassert"
 	"retrom/internal/testkit/testsupport"
 )
@@ -73,7 +73,7 @@ func TestAuthenticationMiddlewareClearsCookieOnlyForDefinitiveRevocation(t *test
 	server.Handler().ServeHTTP(unavailable, unavailableRequest)
 	testassert.Falsef(t, testassert.Any(func() bool { return unavailable.Code != http.StatusInternalServerError }, func() bool { return unavailable.Header().Values("Set-Cookie") != nil }), "temporary auth failure = %d cookies=%v body=%s", unavailable.Code, unavailable.Header().Values("Set-Cookie"), unavailable.Body.String())
 
-	server.authenticator = fixedAuthenticator{Err: accounts.ErrAuthenticationNeeded}
+	server.authenticator = fixedAuthenticator{Err: accountsmodel.ErrAuthenticationNeeded}
 	revokedRequest := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/games", nil)
 	revokedRequest.AddCookie(cookie)
 	revoked := httptest.NewRecorder()

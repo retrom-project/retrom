@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	payloadreleasemodel "retrom/internal/model/payloadrelease"
 	application "retrom/internal/service/payloadrelease"
 	"retrom/internal/testkit/testsupport"
 )
@@ -171,7 +172,7 @@ func TestGarbageRollsBackWhenOriginalLeaseExpiresAfterCatalogDelete(t *testing.T
  (SELECT count(*) FROM blobs WHERE id='manual-gc-blob'),
  (SELECT count(*) FROM blob_gc_candidates WHERE blob_id='manual-gc-blob')`).Scan(&blobs, &candidates)
 	_, physicalErr := os.Stat(fixture.blobs.Path(job.Input.Inputs.SHA256))
-	if !errors.Is(err, application.ErrExecutionLost) || hits.Load() != 1 || readErr != nil ||
+	if !errors.Is(err, payloadreleasemodel.ErrExecutionLost) || hits.Load() != 1 || readErr != nil ||
 		blobs != 1 || candidates != 1 || physicalErr != nil {
 		t.Fatalf("expired garbage escaped: error=%v hits=%d blobs=%d candidates=%d read=%v physical=%v",
 			err, hits.Load(), blobs, candidates, readErr, physicalErr)

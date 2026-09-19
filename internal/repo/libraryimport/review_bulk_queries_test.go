@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	application "retrom/internal/service/libraryimport"
+	libraryimportmodel "retrom/internal/model/libraryimport"
 	"retrom/internal/testkit/testsupport"
 )
 
@@ -61,8 +61,8 @@ func TestReviewBulkQueriesRepositoryReadsTypedCandidateRecords(t *testing.T) {
 	db := metadataDatabase(t)
 	_, instance := insertReviewBulkQueryFixture(t, db)
 	repository := NewReviewBulkQueries(db)
-	candidates, err := repository.Candidates(t.Context(), application.ReviewBulkCandidateQuery{
-		Scope: application.ReviewBulkScope{PlatformInstanceID: instance}, Limit: 2,
+	candidates, err := repository.Candidates(t.Context(), libraryimportmodel.ReviewBulkCandidateQuery{
+		Scope: libraryimportmodel.ReviewBulkScope{PlatformInstanceID: instance}, Limit: 2,
 	})
 	if err != nil || len(candidates) != 1 {
 		t.Fatalf("candidates=%#v err=%v", candidates, err)
@@ -79,7 +79,7 @@ func TestReviewBulkQueriesRepositoryReadsTypedItemsAndSummaries(t *testing.T) {
 	db := metadataDatabase(t)
 	bulkID, _ := insertReviewBulkQueryFixture(t, db)
 	repository := NewReviewBulkQueries(db)
-	items, err := repository.Items(t.Context(), application.ReviewBulkItemQuery{
+	items, err := repository.Items(t.Context(), libraryimportmodel.ReviewBulkItemQuery{
 		BulkApprovalID: bulkID, AfterOrdinal: -1, Limit: 2,
 	})
 	if err != nil || len(items) != 1 || items[0].ImportItemID != "item" || items[0].Ordinal != 0 {
@@ -106,7 +106,7 @@ func TestReviewBulkQueriesRepositoryReturnsNoActiveSummary(t *testing.T) {
 
 func TestReviewBulkCandidateStatementAddsBoundedCursor(t *testing.T) {
 	t.Parallel()
-	query, args, err := reviewBulkCandidateStatement(application.ReviewBulkCandidateQuery{
+	query, args, err := reviewBulkCandidateStatement(libraryimportmodel.ReviewBulkCandidateQuery{
 		AfterItemID:   "019b0000-0000-7000-8000-000000000001",
 		ThroughItemID: "019b0000-0000-7000-8000-000000000002",
 		Limit:         2,

@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	application "retrom/internal/service/libraryimport"
+	libraryimportmodel "retrom/internal/model/libraryimport"
 	"retrom/internal/testkit/testsupport"
 )
 
@@ -35,7 +35,7 @@ func TestImportWorkerLateLeaseFailureRollsBackTerminalAndRelease(t *testing.T) {
 						return nil, err
 					}
 					writes += count
-					clock.Add(2 * application.ImportExecutionLease.Milliseconds())
+					clock.Add(2 * libraryimportmodel.ImportExecutionLease.Milliseconds())
 				}
 				return result, nil
 			},
@@ -57,7 +57,7 @@ func TestImportWorkerLateLeaseFailureRollsBackTerminalAndRelease(t *testing.T) {
 
 func TestImportWorkerRecoveryRetainsAlreadyCreatedResults(t *testing.T) {
 	service, plan := preparedCommitFixture(t)
-	result, err := service.importCreations().CommitPrepared(t.Context(), plan, application.ImportCreationOptions{})
+	result, err := service.importCreations().CommitPrepared(t.Context(), plan, libraryimportmodel.ImportCreationOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -116,7 +116,7 @@ func TestImportWorkerRecoveryRetainsResolvedFilesWithoutItems(t *testing.T) {
 		plan.Dispositions[index].Disposition = "REJECTED"
 		plan.Dispositions[index].Reason = "UNSUPPORTED_CONTENT_FORMAT"
 	}
-	result, err := service.importCreations().CommitPrepared(t.Context(), plan, application.ImportCreationOptions{})
+	result, err := service.importCreations().CommitPrepared(t.Context(), plan, libraryimportmodel.ImportCreationOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}

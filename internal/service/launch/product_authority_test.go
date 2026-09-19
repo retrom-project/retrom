@@ -7,27 +7,29 @@ import (
 	"math"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/launch"
 )
 
 func TestProductCreatorRejectsFinalInputChanges(t *testing.T) {
 	for _, test := range []struct {
 		name   string
-		change func(*ProductSnapshot)
+		change func(*model.ProductSnapshot)
 	}{
-		{"disabled owner", func(s *ProductSnapshot) { s.Found = false }},
-		{"moved game", func(s *ProductSnapshot) { s.Source.InstanceID = "other" }},
-		{"core selection", func(s *ProductSnapshot) { s.Source.CoreID = "other" }},
-		{"provider upgrade", func(s *ProductSnapshot) { s.Source.BundleSHA256 = "other" }},
-		{"source replacement", func(s *ProductSnapshot) { s.Source.SourceManifestDigest = "other" }},
-		{"content bytes", func(s *ProductSnapshot) { s.GameFiles[0].BlobID = "other" }},
-		{"variant evidence", func(s *ProductSnapshot) { s.Source.DependencySnapshot = "different" }},
-		{"target contract", func(s *ProductSnapshot) { s.Source.ReadFormats = []string{"changed"} }},
+		{"disabled owner", func(s *model.ProductSnapshot) { s.Found = false }},
+		{"moved game", func(s *model.ProductSnapshot) { s.Source.InstanceID = "other" }},
+		{"core selection", func(s *model.ProductSnapshot) { s.Source.CoreID = "other" }},
+		{"provider upgrade", func(s *model.ProductSnapshot) { s.Source.BundleSHA256 = "other" }},
+		{"source replacement", func(s *model.ProductSnapshot) { s.Source.SourceManifestDigest = "other" }},
+		{"content bytes", func(s *model.ProductSnapshot) { s.GameFiles[0].BlobID = "other" }},
+		{"variant evidence", func(s *model.ProductSnapshot) { s.Source.DependencySnapshot = "different" }},
+		{"target contract", func(s *model.ProductSnapshot) { s.Source.ReadFormats = []string{"changed"} }},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			creator, repository, _, command := productFixture(t)
 			test.change(&repository.current)
 			result, err := creator.Create(t.Context(), command)
-			if !errors.Is(err, ErrBlocked) || result.Created.LaunchID != "" || len(repository.writes) != 0 || len(repository.receipts) != 0 {
+			if !errors.Is(err, model.ErrBlocked) || result.Created.LaunchID != "" || len(repository.writes) != 0 || len(repository.receipts) != 0 {
 				t.Fatalf("launch=%q error=%v writes=%d receipts=%d", result.Created.LaunchID, err, len(repository.writes), len(repository.receipts))
 			}
 		})
@@ -77,7 +79,7 @@ func TestProductCreatorChecksClockAndEntropy(t *testing.T) {
 			creator, repository, _, command := productFixture(t)
 			creator.environment.Now = func() time.Time { return time.UnixMilli(now) }
 			result, err := creator.Create(t.Context(), command)
-			if !errors.Is(err, ErrBlocked) || result.Created.LaunchID != "" || len(repository.writes) != 0 {
+			if !errors.Is(err, model.ErrBlocked) || result.Created.LaunchID != "" || len(repository.writes) != 0 {
 				t.Fatalf("launch=%q error=%v writes=%d", result.Created.LaunchID, err, len(repository.writes))
 			}
 		})

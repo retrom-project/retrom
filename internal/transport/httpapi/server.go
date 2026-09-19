@@ -9,6 +9,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	accountsmodel "retrom/internal/model/accounts"
 	netplayservice "retrom/internal/service/netplay"
 
 	gamecontentpersistence "retrom/internal/repo/gamecontent"
@@ -214,7 +215,7 @@ func (server *Server) idempotencyRecords() *idempotencyservice.Service {
 }
 
 type Authenticator interface {
-	Authenticate(context.Context, string) (accounts.Session, error)
+	Authenticate(context.Context, string) (accountsmodel.Session, error)
 }
 
 func New(

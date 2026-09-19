@@ -10,22 +10,25 @@ import (
 	"reflect"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/maintenance"
 )
 
 type memoryRepository struct {
-	Repository
+	model.Repository
+
 	records    *restoreRecords
-	snapshot   Snapshot
+	snapshot   model.Snapshot
 	inspectErr error
 	writes     int
 	committed  bool
 }
 
-func (repository *memoryRepository) Inspect(context.Context, string) (Snapshot, error) {
+func (repository *memoryRepository) Inspect(context.Context, string) (model.Snapshot, error) {
 	return repository.snapshot, repository.inspectErr
 }
 
-func (repository *memoryRepository) WithRestore(_ context.Context, _ string, work func(RestoreRecords) error) error {
+func (repository *memoryRepository) WithRestore(_ context.Context, _ string, work func(model.RestoreRecords) error) error {
 	repository.writes++
 	err := work(repository.records)
 	repository.committed = err == nil
@@ -34,37 +37,37 @@ func (repository *memoryRepository) WithRestore(_ context.Context, _ string, wor
 
 type restoreRecords struct {
 	calls     []string
-	audit     FenceAudit
+	audit     model.FenceAudit
 	failAudit error
 }
 
-type emptyRestoredReviews struct{ RestoredReviewRecords }
+type emptyRestoredReviews struct{ model.RestoredReviewRecords }
 
-func (emptyRestoredReviews) Pending(context.Context, RestoredReviewQuery) ([]RestoredReview, error) {
+func (emptyRestoredReviews) Pending(context.Context, model.RestoredReviewQuery) ([]model.RestoredReview, error) {
 	return nil, nil
 }
 
-func (records *restoreRecords) Imports() RestoredImportScope {
+func (records *restoreRecords) Imports() model.RestoredImportScope {
 	records.calls = append(records.calls, "reviews")
-	return RestoredImportScope{
-		Reviews:  RestoredReviewScope{Records: emptyRestoredReviews{}},
-		Payloads: RestoredPayloadScope{Records: records},
+	return model.RestoredImportScope{
+		Reviews:  model.RestoredReviewScope{Records: emptyRestoredReviews{}},
+		Payloads: model.RestoredPayloadScope{Records: records},
 	}
 }
 
-func (records *restoreRecords) RetainedSources(_ context.Context, query RestoredPayloadQuery) ([]string, error) {
+func (records *restoreRecords) RetainedSources(_ context.Context, query model.RestoredPayloadQuery) ([]string, error) {
 	records.calls = append(records.calls, string(query.Kind))
 	return nil, nil
 }
 
-func (records *restoreRecords) RevokeAccess(_ context.Context, _ int64) (AccessCounts, error) {
+func (records *restoreRecords) RevokeAccess(_ context.Context, _ int64) (model.AccessCounts, error) {
 	records.calls = append(records.calls, "revoke")
-	return AccessCounts{Sessions: 1, Links: 2, Launches: 3}, nil
+	return model.AccessCounts{Sessions: 1, Links: 2, Launches: 3}, nil
 }
 
-func (records *restoreRecords) StopExternalImports(context.Context, int64) (ImportCounts, error) {
+func (records *restoreRecords) StopExternalImports(context.Context, int64) (model.ImportCounts, error) {
 	records.calls = append(records.calls, "external")
-	return ImportCounts{BIOS: 4, Pegasus: 5, EmulationStation: 6}, nil
+	return model.ImportCounts{BIOS: 4, Pegasus: 5, EmulationStation: 6}, nil
 }
 
 func (records *restoreRecords) StopBulkApprovals(context.Context, int64) error {
@@ -72,7 +75,7 @@ func (records *restoreRecords) StopBulkApprovals(context.Context, int64) error {
 	return nil
 }
 
-func (records *restoreRecords) Audit(_ context.Context, audit FenceAudit) error {
+func (records *restoreRecords) Audit(_ context.Context, audit model.FenceAudit) error {
 	records.calls = append(records.calls, "audit")
 	records.audit = audit
 	return records.failAudit
@@ -91,7 +94,7 @@ func TestRestoreFenceHasOneClockAndOneAtomicScope(t *testing.T) {
 	}) {
 		t.Fatalf("fence escaped atomic scope: %+v %+v", repository, records)
 	}
-	if records.audit.Now != 17 || records.audit.ID == "" || records.audit.Counts != (FenceCounts{Sessions: 1, Links: 2, Launches: 3, BIOS: 4, Pegasus: 5, EmulationStation: 6}) {
+	if records.audit.Now != 17 || records.audit.ID == "" || records.audit.Counts != (model.FenceCounts{Sessions: 1, Links: 2, Launches: 3, BIOS: 4, Pegasus: 5, EmulationStation: 6}) {
 		t.Fatalf("audit evidence: %+v", records.audit)
 	}
 	records.failAudit = context.Canceled
@@ -106,7 +109,7 @@ func TestRestoreFenceHasOneClockAndOneAtomicScope(t *testing.T) {
 func TestRestoreDoesNotRevokeAccessBeforeContentValidation(t *testing.T) {
 	sum := sha256.Sum256([]byte("original"))
 	digest := hex.EncodeToString(sum[:])
-	repository := &memoryRepository{records: &restoreRecords{}, snapshot: Snapshot{Blobs: []Blob{{SHA256: digest, SizeBytes: 8}}}}
+	repository := &memoryRepository{records: &restoreRecords{}, snapshot: model.Snapshot{Blobs: []model.Blob{{SHA256: digest, SizeBytes: 8}}}}
 	service := New(repository, func() time.Time { return time.UnixMilli(17) })
 	root := t.TempDir()
 	blob := filepath.Join(root, "blobs", "sha256", digest[:2], digest[2:4], digest)
@@ -116,7 +119,7 @@ func TestRestoreDoesNotRevokeAccessBeforeContentValidation(t *testing.T) {
 	if err := os.WriteFile(blob, []byte("tampered"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := service.validateAndFenceRestore(t.Context(), root); !errors.Is(err, ErrInvalidBundle) {
+	if err := service.validateAndFenceRestore(t.Context(), root); !errors.Is(err, model.ErrInvalidBundle) {
 		t.Fatalf("corrupt content: %v", err)
 	}
 	if repository.writes != 0 {

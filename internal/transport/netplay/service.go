@@ -3,6 +3,7 @@ package netplay
 import (
 	"fmt"
 
+	netplaymodel "retrom/internal/model/netplay"
 	application "retrom/internal/service/netplay"
 )
 
@@ -14,17 +15,17 @@ const (
 )
 
 var (
-	ErrRoomNotFound    = application.ErrRoomNotFound
-	ErrSessionNotFound = application.ErrSessionNotFound
-	ErrForbidden       = application.ErrForbidden
-	ErrInvalidSeat     = application.ErrInvalidSeat
-	ErrInvalidProfile  = application.ErrInvalidProfile
-	ErrSeatTaken       = application.ErrSeatTaken
-	ErrRoomNotReady    = application.ErrRoomNotReady
-	ErrRoomConflict    = application.ErrRoomConflict
-	ErrProfileStale    = application.ErrProfileStale
-	ErrCapacity        = application.ErrCapacity
-	ErrPrecondition    = application.ErrPrecondition
+	ErrRoomNotFound    = netplaymodel.ErrRoomNotFound
+	ErrSessionNotFound = netplaymodel.ErrSessionNotFound
+	ErrForbidden       = netplaymodel.ErrForbidden
+	ErrInvalidSeat     = netplaymodel.ErrInvalidSeat
+	ErrInvalidProfile  = netplaymodel.ErrInvalidProfile
+	ErrSeatTaken       = netplaymodel.ErrSeatTaken
+	ErrRoomNotReady    = netplaymodel.ErrRoomNotReady
+	ErrRoomConflict    = netplaymodel.ErrRoomConflict
+	ErrProfileStale    = netplaymodel.ErrProfileStale
+	ErrCapacity        = netplaymodel.ErrCapacity
+	ErrPrecondition    = netplaymodel.ErrPrecondition
 )
 
 func serviceError(operation string, err error) error {

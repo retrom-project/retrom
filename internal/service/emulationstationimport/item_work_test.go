@@ -5,45 +5,47 @@ import (
 	"errors"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/emulationstationimport"
 )
 
 type itemWorkMemory struct {
-	before                       OwnedItem
+	before                       model.OwnedItem
 	claimed, resumed, finished   int
-	outcome                      ItemOutcome
+	outcome                      model.ItemOutcome
 	readErr, writeErr, commitErr error
 }
 
-func (memory *itemWorkMemory) WithItemWork(_ context.Context, run func(ItemWorkScope) error) error {
-	if err := run(ItemWorkScope{Read: memory, Write: memory, Payload: payloadItemScope(memory)}); err != nil {
+func (memory *itemWorkMemory) WithItemWork(_ context.Context, run func(model.ItemWorkScope) error) error {
+	if err := run(model.ItemWorkScope{Read: memory, Write: memory, Payload: payloadItemScope(memory)}); err != nil {
 		return err
 	}
 	return memory.commitErr
 }
 
-func (memory *itemWorkMemory) Current(context.Context, string) (LeaseSnapshot, bool, error) {
+func (memory *itemWorkMemory) Current(context.Context, string) (model.LeaseSnapshot, bool, error) {
 	return memory.before.Execution, true, memory.readErr
 }
 
-func (memory *itemWorkMemory) Next(context.Context, string) (ExecutionItem, bool, error) {
+func (memory *itemWorkMemory) Next(context.Context, string) (model.ExecutionItem, bool, error) {
 	return memory.before.Item, true, memory.readErr
 }
 
-func (memory *itemWorkMemory) Item(context.Context, string) (OwnedItem, error) {
+func (memory *itemWorkMemory) Item(context.Context, string) (model.OwnedItem, error) {
 	return memory.before, memory.readErr
 }
 
-func (memory *itemWorkMemory) Claim(context.Context, ItemClaim) error {
+func (memory *itemWorkMemory) Claim(context.Context, model.ItemClaim) error {
 	memory.claimed++
 	return memory.writeErr
 }
 
-func (memory *itemWorkMemory) Resume(context.Context, ItemResume) error {
+func (memory *itemWorkMemory) Resume(context.Context, model.ItemResume) error {
 	memory.resumed++
 	return memory.writeErr
 }
 
-func (memory *itemWorkMemory) Finish(_ context.Context, change ItemFinish) error {
+func (memory *itemWorkMemory) Finish(_ context.Context, change model.ItemFinish) error {
 	memory.finished++
 	memory.outcome = change.Outcome
 	return memory.writeErr
@@ -53,9 +55,9 @@ func newItemWorkMemory() *itemWorkMemory {
 	execution := newExecutionMemory().before
 	execution.Kind, execution.ImportState = "SERVER_EMULATIONSTATION_IMPORT", "RUNNING"
 	return &itemWorkMemory{
-		before: OwnedItem{
+		before: model.OwnedItem{
 			Execution: execution,
-			Item:      ExecutionItem{ID: "item", ImportID: "plan", State: "PENDING", Version: 1},
+			Item:      model.ExecutionItem{ID: "item", ImportID: "plan", State: "PENDING", Version: 1},
 		},
 	}
 }
@@ -131,7 +133,7 @@ func TestItemWorkOnlyFinishesOwnedOutcomeAndBoundReview(t *testing.T) {
 	memory.before.Item.State = "COPYING"
 	service := itemWorkService(memory)
 	unit := memory.before.Execution.Execution
-	outcome := ItemOutcome{State: "COMMIT_FAILED", Code: "INTERNAL_ERROR", Retryable: true}
+	outcome := model.ItemOutcome{State: "COMMIT_FAILED", Code: "INTERNAL_ERROR", Retryable: true}
 	if err := service.Finish(t.Context(), unit, "item", outcome); err != nil || memory.finished != 1 {
 		t.Fatalf("finish=%v", err)
 	}
@@ -157,11 +159,9 @@ func TestItemWorkOnlyFinishesOwnedOutcomeAndBoundReview(t *testing.T) {
 	if err := service.Finish(
 		t.Context(),
 		unit,
-		"item",
-		ItemOutcome{State: "CANCELLED", Code: "CANCELLED"},
+		"item", model.ItemOutcome{State: "CANCELLED", Code: "CANCELLED"},
 	); !errors.Is(
-		err,
-		ErrInvalid,
+		err, model.ErrInvalid,
 	) {
 		t.Fatalf("inline cancellation=%v", err)
 	}

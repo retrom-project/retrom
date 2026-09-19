@@ -6,22 +6,24 @@ import (
 	"math"
 	"time"
 
+	model "retrom/internal/model/pegasusimport"
+
 	"github.com/google/uuid"
 )
 
 type Leases struct {
-	repository LeaseRepository
+	repository model.LeaseRepository
 	now        func() time.Time
 }
 
-func NewLeases(repository LeaseRepository, now func() time.Time) *Leases {
+func NewLeases(repository model.LeaseRepository, now func() time.Time) *Leases {
 	return &Leases{repository: repository, now: now}
 }
 
-func (service *Leases) Claim(ctx context.Context) (Work, bool, error) {
-	var unit Work
+func (service *Leases) Claim(ctx context.Context) (model.Work, bool, error) {
+	var unit model.Work
 	found := false
-	err := service.repository.WithLease(ctx, func(records LeaseRecords) error {
+	err := service.repository.WithLease(ctx, func(records model.LeaseRecords) error {
 		now := service.now().UnixMilli()
 		before, exists, err := records.Next(ctx, now)
 		if err != nil {
@@ -46,16 +48,16 @@ func (service *Leases) Claim(ctx context.Context) (Work, bool, error) {
 		return nil
 	})
 	if err != nil {
-		return Work{}, false, fmt.Errorf("claim Pegasus execution: %w", err)
+		return model.Work{}, false, fmt.Errorf("claim Pegasus execution: %w", err)
 	}
 	return unit, found, nil
 }
 
-func planLease(before LeaseCandidate, now int64) (LeaseClaim, error) {
+func planLease(before model.LeaseCandidate, now int64) (model.LeaseClaim, error) {
 	if !validLeaseCandidate(before, now) {
-		return LeaseClaim{}, ErrInvalid
+		return model.LeaseClaim{}, model.ErrInvalid
 	}
-	change := LeaseClaim{
+	change := model.LeaseClaim{
 		Before:      before,
 		Work:        before.Work,
 		ImportState: "SCANNING",
@@ -67,23 +69,23 @@ func planLease(before LeaseCandidate, now int64) (LeaseClaim, error) {
 	switch before.Work.Kind {
 	case "SERVER_PEGASUS_SCAN":
 		if before.ImportState != "SCANNING" {
-			return LeaseClaim{}, ErrVersionConflict
+			return model.LeaseClaim{}, model.ErrVersionConflict
 		}
 	case "SERVER_PEGASUS_IMPORT":
 		if before.ImportState != "QUEUED" {
-			return LeaseClaim{}, ErrVersionConflict
+			return model.LeaseClaim{}, model.ErrVersionConflict
 		}
 		change.ImportState, change.Phase, duration = "RUNNING", "COPYING_CONTENT", (8 * time.Hour).Milliseconds()
 	default:
-		return LeaseClaim{}, ErrInvalid
+		return model.LeaseClaim{}, model.ErrInvalid
 	}
 	if (before.StartedAtMS == nil) != (before.DeadlineAtMS == nil) {
-		return LeaseClaim{}, ErrInvalid
+		return model.LeaseClaim{}, model.ErrInvalid
 	}
 	change.Work.DeadlineAtMS = now + duration
 	if before.DeadlineAtMS != nil {
 		if *before.DeadlineAtMS <= now {
-			return LeaseClaim{}, ErrExpired
+			return model.LeaseClaim{}, model.ErrExpired
 		}
 		change.StartedAtMS, change.Work.DeadlineAtMS = *before.StartedAtMS, *before.DeadlineAtMS
 	}
@@ -92,8 +94,8 @@ func planLease(before LeaseCandidate, now int64) (LeaseClaim, error) {
 	return change, nil
 }
 
-func (service *Leases) Renew(ctx context.Context, identity ExecutionIdentity) error {
-	err := service.repository.WithLease(ctx, func(records LeaseRecords) error {
+func (service *Leases) Renew(ctx context.Context, identity model.ExecutionIdentity) error {
+	err := service.repository.WithLease(ctx, func(records model.LeaseRecords) error {
 		before, err := records.Current(ctx, identity.JobID)
 		if err != nil {
 			return fmt.Errorf("read Pegasus lease: %w", err)
@@ -103,9 +105,12 @@ func (service *Leases) Renew(ctx context.Context, identity ExecutionIdentity) er
 			return err
 		}
 		if now > math.MaxInt64-60000 {
-			return ErrInvalid
+			return model.ErrInvalid
 		}
-		return records.Renew(ctx, LeaseRenewal{Before: before, NowMS: now, LeaseUntilMS: min(now+60000, before.DeadlineMS)})
+		return records.Renew(ctx, model.LeaseRenewal{Before: before, NowMS: now, LeaseUntilMS: min(
+			now+60000,
+			before.DeadlineMS,
+		)})
 	})
 	if err != nil {
 		return fmt.Errorf("renew Pegasus execution: %w", err)
@@ -114,13 +119,13 @@ func (service *Leases) Renew(ctx context.Context, identity ExecutionIdentity) er
 }
 
 // ValidateExecution checks the current transaction snapshot, not the version at initial claim.
-func ValidateExecution(before ExecutionSnapshot, identity ExecutionIdentity, now int64) error {
-	actual := ExecutionIdentity{
+func ValidateExecution(before model.ExecutionSnapshot, identity model.ExecutionIdentity, now int64) error {
+	actual := model.ExecutionIdentity{
 		JobID: before.JobID, ImportID: before.ImportID, WorkerID: before.WorkerID,
 		ExecutionNo: before.ExecutionNo, Attempt: before.Attempt,
 	}
 	if actual != identity || !validLiveExecution(before, now) {
-		return ErrVersionConflict
+		return model.ErrVersionConflict
 	}
 	if before.JobState == "CANCEL_REQUESTED" && before.ImportState == "CANCEL_REQUESTED" {
 		return nil
@@ -133,16 +138,16 @@ func ValidateExecution(before ExecutionSnapshot, identity ExecutionIdentity, now
 			return nil
 		}
 	}
-	return ErrVersionConflict
+	return model.ErrVersionConflict
 }
 
-func validLeaseCandidate(before LeaseCandidate, now int64) bool {
+func validLeaseCandidate(before model.LeaseCandidate, now int64) bool {
 	return before.JobVersion > 0 && before.JobVersion < math.MaxInt64 && before.ImportVersion > 0 &&
 		before.ImportVersion < math.MaxInt64 && before.Work.ExecutionNo > 0 && before.Work.Attempt >= 0 &&
 		before.Work.Attempt < before.MaxAttempts && now <= math.MaxInt64-(8*time.Hour).Milliseconds()
 }
 
-func validLiveExecution(before ExecutionSnapshot, now int64) bool {
+func validLiveExecution(before model.ExecutionSnapshot, now int64) bool {
 	return before.WorkerID != "" && before.ExecutionNo > 0 && before.Attempt > 0 &&
 		before.JobVersion > 0 && before.JobVersion < math.MaxInt64 && before.ImportVersion > 0 &&
 		before.ImportVersion < math.MaxInt64-1 && before.LeaseUntilMS > now && before.DeadlineMS > now

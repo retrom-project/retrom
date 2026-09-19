@@ -4,18 +4,20 @@ import (
 	"context"
 	"errors"
 	"testing"
+
+	model "retrom/internal/model/gameassets"
 )
 
 type memoryRepository struct {
 	scope *memoryWriteScope
 }
 
-func (repository *memoryRepository) Upload(context.Context, string) (UploadedFile, bool, error) {
-	return UploadedFile{}, false, nil
+func (repository *memoryRepository) Upload(context.Context, string) (model.UploadedFile, bool, error) {
+	return model.UploadedFile{}, false, nil
 }
 
 func (repository *memoryRepository) WithWrite(
-	_ context.Context, work func(WriteScope) error,
+	_ context.Context, work func(model.WriteScope) error,
 ) error {
 	return work(repository.scope)
 }
@@ -42,12 +44,12 @@ func (scope *memoryWriteScope) RemoveSlot(context.Context, string, string, int64
 	return []string{"old-blob"}, nil
 }
 
-func (scope *memoryWriteScope) Create(context.Context, AssetRecord) error {
+func (scope *memoryWriteScope) Create(context.Context, model.AssetRecord) error {
 	scope.calls = append(scope.calls, "create")
 	return nil
 }
 
-func (scope *memoryWriteScope) ConsumeUpload(context.Context, ConsumptionRecord) error {
+func (scope *memoryWriteScope) ConsumeUpload(context.Context, model.ConsumptionRecord) error {
 	scope.calls = append(scope.calls, "consume")
 	return scope.consumeErr
 }

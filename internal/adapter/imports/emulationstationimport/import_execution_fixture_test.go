@@ -3,7 +3,9 @@ package emulationstationimport
 import (
 	"context"
 
-	"retrom/internal/adapter/files/blobstore"
+	blobmodel "retrom/internal/model/blob"
+	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
+
 	"retrom/internal/foundation/cleanup"
 	persistence "retrom/internal/repo/emulationstationimport"
 	application "retrom/internal/service/emulationstationimport"
@@ -25,9 +27,9 @@ func (service *Service) copyExecutionFiles(ctx context.Context, unit work, _ Roo
 	return copied && err == nil
 }
 
-func fileMaterial(itemID string, file executionFile) application.MaterialSource {
-	return application.MaterialSource{
-		Key:   application.MaterialKey{ItemID: itemID, Ordinal: file.Ordinal},
+func fileMaterial(itemID string, file executionFile) emulationstationimportmodel.MaterialSource {
+	return emulationstationimportmodel.MaterialSource{
+		Key:   emulationstationimportmodel.MaterialKey{ItemID: itemID, Ordinal: file.Ordinal},
 		Path:  file.Path,
 		Facts: file.Facts,
 		Size:  file.Size,
@@ -39,7 +41,7 @@ func (service *Service) recordCopiedFile(
 	unit work,
 	itemID string,
 	file executionFile,
-	metadata blobstore.Metadata,
+	metadata blobmodel.PreparedBlob,
 ) (string, error) {
 	return service.materialization().Copy(ctx, unit, fileMaterial(itemID, file), verifiedBlob(metadata))
 }

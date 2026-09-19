@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	isolationmodel "retrom/internal/model/isolation"
 	"retrom/internal/service/isolation"
 
 	_ "modernc.org/sqlite"
@@ -32,12 +33,12 @@ func TestBootstrapTicketIsSingleUseAndCapabilityRevocationIsTerminal(t *testing.
 	}
 	if _, err := fixture.service.InspectBootstrap(
 		context.Background(), fixture.launchID, fixture.origin,
-	); !errors.Is(err, isolation.ErrCredential) {
+	); !errors.Is(err, isolationmodel.ErrCredential) {
 		t.Fatalf("consumed bootstrap inspect error = %v", err)
 	}
 	if _, _, err := fixture.service.ConsumeTicket(
 		context.Background(), fixture.launchID, fixture.origin, fixture.ticket,
-	); !errors.Is(err, isolation.ErrCredential) {
+	); !errors.Is(err, isolationmodel.ErrCredential) {
 		t.Fatalf("ticket replay error = %v", err)
 	}
 	authorized, err := fixture.service.Authenticate(
@@ -59,23 +60,23 @@ func assertInvalidCapabilities(t *testing.T, fixture isolationFixture, credentia
 	} {
 		if _, err := fixture.service.Authenticate(
 			context.Background(), invalid.launchID, invalid.origin, invalid.credential,
-		); !errors.Is(err, isolation.ErrCredential) {
+		); !errors.Is(err, isolationmodel.ErrCredential) {
 			t.Fatalf("invalid capability authentication error = %v", err)
 		}
 	}
 }
 
-func assertRevokedCapability(t *testing.T, fixture isolationFixture, credential string, authorized isolation.Access) {
+func assertRevokedCapability(t *testing.T, fixture isolationFixture, credential string, authorized isolationmodel.Access) {
 	t.Helper()
 	if err := fixture.service.Revoke(context.Background(), authorized); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := fixture.service.Authenticate(
 		context.Background(), fixture.launchID, fixture.origin, credential,
-	); !errors.Is(err, isolation.ErrCredential) {
+	); !errors.Is(err, isolationmodel.ErrCredential) {
 		t.Fatalf("revoked capability authentication error = %v", err)
 	}
-	if err := fixture.service.Revoke(context.Background(), authorized); !errors.Is(err, isolation.ErrCredential) {
+	if err := fixture.service.Revoke(context.Background(), authorized); !errors.Is(err, isolationmodel.ErrCredential) {
 		t.Fatalf("repeated capability revocation error = %v", err)
 	}
 }
@@ -107,7 +108,7 @@ func TestTyranoScriptPreviewTicketCreatesPreviewScopedCapability(t *testing.T) {
 	}
 	if _, err := fixture.service.Authenticate(
 		context.Background(), fixture.launchID, fixture.origin, credential,
-	); !errors.Is(err, isolation.ErrCredential) {
+	); !errors.Is(err, isolationmodel.ErrCredential) {
 		t.Fatalf("revoked preview capability error = %v", err)
 	}
 }
@@ -119,12 +120,12 @@ func TestBootstrapAndCapabilityExpiryFailClosed(t *testing.T) {
 		*fixture.nowMS += 60_000
 		if _, err := fixture.service.InspectBootstrap(
 			context.Background(), fixture.launchID, fixture.origin,
-		); !errors.Is(err, isolation.ErrCredential) {
+		); !errors.Is(err, isolationmodel.ErrCredential) {
 			t.Fatalf("expired bootstrap inspect error = %v", err)
 		}
 		if _, _, err := fixture.service.ConsumeTicket(
 			context.Background(), fixture.launchID, fixture.origin, fixture.ticket,
-		); !errors.Is(err, isolation.ErrCredential) {
+		); !errors.Is(err, isolationmodel.ErrCredential) {
 			t.Fatalf("expired bootstrap consumption error = %v", err)
 		}
 	})
@@ -139,7 +140,7 @@ func TestBootstrapAndCapabilityExpiryFailClosed(t *testing.T) {
 		*fixture.nowMS += 120_000
 		if _, err := fixture.service.Authenticate(
 			context.Background(), fixture.launchID, fixture.origin, credential,
-		); !errors.Is(err, isolation.ErrCredential) {
+		); !errors.Is(err, isolationmodel.ErrCredential) {
 			t.Fatalf("expired capability authentication error = %v", err)
 		}
 	})

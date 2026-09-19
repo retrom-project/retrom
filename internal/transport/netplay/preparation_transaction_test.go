@@ -5,8 +5,8 @@ import (
 	"reflect"
 	"testing"
 
+	netplaymodel "retrom/internal/model/netplay"
 	repository "retrom/internal/repo/netplay"
-	application "retrom/internal/service/netplay"
 )
 
 func TestParticipantPreparationRecordRollsBackEventsAndLoading(t *testing.T) {
@@ -21,7 +21,7 @@ func assertPreparationRecordRollback(t *testing.T, action string) {
 	fixture, peer := controlledSessionFixture(t, "PREPARING")
 	before := sessionControlRecordsSnapshot(t, fixture)
 	sentinel := errors.New("late preparation commit failure")
-	err := repository.NewParticipantPreparation(fixture.database).WithPreparation(t.Context(), func(scope application.PreparationScope) error {
+	err := repository.NewParticipantPreparation(fixture.database).WithPreparation(t.Context(), func(scope netplaymodel.PreparationScope) error {
 		snapshot, err := scope.Read.Snapshot(t.Context(), peer.RoomID, peer.SessionID, peer.ProfileID)
 		if err != nil {
 			return err
@@ -32,12 +32,12 @@ func assertPreparationRecordRollback(t *testing.T, action string) {
 		case "stale peer":
 			snapshot.Peer.CredentialGeneration++
 		}
-		events := []application.SessionEvent{{Type: "PARTICIPANT_STATE_CHANGED", ActorID: &peer.ProfileID, PlayerNo: &peer.PlayerNo, Data: application.SessionEventData{SchemaVersion: 1, FromState: "LOCKED", ToState: "LAUNCH_READY"}}}
+		events := []netplaymodel.SessionEvent{{Type: "PARTICIPANT_STATE_CHANGED", ActorID: &peer.ProfileID, PlayerNo: &peer.PlayerNo, Data: netplaymodel.SessionEventData{SchemaVersion: 1, FromState: "LOCKED", ToState: "LAUNCH_READY"}}}
 		advance := action == "loading"
 		if advance {
-			events = append(events, application.SessionEvent{Type: "SESSION_STATE_CHANGED", Data: application.SessionEventData{SchemaVersion: 1, FromState: "PREPARING", ToState: "LOADING"}})
+			events = append(events, netplaymodel.SessionEvent{Type: "SESSION_STATE_CHANGED", Data: netplaymodel.SessionEventData{SchemaVersion: 1, FromState: "PREPARING", ToState: "LOADING"}})
 		}
-		if err := scope.Write.Record(t.Context(), application.PreparationPlan{Before: snapshot, Events: events, AdvanceLoading: advance, Now: fixture.now.UnixMilli()}); err != nil {
+		if err := scope.Write.Record(t.Context(), netplaymodel.PreparationPlan{Before: snapshot, Events: events, AdvanceLoading: advance, Now: fixture.now.UnixMilli()}); err != nil {
 			return err
 		}
 		return sentinel

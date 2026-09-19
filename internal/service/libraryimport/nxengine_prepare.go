@@ -6,6 +6,7 @@ import (
 	"retrom/internal/capability/content/contentprofile"
 	nxenginedetector "retrom/internal/capability/engine/nxengine/detector"
 	"retrom/internal/capability/engine/rpgmaker/fileset"
+	model "retrom/internal/model/libraryimport"
 )
 
 var nxengineMarkerProject = markerProjectDefinition{
@@ -27,7 +28,7 @@ var nxengineMarkerProject = markerProjectDefinition{
 }
 
 func (service *ImportPreparation) PrepareNXEngineProject(
-	ctx context.Context, sourceType string, files []ImportFile,
-) ([]PreparedDisposition, []PreparedGroup, []PreparedArchive, error) {
+	ctx context.Context, sourceType string, files []model.ImportFile,
+) ([]model.PreparedDisposition, []model.PreparedGroup, []model.PreparedArchive, error) {
 	return service.prepareMarkerProject(ctx, sourceType, files, nxengineMarkerProject)
 }

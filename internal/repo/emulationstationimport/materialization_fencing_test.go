@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"testing"
 
-	application "retrom/internal/service/emulationstationimport"
+	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
 )
 
 func TestMaterializationRepeatsExecutionItemAndSourceFence(t *testing.T) {
@@ -27,7 +27,7 @@ func TestMaterializationRepeatsExecutionItemAndSourceFence(t *testing.T) {
 			db, _, source, blob := materialDatabase(t)
 			source = materialAsset(source)
 			beforeRows := planRows(t, db)
-			err := NewMaterialization(db).WithMaterialization(t.Context(), func(scope application.MaterialScope) error {
+			err := NewMaterialization(db).WithMaterialization(t.Context(), func(scope emulationstationimportmodel.MaterialScope) error {
 				before, err := scope.Read.Source(t.Context(), source.Key)
 				if err != nil {
 					return err
@@ -55,10 +55,10 @@ func TestMaterializationRepeatsExecutionItemAndSourceFence(t *testing.T) {
 					width := int64(2)
 					before.Source.Width = &width
 				}
-				_, err = scope.Write.Bind(t.Context(), application.MaterialBinding{Before: before, Blob: blob, NowMS: 1100})
+				_, err = scope.Write.Bind(t.Context(), emulationstationimportmodel.MaterialBinding{Before: before, Blob: blob, NowMS: 1100})
 				return err
 			})
-			if !errors.Is(err, application.ErrVersionConflict) {
+			if !errors.Is(err, emulationstationimportmodel.ErrVersionConflict) {
 				t.Fatalf("accepted changed authority: %v", err)
 			}
 			if !reflect.DeepEqual(beforeRows, planRows(t, db)) {

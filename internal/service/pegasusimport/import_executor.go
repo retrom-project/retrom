@@ -5,38 +5,39 @@ import (
 	"errors"
 	"fmt"
 
-	library "retrom/internal/service/libraryimport"
+	libraryimportmodel "retrom/internal/model/libraryimport"
+	model "retrom/internal/model/pegasusimport"
 )
 
 type (
 	ImportItems interface {
-		Next(context.Context, ExecutionIdentity) (ExecutionItem, bool, error)
-		Finish(context.Context, ExecutionIdentity, string, ItemOutcome) error
+		Next(context.Context, model.ExecutionIdentity) (model.ExecutionItem, bool, error)
+		Finish(context.Context, model.ExecutionIdentity, string, model.ItemOutcome) error
 	}
 	ImportMaterials interface {
-		Copy(context.Context, ExecutionIdentity, MaterialSource, VerifiedBlob) (string, error)
-		Warning(context.Context, ExecutionIdentity, MaterialSource, string) error
-		SetPhase(context.Context, ExecutionIdentity, string) error
-		Cancelled(context.Context, ExecutionIdentity) (bool, error)
+		Copy(context.Context, model.ExecutionIdentity, model.MaterialSource, model.VerifiedBlob) (string, error)
+		Warning(context.Context, model.ExecutionIdentity, model.MaterialSource, string) error
+		SetPhase(context.Context, model.ExecutionIdentity, string) error
+		Cancelled(context.Context, model.ExecutionIdentity) (bool, error)
 	}
 	ImportSources interface {
-		CopyFile(context.Context, Work, ExecutionFile) (VerifiedBlob, error)
-		CopyAsset(context.Context, Work, ExecutionAsset) (VerifiedBlob, bool, error)
+		CopyFile(context.Context, model.Work, model.ExecutionFile) (model.VerifiedBlob, error)
+		CopyAsset(context.Context, model.Work, model.ExecutionAsset) (model.VerifiedBlob, bool, error)
 	}
 	ImportReviews interface {
-		Resume(context.Context, Work, ExecutionItem) (bool, error)
-		Create(context.Context, Work, ExecutionItem, []library.ServerSourceFile) error
+		Resume(context.Context, model.Work, model.ExecutionItem) (bool, error)
+		Create(context.Context, model.Work, model.ExecutionItem, []libraryimportmodel.ServerSourceFile) error
 	}
 	ImportCompanions interface {
-		Find(context.Context, ExecutionIdentity, string) ([]CompanionCandidate, error)
-		Record(context.Context, ExecutionIdentity, string, CompanionCandidate, VerifiedBlob) (string, error)
+		Find(context.Context, model.ExecutionIdentity, string) ([]model.CompanionCandidate, error)
+		Record(context.Context, model.ExecutionIdentity, string, model.CompanionCandidate, model.VerifiedBlob) (string, error)
 	}
 	ImportSettlement interface {
-		Cancelled(context.Context, ExecutionIdentity) (bool, error)
-		Fail(context.Context, ExecutionIdentity, ExecutionFailure) error
+		Cancelled(context.Context, model.ExecutionIdentity) (bool, error)
+		Fail(context.Context, model.ExecutionIdentity, model.ExecutionFailure) error
 	}
 	ImportCompletion interface {
-		Finish(context.Context, ExecutionIdentity) error
+		Finish(context.Context, model.ExecutionIdentity) error
 	}
 	FailureDiagnostics interface {
 		Sanitize(error) string
@@ -61,20 +62,20 @@ func NewImportExecutor(dependencies ImportExecutorDependencies) *ImportExecutor 
 
 // Execute returns an uncommitted item outcome error before claiming any more work.
 // Its caller may settle the owned execution; cancellation and lost ownership confer no write authority.
-func (executor *ImportExecutor) Execute(ctx context.Context, unit Work) error {
+func (executor *ImportExecutor) Execute(ctx context.Context, unit model.Work) error {
 	err := executor.execute(ctx, unit)
 	if err == nil || importStopCause(ctx, err) != nil {
 		return err
 	}
 	if failure := executor.dependencies.Settlement.Fail(
-		ctx, unit.Identity(), ExecutionFailure{Code: "INTERNAL_ERROR", Retryable: true},
+		ctx, unit.Identity(), model.ExecutionFailure{Code: "INTERNAL_ERROR", Retryable: true},
 	); failure != nil {
 		return fmt.Errorf("settle failed Pegasus import execution: %w", errors.Join(err, failure))
 	}
 	return err
 }
 
-func (executor *ImportExecutor) execute(ctx context.Context, unit Work) error {
+func (executor *ImportExecutor) execute(ctx context.Context, unit model.Work) error {
 	for {
 		if err := ctx.Err(); err != nil {
 			return fmt.Errorf("stop Pegasus import execution: %w", err)

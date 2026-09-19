@@ -8,6 +8,7 @@ import (
 	"io"
 
 	"retrom/internal/foundation/cleanup"
+	model "retrom/internal/model/saves"
 )
 
 func (service *Service) StateDigest(ctx context.Context, launchID, capability string) (string, error) {
@@ -27,7 +28,7 @@ func (service *Service) stateDigestAuthorized(ctx context.Context, launchID stri
 		return "", fmt.Errorf("read checkpoint restore: %w", err)
 	}
 	if !validRestore(restore) {
-		return "", ErrCheckpointIncompatible
+		return "", model.ErrCheckpointIncompatible
 	}
 	maximum := min(restore.Checkpoint.MaxBytes, maxStoredCheckpointBytes)
 	if _, err := service.readRestorePayload(restore.Digest, maximum, restore.Size); err != nil {
@@ -39,16 +40,16 @@ func (service *Service) stateDigestAuthorized(ctx context.Context, launchID stri
 func (service *Service) readRestorePayload(digest string, maximum, expectedSize int64) ([]byte, error) {
 	file, err := service.blobs.OpenDigest(digest)
 	if err != nil {
-		return nil, ErrCheckpointIncompatible
+		return nil, model.ErrCheckpointIncompatible
 	}
 	defer func() { cleanup.Error("close", file.Close()) }()
 	contents, err := io.ReadAll(io.LimitReader(file, maximum+1))
 	if err != nil || int64(len(contents)) != expectedSize {
-		return nil, ErrCheckpointIncompatible
+		return nil, model.ErrCheckpointIncompatible
 	}
 	actualDigest := sha256.Sum256(contents)
 	if hex.EncodeToString(actualDigest[:]) != digest {
-		return nil, ErrCheckpointIncompatible
+		return nil, model.ErrCheckpointIncompatible
 	}
 	return contents, nil
 }

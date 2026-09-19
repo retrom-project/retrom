@@ -4,24 +4,26 @@ import (
 	"encoding/json"
 	"testing"
 
-	"retrom/internal/adapter/metadata/hasheous"
+	metadatamodel "retrom/internal/model/metadata"
+
+	metadatascrapemodel "retrom/internal/model/metadatascrape"
 
 	"github.com/google/uuid"
 )
 
 func TestMediaJobFreezesAssetIdentityAndSource(t *testing.T) {
-	asset := CandidateAsset{
+	asset := metadatascrapemodel.CandidateAsset{
 		ID: "asset", CandidateID: "candidate", ResponseID: "response", Now: 100,
-		Reference: hasheous.AssetRef{ProviderAssetID: "one", Path: "/api/v1/images/one", Kind: "COVER", Ordinal: 0},
+		Reference: metadatamodel.AssetReference{ProviderAssetID: "one", Path: "/api/v1/images/one", Kind: "COVER", Ordinal: 0},
 	}
-	plan, err := newMediaJob(Subject{Kind: "IMPORT_ITEM", ID: "item"}, "run", asset)
+	plan, err := newMediaJob(metadatascrapemodel.Subject{Kind: "IMPORT_ITEM", ID: "item"}, "run", asset)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if id, err := uuid.Parse(plan.JobID); err != nil || id.Version() != 7 {
 		t.Fatalf("worker job identity=%v/%v", id, err)
 	}
-	var input MediaInputEnvelope
+	var input metadatascrapemodel.MediaInputEnvelope
 	if err := json.Unmarshal([]byte(plan.InputJSON), &input); err != nil {
 		t.Fatal(err)
 	}

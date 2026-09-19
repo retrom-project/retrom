@@ -4,23 +4,23 @@ import (
 	"context"
 	"fmt"
 
+	libraryimportmodel "retrom/internal/model/libraryimport"
 	"retrom/internal/repo/dbexec"
 	repository "retrom/internal/repo/libraryimport"
-	application "retrom/internal/service/libraryimport"
 )
 
-var ErrDuplicateContent = application.ErrDuplicateContent
+var ErrDuplicateContent = libraryimportmodel.ErrDuplicateContent
 
-type DuplicateGame = application.DuplicateGame
+type DuplicateGame = libraryimportmodel.DuplicateGame
 
-type DuplicateConflict = application.DuplicateConflict
+type DuplicateConflict = libraryimportmodel.DuplicateConflict
 
 func findDuplicateGames(
 	ctx context.Context,
 	executor dbexec.Executor,
 	itemID, platformID string,
 ) ([]DuplicateGame, error) {
-	duplicates := application.NewContentDuplicates(repository.BindContentDuplicates(executor))
+	duplicates := libraryimportmodel.NewContentDuplicates(repository.BindContentDuplicates(executor))
 	games, err := duplicates.Matches(ctx, itemID, platformID)
 	if err != nil {
 		return nil, fmt.Errorf("read duplicate games: %w", err)
@@ -32,7 +32,7 @@ func (service *Service) DuplicateGames(
 	ctx context.Context,
 	itemID string,
 ) ([]DuplicateGame, string, error) {
-	duplicates := application.NewContentDuplicates(repository.BindContentDuplicates(service.database))
+	duplicates := libraryimportmodel.NewContentDuplicates(repository.BindContentDuplicates(service.database))
 	games, digest, err := duplicates.Review(ctx, itemID)
 	if err != nil {
 		return nil, "", fmt.Errorf("read review duplicates: %w", err)

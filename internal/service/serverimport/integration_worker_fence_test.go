@@ -3,11 +3,14 @@ package serverimport_test
 import (
 	"database/sql"
 	"testing"
+
+	serverimportmodel "retrom/internal/model/serverimport"
+	serverimportcontract "retrom/internal/service/serverimport"
 )
 
 func TestWorkerCannotCompleteImportWithUnfinishedItems(t *testing.T) {
 	service, database, _ := archiveImportFixture(t)
-	created, err := service.Create(t.Context(), CreateRequest{Kind: "BIOS_DIRECTORY", RootID: "bios-root"}, controlActorID)
+	created, err := service.Create(t.Context(), serverimportmodel.CreateRequest{Kind: "BIOS_DIRECTORY", RootID: "bios-root"}, controlActorID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -39,10 +42,10 @@ func TestExpiredWorkerCannotWriteProgressIntoNewExecution(t *testing.T) {
 	}
 }
 
-func replacementWorkerFixture(t *testing.T) (*Service, *sql.DB, work, work) {
+func replacementWorkerFixture(t *testing.T) (*serverimportcontract.Service, *sql.DB, serverimportmodel.Work, serverimportmodel.Work) {
 	t.Helper()
 	service, database, _ := archiveImportFixture(t)
-	created, err := service.Create(t.Context(), CreateRequest{Kind: "BIOS_DIRECTORY", RootID: "bios-root"}, controlActorID)
+	created, err := service.Create(t.Context(), serverimportmodel.CreateRequest{Kind: "BIOS_DIRECTORY", RootID: "bios-root"}, controlActorID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -68,7 +71,7 @@ func replacementWorkerFixture(t *testing.T) (*Service, *sql.DB, work, work) {
 	return service, database, oldUnit, newUnit
 }
 
-func workerVersions(t *testing.T, database *sql.DB, unit work) (int64, int64) {
+func workerVersions(t *testing.T, database *sql.DB, unit serverimportmodel.Work) (int64, int64) {
 	t.Helper()
 	var importVersion, jobVersion int64
 	if err := database.QueryRowContext(t.Context(), `SELECT import.version,job.version FROM server_imports import JOIN jobs job ON job.id=import.job_id WHERE import.id=?`, unit.ImportID).Scan(&importVersion, &jobVersion); err != nil {
@@ -107,18 +110,18 @@ func TestReclaimedWorkerCannotInstallPersistedCandidate(t *testing.T) {
 }
 
 type workerCandidateFixture struct {
-	service  *Service
+	service  *serverimportcontract.Service
 	database *sql.DB
-	created  Summary
-	unit     work
-	selected *evaluatedCandidate
+	created  serverimportmodel.Summary
+	unit     serverimportmodel.Work
+	selected *serverimportcontract.EvaluatedCandidate
 }
 
 func persistedWorkerCandidate(t *testing.T) workerCandidateFixture {
 	t.Helper()
 	service, database, rootPath := archiveImportFixture(t)
 	writeArchiveCandidate(t, rootPath, true)
-	created, err := service.Create(t.Context(), CreateRequest{Kind: "BIOS_DIRECTORY", RootID: "bios-root"}, controlActorID)
+	created, err := service.Create(t.Context(), serverimportmodel.CreateRequest{Kind: "BIOS_DIRECTORY", RootID: "bios-root"}, controlActorID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -143,7 +146,7 @@ func persistedWorkerCandidate(t *testing.T) workerCandidateFixture {
 	if !ok {
 		t.Fatal("discovery failed")
 	}
-	values := rankCandidates(groups[items[0].RequirementID])
+	values := serverimportcontract.RankCandidates(groups[items[0].RequirementID])
 	if len(values) != 1 {
 		t.Fatalf("eligible candidates: %d", len(values))
 	}

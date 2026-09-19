@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	uploadsmodel "retrom/internal/model/uploads"
 	uploadpersistence "retrom/internal/repo/uploads"
 	"retrom/internal/service/uploads"
 )
@@ -66,7 +67,7 @@ func TestPartRechecksCancellationAfterStaging(t *testing.T) {
 		t.Fatal(err)
 	}
 	unblock()
-	if err := <-result; !errors.Is(err, uploads.ErrInvalid) {
+	if err := <-result; !errors.Is(err, uploadsmodel.ErrInvalid) {
 		t.Fatalf("late part accepted after cancellation: %v", err)
 	}
 	assertNoPartProgress(t, database, session, "CANCELLED")
@@ -77,7 +78,7 @@ type partCommitGate struct {
 	staged, proceed chan struct{}
 }
 
-func (gate *partCommitGate) WithWrite(ctx context.Context, work func(uploads.WriteScope) error) error {
+func (gate *partCommitGate) WithWrite(ctx context.Context, work func(uploadsmodel.WriteScope) error) error {
 	close(gate.staged)
 	select {
 	case <-gate.proceed:

@@ -8,7 +8,7 @@ import (
 
 	"retrom/internal/capability/security/authn"
 	"retrom/internal/foundation/cursor"
-	"retrom/internal/service/immersive"
+	immersivemodel "retrom/internal/model/immersive"
 )
 
 const immersiveGameOperationID = "getImmersivePlatformGames"
@@ -20,7 +20,7 @@ func immersiveAssetURL(assetID *string) any {
 	return "/content/assets/" + *assetID
 }
 
-func immersivePlatformProjection(platform immersive.Platform) map[string]any {
+func immersivePlatformProjection(platform immersivemodel.Platform) map[string]any {
 	featuredGames := make([]map[string]any, 0, len(platform.FeaturedGames))
 	for _, game := range platform.FeaturedGames {
 		featuredGames = append(featuredGames, map[string]any{
@@ -39,7 +39,7 @@ func immersivePlatformProjection(platform immersive.Platform) map[string]any {
 	}
 }
 
-func immersiveGameProjection(game immersive.Game) map[string]any {
+func immersiveGameProjection(game immersivemodel.Game) map[string]any {
 	saveStates := make([]map[string]any, 0, len(game.SaveStates))
 	for _, saveState := range game.SaveStates {
 		saveStates = append(saveStates, map[string]any{
@@ -93,10 +93,10 @@ func (server *Server) immersivePlatforms(writer http.ResponseWriter, request *ht
 
 func immersiveGameLimit(raw string) (int, error) {
 	if raw == "" {
-		return immersive.PageLimit, nil
+		return immersivemodel.PageLimit, nil
 	}
 	limit, err := strconv.Atoi(raw)
-	if err != nil || limit < 1 || limit > immersive.PageLimit || strconv.Itoa(limit) != raw {
+	if err != nil || limit < 1 || limit > immersivemodel.PageLimit || strconv.Itoa(limit) != raw {
 		return 0, errInvalidLimit
 	}
 	return limit, nil
@@ -106,24 +106,23 @@ func immersiveCursorDigest(profileID, platformID string, limit int) string {
 	return cursor.FilterDigest(map[string]any{
 		"profileId":  profileID,
 		"platformId": platformID,
-		"sort":       immersive.GameSortCode,
+		"sort":       immersivemodel.GameSortCode,
 		"limit":      limit,
 	})
 }
 
 func (server *Server) decodeImmersiveGameCursor(
 	token, digest string,
-) (immersive.GameCursor, error) {
+) (immersivemodel.GameCursor, error) {
 	payload, err := server.cursors.Decode(
 		token,
 		immersiveGameOperationID,
-		digest,
-		immersive.GameSortCode,
+		digest, immersivemodel.GameSortCode,
 	)
 	if err != nil || len(payload.SortValues) != 2 {
-		return immersive.GameCursor{}, errInvalidCursorPayload
+		return immersivemodel.GameCursor{}, errInvalidCursorPayload
 	}
-	return immersive.GameCursor{
+	return immersivemodel.GameCursor{
 		TitleInitial: payload.SortValues[0],
 		Title:        payload.SortValues[1],
 		ID:           payload.ID,
@@ -132,12 +131,12 @@ func (server *Server) decodeImmersiveGameCursor(
 
 func (server *Server) encodeImmersiveGameCursor(
 	digest string,
-	next immersive.GameCursor,
+	next immersivemodel.GameCursor,
 ) (string, error) {
 	token, err := server.cursors.Encode(cursor.Payload{
 		OperationID:  immersiveGameOperationID,
 		FilterDigest: digest,
-		SortCode:     immersive.GameSortCode,
+		SortCode:     immersivemodel.GameSortCode,
 		SortValues:   []string{next.TitleInitial, next.Title},
 		ID:           next.ID,
 	})
@@ -156,7 +155,7 @@ func (server *Server) immersivePlatformGames(writer http.ResponseWriter, request
 		return
 	}
 	digest := immersiveCursorDigest(principal.ProfileID, platformID, limit)
-	var pageCursor *immersive.GameCursor
+	var pageCursor *immersivemodel.GameCursor
 	if token := request.URL.Query().Get("cursor"); token != "" {
 		decoded, decodeErr := server.decodeImmersiveGameCursor(token, digest)
 		if decodeErr != nil {
@@ -166,7 +165,7 @@ func (server *Server) immersivePlatformGames(writer http.ResponseWriter, request
 		pageCursor = &decoded
 	}
 	page, err := server.immersive.Games(request.Context(), principal.ProfileID, platformID, limit, pageCursor)
-	if errors.Is(err, immersive.ErrPlatformNotFound) {
+	if errors.Is(err, immersivemodel.ErrPlatformNotFound) {
 		writeError(writer, request, http.StatusNotFound, "RESOURCE_NOT_FOUND", "游戏平台不存在", map[string]any{})
 		return
 	}

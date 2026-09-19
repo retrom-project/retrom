@@ -1,12 +1,16 @@
 package launch
 
-import "testing"
+import (
+	"testing"
+
+	model "retrom/internal/model/launch"
+)
 
 func TestNetplayEnvelopeUsesAbsolutePublicWebSocketURL(t *testing.T) {
 	roomID := "01980000-0000-7000-8000-000000000001"
 	sessionID := "01980000-0000-7000-8000-000000000002"
 	player, profile := int64(1), `{}`
-	source := ConfigSource{
+	source := model.ConfigSource{
 		NetplayID:      &sessionID,
 		NetplayRoom:    &roomID,
 		NetplayProfile: &profile,

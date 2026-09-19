@@ -6,50 +6,52 @@ import (
 	"testing"
 	"time"
 
+	model "retrom/internal/model/accounts"
+
 	"github.com/google/uuid"
 )
 
 type linkMemory struct {
-	record           LinkRecord
-	query            LinkQuery
+	record           model.LinkRecord
+	query            model.LinkQuery
 	readErr, lateErr error
 	reads, writes    int
-	revocation       LinkRevocation
-	audits           []AccountAudit
+	revocation       model.LinkRevocation
+	audits           []model.AccountAudit
 }
 
-func (memory *linkMemory) Current(context.Context, string) (LinkRecord, bool, error) {
+func (memory *linkMemory) Current(context.Context, string) (model.LinkRecord, bool, error) {
 	memory.reads++
 	return memory.record, true, memory.readErr
 }
 
-func (memory *linkMemory) List(_ context.Context, query LinkQuery) ([]LinkRecord, error) {
+func (memory *linkMemory) List(_ context.Context, query model.LinkQuery) ([]model.LinkRecord, error) {
 	memory.query = query
-	return []LinkRecord{memory.record}, memory.readErr
+	return []model.LinkRecord{memory.record}, memory.readErr
 }
 
-func (memory *linkMemory) WithWrite(_ context.Context, work func(LinkScope) error) error {
-	if err := work(LinkScope{Read: memory, Write: memory}); err != nil {
+func (memory *linkMemory) WithWrite(_ context.Context, work func(model.LinkScope) error) error {
+	if err := work(model.LinkScope{Read: memory, Write: memory}); err != nil {
 		return err
 	}
 	return memory.lateErr
 }
 
-func (memory *linkMemory) Replay(context.Context, AccountOperation) (AccountReplay, error) {
-	return AccountReplay{}, nil
+func (memory *linkMemory) Replay(context.Context, model.AccountOperation) (model.AccountReplay, error) {
+	return model.AccountReplay{}, nil
 }
 
-func (memory *linkMemory) Revoke(_ context.Context, plan LinkRevocation) error {
+func (memory *linkMemory) Revoke(_ context.Context, plan model.LinkRevocation) error {
 	memory.writes++
 	memory.revocation = plan
 	return nil
 }
 
-func (memory *linkMemory) Audit(_ context.Context, audit AccountAudit) error {
+func (memory *linkMemory) Audit(_ context.Context, audit model.AccountAudit) error {
 	memory.audits = append(memory.audits, audit)
 	return nil
 }
-func (memory *linkMemory) Remember(context.Context, AccountReceipt) error { return nil }
+func (memory *linkMemory) Remember(context.Context, model.AccountReceipt) error { return nil }
 
 type linkTokens struct{ valid bool }
 
@@ -58,7 +60,7 @@ func (tokens linkTokens) ParseAccountLinkToken(string, string) (uuid.UUID, bool)
 }
 
 func linkFixture() (*LinkService, *linkMemory) {
-	memory := &linkMemory{record: LinkRecord{Link: AccountLink{AccountLinkID: "link", Kind: "INVITATION", Version: 1, ExpiresAtMS: 200}}}
+	memory := &linkMemory{record: model.LinkRecord{Link: model.AccountLink{AccountLinkID: "link", Kind: "INVITATION", Version: 1, ExpiresAtMS: 200}}}
 	return NewLinks(memory, linkTokens{true}, func() time.Time { return time.UnixMilli(100) }), memory
 }
 
@@ -66,7 +68,7 @@ func TestLinkInspectionPreservesStorageFailure(t *testing.T) {
 	service, memory := linkFixture()
 	memory.readErr = context.Canceled
 	_, err := service.Inspect(t.Context(), "INVITATION", "token")
-	if !errors.Is(err, context.Canceled) || errors.Is(err, ErrAccountLinkUnavailable) {
+	if !errors.Is(err, context.Canceled) || errors.Is(err, model.ErrAccountLinkUnavailable) {
 		t.Fatalf("storage cause: %v", err)
 	}
 }
@@ -75,7 +77,7 @@ func TestLinkInspectionRejectsInvalidTokenBeforeRead(t *testing.T) {
 	service, memory := linkFixture()
 	service.tokens = linkTokens{}
 	_, err := service.Inspect(t.Context(), "INVITATION", "bad")
-	if !errors.Is(err, ErrAccountLinkUnavailable) || memory.reads != 0 {
+	if !errors.Is(err, model.ErrAccountLinkUnavailable) || memory.reads != 0 {
 		t.Fatalf("invalid token read database: %v", err)
 	}
 }
@@ -95,7 +97,7 @@ func TestLinkStateUsesOneClockAndTerminalPrecedence(t *testing.T) {
 			memory.record.Link.ConsumedAtMS = test.consumed
 			memory.record.Link.RevokedAtMS = test.revoked
 			memory.record.Link.ExpiresAtMS = test.expires
-			links, err := service.List(t.Context(), LinkListFilter{Kind: "INVITATION", State: "ALL"})
+			links, err := service.List(t.Context(), model.LinkListFilter{Kind: "INVITATION", State: "ALL"})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -112,7 +114,7 @@ func TestLinkRevocationRejectsExpiredAndStaleVersions(t *testing.T) {
 		expires, version int64
 		want             error
 	}{
-		{"expired", 100, 1, ErrAccountLinkNotActive}, {"version", 200, 2, ErrUserVersion},
+		{"expired", 100, 1, model.ErrAccountLinkNotActive}, {"version", 200, 2, model.ErrUserVersion},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			service, memory := linkFixture()

@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"time"
 
-	"retrom/internal/adapter/metadata/hasheous"
+	metadatamodel "retrom/internal/model/metadata"
+
+	metadatascrapemodel "retrom/internal/model/metadatascrape"
 )
 
 func hashString(value *string) string {
@@ -17,9 +19,7 @@ func hashString(value *string) string {
 
 func (processor *EvidenceProcessor) processScrapeEvidence(
 	ctx context.Context,
-	claim WorkerClaim,
-	evidence EvidenceProgress,
-	bypassCache bool,
+	claim metadatascrapemodel.WorkerClaim, evidence metadatascrapemodel.EvidenceProgress, bypassCache bool,
 ) (int, string, error) {
 	candidateCount := evidence.CandidateCount
 	for _, item := range evidence.Items {
@@ -39,11 +39,9 @@ func (processor *EvidenceProcessor) processScrapeEvidence(
 
 func (processor *EvidenceProcessor) processEvidenceItem(
 	ctx context.Context,
-	claim WorkerClaim,
-	item WorkerEvidence,
-	bypassCache, allowCandidate bool,
+	claim metadatascrapemodel.WorkerClaim, item metadatascrapemodel.WorkerEvidence, bypassCache, allowCandidate bool,
 ) (bool, string, error) {
-	hashes := hasheous.ContentHashes{
+	hashes := metadatamodel.ContentHashes{
 		CRC32: hashString(
 			item.Hashes.CRC32,
 		), MD5: hashString(
@@ -61,7 +59,7 @@ func (processor *EvidenceProcessor) processEvidenceItem(
 		}
 		created, err := processor.results.Record(
 			ctx,
-			LookupAttempt{
+			metadatascrapemodel.LookupAttempt{
 				Claim:          claim,
 				EvidenceID:     item.ID,
 				Lookup:         resolved,
@@ -82,9 +80,9 @@ func (processor *EvidenceProcessor) processEvidenceItem(
 	return false, "", nil
 }
 
-func retryableOutcome(outcome hasheous.ProviderOutcome) bool {
-	return outcome == hasheous.OutcomeRateLimited || outcome == hasheous.OutcomeTimeout ||
-		outcome == hasheous.OutcomeNetworkError
+func retryableOutcome(outcome metadatamodel.ProviderOutcome) bool {
+	return outcome == metadatamodel.OutcomeRateLimited || outcome == metadatamodel.OutcomeTimeout ||
+		outcome == metadatamodel.OutcomeNetworkError
 }
 
 func waitRetry(ctx context.Context, delay time.Duration) error {
@@ -98,6 +96,6 @@ func waitRetry(ctx context.Context, delay time.Duration) error {
 	}
 }
 
-func evidenceTerminal(item WorkerEvidence) bool {
+func evidenceTerminal(item metadatascrapemodel.WorkerEvidence) bool {
 	return item.Attempts > 0 && (item.LastSource == "CACHE" || !retryableOutcome(item.LastOutcome) || item.Attempts >= 3)
 }

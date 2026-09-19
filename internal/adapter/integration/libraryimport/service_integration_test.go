@@ -20,6 +20,7 @@ import (
 	"time"
 
 	payloadcomposition "retrom/internal/bootstrap/composition/payloadrelease"
+	uploadsmodel "retrom/internal/model/uploads"
 
 	uploadpersistence "retrom/internal/repo/uploads"
 
@@ -73,9 +74,9 @@ func TestSevenZipImportMaterializesSingleROMAndPreservesEvidence(t *testing.T) {
 	blobs, err := blobstore.Open(dataDir)
 	testassert.False(t, err != nil, err)
 	uploadService := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
-	upload, err := uploadService.Create(ctx, uploads.CreateRequest{
+	upload, err := uploadService.Create(ctx, uploadsmodel.CreateRequest{
 		SourceType: "FILES",
-		Files: []uploads.FileDeclaration{{
+		Files: []uploadsmodel.FileDeclaration{{
 			ClientFileID: "archive", RelativePath: "fixture.7z", SizeBytes: int64(len(archiveBytes)),
 		}},
 	})
@@ -194,10 +195,9 @@ VALUES(?,?,'import.tag.admin','Import Tag Admin','ADMIN','ENABLED',1,1)
 	uploadService := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
 	contents := []byte("deterministic gba fixture")
 	upload, err := uploadService.Create(
-		ctx,
-		uploads.CreateRequest{
+		ctx, uploadsmodel.CreateRequest{
 			SourceType: "FILES",
-			Files: []uploads.FileDeclaration{
+			Files: []uploadsmodel.FileDeclaration{
 				{ClientFileID: "game", RelativePath: "Sudoku.gba", SizeBytes: int64(len(contents))},
 				{ClientFileID: "discard", RelativePath: "Discarded.gba", SizeBytes: int64(len(contents))},
 			},

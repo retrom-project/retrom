@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/serverimport"
 )
 
 func TestApplicationSanitizesRootDescriptions(t *testing.T) {
@@ -33,7 +35,7 @@ func TestApplicationSignalsOnlyCommittedCreation(t *testing.T) {
 	_, memory := creationFixture()
 	service := New(Repositories{Creation: memory}, Options{Sources: []SourceRoot{{ID: "root", Label: "Source", Path: t.TempDir(), Digest: "root-digest"}}, Now: time.Now})
 	memory.lateErr = context.Canceled
-	request := CreateRequest{Kind: "BIOS_DIRECTORY", RootID: "root"}
+	request := model.CreateRequest{Kind: "BIOS_DIRECTORY", RootID: "root"}
 	if _, err := service.Create(t.Context(), request, "actor"); !errors.Is(err, context.Canceled) {
 		t.Fatalf("creation failure: %v", err)
 	}

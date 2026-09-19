@@ -14,11 +14,12 @@ import (
 	"retrom/internal/adapter/files/serversource"
 	"retrom/internal/capability/content/multidisc"
 	"retrom/internal/capability/format/emulationstationmeta"
+	model "retrom/internal/model/emulationstationimport"
 )
 
 type contentProjection struct {
 	kind, discoveryCode string
-	files               []scannedItemFile
+	files               []model.ScanItemFile
 }
 
 type scanCaches struct {
@@ -29,14 +30,14 @@ func (service *Scanner) projectGame(
 	ctx context.Context,
 	gamelistPath, collectionID string,
 	game emulationstationmeta.Game,
-	files map[string]discoveredFile,
+	files map[string]DiscoveredFile,
 	caches *scanCaches,
-) (scannedItem, error) {
+) (model.ScanItem, error) {
 	projection, err := service.projectContent(
 		ctx, gamelistPath, game.Path, game.BlockedCode, files, caches,
 	)
 	if err != nil {
-		return scannedItem{}, err
+		return model.ScanItem{}, err
 	}
 	warnings := make([]map[string]any, 0, len(game.Warnings)+2)
 	for _, warning := range game.Warnings {
@@ -49,10 +50,10 @@ func (service *Scanner) projectGame(
 		ctx, gamelistPath, game.Assets, files,
 	)
 	if err != nil {
-		return scannedItem{}, err
+		return model.ScanItem{}, err
 	}
 	warnings = append(warnings, mediaWarnings...)
-	warnings = boundedWarnings(warnings)
+	warnings = BoundedWarnings(warnings)
 	metadataJSON := string(compactJSON(game.Metadata))
 	sourceFlagsJSON := string(compactJSON(game.SourceFlags))
 	warningsJSON := string(compactJSON(warnings))
@@ -74,9 +75,9 @@ func (service *Scanner) projectGame(
 	))
 	itemID, err := service.newID()
 	if err != nil {
-		return scannedItem{}, fmt.Errorf("generate EmulationStation item identity: %w", err)
+		return model.ScanItem{}, fmt.Errorf("generate EmulationStation item identity: %w", err)
 	}
-	return scannedItem{
+	return model.ScanItem{
 		ID: itemID, CollectionID: collectionID, GamelistPath: gamelistPath,
 		GameOrdinal: int64(game.Ordinal), SourceKey: hex.EncodeToString(keyDigest[:]),
 		Title: game.Metadata.Title, SourceFlagsJSON: sourceFlagsJSON,
@@ -87,10 +88,6 @@ func (service *Scanner) projectGame(
 		SourceManifestDigest: hex.EncodeToString(manifestDigest[:]),
 		Files:                projection.files, Assets: assets,
 	}, nil
-}
-
-func boundedWarnings(values []map[string]any) []map[string]any {
-	return BoundedWarnings(values)
 }
 
 type sourceManifest struct {
@@ -110,10 +107,10 @@ type sourceManifestFile struct {
 func (service *Scanner) projectContent(
 	ctx context.Context,
 	gamelistPath, declaredPath, parserCode string,
-	files map[string]discoveredFile,
+	files map[string]DiscoveredFile,
 	caches *scanCaches,
 ) (contentProjection, error) {
-	projection := contentProjection{kind: "SINGLE_FILE", discoveryCode: parserCode, files: []scannedItemFile{}}
+	projection := contentProjection{kind: "SINGLE_FILE", discoveryCode: parserCode, files: []model.ScanItemFile{}}
 	if parserCode != "" || declaredPath == "" {
 		return projection, nil
 	}
@@ -127,7 +124,7 @@ func (service *Scanner) projectContent(
 		projection.discoveryCode = "EMULATIONSTATION_SOURCE_NOT_REGULAR"
 		return projection, nil
 	}
-	primary := scannedItemFile{
+	primary := model.ScanItemFile{
 		Ordinal: 0, Kind: "FILE", Path: resolved, Size: entry.Size, Facts: entry.Facts,
 	}
 	if !strings.EqualFold(path.Ext(resolved), ".m3u") {
@@ -175,7 +172,7 @@ func (service *Scanner) projectContent(
 			discPath = parsedEntry.File.Basename
 		}
 		disc := files[discPath]
-		projection.files = append(projection.files, scannedItemFile{
+		projection.files = append(projection.files, model.ScanItemFile{
 			Ordinal: int64(len(projection.files)), Kind: "DISC",
 			Path: disc.Path, Size: disc.Size, Facts: disc.Facts,
 		})
@@ -202,7 +199,7 @@ func (service *Scanner) scanDiscCandidates(
 	ctx context.Context,
 	directory string,
 	references []string,
-	files map[string]discoveredFile,
+	files map[string]DiscoveredFile,
 	caches *scanCaches,
 ) ([]multidisc.File, error) {
 	cacheKey := directory + "\x00" + strings.Join(references, "\x00")

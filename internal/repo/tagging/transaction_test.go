@@ -4,8 +4,8 @@ import (
 	"testing"
 
 	"retrom/internal/foundation/cleanup"
+	taggingmodel "retrom/internal/model/tagging"
 	tagpersistence "retrom/internal/repo/tagging"
-	"retrom/internal/service/tagging"
 )
 
 func TestBoundRelationsRollbackWithOuterTransaction(t *testing.T) {
@@ -22,9 +22,9 @@ func TestBoundRelationsRollbackWithOuterTransaction(t *testing.T) {
 	}
 	defer func() { _ = transaction.Rollback() }()
 	scope := tagpersistence.Bind(transaction)
-	if err := scope.Relations.Add(t.Context(), tagging.Assignment{
-		Owner:      tagging.Owner{Kind: tagging.OwnerGame, ID: testGameID},
-		References: []tagging.Reference{{TagID: tag.TagID, Name: tag.Name}}, ActorUserID: testAdminID, NowMS: 2000,
+	if err := scope.Relations.Add(t.Context(), taggingmodel.Assignment{
+		Owner:      taggingmodel.Owner{Kind: taggingmodel.OwnerGame, ID: testGameID},
+		References: []taggingmodel.Reference{{TagID: tag.TagID, Name: tag.Name}}, ActorUserID: testAdminID, NowMS: 2000,
 	}); err != nil {
 		t.Fatal(err)
 	}

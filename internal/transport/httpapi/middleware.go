@@ -12,7 +12,7 @@ import (
 
 	"retrom/internal/bootstrap/config"
 	"retrom/internal/capability/security/authn"
-	"retrom/internal/service/accounts"
+	accountsmodel "retrom/internal/model/accounts"
 )
 
 // One boundary applies readiness, origin, authentication, role, and CSRF in fixed order.
@@ -62,31 +62,31 @@ func (server *Server) validRequest(writer http.ResponseWriter, request *http.Req
 func (server *Server) authenticateRequest(
 	writer http.ResponseWriter,
 	request *http.Request,
-) (accounts.Session, bool) {
+) (accountsmodel.Session, bool) {
 	if server.accounts != nil {
 		contextView, err := server.accounts.Context(request.Context(), server.authCookieToken(request))
 		if err != nil {
 			server.databaseError(writer, request, err)
-			return accounts.Session{}, false
+			return accountsmodel.Session{}, false
 		}
 		if contextView.InstanceState == "INITIALIZATION_REQUIRED" {
 			writeError(writer, request, http.StatusPreconditionRequired, "INITIALIZATION_REQUIRED", "实例尚未初始化", map[string]any{})
-			return accounts.Session{}, false
+			return accountsmodel.Session{}, false
 		}
 	}
 	if server.authenticator == nil {
 		writeError(writer, request, http.StatusUnauthorized, "AUTHENTICATION_REQUIRED", "需要登录", map[string]any{})
-		return accounts.Session{}, false
+		return accountsmodel.Session{}, false
 	}
 	session, err := server.authenticator.Authenticate(request.Context(), server.authCookieToken(request))
-	if errors.Is(err, accounts.ErrAuthenticationNeeded) {
+	if errors.Is(err, accountsmodel.ErrAuthenticationNeeded) {
 		server.clearAuthCookies(writer)
 		writeError(writer, request, http.StatusUnauthorized, "AUTHENTICATION_REQUIRED", "需要登录", map[string]any{})
-		return accounts.Session{}, false
+		return accountsmodel.Session{}, false
 	}
 	if err != nil {
 		server.databaseError(writer, request, err)
-		return accounts.Session{}, false
+		return accountsmodel.Session{}, false
 	}
 	return session, true
 }
@@ -94,7 +94,7 @@ func (server *Server) authenticateRequest(
 func (server *Server) authorizeRequest(
 	writer http.ResponseWriter,
 	request *http.Request,
-	session accounts.Session,
+	session accountsmodel.Session,
 ) bool {
 	if strings.HasPrefix(request.URL.Path, "/api/v1/admin/") && session.Principal.Role != "ADMIN" {
 		writeError(writer, request, http.StatusForbidden, "ADMIN_REQUIRED", "需要管理员权限", map[string]any{})
@@ -102,7 +102,7 @@ func (server *Server) authorizeRequest(
 	}
 	protectedMode := server.config.Mode == config.ModeRelease || server.config.Mode == config.ModeTest
 	if protectedMode && unsafeMethod(request.Method) &&
-		!accounts.MatchesCSRF(session.CookieToken, request.Header.Get("X-Retrom-Csrf")) {
+		!accountsmodel.MatchesCSRF(session.CookieToken, request.Header.Get("X-Retrom-Csrf")) {
 		writeError(writer, request, http.StatusForbidden, "CSRF_VALIDATION_FAILED", "请求验证失败", map[string]any{})
 		return false
 	}

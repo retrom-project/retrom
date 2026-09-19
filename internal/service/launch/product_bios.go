@@ -7,12 +7,13 @@ import (
 	"slices"
 
 	"retrom/internal/capability/content/corevalidation"
+	model "retrom/internal/model/launch"
 	validation "retrom/internal/service/corevalidation"
 )
 
 func ResolveProductBIOS(
-	source ProductSource,
-	facts ProductBIOSFacts,
+	source model.ProductSource,
+	facts model.ProductBIOSFacts,
 	logicalName string,
 ) (corevalidation.Snapshot, string, string, error) {
 	if source.ProviderID == "retrom-runtime" && source.TargetID == "scummvm" {
@@ -54,7 +55,7 @@ func ResolveProductBIOS(
 	return snapshot, status, code, nil
 }
 
-func productBIOSFresh(snapshot ProductSnapshot) (bool, error) {
+func productBIOSFresh(snapshot model.ProductSnapshot) (bool, error) {
 	if snapshot.Source.CompatibilityCode == "REVIEW_SCREENSHOT_OVERRIDE" {
 		return true, nil
 	}
@@ -88,7 +89,7 @@ func productBIOSFresh(snapshot ProductSnapshot) (bool, error) {
 	return currentDigest == frozenDigest, nil
 }
 
-func productArcadeBIOSFresh(current corevalidation.Snapshot, files []ProductFile) bool {
+func productArcadeBIOSFresh(current corevalidation.Snapshot, files []model.ProductFile) bool {
 	type identity struct{ name, blob string }
 	wanted := make([]identity, 0)
 	locked := make([]identity, 0)
@@ -105,13 +106,13 @@ func productArcadeBIOSFresh(current corevalidation.Snapshot, files []ProductFile
 	return slices.Equal(wanted, locked)
 }
 
-func approvedProductBIOS(snapshot ProductSnapshot) (ProductSnapshot, *corevalidation.Snapshot, error) {
+func approvedProductBIOS(snapshot model.ProductSnapshot) (model.ProductSnapshot, *corevalidation.Snapshot, error) {
 	if snapshot.Source.CompatibilityCode != "REVIEW_SCREENSHOT_OVERRIDE" {
 		return snapshot, nil, nil
 	}
 	current, _, _, err := ResolveProductBIOS(snapshot.Source, snapshot.BIOS, snapshot.Source.ContentLogicalName)
 	if err != nil {
-		return ProductSnapshot{}, nil, err
+		return model.ProductSnapshot{}, nil, err
 	}
 	if len(current.BIOS) == 0 {
 		return snapshot, nil, nil
@@ -119,16 +120,16 @@ func approvedProductBIOS(snapshot ProductSnapshot) (ProductSnapshot, *corevalida
 	if snapshot.Source.DATVersionID == nil {
 		locked, err := corevalidation.ParseSnapshot(snapshot.Source.DependencySnapshot)
 		if err != nil {
-			return ProductSnapshot{}, nil, fmt.Errorf("parse approved product BIOS: %w", err)
+			return model.ProductSnapshot{}, nil, fmt.Errorf("parse approved product BIOS: %w", err)
 		}
 		locked.BIOS = current.BIOS
 		encoded, err := locked.JSON()
 		if err != nil {
-			return ProductSnapshot{}, nil, fmt.Errorf("encode approved product BIOS: %w", err)
+			return model.ProductSnapshot{}, nil, fmt.Errorf("encode approved product BIOS: %w", err)
 		}
 		snapshot.Source.DependencySnapshot = string(encoded)
 	}
-	snapshot.VariantFiles = append([]ProductFile(nil), snapshot.VariantFiles...)
+	snapshot.VariantFiles = append([]model.ProductFile(nil), snapshot.VariantFiles...)
 	for index, dependency := range current.BIOS {
 		if dependency.DeliveryKind != "BIOS_BUNDLE" || dependency.BlobID == nil {
 			continue
@@ -139,7 +140,11 @@ func approvedProductBIOS(snapshot ProductSnapshot) (ProductSnapshot, *corevalida
 	return snapshot, &current, nil
 }
 
-func refreshProductBIOSFile(files []ProductFile, dependency corevalidation.BIOSDependency, index int) []ProductFile {
+func refreshProductBIOSFile(
+	files []model.ProductFile,
+	dependency corevalidation.BIOSDependency,
+	index int,
+) []model.ProductFile {
 	for position, file := range files {
 		if file.Role == "BIOS_BUNDLE" && file.LogicalName == dependency.LogicalName {
 			if file.BlobID != *dependency.BlobID {
@@ -150,12 +155,16 @@ func refreshProductBIOSFile(files []ProductFile, dependency corevalidation.BIOSD
 		}
 	}
 	return append(
-		files,
-		ProductFile{Role: "BIOS_BUNDLE", LogicalName: dependency.LogicalName, BlobID: *dependency.BlobID, SortOrder: index},
+		files, model.ProductFile{
+			Role:        "BIOS_BUNDLE",
+			LogicalName: dependency.LogicalName,
+			BlobID:      *dependency.BlobID,
+			SortOrder:   index,
+		},
 	)
 }
 
-func compareProductVariantFiles(left, right ProductFile) int {
+func compareProductVariantFiles(left, right model.ProductFile) int {
 	if order := cmp.Compare(left.Role, right.Role); order != 0 {
 		return order
 	}

@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"retrom/internal/foundation/cleanup"
+	jobsmodel "retrom/internal/model/jobs"
 	"retrom/internal/repo/store"
-	jobservice "retrom/internal/service/jobs"
 )
 
 func TestCancellationEventRollsBackWithOuterFailure(t *testing.T) {
@@ -22,8 +22,8 @@ func TestCancellationEventRollsBackWithOuterFailure(t *testing.T) {
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
 	insertJob(t, database, "job", "MEDIA_FETCH", "QUEUED", nil, now.UnixMilli())
 	failed := errors.New("dependent operation failed")
-	err = New(database.SQL).WithWrite(t.Context(), func(records jobservice.Records) error {
-		if err := records.Cancel(t.Context(), jobservice.Cancellation{
+	err = New(database.SQL).WithWrite(t.Context(), func(records jobsmodel.Records) error {
+		if err := records.Cancel(t.Context(), jobsmodel.Cancellation{
 			JobID: "job", ExpectedVersion: 1, State: "CANCELLED",
 			AtMS: now.UnixMilli(), FinishedAtMS: timePointer(now.UnixMilli()), Reason: "stop", Event: []byte(`{"reason":"stop"}`),
 		}); err != nil {
@@ -51,14 +51,14 @@ func TestRetrySnapshotRollsBackOnVersionConflict(t *testing.T) {
 	}
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
 	insertJob(t, database, "job", "MEDIA_FETCH", "FAILED", int64(1), now.UnixMilli())
-	err = New(database.SQL).WithWrite(t.Context(), func(records jobservice.Records) error {
-		return records.Retry(t.Context(), jobservice.RetryWrite{
+	err = New(database.SQL).WithWrite(t.Context(), func(records jobsmodel.Records) error {
+		return records.Retry(t.Context(), jobsmodel.RetryWrite{
 			JobID: "job", ExpectedVersion: 8, ExecutionNo: 2,
 			AtMS: now.UnixMilli(), Input: []byte(`{}`), InputDigest: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 			Payload: []byte(`{"schemaVersion":1,"inputExecutionNo":2}`), Event: []byte(`{"executionNo":2}`),
 		})
 	})
-	if !errors.Is(err, jobservice.ErrConflict) {
+	if !errors.Is(err, jobsmodel.ErrConflict) {
 		t.Fatal(err)
 	}
 	var snapshots, version int

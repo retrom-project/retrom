@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"time"
 
+	"retrom/internal/model/netplayprofile"
+
 	"retrom/internal/bootstrap/composition"
 	validationrepository "retrom/internal/repo/corevalidation"
 	repository "retrom/internal/repo/netplay"
@@ -16,14 +18,14 @@ import (
 type Service struct {
 	*application.Service
 	database    *sql.DB
-	registry    *Registry
+	registry    *netplayprofile.Registry
 	credentials *Credentials
 	clock       Clock
 	options     Options
 	preparation *application.ParticipantPreparation
 }
 
-func NewService(database *sql.DB, registry *Registry, credentials *Credentials, options Options, now func() time.Time) *Service {
+func NewService(database *sql.DB, registry *netplayprofile.Registry, credentials *Credentials, options Options, now func() time.Time) *Service {
 	if now == nil {
 		now = time.Now
 	}

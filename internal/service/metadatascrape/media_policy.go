@@ -10,6 +10,8 @@ import (
 	"fmt"
 	"slices"
 
+	metadatascrapemodel "retrom/internal/model/metadatascrape"
+
 	"github.com/google/uuid"
 )
 
@@ -18,37 +20,37 @@ func mediaDigest(input string) string {
 	return hex.EncodeToString(digest[:])
 }
 
-func validateMediaInput(snapshot MediaSnapshot) error {
+func validateMediaInput(snapshot metadatascrapemodel.MediaSnapshot) error {
 	job, asset := snapshot.Job, snapshot.Asset
 	if job.InputDigest != mediaDigest(job.Input) {
-		return ErrMediaInput
+		return metadatascrapemodel.ErrMediaInput
 	}
-	var input MediaInputEnvelope
+	var input metadatascrapemodel.MediaInputEnvelope
 	if err := json.Unmarshal([]byte(job.Input), &input); err != nil {
-		return errors.Join(ErrMediaInput, fmt.Errorf("decode media input: %w", err))
+		return errors.Join(metadatascrapemodel.ErrMediaInput, fmt.Errorf("decode media input: %w", err))
 	}
 	execution, err := uuid.Parse(input.ExecutionID)
 	if err != nil {
-		return errors.Join(ErrMediaInput, fmt.Errorf("parse media input execution: %w", err))
+		return errors.Join(metadatascrapemodel.ErrMediaInput, fmt.Errorf("parse media input execution: %w", err))
 	}
 	if execution.Version() != 7 || input.SchemaVersion != 1 || input.Kind != "MEDIA_FETCH" ||
 		input.Scope.Type != job.Scope.Kind || input.Scope.ID != job.Scope.ID ||
 		input.Inputs.AssetID != asset.ID || input.Inputs.RunID != asset.RunID ||
 		input.Inputs.ResponseID != asset.ResponseID || input.Inputs.SourceDigest != mediaSourceDigest(asset.CandidateAsset) {
-		return ErrMediaInput
+		return metadatascrapemodel.ErrMediaInput
 	}
 	return nil
 }
 
-func sortMedia(assets []MediaOrder) {
-	slices.SortFunc(assets, func(a, b MediaOrder) int {
+func sortMedia(assets []metadatascrapemodel.MediaOrder) {
+	slices.SortFunc(assets, func(a, b metadatascrapemodel.MediaOrder) int {
 		return cmp.Or(cmp.Compare(b.Hits, a.Hits), cmp.Compare(a.QueryOrder, b.QueryOrder),
 			cmp.Compare(a.GameID, b.GameID), cmp.Compare(a.Kind, b.Kind),
 			cmp.Compare(a.Ordinal, b.Ordinal), cmp.Compare(a.ID, b.ID))
 	})
 }
 
-func mediaOwnerAvailable(snapshot MediaSnapshot) bool {
+func mediaOwnerAvailable(snapshot metadatascrapemodel.MediaSnapshot) bool {
 	asset := snapshot.Asset
 	if asset.ID == "" || asset.OwnerKind != snapshot.Job.Scope.Kind || asset.OwnerID != snapshot.Job.Scope.ID {
 		return false
@@ -62,24 +64,24 @@ func mediaOwnerAvailable(snapshot MediaSnapshot) bool {
 	return asset.OwnerState == "SCRAPING" || asset.OwnerState == "REVIEW_PENDING" || asset.OwnerState == "FAILED_RETRYABLE"
 }
 
-func mediaOwned(snapshot MediaSnapshot, claim MediaClaim) bool {
+func mediaOwned(snapshot metadatascrapemodel.MediaSnapshot, claim metadatascrapemodel.MediaClaim) bool {
 	job := snapshot.Job
 	return job.ID == claim.JobID && job.Execution == claim.Execution &&
 		job.Attempt == claim.Attempt && job.WorkerID == claim.WorkerID
 }
 
-func mediaActive(snapshot MediaSnapshot, claim MediaClaim, now int64) error {
+func mediaActive(snapshot metadatascrapemodel.MediaSnapshot, claim metadatascrapemodel.MediaClaim, now int64) error {
 	if !mediaOwned(snapshot, claim) || snapshot.Job.State != "RUNNING" {
-		return ErrExecutionLost
+		return metadatascrapemodel.ErrExecutionLost
 	}
 	if snapshot.Job.Deadline <= now {
 		return context.DeadlineExceeded
 	}
 	if snapshot.Job.LeaseUntil <= now {
-		return ErrExecutionLost
+		return metadatascrapemodel.ErrExecutionLost
 	}
 	if !mediaOwnerAvailable(snapshot) {
-		return ErrGameDeleted
+		return metadatascrapemodel.ErrGameDeleted
 	}
 	return validateMediaInput(snapshot)
 }

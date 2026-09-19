@@ -7,7 +7,8 @@ import (
 	"os"
 	"time"
 
-	firmwareservice "retrom/internal/service/firmware"
+	firmwaremodel "retrom/internal/model/firmware"
+	model "retrom/internal/model/serverimport"
 
 	"retrom/internal/foundation/cleanup"
 )
@@ -18,10 +19,6 @@ var (
 	errSourceChanged     = errors.New("server import source changed")
 	errExecutionDeadline = errors.New("server import execution deadline exceeded")
 )
-
-type work = Work
-
-type evaluatedCandidate = EvaluatedCandidate
 
 func (service *Service) runLoop() {
 	ticker := time.NewTicker(time.Second)
@@ -52,16 +49,16 @@ func (service *Service) runLoop() {
 	}
 }
 
-func (service *Service) claim(ctx context.Context) (work, bool, error) {
+func (service *Service) claim(ctx context.Context) (model.Work, bool, error) {
 	unit, found, err := service.leases.Claim(ctx)
 	if err != nil {
-		return work{}, false, fmt.Errorf("claim server import: %w", err)
+		return model.Work{}, false, fmt.Errorf("claim server import: %w", err)
 	}
 	return unit, found, nil
 }
 
 // Discovery, cancellation and item commits are one state machine.
-func (service *Service) execute(ctx context.Context, unit work) {
+func (service *Service) execute(ctx context.Context, unit model.Work) {
 	if unit.DeadlineAtMS > 0 && unit.DeadlineAtMS <= service.now().UnixMilli() {
 		service.failTask(context.WithoutCancel(ctx), unit, "INTERNAL_ERROR")
 		return
@@ -106,10 +103,10 @@ func (service *Service) execute(ctx context.Context, unit work) {
 
 func (service *Service) executeDiscovery(
 	ctx context.Context,
-	unit work,
+	unit model.Work,
 	directory *os.File,
-	items []catalogItem,
-) (map[string][]*evaluatedCandidate, bool) {
+	items []model.CatalogItem,
+) (map[string][]*EvaluatedCandidate, bool) {
 	resume, err := service.discoveryWasPersisted(ctx, unit.ImportID)
 	if err != nil {
 		service.failTask(ctx, unit, "INTERNAL_ERROR")
@@ -144,7 +141,7 @@ func (service *Service) executeDiscovery(
 	return byRequirement, true
 }
 
-func (service *Service) failDiscovery(ctx context.Context, unit work, err error) {
+func (service *Service) failDiscovery(ctx context.Context, unit model.Work, err error) {
 	switch {
 	case errors.Is(err, errCancelled):
 		service.cancelTask(ctx, unit)
@@ -159,10 +156,10 @@ func (service *Service) failDiscovery(ctx context.Context, unit work, err error)
 
 func (service *Service) installCandidates(
 	ctx context.Context,
-	unit work,
+	unit model.Work,
 	root Root,
-	items []catalogItem,
-	byRequirement map[string][]*evaluatedCandidate,
+	items []model.CatalogItem,
+	byRequirement map[string][]*EvaluatedCandidate,
 ) bool {
 	service.progress(ctx, unit, "INSTALLING", 0, int64(len(items)))
 	for index, item := range items {
@@ -184,16 +181,16 @@ func (service *Service) installCandidates(
 
 func (service *Service) installCandidate(
 	ctx context.Context,
-	unit work,
+	unit model.Work,
 	root Root,
-	item catalogItem,
-	candidates []*evaluatedCandidate,
+	item model.CatalogItem,
+	candidates []*EvaluatedCandidate,
 ) bool {
 	if len(candidates) == 0 {
 		service.completeItem(ctx, unit, item.RequirementID, "NOT_FOUND", nil, "BIOS_CANDIDATE_NOT_FOUND")
 		return true
 	}
-	eligible := rankCandidates(candidates)
+	eligible := RankCandidates(candidates)
 	if len(eligible) == 0 {
 		state, code := rejectedArchiveOutcome(candidates)
 		service.completeItem(ctx, unit, item.RequirementID, state, nil, code)
@@ -219,12 +216,12 @@ func (service *Service) installCandidate(
 
 func (service *Service) commitCandidate(
 	ctx context.Context,
-	unit work,
-	item catalogItem,
-	selected *evaluatedCandidate,
+	unit model.Work,
+	item model.CatalogItem,
+	selected *EvaluatedCandidate,
 ) {
-	status, method := selectedStatus(selected)
-	_, err := service.firmware.InstallServerCandidate(ctx, firmwareservice.ServerInstallRequest{
+	status, method := SelectedStatus(selected)
+	_, err := service.firmware.InstallServerCandidate(ctx, firmwaremodel.ServerInstallRequest{
 		ServerImportID: unit.ImportID, JobID: unit.JobID, WorkerID: unit.Owner, ExecutionNo: unit.Execution,
 		CandidateID: selected.ID, RequirementID: item.RequirementID, RequirementVersion: item.RequirementVersion,
 		ProviderID: item.ProviderID, TargetID: item.TargetID,
@@ -237,7 +234,7 @@ func (service *Service) commitCandidate(
 		DATExpectedEntries: selected.ExpectedDATEntries, DATEvaluation: selected.DAT,
 	})
 	switch {
-	case errors.Is(err, firmwareservice.ErrCatalogChanged):
+	case errors.Is(err, firmwaremodel.ErrCatalogChanged):
 		service.completeItem(ctx, unit, item.RequirementID, "CATALOG_CHANGED", selected,
 			"BIOS_REQUIREMENT_CATALOG_CHANGED")
 	case err != nil:
@@ -245,7 +242,7 @@ func (service *Service) commitCandidate(
 	}
 }
 
-func (service *Service) heartbeatLoop(ctx context.Context, unit work, done <-chan struct{}) {
+func (service *Service) heartbeatLoop(ctx context.Context, unit model.Work, done <-chan struct{}) {
 	ticker := time.NewTicker(15 * time.Second)
 	defer ticker.Stop()
 	for {

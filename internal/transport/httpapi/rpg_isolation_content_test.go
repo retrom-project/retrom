@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	isolationmodel "retrom/internal/model/isolation"
 	isolationpersistence "retrom/internal/repo/isolation"
 
 	_ "modernc.org/sqlite"
@@ -176,7 +177,7 @@ UPDATE launch_content_files SET format_version='TYRANOSCRIPT_PROJECT'
 	)
 	request.AddCookie(&http.Cookie{Name: rpgRuntimeCookieName, Value: credential})
 	response := httptest.NewRecorder()
-	server.serveRPGRuntimeRoute(response, request, isolation.Access{LaunchID: launchID, Origin: origin})
+	server.serveRPGRuntimeRoute(response, request, isolationmodel.Access{LaunchID: launchID, Origin: origin})
 
 	if response.Code != http.StatusOK || response.Header().Get("Content-Type") != "image/jpeg" ||
 		response.Header().Get("Content-Length") == "" || response.Body.Len() != 0 {
@@ -293,7 +294,7 @@ func TestBootstrapPageReusesOnlyAuthenticatedRuntimeCapability(t *testing.T) {
 		config: config.Config{PublicOrigin: publicOrigin}, database: database,
 		rpgIsolation: service, now: func() time.Time { return time.UnixMilli(*nowMS) },
 	}
-	access := isolation.Access{LaunchID: launchID, Origin: origin}
+	access := isolationmodel.Access{LaunchID: launchID, Origin: origin}
 
 	authorized := bootstrapPageRequest(t, server, access, credential)
 	if authorized.Code != http.StatusSeeOther || authorized.Header().Get("Location") != "/__retrom/entry" ||
@@ -303,12 +304,12 @@ func TestBootstrapPageReusesOnlyAuthenticatedRuntimeCapability(t *testing.T) {
 	}
 	for _, denied := range []struct {
 		name       string
-		access     isolation.Access
+		access     isolationmodel.Access
 		credential string
 	}{
 		{name: "missing cookie", access: access},
 		{name: "forged cookie", access: access, credential: "forged"},
-		{name: "wrong host origin", access: isolation.Access{LaunchID: launchID, Origin: "https://wrong.example"}, credential: credential},
+		{name: "wrong host origin", access: isolationmodel.Access{LaunchID: launchID, Origin: "https://wrong.example"}, credential: credential},
 	} {
 		t.Run(denied.name, func(t *testing.T) {
 			response := bootstrapPageRequest(t, server, denied.access, denied.credential)
@@ -328,7 +329,7 @@ func TestBootstrapPageReusesOnlyAuthenticatedRuntimeCapability(t *testing.T) {
 func bootstrapPageRequest(
 	t *testing.T,
 	server *Server,
-	access isolation.Access,
+	access isolationmodel.Access,
 	credential string,
 ) *httptest.ResponseRecorder {
 	t.Helper()

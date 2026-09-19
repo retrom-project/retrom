@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/adapter/metadata/hasheous"
+	metadatamodel "retrom/internal/model/metadata"
 	"retrom/internal/testkit/testsupport"
 )
 
@@ -37,7 +37,7 @@ func TestCacheExpiryBoundaryAndCancellation(t *testing.T) {
 	}
 	repository := NewCache(database.SQL)
 	value, found, err := repository.Cached(t.Context(), digest, 199)
-	if err != nil || !found || value.ID != "response" || value.Outcome != hasheous.OutcomeMiss || value.RawSHA256 != "" {
+	if err != nil || !found || value.ID != "response" || value.Outcome != metadatamodel.OutcomeMiss || value.RawSHA256 != "" {
 		t.Fatalf("valid cache: %+v found=%t error=%v", value, found, err)
 	}
 	_, found, err = repository.Cached(t.Context(), digest, 200)

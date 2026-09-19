@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	pegasusimportmodel "retrom/internal/model/pegasusimport"
 	application "retrom/internal/service/pegasusimport"
 )
 
@@ -39,7 +40,7 @@ func assertItemWorkFence(t *testing.T, operation, field string) {
 		}
 	}
 	before := workflowRows(t, db)
-	err := NewItemWork(db).WithItemWork(t.Context(), func(scope application.ItemWorkScope) error {
+	err := NewItemWork(db).WithItemWork(t.Context(), func(scope pegasusimportmodel.ItemWorkScope) error {
 		owned, err := scope.Read.Current(t.Context(), "item-0")
 		if err != nil {
 			return err
@@ -53,11 +54,11 @@ func assertItemWorkFence(t *testing.T, operation, field string) {
 			invalidateRecovery(&owned.Execution, field)
 		}
 		if operation == "claim" {
-			return scope.Write.Claim(t.Context(), application.ItemClaim{Before: owned, NowMS: 10})
+			return scope.Write.Claim(t.Context(), pegasusimportmodel.ItemClaim{Before: owned, NowMS: 10})
 		}
-		return scope.Write.Finish(t.Context(), application.ItemFinish{Before: owned, Outcome: application.ItemOutcome{State: "COMMIT_FAILED", Code: "INTERNAL_ERROR"}, NowMS: 10})
+		return scope.Write.Finish(t.Context(), pegasusimportmodel.ItemFinish{Before: owned, Outcome: pegasusimportmodel.ItemOutcome{State: "COMMIT_FAILED", Code: "INTERNAL_ERROR"}, NowMS: 10})
 	})
-	if !errors.Is(err, application.ErrVersionConflict) {
+	if !errors.Is(err, pegasusimportmodel.ErrVersionConflict) {
 		t.Fatalf("%s %s error=%v", operation, field, err)
 	}
 	if !reflect.DeepEqual(before, workflowRows(t, db)) {
@@ -70,12 +71,12 @@ func TestItemWorkFinishRollsBackStateCountsReleaseAndEvent(t *testing.T) {
 	db := itemWorkDatabase(t)
 	before := workflowRows(t, db)
 	cause := errors.New("late item failure")
-	err := NewItemWork(db).WithItemWork(t.Context(), func(scope application.ItemWorkScope) error {
+	err := NewItemWork(db).WithItemWork(t.Context(), func(scope pegasusimportmodel.ItemWorkScope) error {
 		owned, err := scope.Read.Current(t.Context(), "item-0")
 		if err != nil {
 			return err
 		}
-		if err := scope.Write.Finish(t.Context(), application.ItemFinish{Before: owned, Outcome: application.ItemOutcome{State: "COMMIT_FAILED", Code: "INTERNAL_ERROR"}, NowMS: 10}); err != nil {
+		if err := scope.Write.Finish(t.Context(), pegasusimportmodel.ItemFinish{Before: owned, Outcome: pegasusimportmodel.ItemOutcome{State: "COMMIT_FAILED", Code: "INTERNAL_ERROR"}, NowMS: 10}); err != nil {
 			return err
 		}
 		return cause
@@ -92,8 +93,8 @@ func TestItemWorkFinishRecordsCurrentOutcomeOnce(t *testing.T) {
 	t.Parallel()
 	db := itemWorkDatabase(t)
 	service := application.NewItemWork(NewItemWork(db), func() time.Time { return time.UnixMilli(10) })
-	identity := application.ExecutionIdentity{JobID: "work", ImportID: "import-0", WorkerID: "old-worker", ExecutionNo: 1, Attempt: 1}
-	outcome := application.ItemOutcome{State: "READ_FAILED", Code: "READ_FAILED", Retryable: true}
+	identity := pegasusimportmodel.ExecutionIdentity{JobID: "work", ImportID: "import-0", WorkerID: "old-worker", ExecutionNo: 1, Attempt: 1}
+	outcome := pegasusimportmodel.ItemOutcome{State: "READ_FAILED", Code: "READ_FAILED", Retryable: true}
 	if err := service.Finish(t.Context(), identity, "item-0", outcome); err != nil {
 		t.Fatal(err)
 	}

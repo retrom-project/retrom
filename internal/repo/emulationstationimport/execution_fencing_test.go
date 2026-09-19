@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"testing"
 
-	application "retrom/internal/service/emulationstationimport"
+	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
 )
 
 func TestExecutionFinishFenceRejectsEveryChangedAuthority(t *testing.T) {
@@ -26,7 +26,7 @@ func TestExecutionFinishFenceRejectsEveryChangedAuthority(t *testing.T) {
 			t.Parallel()
 			db, unit := executionTestDatabase(t, "fail")
 			before := planRows(t, db)
-			err := NewExecutionControl(db).WithExecution(t.Context(), func(scope application.ExecutionScope) error {
+			err := NewExecutionControl(db).WithExecution(t.Context(), func(scope emulationstationimportmodel.ExecutionScope) error {
 				current, found, err := scope.Read.Current(t.Context(), unit.JobID)
 				if err != nil || !found {
 					t.Fatalf("current=%v error=%v", found, err)
@@ -38,12 +38,12 @@ func TestExecutionFinishFenceRejectsEveryChangedAuthority(t *testing.T) {
 				if _, err := records.executor.ExecContext(t.Context(), mutation); err != nil {
 					t.Fatal(err)
 				}
-				return scope.Write.Finish(t.Context(), application.ExecutionFinish{
+				return scope.Write.Finish(t.Context(), emulationstationimportmodel.ExecutionFinish{
 					Before: current, NowMS: 1002,
 					JobState: "FAILED", ImportState: "FAILED", ItemState: "COMMIT_FAILED", Code: "INTERNAL_ERROR",
 				})
 			})
-			if !errors.Is(err, application.ErrVersionConflict) {
+			if !errors.Is(err, emulationstationimportmodel.ErrVersionConflict) {
 				t.Fatalf("stale authority accepted=%v", err)
 			}
 			if !reflect.DeepEqual(before, planRows(t, db)) {

@@ -82,11 +82,11 @@ func (records resultRecords) Response(ctx context.Context, value metadatascrape.
 		blobID = &id
 		state = "RETAINED"
 	}
-	var status *int
-	if value.HTTPStatus != 0 {
-		status = &value.HTTPStatus
+	status, err := responseAuditStatus(value.Audit)
+	if err != nil {
+		return err
 	}
-	_, err := records.transaction.ExecContext(
+	_, err = records.transaction.ExecContext(
 		ctx,
 		`INSERT INTO metadata_provider_responses
  (id,provider,request_digest,http_status,outcome,raw_response_blob_id,raw_payload_state,fetched_at_ms,expires_at_ms)

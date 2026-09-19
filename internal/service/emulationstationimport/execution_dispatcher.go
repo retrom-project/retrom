@@ -5,19 +5,21 @@ import (
 	"errors"
 	"fmt"
 	"time"
+
+	model "retrom/internal/model/emulationstationimport"
 )
 
 var ErrExecutionRootChanged = errors.New("SERVER_IMPORT_ROOT_CHANGED")
 
 type (
-	ExecutionRoots  interface{ CheckRoot(Execution) error }
+	ExecutionRoots  interface{ CheckRoot(model.Execution) error }
 	ExecutionRunner interface {
-		Execute(context.Context, Execution) error
+		Execute(context.Context, model.Execution) error
 	}
 )
 
 type ExecutionFailer interface {
-	Fail(context.Context, Execution, ExecutionFailure) (string, error)
+	Fail(context.Context, model.Execution, model.ExecutionFailure) (string, error)
 }
 type (
 	ExecutionRecoverer              interface{ Recover(context.Context) error }
@@ -42,7 +44,7 @@ func NewExecutionDispatcher(
 	return &ExecutionDispatcher{dependencies: dependencies, now: now}
 }
 
-func (dispatcher *ExecutionDispatcher) Execute(ctx context.Context, unit Execution) {
+func (dispatcher *ExecutionDispatcher) Execute(ctx context.Context, unit model.Execution) {
 	if err := dispatcher.dependencies.Roots.CheckRoot(unit); err != nil {
 		dispatcher.Failed(ctx, unit, err)
 		return
@@ -64,7 +66,7 @@ func (dispatcher *ExecutionDispatcher) Execute(ctx context.Context, unit Executi
 	}
 }
 
-func (dispatcher *ExecutionDispatcher) Failed(ctx context.Context, unit Execution, cause error) {
+func (dispatcher *ExecutionDispatcher) Failed(ctx context.Context, unit model.Execution, cause error) {
 	now := dispatcher.now().UnixMilli()
 	if executionStopped(ctx, unit, now, cause) {
 		if dispatcher.dependencies.Report != nil {
@@ -79,18 +81,17 @@ func (dispatcher *ExecutionDispatcher) Failed(ctx context.Context, unit Executio
 		ctx.Err(),
 		context.DeadlineExceeded,
 	) || unit.DeadlineAtMS > 0 && unit.DeadlineAtMS <= now || errors.Is(
-		cause,
-		ErrExpired,
+		cause, model.ErrExpired,
 	) {
-		failure = ExecutionFailure{Code: "EMULATIONSTATION_EXECUTION_TIMEOUT"}
+		failure = model.ExecutionFailure{Code: "EMULATIONSTATION_EXECUTION_TIMEOUT"}
 	}
 	cleanup, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
 	defer cancel()
 	_, err := dispatcher.dependencies.Control.Fail(cleanup, unit, failure)
-	if errors.Is(err, ErrExpired) {
+	if errors.Is(err, model.ErrExpired) {
 		err = dispatcher.dependencies.Recovery.Recover(cleanup)
 	}
-	if errors.Is(err, ErrVersionConflict) {
+	if errors.Is(err, model.ErrVersionConflict) {
 		err = nil
 	}
 	if dispatcher.dependencies.Report != nil {
@@ -100,19 +101,19 @@ func (dispatcher *ExecutionDispatcher) Failed(ctx context.Context, unit Executio
 	}
 }
 
-func executionStopped(ctx context.Context, unit Execution, now int64, cause error) bool {
-	return errors.Is(cause, ErrVersionConflict) || errors.Is(cause, ErrExecutionCancelled) ||
+func executionStopped(ctx context.Context, unit model.Execution, now int64, cause error) bool {
+	return errors.Is(cause, model.ErrVersionConflict) || errors.Is(cause, ErrExecutionCancelled) ||
 		errors.Is(cause, context.Canceled) ||
 		errors.Is(ctx.Err(), context.Canceled) || ctx.Err() != nil && unit.DeadlineAtMS > now
 }
 
-func executionFailure(cause error) ExecutionFailure {
+func executionFailure(cause error) model.ExecutionFailure {
 	if errors.Is(cause, ErrExecutionRootChanged) {
-		return ExecutionFailure{Code: ErrExecutionRootChanged.Error()}
+		return model.ExecutionFailure{Code: ErrExecutionRootChanged.Error()}
 	}
 	var failure *ExecutionError
 	if errors.As(cause, &failure) {
 		return failure.Failure
 	}
-	return ExecutionFailure{Code: "INTERNAL_ERROR", Retryable: true}
+	return model.ExecutionFailure{Code: "INTERNAL_ERROR", Retryable: true}
 }

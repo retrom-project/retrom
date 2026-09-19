@@ -2,9 +2,9 @@ package libraryimport
 
 import (
 	"context"
-	"time"
 
-	"retrom/internal/adapter/files/blobstore"
+	blobmodel "retrom/internal/model/blob"
+
 	"retrom/internal/capability/content/corevalidation"
 	"retrom/internal/capability/security/authn"
 	validation "retrom/internal/model/corevalidation"
@@ -14,10 +14,6 @@ import (
 	"retrom/internal/model/tagging"
 )
 
-type ImportCreationSettings struct {
-	Now              func() time.Time
-	MultiDiscEnabled bool
-}
 type ImportCreationResult struct {
 	Created ServerCreated
 	Owned   ServerImportResult
@@ -104,7 +100,7 @@ type CreationHeader struct {
 	NowMS                                                               int64
 }
 type CreationArtifact struct {
-	Metadata  blobstore.Metadata
+	Metadata  blobmodel.PreparedBlob
 	MediaType string
 	NowMS     int64
 }

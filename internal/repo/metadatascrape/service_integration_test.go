@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"retrom/internal/bootstrap/composition"
+	uploadsmodel "retrom/internal/model/uploads"
 
 	metadatapersistence "retrom/internal/repo/metadatascrape"
 
@@ -77,10 +78,9 @@ func TestImportPersistsHasheousEvidenceCandidateAndAsset(t *testing.T) {
 	contents := []byte("deterministic metadata fixture")
 	legacyMD5, legacySHA1 := legacychecksum.Sum(contents)
 	upload, err := uploadService.Create(
-		ctx,
-		uploads.CreateRequest{
+		ctx, uploadsmodel.CreateRequest{
 			SourceType: "FILES",
-			Files: []uploads.FileDeclaration{
+			Files: []uploadsmodel.FileDeclaration{
 				{ClientFileID: "game", RelativePath: "Metadata.gba", SizeBytes: int64(len(contents))},
 			},
 		},
@@ -287,10 +287,9 @@ WHERE i.id=?
 	draftVersion := selectReadyReviewMedia(t, database.SQL, importer, firstItemID, created.ImportJobID, candidateAssetID)
 	archiveContents := makeDeterministicZIP(t, map[string][]byte{"folder/Metadata-copy.gba": contents})
 	secondUpload, err := uploadService.Create(
-		ctx,
-		uploads.CreateRequest{
+		ctx, uploadsmodel.CreateRequest{
 			SourceType: "FILES",
-			Files: []uploads.FileDeclaration{
+			Files: []uploadsmodel.FileDeclaration{
 				{ClientFileID: "game-2", RelativePath: "Metadata-copy.zip", SizeBytes: int64(len(archiveContents))},
 			},
 		},
@@ -393,10 +392,9 @@ AND event_type='APPROVED'
 
 	failureContents := []byte("deterministic metadata failure fixture")
 	failureUpload, err := uploadService.Create(
-		ctx,
-		uploads.CreateRequest{
+		ctx, uploadsmodel.CreateRequest{
 			SourceType: "FILES",
-			Files: []uploads.FileDeclaration{
+			Files: []uploadsmodel.FileDeclaration{
 				{ClientFileID: "game-failure", RelativePath: "Metadata-failure.gba", SizeBytes: int64(len(failureContents))},
 			},
 		},
@@ -647,10 +645,9 @@ status) VALUES(?,
 	}
 	uploadService := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, mediaFixtureNow)
 	upload, err := uploadService.Create(
-		ctx,
-		uploads.CreateRequest{
+		ctx, uploadsmodel.CreateRequest{
 			SourceType: "FILES",
-			Files: []uploads.FileDeclaration{
+			Files: []uploadsmodel.FileDeclaration{
 				{ClientFileID: "arcade", RelativePath: "evidence.zip", SizeBytes: int64(len(archiveBytes))},
 			},
 		},

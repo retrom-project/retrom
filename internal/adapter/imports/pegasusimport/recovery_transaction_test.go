@@ -5,18 +5,20 @@ import (
 	"errors"
 	"testing"
 
+	pegasusimportmodel "retrom/internal/model/pegasusimport"
 	repository "retrom/internal/repo/pegasusimport"
 	library "retrom/internal/service/libraryimport"
 	application "retrom/internal/service/pegasusimport"
 )
 
 type failedRecovery struct {
-	application.RecoveryRepository
+	pegasusimportmodel.RecoveryRepository
+
 	cause error
 }
 
-func (failure failedRecovery) WithRecovery(ctx context.Context, work func(application.RecoveryScope) error) error {
-	return failure.RecoveryRepository.WithRecovery(ctx, func(scope application.RecoveryScope) error {
+func (failure failedRecovery) WithRecovery(ctx context.Context, work func(pegasusimportmodel.RecoveryScope) error) error {
+	return failure.RecoveryRepository.WithRecovery(ctx, func(scope pegasusimportmodel.RecoveryScope) error {
 		if err := work(scope); err != nil {
 			return err
 		}

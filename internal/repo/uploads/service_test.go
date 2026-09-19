@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	uploadsmodel "retrom/internal/model/uploads"
 	uploadservice "retrom/internal/service/uploads"
 
 	"retrom/internal/adapter/files/blobstore"
@@ -30,10 +31,9 @@ func TestUploadPartAndFinalization(t *testing.T) {
 	testassert.Falsef(t, err != nil, "open blob store: %v", err)
 	service := uploadservice.New(New(database.SQL), blobs, dataDir, time.Now)
 	session, err := service.Create(
-		ctx,
-		uploadservice.CreateRequest{
+		ctx, uploadsmodel.CreateRequest{
 			SourceType: "FILES",
-			Files:      []uploadservice.FileDeclaration{{ClientFileID: "f1", RelativePath: "game.gba", SizeBytes: 5}},
+			Files:      []uploadsmodel.FileDeclaration{{ClientFileID: "f1", RelativePath: "game.gba", SizeBytes: 5}},
 		},
 	)
 	testassert.Falsef(t, err != nil, "create: %v", err)
@@ -44,8 +44,7 @@ func TestUploadPartAndFinalization(t *testing.T) {
 		t.Fatalf("put part: %v", err)
 	}
 	if err := service.PutPart(ctx, session.ID, session.Files[0].ID, 0, "bytes 0-4/5", "sha-256=:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=:", bytes.NewReader(contents)); !errors.Is(
-		err,
-		uploadservice.ErrInvalid,
+		err, uploadsmodel.ErrInvalid,
 	) {
 		t.Fatalf("mismatched replay error = %v", err)
 	}
@@ -88,7 +87,7 @@ func TestUploadPartAndFinalization(t *testing.T) {
 
 func TestCreateRejectsUnsafeAndDuplicatePaths(t *testing.T) {
 	t.Parallel()
-	for _, files := range [][]uploadservice.FileDeclaration{
+	for _, files := range [][]uploadsmodel.FileDeclaration{
 		{{ClientFileID: "f", RelativePath: "../game.gba", SizeBytes: 1}},
 		{{ClientFileID: "a", RelativePath: "game.gba", SizeBytes: 1}, {ClientFileID: "b", RelativePath: "game.gba", SizeBytes: 1}},
 	} {
@@ -102,8 +101,8 @@ func TestCreateRejectsUnsafeAndDuplicatePaths(t *testing.T) {
 				blobs,
 				dataDir,
 				time.Now,
-			).Create(context.Background(), uploadservice.CreateRequest{SourceType: "FILES", Files: files})
-			testassert.Truef(t, errors.Is(err, uploadservice.ErrInvalid), "create error = %v", err)
+			).Create(context.Background(), uploadsmodel.CreateRequest{SourceType: "FILES", Files: files})
+			testassert.Truef(t, errors.Is(err, uploadsmodel.ErrInvalid), "create error = %v", err)
 		})
 	}
 }
@@ -118,9 +117,9 @@ func TestCreateEnforcesProjectUploadPurposeShape(t *testing.T) {
 	testassert.False(t, err != nil, err)
 	service := uploadservice.New(New(database.SQL), blobs, dataDir, time.Now)
 
-	valid, err := service.Create(context.Background(), uploadservice.CreateRequest{
+	valid, err := service.Create(context.Background(), uploadsmodel.CreateRequest{
 		Purpose: "PROJECT", SourceType: "FILES",
-		Files: []uploadservice.FileDeclaration{{ClientFileID: "project", RelativePath: "game.ZIP", SizeBytes: 1}},
+		Files: []uploadsmodel.FileDeclaration{{ClientFileID: "project", RelativePath: "game.ZIP", SizeBytes: 1}},
 	})
 	testassert.Falsef(t, err != nil, "create RPG archive: %v", err)
 	if valid.Purpose != "PROJECT" {
@@ -131,9 +130,9 @@ func TestCreateEnforcesProjectUploadPurposeShape(t *testing.T) {
 	if loaded.Purpose != "PROJECT" {
 		t.Fatalf("loaded purpose = %q", loaded.Purpose)
 	}
-	ons, err := service.Create(context.Background(), uploadservice.CreateRequest{
+	ons, err := service.Create(context.Background(), uploadsmodel.CreateRequest{
 		Purpose: "PROJECT", SourceType: "DIRECTORY",
-		Files: []uploadservice.FileDeclaration{
+		Files: []uploadsmodel.FileDeclaration{
 			{ClientFileID: "script", RelativePath: "game/0.txt", SizeBytes: 1},
 			{ClientFileID: "font", RelativePath: "game/default.ttf", SizeBytes: 1},
 		},
@@ -142,28 +141,28 @@ func TestCreateEnforcesProjectUploadPurposeShape(t *testing.T) {
 	if ons.Purpose != "PROJECT" {
 		t.Fatalf("ONS purpose = %q", ons.Purpose)
 	}
-	tyranoScript, err := service.Create(context.Background(), uploadservice.CreateRequest{
+	tyranoScript, err := service.Create(context.Background(), uploadsmodel.CreateRequest{
 		Purpose: "PROJECT", SourceType: "FILES",
-		Files: []uploadservice.FileDeclaration{{ClientFileID: "project", RelativePath: "game.EXE", SizeBytes: 1}},
+		Files: []uploadsmodel.FileDeclaration{{ClientFileID: "project", RelativePath: "game.EXE", SizeBytes: 1}},
 	})
 	testassert.Falsef(t, err != nil, "create TyranoScript NW.js executable: %v", err)
 	if tyranoScript.Purpose != "PROJECT" {
 		t.Fatalf("TyranoScript purpose = %q", tyranoScript.Purpose)
 	}
 
-	invalidRequests := []uploadservice.CreateRequest{
-		{Purpose: "UNKNOWN", SourceType: "DIRECTORY", Files: []uploadservice.FileDeclaration{
+	invalidRequests := []uploadsmodel.CreateRequest{
+		{Purpose: "UNKNOWN", SourceType: "DIRECTORY", Files: []uploadsmodel.FileDeclaration{
 			{ClientFileID: "project", RelativePath: "game/Game.ini", SizeBytes: 1},
 		}},
-		{Purpose: "RPG_MAKER_PROJECT", SourceType: "FILES", Files: []uploadservice.FileDeclaration{{ClientFileID: "project", RelativePath: "game.exe", SizeBytes: 1}}},
-		{Purpose: "PROJECT", SourceType: "FILES", Files: []uploadservice.FileDeclaration{{ClientFileID: "project", RelativePath: "game.dat", SizeBytes: 1}}},
-		{Purpose: "RUNTIME_ASSET_PACK", SourceType: "FILES", Files: []uploadservice.FileDeclaration{
+		{Purpose: "RPG_MAKER_PROJECT", SourceType: "FILES", Files: []uploadsmodel.FileDeclaration{{ClientFileID: "project", RelativePath: "game.exe", SizeBytes: 1}}},
+		{Purpose: "PROJECT", SourceType: "FILES", Files: []uploadsmodel.FileDeclaration{{ClientFileID: "project", RelativePath: "game.dat", SizeBytes: 1}}},
+		{Purpose: "RUNTIME_ASSET_PACK", SourceType: "FILES", Files: []uploadsmodel.FileDeclaration{
 			{ClientFileID: "a", RelativePath: "a.zip", SizeBytes: 1},
 			{ClientFileID: "b", RelativePath: "b.zip", SizeBytes: 1},
 		}},
 	}
 	for _, request := range invalidRequests {
-		if _, err := service.Create(context.Background(), request); !errors.Is(err, uploadservice.ErrInvalid) {
+		if _, err := service.Create(context.Background(), request); !errors.Is(err, uploadsmodel.ErrInvalid) {
 			t.Fatalf("Create(%#v) error = %v", request, err)
 		}
 	}
@@ -180,19 +179,18 @@ func TestCancelCreatedUploadIsVersionedAndTerminal(t *testing.T) {
 	testassert.False(t, err != nil, err)
 	service := uploadservice.New(New(database.SQL), blobs, dataDir, time.Now)
 	session, err := service.Create(
-		ctx,
-		uploadservice.CreateRequest{
+		ctx, uploadsmodel.CreateRequest{
 			SourceType: "FILES",
-			Files:      []uploadservice.FileDeclaration{{ClientFileID: "f1", RelativePath: "game.gba", SizeBytes: 1}},
+			Files:      []uploadsmodel.FileDeclaration{{ClientFileID: "f1", RelativePath: "game.gba", SizeBytes: 1}},
 		},
 	)
 	testassert.False(t, err != nil, err)
 	canceled, pending, err := service.Cancel(ctx, session.ID, session.Version)
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return pending }, func() bool { return canceled.State != "CANCELLED" }, func() bool { return canceled.Version != session.Version+1 }), "cancel = %#v, pending=%v, error=%v", canceled, pending, err)
-	if _, _, err := service.Cancel(ctx, session.ID, canceled.Version); !errors.Is(err, uploadservice.ErrInvalid) {
+	if _, _, err := service.Cancel(ctx, session.ID, canceled.Version); !errors.Is(err, uploadsmodel.ErrInvalid) {
 		t.Fatalf("terminal cancel error = %v", err)
 	}
-	if _, _, err := service.Complete(ctx, session.ID, canceled.Version); !errors.Is(err, uploadservice.ErrInvalid) {
+	if _, _, err := service.Complete(ctx, session.ID, canceled.Version); !errors.Is(err, uploadsmodel.ErrInvalid) {
 		t.Fatalf("complete canceled upload error = %v", err)
 	}
 }

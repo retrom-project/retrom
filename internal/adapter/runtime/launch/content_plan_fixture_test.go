@@ -1,10 +1,12 @@
 package launch
 
-import application "retrom/internal/service/launch"
+import (
+	launchmodel "retrom/internal/model/launch"
+)
 
 type (
-	lockedDisc        = application.ProductDisc
-	lockedContentFile = application.ProductContentFile
+	lockedDisc        = launchmodel.ProductDisc
+	lockedContentFile = launchmodel.ProductContentFile
 	launchContentPlan struct {
 		ContentKind string
 		Files       []lockedContentFile

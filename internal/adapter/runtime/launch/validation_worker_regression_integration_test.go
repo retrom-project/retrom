@@ -15,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	launchmodel "retrom/internal/model/launch"
 	"retrom/internal/testkit/testsupport"
 
 	persistence "retrom/internal/repo/launch"
@@ -168,7 +169,7 @@ func TestValidationWorkerFailureEventIsAtomic(t *testing.T) {
 	}
 }
 
-func assertValidationRejectsRetiredBIOS(t *testing.T, ctx context.Context, database *sql.DB, selected application.ProductSnapshot, variantID string) {
+func assertValidationRejectsRetiredBIOS(t *testing.T, ctx context.Context, database *sql.DB, selected launchmodel.ProductSnapshot, variantID string) {
 	t.Helper()
 	inputs, err := application.ProductValidationInputs(selected, variantID)
 	if err != nil {

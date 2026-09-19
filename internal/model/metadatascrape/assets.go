@@ -4,7 +4,7 @@ import (
 	"errors"
 	"io"
 
-	"retrom/internal/adapter/files/blobstore"
+	"retrom/internal/model/blob"
 )
 
 var (
@@ -14,11 +14,11 @@ var (
 
 type AssetPublication struct {
 	ID            string
-	Blob          blobstore.Metadata
+	Blob          blob.PreparedBlob
 	MediaType     string
 	Width, Height int
 	Now           int64
 }
 type AssetBlobs interface {
-	Put(io.Reader) (blobstore.Metadata, error)
+	Put(io.Reader) (blob.PreparedBlob, error)
 }

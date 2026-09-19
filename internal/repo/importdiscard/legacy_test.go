@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	"retrom/internal/service/importdiscard"
+	importdiscardmodel "retrom/internal/model/importdiscard"
 
 	"github.com/google/uuid"
 
@@ -54,7 +54,7 @@ func TestDiscardRefusesAmbiguousLegacyPegasusOwner(t *testing.T) {
 		}
 	}
 	f.create(t, file)
-	if _, err := f.service.RunOnce(f.ctx); !errors.Is(err, importdiscard.ErrAmbiguousOwner) {
+	if _, err := f.service.RunOnce(f.ctx); !errors.Is(err, importdiscardmodel.ErrAmbiguousOwner) {
 		t.Fatalf("ambiguous owner: %v", err)
 	}
 	if f.count(t, `SELECT count(*) FROM upload_files WHERE final_blob_id=?`, file.BlobID) != 1 {

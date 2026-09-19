@@ -11,6 +11,9 @@ import (
 	"testing"
 	"time"
 
+	runtimeprofile "retrom/internal/adapter/runtime/netplayprofile"
+	"retrom/internal/model/netplayprofile"
+
 	"retrom/internal/bootstrap/composition"
 
 	"github.com/google/uuid"
@@ -119,7 +122,7 @@ func TestNetplayRoomCreateIsAuthenticatedIdempotentAndVersioned(t *testing.T) {
 	server.config.NetplayEnabled = true
 	repositoryRoot, err := filepath.Abs(filepath.Join("..", "..", ".."))
 	testassert.False(t, err != nil, err)
-	registry, err := netplay.LoadRegistry(filepath.Join(repositoryRoot, "data"), server.dependencies)
+	registry, err := runtimeprofile.LoadRegistry(filepath.Join(repositoryRoot, "data"), server.dependencies)
 	testassert.False(t, err != nil, err)
 	credentials, err := netplay.LoadOrCreateCredentials(server.config.DataDir)
 	testassert.False(t, err != nil, err)
@@ -186,7 +189,9 @@ func TestAcceptanceNP010NetplaySocketRejectsEveryNonExactOriginAndProtocol(t *te
 		"duplicate fetch metadata": func(request *http.Request) {
 			request.Header.Add("Sec-Fetch-Site", "same-origin")
 		},
-		"profile version": func(request *http.Request) { request.Header.Set("Sec-WebSocket-Protocol", netplay.ProtocolVersion) },
+		"profile version": func(request *http.Request) {
+			request.Header.Set("Sec-WebSocket-Protocol", netplayprofile.ProtocolVersion)
+		},
 		"duplicate protocol": func(request *http.Request) {
 			request.Header.Add("Sec-WebSocket-Protocol", netplay.WebSocketSubprotocol)
 		},

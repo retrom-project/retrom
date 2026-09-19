@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"net/url"
 
-	catalogservice "retrom/internal/service/catalog"
+	catalogmodel "retrom/internal/model/catalog"
 )
 
 func (server *Server) platforms(writer http.ResponseWriter, request *http.Request) {
@@ -48,14 +48,14 @@ func (server *Server) runtimeTargets(writer http.ResponseWriter, request *http.R
 	writeJSON(writer, http.StatusOK, map[string]any{"items": items, "nextCursor": nil})
 }
 
-func platformInstanceFilters(values url.Values) (catalogservice.PlatformInstanceQuery, bool) {
-	query := catalogservice.PlatformInstanceQuery{}
+func platformInstanceFilters(values url.Values) (catalogmodel.PlatformInstanceQuery, bool) {
+	query := catalogmodel.PlatformInstanceQuery{}
 	if value := values.Get("platformId"); value != "" {
 		query.PlatformID = &value
 	}
 	if value := values.Get("enabled"); value != "" {
 		if value != "true" && value != "false" {
-			return catalogservice.PlatformInstanceQuery{}, false
+			return catalogmodel.PlatformInstanceQuery{}, false
 		}
 		enabled := value == "true"
 		query.Enabled = &enabled

@@ -7,30 +7,36 @@ import (
 	"fmt"
 	"time"
 
-	"retrom/internal/adapter/files/blobstore"
-	"retrom/internal/adapter/metadata/hasheous"
+	"retrom/internal/model/blob"
+	metadatamodel "retrom/internal/model/metadata"
+
+	metadatascrapemodel "retrom/internal/model/metadatascrape"
 )
 
 type ResultRecorder struct {
-	repository ResultRepository
-	blobs      AssetBlobs
+	repository metadatascrapemodel.ResultRepository
+	blobs      metadatascrapemodel.AssetBlobs
 	now        func() time.Time
 }
 
-func NewRecorder(repository ResultRepository, blobs AssetBlobs, now func() time.Time) *ResultRecorder {
+func NewRecorder(
+	repository metadatascrapemodel.ResultRepository,
+	blobs metadatascrapemodel.AssetBlobs,
+	now func() time.Time,
+) *ResultRecorder {
 	return &ResultRecorder{repository: repository, blobs: blobs, now: now}
 }
 
 type preparedRaw struct {
-	blob *blobstore.Metadata
+	blob *blob.PreparedBlob
 }
 
 type preparedCandidate struct {
 	metadata, evidence string
-	value              *hasheous.Candidate
+	value              *metadatamodel.Candidate
 }
 
-func prepareCandidate(attempt LookupAttempt) (preparedCandidate, error) {
+func prepareCandidate(attempt metadatascrapemodel.LookupAttempt) (preparedCandidate, error) {
 	if !attempt.AllowCandidate || attempt.Lookup.Result.Candidate == nil {
 		return preparedCandidate{}, nil
 	}
@@ -46,7 +52,7 @@ func prepareCandidate(attempt LookupAttempt) (preparedCandidate, error) {
 	return preparedCandidate{metadata: string(metadata), evidence: string(evidence), value: candidate}, nil
 }
 
-func (recorder *ResultRecorder) Record(ctx context.Context, attempt LookupAttempt) (bool, error) {
+func (recorder *ResultRecorder) Record(ctx context.Context, attempt metadatascrapemodel.LookupAttempt) (bool, error) {
 	if err := ctx.Err(); err != nil {
 		return false, fmt.Errorf("record scrape result: %w", err)
 	}
@@ -60,7 +66,7 @@ func (recorder *ResultRecorder) Record(ctx context.Context, attempt LookupAttemp
 	}
 	now := recorder.now().UnixMilli()
 	created := false
-	err = recorder.repository.WithWrite(ctx, func(scope ResultScope) error {
+	err = recorder.repository.WithWrite(ctx, func(scope metadatascrapemodel.ResultScope) error {
 		claim := attempt.Claim
 		claim.Now = recorder.now().UnixMilli()
 		writable, err := scope.Read.Writable(ctx, claim)
@@ -68,7 +74,7 @@ func (recorder *ResultRecorder) Record(ctx context.Context, attempt LookupAttemp
 			return fmt.Errorf("read scrape result owner: %w", err)
 		}
 		if !writable {
-			return ErrExecutionLost
+			return metadatascrapemodel.ErrExecutionLost
 		}
 		responseID, source, err := recordResponse(ctx, scope.Write, attempt.Lookup, blob.blob, now)
 		if err != nil {
@@ -79,7 +85,7 @@ func (recorder *ResultRecorder) Record(ctx context.Context, attempt LookupAttemp
 			return err
 		}
 		number := attempt.AttemptNo
-		if err := scope.Write.Attempt(ctx, AttemptRecord{
+		if err := scope.Write.Attempt(ctx, metadatascrapemodel.AttemptRecord{
 			ID: attemptID, RunID: attempt.Claim.RunID, EvidenceID: attempt.EvidenceID,
 			ResponseID: responseID, Source: source, AttemptNo: number, Now: now,
 		}); err != nil {
@@ -97,7 +103,7 @@ func (recorder *ResultRecorder) Record(ctx context.Context, attempt LookupAttemp
 	return created, nil
 }
 
-func (recorder *ResultRecorder) prepareRaw(lookup ResolvedLookup) (preparedRaw, error) {
+func (recorder *ResultRecorder) prepareRaw(lookup metadatascrapemodel.ResolvedLookup) (preparedRaw, error) {
 	if lookup.CachedResponseID != "" || len(lookup.Result.RawResponse) == 0 {
 		return preparedRaw{}, nil
 	}
@@ -110,9 +116,7 @@ func (recorder *ResultRecorder) prepareRaw(lookup ResolvedLookup) (preparedRaw, 
 
 func recordResponse(
 	ctx context.Context,
-	writer ResultWriter,
-	lookup ResolvedLookup,
-	blob *blobstore.Metadata,
+	writer metadatascrapemodel.ResultWriter, lookup metadatascrapemodel.ResolvedLookup, blob *blob.PreparedBlob,
 	now int64,
 ) (string, string, error) {
 	if lookup.CachedResponseID != "" {
@@ -123,9 +127,9 @@ func recordResponse(
 		return "", "", err
 	}
 	result := lookup.Result
-	err = writer.Response(ctx, ResponseRecord{
-		ID: id, RequestDigest: result.RequestDigest, Outcome: result.Outcome, HTTPStatus: result.HTTPStatus, Blob: blob,
-		Cacheable: result.Outcome == hasheous.OutcomeHit || result.Outcome == hasheous.OutcomeMiss,
+	err = writer.Response(ctx, metadatascrapemodel.ResponseRecord{
+		ID: id, RequestDigest: result.RequestDigest, Outcome: result.Outcome, Audit: result.Audit, Blob: blob,
+		Cacheable: result.Outcome == metadatamodel.OutcomeHit || result.Outcome == metadatamodel.OutcomeMiss,
 		Now:       now, ExpiresAt: ResponseExpiry(
 			result.Outcome,
 			now,

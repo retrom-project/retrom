@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	blobmodel "retrom/internal/model/blob"
+
 	"retrom/internal/repo/dbexec"
 
 	"retrom/internal/adapter/files/blobstore"
@@ -26,7 +28,7 @@ func TestProviderPayloadTTLWaitsForRunningScrape(t *testing.T) {
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
 	blobs, err := blobstore.Open(dataDir)
 	testassert.False(t, err != nil, err)
-	register := func(id, value string) blobstore.Metadata {
+	register := func(id, value string) blobmodel.PreparedBlob {
 		t.Helper()
 		metadata, putErr := blobs.Put(bytes.NewBufferString(value))
 		testassert.False(t, putErr != nil, putErr)
@@ -69,7 +71,7 @@ func seedProviderRunningScrape(
 	t *testing.T,
 	database *sql.DB,
 	instanceID string,
-	free, busy blobstore.Metadata,
+	free, busy blobmodel.PreparedBlob,
 	now time.Time,
 ) {
 	t.Helper()

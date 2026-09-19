@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 
+	jobsmodel "retrom/internal/model/jobs"
 	"retrom/internal/service/jobs"
 )
 
@@ -32,7 +33,7 @@ func (server *Server) cancelJob(writer http.ResponseWriter, request *http.Reques
 		body.Reason,
 	)
 	if err != nil {
-		if !errors.Is(err, jobs.ErrConflict) && !errors.Is(err, jobs.ErrRetryViaDomain) {
+		if !errors.Is(err, jobsmodel.ErrConflict) && !errors.Is(err, jobs.ErrRetryViaDomain) {
 			server.databaseError(writer, request, err)
 			return
 		}

@@ -7,7 +7,7 @@ import (
 	"slices"
 	"testing"
 
-	"retrom/internal/service/tagging"
+	taggingmodel "retrom/internal/model/tagging"
 )
 
 func TestChildListsRejectUnknownImport(t *testing.T) {
@@ -155,7 +155,7 @@ func queryCollectionFixture(t *testing.T) (lifecycleFixture, Summary) {
 	return fixture, scanned
 }
 
-func queryMappedTagFixture(t *testing.T) (lifecycleFixture, Summary, tagging.AdminItem) {
+func queryMappedTagFixture(t *testing.T) (lifecycleFixture, Summary, taggingmodel.AdminItem) {
 	t.Helper()
 	fixture := newLifecycleFixture(t)
 	scanned := fixture.createAndScan(t)

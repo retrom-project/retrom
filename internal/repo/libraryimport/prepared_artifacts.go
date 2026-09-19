@@ -4,7 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"retrom/internal/adapter/files/blobstore"
+	blobmodel "retrom/internal/model/blob"
+
 	application "retrom/internal/model/libraryimport"
 	"retrom/internal/repo/blobcatalog"
 	"retrom/internal/repo/dbexec"
@@ -17,7 +18,7 @@ func BindPreparedArtifacts(executor dbexec.Executor) application.ImportArtifactW
 }
 
 func (records preparedArtifacts) Register(
-	ctx context.Context, metadata blobstore.Metadata, nowMS int64,
+	ctx context.Context, metadata blobmodel.PreparedBlob, nowMS int64,
 ) (string, error) {
 	id, err := blobcatalog.EnsureRecord(ctx, records.executor, metadata, "application/octet-stream", nowMS)
 	if err != nil {

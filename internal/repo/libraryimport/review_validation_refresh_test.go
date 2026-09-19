@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"retrom/internal/capability/content/corevalidation"
-	application "retrom/internal/service/libraryimport"
+	libraryimportmodel "retrom/internal/model/libraryimport"
 	"retrom/internal/testkit/testsupport"
 )
 
@@ -15,11 +15,11 @@ func TestReviewValidationInputsPreserveInfrastructureErrors(t *testing.T) {
 	t.Parallel()
 	cause := errors.New("validation facts unavailable")
 	wrapped := reviewValidationInputsError("read validation facts", cause)
-	if !errors.Is(wrapped, cause) || errors.Is(wrapped, application.ErrInvalid) {
+	if !errors.Is(wrapped, cause) || errors.Is(wrapped, libraryimportmodel.ErrInvalid) {
 		t.Fatalf("wrapped infrastructure error = %v", wrapped)
 	}
 	invalid := reviewValidationInputsError("read validation facts", sql.ErrNoRows)
-	if !errors.Is(invalid, sql.ErrNoRows) || !errors.Is(invalid, application.ErrInvalid) {
+	if !errors.Is(invalid, sql.ErrNoRows) || !errors.Is(invalid, libraryimportmodel.ErrInvalid) {
 		t.Fatalf("classified missing facts error = %v", invalid)
 	}
 }
@@ -98,7 +98,7 @@ func assertRefreshCandidates(
 	instance, coreID, providerID, targetID string,
 ) {
 	t.Helper()
-	lookup := application.ReviewValidationRefreshLookup{
+	lookup := libraryimportmodel.ReviewValidationRefreshLookup{
 		ItemID: "item", SourceSnapshotID: "snapshot", TargetPlatformInstanceID: instance,
 		CoreID: coreID, ProviderID: providerID, TargetID: targetID,
 	}
@@ -151,7 +151,7 @@ INSERT INTO blobs(id,sha256,size_bytes,md5,sha1,crc32,media_type,created_at_ms)
 VALUES('bios-blob',?,?,?,?,?,?,1)`, digest, 1, strings.Repeat("c", 32), strings.Repeat("d", 40), strings.Repeat("e", 8), "application/octet-stream")
 	newID := "refresh-created"
 	repository := BindReviewValidation(database)
-	if err := repository.Create(t.Context(), application.ReviewValidationRefreshCreate{
+	if err := repository.Create(t.Context(), libraryimportmodel.ReviewValidationRefreshCreate{
 		ID: newID, ItemID: "item", TargetPlatformInstanceID: instance,
 		PlatformInstanceVersion: 1, CoreID: coreID, ProviderID: providerID, TargetID: targetID,
 		SourceManifestDigest: sourceDigest, SourceSnapshotID: "snapshot", PrepublishInputDigest: sourceDigest,
@@ -161,7 +161,7 @@ VALUES('bios-blob',?,?,?,?,?,?,1)`, digest, 1, strings.Repeat("c", 32), strings.
 		t.Fatal(err)
 	}
 	blobID := "bios-blob"
-	if err := repository.CopyFiles(t.Context(), application.ReviewValidationRefreshFileCopy{
+	if err := repository.CopyFiles(t.Context(), libraryimportmodel.ReviewValidationRefreshFileCopy{
 		ValidationID: newID, SourceValidationID: "refresh-source", CreatedAtMS: 3,
 		ReplaceBIOSBundle: true,
 		Dependencies: []corevalidation.BIOSDependency{{

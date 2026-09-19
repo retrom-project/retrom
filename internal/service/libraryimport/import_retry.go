@@ -9,16 +9,18 @@ import (
 	"strings"
 	"time"
 
+	model "retrom/internal/model/libraryimport"
+
 	"github.com/google/uuid"
 )
 
 type ImportItemRetries struct {
-	repository ImportItemRetryRepository
+	repository model.ImportItemRetryRepository
 	now        func() time.Time
 	newID      func() (string, error)
 }
 
-func NewImportItemRetries(repository ImportItemRetryRepository, now func() time.Time) *ImportItemRetries {
+func NewImportItemRetries(repository model.ImportItemRetryRepository, now func() time.Time) *ImportItemRetries {
 	if now == nil {
 		now = time.Now
 	}
@@ -34,24 +36,24 @@ func newImportRetryID() (string, error) {
 }
 
 func (service *ImportItemRetries) Retry(
-	ctx context.Context, request ImportItemRetryRequest,
-) (ImportItemRetryResult, error) {
+	ctx context.Context, request model.ImportItemRetryRequest,
+) (model.ImportItemRetryResult, error) {
 	if strings.TrimSpace(request.ItemID) == "" || request.ExpectedVersion < 1 {
-		return ImportItemRetryResult{}, ErrInvalid
+		return model.ImportItemRetryResult{}, model.ErrInvalid
 	}
 	jobID, err := service.newID()
 	if err != nil {
-		return ImportItemRetryResult{}, err
+		return model.ImportItemRetryResult{}, err
 	}
 	now := service.now().UnixMilli()
-	var result ImportItemRetryResult
-	err = service.repository.WithRetry(ctx, func(scope ImportItemRetryScope) error {
+	var result model.ImportItemRetryResult
+	err = service.repository.WithRetry(ctx, func(scope model.ImportItemRetryScope) error {
 		snapshot, found, err := scope.Current(ctx, request.ItemID)
 		if err != nil {
 			return fmt.Errorf("read import item retry: %w", err)
 		}
 		if !found || snapshot.State != "FAILED_RETRYABLE" || snapshot.Version != request.ExpectedVersion {
-			return ErrInvalid
+			return model.ErrInvalid
 		}
 		dedupeInput := request.ItemID + ":" + snapshot.Stage + ":" +
 			time.UnixMilli(now).UTC().Format(time.RFC3339Nano)
@@ -60,20 +62,20 @@ func (service *ImportItemRetries) Retry(
 		if err != nil {
 			return fmt.Errorf("encode import retry input: %w", err)
 		}
-		if err := scope.Retry(ctx, ImportItemRetryWrite{
+		if err := scope.Retry(ctx, model.ImportItemRetryWrite{
 			ItemID: request.ItemID, ImportID: snapshot.ImportID, Stage: snapshot.Stage,
 			ManifestDigest: snapshot.ManifestDigest, ExpectedVersion: request.ExpectedVersion,
 			JobID: jobID, DedupeKey: hex.EncodeToString(dedupe[:]), PayloadJSON: string(payload), NowMS: now,
 		}); err != nil {
 			return fmt.Errorf("persist import item retry: %w", err)
 		}
-		result = ImportItemRetryResult{
+		result = model.ImportItemRetryResult{
 			ItemID: request.ItemID, JobID: jobID, State: "QUEUED", Version: request.ExpectedVersion + 1,
 		}
 		return nil
 	})
 	if err != nil {
-		return ImportItemRetryResult{}, fmt.Errorf("retry import item: %w", err)
+		return model.ImportItemRetryResult{}, fmt.Errorf("retry import item: %w", err)
 	}
 	return result, nil
 }

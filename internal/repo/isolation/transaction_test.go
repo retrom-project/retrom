@@ -5,7 +5,7 @@ import (
 	"encoding/base64"
 	"testing"
 
-	"retrom/internal/service/isolation"
+	isolationmodel "retrom/internal/model/isolation"
 )
 
 func TestFailedCapabilityIssueDoesNotConsumeTicket(t *testing.T) {
@@ -16,14 +16,14 @@ func TestFailedCapabilityIssueDoesNotConsumeTicket(t *testing.T) {
 		t.Fatal(err)
 	}
 	digest := sha256.Sum256(raw)
-	query := isolation.TicketQuery{LaunchID: fixture.launchID, Origin: fixture.origin, Digest: &digest}
-	err = fixture.repository.WithWrite(t.Context(), func(records isolation.Tickets) error {
+	query := isolationmodel.TicketQuery{LaunchID: fixture.launchID, Origin: fixture.origin, Digest: &digest}
+	err = fixture.repository.WithWrite(t.Context(), func(records isolationmodel.Tickets) error {
 		if err := records.Consume(t.Context(), query, *fixture.nowMS); err != nil {
 			return err
 		}
-		return records.Issue(t.Context(), isolation.CapabilityWrite{
+		return records.Issue(t.Context(), isolationmodel.CapabilityWrite{
 			Digest: digest, IssuedAtMS: *fixture.nowMS,
-			Access: isolation.Access{LaunchID: fixture.launchID, Origin: fixture.origin, Profile: "wrong-owner", Expires: *fixture.nowMS + 1000},
+			Access: isolationmodel.Access{LaunchID: fixture.launchID, Origin: fixture.origin, Profile: "wrong-owner", Expires: *fixture.nowMS + 1000},
 		})
 	})
 	if err == nil {

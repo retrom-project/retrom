@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
+	model "retrom/internal/model/pegasusimport"
 )
 
 var (
@@ -12,15 +14,15 @@ var (
 )
 
 type WorkSources interface {
-	OpenScan(Work) (ScannerSource, error)
-	OpenImport(Work) (ImportSources, error)
+	OpenScan(model.Work) (ScannerSource, error)
+	OpenImport(model.Work) (ImportSources, error)
 }
 type (
 	WorkFailureSettlement interface {
-		Fail(context.Context, ExecutionIdentity, ExecutionFailure) error
+		Fail(context.Context, model.ExecutionIdentity, model.ExecutionFailure) error
 	}
 	ScanPublisher interface {
-		Save(context.Context, ExecutionIdentity, ScanProjection) error
+		Save(context.Context, model.ExecutionIdentity, model.ScanProjection) error
 	}
 	WorkDispatchDependencies struct {
 		Sources     WorkSources
@@ -36,7 +38,7 @@ func NewWorkDispatcher(dependencies WorkDispatchDependencies) *WorkDispatcher {
 	return &WorkDispatcher{dependencies: dependencies}
 }
 
-func (dispatcher *WorkDispatcher) Execute(ctx context.Context, unit Work) {
+func (dispatcher *WorkDispatcher) Execute(ctx context.Context, unit model.Work) {
 	if ctx.Err() != nil {
 		return
 	}
@@ -56,7 +58,7 @@ func (dispatcher *WorkDispatcher) Execute(ctx context.Context, unit Work) {
 	}
 }
 
-func (dispatcher *WorkDispatcher) scan(ctx context.Context, unit Work) {
+func (dispatcher *WorkDispatcher) scan(ctx context.Context, unit model.Work) {
 	source, err := dispatcher.dependencies.Sources.OpenScan(unit)
 	if err != nil {
 		dispatcher.fail(ctx, unit, err)
@@ -68,25 +70,40 @@ func (dispatcher *WorkDispatcher) scan(ctx context.Context, unit Work) {
 		return
 	}
 	if err := dispatcher.dependencies.Publication.Save(ctx, unit.Identity(), result.Projection()); err != nil {
-		dispatcher.failWith(ctx, unit, err, ExecutionFailure{Code: "INTERNAL_ERROR", Retryable: true})
+		dispatcher.failWith(ctx, unit, err, model.ExecutionFailure{Code: "INTERNAL_ERROR", Retryable: true})
 	}
 }
 
-func (dispatcher *WorkDispatcher) fail(ctx context.Context, unit Work, cause error) {
+func (dispatcher *WorkDispatcher) fail(ctx context.Context, unit model.Work, cause error) {
 	code := "INTERNAL_ERROR"
 	for _, known := range []error{
-		ErrRootChanged, ErrMetadataAbsent, ErrScanLimit, ErrSourceChanged,
-		ErrMapping, ErrNoSelection, ErrExpired, ErrActive, ErrInvalid,
+		ErrRootChanged,
+		model.ErrMetadataAbsent,
+		model.ErrScanLimit,
+		model.ErrSourceChanged,
+		model.ErrMapping,
+		model.ErrNoSelection,
+		model.ErrExpired,
+		model.ErrActive,
+		model.ErrInvalid,
 	} {
 		if errors.Is(cause, known) {
 			code = known.Error()
 			break
 		}
 	}
-	dispatcher.failWith(ctx, unit, cause, ExecutionFailure{Code: code, Retryable: errors.Is(cause, ErrRootUnavailable)})
+	dispatcher.failWith(ctx, unit, cause, model.ExecutionFailure{Code: code, Retryable: errors.Is(
+		cause,
+		ErrRootUnavailable,
+	)})
 }
 
-func (dispatcher *WorkDispatcher) failWith(ctx context.Context, unit Work, cause error, failure ExecutionFailure) {
+func (dispatcher *WorkDispatcher) failWith(
+	ctx context.Context,
+	unit model.Work,
+	cause error,
+	failure model.ExecutionFailure,
+) {
 	if importStopCause(ctx, cause) != nil {
 		return
 	}

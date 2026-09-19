@@ -6,19 +6,21 @@ import (
 	"io"
 	"testing"
 
-	"retrom/internal/adapter/metadata/hasheous"
+	metadatamodel "retrom/internal/model/metadata"
+
+	metadatascrapemodel "retrom/internal/model/metadatascrape"
+
 	jobpersistence "retrom/internal/repo/jobs"
 	"retrom/internal/service/jobs"
-	"retrom/internal/service/metadatascrape"
 )
 
 func TestMediaFailedBytesRemainChargedAcrossManualRetry(t *testing.T) {
 	fixture := newMediaFixture(t)
-	source := mediaSource(func(_ context.Context, _ hasheous.AssetRef, limit int64) (hasheous.AssetData, error) {
-		if limit != hasheous.MaximumAssetReadBytes {
+	source := mediaSource(func(_ context.Context, _ metadatamodel.AssetReference, limit int64) (metadatamodel.AssetData, error) {
+		if limit != metadatamodel.MaximumAssetReadBytes {
 			t.Errorf("reservation=%d", limit)
 		}
-		return hasheous.AssetData{ReceivedBytes: 3}, errors.Join(hasheous.ErrAssetNetwork, io.ErrUnexpectedEOF)
+		return metadatamodel.AssetData{ReceivedBytes: 3}, errors.Join(metadatamodel.ErrAssetNetwork, io.ErrUnexpectedEOF)
 	})
 	err := fixture.worker(source).Run(t.Context(), fixture.jobID)
 	if !errors.Is(err, io.ErrUnexpectedEOF) {
@@ -43,25 +45,25 @@ func TestMediaFailedBytesRemainChargedAcrossManualRetry(t *testing.T) {
 
 func TestMediaBudgetUsesRemainingReservationAndRejectsFurtherReads(t *testing.T) {
 	fixture := newMediaFixture(t)
-	recoveryExec(t, fixture.database, `UPDATE metadata_media_runs SET charged_bytes=?`, metadatascrape.MediaRunBudget-2)
+	recoveryExec(t, fixture.database, `UPDATE metadata_media_runs SET charged_bytes=?`, metadatascrapemodel.MediaRunBudget-2)
 	calls := 0
-	source := mediaSource(func(_ context.Context, _ hasheous.AssetRef, limit int64) (hasheous.AssetData, error) {
+	source := mediaSource(func(_ context.Context, _ metadatamodel.AssetReference, limit int64) (metadatamodel.AssetData, error) {
 		calls++
 		if limit != 2 {
 			t.Errorf("unbounded final reservation=%d", limit)
 		}
-		return hasheous.AssetData{ReceivedBytes: 2}, hasheous.ErrAssetReadLimit
+		return metadatamodel.AssetData{ReceivedBytes: 2}, metadatamodel.ErrAssetReadLimit
 	})
-	if err := fixture.worker(source).Run(t.Context(), fixture.jobID); !errors.Is(err, hasheous.ErrAssetReadLimit) {
+	if err := fixture.worker(source).Run(t.Context(), fixture.jobID); !errors.Is(err, metadatamodel.ErrAssetReadLimit) {
 		t.Fatal(err)
 	}
 	first := fixture.snapshot(t)
-	if first.Charged != metadatascrape.MediaRunBudget || first.Asset.Reserved != 0 {
+	if first.Charged != metadatascrapemodel.MediaRunBudget || first.Asset.Reserved != 0 {
 		t.Fatalf("budget=%+v", first)
 	}
 	recoveryExec(t, fixture.database, `UPDATE jobs SET state='QUEUED',finished_at_ms=NULL,error_code=NULL,error_retryable=NULL,
  worker_id=NULL,version=version+1 WHERE id=?`, fixture.jobID)
-	if err := fixture.worker(source).Run(t.Context(), fixture.jobID); !errors.Is(err, hasheous.ErrAssetReadLimit) {
+	if err := fixture.worker(source).Run(t.Context(), fixture.jobID); !errors.Is(err, metadatamodel.ErrAssetReadLimit) {
 		t.Fatal(err)
 	}
 	if calls != 1 {

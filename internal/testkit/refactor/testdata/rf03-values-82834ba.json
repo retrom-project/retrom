@@ -1,0 +1,85 @@
+{
+  "SchemaVersion": 1,
+  "Provenance": {
+    "BaselineCommit": "82834bade1648da3067ebda1b1fc89c18577fd6a",
+    "GoVersion": "go1.26.5",
+    "InputFile": "rf03-values-input.json",
+    "InputSHA256": "aa6a2b1d95656d153131b2eaccbbd2552605ea42c762d8ce7d22f28f9ead1fd5",
+    "CaptureProgram": "rf03-value-capture.go.txt",
+    "CaptureProgramSHA256": "8ef909e27136fd70117da7fe5e5e9e521532071c005f3d9e53d31562fc56b2eb",
+    "CaptureCommand": "GOTOOLCHAIN=local GOPROXY=off GOFLAGS=-mod=readonly go run ./internal/rf03valuecapture ../../../internal/testkit/refactor/testdata/rf03-values-input.json",
+    "Sources": [
+      {
+        "Path": "go.mod",
+        "SHA256": "030cb9954853580527b656b7c18c9ad4a9b5577cf838fc8cce44944f2cb57f84"
+      },
+      {
+        "Path": "go.sum",
+        "SHA256": "212765aac045b96130635e81f378d6d125785bdae7970142176fc2f8b4736eae"
+      },
+      {
+        "Path": "internal/model/jobs/progress_types.go",
+        "SHA256": "49445b2d1e156d929a1446babe55e3285fa1575ef76b13120638901aef092666"
+      },
+      {
+        "Path": "internal/model/saves/manual_result.go",
+        "SHA256": "902ad51de0a7510fe84f1c7f24b5f7362f9761c34e14b303278f3ecaa52b90dd"
+      },
+      {
+        "Path": "internal/adapter/metadata/hasheous/asset_fetch.go",
+        "SHA256": "35f0375a100d4dcbc8652449b6965d7302910c6b15c71746d3638d1756a39cc3"
+      },
+      {
+        "Path": "internal/adapter/metadata/hasheous/asset_read.go",
+        "SHA256": "fb369e9a184bc13fdf740c7e6b059da3c1adfd1d3e99f78b76b3eb858acfeb99"
+      },
+      {
+        "Path": "internal/adapter/metadata/hasheous/provider.go",
+        "SHA256": "7d8ced328b388209791b4c748557e46bc47dec17f2c8c94b435ad2b975c724ed"
+      },
+      {
+        "Path": "internal/adapter/files/blobstore/blobstore.go",
+        "SHA256": "026fcdce3e3b4490e4670633e66eb56a9fc117d2088a9ab4f8cad66468d44bce"
+      },
+      {
+        "Path": "internal/adapter/files/blobstore/nofollow_linux.go",
+        "SHA256": "1cb75d64f652b428d4e7bffa644ea85d23b15e6999f4963795960fa22dc4c69b"
+      },
+      {
+        "Path": "internal/foundation/legacychecksum/checksum.go",
+        "SHA256": "5988f2fa2d8c52d03cf83dee9c3c0be0c6a5eb80cf7b14204f6343fd5ffe423f"
+      }
+    ]
+  },
+  "Metadata": {
+    "CandidateJSON": "{\"providerGameId\":\"42\",\"metadata\":{\"description\":\"First paragraph.\\n\\n第二段\\t\\u003c\\u003e\\u0026\",\"developer\":\"\",\"genre\":\"\",\"players\":null,\"publisher\":\"出版 \\u0026 studio\",\"releaseYear\":2001,\"schemaVersion\":1,\"title\":\"\\u003cscript\\u003e游戏🎮\\u003c/script\\u003e\"},\"evidence\":{\"normalizationYear\":2026,\"normalizerVersion\":\"HASHEOUS_BY_HASH_V1\",\"platformName\":\"Game Boy Advance\",\"providerGameScore\":8,\"providerRomScore\":4,\"schemaVersion\":1,\"warnings\":[\"DUPLICATE_ASSET_SLOT:COVER:0\"]},\"assets\":[{\"providerAssetId\":\"cover-1\",\"kind\":\"COVER\",\"ordinal\":0,\"path\":\"/api/v1/images/cover-1\"}]}",
+    "NullCandidateJSON": "{\"providerGameId\":\"\",\"metadata\":null,\"evidence\":null,\"assets\":null}",
+    "EmptyCandidateJSON": "{\"providerGameId\":\"\",\"metadata\":{},\"evidence\":{},\"assets\":[]}",
+    "RawResponseBase64": "IAp7ImlkIjo0MiwibmFtZSI6IiA8c2NyaXB0Pua4uOaIj/Cfjq48L3NjcmlwdD4gIiwicHVibGlzaGVyIjp7Im5hbWUiOiLlh7rniYggJiBzdHVkaW8ifSwicGxhdGZvcm0iOnsibmFtZSI6IkdhbWUgQm95IEFkdmFuY2UifSwic2lnbmF0dXJlIjp7ImdhbWUiOnsiZGVzY3JpcHRpb24iOiJGaXJzdCBwYXJhZ3JhcGguXHJcblxyXG7nrKzkuozmrrVcdDw+JiIsInllYXIiOiIyMDAxIiwic2NvcmUiOjh9LCJyb20iOnsic2NvcmUiOjR9fSwiYXR0cmlidXRlcyI6W3siYXR0cmlidXRlTmFtZSI6IkxvZ28iLCJhdHRyaWJ1dGVUeXBlIjoiSW1hZ2VJZCIsImF0dHJpYnV0ZVJlbGF0aW9uVHlwZSI6Ik5vbmUiLCJ2YWx1ZSI6ImNvdmVyLTEiLCJsaW5rIjoiL2FwaS92MS9pbWFnZXMvY292ZXItMSJ9LHsiYXR0cmlidXRlTmFtZSI6IlRhZ3MiLCJhdHRyaWJ1dGVUeXBlIjoiRW1iZWRkZWRMaXN0IiwiYXR0cmlidXRlUmVsYXRpb25UeXBlIjoiTm9uZSIsInZhbHVlIjp7Imlnbm9yZWQiOlsi5LiK5ri45a2X5q61Iix7InRhZyI6ImZ1dHVyZSJ9XX19LHsiYXR0cmlidXRlTmFtZSI6IkxvZ28iLCJhdHRyaWJ1dGVUeXBlIjoiSW1hZ2VJZCIsImF0dHJpYnV0ZVJlbGF0aW9uVHlwZSI6Ik5vbmUiLCJ2YWx1ZSI6ImNvdmVyLTIiLCJsaW5rIjoiL2FwaS92MS9pbWFnZXMvY292ZXItMiJ9XSwidW5rbm93blVwc3RyZWFtIjp7InZlcnNpb24iOjk5LCJuZXN0ZWQiOlsib3BhcXVlIiwi5L+d55WZ4oCo4oCpIl0sImxpdGVyYWwiOiI8bm90IG5vcm1hbGl6ZWQ+In19CQo=",
+    "RequestBody": "{\"crc\":\"1234abcd\",\"mD5\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"shA1\":\"cccccccccccccccccccccccccccccccccccccccc\",\"shA256\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"}",
+    "RequestDigest": "e7113781b95642dfeb7119708a28899abe49cb0a57d6ab7f176d09cb5d5f38ef",
+    "HashDigest": "e7113781b95642dfeb7119708a28899abe49cb0a57d6ab7f176d09cb5d5f38ef",
+    "RequestMethod": "POST",
+    "RequestURL": "https://hasheous.org/api/v1/Lookup/ByHash",
+    "Outcome": "HIT"
+  },
+  "JobJSON": [
+    "{\"jobId\":\"01980000-0000-7000-8000-000000000001\",\"scopeType\":\"GAME\",\"scopeId\":\"01980000-0000-7000-8000-000000000002\",\"kind\":\"METADATA_SCRAPE\",\"state\":\"QUEUED\",\"version\":1,\"attemptCount\":0,\"maxAttempts\":3,\"errorCode\":null,\"retryable\":false,\"updatedAtMs\":1785974400123}",
+    "{\"jobId\":\"01980000-0000-7000-8000-000000000003\",\"scopeType\":\"IMPORT_ITEM\",\"scopeId\":\"导入\\u003c\\u003e\\u0026🎮\",\"kind\":\"MEDIA_FETCH\",\"state\":\"FAILED\",\"version\":9007199254740993,\"attemptCount\":3,\"maxAttempts\":3,\"errorCode\":\"MEDIA_SOURCE_ERROR\",\"retryable\":true,\"updatedAtMs\":1785974400456}"
+  ],
+  "Saves": [
+    {
+      "Label": "product-null",
+      "JSON": "{\"resourceKind\":\"SAVE_STATE\",\"saveStateId\":\"01980000-0000-7000-8000-000000000010\",\"checkpointFormat\":\"RETROM_CHECKPOINT_V1\",\"screenshotUrl\":null,\"createdAtMs\":1785974400123}"
+    },
+    {
+      "Label": "product-screenshot-unicode",
+      "JSON": "{\"resourceKind\":\"SAVE_STATE\",\"saveStateId\":\"01980000-0000-7000-8000-000000000011\",\"checkpointFormat\":\"RETROM_CHECKPOINT_V1\",\"screenshotUrl\":\"/api/存档/封面🎮.png?caption=\\u003c\\u003e\\u0026\\u2028\\u2029\",\"createdAtMs\":1785974400456}"
+    },
+    {
+      "Label": "preview-omitted-product-fields",
+      "JSON": "{\"resourceKind\":\"REVIEW_PREVIEW_CHECKPOINT\",\"previewId\":\"01980000-0000-7000-8000-000000000012\",\"checkpointFormat\":\"预览_CHECKPOINT_V1🎮\\u003c\\u003e\\u0026\",\"createdAtMs\":1785974400789}"
+    }
+  ],
+  "BlobFactsJSON": "{\"SHA256\":\"6e1fd93608caaedb704454f2f513aebbee3fb3325a5c45a90c040ea86a6c1ea3\",\"MD5\":\"892dce923ea646848fd8c8a426f36c47\",\"SHA1\":\"948f285809f869c774af278ed9b3ab15c62f1037\",\"CRC32\":\"504a4947\",\"Size\":40}"
+}

@@ -8,14 +8,17 @@ import (
 	"errors"
 	"testing"
 
+	metadatascrapemodel "retrom/internal/model/metadatascrape"
 	"retrom/internal/repo/dbexec"
 	initialpersistence "retrom/internal/repo/metadatascrape"
 	initialservice "retrom/internal/service/metadatascrape"
 )
 
-type failingInitialWriter struct{ initialservice.InitialWriter }
+type failingInitialWriter struct {
+	metadatascrapemodel.InitialWriter
+}
 
-func (writer failingInitialWriter) Advance(ctx context.Context, change initialservice.InitialProgressChange) error {
+func (writer failingInitialWriter) Advance(ctx context.Context, change metadatascrapemodel.InitialProgressChange) error {
 	if err := writer.InitialWriter.Advance(ctx, change); err != nil {
 		return err
 	}

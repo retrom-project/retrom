@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
+	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
 	"retrom/internal/repo/store"
-	application "retrom/internal/service/emulationstationimport"
 )
 
 var errCreationWrite = errors.New("creation write failed")
@@ -35,9 +35,9 @@ func creationDatabase(t *testing.T) *sql.DB {
 	return owner.SQL
 }
 
-func creationPlan(index int) application.CreationPlan {
+func creationPlan(index int) emulationstationimportmodel.CreationPlan {
 	id := strconv.Itoa(index)
-	return application.CreationPlan{ImportID: "import-" + id, JobID: "job-" + id, ExecutionID: "execution-" + id, AuditID: "audit-" + id, ActorID: "actor", DedupeKey: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" + fmt.Sprintf("%04x", index), Request: application.CreateRequest{RootID: "games", SourceRelativePath: "Roms"}, Root: application.SelectedRoot{ID: "games", Label: "Games", Digest: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}, ReleaseYearMax: 1971, NowMS: 1, ExpiresAtMS: 604800001}
+	return emulationstationimportmodel.CreationPlan{ImportID: "import-" + id, JobID: "job-" + id, ExecutionID: "execution-" + id, AuditID: "audit-" + id, ActorID: "actor", DedupeKey: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" + fmt.Sprintf("%04x", index), Request: emulationstationimportmodel.CreateRequest{RootID: "games", SourceRelativePath: "Roms"}, Root: emulationstationimportmodel.SelectedRoot{ID: "games", Label: "Games", Digest: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}, ReleaseYearMax: 1971, NowMS: 1, ExpiresAtMS: 604800001}
 }
 
 func TestCreationRollsBackWriteAndLateFailures(t *testing.T) {
@@ -54,7 +54,7 @@ func assertCreationRollback(t *testing.T, phase string) {
 	t.Helper()
 	db := creationDatabase(t)
 	repo := NewCreation(db)
-	if err := repo.WithCreate(t.Context(), func(writer application.CreationWriter) error {
+	if err := repo.WithCreate(t.Context(), func(writer emulationstationimportmodel.CreationWriter) error {
 		_, err := writer.Insert(t.Context(), creationPlan(0))
 		return err
 	}); err != nil {
@@ -69,7 +69,7 @@ func assertCreationRollback(t *testing.T, phase string) {
 	case "audit":
 		plan.AuditID = creationPlan(0).AuditID
 	}
-	err := repo.WithCreate(t.Context(), func(writer application.CreationWriter) error {
+	err := repo.WithCreate(t.Context(), func(writer emulationstationimportmodel.CreationWriter) error {
 		value, err := writer.Insert(t.Context(), plan)
 		if err != nil {
 			return err
@@ -109,7 +109,7 @@ func TestCreationEnforcesTwentyPlanCapacityAtInsert(t *testing.T) {
 	db := creationDatabase(t)
 	repo := NewCreation(db)
 	for index := 0; index < 20; index++ {
-		err := repo.WithCreate(t.Context(), func(writer application.CreationWriter) error {
+		err := repo.WithCreate(t.Context(), func(writer emulationstationimportmodel.CreationWriter) error {
 			_, err := writer.Insert(t.Context(), creationPlan(index))
 			return err
 		})
@@ -117,11 +117,11 @@ func TestCreationEnforcesTwentyPlanCapacityAtInsert(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	err := repo.WithCreate(t.Context(), func(writer application.CreationWriter) error {
+	err := repo.WithCreate(t.Context(), func(writer emulationstationimportmodel.CreationWriter) error {
 		_, err := writer.Insert(t.Context(), creationPlan(20))
 		return err
 	})
-	if !errors.Is(err, application.ErrActive) {
+	if !errors.Is(err, emulationstationimportmodel.ErrActive) {
 		t.Fatalf("capacity: %v", err)
 	}
 	assertCreationCounts(t, db, 20)

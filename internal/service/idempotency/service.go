@@ -4,15 +4,17 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
+	model "retrom/internal/model/idempotency"
 )
 
 var ErrInvalidReceipt = errors.New("IDEMPOTENCY_RECEIPT_INVALID")
 
 type Service struct {
-	repository Repository
+	repository model.Repository
 }
 
-func New(repository Repository) *Service {
+func New(repository model.Repository) *Service {
 	return &Service{repository: repository}
 }
 
@@ -27,10 +29,10 @@ func (service *Service) PurgeExpired(
 
 func (service *Service) Lookup(
 	ctx context.Context, operationID, key, principalID string,
-) (Receipt, bool, error) {
+) (model.Receipt, bool, error) {
 	receipt, found, err := service.repository.Find(ctx, operationID, key, principalID)
 	if err != nil {
-		return Receipt{}, false, fmt.Errorf("idempotency: lookup receipt: %w", err)
+		return model.Receipt{}, false, fmt.Errorf("idempotency: lookup receipt: %w", err)
 	}
 	return receipt, found, nil
 }
@@ -38,7 +40,7 @@ func (service *Service) Lookup(
 func (service *Service) Store(
 	ctx context.Context,
 	operationID, key, principalID string,
-	receipt Receipt,
+	receipt model.Receipt,
 	createdAtMS, expiresAtMS int64,
 ) error {
 	if operationID == "" || key == "" || principalID == "" || receipt.RequestDigest == "" ||

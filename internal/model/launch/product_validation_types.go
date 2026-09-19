@@ -2,7 +2,6 @@ package launch
 
 import (
 	"context"
-	"time"
 
 	"retrom/internal/capability/content/contentcapability"
 )
@@ -49,8 +48,4 @@ type ValidationQueued struct {
 type ValidationJobRepository interface {
 	Find(context.Context, string) (ValidationJob, bool, error)
 	Write(context.Context, ValidationJobWrite) error
-}
-type ValidationEnvironment struct {
-	Now   func() time.Time
-	NewID func() (string, error)
 }

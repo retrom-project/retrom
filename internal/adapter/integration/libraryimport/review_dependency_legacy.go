@@ -3,7 +3,7 @@ package libraryimport
 import (
 	"encoding/json"
 
-	application "retrom/internal/service/libraryimport"
+	libraryimportmodel "retrom/internal/model/libraryimport"
 )
 
 func legacyNullable[T any](value *T) any {
@@ -19,7 +19,7 @@ func legacyDiagnostics(raw json.RawMessage) any {
 	return result
 }
 
-func legacyArcadeAttachment(value *application.ArcadeAttachment) any {
+func legacyArcadeAttachment(value *libraryimportmodel.ArcadeAttachment) any {
 	if value == nil {
 		return nil
 	}
@@ -33,7 +33,7 @@ func legacyArcadeAttachment(value *application.ArcadeAttachment) any {
 	}
 }
 
-func legacyMultiDiscAttachment(value *application.MultiDiscAttachment) any {
+func legacyMultiDiscAttachment(value *libraryimportmodel.MultiDiscAttachment) any {
 	if value == nil {
 		return nil
 	}
@@ -46,7 +46,7 @@ func legacyMultiDiscAttachment(value *application.MultiDiscAttachment) any {
 	}
 }
 
-func legacyArcadeProjection(value *application.ReviewArcade) map[string]any {
+func legacyArcadeProjection(value *libraryimportmodel.ReviewArcade) map[string]any {
 	nodes := make([]map[string]any, 0, len(value.Nodes))
 	for _, node := range value.Nodes {
 		projected := map[string]any{
@@ -75,7 +75,7 @@ func legacyArcadeProjection(value *application.ReviewArcade) map[string]any {
 	}
 }
 
-func legacyMultiDiscProjection(value *application.ReviewMultiDisc) map[string]any {
+func legacyMultiDiscProjection(value *libraryimportmodel.ReviewMultiDisc) map[string]any {
 	entries := make([]map[string]any, 0, len(value.Entries))
 	for _, entry := range value.Entries {
 		entries = append(entries,

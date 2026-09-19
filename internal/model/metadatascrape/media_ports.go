@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	"retrom/internal/adapter/metadata/hasheous"
+	metadatamodel "retrom/internal/model/metadata"
 )
 
 var (
@@ -78,5 +78,5 @@ type MediaRepository interface {
 	WithWrite(context.Context, func(MediaScope) error) error
 }
 type MediaProvider interface {
-	FetchAssetBounded(context.Context, hasheous.AssetRef, int64) (hasheous.AssetData, error)
+	FetchAssetBounded(context.Context, metadatamodel.AssetReference, int64) (metadatamodel.AssetData, error)
 }

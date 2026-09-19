@@ -7,7 +7,7 @@ import (
 	"reflect"
 	"testing"
 
-	application "retrom/internal/service/libraryimport"
+	libraryimportmodel "retrom/internal/model/libraryimport"
 )
 
 func TestOwnedSourceReplayRejectsIdentityErrorsWithoutContentClassification(t *testing.T) {
@@ -27,7 +27,7 @@ func TestOwnedSourceReplayRejectsIdentityErrorsWithoutContentClassification(t *t
 			}
 			request.Intent.PrimaryPaths = test.paths
 			result, err := fixture.service.CreateOwnedServerSource(fixture.ctx, request)
-			if !errors.Is(err, ErrInvalid) || errors.Is(err, application.ErrSourceGrouping) ||
+			if !errors.Is(err, ErrInvalid) || errors.Is(err, libraryimportmodel.ErrSourceGrouping) ||
 				!reflect.DeepEqual(result, ServerImportResult{}) || ownedImportCount(t, fixture) != 1 {
 				t.Fatalf("replay identity classified as content: %#v %v", result, err)
 			}
@@ -45,7 +45,7 @@ func TestOwnedSourceReplayRejectsMissingPersistentPathsWithoutContentClassificat
 	}
 	fixture.execute(t, `DELETE FROM pegasus_import_item_files WHERE item_id='unlinked-source'`)
 	result, err := fixture.service.CreateOwnedServerSource(fixture.ctx, request)
-	if !errors.Is(err, ErrVersionConflict) || errors.Is(err, application.ErrSourceGrouping) ||
+	if !errors.Is(err, ErrVersionConflict) || errors.Is(err, libraryimportmodel.ErrSourceGrouping) ||
 		!reflect.DeepEqual(result, ServerImportResult{}) || ownedImportCount(t, fixture) != 1 {
 		t.Fatalf("missing persistent identity classified as content: %#v %v", result, err)
 	}

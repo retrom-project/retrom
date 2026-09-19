@@ -4,32 +4,34 @@ import (
 	"context"
 	"errors"
 	"testing"
+
+	model "retrom/internal/model/libraryimport"
 )
 
 type importReadsRepositoryStub struct {
-	summary         ImportOverviewSummary
-	list            []ImportListItem
-	detail          ImportDetail
-	multiDisc       []ImportMultiDiscItemSummary
-	history         []ReviewHistoryItem
-	historyEvent    ReviewHistoryEvent
+	summary         model.ImportOverviewSummary
+	list            []model.ImportListItem
+	detail          model.ImportDetail
+	multiDisc       []model.ImportMultiDiscItemSummary
+	history         []model.ReviewHistoryItem
+	historyEvent    model.ReviewHistoryEvent
 	err             error
-	listQuery       ImportListQuery
-	historyQuery    ReviewHistoryQuery
+	listQuery       model.ImportListQuery
+	historyQuery    model.ReviewHistoryQuery
 	lastImportJobID string
 	lastEventID     string
 }
 
-func (stub *importReadsRepositoryStub) Summary(context.Context) (ImportOverviewSummary, error) {
+func (stub *importReadsRepositoryStub) Summary(context.Context) (model.ImportOverviewSummary, error) {
 	return stub.summary, stub.err
 }
 
-func (stub *importReadsRepositoryStub) List(_ context.Context, query ImportListQuery) ([]ImportListItem, error) {
+func (stub *importReadsRepositoryStub) List(_ context.Context, query model.ImportListQuery) ([]model.ImportListItem, error) {
 	stub.listQuery = query
 	return stub.list, stub.err
 }
 
-func (stub *importReadsRepositoryStub) Detail(_ context.Context, importJobID string) (ImportDetail, error) {
+func (stub *importReadsRepositoryStub) Detail(_ context.Context, importJobID string) (model.ImportDetail, error) {
 	stub.lastImportJobID = importJobID
 	return stub.detail, stub.err
 }
@@ -37,15 +39,15 @@ func (stub *importReadsRepositoryStub) Detail(_ context.Context, importJobID str
 func (stub *importReadsRepositoryStub) MultiDiscItemSummaries(
 	_ context.Context,
 	importJobID string,
-) ([]ImportMultiDiscItemSummary, error) {
+) ([]model.ImportMultiDiscItemSummary, error) {
 	stub.lastImportJobID = importJobID
 	return stub.multiDisc, stub.err
 }
 
 func (stub *importReadsRepositoryStub) ReviewHistory(
 	_ context.Context,
-	query ReviewHistoryQuery,
-) ([]ReviewHistoryItem, error) {
+	query model.ReviewHistoryQuery,
+) ([]model.ReviewHistoryItem, error) {
 	stub.historyQuery = query
 	return stub.history, stub.err
 }
@@ -53,7 +55,7 @@ func (stub *importReadsRepositoryStub) ReviewHistory(
 func (stub *importReadsRepositoryStub) ReviewHistoryEvent(
 	_ context.Context,
 	eventID string,
-) (ReviewHistoryEvent, error) {
+) (model.ReviewHistoryEvent, error) {
 	stub.lastEventID = eventID
 	return stub.historyEvent, stub.err
 }
@@ -62,7 +64,7 @@ func TestImportReadsRejectsInvalidQueriesBeforeRepository(t *testing.T) {
 	t.Parallel()
 	stub := &importReadsRepositoryStub{}
 	service := NewImportReads(stub)
-	if _, err := service.List(t.Context(), ImportListQuery{SortCode: "UPDATED_DESC"}); !errors.Is(err, ErrImportReadQuery) {
+	if _, err := service.List(t.Context(), model.ImportListQuery{SortCode: "UPDATED_DESC"}); !errors.Is(err, model.ErrImportReadQuery) {
 		t.Fatalf("list error = %v", err)
 	}
 	if stub.lastImportJobID != "" || stub.lastEventID != "" {
@@ -73,11 +75,11 @@ func TestImportReadsRejectsInvalidQueriesBeforeRepository(t *testing.T) {
 func TestImportReadsPassesDecodedListAndHistoryQueries(t *testing.T) {
 	t.Parallel()
 	stub := &importReadsRepositoryStub{
-		list:    []ImportListItem{{ID: "job"}},
-		history: []ReviewHistoryItem{{ReviewEventID: "event"}},
+		list:    []model.ImportListItem{{ID: "job"}},
+		history: []model.ReviewHistoryItem{{ReviewEventID: "event"}},
 	}
 	service := NewImportReads(stub)
-	query := ImportListQuery{
+	query := model.ImportListQuery{
 		QueryText: "hello", State: "COMPLETED", PlatformID: "platform",
 		SortCode: "UPDATED_DESC", CursorID: "cursor", CursorValue: 7, Limit: 21,
 	}
@@ -85,8 +87,8 @@ func TestImportReadsPassesDecodedListAndHistoryQueries(t *testing.T) {
 	if err != nil || len(items) != 1 || stub.listQuery != query {
 		t.Fatalf("list = %#v/%v query=%#v", items, err, stub.listQuery)
 	}
-	history, err := service.ReviewHistory(t.Context(), ReviewHistoryQuery{QueryText: "title", Decision: "APPROVED"})
-	if err != nil || len(history) != 1 || stub.historyQuery != (ReviewHistoryQuery{QueryText: "title", Decision: "APPROVED"}) {
+	history, err := service.ReviewHistory(t.Context(), model.ReviewHistoryQuery{QueryText: "title", Decision: "APPROVED"})
+	if err != nil || len(history) != 1 || stub.historyQuery != (model.ReviewHistoryQuery{QueryText: "title", Decision: "APPROVED"}) {
 		t.Fatalf("history = %#v/%v query=%#v", history, err, stub.historyQuery)
 	}
 }

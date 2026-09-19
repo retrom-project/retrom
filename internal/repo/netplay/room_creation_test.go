@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
+	netplaymodel "retrom/internal/model/netplay"
 	repository "retrom/internal/repo/netplay"
 	"retrom/internal/repo/store"
-	service "retrom/internal/service/netplay"
 )
 
 func TestRoomCreationRollsBackRoomHostAndEventTogether(t *testing.T) {
@@ -27,8 +27,8 @@ func TestRoomCreationRollsBackRoomHostAndEventTogether(t *testing.T) {
 		t.Fatal(err)
 	}
 	sentinel := errors.New("late failure")
-	err = repository.NewRoomCreation(database.SQL).WithCreate(t.Context(), func(writer service.RoomCreationWriter) error {
-		room, err := writer.Insert(t.Context(), service.RoomCreationPlan{RoomID: "room", MemberID: "member", HostID: "host", Now: now.UnixMilli(), ExpiresAtMS: now.Add(time.Hour).UnixMilli(), Event: []byte(`{"schemaVersion":1}`)})
+	err = repository.NewRoomCreation(database.SQL).WithCreate(t.Context(), func(writer netplaymodel.RoomCreationWriter) error {
+		room, err := writer.Insert(t.Context(), netplaymodel.RoomCreationPlan{RoomID: "room", MemberID: "member", HostID: "host", Now: now.UnixMilli(), ExpiresAtMS: now.Add(time.Hour).UnixMilli(), Event: []byte(`{"schemaVersion":1}`)})
 		if err != nil {
 			return err
 		}

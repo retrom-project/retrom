@@ -10,13 +10,13 @@ import (
 	"time"
 
 	"retrom/internal/capability/security/authn"
+	libraryimportmodel "retrom/internal/model/libraryimport"
 	librarypersistence "retrom/internal/repo/libraryimport"
-	application "retrom/internal/service/libraryimport"
 
 	"github.com/google/uuid"
 )
 
-var errReviewBulkNotRunnable = application.ErrReviewBulkWorkerNotRunnable
+var errReviewBulkNotRunnable = libraryimportmodel.ErrReviewBulkWorkerNotRunnable
 
 type reviewBulkWork struct {
 	bulkID, jobID, workerID, userID string
@@ -32,30 +32,30 @@ type ReviewBulkItemPage struct {
 	NextCursor *string                `json:"nextCursor"`
 }
 
-func (service *Service) reviewBulkWorkerRepository() application.ReviewBulkWorkerRepository {
+func (service *Service) reviewBulkWorkerRepository() libraryimportmodel.ReviewBulkWorkerRepository {
 	return librarypersistence.NewReviewBulkWorker(service.database)
 }
 
-func applicationReviewBulkWork(work reviewBulkWork) application.ReviewBulkWork {
-	return application.ReviewBulkWork{
+func applicationReviewBulkWork(work reviewBulkWork) libraryimportmodel.ReviewBulkWork {
+	return libraryimportmodel.ReviewBulkWork{
 		BulkApprovalID: work.bulkID, JobID: work.jobID, WorkerID: work.workerID, UserID: work.userID,
 	}
 }
 
-func reviewBulkWorkFromApplication(work application.ReviewBulkWork) reviewBulkWork {
+func reviewBulkWorkFromApplication(work libraryimportmodel.ReviewBulkWork) reviewBulkWork {
 	return reviewBulkWork{
 		bulkID: work.BulkApprovalID, jobID: work.JobID, workerID: work.WorkerID, userID: work.UserID,
 	}
 }
 
-func applicationReviewBulkWorkItem(item reviewBulkWorkItem) application.ReviewBulkWorkItem {
-	return application.ReviewBulkWorkItem{
+func applicationReviewBulkWorkItem(item reviewBulkWorkItem) libraryimportmodel.ReviewBulkWorkItem {
+	return libraryimportmodel.ReviewBulkWorkItem{
 		ImportItemID: item.itemID, ValidationID: item.validationID,
 		SourceSnapshotID: item.sourceSnapshotID, ExpectedReviewVersion: item.reviewVersion,
 	}
 }
 
-func reviewBulkWorkItemFromApplication(item application.ReviewBulkWorkItem) reviewBulkWorkItem {
+func reviewBulkWorkItemFromApplication(item libraryimportmodel.ReviewBulkWorkItem) reviewBulkWorkItem {
 	return reviewBulkWorkItem{
 		itemID: item.ImportItemID, validationID: item.ValidationID,
 		sourceSnapshotID: item.SourceSnapshotID, reviewVersion: item.ExpectedReviewVersion,
@@ -65,10 +65,12 @@ func reviewBulkWorkItemFromApplication(item application.ReviewBulkWorkItem) revi
 func (service *Service) claimReviewBulk(ctx context.Context, bulkID string) (reviewBulkWork, error) {
 	workerID, _ := uuid.NewV7()
 	now := service.now().UnixMilli()
-	var claimed application.ReviewBulkWork
-	err := service.reviewBulkWorkerRepository().WithWorker(ctx, func(scope application.ReviewBulkWorkerScope) error {
+	var claimed libraryimportmodel.ReviewBulkWork
+	err := service.reviewBulkWorkerRepository().WithWorker(ctx, func(
+		scope libraryimportmodel.ReviewBulkWorkerScope,
+	) error {
 		var err error
-		claimed, err = scope.Claim(ctx, application.ReviewBulkClaim{
+		claimed, err = scope.Claim(ctx, libraryimportmodel.ReviewBulkClaim{
 			BulkApprovalID: bulkID, WorkerID: workerID.String(), NowMS: now,
 			DeadlineMS: now + int64(reviewBulkDeadline/time.Millisecond),
 		})
@@ -88,8 +90,10 @@ func (service *Service) claimReviewBulkItem(
 	work reviewBulkWork,
 ) (reviewBulkWorkItem, error) {
 	now := service.now().UnixMilli()
-	var claimed application.ReviewBulkWorkItem
-	err := service.reviewBulkWorkerRepository().WithWorker(ctx, func(scope application.ReviewBulkWorkerScope) error {
+	var claimed libraryimportmodel.ReviewBulkWorkItem
+	err := service.reviewBulkWorkerRepository().WithWorker(ctx, func(
+		scope libraryimportmodel.ReviewBulkWorkerScope,
+	) error {
 		var err error
 		claimed, err = scope.ClaimItem(ctx, applicationReviewBulkWork(work), now)
 		if err != nil {
@@ -123,8 +127,10 @@ func (service *Service) completeReviewBulkItem(
 	}
 	details, _ := json.Marshal(map[string]any{"schemaVersion": 1, "code": code})
 	now := service.now().UnixMilli()
-	err := service.reviewBulkWorkerRepository().WithWorker(ctx, func(scope application.ReviewBulkWorkerScope) error {
-		return scope.CompleteItem(ctx, application.ReviewBulkItemCompletion{
+	err := service.reviewBulkWorkerRepository().WithWorker(ctx, func(
+		scope libraryimportmodel.ReviewBulkWorkerScope,
+	) error {
+		return scope.CompleteItem(ctx, libraryimportmodel.ReviewBulkItemCompletion{
 			Work: applicationReviewBulkWork(work), Item: applicationReviewBulkWorkItem(item),
 			State: state, OutcomeCode: code, DetailsJSON: string(details), NowMS: now,
 			LeasedUntilMS: now + 60_000,
@@ -141,7 +147,9 @@ func (service *Service) reviewBulkItemStillFrozen(
 	item reviewBulkWorkItem,
 ) bool {
 	var frozen bool
-	err := service.reviewBulkWorkerRepository().WithWorker(ctx, func(scope application.ReviewBulkWorkerScope) error {
+	err := service.reviewBulkWorkerRepository().WithWorker(ctx, func(
+		scope libraryimportmodel.ReviewBulkWorkerScope,
+	) error {
 		var err error
 		frozen, err = scope.ItemStillFrozen(ctx, applicationReviewBulkWorkItem(item))
 		if err != nil {
@@ -157,9 +165,9 @@ func (service *Service) processReviewBulkItem(
 	work reviewBulkWork,
 	item reviewBulkWorkItem,
 ) error {
-	_, err := service.reviewApprovals().Approve(ctx, application.ReviewApprovalRequest{
+	_, err := service.reviewApprovals().Approve(ctx, libraryimportmodel.ReviewApprovalRequest{
 		ItemID: item.itemID, ExpectedVersion: item.reviewVersion,
-		Bulk: &application.BulkPublicationIntent{
+		Bulk: &libraryimportmodel.BulkPublicationIntent{
 			BulkID: work.bulkID, JobID: work.jobID, WorkerID: work.workerID,
 			ValidationID: item.validationID, SourceSnapshotID: item.sourceSnapshotID,
 		},
@@ -184,13 +192,15 @@ func (service *Service) processReviewBulkItem(
 
 func (service *Service) finishReviewBulk(ctx context.Context, work reviewBulkWork) error {
 	now := service.now().UnixMilli()
-	err := service.reviewBulkWorkerRepository().WithWorker(ctx, func(scope application.ReviewBulkWorkerScope) error {
+	err := service.reviewBulkWorkerRepository().WithWorker(ctx, func(
+		scope libraryimportmodel.ReviewBulkWorkerScope,
+	) error {
 		if err := scope.Finish(ctx, applicationReviewBulkWork(work), now); err != nil {
 			return fmt.Errorf("finish review bulk work: %w", err)
 		}
 		return nil
 	})
-	if errors.Is(err, application.ErrReviewBulkWorkerNotRunnable) {
+	if errors.Is(err, libraryimportmodel.ErrReviewBulkWorkerNotRunnable) {
 		return fmt.Errorf("libraryimport/review bulk finish: %w", errReviewBulkNotRunnable)
 	}
 	if err != nil {
@@ -201,7 +211,9 @@ func (service *Service) finishReviewBulk(ctx context.Context, work reviewBulkWor
 
 func (service *Service) finalizeReviewBulkCancellation(ctx context.Context, bulkID string) error {
 	now := service.now().UnixMilli()
-	err := service.reviewBulkWorkerRepository().WithWorker(ctx, func(scope application.ReviewBulkWorkerScope) error {
+	err := service.reviewBulkWorkerRepository().WithWorker(ctx, func(
+		scope libraryimportmodel.ReviewBulkWorkerScope,
+	) error {
 		if err := scope.FinalizeCancellation(ctx, bulkID, now); err != nil {
 			return fmt.Errorf("finalize review bulk cancellation: %w", err)
 		}
@@ -215,7 +227,9 @@ func (service *Service) finalizeReviewBulkCancellation(ctx context.Context, bulk
 
 func (service *Service) reviewBulkCancellationRequested(ctx context.Context, work reviewBulkWork) bool {
 	var requested bool
-	err := service.reviewBulkWorkerRepository().WithWorker(ctx, func(scope application.ReviewBulkWorkerScope) error {
+	err := service.reviewBulkWorkerRepository().WithWorker(ctx, func(
+		scope libraryimportmodel.ReviewBulkWorkerScope,
+	) error {
 		var err error
 		requested, err = scope.CancellationRequested(ctx, work.bulkID)
 		if err != nil {
@@ -228,14 +242,14 @@ func (service *Service) reviewBulkCancellationRequested(ctx context.Context, wor
 
 func (service *Service) failReviewBulkWorker(ctx context.Context, work reviewBulkWork) {
 	now := service.now().UnixMilli()
-	_ = service.reviewBulkWorkerRepository().WithWorker(ctx, func(scope application.ReviewBulkWorkerScope) error {
+	_ = service.reviewBulkWorkerRepository().WithWorker(ctx, func(scope libraryimportmodel.ReviewBulkWorkerScope) error {
 		return scope.Fail(ctx, applicationReviewBulkWork(work), now)
 	})
 }
 
 func (service *Service) failQueuedReviewBulkWorker(ctx context.Context, bulkID string) {
 	now := service.now().UnixMilli()
-	_ = service.reviewBulkWorkerRepository().WithWorker(ctx, func(scope application.ReviewBulkWorkerScope) error {
+	_ = service.reviewBulkWorkerRepository().WithWorker(ctx, func(scope libraryimportmodel.ReviewBulkWorkerScope) error {
 		return scope.FailQueued(ctx, bulkID, now)
 	})
 }
@@ -291,8 +305,10 @@ func (service *Service) finishOrCancelReviewBulk(ctx context.Context, work revie
 
 func (service *Service) ResumeReviewBulkJobs(ctx context.Context) {
 	now := service.now().UnixMilli()
-	var values []application.ReviewBulkResumableJob
-	err := service.reviewBulkWorkerRepository().WithWorker(ctx, func(scope application.ReviewBulkWorkerScope) error {
+	var values []libraryimportmodel.ReviewBulkResumableJob
+	err := service.reviewBulkWorkerRepository().WithWorker(ctx, func(
+		scope libraryimportmodel.ReviewBulkWorkerScope,
+	) error {
 		var err error
 		values, err = scope.Resume(ctx, now)
 		if err != nil {
@@ -322,14 +338,16 @@ func (service *Service) CancelReviewBulk(
 	if reason == "" || len([]rune(reason)) > 500 {
 		return ReviewBulkSummary{}, ErrReviewBulkConflict
 	}
-	var target application.ReviewBulkCancelTarget
-	err := service.reviewBulkWorkerRepository().WithWorker(ctx, func(scope application.ReviewBulkWorkerScope) error {
+	var target libraryimportmodel.ReviewBulkCancelTarget
+	err := service.reviewBulkWorkerRepository().WithWorker(ctx, func(
+		scope libraryimportmodel.ReviewBulkWorkerScope,
+	) error {
 		var err error
 		target, err = scope.LoadCancelTarget(ctx, bulkID, expectedVersion)
 		if err != nil {
 			return fmt.Errorf("load review bulk cancellation target: %w", err)
 		}
-		if err := scope.RequestCancellation(ctx, application.ReviewBulkCancellationRequest{
+		if err := scope.RequestCancellation(ctx, libraryimportmodel.ReviewBulkCancellationRequest{
 			Target: target, BulkApprovalID: bulkID, Reason: reason,
 			ExpectedVersion: expectedVersion, NowMS: service.now().UnixMilli(),
 		}); err != nil {
@@ -337,7 +355,7 @@ func (service *Service) CancelReviewBulk(
 		}
 		return nil
 	})
-	if errors.Is(err, application.ErrReviewBulkWorkerNotRunnable) {
+	if errors.Is(err, libraryimportmodel.ErrReviewBulkWorkerNotRunnable) {
 		return ReviewBulkSummary{}, ErrReviewBulkConflict
 	}
 	if err != nil {
@@ -356,8 +374,10 @@ func (service *Service) RetryReviewBulk(
 	bulkID string,
 	expectedVersion int64,
 ) (ReviewBulkSummary, error) {
-	var target application.ReviewBulkRetryTarget
-	err := service.reviewBulkWorkerRepository().WithWorker(ctx, func(scope application.ReviewBulkWorkerScope) error {
+	var target libraryimportmodel.ReviewBulkRetryTarget
+	err := service.reviewBulkWorkerRepository().WithWorker(ctx, func(
+		scope libraryimportmodel.ReviewBulkWorkerScope,
+	) error {
 		var err error
 		target, err = scope.LoadRetryTarget(ctx, bulkID, expectedVersion)
 		if err != nil {
@@ -370,7 +390,7 @@ func (service *Service) RetryReviewBulk(
 		if active {
 			return ErrReviewBulkActive
 		}
-		if err := scope.QueueRetry(ctx, application.ReviewBulkRetryRequest{
+		if err := scope.QueueRetry(ctx, libraryimportmodel.ReviewBulkRetryRequest{
 			Target: target, BulkApprovalID: bulkID, ExpectedVersion: expectedVersion,
 			NowMS: service.now().UnixMilli(),
 		}); err != nil {
@@ -378,7 +398,7 @@ func (service *Service) RetryReviewBulk(
 		}
 		return nil
 	})
-	if errors.Is(err, application.ErrReviewBulkWorkerNotRunnable) {
+	if errors.Is(err, libraryimportmodel.ErrReviewBulkWorkerNotRunnable) {
 		return ReviewBulkSummary{}, ErrReviewBulkConflict
 	}
 	if err != nil {

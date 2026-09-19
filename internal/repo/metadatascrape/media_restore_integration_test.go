@@ -14,9 +14,12 @@ import (
 	"time"
 
 	"retrom/internal/adapter/files/blobstore"
-	"retrom/internal/adapter/metadata/hasheous"
 	"retrom/internal/bootstrap/config"
+	metadatamodel "retrom/internal/model/metadata"
+	metadatascrapemodel "retrom/internal/model/metadatascrape"
+
 	maintenancepersistence "retrom/internal/repo/maintenance"
+
 	mediatapersistence "retrom/internal/repo/metadatascrape"
 	"retrom/internal/repo/store"
 	"retrom/internal/service/maintenance"
@@ -79,7 +82,7 @@ func TestMediaBackupRestorePreservesBudgetAndOriginalExecution(t *testing.T) {
 		t.Fatal(err)
 	}
 	clock = clock.Add(time.Second)
-	if err := worker.Run(t.Context(), id); !errors.Is(err, hasheous.ErrAssetDecodeFailed) {
+	if err := worker.Run(t.Context(), id); !errors.Is(err, metadatamodel.ErrAssetDecodeFailed) {
 		t.Fatal(err)
 	}
 	snapshot = restoredMediaSnapshot(t, database.SQL, id)
@@ -90,8 +93,8 @@ func TestMediaBackupRestorePreservesBudgetAndOriginalExecution(t *testing.T) {
 
 type restoredMediaSource struct{}
 
-func (restoredMediaSource) FetchAssetBounded(context.Context, hasheous.AssetRef, int64) (hasheous.AssetData, error) {
-	return hasheous.AssetData{ReceivedBytes: 7}, hasheous.ErrAssetDecodeFailed
+func (restoredMediaSource) FetchAssetBounded(context.Context, metadatamodel.AssetReference, int64) (metadatamodel.AssetData, error) {
+	return metadatamodel.AssetData{ReceivedBytes: 7}, metadatamodel.ErrAssetDecodeFailed
 }
 
 func mediaRestoreSQL(t *testing.T, database *sql.DB, query string, args ...any) {
@@ -101,10 +104,10 @@ func mediaRestoreSQL(t *testing.T, database *sql.DB, query string, args ...any) 
 	}
 }
 
-func restoredMediaSnapshot(t *testing.T, database *sql.DB, id string) metadatascrape.MediaSnapshot {
+func restoredMediaSnapshot(t *testing.T, database *sql.DB, id string) metadatascrapemodel.MediaSnapshot {
 	t.Helper()
-	var snapshot metadatascrape.MediaSnapshot
-	err := mediatapersistence.NewMedia(database).WithWrite(t.Context(), func(scope metadatascrape.MediaScope) error {
+	var snapshot metadatascrapemodel.MediaSnapshot
+	err := mediatapersistence.NewMedia(database).WithWrite(t.Context(), func(scope metadatascrapemodel.MediaScope) error {
 		var err error
 		snapshot, err = scope.Read.Snapshot(t.Context(), id)
 		return err

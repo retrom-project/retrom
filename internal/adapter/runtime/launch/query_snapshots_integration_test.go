@@ -9,9 +9,9 @@ import (
 	"reflect"
 	"testing"
 
+	launchmodel "retrom/internal/model/launch"
 	"retrom/internal/repo/dbexec"
 	persistence "retrom/internal/repo/launch"
-	application "retrom/internal/service/launch"
 )
 
 type launchQueryCounter struct {
@@ -35,7 +35,7 @@ func TestPreviewBundleReadsAuthorityAndFrozenMembersInOneStatement(t *testing.T)
 	preview := fixture.preview(t, "query-bundle")
 	counter := &launchQueryCounter{Executor: fixture.database}
 	repository := persistence.NewSessionQueries(counter)
-	ref := application.SessionRef{ID: preview.PreviewID, Preview: true}
+	ref := launchmodel.SessionRef{ID: preview.PreviewID, Preview: true}
 	empty, found, err := repository.Bundle(t.Context(), ref, "BIOS_BUNDLE")
 	if err != nil || !found || empty.Files == nil || len(empty.Files) != 0 || empty.Session.State != "ACTIVE" || counter.statements != 1 {
 		t.Fatalf("empty=%#v found=%t statements=%d error=%v", empty, found, counter.statements, err)
@@ -52,7 +52,7 @@ func TestPreviewBundleReadsAuthorityAndFrozenMembersInOneStatement(t *testing.T)
 	if !reflect.DeepEqual(record.Session, empty.Session) || fixture.database.Stats().InUse != 0 {
 		t.Fatalf("authority changed or rows retained: %#v", record.Session)
 	}
-	if missing, found, err := repository.Bundle(t.Context(), application.SessionRef{ID: "missing", Preview: true}, "BIOS_BUNDLE"); err != nil || found || len(missing.Files) != 0 {
+	if missing, found, err := repository.Bundle(t.Context(), launchmodel.SessionRef{ID: "missing", Preview: true}, "BIOS_BUNDLE"); err != nil || found || len(missing.Files) != 0 {
 		t.Fatalf("missing=%#v found=%t error=%v", missing, found, err)
 	}
 }

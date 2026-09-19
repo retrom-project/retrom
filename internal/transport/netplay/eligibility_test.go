@@ -3,6 +3,8 @@ package netplay
 import (
 	"context"
 
+	"retrom/internal/model/netplayprofile"
+
 	repository "retrom/internal/repo/netplay"
 	application "retrom/internal/service/netplay"
 )
@@ -11,7 +13,7 @@ func eligibilityBlocker(hasVariant, content, core bool) string {
 	return application.EligibilityBlocker(hasVariant, content, core)
 }
 
-func (service *Service) matchesTargetProfile(row eligibilityRow, candidate ManifestProfile) (bool, bool) {
+func (service *Service) matchesTargetProfile(row eligibilityRow, candidate netplayprofile.ManifestProfile) (bool, bool) {
 	return service.eligibility().MatchesTargetProfile(row, candidate)
 }
 

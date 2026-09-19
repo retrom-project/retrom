@@ -5,8 +5,9 @@ import (
 	"sync"
 	"time"
 
+	"retrom/internal/model/netplayprofile"
+
 	"retrom/internal/foundation/cleanup"
-	"retrom/internal/transport/netplay/profile"
 )
 
 type Options struct {
@@ -28,13 +29,13 @@ type Components struct {
 }
 type Service struct {
 	components      Components
-	registry        *profile.Registry
+	registry        *netplayprofile.Registry
 	mu              sync.Mutex
 	started, closed bool
 	stop, done      chan struct{}
 }
 
-func NewService(components Components, registry *profile.Registry) *Service {
+func NewService(components Components, registry *netplayprofile.Registry) *Service {
 	return &Service{components: components, registry: registry, stop: make(chan struct{}), done: make(chan struct{})}
 }
 

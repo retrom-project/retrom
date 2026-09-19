@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
 	application "retrom/internal/service/emulationstationimport"
 	"retrom/internal/testkit/testsupport"
 )
@@ -48,7 +49,7 @@ func TestLeaseSQLFailuresRollBackJobAggregateAndEvent(t *testing.T) {
 func assertLeaseSQLRollback(t *testing.T, operation, stage string) {
 	t.Helper()
 	db, id := leaseDatabase(t, false)
-	var unit application.Execution
+	var unit emulationstationimportmodel.Execution
 	if operation == "renew" {
 		value, found, err := application.NewLeases(NewLeases(db), func() time.Time { return time.UnixMilli(1000) }).Claim(t.Context())
 		if err != nil || !found {
@@ -71,13 +72,13 @@ func assertLeaseSQLRollback(t *testing.T, operation, stage string) {
 	} else {
 		state, callErr := service.Renew(t.Context(), unit)
 		err = callErr
-		if state != application.LeaseLost {
+		if state != emulationstationimportmodel.LeaseLost {
 			t.Fatalf("partial renewal=%s", state)
 		}
 	}
 	want := errLeaseStorage
 	if stage == "zero rows" {
-		want = application.ErrVersionConflict
+		want = emulationstationimportmodel.ErrVersionConflict
 	}
 	if !errors.Is(err, want) || hits.Load() != 1 {
 		t.Fatalf("fault=%v hits=%d", err, hits.Load())
@@ -132,8 +133,8 @@ type leaseCompletionFailure struct {
 	stage string
 }
 
-func (repository leaseCompletionFailure) WithLease(ctx context.Context, work func(application.LeaseScope) error) error {
-	return repository.Leases.WithLease(ctx, func(scope application.LeaseScope) error {
+func (repository leaseCompletionFailure) WithLease(ctx context.Context, work func(emulationstationimportmodel.LeaseScope) error) error {
+	return repository.Leases.WithLease(ctx, func(scope emulationstationimportmodel.LeaseScope) error {
 		if err := work(scope); err != nil {
 			return err
 		}
@@ -171,7 +172,7 @@ func TestLeaseCompletionFailuresReturnNoSuccessfulResponse(t *testing.T) {
 func assertLeaseCompletionFailure(t *testing.T, operation, stage string) {
 	t.Helper()
 	db, _ := leaseDatabase(t, false)
-	var unit application.Execution
+	var unit emulationstationimportmodel.Execution
 	if operation == "renew" {
 		value, found, err := application.NewLeases(NewLeases(db), func() time.Time { return time.UnixMilli(1000) }).Claim(t.Context())
 		if err != nil || !found {
@@ -191,7 +192,7 @@ func assertLeaseCompletionFailure(t *testing.T, operation, stage string) {
 	} else {
 		state, callErr := service.Renew(t.Context(), unit)
 		err = callErr
-		if state != application.LeaseLost {
+		if state != emulationstationimportmodel.LeaseLost {
 			t.Fatalf("partial renewal=%s", state)
 		}
 	}

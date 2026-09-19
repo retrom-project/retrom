@@ -6,6 +6,7 @@ import (
 
 	"retrom/internal/capability/content/contentcapability"
 	"retrom/internal/capability/content/contentprofile"
+	model "retrom/internal/model/catalog"
 )
 
 type PlatformTargetSupport interface {
@@ -13,11 +14,11 @@ type PlatformTargetSupport interface {
 }
 
 type Service struct {
-	repository Repository
+	repository model.Repository
 	netplay    PlatformTargetSupport
 }
 
-func New(repository Repository, netplay PlatformTargetSupport) *Service {
+func New(repository model.Repository, netplay PlatformTargetSupport) *Service {
 	return &Service{repository: repository, netplay: netplay}
 }
 
@@ -40,9 +41,9 @@ type PlatformCore struct {
 }
 
 type (
-	RuntimeTargetView    = RuntimeTarget
 	PlatformInstanceView struct {
-		PlatformInstance
+		model.PlatformInstance
+
 		SupportedExtensions []string
 		ImportCapabilities  contentcapability.ImportCapabilities
 	}
@@ -88,12 +89,12 @@ func (service *Service) Platforms(ctx context.Context) ([]Platform, error) {
 	return items, nil
 }
 
-func (service *Service) supports(row PlatformRow, platformID, coreID string) bool {
+func (service *Service) supports(row model.PlatformRow, platformID, coreID string) bool {
 	return service.netplay != nil && row.ProviderID != nil && row.TargetID != nil &&
 		service.netplay.SupportsPlatformTarget(platformID, coreID, *row.ProviderID, *row.TargetID)
 }
 
-func (service *Service) RuntimeTargets(ctx context.Context) ([]RuntimeTargetView, error) {
+func (service *Service) RuntimeTargets(ctx context.Context) ([]model.RuntimeTarget, error) {
 	items, err := service.repository.RuntimeTargets(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("read runtime targets: %w", err)
@@ -103,7 +104,7 @@ func (service *Service) RuntimeTargets(ctx context.Context) ([]RuntimeTargetView
 
 func (service *Service) PlatformInstances(
 	ctx context.Context,
-	query PlatformInstanceQuery,
+	query model.PlatformInstanceQuery,
 	featureEnabled bool,
 ) ([]PlatformInstanceView, error) {
 	items, err := service.repository.PlatformInstances(ctx, query)

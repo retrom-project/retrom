@@ -12,6 +12,7 @@ import (
 	"strings"
 	"testing"
 
+	runtimeprovidermodel "retrom/internal/model/runtimeprovider"
 	providerpersistence "retrom/internal/repo/runtimeprovider"
 	providerservice "retrom/internal/service/runtimeprovider"
 
@@ -39,7 +40,7 @@ func TestCatalogExtensionPreservesInitializedGamesReviewsSettingsAndSaves(t *tes
 	}
 	catalog := extensionDeclarations(t)
 	extendFixtureProvider(t, &active, manifests)
-	projection, err := providerservice.NewProjection(active, manifests, catalog)
+	projection, err := runtimeprovidermodel.NewProjection(active, manifests, catalog)
 	if err != nil {
 		t.Fatal(err)
 	}

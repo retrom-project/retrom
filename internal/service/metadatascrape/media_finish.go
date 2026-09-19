@@ -5,23 +5,25 @@ import (
 	"errors"
 	"fmt"
 	"time"
+
+	metadatascrapemodel "retrom/internal/model/metadatascrape"
 )
 
 func (worker *MediaWorker) settle(parent context.Context, execution mediaExecution,
-	publication AssetPublication, code string, cause error,
+	publication metadatascrapemodel.AssetPublication, code string, cause error,
 ) error {
 	ctx, cancel := context.WithTimeout(context.WithoutCancel(parent), 5*time.Second)
 	defer cancel()
-	err := worker.repository.WithWrite(ctx, func(scope MediaScope) error {
+	err := worker.repository.WithWrite(ctx, func(scope metadatascrapemodel.MediaScope) error {
 		snapshot, err := scope.Read.Snapshot(ctx, execution.Claim.JobID)
 		if err != nil {
 			return mediaError("read media completion", err)
 		}
 		if !mediaOwned(snapshot, execution.Claim) {
-			return ErrExecutionLost
+			return metadatascrapemodel.ErrExecutionLost
 		}
 		if snapshot.Job.State != "RUNNING" && snapshot.Job.State != "QUEUED" && snapshot.Job.State != "CANCEL_REQUESTED" {
-			return ErrExecutionLost
+			return metadatascrapemodel.ErrExecutionLost
 		}
 		outcome, nextCause := mediaCompletion(snapshot, execution.Claim, code, cause, worker.now().UnixMilli())
 		cause = nextCause
@@ -37,9 +39,9 @@ func (worker *MediaWorker) settle(parent context.Context, execution mediaExecuti
 }
 
 func mediaCompletion(
-	snapshot MediaSnapshot, claim MediaClaim, code string, cause error, now int64,
-) (MediaOutcome, error) {
-	outcome := MediaOutcome{Claim: claim, State: "SUCCEEDED", Now: now}
+	snapshot metadatascrapemodel.MediaSnapshot, claim metadatascrapemodel.MediaClaim, code string, cause error, now int64,
+) (metadatascrapemodel.MediaOutcome, error) {
+	outcome := metadatascrapemodel.MediaOutcome{Claim: claim, State: "SUCCEEDED", Now: now}
 	if snapshot.Job.State == "CANCEL_REQUESTED" || !mediaOwnerAvailable(snapshot) {
 		outcome.State = "CANCELLED"
 		outcome.Code = "MEDIA_CANCELLED"
@@ -63,8 +65,12 @@ func mediaCompletion(
 	return outcome, cause
 }
 
-func publishMediaOutcome(ctx context.Context, scope MediaScope, snapshot MediaSnapshot,
-	outcome MediaOutcome, publication AssetPublication,
+func publishMediaOutcome(
+	ctx context.Context,
+	scope metadatascrapemodel.MediaScope,
+	snapshot metadatascrapemodel.MediaSnapshot,
+	outcome metadatascrapemodel.MediaOutcome,
+	publication metadatascrapemodel.AssetPublication,
 ) error {
 	if outcome.State == "SUCCEEDED" {
 		publication.Now = outcome.Now
@@ -78,7 +84,7 @@ func publishMediaOutcome(ctx context.Context, scope MediaScope, snapshot MediaSn
 }
 
 func (worker *MediaWorker) heartbeat(
-	ctx context.Context, cancel context.CancelCauseFunc, claim MediaClaim, stopped chan<- struct{},
+	ctx context.Context, cancel context.CancelCauseFunc, claim metadatascrapemodel.MediaClaim, stopped chan<- struct{},
 ) {
 	defer close(stopped)
 	ticker := time.NewTicker(15 * time.Second)
@@ -96,8 +102,8 @@ func (worker *MediaWorker) heartbeat(
 	}
 }
 
-func (worker *MediaWorker) refresh(ctx context.Context, claim MediaClaim) error {
-	err := worker.repository.WithWrite(ctx, func(scope MediaScope) error {
+func (worker *MediaWorker) refresh(ctx context.Context, claim metadatascrapemodel.MediaClaim) error {
+	err := worker.repository.WithWrite(ctx, func(scope metadatascrapemodel.MediaScope) error {
 		snapshot, err := scope.Read.Snapshot(ctx, claim.JobID)
 		if err != nil {
 			return mediaError("read media lease", err)

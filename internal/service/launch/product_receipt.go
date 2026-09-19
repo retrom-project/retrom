@@ -4,9 +4,11 @@ import (
 	"crypto/subtle"
 	"encoding/json"
 	"fmt"
+
+	model "retrom/internal/model/launch"
 )
 
-func productReceipt(created Created, now int64) (ProductReceipt, error) {
+func productReceipt(created model.Created, now int64) (model.ProductReceipt, error) {
 	var body []byte
 	var err error
 	status := 201
@@ -21,9 +23,9 @@ func productReceipt(created Created, now int64) (ProductReceipt, error) {
 		body, err = json.Marshal(created)
 	}
 	if err != nil {
-		return ProductReceipt{}, fmt.Errorf("encode product receipt: %w", err)
+		return model.ProductReceipt{}, fmt.Errorf("encode product receipt: %w", err)
 	}
-	return ProductReceipt{
+	return model.ProductReceipt{
 		Status:      status,
 		Body:        body,
 		Created:     created,
@@ -32,34 +34,37 @@ func productReceipt(created Created, now int64) (ProductReceipt, error) {
 	}, nil
 }
 
-func (service *ProductCreator) replay(command ProductCreateCommand, receipt ProductReceipt) (ProductReceipt, error) {
+func (service *ProductCreator) replay(command model.ProductCreateCommand, receipt model.ProductReceipt) (
+	model.ProductReceipt,
+	error,
+) {
 	if subtle.ConstantTimeCompare([]byte(command.Digest), []byte(receipt.Digest)) != 1 {
-		return ProductReceipt{}, ErrIdempotencyKeyReused
+		return model.ProductReceipt{}, model.ErrIdempotencyKeyReused
 	}
-	var created Created
+	var created model.Created
 	if err := json.Unmarshal(receipt.Body, &created); err != nil {
-		return ProductReceipt{}, fmt.Errorf("decode product receipt: %w", err)
+		return model.ProductReceipt{}, fmt.Errorf("decode product receipt: %w", err)
 	}
 	switch receipt.Status {
 	case 201:
 		id, err := checkedProductID(func() (string, error) { return created.LaunchID, nil })
 		if err != nil {
-			return ProductReceipt{}, err
+			return model.ProductReceipt{}, err
 		}
 		capability, _, err := service.environment.SignCapability(id)
 		if err != nil {
-			return ProductReceipt{}, fmt.Errorf("sign replayed product capability: %w", err)
+			return model.ProductReceipt{}, fmt.Errorf("sign replayed product capability: %w", err)
 		}
 		created.Capability = capability
 	case 202:
 		if created.Status != "VALIDATION_PENDING" {
-			return ProductReceipt{}, ErrBlocked
+			return model.ProductReceipt{}, model.ErrBlocked
 		}
 		if _, err := checkedProductID(func() (string, error) { return created.JobID, nil }); err != nil {
-			return ProductReceipt{}, err
+			return model.ProductReceipt{}, err
 		}
 	default:
-		return ProductReceipt{}, ErrBlocked
+		return model.ProductReceipt{}, model.ErrBlocked
 	}
 	receipt.Created, receipt.Replayed = created, true
 	return receipt, nil

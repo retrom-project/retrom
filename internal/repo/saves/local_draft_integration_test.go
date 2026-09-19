@@ -6,7 +6,7 @@ import (
 	"errors"
 	"testing"
 
-	saveservice "retrom/internal/service/saves"
+	savesmodel "retrom/internal/model/saves"
 
 	"retrom/internal/repo/recordstore"
 
@@ -19,7 +19,7 @@ func TestLocalDraftCommitsAfterFinishWithoutRuntimeCapability(t *testing.T) {
 	run := f.createLaunchFromSave(t, &source.SaveStateID)
 	mustUpdateLaunch(t, f.database.SQL, recordstore.Update{Set: `state='FINISHED',finished_at_ms=?`, Scope: recordstore.Scope{Where: `id=?`, Args: []any{run.LaunchID}}, Values: []any{f.now.UnixMilli()}})
 	key := uuid.NewString()
-	request := func() (saveservice.ManualResult, bool, error) {
+	request := func() (savesmodel.ManualResult, bool, error) {
 		return f.saves.CreateLocalDraft(f.ctx, run.LaunchID, "local", "local", key,
 			manualRequest(t, "confirmed", []byte("confirmed"), screenshotPNG(t)))
 	}
@@ -32,7 +32,7 @@ func TestLocalDraftCommitsAfterFinishWithoutRuntimeCapability(t *testing.T) {
 		t.Fatalf("replay: %#v %v %v", again, replayed, err)
 	}
 	_, _, err = f.saves.CreateManual(f.ctx, run.LaunchID, run.Capability, uuid.NewString(), manualRequest(t, "runtime", []byte("wrong"), screenshotPNG(t)))
-	if !errors.Is(err, saveservice.ErrCredential) {
+	if !errors.Is(err, savesmodel.ErrCredential) {
 		t.Fatalf("finished runtime credential admitted: %v", err)
 	}
 }
@@ -43,19 +43,19 @@ func TestLocalDraftCannotWriteAnotherAccountOrRevokedOrInstantLaunch(t *testing.
 	for _, owner := range [][2]string{{"other", "local"}, {"local", "other"}} {
 		_, _, err := f.saves.CreateLocalDraft(f.ctx, run.LaunchID, owner[0], owner[1], uuid.NewString(),
 			manualRequest(t, "draft", []byte("draft"), screenshotPNG(t)))
-		if !errors.Is(err, saveservice.ErrCredential) {
+		if !errors.Is(err, savesmodel.ErrCredential) {
 			t.Fatalf("foreign owner accepted: %v", err)
 		}
 	}
 	mustUpdateLaunch(t, f.database.SQL, recordstore.Update{Set: `state='REVOKED',finished_at_ms=?`, Scope: recordstore.Scope{Where: `id=?`, Args: []any{run.LaunchID}}, Values: []any{f.now.UnixMilli()}})
 	_, _, err := f.saves.CreateLocalDraft(f.ctx, run.LaunchID, "local", "local", uuid.NewString(), manualRequest(t, "draft", []byte("draft"), screenshotPNG(t)))
-	if !errors.Is(err, saveservice.ErrCredential) {
+	if !errors.Is(err, savesmodel.ErrCredential) {
 		t.Fatalf("revoked accepted: %v", err)
 	}
 	instant := newSaveFixture(t)
 	ordinary := instant.createLaunch(t)
 	_, _, err = instant.saves.CreateLocalDraft(instant.ctx, ordinary.LaunchID, "local", "local", uuid.NewString(), manualRequest(t, "draft", []byte("draft"), screenshotPNG(t)))
-	if !errors.Is(err, saveservice.ErrCredential) {
+	if !errors.Is(err, savesmodel.ErrCredential) {
 		t.Fatalf("instant accepted: %v", err)
 	}
 }
@@ -67,7 +67,7 @@ func TestLocalDraftRetainsSourceVersionAndFreshLaunchHasNoRestore(t *testing.T) 
 	newer := f.createLaunchFromSave(t, &a.SaveStateID)
 	syncGameData(t, f, newer, "newer")
 	_, _, err := f.saves.CreateLocalDraft(f.ctx, stale.LaunchID, "local", "local", uuid.NewString(), manualRequest(t, "old", []byte("old"), screenshotPNG(t)))
-	if !errors.Is(err, saveservice.ErrSyncConflict) {
+	if !errors.Is(err, savesmodel.ErrSyncConflict) {
 		t.Fatalf("stale draft replaced newer progress: %v", err)
 	}
 	fresh := f.createLaunch(t)
@@ -84,7 +84,7 @@ func TestLocalDraftRetainsSourceVersionAndFreshLaunchHasNoRestore(t *testing.T) 
 	deleted := f.createLaunchFromSave(t, &a.SaveStateID)
 	mustSaveSQL(t, f.database.SQL, `UPDATE save_states SET deleted_at_ms=? WHERE id=?`, f.now.UnixMilli(), a.SaveStateID)
 	_, _, err = f.saves.CreateLocalDraft(f.ctx, deleted.LaunchID, "local", "local", uuid.NewString(), manualRequest(t, "deleted", []byte("deleted"), screenshotPNG(t)))
-	if !errors.Is(err, saveservice.ErrSyncConflict) {
+	if !errors.Is(err, savesmodel.ErrSyncConflict) {
 		t.Fatalf("deleted target recreated: %v", err)
 	}
 }

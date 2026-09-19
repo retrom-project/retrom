@@ -6,6 +6,9 @@ import (
 	"sync"
 	"time"
 
+	blobmodel "retrom/internal/model/blob"
+	pegasusimportmodel "retrom/internal/model/pegasusimport"
+
 	"retrom/internal/adapter/files/blobstore"
 	"retrom/internal/adapter/files/serversource"
 	"retrom/internal/adapter/integration/libraryimport"
@@ -28,7 +31,7 @@ type Service struct {
 	worker       *application.Worker
 }
 
-type work = application.Work
+type work = pegasusimportmodel.Work
 
 func New(database *sql.DB, blobs *blobstore.Store, importer *libraryimport.Service, credentials *retromruntime.Credentials, configured []serversource.Root, now func() time.Time) *Service {
 	sources := NewSources(blobs, credentials, configured)
@@ -61,7 +64,7 @@ func (service *Service) sanitizeTechnicalDetail(err error) string {
 	return service.sources().Sanitize(err)
 }
 
-func (service *Service) copySource(ctx context.Context, root Root, selectedPath, relativePath string, size int64, facts string) (blobstore.Metadata, error) {
+func (service *Service) copySource(ctx context.Context, root Root, selectedPath, relativePath string, size int64, facts string) (blobmodel.PreparedBlob, error) {
 	return service.sources().copySource(ctx, root, selectedPath, relativePath, size, facts)
 }
 

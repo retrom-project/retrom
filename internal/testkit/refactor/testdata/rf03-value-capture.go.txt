@@ -1,0 +1,195 @@
+// This capture program runs only inside the frozen 82834ba Go module.
+package main
+
+import (
+	"bytes"
+	"context"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/hex"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"os"
+	"runtime"
+	"time"
+
+	"retrom/internal/adapter/files/blobstore"
+	"retrom/internal/adapter/metadata/hasheous"
+	"retrom/internal/model/jobs"
+	"retrom/internal/model/saves"
+)
+
+type captureInput struct {
+	FixedNow    string                 `json:"fixedNow"`
+	HTTPRawBody string                 `json:"httpRawBody"`
+	Hashes      hasheous.ContentHashes `json:"hashes"`
+	BlobBody    string                 `json:"blobBody"`
+	Jobs        []jobs.Snapshot        `json:"jobs"`
+	Saves       []saveInput            `json:"saves"`
+}
+
+type saveInput struct {
+	Label            string  `json:"label"`
+	ResourceKind     string  `json:"resourceKind"`
+	SaveStateID      string  `json:"saveStateId"`
+	PreviewID        string  `json:"previewId"`
+	CheckpointFormat string  `json:"checkpointFormat"`
+	ScreenshotURL    *string `json:"screenshotUrl"`
+	CreatedAtMS      int64   `json:"createdAtMs"`
+	Name             string  `json:"name"`
+	DiscIndex        *int    `json:"discIndex"`
+	Version          int64   `json:"version"`
+	ActiveDurationMS int64   `json:"activeDurationMs"`
+}
+
+type (
+	fileFact   struct{ Path, SHA256 string }
+	provenance struct {
+		BaselineCommit, GoVersion, InputFile, InputSHA256    string
+		CaptureProgram, CaptureProgramSHA256, CaptureCommand string
+		Sources                                              []fileFact
+	}
+)
+type metadataCapture struct {
+	CandidateJSON, NullCandidateJSON, EmptyCandidateJSON      string
+	RawResponseBase64, RequestBody, RequestDigest, HashDigest string
+	RequestMethod, RequestURL, Outcome                        string
+}
+type (
+	saveCapture   struct{ Label, JSON string }
+	captureResult struct {
+		SchemaVersion int
+		Provenance    provenance
+		Metadata      metadataCapture
+		JobJSON       []string
+		Saves         []saveCapture
+		BlobFactsJSON string
+	}
+)
+
+func main() {
+	if len(os.Args) != 2 {
+		panic("expected the fixed input JSON path")
+	}
+	inputBytes := read(os.Args[1])
+	var input captureInput
+	must(json.Unmarshal(inputBytes, &input))
+	result := captureResult{
+		SchemaVersion: 1, Provenance: captureProvenance(inputBytes),
+		Metadata: captureMetadata(input), BlobFactsJSON: captureBlob(input.BlobBody),
+	}
+	for _, job := range input.Jobs {
+		result.JobJSON = append(result.JobJSON, encode(job))
+	}
+	for _, value := range input.Saves {
+		result.Saves = append(result.Saves, captureSave(value))
+	}
+	output, err := json.MarshalIndent(result, "", "  ")
+	must(err)
+	_, err = os.Stdout.Write(append(output, '\n'))
+	must(err)
+}
+
+func captureProvenance(input []byte) provenance {
+	result := provenance{
+		BaselineCommit: "82834bade1648da3067ebda1b1fc89c18577fd6a", GoVersion: runtime.Version(),
+		InputFile: "rf03-values-input.json", InputSHA256: digest(input),
+		CaptureProgram:       "rf03-value-capture.go.txt",
+		CaptureProgramSHA256: digest(read("internal/rf03valuecapture/main.go")),
+		CaptureCommand:       "GOTOOLCHAIN=local GOPROXY=off GOFLAGS=-mod=readonly go run ./internal/rf03valuecapture ../../../internal/testkit/refactor/testdata/rf03-values-input.json",
+	}
+	for _, path := range []string{
+		"go.mod",
+		"go.sum",
+		"internal/model/jobs/progress_types.go",
+		"internal/model/saves/manual_result.go",
+		"internal/adapter/metadata/hasheous/asset_fetch.go",
+		"internal/adapter/metadata/hasheous/asset_read.go",
+		"internal/adapter/metadata/hasheous/provider.go",
+		"internal/adapter/files/blobstore/blobstore.go",
+		"internal/adapter/files/blobstore/nofollow_linux.go",
+		"internal/foundation/legacychecksum/checksum.go",
+	} {
+		result.Sources = append(result.Sources, fileFact{Path: path, SHA256: digest(read(path))})
+	}
+	return result
+}
+
+type captureHTTP struct{ body, method, url, requestBody string }
+
+func (client *captureHTTP) Do(request *http.Request) (*http.Response, error) {
+	content, err := io.ReadAll(request.Body)
+	if err != nil {
+		return nil, err
+	}
+	client.method, client.url, client.requestBody = request.Method, request.URL.String(), string(content)
+	return &http.Response{
+		StatusCode: http.StatusOK, Header: http.Header{"Content-Type": []string{"application/json"}},
+		Body: io.NopCloser(bytes.NewReader([]byte(client.body))),
+	}, nil
+}
+
+func captureMetadata(input captureInput) metadataCapture {
+	now, err := time.Parse(time.RFC3339Nano, input.FixedNow)
+	must(err)
+	client := &captureHTTP{body: input.HTTPRawBody}
+	provider := hasheous.New(client, nil, func() time.Time { return now })
+	value, err := provider.LookupByHash(context.Background(), input.Hashes)
+	must(err)
+	if value.Outcome != hasheous.OutcomeHit || value.Candidate == nil {
+		panic("frozen fixture did not produce a candidate")
+	}
+	hashDigest, err := hasheous.RequestDigest(input.Hashes)
+	must(err)
+	if string(value.RequestBody) != client.requestBody {
+		panic("frozen result request body differed from sent HTTP body")
+	}
+	return metadataCapture{
+		CandidateJSON:     encode(value.Candidate),
+		NullCandidateJSON: encode(hasheous.Candidate{RawResponse: []byte("must stay opaque"), NormalizationUTC: 2026}),
+		EmptyCandidateJSON: encode(hasheous.Candidate{
+			Metadata: map[string]any{}, Evidence: map[string]any{}, Assets: []hasheous.AssetRef{},
+			RawResponse: []byte("must stay opaque"), NormalizationUTC: 2026,
+		}),
+		RawResponseBase64: base64.StdEncoding.EncodeToString(value.RawResponse),
+		RequestBody:       string(value.RequestBody), RequestDigest: value.RequestDigest, HashDigest: hashDigest,
+		RequestMethod: client.method, RequestURL: client.url, Outcome: string(value.Outcome),
+	}
+}
+
+func captureSave(input saveInput) saveCapture {
+	value := saves.ManualResult{
+		ResourceKind: input.ResourceKind, SaveStateID: input.SaveStateID, PreviewID: input.PreviewID,
+		CheckpointFormat: input.CheckpointFormat, ScreenshotURL: input.ScreenshotURL, CreatedAtMS: input.CreatedAtMS,
+		Name: input.Name, DiscIndex: input.DiscIndex, Version: input.Version, ActiveDurationMS: input.ActiveDurationMS,
+	}
+	return saveCapture{Label: input.Label, JSON: encode(value)}
+}
+
+func captureBlob(body string) string {
+	directory, err := os.MkdirTemp("internal/rf03valuecapture", "cas-")
+	must(err)
+	defer func() { must(os.RemoveAll(directory)) }()
+	store, err := blobstore.Open(directory)
+	must(err)
+	value, err := store.Put(bytes.NewReader([]byte(body)))
+	must(err)
+	// Only immutable, verified facts cross the new Model boundary.
+	return encode(struct {
+		SHA256, MD5, SHA1, CRC32 string
+		Size                     int64
+	}{
+		value.SHA256, value.MD5, value.SHA1, value.CRC32, value.Size,
+	})
+}
+
+func read(path string) []byte    { value, err := os.ReadFile(path); must(err); return value }
+func digest(value []byte) string { sum := sha256.Sum256(value); return hex.EncodeToString(sum[:]) }
+func encode(value any) string    { data, err := json.Marshal(value); must(err); return string(data) }
+func must(err error) {
+	if err != nil {
+		panic(fmt.Errorf("capture frozen RF03 value: %w", err))
+	}
+}

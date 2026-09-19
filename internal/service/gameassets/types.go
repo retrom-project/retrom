@@ -6,6 +6,8 @@ import (
 	"os"
 	"time"
 
+	model "retrom/internal/model/gameassets"
+
 	"github.com/google/uuid"
 )
 
@@ -64,13 +66,13 @@ type BlobReader interface {
 }
 
 type Service struct {
-	repository Repository
+	repository model.Repository
 	blobs      BlobReader
 	now        func() time.Time
 	newID      func() (string, error)
 }
 
-func New(repository Repository, blobs BlobReader, now func() time.Time) *Service {
+func New(repository model.Repository, blobs BlobReader, now func() time.Time) *Service {
 	if now == nil {
 		now = time.Now
 	}

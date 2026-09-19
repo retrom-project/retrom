@@ -3,7 +3,6 @@ package libraryimport
 import (
 	"context"
 
-	"retrom/internal/adapter/files/blobstore"
 	"retrom/internal/capability/engine/rpgmaker/fileset"
 	application "retrom/internal/service/libraryimport"
 )
@@ -35,7 +34,7 @@ func (service *Service) prepareTyranoScriptProject(
 
 func archiveProjectPaths(
 	files []fileset.SourceFile,
-	metadata map[int]blobstore.Metadata,
+	metadata map[int]string,
 ) (map[int]string, error) {
 	paths, err := application.ArchiveProjectPaths(files, metadata)
 	return paths, legacyPreparationError(err)

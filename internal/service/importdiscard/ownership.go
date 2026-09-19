@@ -7,11 +7,13 @@ import (
 	"encoding/json"
 	"fmt"
 
+	model "retrom/internal/model/importdiscard"
+
 	"github.com/google/uuid"
 )
 
-func (service *Service) recoverSourceLinks(ctx context.Context, key Key) error {
-	err := service.repository.WithWrite(ctx, func(scope WriteScope) error {
+func (service *Service) recoverSourceLinks(ctx context.Context, key model.Key) error {
+	err := service.repository.WithWrite(ctx, func(scope model.WriteScope) error {
 		ids, err := scope.Ownership.Unlinked(ctx, key)
 		if err != nil {
 			return failure("recover source ownership", err)
@@ -44,7 +46,7 @@ func (service *Service) recoverSourceLinks(ctx context.Context, key Key) error {
 	return failure("recover source ownership", err)
 }
 
-func legacyOwner(ctx context.Context, ownership Ownership, id string) (string, error) {
+func legacyOwner(ctx context.Context, ownership model.Ownership, id string) (string, error) {
 	candidates, err := ownership.LegacyCandidates(ctx, id)
 	if err != nil {
 		return "", failure("recover source ownership", err)
@@ -59,7 +61,7 @@ func legacyOwner(ctx context.Context, ownership Ownership, id string) (string, e
 			continue
 		}
 		if match != "" {
-			return "", ErrAmbiguousOwner
+			return "", model.ErrAmbiguousOwner
 		}
 		match = candidate.ImportID
 	}
@@ -71,12 +73,12 @@ func legacyOwner(ctx context.Context, ownership Ownership, id string) (string, e
 		return "", failure("recover source ownership", err)
 	}
 	if count != 1 {
-		return "", ErrAmbiguousOwner
+		return "", model.ErrAmbiguousOwner
 	}
 	return match, nil
 }
 
-func internalEnvelope(envelope Envelope) (bool, error) {
+func internalEnvelope(envelope model.Envelope) (bool, error) {
 	if !envelope.Complete || len(envelope.Files) == 0 {
 		return false, nil
 	}

@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	application "retrom/internal/service/maintenance"
+	maintenancemodel "retrom/internal/model/maintenance"
 	"retrom/internal/testkit/testsupport"
 )
 
@@ -70,7 +70,7 @@ func TestRestorePegasusScanCleanupRollsBackWithEnclosingRestore(t *testing.T) {
 	t.Parallel()
 	db, path := restoredPegasusScan(t, "QUEUED")
 	cause := errors.New("later restore step failed")
-	err := New().WithRestore(t.Context(), path, func(records application.RestoreRecords) error {
+	err := New().WithRestore(t.Context(), path, func(records maintenancemodel.RestoreRecords) error {
 		if _, err := records.StopExternalImports(t.Context(), 10); err != nil {
 			return err
 		}
@@ -97,7 +97,7 @@ func TestRestoreClosesUnpublishedPegasusScanWithoutLeavingPartialItems(t *testin
 	for _, state := range []string{"QUEUED", "RUNNING", "CANCEL_REQUESTED"} {
 		t.Run(state, func(t *testing.T) {
 			db, path := restoredPegasusScan(t, state)
-			err := New().WithRestore(t.Context(), path, func(records application.RestoreRecords) error {
+			err := New().WithRestore(t.Context(), path, func(records maintenancemodel.RestoreRecords) error {
 				counts, err := records.StopExternalImports(t.Context(), 10)
 				if err == nil && counts.Pegasus != 1 {
 					t.Fatalf("restored scan count=%d", counts.Pegasus)

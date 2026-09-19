@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	blobmodel "retrom/internal/model/blob"
+
 	"retrom/internal/adapter/files/blobstore"
 	"retrom/internal/adapter/files/mediaasset"
 )
@@ -81,7 +83,7 @@ func TestScreenshotImagesPreservesStagingAndPublishingCauses(t *testing.T) {
 }
 
 func TestInspectScreenshotFilePreservesOpenCause(t *testing.T) {
-	_, err := inspectScreenshotFile(blobstore.Metadata{Path: filepath.Join(t.TempDir(), "missing"), Size: 100})
+	_, err := inspectScreenshotFile(filepath.Join(t.TempDir(), "missing"), blobmodel.PreparedBlob{Size: 100})
 	if !errors.Is(err, os.ErrNotExist) || errors.Is(err, ErrReviewScreenshotInvalid) {
 		t.Fatal(err)
 	}

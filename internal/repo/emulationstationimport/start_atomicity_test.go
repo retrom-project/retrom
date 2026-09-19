@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
 	"retrom/internal/repo/dbexec"
 	application "retrom/internal/service/emulationstationimport"
 )
@@ -18,8 +19,8 @@ type startFaultRepository struct {
 	phase string
 }
 
-func (repository startFaultRepository) WithStart(ctx context.Context, work func(application.StartScope) error) error {
-	return repository.Starter.WithStart(ctx, func(scope application.StartScope) error {
+func (repository startFaultRepository) WithStart(ctx context.Context, work func(emulationstationimportmodel.StartScope) error) error {
+	return repository.Starter.WithStart(ctx, func(scope emulationstationimportmodel.StartScope) error {
 		records, ok := scope.Write.(startRecords)
 		if !ok {
 			return errors.New("unexpected start repository records")
@@ -30,12 +31,13 @@ func (repository startFaultRepository) WithStart(ctx context.Context, work func(
 }
 
 type startFaultWriter struct {
-	application.StartWriter
+	emulationstationimportmodel.StartWriter
+
 	executor dbexec.Executor
 	phase    string
 }
 
-func (writer startFaultWriter) Queue(ctx context.Context, plan application.StartPlan) error {
+func (writer startFaultWriter) Queue(ctx context.Context, plan emulationstationimportmodel.StartPlan) error {
 	if err := writer.StartWriter.Queue(ctx, plan); err != nil {
 		return err
 	}
@@ -79,7 +81,7 @@ type changingStartSource struct {
 	change func() error
 }
 
-func (source changingStartSource) VerifyGamelists(ctx context.Context, root, path string, values []application.GamelistEvidence) error {
+func (source changingStartSource) VerifyGamelists(ctx context.Context, root, path string, values []emulationstationimportmodel.GamelistEvidence) error {
 	if err := source.verifiedStartSource.VerifyGamelists(ctx, root, path, values); err != nil {
 		return err
 	}
@@ -92,13 +94,13 @@ func TestStartRechecksDatabaseDriftAfterSourceVerification(t *testing.T) {
 		name, query string
 		want        error
 	}{
-		{"tag", `UPDATE tags SET status='DELETED',deleted_at_ms=10`, application.ErrMapping},
-		{"instance", `UPDATE platform_instances SET version=version+1`, application.ErrMappingTargetChanged},
-		{"root", `UPDATE emulationstation_imports SET root_config_digest='` + strings.Repeat("b", 64) + `'`, application.ErrSourceChanged},
-		{"source", `UPDATE emulationstation_imports SET source_snapshot_digest='` + strings.Repeat("b", 64) + `'`, application.ErrSourceChanged},
-		{"year", `UPDATE emulationstation_imports SET release_year_max=release_year_max+1`, application.ErrSourceChanged},
-		{"gamelist", `UPDATE emulationstation_import_gamelists SET size_bytes=size_bytes+1`, application.ErrSourceChanged},
-		{"expiry", `UPDATE emulationstation_imports SET expires_at_ms=10`, application.ErrExpired},
+		{"tag", `UPDATE tags SET status='DELETED',deleted_at_ms=10`, emulationstationimportmodel.ErrMapping},
+		{"instance", `UPDATE platform_instances SET version=version+1`, emulationstationimportmodel.ErrMappingTargetChanged},
+		{"root", `UPDATE emulationstation_imports SET root_config_digest='` + strings.Repeat("b", 64) + `'`, emulationstationimportmodel.ErrSourceChanged},
+		{"source", `UPDATE emulationstation_imports SET source_snapshot_digest='` + strings.Repeat("b", 64) + `'`, emulationstationimportmodel.ErrSourceChanged},
+		{"year", `UPDATE emulationstation_imports SET release_year_max=release_year_max+1`, emulationstationimportmodel.ErrSourceChanged},
+		{"gamelist", `UPDATE emulationstation_import_gamelists SET size_bytes=size_bytes+1`, emulationstationimportmodel.ErrSourceChanged},
+		{"expiry", `UPDATE emulationstation_imports SET expires_at_ms=10`, emulationstationimportmodel.ErrExpired},
 	}
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
@@ -133,7 +135,7 @@ SELECT 'import-0',printf('extra-%04d/gamelist.xml',n),1,?,?, 'VALID',1 FROM sequ
 		t.Fatal(err)
 	}
 	snapshot, err := NewStarter(db).Inspect(t.Context(), "import-0")
-	if err != nil || len(snapshot.Gamelists) != application.MaxSnapshotGamelists+1 {
+	if err != nil || len(snapshot.Gamelists) != emulationstationimportmodel.MaxSnapshotGamelists+1 {
 		t.Fatalf("bounded gamelists=%d error=%v", len(snapshot.Gamelists), err)
 	}
 }

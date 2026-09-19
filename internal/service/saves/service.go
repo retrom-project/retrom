@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"retrom/internal/adapter/files/blobstore"
+	model "retrom/internal/model/saves"
 )
 
 const (
@@ -14,12 +15,12 @@ const (
 )
 
 type Service struct {
-	repository Repository
+	repository model.Repository
 	blobs      *blobstore.Store
 	now        func() time.Time
 }
 
-func New(repository Repository, blobs *blobstore.Store, now func() time.Time) *Service {
+func New(repository model.Repository, blobs *blobstore.Store, now func() time.Time) *Service {
 	return &Service{repository: repository, blobs: blobs, now: now}
 }
 

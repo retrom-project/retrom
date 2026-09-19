@@ -10,13 +10,14 @@ import (
 	"sort"
 
 	"retrom/internal/capability/security/authn"
+	libraryimportmodel "retrom/internal/model/libraryimport"
 	repository "retrom/internal/repo/libraryimport"
 	application "retrom/internal/service/libraryimport"
 )
 
 type ownedSourceCreation struct {
-	intent application.SourceCreationIntent
-	before application.SourceCreationSnapshot
+	intent libraryimportmodel.SourceCreationIntent
+	before libraryimportmodel.SourceCreationSnapshot
 	result ServerImportResult
 }
 
@@ -24,7 +25,7 @@ type ownedSourceCreation struct {
 // It does not authorize subsequent writes by the requesting worker.
 func (service *Service) LookupOwnedServerSource(
 	ctx context.Context,
-	intent application.SourceCreationIntent,
+	intent libraryimportmodel.SourceCreationIntent,
 ) (ServerImportResult, bool, error) {
 	if !intent.Kind.Valid() || intent.ImportID == "" || intent.ItemID == "" {
 		return ServerImportResult{}, false, ErrInvalid
@@ -39,7 +40,7 @@ func (service *Service) LookupOwnedServerSource(
 // CreateOwnedServerSource commits the import and its server source binding together.
 func (service *Service) CreateOwnedServerSource(
 	ctx context.Context,
-	request application.OwnedServerSourceRequest,
+	request libraryimportmodel.OwnedServerSourceRequest,
 ) (ServerImportResult, error) {
 	request.Intent.PrimaryPaths = slices.Clone(request.Intent.PrimaryPaths)
 	request.Files = slices.Clone(request.Files)
@@ -98,8 +99,8 @@ func (service *Service) CreateOwnedServerSource(
 }
 
 func validateOwnedSourceReplay(
-	request application.OwnedServerSourceRequest,
-	replayed application.OwnedSourceLookup,
+	request libraryimportmodel.OwnedServerSourceRequest,
+	replayed libraryimportmodel.OwnedSourceLookup,
 ) (ServerImportResult, error) {
 	if err := application.ValidateOwnedSourceReplayPaths(
 		request.Intent.PrimaryPaths, replayed.PrimaryPaths,

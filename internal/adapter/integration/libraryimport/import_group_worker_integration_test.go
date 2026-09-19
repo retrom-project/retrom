@@ -15,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	uploadsmodel "retrom/internal/model/uploads"
 	uploadpersistence "retrom/internal/repo/uploads"
 
 	dependencypersistence "retrom/internal/repo/dependencies"
@@ -306,9 +307,9 @@ func completeProjectUpload(
 ) string {
 	t.Helper()
 	uploadService := uploads.New(uploadpersistence.New(database), blobs, dataDir, time.Now)
-	upload, err := uploadService.Create(ctx, uploads.CreateRequest{
+	upload, err := uploadService.Create(ctx, uploadsmodel.CreateRequest{
 		Purpose: purpose, SourceType: "FILES",
-		Files: []uploads.FileDeclaration{{
+		Files: []uploadsmodel.FileDeclaration{{
 			ClientFileID: "ons", RelativePath: "fixture.zip", SizeBytes: int64(len(archive)),
 		}},
 	})

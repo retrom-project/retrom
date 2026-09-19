@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/serverimport"
 )
 
 func TestDiscoveryStopsCancelledTraversalWithoutCandidateFiles(t *testing.T) {
@@ -42,7 +44,7 @@ func TestDiscoveryStopsCancelledTraversalWithoutCandidateFiles(t *testing.T) {
 				cancel()
 			}
 			service := &Service{scanLimits: defaultScanLimits()}
-			groups, counts, err := service.discoverCandidates(ctx, work{}, directory, nil)
+			groups, counts, err := service.discoverCandidates(ctx, model.Work{}, directory, nil)
 			if expired && !errors.Is(err, errExecutionDeadline) {
 				t.Fatalf("deadline lost worker outcome classification: %v", err)
 			}

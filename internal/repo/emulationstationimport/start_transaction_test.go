@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
 	tagrepository "retrom/internal/repo/tagging"
 	application "retrom/internal/service/emulationstationimport"
 	"retrom/internal/service/tagging"
@@ -30,7 +31,7 @@ INSERT INTO content_kinds(id) VALUES('SINGLE_FILE') ON CONFLICT(id) DO NOTHING;`
 		t.Fatal(err)
 	}
 	mapper := application.NewMappings(NewMappings(db), tagging.New(tagrepository.New(db), time.Now), func() time.Time { return time.UnixMilli(2) })
-	if _, err := mapper.Update(t.Context(), "import-0", 1, []application.Mapping{
+	if _, err := mapper.Update(t.Context(), "import-0", 1, []emulationstationimportmodel.Mapping{
 		{CollectionID: mappingCollection, Action: "IMPORT", PlatformInstanceID: instance, TagIDs: []string{mappingTag}},
 		{CollectionID: secondMappingCollection, Action: "SKIP", TagIDs: []string{}},
 	}, mappingActor); err != nil {
@@ -62,12 +63,12 @@ func TestStartRollsBackJobInputItemsAndReleasesOnFailure(t *testing.T) {
 			db := startDatabase(t)
 			beforeRows := planRows(t, db)
 			cause := errors.New("late start failure")
-			err := NewStarter(db).WithStart(t.Context(), func(scope application.StartScope) error {
+			err := NewStarter(db).WithStart(t.Context(), func(scope emulationstationimportmodel.StartScope) error {
 				before, err := scope.Read.Current(t.Context(), "import-0")
 				if err != nil {
 					return err
 				}
-				plan := application.StartPlan{Before: before, JobID: "start-job", ExecutionID: "start-execution", AuditID: "start-audit", ActorID: mappingActor, DedupeKey: strings.Repeat("1", 64), NowMS: 10}
+				plan := emulationstationimportmodel.StartPlan{Before: before, JobID: "start-job", ExecutionID: "start-execution", AuditID: "start-audit", ActorID: mappingActor, DedupeKey: strings.Repeat("1", 64), NowMS: 10}
 				invalidateStartPlan(&plan, failure)
 				if err := scope.Write.Queue(t.Context(), plan); err != nil {
 					return err
@@ -87,7 +88,7 @@ func TestStartRollsBackJobInputItemsAndReleasesOnFailure(t *testing.T) {
 	}
 }
 
-func invalidateStartPlan(plan *application.StartPlan, failure string) {
+func invalidateStartPlan(plan *emulationstationimportmodel.StartPlan, failure string) {
 	switch failure {
 	case "job":
 		plan.JobID = "job-0"
@@ -110,11 +111,11 @@ func invalidateStartPlan(plan *application.StartPlan, failure string) {
 
 type verifiedStartSource struct{ database *sql.DB }
 
-func (source verifiedStartSource) Select(_ context.Context, id, _ string) (application.SelectedRoot, error) {
-	return application.SelectedRoot{ID: id, Digest: strings.Repeat("a", 64)}, nil
+func (source verifiedStartSource) Select(_ context.Context, id, _ string) (emulationstationimportmodel.SelectedRoot, error) {
+	return emulationstationimportmodel.SelectedRoot{ID: id, Digest: strings.Repeat("a", 64)}, nil
 }
 
-func (source verifiedStartSource) VerifyGamelists(ctx context.Context, _, _ string, metadata []application.GamelistEvidence) error {
+func (source verifiedStartSource) VerifyGamelists(ctx context.Context, _, _ string, metadata []emulationstationimportmodel.GamelistEvidence) error {
 	if source.database.Stats().InUse != 0 {
 		return errors.New("verification retained database connection")
 	}

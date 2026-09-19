@@ -8,9 +8,11 @@ import (
 	"path"
 	"sort"
 	"strings"
+
+	model "retrom/internal/model/emulationstationimport"
 )
 
-func snapshotDigest(gamelists []scannedGamelist) string {
+func snapshotDigest(gamelists []model.ScanGamelist) string {
 	type gamelistSnapshot struct {
 		Path          string  `json:"path"`
 		SizeBytes     int64   `json:"sizeBytes"`

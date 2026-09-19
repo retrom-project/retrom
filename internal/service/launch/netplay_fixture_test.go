@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"retrom/internal/capability/runtime/runtimebundle"
+	model "retrom/internal/model/launch"
 )
 
 type netplayCreationProvider struct {
@@ -26,31 +27,31 @@ func (provider netplayCreationProvider) BundleSHA256(string, string) (string, bo
 	return provider.digest, true
 }
 
-func cloneNetplaySnapshot(t *testing.T, snapshot NetplayCreationSnapshot) NetplayCreationSnapshot {
+func cloneNetplaySnapshot(t *testing.T, snapshot model.NetplayCreationSnapshot) model.NetplayCreationSnapshot {
 	t.Helper()
 	raw, err := json.Marshal(snapshot)
 	if err != nil {
 		t.Fatal(err)
 	}
-	var result NetplayCreationSnapshot
+	var result model.NetplayCreationSnapshot
 	if err := json.Unmarshal(raw, &result); err != nil {
 		t.Fatal(err)
 	}
 	return result
 }
 
-func netplayCreatorFixture(t *testing.T) (*NetplayCreator, *netplayCreationMemory, NetplayCreateRequest) {
+func netplayCreatorFixture(t *testing.T) (*NetplayCreator, *netplayCreationMemory, model.NetplayCreateRequest) {
 	t.Helper()
 	request := netplayTestRequest()
-	authority := NetplayCreationAuthority{
+	authority := model.NetplayCreationAuthority{
 		SessionID: request.SessionID, RoomID: request.RoomID, GameID: request.GameID, VariantID: request.GameVariantID, CoreID: "fceumm",
 		ProviderID: request.ProviderID, TargetID: request.TargetID, BundleDigest: request.BundleSHA256,
 		SessionState: "PREPARING", RoomState: "STARTING", CurrentSessionID: request.SessionID,
 		ProfileID: request.ProfileID, MemberID: "member", ParticipantState: "LOCKED", PlayerNo: 1, ParticipantVersion: 1,
 	}
-	snapshot := NetplayCreationSnapshot{Found: true, Authority: authority, Product: ProductSnapshot{
+	snapshot := model.NetplayCreationSnapshot{Found: true, Authority: authority, Product: model.ProductSnapshot{
 		Found: true,
-		Source: ProductSource{
+		Source: model.ProductSource{
 			GameID:     request.GameID,
 			VariantID:  request.GameVariantID,
 			CoreID:     "fceumm",
@@ -64,7 +65,7 @@ func netplayCreatorFixture(t *testing.T) (*NetplayCreator, *netplayCreationMemor
 			VariantStatus:      "READY",
 			DependencySnapshot: `{"schemaVersion":1,"kind":"STATIC","bios":[]}`,
 			GameVersion:        1,
-		}, GameFiles: []ProductFile{
+		}, GameFiles: []model.ProductFile{
 			{Role: "CONTENT", LogicalName: "game.nes", BlobID: "blob", Digest: strings.Repeat("b", 64), SizeBytes: 16},
 		},
 	}}
@@ -82,9 +83,9 @@ func netplayCreatorFixture(t *testing.T) (*NetplayCreator, *netplayCreationMemor
 	return NewNetplayCreator(repository, provider, nil, environment), repository, request
 }
 
-func existingNetplaySnapshot(snapshot *NetplayCreationSnapshot, request NetplayCreateRequest) {
+func existingNetplaySnapshot(snapshot *model.NetplayCreationSnapshot, request model.NetplayCreateRequest) {
 	sessionID, player := request.SessionID, int64(request.PlayerNo)
-	snapshot.Existing = &NetplayExistingLaunch{
+	snapshot.Existing = &model.NetplayExistingLaunch{
 		ID: previewTestID, ProfileID: request.ProfileID, GameID: request.GameID,
 		ProviderID: request.ProviderID, TargetID: request.TargetID, BundleDigest: request.BundleSHA256, State: "CREATED",
 		SessionID: &sessionID, PlayerNo: &player, CredentialHash: make([]byte, 32), BootstrapEnd: 301000, HardEnd: 28801000,

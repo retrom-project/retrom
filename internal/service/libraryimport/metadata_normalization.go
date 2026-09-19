@@ -4,6 +4,8 @@ import (
 	"strings"
 	"unicode"
 	"unicode/utf8"
+
+	model "retrom/internal/model/libraryimport"
 )
 
 const (
@@ -11,7 +13,7 @@ const (
 	reviewShortFieldMaximumRunes  = 200
 )
 
-func validServerSourceMetadata(metadata ServerMetadata) bool {
+func validServerSourceMetadata(metadata model.ServerMetadata) bool {
 	if metadata.Title == "" || !validField(metadata.Title, 200, false) {
 		return false
 	}
@@ -35,7 +37,7 @@ func validServerSourceMetadata(metadata ServerMetadata) bool {
 	return metadata.ReleaseYear == nil || *metadata.ReleaseYear >= 1000 && *metadata.ReleaseYear <= 9999
 }
 
-func validServerReviewMetadata(metadata ServerMetadata, maximumYear int) bool {
+func validServerReviewMetadata(metadata model.ServerMetadata, maximumYear int) bool {
 	if metadata.Title == "" || !validField(metadata.Title, reviewShortFieldMaximumRunes, false) ||
 		!validField(metadata.Description, reviewDescriptionMaximumRunes, true) ||
 		!validField(metadata.Developer, reviewShortFieldMaximumRunes, false) ||
@@ -50,19 +52,19 @@ func validServerReviewMetadata(metadata ServerMetadata, maximumYear int) bool {
 }
 
 func NormalizeServerReviewMetadata(
-	metadata ServerMetadata,
+	metadata model.ServerMetadata,
 	maximumYear int,
-) (ServerMetadata, []ServerMetadataWarning, error) {
+) (model.ServerMetadata, []model.ServerMetadataWarning, error) {
 	if !validServerSourceMetadata(metadata) {
-		return ServerMetadata{}, nil, ErrInvalid
+		return model.ServerMetadata{}, nil, model.ErrInvalid
 	}
-	warnings := make([]ServerMetadataWarning, 0, 5)
+	warnings := make([]model.ServerMetadataWarning, 0, 5)
 	truncate := func(value string, maximum int, field string) string {
 		runes := []rune(value)
 		if len(runes) <= maximum {
 			return value
 		}
-		warnings = append(warnings, ServerMetadataWarning{Code: "FIELD_TRUNCATED", Field: field})
+		warnings = append(warnings, model.ServerMetadataWarning{Code: "FIELD_TRUNCATED", Field: field})
 		return string(runes[:maximum])
 	}
 	metadata.Description = truncate(metadata.Description, reviewDescriptionMaximumRunes, "description")
@@ -71,10 +73,10 @@ func NormalizeServerReviewMetadata(
 	metadata.Genre = truncate(metadata.Genre, reviewShortFieldMaximumRunes, "genre")
 	if metadata.ReleaseYear != nil && (*metadata.ReleaseYear < 1950 || *metadata.ReleaseYear > maximumYear) {
 		metadata.ReleaseYear = nil
-		warnings = append(warnings, ServerMetadataWarning{Code: "FIELD_VALUE_INVALID", Field: "releaseYear"})
+		warnings = append(warnings, model.ServerMetadataWarning{Code: "FIELD_VALUE_INVALID", Field: "releaseYear"})
 	}
 	if !validServerReviewMetadata(metadata, maximumYear) {
-		return ServerMetadata{}, nil, ErrInvalid
+		return model.ServerMetadata{}, nil, model.ErrInvalid
 	}
 	return metadata, warnings, nil
 }

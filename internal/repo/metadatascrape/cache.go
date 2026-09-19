@@ -31,7 +31,7 @@ func (repository *CacheRepository) Cached(
 	if err != nil {
 		return metadatascrape.CachedResponse{}, false, fmt.Errorf("query metadata cache: %w", err)
 	}
-	entry.HTTPStatus = int(status.Int64)
+	entry.Audit = cachedResponseAudit(status)
 	entry.RawSHA256 = raw.String
 	return entry, true, nil
 }

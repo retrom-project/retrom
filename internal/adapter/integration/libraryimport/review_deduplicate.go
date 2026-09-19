@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	librarycomposition "retrom/internal/bootstrap/composition/libraryimport"
-	libraryservice "retrom/internal/service/libraryimport"
+	libraryimportmodel "retrom/internal/model/libraryimport"
 
 	"github.com/google/uuid"
 )
@@ -56,8 +56,8 @@ func (service *Service) DeduplicateReviews(
 		return result, err
 	}
 	value, err := librarycomposition.NewReviewDeduplicator(service.database, service.now).Deduplicate(
-		ctx, libraryservice.ReviewDeduplicateRequest{
-			Scope: libraryservice.ReviewBulkScope{
+		ctx, libraryimportmodel.ReviewDeduplicateRequest{
+			Scope: libraryimportmodel.ReviewBulkScope{
 				Q: request.Scope.Q, TagID: request.Scope.TagID, ImportJobID: request.Scope.ImportJobID,
 				PegasusImportID:          request.Scope.PegasusImportID,
 				EmulationStationImportID: request.Scope.EmulationStationImportID,
@@ -68,7 +68,7 @@ func (service *Service) DeduplicateReviews(
 		},
 	)
 	if err != nil {
-		if errors.Is(err, libraryservice.ErrReviewBulkQuery) {
+		if errors.Is(err, libraryimportmodel.ErrReviewBulkQuery) {
 			return ReviewDeduplicateResult{}, ErrReviewBulkInvalidScope
 		}
 		return ReviewDeduplicateResult{}, fmt.Errorf("libraryimport/deduplicate: %w", err)

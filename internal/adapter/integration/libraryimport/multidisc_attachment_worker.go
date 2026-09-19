@@ -11,8 +11,8 @@ import (
 	"time"
 
 	composition "retrom/internal/bootstrap/composition/libraryimport"
+	libraryimportmodel "retrom/internal/model/libraryimport"
 	repository "retrom/internal/repo/libraryimport"
-	application "retrom/internal/service/libraryimport"
 
 	"github.com/google/uuid"
 
@@ -80,7 +80,7 @@ func (service *Service) readAttachedMultiDiscBase(
 	return nil
 }
 
-func attachedMultiDiscFileFromApplication(file application.MultiDiscAttachmentFile) attachedMultiDiscFile {
+func attachedMultiDiscFileFromApplication(file libraryimportmodel.MultiDiscAttachmentFile) attachedMultiDiscFile {
 	return attachedMultiDiscFile{
 		role:         file.Role,
 		logicalName:  file.LogicalName,

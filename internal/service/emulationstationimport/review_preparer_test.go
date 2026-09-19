@@ -6,15 +6,16 @@ import (
 	"reflect"
 	"testing"
 
-	library "retrom/internal/service/libraryimport"
+	model "retrom/internal/model/emulationstationimport"
+	libraryimportmodel "retrom/internal/model/libraryimport"
 )
 
 type reviewPreparerMemory struct {
-	result                                                              library.ServerImportResult
-	request                                                             library.OwnedServerSourceRequest
-	intent                                                              library.SourceCreationIntent
-	handoff                                                             ReviewHandoffRequest
-	outcome                                                             ItemOutcome
+	result                                                              libraryimportmodel.ServerImportResult
+	request                                                             libraryimportmodel.OwnedServerSourceRequest
+	intent                                                              libraryimportmodel.SourceCreationIntent
+	handoff                                                             model.ReviewHandoffRequest
+	outcome                                                             model.ItemOutcome
 	found                                                               bool
 	lookupErr, createErr, finishErr, handoffErr, companionErr, phaseErr error
 	calls                                                               []string
@@ -22,8 +23,8 @@ type reviewPreparerMemory struct {
 
 func (memory *reviewPreparerMemory) LookupOwnedServerSource(
 	_ context.Context,
-	intent library.SourceCreationIntent,
-) (library.ServerImportResult, bool, error) {
+	intent libraryimportmodel.SourceCreationIntent,
+) (libraryimportmodel.ServerImportResult, bool, error) {
 	memory.calls = append(memory.calls, "lookup")
 	memory.intent = intent
 	return memory.result, memory.found, memory.lookupErr
@@ -31,40 +32,38 @@ func (memory *reviewPreparerMemory) LookupOwnedServerSource(
 
 func (memory *reviewPreparerMemory) CreateOwnedServerSource(
 	_ context.Context,
-	request library.OwnedServerSourceRequest,
-) (library.ServerImportResult, error) {
+	request libraryimportmodel.OwnedServerSourceRequest,
+) (libraryimportmodel.ServerImportResult, error) {
 	memory.calls = append(memory.calls, "create")
 	memory.request = request
 	return memory.result, memory.createErr
 }
 
 func (memory *reviewPreparerMemory) Files(
-	context.Context,
-	Execution,
-	ExecutionItem,
-) ([]library.ServerSourceFile, error) {
+	context.Context, model.Execution, model.ExecutionItem,
+) ([]libraryimportmodel.ServerSourceFile, error) {
 	memory.calls = append(memory.calls, "companions")
-	return []library.ServerSourceFile{{RelativePath: "parent.zip", BlobID: "parent", SizeBytes: 2}}, memory.companionErr
+	return []libraryimportmodel.ServerSourceFile{{RelativePath: "parent.zip", BlobID: "parent", SizeBytes: 2}}, memory.companionErr
 }
 
-func (memory *reviewPreparerMemory) Resume(context.Context, Execution, string, string, string) error {
+func (memory *reviewPreparerMemory) Resume(context.Context, model.Execution, string, string, string) error {
 	memory.calls = append(memory.calls, "resume")
 	return nil
 }
 
-func (memory *reviewPreparerMemory) Finish(_ context.Context, _ Execution, _ string, outcome ItemOutcome) error {
+func (memory *reviewPreparerMemory) Finish(_ context.Context, _ model.Execution, _ string, outcome model.ItemOutcome) error {
 	memory.calls = append(memory.calls, "finish")
 	memory.outcome = outcome
 	return memory.finishErr
 }
 
-func (memory *reviewPreparerMemory) Complete(_ context.Context, request ReviewHandoffRequest) error {
+func (memory *reviewPreparerMemory) Complete(_ context.Context, request model.ReviewHandoffRequest) error {
 	memory.calls = append(memory.calls, "handoff")
 	memory.handoff = request
 	return memory.handoffErr
 }
 
-func (memory *reviewPreparerMemory) SetPhase(_ context.Context, _ Execution, phase string) error {
+func (memory *reviewPreparerMemory) SetPhase(_ context.Context, _ model.Execution, phase string) error {
 	memory.calls = append(memory.calls, phase)
 	return memory.phaseErr
 }
@@ -72,7 +71,7 @@ func (*reviewPreparerMemory) Sanitize(error) string      { return "safe diagnost
 func (*reviewPreparerMemory) DatabaseCause(error) string { return "DATABASE_BUSY" }
 func newReviewPreparerMemory() *reviewPreparerMemory {
 	return &reviewPreparerMemory{
-		result: library.ServerImportResult{Created: library.ServerCreated{ImportJobID: "ordinary-job"}, Items: []library.ServerImportItem{{ItemID: "ordinary-item", State: "REVIEW_PENDING"}}},
+		result: libraryimportmodel.ServerImportResult{Created: libraryimportmodel.ServerCreated{ImportJobID: "ordinary-job"}, Items: []libraryimportmodel.ServerImportItem{{ItemID: "ordinary-item", State: "REVIEW_PENDING"}}},
 	}
 }
 
@@ -82,8 +81,8 @@ func (memory *reviewPreparerMemory) service() *ReviewPreparer {
 	)
 }
 
-func reviewPreparerInputs() (Execution, ExecutionItem) {
-	return Execution{
+func reviewPreparerInputs() (model.Execution, model.ExecutionItem) {
+	return model.Execution{
 			JobID:           "job",
 			ImportID:        "import",
 			WorkerID:        "worker",
@@ -91,13 +90,13 @@ func reviewPreparerInputs() (Execution, ExecutionItem) {
 			Attempt:         2,
 			CreatedByUserID: "actor",
 			ReleaseYearMax:  2027,
-		}, ExecutionItem{
+		}, model.ExecutionItem{
 			ID:               "source",
 			MetadataJSON:     `{"title":"Frozen"}`,
 			TargetPlatformID: "catalog",
 			ContentKind:      "STANDARD",
 			TagIDs:           []string{"tag"},
-			Files:            []ExecutionFile{{Path: "game.nes", BlobID: "primary", Size: 5}},
+			Files:            []model.ExecutionFile{{Path: "game.nes", BlobID: "primary", Size: 5}},
 		}
 }
 
@@ -112,7 +111,7 @@ func TestReviewPreparerLooksUpPermanentBindingBeforeSources(t *testing.T) {
 	) {
 		t.Fatalf("resumed=%v error=%v calls=%v", resumed, err, memory.calls)
 	}
-	if memory.intent.Kind != library.SourceOwnerEmulationStation || memory.intent.WorkerID != unit.WorkerID || memory.intent.ExecutionNo != 3 || memory.intent.Attempt != 2 || memory.handoff.Execution != unit {
+	if memory.intent.Kind != libraryimportmodel.SourceOwnerEmulationStation || memory.intent.WorkerID != unit.WorkerID || memory.intent.ExecutionNo != 3 || memory.intent.Attempt != 2 || memory.handoff.Execution != unit {
 		t.Fatalf("intent=%#v handoff=%#v", memory.intent, memory.handoff)
 	}
 }
@@ -126,7 +125,7 @@ func TestReviewPreparerFreezesContentModeAndOrdinaryIdentity(t *testing.T) {
 			if err := memory.service().Create(t.Context(), unit, item); err != nil {
 				t.Fatal(err)
 			}
-			if memory.request.ContentMode != kind || memory.request.AssignedByUserID != unit.CreatedByUserID || memory.request.Intent.Kind != library.SourceOwnerEmulationStation || !reflect.DeepEqual(
+			if memory.request.ContentMode != kind || memory.request.AssignedByUserID != unit.CreatedByUserID || memory.request.Intent.Kind != libraryimportmodel.SourceOwnerEmulationStation || !reflect.DeepEqual(
 				memory.request.TagIDs,
 				item.TagIDs,
 			) || len(
@@ -152,11 +151,11 @@ func TestReviewPreparerReturnsOwnershipAndLookupCauses(t *testing.T) {
 			case "lookup":
 				memory.lookupErr = cause
 			case "create-owner":
-				memory.createErr = library.ErrVersionConflict
-				expected = library.ErrVersionConflict
+				memory.createErr = libraryimportmodel.ErrVersionConflict
+				expected = libraryimportmodel.ErrVersionConflict
 			case "handoff-owner":
-				memory.handoffErr = ErrVersionConflict
-				expected = ErrVersionConflict
+				memory.handoffErr = model.ErrVersionConflict
+				expected = model.ErrVersionConflict
 			case "phase":
 				memory.phaseErr = cause
 			}

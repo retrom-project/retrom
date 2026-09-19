@@ -526,8 +526,8 @@
       "symbol": "retrom/internal/service/emulationstationimport.BoundedWarnings",
       "consumers": [
         "(*retrom/internal/service/emulationstationimport.Materialization).Warning",
-        "retrom/internal/service/emulationstationimport.appendExecutionWarnings",
-        "retrom/internal/service/emulationstationimport.boundedWarnings"
+        "(*retrom/internal/service/emulationstationimport.Scanner).projectGame",
+        "retrom/internal/service/emulationstationimport.AppendReviewMetadataWarnings"
       ],
       "invariant": "Retain the bounded first 64 warnings under the existing stable warning collection policy.",
       "status": "SOURCE_REVIEWED",
@@ -627,11 +627,11 @@
       "id": "emulationstationimport.appendExecutionWarnings",
       "owner": "emulationstationimport",
       "rf_id": "RF14",
-      "symbol": "retrom/internal/service/emulationstationimport.appendExecutionWarnings",
+      "symbol": "retrom/internal/service/emulationstationimport.AppendReviewMetadataWarnings",
       "consumers": [
         "(*retrom/internal/service/emulationstationimport.ReviewHandoff).complete",
-        "retrom/internal/service/emulationstationimport.AppendReviewMetadataWarnings",
-        "retrom/internal/service/emulationstationimport.completeExecutionReviews"
+        "retrom/internal/service/emulationstationimport.completeExecutionReviews",
+        "retrom/internal/service/maintenance.restoredReviewWarnings"
       ],
       "invariant": "Merge normalization warnings without duplicate code/field, preserving existing source warnings and the bound of64.",
       "status": "SOURCE_REVIEWED",
@@ -1051,11 +1051,11 @@
       "id": "emulationstationimport.reviewPreparation",
       "owner": "emulationstationimport",
       "rf_id": "RF14",
-      "symbol": "retrom/internal/service/emulationstationimport.reviewPreparation",
+      "symbol": "retrom/internal/service/emulationstationimport.ReviewPreparation",
       "consumers": [
         "(*retrom/internal/service/emulationstationimport.ReviewHandoff).Complete",
-        "retrom/internal/service/emulationstationimport.ReviewPreparation",
-        "retrom/internal/service/emulationstationimport.completeExecutionReviews"
+        "retrom/internal/service/emulationstationimport.completeExecutionReviews",
+        "retrom/internal/service/maintenance.restoredReviewPreparation"
       ],
       "invariant": "Preserve the legal source state path into VALIDATING: PENDING->COPYING->VALIDATING; COPYING->VALIDATING; VALIDATING none; retryable source failures restart via PENDING.",
       "status": "SOURCE_REVIEWED",
@@ -3341,8 +3341,12 @@
       "rf_id": "RF13",
       "symbol": "retrom/internal/service/libraryimport.ImportArchiveFormat",
       "consumers": [
+        "(*retrom/internal/service/libraryimport.ImportPreparation).prepareKiriKiriArchive",
+        "(*retrom/internal/service/libraryimport.ImportPreparation).prepareProfileFile",
+        "(*retrom/internal/service/libraryimport.ImportPreparation).prepareRPGMakerArchive",
+        "(*retrom/internal/service/libraryimport.ImportPreparation).prepareScummVMArchive",
         "retrom/internal/service/libraryimport.NormalizeTargetImport",
-        "retrom/internal/service/libraryimport.profileArchiveFormat"
+        "retrom/internal/service/libraryimport.tyranoScriptArchiveFormat"
       ],
       "invariant": "ZIP and7z only; split7z first-volume suffix has explicit unsupported-volume reason.",
       "status": "SOURCE_REVIEWED",
@@ -8342,11 +8346,10 @@
       "id": "pegasusimport.mergeReviewMetadataWarnings",
       "owner": "pegasusimport",
       "rf_id": "RF14",
-      "symbol": "retrom/internal/service/pegasusimport.mergeReviewMetadataWarnings",
+      "symbol": "retrom/internal/service/pegasusimport.MergeReviewMetadataWarnings",
       "consumers": [
         "(*retrom/internal/service/pegasusimport.ReviewHandoff).Complete",
         "retrom/internal/service/maintenance.restoredReviewWarnings",
-        "retrom/internal/service/pegasusimport.MergeReviewMetadataWarnings",
         "retrom/internal/service/pegasusimport.prepareRecoveryReview"
       ],
       "invariant": "Append servermetadata adjustmentwarnings withoutduplicate code+field; newouter slice.",
@@ -8517,9 +8520,9 @@
       "id": "pegasusimport.scanResult.addEstimated",
       "owner": "pegasusimport",
       "rf_id": "RF14",
-      "symbol": "(*retrom/internal/service/pegasusimport.scanResult).addEstimated",
+      "symbol": "(*retrom/internal/service/pegasusimport.ScanResult).addEstimated",
       "consumers": [
-        "(*retrom/internal/service/pegasusimport.scanResult).collectItem"
+        "(*retrom/internal/service/pegasusimport.ScanResult).collectItem"
       ],
       "invariant": "Boundtotal2TiB; negative/overflow saturatesmaximum+1.",
       "status": "SOURCE_REVIEWED",
@@ -8532,7 +8535,7 @@
       "id": "pegasusimport.scanResult.collectItem",
       "owner": "pegasusimport",
       "rf_id": "RF14",
-      "symbol": "(*retrom/internal/service/pegasusimport.scanResult).collectItem",
+      "symbol": "(*retrom/internal/service/pegasusimport.ScanResult).collectItem",
       "consumers": [
         "(*retrom/internal/service/pegasusimport.Scanner).projectCollection",
         "(*retrom/internal/service/pegasusimport.Scanner).projectMetadata"
@@ -9112,8 +9115,9 @@
       "rf_id": "RF14",
       "symbol": "retrom/internal/service/serverimport.RankCandidates",
       "consumers": [
+        "(*retrom/internal/service/serverimport.Service).installCandidate",
         "retrom/internal/service/serverimport.discoveryGroup",
-        "retrom/internal/service/serverimport.rankCandidates"
+        "retrom/internal/service/serverimport.markDuplicateBytes"
       ],
       "invariant": "Deterministically rank eligible firmware candidates using static/DAT quality, exact name association, useful size/hash evidence and stable source path tie breakers.",
       "status": "SOURCE_REVIEWED",

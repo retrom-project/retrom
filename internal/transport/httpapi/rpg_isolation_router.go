@@ -10,7 +10,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"retrom/internal/service/isolation"
+	isolationmodel "retrom/internal/model/isolation"
 )
 
 const rpgRuntimeCookieName = "retrom_rpg_runtime"
@@ -37,7 +37,7 @@ func (server *Server) routeByRuntimeHost(application http.Handler) http.Handler 
 func (server *Server) serveRPGRuntimeHost(
 	writer http.ResponseWriter,
 	request *http.Request,
-	access isolation.Access,
+	access isolationmodel.Access,
 ) {
 	requestID, err := uuid.NewV7()
 	if err != nil {
@@ -99,7 +99,7 @@ func validTyranoScriptCacheBuster(raw string) bool {
 func (server *Server) serveRPGRuntimeRoute(
 	writer http.ResponseWriter,
 	request *http.Request,
-	access isolation.Access,
+	access isolationmodel.Access,
 ) {
 	switch request.Method {
 	case http.MethodGet:
@@ -124,7 +124,7 @@ func (server *Server) serveRPGRuntimeRoute(
 func (server *Server) serveRPGRuntimeGet(
 	writer http.ResponseWriter,
 	request *http.Request,
-	access isolation.Access,
+	access isolationmodel.Access,
 ) {
 	switch {
 	case request.URL.Path == "/__retrom/bootstrap":
@@ -155,7 +155,7 @@ func (server *Server) serveRPGRuntimeGet(
 func (server *Server) serveRPGRuntimePost(
 	writer http.ResponseWriter,
 	request *http.Request,
-	access isolation.Access,
+	access isolationmodel.Access,
 ) {
 	switch request.URL.Path {
 	case "/__retrom/bootstrap":
@@ -187,17 +187,17 @@ func rpgRuntimeNonce() (string, error) {
 
 func (server *Server) authenticateRPGRuntime(
 	request *http.Request,
-	access isolation.Access,
-) (isolation.Access, error) {
+	access isolationmodel.Access,
+) (isolationmodel.Access, error) {
 	cookies := request.CookiesNamed(rpgRuntimeCookieName)
 	if len(cookies) != 1 || cookies[0].Value == "" {
-		return isolation.Access{}, isolation.ErrCredential
+		return isolationmodel.Access{}, isolationmodel.ErrCredential
 	}
 	authorized, err := server.rpgIsolation.Authenticate(
 		request.Context(), access.LaunchID, access.Origin, cookies[0].Value,
 	)
 	if err != nil {
-		return isolation.Access{}, fmt.Errorf("authenticate RPG runtime: %w", err)
+		return isolationmodel.Access{}, fmt.Errorf("authenticate RPG runtime: %w", err)
 	}
 	return authorized, nil
 }

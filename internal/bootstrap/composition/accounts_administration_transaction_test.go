@@ -6,8 +6,8 @@ import (
 	"testing"
 
 	"retrom/internal/bootstrap/config"
+	accountsmodel "retrom/internal/model/accounts"
 	accountpersistence "retrom/internal/repo/accounts"
-	accountservice "retrom/internal/service/accounts"
 )
 
 func TestUserDeletionLateFailureRollsBackSecurityAndAudit(t *testing.T) {
@@ -15,7 +15,7 @@ func TestUserDeletionLateFailureRollsBackSecurityAndAudit(t *testing.T) {
 	initial := authenticatedTestAdmin(t, fixture)
 	acceptFixtureInvitation(t, fixture, initial.Principal, "ADMIN", "otheradmin", "Other Admin")
 	repository := accountpersistence.NewAdministration(fixture.database.SQL)
-	err := repository.WithWrite(t.Context(), func(scope accountservice.AdministrationScope) error {
+	err := repository.WithWrite(t.Context(), func(scope accountsmodel.AdministrationScope) error {
 		before, found, err := scope.Read.Current(t.Context(), initial.User.UserID, fixture.now.UnixMilli())
 		if err != nil {
 			return err
@@ -23,10 +23,10 @@ func TestUserDeletionLateFailureRollsBackSecurityAndAudit(t *testing.T) {
 		if !found {
 			t.Fatal("missing initial administrator")
 		}
-		if err := scope.Write.Delete(t.Context(), accountservice.AdministrationDeletion{Before: before, Security: accountservice.UserSecurity{Sessions: true, CreatedLinks: true, TargetLinks: true, Launches: true, Reason: "USER_DELETED"}, ClearTestDefault: true, Now: fixture.now.UnixMilli()}); err != nil {
+		if err := scope.Write.Delete(t.Context(), accountsmodel.AdministrationDeletion{Before: before, Security: accountsmodel.UserSecurity{Sessions: true, CreatedLinks: true, TargetLinks: true, Launches: true, Reason: "USER_DELETED"}, ClearTestDefault: true, Now: fixture.now.UnixMilli()}); err != nil {
 			return err
 		}
-		if err := scope.Write.Audit(t.Context(), accountservice.AccountAudit{ID: "rollback-admin-audit", ActorID: initial.User.UserID, Action: "USER_DELETED", ResourceType: "USER", ResourceID: initial.User.UserID, Now: fixture.now.UnixMilli()}); err != nil {
+		if err := scope.Write.Audit(t.Context(), accountsmodel.AccountAudit{ID: "rollback-admin-audit", ActorID: initial.User.UserID, Action: "USER_DELETED", ResourceType: "USER", ResourceID: initial.User.UserID, Now: fixture.now.UnixMilli()}); err != nil {
 			return err
 		}
 		return context.Canceled

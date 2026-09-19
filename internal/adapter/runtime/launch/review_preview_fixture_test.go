@@ -6,12 +6,13 @@ import (
 	"io"
 
 	retromruntime "retrom/internal/adapter/runtime/runtime"
+	launchmodel "retrom/internal/model/launch"
 	persistence "retrom/internal/repo/launch"
 	application "retrom/internal/service/launch"
 )
 
 func (service *Service) ReviewPreviewConfig(ctx context.Context, id, capability string) (Config, error) {
-	configuration, err := service.configIssuer().Issue(ctx, application.SessionRef{ID: id, Preview: true}, capability)
+	configuration, err := service.configIssuer().Issue(ctx, launchmodel.SessionRef{ID: id, Preview: true}, capability)
 	if err != nil {
 		return Config{}, fmt.Errorf("review config: %w", err)
 	}
@@ -32,8 +33,8 @@ func (service *Service) StoreReviewScreenshot(
 	return result, nil
 }
 
-func (service *Service) screenshotSaver(repository application.ScreenshotRepository) *application.ScreenshotSaver {
-	var images application.ScreenshotImages
+func (service *Service) screenshotSaver(repository launchmodel.ScreenshotRepository) *application.ScreenshotSaver {
+	var images launchmodel.ScreenshotImages
 	if service.blobs != nil {
 		images = screenshotImages{blobs: service.blobs}
 	}

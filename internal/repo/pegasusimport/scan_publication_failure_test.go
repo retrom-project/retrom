@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	pegasusimportmodel "retrom/internal/model/pegasusimport"
 	application "retrom/internal/service/pegasusimport"
 	"retrom/internal/testkit/testsupport"
 
@@ -46,7 +47,7 @@ func TestScanPublicationChecksAffectedRowsAfterActualInsert(t *testing.T) {
 		err := service.Headers(t.Context(), id, projection.Headers)
 		expected := cause
 		if zero {
-			expected = application.ErrVersionConflict
+			expected = pegasusimportmodel.ErrVersionConflict
 		}
 		if hits != 1 || !errors.Is(err, expected) || !reflect.DeepEqual(before, publicationRows(t, db)) {
 			t.Fatalf("partial headers zero=%v hits=%d err=%v", zero, hits, err)
@@ -79,8 +80,8 @@ func TestScanPublicationEventFailurePreservesStagedSnapshot(t *testing.T) {
 
 type scanCommitFailure struct{ repository *ScanPublication }
 
-func (repository scanCommitFailure) WithScan(ctx context.Context, work func(application.ScanScope) error) error {
-	return repository.repository.WithScan(ctx, func(scope application.ScanScope) error {
+func (repository scanCommitFailure) WithScan(ctx context.Context, work func(pegasusimportmodel.ScanScope) error) error {
+	return repository.repository.WithScan(ctx, func(scope pegasusimportmodel.ScanScope) error {
 		if err := work(scope); err != nil {
 			return err
 		}

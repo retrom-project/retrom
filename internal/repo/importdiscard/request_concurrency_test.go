@@ -7,7 +7,7 @@ import (
 
 	"retrom/internal/adapter/integration/libraryimport"
 	"retrom/internal/bootstrap/composition"
-	"retrom/internal/service/importdiscard"
+	importdiscardmodel "retrom/internal/model/importdiscard"
 )
 
 func TestDiscardRequestRechecksPublishedBatchBeforeWriting(t *testing.T) {
@@ -26,7 +26,7 @@ func TestDiscardRequestRechecksPublishedBatchBeforeWriting(t *testing.T) {
 	}
 	f.service = composition.NewImportDiscard(f.db, libraryimport.NewDiscardWorkflow(f.importer), nil, nil, clock)
 	_, err := f.service.Request(f.ctx, "IMPORT", result.Created.ImportJobID, adminID)
-	if !errors.Is(err, importdiscard.ErrInvalid) {
+	if !errors.Is(err, importdiscardmodel.ErrInvalid) {
 		t.Fatalf("already published batch accepted for discard: %v", err)
 	}
 	if f.count(t, `SELECT count(*) FROM import_batch_discards WHERE import_id=?`, result.Created.ImportJobID) != 0 {

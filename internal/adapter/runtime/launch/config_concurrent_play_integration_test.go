@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
+	launchmodel "retrom/internal/model/launch"
 	persistence "retrom/internal/repo/launch"
-	application "retrom/internal/service/launch"
 )
 
 func TestConfigConcurrentActivationThenPlayKeepsValidIssuance(t *testing.T) {
@@ -60,7 +60,7 @@ func TestConfigConcurrentActivationThenPlayKeepsValidIssuance(t *testing.T) {
 				advanced = playRows(t, fixture.database)
 			}}
 			issuer := fixtureConfigIssuer(fixture, persistence.NewConfig(fixture.database), builder)
-			configuration, err := issuer.Issue(t.Context(), application.SessionRef{ID: created.LaunchID}, created.Capability)
+			configuration, err := issuer.Issue(t.Context(), launchmodel.SessionRef{ID: created.LaunchID}, created.Capability)
 			if err != nil {
 				t.Fatalf("valid config after concurrent activation/play rejected: version %d -> %d: %v", beforeVersion, currentVersion, err)
 			}

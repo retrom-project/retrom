@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 
 	"retrom/internal/bootstrap/config"
+	taggingmodel "retrom/internal/model/tagging"
 	"retrom/internal/service/tagging"
 	"retrom/internal/testkit/testassert"
 )
@@ -54,7 +55,7 @@ func TestTagDefaultsHTTPIsAtomicAndIdempotent(t *testing.T) {
 	key := uuid.NewString()
 	apply := tagHTTPRequest(t, handler, &auth, http.MethodPost, "/api/v1/admin/tags/defaults",
 		`{}`, map[string]string{"Idempotency-Key": key})
-	var result tagging.CommonTagsResult
+	var result taggingmodel.CommonTagsResult
 	if err := json.Unmarshal(apply.Body.Bytes(), &result); err != nil {
 		t.Fatal(err)
 	}
@@ -115,7 +116,7 @@ func TestTagHTTPCRUDGameAssignmentSearchAndDeleteInvalidation(t *testing.T) {
 
 	createKey := uuid.NewString()
 	created := createWithKey("  Co-op  ", createKey)
-	var tag tagging.AdminItem
+	var tag taggingmodel.AdminItem
 	if err := json.Unmarshal(created.Body.Bytes(), &tag); err != nil || created.Code != http.StatusCreated ||
 		tag.Name != "Co-op" || created.Header().Get("ETag") != `"v1"` {
 		t.Fatalf("create = %d %#v %s error=%v", created.Code, tag, created.Body.String(), err)

@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"retrom/internal/adapter/files/blobstore"
-	payloadservice "retrom/internal/service/payloadrelease"
+	payloadreleasemodel "retrom/internal/model/payloadrelease"
 )
 
 // Store adapts the blob store to payload release's file and wait ports.
@@ -25,7 +25,7 @@ func (files *Store) Delete(ctx context.Context, digest string) error {
 		return fmt.Errorf("stop garbage file removal: %w", err)
 	}
 	if files.blobs == nil {
-		return payloadservice.ErrInputInvalid
+		return payloadreleasemodel.ErrInputInvalid
 	}
 	if err := os.Remove(files.blobs.Path(digest)); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return fmt.Errorf("remove garbage file: %w", err)

@@ -5,32 +5,34 @@ import (
 	"errors"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/datindex"
 )
 
 type datMemory struct {
-	requirements []Requirement
-	retired      *Retirement
+	requirements []model.Requirement
+	retired      *model.Retirement
 	failWrite    error
 }
 
-func (*datMemory) Definition(context.Context, string) (Definition, error) {
-	return Definition{CoreID: "core", ProviderID: "provider", TargetID: "target", SHA256: "dat-sha"}, nil
+func (*datMemory) Definition(context.Context, string) (model.Definition, error) {
+	return model.Definition{CoreID: "core", ProviderID: "provider", TargetID: "target", SHA256: "dat-sha"}, nil
 }
 
 func (*datMemory) MachineNames(context.Context, string) ([]string, error) {
 	return []string{"bios", "unresolved-parent"}, nil
 }
 
-func (*datMemory) RequiredEntries(context.Context, string, string) ([]Entry, error) {
-	return []Entry{}, nil
+func (*datMemory) RequiredEntries(context.Context, string, string) ([]model.Entry, error) {
+	return []model.Entry{}, nil
 }
 
-func (memory *datMemory) UpsertRequirement(_ context.Context, requirement Requirement) error {
+func (memory *datMemory) UpsertRequirement(_ context.Context, requirement model.Requirement) error {
 	memory.requirements = append(memory.requirements, requirement)
 	return memory.failWrite
 }
 
-func (memory *datMemory) DisableStale(_ context.Context, retirement Retirement) error {
+func (memory *datMemory) DisableStale(_ context.Context, retirement model.Retirement) error {
 	memory.retired = &retirement
 	return nil
 }
@@ -42,7 +44,7 @@ func TestRequirementSynchronizationRetainsUnresolvedParentSlot(t *testing.T) {
 	if err != nil || len(memory.requirements) != 2 || memory.requirements[1].LogicalName != "unresolved-parent.zip" {
 		t.Fatalf("requirements=%+v error=%v", memory.requirements, err)
 	}
-	if memory.retired == nil || *memory.retired != (Retirement{ProviderID: "provider", TargetID: "target", CurrentVersionID: "version", AtMS: 1234}) {
+	if memory.retired == nil || *memory.retired != (model.Retirement{ProviderID: "provider", TargetID: "target", CurrentVersionID: "version", AtMS: 1234}) {
 		t.Fatalf("retirement=%+v", memory.retired)
 	}
 }
@@ -60,8 +62,7 @@ func TestRequirementFailurePreventsRetiringExistingCatalog(t *testing.T) {
 func TestRequirementIdentityAndDigestStayStable(t *testing.T) {
 	t.Parallel()
 	crc := "12345678"
-	requirement, err := buildRequirement(Definition{CoreID: "core", ProviderID: "provider", TargetID: "target", SHA256: "dat-sha"},
-		"version", "bios", []Entry{{Name: "bios.bin", CRC32: &crc, SizeBytes: 4, Status: "GOOD"}}, 1234)
+	requirement, err := model.BuildRequirement(model.Definition{CoreID: "core", ProviderID: "provider", TargetID: "target", SHA256: "dat-sha"}, "version", "bios", []model.Entry{{Name: "bios.bin", CRC32: &crc, SizeBytes: 4, Status: "GOOD"}}, 1234)
 	if err != nil {
 		t.Fatal(err)
 	}

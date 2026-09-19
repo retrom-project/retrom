@@ -3,16 +3,18 @@ package payloadrelease
 import (
 	"context"
 	"fmt"
+
+	model "retrom/internal/model/payloadrelease"
 )
 
-type LifecycleVerifier struct{ repository LifecycleRepository }
+type LifecycleVerifier struct{ repository model.LifecycleRepository }
 
-func NewLifecycleVerifier(repository LifecycleRepository) *LifecycleVerifier {
+func NewLifecycleVerifier(repository model.LifecycleRepository) *LifecycleVerifier {
 	return &LifecycleVerifier{repository: repository}
 }
 
 func (verifier *LifecycleVerifier) Validate(ctx context.Context) error {
-	err := verifier.repository.WithLifecycle(ctx, func(reader LifecycleReader) error {
+	err := verifier.repository.WithLifecycle(ctx, func(reader model.LifecycleReader) error {
 		edges, err := reader.BlobEdges(ctx)
 		if err != nil {
 			return fmt.Errorf("read payload ownership registry: %w", err)
@@ -28,8 +30,8 @@ func (verifier *LifecycleVerifier) Validate(ctx context.Context) error {
 	return nil
 }
 
-func validateLifecyclePages(ctx context.Context, reader LifecycleReader) error {
-	var cursor Scope
+func validateLifecyclePages(ctx context.Context, reader model.LifecycleReader) error {
+	var cursor model.Scope
 	for {
 		owners, err := reader.Owners(ctx, cursor, 200)
 		if err != nil {
@@ -45,48 +47,48 @@ func validateLifecyclePages(ctx context.Context, reader LifecycleReader) error {
 		}
 		next := owners[len(owners)-1].Owner.Scope
 		if next.Type < cursor.Type || next.Type == cursor.Type && next.ID <= cursor.ID {
-			return ErrLifecycleInvariant
+			return model.ErrLifecycleInvariant
 		}
 		cursor = next
 	}
 }
 
-func validateLifecycleOwner(facts LifecycleOwner) error {
+func validateLifecycleOwner(facts model.LifecycleOwner) error {
 	owner := facts.Owner
 	if owner.PayloadState == "RETAINED" {
 		if !lifecycleTerminal(owner) {
 			return nil
 		}
-		return fmt.Errorf("%w: terminal %s retains payload", ErrLifecycleInvariant, owner.Scope.Type)
+		return fmt.Errorf("%w: terminal %s retains payload", model.ErrLifecycleInvariant, owner.Scope.Type)
 	}
 	if facts.ReleaseJobID == "" || facts.ReleaseJobID != owner.ReleaseJobID || facts.ReleaseKind != "PAYLOAD_RELEASE" {
-		return fmt.Errorf("%w: invalid release job for %s", ErrLifecycleInvariant, owner.Scope.Type)
+		return fmt.Errorf("%w: invalid release job for %s", model.ErrLifecycleInvariant, owner.Scope.Type)
 	}
 	expected := owner.Scope
-	if (owner.Scope.Type == ScopePegasusImportItem ||
-		owner.Scope.Type == ScopeEmulationStationImportItem) && owner.PublicID != "" {
-		expected = Scope{Type: ScopeImportItem, ID: owner.PublicID}
+	if (owner.Scope.Type == model.ScopePegasusImportItem ||
+		owner.Scope.Type == model.ScopeEmulationStationImportItem) && owner.PublicID != "" {
+		expected = model.Scope{Type: model.ScopeImportItem, ID: owner.PublicID}
 		if facts.PublicReleaseJobID != owner.ReleaseJobID {
-			return fmt.Errorf("%w: unrelated public release", ErrLifecycleInvariant)
+			return fmt.Errorf("%w: unrelated public release", model.ErrLifecycleInvariant)
 		}
 	}
 	if facts.ReleaseScope != expected {
-		return fmt.Errorf("%w: unrelated release scope", ErrLifecycleInvariant)
+		return fmt.Errorf("%w: unrelated release scope", model.ErrLifecycleInvariant)
 	}
 	return nil
 }
 
-func lifecycleTerminal(owner Owner) bool {
+func lifecycleTerminal(owner model.Owner) bool {
 	switch owner.Scope.Type {
-	case ScopeImportItem:
-		return TerminalImportItem(owner.State)
-	case ScopeImportJob:
-		return TerminalImportJob(owner.State)
-	case ScopePegasusImportItem, ScopeEmulationStationImportItem:
-		return TerminalSourceItem(owner.State, owner.Retryable)
-	case ScopeGame:
+	case model.ScopeImportItem:
+		return model.TerminalImportItem(owner.State)
+	case model.ScopeImportJob:
+		return model.TerminalImportJob(owner.State)
+	case model.ScopePegasusImportItem, model.ScopeEmulationStationImportItem:
+		return model.TerminalSourceItem(owner.State, owner.Retryable)
+	case model.ScopeGame:
 		return owner.State == "DELETED"
-	case ScopeUploadConsumption, ScopeBlob:
+	case model.ScopeUploadConsumption, model.ScopeBlob:
 		return false
 	default:
 		return false

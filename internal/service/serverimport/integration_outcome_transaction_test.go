@@ -5,16 +5,18 @@ import (
 	"errors"
 	"testing"
 
+	servermodel "retrom/internal/model/serverimport"
+
 	importpersistence "retrom/internal/repo/serverimport"
 	importservice "retrom/internal/service/serverimport"
 )
 
 type failingOutcomeRepository struct {
-	importservice.OutcomeRepository
+	servermodel.OutcomeRepository
 }
 
-func (repository failingOutcomeRepository) WithWrite(ctx context.Context, work func(importservice.OutcomeScope) error) error {
-	return repository.OutcomeRepository.WithWrite(ctx, func(scope importservice.OutcomeScope) error {
+func (repository failingOutcomeRepository) WithWrite(ctx context.Context, work func(servermodel.OutcomeScope) error) error {
+	return repository.OutcomeRepository.WithWrite(ctx, func(scope servermodel.OutcomeScope) error {
 		if err := work(scope); err != nil {
 			return err
 		}
@@ -85,7 +87,7 @@ func TestTerminalOutcomeLateFailurePreservesCurrentExecution(t *testing.T) {
 	}
 }
 
-func prepareTerminalOutcome(t *testing.T, service *Service, unit work, candidate *evaluatedCandidate, action string) {
+func prepareTerminalOutcome(t *testing.T, service *importservice.Service, unit servermodel.Work, candidate *importservice.EvaluatedCandidate, action string) {
 	t.Helper()
 	if action == "cancel" {
 		current, err := service.Get(t.Context(), unit.ImportID)
@@ -97,7 +99,7 @@ func prepareTerminalOutcome(t *testing.T, service *Service, unit work, candidate
 		}
 		return
 	}
-	if err := service.PersistCandidatesForTest(t.Context(), unit, map[string][]*evaluatedCandidate{candidate.Item.RequirementID: {candidate}}, walkCounts{}); err != nil {
+	if err := service.PersistCandidatesForTest(t.Context(), unit, map[string][]*importservice.EvaluatedCandidate{candidate.Item.RequirementID: {candidate}}, servermodel.DiscoveryCounts{}); err != nil {
 		t.Fatal(err)
 	}
 	service.CompleteItemForTest(t.Context(), unit, candidate.Item.RequirementID, "NOT_FOUND", nil, "BIOS_CANDIDATE_NOT_FOUND")

@@ -6,9 +6,9 @@ import (
 	"errors"
 	"testing"
 
+	libraryimportmodel "retrom/internal/model/libraryimport"
 	"retrom/internal/repo/dbexec"
 	repository "retrom/internal/repo/libraryimport"
-	application "retrom/internal/service/libraryimport"
 )
 
 func TestDiscardWriterRequiresCurrentDraftVersion(t *testing.T) {
@@ -24,7 +24,7 @@ func TestDiscardWriterRequiresCurrentDraftVersion(t *testing.T) {
 	if _, err := transaction.ExecContext(t.Context(), `UPDATE review_drafts SET version=2 WHERE import_item_id=?`, itemID); err != nil {
 		t.Fatal(err)
 	}
-	err = repository.BindReviewDiscard(transaction).Writer.DiscardItem(t.Context(), application.ReviewDiscardChange{
+	err = repository.BindReviewDiscard(transaction).Writer.DiscardItem(t.Context(), libraryimportmodel.ReviewDiscardChange{
 		ItemID: itemID, ImportID: created.Created.ImportJobID, ExpectedVersion: 1, NowMS: fixture.service.now().UnixMilli(),
 	})
 	if !errors.Is(err, ErrInvalid) {
@@ -41,7 +41,7 @@ func TestDiscardWriterRequiresCurrentDraftVersion(t *testing.T) {
 
 func TestDiscardOwnerWriterSeparatesSingleAndBatchAuthority(t *testing.T) {
 	t.Parallel()
-	for _, mode := range []application.ReviewDiscardMode{application.ReviewDiscardSingle, application.ReviewDiscardBatch} {
+	for _, mode := range []libraryimportmodel.ReviewDiscardMode{libraryimportmodel.ReviewDiscardSingle, libraryimportmodel.ReviewDiscardBatch} {
 		t.Run(string(mode), func(t *testing.T) {
 			t.Parallel()
 			assertDiscardOwnerAuthority(t, mode)
@@ -49,7 +49,7 @@ func TestDiscardOwnerWriterSeparatesSingleAndBatchAuthority(t *testing.T) {
 	}
 }
 
-func assertDiscardOwnerAuthority(t *testing.T, mode application.ReviewDiscardMode) {
+func assertDiscardOwnerAuthority(t *testing.T, mode libraryimportmodel.ReviewDiscardMode) {
 	t.Helper()
 	fixture, request := ownedSourceFixture(t)
 	created, err := fixture.service.CreateOwnedServerSource(t.Context(), request)
@@ -65,10 +65,10 @@ func assertDiscardOwnerAuthority(t *testing.T, mode application.ReviewDiscardMod
 	if _, err := transaction.ExecContext(t.Context(), `UPDATE import_items SET state='DISCARDED',completed_at_ms=? WHERE id=?`, ownedSourceNow().UnixMilli(), created.Items[0].ItemID); err != nil {
 		t.Fatal(err)
 	}
-	err = repository.TransitionReviewOwners(t.Context(), transaction, application.ReviewOwnerTransition{
-		ItemID: created.Items[0].ItemID, State: application.ReviewOwnerDiscarded, Mode: mode, NowMS: ownedSourceNow().UnixMilli(),
+	err = repository.TransitionReviewOwners(t.Context(), transaction, libraryimportmodel.ReviewOwnerTransition{
+		ItemID: created.Items[0].ItemID, State: libraryimportmodel.ReviewOwnerDiscarded, Mode: mode, NowMS: ownedSourceNow().UnixMilli(),
 	})
-	if mode == application.ReviewDiscardBatch {
+	if mode == libraryimportmodel.ReviewDiscardBatch {
 		if err != nil {
 			t.Fatalf("batch lost cancelled-source cleanup: %v", err)
 		}

@@ -7,21 +7,22 @@ import (
 	"slices"
 	"time"
 
-	"retrom/internal/adapter/files/serversource"
+	servermodel "retrom/internal/model/serverimport"
+
 	"retrom/internal/capability/content/firmware"
 )
 
 type Discovery struct {
-	repository DiscoveryRepository
+	repository servermodel.DiscoveryRepository
 	now        func() time.Time
 }
 
-func NewDiscovery(repository DiscoveryRepository, now func() time.Time) *Discovery {
+func NewDiscovery(repository servermodel.DiscoveryRepository, now func() time.Time) *Discovery {
 	return &Discovery{repository, now}
 }
 
-func (service *Discovery) Reset(ctx context.Context, unit Work) error {
-	err := service.repository.WithWrite(ctx, func(records DiscoveryRecords) error {
+func (service *Discovery) Reset(ctx context.Context, unit servermodel.Work) error {
+	err := service.repository.WithWrite(ctx, func(records servermodel.DiscoveryRecords) error {
 		if err := records.Reset(ctx, unit, service.now().UnixMilli()); err != nil {
 			return fmt.Errorf("reset import discovery: %w", err)
 		}
@@ -35,15 +36,15 @@ func (service *Discovery) Reset(ctx context.Context, unit Work) error {
 
 func (service *Discovery) Persist(
 	ctx context.Context,
-	unit Work,
+	unit servermodel.Work,
 	groups map[string][]*EvaluatedCandidate,
-	counts serversource.Counts,
+	counts servermodel.DiscoveryCounts,
 ) error {
 	plan, err := discoveryPlan(unit, groups, counts, service.now().UnixMilli())
 	if err != nil {
 		return err
 	}
-	err = service.repository.WithWrite(ctx, func(records DiscoveryRecords) error {
+	err = service.repository.WithWrite(ctx, func(records servermodel.DiscoveryRecords) error {
 		if err := records.Persist(ctx, plan); err != nil {
 			return fmt.Errorf("persist import discovery: %w", err)
 		}
@@ -56,12 +57,12 @@ func (service *Discovery) Persist(
 }
 
 func discoveryPlan(
-	unit Work,
+	unit servermodel.Work,
 	groups map[string][]*EvaluatedCandidate,
-	counts serversource.Counts,
+	counts servermodel.DiscoveryCounts,
 	now int64,
-) (DiscoveryPlan, error) {
-	plan := DiscoveryPlan{Unit: unit, Counts: counts, Now: now}
+) (servermodel.DiscoveryPlan, error) {
+	plan := servermodel.DiscoveryPlan{Unit: unit, Counts: counts, Now: now}
 	keys := make([]string, 0, len(groups))
 	for id := range groups {
 		keys = append(keys, id)
@@ -70,7 +71,7 @@ func discoveryPlan(
 	for _, id := range keys {
 		group, err := discoveryGroup(id, groups[id])
 		if err != nil {
-			return DiscoveryPlan{}, err
+			return servermodel.DiscoveryPlan{}, err
 		}
 		plan.Groups = append(plan.Groups, group)
 		plan.Total += int64(len(group.Candidates))
@@ -81,26 +82,26 @@ func discoveryPlan(
 	return plan, nil
 }
 
-func discoveryGroup(id string, candidates []*EvaluatedCandidate) (DiscoveryGroup, error) {
+func discoveryGroup(id string, candidates []*EvaluatedCandidate) (servermodel.DiscoveryGroup, error) {
 	for _, candidate := range candidates {
 		if candidate == nil || candidate.Item.RequirementID != id {
-			return DiscoveryGroup{}, ErrCatalogInvalid
+			return servermodel.DiscoveryGroup{}, servermodel.ErrCatalogInvalid
 		}
 		if candidate.State == "ELIGIBLE" &&
 			((!candidate.Item.IsArchive() && candidate.Static == nil) ||
 				(candidate.Item.IsArchive() && candidate.DAT == nil)) {
-			return DiscoveryGroup{}, ErrCatalogInvalid
+			return servermodel.DiscoveryGroup{}, servermodel.ErrCatalogInvalid
 		}
 	}
 	ranks := make(map[string]int64)
 	for index, candidate := range RankCandidates(candidates) {
 		ranks[candidate.ID] = int64(index + 1)
 	}
-	result := DiscoveryGroup{RequirementID: id}
+	result := servermodel.DiscoveryGroup{RequirementID: id}
 	for _, candidate := range candidates {
 		details, err := json.Marshal(candidate.Details)
 		if err != nil {
-			return DiscoveryGroup{}, fmt.Errorf("encode candidate evidence: %w", err)
+			return servermodel.DiscoveryGroup{}, fmt.Errorf("encode candidate evidence: %w", err)
 		}
 		facts := firmware.FileFacts{
 			RelativePath: candidate.File.RelativePath,
@@ -111,8 +112,8 @@ func discoveryGroup(id string, candidates []*EvaluatedCandidate) (DiscoveryGroup
 			SHA256:       candidate.Metadata.SHA256,
 			CRC32:        candidate.Metadata.CRC32,
 		}
-		value := CandidateWrite{
-			Evidence: CandidateEvidence{
+		value := servermodel.CandidateWrite{
+			Evidence: servermodel.CandidateEvidence{
 				ID:            candidate.ID,
 				RequirementID: id,
 				Association:   candidate.Association,

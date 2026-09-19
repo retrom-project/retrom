@@ -9,6 +9,7 @@ import (
 	"retrom/internal/adapter/files/blobstore"
 	"retrom/internal/adapter/files/payloadfiles"
 	"retrom/internal/foundation/cleanup"
+	payloadreleasemodel "retrom/internal/model/payloadrelease"
 	repository "retrom/internal/repo/payloadrelease"
 	application "retrom/internal/service/payloadrelease"
 )
@@ -87,10 +88,10 @@ func (service *Service) ScheduleGameDeletion(
 // GameDeleteImpactTx reads the deletion impact from a caller-owned transaction.
 func (service *Service) GameDeleteImpactTx(
 	ctx context.Context, transaction *sql.Tx, gameID string,
-) (application.GameImpact, error) {
-	impact, err := application.NewImpactQueries(repository.BindImpact(transaction)).Game(ctx, gameID)
+) (payloadreleasemodel.GameImpact, error) {
+	impact, err := payloadreleasemodel.NewImpactQueries(repository.BindImpact(transaction)).Game(ctx, gameID)
 	if err != nil {
-		return application.GameImpact{}, fmt.Errorf("read game payload impact: %w", err)
+		return payloadreleasemodel.GameImpact{}, fmt.Errorf("read game payload impact: %w", err)
 	}
 	return impact, nil
 }

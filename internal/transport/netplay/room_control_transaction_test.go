@@ -9,8 +9,10 @@ import (
 	"testing"
 	"time"
 
+	netplaymodel "retrom/internal/model/netplay"
+	"retrom/internal/model/netplayprofile"
+
 	repository "retrom/internal/repo/netplay"
-	application "retrom/internal/service/netplay"
 )
 
 type controlFixture struct {
@@ -34,11 +36,11 @@ func newControlFixture(t *testing.T) controlFixture {
 	if _, err := database.SQL.ExecContext(t.Context(), `INSERT INTO profiles(id,display_name,created_at_ms)VALUES('guest','Guest',?)`, now.UnixMilli()); err != nil {
 		t.Fatal(err)
 	}
-	raw, err := os.ReadFile(filepath.Join("..", "..", "..", "data", ManifestRelativePath))
+	raw, err := os.ReadFile(filepath.Join("..", "..", "..", "data", "netplay/v2/manifest.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	registry, err := parseRegistry(raw, fixtureDependencySet())
+	registry, err := netplayprofile.ParseRegistry(raw, fixtureBindings())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -71,24 +73,24 @@ func TestRoomControlFailuresRollBackVersionsMembersAndEvents(t *testing.T) {
 	}
 }
 
-func applyControlTestWrite(t *testing.T, scope application.RoomControlScope, before application.RoomControlSnapshot, evidence application.RoomControlEvidence, action string) error {
+func applyControlTestWrite(t *testing.T, scope netplaymodel.RoomControlScope, before netplaymodel.RoomControlSnapshot, evidence netplaymodel.RoomControlEvidence, action string) error {
 	t.Helper()
 	switch action {
 	case "select":
 		evidence.Type = "GAME_SELECTED"
-		return scope.Write.Select(t.Context(), application.RoomSelectionPlan{Before: before, Selection: *before.Selection, Evidence: evidence})
+		return scope.Write.Select(t.Context(), netplaymodel.RoomSelectionPlan{Before: before, Selection: *before.Selection, Evidence: evidence})
 	case "clear":
 		evidence.Type = "GAME_CLEARED"
-		return scope.Write.Clear(t.Context(), application.RoomClearPlan{Before: before, Evidence: evidence})
+		return scope.Write.Clear(t.Context(), netplaymodel.RoomClearPlan{Before: before, Evidence: evidence})
 	case "seat":
 		evidence.Type = "SEAT_CHANGED"
-		return scope.Write.Seat(t.Context(), application.RoomSeatPlan{Before: before, MemberID: before.Member.ID, PlayerNo: 2, Evidence: evidence})
+		return scope.Write.Seat(t.Context(), netplaymodel.RoomSeatPlan{Before: before, MemberID: before.Member.ID, PlayerNo: 2, Evidence: evidence})
 	default:
 		evidence.Type = "READY_CHANGED"
 		if action == "stale member" {
 			before.Member.Version++
 		}
-		plan := application.RoomReadyPlan{Before: before, Ready: true, Evidence: evidence}
+		plan := netplaymodel.RoomReadyPlan{Before: before, Ready: true, Evidence: evidence}
 		if err := scope.Write.Ready(t.Context(), plan); err != nil {
 			return err
 		}
@@ -120,14 +122,14 @@ func assertControlRollback(t *testing.T, action string) {
 	sentinel := errors.New("late control failure")
 	want := sentinel
 	if action == "stale room" || action == "stale member" {
-		want = application.ErrPrecondition
+		want = netplaymodel.ErrPrecondition
 	}
-	err := repository.NewRoomControl(fixture.database).WithWrite(t.Context(), func(scope application.RoomControlScope) error {
+	err := repository.NewRoomControl(fixture.database).WithWrite(t.Context(), func(scope netplaymodel.RoomControlScope) error {
 		before, err := scope.Read.Current(t.Context(), fixture.room.RoomID, actor)
 		if err != nil {
 			return err
 		}
-		evidence := application.RoomControlEvidence{ActorID: actor, Now: fixture.now.UnixMilli(), ExpiresAtMS: fixture.now.Add(time.Hour).UnixMilli(), Data: []byte(`{"schemaVersion":1}`)}
+		evidence := netplaymodel.RoomControlEvidence{ActorID: actor, Now: fixture.now.UnixMilli(), ExpiresAtMS: fixture.now.Add(time.Hour).UnixMilli(), Data: []byte(`{"schemaVersion":1}`)}
 		if err := applyControlTestWrite(t, scope, before, evidence, action); err != nil {
 			return err
 		}

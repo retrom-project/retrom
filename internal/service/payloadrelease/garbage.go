@@ -5,26 +5,28 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+
+	model "retrom/internal/model/payloadrelease"
 )
 
 type GarbageCollector struct {
-	repository GarbageRepository
-	authority  EffectAuthority
-	files      GarbageFiles
+	repository model.GarbageRepository
+	authority  model.EffectAuthority
+	files      model.GarbageFiles
 }
 
 func NewGarbageCollector(
-	repository GarbageRepository, authority EffectAuthority, files GarbageFiles,
+	repository model.GarbageRepository, authority model.EffectAuthority, files model.GarbageFiles,
 ) *GarbageCollector {
 	return &GarbageCollector{repository: repository, authority: authority, files: files}
 }
 
-func (service *GarbageCollector) Execute(ctx context.Context, unit Execution) error {
+func (service *GarbageCollector) Execute(ctx context.Context, unit model.Execution) error {
 	if !validGarbageInput(unit) {
 		return effectFailure("BLOB_GC_INPUT_INVALID", nil)
 	}
 	remove := false
-	err := service.repository.WithGarbage(ctx, func(scope GarbageScope) error {
+	err := service.repository.WithGarbage(ctx, func(scope model.GarbageScope) error {
 		if err := service.authority.CheckInScope(ctx, scope.Worker, unit.Work); err != nil {
 			return fmt.Errorf("check garbage execution: %w", err)
 		}
@@ -53,7 +55,7 @@ func (service *GarbageCollector) Execute(ctx context.Context, unit Execution) er
 }
 
 func (service *GarbageCollector) removeCatalog(
-	ctx context.Context, writer GarbageWriter, unit Execution, facts GarbageFacts,
+	ctx context.Context, writer model.GarbageWriter, unit model.Execution, facts model.GarbageFacts,
 ) (bool, error) {
 	if facts.OtherDigestOwner {
 		return false, nil
@@ -80,9 +82,11 @@ func (service *GarbageCollector) removeCatalog(
 	return true, nil
 }
 
-func validGarbageInput(unit Execution) bool {
+func validGarbageInput(unit model.Execution) bool {
 	digest, err := hex.DecodeString(unit.Input.Inputs.SHA256)
-	return err == nil && len(digest) == sha256.Size && unit.Work.Scope.Type == ScopeBlob && unit.Work.Scope.ID != "" &&
+	return err == nil && len(digest) == sha256.Size && unit.Work.Scope.Type == model.ScopeBlob &&
+		unit.Work.Scope.ID != "" &&
+
 		unit.Input.Scope == unit.Work.Scope && unit.Input.Kind == "BLOB_GC" && unit.Input.SchemaVersion == 1
 }
 

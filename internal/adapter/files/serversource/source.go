@@ -17,6 +17,8 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	servermodel "retrom/internal/model/serverimport"
+
 	"retrom/internal/foundation/cleanup"
 )
 
@@ -59,13 +61,6 @@ type Limits struct {
 	MaxDepth       int
 	MaxDirectories int64
 	MaxFiles       int64
-}
-
-type Counts struct {
-	Directories            int64
-	Files                  int64
-	SkippedSpecial         int64
-	SkippedUnrepresentable int64
 }
 
 type FileSummary struct {
@@ -263,13 +258,16 @@ func ListRegularFiles(rootPath, selectedPath, relativeDirectory string) ([]FileS
 
 // WalkFiles visits only regular files beneath an already opened selected
 // directory. File.Parent is borrowed for the duration of the callback.
-func WalkFiles(root *os.File, limits Limits, visit func(File) error) (Counts, error) {
+func WalkFiles(root *os.File, limits Limits, visit func(File) error) (servermodel.DiscoveryCounts, error) {
 	return WalkFilesContext(context.Background(), root, limits, visit)
 }
 
 // WalkFilesContext observes cancellation before directories and entries, including
 // empty directories. File.Parent is borrowed for the duration of the callback.
-func WalkFilesContext(ctx context.Context, root *os.File, limits Limits, visit func(File) error) (Counts, error) {
+func WalkFilesContext(ctx context.Context, root *os.File, limits Limits, visit func(File) error) (
+	servermodel.DiscoveryCounts,
+	error,
+) {
 	state := fileWalker{ctx: ctx, limits: limits, visit: visit}
 	err := state.walk(root, "", 0)
 	return state.counts, err
@@ -279,7 +277,7 @@ type fileWalker struct {
 	ctx    context.Context
 	limits Limits
 	visit  func(File) error
-	counts Counts
+	counts servermodel.DiscoveryCounts
 }
 
 func (state *fileWalker) walk(directory *os.File, prefix string, depth int) error {

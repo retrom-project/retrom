@@ -6,16 +6,18 @@ import (
 	"io"
 	"testing"
 
-	"retrom/internal/adapter/files/blobstore"
+	blobmodel "retrom/internal/model/blob"
+	model "retrom/internal/model/libraryimport"
+
 	"retrom/internal/capability/engine/rpgmaker/detector"
 )
 
 func TestPreparedArtifactsPreserveStorageFailureAndClearResult(t *testing.T) {
 	cause := errors.New("artifact storage unavailable")
 	service := NewImportArtifacts(failingPreparedArtifactBlobs{cause: cause})
-	groups := []PreparedGroup{{
+	groups := []model.PreparedGroup{{
 		RPGProfile: &detector.Profile{ExpectedGeneration: detector.RPGXP},
-		Sources:    []PreparedSource{{File: ImportFile{SHA256: "digest", Size: 1}, LogicalName: "game.dat"}},
+		Sources:    []model.PreparedSource{{File: model.ImportFile{SHA256: "digest", Size: 1}, LogicalName: "game.dat"}},
 	}}
 	result, err := service.Prepare(context.Background(), groups, nil)
 	if !errors.Is(err, cause) || result != nil {
@@ -32,6 +34,6 @@ func (blobs failingPreparedArtifactBlobs) OpenDigest(string) (io.ReadCloser, err
 	return nil, blobs.cause
 }
 
-func (blobs failingPreparedArtifactBlobs) Put(io.Reader) (blobstore.Metadata, error) {
-	return blobstore.Metadata{}, blobs.cause
+func (blobs failingPreparedArtifactBlobs) Put(io.Reader) (blobmodel.PreparedBlob, error) {
+	return blobmodel.PreparedBlob{}, blobs.cause
 }

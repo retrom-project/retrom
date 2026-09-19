@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	application "retrom/internal/service/payloadrelease"
+	payloadreleasemodel "retrom/internal/model/payloadrelease"
 
 	"retrom/internal/foundation/cleanup"
 	"retrom/internal/testkit/testassert"
@@ -16,7 +16,7 @@ import (
 func TestImpactSourceKindsIncludeEmulationStationAndNeverReturnNull(t *testing.T) {
 	t.Parallel()
 	for _, source := range []string{"SERVER_PEGASUS_IMPORT", "SERVER_EMULATIONSTATION_IMPORT"} {
-		normalized := application.NormalizeImpactSourceKinds([]string{source})
+		normalized := payloadreleasemodel.NormalizeImpactSourceKinds([]string{source})
 		testassert.Truef(t, len(normalized) == 1 && normalized[0] == "SERVER_SCAN", "%s normalized to %q", source, normalized)
 	}
 

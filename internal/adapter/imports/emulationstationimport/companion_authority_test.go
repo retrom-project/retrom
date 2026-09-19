@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
 	persistence "retrom/internal/repo/emulationstationimport"
 	application "retrom/internal/service/emulationstationimport"
 	"retrom/internal/testkit/testsupport"
@@ -102,9 +103,9 @@ type companionCopyHook struct {
 
 func (source companionCopyHook) CopyFile(
 	ctx context.Context,
-	unit application.Execution,
-	file application.ExecutionFile,
-) (application.VerifiedBlob, error) {
+	unit emulationstationimportmodel.Execution,
+	file emulationstationimportmodel.ExecutionFile,
+) (emulationstationimportmodel.VerifiedBlob, error) {
 	if source.before != nil {
 		source.before()
 	}

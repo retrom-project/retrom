@@ -49,6 +49,10 @@
           "kind": "test"
         },
         {
+          "path": "internal/adapter/files/blobstore/content_values_test.go",
+          "kind": "test"
+        },
+        {
           "path": "internal/adapter/files/blobstore/nofollow_linux.go",
           "kind": "production"
         }
@@ -1465,8 +1469,20 @@
           "kind": "production"
         },
         {
+          "path": "internal/adapter/metadata/hasheous/normalized_values.go",
+          "kind": "production"
+        },
+        {
+          "path": "internal/adapter/metadata/hasheous/protocol_audit.go",
+          "kind": "production"
+        },
+        {
           "path": "internal/adapter/metadata/hasheous/provider.go",
           "kind": "production"
+        },
+        {
+          "path": "internal/adapter/metadata/hasheous/provider_compat_test.go",
+          "kind": "test"
         },
         {
           "path": "internal/adapter/metadata/hasheous/provider_test.go",
@@ -1839,6 +1855,22 @@
       ]
     },
     {
+      "path": "internal/adapter/runtime/netplayprofile",
+      "layer": "adapter",
+      "module": "netplayprofile",
+      "owner": "RF03",
+      "files": [
+        {
+          "path": "internal/adapter/runtime/netplayprofile/registry.go",
+          "kind": "production"
+        },
+        {
+          "path": "internal/adapter/runtime/netplayprofile/registry_test.go",
+          "kind": "test"
+        }
+      ]
+    },
+    {
       "path": "internal/adapter/runtime/runtime",
       "layer": "adapter",
       "module": "runtime",
@@ -1906,6 +1938,22 @@
         },
         {
           "path": "internal/adapter/runtime/runtimeprovider/static_test.go",
+          "kind": "test"
+        }
+      ]
+    },
+    {
+      "path": "internal/adapter/system/clock",
+      "layer": "adapter",
+      "module": "clock",
+      "owner": "RF03",
+      "files": [
+        {
+          "path": "internal/adapter/system/clock/system.go",
+          "kind": "production"
+        },
+        {
+          "path": "internal/adapter/system/clock/system_test.go",
           "kind": "test"
         }
       ]
@@ -2783,6 +2831,18 @@
       ]
     },
     {
+      "path": "internal/capability/format/imagecontent",
+      "layer": "capability",
+      "module": "media",
+      "owner": "RF04",
+      "files": [
+        {
+          "path": "internal/capability/format/imagecontent/image.go",
+          "kind": "production"
+        }
+      ]
+    },
+    {
       "path": "internal/capability/format/importing",
       "layer": "capability",
       "module": "format",
@@ -3199,6 +3259,22 @@
       ]
     },
     {
+      "path": "internal/model/blob",
+      "layer": "model",
+      "module": "blob",
+      "owner": "RF03",
+      "files": [
+        {
+          "path": "internal/model/blob/content.go",
+          "kind": "production"
+        },
+        {
+          "path": "internal/model/blob/coordination.go",
+          "kind": "production"
+        }
+      ]
+    },
+    {
       "path": "internal/model/catalog",
       "layer": "model",
       "module": "catalog",
@@ -3206,6 +3282,18 @@
       "files": [
         {
           "path": "internal/model/catalog/repository.go",
+          "kind": "production"
+        }
+      ]
+    },
+    {
+      "path": "internal/model/clock",
+      "layer": "model",
+      "module": "clock",
+      "owner": "RF03",
+      "files": [
+        {
+          "path": "internal/model/clock/clock.go",
           "kind": "production"
         }
       ]
@@ -3879,6 +3967,30 @@
       ]
     },
     {
+      "path": "internal/model/metadata",
+      "layer": "model",
+      "module": "metadata",
+      "owner": "RF03",
+      "files": [
+        {
+          "path": "internal/model/metadata/assets.go",
+          "kind": "production"
+        },
+        {
+          "path": "internal/model/metadata/request.go",
+          "kind": "production"
+        },
+        {
+          "path": "internal/model/metadata/request_test.go",
+          "kind": "test"
+        },
+        {
+          "path": "internal/model/metadata/types.go",
+          "kind": "production"
+        }
+      ]
+    },
+    {
       "path": "internal/model/metadatascrape",
       "layer": "model",
       "module": "metadatascrape",
@@ -3978,6 +4090,46 @@
         },
         {
           "path": "internal/model/netplay/session_start_types.go",
+          "kind": "production"
+        }
+      ]
+    },
+    {
+      "path": "internal/model/netplayprofile",
+      "layer": "model",
+      "module": "netplayprofile",
+      "owner": "RF03",
+      "files": [
+        {
+          "path": "internal/model/netplayprofile/canonical.go",
+          "kind": "production"
+        },
+        {
+          "path": "internal/model/netplayprofile/compatibility_fixture_test.go",
+          "kind": "test"
+        },
+        {
+          "path": "internal/model/netplayprofile/compatibility_test.go",
+          "kind": "test"
+        },
+        {
+          "path": "internal/model/netplayprofile/registry.go",
+          "kind": "production"
+        },
+        {
+          "path": "internal/model/netplayprofile/registry_test.go",
+          "kind": "test"
+        },
+        {
+          "path": "internal/model/netplayprofile/registry_validation_test.go",
+          "kind": "test"
+        },
+        {
+          "path": "internal/model/netplayprofile/types.go",
+          "kind": "production"
+        },
+        {
+          "path": "internal/model/netplayprofile/validation.go",
           "kind": "production"
         }
       ]
@@ -4227,6 +4379,10 @@
         {
           "path": "internal/model/serverimport/discovery_types.go",
           "kind": "production"
+        },
+        {
+          "path": "internal/model/serverimport/discovery_types_test.go",
+          "kind": "test"
         },
         {
           "path": "internal/model/serverimport/lease_types.go",
@@ -6277,6 +6433,14 @@
           "kind": "test"
         },
         {
+          "path": "internal/repo/metadatascrape/protocol_audit.go",
+          "kind": "production"
+        },
+        {
+          "path": "internal/repo/metadatascrape/protocol_audit_test.go",
+          "kind": "test"
+        },
+        {
           "path": "internal/repo/metadatascrape/recovery_projection.go",
           "kind": "production"
         },
@@ -8061,6 +8225,10 @@
           "kind": "test"
         },
         {
+          "path": "internal/service/accounts/environment.go",
+          "kind": "production"
+        },
+        {
           "path": "internal/service/accounts/initialization.go",
           "kind": "production"
         },
@@ -8101,10 +8269,6 @@
           "kind": "test"
         },
         {
-          "path": "internal/service/accounts/model_aliases.go",
-          "kind": "production"
-        },
-        {
           "path": "internal/service/accounts/password.go",
           "kind": "production"
         },
@@ -8140,10 +8304,6 @@
       "module": "bios",
       "owner": "RF11",
       "files": [
-        {
-          "path": "internal/service/bios/model_aliases.go",
-          "kind": "production"
-        },
         {
           "path": "internal/service/bios/service.go",
           "kind": "production"
@@ -8181,10 +8341,6 @@
       "owner": "RF16",
       "files": [
         {
-          "path": "internal/service/catalog/model_aliases.go",
-          "kind": "production"
-        },
-        {
           "path": "internal/service/catalog/service.go",
           "kind": "production"
         },
@@ -8203,10 +8359,6 @@
         {
           "path": "internal/service/corevalidation/architecture_test.go",
           "kind": "test"
-        },
-        {
-          "path": "internal/service/corevalidation/model_aliases.go",
-          "kind": "production"
         },
         {
           "path": "internal/service/corevalidation/records_test.go",
@@ -8231,10 +8383,6 @@
         {
           "path": "internal/service/datindex/architecture_test.go",
           "kind": "test"
-        },
-        {
-          "path": "internal/service/datindex/model_aliases.go",
-          "kind": "production"
         },
         {
           "path": "internal/service/datindex/service.go",
@@ -8285,10 +8433,6 @@
           "kind": "production"
         },
         {
-          "path": "internal/service/dependencies/model_aliases.go",
-          "kind": "production"
-        },
-        {
           "path": "internal/service/dependencies/neocd_bios_test.go",
           "kind": "test"
         },
@@ -8332,10 +8476,6 @@
       "module": "diagnostics",
       "owner": "RF19",
       "files": [
-        {
-          "path": "internal/service/diagnostics/model_aliases.go",
-          "kind": "production"
-        },
         {
           "path": "internal/service/diagnostics/service.go",
           "kind": "production"
@@ -8509,10 +8649,6 @@
           "kind": "production"
         },
         {
-          "path": "internal/service/emulationstationimport/model_aliases.go",
-          "kind": "production"
-        },
-        {
           "path": "internal/service/emulationstationimport/payload_item_fixture_test.go",
           "kind": "test"
         },
@@ -8559,10 +8695,6 @@
         {
           "path": "internal/service/emulationstationimport/recovery_test.go",
           "kind": "test"
-        },
-        {
-          "path": "internal/service/emulationstationimport/restore_review_rules.go",
-          "kind": "production"
         },
         {
           "path": "internal/service/emulationstationimport/review_failures.go",
@@ -8757,10 +8889,6 @@
           "kind": "production"
         },
         {
-          "path": "internal/service/favorites/model_aliases.go",
-          "kind": "production"
-        },
-        {
           "path": "internal/service/favorites/normalize.go",
           "kind": "production"
         },
@@ -8786,10 +8914,6 @@
         },
         {
           "path": "internal/service/firmware/archive.go",
-          "kind": "production"
-        },
-        {
-          "path": "internal/service/firmware/model_aliases.go",
           "kind": "production"
         },
         {
@@ -8824,10 +8948,6 @@
       "module": "gameassets",
       "owner": "RF16",
       "files": [
-        {
-          "path": "internal/service/gameassets/model_aliases.go",
-          "kind": "production"
-        },
         {
           "path": "internal/service/gameassets/service.go",
           "kind": "production"
@@ -8885,10 +9005,6 @@
           "kind": "production"
         },
         {
-          "path": "internal/service/gamecontent/model_aliases.go",
-          "kind": "production"
-        },
-        {
           "path": "internal/service/gamecontent/policy_test.go",
           "kind": "test"
         },
@@ -8937,10 +9053,6 @@
       "owner": "RF16",
       "files": [
         {
-          "path": "internal/service/gamelist/model_aliases.go",
-          "kind": "production"
-        },
-        {
           "path": "internal/service/gamelist/service.go",
           "kind": "production"
         },
@@ -8965,10 +9077,6 @@
           "kind": "test"
         },
         {
-          "path": "internal/service/gamemetadata/model_aliases.go",
-          "kind": "production"
-        },
-        {
           "path": "internal/service/gamemetadata/service.go",
           "kind": "production"
         }
@@ -8980,10 +9088,6 @@
       "module": "gamemove",
       "owner": "RF16",
       "files": [
-        {
-          "path": "internal/service/gamemove/model_aliases.go",
-          "kind": "production"
-        },
         {
           "path": "internal/service/gamemove/service.go",
           "kind": "production"
@@ -9001,10 +9105,6 @@
       "owner": "RF16",
       "files": [
         {
-          "path": "internal/service/home/model_aliases.go",
-          "kind": "production"
-        },
-        {
           "path": "internal/service/home/service.go",
           "kind": "production"
         },
@@ -9020,10 +9120,6 @@
       "module": "idempotency",
       "owner": "RF06",
       "files": [
-        {
-          "path": "internal/service/idempotency/model_aliases.go",
-          "kind": "production"
-        },
         {
           "path": "internal/service/idempotency/service.go",
           "kind": "production"
@@ -9053,10 +9149,6 @@
           "kind": "production"
         },
         {
-          "path": "internal/service/immersive/model_aliases.go",
-          "kind": "production"
-        },
-        {
           "path": "internal/service/immersive/service.go",
           "kind": "production"
         },
@@ -9075,10 +9167,6 @@
         {
           "path": "internal/service/importdiscard/architecture_test.go",
           "kind": "test"
-        },
-        {
-          "path": "internal/service/importdiscard/model_aliases.go",
-          "kind": "production"
         },
         {
           "path": "internal/service/importdiscard/ownership.go",
@@ -9117,10 +9205,6 @@
       "owner": "RF13",
       "files": [
         {
-          "path": "internal/service/importprogress/model_aliases.go",
-          "kind": "production"
-        },
-        {
           "path": "internal/service/importprogress/projection_test.go",
           "kind": "test"
         }
@@ -9145,10 +9229,6 @@
           "kind": "test"
         },
         {
-          "path": "internal/service/isolation/repository_aliases.go",
-          "kind": "production"
-        },
-        {
           "path": "internal/service/isolation/service.go",
           "kind": "production"
         }
@@ -9171,10 +9251,6 @@
         {
           "path": "internal/service/jobs/cancellation_dispatch_test.go",
           "kind": "test"
-        },
-        {
-          "path": "internal/service/jobs/model_aliases.go",
-          "kind": "production"
         },
         {
           "path": "internal/service/jobs/progress.go",
@@ -9301,12 +9377,12 @@
           "kind": "production"
         },
         {
-          "path": "internal/service/launch/kirikiri_project_index_test.go",
-          "kind": "test"
+          "path": "internal/service/launch/environment.go",
+          "kind": "production"
         },
         {
-          "path": "internal/service/launch/model_aliases.go",
-          "kind": "production"
+          "path": "internal/service/launch/kirikiri_project_index_test.go",
+          "kind": "test"
         },
         {
           "path": "internal/service/launch/netplay_creation_policy.go",
@@ -9641,6 +9717,10 @@
           "kind": "production"
         },
         {
+          "path": "internal/service/libraryimport/environment.go",
+          "kind": "production"
+        },
+        {
           "path": "internal/service/libraryimport/import_admission.go",
           "kind": "production"
         },
@@ -9823,10 +9903,6 @@
         {
           "path": "internal/service/libraryimport/metadata_test.go",
           "kind": "test"
-        },
-        {
-          "path": "internal/service/libraryimport/model_aliases.go",
-          "kind": "production"
         },
         {
           "path": "internal/service/libraryimport/multidisc_admission.go",
@@ -10145,10 +10221,6 @@
           "kind": "test"
         },
         {
-          "path": "internal/service/maintenance/model_aliases.go",
-          "kind": "production"
-        },
-        {
           "path": "internal/service/maintenance/payloads.go",
           "kind": "production"
         },
@@ -10183,10 +10255,6 @@
         {
           "path": "internal/service/mediaaccess/authority_test.go",
           "kind": "test"
-        },
-        {
-          "path": "internal/service/mediaaccess/model_aliases.go",
-          "kind": "production"
         },
         {
           "path": "internal/service/mediaaccess/service.go",
@@ -10309,10 +10377,6 @@
           "kind": "test"
         },
         {
-          "path": "internal/service/metadatascrape/model_aliases.go",
-          "kind": "production"
-        },
-        {
           "path": "internal/service/metadatascrape/result_candidate.go",
           "kind": "production"
         },
@@ -10415,10 +10479,6 @@
         {
           "path": "internal/service/netplay/eligibility_test.go",
           "kind": "test"
-        },
-        {
-          "path": "internal/service/netplay/model_aliases.go",
-          "kind": "production"
         },
         {
           "path": "internal/service/netplay/participant_access.go",
@@ -10575,10 +10635,6 @@
         {
           "path": "internal/service/payloadrelease/lifecycle_policy_test.go",
           "kind": "test"
-        },
-        {
-          "path": "internal/service/payloadrelease/model_aliases.go",
-          "kind": "production"
         },
         {
           "path": "internal/service/payloadrelease/ownership_registry.go",
@@ -10801,10 +10857,6 @@
           "kind": "production"
         },
         {
-          "path": "internal/service/pegasusimport/model_aliases.go",
-          "kind": "production"
-        },
-        {
           "path": "internal/service/pegasusimport/payload_item_fixture_test.go",
           "kind": "test"
         },
@@ -10843,10 +10895,6 @@
         {
           "path": "internal/service/pegasusimport/recovery_test.go",
           "kind": "test"
-        },
-        {
-          "path": "internal/service/pegasusimport/restore_review_rules.go",
-          "kind": "production"
         },
         {
           "path": "internal/service/pegasusimport/review_handoff.go",
@@ -11021,10 +11069,6 @@
       "owner": "RF19",
       "files": [
         {
-          "path": "internal/service/readiness/model_aliases.go",
-          "kind": "production"
-        },
-        {
           "path": "internal/service/readiness/service.go",
           "kind": "production"
         },
@@ -11043,10 +11087,6 @@
         {
           "path": "internal/service/runtimeprovider/architecture_test.go",
           "kind": "test"
-        },
-        {
-          "path": "internal/service/runtimeprovider/model_aliases.go",
-          "kind": "production"
         },
         {
           "path": "internal/service/runtimeprovider/projection_support.go",
@@ -11102,10 +11142,6 @@
         },
         {
           "path": "internal/service/saves/local_draft.go",
-          "kind": "production"
-        },
-        {
-          "path": "internal/service/saves/model_aliases.go",
           "kind": "production"
         },
         {
@@ -11285,10 +11321,6 @@
           "kind": "test"
         },
         {
-          "path": "internal/service/serverimport/model_aliases.go",
-          "kind": "production"
-        },
-        {
           "path": "internal/service/serverimport/outcome_retry.go",
           "kind": "production"
         },
@@ -11385,10 +11417,6 @@
           "kind": "production"
         },
         {
-          "path": "internal/service/storageanalysis/model_aliases.go",
-          "kind": "production"
-        },
-        {
           "path": "internal/service/storageanalysis/model_test.go",
           "kind": "test"
         },
@@ -11426,10 +11454,6 @@
         },
         {
           "path": "internal/service/tagging/game.go",
-          "kind": "production"
-        },
-        {
-          "path": "internal/service/tagging/model_aliases.go",
           "kind": "production"
         },
         {
@@ -11502,10 +11526,6 @@
         },
         {
           "path": "internal/service/uploads/lifecycle.go",
-          "kind": "production"
-        },
-        {
-          "path": "internal/service/uploads/model_aliases.go",
           "kind": "production"
         },
         {
@@ -11681,6 +11701,18 @@
           "kind": "test"
         },
         {
+          "path": "internal/testkit/architecture/refactor_rf03_repository_test.go",
+          "kind": "test"
+        },
+        {
+          "path": "internal/testkit/architecture/refactor_rf03_types_test.go",
+          "kind": "test"
+        },
+        {
+          "path": "internal/testkit/architecture/refactor_rf03_unit_test.go",
+          "kind": "test"
+        },
+        {
           "path": "internal/testkit/architecture/refactor_rf21_unit_test.go",
           "kind": "test"
         },
@@ -11722,6 +11754,18 @@
         },
         {
           "path": "internal/testkit/refactor/refactor_rf01_integration_test.go",
+          "kind": "test"
+        },
+        {
+          "path": "internal/testkit/refactor/refactor_rf03_unit_test.go",
+          "kind": "test"
+        },
+        {
+          "path": "internal/testkit/refactor/refactor_rf03_value_compat_test.go",
+          "kind": "test"
+        },
+        {
+          "path": "internal/testkit/refactor/refactor_rf03_value_fixture_test.go",
           "kind": "test"
         },
         {
@@ -12389,16 +12433,12 @@
           "kind": "test"
         },
         {
-          "path": "internal/transport/netplay/profile.go",
-          "kind": "production"
-        },
-        {
-          "path": "internal/transport/netplay/profile_test.go",
-          "kind": "test"
-        },
-        {
           "path": "internal/transport/netplay/protocol.go",
           "kind": "production"
+        },
+        {
+          "path": "internal/transport/netplay/protocol_compatibility_test.go",
+          "kind": "test"
         },
         {
           "path": "internal/transport/netplay/protocol_test.go",
@@ -12406,6 +12446,10 @@
         },
         {
           "path": "internal/transport/netplay/recovery_test.go",
+          "kind": "test"
+        },
+        {
+          "path": "internal/transport/netplay/registry_fixture_test.go",
           "kind": "test"
         },
         {
@@ -12495,22 +12539,6 @@
       ]
     },
     {
-      "path": "internal/transport/netplay/profile",
-      "layer": "transport",
-      "module": "netplay",
-      "owner": "RF06",
-      "files": [
-        {
-          "path": "internal/transport/netplay/profile/profile.go",
-          "kind": "production"
-        },
-        {
-          "path": "internal/transport/netplay/profile/profile_test.go",
-          "kind": "test"
-        }
-      ]
-    },
-    {
       "path": "migrations",
       "layer": "repo",
       "module": "store",
@@ -12578,6 +12606,10 @@
         },
         {
           "path": "scripts/quality_structure.py",
+          "kind": "tool"
+        },
+        {
+          "path": "scripts/refactor_final.py",
           "kind": "tool"
         },
         {
@@ -12666,6 +12698,10 @@
         },
         {
           "path": "scripts/test_quality_structure.py",
+          "kind": "test"
+        },
+        {
+          "path": "scripts/test_refactor_final.py",
           "kind": "test"
         },
         {

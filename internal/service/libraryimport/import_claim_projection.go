@@ -1,25 +1,27 @@
 package libraryimport
 
+import model "retrom/internal/model/libraryimport"
+
 func importClaimProjection(
-	before ImportWorkerSnapshot,
-	work ImportWork,
+	before model.ImportWorkerSnapshot,
+	work model.ImportWork,
 	workerID string,
 	now int64,
-) (ImportWork, ImportWorkerTransition, error) {
+) (model.ImportWork, model.ImportWorkerTransition, error) {
 	work.Execution.WorkerID = workerID
 	work.Execution.Attempt++
 	if before.StartedAtMS == nil {
 		work.Execution.StartedAtMS = now
 	}
 	if before.DeadlineAtMS == nil {
-		work.Execution.DeadlineMS = now + ImportExecutionBudget.Milliseconds()
+		work.Execution.DeadlineMS = now + model.ImportExecutionBudget.Milliseconds()
 	}
 	change := importTransition(before, now)
 	change.Job.Execution = work.Execution
 	change.Job.StartedAtMS = importMoment(work.Execution.StartedAtMS)
 	change.Job.DeadlineAtMS = importMoment(work.Execution.DeadlineMS)
 	change.Job.State = "RUNNING"
-	change.Job.LeaseUntilMS = importMoment(min(now+ImportExecutionLease.Milliseconds(), work.Execution.DeadlineMS))
+	change.Job.LeaseUntilMS = importMoment(min(now+model.ImportExecutionLease.Milliseconds(), work.Execution.DeadlineMS))
 	change.Job.HeartbeatAtMS = importMoment(now)
 	change.Job.FinishedAtMS = nil
 	change.Job.ErrorCode = nil
@@ -30,7 +32,7 @@ func importClaimProjection(
 	event, err := importWorkerEvent(work.Execution, "STARTED", now,
 		map[string]any{"state": "RUNNING", "phase": "INSPECTING"})
 	if err != nil {
-		return ImportWork{}, ImportWorkerTransition{}, err
+		return model.ImportWork{}, model.ImportWorkerTransition{}, err
 	}
 	change.Event = &event
 	return work, change, nil

@@ -6,34 +6,36 @@ import (
 	"errors"
 	"reflect"
 	"testing"
+
+	metadatascrapemodel "retrom/internal/model/metadatascrape"
 )
 
 type reviewEvidenceFixture struct {
-	candidates             []ReviewCandidateRecord
-	assets                 []CandidateAssetView
-	runs                   []ReviewRun
+	candidates             []metadatascrapemodel.ReviewCandidateRecord
+	assets                 []metadatascrapemodel.CandidateAssetView
+	runs                   []metadatascrapemodel.ReviewRun
 	assetsError, runsError error
 	assetRequests          [][]string
 }
 
-func (fixture *reviewEvidenceFixture) ReviewCandidates(context.Context, string) ([]ReviewCandidateRecord, error) {
+func (fixture *reviewEvidenceFixture) ReviewCandidates(context.Context, string) ([]metadatascrapemodel.ReviewCandidateRecord, error) {
 	return fixture.candidates, nil
 }
 
-func (fixture *reviewEvidenceFixture) CandidateAssets(_ context.Context, ids []string) ([]CandidateAssetView, error) {
+func (fixture *reviewEvidenceFixture) CandidateAssets(_ context.Context, ids []string) ([]metadatascrapemodel.CandidateAssetView, error) {
 	fixture.assetRequests = append(fixture.assetRequests, append([]string(nil), ids...))
 	return fixture.assets, fixture.assetsError
 }
 
-func (fixture *reviewEvidenceFixture) ReviewRuns(context.Context, string) ([]ReviewRun, error) {
+func (fixture *reviewEvidenceFixture) ReviewRuns(context.Context, string) ([]metadatascrapemodel.ReviewRun, error) {
 	return fixture.runs, fixture.runsError
 }
 
 func TestReviewEvidenceKeepsCandidateOrderingAndAssetOwnership(t *testing.T) {
 	t.Parallel()
 	fixture := &reviewEvidenceFixture{
-		candidates: []ReviewCandidateRecord{{ID: "later-run", MetadataJSON: `{"title":"one"}`, EvidenceJSON: `{}`}, {ID: "earlier-run", MetadataJSON: `{}`, EvidenceJSON: `{}`}},
-		assets:     []CandidateAssetView{{CandidateID: "earlier-run", ID: "other-cover"}, {CandidateID: "later-run", ID: "failed-cover", Status: "FAILED"}},
+		candidates: []metadatascrapemodel.ReviewCandidateRecord{{ID: "later-run", MetadataJSON: `{"title":"one"}`, EvidenceJSON: `{}`}, {ID: "earlier-run", MetadataJSON: `{}`, EvidenceJSON: `{}`}},
+		assets:     []metadatascrapemodel.CandidateAssetView{{CandidateID: "earlier-run", ID: "other-cover"}, {CandidateID: "later-run", ID: "failed-cover", Status: "FAILED"}},
 	}
 	result, err := NewEvidenceQueries(fixture).Review(t.Context(), "item")
 	if err != nil {
@@ -61,16 +63,16 @@ func TestReviewEvidenceReturnsEmptyArraysAndSkipsEmptyAssetLookup(t *testing.T) 
 func TestReviewEvidencePreservesCauseAndClearsPartialCandidates(t *testing.T) {
 	t.Parallel()
 	cause := errors.New("scrape runs unavailable")
-	fixture := &reviewEvidenceFixture{candidates: []ReviewCandidateRecord{{ID: "candidate", MetadataJSON: `{}`, EvidenceJSON: `{}`}}, runsError: cause}
+	fixture := &reviewEvidenceFixture{candidates: []metadatascrapemodel.ReviewCandidateRecord{{ID: "candidate", MetadataJSON: `{}`, EvidenceJSON: `{}`}}, runsError: cause}
 	result, err := NewEvidenceQueries(fixture).Review(t.Context(), "item")
-	if !errors.Is(err, cause) || !reflect.DeepEqual(result, ReviewEvidence{}) {
+	if !errors.Is(err, cause) || !reflect.DeepEqual(result, metadatascrapemodel.ReviewEvidence{}) {
 		t.Fatalf("partial evidence=%+v err=%v", result, err)
 	}
 	fixture.runsError = nil
 	fixture.candidates[0].MetadataJSON = `{"broken"`
 	result, err = NewEvidenceQueries(fixture).Review(t.Context(), "item")
 	var syntax *json.SyntaxError
-	if !errors.As(err, &syntax) || !reflect.DeepEqual(result, ReviewEvidence{}) {
+	if !errors.As(err, &syntax) || !reflect.DeepEqual(result, metadatascrapemodel.ReviewEvidence{}) {
 		t.Fatalf("malformed evidence=%+v err=%v", result, err)
 	}
 }

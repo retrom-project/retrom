@@ -15,7 +15,7 @@ import (
 
 	"retrom/internal/adapter/files/serversource"
 	"retrom/internal/bootstrap/composition"
-	"retrom/internal/service/pegasusimport"
+	pegasusimportmodel "retrom/internal/model/pegasusimport"
 	"retrom/internal/testkit/testassert"
 )
 
@@ -49,7 +49,7 @@ func TestPegasusImportHTTPScanMappingAndSourceDrift(t *testing.T) {
 	created := httptest.NewRecorder()
 	handler.ServeHTTP(created, createRequest)
 	testassert.Falsef(t, testassert.Any(func() bool { return created.Code != http.StatusAccepted }, func() bool { return strings.Contains(created.Body.String(), root) }), "create = %d %s", created.Code, created.Body.String())
-	var summary pegasusimport.Summary
+	var summary pegasusimportmodel.Summary
 	if err := json.Unmarshal(created.Body.Bytes(), &summary); err != nil {
 		t.Fatal(err)
 	}
@@ -71,7 +71,7 @@ func TestPegasusImportHTTPScanMappingAndSourceDrift(t *testing.T) {
 	collectionsResponse := httptest.NewRecorder()
 	handler.ServeHTTP(collectionsResponse, collectionsRequest)
 	var page struct {
-		Items []pegasusimport.Collection `json:"items"`
+		Items []pegasusimportmodel.Collection `json:"items"`
 	}
 	testassert.Falsef(t, testassert.Any(func() bool { return collectionsResponse.Code != http.StatusOK }, func() bool { return json.Unmarshal(collectionsResponse.Body.Bytes(), &page) != nil }, func() bool { return len(page.Items) != 1 }, func() bool { return page.Items[0].MappingAction != nil }), "collections = %d %s", collectionsResponse.Code, collectionsResponse.Body.String())
 	var platformInstanceID string

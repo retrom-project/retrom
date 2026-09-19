@@ -10,6 +10,7 @@ import (
 	"sync/atomic"
 	"testing"
 
+	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
 	application "retrom/internal/service/emulationstationimport"
 	"retrom/internal/testkit/testsupport"
 )
@@ -43,7 +44,7 @@ func TestScanWriteAndRowCountFailuresRollBackCurrentTransaction(t *testing.T) {
 	}
 }
 
-func prepareScanOperation(t *testing.T, db *sql.DB, unit application.Execution, value application.ScanProjection, operation string) {
+func prepareScanOperation(t *testing.T, db *sql.DB, unit emulationstationimportmodel.Execution, value emulationstationimportmodel.ScanProjection, operation string) {
 	t.Helper()
 	service := scanService(db)
 	if operation == "items" || operation == "finish" || operation == "reset" {
@@ -58,7 +59,7 @@ func prepareScanOperation(t *testing.T, db *sql.DB, unit application.Execution, 
 	}
 }
 
-func runScanOperation(ctx context.Context, service *application.ScanPublication, unit application.Execution, value application.ScanProjection, operation string) error {
+func runScanOperation(ctx context.Context, service *application.ScanPublication, unit emulationstationimportmodel.Execution, value emulationstationimportmodel.ScanProjection, operation string) error {
 	switch operation {
 	case "headers":
 		return service.Headers(ctx, unit, value)

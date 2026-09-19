@@ -7,20 +7,21 @@ import (
 
 	"retrom/internal/adapter/files/serversource"
 	"retrom/internal/capability/format/pegasusmeta"
+	model "retrom/internal/model/pegasusimport"
 )
 
 func (service *Scanner) scanGame(ctx context.Context, metadataPath, collectionID string, segmentOrdinal int,
 	collection *pegasusmeta.Collection,
 	game pegasusmeta.Game,
-	files map[string]discoveredFile,
+	files map[string]DiscoveredFile,
 	folded map[string][]string,
-) (scannedItem, error) {
+) (model.ScanItem, error) {
 	if err := ctx.Err(); err != nil {
-		return scannedItem{}, fmt.Errorf("project Pegasus game: %w", err)
+		return model.ScanItem{}, fmt.Errorf("project Pegasus game: %w", err)
 	}
 	itemID, err := service.newID()
 	if err != nil {
-		return scannedItem{}, fmt.Errorf("create Pegasus game identity: %w", err)
+		return model.ScanItem{}, fmt.Errorf("create Pegasus game identity: %w", err)
 	}
 	warnings := gameWarnings(game)
 	projectedFiles := projectGameFiles(metadataPath, game.Files, files, folded, game.BlockedCode)
@@ -28,7 +29,7 @@ func (service *Scanner) scanGame(ctx context.Context, metadataPath, collectionID
 		ctx, metadataPath, collection, game, files, folded,
 	)
 	if err != nil {
-		return scannedItem{}, err
+		return model.ScanItem{}, err
 	}
 	warnings = append(warnings, assetWarnings...)
 	return newScannedGameItem(
@@ -38,7 +39,7 @@ func (service *Scanner) scanGame(ctx context.Context, metadataPath, collectionID
 }
 
 type gameFileProjection struct {
-	files          []scannedItemFile
+	files          []model.ScanFile
 	resolvedForKey []string
 	discoveryCode  string
 }
@@ -57,11 +58,11 @@ func gameWarnings(game pegasusmeta.Game) []map[string]any {
 func projectGameFiles(
 	metadataPath string,
 	declaredFiles []string,
-	files map[string]discoveredFile,
+	files map[string]DiscoveredFile,
 	folded map[string][]string,
 	discoveryCode string,
 ) gameFileProjection {
-	itemFiles := make([]scannedItemFile, 0, len(declaredFiles))
+	itemFiles := make([]model.ScanFile, 0, len(declaredFiles))
 	seenPaths := map[string]struct{}{}
 	resolvedForKey := make([]string, 0, len(declaredFiles))
 	for ordinal, declared := range declaredFiles {
@@ -89,8 +90,7 @@ func projectGameFiles(
 		// that the deterministic source identity cannot collapse two bad entries.
 		if ordinal < pegasusmeta.MaxGameFileValues {
 			itemFiles = append(
-				itemFiles,
-				scannedItemFile{
+				itemFiles, model.ScanFile{
 					Ordinal: int64(ordinal),
 					Kind:    kind,
 					Path:    resolved,
@@ -124,7 +124,7 @@ func gameFileKind(relativePath string) string {
 	}
 }
 
-func validateGameFileSet(current string, files []scannedItemFile, declaredCount int) string {
+func validateGameFileSet(current string, files []model.ScanFile, declaredCount int) string {
 	if declaredCount == 0 {
 		return firstDiscoveryCode(current, "PEGASUS_GAME_WITHOUT_FILE")
 	}

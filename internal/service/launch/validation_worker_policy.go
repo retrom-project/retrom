@@ -11,30 +11,31 @@ import (
 	"retrom/internal/capability/content/corevalidation"
 	"retrom/internal/capability/engine/scummvm"
 	"retrom/internal/capability/format/arcadedat"
+	model "retrom/internal/model/launch"
 )
 
 // EvaluateValidation is shared by the asynchronous attempt and its final
 // authority check. Facts contain no database handle or provider callback.
-func EvaluateValidation(inputs ValidationInputs, facts ValidationFacts) (ValidationOutcome, error) {
+func EvaluateValidation(inputs model.ValidationInputs, facts model.ValidationFacts) (model.ValidationOutcome, error) {
 	source := facts.Content.Source
 	if !validationSourceMatches(inputs, facts) {
-		return ValidationOutcome{}, ErrValidationGameChanged
+		return model.ValidationOutcome{}, ErrValidationGameChanged
 	}
 
 	bios, status, code, err := ResolveProductBIOS(source, facts.Content.ValidationBIOS, source.ValidationLogicalName)
 	if err != nil {
-		return ValidationOutcome{}, fmt.Errorf("resolve validation BIOS: %w", err)
+		return model.ValidationOutcome{}, fmt.Errorf("resolve validation BIOS: %w", err)
 	}
 	digest, biosDigest, evidence, err := ProductValidationEvidence(facts.Content, inputs.GameVariantID, bios)
 	if err != nil {
-		return ValidationOutcome{}, fmt.Errorf("resolve validation evidence: %w", err)
+		return model.ValidationOutcome{}, fmt.Errorf("resolve validation evidence: %w", err)
 	}
 	if BindCurrentGameStateDigest(
 		digest,
 		source.GameVersion,
 		source.SourceManifestDigest,
 	) != inputs.ValidationInputDigest || biosDigest != inputs.BIOSDependencyDigest {
-		return ValidationOutcome{}, ErrValidationGameChanged
+		return model.ValidationOutcome{}, ErrValidationGameChanged
 	}
 	if source.ContentKind == "SCUMMVM_PROJECT" && source.ProviderID == "retrom-runtime" && source.TargetID == "scummvm" {
 		return validationScummVMOutcome(inputs, facts, bios)
@@ -42,7 +43,7 @@ func EvaluateValidation(inputs ValidationInputs, facts ValidationFacts) (Validat
 
 	encoded, err := evidence.JSON()
 	if err != nil {
-		return ValidationOutcome{}, fmt.Errorf("encode validation dependencies: %w", err)
+		return model.ValidationOutcome{}, fmt.Errorf("encode validation dependencies: %w", err)
 	}
 	dependency := string(encoded)
 	if inputs.DATVersionID != nil {
@@ -51,17 +52,17 @@ func EvaluateValidation(inputs ValidationInputs, facts ValidationFacts) (Validat
 			source.ValidationLogicalName,
 			*inputs.DATVersionID,
 		); err != nil {
-			return ValidationOutcome{}, err
+			return model.ValidationOutcome{}, err
 		}
 		dependency = source.DependencySnapshot
 	}
 	if status == "READY" {
 		status, code = validationContentStatus(facts)
 	}
-	return ValidationOutcome{Status: status, Code: code, DependencyJSON: dependency, BIOS: evidence}, nil
+	return model.ValidationOutcome{Status: status, Code: code, DependencyJSON: dependency, BIOS: evidence}, nil
 }
 
-func validateFinalValidation(inputs ValidationInputs, before, after ValidationFacts) error {
+func validateFinalValidation(inputs model.ValidationInputs, before, after model.ValidationFacts) error {
 	_, err := EvaluateValidation(inputs, after)
 	if err != nil {
 		return err
@@ -79,7 +80,7 @@ func validateFinalValidation(inputs ValidationInputs, before, after ValidationFa
 	return nil
 }
 
-func validationContentStatus(facts ValidationFacts) (string, string) {
+func validationContentStatus(facts model.ValidationFacts) (string, string) {
 	source := facts.Content.Source
 	if !facts.BindingFound {
 		return "BLOCKED", validationUnavailable
@@ -147,7 +148,7 @@ func ValidateLockedArcadeSnapshot(raw, logicalName, datID string) error {
 	return nil
 }
 
-func validationSourceMatches(inputs ValidationInputs, facts ValidationFacts) bool {
+func validationSourceMatches(inputs model.ValidationInputs, facts model.ValidationFacts) bool {
 	source := facts.Content.Source
 	if !facts.Found ||
 		source.GameVersion != inputs.GameVersion ||
@@ -168,14 +169,14 @@ func validationSourceMatches(inputs ValidationInputs, facts ValidationFacts) boo
 }
 
 func validationScummVMOutcome(
-	inputs ValidationInputs,
-	facts ValidationFacts,
+	inputs model.ValidationInputs,
+	facts model.ValidationFacts,
 	bios corevalidation.Snapshot,
-) (ValidationOutcome, error) {
+) (model.ValidationOutcome, error) {
 	source := facts.Content.Source
 	snapshot, err := scummvm.ParseSnapshot(source.DependencySnapshot)
 	if err != nil || snapshot.Detection.SourceDigest != inputs.SourceManifestDigest {
-		return ValidationOutcome{}, ErrValidationGameChanged
+		return model.ValidationOutcome{}, ErrValidationGameChanged
 	}
 	status, code := snapshot.Status()
 	if !facts.BindingFound {
@@ -183,5 +184,5 @@ func validationScummVMOutcome(
 	} else if !facts.RelationshipEnabled {
 		status, code = "INCOMPATIBLE", "CORE_PLATFORM_UNSUPPORTED"
 	}
-	return ValidationOutcome{Status: status, Code: code, DependencyJSON: source.DependencySnapshot, BIOS: bios}, nil
+	return model.ValidationOutcome{Status: status, Code: code, DependencyJSON: source.DependencySnapshot, BIOS: bios}, nil
 }

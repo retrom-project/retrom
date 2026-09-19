@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	netplaymodel "retrom/internal/model/netplay"
 	netplaypersistence "retrom/internal/repo/netplay"
 	netplayservice "retrom/internal/service/netplay"
 	"retrom/internal/testkit/testsupport"
@@ -34,7 +35,7 @@ func netplayPreparationFixture(t *testing.T, fixture netplayLaunchFixture) *netp
 func TestNetplayPreparationConsumerRecordsEachParticipantOnce(t *testing.T) {
 	fixture := newNetplayLaunchFixture(t)
 	service := netplayPreparationFixture(t, fixture)
-	request := netplayservice.PreparationRequest{
+	request := netplaymodel.PreparationRequest{
 		RoomID: fixture.request.RoomID, SessionID: fixture.request.SessionID,
 		ProfileID: fixture.request.ProfileID, Capabilities: fixture.request.ClientCapabilities,
 	}
@@ -92,7 +93,7 @@ func TestNetplayPreparationConsumerRetainsSeparateCreationAndAbort(t *testing.T)
 		exit,
 		fixture.now,
 	)
-	result, err := service.Launch(t.Context(), fixture.service, netplayservice.PreparationRequest{
+	result, err := service.Launch(t.Context(), fixture.service, netplaymodel.PreparationRequest{
 		RoomID: fixture.request.RoomID, SessionID: fixture.request.SessionID, ProfileID: fixture.request.ProfileID, Capabilities: fixture.request.ClientCapabilities,
 	})
 	if hits != 1 || !errors.Is(err, cause) || result.Launch.LaunchID != "" {
@@ -107,7 +108,7 @@ func TestNetplayPreparationConsumerAbortsAfterRequestCancellation(t *testing.T) 
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	fixture.service.now = func() time.Time { cancel(); return fixture.now() }
-	result, err := service.Launch(ctx, fixture.service, netplayservice.PreparationRequest{
+	result, err := service.Launch(ctx, fixture.service, netplaymodel.PreparationRequest{
 		RoomID: fixture.request.RoomID, SessionID: fixture.request.SessionID, ProfileID: fixture.request.ProfileID, Capabilities: fixture.request.ClientCapabilities,
 	})
 	if !errors.Is(err, context.Canceled) || result.Launch.LaunchID != "" {

@@ -5,11 +5,13 @@ import (
 	"fmt"
 	"time"
 
+	model "retrom/internal/model/netplay"
+
 	"github.com/google/uuid"
 )
 
 type RoomCreation struct {
-	repository RoomCreationRepository
+	repository model.RoomCreationRepository
 	maximum    int
 	idle       time.Duration
 	now        func() time.Time
@@ -17,7 +19,7 @@ type RoomCreation struct {
 }
 
 func NewRoomCreation(
-	repository RoomCreationRepository, maximum int, idle time.Duration, now func() time.Time,
+	repository model.RoomCreationRepository, maximum int, idle time.Duration, now func() time.Time,
 ) *RoomCreation {
 	return &RoomCreation{repository: repository, maximum: maximum, idle: idle, now: now, newID: roomUUID}
 }
@@ -30,19 +32,19 @@ func roomUUID() (string, error) {
 	return id.String(), nil
 }
 
-func (service *RoomCreation) Create(ctx context.Context, hostID string) (Room, error) {
+func (service *RoomCreation) Create(ctx context.Context, hostID string) (model.Room, error) {
 	now := service.now().UnixMilli()
-	var result Room
-	err := service.repository.WithCreate(ctx, func(writer RoomCreationWriter) error {
+	var result model.Room
+	err := service.repository.WithCreate(ctx, func(writer model.RoomCreationWriter) error {
 		capacity, err := writer.Capacity(ctx, hostID)
 		if err != nil {
 			return fmt.Errorf("netplay/room capacity: %w", err)
 		}
 		if capacity.HostActive {
-			return ErrRoomConflict
+			return model.ErrRoomConflict
 		}
 		if capacity.Active >= service.maximum {
-			return ErrCapacity
+			return model.ErrCapacity
 		}
 		plan, err := service.plan(hostID, now)
 		if err != nil {
@@ -55,21 +57,21 @@ func (service *RoomCreation) Create(ctx context.Context, hostID string) (Room, e
 		return nil
 	})
 	if err != nil {
-		return Room{}, fmt.Errorf("netplay/create room: %w", err)
+		return model.Room{}, fmt.Errorf("netplay/create room: %w", err)
 	}
 	return roomForViewer(result, hostID, now), nil
 }
 
-func (service *RoomCreation) plan(hostID string, now int64) (RoomCreationPlan, error) {
+func (service *RoomCreation) plan(hostID string, now int64) (model.RoomCreationPlan, error) {
 	roomID, err := service.newID()
 	if err != nil {
-		return RoomCreationPlan{}, fmt.Errorf("netplay/room identity: %w", err)
+		return model.RoomCreationPlan{}, fmt.Errorf("netplay/room identity: %w", err)
 	}
 	memberID, err := service.newID()
 	if err != nil {
-		return RoomCreationPlan{}, fmt.Errorf("netplay/member identity: %w", err)
+		return model.RoomCreationPlan{}, fmt.Errorf("netplay/member identity: %w", err)
 	}
-	return RoomCreationPlan{
+	return model.RoomCreationPlan{
 		RoomID: roomID, MemberID: memberID, HostID: hostID, Now: now,
 		ExpiresAtMS: now + service.idle.Milliseconds(), Event: []byte(`{"schemaVersion":1}`),
 	}, nil

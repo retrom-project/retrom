@@ -11,17 +11,18 @@ import (
 	"testing"
 
 	retromruntime "retrom/internal/adapter/runtime/runtime"
+	launchmodel "retrom/internal/model/launch"
 	persistence "retrom/internal/repo/launch"
 	application "retrom/internal/service/launch"
 )
 
 type failPlayAfterWork struct {
-	repository application.PlayRepository
+	repository launchmodel.PlayRepository
 	failure    error
 }
 
-func (repository failPlayAfterWork) WithPlay(ctx context.Context, work func(application.PlayScope) error) error {
-	return repository.repository.WithPlay(ctx, func(scope application.PlayScope) error {
+func (repository failPlayAfterWork) WithPlay(ctx context.Context, work func(launchmodel.PlayScope) error) error {
+	return repository.repository.WithPlay(ctx, func(scope launchmodel.PlayScope) error {
 		if err := work(scope); err != nil {
 			return err
 		}
@@ -142,7 +143,7 @@ func TestPlayProgressRollsBackWhenFinalSourceFenceIsStale(t *testing.T) {
 			fixture, created := newProductPlayFixture(t, true)
 			productPlayStart(t, fixture, created)
 			before := playRows(t, fixture.database)
-			err := persistence.NewPlay(fixture.database).WithPlay(t.Context(), func(scope application.PlayScope) error {
+			err := persistence.NewPlay(fixture.database).WithPlay(t.Context(), func(scope launchmodel.PlayScope) error {
 				source, found, err := scope.Read.Source(t.Context(), created.LaunchID)
 				if err != nil || !found {
 					t.Fatalf("source found=%t error=%v", found, err)
@@ -164,13 +165,13 @@ func TestPlayProgressRollsBackWhenFinalSourceFenceIsStale(t *testing.T) {
 				case "idle-expiry":
 					now = *source.IdleExpiresAtMS
 				}
-				return scope.Write.Progress(t.Context(), application.PlayProgress{
+				return scope.Write.Progress(t.Context(), launchmodel.PlayProgress{
 					Source: source, Current: current, Kind: "heartbeat",
-					Event: application.PlayEvent{ClientSequence: 1, ClientObservedAtMS: now, PreviousInterval: &application.Interval{Running: true, Visible: true}},
+					Event: launchmodel.PlayEvent{ClientSequence: 1, ClientObservedAtMS: now, PreviousInterval: &launchmodel.Interval{Running: true, Visible: true}},
 					NowMS: now, IdleExpiresAtMS: now + 120_000, AcceptedDurationMS: 20,
 				})
 			})
-			if !errors.Is(err, application.ErrBlocked) {
+			if !errors.Is(err, launchmodel.ErrBlocked) {
 				t.Fatalf("stale fence error=%v", err)
 			}
 			if after := playRows(t, fixture.database); !reflect.DeepEqual(before, after) {

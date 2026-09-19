@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/service/accounts"
+	accountsmodel "retrom/internal/model/accounts"
 	"retrom/internal/testkit/testsupport"
 )
 
@@ -22,9 +22,9 @@ func TestAccountAndIPRateLimitFailuresRollbackTogether(t *testing.T) {
 		}
 	})
 	repository := NewRateLimits(database.SQL)
-	err = repository.WithWrite(t.Context(), func(records accounts.RateLimitRecords) error {
+	err = repository.WithWrite(t.Context(), func(records accountsmodel.RateLimitRecords) error {
 		for _, scope := range []string{"LOGIN_ACCOUNT", "LOGIN_IP"} {
-			if err := records.Write(t.Context(), accounts.RateLimitBucket{Key: accounts.RateLimitKey{Scope: scope}, WindowStarted: 100, Failures: 1, UpdatedAt: 100}); err != nil {
+			if err := records.Write(t.Context(), accountsmodel.RateLimitBucket{Key: accountsmodel.RateLimitKey{Scope: scope}, WindowStarted: 100, Failures: 1, UpdatedAt: 100}); err != nil {
 				return err
 			}
 		}
@@ -34,7 +34,7 @@ func TestAccountAndIPRateLimitFailuresRollbackTogether(t *testing.T) {
 		t.Fatalf("rate limit write failure: %v", err)
 	}
 	for _, scope := range []string{"LOGIN_ACCOUNT", "LOGIN_IP"} {
-		_, found, err := repository.Read(t.Context(), accounts.RateLimitKey{Scope: scope})
+		_, found, err := repository.Read(t.Context(), accountsmodel.RateLimitKey{Scope: scope})
 		if err != nil {
 			t.Fatal(err)
 		}

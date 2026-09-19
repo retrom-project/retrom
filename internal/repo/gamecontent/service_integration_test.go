@@ -18,6 +18,8 @@ import (
 	"testing"
 	"time"
 
+	gamecontentmodel "retrom/internal/model/gamecontent"
+	uploadsmodel "retrom/internal/model/uploads"
 	"retrom/internal/service/gamecontent"
 
 	uploadpersistence "retrom/internal/repo/uploads"
@@ -199,14 +201,14 @@ func completeRPGMakerDirectoryUpload(
 		paths = append(paths, name)
 	}
 	slices.Sort(paths)
-	declarations := make([]uploads.FileDeclaration, 0, len(paths))
+	declarations := make([]uploadsmodel.FileDeclaration, 0, len(paths))
 	for index, name := range paths {
-		declarations = append(declarations, uploads.FileDeclaration{
+		declarations = append(declarations, uploadsmodel.FileDeclaration{
 			ClientFileID: fmt.Sprintf("rpg-file-%d", index), RelativePath: name,
 			SizeBytes: int64(len(contents[name])),
 		})
 	}
-	session, err := service.Create(ctx, uploads.CreateRequest{
+	session, err := service.Create(ctx, uploadsmodel.CreateRequest{
 		Purpose: "PROJECT", SourceType: "DIRECTORY", Files: declarations,
 	})
 	testassert.False(t, err != nil, err)
@@ -353,8 +355,7 @@ WHERE game.id=? ORDER BY file.sort_order LIMIT 1
 	)
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return !replayed }, func() bool { return replayedSchedule.JobID != scheduled.JobID }), "idempotent replay = %#v, replayed=%v, error=%v", replayedSchedule, replayed, err)
 	if _, _, err := service.ScheduleIdempotent(ctx, published.GameID, replacementUpload, initialVersion, idempotencyKey, "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"); !errors.Is(
-		err,
-		gamecontent.ErrIdempotencyKeyReused,
+		err, gamecontentmodel.ErrIdempotencyKeyReused,
 	) {
 		t.Fatalf("idempotency conflict error = %v", err)
 	}
@@ -588,14 +589,14 @@ func completeDirectoryUpload(
 		paths = append(paths, name)
 	}
 	slices.Sort(paths)
-	declarations := make([]uploads.FileDeclaration, 0, len(paths))
+	declarations := make([]uploadsmodel.FileDeclaration, 0, len(paths))
 	for index, name := range paths {
-		declarations = append(declarations, uploads.FileDeclaration{
+		declarations = append(declarations, uploadsmodel.FileDeclaration{
 			ClientFileID: fmt.Sprintf("file-%d", index), RelativePath: name,
 			SizeBytes: int64(len(contents[name])),
 		})
 	}
-	session, err := service.Create(ctx, uploads.CreateRequest{SourceType: "DIRECTORY", Files: declarations})
+	session, err := service.Create(ctx, uploadsmodel.CreateRequest{SourceType: "DIRECTORY", Files: declarations})
 	testassert.False(t, err != nil, err)
 	for index, name := range paths {
 		value := contents[name]
@@ -622,10 +623,9 @@ func completeUpload(t *testing.T, ctx context.Context, database interface {
 ) string {
 	t.Helper()
 	session, err := service.Create(
-		ctx,
-		uploads.CreateRequest{
+		ctx, uploadsmodel.CreateRequest{
 			SourceType: "FILES",
-			Files: []uploads.FileDeclaration{
+			Files: []uploadsmodel.FileDeclaration{
 				{ClientFileID: "file", RelativePath: name, SizeBytes: int64(len(contents))},
 			},
 		},

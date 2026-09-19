@@ -7,7 +7,7 @@ import (
 	"strconv"
 
 	"retrom/internal/adapter/integration/libraryimport"
-	libraryservice "retrom/internal/service/libraryimport"
+	libraryimportmodel "retrom/internal/model/libraryimport"
 )
 
 func parseReviewBulkScope(request *http.Request) (libraryimport.ReviewBulkScope, error) {
@@ -62,7 +62,7 @@ func writeReviewBulkError(writer http.ResponseWriter, request *http.Request, err
 			writer, request, http.StatusConflict, "REVIEW_BULK_VERSION_CONFLICT",
 			"快速审批状态已经变化", map[string]any{},
 		)
-	case errors.Is(err, libraryservice.ErrReviewBulkQuery):
+	case errors.Is(err, libraryimportmodel.ErrReviewBulkQuery):
 		writeError(
 			writer, request, http.StatusConflict, "REVIEW_BULK_VERSION_CONFLICT",
 			"快速审批状态已经变化", map[string]any{},

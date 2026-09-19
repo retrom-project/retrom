@@ -3,26 +3,29 @@ package payloadrelease
 import (
 	"context"
 	"fmt"
+
+	model "retrom/internal/model/payloadrelease"
 )
 
-func (run *effectRun) consumePayload(ctx context.Context, payload EffectPayload, reason Reason) error {
+func (run *effectRun) consumePayload(ctx context.Context, payload model.EffectPayload, reason model.Reason) error {
 	for _, before := range payload.Consumptions {
 		if before.Released.Set {
 			continue
 		}
 		if err := run.scope.Write.Consume(
-			ctx,
-			EffectConsumptionChange{Before: before, Reason: reason, NowMS: run.nowMS},
+			ctx, model.EffectConsumptionChange{Before: before, Reason: reason, NowMS: run.nowMS},
 		); err != nil {
 			return fmt.Errorf("release payload consumption: %w", err)
 		}
-		before.Released = WorkTime{Set: true, Value: run.nowMS}
+		before.Released = model.WorkTime{Set: true, Value: run.nowMS}
 		before.Version++
 		run.completed = append(
-			run.completed,
-			EffectOwner{
-				Found:       true,
-				Owner:       Owner{Scope: Scope{Type: ScopeUploadConsumption, ID: before.ID}, Version: before.Version},
+			run.completed, model.EffectOwner{
+				Found: true,
+				Owner: model.Owner{Scope: model.Scope{
+					Type: model.ScopeUploadConsumption,
+					ID:   before.ID,
+				}, Version: before.Version},
 				Consumption: before,
 			},
 		)
@@ -30,7 +33,7 @@ func (run *effectRun) consumePayload(ctx context.Context, payload EffectPayload,
 	return nil
 }
 
-func (run *effectRun) purgePayload(ctx context.Context, payload EffectPayload) error {
+func (run *effectRun) purgePayload(ctx context.Context, payload model.EffectPayload) error {
 	run.blobs = append(run.blobs, payload.BlobIDs...)
 	seen := make(map[string]bool)
 	for _, consumption := range payload.Consumptions {
@@ -66,14 +69,14 @@ func (run *effectRun) purgeSession(ctx context.Context, sessionID string) error 
 		}
 		next := files[len(files)-1].ID
 		if next <= cursor {
-			return ErrEffectConflict
+			return model.ErrEffectConflict
 		}
 		cursor = next
 	}
 }
 
-func (run *effectRun) consumption(ctx context.Context, before EffectOwner, reason Reason) error {
-	payload := EffectPayload{Consumptions: []EffectConsumption{before.Consumption}}
+func (run *effectRun) consumption(ctx context.Context, before model.EffectOwner, reason model.Reason) error {
+	payload := model.EffectPayload{Consumptions: []model.EffectConsumption{before.Consumption}}
 	if err := run.consumePayload(ctx, payload, reason); err != nil {
 		return err
 	}

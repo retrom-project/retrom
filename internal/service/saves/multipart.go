@@ -12,7 +12,9 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"retrom/internal/adapter/files/blobstore"
+	blobmodel "retrom/internal/model/blob"
+	model "retrom/internal/model/saves"
+
 	"retrom/internal/foundation/cleanup"
 )
 
@@ -25,15 +27,15 @@ type manualMetadata struct {
 
 type parsedManual struct {
 	metadata            manualMetadata
-	payload             blobstore.Metadata
-	screenshot          *blobstore.Metadata
+	payload             blobmodel.PreparedBlob
+	screenshot          *blobmodel.PreparedBlob
 	screenshotMediaType string
 }
 
-func (service *Service) parseManual(request ManualUpload, launch Launch) (parsedManual, error) {
+func (service *Service) parseManual(request ManualUpload, launch model.Launch) (parsedManual, error) {
 	mediaType, parameters, err := mime.ParseMediaType(request.ContentType)
 	if err != nil || mediaType != "multipart/form-data" || parameters["boundary"] == "" {
-		return parsedManual{}, ErrInvalid
+		return parsedManual{}, model.ErrInvalid
 	}
 	reader := multipart.NewReader(request.Body, parameters["boundary"])
 	result, seen, err := service.readManualParts(reader, min(launch.Checkpoint.MaxBytes, maxStoredCheckpointBytes))
@@ -41,10 +43,10 @@ func (service *Service) parseManual(request ManualUpload, launch Launch) (parsed
 		return parsedManual{}, err
 	}
 	if !seen["metadata"] || !seen["payload"] || result.metadata.CheckpointFormat != launch.Checkpoint.WriteFormat {
-		return parsedManual{}, ErrCheckpointInvalid
+		return parsedManual{}, model.ErrCheckpointInvalid
 	}
 	if !validMetadataForLaunch(result.metadata, launch) {
-		return parsedManual{}, ErrInvalid
+		return parsedManual{}, model.ErrInvalid
 	}
 	return result, nil
 }
@@ -65,7 +67,7 @@ func (service *Service) readManualParts(
 		name := part.FormName()
 		if seen[name] || name != "metadata" && name != "payload" && name != "screenshot" {
 			cleanup.Error("close", part.Close())
-			return parsedManual{}, nil, ErrInvalid
+			return parsedManual{}, nil, model.ErrInvalid
 		}
 		seen[name] = true
 		err := service.parseManualPart(part, name, payloadLimit, &result)
@@ -80,9 +82,9 @@ func (service *Service) readManualParts(
 func classifyMultipartError(err error) error {
 	var tooLarge *http.MaxBytesError
 	if errors.As(err, &tooLarge) {
-		return fmt.Errorf("%w: %w", ErrTooLarge, err)
+		return fmt.Errorf("%w: %w", model.ErrTooLarge, err)
 	}
-	return fmt.Errorf("%w: %w", ErrInvalid, err)
+	return fmt.Errorf("%w: %w", model.ErrInvalid, err)
 }
 
 func (service *Service) parseManualPart(
@@ -100,55 +102,55 @@ func (service *Service) parseManualPart(
 		if err != nil {
 			return err
 		}
-		result.screenshotMediaType, err = validateScreenshot(metadata.Path)
+		result.screenshotMediaType, err = validateScreenshot(service.blobs.Path(metadata.SHA256))
 		result.screenshot = &metadata
 		return err
 	default:
-		return ErrInvalid
+		return model.ErrInvalid
 	}
 }
 
-func (service *Service) readBounded(source io.Reader, maximum int64) (blobstore.Metadata, error) {
+func (service *Service) readBounded(source io.Reader, maximum int64) (blobmodel.PreparedBlob, error) {
 	metadata, err := service.blobs.Put(io.LimitReader(source, maximum+1))
 	if err != nil {
-		return blobstore.Metadata{}, fmt.Errorf("saves/service: %w", err)
+		return blobmodel.PreparedBlob{}, fmt.Errorf("saves/service: %w", err)
 	}
 	if metadata.Size > maximum {
-		return blobstore.Metadata{}, ErrTooLarge
+		return blobmodel.PreparedBlob{}, model.ErrTooLarge
 	}
 	if metadata.Size == 0 {
-		return blobstore.Metadata{}, ErrCheckpointInvalid
+		return blobmodel.PreparedBlob{}, model.ErrCheckpointInvalid
 	}
 	return metadata, nil
 }
 
 func parseManualMetadata(part *multipart.Part, metadata *manualMetadata) error {
 	if value := part.Header.Get("Content-Type"); value != "" && value != "application/json" {
-		return ErrInvalid
+		return model.ErrInvalid
 	}
 	decoder := json.NewDecoder(io.LimitReader(part, 4097))
 	opening, err := decoder.Token()
 	if err != nil || opening != json.Delim('{') {
-		return ErrInvalid
+		return model.ErrInvalid
 	}
 	seen := make(map[string]bool, 3)
 	for decoder.More() {
 		key, err := decoder.Token()
 		name, ok := key.(string)
 		if err != nil || !ok || seen[name] {
-			return ErrInvalid
+			return model.ErrInvalid
 		}
 		seen[name] = true
 		if err := decodeMetadataField(decoder, name, metadata); err != nil {
-			return ErrInvalid
+			return model.ErrInvalid
 		}
 	}
 	closing, err := decoder.Token()
 	if err != nil || closing != json.Delim('}') {
-		return ErrInvalid
+		return model.ErrInvalid
 	}
 	if token, err := decoder.Token(); !errors.Is(err, io.EOF) || token != nil {
-		return ErrInvalid
+		return model.ErrInvalid
 	}
 	return nil
 }
@@ -169,12 +171,12 @@ func decodeMetadataField(decoder *json.Decoder, name string, metadata *manualMet
 			return fmt.Errorf("decode disc index: %w", err)
 		}
 	default:
-		return ErrInvalid
+		return model.ErrInvalid
 	}
 	return nil
 }
 
-func validMetadataForLaunch(metadata manualMetadata, launch Launch) bool {
+func validMetadataForLaunch(metadata manualMetadata, launch model.Launch) bool {
 	if metadata.CheckpointFormat != launch.Checkpoint.WriteFormat {
 		return false
 	}
@@ -195,7 +197,7 @@ func validName(name string) bool {
 	return count >= 1 && count <= 120
 }
 
-func validManualDiscIndex(launch Launch, discIndex *int) bool {
+func validManualDiscIndex(launch model.Launch, discIndex *int) bool {
 	if launch.ContentFormat != "RETROM_MULTIDISC_M3U_V1" {
 		return discIndex == nil
 	}

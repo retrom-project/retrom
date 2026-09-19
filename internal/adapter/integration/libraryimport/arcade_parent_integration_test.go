@@ -18,6 +18,7 @@ import (
 	"testing"
 	"time"
 
+	uploadsmodel "retrom/internal/model/uploads"
 	uploadpersistence "retrom/internal/repo/uploads"
 
 	"retrom/internal/adapter/files/blobstore"
@@ -344,8 +345,8 @@ func uploadCompleteFile(
 	contents []byte,
 ) completedUpload {
 	t.Helper()
-	upload, err := service.Create(ctx, uploads.CreateRequest{
-		SourceType: "FILES", Files: []uploads.FileDeclaration{{ClientFileID: "fixture", RelativePath: name, SizeBytes: int64(len(contents))}},
+	upload, err := service.Create(ctx, uploadsmodel.CreateRequest{
+		SourceType: "FILES", Files: []uploadsmodel.FileDeclaration{{ClientFileID: "fixture", RelativePath: name, SizeBytes: int64(len(contents))}},
 	})
 	testassert.False(t, err != nil, err)
 	digest := sha256.Sum256(contents)

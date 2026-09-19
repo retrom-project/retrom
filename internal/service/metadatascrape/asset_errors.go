@@ -3,23 +3,25 @@ package metadatascrape
 import (
 	"errors"
 
-	"retrom/internal/adapter/metadata/hasheous"
+	metadatamodel "retrom/internal/model/metadata"
+
+	metadatascrapemodel "retrom/internal/model/metadatascrape"
 )
 
 func stableAssetError(err error) string {
 	for _, known := range []error{
-		hasheous.ErrAssetURLInvalid,
-		hasheous.ErrAssetNetwork,
-		hasheous.ErrAssetRedirectLimit,
-		hasheous.ErrAssetHTTPStatus,
-		hasheous.ErrAssetTooLarge,
-		hasheous.ErrAssetURLRejected,
-		hasheous.ErrAssetDNSFailed,
-		hasheous.ErrAssetIPRejected,
-		hasheous.ErrAssetMediaTypeInvalid,
-		hasheous.ErrAssetMediaTypeMismatch,
-		hasheous.ErrAssetDecodeFailed,
-		hasheous.ErrAssetPixelLimit,
+		metadatamodel.ErrAssetURLInvalid,
+		metadatamodel.ErrAssetNetwork,
+		metadatamodel.ErrAssetRedirectLimit,
+		metadatamodel.ErrAssetHTTPStatus,
+		metadatamodel.ErrAssetTooLarge,
+		metadatamodel.ErrAssetURLRejected,
+		metadatamodel.ErrAssetDNSFailed,
+		metadatamodel.ErrAssetIPRejected,
+		metadatamodel.ErrAssetMediaTypeInvalid,
+		metadatamodel.ErrAssetMediaTypeMismatch,
+		metadatamodel.ErrAssetDecodeFailed,
+		metadatamodel.ErrAssetPixelLimit,
 	} {
 		if errors.Is(err, known) {
 			return known.Error()
@@ -30,11 +32,11 @@ func stableAssetError(err error) string {
 
 func mediaRetryable(cause error) bool {
 	for _, permanent := range []error{
-		ErrMediaInput, ErrAssetStateConflict,
-		hasheous.ErrAssetURLInvalid, hasheous.ErrAssetURLRejected, hasheous.ErrAssetIPRejected,
-		hasheous.ErrAssetRedirectLimit, hasheous.ErrAssetTooLarge, hasheous.ErrAssetReadLimit,
-		hasheous.ErrAssetMediaTypeInvalid, hasheous.ErrAssetMediaTypeMismatch,
-		hasheous.ErrAssetDecodeFailed, hasheous.ErrAssetPixelLimit,
+		metadatascrapemodel.ErrMediaInput, metadatascrapemodel.ErrAssetStateConflict,
+		metadatamodel.ErrAssetURLInvalid, metadatamodel.ErrAssetURLRejected, metadatamodel.ErrAssetIPRejected,
+		metadatamodel.ErrAssetRedirectLimit, metadatamodel.ErrAssetTooLarge, metadatamodel.ErrAssetReadLimit,
+		metadatamodel.ErrAssetMediaTypeInvalid, metadatamodel.ErrAssetMediaTypeMismatch,
+		metadatamodel.ErrAssetDecodeFailed, metadatamodel.ErrAssetPixelLimit,
 	} {
 		if errors.Is(cause, permanent) {
 			return false

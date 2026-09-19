@@ -4,7 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"retrom/internal/adapter/files/blobstore"
+	blobmodel "retrom/internal/model/blob"
+
 	application "retrom/internal/model/launch"
 	"retrom/internal/repo/blobcatalog"
 	"retrom/internal/repo/recordstore"
@@ -12,7 +13,7 @@ import (
 
 func (records screenshotRecords) Replace(ctx context.Context, plan application.ScreenshotWrite) error {
 	image, source, now := plan.Image, plan.Source, plan.AtMS
-	blobID, err := blobcatalog.EnsureRecord(ctx, records.executor, blobstore.Metadata{
+	blobID, err := blobcatalog.EnsureRecord(ctx, records.executor, blobmodel.PreparedBlob{
 		SHA256: image.SHA256, MD5: image.MD5, SHA1: image.SHA1, CRC32: image.CRC32, Size: image.SizeBytes,
 	}, image.MediaType, now)
 	if err != nil {

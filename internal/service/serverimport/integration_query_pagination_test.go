@@ -3,11 +3,13 @@ package serverimport_test
 import (
 	"reflect"
 	"testing"
+
+	serverimportmodel "retrom/internal/model/serverimport"
 )
 
 func TestServerImportCandidatePaginationKeepsNullRanksStable(t *testing.T) {
 	service, database, _ := archiveImportFixture(t)
-	created, err := service.Create(t.Context(), CreateRequest{Kind: "BIOS_DIRECTORY", RootID: "bios-root"}, "01980000-0000-7000-8000-00000000b001")
+	created, err := service.Create(t.Context(), serverimportmodel.CreateRequest{Kind: "BIOS_DIRECTORY", RootID: "bios-root"}, "01980000-0000-7000-8000-00000000b001")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/model/netplayprofile"
+
 	"retrom/internal/repo/dbexec"
 	"retrom/internal/testkit/testsupport"
 )
@@ -47,11 +49,11 @@ func TestReadyRejectsChangedCanonicalGameSnapshot(t *testing.T) {
 	})
 	seedControlHost(t, database.SQL, now)
 	gameID := seedControlGame(t, database.SQL, now)
-	raw, err := os.ReadFile(filepath.Join("..", "..", "..", "data", ManifestRelativePath))
+	raw, err := os.ReadFile(filepath.Join("..", "..", "..", "data", "netplay/v2/manifest.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	registry, err := parseRegistry(raw, fixtureDependencySet())
+	registry, err := netplayprofile.ParseRegistry(raw, fixtureBindings())
 	if err != nil {
 		t.Fatal(err)
 	}

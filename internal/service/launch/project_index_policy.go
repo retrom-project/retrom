@@ -8,6 +8,7 @@ import (
 	nxengine "retrom/internal/capability/engine/nxengine/detector"
 	ons "retrom/internal/capability/engine/ons/detector"
 	"retrom/internal/capability/engine/scummvm"
+	model "retrom/internal/model/launch"
 )
 
 type projectIndexPolicy struct {
@@ -41,10 +42,10 @@ func projectIndexPolicyFor(format, raw string) (projectIndexPolicy, error) {
 		err = validateScummVMIndex(raw)
 		policy.allowEmpty, policy.firstIsMarker = true, true
 	default:
-		return projectIndexPolicy{}, ErrProjectIndexUnavailable
+		return projectIndexPolicy{}, model.ErrProjectIndexUnavailable
 	}
 	if err != nil {
-		return projectIndexPolicy{}, fmt.Errorf("%w: project profile: %w", ErrCredential, err)
+		return projectIndexPolicy{}, fmt.Errorf("%w: project profile: %w", model.ErrCredential, err)
 	}
 	return policy, nil
 }

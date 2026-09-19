@@ -5,21 +5,22 @@ import (
 	"strings"
 	"testing"
 
-	library "retrom/internal/service/libraryimport"
+	libraryimportmodel "retrom/internal/model/libraryimport"
+	model "retrom/internal/model/pegasusimport"
 )
 
 func TestImportExecutorRetainsBoundReviewIdentityWhenHandoffFails(t *testing.T) {
 	t.Parallel()
 	failure := errors.New("review metadata unavailable")
-	source := &preparationSource{found: true, result: library.ServerImportResult{
-		Created: library.ServerCreated{ImportJobID: "library-job"},
-		Items:   []library.ServerImportItem{{ItemID: "library-item", State: "REVIEW_PENDING"}},
+	source := &preparationSource{found: true, result: libraryimportmodel.ServerImportResult{
+		Created: libraryimportmodel.ServerCreated{ImportJobID: "library-job"},
+		Items:   []libraryimportmodel.ServerImportItem{{ItemID: "library-item", State: "REVIEW_PENDING"}},
 	}}
 	transitions := &preparationOutcomes{}
 	handoff := &preparationOutcomes{failure: failure}
 	fixture, executor := newImportExecutorFixture()
 	executor.dependencies.Reviews = NewReviewPreparation(source, transitions, handoff)
-	if err := executor.Process(t.Context(), Work{}, fixture.items[0]); err != nil {
+	if err := executor.Process(t.Context(), model.Work{}, fixture.items[0]); err != nil {
 		t.Fatal(err)
 	}
 	if !transitions.resumed || handoff.handoffs != 1 || len(fixture.outcomes) != 1 {

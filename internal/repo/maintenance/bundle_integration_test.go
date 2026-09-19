@@ -18,6 +18,8 @@ import (
 	"time"
 
 	"retrom/internal/bootstrap/composition"
+	maintenancemodel "retrom/internal/model/maintenance"
+	uploadsmodel "retrom/internal/model/uploads"
 
 	"retrom/internal/service/maintenance"
 
@@ -187,10 +189,9 @@ func TestBackupRestoreRoundTripAndOnlineRefusal(t *testing.T) {
 	testassert.False(t, err != nil, err)
 	uploadService := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
 	upload, err := uploadService.Create(
-		ctx,
-		uploads.CreateRequest{
+		ctx, uploadsmodel.CreateRequest{
 			SourceType: "FILES",
-			Files:      []uploads.FileDeclaration{{ClientFileID: "part", RelativePath: "partial.bin", SizeBytes: 4}},
+			Files:      []uploadsmodel.FileDeclaration{{ClientFileID: "part", RelativePath: "partial.bin", SizeBytes: 4}},
 		},
 	)
 	testassert.False(t, err != nil, err)
@@ -356,8 +357,7 @@ SELECT
 		)
 	}
 	if _, err := maintenance.New(New(), time.Now).Restore(ctx, config.Maintenance{DependencyRoot: dependencyRoot, DependencyVersions: []string{"4.2.3"}, ActiveEJSVersion: "4.2.3"}, bundle, restored); !errors.Is(
-		err,
-		maintenance.ErrInvalidBundle,
+		err, maintenancemodel.ErrInvalidBundle,
 	) {
 		t.Fatalf("overwrite restore error = %v", err)
 	}
@@ -380,7 +380,7 @@ SELECT
 	if err := os.WriteFile(manifestPath, contents, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := maintenance.New(New(), time.Now).Restore(ctx, config.Maintenance{DependencyRoot: dependencyRoot, DependencyVersions: []string{"4.2.3"}, ActiveEJSVersion: "4.2.3"}, bundle, filepath.Join(root, "obsolete-restored")); !errors.Is(err, maintenance.ErrInvalidBundle) {
+	if _, err := maintenance.New(New(), time.Now).Restore(ctx, config.Maintenance{DependencyRoot: dependencyRoot, DependencyVersions: []string{"4.2.3"}, ActiveEJSVersion: "4.2.3"}, bundle, filepath.Join(root, "obsolete-restored")); !errors.Is(err, maintenancemodel.ErrInvalidBundle) {
 		t.Fatalf("obsolete backup manifest error = %v", err)
 	}
 }

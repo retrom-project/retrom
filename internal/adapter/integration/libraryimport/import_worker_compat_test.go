@@ -7,11 +7,12 @@ import (
 	"fmt"
 
 	"retrom/internal/foundation/cleanup"
+	libraryimportmodel "retrom/internal/model/libraryimport"
 	repository "retrom/internal/repo/libraryimport"
 	application "retrom/internal/service/libraryimport"
 )
 
-const importGroupLease = application.ImportExecutionLease
+const importGroupLease = libraryimportmodel.ImportExecutionLease
 
 type queuedCreationWork struct {
 	importID, jobID, workerID, actorUserID             string
@@ -21,8 +22,8 @@ type queuedCreationWork struct {
 	attempt                                            int
 }
 
-func (work queuedCreationWork) creationIntent() *application.QueuedImportExecution {
-	return &application.QueuedImportExecution{
+func (work queuedCreationWork) creationIntent() *libraryimportmodel.QueuedImportExecution {
+	return &libraryimportmodel.QueuedImportExecution{
 		ImportID:    work.importID,
 		JobID:       work.jobID,
 		WorkerID:    work.workerID,
@@ -76,8 +77,8 @@ func (service *Service) finishImportGroupFailure(ctx context.Context, work queue
 }
 
 type (
-	creationPlan              = application.PreparedImport
-	importGroupTargetSnapshot = application.ImportTargetSnapshot
+	creationPlan              = libraryimportmodel.PreparedImport
+	importGroupTargetSnapshot = libraryimportmodel.ImportTargetSnapshot
 )
 
 func (service *Service) prepareCreation(ctx context.Context, request CreateRequest) (creationPlan, error) {

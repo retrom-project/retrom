@@ -3,7 +3,9 @@ package serverimport
 import (
 	"sort"
 
-	"retrom/internal/adapter/files/blobstore"
+	blobmodel "retrom/internal/model/blob"
+	model "retrom/internal/model/serverimport"
+
 	"retrom/internal/adapter/files/serversource"
 	"retrom/internal/capability/content/firmware"
 	"retrom/internal/capability/format/importing"
@@ -11,10 +13,10 @@ import (
 
 type EvaluatedCandidate struct {
 	ID                 string
-	Item               CatalogItem
+	Item               model.CatalogItem
 	File               serversource.File
 	Association        string
-	Metadata           blobstore.Metadata
+	Metadata           blobmodel.PreparedBlob
 	ArchiveEntries     []importing.ArchiveEntry
 	Static             *firmware.StaticEvaluation
 	DAT                *firmware.DATEvaluation

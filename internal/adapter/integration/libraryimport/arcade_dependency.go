@@ -1,12 +1,14 @@
 package libraryimport
 
-import application "retrom/internal/service/libraryimport"
+import (
+	libraryimportmodel "retrom/internal/model/libraryimport"
+)
 
-const maxArcadeDependencyNodes = application.MaxArcadeDependencyNodes
+const maxArcadeDependencyNodes = libraryimportmodel.MaxArcadeDependencyNodes
 
 type (
 	arcadeMachineRelation  struct{ cloneOf, romOf string }
-	arcadeClosureNode      = application.ArcadeClosureNode
+	arcadeClosureNode      = libraryimportmodel.ArcadeClosureNode
 	arcadeRelationResolver func(string) (arcadeMachineRelation, bool)
 )
 
@@ -14,8 +16,11 @@ func arcadeDependencyClosureV2(
 	machine string,
 	resolve arcadeRelationResolver,
 ) ([]arcadeClosureNode, bool, bool) {
-	return application.ArcadeDependencyClosure(machine, func(name string) (application.ArcadeMachineRelation, bool) {
+	return libraryimportmodel.ArcadeDependencyClosure(machine, func(name string) (
+		libraryimportmodel.ArcadeMachineRelation,
+		bool,
+	) {
 		relation, found := resolve(name)
-		return application.ArcadeMachineRelation{CloneOf: relation.cloneOf, ROMOf: relation.romOf}, found
+		return libraryimportmodel.ArcadeMachineRelation{CloneOf: relation.cloneOf, ROMOf: relation.romOf}, found
 	})
 }

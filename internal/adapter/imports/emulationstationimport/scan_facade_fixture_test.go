@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"retrom/internal/capability/format/emulationstationmeta"
+	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
 	application "retrom/internal/service/emulationstationimport"
 )
 
@@ -11,8 +12,8 @@ const maxGamelistBytes = int64(emulationstationmeta.MaxGameListBytes)
 
 type (
 	discoveredFile = application.DiscoveredFile
-	scannedItem    = application.ScanItem
-	scanResult     application.ScanProjection
+	scannedItem    = emulationstationimportmodel.ScanItem
+	scanResult     emulationstationimportmodel.ScanProjection
 )
 
 func (service *Service) scan(

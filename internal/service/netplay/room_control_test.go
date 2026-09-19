@@ -7,78 +7,81 @@ import (
 	"testing"
 	"time"
 
-	validation "retrom/internal/service/corevalidation"
+	corevalidationmodel "retrom/internal/model/corevalidation"
+	model "retrom/internal/model/netplay"
 )
 
 type roomControlMemory struct {
-	eligibility                                               EligibilityRepository
-	bios                                                      validation.Repository
-	before                                                    RoomControlSnapshot
-	result                                                    Room
+	eligibility                                               model.EligibilityRepository
+	bios                                                      corevalidationmodel.Repository
+	before                                                    model.RoomControlSnapshot
+	result                                                    model.Room
 	readFailure, writeFailure, commitFailure, snapshotFailure error
 	writes                                                    int
-	seat                                                      RoomSeatPlan
-	ready                                                     RoomReadyPlan
+	seat                                                      model.RoomSeatPlan
+	ready                                                     model.RoomReadyPlan
 }
 
-func (memory *roomControlMemory) WithWrite(_ context.Context, work func(RoomControlScope) error) error {
-	if err := work(RoomControlScope{Read: memory, Write: memory, Eligibility: memory.eligibility, BIOS: memory.bios}); err != nil {
+func (memory *roomControlMemory) WithWrite(_ context.Context, work func(model.RoomControlScope) error) error {
+	if err := work(model.RoomControlScope{Read: memory, Write: memory, Eligibility: memory.eligibility, BIOS: memory.bios}); err != nil {
 		return err
 	}
 	return memory.commitFailure
 }
 
-func (memory *roomControlMemory) Current(context.Context, string, string) (RoomControlSnapshot, error) {
+func (memory *roomControlMemory) Current(context.Context, string, string) (model.RoomControlSnapshot, error) {
 	return memory.before, memory.readFailure
 }
 
-func (memory *roomControlMemory) Snapshot(context.Context, string) (Room, error) {
+func (memory *roomControlMemory) Snapshot(context.Context, string) (model.Room, error) {
 	return memory.result, memory.snapshotFailure
 }
 
-func (memory *roomControlMemory) Select(context.Context, RoomSelectionPlan) error {
+func (memory *roomControlMemory) Select(context.Context, model.RoomSelectionPlan) error {
 	memory.writes++
 	return memory.writeFailure
 }
 
-func (memory *roomControlMemory) Clear(context.Context, RoomClearPlan) error {
+func (memory *roomControlMemory) Clear(context.Context, model.RoomClearPlan) error {
 	memory.writes++
 	return memory.writeFailure
 }
 
-func (memory *roomControlMemory) Seat(_ context.Context, plan RoomSeatPlan) error {
+func (memory *roomControlMemory) Seat(_ context.Context, plan model.RoomSeatPlan) error {
 	memory.writes++
 	memory.seat = plan
 	return memory.writeFailure
 }
 
-func (memory *roomControlMemory) Ready(_ context.Context, plan RoomReadyPlan) error {
+func (memory *roomControlMemory) Ready(_ context.Context, plan model.RoomReadyPlan) error {
 	memory.writes++
 	memory.ready = plan
 	return memory.writeFailure
 }
 
-func controlSnapshot() RoomControlSnapshot {
-	return RoomControlSnapshot{RoomID: "room", HostID: "host", State: RoomStateWaiting, Version: 4, Selection: &RoomSelection{MaxPlayers: 2}, Member: &SeatMember{ID: "guest-member", ProfileID: "guest", Role: "GUEST", PlayerNo: 2, Version: 3}}
+func controlSnapshot() model.RoomControlSnapshot {
+	return model.RoomControlSnapshot{RoomID: "room", HostID: "host", State: model.RoomStateWaiting, Version: 4, Selection: &model.RoomSelection{MaxPlayers: 2}, Member: &model.SeatMember{ID: "guest-member", ProfileID: "guest", Role: "GUEST", PlayerNo: 2, Version: 3}}
 }
 
 func TestRoomControlsValidateBeforeWriting(t *testing.T) {
 	t.Parallel()
 	for _, test := range []struct {
 		name, action string
-		change       func(*RoomControlSnapshot)
+		change       func(*model.RoomControlSnapshot)
 		want         error
 	}{
-		{"draft seat", "seat", func(before *RoomControlSnapshot) { before.State = RoomStateDraft; before.Selection = nil }, ErrRoomConflict},
-		{"draft ready", "ready", func(before *RoomControlSnapshot) { before.State = RoomStateDraft; before.Selection = nil }, ErrRoomConflict},
-		{"stale seat", "seat", func(before *RoomControlSnapshot) { before.Version = 5 }, ErrPrecondition},
-		{"outsider ready", "ready", func(before *RoomControlSnapshot) { before.Member = nil }, ErrForbidden},
-		{"departed ready", "ready", func(before *RoomControlSnapshot) { at := int64(1); before.Member.LeftAtMS = &at }, ErrForbidden},
-		{"host seat", "seat", func(before *RoomControlSnapshot) { before.Member.Role = "HOST" }, ErrForbidden},
-		{"ready member seat", "seat", func(before *RoomControlSnapshot) { before.Member.Ready = true }, ErrRoomConflict},
-		{"seat outside profile", "seat", func(before *RoomControlSnapshot) { before.Selection.MaxPlayers = 1 }, ErrInvalidSeat},
-		{"occupied seat", "seat", func(before *RoomControlSnapshot) { before.Occupants = []SeatMember{{ProfileID: "other", PlayerNo: 2}} }, ErrSeatTaken},
-		{"nonhost clear", "clear", func(*RoomControlSnapshot) {}, ErrForbidden},
+		{"draft seat", "seat", func(before *model.RoomControlSnapshot) { before.State = model.RoomStateDraft; before.Selection = nil }, model.ErrRoomConflict},
+		{"draft ready", "ready", func(before *model.RoomControlSnapshot) { before.State = model.RoomStateDraft; before.Selection = nil }, model.ErrRoomConflict},
+		{"stale seat", "seat", func(before *model.RoomControlSnapshot) { before.Version = 5 }, model.ErrPrecondition},
+		{"outsider ready", "ready", func(before *model.RoomControlSnapshot) { before.Member = nil }, model.ErrForbidden},
+		{"departed ready", "ready", func(before *model.RoomControlSnapshot) { at := int64(1); before.Member.LeftAtMS = &at }, model.ErrForbidden},
+		{"host seat", "seat", func(before *model.RoomControlSnapshot) { before.Member.Role = "HOST" }, model.ErrForbidden},
+		{"ready member seat", "seat", func(before *model.RoomControlSnapshot) { before.Member.Ready = true }, model.ErrRoomConflict},
+		{"seat outside profile", "seat", func(before *model.RoomControlSnapshot) { before.Selection.MaxPlayers = 1 }, model.ErrInvalidSeat},
+		{"occupied seat", "seat", func(before *model.RoomControlSnapshot) {
+			before.Occupants = []model.SeatMember{{ProfileID: "other", PlayerNo: 2}}
+		}, model.ErrSeatTaken},
+		{"nonhost clear", "clear", func(*model.RoomControlSnapshot) {}, model.ErrForbidden},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			before := controlSnapshot()
@@ -109,7 +112,7 @@ func TestSeatPlanDistinguishesJoinAndMove(t *testing.T) {
 		if !existing {
 			before.Member = nil
 		}
-		memory := &roomControlMemory{before: before, result: Room{RoomID: "room"}}
+		memory := &roomControlMemory{before: before, result: model.Room{RoomID: "room"}}
 		service := NewRoomControl(memory, nil, time.Minute, time.Hour, func() time.Time { return now })
 		service.newID = func() (string, error) { return "new-member", nil }
 		if _, err := service.SetSeat(t.Context(), "room", "guest", 2, 4); err != nil {
@@ -125,7 +128,7 @@ func TestRoomControlFailureDoesNotReturnSuccessfulProjection(t *testing.T) {
 	sentinel := errors.New("storage failed")
 	for _, memory := range []*roomControlMemory{{readFailure: sentinel}, {writeFailure: sentinel}, {snapshotFailure: sentinel}, {commitFailure: sentinel}} {
 		memory.before = controlSnapshot()
-		memory.result = Room{RoomID: "room"}
+		memory.result = model.Room{RoomID: "room"}
 		service := NewRoomControl(memory, nil, time.Hour, time.Hour, time.Now)
 		room, err := service.SetReady(t.Context(), "room", "guest", false, 4)
 		if !errors.Is(err, sentinel) || room.RoomID != "" {
@@ -151,12 +154,12 @@ func TestHostCannotClaimGuestSeatThroughTheService(t *testing.T) {
 	t.Parallel()
 	before := controlSnapshot()
 	before.Member.Role = "HOST"
-	if err := validateSeat(before, 2, "host"); !errors.Is(err, ErrForbidden) {
+	if err := validateSeat(before, 2, "host"); !errors.Is(err, model.ErrForbidden) {
 		t.Fatalf("host seat mutation error=%v", err)
 	}
 }
 
-func assertSeatPlan(t *testing.T, plan RoomSeatPlan, existing bool, now time.Time) {
+func assertSeatPlan(t *testing.T, plan model.RoomSeatPlan, existing bool, now time.Time) {
 	t.Helper()
 	var event struct {
 		SchemaVersion int  `json:"schemaVersion"`

@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	model "retrom/internal/model/emulationstationimport"
 	"retrom/internal/testkit/testassert"
 )
 
@@ -31,7 +32,7 @@ func TestReferencedDiscPathsExcludeUnrelatedCHDs(t *testing.T) {
 
 func TestSnapshotDigestUsesTheSpecifiedCanonicalFieldOrder(t *testing.T) {
 	t.Parallel()
-	gamelists := []scannedGamelist{{
+	gamelists := []model.ScanGamelist{{
 		Path: "nes/gamelist.xml", Size: 42, Digest: "content",
 		Facts: "facts", State: "VALID",
 	}}

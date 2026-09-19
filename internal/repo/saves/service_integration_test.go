@@ -21,6 +21,7 @@ import (
 	"testing"
 	"time"
 
+	savesmodel "retrom/internal/model/saves"
 	saveservice "retrom/internal/service/saves"
 
 	dependencypersistence "retrom/internal/repo/dependencies"
@@ -389,8 +390,7 @@ WHERE s.id=?
 	)
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return !replayed }, func() bool { return replay.SaveStateID != result.SaveStateID }), "manual replay = %#v, replayed=%v, error=%v", replay, replayed, err)
 	if _, _, err := fixture.saves.CreateManual(fixture.ctx, created.LaunchID, created.Capability, uuid.NewString(), manualRequest(t, "空状态", nil, screenshot)); !errors.Is(
-		err,
-		saveservice.ErrCheckpointInvalid,
+		err, savesmodel.ErrCheckpointInvalid,
 	) {
 		t.Fatalf("empty state error = %v", err)
 	}
@@ -513,7 +513,7 @@ UPDATE save_states SET checkpoint_format='unreadable-checkpoint-v1' WHERE id=?
 	}
 	if _, err := fixture.saves.StateDigest(
 		fixture.ctx, restored.LaunchID, restored.Capability,
-	); !errors.Is(err, saveservice.ErrCheckpointIncompatible) {
+	); !errors.Is(err, savesmodel.ErrCheckpointIncompatible) {
 		t.Fatalf("binding drift error=%v", err)
 	}
 }
@@ -523,7 +523,7 @@ func TestCheckpointRejectsDuplicateMetadataKeys(t *testing.T) {
 	created := fixture.createLaunch(t)
 	_, _, err := fixture.saves.CreateManual(fixture.ctx, created.LaunchID, created.Capability, uuid.NewString(),
 		validationRequestMetadata(t, `{"checkpointFormat":"test-checkpoint-v1","checkpointFormat":"test-checkpoint-v1"}`, []byte("state")))
-	if !errors.Is(err, saveservice.ErrInvalid) {
+	if !errors.Is(err, savesmodel.ErrInvalid) {
 		t.Fatalf("duplicate metadata key: %v", err)
 	}
 }

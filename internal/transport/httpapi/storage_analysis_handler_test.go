@@ -11,7 +11,7 @@ import (
 	"github.com/google/uuid"
 
 	"retrom/internal/capability/security/authn"
-	"retrom/internal/service/accounts"
+	accountsmodel "retrom/internal/model/accounts"
 	"retrom/internal/testkit/testassert"
 )
 
@@ -131,7 +131,7 @@ SELECT count(*) FROM audit_events WHERE action='STORAGE_CLEANUP_REQUESTED'
 		func() bool { return !strings.Contains(memberCleanup.Body.String(), "ADMIN_REQUIRED") },
 	), "member cleanup = %d %s", memberCleanup.Code, memberCleanup.Body.String())
 
-	server.authenticator = fixedAuthenticator{Err: accounts.ErrAuthenticationNeeded}
+	server.authenticator = fixedAuthenticator{Err: accountsmodel.ErrAuthenticationNeeded}
 	anonymous := httptest.NewRecorder()
 	handler.ServeHTTP(anonymous, httptest.NewRequestWithContext(
 		context.Background(), http.MethodGet, "/api/v1/admin/storage-analysis", nil,

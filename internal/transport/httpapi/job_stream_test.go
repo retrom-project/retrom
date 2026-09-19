@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	accountsmodel "retrom/internal/model/accounts"
 	dependencypersistence "retrom/internal/repo/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 
@@ -21,7 +22,6 @@ import (
 	"retrom/internal/capability/security/authn"
 	"retrom/internal/foundation/cleanup"
 	"retrom/internal/repo/store"
-	"retrom/internal/service/accounts"
 	"retrom/internal/testkit/testassert"
 	"retrom/internal/testkit/testsupport"
 )
@@ -318,14 +318,14 @@ func testSessionCredentials() (*http.Cookie, string) {
 	return &http.Cookie{Name: "retrom_test", Value: "test-only", Path: "/"}, "test-only"
 }
 
-func (testAuthenticator) Authenticate(context.Context, string) (accounts.Session, error) {
+func (testAuthenticator) Authenticate(context.Context, string) (accountsmodel.Session, error) {
 	principal := authn.Principal{
 		UserID: "01980000-0000-7000-8000-000000009999", ProfileID: "local", Username: "test-admin",
 		DisplayName: "Test Admin", Role: "ADMIN", SessionID: "01980000-0000-7000-8000-000000009998",
 	}
-	return accounts.Session{Principal: principal, CookieToken: "test-only"}, nil
+	return accountsmodel.Session{Principal: principal, CookieToken: "test-only"}, nil
 }
 
-func (authenticator fixedAuthenticator) Authenticate(context.Context, string) (accounts.Session, error) {
-	return accounts.Session{Principal: authenticator.Principal, CookieToken: "test-only"}, authenticator.Err
+func (authenticator fixedAuthenticator) Authenticate(context.Context, string) (accountsmodel.Session, error) {
+	return accountsmodel.Session{Principal: authenticator.Principal, CookieToken: "test-only"}, authenticator.Err
 }

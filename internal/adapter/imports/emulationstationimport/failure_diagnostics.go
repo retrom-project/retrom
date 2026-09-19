@@ -6,7 +6,7 @@ import (
 	"errors"
 	"os"
 
-	libraryimport "retrom/internal/service/libraryimport"
+	libraryimportmodel "retrom/internal/model/libraryimport"
 )
 
 func (source *Sources) Sanitize(err error) string {
@@ -17,9 +17,9 @@ func (source *Sources) Sanitize(err error) string {
 		return "operation timed out"
 	case errors.Is(err, context.Canceled):
 		return "operation was cancelled"
-	case errors.Is(err, libraryimport.ErrMultiDiscModeUnavailable):
+	case errors.Is(err, libraryimportmodel.ErrMultiDiscModeUnavailable):
 		return "multi-disc import is unavailable for the selected target"
-	case errors.Is(err, libraryimport.ErrInvalid):
+	case errors.Is(err, libraryimportmodel.ErrInvalid):
 		return "library import rejected the assembled source"
 	}
 	if cause := source.DatabaseCause(err); cause != "" {

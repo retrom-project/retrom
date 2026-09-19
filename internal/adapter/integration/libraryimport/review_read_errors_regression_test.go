@@ -7,6 +7,7 @@ import (
 	"errors"
 	"testing"
 
+	libraryimportmodel "retrom/internal/model/libraryimport"
 	repository "retrom/internal/repo/libraryimport"
 	application "retrom/internal/service/libraryimport"
 
@@ -31,7 +32,7 @@ func TestReviewReadHelpersPreserveDatabaseFailure(t *testing.T) {
 		run  func() error
 	}{
 		{"content identity", func() error {
-			_, err := application.NewContentDuplicates(repository.BindContentDuplicates(database)).Identity(t.Context(), "item")
+			_, err := libraryimportmodel.NewContentDuplicates(repository.BindContentDuplicates(database)).Identity(t.Context(), "item")
 			return err
 		}},
 		{"duplicate matches", func() error { _, err := findDuplicateGames(t.Context(), database, "item", "gba"); return err }},

@@ -5,9 +5,16 @@ import (
 	"fmt"
 	"path"
 	"strings"
+
+	model "retrom/internal/model/libraryimport"
 )
 
-func readReviewMedia(ctx context.Context, scope ReviewReadScope, head ReviewHead, result *ReviewDetail) error {
+func readReviewMedia(
+	ctx context.Context,
+	scope model.ReviewReadScope,
+	head model.ReviewHead,
+	result *model.ReviewDetail,
+) error {
 	var err error
 	result.UploadedAssets, err = scope.Media.UploadedAssets(ctx, head.ItemID)
 	if err != nil {
@@ -33,18 +40,18 @@ func readReviewMedia(ctx context.Context, scope ReviewReadScope, head ReviewHead
 
 func readReviewSourceFiles(
 	ctx context.Context,
-	reader ReviewSourceReader,
+	reader model.ReviewSourceReader,
 	snapshotID, contentKind string,
-) ([]ReviewSourceFile, error) {
+) ([]model.ReviewSourceFile, error) {
 	records, err := reader.Files(ctx, snapshotID)
 	if err != nil {
 		return nil, fmt.Errorf("read review source files: %w", err)
 	}
-	files := make([]ReviewSourceFile, 0, len(records))
+	files := make([]model.ReviewSourceFile, 0, len(records))
 	for _, record := range records {
-		file := ReviewSourceFile{
+		file := model.ReviewSourceFile{
 			ID: record.ID, Name: record.Name, SizeBytes: record.SizeBytes, SHA256: record.SHA256, MD5: record.MD5,
-			CRC32: record.CRC32, Archive: record.Archive, ArchiveEntries: []ReviewArchiveEntry{},
+			CRC32: record.CRC32, Archive: record.Archive, ArchiveEntries: []model.ReviewArchiveEntry{},
 		}
 		if record.ArchiveBlobID != nil {
 			archive, err := reader.ArchiveEntries(ctx, *record.ArchiveBlobID)

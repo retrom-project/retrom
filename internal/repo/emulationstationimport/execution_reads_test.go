@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
 	application "retrom/internal/service/emulationstationimport"
 	"retrom/internal/testkit/testsupport"
 )
@@ -35,7 +36,7 @@ func TestExecutionControlReadFailuresRetainCauseAndState(t *testing.T) {
 				return nil
 			}})
 			service := application.NewExecutionControl(NewExecutionControl(faultDB), func() time.Time { return time.UnixMilli(1002) })
-			state, err := service.Fail(t.Context(), unit, application.ExecutionFailure{Code: "INTERNAL_ERROR"})
+			state, err := service.Fail(t.Context(), unit, emulationstationimportmodel.ExecutionFailure{Code: "INTERNAL_ERROR"})
 			if state != "" || !errors.Is(err, errLeaseStorage) || hits.Load() != 1 {
 				t.Fatalf("read=%s state=%s cause=%v hits=%d", read, state, err, hits.Load())
 			}

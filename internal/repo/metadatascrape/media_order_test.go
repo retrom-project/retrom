@@ -5,27 +5,28 @@ import (
 	"errors"
 	"testing"
 
+	metadatamodel "retrom/internal/model/metadata"
+
+	metadatascrapemodel "retrom/internal/model/metadatascrape"
+
 	jobpersistence "retrom/internal/repo/jobs"
 	"retrom/internal/service/jobs"
-	"retrom/internal/service/metadatascrape"
-
-	"retrom/internal/adapter/metadata/hasheous"
 )
 
 func TestMediaRunSerializesFrozenPositions(t *testing.T) {
-	fixture := newMediaFixture(t, hasheous.AssetRef{ProviderAssetID: "first", Kind: "COVER", Path: "/api/v1/images/first"},
-		hasheous.AssetRef{ProviderAssetID: "second", Kind: "COVER", Ordinal: 1, Path: "/api/v1/images/second"})
+	fixture := newMediaFixture(t, metadatamodel.AssetReference{ProviderAssetID: "first", Kind: "COVER", Path: "/api/v1/images/first"},
+		metadatamodel.AssetReference{ProviderAssetID: "second", Kind: "COVER", Ordinal: 1, Path: "/api/v1/images/second"})
 	var second string
 	if err := fixture.database.QueryRowContext(t.Context(), `SELECT media_fetch_job_id FROM scrape_candidate_assets WHERE ordinal=1`).Scan(&second); err != nil {
 		t.Fatal(err)
 	}
 	entered, release, completed := make(chan struct{}), make(chan struct{}), make(chan error, 1)
-	source := mediaSource(func(_ context.Context, ref hasheous.AssetRef, _ int64) (hasheous.AssetData, error) {
+	source := mediaSource(func(_ context.Context, ref metadatamodel.AssetReference, _ int64) (metadatamodel.AssetData, error) {
 		if ref.ProviderAssetID == "first" {
 			close(entered)
 			<-release
 		}
-		return hasheous.AssetData{Bytes: []byte("media"), ReceivedBytes: 5, Width: 1, Height: 1, MediaType: "image/png"}, nil
+		return metadatamodel.AssetData{Bytes: []byte("media"), ReceivedBytes: 5, Width: 1, Height: 1, MediaType: "image/png"}, nil
 	})
 	go func() { completed <- fixture.worker(source).Run(t.Context(), fixture.jobID) }()
 	<-entered
@@ -53,28 +54,28 @@ func TestMediaRunSerializesFrozenPositions(t *testing.T) {
 }
 
 func TestManualMediaRetryWaitsForCurrentlyRunningLaterPosition(t *testing.T) {
-	fixture := newMediaFixture(t, hasheous.AssetRef{ProviderAssetID: "first", Kind: "COVER", Path: "/api/v1/images/first"},
-		hasheous.AssetRef{ProviderAssetID: "second", Kind: "COVER", Ordinal: 1, Path: "/api/v1/images/second"})
+	fixture := newMediaFixture(t, metadatamodel.AssetReference{ProviderAssetID: "first", Kind: "COVER", Path: "/api/v1/images/first"},
+		metadatamodel.AssetReference{ProviderAssetID: "second", Kind: "COVER", Ordinal: 1, Path: "/api/v1/images/second"})
 	var second string
 	if err := fixture.database.QueryRowContext(t.Context(), `SELECT media_fetch_job_id FROM scrape_candidate_assets WHERE ordinal=1`).Scan(&second); err != nil {
 		t.Fatal(err)
 	}
 	entered, release, completed := make(chan struct{}), make(chan struct{}), make(chan error, 1)
 	firstCalls := 0
-	source := mediaSource(func(_ context.Context, ref hasheous.AssetRef, _ int64) (hasheous.AssetData, error) {
+	source := mediaSource(func(_ context.Context, ref metadatamodel.AssetReference, _ int64) (metadatamodel.AssetData, error) {
 		if ref.ProviderAssetID == "first" {
 			firstCalls++
 			if firstCalls == 1 {
-				return hasheous.AssetData{}, hasheous.ErrAssetNetwork
+				return metadatamodel.AssetData{}, metadatamodel.ErrAssetNetwork
 			}
 		} else {
 			close(entered)
 			<-release
 		}
-		return hasheous.AssetData{Bytes: []byte("media"), ReceivedBytes: 5, Width: 1, Height: 1, MediaType: "image/png"}, nil
+		return metadatamodel.AssetData{Bytes: []byte("media"), ReceivedBytes: 5, Width: 1, Height: 1, MediaType: "image/png"}, nil
 	})
 	worker := fixture.worker(source)
-	if err := worker.Run(t.Context(), fixture.jobID); !errors.Is(err, hasheous.ErrAssetNetwork) {
+	if err := worker.Run(t.Context(), fixture.jobID); !errors.Is(err, metadatamodel.ErrAssetNetwork) {
 		t.Fatal(err)
 	}
 	version := fixture.snapshot(t).Job.Version
@@ -108,7 +109,7 @@ func TestMediaCapacityIncludesCancellingReadUntilLeaseEnds(t *testing.T) {
 	now := fixture.now.UnixMilli()
 	recoveryExec(t, fixture.database, `UPDATE jobs SET state='CANCEL_REQUESTED',cancel_requested_at_ms=?,
  worker_id='stopping',attempt_count=1,leased_until_ms=?,execution_deadline_at_ms=? WHERE id=?`, now, now+60000, now+1800000, fixture.jobID)
-	err := NewMedia(fixture.database).WithWrite(t.Context(), func(scope metadatascrape.MediaScope) error {
+	err := NewMedia(fixture.database).WithWrite(t.Context(), func(scope metadatascrapemodel.MediaScope) error {
 		count, err := scope.Read.Running(t.Context(), now)
 		if err != nil {
 			return err

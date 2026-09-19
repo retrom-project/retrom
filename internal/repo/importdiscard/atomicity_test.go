@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"retrom/internal/service/importdiscard"
+	importdiscardmodel "retrom/internal/model/importdiscard"
 )
 
 func TestDiscardRequestAndAuditRollbackTogether(t *testing.T) {
@@ -27,11 +27,11 @@ func TestDiscardRequestAndAuditRollbackTogether(t *testing.T) {
 
 func TestDiscardReadDistinguishesInvalidMissingAndCancelled(t *testing.T) {
 	f := newFixture(t)
-	if _, err := f.service.Get(f.ctx, "IMPORT", "not-an-id"); !errors.Is(err, importdiscard.ErrInvalid) {
+	if _, err := f.service.Get(f.ctx, "IMPORT", "not-an-id"); !errors.Is(err, importdiscardmodel.ErrInvalid) {
 		t.Fatalf("invalid identity: %v", err)
 	}
 	const missing = "01980000-0000-7000-8000-000000009981"
-	if _, err := f.service.Get(f.ctx, "IMPORT", missing); !errors.Is(err, importdiscard.ErrNotFound) {
+	if _, err := f.service.Get(f.ctx, "IMPORT", missing); !errors.Is(err, importdiscardmodel.ErrNotFound) {
 		t.Fatalf("missing identity: %v", err)
 	}
 	ctx, cancel := context.WithCancel(f.ctx)

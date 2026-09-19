@@ -4,21 +4,23 @@ import (
 	"errors"
 	"math"
 	"testing"
+
+	model "retrom/internal/model/storageanalysis"
 )
 
 func TestClassifyUsesDurablePrecedenceAndSharedFallback(t *testing.T) {
 	t.Parallel()
 	tests := map[string]struct {
 		protected bool
-		flags     Usage
+		flags     model.Usage
 		want      CategoryCode
 	}{
-		"unreferenced ignores flags": {false, UsageGame, CategoryUnreferenced},
-		"durable wins over workflow": {true, UsageGame | UsageWorkflow, CategoryGameContent},
-		"durable wins over runtime":  {true, UsageBIOS | UsageRuntime, CategoryBIOS},
-		"shared durable":             {true, UsageSaves | UsageMedia, CategorySharedDurable},
-		"workflow before runtime":    {true, UsageWorkflow | UsageRuntime, CategoryWorkflow},
-		"runtime":                    {true, UsageRuntime, CategoryRuntimeSnapshot},
+		"unreferenced ignores flags": {false, model.UsageGame, CategoryUnreferenced},
+		"durable wins over workflow": {true, model.UsageGame | model.UsageWorkflow, CategoryGameContent},
+		"durable wins over runtime":  {true, model.UsageBIOS | model.UsageRuntime, CategoryBIOS},
+		"shared durable":             {true, model.UsageSaves | model.UsageMedia, CategorySharedDurable},
+		"workflow before runtime":    {true, model.UsageWorkflow | model.UsageRuntime, CategoryWorkflow},
+		"runtime":                    {true, model.UsageRuntime, CategoryRuntimeSnapshot},
 		"other protected":            {true, 0, CategoryOtherReferenced},
 	}
 	for name, test := range tests {

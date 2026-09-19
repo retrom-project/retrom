@@ -4,19 +4,21 @@ import (
 	"database/sql"
 	"time"
 
+	netplaymodel "retrom/internal/model/netplay"
+	"retrom/internal/model/netplayprofile"
+
 	validationrepository "retrom/internal/repo/corevalidation"
 	repository "retrom/internal/repo/netplay"
 	tagrepository "retrom/internal/repo/tagging"
 	"retrom/internal/service/corevalidation"
 	"retrom/internal/service/netplay"
 	"retrom/internal/service/tagging"
-	"retrom/internal/transport/netplay/profile"
 )
 
 func NewNetplay(
 	database *sql.DB,
-	registry *profile.Registry,
-	signer netplay.CredentialSigner,
+	registry *netplayprofile.Registry,
+	signer netplaymodel.CredentialSigner,
 	options netplay.Options,
 	now func() time.Time,
 ) *netplay.Service {

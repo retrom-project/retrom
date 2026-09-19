@@ -6,15 +6,15 @@ import (
 	"encoding/json"
 	"testing"
 
-	application "retrom/internal/service/emulationstationimport"
+	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
 )
 
 func TestCreationPersistsFrozenYearAndInputDigestWithResponse(t *testing.T) {
 	t.Parallel()
 	db := creationDatabase(t)
 	plan := creationPlan(0)
-	var response application.Summary
-	err := NewCreation(db).WithCreate(t.Context(), func(writer application.CreationWriter) error {
+	var response emulationstationimportmodel.Summary
+	err := NewCreation(db).WithCreate(t.Context(), func(writer emulationstationimportmodel.CreationWriter) error {
 		var err error
 		response, err = writer.Insert(t.Context(), plan)
 		return err

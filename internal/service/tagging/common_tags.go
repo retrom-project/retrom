@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	model "retrom/internal/model/tagging"
+
 	"github.com/google/uuid"
 )
 
@@ -47,18 +49,17 @@ func normalizedCommonTags() ([]normalizedCommonTag, error) {
 
 func createTag(
 	ctx context.Context,
-	scope WriteScope,
+	scope model.WriteScope,
 	actorUserID string,
 	tag normalizedCommonTag,
 	now int64,
-) (AdminItem, error) {
+) (model.AdminItem, error) {
 	id, err := uuid.NewV7()
 	if err != nil {
-		return AdminItem{}, fmt.Errorf("tagging: create tag id: %w", err)
+		return model.AdminItem{}, fmt.Errorf("tagging: create tag id: %w", err)
 	}
 	if err := scope.Changes.Insert(
-		ctx,
-		TagWrite{
+		ctx, model.TagWrite{
 			ID:          id.String(),
 			Name:        tag.name,
 			NameKey:     tag.nameKey,
@@ -67,11 +68,11 @@ func createTag(
 			NowMS:       now,
 		},
 	); err != nil {
-		return AdminItem{}, repositoryError("insert tag", err)
+		return model.AdminItem{}, repositoryError("insert tag", err)
 	}
 	result, err := scope.Tags.Get(ctx, id.String())
 	if err != nil {
-		return AdminItem{}, repositoryError("read created tag", err)
+		return model.AdminItem{}, repositoryError("read created tag", err)
 	}
 	if err := writeAudit(
 		ctx,
@@ -85,22 +86,22 @@ func createTag(
 		nil,
 		now,
 	); err != nil {
-		return AdminItem{}, err
+		return model.AdminItem{}, err
 	}
 	return result, nil
 }
 
 // EnsureCommonTags atomically creates missing starter tags and preserves existing administrator tags.
-func (service *Service) EnsureCommonTags(ctx context.Context, actorUserID string) (CommonTagsResult, error) {
+func (service *Service) EnsureCommonTags(ctx context.Context, actorUserID string) (model.CommonTagsResult, error) {
 	if !ValidID(actorUserID) {
-		return CommonTagsResult{}, ErrInvalid
+		return model.CommonTagsResult{}, model.ErrInvalid
 	}
 	definitions, err := normalizedCommonTags()
 	if err != nil {
-		return CommonTagsResult{}, err
+		return model.CommonTagsResult{}, err
 	}
-	result := CommonTagsResult{CreatedItems: []AdminItem{}, ExistingItems: []AdminItem{}}
-	err = service.repository.WithWrite(ctx, func(scope WriteScope) error {
+	result := model.CommonTagsResult{CreatedItems: []model.AdminItem{}, ExistingItems: []model.AdminItem{}}
+	err = service.repository.WithWrite(ctx, func(scope model.WriteScope) error {
 		activeByKey, err := scope.Tags.ActiveByNameKey(ctx)
 		if err != nil {
 			return repositoryError("ensure common tags", err)
@@ -111,8 +112,8 @@ func (service *Service) EnsureCommonTags(ctx context.Context, actorUserID string
 				missingCount++
 			}
 		}
-		if len(activeByKey)+missingCount > MaxActiveTags {
-			return ErrLimitReached
+		if len(activeByKey)+missingCount > model.MaxActiveTags {
+			return model.ErrLimitReached
 		}
 		now := service.now().UnixMilli()
 		for _, definition := range definitions {

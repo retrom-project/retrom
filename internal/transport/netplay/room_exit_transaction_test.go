@@ -7,18 +7,19 @@ import (
 	"testing"
 	"time"
 
+	netplaymodel "retrom/internal/model/netplay"
 	repository "retrom/internal/repo/netplay"
 	application "retrom/internal/service/netplay"
 )
 
 type failedRoomExit struct {
-	repository application.RoomExitRepository
+	repository netplaymodel.RoomExitRepository
 	failure    error
 	stale      string
 }
 
-func (failed failedRoomExit) WithExit(ctx context.Context, work func(application.RoomExitScope) error) error {
-	return failed.repository.WithExit(ctx, func(scope application.RoomExitScope) error {
+func (failed failedRoomExit) WithExit(ctx context.Context, work func(netplaymodel.RoomExitScope) error) error {
+	return failed.repository.WithExit(ctx, func(scope netplaymodel.RoomExitScope) error {
 		scope.Write = staleRoomExitWriter{scope.Write, failed.stale}
 		if err := work(scope); err != nil {
 			return err
@@ -28,18 +29,19 @@ func (failed failedRoomExit) WithExit(ctx context.Context, work func(application
 }
 
 type staleRoomExitWriter struct {
-	application.RoomExitWriter
+	netplaymodel.RoomExitWriter
+
 	stale string
 }
 
-func (writer staleRoomExitWriter) End(ctx context.Context, plan application.RoomEndPlan) error {
+func (writer staleRoomExitWriter) End(ctx context.Context, plan netplaymodel.RoomEndPlan) error {
 	if writer.stale == "room" {
 		plan.Before.Room.Version++
 	}
 	return writer.RoomExitWriter.End(ctx, plan)
 }
 
-func (writer staleRoomExitWriter) Remove(ctx context.Context, plan application.RoomRemovalPlan) error {
+func (writer staleRoomExitWriter) Remove(ctx context.Context, plan netplaymodel.RoomRemovalPlan) error {
 	if writer.stale == "room" {
 		plan.Before.Version++
 	}

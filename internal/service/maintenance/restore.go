@@ -9,6 +9,7 @@ import (
 
 	"retrom/internal/adapter/runtime/dependencies"
 	"retrom/internal/bootstrap/config"
+	model "retrom/internal/model/maintenance"
 )
 
 func (service *Service) Restore(
@@ -19,7 +20,7 @@ func (service *Service) Restore(
 	if !filepath.IsAbs(input) || !filepath.IsAbs(output) || filepath.Clean(input) != input ||
 		filepath.Clean(output) != output ||
 		exists(output) {
-		return Manifest{}, ErrInvalidBundle
+		return Manifest{}, model.ErrInvalidBundle
 	}
 	lineage, err := service.repository.CurrentLineage()
 	if err != nil {

@@ -9,7 +9,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	application "retrom/internal/service/libraryimport"
+	libraryimportmodel "retrom/internal/model/libraryimport"
 )
 
 func TestReviewApprovalHTTPKeepsSuccessConflictAndDuplicateContracts(t *testing.T) {
@@ -25,7 +25,7 @@ func TestReviewApprovalHTTPKeepsSuccessConflictAndDuplicateContracts(t *testing.
 	if response.Code != http.StatusCreated {
 		t.Fatalf("first=%d %s", response.Code, response.Body.String())
 	}
-	var published application.ReviewApproved
+	var published libraryimportmodel.ReviewApproved
 	if err := json.Unmarshal(response.Body.Bytes(), &published); err != nil {
 		t.Fatal(err)
 	}
@@ -59,7 +59,7 @@ func assertApprovalDuplicateResponse(t *testing.T, duplicate *httptest.ResponseR
 	var conflict struct {
 		Error struct {
 			Code    string
-			Details application.DuplicateConflict
+			Details libraryimportmodel.DuplicateConflict
 		}
 	}
 	if err := json.Unmarshal(duplicate.Body.Bytes(), &conflict); err != nil {

@@ -1,55 +1,58 @@
 package launch
 
-import application "retrom/internal/service/launch"
+import (
+	launchmodel "retrom/internal/model/launch"
+	application "retrom/internal/service/launch"
+)
 
 var (
-	ErrBlocked          = application.ErrBlocked
-	ErrCredential       = application.ErrCredential
-	ErrDOSEntryMissing  = application.ErrDOSEntryMissing
-	ErrDOSEntryUnsafe   = application.ErrDOSEntryUnsafe
-	ErrSaveIncompatible = application.ErrSaveIncompatible
+	ErrBlocked          = launchmodel.ErrBlocked
+	ErrCredential       = launchmodel.ErrCredential
+	ErrDOSEntryMissing  = launchmodel.ErrDOSEntryMissing
+	ErrDOSEntryUnsafe   = launchmodel.ErrDOSEntryUnsafe
+	ErrSaveIncompatible = launchmodel.ErrSaveIncompatible
 )
 
-type Capabilities = application.Capabilities
+type Capabilities = launchmodel.Capabilities
 
-type CreateRequest = application.CreateRequest
-
-type (
-	Created              = application.Created
-	NetplayCreateRequest = application.NetplayCreateRequest
-)
+type CreateRequest = launchmodel.CreateRequest
 
 type (
-	ContentView  = application.ContentView
-	ExternalView = application.ExternalView
+	Created              = launchmodel.Created
+	NetplayCreateRequest = launchmodel.NetplayCreateRequest
 )
 
 type (
-	Interval   = application.Interval
-	PlayEvent  = application.PlayEvent
-	PlayResult = application.PlayResult
+	ContentView  = launchmodel.ContentView
+	ExternalView = launchmodel.ExternalView
+)
+
+type (
+	Interval   = launchmodel.Interval
+	PlayEvent  = launchmodel.PlayEvent
+	PlayResult = launchmodel.PlayResult
 )
 
 type (
 	Config                       = application.Config
-	MultiDiscTelemetryDimensions = application.MultiDiscTelemetryDimensions
-	BundleFile                   = application.BundleFile
+	MultiDiscTelemetryDimensions = launchmodel.MultiDiscTelemetryDimensions
+	BundleFile                   = launchmodel.BundleFile
 )
 
 var (
-	ErrReviewPreviewUnavailable = application.ErrReviewPreviewUnavailable
-	ErrReviewScreenshotInvalid  = application.ErrReviewScreenshotInvalid
+	ErrReviewPreviewUnavailable = launchmodel.ErrReviewPreviewUnavailable
+	ErrReviewScreenshotInvalid  = launchmodel.ErrReviewScreenshotInvalid
 )
 
 type (
-	ReviewPreviewRequest = application.ReviewPreviewRequest
-	ReviewPreviewCreated = application.ReviewPreviewCreated
-	ReviewScreenshot     = application.ReviewScreenshot
+	ReviewPreviewRequest = launchmodel.ReviewPreviewRequest
+	ReviewPreviewCreated = launchmodel.ReviewPreviewCreated
+	ReviewScreenshot     = launchmodel.ReviewScreenshot
 )
 
-type ProjectIndexView = application.ProjectIndexView
+type ProjectIndexView = launchmodel.ProjectIndexView
 
-var ErrProjectIndexUnavailable = application.ErrProjectIndexUnavailable
+var ErrProjectIndexUnavailable = launchmodel.ErrProjectIndexUnavailable
 
 // ProviderAsset identifies one immutable asset declared by the active Target.
-type ProviderAsset = application.ProviderAsset
+type ProviderAsset = launchmodel.ProviderAsset

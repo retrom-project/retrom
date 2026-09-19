@@ -3,7 +3,6 @@ package launch
 import (
 	"context"
 	"errors"
-	"time"
 
 	"retrom/internal/capability/runtime/runtimebundle"
 )
@@ -78,10 +77,4 @@ type PreviewCreationRepository interface {
 type PreviewProvider interface {
 	Target(string, string) (runtimebundle.Target, bool)
 	BundleSHA256(string, string) (string, bool)
-}
-type PreviewEnvironment struct {
-	Now            func() time.Time
-	NewID          func() (string, error)
-	SignCapability func(string) (string, []byte, error)
-	SignIsolation  func(string) (IsolationTicket, error)
 }

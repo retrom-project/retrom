@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"retrom/internal/foundation/cursor"
-	biosservice "retrom/internal/service/bios"
+	biosmodel "retrom/internal/model/bios"
 )
 
 type biosQuery struct {
@@ -35,16 +35,16 @@ func (server *Server) bios(writer http.ResponseWriter, request *http.Request) {
 			"quick":      parsed.quick,
 		},
 	)
-	var pageCursor *biosservice.Cursor
+	var pageCursor *biosmodel.Cursor
 	if token := values.Get("cursor"); token != "" {
 		payload, err := server.cursors.Decode(token, "getAdminBIOS", filterDigest, "BIOS_CATALOG_ASC")
 		if err != nil || len(payload.SortValues) != 2 {
 			writeError(writer, request, http.StatusBadRequest, "INVALID_CURSOR", "分页游标无效", map[string]any{})
 			return
 		}
-		pageCursor = &biosservice.Cursor{SortValues: payload.SortValues, ID: payload.ID}
+		pageCursor = &biosmodel.Cursor{SortValues: payload.SortValues, ID: payload.ID}
 	}
-	result, err := server.biosService.List(request.Context(), biosservice.ListRequest{
+	result, err := server.biosService.List(request.Context(), biosmodel.ListRequest{
 		Scope:      parsed.scope,
 		Query:      strings.TrimSpace(values.Get("q")),
 		PlatformID: values.Get("platformId"),
@@ -56,7 +56,7 @@ func (server *Server) bios(writer http.ResponseWriter, request *http.Request) {
 		Limit:      parsed.limit,
 		Cursor:     pageCursor,
 	})
-	if errors.Is(err, biosservice.ErrInvalid) {
+	if errors.Is(err, biosmodel.ErrInvalid) {
 		writeError(writer, request, http.StatusBadRequest, "INVALID_QUERY", "BIOS 查询参数无效", map[string]any{})
 		return
 	}
@@ -108,7 +108,7 @@ func (server *Server) bios(writer http.ResponseWriter, request *http.Request) {
 	)
 }
 
-func projectBIOSItem(item biosservice.Item) map[string]any {
+func projectBIOSItem(item biosmodel.Item) map[string]any {
 	var installation any
 	if item.ActiveInstallation != nil {
 		installation = map[string]any{

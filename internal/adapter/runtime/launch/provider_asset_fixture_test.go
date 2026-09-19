@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	application "retrom/internal/service/launch"
+	launchmodel "retrom/internal/model/launch"
 )
 
 func (service *Service) ProviderAssetAuthorized(
@@ -17,9 +17,7 @@ func (service *Service) ProviderAssetAuthorized(
 		return ProviderAsset{}, ErrCredential
 	}
 	result, err := service.sessionQueries().ProviderAssetAuthorized(
-		ctx,
-		application.SessionRef{ID: sessionID, Preview: preview},
-		basename,
+		ctx, launchmodel.SessionRef{ID: sessionID, Preview: preview}, basename,
 	)
 	if err != nil {
 		return result, fmt.Errorf("launch resource query: %w", err)

@@ -8,13 +8,14 @@ import (
 
 	"retrom/internal/capability/content/contentcapability"
 	"retrom/internal/capability/content/contentprofile"
+	model "retrom/internal/model/libraryimport"
 )
 
 var ErrMetadataScraperNotConfigured = errors.New("metadata scraper is not configured")
 
-func NormalizeImportRequest(request ImportRequest) (ImportRequest, string, error) {
+func NormalizeImportRequest(request model.ImportRequest) (model.ImportRequest, string, error) {
 	if request.UploadID == "" || request.TargetPlatformInstanceID == "" {
-		return ImportRequest{}, "", ErrInvalid
+		return model.ImportRequest{}, "", model.ErrInvalid
 	}
 	request.TagIDs = slices.Clone(request.TagIDs)
 	if request.TagIDs == nil {
@@ -25,7 +26,7 @@ func NormalizeImportRequest(request ImportRequest) (ImportRequest, string, error
 		mode = contentcapability.ModeStandard
 	}
 	if !ValidImportContentMode(mode) || (request.MetadataProvider != "NONE" && request.MetadataProvider != "HASHEOUS") {
-		return ImportRequest{}, "", ErrInvalid
+		return model.ImportRequest{}, "", model.ErrInvalid
 	}
 	if contentcapability.IsProjectMode(mode) {
 		request.MetadataProvider = "NONE"
@@ -40,8 +41,8 @@ func ValidImportContentMode(mode string) bool {
 
 // NormalizeTargetImport applies the virtual platform's transport policy before freezing an input.
 func NormalizeTargetImport(
-	request ImportRequest, mode, purpose, sourceType string, files []ImportFile, target ImportTarget,
-) (ImportRequest, string, error) {
+	request model.ImportRequest, mode, purpose, sourceType string, files []model.ImportFile, target model.ImportTarget,
+) (model.ImportRequest, string, error) {
 	if target.PlatformID != "rpgmaker" {
 		return request, mode, nil
 	}
@@ -54,11 +55,11 @@ func NormalizeTargetImport(
 		return request, mode, nil
 	}
 	if sourceType != "FILES" || len(files) != 1 {
-		return ImportRequest{}, "", ErrInvalid
+		return model.ImportRequest{}, "", model.ErrInvalid
 	}
 	format, reason := ImportArchiveFormat(files[0].Path)
 	if reason != "" || (format != contentprofile.ArchiveZIP && format != contentprofile.ArchiveSevenZip) {
-		return ImportRequest{}, "", ErrInvalid
+		return model.ImportRequest{}, "", model.ErrInvalid
 	}
 	return request, mode, nil
 }
@@ -72,16 +73,16 @@ func NormalizeTargetImportMode(platformID, mode string) string {
 
 func ValidateImportUpload(mode, sourceType, purpose string) error {
 	if mode == contentcapability.ModeMultiDisc && sourceType != "DIRECTORY" {
-		return ErrMultiDiscModeUnavailable
+		return model.ErrMultiDiscModeUnavailable
 	}
 	if contentcapability.IsProjectMode(mode) {
 		if purpose != "PROJECT" && purpose != "GENERAL" {
-			return ErrInvalid
+			return model.ErrInvalid
 		}
 		return nil
 	}
 	if purpose != "GENERAL" {
-		return ErrInvalid
+		return model.ErrInvalid
 	}
 	return nil
 }

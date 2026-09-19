@@ -6,7 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/adapter/metadata/hasheous"
+	metadatamodel "retrom/internal/model/metadata"
+
+	metadatascrapemodel "retrom/internal/model/metadatascrape"
 	"retrom/internal/service/metadatascrape"
 )
 
@@ -15,7 +17,7 @@ func TestMetadataReattemptUsesRemainingExecutionDeadline(t *testing.T) {
 	now := recoveryTime.UnixMilli()
 	recoveryExec(t, database, `UPDATE jobs SET attempt_count=1,execution_started_at_ms=?,execution_deadline_at_ms=? WHERE id='job'`, now-3590000, now+10000)
 	processed := false
-	processor := recoveryProcess(func(ctx context.Context, _ metadatascrape.WorkerClaim, _ string) (int, string, error) {
+	processor := recoveryProcess(func(ctx context.Context, _ metadatascrapemodel.WorkerClaim, _ string) (int, string, error) {
 		processed = true
 		deadline, ok := ctx.Deadline()
 		if !ok || time.Until(deadline) > 11*time.Second {
@@ -37,7 +39,7 @@ func TestMetadataExpiredLeaseResumesPersistedExecution(t *testing.T) {
 	recoveryExec(t, database, `UPDATE jobs SET state='RUNNING',attempt_count=1,worker_id='old-worker',
  execution_started_at_ms=?,execution_deadline_at_ms=?,leased_until_ms=?,heartbeat_at_ms=? WHERE id='job'`, now-100000, now+10000, now-1, now-60001)
 	processed := false
-	processor := recoveryProcess(func(context.Context, metadatascrape.WorkerClaim, string) (int, string, error) {
+	processor := recoveryProcess(func(context.Context, metadatascrapemodel.WorkerClaim, string) (int, string, error) {
 		processed = true
 		return 0, "", nil
 	})
@@ -65,9 +67,9 @@ func TestMetadataExpiredLeaseResumesPersistedExecution(t *testing.T) {
 
 type resumeLookup struct{ calls int }
 
-func (lookup *resumeLookup) Lookup(context.Context, hasheous.ContentHashes, bool) (metadatascrape.ResolvedLookup, error) {
+func (lookup *resumeLookup) Lookup(context.Context, metadatamodel.ContentHashes, bool) (metadatascrapemodel.ResolvedLookup, error) {
 	lookup.calls++
-	return metadatascrape.ResolvedLookup{Result: hasheous.LookupResult{Outcome: hasheous.OutcomeMiss, RequestDigest: strings.Repeat("d", 64)}}, nil
+	return metadatascrapemodel.ResolvedLookup{Result: metadatamodel.LookupResult{Outcome: metadatamodel.OutcomeMiss, RequestDigest: strings.Repeat("d", 64)}}, nil
 }
 
 func TestMetadataResumeSkipsTerminalEvidenceWithoutDuplicatingAttempt(t *testing.T) {
@@ -93,8 +95,8 @@ func TestMetadataResumeSkipsTerminalEvidenceWithoutDuplicatingAttempt(t *testing
 
 type resumeCachedLookup struct{}
 
-func (resumeCachedLookup) Lookup(context.Context, hasheous.ContentHashes, bool) (metadatascrape.ResolvedLookup, error) {
-	return metadatascrape.ResolvedLookup{CachedResponseID: "cached", Result: hasheous.LookupResult{Outcome: hasheous.OutcomeMiss}}, nil
+func (resumeCachedLookup) Lookup(context.Context, metadatamodel.ContentHashes, bool) (metadatascrapemodel.ResolvedLookup, error) {
+	return metadatascrapemodel.ResolvedLookup{CachedResponseID: "cached", Result: metadatamodel.LookupResult{Outcome: metadatamodel.OutcomeMiss}}, nil
 }
 
 func TestMetadataResumedCacheHitKeepsNextAttemptNumber(t *testing.T) {

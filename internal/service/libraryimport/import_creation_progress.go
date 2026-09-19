@@ -9,12 +9,13 @@ import (
 	"slices"
 
 	"retrom/internal/capability/content/contentcapability"
+	importprogressmodel "retrom/internal/model/importprogress"
+	model "retrom/internal/model/libraryimport"
 	validation "retrom/internal/service/corevalidation"
-	"retrom/internal/service/importprogress"
 	"retrom/internal/service/payloadrelease"
 )
 
-func (run *creationCommit) prepareHeader(ctx context.Context, scope ImportCreationScope) error {
+func (run *creationCommit) prepareHeader(ctx context.Context, scope model.ImportCreationScope) error {
 	header := &run.header
 	header.Plan = run.plan
 	for _, disposition := range run.plan.Dispositions {
@@ -76,21 +77,21 @@ func (run *creationCommit) prepareHeader(ctx context.Context, scope ImportCreati
 func creationProgress(
 	provider string,
 	remaining, rejected, now int64,
-) (importprogress.Projection, int64, int64, error) {
-	counts := importprogress.Counts{Rejected: rejected}
+) (importprogressmodel.Projection, int64, int64, error) {
+	counts := importprogressmodel.Counts{Rejected: rejected}
 	if provider == "HASHEOUS" {
 		counts.Running = remaining
 	} else {
 		counts.ReviewPending = remaining
 	}
-	projection, err := importprogress.Project(importprogress.Snapshot{Counts: counts, Started: true}, now)
+	projection, err := importprogressmodel.Project(importprogressmodel.Snapshot{Counts: counts, Started: true}, now)
 	if err != nil {
-		return importprogress.Projection{}, 0, 0, fmt.Errorf("project creation progress: %w", err)
+		return importprogressmodel.Projection{}, 0, 0, fmt.Errorf("project creation progress: %w", err)
 	}
 	return projection, counts.Running, counts.ReviewPending, nil
 }
 
-func (run *creationCommit) complete(ctx context.Context, scope ImportCreationScope) error {
+func (run *creationCommit) complete(ctx context.Context, scope model.ImportCreationScope) error {
 	state := run.header.State
 	if run.duplicates > 0 {
 		projection, running, pending, err := creationProgress(
@@ -108,7 +109,7 @@ func (run *creationCommit) complete(ctx context.Context, scope ImportCreationSco
 				files++
 			}
 		}
-		change := CreationAggregate{
+		change := model.CreationAggregate{
 			ImportID:        run.header.ImportID,
 			ExpectedVersion: run.parentVersion,
 			ExpectedPending: run.header.Pending,
@@ -131,8 +132,7 @@ func (run *creationCommit) complete(ctx context.Context, scope ImportCreationSco
 	}
 	if run.header.Queued != nil {
 		if err := scope.Finish.FinishJob(
-			ctx,
-			CreationJobFinish{Before: *run.header.Queued, NowMS: run.service.settings.Now().UnixMilli()},
+			ctx, model.CreationJobFinish{Before: *run.header.Queued, NowMS: run.service.settings.Now().UnixMilli()},
 		); err != nil {
 			return creationError("complete", err)
 		}
@@ -143,7 +143,7 @@ func (run *creationCommit) complete(ctx context.Context, scope ImportCreationSco
 	if err := run.resolveReconfiguration(ctx, scope); err != nil {
 		return creationError("complete", err)
 	}
-	run.result.Created = ServerCreated{
+	run.result.Created = model.ServerCreated{
 		ImportJobID: run.header.ImportID,
 		JobID:       run.header.JobID,
 		State:       state,
@@ -152,7 +152,7 @@ func (run *creationCommit) complete(ctx context.Context, scope ImportCreationSco
 	return nil
 }
 
-func (run *creationCommit) successEvent(ctx context.Context, scope ImportCreationScope) error {
+func (run *creationCommit) successEvent(ctx context.Context, scope model.ImportCreationScope) error {
 	code := "NOT_APPLICABLE"
 	if run.plan.ContentMode == contentcapability.ModeMultiDisc {
 		switch {
@@ -177,7 +177,7 @@ func (run *creationCommit) successEvent(ctx context.Context, scope ImportCreatio
 	}
 	return creationError("success event", scope.Reviews.Events(
 		ctx,
-		[]CreationEvent{
+		[]model.CreationEvent{
 			{
 				JobID:     run.header.JobID,
 				ScopeType: "IMPORT_GROUP",
@@ -190,7 +190,7 @@ func (run *creationCommit) successEvent(ctx context.Context, scope ImportCreatio
 	))
 }
 
-func (run *creationCommit) resolveReconfiguration(ctx context.Context, scope ImportCreationScope) error {
+func (run *creationCommit) resolveReconfiguration(ctx context.Context, scope model.ImportCreationScope) error {
 	request := run.options.Reconfiguration
 	if request == nil {
 		return nil
@@ -200,25 +200,25 @@ func (run *creationCommit) resolveReconfiguration(ctx context.Context, scope Imp
 		return fmt.Errorf("read reconfiguration authority: %w", err)
 	}
 	if before.Version != request.Version || before.Progress.State != "PARTIAL_FAILURE" || len(request.FileIDs) == 0 {
-		return ErrVersionConflict
+		return model.ErrVersionConflict
 	}
 	ids := slices.Clone(request.FileIDs)
 	slices.Sort(ids)
 	if len(slices.Compact(ids)) != len(ids) {
-		return ErrInvalid
+		return model.ErrInvalid
 	}
 	for _, id := range ids {
 		if !slices.Contains(before.Files, id) {
-			return ErrVersionConflict
+			return model.ErrVersionConflict
 		}
 	}
 	after := before.Progress
 	after.Counts.ResolvedRejected += int64(len(ids))
-	projection, err := importprogress.Project(after, run.header.NowMS)
+	projection, err := importprogressmodel.Project(after, run.header.NowMS)
 	if err != nil {
 		return creationError("resolve reconfiguration", err)
 	}
-	change := CreationFileResolution{
+	change := model.CreationFileResolution{
 		Before:        before,
 		ReplacementID: run.header.ImportID,
 		FileIDs:       ids,

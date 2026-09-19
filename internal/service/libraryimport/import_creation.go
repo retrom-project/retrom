@@ -7,13 +7,15 @@ import (
 	"time"
 
 	"retrom/internal/capability/security/authn"
+	model "retrom/internal/model/libraryimport"
+	taggingmodel "retrom/internal/model/tagging"
 	"retrom/internal/service/metadatascrape"
 	"retrom/internal/service/payloadrelease"
 	"retrom/internal/service/tagging"
 )
 
 type ImportCreations struct {
-	repository  ImportCreationRepository
+	repository  model.ImportCreationRepository
 	preparation *ImportPreparation
 	tags        *tagging.Service
 	scraper     *metadatascrape.Service
@@ -21,7 +23,7 @@ type ImportCreations struct {
 	newID       func() (string, error)
 }
 
-func NewImportCreations(repository ImportCreationRepository, preparation *ImportPreparation,
+func NewImportCreations(repository model.ImportCreationRepository, preparation *ImportPreparation,
 	tags *tagging.Service, scraper *metadatascrape.Service, settings ImportCreationSettings,
 ) *ImportCreations {
 	if settings.Now == nil {
@@ -37,26 +39,30 @@ func NewImportCreations(repository ImportCreationRepository, preparation *Import
 	}
 }
 
-func (service *ImportCreations) Create(ctx context.Context, request ImportRequest,
-	options ImportCreationOptions,
-) (ImportCreationResult, error) {
+func (service *ImportCreations) Create(ctx context.Context, request model.ImportRequest,
+	options model.ImportCreationOptions,
+) (model.ImportCreationResult, error) {
 	plan, err := service.preparation.Prepare(ctx, request)
 	if err != nil {
-		return ImportCreationResult{}, fmt.Errorf("prepare creation: %w", err)
+		return model.ImportCreationResult{}, fmt.Errorf("prepare creation: %w", err)
 	}
 	return service.CommitPrepared(ctx, plan, options)
 }
 
-func (service *ImportCreations) CommitPrepared(ctx context.Context, plan PreparedImport,
-	options ImportCreationOptions,
-) (ImportCreationResult, error) {
+func (service *ImportCreations) CommitPrepared(ctx context.Context, plan model.PreparedImport,
+	options model.ImportCreationOptions,
+) (model.ImportCreationResult, error) {
 	run, err := service.prepareCommit(plan, options)
 	if err != nil {
-		return ImportCreationResult{}, creationError("commit prepared", err)
+		return model.ImportCreationResult{}, creationError("commit prepared", err)
 	}
-	err = service.repository.WithCreation(ctx, func(scope ImportCreationScope) error { return run.commit(ctx, scope) })
+	err = service.repository.WithCreation(ctx, func(
+		scope model.ImportCreationScope,
+	) error {
+		return run.commit(ctx, scope)
+	})
 	if err != nil {
-		return ImportCreationResult{}, fmt.Errorf("commit import creation: %w", err)
+		return model.ImportCreationResult{}, fmt.Errorf("commit import creation: %w", err)
 	}
 	for _, scheduled := range run.scheduled {
 		if !scheduled.IsNoop() {
@@ -68,13 +74,13 @@ func (service *ImportCreations) CommitPrepared(ctx context.Context, plan Prepare
 
 type creationCommit struct {
 	service                       *ImportCreations
-	plan                          PreparedImport
-	options                       ImportCreationOptions
-	header                        CreationHeader
+	plan                          model.PreparedImport
+	options                       model.ImportCreationOptions
+	header                        model.CreationHeader
 	groups                        []creationGroup
-	result                        ImportCreationResult
-	sourceBefore                  SourceCreationSnapshot
-	tags                          []tagging.Reference
+	result                        model.ImportCreationResult
+	sourceBefore                  model.SourceCreationSnapshot
+	tags                          []taggingmodel.Reference
 	actor                         authn.Actor
 	actorID                       string
 	scheduled                     []metadatascrape.Scheduled
@@ -84,15 +90,15 @@ type creationCommit struct {
 	parentVersion                 int64
 }
 type creationGroup struct {
-	group                                                                                   PreparedGroup
+	group                                                                                   model.PreparedGroup
 	itemID, snapshotID, validationID, draftID, kind, groupKey, manifestJSON, manifestDigest string
 	searchParts                                                                             []string
 	uploadIDs                                                                               []string
 }
 
 func (service *ImportCreations) prepareCommit(
-	plan PreparedImport,
-	options ImportCreationOptions,
+	plan model.PreparedImport,
+	options model.ImportCreationOptions,
 ) (*creationCommit, error) {
 	options, err := normalizeCreationOptions(plan, options)
 	if err != nil {
@@ -131,13 +137,13 @@ func (service *ImportCreations) allocate(destination *string) error {
 		return fmt.Errorf("allocate creation identity: %w", err)
 	}
 	if id == "" {
-		return ErrInvalid
+		return model.ErrInvalid
 	}
 	*destination = id
 	return nil
 }
 
-func (run *creationCommit) commit(ctx context.Context, scope ImportCreationScope) error {
+func (run *creationCommit) commit(ctx context.Context, scope model.ImportCreationScope) error {
 	if err := run.checkInputs(ctx, scope); err != nil {
 		return creationError("commit", err)
 	}
@@ -162,14 +168,14 @@ func (run *creationCommit) commit(ctx context.Context, scope ImportCreationScope
 	return run.bindSource(ctx, scope)
 }
 
-func (run *creationCommit) initialize(ctx context.Context, scope ImportCreationScope) error {
+func (run *creationCommit) initialize(ctx context.Context, scope model.ImportCreationScope) error {
 	run.actor = authn.ActorFromContext(ctx, "release-setup")
 	actorID, _ := run.actor.UserID.(string)
 	if run.options.Queued != nil {
 		actorID = run.options.Queued.ActorUserID
 	}
 	if len(run.plan.Request.TagIDs) > 0 && actorID == "" {
-		return ErrInvalid
+		return model.ErrInvalid
 	}
 	run.actorID = actorID
 	var err error
@@ -197,7 +203,7 @@ func (run *creationCommit) initialize(ctx context.Context, scope ImportCreationS
 	return nil
 }
 
-func (run *creationCommit) bindSource(ctx context.Context, scope ImportCreationScope) error {
+func (run *creationCommit) bindSource(ctx context.Context, scope model.ImportCreationScope) error {
 	if run.options.Source == nil {
 		return nil
 	}
@@ -206,7 +212,7 @@ func (run *creationCommit) bindSource(ctx context.Context, scope ImportCreationS
 		return fmt.Errorf("read created owned source: %w", err)
 	}
 	if len(result.Items) != 1 {
-		return ErrInvalid
+		return model.ErrInvalid
 	}
 	if err := ValidateOwnedSourceGroups(
 		run.options.Source.Intent.PrimaryPaths,
@@ -227,19 +233,19 @@ func (run *creationCommit) bindSource(ctx context.Context, scope ImportCreationS
 	return nil
 }
 
-func validateOwnedImportPlan(plan PreparedImport, source *OwnedImportCreation) error {
+func validateOwnedImportPlan(plan model.PreparedImport, source *model.OwnedImportCreation) error {
 	if source == nil {
 		return nil
 	}
 	before, target := source.Before, plan.Target
 	if before.TargetVersion != target.Version || before.TargetPlatformID != target.PlatformID ||
 		before.TargetDefaultCoreID != target.DefaultCoreID {
-		return ErrVersionConflict
+		return model.ErrVersionConflict
 	}
 	if target.PlatformID != "rpgmaker" &&
 		(before.TargetProviderID != target.ProviderID || before.TargetID != target.TargetID ||
 			before.TargetDATVersionID != plan.DATVersionID) {
-		return ErrVersionConflict
+		return model.ErrVersionConflict
 	}
 	groups := make([][]string, 0, len(plan.Groups))
 	for _, group := range plan.Groups {
@@ -254,13 +260,13 @@ func validateOwnedImportPlan(plan PreparedImport, source *OwnedImportCreation) e
 	return ValidateOwnedSourceGroups(source.Intent.PrimaryPaths, groups)
 }
 
-func cloneCreationGroup(group PreparedGroup) PreparedGroup {
+func cloneCreationGroup(group model.PreparedGroup) model.PreparedGroup {
 	group.ValidationFiles = slices.Clone(group.ValidationFiles)
 	group.Sources = slices.Clone(group.Sources)
 	return group
 }
 
-func (run *creationCommit) schedulePayload(ctx context.Context, scope ImportCreationScope) error {
+func (run *creationCommit) schedulePayload(ctx context.Context, scope model.ImportCreationScope) error {
 	_, err := payloadrelease.NewScheduler(nil).TerminalImport(ctx, scope.Payload, run.header.ImportID, run.header.NowMS)
 	if err != nil {
 		return fmt.Errorf("schedule creation payload: %w", err)
@@ -268,22 +274,25 @@ func (run *creationCommit) schedulePayload(ctx context.Context, scope ImportCrea
 	return nil
 }
 
-func normalizeCreationOptions(plan PreparedImport, options ImportCreationOptions) (ImportCreationOptions, error) {
+func normalizeCreationOptions(plan model.PreparedImport, options model.ImportCreationOptions) (
+	model.ImportCreationOptions,
+	error,
+) {
 	if options.ReviewHandoffKind == "" {
 		options.ReviewHandoffKind = "DIRECT"
 	}
 	if options.ReviewHandoffKind != "DIRECT" && options.ReviewHandoffKind != "EMULATIONSTATION" {
-		return ImportCreationOptions{}, ErrInvalid
+		return model.ImportCreationOptions{}, model.ErrInvalid
 	}
 	if options.Queued != nil && (options.Source != nil || options.Reconfiguration != nil) {
-		return ImportCreationOptions{}, ErrInvalid
+		return model.ImportCreationOptions{}, model.ErrInvalid
 	}
 	if plan.Upload.ID == "" || plan.Upload.ID != plan.Request.UploadID ||
 		plan.Target.ID != plan.Request.TargetPlatformInstanceID {
-		return ImportCreationOptions{}, ErrInvalid
+		return model.ImportCreationOptions{}, model.ErrInvalid
 	}
 	if err := validateOwnedImportPlan(plan, options.Source); err != nil {
-		return ImportCreationOptions{}, creationError("prepare commit", err)
+		return model.ImportCreationOptions{}, creationError("prepare commit", err)
 	}
 	return options, nil
 }

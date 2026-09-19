@@ -3,13 +3,15 @@ package pegasusimport
 import (
 	"context"
 	"fmt"
+
+	model "retrom/internal/model/pegasusimport"
 )
 
-func (service *Materialization) SetPhase(ctx context.Context, id ExecutionIdentity, phase string) error {
+func (service *Materialization) SetPhase(ctx context.Context, id model.ExecutionIdentity, phase string) error {
 	if phase != "COPYING_CONTENT" && phase != "VALIDATING" {
-		return ErrInvalid
+		return model.ErrInvalid
 	}
-	err := service.repository.WithMaterialization(ctx, func(scope MaterialScope) error {
+	err := service.repository.WithMaterialization(ctx, func(scope model.MaterialScope) error {
 		before, err := scope.Read.Execution(ctx, id.JobID)
 		if err != nil {
 			return fmt.Errorf("read execution phase: %w", err)
@@ -19,12 +21,12 @@ func (service *Materialization) SetPhase(ctx context.Context, id ExecutionIdenti
 			return err
 		}
 		if before.Execution.Kind != "SERVER_PEGASUS_IMPORT" || before.Execution.JobState != "RUNNING" {
-			return ErrVersionConflict
+			return model.ErrVersionConflict
 		}
 		if before.Phase == phase {
 			return nil
 		}
-		return scope.Write.Phase(ctx, PhaseChange{Before: before, Phase: phase, NowMS: now})
+		return scope.Write.Phase(ctx, model.PhaseChange{Before: before, Phase: phase, NowMS: now})
 	})
 	if err != nil {
 		return fmt.Errorf("set Pegasus execution phase: %w", err)
@@ -32,9 +34,9 @@ func (service *Materialization) SetPhase(ctx context.Context, id ExecutionIdenti
 	return nil
 }
 
-func (service *Materialization) Cancelled(ctx context.Context, id ExecutionIdentity) (bool, error) {
+func (service *Materialization) Cancelled(ctx context.Context, id model.ExecutionIdentity) (bool, error) {
 	cancelled := false
-	err := service.repository.WithMaterialization(ctx, func(scope MaterialScope) error {
+	err := service.repository.WithMaterialization(ctx, func(scope model.MaterialScope) error {
 		before, err := scope.Read.Execution(ctx, id.JobID)
 		if err != nil {
 			return fmt.Errorf("read execution phase: %w", err)

@@ -4,11 +4,11 @@ import (
 	"context"
 	"io"
 
-	"retrom/internal/adapter/files/blobstore"
+	blobmodel "retrom/internal/model/blob"
 )
 
 type BlobWriter interface {
-	Put(io.Reader) (blobstore.Metadata, error)
+	Put(io.Reader) (blobmodel.PreparedBlob, error)
 }
 type Repository interface {
 	WithWrite(context.Context, func(WriteScope) error) error
@@ -53,7 +53,7 @@ type JobRecords interface {
 	Finish(context.Context, JobFinish) error
 }
 type BlobRecords interface {
-	Ensure(context.Context, blobstore.Metadata, int64) (string, error)
+	Ensure(context.Context, blobmodel.PreparedBlob, int64) (string, error)
 }
 type (
 	FileKey    struct{ UploadID, FileID string }

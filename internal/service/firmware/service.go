@@ -9,18 +9,19 @@ import (
 	"retrom/internal/adapter/files/blobstore"
 	"retrom/internal/capability/content/firmware"
 	"retrom/internal/capability/format/importing"
+	model "retrom/internal/model/firmware"
 
 	"github.com/google/uuid"
 )
 
 type Service struct {
-	repository Repository
+	repository model.Repository
 	blobs      *blobstore.Store
-	releases   ReleaseSignal
+	releases   model.ReleaseSignal
 	now        func() time.Time
 }
 
-func New(repository Repository, now func() time.Time) *Service {
+func New(repository model.Repository, now func() time.Time) *Service {
 	return &Service{repository: repository, now: now}
 }
 
@@ -29,14 +30,14 @@ func (service *Service) WithBlobStore(blobs *blobstore.Store) *Service {
 	return service
 }
 
-func (service *Service) WithPayloadRelease(releases ReleaseSignal) *Service {
+func (service *Service) WithPayloadRelease(releases model.ReleaseSignal) *Service {
 	service.releases = releases
 	return service
 }
 
 type installSnapshot struct {
-	Requirement Requirement
-	Upload      Upload
+	Requirement model.Requirement
+	Upload      model.Upload
 }
 type preparedInstall struct {
 	snapshot installSnapshot
@@ -45,7 +46,7 @@ type preparedInstall struct {
 
 func readInstallSnapshot(
 	ctx context.Context,
-	scope ReadScope,
+	scope model.ReadScope,
 	id, fileID string,
 	version int64,
 ) (installSnapshot, error) {
@@ -54,14 +55,14 @@ func readInstallSnapshot(
 		return installSnapshot{}, fmt.Errorf("read BIOS requirement: %w", err)
 	}
 	if !found || !requirement.Enabled || requirement.Version != version {
-		return installSnapshot{}, ErrInvalid
+		return installSnapshot{}, model.ErrInvalid
 	}
 	upload, found, err := scope.Uploads.Get(ctx, fileID)
 	if err != nil {
 		return installSnapshot{}, fmt.Errorf("read BIOS upload: %w", err)
 	}
 	if !found || upload.State != "COMPLETE" {
-		return installSnapshot{}, ErrInvalid
+		return installSnapshot{}, model.ErrInvalid
 	}
 	return installSnapshot{Requirement: requirement, Upload: upload}, nil
 }
@@ -73,7 +74,7 @@ func (service *Service) prepareInstall(
 	fileID string,
 ) (preparedInstall, error) {
 	var prepared preparedInstall
-	err := service.repository.WithRead(ctx, func(scope ReadScope) error {
+	err := service.repository.WithRead(ctx, func(scope model.ReadScope) error {
 		var err error
 		prepared.snapshot, err = readInstallSnapshot(ctx, scope, id, fileID, version)
 		return err
@@ -83,7 +84,7 @@ func (service *Service) prepareInstall(
 	}
 	if prepared.snapshot.Requirement.FileKind == "ARCHIVE" {
 		if service.blobs == nil {
-			return preparedInstall{}, ErrInvalid
+			return preparedInstall{}, model.ErrInvalid
 		}
 		entries, err := importing.ScanZIP(
 			ctx,
@@ -93,7 +94,7 @@ func (service *Service) prepareInstall(
 			importing.DefaultArchiveLimits(),
 		)
 		if err != nil {
-			return preparedInstall{}, fmt.Errorf("%w: inspect BIOS archive: %w", ErrInvalid, err)
+			return preparedInstall{}, fmt.Errorf("%w: inspect BIOS archive: %w", model.ErrInvalid, err)
 		}
 		prepared.entries = entries
 	}
@@ -104,20 +105,20 @@ func (service *Service) Install(
 	ctx context.Context,
 	id string,
 	version int64,
-	request InstallRequest,
-) (Installation, error) {
+	request model.InstallRequest,
+) (model.Installation, error) {
 	prepared, err := service.prepareInstall(ctx, id, version, request.UploadFileID)
 	if err != nil {
-		return Installation{}, err
+		return model.Installation{}, err
 	}
-	var result Installation
-	err = service.repository.WithWrite(ctx, func(scope WriteScope) error {
+	var result model.Installation
+	err = service.repository.WithWrite(ctx, func(scope model.WriteScope) error {
 		current, err := readInstallSnapshot(ctx, scope.ReadScope, id, request.UploadFileID, version)
 		if err != nil {
 			return err
 		}
 		if !sameInstallSource(current, prepared.snapshot) {
-			return ErrInvalid
+			return model.ErrInvalid
 		}
 		status, details, err := evaluateInstall(ctx, scope.Requirements, current, prepared.entries)
 		if err != nil {
@@ -136,7 +137,7 @@ func (service *Service) Install(
 		return err
 	})
 	if err != nil {
-		return Installation{}, fmt.Errorf("install BIOS: %w", err)
+		return model.Installation{}, fmt.Errorf("install BIOS: %w", err)
 	}
 	service.signalRelease()
 	return result, nil
@@ -148,39 +149,39 @@ func sameInstallSource(current, prepared installSnapshot) bool {
 		current.Upload.BlobID == prepared.Upload.BlobID && current.Upload.SHA256 == prepared.Upload.SHA256
 }
 
-func persistBrowserInstallation(ctx context.Context, scope WriteScope, snapshot installSnapshot, status string,
+func persistBrowserInstallation(ctx context.Context, scope model.WriteScope, snapshot installSnapshot, status string,
 	details map[string]any, now int64,
-) (Installation, error) {
+) (model.Installation, error) {
 	id, err := uuid.NewV7()
 	if err != nil {
-		return Installation{}, fmt.Errorf("generate BIOS installation ID: %w", err)
+		return model.Installation{}, fmt.Errorf("generate BIOS installation ID: %w", err)
 	}
 	consumption, err := uuid.NewV7()
 	if err != nil {
-		return Installation{}, fmt.Errorf("generate BIOS consumption ID: %w", err)
+		return model.Installation{}, fmt.Errorf("generate BIOS consumption ID: %w", err)
 	}
 	encoded, err := json.Marshal(details)
 	if err != nil {
-		return Installation{}, fmt.Errorf("encode BIOS findings: %w", err)
+		return model.Installation{}, fmt.Errorf("encode BIOS findings: %w", err)
 	}
 	requirement, upload := snapshot.Requirement, snapshot.Upload
 	if err := SupersedeInScope(ctx, scope.Retirements, requirement.ID, now); err != nil {
-		return Installation{}, fmt.Errorf("retire BIOS: %w", err)
+		return model.Installation{}, fmt.Errorf("retire BIOS: %w", err)
 	}
-	if err := scope.Installations.Create(ctx, InstallationWrite{
+	if err := scope.Installations.Create(ctx, model.InstallationWrite{
 		ID: id.String(), RequirementID: requirement.ID, BlobID: upload.BlobID, Filename: upload.RelativePath,
 		MD5: upload.MD5, SHA1: upload.SHA1, SHA256: upload.SHA256, Size: upload.Size, Status: status,
 		RequirementVersion: requirement.Version, DetailsJSON: encoded, AtMS: now, SourceKind: "BROWSER_UPLOAD",
 	}); err != nil {
-		return Installation{}, fmt.Errorf("persist BIOS installation: %w", err)
+		return model.Installation{}, fmt.Errorf("persist BIOS installation: %w", err)
 	}
-	if err := scope.Installations.Consume(ctx, Consumption{
+	if err := scope.Installations.Consume(ctx, model.Consumption{
 		ID: consumption.String(), UploadID: upload.SessionID,
 		FileID: upload.ID, InstallationID: id.String(), AtMS: now,
 	}); err != nil {
-		return Installation{}, fmt.Errorf("consume BIOS upload: %w", err)
+		return model.Installation{}, fmt.Errorf("consume BIOS upload: %w", err)
 	}
-	return Installation{
+	return model.Installation{
 		InstallationID: id.String(), RequirementID: requirement.ID, Status: status, Active: true,
 		ValidatedRequirementVersion: requirement.Version, ValidationDetails: details, CreatedAtMS: now,
 	}, nil

@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"time"
+
+	model "retrom/internal/model/accounts"
 )
 
 const (
@@ -14,8 +16,8 @@ const (
 
 type RateLimitError struct{ retryAfterSeconds int }
 
-func (err *RateLimitError) Error() string { return ErrRateLimited.Error() }
-func (err *RateLimitError) Unwrap() error { return ErrRateLimited }
+func (err *RateLimitError) Error() string { return model.ErrRateLimited.Error() }
+func (err *RateLimitError) Unwrap() error { return model.ErrRateLimited }
 func RateLimitRetryAfter(err error) int {
 	var limited *RateLimitError
 	if errors.As(err, &limited) && limited.retryAfterSeconds > 0 {
@@ -33,20 +35,23 @@ func retryAfterSeconds(until, now int64) int {
 }
 
 type Limiter struct {
-	repository RateLimitRepository
-	hasher     RateLimitHasher
+	repository model.RateLimitRepository
+	hasher     model.RateLimitHasher
 	now        func() time.Time
 }
 
-func NewLimiter(repository RateLimitRepository, hasher RateLimitHasher, now func() time.Time) *Limiter {
+func NewLimiter(repository model.RateLimitRepository, hasher model.RateLimitHasher, now func() time.Time) *Limiter {
 	return &Limiter{repository: repository, hasher: hasher, now: now}
 }
 
-func (limiter *Limiter) key(subject RateLimitSubject) RateLimitKey {
-	return RateLimitKey{Scope: subject.Scope, Digest: limiter.hasher.RateLimitSubject(subject.Scope, subject.Subject)}
+func (limiter *Limiter) key(subject model.RateLimitSubject) model.RateLimitKey {
+	return model.RateLimitKey{Scope: subject.Scope, Digest: limiter.hasher.RateLimitSubject(
+		subject.Scope,
+		subject.Subject,
+	)}
 }
 
-func (limiter *Limiter) Check(ctx context.Context, subjects ...RateLimitSubject) error {
+func (limiter *Limiter) Check(ctx context.Context, subjects ...model.RateLimitSubject) error {
 	now := limiter.now().UnixMilli()
 	maximum := 0
 	for _, subject := range subjects {
@@ -61,9 +66,9 @@ func (limiter *Limiter) Check(ctx context.Context, subjects ...RateLimitSubject)
 	return limitedError(maximum)
 }
 
-func (limiter *Limiter) Record(ctx context.Context, subjects ...RateLimitSubject) error {
+func (limiter *Limiter) Record(ctx context.Context, subjects ...model.RateLimitSubject) error {
 	maximum := 0
-	err := limiter.repository.WithWrite(ctx, func(records RateLimitRecords) error {
+	err := limiter.repository.WithWrite(ctx, func(records model.RateLimitRecords) error {
 		now := limiter.now().UnixMilli()
 		if err := records.Prune(ctx, now-(24*time.Hour).Milliseconds(), now); err != nil {
 			return fmt.Errorf("prune authentication limits: %w", err)
@@ -85,8 +90,8 @@ func (limiter *Limiter) Record(ctx context.Context, subjects ...RateLimitSubject
 
 func (limiter *Limiter) record(
 	ctx context.Context,
-	records RateLimitRecords,
-	subject RateLimitSubject,
+	records model.RateLimitRecords,
+	subject model.RateLimitSubject,
 	now int64,
 ) (int, error) {
 	key := limiter.key(subject)
@@ -98,7 +103,7 @@ func (limiter *Limiter) record(
 		return retryAfterSeconds(*value.BlockedUntil, now), nil
 	}
 	if !found || now-value.WindowStarted >= rateLimitWindow.Milliseconds() {
-		value = RateLimitBucket{Key: key, WindowStarted: now}
+		value = model.RateLimitBucket{Key: key, WindowStarted: now}
 	}
 	value.Failures++
 	value.UpdatedAt = now
@@ -115,7 +120,7 @@ func (limiter *Limiter) record(
 	return 0, nil
 }
 
-func (limiter *Limiter) Clear(ctx context.Context, subject RateLimitSubject) error {
+func (limiter *Limiter) Clear(ctx context.Context, subject model.RateLimitSubject) error {
 	if err := limiter.repository.Clear(ctx, limiter.key(subject)); err != nil {
 		return fmt.Errorf("clear authentication bucket: %w", err)
 	}

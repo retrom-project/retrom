@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/service/maintenance"
+	maintenancemodel "retrom/internal/model/maintenance"
 	"retrom/internal/testkit/testsupport"
 )
 
@@ -32,7 +32,7 @@ func TestRestoreSecurityFailureRollsBackRevocationsAndAudit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = New().WithRestore(t.Context(), path, func(records maintenance.RestoreRecords) error {
+	err = New().WithRestore(t.Context(), path, func(records maintenancemodel.RestoreRecords) error {
 		counts, err := records.RevokeAccess(t.Context(), 100)
 		if err != nil {
 			return err
@@ -46,7 +46,7 @@ func TestRestoreSecurityFailureRollsBackRevocationsAndAudit(t *testing.T) {
 		if err := records.StopBulkApprovals(t.Context(), 100); err != nil {
 			return err
 		}
-		if err := records.Audit(t.Context(), maintenance.FenceAudit{ID: "audit", Now: 100}); err != nil {
+		if err := records.Audit(t.Context(), maintenancemodel.FenceAudit{ID: "audit", Now: 100}); err != nil {
 			return err
 		}
 		return context.Canceled

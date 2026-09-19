@@ -11,13 +11,14 @@ import (
 	"time"
 
 	composition "retrom/internal/bootstrap/composition/launch"
+	launchmodel "retrom/internal/model/launch"
 	application "retrom/internal/service/launch"
 	"retrom/internal/testkit/testsupport"
 )
 
 func TestAssemblyServesRealPreviewAndProduct(t *testing.T) {
 	fixture := newAssemblyFixture(t)
-	preview, err := fixture.service.CreateReviewPreview(t.Context(), application.ReviewPreviewRequest{ImportItemID: fixture.itemID, ActorUserID: assemblyActor, IdempotencyKey: "assembly-preview"})
+	preview, err := fixture.service.CreateReviewPreview(t.Context(), launchmodel.ReviewPreviewRequest{ImportItemID: fixture.itemID, ActorUserID: assemblyActor, IdempotencyKey: "assembly-preview"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -32,7 +33,7 @@ func TestAssemblyServesRealPreviewAndProduct(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	created, err := fixture.service.Create(t.Context(), assemblyProfile, application.CreateRequest{GameID: approved.GameID, ReturnTo: "/games/" + approved.GameID})
+	created, err := fixture.service.Create(t.Context(), assemblyProfile, launchmodel.CreateRequest{GameID: approved.GameID, ReturnTo: "/games/" + approved.GameID})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -43,7 +44,7 @@ func TestAssemblyServesRealPreviewAndProduct(t *testing.T) {
 	if err != nil || product.Digest != content.Digest {
 		t.Fatalf("product content: %v", err)
 	}
-	if _, err := fixture.service.Content(t.Context(), created.LaunchID, "invalid", "Assembly.nes"); !errors.Is(err, application.ErrCredential) {
+	if _, err := fixture.service.Content(t.Context(), created.LaunchID, "invalid", "Assembly.nes"); !errors.Is(err, launchmodel.ErrCredential) {
 		t.Fatalf("invalid capability: %v", err)
 	}
 }
@@ -69,7 +70,7 @@ func TestAssemblyProductDispatchSharesCloseLifetimeAfterReceipt(t *testing.T) {
 	core := "nestopia"
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
-	receipt, err := service.CreateProduct(ctx, application.ProductCreateCommand{ProfileID: assemblyProfile, ActorID: assemblyActor, Key: "assembly-worker", Digest: strings.Repeat("a", 64), Request: application.CreateRequest{GameID: approved.GameID, CoreID: &core, ReturnTo: "/games/" + approved.GameID}})
+	receipt, err := service.CreateProduct(ctx, launchmodel.ProductCreateCommand{ProfileID: assemblyProfile, ActorID: assemblyActor, Key: "assembly-worker", Digest: strings.Repeat("a", 64), Request: launchmodel.CreateRequest{GameID: approved.GameID, CoreID: &core, ReturnTo: "/games/" + approved.GameID}})
 	if err != nil || receipt.Status != 202 || receipt.Created.JobID == "" {
 		t.Fatalf("queued product: %+v %v", receipt, err)
 	}

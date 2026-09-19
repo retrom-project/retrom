@@ -5,28 +5,30 @@ import (
 	"errors"
 	"strings"
 	"testing"
+
+	model "retrom/internal/model/bios"
 )
 
 type fakeRepository struct {
-	request ListRequest
-	result  ListResult
+	request model.ListRequest
+	result  model.ListResult
 	err     error
 }
 
-func (fake *fakeRepository) List(_ context.Context, request ListRequest) (ListResult, error) {
+func (fake *fakeRepository) List(_ context.Context, request model.ListRequest) (model.ListResult, error) {
 	fake.request = request
 	return fake.result, fake.err
 }
 
 func TestListFetchesOneExtraItemAndBuildsCatalogCursor(t *testing.T) {
-	repository := &fakeRepository{result: ListResult{Items: []Item{
+	repository := &fakeRepository{result: model.ListResult{Items: []model.Item{
 		{ID: "first", CoreName: "Core", LogicalName: "a.bin"},
 		{ID: "second", CoreName: "Core", LogicalName: "b.bin"},
 	}}}
 	service := New(repository)
 
-	result, err := service.List(context.Background(), ListRequest{
-		Scope: ScopeFullCatalog, Quick: QuickAll, Limit: 1,
+	result, err := service.List(context.Background(), model.ListRequest{
+		Scope: model.ScopeFullCatalog, Quick: model.QuickAll, Limit: 1,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -44,14 +46,14 @@ func TestListFetchesOneExtraItemAndBuildsCatalogCursor(t *testing.T) {
 }
 
 func TestListKeepsAggregateProjectionWhenThereIsNoNextPage(t *testing.T) {
-	repository := &fakeRepository{result: ListResult{
-		ScopeCounts:   ScopeCounts{RequiredByLibrary: 2, FullCatalog: 3},
-		Summary:       Summary{TotalCount: 2, ReadyCount: 1},
+	repository := &fakeRepository{result: model.ListResult{
+		ScopeCounts:   model.ScopeCounts{RequiredByLibrary: 2, FullCatalog: 3},
+		Summary:       model.Summary{TotalCount: 2, ReadyCount: 1},
 		FilteredCount: 1,
-		Items:         []Item{{ID: "only"}},
+		Items:         []model.Item{{ID: "only"}},
 	}}
-	result, err := New(repository).List(context.Background(), ListRequest{
-		Scope: ScopeRequiredByLibrary, Quick: QuickOptional, Limit: 10,
+	result, err := New(repository).List(context.Background(), model.ListRequest{
+		Scope: model.ScopeRequiredByLibrary, Quick: model.QuickOptional, Limit: 10,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -64,10 +66,10 @@ func TestListKeepsAggregateProjectionWhenThereIsNoNextPage(t *testing.T) {
 
 func TestListRejectsInvalidRequestBeforeRepository(t *testing.T) {
 	repository := &fakeRepository{}
-	_, err := New(repository).List(context.Background(), ListRequest{
-		Scope: ScopeFullCatalog, Quick: QuickAll, Limit: 101,
+	_, err := New(repository).List(context.Background(), model.ListRequest{
+		Scope: model.ScopeFullCatalog, Quick: model.QuickAll, Limit: 101,
 	})
-	if !errors.Is(err, ErrInvalid) {
+	if !errors.Is(err, model.ErrInvalid) {
 		t.Fatalf("error = %v, want ErrInvalid", err)
 	}
 	if repository.request.Limit != 0 {
@@ -77,8 +79,8 @@ func TestListRejectsInvalidRequestBeforeRepository(t *testing.T) {
 
 func TestListWrapsRepositoryError(t *testing.T) {
 	want := errors.New("read failed")
-	_, err := New(&fakeRepository{err: want}).List(context.Background(), ListRequest{
-		Scope: ScopeFullCatalog, Quick: QuickAll, Limit: 10,
+	_, err := New(&fakeRepository{err: want}).List(context.Background(), model.ListRequest{
+		Scope: model.ScopeFullCatalog, Quick: model.QuickAll, Limit: 10,
 	})
 	if !errors.Is(err, want) {
 		t.Fatalf("error = %v, want wrapped repository error", err)

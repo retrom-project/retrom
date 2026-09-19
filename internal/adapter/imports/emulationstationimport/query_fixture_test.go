@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
 	persistence "retrom/internal/repo/emulationstationimport"
 	application "retrom/internal/service/emulationstationimport"
 )
@@ -25,8 +26,7 @@ func (service *Service) List(
 	limit int,
 ) ([]Summary, error) {
 	values, err := service.queries().List(
-		ctx,
-		application.ListQuery{State: state, BeforeAtMS: beforeAt, BeforeID: beforeID, Limit: limit},
+		ctx, emulationstationimportmodel.ListQuery{State: state, BeforeAtMS: beforeAt, BeforeID: beforeID, Limit: limit},
 	)
 	return values, queryError(err)
 }
@@ -37,8 +37,7 @@ func (service *Service) Gamelists(
 	limit int,
 ) ([]Gamelist, error) {
 	values, err := service.queries().Gamelists(
-		ctx,
-		application.GamelistQuery{ImportID: importID, ParseState: parseState, AfterPath: afterPath, Limit: limit},
+		ctx, emulationstationimportmodel.GamelistQuery{ImportID: importID, ParseState: parseState, AfterPath: afterPath, Limit: limit},
 	)
 	return values, queryError(err)
 }
@@ -49,8 +48,7 @@ func (service *Service) Collections(
 	limit int,
 ) ([]Collection, error) {
 	values, err := service.queries().Collections(
-		ctx,
-		application.CollectionQuery{ImportID: importID, AfterPath: afterPath, AfterID: afterID, Limit: limit},
+		ctx, emulationstationimportmodel.CollectionQuery{ImportID: importID, AfterPath: afterPath, AfterID: afterID, Limit: limit},
 	)
 	return values, queryError(err)
 }
@@ -61,8 +59,7 @@ func (service *Service) Items(
 	limit int,
 ) ([]Item, error) {
 	values, err := service.queries().Items(
-		ctx,
-		application.ItemQuery{
+		ctx, emulationstationimportmodel.ItemQuery{
 			ImportID:     importID,
 			Text:         query,
 			Outcome:      outcome,
@@ -77,7 +74,7 @@ func (service *Service) Items(
 }
 
 func mediaProjection(present bool, warnings []map[string]any, field string) string {
-	return application.ProjectMedia(present, warnings, field)
+	return emulationstationimportmodel.ProjectMedia(present, warnings, field)
 }
 
 func queryError(err error) error {

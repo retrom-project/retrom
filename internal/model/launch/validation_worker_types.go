@@ -89,9 +89,3 @@ type ValidationTicker interface {
 	Ticks() <-chan time.Time
 	Stop()
 }
-
-type ValidationWorkerEnvironment struct {
-	Now       func() time.Time
-	NewID     func() (string, error)
-	NewTicker func(time.Duration) ValidationTicker
-}

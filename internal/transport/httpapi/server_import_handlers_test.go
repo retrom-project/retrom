@@ -13,21 +13,21 @@ import (
 	"time"
 
 	"retrom/internal/bootstrap/composition"
+	accountsmodel "retrom/internal/model/accounts"
+	serverimportmodel "retrom/internal/model/serverimport"
 
 	"github.com/google/uuid"
 
 	"retrom/internal/adapter/files/serversource"
 	"retrom/internal/capability/security/authn"
-	"retrom/internal/service/accounts"
-	"retrom/internal/service/serverimport"
 	"retrom/internal/testkit/testassert"
 	"retrom/internal/testkit/testsupport"
 )
 
 type serverImportRejectAuthenticator struct{}
 
-func (serverImportRejectAuthenticator) Authenticate(context.Context, string) (accounts.Session, error) {
-	return accounts.Session{}, accounts.ErrAuthenticationNeeded
+func (serverImportRejectAuthenticator) Authenticate(context.Context, string) (accountsmodel.Session, error) {
+	return accountsmodel.Session{}, accountsmodel.ErrAuthenticationNeeded
 }
 
 func TestServerImportHTTPRootBoundaryAuthorizationAndIdempotency(t *testing.T) {
@@ -134,7 +134,7 @@ lower(hex(zeroblob(32))),7,'c0a53b8a2b3c6f7a7f6e1fcbf9f99f15',NULL,NULL,
 	active := post(uuid.NewString(), body, "")
 	testassert.Falsef(t, testassert.Any(func() bool { return active.Code != http.StatusConflict }, func() bool { return !strings.Contains(active.Body.String(), "SERVER_BIOS_IMPORT_ACTIVE") }), "active conflict = %d %s", active.Code, active.Body.String())
 
-	var createdBody serverimport.Summary
+	var createdBody serverimportmodel.Summary
 	if err := json.Unmarshal(created.Body.Bytes(), &createdBody); err != nil {
 		t.Fatal(err)
 	}

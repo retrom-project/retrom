@@ -5,13 +5,14 @@ import (
 	"errors"
 	"testing"
 
+	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
 	persistence "retrom/internal/repo/emulationstationimport"
 	application "retrom/internal/service/emulationstationimport"
 )
 
 func companionRecordFixture(
 	t *testing.T,
-) (lifecycleFixture, work, application.CompanionOwner, application.CompanionFile, application.VerifiedBlob) {
+) (lifecycleFixture, work, emulationstationimportmodel.CompanionOwner, emulationstationimportmodel.CompanionFile, emulationstationimportmodel.VerifiedBlob) {
 	t.Helper()
 	fixture, unit, item := companionFixture(t)
 	selection, err := fixture.service.companions().Find(fixture.context, unit, item.ID)
@@ -53,16 +54,17 @@ func TestESCompanionRegistrationReusesOnlyMatchingVerifiedCatalog(t *testing.T) 
 }
 
 type lateCompanionRepository struct {
-	application.CompanionRepository
+	emulationstationimportmodel.CompanionRepository
+
 	stop  context.CancelFunc
 	cause error
 }
 
 func (repository lateCompanionRepository) WithCompanions(
 	ctx context.Context,
-	run func(application.CompanionScope) error,
+	run func(emulationstationimportmodel.CompanionScope) error,
 ) error {
-	return repository.CompanionRepository.WithCompanions(ctx, func(scope application.CompanionScope) error {
+	return repository.CompanionRepository.WithCompanions(ctx, func(scope emulationstationimportmodel.CompanionScope) error {
 		if err := run(scope); err != nil {
 			return err
 		}

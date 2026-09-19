@@ -4,19 +4,21 @@ import (
 	"context"
 	"fmt"
 	"time"
+
+	model "retrom/internal/model/payloadrelease"
 )
 
 type Dependencies struct {
-	Lifecycle  LifecycleRepository
-	Worker     WorkerRepository
-	GC         GCRepository
-	Garbage    GarbageRepository
-	Effects    EffectRepository
-	Expiration ExpirationRepository
-	Retirement RetirementRepository
-	Impact     ImpactReader
-	Files      GarbageFiles
-	Waiter     EffectWaiter
+	Lifecycle  model.LifecycleRepository
+	Worker     model.WorkerRepository
+	GC         model.GCRepository
+	Garbage    model.GarbageRepository
+	Effects    model.EffectRepository
+	Expiration model.ExpirationRepository
+	Retirement model.RetirementRepository
+	Impact     model.ImpactReader
+	Files      model.GarbageFiles
+	Waiter     model.EffectWaiter
 }
 
 type Options struct {
@@ -33,7 +35,7 @@ type Service struct {
 	effects     *ReleaseEffects
 	expirations *Expirations
 	retirements *Retirements
-	impact      *ImpactQueries
+	impact      *model.ImpactQueries
 }
 
 func New(ctx context.Context, dependencies Dependencies, options Options) (*Service, error) {
@@ -53,7 +55,7 @@ func New(ctx context.Context, dependencies Dependencies, options Options) (*Serv
 	service.gc = gc
 	service.expirations = NewExpirations(dependencies.Expiration, gc, options.Now)
 	service.retirements = NewRetirements(dependencies.Retirement, options.Now)
-	service.impact = NewImpactQueries(dependencies.Impact)
+	service.impact = model.NewImpactQueries(dependencies.Impact)
 	service.worker = NewWorker(dependencies.Worker, service, WorkerOptions{
 		Now: options.Now, NewID: options.NewID, Maintain: service.ReconcileGC, Report: options.Report,
 	})
@@ -62,9 +64,9 @@ func New(ctx context.Context, dependencies Dependencies, options Options) (*Serv
 	return service, nil
 }
 
-func (service *Service) Execute(ctx context.Context, unit Execution) error {
+func (service *Service) Execute(ctx context.Context, unit model.Execution) error {
 	if unit.Input.SchemaVersion != 1 || unit.Input.Scope != unit.Work.Scope || unit.Input.Kind != unit.Work.Kind {
-		return effectFailure("PAYLOAD_RELEASE_DATABASE_FAILED", ErrInputInvalid)
+		return effectFailure("PAYLOAD_RELEASE_DATABASE_FAILED", model.ErrInputInvalid)
 	}
 	switch unit.Input.Kind {
 	case "BLOB_GC":
@@ -72,7 +74,7 @@ func (service *Service) Execute(ctx context.Context, unit Execution) error {
 	case "PAYLOAD_RELEASE":
 		return service.effects.Execute(ctx, unit)
 	default:
-		return effectFailure("PAYLOAD_RELEASE_DATABASE_FAILED", ErrInputInvalid)
+		return effectFailure("PAYLOAD_RELEASE_DATABASE_FAILED", model.ErrInputInvalid)
 	}
 }
 

@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	launchmodel "retrom/internal/model/launch"
 	dependencypersistence "retrom/internal/repo/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 
@@ -22,7 +23,6 @@ import (
 	"retrom/internal/repo/blobcatalog"
 	"retrom/internal/repo/dbexec"
 	launchpersistence "retrom/internal/repo/launch"
-	launchservice "retrom/internal/service/launch"
 
 	"github.com/google/uuid"
 
@@ -152,7 +152,7 @@ VALUES(?,?,'melonds',?,?,NULL,8100,'READY','READY',?,1,?,?)`, []any{variantID, g
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return oldLaunch.LaunchID == "" }), "old MelonDS launch = %#v, error=%v", oldLaunch, err)
 	assertMelonDSLaunch(t, ctx, service, oldLaunch, requirements, false)
 	savedID := seedBIOSResumeSave(t, database.SQL, gameID, oldLaunch.LaunchID, gameBlobID, gameMetadata.SHA256, gameMetadata.Size)
-	command := launchservice.ProductCreateCommand{ProfileID: "local", Request: CreateRequest{GameID: gameID, SaveStateID: &savedID, CoreID: &melonds, ReturnTo: "/games/" + gameID, ClientCapabilities: capabilities}}
+	command := launchmodel.ProductCreateCommand{ProfileID: "local", Request: CreateRequest{GameID: gameID, SaveStateID: &savedID, CoreID: &melonds, ReturnTo: "/games/" + gameID, ClientCapabilities: capabilities}}
 	selected, err := launchpersistence.NewProductCreation(database.SQL).Snapshot(ctx, command)
 	testassert.False(t, err != nil, err)
 	for index := range requirements {

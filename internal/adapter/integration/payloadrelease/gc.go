@@ -5,11 +5,11 @@ import (
 	"database/sql"
 	"fmt"
 
+	payloadreleasemodel "retrom/internal/model/payloadrelease"
 	repository "retrom/internal/repo/payloadrelease"
-	application "retrom/internal/service/payloadrelease"
 )
 
-type ImmediateGCResult = application.ImmediateGCResult
+type ImmediateGCResult = payloadreleasemodel.ImmediateGCResult
 
 func (service *Service) ScheduleImmediateGC(ctx context.Context, actor string) (ImmediateGCResult, error) {
 	result, err := service.gc.Immediate(ctx, actor)
@@ -39,7 +39,7 @@ func (service *Service) StageCandidates(ctx context.Context, tx *sql.Tx, ids []s
 }
 
 func (service *Service) executeBlobGC(ctx context.Context, job claimedJob) error {
-	if err := service.garbage.Execute(ctx, application.Execution{Work: job.Work, Input: job.Input}); err != nil {
+	if err := service.garbage.Execute(ctx, payloadreleasemodel.Execution{Work: job.Work, Input: job.Input}); err != nil {
 		return fmt.Errorf("execute garbage collection: %w", err)
 	}
 	return nil

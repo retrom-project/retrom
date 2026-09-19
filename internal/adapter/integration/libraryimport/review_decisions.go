@@ -6,11 +6,12 @@ import (
 	"fmt"
 
 	librarycomposition "retrom/internal/bootstrap/composition/libraryimport"
+	libraryimportmodel "retrom/internal/model/libraryimport"
 	librarypersistence "retrom/internal/repo/libraryimport"
 	libraryservice "retrom/internal/service/libraryimport"
 )
 
-type DecisionResult = libraryservice.ReviewDecisionResult
+type DecisionResult = libraryimportmodel.ReviewDecisionResult
 
 func (service *Service) reviewDiscards() *libraryservice.ReviewDiscards {
 	return libraryservice.NewReviewDiscards(librarypersistence.NewReviewDiscards(service.database), service.now)
@@ -19,8 +20,8 @@ func (service *Service) reviewDiscards() *libraryservice.ReviewDiscards {
 func (service *Service) Discard(
 	ctx context.Context, itemID string, expectedVersion int64, reason string,
 ) (DecisionResult, error) {
-	result, err := service.reviewDiscards().Discard(ctx, libraryservice.ReviewDiscardRequest{
-		ItemID: itemID, ExpectedVersion: expectedVersion, Reason: reason, Mode: libraryservice.ReviewDiscardSingle,
+	result, err := service.reviewDiscards().Discard(ctx, libraryimportmodel.ReviewDiscardRequest{
+		ItemID: itemID, ExpectedVersion: expectedVersion, Reason: reason, Mode: libraryimportmodel.ReviewDiscardSingle,
 	})
 	if err != nil {
 		return DecisionResult{}, fmt.Errorf("libraryimport/discard review: %w", err)
@@ -37,10 +38,12 @@ type RetryResult struct {
 
 // Retry eligibility, execution creation, event emission, and aggregate update share one transaction.
 func (service *Service) RetryItem(ctx context.Context, itemID string, expectedVersion int64) (RetryResult, error) {
-	result, err := librarycomposition.NewImportItemRetries(service.database, service.now).Retry(ctx,
-		libraryservice.ImportItemRetryRequest{ItemID: itemID, ExpectedVersion: expectedVersion})
+	result, err := librarycomposition.NewImportItemRetries(
+		service.database,
+		service.now,
+	).Retry(ctx, libraryimportmodel.ImportItemRetryRequest{ItemID: itemID, ExpectedVersion: expectedVersion})
 	if err != nil {
-		if errors.Is(err, libraryservice.ErrInvalid) {
+		if errors.Is(err, libraryimportmodel.ErrInvalid) {
 			return RetryResult{}, ErrInvalid
 		}
 		return RetryResult{}, fmt.Errorf("libraryimport/review retry: %w", err)
@@ -73,13 +76,15 @@ func (service *Service) CancelForDiscard(
 func (service *Service) cancelImport(
 	ctx context.Context, importID string, expectedVersion int64, reason string, preserveReviews bool,
 ) (CancelResult, bool, error) {
-	result, err := librarycomposition.NewImportBatchCancellations(service.database, service.now).Cancel(ctx,
-		libraryservice.ImportBatchCancellationRequest{
-			ImportID: importID, ExpectedVersion: expectedVersion,
-			Reason: reason, PreserveReviews: preserveReviews,
-		})
+	result, err := librarycomposition.NewImportBatchCancellations(
+		service.database,
+		service.now,
+	).Cancel(ctx, libraryimportmodel.ImportBatchCancellationRequest{
+		ImportID: importID, ExpectedVersion: expectedVersion,
+		Reason: reason, PreserveReviews: preserveReviews,
+	})
 	if err != nil {
-		if errors.Is(err, libraryservice.ErrInvalid) {
+		if errors.Is(err, libraryimportmodel.ErrInvalid) {
 			return CancelResult{}, false, ErrInvalid
 		}
 		return CancelResult{}, false, fmt.Errorf("libraryimport/review cancellation: %w", err)

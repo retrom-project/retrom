@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
+	launchmodel "retrom/internal/model/launch"
 	persistence "retrom/internal/repo/launch"
-	application "retrom/internal/service/launch"
 
 	"modernc.org/sqlite"
 )
@@ -101,7 +101,7 @@ func TestPreviewRestoreQueryPreservesCancellation(t *testing.T) {
 	}
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
-	err := persistence.NewPreviewCreation(fixture.database).WithCreation(t.Context(), func(scope application.PreviewCreationScope) error {
+	err := persistence.NewPreviewCreation(fixture.database).WithCreation(t.Context(), func(scope launchmodel.PreviewCreationScope) error {
 		_, _, err := scope.Restore(ctx, preview.PreviewID)
 		return err
 	})

@@ -8,37 +8,38 @@ import (
 	"time"
 
 	"retrom/internal/capability/security/authn"
+	model "retrom/internal/model/accounts"
 )
 
 type Authentication struct {
-	repository AuthRepository
-	verifier   PasswordVerifier
-	mint       SessionMinter
+	repository model.AuthRepository
+	verifier   model.PasswordVerifier
+	mint       model.SessionMinter
 	dummy      string
 	now        func() time.Time
 }
 
 func NewAuthentication(
-	repository AuthRepository,
-	verifier PasswordVerifier,
-	mint SessionMinter,
+	repository model.AuthRepository,
+	verifier model.PasswordVerifier,
+	mint model.SessionMinter,
 	dummy string,
 	now func() time.Time,
 ) *Authentication {
 	return &Authentication{repository: repository, verifier: verifier, mint: mint, dummy: dummy, now: now}
 }
 
-func (service *Authentication) Login(ctx context.Context, username, password string) (Session, error) {
+func (service *Authentication) Login(ctx context.Context, username, password string) (model.Session, error) {
 	credential, err := service.verify(ctx, username, password)
 	if err != nil {
-		return Session{}, err
+		return model.Session{}, err
 	}
 	material, err := service.mint()
 	if err != nil {
-		return Session{}, fmt.Errorf("prepare login session: %w", err)
+		return model.Session{}, fmt.Errorf("prepare login session: %w", err)
 	}
 	var now int64
-	err = service.repository.WithWrite(ctx, func(scope AuthScope) error {
+	err = service.repository.WithWrite(ctx, func(scope model.AuthScope) error {
 		now = service.now().UnixMilli()
 		if err := scope.Write.Login(
 			ctx,
@@ -54,7 +55,7 @@ func (service *Authentication) Login(ctx context.Context, username, password str
 		return nil
 	})
 	if err != nil {
-		return Session{}, fmt.Errorf("commit login session: %w", err)
+		return model.Session{}, fmt.Errorf("commit login session: %w", err)
 	}
 	return material.View(credential.User, credential.ProfileID, credential.SessionVersion, now), nil
 }
@@ -62,10 +63,10 @@ func (service *Authentication) Login(ctx context.Context, username, password str
 func (service *Authentication) verify(
 	ctx context.Context,
 	usernameInput, passwordInput string,
-) (LoginCredential, error) {
+) (model.LoginCredential, error) {
 	username, usernameErr := authn.NormalizeUsername(usernameInput)
 	password, passwordErr := authn.NormalizeLoginPassword(passwordInput)
-	var credential LoginCredential
+	var credential model.LoginCredential
 	var found bool
 	var lookupErr error
 	if usernameErr == nil {
@@ -80,19 +81,19 @@ func (service *Authentication) verify(
 	}
 	verified, err := service.verifier.Verify(ctx, password, encoded)
 	if err != nil {
-		return LoginCredential{}, errors.Join(lookupErr, fmt.Errorf("verify login credential: %w", err))
+		return model.LoginCredential{}, errors.Join(lookupErr, fmt.Errorf("verify login credential: %w", err))
 	}
 	if lookupErr != nil {
-		return LoginCredential{}, fmt.Errorf("read login credential: %w", lookupErr)
+		return model.LoginCredential{}, fmt.Errorf("read login credential: %w", lookupErr)
 	}
 	if usernameErr != nil || passwordErr != nil || !found || !verified || credential.Status != "ENABLED" {
-		return LoginCredential{}, ErrAuthentication
+		return model.LoginCredential{}, model.ErrAuthentication
 	}
 	return credential, nil
 }
 
 func (service *Authentication) Logout(ctx context.Context, id string) error {
-	err := service.repository.WithWrite(ctx, func(scope AuthScope) error {
+	err := service.repository.WithWrite(ctx, func(scope model.AuthScope) error {
 		if err := scope.Write.Revoke(ctx, id, service.now().UnixMilli()); err != nil {
 			return fmt.Errorf("revoke authentication session: %w", err)
 		}

@@ -4,59 +4,63 @@ import (
 	"context"
 	"errors"
 	"testing"
+
+	model "retrom/internal/model/emulationstationimport"
 )
 
 type importExecutionMemory struct {
-	item                         ExecutionItem
+	item                         model.ExecutionItem
 	next, source, review, finish int
 	completed                    bool
 	sourceErr, finishErr         error
 }
 
-func (memory *importExecutionMemory) Next(context.Context, Execution) (ExecutionItem, bool, error) {
+func (memory *importExecutionMemory) Next(context.Context, model.Execution) (model.ExecutionItem, bool, error) {
 	memory.next++
 	return memory.item, memory.finish == 0, nil
 }
 
-func (memory *importExecutionMemory) Finish(_ context.Context, _ Execution, _ string, _ ItemOutcome) error {
+func (memory *importExecutionMemory) Finish(_ context.Context, _ model.Execution, _ string, _ model.ItemOutcome) error {
 	memory.finish++
 	return memory.finishErr
 }
 
-func (memory *importExecutionMemory) Copy(context.Context, Execution, MaterialSource, VerifiedBlob) (string, error) {
+func (memory *importExecutionMemory) Copy(context.Context, model.Execution, model.MaterialSource, model.VerifiedBlob) (string, error) {
 	return "copied", nil
 }
 
-func (memory *importExecutionMemory) Warning(context.Context, Execution, MaterialSource, string) error {
+func (memory *importExecutionMemory) Warning(context.Context, model.Execution, model.MaterialSource, string) error {
 	return nil
 }
 
-func (memory *importExecutionMemory) SetPhase(context.Context, Execution, string) error { return nil }
+func (memory *importExecutionMemory) SetPhase(context.Context, model.Execution, string) error {
+	return nil
+}
 
-func (memory *importExecutionMemory) CopyFile(context.Context, Execution, ExecutionFile) (VerifiedBlob, error) {
+func (memory *importExecutionMemory) CopyFile(context.Context, model.Execution, model.ExecutionFile) (model.VerifiedBlob, error) {
 	memory.source++
-	return VerifiedBlob{SHA256: "copy", Size: 1}, memory.sourceErr
+	return model.VerifiedBlob{SHA256: "copy", Size: 1}, memory.sourceErr
 }
 
-func (memory *importExecutionMemory) CopyAsset(context.Context, Execution, ExecutionAsset) (VerifiedBlob, bool, error) {
-	return VerifiedBlob{}, false, nil
+func (memory *importExecutionMemory) CopyAsset(context.Context, model.Execution, model.ExecutionAsset) (model.VerifiedBlob, bool, error) {
+	return model.VerifiedBlob{}, false, nil
 }
 
-func (memory *importExecutionMemory) Resume(context.Context, Execution, ExecutionItem) (bool, error) {
+func (memory *importExecutionMemory) Resume(context.Context, model.Execution, model.ExecutionItem) (bool, error) {
 	return false, nil
 }
 
-func (memory *importExecutionMemory) Create(context.Context, Execution, ExecutionItem) error {
+func (memory *importExecutionMemory) Create(context.Context, model.Execution, model.ExecutionItem) error {
 	memory.review++
 	memory.finish++
 	return nil
 }
 
-func (memory *importExecutionMemory) Observe(context.Context, Execution) (LeaseState, error) {
-	return LeaseActive, nil
+func (memory *importExecutionMemory) Observe(context.Context, model.Execution) (model.LeaseState, error) {
+	return model.LeaseActive, nil
 }
 
-func (memory *importExecutionMemory) CloseCancelled(context.Context, Execution) (bool, error) {
+func (memory *importExecutionMemory) CloseCancelled(context.Context, model.Execution) (bool, error) {
 	return false, nil
 }
 func (memory *importExecutionMemory) Sanitize(error) string      { return "source read failed" }
@@ -64,17 +68,17 @@ func (memory *importExecutionMemory) DatabaseCause(error) string { return "" }
 
 type importCompletionMemory struct{ memory *importExecutionMemory }
 
-func (completion importCompletionMemory) Finish(context.Context, Execution) error {
+func (completion importCompletionMemory) Finish(context.Context, model.Execution) error {
 	completion.memory.completed = true
 	return nil
 }
 
 func newImportExecutionMemory() (*importExecutionMemory, *ImportExecutor) {
 	memory := &importExecutionMemory{
-		item: ExecutionItem{
+		item: model.ExecutionItem{
 			ID:    "item",
 			State: "COPYING",
-			Files: []ExecutionFile{{Path: "game.nes", Size: 1, Facts: "frozen", State: "DISCOVERED"}},
+			Files: []model.ExecutionFile{{Path: "game.nes", Size: 1, Facts: "frozen", State: "DISCOVERED"}},
 		},
 	}
 	return memory, NewImportExecutor(
@@ -96,7 +100,7 @@ func TestImportExecutorStopsBeforeNextClaimWhenOutcomeWriteFails(t *testing.T) {
 	writeCause := errors.New("outcome write failed")
 	memory.sourceErr = sourceCause
 	memory.finishErr = writeCause
-	err := executor.Execute(t.Context(), Execution{})
+	err := executor.Execute(t.Context(), model.Execution{})
 	if !errors.Is(
 		err,
 		writeCause,
@@ -111,8 +115,7 @@ func TestImportExecutorStopsBeforeNextClaimWhenOutcomeWriteFails(t *testing.T) {
 func TestImportExecutorCopiesHandsOffAndCompletes(t *testing.T) {
 	memory, executor := newImportExecutionMemory()
 	if err := executor.Execute(
-		t.Context(),
-		Execution{},
+		t.Context(), model.Execution{},
 	); err != nil || memory.source != 1 || memory.review != 1 || memory.next != 2 || !memory.completed {
 		t.Fatalf("error=%v memory=%#v", err, memory)
 	}
@@ -121,7 +124,7 @@ func TestImportExecutorCopiesHandsOffAndCompletes(t *testing.T) {
 func TestImportExecutorStopsOnCancelledSourceWithoutTerminalizingItem(t *testing.T) {
 	memory, executor := newImportExecutionMemory()
 	memory.sourceErr = context.Canceled
-	err := executor.Execute(t.Context(), Execution{})
+	err := executor.Execute(t.Context(), model.Execution{})
 	if !errors.Is(err, context.Canceled) || memory.finish != 0 || memory.review != 0 || memory.next != 1 {
 		t.Fatalf("error=%v memory=%#v", err, memory)
 	}

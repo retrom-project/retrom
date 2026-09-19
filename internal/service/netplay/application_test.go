@@ -5,6 +5,8 @@ import (
 	"testing"
 	"testing/synctest"
 	"time"
+
+	model "retrom/internal/model/netplay"
 )
 
 type countingMaintenance struct {
@@ -12,7 +14,7 @@ type countingMaintenance struct {
 	reads int
 }
 
-func (repository *countingMaintenance) Passive(ctx context.Context, cutoffs ExpiryCutoffs) ([]ExpiryCandidate, error) {
+func (repository *countingMaintenance) Passive(ctx context.Context, cutoffs model.ExpiryCutoffs) ([]model.ExpiryCandidate, error) {
 	repository.reads++
 	return repository.roomMaintenanceMemory.Passive(ctx, cutoffs)
 }

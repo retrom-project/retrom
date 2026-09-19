@@ -5,16 +5,18 @@ import (
 	"fmt"
 	"math"
 	"time"
+
+	model "retrom/internal/model/payloadrelease"
 )
 
 const retirementBatchSize = 200
 
 type Retirements struct {
-	repository RetirementRepository
+	repository model.RetirementRepository
 	now        func() time.Time
 }
 
-func NewRetirements(repository RetirementRepository, now func() time.Time) *Retirements {
+func NewRetirements(repository model.RetirementRepository, now func() time.Time) *Retirements {
 	if now == nil {
 		now = time.Now
 	}
@@ -32,7 +34,7 @@ func (service *Retirements) BIOS(ctx context.Context) error {
 
 func (service *Retirements) BIOSBatch(ctx context.Context) (bool, error) {
 	worked := false
-	err := service.repository.WithRetirement(ctx, func(scope RetirementScope) error {
+	err := service.repository.WithRetirement(ctx, func(scope model.RetirementScope) error {
 		before, err := scope.Read.BIOS(ctx, retirementBatchSize)
 		if err != nil {
 			return fmt.Errorf("read retiring BIOS: %w", err)
@@ -42,7 +44,7 @@ func (service *Retirements) BIOSBatch(ctx context.Context) (bool, error) {
 		}
 		if before.ID == "" || before.BlobID == "" || before.Version < 1 || before.Version == math.MaxInt64 ||
 			before.SharedActive && len(before.Files) != 0 {
-			return ErrRetirementSnapshotChanged
+			return model.ErrRetirementSnapshotChanged
 		}
 		if err := scope.BIOS.FenceBIOS(ctx, before); err != nil {
 			return fmt.Errorf("fence retiring BIOS: %w", err)
@@ -77,7 +79,7 @@ func (service *Retirements) Launches(ctx context.Context) error {
 
 func (service *Retirements) LaunchBatch(ctx context.Context) (int, error) {
 	count := 0
-	err := service.repository.WithRetirement(ctx, func(scope RetirementScope) error {
+	err := service.repository.WithRetirement(ctx, func(scope model.RetirementScope) error {
 		now := service.now().UnixMilli()
 		before, err := scope.Read.Launch(ctx, now, retirementBatchSize)
 		if err != nil {
@@ -87,12 +89,12 @@ func (service *Retirements) LaunchBatch(ctx context.Context) (int, error) {
 			return nil
 		}
 		if !validRetirement(before, now) {
-			return ErrRetirementSnapshotChanged
+			return model.ErrRetirementSnapshotChanged
 		}
 		if err := scope.Launch.FenceLaunch(ctx, before); err != nil {
 			return fmt.Errorf("fence retiring launch: %w", err)
 		}
-		end := LaunchRetirementEnd{Before: before, State: before.State, PlayState: "ABANDONED", NowMS: now}
+		end := model.LaunchRetirementEnd{Before: before, State: before.State, PlayState: "ABANDONED", NowMS: now}
 		end.Expire = before.State == "CREATED" || before.State == "ACTIVE"
 		if end.Expire {
 			end.State = "EXPIRED"
@@ -108,7 +110,11 @@ func (service *Retirements) LaunchBatch(ctx context.Context) (int, error) {
 			if end.Expire {
 				due = now
 			}
-			if err := scope.Launch.CompleteLaunch(ctx, RetirementCompletion{ID: before.ID, DueMS: due, NowMS: now}); err != nil {
+			if err := scope.Launch.CompleteLaunch(ctx, model.RetirementCompletion{
+				ID:    before.ID,
+				DueMS: due,
+				NowMS: now,
+			}); err != nil {
 				return fmt.Errorf("complete launch retirement: %w", err)
 			}
 		}
@@ -121,7 +127,7 @@ func (service *Retirements) LaunchBatch(ctx context.Context) (int, error) {
 	return count, nil
 }
 
-func validRetirement(before LaunchRetirement, now int64) bool {
+func validRetirement(before model.LaunchRetirement, now int64) bool {
 	if before.ID == "" || before.Version < 1 || before.Version == math.MaxInt64 || before.DueMS > now {
 		return false
 	}

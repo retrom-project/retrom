@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"retrom/internal/adapter/files/blobstore"
+	uploadsmodel "retrom/internal/model/uploads"
 	"retrom/internal/repo/store"
 	uploadservice "retrom/internal/service/uploads"
 )
@@ -27,7 +28,7 @@ func TestFinalizerRejectsPartWhoseStoredBytesChanged(t *testing.T) {
 		t.Fatal(err)
 	}
 	service := uploadservice.New(New(database.SQL), blobs, root, time.Now)
-	upload, err := service.Create(t.Context(), uploadservice.CreateRequest{SourceType: "FILES", Files: []uploadservice.FileDeclaration{{ClientFileID: "file", RelativePath: "fixture.bin", SizeBytes: 5}}})
+	upload, err := service.Create(t.Context(), uploadsmodel.CreateRequest{SourceType: "FILES", Files: []uploadsmodel.FileDeclaration{{ClientFileID: "file", RelativePath: "fixture.bin", SizeBytes: 5}}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -62,7 +63,7 @@ func TestFinalizerRejectsPartWhoseStoredBytesChanged(t *testing.T) {
 	assertCorruptPartRepair(t, service, database.SQL, upload, job, header)
 }
 
-func assertCorruptPartRepair(t *testing.T, service *uploadservice.Service, database *sql.DB, upload uploadservice.Session, job, header string) {
+func assertCorruptPartRepair(t *testing.T, service *uploadservice.Service, database *sql.DB, upload uploadsmodel.Session, job, header string) {
 	t.Helper()
 	if err := service.PutPart(t.Context(), upload.ID, upload.Files[0].ID, 0, "bytes 0-4/5", header, bytes.NewReader([]byte("bytes"))); err != nil {
 		t.Fatal(err)

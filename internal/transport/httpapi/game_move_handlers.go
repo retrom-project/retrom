@@ -12,10 +12,10 @@ import (
 
 	"retrom/internal/bootstrap/composition"
 	"retrom/internal/capability/security/authn"
-	gamemove "retrom/internal/service/gamemove"
+	gamemovemodel "retrom/internal/model/gamemove"
 )
 
-type gameMoveImpact = gamemove.Impact
+type gameMoveImpact = gamemovemodel.Impact
 
 // Contract branches stay contiguous for a single auditable decision.
 func (server *Server) calculateMoveImpact(
@@ -23,7 +23,7 @@ func (server *Server) calculateMoveImpact(
 	targetID string,
 	expected int64,
 ) (gameMoveImpact, error) {
-	impact, err := composition.NewGameMove(server.database).Preview(request.Context(), gamemove.PreviewRequest{
+	impact, err := composition.NewGameMove(server.database).Preview(request.Context(), gamemovemodel.PreviewRequest{
 		GameID:                   request.PathValue("gameId"),
 		TargetPlatformInstanceID: targetID,
 		ExpectedVersion:          expected,
@@ -179,18 +179,18 @@ func (server *Server) moveGame(writer http.ResponseWriter, request *http.Request
 	now := server.now().UnixMilli()
 	actor := authn.ActorFromContext(request.Context(), "release-setup")
 	requestID, _ := request.Context().Value(requestIDKey).(string)
-	result, err := composition.NewGameMove(server.database).Move(request.Context(), gamemove.MoveRequest{
+	result, err := composition.NewGameMove(server.database).Move(request.Context(), gamemovemodel.MoveRequest{
 		GameID:                   request.PathValue("gameId"),
 		TargetPlatformInstanceID: body.TargetPlatformInstanceID,
 		ExpectedVersion:          expected,
 		NowMS:                    now,
 		Impact:                   impact,
-		Actor: gamemove.AuditActor{
+		Actor: gamemovemodel.AuditActor{
 			Kind: actor.Kind, UserID: actor.UserID, Label: actor.Label, RequestID: requestID,
 		},
 	})
 	if err != nil {
-		if errors.Is(err, gamemove.ErrVersionConflict) {
+		if errors.Is(err, gamemovemodel.ErrVersionConflict) {
 			writeError(writer, request, http.StatusConflict, "VERSION_CONFLICT", "游戏已被修改", map[string]any{})
 			return
 		}

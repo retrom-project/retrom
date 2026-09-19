@@ -9,19 +9,19 @@ import (
 	"os"
 	"path/filepath"
 
-	"retrom/internal/adapter/files/blobstore"
 	"retrom/internal/capability/content/contentmanifest"
 	"retrom/internal/capability/engine/rpgmaker/fileset"
 	"retrom/internal/capability/engine/scummvm"
 	"retrom/internal/capability/format/importing"
 	"retrom/internal/foundation/cleanup"
+	model "retrom/internal/model/libraryimport"
 )
 
 func (service *ImportPreparation) detectScummVMTree(
 	ctx context.Context,
 	files []fileset.SourceFile,
-	metadata map[int]blobstore.Metadata,
-	archive *ImportFile,
+	metadata map[int]projectArchiveInput,
+	archive *model.ImportFile,
 ) (scummvm.Snapshot, error) {
 	root, err := os.MkdirTemp("", "retrom-scummvm-input-")
 	if err != nil {
@@ -51,8 +51,8 @@ func materializeScummVMInputs(
 	ctx context.Context,
 	root string,
 	files []fileset.SourceFile,
-	metadata map[int]blobstore.Metadata,
-	archive *ImportFile,
+	metadata map[int]projectArchiveInput,
+	archive *model.ImportFile,
 ) ([]contentmanifest.File, error) {
 	manifest := make([]contentmanifest.File, 0, len(files))
 	limits := importing.DefaultArchiveLimits()
@@ -80,7 +80,7 @@ func materializeScummVMInputs(
 	return manifest, nil
 }
 
-func copyScummVMInput(ctx context.Context, metadata blobstore.Metadata, destination string) error {
+func copyScummVMInput(ctx context.Context, metadata projectArchiveInput, destination string) error {
 	if err := ctx.Err(); err != nil {
 		return fmt.Errorf("copy ScummVM input: %w", err)
 	}

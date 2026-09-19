@@ -16,6 +16,8 @@ import (
 	"testing"
 	"time"
 
+	blobmodel "retrom/internal/model/blob"
+
 	"retrom/internal/repo/blobcatalog"
 	"retrom/internal/repo/dbexec"
 
@@ -23,7 +25,6 @@ import (
 
 	"github.com/google/uuid"
 
-	"retrom/internal/adapter/files/blobstore"
 	"retrom/internal/capability/security/authn"
 	"retrom/internal/testkit/testassert"
 	"retrom/internal/testkit/testsupport"
@@ -385,7 +386,7 @@ func assertGameProfileIsolation(t *testing.T, server *Server, gameID, saveStateI
 
 func assertGameAdminMutations(
 	t *testing.T, server *Server, gameID, contentID, coverBlobID string, now int64,
-	videoPayload []byte, videoMetadata blobstore.Metadata, videoBlobID string,
+	videoPayload []byte, videoMetadata blobmodel.PreparedBlob, videoBlobID string,
 ) {
 	var originalCoverAssetID, originalVideoAssetID string
 	mustScanHTTPTest(t, server.database.QueryRowContext(context.Background(), `
@@ -643,7 +644,7 @@ VALUES(?,?,'local',?,?,?,?,60000,1,'FINISHED',1,?,?)
 type gameDetailSeed struct {
 	now                                           int64
 	videoPayload, screenshot                      []byte
-	videoMetadata                                 blobstore.Metadata
+	videoMetadata                                 blobmodel.PreparedBlob
 	latestLaunchID, videoBlobID, screenshotBlobID string
 }
 

@@ -5,10 +5,10 @@ import (
 	"strings"
 	"testing"
 
-	"retrom/internal/adapter/files/blobstore"
+	blobmodel "retrom/internal/model/blob"
 )
 
-func materialFixture(t *testing.T) (*Service, work, executionFile, executionAsset, blobstore.Metadata) {
+func materialFixture(t *testing.T) (*Service, work, executionFile, executionAsset, blobmodel.PreparedBlob) {
 	t.Helper()
 	service, unit, _ := handoffFixture(t)
 	mustExecPegasusTest(
@@ -36,7 +36,7 @@ VALUES('item','COVER','EXPLICIT_GAME','cover.png',4,'aaaaaaaaaaaaaaaaaaaaaaaaaaa
 			MediaType: "image/png",
 			Width:     &one,
 			Height:    &one,
-		}, blobstore.Metadata{
+		}, blobmodel.PreparedBlob{
 			SHA256: strings.Repeat("b", 64),
 			MD5:    strings.Repeat("b", 32),
 			SHA1:   strings.Repeat("b", 40),

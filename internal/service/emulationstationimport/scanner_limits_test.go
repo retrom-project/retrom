@@ -27,7 +27,7 @@ func TestScannerIsolatesOversizedMetadataWithoutReadingBytes(t *testing.T) {
 func TestScannerEnforcesGamelistCountAndAggregateByteBoundaries(t *testing.T) {
 	for _, limit := range []string{"count", "bytes"} {
 		t.Run(limit, func(t *testing.T) {
-			index := scanIndex{ctx: t.Context(), files: map[string]discoveredFile{}}
+			index := scanIndex{ctx: t.Context(), files: map[string]DiscoveredFile{}}
 			count, size := maxGamelists, int64(1)
 			if limit == "bytes" {
 				count = maxGamelistsBytes / int(maxGamelistBytes)

@@ -17,6 +17,7 @@ import (
 	"testing"
 	"time"
 
+	uploadsmodel "retrom/internal/model/uploads"
 	uploadpersistence "retrom/internal/repo/uploads"
 
 	dependencypersistence "retrom/internal/repo/dependencies"
@@ -124,7 +125,7 @@ func uploadScummVMFixture(t *testing.T, database *sql.DB, blobs *blobstore.Store
 	}
 	contents := body.Bytes()
 	service := uploads.New(uploadpersistence.New(database), blobs, dir, now)
-	upload, err := service.Create(ctx, uploads.CreateRequest{Purpose: "PROJECT", SourceType: "FILES", Files: []uploads.FileDeclaration{{ClientFileID: "game", RelativePath: "scummvm.zip", SizeBytes: int64(len(contents))}}})
+	upload, err := service.Create(ctx, uploadsmodel.CreateRequest{Purpose: "PROJECT", SourceType: "FILES", Files: []uploadsmodel.FileDeclaration{{ClientFileID: "game", RelativePath: "scummvm.zip", SizeBytes: int64(len(contents))}}})
 	if err != nil {
 		t.Fatal(err)
 	}

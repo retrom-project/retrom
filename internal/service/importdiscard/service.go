@@ -7,6 +7,8 @@ import (
 	"sync"
 	"time"
 
+	model "retrom/internal/model/importdiscard"
+
 	"github.com/google/uuid"
 )
 
@@ -19,19 +21,24 @@ type Status struct {
 	ErrorCode *string `json:"errorCode"`
 }
 type Service struct {
-	repository Repository
-	importer   ImportWorkflow
-	sources    SourceWorkflow
+	repository model.Repository
+	importer   model.ImportWorkflow
+	sources    model.SourceWorkflow
 	now        func() time.Time
 	stop       chan struct{}
 	wait       sync.WaitGroup
 }
 
-func New(repository Repository, importer ImportWorkflow, sources SourceWorkflow, now func() time.Time) *Service {
+func New(
+	repository model.Repository,
+	importer model.ImportWorkflow,
+	sources model.SourceWorkflow,
+	now func() time.Time,
+) *Service {
 	return &Service{repository: repository, importer: importer, sources: sources, now: now, stop: make(chan struct{})}
 }
 
-func validKey(key Key) bool {
+func validKey(key model.Key) bool {
 	if key.Kind != "IMPORT" && key.Kind != "PEGASUS" && key.Kind != "EMULATIONSTATION" {
 		return false
 	}
@@ -40,12 +47,12 @@ func validKey(key Key) bool {
 }
 
 func (service *Service) Get(ctx context.Context, kind, id string) (Status, error) {
-	key := Key{Kind: kind, ID: id}
+	key := model.Key{Kind: kind, ID: id}
 	if !validKey(key) {
-		return Status{}, ErrInvalid
+		return Status{}, model.ErrInvalid
 	}
 	var result Status
-	err := service.repository.WithRead(ctx, func(records Reader) error {
+	err := service.repository.WithRead(ctx, func(records model.Reader) error {
 		var err error
 		result, err = status(ctx, records, key)
 		return failure("access discard status", err)
@@ -53,7 +60,7 @@ func (service *Service) Get(ctx context.Context, kind, id string) (Status, error
 	return result, failure("access discard status", err)
 }
 
-func status(ctx context.Context, records Reader, key Key) (Status, error) {
+func status(ctx context.Context, records model.Reader, key model.Key) (Status, error) {
 	batch, err := records.Batch(ctx, key)
 	if err != nil {
 		return Status{}, failure("access discard status", err)
@@ -73,7 +80,7 @@ func status(ctx context.Context, records Reader, key Key) (Status, error) {
 	return result, nil
 }
 
-func available(kind string, batch Batch) bool {
+func available(kind string, batch model.Batch) bool {
 	if !batch.Started || batch.State == "SCANNING" || batch.State == "AWAITING_MAPPING" {
 		return false
 	}
@@ -88,7 +95,7 @@ func available(kind string, batch Batch) bool {
 	return false
 }
 
-func retainedImport(batch Batch) bool {
+func retainedImport(batch model.Batch) bool {
 	switch batch.State {
 	case "QUEUED", "RUNNING", "CANCEL_REQUESTED":
 		return true
@@ -105,19 +112,19 @@ func undecided(kind, state string) bool {
 }
 
 func (service *Service) Request(ctx context.Context, kind, id, userID string) (Status, error) {
-	key := Key{Kind: kind, ID: id}
+	key := model.Key{Kind: kind, ID: id}
 	if !validKey(key) {
-		return Status{}, ErrInvalid
+		return Status{}, model.ErrInvalid
 	}
 	now := service.now().UnixMilli()
 	var result Status
-	err := service.repository.WithWrite(ctx, func(scope WriteScope) error {
+	err := service.repository.WithWrite(ctx, func(scope model.WriteScope) error {
 		current, err := status(ctx, scope.Reader, key)
 		if err != nil {
 			return failure("access discard status", err)
 		}
 		if current.State == "UNAVAILABLE" {
-			return ErrInvalid
+			return model.ErrInvalid
 		}
 		if current.State != "AVAILABLE" && current.State != "FAILED" {
 			result = current
@@ -128,8 +135,7 @@ func (service *Service) Request(ctx context.Context, kind, id, userID string) (S
 			return fmt.Errorf("create discard audit identity: %w", err)
 		}
 		if err := scope.Requests.Request(
-			ctx,
-			Request{
+			ctx, model.Request{
 				Key:     key,
 				UserID:  userID,
 				AuditID: auditID.String(),

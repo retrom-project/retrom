@@ -5,12 +5,14 @@ import (
 	"encoding/json"
 	"fmt"
 
+	model "retrom/internal/model/tagging"
+
 	"github.com/google/uuid"
 )
 
 func writeAudit(
 	ctx context.Context,
-	records AuditRecords,
+	records model.AuditRecords,
 	actorUserID, action, resourceType, resourceID string,
 	before, after, diff any,
 	now int64,
@@ -19,7 +21,7 @@ func writeAudit(
 	if err != nil {
 		return fmt.Errorf("tagging: create audit id: %w", err)
 	}
-	event := AuditEvent{
+	event := model.AuditEvent{
 		ID:           id.String(),
 		ActorUserID:  actorUserID,
 		Action:       action,

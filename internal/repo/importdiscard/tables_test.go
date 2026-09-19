@@ -1,6 +1,8 @@
 package importdiscard_test
 
-import "retrom/internal/service/importdiscard"
+import (
+	importdiscardmodel "retrom/internal/model/importdiscard"
+)
 
 func batchTable(kind string) (string, error) {
 	switch kind {
@@ -11,6 +13,6 @@ func batchTable(kind string) (string, error) {
 	case "EMULATIONSTATION":
 		return "emulationstation_imports", nil
 	default:
-		return "", importdiscard.ErrInvalid
+		return "", importdiscardmodel.ErrInvalid
 	}
 }

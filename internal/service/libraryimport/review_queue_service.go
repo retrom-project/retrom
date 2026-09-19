@@ -1,6 +1,8 @@
 package libraryimport
 
+import model "retrom/internal/model/libraryimport"
+
 type ReviewQueue struct {
-	repository ReviewQueueRepository
-	tags       ReviewQueueTags
+	repository model.ReviewQueueRepository
+	tags       model.ReviewQueueTags
 }

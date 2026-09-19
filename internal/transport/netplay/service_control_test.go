@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/model/netplayprofile"
+
 	"retrom/internal/bootstrap/composition"
 
 	"retrom/internal/repo/dbexec"
@@ -165,9 +167,9 @@ VALUES(?,(SELECT id FROM platform_instances WHERE catalog_template_key='dos/dosb
 
 func TestCoreProfilesIgnorePerGameContentIdentity(t *testing.T) {
 	t.Parallel()
-	manifest, err := os.ReadFile(filepath.Join("..", "..", "..", "data", ManifestRelativePath))
+	manifest, err := os.ReadFile(filepath.Join("..", "..", "..", "data", "netplay/v2/manifest.json"))
 	testassert.False(t, err != nil, err)
-	registry, err := parseRegistry(manifest, fixtureDependencySet())
+	registry, err := netplayprofile.ParseRegistry(manifest, fixtureBindings())
 	testassert.False(t, err != nil, err)
 	service := &Service{registry: registry}
 	tests := []struct {
@@ -441,9 +443,9 @@ VALUES(?,?,?,?,'LOCKED',0,1,?,?)
 	).Scan(&left)
 	testassert.False(t, err != nil, err)
 	testassert.Falsef(t, testassert.Any(func() bool { return sessionState != "FAILED" }, func() bool { return reason != "PREPARE_FAILED" }, func() bool { return left != 2 }), "session after prepare failure = state %q reason %q left %d", sessionState, reason, left)
-	manifest, err := os.ReadFile(filepath.Join("..", "..", "..", "data", ManifestRelativePath))
+	manifest, err := os.ReadFile(filepath.Join("..", "..", "..", "data", "netplay/v2/manifest.json"))
 	testassert.False(t, err != nil, err)
-	service.registry, err = parseRegistry(manifest, fixtureDependencySet())
+	service.registry, err = netplayprofile.ParseRegistry(manifest, fixtureBindings())
 	testassert.False(t, err != nil, err)
 	service.Service = composition.NewNetplay(database.SQL, service.registry, nil, service.options, service.clock.Now)
 	games, err := service.Games(ctx, hostID, "SUPPORTED")
@@ -451,7 +453,7 @@ VALUES(?,?,?,?,'LOCKED',0,1,?,?)
 	testassert.Falsef(t, testassert.Any(func() bool { return len(games) != 1 }, func() bool { return games[0].GameID != gameID }, func() bool { return len(games[0].NetplayProfiles) != 1 }, func() bool { return games[0].NetplayProfiles[0].ID != "fceumm-423-v1" }, func() bool { return games[0].BlockerCode != nil }), "eligible games = %#v", games)
 	eligible, err := service.eligibility().Profiles(ctx, gameID)
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return len(eligible) != 1 }), "eligible profile for retry = %#v, %v", eligible, err)
-	_, retryDigest, err := service.registry.CanonicalProfile(CanonicalProfileInput{
+	_, retryDigest, err := service.registry.CanonicalProfile(netplayprofile.CanonicalProfileInput{
 		ManifestProfile:        eligible[0].Manifest,
 		BundleSHA256:           eligible[0].BundleSHA256,
 		SourceManifestDigest:   eligible[0].SourceManifestDigest,

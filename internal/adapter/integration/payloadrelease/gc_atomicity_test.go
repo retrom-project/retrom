@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
+	payloadreleasemodel "retrom/internal/model/payloadrelease"
 	"retrom/internal/repo/dbexec"
 	repository "retrom/internal/repo/payloadrelease"
-	application "retrom/internal/service/payloadrelease"
 	"retrom/internal/testkit/testsupport"
 )
 
@@ -31,7 +31,7 @@ func TestGCScheduleAtomicallyPersistsAllDurableEvidence(t *testing.T) {
 				err := service.stageAllUnreferenced(t.Context())
 				expected := cause
 				if failure == "zero" {
-					expected = application.ErrGCSnapshotChanged
+					expected = payloadreleasemodel.ErrGCSnapshotChanged
 				}
 				if !errors.Is(err, expected) || hits.Load() != 1 {
 					t.Fatalf("GC evidence error: %v hits=%d", err, hits.Load())
@@ -173,7 +173,7 @@ func TestGCFenceRejectsChangedBlobOrProtectionBeforeQueueing(t *testing.T) {
 			}
 			mutateGCFacts(t, tx, change, facts[0].Candidate.Work.ID)
 			err = scope.Write.Fence(t.Context(), facts)
-			if !errors.Is(err, application.ErrGCSnapshotChanged) {
+			if !errors.Is(err, payloadreleasemodel.ErrGCSnapshotChanged) {
 				t.Errorf("changed %s accepted: %v", change, err)
 			}
 			if err := tx.Rollback(); err != nil {

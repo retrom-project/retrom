@@ -6,11 +6,11 @@ import (
 	"bytes"
 	"testing"
 
+	libraryimportmodel "retrom/internal/model/libraryimport"
 	"retrom/internal/repo/blobcatalog"
-	application "retrom/internal/service/libraryimport"
 )
 
-func ownedESSourceFixture(t *testing.T) (deduplicateFixture, application.OwnedServerSourceRequest) {
+func ownedESSourceFixture(t *testing.T) (deduplicateFixture, libraryimportmodel.OwnedServerSourceRequest) {
 	t.Helper()
 	fixture := newDeduplicateFixture(t)
 	fixture.service.now = ownedSourceNow
@@ -24,8 +24,8 @@ func ownedESSourceFixture(t *testing.T) (deduplicateFixture, application.OwnedSe
 	}
 	file := ServerSourceFile{RelativePath: "games/owned.gba", BlobID: blobID, SizeBytes: metadata.Size}
 	seedOwnedESSource(t, fixture, file)
-	return fixture, application.OwnedServerSourceRequest{
-		Intent:                   application.SourceCreationIntent{Kind: application.SourceOwnerEmulationStation, ImportID: "es-owner-plan", ItemID: "es-owner-source", JobID: "es-owner-work", WorkerID: "es-owner-worker", ExecutionNo: 1, Attempt: 1, PrimaryPaths: []string{file.RelativePath}},
+	return fixture, libraryimportmodel.OwnedServerSourceRequest{
+		Intent:                   libraryimportmodel.SourceCreationIntent{Kind: libraryimportmodel.SourceOwnerEmulationStation, ImportID: "es-owner-plan", ItemID: "es-owner-source", JobID: "es-owner-work", WorkerID: "es-owner-worker", ExecutionNo: 1, Attempt: 1, PrimaryPaths: []string{file.RelativePath}},
 		TargetPlatformInstanceID: fixture.platform, ContentMode: "STANDARD", Files: []ServerSourceFile{file}, AssignedByUserID: "es-owner-actor",
 	}
 }

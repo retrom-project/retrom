@@ -5,12 +5,14 @@ import (
 	"fmt"
 	"math"
 	"time"
+
+	model "retrom/internal/model/launch"
 )
 
 func (service *ProductCreator) commit(
 	ctx context.Context,
-	scope ProductCreationScope,
-	command ProductCreateCommand,
+	scope model.ProductCreationScope,
+	command model.ProductCreateCommand,
 	preparation productPreparation,
 ) (productAttempt, error) {
 	stored, found, err := scope.Replay(ctx, command)
@@ -26,11 +28,11 @@ func (service *ProductCreator) commit(
 		return productAttempt{}, fmt.Errorf("read final product authority: %w", err)
 	}
 	if !sameProductInputs(preparation.snapshot, current, preparation.validation) {
-		return productAttempt{}, ErrBlocked
+		return productAttempt{}, model.ErrBlocked
 	}
 	now := service.environment.Now().UnixMilli()
 	if now < 0 || now > math.MaxInt64-86_400_000 {
-		return productAttempt{}, ErrBlocked
+		return productAttempt{}, model.ErrBlocked
 	}
 	if preparation.validation {
 		return service.commitValidation(ctx, scope, command, current, now)
@@ -40,7 +42,7 @@ func (service *ProductCreator) commit(
 	if err := scope.Create(ctx, plan); err != nil {
 		return productAttempt{}, fmt.Errorf("persist product plan: %w", err)
 	}
-	result := Created{
+	result := model.Created{
 		LaunchID:             plan.ID,
 		PlayURL:              "/play/" + plan.ID,
 		Warnings:             []string{},
@@ -60,24 +62,24 @@ func (service *ProductCreator) commit(
 
 func (service *ProductCreator) schedule(
 	ctx context.Context,
-	scope ProductValidationScope,
-	snapshot ProductSnapshot,
+	scope model.ProductValidationScope,
+	snapshot model.ProductSnapshot,
 	now int64,
-) (Created, bool, error) {
+) (model.Created, bool, error) {
 	source := snapshot.Source
 	if source.VariantID == "" {
 		id, err := checkedProductID(service.environment.NewID)
 		if err != nil {
-			return Created{}, false, err
+			return model.Created{}, false, err
 		}
 		source.VariantID = id
-		if err := scope.CreateVariant(ctx, ProductVariantWrite{Source: source, NowMS: now}); err != nil {
-			return Created{}, false, fmt.Errorf("create validation variant: %w", err)
+		if err := scope.CreateVariant(ctx, model.ProductVariantWrite{Source: source, NowMS: now}); err != nil {
+			return model.Created{}, false, fmt.Errorf("create validation variant: %w", err)
 		}
 	}
 	inputs, err := ProductValidationInputs(snapshot, source.VariantID)
 	if err != nil {
-		return Created{}, false, err
+		return model.Created{}, false, err
 	}
 	scheduler := NewValidationScheduler(
 		scope,
@@ -85,23 +87,23 @@ func (service *ProductCreator) schedule(
 	)
 	queued, err := scheduler.Queue(ctx, inputs)
 	if err != nil {
-		return Created{}, false, err
+		return model.Created{}, false, err
 	}
 	if queued.Queued {
 		if err := scope.MarkPending(ctx, source.VariantID, now); err != nil {
-			return Created{}, false, fmt.Errorf("update validation variant: %w", err)
+			return model.Created{}, false, fmt.Errorf("update validation variant: %w", err)
 		}
 	} else if source.VariantStatus == "READY" {
-		return Created{Status: "READY"}, true, nil
+		return model.Created{Status: "READY"}, true, nil
 	}
-	return Created{Status: "VALIDATION_PENDING", JobID: queued.JobID, RetryAfterMS: 1000}, false, nil
+	return model.Created{Status: "VALIDATION_PENDING", JobID: queued.JobID, RetryAfterMS: 1000}, false, nil
 }
 
 func (service *ProductCreator) commitValidation(
 	ctx context.Context,
-	scope ProductCreationScope,
-	command ProductCreateCommand,
-	current ProductSnapshot,
+	scope model.ProductCreationScope,
+	command model.ProductCreateCommand,
+	current model.ProductSnapshot,
 	now int64,
 ) (productAttempt, error) {
 	result, ready, err := service.schedule(ctx, scope.Validation(), current, now)

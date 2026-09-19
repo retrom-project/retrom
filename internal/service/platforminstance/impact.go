@@ -8,17 +8,19 @@ import (
 	"encoding/json"
 	"fmt"
 
+	model "retrom/internal/model/platforminstance"
+
 	"github.com/google/uuid"
 )
 
 func (service *Service) CoreImpact(
 	ctx context.Context, instanceID, coreID string, expected int64,
-) (CoreImpactResult, error) {
+) (model.CoreImpactResult, error) {
 	if instanceID == "" || coreID == "" || expected < 1 {
-		return CoreImpactResult{}, ErrInvalid
+		return model.CoreImpactResult{}, model.ErrInvalid
 	}
-	var facts CoreImpactFacts
-	err := service.repository.WithRead(ctx, func(reader Reader) error {
+	var facts model.CoreImpactFacts
+	err := service.repository.WithRead(ctx, func(reader model.Reader) error {
 		var err error
 		facts, err = reader.CoreImpact(ctx, instanceID, coreID, expected)
 		if err != nil {
@@ -27,7 +29,7 @@ func (service *Service) CoreImpact(
 		return nil
 	})
 	if err != nil {
-		return CoreImpactResult{}, repositoryError("core impact", err)
+		return model.CoreImpactResult{}, repositoryError("core impact", err)
 	}
 	return projectCoreImpact(instanceID, coreID, facts), nil
 }
@@ -38,13 +40,13 @@ func (service *Service) ChangeDefaultCore(
 	expected int64,
 	digest string,
 	confirmBlocked bool,
-	actor AuditActor,
-) (DefaultCoreChangeResult, error) {
+	actor model.AuditActor,
+) (model.DefaultCoreChangeResult, error) {
 	if instanceID == "" || coreID == "" || expected < 1 || digest == "" {
-		return DefaultCoreChangeResult{}, ErrImpactStale
+		return model.DefaultCoreChangeResult{}, model.ErrImpactStale
 	}
-	var change DefaultCoreChangeResult
-	err := service.repository.WithWrite(ctx, func(scope WriteScope) error {
+	var change model.DefaultCoreChangeResult
+	err := service.repository.WithWrite(ctx, func(scope model.WriteScope) error {
 		facts, err := scope.Reader.CoreImpact(ctx, instanceID, coreID, expected)
 		if err != nil {
 			return fmt.Errorf("read core impact: %w", err)
@@ -52,26 +54,26 @@ func (service *Service) ChangeDefaultCore(
 		result := projectCoreImpact(instanceID, coreID, facts)
 		actualDigest := ImpactDigest(result.Impact)
 		if subtle.ConstantTimeCompare([]byte(actualDigest), []byte(digest)) != 1 {
-			return ErrImpactStale
+			return model.ErrImpactStale
 		}
 		if result.Counts["blocked"] > 0 && !confirmBlocked {
-			return ErrDefaultCoreBlocked
+			return model.ErrDefaultCoreBlocked
 		}
 		now := service.now().UnixMilli()
-		changed, err := scope.Directories.ChangeDefaultCore(ctx, DefaultCoreChange{
+		changed, err := scope.Directories.ChangeDefaultCore(ctx, model.DefaultCoreChange{
 			ID: instanceID, CoreID: coreID, ExpectedVersion: expected, UpdatedAtMS: now,
 		})
 		if err != nil {
 			return fmt.Errorf("change default core: %w", err)
 		}
 		if !changed {
-			return ErrVersionConflict
+			return model.ErrVersionConflict
 		}
 		auditID, err := uuid.NewV7()
 		if err != nil {
 			return fmt.Errorf("platforminstance: create audit id: %w", err)
 		}
-		if err := scope.Directories.RecordAudit(ctx, AuditEvent{
+		if err := scope.Directories.RecordAudit(ctx, model.AuditEvent{
 			ID: auditID.String(), Action: "PLATFORM_DEFAULT_CORE_CHANGED",
 			ResourceType: "PLATFORM_INSTANCE", ResourceID: instanceID,
 			Actor:  actor,
@@ -80,15 +82,15 @@ func (service *Service) ChangeDefaultCore(
 		}); err != nil {
 			return fmt.Errorf("record default core audit: %w", err)
 		}
-		change = DefaultCoreChangeResult{Version: expected + 1, UpdatedAtMS: now}
+		change = model.DefaultCoreChangeResult{Version: expected + 1, UpdatedAtMS: now}
 		return nil
 	})
 	return change, repositoryError("change default core", err)
 }
 
-func projectCoreImpact(instanceID, coreID string, facts CoreImpactFacts) CoreImpactResult {
+func projectCoreImpact(instanceID, coreID string, facts model.CoreImpactFacts) model.CoreImpactResult {
 	counts := map[string]int64{"ready": 0, "needsValidation": 0, "blocked": 0}
-	items := make([]CoreImpactItem, 0, len(facts.Games))
+	items := make([]model.CoreImpactItem, 0, len(facts.Games))
 	for _, game := range facts.Games {
 		status := "NEEDS_VALIDATION"
 		switch {
@@ -101,10 +103,14 @@ func projectCoreImpact(instanceID, coreID string, facts CoreImpactFacts) CoreImp
 		default:
 			counts["needsValidation"]++
 		}
-		items = append(items, CoreImpactItem{GameID: game.GameID, Status: status, BlockerCode: game.TargetCompatibilityCode})
+		items = append(items, model.CoreImpactItem{
+			GameID:      game.GameID,
+			Status:      status,
+			BlockerCode: game.TargetCompatibilityCode,
+		})
 	}
-	return CoreImpactResult{
-		Impact: CoreImpact{
+	return model.CoreImpactResult{
+		Impact: model.CoreImpact{
 			Action: "CHANGE_DEFAULT_CORE", PlatformInstanceID: instanceID,
 			PlatformInstanceVersion: facts.PlatformInstanceVersion, CoreID: coreID,
 			ProviderID: facts.ProviderID, TargetID: facts.TargetID, BundleSHA256: facts.BundleSHA256,
@@ -115,7 +121,7 @@ func projectCoreImpact(instanceID, coreID string, facts CoreImpactFacts) CoreImp
 	}
 }
 
-func ImpactDigest(value CoreImpact) string {
+func ImpactDigest(value model.CoreImpact) string {
 	encoded, _ := json.Marshal(value)
 	digest := sha256.Sum256(encoded)
 	return base64.RawURLEncoding.EncodeToString(digest[:])

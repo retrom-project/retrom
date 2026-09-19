@@ -8,6 +8,7 @@ import (
 
 	"retrom/internal/capability/runtime/runtimebundle"
 	"retrom/internal/capability/runtime/runtimecatalog"
+	runtimeprovidermodel "retrom/internal/model/runtimeprovider"
 	"retrom/internal/repo/recordstore"
 	service "retrom/internal/service/runtimeprovider"
 )
@@ -101,13 +102,13 @@ UPDATE netplay_rooms SET state='RUNNING',current_session_id='session' WHERE id='
 	}
 }
 
-func netplayProjectionFixture(t *testing.T, version, digest string, formats []string) service.Projection {
+func netplayProjectionFixture(t *testing.T, version, digest string, formats []string) runtimeprovidermodel.Projection {
 	t.Helper()
 	initial := projectionFixture(version, digest, formats)
 	provider := initial.Providers[0].Active
 	target := initial.Providers[0].Targets[0].Target
 	target.Capabilities.NetplayPort = true
-	projection, err := service.NewProjection(
+	projection, err := runtimeprovidermodel.NewProjection(
 		runtimebundle.ActiveDescriptor{SchemaVersion: 1, Source: "candidate", Providers: []runtimebundle.ActiveProvider{provider}},
 		map[string]runtimebundle.Manifest{"fixture": {
 			SchemaVersion: 1, ProviderID: "fixture", ProviderVersion: version, ProviderAPI: 1,

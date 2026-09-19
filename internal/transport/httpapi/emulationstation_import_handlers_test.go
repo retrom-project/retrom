@@ -15,7 +15,7 @@ import (
 
 	"retrom/internal/adapter/files/serversource"
 	"retrom/internal/bootstrap/composition"
-	"retrom/internal/service/emulationstationimport"
+	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
 	"retrom/internal/testkit/testassert"
 )
 
@@ -68,7 +68,7 @@ func TestEmulationStationImportHTTPScanMappingSourceDriftAndDelete(t *testing.T)
 		created.Code,
 		created.Body.String(),
 	)
-	var summary emulationstationimport.Summary
+	var summary emulationstationimportmodel.Summary
 	if err := json.Unmarshal(created.Body.Bytes(), &summary); err != nil {
 		t.Fatal(err)
 	}
@@ -79,7 +79,7 @@ func TestEmulationStationImportHTTPScanMappingSourceDriftAndDelete(t *testing.T)
 		"/api/v1/admin/emulationstation-imports?state=AWAITING_MAPPING&limit=20",
 	)
 	var history struct {
-		Items []emulationstationimport.Summary `json:"items"`
+		Items []emulationstationimportmodel.Summary `json:"items"`
 	}
 	testassert.Falsef(
 		t,
@@ -98,7 +98,7 @@ func TestEmulationStationImportHTTPScanMappingSourceDriftAndDelete(t *testing.T)
 		"/api/v1/admin/emulationstation-imports/"+summary.ID+"/gamelists?parseState=VALID",
 	)
 	var gamelistPage struct {
-		Items []emulationstationimport.Gamelist `json:"items"`
+		Items []emulationstationimportmodel.Gamelist `json:"items"`
 	}
 	testassert.Falsef(
 		t,
@@ -119,7 +119,7 @@ func TestEmulationStationImportHTTPScanMappingSourceDriftAndDelete(t *testing.T)
 		"/api/v1/admin/emulationstation-imports/"+summary.ID+"/collections",
 	)
 	var collectionPage struct {
-		Items []emulationstationimport.Collection `json:"items"`
+		Items []emulationstationimportmodel.Collection `json:"items"`
 	}
 	testassert.Falsef(
 		t,
@@ -138,7 +138,7 @@ func TestEmulationStationImportHTTPScanMappingSourceDriftAndDelete(t *testing.T)
 		"/api/v1/admin/emulationstation-imports/"+summary.ID+"/items?outcome=PENDING",
 	)
 	var itemPage struct {
-		Items []emulationstationimport.Item `json:"items"`
+		Items []emulationstationimportmodel.Item `json:"items"`
 	}
 	testassert.Falsef(
 		t,
@@ -255,7 +255,7 @@ func waitForEmulationStationMapping(
 	t *testing.T,
 	handler http.Handler,
 	cookie *http.Cookie,
-	summary *emulationstationimport.Summary,
+	summary *emulationstationimportmodel.Summary,
 ) {
 	t.Helper()
 	deadline := time.Now().Add(5 * time.Second)
@@ -302,7 +302,7 @@ func mapEmulationStationHTTPCollection(
 	handler http.Handler,
 	cookie *http.Cookie,
 	csrf string,
-	summary *emulationstationimport.Summary,
+	summary *emulationstationimportmodel.Summary,
 	collectionID string,
 	server *Server,
 ) {
@@ -350,7 +350,7 @@ func assertEmulationStationHTTPSourceDrift(
 	handler http.Handler,
 	cookie *http.Cookie,
 	csrf string,
-	summary emulationstationimport.Summary,
+	summary emulationstationimportmodel.Summary,
 	root string,
 ) {
 	t.Helper()
@@ -387,7 +387,7 @@ func deleteEmulationStationHTTPPlan(
 	handler http.Handler,
 	cookie *http.Cookie,
 	csrf string,
-	summary emulationstationimport.Summary,
+	summary emulationstationimportmodel.Summary,
 ) {
 	t.Helper()
 	request := httptest.NewRequestWithContext(

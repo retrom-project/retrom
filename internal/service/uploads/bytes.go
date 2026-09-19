@@ -9,6 +9,7 @@ import (
 	"strconv"
 
 	"retrom/internal/foundation/cleanup"
+	model "retrom/internal/model/uploads"
 )
 
 func (service *Service) stageUploadPart(
@@ -27,14 +28,14 @@ func (service *Service) stageUploadPart(
 	written, copyErr := io.Copy(io.MultiWriter(temporary, hash), io.LimitReader(body, span.end-span.start+2))
 	closeErr := temporary.Close()
 	if copyErr != nil {
-		return 0, fmt.Errorf("%w: receive part: %w", ErrInvalid, copyErr)
+		return 0, fmt.Errorf("%w: receive part: %w", model.ErrInvalid, copyErr)
 	}
 	if closeErr != nil {
 		return 0, fmt.Errorf("close upload part: %w", closeErr)
 	}
 	actualDigest := hex.EncodeToString(hash.Sum(nil))
 	if written != span.end-span.start+1 || actualDigest != expected {
-		return 0, ErrInvalid
+		return 0, model.ErrInvalid
 	}
 
 	if err := temporary.Publish(strconv.Itoa(number) + "-" + expected); err != nil {
@@ -43,7 +44,7 @@ func (service *Service) stageUploadPart(
 	return written, nil
 }
 
-func (service *Service) finalizeCandidate(ctx context.Context, run Run, file Candidate) (bool, error) {
+func (service *Service) finalizeCandidate(ctx context.Context, run model.Run, file model.Candidate) (bool, error) {
 	parts, err := service.repository.Parts(ctx, file.ID)
 	if err != nil {
 		return false, fmt.Errorf("%w: read upload parts: %w", errFinalizeIO, err)
@@ -52,15 +53,14 @@ func (service *Service) finalizeCandidate(ctx context.Context, run Run, file Can
 	if err != nil {
 		return false, err
 	}
-	stopped, err := service.finalizeWrite(ctx, run, func(scope WriteScope, _ SessionState) error {
+	stopped, err := service.finalizeWrite(ctx, run, func(scope model.WriteScope, _ model.SessionState) error {
 		now := service.now().UnixMilli()
 		blobID, err := scope.Blobs.Ensure(ctx, metadata, now)
 		if err != nil {
 			return fmt.Errorf("register finalized upload: %w", err)
 		}
 		if err := scope.Files.Publish(
-			ctx,
-			FilePublication{
+			ctx, model.FilePublication{
 				Run:    run,
 				FileID: file.ID,
 				BlobID: blobID,

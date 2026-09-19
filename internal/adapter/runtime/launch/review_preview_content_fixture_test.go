@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	application "retrom/internal/service/launch"
+	launchmodel "retrom/internal/model/launch"
 )
 
 func (service *Service) ReviewPreviewContent(
@@ -23,9 +23,7 @@ func (service *Service) ReviewPreviewExternal(
 	previewID, capability, logicalName string,
 ) (ExternalView, error) {
 	result, err := service.contentAccess().External(
-		ctx,
-		application.SessionRef{ID: previewID, Preview: true},
-		capability,
+		ctx, launchmodel.SessionRef{ID: previewID, Preview: true}, capability,
 		logicalName,
 	)
 	if err != nil {
@@ -39,9 +37,7 @@ func (service *Service) ReviewPreviewBundleFiles(
 	previewID, capability, kind string,
 ) ([]BundleFile, error) {
 	result, err := service.sessionQueries().BundleFiles(
-		ctx,
-		application.SessionRef{ID: previewID, Preview: true},
-		capability,
+		ctx, launchmodel.SessionRef{ID: previewID, Preview: true}, capability,
 		kind,
 	)
 	if err != nil {

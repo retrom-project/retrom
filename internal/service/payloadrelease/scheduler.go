@@ -27,10 +27,14 @@ func NewScheduler(newID func() (string, error)) *Scheduler {
 	return &Scheduler{newID: newID}
 }
 
-func (scheduler *Scheduler) Queue(ctx context.Context, scope SchedulingScope, request ScheduleRequest) (string, error) {
-	if !ValidScheduleScope(request.Scope.Type) || request.Scope.ID == "" || request.ScopeVersion < 1 ||
-		!ValidReason(request.Reason) || request.NowMS < 0 {
-		return "", ErrScopeInvalid
+func (scheduler *Scheduler) Queue(
+	ctx context.Context,
+	scope application.SchedulingScope,
+	request application.ScheduleRequest,
+) (string, error) {
+	if !application.ValidScheduleScope(request.Scope.Type) || request.Scope.ID == "" || request.ScopeVersion < 1 ||
+		!application.ValidReason(request.Reason) || request.NowMS < 0 {
+		return "", application.ErrScopeInvalid
 	}
 	job, err := scheduler.prepare(request)
 	if err != nil {
@@ -42,18 +46,18 @@ func (scheduler *Scheduler) Queue(ctx context.Context, scope SchedulingScope, re
 	return job.ID, nil
 }
 
-func (scheduler *Scheduler) prepare(request ScheduleRequest) (ScheduledJob, error) {
+func (scheduler *Scheduler) prepare(request application.ScheduleRequest) (application.ScheduledJob, error) {
 	jobID, err := scheduler.identity()
 	if err != nil {
-		return ScheduledJob{}, err
+		return application.ScheduledJob{}, err
 	}
 	executionID, err := scheduler.identity()
 	if err != nil {
-		return ScheduledJob{}, err
+		return application.ScheduledJob{}, err
 	}
 	job, err := application.BuildScheduledJob(request, jobID, executionID)
 	if err != nil {
-		return ScheduledJob{}, fmt.Errorf("build release schedule: %w", err)
+		return application.ScheduledJob{}, fmt.Errorf("build release schedule: %w", err)
 	}
 	return job, nil
 }
@@ -61,10 +65,10 @@ func (scheduler *Scheduler) prepare(request ScheduleRequest) (ScheduledJob, erro
 func (scheduler *Scheduler) identity() (string, error) {
 	id, err := scheduler.newID()
 	if err != nil {
-		return "", fmt.Errorf("%w: %w", ErrScheduleIDInvalid, err)
+		return "", fmt.Errorf("%w: %w", application.ErrScheduleIDInvalid, err)
 	}
 	if id == "" {
-		return "", ErrScheduleIDInvalid
+		return "", application.ErrScheduleIDInvalid
 	}
 	return id, nil
 }
@@ -72,20 +76,20 @@ func (scheduler *Scheduler) identity() (string, error) {
 func (scheduler *Scheduler) Identity() (string, error) { return scheduler.identity() }
 
 func (scheduler *Scheduler) TerminalItem(
-	ctx context.Context, scope SchedulingScope, id string, reason Reason, now int64,
+	ctx context.Context, scope application.SchedulingScope, id string, reason application.Reason, now int64,
 ) (string, error) {
-	owner, err := readSchedulingOwner(ctx, scope, Scope{Type: ScopeImportItem, ID: id})
+	owner, err := readSchedulingOwner(ctx, scope, application.Scope{Type: application.ScopeImportItem, ID: id})
 	if err != nil {
 		return "", err
 	}
-	if !TerminalImportItem(owner.State) {
-		return "", ErrScopeInvalid
+	if !application.TerminalImportItem(owner.State) {
+		return "", application.ErrScopeInvalid
 	}
 	return scheduler.scheduleOwner(ctx, scope, owner, reason, now)
 }
 
 func (scheduler *Scheduler) TerminalImport(
-	ctx context.Context, scope SchedulingScope, id string, now int64,
+	ctx context.Context, scope application.SchedulingScope, id string, now int64,
 ) (string, error) {
 	pending, err := scope.PendingChildren(ctx, id)
 	if err != nil {
@@ -94,18 +98,18 @@ func (scheduler *Scheduler) TerminalImport(
 	if pending > 0 {
 		return "", nil
 	}
-	owner, err := readSchedulingOwner(ctx, scope, Scope{Type: ScopeImportJob, ID: id})
+	owner, err := readSchedulingOwner(ctx, scope, application.Scope{Type: application.ScopeImportJob, ID: id})
 	if err != nil {
 		return "", err
 	}
-	if !TerminalImportJob(owner.State) {
+	if !application.TerminalImportJob(owner.State) {
 		return "", nil
 	}
-	return scheduler.scheduleOwner(ctx, scope, owner, ReasonImportTerminal, now)
+	return scheduler.scheduleOwner(ctx, scope, owner, application.ReasonImportTerminal, now)
 }
 
 func (scheduler *Scheduler) scheduleOwner(
-	ctx context.Context, scope SchedulingScope, owner Owner, reason Reason, now int64,
+	ctx context.Context, scope application.SchedulingScope, owner application.Owner, reason application.Reason, now int64,
 ) (string, error) {
 	decision, err := application.DecideOwnerRelease(owner, reason)
 	if err != nil {
@@ -114,43 +118,46 @@ func (scheduler *Scheduler) scheduleOwner(
 	if decision.ExistingJobID != "" {
 		return decision.ExistingJobID, nil
 	}
-	id, err := scheduler.Queue(ctx, scope, ScheduleRequest{
+	id, err := scheduler.Queue(ctx, scope, application.ScheduleRequest{
 		Scope: owner.Scope, ScopeVersion: decision.ScopeVersion, Reason: reason, NowMS: now,
 	})
 	if err != nil {
 		return "", err
 	}
-	if err := scope.BeginRelease(ctx, OwnerRelease{Before: owner, JobID: id, NowMS: now}); err != nil {
+	if err := scope.BeginRelease(ctx, application.OwnerRelease{Before: owner, JobID: id, NowMS: now}); err != nil {
 		return "", fmt.Errorf("begin owner payload release: %w", err)
 	}
 	return id, nil
 }
 
-func readSchedulingOwner(ctx context.Context, scope SchedulingScope, ref Scope) (Owner, error) {
+func readSchedulingOwner(ctx context.Context, scope application.SchedulingScope, ref application.Scope) (
+	application.Owner,
+	error,
+) {
 	if ref.ID == "" {
-		return Owner{}, ErrScopeInvalid
+		return application.Owner{}, application.ErrScopeInvalid
 	}
 	owner, err := scope.Owner(ctx, ref)
 	if err != nil {
-		return Owner{}, fmt.Errorf("read release owner: %w", err)
+		return application.Owner{}, fmt.Errorf("read release owner: %w", err)
 	}
 	if owner.Scope != ref || owner.Version < 1 {
-		return Owner{}, ErrScopeInvalid
+		return application.Owner{}, application.ErrScopeInvalid
 	}
 	return owner, nil
 }
 
 func (scheduler *Scheduler) TerminalSource(
-	ctx context.Context, scope SchedulingScope, ref Scope, now int64,
+	ctx context.Context, scope application.SchedulingScope, ref application.Scope, now int64,
 ) (string, error) {
-	if ref.Type != ScopePegasusImportItem && ref.Type != ScopeEmulationStationImportItem {
-		return "", ErrScopeInvalid
+	if ref.Type != application.ScopePegasusImportItem && ref.Type != application.ScopeEmulationStationImportItem {
+		return "", application.ErrScopeInvalid
 	}
 	owner, err := readSchedulingOwner(ctx, scope, ref)
 	if err != nil {
 		return "", err
 	}
-	if !TerminalSourceItem(owner.State, owner.Retryable) {
+	if !application.TerminalSourceItem(owner.State, owner.Retryable) {
 		return "", nil
 	}
 	if owner.PayloadState != "RETAINED" {
@@ -171,9 +178,12 @@ func (scheduler *Scheduler) TerminalSource(
 }
 
 func (scheduler *Scheduler) linkSource(
-	ctx context.Context, scope SchedulingScope, owner Owner, now int64,
+	ctx context.Context, scope application.SchedulingScope, owner application.Owner, now int64,
 ) (string, error) {
-	ordinary, err := readSchedulingOwner(ctx, scope, Scope{Type: ScopeImportItem, ID: owner.PublicID})
+	ordinary, err := readSchedulingOwner(ctx, scope, application.Scope{
+		Type: application.ScopeImportItem,
+		ID:   owner.PublicID,
+	})
 	if err != nil {
 		return "", err
 	}
@@ -181,7 +191,7 @@ func (scheduler *Scheduler) linkSource(
 	if err != nil {
 		return "", fmt.Errorf("decide source release link: %w", err)
 	}
-	if err := scope.BeginRelease(ctx, OwnerRelease{
+	if err := scope.BeginRelease(ctx, application.OwnerRelease{
 		Before: owner, JobID: decision.ExistingJobID, NowMS: now,
 	}); err != nil {
 		return "", fmt.Errorf("link source to ordinary payload release: %w", err)
@@ -190,7 +200,7 @@ func (scheduler *Scheduler) linkSource(
 }
 
 func (scheduler *Scheduler) Consumption(
-	ctx context.Context, scope SchedulingScope, id string, now int64,
+	ctx context.Context, scope application.SchedulingScope, id string, now int64,
 ) (string, error) {
 	before, err := scope.Consumption(ctx, id)
 	if err != nil {
@@ -203,16 +213,16 @@ func (scheduler *Scheduler) Consumption(
 		}
 		return "", nil
 	}
-	return scheduler.Queue(ctx, scope, ScheduleRequest{
-		Scope: Scope{Type: ScopeUploadConsumption, ID: id}, ScopeVersion: before.Version,
-		Reason: ReasonUploadConsumed, NowMS: now,
+	return scheduler.Queue(ctx, scope, application.ScheduleRequest{
+		Scope: application.Scope{Type: application.ScopeUploadConsumption, ID: id}, ScopeVersion: before.Version,
+		Reason: application.ReasonUploadConsumed, NowMS: now,
 	})
 }
 
 func (scheduler *Scheduler) DeleteGame(
-	ctx context.Context, scope SchedulingScope, id string, version, now int64,
+	ctx context.Context, scope application.SchedulingScope, id string, version, now int64,
 ) (string, error) {
-	before, err := readSchedulingOwner(ctx, scope, Scope{Type: ScopeGame, ID: id})
+	before, err := readSchedulingOwner(ctx, scope, application.Scope{Type: application.ScopeGame, ID: id})
 	if err != nil {
 		return "", err
 	}
@@ -220,13 +230,13 @@ func (scheduler *Scheduler) DeleteGame(
 	if err != nil {
 		return "", fmt.Errorf("decide game deletion release: %w", err)
 	}
-	jobID, err := scheduler.Queue(ctx, scope, ScheduleRequest{
-		Scope: before.Scope, ScopeVersion: decision.ScopeVersion, Reason: ReasonGameDeleted, NowMS: now,
+	jobID, err := scheduler.Queue(ctx, scope, application.ScheduleRequest{
+		Scope: before.Scope, ScopeVersion: decision.ScopeVersion, Reason: application.ReasonGameDeleted, NowMS: now,
 	})
 	if err != nil {
 		return "", err
 	}
-	if err := scope.BeginRelease(ctx, OwnerRelease{
+	if err := scope.BeginRelease(ctx, application.OwnerRelease{
 		Before: before, JobID: jobID, NowMS: now, DeleteGame: true,
 	}); err != nil {
 		return "", fmt.Errorf("schedule deleted game payload: %w", err)
@@ -234,9 +244,13 @@ func (scheduler *Scheduler) DeleteGame(
 	return jobID, nil
 }
 
-func (scheduler *Scheduler) Review(ctx context.Context, scope ReleaseScope, request ReviewRelease) error {
-	if request.ItemID == "" || request.ImportID == "" || !ValidReason(request.Reason) || request.NowMS < 0 {
-		return ErrScopeInvalid
+func (scheduler *Scheduler) Review(
+	ctx context.Context,
+	scope application.ReleaseScope,
+	request application.ReviewRelease,
+) error {
+	if request.ItemID == "" || request.ImportID == "" || !application.ValidReason(request.Reason) || request.NowMS < 0 {
+		return application.ErrScopeInvalid
 	}
 	if _, err := scheduler.TerminalItem(ctx, scope.Scheduling, request.ItemID, request.Reason, request.NowMS); err != nil {
 		return err
@@ -250,8 +264,13 @@ func (scheduler *Scheduler) Review(ctx context.Context, scope ReleaseScope, requ
 	return nil
 }
 
-func (scheduler *Scheduler) boundSources(ctx context.Context, scope ReleaseScope, itemID string, now int64) error {
-	var cursor Scope
+func (scheduler *Scheduler) boundSources(
+	ctx context.Context,
+	scope application.ReleaseScope,
+	itemID string,
+	now int64,
+) error {
+	var cursor application.Scope
 	for {
 		sources, err := scope.Links.BoundSources(ctx, itemID, cursor, 200)
 		if err != nil {
@@ -262,7 +281,7 @@ func (scheduler *Scheduler) boundSources(ctx context.Context, scope ReleaseScope
 		}
 		for _, source := range sources {
 			if source.Type < cursor.Type || source.Type == cursor.Type && source.ID <= cursor.ID {
-				return ErrScopeInvalid
+				return application.ErrScopeInvalid
 			}
 			if _, err := scheduler.TerminalSource(ctx, scope.Scheduling, source, now); err != nil {
 				return err
@@ -273,10 +292,10 @@ func (scheduler *Scheduler) boundSources(ctx context.Context, scope ReleaseScope
 }
 
 func (scheduler *Scheduler) TerminalSources(
-	ctx context.Context, scope ReleaseScope, batch SourceBatch, now int64,
+	ctx context.Context, scope application.ReleaseScope, batch application.SourceBatch, now int64,
 ) error {
 	if batch.ImportID == "" || !isSourceItemScope(batch.Type) || now < 0 {
-		return ErrScopeInvalid
+		return application.ErrScopeInvalid
 	}
 	cursor := ""
 	for {
@@ -289,9 +308,12 @@ func (scheduler *Scheduler) TerminalSources(
 		}
 		for _, id := range ids {
 			if id <= cursor {
-				return ErrScopeInvalid
+				return application.ErrScopeInvalid
 			}
-			if _, err := scheduler.TerminalSource(ctx, scope.Scheduling, Scope{Type: batch.Type, ID: id}, now); err != nil {
+			if _, err := scheduler.TerminalSource(ctx, scope.Scheduling, application.Scope{
+				Type: batch.Type,
+				ID:   id,
+			}, now); err != nil {
 				return err
 			}
 			cursor = id
@@ -299,6 +321,6 @@ func (scheduler *Scheduler) TerminalSources(
 	}
 }
 
-func isSourceItemScope(kind ScopeType) bool {
-	return kind == ScopePegasusImportItem || kind == ScopeEmulationStationImportItem
+func isSourceItemScope(kind application.ScopeType) bool {
+	return kind == application.ScopePegasusImportItem || kind == application.ScopeEmulationStationImportItem
 }

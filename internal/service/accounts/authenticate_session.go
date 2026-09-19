@@ -4,47 +4,48 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
+
+	model "retrom/internal/model/accounts"
 )
 
-func (service *Authentication) Authenticate(ctx context.Context, token string) (Session, error) {
-	raw, err := DecodeToken(token)
+func (service *Authentication) Authenticate(ctx context.Context, token string) (model.Session, error) {
+	raw, err := model.DecodeToken(token)
 	if err != nil {
-		return Session{}, ErrAuthenticationNeeded
+		return model.Session{}, model.ErrAuthenticationNeeded
 	}
 	digest := sha256.Sum256(raw)
 	snapshot, found, err := service.repository.Session(ctx, digest)
 	if err != nil {
-		return Session{}, fmt.Errorf("read authentication session: %w", err)
+		return model.Session{}, fmt.Errorf("read authentication session: %w", err)
 	}
 	now := service.now().UnixMilli()
 	if !found || !validSession(snapshot, now) {
-		return Session{}, ErrAuthenticationNeeded
+		return model.Session{}, model.ErrAuthenticationNeeded
 	}
-	if now-snapshot.LastSeen >= refreshInterval.Milliseconds() {
+	if now-snapshot.LastSeen >= model.RefreshInterval.Milliseconds() {
 		snapshot, err = service.refresh(ctx, digest)
 		if err != nil {
-			return Session{}, err
+			return model.Session{}, err
 		}
 	}
 	return snapshot.View(token, raw), nil
 }
 
-func (service *Authentication) refresh(ctx context.Context, digest [32]byte) (SessionSnapshot, error) {
-	var snapshot SessionSnapshot
-	err := service.repository.WithWrite(ctx, func(scope AuthScope) error {
+func (service *Authentication) refresh(ctx context.Context, digest [32]byte) (model.SessionSnapshot, error) {
+	var snapshot model.SessionSnapshot
+	err := service.repository.WithWrite(ctx, func(scope model.AuthScope) error {
 		current, found, err := scope.Read.Session(ctx, digest)
 		if err != nil {
 			return fmt.Errorf("recheck authentication session: %w", err)
 		}
 		now := service.now().UnixMilli()
 		if !found || !validSession(current, now) {
-			return ErrAuthenticationNeeded
+			return model.ErrAuthenticationNeeded
 		}
-		if now-current.LastSeen >= refreshInterval.Milliseconds() {
-			expiry := min(now+idleDuration.Milliseconds(), current.AbsoluteExpiry)
+		if now-current.LastSeen >= model.RefreshInterval.Milliseconds() {
+			expiry := min(now+model.IdleDuration.Milliseconds(), current.AbsoluteExpiry)
 			if err := scope.Write.Refresh(
-				ctx,
-				SessionRefresh{
+				ctx, model.SessionRefresh{
 					ID:               current.ID,
 					ExpectedLastSeen: current.LastSeen,
 					LastSeen:         now,
@@ -60,12 +61,12 @@ func (service *Authentication) refresh(ctx context.Context, digest [32]byte) (Se
 		return nil
 	})
 	if err != nil {
-		return SessionSnapshot{}, fmt.Errorf("commit session refresh: %w", err)
+		return model.SessionSnapshot{}, fmt.Errorf("commit session refresh: %w", err)
 	}
 	return snapshot, nil
 }
 
-func validSession(snapshot SessionSnapshot, now int64) bool {
+func validSession(snapshot model.SessionSnapshot, now int64) bool {
 	return snapshot.RevokedAt == nil && snapshot.Status == "ENABLED" &&
 		snapshot.UserVersion == snapshot.SessionVersion &&
 		now < snapshot.IdleExpiry && now < snapshot.AbsoluteExpiry

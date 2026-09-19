@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 
+	libraryimportmodel "retrom/internal/model/libraryimport"
 	librarypersistence "retrom/internal/repo/libraryimport"
 	libraryservice "retrom/internal/service/libraryimport"
 )
@@ -21,7 +22,7 @@ func (service *Service) ListReviewBulkItems(
 		librarypersistence.BindReviewBulkQueries(service.database),
 	).Items(ctx, bulkID, outcome, cursor, limit)
 	if err != nil {
-		if errors.Is(err, libraryservice.ErrReviewBulkQuery) {
+		if errors.Is(err, libraryimportmodel.ErrReviewBulkQuery) {
 			return ReviewBulkItemPage{}, ErrReviewBulkConflict
 		}
 		return ReviewBulkItemPage{}, fmt.Errorf("libraryimport/review bulk items: %w", err)

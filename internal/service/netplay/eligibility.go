@@ -4,11 +4,12 @@ import (
 	"context"
 	"strings"
 
-	"retrom/internal/service/tagging"
+	model "retrom/internal/model/netplay"
+	taggingmodel "retrom/internal/model/tagging"
 )
 
-func (service *Eligibility) Games(ctx context.Context, profileID, availability string) ([]GameSummary, error) {
-	items := make([]GameSummary, 0)
+func (service *Eligibility) Games(ctx context.Context, profileID, availability string) ([]model.GameSummary, error) {
+	items := make([]model.GameSummary, 0)
 	afterTitle, afterGameID := "", ""
 	for {
 		page, hasMore, err := service.GamePage(ctx, profileID, availability, afterTitle, afterGameID, 100)
@@ -28,15 +29,15 @@ func (service *Eligibility) GamePage(
 	ctx context.Context,
 	profileID, availability, afterTitle, afterGameID string,
 	limit int,
-) ([]GameSummary, bool, error) {
+) ([]model.GameSummary, bool, error) {
 	if availability == "" {
 		availability = "SUPPORTED"
 	}
 	if (availability != "SUPPORTED" && availability != "ALL") || limit < 1 || limit > 100 ||
 		(afterGameID == "") != (afterTitle == "") {
-		return nil, false, ErrInvalidProfile
+		return nil, false, model.ErrInvalidProfile
 	}
-	items := make([]GameSummary, 0, limit+1)
+	items := make([]model.GameSummary, 0, limit+1)
 	scanTitle, scanGameID := afterTitle, afterGameID
 	for len(items) <= limit {
 		candidates, hasMoreCandidates, err := service.repository.GamePage(
@@ -70,11 +71,11 @@ func (service *Eligibility) GamePage(
 
 func (service *Eligibility) appendEligibleGames(
 	ctx context.Context,
-	candidates []GameSummary,
+	candidates []model.GameSummary,
 	availability string,
-	items []GameSummary,
+	items []model.GameSummary,
 	limit int,
-) ([]GameSummary, string, string, error) {
+) ([]model.GameSummary, string, string, error) {
 	lastTitle, lastGameID := "", ""
 	for _, candidate := range candidates {
 		lastTitle, lastGameID = strings.ToLower(candidate.Title), candidate.GameID
@@ -92,7 +93,7 @@ func (service *Eligibility) appendEligibleGames(
 	return items, lastTitle, lastGameID, nil
 }
 
-func (service *Eligibility) attachGameTags(ctx context.Context, items []GameSummary) error {
+func (service *Eligibility) attachGameTags(ctx context.Context, items []model.GameSummary) error {
 	gameIDs := make([]string, 0, len(items))
 	for _, item := range items {
 		gameIDs = append(gameIDs, item.GameID)
@@ -104,7 +105,7 @@ func (service *Eligibility) attachGameTags(ctx context.Context, items []GameSumm
 	for index := range items {
 		items[index].Tags = references[items[index].GameID]
 		if items[index].Tags == nil {
-			items[index].Tags = []tagging.Reference{}
+			items[index].Tags = []taggingmodel.Reference{}
 		}
 	}
 	return nil
@@ -112,14 +113,14 @@ func (service *Eligibility) attachGameTags(ctx context.Context, items []GameSumm
 
 func (service *Eligibility) enrichGame(
 	ctx context.Context,
-	item GameSummary,
+	item model.GameSummary,
 	availability string,
-) (GameSummary, bool, error) {
+) (model.GameSummary, bool, error) {
 	profiles, blocker, err := service.profileEligibility(ctx, item.GameID)
 	if err != nil {
-		return GameSummary{}, false, err
+		return model.GameSummary{}, false, err
 	}
-	item.NetplayProfiles = make([]ProfileSummary, 0, len(profiles))
+	item.NetplayProfiles = make([]model.ProfileSummary, 0, len(profiles))
 	for _, profile := range profiles {
 		item.NetplayProfiles = append(item.NetplayProfiles, profile.Summary)
 	}
@@ -132,7 +133,7 @@ func (service *Eligibility) enrichGame(
 	return item, availability == "ALL" || item.Availability == "SUPPORTED", nil
 }
 
-func (service *Eligibility) Profiles(ctx context.Context, gameID string) ([]EligibleProfile, error) {
+func (service *Eligibility) Profiles(ctx context.Context, gameID string) ([]model.EligibleProfile, error) {
 	profiles, _, err := service.profileEligibility(ctx, gameID)
 	return profiles, err
 }

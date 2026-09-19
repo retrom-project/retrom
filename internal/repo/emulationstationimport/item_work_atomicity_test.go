@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
 	application "retrom/internal/service/emulationstationimport"
 	"retrom/internal/testkit/testsupport"
 )
@@ -41,8 +42,7 @@ func TestItemWorkSQLAndAffectedRowFailuresRollback(t *testing.T) {
 				err = application.NewItemWork(NewItemWork(faultDB), func() time.Time { return time.UnixMilli(1100) }).Finish(
 					t.Context(),
 					unit,
-					item.ID,
-					application.ItemOutcome{State: "COMMIT_FAILED", Code: "INTERNAL_ERROR"},
+					item.ID, emulationstationimportmodel.ItemOutcome{State: "COMMIT_FAILED", Code: "INTERNAL_ERROR"},
 				)
 				if !errors.Is(err, errLeaseStorage) || hits.Load() != 1 {
 					t.Fatalf("cause=%v hits=%d", err, hits.Load())
@@ -62,9 +62,9 @@ type itemWorkLateFailure struct {
 
 func (repository itemWorkLateFailure) WithItemWork(
 	ctx context.Context,
-	run func(application.ItemWorkScope) error,
+	run func(emulationstationimportmodel.ItemWorkScope) error,
 ) error {
-	return repository.ItemWork.WithItemWork(ctx, func(scope application.ItemWorkScope) error {
+	return repository.ItemWork.WithItemWork(ctx, func(scope emulationstationimportmodel.ItemWorkScope) error {
 		if err := run(scope); err != nil {
 			return err
 		}
@@ -116,7 +116,7 @@ func assertItemWorkLateFailure(t *testing.T, operation string, commit bool) {
 	)
 	var err error
 	if operation == "claim" {
-		var item application.ExecutionItem
+		var item emulationstationimportmodel.ExecutionItem
 		var found bool
 		item, found, err = service.Next(t.Context(), unit)
 		if item.ID != "" || found {
@@ -126,8 +126,7 @@ func assertItemWorkLateFailure(t *testing.T, operation string, commit bool) {
 		err = service.Finish(
 			t.Context(),
 			unit,
-			itemID,
-			application.ItemOutcome{State: "COMMIT_FAILED", Code: "INTERNAL_ERROR"},
+			itemID, emulationstationimportmodel.ItemOutcome{State: "COMMIT_FAILED", Code: "INTERNAL_ERROR"},
 		)
 	}
 	if err == nil || !commit && !errors.Is(err, errLeaseStorage) {

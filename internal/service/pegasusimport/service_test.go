@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"testing"
+
+	model "retrom/internal/model/pegasusimport"
 )
 
 type serviceCommands struct {
@@ -12,14 +14,14 @@ type serviceCommands struct {
 	calls   []string
 }
 
-func (fake *serviceCommands) Create(context.Context, CreateRequest, string) (Summary, error) {
+func (fake *serviceCommands) Create(context.Context, model.CreateRequest, string) (model.Summary, error) {
 	fake.calls = append(fake.calls, "create")
-	return Summary{ID: "import"}, fake.failure
+	return model.Summary{ID: "import"}, fake.failure
 }
 
-func (fake *serviceCommands) Start(context.Context, string, int64, string) (Summary, bool, error) {
+func (fake *serviceCommands) Start(context.Context, string, int64, string) (model.Summary, bool, error) {
 	fake.calls = append(fake.calls, "start")
-	return Summary{ID: "import"}, fake.queued, fake.failure
+	return model.Summary{ID: "import"}, fake.queued, fake.failure
 }
 func (fake *serviceCommands) Signal() { fake.calls = append(fake.calls, "signal") }
 func (fake *serviceCommands) Close()  { fake.calls = append(fake.calls, "close") }
@@ -38,7 +40,7 @@ func TestServiceSignalsOnlyCommittedNewWork(t *testing.T) {
 			service := New(ServiceDependencies{Creation: fake, Starter: fake, Worker: serviceWake{fake}})
 			var err error
 			if name == "create failed" || name == "create committed" {
-				_, err = service.Create(t.Context(), CreateRequest{}, "actor")
+				_, err = service.Create(t.Context(), model.CreateRequest{}, "actor")
 			} else {
 				_, err = service.StartImport(t.Context(), "import", 1, "actor")
 			}

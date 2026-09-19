@@ -5,43 +5,45 @@ import (
 	"errors"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/emulationstationimport"
 )
 
 type materialMemory struct {
-	before                       MaterialSnapshot
-	phase                        ExecutionPhase
-	binding                      MaterialBinding
-	warning                      MaterialWarning
-	phaseChange                  PhaseChange
+	before                       model.MaterialSnapshot
+	phase                        model.ExecutionPhase
+	binding                      model.MaterialBinding
+	warning                      model.MaterialWarning
+	phaseChange                  model.PhaseChange
 	readErr, writeErr, commitErr error
 }
 
-func (memory *materialMemory) WithMaterialization(_ context.Context, run func(MaterialScope) error) error {
-	if err := run(MaterialScope{Read: memory, Write: memory}); err != nil {
+func (memory *materialMemory) WithMaterialization(_ context.Context, run func(model.MaterialScope) error) error {
+	if err := run(model.MaterialScope{Read: memory, Write: memory}); err != nil {
 		return err
 	}
 	return memory.commitErr
 }
 
-func (memory *materialMemory) Source(context.Context, MaterialKey) (MaterialSnapshot, error) {
+func (memory *materialMemory) Source(context.Context, model.MaterialKey) (model.MaterialSnapshot, error) {
 	return memory.before, memory.readErr
 }
 
-func (memory *materialMemory) Execution(context.Context, string) (ExecutionPhase, error) {
+func (memory *materialMemory) Execution(context.Context, string) (model.ExecutionPhase, error) {
 	return memory.phase, memory.readErr
 }
 
-func (memory *materialMemory) Bind(_ context.Context, change MaterialBinding) (string, error) {
+func (memory *materialMemory) Bind(_ context.Context, change model.MaterialBinding) (string, error) {
 	memory.binding = change
 	return "material-blob", memory.writeErr
 }
 
-func (memory *materialMemory) Warn(_ context.Context, change MaterialWarning) error {
+func (memory *materialMemory) Warn(_ context.Context, change model.MaterialWarning) error {
 	memory.warning = change
 	return memory.writeErr
 }
 
-func (memory *materialMemory) Phase(_ context.Context, change PhaseChange) error {
+func (memory *materialMemory) Phase(_ context.Context, change model.PhaseChange) error {
 	memory.phaseChange = change
 	return memory.writeErr
 }
@@ -50,13 +52,13 @@ func newMaterialMemory() *materialMemory {
 	owned := newItemWorkMemory().before
 	owned.Item.State = "COPYING"
 	return &materialMemory{
-		before: MaterialSnapshot{
+		before: model.MaterialSnapshot{
 			Before:   owned,
-			Source:   MaterialSource{Key: MaterialKey{ItemID: owned.Item.ID}, Path: "game.nes", Facts: "frozen", Size: 3},
+			Source:   model.MaterialSource{Key: model.MaterialKey{ItemID: owned.Item.ID}, Path: "game.nes", Facts: "frozen", Size: 3},
 			State:    "DISCOVERED",
 			Warnings: []map[string]any{},
 		},
-		phase: ExecutionPhase{Execution: owned.Execution, Phase: "COPYING_CONTENT"},
+		phase: model.ExecutionPhase{Execution: owned.Execution, Phase: "COPYING_CONTENT"},
 	}
 }
 
@@ -79,8 +81,7 @@ func TestMaterializationRequiresOriginalAuthorityAndFrozenFacts(t *testing.T) {
 			result, err := NewMaterialization(memory, func() time.Time { return time.UnixMilli(2000) }).Copy(
 				t.Context(),
 				unit,
-				source,
-				VerifiedBlob{SHA256: "hash", Size: source.Size},
+				source, model.VerifiedBlob{SHA256: "hash", Size: source.Size},
 			)
 			if kind != "valid" {
 				if err == nil || result != "" || memory.binding.Blob.SHA256 != "" {
@@ -144,8 +145,7 @@ func TestMaterializationPreservesErrorsAndUncommittedResult(t *testing.T) {
 			result, err := NewMaterialization(memory, func() time.Time { return time.UnixMilli(2000) }).Copy(
 				t.Context(),
 				memory.before.Before.Execution.Execution,
-				memory.before.Source,
-				VerifiedBlob{SHA256: "hash", Size: 3},
+				memory.before.Source, model.VerifiedBlob{SHA256: "hash", Size: 3},
 			)
 			if !errors.Is(err, cause) || result != "" {
 				t.Fatalf("result=%s cause=%v", result, err)

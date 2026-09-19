@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"retrom/internal/adapter/integration/libraryimport"
-	application "retrom/internal/service/emulationstationimport"
+	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
 	"retrom/internal/testkit/testsupport"
 )
 
@@ -108,7 +108,7 @@ func TestESReviewHandoffFailureRollsBackSeedAndRetainsCause(t *testing.T) {
 func (service *Service) finalizeReviewHandoff(ctx context.Context, unit work, item executionItem,
 	jobID, itemID string, _ []libraryimport.ServerMetadataWarning,
 ) error {
-	return service.reviewHandoff().Complete(ctx, application.ReviewHandoffRequest{
+	return service.reviewHandoff().Complete(ctx, emulationstationimportmodel.ReviewHandoffRequest{
 		Execution: unit, ItemID: item.ID, LibraryJobID: jobID, LibraryItemID: itemID,
 	})
 }

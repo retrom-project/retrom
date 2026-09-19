@@ -4,29 +4,30 @@ import (
 	"context"
 	"fmt"
 
-	"retrom/internal/service/tagging"
+	model "retrom/internal/model/pegasusimport"
+	taggingmodel "retrom/internal/model/tagging"
 )
 
 type Queries struct {
-	repository QueryRepository
-	tags       CollectionTags
+	repository model.QueryRepository
+	tags       model.CollectionTags
 }
 
-func NewQueries(repository QueryRepository, tags CollectionTags) *Queries {
+func NewQueries(repository model.QueryRepository, tags model.CollectionTags) *Queries {
 	return &Queries{repository: repository, tags: tags}
 }
 
-func (service *Queries) Get(ctx context.Context, id string) (Summary, error) {
+func (service *Queries) Get(ctx context.Context, id string) (model.Summary, error) {
 	value, err := service.repository.Get(ctx, id)
 	if err != nil {
-		return Summary{}, fmt.Errorf("get Pegasus import: %w", err)
+		return model.Summary{}, fmt.Errorf("get Pegasus import: %w", err)
 	}
 	return value, nil
 }
 
-func (service *Queries) List(ctx context.Context, query ListQuery) ([]Summary, error) {
+func (service *Queries) List(ctx context.Context, query model.ListQuery) ([]model.Summary, error) {
 	if query.Limit < 1 || query.Limit > 21 {
-		return nil, ErrInvalid
+		return nil, model.ErrInvalid
 	}
 	values, err := service.repository.List(ctx, query)
 	if err != nil {
@@ -35,9 +36,9 @@ func (service *Queries) List(ctx context.Context, query ListQuery) ([]Summary, e
 	return values, nil
 }
 
-func (service *Queries) Items(ctx context.Context, query ItemQuery) ([]Item, error) {
+func (service *Queries) Items(ctx context.Context, query model.ItemQuery) ([]model.Item, error) {
 	if query.Limit < 1 || query.Limit > 51 {
-		return nil, ErrInvalid
+		return nil, model.ErrInvalid
 	}
 	values, err := service.repository.Items(ctx, query)
 	if err != nil {
@@ -46,9 +47,9 @@ func (service *Queries) Items(ctx context.Context, query ItemQuery) ([]Item, err
 	return values, nil
 }
 
-func (service *Queries) Collections(ctx context.Context, query CollectionQuery) ([]Collection, error) {
+func (service *Queries) Collections(ctx context.Context, query model.CollectionQuery) ([]model.Collection, error) {
 	if query.Limit < 1 || query.Limit > 101 {
-		return nil, ErrInvalid
+		return nil, model.ErrInvalid
 	}
 	records, err := service.repository.Collections(ctx, query)
 	if err != nil {
@@ -60,18 +61,18 @@ func (service *Queries) Collections(ctx context.Context, query CollectionQuery) 
 			ids = append(ids, record.ID)
 		}
 	}
-	var references map[string][]tagging.Reference
+	var references map[string][]taggingmodel.Reference
 	if len(ids) > 0 {
 		references, err = service.tags.PegasusReferences(ctx, ids)
 		if err != nil {
 			return nil, fmt.Errorf("read Pegasus mapping tags: %w", err)
 		}
 	}
-	values := make([]Collection, 0, len(records))
+	values := make([]model.Collection, 0, len(records))
 	for _, record := range records {
 		value := record.Collection
 		if record.ImportState == "AWAITING_MAPPING" {
-			value.TagSnapshot = append([]tagging.Reference{}, references[record.ID]...)
+			value.TagSnapshot = append([]taggingmodel.Reference{}, references[record.ID]...)
 		}
 		values = append(values, value)
 	}

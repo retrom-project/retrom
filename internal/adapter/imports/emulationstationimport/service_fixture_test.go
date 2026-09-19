@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"time"
 
+	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
 	persistence "retrom/internal/repo/emulationstationimport"
 
 	application "retrom/internal/service/emulationstationimport"
@@ -22,20 +23,20 @@ import (
 )
 
 var (
-	ErrNotFound             = application.ErrNotFound
+	ErrNotFound             = emulationstationimportmodel.ErrNotFound
 	ErrGamelistAbsent       = application.ErrGamelistAbsent
 	ErrNoValidGamelist      = application.ErrNoValidGamelist
 	ErrScanLimit            = application.ErrScanLimit
-	ErrMapping              = application.ErrMapping
-	ErrVersionConflict      = application.ErrVersionConflict
-	ErrNoSelection          = application.ErrNoSelection
-	ErrSourceChanged        = application.ErrSourceChanged
-	ErrMappingTargetChanged = application.ErrMappingTargetChanged
-	ErrExpired              = application.ErrExpired
-	ErrActive               = application.ErrActive
-	ErrInvalid              = application.ErrInvalid
-	ErrNotCancellable       = application.ErrNotCancellable
-	ErrNotRetryable         = application.ErrNotRetryable
+	ErrMapping              = emulationstationimportmodel.ErrMapping
+	ErrVersionConflict      = emulationstationimportmodel.ErrVersionConflict
+	ErrNoSelection          = emulationstationimportmodel.ErrNoSelection
+	ErrSourceChanged        = emulationstationimportmodel.ErrSourceChanged
+	ErrMappingTargetChanged = emulationstationimportmodel.ErrMappingTargetChanged
+	ErrExpired              = emulationstationimportmodel.ErrExpired
+	ErrActive               = emulationstationimportmodel.ErrActive
+	ErrInvalid              = emulationstationimportmodel.ErrInvalid
+	ErrNotCancellable       = emulationstationimportmodel.ErrNotCancellable
+	ErrNotRetryable         = emulationstationimportmodel.ErrNotRetryable
 	errItemStateChanged     = errors.New("item state changed")
 )
 
@@ -94,7 +95,7 @@ func (service *Service) recoverWork(ctx context.Context) error {
 	return nil
 }
 
-type work = application.Execution
+type work = emulationstationimportmodel.Execution
 
 func (service *Service) claim(ctx context.Context) (work, bool, error) {
 	unit, found, err := application.NewLeases(persistence.NewLeases(service.database), service.now).Claim(ctx)

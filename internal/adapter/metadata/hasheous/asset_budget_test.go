@@ -5,6 +5,8 @@ import (
 	"errors"
 	"net/http"
 	"testing"
+
+	metadatamodel "retrom/internal/model/metadata"
 )
 
 func TestBoundedAssetReportsInvalidAndFailedResponseBytes(t *testing.T) {
@@ -16,9 +18,9 @@ func TestBoundedAssetReportsInvalidAndFailedResponseBytes(t *testing.T) {
 		bytes   int64
 		cause   error
 	}{
-		{"invalid image", "not an image", nil, 100, 12, ErrAssetMediaTypeInvalid},
+		{"invalid image", "not an image", nil, 100, 12, metadatamodel.ErrAssetMediaTypeInvalid},
 		{"partial read", "", context.Canceled, 100, 3, context.Canceled},
-		{"budget boundary", "longer than limit", nil, 4, 4, ErrAssetReadLimit},
+		{"budget boundary", "longer than limit", nil, 4, 4, metadatamodel.ErrAssetReadLimit},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			client := roundTripFunc(func(*http.Request) (*http.Response, error) {

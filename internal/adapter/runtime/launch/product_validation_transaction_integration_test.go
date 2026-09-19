@@ -13,14 +13,15 @@ import (
 	"modernc.org/sqlite"
 
 	"retrom/internal/capability/content/contentcapability"
+	launchmodel "retrom/internal/model/launch"
 	"retrom/internal/repo/dbexec"
 	persistence "retrom/internal/repo/launch"
 	application "retrom/internal/service/launch"
 )
 
-func productValidationInput(t *testing.T, fixture reviewCheckpointFixture, request CreateRequest) application.ValidationInputs {
+func productValidationInput(t *testing.T, fixture reviewCheckpointFixture, request CreateRequest) launchmodel.ValidationInputs {
 	t.Helper()
-	var input application.ValidationInputs
+	var input launchmodel.ValidationInputs
 	err := fixture.database.QueryRowContext(t.Context(), `SELECT variant.id,variant.provider_id,variant.target_id,game.version,game.source_manifest_digest
 FROM game_variants variant JOIN games game ON game.id=variant.game_id WHERE game.id=?`, request.GameID).Scan(&input.GameVariantID, &input.ProviderID, &input.TargetID, &input.GameVersion, &input.SourceManifestDigest)
 	if err != nil {
@@ -96,7 +97,7 @@ func TestProductValidationConcurrentSameDigestUsesOneJob(t *testing.T) {
 	fixture, request := productCreationFixture(t)
 	input := productValidationInput(t, fixture, request)
 	type outcome struct {
-		result application.ValidationQueued
+		result launchmodel.ValidationQueued
 		err    error
 	}
 	outcomes := make(chan outcome, 2)
@@ -130,18 +131,18 @@ func TestProductValidationConcurrentSameDigestUsesOneJob(t *testing.T) {
 	}
 }
 
-func queueProductValidation(ctx context.Context, fixture reviewCheckpointFixture, input application.ValidationInputs) (application.ValidationQueued, error) {
+func queueProductValidation(ctx context.Context, fixture reviewCheckpointFixture, input launchmodel.ValidationInputs) (launchmodel.ValidationQueued, error) {
 	tx, err := fixture.database.BeginTx(ctx, nil)
 	if err != nil {
-		return application.ValidationQueued{}, err
+		return launchmodel.ValidationQueued{}, err
 	}
 	defer dbexec.Rollback(tx)
 	result, err := application.NewValidationScheduler(persistence.NewValidationJobs(tx), application.ValidationEnvironment{Now: fixture.launcher.now}).Queue(ctx, input)
 	if err != nil {
-		return application.ValidationQueued{}, err
+		return launchmodel.ValidationQueued{}, err
 	}
 	if err := tx.Commit(); err != nil {
-		return application.ValidationQueued{}, err
+		return launchmodel.ValidationQueued{}, err
 	}
 	return result, nil
 }

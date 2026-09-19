@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	savesmodel "retrom/internal/model/saves"
 	savepersistence "retrom/internal/repo/saves"
 
 	"retrom/internal/adapter/files/blobstore"
@@ -172,7 +173,7 @@ func TestReviewCheckpointRejectsCrossSessionIdempotencyReplay(t *testing.T) {
 		t.Fatalf("idempotent trial checkpoint: %+v %v", repeated, err)
 	}
 	if _, _, err := fixture.saver.CreateManual(t.Context(), another.PreviewID, another.Capability,
-		"save-once", reviewCheckpointRequest(t, "point-B")); !errors.Is(err, saves.ErrSequenceReused) {
+		"save-once", reviewCheckpointRequest(t, "point-B")); !errors.Is(err, savesmodel.ErrSequenceReused) {
 		t.Fatalf("save key replayed across preview sessions: %v", err)
 	}
 }
@@ -207,7 +208,7 @@ func TestReviewCheckpointIsScopedExpiringAndReleasedByOrdinaryGC(t *testing.T) {
 		t.Fatalf("expired checkpoint can start another restore: %v", err)
 	}
 	if _, _, err := fixture.saver.CreateManual(t.Context(), original.PreviewID, original.Capability,
-		"expired", reviewCheckpointRequest(t, "point-C")); !errors.Is(err, saves.ErrCredential) {
+		"expired", reviewCheckpointRequest(t, "point-C")); !errors.Is(err, savesmodel.ErrCredential) {
 		t.Fatalf("expired trial can write checkpoint: %v", err)
 	}
 	if err := fixture.releaser.ReconcileGC(t.Context()); err != nil {

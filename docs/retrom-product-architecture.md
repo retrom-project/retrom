@@ -68,6 +68,10 @@ Retrom 是供用户与可信朋友共享的自托管复古游戏 Web 平台。�
 
 ## 3. 关键产品与技术决策
 
+跨层 DTO、Entity、领域错误和窄能力端口由 `internal/model` 持有；消费者直接导入定义所在的 Model 包。Service 负责用例编排，不通过类型别名、错误变量或空转发函数提供第二个共享契约入口。含时钟函数、文件/Provider/签名依赖的环境配置属于实际消费它的 Service，不进入领域值图。
+
+共享内容事实、归一化元数据和联机配置分别归属 `model/blob`、`model/metadata` 和 `model/netplayprofile`。Hasheous Adapter 显式产生稳定候选值；原始响应按原字节保留，协议审计在 Adapter 与持久化边界解释，领域判断使用 ProviderOutcome。技术时钟端口 `model/clock.Clock` 只声明 `NowMS() int64`，真实系统实现位于 `adapter/system/clock`。
+
 ### 3.1 游戏目录决定默认核心
 
 领域关系不是“游戏直接属于平台”，而是：
@@ -124,6 +128,7 @@ flowchart LR
 ### 3.5 原始内容不可变并用 SHA-256 去重
 
 - 上传内容流式计算 SHA-256，写入本地内容寻址存储；相同内容只保存一个 Blob。
+- 跨层内容事实由 `model/blob.PreparedBlob` 唯一定义，保留 SHA-256、MD5、SHA-1、CRC32 和字节数；稳定目录身份由 `BlobRef` 加上 BlobID 表达。暂存路径和文件句柄属于文件适配器资源，不进入领域命令、快照或内容事实。已校验摘要不代表 CAS 对象持续存在或持续受引用保护；提交前仍须复核当前目录和引用。
 - Blob 发布后不原地修改。替换游戏文件只在规范化内容确实变化且默认核心验证 READY 后，原子更新 Game、`game_files` 和默认 GameVariant 当前态；完全相同的单 ROM 或盘序/Disc hash 相同的多盘输入被拒绝。
 - 目录默认 Core 或 DAT 的变化不改写存档。所有存档只记录 Game 和 Provider 中立的 checkpoint format；恢复使用当前 READY Target，且只有其 `readFormats` 明确包含该格式时才允许恢复。不兼容旧存档保留为不可恢复记录，用户仍可启动游戏并创建新存档；系统不保留旧 Bundle 作为恢复旁路，也不提供 Provider 降级。管理员显式成功替换 ROM/多盘内容仍是破坏性边界，会删除旧内容绑定存档及运行 payload，再把失去最后引用的旧 Blob 交给宽限期 GC。替换失败不触碰 current 或存档。
 - 数据库保存逻辑关系、哈希、大小、MIME 和引用，不保存宿主机任意路径供浏览器使用。

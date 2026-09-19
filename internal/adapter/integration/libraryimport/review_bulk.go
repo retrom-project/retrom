@@ -13,6 +13,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	libraryimportmodel "retrom/internal/model/libraryimport"
 	"retrom/internal/repo/dbexec"
 	librarypersistence "retrom/internal/repo/libraryimport"
 
@@ -20,7 +21,6 @@ import (
 
 	"retrom/internal/capability/content/contentcapability"
 	"retrom/internal/capability/security/authn"
-	libraryservice "retrom/internal/service/libraryimport"
 )
 
 const (
@@ -175,8 +175,8 @@ func scanReviewBulkCandidates(
 	scope ReviewBulkScope,
 ) ([]reviewBulkCandidate, error) {
 	rows, err := librarypersistence.BindReviewBulkQueries(transaction).Candidates(
-		ctx, libraryservice.ReviewBulkCandidateQuery{
-			Scope: libraryservice.ReviewBulkScope{
+		ctx, libraryimportmodel.ReviewBulkCandidateQuery{
+			Scope: libraryimportmodel.ReviewBulkScope{
 				Q: scope.Q, TagID: scope.TagID, ImportJobID: scope.ImportJobID,
 				PegasusImportID: scope.PegasusImportID, EmulationStationImportID: scope.EmulationStationImportID,
 				PlatformInstanceID: scope.PlatformInstanceID, BlockerCode: scope.BlockerCode,
@@ -190,7 +190,7 @@ func scanReviewBulkCandidates(
 	return reviewBulkCandidatesFromApplication(rows), nil
 }
 
-func reviewBulkCandidatesFromApplication(rows []libraryservice.ReviewBulkCandidate) []reviewBulkCandidate {
+func reviewBulkCandidatesFromApplication(rows []libraryimportmodel.ReviewBulkCandidate) []reviewBulkCandidate {
 	candidates := make([]reviewBulkCandidate, 0, len(rows))
 	for _, row := range rows {
 		candidate := reviewBulkCandidate{
@@ -399,16 +399,16 @@ func insertReviewBulkRecords(
 	}
 	dedupe := sha256.Sum256([]byte(bulkID.String()))
 	inputDigest := sha256.Sum256(payload)
-	created, err := librarypersistence.BindReviewBulkWrites(transaction).Create(ctx, libraryservice.ReviewBulkCreation{
+	created, err := librarypersistence.BindReviewBulkWrites(transaction).Create(ctx, libraryimportmodel.ReviewBulkCreation{
 		BulkApprovalID: bulkID.String(), JobID: jobID.String(), CreatedByUserID: createdBy,
-		Scope: libraryservice.ReviewBulkScope{
+		Scope: libraryimportmodel.ReviewBulkScope{
 			Q: preview.Scope.Q, TagID: preview.Scope.TagID, ImportJobID: preview.Scope.ImportJobID,
 			PegasusImportID: preview.Scope.PegasusImportID, EmulationStationImportID: preview.Scope.EmulationStationImportID,
 			PlatformInstanceID: preview.Scope.PlatformInstanceID, BlockerCode: preview.Scope.BlockerCode,
 		}, ScopeJSON: scopeJSON, ScopeDigest: preview.ScopeDigest,
 		CandidateManifestDigest: preview.CandidateManifestDigest, PayloadJSON: string(payload),
 		DedupeKey: hex.EncodeToString(dedupe[:]), InputDigest: hex.EncodeToString(inputDigest[:]),
-		Counts: libraryservice.ReviewBulkCounts{
+		Counts: libraryimportmodel.ReviewBulkCounts{
 			Matched: preview.Counts.Matched, StrictReady: preview.Counts.StrictReady,
 			ScreenshotOnly: preview.Counts.ScreenshotOnly, Duplicate: preview.Counts.Duplicate,
 			AttachmentActive: preview.Counts.AttachmentActive, SourceFlagged: preview.Counts.SourceFlagged,
@@ -424,10 +424,10 @@ func insertReviewBulkRecords(
 	return reviewBulkSummaryFromApplication(created), nil
 }
 
-func reviewBulkCreationCandidates(candidates []reviewBulkCandidate) []libraryservice.ReviewBulkCandidate {
-	result := make([]libraryservice.ReviewBulkCandidate, 0, len(candidates))
+func reviewBulkCreationCandidates(candidates []reviewBulkCandidate) []libraryimportmodel.ReviewBulkCandidate {
+	result := make([]libraryimportmodel.ReviewBulkCandidate, 0, len(candidates))
 	for _, candidate := range candidates {
-		result = append(result, libraryservice.ReviewBulkCandidate{
+		result = append(result, libraryimportmodel.ReviewBulkCandidate{
 			ItemID: candidate.itemID, SourceSnapshotID: candidate.sourceSnapshotID,
 			PlatformInstanceID: candidate.platformInstanceID, PlatformName: candidate.platformName,
 			PlatformID: candidate.platformID, Title: strings.TrimSpace(candidate.title),
@@ -499,7 +499,7 @@ func (service *Service) CreateReviewBulk(
 func (service *Service) GetReviewBulk(ctx context.Context, bulkID string) (ReviewBulkSummary, error) {
 	summary, err := librarypersistence.BindReviewBulkQueries(service.database).Summary(ctx, bulkID)
 	if err != nil {
-		if errors.Is(err, libraryservice.ErrReviewBulkQuery) {
+		if errors.Is(err, libraryimportmodel.ErrReviewBulkQuery) {
 			return ReviewBulkSummary{}, ErrReviewBulkConflict
 		}
 		return ReviewBulkSummary{}, fmt.Errorf("libraryimport/review bulk get: %w", err)
@@ -507,7 +507,7 @@ func (service *Service) GetReviewBulk(ctx context.Context, bulkID string) (Revie
 	return reviewBulkSummaryFromApplication(summary), nil
 }
 
-func reviewBulkSummaryFromApplication(summary libraryservice.ReviewBulkSummary) ReviewBulkSummary {
+func reviewBulkSummaryFromApplication(summary libraryimportmodel.ReviewBulkSummary) ReviewBulkSummary {
 	return ReviewBulkSummary{
 		BulkApprovalID: summary.BulkApprovalID, JobID: summary.JobID, State: summary.State,
 		Version: summary.Version,

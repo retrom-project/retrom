@@ -3,13 +3,13 @@ package metadatascrape
 import (
 	"context"
 
-	"retrom/internal/adapter/metadata/hasheous"
+	metadatamodel "retrom/internal/model/metadata"
 )
 
 type CachedResponse struct {
 	ID, RawSHA256 string
-	Outcome       hasheous.ProviderOutcome
-	HTTPStatus    int
+	Outcome       metadatamodel.ProviderOutcome
+	Audit         metadatamodel.ProtocolAudit
 }
 
 type CacheReader interface {

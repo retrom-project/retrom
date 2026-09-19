@@ -9,16 +9,17 @@ import (
 	"testing"
 	"time"
 
+	serverimportmodel "retrom/internal/model/serverimport"
 	importpersistence "retrom/internal/repo/serverimport"
 	importservice "retrom/internal/service/serverimport"
 )
 
 const controlActorID = "01980000-0000-7000-8000-00000000b001"
 
-func failedControlImport(t *testing.T) (*Service, *sql.DB, Summary) {
+func failedControlImport(t *testing.T) (*importservice.Service, *sql.DB, serverimportmodel.Summary) {
 	t.Helper()
 	service, database, _ := archiveImportFixture(t)
-	created, err := service.Create(t.Context(), CreateRequest{Kind: "BIOS_DIRECTORY", RootID: "bios-root"}, controlActorID)
+	created, err := service.Create(t.Context(), serverimportmodel.CreateRequest{Kind: "BIOS_DIRECTORY", RootID: "bios-root"}, controlActorID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -37,8 +38,8 @@ func failedControlImport(t *testing.T) (*Service, *sql.DB, Summary) {
 func TestRetryWriteRejectsSnapshotChangedAfterPreparation(t *testing.T) {
 	_, database, created := failedControlImport(t)
 	repository := importpersistence.NewControl(database)
-	var before importservice.ControlSnapshot
-	if err := repository.WithWrite(t.Context(), func(scope importservice.ControlScope) error {
+	var before serverimportmodel.ControlSnapshot
+	if err := repository.WithWrite(t.Context(), func(scope serverimportmodel.ControlScope) error {
 		var err error
 		before, err = scope.Read.Current(t.Context(), created.ID)
 		return err
@@ -50,9 +51,9 @@ func TestRetryWriteRejectsSnapshotChangedAfterPreparation(t *testing.T) {
 	}
 	input := []byte(`{"schemaVersion":1}`)
 	digest := sha256.Sum256(input)
-	plan := importservice.ManualRetry{Before: before, Execution: before.Execution + 1, Input: input, InputDigest: fmt.Sprintf("%x", digest), Payload: []byte(`{"inputExecutionNo":2}`), Evidence: importservice.ControlEvidence{ActorID: controlActorID, AuditID: "retry-audit", Event: []byte(`{"schemaVersion":1,"executionNo":2}`), Now: created.UpdatedAtMS}}
-	err := repository.WithWrite(t.Context(), func(scope importservice.ControlScope) error { return scope.Write.Retry(t.Context(), plan) })
-	if !errors.Is(err, ErrNotRetryable) {
+	plan := serverimportmodel.ManualRetry{Before: before, Execution: before.Execution + 1, Input: input, InputDigest: fmt.Sprintf("%x", digest), Payload: []byte(`{"inputExecutionNo":2}`), Evidence: serverimportmodel.ControlEvidence{ActorID: controlActorID, AuditID: "retry-audit", Event: []byte(`{"schemaVersion":1,"executionNo":2}`), Now: created.UpdatedAtMS}}
+	err := repository.WithWrite(t.Context(), func(scope serverimportmodel.ControlScope) error { return scope.Write.Retry(t.Context(), plan) })
+	if !errors.Is(err, serverimportmodel.ErrNotRetryable) {
 		t.Fatalf("stale retry write: %v", err)
 	}
 	assertControlUnchanged(t, database, created.ID, "FAILED", created.Version+1)
@@ -66,11 +67,11 @@ func TestRetryWriteRejectsSnapshotChangedAfterPreparation(t *testing.T) {
 }
 
 type failingControlRepository struct {
-	repository importservice.ControlRepository
+	repository serverimportmodel.ControlRepository
 }
 
-func (repository failingControlRepository) WithWrite(ctx context.Context, work func(importservice.ControlScope) error) error {
-	return repository.repository.WithWrite(ctx, func(scope importservice.ControlScope) error {
+func (repository failingControlRepository) WithWrite(ctx context.Context, work func(serverimportmodel.ControlScope) error) error {
+	return repository.repository.WithWrite(ctx, func(scope serverimportmodel.ControlScope) error {
 		if err := work(scope); err != nil {
 			return err
 		}
@@ -90,7 +91,7 @@ func TestImportControlLateFailureRollsBackEveryWrite(t *testing.T) {
 	})
 	t.Run("cancel", func(t *testing.T) {
 		service, database, _ := archiveImportFixture(t)
-		created, err := service.Create(t.Context(), CreateRequest{Kind: "BIOS_DIRECTORY", RootID: "bios-root"}, controlActorID)
+		created, err := service.Create(t.Context(), serverimportmodel.CreateRequest{Kind: "BIOS_DIRECTORY", RootID: "bios-root"}, controlActorID)
 		if err != nil {
 			t.Fatal(err)
 		}

@@ -7,16 +7,17 @@ import (
 	"math"
 	"time"
 
-	"retrom/internal/service/tagging"
+	model "retrom/internal/model/pegasusimport"
+	taggingmodel "retrom/internal/model/tagging"
 )
 
 type Mappings struct {
-	repository MappingRepository
-	tags       MappingTagWriter
+	repository model.MappingRepository
+	tags       model.MappingTagWriter
 	now        func() time.Time
 }
 
-func NewMappings(repository MappingRepository, tags MappingTagWriter, now func() time.Time) *Mappings {
+func NewMappings(repository model.MappingRepository, tags model.MappingTagWriter, now func() time.Time) *Mappings {
 	return &Mappings{repository: repository, tags: tags, now: now}
 }
 
@@ -24,23 +25,23 @@ func (service *Mappings) Update(
 	ctx context.Context,
 	id string,
 	version int64,
-	mappings []Mapping,
+	mappings []model.Mapping,
 	actorID string,
-) (Summary, error) {
+) (model.Summary, error) {
 	if !validMappingBatch(mappings) {
-		return Summary{}, ErrInvalid
+		return model.Summary{}, model.ErrInvalid
 	}
-	var result Summary
-	err := service.repository.WithMappings(ctx, func(scope MappingScope) error {
+	var result model.Summary
+	err := service.repository.WithMappings(ctx, func(scope model.MappingScope) error {
 		before, err := scope.Read.Import(ctx, id)
 		if err != nil {
 			return fmt.Errorf("read Pegasus mapping plan: %w", err)
 		}
 		if before.State != "AWAITING_MAPPING" {
-			return ErrMapping
+			return model.ErrMapping
 		}
 		if before.Version != version || version < 1 || version == math.MaxInt64 || before.MappingVersion == math.MaxInt64 {
-			return ErrVersionConflict
+			return model.ErrVersionConflict
 		}
 		prepared, err := prepareMappings(ctx, scope.Read, id, mappings, service.now().UnixMilli())
 		if err != nil {
@@ -52,7 +53,7 @@ func (service *Mappings) Update(
 		if err := service.saveMappings(ctx, scope, prepared, actorID); err != nil {
 			return err
 		}
-		if err := scope.Write.Advance(ctx, MappingAdvance{Before: before, NowMS: prepared[0].NowMS}); err != nil {
+		if err := scope.Write.Advance(ctx, model.MappingAdvance{Before: before, NowMS: prepared[0].NowMS}); err != nil {
 			return fmt.Errorf("advance Pegasus mappings: %w", err)
 		}
 		result, err = scope.Read.Import(ctx, id)
@@ -62,12 +63,12 @@ func (service *Mappings) Update(
 		return nil
 	})
 	if err != nil {
-		return Summary{}, fmt.Errorf("finish Pegasus mappings: %w", err)
+		return model.Summary{}, fmt.Errorf("finish Pegasus mappings: %w", err)
 	}
 	return result, nil
 }
 
-func validMappingBatch(mappings []Mapping) bool {
+func validMappingBatch(mappings []model.Mapping) bool {
 	if len(mappings) < 1 || len(mappings) > 100 {
 		return false
 	}
@@ -95,28 +96,28 @@ func validMappingBatch(mappings []Mapping) bool {
 
 func prepareMappings(
 	ctx context.Context,
-	reader MappingReader,
+	reader model.MappingReader,
 	id string,
-	mappings []Mapping,
+	mappings []model.Mapping,
 	now int64,
-) ([]CollectionMapping, error) {
-	result := make([]CollectionMapping, 0, len(mappings))
+) ([]model.CollectionMapping, error) {
+	result := make([]model.CollectionMapping, 0, len(mappings))
 	for _, mapping := range mappings {
 		owner, err := reader.CollectionOwner(ctx, mapping.CollectionID)
 		if err != nil {
 			return nil, fmt.Errorf("read Pegasus mapping owner: %w", err)
 		}
 		if owner != id {
-			return nil, ErrInvalid
+			return nil, model.ErrInvalid
 		}
-		change := CollectionMapping{ImportID: id, Mapping: mapping, NowMS: now}
+		change := model.CollectionMapping{ImportID: id, Mapping: mapping, NowMS: now}
 		if mapping.Action == "IMPORT" {
 			target, found, err := reader.EligibleTarget(ctx, mapping.PlatformInstanceID)
 			if err != nil {
 				return nil, fmt.Errorf("read Pegasus mapping target: %w", err)
 			}
 			if !found {
-				return nil, ErrInvalid
+				return nil, model.ErrInvalid
 			}
 			change.Target = &target
 		}
@@ -127,8 +128,8 @@ func prepareMappings(
 
 func (service *Mappings) saveMappings(
 	ctx context.Context,
-	scope MappingScope,
-	changes []CollectionMapping,
+	scope model.MappingScope,
+	changes []model.CollectionMapping,
 	actorID string,
 ) error {
 	for _, change := range changes {
@@ -140,8 +141,8 @@ func (service *Mappings) saveMappings(
 			actorID,
 			change.NowMS,
 		)
-		if errors.Is(err, tagging.ErrInvalid) {
-			return fmt.Errorf("%w: %w", ErrInvalid, err)
+		if errors.Is(err, taggingmodel.ErrInvalid) {
+			return fmt.Errorf("%w: %w", model.ErrInvalid, err)
 		}
 		if err != nil {
 			return fmt.Errorf("replace Pegasus mapping tags: %w", err)

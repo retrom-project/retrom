@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"testing"
+
+	model "retrom/internal/model/launch"
 )
 
 func TestProductCreatorSignalsValidationOnlyAfterCommit(t *testing.T) {
@@ -45,7 +47,7 @@ func assertProductMoveSchedulesOnlyValidation(t *testing.T, coreID string) {
 	repository.before.Source.VariantStatus = "BLOCKED"
 	repository.current = cloneProductSnapshot(t, repository.before)
 	creator.environment.ResumeValidation = func(context.Context, string) { t.Fatal("move dispatched launch worker") }
-	result, err := creator.EnsureVariant(t.Context(), "game", coreID, Capabilities{})
+	result, err := creator.EnsureVariant(t.Context(), "game", coreID, model.Capabilities{})
 	if err != nil || result.Status != "VALIDATION_PENDING" || len(repository.writes) != 0 || len(repository.receipts) != 0 || len(repository.jobs.writes) != 1 {
 		t.Fatalf("status=%s error=%v launches=%d receipts=%d jobs=%d", result.Status, err, len(repository.writes), len(repository.receipts), len(repository.jobs.writes))
 	}

@@ -7,11 +7,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+
+	model "retrom/internal/model/payloadrelease"
 )
 
 const gcPageSize = 200
 
-func (service *GCScheduler) StageInScope(ctx context.Context, scope GCScope, ids []string) error {
+func (service *GCScheduler) StageInScope(ctx context.Context, scope model.GCScope, ids []string) error {
 	ids = gcUniqueIDs(ids)
 	for start := 0; start < len(ids); start += gcPageSize {
 		facts, err := scope.Read.Selected(ctx, ids[start:min(start+gcPageSize, len(ids))])
@@ -31,8 +33,8 @@ func (service *GCScheduler) Reconcile(ctx context.Context) error {
 	}
 	cursor := ""
 	for {
-		var facts []GCBlob
-		err := service.repository.WithGC(ctx, func(scope GCScope) error {
+		var facts []model.GCBlob
+		err := service.repository.WithGC(ctx, func(scope model.GCScope) error {
 			var err error
 			facts, err = scope.Read.Page(ctx, cursor, gcPageSize)
 			if err != nil {
@@ -48,19 +50,19 @@ func (service *GCScheduler) Reconcile(ctx context.Context) error {
 		}
 		next := facts[len(facts)-1].ID
 		if next <= cursor {
-			return ErrGCSnapshotChanged
+			return model.ErrGCSnapshotChanged
 		}
 		cursor = next
 	}
 }
 
-func (service *GCScheduler) stage(ctx context.Context, scope GCScope, facts []GCBlob) error {
+func (service *GCScheduler) stage(ctx context.Context, scope model.GCScope, facts []model.GCBlob) error {
 	now := service.now().UnixMilli()
 	if now < 0 || now > math.MaxInt64-service.retention.Milliseconds() {
-		return ErrGCRetentionInvalid
+		return model.ErrGCRetentionInvalid
 	}
-	var pending []GCQueue
-	var selected []GCBlob
+	var pending []model.GCQueue
+	var selected []model.GCBlob
 	for _, blob := range facts {
 		if blob.Protected || blob.HasCandidate {
 			continue
@@ -70,7 +72,7 @@ func (service *GCScheduler) stage(ctx context.Context, scope GCScope, facts []GC
 			return err
 		}
 		selected = append(selected, blob)
-		pending = append(pending, GCQueue{
+		pending = append(pending, model.GCQueue{
 			Before: blob, Job: job, AvailableMS: now + service.retention.Milliseconds(),
 			EventJSON: `{"schemaVersion":1,"executionNo":1,"attempt":0}`,
 		})
@@ -92,35 +94,35 @@ func (service *GCScheduler) stage(ctx context.Context, scope GCScope, facts []GC
 	return nil
 }
 
-func (service *GCScheduler) prepareJob(blob GCBlob, now int64) (ScheduledJob, error) {
+func (service *GCScheduler) prepareJob(blob model.GCBlob, now int64) (model.ScheduledJob, error) {
 	id, err := service.newID()
 	if err != nil || id == "" {
-		return ScheduledJob{}, fmt.Errorf("GC job identity: %w", gcIdentityError(err))
+		return model.ScheduledJob{}, fmt.Errorf("GC job identity: %w", gcIdentityError(err))
 	}
 	encoded, digest, err := service.input(blob)
 	if err != nil {
-		return ScheduledJob{}, err
+		return model.ScheduledJob{}, err
 	}
 	// Candidate ownership provides idempotency; distinct lifetimes can start in the same millisecond.
 	dedupe := sha256.Sum256([]byte("retrom-job-dedupe-v1\x00BLOB_GC\x00" + blob.ID + "\x00" + id))
-	return ScheduledJob{
-		ID: id, Scope: Scope{Type: ScopeBlob, ID: blob.ID}, NowMS: now,
+	return model.ScheduledJob{
+		ID: id, Scope: model.Scope{Type: model.ScopeBlob, ID: blob.ID}, NowMS: now,
 		DedupeKey: hex.EncodeToString(dedupe[:]), InputJSON: encoded, InputDigest: digest,
 	}, nil
 }
 
-func (service *GCScheduler) input(blob GCBlob) (string, string, error) {
+func (service *GCScheduler) input(blob model.GCBlob) (string, string, error) {
 	digest, err := hex.DecodeString(blob.Digest)
 	if err != nil || len(digest) != sha256.Size || blob.ID == "" || blob.SizeBytes < 0 {
-		return "", "", ErrInputInvalid
+		return "", "", model.ErrInputInvalid
 	}
 	id, err := service.newID()
 	if err != nil || id == "" {
 		return "", "", fmt.Errorf("GC execution identity: %w", gcIdentityError(err))
 	}
-	input := Input{
-		SchemaVersion: 1, Kind: "BLOB_GC", Scope: Scope{Type: ScopeBlob, ID: blob.ID},
-		ExecutionID: id, Inputs: ScopeInputs{SHA256: blob.Digest},
+	input := model.Input{
+		SchemaVersion: 1, Kind: "BLOB_GC", Scope: model.Scope{Type: model.ScopeBlob, ID: blob.ID},
+		ExecutionID: id, Inputs: model.ScopeInputs{SHA256: blob.Digest},
 	}
 	encoded, err := json.Marshal(input)
 	if err != nil {
@@ -132,9 +134,9 @@ func (service *GCScheduler) input(blob GCBlob) (string, string, error) {
 
 func gcIdentityError(err error) error {
 	if err != nil {
-		return fmt.Errorf("%w: %w", ErrScheduleIDInvalid, err)
+		return fmt.Errorf("%w: %w", model.ErrScheduleIDInvalid, err)
 	}
-	return ErrScheduleIDInvalid
+	return model.ErrScheduleIDInvalid
 }
 
 func gcUniqueIDs(ids []string) []string {

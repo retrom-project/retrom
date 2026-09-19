@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"testing"
 
-	application "retrom/internal/service/emulationstationimport"
+	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
 )
 
 func TestReviewHandoffTransactionDoesNotCommitOnLateFailure(t *testing.T) {
@@ -15,7 +15,7 @@ func TestReviewHandoffTransactionDoesNotCommitOnLateFailure(t *testing.T) {
 			t.Parallel()
 			db, _ := leaseDatabase(t, true)
 			before := planRows(t, db)
-			err := NewReviewHandoff(db).WithReviewHandoff(t.Context(), func(scope application.ReviewHandoffScope) error {
+			err := NewReviewHandoff(db).WithReviewHandoff(t.Context(), func(scope emulationstationimportmodel.ReviewHandoffScope) error {
 				records, ok := scope.Write.(executionRecords)
 				if !ok {
 					t.Fatal("unexpected handoff writer")
@@ -64,7 +64,7 @@ func TestReviewHandoffRepeatsExecutionFence(t *testing.T) {
 			t.Parallel()
 			db, unit := itemWorkDatabase(t)
 			before := planRows(t, db)
-			err := NewReviewHandoff(db).WithReviewHandoff(t.Context(), func(scope application.ReviewHandoffScope) error {
+			err := NewReviewHandoff(db).WithReviewHandoff(t.Context(), func(scope emulationstationimportmodel.ReviewHandoffScope) error {
 				current, found, err := scope.Read.Current(t.Context(), unit.JobID)
 				if err != nil || !found {
 					t.Fatalf("current=%v error=%v", found, err)
@@ -76,9 +76,9 @@ func TestReviewHandoffRepeatsExecutionFence(t *testing.T) {
 				if _, err := records.executor.ExecContext(t.Context(), mutation); err != nil {
 					t.Fatal(err)
 				}
-				return scope.Write.CompleteReview(t.Context(), application.ExecutionReviewCompletion{Before: current, NowMS: 1100})
+				return scope.Write.CompleteReview(t.Context(), emulationstationimportmodel.ExecutionReviewCompletion{Before: current, NowMS: 1100})
 			})
-			if !errors.Is(err, application.ErrVersionConflict) {
+			if !errors.Is(err, emulationstationimportmodel.ErrVersionConflict) {
 				t.Fatalf("changed handoff authority=%v", err)
 			}
 			if !reflect.DeepEqual(before, planRows(t, db)) {

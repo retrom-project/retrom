@@ -9,7 +9,9 @@ import (
 	"fmt"
 	"testing"
 
-	"retrom/internal/adapter/metadata/hasheous"
+	metadatamodel "retrom/internal/model/metadata"
+
+	metadatascrapemodel "retrom/internal/model/metadatascrape"
 	"retrom/internal/service/metadatascrape"
 )
 
@@ -17,7 +19,7 @@ func TestMediaFinalOwnerChangeCannotPublish(t *testing.T) {
 	for _, change := range []string{"cancel", "source", "worker", "scope"} {
 		t.Run(change, func(t *testing.T) {
 			fixture := newMediaFixture(t)
-			source := mediaSource(func(ctx context.Context, _ hasheous.AssetRef, _ int64) (hasheous.AssetData, error) {
+			source := mediaSource(func(ctx context.Context, _ metadatamodel.AssetReference, _ int64) (metadatamodel.AssetData, error) {
 				switch change {
 				case "cancel":
 					mediaFenceSQL(ctx, t, fixture.database, `UPDATE jobs SET state='CANCEL_REQUESTED',cancel_requested_at_ms=?,version=version+1 WHERE id=?`, fixture.now.UnixMilli(), fixture.jobID)
@@ -28,7 +30,7 @@ func TestMediaFinalOwnerChangeCannotPublish(t *testing.T) {
 				case "scope":
 					mediaFenceSQL(ctx, t, fixture.database, `UPDATE jobs SET scope_id='another-game',version=version+1 WHERE id=?`, fixture.jobID)
 				}
-				return hasheous.AssetData{Bytes: []byte("media"), ReceivedBytes: 5, MediaType: "image/png", Width: 1, Height: 1}, nil
+				return metadatamodel.AssetData{Bytes: []byte("media"), ReceivedBytes: 5, MediaType: "image/png", Width: 1, Height: 1}, nil
 			})
 			if err := fixture.worker(source).Run(t.Context(), fixture.jobID); err == nil {
 				t.Fatal("changed authority returned success")
@@ -61,7 +63,7 @@ func TestMediaMalformedSnapshotFailsWithOriginalCause(t *testing.T) {
 	worker := metadatascrape.NewMediaWorker(NewMedia(fixture.database), nil, nil, fixture.clock)
 	err := worker.Run(t.Context(), fixture.jobID)
 	var syntax *json.SyntaxError
-	if !errors.Is(err, metadatascrape.ErrMediaInput) || !errors.As(err, &syntax) {
+	if !errors.Is(err, metadatascrapemodel.ErrMediaInput) || !errors.As(err, &syntax) {
 		t.Fatalf("invalid input cause=%v", err)
 	}
 	snapshot := fixture.snapshot(t)

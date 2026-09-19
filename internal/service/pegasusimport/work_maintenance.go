@@ -3,6 +3,8 @@ package pegasusimport
 import (
 	"context"
 	"fmt"
+
+	model "retrom/internal/model/pegasusimport"
 )
 
 type (
@@ -30,7 +32,7 @@ func (service *Maintenance) Maintain(ctx context.Context) error {
 
 type (
 	CancellationObserver interface {
-		Cancelled(context.Context, ExecutionIdentity) (bool, error)
+		Cancelled(context.Context, model.ExecutionIdentity) (bool, error)
 	}
 	WorkerCancellationControl struct {
 		observer   CancellationObserver
@@ -42,7 +44,7 @@ func NewWorkerCancellation(observer, settlement CancellationObserver) *WorkerCan
 	return &WorkerCancellationControl{observer: observer, settlement: settlement}
 }
 
-func (control *WorkerCancellationControl) Cancelled(ctx context.Context, id ExecutionIdentity) (bool, error) {
+func (control *WorkerCancellationControl) Cancelled(ctx context.Context, id model.ExecutionIdentity) (bool, error) {
 	pending, err := control.observer.Cancelled(ctx, id)
 	if err != nil {
 		return false, fmt.Errorf("observe Pegasus cancellation: %w", err)
@@ -50,7 +52,10 @@ func (control *WorkerCancellationControl) Cancelled(ctx context.Context, id Exec
 	return pending, nil
 }
 
-func (control *WorkerCancellationControl) CloseCancelled(ctx context.Context, id ExecutionIdentity) (bool, error) {
+func (control *WorkerCancellationControl) CloseCancelled(
+	ctx context.Context,
+	id model.ExecutionIdentity,
+) (bool, error) {
 	closed, err := control.settlement.Cancelled(ctx, id)
 	if err != nil {
 		return false, fmt.Errorf("settle Pegasus cancellation: %w", err)

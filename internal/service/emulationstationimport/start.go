@@ -7,48 +7,54 @@ import (
 	"fmt"
 	"time"
 
+	model "retrom/internal/model/emulationstationimport"
+
 	"github.com/google/uuid"
 )
 
 type Starter struct {
-	repository StartRepository
-	sources    FrozenSources
+	repository model.StartRepository
+	sources    model.FrozenSources
 	now        func() time.Time
 }
 
-func NewStarter(repository StartRepository, sources FrozenSources, now func() time.Time) *Starter {
+func NewStarter(repository model.StartRepository, sources model.FrozenSources, now func() time.Time) *Starter {
 	return &Starter{repository: repository, sources: sources, now: now}
 }
 
-func (service *Starter) Start(ctx context.Context, id string, version int64, actorID string) (Summary, bool, error) {
+func (service *Starter) Start(ctx context.Context, id string, version int64, actorID string) (
+	model.Summary,
+	bool,
+	error,
+) {
 	before, err := service.repository.Inspect(ctx, id)
 	if err != nil {
-		return Summary{}, false, fmt.Errorf("inspect EmulationStation start: %w", err)
+		return model.Summary{}, false, fmt.Errorf("inspect EmulationStation start: %w", err)
 	}
 	started, err := startState(before.Summary, version)
 	if err != nil {
-		return Summary{}, false, err
+		return model.Summary{}, false, err
 	}
 	if started {
 		return before.Summary, false, nil
 	}
 	if err := readyToStart(before, service.now().UnixMilli()); err != nil {
-		return Summary{}, false, err
+		return model.Summary{}, false, err
 	}
 	if err := verifyFrozenSource(ctx, service.sources, before.Summary, before.FrozenSourceSnapshot); err != nil {
-		return Summary{}, false, err
+		return model.Summary{}, false, err
 	}
 	plan, err := newStartPlan(before, actorID)
 	if err != nil {
-		return Summary{}, false, err
+		return model.Summary{}, false, err
 	}
 	return service.queue(ctx, plan, version)
 }
 
-func (service *Starter) queue(ctx context.Context, plan StartPlan, version int64) (Summary, bool, error) {
-	var result Summary
+func (service *Starter) queue(ctx context.Context, plan model.StartPlan, version int64) (model.Summary, bool, error) {
+	var result model.Summary
 	var queued bool
-	err := service.repository.WithStart(ctx, func(scope StartScope) error {
+	err := service.repository.WithStart(ctx, func(scope model.StartScope) error {
 		current, err := scope.Read.Current(ctx, plan.Before.Summary.ID)
 		if err != nil {
 			return fmt.Errorf("reread EmulationStation start: %w", err)
@@ -71,7 +77,7 @@ func (service *Starter) queue(ctx context.Context, plan StartPlan, version int64
 			plan.Before.FrozenSourceSnapshot,
 			current.FrozenSourceSnapshot,
 		) {
-			return ErrSourceChanged
+			return model.ErrSourceChanged
 		}
 		plan.Before = current
 		if err := scope.Write.Queue(ctx, plan); err != nil {
@@ -88,20 +94,20 @@ func (service *Starter) queue(ctx context.Context, plan StartPlan, version int64
 		return nil
 	})
 	if err != nil {
-		return Summary{}, false, fmt.Errorf("finish EmulationStation start: %w", err)
+		return model.Summary{}, false, fmt.Errorf("finish EmulationStation start: %w", err)
 	}
 	return result, queued, nil
 }
 
-func newStartPlan(before StartSnapshot, actorID string) (StartPlan, error) {
+func newStartPlan(before model.StartSnapshot, actorID string) (model.StartPlan, error) {
 	if actorID == "" {
 		actorID = before.Summary.CreatedBy.ID
 	}
-	plan := StartPlan{Before: before, ActorID: actorID}
+	plan := model.StartPlan{Before: before, ActorID: actorID}
 	for _, target := range []*string{&plan.JobID, &plan.ExecutionID, &plan.AuditID} {
 		id, err := uuid.NewV7()
 		if err != nil {
-			return StartPlan{}, fmt.Errorf("generate EmulationStation start identity: %w", err)
+			return model.StartPlan{}, fmt.Errorf("generate EmulationStation start identity: %w", err)
 		}
 		*target = id.String()
 	}

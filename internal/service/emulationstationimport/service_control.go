@@ -3,6 +3,8 @@ package emulationstationimport
 import (
 	"context"
 	"fmt"
+
+	model "retrom/internal/model/emulationstationimport"
 )
 
 func (service *Service) Cancel(
@@ -10,10 +12,10 @@ func (service *Service) Cancel(
 	id string,
 	version int64,
 	reason, actor string,
-) (Summary, bool, error) {
+) (model.Summary, bool, error) {
 	result, pending, err := service.dependencies.Control.Cancel(ctx, id, version, reason, actor)
 	if err != nil {
-		return Summary{}, false, fmt.Errorf("cancel EmulationStation import: %w", err)
+		return model.Summary{}, false, fmt.Errorf("cancel EmulationStation import: %w", err)
 	}
 	service.dependencies.Worker.Signal()
 	return result, pending, nil
@@ -31,10 +33,10 @@ func (service *Service) CancelJob(
 	return result, pending, nil
 }
 
-func (service *Service) Retry(ctx context.Context, id string, version int64, actor string) (Summary, error) {
+func (service *Service) Retry(ctx context.Context, id string, version int64, actor string) (model.Summary, error) {
 	result, err := service.dependencies.Control.Retry(ctx, id, version, actor)
 	if err != nil {
-		return Summary{}, fmt.Errorf("retry EmulationStation import: %w", err)
+		return model.Summary{}, fmt.Errorf("retry EmulationStation import: %w", err)
 	}
 	service.dependencies.Worker.Signal()
 	return result, nil

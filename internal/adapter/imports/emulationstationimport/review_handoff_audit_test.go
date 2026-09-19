@@ -9,7 +9,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	library "retrom/internal/service/libraryimport"
+	libraryimportmodel "retrom/internal/model/libraryimport"
 	"retrom/internal/testkit/testsupport"
 )
 
@@ -41,7 +41,7 @@ func TestESReviewHandoffAuditZeroKeysRollsBackRealInsert(t *testing.T) {
 	})
 	fixture.service.database = faultDB
 	err := fixture.service.finalizeReviewHandoff(fixture.context, unit, item, ordinary.Created.ImportJobID, ordinary.Items[0].ItemID, nil)
-	if !errors.Is(err, library.ErrVersionConflict) || hits.Load() != 1 {
+	if !errors.Is(err, libraryimportmodel.ErrVersionConflict) || hits.Load() != 1 {
 		t.Fatalf("audit cause=%v hits=%d", err, hits.Load())
 	}
 	if after := executionReviewSnapshot(t, fixture, unit, ordinary.Items[0].ItemID); after != before {

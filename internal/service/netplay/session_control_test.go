@@ -5,40 +5,42 @@ import (
 	"errors"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/netplay"
 )
 
 type sessionControlMemory struct {
-	before                                   SessionControlSnapshot
-	sessions                                 []SessionTransitionPlan
-	peers                                    []PeerTransitionPlan
+	before                                   model.SessionControlSnapshot
+	sessions                                 []model.SessionTransitionPlan
+	peers                                    []model.PeerTransitionPlan
 	readFailure, writeFailure, commitFailure error
 }
 
-func (memory *sessionControlMemory) WithControl(_ context.Context, work func(SessionControlScope) error) error {
-	if err := work(SessionControlScope{Read: memory, Write: memory}); err != nil {
+func (memory *sessionControlMemory) WithControl(_ context.Context, work func(model.SessionControlScope) error) error {
+	if err := work(model.SessionControlScope{Read: memory, Write: memory}); err != nil {
 		return err
 	}
 	return memory.commitFailure
 }
 
-func (memory *sessionControlMemory) Current(context.Context, string, string) (SessionControlSnapshot, error) {
+func (memory *sessionControlMemory) Current(context.Context, string, string) (model.SessionControlSnapshot, error) {
 	return memory.before, memory.readFailure
 }
 
-func (memory *sessionControlMemory) Session(_ context.Context, plan SessionTransitionPlan) error {
+func (memory *sessionControlMemory) Session(_ context.Context, plan model.SessionTransitionPlan) error {
 	memory.sessions = append(memory.sessions, plan)
 	return memory.writeFailure
 }
 
-func (memory *sessionControlMemory) Peer(_ context.Context, plan PeerTransitionPlan) error {
+func (memory *sessionControlMemory) Peer(_ context.Context, plan model.PeerTransitionPlan) error {
 	memory.peers = append(memory.peers, plan)
 	return memory.writeFailure
 }
 
-func sessionControlFixture() (*SessionControl, *sessionControlMemory, PeerIdentity) {
-	memory := &sessionControlMemory{before: SessionControlSnapshot{RoomID: "room", SessionID: "session", HostID: "host", RoomState: RoomStateRunning, RoomVersion: 7, State: "RUNNING", Version: 3, Peers: []SessionPeer{{ProfileID: "host", PlayerNo: 1, CredentialGeneration: 2, State: "CONNECTED", Version: 4}, {ProfileID: "guest", PlayerNo: 2, CredentialGeneration: 5, State: "CONNECTED", Version: 6}}}}
+func sessionControlFixture() (*SessionControl, *sessionControlMemory, model.PeerIdentity) {
+	memory := &sessionControlMemory{before: model.SessionControlSnapshot{RoomID: "room", SessionID: "session", HostID: "host", RoomState: model.RoomStateRunning, RoomVersion: 7, State: "RUNNING", Version: 3, Peers: []model.SessionPeer{{ProfileID: "host", PlayerNo: 1, CredentialGeneration: 2, State: "CONNECTED", Version: 4}, {ProfileID: "guest", PlayerNo: 2, CredentialGeneration: 5, State: "CONNECTED", Version: 6}}}}
 	service := NewSessionControl(memory, 10*time.Second, func() time.Time { return time.UnixMilli(1786000000000) })
-	return service, memory, PeerIdentity{RoomID: "room", SessionID: "session", ProfileID: "guest", PlayerNo: 2, CredentialGeneration: 5}
+	return service, memory, model.PeerIdentity{RoomID: "room", SessionID: "session", ProfileID: "guest", PlayerNo: 2, CredentialGeneration: 5}
 }
 
 func TestSessionControlDisconnectRejectsStaleIdentity(t *testing.T) {
@@ -54,7 +56,7 @@ func TestSessionControlDisconnectRejectsStaleIdentity(t *testing.T) {
 			case "seat":
 				peer.PlayerNo = 1
 			}
-			if err := service.Disconnected(t.Context(), peer); !errors.Is(err, ErrForbidden) {
+			if err := service.Disconnected(t.Context(), peer); !errors.Is(err, model.ErrForbidden) {
 				t.Fatalf("disconnect=%v", err)
 			}
 			if len(memory.sessions) != 0 || len(memory.peers) != 0 {
@@ -90,7 +92,7 @@ func TestSessionControlDisconnectPausesOnceAndSetsLease(t *testing.T) {
 func TestSessionControlRuntimeReadyUsesOccupiedParticipants(t *testing.T) {
 	t.Parallel()
 	service, memory, peer := sessionControlFixture()
-	memory.before.RoomState = RoomStateStarting
+	memory.before.RoomState = model.RoomStateStarting
 	memory.before.State = "LOADING"
 	memory.before.Peers[0].State = "RUNTIME_READY"
 	memory.before.Peers[1].State = "LAUNCH_READY"
@@ -108,17 +110,17 @@ func TestSessionControlRuntimeReadyUsesOccupiedParticipants(t *testing.T) {
 
 func TestSessionControlResyncAndRunPlans(t *testing.T) {
 	t.Parallel()
-	for _, cause := range []ResyncCause{ResyncReconnect, ResyncHash, ResyncHost} {
+	for _, cause := range []model.ResyncCause{model.ResyncReconnect, model.ResyncHash, model.ResyncHost} {
 		t.Run(string(cause), func(t *testing.T) {
 			service, memory, _ := sessionControlFixture()
-			if cause == ResyncHost {
+			if cause == model.ResyncHost {
 				memory.before.State = "PAUSED_RECONNECT"
 			}
 			if err := service.Resync(t.Context(), "room", "session", cause); err != nil {
 				t.Fatal(err)
 			}
 			plan := memory.sessions[0]
-			if plan.Target != "RESYNCHRONIZING" || !plan.IncrementResync || plan.PeerMode != PeersPrepareResync {
+			if plan.Target != "RESYNCHRONIZING" || !plan.IncrementResync || plan.PeerMode != model.PeersPrepareResync {
 				t.Fatalf("resync=%+v", plan)
 			}
 			memory.before.State = "RESYNCHRONIZING"
@@ -127,7 +129,7 @@ func TestSessionControlResyncAndRunPlans(t *testing.T) {
 				t.Fatal(err)
 			}
 			plan = memory.sessions[1]
-			if plan.Target != "RUNNING" || !plan.Started || plan.PeerMode != PeersConnect || len(plan.Events) != 2 {
+			if plan.Target != "RUNNING" || !plan.Started || plan.PeerMode != model.PeersConnect || len(plan.Events) != 2 {
 				t.Fatalf("running=%+v", plan)
 			}
 		})
@@ -137,13 +139,13 @@ func TestSessionControlResyncAndRunPlans(t *testing.T) {
 func TestSessionControlHostAndSourceStateGuards(t *testing.T) {
 	t.Parallel()
 	service, memory, _ := sessionControlFixture()
-	if err := service.SetState(t.Context(), "room", "session", "guest", "PAUSED_RECONNECT"); !errors.Is(err, ErrForbidden) {
+	if err := service.SetState(t.Context(), "room", "session", "guest", "PAUSED_RECONNECT"); !errors.Is(err, model.ErrForbidden) {
 		t.Fatalf("guest pause=%v", err)
 	}
-	if err := service.SetState(t.Context(), "room", "session", "host", "RUNNING"); !errors.Is(err, ErrRoomConflict) {
+	if err := service.SetState(t.Context(), "room", "session", "host", "RUNNING"); !errors.Is(err, model.ErrRoomConflict) {
 		t.Fatalf("invalid resume=%v", err)
 	}
-	if err := service.Resync(t.Context(), "room", "session", ResyncHost); !errors.Is(err, ErrRoomConflict) {
+	if err := service.Resync(t.Context(), "room", "session", model.ResyncHost); !errors.Is(err, model.ErrRoomConflict) {
 		t.Fatalf("invalid resync=%v", err)
 	}
 	if len(memory.sessions) != 0 {

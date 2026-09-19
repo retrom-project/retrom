@@ -7,6 +7,7 @@ import (
 
 	"retrom/internal/adapter/files/mediaasset"
 	"retrom/internal/capability/format/emulationstationmeta"
+	model "retrom/internal/model/emulationstationimport"
 )
 
 func TestScannerAssetFailuresKeepWarningPolicyExceptCancellation(t *testing.T) {
@@ -17,7 +18,7 @@ func TestScannerAssetFailuresKeepWarningPolicyExceptCancellation(t *testing.T) {
 			state string
 		}{
 			{name: "read", cause: ErrScanReadFailed, state: "READ_FAILED"},
-			{name: "changed", cause: ErrSourceChanged, state: "SOURCE_CHANGED"},
+			{name: "changed", cause: model.ErrSourceChanged, state: "SOURCE_CHANGED"},
 			{name: "invalid", cause: errors.New("invalid media"), state: "INVALID"},
 			{name: "cancel", cause: context.Canceled},
 			{name: "too large", cause: mediaasset.ErrVideoTooLarge, state: "TOO_LARGE"},
@@ -31,7 +32,7 @@ func TestScannerAssetFailuresKeepWarningPolicyExceptCancellation(t *testing.T) {
 					"gamelist.xml",
 					kind,
 					emulationstationmeta.AssetReference{RelativePath: "cover.png"},
-					map[string]discoveredFile{"cover.png": {Path: "cover.png", Size: 1, Facts: "frozen"}},
+					map[string]DiscoveredFile{"cover.png": {Path: "cover.png", Size: 1, Facts: "frozen"}},
 				)
 				if failure.name == "cancel" {
 					if !errors.Is(err, context.Canceled) || asset != nil || warning != nil {
@@ -60,7 +61,7 @@ func TestScannerPlaylistCancellationKeepsCause(t *testing.T) {
 		"gamelist.xml",
 		"game.m3u",
 		"",
-		map[string]discoveredFile{"game.m3u": {Path: "game.m3u", Size: 1, Facts: "frozen"}},
+		map[string]DiscoveredFile{"game.m3u": {Path: "game.m3u", Size: 1, Facts: "frozen"}},
 		&scanCaches{discCandidates: nil},
 	)
 	if !errors.Is(err, context.Canceled) || result.discoveryCode != "" {

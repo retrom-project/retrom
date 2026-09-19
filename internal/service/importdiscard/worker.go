@@ -7,6 +7,7 @@ import (
 
 	"retrom/internal/capability/security/authn"
 	"retrom/internal/foundation/cleanup"
+	model "retrom/internal/model/importdiscard"
 )
 
 // Start reconciles persisted dispositions, including requests interrupted by a restart.
@@ -34,9 +35,9 @@ func (service *Service) Start() {
 func (service *Service) Close() { close(service.stop); service.wait.Wait() }
 
 func (service *Service) RunOnce(ctx context.Context) (bool, error) {
-	var request Request
+	var request model.Request
 	var found bool
-	err := service.repository.WithRead(ctx, func(records Reader) error {
+	err := service.repository.WithRead(ctx, func(records model.Reader) error {
 		var err error
 		request, found, err = records.Pending(ctx)
 		return failure("reconcile discard request", err)
@@ -54,14 +55,14 @@ func (service *Service) RunOnce(ctx context.Context) (bool, error) {
 	if ctx.Err() != nil {
 		return true, errors.Join(workErr, ctx.Err())
 	}
-	err = service.repository.WithWrite(ctx, func(scope WriteScope) error {
+	err = service.repository.WithWrite(ctx, func(scope model.WriteScope) error {
 		return scope.Requests.Progress(ctx, progress)
 	})
 	return true, errors.Join(workErr, err)
 }
 
-func progressFor(key Key, done bool, workErr error, now int64) Progress {
-	result := Progress{Key: key, State: "REQUESTED", Now: now}
+func progressFor(key model.Key, done bool, workErr error, now int64) model.Progress {
+	result := model.Progress{Key: key, State: "REQUESTED", Now: now}
 	if done {
 		result.State = "COMPLETED"
 		result.CompletedAt = &now
@@ -70,10 +71,10 @@ func progressFor(key Key, done bool, workErr error, now int64) Progress {
 		result.State = "FAILED"
 		result.CompletedAt = nil
 		code := "IMPORT_BATCH_DISCARD_FAILED"
-		if errors.Is(workErr, ErrReleaseFailed) {
+		if errors.Is(workErr, model.ErrReleaseFailed) {
 			code = "IMPORT_BATCH_DISCARD_RELEASE_FAILED"
 		}
-		if errors.Is(workErr, ErrAmbiguousOwner) {
+		if errors.Is(workErr, model.ErrAmbiguousOwner) {
 			code = "IMPORT_BATCH_DISCARD_OWNER_AMBIGUOUS"
 		}
 		result.ErrorCode = &code

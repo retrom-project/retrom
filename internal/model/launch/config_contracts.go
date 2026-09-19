@@ -2,7 +2,6 @@ package launch
 
 import (
 	"context"
-	"time"
 
 	"retrom/internal/capability/runtime/runtimebundle"
 	"retrom/internal/capability/runtime/runtimelaunch"
@@ -75,13 +74,6 @@ type ConfigBuilder interface {
 type IsolationTicket struct {
 	Origin, Ticket string
 	Hash           [32]byte
-}
-
-type ConfigEnvironment struct {
-	Now           func() time.Time
-	Matches       MatchCapability
-	SignIsolation func(string) (IsolationTicket, error)
-	PublicOrigin  string
 }
 
 type ProjectIdentityReader interface {

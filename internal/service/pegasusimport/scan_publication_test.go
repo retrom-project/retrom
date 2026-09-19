@@ -5,29 +5,31 @@ import (
 	"errors"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/pegasusimport"
 )
 
 type publicationFake struct {
-	before     ExecutionSnapshot
+	before     model.ExecutionSnapshot
 	err        error
-	shape      ScanShape
+	shape      model.ScanShape
 	writes     []string
 	batchSizes []int
 }
 
-func (fake *publicationFake) WithScan(_ context.Context, work func(ScanScope) error) error {
-	return work(ScanScope{Read: fake, Write: fake})
+func (fake *publicationFake) WithScan(_ context.Context, work func(model.ScanScope) error) error {
+	return work(model.ScanScope{Read: fake, Write: fake})
 }
 
-func (fake *publicationFake) Current(context.Context, string) (ExecutionSnapshot, error) {
+func (fake *publicationFake) Current(context.Context, string) (model.ExecutionSnapshot, error) {
 	return fake.before, fake.err
 }
 
-func (fake *publicationFake) Shape(context.Context, string) (ScanShape, error) {
+func (fake *publicationFake) Shape(context.Context, string) (model.ScanShape, error) {
 	return fake.shape, fake.err
 }
 
-func (fake *publicationFake) Headers(_ context.Context, _ ScanLease, headers ScanHeaders) error {
+func (fake *publicationFake) Headers(_ context.Context, _ model.ScanLease, headers model.ScanHeaders) error {
 	fake.writes = append(fake.writes, "headers")
 	fake.batchSizes = append(fake.batchSizes, len(headers.Metadata)+len(headers.Collections))
 	return nil
@@ -36,7 +38,7 @@ func (fake *publicationFake) Headers(_ context.Context, _ ScanLease, headers Sca
 func TestScanPublicationBoundsCollectionAndMetadataTransactions(t *testing.T) {
 	t.Parallel()
 	service, fake, id := publicationServiceFixture()
-	headers := ScanHeaders{Metadata: make([]ScanMetadata, 1000), Collections: make([]ScanCollection, 1001)}
+	headers := model.ScanHeaders{Metadata: make([]model.ScanMetadata, 1000), Collections: make([]model.ScanCollection, 1001)}
 	if err := service.Headers(t.Context(), id, headers); err != nil {
 		t.Fatal(err)
 	}
@@ -50,24 +52,24 @@ func TestScanPublicationBoundsCollectionAndMetadataTransactions(t *testing.T) {
 	}
 }
 
-func (fake *publicationFake) Items(context.Context, ScanLease, []ScanItem) error {
+func (fake *publicationFake) Items(context.Context, model.ScanLease, []model.ScanItem) error {
 	fake.writes = append(fake.writes, "items")
 	return nil
 }
 
-func (fake *publicationFake) Finish(context.Context, ScanLease, ScanSummary) error {
+func (fake *publicationFake) Finish(context.Context, model.ScanLease, model.ScanSummary) error {
 	fake.writes = append(fake.writes, "finish")
 	return nil
 }
 
-func publicationServiceFixture() (*ScanPublication, *publicationFake, ExecutionIdentity) {
+func publicationServiceFixture() (*ScanPublication, *publicationFake, model.ExecutionIdentity) {
 	fake := &publicationFake{
-		before: ExecutionSnapshot{
+		before: model.ExecutionSnapshot{
 			JobID: "scan", ImportID: "plan", WorkerID: "owner", Kind: "SERVER_PEGASUS_SCAN",
 			JobState: "RUNNING", ImportState: "SCANNING", JobVersion: 1, ImportVersion: 1, ExecutionNo: 1, Attempt: 1, LeaseUntilMS: 90, DeadlineMS: 100,
 		},
 	}
-	return NewScanPublication(fake, func() time.Time { return time.UnixMilli(10) }), fake, ExecutionIdentity{
+	return NewScanPublication(fake, func() time.Time { return time.UnixMilli(10) }), fake, model.ExecutionIdentity{
 		JobID: "scan", ImportID: "plan", WorkerID: "owner", ExecutionNo: 1, Attempt: 1,
 	}
 }
@@ -78,11 +80,9 @@ func TestScanPublicationValidatesOwnerAndPreservesReadCause(t *testing.T) {
 	id.WorkerID = "old"
 	if err := service.Headers(
 		t.Context(),
-		id,
-		ScanHeaders{},
+		id, model.ScanHeaders{},
 	); !errors.Is(
-		err,
-		ErrVersionConflict,
+		err, model.ErrVersionConflict,
 	) || len(
 		fake.writes,
 	) != 0 {
@@ -90,7 +90,7 @@ func TestScanPublicationValidatesOwnerAndPreservesReadCause(t *testing.T) {
 	}
 	cause := errors.New("scan read unavailable")
 	fake.err = cause
-	if err := service.Headers(t.Context(), id, ScanHeaders{}); !errors.Is(err, cause) {
+	if err := service.Headers(t.Context(), id, model.ScanHeaders{}); !errors.Is(err, cause) {
 		t.Fatalf("lost read cause: %v", err)
 	}
 }
@@ -100,11 +100,9 @@ func TestScanPublicationCannotPublishMissingBatches(t *testing.T) {
 	service, fake, id := publicationServiceFixture()
 	if err := service.Finish(
 		t.Context(),
-		id,
-		ScanSummary{Shape: ScanShape{Items: 1}},
+		id, model.ScanSummary{Shape: model.ScanShape{Items: 1}},
 	); !errors.Is(
-		err,
-		ErrVersionConflict,
+		err, model.ErrVersionConflict,
 	) || len(
 		fake.writes,
 	) != 0 {
@@ -118,10 +116,9 @@ func TestScanPublicationRejectsOversizedBatchBeforeTransaction(t *testing.T) {
 	if err := service.Items(
 		t.Context(),
 		id,
-		make([]ScanItem, 501),
+		make([]model.ScanItem, 501),
 	); !errors.Is(
-		err,
-		ErrScanLimit,
+		err, model.ErrScanLimit,
 	) || len(
 		fake.writes,
 	) != 0 {

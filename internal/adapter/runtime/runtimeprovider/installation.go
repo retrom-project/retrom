@@ -9,7 +9,7 @@ import (
 	"os"
 	"path/filepath"
 
-	service "retrom/internal/service/runtimeprovider"
+	runtimeprovidermodel "retrom/internal/model/runtimeprovider"
 
 	"retrom/internal/capability/runtime/runtimebundle"
 	"retrom/internal/capability/runtime/runtimecatalog"
@@ -41,7 +41,7 @@ type Installation struct {
 	Manifests     map[string]runtimebundle.Manifest
 	Integrity     map[string][]runtimebundle.IntegrityFile
 	Catalog       runtimecatalog.Catalog
-	Projection    service.Projection
+	Projection    runtimeprovidermodel.Projection
 	Handler       http.Handler
 	Builder       *runtimelaunch.Builder
 }
@@ -80,7 +80,7 @@ func LoadInstallation(paths Paths) (Installation, error) {
 	if err != nil {
 		return Installation{}, installationInvalid(err)
 	}
-	projection, err := service.NewProjection(active, manifests, catalog)
+	projection, err := runtimeprovidermodel.NewProjection(active, manifests, catalog)
 	if err != nil {
 		return Installation{}, installationInvalid(err)
 	}

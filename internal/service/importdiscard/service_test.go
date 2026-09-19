@@ -5,34 +5,38 @@ import (
 	"errors"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/importdiscard"
 )
 
 const batchID = "01980000-0000-7000-8000-000000009981"
 
 type memoryRecords struct {
-	Reader
-	batch       Batch
-	disposition *Disposition
-	requests    []Request
+	model.Reader
+
+	batch       model.Batch
+	disposition *model.Disposition
+	requests    []model.Request
 	fail        error
 }
 
-func (records *memoryRecords) Batch(context.Context, Key) (Batch, error) {
+func (records *memoryRecords) Batch(context.Context, model.Key) (model.Batch, error) {
 	return records.batch, records.fail
 }
 
-func (records *memoryRecords) Disposition(context.Context, Key) (Disposition, bool, error) {
+func (records *memoryRecords) Disposition(context.Context, model.Key) (model.Disposition, bool, error) {
 	if records.disposition == nil {
-		return Disposition{}, false, nil
+		return model.Disposition{}, false, nil
 	}
 	return *records.disposition, true, nil
 }
 
-func (records *memoryRecords) Request(_ context.Context, request Request) error {
+func (records *memoryRecords) Request(_ context.Context, request model.Request) error {
 	records.requests = append(records.requests, request)
 	return records.fail
 }
-func (records *memoryRecords) Progress(context.Context, Progress) error { return records.fail }
+
+func (records *memoryRecords) Progress(context.Context, model.Progress) error { return records.fail }
 
 type memoryRepository struct {
 	records               *memoryRecords
@@ -40,26 +44,26 @@ type memoryRepository struct {
 	readCount, writeCount int
 }
 
-func (repository *memoryRepository) WithRead(_ context.Context, work func(Reader) error) error {
+func (repository *memoryRepository) WithRead(_ context.Context, work func(model.Reader) error) error {
 	repository.readCount++
 	return work(repository.records)
 }
 
-func (repository *memoryRepository) WithWrite(_ context.Context, work func(WriteScope) error) error {
+func (repository *memoryRepository) WithWrite(_ context.Context, work func(model.WriteScope) error) error {
 	repository.writeCount++
 	if repository.beforeWrite != nil {
 		repository.beforeWrite()
 	}
-	return work(WriteScope{Reader: repository.records, Requests: repository.records})
+	return work(model.WriteScope{Reader: repository.records, Requests: repository.records})
 }
 
 func TestRequestUsesCurrentWriteSnapshotAndPreservesFailure(t *testing.T) {
-	records := &memoryRecords{batch: Batch{Started: true, State: "RUNNING"}}
+	records := &memoryRecords{batch: model.Batch{Started: true, State: "RUNNING"}}
 	repository := &memoryRepository{records: records, beforeWrite: func() {
-		records.batch = Batch{Started: true, State: "COMPLETED", ItemCounts: map[string]int64{"PUBLISHED": 1}}
+		records.batch = model.Batch{Started: true, State: "COMPLETED", ItemCounts: map[string]int64{"PUBLISHED": 1}}
 	}}
 	service := New(repository, nil, nil, func() time.Time { return time.UnixMilli(17) })
-	if _, err := service.Request(t.Context(), "IMPORT", batchID, "user"); !errors.Is(err, ErrInvalid) {
+	if _, err := service.Request(t.Context(), "IMPORT", batchID, "user"); !errors.Is(err, model.ErrInvalid) {
 		t.Fatalf("stale availability: %v", err)
 	}
 	if repository.readCount != 0 || repository.writeCount != 1 || len(records.requests) != 0 {
@@ -77,11 +81,11 @@ func TestExistingDispositionControlsRequestReplay(t *testing.T) {
 		t.Run(state, func(t *testing.T) {
 			code := "IMPORT_BATCH_DISCARD_RELEASE_FAILED"
 			records := &memoryRecords{
-				batch: Batch{
+				batch: model.Batch{
 					Started: true,
 					State:   "COMPLETED",
 				},
-				disposition: &Disposition{
+				disposition: &model.Disposition{
 					State:     state,
 					ErrorCode: &code,
 				},
@@ -111,17 +115,17 @@ func TestExistingDispositionControlsRequestReplay(t *testing.T) {
 func TestDiscardAvailabilityUsesBusinessFacts(t *testing.T) {
 	tests := []struct {
 		name, kind string
-		batch      Batch
+		batch      model.Batch
 		want       bool
 	}{
-		{"not started", "PEGASUS", Batch{State: "QUEUED"}, false},
-		{"scan", "PEGASUS", Batch{Started: true, State: "SCANNING"}, false},
-		{"mapping", "EMULATIONSTATION", Batch{Started: true, State: "AWAITING_MAPPING"}, false},
-		{"active import", "IMPORT", Batch{Started: true, State: "RUNNING"}, true},
+		{"not started", "PEGASUS", model.Batch{State: "QUEUED"}, false},
+		{"scan", "PEGASUS", model.Batch{Started: true, State: "SCANNING"}, false},
+		{"mapping", "EMULATIONSTATION", model.Batch{Started: true, State: "AWAITING_MAPPING"}, false},
+		{"active import", "IMPORT", model.Batch{Started: true, State: "RUNNING"}, true},
 		{
 			"retained rejections",
 			"IMPORT",
-			Batch{
+			model.Batch{
 				Started:          true,
 				State:            "COMPLETED",
 				Rejected:         2,
@@ -133,7 +137,7 @@ func TestDiscardAvailabilityUsesBusinessFacts(t *testing.T) {
 		{
 			"released rejections",
 			"IMPORT",
-			Batch{
+			model.Batch{
 				Started:          true,
 				State:            "COMPLETED",
 				Rejected:         2,
@@ -145,7 +149,7 @@ func TestDiscardAvailabilityUsesBusinessFacts(t *testing.T) {
 		{
 			"source decided",
 			"PEGASUS",
-			Batch{
+			model.Batch{
 				Started: true,
 				State:   "COMPLETED",
 				ItemCounts: map[string]int64{
@@ -159,7 +163,7 @@ func TestDiscardAvailabilityUsesBusinessFacts(t *testing.T) {
 		{
 			"source blocked",
 			"EMULATIONSTATION",
-			Batch{
+			model.Batch{
 				Started: true,
 				State:   "PARTIAL_FAILURE",
 				ItemCounts: map[string]int64{
@@ -171,7 +175,7 @@ func TestDiscardAvailabilityUsesBusinessFacts(t *testing.T) {
 		{
 			"import review",
 			"IMPORT",
-			Batch{
+			model.Batch{
 				Started: true,
 				State:   "REVIEW_PENDING",
 				ItemCounts: map[string]int64{
@@ -196,16 +200,16 @@ func TestProgressDoesNotMarkFailuresCompleted(t *testing.T) {
 		code string
 	}{
 		{errors.New("storage failed"), "IMPORT_BATCH_DISCARD_FAILED"},
-		{ErrReleaseFailed, "IMPORT_BATCH_DISCARD_RELEASE_FAILED"},
-		{ErrAmbiguousOwner, "IMPORT_BATCH_DISCARD_OWNER_AMBIGUOUS"},
+		{model.ErrReleaseFailed, "IMPORT_BATCH_DISCARD_RELEASE_FAILED"},
+		{model.ErrAmbiguousOwner, "IMPORT_BATCH_DISCARD_OWNER_AMBIGUOUS"},
 	}
 	for _, test := range tests {
-		result := progressFor(Key{Kind: "IMPORT", ID: batchID}, true, test.err, 17)
+		result := progressFor(model.Key{Kind: "IMPORT", ID: batchID}, true, test.err, 17)
 		if result.State != "FAILED" || result.CompletedAt != nil || result.ErrorCode == nil || *result.ErrorCode != test.code {
 			t.Fatalf("failure progress=%+v", result)
 		}
 	}
-	result := progressFor(Key{Kind: "IMPORT", ID: batchID}, true, nil, 17)
+	result := progressFor(model.Key{Kind: "IMPORT", ID: batchID}, true, nil, 17)
 	if result.State != "COMPLETED" || result.CompletedAt == nil || *result.CompletedAt != 17 {
 		t.Fatalf("completion=%+v", result)
 	}

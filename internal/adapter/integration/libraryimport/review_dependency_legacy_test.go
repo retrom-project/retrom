@@ -3,16 +3,16 @@ package libraryimport
 import (
 	"testing"
 
-	application "retrom/internal/service/libraryimport"
+	libraryimportmodel "retrom/internal/model/libraryimport"
 )
 
 func TestReviewDependencyCompatibilityKeepsScalarValues(t *testing.T) {
 	t.Parallel()
 	name, sha := "disc.bin", "digest"
 	size := int64(123)
-	value := &application.ReviewMultiDisc{
-		Entries:          []application.MultiDiscEntry{{LogicalName: &name, SizeBytes: &size, SHA256: &sha}},
-		LatestAttachment: &application.MultiDiscAttachment{Version: 7, CreatedAtMS: 11, Diagnostics: []byte(`{}`)},
+	value := &libraryimportmodel.ReviewMultiDisc{
+		Entries:          []libraryimportmodel.MultiDiscEntry{{LogicalName: &name, SizeBytes: &size, SHA256: &sha}},
+		LatestAttachment: &libraryimportmodel.MultiDiscAttachment{Version: 7, CreatedAtMS: 11, Diagnostics: []byte(`{}`)},
 	}
 	result := legacyMultiDiscProjection(value)
 	entries, ok := result["entries"].([]map[string]any)

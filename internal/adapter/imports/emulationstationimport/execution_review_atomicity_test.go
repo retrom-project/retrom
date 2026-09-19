@@ -8,6 +8,7 @@ import (
 	"sync/atomic"
 	"testing"
 
+	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
 	persistence "retrom/internal/repo/emulationstationimport"
 	application "retrom/internal/service/emulationstationimport"
 	"retrom/internal/testkit/testsupport"
@@ -30,7 +31,7 @@ func TestESInterruptedReviewCancellationRollsBackMetadataAndOwnership(t *testing
 			var hits atomic.Int64
 			hook := executionReviewFaultHook(statement, item.ID, unit.JobID, imported.Items[0].ItemID, &hits)
 			faultDB := testsupport.OpenSQLFaultDatabase(t, fixture.database, testsupport.SQLFaultHooks{BeforeExec: hook, BeforeQuery: hook})
-			var repository application.ExecutionRepository = persistence.NewExecutionControl(faultDB)
+			var repository emulationstationimportmodel.ExecutionRepository = persistence.NewExecutionControl(faultDB)
 			if statement == "callback" {
 				repository = executionReviewCallback{repository}
 			}
@@ -49,11 +50,11 @@ func TestESInterruptedReviewCancellationRollsBackMetadataAndOwnership(t *testing
 }
 
 type executionReviewCallback struct {
-	application.ExecutionRepository
+	emulationstationimportmodel.ExecutionRepository
 }
 
-func (repository executionReviewCallback) WithExecution(ctx context.Context, run func(application.ExecutionScope) error) error {
-	return repository.ExecutionRepository.WithExecution(ctx, func(scope application.ExecutionScope) error {
+func (repository executionReviewCallback) WithExecution(ctx context.Context, run func(emulationstationimportmodel.ExecutionScope) error) error {
+	return repository.ExecutionRepository.WithExecution(ctx, func(scope emulationstationimportmodel.ExecutionScope) error {
 		if err := run(scope); err != nil {
 			return err
 		}

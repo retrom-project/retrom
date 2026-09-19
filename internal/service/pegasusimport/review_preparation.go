@@ -6,20 +6,28 @@ import (
 	"fmt"
 
 	"retrom/internal/capability/content/contentcapability"
-	library "retrom/internal/service/libraryimport"
+	libraryimportmodel "retrom/internal/model/libraryimport"
+	model "retrom/internal/model/pegasusimport"
 )
 
 type (
 	ReviewSourceCreator interface {
-		LookupOwnedServerSource(context.Context, library.SourceCreationIntent) (library.ServerImportResult, bool, error)
-		CreateOwnedServerSource(context.Context, library.OwnedServerSourceRequest) (library.ServerImportResult, error)
+		LookupOwnedServerSource(context.Context, libraryimportmodel.SourceCreationIntent) (
+			libraryimportmodel.ServerImportResult,
+			bool,
+			error,
+		)
+		CreateOwnedServerSource(context.Context, libraryimportmodel.OwnedServerSourceRequest) (
+			libraryimportmodel.ServerImportResult,
+			error,
+		)
 	}
 	ReviewItemTransitions interface {
-		Resume(context.Context, ExecutionIdentity, string, string, string) error
-		Finish(context.Context, ExecutionIdentity, string, ItemOutcome) error
+		Resume(context.Context, model.ExecutionIdentity, string, string, string) error
+		Finish(context.Context, model.ExecutionIdentity, string, model.ItemOutcome) error
 	}
 	ReviewCompleter interface {
-		Complete(context.Context, ReviewHandoffRequest) error
+		Complete(context.Context, model.ReviewHandoffRequest) error
 	}
 	ReviewPreparation struct {
 		sources ReviewSourceCreator
@@ -36,20 +44,20 @@ func NewReviewPreparation(
 	return &ReviewPreparation{sources: sources, items: items, handoff: handoff}
 }
 
-func sourceIntent(unit Work, item ExecutionItem) library.SourceCreationIntent {
+func sourceIntent(unit model.Work, item model.ExecutionItem) libraryimportmodel.SourceCreationIntent {
 	paths := make([]string, 0, len(item.Files))
 	for _, file := range item.Files {
 		paths = append(paths, file.Path)
 	}
-	return library.SourceCreationIntent{
-		Kind:     library.SourceOwnerPegasus,
+	return libraryimportmodel.SourceCreationIntent{
+		Kind:     libraryimportmodel.SourceOwnerPegasus,
 		ImportID: unit.ImportID, ItemID: item.ID, JobID: unit.JobID,
 		WorkerID: unit.WorkerID, ExecutionNo: unit.ExecutionNo, Attempt: unit.Attempt, PrimaryPaths: paths,
 	}
 }
 
 // Resume precedes host/CAS reads, so retained identities can be replayed after payload cleanup.
-func (service *ReviewPreparation) Resume(ctx context.Context, unit Work, item ExecutionItem) (bool, error) {
+func (service *ReviewPreparation) Resume(ctx context.Context, unit model.Work, item model.ExecutionItem) (bool, error) {
 	result, found, err := service.sources.LookupOwnedServerSource(ctx, sourceIntent(unit, item))
 	if err != nil {
 		return false, fmt.Errorf("lookup Pegasus bound review: %w", err)
@@ -65,19 +73,19 @@ func (service *ReviewPreparation) Resume(ctx context.Context, unit Work, item Ex
 
 func (service *ReviewPreparation) Create(
 	ctx context.Context,
-	unit Work,
-	item ExecutionItem,
-	files []library.ServerSourceFile,
+	unit model.Work,
+	item model.ExecutionItem,
+	files []libraryimportmodel.ServerSourceFile,
 ) error {
 	mode := contentcapability.ModeStandard
 	if len(item.Files) > 1 {
 		mode = contentcapability.ModeMultiDisc
 	}
-	result, err := service.sources.CreateOwnedServerSource(ctx, library.OwnedServerSourceRequest{
+	result, err := service.sources.CreateOwnedServerSource(ctx, libraryimportmodel.OwnedServerSourceRequest{
 		Intent: sourceIntent(unit, item), TargetPlatformInstanceID: item.TargetPlatformID, ContentMode: mode,
 		Files: files, TagIDs: item.TagIDs, AssignedByUserID: unit.CreatedByUserID,
 	})
-	if errors.Is(err, library.ErrSourceGrouping) {
+	if errors.Is(err, libraryimportmodel.ErrSourceGrouping) {
 		return service.blockContent(ctx, unit, item)
 	}
 	if err != nil {
@@ -88,12 +96,12 @@ func (service *ReviewPreparation) Create(
 
 func (service *ReviewPreparation) accept(
 	ctx context.Context,
-	unit Work,
-	item ExecutionItem,
-	result library.ServerImportResult,
+	unit model.Work,
+	item model.ExecutionItem,
+	result libraryimportmodel.ServerImportResult,
 ) error {
 	if result.Created.ImportJobID == "" || len(result.Items) != 1 || result.Items[0].ItemID == "" {
-		return ErrInvalid
+		return model.ErrInvalid
 	}
 	if err := service.acceptResult(ctx, unit, item, result); err != nil {
 		return &ReviewPreparationError{
@@ -105,9 +113,9 @@ func (service *ReviewPreparation) accept(
 
 func (service *ReviewPreparation) acceptResult(
 	ctx context.Context,
-	unit Work,
-	item ExecutionItem,
-	result library.ServerImportResult,
+	unit model.Work,
+	item model.ExecutionItem,
+	result libraryimportmodel.ServerImportResult,
 ) error {
 	imported := result.Items[0]
 	err := service.items.Resume(ctx, unit.Identity(), item.ID, result.Created.ImportJobID, imported.ItemID)
@@ -116,13 +124,13 @@ func (service *ReviewPreparation) acceptResult(
 	}
 	if imported.ExistingGameID != "" {
 		if imported.State != "DISCARDED" || len(imported.ExistingMatches) == 0 {
-			return ErrInvalid
+			return model.ErrInvalid
 		}
-		matches := make([]ExistingMatch, 0, len(imported.ExistingMatches))
+		matches := make([]model.ExistingMatch, 0, len(imported.ExistingMatches))
 		for _, match := range imported.ExistingMatches {
-			matches = append(matches, ExistingMatch{GameID: match.GameID})
+			matches = append(matches, model.ExistingMatch{GameID: match.GameID})
 		}
-		if err := service.items.Finish(ctx, unit.Identity(), item.ID, ItemOutcome{
+		if err := service.items.Finish(ctx, unit.Identity(), item.ID, model.ItemOutcome{
 			State: "SKIPPED_EXISTING", ExistingGameID: imported.ExistingGameID, ExistingMatches: matches,
 		}); err != nil {
 			return fmt.Errorf("complete Pegasus duplicate: %w", err)
@@ -132,7 +140,7 @@ func (service *ReviewPreparation) acceptResult(
 	if imported.State != "REVIEW_PENDING" {
 		return service.blockContent(ctx, unit, item)
 	}
-	if err := service.handoff.Complete(ctx, ReviewHandoffRequest{
+	if err := service.handoff.Complete(ctx, model.ReviewHandoffRequest{
 		ItemID: item.ID, ImportID: unit.ImportID, JobID: unit.JobID, WorkerID: unit.WorkerID,
 		LibraryJobID: result.Created.ImportJobID, LibraryItemID: imported.ItemID,
 		ExecutionNo: unit.ExecutionNo, Attempt: unit.Attempt,
@@ -142,12 +150,11 @@ func (service *ReviewPreparation) acceptResult(
 	return nil
 }
 
-func (service *ReviewPreparation) blockContent(ctx context.Context, unit Work, item ExecutionItem) error {
+func (service *ReviewPreparation) blockContent(ctx context.Context, unit model.Work, item model.ExecutionItem) error {
 	if err := service.items.Finish(
 		ctx,
 		unit.Identity(),
-		item.ID,
-		ItemOutcome{State: "BLOCKED_CONTENT", Code: "PEGASUS_CONTENT_FORMAT_UNSUPPORTED"},
+		item.ID, model.ItemOutcome{State: "BLOCKED_CONTENT", Code: "PEGASUS_CONTENT_FORMAT_UNSUPPORTED"},
 	); err != nil {
 		return fmt.Errorf("complete unsupported Pegasus content: %w", err)
 	}

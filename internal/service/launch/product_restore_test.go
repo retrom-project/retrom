@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"retrom/internal/capability/content/multidisc"
+	model "retrom/internal/model/launch"
 )
 
 func TestProductRestoreErrorPriority(t *testing.T) {
@@ -13,11 +14,11 @@ func TestProductRestoreErrorPriority(t *testing.T) {
 		save, found, readable, compatible bool
 		want                              error
 	}{
-		{name: "missing authorized save", found: true, readable: true, want: ErrBlocked},
+		{name: "missing authorized save", found: true, readable: true, want: model.ErrBlocked},
 		{name: "compatible selected core", save: true, found: true, compatible: true},
-		{name: "no compatible core", save: true, found: true, want: ErrSaveIncompatible},
-		{name: "different compatible core remains", save: true, found: true, readable: true, want: ErrBlocked},
-		{name: "selected source unavailable", save: true, readable: true, want: ErrBlocked},
+		{name: "no compatible core", save: true, found: true, want: model.ErrSaveIncompatible},
+		{name: "different compatible core remains", save: true, found: true, readable: true, want: model.ErrBlocked},
+		{name: "selected source unavailable", save: true, readable: true, want: model.ErrBlocked},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			service, repository, _, command := productFixture(t)
@@ -26,7 +27,7 @@ func TestProductRestoreErrorPriority(t *testing.T) {
 			repository.before.Found = test.found
 			repository.before.SaveReadable = test.readable
 			if test.save {
-				repository.before.Save = &ProductSave{ID: saveID, Format: "native-v1"}
+				repository.before.Save = &model.ProductSave{ID: saveID, Format: "native-v1"}
 			}
 			if test.compatible {
 				repository.before.Source.ReadFormats = []string{"native-v1"}
@@ -43,24 +44,24 @@ func TestProductRestoreErrorPriority(t *testing.T) {
 func TestProductRestoreFreezesPayloadAndSelectedDisc(t *testing.T) {
 	for _, test := range []struct {
 		name   string
-		mutate func(*ProductSnapshot)
+		mutate func(*model.ProductSnapshot)
 	}{
-		{"deleted", func(snapshot *ProductSnapshot) { snapshot.Save = nil }},
-		{"payload replaced", func(snapshot *ProductSnapshot) { snapshot.Save.PayloadID = "replacement" }},
-		{"content changed", func(snapshot *ProductSnapshot) { snapshot.Save.Digest = "replacement" }},
-		{"owner changed", func(snapshot *ProductSnapshot) { snapshot.Save.ProfileID = "other" }},
-		{"disc changed", func(snapshot *ProductSnapshot) { disc := int64(1); snapshot.Save.DiscIndex = &disc }},
+		{"deleted", func(snapshot *model.ProductSnapshot) { snapshot.Save = nil }},
+		{"payload replaced", func(snapshot *model.ProductSnapshot) { snapshot.Save.PayloadID = "replacement" }},
+		{"content changed", func(snapshot *model.ProductSnapshot) { snapshot.Save.Digest = "replacement" }},
+		{"owner changed", func(snapshot *model.ProductSnapshot) { snapshot.Save.ProfileID = "other" }},
+		{"disc changed", func(snapshot *model.ProductSnapshot) { disc := int64(1); snapshot.Save.DiscIndex = &disc }},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			service, repository, _, command := productFixture(t)
 			saveID := "save"
 			command.Request.SaveStateID = &saveID
-			repository.before.Save = &ProductSave{ID: saveID, ProfileID: "profile", Format: "native-v1", PayloadID: "payload"}
+			repository.before.Save = &model.ProductSave{ID: saveID, ProfileID: "profile", Format: "native-v1", PayloadID: "payload"}
 			repository.before.Source.ReadFormats = []string{"native-v1"}
 			repository.current = cloneProductSnapshot(t, repository.before)
 			test.mutate(&repository.current)
 			result, err := service.Create(t.Context(), command)
-			if !errors.Is(err, ErrBlocked) || result.Created.LaunchID != "" || len(repository.writes) != 0 {
+			if !errors.Is(err, model.ErrBlocked) || result.Created.LaunchID != "" || len(repository.writes) != 0 {
 				t.Fatalf("changed restore returned launch=%q error=%v writes=%d", result.Created.LaunchID, err, len(repository.writes))
 			}
 		})
@@ -83,12 +84,12 @@ func TestProductDiscRestoreBounds(t *testing.T) {
 		{name: "single content with disc", kind: "SINGLE_FILE", hasSave: true, disc: productDiscValue(0), blocked: true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			snapshot := ProductSnapshot{Source: ProductSource{ContentKind: test.kind}}
+			snapshot := model.ProductSnapshot{Source: model.ProductSource{ContentKind: test.kind}}
 			if test.hasSave {
-				snapshot.Save = &ProductSave{DiscIndex: test.disc}
+				snapshot.Save = &model.ProductSave{DiscIndex: test.disc}
 			}
 			disc, err := productInitialDisc(snapshot, 2)
-			if errors.Is(err, ErrBlocked) != test.blocked || disc != test.want {
+			if errors.Is(err, model.ErrBlocked) != test.blocked || disc != test.want {
 				t.Fatalf("disc=%d error=%v", disc, err)
 			}
 		})
@@ -99,14 +100,14 @@ func productDiscValue(value int64) *int64 { return &value }
 
 func TestProductDOSRestoreUsesFrozenSafeEntry(t *testing.T) {
 	entry := "GAME.EXE"
-	command := ProductCreateCommand{Request: CreateRequest{DOSEntry: &entry}}
+	command := model.ProductCreateCommand{Request: model.CreateRequest{DOSEntry: &entry}}
 	savedEntry := "SAVED.EXE"
-	snapshot := ProductSnapshot{Save: &ProductSave{DOSEntry: &savedEntry}}
-	if _, err := selectedProductDOS(command, snapshot); !errors.Is(err, ErrDOSEntryMissing) {
+	snapshot := model.ProductSnapshot{Save: &model.ProductSave{DOSEntry: &savedEntry}}
+	if _, err := selectedProductDOS(command, snapshot); !errors.Is(err, model.ErrDOSEntryMissing) {
 		t.Fatalf("missing DOS entry: %v", err)
 	}
 	snapshot.DOS.Found = true
-	if _, err := selectedProductDOS(command, snapshot); !errors.Is(err, ErrDOSEntryUnsafe) {
+	if _, err := selectedProductDOS(command, snapshot); !errors.Is(err, model.ErrDOSEntryUnsafe) {
 		t.Fatalf("unsafe DOS entry: %v", err)
 	}
 	snapshot.DOS.Safe = true

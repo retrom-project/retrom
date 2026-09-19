@@ -4,7 +4,8 @@ import (
 	"context"
 	"time"
 
-	"retrom/internal/adapter/files/blobstore"
+	blobmodel "retrom/internal/model/blob"
+
 	"retrom/internal/capability/content/multidisc"
 	validationservice "retrom/internal/model/corevalidation"
 )
@@ -28,7 +29,7 @@ type MultiDiscAttachmentCommitRequest struct {
 	ExecutionStartedAtMS int64
 	BaseFiles            []MultiDiscAttachmentFile
 	ResultEntries        []multidisc.Entry
-	CanonicalPlaylist    blobstore.Metadata
+	CanonicalPlaylist    blobmodel.PreparedBlob
 	ResultManifestJSON   string
 	ResultManifestDigest string
 	Validation           MultiDiscAttachmentValidation

@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	pegasusimportmodel "retrom/internal/model/pegasusimport"
 	application "retrom/internal/service/pegasusimport"
 )
 
@@ -21,13 +22,13 @@ UPDATE pegasus_imports SET state='RUNNING',completed_at_ms=NULL WHERE id='import
 	return db
 }
 
-func completionChange(ctx context.Context, records application.CompletionRecords) (application.CompletionChange, error) {
+func completionChange(ctx context.Context, records pegasusimportmodel.CompletionRecords) (pegasusimportmodel.CompletionChange, error) {
 	before, err := records.Current(ctx, "work")
 	if err != nil {
-		return application.CompletionChange{}, err
+		return pegasusimportmodel.CompletionChange{}, err
 	}
 	counts, err := records.Counts(ctx, before.ImportID)
-	return application.CompletionChange{Before: before, Counts: counts, ImportState: "PARTIAL_FAILURE", Retryable: true, NowMS: 10}, err
+	return pegasusimportmodel.CompletionChange{Before: before, Counts: counts, ImportState: "PARTIAL_FAILURE", Retryable: true, NowMS: 10}, err
 }
 
 func TestCompletionTransactionRollsBackTerminalPayloadAndEvent(t *testing.T) {
@@ -35,7 +36,7 @@ func TestCompletionTransactionRollsBackTerminalPayloadAndEvent(t *testing.T) {
 	db := completionDatabase(t)
 	before := workflowRows(t, db)
 	cause := errors.New("post completion write failure")
-	err := NewCompletion(db).WithCompletion(t.Context(), func(records application.CompletionRecords) error {
+	err := NewCompletion(db).WithCompletion(t.Context(), func(records pegasusimportmodel.CompletionRecords) error {
 		change, err := completionChange(t.Context(), records)
 		if err != nil {
 			return err
@@ -60,7 +61,7 @@ func TestCompletionTransactionRejectsStaleOwnerSnapshot(t *testing.T) {
 			t.Parallel()
 			db := completionDatabase(t)
 			before := workflowRows(t, db)
-			err := NewCompletion(db).WithCompletion(t.Context(), func(records application.CompletionRecords) error {
+			err := NewCompletion(db).WithCompletion(t.Context(), func(records pegasusimportmodel.CompletionRecords) error {
 				change, err := completionChange(t.Context(), records)
 				if err != nil {
 					return err
@@ -68,7 +69,7 @@ func TestCompletionTransactionRejectsStaleOwnerSnapshot(t *testing.T) {
 				invalidateRecovery(&change.Before, field)
 				return records.Complete(t.Context(), change)
 			})
-			if !errors.Is(err, application.ErrVersionConflict) {
+			if !errors.Is(err, pegasusimportmodel.ErrVersionConflict) {
 				t.Fatalf("stale %s: %v", field, err)
 			}
 			if !reflect.DeepEqual(before, workflowRows(t, db)) {
@@ -82,7 +83,7 @@ func TestCompletionCountsAndFinalEventCommitOnlyOnce(t *testing.T) {
 	t.Parallel()
 	db := completionDatabase(t)
 	service := application.NewCompletion(NewCompletion(db), func() time.Time { return time.UnixMilli(10) })
-	identity := application.ExecutionIdentity{JobID: "work", ImportID: "import-0", WorkerID: "old-worker", ExecutionNo: 1, Attempt: 1}
+	identity := pegasusimportmodel.ExecutionIdentity{JobID: "work", ImportID: "import-0", WorkerID: "old-worker", ExecutionNo: 1, Attempt: 1}
 	if err := service.Finish(t.Context(), identity); err != nil {
 		t.Fatal(err)
 	}
@@ -97,7 +98,7 @@ FROM jobs job JOIN pegasus_imports plan ON plan.id=job.scope_id WHERE job.id='wo
 		t.Fatalf("completion %s %s failed=%d pending=%d events=%d", job, plan, failed, pending, events)
 	}
 	before := workflowRows(t, db)
-	if err := service.Finish(t.Context(), identity); !errors.Is(err, application.ErrVersionConflict) {
+	if err := service.Finish(t.Context(), identity); !errors.Is(err, pegasusimportmodel.ErrVersionConflict) {
 		t.Fatalf("repeated completion=%v", err)
 	}
 	if !reflect.DeepEqual(before, workflowRows(t, db)) {

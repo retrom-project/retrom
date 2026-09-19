@@ -8,7 +8,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	application "retrom/internal/service/payloadrelease"
+	payloadreleasemodel "retrom/internal/model/payloadrelease"
 	"retrom/internal/testkit/testsupport"
 )
 
@@ -36,7 +36,7 @@ func TestReleaseGraphChecksAuthorityAfterGCStaging(t *testing.T) {
 				return result, nil
 			}})
 			err := service.execute(ctx, claim)
-			expected := application.ErrExecutionLost
+			expected := payloadreleasemodel.ErrExecutionLost
 
 			if boundary == "cancel" {
 				expected = context.Canceled

@@ -6,22 +6,23 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"retrom/internal/service/tagging"
+	model "retrom/internal/model/libraryimport"
+	taggingmodel "retrom/internal/model/tagging"
 )
 
 type admissionConfigDocument struct {
-	SchemaVersion                 int                 `json:"schemaVersion"`
-	BindingState                  string              `json:"bindingState"`
-	ContentMode                   string              `json:"contentMode"`
-	PlatformInstanceID            string              `json:"platformInstanceId"`
-	PlatformInstanceVersion       int64               `json:"platformInstanceVersion"`
-	PlatformID                    string              `json:"platformId"`
-	DefaultCoreID                 string              `json:"defaultCoreId"`
-	ResolvedCoreID                *string             `json:"resolvedCoreId"`
-	ProviderID                    string              `json:"providerId"`
-	TargetID                      string              `json:"targetId"`
-	MetadataProviderConfigVersion int                 `json:"metadataProviderConfigVersion"`
-	Tags                          []tagging.Reference `json:"tags"`
+	SchemaVersion                 int                      `json:"schemaVersion"`
+	BindingState                  string                   `json:"bindingState"`
+	ContentMode                   string                   `json:"contentMode"`
+	PlatformInstanceID            string                   `json:"platformInstanceId"`
+	PlatformInstanceVersion       int64                    `json:"platformInstanceVersion"`
+	PlatformID                    string                   `json:"platformId"`
+	DefaultCoreID                 string                   `json:"defaultCoreId"`
+	ResolvedCoreID                *string                  `json:"resolvedCoreId"`
+	ProviderID                    string                   `json:"providerId"`
+	TargetID                      string                   `json:"targetId"`
+	MetadataProviderConfigVersion int                      `json:"metadataProviderConfigVersion"`
+	Tags                          []taggingmodel.Reference `json:"tags"`
 }
 type admissionInputDocument struct {
 	SchemaVersion int                 `json:"schemaVersion"`
@@ -41,18 +42,23 @@ type admissionInputFacts struct {
 	ConfigDigest   string `json:"importConfigSnapshotDigest"`
 }
 
-func admissionDocuments(change ImportAdmissionChange, tags []tagging.Reference) (ImportAdmissionDocuments, error) {
-	var documents ImportAdmissionDocuments
+func admissionDocuments(change model.ImportAdmissionChange, tags []taggingmodel.Reference) (
+	model.ImportAdmissionDocuments,
+	error,
+) {
+	var documents model.ImportAdmissionDocuments
 	var err error
-	documents.RequestJSON, documents.RequestDigest, err = encodeAdmissionDocument(
-		QueuedImportRequest{SchemaVersion: 1, Request: change.Request, Tags: tags},
-	)
+	documents.RequestJSON, documents.RequestDigest, err = encodeAdmissionDocument(model.QueuedImportRequest{
+		SchemaVersion: 1,
+		Request:       change.Request,
+		Tags:          tags,
+	})
 	if err != nil {
-		return ImportAdmissionDocuments{}, err
+		return model.ImportAdmissionDocuments{}, err
 	}
 	documents.TargetJSON, documents.TargetDigest, err = encodeAdmissionDocument(change.TargetSnapshot)
 	if err != nil {
-		return ImportAdmissionDocuments{}, err
+		return model.ImportAdmissionDocuments{}, err
 	}
 	target := change.Target
 	documents.ConfigJSON, documents.ConfigDigest, err = encodeAdmissionDocument(admissionConfigDocument{
@@ -62,7 +68,7 @@ func admissionDocuments(change ImportAdmissionChange, tags []tagging.Reference) 
 		ProviderID: target.ProviderID, TargetID: target.TargetID, MetadataProviderConfigVersion: 1, Tags: tags,
 	})
 	if err != nil {
-		return ImportAdmissionDocuments{}, err
+		return model.ImportAdmissionDocuments{}, err
 	}
 	documents.InputJSON, documents.InputDigest, err = encodeAdmissionDocument(admissionInputDocument{
 		SchemaVersion: 1, Kind: "IMPORT_GROUP", Scope: admissionInputScope{Type: "IMPORT_GROUP", ID: change.ImportID},
@@ -73,7 +79,7 @@ func admissionDocuments(change ImportAdmissionChange, tags []tagging.Reference) 
 		},
 	})
 	if err != nil {
-		return ImportAdmissionDocuments{}, err
+		return model.ImportAdmissionDocuments{}, err
 	}
 	dedupe := sha256.Sum256([]byte("retrom-job-dedupe-v1\x00IMPORT_GROUP\x00" + change.ImportID))
 	documents.DedupeKey = hex.EncodeToString(dedupe[:])

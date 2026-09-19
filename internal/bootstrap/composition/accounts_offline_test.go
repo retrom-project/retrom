@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"retrom/internal/bootstrap/config"
-	accountservice "retrom/internal/service/accounts"
+	accountsmodel "retrom/internal/model/accounts"
 	"retrom/internal/testkit/testassert"
 
 	"github.com/google/uuid"
@@ -20,7 +20,7 @@ func TestReadSetupCodeIsReadOnlyAndPendingOnly(t *testing.T) {
 	}
 	code, err := ReadAccountSetupCode(context.Background(), fixture.database.SQL, fixture.credentials)
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return code != fixture.credentials.SetupCode() }), "pending setup code = %q, %v", code, err)
-	if _, err := fixture.service.Initialize(context.Background(), accountservice.InitializeRequest{
+	if _, err := fixture.service.Initialize(context.Background(), accountsmodel.InitializeRequest{
 		SetupCode: code, Username: "admin", DisplayName: "Administrator",
 		Password: "a sufficiently long phrase", PasswordConfirmation: "a sufficiently long phrase",
 	}); err != nil {
@@ -28,7 +28,7 @@ func TestReadSetupCodeIsReadOnlyAndPendingOnly(t *testing.T) {
 	}
 	if _, err := ReadAccountSetupCode(
 		context.Background(), fixture.database.SQL, fixture.credentials,
-	); !errors.Is(err, accountservice.ErrInitializationDone) {
+	); !errors.Is(err, accountsmodel.ErrInitializationDone) {
 		t.Fatalf("completed setup code = %v", err)
 	}
 }
@@ -48,12 +48,12 @@ func TestOfflineAdminResetRotatesCredentialAndSecurityState(t *testing.T) {
 	}
 	if _, err := fixture.service.Authenticate(
 		context.Background(), admin.CookieToken,
-	); !errors.Is(err, accountservice.ErrAuthenticationNeeded) {
+	); !errors.Is(err, accountsmodel.ErrAuthenticationNeeded) {
 		t.Fatalf("old offline recovery session = %v", err)
 	}
 	if _, err := fixture.service.InspectAccountLink(
 		context.Background(), "PASSWORD_RESET", reset.CapabilityToken,
-	); !errors.Is(err, accountservice.ErrAccountLinkUnavailable) {
+	); !errors.Is(err, accountsmodel.ErrAccountLinkUnavailable) {
 		t.Fatalf("offline recovery reset link = %v", err)
 	}
 	if _, err := fixture.service.Login(
@@ -74,7 +74,7 @@ FROM instance_state WHERE id=1
 	member := acceptFixtureInvitation(t, fixture, admin.Principal, "USER", "member", "Member")
 	if err := fixture.service.OfflineAdminReset(
 		context.Background(), member.User.Username, "another replacement phrase", "another replacement phrase",
-	); !errors.Is(err, accountservice.ErrOfflineAdmin) {
+	); !errors.Is(err, accountsmodel.ErrOfflineAdmin) {
 		t.Fatalf("offline recovery accepted USER = %v", err)
 	}
 }

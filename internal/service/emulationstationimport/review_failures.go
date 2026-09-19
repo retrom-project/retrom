@@ -6,18 +6,19 @@ import (
 	"errors"
 	"fmt"
 
-	library "retrom/internal/service/libraryimport"
+	model "retrom/internal/model/emulationstationimport"
+	libraryimportmodel "retrom/internal/model/libraryimport"
 )
 
-func reviewSourcePath(item ExecutionItem) string {
+func reviewSourcePath(item model.ExecutionItem) string {
 	if len(item.Files) == 0 {
 		return ""
 	}
 	return item.Files[0].Path
 }
 
-func (service *ReviewPreparer) failure(stage, operation string, cause error, path string) *FailureDetails {
-	details := &FailureDetails{
+func (service *ReviewPreparer) failure(stage, operation string, cause error, path string) *model.FailureDetails {
+	details := &model.FailureDetails{
 		SchemaVersion: 1, Stage: stage, Operation: operation,
 		CauseCode:       reviewCauseCode(cause, service.dependencies.Diagnostics),
 		TechnicalDetail: service.dependencies.Diagnostics.Sanitize(cause),
@@ -35,9 +36,9 @@ func reviewCauseCode(cause error, diagnostics FailureDiagnostics) string {
 		return "OPERATION_TIMEOUT"
 	case errors.Is(cause, context.Canceled):
 		return "OPERATION_CANCELLED"
-	case errors.Is(cause, library.ErrMultiDiscModeUnavailable):
+	case errors.Is(cause, libraryimportmodel.ErrMultiDiscModeUnavailable):
 		return "MULTI_DISC_MODE_UNAVAILABLE"
-	case errors.Is(cause, library.ErrInvalid):
+	case errors.Is(cause, libraryimportmodel.ErrInvalid):
 		return "LIBRARY_IMPORT_INPUT_INVALID"
 	case errors.As(cause, &syntax):
 		return "METADATA_JSON_INVALID"
@@ -48,15 +49,18 @@ func reviewCauseCode(cause error, diagnostics FailureDiagnostics) string {
 	return "INTERNAL_OPERATION_FAILED"
 }
 
-func (service *ReviewPreparer) libraryFailure(cause error, files []library.ServerSourceFile) *FailureDetails {
+func (service *ReviewPreparer) libraryFailure(
+	cause error,
+	files []libraryimportmodel.ServerSourceFile,
+) *model.FailureDetails {
 	path := ""
 	if len(files) > 0 {
 		path = files[0].RelativePath
 	}
 	details := service.failure("LIBRARY_IMPORT", "CREATE_SERVER_SOURCE", cause, path)
-	observed, allowed := int64(len(files)), int64(library.ServerSourceFileLimit)
+	observed, allowed := int64(len(files)), int64(libraryimportmodel.ServerSourceFileLimit)
 	details.ObservedFileCount, details.AllowedFileCount = &observed, &allowed
-	if errors.Is(cause, library.ErrInvalid) && observed > allowed {
+	if errors.Is(cause, libraryimportmodel.ErrInvalid) && observed > allowed {
 		details.CauseCode = "SOURCE_FILE_LIMIT_EXCEEDED"
 		details.TechnicalDetail = fmt.Sprintf(
 			"EmulationStation assembled %d source files for one item; library import accepts at most %d.",

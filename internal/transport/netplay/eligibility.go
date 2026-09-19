@@ -1,9 +1,11 @@
 package netplay
 
-import application "retrom/internal/service/netplay"
+import (
+	netplaymodel "retrom/internal/model/netplay"
+)
 
 type (
-	GameSummary    = application.GameSummary
-	ProfileSummary = application.ProfileSummary
-	eligibilityRow = application.EligibilityRow
+	GameSummary    = netplaymodel.GameSummary
+	ProfileSummary = netplaymodel.ProfileSummary
+	eligibilityRow = netplaymodel.EligibilityRow
 )

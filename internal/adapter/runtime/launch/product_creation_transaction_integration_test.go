@@ -8,20 +8,21 @@ import (
 	"testing"
 	"time"
 
+	launchmodel "retrom/internal/model/launch"
 	persistence "retrom/internal/repo/launch"
-	application "retrom/internal/service/launch"
 )
 
 type productFrozenSnapshotRepository struct {
-	application.ProductCreationRepository
-	snapshot application.ProductSnapshot
+	launchmodel.ProductCreationRepository
+
+	snapshot launchmodel.ProductSnapshot
 }
 
-func (repository productFrozenSnapshotRepository) Snapshot(context.Context, application.ProductCreateCommand) (application.ProductSnapshot, error) {
+func (repository productFrozenSnapshotRepository) Snapshot(context.Context, launchmodel.ProductCreateCommand) (launchmodel.ProductSnapshot, error) {
 	return repository.snapshot, nil
 }
 
-func assertProductSnapshotRejected(t *testing.T, service *Service, command application.ProductCreateCommand, snapshot application.ProductSnapshot) {
+func assertProductSnapshotRejected(t *testing.T, service *Service, command launchmodel.ProductCreateCommand, snapshot launchmodel.ProductSnapshot) {
 	t.Helper()
 	fixture := reviewCheckpointFixture{database: service.database}
 	before := playRows(t, service.database)

@@ -7,7 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/adapter/files/blobstore"
+	blobmodel "retrom/internal/model/blob"
+
 	jobpersistence "retrom/internal/repo/jobs"
 	jobservice "retrom/internal/service/jobs"
 	uploadservice "retrom/internal/service/uploads"
@@ -16,13 +17,13 @@ import (
 func TestFinalizationCloseCancelsReadingAndJoinsCleanup(t *testing.T) {
 	fixture := newFinalizationFixture(t)
 	entered, read := make(chan struct{}), make(chan error, 1)
-	fixture.service = uploadservice.New(New(fixture.database), finalizationBlobs{put: func(reader io.Reader) (blobstore.Metadata, error) {
+	fixture.service = uploadservice.New(New(fixture.database), finalizationBlobs{put: func(reader io.Reader) (blobmodel.PreparedBlob, error) {
 		close(entered)
 		for {
 			_, err := reader.Read(make([]byte, 0))
 			if err != nil {
 				read <- err
-				return blobstore.Metadata{}, err
+				return blobmodel.PreparedBlob{}, err
 			}
 			time.Sleep(time.Millisecond)
 		}
@@ -46,12 +47,12 @@ func TestFinalizationCloseCancelsReadingAndJoinsCleanup(t *testing.T) {
 func TestFinalizationPersistentCancelStopsSingleFileRead(t *testing.T) {
 	fixture := newFinalizationFixture(t)
 	entered := make(chan struct{})
-	fixture.service = uploadservice.New(New(fixture.database), finalizationBlobs{put: func(reader io.Reader) (blobstore.Metadata, error) {
+	fixture.service = uploadservice.New(New(fixture.database), finalizationBlobs{put: func(reader io.Reader) (blobmodel.PreparedBlob, error) {
 		close(entered)
 		for {
 			_, err := reader.Read(make([]byte, 0))
 			if err != nil {
-				return blobstore.Metadata{}, err
+				return blobmodel.PreparedBlob{}, err
 			}
 			time.Sleep(time.Millisecond)
 		}

@@ -1,11 +1,13 @@
 package netplay
 
-import application "retrom/internal/service/netplay"
+import (
+	netplaymodel "retrom/internal/model/netplay"
+)
 
 type (
-	RoomMember      = application.RoomMember
-	RoomGame        = application.RoomGame
-	SessionSummary  = application.SessionSummary
-	RoomPermissions = application.RoomPermissions
-	Room            = application.Room
+	RoomMember      = netplaymodel.RoomMember
+	RoomGame        = netplaymodel.RoomGame
+	SessionSummary  = netplaymodel.SessionSummary
+	RoomPermissions = netplaymodel.RoomPermissions
+	Room            = netplaymodel.Room
 )

@@ -1,6 +1,10 @@
 package payloadrelease
 
-import "time"
+import (
+	"time"
+
+	model "retrom/internal/model/payloadrelease"
+)
 
 type GCOptions struct {
 	Now       func() time.Time
@@ -10,16 +14,16 @@ type GCOptions struct {
 }
 
 type GCScheduler struct {
-	repository GCRepository
+	repository model.GCRepository
 	now        func() time.Time
 	newID      func() (string, error)
 	retention  time.Duration
 	wake       func()
 }
 
-func NewGCScheduler(repository GCRepository, options GCOptions) (*GCScheduler, error) {
+func NewGCScheduler(repository model.GCRepository, options GCOptions) (*GCScheduler, error) {
 	if options.Retention < 24*time.Hour || options.Retention > 30*24*time.Hour {
-		return nil, ErrGCRetentionInvalid
+		return nil, model.ErrGCRetentionInvalid
 	}
 	if options.Now == nil {
 		options.Now = time.Now

@@ -8,7 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/adapter/files/blobstore"
+	blobmodel "retrom/internal/model/blob"
+	uploadsmodel "retrom/internal/model/uploads"
+
 	jobpersistence "retrom/internal/repo/jobs"
 	jobservice "retrom/internal/service/jobs"
 	uploadservice "retrom/internal/service/uploads"
@@ -21,9 +23,9 @@ func TestFinalizationManualRetryKeepsRoundAndCompletedFiles(t *testing.T) {
 	job := fixture.complete(t, session)
 	var calls atomic.Int64
 	failure := errors.New("temporary second-file CAS failure")
-	worker := uploadservice.New(New(fixture.database), finalizationBlobs{put: func(reader io.Reader) (blobstore.Metadata, error) {
+	worker := uploadservice.New(New(fixture.database), finalizationBlobs{put: func(reader io.Reader) (blobmodel.PreparedBlob, error) {
 		if calls.Add(1) == 2 {
-			return blobstore.Metadata{}, failure
+			return blobmodel.PreparedBlob{}, failure
 		}
 		return fixture.blobs.Put(reader)
 	}}, fixture.root, finalizationNow)
@@ -66,10 +68,10 @@ SELECT count(*) FROM upload_files WHERE id=? AND final_blob_id=? AND state='COMP
 	}
 }
 
-func uploadRetryFiles(t *testing.T, fixture *finalizationFixture) uploadservice.Session {
+func uploadRetryFiles(t *testing.T, fixture *finalizationFixture) uploadsmodel.Session {
 	t.Helper()
-	session, err := fixture.service.Create(t.Context(), uploadservice.CreateRequest{
-		SourceType: "FILES", Files: []uploadservice.FileDeclaration{
+	session, err := fixture.service.Create(t.Context(), uploadsmodel.CreateRequest{
+		SourceType: "FILES", Files: []uploadsmodel.FileDeclaration{
 			{ClientFileID: "first", RelativePath: "first.bin", SizeBytes: 5},
 			{ClientFileID: "second", RelativePath: "second.bin", SizeBytes: 5},
 		},
@@ -78,9 +80,9 @@ func uploadRetryFiles(t *testing.T, fixture *finalizationFixture) uploadservice.
 		t.Fatal(err)
 	}
 	for index, file := range session.Files {
-		fixture.put(t, uploadservice.Session{
+		fixture.put(t, uploadsmodel.Session{
 			ID: session.ID, TotalBytes: file.SizeBytes,
-			Files: []uploadservice.File{file},
+			Files: []uploadsmodel.File{file},
 		}, 0, []byte{1, 2, 3, 4, byte(index)})
 	}
 	current, err := fixture.service.Get(t.Context(), session.ID)

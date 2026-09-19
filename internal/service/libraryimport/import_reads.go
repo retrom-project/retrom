@@ -3,27 +3,29 @@ package libraryimport
 import (
 	"context"
 	"fmt"
+
+	model "retrom/internal/model/libraryimport"
 )
 
 type ImportReads struct {
-	repository ImportReadRepository
+	repository model.ImportReadRepository
 }
 
-func NewImportReads(repository ImportReadRepository) *ImportReads {
+func NewImportReads(repository model.ImportReadRepository) *ImportReads {
 	return &ImportReads{repository: repository}
 }
 
-func (service *ImportReads) Summary(ctx context.Context) (ImportOverviewSummary, error) {
+func (service *ImportReads) Summary(ctx context.Context) (model.ImportOverviewSummary, error) {
 	result, err := service.repository.Summary(ctx)
 	if err != nil {
-		return ImportOverviewSummary{}, fmt.Errorf("read import overview: %w", err)
+		return model.ImportOverviewSummary{}, fmt.Errorf("read import overview: %w", err)
 	}
 	return result, nil
 }
 
-func (service *ImportReads) List(ctx context.Context, query ImportListQuery) ([]ImportListItem, error) {
+func (service *ImportReads) List(ctx context.Context, query model.ImportListQuery) ([]model.ImportListItem, error) {
 	if query.Limit < 1 || query.Limit > 21 || query.SortCode == "" {
-		return nil, ErrImportReadQuery
+		return nil, model.ErrImportReadQuery
 	}
 	result, err := service.repository.List(ctx, query)
 	if err != nil {
@@ -32,10 +34,10 @@ func (service *ImportReads) List(ctx context.Context, query ImportListQuery) ([]
 	return result, nil
 }
 
-func (service *ImportReads) Detail(ctx context.Context, importJobID string) (ImportDetail, error) {
+func (service *ImportReads) Detail(ctx context.Context, importJobID string) (model.ImportDetail, error) {
 	result, err := service.repository.Detail(ctx, importJobID)
 	if err != nil {
-		return ImportDetail{}, fmt.Errorf("read import detail: %w", err)
+		return model.ImportDetail{}, fmt.Errorf("read import detail: %w", err)
 	}
 	return result, nil
 }
@@ -43,7 +45,7 @@ func (service *ImportReads) Detail(ctx context.Context, importJobID string) (Imp
 func (service *ImportReads) MultiDiscItemSummaries(
 	ctx context.Context,
 	importJobID string,
-) ([]ImportMultiDiscItemSummary, error) {
+) ([]model.ImportMultiDiscItemSummary, error) {
 	result, err := service.repository.MultiDiscItemSummaries(ctx, importJobID)
 	if err != nil {
 		return nil, fmt.Errorf("read multi-disc item summaries: %w", err)
@@ -53,8 +55,8 @@ func (service *ImportReads) MultiDiscItemSummaries(
 
 func (service *ImportReads) ReviewHistory(
 	ctx context.Context,
-	query ReviewHistoryQuery,
-) ([]ReviewHistoryItem, error) {
+	query model.ReviewHistoryQuery,
+) ([]model.ReviewHistoryItem, error) {
 	result, err := service.repository.ReviewHistory(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("read review history: %w", err)
@@ -65,10 +67,10 @@ func (service *ImportReads) ReviewHistory(
 func (service *ImportReads) ReviewHistoryEvent(
 	ctx context.Context,
 	eventID string,
-) (ReviewHistoryEvent, error) {
+) (model.ReviewHistoryEvent, error) {
 	result, err := service.repository.ReviewHistoryEvent(ctx, eventID)
 	if err != nil {
-		return ReviewHistoryEvent{}, fmt.Errorf("read review history event: %w", err)
+		return model.ReviewHistoryEvent{}, fmt.Errorf("read review history event: %w", err)
 	}
 	return result, nil
 }

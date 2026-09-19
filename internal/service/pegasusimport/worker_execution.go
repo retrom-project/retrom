@@ -5,13 +5,15 @@ import (
 	"errors"
 	"fmt"
 	"time"
+
+	model "retrom/internal/model/pegasusimport"
 )
 
 var errWorkerCancellation = errors.New("pegasus execution cancellation requested")
 
 // Run bounds an already claimed execution by its original persisted deadline.
 // Cancellation observation does not authorize settlement; the settlement port must recheck ownership.
-func (worker *Worker) Run(parent context.Context, unit Work) {
+func (worker *Worker) Run(parent context.Context, unit model.Work) {
 	ctx := parent
 	if unit.DeadlineAtMS > 0 {
 		var cancel context.CancelFunc
@@ -41,7 +43,7 @@ func (worker *Worker) Run(parent context.Context, unit Work) {
 }
 
 func (worker *Worker) checkCancellation(
-	ctx context.Context, id ExecutionIdentity, cancel context.CancelCauseFunc,
+	ctx context.Context, id model.ExecutionIdentity, cancel context.CancelCauseFunc,
 ) bool {
 	pending, err := worker.dependencies.Cancellation.Cancelled(ctx, id)
 	if err != nil {
@@ -56,7 +58,7 @@ func (worker *Worker) checkCancellation(
 	return ctx.Err() == nil
 }
 
-func (worker *Worker) monitor(ctx context.Context, id ExecutionIdentity, cancel context.CancelCauseFunc) {
+func (worker *Worker) monitor(ctx context.Context, id model.ExecutionIdentity, cancel context.CancelCauseFunc) {
 	poll := time.NewTicker(time.Second)
 	defer poll.Stop()
 	heartbeat := time.NewTicker(15 * time.Second)

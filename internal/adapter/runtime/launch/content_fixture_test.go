@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	application "retrom/internal/service/launch"
+	launchmodel "retrom/internal/model/launch"
 )
 
 func (service *Service) ContentBlob(ctx context.Context, launchID, capability, logicalName string) (string, error) {
@@ -45,7 +45,7 @@ func (service *Service) RPGProjectContentAuthorized(
 }
 
 func (service *Service) External(ctx context.Context, launchID, capability, logicalName string) (ExternalView, error) {
-	result, err := service.contentAccess().External(ctx, application.SessionRef{ID: launchID}, capability, logicalName)
+	result, err := service.contentAccess().External(ctx, launchmodel.SessionRef{ID: launchID}, capability, logicalName)
 	if err != nil {
 		return result, fmt.Errorf("launch resource query: %w", err)
 	}

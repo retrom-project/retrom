@@ -6,39 +6,40 @@ import (
 	"testing"
 	"time"
 
-	payload "retrom/internal/service/payloadrelease"
+	payloadreleasemodel "retrom/internal/model/payloadrelease"
+	model "retrom/internal/model/pegasusimport"
 )
 
 type completionFake struct {
-	before  ExecutionSnapshot
-	counts  CompletionCounts
-	saved   *CompletionChange
+	before  model.ExecutionSnapshot
+	counts  model.CompletionCounts
+	saved   *model.CompletionChange
 	failure error
 }
 
-func (fake *completionFake) WithCompletion(_ context.Context, work func(CompletionRecords) error) error {
+func (fake *completionFake) WithCompletion(_ context.Context, work func(model.CompletionRecords) error) error {
 	return work(fake)
 }
 
-func (fake *completionFake) Current(context.Context, string) (ExecutionSnapshot, error) {
+func (fake *completionFake) Current(context.Context, string) (model.ExecutionSnapshot, error) {
 	return fake.before, nil
 }
 
-func (fake *completionFake) Counts(context.Context, string) (CompletionCounts, error) {
+func (fake *completionFake) Counts(context.Context, string) (model.CompletionCounts, error) {
 	return fake.counts, fake.failure
 }
 
-func (fake *completionFake) Complete(_ context.Context, change CompletionChange) error {
+func (fake *completionFake) Complete(_ context.Context, change model.CompletionChange) error {
 	fake.saved = &change
 	return nil
 }
 
-func completionFixture() (*completionFake, ExecutionIdentity) {
-	before := ExecutionSnapshot{
+func completionFixture() (*completionFake, model.ExecutionIdentity) {
+	before := model.ExecutionSnapshot{
 		JobID: "job", ImportID: "import", WorkerID: "owner", Kind: "SERVER_PEGASUS_IMPORT", JobState: "RUNNING", ImportState: "RUNNING",
 		ExecutionNo: 1, Attempt: 1, JobVersion: 2, ImportVersion: 3, LeaseUntilMS: 50, DeadlineMS: 100,
 	}
-	return &completionFake{before: before}, ExecutionIdentity{JobID: "job", ImportID: "import", WorkerID: "owner", ExecutionNo: 1, Attempt: 1}
+	return &completionFake{before: before}, model.ExecutionIdentity{JobID: "job", ImportID: "import", WorkerID: "owner", ExecutionNo: 1, Attempt: 1}
 }
 
 func TestCompletionRequiresCurrentWorkerAndNoPendingItems(t *testing.T) {
@@ -87,4 +88,4 @@ func TestCompletionCountFailureRetainsCause(t *testing.T) {
 	}
 }
 
-func (*completionFake) Payload() payload.ReleaseScope { return emptyPayloadScope() }
+func (*completionFake) Payload() payloadreleasemodel.ReleaseScope { return emptyPayloadScope() }

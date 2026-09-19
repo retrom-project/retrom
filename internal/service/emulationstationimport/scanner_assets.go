@@ -7,19 +7,20 @@ import (
 
 	"retrom/internal/adapter/files/mediaasset"
 	"retrom/internal/capability/format/emulationstationmeta"
+	model "retrom/internal/model/emulationstationimport"
 )
 
 func (service *Scanner) projectAssets(
 	ctx context.Context,
 	gamelistPath string,
 	references emulationstationmeta.AssetReferences,
-	files map[string]discoveredFile,
-) ([]scannedAsset, []map[string]any, error) {
+	files map[string]DiscoveredFile,
+) ([]model.ScanAsset, []map[string]any, error) {
 	requests := []struct {
 		kind      string
 		reference *emulationstationmeta.AssetReference
 	}{{kind: "COVER", reference: references.Cover}, {kind: "VIDEO", reference: references.Video}}
-	assets := make([]scannedAsset, 0, 2)
+	assets := make([]model.ScanAsset, 0, 2)
 	warnings := make([]map[string]any, 0, 2)
 	for _, request := range requests {
 		if request.reference == nil {
@@ -43,8 +44,8 @@ func (service *Scanner) projectAsset(
 	ctx context.Context,
 	gamelistPath, kind string,
 	reference emulationstationmeta.AssetReference,
-	files map[string]discoveredFile,
-) (*scannedAsset, map[string]any, error) {
+	files map[string]DiscoveredFile,
+) (*model.ScanAsset, map[string]any, error) {
 	if reference.RelativePath == "" {
 		return nil, nil, nil
 	}
@@ -53,7 +54,7 @@ func (service *Scanner) projectAsset(
 		return nil, scanMediaWarning("EMULATIONSTATION_PATH_INVALID", kind), nil
 	}
 	entry, exists := files[resolved]
-	asset := scannedAsset{
+	asset := model.ScanAsset{
 		Kind: kind, Method: reference.ResolutionMethod, Path: resolved,
 		State: "MISSING", WarningCode: "EMULATIONSTATION_MEDIA_MISSING",
 	}
@@ -93,7 +94,7 @@ func scanAssetFailure(kind string, err error) (string, string) {
 	switch {
 	case errors.Is(err, ErrScanReadFailed):
 		return "READ_FAILED", "EMULATIONSTATION_MEDIA_READ_FAILED"
-	case errors.Is(err, ErrSourceChanged):
+	case errors.Is(err, model.ErrSourceChanged):
 		return "SOURCE_CHANGED", "EMULATIONSTATION_SOURCE_CHANGED"
 	case kind == "COVER":
 		return "INVALID", "EMULATIONSTATION_IMAGE_INVALID"

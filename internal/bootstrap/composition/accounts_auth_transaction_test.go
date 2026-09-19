@@ -6,8 +6,8 @@ import (
 	"testing"
 
 	"retrom/internal/bootstrap/config"
+	accountsmodel "retrom/internal/model/accounts"
 	accountpersistence "retrom/internal/repo/accounts"
-	accountservice "retrom/internal/service/accounts"
 )
 
 func TestLoginSessionAndUserActivityRollbackTogether(t *testing.T) {
@@ -22,8 +22,8 @@ func TestLoginSessionAndUserActivityRollbackTogether(t *testing.T) {
 	if err != nil || !found {
 		t.Fatalf("credential missing: %v", err)
 	}
-	material := accountservice.SessionMaterial{ID: "rollback-session", Hash: [32]byte{1}}
-	err = repository.WithWrite(t.Context(), func(scope accountservice.AuthScope) error {
+	material := accountsmodel.SessionMaterial{ID: "rollback-session", Hash: [32]byte{1}}
+	err = repository.WithWrite(t.Context(), func(scope accountsmodel.AuthScope) error {
 		if err := scope.Write.Login(t.Context(), credential, material.Record(session.User.UserID, credential.SessionVersion, before+100)); err != nil {
 			return err
 		}

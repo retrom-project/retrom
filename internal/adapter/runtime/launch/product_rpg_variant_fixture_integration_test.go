@@ -21,6 +21,7 @@ import (
 	"retrom/internal/adapter/runtime/dependencies"
 	retromruntime "retrom/internal/adapter/runtime/runtime"
 	"retrom/internal/foundation/cleanup"
+	uploadsmodel "retrom/internal/model/uploads"
 	dependencypersistence "retrom/internal/repo/dependencies"
 	savepersistence "retrom/internal/repo/saves"
 	uploadpersistence "retrom/internal/repo/uploads"
@@ -102,8 +103,8 @@ func uploadProductRPGFixture(t *testing.T, database *sql.DB, blobs *blobstore.St
 	ctx := t.Context()
 	archive := productRPGArchive(t, generation)
 	uploader := uploads.New(uploadpersistence.New(database), blobs, dataDir, now)
-	upload, err := uploader.Create(ctx, uploads.CreateRequest{
-		Purpose: "PROJECT", SourceType: "FILES", Files: []uploads.FileDeclaration{{
+	upload, err := uploader.Create(ctx, uploadsmodel.CreateRequest{
+		Purpose: "PROJECT", SourceType: "FILES", Files: []uploadsmodel.FileDeclaration{{
 			ClientFileID: "project", RelativePath: generation + ".zip", SizeBytes: int64(len(archive)),
 		}},
 	})

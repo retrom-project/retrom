@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
+	libraryimportmodel "retrom/internal/model/libraryimport"
 	"retrom/internal/repo/dbexec"
-	application "retrom/internal/service/libraryimport"
 	"retrom/internal/testkit/testsupport"
 )
 
@@ -49,13 +49,13 @@ func claimedApprovalBulk(t *testing.T) (deduplicateFixture, reviewBulkWork) {
 	return fixture, work
 }
 
-func claimApprovalBulkRequest(t *testing.T, fixture deduplicateFixture, work reviewBulkWork) application.ReviewApprovalRequest {
+func claimApprovalBulkRequest(t *testing.T, fixture deduplicateFixture, work reviewBulkWork) libraryimportmodel.ReviewApprovalRequest {
 	t.Helper()
 	item, err := fixture.service.claimReviewBulkItem(t.Context(), work)
 	if err != nil {
 		t.Fatal(err)
 	}
-	return application.ReviewApprovalRequest{ItemID: item.itemID, ExpectedVersion: item.reviewVersion, Bulk: &application.BulkPublicationIntent{
+	return libraryimportmodel.ReviewApprovalRequest{ItemID: item.itemID, ExpectedVersion: item.reviewVersion, Bulk: &libraryimportmodel.BulkPublicationIntent{
 		BulkID: work.bulkID, JobID: work.jobID, WorkerID: work.workerID, ValidationID: item.validationID, SourceSnapshotID: item.sourceSnapshotID,
 	}}
 }

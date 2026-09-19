@@ -9,6 +9,8 @@ import (
 	"sort"
 	"time"
 
+	"retrom/internal/model/netplayprofile"
+
 	"github.com/coder/websocket"
 	"github.com/google/uuid"
 )
@@ -74,8 +76,10 @@ func (session *realtimeSession) acceptStateMeta(
 	defer session.mu.Unlock()
 	transfer := session.transfer
 	if client.participant.PlayerNo != 1 || transfer == nil || message.TransferID != transfer.id ||
-		message.NextFrame != transfer.nextFrame || message.ByteLength < 1 || message.ByteLength > MaxStateBytes ||
-		!validDigest(message.StateSHA256) || !validDigest(message.CoreSHA256) {
+		message.NextFrame != transfer.nextFrame || message.ByteLength < 1 ||
+		message.ByteLength > netplayprofile.MaxStateBytes ||
+
+		!netplayprofile.ValidDigest(message.StateSHA256) || !netplayprofile.ValidDigest(message.CoreSHA256) {
 		return ErrProtocol
 	}
 	transfer.length = message.ByteLength

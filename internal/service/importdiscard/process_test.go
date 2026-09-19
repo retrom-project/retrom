@@ -6,6 +6,8 @@ import (
 	"reflect"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/importdiscard"
 )
 
 type importCalls struct {
@@ -44,7 +46,7 @@ func TestDiscardStopsExecutionBeforeReleasingReviews(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.state, func(t *testing.T) {
 			calls := &importCalls{reviewsDone: true}
-			repository := &memoryRepository{records: &memoryRecords{batch: Batch{State: test.state, Version: 7}}}
+			repository := &memoryRepository{records: &memoryRecords{batch: model.Batch{State: test.state, Version: 7}}}
 			service := New(repository, calls, nil, func() time.Time { return time.UnixMilli(17) })
 			done, err := service.discardImport(t.Context(), batchID)
 			if err != nil || done != test.done || !reflect.DeepEqual(calls.calls, test.want) {
@@ -55,14 +57,14 @@ func TestDiscardStopsExecutionBeforeReleasingReviews(t *testing.T) {
 }
 
 func TestDiscardWaitsForReviewDrainAndPreservesCancellationFailure(t *testing.T) {
-	records := &memoryRecords{batch: Batch{State: "COMPLETED"}}
+	records := &memoryRecords{batch: model.Batch{State: "COMPLETED"}}
 	calls := &importCalls{}
 	service := New(&memoryRepository{records: records}, calls, nil, func() time.Time { return time.UnixMilli(17) })
 	if done, err := service.discardImport(t.Context(), batchID); err != nil || done || !reflect.DeepEqual(calls.calls, []string{"reviews"}) {
 		t.Fatalf("released before review drain: done=%t err=%v calls=%v", done, err, calls.calls)
 	}
 	records.batch.State = "RUNNING"
-	calls.cancelErr = ErrNotCancellable
+	calls.cancelErr = model.ErrNotCancellable
 	if done, err := service.discardImport(t.Context(), batchID); done || err != nil {
 		t.Fatalf("concurrent stop: %t %v", done, err)
 	}

@@ -13,6 +13,7 @@ import (
 
 	retromruntime "retrom/internal/adapter/runtime/runtime"
 	"retrom/internal/capability/runtime/runtimecatalog"
+	libraryimportmodel "retrom/internal/model/libraryimport"
 	reviewpersistence "retrom/internal/repo/libraryimport"
 	reviewservice "retrom/internal/service/libraryimport"
 	"retrom/internal/testkit/testsupport"
@@ -170,7 +171,7 @@ func bindRPGFixtureValidation(t *testing.T, database *sql.DB) {
 	if !current {
 		t.Fatal("RPG review fixture validation does not match its source")
 	}
-	mustRPGLaunchSQL(t, database, `UPDATE import_item_core_validations SET prepublish_input_digest=? WHERE id='rpg-core-validation'`, reviewservice.PrepublishDigest(input))
+	mustRPGLaunchSQL(t, database, `UPDATE import_item_core_validations SET prepublish_input_digest=? WHERE id='rpg-core-validation'`, libraryimportmodel.PrepublishDigest(input))
 	valid, err := reviewservice.NewReviewValidation(reader).Current(t.Context(), "rpg-core-validation")
 	if err != nil || !valid {
 		t.Fatalf("RPG fixture current validation: %v/%v", valid, err)

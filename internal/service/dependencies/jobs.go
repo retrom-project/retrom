@@ -8,12 +8,14 @@ import (
 	"fmt"
 	"time"
 
+	model "retrom/internal/model/dependencies"
+
 	"github.com/google/uuid"
 )
 
 func ensureBuiltInDATJob(
 	ctx context.Context,
-	repository Repository,
+	repository model.Repository,
 	datID, datSHA, parserVersion string,
 	now time.Time,
 ) (string, error) {
@@ -24,7 +26,7 @@ func ensureBuiltInDATJob(
 	digest := sha256.Sum256(append([]byte("retrom-job-dedupe-v1\x00DAT_PARSE\x00"), canonical...))
 	dedupe := hex.EncodeToString(digest[:])
 	var id string
-	err = repository.WithWrite(ctx, func(scope WriteScope) error {
+	err = repository.WithWrite(ctx, func(scope model.WriteScope) error {
 		job, found, err := scope.Jobs.Find(ctx, dedupe)
 		if err != nil {
 			return fmt.Errorf("find built-in DAT job: %w", err)
@@ -54,21 +56,21 @@ func ensureBuiltInDATJob(
 
 func prepareDATJob(
 	ctx context.Context,
-	catalog CatalogRecords,
+	catalog model.CatalogRecords,
 	datID, datSHA, parserVersion, dedupe string,
 	now time.Time,
-) (JobCreation, error) {
+) (model.JobCreation, error) {
 	version, err := catalog.Version(ctx, datID)
 	if err != nil {
-		return JobCreation{}, fmt.Errorf("read DAT version: %w", err)
+		return model.JobCreation{}, fmt.Errorf("read DAT version: %w", err)
 	}
 	id, err := uuid.NewV7()
 	if err != nil {
-		return JobCreation{}, fmt.Errorf("create DAT job ID: %w", err)
+		return model.JobCreation{}, fmt.Errorf("create DAT job ID: %w", err)
 	}
 	executionID, err := uuid.NewV7()
 	if err != nil {
-		return JobCreation{}, fmt.Errorf("create DAT execution ID: %w", err)
+		return model.JobCreation{}, fmt.Errorf("create DAT execution ID: %w", err)
 	}
 	input, err := json.Marshal(map[string]any{
 		"schemaVersion": 1, "kind": "DAT_PARSE", "scope": map[string]any{"type": "DAT_VERSION", "id": datID},
@@ -79,19 +81,19 @@ func prepareDATJob(
 		},
 	})
 	if err != nil {
-		return JobCreation{}, fmt.Errorf("encode DAT job input: %w", err)
+		return model.JobCreation{}, fmt.Errorf("encode DAT job input: %w", err)
 	}
 	digest := sha256.Sum256(input)
-	return JobCreation{
+	return model.JobCreation{
 		ID: id.String(), DATID: datID, DedupeKey: dedupe, Input: input, InputDigest: hex.EncodeToString(digest[:]),
 		Payload: []byte(`{"schemaVersion":1,"inputExecutionNo":1}`), AtMS: now.UnixMilli(),
 		Event: []byte(`{"schemaVersion":1,"executionNo":1,"attempt":0}`),
 	}, nil
 }
 
-func claimBuiltInDATJob(ctx context.Context, repository Repository, datID, jobID string, now time.Time) error {
-	err := repository.WithWrite(ctx, func(scope WriteScope) error {
-		if err := scope.Jobs.Claim(ctx, JobClaim{
+func claimBuiltInDATJob(ctx context.Context, repository model.Repository, datID, jobID string, now time.Time) error {
+	err := repository.WithWrite(ctx, func(scope model.WriteScope) error {
+		if err := scope.Jobs.Claim(ctx, model.JobClaim{
 			JobID: jobID, DATID: datID, AtMS: now.UnixMilli(),
 			DeadlineMS: now.Add(30 * time.Minute).UnixMilli(), LeaseUntilMS: now.Add(time.Minute).UnixMilli(),
 			Event: []byte(`{"schemaVersion":1,"executionNo":1,"attempt":1}`),
@@ -109,7 +111,7 @@ func claimBuiltInDATJob(ctx context.Context, repository Repository, datID, jobID
 	return nil
 }
 
-func failBuiltInDAT(ctx context.Context, repository Repository, datID, jobID, code string, now time.Time) error {
+func failBuiltInDAT(ctx context.Context, repository model.Repository, datID, jobID, code string, now time.Time) error {
 	event, err := json.Marshal(
 		map[string]any{
 			"schemaVersion":  1,
@@ -122,13 +124,12 @@ func failBuiltInDAT(ctx context.Context, repository Repository, datID, jobID, co
 	if err != nil {
 		return fmt.Errorf("encode DAT failure: %w", err)
 	}
-	err = repository.WithWrite(ctx, func(scope WriteScope) error {
+	err = repository.WithWrite(ctx, func(scope model.WriteScope) error {
 		if err := scope.Catalog.MarkFailed(ctx, datID, now.UnixMilli()); err != nil {
 			return fmt.Errorf("mark DAT failure: %w", err)
 		}
 		if err := scope.Jobs.Finish(
-			ctx,
-			JobFinish{
+			ctx, model.JobFinish{
 				JobID: jobID,
 				DATID: datID,
 				State: "FAILED",
@@ -147,7 +148,7 @@ func failBuiltInDAT(ctx context.Context, repository Repository, datID, jobID, co
 	return nil
 }
 
-func recoverDATJob(ctx context.Context, records JobRecords, job Job, now int64) error {
+func recoverDATJob(ctx context.Context, records model.JobRecords, job model.Job, now int64) error {
 	if job.State == "FAILED" || job.State == "CANCELLED" {
 		return ErrDATParseFailed
 	}

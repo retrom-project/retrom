@@ -7,10 +7,12 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/libraryimport"
 )
 
 type managedImportFixture struct {
-	work                         ImportWork
+	work                         model.ImportWork
 	claimed                      atomic.Bool
 	prepares, progress, finishes atomic.Int64
 	entered                      chan struct{}
@@ -25,8 +27,8 @@ type managedImportFixture struct {
 func newManagedImportFixture() *managedImportFixture {
 	now := time.Now().UnixMilli()
 	return &managedImportFixture{
-		work: ImportWork{
-			Execution: QueuedImportExecution{
+		work: model.ImportWork{
+			Execution: model.QueuedImportExecution{
 				ImportID:    "import",
 				JobID:       "job",
 				WorkerID:    "worker",
@@ -44,38 +46,36 @@ func newManagedImportFixture() *managedImportFixture {
 
 func (*managedImportFixture) Queued(context.Context) ([]string, error) { return []string{"job"}, nil }
 
-func (fixture *managedImportFixture) Claim(context.Context, string) (ImportWork, bool, error) {
+func (fixture *managedImportFixture) Claim(context.Context, string) (model.ImportWork, bool, error) {
 	if fixture.claimed.Swap(true) {
-		return ImportWork{}, false, nil
+		return model.ImportWork{}, false, nil
 	}
 	return fixture.work, true, nil
 }
 func (*managedImportFixture) Recover(context.Context) error { return nil }
-func (*managedImportFixture) Renew(context.Context, QueuedImportExecution) (bool, error) {
+func (*managedImportFixture) Renew(context.Context, model.QueuedImportExecution) (bool, error) {
 	return false, nil
 }
 
-func (fixture *managedImportFixture) Progress(context.Context, QueuedImportExecution, int) error {
+func (fixture *managedImportFixture) Progress(context.Context, model.QueuedImportExecution, int) error {
 	fixture.progress.Add(1)
 	return nil
 }
 
-func (fixture *managedImportFixture) Prepare(ctx context.Context, _ ImportRequest) (PreparedImport, error) {
+func (fixture *managedImportFixture) Prepare(ctx context.Context, _ model.ImportRequest) (model.PreparedImport, error) {
 	fixture.prepares.Add(1)
 	close(fixture.entered)
 	<-ctx.Done()
-	return PreparedImport{}, ctx.Err()
+	return model.PreparedImport{}, ctx.Err()
 }
 
 func (*managedImportFixture) CommitPrepared(
-	context.Context,
-	PreparedImport,
-	ImportCreationOptions,
-) (ImportCreationResult, error) {
-	return ImportCreationResult{}, errors.New("unexpected commit after blocked preparation")
+	context.Context, model.PreparedImport, model.ImportCreationOptions,
+) (model.ImportCreationResult, error) {
+	return model.ImportCreationResult{}, errors.New("unexpected commit after blocked preparation")
 }
 
-func (fixture *managedImportFixture) Fail(ctx context.Context, _ QueuedImportExecution, cause error) error {
+func (fixture *managedImportFixture) Fail(ctx context.Context, _ model.QueuedImportExecution, cause error) error {
 	fixture.finishes.Add(1)
 	fixture.failureMu.Lock()
 	fixture.failure = cause
@@ -91,15 +91,13 @@ func (fixture *managedImportFixture) release() {
 }
 
 func (fixture *managedImportFixture) worker() *ImportWorker {
-	return NewImportWorker(
-		ImportWorkerDependencies{
-			Queue:       fixture,
-			Control:     fixture,
-			Recovery:    fixture,
-			Preparation: fixture,
-			Creations:   fixture,
-		},
-		ImportWorkerSettings{},
+	return NewImportWorker(model.ImportWorkerDependencies{
+		Queue:       fixture,
+		Control:     fixture,
+		Recovery:    fixture,
+		Preparation: fixture,
+		Creations:   fixture,
+	}, ImportWorkerSettings{},
 	)
 }
 
@@ -177,7 +175,7 @@ type importClaimBarrier struct {
 	claimEntered, claimCancelled, releaseClaim chan struct{}
 }
 
-func (gate importClaimBarrier) Claim(ctx context.Context, _ string) (ImportWork, bool, error) {
+func (gate importClaimBarrier) Claim(ctx context.Context, _ string) (model.ImportWork, bool, error) {
 	close(gate.claimEntered)
 	<-ctx.Done()
 	close(gate.claimCancelled)

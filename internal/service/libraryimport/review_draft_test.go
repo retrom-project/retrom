@@ -18,7 +18,7 @@ type reviewDraftRepositoryStub struct {
 	snapshot  application.ReviewDraftPatchSnapshot
 	query     application.ReviewDraftPatchQuery
 	plan      application.ReviewDraftWritePlan
-	result    DraftResult
+	result    application.DraftResult
 	loadErr   error
 	commitErr error
 }
@@ -101,7 +101,7 @@ func TestReviewDraftsRejectsEmptyPatchBeforeRepository(t *testing.T) {
 	t.Parallel()
 	repository := &reviewDraftRepositoryStub{}
 	service := newReviewDraftTestService(repository)
-	if _, err := service.Patch(t.Context(), "item", 1, DraftPatch{TagIDs: nil}); !errors.Is(err, ErrInvalid) {
+	if _, err := service.Patch(t.Context(), "item", 1, application.DraftPatch{TagIDs: nil}); !errors.Is(err, application.ErrInvalid) {
 		t.Fatalf("error = %v, want ErrInvalid", err)
 	}
 	if repository.query.ItemID != "" {
@@ -113,10 +113,10 @@ func TestReviewDraftsForwardsTypedCommandAndActor(t *testing.T) {
 	t.Parallel()
 	repository := &reviewDraftRepositoryStub{
 		snapshot: reviewDraftSnapshot(),
-		result:   DraftResult{ItemID: testReviewItemID, Version: 2},
+		result:   application.DraftResult{ItemID: testReviewItemID, Version: 2},
 	}
 	service := newReviewDraftTestService(repository)
-	patch := DraftPatch{Metadata: &MetadataPatch{}, TagIDs: []string{}}
+	patch := application.DraftPatch{Metadata: &application.MetadataPatch{}, TagIDs: []string{}}
 	result, err := service.Patch(t.Context(), testReviewItemID, 1, patch)
 	if err != nil {
 		t.Fatal(err)
@@ -135,7 +135,7 @@ func TestReviewDraftsPreservesRepositoryError(t *testing.T) {
 	cause := errors.New("draft storage unavailable")
 	repository := &reviewDraftRepositoryStub{loadErr: cause}
 	service := newReviewDraftTestService(repository)
-	_, err := service.Patch(t.Context(), testReviewItemID, 1, DraftPatch{Metadata: &MetadataPatch{}, TagIDs: []string{}})
+	_, err := service.Patch(t.Context(), testReviewItemID, 1, application.DraftPatch{Metadata: &application.MetadataPatch{}, TagIDs: []string{}})
 	if !errors.Is(err, cause) {
 		t.Fatalf("error = %v, want cause", err)
 	}
@@ -147,9 +147,8 @@ func TestReviewDraftsRejectsExplicitRPGValidationSelection(t *testing.T) {
 	snapshot := reviewDraftSnapshot()
 	snapshot.IsRPG = true
 	service := &ReviewDrafts{validation: reviewDraftValidationStub{}}
-	_, err := service.resolveValidationPlan(t.Context(), testReviewItemID, "target", nil,
-		DraftPatch{SelectedValidationID: &selected}, snapshot)
-	if !errors.Is(err, ErrInvalid) {
+	_, err := service.resolveValidationPlan(t.Context(), testReviewItemID, "target", nil, application.DraftPatch{SelectedValidationID: &selected}, snapshot)
+	if !errors.Is(err, application.ErrInvalid) {
 		t.Fatalf("error = %v, want ErrInvalid", err)
 	}
 }
@@ -166,7 +165,7 @@ func TestReviewDraftsKeepsScummVMCandidatePlanWithCurrentExplicitSelection(t *te
 	snapshot.ValidationID = selected
 	service := &ReviewDrafts{validation: validation}
 	candidate := "candidate-b"
-	plan, err := service.resolveValidationPlan(t.Context(), testReviewItemID, "target", nil, DraftPatch{
+	plan, err := service.resolveValidationPlan(t.Context(), testReviewItemID, "target", nil, application.DraftPatch{
 		ScummVMCandidateID: &candidate, SelectedValidationID: &selected,
 	}, snapshot)
 	if err != nil {
@@ -189,7 +188,7 @@ func TestReviewDraftsKeepsExplicitNonRPGSelection(t *testing.T) {
 		Copy:                 &application.ReviewValidationRefreshFileCopy{ValidationID: "new-validation"},
 	}
 	service := &ReviewDrafts{validation: validation}
-	plan, err := service.resolveValidationPlan(t.Context(), testReviewItemID, "target", nil, DraftPatch{
+	plan, err := service.resolveValidationPlan(t.Context(), testReviewItemID, "target", nil, application.DraftPatch{
 		SelectedValidationID: &selected,
 	}, reviewDraftSnapshot())
 	if err != nil {

@@ -8,6 +8,7 @@ import (
 	"sync/atomic"
 	"testing"
 
+	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
 	persistence "retrom/internal/repo/emulationstationimport"
 	application "retrom/internal/service/emulationstationimport"
 	library "retrom/internal/service/libraryimport"
@@ -15,14 +16,14 @@ import (
 )
 
 type handoffCallbackFailure struct {
-	application.ReviewHandoffRepository
+	emulationstationimportmodel.ReviewHandoffRepository
 }
 
 func (repository handoffCallbackFailure) WithReviewHandoff(
 	ctx context.Context,
-	run func(application.ReviewHandoffScope) error,
+	run func(emulationstationimportmodel.ReviewHandoffScope) error,
 ) error {
-	return repository.ReviewHandoffRepository.WithReviewHandoff(ctx, func(scope application.ReviewHandoffScope) error {
+	return repository.ReviewHandoffRepository.WithReviewHandoff(ctx, func(scope emulationstationimportmodel.ReviewHandoffScope) error {
 		if err := run(scope); err != nil {
 			return err
 		}
@@ -41,8 +42,7 @@ func TestESReviewHandoffLateCallbackRollsBackAllWrites(t *testing.T) {
 		fixture.service.now,
 	)
 	err := service.Complete(
-		fixture.context,
-		application.ReviewHandoffRequest{Execution: unit, ItemID: item.ID, LibraryJobID: ordinary.Created.ImportJobID, LibraryItemID: ordinary.Items[0].ItemID},
+		fixture.context, emulationstationimportmodel.ReviewHandoffRequest{Execution: unit, ItemID: item.ID, LibraryJobID: ordinary.Created.ImportJobID, LibraryItemID: ordinary.Items[0].ItemID},
 	)
 	if !errors.Is(err, errExecutionReviewFault) {
 		t.Fatalf("callback cause=%v", err)

@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"retrom/internal/service/jobs"
+	jobsmodel "retrom/internal/model/jobs"
 )
 
 func (server *Server) streamJobEvents(writer http.ResponseWriter, request *http.Request, jobID string) {
@@ -20,7 +20,7 @@ func (server *Server) streamJobEvents(writer http.ResponseWriter, request *http.
 	}
 	encoded, _ := json.Marshal(snapshot)
 	server.startEventStream(writer, request, maximum, encoded,
-		func(ctx context.Context, after int64) (jobs.EventBatch, error) {
+		func(ctx context.Context, after int64) (jobsmodel.EventBatch, error) {
 			return server.jobService.JobEvents(ctx, jobID, after)
 		})
 }
@@ -32,13 +32,13 @@ func (server *Server) streamAggregateEvents(writer http.ResponseWriter, request 
 	}
 	encoded, _ := json.Marshal(snapshot)
 	server.startEventStream(writer, request, maximum, encoded,
-		func(ctx context.Context, after int64) (jobs.EventBatch, error) {
+		func(ctx context.Context, after int64) (jobsmodel.EventBatch, error) {
 			return server.jobService.ImportEvents(ctx, importJobID, after)
 		})
 }
 
 func (server *Server) streamSnapshotResult(writer http.ResponseWriter, request *http.Request, err error) bool {
-	if errors.Is(err, jobs.ErrNotFound) {
+	if errors.Is(err, jobsmodel.ErrNotFound) {
 		server.notFound(writer, request)
 		return false
 	}
@@ -50,7 +50,7 @@ func (server *Server) streamSnapshotResult(writer http.ResponseWriter, request *
 }
 
 func (server *Server) startEventStream(writer http.ResponseWriter, request *http.Request, maximum int64,
-	snapshot []byte, read func(context.Context, int64) (jobs.EventBatch, error),
+	snapshot []byte, read func(context.Context, int64) (jobsmodel.EventBatch, error),
 ) {
 	cursor, valid := parseEventCursor(request, maximum)
 	if !valid {
@@ -74,7 +74,7 @@ func (server *Server) streamEvents(
 	request *http.Request,
 	cursor, snapshotID int64,
 	snapshot []byte,
-	read func(context.Context, int64) (jobs.EventBatch, error),
+	read func(context.Context, int64) (jobsmodel.EventBatch, error),
 ) {
 	if _, ok := writer.(http.Flusher); !ok {
 		writeError(
@@ -116,7 +116,7 @@ func (server *Server) streamEvents(
 		if batch.Terminal {
 			return
 		}
-		if len(batch.Events) == jobs.EventBatchSize && request.Context().Err() == nil {
+		if len(batch.Events) == jobsmodel.EventBatchSize && request.Context().Err() == nil {
 			continue
 		}
 		select {
@@ -146,7 +146,11 @@ func (server *Server) writeSSE(writer http.ResponseWriter, payload string) error
 	return nil
 }
 
-func (server *Server) writeEventBatch(writer http.ResponseWriter, cursor int64, events []jobs.Event) (int64, error) {
+func (server *Server) writeEventBatch(
+	writer http.ResponseWriter,
+	cursor int64,
+	events []jobsmodel.Event,
+) (int64, error) {
 	var payload strings.Builder
 	for _, event := range events {
 		_, _ = fmt.Fprintf(&payload, "id: %d\nevent: %s\ndata: %s\n\n", event.ID, strings.ToLower(event.Type), event.Data)

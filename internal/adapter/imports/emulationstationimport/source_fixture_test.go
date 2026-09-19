@@ -3,7 +3,8 @@ package emulationstationimport
 import (
 	"context"
 
-	"retrom/internal/adapter/files/blobstore"
+	blobmodel "retrom/internal/model/blob"
+
 	"retrom/internal/repo/dberrors"
 	application "retrom/internal/service/emulationstationimport"
 )
@@ -31,6 +32,6 @@ func (service *Service) copySource(
 	selectedPath, relativePath string,
 	size int64,
 	facts string,
-) (blobstore.Metadata, error) {
+) (blobmodel.PreparedBlob, error) {
 	return service.sources().copySource(ctx, root, unit, selectedPath, relativePath, size, facts)
 }

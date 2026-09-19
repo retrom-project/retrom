@@ -3,7 +3,8 @@ package netplay
 import (
 	"fmt"
 
-	"retrom/internal/transport/netplay/profile"
+	model "retrom/internal/model/netplay"
+	"retrom/internal/model/netplayprofile"
 )
 
 func serviceError(operation string, err error) error {
@@ -11,14 +12,17 @@ func serviceError(operation string, err error) error {
 }
 
 type Eligibility struct {
-	repository EligibilityRepository
-	registry   *profile.Registry
-	tags       TagReader
-	bios       BIOSResolver
+	repository model.EligibilityRepository
+	registry   *netplayprofile.Registry
+	tags       model.TagReader
+	bios       model.BIOSResolver
 }
 
 func NewEligibility(
-	repository EligibilityRepository, registry *profile.Registry, tags TagReader, bios BIOSResolver,
+	repository model.EligibilityRepository,
+	registry *netplayprofile.Registry,
+	tags model.TagReader,
+	bios model.BIOSResolver,
 ) *Eligibility {
 	return &Eligibility{repository: repository, registry: registry, tags: tags, bios: bios}
 }

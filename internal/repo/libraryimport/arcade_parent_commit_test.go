@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	application "retrom/internal/service/libraryimport"
+	libraryimportmodel "retrom/internal/model/libraryimport"
 )
 
 func TestArcadeParentCommitFinishesRetryableAttachmentAtomically(t *testing.T) {
@@ -14,7 +14,7 @@ func TestArcadeParentCommitFinishesRetryableAttachmentAtomically(t *testing.T) {
 	insertArcadeParentCommitTerminalFixture(t, database, "REVIEW_ARCADE_PARENT_VALIDATE", "RUNNING")
 
 	repository := NewArcadeParentCommitRepository(database)
-	err := repository.FinishRetryable(t.Context(), application.ArcadeParentRetryableCommit{
+	err := repository.FinishRetryable(t.Context(), libraryimportmodel.ArcadeParentRetryableCommit{
 		AttachmentID: "attachment", ItemID: "item", JobID: "parent-job", WorkerID: "worker",
 		Code: "REVIEW_PARENT_INPUT_STALE", DiagnosticsJSON: `{"errorCode":"REVIEW_PARENT_INPUT_STALE"}`,
 		BlobSize: 12, BlobSHA: strings.Repeat("b", 64), NowMS: 20,
@@ -52,7 +52,7 @@ func TestArcadeParentCommitFinishesCancellationWithCompareAndSet(t *testing.T) {
 	insertArcadeParentCommitTerminalFixture(t, database, "REVIEW_ARCADE_PARENT_VALIDATE", "CANCEL_REQUESTED")
 
 	repository := NewArcadeParentCommitRepository(database)
-	ok, err := repository.FinishCancellation(t.Context(), application.ArcadeParentAttachmentCancellation{
+	ok, err := repository.FinishCancellation(t.Context(), libraryimportmodel.ArcadeParentAttachmentCancellation{
 		AttachmentID: "attachment", ItemID: "item", JobID: "parent-job", WorkerID: "worker", NowMS: 30,
 	})
 	if err != nil || !ok {

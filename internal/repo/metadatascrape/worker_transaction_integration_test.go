@@ -8,6 +8,7 @@ import (
 	"errors"
 	"testing"
 
+	metadatascrapemodel "retrom/internal/model/metadatascrape"
 	workerpersistence "retrom/internal/repo/metadatascrape"
 	workerservice "retrom/internal/service/metadatascrape"
 )
@@ -15,7 +16,7 @@ import (
 func assertMetadataClaimAndCompletionRollback(t *testing.T, database *sql.DB, runID, jobID, itemID string) {
 	t.Helper()
 	before := readInitialProgress(t, database, itemID)
-	claim := workerservice.WorkerClaim{RunID: runID, JobID: jobID, WorkerID: "transaction-test", ExecutionNo: 1, Now: mediaFixtureNow().UnixMilli()}
+	claim := metadatascrapemodel.WorkerClaim{RunID: runID, JobID: jobID, WorkerID: "transaction-test", ExecutionNo: 1, Now: mediaFixtureNow().UnixMilli()}
 	claim.Deadline = claim.Now + 3600000
 	repository := workerpersistence.NewWorker(database)
 	snapshot, readErr := repository.Run(t.Context(), runID)
@@ -24,7 +25,7 @@ func assertMetadataClaimAndCompletionRollback(t *testing.T, database *sql.DB, ru
 	}
 	claim.Version = snapshot.Version
 	claim.AttemptCount = snapshot.AttemptCount
-	err := repository.WithWrite(t.Context(), func(scope workerservice.WorkerScope) error {
+	err := repository.WithWrite(t.Context(), func(scope metadatascrapemodel.WorkerScope) error {
 		claimed, err := scope.Leases.Claim(t.Context(), claim)
 		if err != nil {
 			return err
@@ -51,7 +52,7 @@ func assertMetadataClaimAndCompletionRollback(t *testing.T, database *sql.DB, ru
 		if err := workerservice.NewInitialReview(scope.Initial).Complete(t.Context(), runID, claim.Now); err != nil {
 			return err
 		}
-		if err := scope.Write.Finish(t.Context(), workerservice.WorkerOutcome{Claim: claim, State: "SUCCEEDED", RunState: "COMPLETED", Now: claim.Now}); err != nil {
+		if err := scope.Write.Finish(t.Context(), metadatascrapemodel.WorkerOutcome{Claim: claim, State: "SUCCEEDED", RunState: "COMPLETED", Now: claim.Now}); err != nil {
 			return err
 		}
 		return context.Canceled

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	pegasusimportmodel "retrom/internal/model/pegasusimport"
 	repository "retrom/internal/repo/pegasusimport"
 	application "retrom/internal/service/pegasusimport"
 )
@@ -25,8 +26,7 @@ func (service *Service) List(
 	limit int,
 ) ([]Summary, error) {
 	values, err := service.queries().List(
-		ctx,
-		application.ListQuery{State: state, BeforeAtMS: beforeAt, BeforeID: beforeID, Limit: limit},
+		ctx, pegasusimportmodel.ListQuery{State: state, BeforeAtMS: beforeAt, BeforeID: beforeID, Limit: limit},
 	)
 	return values, queryError(err)
 }
@@ -39,8 +39,7 @@ func (service *Service) Collections(
 	limit int,
 ) ([]Collection, error) {
 	values, err := service.queries().Collections(
-		ctx,
-		application.CollectionQuery{
+		ctx, pegasusimportmodel.CollectionQuery{
 			ImportID:     importID,
 			AfterPath:    afterPath,
 			AfterOrdinal: afterOrdinal,
@@ -57,8 +56,7 @@ func (service *Service) Items(
 	limit int,
 ) ([]Item, error) {
 	values, err := service.queries().Items(
-		ctx,
-		application.ItemQuery{
+		ctx, pegasusimportmodel.ItemQuery{
 			ImportID:     importID,
 			Text:         query,
 			Outcome:      outcome,

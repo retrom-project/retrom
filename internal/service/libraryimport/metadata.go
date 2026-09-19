@@ -12,25 +12,26 @@ import (
 	"github.com/google/uuid"
 
 	"retrom/internal/capability/security/authn"
+	model "retrom/internal/model/libraryimport"
 )
 
 var errMetadataObject = errors.New("server review metadata audit must be an object")
 
 type MetadataSeeder struct {
-	repository MetadataRepository
+	repository model.MetadataRepository
 	now        func() time.Time
 }
 
-func NewMetadataSeeder(repository MetadataRepository, now func() time.Time) *MetadataSeeder {
+func NewMetadataSeeder(repository model.MetadataRepository, now func() time.Time) *MetadataSeeder {
 	return &MetadataSeeder{repository: repository, now: now}
 }
 
 func (service *MetadataSeeder) Seed(
-	ctx context.Context, itemID string, metadata ServerMetadata, maximumYear int,
-) (int64, []ServerMetadataWarning, error) {
+	ctx context.Context, itemID string, metadata model.ServerMetadata, maximumYear int,
+) (int64, []model.ServerMetadataWarning, error) {
 	var version int64
-	var warnings []ServerMetadataWarning
-	err := service.repository.WithMetadata(ctx, func(scope MetadataScope) error {
+	var warnings []model.ServerMetadataWarning
+	err := service.repository.WithMetadata(ctx, func(scope model.MetadataScope) error {
 		var err error
 		version, warnings, err = service.SeedInScope(ctx, scope, itemID, metadata, maximumYear)
 		return err
@@ -44,10 +45,10 @@ func (service *MetadataSeeder) Seed(
 // SeedInScope participates in the caller's transaction. Its result becomes
 // durable only when the owner commits the entire handoff.
 func (service *MetadataSeeder) SeedInScope(
-	ctx context.Context, scope MetadataScope, itemID string, metadata ServerMetadata, maximumYear int,
-) (int64, []ServerMetadataWarning, error) {
+	ctx context.Context, scope model.MetadataScope, itemID string, metadata model.ServerMetadata, maximumYear int,
+) (int64, []model.ServerMetadataWarning, error) {
 	if itemID == "" {
-		return 0, nil, ErrInvalid
+		return 0, nil, model.ErrInvalid
 	}
 	normalized, warnings, err := NormalizeServerReviewMetadata(metadata, maximumYear)
 	if err != nil {
@@ -58,7 +59,7 @@ func (service *MetadataSeeder) SeedInScope(
 		return 0, nil, fmt.Errorf("read server review metadata: %w", err)
 	}
 	if before.Version < 1 {
-		return 0, nil, ErrVersionConflict
+		return 0, nil, model.ErrVersionConflict
 	}
 	encoded, err := encodeMetadata(normalized)
 	if err != nil {
@@ -68,13 +69,13 @@ func (service *MetadataSeeder) SeedInScope(
 		return before.Version, warnings, nil
 	}
 	if before.Version == math.MaxInt64 {
-		return 0, nil, ErrVersionConflict
+		return 0, nil, model.ErrVersionConflict
 	}
 	audit, err := metadataAudit(ctx, before.MetadataJSON, encoded)
 	if err != nil {
 		return 0, nil, err
 	}
-	change := MetadataChange{
+	change := model.MetadataChange{
 		ItemID: itemID, Before: before, MetadataJSON: encoded,
 		SearchText: strings.ToLower(normalized.Title), Audit: audit, NowMS: service.now().UnixMilli(),
 	}
@@ -84,7 +85,7 @@ func (service *MetadataSeeder) SeedInScope(
 	return before.Version + 1, warnings, nil
 }
 
-func encodeMetadata(metadata ServerMetadata) (string, error) {
+func encodeMetadata(metadata model.ServerMetadata) (string, error) {
 	// Match the established metadata object order so repeated handoffs retain
 	// the current draft version and do not append duplicate audit events.
 	encoded, err := json.Marshal(struct {
@@ -105,20 +106,20 @@ func encodeMetadata(metadata ServerMetadata) (string, error) {
 	return string(encoded), nil
 }
 
-func metadataAudit(ctx context.Context, before, after string) (MetadataAudit, error) {
+func metadataAudit(ctx context.Context, before, after string) (model.MetadataAudit, error) {
 	beforeJSON, err := metadataEvent(before)
 	if err != nil {
-		return MetadataAudit{}, err
+		return model.MetadataAudit{}, err
 	}
 	afterJSON, err := metadataEvent(after)
 	if err != nil {
-		return MetadataAudit{}, err
+		return model.MetadataAudit{}, err
 	}
 	id, err := uuid.NewV7()
 	if err != nil {
-		return MetadataAudit{}, fmt.Errorf("create server review event ID: %w", err)
+		return model.MetadataAudit{}, fmt.Errorf("create server review event ID: %w", err)
 	}
-	audit := MetadataAudit{ID: id.String(), ActorKind: "SYSTEM", BeforeJSON: beforeJSON, AfterJSON: afterJSON}
+	audit := model.MetadataAudit{ID: id.String(), ActorKind: "SYSTEM", BeforeJSON: beforeJSON, AfterJSON: afterJSON}
 	label := "release-setup"
 	audit.ActorLabel = &label
 	if principal, ok := authn.PrincipalFromContext(ctx); ok && principal.UserID != "" {

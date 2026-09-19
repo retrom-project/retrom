@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	pegasusimportmodel "retrom/internal/model/pegasusimport"
 	application "retrom/internal/service/pegasusimport"
 )
 
@@ -13,7 +14,7 @@ func TestCreationCountsPendingScanCancellationUntilItCloses(t *testing.T) {
 	t.Parallel()
 	database := pendingScanCapacityDatabase(t)
 	repository := NewCreation(database)
-	if err := repository.WithCreate(t.Context(), func(writer application.CreationWriter) error {
+	if err := repository.WithCreate(t.Context(), func(writer pegasusimportmodel.CreationWriter) error {
 		count, err := writer.PendingPlans(t.Context())
 		if err != nil {
 			return err
@@ -32,7 +33,7 @@ func TestCreationCountsPendingScanCancellationUntilItCloses(t *testing.T) {
 	}); err != nil || pending {
 		t.Fatalf("close queued scan: pending=%v err=%v", pending, err)
 	}
-	if err := repository.WithCreate(t.Context(), func(writer application.CreationWriter) error {
+	if err := repository.WithCreate(t.Context(), func(writer pegasusimportmodel.CreationWriter) error {
 		count, err := writer.PendingPlans(t.Context())
 		if err != nil {
 			return err
@@ -51,11 +52,11 @@ func TestCreationCountsPendingScanCancellationUntilItCloses(t *testing.T) {
 func TestCreationFinalInsertCannotBypassPendingScanCapacity(t *testing.T) {
 	t.Parallel()
 	database := pendingScanCapacityDatabase(t)
-	err := NewCreation(database).WithCreate(t.Context(), func(writer application.CreationWriter) error {
+	err := NewCreation(database).WithCreate(t.Context(), func(writer pegasusimportmodel.CreationWriter) error {
 		_, err := writer.Insert(t.Context(), creationPlan(20))
 		return err
 	})
-	if !errors.Is(err, application.ErrActive) {
+	if !errors.Is(err, pegasusimportmodel.ErrActive) {
 		t.Fatalf("21st unstarted plan accepted while scan cancellation is pending: %v", err)
 	}
 	assertScanCapacityCounts(t, database, 20, 1)
@@ -66,7 +67,7 @@ func pendingScanCapacityDatabase(t *testing.T) *sql.DB {
 	database := creationDatabase(t)
 	repository := NewCreation(database)
 	for index := range 20 {
-		if err := repository.WithCreate(t.Context(), func(writer application.CreationWriter) error {
+		if err := repository.WithCreate(t.Context(), func(writer pegasusimportmodel.CreationWriter) error {
 			_, err := writer.Insert(t.Context(), creationPlan(index))
 			return err
 		}); err != nil {

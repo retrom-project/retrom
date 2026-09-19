@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"retrom/internal/capability/security/authn"
+	savesmodel "retrom/internal/model/saves"
 	"retrom/internal/service/saves"
 )
 
@@ -23,7 +24,7 @@ func (server *Server) createLocalGameSave(writer http.ResponseWriter, request *h
 	result, replayed, err := server.saveService.CreateLocalDraft(request.Context(), request.PathValue("launchId"),
 		principal.UserID, principal.ProfileID, key,
 		saves.ManualUpload{ContentType: request.Header.Get("Content-Type"), Body: request.Body})
-	if errors.Is(err, saves.ErrCredential) {
+	if errors.Is(err, savesmodel.ErrCredential) {
 		writeError(writer, request, http.StatusForbidden, "FORBIDDEN", "本地草稿对应的游戏会话不可用", map[string]any{})
 		return
 	}

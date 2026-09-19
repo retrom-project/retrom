@@ -17,6 +17,9 @@ import (
 	"syscall"
 	"time"
 
+	runtimeprofile "retrom/internal/adapter/runtime/netplayprofile"
+	"retrom/internal/model/netplayprofile"
+
 	netplayservice "retrom/internal/service/netplay"
 
 	"retrom/internal/bootstrap/composition"
@@ -349,7 +352,7 @@ type serverResources struct {
 	database           *store.DB
 	blobs              *blobstore.Store
 	credentials        *retromruntime.Credentials
-	netplayRegistry    *netplay.Registry
+	netplayRegistry    *netplayprofile.Registry
 	netplayCredentials *netplay.Credentials
 	runtimeProviders   runtimeprovider.Installation
 	scummVMDetector    *scummvm.Detector
@@ -417,11 +420,11 @@ func bootstrapServerResources(
 	if err != nil {
 		return result, fmt.Errorf("load launch credentials: %w", err)
 	}
-	result.netplayRegistry, err = netplay.LoadRegistry(
+	result.netplayRegistry, err = runtimeprofile.LoadRegistry(
 		configuration.DependencyRoot, result.dependencies,
 	)
 	if err != nil {
-		return result, fmt.Errorf("load netplay registry: %w", err)
+		return result, fmt.Errorf("load netplay registry: netplay/load registry: %w", err)
 	}
 	result.netplayCredentials, err = netplay.LoadOrCreateCredentials(configuration.DataDir)
 	if err != nil {

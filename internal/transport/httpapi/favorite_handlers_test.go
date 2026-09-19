@@ -16,7 +16,7 @@ import (
 
 	"retrom/internal/bootstrap/config"
 	"retrom/internal/capability/security/authn"
-	"retrom/internal/service/accounts"
+	accountsmodel "retrom/internal/model/accounts"
 	"retrom/internal/testkit/testassert"
 )
 
@@ -25,8 +25,8 @@ type favoriteHTTPAuthenticator struct {
 	token     string
 }
 
-func (authenticator favoriteHTTPAuthenticator) Authenticate(context.Context, string) (accounts.Session, error) {
-	return accounts.Session{Principal: authenticator.principal, CookieToken: authenticator.token}, nil
+func (authenticator favoriteHTTPAuthenticator) Authenticate(context.Context, string) (accountsmodel.Session, error) {
+	return accountsmodel.Session{Principal: authenticator.principal, CookieToken: authenticator.token}, nil
 }
 
 func favoriteHTTPCredentials() (*http.Cookie, string, string) {

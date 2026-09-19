@@ -6,11 +6,12 @@ import (
 	"testing"
 
 	"retrom/internal/capability/content/contentprofile"
+	model "retrom/internal/model/launch"
 )
 
 func TestProjectContentIdentityIsOrderIndependentAndBindsProjection(t *testing.T) {
 	t.Parallel()
-	first := ConfigFile{
+	first := model.ConfigFile{
 		LogicalName: "Data/System.json", Format: string(
 			contentprofile.ContentKindRPGMakerProject,
 		), Digest: strings.Repeat(
@@ -18,7 +19,7 @@ func TestProjectContentIdentityIsOrderIndependentAndBindsProjection(t *testing.T
 			64,
 		),
 	}
-	second := ConfigFile{
+	second := model.ConfigFile{
 		LogicalName: "__retrom__/game.mkxpz", Format: string(
 			contentprofile.ContentKindRPGMakerProject,
 		), Digest: strings.Repeat(
@@ -26,9 +27,9 @@ func TestProjectContentIdentityIsOrderIndependentAndBindsProjection(t *testing.T
 			64,
 		),
 	}
-	identity, err := ProjectIdentity([]ConfigFile{first, second})
-	reordered, reorderedErr := ProjectIdentity([]ConfigFile{second, first})
-	changed, changedErr := ProjectIdentity([]ConfigFile{
+	identity, err := ProjectIdentity([]model.ConfigFile{first, second})
+	reordered, reorderedErr := ProjectIdentity([]model.ConfigFile{second, first})
+	changed, changedErr := ProjectIdentity([]model.ConfigFile{
 		first,
 		{LogicalName: second.LogicalName, Format: second.Format, Digest: strings.Repeat("c", 64)},
 	})
@@ -53,7 +54,7 @@ func TestProjectContentIdentityIsOrderIndependentAndBindsProjection(t *testing.T
 func TestProjectContentIdentityRejectsAmbiguousFiles(t *testing.T) {
 	t.Parallel()
 	digest := strings.Repeat("a", 64)
-	tests := [][]ConfigFile{
+	tests := [][]model.ConfigFile{
 		nil,
 		{{LogicalName: "../escape", Format: string(contentprofile.ContentKindONSProject), Digest: digest}},
 		{{LogicalName: "0.txt", Format: "SOURCE_V1", Digest: digest}},
@@ -76,7 +77,7 @@ func TestProjectContentIdentityRejectsAmbiguousFiles(t *testing.T) {
 		},
 	}
 	for _, files := range tests {
-		if _, err := ProjectIdentity(files); !errors.Is(err, ErrBlocked) {
+		if _, err := ProjectIdentity(files); !errors.Is(err, model.ErrBlocked) {
 			t.Fatalf("derive identity error=%v for %#v", err, files)
 		}
 	}

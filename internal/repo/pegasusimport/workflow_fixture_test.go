@@ -6,13 +6,13 @@ import (
 	"fmt"
 	"testing"
 
-	application "retrom/internal/service/pegasusimport"
+	pegasusimportmodel "retrom/internal/model/pegasusimport"
 )
 
 func workflowDatabase(t *testing.T) *sql.DB {
 	t.Helper()
 	db := creationDatabase(t)
-	if err := NewCreation(db).WithCreate(t.Context(), func(writer application.CreationWriter) error {
+	if err := NewCreation(db).WithCreate(t.Context(), func(writer pegasusimportmodel.CreationWriter) error {
 		_, err := writer.Insert(t.Context(), creationPlan(0))
 		return err
 	}); err != nil {

@@ -5,10 +5,12 @@ import (
 	"errors"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/gamemetadata"
 )
 
 type candidateApplyMemory struct {
-	snapshot       CandidateApplySnapshot
+	snapshot       model.CandidateApplySnapshot
 	loadErr        error
 	replaceErr     error
 	createErr      error
@@ -17,13 +19,13 @@ type candidateApplyMemory struct {
 	changed        bool
 	transactions   int
 	replacedKinds  []string
-	createdAssets  []CandidateAssetSelection
-	metadataUpdate GameMetadataUpdate
+	createdAssets  []model.CandidateAssetSelection
+	metadataUpdate model.GameMetadataUpdate
 	stagedIDs      []string
 }
 
 func (memory *candidateApplyMemory) WithCandidateApply(
-	_ context.Context, work func(CandidateApplyScope) error,
+	_ context.Context, work func(model.CandidateApplyScope) error,
 ) error {
 	memory.transactions++
 	return work(memory)
@@ -31,7 +33,7 @@ func (memory *candidateApplyMemory) WithCandidateApply(
 
 func (memory *candidateApplyMemory) Load(
 	context.Context, string, string,
-) (CandidateApplySnapshot, error) {
+) (model.CandidateApplySnapshot, error) {
 	return memory.snapshot, memory.loadErr
 }
 
@@ -43,7 +45,7 @@ func (memory *candidateApplyMemory) ReplaceGameAssets(
 }
 
 func (memory *candidateApplyMemory) CreateSelectedGameAssets(
-	_ context.Context, _ string, _ string, assets []CandidateAssetSelection, _ int64,
+	_ context.Context, _ string, _ string, assets []model.CandidateAssetSelection, _ int64,
 ) ([]string, error) {
 	memory.createdAssets = append(memory.createdAssets, assets...)
 	if memory.createErr != nil {
@@ -53,7 +55,7 @@ func (memory *candidateApplyMemory) CreateSelectedGameAssets(
 }
 
 func (memory *candidateApplyMemory) UpdateGameMetadata(
-	_ context.Context, update GameMetadataUpdate,
+	_ context.Context, update model.GameMetadataUpdate,
 ) (bool, error) {
 	memory.metadataUpdate = update
 	return memory.changed, memory.updateErr
@@ -83,26 +85,26 @@ func TestValidCandidateFieldsRejectsUnknownAndDuplicateFields(t *testing.T) {
 
 func TestApplyCandidateRejectsInvalidRequestBeforeTransaction(t *testing.T) {
 	memory := &candidateApplyMemory{}
-	_, err := candidateApplyService(memory).ApplyCandidate(t.Context(), ApplyCandidateRequest{GameID: "game"})
-	if !errors.Is(err, ErrInvalid) || memory.transactions != 0 {
+	_, err := candidateApplyService(memory).ApplyCandidate(t.Context(), model.ApplyCandidateRequest{GameID: "game"})
+	if !errors.Is(err, model.ErrInvalid) || memory.transactions != 0 {
 		t.Fatalf("error=%v transactions=%d", err, memory.transactions)
 	}
 }
 
 func TestApplyCandidateCoordinatesMetadataAssetsAndPayloadStaging(t *testing.T) {
 	memory := &candidateApplyMemory{
-		snapshot: CandidateApplySnapshot{
+		snapshot: model.CandidateApplySnapshot{
 			Version:               2,
-			Current:               Metadata{Title: "Old", Developer: "Dev"},
+			Current:               model.Metadata{Title: "Old", Developer: "Dev"},
 			CandidateMetadataJSON: `{"title":"New","players":4,"releaseYear":null}`,
 		},
 		changed: true,
 	}
 	cover := "candidate-cover"
-	result, err := candidateApplyService(memory).ApplyCandidate(t.Context(), ApplyCandidateRequest{
+	result, err := candidateApplyService(memory).ApplyCandidate(t.Context(), model.ApplyCandidateRequest{
 		GameID: "game", CandidateID: "candidate", ExpectedVersion: 2,
 		Fields:         []string{"title", "players", "releaseYear"},
-		SelectedAssets: SelectedAssets{CoverCandidateAssetID: &cover},
+		SelectedAssets: model.SelectedAssets{CoverCandidateAssetID: &cover},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -111,7 +113,7 @@ func TestApplyCandidateCoordinatesMetadataAssetsAndPayloadStaging(t *testing.T) 
 	assertCandidateApplyWrites(t, memory, cover)
 }
 
-func assertCandidateApplyResult(t *testing.T, result ApplyCandidateResult) {
+func assertCandidateApplyResult(t *testing.T, result model.ApplyCandidateResult) {
 	t.Helper()
 	if result.Version != 3 || result.UpdatedAtMS != 1234 || len(result.AssetIDs) != 1 ||
 		result.AssetIDs[0] != "asset-id" || len(result.ReplacedBlobIDs) != 1 ||
@@ -138,22 +140,22 @@ func TestApplyCandidateMapsStaleAndInvalidEvidence(t *testing.T) {
 		mutate func(*candidateApplyMemory)
 		want   error
 	}{
-		{name: "stale version", mutate: func(memory *candidateApplyMemory) { memory.snapshot.Version = 3 }, want: ErrCandidateStale},
-		{name: "malformed metadata", mutate: func(memory *candidateApplyMemory) { memory.snapshot.CandidateMetadataJSON = "{" }, want: ErrCandidateMetadata},
-		{name: "empty title", mutate: func(memory *candidateApplyMemory) { memory.snapshot.CandidateMetadataJSON = `{"title":"  "}` }, want: ErrMetadataInvalid},
-		{name: "asset mismatch", mutate: func(memory *candidateApplyMemory) { memory.createErr = ErrCandidateAsset }, want: ErrCandidateAsset},
+		{name: "stale version", mutate: func(memory *candidateApplyMemory) { memory.snapshot.Version = 3 }, want: model.ErrCandidateStale},
+		{name: "malformed metadata", mutate: func(memory *candidateApplyMemory) { memory.snapshot.CandidateMetadataJSON = "{" }, want: model.ErrCandidateMetadata},
+		{name: "empty title", mutate: func(memory *candidateApplyMemory) { memory.snapshot.CandidateMetadataJSON = `{"title":"  "}` }, want: model.ErrMetadataInvalid},
+		{name: "asset mismatch", mutate: func(memory *candidateApplyMemory) { memory.createErr = model.ErrCandidateAsset }, want: model.ErrCandidateAsset},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			cover := "candidate-cover"
 			memory := &candidateApplyMemory{
-				snapshot: CandidateApplySnapshot{Version: 2, Current: Metadata{Title: "Old"}, CandidateMetadataJSON: `{"title":"New"}`},
+				snapshot: model.CandidateApplySnapshot{Version: 2, Current: model.Metadata{Title: "Old"}, CandidateMetadataJSON: `{"title":"New"}`},
 				changed:  true,
 			}
 			test.mutate(memory)
-			_, err := candidateApplyService(memory).ApplyCandidate(t.Context(), ApplyCandidateRequest{
+			_, err := candidateApplyService(memory).ApplyCandidate(t.Context(), model.ApplyCandidateRequest{
 				GameID: "game", CandidateID: "candidate", ExpectedVersion: 2, Fields: []string{"title"},
-				SelectedAssets: SelectedAssets{CoverCandidateAssetID: &cover},
+				SelectedAssets: model.SelectedAssets{CoverCandidateAssetID: &cover},
 			})
 			if !errors.Is(err, test.want) {
 				t.Fatalf("error=%v want=%v", err, test.want)

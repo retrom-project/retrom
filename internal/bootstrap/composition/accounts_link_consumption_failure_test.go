@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"retrom/internal/bootstrap/config"
-	accountservice "retrom/internal/service/accounts"
+	accountsmodel "retrom/internal/model/accounts"
 )
 
 func TestPasswordResetRollsBackWhenDefaultCredentialFlagFails(t *testing.T) {
@@ -18,7 +18,7 @@ func TestPasswordResetRollsBackWhenDefaultCredentialFlagFails(t *testing.T) {
 	if _, err := fixture.database.SQL.ExecContext(t.Context(), `DROP TABLE instance_state`); err != nil {
 		t.Fatal(err)
 	}
-	_, err = fixture.service.CompletePasswordReset(t.Context(), accountservice.CompletePasswordResetRequest{Token: link.CapabilityToken, Password: compliantTestPassword, PasswordConfirmation: compliantTestPassword})
+	_, err = fixture.service.CompletePasswordReset(t.Context(), accountsmodel.CompletePasswordResetRequest{Token: link.CapabilityToken, Password: compliantTestPassword, PasswordConfirmation: compliantTestPassword})
 	if err == nil {
 		t.Fatal("password reset committed despite failing default credential cleanup")
 	}
@@ -40,8 +40,8 @@ func TestInvitationConsumptionPreservesDatabaseFailure(t *testing.T) {
 	if _, err := fixture.database.SQL.ExecContext(t.Context(), `DROP TABLE account_links`); err != nil {
 		t.Fatal(err)
 	}
-	_, err = fixture.service.AcceptInvitation(t.Context(), accountservice.AcceptInvitationRequest{Token: link.CapabilityToken, Username: "alice", DisplayName: "Alice", Password: compliantTestPassword, PasswordConfirmation: compliantTestPassword})
-	if err == nil || errors.Is(err, accountservice.ErrAccountLinkUnavailable) {
+	_, err = fixture.service.AcceptInvitation(t.Context(), accountsmodel.AcceptInvitationRequest{Token: link.CapabilityToken, Username: "alice", DisplayName: "Alice", Password: compliantTestPassword, PasswordConfirmation: compliantTestPassword})
+	if err == nil || errors.Is(err, accountsmodel.ErrAccountLinkUnavailable) {
 		t.Fatalf("storage failure classified as unavailable invitation: %v", err)
 	}
 }

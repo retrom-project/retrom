@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"retrom/internal/adapter/integration/libraryimport"
+	pegasusimportmodel "retrom/internal/model/pegasusimport"
 	repository "retrom/internal/repo/pegasusimport"
 	libraryservice "retrom/internal/service/libraryimport"
 	application "retrom/internal/service/pegasusimport"
@@ -49,7 +50,7 @@ const fixedHandoffDigest = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 func completeHandoff(ctx context.Context, service *Service, unit work, item executionItem) error {
 	handoff := application.NewReviewHandoff(repository.NewReviewHandoff(service.database),
 		libraryservice.NewMetadataSeeder(nil, service.now), service.now)
-	return handoff.Complete(ctx, application.ReviewHandoffRequest{
+	return handoff.Complete(ctx, pegasusimportmodel.ReviewHandoffRequest{
 		ItemID: item.ID, ImportID: unit.ImportID, JobID: unit.JobID, WorkerID: unit.WorkerID,
 		LibraryJobID: "handoff-job", LibraryItemID: "handoff-item",
 		ExecutionNo: unit.ExecutionNo, Attempt: unit.Attempt,

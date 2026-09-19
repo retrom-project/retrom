@@ -9,7 +9,8 @@ import (
 	"strings"
 
 	"retrom/internal/adapter/integration/libraryimport"
-	libraryservice "retrom/internal/service/libraryimport"
+	libraryimportmodel "retrom/internal/model/libraryimport"
+	taggingmodel "retrom/internal/model/tagging"
 	"retrom/internal/service/tagging"
 )
 
@@ -164,7 +165,7 @@ func (server *Server) createReviewMultiDiscAttachment(writer http.ResponseWriter
 	)
 }
 
-type importMultiDiscItemSummary = libraryservice.ImportMultiDiscItemSummary
+type importMultiDiscItemSummary = libraryimportmodel.ImportMultiDiscItemSummary
 
 func (server *Server) importMultiDiscItemSummaries(
 	ctx context.Context,
@@ -219,7 +220,7 @@ func (server *Server) reconfigureImport(writer http.ResponseWriter, request *htt
 		body,
 	)
 	if err != nil {
-		if errors.Is(err, tagging.ErrReferenceInvalid) || errors.Is(err, tagging.ErrAssignmentLimitExceeded) {
+		if errors.Is(err, taggingmodel.ErrReferenceInvalid) || errors.Is(err, taggingmodel.ErrAssignmentLimitExceeded) {
 			writeTagError(writer, request, err)
 			return
 		}
@@ -338,7 +339,7 @@ func (server *Server) patchReview(writer http.ResponseWriter, request *http.Requ
 		)
 		return
 	}
-	if errors.Is(err, tagging.ErrReferenceInvalid) || errors.Is(err, tagging.ErrAssignmentLimitExceeded) {
+	if errors.Is(err, taggingmodel.ErrReferenceInvalid) || errors.Is(err, taggingmodel.ErrAssignmentLimitExceeded) {
 		writeTagError(writer, request, err)
 		return
 	}
@@ -411,7 +412,7 @@ func (server *Server) scrapeReview(writer http.ResponseWriter, request *http.Req
 }
 
 func (server *Server) reviewHistory(writer http.ResponseWriter, request *http.Request) {
-	query := libraryservice.ReviewHistoryQuery{
+	query := libraryimportmodel.ReviewHistoryQuery{
 		QueryText: strings.ToLower(strings.Join(strings.Fields(request.URL.Query().Get("q")), " ")),
 		Decision:  request.URL.Query().Get("decision"),
 	}

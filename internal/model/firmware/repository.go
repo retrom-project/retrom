@@ -3,7 +3,8 @@ package firmware
 import (
 	"context"
 
-	"retrom/internal/adapter/files/blobstore"
+	blobmodel "retrom/internal/model/blob"
+
 	"retrom/internal/capability/content/firmware"
 	"retrom/internal/capability/format/importing"
 )
@@ -56,7 +57,7 @@ type ServerExecution struct {
 	ExecutionNo, AtMS         int64
 }
 type BlobRecords interface {
-	Ensure(context.Context, blobstore.Metadata, int64) (string, error)
+	Ensure(context.Context, blobmodel.PreparedBlob, int64) (string, error)
 }
 type ReleaseSignal interface{ Signal() }
 

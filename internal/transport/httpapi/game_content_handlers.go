@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"retrom/internal/capability/security/authn"
-	"retrom/internal/service/gamecontent"
+	gamecontentmodel "retrom/internal/model/gamecontent"
 )
 
 type patchGameRequest struct {
@@ -93,11 +93,11 @@ func (server *Server) createGameContentReplacement(writer http.ResponseWriter, r
 		request.Header.Get("Idempotency-Key"),
 		hex.EncodeToString(digest[:]),
 	)
-	if errors.Is(err, gamecontent.ErrIdempotencyKeyReused) {
+	if errors.Is(err, gamecontentmodel.ErrIdempotencyKeyReused) {
 		writeError(writer, request, http.StatusConflict, "IDEMPOTENCY_KEY_REUSED", "幂等键已用于另一请求", map[string]any{})
 		return
 	}
-	if errors.Is(err, gamecontent.ErrInvalid) {
+	if errors.Is(err, gamecontentmodel.ErrInvalid) {
 		writeError(
 			writer,
 			request,
@@ -122,7 +122,7 @@ func (server *Server) createGameContentReplacement(writer http.ResponseWriter, r
 // Contract branches stay contiguous for a single auditable decision.
 func (server *Server) adminGame(writer http.ResponseWriter, request *http.Request) {
 	detail, err := server.gameContent.AdminGame(request.Context(), request.PathValue("gameId"))
-	if errors.Is(err, gamecontent.ErrAdminGameNotFound) {
+	if errors.Is(err, gamecontentmodel.ErrAdminGameNotFound) {
 		writeError(writer, request, http.StatusNotFound, "GAME_NOT_FOUND", "游戏不存在", map[string]any{})
 		return
 	}
@@ -166,7 +166,7 @@ func (server *Server) adminGame(writer http.ResponseWriter, request *http.Reques
 	})
 }
 
-func adminGameFilesResponse(files []gamecontent.AdminGameFile) []map[string]any {
+func adminGameFilesResponse(files []gamecontentmodel.AdminGameFile) []map[string]any {
 	result := make([]map[string]any, 0, len(files))
 	for _, file := range files {
 		result = append(result, map[string]any{
@@ -177,7 +177,7 @@ func adminGameFilesResponse(files []gamecontent.AdminGameFile) []map[string]any 
 	return result
 }
 
-func adminGameAssetsResponse(assets []gamecontent.AdminGameAsset) []map[string]any {
+func adminGameAssetsResponse(assets []gamecontentmodel.AdminGameAsset) []map[string]any {
 	result := make([]map[string]any, 0, len(assets))
 	for _, asset := range assets {
 		result = append(result, map[string]any{
@@ -189,7 +189,7 @@ func adminGameAssetsResponse(assets []gamecontent.AdminGameAsset) []map[string]a
 	return result
 }
 
-func adminGameVariantsResponse(variants []gamecontent.AdminGameVariant) []map[string]any {
+func adminGameVariantsResponse(variants []gamecontentmodel.AdminGameVariant) []map[string]any {
 	result := make([]map[string]any, 0, len(variants))
 	for _, variant := range variants {
 		result = append(result, map[string]any{
@@ -265,7 +265,7 @@ func (server *Server) patchAdminGame(writer http.ResponseWriter, request *http.R
 	}
 	actor := authn.ActorFromContext(request.Context(), "release-setup")
 	requestID, _ := request.Context().Value(requestIDKey).(string)
-	result, err := server.gameContent.PatchAdminGame(request.Context(), gamecontent.AdminGamePatchRequest{
+	result, err := server.gameContent.PatchAdminGame(request.Context(), gamecontentmodel.AdminGamePatchRequest{
 		GameID:             request.PathValue("gameId"),
 		ExpectedVersion:    expected,
 		Title:              body.Title,
@@ -277,16 +277,16 @@ func (server *Server) patchAdminGame(writer http.ResponseWriter, request *http.R
 		Players:            body.Players.Value,
 		ReleaseYearPresent: body.ReleaseYear.Present,
 		ReleaseYear:        body.ReleaseYear.Value,
-		Actor: gamecontent.AuditActor{
+		Actor: gamecontentmodel.AuditActor{
 			Kind: actor.Kind, UserID: actor.UserID, Label: actor.Label, RequestID: requestID,
 		},
 		NowMS: server.now().UnixMilli(),
 	})
-	if errors.Is(err, gamecontent.ErrAdminGameNotFound) {
+	if errors.Is(err, gamecontentmodel.ErrAdminGameNotFound) {
 		writeError(writer, request, http.StatusNotFound, "GAME_NOT_FOUND", "游戏不存在", map[string]any{})
 		return
 	}
-	if errors.Is(err, gamecontent.ErrAdminGameVersionConflict) {
+	if errors.Is(err, gamecontentmodel.ErrAdminGameVersionConflict) {
 		writeError(writer, request, http.StatusConflict, "VERSION_CONFLICT", "游戏已被修改", map[string]any{})
 		return
 	}
@@ -314,7 +314,7 @@ func (server *Server) deleteAdminGame(writer http.ResponseWriter, request *http.
 	server.lockIdempotentRequest()
 	defer server.idempotency.Unlock()
 	principal := input.principal
-	result, err := server.gameContent.DeleteAdminGame(request.Context(), gamecontent.DeleteGameRequest{
+	result, err := server.gameContent.DeleteAdminGame(request.Context(), gamecontentmodel.DeleteGameRequest{
 		GameID:          request.PathValue("gameId"),
 		PrincipalID:     principal.UserID,
 		Key:             request.Header.Get("Idempotency-Key"),
@@ -322,9 +322,9 @@ func (server *Server) deleteAdminGame(writer http.ResponseWriter, request *http.
 		ConfirmTitle:    input.body.ConfirmTitle,
 		ImpactDigest:    input.body.ImpactDigest,
 		ExpectedVersion: input.expected,
-		Actor: func(ctx context.Context) gamecontent.AuditActor {
+		Actor: func(ctx context.Context) gamecontentmodel.AuditActor {
 			actor := authn.ActorFromContext(ctx, "release-setup")
-			return gamecontent.AuditActor{
+			return gamecontentmodel.AuditActor{
 				Kind: actor.Kind, UserID: actor.UserID, Label: actor.Label,
 				RequestID: ctx.Value(requestIDKey),
 			}
@@ -332,17 +332,17 @@ func (server *Server) deleteAdminGame(writer http.ResponseWriter, request *http.
 		NowMS: server.now().UnixMilli(),
 	})
 	switch {
-	case errors.Is(err, gamecontent.ErrDeleteGameNotFound):
+	case errors.Is(err, gamecontentmodel.ErrDeleteGameNotFound):
 		writeError(writer, request, http.StatusNotFound, "GAME_NOT_FOUND", "游戏不存在", map[string]any{})
 		return
-	case errors.Is(err, gamecontent.ErrDeleteGameVersionConflict):
+	case errors.Is(err, gamecontentmodel.ErrDeleteGameVersionConflict):
 		writeError(writer, request, http.StatusConflict, "VERSION_CONFLICT", "游戏已被修改", map[string]any{})
 		return
-	case errors.Is(err, gamecontent.ErrDeleteGameConfirmationMismatch):
+	case errors.Is(err, gamecontentmodel.ErrDeleteGameConfirmationMismatch):
 		writeError(writer, request, http.StatusUnprocessableEntity,
 			"GAME_DELETE_CONFIRMATION_MISMATCH", "确认标题不匹配", map[string]any{})
 		return
-	case errors.Is(err, gamecontent.ErrDeleteGameImpactStale):
+	case errors.Is(err, gamecontentmodel.ErrDeleteGameImpactStale):
 		writeError(writer, request, http.StatusConflict,
 			"GAME_DELETE_IMPACT_STALE", "删除影响已经变化，请刷新后重试", map[string]any{})
 		return
@@ -352,7 +352,7 @@ func (server *Server) deleteAdminGame(writer http.ResponseWriter, request *http.
 	}
 	if result.Replayed {
 		server.replayIdempotentResponse(
-			writer, request, gamecontent.DeleteGameOperation, input.requestDigest,
+			writer, request, gamecontentmodel.DeleteGameOperation, input.requestDigest,
 			result.Replay.RequestDigest, result.Replay.HTTPStatus, result.Replay.HeadersJSON, result.Replay.Body,
 		)
 		return

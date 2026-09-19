@@ -10,6 +10,7 @@ import (
 	"retrom/internal/adapter/runtime/runtime"
 	"retrom/internal/bootstrap/config"
 	"retrom/internal/capability/security/authn"
+	accountsmodel "retrom/internal/model/accounts"
 	accountpersistence "retrom/internal/repo/accounts"
 	"retrom/internal/service/accounts"
 )
@@ -27,7 +28,7 @@ func NewAccounts(
 	if err != nil {
 		return nil, fmt.Errorf("prepare dummy credential: %w", err)
 	}
-	mint := func() (accounts.SessionMaterial, error) { return accounts.MintSession(rand.Reader) }
+	mint := func() (accountsmodel.SessionMaterial, error) { return accounts.MintSession(rand.Reader) }
 	links := accountpersistence.NewLinks(database)
 	modules := accounts.Modules{
 		Initialization: accounts.NewInitialization(

@@ -11,7 +11,7 @@ import (
 
 	"retrom/internal/capability/security/authn"
 	"retrom/internal/foundation/cursor"
-	gamelistservice "retrom/internal/service/gamelist"
+	gamelistmodel "retrom/internal/model/gamelist"
 	"retrom/internal/service/tagging"
 )
 
@@ -26,7 +26,7 @@ func (server *Server) game(writer http.ResponseWriter, request *http.Request) {
 	detail, err := server.gameListService.Detail(
 		request.Context(), principal.ProfileID, gameID,
 	)
-	if errors.Is(err, gamelistservice.ErrNotFound) {
+	if errors.Is(err, gamelistmodel.ErrNotFound) {
 		writeError(writer, request, http.StatusNotFound, "GAME_NOT_FOUND", "游戏不存在", map[string]any{})
 		return
 	}
@@ -91,7 +91,7 @@ func gameListDiscLabel(value *int64) any {
 	return fmt.Sprintf("光盘 %d", *value+1)
 }
 
-func projectGameCoreOptions(options []gamelistservice.CoreOption) []map[string]any {
+func projectGameCoreOptions(options []gamelistmodel.CoreOption) []map[string]any {
 	result := make([]map[string]any, 0, len(options))
 	for _, option := range options {
 		reasons := make([]map[string]any, 0, len(option.Reasons))
@@ -111,7 +111,7 @@ func projectGameCoreOptions(options []gamelistservice.CoreOption) []map[string]a
 	return result
 }
 
-func projectGameDOSEntries(entries []gamelistservice.DOSEntry) []map[string]any {
+func projectGameDOSEntries(entries []gamelistmodel.DOSEntry) []map[string]any {
 	result := make([]map[string]any, 0, len(entries))
 	for _, entry := range entries {
 		result = append(result, map[string]any{
@@ -122,7 +122,7 @@ func projectGameDOSEntries(entries []gamelistservice.DOSEntry) []map[string]any 
 	return result
 }
 
-func projectGameSaveStates(states []gamelistservice.SaveState) []map[string]any {
+func projectGameSaveStates(states []gamelistmodel.SaveState) []map[string]any {
 	result := make([]map[string]any, 0, len(states))
 	for _, state := range states {
 		result = append(result, map[string]any{
@@ -153,7 +153,7 @@ func (server *Server) adminGames(writer http.ResponseWriter, request *http.Reque
 }
 
 type gameListFilters struct {
-	Filters     gamelistservice.Filters
+	Filters     gamelistmodel.Filters
 	NormalizedQ string
 }
 
@@ -192,18 +192,18 @@ func writeGameListFilterError(writer http.ResponseWriter, request *http.Request,
 func gameListSortCode(raw string, includeDeleted bool) (string, error) {
 	if raw == "" {
 		if includeDeleted {
-			return gamelistservice.SortUpdatedDesc, nil
+			return gamelistmodel.SortUpdatedDesc, nil
 		}
-		return gamelistservice.SortRecentDesc, nil
+		return gamelistmodel.SortRecentDesc, nil
 	}
 	switch raw {
-	case gamelistservice.SortTitleAsc, gamelistservice.SortAddedDesc:
+	case gamelistmodel.SortTitleAsc, gamelistmodel.SortAddedDesc:
 		return raw, nil
-	case gamelistservice.SortRecentDesc:
+	case gamelistmodel.SortRecentDesc:
 		if !includeDeleted {
 			return raw, nil
 		}
-	case gamelistservice.SortUpdatedDesc:
+	case gamelistmodel.SortUpdatedDesc:
 		if includeDeleted {
 			return raw, nil
 		}
@@ -216,7 +216,7 @@ func (server *Server) applyGameListCursor(
 	operationID string,
 	filterDigest string,
 	sortCode string,
-) (*gamelistservice.Cursor, error) {
+) (*gamelistmodel.Cursor, error) {
 	if token == "" {
 		//nolint:nilnil // an absent cursor is a valid unbounded first page
 		return nil, nil
@@ -226,18 +226,18 @@ func (server *Server) applyGameListCursor(
 		return nil, errInvalidCursorPayload
 	}
 	switch sortCode {
-	case gamelistservice.SortTitleAsc:
+	case gamelistmodel.SortTitleAsc:
 		if len(payload.SortValues) != 1 {
 			return nil, errInvalidCursorPayload
 		}
-	case gamelistservice.SortAddedDesc, gamelistservice.SortUpdatedDesc:
+	case gamelistmodel.SortAddedDesc, gamelistmodel.SortUpdatedDesc:
 		if len(payload.SortValues) != 2 {
 			return nil, errInvalidCursorPayload
 		}
 		if _, err := strconv.ParseInt(payload.SortValues[0], 10, 64); err != nil {
 			return nil, errInvalidCursorPayload
 		}
-	case gamelistservice.SortRecentDesc:
+	case gamelistmodel.SortRecentDesc:
 		if len(payload.SortValues) != 3 {
 			return nil, errInvalidCursorPayload
 		}
@@ -250,10 +250,10 @@ func (server *Server) applyGameListCursor(
 	default:
 		return nil, errInvalidCursorPayload
 	}
-	return &gamelistservice.Cursor{SortValues: payload.SortValues, ID: payload.ID}, nil
+	return &gamelistmodel.Cursor{SortValues: payload.SortValues, ID: payload.ID}, nil
 }
 
-func projectGameListItem(item gamelistservice.GameItem, includeAdminProjection bool) map[string]any {
+func projectGameListItem(item gamelistmodel.GameItem, includeAdminProjection bool) map[string]any {
 	result := map[string]any{
 		"gameId": item.ID, "title": item.Title,
 		"platform": map[string]any{"id": item.Platform.ID, "name": item.Platform.Name},
@@ -274,8 +274,8 @@ func projectGameListItem(item gamelistservice.GameItem, includeAdminProjection b
 	return result
 }
 
-func projectGameListFacets(facets gamelistservice.Facets) map[string]any {
-	project := func(items []gamelistservice.Facet, includePlatform bool) []map[string]any {
+func projectGameListFacets(facets gamelistmodel.Facets) map[string]any {
+	project := func(items []gamelistmodel.Facet, includePlatform bool) []map[string]any {
 		result := make([]map[string]any, 0, len(items))
 		for _, item := range items {
 			value := map[string]any{"id": item.ID, "name": item.Name, "count": item.Count}
@@ -333,7 +333,7 @@ func (server *Server) gameList(writer http.ResponseWriter, request *http.Request
 			return
 		}
 	}
-	result, err := server.gameListService.List(request.Context(), gamelistservice.ListRequest{
+	result, err := server.gameListService.List(request.Context(), gamelistmodel.ListRequest{
 		ProfileID: principal.ProfileID, IncludeDeleted: includeDeleted,
 		Filters: filters.Filters, Sort: sortCode, Cursor: pageCursor, Limit: limit,
 		IncludeFacets: !includeDeleted && values.Get("cursor") == "",

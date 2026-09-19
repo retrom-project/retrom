@@ -9,11 +9,12 @@ import (
 	"strings"
 
 	"retrom/internal/capability/format/pegasusmeta"
+	model "retrom/internal/model/pegasusimport"
 )
 
 func (service *Scanner) projectMetadata(ctx context.Context,
-	result *scanResult,
-	metadata *scannedMetadata,
+	result *ScanResult,
+	metadata *model.ScanMetadata,
 	index *scanIndex,
 ) error {
 	if metadata.State == "INVALID" {
@@ -40,7 +41,7 @@ func (service *Scanner) projectMetadata(ctx context.Context,
 	}
 	for gameIndex := range document.OrphanGames {
 		if len(result.Items) >= maxGames {
-			return ErrScanLimit
+			return model.ErrScanLimit
 		}
 		item, err := service.scanGame(
 			ctx, metadata.Path, "", -1, nil,
@@ -57,7 +58,7 @@ func (service *Scanner) projectMetadata(ctx context.Context,
 
 func (service *Scanner) projectCollection(
 	ctx context.Context,
-	result *scanResult,
+	result *ScanResult,
 	metadataPath string,
 	collection *pegasusmeta.Collection,
 	index *scanIndex,
@@ -72,7 +73,7 @@ func (service *Scanner) projectCollection(
 	name, invalid := projectedCollectionName(*collection)
 	ignoredJSON, _ := json.Marshal(stableStrings(append([]string(nil), collection.IgnoredRules...)))
 	warningJSON, _ := json.Marshal(collectionWarningFields(*collection))
-	scanned := scannedCollection{
+	scanned := model.ScanCollection{
 		ID: collectionID, MetadataPath: metadataPath,
 		SegmentOrdinal: int64(collection.SegmentOrdinal), Name: name,
 		ShortName: stringPointer(collection.ShortName), Description: collection.Description,
@@ -80,7 +81,7 @@ func (service *Scanner) projectCollection(
 	}
 	for gameIndex := range collection.Games {
 		if len(result.Items) >= maxGames {
-			return ErrScanLimit
+			return model.ErrScanLimit
 		}
 		game := collection.Games[gameIndex]
 		if invalid && game.BlockedCode == "" {
@@ -120,7 +121,7 @@ func collectionWarningFields(collection pegasusmeta.Collection) []string {
 	return stableStrings(fields)
 }
 
-func (result *scanResult) collectItem(item scannedItem) {
+func (result *ScanResult) collectItem(item model.ScanItem) {
 	result.Items = append(result.Items, item)
 	for _, file := range item.Files {
 		result.addEstimated(file.Size)
@@ -145,7 +146,7 @@ func (result *scanResult) collectItem(item scannedItem) {
 	}
 }
 
-func (result *scanResult) addEstimated(value int64) {
+func (result *ScanResult) addEstimated(value int64) {
 	const maximum = int64(2 << 40)
 	if value < 0 || result.EstimatedBytes > maximum-value {
 		result.EstimatedBytes = maximum + 1

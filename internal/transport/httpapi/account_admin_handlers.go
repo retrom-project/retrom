@@ -13,7 +13,7 @@ import (
 
 	"retrom/internal/capability/security/authn"
 	"retrom/internal/foundation/cursor"
-	"retrom/internal/service/accounts"
+	accountsmodel "retrom/internal/model/accounts"
 )
 
 func (server *Server) accountLinkURL(path, fragment, token string) string {
@@ -49,7 +49,7 @@ func (server *Server) authInvitationAccept(writer http.ResponseWriter, request *
 	if !decodeNewAccountCredential(writer, request, &body, "注册请求无效") {
 		return
 	}
-	session, err := server.accounts.AcceptInvitationRateLimited(request.Context(), accounts.AcceptInvitationRequest{
+	session, err := server.accounts.AcceptInvitationRateLimited(request.Context(), accountsmodel.AcceptInvitationRequest{
 		Token: body.Token, Username: body.Username, DisplayName: body.DisplayName,
 		Password: body.Password, PasswordConfirmation: body.PasswordConfirmation,
 	}, server.authenticationClientIP(request))
@@ -71,7 +71,7 @@ func (server *Server) authPasswordResetComplete(writer http.ResponseWriter, requ
 		return
 	}
 	result, err := server.accounts.CompletePasswordResetRateLimited(
-		request.Context(), accounts.CompletePasswordResetRequest{
+		request.Context(), accountsmodel.CompletePasswordResetRequest{
 			Token: body.Token, Password: body.Password, PasswordConfirmation: body.PasswordConfirmation,
 		}, server.authenticationClientIP(request))
 	if err != nil {
@@ -142,7 +142,7 @@ func (server *Server) adminUsers(writer http.ResponseWriter, request *http.Reque
 		"principalId": principal.UserID, "q": queryText, "role": values.Get("role"),
 		"sort": sortCode, "status": status,
 	})
-	filter := accounts.UserListFilter{
+	filter := accountsmodel.UserListFilter{
 		Query: queryText, Role: values.Get("role"), Status: status, Sort: sortCode, Limit: 51,
 	}
 	limit := 50
@@ -160,7 +160,7 @@ func (server *Server) adminUsers(writer http.ResponseWriter, request *http.Reque
 	}
 	items, err := server.accounts.ListUsers(request.Context(), filter)
 	if err != nil {
-		if errors.Is(err, accounts.ErrUserQuery) {
+		if errors.Is(err, accountsmodel.ErrUserQuery) {
 			writeError(writer, request, http.StatusBadRequest, "INVALID_QUERY", "用户筛选无效", map[string]any{})
 		} else {
 			server.databaseError(writer, request, err)
@@ -187,7 +187,7 @@ func (server *Server) adminUsers(writer http.ResponseWriter, request *http.Reque
 	})
 }
 
-func adminUserCursorSortValues(user accounts.AdminUser, sortCode string) []string {
+func adminUserCursorSortValues(user accountsmodel.AdminUser, sortCode string) []string {
 	switch sortCode {
 	case "USERNAME_ASC":
 		return []string{user.Username}
@@ -235,8 +235,11 @@ func (server *Server) adminPatchUser(writer http.ResponseWriter, request *http.R
 		return
 	}
 	result, replayed, err := server.accounts.UpdateUser(
-		request.Context(), principal, request.PathValue("userId"), expected,
-		accounts.UserPatch{Role: body.Role, Status: body.Status, ConfirmAdminRole: body.ConfirmAdminRole}, key,
+		request.Context(), principal, request.PathValue("userId"), expected, accountsmodel.UserPatch{
+			Role:             body.Role,
+			Status:           body.Status,
+			ConfirmAdminRole: body.ConfirmAdminRole,
+		}, key,
 	)
 	if err != nil {
 		server.writeAccountError(writer, request, err)
@@ -317,7 +320,7 @@ func (server *Server) adminAccountLinks(
 	if request.URL.Query().Get("limit") != "" {
 		limit, _ = strconv.Atoi(request.URL.Query().Get("limit"))
 	}
-	filter := accounts.LinkListFilter{
+	filter := accountsmodel.LinkListFilter{
 		Kind: kind, TargetUserID: targetUserID, State: state, Limit: limit + 1,
 	}
 	if token := request.URL.Query().Get("cursor"); token != "" {
@@ -335,7 +338,7 @@ func (server *Server) adminAccountLinks(
 	}
 	items, err := server.accounts.ListAccountLinks(request.Context(), filter)
 	if err != nil {
-		if errors.Is(err, accounts.ErrAccountLinkUnavailable) {
+		if errors.Is(err, accountsmodel.ErrAccountLinkUnavailable) {
 			writeError(writer, request, http.StatusBadRequest, "INVALID_QUERY", "链接筛选无效", map[string]any{})
 		} else {
 			server.databaseError(writer, request, err)
@@ -439,29 +442,29 @@ func accountVersionError(writer http.ResponseWriter, request *http.Request) {
 
 func (server *Server) writeAdminAccountError(writer http.ResponseWriter, request *http.Request, err error) bool {
 	switch {
-	case errors.Is(err, accounts.ErrUserVersion):
+	case errors.Is(err, accountsmodel.ErrUserVersion):
 		accountVersionError(writer, request)
-	case errors.Is(err, accounts.ErrUserSelfChange):
+	case errors.Is(err, accountsmodel.ErrUserSelfChange):
 		writeError(writer, request, http.StatusConflict, "USER_SELF_MANAGEMENT_FORBIDDEN", "不能对当前账号执行此操作", map[string]any{})
-	case errors.Is(err, accounts.ErrLastAdmin):
+	case errors.Is(err, accountsmodel.ErrLastAdmin):
 		writeError(writer, request, http.StatusConflict, "USER_LAST_ADMIN_REQUIRED", "必须保留至少一名可用管理员", map[string]any{})
-	case errors.Is(err, accounts.ErrUserNoChange):
+	case errors.Is(err, accountsmodel.ErrUserNoChange):
 		writeError(writer, request, http.StatusConflict, "USER_NO_STATE_CHANGE", "账号状态没有变化", map[string]any{})
-	case errors.Is(err, accounts.ErrUserDeleted):
+	case errors.Is(err, accountsmodel.ErrUserDeleted):
 		writeError(writer, request, http.StatusConflict, "USER_ALREADY_DELETED", "账号已删除", map[string]any{})
-	case errors.Is(err, accounts.ErrUserTransition):
+	case errors.Is(err, accountsmodel.ErrUserTransition):
 		writeError(writer, request, http.StatusConflict, "USER_INVALID_TRANSITION", "账号状态转换无效", map[string]any{})
-	case errors.Is(err, accounts.ErrConfirmation):
+	case errors.Is(err, accountsmodel.ErrConfirmation):
 		writeError(
 			writer, request, http.StatusUnprocessableEntity,
 			"USER_DELETE_CONFIRMATION_MISMATCH", "删除确认名不匹配", map[string]any{},
 		)
-	case errors.Is(err, accounts.ErrRoleConfirmation):
+	case errors.Is(err, accountsmodel.ErrRoleConfirmation):
 		writeError(
 			writer, request, http.StatusUnprocessableEntity,
 			"ADMIN_ROLE_CONFIRMATION_REQUIRED", "需要确认管理员权限", map[string]any{},
 		)
-	case errors.Is(err, accounts.ErrAccountLinkNotActive):
+	case errors.Is(err, accountsmodel.ErrAccountLinkNotActive):
 		writeError(writer, request, http.StatusConflict, "ACCOUNT_LINK_NOT_ACTIVE", "链接不再可撤销", map[string]any{})
 	default:
 		return false

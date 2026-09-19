@@ -5,12 +5,14 @@ import (
 	"errors"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/libraryimport"
 )
 
 type reconfigurationRepositoryStub struct {
-	source    ReconfigurationSource
+	source    model.ReconfigurationSource
 	found     bool
-	clone     ReconfigurationClone
+	clone     model.ReconfigurationClone
 	removed   string
 	cloneErr  error
 	removeErr error
@@ -19,11 +21,11 @@ type reconfigurationRepositoryStub struct {
 
 func (stub *reconfigurationRepositoryStub) Source(
 	context.Context, string, int64,
-) (ReconfigurationSource, bool, error) {
+) (model.ReconfigurationSource, bool, error) {
 	return stub.source, stub.found, stub.sourceErr
 }
 
-func (stub *reconfigurationRepositoryStub) Clone(_ context.Context, clone ReconfigurationClone) error {
+func (stub *reconfigurationRepositoryStub) Clone(_ context.Context, clone model.ReconfigurationClone) error {
 	stub.clone = clone
 	return stub.cloneErr
 }
@@ -35,27 +37,27 @@ func (stub *reconfigurationRepositoryStub) RemoveUnused(_ context.Context, uploa
 
 func TestReconfigurationsRejectsMissingSourceFiles(t *testing.T) {
 	stub := &reconfigurationRepositoryStub{found: true}
-	service := NewReconfigurations(stub, func(context.Context, ImportRequest, ImportCreationOptions) (ImportCreationResult, error) {
+	service := NewReconfigurations(stub, func(context.Context, model.ImportRequest, model.ImportCreationOptions) (model.ImportCreationResult, error) {
 		t.Fatal("create should not be called")
-		return ImportCreationResult{}, nil
+		return model.ImportCreationResult{}, nil
 	}, time.Now)
 	if _, err := service.Reconfigure(context.Background(), ReconfigurationRequest{
 		SourceImportJobID: "source", ExpectedVersion: 1,
-	}); !errors.Is(err, ErrInvalid) {
+	}); !errors.Is(err, model.ErrInvalid) {
 		t.Fatalf("error = %v, want ErrInvalid", err)
 	}
 }
 
 func TestReconfigurationsClonesAndCreatesReplacement(t *testing.T) {
-	files := []PreparedReusableUploadFile{{ID: "file", Path: "rejected.rom", BlobID: "blob", Size: 7}}
-	stub := &reconfigurationRepositoryStub{found: true, source: ReconfigurationSource{
+	files := []model.PreparedReusableUploadFile{{ID: "file", Path: "rejected.rom", BlobID: "blob", Size: 7}}
+	stub := &reconfigurationRepositoryStub{found: true, source: model.ReconfigurationSource{
 		SourceType: "FILES", Files: files,
 	}}
-	var gotRequest ImportRequest
-	var gotOptions ImportCreationOptions
-	service := NewReconfigurations(stub, func(_ context.Context, request ImportRequest, options ImportCreationOptions) (ImportCreationResult, error) {
+	var gotRequest model.ImportRequest
+	var gotOptions model.ImportCreationOptions
+	service := NewReconfigurations(stub, func(_ context.Context, request model.ImportRequest, options model.ImportCreationOptions) (model.ImportCreationResult, error) {
 		gotRequest, gotOptions = request, options
-		return ImportCreationResult{Created: ServerCreated{ImportJobID: "replacement"}}, nil
+		return model.ImportCreationResult{Created: model.ServerCreated{ImportJobID: "replacement"}}, nil
 	}, func() time.Time { return time.UnixMilli(1234) })
 
 	result, err := service.Reconfigure(context.Background(), ReconfigurationRequest{
@@ -80,12 +82,12 @@ func TestReconfigurationsClonesAndCreatesReplacement(t *testing.T) {
 }
 
 func TestReconfigurationsCleansCloneAfterCreationFailure(t *testing.T) {
-	stub := &reconfigurationRepositoryStub{found: true, source: ReconfigurationSource{
-		SourceType: "FILES", Files: []PreparedReusableUploadFile{{ID: "file", Path: "a", BlobID: "blob", Size: 1}},
+	stub := &reconfigurationRepositoryStub{found: true, source: model.ReconfigurationSource{
+		SourceType: "FILES", Files: []model.PreparedReusableUploadFile{{ID: "file", Path: "a", BlobID: "blob", Size: 1}},
 	}}
 	wantErr := errors.New("create failed")
-	service := NewReconfigurations(stub, func(context.Context, ImportRequest, ImportCreationOptions) (ImportCreationResult, error) {
-		return ImportCreationResult{}, wantErr
+	service := NewReconfigurations(stub, func(context.Context, model.ImportRequest, model.ImportCreationOptions) (model.ImportCreationResult, error) {
+		return model.ImportCreationResult{}, wantErr
 	}, time.Now)
 	_, err := service.Reconfigure(context.Background(), ReconfigurationRequest{SourceImportJobID: "source", ExpectedVersion: 1})
 	if !errors.Is(err, wantErr) || stub.removed == "" {

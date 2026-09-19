@@ -5,31 +5,33 @@ import (
 	"errors"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/emulationstationimport"
 )
 
 type completionMemory struct {
-	before                       LeaseSnapshot
-	counts                       CompletionCounts
-	change                       CompletionChange
+	before                       model.LeaseSnapshot
+	counts                       model.CompletionCounts
+	change                       model.CompletionChange
 	readErr, writeErr, commitErr error
 }
 
-func (memory *completionMemory) WithCompletion(_ context.Context, run func(CompletionScope) error) error {
-	if err := run(CompletionScope{Payload: emptyPayloadScope(), Read: memory, Write: memory}); err != nil {
+func (memory *completionMemory) WithCompletion(_ context.Context, run func(model.CompletionScope) error) error {
+	if err := run(model.CompletionScope{Payload: emptyPayloadScope(), Read: memory, Write: memory}); err != nil {
 		return err
 	}
 	return memory.commitErr
 }
 
-func (memory *completionMemory) Current(context.Context, string) (LeaseSnapshot, bool, error) {
+func (memory *completionMemory) Current(context.Context, string) (model.LeaseSnapshot, bool, error) {
 	return memory.before, true, memory.readErr
 }
 
-func (memory *completionMemory) Counts(context.Context, string) (CompletionCounts, error) {
+func (memory *completionMemory) Counts(context.Context, string) (model.CompletionCounts, error) {
 	return memory.counts, memory.readErr
 }
 
-func (memory *completionMemory) Complete(_ context.Context, change CompletionChange) error {
+func (memory *completionMemory) Complete(_ context.Context, change model.CompletionChange) error {
 	memory.change = change
 	return memory.writeErr
 }
@@ -37,7 +39,7 @@ func (memory *completionMemory) Complete(_ context.Context, change CompletionCha
 func newCompletionMemory() *completionMemory {
 	return &completionMemory{
 		before: newItemWorkMemory().before.Execution,
-		counts: CompletionCounts{ExpectedItems: 2, Terminal: TerminalItemCounts{ReviewPending: 1, Existing: 1}},
+		counts: model.CompletionCounts{ExpectedItems: 2, Terminal: model.TerminalItemCounts{ReviewPending: 1, Existing: 1}},
 	}
 }
 

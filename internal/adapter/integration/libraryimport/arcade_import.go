@@ -5,6 +5,7 @@ import (
 	"database/sql"
 
 	"retrom/internal/capability/format/importing"
+	libraryimportmodel "retrom/internal/model/libraryimport"
 	application "retrom/internal/service/libraryimport"
 )
 
@@ -30,4 +31,4 @@ func (service *Service) prepareArcadeFiles(
 	return dispositions, groups, archives, legacyPreparationError(err)
 }
 
-type arcadeROMRequirement = application.ArcadeROMRequirement
+type arcadeROMRequirement = libraryimportmodel.ArcadeROMRequirement

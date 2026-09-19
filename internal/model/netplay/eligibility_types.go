@@ -4,9 +4,10 @@ import (
 	"context"
 	"errors"
 
+	"retrom/internal/model/netplayprofile"
+
 	contentvalidation "retrom/internal/capability/content/corevalidation"
 	"retrom/internal/model/tagging"
-	"retrom/internal/transport/netplay/profile"
 )
 
 var ErrInvalidProfile = errors.New("NETPLAY_INVALID_PROFILE")
@@ -63,7 +64,7 @@ type GameSummary struct {
 
 type EligibleProfile struct {
 	Summary                ProfileSummary
-	Manifest               profile.ManifestProfile
+	Manifest               netplayprofile.ManifestProfile
 	VariantID              string
 	BundleSHA256           string
 	SourceManifestDigest   string

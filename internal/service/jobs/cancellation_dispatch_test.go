@@ -5,6 +5,8 @@ import (
 	"errors"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/jobs"
 )
 
 type dispatchRepository struct {
@@ -14,7 +16,7 @@ type dispatchRepository struct {
 	commitErr error
 }
 
-func (repository *dispatchRepository) WithWrite(ctx context.Context, work func(Records) error) error {
+func (repository *dispatchRepository) WithWrite(ctx context.Context, work func(model.Records) error) error {
 	repository.active = true
 	defer func() { repository.active = false }()
 	if err := repository.memoryJobs.WithWrite(ctx, work); err != nil {
@@ -43,7 +45,7 @@ func (handler *dispatchHandler) CancelJob(ctx context.Context, command DomainCan
 }
 
 func dispatchFixture() (*dispatchRepository, *dispatchHandler) {
-	repository := &dispatchRepository{memoryJobs: &memoryJobs{job: Job{Kind: "SERVER_EMULATIONSTATION_SCAN", ScopeType: "EMULATIONSTATION_IMPORT", ScopeID: "plan", State: "RUNNING", Cancellable: true, Version: 4, ExecutionNo: 7}}}
+	repository := &dispatchRepository{memoryJobs: &memoryJobs{job: model.Job{Kind: "SERVER_EMULATIONSTATION_SCAN", ScopeType: "EMULATIONSTATION_IMPORT", ScopeID: "plan", State: "RUNNING", Cancellable: true, Version: 4, ExecutionNo: 7}}}
 	return repository, &dispatchHandler{repository: repository}
 }
 
@@ -102,7 +104,7 @@ func TestDomainCancellationPreconditionsNeverCallHandler(t *testing.T) {
 			repository, handler := dispatchFixture()
 			version := int64(4)
 			reason := "stop"
-			want := ErrConflict
+			want := model.ErrConflict
 			switch scenario {
 			case "version":
 				version++

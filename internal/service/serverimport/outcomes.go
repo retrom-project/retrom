@@ -7,23 +7,25 @@ import (
 	"fmt"
 	"maps"
 	"time"
+
+	model "retrom/internal/model/serverimport"
 )
 
 var ErrOutcomeIncomplete = errors.New("SERVER_IMPORT_ITEMS_UNFINISHED")
 
 type Outcomes struct {
-	repository OutcomeRepository
+	repository model.OutcomeRepository
 	now        func() time.Time
 }
 
-func NewOutcomes(repository OutcomeRepository, now func() time.Time) *Outcomes {
+func NewOutcomes(repository model.OutcomeRepository, now func() time.Time) *Outcomes {
 	return &Outcomes{repository, now}
 }
 
-func (service *Outcomes) Finish(ctx context.Context, unit Work) error {
-	err := service.repository.WithWrite(ctx, func(scope OutcomeScope) error {
+func (service *Outcomes) Finish(ctx context.Context, unit model.Work) error {
+	err := service.repository.WithWrite(ctx, func(scope model.OutcomeScope) error {
 		now := service.now().UnixMilli()
-		counts, err := lockedCounts(ctx, scope, unit, now, RunningWorker)
+		counts, err := lockedCounts(ctx, scope, unit, now, model.RunningWorker)
 		if err != nil {
 			return err
 		}
@@ -38,8 +40,7 @@ func (service *Outcomes) Finish(ctx context.Context, unit Work) error {
 		phase := "QUEUEING_REVALIDATION"
 		return writeFinal(
 			ctx,
-			scope.Write,
-			FinalOutcome{
+			scope.Write, model.FinalOutcome{
 				Unit:        unit,
 				State:       state,
 				JobState:    "SUCCEEDED",
@@ -60,18 +61,17 @@ func (service *Outcomes) Finish(ctx context.Context, unit Work) error {
 	return nil
 }
 
-func (service *Outcomes) Cancel(ctx context.Context, unit Work) error {
-	err := service.repository.WithWrite(ctx, func(scope OutcomeScope) error {
+func (service *Outcomes) Cancel(ctx context.Context, unit model.Work) error {
+	err := service.repository.WithWrite(ctx, func(scope model.OutcomeScope) error {
 		now := service.now().UnixMilli()
-		counts, err := lockedCounts(ctx, scope, unit, now, CancelledWorker)
+		counts, err := lockedCounts(ctx, scope, unit, now, model.CancelledWorker)
 		if err != nil {
 			return err
 		}
 		counts = movePending(counts, "CANCELLED")
 		return writeFinal(
 			ctx,
-			scope.Write,
-			FinalOutcome{
+			scope.Write, model.FinalOutcome{
 				Unit:         unit,
 				State:        "CANCELLED",
 				JobState:     "CANCELLED",
@@ -94,13 +94,13 @@ func (service *Outcomes) Cancel(ctx context.Context, unit Work) error {
 	return nil
 }
 
-func (service *Outcomes) Fail(ctx context.Context, unit Work, code string) (int64, error) {
+func (service *Outcomes) Fail(ctx context.Context, unit model.Work, code string) (int64, error) {
 	var retryAt int64
-	err := service.repository.WithWrite(ctx, func(scope OutcomeScope) error {
+	err := service.repository.WithWrite(ctx, func(scope model.OutcomeScope) error {
 		now := service.now().UnixMilli()
-		access := RunningWorker
+		access := model.RunningWorker
 		if unit.Recovery {
-			access = ExhaustedWorker
+			access = model.ExhaustedWorker
 		}
 		counts, err := lockedCounts(ctx, scope, unit, now, access)
 		if err != nil {
@@ -120,8 +120,7 @@ func (service *Outcomes) Fail(ctx context.Context, unit Work, code string) (int6
 		counts = movePending(counts, "COMMIT_FAILED")
 		return writeFinal(
 			ctx,
-			scope.Write,
-			FinalOutcome{
+			scope.Write, model.FinalOutcome{
 				Unit:         unit,
 				State:        "FAILED",
 				JobState:     "FAILED",
@@ -166,10 +165,10 @@ func (service *Outcomes) Reconcile(ctx context.Context) (bool, error) {
 
 func lockedCounts(
 	ctx context.Context,
-	scope OutcomeScope,
-	unit Work,
+	scope model.OutcomeScope,
+	unit model.Work,
 	now int64,
-	access WorkerAccess,
+	access model.WorkerAccess,
 ) (map[string]int64, error) {
 	if err := scope.Write.Lock(ctx, unit, now, access); err != nil {
 		return nil, fmt.Errorf("lock import outcome: %w", err)
@@ -181,7 +180,7 @@ func lockedCounts(
 	return counts, nil
 }
 
-func writeFinal(ctx context.Context, writer OutcomeWriter, plan FinalOutcome) error {
+func writeFinal(ctx context.Context, writer model.OutcomeWriter, plan model.FinalOutcome) error {
 	if err := writer.Final(ctx, plan); err != nil {
 		return fmt.Errorf("write terminal import: %w", err)
 	}
@@ -196,8 +195,8 @@ func movePending(counts map[string]int64, state string) map[string]int64 {
 	return result
 }
 
-func terminalCounts(counts map[string]int64) TerminalCounts {
-	return TerminalCounts{
+func terminalCounts(counts map[string]int64) model.TerminalCounts {
+	return model.TerminalCounts{
 		Matched:          counts["IMPORTED_MATCHED"],
 		Warning:          counts["IMPORTED_WARNING"],
 		Missing:          counts["IMPORTED_MISSING_ENTRY"],

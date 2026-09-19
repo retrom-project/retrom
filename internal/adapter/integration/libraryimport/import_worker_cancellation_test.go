@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	composition "retrom/internal/bootstrap/composition/libraryimport"
+	libraryimportmodel "retrom/internal/model/libraryimport"
 	jobpersistence "retrom/internal/repo/jobs"
 	repository "retrom/internal/repo/libraryimport"
 	"retrom/internal/service/jobs"
@@ -90,7 +91,7 @@ func TestImportWorkerDomainCancelKeepsOwnerUntilExecutionStops(t *testing.T) {
 	if err != nil || !found {
 		t.Fatalf("claim found=%t error=%v", found, err)
 	}
-	result, err := executions.CancelJob(t.Context(), application.ImportJobCancellation{
+	result, err := executions.CancelJob(t.Context(), libraryimportmodel.ImportJobCancellation{
 		JobID: created.JobID, ImportID: created.ImportJobID, ExpectedVersion: 2, Reason: "operator stop",
 	})
 	if err != nil || !result.Pending || result.State != "CANCEL_REQUESTED" {
@@ -154,7 +155,7 @@ SELECT job.state,parent.state,parent.payload_state,job.version FROM jobs job JOI
 
 func TestImportWorkerQueuedCancellationPreservesAbsentExecutionTimes(t *testing.T) {
 	service, created := queuedCancellationFixture(t)
-	_, err := service.testExecutions().CancelJob(t.Context(), application.ImportJobCancellation{
+	_, err := service.testExecutions().CancelJob(t.Context(), libraryimportmodel.ImportJobCancellation{
 		JobID: created.JobID, ImportID: created.ImportJobID, ExpectedVersion: 1, Reason: "operator stop",
 	})
 	if err != nil {

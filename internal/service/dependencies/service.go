@@ -8,6 +8,7 @@ import (
 
 	"retrom/internal/adapter/runtime/dependencies"
 	"retrom/internal/capability/runtime/runtimecatalog"
+	model "retrom/internal/model/dependencies"
 )
 
 var (
@@ -17,16 +18,16 @@ var (
 
 type Service struct {
 	set        *dependencies.Set
-	repository Repository
+	repository model.Repository
 }
 
-func New(set *dependencies.Set, repository Repository) *Service {
+func New(set *dependencies.Set, repository model.Repository) *Service {
 	return &Service{set: set, repository: repository}
 }
 
 func (service *Service) Bootstrap(ctx context.Context, now time.Time) error {
 	preferred := preferredCoreVersions(service.set)
-	err := service.repository.WithWrite(ctx, func(scope WriteScope) error {
+	err := service.repository.WithWrite(ctx, func(scope model.WriteScope) error {
 		for _, versionName := range service.set.Order {
 			targets, err := service.staticBIOSTargets(ctx, scope.Targets)
 			if err != nil {
@@ -65,7 +66,7 @@ func preferredCoreVersions(set *dependencies.Set) map[string]string {
 	return result
 }
 
-func targetForCore(catalog runtimecatalog.Catalog, coreID string) (RuntimeTarget, error) {
+func targetForCore(catalog runtimecatalog.Catalog, coreID string) (model.RuntimeTarget, error) {
 	var selected *runtimecatalog.Binding
 	for index := range catalog.Bindings {
 		binding := &catalog.Bindings[index]
@@ -77,24 +78,24 @@ func targetForCore(catalog runtimecatalog.Catalog, coreID string) (RuntimeTarget
 			continue
 		}
 		if selected.ProviderID != binding.ProviderID || selected.TargetID != binding.TargetID {
-			return RuntimeTarget{}, fmt.Errorf("%w: ambiguous runtime target for core %s", dependencies.ErrInvalid, coreID)
+			return model.RuntimeTarget{}, fmt.Errorf("%w: ambiguous runtime target for core %s", dependencies.ErrInvalid, coreID)
 		}
 	}
 	if selected == nil {
-		return RuntimeTarget{}, fmt.Errorf("%w: runtime target missing for core %s", dependencies.ErrInvalid, coreID)
+		return model.RuntimeTarget{}, fmt.Errorf("%w: runtime target missing for core %s", dependencies.ErrInvalid, coreID)
 	}
-	return RuntimeTarget{ProviderID: selected.ProviderID, TargetID: selected.TargetID}, nil
+	return model.RuntimeTarget{ProviderID: selected.ProviderID, TargetID: selected.TargetID}, nil
 }
 
 func (service *Service) staticBIOSTargets(
 	ctx context.Context,
-	records TargetRecords,
-) (map[string]RuntimeTarget, error) {
+	records model.TargetRecords,
+) (map[string]model.RuntimeTarget, error) {
 	catalog, err := completeStaticBIOSCatalog()
 	if err != nil {
 		return nil, err
 	}
-	result := make(map[string]RuntimeTarget, len(catalog))
+	result := make(map[string]model.RuntimeTarget, len(catalog))
 	for _, requirement := range catalog {
 		if _, exists := result[requirement.coreID]; exists {
 			continue
@@ -108,24 +109,27 @@ func (service *Service) staticBIOSTargets(
 	return result, nil
 }
 
-func (service *Service) seedTarget(ctx context.Context, records TargetRecords, coreID string) (RuntimeTarget, error) {
+func (service *Service) seedTarget(ctx context.Context, records model.TargetRecords, coreID string) (
+	model.RuntimeTarget,
+	error,
+) {
 	target, err := targetForCore(service.set.RuntimeCatalog, coreID)
 	if err != nil {
-		return RuntimeTarget{}, err
+		return model.RuntimeTarget{}, err
 	}
 	exists, err := records.Exists(ctx, target)
 	if err != nil {
-		return RuntimeTarget{}, fmt.Errorf("read runtime target: %w", err)
+		return model.RuntimeTarget{}, fmt.Errorf("read runtime target: %w", err)
 	}
 	if !exists {
-		return RuntimeTarget{}, fmt.Errorf("%w: runtime target missing for core %s", dependencies.ErrInvalid, coreID)
+		return model.RuntimeTarget{}, fmt.Errorf("%w: runtime target missing for core %s", dependencies.ErrInvalid, coreID)
 	}
 	return target, nil
 }
 
 func (service *Service) bootstrapVersionDATs(
-	ctx context.Context, scope WriteScope, versionName string, version *dependencies.Version,
-	targets map[string]RuntimeTarget, preferred map[string]string, now time.Time,
+	ctx context.Context, scope model.WriteScope, versionName string, version *dependencies.Version,
+	targets map[string]model.RuntimeTarget, preferred map[string]string, now time.Time,
 ) error {
 	for _, core := range version.Manifest.Cores {
 		if core.DAT == nil {
@@ -140,7 +144,7 @@ func (service *Service) bootstrapVersionDATs(
 			}
 			targets[core.CoreID] = target
 		}
-		expected := CatalogStats{
+		expected := model.CatalogStats{
 			MachineCount: core.ParseStats.MachineCount, ROMEntryCount: core.ParseStats.ROMEntryCount,
 			DiskEntryCount: core.ParseStats.DiskEntryCount, BIOSSetCount: core.ParseStats.BIOSSetCount,
 			DefaultBIOSSetCount:       core.ParseStats.DefaultBIOSSetCount,
@@ -148,7 +152,7 @@ func (service *Service) bootstrapVersionDATs(
 			BaseDependencyTargetCount: core.ParseStats.BaseDependencyTargetCount,
 			UnresolvedCloneofCount:    core.ParseStats.UnresolvedCloneofCount + core.ParseStats.UnresolvedRomofCount,
 		}
-		registered, err := scope.DAT.Register(ctx, DATRegistration{
+		registered, err := scope.DAT.Register(ctx, model.DATRegistration{
 			CoreID: core.CoreID, Target: target,
 			RelativePath: core.DAT.LocalPath, SHA256: core.DAT.SHA256, AtMS: now.UnixMilli(),
 		})

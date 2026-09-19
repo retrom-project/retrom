@@ -5,10 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"time"
+
+	model "retrom/internal/model/payloadrelease"
 )
 
-func (worker *Worker) Finish(ctx context.Context, unit Work, executionErr error) error {
-	err := worker.repository.WithWorker(ctx, func(scope WorkerScope) error {
+func (worker *Worker) Finish(ctx context.Context, unit model.Work, executionErr error) error {
+	err := worker.repository.WithWorker(ctx, func(scope model.WorkerScope) error {
 		before, err := worker.current(ctx, scope, unit)
 		if err != nil {
 			return err
@@ -21,7 +23,13 @@ func (worker *Worker) Finish(ctx context.Context, unit Work, executionErr error)
 	return nil
 }
 
-func (worker *Worker) settle(ctx context.Context, scope WorkerScope, before Work, cause error, now int64) error {
+func (worker *Worker) settle(
+	ctx context.Context,
+	scope model.WorkerScope,
+	before model.Work,
+	cause error,
+	now int64,
+) error {
 	change, err := worker.settlement(before, cause, now)
 	if err != nil {
 		return err
@@ -35,26 +43,27 @@ func (worker *Worker) settle(ctx context.Context, scope WorkerScope, before Work
 	return nil
 }
 
-func (worker *Worker) settlement(before Work, cause error, now int64) (WorkChange, error) {
+func (worker *Worker) settlement(before model.Work, cause error, now int64) (model.WorkChange, error) {
 	after := before
 	after.Version++
 	after.WorkerID = ""
-	after.Lease = WorkTime{}
-	after.Heartbeat = WorkTime{}
+	after.Lease = model.WorkTime{}
+	after.Heartbeat = model.WorkTime{}
 	after.State = "SUCCEEDED"
-	change := WorkChange{
+	change := model.WorkChange{
 		Before: before, After: after, NowMS: now, EventType: "SUCCEEDED", EventJSON: `{"schemaVersion":1}`,
 	}
 	if cause != nil {
 		change.ErrorCode = WorkErrorCode(cause)
-		change.Retryable = !errors.Is(cause, ErrInputInvalid)
+		change.Retryable = !errors.Is(cause, model.ErrInputInvalid)
 		change.After.State = "FAILED"
 		change.EventType = "FAILED"
-		if change.Retryable && !errors.Is(cause, ErrExecutionTimeout) && executionBudgetFailure(before, now) == nil {
+		if change.Retryable && !errors.Is(cause, model.ErrExecutionTimeout) && executionBudgetFailure(before, now) == nil {
 			change.After.State = "QUEUED"
 			change.EventType = "RETRY_SCHEDULED"
 			change.After.AvailableMS = now + RetryDelay(before.Attempt).Milliseconds()
-			if errors.Is(cause, ErrExecutionLost) || errors.Is(cause, context.Canceled) || errors.Is(cause, ErrWorkerClosed) {
+			if errors.Is(cause, model.ErrExecutionLost) || errors.Is(cause, context.Canceled) ||
+				errors.Is(cause, model.ErrWorkerClosed) {
 				change.After.AvailableMS = now
 			}
 		}
@@ -64,10 +73,10 @@ func (worker *Worker) settlement(before Work, cause error, now int64) (WorkChang
 	if before.Kind == "PAYLOAD_RELEASE" && change.After.State != "QUEUED" {
 		id, err := worker.newID()
 		if err != nil {
-			return WorkChange{}, fmt.Errorf("create payload settlement audit: %w", err)
+			return model.WorkChange{}, fmt.Errorf("create payload settlement audit: %w", err)
 		}
 		if id == "" {
-			return WorkChange{}, ErrScheduleIDInvalid
+			return model.WorkChange{}, model.ErrScheduleIDInvalid
 		}
 		state := "RELEASED"
 		change.AuditAction = "PAYLOAD_RELEASE_COMPLETED"
@@ -95,12 +104,12 @@ func RetryDelay(attempt int64) time.Duration {
 
 func WorkErrorCode(err error) string {
 	switch {
-	case errors.Is(err, ErrInputInvalid):
-		return ErrInputInvalid.Error()
-	case errors.Is(err, ErrExecutionTimeout):
-		return ErrExecutionTimeout.Error()
-	case errors.Is(err, ErrAttemptsExhausted):
-		return ErrAttemptsExhausted.Error()
+	case errors.Is(err, model.ErrInputInvalid):
+		return model.ErrInputInvalid.Error()
+	case errors.Is(err, model.ErrExecutionTimeout):
+		return model.ErrExecutionTimeout.Error()
+	case errors.Is(err, model.ErrAttemptsExhausted):
+		return model.ErrAttemptsExhausted.Error()
 	default:
 		var coded interface{ Code() string }
 		if errors.As(err, &coded) {
@@ -110,9 +119,10 @@ func WorkErrorCode(err error) string {
 	}
 }
 
-func prepareOwnerFailure(ctx context.Context, scope WorkerScope, change *WorkChange) error {
+func prepareOwnerFailure(ctx context.Context, scope model.WorkerScope, change *model.WorkChange) error {
 	before := change.Before
-	if change.After.State != "FAILED" || before.Scope.Type == ScopeUploadConsumption || before.Scope.Type == ScopeBlob {
+	if change.After.State != "FAILED" || before.Scope.Type == model.ScopeUploadConsumption ||
+		before.Scope.Type == model.ScopeBlob {
 		return nil
 	}
 	owner, err := scope.Owners.Owner(ctx, before.Scope)
@@ -120,13 +130,13 @@ func prepareOwnerFailure(ctx context.Context, scope WorkerScope, change *WorkCha
 		return fmt.Errorf("read failed release owner: %w", err)
 	}
 	if owner.Scope != before.Scope || owner.ReleaseJobID != before.ID {
-		return ErrExecutionLost
+		return model.ErrExecutionLost
 	}
 	if owner.PayloadState == "RELEASED" {
 		return nil
 	}
 	if owner.PayloadState != "RELEASING" && owner.PayloadState != "FAILED" {
-		return ErrScopeInvalid
+		return model.ErrScopeInvalid
 	}
 	change.OwnerFailure = &owner
 	return nil

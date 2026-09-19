@@ -4,6 +4,9 @@ import (
 	"context"
 	"encoding/hex"
 
+	blobmodel "retrom/internal/model/blob"
+	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
+
 	"retrom/internal/adapter/files/blobstore"
 	"retrom/internal/adapter/files/serversource"
 	retromruntime "retrom/internal/adapter/runtime/runtime"
@@ -11,7 +14,7 @@ import (
 )
 
 type SourceGuard interface {
-	Check(context.Context, application.Execution) error
+	Check(context.Context, emulationstationimportmodel.Execution) error
 }
 type (
 	SourceDiagnostics interface{ DatabaseCause(error) string }
@@ -38,7 +41,7 @@ func NewSources(
 	return &Sources{blobs: blobs, roots: roots, guard: guard, diagnostics: diagnostics}
 }
 
-func (source *Sources) CheckRoot(unit application.Execution) error {
+func (source *Sources) CheckRoot(unit emulationstationimportmodel.Execution) error {
 	root, found := source.roots[unit.RootID]
 	if !found || root.digest != unit.RootDigest {
 		return application.ErrExecutionRootChanged
@@ -46,7 +49,7 @@ func (source *Sources) CheckRoot(unit application.Execution) error {
 	return nil
 }
 
-func (source *Sources) ForScan(unit application.Execution) (application.ScannerSource, error) {
+func (source *Sources) ForScan(unit emulationstationimportmodel.Execution) (application.ScannerSource, error) {
 	if err := source.CheckRoot(unit); err != nil {
 		return nil, err
 	}
@@ -55,40 +58,40 @@ func (source *Sources) ForScan(unit application.Execution) (application.ScannerS
 
 func (source *Sources) CopyFile(
 	ctx context.Context,
-	unit application.Execution,
-	file application.ExecutionFile,
-) (application.VerifiedBlob, error) {
+	unit emulationstationimportmodel.Execution,
+	file emulationstationimportmodel.ExecutionFile,
+) (emulationstationimportmodel.VerifiedBlob, error) {
 	root, found := source.roots[unit.RootID]
 	if !found || root.digest != unit.RootDigest {
-		return application.VerifiedBlob{}, application.ErrSourceChanged
+		return emulationstationimportmodel.VerifiedBlob{}, emulationstationimportmodel.ErrSourceChanged
 	}
 	metadata, err := source.copySource(ctx, root, unit, unit.RelativePath, file.Path, file.Size, file.Facts)
 	if err != nil {
-		return application.VerifiedBlob{}, err
+		return emulationstationimportmodel.VerifiedBlob{}, err
 	}
 	return verifiedBlob(metadata), nil
 }
 
 func (source *Sources) CopyAsset(
 	ctx context.Context,
-	unit application.Execution,
-	asset application.ExecutionAsset,
-) (application.VerifiedBlob, bool, error) {
+	unit emulationstationimportmodel.Execution,
+	asset emulationstationimportmodel.ExecutionAsset,
+) (emulationstationimportmodel.VerifiedBlob, bool, error) {
 	root, found := source.roots[unit.RootID]
 	if !found || root.digest != unit.RootDigest {
-		return application.VerifiedBlob{}, false, application.ErrSourceChanged
+		return emulationstationimportmodel.VerifiedBlob{}, false, emulationstationimportmodel.ErrSourceChanged
 	}
 	metadata, valid, err := source.copyAsset(ctx, root, unit, unit.RelativePath, asset)
 	if err != nil {
-		return application.VerifiedBlob{}, false, err
+		return emulationstationimportmodel.VerifiedBlob{}, false, err
 	}
 	return verifiedBlob(metadata), valid, nil
 }
 
 func (source *Sources) DatabaseCause(err error) string { return source.diagnostics.DatabaseCause(err) }
 
-func verifiedBlob(metadata blobstore.Metadata) application.VerifiedBlob {
-	return application.VerifiedBlob{
+func verifiedBlob(metadata blobmodel.PreparedBlob) emulationstationimportmodel.VerifiedBlob {
+	return emulationstationimportmodel.VerifiedBlob{
 		SHA256: metadata.SHA256,
 		MD5:    metadata.MD5,
 		SHA1:   metadata.SHA1,

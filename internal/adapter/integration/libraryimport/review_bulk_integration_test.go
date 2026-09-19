@@ -15,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	uploadsmodel "retrom/internal/model/uploads"
 	uploadpersistence "retrom/internal/repo/uploads"
 
 	dependencypersistence "retrom/internal/repo/dependencies"
@@ -71,9 +72,9 @@ VALUES(?,?,'bulk.review.admin','Bulk Review Admin','ADMIN','ENABLED',1,1)
 	createImport := func(name, contents string) string {
 		t.Helper()
 		payload := []byte(contents)
-		upload, createErr := uploader.Create(ctx, uploads.CreateRequest{
+		upload, createErr := uploader.Create(ctx, uploadsmodel.CreateRequest{
 			SourceType: "FILES",
-			Files: []uploads.FileDeclaration{{
+			Files: []uploadsmodel.FileDeclaration{{
 				ClientFileID: "game", RelativePath: name, SizeBytes: int64(len(payload)),
 			}},
 		})

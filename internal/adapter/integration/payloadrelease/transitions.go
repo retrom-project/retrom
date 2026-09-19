@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 
+	payloadreleasemodel "retrom/internal/model/payloadrelease"
 	persistence "retrom/internal/repo/payloadrelease"
 	application "retrom/internal/service/payloadrelease"
 )
@@ -25,8 +26,10 @@ func ScheduleTerminalImportJob(ctx context.Context, transaction *sql.Tx, importI
 func ScheduleTerminalPegasusItem(ctx context.Context, transaction *sql.Tx, itemID string, now int64) (string, error) {
 	scope := persistence.BindScheduling(transaction)
 	scheduler := application.NewScheduler(nil)
-	return scheduledIdentity(scheduler.TerminalSource(ctx, scope,
-		application.Scope{Type: ScopePegasusImportItem, ID: itemID}, now))
+	return scheduledIdentity(scheduler.TerminalSource(ctx, scope, payloadreleasemodel.Scope{
+		Type: ScopePegasusImportItem,
+		ID:   itemID,
+	}, now))
 }
 
 func ScheduleTerminalEmulationStationItem(ctx context.Context, transaction *sql.Tx, itemID string,
@@ -34,8 +37,10 @@ func ScheduleTerminalEmulationStationItem(ctx context.Context, transaction *sql.
 ) (string, error) {
 	scope := persistence.BindScheduling(transaction)
 	scheduler := application.NewScheduler(nil)
-	return scheduledIdentity(scheduler.TerminalSource(ctx, scope,
-		application.Scope{Type: ScopeEmulationStationImportItem, ID: itemID}, now))
+	return scheduledIdentity(scheduler.TerminalSource(ctx, scope, payloadreleasemodel.Scope{
+		Type: ScopeEmulationStationImportItem,
+		ID:   itemID,
+	}, now))
 }
 
 func ScheduleConsumption(ctx context.Context, transaction *sql.Tx, consumptionID string, now int64) (string, error) {

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"retrom/internal/foundation/cleanup"
+	jobsmodel "retrom/internal/model/jobs"
 	"retrom/internal/repo/store"
 	jobservice "retrom/internal/service/jobs"
 )
@@ -19,7 +20,7 @@ func TestProgressReadsKeepStateAndEventsInOneSnapshot(t *testing.T) {
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
 	insertJob(t, database, "job", "MEDIA_FETCH", "RUNNING", nil, now.UnixMilli())
 	repository := New(database.ReadOnly)
-	err = repository.WithRead(t.Context(), func(records jobservice.ReadRecords) error {
+	err = repository.WithRead(t.Context(), func(records jobsmodel.ReadRecords) error {
 		first, err := records.Detail(t.Context(), "job")
 		if err != nil {
 			return err
@@ -33,7 +34,7 @@ func TestProgressReadsKeepStateAndEventsInOneSnapshot(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		events, err := records.JobEvents(t.Context(), jobservice.EventQuery{ResourceID: "job", Limit: 1000})
+		events, err := records.JobEvents(t.Context(), jobsmodel.EventQuery{ResourceID: "job", Limit: 1000})
 		if err != nil || first.State != "RUNNING" || second.State != first.State || maximum != 0 || len(events) != 0 {
 			t.Fatalf("mixed snapshots: before=%s after=%s maximum=%d events=%d error=%v",
 				first.State, second.State, maximum, len(events), err)

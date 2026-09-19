@@ -5,47 +5,51 @@ import (
 	"database/sql"
 	"fmt"
 
+	payloadreleasemodel "retrom/internal/model/payloadrelease"
 	persistence "retrom/internal/repo/payloadrelease"
 	application "retrom/internal/service/payloadrelease"
 )
 
-type ScopeType = application.ScopeType
+type ScopeType = payloadreleasemodel.ScopeType
 
 const (
-	ScopeImportItem                 = application.ScopeImportItem
-	ScopeImportJob                  = application.ScopeImportJob
-	ScopePegasusImportItem          = application.ScopePegasusImportItem
-	ScopeEmulationStationImportItem = application.ScopeEmulationStationImportItem
-	ScopeUploadConsumption          = application.ScopeUploadConsumption
-	ScopeGame                       = application.ScopeGame
-	ScopeBlob                       = application.ScopeBlob
+	ScopeImportItem                 = payloadreleasemodel.ScopeImportItem
+	ScopeImportJob                  = payloadreleasemodel.ScopeImportJob
+	ScopePegasusImportItem          = payloadreleasemodel.ScopePegasusImportItem
+	ScopeEmulationStationImportItem = payloadreleasemodel.ScopeEmulationStationImportItem
+	ScopeUploadConsumption          = payloadreleasemodel.ScopeUploadConsumption
+	ScopeGame                       = payloadreleasemodel.ScopeGame
+	ScopeBlob                       = payloadreleasemodel.ScopeBlob
 )
 
-type Reason = application.Reason
+type Reason = payloadreleasemodel.Reason
 
 const (
-	ReasonImportPublished          = application.ReasonImportPublished
-	ReasonImportDiscarded          = application.ReasonImportDiscarded
-	ReasonImportFailed             = application.ReasonImportFailed
-	ReasonImportCancelled          = application.ReasonImportCancelled
-	ReasonImportTerminal           = application.ReasonImportTerminal
-	ReasonPegasusTerminal          = application.ReasonPegasusTerminal
-	ReasonEmulationStationTerminal = application.ReasonEmulationStationTerminal
-	ReasonUploadConsumed           = application.ReasonUploadConsumed
-	ReasonGameDeleted              = application.ReasonGameDeleted
+	ReasonImportPublished          = payloadreleasemodel.ReasonImportPublished
+	ReasonImportDiscarded          = payloadreleasemodel.ReasonImportDiscarded
+	ReasonImportFailed             = payloadreleasemodel.ReasonImportFailed
+	ReasonImportCancelled          = payloadreleasemodel.ReasonImportCancelled
+	ReasonImportTerminal           = payloadreleasemodel.ReasonImportTerminal
+	ReasonPegasusTerminal          = payloadreleasemodel.ReasonPegasusTerminal
+	ReasonEmulationStationTerminal = payloadreleasemodel.ReasonEmulationStationTerminal
+	ReasonUploadConsumed           = payloadreleasemodel.ReasonUploadConsumed
+	ReasonGameDeleted              = payloadreleasemodel.ReasonGameDeleted
 )
 
-var ErrScopeInvalid = application.ErrScopeInvalid
+var ErrScopeInvalid = payloadreleasemodel.ErrScopeInvalid
 
-type scheduleInput = application.Input
+type scheduleInput = payloadreleasemodel.Input
 
 func Schedule(ctx context.Context, transaction *sql.Tx, scopeType ScopeType, scopeID string,
 	scopeVersion int64, reason Reason, now int64,
 ) (string, error) {
 	scope := persistence.BindScheduling(transaction)
 	scheduler := application.NewScheduler(nil)
-	return scheduledIdentity(scheduler.Queue(ctx, scope, application.ScheduleRequest{
-		Scope: application.Scope{Type: scopeType, ID: scopeID}, ScopeVersion: scopeVersion, Reason: reason, NowMS: now,
+	return scheduledIdentity(scheduler.Queue(ctx, scope, payloadreleasemodel.ScheduleRequest{
+		Scope: payloadreleasemodel.Scope{
+			Type: scopeType,
+			ID:   scopeID,
+		}, ScopeVersion: scopeVersion, Reason: reason, NowMS: now,
 	}))
 }
 

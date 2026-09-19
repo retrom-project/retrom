@@ -3,9 +3,9 @@ package libraryimport
 import (
 	"context"
 
-	"retrom/internal/adapter/files/blobstore"
+	blobmodel "retrom/internal/model/blob"
 )
 
 type ImportArtifactWriter interface {
-	Register(context.Context, blobstore.Metadata, int64) (string, error)
+	Register(context.Context, blobmodel.PreparedBlob, int64) (string, error)
 }

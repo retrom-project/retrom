@@ -1,6 +1,8 @@
 package libraryimport
 
-import "retrom/internal/service/libraryimport"
+import (
+	libraryimportmodel "retrom/internal/model/libraryimport"
+)
 
 // These small fixtures keep policy assertions close to their tests after the
 // production validation workflow moved into service/libraryimport. They are
@@ -8,7 +10,7 @@ import "retrom/internal/service/libraryimport"
 type rpgReviewBinding struct {
 	generation string
 	override   bool
-	analysis   libraryimport.RPGReviewAnalysis
+	analysis   libraryimportmodel.RPGReviewAnalysis
 }
 
 type rpgDependencyState struct {
@@ -18,7 +20,7 @@ type rpgDependencyState struct {
 }
 
 func resolveRPGDependencies(profile rpgReviewBinding) (rpgDependencyState, string) {
-	resolved := libraryimport.ResolveRPGResourcePolicy(profile.generation, profile.override, profile.analysis)
+	resolved := libraryimportmodel.ResolveRPGResourcePolicy(profile.generation, profile.override, profile.analysis)
 	return rpgDependencyState{
 		status: resolved.Status, code: resolved.Code,
 		snapshotJSON: resolved.SnapshotJSON,

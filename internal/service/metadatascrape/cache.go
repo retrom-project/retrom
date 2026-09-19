@@ -7,43 +7,39 @@ import (
 	"time"
 
 	"retrom/internal/adapter/files/blobstore"
-	"retrom/internal/adapter/metadata/hasheous"
 	"retrom/internal/foundation/cleanup"
+	metadatamodel "retrom/internal/model/metadata"
+
+	metadatascrapemodel "retrom/internal/model/metadatascrape"
 )
 
-type LookupProvider interface {
-	LookupByHash(context.Context, hasheous.ContentHashes) (hasheous.LookupResult, error)
-	RestoreCached(hasheous.ContentHashes, hasheous.ProviderOutcome, int, []byte) (hasheous.LookupResult, error)
-}
 type LookupService struct {
-	records  CacheReader
+	records  metadatascrapemodel.CacheReader
 	blobs    *blobstore.Store
-	provider LookupProvider
+	provider metadatascrapemodel.LookupProvider
 	now      func() time.Time
 }
 
 func NewLookup(
-	records CacheReader,
-	blobs *blobstore.Store,
-	provider LookupProvider,
-	now func() time.Time,
+	records metadatascrapemodel.CacheReader, blobs *blobstore.Store,
+	provider metadatascrapemodel.LookupProvider, now func() time.Time,
 ) *LookupService {
 	return &LookupService{records: records, blobs: blobs, provider: provider, now: now}
 }
 
 func (service *LookupService) Lookup(
 	ctx context.Context,
-	hashes hasheous.ContentHashes,
+	hashes metadatamodel.ContentHashes,
 	bypassCache bool,
-) (ResolvedLookup, error) {
-	digest, err := hasheous.RequestDigest(hashes)
+) (metadatascrapemodel.ResolvedLookup, error) {
+	digest, err := metadatamodel.RequestDigest(hashes)
 	if err != nil {
-		return ResolvedLookup{}, fmt.Errorf("digest metadata request: %w", err)
+		return metadatascrapemodel.ResolvedLookup{}, fmt.Errorf("digest metadata request: %w", err)
 	}
 	if !bypassCache {
 		cached, found, err := service.cached(ctx, digest, hashes)
 		if err != nil {
-			return ResolvedLookup{}, err
+			return metadatascrapemodel.ResolvedLookup{}, err
 		}
 		if found {
 			return cached, nil
@@ -51,32 +47,32 @@ func (service *LookupService) Lookup(
 	}
 	result, err := service.provider.LookupByHash(ctx, hashes)
 	if err != nil {
-		return ResolvedLookup{}, fmt.Errorf("look up metadata by hash: %w", err)
+		return metadatascrapemodel.ResolvedLookup{}, fmt.Errorf("look up metadata by hash: %w", err)
 	}
-	return ResolvedLookup{Result: result}, nil
+	return metadatascrapemodel.ResolvedLookup{Result: result}, nil
 }
 
 func (service *LookupService) cached(
 	ctx context.Context,
 	digest string,
-	hashes hasheous.ContentHashes,
-) (ResolvedLookup, bool, error) {
+	hashes metadatamodel.ContentHashes,
+) (metadatascrapemodel.ResolvedLookup, bool, error) {
 	entry, found, err := service.records.Cached(ctx, digest, service.now().UnixMilli())
 	if err != nil {
-		return ResolvedLookup{}, false, fmt.Errorf("read metadata cache: %w", err)
+		return metadatascrapemodel.ResolvedLookup{}, false, fmt.Errorf("read metadata cache: %w", err)
 	}
 	if !found {
-		return ResolvedLookup{}, false, nil
+		return metadatascrapemodel.ResolvedLookup{}, false, nil
 	}
 	raw := service.readCachedResponse(entry.RawSHA256)
-	if entry.Outcome != hasheous.OutcomeMiss && len(raw) == 0 {
-		return ResolvedLookup{}, false, nil
+	if entry.Outcome != metadatamodel.OutcomeMiss && len(raw) == 0 {
+		return metadatascrapemodel.ResolvedLookup{}, false, nil
 	}
-	result, err := service.provider.RestoreCached(hashes, entry.Outcome, entry.HTTPStatus, raw)
+	result, err := service.provider.RestoreCached(hashes, entry.Outcome, entry.Audit, raw)
 	if err == nil {
-		return ResolvedLookup{Result: result, CachedResponseID: entry.ID}, true, nil
+		return metadatascrapemodel.ResolvedLookup{Result: result, CachedResponseID: entry.ID}, true, nil
 	}
-	return ResolvedLookup{}, false, nil
+	return metadatascrapemodel.ResolvedLookup{}, false, nil
 }
 
 func (service *LookupService) readCachedResponse(digest string) []byte {
@@ -95,14 +91,14 @@ func (service *LookupService) readCachedResponse(digest string) []byte {
 	return raw
 }
 
-func ResponseExpiry(outcome hasheous.ProviderOutcome, now int64) int64 {
+func ResponseExpiry(outcome metadatamodel.ProviderOutcome, now int64) int64 {
 	switch outcome {
-	case hasheous.OutcomeHit:
+	case metadatamodel.OutcomeHit:
 		return now + int64(7*24*time.Hour/time.Millisecond)
-	case hasheous.OutcomeMiss:
+	case metadatamodel.OutcomeMiss:
 		return now + int64(24*time.Hour/time.Millisecond)
-	case hasheous.OutcomeRateLimited, hasheous.OutcomeTimeout, hasheous.OutcomeInvalidResponse,
-		hasheous.OutcomeNetworkError:
+	case metadatamodel.OutcomeRateLimited, metadatamodel.OutcomeTimeout, metadatamodel.OutcomeInvalidResponse,
+		metadatamodel.OutcomeNetworkError:
 		return now
 	}
 	return now

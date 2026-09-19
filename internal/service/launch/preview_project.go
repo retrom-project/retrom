@@ -9,17 +9,18 @@ import (
 	ons "retrom/internal/capability/engine/ons/detector"
 	"retrom/internal/capability/engine/scummvm"
 	tyrano "retrom/internal/capability/engine/tyranoscript/detector"
+	model "retrom/internal/model/launch"
 )
 
-func previewProjectContent(snapshot PreviewSnapshot) (PreviewContent, error) {
+func previewProjectContent(snapshot model.PreviewSnapshot) (model.PreviewContent, error) {
 	if snapshot.Source.ContentKind == rpgProjectFormat {
 		return previewRPGContent(snapshot)
 	}
 	marker, err := previewProjectMarker(snapshot)
 	if err != nil {
-		return PreviewContent{}, ErrReviewPreviewUnavailable
+		return model.PreviewContent{}, model.ErrReviewPreviewUnavailable
 	}
-	content := PreviewContent{Format: snapshot.Source.ContentKind, Files: make([]PreviewFile, 0)}
+	content := model.PreviewContent{Format: snapshot.Source.ContentKind, Files: make([]model.PreviewFile, 0)}
 	maximum := 10_000
 	if snapshot.Source.ContentKind == "ONS_PROJECT" {
 		maximum = MaximumProjectFiles
@@ -33,17 +34,17 @@ func previewProjectContent(snapshot PreviewSnapshot) (PreviewContent, error) {
 			continue
 		}
 		if len(content.Files) >= maximum {
-			return PreviewContent{}, ErrReviewPreviewUnavailable
+			return model.PreviewContent{}, model.ErrReviewPreviewUnavailable
 		}
 		content.Files = append(content.Files, file)
 	}
 	if content.BlobID == "" || (snapshot.Source.ContentKind == "ONS_PROJECT" && len(content.Files) == 0) {
-		return PreviewContent{}, ErrReviewPreviewUnavailable
+		return model.PreviewContent{}, model.ErrReviewPreviewUnavailable
 	}
 	return content, nil
 }
 
-func previewProjectMarker(snapshot PreviewSnapshot) (string, error) {
+func previewProjectMarker(snapshot model.PreviewSnapshot) (string, error) {
 	raw := snapshot.Source.DependencySnapshot
 	switch snapshot.Source.ContentKind {
 	case "ONS_PROJECT":
@@ -79,7 +80,7 @@ func previewProjectMarker(snapshot PreviewSnapshot) (string, error) {
 			return first, nil
 		}
 	}
-	return "", ErrReviewPreviewUnavailable
+	return "", model.ErrReviewPreviewUnavailable
 }
 
 func previewMarkerResult(marker string, err error) (string, error) {

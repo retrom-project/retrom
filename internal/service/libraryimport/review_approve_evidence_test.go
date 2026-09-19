@@ -6,18 +6,19 @@ import (
 	"testing"
 
 	"retrom/internal/capability/security/authn"
-	"retrom/internal/service/tagging"
+	model "retrom/internal/model/libraryimport"
+	taggingmodel "retrom/internal/model/tagging"
 )
 
 func TestReviewApprovalAuditRetainsV2ActorTagsAndBulkDecision(t *testing.T) {
 	reason, cover, dos, candidate, dat := "确认发布", "cover", "GAME.EXE", "candidate", "dat"
-	tags := []tagging.Reference{{TagID: "tag", Name: "Selected"}}
+	tags := []taggingmodel.Reference{{TagID: "tag", Name: "Selected"}}
 	run := reviewApprovalRun{
 		ctx:           authn.WithPrincipal(t.Context(), authn.Principal{UserID: "actor"}),
-		request:       ReviewApprovalRequest{ItemID: "item", Decision: ReviewApprovalDecision{Reason: &reason, DuplicatePolicy: "ALLOW_NEW"}, Bulk: &BulkPublicationIntent{BulkID: "bulk"}},
-		head:          ReviewApprovalHead{MetadataJSON: `{"title":"Preserved"}`, UploadedCoverID: &cover, DraftDOS: &dos, CandidateID: &candidate, DATID: &dat},
+		request:       model.ReviewApprovalRequest{ItemID: "item", Decision: model.ReviewApprovalDecision{Reason: &reason, DuplicatePolicy: "ALLOW_NEW"}, Bulk: &model.BulkPublicationIntent{BulkID: "bulk"}},
+		head:          model.ReviewApprovalHead{MetadataJSON: `{"title":"Preserved"}`, UploadedCoverID: &cover, DraftDOS: &dos, CandidateID: &candidate, DATID: &dat},
 		screenshotIDs: []string{"first", "second"}, screenshotOverride: true, publishedTags: tags,
-		duplicateGames: []DuplicateGame{{GameID: "z"}, {GameID: "a"}}, gameID: "game", variantID: "variant", eventID: "event", now: 123,
+		duplicateGames: []model.DuplicateGame{{GameID: "z"}, {GameID: "a"}}, gameID: "game", variantID: "variant", eventID: "event", now: 123,
 	}
 	event, err := run.evidence()
 	if err != nil {
@@ -35,11 +36,11 @@ func TestReviewApprovalAuditRetainsV2ActorTagsAndBulkDecision(t *testing.T) {
 	assertApprovalAfterEvidence(t, event)
 }
 
-func assertApprovalAfterEvidence(t *testing.T, event ApprovalEvent) {
+func assertApprovalAfterEvidence(t *testing.T, event model.ApprovalEvent) {
 	t.Helper()
 	var after struct {
 		GameID, GameVariantID string
-		Tags                  []tagging.Reference
+		Tags                  []taggingmodel.Reference
 	}
 	if err := json.Unmarshal([]byte(event.AfterJSON), &after); err != nil {
 		t.Fatal(err)
@@ -70,26 +71,26 @@ func assertApprovalAfterEvidence(t *testing.T, event ApprovalEvent) {
 }
 
 func TestReviewApprovalAuditSupportsSystemAndRejectsMalformedEvidence(t *testing.T) {
-	run := reviewApprovalRun{ctx: t.Context(), head: ReviewApprovalHead{MetadataJSON: `{"title":"System"}`}, publishedTags: []tagging.Reference{}}
+	run := reviewApprovalRun{ctx: t.Context(), head: model.ReviewApprovalHead{MetadataJSON: `{"title":"System"}`}, publishedTags: []taggingmodel.Reference{}}
 	event, err := run.evidence()
 	if err != nil || event.ActorKind != "SYSTEM" || event.ActorUserID != nil || event.ActorLabel == nil || *event.ActorLabel != "release-setup" {
 		t.Fatalf("event=%+v err=%v", event, err)
 	}
 	run.head.MetadataJSON = "{"
 	event, err = run.evidence()
-	if err == nil || !reflect.DeepEqual(event, ApprovalEvent{}) {
+	if err == nil || !reflect.DeepEqual(event, model.ApprovalEvent{}) {
 		t.Fatalf("malformed event=%+v err=%v", event, err)
 	}
 }
 
-func assertApprovalActorEvidence(t *testing.T, event ApprovalEvent, reason *string) {
+func assertApprovalActorEvidence(t *testing.T, event model.ApprovalEvent, reason *string) {
 	t.Helper()
 	if event.ID != "event" || event.ItemID != "item" || event.ActorKind != "USER" || event.ActorUserID == nil || *event.ActorUserID != "actor" || event.ActorLabel != nil || event.Reason != reason || event.NowMS != 123 {
 		t.Fatalf("event=%+v", event)
 	}
 }
 
-func assertApprovalBeforeEvidence(t *testing.T, event ApprovalEvent, tags []tagging.Reference) {
+func assertApprovalBeforeEvidence(t *testing.T, event model.ApprovalEvent, tags []taggingmodel.Reference) {
 	t.Helper()
 	var before approvalBeforeEvidence
 	if err := json.Unmarshal([]byte(event.BeforeJSON), &before); err != nil {
@@ -100,7 +101,7 @@ func assertApprovalBeforeEvidence(t *testing.T, event ApprovalEvent, tags []tagg
 	}
 }
 
-func assertApprovalDiffEvidence(t *testing.T, event ApprovalEvent, tags []tagging.Reference) {
+func assertApprovalDiffEvidence(t *testing.T, event model.ApprovalEvent, tags []taggingmodel.Reference) {
 	t.Helper()
 	var diff approvalDiffEvidence
 	if err := json.Unmarshal([]byte(event.DiffJSON), &diff); err != nil {

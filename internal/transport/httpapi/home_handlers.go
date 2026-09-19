@@ -6,33 +6,33 @@ import (
 	"net/http"
 
 	"retrom/internal/capability/security/authn"
-	"retrom/internal/service/favorites"
-	homeservice "retrom/internal/service/home"
-	"retrom/internal/service/tagging"
+	favoritesmodel "retrom/internal/model/favorites"
+	homemodel "retrom/internal/model/home"
+	taggingmodel "retrom/internal/model/tagging"
 )
 
 type recentGameProjection struct {
-	GameID           string              `json:"gameId"`
-	Title            string              `json:"title"`
-	Platform         map[string]any      `json:"platform"`
-	PlatformInstance map[string]any      `json:"platformInstance"`
-	LastPlayedAtMS   int64               `json:"lastPlayedAtMs"`
-	ActiveDurationMS int64               `json:"activeDurationMs"`
-	SessionCount     int64               `json:"sessionCount"`
-	CoverURL         any                 `json:"coverUrl"`
-	Status           string              `json:"status"`
-	Availability     string              `json:"availability"`
-	Tags             []tagging.Reference `json:"tags"`
+	GameID           string                   `json:"gameId"`
+	Title            string                   `json:"title"`
+	Platform         map[string]any           `json:"platform"`
+	PlatformInstance map[string]any           `json:"platformInstance"`
+	LastPlayedAtMS   int64                    `json:"lastPlayedAtMs"`
+	ActiveDurationMS int64                    `json:"activeDurationMs"`
+	SessionCount     int64                    `json:"sessionCount"`
+	CoverURL         any                      `json:"coverUrl"`
+	Status           string                   `json:"status"`
+	Availability     string                   `json:"availability"`
+	Tags             []taggingmodel.Reference `json:"tags"`
 }
 
 type latestGameProjection struct {
-	GameID           string              `json:"gameId"`
-	Title            string              `json:"title"`
-	Platform         map[string]any      `json:"platform"`
-	PlatformInstance map[string]any      `json:"platformInstance"`
-	CreatedAtMS      int64               `json:"createdAtMs"`
-	CoverURL         any                 `json:"coverUrl"`
-	Tags             []tagging.Reference `json:"tags"`
+	GameID           string                   `json:"gameId"`
+	Title            string                   `json:"title"`
+	Platform         map[string]any           `json:"platform"`
+	PlatformInstance map[string]any           `json:"platformInstance"`
+	CreatedAtMS      int64                    `json:"createdAtMs"`
+	CoverURL         any                      `json:"coverUrl"`
+	Tags             []taggingmodel.Reference `json:"tags"`
 }
 
 type homePlatform struct {
@@ -49,7 +49,7 @@ func homeAssetURL(assetID *string) any {
 	return "/content/assets/" + *assetID
 }
 
-func projectHomeRecentGame(item homeservice.RecentGame) recentGameProjection {
+func projectHomeRecentGame(item homemodel.RecentGame) recentGameProjection {
 	return recentGameProjection{
 		GameID: item.GameID, Title: item.Title,
 		Platform:         map[string]any{"id": item.Platform.ID, "name": item.Platform.Name},
@@ -60,7 +60,7 @@ func projectHomeRecentGame(item homeservice.RecentGame) recentGameProjection {
 	}
 }
 
-func projectHomeLatestGame(item homeservice.LatestGame) latestGameProjection {
+func projectHomeLatestGame(item homemodel.LatestGame) latestGameProjection {
 	return latestGameProjection{
 		GameID: item.GameID, Title: item.Title,
 		Platform:         map[string]any{"id": item.Platform.ID, "name": item.Platform.Name},
@@ -69,7 +69,7 @@ func projectHomeLatestGame(item homeservice.LatestGame) latestGameProjection {
 	}
 }
 
-func projectHomeRecentSave(item homeservice.RecentSave) map[string]any {
+func projectHomeRecentSave(item homemodel.RecentSave) map[string]any {
 	return map[string]any{
 		"saveStateId": item.SaveStateID, "gameId": item.GameID, "gameTitle": item.GameTitle,
 		"name": item.Name, "createdAtMs": item.CreatedAtMS,
@@ -81,7 +81,7 @@ func projectHomeRecentSave(item homeservice.RecentSave) map[string]any {
 	}
 }
 
-func projectHomeFeaturedGame(item *homeservice.FeaturedGame) map[string]any {
+func projectHomeFeaturedGame(item *homemodel.FeaturedGame) map[string]any {
 	if item == nil {
 		return nil
 	}
@@ -164,7 +164,7 @@ func (server *Server) home(writer http.ResponseWriter, request *http.Request) {
 	})
 }
 
-type tagReferenceLoader func(context.Context, []string) (map[string][]tagging.Reference, error)
+type tagReferenceLoader func(context.Context, []string) (map[string][]taggingmodel.Reference, error)
 
 func projectMapTags(
 	ctx context.Context,
@@ -191,20 +191,20 @@ func projectMapTags(
 		}
 		item["tags"] = references[itemID]
 		if item["tags"] == nil {
-			item["tags"] = []tagging.Reference{}
+			item["tags"] = []taggingmodel.Reference{}
 		}
 	}
 	return nil
 }
 
-func (server *Server) activeGameTags(ctx context.Context, gameID string) ([]tagging.Reference, error) {
+func (server *Server) activeGameTags(ctx context.Context, gameID string) ([]taggingmodel.Reference, error) {
 	references, err := server.tagService.References(ctx, []string{gameID})
 	if err != nil {
 		return nil, fmt.Errorf("project game tags: %w", err)
 	}
 	tags := references[gameID]
 	if tags == nil {
-		tags = []tagging.Reference{}
+		tags = []taggingmodel.Reference{}
 	}
 	return tags, nil
 }
@@ -212,7 +212,7 @@ func (server *Server) activeGameTags(ctx context.Context, gameID string) ([]tagg
 func (server *Server) gameAssociations(
 	ctx context.Context,
 	profileID, gameID string,
-) (*favorites.FavoriteReference, []tagging.Reference, error) {
+) (*favoritesmodel.FavoriteReference, []taggingmodel.Reference, error) {
 	favorite, err := server.favoriteService.Reference(ctx, profileID, gameID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("project game favorite: %w", err)

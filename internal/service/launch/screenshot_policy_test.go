@@ -9,24 +9,25 @@ import (
 	"time"
 
 	"retrom/internal/adapter/files/mediaasset"
+	model "retrom/internal/model/launch"
 )
 
 type screenshotMemory struct {
-	initial, current                        ScreenshotSource
+	initial, current                        model.ScreenshotSource
 	missingInitial, missingCurrent          bool
 	currentError, replaceError, commitError error
-	image                                   ScreenshotImage
+	image                                   model.ScreenshotImage
 	imageError                              error
 	reads, writes, transactions, identities int
-	pending                                 ScreenshotWrite
+	pending                                 model.ScreenshotWrite
 	committed                               bool
 }
 
-func (memory *screenshotMemory) Preview(context.Context, string) (ScreenshotSource, bool, error) {
+func (memory *screenshotMemory) Preview(context.Context, string) (model.ScreenshotSource, bool, error) {
 	return memory.initial, !memory.missingInitial, nil
 }
 
-func (memory *screenshotMemory) WithScreenshot(_ context.Context, work func(ScreenshotScope) error) error {
+func (memory *screenshotMemory) WithScreenshot(_ context.Context, work func(model.ScreenshotScope) error) error {
 	memory.transactions++
 	if err := work(memory); err != nil {
 		return err
@@ -38,17 +39,17 @@ func (memory *screenshotMemory) WithScreenshot(_ context.Context, work func(Scre
 	return nil
 }
 
-func (memory *screenshotMemory) Current(context.Context, string) (ScreenshotSource, bool, error) {
+func (memory *screenshotMemory) Current(context.Context, string) (model.ScreenshotSource, bool, error) {
 	return memory.current, !memory.missingCurrent, memory.currentError
 }
 
-func (memory *screenshotMemory) Replace(_ context.Context, write ScreenshotWrite) error {
+func (memory *screenshotMemory) Replace(_ context.Context, write model.ScreenshotWrite) error {
 	memory.writes++
 	memory.pending = write
 	return memory.replaceError
 }
 
-func (memory *screenshotMemory) Read(context.Context, io.Reader) (ScreenshotImage, error) {
+func (memory *screenshotMemory) Read(context.Context, io.Reader) (model.ScreenshotImage, error) {
 	memory.reads++
 	if memory.transactions != 0 {
 		panic("image IO ran inside writer")
@@ -57,14 +58,14 @@ func (memory *screenshotMemory) Read(context.Context, io.Reader) (ScreenshotImag
 }
 
 func screenshotPolicyFixture() (*ScreenshotSaver, *screenshotMemory) {
-	source := ScreenshotSource{
+	source := model.ScreenshotSource{
 		PreviewID: "preview", ItemID: "item", SourceSnapshotID: "source", PlatformInstanceID: "directory",
 		ValidationID: "validation", ProviderID: "provider", TargetID: "target",
 		CredentialHash: []byte("capability"), State: "ACTIVE", HardExpiresAtMS: 200,
 	}
 	memory := &screenshotMemory{
 		initial: source, current: source,
-		image: ScreenshotImage{SHA256: "sha256", MediaType: "image/png", SizeBytes: 100, WidthPX: 2, HeightPX: 3},
+		image: model.ScreenshotImage{SHA256: "sha256", MediaType: "image/png", SizeBytes: 100, WidthPX: 2, HeightPX: 3},
 	}
 	service := NewScreenshotSaver(memory, memory, ScreenshotEnvironment{
 		Now:     func() time.Time { return time.UnixMilli(100) },
@@ -93,7 +94,7 @@ func TestScreenshotSaverAuthorizesBeforeImageAndWriter(t *testing.T) {
 			service, memory := screenshotPolicyFixture()
 			test.change(memory)
 			result, err := service.Store(t.Context(), "preview", "capability", nil)
-			if !errors.Is(err, ErrCredential) || result.ID != "" || memory.reads != 0 || memory.transactions != 0 {
+			if !errors.Is(err, model.ErrCredential) || result.ID != "" || memory.reads != 0 || memory.transactions != 0 {
 				t.Fatalf("result=%+v error=%v reads=%d tx=%d", result, err, memory.reads, memory.transactions)
 			}
 		})
@@ -123,7 +124,7 @@ func TestScreenshotSaverRejectsChangedFinalAuthorityBeforeIdentity(t *testing.T)
 			service, memory := screenshotPolicyFixture()
 			test.change(memory)
 			result, err := service.Store(t.Context(), "preview", "capability", nil)
-			if !errors.Is(err, ErrCredential) || result.ID != "" || memory.reads != 1 || memory.transactions != 1 || memory.identities != 0 || memory.writes != 0 {
+			if !errors.Is(err, model.ErrCredential) || result.ID != "" || memory.reads != 1 || memory.transactions != 1 || memory.identities != 0 || memory.writes != 0 {
 				t.Fatalf("result=%+v error=%v reads=%d tx=%d ids=%d writes=%d", result, err, memory.reads, memory.transactions, memory.identities, memory.writes)
 			}
 		})
@@ -141,7 +142,7 @@ func TestScreenshotSaverCapturesWithFinalAuthorityTime(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := ReviewScreenshot{
+	want := model.ReviewScreenshot{
 		ID: "81ed985b-3d2e-71f4-8017-e5e4ebc18c32", ImportItemID: "item", ValidationID: "validation",
 		ProviderID: "provider", TargetID: "target", WidthPX: 2, HeightPX: 3, CapturedAtMS: 102,
 	}
@@ -169,7 +170,7 @@ func TestScreenshotSaverDoesNotReturnUncommittedResult(t *testing.T) {
 			service, memory := screenshotPolicyFixture()
 			test.change(memory)
 			result, err := service.Store(t.Context(), "preview", "capability", nil)
-			if !errors.Is(err, cause) || result != (ReviewScreenshot{}) || memory.committed {
+			if !errors.Is(err, cause) || result != (model.ReviewScreenshot{}) || memory.committed {
 				t.Fatalf("result=%+v error=%v committed=%v", result, err, memory.committed)
 			}
 		})
@@ -177,7 +178,7 @@ func TestScreenshotSaverDoesNotReturnUncommittedResult(t *testing.T) {
 }
 
 func TestScreenshotSaverRejectsInvalidImagesBeforeWriter(t *testing.T) {
-	cases := []ScreenshotImage{
+	cases := []model.ScreenshotImage{
 		{SizeBytes: 0, WidthPX: 2, HeightPX: 3, MediaType: "image/png"},
 		{SizeBytes: mediaasset.MaxImageBytes + 1, WidthPX: 2, HeightPX: 3, MediaType: "image/png"},
 		{SizeBytes: 100, WidthPX: mediaasset.MaxImagePixels, HeightPX: 2, MediaType: "image/png"},
@@ -188,7 +189,7 @@ func TestScreenshotSaverRejectsInvalidImagesBeforeWriter(t *testing.T) {
 		service, memory := screenshotPolicyFixture()
 		memory.image = image
 		result, err := service.Store(t.Context(), "preview", "capability", nil)
-		if !errors.Is(err, ErrReviewScreenshotInvalid) || result.ID != "" || memory.transactions != 0 {
+		if !errors.Is(err, model.ErrReviewScreenshotInvalid) || result.ID != "" || memory.transactions != 0 {
 			t.Fatalf("image=%+v result=%+v error=%v tx=%d", image, result, err, memory.transactions)
 		}
 	}
@@ -197,7 +198,7 @@ func TestScreenshotSaverRejectsInvalidImagesBeforeWriter(t *testing.T) {
 func TestScreenshotSaverRejectsUnavailableImagesBeforeAuthorization(t *testing.T) {
 	service := NewScreenshotSaver(failingScreenshotRepository{cause: errors.New("must not read")}, nil, ScreenshotEnvironment{})
 	_, err := service.Store(t.Context(), "preview", "capability", nil)
-	if !errors.Is(err, ErrReviewScreenshotInvalid) {
+	if !errors.Is(err, model.ErrReviewScreenshotInvalid) {
 		t.Fatal(err)
 	}
 }

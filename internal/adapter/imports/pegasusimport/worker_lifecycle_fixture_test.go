@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 
+	pegasusimportmodel "retrom/internal/model/pegasusimport"
 	repository "retrom/internal/repo/pegasusimport"
 	application "retrom/internal/service/pegasusimport"
 )
@@ -31,7 +32,7 @@ func (adapter workerAdapter) Maintain(ctx context.Context) error {
 	return nil
 }
 
-func (adapter workerAdapter) Execute(ctx context.Context, unit application.Work) {
+func (adapter workerAdapter) Execute(ctx context.Context, unit pegasusimportmodel.Work) {
 	adapter.service.dispatcher().Execute(ctx, unit)
 }
 
@@ -40,7 +41,7 @@ type workerCancellation struct {
 	settlement *application.WorkerSettlement
 }
 
-func (cancellation workerCancellation) Cancelled(ctx context.Context, id application.ExecutionIdentity) (bool, error) {
+func (cancellation workerCancellation) Cancelled(ctx context.Context, id pegasusimportmodel.ExecutionIdentity) (bool, error) {
 	pending, err := cancellation.observer.Cancelled(ctx, id)
 	if err != nil {
 		return false, fmt.Errorf("observe Pegasus cancellation: %w", err)
@@ -49,7 +50,7 @@ func (cancellation workerCancellation) Cancelled(ctx context.Context, id applica
 }
 
 func (cancellation workerCancellation) CloseCancelled(
-	ctx context.Context, id application.ExecutionIdentity,
+	ctx context.Context, id pegasusimportmodel.ExecutionIdentity,
 ) (bool, error) {
 	closed, err := cancellation.settlement.Cancelled(ctx, id)
 	if err != nil {

@@ -7,10 +7,11 @@ import (
 	"testing"
 	"time"
 
+	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
 	application "retrom/internal/service/emulationstationimport"
 )
 
-func recoveryDatabase(t *testing.T, importing, staging bool) (*sql.DB, application.Execution) {
+func recoveryDatabase(t *testing.T, importing, staging bool) (*sql.DB, emulationstationimportmodel.Execution) {
 	t.Helper()
 	db, _ := leaseDatabase(t, importing)
 	unit, found, err := application.NewLeases(NewLeases(db), func() time.Time { return time.UnixMilli(1000) }).Claim(t.Context())
@@ -77,7 +78,7 @@ func TestRecoveryClearsUnpublishedScanOnRetryAndFailure(t *testing.T) {
 	}
 }
 
-func assertClearedScan(t *testing.T, db *sql.DB, unit application.Execution, terminal bool) {
+func assertClearedScan(t *testing.T, db *sql.DB, unit emulationstationimportmodel.Execution, terminal bool) {
 	t.Helper()
 	var state string
 	var count, payloads int64
@@ -139,7 +140,7 @@ func TestRecoveryTerminatesQueuedBudgetAndPreservesFinishedImportItems(t *testin
 	}
 }
 
-func assertQueuedRecovery(t *testing.T, after application.LeaseSnapshot, unit application.Execution) {
+func assertQueuedRecovery(t *testing.T, after emulationstationimportmodel.LeaseSnapshot, unit emulationstationimportmodel.Execution) {
 	t.Helper()
 	if after.JobState != "QUEUED" || after.ImportState != "QUEUED" || after.AvailableAtMS != 2500 || after.DeadlineAtMS != unit.DeadlineAtMS || after.Attempt != unit.Attempt || after.ReleaseYearMax != unit.ReleaseYearMax || after.WorkerID != "" {
 		t.Fatalf("recovered=%#v", after)

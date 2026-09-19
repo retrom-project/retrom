@@ -9,7 +9,7 @@ import (
 	"path"
 	"strings"
 
-	"retrom/internal/service/isolation"
+	isolationmodel "retrom/internal/model/isolation"
 )
 
 const tyranoScriptBootstrapDocument = `<!doctype html>
@@ -40,7 +40,7 @@ addEventListener("message",async e=>{
 func (server *Server) tyranoScriptBootstrapPage(
 	writer http.ResponseWriter,
 	request *http.Request,
-	access isolation.Access,
+	access isolationmodel.Access,
 ) {
 	setRPGFrameDocumentPolicy(writer)
 	if authorized, err := server.authenticateRPGRuntime(request, access); err == nil &&
@@ -71,7 +71,7 @@ func (server *Server) tyranoScriptBootstrapPage(
 func (server *Server) tyranoScriptBootstrapConsume(
 	writer http.ResponseWriter,
 	request *http.Request,
-	access isolation.Access,
+	access isolationmodel.Access,
 ) {
 	if !validRPGRuntimeWrite(request, access.Origin) {
 		http.NotFound(writer, request)
@@ -100,7 +100,7 @@ func (server *Server) tyranoScriptBootstrapConsume(
 func (server *Server) tyranoScriptRuntimeEntry(
 	writer http.ResponseWriter,
 	request *http.Request,
-	access isolation.Access,
+	access isolationmodel.Access,
 ) {
 	setRPGFrameDocumentPolicy(writer)
 	authorized, err := server.authenticateRPGRuntime(request, access)
@@ -140,7 +140,7 @@ func (server *Server) tyranoScriptRuntimeEntry(
 func (server *Server) tyranoScriptRuntimeBridge(
 	writer http.ResponseWriter,
 	request *http.Request,
-	access isolation.Access,
+	access isolationmodel.Access,
 ) {
 	authorized, err := server.authenticateRPGRuntime(request, access)
 	if err != nil || authorized.ContentFormat != "TYRANOSCRIPT_PROJECT" {
@@ -160,7 +160,7 @@ func (server *Server) tyranoScriptRuntimeBridge(
 func (server *Server) tyranoScriptRuntimeProject(
 	writer http.ResponseWriter,
 	request *http.Request,
-	access isolation.Access,
+	access isolationmodel.Access,
 ) {
 	authorized, err := server.authenticateRPGRuntime(request, access)
 	if err != nil || authorized.ContentFormat != "TYRANOSCRIPT_PROJECT" || isRPGServiceWorkerRequest(request) {

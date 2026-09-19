@@ -3,17 +3,11 @@ package serverimport
 import (
 	"context"
 	"fmt"
+
+	model "retrom/internal/model/serverimport"
 )
 
-func rankCandidates(values []*evaluatedCandidate) []*evaluatedCandidate {
-	return RankCandidates(values)
-}
-
-func selectedStatus(candidate *evaluatedCandidate) (string, string) {
-	return SelectedStatus(candidate)
-}
-
-func (service *Service) loadItems(ctx context.Context, id string) ([]catalogItem, error) {
+func (service *Service) loadItems(ctx context.Context, id string) ([]model.CatalogItem, error) {
 	result, err := service.recovery.Items(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("read frozen items: %w", err)
@@ -32,8 +26,8 @@ func (service *Service) discoveryWasPersisted(ctx context.Context, id string) (b
 func (service *Service) loadPersistedCandidates(
 	ctx context.Context,
 	id string,
-	items []catalogItem,
-) (map[string][]*evaluatedCandidate, error) {
+	items []model.CatalogItem,
+) (map[string][]*EvaluatedCandidate, error) {
 	result, err := service.recovery.Candidates(ctx, id, items)
 	if err != nil {
 		return nil, fmt.Errorf("restore candidates: %w", err)

@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"testing"
 
-	application "retrom/internal/service/emulationstationimport"
+	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
 )
 
 func TestItemWorkRepeatsFullExecutionAndItemFence(t *testing.T) {
@@ -23,7 +23,7 @@ func TestItemWorkRepeatsFullExecutionAndItemFence(t *testing.T) {
 			t.Parallel()
 			db, unit := itemWorkDatabase(t)
 			before := planRows(t, db)
-			err := NewItemWork(db).WithItemWork(t.Context(), func(scope application.ItemWorkScope) error {
+			err := NewItemWork(db).WithItemWork(t.Context(), func(scope emulationstationimportmodel.ItemWorkScope) error {
 				execution, found, err := scope.Read.Current(t.Context(), unit.JobID)
 				if err != nil || !found {
 					t.Fatalf("execution=%v error=%v", found, err)
@@ -40,11 +40,10 @@ func TestItemWorkRepeatsFullExecutionAndItemFence(t *testing.T) {
 					t.Fatal(err)
 				}
 				return scope.Write.Claim(
-					t.Context(),
-					application.ItemClaim{Before: application.OwnedItem{Execution: execution, Item: item}, NowMS: 1100},
+					t.Context(), emulationstationimportmodel.ItemClaim{Before: emulationstationimportmodel.OwnedItem{Execution: execution, Item: item}, NowMS: 1100},
 				)
 			})
-			if !errors.Is(err, application.ErrVersionConflict) {
+			if !errors.Is(err, emulationstationimportmodel.ErrVersionConflict) {
 				t.Fatalf("accepted changed ownership: %v", err)
 			}
 			if !reflect.DeepEqual(before, planRows(t, db)) {

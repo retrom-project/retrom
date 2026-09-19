@@ -5,6 +5,8 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	model "retrom/internal/model/tagging"
+
 	"github.com/google/uuid"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/unicode/norm"
@@ -17,7 +19,7 @@ func NormalizeName(value string) (string, string, string, error) {
 	started := false
 	for _, character := range normalized {
 		if unicode.IsControl(character) {
-			return "", "", "", ErrNameInvalid
+			return "", "", "", model.ErrNameInvalid
 		}
 		if unicode.IsSpace(character) {
 			if started {
@@ -33,8 +35,8 @@ func NormalizeName(value string) (string, string, string, error) {
 		started = true
 	}
 	display := builder.String()
-	if display == "" || utf8.RuneCountInString(display) > MaximumNameRunes || len(display) > MaximumNameBytes {
-		return "", "", "", ErrNameInvalid
+	if display == "" || utf8.RuneCountInString(display) > model.MaximumNameRunes || len(display) > model.MaximumNameBytes {
+		return "", "", "", model.ErrNameInvalid
 	}
 	return display, cases.Fold().String(display), canonicalSearch(display), nil
 }
@@ -49,20 +51,20 @@ func ValidID(value string) bool {
 }
 
 func ValidateIDs(values []string) ([]string, error) {
-	if values == nil || len(values) > MaxTagsPerOwner {
-		if len(values) > MaxTagsPerOwner {
-			return nil, ErrAssignmentLimitExceeded
+	if values == nil || len(values) > model.MaxTagsPerOwner {
+		if len(values) > model.MaxTagsPerOwner {
+			return nil, model.ErrAssignmentLimitExceeded
 		}
-		return nil, ErrInvalid
+		return nil, model.ErrInvalid
 	}
 	result := append([]string{}, values...)
 	seen := make(map[string]struct{}, len(result))
 	for _, value := range result {
 		if !ValidID(value) {
-			return nil, ErrInvalid
+			return nil, model.ErrInvalid
 		}
 		if _, exists := seen[value]; exists {
-			return nil, ErrInvalid
+			return nil, model.ErrInvalid
 		}
 		seen[value] = struct{}{}
 	}

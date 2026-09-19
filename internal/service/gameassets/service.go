@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"retrom/internal/adapter/files/mediaasset"
+	model "retrom/internal/model/gameassets"
 )
 
 // Prepare validates the completed upload and inspects its immutable CAS bytes.
@@ -71,7 +72,7 @@ func (service *Service) Create(ctx context.Context, request CreateRequest) (Crea
 		WidthPX: request.Asset.WidthPX, HeightPX: request.Asset.HeightPX,
 		MediaType: request.Asset.MediaType, Version: request.ExpectedVersion + 1, CreatedAtMS: request.NowMS,
 	}
-	err = service.repository.WithWrite(ctx, func(scope WriteScope) error {
+	err = service.repository.WithWrite(ctx, func(scope model.WriteScope) error {
 		return service.createInScope(ctx, scope, request, assetID, consumptionID)
 	})
 	if err != nil {
@@ -82,7 +83,7 @@ func (service *Service) Create(ctx context.Context, request CreateRequest) (Crea
 
 func (service *Service) createInScope(
 	ctx context.Context,
-	scope WriteScope,
+	scope model.WriteScope,
 	request CreateRequest,
 	assetID, consumptionID string,
 ) error {
@@ -97,14 +98,14 @@ func (service *Service) createInScope(
 	if err != nil {
 		return fmt.Errorf("remove replaced game asset: %w", err)
 	}
-	if err := scope.Create(ctx, AssetRecord{
+	if err := scope.Create(ctx, model.AssetRecord{
 		ID: assetID, GameID: request.GameID, BlobID: request.Asset.BlobID, Kind: request.Kind,
 		Ordinal: request.Ordinal, WidthPX: request.Asset.WidthPX, HeightPX: request.Asset.HeightPX,
 		MediaType: request.Asset.MediaType, CreatedAtMS: request.NowMS,
 	}); err != nil {
 		return fmt.Errorf("create game asset: %w", err)
 	}
-	if err := scope.ConsumeUpload(ctx, ConsumptionRecord{
+	if err := scope.ConsumeUpload(ctx, model.ConsumptionRecord{
 		ID: consumptionID, UploadID: request.Asset.UploadID, UploadFileID: request.UploadFileID,
 		ConsumerID: assetID, CreatedAtMS: request.NowMS,
 	}); err != nil {
@@ -122,7 +123,7 @@ func (service *Service) createInScope(
 	return nil
 }
 
-func updateGameAssetVersion(ctx context.Context, scope WriteScope, request CreateRequest) error {
+func updateGameAssetVersion(ctx context.Context, scope model.WriteScope, request CreateRequest) error {
 	changed, err := scope.UpdateGame(ctx, request.GameID, request.ExpectedVersion, request.NowMS)
 	if err != nil {
 		return fmt.Errorf("update game asset version: %w", err)
@@ -139,7 +140,7 @@ func (service *Service) Delete(ctx context.Context, request DeleteRequest) (Dele
 		return DeleteResult{}, ErrInvalid
 	}
 	var result DeleteResult
-	err := service.repository.WithWrite(ctx, func(scope WriteScope) error {
+	err := service.repository.WithWrite(ctx, func(scope model.WriteScope) error {
 		version, err := scope.GameVersion(ctx, request.GameID)
 		if err != nil {
 			return fmt.Errorf("%w: %w", ErrVersionConflict, err)

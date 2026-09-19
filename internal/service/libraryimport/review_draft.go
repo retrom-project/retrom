@@ -7,7 +7,7 @@ import (
 
 	"retrom/internal/capability/security/authn"
 	application "retrom/internal/model/libraryimport"
-	"retrom/internal/service/tagging"
+	taggingmodel "retrom/internal/model/tagging"
 )
 
 type ReviewDraftsOptions struct {
@@ -36,13 +36,13 @@ func NewReviewDrafts(repository ReviewDraftPatchRepository, options ...ReviewDra
 }
 
 func (service *ReviewDrafts) Patch(
-	ctx context.Context, itemID string, expectedVersion int64, patch DraftPatch,
-) (DraftResult, error) {
-	if err := ValidateDraftPatch(patch); err != nil {
-		return DraftResult{}, err
+	ctx context.Context, itemID string, expectedVersion int64, patch application.DraftPatch,
+) (application.DraftResult, error) {
+	if err := application.ValidateDraftPatch(patch); err != nil {
+		return application.DraftResult{}, fmt.Errorf("%w", err)
 	}
 	if service == nil || service.repository == nil {
-		return DraftResult{}, ErrInvalid
+		return application.DraftResult{}, application.ErrInvalid
 	}
 	now := service.now()
 	actor := authn.ActorFromContext(ctx, "release-setup")
@@ -50,15 +50,15 @@ func (service *ReviewDrafts) Patch(
 		ItemID: itemID, ExpectedVersion: expectedVersion, TagIDs: patch.TagIDs,
 	})
 	if err != nil {
-		return DraftResult{}, fmt.Errorf("load review draft patch snapshot: %w", err)
+		return application.DraftResult{}, fmt.Errorf("load review draft patch snapshot: %w", err)
 	}
 	plan, err := service.buildPatchPlan(ctx, itemID, expectedVersion, patch, snapshot, actor, now)
 	if err != nil {
-		return DraftResult{}, err
+		return application.DraftResult{}, err
 	}
 	result, err := service.repository.CommitPatch(ctx, plan)
 	if err != nil {
-		return DraftResult{}, fmt.Errorf("patch review draft: %w", err)
+		return application.DraftResult{}, fmt.Errorf("patch review draft: %w", err)
 	}
 	return result, nil
 }
@@ -67,7 +67,7 @@ func (service *ReviewDrafts) buildPatchPlan(
 	ctx context.Context,
 	itemID string,
 	expectedVersion int64,
-	patch DraftPatch,
+	patch application.DraftPatch,
 	snapshot application.ReviewDraftPatchSnapshot,
 	actor authn.Actor,
 	now time.Time,
@@ -77,14 +77,14 @@ func (service *ReviewDrafts) buildPatchPlan(
 		return application.ReviewDraftWritePlan{}, fmt.Errorf("merge review draft metadata: %w", err)
 	}
 	actorUserID := actorString(actor.UserID)
-	desiredTags, err := tagging.ValidateActiveReferenceFacts(patch.TagIDs, snapshot.ActiveTags)
+	desiredTags, err := taggingmodel.ValidateActiveReferenceFacts(patch.TagIDs, snapshot.ActiveTags)
 	if err != nil {
 		return application.ReviewDraftWritePlan{}, fmt.Errorf("validate review draft tags: %w", err)
 	}
-	tagPlan, err := tagging.BuildReplacementPlan(
-		tagging.Owner{Kind: tagging.OwnerReviewDraft, ID: snapshot.DraftID},
-		snapshot.BeforeTags, desiredTags, actorUserID, now.UnixMilli(),
-	)
+	tagPlan, err := taggingmodel.BuildReplacementPlan(taggingmodel.Owner{
+		Kind: taggingmodel.OwnerReviewDraft,
+		ID:   snapshot.DraftID,
+	}, snapshot.BeforeTags, desiredTags, actorUserID, now.UnixMilli())
 	if err != nil {
 		return application.ReviewDraftWritePlan{}, fmt.Errorf("plan review draft tags: %w", err)
 	}
@@ -102,8 +102,8 @@ func (service *ReviewDrafts) buildPatchPlan(
 		ExpectedValidationGuard:     validationPlan.Guard,
 		ValidationSelectionExplicit: patch.SelectedValidationID != nil,
 		TargetID:                    targetID, ValidationID: validationPlan.SelectedValidationID,
-		CandidateID: patchString(snapshot.CandidateID), CoverID: patchString(snapshot.CoverID),
-		UploadedCoverID: patchString(snapshot.UploadedCoverID), BackgroundID: patchString(snapshot.BackgroundID),
+		CandidateID: copyString(snapshot.CandidateID), CoverID: copyString(snapshot.CoverID),
+		UploadedCoverID: copyString(snapshot.UploadedCoverID), BackgroundID: copyString(snapshot.BackgroundID),
 		DOSEntry: dosEntry, Metadata: metadata,
 		SearchParts:        application.SearchParts(itemID, snapshot.SourcePaths, metadata),
 		ScreenshotAssetIDs: append([]string(nil), snapshot.ScreenshotAssetIDs...),
@@ -119,7 +119,7 @@ func (service *ReviewDrafts) buildPatchPlan(
 }
 
 func patchedTargetAndDOS(
-	snapshot application.ReviewDraftPatchSnapshot, patch DraftPatch,
+	snapshot application.ReviewDraftPatchSnapshot, patch application.DraftPatch,
 ) (string, *string) {
 	targetID := snapshot.TargetID
 	if patch.TargetPlatformInstanceID != nil {
@@ -137,19 +137,19 @@ func (service *ReviewDrafts) resolveValidationPlan(
 	itemID string,
 	targetID string,
 	dosEntry *string,
-	patch DraftPatch,
+	patch application.DraftPatch,
 	snapshot application.ReviewDraftPatchSnapshot,
 ) (application.ReviewValidationPlan, error) {
 	if service.validation == nil {
-		return application.ReviewValidationPlan{}, ErrInvalid
+		return application.ReviewValidationPlan{}, application.ErrInvalid
 	}
 	if patch.SelectedValidationID != nil && *patch.SelectedValidationID == "" {
-		return application.ReviewValidationPlan{}, ErrInvalid
+		return application.ReviewValidationPlan{}, application.ErrInvalid
 	}
 	// RPG validation is derived from the project profile and requested
 	// resource policy. An explicit validation ID would bypass that derivation.
 	if snapshot.IsRPG && patch.SelectedValidationID != nil {
-		return application.ReviewValidationPlan{}, ErrInvalid
+		return application.ReviewValidationPlan{}, application.ErrInvalid
 	}
 	var (
 		plan application.ReviewValidationPlan
@@ -162,7 +162,7 @@ func (service *ReviewDrafts) resolveValidationPlan(
 		// describe the draft's current selection; it must not replace the new
 		// candidate plan after resolution.
 		if patch.SelectedValidationID != nil && *patch.SelectedValidationID != snapshot.ValidationID {
-			return application.ReviewValidationPlan{}, ErrInvalid
+			return application.ReviewValidationPlan{}, application.ErrInvalid
 		}
 		plan, err = service.validation.SelectScummVM(ctx, ReviewDraftScummVMRequest{
 			ItemID: itemID, TargetPlatformInstanceID: targetID, DefaultDOSEntry: dosEntry,
@@ -185,13 +185,13 @@ func (service *ReviewDrafts) resolveValidationPlan(
 	return plan, nil
 }
 
-func applyCandidatePatch(plan *application.ReviewDraftWritePlan, patch DraftPatch) {
+func applyCandidatePatch(plan *application.ReviewDraftWritePlan, patch application.DraftPatch) {
 	if present, value := patch.SelectedCandidateID.Optional(); present {
 		plan.CandidateID = copyString(value)
 	}
 }
 
-func applyAssetPatch(plan *application.ReviewDraftWritePlan, patch DraftPatch) {
+func applyAssetPatch(plan *application.ReviewDraftWritePlan, patch application.DraftPatch) {
 	if patch.SelectedAssets == nil {
 		return
 	}
@@ -229,5 +229,3 @@ func copyString(value *string) *string {
 	copyValue := *value
 	return &copyValue
 }
-
-func patchString(value *string) *string { return copyString(value) }

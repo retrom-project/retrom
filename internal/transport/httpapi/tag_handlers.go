@@ -9,16 +9,17 @@ import (
 
 	"retrom/internal/capability/security/authn"
 	"retrom/internal/foundation/cursor"
+	taggingmodel "retrom/internal/model/tagging"
 	"retrom/internal/service/tagging"
 )
 
 func writeTagError(writer http.ResponseWriter, request *http.Request, err error) {
-	var invalidReferences *tagging.InvalidReferencesError
+	var invalidReferences *taggingmodel.InvalidReferencesError
 	switch {
 	case errors.As(err, &invalidReferences):
 		writeError(writer, request, http.StatusUnprocessableEntity, "TAG_REFERENCE_INVALID", "标签引用无效",
 			map[string]any{"invalidTagIds": invalidReferences.IDs})
-	case errors.Is(err, tagging.ErrNameInvalid):
+	case errors.Is(err, taggingmodel.ErrNameInvalid):
 		writeError(
 			writer,
 			request,
@@ -27,13 +28,13 @@ func writeTagError(writer http.ResponseWriter, request *http.Request, err error)
 			"标签名称无效",
 			map[string]any{},
 		)
-	case errors.Is(err, tagging.ErrNotFound):
+	case errors.Is(err, taggingmodel.ErrNotFound):
 		writeError(writer, request, http.StatusNotFound, "TAG_NOT_FOUND", "标签不存在", map[string]any{})
-	case errors.Is(err, tagging.ErrGameNotFound):
+	case errors.Is(err, taggingmodel.ErrGameNotFound):
 		writeError(writer, request, http.StatusNotFound, "GAME_NOT_FOUND", "游戏不存在", map[string]any{})
-	case errors.Is(err, tagging.ErrNameConflict):
+	case errors.Is(err, taggingmodel.ErrNameConflict):
 		writeError(writer, request, http.StatusConflict, "TAG_NAME_CONFLICT", "已存在同名活动标签", map[string]any{})
-	case errors.Is(err, tagging.ErrLimitReached):
+	case errors.Is(err, taggingmodel.ErrLimitReached):
 		writeError(
 			writer,
 			request,
@@ -42,21 +43,21 @@ func writeTagError(writer http.ResponseWriter, request *http.Request, err error)
 			"活动标签数量已达上限",
 			map[string]any{},
 		)
-	case errors.Is(err, tagging.ErrAlreadyDeleted):
+	case errors.Is(err, taggingmodel.ErrAlreadyDeleted):
 		writeError(writer, request, http.StatusConflict, "TAG_ALREADY_DELETED", "标签已经删除", map[string]any{})
-	case errors.Is(err, tagging.ErrVersionConflict):
+	case errors.Is(err, taggingmodel.ErrVersionConflict):
 		writeError(writer, request, http.StatusConflict, "VERSION_CONFLICT", "资源版本已变化", map[string]any{})
-	case errors.Is(err, tagging.ErrAssignmentLimitExceeded):
+	case errors.Is(err, taggingmodel.ErrAssignmentLimitExceeded):
 		writeError(
 			writer, request, http.StatusUnprocessableEntity,
 			"TAG_ASSIGNMENT_LIMIT_EXCEEDED", "标签数量超过上限", map[string]any{},
 		)
-	case errors.Is(err, tagging.ErrDeleteConfirmation):
+	case errors.Is(err, taggingmodel.ErrDeleteConfirmation):
 		writeError(
 			writer, request, http.StatusUnprocessableEntity,
 			"TAG_DELETE_CONFIRMATION_MISMATCH", "标签名称确认不匹配", map[string]any{},
 		)
-	case errors.Is(err, tagging.ErrReferenceInvalid):
+	case errors.Is(err, taggingmodel.ErrReferenceInvalid):
 		writeError(
 			writer,
 			request,
@@ -65,7 +66,7 @@ func writeTagError(writer http.ResponseWriter, request *http.Request, err error)
 			"标签引用无效",
 			map[string]any{},
 		)
-	case errors.Is(err, tagging.ErrInvalid):
+	case errors.Is(err, taggingmodel.ErrInvalid):
 		writeError(writer, request, http.StatusBadRequest, "INVALID_REQUEST", "标签请求无效", map[string]any{})
 	default:
 		serverError(writer, request, err)
@@ -90,16 +91,16 @@ func normalizedTagQuery(value string) string {
 }
 
 func (server *Server) tagPageCursor(
-	items []tagging.AdminItem,
+	items []taggingmodel.AdminItem,
 	limit int,
 	filterDigest, sortCode string,
-) ([]tagging.AdminItem, any, error) {
+) ([]taggingmodel.AdminItem, any, error) {
 	if len(items) <= limit {
 		return items, nil, nil
 	}
 	last := items[limit-1]
 	sortValues := []string{strconv.FormatInt(last.UpdatedAtMS, 10)}
-	if sortCode == tagging.SortNameAsc {
+	if sortCode == taggingmodel.SortNameAsc {
 		_, nameKey, _, err := tagging.NormalizeName(last.Name)
 		if err != nil {
 			return nil, nil, fmt.Errorf("normalize tag cursor name: %w", err)
@@ -120,13 +121,13 @@ func (server *Server) adminTags(writer http.ResponseWriter, request *http.Reques
 	values := request.URL.Query()
 	status := values.Get("status")
 	if status == "" {
-		status = tagging.StatusActive
+		status = taggingmodel.StatusActive
 	}
 	sortCode := values.Get("sort")
 	if sortCode == "" {
-		sortCode = tagging.SortNameAsc
+		sortCode = taggingmodel.SortNameAsc
 	}
-	limit := tagging.DefaultListLimit
+	limit := taggingmodel.DefaultListLimit
 	if values.Get("limit") != "" {
 		limit, _ = strconv.Atoi(values.Get("limit"))
 	}
@@ -135,7 +136,7 @@ func (server *Server) adminTags(writer http.ResponseWriter, request *http.Reques
 	filterDigest := cursor.FilterDigest(map[string]any{
 		"principalId": principal.UserID, "q": query, "status": status, "sort": sortCode,
 	})
-	filter := tagging.ListFilter{Query: query, Status: status, Sort: sortCode, Limit: limit + 1}
+	filter := taggingmodel.ListFilter{Query: query, Status: status, Sort: sortCode, Limit: limit + 1}
 	if token := values.Get("cursor"); token != "" {
 		payload, err := server.cursors.Decode(token, "getAdminTags", filterDigest, sortCode)
 		if err != nil {
@@ -201,7 +202,7 @@ func (server *Server) applyAdminTagDefaults(writer http.ResponseWriter, request 
 	writeJSON(writer, http.StatusOK, result)
 }
 
-func writeTagItem(writer http.ResponseWriter, status int, result tagging.AdminItem) {
+func writeTagItem(writer http.ResponseWriter, status int, result taggingmodel.AdminItem) {
 	writer.Header().Set("ETag", fmt.Sprintf(`"v%d"`, result.Version))
 	writer.Header().Set("Cache-Control", "private, no-store")
 	writeJSON(writer, status, result)

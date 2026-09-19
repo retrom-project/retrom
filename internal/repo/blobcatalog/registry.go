@@ -6,7 +6,8 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/adapter/files/blobstore"
+	blobmodel "retrom/internal/model/blob"
+
 	"retrom/internal/repo/dbexec"
 
 	"github.com/google/uuid"
@@ -16,7 +17,7 @@ import (
 // The physical write happens before this call so callers can include the reference
 // and their domain mutation in one short transaction.
 func EnsureRecord(
-	ctx context.Context, executor dbexec.Executor, metadata blobstore.Metadata, mediaType string, createdAtMS int64,
+	ctx context.Context, executor dbexec.Executor, metadata blobmodel.PreparedBlob, mediaType string, createdAtMS int64,
 ) (string, error) {
 	var blobID string
 	err := executor.QueryRowContext(ctx, `

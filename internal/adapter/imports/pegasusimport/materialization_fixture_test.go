@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"retrom/internal/adapter/files/blobstore"
+	blobmodel "retrom/internal/model/blob"
+	pegasusimportmodel "retrom/internal/model/pegasusimport"
+
 	repository "retrom/internal/repo/pegasusimport"
 	application "retrom/internal/service/pegasusimport"
 )
@@ -18,10 +20,10 @@ func (service *Service) recordCopiedFile(
 	unit work,
 	itemID string,
 	file executionFile,
-	metadata blobstore.Metadata,
+	metadata blobmodel.PreparedBlob,
 ) (string, error) {
-	result, err := service.materialization().Copy(ctx, unit.Identity(), application.MaterialSource{
-		Key:  application.MaterialKey{ItemID: itemID, Ordinal: file.Ordinal},
+	result, err := service.materialization().Copy(ctx, unit.Identity(), pegasusimportmodel.MaterialSource{
+		Key:  pegasusimportmodel.MaterialKey{ItemID: itemID, Ordinal: file.Ordinal},
 		Path: file.Path, Facts: file.Facts, Size: file.Size,
 	}, verifiedMaterial(metadata))
 	if err != nil {
@@ -35,7 +37,7 @@ func (service *Service) recordCopiedAsset(
 	unit work,
 	itemID string,
 	asset executionAsset,
-	metadata blobstore.Metadata,
+	metadata blobmodel.PreparedBlob,
 ) (string, error) {
 	result, err := service.materialization().Copy(
 		ctx,

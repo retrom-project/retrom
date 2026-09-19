@@ -2,9 +2,6 @@ package accounts
 
 import (
 	"context"
-	"time"
-
-	"retrom/internal/capability/security/authn"
 )
 
 type (
@@ -54,11 +51,4 @@ type LinkConsumptionScope struct {
 type LinkConsumptionRepository interface {
 	ResetState(context.Context, string) (ResetState, bool, error)
 	WithConsumptionWrite(context.Context, func(LinkConsumptionScope) error) error
-}
-type LinkConsumptionOptions struct {
-	Tokens    LinkTokenReader
-	Hasher    PasswordHasher
-	Blocklist authn.Blocklist
-	Mint      SessionMinter
-	Now       func() time.Time
 }

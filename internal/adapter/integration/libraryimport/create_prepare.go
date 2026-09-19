@@ -5,12 +5,13 @@ import (
 	"fmt"
 
 	composition "retrom/internal/bootstrap/composition/libraryimport"
+	libraryimportmodel "retrom/internal/model/libraryimport"
 
 	repository "retrom/internal/repo/libraryimport"
 	application "retrom/internal/service/libraryimport"
 )
 
-type creationTarget = application.ImportTarget
+type creationTarget = libraryimportmodel.ImportTarget
 
 type creationOptions struct {
 	reviewHandoffKind string

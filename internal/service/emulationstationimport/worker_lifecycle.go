@@ -6,23 +6,25 @@ import (
 	"fmt"
 	"sync"
 	"time"
+
+	model "retrom/internal/model/emulationstationimport"
 )
 
 type WorkerLeases interface {
-	Claim(context.Context) (Execution, bool, error)
-	Renew(context.Context, Execution) (LeaseState, error)
+	Claim(context.Context) (model.Execution, bool, error)
+	Renew(context.Context, model.Execution) (model.LeaseState, error)
 }
 type (
 	WorkerMaintenance interface{ Maintain(context.Context) error }
 	WorkerExecutor    interface {
-		Execute(context.Context, Execution)
+		Execute(context.Context, model.Execution)
 	}
 )
 
 type WorkerControl interface {
-	Observe(context.Context, Execution) (LeaseState, error)
-	CloseCancelled(context.Context, Execution) (bool, error)
-	Fail(context.Context, Execution, ExecutionFailure) (string, error)
+	Observe(context.Context, model.Execution) (model.LeaseState, error)
+	CloseCancelled(context.Context, model.Execution) (bool, error)
+	Fail(context.Context, model.Execution, model.ExecutionFailure) (string, error)
 }
 type WorkerDependencies struct {
 	Leases      WorkerLeases
@@ -129,7 +131,7 @@ func (worker *Worker) runMaintenance(ctx context.Context) {
 }
 
 func (worker *Worker) report(ctx context.Context, err error) {
-	if err == nil || ctx.Err() != nil || errors.Is(err, ErrVersionConflict) {
+	if err == nil || ctx.Err() != nil || errors.Is(err, model.ErrVersionConflict) {
 		return
 	}
 	if worker.dependencies.Report != nil {

@@ -6,15 +6,16 @@ import (
 	"sort"
 	"strings"
 
+	libraryimportmodel "retrom/internal/model/libraryimport"
 	librarypersistence "retrom/internal/repo/libraryimport"
 	libraryservice "retrom/internal/service/libraryimport"
 
 	"retrom/internal/capability/security/authn"
 )
 
-type ServerSourceFile = libraryservice.ServerSourceFile
+type ServerSourceFile = libraryimportmodel.ServerSourceFile
 
-const ServerSourceFileLimit = libraryservice.ServerSourceFileLimit
+const ServerSourceFileLimit = libraryimportmodel.ServerSourceFileLimit
 
 const (
 	reviewHandoffDirect           = "DIRECT"
@@ -22,14 +23,14 @@ const (
 )
 
 type (
-	ServerImportItem     = libraryservice.ServerImportItem
-	ServerDuplicateMatch = libraryservice.ServerDuplicateMatch
-	ServerImportResult   = libraryservice.ServerImportResult
+	ServerImportItem     = libraryimportmodel.ServerImportItem
+	ServerDuplicateMatch = libraryimportmodel.ServerDuplicateMatch
+	ServerImportResult   = libraryimportmodel.ServerImportResult
 )
 
 type (
-	ServerMetadata        = libraryservice.ServerMetadata
-	ServerMetadataWarning = libraryservice.ServerMetadataWarning
+	ServerMetadata        = libraryimportmodel.ServerMetadata
+	ServerMetadataWarning = libraryimportmodel.ServerMetadataWarning
 )
 
 // CreateServerSource adopts already verified CAS blobs into the established

@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"retrom/internal/bootstrap/config"
-	accountservice "retrom/internal/service/accounts"
+	accountsmodel "retrom/internal/model/accounts"
 )
 
 func TestUserDirectoryPaginationKeepsTiesAndNullLogins(t *testing.T) {
@@ -29,7 +29,7 @@ func TestUserDirectoryPaginationKeepsTiesAndNullLogins(t *testing.T) {
 	}
 	for _, sort := range []string{"CREATED_DESC", "USERNAME_ASC", "LAST_LOGIN_DESC"} {
 		t.Run(sort, func(t *testing.T) {
-			all, err := fixture.service.ListUsers(t.Context(), accountservice.UserListFilter{Role: "USER", Sort: sort, Limit: 101})
+			all, err := fixture.service.ListUsers(t.Context(), accountsmodel.UserListFilter{Role: "USER", Sort: sort, Limit: 101})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -45,7 +45,7 @@ func TestUserDirectoryPaginationKeepsTiesAndNullLogins(t *testing.T) {
 	}
 }
 
-func directoryTestCursor(sort string, user accountservice.AdminUser) []string {
+func directoryTestCursor(sort string, user accountsmodel.AdminUser) []string {
 	switch sort {
 	case "USERNAME_ASC":
 		return []string{user.Username}
@@ -62,7 +62,7 @@ func directoryTestCursor(sort string, user accountservice.AdminUser) []string {
 
 func pageDirectoryUsers(t *testing.T, fixture accountFixture, sort string, count int) []string {
 	t.Helper()
-	filter := accountservice.UserListFilter{Role: "USER", Sort: sort, Limit: 1}
+	filter := accountsmodel.UserListFilter{Role: "USER", Sort: sort, Limit: 1}
 	ids := make([]string, 0, count)
 	for range count + 1 {
 		page, err := fixture.service.ListUsers(t.Context(), filter)

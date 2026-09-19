@@ -8,6 +8,8 @@ import (
 	"sync"
 	"time"
 
+	"retrom/internal/model/netplayprofile"
+
 	"github.com/coder/websocket"
 	"github.com/google/uuid"
 )
@@ -218,7 +220,7 @@ func readHello(ctx context.Context, connection *websocket.Conn) (ClientMessage, 
 
 func matchesHello(hello ClientMessage, session *realtimeSession, participant SocketParticipant) bool {
 	return hello.Type == "HELLO" && hello.Seq == 0 && hello.Epoch == session.epoch &&
-		hello.SessionID == participant.SessionID && hello.ProtocolVersion == ProtocolVersion &&
+		hello.SessionID == participant.SessionID && hello.ProtocolVersion == netplayprofile.ProtocolVersion &&
 		hello.ProfileDigest == participant.ProfileDigest && hello.PlayerNo == participant.PlayerNo &&
 		hello.CredentialGeneration == participant.CredentialGeneration && hello.LastCanonicalFrame < session.nextFrame
 }

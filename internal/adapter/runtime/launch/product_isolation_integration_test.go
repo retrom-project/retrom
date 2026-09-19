@@ -15,9 +15,9 @@ import (
 	"retrom/internal/adapter/runtime/dependencies"
 	retromruntime "retrom/internal/adapter/runtime/runtime"
 	"retrom/internal/foundation/cleanup"
+	launchmodel "retrom/internal/model/launch"
 	dependencypersistence "retrom/internal/repo/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
-	application "retrom/internal/service/launch"
 	"retrom/internal/testkit/testsupport"
 )
 
@@ -35,7 +35,7 @@ func TestProductIsolationCreationRollsBackTicketFilesAndReceipt(t *testing.T) {
 	}
 }
 
-func productIsolationFixture(t *testing.T) (*Service, application.ProductCreateCommand) {
+func productIsolationFixture(t *testing.T) (*Service, launchmodel.ProductCreateCommand) {
 	t.Helper()
 	ctx := t.Context()
 	now := func() time.Time { return time.UnixMilli(1_786_000_000_000) }
@@ -81,7 +81,7 @@ VALUES(?,'tyrano-profile','tyrano-admin','Tyrano Admin','ADMIN','ENABLED',0,0)`,
 	if err != nil {
 		t.Fatal(err)
 	}
-	command := application.ProductCreateCommand{
+	command := launchmodel.ProductCreateCommand{
 		ActorID: actorID, ProfileID: "tyrano-profile", Key: "isolated-product-rollback", Digest: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 		Request: CreateRequest{GameID: approved.GameID, ReturnTo: "/games/" + approved.GameID, ClientCapabilities: Capabilities{SecureContext: true}},
 	}

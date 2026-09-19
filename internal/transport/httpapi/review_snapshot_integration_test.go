@@ -19,8 +19,8 @@ import (
 	"retrom/internal/adapter/integration/libraryimport"
 	"retrom/internal/bootstrap/composition"
 	"retrom/internal/capability/security/authn"
+	libraryimportmodel "retrom/internal/model/libraryimport"
 	"retrom/internal/repo/blobcatalog"
-	libraryservice "retrom/internal/service/libraryimport"
 	"retrom/internal/testkit/testsupport"
 )
 
@@ -157,7 +157,7 @@ func TestReviewDetailPreservesLateSQLFailureAndClearsProjection(t *testing.T) {
 	})
 	reader := composition.NewLibraryReviewDetails(database)
 	result, err := reader.Get(t.Context(), itemID)
-	if !errors.Is(err, cause) || !reflect.DeepEqual(result, libraryservice.ReviewDetail{}) || calls != 1 {
+	if !errors.Is(err, cause) || !reflect.DeepEqual(result, libraryimportmodel.ReviewDetail{}) || calls != 1 {
 		t.Fatalf("late SQL failure: calls=%d result=%+v err=%v", calls, result, err)
 	}
 	server.reviewDetails = reader

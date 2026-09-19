@@ -5,12 +5,20 @@ import (
 	"errors"
 	"fmt"
 	"time"
+
+	metadatascrapemodel "retrom/internal/model/metadatascrape"
 )
 
-func (worker *Worker) settle(parent context.Context, claim WorkerClaim, count int, code string, cause error) error {
+func (worker *Worker) settle(
+	parent context.Context,
+	claim metadatascrapemodel.WorkerClaim,
+	count int,
+	code string,
+	cause error,
+) error {
 	ctx, cancel := context.WithTimeout(context.WithoutCancel(parent), 5*time.Second)
 	defer cancel()
-	err := worker.repository.WithWrite(ctx, func(scope WorkerScope) error {
+	err := worker.repository.WithWrite(ctx, func(scope metadatascrapemodel.WorkerScope) error {
 		now := worker.now().UnixMilli()
 		status, err := scope.Leases.Status(ctx, claim, now)
 		if err != nil {
@@ -19,7 +27,9 @@ func (worker *Worker) settle(parent context.Context, claim WorkerClaim, count in
 		if status.State == "" {
 			return nil
 		}
-		outcome := WorkerOutcome{Claim: claim, State: "SUCCEEDED", RunState: "COMPLETED", Count: count, Now: now}
+		outcome := metadatascrapemodel.WorkerOutcome{
+			Claim: claim, State: "SUCCEEDED", RunState: "COMPLETED", Count: count, Now: now,
+		}
 		initial := NewInitialReview(scope.Initial)
 		switch {
 		case status.State == "CANCEL_REQUESTED" || status.State == "CANCELLED":

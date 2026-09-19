@@ -7,9 +7,9 @@ import (
 	"sync/atomic"
 	"testing"
 
+	payloadreleasemodel "retrom/internal/model/payloadrelease"
 	retirement "retrom/internal/repo/payloadrelease"
 	"retrom/internal/repo/recordstore"
-	application "retrom/internal/service/payloadrelease"
 )
 
 func TestRetirementRejectsReactivatedBIOS(t *testing.T) {
@@ -18,8 +18,8 @@ func TestRetirementRejectsReactivatedBIOS(t *testing.T) {
 	t.Cleanup(releases.Close)
 	seedRetiringInstallation(t, db, "returning-installation", 0, now)
 	repo := retirement.NewRetirement(db)
-	var before application.BIOSRetirement
-	err := repo.WithRetirement(t.Context(), func(scope application.RetirementScope) error {
+	var before payloadreleasemodel.BIOSRetirement
+	err := repo.WithRetirement(t.Context(), func(scope payloadreleasemodel.RetirementScope) error {
 		var err error
 		before, err = scope.Read.BIOS(t.Context(), 200)
 		return err
@@ -31,13 +31,13 @@ func TestRetirementRejectsReactivatedBIOS(t *testing.T) {
 WHERE id='returning-installation'`); err != nil {
 		t.Fatal(err)
 	}
-	err = repo.WithRetirement(t.Context(), func(scope application.RetirementScope) error {
+	err = repo.WithRetirement(t.Context(), func(scope payloadreleasemodel.RetirementScope) error {
 		if err := scope.BIOS.FenceBIOS(t.Context(), before); err != nil {
 			return err
 		}
 		return scope.BIOS.ReleaseBIOSFiles(t.Context(), before)
 	})
-	if !errors.Is(err, application.ErrRetirementSnapshotChanged) {
+	if !errors.Is(err, payloadreleasemodel.ErrRetirementSnapshotChanged) {
 		t.Fatalf("reactivated BIOS accepted: %v", err)
 	}
 	assertBIOSReferenceCounts(t, db, 1, 1)
@@ -52,8 +52,8 @@ func TestRetirementRejectsRenewedLaunchAndIncompleteFileDrain(t *testing.T) {
 			t.Cleanup(releases.Close)
 			seedExpiringFirmwarePlay(t, db, now)
 			repo := retirement.NewRetirement(db)
-			var before application.LaunchRetirement
-			err := repo.WithRetirement(t.Context(), func(scope application.RetirementScope) error {
+			var before payloadreleasemodel.LaunchRetirement
+			err := repo.WithRetirement(t.Context(), func(scope payloadreleasemodel.RetirementScope) error {
 				var err error
 				before, err = scope.Read.Launch(t.Context(), now, 200)
 				return err
@@ -75,11 +75,11 @@ FROM launch_external_files WHERE launch_session_id='firmware-launch' AND logical
 			if err != nil {
 				t.Fatal(err)
 			}
-			err = repo.WithRetirement(t.Context(), func(scope application.RetirementScope) error {
+			err = repo.WithRetirement(t.Context(), func(scope payloadreleasemodel.RetirementScope) error {
 				if err := scope.Launch.FenceLaunch(t.Context(), before); err != nil {
 					return err
 				}
-				if err := scope.Launch.TerminateLaunch(t.Context(), application.LaunchRetirementEnd{
+				if err := scope.Launch.TerminateLaunch(t.Context(), payloadreleasemodel.LaunchRetirementEnd{
 					Before: before, Expire: true, State: "EXPIRED", PlayState: "ABANDONED", NowMS: now,
 				}); err != nil {
 					return err
@@ -87,9 +87,9 @@ FROM launch_external_files WHERE launch_session_id='firmware-launch' AND logical
 				if err := scope.Launch.ReleaseLaunchFiles(t.Context(), before); err != nil {
 					return err
 				}
-				return scope.Launch.CompleteLaunch(t.Context(), application.RetirementCompletion{ID: before.ID, DueMS: now, NowMS: now})
+				return scope.Launch.CompleteLaunch(t.Context(), payloadreleasemodel.RetirementCompletion{ID: before.ID, DueMS: now, NowMS: now})
 			})
-			if !errors.Is(err, application.ErrRetirementSnapshotChanged) {
+			if !errors.Is(err, payloadreleasemodel.ErrRetirementSnapshotChanged) {
 				t.Fatalf("stale retirement committed: %v", err)
 			}
 			if !renew {
@@ -120,7 +120,7 @@ func TestRetirementRejectsZeroCompletionRows(t *testing.T) {
 			var hits atomic.Int64
 			service := faultRetirementService(t, db, now, prefix, fragment, nil, &hits)
 			err := service.ReconcileGC(t.Context())
-			if !errors.Is(err, application.ErrRetirementSnapshotChanged) || hits.Load() != 1 {
+			if !errors.Is(err, payloadreleasemodel.ErrRetirementSnapshotChanged) || hits.Load() != 1 {
 				t.Fatalf("zero row count accepted: hits=%d err=%v", hits.Load(), err)
 			}
 			assertBIOSReferenceCounts(t, db, 1, 1)

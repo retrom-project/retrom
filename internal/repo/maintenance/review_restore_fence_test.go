@@ -7,20 +7,22 @@ import (
 	"testing"
 	"time"
 
+	maintenancemodel "retrom/internal/model/maintenance"
 	"retrom/internal/repo/dbexec"
 	application "retrom/internal/service/maintenance"
 )
 
 type changedRestoreReview struct {
-	application.RestoredReviewRecords
+	maintenancemodel.RestoredReviewRecords
+
 	transaction *sql.Tx
 	mutation    string
 	changed     bool
 }
 
 func (records *changedRestoreReview) Pending(
-	ctx context.Context, query application.RestoredReviewQuery,
-) ([]application.RestoredReview, error) {
+	ctx context.Context, query maintenancemodel.RestoredReviewQuery,
+) ([]maintenancemodel.RestoredReview, error) {
 	result, err := records.RestoredReviewRecords.Pending(ctx, query)
 	if err != nil || len(result) == 0 || records.changed {
 		return result, err
@@ -60,7 +62,7 @@ func verifyRestoredReviewFence(t *testing.T, mutation string) {
 	scope := (writes{tx}).Reviews()
 	scope.Records = &changedRestoreReview{RestoredReviewRecords: scope.Records, transaction: tx, mutation: mutation}
 	err = application.CompleteRestoredReviews(t.Context(), scope, time.UnixMilli(10))
-	if !errors.Is(err, application.ErrInvalidBundle) {
+	if !errors.Is(err, maintenancemodel.ErrInvalidBundle) {
 		t.Fatalf("restore accepted changed handoff: %v", err)
 	}
 	var title string
@@ -89,7 +91,7 @@ VALUES('handoff-upload','PEGASUS','other-source')`)
 	}
 	before := reviewRestoreSnapshot(t, db)
 	err = runReviewRestoreTransaction(t.Context(), db)
-	if !errors.Is(err, application.ErrInvalidBundle) {
+	if !errors.Is(err, maintenancemodel.ErrInvalidBundle) {
 		t.Fatalf("restore accepted another source owner: %v", err)
 	}
 	if before != reviewRestoreSnapshot(t, db) {

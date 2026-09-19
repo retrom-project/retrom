@@ -10,33 +10,35 @@ import (
 	"strings"
 	"time"
 
+	model "retrom/internal/model/isolation"
+
 	"github.com/google/uuid"
 )
 
 const originMarker = "00000000-0000-4000-8000-000000000000"
 
 type Service struct {
-	repository Repository
+	repository model.Repository
 	now        func() time.Time
 	template   string
 }
 
-func New(repository Repository, template string, now func() time.Time) *Service {
+func New(repository model.Repository, template string, now func() time.Time) *Service {
 	return &Service{repository: repository, template: template, now: now}
 }
 
-func (service *Service) ResolveHost(host string) (Access, bool) {
+func (service *Service) ResolveHost(host string) (model.Access, bool) {
 	parsed, suffix, ok := service.runtimeTemplate()
 	if !ok || !strings.HasSuffix(host, suffix) {
-		return Access{}, false
+		return model.Access{}, false
 	}
 	launchID := strings.TrimSuffix(host, suffix)
 	parsedID, err := uuid.Parse(launchID)
 	if err != nil || parsedID.String() != launchID || launchID+suffix != host {
-		return Access{}, false
+		return model.Access{}, false
 	}
 	origin := parsed.Scheme + "://" + host
-	return Access{LaunchID: launchID, Origin: origin}, true
+	return model.Access{LaunchID: launchID, Origin: origin}, true
 }
 
 func (service *Service) IsRuntimeHostCandidate(host string) bool {
@@ -54,19 +56,19 @@ func (service *Service) runtimeTemplate() (*url.URL, string, bool) {
 	return parsed, suffix, suffix != ""
 }
 
-func activeSession(session RuntimeSession, now int64) bool {
+func activeSession(session model.RuntimeSession, now int64) bool {
 	return session.State == "ACTIVE" && session.HardExpiresAtMS > now &&
 		(session.ContentFormat == "RPG_MAKER_PROJECT" || session.ContentFormat == "TYRANOSCRIPT_PROJECT")
 }
 
-func (service *Service) InspectBootstrap(ctx context.Context, launchID, origin string) (Access, error) {
-	ticket, err := service.repository.Bootstrap(ctx, TicketQuery{LaunchID: launchID, Origin: origin})
+func (service *Service) InspectBootstrap(ctx context.Context, launchID, origin string) (model.Access, error) {
+	ticket, err := service.repository.Bootstrap(ctx, model.TicketQuery{LaunchID: launchID, Origin: origin})
 	if err != nil {
-		return Access{}, fmt.Errorf("inspect isolated bootstrap: %w", err)
+		return model.Access{}, fmt.Errorf("inspect isolated bootstrap: %w", err)
 	}
 	now := service.now().UnixMilli()
 	if ticket.Consumed || ticket.ExpiresAtMS <= now || !activeSession(ticket.Session, now) {
-		return Access{}, ErrCredential
+		return model.Access{}, model.ErrCredential
 	}
 	return sessionAccess(ticket.Session, launchID, origin, ticket.ExpiresAtMS), nil
 }
@@ -74,80 +76,87 @@ func (service *Service) InspectBootstrap(ctx context.Context, launchID, origin s
 func credentialDigest(encoded string) ([32]byte, error) {
 	raw, err := base64.RawURLEncoding.DecodeString(encoded)
 	if err != nil || len(raw) != 32 || base64.RawURLEncoding.EncodeToString(raw) != encoded {
-		return [32]byte{}, ErrCredential
+		return [32]byte{}, model.ErrCredential
 	}
 	return sha256.Sum256(raw), nil
 }
 
-func (service *Service) ConsumeTicket(ctx context.Context, launchID, origin, ticket string) (string, Access, error) {
+func (service *Service) ConsumeTicket(ctx context.Context, launchID, origin, ticket string) (
+	string,
+	model.Access,
+	error,
+) {
 	digest, err := credentialDigest(ticket)
 	if err != nil {
-		return "", Access{}, err
+		return "", model.Access{}, err
 	}
 	raw := make([]byte, 32)
 	if _, err := rand.Read(raw); err != nil {
-		return "", Access{}, fmt.Errorf("generate isolated credential: %w", err)
+		return "", model.Access{}, fmt.Errorf("generate isolated credential: %w", err)
 	}
 	credential := base64.RawURLEncoding.EncodeToString(raw)
 	issuedDigest := sha256.Sum256(raw)
 	now := service.now().UnixMilli()
-	var access Access
-	query := TicketQuery{LaunchID: launchID, Origin: origin, Digest: &digest}
-	err = service.repository.WithWrite(ctx, func(records Tickets) error {
+	var access model.Access
+	query := model.TicketQuery{LaunchID: launchID, Origin: origin, Digest: &digest}
+	err = service.repository.WithWrite(ctx, func(records model.Tickets) error {
 		bootstrap, err := records.Bootstrap(ctx, query)
 		if err != nil {
 			return fmt.Errorf("read isolated ticket: %w", err)
 		}
 		if bootstrap.Consumed || bootstrap.ExpiresAtMS <= now || !activeSession(bootstrap.Session, now) {
-			return ErrCredential
+			return model.ErrCredential
 		}
 		if err := records.Consume(ctx, query, now); err != nil {
 			return fmt.Errorf("consume isolated ticket: %w", err)
 		}
 		access = sessionAccess(bootstrap.Session, launchID, origin, bootstrap.Session.HardExpiresAtMS)
-		if err := records.Issue(ctx, CapabilityWrite{Access: access, Digest: issuedDigest, IssuedAtMS: now}); err != nil {
+		if err := records.Issue(ctx, model.CapabilityWrite{
+			Access:     access,
+			Digest:     issuedDigest,
+			IssuedAtMS: now,
+		}); err != nil {
 			return fmt.Errorf("issue isolated capability: %w", err)
 		}
 		return nil
 	})
 	if err != nil {
-		return "", Access{}, fmt.Errorf("isolated bootstrap: %w", err)
+		return "", model.Access{}, fmt.Errorf("isolated bootstrap: %w", err)
 	}
 	return credential, access, nil
 }
 
-func (service *Service) Authenticate(ctx context.Context, launchID, origin, credential string) (Access, error) {
+func (service *Service) Authenticate(ctx context.Context, launchID, origin, credential string) (model.Access, error) {
 	digest, err := credentialDigest(credential)
 	if err != nil {
-		return Access{}, err
+		return model.Access{}, err
 	}
 	capability, err := service.repository.Capability(
-		ctx,
-		CredentialQuery{
+		ctx, model.CredentialQuery{
 			LaunchID: launchID,
 			Origin:   origin,
 			Digest:   digest,
 		},
 	)
 	if err != nil {
-		return Access{}, fmt.Errorf("authenticate isolated capability: %w", err)
+		return model.Access{}, fmt.Errorf("authenticate isolated capability: %w", err)
 	}
 	now := service.now().UnixMilli()
 	if capability.Revoked || capability.ExpiresAtMS <= now || !activeSession(capability.Session, now) {
-		return Access{}, ErrCredential
+		return model.Access{}, model.ErrCredential
 	}
 	return sessionAccess(capability.Session, launchID, origin, capability.ExpiresAtMS), nil
 }
 
-func (service *Service) Revoke(ctx context.Context, access Access) error {
+func (service *Service) Revoke(ctx context.Context, access model.Access) error {
 	if err := service.repository.Revoke(ctx, access, service.now().UnixMilli()); err != nil {
 		return fmt.Errorf("revoke isolated capability: %w", err)
 	}
 	return nil
 }
 
-func sessionAccess(session RuntimeSession, launchID, origin string, expires int64) Access {
-	return Access{
+func sessionAccess(session model.RuntimeSession, launchID, origin string, expires int64) model.Access {
+	return model.Access{
 		LaunchID: launchID, Origin: origin, Profile: session.Profile, ContentFormat: session.ContentFormat,
 		Preview: session.Preview, Expires: expires,
 	}

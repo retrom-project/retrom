@@ -14,6 +14,7 @@ import (
 
 	"retrom/internal/capability/content/gametitle"
 	"retrom/internal/foundation/cleanup"
+	favoritesmodel "retrom/internal/model/favorites"
 	"retrom/internal/repo/store"
 	"retrom/internal/service/favorites"
 	"retrom/internal/testkit/testassert"
@@ -88,7 +89,7 @@ VALUES(?,'fixture','ARGON2ID_V1',1000,1000),(?,'fixture','ARGON2ID_V1',1000,1000
 	return database
 }
 
-func decodeResponse[T any](t *testing.T, response favorites.IdempotentResponse) T {
+func decodeResponse[T any](t *testing.T, response favoritesmodel.IdempotentResponse) T {
 	t.Helper()
 	var value T
 	if err := json.Unmarshal(response.Body, &value); err != nil {
@@ -106,16 +107,16 @@ func TestServiceFolderLifecycleUndoAndOwnerIsolation(t *testing.T) {
 	database := newFavoriteTestDatabase(t)
 	nowMS := int64(2000)
 	service := favorites.New(New(database.SQL), func() time.Time { return time.UnixMilli(nowMS) })
-	alice := favorites.Principal{UserID: testUserA, ProfileID: testProfileA}
-	test := favorites.Principal{UserID: testUserB, ProfileID: testProfileB}
+	alice := favoritesmodel.Principal{UserID: testUserA, ProfileID: testProfileA}
+	test := favoritesmodel.Principal{UserID: testUserB, ProfileID: testProfileB}
 	keyCreate := "01980000-0000-7000-8000-00000000c301"
 	created, err := service.CreateFolder(context.Background(), alice, keyCreate, "  想玩  ", []string{testGameA})
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return created.Status != 201 }), "CreateFolder() = %#v, %v", created, err)
-	folder := decodeResponse[favorites.Folder](t, created)
+	folder := decodeResponse[favoritesmodel.Folder](t, created)
 	testassert.Falsef(t, testassert.Any(func() bool { return folder.Name != "想玩" }, func() bool { return folder.VisibleGameCount != 1 }, func() bool { return folder.Version != 1 }), "created folder = %#v", folder)
 	replayed, err := service.CreateFolder(context.Background(), alice, keyCreate, "想玩", []string{testGameA})
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return !replayed.Replayed }, func() bool { return string(replayed.Body) != string(created.Body) }), "create replay = %#v, %v", replayed, err)
-	if _, err := service.CreateFolder(context.Background(), alice, keyCreate, "其他", []string{}); !errors.Is(err, favorites.ErrIdempotencyReused) {
+	if _, err := service.CreateFolder(context.Background(), alice, keyCreate, "其他", []string{}); !errors.Is(err, favoritesmodel.ErrIdempotencyReused) {
 		t.Fatalf("reused key error = %v", err)
 	}
 	if reference, err := service.Reference(context.Background(), testProfileA, testGameA); err != nil ||
@@ -125,7 +126,7 @@ func TestServiceFolderLifecycleUndoAndOwnerIsolation(t *testing.T) {
 	if reference, err := service.Reference(context.Background(), testProfileB, testGameA); err != nil || reference != nil {
 		t.Fatalf("Test reference = %#v, %v", reference, err)
 	}
-	if _, err := service.ReplaceFolders(context.Background(), test, testGameA, []string{folder.FolderID}); !errors.Is(err, favorites.ErrFolderNotFound) {
+	if _, err := service.ReplaceFolders(context.Background(), test, testGameA, []string{folder.FolderID}); !errors.Is(err, favoritesmodel.ErrFolderNotFound) {
 		t.Fatalf("cross-owner folder error = %v", err)
 	}
 	if state, err := service.ReplaceFolders(context.Background(), alice, testGameB, []string{folder.FolderID}); err != nil || !slices.Equal(state.FolderIDs, []string{folder.FolderID}) {
@@ -137,17 +138,17 @@ func TestServiceFolderLifecycleUndoAndOwnerIsolation(t *testing.T) {
 	unfavoriteKey := "01980000-0000-7000-8000-00000000c302"
 	unfavorite, err := service.Unfavorite(context.Background(), alice, unfavoriteKey, []string{testGameA})
 	testassert.False(t, err != nil, err)
-	snapshot := decodeResponse[favorites.UnfavoriteResult](t, unfavorite)
+	snapshot := decodeResponse[favoritesmodel.UnfavoriteResult](t, unfavorite)
 	testassert.Falsef(t, testassert.Any(func() bool { return len(snapshot.Items) != 1 }, func() bool { return !slices.Equal(snapshot.Items[0].FolderIDs, []string{folder.FolderID}) }), "unfavorite snapshot = %#v", snapshot)
 	deleteKey := "01980000-0000-7000-8000-00000000c303"
 	deleted, err := service.DeleteFolder(context.Background(), alice, deleteKey, folder.FolderID, folder.Version)
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return deleted.Status != 204 }), "DeleteFolder() = %#v, %v", deleted, err)
 	restoreKey := "01980000-0000-7000-8000-00000000c304"
-	restored, err := service.Restore(context.Background(), alice, restoreKey, []favorites.RestoreItem{
+	restored, err := service.Restore(context.Background(), alice, restoreKey, []favoritesmodel.RestoreItem{
 		{GameID: snapshot.Items[0].GameID, FolderIDs: snapshot.Items[0].FolderIDs},
 	})
 	testassert.False(t, err != nil, err)
-	restore := decodeResponse[favorites.RestoreResult](t, restored)
+	restore := decodeResponse[favoritesmodel.RestoreResult](t, restored)
 	testassert.Falsef(t, testassert.Any(func() bool { return !slices.Equal(restore.RestoredGameIDs, []string{testGameA}) }, func() bool { return !slices.Equal(restore.SkippedFolderIDs, []string{folder.FolderID}) }), "restore result = %#v", restore)
 	if reference, _ := service.Reference(context.Background(), testProfileA, testGameA); reference == nil || len(reference.FolderIDs) != 0 {
 		t.Fatalf("restored reference = %#v", reference)
@@ -157,9 +158,9 @@ func TestServiceFolderLifecycleUndoAndOwnerIsolation(t *testing.T) {
 func TestServiceConcurrentFavoriteFolderConflictVersionAndLimit(t *testing.T) {
 	database := newFavoriteTestDatabase(t)
 	service := favorites.New(New(database.SQL), func() time.Time { return time.UnixMilli(2000) })
-	alice := favorites.Principal{UserID: testUserA, ProfileID: testProfileA}
+	alice := favoritesmodel.Principal{UserID: testUserA, ProfileID: testProfileA}
 
-	states := make(chan favorites.State, 2)
+	states := make(chan favoritesmodel.State, 2)
 	errCh := make(chan error, 2)
 	var wait sync.WaitGroup
 	for range 2 {
@@ -188,7 +189,7 @@ func TestServiceConcurrentFavoriteFolderConflictVersionAndLimit(t *testing.T) {
 		"concurrent favorite rows = %d, error=%v", favoriteRows, queryErr)
 
 	type createOutcome struct {
-		response favorites.IdempotentResponse
+		response favoritesmodel.IdempotentResponse
 		err      error
 	}
 	outcomes := make(chan createOutcome, 2)
@@ -206,13 +207,13 @@ func TestServiceConcurrentFavoriteFolderConflictVersionAndLimit(t *testing.T) {
 	close(outcomes)
 	created := 0
 	conflicts := 0
-	var folder favorites.Folder
+	var folder favoritesmodel.Folder
 	for outcome := range outcomes {
 		switch {
 		case outcome.err == nil:
 			created++
-			folder = decodeResponse[favorites.Folder](t, outcome.response)
-		case errors.Is(outcome.err, favorites.ErrFolderNameConflict):
+			folder = decodeResponse[favoritesmodel.Folder](t, outcome.response)
+		case errors.Is(outcome.err, favoritesmodel.ErrFolderNameConflict):
 			conflicts++
 		default:
 			t.Fatalf("concurrent folder outcome = %#v", outcome)
@@ -224,11 +225,11 @@ func TestServiceConcurrentFavoriteFolderConflictVersionAndLimit(t *testing.T) {
 		context.Background(), alice, favoriteBoundaryID('6', 10), folder.FolderID, "Renamed", folder.Version,
 	)
 	testassert.False(t, err != nil, err)
-	renamedFolder := decodeResponse[favorites.Folder](t, renamed)
+	renamedFolder := decodeResponse[favoritesmodel.Folder](t, renamed)
 	testassert.Falsef(t, testassert.Any(func() bool { return renamedFolder.Version != 2 }, func() bool { return renamed.Headers["ETag"] != `"v2"` }), "renamed folder = %#v headers=%v", renamedFolder, renamed.Headers)
 	if _, err := service.RenameFolder(
 		context.Background(), alice, favoriteBoundaryID('6', 11), folder.FolderID, "Stale", 1,
-	); !errors.Is(err, favorites.ErrVersionConflict) {
+	); !errors.Is(err, favoritesmodel.ErrVersionConflict) {
 		t.Fatalf("stale rename error = %v", err)
 	}
 
@@ -237,7 +238,7 @@ func TestServiceConcurrentFavoriteFolderConflictVersionAndLimit(t *testing.T) {
 	}
 	transaction, err := database.SQL.BeginTx(context.Background(), nil)
 	testassert.False(t, err != nil, err)
-	for index := 0; index < favorites.MaxFolders; index++ {
+	for index := 0; index < favoritesmodel.MaxFolders; index++ {
 		name := fmt.Sprintf("Folder %03d", index)
 		if _, err := transaction.ExecContext(context.Background(), `
 INSERT INTO favorite_folders(id,profile_id,name,name_key,version,created_at_ms,updated_at_ms)
@@ -252,7 +253,7 @@ VALUES(?,?,?,lower(?),1,3000,3000)
 	}
 	if _, err := service.CreateFolder(
 		context.Background(), alice, favoriteBoundaryID('6', 12), "Over limit", []string{},
-	); !errors.Is(err, favorites.ErrFolderLimit) {
+	); !errors.Is(err, favoritesmodel.ErrFolderLimit) {
 		t.Fatalf("folder limit error = %v", err)
 	}
 }
@@ -261,12 +262,12 @@ func TestOrganizeFaultRollsBackEveryFavoriteMembershipAndIdempotencyRecord(t *te
 	t.Parallel()
 	database := newFavoriteTestDatabase(t)
 	service := favorites.New(New(database.SQL), func() time.Time { return time.UnixMilli(2000) })
-	alice := favorites.Principal{UserID: testUserA, ProfileID: testProfileA}
+	alice := favoritesmodel.Principal{UserID: testUserA, ProfileID: testProfileA}
 	created, err := service.CreateFolder(
 		context.Background(), alice, favoriteBoundaryID('6', 20), "Atomic", []string{},
 	)
 	testassert.False(t, err != nil, err)
-	folder := decodeResponse[favorites.Folder](t, created)
+	folder := decodeResponse[favoritesmodel.Folder](t, created)
 	cause := errors.New("injected favorite membership failure")
 	fault, assertFault := favoriteMembershipFault(t, database.SQL, cause)
 	service = favorites.New(New(fault), func() time.Time { return time.UnixMilli(2000) })
@@ -303,7 +304,7 @@ func TestServiceAllSortsCursorTuplesSearchAndPlatformSummary(t *testing.T) {
 	database := newFavoriteTestDatabase(t)
 	nowMS := int64(2000)
 	service := favorites.New(New(database.SQL), func() time.Time { return time.UnixMilli(nowMS) })
-	alice := favorites.Principal{UserID: testUserA, ProfileID: testProfileA}
+	alice := favoritesmodel.Principal{UserID: testUserA, ProfileID: testProfileA}
 	for _, gameID := range []string{testGameA, testGameB, testGameC} {
 		if _, err := service.Favorite(context.Background(), alice, gameID); err != nil {
 			t.Fatal(err)
@@ -314,17 +315,17 @@ func TestServiceAllSortsCursorTuplesSearchAndPlatformSummary(t *testing.T) {
 		sort string
 		want []string
 	}{
-		{favorites.SortFavoritedDesc, []string{testGameC, testGameB, testGameA}},
-		{favorites.SortRecentlyPlayed, []string{testGameA, testGameB, testGameC}},
-		{favorites.SortTitleAsc, []string{testGameA, testGameB, testGameC}},
-		{favorites.SortReleaseYearDesc, []string{testGameB, testGameA, testGameC}},
+		{favoritesmodel.SortFavoritedDesc, []string{testGameC, testGameB, testGameA}},
+		{favoritesmodel.SortRecentlyPlayed, []string{testGameA, testGameB, testGameC}},
+		{favoritesmodel.SortTitleAsc, []string{testGameA, testGameB, testGameC}},
+		{favoritesmodel.SortReleaseYearDesc, []string{testGameB, testGameA, testGameC}},
 	}
 	for _, test := range tests {
 		t.Run(test.sort, func(t *testing.T) {
-			var cursor *favorites.PageCursor
+			var cursor *favoritesmodel.PageCursor
 			got := make([]string, 0, 3)
 			for {
-				page, err := service.List(context.Background(), alice, favorites.ListOptions{Sort: test.sort, Limit: 1, Cursor: cursor})
+				page, err := service.List(context.Background(), alice, favoritesmodel.ListOptions{Sort: test.sort, Limit: 1, Cursor: cursor})
 				testassert.False(t, err != nil, err)
 				testassert.Falsef(t, len(page.Items) != 1, "page items = %#v", page.Items)
 				got = append(got, page.Items[0].GameID)
@@ -336,11 +337,11 @@ func TestServiceAllSortsCursorTuplesSearchAndPlatformSummary(t *testing.T) {
 			testassert.Truef(t, slices.Equal(got, test.want), "%s order = %v, want %v", test.sort, got, test.want)
 		})
 	}
-	filtered, err := service.List(context.Background(), alice, favorites.ListOptions{Query: "  BETA ", PlatformID: "gba"})
+	filtered, err := service.List(context.Background(), alice, favoritesmodel.ListOptions{Query: "  BETA ", PlatformID: "gba"})
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return filtered.TotalCount != 1 }, func() bool { return filtered.Items[0].GameID != testGameB }, func() bool { return len(filtered.Platforms) != 1 }, func() bool { return filtered.Platforms[0].Count != 3 }), "filtered list = %#v, error=%v", filtered, err)
-	if _, err := service.List(context.Background(), alice, favorites.ListOptions{
-		Sort: favorites.SortTitleAsc, Cursor: &favorites.PageCursor{SortValues: []string{"Alpha"}, ID: "invalid"},
-	}); !errors.Is(err, favorites.ErrInvalidCursor) {
+	if _, err := service.List(context.Background(), alice, favoritesmodel.ListOptions{
+		Sort: favoritesmodel.SortTitleAsc, Cursor: &favoritesmodel.PageCursor{SortValues: []string{"Alpha"}, ID: "invalid"},
+	}); !errors.Is(err, favoritesmodel.ErrInvalidCursor) {
 		t.Fatalf("invalid cursor error = %v", err)
 	}
 }
@@ -350,7 +351,7 @@ func TestServiceListPaginationScopesAndVisibility(t *testing.T) {
 	database := newFavoriteTestDatabase(t)
 	nowMS := int64(2000)
 	service := favorites.New(New(database.SQL), func() time.Time { return time.UnixMilli(nowMS) })
-	alice := favorites.Principal{UserID: testUserA, ProfileID: testProfileA}
+	alice := favoritesmodel.Principal{UserID: testUserA, ProfileID: testProfileA}
 	if _, err := service.Favorite(context.Background(), alice, testGameA); err != nil {
 		t.Fatal(err)
 	}
@@ -358,27 +359,27 @@ func TestServiceListPaginationScopesAndVisibility(t *testing.T) {
 	if _, err := service.Favorite(context.Background(), alice, testGameB); err != nil {
 		t.Fatal(err)
 	}
-	first, err := service.List(context.Background(), alice, favorites.ListOptions{Sort: favorites.SortFavoritedDesc, Limit: 1})
+	first, err := service.List(context.Background(), alice, favoritesmodel.ListOptions{Sort: favoritesmodel.SortFavoritedDesc, Limit: 1})
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return len(first.Items) != 1 }, func() bool { return first.Items[0].GameID != testGameB }, func() bool { return first.NextCursor == nil }, func() bool { return first.Summary.FavoriteCount != 2 }, func() bool { return first.Summary.UncategorizedCount != 2 }), "first page = %#v, %v", first, err)
-	second, err := service.List(context.Background(), alice, favorites.ListOptions{
-		Sort: favorites.SortFavoritedDesc, Limit: 1, Cursor: first.NextCursor,
+	second, err := service.List(context.Background(), alice, favoritesmodel.ListOptions{
+		Sort: favoritesmodel.SortFavoritedDesc, Limit: 1, Cursor: first.NextCursor,
 	})
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return len(second.Items) != 1 }, func() bool { return second.Items[0].GameID != testGameA }, func() bool { return second.NextCursor != nil }), "second page = %#v, %v", second, err)
 	create, err := service.CreateFolder(
 		context.Background(), alice, "01980000-0000-7000-8000-00000000c305", "Folder", []string{testGameA},
 	)
 	testassert.False(t, err != nil, err)
-	folder := decodeResponse[favorites.Folder](t, create)
-	uncategorized, err := service.List(context.Background(), alice, favorites.ListOptions{Scope: favorites.ScopeUncategorized})
+	folder := decodeResponse[favoritesmodel.Folder](t, create)
+	uncategorized, err := service.List(context.Background(), alice, favoritesmodel.ListOptions{Scope: favoritesmodel.ScopeUncategorized})
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return uncategorized.TotalCount != 1 }, func() bool { return uncategorized.Items[0].GameID != testGameB }), "uncategorized = %#v, %v", uncategorized, err)
-	folderPage, err := service.List(context.Background(), alice, favorites.ListOptions{
-		Scope: favorites.ScopeFolder, FolderID: folder.FolderID, Sort: favorites.SortTitleAsc,
+	folderPage, err := service.List(context.Background(), alice, favoritesmodel.ListOptions{
+		Scope: favoritesmodel.ScopeFolder, FolderID: folder.FolderID, Sort: favoritesmodel.SortTitleAsc,
 	})
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return folderPage.TotalCount != 1 }, func() bool { return folderPage.Folders[0].VisibleGameCount != 1 }), "folder page = %#v, %v", folderPage, err)
 	if _, err := database.SQL.ExecContext(context.Background(), `UPDATE platform_instances SET enabled=0,version=version+1,updated_at_ms=4000 WHERE catalog_template_key='gba/mgba'`); err != nil {
 		t.Fatal(err)
 	}
-	hidden, err := service.List(context.Background(), alice, favorites.ListOptions{})
+	hidden, err := service.List(context.Background(), alice, favoritesmodel.ListOptions{})
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return hidden.Summary.FavoriteCount != 0 }, func() bool { return hidden.TotalCount != 0 }, func() bool { return hidden.Folders[0].VisibleGameCount != 0 }), "hidden page = %#v, %v", hidden, err)
 	var rawCount int
 	if err := database.SQL.QueryRowContext(context.Background(), `SELECT count(*) FROM favorite_games WHERE profile_id=?`, testProfileA).Scan(&rawCount); err != nil || rawCount != 2 {

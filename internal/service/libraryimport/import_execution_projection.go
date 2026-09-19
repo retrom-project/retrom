@@ -3,15 +3,17 @@ package libraryimport
 import (
 	"encoding/json"
 	"fmt"
+
+	model "retrom/internal/model/libraryimport"
 )
 
 func importMoment(value int64) *int64 { return &value }
 func importTruth(value bool) *bool    { return &value }
-func importTransition(before ImportWorkerSnapshot, now int64) ImportWorkerTransition {
-	return ImportWorkerTransition{
+func importTransition(before model.ImportWorkerSnapshot, now int64) model.ImportWorkerTransition {
+	return model.ImportWorkerTransition{
 		Before: before,
 		AtMS:   now,
-		Job: ImportWorkerProjection{
+		Job: model.ImportWorkerProjection{
 			StartedAtMS: before.StartedAtMS, DeadlineAtMS: before.DeadlineAtMS,
 			Execution:           before.Creation.Execution,
 			State:               before.Creation.JobState,
@@ -24,7 +26,7 @@ func importTransition(before ImportWorkerSnapshot, now int64) ImportWorkerTransi
 			CancelRequestedAtMS: before.CancelRequestedAtMS,
 			CancelReason:        before.CancelReason,
 		},
-		Parent: &ImportWorkerParent{
+		Parent: &model.ImportWorkerParent{
 			State:               before.Creation.ImportState,
 			CompletedAtMS:       before.ParentCompletedAtMS,
 			CancelRequestedAtMS: before.ParentCancelRequestedAtMS,
@@ -35,17 +37,17 @@ func importTransition(before ImportWorkerSnapshot, now int64) ImportWorkerTransi
 }
 
 func importWorkerEvent(
-	execution QueuedImportExecution,
+	execution model.QueuedImportExecution,
 	kind string,
 	now int64,
 	fields map[string]any,
-) (CreationEvent, error) {
+) (model.CreationEvent, error) {
 	fields["schemaVersion"], fields["executionNo"], fields["attempt"] = 1, execution.ExecutionNo, execution.Attempt
 	encoded, err := json.Marshal(fields)
 	if err != nil {
-		return CreationEvent{}, fmt.Errorf("encode import worker event: %w", err)
+		return model.CreationEvent{}, fmt.Errorf("encode import worker event: %w", err)
 	}
-	return CreationEvent{
+	return model.CreationEvent{
 		JobID:     execution.JobID,
 		ScopeType: "IMPORT_GROUP",
 		ScopeID:   execution.ImportID,
@@ -55,18 +57,18 @@ func importWorkerEvent(
 	}, nil
 }
 
-func clearImportExecutionOwner(change *ImportWorkerTransition) {
+func clearImportExecutionOwner(change *model.ImportWorkerTransition) {
 	change.Job.Execution.WorkerID = ""
 	change.Job.LeaseUntilMS = nil
 	change.Job.HeartbeatAtMS = nil
 }
 
 func importFailedTransition(
-	before ImportWorkerSnapshot,
+	before model.ImportWorkerSnapshot,
 	code string,
 	retryable bool,
 	now int64,
-) (ImportWorkerTransition, error) {
+) (model.ImportWorkerTransition, error) {
 	change := importTransition(before, now)
 	clearImportExecutionOwner(&change)
 	change.Job.State = "FAILED"
@@ -83,17 +85,17 @@ func importFailedTransition(
 		map[string]any{"errorCode": code, "errorRetryable": retryable},
 	)
 	if err != nil {
-		return ImportWorkerTransition{}, err
+		return model.ImportWorkerTransition{}, err
 	}
 	change.Event = &event
 	return change, nil
 }
 
 func importCancelledTransition(
-	before ImportWorkerSnapshot,
+	before model.ImportWorkerSnapshot,
 	reason string,
 	now int64,
-) (ImportWorkerTransition, error) {
+) (model.ImportWorkerTransition, error) {
 	change := importTransition(before, now)
 	clearImportExecutionOwner(&change)
 	change.Job.State = "CANCELLED"
@@ -114,17 +116,17 @@ func importCancelledTransition(
 	}
 	event, err := importWorkerEvent(before.Creation.Execution, "CANCELLED", now, map[string]any{"state": "CANCELLED"})
 	if err != nil {
-		return ImportWorkerTransition{}, err
+		return model.ImportWorkerTransition{}, err
 	}
 	change.Event = &event
 	return change, nil
 }
 
 func importRetryTransition(
-	before ImportWorkerSnapshot,
+	before model.ImportWorkerSnapshot,
 	code string,
 	now, available int64,
-) (ImportWorkerTransition, error) {
+) (model.ImportWorkerTransition, error) {
 	change := importTransition(before, now)
 	clearImportExecutionOwner(&change)
 	change.Job.State = "QUEUED"
@@ -139,7 +141,7 @@ func importRetryTransition(
 		"errorCode": code, "errorRetryable": true, "availableAtMs": available,
 	})
 	if err != nil {
-		return ImportWorkerTransition{}, err
+		return model.ImportWorkerTransition{}, err
 	}
 	change.Event = &event
 	return change, nil

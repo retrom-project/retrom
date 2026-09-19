@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	retromruntime "retrom/internal/adapter/runtime/runtime"
+	launchmodel "retrom/internal/model/launch"
 	persistence "retrom/internal/repo/launch"
 	application "retrom/internal/service/launch"
 )
@@ -18,7 +19,7 @@ func (service *Service) projectIndexes() *application.ProjectIndexes {
 }
 
 func (service *Service) ProjectIndex(ctx context.Context, id, capability string) (ProjectIndexView, error) {
-	result, err := service.projectIndexes().Index(ctx, application.ProjectIndexReference{ID: id}, capability)
+	result, err := service.projectIndexes().Index(ctx, launchmodel.ProjectIndexReference{ID: id}, capability)
 	if err != nil {
 		return result, fmt.Errorf("launch project index: %w", err)
 	}
@@ -30,9 +31,7 @@ func (service *Service) ReviewPreviewProjectIndex(
 	id, capability string,
 ) (ProjectIndexView, error) {
 	result, err := service.projectIndexes().Index(
-		ctx,
-		application.ProjectIndexReference{ID: id, PreviewOnly: true},
-		capability,
+		ctx, launchmodel.ProjectIndexReference{ID: id, PreviewOnly: true}, capability,
 	)
 	if err != nil {
 		return result, fmt.Errorf("review project index: %w", err)

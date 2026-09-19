@@ -4,15 +4,18 @@ import (
 	"math"
 	"testing"
 
+	servermodel "retrom/internal/model/serverimport"
+
 	"retrom/internal/capability/content/firmware"
 	jobpersistence "retrom/internal/repo/jobs"
 	jobservice "retrom/internal/service/jobs"
+	serverimportcontract "retrom/internal/service/serverimport"
 )
 
 func TestItemOutcomeRejectsUnencodableEvidence(t *testing.T) {
 	service, database, unit, candidate := discoveryWriteFixture(t)
 	candidate.DAT = &firmware.DATEvaluation{Status: "HASH_WARNING", Method: "DAT_PARTIAL_FALLBACK"}
-	if err := service.PersistCandidatesForTest(t.Context(), unit, map[string][]*evaluatedCandidate{candidate.Item.RequirementID: {candidate}}, walkCounts{}); err != nil {
+	if err := service.PersistCandidatesForTest(t.Context(), unit, map[string][]*serverimportcontract.EvaluatedCandidate{candidate.Item.RequirementID: {candidate}}, servermodel.DiscoveryCounts{}); err != nil {
 		t.Fatal(err)
 	}
 	candidate.Details["bad"] = math.NaN()
@@ -41,7 +44,7 @@ func TestRepeatedItemOutcomeDoesNotAppendDuplicateEvent(t *testing.T) {
 
 func TestGenericJobCancellationPreservesCompletedImportCounts(t *testing.T) {
 	legacy, database, _ := archiveImportFixture(t)
-	created, err := legacy.Create(t.Context(), CreateRequest{Kind: "BIOS_DIRECTORY", RootID: "bios-root"}, controlActorID)
+	created, err := legacy.Create(t.Context(), servermodel.CreateRequest{Kind: "BIOS_DIRECTORY", RootID: "bios-root"}, controlActorID)
 	if err != nil {
 		t.Fatal(err)
 	}

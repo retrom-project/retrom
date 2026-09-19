@@ -9,7 +9,7 @@ import (
 
 	"retrom/internal/bootstrap/config"
 	"retrom/internal/capability/security/authn"
-	accountservice "retrom/internal/service/accounts"
+	accountsmodel "retrom/internal/model/accounts"
 	"retrom/internal/testkit/testassert"
 
 	"github.com/google/uuid"
@@ -17,7 +17,7 @@ import (
 
 const compliantTestPassword = "a sufficiently long passphrase"
 
-func authenticatedTestAdmin(t *testing.T, fixture accountFixture) accountservice.Session {
+func authenticatedTestAdmin(t *testing.T, fixture accountFixture) accountsmodel.Session {
 	t.Helper()
 	if err := fixture.service.Start(context.Background()); err != nil {
 		t.Fatal(err)
@@ -32,13 +32,13 @@ func acceptFixtureInvitation(
 	fixture accountFixture,
 	principal authn.Principal,
 	role, username, displayName string,
-) accountservice.Session {
+) accountsmodel.Session {
 	t.Helper()
 	link, _, err := fixture.service.CreateInvitation(
 		context.Background(), principal, role, role == "ADMIN", uuid.NewString(),
 	)
 	testassert.False(t, err != nil, err)
-	session, err := fixture.service.AcceptInvitation(context.Background(), accountservice.AcceptInvitationRequest{
+	session, err := fixture.service.AcceptInvitation(context.Background(), accountsmodel.AcceptInvitationRequest{
 		Token: link.CapabilityToken, Username: username, DisplayName: displayName,
 		Password: compliantTestPassword, PasswordConfirmation: compliantTestPassword,
 	})
@@ -61,27 +61,27 @@ func TestInvitationAndPasswordResetCapabilitiesAreSingleUseAndSecretless(t *test
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return !replayed }, func() bool { return replay.AccountLinkID != invitation.AccountLinkID }, func() bool { return replay.CapabilityToken != invitation.CapabilityToken }), "replay invitation = %#v replay=%v error=%v", replay, replayed, err)
 	if _, _, err := fixture.service.CreateInvitation(
 		context.Background(), admin.Principal, "ADMIN", false, uuid.NewString(),
-	); !errors.Is(err, accountservice.ErrRoleConfirmation) {
+	); !errors.Is(err, accountsmodel.ErrRoleConfirmation) {
 		t.Fatalf("unconfirmed admin invitation = %v", err)
 	}
 	inspection, err := fixture.service.InspectAccountLink(
 		context.Background(), "INVITATION", invitation.CapabilityToken,
 	)
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return inspection.Role == nil || *inspection.Role != "USER" }, func() bool { return inspection.Username != nil }), "invitation inspection = %#v, %v", inspection, err)
-	registered, err := fixture.service.AcceptInvitation(context.Background(), accountservice.AcceptInvitationRequest{
+	registered, err := fixture.service.AcceptInvitation(context.Background(), accountsmodel.AcceptInvitationRequest{
 		Token: invitation.CapabilityToken, Username: "alice", DisplayName: "Alice",
 		Password: compliantTestPassword, PasswordConfirmation: compliantTestPassword,
 	})
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return registered.User.Username != "alice" }), "accept invitation = %#v, %v", registered, err)
 	if _, err := fixture.service.InspectAccountLink(
 		context.Background(), "INVITATION", invitation.CapabilityToken,
-	); !errors.Is(err, accountservice.ErrAccountLinkUnavailable) {
+	); !errors.Is(err, accountsmodel.ErrAccountLinkUnavailable) {
 		t.Fatalf("consumed invitation inspection = %v", err)
 	}
-	if _, err := fixture.service.AcceptInvitation(context.Background(), accountservice.AcceptInvitationRequest{
+	if _, err := fixture.service.AcceptInvitation(context.Background(), accountsmodel.AcceptInvitationRequest{
 		Token: invitation.CapabilityToken, Username: "alice2", DisplayName: "Alice 2",
 		Password: compliantTestPassword, PasswordConfirmation: compliantTestPassword,
-	}); !errors.Is(err, accountservice.ErrAccountLinkUnavailable) {
+	}); !errors.Is(err, accountsmodel.ErrAccountLinkUnavailable) {
 		t.Fatalf("invitation second use = %v", err)
 	}
 
@@ -93,12 +93,12 @@ func TestInvitationAndPasswordResetCapabilitiesAreSingleUseAndSecretless(t *test
 		context.Background(), "PASSWORD_RESET", reset.CapabilityToken,
 	)
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return resetInspection.Username == nil || *resetInspection.Username != "alice" }, func() bool { return resetInspection.Role != nil }), "reset inspection = %#v, %v", resetInspection, err)
-	changed, err := fixture.service.CompletePasswordReset(context.Background(), accountservice.CompletePasswordResetRequest{
+	changed, err := fixture.service.CompletePasswordReset(context.Background(), accountsmodel.CompletePasswordResetRequest{
 		Token: reset.CapabilityToken, Password: "a replacement passphrase", PasswordConfirmation: "a replacement passphrase",
 	})
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return changed.Session == nil }, func() bool { return changed.Status != "AUTHENTICATED" }), "complete password reset = %#v, %v", changed, err)
 	if _, err := fixture.service.Authenticate(context.Background(), registered.CookieToken); !errors.Is(
-		err, accountservice.ErrAuthenticationNeeded,
+		err, accountsmodel.ErrAuthenticationNeeded,
 	) {
 		t.Fatalf("old registration session after reset = %v", err)
 	}
@@ -107,14 +107,13 @@ func TestInvitationAndPasswordResetCapabilitiesAreSingleUseAndSecretless(t *test
 	}
 	operator := authn.Principal{UserID: uuid.NewString(), Username: "offline-operator"}
 	if _, _, err := fixture.service.UpdateUser(
-		context.Background(), operator, admin.User.UserID, 1,
-		accountservice.UserPatch{Status: stringPointer("DISABLED")}, uuid.NewString(),
-	); !errors.Is(err, accountservice.ErrLastAdmin) {
+		context.Background(), operator, admin.User.UserID, 1, accountsmodel.UserPatch{Status: stringPointer("DISABLED")}, uuid.NewString(),
+	); !errors.Is(err, accountsmodel.ErrLastAdmin) {
 		t.Fatalf("last enabled admin update = %v", err)
 	}
 	if _, err := fixture.service.DeleteUser(
 		context.Background(), operator, admin.User.UserID, 1, admin.User.Username, uuid.NewString(),
-	); !errors.Is(err, accountservice.ErrLastAdmin) {
+	); !errors.Is(err, accountsmodel.ErrLastAdmin) {
 		t.Fatalf("last enabled admin delete = %v", err)
 	}
 
@@ -143,10 +142,10 @@ func TestInvitationConcurrentConsumptionAndUserLifecycleRevocations(t *testing.T
 		context.Background(), admin.Principal, "USER", false, uuid.NewString(),
 	)
 	testassert.False(t, err != nil, err)
-	if _, err := fixture.service.AcceptInvitation(context.Background(), accountservice.AcceptInvitationRequest{
+	if _, err := fixture.service.AcceptInvitation(context.Background(), accountsmodel.AcceptInvitationRequest{
 		Token: conflict.CapabilityToken, Username: "test", DisplayName: "Duplicate",
 		Password: compliantTestPassword, PasswordConfirmation: compliantTestPassword,
-	}); !errors.Is(err, accountservice.ErrUsernameUnavailable) {
+	}); !errors.Is(err, accountsmodel.ErrUsernameUnavailable) {
 		t.Fatalf("duplicate username = %v", err)
 	}
 	if _, err := fixture.service.InspectAccountLink(
@@ -160,7 +159,7 @@ func TestInvitationConcurrentConsumptionAndUserLifecycleRevocations(t *testing.T
 	)
 	testassert.False(t, err != nil, err)
 	type outcome struct {
-		session accountservice.Session
+		session accountsmodel.Session
 		err     error
 	}
 	outcomes := make(chan outcome, 2)
@@ -169,7 +168,7 @@ func TestInvitationConcurrentConsumptionAndUserLifecycleRevocations(t *testing.T
 		wait.Add(1)
 		go func(username string) {
 			defer wait.Done()
-			session, acceptErr := fixture.service.AcceptInvitation(context.Background(), accountservice.AcceptInvitationRequest{
+			session, acceptErr := fixture.service.AcceptInvitation(context.Background(), accountsmodel.AcceptInvitationRequest{
 				Token: concurrent.CapabilityToken, Username: username,
 				DisplayName: "Racer", Password: compliantTestPassword,
 				PasswordConfirmation: compliantTestPassword,
@@ -179,14 +178,14 @@ func TestInvitationConcurrentConsumptionAndUserLifecycleRevocations(t *testing.T
 	}
 	wait.Wait()
 	close(outcomes)
-	var winner accountservice.Session
+	var winner accountsmodel.Session
 	var successes, unavailable int
 	for result := range outcomes {
 		switch {
 		case result.err == nil:
 			successes++
 			winner = result.session
-		case errors.Is(result.err, accountservice.ErrAccountLinkUnavailable):
+		case errors.Is(result.err, accountsmodel.ErrAccountLinkUnavailable):
 			unavailable++
 		default:
 			t.Fatalf("unexpected concurrent result: %v", result.err)
@@ -199,31 +198,30 @@ func TestInvitationConcurrentConsumptionAndUserLifecycleRevocations(t *testing.T
 	)
 	testassert.False(t, err != nil, err)
 	disabled, _, err := fixture.service.UpdateUser(
-		context.Background(), admin.Principal, winner.User.UserID, 2,
-		accountservice.UserPatch{Status: stringPointer("DISABLED")}, uuid.NewString(),
+		context.Background(), admin.Principal, winner.User.UserID, 2, accountsmodel.UserPatch{Status: stringPointer("DISABLED")}, uuid.NewString(),
 	)
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return disabled.Status != "DISABLED" }, func() bool { return disabled.Version != 3 }), "disable user = %#v, %v", disabled, err)
 	if _, err := fixture.service.Authenticate(context.Background(), winner.CookieToken); !errors.Is(
-		err, accountservice.ErrAuthenticationNeeded,
+		err, accountsmodel.ErrAuthenticationNeeded,
 	) {
 		t.Fatalf("disabled user session = %v", err)
 	}
 	if _, err := fixture.service.InspectAccountLink(
 		context.Background(), "PASSWORD_RESET", reset.CapabilityToken,
-	); !errors.Is(err, accountservice.ErrAccountLinkUnavailable) {
+	); !errors.Is(err, accountsmodel.ErrAccountLinkUnavailable) {
 		t.Fatalf("disabled user reset link = %v", err)
 	}
 	disabledReset, _, err := fixture.service.CreatePasswordReset(
 		context.Background(), admin.Principal, winner.User.UserID, 3, uuid.NewString(),
 	)
 	testassert.False(t, err != nil, err)
-	resetResult, err := fixture.service.CompletePasswordReset(context.Background(), accountservice.CompletePasswordResetRequest{
+	resetResult, err := fixture.service.CompletePasswordReset(context.Background(), accountsmodel.CompletePasswordResetRequest{
 		Token: disabledReset.CapabilityToken, Password: "disabled account passphrase",
 		PasswordConfirmation: "disabled account passphrase",
 	})
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return resetResult.Session != nil }, func() bool { return resetResult.Status != "PASSWORD_CHANGED_ACCOUNT_DISABLED" }), "disabled reset = %#v, %v", resetResult, err)
 	if _, err := fixture.service.Login(context.Background(), winner.User.Username, "disabled account passphrase"); !errors.Is(
-		err, accountservice.ErrAuthentication,
+		err, accountsmodel.ErrAuthentication,
 	) {
 		t.Fatalf("disabled login = %v", err)
 	}
@@ -231,8 +229,7 @@ func TestInvitationConcurrentConsumptionAndUserLifecycleRevocations(t *testing.T
 	current, err := fixture.service.GetUser(context.Background(), winner.User.UserID)
 	testassert.False(t, err != nil, err)
 	enabled, _, err := fixture.service.UpdateUser(
-		context.Background(), admin.Principal, winner.User.UserID, current.Version,
-		accountservice.UserPatch{Status: stringPointer("ENABLED")}, uuid.NewString(),
+		context.Background(), admin.Principal, winner.User.UserID, current.Version, accountsmodel.UserPatch{Status: stringPointer("ENABLED")}, uuid.NewString(),
 	)
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return enabled.Status != "ENABLED" }), "enable user = %#v, %v", enabled, err)
 	if _, err := fixture.service.Login(context.Background(), winner.User.Username, "disabled account passphrase"); err != nil {
@@ -252,9 +249,8 @@ func TestInvitationConcurrentConsumptionAndUserLifecycleRevocations(t *testing.T
 
 	otherAdmin := acceptFixtureInvitation(t, fixture, admin.Principal, "ADMIN", "other-admin", "Other Admin")
 	if _, _, err := fixture.service.UpdateUser(
-		context.Background(), otherAdmin.Principal, otherAdmin.User.UserID, 1,
-		accountservice.UserPatch{Status: stringPointer("DISABLED")}, uuid.NewString(),
-	); !errors.Is(err, accountservice.ErrUserSelfChange) {
+		context.Background(), otherAdmin.Principal, otherAdmin.User.UserID, 1, accountsmodel.UserPatch{Status: stringPointer("DISABLED")}, uuid.NewString(),
+	); !errors.Is(err, accountsmodel.ErrUserSelfChange) {
 		t.Fatalf("self-management guard = %v", err)
 	}
 }
@@ -269,7 +265,7 @@ func TestAccountSecurityAuditUsesClosedActions(t *testing.T) {
 		context.Background(), admin.Principal, alice.User.UserID, 1, uuid.NewString(),
 	)
 	testassert.False(t, err != nil, err)
-	if _, err := fixture.service.CompletePasswordReset(context.Background(), accountservice.CompletePasswordResetRequest{
+	if _, err := fixture.service.CompletePasswordReset(context.Background(), accountsmodel.CompletePasswordResetRequest{
 		Token: reset.CapabilityToken, Password: "a replacement audit passphrase",
 		PasswordConfirmation: "a replacement audit passphrase",
 	}); err != nil {
@@ -278,14 +274,11 @@ func TestAccountSecurityAuditUsesClosedActions(t *testing.T) {
 	current, err := fixture.service.GetUser(context.Background(), alice.User.UserID)
 	testassert.False(t, err != nil, err)
 	changed, _, err := fixture.service.UpdateUser(
-		context.Background(), admin.Principal, alice.User.UserID, current.Version,
-		accountservice.UserPatch{Role: stringPointer("ADMIN"), Status: stringPointer("DISABLED"), ConfirmAdminRole: true},
-		uuid.NewString(),
+		context.Background(), admin.Principal, alice.User.UserID, current.Version, accountsmodel.UserPatch{Role: stringPointer("ADMIN"), Status: stringPointer("DISABLED"), ConfirmAdminRole: true}, uuid.NewString(),
 	)
 	testassert.False(t, err != nil, err)
 	changed, _, err = fixture.service.UpdateUser(
-		context.Background(), admin.Principal, alice.User.UserID, changed.Version,
-		accountservice.UserPatch{Status: stringPointer("ENABLED")}, uuid.NewString(),
+		context.Background(), admin.Principal, alice.User.UserID, changed.Version, accountsmodel.UserPatch{Status: stringPointer("ENABLED")}, uuid.NewString(),
 	)
 	testassert.False(t, err != nil, err)
 	revokedReset, _, err := fixture.service.CreatePasswordReset(

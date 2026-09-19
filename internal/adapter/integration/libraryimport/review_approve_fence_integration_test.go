@@ -8,19 +8,20 @@ import (
 	"errors"
 	"testing"
 
+	libraryimportmodel "retrom/internal/model/libraryimport"
 	"retrom/internal/repo/dbexec"
 	repository "retrom/internal/repo/libraryimport"
-	application "retrom/internal/service/libraryimport"
 )
 
 type approvalMutatingReader struct {
-	application.ReviewApprovalReader
+	libraryimportmodel.ReviewApprovalReader
+
 	transaction *sql.Tx
 	mutation    string
 	importID    string
 }
 
-func (reader approvalMutatingReader) Head(ctx context.Context, itemID string) (application.ReviewApprovalHead, bool, error) {
+func (reader approvalMutatingReader) Head(ctx context.Context, itemID string) (libraryimportmodel.ReviewApprovalHead, bool, error) {
 	head, found, err := reader.ReviewApprovalReader.Head(ctx, itemID)
 	if err != nil || !found {
 		return head, found, err
@@ -52,7 +53,7 @@ func verifyApprovalFence(t *testing.T, mutation string) {
 	defer dbexec.Rollback(transaction)
 	scope := repository.BindReviewApproval(transaction)
 	scope.Reader = approvalMutatingReader{ReviewApprovalReader: scope.Reader, transaction: transaction, mutation: mutation, importID: created.Created.ImportJobID}
-	result, err := fixture.service.reviewApprovals().ApproveInScope(t.Context(), scope, application.ReviewApprovalRequest{ItemID: created.Items[0].ItemID, ExpectedVersion: 1})
+	result, err := fixture.service.reviewApprovals().ApproveInScope(t.Context(), scope, libraryimportmodel.ReviewApprovalRequest{ItemID: created.Items[0].ItemID, ExpectedVersion: 1})
 	if !errors.Is(err, ErrInvalid) || result != (Approved{}) {
 		t.Fatalf("result=%+v err=%v", result, err)
 	}

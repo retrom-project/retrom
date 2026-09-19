@@ -8,28 +8,30 @@ import (
 	"testing"
 
 	"retrom/internal/adapter/files/blobstore"
-	"retrom/internal/adapter/metadata/hasheous"
+	metadatamodel "retrom/internal/model/metadata"
+	metadatascrapemodel "retrom/internal/model/metadatascrape"
+
 	metadatapersistence "retrom/internal/repo/metadatascrape"
 	"retrom/internal/service/metadatascrape"
 )
 
 type retryMediaSource struct{}
 
-func (retryMediaSource) FetchAssetBounded(context.Context, hasheous.AssetRef, int64) (hasheous.AssetData, error) {
-	return hasheous.AssetData{Bytes: []byte("deterministic media"), ReceivedBytes: 18, MediaType: "image/png", Width: 1, Height: 1}, nil
+func (retryMediaSource) FetchAssetBounded(context.Context, metadatamodel.AssetReference, int64) (metadatamodel.AssetData, error) {
+	return metadatamodel.AssetData{Bytes: []byte("deterministic media"), ReceivedBytes: 18, MediaType: "image/png", Width: 1, Height: 1}, nil
 }
 
 type retryMediaProcessor struct {
 	recorder *metadatascrape.ResultRecorder
 }
 
-func (processor retryMediaProcessor) Process(ctx context.Context, claim metadatascrape.WorkerClaim, _ string) (int, string, error) {
-	_, err := processor.recorder.Record(ctx, metadatascrape.LookupAttempt{
+func (processor retryMediaProcessor) Process(ctx context.Context, claim metadatascrapemodel.WorkerClaim, _ string) (int, string, error) {
+	_, err := processor.recorder.Record(ctx, metadatascrapemodel.LookupAttempt{
 		Claim: claim, EvidenceID: "media-evidence", AttemptNo: 1,
-		AllowCandidate: true, Lookup: metadatascrape.ResolvedLookup{Result: hasheous.LookupResult{
-			Outcome: hasheous.OutcomeHit, RequestDigest: strings.Repeat("9", 64), Candidate: &hasheous.Candidate{
+		AllowCandidate: true, Lookup: metadatascrapemodel.ResolvedLookup{Result: metadatamodel.LookupResult{
+			Outcome: metadatamodel.OutcomeHit, RequestDigest: strings.Repeat("9", 64), Candidate: &metadatamodel.Candidate{
 				ProviderGameID: "media",
-				Assets:         []hasheous.AssetRef{{ProviderAssetID: "cover", Kind: "COVER", Path: "/api/v1/images/cover"}},
+				Assets:         []metadatamodel.AssetReference{{ProviderAssetID: "cover", Kind: "COVER", Path: "/api/v1/images/cover"}},
 			},
 		}},
 	})
@@ -42,9 +44,9 @@ func newMediaRetryFixture(t *testing.T) validationRetryFixture {
 	database := fixture.server.database
 	now := fixture.now().UnixMilli()
 	gameID := "01980000-0000-7000-8000-000000000191"
-	err := metadatapersistence.NewScheduler(database).WithWrite(t.Context(), func(scope metadatascrape.ScheduleScope) error {
-		return scope.Writes.Create(t.Context(), metadatascrape.SchedulePlan{
-			Subject: metadatascrape.Subject{Kind: "GAME", ID: gameID},
+	err := metadatapersistence.NewScheduler(database).WithWrite(t.Context(), func(scope metadatascrapemodel.ScheduleScope) error {
+		return scope.Writes.Create(t.Context(), metadatascrapemodel.SchedulePlan{
+			Subject: metadatascrapemodel.Subject{Kind: "GAME", ID: gameID},
 			RunID:   "media-run", JobID: "metadata-job", Provider: "HASHEOUS", Dedupe: strings.Repeat("8", 64), PayloadJSON: `{}`,
 			JobState: "QUEUED", RunState: "RUNNING", EventJSON: `{}`, Now: now,
 		})

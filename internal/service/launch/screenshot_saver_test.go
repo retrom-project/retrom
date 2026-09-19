@@ -6,21 +6,23 @@ import (
 	"io"
 	"strings"
 	"testing"
+
+	model "retrom/internal/model/launch"
 )
 
 type failingScreenshotRepository struct{ cause error }
 
-func (repository failingScreenshotRepository) Preview(context.Context, string) (ScreenshotSource, bool, error) {
-	return ScreenshotSource{}, false, repository.cause
+func (repository failingScreenshotRepository) Preview(context.Context, string) (model.ScreenshotSource, bool, error) {
+	return model.ScreenshotSource{}, false, repository.cause
 }
 
-func (failingScreenshotRepository) WithScreenshot(context.Context, func(ScreenshotScope) error) error {
+func (failingScreenshotRepository) WithScreenshot(context.Context, func(model.ScreenshotScope) error) error {
 	panic("writer must not open after read failure")
 }
 
 type unreadScreenshotImages struct{}
 
-func (unreadScreenshotImages) Read(context.Context, io.Reader) (ScreenshotImage, error) {
+func (unreadScreenshotImages) Read(context.Context, io.Reader) (model.ScreenshotImage, error) {
 	panic("image must not be read after authorization failure")
 }
 

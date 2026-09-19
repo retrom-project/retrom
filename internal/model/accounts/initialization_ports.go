@@ -2,10 +2,6 @@ package accounts
 
 import (
 	"context"
-	"time"
-
-	"retrom/internal/bootstrap/config"
-	"retrom/internal/capability/security/authn"
 )
 
 type InitializationState struct {
@@ -41,13 +37,5 @@ type InitializationRepository interface {
 type SetupCredentials interface {
 	SetupCode() string
 	MatchesSetupCode(string) bool
-}
-type InitializationOptions struct {
-	Mode        config.Mode
-	Credentials SetupCredentials
-	Hasher      PasswordHasher
-	Blocklist   authn.Blocklist
-	Mint        SessionMinter
-	Now         func() time.Time
 }
 type InitializeRequest struct{ SetupCode, Username, DisplayName, Password, PasswordConfirmation string }

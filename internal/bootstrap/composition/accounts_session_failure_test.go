@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"retrom/internal/bootstrap/config"
-	accountservice "retrom/internal/service/accounts"
+	accountsmodel "retrom/internal/model/accounts"
 )
 
 func TestSessionRefreshFailureCannotReportExtendedSession(t *testing.T) {
@@ -32,7 +32,7 @@ func TestLoginStorageFailureIsNotReportedAsBadPassword(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, err := fixture.service.Login(t.Context(), "test", "test")
-	if err == nil || errors.Is(err, accountservice.ErrAuthentication) {
+	if err == nil || errors.Is(err, accountsmodel.ErrAuthentication) {
 		t.Fatalf("storage failure converted to wrong password: %v", err)
 	}
 }

@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"retrom/internal/adapter/files/blobstore"
-	payloadservice "retrom/internal/service/payloadrelease"
+	payloadreleasemodel "retrom/internal/model/payloadrelease"
 )
 
 func TestDeleteRemovesBlobAndTreatsMissingAsSuccess(t *testing.T) {
@@ -39,7 +39,7 @@ func TestDeleteRemovesBlobAndTreatsMissingAsSuccess(t *testing.T) {
 }
 
 func TestDeleteRejectsNilStoreAndCanceledContext(t *testing.T) {
-	if err := New(nil).Delete(t.Context(), strings.Repeat("a", 64)); !errors.Is(err, payloadservice.ErrInputInvalid) {
+	if err := New(nil).Delete(t.Context(), strings.Repeat("a", 64)); !errors.Is(err, payloadreleasemodel.ErrInputInvalid) {
 		t.Fatalf("nil store error = %v", err)
 	}
 	ctx, cancel := context.WithCancel(t.Context())

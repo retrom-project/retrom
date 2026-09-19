@@ -6,49 +6,51 @@ import (
 	"math"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/payloadrelease"
 )
 
 type retirementMemory struct {
-	bios                                                     BIOSRetirement
-	launch                                                   LaunchRetirement
+	bios                                                     model.BIOSRetirement
+	launch                                                   model.LaunchRetirement
 	releasedBIOS, releasedLaunch, removedBIOS, removedLaunch bool
-	end                                                      LaunchRetirementEnd
-	completed                                                RetirementCompletion
+	end                                                      model.LaunchRetirementEnd
+	completed                                                model.RetirementCompletion
 }
 
-func (memory *retirementMemory) WithRetirement(_ context.Context, run func(RetirementScope) error) error {
-	return run(RetirementScope{Read: memory, BIOS: memory, Launch: memory})
+func (memory *retirementMemory) WithRetirement(_ context.Context, run func(model.RetirementScope) error) error {
+	return run(model.RetirementScope{Read: memory, BIOS: memory, Launch: memory})
 }
 
-func (memory *retirementMemory) BIOS(context.Context, int) (BIOSRetirement, error) {
+func (memory *retirementMemory) BIOS(context.Context, int) (model.BIOSRetirement, error) {
 	return memory.bios, nil
 }
 
-func (memory *retirementMemory) Launch(context.Context, int64, int) (LaunchRetirement, error) {
+func (memory *retirementMemory) Launch(context.Context, int64, int) (model.LaunchRetirement, error) {
 	return memory.launch, nil
 }
-func (*retirementMemory) FenceBIOS(context.Context, BIOSRetirement) error { return nil }
-func (memory *retirementMemory) ReleaseBIOSFiles(context.Context, BIOSRetirement) error {
+func (*retirementMemory) FenceBIOS(context.Context, model.BIOSRetirement) error { return nil }
+func (memory *retirementMemory) ReleaseBIOSFiles(context.Context, model.BIOSRetirement) error {
 	memory.removedBIOS = true
 	return nil
 }
 
-func (memory *retirementMemory) CompleteBIOS(context.Context, BIOSRetirement, int64) error {
+func (memory *retirementMemory) CompleteBIOS(context.Context, model.BIOSRetirement, int64) error {
 	memory.releasedBIOS = true
 	return nil
 }
-func (*retirementMemory) FenceLaunch(context.Context, LaunchRetirement) error { return nil }
-func (memory *retirementMemory) TerminateLaunch(_ context.Context, end LaunchRetirementEnd) error {
+func (*retirementMemory) FenceLaunch(context.Context, model.LaunchRetirement) error { return nil }
+func (memory *retirementMemory) TerminateLaunch(_ context.Context, end model.LaunchRetirementEnd) error {
 	memory.end = end
 	return nil
 }
 
-func (memory *retirementMemory) ReleaseLaunchFiles(context.Context, LaunchRetirement) error {
+func (memory *retirementMemory) ReleaseLaunchFiles(context.Context, model.LaunchRetirement) error {
 	memory.removedLaunch = true
 	return nil
 }
 
-func (memory *retirementMemory) CompleteLaunch(_ context.Context, change RetirementCompletion) error {
+func (memory *retirementMemory) CompleteLaunch(_ context.Context, change model.RetirementCompletion) error {
 	memory.releasedLaunch = true
 	memory.completed = change
 	return nil
@@ -57,9 +59,9 @@ func (memory *retirementMemory) CompleteLaunch(_ context.Context, change Retirem
 func TestRetirementsPreserveSharedBIOSAndWaitForBatchDrain(t *testing.T) {
 	t.Parallel()
 	for _, shared := range []bool{false, true} {
-		memory := &retirementMemory{bios: BIOSRetirement{Found: true, ID: "old", BlobID: "bios", Version: 1, SharedActive: shared}}
+		memory := &retirementMemory{bios: model.BIOSRetirement{Found: true, ID: "old", BlobID: "bios", Version: 1, SharedActive: shared}}
 		if !shared {
-			memory.bios.Files = make([]RetirementFile, 200)
+			memory.bios.Files = make([]model.RetirementFile, 200)
 		}
 		service := NewRetirements(memory, func() time.Time { return time.UnixMilli(10) })
 		worked, err := service.BIOSBatch(t.Context())
@@ -75,9 +77,9 @@ func TestRetirementUsesActualLaunchDeadlineAndPreservesTerminalState(t *testing.
 	for _, state := range []string{"CREATED", "ACTIVE", "FINISHED", "REVOKED"} {
 		t.Run(state, func(t *testing.T) {
 			t.Parallel()
-			memory := &retirementMemory{launch: LaunchRetirement{
+			memory := &retirementMemory{launch: model.LaunchRetirement{
 				Found: true, ID: "launch", State: state, Version: 1,
-				DueMS: 10, BootstrapMS: 10, Idle: WorkTime{Set: true, Value: 10}, HardMS: 20, Finished: WorkTime{Set: true, Value: 10},
+				DueMS: 10, BootstrapMS: 10, Idle: model.WorkTime{Set: true, Value: 10}, HardMS: 20, Finished: model.WorkTime{Set: true, Value: 10},
 			}}
 			service := NewRetirements(memory, func() time.Time { return time.UnixMilli(10) })
 			count, err := service.LaunchBatch(t.Context())
@@ -95,13 +97,13 @@ func TestRetirementUsesActualLaunchDeadlineAndPreservesTerminalState(t *testing.
 func TestRetirementRejectsLiveLaunchAndVersionOverflow(t *testing.T) {
 	t.Parallel()
 	for _, version := range []int64{1, math.MaxInt64} {
-		memory := &retirementMemory{launch: LaunchRetirement{
+		memory := &retirementMemory{launch: model.LaunchRetirement{
 			Found: true, ID: "launch", State: "ACTIVE", Version: version,
-			DueMS: 10, Idle: WorkTime{Set: true, Value: 11}, HardMS: 20,
+			DueMS: 10, Idle: model.WorkTime{Set: true, Value: 11}, HardMS: 20,
 		}}
 		service := NewRetirements(memory, func() time.Time { return time.UnixMilli(10) })
 		count, err := service.LaunchBatch(t.Context())
-		if !errors.Is(err, ErrRetirementSnapshotChanged) || count != 0 || memory.removedLaunch || memory.releasedLaunch {
+		if !errors.Is(err, model.ErrRetirementSnapshotChanged) || count != 0 || memory.removedLaunch || memory.releasedLaunch {
 			t.Fatalf("live or overflowing launch retired: count=%d err=%v", count, err)
 		}
 	}

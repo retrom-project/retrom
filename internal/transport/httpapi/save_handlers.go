@@ -10,7 +10,7 @@ import (
 
 	"retrom/internal/capability/security/authn"
 	"retrom/internal/foundation/cursor"
-	saveservice "retrom/internal/service/saves"
+	savesmodel "retrom/internal/model/saves"
 )
 
 type saveListFilters struct {
@@ -72,7 +72,7 @@ func (server *Server) applySaveCursor(values url.Values, filters *saveListFilter
 	return nil
 }
 
-func projectSaveListItem(row saveservice.ListItem) map[string]any {
+func projectSaveListItem(row savesmodel.ListItem) map[string]any {
 	reasons := []any{}
 	switch row.CompatibilityStatus {
 	case "INCOMPATIBLE_RUNTIME":
@@ -132,7 +132,7 @@ func (server *Server) saves(writer http.ResponseWriter, request *http.Request) {
 	if raw := values.Get("limit"); raw != "" {
 		limit, _ = strconv.Atoi(raw)
 	}
-	rows, err := server.saveService.List(request.Context(), saveservice.ListQuery{
+	rows, err := server.saveService.List(request.Context(), savesmodel.ListQuery{
 		ProfileID: principal.ProfileID, Query: filters.NormalizedQ,
 		GameID: filters.GameID, PlatformID: filters.PlatformID,
 		PlatformInstanceID: filters.PlatformInstanceID, CoreID: filters.CoreID,
@@ -215,15 +215,15 @@ func (server *Server) patchSave(writer http.ResponseWriter, request *http.Reques
 		return
 	}
 	now := server.now().UnixMilli()
-	err = server.saveService.Rename(request.Context(), saveservice.RenameRequest{
+	err = server.saveService.Rename(request.Context(), savesmodel.RenameRequest{
 		SaveStateID: request.PathValue("saveStateId"), ProfileID: principal.ProfileID,
 		Name: body.Name, ExpectedVersion: expected, UpdatedAtMS: now,
 	})
-	if errors.Is(err, saveservice.ErrNotFound) {
+	if errors.Is(err, savesmodel.ErrNotFound) {
 		writeError(writer, request, http.StatusNotFound, "SAVE_STATE_NOT_FOUND", "存档不存在", map[string]any{})
 		return
 	}
-	if errors.Is(err, saveservice.ErrVersionConflict) {
+	if errors.Is(err, savesmodel.ErrVersionConflict) {
 		writeError(writer, request, http.StatusConflict, "VERSION_CONFLICT", "存档已被修改", map[string]any{})
 		return
 	}
@@ -259,15 +259,15 @@ func (server *Server) deleteSave(writer http.ResponseWriter, request *http.Reque
 		return
 	}
 	now := server.now().UnixMilli()
-	err = server.saveService.Delete(request.Context(), saveservice.DeleteRequest{
+	err = server.saveService.Delete(request.Context(), savesmodel.DeleteRequest{
 		SaveStateID: request.PathValue("saveStateId"), ProfileID: principal.ProfileID,
 		ExpectedVersion: expected, UpdatedAtMS: now,
 	})
-	if errors.Is(err, saveservice.ErrNotFound) {
+	if errors.Is(err, savesmodel.ErrNotFound) {
 		writeError(writer, request, http.StatusNotFound, "SAVE_STATE_NOT_FOUND", "存档不存在", map[string]any{})
 		return
 	}
-	if errors.Is(err, saveservice.ErrVersionConflict) {
+	if errors.Is(err, savesmodel.ErrVersionConflict) {
 		writeError(writer, request, http.StatusConflict, "VERSION_CONFLICT", "存档已被修改", map[string]any{})
 		return
 	}

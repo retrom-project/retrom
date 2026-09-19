@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
 	application "retrom/internal/service/emulationstationimport"
 	"retrom/internal/testkit/testsupport"
 )
@@ -20,8 +21,8 @@ type scanCompletionFailure struct {
 	commit bool
 }
 
-func (repository scanCompletionFailure) WithScan(ctx context.Context, work func(application.ScanScope) error) error {
-	return repository.ScanPublication.WithScan(ctx, func(scope application.ScanScope) error {
+func (repository scanCompletionFailure) WithScan(ctx context.Context, work func(emulationstationimportmodel.ScanScope) error) error {
+	return repository.ScanPublication.WithScan(ctx, func(scope emulationstationimportmodel.ScanScope) error {
 		if err := work(scope); err != nil {
 			return err
 		}

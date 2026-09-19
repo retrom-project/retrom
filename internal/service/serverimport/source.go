@@ -7,20 +7,9 @@ import (
 	"io/fs"
 	"os"
 
+	servermodel "retrom/internal/model/serverimport"
+
 	"retrom/internal/adapter/files/serversource"
-)
-
-var (
-	ErrRootIDInvalid   = serversource.ErrRootIDInvalid
-	ErrPathInvalid     = serversource.ErrPathInvalid
-	ErrRootNotFound    = serversource.ErrRootNotFound
-	ErrRootUnavailable = serversource.ErrRootUnavailable
-)
-
-type (
-	Directory      = serversource.Directory
-	discoveredFile = serversource.File
-	walkCounts     = serversource.Counts
 )
 
 func ValidateRootID(value string) error {
@@ -45,7 +34,7 @@ func openSelectedDirectory(rootPath, relativePath string) (*os.File, error) {
 	return directory, nil
 }
 
-func listDirectories(rootPath, relativePath string) ([]Directory, error) {
+func listDirectories(rootPath, relativePath string) ([]serversource.Directory, error) {
 	directories, err := serversource.ListDirectories(rootPath, relativePath)
 	if err != nil {
 		return nil, fmt.Errorf("serverimport/list directories: %w", err)
@@ -54,8 +43,8 @@ func listDirectories(rootPath, relativePath string) ([]Directory, error) {
 }
 
 func walkFiles(
-	ctx context.Context, root *os.File, limits scanLimits, visit func(discoveredFile) error,
-) (walkCounts, error) {
+	ctx context.Context, root *os.File, limits scanLimits, visit func(serversource.File) error,
+) (servermodel.DiscoveryCounts, error) {
 	counts, err := serversource.WalkFilesContext(ctx, root, serversource.Limits{
 		MaxDepth:       limits.maxDepth,
 		MaxDirectories: limits.maxDirectories,
@@ -70,7 +59,7 @@ func walkFiles(
 	return counts, err
 }
 
-func openCandidate(file discoveredFile) (*os.File, fs.FileInfo, error) {
+func openCandidate(file serversource.File) (*os.File, fs.FileInfo, error) {
 	handle, info, err := serversource.OpenFile(file)
 	if errors.Is(err, serversource.ErrSourceChanged) {
 		err = errSourceChanged
@@ -85,5 +74,3 @@ func openRelativeCandidate(rootPath, selectedPath, candidatePath string) (*os.Fi
 	}
 	return handle, info, err
 }
-
-func sameFileFacts(before, after fs.FileInfo) bool { return serversource.SameFileFacts(before, after) }

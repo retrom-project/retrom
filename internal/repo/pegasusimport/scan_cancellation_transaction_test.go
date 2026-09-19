@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	pegasusimportmodel "retrom/internal/model/pegasusimport"
 	application "retrom/internal/service/pegasusimport"
 	"retrom/internal/testkit/testsupport"
 )
@@ -30,8 +31,7 @@ func TestScanCancellationRechecksOriginalJobVersionAndOwnership(t *testing.T) {
 			ActorID:         "actor",
 		},
 	); !errors.Is(
-		err,
-		application.ErrVersionConflict,
+		err, pegasusimportmodel.ErrVersionConflict,
 	) || pending || result.JobID != "" {
 		t.Fatalf("wrong Job version: %#v %v %v", result, pending, err)
 	}
@@ -91,7 +91,7 @@ func TestScanCancellationRepositoryRejectsReplacedParentAndJobSnapshot(t *testin
 		t.Run(change, func(t *testing.T) {
 			db, id, _ := publicationDatabase(t)
 			before := publicationRows(t, db)
-			err := NewWorkflowControl(db).WithControl(t.Context(), func(scope application.WorkflowScope) error {
+			err := NewWorkflowControl(db).WithControl(t.Context(), func(scope pegasusimportmodel.WorkflowScope) error {
 				current, err := scope.Read.CurrentJob(t.Context(), id.JobID)
 				if err != nil {
 					return err
@@ -104,12 +104,12 @@ func TestScanCancellationRepositoryRejectsReplacedParentAndJobSnapshot(t *testin
 				default:
 					current.Execution++
 				}
-				return scope.Write.Cancel(t.Context(), application.CancellationPlan{
+				return scope.Write.Cancel(t.Context(), pegasusimportmodel.CancellationPlan{
 					Before: current, State: "CANCEL_REQUESTED",
 					Pending: true, Reason: "Stop", ActorID: "actor", AuditID: "cancel-audit", NowMS: 10,
 				})
 			})
-			if !errors.Is(err, application.ErrNotCancellable) || !reflect.DeepEqual(before, publicationRows(t, db)) {
+			if !errors.Is(err, pegasusimportmodel.ErrNotCancellable) || !reflect.DeepEqual(before, publicationRows(t, db)) {
 				t.Fatalf("stale %s changed state: %v", change, err)
 			}
 		})

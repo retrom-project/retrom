@@ -7,8 +7,8 @@ import (
 	"errors"
 	"testing"
 
+	launchmodel "retrom/internal/model/launch"
 	persistence "retrom/internal/repo/launch"
-	application "retrom/internal/service/launch"
 
 	"modernc.org/sqlite"
 )
@@ -34,7 +34,7 @@ func TestConfigFinalAuthorityReadPreservesStorageCause(t *testing.T) {
 		mustRPGLaunchSQL(t, fixture.database, `ALTER TABLE launch_sessions RENAME TO unavailable_launch_sessions`)
 	}}
 	issuer := fixtureConfigIssuer(fixture, persistence.NewConfig(fixture.database), builder)
-	configuration, err := issuer.Issue(t.Context(), application.SessionRef{ID: created.LaunchID}, created.Capability)
+	configuration, err := issuer.Issue(t.Context(), launchmodel.SessionRef{ID: created.LaunchID}, created.Capability)
 	var storageError *sqlite.Error
 	if !errors.As(err, &storageError) || errors.Is(err, ErrCredential) {
 		t.Fatalf("final authority cause lost: %v", err)

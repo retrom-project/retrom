@@ -4,21 +4,21 @@ import (
 	"context"
 	"fmt"
 
-	application "retrom/internal/service/libraryimport"
+	libraryimportmodel "retrom/internal/model/libraryimport"
 )
 
 // Review draft commands are implemented by the application service and its
 // persistence adapter. These aliases preserve the legacy libraryimport API
 // while callers migrate to internal/service/libraryimport.
 type (
-	MetadataPatch  = application.MetadataPatch
-	SelectedAssets = application.SelectedAssets
-	DraftPatch     = application.DraftPatch
-	DraftResult    = application.DraftResult
+	MetadataPatch  = libraryimportmodel.MetadataPatch
+	SelectedAssets = libraryimportmodel.SelectedAssets
+	DraftPatch     = libraryimportmodel.DraftPatch
+	DraftResult    = libraryimportmodel.DraftResult
 )
 
 func validField(value string, maximum int, multiline bool) bool {
-	return application.ValidReviewField(value, maximum, multiline)
+	return libraryimportmodel.ValidReviewField(value, maximum, multiline)
 }
 
 // Contract branches stay contiguous for a single auditable decision.
@@ -29,7 +29,7 @@ func (service *Service) PatchDraft(
 	patch DraftPatch,
 ) (DraftResult, error) {
 	if service.reviewDrafts == nil {
-		return DraftResult{}, application.ErrInvalid
+		return DraftResult{}, libraryimportmodel.ErrInvalid
 	}
 	result, err := service.reviewDrafts.Patch(ctx, itemID, expectedVersion, patch)
 	if err != nil {

@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	library "retrom/internal/service/libraryimport"
+	libraryimportmodel "retrom/internal/model/libraryimport"
 )
 
 func TestESReviewPreparationRejectsFrozenTargetDrift(t *testing.T) {
@@ -31,7 +31,7 @@ func TestESReviewPreparationRejectsFrozenTargetDrift(t *testing.T) {
 	); readErr != nil {
 		t.Fatal(readErr)
 	}
-	if !errors.Is(err, library.ErrVersionConflict) || count != 0 {
+	if !errors.Is(err, libraryimportmodel.ErrVersionConflict) || count != 0 {
 		t.Fatalf("changed frozen target created ordinary review: error=%v jobs=%d", err, count)
 	}
 }

@@ -8,25 +8,27 @@ import (
 	"errors"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/serverimport"
 )
 
 type creationMemory struct {
-	entries                     []CatalogEntry
-	plan                        CreationPlan
+	entries                     []model.CatalogEntry
+	plan                        model.CreationPlan
 	active                      bool
 	writes                      int
 	readErr, lateErr, sourceErr error
 }
 
-func (memory *creationMemory) Catalog(context.Context) ([]CatalogEntry, error) {
+func (memory *creationMemory) Catalog(context.Context) ([]model.CatalogEntry, error) {
 	return memory.entries, memory.readErr
 }
 
-func (memory *creationMemory) Select(context.Context, string, string) (RootSelection, error) {
-	return RootSelection{ID: "root", Label: "Source", Digest: "root-digest"}, memory.sourceErr
+func (memory *creationMemory) Select(context.Context, string, string) (model.RootSelection, error) {
+	return model.RootSelection{ID: "root", Label: "Source", Digest: "root-digest"}, memory.sourceErr
 }
 
-func (memory *creationMemory) WithCreate(_ context.Context, work func(CreationWriter) error) error {
+func (memory *creationMemory) WithCreate(_ context.Context, work func(model.CreationWriter) error) error {
 	if err := work(memory); err != nil {
 		return err
 	}
@@ -37,24 +39,24 @@ func (memory *creationMemory) Active(context.Context, string) (bool, error) {
 	return memory.active, nil
 }
 
-func (memory *creationMemory) Insert(_ context.Context, plan CreationPlan) (Summary, error) {
+func (memory *creationMemory) Insert(_ context.Context, plan model.CreationPlan) (model.Summary, error) {
 	memory.writes++
 	memory.plan = plan
-	return Summary{ID: plan.ImportID, State: "QUEUED", Version: 1}, nil
+	return model.Summary{ID: plan.ImportID, State: "QUEUED", Version: 1}, nil
 }
 
 func creationFixture() (*Creation, *creationMemory) {
 	size := int64(4)
-	memory := &creationMemory{entries: []CatalogEntry{
-		{Item: CatalogItem{RequirementID: "b", RequirementVersion: 2, SourceKind: "STATIC", ExpectedSize: &size}},
-		{Item: CatalogItem{RequirementID: "a", RequirementVersion: 3, SourceKind: "STATIC", ExpectedSize: &size}},
+	memory := &creationMemory{entries: []model.CatalogEntry{
+		{Item: model.CatalogItem{RequirementID: "b", RequirementVersion: 2, SourceKind: "STATIC", ExpectedSize: &size}},
+		{Item: model.CatalogItem{RequirementID: "a", RequirementVersion: 3, SourceKind: "STATIC", ExpectedSize: &size}},
 	}}
 	return NewCreation(memory, memory, func() time.Time { return time.UnixMilli(123) }), memory
 }
 
 func TestCreateFreezesOrderedCatalogAndExecutionInput(t *testing.T) {
 	service, memory := creationFixture()
-	request := CreateRequest{Kind: "BIOS_DIRECTORY", RootID: "root", SourceRelativePath: "nested", ReplaceIfBetter: true}
+	request := model.CreateRequest{Kind: "BIOS_DIRECTORY", RootID: "root", SourceRelativePath: "nested", ReplaceIfBetter: true}
 	result, err := service.Create(t.Context(), request, "actor")
 	if err != nil {
 		t.Fatal(err)
@@ -63,7 +65,7 @@ func TestCreateFreezesOrderedCatalogAndExecutionInput(t *testing.T) {
 	if result.ID == "" || plan.Items[0].RequirementID != "a" || memory.entries[0].Item.RequirementID != "b" {
 		t.Fatalf("catalog ordering or result: %+v", plan)
 	}
-	encoded, err := CanonicalCatalogJSON(plan.Items)
+	encoded, err := model.CanonicalCatalogJSON(plan.Items)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -96,15 +98,15 @@ func TestCreateRejectsUnusableSourcesAndCatalogBeforeWriting(t *testing.T) {
 	}{
 		{"source unavailable", func(m *creationMemory) { m.sourceErr = context.Canceled }, context.Canceled},
 		{"storage unavailable", func(m *creationMemory) { m.readErr = context.DeadlineExceeded }, context.DeadlineExceeded},
-		{"empty", func(m *creationMemory) { m.entries = nil }, ErrCatalogEmpty},
-		{"no expectation", func(m *creationMemory) { m.entries[0].Item.ExpectedSize = nil }, ErrCatalogInvalid},
-		{"DAT not ready", func(m *creationMemory) { m.entries[0].Item.SourceKind = "DAT_MACHINE" }, ErrCatalogInvalid},
-		{"active", func(m *creationMemory) { m.active = true }, ErrActive},
+		{"empty", func(m *creationMemory) { m.entries = nil }, model.ErrCatalogEmpty},
+		{"no expectation", func(m *creationMemory) { m.entries[0].Item.ExpectedSize = nil }, model.ErrCatalogInvalid},
+		{"DAT not ready", func(m *creationMemory) { m.entries[0].Item.SourceKind = "DAT_MACHINE" }, model.ErrCatalogInvalid},
+		{"active", func(m *creationMemory) { m.active = true }, model.ErrActive},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			service, memory := creationFixture()
 			test.change(memory)
-			result, err := service.Create(t.Context(), CreateRequest{Kind: "BIOS_DIRECTORY", RootID: "root"}, "actor")
+			result, err := service.Create(t.Context(), model.CreateRequest{Kind: "BIOS_DIRECTORY", RootID: "root"}, "actor")
 			if !errors.Is(err, test.want) || memory.writes != 0 || result.ID != "" {
 				t.Fatalf("rejected creation: %+v %v writes=%d", result, err, memory.writes)
 			}
@@ -115,7 +117,7 @@ func TestCreateRejectsUnusableSourcesAndCatalogBeforeWriting(t *testing.T) {
 func TestCreateDoesNotPublishSummaryWhenCommitFails(t *testing.T) {
 	service, memory := creationFixture()
 	memory.lateErr = context.Canceled
-	result, err := service.Create(t.Context(), CreateRequest{Kind: "BIOS_DIRECTORY", RootID: "root"}, "actor")
+	result, err := service.Create(t.Context(), model.CreateRequest{Kind: "BIOS_DIRECTORY", RootID: "root"}, "actor")
 	if !errors.Is(err, context.Canceled) || result.ID != "" || memory.writes != 1 {
 		t.Fatalf("commit failure: %+v %v", result, err)
 	}

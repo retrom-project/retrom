@@ -7,15 +7,20 @@ import (
 	"path"
 	"strings"
 
-	library "retrom/internal/service/libraryimport"
+	libraryimportmodel "retrom/internal/model/libraryimport"
+	model "retrom/internal/model/pegasusimport"
 )
 
 func (executor *ImportExecutor) sourceFiles(
-	ctx context.Context, unit Work, item ExecutionItem,
-) ([]library.ServerSourceFile, error) {
-	files := make([]library.ServerSourceFile, 0, len(item.Files))
+	ctx context.Context, unit model.Work, item model.ExecutionItem,
+) ([]libraryimportmodel.ServerSourceFile, error) {
+	files := make([]libraryimportmodel.ServerSourceFile, 0, len(item.Files))
 	for _, file := range item.Files {
-		files = append(files, library.ServerSourceFile{RelativePath: file.Path, BlobID: file.BlobID, SizeBytes: file.Size})
+		files = append(files, libraryimportmodel.ServerSourceFile{
+			RelativePath: file.Path,
+			BlobID:       file.BlobID,
+			SizeBytes:    file.Size,
+		})
 	}
 	if item.TargetPlatformKind != "arcade" || len(item.Files) != 1 ||
 		!strings.EqualFold(path.Ext(item.Files[0].Path), ".zip") {
@@ -29,19 +34,19 @@ func (executor *ImportExecutor) sourceFiles(
 }
 
 func (executor *ImportExecutor) CompanionFiles(
-	ctx context.Context, unit Work, item ExecutionItem,
-) ([]library.ServerSourceFile, error) {
+	ctx context.Context, unit model.Work, item model.ExecutionItem,
+) ([]libraryimportmodel.ServerSourceFile, error) {
 	candidates, err := executor.dependencies.Companions.Find(ctx, unit.Identity(), item.ID)
 	if err != nil {
 		return nil, fmt.Errorf("read Pegasus import companions: %w", err)
 	}
-	files := make([]library.ServerSourceFile, 0, len(candidates))
+	files := make([]libraryimportmodel.ServerSourceFile, 0, len(candidates))
 	for _, candidate := range candidates {
 		blob, err := executor.dependencies.Sources.CopyFile(ctx, unit, candidate.File)
 		if stop := importStopCause(ctx, err); stop != nil {
 			return nil, stop
 		}
-		if errors.Is(err, ErrSourceChanged) {
+		if errors.Is(err, model.ErrSourceChanged) {
 			continue
 		}
 		if err != nil {
@@ -51,7 +56,7 @@ func (executor *ImportExecutor) CompanionFiles(
 		if err != nil {
 			return nil, fmt.Errorf("bind Pegasus companion: %w", err)
 		}
-		files = append(files, library.ServerSourceFile{
+		files = append(files, libraryimportmodel.ServerSourceFile{
 			RelativePath: candidate.File.Path, BlobID: blobID, SizeBytes: candidate.File.Size,
 		})
 	}

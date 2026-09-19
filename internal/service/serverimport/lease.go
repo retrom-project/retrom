@@ -6,22 +6,24 @@ import (
 	"fmt"
 	"time"
 
+	model "retrom/internal/model/serverimport"
+
 	"github.com/google/uuid"
 )
 
 type Leases struct {
-	repository LeaseRepository
+	repository model.LeaseRepository
 	now        func() time.Time
 }
 
-func NewLeases(repository LeaseRepository, now func() time.Time) *Leases {
+func NewLeases(repository model.LeaseRepository, now func() time.Time) *Leases {
 	return &Leases{repository, now}
 }
 
-func (service *Leases) Claim(ctx context.Context) (Work, bool, error) {
-	var result Work
+func (service *Leases) Claim(ctx context.Context) (model.Work, bool, error) {
+	var result model.Work
 	var found bool
-	err := service.repository.WithWrite(ctx, func(records LeaseRecords) error {
+	err := service.repository.WithWrite(ctx, func(records model.LeaseRecords) error {
 		now := service.now().UnixMilli()
 		before, ok, err := records.Next(ctx, now)
 		if err != nil {
@@ -31,7 +33,7 @@ func (service *Leases) Claim(ctx context.Context) (Work, bool, error) {
 			return nil
 		}
 		if before.State != before.ImportState || before.Attempt >= before.Maximum {
-			return ErrLeaseLost
+			return model.ErrLeaseLost
 		}
 		owner, err := uuid.NewV7()
 		if err != nil {
@@ -43,7 +45,7 @@ func (service *Leases) Claim(ctx context.Context) (Work, bool, error) {
 		if before.Deadline != nil {
 			unit.DeadlineAtMS = *before.Deadline
 		}
-		plan := LeaseClaim{
+		plan := model.LeaseClaim{
 			Before:     before,
 			Work:       unit,
 			Now:        now,
@@ -62,16 +64,16 @@ func (service *Leases) Claim(ctx context.Context) (Work, bool, error) {
 		return nil
 	})
 	if err != nil {
-		return Work{}, false, fmt.Errorf("claim server import: %w", err)
+		return model.Work{}, false, fmt.Errorf("claim server import: %w", err)
 	}
 	return result, found, nil
 }
 
-func (service *Leases) Heartbeat(ctx context.Context, unit Work) error {
+func (service *Leases) Heartbeat(ctx context.Context, unit model.Work) error {
 	return service.touch(ctx, unit, "", nil)
 }
 
-func (service *Leases) Progress(ctx context.Context, unit Work, phase string, current, total int64) error {
+func (service *Leases) Progress(ctx context.Context, unit model.Work, phase string, current, total int64) error {
 	event, err := json.Marshal(map[string]any{"schemaVersion": 1, "phase": phase, "completed": current, "total": total})
 	if err != nil {
 		return fmt.Errorf("encode import progress: %w", err)
@@ -79,8 +81,8 @@ func (service *Leases) Progress(ctx context.Context, unit Work, phase string, cu
 	return service.touch(ctx, unit, phase, event)
 }
 
-func (service *Leases) touch(ctx context.Context, unit Work, phase string, event []byte) error {
-	err := service.repository.WithWrite(ctx, func(records LeaseRecords) error {
+func (service *Leases) touch(ctx context.Context, unit model.Work, phase string, event []byte) error {
+	err := service.repository.WithWrite(ctx, func(records model.LeaseRecords) error {
 		before, err := records.Current(ctx, unit.JobID)
 		if err != nil {
 			return fmt.Errorf("read import lease: %w", err)
@@ -88,18 +90,17 @@ func (service *Leases) touch(ctx context.Context, unit Work, phase string, event
 		now := service.now().UnixMilli()
 		if before.Work.ImportID != unit.ImportID || before.Work.Execution != unit.Execution ||
 			before.Work.Owner != unit.Owner || unit.Owner == "" {
-			return ErrLeaseLost
+			return model.ErrLeaseLost
 		}
 		if before.State == "CANCEL_REQUESTED" || before.State == "CANCELLED" {
-			return ErrWorkerCancelled
+			return model.ErrWorkerCancelled
 		}
 		if before.State != "RUNNING" || before.ImportState != "RUNNING" ||
 			before.LeaseUntil == nil || *before.LeaseUntil <= now {
-			return ErrLeaseLost
+			return model.ErrLeaseLost
 		}
 		if err := records.Touch(
-			ctx,
-			LeaseTouch{
+			ctx, model.LeaseTouch{
 				Before:     before,
 				Now:        now,
 				LeaseUntil: now + time.Minute.Milliseconds(),

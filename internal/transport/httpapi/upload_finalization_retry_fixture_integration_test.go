@@ -19,6 +19,9 @@ import (
 	"testing"
 	"time"
 
+	blobmodel "retrom/internal/model/blob"
+	uploadsmodel "retrom/internal/model/uploads"
+
 	"retrom/internal/adapter/files/blobstore"
 	"retrom/internal/adapter/integration/libraryimport"
 	jobpersistence "retrom/internal/repo/jobs"
@@ -37,9 +40,9 @@ type retryUploadBlobs struct {
 	calls atomic.Int64
 }
 
-func (source *retryUploadBlobs) Put(reader io.Reader) (blobstore.Metadata, error) {
+func (source *retryUploadBlobs) Put(reader io.Reader) (blobmodel.PreparedBlob, error) {
 	if source.calls.Add(1) == 1 {
-		return blobstore.Metadata{}, errors.New("temporary upload CAS failure")
+		return blobmodel.PreparedBlob{}, errors.New("temporary upload CAS failure")
 	}
 	return source.blobs.Put(reader)
 }
@@ -68,7 +71,7 @@ func newUploadRetryFixture(t *testing.T) uploadRetryFixture {
 		importer: libraryimport.New(database.SQL, now),
 	}
 	server.idempotencyQueueDrained = sync.NewCond(&server.idempotencyQueueMu)
-	session, err := uploader.Create(t.Context(), uploads.CreateRequest{SourceType: "FILES", Files: []uploads.FileDeclaration{
+	session, err := uploader.Create(t.Context(), uploadsmodel.CreateRequest{SourceType: "FILES", Files: []uploadsmodel.FileDeclaration{
 		{ClientFileID: "fixture", RelativePath: "fixture.bin", SizeBytes: 5},
 	}})
 	if err != nil {

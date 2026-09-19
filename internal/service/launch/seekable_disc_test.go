@@ -3,14 +3,16 @@ package launch
 import (
 	"strings"
 	"testing"
+
+	model "retrom/internal/model/launch"
 )
 
 func TestSeekableDiscUsesFrozenBlobIdentityAndRange(t *testing.T) {
-	source := ConfigSource{
+	source := model.ConfigSource{
 		CoreID: "play", ProviderID: "retrom-runtime", TargetID: "play-ps2",
 		BundleDigest: strings.Repeat("b", 64), ContentKind: "SINGLE_FILE",
 	}
-	files := []ConfigFile{{
+	files := []model.ConfigFile{{
 		LogicalName: "disc.chd", Format: "SOURCE_V1",
 		Digest: strings.Repeat("a", 64), Size: 8_000_000_000,
 	}}

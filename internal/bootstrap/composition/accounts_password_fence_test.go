@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"retrom/internal/bootstrap/config"
-	accountservice "retrom/internal/service/accounts"
+	accountsmodel "retrom/internal/model/accounts"
 )
 
 func TestPasswordRotationRejectsRevokedPrincipalVersion(t *testing.T) {
@@ -16,7 +16,7 @@ func TestPasswordRotationRejectsRevokedPrincipalVersion(t *testing.T) {
 		t.Fatal(err)
 	}
 	next := "second replacement passphrase"
-	if _, err := fixture.service.ChangePassword(t.Context(), session.Principal, replacement, next, next); !errors.Is(err, accountservice.ErrAuthenticationNeeded) {
+	if _, err := fixture.service.ChangePassword(t.Context(), session.Principal, replacement, next, next); !errors.Is(err, accountsmodel.ErrAuthenticationNeeded) {
 		t.Fatalf("revoked principal changed password: %v", err)
 	}
 }

@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"testing"
 
-	application "retrom/internal/service/emulationstationimport"
+	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
 )
 
 func TestScanWriteFenceRejectsChangedDurableIdentity(t *testing.T) {
@@ -25,7 +25,7 @@ func TestScanWriteFenceRejectsChangedDurableIdentity(t *testing.T) {
 			t.Parallel()
 			db, unit, value := scanDatabase(t)
 			before := planRows(t, db)
-			err := NewScanPublication(db).WithScan(t.Context(), func(scope application.ScanScope) error {
+			err := NewScanPublication(db).WithScan(t.Context(), func(scope emulationstationimportmodel.ScanScope) error {
 				snapshot, found, err := scope.Read.Current(t.Context(), unit.JobID)
 				if err != nil || !found {
 					t.Fatalf("snapshot=%v %v", found, err)
@@ -37,9 +37,9 @@ func TestScanWriteFenceRejectsChangedDurableIdentity(t *testing.T) {
 				if _, err := records.executor.ExecContext(t.Context(), mutation); err != nil {
 					t.Fatal(err)
 				}
-				return scope.Write.Headers(t.Context(), application.ScanMutation{Before: snapshot, NowMS: 1001}, value)
+				return scope.Write.Headers(t.Context(), emulationstationimportmodel.ScanMutation{Before: snapshot, NowMS: 1001}, value)
 			})
-			if !errors.Is(err, application.ErrVersionConflict) {
+			if !errors.Is(err, emulationstationimportmodel.ErrVersionConflict) {
 				t.Fatalf("stale mutation accepted: %v", err)
 			}
 			if !reflect.DeepEqual(before, planRows(t, db)) {

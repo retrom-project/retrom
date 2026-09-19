@@ -16,6 +16,8 @@ import (
 	"testing"
 	"time"
 
+	launchmodel "retrom/internal/model/launch"
+	uploadsmodel "retrom/internal/model/uploads"
 	persistence "retrom/internal/repo/launch"
 	application "retrom/internal/service/launch"
 
@@ -56,13 +58,13 @@ func TestDOSLaunchLocksMenuOrSelectedDeterministicBundle(t *testing.T) {
 	}
 	blobs, err := blobstore.Open(dataDir)
 	testassert.False(t, err != nil, err)
-	files := []uploads.FileDeclaration{
+	files := []uploadsmodel.FileDeclaration{
 		{ClientFileID: "exe", RelativePath: "DOOM/DOOM.EXE", SizeBytes: 3},
 		{ClientFileID: "wad", RelativePath: "DOOM/DATA.WAD", SizeBytes: 3},
 		{ClientFileID: "unsafe", RelativePath: "DOOM/SETUP%.BAT", SizeBytes: 3},
 	}
 	uploadService := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
-	upload, err := uploadService.Create(ctx, uploads.CreateRequest{SourceType: "DIRECTORY", Files: files})
+	upload, err := uploadService.Create(ctx, uploadsmodel.CreateRequest{SourceType: "DIRECTORY", Files: files})
 	testassert.False(t, err != nil, err)
 	for index, body := range [][]byte{[]byte("exe"), []byte("wad"), []byte("bat")} {
 		digest := sha256.Sum256(body)
@@ -224,7 +226,7 @@ WHERE variant.game_id=?
 	}
 	transaction, err := database.SQL.BeginTx(ctx, nil)
 	testassert.False(t, err != nil, err)
-	inputs := application.ValidationInputs{
+	inputs := launchmodel.ValidationInputs{
 		GameVariantID: variantID, GameID: "missing-game", GameVersion: gameVersion,
 		SourceManifestDigest: strings.Repeat("a", 64), ProviderID: providerID, TargetID: targetID,
 		ContentPolicy:         contentcapability.NewPolicy("SINGLE_FILE"),

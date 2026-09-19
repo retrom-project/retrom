@@ -60,7 +60,7 @@ func TestReviewPreviewValidationsRejectsMissingItemBeforeStorage(t *testing.T) {
 	service := NewReviewPreviewValidations(repository, reviewPreviewValidationStub{}, func() time.Time {
 		return time.UnixMilli(7)
 	})
-	if err := service.Refresh(t.Context(), " "); !errors.Is(err, ErrInvalid) {
+	if err := service.Refresh(t.Context(), " "); !errors.Is(err, application.ErrInvalid) {
 		t.Fatalf("error = %v, want ErrInvalid", err)
 	}
 	if repository.itemID != "" {

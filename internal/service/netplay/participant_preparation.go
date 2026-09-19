@@ -8,22 +8,23 @@ import (
 	"sync"
 	"time"
 
-	launch "retrom/internal/service/launch"
+	launchmodel "retrom/internal/model/launch"
+	model "retrom/internal/model/netplay"
 	"retrom/internal/transport/netplay/capability"
 )
 
 type ParticipantPreparation struct {
-	repository PreparationRepository
-	signer     CredentialSigner
-	aborter    PreparationAborter
+	repository model.PreparationRepository
+	signer     model.CredentialSigner
+	aborter    model.PreparationAborter
 	now        func() time.Time
 	mu         sync.Mutex
 }
 
 func NewParticipantPreparation(
-	repository PreparationRepository,
-	signer CredentialSigner,
-	aborter PreparationAborter,
+	repository model.PreparationRepository,
+	signer model.CredentialSigner,
+	aborter model.PreparationAborter,
 	now func() time.Time,
 ) *ParticipantPreparation {
 	return &ParticipantPreparation{repository: repository, signer: signer, aborter: aborter, now: now}
@@ -31,20 +32,20 @@ func NewParticipantPreparation(
 
 func (service *ParticipantPreparation) Launch(
 	ctx context.Context,
-	launcher NetplayLauncher,
-	request PreparationRequest,
-) (ParticipantLaunchResult, error) {
+	launcher model.NetplayLauncher,
+	request model.PreparationRequest,
+) (model.ParticipantLaunchResult, error) {
 	service.mu.Lock()
 	defer service.mu.Unlock()
 	spec, err := service.repository.Snapshot(ctx, request.RoomID, request.SessionID, request.ProfileID)
 	if err != nil {
-		return ParticipantLaunchResult{}, fmt.Errorf("netplay/read preparation: %w", err)
+		return model.ParticipantLaunchResult{}, fmt.Errorf("netplay/read preparation: %w", err)
 	}
 	if spec.Control.State == "FINISHED" || spec.Control.State == "FAILED" || !slices.Contains(
 		[]string{"LOCKED", "LAUNCH_READY", "RUNTIME_READY"},
 		spec.Peer.State,
 	) {
-		return ParticipantLaunchResult{}, ErrRoomConflict
+		return model.ParticipantLaunchResult{}, model.ErrRoomConflict
 	}
 	generation := spec.Peer.CredentialGeneration
 	if generation == 0 {
@@ -52,12 +53,11 @@ func (service *ParticipantPreparation) Launch(
 	}
 	credential, err := IssueParticipantCredential(service.signer, request.SessionID, request.ProfileID, generation)
 	if err != nil {
-		return ParticipantLaunchResult{}, err
+		return model.ParticipantLaunchResult{}, err
 	}
 	hash := capability.HashCapability(credential)
 	created, err := launcher.CreateNetplay(
-		ctx,
-		launch.NetplayCreateRequest{
+		ctx, launchmodel.NetplayCreateRequest{
 			RoomID:                  request.RoomID,
 			SessionID:               request.SessionID,
 			ProfileID:               request.ProfileID,
@@ -74,7 +74,7 @@ func (service *ParticipantPreparation) Launch(
 		},
 	)
 	if err != nil {
-		return ParticipantLaunchResult{}, service.Fail(
+		return model.ParticipantLaunchResult{}, service.Fail(
 			ctx,
 			request.RoomID,
 			request.SessionID,
@@ -82,26 +82,30 @@ func (service *ParticipantPreparation) Launch(
 		)
 	}
 	if err := service.record(ctx, request, generation); err != nil {
-		return ParticipantLaunchResult{}, service.Fail(ctx, request.RoomID, request.SessionID, err)
+		return model.ParticipantLaunchResult{}, service.Fail(ctx, request.RoomID, request.SessionID, err)
 	}
-	return ParticipantLaunchResult{
+	return model.ParticipantLaunchResult{
 		Launch:           created,
 		RoomCapability:   capability.EncodeCapability(credential),
 		CredentialExpiry: service.now().Add(8 * time.Hour).UnixMilli(),
 	}, nil
 }
 
-func (service *ParticipantPreparation) record(ctx context.Context, request PreparationRequest, generation int64) error {
+func (service *ParticipantPreparation) record(
+	ctx context.Context,
+	request model.PreparationRequest,
+	generation int64,
+) error {
 	now := service.now().UnixMilli()
-	err := service.repository.WithPreparation(ctx, func(scope PreparationScope) error {
+	err := service.repository.WithPreparation(ctx, func(scope model.PreparationScope) error {
 		before, err := scope.Read.Snapshot(ctx, request.RoomID, request.SessionID, request.ProfileID)
 		if err != nil {
 			return fmt.Errorf("netplay/read prepared participant: %w", err)
 		}
 		if before.Peer.CredentialGeneration != generation || before.Peer.State == "LOCKED" || before.Peer.State == "LEFT" {
-			return ErrRoomConflict
+			return model.ErrRoomConflict
 		}
-		events := make([]SessionEvent, 0, 2)
+		events := make([]model.SessionEvent, 0, 2)
 		if !before.LaunchRecorded {
 			event := stateEvent("PARTICIPANT_STATE_CHANGED", "LOCKED", "LAUNCH_READY", "")
 			event.ActorID = &request.ProfileID
@@ -116,8 +120,7 @@ func (service *ParticipantPreparation) record(ctx context.Context, request Prepa
 			return nil
 		}
 		if err := scope.Write.Record(
-			ctx,
-			PreparationPlan{Before: before, Events: events, AdvanceLoading: advance, Now: now},
+			ctx, model.PreparationPlan{Before: before, Events: events, AdvanceLoading: advance, Now: now},
 		); err != nil {
 			return fmt.Errorf("netplay/record prepared participant: %w", err)
 		}
@@ -140,9 +143,9 @@ func (service *ParticipantPreparation) Fail(ctx context.Context, roomID, session
 
 func (service *RoomExit) AbortPreparation(ctx context.Context, roomID, sessionID string) error {
 	now := service.now().UnixMilli()
-	err := service.repository.WithExit(ctx, func(scope RoomExitScope) error {
+	err := service.repository.WithExit(ctx, func(scope model.RoomExitScope) error {
 		before, err := scope.Read.Current(ctx, roomID, "")
-		if errors.Is(err, ErrRoomNotFound) {
+		if errors.Is(err, model.ErrRoomNotFound) {
 			return nil
 		}
 		if err != nil {

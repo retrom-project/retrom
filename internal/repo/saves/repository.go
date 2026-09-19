@@ -5,7 +5,8 @@ import (
 	"database/sql"
 	"fmt"
 
-	"retrom/internal/adapter/files/blobstore"
+	blobmodel "retrom/internal/model/blob"
+
 	"retrom/internal/model/saves"
 	"retrom/internal/repo/blobcatalog"
 	"retrom/internal/repo/dbexec"
@@ -50,7 +51,7 @@ func (repository *Repository) WithWrite(ctx context.Context, work func(saves.Wri
 
 func (store records) Ensure(
 	ctx context.Context,
-	metadata blobstore.Metadata,
+	metadata blobmodel.PreparedBlob,
 	mediaType string,
 	now int64,
 ) (string, error) {

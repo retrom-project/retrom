@@ -6,19 +6,21 @@ import (
 	"errors"
 	"testing"
 
+	payloadreleasemodel "retrom/internal/model/payloadrelease"
 	"retrom/internal/repo/dbexec"
 	persistence "retrom/internal/repo/payloadrelease"
 	release "retrom/internal/service/payloadrelease"
 )
 
 type changedPayloadOwner struct {
-	release.SchedulingScope
+	payloadreleasemodel.SchedulingScope
+
 	transaction *sql.Tx
 	mutation    string
 	changed     bool
 }
 
-func (records *changedPayloadOwner) Owner(ctx context.Context, ref release.Scope) (release.Owner, error) {
+func (records *changedPayloadOwner) Owner(ctx context.Context, ref payloadreleasemodel.Scope) (payloadreleasemodel.Owner, error) {
 	before, err := records.SchedulingScope.Owner(ctx, ref)
 	if err != nil || records.changed {
 		return before, err
@@ -53,9 +55,8 @@ SET execution_state='COMMIT_FAILED',retryable=0,completed_at_ms=10 WHERE id='ite
 				SchedulingScope: persistence.BindScheduling(tx), transaction: tx,
 				mutation: "UPDATE pegasus_import_items SET " + change.mutation + " WHERE id='item'",
 			}
-			id, err := release.NewScheduler(nil).TerminalSource(t.Context(), scope,
-				release.Scope{Type: release.ScopePegasusImportItem, ID: "item"}, 10)
-			if id != "" || !errors.Is(err, release.ErrScopeInvalid) || !scope.changed {
+			id, err := release.NewScheduler(nil).TerminalSource(t.Context(), scope, payloadreleasemodel.Scope{Type: payloadreleasemodel.ScopePegasusImportItem, ID: "item"}, 10)
+			if id != "" || !errors.Is(err, payloadreleasemodel.ErrScopeInvalid) || !scope.changed {
 				t.Fatalf("payload scheduler ignored stale owner: %q/%v changed=%t", id, err, scope.changed)
 			}
 			var jobs int

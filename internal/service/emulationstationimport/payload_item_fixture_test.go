@@ -3,24 +3,30 @@ package emulationstationimport
 import (
 	"context"
 
-	payload "retrom/internal/service/payloadrelease"
+	payloadreleasemodel "retrom/internal/model/payloadrelease"
 )
 
 type payloadItemMemory struct{ memory *itemWorkMemory }
 
-func payloadItemScope(memory *itemWorkMemory) payload.ReleaseScope {
-	return payload.ReleaseScope{Scheduling: payloadItemMemory{memory: memory}}
+func payloadItemScope(memory *itemWorkMemory) payloadreleasemodel.ReleaseScope {
+	return payloadreleasemodel.ReleaseScope{Scheduling: payloadItemMemory{memory: memory}}
 }
 
-func (records payloadItemMemory) Owner(_ context.Context, ref payload.Scope) (payload.Owner, error) {
-	return payload.Owner{
+func (records payloadItemMemory) Owner(_ context.Context, ref payloadreleasemodel.Scope) (payloadreleasemodel.Owner, error) {
+	return payloadreleasemodel.Owner{
 		Scope: ref, State: records.memory.outcome.State, Version: records.memory.before.Item.Version + 1,
 		PayloadState: "RETAINED", Retryable: records.memory.outcome.Retryable,
 	}, nil
 }
 func (payloadItemMemory) PendingChildren(context.Context, string) (int64, error) { return 0, nil }
-func (payloadItemMemory) Consumption(context.Context, string) (payload.Consumption, error) {
-	return payload.Consumption{}, nil
+func (payloadItemMemory) Consumption(context.Context, string) (payloadreleasemodel.Consumption, error) {
+	return payloadreleasemodel.Consumption{}, nil
 }
-func (payloadItemMemory) CreateJob(context.Context, payload.ScheduledJob) error    { return nil }
-func (payloadItemMemory) BeginRelease(context.Context, payload.OwnerRelease) error { return nil }
+
+func (payloadItemMemory) CreateJob(context.Context, payloadreleasemodel.ScheduledJob) error {
+	return nil
+}
+
+func (payloadItemMemory) BeginRelease(context.Context, payloadreleasemodel.OwnerRelease) error {
+	return nil
+}

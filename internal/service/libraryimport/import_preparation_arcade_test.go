@@ -5,15 +5,16 @@ import (
 	"testing"
 
 	"retrom/internal/capability/format/importing"
+	model "retrom/internal/model/libraryimport"
 )
 
 func TestArcadePreparationFiltersDefaultBIOSAndRetainsHashRequirements(t *testing.T) {
 	t.Parallel()
 	defaultBIOS, alternative := "default", "alternative"
 	crc, sha, merge := "ABCD", "SHA", "parent.bin"
-	selected := SelectedArcadeRequirements(ArcadeCatalogRequirements{
+	selected := SelectedArcadeRequirements(model.ArcadeCatalogRequirements{
 		DefaultBIOS: &defaultBIOS,
-		ROMs: []ArcadeROMRequirement{
+		ROMs: []model.ArcadeROMRequirement{
 			{Name: "base.bin", Status: "GOOD", Size: 3, CRC32: &crc, SHA1: &sha, MergeName: &merge},
 			{Name: "default.bin", Status: "GOOD", BIOSName: &defaultBIOS},
 			{Name: "other.bin", Status: "GOOD", BIOSName: &alternative},
@@ -33,12 +34,12 @@ func TestArcadePreparationFiltersDefaultBIOSAndRetainsHashRequirements(t *testin
 func TestArcadePreparationHashMismatchAndBadDumpRemainSeparate(t *testing.T) {
 	t.Parallel()
 	crc := "abcd"
-	requirements := []ArcadeROMRequirement{{Name: "absent.bin", Status: "GOOD"}, {Name: "bad.bin", Status: "BADDUMP", Size: 2, CRC32: &crc}}
+	requirements := []model.ArcadeROMRequirement{{Name: "absent.bin", Status: "GOOD"}, {Name: "bad.bin", Status: "BADDUMP", Size: 2, CRC32: &crc}}
 	missing, mismatched, warnings := MatchArcadeRequirements(map[string]importing.ArchiveEntry{"bad.bin": {Size: 2, CRC32: "ffff"}}, requirements)
 	if !reflect.DeepEqual(missing, []string{"absent.bin"}) || !reflect.DeepEqual(mismatched, []string{"bad.bin"}) || !reflect.DeepEqual(warnings, []string{"bad.bin"}) {
 		t.Fatalf("missing=%v mismatch=%v warnings=%v", missing, mismatched, warnings)
 	}
-	selected := SelectedArcadeRequirements(ArcadeCatalogRequirements{ROMs: []ArcadeROMRequirement{{Name: "optional.bin", BIOSName: &crc}, {Name: "direct.bin", Status: "GOOD"}}})
+	selected := SelectedArcadeRequirements(model.ArcadeCatalogRequirements{ROMs: []model.ArcadeROMRequirement{{Name: "optional.bin", BIOSName: &crc}, {Name: "direct.bin", Status: "GOOD"}}})
 	if len(selected) != 1 || selected[0].Name != "direct.bin" {
 		t.Fatalf("unset default selected optional BIOS: %+v", selected)
 	}

@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	saveservice "retrom/internal/service/saves"
+	savesmodel "retrom/internal/model/saves"
 )
 
 func TestCheckpointRechecksExpiryAfterReadingBody(t *testing.T) {
@@ -20,7 +20,7 @@ func TestCheckpointRechecksExpiryAfterReadingBody(t *testing.T) {
 		*fixture.now = fixture.now.Add(9 * time.Hour)
 	}}
 	_, _, err := fixture.saves.CreateManual(fixture.ctx, launch.LaunchID, launch.Capability, "late-key", request)
-	if !errors.Is(err, saveservice.ErrCredential) {
+	if !errors.Is(err, savesmodel.ErrCredential) {
 		t.Fatalf("expired launch wrote checkpoint after body receive: %v", err)
 	}
 	var saves, replays int

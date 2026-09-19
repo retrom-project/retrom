@@ -6,17 +6,19 @@ import (
 	"fmt"
 	"time"
 
+	model "retrom/internal/model/libraryimport"
+
 	"github.com/google/uuid"
 )
 
 type MultiDiscAttachmentTerminals struct {
-	repository MultiDiscAttachmentTerminalRepository
+	repository model.MultiDiscAttachmentTerminalRepository
 	now        func() time.Time
 	newID      func() (string, error)
 }
 
 func NewMultiDiscAttachmentTerminals(
-	repository MultiDiscAttachmentTerminalRepository, now func() time.Time,
+	repository model.MultiDiscAttachmentTerminalRepository, now func() time.Time,
 ) *MultiDiscAttachmentTerminals {
 	if now == nil {
 		now = time.Now
@@ -33,10 +35,10 @@ func newMultiDiscAttachmentTerminalID() (string, error) {
 }
 
 func (service *MultiDiscAttachmentTerminals) Reject(
-	ctx context.Context, request MultiDiscAttachmentRejectRequest,
+	ctx context.Context, request model.MultiDiscAttachmentRejectRequest,
 ) error {
 	if !validMultiDiscAttachmentTarget(request.Target) || request.Code == "" {
-		return ErrInvalid
+		return model.ErrInvalid
 	}
 	eventID, err := service.newID()
 	if err != nil {
@@ -50,7 +52,7 @@ func (service *MultiDiscAttachmentTerminals) Reject(
 	evidence := multiDiscReviewEventJSON(map[string]any{
 		"attachmentKind": "MULTI_DISC", "state": "REJECTED", "errorCode": request.Code,
 	})
-	if err := service.repository.Reject(ctx, MultiDiscAttachmentRejectWrite{
+	if err := service.repository.Reject(ctx, model.MultiDiscAttachmentRejectWrite{
 		Target: request.Target, Actor: request.Actor, Code: request.Code,
 		DiagnosticsJSON: string(diagnostics), EvidenceJSON: evidence, EventID: eventID, NowMS: now,
 	}); err != nil {
@@ -60,10 +62,10 @@ func (service *MultiDiscAttachmentTerminals) Reject(
 }
 
 func (service *MultiDiscAttachmentTerminals) Retry(
-	ctx context.Context, request MultiDiscAttachmentRetryRequest,
-) (MultiDiscAttachmentRetryResult, error) {
+	ctx context.Context, request model.MultiDiscAttachmentRetryRequest,
+) (model.MultiDiscAttachmentRetryResult, error) {
 	if !validMultiDiscAttachmentTarget(request.Target) || request.Code == "" {
-		return MultiDiscAttachmentRetryResult{}, ErrInvalid
+		return model.MultiDiscAttachmentRetryResult{}, model.ErrInvalid
 	}
 	now := service.now().UnixMilli()
 	diagnostics, _ := json.Marshal(map[string]any{
@@ -75,7 +77,7 @@ func (service *MultiDiscAttachmentTerminals) Retry(
 		"durationMs": multiDiscAttachmentDurationMS(request.Target.ExecutionStartedAtMS, now),
 		"errorCode":  request.Code,
 	})
-	write := MultiDiscAttachmentRetryWrite{
+	write := model.MultiDiscAttachmentRetryWrite{
 		Target: request.Target, Code: request.Code,
 		DiagnosticsJSON: string(diagnostics), EventJSON: string(event), NowMS: now,
 	}
@@ -84,16 +86,16 @@ func (service *MultiDiscAttachmentTerminals) Retry(
 		return result, nil
 	}
 	if err := service.repository.FailRetryable(ctx, write); err != nil {
-		return MultiDiscAttachmentRetryResult{}, fmt.Errorf("finish retryable multi-disc attachment: %w", err)
+		return model.MultiDiscAttachmentRetryResult{}, fmt.Errorf("finish retryable multi-disc attachment: %w", err)
 	}
-	return MultiDiscAttachmentRetryResult{}, nil
+	return model.MultiDiscAttachmentRetryResult{}, nil
 }
 
 func (service *MultiDiscAttachmentTerminals) SyncCancellation(
 	ctx context.Context, jobID string,
 ) error {
 	if jobID == "" {
-		return ErrInvalid
+		return model.ErrInvalid
 	}
 	if err := service.repository.SyncCancellation(ctx, jobID, service.now().UnixMilli()); err != nil {
 		return fmt.Errorf("sync multi-disc attachment cancellation: %w", err)
@@ -102,17 +104,17 @@ func (service *MultiDiscAttachmentTerminals) SyncCancellation(
 }
 
 func (service *MultiDiscAttachmentTerminals) FinishCancellation(
-	ctx context.Context, request MultiDiscAttachmentCancellationRequest,
+	ctx context.Context, request model.MultiDiscAttachmentCancellationRequest,
 ) (bool, error) {
 	if !validMultiDiscAttachmentTarget(request.Target) {
-		return false, ErrInvalid
+		return false, model.ErrInvalid
 	}
 	now := service.now().UnixMilli()
 	event, _ := json.Marshal(map[string]any{
 		"schemaVersion": 1, "state": "CANCELLED",
 		"durationMs": multiDiscAttachmentDurationMS(request.Target.ExecutionStartedAtMS, now),
 	})
-	result, err := service.repository.FinishCancellation(ctx, MultiDiscAttachmentCancellationWrite{
+	result, err := service.repository.FinishCancellation(ctx, model.MultiDiscAttachmentCancellationWrite{
 		Target: request.Target, NowMS: now, EventJSON: string(event),
 	})
 	if err != nil {
@@ -121,7 +123,7 @@ func (service *MultiDiscAttachmentTerminals) FinishCancellation(
 	return result, nil
 }
 
-func validMultiDiscAttachmentTarget(target MultiDiscAttachmentTerminalTarget) bool {
+func validMultiDiscAttachmentTarget(target model.MultiDiscAttachmentTerminalTarget) bool {
 	return target.AttachmentID != "" && target.ItemID != "" && target.JobID != "" && target.WorkerID != ""
 }
 

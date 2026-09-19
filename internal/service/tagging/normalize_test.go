@@ -6,6 +6,7 @@ import (
 	"testing"
 	"unicode/utf8"
 
+	model "retrom/internal/model/tagging"
 	"retrom/internal/testkit/testassert"
 )
 
@@ -49,7 +50,7 @@ func TestNormalizeNameBoundaries(t *testing.T) {
 		t.Fatalf("40 code points = %q, %v", value, err)
 	}
 	for _, value := range []string{"", "  ", "bad\nname", strings.Repeat("界", 41)} {
-		if _, _, _, err := NormalizeName(value); !errors.Is(err, ErrNameInvalid) {
+		if _, _, _, err := NormalizeName(value); !errors.Is(err, model.ErrNameInvalid) {
 			t.Fatalf("NormalizeName(%q) error = %v", value, err)
 		}
 	}
@@ -58,17 +59,17 @@ func TestNormalizeNameBoundaries(t *testing.T) {
 func TestValidateIDsRejectsDuplicatesAndLimit(t *testing.T) {
 	t.Parallel()
 	id := "01980000-0000-7000-8000-000000000001"
-	if _, err := ValidateIDs([]string{id, id}); !errors.Is(err, ErrInvalid) {
+	if _, err := ValidateIDs([]string{id, id}); !errors.Is(err, model.ErrInvalid) {
 		t.Fatalf("duplicate error = %v", err)
 	}
-	values := make([]string, MaxTagsPerOwner+1)
+	values := make([]string, model.MaxTagsPerOwner+1)
 	for index := range values {
 		values[index] = id
 	}
-	if _, err := ValidateIDs(values); !errors.Is(err, ErrAssignmentLimitExceeded) {
+	if _, err := ValidateIDs(values); !errors.Is(err, model.ErrAssignmentLimitExceeded) {
 		t.Fatalf("limit error = %v", err)
 	}
-	if _, err := ValidateIDs([]string{"550e8400-e29b-41d4-a716-446655440000"}); !errors.Is(err, ErrInvalid) {
+	if _, err := ValidateIDs([]string{"550e8400-e29b-41d4-a716-446655440000"}); !errors.Is(err, model.ErrInvalid) {
 		t.Fatalf("non-v7 error = %v", err)
 	}
 }

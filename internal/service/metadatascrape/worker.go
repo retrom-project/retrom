@@ -5,17 +5,21 @@ import (
 	"errors"
 	"fmt"
 	"time"
+
+	metadatascrapemodel "retrom/internal/model/metadatascrape"
 )
 
-const metadataExecutionTimeout = time.Hour
-
 type Worker struct {
-	repository WorkerRepository
-	processor  WorkerProcessor
+	repository metadatascrapemodel.WorkerRepository
+	processor  metadatascrapemodel.WorkerProcessor
 	now        func() time.Time
 }
 
-func NewWorker(repository WorkerRepository, processor WorkerProcessor, now func() time.Time) *Worker {
+func NewWorker(
+	repository metadatascrapemodel.WorkerRepository,
+	processor metadatascrapemodel.WorkerProcessor,
+	now func() time.Time,
+) *Worker {
 	return &Worker{repository: repository, processor: processor, now: now}
 }
 
@@ -27,7 +31,7 @@ func (worker *Worker) Run(parent context.Context, runID string) error {
 	if run.Provider == "NONE" || run.State != "RUNNING" {
 		return nil
 	}
-	claim := WorkerClaim{RunID: runID, JobID: run.JobID, ExecutionNo: run.ExecutionNo}
+	claim := metadatascrapemodel.WorkerClaim{RunID: runID, JobID: run.JobID, ExecutionNo: run.ExecutionNo}
 	if run.JobState == "CANCELLED" {
 		return worker.settle(parent, claim, 0, "", nil)
 	}
@@ -43,7 +47,7 @@ func (worker *Worker) Run(parent context.Context, runID string) error {
 		cause := context.DeadlineExceeded
 		if run.Deadline == 0 || run.Deadline > claim.Now {
 			code = "METADATA_ATTEMPTS_EXHAUSTED"
-			cause = ErrAttemptsExhausted
+			cause = metadatascrapemodel.ErrAttemptsExhausted
 		}
 		return worker.settle(parent, claim, 0, code, cause)
 	}
@@ -65,8 +69,7 @@ func (worker *Worker) Run(parent context.Context, runID string) error {
 func (worker *Worker) heartbeat(
 	ctx context.Context,
 	cancel context.CancelCauseFunc,
-	claim WorkerClaim,
-	stopped chan<- struct{},
+	claim metadatascrapemodel.WorkerClaim, stopped chan<- struct{},
 ) {
 	defer close(stopped)
 	ticker := time.NewTicker(15 * time.Second)
@@ -77,7 +80,7 @@ func (worker *Worker) heartbeat(
 			return
 		case <-ticker.C:
 			current := false
-			err := worker.repository.WithWrite(ctx, func(scope WorkerScope) error {
+			err := worker.repository.WithWrite(ctx, func(scope metadatascrapemodel.WorkerScope) error {
 				var err error
 				current, err = scope.Leases.Refresh(ctx, claim, worker.now().UnixMilli())
 				if err != nil {
@@ -90,7 +93,7 @@ func (worker *Worker) heartbeat(
 				return
 			}
 			if !current {
-				cancel(ErrExecutionLost)
+				cancel(metadatascrapemodel.ErrExecutionLost)
 				return
 			}
 		}

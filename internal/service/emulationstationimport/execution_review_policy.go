@@ -1,6 +1,8 @@
 package emulationstationimport
 
-func reviewPreparation(review ExecutionReview) ([]string, error) {
+import model "retrom/internal/model/emulationstationimport"
+
+func ReviewPreparation(review model.ExecutionReview) ([]string, error) {
 	switch review.State {
 	case "PENDING":
 		return []string{"COPYING", "VALIDATING"}, nil
@@ -13,5 +15,5 @@ func reviewPreparation(review ExecutionReview) ([]string, error) {
 			return []string{"PENDING", "COPYING", "VALIDATING"}, nil
 		}
 	}
-	return nil, ErrInvalid
+	return nil, model.ErrInvalid
 }

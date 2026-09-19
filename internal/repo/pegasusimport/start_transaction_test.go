@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	pegasusimportmodel "retrom/internal/model/pegasusimport"
 	tagrepository "retrom/internal/repo/tagging"
 	application "retrom/internal/service/pegasusimport"
 	"retrom/internal/service/tagging"
@@ -33,7 +34,7 @@ VALUES('import-0','metadata.pegasus.txt',10,'ddddddddddddddddddddddddddddddddddd
 		t.Fatal(err)
 	}
 	mapper := application.NewMappings(NewMappings(db), tagging.New(tagrepository.New(db), time.Now), func() time.Time { return time.UnixMilli(2) })
-	if _, err := mapper.Update(t.Context(), "import-0", 1, []application.Mapping{
+	if _, err := mapper.Update(t.Context(), "import-0", 1, []pegasusimportmodel.Mapping{
 		{CollectionID: mappingCollection, Action: "IMPORT", PlatformInstanceID: instance, TagIDs: []string{mappingTag}},
 		{CollectionID: skippedStartCollection, Action: "SKIP", TagIDs: []string{}},
 	}, mappingActor); err != nil {
@@ -62,12 +63,12 @@ func TestStartRollsBackJobInputItemsAndReleasesOnFailure(t *testing.T) {
 			db := startDatabase(t)
 			beforeRows := workflowRows(t, db)
 			cause := errors.New("late start failure")
-			err := NewStarter(db).WithStart(t.Context(), func(scope application.StartScope) error {
+			err := NewStarter(db).WithStart(t.Context(), func(scope pegasusimportmodel.StartScope) error {
 				before, err := scope.Read.Current(t.Context(), "import-0")
 				if err != nil {
 					return err
 				}
-				plan := application.StartPlan{Before: before, JobID: "start-job", ExecutionID: "start-execution", AuditID: "start-audit", ActorID: mappingActor, DedupeKey: strings.Repeat("1", 64), NowMS: 10}
+				plan := pegasusimportmodel.StartPlan{Before: before, JobID: "start-job", ExecutionID: "start-execution", AuditID: "start-audit", ActorID: mappingActor, DedupeKey: strings.Repeat("1", 64), NowMS: 10}
 				invalidateStartPlan(&plan, failure)
 				if err := scope.Write.Queue(t.Context(), plan); err != nil {
 					return err
@@ -87,7 +88,7 @@ func TestStartRollsBackJobInputItemsAndReleasesOnFailure(t *testing.T) {
 	}
 }
 
-func invalidateStartPlan(plan *application.StartPlan, failure string) {
+func invalidateStartPlan(plan *pegasusimportmodel.StartPlan, failure string) {
 	switch failure {
 	case "job":
 		plan.JobID = "job-0"
@@ -104,11 +105,11 @@ func invalidateStartPlan(plan *application.StartPlan, failure string) {
 
 type verifiedStartSource struct{ database *sql.DB }
 
-func (source verifiedStartSource) Select(_ context.Context, id, _ string) (application.SelectedRoot, error) {
-	return application.SelectedRoot{ID: id, Digest: strings.Repeat("a", 64)}, nil
+func (source verifiedStartSource) Select(_ context.Context, id, _ string) (pegasusimportmodel.SelectedRoot, error) {
+	return pegasusimportmodel.SelectedRoot{ID: id, Digest: strings.Repeat("a", 64)}, nil
 }
 
-func (source verifiedStartSource) VerifyMetadata(ctx context.Context, _, _ string, metadata []application.MetadataEvidence) error {
+func (source verifiedStartSource) VerifyMetadata(ctx context.Context, _, _ string, metadata []pegasusimportmodel.MetadataEvidence) error {
 	if source.database.Stats().InUse != 0 {
 		return errors.New("verification retained database connection")
 	}

@@ -6,18 +6,20 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/libraryimport"
 )
 
 type importRetryFixture struct {
-	snapshot             ImportItemRetrySnapshot
+	snapshot             model.ImportItemRetrySnapshot
 	found                bool
 	currentErr, writeErr error
 	transactions         int
-	write                ImportItemRetryWrite
+	write                model.ImportItemRetryWrite
 }
 
 func (fixture *importRetryFixture) WithRetry(
-	_ context.Context, work func(ImportItemRetryScope) error,
+	_ context.Context, work func(model.ImportItemRetryScope) error,
 ) error {
 	fixture.transactions++
 	return work(fixture)
@@ -25,12 +27,12 @@ func (fixture *importRetryFixture) WithRetry(
 
 func (fixture *importRetryFixture) Current(
 	context.Context, string,
-) (ImportItemRetrySnapshot, bool, error) {
+) (model.ImportItemRetrySnapshot, bool, error) {
 	return fixture.snapshot, fixture.found, fixture.currentErr
 }
 
 func (fixture *importRetryFixture) Retry(
-	_ context.Context, write ImportItemRetryWrite,
+	_ context.Context, write model.ImportItemRetryWrite,
 ) error {
 	fixture.write = write
 	return fixture.writeErr
@@ -39,7 +41,7 @@ func (fixture *importRetryFixture) Retry(
 func newImportRetryFixture() *importRetryFixture {
 	return &importRetryFixture{
 		found: true,
-		snapshot: ImportItemRetrySnapshot{
+		snapshot: model.ImportItemRetrySnapshot{
 			ImportID: "import", Stage: "METADATA", ManifestDigest: strings.Repeat("a", 64), Version: 3,
 			State: "FAILED_RETRYABLE",
 		},
@@ -53,10 +55,10 @@ func importRetryService(fixture *importRetryFixture) *ImportItemRetries {
 }
 
 func TestImportItemRetryRejectsInvalidInputBeforeTransaction(t *testing.T) {
-	for _, request := range []ImportItemRetryRequest{{}, {ItemID: "item"}, {ItemID: "item", ExpectedVersion: 0}} {
+	for _, request := range []model.ImportItemRetryRequest{{}, {ItemID: "item"}, {ItemID: "item", ExpectedVersion: 0}} {
 		fixture := newImportRetryFixture()
 		_, err := importRetryService(fixture).Retry(t.Context(), request)
-		if !errors.Is(err, ErrInvalid) || fixture.transactions != 0 {
+		if !errors.Is(err, model.ErrInvalid) || fixture.transactions != 0 {
 			t.Fatalf("request=%+v result error=%v transactions=%d", request, err, fixture.transactions)
 		}
 	}
@@ -64,11 +66,11 @@ func TestImportItemRetryRejectsInvalidInputBeforeTransaction(t *testing.T) {
 
 func TestImportItemRetryBuildsDurableWrite(t *testing.T) {
 	fixture := newImportRetryFixture()
-	result, err := importRetryService(fixture).Retry(t.Context(), ImportItemRetryRequest{ItemID: "item", ExpectedVersion: 3})
+	result, err := importRetryService(fixture).Retry(t.Context(), model.ImportItemRetryRequest{ItemID: "item", ExpectedVersion: 3})
 	if err != nil {
 		t.Fatalf("retry error=%v", err)
 	}
-	if result != (ImportItemRetryResult{ItemID: "item", JobID: "job", State: "QUEUED", Version: 4}) {
+	if result != (model.ImportItemRetryResult{ItemID: "item", JobID: "job", State: "QUEUED", Version: 4}) {
 		t.Fatalf("retry result=%+v", result)
 	}
 	if fixture.write.ItemID != "item" || fixture.write.ImportID != "import" || fixture.write.Stage != "METADATA" ||
@@ -87,15 +89,15 @@ func TestImportItemRetryPreservesStorageAndStateErrors(t *testing.T) {
 	}{
 		{"read", func(f *importRetryFixture) { f.currentErr = cause }, cause},
 		{"write", func(f *importRetryFixture) { f.writeErr = cause }, cause},
-		{"missing", func(f *importRetryFixture) { f.found = false }, ErrInvalid},
-		{"stale", func(f *importRetryFixture) { f.snapshot.Version = 4 }, ErrInvalid},
-		{"terminal", func(f *importRetryFixture) { f.snapshot.State = "COMPLETED" }, ErrInvalid},
+		{"missing", func(f *importRetryFixture) { f.found = false }, model.ErrInvalid},
+		{"stale", func(f *importRetryFixture) { f.snapshot.Version = 4 }, model.ErrInvalid},
+		{"terminal", func(f *importRetryFixture) { f.snapshot.State = "COMPLETED" }, model.ErrInvalid},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			fixture := newImportRetryFixture()
 			test.mutate(fixture)
-			result, err := importRetryService(fixture).Retry(t.Context(), ImportItemRetryRequest{ItemID: "item", ExpectedVersion: 3})
-			if !errors.Is(err, test.expect) || result != (ImportItemRetryResult{}) {
+			result, err := importRetryService(fixture).Retry(t.Context(), model.ImportItemRetryRequest{ItemID: "item", ExpectedVersion: 3})
+			if !errors.Is(err, test.expect) || result != (model.ImportItemRetryResult{}) {
 				t.Fatalf("result=%+v err=%v", result, err)
 			}
 		})

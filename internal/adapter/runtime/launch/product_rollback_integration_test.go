@@ -13,19 +13,20 @@ import (
 	"modernc.org/sqlite"
 
 	"retrom/internal/foundation/cleanup"
+	launchmodel "retrom/internal/model/launch"
 	persistence "retrom/internal/repo/launch"
-	application "retrom/internal/service/launch"
 )
 
 type productWriteFaultRepository struct {
-	application.ProductCreationRepository
-	change  func(*application.ProductCreatePlan)
+	launchmodel.ProductCreationRepository
+
+	change  func(*launchmodel.ProductCreatePlan)
 	after   func() error
 	reached bool
 }
 
-func (repository *productWriteFaultRepository) WithCreation(ctx context.Context, work func(application.ProductCreationScope) error) error {
-	return repository.ProductCreationRepository.WithCreation(ctx, func(scope application.ProductCreationScope) error {
+func (repository *productWriteFaultRepository) WithCreation(ctx context.Context, work func(launchmodel.ProductCreationScope) error) error {
+	return repository.ProductCreationRepository.WithCreation(ctx, func(scope launchmodel.ProductCreationScope) error {
 		if err := work(productWriteFaultScope{ProductCreationScope: scope, change: repository.change}); err != nil {
 			return err
 		}
@@ -38,11 +39,12 @@ func (repository *productWriteFaultRepository) WithCreation(ctx context.Context,
 }
 
 type productWriteFaultScope struct {
-	application.ProductCreationScope
-	change func(*application.ProductCreatePlan)
+	launchmodel.ProductCreationScope
+
+	change func(*launchmodel.ProductCreatePlan)
 }
 
-func (scope productWriteFaultScope) Create(ctx context.Context, plan application.ProductCreatePlan) error {
+func (scope productWriteFaultScope) Create(ctx context.Context, plan launchmodel.ProductCreatePlan) error {
 	if scope.change != nil {
 		scope.change(&plan)
 	}
@@ -62,7 +64,7 @@ func productCreationRows(t *testing.T, database *sql.DB) map[string]string {
 	return result
 }
 
-func assertProductCreationRollback(t *testing.T, service *Service, command application.ProductCreateCommand) {
+func assertProductCreationRollback(t *testing.T, service *Service, command launchmodel.ProductCreateCommand) {
 	t.Helper()
 	cause := errors.New("product interrupted after all writes and receipt")
 	repository := &productWriteFaultRepository{ProductCreationRepository: persistence.NewProductCreation(service.database), after: func() error { return cause }}
@@ -75,8 +77,8 @@ func assertProductCreationRollback(t *testing.T, service *Service, command appli
 		t.Fatal("post-write rollback retained product owners, files, tickets or receipt")
 	}
 	repository.after = nil
-	repository.change = func(plan *application.ProductCreatePlan) {
-		plan.External = append(plan.External, application.ProductExternalFile{Kind: "BIOS", LogicalName: "late-failure.bin", VirtualPath: "/late-failure.bin", BlobID: "absent"})
+	repository.change = func(plan *launchmodel.ProductCreatePlan) {
+		plan.External = append(plan.External, launchmodel.ProductExternalFile{Kind: "BIOS", LogicalName: "late-failure.bin", VirtualPath: "/late-failure.bin", BlobID: "absent"})
 	}
 	result, err = service.productCreator(repository).Create(t.Context(), command)
 	var storage *sqlite.Error
@@ -90,7 +92,7 @@ func assertProductCreationRollback(t *testing.T, service *Service, command appli
 
 func TestProductCreationRollsBackEveryOwner(t *testing.T) {
 	fixture, request := productCreationFixture(t)
-	assertProductCreationRollback(t, fixture.launcher, application.ProductCreateCommand{ProfileID: "local", Request: request})
+	assertProductCreationRollback(t, fixture.launcher, launchmodel.ProductCreateCommand{ProfileID: "local", Request: request})
 }
 
 func productTableRows(t *testing.T, database *sql.DB, table string) []byte {

@@ -6,17 +6,20 @@ import (
 	"fmt"
 	"testing"
 
+	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
 	"retrom/internal/repo/recordstore"
-	application "retrom/internal/service/emulationstationimport"
 )
 
 const planDigest = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 
-func planDatabase(t *testing.T) (*sql.DB, application.Summary) {
+func planDatabase(t *testing.T) (*sql.DB, emulationstationimportmodel.Summary) {
 	t.Helper()
 	db := creationDatabase(t)
 	plan := creationPlan(0)
-	if err := NewCreation(db).WithCreate(t.Context(), func(writer application.CreationWriter) error { _, err := writer.Insert(t.Context(), plan); return err }); err != nil {
+	if err := NewCreation(db).WithCreate(t.Context(), func(writer emulationstationimportmodel.CreationWriter) error {
+		_, err := writer.Insert(t.Context(), plan)
+		return err
+	}); err != nil {
 		t.Fatal(err)
 	}
 	seedPlanProjection(t, db)

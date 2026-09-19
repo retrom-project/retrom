@@ -4,13 +4,15 @@ import (
 	"context"
 	"fmt"
 
+	model "retrom/internal/model/emulationstationimport"
+	payloadreleasemodel "retrom/internal/model/payloadrelease"
 	payload "retrom/internal/service/payloadrelease"
 )
 
-func (service *ItemWork) Next(ctx context.Context, unit Execution) (ExecutionItem, bool, error) {
-	var item ExecutionItem
+func (service *ItemWork) Next(ctx context.Context, unit model.Execution) (model.ExecutionItem, bool, error) {
+	var item model.ExecutionItem
 	found := false
-	err := service.repository.WithItemWork(ctx, func(scope ItemWorkScope) error {
+	err := service.repository.WithItemWork(ctx, func(scope model.ItemWorkScope) error {
 		execution, err := currentExecution(ctx, scope.Read, unit)
 		if err != nil {
 			return err
@@ -27,14 +29,13 @@ func (service *ItemWork) Next(ctx context.Context, unit Execution) (ExecutionIte
 			return nil
 		}
 		if item.ImportID != unit.ImportID || !validItemVersion(item.Version) || !workingItemState(item.State) {
-			return ErrVersionConflict
+			return model.ErrVersionConflict
 		}
 		if item.State != "PENDING" {
 			return nil
 		}
 		if err := scope.Write.Claim(
-			ctx,
-			ItemClaim{Before: OwnedItem{Execution: execution, Item: item}, NowMS: now},
+			ctx, model.ItemClaim{Before: model.OwnedItem{Execution: execution, Item: item}, NowMS: now},
 		); err != nil {
 			return fmt.Errorf("claim EmulationStation item: %w", err)
 		}
@@ -42,13 +43,13 @@ func (service *ItemWork) Next(ctx context.Context, unit Execution) (ExecutionIte
 		return nil
 	})
 	if err != nil {
-		return ExecutionItem{}, false, fmt.Errorf("begin EmulationStation item work: %w", err)
+		return model.ExecutionItem{}, false, fmt.Errorf("begin EmulationStation item work: %w", err)
 	}
 	return item, found, nil
 }
 
-func (service *ItemWork) Resume(ctx context.Context, unit Execution, itemID, jobID, ordinaryID string) error {
-	err := service.repository.WithItemWork(ctx, func(scope ItemWorkScope) error {
+func (service *ItemWork) Resume(ctx context.Context, unit model.Execution, itemID, jobID, ordinaryID string) error {
+	err := service.repository.WithItemWork(ctx, func(scope model.ItemWorkScope) error {
 		before, now, err := service.owned(ctx, scope.Read, unit, itemID)
 		if err != nil {
 			return err
@@ -57,15 +58,15 @@ func (service *ItemWork) Resume(ctx context.Context, unit Execution, itemID, job
 			ordinaryID == "" ||
 			before.Item.LibraryImportJobID != jobID ||
 			before.Item.LibraryImportItemID != ordinaryID {
-			return ErrVersionConflict
+			return model.ErrVersionConflict
 		}
 		if before.Item.State == "VALIDATING" || before.Item.State == "REVIEW_PENDING" {
 			return nil
 		}
 		if before.Item.State != "COPYING" {
-			return ErrVersionConflict
+			return model.ErrVersionConflict
 		}
-		if err := scope.Write.Resume(ctx, ItemResume{Before: before, NowMS: now}); err != nil {
+		if err := scope.Write.Resume(ctx, model.ItemResume{Before: before, NowMS: now}); err != nil {
 			return fmt.Errorf("resume EmulationStation review item: %w", err)
 		}
 		return nil
@@ -76,24 +77,26 @@ func (service *ItemWork) Resume(ctx context.Context, unit Execution, itemID, job
 	return nil
 }
 
-func (service *ItemWork) Finish(ctx context.Context, unit Execution, id string, outcome ItemOutcome) error {
+func (service *ItemWork) Finish(ctx context.Context, unit model.Execution, id string, outcome model.ItemOutcome) error {
 	if !validItemOutcome(outcome) {
-		return ErrInvalid
+		return model.ErrInvalid
 	}
-	err := service.repository.WithItemWork(ctx, func(scope ItemWorkScope) error {
+	err := service.repository.WithItemWork(ctx, func(scope model.ItemWorkScope) error {
 		before, now, err := service.owned(ctx, scope.Read, unit, id)
 		if err != nil {
 			return err
 		}
 		if before.Item.State != "COPYING" && before.Item.State != "VALIDATING" {
-			return ErrVersionConflict
+			return model.ErrVersionConflict
 		}
-		if err := scope.Write.Finish(ctx, ItemFinish{Before: before, Outcome: outcome, NowMS: now}); err != nil {
+		if err := scope.Write.Finish(ctx, model.ItemFinish{Before: before, Outcome: outcome, NowMS: now}); err != nil {
 			return fmt.Errorf("save EmulationStation item outcome: %w", err)
 		}
 		_, err = payload.NewScheduler(nil).TerminalSource(
-			ctx, scope.Payload.Scheduling,
-			payload.Scope{Type: payload.ScopeEmulationStationImportItem, ID: id}, now,
+			ctx, scope.Payload.Scheduling, payloadreleasemodel.Scope{
+				Type: payloadreleasemodel.ScopeEmulationStationImportItem,
+				ID:   id,
+			}, now,
 		)
 		if err != nil {
 			return fmt.Errorf("schedule EmulationStation item payloads: %w", err)
@@ -108,20 +111,20 @@ func (service *ItemWork) Finish(ctx context.Context, unit Execution, id string, 
 
 func (service *ItemWork) owned(
 	ctx context.Context,
-	reader ItemWorkReader,
-	unit Execution,
+	reader model.ItemWorkReader,
+	unit model.Execution,
 	id string,
-) (OwnedItem, int64, error) {
+) (model.OwnedItem, int64, error) {
 	before, err := reader.Item(ctx, id)
 	if err != nil {
-		return OwnedItem{}, 0, fmt.Errorf("read EmulationStation item ownership: %w", err)
+		return model.OwnedItem{}, 0, fmt.Errorf("read EmulationStation item ownership: %w", err)
 	}
 	now := service.now().UnixMilli()
 	if err := validateImportExecution(before.Execution, unit, now); err != nil {
-		return OwnedItem{}, 0, err
+		return model.OwnedItem{}, 0, err
 	}
 	if before.Item.ID != id || before.Item.ImportID != unit.ImportID || !validItemVersion(before.Item.Version) {
-		return OwnedItem{}, 0, ErrVersionConflict
+		return model.OwnedItem{}, 0, model.ErrVersionConflict
 	}
 	return before, now, nil
 }

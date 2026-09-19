@@ -3,15 +3,17 @@ package serverimport_test
 import (
 	"errors"
 	"testing"
+
+	serverimportmodel "retrom/internal/model/serverimport"
 )
 
 func TestServerImportRetryRejectsAnotherActiveImport(t *testing.T) {
 	service, database, failed := failedControlImport(t)
-	active, err := service.Create(t.Context(), CreateRequest{Kind: "BIOS_DIRECTORY", RootID: "bios-root"}, controlActorID)
+	active, err := service.Create(t.Context(), serverimportmodel.CreateRequest{Kind: "BIOS_DIRECTORY", RootID: "bios-root"}, controlActorID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.Retry(t.Context(), failed.ID, failed.Version, controlActorID); !errors.Is(err, ErrNotRetryable) {
+	if _, err := service.Retry(t.Context(), failed.ID, failed.Version, controlActorID); !errors.Is(err, serverimportmodel.ErrNotRetryable) {
 		t.Fatalf("active import did not produce retry conflict: %v", err)
 	}
 	var state string

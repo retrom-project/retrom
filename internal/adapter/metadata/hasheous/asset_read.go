@@ -6,25 +6,32 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+
+	"retrom/internal/capability/format/imagecontent"
+
+	metadatamodel "retrom/internal/model/metadata"
 )
 
-func readAssetResponse(ctx context.Context, response *http.Response, limit int64) (AssetData, error) {
+func readAssetResponse(ctx context.Context, response *http.Response, limit int64) (metadatamodel.AssetData, error) {
 	contents, readErr := io.ReadAll(io.LimitReader(assetContextReader{ctx, response.Body}, limit))
 	closed := response.Body.Close()
 	received := int64(len(contents))
 	if err := errors.Join(readErr, closed, context.Cause(ctx)); err != nil {
-		return AssetData{ReceivedBytes: received}, errors.Join(ErrAssetNetwork, err)
+		return metadatamodel.AssetData{ReceivedBytes: received}, errors.Join(metadatamodel.ErrAssetNetwork, err)
 	}
 	if received == limit {
-		code := ErrAssetReadLimit
-		if limit == MaximumAssetReadBytes {
-			code = ErrAssetTooLarge
+		code := metadatamodel.ErrAssetReadLimit
+		if limit == metadatamodel.MaximumAssetReadBytes {
+			code = metadatamodel.ErrAssetTooLarge
 		}
-		return AssetData{ReceivedBytes: received}, code
+		return metadatamodel.AssetData{ReceivedBytes: received}, code
 	}
-	data, err := validateImage(contents, response.Header.Get("Content-Type"))
+	data, err := imagecontent.Validate(contents, response.Header.Get("Content-Type"))
 	data.ReceivedBytes = received
-	return data, err
+	if err != nil {
+		return data, fmt.Errorf("validate fetched image: %w", err)
+	}
+	return data, nil
 }
 
 type assetContextReader struct {

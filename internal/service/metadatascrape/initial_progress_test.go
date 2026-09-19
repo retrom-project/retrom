@@ -4,25 +4,31 @@ import (
 	"context"
 	"errors"
 	"testing"
+
+	metadatascrapemodel "retrom/internal/model/metadatascrape"
 )
 
 type initialMemory struct {
-	InitialReader
-	item       InitialImport
+	metadatascrapemodel.InitialReader
+	item       metadatascrapemodel.InitialImport
 	found      bool
 	readsError error
-	changes    []InitialProgressChange
+	changes    []metadatascrapemodel.InitialProgressChange
 }
 
-func (memory *initialMemory) Import(context.Context, string) (InitialImport, bool, error) {
+func (memory *initialMemory) Import(context.Context, string) (metadatascrapemodel.InitialImport, bool, error) {
 	return memory.item, memory.found, memory.readsError
 }
 
-func (memory *initialMemory) Candidates(context.Context, string) ([]InitialCandidate, error) {
+func (memory *initialMemory) Candidates(context.Context, string) ([]metadatascrapemodel.InitialCandidate, error) {
 	return nil, nil
 }
-func (memory *initialMemory) Apply(context.Context, InitialDraftChange) error { return nil }
-func (memory *initialMemory) Advance(_ context.Context, change InitialProgressChange) error {
+
+func (memory *initialMemory) Apply(context.Context, metadatascrapemodel.InitialDraftChange) error {
+	return nil
+}
+
+func (memory *initialMemory) Advance(_ context.Context, change metadatascrapemodel.InitialProgressChange) error {
 	memory.changes = append(memory.changes, change)
 	return nil
 }
@@ -39,8 +45,8 @@ func TestInitialReviewProgressDistinguishesPendingAndPartialFailure(t *testing.T
 		{"other active items", 2, 0, 0, "RUNNING"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			memory := &initialMemory{found: true, item: InitialImport{ItemID: "item", ImportJobID: "import", ItemState: "SCRAPING", Running: test.running, Failed: test.failed, Rejected: test.rejected, Version: 7}}
-			if err := NewInitialReview(InitialReviewScope{Read: memory, Write: memory}).Complete(t.Context(), "run", 100); err != nil {
+			memory := &initialMemory{found: true, item: metadatascrapemodel.InitialImport{ItemID: "item", ImportJobID: "import", ItemState: "SCRAPING", Running: test.running, Failed: test.failed, Rejected: test.rejected, Version: 7}}
+			if err := NewInitialReview(metadatascrapemodel.InitialReviewScope{Read: memory, Write: memory}).Complete(t.Context(), "run", 100); err != nil {
 				t.Fatal(err)
 			}
 			if len(memory.changes) != 1 {
@@ -55,21 +61,21 @@ func TestInitialReviewProgressDistinguishesPendingAndPartialFailure(t *testing.T
 }
 
 func TestInitialReviewRejectsInvalidProgressBeforeWriting(t *testing.T) {
-	memory := &initialMemory{found: true, item: InitialImport{ItemState: "SCRAPING", Running: 0}}
-	err := NewInitialReview(InitialReviewScope{Read: memory, Write: memory}).Complete(t.Context(), "run", 100)
-	if !errors.Is(err, ErrInitialProgressState) || len(memory.changes) != 0 {
+	memory := &initialMemory{found: true, item: metadatascrapemodel.InitialImport{ItemState: "SCRAPING", Running: 0}}
+	err := NewInitialReview(metadatascrapemodel.InitialReviewScope{Read: memory, Write: memory}).Complete(t.Context(), "run", 100)
+	if !errors.Is(err, metadatascrapemodel.ErrInitialProgressState) || len(memory.changes) != 0 {
 		t.Fatalf("invalid progress wrote: %v", err)
 	}
 	memory.readsError = context.Canceled
-	err = NewInitialReview(InitialReviewScope{Read: memory, Write: memory}).Complete(t.Context(), "run", 100)
+	err = NewInitialReview(metadatascrapemodel.InitialReviewScope{Read: memory, Write: memory}).Complete(t.Context(), "run", 100)
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("lost read failure: %v", err)
 	}
 }
 
 func TestInitialReviewFailureRetainsScrapingStageAndCode(t *testing.T) {
-	memory := &initialMemory{found: true, item: InitialImport{ItemState: "SCRAPING", Running: 1}}
-	err := NewInitialReview(InitialReviewScope{Read: memory, Write: memory}).Fail(t.Context(), "run", "STORAGE_FAILED", 100)
+	memory := &initialMemory{found: true, item: metadatascrapemodel.InitialImport{ItemState: "SCRAPING", Running: 1}}
+	err := NewInitialReview(metadatascrapemodel.InitialReviewScope{Read: memory, Write: memory}).Fail(t.Context(), "run", "STORAGE_FAILED", 100)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -80,8 +86,8 @@ func TestInitialReviewFailureRetainsScrapingStageAndCode(t *testing.T) {
 }
 
 func TestInitialAssetsChooseReadyImagesByOrdinalWithoutMutatingInput(t *testing.T) {
-	assets := []InitialAsset{{ID: "later", Kind: "COVER", Ordinal: 2}, {ID: "shot", Kind: "SCREENSHOT", Ordinal: 0}, {ID: "first", Kind: "COVER", Ordinal: 1}}
-	var change InitialDraftChange
+	assets := []metadatascrapemodel.InitialAsset{{ID: "later", Kind: "COVER", Ordinal: 2}, {ID: "shot", Kind: "SCREENSHOT", Ordinal: 0}, {ID: "first", Kind: "COVER", Ordinal: 1}}
+	var change metadatascrapemodel.InitialDraftChange
 	selectInitialAssets(&change, assets)
 	if change.CoverID == nil || *change.CoverID != "first" || change.BackgroundID != nil || len(change.Screenshots) != 1 || change.Screenshots[0].ID != "shot" {
 		t.Fatalf("asset selection: %+v", change)

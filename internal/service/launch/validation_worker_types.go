@@ -12,7 +12,7 @@ var (
 )
 
 const (
-	validationBudget      = 30 * time.Minute
-	validationLease       = time.Minute
+	validationBudget = 30 * time.Minute
+
 	validationUnavailable = "LAUNCH_CORE_VALIDATION_UNAVAILABLE"
 )

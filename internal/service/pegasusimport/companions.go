@@ -6,24 +6,26 @@ import (
 	"path"
 	"strings"
 	"time"
+
+	model "retrom/internal/model/pegasusimport"
 )
 
 type Companions struct {
-	repository CompanionRepository
+	repository model.CompanionRepository
 	now        func() time.Time
 }
 
-func NewCompanions(repository CompanionRepository, now func() time.Time) *Companions {
+func NewCompanions(repository model.CompanionRepository, now func() time.Time) *Companions {
 	return &Companions{repository: repository, now: now}
 }
 
 func (service *Companions) Find(
 	ctx context.Context,
-	id ExecutionIdentity,
+	id model.ExecutionIdentity,
 	itemID string,
-) ([]CompanionCandidate, error) {
-	var result []CompanionCandidate
-	err := service.repository.WithCompanions(ctx, func(scope CompanionScope) error {
+) ([]model.CompanionCandidate, error) {
+	var result []model.CompanionCandidate
+	err := service.repository.WithCompanions(ctx, func(scope model.CompanionScope) error {
 		before, _, err := service.owner(ctx, scope.Read, id, itemID)
 		if err != nil {
 			return err
@@ -39,16 +41,16 @@ func (service *Companions) Find(
 
 func (service *Companions) Record(
 	ctx context.Context,
-	id ExecutionIdentity,
+	id model.ExecutionIdentity,
 	itemID string,
-	candidate CompanionCandidate,
-	blob VerifiedBlob,
+	candidate model.CompanionCandidate,
+	blob model.VerifiedBlob,
 ) (string, error) {
 	if blob.Size != candidate.File.Size || blob.Size < 0 || blob.SHA256 == "" {
-		return "", ErrInvalid
+		return "", model.ErrInvalid
 	}
 	var result string
-	err := service.repository.WithCompanions(ctx, func(scope CompanionScope) error {
+	err := service.repository.WithCompanions(ctx, func(scope model.CompanionScope) error {
 		before, now, err := service.owner(ctx, scope.Read, id, itemID)
 		if err != nil {
 			return err
@@ -65,9 +67,9 @@ func (service *Companions) Record(
 			}
 		}
 		if !found {
-			return ErrVersionConflict
+			return model.ErrVersionConflict
 		}
-		result, err = scope.Write.Register(ctx, CompanionRegistration{
+		result, err = scope.Write.Register(ctx, model.CompanionRegistration{
 			Before: before, Candidate: candidate, Blob: blob, NowMS: now,
 		})
 		if err != nil {
@@ -83,32 +85,32 @@ func (service *Companions) Record(
 
 func (service *Companions) owner(
 	ctx context.Context,
-	reader CompanionReader,
-	id ExecutionIdentity,
+	reader model.CompanionReader,
+	id model.ExecutionIdentity,
 	itemID string,
-) (OwnedItem, int64, error) {
+) (model.OwnedItem, int64, error) {
 	before, err := reader.Owner(ctx, itemID)
 	if err != nil {
-		return OwnedItem{}, 0, fmt.Errorf("read companion owner: %w", err)
+		return model.OwnedItem{}, 0, fmt.Errorf("read companion owner: %w", err)
 	}
 	now := service.now().UnixMilli()
 	if err := ValidateExecution(before.Execution, id, now); err != nil {
-		return OwnedItem{}, 0, err
+		return model.OwnedItem{}, 0, err
 	}
 	if before.Item.ID != itemID || before.Item.ImportID != id.ImportID || before.Item.State != "COPYING" ||
 		before.Execution.JobState != "RUNNING" || before.Execution.Kind != "SERVER_PEGASUS_IMPORT" ||
 		!validItemVersion(before.Item.Version) {
-		return OwnedItem{}, 0, ErrVersionConflict
+		return model.OwnedItem{}, 0, model.ErrVersionConflict
 	}
 	return before, now, nil
 }
 
 func companionCandidates(
 	ctx context.Context,
-	reader CompanionReader,
-	item ExecutionItem,
-) ([]CompanionCandidate, error) {
-	result := []CompanionCandidate{}
+	reader model.CompanionReader,
+	item model.ExecutionItem,
+) ([]model.CompanionCandidate, error) {
+	result := []model.CompanionCandidate{}
 	if item.TargetDATVersionID == "" || len(item.Files) != 1 || !strings.EqualFold(path.Ext(item.Files[0].Path), ".zip") {
 		return result, nil
 	}

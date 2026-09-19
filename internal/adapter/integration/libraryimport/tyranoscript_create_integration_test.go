@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	uploadsmodel "retrom/internal/model/uploads"
 	uploadpersistence "retrom/internal/repo/uploads"
 
 	dependencypersistence "retrom/internal/repo/dependencies"
@@ -61,9 +62,9 @@ func testCreateTyranoScriptInputReachesTrialRequiredReview(t *testing.T, inputNa
 		t.Fatal(err)
 	}
 	uploadService := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
-	upload, err := uploadService.Create(ctx, uploads.CreateRequest{
+	upload, err := uploadService.Create(ctx, uploadsmodel.CreateRequest{
 		Purpose: "PROJECT", SourceType: "FILES",
-		Files: []uploads.FileDeclaration{{
+		Files: []uploadsmodel.FileDeclaration{{
 			ClientFileID: "tyranoscript", RelativePath: inputName, SizeBytes: int64(len(input)),
 		}},
 	})

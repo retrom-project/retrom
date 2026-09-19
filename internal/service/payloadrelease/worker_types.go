@@ -4,12 +4,14 @@ import (
 	"context"
 	"sync"
 	"time"
+
+	model "retrom/internal/model/payloadrelease"
 )
 
 const (
 	ExecutionTimeout = 30 * time.Minute
-	workerLease      = time.Minute
-	workerHeartbeat  = 15 * time.Second
+
+	workerHeartbeat = 15 * time.Second
 )
 
 type WorkerOptions struct {
@@ -20,8 +22,8 @@ type WorkerOptions struct {
 }
 
 type Worker struct {
-	repository      WorkerRepository
-	executor        WorkExecutor
+	repository      model.WorkerRepository
+	executor        model.WorkExecutor
 	now             func() time.Time
 	newID           func() (string, error)
 	report          func(error)

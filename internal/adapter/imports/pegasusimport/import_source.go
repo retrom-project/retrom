@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"retrom/internal/adapter/files/blobstore"
-	application "retrom/internal/service/pegasusimport"
+	blobmodel "retrom/internal/model/blob"
+	pegasusimportmodel "retrom/internal/model/pegasusimport"
 )
 
 type importSource struct {
@@ -14,27 +14,27 @@ type importSource struct {
 }
 
 func (source importSource) CopyFile(
-	ctx context.Context, unit application.Work, file application.ExecutionFile,
-) (application.VerifiedBlob, error) {
+	ctx context.Context, unit pegasusimportmodel.Work, file pegasusimportmodel.ExecutionFile,
+) (pegasusimportmodel.VerifiedBlob, error) {
 	blob, err := source.service.copySource(ctx, source.root, unit.RelativePath, file.Path, file.Size, file.Facts)
 	if err != nil {
-		return application.VerifiedBlob{}, fmt.Errorf("read Pegasus import file: %w", err)
+		return pegasusimportmodel.VerifiedBlob{}, fmt.Errorf("read Pegasus import file: %w", err)
 	}
 	return verifiedMaterial(blob), nil
 }
 
 func (source importSource) CopyAsset(
-	ctx context.Context, unit application.Work, asset application.ExecutionAsset,
-) (application.VerifiedBlob, bool, error) {
+	ctx context.Context, unit pegasusimportmodel.Work, asset pegasusimportmodel.ExecutionAsset,
+) (pegasusimportmodel.VerifiedBlob, bool, error) {
 	blob, valid, err := source.service.copyAsset(ctx, source.root, unit.RelativePath, asset)
 	if err != nil {
-		return application.VerifiedBlob{}, valid, fmt.Errorf("read Pegasus import asset: %w", err)
+		return pegasusimportmodel.VerifiedBlob{}, valid, fmt.Errorf("read Pegasus import asset: %w", err)
 	}
 	return verifiedMaterial(blob), valid, nil
 }
 
-func verifiedMaterial(metadata blobstore.Metadata) application.VerifiedBlob {
-	return application.VerifiedBlob{
+func verifiedMaterial(metadata blobmodel.PreparedBlob) pegasusimportmodel.VerifiedBlob {
+	return pegasusimportmodel.VerifiedBlob{
 		SHA256: metadata.SHA256,
 		MD5:    metadata.MD5,
 		SHA1:   metadata.SHA1,

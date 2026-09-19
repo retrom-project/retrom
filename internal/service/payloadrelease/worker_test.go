@@ -5,17 +5,19 @@ import (
 	"errors"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/payloadrelease"
 )
 
 type workerRepositoryFixture struct {
-	work      Work
-	changes   []WorkChange
+	work      model.Work
+	changes   []model.WorkChange
 	commitErr error
 }
 
-func (r *workerRepositoryFixture) WithWorker(_ context.Context, run func(WorkerScope) error) error {
+func (r *workerRepositoryFixture) WithWorker(_ context.Context, run func(model.WorkerScope) error) error {
 	before, changes := r.work, len(r.changes)
-	err := run(WorkerScope{Read: r, Write: r, Owners: r})
+	err := run(model.WorkerScope{Read: r, Write: r, Owners: r})
 	if err == nil {
 		err = r.commitErr
 	}
@@ -26,37 +28,37 @@ func (r *workerRepositoryFixture) WithWorker(_ context.Context, run func(WorkerS
 	return err
 }
 
-func (r *workerRepositoryFixture) Next(context.Context, int64) (Work, bool, error) {
+func (r *workerRepositoryFixture) Next(context.Context, int64) (model.Work, bool, error) {
 	return r.work, r.work.State == "QUEUED", nil
 }
 
-func (r *workerRepositoryFixture) Current(_ context.Context, id string) (Work, bool, error) {
+func (r *workerRepositoryFixture) Current(_ context.Context, id string) (model.Work, bool, error) {
 	return r.work, r.work.ID == id, nil
 }
 
-func (r *workerRepositoryFixture) Interrupted(context.Context, int64, int) ([]Work, error) {
-	return []Work{r.work}, nil
+func (r *workerRepositoryFixture) Interrupted(context.Context, int64, int) ([]model.Work, error) {
+	return []model.Work{r.work}, nil
 }
 
-func (r *workerRepositoryFixture) Change(_ context.Context, c WorkChange) error {
+func (r *workerRepositoryFixture) Change(_ context.Context, c model.WorkChange) error {
 	if c.Before != r.work {
-		return ErrExecutionLost
+		return model.ErrExecutionLost
 	}
 	r.work = c.After
 	r.changes = append(r.changes, c)
 	return nil
 }
 
-func (r *workerRepositoryFixture) Fence(_ context.Context, work Work) error {
+func (r *workerRepositoryFixture) Fence(_ context.Context, work model.Work) error {
 	if r.work != work {
-		return ErrExecutionLost
+		return model.ErrExecutionLost
 	}
 	return nil
 }
 
 func workerPolicyFixture() (*Worker, *workerRepositoryFixture) {
-	r := &workerRepositoryFixture{work: Work{
-		ID: "release", Kind: "PAYLOAD_RELEASE", Scope: Scope{Type: ScopeGame, ID: "game"},
+	r := &workerRepositoryFixture{work: model.Work{
+		ID: "release", Kind: "PAYLOAD_RELEASE", Scope: model.Scope{Type: model.ScopeGame, ID: "game"},
 		State: "QUEUED", MaxAttempts: 4, ExecutionNo: 1, Version: 1, AvailableMS: 10,
 	}}
 	w := NewWorker(r, nil, WorkerOptions{Now: func() time.Time { return time.UnixMilli(10) }, NewID: func() (string, error) { return "worker-one", nil }})
@@ -66,8 +68,8 @@ func workerPolicyFixture() (*Worker, *workerRepositoryFixture) {
 func TestWorkerClaimCommitsAuthorityAndRetainsOriginalBudget(t *testing.T) {
 	t.Parallel()
 	w, r := workerPolicyFixture()
-	r.work.Started = WorkTime{Value: 1, Set: true}
-	r.work.Deadline = WorkTime{Value: 1000, Set: true}
+	r.work.Started = model.WorkTime{Value: 1, Set: true}
+	r.work.Deadline = model.WorkTime{Value: 1000, Set: true}
 	unit, found, err := w.Claim(t.Context())
 	if err != nil || !found || unit != r.work || unit.WorkerID != "worker-one" || unit.Attempt != 1 || unit.Version != 2 ||
 		unit.Started.Value != 1 || unit.Deadline.Value != 1000 || unit.Lease.Value != 1000 {
@@ -112,7 +114,7 @@ func TestWorkerFinishRejectsReplacedExecution(t *testing.T) {
 	r.work.WorkerID = "replacement"
 	r.work.Version++
 	before := r.work
-	if err := w.Finish(t.Context(), unit, nil); !errors.Is(err, ErrExecutionLost) || r.work != before || len(r.changes) != 1 {
+	if err := w.Finish(t.Context(), unit, nil); !errors.Is(err, model.ErrExecutionLost) || r.work != before || len(r.changes) != 1 {
 		t.Fatalf("stale completion accepted: %v %+v", err, r.work)
 	}
 }
@@ -128,15 +130,15 @@ func TestWorkerRecoveryPreservesLiveLeaseAndTerminalizesExhaustion(t *testing.T)
 	if err := w.Recover(t.Context()); err != nil || r.work != before {
 		t.Fatalf("live lease stolen: %v", err)
 	}
-	r.work.Lease = WorkTime{Set: true, Value: 9}
+	r.work.Lease = model.WorkTime{Set: true, Value: 9}
 	r.work.Attempt = 4
 	if err := w.Recover(t.Context()); err != nil || r.work.State != "FAILED" || r.work.Attempt != 4 || r.work.Deadline != before.Deadline {
 		t.Fatalf("exhausted recovery extended budget: %+v/%v", r.work, err)
 	}
 }
 
-func (r *workerRepositoryFixture) Owner(_ context.Context, scope Scope) (Owner, error) {
-	return Owner{Scope: scope, Version: 2, PayloadState: "RELEASING", ReleaseJobID: r.work.ID}, nil
+func (r *workerRepositoryFixture) Owner(_ context.Context, scope model.Scope) (model.Owner, error) {
+	return model.Owner{Scope: scope, Version: 2, PayloadState: "RELEASING", ReleaseJobID: r.work.ID}, nil
 }
 
 type workerEffectFailure struct{}
@@ -150,9 +152,9 @@ func TestWorkerOwnDeadlineControlsFailureSettlement(t *testing.T) {
 	if err != nil || !found {
 		t.Fatalf("claim: %t/%v", found, err)
 	}
-	err = w.Finish(t.Context(), unit, errors.Join(workerEffectFailure{}, ErrExecutionTimeout))
+	err = w.Finish(t.Context(), unit, errors.Join(workerEffectFailure{}, model.ErrExecutionTimeout))
 	last := r.changes[len(r.changes)-1]
-	if err != nil || r.work.State != "FAILED" || last.ErrorCode != ErrExecutionTimeout.Error() {
+	if err != nil || r.work.State != "FAILED" || last.ErrorCode != model.ErrExecutionTimeout.Error() {
 		t.Fatalf("effect error masked execution deadline: state=%s code=%s error=%v", r.work.State, last.ErrorCode, err)
 	}
 }

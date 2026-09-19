@@ -15,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	uploadsmodel "retrom/internal/model/uploads"
 	uploadpersistence "retrom/internal/repo/uploads"
 
 	dependencypersistence "retrom/internal/repo/dependencies"
@@ -62,8 +63,8 @@ VALUES(?,'review-preview-profile','review-preview-admin','Review Preview Admin',
 	importService := libraryimport.New(database.SQL, time.Now)
 	createReview := func(name string, contents []byte, targetID string) string {
 		t.Helper()
-		upload, createErr := uploadService.Create(ctx, uploads.CreateRequest{
-			SourceType: "FILES", Files: []uploads.FileDeclaration{{
+		upload, createErr := uploadService.Create(ctx, uploadsmodel.CreateRequest{
+			SourceType: "FILES", Files: []uploadsmodel.FileDeclaration{{
 				ClientFileID: name, RelativePath: name, SizeBytes: int64(len(contents)),
 			}},
 		})

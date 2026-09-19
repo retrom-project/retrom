@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
 	application "retrom/internal/service/emulationstationimport"
 	"retrom/internal/testkit/testsupport"
 )
@@ -50,9 +51,9 @@ type completionLateFailure struct {
 
 func (repository completionLateFailure) WithCompletion(
 	ctx context.Context,
-	run func(application.CompletionScope) error,
+	run func(emulationstationimportmodel.CompletionScope) error,
 ) error {
-	return repository.Completion.WithCompletion(ctx, func(scope application.CompletionScope) error {
+	return repository.Completion.WithCompletion(ctx, func(scope emulationstationimportmodel.CompletionScope) error {
 		if err := run(scope); err != nil {
 			return err
 		}

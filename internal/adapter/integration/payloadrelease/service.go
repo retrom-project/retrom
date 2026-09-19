@@ -8,6 +8,7 @@ import (
 
 	"retrom/internal/adapter/files/payloadfiles"
 	"retrom/internal/foundation/cleanup"
+	payloadreleasemodel "retrom/internal/model/payloadrelease"
 	repository "retrom/internal/repo/payloadrelease"
 	application "retrom/internal/service/payloadrelease"
 
@@ -32,7 +33,7 @@ type claimedJob struct {
 	ScopeType   ScopeType
 	Attempt     int64
 	Input       scheduleInput
-	Work        application.Work
+	Work        payloadreleasemodel.Work
 }
 
 func New(database *sql.DB, blobs *blobstore.Store, now func() time.Time, retention time.Duration) (*Service, error) {
@@ -112,11 +113,11 @@ func (service *Service) RunOnce(ctx context.Context) (bool, error) {
 
 type releaseExecutor struct{ service *Service }
 
-func (adapter releaseExecutor) Execute(ctx context.Context, unit application.Execution) error {
+func (adapter releaseExecutor) Execute(ctx context.Context, unit payloadreleasemodel.Execution) error {
 	return adapter.service.execute(ctx, claimedWork(unit))
 }
 
-func claimedWork(unit application.Execution) claimedJob {
+func claimedWork(unit payloadreleasemodel.Execution) claimedJob {
 	return claimedJob{
 		ID: unit.Work.ID, ScopeID: unit.Work.Scope.ID, ScopeType: unit.Work.Scope.Type,
 		Attempt: unit.Work.Attempt, Input: unit.Input, Work: unit.Work,

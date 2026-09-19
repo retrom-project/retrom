@@ -1,7 +1,9 @@
 package libraryimport
 
-import application "retrom/internal/service/libraryimport"
+import (
+	libraryimportmodel "retrom/internal/model/libraryimport"
+)
 
-func importTargetFacts(target creationTarget) application.ImportTarget    { return target }
-func legacyCreationTarget(target application.ImportTarget) creationTarget { return target }
-func importFileFacts(files []importSourceFile) []application.ImportFile   { return files }
+func importTargetFacts(target creationTarget) libraryimportmodel.ImportTarget    { return target }
+func legacyCreationTarget(target libraryimportmodel.ImportTarget) creationTarget { return target }
+func importFileFacts(files []importSourceFile) []libraryimportmodel.ImportFile   { return files }

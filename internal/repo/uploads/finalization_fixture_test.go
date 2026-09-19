@@ -11,6 +11,9 @@ import (
 	"testing"
 	"time"
 
+	blobmodel "retrom/internal/model/blob"
+	uploadsmodel "retrom/internal/model/uploads"
+
 	"retrom/internal/adapter/files/blobstore"
 	"retrom/internal/repo/store"
 	uploadservice "retrom/internal/service/uploads"
@@ -49,17 +52,17 @@ func newFinalizationFixture(t *testing.T) *finalizationFixture {
 	return fixture
 }
 
-func (fixture *finalizationFixture) upload(t *testing.T, data []byte) uploadservice.Session {
+func (fixture *finalizationFixture) upload(t *testing.T, data []byte) uploadsmodel.Session {
 	t.Helper()
-	session, err := fixture.service.Create(t.Context(), uploadservice.CreateRequest{SourceType: "FILES", Files: []uploadservice.FileDeclaration{
+	session, err := fixture.service.Create(t.Context(), uploadsmodel.CreateRequest{SourceType: "FILES", Files: []uploadsmodel.FileDeclaration{
 		{ClientFileID: "file", RelativePath: "fixture.bin", SizeBytes: int64(len(data))},
 	}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	for offset := int64(0); offset < int64(len(data)); offset += uploadservice.PartSize {
-		end := min(offset+uploadservice.PartSize, int64(len(data)))
-		fixture.put(t, session, int(offset/uploadservice.PartSize), data[offset:end])
+	for offset := int64(0); offset < int64(len(data)); offset += uploadsmodel.PartSize {
+		end := min(offset+uploadsmodel.PartSize, int64(len(data)))
+		fixture.put(t, session, int(offset/uploadsmodel.PartSize), data[offset:end])
 	}
 	session, err = fixture.service.Get(t.Context(), session.ID)
 	if err != nil {
@@ -68,11 +71,11 @@ func (fixture *finalizationFixture) upload(t *testing.T, data []byte) uploadserv
 	return session
 }
 
-func (fixture *finalizationFixture) put(t *testing.T, session uploadservice.Session, number int, data []byte) {
+func (fixture *finalizationFixture) put(t *testing.T, session uploadsmodel.Session, number int, data []byte) {
 	t.Helper()
 	sum := sha256.Sum256(data)
 	digest := "sha-256=:" + base64.StdEncoding.EncodeToString(sum[:]) + ":"
-	offset := int64(number) * uploadservice.PartSize
+	offset := int64(number) * uploadsmodel.PartSize
 	span := fmt.Sprintf("bytes %d-%d/%d", offset, offset+int64(len(data))-1, session.TotalBytes)
 	if err := fixture.service.PutPart(t.Context(), session.ID, session.Files[0].ID, number, span, digest,
 		bytes.NewReader(data)); err != nil {
@@ -80,7 +83,7 @@ func (fixture *finalizationFixture) put(t *testing.T, session uploadservice.Sess
 	}
 }
 
-func (fixture *finalizationFixture) complete(t *testing.T, session uploadservice.Session) string {
+func (fixture *finalizationFixture) complete(t *testing.T, session uploadsmodel.Session) string {
 	t.Helper()
 	id, _, err := fixture.service.Complete(t.Context(), session.ID, session.Version)
 	if err != nil {
@@ -90,9 +93,9 @@ func (fixture *finalizationFixture) complete(t *testing.T, session uploadservice
 }
 
 type finalizationBlobs struct {
-	put func(io.Reader) (blobstore.Metadata, error)
+	put func(io.Reader) (blobmodel.PreparedBlob, error)
 }
 
-func (blobs finalizationBlobs) Put(reader io.Reader) (blobstore.Metadata, error) {
+func (blobs finalizationBlobs) Put(reader io.Reader) (blobmodel.PreparedBlob, error) {
 	return blobs.put(reader)
 }

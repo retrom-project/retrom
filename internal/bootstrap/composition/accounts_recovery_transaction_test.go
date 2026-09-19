@@ -6,8 +6,8 @@ import (
 	"testing"
 
 	"retrom/internal/bootstrap/config"
+	accountsmodel "retrom/internal/model/accounts"
 	accountpersistence "retrom/internal/repo/accounts"
-	accountservice "retrom/internal/service/accounts"
 )
 
 func TestOfflineRecoveryLateFailureKeepsCredentialAndSession(t *testing.T) {
@@ -18,8 +18,8 @@ func TestOfflineRecoveryLateFailureKeepsCredentialAndSession(t *testing.T) {
 	if err != nil || !found {
 		t.Fatalf("recovery target: %v", err)
 	}
-	err = repository.WithWrite(t.Context(), func(scope accountservice.RecoveryScope) error {
-		if err := scope.Write.Reset(t.Context(), accountservice.RecoveryPlan{Target: target, PasswordHash: "replacement-hash", AuditID: "rollback-audit", BeforeJSON: `{}`, AfterJSON: `{}`, ClearTestDefault: true, Now: fixture.now.UnixMilli()}); err != nil {
+	err = repository.WithWrite(t.Context(), func(scope accountsmodel.RecoveryScope) error {
+		if err := scope.Write.Reset(t.Context(), accountsmodel.RecoveryPlan{Target: target, PasswordHash: "replacement-hash", AuditID: "rollback-audit", BeforeJSON: `{}`, AfterJSON: `{}`, ClearTestDefault: true, Now: fixture.now.UnixMilli()}); err != nil {
 			return err
 		}
 		return context.Canceled

@@ -6,48 +6,50 @@ import (
 	"path"
 	"slices"
 	"strings"
+
+	model "retrom/internal/model/emulationstationimport"
 )
 
 func (service *Companions) load(
 	ctx context.Context,
-	reader CompanionReader,
-	unit Execution,
+	reader model.CompanionReader,
+	unit model.Execution,
 	id string,
 	now int64,
-) (CompanionOwner, []CompanionFile, error) {
+) (model.CompanionOwner, []model.CompanionFile, error) {
 	owner, err := reader.Owner(ctx, id)
 	if err != nil {
-		return CompanionOwner{}, nil, fmt.Errorf("read EmulationStation companion owner: %w", err)
+		return model.CompanionOwner{}, nil, fmt.Errorf("read EmulationStation companion owner: %w", err)
 	}
 	if err := validateCompanionExecution(owner.Before.Execution, unit, now); err != nil {
-		return CompanionOwner{}, nil, err
+		return model.CompanionOwner{}, nil, err
 	}
 	item := owner.Before.Item
 	if item.ID != id || item.ImportID != unit.ImportID || item.State != "COPYING" || !validItemVersion(item.Version) {
-		return CompanionOwner{}, nil, ErrVersionConflict
+		return model.CompanionOwner{}, nil, model.ErrVersionConflict
 	}
 	if !arcadeCompanionItem(item) {
-		return owner, []CompanionFile{}, nil
+		return owner, []model.CompanionFile{}, nil
 	}
 	if err := validateCompanionMapping(ctx, reader, owner); err != nil {
-		return CompanionOwner{}, nil, err
+		return model.CompanionOwner{}, nil, err
 	}
 	machine := strings.TrimSuffix(path.Base(item.Files[0].Path), path.Ext(item.Files[0].Path))
 	dependencies, err := reader.Dependencies(ctx, item.TargetDATVersionID, machine)
 	if err != nil {
-		return CompanionOwner{}, nil, fmt.Errorf("read EmulationStation companion closure: %w", err)
+		return model.CompanionOwner{}, nil, fmt.Errorf("read EmulationStation companion closure: %w", err)
 	}
 	if len(dependencies) == 0 {
-		return owner, []CompanionFile{}, nil
+		return owner, []model.CompanionFile{}, nil
 	}
 	candidates, err := reader.Candidates(ctx, owner)
 	if err != nil {
-		return CompanionOwner{}, nil, fmt.Errorf("read EmulationStation companion candidates: %w", err)
+		return model.CompanionOwner{}, nil, fmt.Errorf("read EmulationStation companion candidates: %w", err)
 	}
 	return owner, selectCompanionFiles(candidates, dependencies), nil
 }
 
-func validateCompanionMapping(ctx context.Context, reader CompanionReader, owner CompanionOwner) error {
+func validateCompanionMapping(ctx context.Context, reader model.CompanionReader, owner model.CompanionOwner) error {
 	target, found, err := reader.Target(ctx, owner.Mapping.InstanceID)
 	if err != nil {
 		return fmt.Errorf("read current EmulationStation companion target: %w", err)
@@ -57,23 +59,23 @@ func validateCompanionMapping(ctx context.Context, reader CompanionReader, owner
 		owner.Mapping.PlatformID != owner.Before.Item.TargetPlatformKind ||
 		owner.Mapping.DATVersionID == nil || *owner.Mapping.DATVersionID != owner.Before.Item.TargetDATVersionID ||
 		!sameCompanionTarget(owner.Mapping, target) {
-		return ErrVersionConflict
+		return model.ErrVersionConflict
 	}
 	return nil
 }
 
-func sameCompanionTarget(left, right MappingTarget) bool {
+func sameCompanionTarget(left, right model.MappingTarget) bool {
 	leftDAT, rightDAT := left.DATVersionID, right.DATVersionID
 	left.DATVersionID, right.DATVersionID = nil, nil
 	return left == right && leftDAT != nil && rightDAT != nil && *leftDAT == *rightDAT
 }
 
-func selectCompanionFiles(candidates []CompanionFile, dependencies []string) []CompanionFile {
+func selectCompanionFiles(candidates []model.CompanionFile, dependencies []string) []model.CompanionFile {
 	required := make(map[string]struct{}, len(dependencies))
 	for _, dependency := range dependencies {
 		required[dependency] = struct{}{}
 	}
-	result := make([]CompanionFile, 0, len(candidates))
+	result := make([]model.CompanionFile, 0, len(candidates))
 	for _, file := range candidates {
 		extension := path.Ext(file.Path)
 		if !strings.EqualFold(extension, ".zip") {
@@ -87,30 +89,30 @@ func selectCompanionFiles(candidates []CompanionFile, dependencies []string) []C
 	return result
 }
 
-func validateCompanionExecution(before LeaseSnapshot, unit Execution, now int64) error {
+func validateCompanionExecution(before model.LeaseSnapshot, unit model.Execution, now int64) error {
 	if before.Kind != "SERVER_EMULATIONSTATION_IMPORT" {
-		return ErrVersionConflict
+		return model.ErrVersionConflict
 	}
 	switch ExecutionState(before, unit, now) {
-	case LeaseActive:
+	case model.LeaseActive:
 		return nil
-	case LeaseCancelled:
+	case model.LeaseCancelled:
 		return ErrExecutionCancelled
-	case LeaseDeadline:
-		return ErrExpired
-	case LeaseLost:
-		return ErrVersionConflict
+	case model.LeaseDeadline:
+		return model.ErrExpired
+	case model.LeaseLost:
+		return model.ErrVersionConflict
 	default:
-		return ErrVersionConflict
+		return model.ErrVersionConflict
 	}
 }
 
-func sameCompanionOwner(current, before CompanionOwner) bool {
+func sameCompanionOwner(current, before model.CompanionOwner) bool {
 	return current.CollectionID == before.CollectionID && current.MappingVersion == before.MappingVersion &&
 		sameCompanionTarget(current.Mapping, before.Mapping) && sameCompanionItem(current.Before.Item, before.Before.Item)
 }
 
-func sameCompanionItem(current, before ExecutionItem) bool {
+func sameCompanionItem(current, before model.ExecutionItem) bool {
 	if !slices.Equal(current.Files, before.Files) || !slices.Equal(current.TagIDs, before.TagIDs) {
 		return false
 	}

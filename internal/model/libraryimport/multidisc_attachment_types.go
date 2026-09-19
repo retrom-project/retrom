@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
 
 	"retrom/internal/capability/content/contentcapability"
 	"retrom/internal/capability/content/multidisc"
@@ -127,8 +126,4 @@ type MultiDiscAttachmentScope struct {
 }
 type MultiDiscAttachmentRepository interface {
 	WithAttachmentAdmission(context.Context, func(MultiDiscAttachmentScope) error) error
-}
-type MultiDiscAttachmentOptions struct {
-	Now              func() time.Time
-	StorageAvailable bool
 }

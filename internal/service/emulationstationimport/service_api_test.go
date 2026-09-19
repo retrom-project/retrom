@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"retrom/internal/capability/security/authn"
+	model "retrom/internal/model/emulationstationimport"
 )
 
 type processMemory struct {
@@ -15,14 +16,14 @@ type processMemory struct {
 	deleted, expired int
 }
 
-func (memory *processMemory) Create(_ context.Context, _ CreateRequest, actor string) (Summary, error) {
+func (memory *processMemory) Create(_ context.Context, _ model.CreateRequest, actor string) (model.Summary, error) {
 	memory.actor = actor
-	return Summary{ID: "plan"}, memory.err
+	return model.Summary{ID: "plan"}, memory.err
 }
 
-func (memory *processMemory) Start(_ context.Context, _ string, _ int64, actor string) (Summary, bool, error) {
+func (memory *processMemory) Start(_ context.Context, _ string, _ int64, actor string) (model.Summary, bool, error) {
 	memory.actor = actor
-	return Summary{ID: "plan"}, memory.queued, memory.err
+	return model.Summary{ID: "plan"}, memory.queued, memory.err
 }
 
 func (memory *processMemory) Cancel(
@@ -31,9 +32,9 @@ func (memory *processMemory) Cancel(
 	_ int64,
 	_ string,
 	actor string,
-) (Summary, bool, error) {
+) (model.Summary, bool, error) {
 	memory.actor = actor
-	return Summary{ID: "plan"}, true, memory.err
+	return model.Summary{ID: "plan"}, true, memory.err
 }
 
 func (memory *processMemory) CancelJob(
@@ -44,9 +45,9 @@ func (memory *processMemory) CancelJob(
 	return JobCancellationResult{JobID: "job"}, true, memory.err
 }
 
-func (memory *processMemory) Retry(_ context.Context, _ string, _ int64, actor string) (Summary, error) {
+func (memory *processMemory) Retry(_ context.Context, _ string, _ int64, actor string) (model.Summary, error) {
 	memory.actor = actor
-	return Summary{ID: "plan"}, memory.err
+	return model.Summary{ID: "plan"}, memory.err
 }
 
 func (memory *processMemory) Delete(_ context.Context, _ string, _ int64, actor string) error {
@@ -74,7 +75,7 @@ func TestProcessServiceSignalsOnlyCommittedMutation(t *testing.T) {
 			if failed {
 				memory.err = cause
 			}
-			result, err := processService(memory, worker).Create(t.Context(), CreateRequest{}, "actor")
+			result, err := processService(memory, worker).Create(t.Context(), model.CreateRequest{}, "actor")
 			if failed {
 				if !errors.Is(err, cause) || result.ID != "" || worker.signals != 0 {
 					t.Fatalf("result=%#v error=%v signals=%d", result, err, worker.signals)

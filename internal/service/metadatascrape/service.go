@@ -7,6 +7,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	metadatascrapemodel "retrom/internal/model/metadatascrape"
 )
 
 var (
@@ -35,11 +37,16 @@ type Service struct {
 	stopping       atomic.Bool
 }
 
-func New(repository ScheduleRepository, runner ManagedRunner, now func() time.Time) *Service {
+func New(repository metadatascrapemodel.ScheduleRepository, runner ManagedRunner, now func() time.Time) *Service {
 	return NewWithMedia(repository, runner, nil, now)
 }
 
-func NewWithMedia(repository ScheduleRepository, runner, media ManagedRunner, now func() time.Time) *Service {
+func NewWithMedia(
+	repository metadatascrapemodel.ScheduleRepository,
+	runner,
+	media ManagedRunner,
+	now func() time.Time,
+) *Service {
 	service := &Service{}
 	service.scrapes = newExecutionSupervisor(runner, &service.stopping)
 	service.media = newExecutionSupervisor(media, &service.stopping)

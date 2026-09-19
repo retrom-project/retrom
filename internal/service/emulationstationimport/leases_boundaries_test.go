@@ -6,12 +6,14 @@ import (
 	"testing"
 	"time"
 
+	model "retrom/internal/model/emulationstationimport"
+
 	"github.com/google/uuid"
 )
 
 func TestLeasesClaimChecksEntropyBeforeWriting(t *testing.T) {
 	memory := leaseFixture()
-	unit, found, err := func() (Execution, bool, error) {
+	unit, found, err := func() (model.Execution, bool, error) {
 		uuid.SetRand(&identityEntropy{})
 		defer uuid.SetRand(nil)
 		return NewLeases(memory, func() time.Time { return time.UnixMilli(1000) }).Claim(t.Context())
@@ -49,7 +51,7 @@ func TestLeasesRejectInvalidCandidateBudgets(t *testing.T) {
 				now = math.MaxInt64 - (8 * time.Hour).Milliseconds() + 1
 			}
 			unit, found, err := NewLeases(memory, func() time.Time { return time.UnixMilli(now) }).Claim(t.Context())
-			if !errors.Is(err, ErrInvalid) || found || unit.JobID != "" || memory.claim != nil {
+			if !errors.Is(err, model.ErrInvalid) || found || unit.JobID != "" || memory.claim != nil {
 				t.Fatalf("claim=%#v found=%v error=%v", unit, found, err)
 			}
 		})

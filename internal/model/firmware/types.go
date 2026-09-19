@@ -1,9 +1,9 @@
 package firmware
 
 import (
-	"retrom/internal/adapter/files/blobstore"
 	"retrom/internal/capability/content/firmware"
 	"retrom/internal/capability/format/importing"
+	blobmodel "retrom/internal/model/blob"
 )
 
 type InstallRequest struct {
@@ -44,7 +44,7 @@ type ServerInstallRequest struct {
 	ArchiveMembersJSON *string
 	LogicalName        string
 	OriginalFilename   string
-	Metadata           blobstore.Metadata
+	Metadata           blobmodel.PreparedBlob
 	Status             string
 	MatchMethod        string
 	Details            map[string]any

@@ -6,25 +6,28 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/jobs"
 )
 
 type memoryJobs struct {
-	Repository
-	job                Job
+	model.Repository
+
+	job                model.Job
 	input              []byte
 	readErr            error
-	cancellation       *Cancellation
-	retry              *RetryWrite
+	cancellation       *model.Cancellation
+	retry              *model.RetryWrite
 	importCancellation bool
 	opened             int
 }
 
-func (repository *memoryJobs) WithWrite(_ context.Context, work func(Records) error) error {
+func (repository *memoryJobs) WithWrite(_ context.Context, work func(model.Records) error) error {
 	repository.opened++
 	return work(repository)
 }
 
-func (repository *memoryJobs) Get(context.Context, string) (Job, error) {
+func (repository *memoryJobs) Get(context.Context, string) (model.Job, error) {
 	return repository.job, repository.readErr
 }
 
@@ -32,17 +35,17 @@ func (repository *memoryJobs) Input(context.Context, string, int64) ([]byte, err
 	return repository.input, nil
 }
 
-func (repository *memoryJobs) Cancel(_ context.Context, change Cancellation) error {
+func (repository *memoryJobs) Cancel(_ context.Context, change model.Cancellation) error {
 	repository.cancellation = &change
 	return nil
 }
 
-func (repository *memoryJobs) Retry(_ context.Context, change RetryWrite) error {
+func (repository *memoryJobs) Retry(_ context.Context, change model.RetryWrite) error {
 	repository.retry = &change
 	return nil
 }
 
-func (repository *memoryJobs) CancelServerImport(context.Context, Cancellation) error {
+func (repository *memoryJobs) CancelServerImport(context.Context, model.Cancellation) error {
 	repository.importCancellation = true
 	return nil
 }
@@ -51,9 +54,9 @@ func TestCancelEligibilityPrecedesWrites(t *testing.T) {
 	t.Parallel()
 	for _, state := range []string{"SUCCEEDED", "CANCELLED", "CANCEL_REQUESTED", "FAILED"} {
 		t.Run(state, func(t *testing.T) {
-			repository := &memoryJobs{job: Job{State: state, Cancellable: true, Version: 2}}
+			repository := &memoryJobs{job: model.Job{State: state, Cancellable: true, Version: 2}}
 			_, _, err := New(repository, time.Now).Cancel(t.Context(), "job", 2, "cancel")
-			if !errors.Is(err, ErrConflict) || repository.cancellation != nil {
+			if !errors.Is(err, model.ErrConflict) || repository.cancellation != nil {
 				t.Fatalf("error=%v cancellation=%+v", err, repository.cancellation)
 			}
 		})
@@ -65,7 +68,7 @@ func TestCancelRejectsInvalidReasonWithoutTransaction(t *testing.T) {
 	for _, reason := range []string{" ", strings.Repeat("字", 501)} {
 		repository := &memoryJobs{}
 		_, _, err := New(repository, time.Now).Cancel(t.Context(), "job", 1, reason)
-		if !errors.Is(err, ErrConflict) || repository.opened != 0 {
+		if !errors.Is(err, model.ErrConflict) || repository.opened != 0 {
 			t.Fatalf("error=%v transactions=%d", err, repository.opened)
 		}
 	}
@@ -73,7 +76,7 @@ func TestCancelRejectsInvalidReasonWithoutTransaction(t *testing.T) {
 
 func TestRunningServerImportCancellationRemainsPending(t *testing.T) {
 	t.Parallel()
-	repository := &memoryJobs{job: Job{Kind: "SERVER_BIOS_IMPORT", State: "RUNNING", Cancellable: true, Version: 2, ExecutionNo: 3}}
+	repository := &memoryJobs{job: model.Job{Kind: "SERVER_BIOS_IMPORT", State: "RUNNING", Cancellable: true, Version: 2, ExecutionNo: 3}}
 	result, pending, err := New(repository, func() time.Time { return time.UnixMilli(1234) }).Cancel(t.Context(), "job", 2, " stop ")
 	if err != nil || !pending || result.State != "CANCEL_REQUESTED" || result.Version != 3 || result.ExecutionNo != 3 {
 		t.Fatalf("result=%+v pending=%v error=%v", result, pending, err)
@@ -88,7 +91,7 @@ func TestRetryDomainJobsCannotUseGenericAction(t *testing.T) {
 	t.Parallel()
 	for _, kind := range []string{"METADATA_SCRAPE", "SERVER_BIOS_IMPORT", "REVIEW_BULK_APPROVE"} {
 		t.Run(kind, func(t *testing.T) {
-			repository := &memoryJobs{job: Job{Kind: kind, State: "FAILED", Retryable: true, Version: 4}}
+			repository := &memoryJobs{job: model.Job{Kind: kind, State: "FAILED", Retryable: true, Version: 4}}
 			_, err := New(repository, time.Now).Retry(t.Context(), "job", 4)
 			if !errors.Is(err, ErrRetryViaDomain) || repository.retry != nil {
 				t.Fatalf("error=%v retry=%+v", err, repository.retry)
@@ -100,11 +103,11 @@ func TestRetryDomainJobsCannotUseGenericAction(t *testing.T) {
 func TestRetryRejectsMismatchedInputBeforeWrites(t *testing.T) {
 	t.Parallel()
 	repository := &memoryJobs{
-		job:   Job{Kind: "MEDIA_FETCH", ScopeType: "GAME", ScopeID: "game", State: "FAILED", Retryable: true, Version: 1},
+		job:   model.Job{Kind: "MEDIA_FETCH", ScopeType: "GAME", ScopeID: "game", State: "FAILED", Retryable: true, Version: 1},
 		input: []byte(`{"schemaVersion":1,"kind":"MEDIA_FETCH","scope":{"type":"GAME","id":"other"},"executionId":"00000000-0000-7000-8000-000000000001","inputs":{}}`),
 	}
 	_, err := New(repository, time.Now).Retry(t.Context(), "job", 1)
-	if !errors.Is(err, ErrConflict) || repository.retry != nil {
+	if !errors.Is(err, model.ErrConflict) || repository.retry != nil {
 		t.Fatalf("error=%v retry=%+v", err, repository.retry)
 	}
 }

@@ -3,6 +3,8 @@ package metadatascrape
 import (
 	"encoding/json"
 	"testing"
+
+	metadatascrapemodel "retrom/internal/model/metadatascrape"
 )
 
 func TestInitialReviewMergePreservesMissingCandidateFields(t *testing.T) {
@@ -23,7 +25,7 @@ func TestInitialReviewMergePreservesMissingCandidateFields(t *testing.T) {
 }
 
 func TestInitialCandidateUsesHitsThenEvidenceOrderThenProviderID(t *testing.T) {
-	candidates := []InitialCandidate{
+	candidates := []metadatascrapemodel.InitialCandidate{
 		{ID: "low-hits", HitCount: 1, FirstQueryOrder: 0, ProviderGameID: "a"},
 		{ID: "later-query", HitCount: 2, FirstQueryOrder: 2, ProviderGameID: "a"},
 		{ID: "later-provider", HitCount: 2, FirstQueryOrder: 1, ProviderGameID: "b"},

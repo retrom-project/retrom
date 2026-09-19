@@ -6,20 +6,28 @@ import (
 	"strings"
 
 	"retrom/internal/capability/content/corevalidation"
+	model "retrom/internal/model/launch"
 )
 
-func productExternalFiles(snapshot ProductSnapshot, content ProductContent) ([]ProductExternalFile, error) {
-	files := make([]ProductExternalFile, 0)
+func productExternalFiles(snapshot model.ProductSnapshot, content model.ProductContent) (
+	[]model.ProductExternalFile,
+	error,
+) {
+	files := make([]model.ProductExternalFile, 0)
 	for _, disc := range content.Discs {
 		files = append(
-			files,
-			ProductExternalFile{Kind: "DISC", BlobID: disc.BlobID, LogicalName: disc.LogicalName, VirtualPath: disc.VirtualPath},
+			files, model.ProductExternalFile{
+				Kind:        "DISC",
+				BlobID:      disc.BlobID,
+				LogicalName: disc.LogicalName,
+				VirtualPath: disc.VirtualPath,
+			},
 		)
 	}
 	if snapshot.Source.DeliveryProfile == "EMULATORJS_CONTENT" {
 		dependencies, err := corevalidation.ParseRuntimeBIOSDependencies(snapshot.Source.DependencySnapshot)
 		if err != nil {
-			return nil, ErrBlocked
+			return nil, model.ErrBlocked
 		}
 		files, err = productExternalBIOS(content.Files[0].LogicalName, files, dependencies, false)
 		if err != nil {
@@ -29,16 +37,20 @@ func productExternalFiles(snapshot ProductSnapshot, content ProductContent) ([]P
 	return append(files, ProductBundleFiles(snapshot.VariantFiles)...), nil
 }
 
-func ProductBundleFiles(inputs []ProductFile) []ProductExternalFile {
-	files := make([]ProductExternalFile, 0)
+func ProductBundleFiles(inputs []model.ProductFile) []model.ProductExternalFile {
+	files := make([]model.ProductExternalFile, 0)
 	for _, file := range inputs {
 		if file.Role != "BIOS_BUNDLE" && file.Role != "PARENT" {
 			continue
 		}
 		virtual := fmt.Sprintf("/__retrom__/%s/%02d/%s", strings.ToLower(file.Role), file.SortOrder, file.LogicalName)
 		files = append(
-			files,
-			ProductExternalFile{Kind: file.Role, BlobID: file.BlobID, LogicalName: file.LogicalName, VirtualPath: virtual},
+			files, model.ProductExternalFile{
+				Kind:        file.Role,
+				BlobID:      file.BlobID,
+				LogicalName: file.LogicalName,
+				VirtualPath: virtual,
+			},
 		)
 	}
 	return files
@@ -46,19 +58,19 @@ func ProductBundleFiles(inputs []ProductFile) []ProductExternalFile {
 
 func productExternalBIOS(
 	contentName string,
-	files []ProductExternalFile,
+	files []model.ProductExternalFile,
 	dependencies []corevalidation.BIOSDependency,
 	allowMissing bool,
-) ([]ProductExternalFile, error) {
+) ([]model.ProductExternalFile, error) {
 	names := map[string]struct{}{strings.ToLower(path.Base(contentName)): {}}
 	paths := make(map[string]struct{})
 	for _, file := range files {
 		key := strings.ToLower(file.LogicalName)
 		if _, duplicate := names[key]; duplicate {
-			return nil, ErrBlocked
+			return nil, model.ErrBlocked
 		}
 		if _, duplicate := paths[file.VirtualPath]; duplicate {
-			return nil, ErrBlocked
+			return nil, model.ErrBlocked
 		}
 		names[key] = struct{}{}
 		paths[file.VirtualPath] = struct{}{}
@@ -71,23 +83,22 @@ func productExternalBIOS(
 			if allowMissing || dependency.RequirementMode == "OPTIONAL" && dependency.InstallationStatus == nil {
 				continue
 			}
-			return nil, ErrBlocked
+			return nil, model.ErrBlocked
 		}
 		if len(files) >= 16 {
-			return nil, ErrBlocked
+			return nil, model.ErrBlocked
 		}
 		key := strings.ToLower(dependency.LogicalName)
 		if _, duplicate := names[key]; duplicate {
-			return nil, ErrBlocked
+			return nil, model.ErrBlocked
 		}
 		if _, duplicate := paths[*dependency.EmulatorPath]; duplicate {
-			return nil, ErrBlocked
+			return nil, model.ErrBlocked
 		}
 		names[key] = struct{}{}
 		paths[*dependency.EmulatorPath] = struct{}{}
 		files = append(
-			files,
-			ProductExternalFile{
+			files, model.ProductExternalFile{
 				Kind:        "BIOS",
 				BlobID:      *dependency.BlobID,
 				LogicalName: dependency.LogicalName,
@@ -98,10 +109,13 @@ func productExternalBIOS(
 	return files, nil
 }
 
-func FreezeProductExternalBIOS(snapshot ProductExternalSnapshot, allowMissing bool) ([]ProductExternalFile, error) {
+func FreezeProductExternalBIOS(snapshot model.ProductExternalSnapshot, allowMissing bool) (
+	[]model.ProductExternalFile,
+	error,
+) {
 	dependencies, err := corevalidation.ParseRuntimeBIOSDependencies(snapshot.DependencySnapshot)
 	if err != nil {
-		return nil, ErrBlocked
+		return nil, model.ErrBlocked
 	}
 	files, err := productExternalBIOS(snapshot.ContentName, snapshot.Files, dependencies, allowMissing)
 	if err != nil {

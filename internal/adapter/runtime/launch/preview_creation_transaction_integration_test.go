@@ -13,22 +13,23 @@ import (
 	"time"
 
 	"retrom/internal/foundation/cleanup"
+	launchmodel "retrom/internal/model/launch"
 	persistence "retrom/internal/repo/launch"
-	application "retrom/internal/service/launch"
 
 	"github.com/google/uuid"
 	"modernc.org/sqlite"
 )
 
 type previewWriteFaultRepository struct {
-	application.PreviewCreationRepository
-	change  func(*application.PreviewCreatePlan)
+	launchmodel.PreviewCreationRepository
+
+	change  func(*launchmodel.PreviewCreatePlan)
 	after   func() error
 	reached bool
 }
 
-func (repository *previewWriteFaultRepository) WithCreation(ctx context.Context, work func(application.PreviewCreationScope) error) error {
-	return repository.PreviewCreationRepository.WithCreation(ctx, func(scope application.PreviewCreationScope) error {
+func (repository *previewWriteFaultRepository) WithCreation(ctx context.Context, work func(launchmodel.PreviewCreationScope) error) error {
+	return repository.PreviewCreationRepository.WithCreation(ctx, func(scope launchmodel.PreviewCreationScope) error {
 		err := work(previewWriteFaultScope{PreviewCreationScope: scope, change: repository.change})
 		if err != nil {
 			return err
@@ -42,11 +43,12 @@ func (repository *previewWriteFaultRepository) WithCreation(ctx context.Context,
 }
 
 type previewWriteFaultScope struct {
-	application.PreviewCreationScope
-	change func(*application.PreviewCreatePlan)
+	launchmodel.PreviewCreationScope
+
+	change func(*launchmodel.PreviewCreatePlan)
 }
 
-func (scope previewWriteFaultScope) Create(ctx context.Context, plan application.PreviewCreatePlan) error {
+func (scope previewWriteFaultScope) Create(ctx context.Context, plan launchmodel.PreviewCreatePlan) error {
 	if scope.change != nil {
 		scope.change(&plan)
 	}
@@ -94,8 +96,8 @@ func assertPreviewCreationRollback(t *testing.T, service *Service, request Revie
 		t.Fatal("post-write rollback left preview owners/files/tickets")
 	}
 	repository.after = nil
-	repository.change = func(plan *application.PreviewCreatePlan) {
-		plan.Content.Files = append(plan.Content.Files, application.PreviewFile{Role: "PROJECT_FILE", LogicalName: "late-failure.bin", BlobID: "does-not-exist"})
+	repository.change = func(plan *launchmodel.PreviewCreatePlan) {
+		plan.Content.Files = append(plan.Content.Files, launchmodel.PreviewFile{Role: "PROJECT_FILE", LogicalName: "late-failure.bin", BlobID: "does-not-exist"})
 	}
 	result, err = service.previewCreator(repository).Create(t.Context(), request)
 	var storage *sqlite.Error

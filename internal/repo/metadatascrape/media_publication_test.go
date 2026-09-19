@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"retrom/internal/adapter/metadata/hasheous"
+	metadatamodel "retrom/internal/model/metadata"
 	"retrom/internal/service/metadatascrape"
 	"retrom/internal/testkit/testsupport"
 )
@@ -25,8 +25,8 @@ func TestMediaFinalEventFailureRollsBackBlobAndReadyAsset(t *testing.T) {
 			return nil
 		},
 	})
-	source := mediaSource(func(context.Context, hasheous.AssetRef, int64) (hasheous.AssetData, error) {
-		return hasheous.AssetData{Bytes: []byte("media"), ReceivedBytes: 5, Width: 1, Height: 1, MediaType: "image/png"}, nil
+	source := mediaSource(func(context.Context, metadatamodel.AssetReference, int64) (metadatamodel.AssetData, error) {
+		return metadatamodel.AssetData{Bytes: []byte("media"), ReceivedBytes: 5, Width: 1, Height: 1, MediaType: "image/png"}, nil
 	})
 	worker := metadatascrape.NewMediaWorker(NewMedia(faulted), source, fixture.blobs, fixture.clock)
 	if err := worker.Run(t.Context(), fixture.jobID); !errors.Is(err, cause) || hits != 1 {
@@ -52,12 +52,12 @@ func TestMediaCloseJoinsReadAndAccountsKnownBytes(t *testing.T) {
 	fixture := newMediaFixture(t)
 	entered := make(chan struct{})
 	stopped := make(chan error, 1)
-	source := mediaSource(func(ctx context.Context, _ hasheous.AssetRef, _ int64) (hasheous.AssetData, error) {
+	source := mediaSource(func(ctx context.Context, _ metadatamodel.AssetReference, _ int64) (metadatamodel.AssetData, error) {
 		close(entered)
 		<-ctx.Done()
 		cause := context.Cause(ctx)
 		stopped <- cause
-		return hasheous.AssetData{ReceivedBytes: 7}, cause
+		return metadatamodel.AssetData{ReceivedBytes: 7}, cause
 	})
 	service := metadatascrape.NewWithMedia(nil, nil, fixture.worker(source), fixture.clock)
 	if !service.ResumeMediaJob(t.Context(), fixture.jobID) {

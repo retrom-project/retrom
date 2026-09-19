@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"retrom/internal/bootstrap/composition"
+	importdiscardmodel "retrom/internal/model/importdiscard"
 	"retrom/internal/service/importdiscard"
 
 	dependencypersistence "retrom/internal/repo/dependencies"
@@ -268,7 +269,7 @@ func TestDiscardUnavailableWhenEveryItemAlreadyDecided(t *testing.T) {
 	if err != nil || status.State != "UNAVAILABLE" {
 		t.Fatalf("already decided availability=%+v error=%v", status, err)
 	}
-	if _, err := f.service.Request(f.ctx, "IMPORT", result.Created.ImportJobID, adminID); !errors.Is(err, importdiscard.ErrInvalid) {
+	if _, err := f.service.Request(f.ctx, "IMPORT", result.Created.ImportJobID, adminID); !errors.Is(err, importdiscardmodel.ErrInvalid) {
 		t.Fatalf("already decided request=%v", err)
 	}
 }

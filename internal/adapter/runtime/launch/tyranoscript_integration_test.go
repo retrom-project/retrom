@@ -18,6 +18,7 @@ import (
 	"testing"
 	"time"
 
+	uploadsmodel "retrom/internal/model/uploads"
 	uploadpersistence "retrom/internal/repo/uploads"
 
 	dependencypersistence "retrom/internal/repo/dependencies"
@@ -238,9 +239,9 @@ func createTyranoScriptReviewItem(
 	t.Helper()
 	archive := tyranoScriptReviewArchive(t)
 	uploadService := uploads.New(uploadpersistence.New(database), blobs, dataDir, now)
-	upload, err := uploadService.Create(ctx, uploads.CreateRequest{
+	upload, err := uploadService.Create(ctx, uploadsmodel.CreateRequest{
 		Purpose: "PROJECT", SourceType: "FILES",
-		Files: []uploads.FileDeclaration{{
+		Files: []uploadsmodel.FileDeclaration{{
 			ClientFileID: "tyrano", RelativePath: "tyrano-review.zip", SizeBytes: int64(len(archive)),
 		}},
 	})

@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	metadatascrapemodel "retrom/internal/model/metadatascrape"
 	"retrom/internal/service/metadatascrape"
 )
 
@@ -13,7 +14,7 @@ func TestMetadataStartupDispatchesDurableJobAndCloseJoinsWork(t *testing.T) {
 	database := recoveryDatabase(t)
 	entered := make(chan struct{})
 	finished := make(chan error, 1)
-	processor := recoveryProcess(func(ctx context.Context, _ metadatascrape.WorkerClaim, _ string) (int, string, error) {
+	processor := recoveryProcess(func(ctx context.Context, _ metadatascrapemodel.WorkerClaim, _ string) (int, string, error) {
 		close(entered)
 		<-ctx.Done()
 		err := context.Cause(ctx)

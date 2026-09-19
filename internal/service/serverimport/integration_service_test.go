@@ -11,8 +11,10 @@ import (
 	"testing"
 	"time"
 
+	serverimportmodel "retrom/internal/model/serverimport"
 	firmwarepersistence "retrom/internal/repo/firmware"
 	firmwareservice "retrom/internal/service/firmware"
+	serverimportcontract "retrom/internal/service/serverimport"
 
 	"retrom/internal/adapter/files/serversource"
 
@@ -73,7 +75,7 @@ VALUES('fixture-requirement','mgba',?,?,'STATIC',NULL,'bios.bin','REQUIRED',NULL
 	}
 	service := New(database.SQL, blobs, firmwareservice.New(firmwarepersistence.New(database.SQL), time.Now).WithBlobStore(blobs), credentials,
 		[]serversource.Root{{ID: "bios-root", Label: "BIOS Root", Path: rootDir}}, time.Now)
-	created, err := service.Create(ctx, CreateRequest{Kind: "BIOS_DIRECTORY", RootID: "bios-root"}, "01980000-0000-7000-8000-00000000b001")
+	created, err := service.Create(ctx, serverimportmodel.CreateRequest{Kind: "BIOS_DIRECTORY", RootID: "bios-root"}, "01980000-0000-7000-8000-00000000b001")
 	testassert.False(t, err != nil, err)
 	unit, ok, err := service.ClaimForTest(ctx)
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return !ok }), "claim = %#v/%t/%v", unit, ok, err)
@@ -112,9 +114,9 @@ FROM server_bios_import_items WHERE server_import_id=?
 func verifyServerImportRecovery(
 	ctx context.Context,
 	t *testing.T,
-	service *Service,
+	service *serverimportcontract.Service,
 	database *sql.DB,
-	created Summary,
+	created serverimportmodel.Summary,
 	releases *payloadrelease.Service,
 ) string {
 	t.Helper()
@@ -128,7 +130,7 @@ SELECT count(*) FROM bios_installations WHERE requirement_id='fixture-requiremen
 	if recovered, err := service.Get(ctx, created.ID); err != nil || recovered.State != "COMPLETED" {
 		t.Fatalf("recovered import = %#v, %v", recovered, err)
 	}
-	sameBytes, err := service.Create(ctx, CreateRequest{
+	sameBytes, err := service.Create(ctx, serverimportmodel.CreateRequest{
 		Kind: "BIOS_DIRECTORY", RootID: "bios-root", ReplaceIfBetter: true,
 	}, "01980000-0000-7000-8000-00000000b001")
 	testassert.False(t, err != nil, err)
@@ -153,7 +155,7 @@ UPDATE bios_requirements SET version=2,catalog_digest=?,updated_at_ms=2 WHERE id
 `, fmt.Sprintf("%064x", 3)); err != nil {
 		t.Fatal(err)
 	}
-	_, err = service.Create(ctx, CreateRequest{
+	_, err = service.Create(ctx, serverimportmodel.CreateRequest{
 		Kind: "BIOS_DIRECTORY", RootID: "bios-root", ReplaceIfBetter: true,
 	}, "01980000-0000-7000-8000-00000000b001")
 	testassert.False(t, err != nil, err)
@@ -196,7 +198,7 @@ WHERE requirement_id='fixture-requirement' AND is_active=0
 func verifyServerImportFallbacks(
 	ctx context.Context,
 	t *testing.T,
-	service *Service,
+	service *serverimportcontract.Service,
 	database *sql.DB,
 	rootDir string,
 	contents []byte,
@@ -210,7 +212,7 @@ func verifyServerImportFallbacks(
 	); err != nil {
 		t.Fatal(err)
 	}
-	downgrade, err := service.Create(ctx, CreateRequest{Kind: "BIOS_DIRECTORY", RootID: "bios-root", ReplaceIfBetter: true}, "01980000-0000-7000-8000-00000000b001")
+	downgrade, err := service.Create(ctx, serverimportmodel.CreateRequest{Kind: "BIOS_DIRECTORY", RootID: "bios-root", ReplaceIfBetter: true}, "01980000-0000-7000-8000-00000000b001")
 	testassert.False(t, err != nil, err)
 	downgradeUnit, ok, err := service.ClaimForTest(ctx)
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return !ok }), "downgrade claim = %#v/%t/%v", downgradeUnit, ok, err)
@@ -233,7 +235,7 @@ func verifyServerImportFallbacks(
 	// a limit failure must terminalize the task before another installation is
 	// committed.
 	service.SetFileLimitForTest(0)
-	limited, err := service.Create(ctx, CreateRequest{Kind: "BIOS_DIRECTORY", RootID: "bios-root"}, "01980000-0000-7000-8000-00000000b001")
+	limited, err := service.Create(ctx, serverimportmodel.CreateRequest{Kind: "BIOS_DIRECTORY", RootID: "bios-root"}, "01980000-0000-7000-8000-00000000b001")
 	testassert.False(t, err != nil, err)
 	limitedUnit, ok, err := service.ClaimForTest(ctx)
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return !ok }), "scan-limit claim = %#v/%t/%v", limitedUnit, ok, err)
@@ -249,7 +251,7 @@ func verifyServerImportFallbacks(
 
 	// A transient unavailable mount schedules a bounded automatic retry rather
 	// than prematurely terminalizing every catalog item.
-	retrying, err := service.Create(ctx, CreateRequest{Kind: "BIOS_DIRECTORY", RootID: "bios-root"}, "01980000-0000-7000-8000-00000000b001")
+	retrying, err := service.Create(ctx, serverimportmodel.CreateRequest{Kind: "BIOS_DIRECTORY", RootID: "bios-root"}, "01980000-0000-7000-8000-00000000b001")
 	testassert.False(t, err != nil, err)
 	offline := rootDir + ".offline"
 	if err := os.Rename(rootDir, offline); err != nil {
@@ -277,9 +279,9 @@ func verifyServerImportFallbacks(
 func TestRelativePathAndNoFollowDirectoryBoundary(t *testing.T) {
 	t.Parallel()
 	for _, value := range []string{"/absolute", "../escape", "a//b", "a\\b", "C:/bios", "a/./b", "a\x00b"} {
-		testassert.CheckFalsef(t, ValidateRelativePath(value) == nil, "invalid path accepted: %q", value)
+		testassert.CheckFalsef(t, serverimportcontract.ValidateRelativePath(value) == nil, "invalid path accepted: %q", value)
 	}
-	if err := ValidateRelativePath("合法/bios"); err != nil {
+	if err := serverimportcontract.ValidateRelativePath("合法/bios"); err != nil {
 		t.Fatalf("valid path rejected: %v", err)
 	}
 	root := t.TempDir()
@@ -287,7 +289,7 @@ func TestRelativePathAndNoFollowDirectoryBoundary(t *testing.T) {
 	if err := os.Symlink(outside, filepath.Join(root, "escape")); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := openSelectedDirectory(root, "escape"); !errors.Is(err, ErrPathInvalid) {
+	if _, err := openSelectedDirectory(root, "escape"); !errors.Is(err, serversource.ErrPathInvalid) {
 		t.Fatalf("symlink error = %v", err)
 	}
 }
@@ -306,8 +308,8 @@ func TestWalkFilesReadsMetadataFromAuthorizedDirectoryDescriptor(t *testing.T) {
 	directory, err := openSelectedDirectory(root, "selected")
 	testassert.False(t, err != nil, err)
 	defer func() { _ = directory.Close() }()
-	visited := make([]discoveredFile, 0, 1)
-	counts, err := walkFiles(directory, func(file discoveredFile) error {
+	visited := make([]serversource.File, 0, 1)
+	counts, err := walkFiles(directory, func(file serversource.File) error {
 		visited = append(visited, file)
 		return nil
 	})
@@ -316,7 +318,7 @@ func TestWalkFilesReadsMetadataFromAuthorizedDirectoryDescriptor(t *testing.T) {
 	testassert.Falsef(t, testassert.Any(func() bool { return visited[0].RelativePath != "bios.bin" }, func() bool { return visited[0].SizeBytes != int64(len(contents)) }), "visited file = %#v", visited[0])
 }
 
-func reclaimCompletedImport(ctx context.Context, t *testing.T, service *Service, database *sql.DB, created Summary) {
+func reclaimCompletedImport(ctx context.Context, t *testing.T, service *serverimportcontract.Service, database *sql.DB, created serverimportmodel.Summary) {
 	t.Helper()
 	now := time.Now().UnixMilli()
 	if _, err := database.ExecContext(ctx, `UPDATE server_imports SET state='RUNNING',phase='INSTALLING',completed_at_ms=NULL,updated_at_ms=? WHERE id=?`, now, created.ID); err != nil {

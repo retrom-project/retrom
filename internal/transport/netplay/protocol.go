@@ -10,10 +10,13 @@ import (
 	"io"
 	"unicode/utf8"
 
+	"retrom/internal/model/netplayprofile"
+
 	"github.com/google/uuid"
 )
 
 const (
+	WebSocketSubprotocol = "retrom.netplay.v1"
 	MaxTextMessageBytes  = 64 << 10
 	MaxInputMessageBytes = 4 << 10
 	MaxWSMessageBytes    = 2 << 20
@@ -184,14 +187,14 @@ type StateFrame struct {
 }
 
 func ParseStateFrame(contents []byte) (StateFrame, error) {
-	if len(contents) < StateHeaderBytes || len(contents) > StateHeaderBytes+MaxStateBytes ||
+	if len(contents) < StateHeaderBytes || len(contents) > StateHeaderBytes+netplayprofile.MaxStateBytes ||
 		string(contents[:4]) != "RNS1" {
 		return StateFrame{}, ErrProtocol
 	}
 	sessionID, sessionErr := uuid.FromBytes(contents[4:20])
 	transferID, transferErr := uuid.FromBytes(contents[20:36])
 	length := int(binary.BigEndian.Uint32(contents[48:52]))
-	if sessionErr != nil || transferErr != nil || length < 1 || length > MaxStateBytes ||
+	if sessionErr != nil || transferErr != nil || length < 1 || length > netplayprofile.MaxStateBytes ||
 		length != len(contents)-StateHeaderBytes {
 		return StateFrame{}, ErrProtocol
 	}
@@ -204,7 +207,7 @@ func ParseStateFrame(contents []byte) (StateFrame, error) {
 }
 
 func StateDigests(state []byte) (string, string, error) {
-	if len(state) == 0 || len(state) > MaxStateBytes {
+	if len(state) == 0 || len(state) > netplayprofile.MaxStateBytes {
 		return "", "", ErrProtocol
 	}
 	digest := sha256.Sum256(state)

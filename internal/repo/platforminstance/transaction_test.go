@@ -5,22 +5,22 @@ import (
 	"errors"
 	"testing"
 
+	platforminstancemodel "retrom/internal/model/platforminstance"
 	platformpersistence "retrom/internal/repo/platforminstance"
-	"retrom/internal/service/platforminstance"
 )
 
 func TestCanceledCommitRollsBackAndReleasesConnection(t *testing.T) {
 	t.Parallel()
 	_, database := newService(t)
 	repository := platformpersistence.New(database)
-	directory := platforminstance.NewDirectory{
+	directory := platforminstancemodel.NewDirectory{
 		ID: "01980000-0000-7000-8000-000000009902", Slug: "canceled-library",
-		Input:       platforminstance.CreateInput{PlatformID: "gba", DefaultCoreID: "mgba", Name: "Canceled Library"},
+		Input:       platforminstancemodel.CreateInput{PlatformID: "gba", DefaultCoreID: "mgba", Name: "Canceled Library"},
 		CreatedAtMS: 1_786_000_000_000,
 	}
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
-	err := repository.WithWrite(ctx, func(scope platforminstance.WriteScope) error {
+	err := repository.WithWrite(ctx, func(scope platforminstancemodel.WriteScope) error {
 		if err := scope.Directories.Insert(ctx, directory); err != nil {
 			return err
 		}
@@ -37,7 +37,7 @@ func TestCanceledCommitRollsBackAndReleasesConnection(t *testing.T) {
 	if count != 0 {
 		t.Fatalf("canceled transaction retained %d directories", count)
 	}
-	if err := repository.WithWrite(t.Context(), func(scope platforminstance.WriteScope) error {
+	if err := repository.WithWrite(t.Context(), func(scope platforminstancemodel.WriteScope) error {
 		return scope.Directories.Insert(t.Context(), directory)
 	}); err != nil {
 		t.Fatalf("connection was not reusable: %v", err)

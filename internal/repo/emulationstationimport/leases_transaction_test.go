@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
 	application "retrom/internal/service/emulationstationimport"
 )
 
@@ -18,7 +19,7 @@ func leaseDatabase(t *testing.T, importing bool) (*sql.DB, string) {
 		return db, *summary.ImportJobID
 	}
 	db := creationDatabase(t)
-	if err := NewCreation(db).WithCreate(t.Context(), func(writer application.CreationWriter) error {
+	if err := NewCreation(db).WithCreate(t.Context(), func(writer emulationstationimportmodel.CreationWriter) error {
 		_, err := writer.Insert(t.Context(), creationPlan(0))
 		return err
 	}); err != nil {
@@ -37,10 +38,10 @@ func TestLeaseClaimAndRenewKeepFrozenInputsAndBudget(t *testing.T) {
 	}
 }
 
-func readLease(t *testing.T, db *sql.DB, id string) application.LeaseSnapshot {
+func readLease(t *testing.T, db *sql.DB, id string) emulationstationimportmodel.LeaseSnapshot {
 	t.Helper()
-	var result application.LeaseSnapshot
-	if err := NewLeases(db).WithLease(t.Context(), func(scope application.LeaseScope) error {
+	var result emulationstationimportmodel.LeaseSnapshot
+	if err := NewLeases(db).WithLease(t.Context(), func(scope emulationstationimportmodel.LeaseScope) error {
 		value, found, err := scope.Read.Current(t.Context(), id)
 		if err == nil && !found {
 			t.Fatal("linked execution missing")
@@ -98,7 +99,7 @@ func TestLeaseRenewDoesNotReviveReplacedOrExpiredAttempt(t *testing.T) {
 			}
 			before := planRows(t, db)
 			state, err := service.Renew(t.Context(), unit)
-			if err != nil || state != application.LeaseLost {
+			if err != nil || state != emulationstationimportmodel.LeaseLost {
 				t.Fatalf("renew=%s error=%v", state, err)
 			}
 			if !reflect.DeepEqual(planRows(t, db), before) {
@@ -113,7 +114,7 @@ func TestLeaseClaimConcurrentWorkersOnlyOneOwnsAttempt(t *testing.T) {
 	db, _ := leaseDatabase(t, false)
 	service := application.NewLeases(NewLeases(db), func() time.Time { return time.UnixMilli(1000) })
 	type outcome struct {
-		unit  application.Execution
+		unit  emulationstationimportmodel.Execution
 		found bool
 		err   error
 	}
@@ -160,7 +161,7 @@ func assertClaimAndRenew(t *testing.T, importing bool) {
 	assertClaimSnapshot(t, db, id, unit, before)
 	now = 2000
 	state, err := service.Renew(t.Context(), unit)
-	if err != nil || state != application.LeaseActive {
+	if err != nil || state != emulationstationimportmodel.LeaseActive {
 		t.Fatalf("renew=%s error=%v", state, err)
 	}
 	after := readLease(t, db, id)
@@ -180,7 +181,7 @@ VALUES('other','EMULATIONSTATION_IMPORT','import-0','SERVER_EMULATIONSTATION_SCA
 	}
 }
 
-func assertClaimSnapshot(t *testing.T, db *sql.DB, id string, unit application.Execution, before application.LeaseSnapshot) {
+func assertClaimSnapshot(t *testing.T, db *sql.DB, id string, unit emulationstationimportmodel.Execution, before emulationstationimportmodel.LeaseSnapshot) {
 	t.Helper()
 	if before.Execution != unit || before.JobVersion != 2 || before.LeaseUntilMS != 61000 || before.StartedAtMS == nil || *before.StartedAtMS != 1000 {
 		t.Fatalf("persisted=%#v", before)

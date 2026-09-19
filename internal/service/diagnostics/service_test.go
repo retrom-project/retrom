@@ -4,14 +4,16 @@ import (
 	"context"
 	"errors"
 	"testing"
+
+	model "retrom/internal/model/diagnostics"
 )
 
 type memoryRepository struct {
-	scope ReadScope
+	scope model.ReadScope
 	err   error
 }
 
-func (repository memoryRepository) WithRead(_ context.Context, work func(ReadScope) error) error {
+func (repository memoryRepository) WithRead(_ context.Context, work func(model.ReadScope) error) error {
 	if repository.err != nil {
 		return repository.err
 	}
@@ -20,13 +22,13 @@ func (repository memoryRepository) WithRead(_ context.Context, work func(ReadSco
 
 type memoryScope struct {
 	schema int64
-	counts Counts
-	items  []RuntimeProvider
+	counts model.Counts
+	items  []model.RuntimeProvider
 }
 
 func (scope memoryScope) SchemaVersion(context.Context) (int64, error) { return scope.schema, nil }
-func (scope memoryScope) Counts(context.Context) (Counts, error)       { return scope.counts, nil }
-func (scope memoryScope) RuntimeProviders(context.Context) ([]RuntimeProvider, error) {
+func (scope memoryScope) Counts(context.Context) (model.Counts, error) { return scope.counts, nil }
+func (scope memoryScope) RuntimeProviders(context.Context) ([]model.RuntimeProvider, error) {
 	return scope.items, nil
 }
 
@@ -34,8 +36,8 @@ func TestReportUsesSnapshotProjections(t *testing.T) {
 	t.Parallel()
 	service := New(memoryRepository{scope: memoryScope{
 		schema: 14,
-		counts: Counts{PublishedGames: 3, ReadyDATs: 2},
-		items:  []RuntimeProvider{{ProviderID: "runtime"}},
+		counts: model.Counts{PublishedGames: 3, ReadyDATs: 2},
+		items:  []model.RuntimeProvider{{ProviderID: "runtime"}},
 	}})
 	report, err := service.Report(t.Context())
 	if err != nil {

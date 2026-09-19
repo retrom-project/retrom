@@ -4,26 +4,27 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+
+	metadatascrapemodel "retrom/internal/model/metadatascrape"
 )
 
 type EvidenceProcessor struct {
-	evidence EvidenceReader
-	lookup   EvidenceLookup
-	results  EvidenceResults
+	evidence metadatascrapemodel.EvidenceReader
+	lookup   metadatascrapemodel.EvidenceLookup
+	results  metadatascrapemodel.EvidenceResults
 }
 
 func NewProcessor(
-	evidence EvidenceReader,
-	lookup EvidenceLookup,
-	results EvidenceResults,
+	evidence metadatascrapemodel.EvidenceReader,
+	lookup metadatascrapemodel.EvidenceLookup,
+	results metadatascrapemodel.EvidenceResults,
 ) *EvidenceProcessor {
 	return &EvidenceProcessor{evidence: evidence, lookup: lookup, results: results}
 }
 
 func (processor *EvidenceProcessor) Process(
 	ctx context.Context,
-	claim WorkerClaim,
-	payloadJSON string,
+	claim metadatascrapemodel.WorkerClaim, payloadJSON string,
 ) (int, string, error) {
 	var payload struct {
 		BypassCache bool `json:"bypassCache"`

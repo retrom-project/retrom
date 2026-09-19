@@ -4,9 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
+	model "retrom/internal/model/importdiscard"
 )
 
-func (service *Service) process(ctx context.Context, key Key, userID string) (bool, error) {
+func (service *Service) process(ctx context.Context, key model.Key, userID string) (bool, error) {
 	if key.Kind != "IMPORT" {
 		stopped, err := service.stopSource(ctx, key, userID)
 		if err != nil || !stopped {
@@ -18,7 +20,7 @@ func (service *Service) process(ctx context.Context, key Key, userID string) (bo
 	}
 	ids := []string{key.ID}
 	if key.Kind != "IMPORT" {
-		if err := service.repository.WithRead(ctx, func(records Reader) error {
+		if err := service.repository.WithRead(ctx, func(records model.Reader) error {
 			var err error
 			ids, err = records.Children(ctx, key)
 			return failure("process discarded content", err)
@@ -38,9 +40,9 @@ func (service *Service) process(ctx context.Context, key Key, userID string) (bo
 	return true, nil
 }
 
-func (service *Service) batch(ctx context.Context, key Key) (Batch, error) {
-	var batch Batch
-	err := service.repository.WithRead(ctx, func(records Reader) error {
+func (service *Service) batch(ctx context.Context, key model.Key) (model.Batch, error) {
+	var batch model.Batch
+	err := service.repository.WithRead(ctx, func(records model.Reader) error {
 		var err error
 		batch, err = records.Batch(ctx, key)
 		return failure("process discarded content", err)
@@ -48,7 +50,7 @@ func (service *Service) batch(ctx context.Context, key Key) (Batch, error) {
 	return batch, failure("process discarded content", err)
 }
 
-func (service *Service) stopSource(ctx context.Context, key Key, userID string) (bool, error) {
+func (service *Service) stopSource(ctx context.Context, key model.Key, userID string) (bool, error) {
 	batch, err := service.batch(ctx, key)
 	if err != nil {
 		return false, failure("process discarded content", err)
@@ -60,7 +62,7 @@ func (service *Service) stopSource(ctx context.Context, key Key, userID string) 
 		return true, nil
 	}
 	err = service.sources.Cancel(ctx, key.Kind, key.ID, batch.Version, reason, userID)
-	if errors.Is(err, ErrNotCancellable) {
+	if errors.Is(err, model.ErrNotCancellable) {
 		return false, nil
 	}
 	if err != nil {
@@ -70,7 +72,7 @@ func (service *Service) stopSource(ctx context.Context, key Key, userID string) 
 }
 
 func (service *Service) discardImport(ctx context.Context, id string) (bool, error) {
-	batch, err := service.batch(ctx, Key{Kind: "IMPORT", ID: id})
+	batch, err := service.batch(ctx, model.Key{Kind: "IMPORT", ID: id})
 	if err != nil {
 		return false, failure("process discarded content", err)
 	}
@@ -79,7 +81,7 @@ func (service *Service) discardImport(ctx context.Context, id string) (bool, err
 	}
 	if batch.State != "CANCELLED" && batch.State != "COMPLETED" && batch.State != "FAILED" {
 		err := service.importer.CancelForDiscard(ctx, id, batch.Version)
-		if errors.Is(err, ErrNotCancellable) {
+		if errors.Is(err, model.ErrNotCancellable) {
 			return false, nil
 		}
 		if err != nil {
@@ -100,17 +102,17 @@ func (service *Service) discardImport(ctx context.Context, id string) (bool, err
 	return true, nil
 }
 
-func (service *Service) discardSourceItems(ctx context.Context, key Key) (bool, error) {
+func (service *Service) discardSourceItems(ctx context.Context, key model.Key) (bool, error) {
 	var done bool
 	now := service.now().UnixMilli()
-	err := service.repository.WithWrite(ctx, func(scope WriteScope) error {
+	err := service.repository.WithWrite(ctx, func(scope model.WriteScope) error {
 		releases, err := scope.Sources.Releases(ctx, key)
 		if err != nil {
 			return failure("process discarded content", err)
 		}
 		if releases.Releasing > 0 {
 			if releases.Failed > 0 {
-				return ErrReleaseFailed
+				return model.ErrReleaseFailed
 			}
 			return nil
 		}

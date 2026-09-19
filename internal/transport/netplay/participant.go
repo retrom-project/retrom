@@ -1,9 +1,11 @@
 package netplay
 
-import application "retrom/internal/service/netplay"
+import (
+	netplaymodel "retrom/internal/model/netplay"
+)
 
 type (
-	Event             = application.Event
-	ParticipantLaunch = application.ParticipantLaunchResult
-	SocketParticipant = application.SocketParticipant
+	Event             = netplaymodel.Event
+	ParticipantLaunch = netplaymodel.ParticipantLaunchResult
+	SocketParticipant = netplaymodel.SocketParticipant
 )

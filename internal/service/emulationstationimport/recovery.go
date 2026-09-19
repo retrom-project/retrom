@@ -5,14 +5,16 @@ import (
 	"errors"
 	"fmt"
 	"time"
+
+	model "retrom/internal/model/emulationstationimport"
 )
 
 type Recovery struct {
-	repository RecoveryRepository
+	repository model.RecoveryRepository
 	now        func() time.Time
 }
 
-func NewRecovery(repository RecoveryRepository, now func() time.Time) *Recovery {
+func NewRecovery(repository model.RecoveryRepository, now func() time.Time) *Recovery {
 	return &Recovery{repository: repository, now: now}
 }
 
@@ -22,10 +24,10 @@ func (service *Recovery) Recover(ctx context.Context) error {
 		return fmt.Errorf("list expired EmulationStation executions: %w", err)
 	}
 	for _, candidate := range candidates {
-		err := service.repository.WithRecovery(ctx, func(scope RecoveryScope) error {
+		err := service.repository.WithRecovery(ctx, func(scope model.RecoveryScope) error {
 			return service.recoverInScope(ctx, scope, candidate)
 		})
-		if errors.Is(err, ErrVersionConflict) {
+		if errors.Is(err, model.ErrVersionConflict) {
 			continue
 		}
 		if err != nil {
@@ -35,7 +37,11 @@ func (service *Recovery) Recover(ctx context.Context) error {
 	return nil
 }
 
-func (service *Recovery) recoverInScope(ctx context.Context, scope RecoveryScope, candidate LeaseSnapshot) error {
+func (service *Recovery) recoverInScope(
+	ctx context.Context,
+	scope model.RecoveryScope,
+	candidate model.LeaseSnapshot,
+) error {
 	current, found, err := scope.Read.Current(ctx, candidate.JobID)
 	if err != nil {
 		return fmt.Errorf("read EmulationStation recovery candidate: %w", err)
@@ -44,12 +50,12 @@ func (service *Recovery) recoverInScope(ctx context.Context, scope RecoveryScope
 		return nil
 	}
 	if !sameRecoverySnapshot(current, candidate) {
-		return ErrVersionConflict
+		return model.ErrVersionConflict
 	}
 	if _, err := planRecovery(current, service.now().UnixMilli()); err != nil {
 		return err
 	}
-	current, more, err := completeExecutionReviews(ctx, ExecutionReviewScope{
+	current, more, err := completeExecutionReviews(ctx, model.ExecutionReviewScope{
 		Read: scope.Read, Write: scope.Write, Metadata: scope.Metadata,
 	}, current, service.now)
 	if err != nil {
@@ -71,7 +77,7 @@ func (service *Recovery) recoverInScope(ctx context.Context, scope RecoveryScope
 	return nil
 }
 
-func sameRecoverySnapshot(a, b LeaseSnapshot) bool {
+func sameRecoverySnapshot(a, b model.LeaseSnapshot) bool {
 	if (a.StartedAtMS == nil) != (b.StartedAtMS == nil) {
 		return false
 	}

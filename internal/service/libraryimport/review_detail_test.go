@@ -6,14 +6,16 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	model "retrom/internal/model/libraryimport"
 )
 
 type detailScopeFixture struct {
-	scope ReviewReadScope
+	scope model.ReviewReadScope
 	err   error
 }
 
-func (fixture detailScopeFixture) WithRead(_ context.Context, work func(ReviewReadScope) error) error {
+func (fixture detailScopeFixture) WithRead(_ context.Context, work func(model.ReviewReadScope) error) error {
 	if err := work(fixture.scope); err != nil {
 		return err
 	}
@@ -21,21 +23,22 @@ func (fixture detailScopeFixture) WithRead(_ context.Context, work func(ReviewRe
 }
 
 type detailDraftFixture struct {
-	ReviewDraftReader
-	head ReviewHead
+	model.ReviewDraftReader
+
+	head model.ReviewHead
 	err  error
 }
 
-func (fixture detailDraftFixture) Head(context.Context, string) (ReviewHead, error) {
+func (fixture detailDraftFixture) Head(context.Context, string) (model.ReviewHead, error) {
 	return fixture.head, fixture.err
 }
 
 func TestReviewDetailChecksVisibilityBeforeChildren(t *testing.T) {
 	t.Parallel()
-	for _, cause := range []error{ErrReviewNotFound, errors.New("query headline failed")} {
-		service := NewReviewDetails(detailScopeFixture{scope: ReviewReadScope{Drafts: detailDraftFixture{err: cause}}})
+	for _, cause := range []error{model.ErrReviewNotFound, errors.New("query headline failed")} {
+		service := NewReviewDetails(detailScopeFixture{scope: model.ReviewReadScope{Drafts: detailDraftFixture{err: cause}}})
 		result, err := service.Get(t.Context(), "hidden")
-		if !errors.Is(err, cause) || !reflect.DeepEqual(result, ReviewDetail{}) {
+		if !errors.Is(err, cause) || !reflect.DeepEqual(result, model.ReviewDetail{}) {
 			t.Fatalf("result=%+v err=%v", result, err)
 		}
 	}
@@ -43,13 +46,13 @@ func TestReviewDetailChecksVisibilityBeforeChildren(t *testing.T) {
 
 func TestReviewDetailDuplicateScopeUsesPlatformType(t *testing.T) {
 	t.Parallel()
-	reader := &duplicateReaderStub{parts: []ContentIdentityPart{{Role: "CONTENT", SHA256: strings.Repeat("a", 64), Count: 1}}}
-	scope := ReviewReadScope{Duplicates: reader}
-	head := ReviewHead{
+	reader := &duplicateReaderStub{parts: []model.ContentIdentityPart{{Role: "CONTENT", SHA256: strings.Repeat("a", 64), Count: 1}}}
+	scope := model.ReviewReadScope{Duplicates: reader}
+	head := model.ReviewHead{
 		ItemID: "item", SnapshotID: "snapshot", ContentKind: "SINGLE_FILE", PlatformID: "gba",
-		PlatformInstance: ReviewPlatformInstance{ID: "instance-id"},
+		PlatformInstance: model.ReviewPlatformInstance{ID: "instance-id"},
 	}
-	var result ReviewDetail
+	var result model.ReviewDetail
 	if err := readReviewContent(t.Context(), scope, head, &result); err != nil {
 		t.Fatal(err)
 	}

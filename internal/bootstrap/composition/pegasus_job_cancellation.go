@@ -6,6 +6,8 @@ import (
 	"fmt"
 
 	"retrom/internal/capability/security/authn"
+	jobsmodel "retrom/internal/model/jobs"
+	pegasusimportmodel "retrom/internal/model/pegasusimport"
 	"retrom/internal/service/jobs"
 	pegasus "retrom/internal/service/pegasusimport"
 )
@@ -29,16 +31,16 @@ func (handler pegasusCancellation) CancelJob(
 ) (jobs.Result, bool, error) {
 	principal, ok := authn.PrincipalFromContext(ctx)
 	if !ok || principal.UserID == "" {
-		return jobs.Result{}, false, jobs.ErrConflict
+		return jobs.Result{}, false, jobsmodel.ErrConflict
 	}
 	result, pending, err := handler.source.CancelJob(ctx, pegasus.JobCancellationRequest{
 		JobID: command.JobID, Kind: command.Kind, ScopeID: command.ScopeID, ExpectedVersion: command.ExpectedVersion,
 		Reason: command.Reason, ActorID: principal.UserID,
 	})
 	if err != nil {
-		if errors.Is(err, pegasus.ErrVersionConflict) || errors.Is(err, pegasus.ErrNotCancellable) ||
-			errors.Is(err, pegasus.ErrNotFound) {
-			return jobs.Result{}, false, fmt.Errorf("%w: %w", jobs.ErrConflict, err)
+		if errors.Is(err, pegasusimportmodel.ErrVersionConflict) || errors.Is(err, pegasusimportmodel.ErrNotCancellable) ||
+			errors.Is(err, pegasusimportmodel.ErrNotFound) {
+			return jobs.Result{}, false, fmt.Errorf("%w: %w", jobsmodel.ErrConflict, err)
 		}
 		return jobs.Result{}, false, fmt.Errorf("cancel Pegasus domain job: %w", err)
 	}

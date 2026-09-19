@@ -1,9 +1,13 @@
 package uploads
 
-import "testing"
+import (
+	"testing"
+
+	model "retrom/internal/model/uploads"
+)
 
 func TestUploadRejectsRetiredRuntimePackPurpose(t *testing.T) {
-	request := CreateRequest{Purpose: "RUNTIME_ASSET_PACK", SourceType: "DIRECTORY", Files: []FileDeclaration{{ClientFileID: "file", RelativePath: "Music/theme.wav", SizeBytes: 1}}}
+	request := model.CreateRequest{Purpose: "RUNTIME_ASSET_PACK", SourceType: "DIRECTORY", Files: []model.FileDeclaration{{ClientFileID: "file", RelativePath: "Music/theme.wav", SizeBytes: 1}}}
 	if validUploadShape(request) {
 		t.Fatal("retired pack upload capability remains active")
 	}

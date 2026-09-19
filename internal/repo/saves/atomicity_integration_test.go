@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	savesmodel "retrom/internal/model/saves"
 	saveservice "retrom/internal/service/saves"
 )
 
@@ -52,23 +53,25 @@ func savePersistenceEvidence(t *testing.T, fixture *saveFixture) [7]int64 {
 }
 
 type lateSaveFailure struct {
-	saveservice.Repository
+	savesmodel.Repository
+
 	failure error
 }
 
-func (repository lateSaveFailure) WithWrite(ctx context.Context, work func(saveservice.WriteScope) error) error {
-	return repository.Repository.WithWrite(ctx, func(scope saveservice.WriteScope) error {
+func (repository lateSaveFailure) WithWrite(ctx context.Context, work func(savesmodel.WriteScope) error) error {
+	return repository.Repository.WithWrite(ctx, func(scope savesmodel.WriteScope) error {
 		scope.Idempotency = lateSaveReplay{IdempotencyRecords: scope.Idempotency, failure: repository.failure}
 		return work(scope)
 	})
 }
 
 type lateSaveReplay struct {
-	saveservice.IdempotencyRecords
+	savesmodel.IdempotencyRecords
+
 	failure error
 }
 
-func (records lateSaveReplay) Remember(ctx context.Context, replay saveservice.ReplayWrite) error {
+func (records lateSaveReplay) Remember(ctx context.Context, replay savesmodel.ReplayWrite) error {
 	if err := records.IdempotencyRecords.Remember(ctx, replay); err != nil {
 		return err
 	}

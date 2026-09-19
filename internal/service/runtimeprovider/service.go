@@ -7,17 +7,19 @@ import (
 	"sort"
 	"time"
 
+	model "retrom/internal/model/runtimeprovider"
+
 	"github.com/google/uuid"
 )
 
-type Service struct{ repository Repository }
+type Service struct{ repository model.Repository }
 
-func New(repository Repository) *Service { return &Service{repository: repository} }
-func (service *Service) Reconcile(ctx context.Context, candidate Projection, now time.Time) error {
+func New(repository model.Repository) *Service { return &Service{repository: repository} }
+func (service *Service) Reconcile(ctx context.Context, candidate model.Projection, now time.Time) error {
 	if len(candidate.CatalogSHA256) != 64 || len(candidate.Providers) == 0 || now.UnixMilli() < 0 {
-		return ErrProjectionInvalid
+		return model.ErrProjectionInvalid
 	}
-	err := service.repository.WithWrite(ctx, func(scope WriteScope) error {
+	err := service.repository.WithWrite(ctx, func(scope model.WriteScope) error {
 		current, err := scope.Catalog.Current(ctx)
 		if err != nil {
 			return fmt.Errorf("read current runtime catalog: %w", err)
@@ -39,8 +41,8 @@ func (service *Service) Reconcile(ctx context.Context, candidate Projection, now
 
 func applyChangedProjection(
 	ctx context.Context,
-	records ProjectionRecords,
-	change Publication,
+	records model.ProjectionRecords,
+	change model.Publication,
 	changed []string,
 ) error {
 	for _, providerID := range changed {
@@ -59,7 +61,7 @@ func applyChangedProjection(
 	if err != nil {
 		return projectionInvalid(err)
 	}
-	if err := records.Audit(ctx, Audit{ID: id.String(), DiffJSON: diff, AtMS: change.AtMS}); err != nil {
+	if err := records.Audit(ctx, model.Audit{ID: id.String(), DiffJSON: diff, AtMS: change.AtMS}); err != nil {
 		return fmt.Errorf("audit runtime reconciliation: %w", err)
 	}
 	return nil
@@ -67,14 +69,14 @@ func applyChangedProjection(
 
 func prepareReconciliation(
 	ctx context.Context,
-	records CatalogRecords,
-	current CurrentState,
-	candidate Projection,
+	records model.CatalogRecords,
+	current model.CurrentState,
+	candidate model.Projection,
 	now int64,
-) (Publication, []string, error) {
-	result := Publication{Candidate: candidate, AtMS: now}
+) (model.Publication, []string, error) {
+	result := model.Publication{Candidate: candidate, AtMS: now}
 	providers := make(map[string]bool)
-	targets := make(map[TargetIdentity]bool)
+	targets := make(map[model.TargetIdentity]bool)
 	changed := make([]string, 0, len(candidate.Providers))
 	for _, provider := range candidate.Providers {
 		id := provider.Active.ProviderID
@@ -82,20 +84,20 @@ func prepareReconciliation(
 		previous, exists := current.Providers[id]
 		updated, err := validateProviderVersion(provider.Active, previous, exists)
 		if err != nil {
-			return Publication{}, nil, err
+			return model.Publication{}, nil, err
 		}
 		if updated {
 			changed = append(changed, id)
 		}
 		for _, target := range provider.Targets {
-			identity := TargetIdentity{ProviderID: id, TargetID: target.Target.ID}
+			identity := model.TargetIdentity{ProviderID: id, TargetID: target.Target.ID}
 			targets[identity] = true
 			formats, err := records.CheckpointFormats(ctx, identity)
 			if err != nil {
-				return Publication{}, nil, fmt.Errorf("read stored checkpoint formats: %w", err)
+				return model.Publication{}, nil, fmt.Errorf("read stored checkpoint formats: %w", err)
 			}
 			if err := ValidateCheckpointFormats(id, target, formats); err != nil {
-				return Publication{}, nil, err
+				return model.Publication{}, nil, err
 			}
 		}
 	}
@@ -111,10 +113,15 @@ func prepareReconciliation(
 		}
 		referenced, err := records.TargetReferenced(ctx, target)
 		if err != nil {
-			return Publication{}, nil, fmt.Errorf("inspect removed runtime target: %w", err)
+			return model.Publication{}, nil, fmt.Errorf("inspect removed runtime target: %w", err)
 		}
 		if referenced {
-			return Publication{}, nil, fmt.Errorf("%w: %s/%s", ErrProviderTargetReferenced, target.ProviderID, target.TargetID)
+			return model.Publication{}, nil, fmt.Errorf(
+				"%w: %s/%s",
+				model.ErrProviderTargetReferenced,
+				target.ProviderID,
+				target.TargetID,
+			)
 		}
 		result.RemovedTargets = append(result.RemovedTargets, target)
 	}
@@ -123,7 +130,7 @@ func prepareReconciliation(
 	return result, changed, nil
 }
 
-func ValidateCheckpointFormats(providerID string, target TargetProjection, formats []string) error {
+func ValidateCheckpointFormats(providerID string, target model.TargetProjection, formats []string) error {
 	readable := make(map[string]bool)
 	if target.Target.Checkpoint != nil {
 		for _, format := range target.Target.Checkpoint.ReadFormats {
@@ -132,7 +139,7 @@ func ValidateCheckpointFormats(providerID string, target TargetProjection, forma
 	}
 	for _, format := range formats {
 		if !readable[format] {
-			return fmt.Errorf("%w: %s/%s %s", ErrProviderCheckpointUnreadable, providerID, target.Target.ID, format)
+			return fmt.Errorf("%w: %s/%s %s", model.ErrProviderCheckpointUnreadable, providerID, target.Target.ID, format)
 		}
 	}
 	return nil

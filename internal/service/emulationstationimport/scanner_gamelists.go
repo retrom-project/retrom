@@ -9,15 +9,16 @@ import (
 	"path"
 
 	"retrom/internal/capability/format/emulationstationmeta"
+	model "retrom/internal/model/emulationstationimport"
 )
 
 func (service *Scanner) projectGamelist(
 	ctx context.Context,
 	releaseYearMax int,
-	files map[string]discoveredFile,
+	files map[string]DiscoveredFile,
 	caches *scanCaches,
-	result *scanResult,
-	gamelist *scannedGamelist,
+	result *model.ScanProjection,
+	gamelist *model.ScanGamelist,
 ) error {
 	contents, err := service.source.Read(ctx, files[gamelist.Path], maxGamelistBytes)
 	if err != nil {
@@ -48,7 +49,7 @@ func (service *Scanner) projectGamelist(
 	if relativeDirectory == "" {
 		displayName = "根目录"
 	}
-	collection := scannedCollection{
+	collection := model.ScanCollection{
 		ID: collectionID, GamelistPath: gamelist.Path,
 		RelativeDirectory: relativeDirectory, DisplayName: displayName,
 		GameCount: int64(len(document.Games)), FolderEntryCount: int64(document.FolderEntryCount),
@@ -92,9 +93,9 @@ func parserErrorCode(err error) string {
 }
 
 func collectGame(
-	result *scanResult,
-	collection *scannedCollection, game emulationstationmeta.Game,
-	item scannedItem, extensions map[string]int64,
+	result *model.ScanProjection,
+	collection *model.ScanCollection, game emulationstationmeta.Game,
+	item model.ScanItem, extensions map[string]int64,
 ) {
 	if item.DiscoveryState != "READY" {
 		collection.IssueCount++

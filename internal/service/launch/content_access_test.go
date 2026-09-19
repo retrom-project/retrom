@@ -6,34 +6,36 @@ import (
 	"reflect"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/launch"
 )
 
 type contentReaderStub struct {
-	record       ContentRecord
-	external     ExternalRecord
+	record       model.ContentRecord
+	external     model.ExternalRecord
 	found        bool
 	failure      error
 	calls        []bool
 	projectCalls int
-	ref          SessionRef
+	ref          model.SessionRef
 }
 
-func (stub *contentReaderStub) ProductContent(_ context.Context, _, _ string, folded bool) (ContentRecord, bool, error) {
+func (stub *contentReaderStub) ProductContent(_ context.Context, _, _ string, folded bool) (model.ContentRecord, bool, error) {
 	stub.calls = append(stub.calls, folded)
 	return stub.record, stub.found || folded, stub.failure
 }
 
-func (stub *contentReaderStub) PreviewContent(context.Context, string, string) (ContentRecord, bool, error) {
+func (stub *contentReaderStub) PreviewContent(context.Context, string, string) (model.ContentRecord, bool, error) {
 	return stub.record, stub.found, stub.failure
 }
 
-func (stub *contentReaderStub) PreviewProject(_ context.Context, _, _ string, folded bool) (ContentRecord, bool, error) {
+func (stub *contentReaderStub) PreviewProject(_ context.Context, _, _ string, folded bool) (model.ContentRecord, bool, error) {
 	stub.projectCalls++
 	stub.calls = append(stub.calls, folded)
 	return stub.record, stub.found, stub.failure
 }
 
-func (stub *contentReaderStub) External(_ context.Context, ref SessionRef, _ string) (ExternalRecord, bool, error) {
+func (stub *contentReaderStub) External(_ context.Context, ref model.SessionRef, _ string) (model.ExternalRecord, bool, error) {
 	stub.ref = ref
 	return stub.external, stub.found, stub.failure
 }
@@ -42,8 +44,8 @@ func matchTestCapability(capability string, hash []byte) bool {
 	return capability == "valid" && string(hash) == "hash"
 }
 
-func activeSession() SessionRecord {
-	return SessionRecord{
+func activeSession() model.SessionRecord {
+	return model.SessionRecord{
 		State: "ACTIVE", HardExpiresAtMS: 101, CredentialHash: []byte("hash"),
 		ProviderID: "provider", TargetID: "target", BundleSHA256: "frozen", SaveAccess: "NORMAL",
 	}
@@ -52,10 +54,10 @@ func activeSession() SessionRecord {
 func validContentStub() *contentReaderStub {
 	session := activeSession()
 	return &contentReaderStub{
-		found: true, record: ContentRecord{Session: session, Content: ContentView{
+		found: true, record: model.ContentRecord{Session: session, Content: model.ContentView{
 			Digest: "digest", Format: "RPG_MAKER_PROJECT", ProviderID: "provider", TargetID: "target", BundleSHA256: "frozen",
 		}},
-		external: ExternalRecord{Session: session, Content: ExternalView{Digest: "bios", Kind: "BIOS"}},
+		external: model.ExternalRecord{Session: session, Content: model.ExternalView{Digest: "bios", Kind: "BIOS"}},
 	}
 }
 
@@ -86,7 +88,7 @@ func TestContentAccessRequiresActiveUnexpiredCapability(t *testing.T) {
 				if err != nil || !reflect.DeepEqual(actual, reader.record.Content) {
 					t.Fatalf("content=%#v error=%v", actual, err)
 				}
-			} else if !errors.Is(err, ErrCredential) || actual != (ContentView{}) {
+			} else if !errors.Is(err, model.ErrCredential) || actual != (model.ContentView{}) {
 				t.Fatalf("unauthorized content=%#v error=%v", actual, err)
 			}
 		})
@@ -114,7 +116,7 @@ func TestRPGFallbackOnlyFollowsMissingExactPath(t *testing.T) {
 				t.Fatalf("calls=%v", reader.calls)
 			}
 			if test.failure != nil {
-				if !errors.Is(err, test.failure) || actual != (ContentView{}) {
+				if !errors.Is(err, test.failure) || actual != (model.ContentView{}) {
 					t.Fatalf("content=%#v error=%v", actual, err)
 				}
 			} else if err != nil || actual.Digest != "digest" {
@@ -129,7 +131,7 @@ func TestPreviewProjectPathsAndFormatsRemainConstrained(t *testing.T) {
 	for _, logicalName := range []string{"../file", "/file", "a/../file", "a\\file", ""} {
 		reader := validContentStub()
 		service := NewContentAccess(reader, queryClock, matchTestCapability)
-		if _, err := service.PreviewProjectContent(t.Context(), "preview", "valid", logicalName); !errors.Is(err, ErrCredential) || reader.projectCalls != 0 {
+		if _, err := service.PreviewProjectContent(t.Context(), "preview", "valid", logicalName); !errors.Is(err, model.ErrCredential) || reader.projectCalls != 0 {
 			t.Fatalf("path=%q calls=%d error=%v", logicalName, reader.projectCalls, err)
 		}
 	}
@@ -139,7 +141,7 @@ func TestPreviewProjectPathsAndFormatsRemainConstrained(t *testing.T) {
 		service := NewContentAccess(reader, queryClock, matchTestCapability)
 		actual, err := service.PreviewProjectContent(t.Context(), "preview", "valid", "assets/file.png")
 		if format == "RETROM_SINGLE_FILE_V1" {
-			if !errors.Is(err, ErrCredential) {
+			if !errors.Is(err, model.ErrCredential) {
 				t.Fatalf("nonproject allowed: %v", err)
 			}
 		} else if err != nil || actual.Format != format {
@@ -164,15 +166,15 @@ func TestIsolatedAndPreviewAccessKeepDistinctAuthority(t *testing.T) {
 	if !reflect.DeepEqual(reader.calls, []bool{false, true}) {
 		t.Fatalf("RPG preview calls=%v", reader.calls)
 	}
-	if _, err := service.PreviewContent(t.Context(), "preview", "invalid", "file"); !errors.Is(err, ErrCredential) {
+	if _, err := service.PreviewContent(t.Context(), "preview", "invalid", "file"); !errors.Is(err, model.ErrCredential) {
 		t.Fatalf("preview credential=%v", err)
 	}
-	external, err := service.External(t.Context(), SessionRef{ID: "preview", Preview: true}, "valid", "bios.bin")
+	external, err := service.External(t.Context(), model.SessionRef{ID: "preview", Preview: true}, "valid", "bios.bin")
 	if err != nil || external.Digest != "bios" || !reader.ref.Preview {
 		t.Fatalf("external=%#v ref=%#v error=%v", external, reader.ref, err)
 	}
 	reader.record.Session.HardExpiresAtMS = 100
-	if _, err := service.ContentAuthorized(t.Context(), "preview", "RPG_RT.ldb", true); !errors.Is(err, ErrCredential) {
+	if _, err := service.ContentAuthorized(t.Context(), "preview", "RPG_RT.ldb", true); !errors.Is(err, model.ErrCredential) {
 		t.Fatalf("expired isolated content=%v", err)
 	}
 }
@@ -188,7 +190,7 @@ func TestTyranoContentKeepsCausesAndRejectsOtherFormats(t *testing.T) {
 			}
 		}
 		reader.failure = nil
-		if _, err := service.TyranoScriptProjectContentAuthorized(t.Context(), "id", "index.html", preview); !errors.Is(err, ErrCredential) {
+		if _, err := service.TyranoScriptProjectContentAuthorized(t.Context(), "id", "index.html", preview); !errors.Is(err, model.ErrCredential) {
 			t.Fatalf("wrong format preview=%t: %v", preview, err)
 		}
 		reader.record.Content.Format = "TYRANOSCRIPT_PROJECT"

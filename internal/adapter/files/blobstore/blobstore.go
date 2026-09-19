@@ -10,6 +10,8 @@ import (
 	"os"
 	"path/filepath"
 
+	blobmodel "retrom/internal/model/blob"
+
 	"retrom/internal/foundation/cleanup"
 	"retrom/internal/foundation/legacychecksum"
 )
@@ -18,16 +20,6 @@ var (
 	errBlobCandidateClosed     = errors.New("blob candidate is closed")
 	errExistingObjectIntegrity = errors.New("existing CAS object failed integrity check")
 )
-
-type Metadata struct {
-	SHA256   string
-	MD5      string
-	SHA1     string
-	CRC32    string
-	Size     int64
-	Path     string
-	Existing bool
-}
 
 type Store struct {
 	root string
@@ -39,8 +31,9 @@ type Store struct {
 type Candidate struct {
 	store     *Store
 	temporary string
-	metadata  Metadata
+	metadata  blobmodel.PreparedBlob
 	closed    bool
+	existing  bool
 }
 
 func Open(dataDir string) (*Store, error) {
@@ -54,10 +47,10 @@ func Open(dataDir string) (*Store, error) {
 	return &Store{root: root, tmp: temporary}, nil
 }
 
-func (store *Store) Put(source io.Reader) (Metadata, error) {
+func (store *Store) Put(source io.Reader) (blobmodel.PreparedBlob, error) {
 	candidate, err := store.Stage(source)
 	if err != nil {
-		return Metadata{}, err
+		return blobmodel.PreparedBlob{}, err
 	}
 	defer func() { cleanup.Error("discard blob candidate", candidate.Discard()) }()
 	return candidate.Commit()
@@ -95,45 +88,50 @@ func (store *Store) Stage(source io.Reader) (*Candidate, error) {
 		return nil, fmt.Errorf("close blob candidate: %w", err)
 	}
 	sha256Value := hex.EncodeToString(sha256Hash.Sum(nil))
-	metadata := Metadata{
+	metadata := blobmodel.PreparedBlob{
 		SHA256: sha256Value, MD5: hex.EncodeToString(legacyHashes.MD5.Sum(nil)),
 		SHA1: hex.EncodeToString(legacyHashes.SHA1.Sum(nil)), CRC32: hex.EncodeToString(crc32Hash.Sum(nil)),
-		Size: written, Path: name,
+		Size: written,
 	}
 	success = true
 	return &Candidate{store: store, temporary: name, metadata: metadata}, nil
 }
 
-func (candidate *Candidate) Metadata() Metadata {
+func (candidate *Candidate) Metadata() blobmodel.PreparedBlob {
 	return candidate.metadata
 }
 
-func (candidate *Candidate) Commit() (Metadata, error) {
+// Path identifies this candidate\'s private staged bytes while it is open.
+func (candidate *Candidate) Path() string {
+	return candidate.temporary
+}
+
+func (candidate *Candidate) Commit() (blobmodel.PreparedBlob, error) {
 	if candidate == nil || candidate.closed {
-		return Metadata{}, errBlobCandidateClosed
+		return blobmodel.PreparedBlob{}, errBlobCandidateClosed
 	}
 	target := candidate.store.Path(candidate.metadata.SHA256)
 	if err := os.MkdirAll(filepath.Dir(target), 0o700); err != nil {
-		return Metadata{}, fmt.Errorf("create blob shard: %w", err)
+		return blobmodel.PreparedBlob{}, fmt.Errorf("create blob shard: %w", err)
 	}
 	existing := false
 	if err := os.Link(candidate.temporary, target); err != nil {
 		if !errors.Is(err, os.ErrExist) {
-			return Metadata{}, fmt.Errorf("publish blob: %w", err)
+			return blobmodel.PreparedBlob{}, fmt.Errorf("publish blob: %w", err)
 		}
 		existing = true
 		if err := verifyExisting(target, candidate.metadata.Size, candidate.metadata.SHA256); err != nil {
-			return Metadata{}, err
+			return blobmodel.PreparedBlob{}, err
 		}
 	}
 	if err := syncDirectory(filepath.Dir(target)); err != nil {
-		return Metadata{}, err
+		return blobmodel.PreparedBlob{}, err
 	}
 	if err := os.Remove(candidate.temporary); err != nil {
-		return Metadata{}, fmt.Errorf("remove committed blob candidate: %w", err)
+		return blobmodel.PreparedBlob{}, fmt.Errorf("remove committed blob candidate: %w", err)
 	}
 	candidate.closed = true
-	candidate.metadata.Path, candidate.metadata.Existing = target, existing
+	candidate.existing = existing
 	return candidate.metadata, nil
 }
 

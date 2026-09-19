@@ -5,25 +5,27 @@ import (
 	"errors"
 	"testing"
 	"time"
+
+	model "retrom/internal/model/emulationstationimport"
 )
 
 type recoveryMemory struct {
-	candidate LeaseSnapshot
-	current   LeaseSnapshot
-	changes   []RecoveryChange
+	candidate model.LeaseSnapshot
+	current   model.LeaseSnapshot
+	changes   []model.RecoveryChange
 	failure   error
 	stage     string
 }
 
-func (memory *recoveryMemory) Expired(context.Context, int64, int) ([]LeaseSnapshot, error) {
+func (memory *recoveryMemory) Expired(context.Context, int64, int) ([]model.LeaseSnapshot, error) {
 	if memory.stage == "list" {
 		return nil, memory.failure
 	}
-	return []LeaseSnapshot{memory.candidate}, nil
+	return []model.LeaseSnapshot{memory.candidate}, nil
 }
 
-func (memory *recoveryMemory) WithRecovery(_ context.Context, work func(RecoveryScope) error) error {
-	if err := work(RecoveryScope{Payload: emptyPayloadScope(), Read: memory, Write: memory}); err != nil {
+func (memory *recoveryMemory) WithRecovery(_ context.Context, work func(model.RecoveryScope) error) error {
+	if err := work(model.RecoveryScope{Payload: emptyPayloadScope(), Read: memory, Write: memory}); err != nil {
 		return err
 	}
 	if memory.stage == "commit" {
@@ -32,14 +34,14 @@ func (memory *recoveryMemory) WithRecovery(_ context.Context, work func(Recovery
 	return nil
 }
 
-func (memory *recoveryMemory) Current(context.Context, string) (LeaseSnapshot, bool, error) {
+func (memory *recoveryMemory) Current(context.Context, string) (model.LeaseSnapshot, bool, error) {
 	if memory.stage == "read" {
-		return LeaseSnapshot{}, false, memory.failure
+		return model.LeaseSnapshot{}, false, memory.failure
 	}
 	return memory.current, true, nil
 }
 
-func (memory *recoveryMemory) Apply(_ context.Context, change RecoveryChange) error {
+func (memory *recoveryMemory) Apply(_ context.Context, change model.RecoveryChange) error {
 	if memory.stage == "write" {
 		return memory.failure
 	}
@@ -98,10 +100,12 @@ func TestRecoveryIgnoresReplacedCandidate(t *testing.T) {
 	}
 }
 
-func (*recoveryMemory) Reviews(context.Context, string, int) ([]ExecutionReview, error) {
+func (*recoveryMemory) Reviews(context.Context, string, int) ([]model.ExecutionReview, error) {
 	return nil, nil
 }
 
-func (*recoveryMemory) Fence(context.Context, LeaseSnapshot, int64) error { return nil }
+func (*recoveryMemory) Fence(context.Context, model.LeaseSnapshot, int64) error { return nil }
 
-func (*recoveryMemory) CompleteReview(context.Context, ExecutionReviewCompletion) error { return nil }
+func (*recoveryMemory) CompleteReview(context.Context, model.ExecutionReviewCompletion) error {
+	return nil
+}

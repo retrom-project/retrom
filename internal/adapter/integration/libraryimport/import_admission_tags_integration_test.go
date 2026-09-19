@@ -8,9 +8,10 @@ import (
 	"testing"
 
 	"retrom/internal/capability/security/authn"
+	libraryimportmodel "retrom/internal/model/libraryimport"
+	taggingmodel "retrom/internal/model/tagging"
 	repository "retrom/internal/repo/libraryimport"
 	application "retrom/internal/service/libraryimport"
-	"retrom/internal/service/tagging"
 )
 
 func TestImportAdmissionFreezesValidatedTagsAndActor(t *testing.T) {
@@ -40,7 +41,7 @@ func TestImportAdmissionFreezesValidatedTagsAndActor(t *testing.T) {
 	if err := service.database.QueryRowContext(ctx, `SELECT actor_user_id,request_json FROM import_group_requests WHERE import_job_id=?`, result.ImportJobID).Scan(&actorID, &document); err != nil {
 		t.Fatal(err)
 	}
-	var frozen application.QueuedImportRequest
+	var frozen libraryimportmodel.QueuedImportRequest
 	if err := json.Unmarshal([]byte(document), &frozen); err != nil {
 		t.Fatal(err)
 	}
@@ -49,7 +50,7 @@ func TestImportAdmissionFreezesValidatedTagsAndActor(t *testing.T) {
 	}
 	request.TagIDs = []string{"01980000-0000-7000-8000-000000001012"}
 	result, err = admissions.Queue(ctx, request)
-	if !errors.Is(err, tagging.ErrReferenceInvalid) || result != (Created{}) {
+	if !errors.Is(err, taggingmodel.ErrReferenceInvalid) || result != (Created{}) {
 		t.Fatalf("invalid tag result=%+v err=%v", result, err)
 	}
 }

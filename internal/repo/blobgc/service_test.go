@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	blobmodel "retrom/internal/model/blob"
+
 	"retrom/internal/adapter/integration/payloadrelease"
 	"retrom/internal/service/blobgc"
 
@@ -27,7 +29,7 @@ func TestRunOnceHonorsGraceAndConcurrentReference(t *testing.T) {
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
 	blobs, err := blobstore.Open(dataDir)
 	testassert.False(t, err != nil, err)
-	register := func(id, value string) blobstore.Metadata {
+	register := func(id, value string) blobmodel.PreparedBlob {
 		t.Helper()
 		metadata, err := blobs.Put(bytes.NewBufferString(value))
 		testassert.False(t, err != nil, err)
@@ -114,10 +116,10 @@ expires_at_ms) VALUES('rescuer',
 	now = now.Add(7*24*time.Hour + time.Millisecond)
 	second, err := service.RunOnce(ctx)
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return second.Deleted != 1 }), "second GC = %#v, error=%v", second, err)
-	if _, err := os.Stat(orphan.Path); !os.IsNotExist(err) {
+	if _, err := os.Stat(blobs.Path(orphan.SHA256)); !os.IsNotExist(err) {
 		t.Fatalf("orphan still present: %v", err)
 	}
-	if _, err := os.Stat(rescued.Path); err != nil {
+	if _, err := os.Stat(blobs.Path(rescued.SHA256)); err != nil {
 		t.Fatalf("rescued blob missing: %v", err)
 	}
 }

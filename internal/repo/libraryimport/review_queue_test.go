@@ -7,7 +7,7 @@ import (
 	"reflect"
 	"testing"
 
-	application "retrom/internal/service/libraryimport"
+	libraryimportmodel "retrom/internal/model/libraryimport"
 	"retrom/internal/testkit/testsupport"
 
 	"modernc.org/sqlite"
@@ -44,7 +44,7 @@ func TestReviewQueueRepositoryUsesDraftClockAndIDForTies(t *testing.T) {
 			if sort == "UPDATED_DESC" {
 				expected[0], expected[2] = expected[2], expected[0]
 			}
-			query := application.ReviewQueueQuery{Filter: application.ReviewQueueFilter{Sort: sort}, Limit: 1}
+			query := libraryimportmodel.ReviewQueueQuery{Filter: libraryimportmodel.ReviewQueueFilter{Sort: sort}, Limit: 1}
 			for _, id := range expected {
 				rows, err := NewReviewQueue(db).List(t.Context(), query)
 				if err != nil || len(rows) != 1 || rows[0].ItemID != id {
@@ -53,7 +53,7 @@ func TestReviewQueueRepositoryUsesDraftClockAndIDForTies(t *testing.T) {
 				if rows[0].UpdatedAtMS != 10 && id != "item-3" {
 					t.Fatalf("draft clock lost: %#v", rows[0])
 				}
-				query.After = &application.ReviewQueuePosition{ItemID: id, UpdatedAtMS: rows[0].UpdatedAtMS}
+				query.After = &libraryimportmodel.ReviewQueuePosition{ItemID: id, UpdatedAtMS: rows[0].UpdatedAtMS}
 			}
 			rows, err := NewReviewQueue(db).List(t.Context(), query)
 			if err != nil || rows == nil || len(rows) != 0 {
@@ -69,22 +69,22 @@ func TestReviewQueueRepositoryFiltersBySourceSearchPlatformAndBlocker(t *testing
 	instance := testsupport.MustPlatformInstanceID(t, db, "gba/mgba")
 	for _, tc := range []struct {
 		name   string
-		filter application.ReviewQueueFilter
+		filter libraryimportmodel.ReviewQueueFilter
 		ids    []string
 	}{
-		{"all", application.ReviewQueueFilter{}, []string{"item", "item-2", "item-3"}},
-		{"title", application.ReviewQueueFilter{Query: "second"}, []string{"item-2"}},
-		{"import", application.ReviewQueueFilter{ImportJobID: "import"}, []string{"item", "item-2", "item-3"}},
-		{"unknown import", application.ReviewQueueFilter{ImportJobID: "missing"}, []string{}},
-		{"unknown pegasus", application.ReviewQueueFilter{PegasusImportID: "missing"}, []string{}},
-		{"unknown es", application.ReviewQueueFilter{EmulationStationImportID: "missing"}, []string{}},
-		{"platform", application.ReviewQueueFilter{PlatformInstanceID: instance}, []string{"item", "item-2", "item-3"}},
-		{"unknown platform", application.ReviewQueueFilter{PlatformInstanceID: "missing"}, []string{}},
-		{"needs validation", application.ReviewQueueFilter{BlockerCode: "NEEDS_VALIDATION"}, []string{"item", "item-2", "item-3"}},
-		{"other blocker", application.ReviewQueueFilter{BlockerCode: "DEPENDENCY_MISSING"}, []string{}},
+		{"all", libraryimportmodel.ReviewQueueFilter{}, []string{"item", "item-2", "item-3"}},
+		{"title", libraryimportmodel.ReviewQueueFilter{Query: "second"}, []string{"item-2"}},
+		{"import", libraryimportmodel.ReviewQueueFilter{ImportJobID: "import"}, []string{"item", "item-2", "item-3"}},
+		{"unknown import", libraryimportmodel.ReviewQueueFilter{ImportJobID: "missing"}, []string{}},
+		{"unknown pegasus", libraryimportmodel.ReviewQueueFilter{PegasusImportID: "missing"}, []string{}},
+		{"unknown es", libraryimportmodel.ReviewQueueFilter{EmulationStationImportID: "missing"}, []string{}},
+		{"platform", libraryimportmodel.ReviewQueueFilter{PlatformInstanceID: instance}, []string{"item", "item-2", "item-3"}},
+		{"unknown platform", libraryimportmodel.ReviewQueueFilter{PlatformInstanceID: "missing"}, []string{}},
+		{"needs validation", libraryimportmodel.ReviewQueueFilter{BlockerCode: "NEEDS_VALIDATION"}, []string{"item", "item-2", "item-3"}},
+		{"other blocker", libraryimportmodel.ReviewQueueFilter{BlockerCode: "DEPENDENCY_MISSING"}, []string{}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			rows, err := NewReviewQueue(db).List(t.Context(), application.ReviewQueueQuery{Filter: tc.filter, Limit: 21})
+			rows, err := NewReviewQueue(db).List(t.Context(), libraryimportmodel.ReviewQueueQuery{Filter: tc.filter, Limit: 21})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -106,8 +106,8 @@ func TestReviewQueueRepositoryIncludesActiveTagNamesInSearch(t *testing.T) {
 	metadataExec(t, db, `INSERT INTO tags(id,name,name_key,search_text,status,created_by_user_id,updated_by_user_id,created_at_ms,updated_at_ms)
 VALUES(?,'Favorite Fixture','favorite fixture','favorite fixture','ACTIVE','actor','actor',1,1)`, tag)
 	metadataExec(t, db, `INSERT INTO review_draft_tags(review_draft_id,tag_id,assigned_by_user_id,created_at_ms) VALUES('draft',?,'actor',1)`, tag)
-	for _, filter := range []application.ReviewQueueFilter{{Query: "favorite"}, {TagID: tag}} {
-		rows, err := NewReviewQueue(db).List(t.Context(), application.ReviewQueueQuery{Filter: filter, Limit: 21})
+	for _, filter := range []libraryimportmodel.ReviewQueueFilter{{Query: "favorite"}, {TagID: tag}} {
+		rows, err := NewReviewQueue(db).List(t.Context(), libraryimportmodel.ReviewQueueQuery{Filter: filter, Limit: 21})
 		if err != nil || len(rows) != 1 || rows[0].ItemID != "item" {
 			t.Fatalf("tag filter rows=%#v err=%v", rows, err)
 		}
@@ -118,14 +118,14 @@ func TestReviewQueueRepositoryPreservesReadAndCancellationErrors(t *testing.T) {
 	t.Parallel()
 	db := queueDatabase(t)
 	metadataExec(t, db, `UPDATE review_drafts SET metadata_json='{' WHERE import_item_id='item'`)
-	rows, err := NewReviewQueue(db).List(t.Context(), application.ReviewQueueQuery{Limit: 21})
+	rows, err := NewReviewQueue(db).List(t.Context(), libraryimportmodel.ReviewQueueQuery{Limit: 21})
 	var cause *sqlite.Error
 	if !errors.As(err, &cause) || rows != nil {
 		t.Fatalf("corrupt metadata read error lost: %#v %v", rows, err)
 	}
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
-	rows, err = NewReviewQueue(db).List(ctx, application.ReviewQueueQuery{Limit: 21})
+	rows, err = NewReviewQueue(db).List(ctx, libraryimportmodel.ReviewQueueQuery{Limit: 21})
 	if !errors.Is(err, context.Canceled) || rows != nil {
 		t.Fatalf("canceled read error lost: %#v %v", rows, err)
 	}

@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"testing"
 
-	application "retrom/internal/service/libraryimport"
+	libraryimportmodel "retrom/internal/model/libraryimport"
 )
 
 func TestReviewBulkWorkerClaimsCompletesAndFinishesInTypedScope(t *testing.T) {
@@ -23,12 +23,12 @@ func claimReviewBulkWorker(
 	t *testing.T,
 	repository *ReviewBulkWorker,
 	bulkID string,
-) application.ReviewBulkWork {
+) libraryimportmodel.ReviewBulkWork {
 	t.Helper()
-	var work application.ReviewBulkWork
-	if err := repository.WithWorker(t.Context(), func(scope application.ReviewBulkWorkerScope) error {
+	var work libraryimportmodel.ReviewBulkWork
+	if err := repository.WithWorker(t.Context(), func(scope libraryimportmodel.ReviewBulkWorkerScope) error {
 		var err error
-		work, err = scope.Claim(t.Context(), application.ReviewBulkClaim{
+		work, err = scope.Claim(t.Context(), libraryimportmodel.ReviewBulkClaim{
 			BulkApprovalID: bulkID, WorkerID: "worker", NowMS: 10, DeadlineMS: 1000,
 		})
 		return err
@@ -44,11 +44,11 @@ func claimReviewBulkWorker(
 func claimReviewBulkWorkerItem(
 	t *testing.T,
 	repository *ReviewBulkWorker,
-	work application.ReviewBulkWork,
-) application.ReviewBulkWorkItem {
+	work libraryimportmodel.ReviewBulkWork,
+) libraryimportmodel.ReviewBulkWorkItem {
 	t.Helper()
-	var item application.ReviewBulkWorkItem
-	if err := repository.WithWorker(t.Context(), func(scope application.ReviewBulkWorkerScope) error {
+	var item libraryimportmodel.ReviewBulkWorkItem
+	if err := repository.WithWorker(t.Context(), func(scope libraryimportmodel.ReviewBulkWorkerScope) error {
 		var err error
 		item, err = scope.ClaimItem(t.Context(), work, 11)
 		return err
@@ -64,12 +64,12 @@ func claimReviewBulkWorkerItem(
 func completeReviewBulkWorkerItem(
 	t *testing.T,
 	repository *ReviewBulkWorker,
-	work application.ReviewBulkWork,
-	item application.ReviewBulkWorkItem,
+	work libraryimportmodel.ReviewBulkWork,
+	item libraryimportmodel.ReviewBulkWorkItem,
 ) {
 	t.Helper()
-	if err := repository.WithWorker(t.Context(), func(scope application.ReviewBulkWorkerScope) error {
-		return scope.CompleteItem(t.Context(), application.ReviewBulkItemCompletion{
+	if err := repository.WithWorker(t.Context(), func(scope libraryimportmodel.ReviewBulkWorkerScope) error {
+		return scope.CompleteItem(t.Context(), libraryimportmodel.ReviewBulkItemCompletion{
 			Work: work, Item: item, State: "FAILED_FINAL", OutcomeCode: "FAILED",
 			DetailsJSON: `{"schemaVersion":1,"code":"FAILED"}`,
 			NowMS:       12, LeasedUntilMS: 1012,
@@ -79,9 +79,9 @@ func completeReviewBulkWorkerItem(
 	}
 }
 
-func finishReviewBulkWorker(t *testing.T, repository *ReviewBulkWorker, work application.ReviewBulkWork) {
+func finishReviewBulkWorker(t *testing.T, repository *ReviewBulkWorker, work libraryimportmodel.ReviewBulkWork) {
 	t.Helper()
-	if err := repository.WithWorker(t.Context(), func(scope application.ReviewBulkWorkerScope) error {
+	if err := repository.WithWorker(t.Context(), func(scope libraryimportmodel.ReviewBulkWorkerScope) error {
 		return scope.Finish(t.Context(), work, 13)
 	}); err != nil {
 		t.Fatal(err)
@@ -113,14 +113,14 @@ func TestReviewBulkWorkerCancellationUsesCompareAndSetScope(t *testing.T) {
 	database := metadataDatabase(t)
 	bulkID, _ := insertReviewBulkQueryFixture(t, database)
 	repository := NewReviewBulkWorker(database)
-	var target application.ReviewBulkCancelTarget
-	if err := repository.WithWorker(t.Context(), func(scope application.ReviewBulkWorkerScope) error {
+	var target libraryimportmodel.ReviewBulkCancelTarget
+	if err := repository.WithWorker(t.Context(), func(scope libraryimportmodel.ReviewBulkWorkerScope) error {
 		var err error
 		target, err = scope.LoadCancelTarget(t.Context(), bulkID, 1)
 		if err != nil {
 			return err
 		}
-		return scope.RequestCancellation(t.Context(), application.ReviewBulkCancellationRequest{
+		return scope.RequestCancellation(t.Context(), libraryimportmodel.ReviewBulkCancellationRequest{
 			Target: target, BulkApprovalID: bulkID, Reason: "test", ExpectedVersion: 1, NowMS: 20,
 		})
 	}); err != nil {
@@ -129,7 +129,7 @@ func TestReviewBulkWorkerCancellationUsesCompareAndSetScope(t *testing.T) {
 	if target.State != "QUEUED" || target.JobState != "QUEUED" {
 		t.Fatalf("target=%#v", target)
 	}
-	if err := repository.WithWorker(t.Context(), func(scope application.ReviewBulkWorkerScope) error {
+	if err := repository.WithWorker(t.Context(), func(scope libraryimportmodel.ReviewBulkWorkerScope) error {
 		return scope.FinalizeCancellation(t.Context(), bulkID, 21)
 	}); err != nil {
 		t.Fatal(err)

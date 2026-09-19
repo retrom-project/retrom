@@ -9,6 +9,8 @@ import (
 	"reflect"
 	"time"
 
+	model "retrom/internal/model/uploads"
+
 	"github.com/google/uuid"
 )
 
@@ -21,8 +23,8 @@ var (
 
 const finalizationTimeout = 10 * time.Minute
 
-func decodeFinalization(job Job) (FinalizationInput, error) {
-	var input FinalizationInput
+func decodeFinalization(job model.Job) (model.FinalizationInput, error) {
+	var input model.FinalizationInput
 	digest := sha256.Sum256([]byte(job.Input))
 	if hex.EncodeToString(digest[:]) != job.InputDigest {
 		return input, ErrInputInvalid
@@ -42,8 +44,8 @@ func decodeFinalization(job Job) (FinalizationInput, error) {
 	return input, nil
 }
 
-func validateFinalizationFiles(input FinalizationInput, files []FrozenFile) error {
-	byID := make(map[string]FrozenFile, len(input.Inputs.Files))
+func validateFinalizationFiles(input model.FinalizationInput, files []model.FrozenFile) error {
+	byID := make(map[string]model.FrozenFile, len(input.Inputs.Files))
 	for _, file := range input.Inputs.Files {
 		if _, exists := byID[file.ID]; exists {
 			return ErrInputInvalid
@@ -59,11 +61,11 @@ func validateFinalizationFiles(input FinalizationInput, files []FrozenFile) erro
 	return nil
 }
 
-func executionOwned(job Job, run Run) bool {
+func executionOwned(job model.Job, run model.Run) bool {
 	return job.ExecutionNo == run.ExecutionNo && job.WorkerID == run.WorkerID && job.Attempt == run.Attempt
 }
 
-func executionActive(job Job, run Run, now int64) error {
+func executionActive(job model.Job, run model.Run, now int64) error {
 	if !executionOwned(job, run) || job.State != "RUNNING" {
 		return ErrExecutionLost
 	}
@@ -93,11 +95,11 @@ func finalizationFailure(cause error, deadline, now int64) (string, bool) {
 	}
 }
 
-func finalizationEvent(run Run, code string, cause error) []byte {
+func finalizationEvent(run model.Run, code string, cause error) []byte {
 	payload := map[string]any{
 		"schemaVersion": 1, "executionNo": run.ExecutionNo, "attempt": run.Attempt, "errorCode": code,
 	}
-	var part *BrokenPart
+	var part *model.BrokenPart
 	if errors.As(cause, &part) {
 		payload["failedPart"] = part
 	}

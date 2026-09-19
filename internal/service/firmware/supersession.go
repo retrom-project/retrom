@@ -5,10 +5,11 @@ import (
 	"fmt"
 	"math"
 
+	model "retrom/internal/model/firmware"
 	"retrom/internal/service/payloadrelease"
 )
 
-func SupersedeInScope(ctx context.Context, scope SupersessionScope, requirementID string, now int64) error {
+func SupersedeInScope(ctx context.Context, scope model.SupersessionScope, requirementID string, now int64) error {
 	before, found, err := scope.Read.Current(ctx, requirementID)
 	if err != nil {
 		return fmt.Errorf("read active BIOS for replacement: %w", err)
@@ -18,7 +19,7 @@ func SupersedeInScope(ctx context.Context, scope SupersessionScope, requirementI
 	}
 	if before.ID == "" || before.RequirementID != requirementID || before.BlobID == "" ||
 		before.Version < 1 || before.Version == math.MaxInt64 {
-		return ErrInvalid
+		return model.ErrInvalid
 	}
 	if err := scope.Write.Deactivate(ctx, before, now); err != nil {
 		return fmt.Errorf("supersede active BIOS: %w", err)

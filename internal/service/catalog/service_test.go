@@ -6,24 +6,25 @@ import (
 	"testing"
 
 	"retrom/internal/capability/content/contentcapability"
+	model "retrom/internal/model/catalog"
 )
 
 type repositoryStub struct {
-	platforms []PlatformRow
-	targets   []RuntimeTarget
-	instances []PlatformInstance
+	platforms []model.PlatformRow
+	targets   []model.RuntimeTarget
+	instances []model.PlatformInstance
 	err       error
 }
 
-func (stub repositoryStub) Platforms(context.Context) ([]PlatformRow, error) {
+func (stub repositoryStub) Platforms(context.Context) ([]model.PlatformRow, error) {
 	return stub.platforms, stub.err
 }
 
-func (stub repositoryStub) RuntimeTargets(context.Context) ([]RuntimeTarget, error) {
+func (stub repositoryStub) RuntimeTargets(context.Context) ([]model.RuntimeTarget, error) {
 	return stub.targets, stub.err
 }
 
-func (stub repositoryStub) PlatformInstances(context.Context, PlatformInstanceQuery) ([]PlatformInstance, error) {
+func (stub repositoryStub) PlatformInstances(context.Context, model.PlatformInstanceQuery) ([]model.PlatformInstance, error) {
 	return stub.instances, stub.err
 }
 
@@ -35,7 +36,7 @@ func (stub supportStub) SupportsPlatformTarget(string, string, string, string) b
 
 func TestPlatformsAggregateDuplicateBindingsAndPreserveNetplaySupport(t *testing.T) {
 	coreID, coreName, providerID, targetID := "core", "Core", "provider", "target"
-	service := New(repositoryStub{platforms: []PlatformRow{
+	service := New(repositoryStub{platforms: []model.PlatformRow{
 		{
 			ID: "platform", Name: "Platform", SortOrder: 1, Enabled: true,
 			CoreID: &coreID, CoreName: &coreName, CoreEnabled: boolPointer(true),
@@ -61,11 +62,11 @@ func TestCatalogReadsWrapRepositoryErrors(t *testing.T) {
 }
 
 func TestPlatformInstancesResolveDomainCapabilities(t *testing.T) {
-	service := New(repositoryStub{instances: []PlatformInstance{{
+	service := New(repositoryStub{instances: []model.PlatformInstance{{
 		PlatformID: "saturn", Enabled: true,
 		ContentPolicy: contentcapability.NewPolicy(contentcapability.ModeMultiDisc),
 	}}}, nil)
-	items, err := service.PlatformInstances(t.Context(), PlatformInstanceQuery{}, true)
+	items, err := service.PlatformInstances(t.Context(), model.PlatformInstanceQuery{}, true)
 	if err != nil || len(items) != 1 {
 		t.Fatalf("platform instance projection=%+v err=%v", items, err)
 	}

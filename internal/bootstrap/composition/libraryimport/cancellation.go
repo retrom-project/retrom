@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"time"
 
+	jobsmodel "retrom/internal/model/jobs"
+	libraryimportmodel "retrom/internal/model/libraryimport"
 	repository "retrom/internal/repo/libraryimport"
 	"retrom/internal/service/jobs"
 	application "retrom/internal/service/libraryimport"
@@ -32,18 +34,17 @@ func (handler importCancellation) CancelJob(
 	request jobs.DomainCancellation,
 ) (jobs.Result, bool, error) {
 	if request.Kind != "IMPORT_GROUP" {
-		return jobs.Result{}, false, jobs.ErrConflict
+		return jobs.Result{}, false, jobsmodel.ErrConflict
 	}
 	result, err := handler.executions.CancelJob(
-		ctx,
-		application.ImportJobCancellation{
+		ctx, libraryimportmodel.ImportJobCancellation{
 			JobID: request.JobID, ImportID: request.ScopeID,
 			ExpectedVersion: request.ExpectedVersion, Reason: request.Reason,
 		},
 	)
 	if err != nil {
-		if errors.Is(err, application.ErrInvalid) || errors.Is(err, application.ErrVersionConflict) {
-			return jobs.Result{}, false, fmt.Errorf("%w: %w", jobs.ErrConflict, err)
+		if errors.Is(err, libraryimportmodel.ErrInvalid) || errors.Is(err, libraryimportmodel.ErrVersionConflict) {
+			return jobs.Result{}, false, fmt.Errorf("%w: %w", jobsmodel.ErrConflict, err)
 		}
 		return jobs.Result{}, false, fmt.Errorf("cancel ordinary import job: %w", err)
 	}

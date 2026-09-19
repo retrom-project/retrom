@@ -8,18 +8,20 @@ import (
 	"fmt"
 	"math"
 
+	model "retrom/internal/model/launch"
+
 	"github.com/google/uuid"
 )
 
 // ValidationScheduler operates within its caller's creation transaction. The caller
 // publishes resume signals only after that transaction and its receipt commit.
 type ValidationScheduler struct {
-	repository  ValidationJobRepository
+	repository  model.ValidationJobRepository
 	environment ValidationEnvironment
 }
 
 func NewValidationScheduler(
-	repository ValidationJobRepository,
+	repository model.ValidationJobRepository,
 	environment ValidationEnvironment,
 ) *ValidationScheduler {
 	if environment.NewID == nil {
@@ -43,7 +45,7 @@ func checkedProductID(next func() (string, error)) (string, error) {
 	}
 	parsed, err := uuid.Parse(id)
 	if err != nil || parsed.Version() != 7 || parsed.String() != id {
-		return "", ErrBlocked
+		return "", model.ErrBlocked
 	}
 	return id, nil
 }
@@ -66,39 +68,42 @@ func BindCurrentGameStateDigest(baseDigest string, gameVersion int64, sourceMani
 	return hex.EncodeToString(digest[:])
 }
 
-func (service *ValidationScheduler) Queue(ctx context.Context, inputs ValidationInputs) (ValidationQueued, error) {
+func (service *ValidationScheduler) Queue(ctx context.Context, inputs model.ValidationInputs) (
+	model.ValidationQueued,
+	error,
+) {
 	dedupe := ValidationDedupeKey(inputs.GameVariantID, inputs.ValidationInputDigest)
 	previous, found, err := service.repository.Find(ctx, dedupe)
 	if err != nil {
-		return ValidationQueued{}, fmt.Errorf("read validation job: %w", err)
+		return model.ValidationQueued{}, fmt.Errorf("read validation job: %w", err)
 	}
 	if found && previous.State != "FAILED" && previous.State != "CANCELLED" {
-		return ValidationQueued{JobID: previous.ID}, nil
+		return model.ValidationQueued{JobID: previous.ID}, nil
 	}
 	if found && (previous.State != "FAILED" || !previous.Retryable) {
-		return ValidationQueued{}, ErrBlocked
+		return model.ValidationQueued{}, model.ErrBlocked
 	}
 	plan, err := service.prepare(inputs, dedupe, previous, found)
 	if err != nil {
-		return ValidationQueued{}, err
+		return model.ValidationQueued{}, err
 	}
 	if err := service.repository.Write(ctx, plan); err != nil {
-		return ValidationQueued{}, fmt.Errorf("write validation job: %w", err)
+		return model.ValidationQueued{}, fmt.Errorf("write validation job: %w", err)
 	}
-	return ValidationQueued{JobID: plan.JobID, Queued: true}, nil
+	return model.ValidationQueued{JobID: plan.JobID, Queued: true}, nil
 }
 
 func (service *ValidationScheduler) prepare(
-	inputs ValidationInputs,
+	inputs model.ValidationInputs,
 	dedupe string,
-	previous ValidationJob,
+	previous model.ValidationJob,
 	retry bool,
-) (ValidationJobWrite, error) {
-	snapshot := ValidationSnapshot{
+) (model.ValidationJobWrite, error) {
+	snapshot := model.ValidationSnapshot{
 		SchemaVersion: 1, Kind: "VARIANT_VALIDATE",
-		Scope: ValidationScope{Type: "GAME_VARIANT", ID: inputs.GameVariantID}, Inputs: inputs,
+		Scope: model.ValidationScope{Type: "GAME_VARIANT", ID: inputs.GameVariantID}, Inputs: inputs,
 	}
-	plan := ValidationJobWrite{VariantID: inputs.GameVariantID, DedupeKey: dedupe, ExecutionNo: 1, Retry: retry}
+	plan := model.ValidationJobWrite{VariantID: inputs.GameVariantID, DedupeKey: dedupe, ExecutionNo: 1, Retry: retry}
 	var err error
 	if retry {
 		snapshot, err = retryValidationSnapshot(previous, inputs.GameVariantID)
@@ -107,19 +112,19 @@ func (service *ValidationScheduler) prepare(
 		plan.JobID, err = checkedProductID(service.environment.NewID)
 	}
 	if err != nil {
-		return ValidationJobWrite{}, err
+		return model.ValidationJobWrite{}, err
 	}
 	snapshot.ExecutionID, err = checkedProductID(service.environment.NewID)
 	if err != nil {
-		return ValidationJobWrite{}, err
+		return model.ValidationJobWrite{}, err
 	}
 	plan.NowMS = service.environment.Now().UnixMilli()
 	if plan.NowMS < 0 {
-		return ValidationJobWrite{}, ErrBlocked
+		return model.ValidationJobWrite{}, model.ErrBlocked
 	}
 	encoded, err := json.Marshal(snapshot)
 	if err != nil {
-		return ValidationJobWrite{}, fmt.Errorf("encode validation input: %w", err)
+		return model.ValidationJobWrite{}, fmt.Errorf("encode validation input: %w", err)
 	}
 	hash := sha256.Sum256(encoded)
 	plan.SnapshotJSON, plan.InputDigest = string(encoded), hex.EncodeToString(hash[:])
@@ -128,21 +133,21 @@ func (service *ValidationScheduler) prepare(
 		InputExecutionNo int64 `json:"inputExecutionNo"`
 	}{1, plan.ExecutionNo})
 	if err != nil {
-		return ValidationJobWrite{}, fmt.Errorf("encode validation payload: %w", err)
+		return model.ValidationJobWrite{}, fmt.Errorf("encode validation payload: %w", err)
 	}
 	plan.PayloadJSON = string(payload)
 	return plan, nil
 }
 
-func retryValidationSnapshot(previous ValidationJob, variantID string) (ValidationSnapshot, error) {
-	var snapshot ValidationSnapshot
+func retryValidationSnapshot(previous model.ValidationJob, variantID string) (model.ValidationSnapshot, error) {
+	var snapshot model.ValidationSnapshot
 	if err := json.Unmarshal([]byte(previous.SnapshotJSON), &snapshot); err != nil {
-		return ValidationSnapshot{}, fmt.Errorf("read retried validation input: %w", err)
+		return model.ValidationSnapshot{}, fmt.Errorf("read retried validation input: %w", err)
 	}
 	if snapshot.SchemaVersion != 1 || snapshot.Kind != "VARIANT_VALIDATE" ||
 		snapshot.Scope.Type != "GAME_VARIANT" || snapshot.Scope.ID != variantID ||
 		previous.ExecutionNo < 1 || previous.ExecutionNo == math.MaxInt64 || previous.Version == math.MaxInt64 {
-		return ValidationSnapshot{}, ErrBlocked
+		return model.ValidationSnapshot{}, model.ErrBlocked
 	}
 	return snapshot, nil
 }

@@ -2,27 +2,29 @@ package tagging
 
 import (
 	"context"
+
+	model "retrom/internal/model/tagging"
 )
 
-func (service *Service) Create(ctx context.Context, actorUserID, rawName string) (AdminItem, error) {
+func (service *Service) Create(ctx context.Context, actorUserID, rawName string) (model.AdminItem, error) {
 	if !ValidID(actorUserID) {
-		return AdminItem{}, ErrInvalid
+		return model.AdminItem{}, model.ErrInvalid
 	}
 	name, key, search, err := NormalizeName(rawName)
 	if err != nil {
-		return AdminItem{}, err
+		return model.AdminItem{}, err
 	}
-	var result AdminItem
-	err = service.repository.WithWrite(ctx, func(scope WriteScope) error {
+	var result model.AdminItem
+	err = service.repository.WithWrite(ctx, func(scope model.WriteScope) error {
 		active, err := scope.Tags.ActiveByNameKey(ctx)
 		if err != nil {
 			return repositoryError("read active tags", err)
 		}
-		if len(active) >= MaxActiveTags {
-			return ErrLimitReached
+		if len(active) >= model.MaxActiveTags {
+			return model.ErrLimitReached
 		}
 		if active[key] != "" {
-			return ErrNameConflict
+			return model.ErrNameConflict
 		}
 		result, err = createTag(
 			ctx,
@@ -44,40 +46,39 @@ func (service *Service) Rename(
 	ctx context.Context,
 	actorUserID, tagID, rawName string,
 	expectedVersion int64,
-) (AdminItem, error) {
+) (model.AdminItem, error) {
 	if !ValidID(actorUserID) || !ValidID(tagID) || expectedVersion < 1 {
-		return AdminItem{}, ErrInvalid
+		return model.AdminItem{}, model.ErrInvalid
 	}
 	name, key, search, err := NormalizeName(rawName)
 	if err != nil {
-		return AdminItem{}, err
+		return model.AdminItem{}, err
 	}
-	var result AdminItem
-	err = service.repository.WithWrite(ctx, func(scope WriteScope) error {
+	var result model.AdminItem
+	err = service.repository.WithWrite(ctx, func(scope model.WriteScope) error {
 		before, err := scope.Tags.Get(ctx, tagID)
 		if err != nil {
 			return repositoryError("read tag", err)
 		}
-		if before.Status == StatusDeleted {
-			return ErrAlreadyDeleted
+		if before.Status == model.StatusDeleted {
+			return model.ErrAlreadyDeleted
 		}
 		if before.Version != expectedVersion {
-			return ErrVersionConflict
+			return model.ErrVersionConflict
 		}
 		if before.Name == name {
-			return ErrInvalid
+			return model.ErrInvalid
 		}
 		active, err := scope.Tags.ActiveByNameKey(ctx)
 		if err != nil {
 			return repositoryError("read active tags", err)
 		}
 		if active[key] != "" && active[key] != tagID {
-			return ErrNameConflict
+			return model.ErrNameConflict
 		}
 		now := service.now().UnixMilli()
 		if err := scope.Changes.Rename(
-			ctx,
-			TagWrite{
+			ctx, model.TagWrite{
 				ID:              tagID,
 				Name:            name,
 				NameKey:         key,
@@ -118,31 +119,30 @@ func (service *Service) Delete(
 	ctx context.Context,
 	actorUserID, tagID, confirmName string,
 	expectedVersion int64,
-) (AdminItem, DeleteImpact, error) {
+) (model.AdminItem, model.DeleteImpact, error) {
 	if !ValidID(actorUserID) || !ValidID(tagID) || expectedVersion < 1 {
-		return AdminItem{}, DeleteImpact{}, ErrInvalid
+		return model.AdminItem{}, model.DeleteImpact{}, model.ErrInvalid
 	}
-	var result AdminItem
-	var impact DeleteImpact
-	err := service.repository.WithWrite(ctx, func(scope WriteScope) error {
+	var result model.AdminItem
+	var impact model.DeleteImpact
+	err := service.repository.WithWrite(ctx, func(scope model.WriteScope) error {
 		before, err := scope.Tags.Get(ctx, tagID)
 		if err != nil {
 			return repositoryError("read tag", err)
 		}
-		if before.Status == StatusDeleted {
-			return ErrAlreadyDeleted
+		if before.Status == model.StatusDeleted {
+			return model.ErrAlreadyDeleted
 		}
 		if before.Version != expectedVersion {
-			return ErrVersionConflict
+			return model.ErrVersionConflict
 		}
 		if confirmName != before.Name {
-			return ErrDeleteConfirmation
+			return model.ErrDeleteConfirmation
 		}
-		impact = DeleteImpact(before.Usage)
+		impact = model.DeleteImpact(before.Usage)
 		now := service.now().UnixMilli()
 		if err := scope.Changes.Delete(
-			ctx,
-			TagWrite{
+			ctx, model.TagWrite{
 				ID:              tagID,
 				ActorUserID:     actorUserID,
 				ExpectedVersion: expectedVersion,

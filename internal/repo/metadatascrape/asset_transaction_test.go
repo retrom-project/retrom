@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"retrom/internal/adapter/files/blobstore"
-	"retrom/internal/service/metadatascrape"
+	metadatascrapemodel "retrom/internal/model/metadatascrape"
 	"retrom/internal/testkit/testsupport"
 )
 
@@ -36,12 +36,12 @@ func TestAssetPublicationConflictReleasesTransaction(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = NewMedia(database.SQL).WithWrite(t.Context(), func(scope metadatascrape.MediaScope) error {
-		return scope.Assets.Publish(context.Background(), metadatascrape.AssetPublication{
+	err = NewMedia(database.SQL).WithWrite(t.Context(), func(scope metadatascrapemodel.MediaScope) error {
+		return scope.Assets.Publish(context.Background(), metadatascrapemodel.AssetPublication{
 			ID: "deleted", Blob: metadata, MediaType: "image/png", Width: 1, Height: 1, Now: recoveryNow().UnixMilli(),
 		}, 1)
 	})
-	if !errors.Is(err, metadatascrape.ErrExecutionLost) {
+	if !errors.Is(err, metadatascrapemodel.ErrExecutionLost) {
 		t.Fatalf("publication conflict: %v", err)
 	}
 	if stats := database.SQL.Stats(); stats.InUse != 0 {

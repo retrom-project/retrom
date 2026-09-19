@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
+	payloadreleasemodel "retrom/internal/model/payloadrelease"
 	"retrom/internal/repo/dbexec"
 	repository "retrom/internal/repo/payloadrelease"
-	application "retrom/internal/service/payloadrelease"
 	"retrom/internal/testkit/testsupport"
 )
 
@@ -34,7 +34,7 @@ func TestProviderExpirationFailuresRollbackCacheResponseAndGC(t *testing.T) {
 			count, err := service.releaseExpiredProviderPayloadBatch(t.Context())
 			want := cause
 			if strings.HasSuffix(point, "zero") {
-				want = application.ErrExpirationSnapshotChanged
+				want = payloadreleasemodel.ErrExpirationSnapshotChanged
 			}
 			if !errors.Is(err, want) || count != 0 || hits.Load() != 1 {
 				t.Fatalf("wrong expiry failure: count=%d hits=%d err=%v", count, hits.Load(), err)
@@ -95,8 +95,8 @@ func TestProviderExpirationRepositoryRejectsRenewedExpiry(t *testing.T) {
 	fixture := newGCSchedulingFixture(t)
 	seedExpiredProvider(t, fixture)
 	repo := repository.NewExpiration(fixture.database)
-	var before application.ProviderExpiration
-	err := repo.WithExpiration(t.Context(), func(scope application.ExpirationScope) error {
+	var before payloadreleasemodel.ProviderExpiration
+	err := repo.WithExpiration(t.Context(), func(scope payloadreleasemodel.ExpirationScope) error {
 		facts, err := scope.Read.Providers(t.Context(), 10, 200)
 		if err != nil {
 			return err
@@ -114,10 +114,10 @@ func TestProviderExpirationRepositoryRejectsRenewedExpiry(t *testing.T) {
 WHERE id='expiry-response'`); err != nil {
 		t.Fatal(err)
 	}
-	err = repo.WithExpiration(t.Context(), func(scope application.ExpirationScope) error {
+	err = repo.WithExpiration(t.Context(), func(scope payloadreleasemodel.ExpirationScope) error {
 		return scope.Write.ReleaseProvider(t.Context(), before, 10)
 	})
-	if !errors.Is(err, application.ErrExpirationSnapshotChanged) {
+	if !errors.Is(err, payloadreleasemodel.ErrExpirationSnapshotChanged) {
 		t.Fatalf("renewed response released: %v", err)
 	}
 	assertProviderExpirationUnchanged(t, fixture)

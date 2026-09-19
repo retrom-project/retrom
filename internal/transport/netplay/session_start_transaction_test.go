@@ -6,18 +6,19 @@ import (
 	"reflect"
 	"testing"
 
+	netplaymodel "retrom/internal/model/netplay"
 	repository "retrom/internal/repo/netplay"
 	application "retrom/internal/service/netplay"
 )
 
 type failedSessionStart struct {
-	repository application.SessionStartRepository
+	repository netplaymodel.SessionStartRepository
 	failure    error
 	stale      bool
 }
 
-func (wrapper failedSessionStart) WithStart(ctx context.Context, work func(application.SessionStartScope) error) error {
-	return wrapper.repository.WithStart(ctx, func(scope application.SessionStartScope) error {
+func (wrapper failedSessionStart) WithStart(ctx context.Context, work func(netplaymodel.SessionStartScope) error) error {
+	return wrapper.repository.WithStart(ctx, func(scope netplaymodel.SessionStartScope) error {
 		if wrapper.stale {
 			scope.Write = staleSessionStartWriter{scope.Write}
 		}
@@ -28,9 +29,11 @@ func (wrapper failedSessionStart) WithStart(ctx context.Context, work func(appli
 	})
 }
 
-type staleSessionStartWriter struct{ application.SessionStartWriter }
+type staleSessionStartWriter struct {
+	netplaymodel.SessionStartWriter
+}
 
-func (writer staleSessionStartWriter) Insert(ctx context.Context, plan application.SessionStartPlan) (application.Room, error) {
+func (writer staleSessionStartWriter) Insert(ctx context.Context, plan netplaymodel.SessionStartPlan) (netplaymodel.Room, error) {
 	plan.Before.Version++
 	return writer.SessionStartWriter.Insert(ctx, plan)
 }

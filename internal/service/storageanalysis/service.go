@@ -5,14 +5,16 @@ import (
 	"fmt"
 	"log/slog"
 	"time"
+
+	model "retrom/internal/model/storageanalysis"
 )
 
 type Service struct {
-	repository Repository
+	repository model.Repository
 	now        func() time.Time
 }
 
-func New(repository Repository, now func() time.Time) *Service {
+func New(repository model.Repository, now func() time.Time) *Service {
 	return &Service{repository: repository, now: now}
 }
 
@@ -54,7 +56,7 @@ func (service *Service) Analyze(ctx context.Context) (Snapshot, error) {
 	return snapshot, nil
 }
 
-func details(source ReadModel) (Details, error) {
+func details(source model.ReadModel) (Details, error) {
 	result := Details{
 		SaveStates: SaveStateDetails{
 			ActiveCount:  source.Saves.ActiveCount,

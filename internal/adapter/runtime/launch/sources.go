@@ -14,7 +14,7 @@ import (
 	retromruntime "retrom/internal/adapter/runtime/runtime"
 	"retrom/internal/capability/runtime/runtimebundle"
 	"retrom/internal/capability/runtime/runtimelaunch"
-	application "retrom/internal/service/launch"
+	launchmodel "retrom/internal/model/launch"
 )
 
 // Sources supplies host IO and credentials to the application. Configure it before serving requests.
@@ -60,11 +60,11 @@ func (source *Sources) AssetPaths(provider, target string) ([]string, bool) {
 	return declaration.AssetPaths, found
 }
 
-func (source *Sources) Verify(ctx context.Context, check application.ProductBlobCheck) error {
+func (source *Sources) Verify(ctx context.Context, check launchmodel.ProductBlobCheck) error {
 	return (productBlobVerifier{blobs: source.blobs}).Verify(ctx, check)
 }
 
-func (source *Sources) Read(ctx context.Context, reader io.Reader) (application.ScreenshotImage, error) {
+func (source *Sources) Read(ctx context.Context, reader io.Reader) (launchmodel.ScreenshotImage, error) {
 	return (screenshotImages{blobs: source.blobs}).Read(ctx, reader)
 }
 
@@ -74,25 +74,25 @@ func (source *Sources) SignCapability(id string) (string, []byte, error) {
 		return "", nil, fmt.Errorf("parse launch identity: %w", err)
 	}
 	if source.credentials == nil {
-		return "", nil, application.ErrBlocked
+		return "", nil, launchmodel.ErrBlocked
 	}
 	capability := source.credentials.Capability(parsed)
 	hash := retromruntime.HashCapability(capability)
 	return retromruntime.EncodeCapability(capability), hash[:], nil
 }
 
-func (source *Sources) SignIsolation(id string) (application.IsolationTicket, error) {
+func (source *Sources) SignIsolation(id string) (launchmodel.IsolationTicket, error) {
 	if source.originTemplate == "" || strings.Count(source.originTemplate, "{launchId}") != 1 ||
 		source.credentials == nil {
-		return application.IsolationTicket{}, application.ErrBlocked
+		return launchmodel.IsolationTicket{}, launchmodel.ErrBlocked
 	}
 	parsed, err := uuid.Parse(id)
 	if err != nil {
-		return application.IsolationTicket{}, application.ErrBlocked
+		return launchmodel.IsolationTicket{}, launchmodel.ErrBlocked
 	}
 	capability := source.credentials.Capability(parsed)
 	ticket := sha256.Sum256(append([]byte("retrom-provider-bootstrap-v1\x00"), capability[:]...))
-	return application.IsolationTicket{
+	return launchmodel.IsolationTicket{
 		Origin: strings.Replace(source.originTemplate, "{launchId}", id, 1),
 		Ticket: base64.RawURLEncoding.EncodeToString(ticket[:]), Hash: sha256.Sum256(ticket[:]),
 	}, nil

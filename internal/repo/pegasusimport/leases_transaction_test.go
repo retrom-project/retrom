@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	pegasusimportmodel "retrom/internal/model/pegasusimport"
 	application "retrom/internal/service/pegasusimport"
 )
 
@@ -26,8 +27,8 @@ type failingLeaseRepository struct {
 	failure error
 }
 
-func (repository failingLeaseRepository) WithLease(ctx context.Context, work func(application.LeaseRecords) error) error {
-	return repository.base.WithLease(ctx, func(records application.LeaseRecords) error {
+func (repository failingLeaseRepository) WithLease(ctx context.Context, work func(pegasusimportmodel.LeaseRecords) error) error {
+	return repository.base.WithLease(ctx, func(records pegasusimportmodel.LeaseRecords) error {
 		if err := work(records); err != nil {
 			return err
 		}
@@ -42,7 +43,7 @@ func TestLeaseClaimRollsBackJobParentAndStartedEvent(t *testing.T) {
 	cause := errors.New("late lease write failure")
 	service := application.NewLeases(failingLeaseRepository{NewLeases(db), cause}, func() time.Time { return time.UnixMilli(10) })
 	unit, found, err := service.Claim(t.Context())
-	if !errors.Is(err, cause) || found || unit != (application.Work{}) {
+	if !errors.Is(err, cause) || found || unit != (pegasusimportmodel.Work{}) {
 		t.Fatalf("claim returned %+v %v %v", unit, found, err)
 	}
 	if !reflect.DeepEqual(before, workflowRows(t, db)) {
@@ -83,15 +84,15 @@ func TestLeaseRenewalSQLRejectsEveryStaleFence(t *testing.T) {
 				t.Fatal(err)
 			}
 			before := workflowRows(t, db)
-			err := repository.WithLease(t.Context(), func(records application.LeaseRecords) error {
+			err := repository.WithLease(t.Context(), func(records pegasusimportmodel.LeaseRecords) error {
 				current, err := records.Current(t.Context(), "work")
 				if err != nil {
 					return err
 				}
 				invalidateRecovery(&current, field)
-				return records.Renew(t.Context(), application.LeaseRenewal{Before: current, NowMS: 10, LeaseUntilMS: 100})
+				return records.Renew(t.Context(), pegasusimportmodel.LeaseRenewal{Before: current, NowMS: 10, LeaseUntilMS: 100})
 			})
-			if !errors.Is(err, application.ErrVersionConflict) {
+			if !errors.Is(err, pegasusimportmodel.ErrVersionConflict) {
 				t.Fatalf("stale %s: %v", field, err)
 			}
 			if !reflect.DeepEqual(before, workflowRows(t, db)) {

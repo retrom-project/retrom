@@ -1,10 +1,14 @@
 package emulationstationimport
 
-import "math"
+import (
+	"math"
 
-func validateImportExecution(before LeaseSnapshot, unit Execution, now int64) error {
-	if before.Kind != "SERVER_EMULATIONSTATION_IMPORT" || ExecutionState(before, unit, now) != LeaseActive {
-		return ErrVersionConflict
+	model "retrom/internal/model/emulationstationimport"
+)
+
+func validateImportExecution(before model.LeaseSnapshot, unit model.Execution, now int64) error {
+	if before.Kind != "SERVER_EMULATIONSTATION_IMPORT" || ExecutionState(before, unit, now) != model.LeaseActive {
+		return model.ErrVersionConflict
 	}
 	return nil
 }
@@ -13,7 +17,7 @@ func workingItemState(state string) bool {
 	return state == "PENDING" || state == "COPYING" || state == "VALIDATING"
 }
 
-func validItemOutcome(outcome ItemOutcome) bool {
+func validItemOutcome(outcome model.ItemOutcome) bool {
 	switch outcome.State {
 	case "SOURCE_CHANGED", "READ_FAILED", "COMMIT_FAILED":
 		return outcome.Code != "" && outcome.ExistingGameID == ""

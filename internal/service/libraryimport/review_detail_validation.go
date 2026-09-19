@@ -6,9 +6,15 @@ import (
 	"fmt"
 
 	"retrom/internal/capability/engine/rpgmaker/detector"
+	model "retrom/internal/model/libraryimport"
 )
 
-func readReviewValidation(ctx context.Context, scope ReviewReadScope, head ReviewHead, result *ReviewDetail) error {
+func readReviewValidation(
+	ctx context.Context,
+	scope model.ReviewReadScope,
+	head model.ReviewHead,
+	result *model.ReviewDetail,
+) error {
 	current, err := projectReviewValidation(ctx, scope.Validation, head, result)
 	if err != nil {
 		return err
@@ -38,9 +44,9 @@ func readReviewValidation(ctx context.Context, scope ReviewReadScope, head Revie
 
 func projectReviewValidation(
 	ctx context.Context,
-	reader ReviewValidationReader,
-	head ReviewHead,
-	result *ReviewDetail,
+	reader model.ReviewValidationReader,
+	head model.ReviewHead,
+	result *model.ReviewDetail,
 ) (bool, error) {
 	if head.ValidationID == nil {
 		return false, nil
@@ -57,7 +63,7 @@ func projectReviewValidation(
 		}
 	}
 	ready := optionalTextValue(head.ValidationStatus) == "READY"
-	result.Validation = &ReviewValidationView{
+	result.Validation = &model.ReviewValidationView{
 		ID: *head.ValidationID, Status: optionalTextValue(head.ValidationStatus),
 		Current:            current && ready,
 		CompatibilityCode:  optionalTextValue(head.CompatibilityCode),
@@ -67,19 +73,22 @@ func projectReviewValidation(
 	return current, nil
 }
 
-func ProjectReviewRPGMaker(profile RPGReviewProfile) (*ReviewRPGMaker, error) {
-	var analysis RPGReviewAnalysis
+func ProjectReviewRPGMaker(profile model.RPGReviewProfile) (*model.ReviewRPGMaker, error) {
+	var analysis model.RPGReviewAnalysis
 	if err := json.Unmarshal([]byte(profile.AnalysisJSON), &analysis); err != nil {
 		return nil, fmt.Errorf("decode review RPG profile: %w", err)
 	}
 	dependencies := detector.ExternalRTPRequirements(detector.Generation(profile.Generation),
 		analysis.SelfContained,
 		analysis.Requirements.RTP)
-	requirements := make([]ReviewRTPDeclaration, 0, len(dependencies))
+	requirements := make([]model.ReviewRTPDeclaration, 0, len(dependencies))
 	for _, entry := range dependencies {
-		requirements = append(requirements, ReviewRTPDeclaration{Slot: int64(entry.Slot), DeclaredName: entry.DeclaredName})
+		requirements = append(requirements, model.ReviewRTPDeclaration{
+			Slot:         int64(entry.Slot),
+			DeclaredName: entry.DeclaredName,
+		})
 	}
-	return &ReviewRPGMaker{
+	return &model.ReviewRPGMaker{
 		SelectedCoreID:     profile.SelectedCoreID,
 		Generation:         profile.Generation,
 		EvidenceGeneration: profile.EvidenceGeneration,
