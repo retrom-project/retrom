@@ -53,7 +53,7 @@ func NewNetplay(
 			registry,
 			now,
 		),
-		Exit:    exit,
+		Exit: exit,
 		Sessions: netplayservice.NewSessionControl(
 			repository.NewSessionControl(database),
 			options.ReconnectLease,

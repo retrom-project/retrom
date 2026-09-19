@@ -80,4 +80,3 @@ func multiDiscAdmissionErrorCode(err error) string {
 	}
 	return model.MultiDiscAttachmentErrorUnavailable
 }
-

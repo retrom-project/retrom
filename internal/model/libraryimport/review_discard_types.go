@@ -80,9 +80,9 @@ type DiscardCommand struct {
 }
 
 type ReviewActor struct {
-	Kind    string
-	UserID  *string
-	Label   *string
+	Kind   string
+	UserID *string
+	Label  *string
 }
 
 type ReviewDiscardRepository interface {

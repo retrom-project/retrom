@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"math"
 
-	application "retrom/internal/model/libraryimport"
 	"retrom/internal/model/importprogress"
+	application "retrom/internal/model/libraryimport"
 	payloadmodel "retrom/internal/model/payloadrelease"
 	taggingmodel "retrom/internal/model/tagging"
 	"retrom/internal/repo/dbexec"
@@ -134,8 +134,8 @@ func projectDiscardAggregate(
 }
 
 type discardedReviewEvidence struct {
-	SchemaVersion  int             `json:"schemaVersion"`
-	Metadata       json.RawMessage `json:"metadata"`
+	SchemaVersion  int                      `json:"schemaVersion"`
+	Metadata       json.RawMessage          `json:"metadata"`
 	Tags           []taggingmodel.Reference `json:"tags"`
 	MediaSelection struct {
 		Cover      bool `json:"cover"`
