@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	runtimecontract "retrom/internal/model/runtimecontract"
 	runtimeprovidermodel "retrom/internal/model/runtimeprovider"
 	service "retrom/internal/service/runtimeprovider"
 
@@ -82,7 +83,7 @@ func assertExtensionPreservesFolder(t *testing.T, database *sql.DB, schemaBefore
 	}
 }
 
-func reconcileCatalogExtension(t *testing.T, database *sql.DB, initial runtimeprovidermodel.Projection, catalog runtimecatalog.Catalog) error {
+func reconcileCatalogExtension(t *testing.T, database *sql.DB, initial runtimeprovidermodel.Projection, catalog runtimecontract.Catalog) error {
 	t.Helper()
 	provider := initial.Providers[0].Active
 	provider.ProviderVersion = "1.1.0"
@@ -139,7 +140,7 @@ func TestDeclaredCoreRemovalCannotOrphanUserConfiguration(t *testing.T) {
 func TestUnusedProductDefinitionCanBeRemovedWithoutSchemaChange(t *testing.T) {
 	database := openProjectionDatabase(t)
 	initial := projectionFixture("1.0.0", "a", []string{"state-v1"})
-	initial.Definitions.Cores = append([]runtimecatalog.CoreDefinition{{ID: "dormant", Name: "Unused", Enabled: true}}, initial.Definitions.Cores...)
+	initial.Definitions.Cores = append([]runtimecontract.CoreDefinition{{ID: "dormant", Name: "Unused", Enabled: true}}, initial.Definitions.Cores...)
 	initial.CatalogSHA256 = strings.Repeat("c", 64)
 	if err := service.New(New(database.SQL)).Reconcile(t.Context(), initial, time.UnixMilli(1)); err != nil {
 		t.Fatal(err)

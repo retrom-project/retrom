@@ -4,6 +4,8 @@ import (
 	"regexp"
 	"strings"
 
+	runtimecontract "retrom/internal/model/runtimecontract"
+
 	"golang.org/x/text/cases"
 	"golang.org/x/text/unicode/norm"
 )
@@ -14,40 +16,7 @@ func NormalizePackName(value string) string {
 	return cases.Fold().String(norm.NFKC.String(strings.TrimSpace(value)))
 }
 
-// Definitions are Host-owned product data, projected alongside Provider targets.
-// User-created directories, configuration and installations are not definitions.
-type Definitions struct {
-	Platforms    []PlatformDefinition  `json:"platforms"`
-	Cores        []CoreDefinition      `json:"cores"`
-	ContentKinds []string              `json:"contentKinds"`
-	AssetPacks   []AssetPackDefinition `json:"assetPacks"`
-}
-
-type PlatformDefinition struct {
-	ID        string `json:"id"`
-	Name      string `json:"name"`
-	SortOrder int    `json:"sortOrder"`
-	Enabled   bool   `json:"enabled"`
-}
-
-type CoreDefinition struct {
-	ID      string `json:"id"`
-	Name    string `json:"name"`
-	Enabled bool   `json:"enabled"`
-}
-
-type AssetPackDefinition struct {
-	ID                     string `json:"id"`
-	Kind                   string `json:"kind"`
-	Generation             string `json:"generation"`
-	DeclaredName           string `json:"declaredName"`
-	NormalizedDeclaredName string `json:"normalizedDeclaredName"`
-	DisplayName            string `json:"displayName"`
-	RequiredLayoutVersion  string `json:"requiredLayoutVersion"`
-	Enabled                bool   `json:"enabled"`
-}
-
-func ValidateDefinitions(catalog Catalog) error {
+func ValidateDefinitions(catalog runtimecontract.Catalog) error {
 	definitions := catalog.Definitions
 	if len(definitions.Platforms) == 0 || len(definitions.Cores) == 0 ||
 		!sortedMatches(definitions.ContentKinds, profilePattern) {
@@ -75,7 +44,7 @@ func ValidateDefinitions(catalog Catalog) error {
 	return validatePackDefinitions(definitions.AssetPacks)
 }
 
-func validatePackDefinitions(packs []AssetPackDefinition) error {
+func validatePackDefinitions(packs []runtimecontract.AssetPackDefinition) error {
 	previous := ""
 	identities := make(map[string]bool, len(packs))
 	for _, pack := range packs {
@@ -96,7 +65,7 @@ func validProductName(value string) bool {
 	return len(value) >= 1 && len(value) <= 200 && value == strings.TrimSpace(value) && !strings.ContainsRune(value, 0)
 }
 
-func platformDefinitionIDs(definitions []PlatformDefinition) map[string]bool {
+func platformDefinitionIDs(definitions []runtimecontract.PlatformDefinition) map[string]bool {
 	ids := make(map[string]bool, len(definitions))
 	previous := ""
 	for _, definition := range definitions {
@@ -109,7 +78,7 @@ func platformDefinitionIDs(definitions []PlatformDefinition) map[string]bool {
 	return ids
 }
 
-func coreDefinitionIDs(definitions []CoreDefinition) map[string]bool {
+func coreDefinitionIDs(definitions []runtimecontract.CoreDefinition) map[string]bool {
 	ids := make(map[string]bool, len(definitions))
 	previous := ""
 	for _, definition := range definitions {

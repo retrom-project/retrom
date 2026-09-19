@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"retrom/internal/capability/runtime/runtimebundle"
-	"retrom/internal/capability/runtime/runtimecatalog"
+	runtimecontract "retrom/internal/model/runtimecontract"
 )
 
 func TestBuilderProducesClosedEnvelopeFromActiveProviderTarget(t *testing.T) {
@@ -80,7 +80,7 @@ func TestBuilderRejectsTargetDriftAndResourceOrOptionsMismatch(t *testing.T) {
 	}
 }
 
-func fixtureBuilder(t *testing.T) (*Builder, runtimecatalog.Binding) {
+func fixtureBuilder(t *testing.T) (*Builder, runtimecontract.Binding) {
 	t.Helper()
 	checkpoint := &runtimebundle.Checkpoint{WriteFormat: "fixture-state-v1", ReadFormats: []string{"fixture-state-v1"}, MaxBytes: 1024}
 	target := runtimebundle.Target{
@@ -111,7 +111,7 @@ func fixtureBuilder(t *testing.T) (*Builder, runtimecatalog.Binding) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return builder, runtimecatalog.Binding{ProviderID: "fixture", TargetID: "target", LaunchPolicy: "SUPPORTED"}
+	return builder, runtimecontract.Binding{ProviderID: "fixture", TargetID: "target", LaunchPolicy: "SUPPORTED"}
 }
 
 func cloneInput(value Input) Input {

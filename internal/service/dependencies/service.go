@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"retrom/internal/adapter/runtime/dependencies"
-	"retrom/internal/capability/runtime/runtimecatalog"
 	model "retrom/internal/model/dependencies"
+	runtimecontract "retrom/internal/model/runtimecontract"
 )
 
 var (
@@ -66,8 +66,8 @@ func preferredCoreVersions(set *dependencies.Set) map[string]string {
 	return result
 }
 
-func targetForCore(catalog runtimecatalog.Catalog, coreID string) (model.RuntimeTarget, error) {
-	var selected *runtimecatalog.Binding
+func targetForCore(catalog runtimecontract.Catalog, coreID string) (model.RuntimeTarget, error) {
+	var selected *runtimecontract.Binding
 	for index := range catalog.Bindings {
 		binding := &catalog.Bindings[index]
 		if binding.CoreID != coreID {

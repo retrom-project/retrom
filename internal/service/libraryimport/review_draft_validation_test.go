@@ -11,7 +11,6 @@ import (
 	contentvalidation "retrom/internal/capability/content/corevalidation"
 	corevalidationmodel "retrom/internal/model/corevalidation"
 	application "retrom/internal/model/libraryimport"
-	corevalidationservice "retrom/internal/service/corevalidation"
 )
 
 type selectedValidationReaderStub struct {
@@ -130,7 +129,7 @@ func selectedValidationFixture(
 		selectedRecord.Dependency.BlobID = nil
 		selectedRecord.Dependency.InstallationStatus = nil
 	}
-	selectedSnapshot, selectedStatus, selectedCode, err := corevalidationservice.ResolveBIOSRecords(
+	selectedSnapshot, selectedStatus, selectedCode, err := corevalidationmodel.ResolveBIOSRecords(
 		[]corevalidationmodel.BIOSRecord{currentRecord}, "game.gba",
 	)
 	if err != nil {
@@ -163,7 +162,7 @@ func selectedValidationFixture(
 	if missing {
 		// Keep the stored validation READY and based on the old installed fact;
 		// the resolver must reject it after recomputing the current missing fact.
-		oldSnapshot, oldStatus, oldCode, err := corevalidationservice.ResolveBIOSRecords(
+		oldSnapshot, oldStatus, oldCode, err := corevalidationmodel.ResolveBIOSRecords(
 			[]corevalidationmodel.BIOSRecord{currentRecord}, "game.gba",
 		)
 		if err != nil {

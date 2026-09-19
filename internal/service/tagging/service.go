@@ -26,7 +26,7 @@ func repositoryError(operation string, err error) error {
 }
 
 func (service *Service) Get(ctx context.Context, tagID string) (model.AdminItem, error) {
-	if !ValidID(tagID) {
+	if !model.ValidID(tagID) {
 		return model.AdminItem{}, model.ErrNotFound
 	}
 	item, err := service.repository.Get(ctx, tagID)
@@ -100,7 +100,7 @@ func applyListCursor(filter model.ListFilter, query *model.ListQuery) error {
 	if filter.AfterID == "" {
 		return nil
 	}
-	if !ValidID(filter.AfterID) || len(filter.AfterValues) != 1 {
+	if !model.ValidID(filter.AfterID) || len(filter.AfterValues) != 1 {
 		return model.ErrInvalid
 	}
 	if filter.Sort == model.SortNameAsc {

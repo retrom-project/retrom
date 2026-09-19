@@ -8,9 +8,9 @@ import (
 )
 
 func ValidateActiveReferences(ctx context.Context, reader model.TagReader, tagIDs []string) ([]model.Reference, error) {
-	validated, err := ValidateIDs(tagIDs)
+	validated, err := model.ValidateIDs(tagIDs)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w", err)
 	}
 	if len(validated) == 0 {
 		return []model.Reference{}, nil

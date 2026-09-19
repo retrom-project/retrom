@@ -7,8 +7,8 @@ import (
 	"slices"
 
 	"retrom/internal/capability/content/corevalidation"
+	corevalidationmodel "retrom/internal/model/corevalidation"
 	model "retrom/internal/model/launch"
-	validation "retrom/internal/service/corevalidation"
 )
 
 func ResolveProductBIOS(
@@ -26,7 +26,7 @@ func ResolveProductBIOS(
 	if source.ProviderID == "" || source.TargetID == "" {
 		return corevalidation.Snapshot{}, "BLOCKED", "LAUNCH_CORE_VALIDATION_UNAVAILABLE", corevalidation.ErrInvalidSnapshot
 	}
-	snapshot, status, code, err := validation.ResolveBIOSRecords(facts.Static, logicalName)
+	snapshot, status, code, err := corevalidationmodel.ResolveBIOSRecords(facts.Static, logicalName)
 	if err != nil {
 		return snapshot, status, code, fmt.Errorf("resolve product static BIOS: %w", err)
 	}

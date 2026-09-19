@@ -22,7 +22,7 @@ func (service *Service) ReplaceReviewDraftTags(
 	actorUserID string,
 	now int64,
 ) ([]model.Reference, []model.Reference, error) {
-	if !ValidID(draftID) {
+	if !model.ValidID(draftID) {
 		return nil, nil, model.ErrInvalid
 	}
 	desired, err := ValidateActiveReferences(ctx, scope.Tags, ids)
@@ -74,7 +74,7 @@ func (service *Service) AssignReviewDraftTags(
 	if len(refs) == 0 {
 		return nil
 	}
-	if !ValidID(draftID) || !ValidID(actorUserID) {
+	if !model.ValidID(draftID) || !model.ValidID(actorUserID) {
 		return model.ErrInvalid
 	}
 	if err := scope.Relations.Add(
@@ -112,7 +112,7 @@ func (service *Service) CopyDraftTagsToGame(
 	draftID, gameID, actorUserID string,
 	now int64,
 ) ([]model.Reference, error) {
-	if !ValidID(draftID) || !ValidID(gameID) {
+	if !model.ValidID(draftID) || !model.ValidID(gameID) {
 		return nil, model.ErrInvalid
 	}
 	refs, err := scope.Relations.References(ctx, model.Owner{Kind: model.OwnerReviewDraft, ID: draftID})
@@ -122,7 +122,7 @@ func (service *Service) CopyDraftTagsToGame(
 	if len(refs) == 0 {
 		return refs, nil
 	}
-	if !ValidID(actorUserID) {
+	if !model.ValidID(actorUserID) {
 		return nil, model.ErrInvalid
 	}
 	if err := scope.Relations.Add(
@@ -152,7 +152,7 @@ func replaceCollectionTags(
 	actorUserID string,
 	now int64,
 ) ([]model.Reference, error) {
-	if !ValidID(owner.ID) || !ValidID(actorUserID) {
+	if !model.ValidID(owner.ID) || !model.ValidID(actorUserID) {
 		return nil, model.ErrInvalid
 	}
 	desired, err := ValidateActiveReferences(ctx, scope.Tags, ids)

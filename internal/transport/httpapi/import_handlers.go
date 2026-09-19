@@ -11,7 +11,6 @@ import (
 	"retrom/internal/adapter/integration/libraryimport"
 	libraryimportmodel "retrom/internal/model/libraryimport"
 	taggingmodel "retrom/internal/model/tagging"
-	"retrom/internal/service/tagging"
 )
 
 func requireVersion(writer http.ResponseWriter, request *http.Request) (int64, bool) {
@@ -208,7 +207,7 @@ func (server *Server) reconfigureImport(writer http.ResponseWriter, request *htt
 		return
 	}
 	if body.TagIDs != nil {
-		if _, err := tagging.ValidateIDs(body.TagIDs); err != nil {
+		if _, err := taggingmodel.ValidateIDs(body.TagIDs); err != nil {
 			writeTagError(writer, request, err)
 			return
 		}
@@ -323,7 +322,7 @@ func (server *Server) patchReview(writer http.ResponseWriter, request *http.Requ
 		writeError(writer, request, http.StatusBadRequest, "INVALID_REQUEST", "审核草稿无效", map[string]any{})
 		return
 	}
-	if _, err := tagging.ValidateIDs(body.TagIDs); err != nil {
+	if _, err := taggingmodel.ValidateIDs(body.TagIDs); err != nil {
 		writeTagError(writer, request, err)
 		return
 	}

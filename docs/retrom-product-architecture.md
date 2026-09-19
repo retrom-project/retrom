@@ -72,6 +72,8 @@ Retrom 是供用户与可信朋友共享的自托管复古游戏 Web 平台。�
 
 共享内容事实、归一化元数据和联机配置分别归属 `model/blob`、`model/metadata` 和 `model/netplayprofile`。Hasheous Adapter 显式产生稳定候选值；原始响应按原字节保留，协议审计在 Adapter 与持久化边界解释，领域判断使用 ProviderOutcome。技术时钟端口 `model/clock.Clock` 只声明 `NowMS() int64`，真实系统实现位于 `adapter/system/clock`。
 
+Host 的平台、Core、AssetPack 目录定义及运行绑定由 `model/runtimecontract` 持有。`capability/runtime/runtimecatalog` 保留目录解析、校验、策略和目标选择，消费者直接使用 Model 中的真实公共值。BIOS 记录的确定性判断和来源审核的准备状态规则分别归属 `model/corevalidation`、`model/emulationstationimport`；标签身份与集合校验统一使用既有 `model/tagging` 定义。
+
 ### 3.1 游戏目录决定默认核心
 
 领域关系不是“游戏直接属于平台”，而是：

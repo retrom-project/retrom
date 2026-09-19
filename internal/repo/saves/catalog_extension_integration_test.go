@@ -12,6 +12,7 @@ import (
 	"strings"
 	"testing"
 
+	runtimecontract "retrom/internal/model/runtimecontract"
 	runtimeprovidermodel "retrom/internal/model/runtimeprovider"
 	providerpersistence "retrom/internal/repo/runtimeprovider"
 	providerservice "retrom/internal/service/runtimeprovider"
@@ -66,7 +67,7 @@ func TestCatalogExtensionPreservesInitializedGamesReviewsSettingsAndSaves(t *tes
 	}
 }
 
-func extensionDeclarations(t *testing.T) runtimecatalog.Catalog {
+func extensionDeclarations(t *testing.T) runtimecontract.Catalog {
 	t.Helper()
 	contents, err := os.ReadFile("../../../data/runtime-target-bindings/v1/catalog.json")
 	if err != nil {
@@ -76,19 +77,19 @@ func extensionDeclarations(t *testing.T) runtimecatalog.Catalog {
 	if err != nil {
 		t.Fatal(err)
 	}
-	catalog.Definitions.Cores = append(catalog.Definitions.Cores, runtimecatalog.CoreDefinition{ID: "extension-core", Name: "Mechanism fixture", Enabled: true})
-	catalog.Definitions.AssetPacks = append(catalog.Definitions.AssetPacks, runtimecatalog.AssetPackDefinition{
+	catalog.Definitions.Cores = append(catalog.Definitions.Cores, runtimecontract.CoreDefinition{ID: "extension-core", Name: "Mechanism fixture", Enabled: true})
+	catalog.Definitions.AssetPacks = append(catalog.Definitions.AssetPacks, runtimecontract.AssetPackDefinition{
 		ID: "extension-assets", Kind: "EXTRA_ASSETS", Generation: "RPGXP", DeclaredName: "Extra Assets",
 		NormalizedDeclaredName: "extra assets", DisplayName: "Extra assets", RequiredLayoutVersion: "mkxpz-v1", Enabled: true,
 	})
-	catalog.Bindings = append(catalog.Bindings, runtimecatalog.Binding{
+	catalog.Bindings = append(catalog.Bindings, runtimecontract.Binding{
 		ID: "extension-core", CoreID: "extension-core", ProviderID: "emulatorjs", TargetID: "extension-target",
 		PlatformIDs: []string{"gba"}, AcceptedContentKinds: []string{"SINGLE_FILE"},
 		DetectorProfile: "EMULATORJS_SINGLE_FILE", LaunchPolicy: "SUPPORTED",
 	})
-	slices.SortFunc(catalog.Definitions.Cores, func(a, b runtimecatalog.CoreDefinition) int { return strings.Compare(a.ID, b.ID) })
-	slices.SortFunc(catalog.Definitions.AssetPacks, func(a, b runtimecatalog.AssetPackDefinition) int { return strings.Compare(a.ID, b.ID) })
-	slices.SortFunc(catalog.Bindings, func(a, b runtimecatalog.Binding) int {
+	slices.SortFunc(catalog.Definitions.Cores, func(a, b runtimecontract.CoreDefinition) int { return strings.Compare(a.ID, b.ID) })
+	slices.SortFunc(catalog.Definitions.AssetPacks, func(a, b runtimecontract.AssetPackDefinition) int { return strings.Compare(a.ID, b.ID) })
+	slices.SortFunc(catalog.Bindings, func(a, b runtimecontract.Binding) int {
 		return strings.Compare(a.ProviderID+"/"+a.TargetID, b.ProviderID+"/"+b.TargetID)
 	})
 	return catalog

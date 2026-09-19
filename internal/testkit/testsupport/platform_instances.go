@@ -13,6 +13,7 @@ import (
 	"time"
 
 	platforminstancemodel "retrom/internal/model/platforminstance"
+	runtimecontract "retrom/internal/model/runtimecontract"
 	platformpersistence "retrom/internal/repo/platforminstance"
 	"retrom/internal/repo/recordstore"
 
@@ -84,7 +85,7 @@ func SeedPlatformInstances(ctx context.Context, database *sql.DB) error {
 	return err
 }
 
-func currentRuntimeCatalog() runtimecatalog.Catalog {
+func currentRuntimeCatalog() runtimecontract.Catalog {
 	_, filename, _, ok := runtime.Caller(0)
 	if !ok {
 		panic("testsupport: locate runtime target catalog")

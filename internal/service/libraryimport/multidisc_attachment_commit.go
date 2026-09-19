@@ -8,8 +8,8 @@ import (
 
 	"retrom/internal/capability/content/corevalidation"
 	"retrom/internal/capability/content/multidisc"
+	corevalidationmodel "retrom/internal/model/corevalidation"
 	model "retrom/internal/model/libraryimport"
-	validationservice "retrom/internal/service/corevalidation"
 
 	"github.com/google/uuid"
 )
@@ -81,7 +81,7 @@ func (service *MultiDiscAttachmentCommits) resolveValidation(
 	if err != nil {
 		return model.MultiDiscAttachmentValidation{}, fmt.Errorf("resolve multi-disc BIOS: %w", err)
 	}
-	snapshot, status, code, err := validationservice.ResolveBIOSRecords(records, first)
+	snapshot, status, code, err := corevalidationmodel.ResolveBIOSRecords(records, first)
 	if err != nil {
 		return model.MultiDiscAttachmentValidation{}, fmt.Errorf("resolve multi-disc BIOS records: %w", err)
 	}

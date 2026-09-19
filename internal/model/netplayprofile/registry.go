@@ -10,10 +10,10 @@ import (
 	"slices"
 	"strings"
 
-	"retrom/internal/capability/runtime/runtimecatalog"
+	runtimecontract "retrom/internal/model/runtimecontract"
 )
 
-func ParseRegistry(contents []byte, bindings []runtimecatalog.Binding) (*Registry, error) {
+func ParseRegistry(contents []byte, bindings []runtimecontract.Binding) (*Registry, error) {
 	decoder := json.NewDecoder(strings.NewReader(string(contents)))
 	decoder.DisallowUnknownFields()
 	var manifest Manifest

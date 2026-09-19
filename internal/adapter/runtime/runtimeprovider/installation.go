@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 
+	runtimecontract "retrom/internal/model/runtimecontract"
 	runtimeprovidermodel "retrom/internal/model/runtimeprovider"
 
 	"retrom/internal/capability/runtime/runtimebundle"
@@ -40,7 +41,7 @@ type Installation struct {
 	Active        runtimebundle.ActiveDescriptor
 	Manifests     map[string]runtimebundle.Manifest
 	Integrity     map[string][]runtimebundle.IntegrityFile
-	Catalog       runtimecatalog.Catalog
+	Catalog       runtimecontract.Catalog
 	Projection    runtimeprovidermodel.Projection
 	Handler       http.Handler
 	Builder       *runtimelaunch.Builder

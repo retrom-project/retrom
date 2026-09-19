@@ -7,7 +7,6 @@ import (
 
 	model "retrom/internal/model/libraryimport"
 	taggingmodel "retrom/internal/model/tagging"
-	"retrom/internal/service/tagging"
 )
 
 func NewReviewQueue(repository model.ReviewQueueRepository, tags model.ReviewQueueTags) *ReviewQueue {
@@ -16,7 +15,7 @@ func NewReviewQueue(repository model.ReviewQueueRepository, tags model.ReviewQue
 
 func NormalizeReviewQueueFilter(filter model.ReviewQueueFilter) (model.ReviewQueueFilter, error) {
 	filter.Query = strings.ToLower(strings.Join(strings.Fields(filter.Query), " "))
-	if len([]rune(filter.Query)) > 200 || filter.TagID != "" && !tagging.ValidID(filter.TagID) {
+	if len([]rune(filter.Query)) > 200 || filter.TagID != "" && !taggingmodel.ValidID(filter.TagID) {
 		return model.ReviewQueueFilter{}, model.ErrReviewQuery
 	}
 	sourceCount := 0

@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"retrom/internal/capability/runtime/runtimecatalog"
+	runtimecontract "retrom/internal/model/runtimecontract"
 	"retrom/internal/testkit/testassert"
 )
 
@@ -77,7 +78,7 @@ func TestRegistryContainsOnlyTheEightProviderTargetProfiles(t *testing.T) {
 	), "mismatched platform was marked as netplay capable")
 }
 
-func fixtureBindings() []runtimecatalog.Binding {
+func fixtureBindings() []runtimecontract.Binding {
 	contents, err := os.ReadFile(filepath.Join("..", "..", "..", "data", "runtime-target-bindings", "v1", "catalog.json"))
 	if err != nil {
 		panic(err)

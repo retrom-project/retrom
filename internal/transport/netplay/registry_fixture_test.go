@@ -5,9 +5,10 @@ import (
 	"path/filepath"
 
 	"retrom/internal/capability/runtime/runtimecatalog"
+	runtimecontract "retrom/internal/model/runtimecontract"
 )
 
-func fixtureBindings() []runtimecatalog.Binding {
+func fixtureBindings() []runtimecontract.Binding {
 	contents, err := os.ReadFile(filepath.Join("..", "..", "..", "data", "runtime-target-bindings", "v1", "catalog.json"))
 	if err != nil {
 		panic(err)

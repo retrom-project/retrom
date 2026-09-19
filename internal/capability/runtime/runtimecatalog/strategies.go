@@ -1,5 +1,7 @@
 package runtimecatalog
 
+import runtimecontract "retrom/internal/model/runtimecontract"
+
 // HostStrategy registers the current detector/delivery combination and
 // its bounded launch-options builder. It contains no Provider implementation facts.
 type HostStrategy struct {
@@ -54,7 +56,7 @@ func Strategy(detector string) (HostStrategy, bool) {
 	return strategy, ok
 }
 
-func validStrategy(binding Binding) bool {
+func validStrategy(binding runtimecontract.Binding) bool {
 	strategy, registered := Strategy(binding.DetectorProfile)
 	if !registered {
 		return false

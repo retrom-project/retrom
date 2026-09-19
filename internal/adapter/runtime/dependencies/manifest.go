@@ -13,6 +13,7 @@ import (
 
 	"retrom/internal/capability/runtime/runtimecatalog"
 	"retrom/internal/foundation/cleanup"
+	runtimecontract "retrom/internal/model/runtimecontract"
 )
 
 var ErrInvalid = errors.New("DEPENDENCY_INVALID")
@@ -62,7 +63,7 @@ type Set struct {
 	Versions       map[string]*Version
 	Order          []string
 	Active         *Version
-	RuntimeCatalog runtimecatalog.Catalog
+	RuntimeCatalog runtimecontract.Catalog
 }
 
 func Load(root string, versions []string, active string) (*Set, error) {

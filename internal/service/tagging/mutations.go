@@ -7,7 +7,7 @@ import (
 )
 
 func (service *Service) Create(ctx context.Context, actorUserID, rawName string) (model.AdminItem, error) {
-	if !ValidID(actorUserID) {
+	if !model.ValidID(actorUserID) {
 		return model.AdminItem{}, model.ErrInvalid
 	}
 	name, key, search, err := NormalizeName(rawName)
@@ -47,7 +47,7 @@ func (service *Service) Rename(
 	actorUserID, tagID, rawName string,
 	expectedVersion int64,
 ) (model.AdminItem, error) {
-	if !ValidID(actorUserID) || !ValidID(tagID) || expectedVersion < 1 {
+	if !model.ValidID(actorUserID) || !model.ValidID(tagID) || expectedVersion < 1 {
 		return model.AdminItem{}, model.ErrInvalid
 	}
 	name, key, search, err := NormalizeName(rawName)
@@ -120,7 +120,7 @@ func (service *Service) Delete(
 	actorUserID, tagID, confirmName string,
 	expectedVersion int64,
 ) (model.AdminItem, model.DeleteImpact, error) {
-	if !ValidID(actorUserID) || !ValidID(tagID) || expectedVersion < 1 {
+	if !model.ValidID(actorUserID) || !model.ValidID(tagID) || expectedVersion < 1 {
 		return model.AdminItem{}, model.DeleteImpact{}, model.ErrInvalid
 	}
 	var result model.AdminItem

@@ -9,21 +9,21 @@ import (
 
 	"retrom/internal/adapter/runtime/dependencies"
 	"retrom/internal/capability/format/arcadedat"
-	"retrom/internal/capability/runtime/runtimecatalog"
 	model "retrom/internal/model/dependencies"
+	runtimecontract "retrom/internal/model/runtimecontract"
 )
 
 func TestTargetRequiresUniqueProviderBinding(t *testing.T) {
-	for _, bindings := range [][]runtimecatalog.Binding{
+	for _, bindings := range [][]runtimecontract.Binding{
 		nil,
 		{{CoreID: "core", ProviderID: "a", TargetID: "target"}, {CoreID: "core", ProviderID: "b", TargetID: "target"}},
 	} {
-		_, err := targetForCore(runtimecatalog.Catalog{Bindings: bindings}, "core")
+		_, err := targetForCore(runtimecontract.Catalog{Bindings: bindings}, "core")
 		if !errors.Is(err, dependencies.ErrInvalid) {
 			t.Fatalf("ambiguous or absent target accepted: %v", err)
 		}
 	}
-	target, err := targetForCore(runtimecatalog.Catalog{Bindings: []runtimecatalog.Binding{
+	target, err := targetForCore(runtimecontract.Catalog{Bindings: []runtimecontract.Binding{
 		{CoreID: "core", ProviderID: "provider", TargetID: "target"},
 		{CoreID: "core", ProviderID: "provider", TargetID: "target"},
 	}}, "core")

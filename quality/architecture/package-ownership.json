@@ -3305,6 +3305,10 @@
       "owner": "RF11",
       "files": [
         {
+          "path": "internal/model/corevalidation/bios_policy.go",
+          "kind": "production"
+        },
+        {
           "path": "internal/model/corevalidation/service.go",
           "kind": "production"
         }
@@ -3414,6 +3418,10 @@
         },
         {
           "path": "internal/model/emulationstationimport/review_handoff_contracts.go",
+          "kind": "production"
+        },
+        {
+          "path": "internal/model/emulationstationimport/review_preparation.go",
           "kind": "production"
         },
         {
@@ -4314,6 +4322,22 @@
       "files": [
         {
           "path": "internal/model/readiness/repository.go",
+          "kind": "production"
+        }
+      ]
+    },
+    {
+      "path": "internal/model/runtimecontract",
+      "layer": "model",
+      "module": "runtimecontract",
+      "owner": "RF03",
+      "files": [
+        {
+          "path": "internal/model/runtimecontract/catalog_compatibility_test.go",
+          "kind": "test"
+        },
+        {
+          "path": "internal/model/runtimecontract/catalog_types.go",
           "kind": "production"
         }
       ]
@@ -8555,10 +8579,6 @@
         {
           "path": "internal/service/emulationstationimport/execution_review_batches_test.go",
           "kind": "test"
-        },
-        {
-          "path": "internal/service/emulationstationimport/execution_review_policy.go",
-          "kind": "production"
         },
         {
           "path": "internal/service/emulationstationimport/execution_review_policy_test.go",

@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"retrom/internal/capability/runtime/platformcatalog"
+	runtimecontract "retrom/internal/model/runtimecontract"
 )
 
 func TestParseCatalogAndRejectImplementationFacts(t *testing.T) {
@@ -109,8 +110,8 @@ func TestBsnesRemainsAlternativeWithoutRecommendedDirectory(t *testing.T) {
 	}
 }
 
-func defaultBindings(catalog Catalog, platformID, coreID string) []Binding {
-	matches := make([]Binding, 0)
+func defaultBindings(catalog runtimecontract.Catalog, platformID, coreID string) []runtimecontract.Binding {
+	matches := make([]runtimecontract.Binding, 0)
 	for _, binding := range catalog.Bindings {
 		if binding.CoreID == coreID && containsString(binding.PlatformIDs, platformID) {
 			matches = append(matches, binding)
@@ -165,7 +166,7 @@ func TestResolveBindingClosesOrdinaryAndRPGSelection(t *testing.T) {
 	}
 
 	disabled := catalog
-	disabled.Bindings = append([]Binding(nil), catalog.Bindings...)
+	disabled.Bindings = append([]runtimecontract.Binding(nil), catalog.Bindings...)
 	for index := range disabled.Bindings {
 		if disabled.Bindings[index].ID == "emulatorjs-gambatte" {
 			disabled.Bindings[index].LaunchPolicy = "DISABLED"

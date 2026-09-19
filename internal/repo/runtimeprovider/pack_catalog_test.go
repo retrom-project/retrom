@@ -5,9 +5,8 @@ import (
 	"testing"
 	"time"
 
+	runtimecontract "retrom/internal/model/runtimecontract"
 	service "retrom/internal/service/runtimeprovider"
-
-	"retrom/internal/capability/runtime/runtimecatalog"
 )
 
 func TestProviderPackDeclarationsDoNotCreateInstallableProductDefinitions(t *testing.T) {
@@ -21,7 +20,7 @@ func TestProviderPackDeclarationsDoNotCreateInstallableProductDefinitions(t *tes
 		t.Fatal(err)
 	}
 	candidate := projectionFixture("1.0.0", "a", []string{"state-v1"})
-	candidate.Definitions.AssetPacks = []runtimecatalog.AssetPackDefinition{{
+	candidate.Definitions.AssetPacks = []runtimecontract.AssetPackDefinition{{
 		ID: "additional-rtp", Kind: "RPG2003_RTP", Generation: "RPG2003", DeclaredName: "Extra Assets",
 		NormalizedDeclaredName: "extra assets", DisplayName: "Additional assets", RequiredLayoutVersion: "easy-rtp-layout-v1", Enabled: true,
 	}}

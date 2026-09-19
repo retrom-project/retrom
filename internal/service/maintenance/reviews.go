@@ -134,7 +134,7 @@ func activeRestoredImport(state string) bool {
 
 func restoredReviewPreparation(review model.RestoredReview) ([]string, error) {
 	if review.Kind == "EMULATIONSTATION" {
-		states, err := es.ReviewPreparation(emulationstationimportmodel.ExecutionReview{
+		states, err := emulationstationimportmodel.ReviewPreparation(emulationstationimportmodel.ExecutionReview{
 			State:     review.State,
 			Retryable: review.Retryable,
 		})

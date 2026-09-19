@@ -22,9 +22,9 @@ func completeExecutionReviews(
 		return model.LeaseSnapshot{}, false, fmt.Errorf("read interrupted EmulationStation reviews: %w", err)
 	}
 	for _, review := range reviews[:min(len(reviews), 100)] {
-		preparation, err := ReviewPreparation(review)
+		preparation, err := model.ReviewPreparation(review)
 		if err != nil {
-			return model.LeaseSnapshot{}, false, err
+			return model.LeaseSnapshot{}, false, fmt.Errorf("%w", err)
 		}
 		now := clock().UnixMilli()
 		if err := scope.Write.Fence(ctx, before, now); err != nil {

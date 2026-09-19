@@ -9,8 +9,8 @@ import (
 	"retrom/internal/capability/content/contentcapability"
 	contentcore "retrom/internal/capability/content/corevalidation"
 	"retrom/internal/capability/engine/scummvm"
+	corevalidationmodel "retrom/internal/model/corevalidation"
 	application "retrom/internal/model/libraryimport"
-	corevalidationservice "retrom/internal/service/corevalidation"
 
 	"github.com/google/uuid"
 )
@@ -327,7 +327,7 @@ func (state *draftValidationState) resolveStaticBIOSDependencyState() (draftDepe
 	if err != nil {
 		return draftDependencyState{}, fmt.Errorf("libraryimport/review: read BIOS: %w", err)
 	}
-	snapshot, status, code, err := corevalidationservice.ResolveBIOSRecords(records, logicalName)
+	snapshot, status, code, err := corevalidationmodel.ResolveBIOSRecords(records, logicalName)
 	if err != nil {
 		return draftDependencyState{}, fmt.Errorf("libraryimport/review: %w", err)
 	}

@@ -2,6 +2,7 @@ package tagging
 
 import (
 	"context"
+	"fmt"
 
 	model "retrom/internal/model/tagging"
 )
@@ -12,11 +13,11 @@ func (service *Service) ReplaceGameTags(
 	expectedVersion int64,
 	tagIDs []string,
 ) (model.GameTagResult, error) {
-	if !ValidID(actorUserID) || !ValidID(gameID) || expectedVersion < 1 {
+	if !model.ValidID(actorUserID) || !model.ValidID(gameID) || expectedVersion < 1 {
 		return model.GameTagResult{}, model.ErrInvalid
 	}
-	if _, err := ValidateIDs(tagIDs); err != nil {
-		return model.GameTagResult{}, err
+	if _, err := model.ValidateIDs(tagIDs); err != nil {
+		return model.GameTagResult{}, fmt.Errorf("%w", err)
 	}
 	var result model.GameTagResult
 	err := service.repository.WithWrite(ctx, func(scope model.WriteScope) error {

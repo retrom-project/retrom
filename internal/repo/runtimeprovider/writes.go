@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 
+	runtimecontract "retrom/internal/model/runtimecontract"
 	service "retrom/internal/model/runtimeprovider"
 
 	runtimecatalogpersistence "retrom/internal/repo/runtimecatalog"
@@ -123,7 +124,7 @@ ON CONFLICT(provider_id,target_id) DO UPDATE SET
 func writeHostBindings(
 	ctx context.Context,
 	transaction *sql.Tx,
-	bindings []runtimecatalog.Binding,
+	bindings []runtimecontract.Binding,
 ) error {
 	for _, binding := range bindings {
 		if err := writeHostBinding(ctx, transaction, binding); err != nil {
@@ -133,7 +134,7 @@ func writeHostBindings(
 	return nil
 }
 
-func writeHostBinding(ctx context.Context, transaction *sql.Tx, binding runtimecatalog.Binding) error {
+func writeHostBinding(ctx context.Context, transaction *sql.Tx, binding runtimecontract.Binding) error {
 	strategy, registered := runtimecatalog.Strategy(binding.DetectorProfile)
 	if !registered {
 		return runtimecatalog.ErrCatalogInvalid
@@ -178,7 +179,7 @@ ON CONFLICT(singleton) DO UPDATE SET
 }
 
 func synchronizeDefinitions(ctx context.Context, tx *sql.Tx, candidate service.Projection, now int64) error {
-	if err := runtimecatalogpersistence.SynchronizeDefinitions(ctx, tx, runtimecatalog.Catalog{
+	if err := runtimecatalogpersistence.SynchronizeDefinitions(ctx, tx, runtimecontract.Catalog{
 		SchemaVersion: 1, Definitions: candidate.Definitions, Bindings: candidate.Bindings,
 	}, now); err != nil {
 		return fmt.Errorf("project Host definitions: %w", err)

@@ -7,13 +7,13 @@ import (
 	"time"
 
 	"retrom/internal/foundation/cleanup"
+	runtimecontract "retrom/internal/model/runtimecontract"
 
 	application "retrom/internal/service/launch"
 
 	"retrom/internal/adapter/files/blobstore"
 	"retrom/internal/adapter/runtime/dependencies"
 	retromruntime "retrom/internal/adapter/runtime/runtime"
-	"retrom/internal/capability/runtime/runtimecatalog"
 	"retrom/internal/capability/runtime/runtimelaunch"
 )
 
@@ -25,13 +25,13 @@ type Service struct {
 	blobs                    *blobstore.Store
 	rpgRuntimeOriginTemplate string
 	now                      func() time.Time
-	runtimeCatalog           runtimecatalog.Catalog
+	runtimeCatalog           runtimecontract.Catalog
 	runtimeBuilder           *runtimelaunch.Builder
 	publicOrigin             string
 }
 
 func (service *Service) WithRuntimeProvider(
-	catalog runtimecatalog.Catalog,
+	catalog runtimecontract.Catalog,
 	builder *runtimelaunch.Builder,
 ) *Service {
 	service.runtimeCatalog = catalog

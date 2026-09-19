@@ -1,0 +1,56 @@
+package main
+
+import (
+ "crypto/sha256"
+ "encoding/hex"
+ "encoding/json"
+ "os"
+
+ "retrom/internal/capability/runtime/runtimecatalog"
+)
+
+func main() {
+ raw, err := os.ReadFile("data/runtime-target-bindings/v1/catalog.json")
+ must(err)
+ catalog, err := runtimecatalog.ParseCatalog(raw)
+ must(err)
+ normalized, err := json.Marshal(catalog)
+ must(err)
+ samples := map[string]any{
+  "zero-catalog": runtimecatalog.Catalog{},
+  "empty-catalog": runtimecatalog.Catalog{
+   Definitions: runtimecatalog.Definitions{
+    Platforms: []runtimecatalog.PlatformDefinition{}, Cores: []runtimecatalog.CoreDefinition{},
+    ContentKinds: []string{}, AssetPacks: []runtimecatalog.AssetPackDefinition{},
+   },
+   Bindings: []runtimecatalog.Binding{},
+  },
+  "zero-binding": runtimecatalog.Binding{},
+  "empty-binding": runtimecatalog.Binding{PlatformIDs: []string{}, AcceptedContentKinds: []string{}},
+  "asset-pack-unicode": runtimecatalog.AssetPackDefinition{
+   ID: "extra-assets", Kind: "ADDITIONAL_ASSETS", Generation: "RPGXP", DeclaredName: "Ｓtraße",
+   NormalizedDeclaredName: "strasse", DisplayName: "Extra <&> assets", RequiredLayoutVersion: "mkxpz-v1", Enabled: true,
+  },
+  "platform": runtimecatalog.PlatformDefinition{ID: "platform", Name: "Retrom <&> 游戏", SortOrder: 7},
+  "core": runtimecatalog.CoreDefinition{ID: "core", Name: "Core", Enabled: true},
+ }
+ encodings := make(map[string]string, len(samples))
+ for key, value := range samples {
+  encoded, err := json.Marshal(value)
+  must(err)
+  encodings[key] = string(encoded)
+ }
+ result := map[string]any{
+  "source": "pre-move runtimecatalog six-type Go implementation",
+  "rawCatalogSHA256": digest(raw), "normalizedCatalogJSON": string(normalized), "normalizedCatalogSHA256": digest(normalized),
+  "samples": encodings,
+ }
+ output, err := json.MarshalIndent(result, "", "  ")
+ must(err)
+ must(os.WriteFile(os.Args[1], append(output, '\n'), 0o600))
+}
+func digest(value []byte) string {
+ sum := sha256.Sum256(value)
+ return hex.EncodeToString(sum[:])
+}
+func must(err error) { if err != nil { panic(err) } }

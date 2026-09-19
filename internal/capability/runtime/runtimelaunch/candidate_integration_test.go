@@ -10,6 +10,7 @@ import (
 
 	"retrom/internal/capability/runtime/runtimebundle"
 	"retrom/internal/capability/runtime/runtimecatalog"
+	runtimecontract "retrom/internal/model/runtimecontract"
 )
 
 func TestInstalledCandidateBuildsDeterministicEnvelopeForAll56Bindings(t *testing.T) {
@@ -87,7 +88,7 @@ func assertCandidateBinding(
 	t *testing.T,
 	builder *Builder,
 	manifests map[string]runtimebundle.Manifest,
-	binding runtimecatalog.Binding,
+	binding runtimecontract.Binding,
 ) {
 	t.Helper()
 	target := findManifestTarget(t, manifests[binding.ProviderID], binding.TargetID)

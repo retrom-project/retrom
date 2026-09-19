@@ -93,7 +93,7 @@ func createTag(
 
 // EnsureCommonTags atomically creates missing starter tags and preserves existing administrator tags.
 func (service *Service) EnsureCommonTags(ctx context.Context, actorUserID string) (model.CommonTagsResult, error) {
-	if !ValidID(actorUserID) {
+	if !model.ValidID(actorUserID) {
 		return model.CommonTagsResult{}, model.ErrInvalid
 	}
 	definitions, err := normalizedCommonTags()

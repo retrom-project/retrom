@@ -9,6 +9,7 @@ import (
 
 	"retrom/internal/capability/runtime/runtimebundle"
 	"retrom/internal/capability/runtime/runtimecatalog"
+	runtimecontract "retrom/internal/model/runtimecontract"
 )
 
 var (
@@ -22,8 +23,8 @@ var (
 // Projection contains the validated runtime catalog proposed for activation.
 type Projection struct {
 	Providers     []ProviderProjection
-	Bindings      []runtimecatalog.Binding
-	Definitions   runtimecatalog.Definitions
+	Bindings      []runtimecontract.Binding
+	Definitions   runtimecontract.Definitions
 	CatalogSHA256 string
 }
 
@@ -50,7 +51,7 @@ type CurrentProvider struct {
 func NewProjection(
 	active runtimebundle.ActiveDescriptor,
 	manifests map[string]runtimebundle.Manifest,
-	catalog runtimecatalog.Catalog,
+	catalog runtimecontract.Catalog,
 ) (Projection, error) {
 	if catalog.SchemaVersion != 1 || len(active.Providers) == 0 ||
 		len(active.Providers) != len(manifests) {
@@ -86,7 +87,7 @@ func NewProjection(
 		return Projection{}, err
 	}
 	return Projection{
-		Providers: providers, Bindings: append([]runtimecatalog.Binding(nil), catalog.Bindings...),
+		Providers: providers, Bindings: append([]runtimecontract.Binding(nil), catalog.Bindings...),
 		Definitions:   catalog.Definitions,
 		CatalogSHA256: projectionDigest(catalogContents),
 	}, nil

@@ -14,11 +14,11 @@ import (
 	"testing"
 	"time"
 
+	runtimecontract "retrom/internal/model/runtimecontract"
 	providerpersistence "retrom/internal/repo/runtimeprovider"
 	providerservice "retrom/internal/service/runtimeprovider"
 
 	"retrom/internal/capability/runtime/runtimebundle"
-	"retrom/internal/capability/runtime/runtimecatalog"
 	"retrom/internal/capability/runtime/runtimelaunch"
 	"retrom/internal/foundation/cleanup"
 	"retrom/internal/repo/store"
@@ -109,7 +109,7 @@ func TestLoadInstallationOverlaysPFBDevModuleWithoutChangingBaseBundle(t *testin
 		t.Fatalf("dev module response = %d headers=%v body=%q", response.Code, response.Header(), response.Body.String())
 	}
 	envelope, err := installation.Builder.Build(runtimelaunch.Input{
-		Binding: runtimecatalog.Binding{ProviderID: "fixture", TargetID: "fixture", LaunchPolicy: "SUPPORTED"},
+		Binding: runtimecontract.Binding{ProviderID: "fixture", TargetID: "fixture", LaunchPolicy: "SUPPORTED"},
 		Session: runtimelaunch.Session{
 			ID: "0198abcd-1234-7123-8abc-1234567890ab", Purpose: "PRODUCT", Mode: "SINGLE",
 			Title: "Fixture", PlatformName: "Fixture", CoreName: "Fixture", ReturnTo: "/games/fixture",
@@ -255,10 +255,10 @@ func writeInstallationFixture(t *testing.T, root string) installationFixture {
 	catalogPath := filepath.Join(root, "catalog.json")
 	writeJSON(t, catalogPath, map[string]any{
 		"schemaVersion": 1,
-		"definitions": runtimecatalog.Definitions{
-			Platforms:    []runtimecatalog.PlatformDefinition{{ID: "fixture", Name: "Fixture", Enabled: true}},
-			Cores:        []runtimecatalog.CoreDefinition{{ID: "fixture", Name: "Fixture", Enabled: true}},
-			ContentKinds: []string{"SINGLE_FILE"}, AssetPacks: []runtimecatalog.AssetPackDefinition{},
+		"definitions": runtimecontract.Definitions{
+			Platforms:    []runtimecontract.PlatformDefinition{{ID: "fixture", Name: "Fixture", Enabled: true}},
+			Cores:        []runtimecontract.CoreDefinition{{ID: "fixture", Name: "Fixture", Enabled: true}},
+			ContentKinds: []string{"SINGLE_FILE"}, AssetPacks: []runtimecontract.AssetPackDefinition{},
 		},
 		"bindings": []map[string]any{{
 			"id": "fixture", "coreId": "fixture", "providerId": "fixture", "targetId": "fixture",

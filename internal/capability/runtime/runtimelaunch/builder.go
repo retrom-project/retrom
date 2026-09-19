@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	"retrom/internal/capability/runtime/runtimebundle"
-	"retrom/internal/capability/runtime/runtimecatalog"
+	runtimecontract "retrom/internal/model/runtimecontract"
 )
 
 var ErrEnvelopeInvalid = errors.New("RUNTIME_LAUNCH_ENVELOPE_INVALID")
@@ -24,7 +24,7 @@ type Session struct {
 }
 
 type Input struct {
-	Binding       runtimecatalog.Binding
+	Binding       runtimecontract.Binding
 	Session       Session
 	Resources     []map[string]any
 	TargetOptions map[string]any

@@ -6,9 +6,10 @@ import (
 	"retrom/internal/capability/runtime/runtimebundle"
 	"retrom/internal/capability/runtime/runtimecatalog"
 	"retrom/internal/capability/runtime/runtimeoptions"
+	runtimecontract "retrom/internal/model/runtimecontract"
 )
 
-func validateHostOptionStrategies(catalog runtimecatalog.Catalog, providers []ProviderProjection) error {
+func validateHostOptionStrategies(catalog runtimecontract.Catalog, providers []ProviderProjection) error {
 	schemas := make(map[string]runtimebundle.TargetOptionsSchema)
 	for _, provider := range providers {
 		for _, target := range provider.Targets {

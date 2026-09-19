@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strings"
 
+	runtimecontract "retrom/internal/model/runtimecontract"
 	runtimecatalogpersistence "retrom/internal/repo/runtimecatalog"
 
 	"retrom/internal/capability/runtime/runtimebundle"
@@ -135,7 +136,7 @@ LIMIT 1
 // SeedRuntimeProviders installs a deterministic Provider projection for domain
 // tests. It intentionally contains no implementation or asset mapping; tests
 // that exercise the installation boundary use runtimeprovider fixtures instead.
-func SeedRuntimeProviders(ctx context.Context, database *sql.DB, catalog runtimecatalog.Catalog) error {
+func SeedRuntimeProviders(ctx context.Context, database *sql.DB, catalog runtimecontract.Catalog) error {
 	var existing int
 	if err := database.QueryRowContext(ctx, `SELECT count(*) FROM runtime_providers`).Scan(&existing); err != nil {
 		return fmt.Errorf("testsupport: inspect provider projection: %w", err)
@@ -171,9 +172,9 @@ func SeedRuntimeProviders(ctx context.Context, database *sql.DB, catalog runtime
 }
 
 func runtimeProjectionFixtures(
-	catalog runtimecatalog.Catalog,
-) (map[string]runtimecatalog.Binding, []string) {
-	targets := make(map[string]runtimecatalog.Binding)
+	catalog runtimecontract.Catalog,
+) (map[string]runtimecontract.Binding, []string) {
+	targets := make(map[string]runtimecontract.Binding)
 	providers := make(map[string]bool)
 	for _, binding := range catalog.Bindings {
 		key := binding.ProviderID + "\x00" + binding.TargetID
@@ -206,7 +207,7 @@ INSERT INTO runtime_providers(
 func insertFixtureTargets(
 	ctx context.Context,
 	transaction *sql.Tx,
-	targets map[string]runtimecatalog.Binding,
+	targets map[string]runtimecontract.Binding,
 ) error {
 	keys := make([]string, 0, len(targets))
 	for key := range targets {
@@ -249,7 +250,7 @@ INSERT INTO runtime_targets(
 func insertFixtureBindings(
 	ctx context.Context,
 	transaction *sql.Tx,
-	bindings []runtimecatalog.Binding,
+	bindings []runtimecontract.Binding,
 ) error {
 	for _, binding := range bindings {
 		strategy, registered := runtimecatalog.Strategy(binding.DetectorProfile)
@@ -292,7 +293,7 @@ VALUES(1,?,0)
 	return nil
 }
 
-func fixtureInputs(binding runtimecatalog.Binding) []map[string]any {
+func fixtureInputs(binding runtimecontract.Binding) []map[string]any {
 	if binding.ProviderID == "emulatorjs" {
 		return []map[string]any{
 			{"role": "game", "kind": "ROM_BLOB", "cardinality": "ONE", "optional": false},
@@ -326,7 +327,7 @@ func fixtureInputs(binding runtimecatalog.Binding) []map[string]any {
 	return result
 }
 
-func fixtureTargetOptionsSchema(binding runtimecatalog.Binding) map[string]any {
+func fixtureTargetOptionsSchema(binding runtimecontract.Binding) map[string]any {
 	property := func(properties map[string]any, required ...string) map[string]any {
 		required = append([]string{}, required...)
 		return map[string]any{

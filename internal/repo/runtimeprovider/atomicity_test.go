@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"retrom/internal/capability/runtime/runtimebundle"
-	"retrom/internal/capability/runtime/runtimecatalog"
+	runtimecontract "retrom/internal/model/runtimecontract"
 	runtimeprovidermodel "retrom/internal/model/runtimeprovider"
 	"retrom/internal/repo/recordstore"
 	service "retrom/internal/service/runtimeprovider"
@@ -113,8 +113,7 @@ func netplayProjectionFixture(t *testing.T, version, digest string, formats []st
 		map[string]runtimebundle.Manifest{"fixture": {
 			SchemaVersion: 1, ProviderID: "fixture", ProviderVersion: version, ProviderAPI: 1,
 			ClientModulePath: "client.mjs", Targets: []runtimebundle.Target{target},
-		}},
-		runtimecatalog.Catalog{SchemaVersion: 1, Definitions: initial.Definitions, Bindings: initial.Bindings},
+		}}, runtimecontract.Catalog{SchemaVersion: 1, Definitions: initial.Definitions, Bindings: initial.Bindings},
 	)
 	if err != nil {
 		t.Fatal(err)

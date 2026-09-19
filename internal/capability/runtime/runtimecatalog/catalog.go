@@ -9,6 +9,8 @@ import (
 	"io"
 	"regexp"
 	"sort"
+
+	runtimecontract "retrom/internal/model/runtimecontract"
 )
 
 var (
@@ -30,35 +32,18 @@ type ResolveRequest struct {
 	DetectorEvidence map[string]bool
 }
 
-type Catalog struct {
-	SchemaVersion int         `json:"schemaVersion"`
-	Definitions   Definitions `json:"definitions"`
-	Bindings      []Binding   `json:"bindings"`
-}
-
-type Binding struct {
-	ID                   string   `json:"id"`
-	CoreID               string   `json:"coreId"`
-	ProviderID           string   `json:"providerId"`
-	TargetID             string   `json:"targetId"`
-	PlatformIDs          []string `json:"platformIds"`
-	AcceptedContentKinds []string `json:"acceptedContentKinds"`
-	DetectorProfile      string   `json:"detectorProfile"`
-	LaunchPolicy         string   `json:"launchPolicy"`
-}
-
-func ParseCatalog(contents []byte) (Catalog, error) {
-	var result Catalog
+func ParseCatalog(contents []byte) (runtimecontract.Catalog, error) {
+	var result runtimecontract.Catalog
 	decoder := json.NewDecoder(bytes.NewReader(contents))
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(&result); err != nil {
-		return Catalog{}, invalidCatalog(err)
+		return runtimecontract.Catalog{}, invalidCatalog(err)
 	}
 	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
-		return Catalog{}, invalidCatalog(errTrailingJSON)
+		return runtimecontract.Catalog{}, invalidCatalog(errTrailingJSON)
 	}
 	if result.SchemaVersion != 1 || len(result.Bindings) == 0 {
-		return Catalog{}, ErrCatalogInvalid
+		return runtimecontract.Catalog{}, ErrCatalogInvalid
 	}
 	identities := make(map[string]bool, len(result.Bindings))
 	bindingIDs := make(map[string]bool, len(result.Bindings))
@@ -67,19 +52,22 @@ func ParseCatalog(contents []byte) (Catalog, error) {
 		identity := binding.ProviderID + "\x00" + binding.TargetID
 		if !validBinding(binding) || bindingIDs[binding.ID] || identities[identity] ||
 			previous != "" && previous >= identity {
-			return Catalog{}, ErrCatalogInvalid
+			return runtimecontract.Catalog{}, ErrCatalogInvalid
 		}
 		bindingIDs[binding.ID] = true
 		identities[identity] = true
 		previous = identity
 	}
 	if err := ValidateDefinitions(result); err != nil {
-		return Catalog{}, err
+		return runtimecontract.Catalog{}, err
 	}
 	return result, nil
 }
 
-func ValidateManifestBindings(catalog Catalog, targetExists func(providerID, targetID string) bool) error {
+func ValidateManifestBindings(
+	catalog runtimecontract.Catalog,
+	targetExists func(providerID, targetID string) bool,
+) error {
 	for _, binding := range catalog.Bindings {
 		if !targetExists(binding.ProviderID, binding.TargetID) {
 			return fmt.Errorf("%w: target %s/%s", ErrCatalogInvalid, binding.ProviderID, binding.TargetID)
@@ -91,12 +79,12 @@ func ValidateManifestBindings(catalog Catalog, targetExists func(providerID, tar
 // Resolve maps Host-owned product identity and detector evidence to exactly one
 // Provider target. Detector evidence is mandatory only for the intentionally
 // ambiguous RPG Maker product core.
-func Resolve(catalog Catalog, request ResolveRequest) (Binding, error) {
+func Resolve(catalog runtimecontract.Catalog, request ResolveRequest) (runtimecontract.Binding, error) {
 	if !identifierPattern.MatchString(request.PlatformID) || !identifierPattern.MatchString(request.CoreID) ||
 		!profilePattern.MatchString(request.ContentKind) {
-		return Binding{}, ErrBindingNotFound
+		return runtimecontract.Binding{}, ErrBindingNotFound
 	}
-	candidates := make([]Binding, 0, 1)
+	candidates := make([]runtimecontract.Binding, 0, 1)
 	for _, binding := range catalog.Bindings {
 		if binding.CoreID == request.CoreID && contains(binding.PlatformIDs, request.PlatformID) &&
 			contains(binding.AcceptedContentKinds, request.ContentKind) {
@@ -104,10 +92,10 @@ func Resolve(catalog Catalog, request ResolveRequest) (Binding, error) {
 		}
 	}
 	if len(candidates) == 0 {
-		return Binding{}, ErrBindingNotFound
+		return runtimecontract.Binding{}, ErrBindingNotFound
 	}
 
-	var selected Binding
+	var selected runtimecontract.Binding
 	var err error
 	if request.CoreID == "rpgmaker" {
 		selected, err = resolveRPGMaker(candidates, request.DetectorEvidence)
@@ -115,36 +103,36 @@ func Resolve(catalog Catalog, request ResolveRequest) (Binding, error) {
 		selected, err = resolveExact(candidates, request.DetectorEvidence)
 	}
 	if err != nil {
-		return Binding{}, err
+		return runtimecontract.Binding{}, err
 	}
 	if selected.LaunchPolicy == "DISABLED" {
-		return Binding{}, fmt.Errorf("%w: %s", ErrBindingDisabled, selected.ID)
+		return runtimecontract.Binding{}, fmt.Errorf("%w: %s", ErrBindingDisabled, selected.ID)
 	}
 	return selected, nil
 }
 
-func resolveRPGMaker(candidates []Binding, evidence map[string]bool) (Binding, error) {
+func resolveRPGMaker(candidates []runtimecontract.Binding, evidence map[string]bool) (runtimecontract.Binding, error) {
 	if positiveEvidenceCount(evidence) != 1 {
-		return Binding{}, ErrBindingAmbiguous
+		return runtimecontract.Binding{}, ErrBindingAmbiguous
 	}
-	matches := make([]Binding, 0, 1)
+	matches := make([]runtimecontract.Binding, 0, 1)
 	for _, candidate := range candidates {
 		if evidence[candidate.DetectorProfile] {
 			matches = append(matches, candidate)
 		}
 	}
 	if len(matches) == 0 {
-		return Binding{}, ErrBindingNotFound
+		return runtimecontract.Binding{}, ErrBindingNotFound
 	}
 	if len(matches) != 1 {
-		return Binding{}, ErrBindingAmbiguous
+		return runtimecontract.Binding{}, ErrBindingAmbiguous
 	}
 	return matches[0], nil
 }
 
-func resolveExact(candidates []Binding, evidence map[string]bool) (Binding, error) {
+func resolveExact(candidates []runtimecontract.Binding, evidence map[string]bool) (runtimecontract.Binding, error) {
 	if positiveEvidenceCount(evidence) != 0 || len(candidates) != 1 {
-		return Binding{}, ErrBindingAmbiguous
+		return runtimecontract.Binding{}, ErrBindingAmbiguous
 	}
 	return candidates[0], nil
 }
@@ -159,14 +147,14 @@ func positiveEvidenceCount(evidence map[string]bool) int {
 	return count
 }
 
-func validBinding(value Binding) bool {
+func validBinding(value runtimecontract.Binding) bool {
 	if !validBindingIdentity(value) || !validBindingSemantics(value) {
 		return false
 	}
 	return validLaunchPolicy(value.LaunchPolicy) && validStrategy(value)
 }
 
-func validBindingIdentity(value Binding) bool {
+func validBindingIdentity(value runtimecontract.Binding) bool {
 	if !kebabPattern.MatchString(value.ID) || !identifierPattern.MatchString(value.CoreID) ||
 		!kebabPattern.MatchString(value.ProviderID) || !identifierPattern.MatchString(value.TargetID) ||
 		!profilePattern.MatchString(value.DetectorProfile) ||
@@ -177,7 +165,7 @@ func validBindingIdentity(value Binding) bool {
 	return true
 }
 
-func validBindingSemantics(value Binding) bool {
+func validBindingSemantics(value runtimecontract.Binding) bool {
 	semanticValues := append([]string{
 		value.DetectorProfile, value.LaunchPolicy,
 	},

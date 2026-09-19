@@ -59,17 +59,17 @@ func TestNormalizeNameBoundaries(t *testing.T) {
 func TestValidateIDsRejectsDuplicatesAndLimit(t *testing.T) {
 	t.Parallel()
 	id := "01980000-0000-7000-8000-000000000001"
-	if _, err := ValidateIDs([]string{id, id}); !errors.Is(err, model.ErrInvalid) {
+	if _, err := model.ValidateIDs([]string{id, id}); !errors.Is(err, model.ErrInvalid) {
 		t.Fatalf("duplicate error = %v", err)
 	}
 	values := make([]string, model.MaxTagsPerOwner+1)
 	for index := range values {
 		values[index] = id
 	}
-	if _, err := ValidateIDs(values); !errors.Is(err, model.ErrAssignmentLimitExceeded) {
+	if _, err := model.ValidateIDs(values); !errors.Is(err, model.ErrAssignmentLimitExceeded) {
 		t.Fatalf("limit error = %v", err)
 	}
-	if _, err := ValidateIDs([]string{"550e8400-e29b-41d4-a716-446655440000"}); !errors.Is(err, model.ErrInvalid) {
+	if _, err := model.ValidateIDs([]string{"550e8400-e29b-41d4-a716-446655440000"}); !errors.Is(err, model.ErrInvalid) {
 		t.Fatalf("non-v7 error = %v", err)
 	}
 }

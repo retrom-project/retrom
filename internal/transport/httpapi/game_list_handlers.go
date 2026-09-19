@@ -12,7 +12,7 @@ import (
 	"retrom/internal/capability/security/authn"
 	"retrom/internal/foundation/cursor"
 	gamelistmodel "retrom/internal/model/gamelist"
-	"retrom/internal/service/tagging"
+	taggingmodel "retrom/internal/model/tagging"
 )
 
 func (server *Server) games(writer http.ResponseWriter, request *http.Request) {
@@ -171,7 +171,7 @@ func parseGameListFilters(values url.Values, includeDeleted bool) (gameListFilte
 	filters.NormalizedQ = strings.ToLower(strings.Join(strings.Fields(values.Get("q")), " "))
 	filters.Filters.Query = filters.NormalizedQ
 	if tagID := values.Get("tagId"); tagID != "" {
-		if !tagging.ValidID(tagID) {
+		if !taggingmodel.ValidID(tagID) {
 			return gameListFilters{}, errInvalidGameTagFilter
 		}
 		filters.Filters.TagID = tagID

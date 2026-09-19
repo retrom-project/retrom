@@ -47,9 +47,9 @@ func (service *ReviewHandoff) Complete(ctx context.Context, request model.Review
 		if review.State != "COPYING" && review.State != "VALIDATING" {
 			return model.ErrVersionConflict
 		}
-		preparation, err := ReviewPreparation(review)
+		preparation, err := model.ReviewPreparation(review)
 		if err != nil {
-			return err
+			return fmt.Errorf("%w", err)
 		}
 		return service.complete(
 			ctx,

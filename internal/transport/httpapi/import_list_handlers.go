@@ -18,7 +18,6 @@ import (
 	libraryimportmodel "retrom/internal/model/libraryimport"
 	taggingmodel "retrom/internal/model/tagging"
 	libraryservice "retrom/internal/service/libraryimport"
-	"retrom/internal/service/tagging"
 )
 
 type importListItem = libraryimportmodel.ImportListItem
@@ -182,7 +181,7 @@ func (server *Server) createImport(writer http.ResponseWriter, request *http.Req
 		return
 	}
 	if body.TagIDs != nil {
-		if _, err := tagging.ValidateIDs(body.TagIDs); err != nil {
+		if _, err := taggingmodel.ValidateIDs(body.TagIDs); err != nil {
 			writeTagError(writer, request, err)
 			return
 		}

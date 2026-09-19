@@ -343,7 +343,7 @@
       "id": "corevalidation.ResolveBIOSRecords",
       "owner": "corevalidation",
       "rf_id": "RF11",
-      "symbol": "retrom/internal/service/corevalidation.ResolveBIOSRecords",
+      "symbol": "retrom/internal/model/corevalidation.ResolveBIOSRecords",
       "consumers": [
         "(*retrom/internal/service/corevalidation.Service).ResolveBIOS",
         "(*retrom/internal/service/libraryimport.MultiDiscAttachmentCommits).resolveValidation",
@@ -1051,7 +1051,7 @@
       "id": "emulationstationimport.reviewPreparation",
       "owner": "emulationstationimport",
       "rf_id": "RF14",
-      "symbol": "retrom/internal/service/emulationstationimport.ReviewPreparation",
+      "symbol": "retrom/internal/model/emulationstationimport.ReviewPreparation",
       "consumers": [
         "(*retrom/internal/service/emulationstationimport.ReviewHandoff).Complete",
         "retrom/internal/service/emulationstationimport.completeExecutionReviews",
@@ -9554,8 +9554,21 @@
       "rf_id": "RF16",
       "symbol": "retrom/internal/model/tagging.ValidID",
       "consumers": [
+        "(*retrom/internal/service/tagging.Service).AssignReviewDraftTags",
+        "(*retrom/internal/service/tagging.Service).CopyDraftTagsToGame",
+        "(*retrom/internal/service/tagging.Service).Create",
+        "(*retrom/internal/service/tagging.Service).Delete",
+        "(*retrom/internal/service/tagging.Service).EnsureCommonTags",
+        "(*retrom/internal/service/tagging.Service).Get",
+        "(*retrom/internal/service/tagging.Service).Rename",
+        "(*retrom/internal/service/tagging.Service).ReplaceGameTags",
+        "(*retrom/internal/service/tagging.Service).ReplaceReviewDraftTags",
         "retrom/internal/model/tagging.BuildReplacementPlan",
-        "retrom/internal/model/tagging.ValidateIDs"
+        "retrom/internal/model/tagging.ValidateIDs",
+        "retrom/internal/service/libraryimport.NormalizeReviewQueueFilter",
+        "retrom/internal/service/tagging.applyListCursor",
+        "retrom/internal/service/tagging.replaceCollectionTags",
+        "retrom/internal/transport/httpapi.parseGameListFilters"
       ],
       "invariant": "Validate UUID identifiers according to existing domain rule.",
       "status": "SOURCE_REVIEWED",
@@ -9586,8 +9599,14 @@
       "rf_id": "RF16",
       "symbol": "retrom/internal/model/tagging.ValidateIDs",
       "consumers": [
+        "(*retrom/internal/service/tagging.Service).ReplaceGameTags",
+        "(*retrom/internal/transport/httpapi.Server).createImport",
+        "(*retrom/internal/transport/httpapi.Server).patchReview",
+        "(*retrom/internal/transport/httpapi.Server).reconfigureImport",
         "retrom/internal/model/tagging.BuildReplacementPlan",
-        "retrom/internal/model/tagging.ValidateActiveReferenceFacts"
+        "retrom/internal/model/tagging.ValidateActiveReferenceFacts",
+        "retrom/internal/service/tagging.ValidateActiveReferences",
+        "retrom/internal/transport/httpapi.updateFormatImportMappings"
       ],
       "invariant": "Bounded unique UUID tag set.",
       "status": "SOURCE_REVIEWED",

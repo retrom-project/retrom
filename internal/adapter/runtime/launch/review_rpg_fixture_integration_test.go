@@ -12,15 +12,15 @@ import (
 	"time"
 
 	retromruntime "retrom/internal/adapter/runtime/runtime"
-	"retrom/internal/capability/runtime/runtimecatalog"
 	libraryimportmodel "retrom/internal/model/libraryimport"
+	runtimecontract "retrom/internal/model/runtimecontract"
 	reviewpersistence "retrom/internal/repo/libraryimport"
 	reviewservice "retrom/internal/service/libraryimport"
 	"retrom/internal/testkit/testsupport"
 )
 
-func rpgReviewRuntimeCatalog() runtimecatalog.Catalog {
-	return runtimecatalog.Catalog{SchemaVersion: 1, Bindings: []runtimecatalog.Binding{{
+func rpgReviewRuntimeCatalog() runtimecontract.Catalog {
+	return runtimecontract.Catalog{SchemaVersion: 1, Bindings: []runtimecontract.Binding{{
 		ID: "retrom-runtime-rpgmaker-2000", CoreID: "rpgmaker", ProviderID: "retrom-runtime",
 		TargetID: "rpgmaker-2000", PlatformIDs: []string{"rpgmaker"},
 		AcceptedContentKinds: []string{"RPG_MAKER_PROJECT"}, DetectorProfile: "RPG2000",

@@ -5,7 +5,7 @@ import (
 	"slices"
 	"strings"
 
-	"retrom/internal/capability/runtime/runtimecatalog"
+	runtimecontract "retrom/internal/model/runtimecontract"
 )
 
 func validProtocol(protocol Protocol) bool {
@@ -16,7 +16,7 @@ func validProtocol(protocol Protocol) bool {
 		slices.Equal(protocol.AllowedContentKinds, []string{"SINGLE_FILE"})
 }
 
-func validManifestProfile(profile ManifestProfile, bindings []runtimecatalog.Binding) bool {
+func validManifestProfile(profile ManifestProfile, bindings []runtimecontract.Binding) bool {
 	if !validManifestProfileShape(profile) {
 		return false
 	}

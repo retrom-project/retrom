@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"retrom/internal/capability/runtime/runtimecatalog"
+	runtimecontract "retrom/internal/model/runtimecontract"
 )
 
 func TestRegistryKeepsRejectionReasons(t *testing.T) {
@@ -47,7 +47,7 @@ func TestRegistryPreservesOrderedBindingAndProfileValidation(t *testing.T) {
 	manifest.Profiles = slices.Clone(manifest.Profiles[:1])
 	selected := manifest.Profiles[0]
 	bindings := fixtureBindings()
-	index := slices.IndexFunc(bindings, func(binding runtimecatalog.Binding) bool {
+	index := slices.IndexFunc(bindings, func(binding runtimecontract.Binding) bool {
 		return binding.ProviderID == selected.ProviderID && binding.TargetID == selected.TargetID && binding.CoreID == selected.CoreID
 	})
 	if index < 0 {
@@ -60,13 +60,13 @@ func TestRegistryPreservesOrderedBindingAndProfileValidation(t *testing.T) {
 	disabled.LaunchPolicy = "DISABLED"
 	for _, test := range []struct {
 		name     string
-		bindings []runtimecatalog.Binding
+		bindings []runtimecontract.Binding
 		accepted bool
 	}{
-		{"exact", []runtimecatalog.Binding{correct}, true},
-		{"disabled skipped", []runtimecatalog.Binding{disabled, correct}, true},
-		{"first platform mismatch", []runtimecatalog.Binding{wrongPlatform, correct}, false},
-		{"disabled only", []runtimecatalog.Binding{disabled}, false},
+		{"exact", []runtimecontract.Binding{correct}, true},
+		{"disabled skipped", []runtimecontract.Binding{disabled, correct}, true},
+		{"first platform mismatch", []runtimecontract.Binding{wrongPlatform, correct}, false},
+		{"disabled only", []runtimecontract.Binding{disabled}, false},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			raw, err := json.Marshal(manifest)
@@ -84,7 +84,7 @@ func TestRegistryPreservesOrderedBindingAndProfileValidation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := ParseRegistry(raw, []runtimecatalog.Binding{correct}); err != nil {
+	if _, err := ParseRegistry(raw, []runtimecontract.Binding{correct}); err != nil {
 		t.Fatalf("existing permissive lowercase profile ID changed: %v", err)
 	}
 	manifest.Profiles = append(manifest.Profiles, manifest.Profiles[0])
@@ -92,7 +92,7 @@ func TestRegistryPreservesOrderedBindingAndProfileValidation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := ParseRegistry(raw, []runtimecatalog.Binding{correct}); !errors.Is(err, ErrManifestInvalid) || err.Error() != "NETPLAY_MANIFEST_INVALID: duplicate profile" {
+	if _, err := ParseRegistry(raw, []runtimecontract.Binding{correct}); !errors.Is(err, ErrManifestInvalid) || err.Error() != "NETPLAY_MANIFEST_INVALID: duplicate profile" {
 		t.Fatalf("duplicate reason = %v", err)
 	}
 }

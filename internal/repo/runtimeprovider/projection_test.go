@@ -9,11 +9,11 @@ import (
 	"testing"
 	"time"
 
+	runtimecontract "retrom/internal/model/runtimecontract"
 	runtimeprovidermodel "retrom/internal/model/runtimeprovider"
 	service "retrom/internal/service/runtimeprovider"
 
 	"retrom/internal/capability/runtime/runtimebundle"
-	"retrom/internal/capability/runtime/runtimecatalog"
 	"retrom/internal/repo/store"
 )
 
@@ -219,15 +219,15 @@ func projectionFixtureForTarget(targetID, version, digestByte string, readFormat
 			ID: target.ID, Checkpoint: checkpoint,
 		}},
 	}}}
-	catalog := runtimecatalog.Catalog{SchemaVersion: 1, Bindings: []runtimecatalog.Binding{{
+	catalog := runtimecontract.Catalog{SchemaVersion: 1, Bindings: []runtimecontract.Binding{{
 		ID: "fixture-" + targetID, CoreID: "gambatte", ProviderID: "fixture", TargetID: targetID,
 		PlatformIDs: []string{"gbc"}, AcceptedContentKinds: []string{"SINGLE_FILE"},
 		DetectorProfile: "EMULATORJS_SINGLE_FILE", LaunchPolicy: "SUPPORTED",
 	}}}
-	catalog.Definitions = runtimecatalog.Definitions{
-		Platforms:    []runtimecatalog.PlatformDefinition{{ID: "gbc", Name: "Game Boy / Color", SortOrder: 40, Enabled: true}},
-		Cores:        []runtimecatalog.CoreDefinition{{ID: "gambatte", Name: "Gambatte", Enabled: true}},
-		ContentKinds: []string{"SINGLE_FILE"}, AssetPacks: []runtimecatalog.AssetPackDefinition{},
+	catalog.Definitions = runtimecontract.Definitions{
+		Platforms:    []runtimecontract.PlatformDefinition{{ID: "gbc", Name: "Game Boy / Color", SortOrder: 40, Enabled: true}},
+		Cores:        []runtimecontract.CoreDefinition{{ID: "gambatte", Name: "Gambatte", Enabled: true}},
+		ContentKinds: []string{"SINGLE_FILE"}, AssetPacks: []runtimecontract.AssetPackDefinition{},
 	}
 	projection, err := runtimeprovidermodel.NewProjection(active, map[string]runtimebundle.Manifest{"fixture": {
 		SchemaVersion: 1, ProviderID: "fixture", ProviderVersion: version, ProviderAPI: 1,
@@ -248,8 +248,7 @@ func TestProjectionRejectsOptionsOutsideRegisteredAccessStrategy(t *testing.T) {
 		"properties": map[string]any{"unknownProperty": map[string]any{"type": "string"}}, "required": []any{"unknownProperty"},
 	}
 	_, err := runtimeprovidermodel.NewProjection(runtimebundle.ActiveDescriptor{SchemaVersion: 1, Source: "candidate", Providers: []runtimebundle.ActiveProvider{provider}},
-		map[string]runtimebundle.Manifest{"fixture": {SchemaVersion: 1, ProviderID: "fixture", ProviderVersion: "1.0.0", ProviderAPI: 1, ClientModulePath: "client.mjs", Targets: []runtimebundle.Target{target}}},
-		runtimecatalog.Catalog{SchemaVersion: 1, Definitions: initial.Definitions, Bindings: initial.Bindings})
+		map[string]runtimebundle.Manifest{"fixture": {SchemaVersion: 1, ProviderID: "fixture", ProviderVersion: "1.0.0", ProviderAPI: 1, ClientModulePath: "client.mjs", Targets: []runtimebundle.Target{target}}}, runtimecontract.Catalog{SchemaVersion: 1, Definitions: initial.Definitions, Bindings: initial.Bindings})
 	if err == nil {
 		t.Fatal("unsupported Host option access was accepted until launch time")
 	}
