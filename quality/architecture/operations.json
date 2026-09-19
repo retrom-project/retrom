@@ -10260,6 +10260,364 @@
       }
     },
     {
+      "operation_id": "libraryimport.patch-review-draft",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "consumers": [
+        "(*retrom/internal/adapter/integration/libraryimport.Service).PatchDraft",
+        "(*retrom/internal/service/libraryimport.ReviewDrafts).Patch",
+        "(*retrom/internal/transport/httpapi.Server).patchReview"
+      ],
+      "snapshot": "retrom/internal/model/libraryimport.ReviewDraftPatchSnapshot",
+      "prepare": "(*retrom/internal/service/libraryimport.ReviewDrafts).Patch",
+      "commit": "(*retrom/internal/repo/libraryimport.ReviewDraftPatches).CommitPatch",
+      "policy_symbols": [
+        "(*retrom/internal/repo/libraryimport.draftPatchRun).existingValidationMatches",
+        "(*retrom/internal/repo/libraryimport.draftPatchRun).validationCreateMatches",
+        "(retrom/internal/model/libraryimport.ReviewValidationGuard).Valid",
+        "retrom/internal/model/libraryimport.MergeMetadata",
+        "retrom/internal/model/libraryimport.PrepublishDigestMatches",
+        "retrom/internal/model/libraryimport.ResolveRPGResourcePolicy",
+        "retrom/internal/model/libraryimport.ResolveRPGReviewDependencies",
+        "retrom/internal/model/libraryimport.SearchParts",
+        "retrom/internal/model/libraryimport.SearchText",
+        "retrom/internal/model/libraryimport.ValidReviewField",
+        "retrom/internal/model/libraryimport.ValidateDraftPatch",
+        "retrom/internal/model/libraryimport.applyNumericPatches",
+        "retrom/internal/model/libraryimport.applyTextPatches",
+        "retrom/internal/model/libraryimport.applyTitlePatch",
+        "retrom/internal/repo/libraryimport.reviewValidationGuardMatches",
+        "retrom/internal/service/libraryimport.applyAssetPatch",
+        "retrom/internal/service/libraryimport.applyCandidatePatch",
+        "retrom/internal/service/libraryimport.patchedTargetAndDOS"
+      ],
+      "fresh_facts": [
+        {
+          "name": "prepared draft snapshot",
+          "reader_symbol": "(*retrom/internal/repo/libraryimport.ReviewDraftPatches).LoadPatchSnapshot",
+          "reason": "Separate BeginTx(nil) read-only-by-use,rolledback afterread; current REVIEW_PENDINGdraft/version/metadata/selection/source/RPG flag,tags/active requestedtags/sourcepaths/screenshots. No writes,no separate mutation entry"
+        },
+        {
+          "name": "fresh draft and tags",
+          "reader_symbol": "(*retrom/internal/repo/libraryimport.draftPatchRun).load",
+          "reason": "Insidewriter read current REVIEW_PENDINGdraft and compareid/version/target/validation/effectivesnapshot/DOS/RPG flag; currentbeforetags equalprepared. SQL errors inheadread mappedErrInvalid"
+        },
+        {
+          "name": "current selected validation",
+          "reader_symbol": "(*retrom/internal/repo/libraryimport.draftPatchRun).selectExistingValidation",
+          "reason": "Item-ownedvalidation source/target/status/core/provider/DAT/DOS/manifest/inputdigest/dependencyJSON/code"
+        },
+        {
+          "name": "candidate and asset ownership",
+          "reader_symbol": "(*retrom/internal/repo/libraryimport.draftPatchRun).validateCandidate",
+          "reason": "Selectedcandidate belongsitem andcompletedrun; candidateassets READY fromitemcompletedrun;uploadedasset item-ownedCOVER. Assets rereadonly whenAssetsChanged"
+        },
+        {
+          "name": "current validation inputs",
+          "reader_symbol": "(*retrom/internal/repo/libraryimport.ReviewValidation).Inputs",
+          "reason": "Inside writer draft effective source snapshot/manifest/kind; enabled targetversion/platform/core/runtimebinding/policy/activeDAT; complete static and DAT BIOS fact digests plus RPG profile fingerprint"
+        }
+      ],
+      "guards": [
+        {
+          "id": "validation-inputs",
+          "fields": [
+            "sourceSnapshot",
+            "manifest",
+            "contentKind",
+            "target",
+            "platformVersion",
+            "platform",
+            "core",
+            "provider",
+            "runtimeTarget",
+            "DAT",
+            "DOS",
+            "policy",
+            "dependencyFacts"
+          ],
+          "expected_source": "Valid nonempty guard withpositiveplatformversion must equalcurrent Inputs exactly inclnullableDAT/DOS andcontentpolicyDigestFor(kind),dependencyFactsDigest",
+          "rejection": "ErrVersionConflict",
+          "test_id": "RFA-RF13-approval_guard"
+        },
+        {
+          "id": "patch-shape",
+          "fields": [
+            "patch",
+            "tagIds"
+          ],
+          "expected_source": "TagIDs mustbenonnil andpatchhasatleastone suppliedfield(nonemptytagscounts); metadata tri-state bounds,title1..200,description<=10000,othertexts<=200,players1..64,year1950..sampledUTCyear+1",
+          "rejection": "ErrInvalid",
+          "test_id": "RFA-RF13-approval_guard"
+        },
+        {
+          "id": "planner-precedence",
+          "fields": [
+            "isRPG",
+            "selectedValidation",
+            "ScummCandidate"
+          ],
+          "expected_source": "Explicitvalidationnonempty,forbiddenRPG; Scummcandidatewins andcoexistingvalidationIDmustequalcurrentselection;selectedcandidate hasmatchingScummsnapshot sourceDigest",
+          "rejection": "ErrInvalid",
+          "test_id": "RFA-RF13-approval_guard"
+        },
+        {
+          "id": "write-plan-shape",
+          "fields": [
+            "item",
+            "draft",
+            "expectedVersion",
+            "target",
+            "effectiveSnapshot",
+            "now"
+          ],
+          "expected_source": "Repo validnonemptyIDs/currentcontext,version>=1,Now>=0; no generalMaxInt64versionguard",
+          "rejection": "ErrInvalid",
+          "test_id": "RFA-RF13-approval_guard"
+        },
+        {
+          "id": "fresh-draft",
+          "fields": [
+            "draftId",
+            "version",
+            "target",
+            "selectedValidation",
+            "effectiveSnapshot",
+            "DOS",
+            "isRPG",
+            "tagsBefore"
+          ],
+          "expected_source": "Exactcurrentprepared values andReferencesEqual currentbeforetags; metadata/assets currentvalues notexplicitlycompared beyondversion",
+          "rejection": "ErrVersionConflict orErrInvalid forwrongdraft/missinghead",
+          "test_id": "RFA-RF13-approval_guard"
+        },
+        {
+          "id": "target-and-DOS",
+          "fields": [
+            "oldplatform",
+            "newtarget",
+            "DOS"
+          ],
+          "expected_source": "Changingtarget requiresenablednotdeletedtarget ofsamebaseplatform; changeDOSnonnullmustoneenableditemDOSentry. If target/DOSchanged,finalvalidationIDnonempty",
+          "rejection": "ErrReimportRequiredPlatformChange / ErrInvalid",
+          "test_id": "RFA-RF13-approval_guard"
+        },
+        {
+          "id": "created-validation",
+          "fields": [
+            "create",
+            "copy",
+            "selection",
+            "guard"
+          ],
+          "expected_source": "Create exactitem/target/sourceSnapshot/DOS/platformVersion/core/provider/target/manifest/DAT andexpectedinputdigest;(statusREADY)==selectednewID; Copyrequired andtargetnewID matches; CopypresentwithoutCreate rejected",
+          "rejection": "ErrInvalid",
+          "test_id": "RFA-RF13-approval_guard"
+        },
+        {
+          "id": "existing-validation",
+          "fields": [
+            "validation",
+            "expectedDigest",
+            "guard"
+          ],
+          "expected_source": "Selectedexisting requiresitemownership/currenttarget/effectivesnapshot/READY/core/provider/runtime/manifest/DAT/DOS andexactexpecteddigest; recomputePrepublishDigestMatches actualdependency/status/code. RPGnewvalidationmustcoreRPGvirtual; existingRPGmustunchangedselection",
+          "rejection": "ErrInvalid",
+          "test_id": "RFA-RF13-approval_guard"
+        },
+        {
+          "id": "RPG-policy",
+          "fields": [
+            "RPGflag",
+            "override",
+            "generation",
+            "targetOrDOS"
+          ],
+          "expected_source": "NonRPG forbidsRPGoverride; RPGtarget/DOSchangeforbidden; trueoverrideforMV/MZforbidden. Override absent leavesprofiledigestunchanged even ifplancontainsRPGDependencyDigest",
+          "rejection": "ErrInvalid",
+          "test_id": "RFA-RF13-approval_guard"
+        },
+        {
+          "id": "media-selection",
+          "fields": [
+            "candidate",
+            "cover",
+            "uploadedCover",
+            "background",
+            "screenshots"
+          ],
+          "expected_source": "Candidatefromcompleteditemrun; changedassets<=32 uniquescreenshots,READYitemrunassets; candidatecoveranduploadedcovermutuallyexclusive; uploadedcover sameitemCOVER",
+          "rejection": "ErrInvalid; baseline some SQLerrorsmasked",
+          "test_id": "RFA-RF13-approval_guard"
+        },
+        {
+          "id": "fresh-active-tags",
+          "fields": [
+            "before",
+            "desired",
+            "active",
+            "actor"
+          ],
+          "expected_source": "Repo re-reads active desiredtags,rebuilds same Model replacementplan fromcurrentbefore,requires desiredrefs equalpreparedAfter; actor validation follows sharedtagpolicy",
+          "rejection": "ErrVersionConflict / tagging errors",
+          "test_id": "RFA-RF13-approval_guard"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "create-review-validation",
+          "repo_helper": "(*retrom/internal/repo/libraryimport.ReviewValidation).Create",
+          "affected_records": [
+            "Optional INSERT import_item_core_validations allpreparedsource/target/core/provider/DAT/DOS/inputdigest/status/dependencyJSON/createdtime; no separate commit"
+          ],
+          "test_id": "RFA-RF13-approval_guard"
+        },
+        {
+          "stage": "copy-validation-files",
+          "repo_helper": "(*retrom/internal/repo/libraryimport.ReviewValidation).CopyFiles",
+          "affected_records": [
+            "Optional INSERT SELECT files fromplan.SourceValidationID into newvalidation; omitBIOS_BUNDLE whenReplaceBIOSBundle; baseline doesnot explicitlyrecheck sourcefileclosure or sourcevalidationowner here"
+          ],
+          "test_id": "RFA-RF13-approval_guard"
+        },
+        {
+          "stage": "append-BIOS-validation-files",
+          "repo_helper": "(*retrom/internal/repo/libraryimport.ReviewValidation).CopyFiles",
+          "affected_records": [
+            "Aftercopy compute maxsortorder+1; INSERT currentprepareddependencies withdeliveryBIOS_BUNDLE/nonNULLBlob; successiveorder"
+          ],
+          "test_id": "RFA-RF13-approval_guard"
+        },
+        {
+          "stage": "RPG-override",
+          "repo_helper": "(*retrom/internal/repo/libraryimport.draftPatchRun).applyRPGBinding",
+          "affected_records": [
+            "Optional UPDATE rpgmaker_review_profiles self_contained_override/time bydraft"
+          ],
+          "test_id": "RFA-RF13-approval_guard"
+        },
+        {
+          "stage": "RPG-dependency-digest",
+          "repo_helper": "(*retrom/internal/repo/libraryimport.draftPatchRun).applyRPGBinding",
+          "affected_records": [
+            "Onlywhenoverridepresent+preparedDigestnonempty UPDATE dependency_snapshot_sha256/time"
+          ],
+          "test_id": "RFA-RF13-approval_guard"
+        },
+        {
+          "stage": "clear-screenshots",
+          "repo_helper": "(*retrom/internal/repo/libraryimport.draftPatchRun).replaceScreenshotAssets",
+          "affected_records": [
+            "AssetsChanged DELETE existing review_draft_screenshot_assets"
+          ],
+          "test_id": "RFA-RF13-approval_guard"
+        },
+        {
+          "stage": "selected-screenshots",
+          "repo_helper": "(*retrom/internal/repo/libraryimport.draftPatchRun).replaceScreenshotAssets",
+          "affected_records": [
+            "AssetsChanged INSERT each selectedcandidate assetordinal/time"
+          ],
+          "test_id": "RFA-RF13-approval_guard"
+        },
+        {
+          "stage": "patch-draft",
+          "repo_helper": "(*retrom/internal/repo/libraryimport.draftPatchRun).updateDraft",
+          "affected_records": [
+            "UPDATE draftexactitem/version target/validation/candidate/cover/uploadedcover/background/DOS/metadata,version+1/time; nestedrecordstore enforces source/selectedvalidation/uploadedcoverownership; require1 butRowsAffectederrorignored"
+          ],
+          "test_id": "RFA-RF13-approval_guard"
+        },
+        {
+          "stage": "patch-search",
+          "repo_helper": "(*retrom/internal/repo/libraryimport.draftPatchRun).updateDraft",
+          "affected_records": [
+            "UPDATE itemsearchtext fromprepareditemID/sourcepaths/title; noitemstate/version/countfence"
+          ],
+          "test_id": "RFA-RF13-approval_guard"
+        },
+        {
+          "stage": "patch-audit",
+          "repo_helper": "(*retrom/internal/repo/libraryimport.draftPatchRun).insertSavedEvent",
+          "affected_records": [
+            "FreshUUID insidewriter INSERT DRAFT_SAVEDreviewevent schema2before/aftermetadata+tags,diffmetadataOrTagsChanged,emptyevidence; nochange stillincrementsdraft/audits"
+          ],
+          "test_id": "RFA-RF13-approval_guard"
+        },
+        {
+          "stage": "remove-tags",
+          "repo_helper": "(retrom/internal/repo/tagging.relationRecords).Remove",
+          "affected_records": [
+            "DELETE removed review_draft_tags; onlyChanged sharedreplacementplan,samewriter"
+          ],
+          "test_id": "RFA-RF13-approval_guard"
+        },
+        {
+          "stage": "add-tags",
+          "repo_helper": "(retrom/internal/repo/tagging.relationRecords).Add",
+          "affected_records": [
+            "INSERT addedreview_draft_tags actor/time; onlyChanged sharedreplacementplan,samewriter"
+          ],
+          "test_id": "RFA-RF13-approval_guard"
+        },
+        {
+          "stage": "touch-tags",
+          "repo_helper": "(retrom/internal/repo/tagging.relationRecords).TouchTags",
+          "affected_records": [
+            "UPDATE touched ACTIVEtags version+1/actor/time; onlyChanged sharedreplacementplan,samewriter"
+          ],
+          "test_id": "RFA-RF13-approval_guard"
+        }
+      ],
+      "idempotency": "Expectedversion rejectsrepeatcommit; even effective no-op validpatch incrementsversion+audit. GenericHTTPreceipt separate. Baseline freshdraftquerychecksREVIEW_PENDING but no explicitsourcehandoff/busy orparentcancel/payload guard inthisRepo.",
+      "time_rule": "Baseline shared writer BeginTx with upper callback (or Repo-owned orchestration); Service clock position specified below. Target Repo must acquire write permission then sample technical Clock once; prepared identities generated before writer. Service samplesnow+actor BEFORE reads/planning; validationresolvermayseparatelysamplecreatedAt/generateUUIDbeforewriter; auditUUIDinsideRepo. CommitPatch uses suppliedNow,notfreshClock. LoadPatchSnapshot merely readtransaction; validationplanning separatevalue reads.",
+      "after_commit": [
+        {
+          "action": "Return committed metadata/tags/version/time; preview/player mustuse newvalidationselection",
+          "recovery": "Every validation/profile/selection/tag/audit stage shareswriter; latefailure rollsbackall; physicalfilesunchanged",
+          "test_id": "RFA-RF13-discard_handoff"
+        }
+      ],
+      "fault_points": [
+        "PLANNED create-review-validation: injectfailureafter eachapplicableSQLstage/row,assert wholeowningtransaction rollback",
+        "PLANNED copy-validation-files: injectfailureafter eachapplicableSQLstage/row,assert wholeowningtransaction rollback",
+        "PLANNED append-BIOS-validation-files: injectfailureafter eachapplicableSQLstage/row,assert wholeowningtransaction rollback",
+        "PLANNED RPG-override: injectfailureafter eachapplicableSQLstage/row,assert wholeowningtransaction rollback",
+        "PLANNED RPG-dependency-digest: injectfailureafter eachapplicableSQLstage/row,assert wholeowningtransaction rollback",
+        "PLANNED clear-screenshots: injectfailureafter eachapplicableSQLstage/row,assert wholeowningtransaction rollback",
+        "PLANNED selected-screenshots: injectfailureafter eachapplicableSQLstage/row,assert wholeowningtransaction rollback",
+        "PLANNED patch-draft: injectfailureafter eachapplicableSQLstage/row,assert wholeowningtransaction rollback",
+        "PLANNED patch-search: injectfailureafter eachapplicableSQLstage/row,assert wholeowningtransaction rollback",
+        "PLANNED patch-audit: injectfailureafter eachapplicableSQLstage/row,assert wholeowningtransaction rollback",
+        "PLANNED remove-tags: injectfailureafter eachapplicableSQLstage/row,assert wholeowningtransaction rollback",
+        "PLANNED add-tags: injectfailureafter eachapplicableSQLstage/row,assert wholeowningtransaction rollback",
+        "PLANNED touch-tags: injectfailureafter eachapplicableSQLstage/row,assert wholeowningtransaction rollback",
+        "PLANNED eachfreshGuard drift,concurrentdraft/source/media/BIOS/DAT/tagchange,staleversion,commitfailure,cancellation,replayandsharedsame-digestGC; allremainunexecuted"
+      ],
+      "test_ids": [
+        "RFA-RF13-approval_guard",
+        "RFA-RF13-publish_atomic",
+        "RFA-RF13-discard_handoff",
+        "RFA-RF13-format_paths"
+      ],
+      "content_coordination": {
+        "required": true,
+        "reason": "Validation refresh maycopy oradd protective import_item_validation_files Blobedges. Baseline noD22coordinator; acquire sorted digeststripes beforewriter,verifycurrentowners/contentandholdthroughcommit.",
+        "digest_sources": [
+          "Allcopied currentvalidationfile digests andcurrentBIOS bundleBlobdigests; noCASpublicationbydraftpatch"
+        ],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": "(*retrom/internal/repo/libraryimport.ReviewDraftPatches).CommitPatch",
+        "test_ids": [
+          "RFA-RF13-approval_guard",
+          "RFA-RF13-publish_atomic",
+          "RFA-RF18-gc_new_reference",
+          "RFA-RF18-digest_lock_process"
+        ]
+      }
+    },
+    {
       "operation_id": "libraryimport.record-import-progress",
       "owner": "libraryimport",
       "rf_id": "RF13",
@@ -10598,6 +10956,167 @@
         "release_symbol": null,
         "protected_commit": null,
         "test_ids": []
+      }
+    },
+    {
+      "operation_id": "libraryimport.refresh-review-preview-validation",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "consumers": [
+        "(*retrom/internal/adapter/integration/libraryimport.Service).RefreshReviewPreviewValidation",
+        "(*retrom/internal/service/libraryimport.ReviewPreviewValidations).Refresh",
+        "(*retrom/internal/transport/httpapi.Server).createReviewPreview"
+      ],
+      "snapshot": "retrom/internal/model/libraryimport.ReviewPreviewValidationDraft",
+      "prepare": "(*retrom/internal/service/libraryimport.ReviewPreviewValidations).Refresh",
+      "commit": "(*retrom/internal/repo/libraryimport.ReviewPreviewValidationRepository).Commit",
+      "policy_symbols": [
+        "(retrom/internal/model/libraryimport.ReviewValidationGuard).Valid",
+        "retrom/internal/repo/libraryimport.previewValidationCreateMatches",
+        "retrom/internal/repo/libraryimport.reviewValidationGuardMatches"
+      ],
+      "fresh_facts": [
+        {
+          "name": "prepared preview validation draft",
+          "reader_symbol": "(*retrom/internal/repo/libraryimport.ReviewPreviewValidationRepository).Draft",
+          "reason": "Outsidewriter current REVIEW_PENDINGdrafttarget/selection/DOS/version"
+        },
+        {
+          "name": "current validation inputs",
+          "reader_symbol": "(*retrom/internal/repo/libraryimport.ReviewValidation).Inputs",
+          "reason": "Inside writer draft effective source snapshot/manifest/kind; enabled targetversion/platform/core/runtimebinding/policy/activeDAT; complete static and DAT BIOS fact digests plus RPG profile fingerprint"
+        }
+      ],
+      "guards": [
+        {
+          "id": "validation-inputs",
+          "fields": [
+            "sourceSnapshot",
+            "manifest",
+            "contentKind",
+            "target",
+            "platformVersion",
+            "platform",
+            "core",
+            "provider",
+            "runtimeTarget",
+            "DAT",
+            "DOS",
+            "policy",
+            "dependencyFacts"
+          ],
+          "expected_source": "Valid nonempty guard withpositiveplatformversion must equalcurrent Inputs exactly inclnullableDAT/DOS andcontentpolicyDigestFor(kind),dependencyFactsDigest",
+          "rejection": "ErrVersionConflict",
+          "test_id": "RFA-RF13-approval_guard"
+        },
+        {
+          "id": "preview-plan",
+          "fields": [
+            "id",
+            "dependencies",
+            "selected",
+            "create"
+          ],
+          "expected_source": "TrimmeditemIDnonempty andconfigured dependencies; resolverreturnsunchangedselected/noCreate ->no-op beforewriter; otherwise selectednonempty; RepoItemID/ValidationIDnonempty/version>=1/Now>=0",
+          "rejection": "ErrInvalid",
+          "test_id": "RFA-RF13-approval_guard"
+        },
+        {
+          "id": "preview-create",
+          "fields": [
+            "create",
+            "copy",
+            "guard"
+          ],
+          "expected_source": "OptionalCreate.ID==selected,itemIDmatches,CopyrequiredandnewvalidationIDmatches; currentguard target/version/core/provider/runtime/source/manifest/DAT/DOS/expectedDigest allmatch",
+          "rejection": "ErrInvalid",
+          "test_id": "RFA-RF13-approval_guard"
+        },
+        {
+          "id": "preview-selection-CAS",
+          "fields": [
+            "draftVersion",
+            "oldSelected",
+            "itemState",
+            "newValidation",
+            "expectedDigest"
+          ],
+          "expected_source": "UPDATE exactdraftitem/version/COALESCEoldselected; itemREVIEW_PENDING; newvalidation sameitem/READY/expectedPrepublishDigest; nestedrecordstore additionallyvalidates selectedsnapshot",
+          "rejection": "ErrVersionConflict",
+          "test_id": "RFA-RF13-approval_guard"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "create-review-validation",
+          "repo_helper": "(*retrom/internal/repo/libraryimport.ReviewValidation).Create",
+          "affected_records": [
+            "Optional INSERT import_item_core_validations allpreparedsource/target/core/provider/DAT/DOS/inputdigest/status/dependencyJSON/createdtime; no separate commit"
+          ],
+          "test_id": "RFA-RF13-approval_guard"
+        },
+        {
+          "stage": "copy-validation-files",
+          "repo_helper": "(*retrom/internal/repo/libraryimport.ReviewValidation).CopyFiles",
+          "affected_records": [
+            "Optional INSERT SELECT files fromplan.SourceValidationID into newvalidation; omitBIOS_BUNDLE whenReplaceBIOSBundle; baseline doesnot explicitlyrecheck sourcefileclosure or sourcevalidationowner here"
+          ],
+          "test_id": "RFA-RF13-approval_guard"
+        },
+        {
+          "stage": "append-BIOS-validation-files",
+          "repo_helper": "(*retrom/internal/repo/libraryimport.ReviewValidation).CopyFiles",
+          "affected_records": [
+            "Aftercopy compute maxsortorder+1; INSERT currentprepareddependencies withdeliveryBIOS_BUNDLE/nonNULLBlob; successiveorder"
+          ],
+          "test_id": "RFA-RF13-approval_guard"
+        },
+        {
+          "stage": "select-preview-validation",
+          "repo_helper": "retrom/internal/repo/libraryimport.selectPreviewValidation",
+          "affected_records": [
+            "UPDATE draftselectedvalidation/version+1/time withfreshCAS; RowsAffectederrorignored,!=1conflict; no audit"
+          ],
+          "test_id": "RFA-RF13-approval_guard"
+        }
+      ],
+      "idempotency": "Unchangedselected/noCreate returnsbeforewriter; otherwise expectedversion/oldselectionpreventsrepeat. Creation+filecopy+selection atomictogether; no separate legacy binder.Select commit is fabricated.",
+      "time_rule": "Baseline shared writer BeginTx with upper callback (or Repo-owned orchestration); Service clock position specified below. Target Repo must acquire write permission then sample technical Clock once; prepared identities generated before writer. Planning maycreatevalidationUUID+createdAttimestamp,then ServiceRefreshsamplesNowBEFOREBeginTx(nil). Commitrevalidatesinputs butusespreparedtimestamp.",
+      "after_commit": [
+        {
+          "action": "Subsequent previewlaunch usescommittednewvalidation; caller maythenperformseparatelaunchtransaction",
+          "recovery": "If refreshingfails,selectionandcopiednewvalidationrefsrollback together",
+          "test_id": "RFA-RF13-discard_handoff"
+        }
+      ],
+      "fault_points": [
+        "PLANNED create-review-validation: injectfailureafter eachapplicableSQLstage/row,assert wholeowningtransaction rollback",
+        "PLANNED copy-validation-files: injectfailureafter eachapplicableSQLstage/row,assert wholeowningtransaction rollback",
+        "PLANNED append-BIOS-validation-files: injectfailureafter eachapplicableSQLstage/row,assert wholeowningtransaction rollback",
+        "PLANNED select-preview-validation: injectfailureafter eachapplicableSQLstage/row,assert wholeowningtransaction rollback",
+        "PLANNED eachfreshGuard drift,concurrentdraft/source/media/BIOS/DAT/tagchange,staleversion,commitfailure,cancellation,replayandsharedsame-digestGC; allremainunexecuted"
+      ],
+      "test_ids": [
+        "RFA-RF13-approval_guard",
+        "RFA-RF13-publish_atomic",
+        "RFA-RF13-discard_handoff",
+        "RFA-RF13-format_paths"
+      ],
+      "content_coordination": {
+        "required": true,
+        "reason": "Optionalvalidationrefreshcopies/adds protective validationfileBlobedges. Baseline noD22coordinator; acquire sorted digeststripes beforewriter,verifycurrentowners/contentandholdthroughcommit.",
+        "digest_sources": [
+          "Currentcopiedvalidationfile andBIOSdependency digests"
+        ],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": "(*retrom/internal/repo/libraryimport.ReviewPreviewValidationRepository).Commit",
+        "test_ids": [
+          "RFA-RF13-approval_guard",
+          "RFA-RF13-publish_atomic",
+          "RFA-RF18-gc_new_reference",
+          "RFA-RF18-digest_lock_process"
+        ]
       }
     },
     {
@@ -11133,6 +11652,149 @@
         "release_symbol": null,
         "protected_commit": null,
         "test_ids": []
+      }
+    },
+    {
+      "operation_id": "libraryimport.upload-review-cover",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.ReviewCoverUploads).Upload",
+        "(*retrom/internal/transport/httpapi.Server).createReviewAsset"
+      ],
+      "snapshot": "retrom/internal/model/libraryimport.ReviewCoverSource",
+      "prepare": "(*retrom/internal/service/libraryimport.ReviewCoverUploads).Upload",
+      "commit": "(*retrom/internal/repo/libraryimport.ReviewCoverUploads).WithWrite",
+      "policy_symbols": [],
+      "fresh_facts": [
+        {
+          "name": "fresh upload file",
+          "reader_symbol": "(retrom/internal/repo/libraryimport.reviewCoverRecords).Source",
+          "reason": "Beforeandinsidewriter COMPLETEfile joinedBlob digest/size andsessionpurpose; exactfullcomparableSource equality. Baseline queryrequiresfileCOMPLETE butdoesnotrequiresessionCOMPLETE"
+        },
+        {
+          "name": "review authority",
+          "reader_symbol": "(retrom/internal/repo/libraryimport.reviewCoverRecords).Draft",
+          "reason": "Currentdraftversion/itemstate/handoffkind; ESsourceREVIEW_PENDINGpresence andanyPegasus/ESboundsource notREVIEW_PENDING busyflag"
+        },
+        {
+          "name": "existing upload asset",
+          "reader_symbol": "(retrom/internal/repo/libraryimport.reviewCoverRecords).ExistingByUpload",
+          "reason": "Anyreview_uploaded_asset foruploadfile withcurrentexact REVIEW_ASSET consumption unreleased/sameasset/file/upload; returnsimmutableassetmetadata"
+        }
+      ],
+      "guards": [
+        {
+          "id": "cover-request",
+          "fields": [
+            "kind",
+            "itemId",
+            "fileId",
+            "expectedVersion",
+            "purpose"
+          ],
+          "expected_source": "KindCOVER,nonemptyIDs/version>=1; sourceexists andpurposeGENERAL",
+          "rejection": "ErrReviewCoverUploadInvalid / ErrReviewCoverConsumed",
+          "test_id": "RFA-RF13-publish_atomic"
+        },
+        {
+          "id": "image-preparation",
+          "fields": [
+            "CASdigest",
+            "bytes",
+            "image"
+          ],
+          "expected_source": "Beforewriter read up to10MiB+1fromCAS,joinread+closeerrors,contextchecked; hasheous.ValidateImage validatesbytes/media/dimensions. Baseline thisusecase doesnotcomputecompare digesttoSourceDigest/size; reliesCASstore",
+          "rejection": "ErrReviewCoverCASUnavailable / ErrReviewCoverImageInvalid",
+          "test_id": "RFA-RF13-publish_atomic"
+        },
+        {
+          "id": "cover-source",
+          "fields": [
+            "currentSource",
+            "preparedSource"
+          ],
+          "expected_source": "Insidewriter sourcefoundandexactlyequalpreparedfullstruct",
+          "rejection": "ErrReviewCoverUploadInvalid",
+          "test_id": "RFA-RF13-publish_atomic"
+        },
+        {
+          "id": "cover-authority",
+          "fields": [
+            "draftVersion",
+            "itemState",
+            "handoff",
+            "ESready",
+            "sourceBusy"
+          ],
+          "expected_source": "Exactrequestversion,itemREVIEW_PENDING; DIRECT orESready; noboundsourcebusy",
+          "rejection": "ErrReviewCoverVersion",
+          "test_id": "RFA-RF13-publish_atomic"
+        },
+        {
+          "id": "cover-replay",
+          "fields": [
+            "existing.item",
+            "Blob",
+            "consumption"
+          ],
+          "expected_source": "Ifexistingasset samefile,otheritem=>consumed;sameitem requiresunreleasedmatchingconsumption andsameBlob; replayexistingassetwithoutUUID/time/write",
+          "rejection": "ErrReviewCoverConsumed / ErrReviewCoverIntegrity",
+          "test_id": "RFA-RF13-publish_atomic"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "review-uploaded-cover",
+          "repo_helper": "(retrom/internal/repo/libraryimport.reviewCoverRecords).InsertAsset",
+          "affected_records": [
+            "INSERT review_uploaded_assets id/item/uploadfile/Blob/COVER/validatedwidthheightmedia/time; no draftselection/versionchange"
+          ],
+          "test_id": "RFA-RF13-publish_atomic"
+        },
+        {
+          "stage": "cover-consumption",
+          "repo_helper": "(retrom/internal/repo/libraryimport.reviewCoverRecords).Consume",
+          "affected_records": [
+            "INSERT upload_consumptions file-scoped REVIEW_ASSET linkednewasset/samesession/time"
+          ],
+          "test_id": "RFA-RF13-publish_atomic"
+        }
+      ],
+      "idempotency": "Uniqueuploadasset ownership andexactunreleasedconsumption enable sameitemreplay; resultversion remainsrequestversion; returnsassetwithoutselectingitondraft. GenericJSONreceipt separate.",
+      "time_rule": "Baseline shared writer BeginTx with upper callback (or Repo-owned orchestration); Service clock position specified below. Target Repo must acquire write permission then sample technical Clock once; prepared identities generated before writer. FileI/O+imageparsebeforeBeginTx(nil). Freshasset+consumptionUUIDthenServiceNowINSIDEwriter afterauthority/existingcheck. ReplaydoesnotgenerateID/sampleclock.",
+      "after_commit": [
+        {
+          "action": "Returncoverasset record forlaterdraftpatch selection; no additionalbackgrounddispatch",
+          "recovery": "Assetandconsumption atomictogether; failure leavesexistinguploadreferenceandCASbytes,repeatcannotconsumeintoanotheritem",
+          "test_id": "RFA-RF13-discard_handoff"
+        }
+      ],
+      "fault_points": [
+        "PLANNED review-uploaded-cover: injectfailureafter eachapplicableSQLstage/row,assert wholeowningtransaction rollback",
+        "PLANNED cover-consumption: injectfailureafter eachapplicableSQLstage/row,assert wholeowningtransaction rollback",
+        "PLANNED eachfreshGuard drift,concurrentdraft/source/media/BIOS/DAT/tagchange,staleversion,commitfailure,cancellation,replayandsharedsame-digestGC; allremainunexecuted"
+      ],
+      "test_ids": [
+        "RFA-RF13-publish_atomic",
+        "RFA-RF13-discard_handoff",
+        "RFA-RF13-format_paths"
+      ],
+      "content_coordination": {
+        "required": true,
+        "reason": "Adds protective review_uploaded_assets.blob_id edge for existinguploadcontent. Baseline noD22coordinator; acquire sorted digeststripes beforewriter,verifycurrentowners/contentandholdthroughcommit.",
+        "digest_sources": [
+          "VerifiedCAS digest/size ofpreparedcoverSource; lockbeforewriter andensurecontentstillavailable"
+        ],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": "(*retrom/internal/repo/libraryimport.ReviewCoverUploads).WithWrite",
+        "test_ids": [
+          "RFA-RF13-approval_guard",
+          "RFA-RF13-publish_atomic",
+          "RFA-RF18-gc_new_reference",
+          "RFA-RF18-digest_lock_process"
+        ]
       }
     },
     {
@@ -22261,6 +22923,7 @@
     "RF18 release-effects graph source-reviewed as one standalone writer including every per-table delete/update phase,recursive owners,consumptions,session relations and nested GC. Scheduling helpers accept caller Scope/Tx and are not independent commits: parent RF13/RF14/RF16 operations must include job/input/event+owner linkage stages. Lifecycle is read-only but current constructor performs validation I/O; ImpactQueries.Game currently performs repository read from Model and must become Service orchestration with pure projection. All fault/concurrency verification remains PLANNED.",
     "RF13 PARTIAL source-reviewed admission,7distinct execution mutations,item retry,and aggregate cancellation (10standalone operations). Execution recovery is per-ID transaction; cancellation and nested payload scheduling atomic. Admission IDs insidewriter,Retry/batch cancellation clocks outsidewriter,Renew checks oldlease aftercallback. Baseline current execution reads admission request/target snapshots but not job_input_snapshots. Creation/review/publication/attachments/source handoff still outstanding; no complete RF13 claim.",
     "RF13 prepared creation wholetransaction source-reviewed:direct/queued/owned-source/reconfiguration branches,allgroups,archive/catalog/materializedartifacts,duplicates,BIOS/validation,draft/tags,RPG,metadata andpayloadjobs included. Allscope transactions remaincallback-based andmixed Model ContentDuplicates stillperformsrepository I/O. Detailed formatparser policycensus,reconfiguration preparation,review/attachment/source upload reservation mutations remainoutstanding.",
-    "RF13 reconfiguration clone/cleanup andstandalone MetadataSeeder source-reviewed. Clone writer refreshesonlyparentstate/version,notfile/Blobfacts,andaddsprotectiveedgeswithoutD22. Cleanuphaslocalscalarcount(no namedfacts type)andcaller ignoresfailure; completecleanupvalues/errorreporting remainmigrationwork. Metadata SeedInScope mustbeincludedinRF14ownerhandoff writer."
+    "RF13 reconfiguration clone/cleanup andstandalone MetadataSeeder source-reviewed. Clone writer refreshesonlyparentstate/version,notfile/Blobfacts,andaddsprotectiveedgeswithoutD22. Cleanuphaslocalscalarcount(no namedfacts type)andcaller ignoresfailure; completecleanupvalues/errorreporting remainmigrationwork. Metadata SeedInScope mustbeincludedinRF14ownerhandoff writer.",
+    "RF13 reviewdraftpatch/previewvalidationrefresh/coverupload source-reviewed. LoadPatchSnapshot isread-only transaction,notfakewriteoperation. Patchandpreview alreadyacceptvalueplans butRepo stillowns domainrules,usespreparedclocks andcopiesprotective validationfiles withoutD22; coverseparateasset+consumption leavesdraftversionunchanged. Fullapproval/discard/bulk/attachments/sourceuploads andformatpolicycensus pending."
   ]
 }
