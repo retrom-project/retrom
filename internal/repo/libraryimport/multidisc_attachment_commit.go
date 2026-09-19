@@ -290,8 +290,7 @@ sort_order,created_at_ms) VALUES(?,?,?,?,?,?)
 func (scope multiDiscAttachmentCommitScope) recordDuplicateEvidence(
 	ctx context.Context, write application.MultiDiscAttachmentCommitWrite,
 ) error {
-	duplicates := application.NewContentDuplicates(BindContentDuplicates(scope.transaction))
-	identity, err := duplicates.Identity(ctx, write.Input.ImportItemID)
+	identity, err := loadSnapshotIdentity(ctx, scope.transaction, write.Input.ImportItemID)
 	if err != nil {
 		return fmt.Errorf("read multi-disc content identity: %w", err)
 	}
@@ -300,7 +299,16 @@ func (scope multiDiscAttachmentCommitScope) recordDuplicateEvidence(
 	); err != nil {
 		return fmt.Errorf("claim multi-disc content identity: %w", err)
 	}
-	games, err := duplicates.Matches(ctx, write.Input.ImportItemID, write.Input.TargetPlatformID)
+	reader := BindContentDuplicates(scope.transaction)
+	snapshot, err := reader.Snapshot(ctx, write.Input.ImportItemID)
+	if err != nil {
+		return fmt.Errorf("read multi-disc duplicate snapshot: %w", err)
+	}
+	games, err := reader.PublishedMatches(ctx, application.DuplicateQuery{
+		SnapshotID:  snapshot.ID,
+		PlatformID:  write.Input.TargetPlatformID,
+		ContentKind: snapshot.Kind,
+	})
 	if err != nil {
 		return fmt.Errorf("read multi-disc duplicate games: %w", err)
 	}

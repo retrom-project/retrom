@@ -203,7 +203,7 @@ func (run *reviewApprovalRun) allocateIDs() error {
 }
 
 func (run *reviewApprovalRun) claimDuplicates() error {
-	duplicates := model.NewContentDuplicates(run.scope.Duplicates)
+	duplicates := NewContentDuplicates(run.scope.Duplicates)
 	digest, err := duplicates.Identity(run.ctx, run.request.ItemID)
 	if err != nil {
 		return fmt.Errorf("read approval content identity: %w", err)

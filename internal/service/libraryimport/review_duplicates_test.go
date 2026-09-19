@@ -34,7 +34,7 @@ func TestReviewDuplicatesUseSnapshotAndClearIdentityOnMatchFailure(t *testing.T)
 	t.Parallel()
 	failure := errors.New("matching query failed")
 	reader := &duplicateReaderStub{parts: []model.ContentIdentityPart{{Role: "CONTENT", SHA256: strings.Repeat("a", 64), Count: 1}}, matchErr: failure}
-	games, digest, err := model.NewContentDuplicates(reader).Inspect(t.Context(), model.ContentSnapshot{ID: "snapshot", Kind: "SINGLE_FILE"}, "gba")
+	games, digest, err := NewContentDuplicates(reader).Inspect(t.Context(), model.ContentSnapshot{ID: "snapshot", Kind: "SINGLE_FILE"}, "gba")
 	if !errors.Is(err, failure) || games != nil || digest != "" {
 		t.Fatalf("partial duplicate response: %#v %q %v", games, digest, err)
 	}
@@ -46,7 +46,7 @@ func TestReviewDuplicatesUseSnapshotAndClearIdentityOnMatchFailure(t *testing.T)
 func TestIncompleteMultiDiscReviewHasNoIdentityOrMatches(t *testing.T) {
 	t.Parallel()
 	reader := &duplicateReaderStub{discs: []model.ContentIdentityDisc{{State: "PRESENT", SHA256: strings.Repeat("a", 64)}, {State: "MISSING"}}}
-	games, digest, err := model.NewContentDuplicates(reader).Inspect(t.Context(), model.ContentSnapshot{ID: "snapshot", Kind: "MULTI_DISC"}, "psx")
+	games, digest, err := NewContentDuplicates(reader).Inspect(t.Context(), model.ContentSnapshot{ID: "snapshot", Kind: "MULTI_DISC"}, "psx")
 	if err != nil || games == nil || len(games) != 0 || digest != "" || len(reader.queries) != 0 {
 		t.Fatalf("incomplete discs matched: %#v %q %v queries=%#v", games, digest, err, reader.queries)
 	}
@@ -55,7 +55,7 @@ func TestIncompleteMultiDiscReviewHasNoIdentityOrMatches(t *testing.T) {
 func TestContentIdentityRetainsRoleAndMultiplicity(t *testing.T) {
 	t.Parallel()
 	reader := &duplicateReaderStub{parts: []model.ContentIdentityPart{{Role: "CONTENT", SHA256: strings.Repeat("a", 64), Count: 1}}}
-	service := model.NewContentDuplicates(reader)
+	service := NewContentDuplicates(reader)
 	snapshot := model.ContentSnapshot{ID: "snapshot", Kind: "SINGLE_FILE"}
 	_, original, err := service.Inspect(t.Context(), snapshot, "gba")
 	if err != nil || len(original) != 64 {
