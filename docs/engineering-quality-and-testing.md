@@ -152,6 +152,16 @@ Web 工具测试纳入 `web-test`，脚本与测试同时受全仓结构及 ESLi
 已知文件/网络/进程/时间/随机/SQL 副作用沿调用链回溯；纯包中的未知外部调用必须显式处理，
 不能因为函数名或导入位置看似无害而默认通过。纯 port 声明与真正调用能力的函数体分开判断。
 
+基线行为快照在 `internal/testkit/refactor/testdata/baseline-82834ba.json`，
+来源、SHA-256、公开输入和归一化规则登记在 `quality/architecture/characterizations.json`。
+快照由固定基线源码在隔离目录实际执行生成，涵盖 SQLite schema/lineage、目录与首页读模型、
+公开内容的 CAS 身份、两类存档 JSON 与保留原始 body 的幂等收据。
+使用固定 fixture 时刻及标识，唯一归一化是将 CAS 文件路径表示为隔离数据根下的相对路径；
+权限、状态、归属、版本、正文空白及字段顺序不因候选实现变化而删除或重编码。
+`TestRefactorRF01_characterization` 按 integration tag 运行并逐字节比较；
+此固定样本不代替各领域事务矩阵、公开 API 集成与真实产品 Case。
+
+
 ### 3.1 全仓源码结构门禁
 
 所有 Git 已跟踪及尚未提交但未被 ignore 的手写新旧源码执行同一规则；不建立存量 baseline、旧文件 allowlist、“只禁止继续增长”或按本次 diff 跳过的历史豁免。`make quality-structure-check` 在完整 lint 和测试前快速失败，并由 `make backend-check`、`make web-check`、`make ci` 及 CI quality job 调用同一实现。

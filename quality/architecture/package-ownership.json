@@ -11671,6 +11671,30 @@
       ]
     },
     {
+      "path": "internal/testkit/refactor",
+      "layer": "testkit",
+      "module": "refactor",
+      "owner": "RF01",
+      "files": [
+        {
+          "path": "internal/testkit/refactor/characterization_integration_test.go",
+          "kind": "test"
+        },
+        {
+          "path": "internal/testkit/refactor/characterization_test.go",
+          "kind": "test"
+        },
+        {
+          "path": "internal/testkit/refactor/refactor_rf01_integration_test.go",
+          "kind": "test"
+        },
+        {
+          "path": "internal/testkit/refactor/schema_characterization_integration_test.go",
+          "kind": "test"
+        }
+      ]
+    },
+    {
       "path": "internal/testkit/testassert",
       "layer": "testkit",
       "module": "testassert",

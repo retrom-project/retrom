@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "baselineCommit": "82834bade1648da3067ebda1b1fc89c18577fd6a",
+  "baselineTree": "d35ba75079b25b4206b8ddf0cdcc98281d5b9dec",
+  "baselineArchiveSha256": "c08301a71c1e90a1272a0b357027909e7c4473a7ed87e31611a8ed165eb12478",
+  "snapshot": {
+    "path": "internal/testkit/refactor/testdata/baseline-82834ba.json",
+    "sha256": "cb480c92856cbd5b8e5633effcd313f0cf0ba24f78b5ef2ac707f499e3a83cf1"
+  },
+  "fixedNowMs": 1786000000000,
+  "publicInputs": [
+    {
+      "path": "testdata/public-roms/gba-smoke/gba-smoke.gba",
+      "sha256": "f86c63b35aea59190f5e1cf99f8f3d576c3646b26da02f3f826fde192a47239b"
+    },
+    {
+      "path": "data/runtime-target-bindings/v1/catalog.json",
+      "sha256": "ad9abba0462afe68e89b894e18e938020d0c127d9e8c0c8da9b614f5b00b86d6"
+    }
+  ],
+  "captureHarness": [
+    {
+      "path": "internal/testkit/refactor/capture_baseline_integration_test.go",
+      "sha256": "7f0c94be6700046c6d8315a9792f80026939155561e3a140182295344e940537"
+    },
+    {
+      "path": "internal/testkit/refactor/characterization_integration_test.go",
+      "sha256": "5702607a958b72407a23e173fb52710b0ef3d284ab33198652757bd0c8b4696b"
+    },
+    {
+      "path": "internal/testkit/refactor/refactor_rf01_integration_test.go",
+      "sha256": "a7badfe4761c74a957c82f6087179199cf2af332119a215e846bfc8c51a15549"
+    },
+    {
+      "path": "internal/testkit/refactor/schema_characterization_integration_test.go",
+      "sha256": "86869881deee9a21cd381f032de3380924c1cc1e79ff218d9bab4368828ea532"
+    }
+  ],
+  "normalizations": [
+    {
+      "field": "Blob.RelativePath",
+      "rule": "Express the CAS path relative to the isolated data root; preserve its complete suffix."
+    }
+  ],
+  "coverage": [
+    "SQLite schema and migration lineage",
+    "seeded runtime catalog and home dashboard",
+    "public GBA CAS identity and deduplication",
+    "product and review checkpoint JSON bytes",
+    "stored idempotency status, headers and unmodified body"
+  ]
+}
