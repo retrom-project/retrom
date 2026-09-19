@@ -1819,6 +1819,3222 @@
       }
     },
     {
+      "operation_id": "favorites.create-folder",
+      "owner": "favorites",
+      "rf_id": "RF16",
+      "consumers": [
+        "(*retrom/internal/service/favorites.Service).CreateFolder",
+        "(*retrom/internal/transport/httpapi.Server).createFavoriteFolder"
+      ],
+      "snapshot": "retrom/internal/model/favorites.Principal",
+      "prepare": "(*retrom/internal/service/favorites.Service).CreateFolder",
+      "commit": "(*retrom/internal/repo/favorites.Repository).WithWrite",
+      "policy_symbols": [
+        "retrom/internal/model/favorites.ValidID",
+        "retrom/internal/service/favorites.NormalizeFolderName",
+        "retrom/internal/service/favorites.requestDigest",
+        "retrom/internal/service/favorites.validateUniqueIDs"
+      ],
+      "fresh_facts": [
+        {
+          "name": "receipt",
+          "reader_symbol": "(retrom/internal/repo/favorites.idempotencyRecords).Find",
+          "reason": "Prune expired exact principal.UserID/operation/key; matching digest replays before work"
+        },
+        {
+          "name": "folder count",
+          "reader_symbol": "(retrom/internal/repo/favorites.folderRecords).Count",
+          "reason": "Writer requires count<MaxFolders"
+        },
+        {
+          "name": "normalized name",
+          "reader_symbol": "(retrom/internal/repo/favorites.folderRecords).RequireAvailableName",
+          "reason": "Current name key unique in principal.ProfileID"
+        },
+        {
+          "name": "initial games",
+          "reader_symbol": "(retrom/internal/repo/favorites.gameRecords).RequireVisible",
+          "reason": "Every initial game PUBLISHED/platform enabled"
+        }
+      ],
+      "guards": [
+        {
+          "id": "folder_limit",
+          "fields": [
+            "count"
+          ],
+          "expected_source": "connection.Folders.Count",
+          "rejection": "ErrFolderLimit",
+          "test_id": "RFA-RF16-tags_favorites"
+        },
+        {
+          "id": "name_unique",
+          "fields": [
+            "nameKey"
+          ],
+          "expected_source": "RequireAvailableName",
+          "rejection": "ErrFolderNameConflict",
+          "test_id": "RFA-RF16-tags_favorites"
+        },
+        {
+          "id": "profile-scope",
+          "fields": [
+            "profileID",
+            "gameID",
+            "folderID"
+          ],
+          "expected_source": "All folder/membership SQL includes authenticated principal.ProfileID",
+          "rejection": "ErrFolderNotFound or exact-profile no-op",
+          "test_id": "RFA-RF16-tags_favorites"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "W01-prune-expired-receipt",
+          "repo_helper": "(retrom/internal/repo/favorites.idempotencyRecords).Find",
+          "affected_records": [
+            "idempotency_records: DELETE exact principal/operation/key with expires_at_ms<=now"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W02-folder",
+          "repo_helper": "(retrom/internal/repo/favorites.folderRecords).Create",
+          "affected_records": [
+            "favorite_folders: id,profile_id,name,name_key,version1,created_at_ms,updated_at_ms"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W03-each-initial-favorite",
+          "repo_helper": "(retrom/internal/repo/favorites.gameRecords).Ensure",
+          "affected_records": [
+            "favorite_games: INSERT(profile_id,game_id,created_at_ms) ON CONFLICT(profile_id,game_id) DO NOTHING; retain original timestamp"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W04-each-initial-membership",
+          "repo_helper": "(retrom/internal/repo/favorites.membershipRecords).Add",
+          "affected_records": [
+            "favorite_folder_games: INSERT(profile_id,folder_id,game_id,created_at_ms) ON CONFLICT(profile_id,folder_id,game_id) DO NOTHING"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W05-store-receipt",
+          "repo_helper": "(retrom/internal/repo/favorites.idempotencyRecords).Save",
+          "affected_records": [
+            "idempotency_records: exact principal/operation/key,digest,status,header JSON,body bytes,created_at_ms,expires_at_ms=now+24h"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        }
+      ],
+      "idempotency": "SHA256 canonical JSON {operationId,principalId=userID,request}; exact principal/operation/key, digest mismatch ErrIdempotencyReused; status/headers/JSON+newline retained24h,204 body empty. Collection IDs sorted before digest where defined.",
+      "time_rule": "BEGIN IMMEDIATE then Service clock; idempotent samples receipt time, some inner operations resample it; folder UUID inside callback. Migration prepares identities outside and samples writer time once.",
+      "after_commit": [],
+      "fault_points": [
+        "W01-prune-expired-receipt (each conditional/iteration)",
+        "W02-folder (each conditional/iteration)",
+        "W03-each-initial-favorite (each conditional/iteration)",
+        "W04-each-initial-membership (each conditional/iteration)",
+        "W05-store-receipt (each conditional/iteration)",
+        "database commit",
+        "PLANNED: independently invalidate every Guard and assert exact row/reference snapshots; aggregate links are not completed per-operation matrices"
+      ],
+      "test_ids": [
+        "RFA-RF16-tags_favorites",
+        "RFA-RF16-impact_atomic"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "No CAS publication or added Blob protection reference in this operation.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "favorites.delete-folder",
+      "owner": "favorites",
+      "rf_id": "RF16",
+      "consumers": [
+        "(*retrom/internal/service/favorites.Service).DeleteFolder",
+        "(*retrom/internal/transport/httpapi.Server).deleteFavoriteFolder"
+      ],
+      "snapshot": "retrom/internal/model/favorites.Principal",
+      "prepare": "(*retrom/internal/service/favorites.Service).DeleteFolder",
+      "commit": "(*retrom/internal/repo/favorites.Repository).WithWrite",
+      "policy_symbols": [
+        "retrom/internal/model/favorites.ValidID",
+        "retrom/internal/service/favorites.requestDigest"
+      ],
+      "fresh_facts": [
+        {
+          "name": "receipt",
+          "reader_symbol": "(retrom/internal/repo/favorites.idempotencyRecords).Find",
+          "reason": "Prune expired exact principal.UserID/operation/key; matching digest replays before work"
+        },
+        {
+          "name": "current folder/version",
+          "reader_symbol": "(retrom/internal/repo/favorites.folderRecords).Get",
+          "reason": "Exact profile/id and expected version"
+        }
+      ],
+      "guards": [
+        {
+          "id": "version",
+          "fields": [
+            "version"
+          ],
+          "expected_source": "folder.Version",
+          "rejection": "ErrVersionConflict",
+          "test_id": "RFA-RF16-tags_favorites"
+        },
+        {
+          "id": "profile-scope",
+          "fields": [
+            "profileID",
+            "gameID",
+            "folderID"
+          ],
+          "expected_source": "All folder/membership SQL includes authenticated principal.ProfileID",
+          "rejection": "ErrFolderNotFound or exact-profile no-op",
+          "test_id": "RFA-RF16-tags_favorites"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "W01-prune-expired-receipt",
+          "repo_helper": "(retrom/internal/repo/favorites.idempotencyRecords).Find",
+          "affected_records": [
+            "idempotency_records: DELETE exact principal/operation/key with expires_at_ms<=now"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W02-delete-memberships",
+          "repo_helper": "(retrom/internal/repo/favorites.folderRecords).Delete",
+          "affected_records": [
+            "favorite_folder_games: DELETE exact profile/folder, preserves favorite_games"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W03-delete-folder",
+          "repo_helper": "(retrom/internal/repo/favorites.folderRecords).Delete",
+          "affected_records": [
+            "favorite_folders[profile,id,version]: DELETE; affected row1 required or rollback"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W04-store-receipt",
+          "repo_helper": "(retrom/internal/repo/favorites.idempotencyRecords).Save",
+          "affected_records": [
+            "idempotency_records: exact principal/operation/key,digest,status,header JSON,body bytes,created_at_ms,expires_at_ms=now+24h"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        }
+      ],
+      "idempotency": "SHA256 canonical JSON {operationId,principalId=userID,request}; exact principal/operation/key, digest mismatch ErrIdempotencyReused; status/headers/JSON+newline retained24h,204 body empty. Collection IDs sorted before digest where defined.",
+      "time_rule": "BEGIN IMMEDIATE then Service clock; idempotent samples receipt time, some inner operations resample it; folder UUID inside callback. Migration prepares identities outside and samples writer time once.",
+      "after_commit": [],
+      "fault_points": [
+        "W01-prune-expired-receipt (each conditional/iteration)",
+        "W02-delete-memberships (each conditional/iteration)",
+        "W03-delete-folder (each conditional/iteration)",
+        "W04-store-receipt (each conditional/iteration)",
+        "database commit",
+        "PLANNED: independently invalidate every Guard and assert exact row/reference snapshots; aggregate links are not completed per-operation matrices"
+      ],
+      "test_ids": [
+        "RFA-RF16-tags_favorites",
+        "RFA-RF16-impact_atomic"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "No CAS publication or added Blob protection reference in this operation.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "favorites.favorite",
+      "owner": "favorites",
+      "rf_id": "RF16",
+      "consumers": [
+        "(*retrom/internal/service/favorites.Service).Favorite",
+        "(*retrom/internal/transport/httpapi.Server).putFavorite"
+      ],
+      "snapshot": "retrom/internal/model/favorites.Principal",
+      "prepare": "(*retrom/internal/service/favorites.Service).Favorite",
+      "commit": "(*retrom/internal/repo/favorites.Repository).WithWrite",
+      "policy_symbols": [
+        "retrom/internal/model/favorites.ValidID"
+      ],
+      "fresh_facts": [
+        {
+          "name": "game visibility",
+          "reader_symbol": "(retrom/internal/repo/favorites.gameRecords).Visible",
+          "reason": "Current PUBLISHED game/platform enabled; Restore skips unavailable games instead of aborting"
+        }
+      ],
+      "guards": [
+        {
+          "id": "visible",
+          "fields": [
+            "gameID"
+          ],
+          "expected_source": "connection.Games.Visible",
+          "rejection": "ErrGameNotFound",
+          "test_id": "RFA-RF16-tags_favorites"
+        },
+        {
+          "id": "profile-scope",
+          "fields": [
+            "profileID",
+            "gameID",
+            "folderID"
+          ],
+          "expected_source": "All folder/membership SQL includes authenticated principal.ProfileID",
+          "rejection": "ErrFolderNotFound or exact-profile no-op",
+          "test_id": "RFA-RF16-tags_favorites"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "W01-ensure-favorite",
+          "repo_helper": "(retrom/internal/repo/favorites.gameRecords).Ensure",
+          "affected_records": [
+            "favorite_games: INSERT(profile_id,game_id,created_at_ms) ON CONFLICT(profile_id,game_id) DO NOTHING; retain original timestamp"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        }
+      ],
+      "idempotency": "No persisted receipt in this baseline operation; preserve explicit optimistic-version and uniqueness semantics.",
+      "time_rule": "BEGIN IMMEDIATE then Service clock; idempotent samples receipt time, some inner operations resample it; folder UUID inside callback. Migration prepares identities outside and samples writer time once.",
+      "after_commit": [],
+      "fault_points": [
+        "W01-ensure-favorite (each conditional/iteration)",
+        "database commit",
+        "PLANNED: independently invalidate every Guard and assert exact row/reference snapshots; aggregate links are not completed per-operation matrices"
+      ],
+      "test_ids": [
+        "RFA-RF16-tags_favorites",
+        "RFA-RF16-impact_atomic"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "No CAS publication or added Blob protection reference in this operation.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "favorites.organize",
+      "owner": "favorites",
+      "rf_id": "RF16",
+      "consumers": [
+        "(*retrom/internal/service/favorites.Service).Organize",
+        "(*retrom/internal/transport/httpapi.Server).organizeFavorites"
+      ],
+      "snapshot": "retrom/internal/model/favorites.Principal",
+      "prepare": "(*retrom/internal/service/favorites.Service).Organize",
+      "commit": "(*retrom/internal/repo/favorites.Repository).WithWrite",
+      "policy_symbols": [
+        "retrom/internal/model/favorites.ValidID",
+        "retrom/internal/service/favorites.normalizeAndValidateOrganize",
+        "retrom/internal/service/favorites.requestDigest"
+      ],
+      "fresh_facts": [
+        {
+          "name": "receipt",
+          "reader_symbol": "(retrom/internal/repo/favorites.idempotencyRecords).Find",
+          "reason": "Prune expired exact principal.UserID/operation/key; matching digest replays before work"
+        },
+        {
+          "name": "game visibility",
+          "reader_symbol": "(retrom/internal/repo/favorites.gameRecords).RequireVisible",
+          "reason": "Current PUBLISHED game/platform enabled; Restore skips unavailable games instead of aborting"
+        },
+        {
+          "name": "requested folders",
+          "reader_symbol": "(retrom/internal/repo/favorites.folderRecords).Require",
+          "reason": "All desired/added/removed folder IDs belong to principal.ProfileID"
+        }
+      ],
+      "guards": [
+        {
+          "id": "batch_limits",
+          "fields": [
+            "gameCount",
+            "folderCount",
+            "edges"
+          ],
+          "expected_source": "normalizeAndValidateOrganize",
+          "rejection": "ErrBatchTooLarge/ErrInvalid",
+          "test_id": "RFA-RF16-tags_favorites"
+        },
+        {
+          "id": "profile-scope",
+          "fields": [
+            "profileID",
+            "gameID",
+            "folderID"
+          ],
+          "expected_source": "All folder/membership SQL includes authenticated principal.ProfileID",
+          "rejection": "ErrFolderNotFound or exact-profile no-op",
+          "test_id": "RFA-RF16-tags_favorites"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "W01-prune-expired-receipt",
+          "repo_helper": "(retrom/internal/repo/favorites.idempotencyRecords).Find",
+          "affected_records": [
+            "idempotency_records: DELETE exact principal/operation/key with expires_at_ms<=now"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W02-ensure-favorite",
+          "repo_helper": "(retrom/internal/repo/favorites.gameRecords).Ensure",
+          "affected_records": [
+            "favorite_games: INSERT(profile_id,game_id,created_at_ms) ON CONFLICT(profile_id,game_id) DO NOTHING; retain original timestamp only when adding at least one folder"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W03-remove-memberships",
+          "repo_helper": "(retrom/internal/repo/favorites.membershipRecords).Remove",
+          "affected_records": [
+            "favorite_folder_games: DELETE exact profile_id/folder_id/game_id"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W04-add-memberships",
+          "repo_helper": "(retrom/internal/repo/favorites.membershipRecords).Add",
+          "affected_records": [
+            "favorite_folder_games: INSERT(profile_id,folder_id,game_id,created_at_ms) ON CONFLICT(profile_id,folder_id,game_id) DO NOTHING"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W05-store-receipt",
+          "repo_helper": "(retrom/internal/repo/favorites.idempotencyRecords).Save",
+          "affected_records": [
+            "idempotency_records: exact principal/operation/key,digest,status,header JSON,body bytes,created_at_ms,expires_at_ms=now+24h"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        }
+      ],
+      "idempotency": "SHA256 canonical JSON {operationId,principalId=userID,request}; exact principal/operation/key, digest mismatch ErrIdempotencyReused; status/headers/JSON+newline retained24h,204 body empty. Collection IDs sorted before digest where defined.",
+      "time_rule": "BEGIN IMMEDIATE then Service clock; idempotent samples receipt time, some inner operations resample it; folder UUID inside callback. Migration prepares identities outside and samples writer time once.",
+      "after_commit": [],
+      "fault_points": [
+        "W01-prune-expired-receipt (each conditional/iteration)",
+        "W02-ensure-favorite (each conditional/iteration)",
+        "W03-remove-memberships (each conditional/iteration)",
+        "W04-add-memberships (each conditional/iteration)",
+        "W05-store-receipt (each conditional/iteration)",
+        "database commit",
+        "PLANNED: independently invalidate every Guard and assert exact row/reference snapshots; aggregate links are not completed per-operation matrices"
+      ],
+      "test_ids": [
+        "RFA-RF16-tags_favorites",
+        "RFA-RF16-impact_atomic"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "No CAS publication or added Blob protection reference in this operation.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "favorites.rename-folder",
+      "owner": "favorites",
+      "rf_id": "RF16",
+      "consumers": [
+        "(*retrom/internal/service/favorites.Service).RenameFolder",
+        "(*retrom/internal/transport/httpapi.Server).patchFavoriteFolder"
+      ],
+      "snapshot": "retrom/internal/model/favorites.Principal",
+      "prepare": "(*retrom/internal/service/favorites.Service).RenameFolder",
+      "commit": "(*retrom/internal/repo/favorites.Repository).WithWrite",
+      "policy_symbols": [
+        "retrom/internal/model/favorites.ValidID",
+        "retrom/internal/service/favorites.NormalizeFolderName",
+        "retrom/internal/service/favorites.requestDigest"
+      ],
+      "fresh_facts": [
+        {
+          "name": "receipt",
+          "reader_symbol": "(retrom/internal/repo/favorites.idempotencyRecords).Find",
+          "reason": "Prune expired exact principal.UserID/operation/key; matching digest replays before work"
+        },
+        {
+          "name": "current folder/version",
+          "reader_symbol": "(retrom/internal/repo/favorites.folderRecords).Get",
+          "reason": "Exact profile/id and expected version"
+        },
+        {
+          "name": "normalized unique name",
+          "reader_symbol": "(retrom/internal/repo/favorites.folderRecords).RequireAvailableName",
+          "reason": "Reject conflict excluding own ID; reject unchanged display name"
+        }
+      ],
+      "guards": [
+        {
+          "id": "version",
+          "fields": [
+            "version"
+          ],
+          "expected_source": "folder.Version",
+          "rejection": "ErrVersionConflict",
+          "test_id": "RFA-RF16-tags_favorites"
+        },
+        {
+          "id": "unchanged",
+          "fields": [
+            "name"
+          ],
+          "expected_source": "folder.Name",
+          "rejection": "ErrInvalid",
+          "test_id": "RFA-RF16-tags_favorites"
+        },
+        {
+          "id": "name_unique",
+          "fields": [
+            "nameKey"
+          ],
+          "expected_source": "RequireAvailableName",
+          "rejection": "ErrFolderNameConflict",
+          "test_id": "RFA-RF16-tags_favorites"
+        },
+        {
+          "id": "profile-scope",
+          "fields": [
+            "profileID",
+            "gameID",
+            "folderID"
+          ],
+          "expected_source": "All folder/membership SQL includes authenticated principal.ProfileID",
+          "rejection": "ErrFolderNotFound or exact-profile no-op",
+          "test_id": "RFA-RF16-tags_favorites"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "W01-prune-expired-receipt",
+          "repo_helper": "(retrom/internal/repo/favorites.idempotencyRecords).Find",
+          "affected_records": [
+            "idempotency_records: DELETE exact principal/operation/key with expires_at_ms<=now"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W02-rename",
+          "repo_helper": "(retrom/internal/repo/favorites.folderRecords).Rename",
+          "affected_records": [
+            "favorite_folders[profile,id,version]: name,name_key,version+1,updated_at_ms"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W03-store-receipt",
+          "repo_helper": "(retrom/internal/repo/favorites.idempotencyRecords).Save",
+          "affected_records": [
+            "idempotency_records: exact principal/operation/key,digest,status,header JSON,body bytes,created_at_ms,expires_at_ms=now+24h"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        }
+      ],
+      "idempotency": "SHA256 canonical JSON {operationId,principalId=userID,request}; exact principal/operation/key, digest mismatch ErrIdempotencyReused; status/headers/JSON+newline retained24h,204 body empty. Collection IDs sorted before digest where defined.",
+      "time_rule": "BEGIN IMMEDIATE then Service clock; idempotent samples receipt time, some inner operations resample it; folder UUID inside callback. Migration prepares identities outside and samples writer time once.",
+      "after_commit": [],
+      "fault_points": [
+        "W01-prune-expired-receipt (each conditional/iteration)",
+        "W02-rename (each conditional/iteration)",
+        "W03-store-receipt (each conditional/iteration)",
+        "database commit",
+        "PLANNED: independently invalidate every Guard and assert exact row/reference snapshots; aggregate links are not completed per-operation matrices"
+      ],
+      "test_ids": [
+        "RFA-RF16-tags_favorites",
+        "RFA-RF16-impact_atomic"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "No CAS publication or added Blob protection reference in this operation.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "favorites.replace-folders",
+      "owner": "favorites",
+      "rf_id": "RF16",
+      "consumers": [
+        "(*retrom/internal/service/favorites.Service).ReplaceFolders",
+        "(*retrom/internal/transport/httpapi.Server).putFavoriteFolders"
+      ],
+      "snapshot": "retrom/internal/model/favorites.Principal",
+      "prepare": "(*retrom/internal/service/favorites.Service).ReplaceFolders",
+      "commit": "(*retrom/internal/repo/favorites.Repository).WithWrite",
+      "policy_symbols": [
+        "retrom/internal/model/favorites.ValidID",
+        "retrom/internal/service/favorites.validateUniqueIDs"
+      ],
+      "fresh_facts": [
+        {
+          "name": "game visibility",
+          "reader_symbol": "(retrom/internal/repo/favorites.gameRecords).RequireVisible",
+          "reason": "Current PUBLISHED game/platform enabled; Restore skips unavailable games instead of aborting"
+        },
+        {
+          "name": "requested folders",
+          "reader_symbol": "(retrom/internal/repo/favorites.folderRecords).Require",
+          "reason": "All desired/added/removed folder IDs belong to principal.ProfileID"
+        },
+        {
+          "name": "current memberships",
+          "reader_symbol": "(retrom/internal/repo/favorites.membershipRecords).FolderIDs",
+          "reason": "Compute exact membership delta"
+        }
+      ],
+      "guards": [
+        {
+          "id": "game_visible",
+          "fields": [
+            "gameIDs"
+          ],
+          "expected_source": "RequireVisible",
+          "rejection": "ErrGameNotFound",
+          "test_id": "RFA-RF16-tags_favorites"
+        },
+        {
+          "id": "folders_exist",
+          "fields": [
+            "folderIDs"
+          ],
+          "expected_source": "Require",
+          "rejection": "ErrFolderNotFound",
+          "test_id": "RFA-RF16-tags_favorites"
+        },
+        {
+          "id": "profile-scope",
+          "fields": [
+            "profileID",
+            "gameID",
+            "folderID"
+          ],
+          "expected_source": "All folder/membership SQL includes authenticated principal.ProfileID",
+          "rejection": "ErrFolderNotFound or exact-profile no-op",
+          "test_id": "RFA-RF16-tags_favorites"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "W01-ensure-favorite",
+          "repo_helper": "(retrom/internal/repo/favorites.gameRecords).Ensure",
+          "affected_records": [
+            "favorite_games: INSERT(profile_id,game_id,created_at_ms) ON CONFLICT(profile_id,game_id) DO NOTHING; retain original timestamp"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W02-remove-memberships",
+          "repo_helper": "(retrom/internal/repo/favorites.membershipRecords).Remove",
+          "affected_records": [
+            "favorite_folder_games: DELETE exact profile_id/folder_id/game_id"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W03-add-memberships",
+          "repo_helper": "(retrom/internal/repo/favorites.membershipRecords).Add",
+          "affected_records": [
+            "favorite_folder_games: INSERT(profile_id,folder_id,game_id,created_at_ms) ON CONFLICT(profile_id,folder_id,game_id) DO NOTHING"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        }
+      ],
+      "idempotency": "No persisted receipt in this baseline operation; preserve explicit optimistic-version and uniqueness semantics.",
+      "time_rule": "BEGIN IMMEDIATE then Service clock; idempotent samples receipt time, some inner operations resample it; folder UUID inside callback. Migration prepares identities outside and samples writer time once.",
+      "after_commit": [],
+      "fault_points": [
+        "W01-ensure-favorite (each conditional/iteration)",
+        "W02-remove-memberships (each conditional/iteration)",
+        "W03-add-memberships (each conditional/iteration)",
+        "database commit",
+        "PLANNED: independently invalidate every Guard and assert exact row/reference snapshots; aggregate links are not completed per-operation matrices"
+      ],
+      "test_ids": [
+        "RFA-RF16-tags_favorites",
+        "RFA-RF16-impact_atomic"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "No CAS publication or added Blob protection reference in this operation.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "favorites.restore",
+      "owner": "favorites",
+      "rf_id": "RF16",
+      "consumers": [
+        "(*retrom/internal/service/favorites.Service).Restore",
+        "(*retrom/internal/transport/httpapi.Server).restoreFavorites"
+      ],
+      "snapshot": "retrom/internal/model/favorites.Principal",
+      "prepare": "(*retrom/internal/service/favorites.Service).Restore",
+      "commit": "(*retrom/internal/repo/favorites.Repository).WithWrite",
+      "policy_symbols": [
+        "retrom/internal/model/favorites.ValidID",
+        "retrom/internal/service/favorites.normalizeRestoreItems",
+        "retrom/internal/service/favorites.requestDigest",
+        "retrom/internal/service/favorites.requestedRestoreFolderIDs"
+      ],
+      "fresh_facts": [
+        {
+          "name": "receipt",
+          "reader_symbol": "(retrom/internal/repo/favorites.idempotencyRecords).Find",
+          "reason": "Prune expired exact principal.UserID/operation/key; matching digest replays before work"
+        },
+        {
+          "name": "game visibility",
+          "reader_symbol": "(retrom/internal/repo/favorites.gameRecords).Visible",
+          "reason": "Current PUBLISHED game/platform enabled; Restore skips unavailable games instead of aborting"
+        },
+        {
+          "name": "existing requested folders",
+          "reader_symbol": "(retrom/internal/repo/favorites.folderRecords).Existing",
+          "reason": "Missing/deleted/other-profile folders reported skipped"
+        }
+      ],
+      "guards": [
+        {
+          "id": "batch_limits",
+          "fields": [
+            "itemCount",
+            "folderEdges"
+          ],
+          "expected_source": "normalizeRestoreItems",
+          "rejection": "ErrBatchTooLarge",
+          "test_id": "RFA-RF16-tags_favorites"
+        },
+        {
+          "id": "profile-scope",
+          "fields": [
+            "profileID",
+            "gameID",
+            "folderID"
+          ],
+          "expected_source": "All folder/membership SQL includes authenticated principal.ProfileID",
+          "rejection": "ErrFolderNotFound or exact-profile no-op",
+          "test_id": "RFA-RF16-tags_favorites"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "W01-prune-expired-receipt",
+          "repo_helper": "(retrom/internal/repo/favorites.idempotencyRecords).Find",
+          "affected_records": [
+            "idempotency_records: DELETE exact principal/operation/key with expires_at_ms<=now"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W02-ensure-favorite",
+          "repo_helper": "(retrom/internal/repo/favorites.gameRecords).Ensure",
+          "affected_records": [
+            "favorite_games: INSERT(profile_id,game_id,created_at_ms) ON CONFLICT(profile_id,game_id) DO NOTHING; retain original timestamp"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W03-add-memberships",
+          "repo_helper": "(retrom/internal/repo/favorites.membershipRecords).Add",
+          "affected_records": [
+            "favorite_folder_games: INSERT(profile_id,folder_id,game_id,created_at_ms) ON CONFLICT(profile_id,folder_id,game_id) DO NOTHING"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W04-store-receipt",
+          "repo_helper": "(retrom/internal/repo/favorites.idempotencyRecords).Save",
+          "affected_records": [
+            "idempotency_records: exact principal/operation/key,digest,status,header JSON,body bytes,created_at_ms,expires_at_ms=now+24h"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        }
+      ],
+      "idempotency": "SHA256 canonical JSON {operationId,principalId=userID,request}; exact principal/operation/key, digest mismatch ErrIdempotencyReused; status/headers/JSON+newline retained24h,204 body empty. Collection IDs sorted before digest where defined.",
+      "time_rule": "BEGIN IMMEDIATE then Service clock; idempotent samples receipt time, some inner operations resample it; folder UUID inside callback. Migration prepares identities outside and samples writer time once.",
+      "after_commit": [],
+      "fault_points": [
+        "W01-prune-expired-receipt (each conditional/iteration)",
+        "W02-ensure-favorite (each conditional/iteration)",
+        "W03-add-memberships (each conditional/iteration)",
+        "W04-store-receipt (each conditional/iteration)",
+        "database commit",
+        "PLANNED: independently invalidate every Guard and assert exact row/reference snapshots; aggregate links are not completed per-operation matrices"
+      ],
+      "test_ids": [
+        "RFA-RF16-tags_favorites",
+        "RFA-RF16-impact_atomic"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "No CAS publication or added Blob protection reference in this operation.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "favorites.unfavorite",
+      "owner": "favorites",
+      "rf_id": "RF16",
+      "consumers": [
+        "(*retrom/internal/service/favorites.Service).Unfavorite",
+        "(*retrom/internal/transport/httpapi.Server).unfavorite"
+      ],
+      "snapshot": "retrom/internal/model/favorites.Principal",
+      "prepare": "(*retrom/internal/service/favorites.Service).Unfavorite",
+      "commit": "(*retrom/internal/repo/favorites.Repository).WithWrite",
+      "policy_symbols": [
+        "retrom/internal/model/favorites.ValidID",
+        "retrom/internal/service/favorites.requestDigest",
+        "retrom/internal/service/favorites.validateUniqueIDs"
+      ],
+      "fresh_facts": [
+        {
+          "name": "receipt",
+          "reader_symbol": "(retrom/internal/repo/favorites.idempotencyRecords).Find",
+          "reason": "Prune expired exact principal.UserID/operation/key; matching digest replays before work"
+        },
+        {
+          "name": "favorite existence",
+          "reader_symbol": "(retrom/internal/repo/favorites.gameRecords).State",
+          "reason": "Exact profile/game; absent is no-op; no visibility prerequisite"
+        },
+        {
+          "name": "original folders",
+          "reader_symbol": "(retrom/internal/repo/favorites.membershipRecords).FolderIDs",
+          "reason": "Persist original current membership IDs in result"
+        }
+      ],
+      "guards": [
+        {
+          "id": "profile-scope",
+          "fields": [
+            "profileID",
+            "gameID",
+            "folderID"
+          ],
+          "expected_source": "All folder/membership SQL includes authenticated principal.ProfileID",
+          "rejection": "ErrFolderNotFound or exact-profile no-op",
+          "test_id": "RFA-RF16-tags_favorites"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "W01-prune-expired-receipt",
+          "repo_helper": "(retrom/internal/repo/favorites.idempotencyRecords).Find",
+          "affected_records": [
+            "idempotency_records: DELETE exact principal/operation/key with expires_at_ms<=now"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W02-remove-memberships",
+          "repo_helper": "(retrom/internal/repo/favorites.gameRecords).Remove",
+          "affected_records": [
+            "favorite_folder_games: DELETE exact profile/game"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W03-remove-favorite",
+          "repo_helper": "(retrom/internal/repo/favorites.gameRecords).Remove",
+          "affected_records": [
+            "favorite_games: DELETE exact profile/game"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W04-store-receipt",
+          "repo_helper": "(retrom/internal/repo/favorites.idempotencyRecords).Save",
+          "affected_records": [
+            "idempotency_records: exact principal/operation/key,digest,status,header JSON,body bytes,created_at_ms,expires_at_ms=now+24h"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        }
+      ],
+      "idempotency": "SHA256 canonical JSON {operationId,principalId=userID,request}; exact principal/operation/key, digest mismatch ErrIdempotencyReused; status/headers/JSON+newline retained24h,204 body empty. Collection IDs sorted before digest where defined.",
+      "time_rule": "BEGIN IMMEDIATE then Service clock; idempotent samples receipt time, some inner operations resample it; folder UUID inside callback. Migration prepares identities outside and samples writer time once.",
+      "after_commit": [],
+      "fault_points": [
+        "W01-prune-expired-receipt (each conditional/iteration)",
+        "W02-remove-memberships (each conditional/iteration)",
+        "W03-remove-favorite (each conditional/iteration)",
+        "W04-store-receipt (each conditional/iteration)",
+        "database commit",
+        "PLANNED: independently invalidate every Guard and assert exact row/reference snapshots; aggregate links are not completed per-operation matrices"
+      ],
+      "test_ids": [
+        "RFA-RF16-tags_favorites",
+        "RFA-RF16-impact_atomic"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "No CAS publication or added Blob protection reference in this operation.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "gameassets.delete-video-slot",
+      "owner": "gameassets",
+      "rf_id": "RF16",
+      "consumers": [
+        "(*retrom/internal/service/gameassets.Service).Delete",
+        "(*retrom/internal/transport/httpapi.Server).deleteGameAsset"
+      ],
+      "snapshot": "retrom/internal/service/gameassets.DeleteRequest",
+      "prepare": "(*retrom/internal/service/gameassets.Service).Delete",
+      "commit": "(*retrom/internal/repo/gameassets.Repository).WithWrite",
+      "policy_symbols": [],
+      "fresh_facts": [
+        {
+          "name": "published game/version",
+          "reader_symbol": "(retrom/internal/repo/gameassets.writeScope).GameVersion",
+          "reason": "Current PUBLISHED game/version"
+        },
+        {
+          "name": "video slot",
+          "reader_symbol": "(retrom/internal/repo/gameassets.writeScope).AssetExists",
+          "reason": "Only VIDEO ordinal0 deletion allowed"
+        },
+        {
+          "name": "old Blob IDs",
+          "reader_symbol": "(retrom/internal/repo/gameassets.writeScope).RemoveSlot",
+          "reason": "Current exact slot references"
+        }
+      ],
+      "guards": [
+        {
+          "id": "version",
+          "fields": [
+            "version"
+          ],
+          "expected_source": "scope.GameVersion",
+          "rejection": "ErrVersionConflict",
+          "test_id": "RFA-RF16-game_mutations"
+        },
+        {
+          "id": "asset_exists",
+          "fields": [
+            "gameID",
+            "kind"
+          ],
+          "expected_source": "scope.AssetExists",
+          "rejection": "ErrAssetNotFound",
+          "test_id": "RFA-RF16-game_mutations"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "W01-delete-slot",
+          "repo_helper": "(retrom/internal/repo/gameassets.writeScope).RemoveSlot",
+          "affected_records": [
+            "game_assets[game,VIDEO,ordinal0]: DELETE"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W02-version",
+          "repo_helper": "(retrom/internal/repo/gameassets.writeScope).UpdateGame",
+          "affected_records": [
+            "games[id,version]: version+1,updated_at_ms"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W03-gc-fence",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.gcRecords).Fence",
+          "affected_records": [
+            "blobs: identity-preserving UPDATE id=id in selected batches <=200; reread exact protection/candidate facts"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W04-gc-job",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.gcRecords).Queue",
+          "affected_records": [
+            "jobs: BLOB_GC, BLOB scope,dedupe,execution_no=1,QUEUED,max_attempts=4,available_at_ms=now+retention,timestamps"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W05-gc-input",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.gcRecords).input",
+          "affected_records": [
+            "job_input_snapshots: job,execution,input JSON/digest,created_at_ms"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W06-gc-event",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.gcRecords).event",
+          "affected_records": [
+            "job_events: BLOB scope QUEUED,execution/attempt JSON,created_at_ms"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W07-gc-candidate",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.gcRecords).Queue",
+          "affected_records": [
+            "blob_gc_candidates: blob_id,gc_job_id,first_unreferenced_at_ms,scheduled_at_ms,attempt_count=0"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        }
+      ],
+      "idempotency": "No persisted receipt in this baseline operation; preserve explicit optimistic-version and uniqueness semantics.",
+      "time_rule": "Baseline BeginTx(ctx,nil); Service/caller time supplied before or in callback. Target must acquire write permission then sample one Repo technical Clock value.",
+      "after_commit": [],
+      "fault_points": [
+        "W01-delete-slot (each conditional/iteration)",
+        "W02-version (each conditional/iteration)",
+        "W03-gc-fence (each conditional/iteration)",
+        "W04-gc-job (each conditional/iteration)",
+        "W05-gc-input (each conditional/iteration)",
+        "W06-gc-event (each conditional/iteration)",
+        "W07-gc-candidate (each conditional/iteration)",
+        "database commit",
+        "PLANNED: independently invalidate every Guard and assert exact row/reference snapshots; aggregate links are not completed per-operation matrices"
+      ],
+      "test_ids": [
+        "RFA-RF16-game_mutations",
+        "RFA-RF16-impact_atomic"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "No CAS publication or added Blob protection reference in this operation.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "gameassets.replace-slot",
+      "owner": "gameassets",
+      "rf_id": "RF16",
+      "consumers": [
+        "(*retrom/internal/service/gameassets.Service).Create",
+        "(*retrom/internal/transport/httpapi.Server).createGameAsset"
+      ],
+      "snapshot": "retrom/internal/service/gameassets.CreateRequest",
+      "prepare": "(*retrom/internal/service/gameassets.Service).Prepare",
+      "commit": "(*retrom/internal/repo/gameassets.Repository).WithWrite",
+      "policy_symbols": [
+        "retrom/internal/service/gameassets.ValidUpload"
+      ],
+      "fresh_facts": [
+        {
+          "name": "published game version",
+          "reader_symbol": "(retrom/internal/repo/gameassets.writeScope).GameVersion",
+          "reason": "Inside writer and expected version"
+        },
+        {
+          "name": "old slot",
+          "reader_symbol": "(retrom/internal/repo/gameassets.writeScope).RemoveSlot",
+          "reason": "Read current Blob IDs before exact slot DELETE"
+        },
+        {
+          "name": "upload consumption constraints",
+          "reader_symbol": "retrom/internal/repo/recordstore.CreateUploadConsumptions",
+          "reason": "Current SQL validation/uniqueness; baseline prepared Asset Blob/digest/media was inspected before writer"
+        }
+      ],
+      "guards": [
+        {
+          "id": "version",
+          "fields": [
+            "version"
+          ],
+          "expected_source": "scope.GameVersion",
+          "rejection": "ErrVersionConflict",
+          "test_id": "RFA-RF16-game_mutations"
+        },
+        {
+          "id": "slot",
+          "fields": [
+            "gameID",
+            "uploadFileID",
+            "kind",
+            "ordinal",
+            "expectedVersion",
+            "preparedUploadID",
+            "preparedBlobID"
+          ],
+          "expected_source": "Nonempty IDs and ValidUpload constraints; consumption uniqueness/ownership",
+          "rejection": "ErrInvalid/ErrUploadConsumed",
+          "test_id": "RFA-RF16-game_mutations"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "W01-delete-slot",
+          "repo_helper": "(retrom/internal/repo/gameassets.writeScope).RemoveSlot",
+          "affected_records": [
+            "game_assets[game,kind,ordinal]: DELETE"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W02-asset",
+          "repo_helper": "(retrom/internal/repo/gameassets.writeScope).Create",
+          "affected_records": [
+            "game_assets: id,game_id,blob_id,kind,ordinal,width_px,height_px,media_type,created_at_ms"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W03-consumption",
+          "repo_helper": "(retrom/internal/repo/gameassets.writeScope).ConsumeUpload",
+          "affected_records": [
+            "upload_consumptions: id,upload_session_id,upload_file_id,GAME_ASSET,consumer_id=asset,created_at_ms"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W04-version",
+          "repo_helper": "(retrom/internal/repo/gameassets.writeScope).UpdateGame",
+          "affected_records": [
+            "games[id,version]: version+1,updated_at_ms"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W05-gc-fence",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.gcRecords).Fence",
+          "affected_records": [
+            "blobs: identity-preserving UPDATE id=id in selected batches <=200; reread exact protection/candidate facts"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W06-gc-job",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.gcRecords).Queue",
+          "affected_records": [
+            "jobs: BLOB_GC, BLOB scope,dedupe,execution_no=1,QUEUED,max_attempts=4,available_at_ms=now+retention,timestamps"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W07-gc-input",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.gcRecords).input",
+          "affected_records": [
+            "job_input_snapshots: job,execution,input JSON/digest,created_at_ms"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W08-gc-event",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.gcRecords).event",
+          "affected_records": [
+            "job_events: BLOB scope QUEUED,execution/attempt JSON,created_at_ms"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W09-gc-candidate",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.gcRecords).Queue",
+          "affected_records": [
+            "blob_gc_candidates: blob_id,gc_job_id,first_unreferenced_at_ms,scheduled_at_ms,attempt_count=0"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W10-release-job",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.scheduling).CreateJob",
+          "affected_records": [
+            "jobs: PAYLOAD_RELEASE, exact owner scope, dedupe,execution_no=1,QUEUED,max_attempts=4,version=1,availability/timestamps"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W11-release-input",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.scheduling).CreateJob",
+          "affected_records": [
+            "job_input_snapshots: job,execution_no=1,input JSON/digest,created_at_ms"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W12-release-event",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.scheduling).CreateJob",
+          "affected_records": [
+            "job_events: owner scope,QUEUED,execution/attempt JSON,created_at_ms"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        }
+      ],
+      "idempotency": "No persisted receipt in this baseline operation; preserve explicit optimistic-version and uniqueness semantics.",
+      "time_rule": "Baseline BeginTx(ctx,nil); Service/caller time supplied before or in callback. Target must acquire write permission then sample one Repo technical Clock value.",
+      "after_commit": [],
+      "fault_points": [
+        "W01-delete-slot (each conditional/iteration)",
+        "W02-asset (each conditional/iteration)",
+        "W03-consumption (each conditional/iteration)",
+        "W04-version (each conditional/iteration)",
+        "W05-gc-fence (each conditional/iteration)",
+        "W06-gc-job (each conditional/iteration)",
+        "W07-gc-input (each conditional/iteration)",
+        "W08-gc-event (each conditional/iteration)",
+        "W09-gc-candidate (each conditional/iteration)",
+        "W10-release-job (each conditional/iteration)",
+        "W11-release-input (each conditional/iteration)",
+        "W12-release-event (each conditional/iteration)",
+        "database commit",
+        "PLANNED: independently invalidate every Guard and assert exact row/reference snapshots; aggregate links are not completed per-operation matrices"
+      ],
+      "test_ids": [
+        "RFA-RF16-game_mutations",
+        "RFA-RF16-impact_atomic"
+      ],
+      "content_coordination": {
+        "required": true,
+        "reason": "Adds Blob protection references; baseline has no shared digest lock. RF04/RF16/RF18 implementation pending.",
+        "digest_sources": [
+          "PreparedAsset.Digest matched to current upload Blob"
+        ],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": "(*retrom/internal/repo/gameassets.Repository).WithWrite",
+        "test_ids": [
+          "RFA-RF18-gc_new_reference",
+          "RFA-RF18-digest_lock_process"
+        ]
+      }
+    },
+    {
+      "operation_id": "gamecontent.claim-replacement",
+      "owner": "gamecontent",
+      "rf_id": "RF16",
+      "consumers": [
+        "(*retrom/internal/service/gamecontent.Service).Run",
+        "(*retrom/internal/service/gamecontent.Service).schedule"
+      ],
+      "snapshot": "retrom/internal/model/gamecontent.Claim",
+      "prepare": "(*retrom/internal/service/gamecontent.Service).Run",
+      "commit": "(*retrom/internal/repo/gamecontent.Repository).WithWrite",
+      "policy_symbols": [],
+      "fresh_facts": [
+        {
+          "name": "current queued execution",
+          "reader_symbol": "(retrom/internal/repo/gamecontent.writes).Claim",
+          "reason": "Conditional UPDATE checks GAME scope,id,kind,state,execution_no,availability,attempt ceiling and input snapshot digest"
+        }
+      ],
+      "guards": [
+        {
+          "id": "claim",
+          "fields": [
+            "jobID",
+            "gameID",
+            "executionNo",
+            "inputDigest",
+            "state",
+            "availableAt",
+            "attemptCount",
+            "maxAttempts"
+          ],
+          "expected_source": "Exact current queued owner and frozen input digest",
+          "rejection": "not claimed returns nil",
+          "test_id": "RFA-RF16-game_mutations"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "W01-claim",
+          "repo_helper": "(retrom/internal/repo/gamecontent.writes).Claim",
+          "affected_records": [
+            "jobs[exact claim]: RUNNING,attempt_count+1,execution_started_at_ms,deadline,leased_until_ms=now+60s,heartbeat_at_ms,worker_id,version+1,updated_at_ms"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W02-event",
+          "repo_helper": "(retrom/internal/repo/gamecontent.writes).event",
+          "affected_records": [
+            "job_events: GAME scope STARTED,{},created_at_ms"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        }
+      ],
+      "idempotency": "No persisted receipt in this baseline operation; preserve explicit optimistic-version and uniqueness semantics.",
+      "time_rule": "Baseline BeginTx(ctx,nil); Service/caller time supplied before or in callback. Target must acquire write permission then sample one Repo technical Clock value. Worker UUID and clock before callback; first deadline=now+6h; lease=now+60s. Input hash/schema/kind/scope/execution identity validated before writer.",
+      "after_commit": [
+        {
+          "action": "Start lease heartbeat; prepare bytes outside writer then publish or settle",
+          "recovery": "Cancellation joins heartbeat; stale execution cannot publish.",
+          "test_id": "RFA-RF16-impact_atomic"
+        }
+      ],
+      "fault_points": [
+        "W01-claim (each conditional/iteration)",
+        "W02-event (each conditional/iteration)",
+        "database commit",
+        "PLANNED: independently invalidate every Guard and assert exact row/reference snapshots; aggregate links are not completed per-operation matrices"
+      ],
+      "test_ids": [
+        "RFA-RF16-game_mutations",
+        "RFA-RF16-impact_atomic"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "No CAS publication or added Blob protection reference in this operation.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "gamecontent.delete-admin-game",
+      "owner": "gamecontent",
+      "rf_id": "RF16",
+      "consumers": [
+        "(*retrom/internal/service/gamecontent.Service).DeleteAdminGame",
+        "(*retrom/internal/transport/httpapi.Server).deleteAdminGame"
+      ],
+      "snapshot": "retrom/internal/model/gamecontent.DeleteGameRequest",
+      "prepare": "(*retrom/internal/service/gamecontent.Service).DeleteAdminGame",
+      "commit": "(*retrom/internal/repo/gamecontent.Repository).WithWrite",
+      "policy_symbols": [
+        "retrom/internal/model/payloadrelease.DecideGameDeletion",
+        "retrom/internal/service/gamecontent.validateDeleteGameRequest"
+      ],
+      "fresh_facts": [
+        {
+          "name": "historical replay",
+          "reader_symbol": "(retrom/internal/repo/gamecontent.writes).LoadDeleteGameReplay",
+          "reason": "Prune expired exact key; Service returns historical bytes, HTTP performs digest match"
+        },
+        {
+          "name": "game state",
+          "reader_symbol": "(retrom/internal/repo/gamecontent.writes).LoadDeleteGameState",
+          "reason": "Current title/status/payload_state/release_job/version; non-PUBLISHED already-terminal path persists200 reply"
+        },
+        {
+          "name": "deletion impact",
+          "reader_symbol": "(retrom/internal/repo/gamecontent.writes).DeleteGameImpact",
+          "reason": "Current references/bytes/shared ownership/runtime/source kinds; compare digest"
+        }
+      ],
+      "guards": [
+        {
+          "id": "replay_digest",
+          "fields": [
+            "requestDigest"
+          ],
+          "expected_source": "reader.LoadDeleteGameReplay",
+          "rejection": "idempotency conflict in handler",
+          "test_id": "RFA-RF16-game_mutations"
+        },
+        {
+          "id": "status_published",
+          "fields": [
+            "status"
+          ],
+          "expected_source": "reader.LoadDeleteGameState",
+          "rejection": "rememberExistingDelete",
+          "test_id": "RFA-RF16-game_mutations"
+        },
+        {
+          "id": "version",
+          "fields": [
+            "version"
+          ],
+          "expected_source": "state.Version",
+          "rejection": "ErrDeleteGameVersionConflict",
+          "test_id": "RFA-RF16-game_mutations"
+        },
+        {
+          "id": "confirm_title",
+          "fields": [
+            "title"
+          ],
+          "expected_source": "state.Title",
+          "rejection": "ErrDeleteGameConfirmationMismatch",
+          "test_id": "RFA-RF16-game_mutations"
+        },
+        {
+          "id": "impact_digest",
+          "fields": [
+            "impactDigest"
+          ],
+          "expected_source": "impact.ImpactDigest",
+          "rejection": "ErrDeleteGameImpactStale",
+          "test_id": "RFA-RF16-game_mutations"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "W01-prune-receipt",
+          "repo_helper": "(retrom/internal/repo/gamecontent.writes).LoadDeleteGameReplay",
+          "affected_records": [
+            "idempotency_records: DELETE expired exact principal/deleteAdminGame/key"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W02-release-job",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.scheduling).CreateJob",
+          "affected_records": [
+            "jobs: PAYLOAD_RELEASE, exact owner scope, dedupe,execution_no=1,QUEUED,max_attempts=4,version=1,availability/timestamps"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W03-release-input",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.scheduling).CreateJob",
+          "affected_records": [
+            "job_input_snapshots: job,execution_no=1,input JSON/digest,created_at_ms"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W04-release-event",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.scheduling).CreateJob",
+          "affected_records": [
+            "job_events: owner scope,QUEUED,execution/attempt JSON,created_at_ms"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W05-game-tombstone",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.scheduling).BeginRelease",
+          "affected_records": [
+            "games[id,version,PUBLISHED,RETAINED,releaseJob match]: DELETED,RELEASING,payload_release_job_id,version+1,deleted_at_ms,updated_at_ms"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W06-cancel-events",
+          "repo_helper": "(retrom/internal/repo/gamecontent.writes).TransitionDeletedGameRuntime",
+          "affected_records": [
+            "job_events for GAME_CONTENT_REPLACE/METADATA_SCRAPE/MEDIA_FETCH QUEUED/RUNNING: CANCELLED/CANCEL_REQUESTED reason GAME_DELETED"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W07-cancel-jobs",
+          "repo_helper": "(retrom/internal/repo/gamecontent.writes).TransitionDeletedGameRuntime",
+          "affected_records": [
+            "Same jobs: cancellation state,cancel_requested_at_ms,reason,finished_at_ms for QUEUED,version+1,updated_at_ms"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W08-revoke-launch",
+          "repo_helper": "(retrom/internal/repo/gamecontent.writes).TransitionDeletedGameRuntime",
+          "affected_records": [
+            "launch_sessions[game,CREATED|ACTIVE]: REVOKED,finished_at_ms,updated_at_ms,version+1; nested sessionstore retirement/capability/binding effects"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W09-abandon-play",
+          "repo_helper": "(retrom/internal/repo/gamecontent.writes).TransitionDeletedGameRuntime",
+          "affected_records": [
+            "play_sessions[game,ACTIVE]: ABANDONED,ended_at_ms,updated_at_ms,version+1"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W10-fail-netplay",
+          "repo_helper": "(retrom/internal/repo/gamecontent.writes).TransitionDeletedGameRuntime",
+          "affected_records": [
+            "netplay_sessions[game,nonterminal]: FAILED,finished_at_ms,end_reason=GAME_DELETED,updated_at_ms,version+1"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W11-end-rooms",
+          "repo_helper": "(retrom/internal/repo/gamecontent.writes).TransitionDeletedGameRuntime",
+          "affected_records": [
+            "netplay_rooms[selected game,DRAFT|WAITING|STARTING|RUNNING]: ENDED,ended_at_ms,end_reason=GAME_DELETED,updated_at_ms,version+1"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W12-clear-restore-save",
+          "repo_helper": "(retrom/internal/repo/gamecontent.writes).TransitionDeletedGameRuntime",
+          "affected_records": [
+            "launch_sessions[game,save_state_id not null]: save_state_id=NULL; nested save-binding/terminal effects"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W13-audit",
+          "repo_helper": "(retrom/internal/repo/gamecontent.writes).RecordDeleteGameAudit",
+          "affected_records": [
+            "audit_events: GAME_PERMANENT_DELETE_REQUESTED with before/after/impact and actor"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W14-receipt",
+          "repo_helper": "(retrom/internal/repo/gamecontent.writes).StoreDeleteGameReplay",
+          "affected_records": [
+            "idempotency_records: deleteAdminGame principal/key/digest,200 already terminal or202 newly deleted,headers/body newline/ETag,24h"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        }
+      ],
+      "idempotency": "Exact principal/deleteAdminGame/key; HTTP validates replay digest. New tombstone202,already terminal200; historical Cache-Control/Content-Type/ETag and newline JSON preserved.",
+      "time_rule": "Baseline BeginTx(ctx,nil); Service/caller time supplied before or in callback. Target must acquire write permission then sample one Repo technical Clock value.",
+      "after_commit": [
+        {
+          "action": "Signal payload release only for newly queued deletion",
+          "recovery": "Persistent release owner/tombstone remains; guarded RF18 worker deletes bytes later.",
+          "test_id": "RFA-RF16-impact_atomic"
+        }
+      ],
+      "fault_points": [
+        "W01-prune-receipt (each conditional/iteration)",
+        "W02-release-job (each conditional/iteration)",
+        "W03-release-input (each conditional/iteration)",
+        "W04-release-event (each conditional/iteration)",
+        "W05-game-tombstone (each conditional/iteration)",
+        "W06-cancel-events (each conditional/iteration)",
+        "W07-cancel-jobs (each conditional/iteration)",
+        "W08-revoke-launch (each conditional/iteration)",
+        "W09-abandon-play (each conditional/iteration)",
+        "W10-fail-netplay (each conditional/iteration)",
+        "W11-end-rooms (each conditional/iteration)",
+        "W12-clear-restore-save (each conditional/iteration)",
+        "W13-audit (each conditional/iteration)",
+        "W14-receipt (each conditional/iteration)",
+        "database commit",
+        "PLANNED: independently invalidate every Guard and assert exact row/reference snapshots; aggregate links are not completed per-operation matrices"
+      ],
+      "test_ids": [
+        "RFA-RF16-game_mutations",
+        "RFA-RF16-impact_atomic"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "No CAS publication or added Blob protection reference in this operation.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "gamecontent.patch-admin-game",
+      "owner": "gamecontent",
+      "rf_id": "RF16",
+      "consumers": [
+        "(*retrom/internal/service/gamecontent.Service).PatchAdminGame",
+        "(*retrom/internal/transport/httpapi.Server).patchAdminGame"
+      ],
+      "snapshot": "retrom/internal/model/gamecontent.AdminGamePatchRequest",
+      "prepare": "(*retrom/internal/service/gamecontent.Service).PatchAdminGame",
+      "commit": "(*retrom/internal/repo/gamecontent.Repository).WithWrite",
+      "policy_symbols": [
+        "retrom/internal/service/gamecontent.applyAdminGamePatch",
+        "retrom/internal/service/gamecontent.hasAdminGamePatch"
+      ],
+      "fresh_facts": [
+        {
+          "name": "published game metadata/version",
+          "reader_symbol": "(retrom/internal/repo/gamecontent.writes).LoadPatchState",
+          "reason": "Require PUBLISHED and expected version; merge only present fields"
+        }
+      ],
+      "guards": [
+        {
+          "id": "version_and_status",
+          "fields": [
+            "version",
+            "status"
+          ],
+          "expected_source": "scope.AdminWriter.LoadPatchState",
+          "rejection": "ErrAdminGameVersionConflict",
+          "test_id": "RFA-RF16-game_mutations"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "W01-metadata",
+          "repo_helper": "(retrom/internal/repo/gamecontent.writes).UpdatePatch",
+          "affected_records": [
+            "games[id,version]: title/title_initial,description,developer,publisher,genre,players,release_year,metadata_source_kind=ADMIN_EDIT,source_ref=NULL,search_text,version+1,updated_at_ms"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W02-audit",
+          "repo_helper": "retrom/internal/repo/gamecontent.recordAdminGameAudit",
+          "affected_records": [
+            "audit_events: GAME_METADATA_UPDATED before/after version JSON,actor/request/time"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        }
+      ],
+      "idempotency": "No persisted receipt in this baseline operation; preserve explicit optimistic-version and uniqueness semantics.",
+      "time_rule": "Baseline BeginTx(ctx,nil); Service/caller time supplied before or in callback. Target must acquire write permission then sample one Repo technical Clock value.",
+      "after_commit": [],
+      "fault_points": [
+        "W01-metadata (each conditional/iteration)",
+        "W02-audit (each conditional/iteration)",
+        "database commit",
+        "PLANNED: independently invalidate every Guard and assert exact row/reference snapshots; aggregate links are not completed per-operation matrices"
+      ],
+      "test_ids": [
+        "RFA-RF16-game_mutations",
+        "RFA-RF16-impact_atomic"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "No CAS publication or added Blob protection reference in this operation.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "gamecontent.publish-replacement",
+      "owner": "gamecontent",
+      "rf_id": "RF16",
+      "consumers": [
+        "(*retrom/internal/service/gamecontent.Service).Run",
+        "(*retrom/internal/service/gamecontent.Service).publish"
+      ],
+      "snapshot": "retrom/internal/model/gamecontent.JobSnapshot",
+      "prepare": "(*retrom/internal/service/gamecontent.Service).publish",
+      "commit": "(*retrom/internal/repo/gamecontent.Repository).WithWrite",
+      "policy_symbols": [
+        "retrom/internal/service/gamecontent.jobSnapshotIdentity",
+        "retrom/internal/service/gamecontent.replacementBindingIdentityOf",
+        "retrom/internal/service/gamecontent.replacementBindingMatchesSnapshot",
+        "retrom/internal/service/gamecontent.retirementChange",
+        "retrom/internal/service/gamecontent.retirementState"
+      ],
+      "fresh_facts": [
+        {
+          "name": "live execution",
+          "reader_symbol": "(retrom/internal/repo/gamecontent.writes).Current",
+          "reason": "Exact job/execution/worker/RUNNING and lease/deadline"
+        },
+        {
+          "name": "frozen binding",
+          "reader_symbol": "(retrom/internal/repo/gamecontent.records).Binding",
+          "reason": "Exact manifest,instance/platform/version,core/provider/target/policy,variant,DAT,RPG generation/dependency/requirements"
+        },
+        {
+          "name": "content identity",
+          "reader_symbol": "(retrom/internal/repo/gamecontent.records).Identity",
+          "reason": "Reject unchanged canonical identity; multi-disc compares only DISC roles"
+        },
+        {
+          "name": "retired Blobs",
+          "reader_symbol": "(retrom/internal/repo/gamecontent.retirementRecords).Blobs",
+          "reason": "Capture current candidate IDs before replacing references"
+        },
+        {
+          "name": "runtime owners",
+          "reader_symbol": "(retrom/internal/repo/gamecontent.retirementRecords).Owners",
+          "reason": "Current launch/play/netplay/room/variant states and versions"
+        },
+        {
+          "name": "reference batches",
+          "reader_symbol": "(retrom/internal/repo/gamecontent.retirementRecords).References",
+          "reason": "Read pages<=200 save/launch/variant/dependency refs"
+        },
+        {
+          "name": "upload consumption",
+          "reader_symbol": "(retrom/internal/repo/gamecontent.retirementRecords).Consumption",
+          "reason": "Resolve exact replacement-job consumption"
+        }
+      ],
+      "guards": [
+        {
+          "id": "lease_valid",
+          "fields": [
+            "workerID",
+            "deadline"
+          ],
+          "expected_source": "scope.Leases.Current",
+          "rejection": "ErrExecutionLost",
+          "test_id": "RFA-RF16-game_mutations"
+        },
+        {
+          "id": "binding_match",
+          "fields": [
+            "manifest,instance,platform,core,provider,target,variant,version"
+          ],
+          "expected_source": "scope.Content.Binding",
+          "rejection": "GAME_CONTENT_CHANGED",
+          "test_id": "RFA-RF16-game_mutations"
+        },
+        {
+          "id": "content_changed",
+          "fields": [
+            "identity files"
+          ],
+          "expected_source": "scope.Content.Identity",
+          "rejection": "GAME_CONTENT_UNCHANGED",
+          "test_id": "RFA-RF16-game_mutations"
+        },
+        {
+          "id": "bios_ready",
+          "fields": [
+            "biosStatus"
+          ],
+          "expected_source": "validation.ResolveBIOS",
+          "rejection": "replacementValidationError",
+          "test_id": "RFA-RF16-game_mutations"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "W01-retire-launch",
+          "repo_helper": "(retrom/internal/repo/gamecontent.retirementRecords).launch",
+          "affected_records": [
+            "launch_sessions[id,game,version,state,saveID,finishedAt]: REVOKED active owners,clear save_state_id,finished_at_ms,updated_at_ms,version+1; ChangeLaunch also sets launch_payload_retirements due and clears isolated capability/save-binding refs"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W02-retire-play",
+          "repo_helper": "(retrom/internal/repo/gamecontent.retirementRecords).Change",
+          "affected_records": [
+            "play_sessions[game,id,version,ACTIVE]: ABANDONED,ended_at_ms,updated_at_ms,version+1"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W03-retire-netplay",
+          "repo_helper": "(retrom/internal/repo/gamecontent.retirementRecords).Change",
+          "affected_records": [
+            "netplay_sessions[game,id,version,nonterminal]: FAILED,finished_at_ms,end_reason=GAME_CONTENT_REPLACED,updated_at_ms,version+1"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W04-retire-room",
+          "repo_helper": "(retrom/internal/repo/gamecontent.retirementRecords).Change",
+          "affected_records": [
+            "netplay_rooms[selected game,id,version,WAITING|STARTING|RUNNING]: ENDED,current_session_id=NULL,ended_at_ms,end_reason,updated_at_ms,version+1"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W05-retire-variant",
+          "repo_helper": "(retrom/internal/repo/gamecontent.retirementRecords).Change",
+          "affected_records": [
+            "Unselected game_variants[game,id,version,status]: BLOCKED,compatibility_code=CONTENT_REPLACED,emulator_game_id=NULL,version+1,updated_at_ms"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W06-remove-save_states",
+          "repo_helper": "(retrom/internal/repo/gamecontent.retirementRecords).remove",
+          "affected_records": [
+            "save_states: delete each bounded reference batch matching owner/key/Blob facts and game scope"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W07-remove-launch_external_files",
+          "repo_helper": "(retrom/internal/repo/gamecontent.retirementRecords).remove",
+          "affected_records": [
+            "launch_external_files: delete each bounded reference batch matching owner/key/Blob facts and game scope"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W08-remove-launch_content_files",
+          "repo_helper": "(retrom/internal/repo/gamecontent.retirementRecords).remove",
+          "affected_records": [
+            "launch_content_files: delete each bounded reference batch matching owner/key/Blob facts and game scope"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W09-remove-variant_files",
+          "repo_helper": "(retrom/internal/repo/gamecontent.retirementRecords).remove",
+          "affected_records": [
+            "variant_files: delete each bounded reference batch matching owner/key/Blob facts and game scope"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W10-remove-variant_dependencies",
+          "repo_helper": "(retrom/internal/repo/gamecontent.retirementRecords).remove",
+          "affected_records": [
+            "variant_dependencies: delete each bounded reference batch matching owner/key/Blob facts and game scope"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W11-game",
+          "repo_helper": "(retrom/internal/repo/gamecontent.writes).game",
+          "affected_records": [
+            "games[id,version,source_manifest_digest,PUBLISHED]: content_kind,content_source_kind=ADMIN_REPLACE,source_ref=job,manifest JSON/digest,version+1,updated_at_ms"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W12-delete-game-files",
+          "repo_helper": "(retrom/internal/repo/gamecontent.writes).game",
+          "affected_records": [
+            "game_files: DELETE exact game"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W13-insert-game-files",
+          "repo_helper": "(retrom/internal/repo/gamecontent.writes).game",
+          "affected_records": [
+            "game_files: game_id,role,logical_name,blob_id,sort_order per prepared file"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W14-delete-rpg-profile",
+          "repo_helper": "(retrom/internal/repo/gamecontent.writes).rpgProfile",
+          "affected_records": [
+            "Conditional RPG: DELETE rpgmaker_game_profiles exact game"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W15-rpg-profile",
+          "repo_helper": "(retrom/internal/repo/gamecontent.writes).rpgProfile",
+          "affected_records": [
+            "Conditional RPG: INSERT rpgmaker_game_profiles evidence/generation/confidence/engine/entry/file count/total bytes/fingerprint/requirements/analysis/timestamps"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W16-delete-variant-files",
+          "repo_helper": "(retrom/internal/repo/gamecontent.writes).variant",
+          "affected_records": [
+            "variant_files: DELETE selected variant"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W17-delete-variant-dependencies",
+          "repo_helper": "(retrom/internal/repo/gamecontent.writes).variant",
+          "affected_records": [
+            "variant_dependencies: DELETE selected variant"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W18-variant",
+          "repo_helper": "(retrom/internal/repo/gamecontent.writes).variant",
+          "affected_records": [
+            "game_variants[selected id,game]: provider,target,DAT,READY status/compatibility,dependency JSON,version+1,updated_at_ms"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W19-rpg-variant",
+          "repo_helper": "(retrom/internal/repo/gamecontent.writes).rpgVariant",
+          "affected_records": [
+            "Conditional RPG: rpgmaker_variant_profiles[selected variant]: generation,dependency_snapshot_sha256"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W20-prepared-blob-records",
+          "repo_helper": "retrom/internal/repo/blobcatalog.EnsureRecord",
+          "affected_records": [
+            "RPG variant files / multi-disc playlist: blobs id,sha256,size_bytes,media_type,created_at_ms; existing digest retains ID"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W21-prepared-variant-files",
+          "repo_helper": "retrom/internal/repo/recordstore.CreateVariantFiles",
+          "affected_records": [
+            "variant_files: selected variant,prepared role/name/Blob/sort order; playlist=MULTI_DISC_PLAYLIST,playlist.m3u"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W22-gc-fence",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.gcRecords).Fence",
+          "affected_records": [
+            "blobs: identity-preserving UPDATE id=id in selected batches <=200; reread exact protection/candidate facts"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W23-gc-job",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.gcRecords).Queue",
+          "affected_records": [
+            "jobs: BLOB_GC, BLOB scope,dedupe,execution_no=1,QUEUED,max_attempts=4,available_at_ms=now+retention,timestamps"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W24-gc-input",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.gcRecords).input",
+          "affected_records": [
+            "job_input_snapshots: job,execution,input JSON/digest,created_at_ms"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W25-gc-event",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.gcRecords).event",
+          "affected_records": [
+            "job_events: BLOB scope QUEUED,execution/attempt JSON,created_at_ms"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W26-gc-candidate",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.gcRecords).Queue",
+          "affected_records": [
+            "blob_gc_candidates: blob_id,gc_job_id,first_unreferenced_at_ms,scheduled_at_ms,attempt_count=0"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W27-succeed",
+          "repo_helper": "(retrom/internal/repo/gamecontent.writes).Succeed",
+          "affected_records": [
+            "jobs[id,RUNNING,execution_no,worker_id]: SUCCEEDED,finished_at_ms,clear lease/heartbeat/worker,version+1,updated_at_ms"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W28-succeeded-event",
+          "repo_helper": "(retrom/internal/repo/gamecontent.writes).event",
+          "affected_records": [
+            "job_events: SUCCEEDED,game/variant/manifest/retiredSaveStateCount JSON,created_at_ms"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W29-release-job",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.scheduling).CreateJob",
+          "affected_records": [
+            "jobs: PAYLOAD_RELEASE, exact owner scope, dedupe,execution_no=1,QUEUED,max_attempts=4,version=1,availability/timestamps"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W30-release-input",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.scheduling).CreateJob",
+          "affected_records": [
+            "job_input_snapshots: job,execution_no=1,input JSON/digest,created_at_ms"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W31-release-event",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.scheduling).CreateJob",
+          "affected_records": [
+            "job_events: owner scope,QUEUED,execution/attempt JSON,created_at_ms"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        }
+      ],
+      "idempotency": "No persisted receipt in this baseline operation; preserve explicit optimistic-version and uniqueness semantics.",
+      "time_rule": "Baseline BeginTx(ctx,nil); Service/caller time supplied before or in callback. Target must acquire write permission then sample one Repo technical Clock value.",
+      "after_commit": [
+        {
+          "action": "Signal payload release runtime",
+          "recovery": "Committed release/GC jobs survive signal loss; no CAS deletion inside publication transaction.",
+          "test_id": "RFA-RF16-impact_atomic"
+        }
+      ],
+      "fault_points": [
+        "W01-retire-launch (each conditional/iteration)",
+        "W02-retire-play (each conditional/iteration)",
+        "W03-retire-netplay (each conditional/iteration)",
+        "W04-retire-room (each conditional/iteration)",
+        "W05-retire-variant (each conditional/iteration)",
+        "W06-remove-save_states (each conditional/iteration)",
+        "W07-remove-launch_external_files (each conditional/iteration)",
+        "W08-remove-launch_content_files (each conditional/iteration)",
+        "W09-remove-variant_files (each conditional/iteration)",
+        "W10-remove-variant_dependencies (each conditional/iteration)",
+        "W11-game (each conditional/iteration)",
+        "W12-delete-game-files (each conditional/iteration)",
+        "W13-insert-game-files (each conditional/iteration)",
+        "W14-delete-rpg-profile (each conditional/iteration)",
+        "W15-rpg-profile (each conditional/iteration)",
+        "W16-delete-variant-files (each conditional/iteration)",
+        "W17-delete-variant-dependencies (each conditional/iteration)",
+        "W18-variant (each conditional/iteration)",
+        "W19-rpg-variant (each conditional/iteration)",
+        "W20-prepared-blob-records (each conditional/iteration)",
+        "W21-prepared-variant-files (each conditional/iteration)",
+        "W22-gc-fence (each conditional/iteration)",
+        "W23-gc-job (each conditional/iteration)",
+        "W24-gc-input (each conditional/iteration)",
+        "W25-gc-event (each conditional/iteration)",
+        "W26-gc-candidate (each conditional/iteration)",
+        "W27-succeed (each conditional/iteration)",
+        "W28-succeeded-event (each conditional/iteration)",
+        "W29-release-job (each conditional/iteration)",
+        "W30-release-input (each conditional/iteration)",
+        "W31-release-event (each conditional/iteration)",
+        "database commit",
+        "PLANNED: independently invalidate every Guard and assert exact row/reference snapshots; aggregate links are not completed per-operation matrices"
+      ],
+      "test_ids": [
+        "RFA-RF16-game_mutations",
+        "RFA-RF16-impact_atomic"
+      ],
+      "content_coordination": {
+        "required": true,
+        "reason": "Adds Blob protection references; baseline has no shared digest lock. RF04/RF16/RF18 implementation pending.",
+        "digest_sources": [
+          "Prepared replacement file Blob digests",
+          "CanonicalPlaylist.SHA256",
+          "RPGMaker variant file Metadata.SHA256"
+        ],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": "(*retrom/internal/repo/gamecontent.Repository).WithWrite",
+        "test_ids": [
+          "RFA-RF18-gc_new_reference",
+          "RFA-RF18-digest_lock_process"
+        ]
+      }
+    },
+    {
+      "operation_id": "gamecontent.renew-replacement",
+      "owner": "gamecontent",
+      "rf_id": "RF16",
+      "consumers": [
+        "(*retrom/internal/service/gamecontent.Service).Run",
+        "(*retrom/internal/service/gamecontent.Service).heartbeat"
+      ],
+      "snapshot": "retrom/internal/model/gamecontent.Claim",
+      "prepare": "(*retrom/internal/service/gamecontent.Service).heartbeat",
+      "commit": "(*retrom/internal/repo/gamecontent.Repository).WithWrite",
+      "policy_symbols": [],
+      "fresh_facts": [
+        {
+          "name": "live lease owner",
+          "reader_symbol": "(retrom/internal/repo/gamecontent.writes).Refresh",
+          "reason": "Conditional UPDATE exact job/execution/worker/RUNNING/live lease+deadline"
+        }
+      ],
+      "guards": [
+        {
+          "id": "live-owner",
+          "fields": [
+            "jobID",
+            "executionNo",
+            "workerID",
+            "state",
+            "leasedUntil",
+            "executionDeadline"
+          ],
+          "expected_source": "Exact owner with lease/deadline strictly > now",
+          "rejection": "cancel work on error/lost ownership",
+          "test_id": "RFA-RF16-game_mutations"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "W01-renew",
+          "repo_helper": "(retrom/internal/repo/gamecontent.writes).Refresh",
+          "affected_records": [
+            "jobs[exact live owner]: leased_until_ms=now+60s,heartbeat_at_ms,updated_at_ms; baseline no version increment"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        }
+      ],
+      "idempotency": "No persisted receipt in this baseline operation; preserve explicit optimistic-version and uniqueness semantics.",
+      "time_rule": "BeginTx(ctx,nil); Service clock in callback every15s. Target uses writer Clock and verifies lease/deadline cap.",
+      "after_commit": [],
+      "fault_points": [
+        "W01-renew (each conditional/iteration)",
+        "database commit",
+        "PLANNED: independently invalidate every Guard and assert exact row/reference snapshots; aggregate links are not completed per-operation matrices"
+      ],
+      "test_ids": [
+        "RFA-RF16-game_mutations",
+        "RFA-RF16-impact_atomic"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "No CAS publication or added Blob protection reference in this operation.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "gamecontent.schedule-replacement",
+      "owner": "gamecontent",
+      "rf_id": "RF16",
+      "consumers": [
+        "(*retrom/internal/service/gamecontent.Service).Schedule",
+        "(*retrom/internal/service/gamecontent.Service).ScheduleIdempotentMode",
+        "(*retrom/internal/service/gamecontent.Service).ScheduleMode",
+        "(*retrom/internal/service/gamecontent.Service).schedule"
+      ],
+      "snapshot": "retrom/internal/model/gamecontent.JobSnapshot",
+      "prepare": "(*retrom/internal/service/gamecontent.Service).schedule",
+      "commit": "(*retrom/internal/repo/gamecontent.Repository).WithWrite",
+      "policy_symbols": [
+        "retrom/internal/capability/content/contentcapability.Resolve",
+        "retrom/internal/service/gamecontent.ValidateUpload"
+      ],
+      "fresh_facts": [
+        {
+          "name": "receipt",
+          "reader_symbol": "(retrom/internal/repo/gamecontent.writes).Load",
+          "reason": "Exact principal/key, expire before replay"
+        },
+        {
+          "name": "game and target binding",
+          "reader_symbol": "(retrom/internal/repo/gamecontent.records).Binding",
+          "reason": "Writer reads published game/version/manifest, instance/core/provider/target/policy/DAT/variant/RPG identity"
+        },
+        {
+          "name": "completed upload",
+          "reader_symbol": "(retrom/internal/repo/gamecontent.records).Upload",
+          "reason": "Current state,source type,file count,consumption count"
+        }
+      ],
+      "guards": [
+        {
+          "id": "version",
+          "fields": [
+            "binding.Version"
+          ],
+          "expected_source": "scope.Content.Binding",
+          "rejection": "ErrInvalid",
+          "test_id": "RFA-RF16-game_mutations"
+        },
+        {
+          "id": "upload_valid",
+          "fields": [
+            "upload.State",
+            "upload.FileCount",
+            "upload.Consumptions"
+          ],
+          "expected_source": "scope.Content.Upload",
+          "rejection": "ErrInvalid",
+          "test_id": "RFA-RF16-game_mutations"
+        },
+        {
+          "id": "idempotency_digest",
+          "fields": [
+            "digest"
+          ],
+          "expected_source": "scope.Replays.Load.Digest",
+          "rejection": "ErrIdempotencyKeyReused",
+          "test_id": "RFA-RF16-game_mutations"
+        },
+        {
+          "id": "mode",
+          "fields": [
+            "mode",
+            "platformID",
+            "contentPolicy",
+            "multiDiscEnabled"
+          ],
+          "expected_source": "STANDARD/MULTI_DISC/RPGMAKER_PROJECT; mode matches platform and policy",
+          "rejection": "ErrInvalid",
+          "test_id": "RFA-RF16-game_mutations"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "W01-prune-expired-receipt",
+          "repo_helper": "(retrom/internal/repo/gamecontent.writes).Load",
+          "affected_records": [
+            "idempotency_records: DELETE exact principal/operation/key with expires_at_ms<=now"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W02-job",
+          "repo_helper": "(retrom/internal/repo/gamecontent.writes).Enqueue",
+          "affected_records": [
+            "jobs: GAME_CONTENT_REPLACE for game,QUEUED,execution_no=1,max_attempts=2,dedupe,payload,availability/timestamps"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W03-consume-upload",
+          "repo_helper": "(retrom/internal/repo/gamecontent.writes).Enqueue",
+          "affected_records": [
+            "upload_consumptions: id,upload_session_id,upload_file_id=NULL,GAME_CONTENT_REPLACE_JOB,consumer_id=job,created_at_ms"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W04-input",
+          "repo_helper": "(retrom/internal/repo/gamecontent.writes).Enqueue",
+          "affected_records": [
+            "job_input_snapshots: job,execution_no=1,frozen JSON/digest,created_at_ms"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W05-event",
+          "repo_helper": "(retrom/internal/repo/gamecontent.writes).event",
+          "affected_records": [
+            "job_events: GAME scope,QUEUED,{},created_at_ms"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W06-store-receipt",
+          "repo_helper": "(retrom/internal/repo/gamecontent.writes).Remember",
+          "affected_records": [
+            "idempotency_records: exact principal/operation/key,digest,status,header JSON,body bytes,created_at_ms,expires_at_ms=now+24h"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        }
+      ],
+      "idempotency": "Optional key: postAdminGameContentReplacement/principal/key, digest conflict ErrIdempotencyKeyReused; persisted Scheduled JSON/status202/ETag for24h.",
+      "time_rule": "Baseline BeginTx(ctx,nil); Service/caller time supplied before or in callback. Target must acquire write permission then sample one Repo technical Clock value. Service time BEFORE transaction; execution/job/consumption UUIDs and input digest INSIDE callback.",
+      "after_commit": [
+        {
+          "action": "Start Run with context.WithoutCancel only for newly scheduled work",
+          "recovery": "Persisted job/input supports owner recovery; goroutine lifecycle moves to Bootstrap in RF02/RF17.",
+          "test_id": "RFA-RF16-impact_atomic"
+        }
+      ],
+      "fault_points": [
+        "W01-prune-expired-receipt (each conditional/iteration)",
+        "W02-job (each conditional/iteration)",
+        "W03-consume-upload (each conditional/iteration)",
+        "W04-input (each conditional/iteration)",
+        "W05-event (each conditional/iteration)",
+        "W06-store-receipt (each conditional/iteration)",
+        "database commit",
+        "PLANNED: independently invalidate every Guard and assert exact row/reference snapshots; aggregate links are not completed per-operation matrices"
+      ],
+      "test_ids": [
+        "RFA-RF16-game_mutations",
+        "RFA-RF16-impact_atomic"
+      ],
+      "content_coordination": {
+        "required": true,
+        "reason": "Adds Blob protection references; baseline has no shared digest lock. RF04/RF16/RF18 implementation pending.",
+        "digest_sources": [
+          "Completed upload final Blob digests protected by new consumption"
+        ],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": "(*retrom/internal/repo/gamecontent.Repository).WithWrite",
+        "test_ids": [
+          "RFA-RF18-gc_new_reference",
+          "RFA-RF18-digest_lock_process"
+        ]
+      }
+    },
+    {
+      "operation_id": "gamecontent.settle-replacement-failure",
+      "owner": "gamecontent",
+      "rf_id": "RF16",
+      "consumers": [
+        "(*retrom/internal/service/gamecontent.Service).Run",
+        "(*retrom/internal/service/gamecontent.Service).settleFailure"
+      ],
+      "snapshot": "retrom/internal/model/gamecontent.Outcome",
+      "prepare": "(*retrom/internal/service/gamecontent.Service).settleFailure",
+      "commit": "(*retrom/internal/repo/gamecontent.Repository).WithWrite",
+      "policy_symbols": [
+        "retrom/internal/service/gamecontent.failureOutcome"
+      ],
+      "fresh_facts": [
+        {
+          "name": "execution state",
+          "reader_symbol": "(retrom/internal/repo/gamecontent.writes).State",
+          "reason": "Exact job/execution/worker; baseline checks RUNNING/CANCEL_REQUESTED but not lease expiry here"
+        },
+        {
+          "name": "upload consumption",
+          "reader_symbol": "(retrom/internal/repo/gamecontent.retirementRecords).Consumption",
+          "reason": "Only for changed nonretryable terminal outcome"
+        }
+      ],
+      "guards": [
+        {
+          "id": "state_valid",
+          "fields": [
+            "state"
+          ],
+          "expected_source": "scope.Leases.State",
+          "rejection": "skip (not RUNNING/CANCEL_REQUESTED)",
+          "test_id": "RFA-RF16-game_mutations"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "W01-outcome",
+          "repo_helper": "(retrom/internal/repo/gamecontent.writes).Fail",
+          "affected_records": [
+            "jobs[id,state,execution_no,worker]: FAILED or CANCELLED,error_code/error_retryable,finished_at_ms,clear lease/heartbeat/worker,version+1,updated_at_ms"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W02-event",
+          "repo_helper": "(retrom/internal/repo/gamecontent.writes).event",
+          "affected_records": [
+            "job_events: FAILED code or CANCELLED {},created_at_ms"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W03-release-job",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.scheduling).CreateJob",
+          "affected_records": [
+            "jobs: PAYLOAD_RELEASE, exact owner scope, dedupe,execution_no=1,QUEUED,max_attempts=4,version=1,availability/timestamps"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W04-release-input",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.scheduling).CreateJob",
+          "affected_records": [
+            "job_input_snapshots: job,execution_no=1,input JSON/digest,created_at_ms"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W05-release-event",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.scheduling).CreateJob",
+          "affected_records": [
+            "job_events: owner scope,QUEUED,execution/attempt JSON,created_at_ms"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        }
+      ],
+      "idempotency": "No persisted receipt in this baseline operation; preserve explicit optimistic-version and uniqueness semantics.",
+      "time_rule": "Baseline BeginTx(ctx,nil); Service/caller time supplied before or in callback. Target must acquire write permission then sample one Repo technical Clock value. Bound settlement to5s context.WithoutCancel; sample before callback.",
+      "after_commit": [
+        {
+          "action": "Signal release worker only if changed and nonretryable",
+          "recovery": "Retryable error retains upload; CANCEL_REQUESTED settles CANCELLED/nonretryable.",
+          "test_id": "RFA-RF16-impact_atomic"
+        }
+      ],
+      "fault_points": [
+        "W01-outcome (each conditional/iteration)",
+        "W02-event (each conditional/iteration)",
+        "W03-release-job (each conditional/iteration)",
+        "W04-release-input (each conditional/iteration)",
+        "W05-release-event (each conditional/iteration)",
+        "database commit",
+        "PLANNED: independently invalidate every Guard and assert exact row/reference snapshots; aggregate links are not completed per-operation matrices"
+      ],
+      "test_ids": [
+        "RFA-RF16-game_mutations",
+        "RFA-RF16-impact_atomic"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "No CAS publication or added Blob protection reference in this operation.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "gamemetadata.apply-candidate",
+      "owner": "gamemetadata",
+      "rf_id": "RF16",
+      "consumers": [
+        "(*retrom/internal/service/gamemetadata.Service).ApplyCandidate",
+        "(*retrom/internal/transport/httpapi.Server).applyGameScrapeCandidate"
+      ],
+      "snapshot": "retrom/internal/model/gamemetadata.CandidateApplySnapshot",
+      "prepare": "(*retrom/internal/service/gamemetadata.Service).ApplyCandidate",
+      "commit": "(*retrom/internal/repo/gamemetadata.Repository).WithCandidateApply",
+      "policy_symbols": [
+        "retrom/internal/service/gamemetadata.ValidCandidateFields",
+        "retrom/internal/service/gamemetadata.applyMetadataFields",
+        "retrom/internal/service/gamemetadata.selectedAssetKinds",
+        "retrom/internal/service/gamemetadata.selectedCandidateAssets"
+      ],
+      "fresh_facts": [
+        {
+          "name": "latest completed candidate",
+          "reader_symbol": "(retrom/internal/repo/gamemetadata.candidateApplyScope).Load",
+          "reason": "Published game/current version/metadata; candidate must belong to latest COMPLETED HASHEOUS run for this game"
+        },
+        {
+          "name": "selected READY assets",
+          "reader_symbol": "(retrom/internal/repo/gamemetadata.candidateApplyScope).CreateSelectedGameAssets",
+          "reason": "Each selected asset belongs to candidate and READY with exact kind; Blob/dimensions/media type from current DB"
+        },
+        {
+          "name": "replaced asset references",
+          "reader_symbol": "(retrom/internal/repo/gamemetadata.candidateApplyScope).ReplaceGameAssets",
+          "reason": "Current old Blob IDs in each selected media kind"
+        }
+      ],
+      "guards": [
+        {
+          "id": "version",
+          "fields": [
+            "version"
+          ],
+          "expected_source": "snapshot.Version",
+          "rejection": "ErrCandidateStale",
+          "test_id": "RFA-RF16-game_mutations"
+        },
+        {
+          "id": "title_valid",
+          "fields": [
+            "title"
+          ],
+          "expected_source": "applyMetadataFields result",
+          "rejection": "ErrMetadataInvalid",
+          "test_id": "RFA-RF16-game_mutations"
+        },
+        {
+          "id": "update_changed",
+          "fields": [
+            "version"
+          ],
+          "expected_source": "scope.UpdateGameMetadata changed",
+          "rejection": "ErrVersionConflict",
+          "test_id": "RFA-RF16-game_mutations"
+        },
+        {
+          "id": "selected-assets",
+          "fields": [
+            "assetID",
+            "candidateID",
+            "status",
+            "kind"
+          ],
+          "expected_source": "Each READY asset kind equals selected kind",
+          "rejection": "ErrCandidateAsset",
+          "test_id": "RFA-RF16-game_mutations"
+        },
+        {
+          "id": "title",
+          "fields": [
+            "title"
+          ],
+          "expected_source": "Merged title trimmed nonempty; only requested fields apply",
+          "rejection": "ErrMetadataInvalid",
+          "test_id": "RFA-RF16-game_mutations"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "W01-delete-assets",
+          "repo_helper": "(retrom/internal/repo/gamemetadata.candidateApplyScope).ReplaceGameAssets",
+          "affected_records": [
+            "game_assets[game,selected kind]: DELETE old slots only for selected kinds"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W02-insert-assets",
+          "repo_helper": "(retrom/internal/repo/gamemetadata.candidateApplyScope).CreateSelectedGameAssets",
+          "affected_records": [
+            "game_assets: new UUID,game,Blob,kind,ordinal,dimensions,media_type,created_at_ms"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W03-metadata",
+          "repo_helper": "(retrom/internal/repo/gamemetadata.candidateApplyScope).UpdateGameMetadata",
+          "affected_records": [
+            "games[id,version]: merged title/metadata,initial/search_text,metadata_source_kind=RESCRAPE_APPLY,source_ref=candidate,version+1,updated_at_ms"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W04-gc-fence",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.gcRecords).Fence",
+          "affected_records": [
+            "blobs: identity-preserving UPDATE id=id in selected batches <=200; reread exact protection/candidate facts"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W05-gc-job",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.gcRecords).Queue",
+          "affected_records": [
+            "jobs: BLOB_GC, BLOB scope,dedupe,execution_no=1,QUEUED,max_attempts=4,available_at_ms=now+retention,timestamps"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W06-gc-input",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.gcRecords).input",
+          "affected_records": [
+            "job_input_snapshots: job,execution,input JSON/digest,created_at_ms"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W07-gc-event",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.gcRecords).event",
+          "affected_records": [
+            "job_events: BLOB scope QUEUED,execution/attempt JSON,created_at_ms"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W08-gc-candidate",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.gcRecords).Queue",
+          "affected_records": [
+            "blob_gc_candidates: blob_id,gc_job_id,first_unreferenced_at_ms,scheduled_at_ms,attempt_count=0"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        }
+      ],
+      "idempotency": "No persisted receipt in this baseline operation; preserve explicit optimistic-version and uniqueness semantics.",
+      "time_rule": "Baseline BeginTx(ctx,nil); Service/caller time supplied before or in callback. Target must acquire write permission then sample one Repo technical Clock value.",
+      "after_commit": [],
+      "fault_points": [
+        "W01-delete-assets (each conditional/iteration)",
+        "W02-insert-assets (each conditional/iteration)",
+        "W03-metadata (each conditional/iteration)",
+        "W04-gc-fence (each conditional/iteration)",
+        "W05-gc-job (each conditional/iteration)",
+        "W06-gc-input (each conditional/iteration)",
+        "W07-gc-event (each conditional/iteration)",
+        "W08-gc-candidate (each conditional/iteration)",
+        "database commit",
+        "PLANNED: independently invalidate every Guard and assert exact row/reference snapshots; aggregate links are not completed per-operation matrices"
+      ],
+      "test_ids": [
+        "RFA-RF16-game_mutations",
+        "RFA-RF16-impact_atomic"
+      ],
+      "content_coordination": {
+        "required": true,
+        "reason": "Adds Blob protection references; baseline has no shared digest lock. RF04/RF16/RF18 implementation pending.",
+        "digest_sources": [
+          "Selected scrape_candidate_assets current Blob digests"
+        ],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": "(*retrom/internal/repo/gamemetadata.Repository).WithCandidateApply",
+        "test_ids": [
+          "RFA-RF18-gc_new_reference",
+          "RFA-RF18-digest_lock_process"
+        ]
+      }
+    },
+    {
+      "operation_id": "gamemove.move",
+      "owner": "gamemove",
+      "rf_id": "RF16",
+      "consumers": [
+        "(*retrom/internal/service/gamemove.Service).Move",
+        "(*retrom/internal/transport/httpapi.Server).moveGame"
+      ],
+      "snapshot": "retrom/internal/model/gamemove.MoveRequest",
+      "prepare": "(*retrom/internal/service/gamemove.Service).Move",
+      "commit": "(*retrom/internal/repo/gamemove.Repository).WithMove",
+      "policy_symbols": [
+        "retrom/internal/service/gamemove.validImpact"
+      ],
+      "fresh_facts": [
+        {
+          "name": "preflight source/target impact",
+          "reader_symbol": "(*retrom/internal/repo/gamemove.Repository).ImpactSubject",
+          "reason": "Before writer via HTTP Preview: published game,enabled nondeleted target,binding/DAT/variant; target facts are NOT reloaded in baseline Move"
+        },
+        {
+          "name": "current game/version",
+          "reader_symbol": "(retrom/internal/repo/gamemove.moveScope).UpdateGame",
+          "reason": "Conditional UPDATE with recordstore validation; baseline does not fence target version/default core/impact digest inside writer"
+        }
+      ],
+      "guards": [
+        {
+          "id": "valid_impact",
+          "fields": [
+            "action,gameID,version,target*"
+          ],
+          "expected_source": "request.Impact fields",
+          "rejection": "ErrInvalid",
+          "test_id": "RFA-RF16-game_mutations"
+        },
+        {
+          "id": "impact_digest",
+          "fields": [
+            "impactDigest"
+          ],
+          "expected_source": "handler constant-time compare",
+          "rejection": "IMPACT_PREVIEW_STALE (handler)",
+          "test_id": "RFA-RF16-game_mutations"
+        },
+        {
+          "id": "version",
+          "fields": [
+            "version"
+          ],
+          "expected_source": "scope.UpdateGame changed",
+          "rejection": "ErrVersionConflict",
+          "test_id": "RFA-RF16-game_mutations"
+        },
+        {
+          "id": "impact-before-writer",
+          "fields": [
+            "gameID",
+            "targetInstanceID",
+            "expectedVersion",
+            "impactDigest",
+            "confirmBlocked"
+          ],
+          "expected_source": "HTTP recomputes impact and constant-time digest/blocked confirmation before WithMove; stale target race must be covered",
+          "rejection": "ErrImpactStale/IMPACT_PREVIEW_STALE/MOVE_TARGET_CORE_BLOCKED",
+          "test_id": "RFA-RF16-game_mutations"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "W01-move",
+          "repo_helper": "(retrom/internal/repo/gamemove.moveScope).UpdateGame",
+          "affected_records": [
+            "games[id,version]: platform_instance_id,version+1,updated_at_ms"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W02-audit",
+          "repo_helper": "(retrom/internal/repo/gamemove.moveScope).Audit",
+          "affected_records": [
+            "audit_events: id,actor_kind,actor_user_id,actor_label,action,resource_type,resource_id,before_json,after_json,diff_json,request_id,created_at_ms"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        }
+      ],
+      "idempotency": "No persisted receipt in this baseline operation; preserve explicit optimistic-version and uniqueness semantics.",
+      "time_rule": "Baseline BeginTx(ctx,nil); Service/caller time supplied before or in callback. Target must acquire write permission then sample one Repo technical Clock value.",
+      "after_commit": [],
+      "fault_points": [
+        "W01-move (each conditional/iteration)",
+        "W02-audit (each conditional/iteration)",
+        "database commit",
+        "PLANNED: independently invalidate every Guard and assert exact row/reference snapshots; aggregate links are not completed per-operation matrices"
+      ],
+      "test_ids": [
+        "RFA-RF16-game_mutations",
+        "RFA-RF16-impact_atomic"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "No CAS publication or added Blob protection reference in this operation.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "platforminstance.apply-recommendations",
+      "owner": "platforminstance",
+      "rf_id": "RF16",
+      "consumers": [
+        "(*retrom/internal/service/platforminstance.Service).Apply",
+        "(*retrom/internal/transport/httpapi.Server).applyPlatformInstanceRecommendations"
+      ],
+      "snapshot": "retrom/internal/model/platforminstance.Recommendations",
+      "prepare": "(*retrom/internal/service/platforminstance.Service).Apply",
+      "commit": "(*retrom/internal/repo/platforminstance.Repository).WithWrite",
+      "policy_symbols": [
+        "retrom/internal/capability/runtime/platformcatalog.Validate",
+        "retrom/internal/service/platforminstance.NextSlug",
+        "retrom/internal/service/platforminstance.SlugBase",
+        "retrom/internal/service/platforminstance.catalogTemplate",
+        "retrom/internal/service/platforminstance.projectRecommendations"
+      ],
+      "fresh_facts": [
+        {
+          "name": "receipt",
+          "reader_symbol": "(retrom/internal/repo/platforminstance.records).Find",
+          "reason": "Prune expired exact key and replay matching digest before catalog checks"
+        },
+        {
+          "name": "catalog runtime references",
+          "reader_symbol": "(retrom/internal/repo/platforminstance.records).CatalogReferences",
+          "reason": "Validate current catalog against persisted runtime records"
+        },
+        {
+          "name": "current directories",
+          "reader_symbol": "(retrom/internal/repo/platforminstance.records).Directories",
+          "reason": "Determine missing/customized/equivalent/suppressed recommendations and next sort order"
+        },
+        {
+          "name": "per-instance core",
+          "reader_symbol": "(retrom/internal/repo/platforminstance.records).CoreEnabled",
+          "reason": "Validate each missing template core"
+        },
+        {
+          "name": "reserved slugs",
+          "reader_symbol": "(retrom/internal/repo/platforminstance.records).UsedSlugs",
+          "reason": "Allocate each unique slug under writer"
+        }
+      ],
+      "guards": [
+        {
+          "id": "idempotency_digest",
+          "fields": [
+            "digest"
+          ],
+          "expected_source": "scope.Idempotency.Find.Digest",
+          "rejection": "ErrIdempotencyReused",
+          "test_id": "RFA-RF16-game_mutations"
+        },
+        {
+          "id": "catalog_valid",
+          "fields": [
+            "catalog"
+          ],
+          "expected_source": "platformcatalog.Current()",
+          "rejection": "ErrCatalogInvalid",
+          "test_id": "RFA-RF16-game_mutations"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "W01-prune-expired-receipt",
+          "repo_helper": "(retrom/internal/repo/platforminstance.records).Find",
+          "affected_records": [
+            "idempotency_records: DELETE exact principal/operation/key with expires_at_ms<=now"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W02-each-missing-directory",
+          "repo_helper": "(retrom/internal/repo/platforminstance.records).Insert",
+          "affected_records": [
+            "platform_instances: one full creation record per missing template, next sort order +100"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W03-audit",
+          "repo_helper": "(retrom/internal/repo/platforminstance.records).RecordAudit",
+          "affected_records": [
+            "audit_events: id,actor_kind,actor_user_id,actor_label,action,resource_type,resource_id,before_json,after_json,diff_json,request_id,created_at_ms"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W04-store-receipt",
+          "repo_helper": "(retrom/internal/repo/platforminstance.records).Save",
+          "affected_records": [
+            "idempotency_records: exact principal/operation/key,digest,status,header JSON,body bytes,created_at_ms,expires_at_ms=now+24h"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        }
+      ],
+      "idempotency": "SHA256 applyOperationID+NUL+principalID+NUL+{}; exact principal/operation/key; digest conflict ErrIdempotencyReused. Persist 200,Content-Type,JSON with newline for24h.",
+      "time_rule": "Baseline BEGIN IMMEDIATE then Service clock inside callback. Instance/audit UUIDs still generated in callback; target prepares identities outside and uses one writer Clock sample.",
+      "after_commit": [],
+      "fault_points": [
+        "W01-prune-expired-receipt (each conditional/iteration)",
+        "W02-each-missing-directory (each conditional/iteration)",
+        "W03-audit (each conditional/iteration)",
+        "W04-store-receipt (each conditional/iteration)",
+        "database commit",
+        "PLANNED: independently invalidate every Guard and assert exact row/reference snapshots; aggregate links are not completed per-operation matrices"
+      ],
+      "test_ids": [
+        "RFA-RF16-game_mutations",
+        "RFA-RF16-impact_atomic"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "No CAS publication or added Blob protection reference in this operation.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "platforminstance.change-default-core",
+      "owner": "platforminstance",
+      "rf_id": "RF16",
+      "consumers": [
+        "(*retrom/internal/service/platforminstance.Service).ChangeDefaultCore",
+        "(*retrom/internal/transport/httpapi.Server).changeDefaultCore"
+      ],
+      "snapshot": "retrom/internal/model/platforminstance.CoreImpactFacts",
+      "prepare": "(*retrom/internal/service/platforminstance.Service).ChangeDefaultCore",
+      "commit": "(*retrom/internal/repo/platforminstance.Repository).WithWrite",
+      "policy_symbols": [
+        "retrom/internal/service/platforminstance.ImpactDigest",
+        "retrom/internal/service/platforminstance.projectCoreImpact"
+      ],
+      "fresh_facts": [
+        {
+          "name": "current complete impact",
+          "reader_symbol": "(retrom/internal/repo/platforminstance.records).CoreImpact",
+          "reason": "Writer verifies instance version,core/provider/target/bundle/DAT and all game variant compatibility facts"
+        }
+      ],
+      "guards": [
+        {
+          "id": "impact_digest_match",
+          "fields": [
+            "impactDigest"
+          ],
+          "expected_source": "projectCoreImpact+ImpactDigest",
+          "rejection": "ErrImpactStale",
+          "test_id": "RFA-RF16-game_mutations"
+        },
+        {
+          "id": "blocked_confirm",
+          "fields": [
+            "blockedCount",
+            "confirmBlocked"
+          ],
+          "expected_source": "counts[blocked]",
+          "rejection": "ErrDefaultCoreBlocked",
+          "test_id": "RFA-RF16-game_mutations"
+        },
+        {
+          "id": "version",
+          "fields": [
+            "version"
+          ],
+          "expected_source": "scope.Directories.ChangeDefaultCore changed",
+          "rejection": "ErrVersionConflict",
+          "test_id": "RFA-RF16-game_mutations"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "W01-default-core",
+          "repo_helper": "(retrom/internal/repo/platforminstance.records).ChangeDefaultCore",
+          "affected_records": [
+            "platform_instances[id,version]: default_core_id,version+1,updated_at_ms"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W02-audit",
+          "repo_helper": "(retrom/internal/repo/platforminstance.records).RecordAudit",
+          "affected_records": [
+            "audit_events: id,actor_kind,actor_user_id,actor_label,action,resource_type,resource_id,before_json,after_json,diff_json,request_id,created_at_ms"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        }
+      ],
+      "idempotency": "No persisted receipt in this baseline operation; preserve explicit optimistic-version and uniqueness semantics.",
+      "time_rule": "Baseline BEGIN IMMEDIATE then Service clock inside callback. Instance/audit UUIDs still generated in callback; target prepares identities outside and uses one writer Clock sample.",
+      "after_commit": [],
+      "fault_points": [
+        "W01-default-core (each conditional/iteration)",
+        "W02-audit (each conditional/iteration)",
+        "database commit",
+        "PLANNED: independently invalidate every Guard and assert exact row/reference snapshots; aggregate links are not completed per-operation matrices"
+      ],
+      "test_ids": [
+        "RFA-RF16-game_mutations",
+        "RFA-RF16-impact_atomic"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "No CAS publication or added Blob protection reference in this operation.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "platforminstance.create",
+      "owner": "platforminstance",
+      "rf_id": "RF16",
+      "consumers": [
+        "(*retrom/internal/service/platforminstance.Service).Create",
+        "(*retrom/internal/transport/httpapi.Server).createPlatformInstance"
+      ],
+      "snapshot": "retrom/internal/model/platforminstance.CreateInput",
+      "prepare": "(*retrom/internal/service/platforminstance.Service).Create",
+      "commit": "(*retrom/internal/repo/platforminstance.Repository).WithWrite",
+      "policy_symbols": [
+        "retrom/internal/service/platforminstance.NextSlug",
+        "retrom/internal/service/platforminstance.SlugBase",
+        "retrom/internal/service/platforminstance.validText"
+      ],
+      "fresh_facts": [
+        {
+          "name": "core enabled/platform match",
+          "reader_symbol": "(retrom/internal/repo/platforminstance.records).CoreEnabled",
+          "reason": "Writer reads runtime binding before creation"
+        },
+        {
+          "name": "reserved slugs",
+          "reader_symbol": "(retrom/internal/repo/platforminstance.records).UsedSlugs",
+          "reason": "Writer reserves even deleted directory slugs"
+        }
+      ],
+      "guards": [
+        {
+          "id": "core_enabled",
+          "fields": [
+            "platformID",
+            "defaultCoreID"
+          ],
+          "expected_source": "scope.Reader.CoreEnabled",
+          "rejection": "ErrDefaultCoreInvalid",
+          "test_id": "RFA-RF16-game_mutations"
+        },
+        {
+          "id": "input-text",
+          "fields": [
+            "name",
+            "description"
+          ],
+          "expected_source": "Trimmed UTF8, permitted controls, rune bounds before writer",
+          "rejection": "ErrInvalid",
+          "test_id": "RFA-RF16-game_mutations"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "W01-directory",
+          "repo_helper": "(retrom/internal/repo/platforminstance.records).Insert",
+          "affected_records": [
+            "platform_instances: id,platform_id,default_core_id,name,slug,description,sort_order,enabled=1,version=1,created_at_ms,updated_at_ms,catalog_template_key"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W02-audit",
+          "repo_helper": "(retrom/internal/repo/platforminstance.records).RecordAudit",
+          "affected_records": [
+            "audit_events: id,actor_kind,actor_user_id,actor_label,action,resource_type,resource_id,before_json,after_json,diff_json,request_id,created_at_ms"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        }
+      ],
+      "idempotency": "HTTP validates Idempotency-Key shape, but baseline Create persists no receipt; repeated create chooses another slug.",
+      "time_rule": "Baseline BEGIN IMMEDIATE then Service clock inside callback. Instance/audit UUIDs still generated in callback; target prepares identities outside and uses one writer Clock sample.",
+      "after_commit": [],
+      "fault_points": [
+        "W01-directory (each conditional/iteration)",
+        "W02-audit (each conditional/iteration)",
+        "database commit",
+        "PLANNED: independently invalidate every Guard and assert exact row/reference snapshots; aggregate links are not completed per-operation matrices"
+      ],
+      "test_ids": [
+        "RFA-RF16-game_mutations",
+        "RFA-RF16-impact_atomic"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "No CAS publication or added Blob protection reference in this operation.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "platforminstance.delete",
+      "owner": "platforminstance",
+      "rf_id": "RF16",
+      "consumers": [
+        "(*retrom/internal/service/platforminstance.Service).Delete",
+        "(*retrom/internal/transport/httpapi.Server).deletePlatformInstance"
+      ],
+      "snapshot": "retrom/internal/model/platforminstance.Instance",
+      "prepare": "(*retrom/internal/service/platforminstance.Service).Delete",
+      "commit": "(*retrom/internal/repo/platforminstance.Repository).WithWrite",
+      "policy_symbols": [],
+      "fresh_facts": [
+        {
+          "name": "directory version/game count",
+          "reader_symbol": "(retrom/internal/repo/platforminstance.records).Instance",
+          "reason": "Reject stale version or nonempty directory"
+        }
+      ],
+      "guards": [
+        {
+          "id": "version_match",
+          "fields": [
+            "version"
+          ],
+          "expected_source": "scope.Reader.Instance.Version",
+          "rejection": "ErrVersionConflict",
+          "test_id": "RFA-RF16-game_mutations"
+        },
+        {
+          "id": "not_empty",
+          "fields": [
+            "gameCount"
+          ],
+          "expected_source": "scope.Reader.Instance.GameCount",
+          "rejection": "ErrNotEmpty",
+          "test_id": "RFA-RF16-game_mutations"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "W01-tombstone",
+          "repo_helper": "(retrom/internal/repo/platforminstance.records).Delete",
+          "affected_records": [
+            "platform_instances[id,version,not deleted]: enabled=0,deleted_at_ms,version+1,updated_at_ms"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W02-audit",
+          "repo_helper": "(retrom/internal/repo/platforminstance.records).RecordAudit",
+          "affected_records": [
+            "audit_events: id,actor_kind,actor_user_id,actor_label,action,resource_type,resource_id,before_json,after_json,diff_json,request_id,created_at_ms"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        }
+      ],
+      "idempotency": "No persisted receipt in this baseline operation; preserve explicit optimistic-version and uniqueness semantics.",
+      "time_rule": "Baseline BEGIN IMMEDIATE then Service clock inside callback. Instance/audit UUIDs still generated in callback; target prepares identities outside and uses one writer Clock sample.",
+      "after_commit": [],
+      "fault_points": [
+        "W01-tombstone (each conditional/iteration)",
+        "W02-audit (each conditional/iteration)",
+        "database commit",
+        "PLANNED: independently invalidate every Guard and assert exact row/reference snapshots; aggregate links are not completed per-operation matrices"
+      ],
+      "test_ids": [
+        "RFA-RF16-game_mutations",
+        "RFA-RF16-impact_atomic"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "No CAS publication or added Blob protection reference in this operation.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "platforminstance.patch",
+      "owner": "platforminstance",
+      "rf_id": "RF16",
+      "consumers": [
+        "(*retrom/internal/service/platforminstance.Service).Patch",
+        "(*retrom/internal/transport/httpapi.Server).patchPlatformInstance"
+      ],
+      "snapshot": "retrom/internal/service/platforminstance.PlatformInstancePatch",
+      "prepare": "(*retrom/internal/service/platforminstance.Service).Patch",
+      "commit": "(*retrom/internal/repo/platforminstance.Repository).WithWrite",
+      "policy_symbols": [
+        "retrom/internal/service/platforminstance.validPatch",
+        "retrom/internal/service/platforminstance.validText"
+      ],
+      "fresh_facts": [
+        {
+          "name": "current metadata/version",
+          "reader_symbol": "(retrom/internal/repo/platforminstance.records).Instance",
+          "reason": "Writer merges only present patch fields; expected version must match"
+        }
+      ],
+      "guards": [
+        {
+          "id": "version_match",
+          "fields": [
+            "version"
+          ],
+          "expected_source": "scope.Reader.Instance.Version",
+          "rejection": "ErrVersionConflict",
+          "test_id": "RFA-RF16-game_mutations"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "W01-directory",
+          "repo_helper": "(retrom/internal/repo/platforminstance.records).Update",
+          "affected_records": [
+            "platform_instances[id,version,not deleted]: name,description,sort_order,enabled,version+1,updated_at_ms"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W02-audit",
+          "repo_helper": "(retrom/internal/repo/platforminstance.records).RecordAudit",
+          "affected_records": [
+            "audit_events: id,actor_kind,actor_user_id,actor_label,action,resource_type,resource_id,before_json,after_json,diff_json,request_id,created_at_ms"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        }
+      ],
+      "idempotency": "No persisted receipt in this baseline operation; preserve explicit optimistic-version and uniqueness semantics.",
+      "time_rule": "Baseline BEGIN IMMEDIATE then Service clock inside callback. Instance/audit UUIDs still generated in callback; target prepares identities outside and uses one writer Clock sample.",
+      "after_commit": [],
+      "fault_points": [
+        "W01-directory (each conditional/iteration)",
+        "W02-audit (each conditional/iteration)",
+        "database commit",
+        "PLANNED: independently invalidate every Guard and assert exact row/reference snapshots; aggregate links are not completed per-operation matrices"
+      ],
+      "test_ids": [
+        "RFA-RF16-game_mutations",
+        "RFA-RF16-impact_atomic"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "No CAS publication or added Blob protection reference in this operation.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "platforminstance.reorder",
+      "owner": "platforminstance",
+      "rf_id": "RF16",
+      "consumers": [
+        "(*retrom/internal/service/platforminstance.Service).Reorder",
+        "(*retrom/internal/transport/httpapi.Server).reorderPlatformInstances"
+      ],
+      "snapshot": "retrom/internal/model/platforminstance.Directory",
+      "prepare": "(*retrom/internal/service/platforminstance.Service).Reorder",
+      "commit": "(*retrom/internal/repo/platforminstance.Repository).WithWrite",
+      "policy_symbols": [
+        "retrom/internal/service/platforminstance.activeDirectories",
+        "retrom/internal/service/platforminstance.validateOrderItems",
+        "retrom/internal/service/platforminstance.verifyOrder"
+      ],
+      "fresh_facts": [
+        {
+          "name": "all nondeleted directories",
+          "reader_symbol": "(retrom/internal/repo/platforminstance.records).Directories",
+          "reason": "Request set must exactly equal active IDs, each expected version matches"
+        }
+      ],
+      "guards": [
+        {
+          "id": "completeness",
+          "fields": [
+            "directory_count"
+          ],
+          "expected_source": "scope.Reader.Directories length",
+          "rejection": "ErrOrderStale",
+          "test_id": "RFA-RF16-game_mutations"
+        },
+        {
+          "id": "per_item_version",
+          "fields": [
+            "version"
+          ],
+          "expected_source": "row.Version",
+          "rejection": "ErrVersionConflict",
+          "test_id": "RFA-RF16-game_mutations"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "W01-each-directory",
+          "repo_helper": "(retrom/internal/repo/platforminstance.records).Update",
+          "affected_records": [
+            "Each platform_instances[id,version,not deleted]: preserved name/description/enabled,sort_order=(index+1)*100,version+1,updated_at_ms"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W02-audit",
+          "repo_helper": "(retrom/internal/repo/platforminstance.records).RecordAudit",
+          "affected_records": [
+            "audit_events: id,actor_kind,actor_user_id,actor_label,action,resource_type,resource_id,before_json,after_json,diff_json,request_id,created_at_ms"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        }
+      ],
+      "idempotency": "No persisted receipt in this baseline operation; preserve explicit optimistic-version and uniqueness semantics.",
+      "time_rule": "Baseline BEGIN IMMEDIATE then Service clock inside callback. Instance/audit UUIDs still generated in callback; target prepares identities outside and uses one writer Clock sample.",
+      "after_commit": [],
+      "fault_points": [
+        "W01-each-directory (each conditional/iteration)",
+        "W02-audit (each conditional/iteration)",
+        "database commit",
+        "PLANNED: independently invalidate every Guard and assert exact row/reference snapshots; aggregate links are not completed per-operation matrices"
+      ],
+      "test_ids": [
+        "RFA-RF16-game_mutations",
+        "RFA-RF16-impact_atomic"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "No CAS publication or added Blob protection reference in this operation.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
       "owner": "saves",
       "rf_id": "RF08",
       "snapshot": "(*retrom/internal/service/saves.Service).loadLaunch",
@@ -2592,6 +5808,521 @@
       "content_coordination": {
         "required": false,
         "reason": "Rename changes user metadata; Delete only marks deleted_at_ms. Neither publishes CAS bytes or creates a new protective content reference.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "tagging.create",
+      "owner": "tagging",
+      "rf_id": "RF16",
+      "consumers": [
+        "(*retrom/internal/service/tagging.Service).Create",
+        "(*retrom/internal/transport/httpapi.Server).createAdminTag"
+      ],
+      "snapshot": "retrom/internal/model/tagging.AdminItem",
+      "prepare": "(*retrom/internal/service/tagging.Service).Create",
+      "commit": "(*retrom/internal/repo/tagging.Repository).WithWrite",
+      "policy_symbols": [
+        "retrom/internal/model/tagging.ValidID",
+        "retrom/internal/service/tagging.NormalizeName"
+      ],
+      "fresh_facts": [
+        {
+          "name": "active name/capacity",
+          "reader_symbol": "(retrom/internal/repo/tagging.tagRecords).ActiveByNameKey",
+          "reason": "Writer enforces MaxActiveTags and normalized active name-key uniqueness"
+        }
+      ],
+      "guards": [
+        {
+          "id": "limit",
+          "fields": [
+            "active_count"
+          ],
+          "expected_source": "len(active)",
+          "rejection": "ErrLimitReached",
+          "test_id": "RFA-RF16-tags_favorites"
+        },
+        {
+          "id": "name_conflict",
+          "fields": [
+            "nameKey"
+          ],
+          "expected_source": "active[key]",
+          "rejection": "ErrNameConflict",
+          "test_id": "RFA-RF16-tags_favorites"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "W01-tag",
+          "repo_helper": "(retrom/internal/repo/tagging.tagRecords).Insert",
+          "affected_records": [
+            "tags: id,name,name_key,search_text,ACTIVE,version1,created_by_user_id,updated_by_user_id,created_at_ms,updated_at_ms,deleted_at_ms=NULL"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W02-audit",
+          "repo_helper": "(retrom/internal/repo/tagging.auditRecords).Record",
+          "affected_records": [
+            "audit_events: id,actor_kind,actor_user_id,actor_label,action,resource_type,resource_id,before_json,after_json,diff_json,request_id,created_at_ms"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        }
+      ],
+      "idempotency": "No persisted receipt in this baseline operation; preserve explicit optimistic-version and uniqueness semantics.",
+      "time_rule": "BEGIN IMMEDIATE then Service clock in callback; tag/audit UUIDs inside callback today. Target prepares identities before writer and uses one technical Clock sample.",
+      "after_commit": [],
+      "fault_points": [
+        "W01-tag (each conditional/iteration)",
+        "W02-audit (each conditional/iteration)",
+        "database commit",
+        "PLANNED: independently invalidate every Guard and assert exact row/reference snapshots; aggregate links are not completed per-operation matrices"
+      ],
+      "test_ids": [
+        "RFA-RF16-tags_favorites",
+        "RFA-RF16-impact_atomic"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "No CAS publication or added Blob protection reference in this operation.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "tagging.delete",
+      "owner": "tagging",
+      "rf_id": "RF16",
+      "consumers": [
+        "(*retrom/internal/service/tagging.Service).Delete",
+        "(*retrom/internal/transport/httpapi.Server).deleteAdminTag"
+      ],
+      "snapshot": "retrom/internal/model/tagging.AdminItem",
+      "prepare": "(*retrom/internal/service/tagging.Service).Delete",
+      "commit": "(*retrom/internal/repo/tagging.Repository).WithWrite",
+      "policy_symbols": [
+        "retrom/internal/model/tagging.ValidID"
+      ],
+      "fresh_facts": [
+        {
+          "name": "tag status/version/name/usage",
+          "reader_symbol": "(retrom/internal/repo/tagging.tagRecords).Get",
+          "reason": "Reject deleted/stale or confirmation != exact display name; capture usage impact"
+        }
+      ],
+      "guards": [
+        {
+          "id": "deleted",
+          "fields": [
+            "status"
+          ],
+          "expected_source": "before.Status",
+          "rejection": "ErrAlreadyDeleted",
+          "test_id": "RFA-RF16-tags_favorites"
+        },
+        {
+          "id": "version",
+          "fields": [
+            "version"
+          ],
+          "expected_source": "before.Version",
+          "rejection": "ErrVersionConflict",
+          "test_id": "RFA-RF16-tags_favorites"
+        },
+        {
+          "id": "confirm_name",
+          "fields": [
+            "name"
+          ],
+          "expected_source": "before.Name",
+          "rejection": "ErrDeleteConfirmation",
+          "test_id": "RFA-RF16-tags_favorites"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "W01-tombstone",
+          "repo_helper": "(retrom/internal/repo/tagging.tagRecords).Delete",
+          "affected_records": [
+            "tags[id,ACTIVE,version]: DELETED,version+1,updated_by_user_id,updated_at_ms,deleted_at_ms"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W02-games",
+          "repo_helper": "(retrom/internal/repo/tagging.tagRecords).Delete",
+          "affected_records": [
+            "games linked by game_tags: version+1,updated_at_ms"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W03-reviews",
+          "repo_helper": "(retrom/internal/repo/tagging.tagRecords).Delete",
+          "affected_records": [
+            "review_drafts linked by review_draft_tags and REVIEW_PENDING import item: version+1,updated_at_ms"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W04-pegasus",
+          "repo_helper": "(retrom/internal/repo/tagging.tagRecords).Delete",
+          "affected_records": [
+            "pegasus_imports with linked collection tag and active SCANNING/AWAITING_MAPPING/QUEUED/RUNNING/CANCEL_REQUESTED: version+1,mapping_version+1 only AWAITING_MAPPING,updated_at_ms"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W05-emulationstation",
+          "repo_helper": "(retrom/internal/repo/tagging.tagRecords).Delete",
+          "affected_records": [
+            "emulationstation_imports with linked collection tag and same active states: version+1,mapping_version+1 only AWAITING_MAPPING,updated_at_ms"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W06-audit",
+          "repo_helper": "(retrom/internal/repo/tagging.auditRecords).Record",
+          "affected_records": [
+            "audit_events: id,actor_kind,actor_user_id,actor_label,action,resource_type,resource_id,before_json,after_json,diff_json,request_id,created_at_ms"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        }
+      ],
+      "idempotency": "No persisted receipt in this baseline operation; preserve explicit optimistic-version and uniqueness semantics.",
+      "time_rule": "BEGIN IMMEDIATE then Service clock in callback; tag/audit UUIDs inside callback today. Target prepares identities before writer and uses one technical Clock sample.",
+      "after_commit": [],
+      "fault_points": [
+        "W01-tombstone (each conditional/iteration)",
+        "W02-games (each conditional/iteration)",
+        "W03-reviews (each conditional/iteration)",
+        "W04-pegasus (each conditional/iteration)",
+        "W05-emulationstation (each conditional/iteration)",
+        "W06-audit (each conditional/iteration)",
+        "database commit",
+        "PLANNED: independently invalidate every Guard and assert exact row/reference snapshots; aggregate links are not completed per-operation matrices"
+      ],
+      "test_ids": [
+        "RFA-RF16-tags_favorites",
+        "RFA-RF16-impact_atomic"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "No CAS publication or added Blob protection reference in this operation.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "tagging.ensure-common",
+      "owner": "tagging",
+      "rf_id": "RF16",
+      "consumers": [
+        "(*retrom/internal/service/tagging.Service).EnsureCommonTags",
+        "(*retrom/internal/transport/httpapi.Server).applyAdminTagDefaults"
+      ],
+      "snapshot": "retrom/internal/model/tagging.AdminItem",
+      "prepare": "(*retrom/internal/service/tagging.Service).EnsureCommonTags",
+      "commit": "(*retrom/internal/repo/tagging.Repository).WithWrite",
+      "policy_symbols": [
+        "retrom/internal/model/tagging.ValidID",
+        "retrom/internal/service/tagging.NormalizeName",
+        "retrom/internal/service/tagging.normalizedCommonTags"
+      ],
+      "fresh_facts": [
+        {
+          "name": "active normalized names/capacity",
+          "reader_symbol": "(retrom/internal/repo/tagging.tagRecords).ActiveByNameKey",
+          "reason": "Fixed ten starter names in stable order; create only missing, preserve admin names, capacity includes all missing"
+        }
+      ],
+      "guards": [
+        {
+          "id": "limit",
+          "fields": [
+            "active_count+missing_count"
+          ],
+          "expected_source": "scope.Tags.ActiveByNameKey",
+          "rejection": "ErrLimitReached",
+          "test_id": "RFA-RF16-tags_favorites"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "W01-each-missing-tag",
+          "repo_helper": "(retrom/internal/repo/tagging.tagRecords).Insert",
+          "affected_records": [
+            "tags: full active tag creation for absent normalized names only"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W02-audit",
+          "repo_helper": "(retrom/internal/repo/tagging.auditRecords).Record",
+          "affected_records": [
+            "audit_events: id,actor_kind,actor_user_id,actor_label,action,resource_type,resource_id,before_json,after_json,diff_json,request_id,created_at_ms"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        }
+      ],
+      "idempotency": "No persisted receipt in this baseline operation; preserve explicit optimistic-version and uniqueness semantics.",
+      "time_rule": "BEGIN IMMEDIATE then Service clock in callback; tag/audit UUIDs inside callback today. Target prepares identities before writer and uses one technical Clock sample.",
+      "after_commit": [],
+      "fault_points": [
+        "W01-each-missing-tag (each conditional/iteration)",
+        "W02-audit (each conditional/iteration)",
+        "database commit",
+        "PLANNED: independently invalidate every Guard and assert exact row/reference snapshots; aggregate links are not completed per-operation matrices"
+      ],
+      "test_ids": [
+        "RFA-RF16-tags_favorites",
+        "RFA-RF16-impact_atomic"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "No CAS publication or added Blob protection reference in this operation.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "tagging.rename",
+      "owner": "tagging",
+      "rf_id": "RF16",
+      "consumers": [
+        "(*retrom/internal/service/tagging.Service).Rename",
+        "(*retrom/internal/transport/httpapi.Server).patchAdminTag"
+      ],
+      "snapshot": "retrom/internal/model/tagging.AdminItem",
+      "prepare": "(*retrom/internal/service/tagging.Service).Rename",
+      "commit": "(*retrom/internal/repo/tagging.Repository).WithWrite",
+      "policy_symbols": [
+        "retrom/internal/model/tagging.ValidID",
+        "retrom/internal/service/tagging.NormalizeName"
+      ],
+      "fresh_facts": [
+        {
+          "name": "tag status/version/name",
+          "reader_symbol": "(retrom/internal/repo/tagging.tagRecords).Get",
+          "reason": "Reject deleted/stale/no-change; preserve normalized naming"
+        },
+        {
+          "name": "active names",
+          "reader_symbol": "(retrom/internal/repo/tagging.tagRecords).ActiveByNameKey",
+          "reason": "Normalized key conflict except own ID"
+        }
+      ],
+      "guards": [
+        {
+          "id": "deleted",
+          "fields": [
+            "status"
+          ],
+          "expected_source": "before.Status",
+          "rejection": "ErrAlreadyDeleted",
+          "test_id": "RFA-RF16-tags_favorites"
+        },
+        {
+          "id": "version",
+          "fields": [
+            "version"
+          ],
+          "expected_source": "before.Version",
+          "rejection": "ErrVersionConflict",
+          "test_id": "RFA-RF16-tags_favorites"
+        },
+        {
+          "id": "unchanged",
+          "fields": [
+            "name"
+          ],
+          "expected_source": "before.Name",
+          "rejection": "ErrInvalid",
+          "test_id": "RFA-RF16-tags_favorites"
+        },
+        {
+          "id": "name_conflict",
+          "fields": [
+            "nameKey"
+          ],
+          "expected_source": "active[key]",
+          "rejection": "ErrNameConflict",
+          "test_id": "RFA-RF16-tags_favorites"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "W01-rename",
+          "repo_helper": "(retrom/internal/repo/tagging.tagRecords).Rename",
+          "affected_records": [
+            "tags[id,ACTIVE,version]: name,name_key,search_text,version+1,updated_by_user_id,updated_at_ms"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W02-audit",
+          "repo_helper": "(retrom/internal/repo/tagging.auditRecords).Record",
+          "affected_records": [
+            "audit_events: id,actor_kind,actor_user_id,actor_label,action,resource_type,resource_id,before_json,after_json,diff_json,request_id,created_at_ms"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        }
+      ],
+      "idempotency": "No persisted receipt in this baseline operation; preserve explicit optimistic-version and uniqueness semantics.",
+      "time_rule": "BEGIN IMMEDIATE then Service clock in callback; tag/audit UUIDs inside callback today. Target prepares identities before writer and uses one technical Clock sample.",
+      "after_commit": [],
+      "fault_points": [
+        "W01-rename (each conditional/iteration)",
+        "W02-audit (each conditional/iteration)",
+        "database commit",
+        "PLANNED: independently invalidate every Guard and assert exact row/reference snapshots; aggregate links are not completed per-operation matrices"
+      ],
+      "test_ids": [
+        "RFA-RF16-tags_favorites",
+        "RFA-RF16-impact_atomic"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "No CAS publication or added Blob protection reference in this operation.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "tagging.replace-game-tags",
+      "owner": "tagging",
+      "rf_id": "RF16",
+      "consumers": [
+        "(*retrom/internal/service/tagging.Service).ReplaceGameTags",
+        "(*retrom/internal/transport/httpapi.Server).putAdminGameTags"
+      ],
+      "snapshot": "retrom/internal/model/tagging.ReplacementPlan",
+      "prepare": "(*retrom/internal/service/tagging.Service).ReplaceGameTags",
+      "commit": "(*retrom/internal/repo/tagging.Repository).WithWrite",
+      "policy_symbols": [
+        "retrom/internal/model/tagging.BuildReplacementPlan",
+        "retrom/internal/model/tagging.ReferenceDiff",
+        "retrom/internal/model/tagging.ReferencesEqual",
+        "retrom/internal/model/tagging.ValidID",
+        "retrom/internal/model/tagging.ValidateActiveReferenceFacts",
+        "retrom/internal/model/tagging.ValidateIDs"
+      ],
+      "fresh_facts": [
+        {
+          "name": "game version",
+          "reader_symbol": "(retrom/internal/repo/tagging.gameRecords).Version",
+          "reason": "Writer current game version"
+        },
+        {
+          "name": "active requested tags",
+          "reader_symbol": "(retrom/internal/repo/tagging.tagRecords).ActiveReferences",
+          "reason": "Report all missing/nonactive IDs"
+        },
+        {
+          "name": "current active references",
+          "reader_symbol": "(retrom/internal/repo/tagging.relationRecords).References",
+          "reason": "Current sorted names/IDs; unchanged plan causes no version/audit write"
+        }
+      ],
+      "guards": [
+        {
+          "id": "version",
+          "fields": [
+            "version"
+          ],
+          "expected_source": "scope.Games.Version",
+          "rejection": "ErrVersionConflict",
+          "test_id": "RFA-RF16-tags_favorites"
+        },
+        {
+          "id": "invalid_refs",
+          "fields": [
+            "tagIDs"
+          ],
+          "expected_source": "ValidateActiveReferenceFacts",
+          "rejection": "InvalidReferencesError",
+          "test_id": "RFA-RF16-tags_favorites"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "W01-remove",
+          "repo_helper": "(retrom/internal/repo/tagging.relationRecords).Remove",
+          "affected_records": [
+            "game_tags[game,removed tag]: DELETE"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W02-add",
+          "repo_helper": "(retrom/internal/repo/tagging.relationRecords).Add",
+          "affected_records": [
+            "game_tags: game_id,tag_id,assigned_by_user_id,created_at_ms"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W03-touch-tags",
+          "repo_helper": "(retrom/internal/repo/tagging.relationRecords).TouchTags",
+          "affected_records": [
+            "tags[ACTIVE,changed IDs]: version+1,updated_by_user_id,updated_at_ms"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W04-touch-game",
+          "repo_helper": "(retrom/internal/repo/tagging.gameRecords).Touch",
+          "affected_records": [
+            "games[id,version]: version+1,updated_at_ms only if reference plan changes"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        },
+        {
+          "stage": "W05-audit",
+          "repo_helper": "(retrom/internal/repo/tagging.auditRecords).Record",
+          "affected_records": [
+            "audit_events: id,actor_kind,actor_user_id,actor_label,action,resource_type,resource_id,before_json,after_json,diff_json,request_id,created_at_ms"
+          ],
+          "test_id": "RFA-RF16-impact_atomic"
+        }
+      ],
+      "idempotency": "No persisted receipt in this baseline operation; preserve explicit optimistic-version and uniqueness semantics.",
+      "time_rule": "BEGIN IMMEDIATE then Service clock in callback; tag/audit UUIDs inside callback today. Target prepares identities before writer and uses one technical Clock sample.",
+      "after_commit": [],
+      "fault_points": [
+        "W01-remove (each conditional/iteration)",
+        "W02-add (each conditional/iteration)",
+        "W03-touch-tags (each conditional/iteration)",
+        "W04-touch-game (each conditional/iteration)",
+        "W05-audit (each conditional/iteration)",
+        "database commit",
+        "PLANNED: independently invalidate every Guard and assert exact row/reference snapshots; aggregate links are not completed per-operation matrices"
+      ],
+      "test_ids": [
+        "RFA-RF16-tags_favorites",
+        "RFA-RF16-impact_atomic"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "No CAS publication or added Blob protection reference in this operation.",
         "digest_sources": [],
         "acquire_symbol": null,
         "release_symbol": null,
@@ -3930,6 +7661,7 @@
     "Upload file publication has no DigestCoordinator today; required lock symbols stay null. RF03/RF04/RF09 must preserve staged verified bytes and coordinate CAS publication/reference commit.",
     "Upload intake creation/part timestamps and monitor renewal use pre-lock time; scheduling creates UUIDs/digests inside callback. These are migration targets, not approved exceptions.",
     "Upload consumption insertion is an atomic child of RF11 firmware, RF13 library import/review/parent/disc and RF16 content/assets commits; it must not become a separate upload transaction.",
-    "Current validateFinalizationFiles accepts a remaining-file subset after partial success and uses reflect.DeepEqual. RF04/RF09 must replace reflection while preserving nil/empty and every field's equality semantics."
+    "Current validateFinalizationFiles accepts a remaining-file subset after partial success and uses reflect.DeepEqual. RF04/RF09 must replace reflection while preserving nil/empty and every field's equality semantics.",
+    "RF16 SOURCE_REVIEWED baseline census: 30 standalone transactions including separate content claim/heartbeat. Aggregate RFA links are planned, not per-Guard/stage PASS evidence. Target actor/impact/time freshness, prepared-upload binding, nested sessionstore stages, content locking and all real query consumers remain migration/verification work."
   ]
 }

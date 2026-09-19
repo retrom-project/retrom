@@ -269,6 +269,595 @@
       ]
     },
     {
+      "id": "contentcapability.Resolve",
+      "owner": "content",
+      "rf_id": "RF04",
+      "symbol": "retrom/internal/capability/content/contentcapability.Resolve",
+      "consumers": [
+        "(*retrom/internal/service/catalog.Service).PlatformInstances",
+        "(*retrom/internal/service/gamecontent.Service).scheduleFresh",
+        "(*retrom/internal/service/libraryimport.ImportPreparation).prepareContent",
+        "(*retrom/internal/service/libraryimport.creationCommit).prepareHeader",
+        "(retrom/internal/repo/libraryimport.multiDiscAttachmentCommitScope).validateCurrentInput",
+        "retrom/internal/service/libraryimport.checkImportContent",
+        "retrom/internal/service/libraryimport.prepareMultiDiscInput",
+        "retrom/internal/service/libraryimport.validateApprovalMultiDisc",
+        "retrom/internal/service/platforminstance.importCapabilities"
+      ],
+      "invariant": "Derive import capabilities from explicit platform,enabled flag,multi-disc feature and content policy.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF16-game_mutations"
+      ]
+    },
+    {
+      "id": "favorites.NormalizeFolderName",
+      "owner": "favorites",
+      "rf_id": "RF16",
+      "symbol": "retrom/internal/service/favorites.NormalizeFolderName",
+      "consumers": [
+        "(*retrom/internal/service/favorites.Service).CreateFolder",
+        "(*retrom/internal/service/favorites.Service).RenameFolder"
+      ],
+      "invariant": "NFC/case-fold folder names with collapsed whitespace, control rejection and rune/byte bounds.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF16-tags_favorites"
+      ]
+    },
+    {
+      "id": "favorites.ValidID",
+      "owner": "favorites",
+      "rf_id": "RF16",
+      "symbol": "retrom/internal/model/favorites.ValidID",
+      "consumers": [
+        "(*retrom/internal/service/favorites.Service).DeleteFolder",
+        "(*retrom/internal/service/favorites.Service).Favorite",
+        "(*retrom/internal/service/favorites.Service).RenameFolder",
+        "(*retrom/internal/service/favorites.Service).ReplaceFolders",
+        "retrom/internal/repo/favorites.compoundCursorArguments",
+        "retrom/internal/repo/favorites.favoritedCursorArguments",
+        "retrom/internal/repo/favorites.titleCursorArguments",
+        "retrom/internal/service/favorites.normalizeRestoreItems",
+        "retrom/internal/service/favorites.validateListOptions",
+        "retrom/internal/service/favorites.validateUniqueIDs",
+        "retrom/internal/transport/httpapi.parseFavoriteListOptions"
+      ],
+      "invariant": "Validate UUID identifiers according to existing domain rule.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF16-tags_favorites"
+      ]
+    },
+    {
+      "id": "favorites.normalizeAndValidateOrganize",
+      "owner": "favorites",
+      "rf_id": "RF16",
+      "symbol": "retrom/internal/service/favorites.normalizeAndValidateOrganize",
+      "consumers": [
+        "(*retrom/internal/service/favorites.Service).Organize"
+      ],
+      "invariant": "Bound game/folder/edge counts, reject add/remove overlap, sort canonical IDs.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF16-tags_favorites"
+      ]
+    },
+    {
+      "id": "favorites.normalizeRestoreItems",
+      "owner": "favorites",
+      "rf_id": "RF16",
+      "symbol": "retrom/internal/service/favorites.normalizeRestoreItems",
+      "consumers": [
+        "(*retrom/internal/service/favorites.Service).Restore"
+      ],
+      "invariant": "Bound unique game/folder/edge shape and sort request deterministically.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF16-tags_favorites"
+      ]
+    },
+    {
+      "id": "favorites.requestDigest",
+      "owner": "favorites",
+      "rf_id": "RF16",
+      "symbol": "retrom/internal/service/favorites.requestDigest",
+      "consumers": [
+        "(*retrom/internal/service/favorites.Service).idempotent"
+      ],
+      "invariant": "SHA256 canonical JSON of operation,user principal and canonical request.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF16-tags_favorites"
+      ]
+    },
+    {
+      "id": "favorites.requestedRestoreFolderIDs",
+      "owner": "favorites",
+      "rf_id": "RF16",
+      "symbol": "retrom/internal/service/favorites.requestedRestoreFolderIDs",
+      "consumers": [
+        "(*retrom/internal/service/favorites.Service).restoreWork"
+      ],
+      "invariant": "Sorted distinct requested folder IDs for one profile query.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF16-tags_favorites"
+      ]
+    },
+    {
+      "id": "favorites.validateUniqueIDs",
+      "owner": "favorites",
+      "rf_id": "RF16",
+      "symbol": "retrom/internal/service/favorites.validateUniqueIDs",
+      "consumers": [
+        "(*retrom/internal/service/favorites.Service).CreateFolder",
+        "(*retrom/internal/service/favorites.Service).ReplaceFolders",
+        "(*retrom/internal/service/favorites.Service).Unfavorite",
+        "retrom/internal/service/favorites.normalizeAndValidateOrganize",
+        "retrom/internal/service/favorites.normalizeRestoreItems"
+      ],
+      "invariant": "Bound collection length and reject malformed or repeated UUIDs.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF16-tags_favorites"
+      ]
+    },
+    {
+      "id": "gameassets.ValidUpload",
+      "owner": "gameassets",
+      "rf_id": "RF16",
+      "symbol": "retrom/internal/service/gameassets.ValidUpload",
+      "consumers": [
+        "(*retrom/internal/service/gameassets.Service).Create",
+        "(*retrom/internal/service/gameassets.Service).Prepare",
+        "retrom/internal/transport/httpapi.validGameAssetUpload"
+      ],
+      "invariant": "Valid media kind/ordinal combinations and nonnegative ordinal.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF16-game_mutations"
+      ]
+    },
+    {
+      "id": "gamecontent.ValidateUpload",
+      "owner": "gamecontent",
+      "rf_id": "RF16",
+      "symbol": "retrom/internal/service/gamecontent.ValidateUpload",
+      "consumers": [
+        "(*retrom/internal/service/gamecontent.Service).scheduleFresh"
+      ],
+      "invariant": "Completed nonempty unconsumed upload and mode/platform source shape constraints.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF16-game_mutations"
+      ]
+    },
+    {
+      "id": "gamecontent.applyAdminGamePatch",
+      "owner": "gamecontent",
+      "rf_id": "RF16",
+      "symbol": "retrom/internal/service/gamecontent.applyAdminGamePatch",
+      "consumers": [
+        "(*retrom/internal/service/gamecontent.Service).PatchAdminGame"
+      ],
+      "invariant": "Merge only present administrative metadata fields.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF16-game_mutations"
+      ]
+    },
+    {
+      "id": "gamecontent.failureOutcome",
+      "owner": "gamecontent",
+      "rf_id": "RF16",
+      "symbol": "retrom/internal/service/gamecontent.failureOutcome",
+      "consumers": [
+        "(*retrom/internal/service/gamecontent.Service).settleFailure"
+      ],
+      "invariant": "Typed validation errors are nonretryable; unknown preparation errors remain retryable.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF16-game_mutations"
+      ]
+    },
+    {
+      "id": "gamecontent.hasAdminGamePatch",
+      "owner": "gamecontent",
+      "rf_id": "RF16",
+      "symbol": "retrom/internal/service/gamecontent.hasAdminGamePatch",
+      "consumers": [
+        "(*retrom/internal/service/gamecontent.Service).PatchAdminGame"
+      ],
+      "invariant": "Recognize explicit field presence including nullable numeric fields.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF16-game_mutations"
+      ]
+    },
+    {
+      "id": "gamecontent.jobSnapshotIdentity",
+      "owner": "gamecontent",
+      "rf_id": "RF16",
+      "symbol": "retrom/internal/service/gamecontent.jobSnapshotIdentity",
+      "consumers": [
+        "retrom/internal/service/gamecontent.replacementBindingMatchesSnapshot"
+      ],
+      "invariant": "Build same comparable identity from frozen job snapshot.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF16-game_mutations"
+      ]
+    },
+    {
+      "id": "gamecontent.replacementBindingIdentityOf",
+      "owner": "gamecontent",
+      "rf_id": "RF16",
+      "symbol": "retrom/internal/service/gamecontent.replacementBindingIdentityOf",
+      "consumers": [
+        "retrom/internal/service/gamecontent.replacementBindingMatchesSnapshot"
+      ],
+      "invariant": "Build complete comparable game/target/content/RPG binding identity.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF16-game_mutations"
+      ]
+    },
+    {
+      "id": "gamecontent.replacementBindingMatchesSnapshot",
+      "owner": "gamecontent",
+      "rf_id": "RF16",
+      "symbol": "retrom/internal/service/gamecontent.replacementBindingMatchesSnapshot",
+      "consumers": [
+        "retrom/internal/service/gamecontent.publicationBinding"
+      ],
+      "invariant": "Exact immutable binding identity plus separately checked DAT preserves replacement guard.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF16-game_mutations"
+      ]
+    },
+    {
+      "id": "gamecontent.retirementChange",
+      "owner": "gamecontent",
+      "rf_id": "RF16",
+      "symbol": "retrom/internal/service/gamecontent.retirementChange",
+      "consumers": [
+        "retrom/internal/service/gamecontent.RetireInScope"
+      ],
+      "invariant": "Compute owner transition and finished time while rejecting invalid/overflowing versions.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF16-game_mutations"
+      ]
+    },
+    {
+      "id": "gamecontent.retirementState",
+      "owner": "gamecontent",
+      "rf_id": "RF16",
+      "symbol": "retrom/internal/service/gamecontent.retirementState",
+      "consumers": [
+        "retrom/internal/service/gamecontent.retirementChange"
+      ],
+      "invariant": "Launch/play/netplay/room/variant transitions for content replacement; selected variant remains.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF16-game_mutations"
+      ]
+    },
+    {
+      "id": "gamecontent.validateDeleteGameRequest",
+      "owner": "gamecontent",
+      "rf_id": "RF16",
+      "symbol": "retrom/internal/service/gamecontent.validateDeleteGameRequest",
+      "consumers": [
+        "(*retrom/internal/service/gamecontent.Service).DeleteAdminGame"
+      ],
+      "invariant": "Require game/principal/key/digest/positive version/impact digest.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF16-game_mutations"
+      ]
+    },
+    {
+      "id": "gamemetadata.ValidCandidateFields",
+      "owner": "gamemetadata",
+      "rf_id": "RF16",
+      "symbol": "retrom/internal/service/gamemetadata.ValidCandidateFields",
+      "consumers": [
+        "(*retrom/internal/service/gamemetadata.Service).ApplyCandidate",
+        "(*retrom/internal/transport/httpapi.Server).applyGameScrapeCandidate"
+      ],
+      "invariant": "Only unique known metadata field names are accepted.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF16-game_mutations"
+      ]
+    },
+    {
+      "id": "gamemetadata.applyMetadataFields",
+      "owner": "gamemetadata",
+      "rf_id": "RF16",
+      "symbol": "retrom/internal/service/gamemetadata.applyMetadataFields",
+      "consumers": [
+        "(*retrom/internal/service/gamemetadata.Service).applyCandidateInScope"
+      ],
+      "invariant": "Apply selected candidate fields preserving missing/type-mismatch/null numeric semantics.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF16-game_mutations"
+      ]
+    },
+    {
+      "id": "gamemetadata.selectedAssetKinds",
+      "owner": "gamemetadata",
+      "rf_id": "RF16",
+      "symbol": "retrom/internal/service/gamemetadata.selectedAssetKinds",
+      "consumers": [
+        "(*retrom/internal/service/gamemetadata.Service).applyCandidateAssets"
+      ],
+      "invariant": "Replace only media kinds explicitly represented by selection.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF16-game_mutations"
+      ]
+    },
+    {
+      "id": "gamemetadata.selectedCandidateAssets",
+      "owner": "gamemetadata",
+      "rf_id": "RF16",
+      "symbol": "retrom/internal/service/gamemetadata.selectedCandidateAssets",
+      "consumers": [
+        "(*retrom/internal/service/gamemetadata.Service).applyCandidateAssets"
+      ],
+      "invariant": "Construct selected cover/background/screenshot values and stable screenshot ordinals.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF16-game_mutations"
+      ]
+    },
+    {
+      "id": "gamemove.validImpact",
+      "owner": "gamemove",
+      "rf_id": "RF16",
+      "symbol": "retrom/internal/service/gamemove.validImpact",
+      "consumers": [
+        "(*retrom/internal/service/gamemove.Service).Move"
+      ],
+      "invariant": "Impact action/game/version/target identity matches the requested move; does not prove freshness.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF16-game_mutations"
+      ]
+    },
+    {
+      "id": "payloadrelease.DecideGameDeletion",
+      "owner": "payloadrelease",
+      "rf_id": "RF18",
+      "symbol": "retrom/internal/model/payloadrelease.DecideGameDeletion",
+      "consumers": [
+        "(*retrom/internal/repo/payloadrelease.Scheduler).DeleteGame",
+        "(*retrom/internal/service/payloadrelease.Scheduler).DeleteGame"
+      ],
+      "invariant": "Current published retained game and expected version determine one payload release transition.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF16-game_mutations"
+      ]
+    },
+    {
+      "id": "platformcatalog.Validate",
+      "owner": "runtime",
+      "rf_id": "RF04",
+      "symbol": "retrom/internal/capability/runtime/platformcatalog.Validate",
+      "consumers": [
+        "(*retrom/internal/service/platforminstance.Service).Recommendations",
+        "(*retrom/internal/service/platforminstance.Service).ValidateCatalog",
+        "(*retrom/internal/service/platforminstance.Service).apply"
+      ],
+      "invariant": "Validate supplied runtime catalog declarations without obtaining current global catalog.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF16-game_mutations"
+      ]
+    },
+    {
+      "id": "platforminstance.ImpactDigest",
+      "owner": "platforminstance",
+      "rf_id": "RF16",
+      "symbol": "retrom/internal/service/platforminstance.ImpactDigest",
+      "consumers": [
+        "(*retrom/internal/service/platforminstance.Service).ChangeDefaultCore",
+        "retrom/internal/transport/httpapi.impactDigest"
+      ],
+      "invariant": "Canonical JSON SHA256 encoded RawURL preserves impact confirmation identity.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF16-game_mutations"
+      ]
+    },
+    {
+      "id": "platforminstance.NextSlug",
+      "owner": "platforminstance",
+      "rf_id": "RF16",
+      "symbol": "retrom/internal/service/platforminstance.NextSlug",
+      "consumers": [
+        "(*retrom/internal/service/platforminstance.Service).createInstance"
+      ],
+      "invariant": "Select first unused reserved slug including deleted directory reservations.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF16-game_mutations"
+      ]
+    },
+    {
+      "id": "platforminstance.SlugBase",
+      "owner": "platforminstance",
+      "rf_id": "RF16",
+      "symbol": "retrom/internal/service/platforminstance.SlugBase",
+      "consumers": [
+        "(*retrom/internal/service/platforminstance.Service).createInstance",
+        "retrom/internal/transport/httpapi.platformSlugBase"
+      ],
+      "invariant": "Deterministic ASCII slug with platform fallback and byte bound.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF16-game_mutations"
+      ]
+    },
+    {
+      "id": "platforminstance.activeDirectories",
+      "owner": "platforminstance",
+      "rf_id": "RF16",
+      "symbol": "retrom/internal/service/platforminstance.activeDirectories",
+      "consumers": [
+        "(*retrom/internal/service/platforminstance.Service).Reorder"
+      ],
+      "invariant": "Exclude deleted directories from reorder membership.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF16-game_mutations"
+      ]
+    },
+    {
+      "id": "platforminstance.catalogTemplate",
+      "owner": "platforminstance",
+      "rf_id": "RF16",
+      "symbol": "retrom/internal/service/platforminstance.catalogTemplate",
+      "consumers": [
+        "(*retrom/internal/service/platforminstance.Service).apply"
+      ],
+      "invariant": "Resolve requested catalog key from supplied catalog value.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF16-game_mutations"
+      ]
+    },
+    {
+      "id": "platforminstance.projectCoreImpact",
+      "owner": "platforminstance",
+      "rf_id": "RF16",
+      "symbol": "retrom/internal/service/platforminstance.projectCoreImpact",
+      "consumers": [
+        "(*retrom/internal/service/platforminstance.Service).ChangeDefaultCore",
+        "(*retrom/internal/service/platforminstance.Service).CoreImpact"
+      ],
+      "invariant": "Map current variant facts into READY/NEEDS_VALIDATION/BLOCKED impact with exact identity.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF16-game_mutations"
+      ]
+    },
+    {
+      "id": "platforminstance.projectRecommendations",
+      "owner": "platforminstance",
+      "rf_id": "RF16",
+      "symbol": "retrom/internal/service/platforminstance.projectRecommendations",
+      "consumers": [
+        "(*retrom/internal/service/platforminstance.Service).Recommendations",
+        "(*retrom/internal/service/platforminstance.Service).apply"
+      ],
+      "invariant": "Classify missing/customized/equivalent/suppressed catalog recommendations from supplied facts.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF16-game_mutations"
+      ]
+    },
+    {
+      "id": "platforminstance.validPatch",
+      "owner": "platforminstance",
+      "rf_id": "RF16",
+      "symbol": "retrom/internal/service/platforminstance.validPatch",
+      "consumers": [
+        "(*retrom/internal/service/platforminstance.Service).Patch"
+      ],
+      "invariant": "At least one present patch field and bounded name/description.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF16-game_mutations"
+      ]
+    },
+    {
+      "id": "platforminstance.validText",
+      "owner": "platforminstance",
+      "rf_id": "RF16",
+      "symbol": "retrom/internal/service/platforminstance.validText",
+      "consumers": [
+        "(*retrom/internal/service/platforminstance.Service).Create",
+        "retrom/internal/service/platforminstance.validPatch"
+      ],
+      "invariant": "Trimmed valid UTF8 text, rune bounds and explicit control/newline rules.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF16-game_mutations"
+      ]
+    },
+    {
+      "id": "platforminstance.validateOrderItems",
+      "owner": "platforminstance",
+      "rf_id": "RF16",
+      "symbol": "retrom/internal/service/platforminstance.validateOrderItems",
+      "consumers": [
+        "(*retrom/internal/service/platforminstance.Service).Reorder"
+      ],
+      "invariant": "Nonempty unique UUID items and positive versions.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF16-game_mutations"
+      ]
+    },
+    {
+      "id": "platforminstance.verifyOrder",
+      "owner": "platforminstance",
+      "rf_id": "RF16",
+      "symbol": "retrom/internal/service/platforminstance.verifyOrder",
+      "consumers": [
+        "(*retrom/internal/service/platforminstance.Service).Reorder"
+      ],
+      "invariant": "Request covers complete current directory ID set and each current version.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF16-game_mutations"
+      ]
+    },
+    {
       "id": "saves.localDraftWritable",
       "owner": "saves",
       "rf_id": "RF08",
@@ -348,6 +937,139 @@
       "tests": [
         "RFA-RF08-save_authority",
         "RFA-RF08-formats"
+      ]
+    },
+    {
+      "id": "tagging.BuildReplacementPlan",
+      "owner": "tagging",
+      "rf_id": "RF16",
+      "symbol": "retrom/internal/model/tagging.BuildReplacementPlan",
+      "consumers": [
+        "(*retrom/internal/repo/libraryimport.draftPatchRun).persist",
+        "(*retrom/internal/service/libraryimport.ReviewDrafts).buildPatchPlan",
+        "(*retrom/internal/service/tagging.Service).ReplaceReviewDraftTags",
+        "retrom/internal/service/tagging.replaceOwnerReferences"
+      ],
+      "invariant": "Pure owner/tag before/after delta with changed flag and exact add/remove refs.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF16-tags_favorites"
+      ]
+    },
+    {
+      "id": "tagging.NormalizeName",
+      "owner": "tagging",
+      "rf_id": "RF16",
+      "symbol": "retrom/internal/service/tagging.NormalizeName",
+      "consumers": [
+        "(*retrom/internal/service/tagging.Service).Create",
+        "(*retrom/internal/service/tagging.Service).Rename",
+        "(*retrom/internal/transport/httpapi.Server).tagPageCursor",
+        "retrom/internal/service/tagging.normalizedCommonTags"
+      ],
+      "invariant": "Canonical tag display/name key/search text and length/control rules.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF16-tags_favorites"
+      ]
+    },
+    {
+      "id": "tagging.ReferenceDiff",
+      "owner": "tagging",
+      "rf_id": "RF16",
+      "symbol": "retrom/internal/model/tagging.ReferenceDiff",
+      "consumers": [
+        "(*retrom/internal/service/tagging.Service).ReplaceGameTags",
+        "retrom/internal/model/tagging.BuildReplacementPlan"
+      ],
+      "invariant": "Compute added and removed tag identifiers from value snapshots.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF16-tags_favorites"
+      ]
+    },
+    {
+      "id": "tagging.ReferencesEqual",
+      "owner": "tagging",
+      "rf_id": "RF16",
+      "symbol": "retrom/internal/model/tagging.ReferencesEqual",
+      "consumers": [
+        "(*retrom/internal/repo/libraryimport.draftPatchRun).load",
+        "(*retrom/internal/repo/libraryimport.draftPatchRun).persist",
+        "(*retrom/internal/service/tagging.Service).ReplaceGameTags",
+        "retrom/internal/model/tagging.BuildReplacementPlan"
+      ],
+      "invariant": "Preserve canonical tag reference equality including names.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF16-tags_favorites"
+      ]
+    },
+    {
+      "id": "tagging.ValidID",
+      "owner": "tagging",
+      "rf_id": "RF16",
+      "symbol": "retrom/internal/model/tagging.ValidID",
+      "consumers": [
+        "retrom/internal/model/tagging.BuildReplacementPlan",
+        "retrom/internal/model/tagging.ValidateIDs"
+      ],
+      "invariant": "Validate UUID identifiers according to existing domain rule.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF16-tags_favorites"
+      ]
+    },
+    {
+      "id": "tagging.ValidateActiveReferenceFacts",
+      "owner": "tagging",
+      "rf_id": "RF16",
+      "symbol": "retrom/internal/model/tagging.ValidateActiveReferenceFacts",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.ReviewDrafts).buildPatchPlan",
+        "retrom/internal/service/tagging.ValidateActiveReferences"
+      ],
+      "invariant": "Every requested tag is represented by current active facts; collect all missing references.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF16-tags_favorites"
+      ]
+    },
+    {
+      "id": "tagging.ValidateIDs",
+      "owner": "tagging",
+      "rf_id": "RF16",
+      "symbol": "retrom/internal/model/tagging.ValidateIDs",
+      "consumers": [
+        "retrom/internal/model/tagging.BuildReplacementPlan",
+        "retrom/internal/model/tagging.ValidateActiveReferenceFacts"
+      ],
+      "invariant": "Bounded unique UUID tag set.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF16-tags_favorites"
+      ]
+    },
+    {
+      "id": "tagging.normalizedCommonTags",
+      "owner": "tagging",
+      "rf_id": "RF16",
+      "symbol": "retrom/internal/service/tagging.normalizedCommonTags",
+      "consumers": [
+        "(*retrom/internal/service/tagging.Service).EnsureCommonTags"
+      ],
+      "invariant": "Normalize the fixed ordered starter taxonomy before writer.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF16-tags_favorites"
       ]
     },
     {
