@@ -9741,6 +9741,186 @@
       }
     },
     {
+      "operation_id": "libraryimport.claim-review-bulk",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "consumers": [
+        "(*retrom/internal/adapter/integration/libraryimport.Service).CreateReviewBulk",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).ResumeReviewBulkJobs",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).RetryReviewBulk",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).claimReviewBulk",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).runReviewBulkApproval",
+        "(*retrom/internal/transport/httpapi.Server).createReviewBulk",
+        "(*retrom/internal/transport/httpapi.Server).retryReviewBulk",
+        "retrom/cmd/retrom.execute",
+        "retrom/cmd/retrom.executeWithPasswordReader",
+        "retrom/cmd/retrom.main",
+        "retrom/cmd/retrom.run",
+        "retrom/internal/transport/httpapi.New"
+      ],
+      "snapshot": "retrom/internal/model/libraryimport.ReviewBulkWork",
+      "prepare": "(*retrom/internal/adapter/integration/libraryimport.Service).claimReviewBulk",
+      "commit": "(*retrom/internal/repo/libraryimport.ReviewBulkWorker).WithWorker",
+      "policy_symbols": [],
+      "fresh_facts": [
+        {
+          "name": "bulk Claim",
+          "reader_symbol": "(retrom/internal/repo/libraryimport.reviewBulkWorkerScope).Claim",
+          "reason": "Current aggregate jobId/state/creator plus jobstate; only QUEUED/QUEUED accepted; no current input snapshot/attempt/max/available/version/lease/deadline read"
+        }
+      ],
+      "guards": [
+        {
+          "id": "claim-queued",
+          "fields": [
+            "bulkState",
+            "jobState"
+          ],
+          "expected_source": "Both QUEUED; no availability,attempt budget,inputdigest or previous execution deadline check",
+          "rejection": "ErrReviewBulkWorkerNotRunnable",
+          "test_id": "RFA-RF13-bulk_partial"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "claim-bulk-job",
+          "repo_helper": "(retrom/internal/repo/libraryimport.reviewBulkWorkerScope).Claim",
+          "affected_records": [
+            "UPDATE QUEUED job RUNNING,attempt+1,worker,start=now,deadline=now+1h,lease=now+60s,HB,version+1/time; require1,RowsAffected errors ignored"
+          ],
+          "test_id": "RFA-RF13-bulk_partial"
+        },
+        {
+          "stage": "claim-bulk-aggregate",
+          "repo_helper": "(retrom/internal/repo/libraryimport.reviewBulkWorkerScope).Claim",
+          "affected_records": [
+            "UPDATE QUEUED bulk RUNNING,started COALESCE(old,now),version+1/time; require1"
+          ],
+          "test_id": "RFA-RF13-bulk_partial"
+        },
+        {
+          "stage": "claim-bulk-event",
+          "repo_helper": "(retrom/internal/repo/libraryimport.reviewBulkWorkerScope).Claim",
+          "affected_records": [
+            "INSERT STARTED event candidateCount"
+          ],
+          "test_id": "RFA-RF13-bulk_partial"
+        }
+      ],
+      "idempotency": "Baseline current state/worker predicates and item outcomes protect repeated progress; no domain receipt. Full execution-number/input/version/live lease/deadline fences are missing and remain required RF13/RF17 work.",
+      "time_rule": "Baseline shared writer BeginTx with upper callback (or Repo-owned orchestration); Service clock position specified below. Target Repo must acquire write permission then sample technical Clock once; prepared identities generated before writer. Legacy integration facade samples now BEFORE writer except cancellation/retry. BeginTx(nil),no Repo admission clock. Work values contain only bulk/job/worker/user IDs,not complete execution/lease/version facts; RF03/05/17 must extend authority. Worker UUID generated before writer but error ignored; always resets execution start/deadline,not first-execution preservation.",
+      "after_commit": [
+        {
+          "action": "Committed work runs items serially under context principal copied as ADMIN from stored creator ID; no refreshed account read",
+          "recovery": "No heartbeat loop/deadline context in runReviewBulkApproval; lease extended only by item outcome/publication. Interrupted work handled by Resume.",
+          "test_id": "RFA-RF13-discard_handoff"
+        }
+      ],
+      "fault_points": [
+        "PLANNED claim-bulk-job: fail after each applicable row/stage and verify entire operation rollback",
+        "PLANNED claim-bulk-aggregate: fail after each applicable row/stage and verify entire operation rollback",
+        "PLANNED claim-bulk-event: fail after each applicable row/stage and verify entire operation rollback",
+        "PLANNED duplicate active admission,stale draft/frozen input,expired or superseded worker,concurrent cancel/finish/retry/resume and crash after item claim/publication; no executed proof yet"
+      ],
+      "test_ids": [
+        "RFA-RF13-bulk_partial",
+        "RFA-RF13-publish_atomic",
+        "RFA-RF13-discard_handoff",
+        "RFA-RF13-format_paths"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "Bulk scheduling/execution bookkeeping; actual published game/variant/media protective edges belong to the separately registered approve-review owning transaction.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "libraryimport.claim-review-bulk-item",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "consumers": [
+        "(*retrom/internal/adapter/integration/libraryimport.Service).CreateReviewBulk",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).ResumeReviewBulkJobs",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).RetryReviewBulk",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).claimReviewBulkItem",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).runReviewBulkApproval",
+        "(*retrom/internal/transport/httpapi.Server).createReviewBulk",
+        "(*retrom/internal/transport/httpapi.Server).retryReviewBulk",
+        "retrom/cmd/retrom.execute",
+        "retrom/cmd/retrom.executeWithPasswordReader",
+        "retrom/cmd/retrom.main",
+        "retrom/cmd/retrom.run",
+        "retrom/internal/transport/httpapi.New"
+      ],
+      "snapshot": "retrom/internal/model/libraryimport.ReviewBulkWorkItem",
+      "prepare": "(*retrom/internal/adapter/integration/libraryimport.Service).claimReviewBulkItem",
+      "commit": "(*retrom/internal/repo/libraryimport.ReviewBulkWorker).WithWorker",
+      "policy_symbols": [],
+      "fresh_facts": [
+        {
+          "name": "bulk ClaimItem",
+          "reader_symbol": "(retrom/internal/repo/libraryimport.reviewBulkWorkerScope).ClaimItem",
+          "reason": "First PENDING item by ordinal joined RUNNING bulk+RUNNING job matching worker; returns frozen reviewversion/validation/source"
+        }
+      ],
+      "guards": [
+        {
+          "id": "claim-next-item",
+          "fields": [
+            "bulk",
+            "job",
+            "worker",
+            "itemState"
+          ],
+          "expected_source": "Current RUNNING/RUNNING/same worker,PENDING; baseline join does not explicitly compare supplied JobID nor execution/lease/deadline",
+          "rejection": "Wrapped sql.ErrNoRows means finish; otherwise not runnable/failure",
+          "test_id": "RFA-RF13-bulk_partial"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "claim-bulk-item",
+          "repo_helper": "(retrom/internal/repo/libraryimport.reviewBulkWorkerScope).ClaimItem",
+          "affected_records": [
+            "UPDATE exact bulk/item PENDING -> RUNNING,started=now; require1,RowsAffected error ignored"
+          ],
+          "test_id": "RFA-RF13-bulk_partial"
+        }
+      ],
+      "idempotency": "Baseline current state/worker predicates and item outcomes protect repeated progress; no domain receipt. Full execution-number/input/version/live lease/deadline fences are missing and remain required RF13/RF17 work.",
+      "time_rule": "Baseline shared writer BeginTx with upper callback (or Repo-owned orchestration); Service clock position specified below. Target Repo must acquire write permission then sample technical Clock once; prepared identities generated before writer. Legacy integration facade samples now BEFORE writer except cancellation/retry. BeginTx(nil),no Repo admission clock. Work values contain only bulk/job/worker/user IDs,not complete execution/lease/version facts; RF03/05/17 must extend authority.",
+      "after_commit": [
+        {
+          "action": "Then separate approve-review transaction publishes game+item+bulk progress atomically; no enclosing claim/publication transaction",
+          "recovery": "If crash after claim,Resume resets item PENDING; if publication committed,terminal item remains PUBLISHED",
+          "test_id": "RFA-RF13-discard_handoff"
+        }
+      ],
+      "fault_points": [
+        "PLANNED claim-bulk-item: fail after each applicable row/stage and verify entire operation rollback",
+        "PLANNED duplicate active admission,stale draft/frozen input,expired or superseded worker,concurrent cancel/finish/retry/resume and crash after item claim/publication; no executed proof yet"
+      ],
+      "test_ids": [
+        "RFA-RF13-bulk_partial",
+        "RFA-RF13-publish_atomic",
+        "RFA-RF13-discard_handoff",
+        "RFA-RF13-format_paths"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "Bulk scheduling/execution bookkeeping; actual published game/variant/media protective edges belong to the separately registered approve-review owning transaction.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
       "operation_id": "libraryimport.cleanup-reconfiguration-upload",
       "owner": "libraryimport",
       "rf_id": "RF13",
@@ -9921,6 +10101,127 @@
           "RFA-RF18-gc_new_reference",
           "RFA-RF18-digest_lock_process"
         ]
+      }
+    },
+    {
+      "operation_id": "libraryimport.complete-review-bulk-item",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "consumers": [
+        "(*retrom/internal/adapter/integration/libraryimport.Service).CreateReviewBulk",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).ResumeReviewBulkJobs",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).RetryReviewBulk",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).completeReviewBulkItem",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).processReviewBulkItem",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).runReviewBulkApproval",
+        "(*retrom/internal/transport/httpapi.Server).createReviewBulk",
+        "(*retrom/internal/transport/httpapi.Server).retryReviewBulk",
+        "retrom/cmd/retrom.execute",
+        "retrom/cmd/retrom.executeWithPasswordReader",
+        "retrom/cmd/retrom.main",
+        "retrom/cmd/retrom.run",
+        "retrom/internal/transport/httpapi.New"
+      ],
+      "snapshot": "retrom/internal/model/libraryimport.ReviewBulkItemCompletion",
+      "prepare": "(*retrom/internal/adapter/integration/libraryimport.Service).completeReviewBulkItem",
+      "commit": "(*retrom/internal/repo/libraryimport.ReviewBulkWorker).WithWorker",
+      "policy_symbols": [
+        "retrom/internal/adapter/integration/libraryimport.validReviewBulkOutcome"
+      ],
+      "fresh_facts": [
+        {
+          "name": "bulk CompleteItem",
+          "reader_symbol": "(retrom/internal/repo/libraryimport.reviewBulkWorkerScope).CompleteItem",
+          "reason": "Freshness is enforced only by UPDATE predicates: itemRUNNING,bulkRUNNING,jobRUNNING+worker; no separate complete value snapshot"
+        }
+      ],
+      "guards": [
+        {
+          "id": "nonpublication-outcome",
+          "fields": [
+            "outcome"
+          ],
+          "expected_source": "Only SKIPPED_DUPLICATE/SKIPPED_CHANGED/SKIPPED_NOT_READY/FAILED_FINAL; JSON schema1 code. Publication handled by approve-review with full game writes",
+          "rejection": "ErrInvalid",
+          "test_id": "RFA-RF13-bulk_partial"
+        },
+        {
+          "id": "outcome-cas",
+          "fields": [
+            "itemState",
+            "bulkState",
+            "jobState",
+            "worker"
+          ],
+          "expected_source": "Every item/aggregate/job UPDATE require1; original frozen facts not compared on this failure path; no live execution authority",
+          "rejection": "ErrReviewBulkWorkerNotRunnable",
+          "test_id": "RFA-RF13-bulk_partial"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "complete-bulk-item",
+          "repo_helper": "(retrom/internal/repo/libraryimport.reviewBulkWorkerScope).CompleteItem",
+          "affected_records": [
+            "UPDATE RUNNING item terminal supplied state/code/details/completed"
+          ],
+          "test_id": "RFA-RF13-bulk_partial"
+        },
+        {
+          "stage": "complete-bulk-counts",
+          "repo_helper": "(retrom/internal/repo/libraryimport.reviewBulkWorkerScope).CompleteItem",
+          "affected_records": [
+            "UPDATE RUNNING bulk processed+1 and corresponding skip/fail count,version+1/time"
+          ],
+          "test_id": "RFA-RF13-bulk_partial"
+        },
+        {
+          "stage": "renew-bulk-outcome-job",
+          "repo_helper": "(retrom/internal/repo/libraryimport.reviewBulkWorkerScope).CompleteItem",
+          "affected_records": [
+            "UPDATE RUNNING matching-worker job HB=now,lease=now+60s,version+1/time; no deadline cap"
+          ],
+          "test_id": "RFA-RF13-bulk_partial"
+        },
+        {
+          "stage": "bulk-progress-event",
+          "repo_helper": "(retrom/internal/repo/libraryimport.reviewBulkWorkerScope).ProgressEvent",
+          "affected_records": [
+            "INSERT SELECT current processed/candidate/published/skipped/failed/cancelled counts"
+          ],
+          "test_id": "RFA-RF13-bulk_partial"
+        }
+      ],
+      "idempotency": "Baseline current state/worker predicates and item outcomes protect repeated progress; no domain receipt. Full execution-number/input/version/live lease/deadline fences are missing and remain required RF13/RF17 work.",
+      "time_rule": "Baseline shared writer BeginTx with upper callback (or Repo-owned orchestration); Service clock position specified below. Target Repo must acquire write permission then sample technical Clock once; prepared identities generated before writer. Legacy integration facade samples now BEFORE writer except cancellation/retry. BeginTx(nil),no Repo admission clock. Work values contain only bulk/job/worker/user IDs,not complete execution/lease/version facts; RF03/05/17 must extend authority. Failure classification first attempts approval; duplicate conflict ->SKIPPED_DUPLICATE; ErrInvalid uses separate read-only-by-use ItemStillFrozen transaction to choose NOT_READY vs CHANGED (read errors treated false); other errors ->FAILED_FINAL. Every wrapper transaction remains separate.",
+      "after_commit": [
+        {
+          "action": "Committed terminal item skipped on continuation; eventual bulk can complete PARTIAL_FAILURE",
+          "recovery": "RowsAffected errors ignored baseline; original approval cause only retained as stable outcome code,not generic success",
+          "test_id": "RFA-RF13-discard_handoff"
+        }
+      ],
+      "fault_points": [
+        "PLANNED complete-bulk-item: fail after each applicable row/stage and verify entire operation rollback",
+        "PLANNED complete-bulk-counts: fail after each applicable row/stage and verify entire operation rollback",
+        "PLANNED renew-bulk-outcome-job: fail after each applicable row/stage and verify entire operation rollback",
+        "PLANNED bulk-progress-event: fail after each applicable row/stage and verify entire operation rollback",
+        "PLANNED duplicate active admission,stale draft/frozen input,expired or superseded worker,concurrent cancel/finish/retry/resume and crash after item claim/publication; no executed proof yet"
+      ],
+      "test_ids": [
+        "RFA-RF13-bulk_partial",
+        "RFA-RF13-publish_atomic",
+        "RFA-RF13-discard_handoff",
+        "RFA-RF13-format_paths"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "Bulk scheduling/execution bookkeeping; actual published game/variant/media protective edges belong to the separately registered approve-review owning transaction.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
       }
     },
     {
@@ -10669,6 +10970,204 @@
           "RFA-RF18-shared_digest",
           "RFA-RF18-digest_lock_process"
         ]
+      }
+    },
+    {
+      "operation_id": "libraryimport.create-review-bulk",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "consumers": [
+        "(*retrom/internal/adapter/integration/libraryimport.Service).CreateReviewBulk",
+        "(*retrom/internal/transport/httpapi.Server).createReviewBulk"
+      ],
+      "snapshot": "retrom/internal/model/libraryimport.ReviewBulkCreation",
+      "prepare": "(*retrom/internal/adapter/integration/libraryimport.Service).CreateReviewBulk",
+      "commit": "(*retrom/internal/repo/libraryimport.Transactions).Write",
+      "policy_symbols": [
+        "retrom/internal/adapter/integration/libraryimport.normalizeReviewBulkScope",
+        "retrom/internal/adapter/integration/libraryimport.nullStringsEqual",
+        "retrom/internal/adapter/integration/libraryimport.preliminaryQuickApprovalReady",
+        "retrom/internal/adapter/integration/libraryimport.quickApprovalArtifactReady",
+        "retrom/internal/adapter/integration/libraryimport.quickApprovalValidationCurrent",
+        "retrom/internal/adapter/integration/libraryimport.reviewBulkManifestDigest",
+        "retrom/internal/adapter/integration/libraryimport.reviewBulkScopeDigest",
+        "retrom/internal/adapter/integration/libraryimport.validateReviewBulkCreate"
+      ],
+      "fresh_facts": [
+        {
+          "name": "fresh scope candidates",
+          "reader_symbol": "(*retrom/internal/repo/libraryimport.ReviewBulkQueries).Candidates",
+          "reason": "Within writer re-query normalized scope <=10001 current REVIEW_PENDING draft/source/platform/latest validation/runtime/DAT/DOS/media/sourceflags/attachments. Candidate query does not require enabled/notdeleted platform; final approval does"
+        },
+        {
+          "name": "single active bulk",
+          "reader_symbol": "(*retrom/internal/repo/libraryimport.ReviewBulkQueries).ActiveSummary",
+          "reason": "Within writer current QUEUED/RUNNING/CANCEL_REQUESTED bulk; database unique active index is final concurrency constraint"
+        },
+        {
+          "name": "duplicate Snapshot",
+          "reader_symbol": "(*retrom/internal/repo/libraryimport.ContentDuplicates).Snapshot",
+          "reason": "Effective review source kind/id/manifest from current draft"
+        },
+        {
+          "name": "duplicate IdentityParts",
+          "reader_symbol": "(*retrom/internal/repo/libraryimport.ContentDuplicates).IdentityParts",
+          "reason": "Current ordered source file Blob digests,logical names and archive-entry identity facts"
+        },
+        {
+          "name": "duplicate OrderedDiscs",
+          "reader_symbol": "(*retrom/internal/repo/libraryimport.ContentDuplicates).OrderedDiscs",
+          "reason": "Current multidisc ordinals/state/logical names/digests for identity"
+        },
+        {
+          "name": "duplicate PublishedMatches",
+          "reader_symbol": "(*retrom/internal/repo/libraryimport.ContentDuplicates).PublishedMatches",
+          "reason": "Current published games in platform with matching content identity; Model ContentDuplicates performs I/O and must be moved to Service orchestration"
+        },
+        {
+          "name": "fresh dependency LogicalName",
+          "reader_symbol": "(retrom/internal/repo/libraryimport.approvalDependencyRecords).LogicalName",
+          "reason": "Same approval dependency reader invoked while classifying each candidate; no separate commit"
+        },
+        {
+          "name": "fresh dependency MultiDisc",
+          "reader_symbol": "(retrom/internal/repo/libraryimport.approvalDependencyRecords).MultiDisc",
+          "reason": "Same approval dependency reader invoked while classifying each candidate; no separate commit"
+        },
+        {
+          "name": "fresh dependency ArcadeRequirements",
+          "reader_symbol": "(retrom/internal/repo/libraryimport.approvalDependencyRecords).ArcadeRequirements",
+          "reason": "Same approval dependency reader invoked while classifying each candidate; no separate commit"
+        },
+        {
+          "name": "fresh dependency ExternalFileCount",
+          "reader_symbol": "(retrom/internal/repo/libraryimport.approvalDependencyRecords).ExternalFileCount",
+          "reason": "Same approval dependency reader invoked while classifying each candidate; no separate commit"
+        }
+      ],
+      "guards": [
+        {
+          "id": "create-actor",
+          "fields": [
+            "contextPrincipal"
+          ],
+          "expected_source": "Authenticated principal and nonempty userId; baseline no current user/session/role database fact in this operation",
+          "rejection": "ErrReviewBulkConflict",
+          "test_id": "RFA-RF13-bulk_partial"
+        },
+        {
+          "id": "create-scope",
+          "fields": [
+            "scope"
+          ],
+          "expected_source": "Lowercase/collapse whitespace query <=200 UTF8 runes; trim filters; blocker<=120bytes; at most one source filter; UUID parses but adapter normalization accepts noncanonical forms unlike Service normalization",
+          "rejection": "ErrReviewBulkInvalidScope",
+          "test_id": "RFA-RF13-bulk_partial"
+        },
+        {
+          "id": "strict-candidates",
+          "fields": [
+            "attachment",
+            "validation",
+            "screenshot",
+            "metadata",
+            "policy",
+            "DAT",
+            "DOS",
+            "dependencies",
+            "duplicates",
+            "sourceFlags"
+          ],
+          "expected_source": "Precedence: active attachment ->count/skip; nonREADY with screenshot ->screenshotOnly; provider/target/policy present,READY validation,same DAT/DOS,supportedkind,trimmed title valid<=200. Revalidate dependencies then exclude current duplicates then source hidden/adult flags. Does not call full ReviewValidation.Current during preview",
+          "rejection": "ErrInvalid dependency becomes notReady; other I/O errors rollback",
+          "test_id": "RFA-RF13-bulk_partial"
+        },
+        {
+          "id": "create-preview",
+          "fields": [
+            "activeBulk",
+            "scopeDigest",
+            "candidateDigest",
+            "candidateCount"
+          ],
+          "expected_source": "No active bulk; normalized scope digest and ordered eligible item/version/validation/source manifest digest exactly match supplied; count1..10000. Limit applies eligible count although matched query stops at10001",
+          "rejection": "ErrReviewBulkActive / ErrReviewBulkPreviewStale / ErrReviewBulkEmpty / ErrReviewBulkTooLarge",
+          "test_id": "RFA-RF13-bulk_partial"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "create-bulk-job",
+          "repo_helper": "(*retrom/internal/repo/libraryimport.ReviewBulkWrites).Create",
+          "affected_records": [
+            "INSERT jobs REVIEW_BULK_APPROVE/scope REVIEW_BULK_APPROVAL,execution1,QUEUED,max4,attempt0,cancellable1,version1; dedupe SHA256(bulkUUID),schema1 payload with scope/candidate digests/count; all in same writer,no explicit affected-count checks"
+          ],
+          "test_id": "RFA-RF13-bulk_partial"
+        },
+        {
+          "stage": "create-bulk-input",
+          "repo_helper": "(*retrom/internal/repo/libraryimport.ReviewBulkWrites).Create",
+          "affected_records": [
+            "INSERT job_input_snapshots execution1 exact payload bytes/digest/time; all in same writer,no explicit affected-count checks"
+          ],
+          "test_id": "RFA-RF13-bulk_partial"
+        },
+        {
+          "stage": "create-bulk-event",
+          "repo_helper": "(*retrom/internal/repo/libraryimport.ReviewBulkWrites).Create",
+          "affected_records": [
+            "INSERT QUEUED job_event candidateCount/time; all in same writer,no explicit affected-count checks"
+          ],
+          "test_id": "RFA-RF13-bulk_partial"
+        },
+        {
+          "stage": "create-bulk-aggregate",
+          "repo_helper": "(*retrom/internal/repo/libraryimport.ReviewBulkWrites).Create",
+          "affected_records": [
+            "INSERT QUEUED review_bulk_approvals normalized scope/digests/classification counts/actor,version1/time; all in same writer,no explicit affected-count checks"
+          ],
+          "test_id": "RFA-RF13-bulk_partial"
+        },
+        {
+          "stage": "freeze-bulk-candidates",
+          "repo_helper": "(*retrom/internal/repo/libraryimport.ReviewBulkWrites).Create",
+          "affected_records": [
+            "INSERT each ordered candidate PENDING with expected draftversion/validation/source,trimmed title/platform/name and ordinal/time; all in same writer,no explicit affected-count checks"
+          ],
+          "test_id": "RFA-RF13-bulk_partial"
+        }
+      ],
+      "idempotency": "Single active bulk enforced by fresh read and unique index; baseline translates index error through strings.Contains(error text). Generic HTTP receipt is separate from transaction.",
+      "time_rule": "Baseline shared writer BeginTx with upper callback (or Repo-owned orchestration); Service clock position specified below. Target Repo must acquire write permission then sample technical Clock once; prepared identities generated before writer. Whole preview/classification runs inside writer and samples generatedAt; second Service sample for creation; bulk/job UUIDs generated inside writer with generator errors ignored. Target preparation must move ID generation before writer and share one admitted timestamp.",
+      "after_commit": [
+        {
+          "action": "After commit starts untracked goroutine with WithoutCancel; no queue signal/pool; creation result durable before processing",
+          "recovery": "Startup Resume resets/requeues bulk work; published item counters/results survive interruption. Read-only PreviewReviewBulk is not a fabricated write operation.",
+          "test_id": "RFA-RF13-discard_handoff"
+        }
+      ],
+      "fault_points": [
+        "PLANNED create-bulk-job: fail after each applicable row/stage and verify entire operation rollback",
+        "PLANNED create-bulk-input: fail after each applicable row/stage and verify entire operation rollback",
+        "PLANNED create-bulk-event: fail after each applicable row/stage and verify entire operation rollback",
+        "PLANNED create-bulk-aggregate: fail after each applicable row/stage and verify entire operation rollback",
+        "PLANNED freeze-bulk-candidates: fail after each applicable row/stage and verify entire operation rollback",
+        "PLANNED duplicate active admission,stale draft/frozen input,expired or superseded worker,concurrent cancel/finish/retry/resume and crash after item claim/publication; no executed proof yet"
+      ],
+      "test_ids": [
+        "RFA-RF13-bulk_partial",
+        "RFA-RF13-publish_atomic",
+        "RFA-RF13-discard_handoff",
+        "RFA-RF13-format_paths"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "Freezes IDs and expected review facts without copying Blob references; future publication is separately registered approve-review.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
       }
     },
     {
@@ -11480,6 +11979,425 @@
       "content_coordination": {
         "required": false,
         "reason": "Changes durable job/aggregate/admission bookkeeping only; no new Blob row or protective Blob FK and no physical CAS publication/deletion. Existing upload Blob references remain authoritative.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "libraryimport.fail-queued-review-bulk",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "consumers": [
+        "(*retrom/internal/adapter/integration/libraryimport.Service).CreateReviewBulk",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).ResumeReviewBulkJobs",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).RetryReviewBulk",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).failQueuedReviewBulkWorker",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).runReviewBulkApproval",
+        "(*retrom/internal/transport/httpapi.Server).createReviewBulk",
+        "(*retrom/internal/transport/httpapi.Server).retryReviewBulk",
+        "retrom/cmd/retrom.execute",
+        "retrom/cmd/retrom.executeWithPasswordReader",
+        "retrom/cmd/retrom.main",
+        "retrom/cmd/retrom.run",
+        "retrom/internal/transport/httpapi.New"
+      ],
+      "snapshot": "retrom/internal/model/libraryimport.ReviewBulkResumableJob",
+      "prepare": "(*retrom/internal/adapter/integration/libraryimport.Service).failQueuedReviewBulkWorker",
+      "commit": "(*retrom/internal/repo/libraryimport.ReviewBulkWorker).WithWorker",
+      "policy_symbols": [],
+      "fresh_facts": [
+        {
+          "name": "bulk FailQueued",
+          "reader_symbol": "(retrom/internal/repo/libraryimport.reviewBulkWorkerScope).FailQueued",
+          "reason": "Current QUEUED aggregate linked job ID; later job also mustQUEUED"
+        }
+      ],
+      "guards": [
+        {
+          "id": "failure-authority",
+          "fields": [
+            "bulkState",
+            "jobState",
+            "worker"
+          ],
+          "expected_source": "Only matching expected state. No lease/deadline/execution/version fence",
+          "rejection": "ErrReviewBulkWorkerNotRunnable; facade ignores this entire failure result",
+          "test_id": "RFA-RF13-bulk_partial"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "fail-bulk",
+          "repo_helper": "(retrom/internal/repo/libraryimport.reviewBulkWorkerScope).FailQueued",
+          "affected_records": [
+            "UPDATE QUEUED bulk -> FAILED/WORKER_UNAVAILABLE/completed/version+1/time,require1"
+          ],
+          "test_id": "RFA-RF13-bulk_partial"
+        },
+        {
+          "stage": "fail-job",
+          "repo_helper": "(retrom/internal/repo/libraryimport.reviewBulkWorkerScope).FailQueued",
+          "affected_records": [
+            "UPDATE QUEUED job by id -> FAILED/retryable1/WORKER_UNAVAILABLE,clear lease/HB/worker,finished/version+1/time,require1"
+          ],
+          "test_id": "RFA-RF13-bulk_partial"
+        },
+        {
+          "stage": "failure-event",
+          "repo_helper": "(retrom/internal/repo/libraryimport.reviewBulkWorkerScope).FailQueued",
+          "affected_records": [
+            "INSERT FAILED job_event with WORKER_UNAVAILABLE code"
+          ],
+          "test_id": "RFA-RF13-bulk_partial"
+        }
+      ],
+      "idempotency": "Baseline current state/worker predicates and item outcomes protect repeated progress; no domain receipt. Full execution-number/input/version/live lease/deadline fences are missing and remain required RF13/RF17 work.",
+      "time_rule": "Baseline shared writer BeginTx with upper callback (or Repo-owned orchestration); Service clock position specified below. Target Repo must acquire write permission then sample technical Clock once; prepared identities generated before writer. Legacy integration facade samples now BEFORE writer except cancellation/retry. BeginTx(nil),no Repo admission clock. Work values contain only bulk/job/worker/user IDs,not complete execution/lease/version facts; RF03/05/17 must extend authority.",
+      "after_commit": [
+        {
+          "action": "FAILED becomes manually retryable; underlying item publication outcomes retained",
+          "recovery": "Facade ignores settlement error; queued failure uses unbounded WithoutCancel,normal failure can use cancelled context. Recovery/cleanup reporting must be bounded and preserve original cause.",
+          "test_id": "RFA-RF13-discard_handoff"
+        }
+      ],
+      "fault_points": [
+        "PLANNED fail-bulk: fail after each applicable row/stage and verify entire operation rollback",
+        "PLANNED fail-job: fail after each applicable row/stage and verify entire operation rollback",
+        "PLANNED failure-event: fail after each applicable row/stage and verify entire operation rollback",
+        "PLANNED duplicate active admission,stale draft/frozen input,expired or superseded worker,concurrent cancel/finish/retry/resume and crash after item claim/publication; no executed proof yet"
+      ],
+      "test_ids": [
+        "RFA-RF13-bulk_partial",
+        "RFA-RF13-publish_atomic",
+        "RFA-RF13-discard_handoff",
+        "RFA-RF13-format_paths"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "Bulk scheduling/execution bookkeeping; actual published game/variant/media protective edges belong to the separately registered approve-review owning transaction.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "libraryimport.fail-review-bulk",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "consumers": [
+        "(*retrom/internal/adapter/integration/libraryimport.Service).CreateReviewBulk",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).ResumeReviewBulkJobs",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).RetryReviewBulk",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).cancelOrFailReviewBulk",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).failReviewBulkWorker",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).finishOrCancelReviewBulk",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).runReviewBulkApproval",
+        "(*retrom/internal/transport/httpapi.Server).createReviewBulk",
+        "(*retrom/internal/transport/httpapi.Server).retryReviewBulk",
+        "retrom/cmd/retrom.execute",
+        "retrom/cmd/retrom.executeWithPasswordReader",
+        "retrom/cmd/retrom.main",
+        "retrom/cmd/retrom.run",
+        "retrom/internal/transport/httpapi.New"
+      ],
+      "snapshot": "retrom/internal/model/libraryimport.ReviewBulkWork",
+      "prepare": "(*retrom/internal/adapter/integration/libraryimport.Service).failReviewBulkWorker",
+      "commit": "(*retrom/internal/repo/libraryimport.ReviewBulkWorker).WithWorker",
+      "policy_symbols": [],
+      "fresh_facts": [
+        {
+          "name": "bulk Fail",
+          "reader_symbol": "(retrom/internal/repo/libraryimport.reviewBulkWorkerScope).Fail",
+          "reason": "No SELECT snapshot; RUNNING item/aggregate and RUNNING matching-worker job UPDATE predicates only"
+        }
+      ],
+      "guards": [
+        {
+          "id": "failure-authority",
+          "fields": [
+            "bulkState",
+            "jobState",
+            "worker"
+          ],
+          "expected_source": "Only matching expected state and worker on job; reset items protected only by later job CAS. No lease/deadline/execution/version fence",
+          "rejection": "ErrReviewBulkWorkerNotRunnable; facade ignores this entire failure result",
+          "test_id": "RFA-RF13-bulk_partial"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "reset-running-items",
+          "repo_helper": "(retrom/internal/repo/libraryimport.reviewBulkWorkerScope).Fail",
+          "affected_records": [
+            "UPDATE all current RUNNING items in bulk to PENDING,clear started; no per-item version or exact count"
+          ],
+          "test_id": "RFA-RF13-bulk_partial"
+        },
+        {
+          "stage": "fail-bulk",
+          "repo_helper": "(retrom/internal/repo/libraryimport.reviewBulkWorkerScope).Fail",
+          "affected_records": [
+            "UPDATE RUNNING bulk -> FAILED/WORKER_UNAVAILABLE/completed/version+1/time,require1"
+          ],
+          "test_id": "RFA-RF13-bulk_partial"
+        },
+        {
+          "stage": "fail-job",
+          "repo_helper": "(retrom/internal/repo/libraryimport.reviewBulkWorkerScope).Fail",
+          "affected_records": [
+            "UPDATE RUNNING job by id/worker -> FAILED/retryable1/WORKER_UNAVAILABLE,clear lease/HB/worker,finished/version+1/time,require1"
+          ],
+          "test_id": "RFA-RF13-bulk_partial"
+        },
+        {
+          "stage": "failure-event",
+          "repo_helper": "(retrom/internal/repo/libraryimport.reviewBulkWorkerScope).Fail",
+          "affected_records": [
+            "INSERT FAILED job_event with WORKER_UNAVAILABLE code"
+          ],
+          "test_id": "RFA-RF13-bulk_partial"
+        }
+      ],
+      "idempotency": "Baseline current state/worker predicates and item outcomes protect repeated progress; no domain receipt. Full execution-number/input/version/live lease/deadline fences are missing and remain required RF13/RF17 work.",
+      "time_rule": "Baseline shared writer BeginTx with upper callback (or Repo-owned orchestration); Service clock position specified below. Target Repo must acquire write permission then sample technical Clock once; prepared identities generated before writer. Legacy integration facade samples now BEFORE writer except cancellation/retry. BeginTx(nil),no Repo admission clock. Work values contain only bulk/job/worker/user IDs,not complete execution/lease/version facts; RF03/05/17 must extend authority.",
+      "after_commit": [
+        {
+          "action": "FAILED becomes manually retryable; underlying item publication outcomes retained",
+          "recovery": "Facade ignores settlement error; queued failure uses unbounded WithoutCancel,normal failure can use cancelled context. Recovery/cleanup reporting must be bounded and preserve original cause.",
+          "test_id": "RFA-RF13-discard_handoff"
+        }
+      ],
+      "fault_points": [
+        "PLANNED reset-running-items: fail after each applicable row/stage and verify entire operation rollback",
+        "PLANNED fail-bulk: fail after each applicable row/stage and verify entire operation rollback",
+        "PLANNED fail-job: fail after each applicable row/stage and verify entire operation rollback",
+        "PLANNED failure-event: fail after each applicable row/stage and verify entire operation rollback",
+        "PLANNED duplicate active admission,stale draft/frozen input,expired or superseded worker,concurrent cancel/finish/retry/resume and crash after item claim/publication; no executed proof yet"
+      ],
+      "test_ids": [
+        "RFA-RF13-bulk_partial",
+        "RFA-RF13-publish_atomic",
+        "RFA-RF13-discard_handoff",
+        "RFA-RF13-format_paths"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "Bulk scheduling/execution bookkeeping; actual published game/variant/media protective edges belong to the separately registered approve-review owning transaction.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "libraryimport.finalize-review-bulk-cancellation",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "consumers": [
+        "(*retrom/internal/adapter/integration/libraryimport.Service).CancelReviewBulk",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).CreateReviewBulk",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).ResumeReviewBulkJobs",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).RetryReviewBulk",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).cancelOrFailReviewBulk",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).finalizeReviewBulkCancellation",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).finishOrCancelReviewBulk",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).runReviewBulkApproval",
+        "(*retrom/internal/transport/httpapi.Server).cancelReviewBulk",
+        "(*retrom/internal/transport/httpapi.Server).createReviewBulk",
+        "(*retrom/internal/transport/httpapi.Server).retryReviewBulk",
+        "retrom/cmd/retrom.execute",
+        "retrom/cmd/retrom.executeWithPasswordReader",
+        "retrom/cmd/retrom.main",
+        "retrom/cmd/retrom.run",
+        "retrom/internal/transport/httpapi.New"
+      ],
+      "snapshot": "retrom/internal/model/libraryimport.ReviewBulkWork",
+      "prepare": "(*retrom/internal/adapter/integration/libraryimport.Service).finalizeReviewBulkCancellation",
+      "commit": "(*retrom/internal/repo/libraryimport.ReviewBulkWorker).WithWorker",
+      "policy_symbols": [],
+      "fresh_facts": [
+        {
+          "name": "bulk FinalizeCancellation",
+          "reader_symbol": "(retrom/internal/repo/libraryimport.reviewBulkWorkerScope).FinalizeCancellation",
+          "reason": "Current aggregate QUEUED/RUNNING/CANCEL_REQUESTED and linked job ID; count remaining PENDING/RUNNING items"
+        }
+      ],
+      "guards": [
+        {
+          "id": "cancel-finalization",
+          "fields": [
+            "bulkState",
+            "remaining"
+          ],
+          "expected_source": "Allows QUEUED/RUNNING/CANCEL_REQUESTED even without durable cancel request; updates only if actual remaining count equals observed; no current job authority/state/version/lease check",
+          "rejection": "ErrReviewBulkWorkerNotRunnable",
+          "test_id": "RFA-RF13-bulk_partial"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "cancel-bulk-items",
+          "repo_helper": "(retrom/internal/repo/libraryimport.reviewBulkWorkerScope).FinalizeCancellation",
+          "affected_records": [
+            "UPDATE all PENDING/RUNNING -> CANCELLED/code/schema1details/completed; require exact remaining count"
+          ],
+          "test_id": "RFA-RF13-bulk_partial"
+        },
+        {
+          "stage": "cancel-bulk-aggregate",
+          "repo_helper": "(retrom/internal/repo/libraryimport.reviewBulkWorkerScope).FinalizeCancellation",
+          "affected_records": [
+            "UPDATE aggregate by ID CANCELLED,processed+=remaining,cancelled+=remaining,preserve prior cancel timestamp,completed/version+1/time; require1"
+          ],
+          "test_id": "RFA-RF13-bulk_partial"
+        },
+        {
+          "stage": "cancel-bulk-job",
+          "repo_helper": "(retrom/internal/repo/libraryimport.reviewBulkWorkerScope).FinalizeCancellation",
+          "affected_records": [
+            "UPDATE linked job by ID CANCELLED,preservecancel timestamp,finished,clearlease/HB/worker,version+1/time; require1"
+          ],
+          "test_id": "RFA-RF13-bulk_partial"
+        },
+        {
+          "stage": "cancel-bulk-event",
+          "repo_helper": "(retrom/internal/repo/libraryimport.reviewBulkWorkerScope).FinalizeCancellation",
+          "affected_records": [
+            "INSERT CANCELLED event cancelledCount"
+          ],
+          "test_id": "RFA-RF13-bulk_partial"
+        }
+      ],
+      "idempotency": "Baseline current state/worker predicates and item outcomes protect repeated progress; no domain receipt. Full execution-number/input/version/live lease/deadline fences are missing and remain required RF13/RF17 work.",
+      "time_rule": "Baseline shared writer BeginTx with upper callback (or Repo-owned orchestration); Service clock position specified below. Target Repo must acquire write permission then sample technical Clock once; prepared identities generated before writer. Legacy integration facade samples now BEFORE writer except cancellation/retry. BeginTx(nil),no Repo admission clock. Work values contain only bulk/job/worker/user IDs,not complete execution/lease/version facts; RF03/05/17 must extend authority.",
+      "after_commit": [
+        {
+          "action": "Published/terminal item results survive; no review items themselves discarded by cancelling bulk",
+          "recovery": "Queued CancelReviewBulk performs request and finalization in two separate commits; startup resumes outstanding CANCEL_REQUESTED",
+          "test_id": "RFA-RF13-discard_handoff"
+        }
+      ],
+      "fault_points": [
+        "PLANNED cancel-bulk-items: fail after each applicable row/stage and verify entire operation rollback",
+        "PLANNED cancel-bulk-aggregate: fail after each applicable row/stage and verify entire operation rollback",
+        "PLANNED cancel-bulk-job: fail after each applicable row/stage and verify entire operation rollback",
+        "PLANNED cancel-bulk-event: fail after each applicable row/stage and verify entire operation rollback",
+        "PLANNED duplicate active admission,stale draft/frozen input,expired or superseded worker,concurrent cancel/finish/retry/resume and crash after item claim/publication; no executed proof yet"
+      ],
+      "test_ids": [
+        "RFA-RF13-bulk_partial",
+        "RFA-RF13-publish_atomic",
+        "RFA-RF13-discard_handoff",
+        "RFA-RF13-format_paths"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "Bulk scheduling/execution bookkeeping; actual published game/variant/media protective edges belong to the separately registered approve-review owning transaction.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "libraryimport.finish-review-bulk",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "consumers": [
+        "(*retrom/internal/adapter/integration/libraryimport.Service).CreateReviewBulk",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).ResumeReviewBulkJobs",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).RetryReviewBulk",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).finishOrCancelReviewBulk",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).finishReviewBulk",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).runReviewBulkApproval",
+        "(*retrom/internal/transport/httpapi.Server).createReviewBulk",
+        "(*retrom/internal/transport/httpapi.Server).retryReviewBulk",
+        "retrom/cmd/retrom.execute",
+        "retrom/cmd/retrom.executeWithPasswordReader",
+        "retrom/cmd/retrom.main",
+        "retrom/cmd/retrom.run",
+        "retrom/internal/transport/httpapi.New"
+      ],
+      "snapshot": "retrom/internal/model/libraryimport.ReviewBulkWork",
+      "prepare": "(*retrom/internal/adapter/integration/libraryimport.Service).finishReviewBulk",
+      "commit": "(*retrom/internal/repo/libraryimport.ReviewBulkWorker).WithWorker",
+      "policy_symbols": [],
+      "fresh_facts": [
+        {
+          "name": "bulk Finish",
+          "reader_symbol": "(retrom/internal/repo/libraryimport.reviewBulkWorkerScope).Finish",
+          "reason": "Current item counts: PENDING/RUNNING must0; FAILED_FINAL count determines COMPLETED versus PARTIAL_FAILURE"
+        }
+      ],
+      "guards": [
+        {
+          "id": "finish-counts",
+          "fields": [
+            "pending",
+            "failed"
+          ],
+          "expected_source": "No pending/running; read errors collapsed to notRunnable. Then RUNNING aggregate+RUNNING matching-worker job",
+          "rejection": "ErrReviewBulkWorkerNotRunnable",
+          "test_id": "RFA-RF13-bulk_partial"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "finish-bulk",
+          "repo_helper": "(retrom/internal/repo/libraryimport.reviewBulkWorkerScope).Finish",
+          "affected_records": [
+            "UPDATE RUNNING aggregate COMPLETED or PARTIAL_FAILURE,completed/version+1/time; require1"
+          ],
+          "test_id": "RFA-RF13-bulk_partial"
+        },
+        {
+          "stage": "finish-bulk-job",
+          "repo_helper": "(retrom/internal/repo/libraryimport.reviewBulkWorkerScope).Finish",
+          "affected_records": [
+            "UPDATE RUNNING matching-worker job SUCCEEDED,finished,clearlease/worker,HB=now,version+1/time; require1"
+          ],
+          "test_id": "RFA-RF13-bulk_partial"
+        },
+        {
+          "stage": "finish-bulk-event",
+          "repo_helper": "(retrom/internal/repo/libraryimport.reviewBulkWorkerScope).Finish",
+          "affected_records": [
+            "INSERT SUCCEEDED event carrying aggregate terminal state"
+          ],
+          "test_id": "RFA-RF13-bulk_partial"
+        }
+      ],
+      "idempotency": "Baseline current state/worker predicates and item outcomes protect repeated progress; no domain receipt. Full execution-number/input/version/live lease/deadline fences are missing and remain required RF13/RF17 work.",
+      "time_rule": "Baseline shared writer BeginTx with upper callback (or Repo-owned orchestration); Service clock position specified below. Target Repo must acquire write permission then sample technical Clock once; prepared identities generated before writer. Legacy integration facade samples now BEFORE writer except cancellation/retry. BeginTx(nil),no Repo admission clock. Work values contain only bulk/job/worker/user IDs,not complete execution/lease/version facts; RF03/05/17 must extend authority.",
+      "after_commit": [
+        {
+          "action": "Returns terminal result; fallback caller attempts cancellation or failed-worker settlement when finish fails",
+          "recovery": "Mixed successful and failed items preserve every committed published game; task SUCCEEDED can accompany aggregate PARTIAL_FAILURE",
+          "test_id": "RFA-RF13-discard_handoff"
+        }
+      ],
+      "fault_points": [
+        "PLANNED finish-bulk: fail after each applicable row/stage and verify entire operation rollback",
+        "PLANNED finish-bulk-job: fail after each applicable row/stage and verify entire operation rollback",
+        "PLANNED finish-bulk-event: fail after each applicable row/stage and verify entire operation rollback",
+        "PLANNED duplicate active admission,stale draft/frozen input,expired or superseded worker,concurrent cancel/finish/retry/resume and crash after item claim/publication; no executed proof yet"
+      ],
+      "test_ids": [
+        "RFA-RF13-bulk_partial",
+        "RFA-RF13-publish_atomic",
+        "RFA-RF13-discard_handoff",
+        "RFA-RF13-format_paths"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "Bulk scheduling/execution bookkeeping; actual published game/variant/media protective edges belong to the separately registered approve-review owning transaction.",
         "digest_sources": [],
         "acquire_symbol": null,
         "release_symbol": null,
@@ -12600,6 +13518,203 @@
       }
     },
     {
+      "operation_id": "libraryimport.request-review-bulk-cancellation",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "consumers": [
+        "(*retrom/internal/adapter/integration/libraryimport.Service).CancelReviewBulk",
+        "(*retrom/internal/transport/httpapi.Server).cancelReviewBulk"
+      ],
+      "snapshot": "retrom/internal/model/libraryimport.ReviewBulkCancelTarget",
+      "prepare": "(*retrom/internal/adapter/integration/libraryimport.Service).CancelReviewBulk",
+      "commit": "(*retrom/internal/repo/libraryimport.ReviewBulkWorker).WithWorker",
+      "policy_symbols": [],
+      "fresh_facts": [
+        {
+          "name": "bulk LoadCancelTarget",
+          "reader_symbol": "(retrom/internal/repo/libraryimport.reviewBulkWorkerScope).LoadCancelTarget",
+          "reason": "Current bulkstate/version/jobID/jobstate; exact expected aggregateversion,onlyQUEUED|RUNNING; SQL errors collapsed notRunnable"
+        }
+      ],
+      "guards": [
+        {
+          "id": "cancel-reason",
+          "fields": [
+            "reason"
+          ],
+          "expected_source": "Trim nonempty<=500runes; no explicit UTF8/control check here",
+          "rejection": "ErrReviewBulkConflict",
+          "test_id": "RFA-RF13-bulk_partial"
+        },
+        {
+          "id": "cancel-authority",
+          "fields": [
+            "bulkVersion",
+            "bulkState",
+            "jobState"
+          ],
+          "expected_source": "Fresh aggregate exact requested version and cancellable state; UPDATE bulk exactid/version,job exactid/observedstate,each require1",
+          "rejection": "ErrReviewBulkWorkerNotRunnable mappedErrReviewBulkConflict",
+          "test_id": "RFA-RF13-bulk_partial"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "request-bulk-cancel",
+          "repo_helper": "(retrom/internal/repo/libraryimport.reviewBulkWorkerScope).RequestCancellation",
+          "affected_records": [
+            "UPDATE bulk CANCEL_REQUESTED/reason/requestTime/version+1/time"
+          ],
+          "test_id": "RFA-RF13-bulk_partial"
+        },
+        {
+          "stage": "request-bulk-job-cancel",
+          "repo_helper": "(retrom/internal/repo/libraryimport.reviewBulkWorkerScope).RequestCancellation",
+          "affected_records": [
+            "UPDATE job CANCEL_REQUESTED/reason/requestTime/version+1/time under exact observed state"
+          ],
+          "test_id": "RFA-RF13-bulk_partial"
+        },
+        {
+          "stage": "request-bulk-cancel-event",
+          "repo_helper": "(retrom/internal/repo/libraryimport.reviewBulkWorkerScope).RequestCancellation",
+          "affected_records": [
+            "INSERT CANCEL_REQUESTED event reason"
+          ],
+          "test_id": "RFA-RF13-bulk_partial"
+        }
+      ],
+      "idempotency": "Baseline current state/worker predicates and item outcomes protect repeated progress; no domain receipt. Full execution-number/input/version/live lease/deadline fences are missing and remain required RF13/RF17 work.",
+      "time_rule": "Baseline shared writer BeginTx with upper callback (or Repo-owned orchestration); Service clock position specified below. Target Repo must acquire write permission then sample technical Clock once; prepared identities generated before writer. Legacy integration facade samples now BEFORE writer except cancellation/retry. BeginTx(nil),no Repo admission clock. Work values contain only bulk/job/worker/user IDs,not complete execution/lease/version facts; RF03/05/17 must extend authority. Exception: samples Service now INSIDE writer after LoadCancelTarget.",
+      "after_commit": [
+        {
+          "action": "If originally QUEUED,then separate finalize-review-bulk-cancellation; otherwise cooperative worker observes flag; return separate GetReviewBulk",
+          "recovery": "Failure between request/finalize leaves resumable CANCEL_REQUESTED; read-only CancellationRequested transaction is not another mutation",
+          "test_id": "RFA-RF13-discard_handoff"
+        }
+      ],
+      "fault_points": [
+        "PLANNED request-bulk-cancel: fail after each applicable row/stage and verify entire operation rollback",
+        "PLANNED request-bulk-job-cancel: fail after each applicable row/stage and verify entire operation rollback",
+        "PLANNED request-bulk-cancel-event: fail after each applicable row/stage and verify entire operation rollback",
+        "PLANNED duplicate active admission,stale draft/frozen input,expired or superseded worker,concurrent cancel/finish/retry/resume and crash after item claim/publication; no executed proof yet"
+      ],
+      "test_ids": [
+        "RFA-RF13-bulk_partial",
+        "RFA-RF13-publish_atomic",
+        "RFA-RF13-discard_handoff",
+        "RFA-RF13-format_paths"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "Bulk scheduling/execution bookkeeping; actual published game/variant/media protective edges belong to the separately registered approve-review owning transaction.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "libraryimport.resume-review-bulk",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "consumers": [
+        "(*retrom/internal/adapter/integration/libraryimport.Service).ResumeReviewBulkJobs",
+        "retrom/cmd/retrom.execute",
+        "retrom/cmd/retrom.executeWithPasswordReader",
+        "retrom/cmd/retrom.main",
+        "retrom/cmd/retrom.run",
+        "retrom/internal/transport/httpapi.New"
+      ],
+      "snapshot": "retrom/internal/model/libraryimport.ReviewBulkResumableJob",
+      "prepare": "(*retrom/internal/adapter/integration/libraryimport.Service).ResumeReviewBulkJobs",
+      "commit": "(*retrom/internal/repo/libraryimport.ReviewBulkWorker).WithWorker",
+      "policy_symbols": [],
+      "fresh_facts": [
+        {
+          "name": "bulk Resume",
+          "reader_symbol": "(retrom/internal/repo/libraryimport.reviewBulkWorkerScope).Resume",
+          "reason": "Recovery directly updates ALL RUNNING bulk/items/jobs without first selecting complete authority or verifying expired leases"
+        },
+        {
+          "name": "bulk ListResumable",
+          "reader_symbol": "(retrom/internal/repo/libraryimport.reviewBulkWorkerScope).ListResumable",
+          "reason": "After reset current QUEUED/CANCEL_REQUESTED aggregate IDs orderedcreated/id; no pagination"
+        }
+      ],
+      "guards": [
+        {
+          "id": "resume-state",
+          "fields": [
+            "bulkState",
+            "itemState",
+            "jobKind",
+            "jobState"
+          ],
+          "expected_source": "State predicates only. Baseline resets even live workers; resets start/deadline budget but preserves attempts/executionNo/input",
+          "rejection": "No execution or lease freshness guard; any SQL failure rolls back all recovery writes",
+          "test_id": "RFA-RF13-bulk_partial"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "resume-bulk-items",
+          "repo_helper": "(retrom/internal/repo/libraryimport.reviewBulkWorkerScope).Resume",
+          "affected_records": [
+            "UPDATE all RUNNING items ofRUNNING aggregates ->PENDING/startedNULL"
+          ],
+          "test_id": "RFA-RF13-bulk_partial"
+        },
+        {
+          "stage": "resume-bulk-jobs",
+          "repo_helper": "(retrom/internal/repo/libraryimport.reviewBulkWorkerScope).Resume",
+          "affected_records": [
+            "UPDATE all REVIEW_BULK_APPROVE RUNNING jobs ->QUEUED,clearworker/start/deadline/lease/HB,available=now,version+1/time"
+          ],
+          "test_id": "RFA-RF13-bulk_partial"
+        },
+        {
+          "stage": "resume-bulk-aggregates",
+          "repo_helper": "(retrom/internal/repo/libraryimport.reviewBulkWorkerScope).Resume",
+          "affected_records": [
+            "UPDATE all RUNNING aggregates ->QUEUED,version+1/time; no event written"
+          ],
+          "test_id": "RFA-RF13-bulk_partial"
+        }
+      ],
+      "idempotency": "Baseline current state/worker predicates and item outcomes protect repeated progress; no domain receipt. Full execution-number/input/version/live lease/deadline fences are missing and remain required RF13/RF17 work.",
+      "time_rule": "Baseline shared writer BeginTx with upper callback (or Repo-owned orchestration); Service clock position specified below. Target Repo must acquire write permission then sample technical Clock once; prepared identities generated before writer. Legacy integration facade samples now BEFORE writer except cancellation/retry. BeginTx(nil),no Repo admission clock. Work values contain only bulk/job/worker/user IDs,not complete execution/lease/version facts; RF03/05/17 must extend authority.",
+      "after_commit": [
+        {
+          "action": "After commit finalize each CANCEL_REQUESTED; spawn untracked WithoutCancel goroutine per QUEUED aggregate; all errors silently ignored by wrapper",
+          "recovery": "Preserves PUBLISHED/other completed items and counts; must add live-owner guard plus bounded owned workers and error reporting before completion",
+          "test_id": "RFA-RF13-discard_handoff"
+        }
+      ],
+      "fault_points": [
+        "PLANNED resume-bulk-items: fail after each applicable row/stage and verify entire operation rollback",
+        "PLANNED resume-bulk-jobs: fail after each applicable row/stage and verify entire operation rollback",
+        "PLANNED resume-bulk-aggregates: fail after each applicable row/stage and verify entire operation rollback",
+        "PLANNED duplicate active admission,stale draft/frozen input,expired or superseded worker,concurrent cancel/finish/retry/resume and crash after item claim/publication; no executed proof yet"
+      ],
+      "test_ids": [
+        "RFA-RF13-bulk_partial",
+        "RFA-RF13-publish_atomic",
+        "RFA-RF13-discard_handoff",
+        "RFA-RF13-format_paths"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "Bulk scheduling/execution bookkeeping; actual published game/variant/media protective edges belong to the separately registered approve-review owning transaction.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
       "operation_id": "libraryimport.retry-import-item",
       "owner": "libraryimport",
       "rf_id": "RF13",
@@ -12710,6 +13825,112 @@
       "content_coordination": {
         "required": false,
         "reason": "Changes durable job/aggregate/admission bookkeeping only; no new Blob row or protective Blob FK and no physical CAS publication/deletion. Existing upload Blob references remain authoritative.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "libraryimport.retry-review-bulk",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "consumers": [
+        "(*retrom/internal/adapter/integration/libraryimport.Service).RetryReviewBulk",
+        "(*retrom/internal/transport/httpapi.Server).retryReviewBulk"
+      ],
+      "snapshot": "retrom/internal/model/libraryimport.ReviewBulkRetryTarget",
+      "prepare": "(*retrom/internal/adapter/integration/libraryimport.Service).RetryReviewBulk",
+      "commit": "(*retrom/internal/repo/libraryimport.ReviewBulkWorker).WithWorker",
+      "policy_symbols": [],
+      "fresh_facts": [
+        {
+          "name": "bulk LoadRetryTarget",
+          "reader_symbol": "(retrom/internal/repo/libraryimport.reviewBulkWorkerScope).LoadRetryTarget",
+          "reason": "Current FAILED bulk+FAILED job,exact expected aggregateversion,lastError WORKER_UNAVAILABLE and jobretryable1; payloadJSON/executionNo"
+        },
+        {
+          "name": "bulk Active",
+          "reader_symbol": "(retrom/internal/repo/libraryimport.reviewBulkWorkerScope).Active",
+          "reason": "Current any QUEUED/RUNNING/CANCEL_REQUESTED aggregate blocks retry; database uniqueactive invariant finalfence"
+        }
+      ],
+      "guards": [
+        {
+          "id": "retry-authority",
+          "fields": [
+            "bulkState",
+            "version",
+            "error",
+            "jobState",
+            "retryable",
+            "active"
+          ],
+          "expected_source": "FAILED pair/exactversion/WORKER_UNAVAILABLE/retryable1/no active bulk; baseline no executionNo overflow/inputdigest validation",
+          "rejection": "ErrReviewBulkConflict / ErrReviewBulkActive",
+          "test_id": "RFA-RF13-bulk_partial"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "retry-bulk",
+          "repo_helper": "(retrom/internal/repo/libraryimport.reviewBulkWorkerScope).QueueRetry",
+          "affected_records": [
+            "UPDATE aggregate exactid/version ->QUEUED,clearerror/completed,version+1/time; require1; existing per-item outcomes unchanged"
+          ],
+          "test_id": "RFA-RF13-bulk_partial"
+        },
+        {
+          "stage": "retry-bulk-job",
+          "repo_helper": "(retrom/internal/repo/libraryimport.reviewBulkWorkerScope).QueueRetry",
+          "affected_records": [
+            "UPDATE job byID QUEUED/executionNo+1/attempt0,available=now,clearstart/deadline/lease/HB/finished/worker/error,version+1/time; require1; no priorstate/version/exec SQLfence"
+          ],
+          "test_id": "RFA-RF13-bulk_partial"
+        },
+        {
+          "stage": "retry-bulk-input",
+          "repo_helper": "(retrom/internal/repo/libraryimport.reviewBulkWorkerScope).QueueRetry",
+          "affected_records": [
+            "INSERT current payloadJSON for new execution with SHA256 exact bytes/time"
+          ],
+          "test_id": "RFA-RF13-bulk_partial"
+        },
+        {
+          "stage": "retry-bulk-event",
+          "repo_helper": "(retrom/internal/repo/libraryimport.reviewBulkWorkerScope).QueueRetry",
+          "affected_records": [
+            "INSERT MANUAL_RETRY event executionNo"
+          ],
+          "test_id": "RFA-RF13-bulk_partial"
+        }
+      ],
+      "idempotency": "Baseline current state/worker predicates and item outcomes protect repeated progress; no domain receipt. Full execution-number/input/version/live lease/deadline fences are missing and remain required RF13/RF17 work.",
+      "time_rule": "Baseline shared writer BeginTx with upper callback (or Repo-owned orchestration); Service clock position specified below. Target Repo must acquire write permission then sample technical Clock once; prepared identities generated before writer. Legacy integration facade samples now BEFORE writer except cancellation/retry. BeginTx(nil),no Repo admission clock. Work values contain only bulk/job/worker/user IDs,not complete execution/lease/version facts; RF03/05/17 must extend authority. Exception: samples Service now INSIDE writer after target+active checks; pure payloadSHA generated by Repo; incrementexecution unchecked.",
+      "after_commit": [
+        {
+          "action": "After commit starts fresh worker goroutine WithoutCancel and returns separate summary; successful items retained",
+          "recovery": "Retry only worker-unavailable FAILED aggregate,not aggregate PARTIAL_FAILURE; current published games never replayed",
+          "test_id": "RFA-RF13-discard_handoff"
+        }
+      ],
+      "fault_points": [
+        "PLANNED retry-bulk: fail after each applicable row/stage and verify entire operation rollback",
+        "PLANNED retry-bulk-job: fail after each applicable row/stage and verify entire operation rollback",
+        "PLANNED retry-bulk-input: fail after each applicable row/stage and verify entire operation rollback",
+        "PLANNED retry-bulk-event: fail after each applicable row/stage and verify entire operation rollback",
+        "PLANNED duplicate active admission,stale draft/frozen input,expired or superseded worker,concurrent cancel/finish/retry/resume and crash after item claim/publication; no executed proof yet"
+      ],
+      "test_ids": [
+        "RFA-RF13-bulk_partial",
+        "RFA-RF13-publish_atomic",
+        "RFA-RF13-discard_handoff",
+        "RFA-RF13-format_paths"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "Bulk scheduling/execution bookkeeping; actual published game/variant/media protective edges belong to the separately registered approve-review owning transaction.",
         "digest_sources": [],
         "acquire_symbol": null,
         "release_symbol": null,
@@ -24282,6 +25503,7 @@
     "RF13 prepared creation wholetransaction source-reviewed:direct/queued/owned-source/reconfiguration branches,allgroups,archive/catalog/materializedartifacts,duplicates,BIOS/validation,draft/tags,RPG,metadata andpayloadjobs included. Allscope transactions remaincallback-based andmixed Model ContentDuplicates stillperformsrepository I/O. Detailed formatparser policycensus,reconfiguration preparation,review/attachment/source upload reservation mutations remainoutstanding.",
     "RF13 reconfiguration clone/cleanup andstandalone MetadataSeeder source-reviewed. Clone writer refreshesonlyparentstate/version,notfile/Blobfacts,andaddsprotectiveedgeswithoutD22. Cleanuphaslocalscalarcount(no namedfacts type)andcaller ignoresfailure; completecleanupvalues/errorreporting remainmigrationwork. Metadata SeedInScope mustbeincludedinRF14ownerhandoff writer.",
     "RF13 reviewdraftpatch/previewvalidationrefresh/coverupload source-reviewed. LoadPatchSnapshot isread-only transaction,notfakewriteoperation. Patchandpreview alreadyacceptvalueplans butRepo stillowns domainrules,usespreparedclocks andcopiesprotective validationfiles withoutD22; coverseparateasset+consumption leavesdraftversionunchanged. Fullapproval/discard/bulk/attachments/sourceuploads andformatpolicycensus pending.",
-    "RF13 approval,ordinary/source/batch discard,deduplication page and final discarded-batch release source-reviewed. Bulk publication is a nested write set of approve-review,not a second commit. Pending: bulk admission/worker/cancel/retry/recovery,arcade/multidisc attachments,source upload handoff,format policies. New game/variant/media refs require D22; baseline bulk publication can renew expired worker because live lease/execution fence is absent."
+    "RF13 approval,ordinary/source/batch discard,deduplication page and final discarded-batch release source-reviewed. Bulk publication is a nested write set of approve-review,not a second commit. Pending: bulk admission/worker/cancel/retry/recovery,arcade/multidisc attachments,source upload handoff,format policies. New game/variant/media refs require D22; baseline bulk publication can renew expired worker because live lease/execution fence is absent.",
+    "RF13 bulk admission plus10claim/item/outcome/finish/failure/cancel/retry/resume operations source-reviewed. Successful publication remains in approve-review owning transaction. Baseline misses complete execution authority and admission Clock,ignores settlement errors/UUID errors,uses untracked WithoutCancel goroutines,and startup resets live RUNNING jobs without expiry guard; RF13/RF17/RF02 must resolve. Attachment/source-handoff/format census still pending."
   ]
 }

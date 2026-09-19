@@ -2882,6 +2882,152 @@
       ]
     },
     {
+      "id": "libraryimport.legacy.normalizeReviewBulkScope",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/adapter/integration/libraryimport.normalizeReviewBulkScope",
+      "consumers": [
+        "(*retrom/internal/adapter/integration/libraryimport.Service).reviewBulkPreviewInTransaction",
+        "retrom/internal/adapter/integration/libraryimport.normalizeReviewDeduplicateRequest"
+      ],
+      "invariant": "Legacy facade normalizes scope but accepts parseable noncanonical UUIDs; unify with Model policy while preserving public validation contract.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-bulk_partial",
+        "RFA-RF13-approval_guard"
+      ]
+    },
+    {
+      "id": "libraryimport.legacy.nullStringsEqual",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/adapter/integration/libraryimport.nullStringsEqual",
+      "consumers": [
+        "retrom/internal/adapter/integration/libraryimport.preliminaryQuickApprovalReady"
+      ],
+      "invariant": "Nullable text equality; migrate to pure pointers/value optional type.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-bulk_partial",
+        "RFA-RF13-approval_guard"
+      ]
+    },
+    {
+      "id": "libraryimport.legacy.preliminaryQuickApprovalReady",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/adapter/integration/libraryimport.preliminaryQuickApprovalReady",
+      "consumers": [
+        "(*retrom/internal/adapter/integration/libraryimport.Service).classifyReviewBulkCandidates"
+      ],
+      "invariant": "Current artifact/READY validation,DAT/DOS equality,supported content and bounded trimmed nonempty title.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-bulk_partial",
+        "RFA-RF13-approval_guard"
+      ]
+    },
+    {
+      "id": "libraryimport.legacy.quickApprovalArtifactReady",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/adapter/integration/libraryimport.quickApprovalArtifactReady",
+      "consumers": [
+        "retrom/internal/adapter/integration/libraryimport.preliminaryQuickApprovalReady"
+      ],
+      "invariant": "Provider/target present and nonempty supported-content policy.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-bulk_partial",
+        "RFA-RF13-approval_guard"
+      ]
+    },
+    {
+      "id": "libraryimport.legacy.quickApprovalValidationCurrent",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/adapter/integration/libraryimport.quickApprovalValidationCurrent",
+      "consumers": [
+        "retrom/internal/adapter/integration/libraryimport.preliminaryQuickApprovalReady"
+      ],
+      "invariant": "Present validation ID and READY status; version freshness handled elsewhere,not this predicate.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-bulk_partial",
+        "RFA-RF13-approval_guard"
+      ]
+    },
+    {
+      "id": "libraryimport.legacy.reviewBulkManifestDigest",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/adapter/integration/libraryimport.reviewBulkManifestDigest",
+      "consumers": [
+        "(*retrom/internal/adapter/integration/libraryimport.Service).reviewBulkPreviewInTransaction"
+      ],
+      "invariant": "Order candidates by ID and hash item/version/validation/source with NUL separators and newline.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-bulk_partial",
+        "RFA-RF13-approval_guard"
+      ]
+    },
+    {
+      "id": "libraryimport.legacy.reviewBulkScopeDigest",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/adapter/integration/libraryimport.reviewBulkScopeDigest",
+      "consumers": [
+        "(*retrom/internal/adapter/integration/libraryimport.Service).CreateReviewBulk",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).reviewBulkPreviewInTransaction"
+      ],
+      "invariant": "Stable JSON SHA256 of already normalized scope.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-bulk_partial",
+        "RFA-RF13-approval_guard"
+      ]
+    },
+    {
+      "id": "libraryimport.legacy.validReviewBulkOutcome",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/adapter/integration/libraryimport.validReviewBulkOutcome",
+      "consumers": [
+        "(*retrom/internal/adapter/integration/libraryimport.Service).completeReviewBulkItem"
+      ],
+      "invariant": "Only four nonpublication terminal outcomes accepted by CompleteItem.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-bulk_partial",
+        "RFA-RF13-approval_guard"
+      ]
+    },
+    {
+      "id": "libraryimport.legacy.validateReviewBulkCreate",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/adapter/integration/libraryimport.validateReviewBulkCreate",
+      "consumers": [
+        "(*retrom/internal/adapter/integration/libraryimport.Service).CreateReviewBulk"
+      ],
+      "invariant": "No active bulk,matching preview digests,and1..10000 qualified candidates.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-bulk_partial",
+        "RFA-RF13-approval_guard"
+      ]
+    },
+    {
       "id": "libraryimport.metadataEvent",
       "owner": "libraryimport",
       "rf_id": "RF13",
