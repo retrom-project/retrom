@@ -277,9 +277,13 @@ FROM review_bulk_approvals bulk`
 func (repository *ReviewBulkQueries) Summary(
 	ctx context.Context, bulkID string,
 ) (application.ReviewBulkSummary, error) {
-	return scanReviewBulkSummary(repository.executor.QueryRowContext(
+	result, err := scanReviewBulkSummary(repository.executor.QueryRowContext(
 		ctx, reviewBulkSummarySelect+" WHERE bulk.id=?", bulkID,
 	))
+	if errors.Is(err, sql.ErrNoRows) {
+		return application.ReviewBulkSummary{}, application.ErrBulkNotFound
+	}
+	return result, err
 }
 
 func (repository *ReviewBulkQueries) ActiveSummary(

@@ -2,7 +2,6 @@ package httpapi
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"net/http"
 
@@ -198,7 +197,7 @@ func (server *Server) writeFormatImportError(
 	status := http.StatusConflict
 	var code, message string
 	switch {
-	case errors.Is(err, notFound), errors.Is(err, sql.ErrNoRows):
+	case errors.Is(err, notFound):
 		status, code, message = http.StatusNotFound, "RESOURCE_NOT_FOUND", "请求的资源不存在"
 	case errors.Is(err, serversource.ErrRootIDInvalid):
 		status, code, message = http.StatusBadRequest, "SERVER_IMPORT_ROOT_ID_INVALID", "服务器位置标识无效"

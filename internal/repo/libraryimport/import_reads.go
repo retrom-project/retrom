@@ -3,6 +3,7 @@ package libraryimport
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"path"
 
@@ -274,6 +275,9 @@ func (repository *ImportReads) Detail(
 		&result.CreatedAtMS,
 		&result.UpdatedAtMS,
 	)
+	if errors.Is(err, sql.ErrNoRows) {
+		return application.ImportDetail{}, application.ErrImportReadNotFound
+	}
 	if err != nil {
 		return application.ImportDetail{}, fmt.Errorf("query import detail: %w", err)
 	}
@@ -613,6 +617,9 @@ AND event_type IN ('APPROVED',
 		&reason,
 		&result.CreatedAtMS,
 	)
+	if errors.Is(err, sql.ErrNoRows) {
+		return application.ReviewHistoryEvent{}, application.ErrImportReadNotFound
+	}
 	if err != nil {
 		return application.ReviewHistoryEvent{}, fmt.Errorf("query review history event: %w", err)
 	}

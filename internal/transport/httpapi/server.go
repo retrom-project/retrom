@@ -54,6 +54,7 @@ import (
 	biosservice "retrom/internal/service/bios"
 	catalogservice "retrom/internal/service/catalog"
 	diagnosticsservice "retrom/internal/service/diagnostics"
+	gamemoveservice "retrom/internal/service/gamemove"
 	"retrom/internal/service/emulationstationimport"
 	"retrom/internal/service/favorites"
 	gameassetsservice "retrom/internal/service/gameassets"
@@ -109,8 +110,8 @@ const requestIDKey contextKey = "request-id"
 
 type Server struct {
 	config                  config.Config
-	database                *sql.DB
-	readinessDatabase       *sql.DB
+	database                *sql.DB // retained for test fixture setup; not used in production handlers
+	readinessDatabase       *sql.DB // retained for test fixture setup; not used in production handlers
 	readinessService        *readinessservice.Service
 	startupReadinessMu      sync.Mutex
 	startupReady            atomic.Bool
@@ -164,6 +165,8 @@ type Server struct {
 	netplay                 *netplayservice.Service
 	diagnosticsService      *diagnosticsservice.Service
 	idempotencyService      *idempotencyservice.Service
+	gameMoveService         *gamemoveservice.Service
+	importReadService       *libraryimportservice.ImportReads
 	netplayHub              *netplay.Hub
 	netplayObserversMu      sync.Mutex
 	netplayObservers        map[string]int
@@ -208,10 +211,7 @@ func (server *Server) WithReadinessDatabase(database *sql.DB) *Server {
 }
 
 func (server *Server) idempotencyRecords() *idempotencyservice.Service {
-	if server.idempotencyService != nil {
-		return server.idempotencyService
-	}
-	return idempotencyservice.New(idempotencypersistence.New(server.database))
+	return server.idempotencyService
 }
 
 type Authenticator interface {
@@ -311,6 +311,8 @@ func New(
 		sseHeartbeat:       15 * time.Second,
 		netplayObservers:   make(map[string]int),
 		idempotencyService: idempotencyservice.New(idempotencypersistence.New(database)),
+		gameMoveService:    composition.NewGameMove(database),
+		importReadService:  librarycomposition.NewImportReads(database),
 		runtimeProvider:    http.NotFoundHandler(),
 	}
 	server.reviewQueue = composition.NewLibraryReviewQueue(database, server.tagService)

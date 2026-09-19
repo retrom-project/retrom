@@ -1,7 +1,6 @@
 package httpapi
 
 import (
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -11,9 +10,8 @@ import (
 	"unicode/utf8"
 
 	"retrom/internal/capability/security/authn"
-	platforminstanceservice "retrom/internal/service/platforminstance"
-
 	platforminstancemodel "retrom/internal/model/platforminstance"
+	platforminstanceservice "retrom/internal/service/platforminstance"
 
 	"github.com/google/uuid"
 )
@@ -183,7 +181,7 @@ func (server *Server) applyPlatformInstanceRecommendations(writer http.ResponseW
 
 func (server *Server) platformInstance(writer http.ResponseWriter, request *http.Request) {
 	item, err := server.readPlatformInstance(request, request.PathValue("platformInstanceId"))
-	if errors.Is(err, sql.ErrNoRows) {
+	if errors.Is(err, platforminstancemodel.ErrNotFound) {
 		writeError(writer, request, http.StatusNotFound, "PLATFORM_INSTANCE_NOT_FOUND", "平台目录不存在", map[string]any{})
 		return
 	}
@@ -203,7 +201,7 @@ func (server *Server) platformInstance(writer http.ResponseWriter, request *http
 func (server *Server) readPlatformInstance(request *http.Request, id string) (map[string]any, error) {
 	instance, err := server.platformDirectories.Read(request.Context(), id, server.config.MultiDiscImportEnabled)
 	if errors.Is(err, platforminstancemodel.ErrNotFound) {
-		return nil, sql.ErrNoRows
+		return nil, platforminstancemodel.ErrNotFound
 	}
 	if err != nil {
 		return nil, fmt.Errorf("read platform instance: %w", err)

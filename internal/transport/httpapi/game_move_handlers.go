@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"net/http"
 
-	"retrom/internal/bootstrap/composition"
 	"retrom/internal/capability/security/authn"
 	gamemove "retrom/internal/model/gamemove"
 )
@@ -23,7 +22,7 @@ func (server *Server) calculateMoveImpact(
 	targetID string,
 	expected int64,
 ) (gameMoveImpact, error) {
-	impact, err := composition.NewGameMove(server.database).Preview(request.Context(), gamemove.PreviewRequest{
+	impact, err := server.gameMoveService.Preview(request.Context(), gamemove.PreviewRequest{
 		GameID:                   request.PathValue("gameId"),
 		TargetPlatformInstanceID: targetID,
 		ExpectedVersion:          expected,
@@ -125,7 +124,7 @@ func (server *Server) resumeMoveValidationAfterIdempotency(ctx context.Context, 
 		// very small validation can become READY.
 		server.waitForQueuedIdempotentRequests()
 		server.idempotency.Lock()
-		state, err := composition.NewGameMove(server.database).QueuedJobState(ctx, jobID)
+		state, err := server.gameMoveService.QueuedJobState(ctx, jobID)
 		server.idempotency.Unlock()
 		if err == nil && state == "QUEUED" {
 			server.launcher.ResumeValidationJob(ctx, jobID)
@@ -179,7 +178,7 @@ func (server *Server) moveGame(writer http.ResponseWriter, request *http.Request
 	now := server.now().UnixMilli()
 	actor := authn.ActorFromContext(request.Context(), "release-setup")
 	requestID, _ := request.Context().Value(requestIDKey).(string)
-	result, err := composition.NewGameMove(server.database).Move(request.Context(), gamemove.MoveRequest{
+	result, err := server.gameMoveService.Move(request.Context(), gamemove.MoveRequest{
 		GameID:                   request.PathValue("gameId"),
 		TargetPlatformInstanceID: body.TargetPlatformInstanceID,
 		ExpectedVersion:          expected,
@@ -259,7 +258,7 @@ func (server *Server) scrapeGame(writer http.ResponseWriter, request *http.Reque
 
 // Cursor validation and the candidate/evidence projection form one stable response contract.
 func (server *Server) gameScrapeCandidates(writer http.ResponseWriter, request *http.Request) {
-	result, err := composition.NewGameMove(server.database).ScrapeCandidates(
+	result, err := server.gameMoveService.ScrapeCandidates(
 		request.Context(), request.PathValue("gameId"),
 	)
 	if err != nil {
