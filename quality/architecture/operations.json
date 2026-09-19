@@ -4489,6 +4489,2063 @@
       }
     },
     {
+      "operation_id": "isolation.consume-ticket",
+      "owner": "isolation",
+      "rf_id": "RF10",
+      "consumers": [
+        "(*retrom/internal/service/isolation.Service).ConsumeTicket",
+        "(*retrom/internal/transport/httpapi.Server).Handler",
+        "(*retrom/internal/transport/httpapi.Server).routeByRuntimeHost",
+        "(*retrom/internal/transport/httpapi.Server).rpgBootstrapConsume",
+        "(*retrom/internal/transport/httpapi.Server).serveRPGRuntimeHost",
+        "(*retrom/internal/transport/httpapi.Server).serveRPGRuntimePost",
+        "(*retrom/internal/transport/httpapi.Server).serveRPGRuntimeRoute",
+        "(*retrom/internal/transport/httpapi.Server).tyranoScriptBootstrapConsume",
+        "retrom/cmd/retrom.execute",
+        "retrom/cmd/retrom.executeWithPasswordReader",
+        "retrom/cmd/retrom.main",
+        "retrom/cmd/retrom.run",
+        "retrom/cmd/retrom.serveHTTP"
+      ],
+      "snapshot": "retrom/internal/model/isolation.TicketQuery",
+      "prepare": "(*retrom/internal/service/isolation.Service).ConsumeTicket",
+      "commit": "(*retrom/internal/repo/isolation.Repository).WithWrite",
+      "policy_symbols": [
+        "retrom/internal/service/isolation.credentialDigest",
+        "retrom/internal/service/isolation.activeSession"
+      ],
+      "fresh_facts": [
+        {
+          "name": "matching bootstrap ticket/session",
+          "reader_symbol": "(retrom/internal/repo/isolation.tickets).Bootstrap",
+          "reason": "Writer selects coalesced launch/preview ID,exact origin,decoded ticket digest; ticket consumed/expiry and session state/hard expiry/content format/profile"
+        }
+      ],
+      "guards": [
+        {
+          "id": "ticket-encoding",
+          "fields": [
+            "ticket"
+          ],
+          "expected_source": "Canonical unpadded base64url of exactly32 bytes; SHA256 identity",
+          "rejection": "ErrCredential",
+          "test_id": "RFA-RF10-launch_authority"
+        },
+        {
+          "id": "ticket-current-authority",
+          "fields": [
+            "ticketDigest",
+            "origin",
+            "consumedAt",
+            "ticketExpiry",
+            "sessionState",
+            "hardExpiry",
+            "contentFormat"
+          ],
+          "expected_source": "Exact ticket and origin,unconsumed,expiry>sampled now,ACTIVE unexpired RPG_MAKER_PROJECT or TYRANOSCRIPT_PROJECT session",
+          "rejection": "ErrCredential",
+          "test_id": "RFA-RF10-launch_expiry"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "consume-bootstrap",
+          "repo_helper": "(retrom/internal/repo/isolation.tickets).Consume",
+          "affected_records": [
+            "UPDATE isolated_runtime_bootstrap_tickets consumed_at=now WHERE exact ID/origin/hash,not consumed,expiry>now; exactly one row"
+          ],
+          "test_id": "RFA-RF10-launch_atomic"
+        },
+        {
+          "stage": "issue-isolated-capability",
+          "repo_helper": "(retrom/internal/repo/isolation.tickets).Issue",
+          "affected_records": [
+            "INSERT isolated_runtime_capabilities pre-generated credential digest,one of launch/preview ID,profile,expected origin,issued now,expiry frozen session hard end,revokedNULL"
+          ],
+          "test_id": "RFA-RF10-launch_atomic"
+        }
+      ],
+      "idempotency": "Single-use ticket: repeated consumption rejected; issued secret returned only after both SQL writes commit. Digest and secret are never copied to evidence.",
+      "time_rule": "Baseline generates 32 random capability bytes and samples service.now before BeginTx(ctx,nil). A wait for write access can make ticket/session expire before commit; RF10 requires one fresh writer Clock sample.",
+      "after_commit": [],
+      "fault_points": [
+        "PLANNED consume-bootstrap: inject storage failure after this SQL stage; require exact rollback of every affected row and reference",
+        "PLANNED issue-isolated-capability: inject storage failure after this SQL stage; require exact rollback of every affected row and reference",
+        "PLANNED each Guard: mutate that current fact after preparation and before write permission; assert stable rejection and no changed records",
+        "PLANNED commit/cancel/replay/recovery boundary with preserved original error causes and exact persisted state"
+      ],
+      "test_ids": [
+        "RFA-RF10-launch_authority",
+        "RFA-RF10-launch_atomic",
+        "RFA-RF10-launch_expiry"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "Does not publish CAS bytes or add Blob protection references.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "isolation.revoke-isolated-capability",
+      "owner": "isolation",
+      "rf_id": "RF10",
+      "consumers": [
+        "(*retrom/internal/service/isolation.Service).Revoke",
+        "(*retrom/internal/transport/httpapi.Server).Handler",
+        "(*retrom/internal/transport/httpapi.Server).routeByRuntimeHost",
+        "(*retrom/internal/transport/httpapi.Server).rpgRuntimeCleanup",
+        "(*retrom/internal/transport/httpapi.Server).serveRPGRuntimeHost",
+        "(*retrom/internal/transport/httpapi.Server).serveRPGRuntimePost",
+        "(*retrom/internal/transport/httpapi.Server).serveRPGRuntimeRoute",
+        "retrom/cmd/retrom.execute",
+        "retrom/cmd/retrom.executeWithPasswordReader",
+        "retrom/cmd/retrom.main",
+        "retrom/cmd/retrom.run",
+        "retrom/cmd/retrom.serveHTTP"
+      ],
+      "snapshot": "retrom/internal/model/isolation.Access",
+      "prepare": "(*retrom/internal/service/isolation.Service).Revoke",
+      "commit": "(*retrom/internal/repo/isolation.Repository).Revoke",
+      "policy_symbols": [],
+      "fresh_facts": [
+        {
+          "name": "unrevoked matching capabilities",
+          "reader_symbol": "(*retrom/internal/repo/isolation.Repository).Revoke",
+          "reason": "No pre-read in Repo; conditional SQL matches coalesced session ID/origin and unrevoked rows. Transport authenticates request before invoking Revoke"
+        }
+      ],
+      "guards": [
+        {
+          "id": "isolation-revoke-scope",
+          "fields": [
+            "launchOrPreviewId",
+            "origin",
+            "revokedAt",
+            "affectedRows"
+          ],
+          "expected_source": "Update matching unrevoked capabilities; require exactly one affected row. Baseline check occurs after recordstore.Atomic(*sql.DB) commit, which must be accounted for when testing multiple capabilities",
+          "rejection": "ErrCredential",
+          "test_id": "RFA-RF10-launch_authority"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "isolated-revoke",
+          "repo_helper": "(*retrom/internal/repo/isolation.Repository).Revoke",
+          "affected_records": [
+            "recordstore.UpdateIsolatedRuntimeCapabilities executes own atomic transaction: set revoked_at_ms to caller now for exact session/origin/unrevoked rows"
+          ],
+          "test_id": "RFA-RF10-launch_atomic"
+        }
+      ],
+      "idempotency": "No receipt. A repeat with no unrevoked row returns ErrCredential; transport cleanup maps authentication/revoke failure to not-found and clears cookie/storage only on success.",
+      "time_rule": "Baseline service.now sampled before Repo; recordstore.Atomic(*sql.DB) then BeginTx(ctx,nil)/savepoint performs UPDATE. Repo checks affected count after helper returns.",
+      "after_commit": [],
+      "fault_points": [
+        "PLANNED isolated-revoke: inject storage failure after this SQL stage; require exact rollback of every affected row and reference",
+        "PLANNED each Guard: mutate that current fact after preparation and before write permission; assert stable rejection and no changed records",
+        "PLANNED commit/cancel/replay/recovery boundary with preserved original error causes and exact persisted state"
+      ],
+      "test_ids": [
+        "RFA-RF10-launch_authority",
+        "RFA-RF10-launch_atomic",
+        "RFA-RF10-launch_expiry"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "Does not publish CAS bytes or add Blob protection references.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "launch.activate-config",
+      "owner": "launch",
+      "rf_id": "RF10",
+      "consumers": [
+        "(*retrom/internal/service/launch.ConfigIssuer).Issue",
+        "(*retrom/internal/service/launch.Service).Config",
+        "(*retrom/internal/service/launch.Service).ReviewPreviewConfig",
+        "(*retrom/internal/transport/httpapi.Server).launchConfig"
+      ],
+      "snapshot": "retrom/internal/model/launch.ConfigSnapshot",
+      "prepare": "(*retrom/internal/service/launch.ConfigIssuer).Issue",
+      "commit": "(*retrom/internal/repo/launch.Config).WithActivation",
+      "policy_symbols": [
+        "retrom/internal/service/launch.validConfigLifetime",
+        "retrom/internal/service/launch.validConfigRevision",
+        "retrom/internal/service/launch.sameConfigInput",
+        "retrom/internal/service/launch.validIsolationGrant"
+      ],
+      "fresh_facts": [
+        {
+          "name": "configuration authority",
+          "reader_symbol": "(retrom/internal/repo/launch.configRecords).Current",
+          "reason": "Inside writer reread source purpose/credential/state/version/hard/bootstrap/idle, immutable provider/content/save identity, restore binding and isolation grants"
+        }
+      ],
+      "guards": [
+        {
+          "id": "config-capability-lifetime",
+          "fields": [
+            "purpose",
+            "credentialHash",
+            "state",
+            "version",
+            "bootstrapEnd",
+            "hardEnd",
+            "idleEnd"
+          ],
+          "expected_source": "Injected capability matcher; requested product/preview purpose; version>=1; hard future; CREATED bootstrap future or ACTIVE unexpired optional idle",
+          "rejection": "ErrCredential",
+          "test_id": "RFA-RF10-launch_expiry"
+        },
+        {
+          "id": "config-input-revision",
+          "fields": [
+            "ConfigAuthority.Source",
+            "Restore",
+            "state",
+            "version"
+          ],
+          "expected_source": "Exact same source except state/version/idle, same restore; ACTIVE stays ACTIVE with nondecreasing version, CREATED same version or progressed ACTIVE with larger version",
+          "rejection": "ErrCredential",
+          "test_id": "RFA-RF10-launch_authority"
+        },
+        {
+          "id": "config-isolation",
+          "fields": [
+            "ticket.hash",
+            "ticket.origin",
+            "grant.expiresAt"
+          ],
+          "expected_source": "For isolated delivery at least one same-origin unexpired grant whose optional stored ticket hash matches; existing signed ticket time is not extended",
+          "rejection": "ErrBlocked",
+          "test_id": "RFA-RF10-launch_expiry"
+        },
+        {
+          "id": "config-activation-version",
+          "fields": [
+            "state",
+            "version"
+          ],
+          "expected_source": "ACTIVE is no-op; otherwise writable non-MaxInt64 version and conditional CREATED state/deadlines",
+          "rejection": "ErrCredential",
+          "test_id": "RFA-RF10-launch_authority"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "config-state",
+          "repo_helper": "(retrom/internal/repo/launch.configRecords).Activate",
+          "affected_records": [
+            "UPDATE matching launch_sessions OR review_preview_sessions CREATED/version/bootstrap>now/hard>now to ACTIVE,activated_at_ms,time,version+1; exactly one row"
+          ],
+          "test_id": "RFA-RF10-launch_atomic"
+        },
+        {
+          "stage": "config-product-retirement",
+          "repo_helper": "retrom/internal/repo/sessionstore.updateLaunchRelations",
+          "affected_records": [
+            "launch_payload_retirements: UPDATE due_at_ms from exact current state/deadlines for unreleased launch"
+          ],
+          "test_id": "RFA-RF10-launch_atomic"
+        },
+        {
+          "stage": "config-product-capability",
+          "repo_helper": "retrom/internal/repo/sessionstore.updateLaunchRelations",
+          "affected_records": [
+            "isolated_runtime_capabilities: set revoked_at_ms=launch.finished_at_ms only for matching terminal FINISHED/EXPIRED/REVOKED launch and currently unrevoked capability"
+          ],
+          "test_id": "RFA-RF10-launch_atomic"
+        },
+        {
+          "stage": "config-product-save-binding",
+          "repo_helper": "retrom/internal/repo/sessionstore.updateLaunchRelations",
+          "affected_records": [
+            "launch_game_save_bindings: clear restore_payload_blob_id/restore_checkpoint_format only when matching launch state is neither CREATED nor ACTIVE"
+          ],
+          "test_id": "RFA-RF10-launch_atomic"
+        },
+        {
+          "stage": "config-preview-capability",
+          "repo_helper": "retrom/internal/repo/sessionstore.revokePreviewCapability",
+          "affected_records": [
+            "Preview nested helper attempts capability revocation only for terminal state, so activation has no matching terminal row"
+          ],
+          "test_id": "RFA-RF10-launch_atomic"
+        }
+      ],
+      "idempotency": "No HTTP receipt is stored by this operation; preserve the conditional transition and conflict classification described below.",
+      "time_rule": "Baseline BeginTx(ctx,nil) on the shared single-writer handle. Service samples time inside the business callback after reads; target must acquire SQLite write permission before one Repo technical Clock sample. Provider envelope/signing/blob preparation occurs outside writer, authorization callback also runs inside read-only Load; final credential matching currently invokes environment callback in writer.",
+      "after_commit": [],
+      "fault_points": [
+        "PLANNED config-state: inject storage failure after this SQL stage; require exact rollback of every affected row and reference",
+        "PLANNED config-product-retirement: inject storage failure after this SQL stage; require exact rollback of every affected row and reference",
+        "PLANNED config-product-capability: inject storage failure after this SQL stage; require exact rollback of every affected row and reference",
+        "PLANNED config-product-save-binding: inject storage failure after this SQL stage; require exact rollback of every affected row and reference",
+        "PLANNED config-preview-capability: inject storage failure after this SQL stage; require exact rollback of every affected row and reference",
+        "PLANNED each Guard: mutate that current fact after preparation and before write permission; assert stable rejection and no changed records",
+        "PLANNED commit/cancel/replay/recovery boundary with preserved original error causes and exact persisted state"
+      ],
+      "test_ids": [
+        "RFA-RF10-launch_authority",
+        "RFA-RF10-launch_atomic",
+        "RFA-RF10-launch_expiry"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "Does not publish CAS bytes or add Blob protection references.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "launch.capture-screenshot",
+      "owner": "launch",
+      "rf_id": "RF10",
+      "consumers": [
+        "(*retrom/internal/service/launch.ScreenshotSaver).Store",
+        "(*retrom/internal/service/launch.Service).StoreReviewScreenshot",
+        "(*retrom/internal/transport/httpapi.Server).storeReviewScreenshot"
+      ],
+      "snapshot": "retrom/internal/model/launch.ScreenshotSource",
+      "prepare": "(*retrom/internal/service/launch.ScreenshotSaver).Store",
+      "commit": "(*retrom/internal/repo/launch.Screenshots).WithScreenshot",
+      "policy_symbols": [
+        "retrom/internal/service/launch.validScreenshotImage"
+      ],
+      "fresh_facts": [
+        {
+          "name": "current review evidence",
+          "reader_symbol": "(retrom/internal/repo/launch.screenshotRecords).Current",
+          "reason": "Writer rereads preview and exact current REVIEW_PENDING/RETAINED item, draft source/target,enabled directory, latest matching validation for provider/target; compare entire ScreenshotSource"
+        }
+      ],
+      "guards": [
+        {
+          "id": "screenshot-authority",
+          "fields": [
+            "previewId",
+            "state",
+            "hardExpiry",
+            "credentialHash",
+            "sourceSnapshotId",
+            "platformInstanceId",
+            "validationId"
+          ],
+          "expected_source": "Pre-read and final source ACTIVE/unexpired with capability match, nonnegative now, exact before/current; latest validation/directory/item guards",
+          "rejection": "ErrCredential",
+          "test_id": "RFA-RF10-launch_expiry"
+        },
+        {
+          "id": "screenshot-image",
+          "fields": [
+            "sizeBytes",
+            "width",
+            "height",
+            "mediaType"
+          ],
+          "expected_source": "Adapter bounded stage/hash/image validation and CAS publication before writer; positive size <=MaxImageBytes,pixel area<=MaxImagePixels,PNG/JPEG",
+          "rejection": "ErrReviewScreenshotInvalid",
+          "test_id": "RFA-RF10-launch_authority"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "screenshot-blob",
+          "repo_helper": "retrom/internal/repo/blobcatalog.EnsureRecord",
+          "affected_records": [
+            "Ensure blobs metadata for verified SHA256/MD5/SHA1/CRC32/size/media; canonical stable id reuses existing digest"
+          ],
+          "test_id": "RFA-RF10-launch_atomic"
+        },
+        {
+          "stage": "screenshot-prior-validation",
+          "repo_helper": "(retrom/internal/repo/launch.screenshotRecords).Replace",
+          "affected_records": [
+            "DELETE review_runtime_screenshots of same import_item with a different validation_id"
+          ],
+          "test_id": "RFA-RF10-launch_atomic"
+        },
+        {
+          "stage": "screenshot-upsert",
+          "repo_helper": "(retrom/internal/repo/launch.screenshotRecords).Replace",
+          "affected_records": [
+            "INSERT/ON CONFLICT(item,validation) UPDATE screenshot ID,preview/source/provider/target/blob/media/dimensions/captured/time; existing created_at_ms preserved"
+          ],
+          "test_id": "RFA-RF10-launch_atomic"
+        }
+      ],
+      "idempotency": "No HTTP receipt is stored by this operation; preserve the conditional transition and conflict classification described below.",
+      "time_rule": "Baseline BeginTx(ctx,nil) on the shared single-writer handle. Service samples time inside the business callback after reads; target must acquire SQLite write permission before one Repo technical Clock sample. Image IO/CAS publication outside writer; screenshot UUID checked/generated inside callback. Baseline replacement adds no explicit GC job for dropped screenshot blobs.",
+      "after_commit": [],
+      "fault_points": [
+        "PLANNED screenshot-blob: inject storage failure after this SQL stage; require exact rollback of every affected row and reference",
+        "PLANNED screenshot-prior-validation: inject storage failure after this SQL stage; require exact rollback of every affected row and reference",
+        "PLANNED screenshot-upsert: inject storage failure after this SQL stage; require exact rollback of every affected row and reference",
+        "PLANNED each Guard: mutate that current fact after preparation and before write permission; assert stable rejection and no changed records",
+        "PLANNED commit/cancel/replay/recovery boundary with preserved original error causes and exact persisted state"
+      ],
+      "test_ids": [
+        "RFA-RF10-launch_authority",
+        "RFA-RF10-launch_atomic",
+        "RFA-RF10-launch_expiry"
+      ],
+      "content_coordination": {
+        "required": true,
+        "reason": "Adds or replaces Blob protection references. Baseline has no shared process-safe digest lock; acquire/release implementation and race evidence remain pending.",
+        "digest_sources": [
+          "Verified ScreenshotImage.SHA256"
+        ],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": "(*retrom/internal/repo/launch.Screenshots).WithScreenshot",
+        "test_ids": [
+          "RFA-RF18-gc_new_reference",
+          "RFA-RF18-digest_lock_process"
+        ]
+      }
+    },
+    {
+      "operation_id": "launch.claim-validation",
+      "owner": "launch",
+      "rf_id": "RF10",
+      "consumers": [
+        "(*retrom/internal/service/launch.ValidationWorker).Run",
+        "(*retrom/internal/service/launch.ValidationWorker).claim"
+      ],
+      "snapshot": "retrom/internal/model/launch.ValidationWork",
+      "prepare": "(*retrom/internal/service/launch.ValidationWorker).claim",
+      "commit": "(*retrom/internal/repo/launch.ValidationWorker).WithWorker",
+      "policy_symbols": [
+        "retrom/internal/service/launch.validationExhausted"
+      ],
+      "fresh_facts": [
+        {
+          "name": "claim candidate",
+          "reader_symbol": "(retrom/internal/repo/launch.validationWorkerRecords).Read",
+          "reason": "Writer reads exact job kind/state/version/execution/attempt/max/availability/deadline/lease and frozen input identity"
+        }
+      ],
+      "guards": [
+        {
+          "id": "validation-claimable",
+          "fields": [
+            "kind",
+            "state",
+            "availableAt",
+            "attempt",
+            "maxAttempts",
+            "deadline"
+          ],
+          "expected_source": "Missing/non-VARIANT_VALIDATE/nonQUEUED/future availability are no-op; exhausted attempt/deadline settles FAILED; otherwise acquire current conditional owner",
+          "rejection": "No claim or terminal failure",
+          "test_id": "RFA-RF10-late_validation"
+        },
+        {
+          "id": "validation-claim-time",
+          "fields": [
+            "version",
+            "nowMS",
+            "workerId"
+          ],
+          "expected_source": "Non-MaxInt64 version,nonnegative nonoverflow budget time,canonical UUIDv7 worker; preserve prior execution started/deadline if present",
+          "rejection": "ErrValidationInput",
+          "test_id": "RFA-RF10-launch_expiry"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "validation-claim",
+          "repo_helper": "(retrom/internal/repo/launch.validationWorkerRecords).Claim",
+          "affected_records": [
+            "UPDATE jobs id/kind/QUEUED/version/execution/attempt/available<=now/attempt<max to RUNNING,attempt+1,start/deadline,lease=min(now+60s,deadline),heartbeat,worker,version+1,time"
+          ],
+          "test_id": "RFA-RF10-launch_atomic"
+        },
+        {
+          "stage": "validation-start-event",
+          "repo_helper": "(retrom/internal/repo/launch.validationWorkerRecords).event",
+          "affected_records": [
+            "INSERT job_events current scope STARTED {}"
+          ],
+          "test_id": "RFA-RF10-launch_atomic"
+        },
+        {
+          "stage": "validation-exhausted",
+          "repo_helper": "(retrom/internal/repo/launch.validationWorkerRecords).expire",
+          "affected_records": [
+            "Alternate exhausted branch: CAS job id/kind/state/version/execution -> FAILED,error LAUNCH_CORE_VALIDATION_UNAVAILABLE,retryable1,finished now,leaseNULL,version+1,time"
+          ],
+          "test_id": "RFA-RF10-launch_atomic"
+        },
+        {
+          "stage": "validation-exhausted-event",
+          "repo_helper": "(retrom/internal/repo/launch.validationWorkerRecords).terminalEvent",
+          "affected_records": [
+            "Alternate exhausted branch INSERT FAILED event with code and no evaluated gameVariantId"
+          ],
+          "test_id": "RFA-RF10-launch_atomic"
+        }
+      ],
+      "idempotency": "No HTTP receipt is stored by this operation; preserve the conditional transition and conflict classification described below.",
+      "time_rule": "Baseline BeginTx(ctx,nil) on the shared single-writer handle. Service samples time inside the business callback after reads; target must acquire SQLite write permission before one Repo technical Clock sample. Worker UUID currently generated after read/time inside callback; job budget is 30 minutes (validationBudget in validation_worker_types.go), lease60s capped by deadline.",
+      "after_commit": [],
+      "fault_points": [
+        "PLANNED validation-claim: inject storage failure after this SQL stage; require exact rollback of every affected row and reference",
+        "PLANNED validation-start-event: inject storage failure after this SQL stage; require exact rollback of every affected row and reference",
+        "PLANNED validation-exhausted: inject storage failure after this SQL stage; require exact rollback of every affected row and reference",
+        "PLANNED validation-exhausted-event: inject storage failure after this SQL stage; require exact rollback of every affected row and reference",
+        "PLANNED each Guard: mutate that current fact after preparation and before write permission; assert stable rejection and no changed records",
+        "PLANNED commit/cancel/replay/recovery boundary with preserved original error causes and exact persisted state"
+      ],
+      "test_ids": [
+        "RFA-RF10-launch_atomic",
+        "RFA-RF10-late_validation",
+        "RFA-RF10-launch_recovery"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "Does not publish CAS bytes or add Blob protection references.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "launch.create-netplay",
+      "owner": "launch",
+      "rf_id": "RF10",
+      "consumers": [
+        "(*retrom/internal/service/launch.NetplayCreator).CreateNetplay",
+        "(*retrom/internal/service/launch.Service).CreateNetplay",
+        "(*retrom/internal/service/netplay.ParticipantPreparation).Launch",
+        "(*retrom/internal/service/netplay.Service).CreateParticipantLaunch",
+        "(*retrom/internal/transport/httpapi.Server).createNetplayLaunch"
+      ],
+      "snapshot": "retrom/internal/model/launch.NetplayCreationSnapshot",
+      "prepare": "(*retrom/internal/service/launch.NetplayCreator).prepare",
+      "commit": "(*retrom/internal/repo/launch.NetplayCreation).WithCreation",
+      "policy_symbols": [
+        "retrom/internal/service/launch.validNetplayCreationRequest",
+        "retrom/internal/service/launch.validateNetplayCreation",
+        "retrom/internal/service/launch.validNetplayAuthority",
+        "retrom/internal/service/launch.validateExistingNetplay",
+        "retrom/internal/service/launch.sameNetplaySource",
+        "retrom/internal/service/launch.sameProductInputs"
+      ],
+      "fresh_facts": [
+        {
+          "name": "current participant and source",
+          "reader_symbol": "(retrom/internal/repo/launch.netplayCreationRecords).Snapshot",
+          "reason": "Inside writer: room/current session/session state, joined unleft member matching profile/player, participant version/state/generation/hash/launch, frozen game/variant/provider/bundle/content facts and existing launch if present"
+        }
+      ],
+      "guards": [
+        {
+          "id": "netplay-request",
+          "fields": [
+            "roomId",
+            "sessionId",
+            "gameId",
+            "variantId",
+            "profileId",
+            "playerNo",
+            "providerId",
+            "targetId",
+            "bundleDigest",
+            "generation",
+            "credentialHash",
+            "returnTo"
+          ],
+          "expected_source": "All IDs required, player 1..4,64hex bundle, generation>=1,32-byte hash, exact /netplay/rooms/{room} return path",
+          "rejection": "ErrBlocked",
+          "test_id": "RFA-RF10-launch_authority"
+        },
+        {
+          "id": "netplay-authority",
+          "fields": [
+            "currentSessionId",
+            "sessionState",
+            "roomState",
+            "member.leftAt",
+            "participant.state",
+            "session/game/variant/provider/target/bundle/profile/player"
+          ],
+          "expected_source": "Current session identity; room STARTING/RUNNING; session not FINISHED/FAILED; participant not LEFT; frozen authority identity exact",
+          "rejection": "ErrBlocked",
+          "test_id": "RFA-RF10-launch_authority"
+        },
+        {
+          "id": "netplay-content",
+          "fields": [
+            "ProductSource",
+            "ProductSnapshot",
+            "provider.capabilities",
+            "contentFiles",
+            "discs"
+          ],
+          "expected_source": "Same source READY SINGLE_FILE/core/variant/bundle and sameProductInputs ready semantics; provider NetplayPort/thread support; exactly one primary content/no discs verified outside writer",
+          "rejection": "ErrBlocked",
+          "test_id": "RFA-RF10-launch_authority"
+        },
+        {
+          "id": "netplay-create-or-replay",
+          "fields": [
+            "existingLaunch",
+            "participantVersion",
+            "generation",
+            "credentialHash",
+            "hardEnd"
+          ],
+          "expected_source": "New: participant LOCKED,generation0,request generation1, unchanged participantVersion and no prepared Existing. Existing: participant no longer LOCKED, exact generation/hash and matching CREATED/ACTIVE launch with hardEnd>now; after commit derived capability hash matches stored",
+          "rejection": "ErrBlocked",
+          "test_id": "RFA-RF10-launch_authority"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "netplay-launch",
+          "repo_helper": "(retrom/internal/repo/launch.netplayCreationRecords).Create",
+          "affected_records": [
+            "INSERT launch_sessions CREATED,profile/game/provider/target/bundle/content/dependency,netplay session/player,save_access NETPLAY_DISABLED,no save/DOS,bootstrap+5m,hard+8h,credential hash"
+          ],
+          "test_id": "RFA-RF10-launch_atomic"
+        },
+        {
+          "stage": "netplay-retirement",
+          "repo_helper": "retrom/internal/repo/sessionstore.createLaunchRelations",
+          "affected_records": [
+            "launch_payload_retirements: INSERT launch_session_id,due_at_ms=min(bootstrap,hard) for each newly inserted launch"
+          ],
+          "test_id": "RFA-RF10-launch_atomic"
+        },
+        {
+          "stage": "netplay-save-binding",
+          "repo_helper": "retrom/internal/repo/sessionstore.createLaunchRelations",
+          "affected_records": [
+            "launch_game_save_bindings: conditional INSERT for GAME_SAVE target; same profile/game/nondeleted save, expected_data_version, frozen restore blob/format/initial active duration"
+          ],
+          "test_id": "RFA-RF10-launch_atomic"
+        },
+        {
+          "stage": "netplay-content",
+          "repo_helper": "(retrom/internal/repo/launch.netplayCreationRecords).Create",
+          "affected_records": [
+            "INSERT launch_content_files exactly one frozen primary"
+          ],
+          "test_id": "RFA-RF10-launch_atomic"
+        },
+        {
+          "stage": "netplay-external",
+          "repo_helper": "(*retrom/internal/repo/launch.ProductExternals).Store",
+          "affected_records": [
+            "INSERT launch_external_files existing BIOS/external references"
+          ],
+          "test_id": "RFA-RF10-launch_atomic"
+        },
+        {
+          "stage": "netplay-participant",
+          "repo_helper": "(retrom/internal/repo/launch.netplayCreationRecords).Create",
+          "affected_records": [
+            "UPDATE netplay_session_participants exact session/profile/player/member/version/LOCKED/generation0: launch ID,netplay credential hash/generation,state LAUNCH_READY,version+1,time; exactly one row"
+          ],
+          "test_id": "RFA-RF10-launch_atomic"
+        }
+      ],
+      "idempotency": "Participant launch binding is the identity: reuse existing live matching launch and original deadlines; no idempotency_records row. Baseline preparation serializes netplay caller with mutex and may record a separate preparation event after this transaction (RF12 owns it).",
+      "time_rule": "Baseline BeginTx(ctx,nil) on the shared single-writer handle. Service samples time inside the business callback after reads; target must acquire SQLite write permission before one Repo technical Clock sample. New launch UUID and capability prepared outside; clock callback before writer discarded; final now inside callback sets +5m/+8h but has no explicit negative/overflow check.",
+      "after_commit": [],
+      "fault_points": [
+        "PLANNED netplay-launch: inject storage failure after this SQL stage; require exact rollback of every affected row and reference",
+        "PLANNED netplay-retirement: inject storage failure after this SQL stage; require exact rollback of every affected row and reference",
+        "PLANNED netplay-save-binding: inject storage failure after this SQL stage; require exact rollback of every affected row and reference",
+        "PLANNED netplay-content: inject storage failure after this SQL stage; require exact rollback of every affected row and reference",
+        "PLANNED netplay-external: inject storage failure after this SQL stage; require exact rollback of every affected row and reference",
+        "PLANNED netplay-participant: inject storage failure after this SQL stage; require exact rollback of every affected row and reference",
+        "PLANNED each Guard: mutate that current fact after preparation and before write permission; assert stable rejection and no changed records",
+        "PLANNED commit/cancel/replay/recovery boundary with preserved original error causes and exact persisted state"
+      ],
+      "test_ids": [
+        "RFA-RF10-launch_authority",
+        "RFA-RF10-launch_atomic",
+        "RFA-RF10-launch_expiry",
+        "RFA-RF10-launch_three_modes"
+      ],
+      "content_coordination": {
+        "required": true,
+        "reason": "Adds or replaces Blob protection references. Baseline has no shared process-safe digest lock; acquire/release implementation and race evidence remain pending.",
+        "digest_sources": [
+          "Netplay primary content and external BIOS Blob digests"
+        ],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": "(*retrom/internal/repo/launch.NetplayCreation).WithCreation",
+        "test_ids": [
+          "RFA-RF18-gc_new_reference",
+          "RFA-RF18-digest_lock_process"
+        ]
+      }
+    },
+    {
+      "operation_id": "launch.create-preview",
+      "owner": "launch",
+      "rf_id": "RF10",
+      "consumers": [
+        "(*retrom/internal/service/launch.PreviewCreator).Create",
+        "(*retrom/internal/service/launch.Service).CreateReviewPreview",
+        "(*retrom/internal/transport/httpapi.Server).createReviewPreview"
+      ],
+      "snapshot": "retrom/internal/model/launch.PreviewSnapshot",
+      "prepare": "(*retrom/internal/service/launch.PreviewCreator).prepare",
+      "commit": "(*retrom/internal/repo/launch.PreviewCreation).WithCreation",
+      "policy_symbols": [
+        "retrom/internal/service/launch.previewContent",
+        "retrom/internal/service/launch.previewPrimaryContent",
+        "retrom/internal/service/launch.validPreviewLogicalName",
+        "retrom/internal/service/launch.validPreviewFileSet",
+        "retrom/internal/service/launch.validatePreviewRestore",
+        "retrom/internal/service/launch.previewRestoreOwner",
+        "retrom/internal/service/launch.previewRestoreContent",
+        "retrom/internal/service/launch.samePreviewFiles"
+      ],
+      "fresh_facts": [
+        {
+          "name": "preview receipt",
+          "reader_symbol": "(retrom/internal/repo/launch.previewCreationRecords).Replay",
+          "reason": "Writer rereads review_preview_sessions by actor/idempotency key before current authority"
+        },
+        {
+          "name": "preview source and actor profile",
+          "reader_symbol": "(retrom/internal/repo/launch.previewCreationRecords).Current",
+          "reason": "Writer rereads REVIEW_PENDING/RETAINED item, draft source/target/selected validation, latest validation for default core, enabled directory, provider/bundle, title/DOS/dependencies. Actor query reads profile only, not role/status/session"
+        },
+        {
+          "name": "checkpoint restore",
+          "reader_symbol": "(retrom/internal/repo/launch.previewCreationRecords).Restore",
+          "reason": "Writer reads old preview owner/item/source/provider/target/state/hard expiry/frozen files and blob/format; current target checkpoint limits/read formats"
+        }
+      ],
+      "guards": [
+        {
+          "id": "preview-request",
+          "fields": [
+            "importItemId",
+            "actorUserId",
+            "idempotencyKey"
+          ],
+          "expected_source": "All nonempty before receipt/source work",
+          "rejection": "ErrReviewPreviewUnavailable",
+          "test_id": "RFA-RF10-launch_authority"
+        },
+        {
+          "id": "preview-replay",
+          "fields": [
+            "receipt.importItemId",
+            "receipt.restoreFromPreviewId",
+            "receipt.id"
+          ],
+          "expected_source": "Same item and pointer-valued restore selection, UUIDv7; returns same preview identity with derived capability",
+          "rejection": "ErrReviewPreviewUnavailable",
+          "test_id": "RFA-RF10-launch_authority"
+        },
+        {
+          "id": "preview-source",
+          "fields": [
+            "PreviewSource",
+            "provider.bundle",
+            "provider.target.inputs",
+            "clientCapabilities"
+          ],
+          "expected_source": "Provider and thread support before writer; current PreviewSource DeepEqual prepared Source. Baseline final read does not reload all source/validation file lists",
+          "rejection": "ErrReviewPreviewUnavailable/ErrBlocked",
+          "test_id": "RFA-RF10-launch_authority"
+        },
+        {
+          "id": "preview-content",
+          "fields": [
+            "contentKind",
+            "validationStatus",
+            "logicalNames",
+            "virtualPaths",
+            "fileCount"
+          ],
+          "expected_source": "Existing single-file/DOS/multi-disc/project selection, safe/case-insensitive unique names and virtual paths; multi-disc READY and 2..8 discs",
+          "rejection": "ErrReviewPreviewUnavailable",
+          "test_id": "RFA-RF10-launch_authority"
+        },
+        {
+          "id": "preview-restore",
+          "fields": [
+            "actor",
+            "item",
+            "sourceSnapshot",
+            "provider",
+            "target",
+            "state",
+            "hardExpiresAt",
+            "contentBlob",
+            "contentName",
+            "contentFormat",
+            "dependencySnapshot",
+            "files",
+            "checkpointSize",
+            "checkpointFormat"
+          ],
+          "expected_source": "Restore actor/item/source/target exact; ACTIVE or FINISHED and hard expiry>admission time; exact content/frozen-file multiset, positive bounded payload, format in target ReadFormats",
+          "rejection": "ErrSaveIncompatible",
+          "test_id": "RFA-RF10-launch_authority"
+        },
+        {
+          "id": "preview-clock-profile",
+          "fields": [
+            "nowMS",
+            "profileId",
+            "isolation"
+          ],
+          "expected_source": "0<=now<=MaxInt64-7200000; isolated preview requires resolved actor profile; title trimmed with content-name fallback",
+          "rejection": "ErrReviewPreviewUnavailable",
+          "test_id": "RFA-RF10-launch_expiry"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "preview-session",
+          "repo_helper": "(retrom/internal/repo/launch.previewCreationRecords).Create",
+          "affected_records": [
+            "INSERT review_preview_sessions actor/key/item/source/validation/platform/provider/target/bundle/title/content/dependencies/defaultDOS/restore/credential; CREATED; bootstrap+5m,hard+2h; emulator_game_id=max(now,1) only emulator/ROM delivery"
+          ],
+          "test_id": "RFA-RF10-launch_atomic"
+        },
+        {
+          "stage": "preview-files",
+          "repo_helper": "(retrom/internal/repo/launch.previewCreationRecords).Create",
+          "affected_records": [
+            "INSERT review_preview_files for each frozen role/logical/virtual/blob/sort member"
+          ],
+          "test_id": "RFA-RF10-launch_atomic"
+        },
+        {
+          "stage": "preview-isolation",
+          "repo_helper": "(retrom/internal/repo/launch.previewCreationRecords).isolate",
+          "affected_records": [
+            "Optional INSERT isolated_runtime_bootstrap_tickets hash,preview/profile/origin,expires admission-now+60s"
+          ],
+          "test_id": "RFA-RF10-launch_atomic"
+        }
+      ],
+      "idempotency": "Unique preview (actor_user_id,idempotency_key); replay compares item and restore ID before final source/actor checks, signs same preview capability; no StoredReply row or expiry filter.",
+      "time_rule": "Baseline BeginTx(ctx,nil) on the shared single-writer handle. Service samples time inside the business callback after reads; target must acquire SQLite write permission before one Repo technical Clock sample. Preview UUID/capability/isolation signed outside writer; replay signing can occur inside callback; final admission time resets DB ticket expiry rather than carrying signed expiry.",
+      "after_commit": [],
+      "fault_points": [
+        "PLANNED preview-session: inject storage failure after this SQL stage; require exact rollback of every affected row and reference",
+        "PLANNED preview-files: inject storage failure after this SQL stage; require exact rollback of every affected row and reference",
+        "PLANNED preview-isolation: inject storage failure after this SQL stage; require exact rollback of every affected row and reference",
+        "PLANNED each Guard: mutate that current fact after preparation and before write permission; assert stable rejection and no changed records",
+        "PLANNED commit/cancel/replay/recovery boundary with preserved original error causes and exact persisted state"
+      ],
+      "test_ids": [
+        "RFA-RF10-launch_authority",
+        "RFA-RF10-launch_atomic",
+        "RFA-RF10-launch_expiry",
+        "RFA-RF10-launch_three_modes"
+      ],
+      "content_coordination": {
+        "required": true,
+        "reason": "Adds or replaces Blob protection references. Baseline has no shared process-safe digest lock; acquire/release implementation and race evidence remain pending.",
+        "digest_sources": [
+          "Prepared preview primary/extra files",
+          "Restored preview checkpoint blob"
+        ],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": "(*retrom/internal/repo/launch.PreviewCreation).WithCreation",
+        "test_ids": [
+          "RFA-RF18-gc_new_reference",
+          "RFA-RF18-digest_lock_process"
+        ]
+      }
+    },
+    {
+      "operation_id": "launch.create-product",
+      "owner": "launch",
+      "rf_id": "RF10",
+      "consumers": [
+        "(*retrom/internal/service/launch.ProductCreator).Create",
+        "(*retrom/internal/service/launch.Service).Create",
+        "(*retrom/internal/service/launch.Service).CreateProduct",
+        "(*retrom/internal/transport/httpapi.Server).createLaunch"
+      ],
+      "snapshot": "retrom/internal/model/launch.ProductSnapshot",
+      "prepare": "(*retrom/internal/service/launch.ProductCreator).prepare",
+      "commit": "(*retrom/internal/repo/launch.ProductCreation).WithCreation",
+      "policy_symbols": [
+        "retrom/internal/service/launch.validProductRequest",
+        "retrom/internal/service/launch.validateProductSelection",
+        "retrom/internal/service/launch.validateProductSavedSelection",
+        "retrom/internal/service/launch.sameProductInputs",
+        "retrom/internal/service/launch.selectedProductDOS",
+        "retrom/internal/service/launch.productInitialDisc",
+        "retrom/internal/service/launch.productBIOSFresh",
+        "retrom/internal/service/launch.approvedProductBIOS",
+        "retrom/internal/service/launch.ValidProductReturnTo",
+        "retrom/internal/service/launch.ValidationDedupeKey",
+        "retrom/internal/service/launch.BindCurrentGameStateDigest",
+        "retrom/internal/service/launch.retryValidationSnapshot",
+        "retrom/internal/service/launch.ProductValidationInputs"
+      ],
+      "fresh_facts": [
+        {
+          "name": "final replay",
+          "reader_symbol": "(retrom/internal/repo/launch.productCreationRecords).Replay",
+          "reason": "Exact actor/postLaunch/key lookup occurs before final authority; baseline lookup has no expires_at predicate or pruning"
+        },
+        {
+          "name": "current launch authority",
+          "reader_symbol": "(retrom/internal/repo/launch.productCreationRecords).Snapshot",
+          "reason": "Writer rereads actor enabled/profile if ActorID supplied; published game/current directory/core/binding/provider bundle, content/variant files, save ownership/format/blob/disc, current and active-DAT BIOS, DOS safety"
+        },
+        {
+          "name": "existing validation job",
+          "reader_symbol": "(*retrom/internal/repo/launch.ValidationJobs).Find",
+          "reason": "Inside writer: exact VARIANT_VALIDATE dedupe; current state,retryable,execution_no,version and input JSON"
+        }
+      ],
+      "guards": [
+        {
+          "id": "request-shape",
+          "fields": [
+            "profileId",
+            "gameId",
+            "returnTo",
+            "saveStateId",
+            "dosEntry",
+            "key",
+            "actorId",
+            "digest"
+          ],
+          "expected_source": "Nonempty profile/game, permitted return path, save and DOS mutually exclusive, keyed request has actor and 64-character digest",
+          "rejection": "ErrBlocked",
+          "test_id": "RFA-RF10-launch_authority"
+        },
+        {
+          "id": "replay-digest",
+          "fields": [
+            "actorId",
+            "key",
+            "digest",
+            "receipt.status",
+            "receipt.body"
+          ],
+          "expected_source": "Constant-time digest match; valid persisted 201 launch UUIDv7 or 202 VALIDATION_PENDING job UUIDv7; replay keeps original body/status and derives capability",
+          "rejection": "ErrIdempotencyKeyReused or ErrBlocked/wrapped receipt error",
+          "test_id": "RFA-RF10-launch_authority"
+        },
+        {
+          "id": "source-selection",
+          "fields": [
+            "actor.enabled",
+            "actor.profileId",
+            "game.status",
+            "instance.enabled",
+            "instance.deletedAt",
+            "core.enabled",
+            "binding.launchPolicy",
+            "binding.platform",
+            "binding.contentKind"
+          ],
+          "expected_source": "Source SQL/current owner must still yield the requested launch authority; baseline does not reread an auth session",
+          "rejection": "ErrBlocked",
+          "test_id": "RFA-RF10-launch_authority"
+        },
+        {
+          "id": "provider-preparation",
+          "fields": [
+            "providerId",
+            "targetId",
+            "bundleSHA256",
+            "requiresThreads",
+            "clientCapabilities"
+          ],
+          "expected_source": "External provider target and bundle match snapshot; thread capability requirements met before writer",
+          "rejection": "ErrBlocked",
+          "test_id": "RFA-RF10-launch_authority"
+        },
+        {
+          "id": "save-and-content",
+          "fields": [
+            "save.profileId",
+            "save.gameId",
+            "save.deletedAt",
+            "save.format",
+            "save.blob",
+            "save.discIndex",
+            "dos.enabled",
+            "dos.safe",
+            "BIOS",
+            "contentDigest"
+          ],
+          "expected_source": "Selected save is current same profile/game and READY selected core reads its format; optional DOS safe; disc index in frozen content range; prepared CAS checks succeed",
+          "rejection": "ErrSaveIncompatible/ErrDOSEntryMissing/ErrDOSEntryUnsafe/ErrBlocked or preserved CAS error",
+          "test_id": "RFA-RF10-launch_authority"
+        },
+        {
+          "id": "prepared-inputs",
+          "fields": [
+            "ProductSnapshot"
+          ],
+          "expected_source": "sameProductInputs requires both Found; ignores SaveReadable always. Ready creation ignores unrelated GameVersion; validation branch ignores VariantID/status/dependency/code/DATVersion/VariantFiles/BIOS but retains current validation facts",
+          "rejection": "ErrBlocked",
+          "test_id": "RFA-RF10-launch_authority"
+        },
+        {
+          "id": "admission-clock",
+          "fields": [
+            "nowMS"
+          ],
+          "expected_source": "In-callback 0 <= now <= MaxInt64-86400000; preparation time discarded for admission deadlines",
+          "rejection": "ErrBlocked",
+          "test_id": "RFA-RF10-launch_expiry"
+        },
+        {
+          "id": "validation-dedupe-retry",
+          "fields": [
+            "job.state",
+            "job.retryable",
+            "job.execution_no",
+            "job.version",
+            "snapshot.schemaVersion",
+            "snapshot.kind",
+            "snapshot.scope"
+          ],
+          "expected_source": "Reuse any state except FAILED/CANCELLED; only FAILED retryable may requeue; retry preserves frozen inputs, changes execution UUID, increments bounded execution/version",
+          "rejection": "ErrBlocked or wrapped decode/entropy error",
+          "test_id": "RFA-RF10-launch_authority"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "approved-bios-snapshot",
+          "repo_helper": "(retrom/internal/repo/launch.productCreationRecords).refreshApprovedBIOS",
+          "affected_records": [
+            "Optional override: UPDATE game_variants dependency_snapshot_json/time/version only if snapshot differs"
+          ],
+          "test_id": "RFA-RF10-launch_atomic"
+        },
+        {
+          "stage": "approved-bios-files",
+          "repo_helper": "(retrom/internal/repo/launch.productCreationRecords).refreshApprovedBIOS",
+          "affected_records": [
+            "Optional override: UPSERT each BIOS_BUNDLE variant_files; update blob/sort only if blob differs; old unmatched rows are not deleted"
+          ],
+          "test_id": "RFA-RF10-launch_atomic"
+        },
+        {
+          "stage": "product-launch",
+          "repo_helper": "(retrom/internal/repo/launch.productCreationRecords).Create",
+          "affected_records": [
+            "Ready branch: sessionstore.CreateLaunch INSERT launch_sessions frozen profile/game/core/provider/target/bundle/content/dependency/save/DOS/disc/returnTo/credential hash; CREATED; bootstrap now+5m,hard now+24h,time"
+          ],
+          "test_id": "RFA-RF10-launch_atomic"
+        },
+        {
+          "stage": "product-retirement",
+          "repo_helper": "retrom/internal/repo/sessionstore.createLaunchRelations",
+          "affected_records": [
+            "launch_payload_retirements: INSERT launch_session_id,due_at_ms=min(bootstrap,hard) for each newly inserted launch"
+          ],
+          "test_id": "RFA-RF10-launch_atomic"
+        },
+        {
+          "stage": "product-save-binding",
+          "repo_helper": "retrom/internal/repo/sessionstore.createLaunchRelations",
+          "affected_records": [
+            "launch_game_save_bindings: conditional INSERT for GAME_SAVE target; same profile/game/nondeleted save, expected_data_version, frozen restore blob/format/initial active duration"
+          ],
+          "test_id": "RFA-RF10-launch_atomic"
+        },
+        {
+          "stage": "product-isolation-ticket",
+          "repo_helper": "(retrom/internal/repo/launch.productCreationRecords).Create",
+          "affected_records": [
+            "Optional isolated runtime: INSERT isolated_runtime_bootstrap_tickets pre-signed ticket hash,launch/profile/origin,expires_at_ms=admission now+60s,unconsumed"
+          ],
+          "test_id": "RFA-RF10-launch_atomic"
+        },
+        {
+          "stage": "product-content",
+          "repo_helper": "(retrom/internal/repo/launch.productCreationRecords).Create",
+          "affected_records": [
+            "INSERT each launch_content_files launch/logical/blob/format/time"
+          ],
+          "test_id": "RFA-RF10-launch_atomic"
+        },
+        {
+          "stage": "product-external",
+          "repo_helper": "(retrom/internal/repo/launch.productCreationRecords).Create",
+          "affected_records": [
+            "INSERT each launch_external_files launch/virtual/logical/blob/kind/time"
+          ],
+          "test_id": "RFA-RF10-launch_atomic"
+        },
+        {
+          "stage": "validation-variant",
+          "repo_helper": "(retrom/internal/repo/launch.productValidationRecords).CreateVariant",
+          "affected_records": [
+            "Only if no variant: INSERT game_variants id/game/core/provider/target/active DAT, BLOCKED/VALIDATION_PENDING, dependency {}, null emulator/defaultDOS,version1,time"
+          ],
+          "test_id": "RFA-RF10-launch_atomic"
+        },
+        {
+          "stage": "validation-job",
+          "repo_helper": "(*retrom/internal/repo/launch.ValidationJobs).Write",
+          "affected_records": [
+            "New: INSERT jobs GAME_VARIANT scope,VARIANT_VALIDATE,QUEUED,dedupe,execution1,cancellable0,max_attempts2,payload/time. Retry: conditional id/version/FAILED/retryable UPDATE execution+1,attempt0 and clear old worker/deadline/lease/error/cancel/finish fields"
+          ],
+          "test_id": "RFA-RF10-launch_atomic"
+        },
+        {
+          "stage": "validation-input",
+          "repo_helper": "(*retrom/internal/repo/launch.ValidationJobs).Write",
+          "affected_records": [
+            "INSERT job_input_snapshots job/execution,canonical JSON containing new execution UUID,input_digest SHA256,created_at_ms"
+          ],
+          "test_id": "RFA-RF10-launch_atomic"
+        },
+        {
+          "stage": "validation-event",
+          "repo_helper": "(*retrom/internal/repo/launch.ValidationJobs).Write",
+          "affected_records": [
+            "INSERT job_events exact variant scope,QUEUED {} or RETRY_SCHEDULED schema1/executionNo/trigger LAUNCH,time"
+          ],
+          "test_id": "RFA-RF10-launch_atomic"
+        },
+        {
+          "stage": "validation-pending",
+          "repo_helper": "(retrom/internal/repo/launch.productValidationRecords).MarkPending",
+          "affected_records": [
+            "Only newly queued: UPDATE game_variants id to status BLOCKED,compatibility_code VALIDATION_PENDING,emulator_game_id NULL,version+1,time; require exactly one row"
+          ],
+          "test_id": "RFA-RF10-launch_atomic"
+        },
+        {
+          "stage": "product-receipt",
+          "repo_helper": "(retrom/internal/repo/launch.productCreationRecords).StoreReceipt",
+          "affected_records": [
+            "Both ready and validation branches with a key: INSERT idempotency_records principal/postLaunch/key/digest,201 or202,headers {},exact JSON bytes without newline,created now,expires now+24h"
+          ],
+          "test_id": "RFA-RF10-launch_atomic"
+        }
+      ],
+      "idempotency": "Exact (ActorID,postLaunch,key), constant-time canonical request digest. Pre-read and final-writer replay precede fresh authority. Baseline stores expiry but Replay does not filter/prune expiry; preserve recorded behavior until a separately proven correction. 201/202 status and body bytes are frozen; capability is derived outside body. No-key internal Create stores no receipt.",
+      "time_rule": "Baseline BeginTx(ctx,nil) on the shared single-writer handle. Service samples time inside the business callback after reads; target must acquire SQLite write permission before one Repo technical Clock sample. Preparation generates launch ID/signatures outside writer; validation variant/job/execution UUIDs and replay capability signing currently occur inside callback. Isolation DB expiry is admission-now+60s, so signed expiry drift must be tested rather than assumed protected.",
+      "after_commit": [
+        {
+          "action": "ResumeValidation(context.WithoutCancel(ctx), persisted JobID) only after transaction success",
+          "recovery": "ValidationSupervisor.Recover enumerates queued/stale jobs at startup; receipt keeps same job identity if wakeup is absent",
+          "test_id": "RFA-RF10-launch_recovery"
+        }
+      ],
+      "fault_points": [
+        "PLANNED approved-bios-snapshot: inject storage failure after this SQL stage; require exact rollback of every affected row and reference",
+        "PLANNED approved-bios-files: inject storage failure after this SQL stage; require exact rollback of every affected row and reference",
+        "PLANNED product-launch: inject storage failure after this SQL stage; require exact rollback of every affected row and reference",
+        "PLANNED product-retirement: inject storage failure after this SQL stage; require exact rollback of every affected row and reference",
+        "PLANNED product-save-binding: inject storage failure after this SQL stage; require exact rollback of every affected row and reference",
+        "PLANNED product-isolation-ticket: inject storage failure after this SQL stage; require exact rollback of every affected row and reference",
+        "PLANNED product-content: inject storage failure after this SQL stage; require exact rollback of every affected row and reference",
+        "PLANNED product-external: inject storage failure after this SQL stage; require exact rollback of every affected row and reference",
+        "PLANNED validation-variant: inject storage failure after this SQL stage; require exact rollback of every affected row and reference",
+        "PLANNED validation-job: inject storage failure after this SQL stage; require exact rollback of every affected row and reference",
+        "PLANNED validation-input: inject storage failure after this SQL stage; require exact rollback of every affected row and reference",
+        "PLANNED validation-event: inject storage failure after this SQL stage; require exact rollback of every affected row and reference",
+        "PLANNED validation-pending: inject storage failure after this SQL stage; require exact rollback of every affected row and reference",
+        "PLANNED product-receipt: inject storage failure after this SQL stage; require exact rollback of every affected row and reference",
+        "PLANNED each Guard: mutate that current fact after preparation and before write permission; assert stable rejection and no changed records",
+        "PLANNED commit/cancel/replay/recovery boundary with preserved original error causes and exact persisted state"
+      ],
+      "test_ids": [
+        "RFA-RF10-launch_authority",
+        "RFA-RF10-launch_atomic",
+        "RFA-RF10-launch_expiry",
+        "RFA-RF10-launch_recovery",
+        "RFA-RF10-launch_three_modes"
+      ],
+      "content_coordination": {
+        "required": true,
+        "reason": "Adds or replaces Blob protection references. Baseline has no shared process-safe digest lock; acquire/release implementation and race evidence remain pending.",
+        "digest_sources": [
+          "ProductContent.Files and External Blob digests",
+          "Prepared/current BIOS bundle references",
+          "Selected save payload in launch_game_save_bindings"
+        ],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": "(*retrom/internal/repo/launch.ProductCreation).WithCreation",
+        "test_ids": [
+          "RFA-RF18-gc_new_reference",
+          "RFA-RF18-digest_lock_process"
+        ]
+      }
+    },
+    {
+      "operation_id": "launch.ensure-variant",
+      "owner": "launch",
+      "rf_id": "RF10",
+      "consumers": [
+        "(*retrom/internal/service/launch.ProductCreator).EnsureVariant",
+        "(*retrom/internal/service/launch.Service).EnsureVariantForMove",
+        "(*retrom/internal/transport/httpapi.Server).previewGameMove"
+      ],
+      "snapshot": "retrom/internal/model/launch.ProductSnapshot",
+      "prepare": "(*retrom/internal/service/launch.ProductCreator).EnsureVariant",
+      "commit": "(*retrom/internal/repo/launch.ProductCreation).WithCreation",
+      "policy_symbols": [
+        "retrom/internal/service/launch.sameProductInputs",
+        "retrom/internal/service/launch.ValidationDedupeKey",
+        "retrom/internal/service/launch.BindCurrentGameStateDigest",
+        "retrom/internal/service/launch.retryValidationSnapshot",
+        "retrom/internal/service/launch.ProductValidationInputs"
+      ],
+      "fresh_facts": [
+        {
+          "name": "current move source",
+          "reader_symbol": "(retrom/internal/repo/launch.productCreationRecords).Snapshot",
+          "reason": "Read snapshot before writer then reread selected game/core and validation facts inside; this request deliberately has no actor/profile authority"
+        },
+        {
+          "name": "existing validation job",
+          "reader_symbol": "(*retrom/internal/repo/launch.ValidationJobs).Find",
+          "reason": "Inside writer: exact VARIANT_VALIDATE dedupe; current state,retryable,execution_no,version and input JSON"
+        }
+      ],
+      "guards": [
+        {
+          "id": "move-source",
+          "fields": [
+            "gameId",
+            "Found",
+            "ProductSnapshot",
+            "providerId",
+            "targetId",
+            "bundleSHA256"
+          ],
+          "expected_source": "Nonempty game, provider validation before transaction and sameProductInputs(validation=true) inside",
+          "rejection": "ErrBlocked",
+          "test_id": "RFA-RF10-launch_authority"
+        },
+        {
+          "id": "move-clock",
+          "fields": [
+            "nowMS"
+          ],
+          "expected_source": "Preparation and callback times must be nonnegative",
+          "rejection": "ErrBlocked",
+          "test_id": "RFA-RF10-launch_expiry"
+        },
+        {
+          "id": "validation-dedupe-retry",
+          "fields": [
+            "job.state",
+            "job.retryable",
+            "job.execution_no",
+            "job.version",
+            "snapshot.schemaVersion",
+            "snapshot.kind",
+            "snapshot.scope"
+          ],
+          "expected_source": "Reuse any state except FAILED/CANCELLED; only FAILED retryable may requeue; retry preserves frozen inputs, changes execution UUID, increments bounded execution/version",
+          "rejection": "ErrBlocked or wrapped decode/entropy error",
+          "test_id": "RFA-RF10-launch_authority"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "validation-variant",
+          "repo_helper": "(retrom/internal/repo/launch.productValidationRecords).CreateVariant",
+          "affected_records": [
+            "Only if no variant: INSERT game_variants id/game/core/provider/target/active DAT, BLOCKED/VALIDATION_PENDING, dependency {}, null emulator/defaultDOS,version1,time"
+          ],
+          "test_id": "RFA-RF10-launch_atomic"
+        },
+        {
+          "stage": "validation-job",
+          "repo_helper": "(*retrom/internal/repo/launch.ValidationJobs).Write",
+          "affected_records": [
+            "New: INSERT jobs GAME_VARIANT scope,VARIANT_VALIDATE,QUEUED,dedupe,execution1,cancellable0,max_attempts2,payload/time. Retry: conditional id/version/FAILED/retryable UPDATE execution+1,attempt0 and clear old worker/deadline/lease/error/cancel/finish fields"
+          ],
+          "test_id": "RFA-RF10-launch_atomic"
+        },
+        {
+          "stage": "validation-input",
+          "repo_helper": "(*retrom/internal/repo/launch.ValidationJobs).Write",
+          "affected_records": [
+            "INSERT job_input_snapshots job/execution,canonical JSON containing new execution UUID,input_digest SHA256,created_at_ms"
+          ],
+          "test_id": "RFA-RF10-launch_atomic"
+        },
+        {
+          "stage": "validation-event",
+          "repo_helper": "(*retrom/internal/repo/launch.ValidationJobs).Write",
+          "affected_records": [
+            "INSERT job_events exact variant scope,QUEUED {} or RETRY_SCHEDULED schema1/executionNo/trigger LAUNCH,time"
+          ],
+          "test_id": "RFA-RF10-launch_atomic"
+        },
+        {
+          "stage": "validation-pending",
+          "repo_helper": "(retrom/internal/repo/launch.productValidationRecords).MarkPending",
+          "affected_records": [
+            "Only newly queued: UPDATE game_variants id to status BLOCKED,compatibility_code VALIDATION_PENDING,emulator_game_id NULL,version+1,time; require exactly one row"
+          ],
+          "test_id": "RFA-RF10-launch_atomic"
+        }
+      ],
+      "idempotency": "Validation dedupe determines reuse/retry; no Launch, isolation ticket, HTTP receipt or automatic worker dispatch. Caller decides when to resume.",
+      "time_rule": "Baseline BeginTx(ctx,nil) on the shared single-writer handle. Service samples time inside the business callback after reads; target must acquire SQLite write permission before one Repo technical Clock sample. Variant/job/execution UUID generation currently occurs inside callback.",
+      "after_commit": [],
+      "fault_points": [
+        "PLANNED validation-variant: inject storage failure after this SQL stage; require exact rollback of every affected row and reference",
+        "PLANNED validation-job: inject storage failure after this SQL stage; require exact rollback of every affected row and reference",
+        "PLANNED validation-input: inject storage failure after this SQL stage; require exact rollback of every affected row and reference",
+        "PLANNED validation-event: inject storage failure after this SQL stage; require exact rollback of every affected row and reference",
+        "PLANNED validation-pending: inject storage failure after this SQL stage; require exact rollback of every affected row and reference",
+        "PLANNED each Guard: mutate that current fact after preparation and before write permission; assert stable rejection and no changed records",
+        "PLANNED commit/cancel/replay/recovery boundary with preserved original error causes and exact persisted state"
+      ],
+      "test_ids": [
+        "RFA-RF10-launch_authority",
+        "RFA-RF10-launch_atomic",
+        "RFA-RF10-launch_expiry"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "Does not publish CAS bytes or add Blob protection references.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "launch.fail-validation",
+      "owner": "launch",
+      "rf_id": "RF10",
+      "consumers": [
+        "(*retrom/internal/service/launch.ValidationWorker).Run",
+        "(*retrom/internal/service/launch.ValidationWorker).fail"
+      ],
+      "snapshot": "retrom/internal/model/launch.ValidationClaim",
+      "prepare": "(*retrom/internal/service/launch.ValidationWorker).fail",
+      "commit": "(*retrom/internal/repo/launch.ValidationWorker).WithWorker",
+      "policy_symbols": [
+        "retrom/internal/service/launch.sameValidationAttempt"
+      ],
+      "fresh_facts": [
+        {
+          "name": "owned failing attempt",
+          "reader_symbol": "(retrom/internal/repo/launch.validationWorkerRecords).Read",
+          "reason": "Cleanup rereads exact attempt; may settle its own expired lease/deadline but never a replacement owner"
+        }
+      ],
+      "guards": [
+        {
+          "id": "validation-failure-owner",
+          "fields": [
+            "kind",
+            "state",
+            "id",
+            "executionNo",
+            "attempt",
+            "worker",
+            "inputDigest",
+            "inputJSON",
+            "scope"
+          ],
+          "expected_source": "ErrValidationOwnership skips transaction; missing or no longer same RUNNING attempt is no-op",
+          "rejection": "Preserve original cause; no stale write",
+          "test_id": "RFA-RF10-late_validation"
+        },
+        {
+          "id": "validation-failure-category",
+          "fields": [
+            "cause"
+          ],
+          "expected_source": "GAME_STATE_CHANGED -> CANCELLED nonretryable; ErrValidationInput -> FAILED nonretryable; other failures -> FAILED unavailable retryable; errors.Join cause with storage failure",
+          "rejection": "Typed cause retained",
+          "test_id": "RFA-RF10-late_validation"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "validation-failure",
+          "repo_helper": "(retrom/internal/repo/launch.validationWorkerRecords).Finish",
+          "affected_records": [
+            "Conditional jobs terminal update exact owner; clear lease,finished time,version+1; CANCELLED also cancel_requested_at/reason; no variant write"
+          ],
+          "test_id": "RFA-RF10-launch_atomic"
+        },
+        {
+          "stage": "validation-failure-event",
+          "repo_helper": "(retrom/internal/repo/launch.validationWorkerRecords).terminalEvent",
+          "affected_records": [
+            "INSERT terminal event code,without evaluated variant ID"
+          ],
+          "test_id": "RFA-RF10-launch_atomic"
+        }
+      ],
+      "idempotency": "No HTTP receipt is stored by this operation; preserve the conditional transition and conflict classification described below.",
+      "time_rule": "Baseline BeginTx(ctx,nil) on the shared single-writer handle. Service samples time inside the business callback after reads; target must acquire SQLite write permission before one Repo technical Clock sample. Settlement runs in context.WithTimeout(context.WithoutCancel(parent),5s); time sampled once after owner check.",
+      "after_commit": [],
+      "fault_points": [
+        "PLANNED validation-failure: inject storage failure after this SQL stage; require exact rollback of every affected row and reference",
+        "PLANNED validation-failure-event: inject storage failure after this SQL stage; require exact rollback of every affected row and reference",
+        "PLANNED each Guard: mutate that current fact after preparation and before write permission; assert stable rejection and no changed records",
+        "PLANNED commit/cancel/replay/recovery boundary with preserved original error causes and exact persisted state"
+      ],
+      "test_ids": [
+        "RFA-RF10-late_validation",
+        "RFA-RF10-launch_atomic",
+        "RFA-RF10-launch_recovery"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "Does not publish CAS bytes or add Blob protection references.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "launch.record-play-event",
+      "owner": "launch",
+      "rf_id": "RF10",
+      "consumers": [
+        "(*retrom/internal/service/launch.PlayController).RecordPlay",
+        "(*retrom/internal/service/launch.Service).RecordPlay",
+        "(*retrom/internal/transport/httpapi.Server).launchFinish",
+        "(*retrom/internal/transport/httpapi.Server).launchHeartbeat",
+        "(*retrom/internal/transport/httpapi.Server).launchStart",
+        "(*retrom/internal/transport/httpapi.Server).recordPlay"
+      ],
+      "snapshot": "retrom/internal/model/launch.PlaySource",
+      "prepare": "(*retrom/internal/service/launch.PlayController).RecordPlay",
+      "commit": "(*retrom/internal/repo/launch.Play).WithPlay",
+      "policy_symbols": [
+        "retrom/internal/service/launch.validPlayEvent",
+        "retrom/internal/service/launch.validPlayProgress",
+        "retrom/internal/service/launch.acceptedPlayDuration",
+        "retrom/internal/service/launch.playVersionWritable"
+      ],
+      "fresh_facts": [
+        {
+          "name": "current product or preview",
+          "reader_symbol": "(retrom/internal/repo/launch.playRecords).Source",
+          "reason": "Writer reads launch/preview credential,state,hard expiry,profile/game,idle deadline/version"
+        },
+        {
+          "name": "current play",
+          "reader_symbol": "(retrom/internal/repo/launch.playRecords).Current",
+          "reason": "Product writer reads play identity/state/version,last sequence/heartbeat/active duration"
+        },
+        {
+          "name": "prior event",
+          "reader_symbol": "(retrom/internal/repo/launch.playRecords).Event",
+          "reason": "Repeated product sequence rereads kind/client observed time/interval/accepted duration for semantic replay"
+        }
+      ],
+      "guards": [
+        {
+          "id": "play-event-shape",
+          "fields": [
+            "kind",
+            "sequence",
+            "observedAt",
+            "previousInterval"
+          ],
+          "expected_source": "Observed timestamp in [0,253402300799999]; start seq0/no interval; heartbeat/finish positive sequence+interval, or unstarted finish seq0/no interval",
+          "rejection": "ErrBlocked",
+          "test_id": "RFA-RF10-launch_authority"
+        },
+        {
+          "id": "play-authority",
+          "fields": [
+            "session.state",
+            "hardExpiresAt",
+            "credentialHash"
+          ],
+          "expected_source": "CREATED/ACTIVE/FINISHED and hard expiry>now with injected capability match; product requires profile/game",
+          "rejection": "ErrCredential",
+          "test_id": "RFA-RF10-launch_expiry"
+        },
+        {
+          "id": "play-semantic-replay",
+          "fields": [
+            "sequence",
+            "event.kind",
+            "observedAt",
+            "interval"
+          ],
+          "expected_source": "When sequence <=stored last, exact prior event kind/client observed/interval must match; do not accept a conflicting payload",
+          "rejection": "ErrBlocked",
+          "test_id": "RFA-RF10-launch_authority"
+        },
+        {
+          "id": "play-progress",
+          "fields": [
+            "launch.state",
+            "play.state",
+            "idleExpiresAt",
+            "lastSequence",
+            "version",
+            "activeDuration"
+          ],
+          "expected_source": "Start only ACTIVE launch; progress both ACTIVE and idle live, sequence exactly last+1,versions writable,no duration/idle overflow. Accepted time only running+visible+unpaused interval, clamp45s and handle corrupted-time subtraction overflow",
+          "rejection": "ErrBlocked",
+          "test_id": "RFA-RF10-launch_authority"
+        },
+        {
+          "id": "preview-play",
+          "fields": [
+            "preview.state",
+            "kind",
+            "version"
+          ],
+          "expected_source": "FINISHED finish replays; ACTIVE supports events, CREATED only finish; preview start/heartbeat perform no writes and no play_session row",
+          "rejection": "ErrBlocked",
+          "test_id": "RFA-RF10-launch_authority"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "play-start-launch",
+          "repo_helper": "(retrom/internal/repo/launch.playRecords).advanceLaunch",
+          "affected_records": [
+            "Start: UPDATE ACTIVE launch exact id/version/hard/idle -> idle now+120s,time,version+1"
+          ],
+          "test_id": "RFA-RF10-launch_atomic"
+        },
+        {
+          "stage": "play-start-retirement",
+          "repo_helper": "retrom/internal/repo/sessionstore.updateLaunchRelations",
+          "affected_records": [
+            "launch_payload_retirements: UPDATE due_at_ms from exact current state/deadlines for unreleased launch"
+          ],
+          "test_id": "RFA-RF10-launch_atomic"
+        },
+        {
+          "stage": "play-start-capability",
+          "repo_helper": "retrom/internal/repo/sessionstore.updateLaunchRelations",
+          "affected_records": [
+            "isolated_runtime_capabilities: set revoked_at_ms=launch.finished_at_ms only for matching terminal FINISHED/EXPIRED/REVOKED launch and currently unrevoked capability"
+          ],
+          "test_id": "RFA-RF10-launch_atomic"
+        },
+        {
+          "stage": "play-start-save-binding",
+          "repo_helper": "retrom/internal/repo/sessionstore.updateLaunchRelations",
+          "affected_records": [
+            "launch_game_save_bindings: clear restore_payload_blob_id/restore_checkpoint_format only when matching launch state is neither CREATED nor ACTIVE"
+          ],
+          "test_id": "RFA-RF10-launch_atomic"
+        },
+        {
+          "stage": "play-start-record",
+          "repo_helper": "(retrom/internal/repo/launch.playRecords).Start",
+          "affected_records": [
+            "Start: INSERT play_sessions generated UUID,launch/profile/game,ACTIVE,sequence0,duration0,heartbeat/time,version1"
+          ],
+          "test_id": "RFA-RF10-launch_atomic"
+        },
+        {
+          "stage": "play-start-event",
+          "repo_helper": "(retrom/internal/repo/launch.playRecords).insertEvent",
+          "affected_records": [
+            "Start: INSERT play_session_events sequence0 START,observed/server time,zero interval/accepted duration"
+          ],
+          "test_id": "RFA-RF10-launch_atomic"
+        },
+        {
+          "stage": "play-progress-record",
+          "repo_helper": "(retrom/internal/repo/launch.playRecords).Progress",
+          "affected_records": [
+            "Heartbeat/finish: CAS play_sessions id/launch/version/lastSequence/ACTIVE/exact duration; add bounded accepted duration,sequence,time,state ACTIVE or FINISHED,optional ended time,version+1"
+          ],
+          "test_id": "RFA-RF10-launch_atomic"
+        },
+        {
+          "stage": "play-progress-event",
+          "repo_helper": "(retrom/internal/repo/launch.playRecords).insertEvent",
+          "affected_records": [
+            "Heartbeat/finish: INSERT exact sequence event with original observed/interval values and accepted duration"
+          ],
+          "test_id": "RFA-RF10-launch_atomic"
+        },
+        {
+          "stage": "play-progress-launch",
+          "repo_helper": "(retrom/internal/repo/launch.playRecords).advanceLaunch",
+          "affected_records": [
+            "Then CAS ACTIVE launch current version/deadlines; heartbeat extends idle+120s; finish sets FINISHED/finished time; version+1"
+          ],
+          "test_id": "RFA-RF10-launch_atomic"
+        },
+        {
+          "stage": "play-progress-retirement",
+          "repo_helper": "retrom/internal/repo/sessionstore.updateLaunchRelations",
+          "affected_records": [
+            "launch_payload_retirements: UPDATE due_at_ms from exact current state/deadlines for unreleased launch"
+          ],
+          "test_id": "RFA-RF10-launch_atomic"
+        },
+        {
+          "stage": "play-progress-capability",
+          "repo_helper": "retrom/internal/repo/sessionstore.updateLaunchRelations",
+          "affected_records": [
+            "isolated_runtime_capabilities: set revoked_at_ms=launch.finished_at_ms only for matching terminal FINISHED/EXPIRED/REVOKED launch and currently unrevoked capability"
+          ],
+          "test_id": "RFA-RF10-launch_atomic"
+        },
+        {
+          "stage": "play-progress-save-binding",
+          "repo_helper": "retrom/internal/repo/sessionstore.updateLaunchRelations",
+          "affected_records": [
+            "launch_game_save_bindings: clear restore_payload_blob_id/restore_checkpoint_format only when matching launch state is neither CREATED nor ACTIVE"
+          ],
+          "test_id": "RFA-RF10-launch_atomic"
+        },
+        {
+          "stage": "finish-without-play",
+          "repo_helper": "(retrom/internal/repo/launch.playRecords).Finish",
+          "affected_records": [
+            "Unstarted product or preview finish: CAS id/version/exact CREATED-or-ACTIVE/hard expiry to FINISHED/finished time/version+1,without play record/event"
+          ],
+          "test_id": "RFA-RF10-launch_atomic"
+        },
+        {
+          "stage": "finish-product-retirement",
+          "repo_helper": "retrom/internal/repo/sessionstore.updateLaunchRelations",
+          "affected_records": [
+            "launch_payload_retirements: UPDATE due_at_ms from exact current state/deadlines for unreleased launch"
+          ],
+          "test_id": "RFA-RF10-launch_atomic"
+        },
+        {
+          "stage": "finish-product-capability",
+          "repo_helper": "retrom/internal/repo/sessionstore.updateLaunchRelations",
+          "affected_records": [
+            "isolated_runtime_capabilities: set revoked_at_ms=launch.finished_at_ms only for matching terminal FINISHED/EXPIRED/REVOKED launch and currently unrevoked capability"
+          ],
+          "test_id": "RFA-RF10-launch_atomic"
+        },
+        {
+          "stage": "finish-product-save-binding",
+          "repo_helper": "retrom/internal/repo/sessionstore.updateLaunchRelations",
+          "affected_records": [
+            "launch_game_save_bindings: clear restore_payload_blob_id/restore_checkpoint_format only when matching launch state is neither CREATED nor ACTIVE"
+          ],
+          "test_id": "RFA-RF10-launch_atomic"
+        },
+        {
+          "stage": "finish-preview-capability",
+          "repo_helper": "retrom/internal/repo/sessionstore.revokePreviewCapability",
+          "affected_records": [
+            "Preview finish: revoke all unrevoked isolated capabilities for matching terminal preview using finished_at_ms"
+          ],
+          "test_id": "RFA-RF10-launch_atomic"
+        }
+      ],
+      "idempotency": "Product (play_session_id,client_sequence) exact semantic replay of event and accepted duration. Unstarted finish and finished-preview finish are state-idempotent; preview does not persist sequence records.",
+      "time_rule": "Baseline BeginTx(ctx,nil) on the shared single-writer handle. Service samples time inside the business callback after reads; target must acquire SQLite write permission before one Repo technical Clock sample. Product start UUID currently generated inside callback; capability matcher is an injected business callback in writer.",
+      "after_commit": [],
+      "fault_points": [
+        "PLANNED play-start-launch: inject storage failure after this SQL stage; require exact rollback of every affected row and reference",
+        "PLANNED play-start-retirement: inject storage failure after this SQL stage; require exact rollback of every affected row and reference",
+        "PLANNED play-start-capability: inject storage failure after this SQL stage; require exact rollback of every affected row and reference",
+        "PLANNED play-start-save-binding: inject storage failure after this SQL stage; require exact rollback of every affected row and reference",
+        "PLANNED play-start-record: inject storage failure after this SQL stage; require exact rollback of every affected row and reference",
+        "PLANNED play-start-event: inject storage failure after this SQL stage; require exact rollback of every affected row and reference",
+        "PLANNED play-progress-record: inject storage failure after this SQL stage; require exact rollback of every affected row and reference",
+        "PLANNED play-progress-event: inject storage failure after this SQL stage; require exact rollback of every affected row and reference",
+        "PLANNED play-progress-launch: inject storage failure after this SQL stage; require exact rollback of every affected row and reference",
+        "PLANNED play-progress-retirement: inject storage failure after this SQL stage; require exact rollback of every affected row and reference",
+        "PLANNED play-progress-capability: inject storage failure after this SQL stage; require exact rollback of every affected row and reference",
+        "PLANNED play-progress-save-binding: inject storage failure after this SQL stage; require exact rollback of every affected row and reference",
+        "PLANNED finish-without-play: inject storage failure after this SQL stage; require exact rollback of every affected row and reference",
+        "PLANNED finish-product-retirement: inject storage failure after this SQL stage; require exact rollback of every affected row and reference",
+        "PLANNED finish-product-capability: inject storage failure after this SQL stage; require exact rollback of every affected row and reference",
+        "PLANNED finish-product-save-binding: inject storage failure after this SQL stage; require exact rollback of every affected row and reference",
+        "PLANNED finish-preview-capability: inject storage failure after this SQL stage; require exact rollback of every affected row and reference",
+        "PLANNED each Guard: mutate that current fact after preparation and before write permission; assert stable rejection and no changed records",
+        "PLANNED commit/cancel/replay/recovery boundary with preserved original error causes and exact persisted state"
+      ],
+      "test_ids": [
+        "RFA-RF10-launch_authority",
+        "RFA-RF10-launch_atomic",
+        "RFA-RF10-launch_expiry"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "Does not publish CAS bytes or add Blob protection references.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "launch.recover-validation",
+      "owner": "launch",
+      "rf_id": "RF10",
+      "consumers": [
+        "(*retrom/internal/service/launch.Service).ResumeQueuedValidationJobs",
+        "(*retrom/internal/service/launch.ValidationSupervisor).Recover",
+        "(*retrom/internal/service/launch.ValidationWorker).Recover",
+        "(*retrom/internal/service/launch.ValidationWorker).recoverOne",
+        "retrom/cmd/retrom.execute",
+        "retrom/cmd/retrom.executeWithPasswordReader",
+        "retrom/cmd/retrom.main",
+        "retrom/cmd/retrom.run",
+        "retrom/internal/transport/httpapi.New"
+      ],
+      "snapshot": "retrom/internal/model/launch.ValidationWork",
+      "prepare": "(*retrom/internal/service/launch.ValidationWorker).recoverOne",
+      "commit": "(*retrom/internal/repo/launch.ValidationWorker).WithWorker",
+      "policy_symbols": [
+        "retrom/internal/service/launch.validationExhausted"
+      ],
+      "fresh_facts": [
+        {
+          "name": "current recovery candidate",
+          "reader_symbol": "(retrom/internal/repo/launch.validationWorkerRecords).Read",
+          "reason": "After candidates query, writer rereads current kind/state/lease/attempt/deadline/version/execution"
+        }
+      ],
+      "guards": [
+        {
+          "id": "validation-recoverable",
+          "fields": [
+            "kind",
+            "state",
+            "lease",
+            "attempt",
+            "maxAttempts",
+            "deadline",
+            "availableAt"
+          ],
+          "expected_source": "Only QUEUED or RUNNING with lease<=now; exhausted terminal else stale requeue. Current QUEUED only returned for dispatch when availability<=now",
+          "rejection": "No-op for irrelevant/live owner",
+          "test_id": "RFA-RF10-late_validation"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "validation-requeue",
+          "repo_helper": "(retrom/internal/repo/launch.validationWorkerRecords).Recover",
+          "affected_records": [
+            "Stale nonexhausted RUNNING: CAS id/kind/state/version/execution/lease<=now -> QUEUED,available now,lease/heartbeat/workerNULL,version+1,time; preserve start/deadline/attempt and input"
+          ],
+          "test_id": "RFA-RF10-launch_atomic"
+        },
+        {
+          "stage": "validation-recovery-expire",
+          "repo_helper": "(retrom/internal/repo/launch.validationWorkerRecords).expire",
+          "affected_records": [
+            "Exhausted QUEUED/stale RUNNING: CAS exact id/kind/state/version/execution -> FAILED unavailable retryable,finished/time,leaseNULL,version+1"
+          ],
+          "test_id": "RFA-RF10-launch_atomic"
+        },
+        {
+          "stage": "validation-recovery-event",
+          "repo_helper": "(retrom/internal/repo/launch.validationWorkerRecords).terminalEvent",
+          "affected_records": [
+            "Terminal exhausted branch INSERT FAILED event; ordinary requeue creates no event in baseline"
+          ],
+          "test_id": "RFA-RF10-launch_atomic"
+        }
+      ],
+      "idempotency": "No HTTP receipt is stored by this operation; preserve the conditional transition and conflict classification described below.",
+      "time_rule": "Baseline BeginTx(ctx,nil) on the shared single-writer handle. Service samples time inside the business callback after reads; target must acquire SQLite write permission before one Repo technical Clock sample.",
+      "after_commit": [
+        {
+          "action": "Return ready IDs; supervisor dispatches after each recovery transaction has committed",
+          "recovery": "Subsequent startup repeats candidate discovery; SQL version/owner fence prevents reviving terminal/new attempts",
+          "test_id": "RFA-RF10-launch_recovery"
+        }
+      ],
+      "fault_points": [
+        "PLANNED validation-requeue: inject storage failure after this SQL stage; require exact rollback of every affected row and reference",
+        "PLANNED validation-recovery-expire: inject storage failure after this SQL stage; require exact rollback of every affected row and reference",
+        "PLANNED validation-recovery-event: inject storage failure after this SQL stage; require exact rollback of every affected row and reference",
+        "PLANNED each Guard: mutate that current fact after preparation and before write permission; assert stable rejection and no changed records",
+        "PLANNED commit/cancel/replay/recovery boundary with preserved original error causes and exact persisted state"
+      ],
+      "test_ids": [
+        "RFA-RF10-late_validation",
+        "RFA-RF10-launch_recovery",
+        "RFA-RF10-launch_atomic"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "Does not publish CAS bytes or add Blob protection references.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "launch.renew-validation",
+      "owner": "launch",
+      "rf_id": "RF10",
+      "consumers": [
+        "(*retrom/internal/service/launch.ValidationWorker).Run",
+        "(*retrom/internal/service/launch.ValidationWorker).heartbeat",
+        "(*retrom/internal/service/launch.ValidationWorker).monitor"
+      ],
+      "snapshot": "retrom/internal/model/launch.ValidationClaim",
+      "prepare": "(*retrom/internal/service/launch.ValidationWorker).heartbeat",
+      "commit": "(*retrom/internal/repo/launch.ValidationWorker).WithWorker",
+      "policy_symbols": [
+        "retrom/internal/service/launch.validationOwnerError",
+        "retrom/internal/service/launch.sameValidationAttempt",
+        "retrom/internal/service/launch.equalValidationTime"
+      ],
+      "fresh_facts": [
+        {
+          "name": "current validation owner",
+          "reader_symbol": "(retrom/internal/repo/launch.validationWorkerRecords).Read",
+          "reason": "Writer rereads current attempt and lease; compare kind,state RUNNING,id,execution,attempt,worker,input digest+JSON,scope,started/deadline"
+        }
+      ],
+      "guards": [
+        {
+          "id": "validation-renew-owner",
+          "fields": [
+            "executionNo",
+            "attempt",
+            "workerId",
+            "inputDigest",
+            "inputJSON",
+            "scope",
+            "state",
+            "started",
+            "deadline",
+            "lease"
+          ],
+          "expected_source": "SameValidationAttempt,matching fixed started/deadline,existing lease/deadline both>now; heartbeat version changes are allowed",
+          "rejection": "ErrValidationOwnership/ErrValidationInput/context.DeadlineExceeded/errValidationLeaseExpired",
+          "test_id": "RFA-RF10-late_validation"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "validation-lease",
+          "repo_helper": "(retrom/internal/repo/launch.validationWorkerRecords).Renew",
+          "affected_records": [
+            "UPDATE jobs id/RUNNING/execution/attempt/worker/live lease+deadline to lease=min(now+60s,deadline),heartbeat/time,version+1;exactly one row"
+          ],
+          "test_id": "RFA-RF10-launch_atomic"
+        }
+      ],
+      "idempotency": "No HTTP receipt is stored by this operation; preserve the conditional transition and conflict classification described below.",
+      "time_rule": "Baseline BeginTx(ctx,nil) on the shared single-writer handle. Service samples time inside the business callback after reads; target must acquire SQLite write permission before one Repo technical Clock sample.",
+      "after_commit": [
+        {
+          "action": "15-second monitor cancels evaluation on renewal error and joins on Close",
+          "recovery": "Expired owner is eligible for startup recovery; late owner may not settle replacement",
+          "test_id": "RFA-RF10-late_validation"
+        }
+      ],
+      "fault_points": [
+        "PLANNED validation-lease: inject storage failure after this SQL stage; require exact rollback of every affected row and reference",
+        "PLANNED each Guard: mutate that current fact after preparation and before write permission; assert stable rejection and no changed records",
+        "PLANNED commit/cancel/replay/recovery boundary with preserved original error causes and exact persisted state"
+      ],
+      "test_ids": [
+        "RFA-RF10-launch_expiry",
+        "RFA-RF10-late_validation",
+        "RFA-RF10-launch_atomic"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "Does not publish CAS bytes or add Blob protection references.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "launch.settle-validation",
+      "owner": "launch",
+      "rf_id": "RF10",
+      "consumers": [
+        "(*retrom/internal/service/launch.ValidationWorker).Run",
+        "(*retrom/internal/service/launch.ValidationWorker).settle"
+      ],
+      "snapshot": "retrom/internal/model/launch.ValidationFacts",
+      "prepare": "(*retrom/internal/service/launch.ValidationWorker).settle",
+      "commit": "(*retrom/internal/repo/launch.ValidationWorker).WithWorker",
+      "policy_symbols": [
+        "retrom/internal/service/launch.validationOwnerError",
+        "retrom/internal/service/launch.sameValidationAttempt",
+        "retrom/internal/service/launch.validateFinalValidation",
+        "retrom/internal/service/launch.EvaluateValidation",
+        "retrom/internal/service/launch.validationSourceMatches",
+        "retrom/internal/service/launch.validationContentStatus",
+        "retrom/internal/service/launch.ValidateContentProfile",
+        "retrom/internal/service/launch.ValidateLockedArcadeSnapshot"
+      ],
+      "fresh_facts": [
+        {
+          "name": "current validation owner",
+          "reader_symbol": "(retrom/internal/repo/launch.validationWorkerRecords).Read",
+          "reason": "Writer rereads full execution identity and fixed/live temporal authority"
+        },
+        {
+          "name": "final game/variant/BIOS/DAT facts",
+          "reader_symbol": "(retrom/internal/repo/launch.validationWorkerRecords).Facts",
+          "reason": "Published game version/manifest,variant version/core/provider/target/DAT/dependency,enabled directory/core/platform/binding,content files,current BIOS,locked DAT machine classification"
+        }
+      ],
+      "guards": [
+        {
+          "id": "validation-settle-owner",
+          "fields": [
+            "executionNo",
+            "attempt",
+            "workerId",
+            "state",
+            "inputDigest",
+            "inputJSON",
+            "scope",
+            "started",
+            "deadline",
+            "lease"
+          ],
+          "expected_source": "Same attempt and live lease/deadline at callback time; exact fixed input identity",
+          "rejection": "ErrValidationOwnership/ErrValidationInput/deadline/lease error",
+          "test_id": "RFA-RF10-late_validation"
+        },
+        {
+          "id": "validation-final-facts",
+          "fields": [
+            "gameVersion",
+            "manifest",
+            "variantId",
+            "provider",
+            "target",
+            "contentPolicy",
+            "DATVersion",
+            "BIOSDigest",
+            "validationInputDigest",
+            "variantVersion",
+            "binding",
+            "classification",
+            "core",
+            "platform",
+            "lockedDependency",
+            "logicalName"
+          ],
+          "expected_source": "EvaluateValidation(after) succeeds and prepared facts match relevant current source/selection/content/BIOS/DAT semantics; canceled or replaced authority rejected",
+          "rejection": "ErrValidationGameChanged or preserved validation error",
+          "test_id": "RFA-RF10-late_validation"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "validation-variant-outcome",
+          "repo_helper": "(retrom/internal/repo/launch.validationWorkerRecords).Apply",
+          "affected_records": [
+            "UPDATE exact game_variant/game id provider/target/DAT,status/code/dependency/defaultDOS,emulator id,version+1/time. READY allocates max emulator id+1 if absent; DOS retains current or first safe ranked entry"
+          ],
+          "test_id": "RFA-RF10-launch_atomic"
+        },
+        {
+          "stage": "validation-old-bios",
+          "repo_helper": "(retrom/internal/repo/launch.validationWorkerRecords).replaceValidationBIOSFiles",
+          "affected_records": [
+            "DELETE all BIOS_BUNDLE variant_files for this variant"
+          ],
+          "test_id": "RFA-RF10-launch_atomic"
+        },
+        {
+          "stage": "validation-new-bios",
+          "repo_helper": "(retrom/internal/repo/launch.validationWorkerRecords).replaceValidationBIOSFiles",
+          "affected_records": [
+            "INSERT selected outcome BIOS_BUNDLE variant_files logical/blob/sort"
+          ],
+          "test_id": "RFA-RF10-launch_atomic"
+        },
+        {
+          "stage": "validation-terminal",
+          "repo_helper": "(retrom/internal/repo/launch.validationWorkerRecords).Finish",
+          "affected_records": [
+            "CAS jobs exact id/kind/RUNNING/execution/attempt/worker to SUCCEEDED for READY else FAILED with outcome code/nonretryable; finish time,leaseNULL,cancel fields/version/time"
+          ],
+          "test_id": "RFA-RF10-launch_atomic"
+        },
+        {
+          "stage": "validation-terminal-event",
+          "repo_helper": "(retrom/internal/repo/launch.validationWorkerRecords).terminalEvent",
+          "affected_records": [
+            "INSERT matching terminal job_event code and evaluated gameVariantId"
+          ],
+          "test_id": "RFA-RF10-launch_atomic"
+        }
+      ],
+      "idempotency": "No HTTP receipt is stored by this operation; preserve the conditional transition and conflict classification described below.",
+      "time_rule": "Baseline BeginTx(ctx,nil) on the shared single-writer handle. Service samples time inside the business callback after reads; target must acquire SQLite write permission before one Repo technical Clock sample.",
+      "after_commit": [],
+      "fault_points": [
+        "PLANNED validation-variant-outcome: inject storage failure after this SQL stage; require exact rollback of every affected row and reference",
+        "PLANNED validation-old-bios: inject storage failure after this SQL stage; require exact rollback of every affected row and reference",
+        "PLANNED validation-new-bios: inject storage failure after this SQL stage; require exact rollback of every affected row and reference",
+        "PLANNED validation-terminal: inject storage failure after this SQL stage; require exact rollback of every affected row and reference",
+        "PLANNED validation-terminal-event: inject storage failure after this SQL stage; require exact rollback of every affected row and reference",
+        "PLANNED each Guard: mutate that current fact after preparation and before write permission; assert stable rejection and no changed records",
+        "PLANNED commit/cancel/replay/recovery boundary with preserved original error causes and exact persisted state"
+      ],
+      "test_ids": [
+        "RFA-RF10-late_validation",
+        "RFA-RF10-launch_atomic",
+        "RFA-RF10-launch_three_modes"
+      ],
+      "content_coordination": {
+        "required": true,
+        "reason": "Adds or replaces Blob protection references. Baseline has no shared process-safe digest lock; acquire/release implementation and race evidence remain pending.",
+        "digest_sources": [
+          "Outcome.BIOS bundle Blob digests"
+        ],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": "(*retrom/internal/repo/launch.ValidationWorker).WithWorker",
+        "test_ids": [
+          "RFA-RF18-gc_new_reference",
+          "RFA-RF18-digest_lock_process"
+        ]
+      }
+    },
+    {
       "operation_id": "platforminstance.apply-recommendations",
       "owner": "platforminstance",
       "rf_id": "RF16",
@@ -7662,6 +9719,7 @@
     "Upload intake creation/part timestamps and monitor renewal use pre-lock time; scheduling creates UUIDs/digests inside callback. These are migration targets, not approved exceptions.",
     "Upload consumption insertion is an atomic child of RF11 firmware, RF13 library import/review/parent/disc and RF16 content/assets commits; it must not become a separate upload transaction.",
     "Current validateFinalizationFiles accepts a remaining-file subset after partial success and uses reflect.DeepEqual. RF04/RF09 must replace reflection while preserving nil/empty and every field's equality semantics.",
-    "RF16 SOURCE_REVIEWED baseline census: 30 standalone transactions including separate content claim/heartbeat. Aggregate RFA links are planned, not per-Guard/stage PASS evidence. Target actor/impact/time freshness, prepared-upload binding, nested sessionstore stages, content locking and all real query consumers remain migration/verification work."
+    "RF16 SOURCE_REVIEWED baseline census: 30 standalone transactions including separate content claim/heartbeat. Aggregate RFA links are planned, not per-Guard/stage PASS evidence. Target actor/impact/time freshness, prepared-upload binding, nested sessionstore stages, content locking and all real query consumers remain migration/verification work.",
+    "RF10 SOURCE_REVIEWED census adds 14 transaction families, including separate validation heartbeat/failure and isolated-capability revoke. Branch-specific SQL stages and nested sessionstore writes are explicit. Aggregate RFA references are PLANNED, not per-Guard/stage evidence. Actor/session freshness, prepared preview file closure, signed isolation expiry, all digest lock protocols and expired product receipts remain migration/behavior-review work."
   ]
 }

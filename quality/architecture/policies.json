@@ -655,6 +655,777 @@
       ]
     },
     {
+      "id": "isolation.activeSession",
+      "owner": "isolation",
+      "rf_id": "RF10",
+      "symbol": "retrom/internal/service/isolation.activeSession",
+      "consumers": [
+        "(*retrom/internal/service/isolation.Service).Authenticate",
+        "(*retrom/internal/service/isolation.Service).ConsumeTicket",
+        "(*retrom/internal/service/isolation.Service).InspectBootstrap"
+      ],
+      "invariant": "Only ACTIVE unexpired RPG_MAKER_PROJECT or TYRANOSCRIPT_PROJECT isolated session.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF10-launch_authority",
+        "RFA-RF10-launch_atomic"
+      ]
+    },
+    {
+      "id": "isolation.credentialDigest",
+      "owner": "isolation",
+      "rf_id": "RF10",
+      "symbol": "retrom/internal/service/isolation.credentialDigest",
+      "consumers": [
+        "(*retrom/internal/service/isolation.Service).Authenticate",
+        "(*retrom/internal/service/isolation.Service).ConsumeTicket"
+      ],
+      "invariant": "Canonical base64url32-byte credential is hashed to stable SHA256 identity.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF10-launch_authority",
+        "RFA-RF10-launch_atomic"
+      ]
+    },
+    {
+      "id": "launch.BindCurrentGameStateDigest",
+      "owner": "launch",
+      "rf_id": "RF10",
+      "symbol": "retrom/internal/service/launch.BindCurrentGameStateDigest",
+      "consumers": [
+        "retrom/internal/service/launch.EvaluateValidation",
+        "retrom/internal/service/launch.ProductValidationInputs"
+      ],
+      "invariant": "Bind validation evidence to exact game version and source manifest digest.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF10-launch_authority",
+        "RFA-RF10-launch_atomic"
+      ]
+    },
+    {
+      "id": "launch.EvaluateValidation",
+      "owner": "launch",
+      "rf_id": "RF10",
+      "symbol": "retrom/internal/service/launch.EvaluateValidation",
+      "consumers": [
+        "(*retrom/internal/service/launch.ValidationWorker).Run",
+        "retrom/internal/service/launch.validateFinalValidation"
+      ],
+      "invariant": "Evaluate current game/BIOS/DAT/content/ScummVM facts against frozen execution digest.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF10-launch_authority",
+        "RFA-RF10-launch_atomic"
+      ]
+    },
+    {
+      "id": "launch.ProductValidationInputs",
+      "owner": "launch",
+      "rf_id": "RF10",
+      "symbol": "retrom/internal/service/launch.ProductValidationInputs",
+      "consumers": [
+        "(*retrom/internal/service/launch.ProductCreator).schedule"
+      ],
+      "invariant": "Construct current game/provider/target/content-policy/DAT/BIOS validation evidence.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF10-launch_authority",
+        "RFA-RF10-launch_atomic"
+      ]
+    },
+    {
+      "id": "launch.ValidProductReturnTo",
+      "owner": "launch",
+      "rf_id": "RF10",
+      "symbol": "retrom/internal/service/launch.ValidProductReturnTo",
+      "consumers": [
+        "retrom/internal/service/launch.validProductRequest"
+      ],
+      "invariant": "Allowed product/immersive relative return paths with exact game/save/folder identity.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF10-launch_authority",
+        "RFA-RF10-launch_atomic"
+      ]
+    },
+    {
+      "id": "launch.ValidateContentProfile",
+      "owner": "launch",
+      "rf_id": "RF10",
+      "symbol": "retrom/internal/service/launch.ValidateContentProfile",
+      "consumers": [
+        "retrom/internal/service/launch.validationContentStatus"
+      ],
+      "invariant": "Project/multi-disc/raw content kind support by explicit platform and logical name.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF10-launch_authority",
+        "RFA-RF10-launch_atomic"
+      ]
+    },
+    {
+      "id": "launch.ValidateLockedArcadeSnapshot",
+      "owner": "launch",
+      "rf_id": "RF10",
+      "symbol": "retrom/internal/service/launch.ValidateLockedArcadeSnapshot",
+      "consumers": [
+        "retrom/internal/service/launch.EvaluateValidation"
+      ],
+      "invariant": "Schema/kind/machine/DAT identity and parsable runtime BIOS dependencies.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF10-launch_authority",
+        "RFA-RF10-launch_atomic"
+      ]
+    },
+    {
+      "id": "launch.ValidationDedupeKey",
+      "owner": "launch",
+      "rf_id": "RF10",
+      "symbol": "retrom/internal/service/launch.ValidationDedupeKey",
+      "consumers": [
+        "(*retrom/internal/service/launch.ValidationScheduler).Queue"
+      ],
+      "invariant": "Stable SHA256 domain-separated canonical variant plus validation-input digest.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF10-launch_authority",
+        "RFA-RF10-launch_atomic"
+      ]
+    },
+    {
+      "id": "launch.acceptedPlayDuration",
+      "owner": "launch",
+      "rf_id": "RF10",
+      "symbol": "retrom/internal/service/launch.acceptedPlayDuration",
+      "consumers": [
+        "retrom/internal/service/launch.recordPlayProgress"
+      ],
+      "invariant": "Count only running visible unpaused interval, cap45s and prevent corrupted-time overflow.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF10-launch_authority",
+        "RFA-RF10-launch_atomic"
+      ]
+    },
+    {
+      "id": "launch.approvedProductBIOS",
+      "owner": "launch",
+      "rf_id": "RF10",
+      "symbol": "retrom/internal/service/launch.approvedProductBIOS",
+      "consumers": [
+        "(*retrom/internal/service/launch.ProductCreator).preparePlan"
+      ],
+      "invariant": "Refresh reviewed-override BIOS dependency value/files while preserving unrelated snapshot members.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF10-launch_authority",
+        "RFA-RF10-launch_atomic"
+      ]
+    },
+    {
+      "id": "launch.equalValidationTime",
+      "owner": "launch",
+      "rf_id": "RF10",
+      "symbol": "retrom/internal/service/launch.equalValidationTime",
+      "consumers": [
+        "retrom/internal/service/launch.validationOwnerError"
+      ],
+      "invariant": "Nil-sensitive optional millisecond equality.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF10-launch_authority",
+        "RFA-RF10-launch_atomic"
+      ]
+    },
+    {
+      "id": "launch.playVersionWritable",
+      "owner": "launch",
+      "rf_id": "RF10",
+      "symbol": "retrom/internal/service/launch.playVersionWritable",
+      "consumers": [
+        "(*retrom/internal/service/launch.PlayController).startPlay",
+        "retrom/internal/service/launch.finishUnstartedPlay",
+        "retrom/internal/service/launch.recordPlayProgress",
+        "retrom/internal/service/launch.recordPreviewPlay"
+      ],
+      "invariant": "Positive version below signed64 maximum.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF10-launch_authority",
+        "RFA-RF10-launch_atomic"
+      ]
+    },
+    {
+      "id": "launch.previewContent",
+      "owner": "launch",
+      "rf_id": "RF10",
+      "symbol": "retrom/internal/service/launch.previewContent",
+      "consumers": [
+        "(*retrom/internal/service/launch.PreviewCreator).Create"
+      ],
+      "invariant": "Select primary and extra preview content from supplied source and validation file values.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF10-launch_authority",
+        "RFA-RF10-launch_atomic"
+      ]
+    },
+    {
+      "id": "launch.previewPrimaryContent",
+      "owner": "launch",
+      "rf_id": "RF10",
+      "symbol": "retrom/internal/service/launch.previewPrimaryContent",
+      "consumers": [
+        "retrom/internal/service/launch.previewContent"
+      ],
+      "invariant": "Single-file, DOS or READY multi-disc primary selection and disc count.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF10-launch_authority",
+        "RFA-RF10-launch_atomic"
+      ]
+    },
+    {
+      "id": "launch.previewRestoreContent",
+      "owner": "launch",
+      "rf_id": "RF10",
+      "symbol": "retrom/internal/service/launch.previewRestoreContent",
+      "consumers": [
+        "retrom/internal/service/launch.validatePreviewRestore"
+      ],
+      "invariant": "Exact content blob/name/format/dependency identity and present restore payload.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF10-launch_authority",
+        "RFA-RF10-launch_atomic"
+      ]
+    },
+    {
+      "id": "launch.previewRestoreOwner",
+      "owner": "launch",
+      "rf_id": "RF10",
+      "symbol": "retrom/internal/service/launch.previewRestoreOwner",
+      "consumers": [
+        "retrom/internal/service/launch.validatePreviewRestore"
+      ],
+      "invariant": "Same actor/item/source/provider/target, ACTIVE or FINISHED old preview with hard deadline future.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF10-launch_authority",
+        "RFA-RF10-launch_atomic"
+      ]
+    },
+    {
+      "id": "launch.productBIOSFresh",
+      "owner": "launch",
+      "rf_id": "RF10",
+      "symbol": "retrom/internal/service/launch.productBIOSFresh",
+      "consumers": [
+        "(*retrom/internal/service/launch.ProductCreator).prepare"
+      ],
+      "invariant": "Compare current dependency evidence against locked variant; special reviewed override and Arcade bundle rules.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF10-launch_authority",
+        "RFA-RF10-launch_atomic"
+      ]
+    },
+    {
+      "id": "launch.productInitialDisc",
+      "owner": "launch",
+      "rf_id": "RF10",
+      "symbol": "retrom/internal/service/launch.productInitialDisc",
+      "consumers": [
+        "(*retrom/internal/service/launch.ProductCreator).preparePlan"
+      ],
+      "invariant": "Only multi-disc save may supply a disc index, in current ordered disc range.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF10-launch_authority",
+        "RFA-RF10-launch_atomic"
+      ]
+    },
+    {
+      "id": "launch.retryValidationSnapshot",
+      "owner": "launch",
+      "rf_id": "RF10",
+      "symbol": "retrom/internal/service/launch.retryValidationSnapshot",
+      "consumers": [
+        "(*retrom/internal/service/launch.ValidationScheduler).prepare"
+      ],
+      "invariant": "Retry only validated frozen schema/kind/scope, with bounded prior execution/version.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF10-launch_authority",
+        "RFA-RF10-launch_atomic"
+      ]
+    },
+    {
+      "id": "launch.sameConfigInput",
+      "owner": "launch",
+      "rf_id": "RF10",
+      "symbol": "retrom/internal/service/launch.sameConfigInput",
+      "consumers": [
+        "(*retrom/internal/service/launch.ConfigIssuer).activate"
+      ],
+      "invariant": "Frozen config source and restore identity unchanged apart from state/version/idle heartbeat.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF10-launch_authority",
+        "RFA-RF10-launch_atomic"
+      ]
+    },
+    {
+      "id": "launch.sameNetplaySource",
+      "owner": "launch",
+      "rf_id": "RF10",
+      "symbol": "retrom/internal/service/launch.sameNetplaySource",
+      "consumers": [
+        "retrom/internal/service/launch.validateNetplayCreation"
+      ],
+      "invariant": "READY SINGLE_FILE source matches frozen session game/variant/core/provider/target/bundle.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF10-launch_authority",
+        "RFA-RF10-launch_atomic"
+      ]
+    },
+    {
+      "id": "launch.samePreviewFiles",
+      "owner": "launch",
+      "rf_id": "RF10",
+      "symbol": "retrom/internal/service/launch.samePreviewFiles",
+      "consumers": [
+        "retrom/internal/service/launch.validatePreviewRestore"
+      ],
+      "invariant": "Compare complete role/name/path/blob/order multiset independently of iteration order.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF10-launch_authority",
+        "RFA-RF10-launch_atomic"
+      ]
+    },
+    {
+      "id": "launch.sameProductInputs",
+      "owner": "launch",
+      "rf_id": "RF10",
+      "symbol": "retrom/internal/service/launch.sameProductInputs",
+      "consumers": [
+        "(*retrom/internal/service/launch.NetplayCreator).commit",
+        "(*retrom/internal/service/launch.ProductCreator).EnsureVariant",
+        "(*retrom/internal/service/launch.ProductCreator).commit"
+      ],
+      "invariant": "Explicitly differing comparison masks for ready versus validation preparation; preserve original nil/empty distinction until explicit equivalent value comparison.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF10-launch_authority",
+        "RFA-RF10-launch_atomic"
+      ]
+    },
+    {
+      "id": "launch.sameValidationAttempt",
+      "owner": "launch",
+      "rf_id": "RF10",
+      "symbol": "retrom/internal/service/launch.sameValidationAttempt",
+      "consumers": [
+        "(*retrom/internal/service/launch.ValidationWorker).fail",
+        "retrom/internal/service/launch.validationOwnerError"
+      ],
+      "invariant": "RUNNING same job kind/id/execution/attempt/worker/input JSON+digest/scope.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF10-launch_authority",
+        "RFA-RF10-launch_atomic"
+      ]
+    },
+    {
+      "id": "launch.selectedProductDOS",
+      "owner": "launch",
+      "rf_id": "RF10",
+      "symbol": "retrom/internal/service/launch.selectedProductDOS",
+      "consumers": [
+        "(*retrom/internal/service/launch.ProductCreator).preparePlan"
+      ],
+      "invariant": "Saved DOS selection takes precedence; selected entry must exist and be safe.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF10-launch_authority",
+        "RFA-RF10-launch_atomic"
+      ]
+    },
+    {
+      "id": "launch.validConfigLifetime",
+      "owner": "launch",
+      "rf_id": "RF10",
+      "symbol": "retrom/internal/service/launch.validConfigLifetime",
+      "consumers": [
+        "(*retrom/internal/service/launch.ConfigIssuer).authorized",
+        "retrom/internal/service/launch.validProjectAuthority"
+      ],
+      "invariant": "Version and CREATED bootstrap or ACTIVE idle deadline below fixed hard deadline.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF10-launch_authority",
+        "RFA-RF10-launch_atomic"
+      ]
+    },
+    {
+      "id": "launch.validConfigRevision",
+      "owner": "launch",
+      "rf_id": "RF10",
+      "symbol": "retrom/internal/service/launch.validConfigRevision",
+      "consumers": [
+        "(*retrom/internal/service/launch.ConfigIssuer).activate"
+      ],
+      "invariant": "Only equivalent or forward CREATED-to-ACTIVE config revision.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF10-launch_authority",
+        "RFA-RF10-launch_atomic"
+      ]
+    },
+    {
+      "id": "launch.validIsolationGrant",
+      "owner": "launch",
+      "rf_id": "RF10",
+      "symbol": "retrom/internal/service/launch.validIsolationGrant",
+      "consumers": [
+        "(*retrom/internal/service/launch.ConfigIssuer).activate",
+        "(*retrom/internal/service/launch.ConfigIssuer).isolationTicket"
+      ],
+      "invariant": "Same origin and unexpired grant, optionally constant-time exact signed-ticket digest.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF10-launch_authority",
+        "RFA-RF10-launch_atomic"
+      ]
+    },
+    {
+      "id": "launch.validNetplayAuthority",
+      "owner": "launch",
+      "rf_id": "RF10",
+      "symbol": "retrom/internal/service/launch.validNetplayAuthority",
+      "consumers": [
+        "retrom/internal/service/launch.validateNetplayCreation"
+      ],
+      "invariant": "Current room/session/member and immutable selection identity with allowed nonterminal state.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF10-launch_authority",
+        "RFA-RF10-launch_atomic"
+      ]
+    },
+    {
+      "id": "launch.validNetplayCreationRequest",
+      "owner": "launch",
+      "rf_id": "RF10",
+      "symbol": "retrom/internal/service/launch.validNetplayCreationRequest",
+      "consumers": [
+        "(*retrom/internal/service/launch.NetplayCreator).CreateNetplay"
+      ],
+      "invariant": "Required room/session/game/variant/profile/target,player1..4,digest/generation/hash/return path.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF10-launch_authority",
+        "RFA-RF10-launch_atomic"
+      ]
+    },
+    {
+      "id": "launch.validPlayEvent",
+      "owner": "launch",
+      "rf_id": "RF10",
+      "symbol": "retrom/internal/service/launch.validPlayEvent",
+      "consumers": [
+        "(*retrom/internal/service/launch.PlayController).RecordPlay"
+      ],
+      "invariant": "Bounded client time and kind-specific sequence/interval shape.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF10-launch_authority",
+        "RFA-RF10-launch_atomic"
+      ]
+    },
+    {
+      "id": "launch.validPlayProgress",
+      "owner": "launch",
+      "rf_id": "RF10",
+      "symbol": "retrom/internal/service/launch.validPlayProgress",
+      "consumers": [
+        "(*retrom/internal/service/launch.PlayController).recordProductPlay"
+      ],
+      "invariant": "Current ACTIVE launch/play,live idle,next exact sequence and prior interval.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF10-launch_authority",
+        "RFA-RF10-launch_atomic"
+      ]
+    },
+    {
+      "id": "launch.validPreviewFileSet",
+      "owner": "launch",
+      "rf_id": "RF10",
+      "symbol": "retrom/internal/service/launch.validPreviewFileSet",
+      "consumers": [
+        "retrom/internal/service/launch.previewContent"
+      ],
+      "invariant": "Case-fold unique logical names and unique virtual paths; project paths follow canonical path validation.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF10-launch_authority",
+        "RFA-RF10-launch_atomic"
+      ]
+    },
+    {
+      "id": "launch.validPreviewLogicalName",
+      "owner": "launch",
+      "rf_id": "RF10",
+      "symbol": "retrom/internal/service/launch.validPreviewLogicalName",
+      "consumers": [
+        "retrom/internal/service/launch.previewContent",
+        "retrom/internal/service/launch.reviewPreviewExternalFiles",
+        "retrom/internal/service/launch.validPreviewFileSet"
+      ],
+      "invariant": "Bounded basename, no separator/backslash/NUL/dot traversal.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF10-launch_authority",
+        "RFA-RF10-launch_atomic"
+      ]
+    },
+    {
+      "id": "launch.validProductRequest",
+      "owner": "launch",
+      "rf_id": "RF10",
+      "symbol": "retrom/internal/service/launch.validProductRequest",
+      "consumers": [
+        "(*retrom/internal/service/launch.ProductCreator).Create"
+      ],
+      "invariant": "Required actor/profile/game/key shape, save/DOS exclusion and permitted return path.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF10-launch_authority",
+        "RFA-RF10-launch_atomic"
+      ]
+    },
+    {
+      "id": "launch.validScreenshotImage",
+      "owner": "launch",
+      "rf_id": "RF10",
+      "symbol": "retrom/internal/service/launch.validScreenshotImage",
+      "consumers": [
+        "(*retrom/internal/service/launch.ScreenshotSaver).Store"
+      ],
+      "invariant": "Positive bounded image bytes/dimensions,PNG or JPEG and bounded pixel area.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF10-launch_authority",
+        "RFA-RF10-launch_atomic"
+      ]
+    },
+    {
+      "id": "launch.validateExistingNetplay",
+      "owner": "launch",
+      "rf_id": "RF10",
+      "symbol": "retrom/internal/service/launch.validateExistingNetplay",
+      "consumers": [
+        "retrom/internal/service/launch.validateNetplayCreation"
+      ],
+      "invariant": "Credential generation/hash and existing launch binding/state must exactly agree.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF10-launch_authority",
+        "RFA-RF10-launch_atomic"
+      ]
+    },
+    {
+      "id": "launch.validateFinalValidation",
+      "owner": "launch",
+      "rf_id": "RF10",
+      "symbol": "retrom/internal/service/launch.validateFinalValidation",
+      "consumers": [
+        "(*retrom/internal/service/launch.ValidationWorker).settle"
+      ],
+      "invariant": "Current evidence validates then compare variant revision,selection/binding/classification/core/platform/locked dependencies.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF10-launch_authority",
+        "RFA-RF10-launch_atomic"
+      ]
+    },
+    {
+      "id": "launch.validateNetplayCreation",
+      "owner": "launch",
+      "rf_id": "RF10",
+      "symbol": "retrom/internal/service/launch.validateNetplayCreation",
+      "consumers": [
+        "(*retrom/internal/service/launch.NetplayCreator).commit",
+        "(*retrom/internal/service/launch.NetplayCreator).prepare"
+      ],
+      "invariant": "Current participant authority and ready matching product; separate new and existing launch semantics.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF10-launch_authority",
+        "RFA-RF10-launch_atomic"
+      ]
+    },
+    {
+      "id": "launch.validatePreviewRestore",
+      "owner": "launch",
+      "rf_id": "RF10",
+      "symbol": "retrom/internal/service/launch.validatePreviewRestore",
+      "consumers": [
+        "(*retrom/internal/service/launch.PreviewCreator).commit"
+      ],
+      "invariant": "Require same owner/content/file multiset, live old preview and bounded compatible checkpoint.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF10-launch_authority",
+        "RFA-RF10-launch_atomic"
+      ]
+    },
+    {
+      "id": "launch.validateProductSavedSelection",
+      "owner": "launch",
+      "rf_id": "RF10",
+      "symbol": "retrom/internal/service/launch.validateProductSavedSelection",
+      "consumers": [
+        "retrom/internal/service/launch.validateProductSelection"
+      ],
+      "invariant": "READY chosen variant reads selected save format; distinguish incompatible save from blocked core.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF10-launch_authority",
+        "RFA-RF10-launch_atomic"
+      ]
+    },
+    {
+      "id": "launch.validateProductSelection",
+      "owner": "launch",
+      "rf_id": "RF10",
+      "symbol": "retrom/internal/service/launch.validateProductSelection",
+      "consumers": [
+        "(*retrom/internal/service/launch.ProductCreator).prepare"
+      ],
+      "invariant": "A new launch requires found source; a selected save follows format/variant policy.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF10-launch_authority",
+        "RFA-RF10-launch_atomic"
+      ]
+    },
+    {
+      "id": "launch.validationContentStatus",
+      "owner": "launch",
+      "rf_id": "RF10",
+      "symbol": "retrom/internal/service/launch.validationContentStatus",
+      "consumers": [
+        "retrom/internal/service/launch.EvaluateValidation"
+      ],
+      "invariant": "Binding/platform enablement,content profile and locked Arcade machine classify readiness.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF10-launch_authority",
+        "RFA-RF10-launch_atomic"
+      ]
+    },
+    {
+      "id": "launch.validationExhausted",
+      "owner": "launch",
+      "rf_id": "RF10",
+      "symbol": "retrom/internal/service/launch.validationExhausted",
+      "consumers": [
+        "(*retrom/internal/service/launch.ValidationWorker).claim",
+        "(*retrom/internal/service/launch.ValidationWorker).recoverOne"
+      ],
+      "invariant": "Attempt limit or inclusive execution deadline exhaustion.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF10-launch_authority",
+        "RFA-RF10-launch_atomic"
+      ]
+    },
+    {
+      "id": "launch.validationOwnerError",
+      "owner": "launch",
+      "rf_id": "RF10",
+      "symbol": "retrom/internal/service/launch.validationOwnerError",
+      "consumers": [
+        "(*retrom/internal/service/launch.ValidationWorker).heartbeat",
+        "(*retrom/internal/service/launch.ValidationWorker).settle",
+        "retrom/internal/service/launch.ownsValidationWork"
+      ],
+      "invariant": "Exact owner/input/scope/fixed start+deadline and live lease; distinguish invalid input/lost owner/deadline/lease.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF10-launch_authority",
+        "RFA-RF10-launch_atomic"
+      ]
+    },
+    {
+      "id": "launch.validationSourceMatches",
+      "owner": "launch",
+      "rf_id": "RF10",
+      "symbol": "retrom/internal/service/launch.validationSourceMatches",
+      "consumers": [
+        "retrom/internal/service/launch.EvaluateValidation"
+      ],
+      "invariant": "Exact frozen game version/manifest/variant/provider/target/content policy and DAT version.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF10-launch_authority",
+        "RFA-RF10-launch_atomic"
+      ]
+    },
+    {
       "id": "payloadrelease.DecideGameDeletion",
       "owner": "payloadrelease",
       "rf_id": "RF18",
