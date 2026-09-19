@@ -47,6 +47,54 @@
       ]
     },
     {
+      "path": "internal/adapter/engine/butterscotch/detector",
+      "layer": "adapter",
+      "module": "engine",
+      "owner": "RF04",
+      "files": [
+        {
+          "path": "internal/adapter/engine/butterscotch/detector/detector.go",
+          "kind": "production"
+        },
+        {
+          "path": "internal/adapter/engine/butterscotch/detector/detector_test.go",
+          "kind": "test"
+        }
+      ]
+    },
+    {
+      "path": "internal/adapter/engine/nxengine/detector",
+      "layer": "adapter",
+      "module": "engine",
+      "owner": "RF04",
+      "files": [
+        {
+          "path": "internal/adapter/engine/nxengine/detector/detector.go",
+          "kind": "production"
+        },
+        {
+          "path": "internal/adapter/engine/nxengine/detector/detector_test.go",
+          "kind": "test"
+        }
+      ]
+    },
+    {
+      "path": "internal/adapter/engine/ons/detector",
+      "layer": "adapter",
+      "module": "engine",
+      "owner": "RF04",
+      "files": [
+        {
+          "path": "internal/adapter/engine/ons/detector/detector.go",
+          "kind": "production"
+        },
+        {
+          "path": "internal/adapter/engine/ons/detector/detector_test.go",
+          "kind": "test"
+        }
+      ]
+    },
+    {
       "path": "internal/adapter/engine/scummvm",
       "layer": "adapter",
       "module": "engine",
@@ -2865,6 +2913,10 @@
       "owner": "RF04",
       "files": [
         {
+          "path": "internal/capability/engine/tyranoscript/detector/compatibility_test.go",
+          "kind": "test"
+        },
+        {
           "path": "internal/capability/engine/tyranoscript/detector/detector.go",
           "kind": "production"
         },
@@ -4022,6 +4074,10 @@
         },
         {
           "path": "internal/model/libraryimport/prepublish.go",
+          "kind": "production"
+        },
+        {
+          "path": "internal/model/libraryimport/project_probe_ports.go",
           "kind": "production"
         },
         {
@@ -10143,6 +10199,14 @@
         {
           "path": "internal/service/libraryimport/kirikiri_import.go",
           "kind": "production"
+        },
+        {
+          "path": "internal/service/libraryimport/marker_project_detection.go",
+          "kind": "production"
+        },
+        {
+          "path": "internal/service/libraryimport/marker_project_detection_test.go",
+          "kind": "test"
         },
         {
           "path": "internal/service/libraryimport/marker_project_prepare.go",

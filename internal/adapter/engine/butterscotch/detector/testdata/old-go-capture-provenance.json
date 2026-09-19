@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "status": "CAPTURED_FROM_ACTUAL_PRE_MIGRATION_GO",
+  "capturedHead": "85b2fac3bb3c423216949507b4123255d6b66077",
+  "command": "GOTOOLCHAIN=local go run .artifacts/refactor/small-engine-probes-capture.go",
+  "workingDirectory": "Retrom checkout at capturedHead",
+  "goVersion": "go version go1.26.5 linux/amd64",
+  "source": {
+    "path": "internal/testkit/refactor/testdata/small-engine-probes/old-capture.go.txt",
+    "sha256": "68032ec117690494aac4c45d4c3d4c5e07d80686e46cc197d0318f00c5f70886"
+  },
+  "golden": {
+    "path": "internal/testkit/refactor/testdata/small-engine-probes/old-go-golden.json",
+    "sha256": "45328b079b378a2e52dc07789a71d68f240e36d9f6f48d75b98814b349df657d",
+    "deterministicRerunIdentical": true
+  },
+  "actualSources": [
+    {
+      "path": "internal/capability/engine/ons/detector/detector.go",
+      "sha256": "427d9cb43716546ee2d3819863e40c31833bc84dd53bd76ca75aa13e2fe9cd71"
+    },
+    {
+      "path": "internal/capability/engine/butterscotch/detector/detector.go",
+      "sha256": "78b7f238c16cd39baacef0758cb60a1fb7d40c2988024037e1c04cfcd9438550"
+    },
+    {
+      "path": "internal/capability/engine/nxengine/detector/detector.go",
+      "sha256": "a2b77c50f689a647919b22734ee23d691b629baca909ddfa509612f347bdadd0"
+    }
+  ],
+  "cases": {
+    "total": 51,
+    "ons": 16,
+    "butterscotch": 16,
+    "nxengine": 19
+  },
+  "method": [
+    "The capture program imports and calls the actual old detector packages.",
+    "Controlled io.ReadCloser instances record Open/Read/Close counts and inject open/read/close failures.",
+    "Successful profiles are serialized by the actual old MarshalSnapshot functions.",
+    "No production function was copied or reimplemented in the capture.",
+    "All bytes are small generated public fixtures; 1 MiB ONS boundary data is generated deterministically."
+  ],
+  "compatibilityFacts": [
+    "ONS reads at most exactly 1 MiB and ignores bytes after that bound.",
+    "ONS DAT markers do not open a resource.",
+    "All three old detectors ignore Close errors after successful reads.",
+    "Butterscotch and NXEngine accept fixed prefixes even when physical bytes are shorter than declared descriptors.",
+    "NXEngine probes the EXE before checking required assets.",
+    "A nil reader returned with nil error panics in each old detector; later adapter fail-closed handling is explicitly a new boundary."
+  ],
+  "engineSubset": {
+    "engine": "butterscotch",
+    "path": "internal/adapter/engine/butterscotch/detector/testdata/old-go-golden.json",
+    "sha256": "9cbd1daeb7db5b751888c400f730cf84d85e4c76d410be055ded650b2adb9a95"
+  }
+}

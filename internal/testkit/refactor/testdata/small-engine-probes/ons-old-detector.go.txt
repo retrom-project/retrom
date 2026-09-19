@@ -12,7 +12,7 @@ import (
 	"unicode/utf8"
 )
 
-const MaxScriptProbeBytes = 1 << 20
+const maxScriptProbeBytes = 1 << 20
 
 var ErrProjectInvalid = errors.New("ONS_PROJECT_INVALID")
 
@@ -21,16 +21,9 @@ type File struct {
 	Size int64
 }
 
-type Selection struct {
-	markerPath string
-	fontPath   string
-}
-
-func (selection Selection) ProbePath() string {
-	if strings.HasSuffix(strings.ToLower(selection.markerPath), ".txt") {
-		return selection.markerPath
-	}
-	return ""
+type Index interface {
+	Files() []File
+	Open(logicalPath string) (io.ReadCloser, error)
 }
 
 type Profile struct {
@@ -72,35 +65,32 @@ func ParseSnapshot(contents string) (Profile, error) {
 	return value.ONS, nil
 }
 
-func Select(files []File) (Selection, error) {
+func Detect(index Index) (Profile, error) {
+	files := index.Files()
 	byPath := make(map[string]File, len(files))
 	for _, file := range files {
 		key := strings.ToLower(file.Path)
 		if file.Path == "" || file.Size < 0 || byPath[key].Path != "" {
-			return Selection{}, ErrProjectInvalid
+			return Profile{}, ErrProjectInvalid
 		}
 		byPath[key] = file
 	}
 	markerPath := firstMarker(byPath)
 	fontPath := preferredFont(files)
 	if markerPath == "" || fontPath == "" {
-		return Selection{}, ErrProjectInvalid
-	}
-	return Selection{markerPath: markerPath, fontPath: fontPath}, nil
-}
-
-func Detect(selection Selection, probe []byte) (Profile, error) {
-	if selection.markerPath == "" || selection.fontPath == "" {
 		return Profile{}, ErrProjectInvalid
 	}
 	encoding := "gbk"
-	if selection.ProbePath() != "" &&
-		utf8.ValidString(strings.TrimPrefix(string(probe), "\uFEFF")) {
-		encoding = "utf8"
+	if strings.HasSuffix(strings.ToLower(markerPath), ".txt") {
+		probe, err := readProbe(index, markerPath)
+		if err != nil {
+			return Profile{}, fmt.Errorf("%w: script unavailable", ErrProjectInvalid)
+		}
+		if utf8.ValidString(strings.TrimPrefix(string(probe), "\ufeff")) {
+			encoding = "utf8"
+		}
 	}
-	return Profile{
-		MarkerPath: selection.markerPath, FontPath: selection.fontPath, ScriptEncoding: encoding,
-	}, nil
+	return Profile{MarkerPath: markerPath, FontPath: fontPath, ScriptEncoding: encoding}, nil
 }
 
 func firstMarker(files map[string]File) string {
@@ -146,4 +136,17 @@ func validProfile(profile Profile) bool {
 func validLogicalPath(value string) bool {
 	return value != "" && len([]byte(value)) <= 1024 && path.Clean(value) == value &&
 		!strings.HasPrefix(value, "/") && !strings.Contains(value, `\`) && !strings.ContainsRune(value, 0)
+}
+
+func readProbe(index Index, markerPath string) ([]byte, error) {
+	reader, err := index.Open(markerPath)
+	if err != nil {
+		return nil, fmt.Errorf("open script probe: %w", err)
+	}
+	defer func() { _ = reader.Close() }()
+	probe, err := io.ReadAll(io.LimitReader(reader, maxScriptProbeBytes))
+	if err != nil {
+		return nil, fmt.Errorf("read script probe: %w", err)
+	}
+	return probe, nil
 }

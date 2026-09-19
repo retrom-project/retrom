@@ -1,0 +1,263 @@
+{
+  "schemaVersion": 1,
+  "results": [
+    {
+      "engine": "ons",
+      "case": "beyond_1mib_unread_invalid_tail",
+      "note": "invalid byte after 1 MiB is not read; declared size intentionally 1",
+      "inputBytes": 1048577,
+      "inputSHA256": "25f9c76baa1122dabeef31bbd6c4be72f5e19d36c91902acbf3c65ee7f6469e8",
+      "profile": {
+        "markerPath": "0.txt",
+        "fontPath": "font.ttf",
+        "scriptEncoding": "utf8"
+      },
+      "snapshot": "{\"ons\":{\"markerPath\":\"0.txt\",\"fontPath\":\"font.ttf\",\"scriptEncoding\":\"utf8\"},\"schemaVersion\":1}",
+      "isProjectInvalid": false,
+      "io": {
+        "openCalls": [
+          "0.txt"
+        ],
+        "readCalls": 30,
+        "readBytes": 1048576,
+        "maxReadRequest": 255680,
+        "closeCalls": 1
+      }
+    },
+    {
+      "engine": "ons",
+      "case": "close_failure_ignored",
+      "note": "successful read remains successful when Close fails",
+      "inputBytes": 1,
+      "inputSHA256": "ca978112ca1bbdcafac231b39a23dc4da786eff8147c4e72b9807785afee48bb",
+      "profile": {
+        "markerPath": "0.txt",
+        "fontPath": "font.ttf",
+        "scriptEncoding": "utf8"
+      },
+      "snapshot": "{\"ons\":{\"markerPath\":\"0.txt\",\"fontPath\":\"font.ttf\",\"scriptEncoding\":\"utf8\"},\"schemaVersion\":1}",
+      "isProjectInvalid": false,
+      "io": {
+        "openCalls": [
+          "0.txt"
+        ],
+        "readCalls": 2,
+        "readBytes": 1,
+        "maxReadRequest": 512,
+        "closeCalls": 1
+      }
+    },
+    {
+      "engine": "ons",
+      "case": "dat_defaults_gbk_without_open",
+      "note": "encrypted DAT marker is not opened",
+      "inputBytes": 2,
+      "inputSHA256": "bfbefe333c535f13be1cfbf02c1ef0ae5988bc7d87b8814dd8818918890926ff",
+      "profile": {
+        "markerPath": "nscript.dat",
+        "fontPath": "font.ttf",
+        "scriptEncoding": "gbk"
+      },
+      "snapshot": "{\"ons\":{\"markerPath\":\"nscript.dat\",\"fontPath\":\"font.ttf\",\"scriptEncoding\":\"gbk\"},\"schemaVersion\":1}",
+      "isProjectInvalid": false,
+      "io": {}
+    },
+    {
+      "engine": "ons",
+      "case": "duplicate_before_open",
+      "note": "ASCII-lower duplicate precedes resource access",
+      "error": "ONS_PROJECT_INVALID",
+      "isProjectInvalid": true,
+      "io": {}
+    },
+    {
+      "engine": "ons",
+      "case": "empty_path_before_open",
+      "note": "descriptor validation precedes resource access",
+      "error": "ONS_PROJECT_INVALID",
+      "isProjectInvalid": true,
+      "io": {}
+    },
+    {
+      "engine": "ons",
+      "case": "exact_1mib",
+      "note": "exact 1 MiB is fully read",
+      "inputBytes": 1048576,
+      "inputSHA256": "9bc1b2a288b26af7257a36277ae3816a7d4f16e89c1e7e77d0a5c48bad62b360",
+      "profile": {
+        "markerPath": "0.txt",
+        "fontPath": "font.ttf",
+        "scriptEncoding": "utf8"
+      },
+      "snapshot": "{\"ons\":{\"markerPath\":\"0.txt\",\"fontPath\":\"font.ttf\",\"scriptEncoding\":\"utf8\"},\"schemaVersion\":1}",
+      "isProjectInvalid": false,
+      "io": {
+        "openCalls": [
+          "0.txt"
+        ],
+        "readCalls": 30,
+        "readBytes": 1048576,
+        "maxReadRequest": 255680,
+        "closeCalls": 1
+      }
+    },
+    {
+      "engine": "ons",
+      "case": "marker_and_font_priority",
+      "note": "0.txt wins over 00.txt; root default.ttf wins",
+      "inputBytes": 1,
+      "inputSHA256": "ca978112ca1bbdcafac231b39a23dc4da786eff8147c4e72b9807785afee48bb",
+      "profile": {
+        "markerPath": "0.txt",
+        "fontPath": "default.ttf",
+        "scriptEncoding": "utf8"
+      },
+      "snapshot": "{\"ons\":{\"markerPath\":\"0.txt\",\"fontPath\":\"default.ttf\",\"scriptEncoding\":\"utf8\"},\"schemaVersion\":1}",
+      "isProjectInvalid": false,
+      "io": {
+        "openCalls": [
+          "0.txt"
+        ],
+        "readCalls": 2,
+        "readBytes": 1,
+        "maxReadRequest": 512,
+        "closeCalls": 1
+      }
+    },
+    {
+      "engine": "ons",
+      "case": "missing_font_before_open",
+      "note": "missing font precedes script open",
+      "error": "ONS_PROJECT_INVALID",
+      "isProjectInvalid": true,
+      "io": {}
+    },
+    {
+      "engine": "ons",
+      "case": "missing_marker_before_open",
+      "note": "missing marker rejects without open",
+      "error": "ONS_PROJECT_INVALID",
+      "isProjectInvalid": true,
+      "io": {}
+    },
+    {
+      "engine": "ons",
+      "case": "negative_size_before_open",
+      "note": "negative size precedes resource access",
+      "error": "ONS_PROJECT_INVALID",
+      "isProjectInvalid": true,
+      "io": {}
+    },
+    {
+      "engine": "ons",
+      "case": "nil_reader_panics",
+      "note": "old implementation has no nil-reader rejection",
+      "isProjectInvalid": false,
+      "panic": "runtime error: invalid memory address or nil pointer dereference",
+      "io": {
+        "openCalls": [
+          "0.txt"
+        ]
+      }
+    },
+    {
+      "engine": "ons",
+      "case": "open_failure",
+      "note": "open cause is collapsed to script unavailable",
+      "error": "ONS_PROJECT_INVALID: script unavailable",
+      "isProjectInvalid": true,
+      "io": {
+        "openCalls": [
+          "0.txt"
+        ]
+      }
+    },
+    {
+      "engine": "ons",
+      "case": "read_failure",
+      "note": "read cause is collapsed and Close still runs",
+      "inputBytes": 4,
+      "inputSHA256": "88d4266fd4e6338d13b845fcf289579d209c897823b9217da3e161936f031589",
+      "error": "ONS_PROJECT_INVALID: script unavailable",
+      "isProjectInvalid": true,
+      "io": {
+        "openCalls": [
+          "0.txt"
+        ],
+        "readCalls": 2,
+        "readBytes": 2,
+        "maxReadRequest": 512,
+        "closeCalls": 1
+      }
+    },
+    {
+      "engine": "ons",
+      "case": "txt_invalid_utf8_defaults_gbk",
+      "note": "invalid UTF-8 probe selects GBK",
+      "inputBytes": 2,
+      "inputSHA256": "bfbefe333c535f13be1cfbf02c1ef0ae5988bc7d87b8814dd8818918890926ff",
+      "profile": {
+        "markerPath": "0.txt",
+        "fontPath": "font.ttf",
+        "scriptEncoding": "gbk"
+      },
+      "snapshot": "{\"ons\":{\"markerPath\":\"0.txt\",\"fontPath\":\"font.ttf\",\"scriptEncoding\":\"gbk\"},\"schemaVersion\":1}",
+      "isProjectInvalid": false,
+      "io": {
+        "openCalls": [
+          "0.txt"
+        ],
+        "readCalls": 2,
+        "readBytes": 2,
+        "maxReadRequest": 512,
+        "closeCalls": 1
+      }
+    },
+    {
+      "engine": "ons",
+      "case": "txt_utf8_bom",
+      "note": "UTF-8 BOM is ignored for encoding detection",
+      "inputBytes": 11,
+      "inputSHA256": "6123cab44a49480c0e6060d92f555e3b59aec9be2dbda27ad883fa2eccd2ad06",
+      "profile": {
+        "markerPath": "0.txt",
+        "fontPath": "font.ttf",
+        "scriptEncoding": "utf8"
+      },
+      "snapshot": "{\"ons\":{\"markerPath\":\"0.txt\",\"fontPath\":\"font.ttf\",\"scriptEncoding\":\"utf8\"},\"schemaVersion\":1}",
+      "isProjectInvalid": false,
+      "io": {
+        "openCalls": [
+          "0.txt"
+        ],
+        "readCalls": 2,
+        "readBytes": 11,
+        "maxReadRequest": 512,
+        "closeCalls": 1
+      }
+    },
+    {
+      "engine": "ons",
+      "case": "txt_utf8_public",
+      "note": "public ASCII script and default-font preference",
+      "inputBytes": 17,
+      "inputSHA256": "d3d071b7a022d109b9d357665e72de966992eaf8bd76d7d71d56804635b1aa20",
+      "profile": {
+        "markerPath": "0.txt",
+        "fontPath": "default.ttf",
+        "scriptEncoding": "utf8"
+      },
+      "snapshot": "{\"ons\":{\"markerPath\":\"0.txt\",\"fontPath\":\"default.ttf\",\"scriptEncoding\":\"utf8\"},\"schemaVersion\":1}",
+      "isProjectInvalid": false,
+      "io": {
+        "openCalls": [
+          "0.txt"
+        ],
+        "readCalls": 2,
+        "readBytes": 17,
+        "maxReadRequest": 512,
+        "closeCalls": 1
+      }
+    }
+  ]
+}

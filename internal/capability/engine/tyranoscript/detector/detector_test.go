@@ -5,13 +5,9 @@ import (
 	"testing"
 )
 
-type memoryIndex []File
-
-func (index memoryIndex) Files() []File { return append([]File(nil), index...) }
-
 func TestDetectAcceptsCompleteBrowserProject(t *testing.T) {
 	t.Parallel()
-	profile, err := Detect(memoryIndex{
+	profile, err := Detect([]File{
 		{Path: "index.html", Size: 1024},
 		{Path: "data/scenario/first.ks", Size: 32},
 		{Path: "data/system/Config.tjs", Size: 64},
@@ -26,14 +22,14 @@ func TestDetectAcceptsCompleteBrowserProject(t *testing.T) {
 
 func TestDetectRejectsMissingAndCaseDuplicateMarkers(t *testing.T) {
 	t.Parallel()
-	valid := memoryIndex{
+	valid := []File{
 		{Path: "index.html", Size: 1},
 		{Path: "data/scenario/first.ks", Size: 1},
 		{Path: "data/system/Config.tjs", Size: 1},
 		{Path: "tyrano/plugins/kag/kag.js", Size: 1},
 		{Path: "tyrano/tyrano.js", Size: 1},
 	}
-	for _, index := range []memoryIndex{valid[:4], append(valid, File{Path: "INDEX.HTML", Size: 1})} {
+	for _, index := range [][]File{valid[:4], append(valid, File{Path: "INDEX.HTML", Size: 1})} {
 		if _, err := Detect(index); !errors.Is(err, ErrProjectInvalid) {
 			t.Fatalf("Detect(%#v) error=%v", index, err)
 		}

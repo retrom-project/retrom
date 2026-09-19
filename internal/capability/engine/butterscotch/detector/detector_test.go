@@ -1,59 +1,61 @@
 package detector
 
 import (
-	"bytes"
 	"encoding/binary"
 	"errors"
-	"io"
 	"testing"
 )
 
-type memoryIndex map[string][]byte
-
-func (index memoryIndex) Files() []File {
-	files := make([]File, 0, len(index))
-	for name, contents := range index {
-		files = append(files, File{Path: name, Size: int64(len(contents))})
-	}
-	return files
+func formHeader(declared uint32) [8]byte {
+	var header [8]byte
+	copy(header[:], "FORM")
+	binary.LittleEndian.PutUint32(header[4:], declared)
+	return header
 }
 
-func (index memoryIndex) Open(name string) (io.ReadCloser, error) {
-	contents, exists := index[name]
-	if !exists {
-		return nil, errors.New("missing file")
-	}
-	return io.NopCloser(bytes.NewReader(contents)), nil
-}
-
-func formFixture() []byte {
-	contents := make([]byte, 16)
-	copy(contents, "FORM")
-	binary.LittleEndian.PutUint32(contents[4:], 8)
-	copy(contents[8:], "GEN8")
-	return contents
-}
-
-func TestDetectAcceptsRootDataWin(t *testing.T) {
+func TestSelectAndDetectAcceptRootDataWin(t *testing.T) {
 	t.Parallel()
-	profile, err := Detect(memoryIndex{"data.win": formFixture(), "options.ini": []byte("[options]")})
+	selection, err := Select([]File{{Path: "data.win", Size: 16}, {Path: "options.ini", Size: 1}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	profile, err := Detect(selection, formHeader(8))
 	if err != nil || profile.MarkerPath != "data.win" ||
 		profile.Compatibility != "GAMEMAKER_RUNTIME_TRIAL_REQUIRED" {
 		t.Fatalf("profile=%#v error=%v", profile, err)
 	}
+	if selection.ProbePath() != "data.win" {
+		t.Fatalf("ProbePath() = %q", selection.ProbePath())
+	}
 }
 
-func TestDetectRejectsMissingDuplicateAndInvalidDataWin(t *testing.T) {
+func TestSelectRejectsMissingDuplicateAndUndersizedDataWin(t *testing.T) {
 	t.Parallel()
-	tests := []memoryIndex{
-		{"readme.txt": []byte("no marker")},
-		{"data.win": []byte("not a GameMaker WAD")},
-		{"data.win": formFixture(), "DATA.WIN": formFixture()},
+	tests := [][]File{
+		{{Path: "readme.txt", Size: 1}},
+		{{Path: "data.win", Size: 15}},
+		{{Path: "data.win", Size: 16}, {Path: "DATA.WIN", Size: 16}},
 	}
-	for _, index := range tests {
-		if _, err := Detect(index); !errors.Is(err, ErrProjectInvalid) {
-			t.Fatalf("Detect(%#v) error=%v", index, err)
+	for _, files := range tests {
+		if _, err := Select(files); !errors.Is(err, ErrProjectInvalid) {
+			t.Fatalf("Select(%#v) error=%v", files, err)
 		}
+	}
+}
+
+func TestDetectEnforcesFORMBounds(t *testing.T) {
+	t.Parallel()
+	selection, err := Select([]File{{Path: "data.win", Size: 20}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, header := range [][8]byte{formHeader(7), formHeader(13), {}} {
+		if _, err := Detect(selection, header); !errors.Is(err, ErrProjectInvalid) {
+			t.Fatalf("Detect(%v) error=%v", header, err)
+		}
+	}
+	if _, err := Detect(selection, formHeader(12)); err != nil {
+		t.Fatalf("upper bound rejected: %v", err)
 	}
 }
 

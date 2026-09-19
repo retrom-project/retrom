@@ -1,0 +1,36 @@
+package main
+import (
+ "encoding/json"
+ "errors"
+ "fmt"
+ "os"
+ "strings"
+ detector "retrom/internal/capability/engine/tyranoscript/detector"
+)
+type index []detector.File
+func (v index) Files() []detector.File { return append([]detector.File(nil), v...) }
+type observation struct {
+ Name string `json:"name"`
+ Files []detector.File `json:"files"`
+ Profile detector.Profile `json:"profile"`
+ Error string `json:"error"`
+ ErrorType string `json:"errorType"`
+ Invalid bool `json:"invalid"`
+ Snapshot string `json:"snapshot"`
+}
+func main() {
+ valid:=[]detector.File{{Path:"index.html",Size:1},{Path:"data/scenario/first.ks",Size:1},{Path:"data/system/Config.tjs",Size:1},{Path:"tyrano/plugins/kag/kag.js",Size:1},{Path:"tyrano/tyrano.js",Size:1}}
+ cases:=[]observation{{Name:"nil"},{Name:"empty",Files:[]detector.File{}},{Name:"complete",Files:valid}}
+ add:=func(name string, files []detector.File){cases=append(cases,observation{Name:name,Files:files})}
+ for i:=range valid { f:=append([]detector.File{},valid[:i]...);f=append(f,valid[i+1:]...);add(fmt.Sprintf("missing-%d",i),f) }
+ upper:=append([]detector.File{},valid...);for i:=range upper {upper[i].Path=strings.ToUpper(upper[i].Path)};add("uppercase",upper)
+ reversed:=append([]detector.File{},valid...);for i:=0;i<len(reversed)/2;i++ {j:=len(reversed)-i-1;reversed[i],reversed[j]=reversed[j],reversed[i]};add("reversed",reversed)
+ for _,path:=range []string{"", ".", "../outside","/absolute","a//b", "a\\b","a\x00b",strings.Repeat("a",1024),strings.Repeat("a",1025),"资源/追加.ks"} {f:=append([]detector.File{},valid...);f=append(f,detector.File{Path:path,Size:0});add(fmt.Sprintf("extra-%d",len(cases)),f)}
+ for _,size:=range []int64{-1,0,9223372036854775807} {f:=append([]detector.File{},valid...);f[0].Size=size;add(fmt.Sprintf("size-%d",size),f)}
+ add("case-duplicate",append(append([]detector.File{},valid...),detector.File{Path:"INDEX.HTML",Size:1}))
+ for i:=range cases {
+  profile,err:=detector.Detect(index(cases[i].Files));cases[i].Profile=profile;cases[i].Invalid=errors.Is(err,detector.ErrProjectInvalid)
+  if err!=nil {cases[i].Error=err.Error();cases[i].ErrorType=fmt.Sprintf("%T",err)} else {data,err:=detector.MarshalSnapshot(profile);if err!=nil {panic(err)};cases[i].Snapshot=string(data)}
+ }
+ e:=json.NewEncoder(os.Stdout);e.SetIndent("","  ");if err:=e.Encode(cases);err!=nil {panic(err)}
+}

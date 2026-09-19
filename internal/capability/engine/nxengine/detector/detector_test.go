@@ -1,28 +1,26 @@
 package detector
 
 import (
-	"bytes"
-	"io"
+	"errors"
 	"testing"
 )
 
-type testIndex map[string][]byte
-
-func (index testIndex) Files() []File {
-	files := make([]File, 0, len(index))
-	for name, data := range index {
-		files = append(files, File{Path: name, Size: int64(len(data))})
+func completeFiles(exeSize int64) []File {
+	return []File{
+		{Path: "Doukutsu.exe", Size: exeSize},
+		{Path: "data/npc.tbl", Size: 1},
+		{Path: "data/Stage/Start.pxm", Size: 1},
+		{Path: "data/Stage/Start.tsc", Size: 1},
 	}
-	return files
 }
 
-func (index testIndex) Open(name string) (io.ReadCloser, error) {
-	return io.NopCloser(bytes.NewReader(index[name])), nil
-}
-
-func TestRequireCompleteGameAndRejectAmbiguousPaths(t *testing.T) {
-	index := testIndex{"Doukutsu.exe": append([]byte("MZ"), make([]byte, 126)...), "data/npc.tbl": {1}, "data/Stage/Start.pxm": {1}, "data/Stage/Start.tsc": {1}}
-	profile, err := Detect(index)
+func TestSelectAndDetectRequireCompleteGame(t *testing.T) {
+	t.Parallel()
+	selection, err := Select(completeFiles(128))
+	if err != nil {
+		t.Fatal(err)
+	}
+	profile, err := Detect(selection, [2]byte{'M', 'Z'})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -33,13 +31,35 @@ func TestRequireCompleteGameAndRejectAmbiguousPaths(t *testing.T) {
 	if _, err := ParseSnapshot(string(snapshot)); err != nil {
 		t.Fatal(err)
 	}
-	delete(index, "data/npc.tbl")
-	if _, err := Detect(index); err == nil {
-		t.Fatal("missing assets accepted")
+	if selection.ProbePath() != "Doukutsu.exe" {
+		t.Fatalf("ProbePath() = %q", selection.ProbePath())
 	}
-	index["data/npc.tbl"] = []byte{1}
-	index["doukutsu.exe"] = index["Doukutsu.exe"]
-	if _, err := Detect(index); err == nil {
-		t.Fatal("ambiguous executable accepted")
+}
+
+func TestSelectRejectsAmbiguousAndBoundedDescriptors(t *testing.T) {
+	t.Parallel()
+	duplicate := append(completeFiles(128), File{Path: "doukutsu.exe", Size: 128})
+	for _, files := range [][]File{
+		duplicate,
+		completeFiles(127),
+		completeFiles(16*1024*1024 + 1),
+	} {
+		if _, err := Select(files); !errors.Is(err, ErrProjectInvalid) {
+			t.Fatalf("Select(%d files) error=%v", len(files), err)
+		}
+	}
+}
+
+func TestDetectChecksEXEBeforeRequiredAssets(t *testing.T) {
+	t.Parallel()
+	selection, err := Select([]File{{Path: "Doukutsu.exe", Size: 128}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Detect(selection, [2]byte{'N', 'O'}); !errors.Is(err, ErrProjectInvalid) {
+		t.Fatalf("wrong MZ error=%v", err)
+	}
+	if _, err := Detect(selection, [2]byte{'M', 'Z'}); !errors.Is(err, ErrProjectInvalid) {
+		t.Fatalf("missing assets error=%v", err)
 	}
 }

@@ -24,6 +24,9 @@ type ImportAdmissionOptions struct {
 type ImportPreparationOptions struct {
 	MultiDiscEnabled, MetadataScraperAvailable bool
 	ScummVMDetector                            librarymodel.ScummVMDetector
+	ONSDetector                                librarymodel.ONSProjectDetector
+	ButterscotchDetector                       librarymodel.ButterscotchProjectDetector
+	NXEngineDetector                           librarymodel.NXEngineProjectDetector
 }
 
 type MultiDiscAttachmentOptions struct {

@@ -14,11 +14,14 @@ import (
 )
 
 type ImportPreparation struct {
-	facts           model.ImportFactsReader
-	catalog         model.ImportPreparationCatalog
-	blobs           *blobstore.Store
-	scummVMDetector model.ScummVMDetector
-	options         ImportPreparationOptions
+	facts                model.ImportFactsReader
+	catalog              model.ImportPreparationCatalog
+	blobs                *blobstore.Store
+	scummVMDetector      model.ScummVMDetector
+	onsDetector          model.ONSProjectDetector
+	butterscotchDetector model.ButterscotchProjectDetector
+	nxengineDetector     model.NXEngineProjectDetector
+	options              ImportPreparationOptions
 }
 
 func NewImportPreparation(
@@ -29,6 +32,8 @@ func NewImportPreparation(
 ) *ImportPreparation {
 	return &ImportPreparation{
 		facts: facts, catalog: catalog, blobs: blobs, options: options, scummVMDetector: options.ScummVMDetector,
+		onsDetector: options.ONSDetector, butterscotchDetector: options.ButterscotchDetector,
+		nxengineDetector: options.NXEngineDetector,
 	}
 }
 

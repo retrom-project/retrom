@@ -1,0 +1,320 @@
+package main
+
+import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/binary"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"os"
+	"sort"
+
+	butter "retrom/internal/capability/engine/butterscotch/detector"
+	nx "retrom/internal/capability/engine/nxengine/detector"
+	ons "retrom/internal/capability/engine/ons/detector"
+)
+
+type ioStats struct {
+	OpenCalls      []string `json:"openCalls,omitempty"`
+	ReadCalls      int      `json:"readCalls,omitempty"`
+	ReadBytes      int      `json:"readBytes,omitempty"`
+	MaxReadRequest int      `json:"maxReadRequest,omitempty"`
+	CloseCalls     int      `json:"closeCalls,omitempty"`
+}
+
+type resourceSpec struct {
+	Data      []byte
+	OpenErr   error
+	ReadErr   error
+	FailAfter int
+	Chunk     int
+	CloseErr  error
+	NilReader bool
+}
+
+type controlledReader struct {
+	spec  resourceSpec
+	stats *ioStats
+	pos   int
+}
+
+func (reader *controlledReader) Read(buffer []byte) (int, error) {
+	reader.stats.ReadCalls++
+	if len(buffer) > reader.stats.MaxReadRequest {
+		reader.stats.MaxReadRequest = len(buffer)
+	}
+	if reader.spec.FailAfter >= 0 && reader.pos >= reader.spec.FailAfter && reader.spec.ReadErr != nil {
+		return 0, reader.spec.ReadErr
+	}
+	if reader.pos >= len(reader.spec.Data) {
+		return 0, io.EOF
+	}
+	limit := len(buffer)
+	if reader.spec.Chunk > 0 && limit > reader.spec.Chunk {
+		limit = reader.spec.Chunk
+	}
+	if remaining := len(reader.spec.Data) - reader.pos; limit > remaining {
+		limit = remaining
+	}
+	if reader.spec.FailAfter >= 0 && reader.spec.ReadErr != nil && reader.pos+limit > reader.spec.FailAfter {
+		limit = reader.spec.FailAfter - reader.pos
+	}
+	if limit == 0 {
+		return 0, reader.spec.ReadErr
+	}
+	copy(buffer[:limit], reader.spec.Data[reader.pos:reader.pos+limit])
+	reader.pos += limit
+	reader.stats.ReadBytes += limit
+	return limit, nil
+}
+
+func (reader *controlledReader) Close() error {
+	reader.stats.CloseCalls++
+	return reader.spec.CloseErr
+}
+
+func openResource(resources map[string]resourceSpec, name string, stats *ioStats) (io.ReadCloser, error) {
+	stats.OpenCalls = append(stats.OpenCalls, name)
+	spec, exists := resources[name]
+	if !exists {
+		return nil, errors.New("capture resource missing")
+	}
+	if spec.OpenErr != nil {
+		return nil, spec.OpenErr
+	}
+	if spec.NilReader {
+		return nil, nil
+	}
+	if spec.FailAfter == 0 && spec.ReadErr == nil {
+		spec.FailAfter = -1
+	}
+	return &controlledReader{spec: spec, stats: stats}, nil
+}
+
+type onsIndex struct {
+	files     []ons.File
+	resources map[string]resourceSpec
+	stats     *ioStats
+}
+
+func (index onsIndex) Files() []ons.File { return append([]ons.File(nil), index.files...) }
+func (index onsIndex) Open(name string) (io.ReadCloser, error) {
+	return openResource(index.resources, name, index.stats)
+}
+
+type butterIndex struct {
+	files     []butter.File
+	resources map[string]resourceSpec
+	stats     *ioStats
+}
+
+func (index butterIndex) Files() []butter.File { return append([]butter.File(nil), index.files...) }
+func (index butterIndex) Open(name string) (io.ReadCloser, error) {
+	return openResource(index.resources, name, index.stats)
+}
+
+type nxIndex struct {
+	files     []nx.File
+	resources map[string]resourceSpec
+	stats     *ioStats
+}
+
+func (index nxIndex) Files() []nx.File { return append([]nx.File(nil), index.files...) }
+func (index nxIndex) Open(name string) (io.ReadCloser, error) {
+	return openResource(index.resources, name, index.stats)
+}
+
+type outcome struct {
+	Engine           string  `json:"engine"`
+	Case             string  `json:"case"`
+	Note             string  `json:"note,omitempty"`
+	InputBytes       int     `json:"inputBytes,omitempty"`
+	InputSHA256      string  `json:"inputSHA256,omitempty"`
+	Profile          any     `json:"profile,omitempty"`
+	Snapshot         string  `json:"snapshot,omitempty"`
+	Error            string  `json:"error,omitempty"`
+	IsProjectInvalid bool    `json:"isProjectInvalid"`
+	Panic            string  `json:"panic,omitempty"`
+	IO               ioStats `json:"io"`
+}
+
+func digest(data []byte) string {
+	sum := sha256.Sum256(data)
+	return hex.EncodeToString(sum[:])
+}
+
+func capture(engine, name, note string, evidence []byte, stats *ioStats, sentinel error, detect func() (any, error), marshal func(any) ([]byte, error)) (result outcome) {
+	result = outcome{Engine: engine, Case: name, Note: note, IO: *stats}
+	if evidence != nil {
+		result.InputBytes = len(evidence)
+		result.InputSHA256 = digest(evidence)
+	}
+	defer func() {
+		result.IO = *stats
+		if recovered := recover(); recovered != nil {
+			result.Panic = fmt.Sprint(recovered)
+		}
+	}()
+	value, err := detect()
+	if err != nil {
+		result.Error = err.Error()
+		result.IsProjectInvalid = errors.Is(err, sentinel)
+		return result
+	}
+	result.Profile = value
+	encoded, err := marshal(value)
+	if err != nil {
+		result.Error = err.Error()
+		result.IsProjectInvalid = errors.Is(err, sentinel)
+		return result
+	}
+	result.Snapshot = string(encoded)
+	return result
+}
+
+func onsCase(name, note string, files []ons.File, resources map[string]resourceSpec, evidence []byte) outcome {
+	stats := &ioStats{}
+	return capture("ons", name, note, evidence, stats, ons.ErrProjectInvalid,
+		func() (any, error) { return ons.Detect(onsIndex{files, resources, stats}) },
+		func(value any) ([]byte, error) { return ons.MarshalSnapshot(value.(ons.Profile)) })
+}
+
+func butterCase(name, note string, files []butter.File, resources map[string]resourceSpec, evidence []byte) outcome {
+	stats := &ioStats{}
+	return capture("butterscotch", name, note, evidence, stats, butter.ErrProjectInvalid,
+		func() (any, error) { return butter.Detect(butterIndex{files, resources, stats}) },
+		func(value any) ([]byte, error) { return butter.MarshalSnapshot(value.(butter.Profile)) })
+}
+
+func nxCase(name, note string, files []nx.File, resources map[string]resourceSpec, evidence []byte) outcome {
+	stats := &ioStats{}
+	return capture("nxengine", name, note, evidence, stats, nx.ErrProjectInvalid,
+		func() (any, error) { return nx.Detect(nxIndex{files, resources, stats}) },
+		func(value any) ([]byte, error) { return nx.MarshalSnapshot(value.(nx.Profile)) })
+}
+
+func formHeader(declared uint32) []byte {
+	header := make([]byte, 8)
+	copy(header, "FORM")
+	binary.LittleEndian.PutUint32(header[4:], declared)
+	return header
+}
+
+func onsCases() []outcome {
+	utf8Text := []byte("*define\n;mode800\n")
+	bomText := append([]byte{0xef, 0xbb, 0xbf}, []byte("*define\n")...)
+	invalidUTF8 := []byte{0x81, 0xff}
+	oneMiB := bytes.Repeat([]byte{'a'}, 1<<20)
+	overOneMiB := append(append([]byte(nil), oneMiB...), 0xff)
+	baseFiles := []ons.File{{Path: "0.txt", Size: int64(len(utf8Text))}, {Path: "fonts/other.ttf", Size: 1}, {Path: "default.ttf", Size: 1}}
+	return []outcome{
+		onsCase("txt_utf8_public", "public ASCII script and default-font preference", baseFiles, map[string]resourceSpec{"0.txt": {Data: utf8Text, FailAfter: -1}}, utf8Text),
+		onsCase("txt_utf8_bom", "UTF-8 BOM is ignored for encoding detection", []ons.File{{Path: "0.txt", Size: int64(len(bomText))}, {Path: "font.ttf", Size: 1}}, map[string]resourceSpec{"0.txt": {Data: bomText, FailAfter: -1}}, bomText),
+		onsCase("txt_invalid_utf8_defaults_gbk", "invalid UTF-8 probe selects GBK", []ons.File{{Path: "0.txt", Size: 2}, {Path: "font.ttf", Size: 1}}, map[string]resourceSpec{"0.txt": {Data: invalidUTF8, FailAfter: -1}}, invalidUTF8),
+		onsCase("dat_defaults_gbk_without_open", "encrypted DAT marker is not opened", []ons.File{{Path: "nscript.dat", Size: 2}, {Path: "font.ttf", Size: 1}}, map[string]resourceSpec{"nscript.dat": {OpenErr: errors.New("must not open")}}, invalidUTF8),
+		onsCase("marker_and_font_priority", "0.txt wins over 00.txt; root default.ttf wins", []ons.File{{Path: "00.txt", Size: 1}, {Path: "0.txt", Size: 1}, {Path: "z.ttf", Size: 1}, {Path: "default.ttf", Size: 1}}, map[string]resourceSpec{"0.txt": {Data: []byte("a"), FailAfter: -1}, "00.txt": {OpenErr: errors.New("must not open")}}, []byte("a")),
+		onsCase("empty_path_before_open", "descriptor validation precedes resource access", []ons.File{{Path: "", Size: 0}, {Path: "0.txt", Size: 1}, {Path: "font.ttf", Size: 1}}, map[string]resourceSpec{"0.txt": {OpenErr: errors.New("must not open")}}, nil),
+		onsCase("negative_size_before_open", "negative size precedes resource access", []ons.File{{Path: "0.txt", Size: -1}, {Path: "font.ttf", Size: 1}}, map[string]resourceSpec{"0.txt": {OpenErr: errors.New("must not open")}}, nil),
+		onsCase("duplicate_before_open", "ASCII-lower duplicate precedes resource access", []ons.File{{Path: "0.txt", Size: 1}, {Path: "0.TXT", Size: 1}, {Path: "font.ttf", Size: 1}}, map[string]resourceSpec{"0.txt": {OpenErr: errors.New("must not open")}}, nil),
+		onsCase("missing_marker_before_open", "missing marker rejects without open", []ons.File{{Path: "font.ttf", Size: 1}}, nil, nil),
+		onsCase("missing_font_before_open", "missing font precedes script open", []ons.File{{Path: "0.txt", Size: 1}}, map[string]resourceSpec{"0.txt": {OpenErr: errors.New("must not open")}}, nil),
+		onsCase("open_failure", "open cause is collapsed to script unavailable", []ons.File{{Path: "0.txt", Size: 1}, {Path: "font.ttf", Size: 1}}, map[string]resourceSpec{"0.txt": {OpenErr: errors.New("capture open failure")}}, nil),
+		onsCase("read_failure", "read cause is collapsed and Close still runs", []ons.File{{Path: "0.txt", Size: 4}, {Path: "font.ttf", Size: 1}}, map[string]resourceSpec{"0.txt": {Data: []byte("abcd"), ReadErr: errors.New("capture read failure"), FailAfter: 2}}, []byte("abcd")),
+		onsCase("close_failure_ignored", "successful read remains successful when Close fails", []ons.File{{Path: "0.txt", Size: 1}, {Path: "font.ttf", Size: 1}}, map[string]resourceSpec{"0.txt": {Data: []byte("a"), FailAfter: -1, CloseErr: errors.New("capture close failure")}}, []byte("a")),
+		onsCase("exact_1mib", "exact 1 MiB is fully read", []ons.File{{Path: "0.txt", Size: int64(len(oneMiB))}, {Path: "font.ttf", Size: 1}}, map[string]resourceSpec{"0.txt": {Data: oneMiB, FailAfter: -1, Chunk: 65537}}, oneMiB),
+		onsCase("beyond_1mib_unread_invalid_tail", "invalid byte after 1 MiB is not read; declared size intentionally 1", []ons.File{{Path: "0.txt", Size: 1}, {Path: "font.ttf", Size: 1}}, map[string]resourceSpec{"0.txt": {Data: overOneMiB, FailAfter: -1, Chunk: 65537}}, overOneMiB),
+		onsCase("nil_reader_panics", "old implementation has no nil-reader rejection", []ons.File{{Path: "0.txt", Size: 1}, {Path: "font.ttf", Size: 1}}, map[string]resourceSpec{"0.txt": {NilReader: true}}, nil),
+	}
+}
+
+func butterCases() []outcome {
+	valid8, valid12 := formHeader(8), formHeader(12)
+	wrong := []byte("NOPE\x08\x00\x00\x00")
+	return []outcome{
+		butterCase("form_public", "minimal public FORM header", []butter.File{{Path: "data.win", Size: 16}, {Path: "options.ini", Size: 1}}, map[string]resourceSpec{"data.win": {Data: valid8, FailAfter: -1}}, valid8),
+		butterCase("invalid_path_before_open", "invalid descriptor precedes open", []butter.File{{Path: "", Size: 1}, {Path: "data.win", Size: 16}}, map[string]resourceSpec{"data.win": {OpenErr: errors.New("must not open")}}, nil),
+		butterCase("negative_size_before_open", "negative size precedes open", []butter.File{{Path: "data.win", Size: -1}}, map[string]resourceSpec{"data.win": {OpenErr: errors.New("must not open")}}, nil),
+		butterCase("duplicate_before_open", "case duplicate precedes open", []butter.File{{Path: "data.win", Size: 16}, {Path: "DATA.WIN", Size: 16}}, map[string]resourceSpec{"data.win": {OpenErr: errors.New("must not open")}}, nil),
+		butterCase("missing_marker", "missing data.win", []butter.File{{Path: "readme.txt", Size: 1}}, nil, nil),
+		butterCase("undersized_marker_before_open", "declared size below 16 precedes open", []butter.File{{Path: "data.win", Size: 15}}, map[string]resourceSpec{"data.win": {OpenErr: errors.New("must not open")}}, nil),
+		butterCase("open_failure", "open failure collapses to project invalid", []butter.File{{Path: "data.win", Size: 16}}, map[string]resourceSpec{"data.win": {OpenErr: errors.New("capture open failure")}}, nil),
+		butterCase("short_read", "seven-byte header rejects and closes", []butter.File{{Path: "data.win", Size: 16}}, map[string]resourceSpec{"data.win": {Data: valid8[:7], FailAfter: -1}}, valid8[:7]),
+		butterCase("read_failure", "reader error rejects and closes", []butter.File{{Path: "data.win", Size: 16}}, map[string]resourceSpec{"data.win": {Data: valid8, ReadErr: errors.New("capture read failure"), FailAfter: 4}}, valid8),
+		butterCase("wrong_form", "wrong magic rejects", []butter.File{{Path: "data.win", Size: 16}}, map[string]resourceSpec{"data.win": {Data: wrong, FailAfter: -1}}, wrong),
+		butterCase("declared_below_lower_bound", "declared 7 rejects", []butter.File{{Path: "data.win", Size: 16}}, map[string]resourceSpec{"data.win": {Data: formHeader(7), FailAfter: -1}}, formHeader(7)),
+		butterCase("declared_exact_upper_bound", "declared size-8 accepts", []butter.File{{Path: "data.win", Size: 20}}, map[string]resourceSpec{"data.win": {Data: valid12, FailAfter: -1}}, valid12),
+		butterCase("declared_above_upper_bound", "declared size-7 rejects", []butter.File{{Path: "data.win", Size: 20}}, map[string]resourceSpec{"data.win": {Data: formHeader(13), FailAfter: -1}}, formHeader(13)),
+		butterCase("physical_eight_bytes_declared_twenty", "no physical-size equality check", []butter.File{{Path: "data.win", Size: 20}}, map[string]resourceSpec{"data.win": {Data: valid12, FailAfter: -1}}, valid12),
+		butterCase("close_failure_ignored", "valid header remains successful when Close fails", []butter.File{{Path: "data.win", Size: 16}}, map[string]resourceSpec{"data.win": {Data: valid8, FailAfter: -1, CloseErr: errors.New("capture close failure")}}, valid8),
+		butterCase("nil_reader_panics", "old implementation has no nil-reader rejection", []butter.File{{Path: "data.win", Size: 16}}, map[string]resourceSpec{"data.win": {NilReader: true}}, nil),
+	}
+}
+
+func nxBase(exeSize int64) []nx.File {
+	return []nx.File{{Path: "Doukutsu.exe", Size: exeSize}, {Path: "data/npc.tbl", Size: 1}, {Path: "data/Stage/Start.pxm", Size: 1}, {Path: "data/Stage/Start.tsc", Size: 1}}
+}
+
+func nxCount(count int) []nx.File {
+	files := nxBase(128)
+	for len(files) < count {
+		files = append(files, nx.File{Path: fmt.Sprintf("data/extra/%04d.bin", len(files)), Size: 1})
+	}
+	return files
+}
+
+func nxTotal(extra int64) []nx.File {
+	return []nx.File{
+		{Path: "Doukutsu.exe", Size: 16 * 1024 * 1024},
+		{Path: "data/npc.tbl", Size: 1}, {Path: "data/Stage/Start.pxm", Size: 1}, {Path: "data/Stage/Start.tsc", Size: 1},
+		{Path: "data/extra-a.bin", Size: 32 * 1024 * 1024},
+		{Path: "data/extra-b.bin", Size: 16*1024*1024 - 3 + extra},
+	}
+}
+
+func nxCases() []outcome {
+	mz := []byte("MZ")
+	return []outcome{
+		nxCase("exe_public", "minimal public MZ prefix with required assets", nxBase(128), map[string]resourceSpec{"Doukutsu.exe": {Data: mz, FailAfter: -1}}, mz),
+		nxCase("file_count_exact_4096", "4096 descriptors accepted", nxCount(4096), map[string]resourceSpec{"Doukutsu.exe": {Data: mz, FailAfter: -1}}, mz),
+		nxCase("file_count_4097_before_open", "4097 descriptors reject before open", nxCount(4097), map[string]resourceSpec{"Doukutsu.exe": {OpenErr: errors.New("must not open")}}, nil),
+		nxCase("declared_total_exact_64mib", "exact total bound accepted", nxTotal(0), map[string]resourceSpec{"Doukutsu.exe": {Data: mz, FailAfter: -1}}, mz),
+		nxCase("declared_total_above_64mib", "total bound rejects before open", nxTotal(1), map[string]resourceSpec{"Doukutsu.exe": {OpenErr: errors.New("must not open")}}, nil),
+		nxCase("zero_size_before_open", "nonpositive descriptor rejects", []nx.File{{Path: "Doukutsu.exe", Size: 0}}, map[string]resourceSpec{"Doukutsu.exe": {OpenErr: errors.New("must not open")}}, nil),
+		nxCase("individual_above_32mib_before_open", "per-file bound rejects", []nx.File{{Path: "Doukutsu.exe", Size: 128}, {Path: "data/npc.tbl", Size: 32*1024*1024 + 1}}, map[string]resourceSpec{"Doukutsu.exe": {OpenErr: errors.New("must not open")}}, nil),
+		nxCase("duplicate_before_open", "case duplicate rejects", append(nxBase(128), nx.File{Path: "doukutsu.exe", Size: 128}), map[string]resourceSpec{"Doukutsu.exe": {OpenErr: errors.New("must not open")}}, nil),
+		nxCase("missing_marker", "missing executable", nxBase(128)[1:], nil, nil),
+		nxCase("exe_size_127_before_open", "lower EXE bound rejects", nxBase(127), map[string]resourceSpec{"Doukutsu.exe": {OpenErr: errors.New("must not open")}}, nil),
+		nxCase("exe_size_exact_16mib", "upper EXE bound accepts", nxBase(16*1024*1024), map[string]resourceSpec{"Doukutsu.exe": {Data: mz, FailAfter: -1}}, mz),
+		nxCase("exe_size_above_16mib_before_open", "above EXE bound rejects", nxBase(16*1024*1024+1), map[string]resourceSpec{"Doukutsu.exe": {OpenErr: errors.New("must not open")}}, nil),
+		nxCase("open_failure_precedes_missing_assets", "EXE open attempted before required-assets check", []nx.File{{Path: "Doukutsu.exe", Size: 128}}, map[string]resourceSpec{"Doukutsu.exe": {OpenErr: errors.New("capture open failure")}}, nil),
+		nxCase("short_read_precedes_missing_assets", "short EXE read precedes required-assets check", []nx.File{{Path: "Doukutsu.exe", Size: 128}}, map[string]resourceSpec{"Doukutsu.exe": {Data: []byte("M"), FailAfter: -1}}, []byte("M")),
+		nxCase("wrong_mz_precedes_missing_assets", "wrong EXE magic precedes required-assets check", []nx.File{{Path: "Doukutsu.exe", Size: 128}}, map[string]resourceSpec{"Doukutsu.exe": {Data: []byte("NZ"), FailAfter: -1}}, []byte("NZ")),
+		nxCase("missing_asset_after_valid_exe", "required assets checked after valid EXE", []nx.File{{Path: "Doukutsu.exe", Size: 128}}, map[string]resourceSpec{"Doukutsu.exe": {Data: mz, FailAfter: -1}}, mz),
+		nxCase("physical_two_bytes_declared_128", "no physical-size equality check", nxBase(128), map[string]resourceSpec{"Doukutsu.exe": {Data: mz, FailAfter: -1}}, mz),
+		nxCase("close_failure_ignored", "valid EXE remains successful when Close fails", nxBase(128), map[string]resourceSpec{"Doukutsu.exe": {Data: mz, FailAfter: -1, CloseErr: errors.New("capture close failure")}}, mz),
+		nxCase("nil_reader_panics", "old implementation has no nil-reader rejection", nxBase(128), map[string]resourceSpec{"Doukutsu.exe": {NilReader: true}}, nil),
+	}
+}
+
+func main() {
+	results := append(onsCases(), butterCases()...)
+	results = append(results, nxCases()...)
+	sort.SliceStable(results, func(left, right int) bool {
+		if results[left].Engine != results[right].Engine {
+			return results[left].Engine < results[right].Engine
+		}
+		return results[left].Case < results[right].Case
+	})
+	encoder := json.NewEncoder(os.Stdout)
+	encoder.SetEscapeHTML(false)
+	encoder.SetIndent("", "  ")
+	if err := encoder.Encode(struct {
+		SchemaVersion int       `json:"schemaVersion"`
+		Results       []outcome `json:"results"`
+	}{1, results}); err != nil {
+		panic(err)
+	}
+}

@@ -1,0 +1,779 @@
+{
+  "schemaVersion": 1,
+  "results": [
+    {
+      "engine": "butterscotch",
+      "case": "close_failure_ignored",
+      "note": "valid header remains successful when Close fails",
+      "inputBytes": 8,
+      "inputSHA256": "ca228d4d36a155887a854ce1df1c8760d60597b3ba67083cad5d9acddd124e3b",
+      "profile": {
+        "markerPath": "data.win",
+        "compatibility": "GAMEMAKER_RUNTIME_TRIAL_REQUIRED"
+      },
+      "snapshot": "{\"butterscotch\":{\"markerPath\":\"data.win\",\"compatibility\":\"GAMEMAKER_RUNTIME_TRIAL_REQUIRED\"},\"schemaVersion\":1}",
+      "isProjectInvalid": false,
+      "io": {
+        "openCalls": [
+          "data.win"
+        ],
+        "readCalls": 1,
+        "readBytes": 8,
+        "maxReadRequest": 8,
+        "closeCalls": 1
+      }
+    },
+    {
+      "engine": "butterscotch",
+      "case": "declared_above_upper_bound",
+      "note": "declared size-7 rejects",
+      "inputBytes": 8,
+      "inputSHA256": "7f11fadab15b6b43b1ee6811b3cb3bcad832f31e06e887403943e847078136d9",
+      "error": "BUTTERSCOTCH_PROJECT_INVALID",
+      "isProjectInvalid": true,
+      "io": {
+        "openCalls": [
+          "data.win"
+        ],
+        "readCalls": 1,
+        "readBytes": 8,
+        "maxReadRequest": 8,
+        "closeCalls": 1
+      }
+    },
+    {
+      "engine": "butterscotch",
+      "case": "declared_below_lower_bound",
+      "note": "declared 7 rejects",
+      "inputBytes": 8,
+      "inputSHA256": "0a3be1ff91ef2f902c70e6e758d58a8b8a8da5cb052a44f2590d8e351eb6a895",
+      "error": "BUTTERSCOTCH_PROJECT_INVALID",
+      "isProjectInvalid": true,
+      "io": {
+        "openCalls": [
+          "data.win"
+        ],
+        "readCalls": 1,
+        "readBytes": 8,
+        "maxReadRequest": 8,
+        "closeCalls": 1
+      }
+    },
+    {
+      "engine": "butterscotch",
+      "case": "declared_exact_upper_bound",
+      "note": "declared size-8 accepts",
+      "inputBytes": 8,
+      "inputSHA256": "ed5c336e33c45b86a31d95fad527d24d772189118e59cf08e00cdae49f20a98e",
+      "profile": {
+        "markerPath": "data.win",
+        "compatibility": "GAMEMAKER_RUNTIME_TRIAL_REQUIRED"
+      },
+      "snapshot": "{\"butterscotch\":{\"markerPath\":\"data.win\",\"compatibility\":\"GAMEMAKER_RUNTIME_TRIAL_REQUIRED\"},\"schemaVersion\":1}",
+      "isProjectInvalid": false,
+      "io": {
+        "openCalls": [
+          "data.win"
+        ],
+        "readCalls": 1,
+        "readBytes": 8,
+        "maxReadRequest": 8,
+        "closeCalls": 1
+      }
+    },
+    {
+      "engine": "butterscotch",
+      "case": "duplicate_before_open",
+      "note": "case duplicate precedes open",
+      "error": "BUTTERSCOTCH_PROJECT_INVALID",
+      "isProjectInvalid": true,
+      "io": {}
+    },
+    {
+      "engine": "butterscotch",
+      "case": "form_public",
+      "note": "minimal public FORM header",
+      "inputBytes": 8,
+      "inputSHA256": "ca228d4d36a155887a854ce1df1c8760d60597b3ba67083cad5d9acddd124e3b",
+      "profile": {
+        "markerPath": "data.win",
+        "compatibility": "GAMEMAKER_RUNTIME_TRIAL_REQUIRED"
+      },
+      "snapshot": "{\"butterscotch\":{\"markerPath\":\"data.win\",\"compatibility\":\"GAMEMAKER_RUNTIME_TRIAL_REQUIRED\"},\"schemaVersion\":1}",
+      "isProjectInvalid": false,
+      "io": {
+        "openCalls": [
+          "data.win"
+        ],
+        "readCalls": 1,
+        "readBytes": 8,
+        "maxReadRequest": 8,
+        "closeCalls": 1
+      }
+    },
+    {
+      "engine": "butterscotch",
+      "case": "invalid_path_before_open",
+      "note": "invalid descriptor precedes open",
+      "error": "BUTTERSCOTCH_PROJECT_INVALID",
+      "isProjectInvalid": true,
+      "io": {}
+    },
+    {
+      "engine": "butterscotch",
+      "case": "missing_marker",
+      "note": "missing data.win",
+      "error": "BUTTERSCOTCH_PROJECT_INVALID",
+      "isProjectInvalid": true,
+      "io": {}
+    },
+    {
+      "engine": "butterscotch",
+      "case": "negative_size_before_open",
+      "note": "negative size precedes open",
+      "error": "BUTTERSCOTCH_PROJECT_INVALID",
+      "isProjectInvalid": true,
+      "io": {}
+    },
+    {
+      "engine": "butterscotch",
+      "case": "nil_reader_panics",
+      "note": "old implementation has no nil-reader rejection",
+      "isProjectInvalid": false,
+      "panic": "runtime error: invalid memory address or nil pointer dereference",
+      "io": {
+        "openCalls": [
+          "data.win"
+        ]
+      }
+    },
+    {
+      "engine": "butterscotch",
+      "case": "open_failure",
+      "note": "open failure collapses to project invalid",
+      "error": "BUTTERSCOTCH_PROJECT_INVALID",
+      "isProjectInvalid": true,
+      "io": {
+        "openCalls": [
+          "data.win"
+        ]
+      }
+    },
+    {
+      "engine": "butterscotch",
+      "case": "physical_eight_bytes_declared_twenty",
+      "note": "no physical-size equality check",
+      "inputBytes": 8,
+      "inputSHA256": "ed5c336e33c45b86a31d95fad527d24d772189118e59cf08e00cdae49f20a98e",
+      "profile": {
+        "markerPath": "data.win",
+        "compatibility": "GAMEMAKER_RUNTIME_TRIAL_REQUIRED"
+      },
+      "snapshot": "{\"butterscotch\":{\"markerPath\":\"data.win\",\"compatibility\":\"GAMEMAKER_RUNTIME_TRIAL_REQUIRED\"},\"schemaVersion\":1}",
+      "isProjectInvalid": false,
+      "io": {
+        "openCalls": [
+          "data.win"
+        ],
+        "readCalls": 1,
+        "readBytes": 8,
+        "maxReadRequest": 8,
+        "closeCalls": 1
+      }
+    },
+    {
+      "engine": "butterscotch",
+      "case": "read_failure",
+      "note": "reader error rejects and closes",
+      "inputBytes": 8,
+      "inputSHA256": "ca228d4d36a155887a854ce1df1c8760d60597b3ba67083cad5d9acddd124e3b",
+      "error": "BUTTERSCOTCH_PROJECT_INVALID",
+      "isProjectInvalid": true,
+      "io": {
+        "openCalls": [
+          "data.win"
+        ],
+        "readCalls": 2,
+        "readBytes": 4,
+        "maxReadRequest": 8,
+        "closeCalls": 1
+      }
+    },
+    {
+      "engine": "butterscotch",
+      "case": "short_read",
+      "note": "seven-byte header rejects and closes",
+      "inputBytes": 7,
+      "inputSHA256": "c80ec74ba36d579d3abb853737a56cba3d11946da6ce6c7bd8ede0c561c6378d",
+      "error": "BUTTERSCOTCH_PROJECT_INVALID",
+      "isProjectInvalid": true,
+      "io": {
+        "openCalls": [
+          "data.win"
+        ],
+        "readCalls": 2,
+        "readBytes": 7,
+        "maxReadRequest": 8,
+        "closeCalls": 1
+      }
+    },
+    {
+      "engine": "butterscotch",
+      "case": "undersized_marker_before_open",
+      "note": "declared size below 16 precedes open",
+      "error": "BUTTERSCOTCH_PROJECT_INVALID",
+      "isProjectInvalid": true,
+      "io": {}
+    },
+    {
+      "engine": "butterscotch",
+      "case": "wrong_form",
+      "note": "wrong magic rejects",
+      "inputBytes": 8,
+      "inputSHA256": "4c885ecd86c1ac7bdb1f324ec0384ab3f390a006a2aaeb75f1a781ed7df01a6c",
+      "error": "BUTTERSCOTCH_PROJECT_INVALID",
+      "isProjectInvalid": true,
+      "io": {
+        "openCalls": [
+          "data.win"
+        ],
+        "readCalls": 1,
+        "readBytes": 8,
+        "maxReadRequest": 8,
+        "closeCalls": 1
+      }
+    },
+    {
+      "engine": "nxengine",
+      "case": "close_failure_ignored",
+      "note": "valid EXE remains successful when Close fails",
+      "inputBytes": 2,
+      "inputSHA256": "9b8db510ef42b8ed54a3712636fda55a4f8cfcd5493e20b74ab00cd4f3979f2d",
+      "profile": {
+        "markerPath": "Doukutsu.exe",
+        "compatibility": "NXENGINE_RUNTIME_TRIAL_REQUIRED"
+      },
+      "snapshot": "{\"nxengine\":{\"markerPath\":\"Doukutsu.exe\",\"compatibility\":\"NXENGINE_RUNTIME_TRIAL_REQUIRED\"},\"schemaVersion\":1}",
+      "isProjectInvalid": false,
+      "io": {
+        "openCalls": [
+          "Doukutsu.exe"
+        ],
+        "readCalls": 1,
+        "readBytes": 2,
+        "maxReadRequest": 2,
+        "closeCalls": 1
+      }
+    },
+    {
+      "engine": "nxengine",
+      "case": "declared_total_above_64mib",
+      "note": "total bound rejects before open",
+      "error": "NXENGINE_PROJECT_INVALID",
+      "isProjectInvalid": true,
+      "io": {}
+    },
+    {
+      "engine": "nxengine",
+      "case": "declared_total_exact_64mib",
+      "note": "exact total bound accepted",
+      "inputBytes": 2,
+      "inputSHA256": "9b8db510ef42b8ed54a3712636fda55a4f8cfcd5493e20b74ab00cd4f3979f2d",
+      "profile": {
+        "markerPath": "Doukutsu.exe",
+        "compatibility": "NXENGINE_RUNTIME_TRIAL_REQUIRED"
+      },
+      "snapshot": "{\"nxengine\":{\"markerPath\":\"Doukutsu.exe\",\"compatibility\":\"NXENGINE_RUNTIME_TRIAL_REQUIRED\"},\"schemaVersion\":1}",
+      "isProjectInvalid": false,
+      "io": {
+        "openCalls": [
+          "Doukutsu.exe"
+        ],
+        "readCalls": 1,
+        "readBytes": 2,
+        "maxReadRequest": 2,
+        "closeCalls": 1
+      }
+    },
+    {
+      "engine": "nxengine",
+      "case": "duplicate_before_open",
+      "note": "case duplicate rejects",
+      "error": "NXENGINE_PROJECT_INVALID",
+      "isProjectInvalid": true,
+      "io": {}
+    },
+    {
+      "engine": "nxengine",
+      "case": "exe_public",
+      "note": "minimal public MZ prefix with required assets",
+      "inputBytes": 2,
+      "inputSHA256": "9b8db510ef42b8ed54a3712636fda55a4f8cfcd5493e20b74ab00cd4f3979f2d",
+      "profile": {
+        "markerPath": "Doukutsu.exe",
+        "compatibility": "NXENGINE_RUNTIME_TRIAL_REQUIRED"
+      },
+      "snapshot": "{\"nxengine\":{\"markerPath\":\"Doukutsu.exe\",\"compatibility\":\"NXENGINE_RUNTIME_TRIAL_REQUIRED\"},\"schemaVersion\":1}",
+      "isProjectInvalid": false,
+      "io": {
+        "openCalls": [
+          "Doukutsu.exe"
+        ],
+        "readCalls": 1,
+        "readBytes": 2,
+        "maxReadRequest": 2,
+        "closeCalls": 1
+      }
+    },
+    {
+      "engine": "nxengine",
+      "case": "exe_size_127_before_open",
+      "note": "lower EXE bound rejects",
+      "error": "NXENGINE_PROJECT_INVALID",
+      "isProjectInvalid": true,
+      "io": {}
+    },
+    {
+      "engine": "nxengine",
+      "case": "exe_size_above_16mib_before_open",
+      "note": "above EXE bound rejects",
+      "error": "NXENGINE_PROJECT_INVALID",
+      "isProjectInvalid": true,
+      "io": {}
+    },
+    {
+      "engine": "nxengine",
+      "case": "exe_size_exact_16mib",
+      "note": "upper EXE bound accepts",
+      "inputBytes": 2,
+      "inputSHA256": "9b8db510ef42b8ed54a3712636fda55a4f8cfcd5493e20b74ab00cd4f3979f2d",
+      "profile": {
+        "markerPath": "Doukutsu.exe",
+        "compatibility": "NXENGINE_RUNTIME_TRIAL_REQUIRED"
+      },
+      "snapshot": "{\"nxengine\":{\"markerPath\":\"Doukutsu.exe\",\"compatibility\":\"NXENGINE_RUNTIME_TRIAL_REQUIRED\"},\"schemaVersion\":1}",
+      "isProjectInvalid": false,
+      "io": {
+        "openCalls": [
+          "Doukutsu.exe"
+        ],
+        "readCalls": 1,
+        "readBytes": 2,
+        "maxReadRequest": 2,
+        "closeCalls": 1
+      }
+    },
+    {
+      "engine": "nxengine",
+      "case": "file_count_4097_before_open",
+      "note": "4097 descriptors reject before open",
+      "error": "NXENGINE_PROJECT_INVALID",
+      "isProjectInvalid": true,
+      "io": {}
+    },
+    {
+      "engine": "nxengine",
+      "case": "file_count_exact_4096",
+      "note": "4096 descriptors accepted",
+      "inputBytes": 2,
+      "inputSHA256": "9b8db510ef42b8ed54a3712636fda55a4f8cfcd5493e20b74ab00cd4f3979f2d",
+      "profile": {
+        "markerPath": "Doukutsu.exe",
+        "compatibility": "NXENGINE_RUNTIME_TRIAL_REQUIRED"
+      },
+      "snapshot": "{\"nxengine\":{\"markerPath\":\"Doukutsu.exe\",\"compatibility\":\"NXENGINE_RUNTIME_TRIAL_REQUIRED\"},\"schemaVersion\":1}",
+      "isProjectInvalid": false,
+      "io": {
+        "openCalls": [
+          "Doukutsu.exe"
+        ],
+        "readCalls": 1,
+        "readBytes": 2,
+        "maxReadRequest": 2,
+        "closeCalls": 1
+      }
+    },
+    {
+      "engine": "nxengine",
+      "case": "individual_above_32mib_before_open",
+      "note": "per-file bound rejects",
+      "error": "NXENGINE_PROJECT_INVALID",
+      "isProjectInvalid": true,
+      "io": {}
+    },
+    {
+      "engine": "nxengine",
+      "case": "missing_asset_after_valid_exe",
+      "note": "required assets checked after valid EXE",
+      "inputBytes": 2,
+      "inputSHA256": "9b8db510ef42b8ed54a3712636fda55a4f8cfcd5493e20b74ab00cd4f3979f2d",
+      "error": "NXENGINE_PROJECT_INVALID",
+      "isProjectInvalid": true,
+      "io": {
+        "openCalls": [
+          "Doukutsu.exe"
+        ],
+        "readCalls": 1,
+        "readBytes": 2,
+        "maxReadRequest": 2,
+        "closeCalls": 1
+      }
+    },
+    {
+      "engine": "nxengine",
+      "case": "missing_marker",
+      "note": "missing executable",
+      "error": "NXENGINE_PROJECT_INVALID",
+      "isProjectInvalid": true,
+      "io": {}
+    },
+    {
+      "engine": "nxengine",
+      "case": "nil_reader_panics",
+      "note": "old implementation has no nil-reader rejection",
+      "isProjectInvalid": false,
+      "panic": "runtime error: invalid memory address or nil pointer dereference",
+      "io": {
+        "openCalls": [
+          "Doukutsu.exe"
+        ]
+      }
+    },
+    {
+      "engine": "nxengine",
+      "case": "open_failure_precedes_missing_assets",
+      "note": "EXE open attempted before required-assets check",
+      "error": "NXENGINE_PROJECT_INVALID",
+      "isProjectInvalid": true,
+      "io": {
+        "openCalls": [
+          "Doukutsu.exe"
+        ]
+      }
+    },
+    {
+      "engine": "nxengine",
+      "case": "physical_two_bytes_declared_128",
+      "note": "no physical-size equality check",
+      "inputBytes": 2,
+      "inputSHA256": "9b8db510ef42b8ed54a3712636fda55a4f8cfcd5493e20b74ab00cd4f3979f2d",
+      "profile": {
+        "markerPath": "Doukutsu.exe",
+        "compatibility": "NXENGINE_RUNTIME_TRIAL_REQUIRED"
+      },
+      "snapshot": "{\"nxengine\":{\"markerPath\":\"Doukutsu.exe\",\"compatibility\":\"NXENGINE_RUNTIME_TRIAL_REQUIRED\"},\"schemaVersion\":1}",
+      "isProjectInvalid": false,
+      "io": {
+        "openCalls": [
+          "Doukutsu.exe"
+        ],
+        "readCalls": 1,
+        "readBytes": 2,
+        "maxReadRequest": 2,
+        "closeCalls": 1
+      }
+    },
+    {
+      "engine": "nxengine",
+      "case": "short_read_precedes_missing_assets",
+      "note": "short EXE read precedes required-assets check",
+      "inputBytes": 1,
+      "inputSHA256": "08f271887ce94707da822d5263bae19d5519cb3614e0daedc4c7ce5dab7473f1",
+      "error": "NXENGINE_PROJECT_INVALID",
+      "isProjectInvalid": true,
+      "io": {
+        "openCalls": [
+          "Doukutsu.exe"
+        ],
+        "readCalls": 2,
+        "readBytes": 1,
+        "maxReadRequest": 2,
+        "closeCalls": 1
+      }
+    },
+    {
+      "engine": "nxengine",
+      "case": "wrong_mz_precedes_missing_assets",
+      "note": "wrong EXE magic precedes required-assets check",
+      "inputBytes": 2,
+      "inputSHA256": "613c0e36acaa2ffad731fc0824c05107a8ce587122f5a2e08295c7f760fc05f7",
+      "error": "NXENGINE_PROJECT_INVALID",
+      "isProjectInvalid": true,
+      "io": {
+        "openCalls": [
+          "Doukutsu.exe"
+        ],
+        "readCalls": 1,
+        "readBytes": 2,
+        "maxReadRequest": 2,
+        "closeCalls": 1
+      }
+    },
+    {
+      "engine": "nxengine",
+      "case": "zero_size_before_open",
+      "note": "nonpositive descriptor rejects",
+      "error": "NXENGINE_PROJECT_INVALID",
+      "isProjectInvalid": true,
+      "io": {}
+    },
+    {
+      "engine": "ons",
+      "case": "beyond_1mib_unread_invalid_tail",
+      "note": "invalid byte after 1 MiB is not read; declared size intentionally 1",
+      "inputBytes": 1048577,
+      "inputSHA256": "25f9c76baa1122dabeef31bbd6c4be72f5e19d36c91902acbf3c65ee7f6469e8",
+      "profile": {
+        "markerPath": "0.txt",
+        "fontPath": "font.ttf",
+        "scriptEncoding": "utf8"
+      },
+      "snapshot": "{\"ons\":{\"markerPath\":\"0.txt\",\"fontPath\":\"font.ttf\",\"scriptEncoding\":\"utf8\"},\"schemaVersion\":1}",
+      "isProjectInvalid": false,
+      "io": {
+        "openCalls": [
+          "0.txt"
+        ],
+        "readCalls": 30,
+        "readBytes": 1048576,
+        "maxReadRequest": 255680,
+        "closeCalls": 1
+      }
+    },
+    {
+      "engine": "ons",
+      "case": "close_failure_ignored",
+      "note": "successful read remains successful when Close fails",
+      "inputBytes": 1,
+      "inputSHA256": "ca978112ca1bbdcafac231b39a23dc4da786eff8147c4e72b9807785afee48bb",
+      "profile": {
+        "markerPath": "0.txt",
+        "fontPath": "font.ttf",
+        "scriptEncoding": "utf8"
+      },
+      "snapshot": "{\"ons\":{\"markerPath\":\"0.txt\",\"fontPath\":\"font.ttf\",\"scriptEncoding\":\"utf8\"},\"schemaVersion\":1}",
+      "isProjectInvalid": false,
+      "io": {
+        "openCalls": [
+          "0.txt"
+        ],
+        "readCalls": 2,
+        "readBytes": 1,
+        "maxReadRequest": 512,
+        "closeCalls": 1
+      }
+    },
+    {
+      "engine": "ons",
+      "case": "dat_defaults_gbk_without_open",
+      "note": "encrypted DAT marker is not opened",
+      "inputBytes": 2,
+      "inputSHA256": "bfbefe333c535f13be1cfbf02c1ef0ae5988bc7d87b8814dd8818918890926ff",
+      "profile": {
+        "markerPath": "nscript.dat",
+        "fontPath": "font.ttf",
+        "scriptEncoding": "gbk"
+      },
+      "snapshot": "{\"ons\":{\"markerPath\":\"nscript.dat\",\"fontPath\":\"font.ttf\",\"scriptEncoding\":\"gbk\"},\"schemaVersion\":1}",
+      "isProjectInvalid": false,
+      "io": {}
+    },
+    {
+      "engine": "ons",
+      "case": "duplicate_before_open",
+      "note": "ASCII-lower duplicate precedes resource access",
+      "error": "ONS_PROJECT_INVALID",
+      "isProjectInvalid": true,
+      "io": {}
+    },
+    {
+      "engine": "ons",
+      "case": "empty_path_before_open",
+      "note": "descriptor validation precedes resource access",
+      "error": "ONS_PROJECT_INVALID",
+      "isProjectInvalid": true,
+      "io": {}
+    },
+    {
+      "engine": "ons",
+      "case": "exact_1mib",
+      "note": "exact 1 MiB is fully read",
+      "inputBytes": 1048576,
+      "inputSHA256": "9bc1b2a288b26af7257a36277ae3816a7d4f16e89c1e7e77d0a5c48bad62b360",
+      "profile": {
+        "markerPath": "0.txt",
+        "fontPath": "font.ttf",
+        "scriptEncoding": "utf8"
+      },
+      "snapshot": "{\"ons\":{\"markerPath\":\"0.txt\",\"fontPath\":\"font.ttf\",\"scriptEncoding\":\"utf8\"},\"schemaVersion\":1}",
+      "isProjectInvalid": false,
+      "io": {
+        "openCalls": [
+          "0.txt"
+        ],
+        "readCalls": 30,
+        "readBytes": 1048576,
+        "maxReadRequest": 255680,
+        "closeCalls": 1
+      }
+    },
+    {
+      "engine": "ons",
+      "case": "marker_and_font_priority",
+      "note": "0.txt wins over 00.txt; root default.ttf wins",
+      "inputBytes": 1,
+      "inputSHA256": "ca978112ca1bbdcafac231b39a23dc4da786eff8147c4e72b9807785afee48bb",
+      "profile": {
+        "markerPath": "0.txt",
+        "fontPath": "default.ttf",
+        "scriptEncoding": "utf8"
+      },
+      "snapshot": "{\"ons\":{\"markerPath\":\"0.txt\",\"fontPath\":\"default.ttf\",\"scriptEncoding\":\"utf8\"},\"schemaVersion\":1}",
+      "isProjectInvalid": false,
+      "io": {
+        "openCalls": [
+          "0.txt"
+        ],
+        "readCalls": 2,
+        "readBytes": 1,
+        "maxReadRequest": 512,
+        "closeCalls": 1
+      }
+    },
+    {
+      "engine": "ons",
+      "case": "missing_font_before_open",
+      "note": "missing font precedes script open",
+      "error": "ONS_PROJECT_INVALID",
+      "isProjectInvalid": true,
+      "io": {}
+    },
+    {
+      "engine": "ons",
+      "case": "missing_marker_before_open",
+      "note": "missing marker rejects without open",
+      "error": "ONS_PROJECT_INVALID",
+      "isProjectInvalid": true,
+      "io": {}
+    },
+    {
+      "engine": "ons",
+      "case": "negative_size_before_open",
+      "note": "negative size precedes resource access",
+      "error": "ONS_PROJECT_INVALID",
+      "isProjectInvalid": true,
+      "io": {}
+    },
+    {
+      "engine": "ons",
+      "case": "nil_reader_panics",
+      "note": "old implementation has no nil-reader rejection",
+      "isProjectInvalid": false,
+      "panic": "runtime error: invalid memory address or nil pointer dereference",
+      "io": {
+        "openCalls": [
+          "0.txt"
+        ]
+      }
+    },
+    {
+      "engine": "ons",
+      "case": "open_failure",
+      "note": "open cause is collapsed to script unavailable",
+      "error": "ONS_PROJECT_INVALID: script unavailable",
+      "isProjectInvalid": true,
+      "io": {
+        "openCalls": [
+          "0.txt"
+        ]
+      }
+    },
+    {
+      "engine": "ons",
+      "case": "read_failure",
+      "note": "read cause is collapsed and Close still runs",
+      "inputBytes": 4,
+      "inputSHA256": "88d4266fd4e6338d13b845fcf289579d209c897823b9217da3e161936f031589",
+      "error": "ONS_PROJECT_INVALID: script unavailable",
+      "isProjectInvalid": true,
+      "io": {
+        "openCalls": [
+          "0.txt"
+        ],
+        "readCalls": 2,
+        "readBytes": 2,
+        "maxReadRequest": 512,
+        "closeCalls": 1
+      }
+    },
+    {
+      "engine": "ons",
+      "case": "txt_invalid_utf8_defaults_gbk",
+      "note": "invalid UTF-8 probe selects GBK",
+      "inputBytes": 2,
+      "inputSHA256": "bfbefe333c535f13be1cfbf02c1ef0ae5988bc7d87b8814dd8818918890926ff",
+      "profile": {
+        "markerPath": "0.txt",
+        "fontPath": "font.ttf",
+        "scriptEncoding": "gbk"
+      },
+      "snapshot": "{\"ons\":{\"markerPath\":\"0.txt\",\"fontPath\":\"font.ttf\",\"scriptEncoding\":\"gbk\"},\"schemaVersion\":1}",
+      "isProjectInvalid": false,
+      "io": {
+        "openCalls": [
+          "0.txt"
+        ],
+        "readCalls": 2,
+        "readBytes": 2,
+        "maxReadRequest": 512,
+        "closeCalls": 1
+      }
+    },
+    {
+      "engine": "ons",
+      "case": "txt_utf8_bom",
+      "note": "UTF-8 BOM is ignored for encoding detection",
+      "inputBytes": 11,
+      "inputSHA256": "6123cab44a49480c0e6060d92f555e3b59aec9be2dbda27ad883fa2eccd2ad06",
+      "profile": {
+        "markerPath": "0.txt",
+        "fontPath": "font.ttf",
+        "scriptEncoding": "utf8"
+      },
+      "snapshot": "{\"ons\":{\"markerPath\":\"0.txt\",\"fontPath\":\"font.ttf\",\"scriptEncoding\":\"utf8\"},\"schemaVersion\":1}",
+      "isProjectInvalid": false,
+      "io": {
+        "openCalls": [
+          "0.txt"
+        ],
+        "readCalls": 2,
+        "readBytes": 11,
+        "maxReadRequest": 512,
+        "closeCalls": 1
+      }
+    },
+    {
+      "engine": "ons",
+      "case": "txt_utf8_public",
+      "note": "public ASCII script and default-font preference",
+      "inputBytes": 17,
+      "inputSHA256": "d3d071b7a022d109b9d357665e72de966992eaf8bd76d7d71d56804635b1aa20",
+      "profile": {
+        "markerPath": "0.txt",
+        "fontPath": "default.ttf",
+        "scriptEncoding": "utf8"
+      },
+      "snapshot": "{\"ons\":{\"markerPath\":\"0.txt\",\"fontPath\":\"default.ttf\",\"scriptEncoding\":\"utf8\"},\"schemaVersion\":1}",
+      "isProjectInvalid": false,
+      "io": {
+        "openCalls": [
+          "0.txt"
+        ],
+        "readCalls": 2,
+        "readBytes": 17,
+        "maxReadRequest": 512,
+        "closeCalls": 1
+      }
+    }
+  ]
+}

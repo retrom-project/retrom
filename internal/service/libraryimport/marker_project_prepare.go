@@ -4,8 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -25,67 +23,18 @@ type markerProjectDefinition struct {
 	compatibilityCode string
 	markers           []string
 	electronASAR      bool
-	archiveFormat     func(string) (contentprofile.ArchiveFormat, string)
-	detect            func([]fileset.SourceFile, map[int]string) ([]byte, error)
-}
-
-type localProjectPathOpener map[string]string
-
-func (paths localProjectPathOpener) Open(logicalPath string) (io.ReadCloser, error) {
-	localPath, exists := paths[logicalPath]
-	if !exists {
-		return nil, os.ErrNotExist
-	}
-	reader, err := os.Open(localPath)
-	if err != nil {
-		return nil, fmt.Errorf("open project file: %w", err)
-	}
-	return reader, nil
-}
-
-type typedProjectIndex[File any] struct {
-	localProjectPathOpener
-	files []File
-}
-
-func (index typedProjectIndex[File]) Files() []File {
-	return append([]File(nil), index.files...)
 }
 
 var butterscotchMarkerProject = markerProjectDefinition{
 	name: "Butterscotch", markers: butterscotchdetector.Markers(),
 	contentKind:       string(contentprofile.ContentKindButterscotchProject),
 	compatibilityCode: "BUTTERSCOTCH_RUNTIME_TRIAL_REQUIRED",
-	detect: func(files []fileset.SourceFile, paths map[int]string) ([]byte, error) {
-		return detectMarkerProject(
-			files, paths, "Butterscotch",
-			func(file fileset.SourceFile) butterscotchdetector.File {
-				return butterscotchdetector.File{Path: file.Path, Size: file.SizeBytes}
-			},
-			func(index typedProjectIndex[butterscotchdetector.File]) (butterscotchdetector.Profile, error) {
-				return butterscotchdetector.Detect(index)
-			},
-			butterscotchdetector.MarshalSnapshot,
-		)
-	},
 }
 
 var onsMarkerProject = markerProjectDefinition{
 	name: "ONS", markers: onsdetector.Markers(),
 	contentKind:       string(contentprofile.ContentKindONSProject),
 	compatibilityCode: "ONS_RUNTIME_TRIAL_REQUIRED",
-	detect: func(files []fileset.SourceFile, paths map[int]string) ([]byte, error) {
-		return detectMarkerProject(
-			files, paths, "ONS",
-			func(file fileset.SourceFile) onsdetector.File {
-				return onsdetector.File{Path: file.Path, Size: file.SizeBytes}
-			},
-			func(index typedProjectIndex[onsdetector.File]) (onsdetector.Profile, error) {
-				return onsdetector.Detect(index)
-			},
-			onsdetector.MarshalSnapshot,
-		)
-	},
 }
 
 var tyranoScriptMarkerProject = markerProjectDefinition{
@@ -93,19 +42,6 @@ var tyranoScriptMarkerProject = markerProjectDefinition{
 	contentKind:       string(contentprofile.ContentKindTyranoScriptProject),
 	compatibilityCode: "TYRANOSCRIPT_RUNTIME_TRIAL_REQUIRED",
 	electronASAR:      true,
-	archiveFormat:     tyranoScriptArchiveFormat,
-	detect: func(files []fileset.SourceFile, paths map[int]string) ([]byte, error) {
-		return detectMarkerProject(
-			files, paths, "TyranoScript",
-			func(file fileset.SourceFile) tyranodetector.File {
-				return tyranodetector.File{Path: file.Path, Size: file.SizeBytes}
-			},
-			func(index typedProjectIndex[tyranodetector.File]) (tyranodetector.Profile, error) {
-				return tyranodetector.Detect(index)
-			},
-			tyranodetector.MarshalSnapshot,
-		)
-	},
 }
 
 func (service *ImportPreparation) PrepareButterscotchProject(
@@ -132,33 +68,6 @@ func (service *ImportPreparation) PrepareTyranoScriptProject(
 	return service.prepareMarkerProject(ctx, sourceType, files, tyranoScriptMarkerProject)
 }
 
-func detectMarkerProject[File any, Profile any](
-	files []fileset.SourceFile,
-	paths map[int]string,
-	diagnosticName string,
-	toDetectorFile func(fileset.SourceFile) File,
-	detect func(typedProjectIndex[File]) (Profile, error),
-	marshal func(Profile) ([]byte, error),
-) ([]byte, error) {
-	index := typedProjectIndex[File]{
-		localProjectPathOpener: make(localProjectPathOpener, len(files)),
-		files:                  make([]File, 0, len(files)),
-	}
-	for _, file := range files {
-		index.files = append(index.files, toDetectorFile(file))
-		index.localProjectPathOpener[file.Path] = paths[file.SourceIndex]
-	}
-	profile, err := detect(index)
-	if err != nil {
-		return nil, fmt.Errorf("detect %s project: %w", diagnosticName, err)
-	}
-	contents, err := marshal(profile)
-	if err != nil {
-		return nil, fmt.Errorf("marshal %s project profile: %w", diagnosticName, err)
-	}
-	return contents, nil
-}
-
 func (service *ImportPreparation) prepareMarkerProject(
 	ctx context.Context,
 	sourceType string,
@@ -167,7 +76,7 @@ func (service *ImportPreparation) prepareMarkerProject(
 ) ([]model.PreparedDisposition, []model.PreparedGroup, []model.PreparedArchive, error) {
 	return service.prepareProject(ctx, sourceType, files,
 		func(files []model.ImportFile) ([]model.PreparedDisposition, model.PreparedGroup, error) {
-			return service.prepareMarkerProjectDirectory(files, definition)
+			return service.prepareMarkerProjectDirectory(ctx, files, definition)
 		},
 		func(
 			ctx context.Context,
@@ -181,6 +90,7 @@ func (service *ImportPreparation) prepareMarkerProject(
 }
 
 func (service *ImportPreparation) prepareMarkerProjectDirectory(
+	ctx context.Context,
 	files []model.ImportFile,
 	definition markerProjectDefinition,
 ) ([]model.PreparedDisposition, model.PreparedGroup, error) {
@@ -193,7 +103,7 @@ func (service *ImportPreparation) prepareMarkerProjectDirectory(
 	for _, file := range project.Files {
 		paths[file.SourceIndex] = service.blobs.Path(files[file.SourceIndex].SHA256)
 	}
-	snapshot, err := definition.detect(project.Files, paths)
+	snapshot, err := service.detectMarkerProject(ctx, project.Files, paths, definition)
 	if err != nil {
 		return nil, model.PreparedGroup{}, fmt.Errorf("detect %s directory: %w", definition.name, err)
 	}
@@ -232,7 +142,7 @@ func (service *ImportPreparation) prepareMarkerProjectArchive(
 	if err != nil {
 		return model.PreparedDisposition{}, model.PreparedGroup{}, model.PreparedArchive{}, err
 	}
-	snapshot, err := definition.detect(project.Files, paths)
+	snapshot, err := service.detectMarkerProject(ctx, project.Files, paths, definition)
 	if err != nil {
 		return model.PreparedDisposition{}, model.PreparedGroup{}, model.PreparedArchive{}, fmt.Errorf(
 			"detect %s archive: %w", definition.name, err,
@@ -252,11 +162,10 @@ func (service *ImportPreparation) resolveMarkerProjectArchiveFormat(
 	file model.ImportFile,
 	definition markerProjectDefinition,
 ) (contentprofile.ArchiveFormat, error) {
-	archiveFormat := ImportArchiveFormat
-	if definition.archiveFormat != nil {
-		archiveFormat = definition.archiveFormat
+	format, reason := ImportArchiveFormat(file.Path)
+	if definition.electronASAR {
+		format, reason = tyranoScriptArchiveFormat(file.Path)
 	}
-	format, reason := archiveFormat(file.Path)
 	if reason != "" {
 		return "", model.ErrInvalid
 	}

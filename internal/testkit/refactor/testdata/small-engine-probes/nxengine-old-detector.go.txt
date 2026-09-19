@@ -17,12 +17,10 @@ type File struct {
 	Size int64
 }
 
-type Selection struct {
-	markerPath            string
-	requiredAssetsPresent bool
+type Index interface {
+	Files() []File
+	Open(logicalPath string) (io.ReadCloser, error)
 }
-
-func (selection Selection) ProbePath() string { return selection.markerPath }
 
 type Profile struct {
 	MarkerPath    string `json:"markerPath"`
@@ -63,9 +61,10 @@ func ParseSnapshot(contents string) (Profile, error) {
 	return value.NXEngine, nil
 }
 
-func Select(files []File) (Selection, error) {
+func Detect(index Index) (Profile, error) {
+	files := index.Files()
 	if len(files) > 4096 {
-		return Selection{}, ErrProjectInvalid
+		return Profile{}, ErrProjectInvalid
 	}
 	var total int64
 	seen := make(map[string]struct{}, len(files))
@@ -74,43 +73,40 @@ func Select(files []File) (Selection, error) {
 	for _, file := range files {
 		total += file.Size
 		if total > 64*1024*1024 {
-			return Selection{}, ErrProjectInvalid
+			return Profile{}, ErrProjectInvalid
 		}
 		key := strings.ToLower(file.Path)
 		if !validPath(file.Path) || file.Size <= 0 || file.Size > 32*1024*1024 {
-			return Selection{}, ErrProjectInvalid
+			return Profile{}, ErrProjectInvalid
 		}
 		if _, duplicate := seen[key]; duplicate {
-			return Selection{}, ErrProjectInvalid
+			return Profile{}, ErrProjectInvalid
 		}
 		seen[key] = struct{}{}
 		if strings.EqualFold(file.Path, "Doukutsu.exe") {
 			markerPath, markerSize = file.Path, file.Size
 		}
 	}
-	if markerPath == "" || markerSize < 128 || markerSize > 16*1024*1024 {
-		return Selection{}, ErrProjectInvalid
+	if markerPath == "" || markerSize < 128 || markerSize > 16*1024*1024 || !validEXE(index, markerPath) {
+		return Profile{}, ErrProjectInvalid
 	}
-	requiredAssetsPresent := true
 	for _, required := range []string{"data/npc.tbl", "data/stage/start.pxm", "data/stage/start.tsc"} {
 		if _, ok := seen[required]; !ok {
-			requiredAssetsPresent = false
+			return Profile{}, ErrProjectInvalid
 		}
 	}
-	return Selection{markerPath: markerPath, requiredAssetsPresent: requiredAssetsPresent}, nil
+	return Profile{MarkerPath: markerPath, Compatibility: "NXENGINE_RUNTIME_TRIAL_REQUIRED"}, nil
 }
 
-func Detect(selection Selection, header [2]byte) (Profile, error) {
-	if selection.markerPath == "" || string(header[:]) != "MZ" || !selection.requiredAssetsPresent {
-		return Profile{}, ErrProjectInvalid
+func validEXE(index Index, markerPath string) bool {
+	reader, err := index.Open(markerPath)
+	if err != nil {
+		return false
 	}
-	profile := Profile{
-		MarkerPath: selection.markerPath, Compatibility: "NXENGINE_RUNTIME_TRIAL_REQUIRED",
-	}
-	if !validProfile(profile) {
-		return Profile{}, ErrProjectInvalid
-	}
-	return profile, nil
+	defer func() { _ = reader.Close() }()
+	var header [2]byte
+	_, err = io.ReadFull(reader, header[:])
+	return err == nil && string(header[:]) == "MZ"
 }
 
 func validProfile(profile Profile) bool {

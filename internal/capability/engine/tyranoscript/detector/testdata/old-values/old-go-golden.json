@@ -1,0 +1,776 @@
+[
+  {
+    "name": "nil",
+    "files": null,
+    "profile": {
+      "entryPath": "",
+      "compatibility": ""
+    },
+    "error": "TYRANOSCRIPT_PROJECT_INVALID",
+    "errorType": "*errors.errorString",
+    "invalid": true,
+    "snapshot": ""
+  },
+  {
+    "name": "empty",
+    "files": [],
+    "profile": {
+      "entryPath": "",
+      "compatibility": ""
+    },
+    "error": "TYRANOSCRIPT_PROJECT_INVALID",
+    "errorType": "*errors.errorString",
+    "invalid": true,
+    "snapshot": ""
+  },
+  {
+    "name": "complete",
+    "files": [
+      {
+        "Path": "index.html",
+        "Size": 1
+      },
+      {
+        "Path": "data/scenario/first.ks",
+        "Size": 1
+      },
+      {
+        "Path": "data/system/Config.tjs",
+        "Size": 1
+      },
+      {
+        "Path": "tyrano/plugins/kag/kag.js",
+        "Size": 1
+      },
+      {
+        "Path": "tyrano/tyrano.js",
+        "Size": 1
+      }
+    ],
+    "profile": {
+      "entryPath": "index.html",
+      "compatibility": "TYRANOSCRIPT_RUNTIME_TRIAL_REQUIRED"
+    },
+    "error": "",
+    "errorType": "",
+    "invalid": false,
+    "snapshot": "{\"schemaVersion\":1,\"tyranoScript\":{\"entryPath\":\"index.html\",\"compatibility\":\"TYRANOSCRIPT_RUNTIME_TRIAL_REQUIRED\"}}"
+  },
+  {
+    "name": "missing-0",
+    "files": [
+      {
+        "Path": "data/scenario/first.ks",
+        "Size": 1
+      },
+      {
+        "Path": "data/system/Config.tjs",
+        "Size": 1
+      },
+      {
+        "Path": "tyrano/plugins/kag/kag.js",
+        "Size": 1
+      },
+      {
+        "Path": "tyrano/tyrano.js",
+        "Size": 1
+      }
+    ],
+    "profile": {
+      "entryPath": "",
+      "compatibility": ""
+    },
+    "error": "TYRANOSCRIPT_PROJECT_INVALID",
+    "errorType": "*errors.errorString",
+    "invalid": true,
+    "snapshot": ""
+  },
+  {
+    "name": "missing-1",
+    "files": [
+      {
+        "Path": "index.html",
+        "Size": 1
+      },
+      {
+        "Path": "data/system/Config.tjs",
+        "Size": 1
+      },
+      {
+        "Path": "tyrano/plugins/kag/kag.js",
+        "Size": 1
+      },
+      {
+        "Path": "tyrano/tyrano.js",
+        "Size": 1
+      }
+    ],
+    "profile": {
+      "entryPath": "",
+      "compatibility": ""
+    },
+    "error": "TYRANOSCRIPT_PROJECT_INVALID",
+    "errorType": "*errors.errorString",
+    "invalid": true,
+    "snapshot": ""
+  },
+  {
+    "name": "missing-2",
+    "files": [
+      {
+        "Path": "index.html",
+        "Size": 1
+      },
+      {
+        "Path": "data/scenario/first.ks",
+        "Size": 1
+      },
+      {
+        "Path": "tyrano/plugins/kag/kag.js",
+        "Size": 1
+      },
+      {
+        "Path": "tyrano/tyrano.js",
+        "Size": 1
+      }
+    ],
+    "profile": {
+      "entryPath": "",
+      "compatibility": ""
+    },
+    "error": "TYRANOSCRIPT_PROJECT_INVALID",
+    "errorType": "*errors.errorString",
+    "invalid": true,
+    "snapshot": ""
+  },
+  {
+    "name": "missing-3",
+    "files": [
+      {
+        "Path": "index.html",
+        "Size": 1
+      },
+      {
+        "Path": "data/scenario/first.ks",
+        "Size": 1
+      },
+      {
+        "Path": "data/system/Config.tjs",
+        "Size": 1
+      },
+      {
+        "Path": "tyrano/tyrano.js",
+        "Size": 1
+      }
+    ],
+    "profile": {
+      "entryPath": "",
+      "compatibility": ""
+    },
+    "error": "TYRANOSCRIPT_PROJECT_INVALID",
+    "errorType": "*errors.errorString",
+    "invalid": true,
+    "snapshot": ""
+  },
+  {
+    "name": "missing-4",
+    "files": [
+      {
+        "Path": "index.html",
+        "Size": 1
+      },
+      {
+        "Path": "data/scenario/first.ks",
+        "Size": 1
+      },
+      {
+        "Path": "data/system/Config.tjs",
+        "Size": 1
+      },
+      {
+        "Path": "tyrano/plugins/kag/kag.js",
+        "Size": 1
+      }
+    ],
+    "profile": {
+      "entryPath": "",
+      "compatibility": ""
+    },
+    "error": "TYRANOSCRIPT_PROJECT_INVALID",
+    "errorType": "*errors.errorString",
+    "invalid": true,
+    "snapshot": ""
+  },
+  {
+    "name": "uppercase",
+    "files": [
+      {
+        "Path": "INDEX.HTML",
+        "Size": 1
+      },
+      {
+        "Path": "DATA/SCENARIO/FIRST.KS",
+        "Size": 1
+      },
+      {
+        "Path": "DATA/SYSTEM/CONFIG.TJS",
+        "Size": 1
+      },
+      {
+        "Path": "TYRANO/PLUGINS/KAG/KAG.JS",
+        "Size": 1
+      },
+      {
+        "Path": "TYRANO/TYRANO.JS",
+        "Size": 1
+      }
+    ],
+    "profile": {
+      "entryPath": "index.html",
+      "compatibility": "TYRANOSCRIPT_RUNTIME_TRIAL_REQUIRED"
+    },
+    "error": "",
+    "errorType": "",
+    "invalid": false,
+    "snapshot": "{\"schemaVersion\":1,\"tyranoScript\":{\"entryPath\":\"index.html\",\"compatibility\":\"TYRANOSCRIPT_RUNTIME_TRIAL_REQUIRED\"}}"
+  },
+  {
+    "name": "reversed",
+    "files": [
+      {
+        "Path": "tyrano/tyrano.js",
+        "Size": 1
+      },
+      {
+        "Path": "tyrano/plugins/kag/kag.js",
+        "Size": 1
+      },
+      {
+        "Path": "data/system/Config.tjs",
+        "Size": 1
+      },
+      {
+        "Path": "data/scenario/first.ks",
+        "Size": 1
+      },
+      {
+        "Path": "index.html",
+        "Size": 1
+      }
+    ],
+    "profile": {
+      "entryPath": "index.html",
+      "compatibility": "TYRANOSCRIPT_RUNTIME_TRIAL_REQUIRED"
+    },
+    "error": "",
+    "errorType": "",
+    "invalid": false,
+    "snapshot": "{\"schemaVersion\":1,\"tyranoScript\":{\"entryPath\":\"index.html\",\"compatibility\":\"TYRANOSCRIPT_RUNTIME_TRIAL_REQUIRED\"}}"
+  },
+  {
+    "name": "extra-10",
+    "files": [
+      {
+        "Path": "index.html",
+        "Size": 1
+      },
+      {
+        "Path": "data/scenario/first.ks",
+        "Size": 1
+      },
+      {
+        "Path": "data/system/Config.tjs",
+        "Size": 1
+      },
+      {
+        "Path": "tyrano/plugins/kag/kag.js",
+        "Size": 1
+      },
+      {
+        "Path": "tyrano/tyrano.js",
+        "Size": 1
+      },
+      {
+        "Path": "",
+        "Size": 0
+      }
+    ],
+    "profile": {
+      "entryPath": "",
+      "compatibility": ""
+    },
+    "error": "TYRANOSCRIPT_PROJECT_INVALID",
+    "errorType": "*errors.errorString",
+    "invalid": true,
+    "snapshot": ""
+  },
+  {
+    "name": "extra-11",
+    "files": [
+      {
+        "Path": "index.html",
+        "Size": 1
+      },
+      {
+        "Path": "data/scenario/first.ks",
+        "Size": 1
+      },
+      {
+        "Path": "data/system/Config.tjs",
+        "Size": 1
+      },
+      {
+        "Path": "tyrano/plugins/kag/kag.js",
+        "Size": 1
+      },
+      {
+        "Path": "tyrano/tyrano.js",
+        "Size": 1
+      },
+      {
+        "Path": ".",
+        "Size": 0
+      }
+    ],
+    "profile": {
+      "entryPath": "index.html",
+      "compatibility": "TYRANOSCRIPT_RUNTIME_TRIAL_REQUIRED"
+    },
+    "error": "",
+    "errorType": "",
+    "invalid": false,
+    "snapshot": "{\"schemaVersion\":1,\"tyranoScript\":{\"entryPath\":\"index.html\",\"compatibility\":\"TYRANOSCRIPT_RUNTIME_TRIAL_REQUIRED\"}}"
+  },
+  {
+    "name": "extra-12",
+    "files": [
+      {
+        "Path": "index.html",
+        "Size": 1
+      },
+      {
+        "Path": "data/scenario/first.ks",
+        "Size": 1
+      },
+      {
+        "Path": "data/system/Config.tjs",
+        "Size": 1
+      },
+      {
+        "Path": "tyrano/plugins/kag/kag.js",
+        "Size": 1
+      },
+      {
+        "Path": "tyrano/tyrano.js",
+        "Size": 1
+      },
+      {
+        "Path": "../outside",
+        "Size": 0
+      }
+    ],
+    "profile": {
+      "entryPath": "index.html",
+      "compatibility": "TYRANOSCRIPT_RUNTIME_TRIAL_REQUIRED"
+    },
+    "error": "",
+    "errorType": "",
+    "invalid": false,
+    "snapshot": "{\"schemaVersion\":1,\"tyranoScript\":{\"entryPath\":\"index.html\",\"compatibility\":\"TYRANOSCRIPT_RUNTIME_TRIAL_REQUIRED\"}}"
+  },
+  {
+    "name": "extra-13",
+    "files": [
+      {
+        "Path": "index.html",
+        "Size": 1
+      },
+      {
+        "Path": "data/scenario/first.ks",
+        "Size": 1
+      },
+      {
+        "Path": "data/system/Config.tjs",
+        "Size": 1
+      },
+      {
+        "Path": "tyrano/plugins/kag/kag.js",
+        "Size": 1
+      },
+      {
+        "Path": "tyrano/tyrano.js",
+        "Size": 1
+      },
+      {
+        "Path": "/absolute",
+        "Size": 0
+      }
+    ],
+    "profile": {
+      "entryPath": "",
+      "compatibility": ""
+    },
+    "error": "TYRANOSCRIPT_PROJECT_INVALID",
+    "errorType": "*errors.errorString",
+    "invalid": true,
+    "snapshot": ""
+  },
+  {
+    "name": "extra-14",
+    "files": [
+      {
+        "Path": "index.html",
+        "Size": 1
+      },
+      {
+        "Path": "data/scenario/first.ks",
+        "Size": 1
+      },
+      {
+        "Path": "data/system/Config.tjs",
+        "Size": 1
+      },
+      {
+        "Path": "tyrano/plugins/kag/kag.js",
+        "Size": 1
+      },
+      {
+        "Path": "tyrano/tyrano.js",
+        "Size": 1
+      },
+      {
+        "Path": "a//b",
+        "Size": 0
+      }
+    ],
+    "profile": {
+      "entryPath": "",
+      "compatibility": ""
+    },
+    "error": "TYRANOSCRIPT_PROJECT_INVALID",
+    "errorType": "*errors.errorString",
+    "invalid": true,
+    "snapshot": ""
+  },
+  {
+    "name": "extra-15",
+    "files": [
+      {
+        "Path": "index.html",
+        "Size": 1
+      },
+      {
+        "Path": "data/scenario/first.ks",
+        "Size": 1
+      },
+      {
+        "Path": "data/system/Config.tjs",
+        "Size": 1
+      },
+      {
+        "Path": "tyrano/plugins/kag/kag.js",
+        "Size": 1
+      },
+      {
+        "Path": "tyrano/tyrano.js",
+        "Size": 1
+      },
+      {
+        "Path": "a\\b",
+        "Size": 0
+      }
+    ],
+    "profile": {
+      "entryPath": "",
+      "compatibility": ""
+    },
+    "error": "TYRANOSCRIPT_PROJECT_INVALID",
+    "errorType": "*errors.errorString",
+    "invalid": true,
+    "snapshot": ""
+  },
+  {
+    "name": "extra-16",
+    "files": [
+      {
+        "Path": "index.html",
+        "Size": 1
+      },
+      {
+        "Path": "data/scenario/first.ks",
+        "Size": 1
+      },
+      {
+        "Path": "data/system/Config.tjs",
+        "Size": 1
+      },
+      {
+        "Path": "tyrano/plugins/kag/kag.js",
+        "Size": 1
+      },
+      {
+        "Path": "tyrano/tyrano.js",
+        "Size": 1
+      },
+      {
+        "Path": "a\u0000b",
+        "Size": 0
+      }
+    ],
+    "profile": {
+      "entryPath": "",
+      "compatibility": ""
+    },
+    "error": "TYRANOSCRIPT_PROJECT_INVALID",
+    "errorType": "*errors.errorString",
+    "invalid": true,
+    "snapshot": ""
+  },
+  {
+    "name": "extra-17",
+    "files": [
+      {
+        "Path": "index.html",
+        "Size": 1
+      },
+      {
+        "Path": "data/scenario/first.ks",
+        "Size": 1
+      },
+      {
+        "Path": "data/system/Config.tjs",
+        "Size": 1
+      },
+      {
+        "Path": "tyrano/plugins/kag/kag.js",
+        "Size": 1
+      },
+      {
+        "Path": "tyrano/tyrano.js",
+        "Size": 1
+      },
+      {
+        "Path": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "Size": 0
+      }
+    ],
+    "profile": {
+      "entryPath": "index.html",
+      "compatibility": "TYRANOSCRIPT_RUNTIME_TRIAL_REQUIRED"
+    },
+    "error": "",
+    "errorType": "",
+    "invalid": false,
+    "snapshot": "{\"schemaVersion\":1,\"tyranoScript\":{\"entryPath\":\"index.html\",\"compatibility\":\"TYRANOSCRIPT_RUNTIME_TRIAL_REQUIRED\"}}"
+  },
+  {
+    "name": "extra-18",
+    "files": [
+      {
+        "Path": "index.html",
+        "Size": 1
+      },
+      {
+        "Path": "data/scenario/first.ks",
+        "Size": 1
+      },
+      {
+        "Path": "data/system/Config.tjs",
+        "Size": 1
+      },
+      {
+        "Path": "tyrano/plugins/kag/kag.js",
+        "Size": 1
+      },
+      {
+        "Path": "tyrano/tyrano.js",
+        "Size": 1
+      },
+      {
+        "Path": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "Size": 0
+      }
+    ],
+    "profile": {
+      "entryPath": "",
+      "compatibility": ""
+    },
+    "error": "TYRANOSCRIPT_PROJECT_INVALID",
+    "errorType": "*errors.errorString",
+    "invalid": true,
+    "snapshot": ""
+  },
+  {
+    "name": "extra-19",
+    "files": [
+      {
+        "Path": "index.html",
+        "Size": 1
+      },
+      {
+        "Path": "data/scenario/first.ks",
+        "Size": 1
+      },
+      {
+        "Path": "data/system/Config.tjs",
+        "Size": 1
+      },
+      {
+        "Path": "tyrano/plugins/kag/kag.js",
+        "Size": 1
+      },
+      {
+        "Path": "tyrano/tyrano.js",
+        "Size": 1
+      },
+      {
+        "Path": "资源/追加.ks",
+        "Size": 0
+      }
+    ],
+    "profile": {
+      "entryPath": "index.html",
+      "compatibility": "TYRANOSCRIPT_RUNTIME_TRIAL_REQUIRED"
+    },
+    "error": "",
+    "errorType": "",
+    "invalid": false,
+    "snapshot": "{\"schemaVersion\":1,\"tyranoScript\":{\"entryPath\":\"index.html\",\"compatibility\":\"TYRANOSCRIPT_RUNTIME_TRIAL_REQUIRED\"}}"
+  },
+  {
+    "name": "size--1",
+    "files": [
+      {
+        "Path": "index.html",
+        "Size": -1
+      },
+      {
+        "Path": "data/scenario/first.ks",
+        "Size": 1
+      },
+      {
+        "Path": "data/system/Config.tjs",
+        "Size": 1
+      },
+      {
+        "Path": "tyrano/plugins/kag/kag.js",
+        "Size": 1
+      },
+      {
+        "Path": "tyrano/tyrano.js",
+        "Size": 1
+      }
+    ],
+    "profile": {
+      "entryPath": "",
+      "compatibility": ""
+    },
+    "error": "TYRANOSCRIPT_PROJECT_INVALID",
+    "errorType": "*errors.errorString",
+    "invalid": true,
+    "snapshot": ""
+  },
+  {
+    "name": "size-0",
+    "files": [
+      {
+        "Path": "index.html",
+        "Size": 0
+      },
+      {
+        "Path": "data/scenario/first.ks",
+        "Size": 1
+      },
+      {
+        "Path": "data/system/Config.tjs",
+        "Size": 1
+      },
+      {
+        "Path": "tyrano/plugins/kag/kag.js",
+        "Size": 1
+      },
+      {
+        "Path": "tyrano/tyrano.js",
+        "Size": 1
+      }
+    ],
+    "profile": {
+      "entryPath": "index.html",
+      "compatibility": "TYRANOSCRIPT_RUNTIME_TRIAL_REQUIRED"
+    },
+    "error": "",
+    "errorType": "",
+    "invalid": false,
+    "snapshot": "{\"schemaVersion\":1,\"tyranoScript\":{\"entryPath\":\"index.html\",\"compatibility\":\"TYRANOSCRIPT_RUNTIME_TRIAL_REQUIRED\"}}"
+  },
+  {
+    "name": "size-9223372036854775807",
+    "files": [
+      {
+        "Path": "index.html",
+        "Size": 9223372036854775807
+      },
+      {
+        "Path": "data/scenario/first.ks",
+        "Size": 1
+      },
+      {
+        "Path": "data/system/Config.tjs",
+        "Size": 1
+      },
+      {
+        "Path": "tyrano/plugins/kag/kag.js",
+        "Size": 1
+      },
+      {
+        "Path": "tyrano/tyrano.js",
+        "Size": 1
+      }
+    ],
+    "profile": {
+      "entryPath": "index.html",
+      "compatibility": "TYRANOSCRIPT_RUNTIME_TRIAL_REQUIRED"
+    },
+    "error": "",
+    "errorType": "",
+    "invalid": false,
+    "snapshot": "{\"schemaVersion\":1,\"tyranoScript\":{\"entryPath\":\"index.html\",\"compatibility\":\"TYRANOSCRIPT_RUNTIME_TRIAL_REQUIRED\"}}"
+  },
+  {
+    "name": "case-duplicate",
+    "files": [
+      {
+        "Path": "index.html",
+        "Size": 1
+      },
+      {
+        "Path": "data/scenario/first.ks",
+        "Size": 1
+      },
+      {
+        "Path": "data/system/Config.tjs",
+        "Size": 1
+      },
+      {
+        "Path": "tyrano/plugins/kag/kag.js",
+        "Size": 1
+      },
+      {
+        "Path": "tyrano/tyrano.js",
+        "Size": 1
+      },
+      {
+        "Path": "INDEX.HTML",
+        "Size": 1
+      }
+    ],
+    "profile": {
+      "entryPath": "",
+      "compatibility": ""
+    },
+    "error": "TYRANOSCRIPT_PROJECT_INVALID",
+    "errorType": "*errors.errorString",
+    "invalid": true,
+    "snapshot": ""
+  }
+]

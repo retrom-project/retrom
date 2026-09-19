@@ -82,6 +82,8 @@ Host 的平台、Core、AssetPack 目录定义及运行绑定由 `model/runtimec
 
 ScummVM 原生探测器的目录检查、进程执行、输出限额及清理归 `adapter/engine/scummvm`，调用方经 `model/libraryimport.ScummVMDetector` 获取结果。`capability/engine/scummvm` 只解析和校验结果、构造候选身份与 Snapshot，显式消费固定的 upstream commit、可用 engines 和 source digest。53 项旧 Go 对照覆盖原始错误身份、JSON/摘要、重复键与无效 UTF-8 行为、进程参数与环境、取消、限额和清理；Service 的私有输入物化迁移仍属于 RF13 后续工作。
 
+ONS、Butterscotch、NXEngine 的文件选择、格式判断和 Profile 编码仍由各自 Capability 唯一定义；纯选择状态不再接收可执行 Files/Open 接口。对应 `adapter/engine/<engine>/detector` 通过消费方 Model 端口获得规范逻辑名、声明大小及当前受控来源路径，执行一次有界读取并关闭资源；Bootstrap 显式注入诊断输出。ONS 保持 TXT 首 1 MiB 与 DAT 零读取，Butterscotch/NXEngine 保持 8/2 字节头部探测、既有错误优先级及不额外要求物理长度相等；原非致命 Close 失败通过诊断报告。TyranoScript 只消费文件值清单，既有 Profile/Snapshot 协议保持不变。
+
 离线维护和服务启动的数据目录互斥由 `adapter/system/processlock.Locker` 提供。`model/maintenance.DataRootLocker` 与 `DataRootLease` 明确描述锁资源获取和释放，维护 Service 通过端口取得锁后才执行数据库 checkpoint；Bootstrap 注入实际 Adapter。锁文件权限、非阻塞 flock、重复释放和错误优先级由旧 Go 对照保持，租约不进入 Command、Snapshot 或持久化数据。此锁用于整棵数据目录的进程互斥，不替代 CAS 发布与回收需要的 blob lease。
 
 非致命清理错误通过 `model/diagnostics.ErrorReporter` 输出，事件只有 operation、code、message、requestID 四个字符串。唯一纯构造器 `CleanupFailure` 限制字段形状和长度，message 仅保存外层错误类型；异常字段使用固定回退值，绝对路径与错误正文不进入日志。`adapter/system/cleanup.Reporter` 持有 Bootstrap 显式注入的 logger，保留 WARN、固定消息和原 operation/errorType 字段，并在输出前再次校验事件。数据根锁内部的关闭失败与维护备份的锁释放采用这一边界；关闭失败仍不替换原始操作错误，取消 context 也不丢弃诊断。Repo 的清理诊断须作为纯值副产物返回，由调用方输出。

@@ -1,0 +1,9 @@
+{
+  "head": "85b2fac3bb3c423216949507b4123255d6b66077",
+  "source": "internal/capability/engine/tyranoscript/detector/detector.go",
+  "sourceSHA256": "5a4ec875db961b786643a60587baf183b28ddea729cebcada3a01073340cb5ff",
+  "captureSHA256": "37c4f33fde7e0e9773dd1a0bc18b381ebdbb466529f7db53ee448a79b8695e8b",
+  "goldenSHA256": "5dbd0299a33992c632c9070d9376f2ca47ac7bf8a4ebce73ee263b2cf7bd07e9",
+  "cases": 24,
+  "execution": "actual unchanged old Go Detect with memory Index, run twice identically"
+}

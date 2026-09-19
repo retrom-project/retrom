@@ -1,0 +1,279 @@
+{
+  "schemaVersion": 1,
+  "results": [
+    {
+      "engine": "nxengine",
+      "case": "close_failure_ignored",
+      "note": "valid EXE remains successful when Close fails",
+      "inputBytes": 2,
+      "inputSHA256": "9b8db510ef42b8ed54a3712636fda55a4f8cfcd5493e20b74ab00cd4f3979f2d",
+      "profile": {
+        "markerPath": "Doukutsu.exe",
+        "compatibility": "NXENGINE_RUNTIME_TRIAL_REQUIRED"
+      },
+      "snapshot": "{\"nxengine\":{\"markerPath\":\"Doukutsu.exe\",\"compatibility\":\"NXENGINE_RUNTIME_TRIAL_REQUIRED\"},\"schemaVersion\":1}",
+      "isProjectInvalid": false,
+      "io": {
+        "openCalls": [
+          "Doukutsu.exe"
+        ],
+        "readCalls": 1,
+        "readBytes": 2,
+        "maxReadRequest": 2,
+        "closeCalls": 1
+      }
+    },
+    {
+      "engine": "nxengine",
+      "case": "declared_total_above_64mib",
+      "note": "total bound rejects before open",
+      "error": "NXENGINE_PROJECT_INVALID",
+      "isProjectInvalid": true,
+      "io": {}
+    },
+    {
+      "engine": "nxengine",
+      "case": "declared_total_exact_64mib",
+      "note": "exact total bound accepted",
+      "inputBytes": 2,
+      "inputSHA256": "9b8db510ef42b8ed54a3712636fda55a4f8cfcd5493e20b74ab00cd4f3979f2d",
+      "profile": {
+        "markerPath": "Doukutsu.exe",
+        "compatibility": "NXENGINE_RUNTIME_TRIAL_REQUIRED"
+      },
+      "snapshot": "{\"nxengine\":{\"markerPath\":\"Doukutsu.exe\",\"compatibility\":\"NXENGINE_RUNTIME_TRIAL_REQUIRED\"},\"schemaVersion\":1}",
+      "isProjectInvalid": false,
+      "io": {
+        "openCalls": [
+          "Doukutsu.exe"
+        ],
+        "readCalls": 1,
+        "readBytes": 2,
+        "maxReadRequest": 2,
+        "closeCalls": 1
+      }
+    },
+    {
+      "engine": "nxengine",
+      "case": "duplicate_before_open",
+      "note": "case duplicate rejects",
+      "error": "NXENGINE_PROJECT_INVALID",
+      "isProjectInvalid": true,
+      "io": {}
+    },
+    {
+      "engine": "nxengine",
+      "case": "exe_public",
+      "note": "minimal public MZ prefix with required assets",
+      "inputBytes": 2,
+      "inputSHA256": "9b8db510ef42b8ed54a3712636fda55a4f8cfcd5493e20b74ab00cd4f3979f2d",
+      "profile": {
+        "markerPath": "Doukutsu.exe",
+        "compatibility": "NXENGINE_RUNTIME_TRIAL_REQUIRED"
+      },
+      "snapshot": "{\"nxengine\":{\"markerPath\":\"Doukutsu.exe\",\"compatibility\":\"NXENGINE_RUNTIME_TRIAL_REQUIRED\"},\"schemaVersion\":1}",
+      "isProjectInvalid": false,
+      "io": {
+        "openCalls": [
+          "Doukutsu.exe"
+        ],
+        "readCalls": 1,
+        "readBytes": 2,
+        "maxReadRequest": 2,
+        "closeCalls": 1
+      }
+    },
+    {
+      "engine": "nxengine",
+      "case": "exe_size_127_before_open",
+      "note": "lower EXE bound rejects",
+      "error": "NXENGINE_PROJECT_INVALID",
+      "isProjectInvalid": true,
+      "io": {}
+    },
+    {
+      "engine": "nxengine",
+      "case": "exe_size_above_16mib_before_open",
+      "note": "above EXE bound rejects",
+      "error": "NXENGINE_PROJECT_INVALID",
+      "isProjectInvalid": true,
+      "io": {}
+    },
+    {
+      "engine": "nxengine",
+      "case": "exe_size_exact_16mib",
+      "note": "upper EXE bound accepts",
+      "inputBytes": 2,
+      "inputSHA256": "9b8db510ef42b8ed54a3712636fda55a4f8cfcd5493e20b74ab00cd4f3979f2d",
+      "profile": {
+        "markerPath": "Doukutsu.exe",
+        "compatibility": "NXENGINE_RUNTIME_TRIAL_REQUIRED"
+      },
+      "snapshot": "{\"nxengine\":{\"markerPath\":\"Doukutsu.exe\",\"compatibility\":\"NXENGINE_RUNTIME_TRIAL_REQUIRED\"},\"schemaVersion\":1}",
+      "isProjectInvalid": false,
+      "io": {
+        "openCalls": [
+          "Doukutsu.exe"
+        ],
+        "readCalls": 1,
+        "readBytes": 2,
+        "maxReadRequest": 2,
+        "closeCalls": 1
+      }
+    },
+    {
+      "engine": "nxengine",
+      "case": "file_count_4097_before_open",
+      "note": "4097 descriptors reject before open",
+      "error": "NXENGINE_PROJECT_INVALID",
+      "isProjectInvalid": true,
+      "io": {}
+    },
+    {
+      "engine": "nxengine",
+      "case": "file_count_exact_4096",
+      "note": "4096 descriptors accepted",
+      "inputBytes": 2,
+      "inputSHA256": "9b8db510ef42b8ed54a3712636fda55a4f8cfcd5493e20b74ab00cd4f3979f2d",
+      "profile": {
+        "markerPath": "Doukutsu.exe",
+        "compatibility": "NXENGINE_RUNTIME_TRIAL_REQUIRED"
+      },
+      "snapshot": "{\"nxengine\":{\"markerPath\":\"Doukutsu.exe\",\"compatibility\":\"NXENGINE_RUNTIME_TRIAL_REQUIRED\"},\"schemaVersion\":1}",
+      "isProjectInvalid": false,
+      "io": {
+        "openCalls": [
+          "Doukutsu.exe"
+        ],
+        "readCalls": 1,
+        "readBytes": 2,
+        "maxReadRequest": 2,
+        "closeCalls": 1
+      }
+    },
+    {
+      "engine": "nxengine",
+      "case": "individual_above_32mib_before_open",
+      "note": "per-file bound rejects",
+      "error": "NXENGINE_PROJECT_INVALID",
+      "isProjectInvalid": true,
+      "io": {}
+    },
+    {
+      "engine": "nxengine",
+      "case": "missing_asset_after_valid_exe",
+      "note": "required assets checked after valid EXE",
+      "inputBytes": 2,
+      "inputSHA256": "9b8db510ef42b8ed54a3712636fda55a4f8cfcd5493e20b74ab00cd4f3979f2d",
+      "error": "NXENGINE_PROJECT_INVALID",
+      "isProjectInvalid": true,
+      "io": {
+        "openCalls": [
+          "Doukutsu.exe"
+        ],
+        "readCalls": 1,
+        "readBytes": 2,
+        "maxReadRequest": 2,
+        "closeCalls": 1
+      }
+    },
+    {
+      "engine": "nxengine",
+      "case": "missing_marker",
+      "note": "missing executable",
+      "error": "NXENGINE_PROJECT_INVALID",
+      "isProjectInvalid": true,
+      "io": {}
+    },
+    {
+      "engine": "nxengine",
+      "case": "nil_reader_panics",
+      "note": "old implementation has no nil-reader rejection",
+      "isProjectInvalid": false,
+      "panic": "runtime error: invalid memory address or nil pointer dereference",
+      "io": {
+        "openCalls": [
+          "Doukutsu.exe"
+        ]
+      }
+    },
+    {
+      "engine": "nxengine",
+      "case": "open_failure_precedes_missing_assets",
+      "note": "EXE open attempted before required-assets check",
+      "error": "NXENGINE_PROJECT_INVALID",
+      "isProjectInvalid": true,
+      "io": {
+        "openCalls": [
+          "Doukutsu.exe"
+        ]
+      }
+    },
+    {
+      "engine": "nxengine",
+      "case": "physical_two_bytes_declared_128",
+      "note": "no physical-size equality check",
+      "inputBytes": 2,
+      "inputSHA256": "9b8db510ef42b8ed54a3712636fda55a4f8cfcd5493e20b74ab00cd4f3979f2d",
+      "profile": {
+        "markerPath": "Doukutsu.exe",
+        "compatibility": "NXENGINE_RUNTIME_TRIAL_REQUIRED"
+      },
+      "snapshot": "{\"nxengine\":{\"markerPath\":\"Doukutsu.exe\",\"compatibility\":\"NXENGINE_RUNTIME_TRIAL_REQUIRED\"},\"schemaVersion\":1}",
+      "isProjectInvalid": false,
+      "io": {
+        "openCalls": [
+          "Doukutsu.exe"
+        ],
+        "readCalls": 1,
+        "readBytes": 2,
+        "maxReadRequest": 2,
+        "closeCalls": 1
+      }
+    },
+    {
+      "engine": "nxengine",
+      "case": "short_read_precedes_missing_assets",
+      "note": "short EXE read precedes required-assets check",
+      "inputBytes": 1,
+      "inputSHA256": "08f271887ce94707da822d5263bae19d5519cb3614e0daedc4c7ce5dab7473f1",
+      "error": "NXENGINE_PROJECT_INVALID",
+      "isProjectInvalid": true,
+      "io": {
+        "openCalls": [
+          "Doukutsu.exe"
+        ],
+        "readCalls": 2,
+        "readBytes": 1,
+        "maxReadRequest": 2,
+        "closeCalls": 1
+      }
+    },
+    {
+      "engine": "nxengine",
+      "case": "wrong_mz_precedes_missing_assets",
+      "note": "wrong EXE magic precedes required-assets check",
+      "inputBytes": 2,
+      "inputSHA256": "613c0e36acaa2ffad731fc0824c05107a8ce587122f5a2e08295c7f760fc05f7",
+      "error": "NXENGINE_PROJECT_INVALID",
+      "isProjectInvalid": true,
+      "io": {
+        "openCalls": [
+          "Doukutsu.exe"
+        ],
+        "readCalls": 1,
+        "readBytes": 2,
+        "maxReadRequest": 2,
+        "closeCalls": 1
+      }
+    },
+    {
+      "engine": "nxengine",
+      "case": "zero_size_before_open",
+      "note": "nonpositive descriptor rejects",
+      "error": "NXENGINE_PROJECT_INVALID",
+      "isProjectInvalid": true,
+      "io": {}
+    }
+  ]
+}
