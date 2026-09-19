@@ -17,11 +17,6 @@ type multidiscAdmissionMemory struct {
 	writes int
 }
 
-func (memory *multidiscAdmissionMemory) WithAttachmentAdmission(_ context.Context, work func(model.MultiDiscAttachmentScope) error) error {
-	memory.writes++
-	return work(model.MultiDiscAttachmentScope{})
-}
-
 func (memory *multidiscAdmissionMemory) CommitAttachmentAdmission(_ context.Context, _ model.AttachmentAdmissionCommand) (model.MultiDiscAttachmentCreated, error) {
 	memory.writes++
 	return model.MultiDiscAttachmentCreated{State: "QUEUED"}, nil
