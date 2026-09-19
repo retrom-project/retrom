@@ -44,7 +44,7 @@ func attachPortConsumers(ports []PortInventory, functions []FunctionInventory) {
 	for index := range ports {
 		port := &ports[index]
 		port.Consumers = append(port.Consumers, uses[port.Symbol]...)
-		for _, method := range port.RepositoryMethods {
+		for _, method := range port.ImplementationMethods {
 			port.Consumers = append(port.Consumers, uses[method]...)
 		}
 		slices.SortFunc(port.Consumers, func(left, right PortConsumer) int {
@@ -58,4 +58,33 @@ func attachPortConsumers(ports []PortInventory, functions []FunctionInventory) {
 		})
 		port.Consumers = slices.Compact(port.Consumers)
 	}
+}
+
+// mergePortBuilds retains implementations found only in an additional supported build.
+func mergePortBuilds(ports []PortInventory) []PortInventory {
+	key := func(port PortInventory) string {
+		return port.Symbol + "\\x00" + port.Signature + "\\x00" + port.File
+	}
+	slices.SortFunc(ports, func(left, right PortInventory) int {
+		return strings.Compare(key(left), key(right))
+	})
+	result := make([]PortInventory, 0, len(ports))
+	for _, port := range ports {
+		if len(result) == 0 || key(result[len(result)-1]) != key(port) {
+			result = append(result, port)
+			continue
+		}
+		target := &result[len(result)-1]
+		target.Repositories = mergePortStrings(target.Repositories, port.Repositories)
+		target.RepositoryMethods = mergePortStrings(target.RepositoryMethods, port.RepositoryMethods)
+		target.Implementations = mergePortStrings(target.Implementations, port.Implementations)
+		target.ImplementationMethods = mergePortStrings(target.ImplementationMethods, port.ImplementationMethods)
+	}
+	return result
+}
+
+func mergePortStrings(left, right []string) []string {
+	result := append(slices.Clone(left), right...)
+	slices.Sort(result)
+	return slices.Compact(result)
 }

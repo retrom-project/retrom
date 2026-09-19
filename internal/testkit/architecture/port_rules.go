@@ -9,21 +9,25 @@ import (
 	"golang.org/x/tools/go/packages"
 )
 
-// PortInventory connects an actual interface method to its concrete repository implementations.
+// PortInventory connects a Model interface to its compatible production implementations.
+// Structural compatibility is conservative; it does not claim a runtime binding exists.
 type PortInventory struct {
-	Symbol            string         `json:"symbol"`
-	File              string         `json:"file"`
-	Line              int            `json:"line"`
-	Module            string         `json:"module"`
-	Owner             string         `json:"owner"`
-	Signature         string         `json:"signature"`
-	Repositories      []string       `json:"repositories"`
-	RepositoryMethods []string       `json:"repositoryMethods"`
-	Consumers         []PortConsumer `json:"consumers"`
+	Symbol                string         `json:"symbol"`
+	File                  string         `json:"file"`
+	Line                  int            `json:"line"`
+	Module                string         `json:"module"`
+	Owner                 string         `json:"owner"`
+	Signature             string         `json:"signature"`
+	Repositories          []string       `json:"repositories"`
+	RepositoryMethods     []string       `json:"repositoryMethods"`
+	Implementations       []string       `json:"implementations"`
+	ImplementationMethods []string       `json:"implementationMethods"`
+	Consumers             []PortConsumer `json:"consumers"`
 }
 
 type ownedType struct {
 	value *types.Named
+	layer string
 }
 
 func inspectPortGraph(
@@ -33,21 +37,27 @@ func inspectPortGraph(
 	for _, owner := range registry.Packages {
 		owners[owner.Path] = owner
 	}
-	repositories := collectRepoTypes(root, graph, owners)
+	implementations := collectPortTypes(root, graph, owners)
+	repositories := make([]ownedType, 0)
+	for _, candidate := range implementations {
+		if candidate.layer == "repo" {
+			repositories = append(repositories, candidate)
+		}
+	}
 	ports := make([]PortInventory, 0)
 	violations := make([]Violation, 0)
 	for _, pkg := range graph {
 		if pkg.ID != pkg.PkgPath {
 			continue
 		}
-		nextPorts, nextViolations := inspectModelPorts(root, pkg, owners, repositories)
+		nextPorts, nextViolations := inspectModelPorts(root, pkg, owners, repositories, implementations)
 		ports = append(ports, nextPorts...)
 		violations = append(violations, nextViolations...)
 	}
 	return ports, violations
 }
 
-func collectRepoTypes(
+func collectPortTypes(
 	root string, graph []*packages.Package, owners map[string]PackageOwnership,
 ) []ownedType {
 	result := make([]ownedType, 0)
@@ -61,20 +71,26 @@ func collectRepoTypes(
 				continue
 			}
 			position := inventoryPosition(root, pkg.Fset, object.Pos())
-			if owners[path.Dir(position.Filename)].Layer != "repo" {
+			layer := owners[path.Dir(position.Filename)].Layer
+			if layer == "" || layer == "tool" || layer == "testkit" ||
+				strings.HasSuffix(position.Filename, "_test.go") {
 				continue
 			}
 			value, ok := object.Type().(*types.Named)
-			if ok {
-				result = append(result, ownedType{value: value})
+			if !ok {
+				continue
 			}
+			if _, contract := value.Underlying().(*types.Interface); contract {
+				continue
+			}
+			result = append(result, ownedType{value: value, layer: layer})
 		}
 	}
 	return result
 }
 
 func inspectModelPorts(
-	root string, pkg *packages.Package, owners map[string]PackageOwnership, repositories []ownedType,
+	root string, pkg *packages.Package, owners map[string]PackageOwnership, repositories, implementations []ownedType,
 ) ([]PortInventory, []Violation) {
 	ports := make([]PortInventory, 0)
 	violations := make([]Violation, 0)
@@ -92,19 +108,21 @@ func inspectModelPorts(
 		if !ok {
 			continue
 		}
-		implementations := repositoryImplementations(port.Complete(), repositories)
+		repositoryTypes := repositoryImplementations(port.Complete(), repositories)
 		for index := range port.NumMethods() {
 			method := port.Method(index)
 			location := inventoryPosition(root, pkg.Fset, method.Pos())
 			record := PortInventory{
 				Symbol: inventoryObjectID(method), File: location.Filename, Line: location.Line,
 				Owner: owner.Owner, Module: owner.Module, Signature: types.TypeString(method.Type(), packagePath),
-				Repositories:      implementations,
-				RepositoryMethods: repositoryMethodDefinitions(port, method, repositories),
-				Consumers:         []PortConsumer{},
+				Repositories:          repositoryTypes,
+				Implementations:       repositoryImplementations(port, implementations),
+				ImplementationMethods: repositoryMethodDefinitions(port, method, implementations),
+				RepositoryMethods:     repositoryMethodDefinitions(port, method, repositories),
+				Consumers:             []PortConsumer{},
 			}
 			ports = append(ports, record)
-			violations = append(violations, inspectPortMethod(record, method, len(implementations) > 0)...)
+			violations = append(violations, inspectPortMethod(record, method, len(repositoryTypes) > 0)...)
 		}
 	}
 	return ports, violations

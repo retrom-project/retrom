@@ -59,10 +59,7 @@ func InspectBoundaries(ctx context.Context, root string, inventory InventoryRepo
 	if err := verifyUnchangedSources(root, inventory.Configuration); err != nil {
 		return BoundaryReport{}, err
 	}
-	slices.SortFunc(ports, func(left, right PortInventory) int { return strings.Compare(left.Symbol, right.Symbol) })
-	ports = slices.CompactFunc(ports, func(left, right PortInventory) bool {
-		return left.Symbol == right.Symbol && left.Signature == right.Signature
-	})
+	ports = mergePortBuilds(ports)
 	slices.SortFunc(functions, func(left, right FunctionInventory) int {
 		return strings.Compare(left.Symbol, right.Symbol)
 	})
@@ -84,6 +81,7 @@ func InspectBoundaries(ctx context.Context, root string, inventory InventoryRepo
 		Checks: []string{
 			"source ownership", "compatibility inputs", "layer dependencies", "model port value graphs",
 			"resolved execution graph", "known I/O and SQL execution effects", "resolved Model reexports and consumers",
+			"Model port implementations and consumers across all production layers",
 		},
 		Pending: pendingBoundaryChecks(), Ports: ports, Functions: functions, Reexports: reexports, Violations: violations,
 	}, nil

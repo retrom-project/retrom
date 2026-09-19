@@ -11641,6 +11641,10 @@
           "kind": "tool"
         },
         {
+          "path": "internal/testkit/architecture/port_implementations_test.go",
+          "kind": "test"
+        },
+        {
           "path": "internal/testkit/architecture/port_positions.go",
           "kind": "tool"
         },
