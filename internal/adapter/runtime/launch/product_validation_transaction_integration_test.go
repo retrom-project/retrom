@@ -80,7 +80,7 @@ func TestProductValidationQueueRollsBackAllWritesAfterEventFailure(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
-	scheduler := launchservice.NewValidationScheduler(persistence.NewValidationJobs(tx), launchmodel.ValidationEnvironment{Now: fixture.launcher.now})
+	scheduler := launchservice.NewValidationScheduler(persistence.NewValidationJobs(tx), launchservice.ValidationEnvironment{Now: fixture.launcher.now})
 	result, err := scheduler.Queue(t.Context(), input)
 	var storage *sqlite.Error
 	if !errors.As(err, &storage) || result.JobID != "" {
@@ -137,7 +137,7 @@ func queueProductValidation(ctx context.Context, fixture reviewCheckpointFixture
 		return launchmodel.ValidationQueued{}, err
 	}
 	defer dbexec.Rollback(tx)
-	result, err := launchservice.NewValidationScheduler(persistence.NewValidationJobs(tx), launchmodel.ValidationEnvironment{Now: fixture.launcher.now}).Queue(ctx, input)
+	result, err := launchservice.NewValidationScheduler(persistence.NewValidationJobs(tx), launchservice.ValidationEnvironment{Now: fixture.launcher.now}).Queue(ctx, input)
 	if err != nil {
 		return launchmodel.ValidationQueued{}, err
 	}

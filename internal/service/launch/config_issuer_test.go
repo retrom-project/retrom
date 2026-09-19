@@ -72,7 +72,7 @@ func configTestFixture() (*ConfigIssuer, *configTestRepository, *configTestBuild
 		current:  model.ConfigAuthority{Source: source},
 	}
 	builder := &configTestBuilder{}
-	issuer := NewConfigIssuer(repository, builder, model.ConfigEnvironment{
+	issuer := NewConfigIssuer(repository, builder, ConfigEnvironment{
 		Now:     func() time.Time { return time.UnixMilli(1000) },
 		Matches: func(capability string, _ []byte) bool { return capability == "valid" },
 	})

@@ -19,12 +19,12 @@ import (
 // every write is fenced by the execution, attempt and unique worker identity.
 type ValidationWorker struct {
 	repository  model.ValidationWorkerRepository
-	environment model.ValidationWorkerEnvironment
+	environment ValidationWorkerEnvironment
 }
 
 func NewValidationWorker(
 	repository model.ValidationWorkerRepository,
-	environment model.ValidationWorkerEnvironment,
+	environment ValidationWorkerEnvironment,
 ) *ValidationWorker {
 	if environment.Now == nil {
 		environment.Now = time.Now

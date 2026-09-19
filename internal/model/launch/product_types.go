@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"time"
 
 	"retrom/internal/capability/content/contentcapability"
 	"retrom/internal/capability/content/corevalidation"
@@ -141,12 +140,4 @@ type ProductCreationRepository interface {
 	Replay(context.Context, ProductCreateCommand) (ProductReceipt, bool, error)
 	Snapshot(context.Context, ProductCreateCommand) (ProductSnapshot, error)
 	WithCreation(context.Context, func(ProductCreationScope) error) error
-}
-type ProductEnvironment struct {
-	Now            func() time.Time
-	NewID          func() (string, error)
-	SignCapability func(string) (string, []byte, error)
-	SignIsolation  func(string) (IsolationTicket, error)
-	// ResumeValidation dispatches work after the creation transaction commits.
-	ResumeValidation func(context.Context, string)
 }

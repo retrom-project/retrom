@@ -15,13 +15,13 @@ import (
 type ScreenshotSaver struct {
 	repository  model.ScreenshotRepository
 	images      model.ScreenshotImages
-	environment model.ScreenshotEnvironment
+	environment ScreenshotEnvironment
 }
 
 func NewScreenshotSaver(
 	repository model.ScreenshotRepository,
 	images model.ScreenshotImages,
-	environment model.ScreenshotEnvironment,
+	environment ScreenshotEnvironment,
 ) *ScreenshotSaver {
 	if environment.NewID == nil {
 		environment.NewID = newProductID

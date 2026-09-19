@@ -64,7 +64,7 @@ func screenshotPolicyFixture() (*ScreenshotSaver, *screenshotMemory) {
 		initial: source, current: source,
 		image: model.ScreenshotImage{SHA256: "sha256", MediaType: "image/png", SizeBytes: 100, WidthPX: 2, HeightPX: 3},
 	}
-	service := NewScreenshotSaver(memory, memory, model.ScreenshotEnvironment{
+	service := NewScreenshotSaver(memory, memory, ScreenshotEnvironment{
 		Now:     func() time.Time { return time.UnixMilli(100) },
 		Matches: func(capability string, hash []byte) bool { return capability == string(hash) },
 		NewID: func() (string, error) {
@@ -193,7 +193,7 @@ func TestScreenshotSaverRejectsInvalidImagesBeforeWriter(t *testing.T) {
 }
 
 func TestScreenshotSaverRejectsUnavailableImagesBeforeAuthorization(t *testing.T) {
-	service := NewScreenshotSaver(failingScreenshotRepository{cause: errors.New("must not read")}, nil, model.ScreenshotEnvironment{})
+	service := NewScreenshotSaver(failingScreenshotRepository{cause: errors.New("must not read")}, nil, ScreenshotEnvironment{})
 	_, err := service.Store(t.Context(), "preview", "capability", nil)
 	if !errors.Is(err, model.ErrReviewScreenshotInvalid) {
 		t.Fatal(err)

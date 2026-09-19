@@ -24,7 +24,7 @@ func (repository *productCreationMemory) WithCreation(context.Context, func(mode
 
 func TestProductCreatorRetainsSnapshotFailure(t *testing.T) {
 	cause := errors.New("product snapshot unavailable")
-	creator := NewProductCreator(&productCreationMemory{failure: cause}, nil, nil, model.ProductEnvironment{})
+	creator := NewProductCreator(&productCreationMemory{failure: cause}, nil, nil, ProductEnvironment{})
 	result, err := creator.Create(t.Context(), model.ProductCreateCommand{ProfileID: "profile", Request: model.CreateRequest{GameID: "game", ReturnTo: "/games/game"}})
 	if !errors.Is(err, cause) || result.Created.LaunchID != "" {
 		t.Fatalf("launch=%q error=%v", result.Created.LaunchID, err)

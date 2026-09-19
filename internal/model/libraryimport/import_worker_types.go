@@ -72,10 +72,6 @@ type ImportWork struct {
 	Execution QueuedImportExecution
 	Request   ImportRequest
 }
-type ImportWorkerSettings struct {
-	Now    func() time.Time
-	Report func(error)
-}
 type ImportJobCancellation struct {
 	JobID, ImportID string
 	ExpectedVersion int64

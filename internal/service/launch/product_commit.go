@@ -83,7 +83,7 @@ func (service *ProductCreator) schedule(
 	}
 	scheduler := NewValidationScheduler(
 		scope,
-		model.ValidationEnvironment{Now: func() time.Time { return time.UnixMilli(now) }, NewID: service.environment.NewID},
+		ValidationEnvironment{Now: func() time.Time { return time.UnixMilli(now) }, NewID: service.environment.NewID},
 	)
 	queued, err := scheduler.Queue(ctx, inputs)
 	if err != nil {

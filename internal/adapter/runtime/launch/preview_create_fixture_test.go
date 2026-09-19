@@ -25,7 +25,7 @@ func (service *Service) previewCreator(repository launchmodel.PreviewCreationRep
 	if service.runtimeBuilder != nil {
 		provider = service.runtimeBuilder
 	}
-	return launchservice.NewPreviewCreator(repository, provider, launchmodel.PreviewEnvironment{
+	return launchservice.NewPreviewCreator(repository, provider, launchservice.PreviewEnvironment{
 		Now: service.now, SignCapability: service.signPreviewCapability,
 		SignIsolation: func(id string) (launchmodel.IsolationTicket, error) {
 			origin, ticket, hash, err := service.isolatedRuntimeTicket(id)

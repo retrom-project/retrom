@@ -7,7 +7,6 @@ import (
 	"retrom/internal/adapter/runtime/launch"
 	retromruntime "retrom/internal/adapter/runtime/runtime"
 	"retrom/internal/foundation/cleanup"
-	launchmodel "retrom/internal/model/launch"
 	repository "retrom/internal/repo/launch"
 	launchservice "retrom/internal/service/launch"
 )
@@ -16,7 +15,7 @@ import (
 func New(database *sql.DB, source *launch.Sources, publicOrigin string, now func() time.Time) *launchservice.Service {
 	worker := launchservice.NewValidationWorker(
 		repository.NewValidationWorker(database),
-		launchmodel.ValidationWorkerEnvironment{Now: now},
+		launchservice.ValidationWorkerEnvironment{Now: now},
 	)
 	supervisor := launchservice.NewValidationSupervisor(
 		worker,
@@ -26,7 +25,7 @@ func New(database *sql.DB, source *launch.Sources, publicOrigin string, now func
 		repository.NewProductCreation(database),
 		source,
 		source,
-		launchmodel.ProductEnvironment{
+		launchservice.ProductEnvironment{
 			Now: now, SignCapability: source.SignCapability, SignIsolation: source.SignIsolation,
 			ResumeValidation: supervisor.Dispatch,
 		},
@@ -34,7 +33,7 @@ func New(database *sql.DB, source *launch.Sources, publicOrigin string, now func
 	preview := launchservice.NewPreviewCreator(
 		repository.NewPreviewCreation(database),
 		source,
-		launchmodel.PreviewEnvironment{
+		launchservice.PreviewEnvironment{
 			Now: now, SignCapability: source.SignCapability, SignIsolation: source.SignIsolation,
 		},
 	)
@@ -42,13 +41,13 @@ func New(database *sql.DB, source *launch.Sources, publicOrigin string, now func
 		repository.NewNetplayCreation(database),
 		source,
 		source,
-		launchmodel.NetplayCreationEnvironment{
+		launchservice.NetplayCreationEnvironment{
 			Now: now, SignCapability: source.SignCapability,
 		},
 	)
 	return launchservice.New(launchservice.ServiceDependencies{
 		Product: product, Preview: preview, Netplay: netplay, Validation: supervisor,
-		Config: launchservice.NewConfigIssuer(repository.NewConfig(database), source, launchmodel.ConfigEnvironment{
+		Config: launchservice.NewConfigIssuer(repository.NewConfig(database), source, launchservice.ConfigEnvironment{
 			Now: now, Matches: retromruntime.MatchesCapability, PublicOrigin: publicOrigin, SignIsolation: source.SignIsolation,
 		}),
 		Play: launchservice.NewPlayController(repository.NewPlay(database), now, retromruntime.MatchesCapability),
@@ -72,7 +71,7 @@ func New(database *sql.DB, source *launch.Sources, publicOrigin string, now func
 		Screenshots: launchservice.NewScreenshotSaver(
 			repository.NewScreenshots(database),
 			source,
-			launchmodel.ScreenshotEnvironment{
+			launchservice.ScreenshotEnvironment{
 				Now: now, Matches: retromruntime.MatchesCapability,
 			},
 		),

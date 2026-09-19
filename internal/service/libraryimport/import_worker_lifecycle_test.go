@@ -101,7 +101,7 @@ func (fixture *managedImportFixture) worker() *ImportWorker {
 			Preparation: fixture,
 			Creations:   fixture,
 		},
-		model.ImportWorkerSettings{},
+		ImportWorkerSettings{},
 	)
 }
 

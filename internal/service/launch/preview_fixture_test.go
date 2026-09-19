@@ -80,7 +80,7 @@ func previewFixture(t *testing.T) (*PreviewCreator, *previewTestRepository, *pre
 	}
 	repository := &previewTestRepository{snapshot: model.PreviewSnapshot{Source: source, SourceFiles: []model.PreviewFile{{Role: "CONTENT", LogicalName: "game.bin", BlobID: "game"}}}, current: source}
 	provider := &previewTestProvider{target: runtimebundle.Target{Inputs: []runtimebundle.Input{{Role: "game"}}}}
-	environment := model.PreviewEnvironment{
+	environment := PreviewEnvironment{
 		Now: func() time.Time { return time.UnixMilli(1000) }, NewID: func() (string, error) { return previewTestID, nil },
 		SignCapability: func(string) (string, []byte, error) { return "test", make([]byte, 32), nil },
 	}

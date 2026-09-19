@@ -9,7 +9,7 @@ import (
 )
 
 func TestPreviewCreatorRejectsMissingIdentityBeforeStorage(t *testing.T) {
-	creator := NewPreviewCreator(nil, nil, model.PreviewEnvironment{})
+	creator := NewPreviewCreator(nil, nil, PreviewEnvironment{})
 	result, err := creator.Create(t.Context(), model.ReviewPreviewRequest{})
 	if !errors.Is(err, model.ErrReviewPreviewUnavailable) || result.PreviewID != "" {
 		t.Fatalf("invalid creation identity: id=%q error=%v", result.PreviewID, err)

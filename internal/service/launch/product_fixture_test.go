@@ -122,7 +122,7 @@ func productFixture(t *testing.T) (*ProductCreator, *productTestRepository, *pre
 			t.Fatal("provider lookup entered product writer")
 		}
 	}
-	environment := model.ProductEnvironment{Now: func() time.Time { return time.UnixMilli(1000) }, NewID: func() (string, error) { return previewTestID, nil }, SignCapability: func(string) (string, []byte, error) { return "private-cookie-material", make([]byte, 32), nil }}
+	environment := ProductEnvironment{Now: func() time.Time { return time.UnixMilli(1000) }, NewID: func() (string, error) { return previewTestID, nil }, SignCapability: func(string) (string, []byte, error) { return "private-cookie-material", make([]byte, 32), nil }}
 	command := model.ProductCreateCommand{ProfileID: "profile", ActorID: "actor", Key: "key", Digest: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", Request: model.CreateRequest{GameID: "game", ReturnTo: "/games/game"}}
 	return NewProductCreator(repository, provider, nil, environment), repository, provider, command
 }

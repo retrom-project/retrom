@@ -15,13 +15,13 @@ import (
 type PreviewCreator struct {
 	repository  model.PreviewCreationRepository
 	provider    model.PreviewProvider
-	environment model.PreviewEnvironment
+	environment PreviewEnvironment
 }
 
 func NewPreviewCreator(
 	repository model.PreviewCreationRepository,
 	provider model.PreviewProvider,
-	environment model.PreviewEnvironment,
+	environment PreviewEnvironment,
 ) *PreviewCreator {
 	if environment.NewID == nil {
 		environment.NewID = newPreviewID

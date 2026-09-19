@@ -86,8 +86,3 @@ type ValidationTicker interface {
 	Stop()
 }
 
-type ValidationWorkerEnvironment struct {
-	Now       func() time.Time
-	NewID     func() (string, error)
-	NewTicker func(time.Duration) ValidationTicker
-}

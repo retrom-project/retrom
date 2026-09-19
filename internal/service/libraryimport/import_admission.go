@@ -18,13 +18,13 @@ type ImportAdmissions struct {
 	repository model.ImportAdmissionRepository
 	notifier   model.ImportGroupNotifier
 	tags       *tagging.Service
-	options    model.ImportAdmissionOptions
+	options    ImportAdmissionOptions
 	newID      func() (string, error)
 }
 
 func NewImportAdmissions(
 	repository model.ImportAdmissionRepository, notifier model.ImportGroupNotifier,
-	tags *tagging.Service, options model.ImportAdmissionOptions,
+	tags *tagging.Service, options ImportAdmissionOptions,
 ) *ImportAdmissions {
 	if options.Now == nil {
 		options.Now = time.Now
@@ -136,7 +136,7 @@ func (service *ImportAdmissions) checkContent(
 }
 
 func checkImportContent(
-	request model.ImportRequest, mode string, change model.ImportAdmissionChange, options model.ImportAdmissionOptions,
+	request model.ImportRequest, mode string, change model.ImportAdmissionChange, options ImportAdmissionOptions,
 ) (model.ImportRequest, string, error) {
 	request, mode, err := NormalizeTargetImport(
 		request, mode, change.Upload.Purpose, change.Upload.SourceType, change.Files, change.Target,

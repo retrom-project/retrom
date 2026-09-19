@@ -29,7 +29,7 @@ func NewCreations(
 ) *libraryimportservice.ImportCreations {
 	return libraryimportservice.NewImportCreations(
 		repository.NewImportCreations(database), NewPreparation(database, options), options.Tags, options.Scraper,
-		libraryimportmodel.ImportCreationSettings{Now: now, MultiDiscEnabled: options.MultiDiscEnabled},
+		libraryimportservice.ImportCreationSettings{Now: now, MultiDiscEnabled: options.MultiDiscEnabled},
 	)
 }
 

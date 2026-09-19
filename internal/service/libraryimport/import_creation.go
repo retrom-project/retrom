@@ -20,12 +20,12 @@ type ImportCreations struct {
 	preparation *ImportPreparation
 	tags        *taggingservice.Service
 	scraper     *metadatascrape.Service
-	settings    model.ImportCreationSettings
+	settings    ImportCreationSettings
 	newID       func() (string, error)
 }
 
 func NewImportCreations(repository model.ImportCreationRepository, preparation *ImportPreparation,
-	tags *taggingservice.Service, scraper *metadatascrape.Service, settings model.ImportCreationSettings,
+	tags *taggingservice.Service, scraper *metadatascrape.Service, settings ImportCreationSettings,
 ) *ImportCreations {
 	if settings.Now == nil {
 		settings.Now = time.Now

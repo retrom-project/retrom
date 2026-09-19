@@ -12,14 +12,14 @@ type ProductCreator struct {
 	repository  model.ProductCreationRepository
 	provider    model.PreviewProvider
 	blobs       model.ProductBlobVerifier
-	environment model.ProductEnvironment
+	environment ProductEnvironment
 }
 
 func NewProductCreator(
 	repository model.ProductCreationRepository,
 	provider model.PreviewProvider,
 	blobs model.ProductBlobVerifier,
-	environment model.ProductEnvironment,
+	environment ProductEnvironment,
 ) *ProductCreator {
 	if environment.NewID == nil {
 		environment.NewID = newProductID
