@@ -2519,6 +2519,40 @@
       ]
     },
     {
+      "id": "payloadrelease.BuildScheduledJob",
+      "owner": "payloadrelease",
+      "rf_id": "RF18",
+      "symbol": "retrom/internal/model/payloadrelease.BuildScheduledJob",
+      "consumers": [
+        "(*retrom/internal/repo/payloadrelease.Scheduler).prepare",
+        "(*retrom/internal/service/payloadrelease.Scheduler).prepare"
+      ],
+      "invariant": "Explicit nonempty job/execution identities and validated request -> schema1 immutable input/digest and per-scope stable release dedupe.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF18-release_fence",
+        "RFA-RF18-shared_digest"
+      ]
+    },
+    {
+      "id": "payloadrelease.DecideConsumption",
+      "owner": "payloadrelease",
+      "rf_id": "RF18",
+      "symbol": "retrom/internal/model/payloadrelease.DecideConsumption",
+      "consumers": [
+        "(*retrom/internal/repo/payloadrelease.Scheduler).Consumption",
+        "(*retrom/internal/service/payloadrelease.Scheduler).Consumption"
+      ],
+      "invariant": "Released consumption no work; existing work reused; otherwise schedule.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF18-release_fence",
+        "RFA-RF18-shared_digest"
+      ]
+    },
+    {
       "id": "payloadrelease.DecideGameDeletion",
       "owner": "payloadrelease",
       "rf_id": "RF18",
@@ -2532,6 +2566,40 @@
       "target_layer": "capability",
       "tests": [
         "RFA-RF16-game_mutations"
+      ]
+    },
+    {
+      "id": "payloadrelease.DecideOwnerRelease",
+      "owner": "payloadrelease",
+      "rf_id": "RF18",
+      "symbol": "retrom/internal/model/payloadrelease.DecideOwnerRelease",
+      "consumers": [
+        "(*retrom/internal/repo/payloadrelease.Scheduler).scheduleOwner",
+        "(*retrom/internal/service/payloadrelease.Scheduler).scheduleOwner"
+      ],
+      "invariant": "RETAINED bounded-version valid-reason yields version+1 and new work; releasing/released/failed must reuse durable job.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF18-release_fence",
+        "RFA-RF18-shared_digest"
+      ]
+    },
+    {
+      "id": "payloadrelease.DecideSourceLink",
+      "owner": "payloadrelease",
+      "rf_id": "RF18",
+      "symbol": "retrom/internal/model/payloadrelease.DecideSourceLink",
+      "consumers": [
+        "(*retrom/internal/repo/payloadrelease.Scheduler).linkSource",
+        "(*retrom/internal/service/payloadrelease.Scheduler).linkSource"
+      ],
+      "invariant": "RETAINED bounded-version source may join ordinary owner's valid existing release job.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF18-release_fence",
+        "RFA-RF18-shared_digest"
       ]
     },
     {
@@ -2552,6 +2620,57 @@
       ]
     },
     {
+      "id": "payloadrelease.ExistingOwnerRelease",
+      "owner": "payloadrelease",
+      "rf_id": "RF18",
+      "symbol": "retrom/internal/model/payloadrelease.ExistingOwnerRelease",
+      "consumers": [
+        "(*retrom/internal/repo/payloadrelease.Scheduler).TerminalSource",
+        "(*retrom/internal/service/payloadrelease.Scheduler).TerminalSource",
+        "retrom/internal/model/payloadrelease.DecideOwnerRelease",
+        "retrom/internal/model/payloadrelease.DecideSourceLink"
+      ],
+      "invariant": "Existing job is valid only nonempty with payload RELEASING/RELEASED/FAILED.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF18-release_fence",
+        "RFA-RF18-shared_digest"
+      ]
+    },
+    {
+      "id": "payloadrelease.GameDeleteAuditImpact",
+      "owner": "payloadrelease",
+      "rf_id": "RF18",
+      "symbol": "retrom/internal/model/payloadrelease.GameDeleteAuditImpact",
+      "consumers": [
+        "retrom/internal/adapter/integration/payloadrelease.GameDeleteAuditImpact"
+      ],
+      "invariant": "Audit projection intentionally excludes impact precondition digest.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF18-release_fence",
+        "RFA-RF18-shared_digest"
+      ]
+    },
+    {
+      "id": "payloadrelease.NormalizeImpactSourceKinds",
+      "owner": "payloadrelease",
+      "rf_id": "RF18",
+      "symbol": "retrom/internal/model/payloadrelease.NormalizeImpactSourceKinds",
+      "consumers": [
+        "(*retrom/internal/model/payloadrelease.ImpactQueries).Game"
+      ],
+      "invariant": "Normalize allowed metadata/content sources to stable distinct sorted public source kinds.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF18-release_fence",
+        "RFA-RF18-shared_digest"
+      ]
+    },
+    {
       "id": "payloadrelease.RetryDelay",
       "owner": "payloadrelease",
       "rf_id": "RF18",
@@ -2568,6 +2687,139 @@
       ]
     },
     {
+      "id": "payloadrelease.SourceReleaseReason",
+      "owner": "payloadrelease",
+      "rf_id": "RF18",
+      "symbol": "retrom/internal/model/payloadrelease.SourceReleaseReason",
+      "consumers": [
+        "(*retrom/internal/repo/payloadrelease.Scheduler).TerminalSource",
+        "(*retrom/internal/service/payloadrelease.Scheduler).TerminalSource"
+      ],
+      "invariant": "Only Pegasus/ES source scopes have corresponding terminal reason.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF18-release_fence",
+        "RFA-RF18-shared_digest"
+      ]
+    },
+    {
+      "id": "payloadrelease.TerminalImportItem",
+      "owner": "payloadrelease",
+      "rf_id": "RF18",
+      "symbol": "retrom/internal/model/payloadrelease.TerminalImportItem",
+      "consumers": [
+        "(*retrom/internal/repo/payloadrelease.Scheduler).TerminalItem",
+        "(*retrom/internal/service/payloadrelease.Scheduler).TerminalItem",
+        "retrom/internal/adapter/integration/payloadrelease.terminalImportItem",
+        "retrom/internal/service/payloadrelease.lifecycleTerminal",
+        "retrom/internal/service/payloadrelease.terminalEffectOwner"
+      ],
+      "invariant": "PUBLISHED/DISCARDED/FAILED_FINAL/CANCELLED are terminal.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF18-release_fence",
+        "RFA-RF18-shared_digest"
+      ]
+    },
+    {
+      "id": "payloadrelease.TerminalImportJob",
+      "owner": "payloadrelease",
+      "rf_id": "RF18",
+      "symbol": "retrom/internal/model/payloadrelease.TerminalImportJob",
+      "consumers": [
+        "(*retrom/internal/repo/payloadrelease.Scheduler).TerminalImport",
+        "(*retrom/internal/service/payloadrelease.Scheduler).TerminalImport",
+        "retrom/internal/service/payloadrelease.lifecycleTerminal",
+        "retrom/internal/service/payloadrelease.terminalEffectOwner"
+      ],
+      "invariant": "COMPLETED/CANCELLED/FAILED are terminal.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF18-release_fence",
+        "RFA-RF18-shared_digest"
+      ]
+    },
+    {
+      "id": "payloadrelease.TerminalSourceItem",
+      "owner": "payloadrelease",
+      "rf_id": "RF18",
+      "symbol": "retrom/internal/model/payloadrelease.TerminalSourceItem",
+      "consumers": [
+        "(*retrom/internal/repo/payloadrelease.Scheduler).TerminalSource",
+        "(*retrom/internal/service/payloadrelease.Scheduler).TerminalSource",
+        "retrom/internal/adapter/integration/payloadrelease.terminalPegasusItem",
+        "retrom/internal/service/payloadrelease.lifecycleTerminal",
+        "retrom/internal/service/payloadrelease.terminalEffectOwner"
+      ],
+      "invariant": "Published/review-discarded/skipped/blocked/cancelled terminal; source/read/commit failure terminal only nonretryable.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF18-release_fence",
+        "RFA-RF18-shared_digest"
+      ]
+    },
+    {
+      "id": "payloadrelease.ValidReason",
+      "owner": "payloadrelease",
+      "rf_id": "RF18",
+      "symbol": "retrom/internal/model/payloadrelease.ValidReason",
+      "consumers": [
+        "(*retrom/internal/repo/payloadrelease.Scheduler).Queue",
+        "(*retrom/internal/service/payloadrelease.Scheduler).Queue",
+        "(*retrom/internal/service/payloadrelease.Scheduler).Review",
+        "retrom/internal/model/payloadrelease.BuildScheduledJob",
+        "retrom/internal/model/payloadrelease.DecideOwnerRelease",
+        "retrom/internal/service/payloadrelease.validateWorkInput"
+      ],
+      "invariant": "Public entry delegates to the one validReason rule.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF18-release_fence",
+        "RFA-RF18-shared_digest"
+      ]
+    },
+    {
+      "id": "payloadrelease.ValidScheduleScope",
+      "owner": "payloadrelease",
+      "rf_id": "RF18",
+      "symbol": "retrom/internal/model/payloadrelease.ValidScheduleScope",
+      "consumers": [
+        "(*retrom/internal/repo/payloadrelease.Scheduler).Queue",
+        "(*retrom/internal/service/payloadrelease.Scheduler).Queue",
+        "retrom/internal/model/payloadrelease.BuildScheduledJob",
+        "retrom/internal/service/payloadrelease.validateWorkInput"
+      ],
+      "invariant": "Public entry delegates to the one validScheduleScope rule.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF18-release_fence",
+        "RFA-RF18-shared_digest"
+      ]
+    },
+    {
+      "id": "payloadrelease.ValidateOwnershipRegistry",
+      "owner": "payloadrelease",
+      "rf_id": "RF18",
+      "symbol": "retrom/internal/service/payloadrelease.ValidateOwnershipRegistry",
+      "consumers": [
+        "(*retrom/internal/service/payloadrelease.LifecycleVerifier).Validate",
+        "retrom/internal/adapter/integration/payloadrelease.ValidateOwnershipRegistry"
+      ],
+      "invariant": "Registered lifecycle ownership covers each current Blob edge exactly once with nonempty classification; extra/missing/duplicate edges rejected.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF18-release_fence",
+        "RFA-RF18-shared_digest"
+      ]
+    },
+    {
       "id": "payloadrelease.WorkErrorCode",
       "owner": "payloadrelease",
       "rf_id": "RF18",
@@ -2581,6 +2833,39 @@
       "tests": [
         "RFA-RF18-release_fence",
         "RFA-RF18-gc_crash_recovery"
+      ]
+    },
+    {
+      "id": "payloadrelease.effectReason",
+      "owner": "payloadrelease",
+      "rf_id": "RF18",
+      "symbol": "retrom/internal/service/payloadrelease.effectReason",
+      "consumers": [
+        "(*retrom/internal/service/payloadrelease.effectRun).game",
+        "(*retrom/internal/service/payloadrelease.effectRun).item"
+      ],
+      "invariant": "Stable release reason from exact scope and terminal item state.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF18-release_fence",
+        "RFA-RF18-shared_digest"
+      ]
+    },
+    {
+      "id": "payloadrelease.eligibleEffectUpload",
+      "owner": "payloadrelease",
+      "rf_id": "RF18",
+      "symbol": "retrom/internal/service/payloadrelease.eligibleEffectUpload",
+      "consumers": [
+        "(*retrom/internal/service/payloadrelease.effectRun).purgeSession"
+      ],
+      "invariant": "Only COMPLETE file of terminal upload session with no active consumption or domain reference may lose final Blob.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF18-release_fence",
+        "RFA-RF18-shared_digest"
       ]
     },
     {
@@ -2602,6 +2887,38 @@
       ]
     },
     {
+      "id": "payloadrelease.gameEffectSource",
+      "owner": "payloadrelease",
+      "rf_id": "RF18",
+      "symbol": "retrom/internal/service/payloadrelease.gameEffectSource",
+      "consumers": [
+        "retrom/internal/service/payloadrelease.gameEffectSources"
+      ],
+      "invariant": "Map only IMPORT_REVIEW/Pegasus/ES source kind with nonempty ref to lifecycle scope.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF18-release_fence",
+        "RFA-RF18-shared_digest"
+      ]
+    },
+    {
+      "id": "payloadrelease.gameEffectSources",
+      "owner": "payloadrelease",
+      "rf_id": "RF18",
+      "symbol": "retrom/internal/service/payloadrelease.gameEffectSources",
+      "consumers": [
+        "(*retrom/internal/service/payloadrelease.effectRun).game"
+      ],
+      "invariant": "Deduplicate at most two current metadata/content source owners while preserving order.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF18-release_fence",
+        "RFA-RF18-shared_digest"
+      ]
+    },
+    {
       "id": "payloadrelease.gcUniqueIDs",
       "owner": "payloadrelease",
       "rf_id": "RF18",
@@ -2615,6 +2932,54 @@
       "tests": [
         "RFA-RF18-release_fence",
         "RFA-RF18-gc_crash_recovery"
+      ]
+    },
+    {
+      "id": "payloadrelease.impactTotals",
+      "owner": "payloadrelease",
+      "rf_id": "RF18",
+      "symbol": "retrom/internal/model/payloadrelease.impactTotals",
+      "consumers": [
+        "(*retrom/internal/model/payloadrelease.ImpactQueries).Game"
+      ],
+      "invariant": "Deduplicate identical Blob facts; reject inconsistent duplicate/invalid/overflow; exclusive iff all protective references belong to game.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF18-release_fence",
+        "RFA-RF18-shared_digest"
+      ]
+    },
+    {
+      "id": "payloadrelease.lifecycleTerminal",
+      "owner": "payloadrelease",
+      "rf_id": "RF18",
+      "symbol": "retrom/internal/service/payloadrelease.lifecycleTerminal",
+      "consumers": [
+        "retrom/internal/service/payloadrelease.validateLifecycleOwner"
+      ],
+      "invariant": "Scope terminality derived from same import/source terminal policy; GAME DELETED only.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF18-release_fence",
+        "RFA-RF18-shared_digest"
+      ]
+    },
+    {
+      "id": "payloadrelease.normalizedImpactSourceKind",
+      "owner": "payloadrelease",
+      "rf_id": "RF18",
+      "symbol": "retrom/internal/model/payloadrelease.normalizedImpactSourceKind",
+      "consumers": [
+        "retrom/internal/model/payloadrelease.NormalizeImpactSourceKinds"
+      ],
+      "invariant": "Pegasus/ES -> SERVER_SCAN; IMPORT_REVIEW -> USER_UPLOAD; ADMIN_REPLACE preserved; other kinds excluded.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF18-release_fence",
+        "RFA-RF18-shared_digest"
       ]
     },
     {
@@ -2634,6 +2999,23 @@
       ]
     },
     {
+      "id": "payloadrelease.releasingEffectOwner",
+      "owner": "payloadrelease",
+      "rf_id": "RF18",
+      "symbol": "retrom/internal/service/payloadrelease.releasingEffectOwner",
+      "consumers": [
+        "retrom/internal/service/payloadrelease.validEffectChild",
+        "retrom/internal/service/payloadrelease.validateEffectRoot"
+      ],
+      "invariant": "Only RELEASING,FAILED,RELEASED are release-progress states.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF18-release_fence",
+        "RFA-RF18-shared_digest"
+      ]
+    },
+    {
       "id": "payloadrelease.sameExecution",
       "owner": "payloadrelease",
       "rf_id": "RF18",
@@ -2647,6 +3029,72 @@
       "tests": [
         "RFA-RF18-release_fence",
         "RFA-RF18-gc_crash_recovery"
+      ]
+    },
+    {
+      "id": "payloadrelease.terminalBoundEffect",
+      "owner": "payloadrelease",
+      "rf_id": "RF18",
+      "symbol": "retrom/internal/service/payloadrelease.terminalBoundEffect",
+      "consumers": [
+        "(*retrom/internal/service/payloadrelease.effectRun).boundSource"
+      ],
+      "invariant": "Bound source must be PUBLISHED/REVIEW_DISCARDED,or SKIPPED_EXISTING with durable matching duplicate proof.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF18-release_fence",
+        "RFA-RF18-shared_digest"
+      ]
+    },
+    {
+      "id": "payloadrelease.terminalEffectOwner",
+      "owner": "payloadrelease",
+      "rf_id": "RF18",
+      "symbol": "retrom/internal/service/payloadrelease.terminalEffectOwner",
+      "consumers": [
+        "(*retrom/internal/service/payloadrelease.effectRun).gameSource",
+        "retrom/internal/service/payloadrelease.validEffectChild",
+        "retrom/internal/service/payloadrelease.validateEffectRoot"
+      ],
+      "invariant": "Scope-specific terminal release authority; GAME must be DELETED.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF18-release_fence",
+        "RFA-RF18-shared_digest"
+      ]
+    },
+    {
+      "id": "payloadrelease.validEffectChild",
+      "owner": "payloadrelease",
+      "rf_id": "RF18",
+      "symbol": "retrom/internal/service/payloadrelease.validEffectChild",
+      "consumers": [
+        "(*retrom/internal/service/payloadrelease.effectRun).aggregate"
+      ],
+      "invariant": "Aggregate child must have current exact parent,terminal/releasing state and a durable release job.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF18-release_fence",
+        "RFA-RF18-shared_digest"
+      ]
+    },
+    {
+      "id": "payloadrelease.validEffectRemoval",
+      "owner": "payloadrelease",
+      "rf_id": "RF18",
+      "symbol": "retrom/internal/repo/payloadrelease.validEffectRemoval",
+      "consumers": [
+        "(retrom/internal/repo/payloadrelease.effectRecords).Remove"
+      ],
+      "invariant": "Reference removal group can target only its specific game/item/source scope.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF18-release_fence",
+        "RFA-RF18-shared_digest"
       ]
     },
     {
@@ -2683,6 +3131,38 @@
       ]
     },
     {
+      "id": "payloadrelease.validImpactCounts",
+      "owner": "payloadrelease",
+      "rf_id": "RF18",
+      "symbol": "retrom/internal/model/payloadrelease.validImpactCounts",
+      "consumers": [
+        "(*retrom/internal/model/payloadrelease.ImpactQueries).Game"
+      ],
+      "invariant": "Every supplied game deletion impact count nonnegative.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF18-release_fence",
+        "RFA-RF18-shared_digest"
+      ]
+    },
+    {
+      "id": "payloadrelease.validReason",
+      "owner": "payloadrelease",
+      "rf_id": "RF18",
+      "symbol": "retrom/internal/model/payloadrelease.validReason",
+      "consumers": [
+        "retrom/internal/model/payloadrelease.ValidReason"
+      ],
+      "invariant": "Only nine declared scope release reasons permitted.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF18-release_fence",
+        "RFA-RF18-shared_digest"
+      ]
+    },
+    {
       "id": "payloadrelease.validRetirement",
       "owner": "payloadrelease",
       "rf_id": "RF18",
@@ -2696,6 +3176,22 @@
       "tests": [
         "RFA-RF18-release_fence",
         "RFA-RF18-gc_crash_recovery"
+      ]
+    },
+    {
+      "id": "payloadrelease.validScheduleScope",
+      "owner": "payloadrelease",
+      "rf_id": "RF18",
+      "symbol": "retrom/internal/model/payloadrelease.validScheduleScope",
+      "consumers": [
+        "retrom/internal/model/payloadrelease.ValidScheduleScope"
+      ],
+      "invariant": "Six payload owner scopes permitted; BLOB handled separately by GC.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF18-release_fence",
+        "RFA-RF18-shared_digest"
       ]
     },
     {
@@ -2713,6 +3209,38 @@
       "tests": [
         "RFA-RF18-release_fence",
         "RFA-RF18-gc_crash_recovery"
+      ]
+    },
+    {
+      "id": "payloadrelease.validateEffectRoot",
+      "owner": "payloadrelease",
+      "rf_id": "RF18",
+      "symbol": "retrom/internal/service/payloadrelease.validateEffectRoot",
+      "consumers": [
+        "(*retrom/internal/service/payloadrelease.ReleaseEffects).Execute"
+      ],
+      "invariant": "Root current scope/job/terminal/releasing ownership and frozen scope version; consumption and already-released/game-failed exceptions remain explicit.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF18-release_fence",
+        "RFA-RF18-shared_digest"
+      ]
+    },
+    {
+      "id": "payloadrelease.validateLifecycleOwner",
+      "owner": "payloadrelease",
+      "rf_id": "RF18",
+      "symbol": "retrom/internal/service/payloadrelease.validateLifecycleOwner",
+      "consumers": [
+        "retrom/internal/service/payloadrelease.validateLifecyclePages"
+      ],
+      "invariant": "Nonretained owner release job must match kind/scope; bound source shares ordinary item's exact release job; terminal owners cannot remain RETAINED.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF18-release_fence",
+        "RFA-RF18-shared_digest"
       ]
     },
     {

@@ -12963,6 +12963,741 @@
       }
     },
     {
+      "operation_id": "payloadrelease.apply-release-effects",
+      "owner": "payloadrelease",
+      "rf_id": "RF18",
+      "consumers": [
+        "(*retrom/internal/adapter/integration/payloadrelease.Service).execute",
+        "(*retrom/internal/adapter/integration/payloadrelease.Service).releaseEffect",
+        "(*retrom/internal/service/payloadrelease.ReleaseEffects).Execute",
+        "(*retrom/internal/service/payloadrelease.Service).Execute",
+        "(retrom/internal/adapter/integration/payloadrelease.releaseExecutor).Execute"
+      ],
+      "snapshot": "retrom/internal/model/payloadrelease.EffectOwner",
+      "prepare": "(*retrom/internal/service/payloadrelease.ReleaseEffects).Execute",
+      "commit": "(*retrom/internal/repo/payloadrelease.ReleaseEffects).WithEffects",
+      "policy_symbols": [
+        "retrom/internal/repo/payloadrelease.validEffectRemoval",
+        "retrom/internal/service/payloadrelease.DecodeWork",
+        "retrom/internal/service/payloadrelease.effectReason",
+        "retrom/internal/service/payloadrelease.eligibleEffectUpload",
+        "retrom/internal/service/payloadrelease.gameEffectSource",
+        "retrom/internal/service/payloadrelease.gameEffectSources",
+        "retrom/internal/service/payloadrelease.releasingEffectOwner",
+        "retrom/internal/service/payloadrelease.sameExecution",
+        "retrom/internal/service/payloadrelease.terminalBoundEffect",
+        "retrom/internal/service/payloadrelease.terminalEffectOwner",
+        "retrom/internal/service/payloadrelease.validEffectChild",
+        "retrom/internal/service/payloadrelease.validWork",
+        "retrom/internal/service/payloadrelease.validateEffectRoot"
+      ],
+      "fresh_facts": [
+        {
+          "name": "current durable work",
+          "reader_symbol": "(retrom/internal/repo/payloadrelease.workerRecords).Current",
+          "reason": "Inside writer jobs id/kind/scope/state/worker/execution/attempt/max/version/available,nullable started/deadline/lease/heartbeat and exact current execution input JSON/digest/found"
+        },
+        {
+          "name": "root and recursive current owners",
+          "reader_symbol": "(retrom/internal/repo/payloadrelease.effectRecords).Owner",
+          "reason": "Inside shared writer current semantic scope/state/version/payload/releaseJob/PublicID/retryable plus game metadata/content source identities; import parent; source existingGame/duplicate-match; consumption complete identity/release/version"
+        },
+        {
+          "name": "current mutation jobs",
+          "reader_symbol": "(retrom/internal/repo/payloadrelease.effectRecords).Mutations",
+          "reason": "GAME root: current GAME_CONTENT_REPLACE/METADATA_SCRAPE/MEDIA_FETCH scopeGAME same ID with stateQUEUED/RUNNING/CANCEL_REQUESTED must be zero; prewriter wait repeats every100ms but is not authority"
+        },
+        {
+          "name": "recursive owner links",
+          "reader_symbol": "(retrom/internal/repo/payloadrelease.effectRecords).Links",
+          "reason": "Aggregate import_items orderedID; ordinary-item bound Pegasus/ES sources orderedkind/ID; game source links derived from current metadata/content references"
+        },
+        {
+          "name": "all owned references and upload consumptions",
+          "reader_symbol": "(retrom/internal/repo/payloadrelease.effectRecords).Payload",
+          "reason": "Before removal collect Blob IDs from each scope's full file/archive/asset/save/launch/evidence/preview/attachment graph and typed upload_consumptions; preserve data for subsequent shared-owner-aware GC"
+        },
+        {
+          "name": "upload purge candidates",
+          "reader_symbol": "(retrom/internal/repo/payloadrelease.effectRecords).Candidates",
+          "reason": "200 per upload session ordered ID; current file/session states,session version,active consumption count and source/snapshot/multidisc/review/arcade-parent reference count"
+        },
+        {
+          "name": "remaining release references",
+          "reader_symbol": "(retrom/internal/repo/payloadrelease.effectRecords).Remaining",
+          "reason": "After scope deletion require zero actual registered scope references; aggregate also requires all children RELEASED and IMPORT_JOB consumption released. Baseline game count excludes variant_dependencies; item count excludes already-cleared parent attachment/multidisc fields"
+        },
+        {
+          "name": "current Blob and candidate facts",
+          "reader_symbol": "(retrom/internal/repo/payloadrelease.gcRecords).Selected",
+          "reason": "Inside writer Blob id/digest/size plus candidate firstUnreferenced/scheduled/attempt,complete candidate Work/input; Protected from current registered PROTECTIVE edges and protected-archive materialized members"
+        },
+        {
+          "name": "registry protective references",
+          "reader_symbol": "retrom/internal/repo/blobregistry.ProtectiveSet",
+          "reason": "Reads each registered PROTECTIVE table/column and one pass archive_entries archiveBlob/materializedBlob; bookkeeping/archive ownership alone is not protection"
+        }
+      ],
+      "guards": [
+        {
+          "id": "work-valid",
+          "fields": [
+            "id",
+            "scope.id",
+            "kind",
+            "execution",
+            "attempt",
+            "max",
+            "version"
+          ],
+          "expected_source": "Nonempty IDs,kind PAYLOAD_RELEASE|BLOB_GC,execution>0,attempt>=0,max>0,0<version<MaxInt64",
+          "rejection": "ErrExecutionLost",
+          "test_id": "RFA-RF18-release_fence"
+        },
+        {
+          "id": "original-execution",
+          "fields": [
+            "id",
+            "kind",
+            "scope",
+            "state",
+            "worker",
+            "execution",
+            "attempt",
+            "max",
+            "started",
+            "deadline",
+            "inputFound",
+            "inputJSON",
+            "inputDigest"
+          ],
+          "expected_source": "sameExecution: both current/original RUNNING,nonempty matching worker,exact identity/scope/execution/attempt/max/start/deadline/input; current version/heartbeat may advance",
+          "rejection": "ErrExecutionLost",
+          "test_id": "RFA-RF18-release_fence"
+        },
+        {
+          "id": "live-execution",
+          "fields": [
+            "lease",
+            "deadline",
+            "now"
+          ],
+          "expected_source": "Current lease and deadline both set and strictly > current Service sample",
+          "rejection": "ErrExecutionLost",
+          "test_id": "RFA-RF18-release_fence"
+        },
+        {
+          "id": "full-work-snapshot",
+          "fields": [
+            "id",
+            "kind",
+            "scope",
+            "state",
+            "worker",
+            "execution",
+            "attempt",
+            "max",
+            "version",
+            "available",
+            "started",
+            "deadline",
+            "lease",
+            "heartbeat",
+            "inputFound",
+            "inputJSON",
+            "inputDigest"
+          ],
+          "expected_source": "workFence compares ALL observed fields and input snapshot existence/bytes/digest; nullable times via COALESCE(-1); exactly one SQL row",
+          "rejection": "ErrExecutionLost",
+          "test_id": "RFA-RF18-release_fence"
+        },
+        {
+          "id": "frozen-release-input",
+          "fields": [
+            "work",
+            "input",
+            "digest",
+            "scope",
+            "kind"
+          ],
+          "expected_source": "DecodeWork validates JSON digest/schema/UUID/scope/version/reason; exact decoded value equals supplied unit.Input; kindPAYLOAD_RELEASE",
+          "rejection": "PAYLOAD_RELEASE_DATABASE_FAILED wrapping ErrInputInvalid",
+          "test_id": "RFA-RF18-release_fence"
+        },
+        {
+          "id": "root-owner",
+          "fields": [
+            "found",
+            "scope",
+            "state",
+            "version",
+            "payloadState",
+            "releaseJob",
+            "publicId"
+          ],
+          "expected_source": "Found exact scope. Nonconsumption terminalEffectOwner,own releaseJob==workID and PublicID empty; version==frozen unless alreadyRELEASED or GAME/FAILED retry; payload RELEASING|FAILED|RELEASED. Consumption version exact unless alreadyreleased",
+          "rejection": "PAYLOAD_RELEASE_SCOPE_NOT_TERMINAL / PAYLOAD_RELEASE_SCOPE_VERSION_MISMATCH",
+          "test_id": "RFA-RF18-release_fence"
+        },
+        {
+          "id": "game-mutations",
+          "fields": [
+            "activeMutationCount"
+          ],
+          "expected_source": "After bounded-context prewriter waiting, inside writer current mutation count must be0",
+          "rejection": "PAYLOAD_RELEASE_DEPENDENCY_PENDING",
+          "test_id": "RFA-RF18-release_fence"
+        },
+        {
+          "id": "recursive-terminal-ownership",
+          "fields": [
+            "child.parent",
+            "child.public",
+            "child.payload",
+            "child.job",
+            "child.state",
+            "child.duplicateMatch"
+          ],
+          "expected_source": "Aggregate child Found,parent exact,terminal,releasing and nonempty release job; game sources may redirect PublicID to ordinary item,otherwise terminal/nonRETAINED/job present; bound source PublicID==ordinaryID and PUBLISHED|REVIEW_DISCARDED or SKIPPED_EXISTING with permanent matching duplicate proof,releaseJob must equal public job after optional linking",
+          "rejection": "PAYLOAD_RELEASE_SCOPE_NOT_TERMINAL / ErrEffectConflict",
+          "test_id": "RFA-RF18-release_fence"
+        },
+        {
+          "id": "full-owner-fence",
+          "fields": [
+            "EffectOwner"
+          ],
+          "expected_source": "Before each ChangeOwner/Remove reread complete comparable EffectOwner and require equality; SQL predicates additionally fence scope-specific state/version/payload/job/source/parent/retry/public/existingGame; exactly1 owner update",
+          "rejection": "ErrEffectConflict",
+          "test_id": "RFA-RF18-release_fence"
+        },
+        {
+          "id": "removal-scope",
+          "fields": [
+            "group",
+            "scope"
+          ],
+          "expected_source": "Game runtime/evidence/files only GAME; import review/evidence/files only IMPORT_ITEM; source files/assets only Pegasus/ES",
+          "rejection": "ErrEffectConflict",
+          "test_id": "RFA-RF18-release_fence"
+        },
+        {
+          "id": "upload-unreferenced",
+          "fields": [
+            "file.id",
+            "blob",
+            "state",
+            "session.state",
+            "session.version",
+            "activeConsumptions",
+            "domainReferences"
+          ],
+          "expected_source": "Purge only complete file with nonempty ID/Blob,terminal upload session and zero active consumptions/domain refs; SQL rechecks exact all observed values and counts",
+          "rejection": "Ineligible skipped; affected count mismatch ErrEffectConflict",
+          "test_id": "RFA-RF18-release_fence"
+        },
+        {
+          "id": "completion-empty",
+          "fields": [
+            "remainingReferences"
+          ],
+          "expected_source": "Scope-specific remaining reference sum must be0 before changing owner to RELEASED",
+          "rejection": "PAYLOAD_RELEASE_REFERENCE_REMAINS",
+          "test_id": "RFA-RF18-release_fence"
+        },
+        {
+          "id": "completed-owner-confirmation",
+          "fields": [
+            "completedOwners"
+          ],
+          "expected_source": "After all recursive writes and nested GC, reread every completed owner or consumption and require exact final EffectOwner equality",
+          "rejection": "ErrEffectConflict",
+          "test_id": "RFA-RF18-release_fence"
+        },
+        {
+          "id": "post-release-gc-snapshot",
+          "fields": [
+            "blobId",
+            "digest",
+            "size",
+            "protected",
+            "candidate",
+            "work",
+            "input"
+          ],
+          "expected_source": "Fence UPDATE blobs id=id for <=200 IDs,exact count,then reread Selected and require exact entire comparable GCBlob incl protection/work facts",
+          "rejection": "ErrGCSnapshotChanged",
+          "test_id": "RFA-RF18-release_fence"
+        },
+        {
+          "id": "post-release-queue-eligibility",
+          "fields": [
+            "protected",
+            "hasCandidate",
+            "now",
+            "retention",
+            "digest",
+            "id",
+            "size"
+          ],
+          "expected_source": "Only unprotected with no candidate; nonnegative now <=MaxInt64-retention; Blob nonempty ID,size>=0,hex digest32bytes; configured retention24h..30days",
+          "rejection": "Skip protected/existing; ErrGCRetentionInvalid / ErrInputInvalid",
+          "test_id": "RFA-RF18-release_fence"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "initial-work-fence",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.workerRecords).Fence",
+          "affected_records": [
+            "CheckInScope fresh authority and full Work no-op SQL version fence before any release effects"
+          ],
+          "test_id": "RFA-RF18-release_fence"
+        },
+        {
+          "stage": "retry-failed-owner",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.effectRecords).ChangeOwner",
+          "affected_records": [
+            "For FAILED owner change to RELEASING,clear error/releasedAt,keep job; GAME version+1/time,others unchanged version. Full owner fence and require1"
+          ],
+          "test_id": "RFA-RF18-release_fence"
+        },
+        {
+          "stage": "link-bound-source",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.effectRecords).ChangeOwner",
+          "affected_records": [
+            "RETAINED bound source only -> RELEASING,ordinary parent's releaseJob,version+1,clear payload error/released time; require1. Other releasing source must already share job"
+          ],
+          "test_id": "RFA-RF18-release_fence"
+        },
+        {
+          "stage": "release-upload-consumption",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.effectRecords).Consume",
+          "affected_records": [
+            "For each unreleased relevant consumption UPDATE exact id/version/unreleased/session/nullablefile/type/consumer -> releasedAt/runNow,scope reason,version+1; require1; track final owner for confirmation"
+          ],
+          "test_id": "RFA-RF18-release_fence"
+        },
+        {
+          "stage": "game-launches",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.effectRecords).stopGameRuntime",
+          "affected_records": [
+            "GAME active CREATED/ACTIVE launch_sessions -> REVOKED,finishCOALESCE/time/version+1; pre-count and require exact rows"
+          ],
+          "test_id": "RFA-RF18-release_fence"
+        },
+        {
+          "stage": "game-plays",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.effectRecords).stopGameRuntime",
+          "affected_records": [
+            "GAME ACTIVE play_sessions -> ABANDONED,end/time/version+1; pre-count and require exact rows"
+          ],
+          "test_id": "RFA-RF18-release_fence"
+        },
+        {
+          "stage": "game-netplay-sessions",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.effectRecords).stopGameRuntime",
+          "affected_records": [
+            "GAME nonFINISHED/FAILED netplay_sessions -> FAILED,finishReasonGAME_DELETED/time/version+1; no peer/event cleanup; pre-count and require exact rows"
+          ],
+          "test_id": "RFA-RF18-release_fence"
+        },
+        {
+          "stage": "game-netplay-rooms",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.effectRecords).stopGameRuntime",
+          "affected_records": [
+            "GAME-selected DRAFT/WAITING/STARTING/RUNNING netplay_rooms -> ENDED/endReasonGAME_DELETED/time/version+1; baseline does not clear currentSession/members; pre-count and require exact rows"
+          ],
+          "test_id": "RFA-RF18-release_fence"
+        },
+        {
+          "stage": "game-launch-save-reference",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.effectRecords).stopGameRuntime",
+          "affected_records": [
+            "GAME all launch_sessions with save_state_id -> NULL through sessionstore.ChangeLaunch,with nested relation handling; pre-count and require exact rows"
+          ],
+          "test_id": "RFA-RF18-release_fence"
+        },
+        {
+          "stage": "game-hash-evidence",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.effectRecords).clearGameEvidence",
+          "affected_records": [
+            "GAME content_hash_evidence belonging to scrape run and unreleased: blob/archive/ordinalNULL,payloadReleasedAt/runNow; immutable hashes retained,precount exact"
+          ],
+          "test_id": "RFA-RF18-release_fence"
+        },
+        {
+          "stage": "game-delete-save_states",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.effectRecords).removeBatch",
+          "affected_records": [
+            "GAME ordered deletion group save_states by scoped rowid batches<=200,count before each and require exact deletion; all pages remain in SAME outer writer. launch file deletion additionally requires terminal owning session"
+          ],
+          "test_id": "RFA-RF18-release_fence"
+        },
+        {
+          "stage": "game-delete-launch_external_files",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.effectRecords).removeBatch",
+          "affected_records": [
+            "GAME ordered deletion group launch_external_files by scoped rowid batches<=200,count before each and require exact deletion; all pages remain in SAME outer writer. launch file deletion additionally requires terminal owning session"
+          ],
+          "test_id": "RFA-RF18-release_fence"
+        },
+        {
+          "stage": "game-delete-launch_content_files",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.effectRecords).removeBatch",
+          "affected_records": [
+            "GAME ordered deletion group launch_content_files by scoped rowid batches<=200,count before each and require exact deletion; all pages remain in SAME outer writer. launch file deletion additionally requires terminal owning session"
+          ],
+          "test_id": "RFA-RF18-release_fence"
+        },
+        {
+          "stage": "game-delete-scrape_candidate_assets",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.effectRecords).removeBatch",
+          "affected_records": [
+            "GAME ordered deletion group scrape_candidate_assets by scoped rowid batches<=200,count before each and require exact deletion; all pages remain in SAME outer writer. launch file deletion additionally requires terminal owning session"
+          ],
+          "test_id": "RFA-RF18-release_fence"
+        },
+        {
+          "stage": "game-delete-game_assets",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.effectRecords).removeBatch",
+          "affected_records": [
+            "GAME ordered deletion group game_assets by scoped rowid batches<=200,count before each and require exact deletion; all pages remain in SAME outer writer. launch file deletion additionally requires terminal owning session"
+          ],
+          "test_id": "RFA-RF18-release_fence"
+        },
+        {
+          "stage": "game-delete-game_files",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.effectRecords).removeBatch",
+          "affected_records": [
+            "GAME ordered deletion group game_files by scoped rowid batches<=200,count before each and require exact deletion; all pages remain in SAME outer writer. launch file deletion additionally requires terminal owning session"
+          ],
+          "test_id": "RFA-RF18-release_fence"
+        },
+        {
+          "stage": "game-delete-variant_files",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.effectRecords).removeBatch",
+          "affected_records": [
+            "GAME ordered deletion group variant_files by scoped rowid batches<=200,count before each and require exact deletion; all pages remain in SAME outer writer. launch file deletion additionally requires terminal owning session"
+          ],
+          "test_id": "RFA-RF18-release_fence"
+        },
+        {
+          "stage": "import-revoke-previews",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.effectRecords).clearImportReview",
+          "affected_records": [
+            "IMPORT_ITEM previews CREATED/ACTIVE/FINISHED -> REVOKED,finishCOALESCE/time/version+1; nested sessionstore revokes corresponding isolated capabilities"
+          ],
+          "test_id": "RFA-RF18-release_fence"
+        },
+        {
+          "stage": "import-draft-screenshots",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.effectRecords).clearImportReview",
+          "affected_records": [
+            "DELETE review_draft_screenshot_assets of item drafts,exact pre-count"
+          ],
+          "test_id": "RFA-RF18-release_fence"
+        },
+        {
+          "stage": "import-clear-draft-assets",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.effectRecords).clearImportReview",
+          "affected_records": [
+            "UPDATE review_drafts item cover/background candidate and uploadedCoverNULL,version+1/time,exact pre-count"
+          ],
+          "test_id": "RFA-RF18-release_fence"
+        },
+        {
+          "stage": "import-delete-isolated_runtime_capabilities",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.effectRecords).removeBatch",
+          "affected_records": [
+            "IMPORT_ITEM ordered deletion group isolated_runtime_capabilities via owning item/preview/snapshot/validation/run,rowid pages<=200; capability/ticket owner EXPIRED|REVOKED; count then require exact,all pages same writer"
+          ],
+          "test_id": "RFA-RF18-release_fence"
+        },
+        {
+          "stage": "import-delete-isolated_runtime_bootstrap_tickets",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.effectRecords).removeBatch",
+          "affected_records": [
+            "IMPORT_ITEM ordered deletion group isolated_runtime_bootstrap_tickets via owning item/preview/snapshot/validation/run,rowid pages<=200; capability/ticket owner EXPIRED|REVOKED; count then require exact,all pages same writer"
+          ],
+          "test_id": "RFA-RF18-release_fence"
+        },
+        {
+          "stage": "import-delete-review_preview_files",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.effectRecords).removeBatch",
+          "affected_records": [
+            "IMPORT_ITEM ordered deletion group review_preview_files via owning item/preview/snapshot/validation/run,rowid pages<=200; capability/ticket owner EXPIRED|REVOKED; count then require exact,all pages same writer"
+          ],
+          "test_id": "RFA-RF18-release_fence"
+        },
+        {
+          "stage": "import-delete-review_runtime_screenshots",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.effectRecords).removeBatch",
+          "affected_records": [
+            "IMPORT_ITEM ordered deletion group review_runtime_screenshots via owning item/preview/snapshot/validation/run,rowid pages<=200; capability/ticket owner EXPIRED|REVOKED; count then require exact,all pages same writer"
+          ],
+          "test_id": "RFA-RF18-release_fence"
+        },
+        {
+          "stage": "import-delete-review_preview_sessions",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.effectRecords).removeBatch",
+          "affected_records": [
+            "IMPORT_ITEM ordered deletion group review_preview_sessions via owning item/preview/snapshot/validation/run,rowid pages<=200; capability/ticket owner EXPIRED|REVOKED; count then require exact,all pages same writer"
+          ],
+          "test_id": "RFA-RF18-release_fence"
+        },
+        {
+          "stage": "import-delete-review_uploaded_assets",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.effectRecords).removeBatch",
+          "affected_records": [
+            "IMPORT_ITEM ordered deletion group review_uploaded_assets via owning item/preview/snapshot/validation/run,rowid pages<=200; capability/ticket owner EXPIRED|REVOKED; count then require exact,all pages same writer"
+          ],
+          "test_id": "RFA-RF18-release_fence"
+        },
+        {
+          "stage": "import-delete-scrape_candidate_assets",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.effectRecords).removeBatch",
+          "affected_records": [
+            "IMPORT_ITEM ordered deletion group scrape_candidate_assets via owning item/preview/snapshot/validation/run,rowid pages<=200; capability/ticket owner EXPIRED|REVOKED; count then require exact,all pages same writer"
+          ],
+          "test_id": "RFA-RF18-release_fence"
+        },
+        {
+          "stage": "import-delete-import_item_validation_files",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.effectRecords).removeBatch",
+          "affected_records": [
+            "IMPORT_ITEM ordered deletion group import_item_validation_files via owning item/preview/snapshot/validation/run,rowid pages<=200; capability/ticket owner EXPIRED|REVOKED; count then require exact,all pages same writer"
+          ],
+          "test_id": "RFA-RF18-release_fence"
+        },
+        {
+          "stage": "import-delete-import_item_source_snapshot_files",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.effectRecords).removeBatch",
+          "affected_records": [
+            "IMPORT_ITEM ordered deletion group import_item_source_snapshot_files via owning item/preview/snapshot/validation/run,rowid pages<=200; capability/ticket owner EXPIRED|REVOKED; count then require exact,all pages same writer"
+          ],
+          "test_id": "RFA-RF18-release_fence"
+        },
+        {
+          "stage": "import-delete-import_item_source_files",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.effectRecords).removeBatch",
+          "affected_records": [
+            "IMPORT_ITEM ordered deletion group import_item_source_files via owning item/preview/snapshot/validation/run,rowid pages<=200; capability/ticket owner EXPIRED|REVOKED; count then require exact,all pages same writer"
+          ],
+          "test_id": "RFA-RF18-release_fence"
+        },
+        {
+          "stage": "import-parent-attachment",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.effectRecords).clearImportEvidence",
+          "affected_records": [
+            "review_arcade_parent_attachments acceptedBlobNULL,payloadReleasedAt/version+1/time; exact pre-count and affected count"
+          ],
+          "test_id": "RFA-RF18-release_fence"
+        },
+        {
+          "stage": "import-multidisc-evidence",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.effectRecords).clearImportEvidence",
+          "affected_records": [
+            "import_item_multidisc_entries belonging to item source snapshot with Blob -> PAYLOAD_RELEASED,uploadFileNULL,BlobNULL,releasedAt; exact pre-count and affected count"
+          ],
+          "test_id": "RFA-RF18-release_fence"
+        },
+        {
+          "stage": "import-hash-evidence",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.effectRecords).clearImportEvidence",
+          "affected_records": [
+            "content_hash_evidence of item scrape runs unreleased -> Blob/archive/ordinalNULL,releasedAt,keep immutable hash; exact pre-count and affected count"
+          ],
+          "test_id": "RFA-RF18-release_fence"
+        },
+        {
+          "stage": "source-release-files",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.effectRecords).clearSource",
+          "affected_records": [
+            "Pegasus/ES item files with blob or sourceArchive -> PAYLOAD_RELEASED,blob/archive/ordinalNULL,releasedAt/time; checkedUpdate exact count"
+          ],
+          "test_id": "RFA-RF18-release_fence"
+        },
+        {
+          "stage": "source-release-assets",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.effectRecords).clearSource",
+          "affected_records": [
+            "Pegasus/ES item assets with blob -> PAYLOAD_RELEASED,blobNULL,releasedAt/time; checkedUpdate exact count"
+          ],
+          "test_id": "RFA-RF18-release_fence"
+        },
+        {
+          "stage": "purge-upload-file",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.effectRecords).Purge",
+          "affected_records": [
+            "Eligible upload_files UPDATE full observed session/version/state/blob and reference-count fence -> PURGED,finalBlobNULL,releasedAt/time; require1. Preserve upload file row"
+          ],
+          "test_id": "RFA-RF18-release_fence"
+        },
+        {
+          "stage": "complete-release-owner",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.effectRecords).ChangeOwner",
+          "affected_records": [
+            "After remaining0 owner -> RELEASED,payloadReleasedAt/runNow,lastErrorNULL,keep release job; version+1 GAME/Pegasus/ES,unchanged IMPORT_ITEM/IMPORT_JOB; exact owner fence"
+          ],
+          "test_id": "RFA-RF18-release_fence"
+        },
+        {
+          "stage": "post-release-blob-fence",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.gcRecords).Fence",
+          "affected_records": [
+            "UPDATE blobs SET id=id per <=200 selected IDs,require exact count then full GCBlob equality recheck"
+          ],
+          "test_id": "RFA-RF18-release_fence"
+        },
+        {
+          "stage": "post-release-gc-job",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.gcRecords).Queue",
+          "affected_records": [
+            "INSERT jobs BLOB_GC scopeBLOB/id,new UUID,dedupe SHA(prefix NUL BLOB_GC NUL blobID NUL jobID),execution1,payload inputExecutionNo1,cancellable0,QUEUED,attempt0,max4,version1,available=now+retention,time"
+          ],
+          "test_id": "RFA-RF18-release_fence"
+        },
+        {
+          "stage": "post-release-gc-input",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.gcRecords).input",
+          "affected_records": [
+            "INSERT job_input_snapshots job/execution1,schema1/BLOB_GC/scope/executionUUID/digest input JSON and SHA256,time"
+          ],
+          "test_id": "RFA-RF18-release_fence"
+        },
+        {
+          "stage": "post-release-gc-event",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.gcRecords).event",
+          "affected_records": [
+            "INSERT QUEUED job_events scopeBLOB,JSONschema1 execution1 attempt0,time"
+          ],
+          "test_id": "RFA-RF18-release_fence"
+        },
+        {
+          "stage": "post-release-gc-candidate",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.gcRecords).Queue",
+          "affected_records": [
+            "INSERT blob_gc_candidates blobID/gcJobID,firstUnreferenced=now,scheduled=now+retention,attempt0"
+          ],
+          "test_id": "RFA-RF18-release_fence"
+        },
+        {
+          "stage": "final-work-fence",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.workerRecords).Fence",
+          "affected_records": [
+            "Fresh CheckInScope after completed-owner confirmation; resamples authority clock and full SQL fence before outer commit"
+          ],
+          "test_id": "RFA-RF18-release_fence"
+        },
+        {
+          "stage": "launch-retirement",
+          "repo_helper": "retrom/internal/repo/sessionstore.updateLaunchRelations",
+          "affected_records": [
+            "Per affected launch UPDATE unreleased launch_payload_retirements due_at from current state/deadlines; terminal due uses finished time; nested in enclosing sessionstore ChangeLaunch/ChangePreview atomic scope,not standalone commit"
+          ],
+          "test_id": "RFA-RF18-release_fence"
+        },
+        {
+          "stage": "launch-capabilities",
+          "repo_helper": "retrom/internal/repo/sessionstore.updateLaunchRelations",
+          "affected_records": [
+            "Per terminal affected launch UPDATE isolated_runtime_capabilities unrevoked -> revokedAt launch.finishedAt; nested in enclosing sessionstore ChangeLaunch/ChangePreview atomic scope,not standalone commit"
+          ],
+          "test_id": "RFA-RF18-release_fence"
+        },
+        {
+          "stage": "launch-restore-binding",
+          "repo_helper": "retrom/internal/repo/sessionstore.updateLaunchRelations",
+          "affected_records": [
+            "Per terminal affected launch UPDATE launch_game_save_bindings restorePayload and restoreCheckpointFormatNULL; nested in enclosing sessionstore ChangeLaunch/ChangePreview atomic scope,not standalone commit"
+          ],
+          "test_id": "RFA-RF18-release_fence"
+        },
+        {
+          "stage": "preview-capabilities",
+          "repo_helper": "retrom/internal/repo/sessionstore.revokePreviewCapability",
+          "affected_records": [
+            "Per terminal affected preview UPDATE unrevoked isolated_runtime_capabilities revokedAt preview.finishedAt; nested in enclosing sessionstore ChangeLaunch/ChangePreview atomic scope,not standalone commit"
+          ],
+          "test_id": "RFA-RF18-release_fence"
+        }
+      ],
+      "idempotency": "Skip alreadyRELEASED or visited owners; exact root authority prevents stale execution. Child may have its own release job except bound public-source linkage. Consumption released replay skips. All owner/file/session/upload/GC mutations atomically rollback together; worker Finish/audit is a later independent transaction.",
+      "time_rule": "Baseline BeginTx(ctx,nil) on shared writer and upper callback; Service clock sampled inside callback. Target requires one Repo admission sample after write permission. Exact sample/UUID positions below. ReleaseEffects waits outside writer,then CheckInScope samples time; effectRun uses a second Service sample for all releases; nested StageInScope samples again for GC; final CheckInScope samples again. GC job/execution UUID generation occurs inside same transaction. No new protection/CAS publication. Entire recursive graph/pages currently one potentially long writer.",
+      "after_commit": [
+        {
+          "action": "SQL commit removes references and queues GC without physically deleting bytes; worker settles its job/event/audit in separate transaction",
+          "recovery": "Crash after effects before Finish retries alreadyRELEASED/consumed facts and does not recreate ownership. Recursive pages are atomic in this writer; GC later rechecks global protection before physical deletion",
+          "test_id": "RFA-RF18-gc_crash_recovery"
+        }
+      ],
+      "fault_points": [
+        "PLANNED initial-work-fence: fail after each applicable scope/table write or each page and assert all owner,job,input,event,session,capability,binding,file,upload,candidate state rollback",
+        "PLANNED retry-failed-owner: fail after each applicable scope/table write or each page and assert all owner,job,input,event,session,capability,binding,file,upload,candidate state rollback",
+        "PLANNED link-bound-source: fail after each applicable scope/table write or each page and assert all owner,job,input,event,session,capability,binding,file,upload,candidate state rollback",
+        "PLANNED release-upload-consumption: fail after each applicable scope/table write or each page and assert all owner,job,input,event,session,capability,binding,file,upload,candidate state rollback",
+        "PLANNED game-launches: fail after each applicable scope/table write or each page and assert all owner,job,input,event,session,capability,binding,file,upload,candidate state rollback",
+        "PLANNED game-plays: fail after each applicable scope/table write or each page and assert all owner,job,input,event,session,capability,binding,file,upload,candidate state rollback",
+        "PLANNED game-netplay-sessions: fail after each applicable scope/table write or each page and assert all owner,job,input,event,session,capability,binding,file,upload,candidate state rollback",
+        "PLANNED game-netplay-rooms: fail after each applicable scope/table write or each page and assert all owner,job,input,event,session,capability,binding,file,upload,candidate state rollback",
+        "PLANNED game-launch-save-reference: fail after each applicable scope/table write or each page and assert all owner,job,input,event,session,capability,binding,file,upload,candidate state rollback",
+        "PLANNED game-hash-evidence: fail after each applicable scope/table write or each page and assert all owner,job,input,event,session,capability,binding,file,upload,candidate state rollback",
+        "PLANNED game-delete-save_states: fail after each applicable scope/table write or each page and assert all owner,job,input,event,session,capability,binding,file,upload,candidate state rollback",
+        "PLANNED game-delete-launch_external_files: fail after each applicable scope/table write or each page and assert all owner,job,input,event,session,capability,binding,file,upload,candidate state rollback",
+        "PLANNED game-delete-launch_content_files: fail after each applicable scope/table write or each page and assert all owner,job,input,event,session,capability,binding,file,upload,candidate state rollback",
+        "PLANNED game-delete-scrape_candidate_assets: fail after each applicable scope/table write or each page and assert all owner,job,input,event,session,capability,binding,file,upload,candidate state rollback",
+        "PLANNED game-delete-game_assets: fail after each applicable scope/table write or each page and assert all owner,job,input,event,session,capability,binding,file,upload,candidate state rollback",
+        "PLANNED game-delete-game_files: fail after each applicable scope/table write or each page and assert all owner,job,input,event,session,capability,binding,file,upload,candidate state rollback",
+        "PLANNED game-delete-variant_files: fail after each applicable scope/table write or each page and assert all owner,job,input,event,session,capability,binding,file,upload,candidate state rollback",
+        "PLANNED import-revoke-previews: fail after each applicable scope/table write or each page and assert all owner,job,input,event,session,capability,binding,file,upload,candidate state rollback",
+        "PLANNED import-draft-screenshots: fail after each applicable scope/table write or each page and assert all owner,job,input,event,session,capability,binding,file,upload,candidate state rollback",
+        "PLANNED import-clear-draft-assets: fail after each applicable scope/table write or each page and assert all owner,job,input,event,session,capability,binding,file,upload,candidate state rollback",
+        "PLANNED import-delete-isolated_runtime_capabilities: fail after each applicable scope/table write or each page and assert all owner,job,input,event,session,capability,binding,file,upload,candidate state rollback",
+        "PLANNED import-delete-isolated_runtime_bootstrap_tickets: fail after each applicable scope/table write or each page and assert all owner,job,input,event,session,capability,binding,file,upload,candidate state rollback",
+        "PLANNED import-delete-review_preview_files: fail after each applicable scope/table write or each page and assert all owner,job,input,event,session,capability,binding,file,upload,candidate state rollback",
+        "PLANNED import-delete-review_runtime_screenshots: fail after each applicable scope/table write or each page and assert all owner,job,input,event,session,capability,binding,file,upload,candidate state rollback",
+        "PLANNED import-delete-review_preview_sessions: fail after each applicable scope/table write or each page and assert all owner,job,input,event,session,capability,binding,file,upload,candidate state rollback",
+        "PLANNED import-delete-review_uploaded_assets: fail after each applicable scope/table write or each page and assert all owner,job,input,event,session,capability,binding,file,upload,candidate state rollback",
+        "PLANNED import-delete-scrape_candidate_assets: fail after each applicable scope/table write or each page and assert all owner,job,input,event,session,capability,binding,file,upload,candidate state rollback",
+        "PLANNED import-delete-import_item_validation_files: fail after each applicable scope/table write or each page and assert all owner,job,input,event,session,capability,binding,file,upload,candidate state rollback",
+        "PLANNED import-delete-import_item_source_snapshot_files: fail after each applicable scope/table write or each page and assert all owner,job,input,event,session,capability,binding,file,upload,candidate state rollback",
+        "PLANNED import-delete-import_item_source_files: fail after each applicable scope/table write or each page and assert all owner,job,input,event,session,capability,binding,file,upload,candidate state rollback",
+        "PLANNED import-parent-attachment: fail after each applicable scope/table write or each page and assert all owner,job,input,event,session,capability,binding,file,upload,candidate state rollback",
+        "PLANNED import-multidisc-evidence: fail after each applicable scope/table write or each page and assert all owner,job,input,event,session,capability,binding,file,upload,candidate state rollback",
+        "PLANNED import-hash-evidence: fail after each applicable scope/table write or each page and assert all owner,job,input,event,session,capability,binding,file,upload,candidate state rollback",
+        "PLANNED source-release-files: fail after each applicable scope/table write or each page and assert all owner,job,input,event,session,capability,binding,file,upload,candidate state rollback",
+        "PLANNED source-release-assets: fail after each applicable scope/table write or each page and assert all owner,job,input,event,session,capability,binding,file,upload,candidate state rollback",
+        "PLANNED purge-upload-file: fail after each applicable scope/table write or each page and assert all owner,job,input,event,session,capability,binding,file,upload,candidate state rollback",
+        "PLANNED complete-release-owner: fail after each applicable scope/table write or each page and assert all owner,job,input,event,session,capability,binding,file,upload,candidate state rollback",
+        "PLANNED post-release-blob-fence: fail after each applicable scope/table write or each page and assert all owner,job,input,event,session,capability,binding,file,upload,candidate state rollback",
+        "PLANNED post-release-gc-job: fail after each applicable scope/table write or each page and assert all owner,job,input,event,session,capability,binding,file,upload,candidate state rollback",
+        "PLANNED post-release-gc-input: fail after each applicable scope/table write or each page and assert all owner,job,input,event,session,capability,binding,file,upload,candidate state rollback",
+        "PLANNED post-release-gc-event: fail after each applicable scope/table write or each page and assert all owner,job,input,event,session,capability,binding,file,upload,candidate state rollback",
+        "PLANNED post-release-gc-candidate: fail after each applicable scope/table write or each page and assert all owner,job,input,event,session,capability,binding,file,upload,candidate state rollback",
+        "PLANNED final-work-fence: fail after each applicable scope/table write or each page and assert all owner,job,input,event,session,capability,binding,file,upload,candidate state rollback",
+        "PLANNED each guard independently changed before writer; stale lease/input/current source,shared Blob,preexisting release job,recursive source/public linkage,mid-page cancellation and SQL commit failure",
+        "PLANNED launch-retirement: inject failure after SQL and require full enclosing effect graph rollback",
+        "PLANNED launch-capabilities: inject failure after SQL and require full enclosing effect graph rollback",
+        "PLANNED launch-restore-binding: inject failure after SQL and require full enclosing effect graph rollback",
+        "PLANNED preview-capabilities: inject failure after SQL and require full enclosing effect graph rollback"
+      ],
+      "test_ids": [
+        "RFA-RF18-release_fence",
+        "RFA-RF18-gc_crash_recovery",
+        "RFA-RF18-shared_digest"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "This operation changes job/bookkeeping state or removes existing references; it neither publishes CAS bytes nor adds a protective Blob edge. Physical deletion is separately registered.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
       "operation_id": "payloadrelease.cancel-protected-gc",
       "owner": "payloadrelease",
       "rf_id": "RF18",
@@ -18632,6 +19367,7 @@
     "RF12 SOURCE_REVIEWED census adds 19 distinct transaction families, including original-session AbortPreparation separately from post-Launch record and active/passive expiry separately from startup recovery. Launch participant credential publication belongs to RF10; participant access/query/Hub frame protocol are read-only or memory operations, not fabricated SQL commands. Baseline Hub performs SQL under mutex and sometimes publishes memory before commit; writer time and UUID positions are recorded for migration. All new behavioral/fault/race cases remain PLANNED.",
     "RF15 SOURCE_REVIEWED: 10 standalone transaction entry families, with scrape claim/requeue/terminal branches and media claim/requeue/reconcile branches explicitly expanded. ScheduleImport is nested RF13; media scheduling is nested record-lookup; initial-review projection is nested finish-scrape. Recovery and cache expiry lookup are read-only here. Baseline record-lookup lacks fresh import payload/parent cancellation/evidence-to-run checks and samples two times. Clock/UUID positions, protective hash-evidence/raw/media Blob edges and remaining inline candidate/budget/evidence-selection policy extraction are recorded, not claimed fixed. All new fault/race tests remain PLANNED.",
     "RF17 SOURCE_REVIEWED two generic mutation families; three registered owner adapters have separate RF13/RF14 transactions,not extra RF17 SQL,while BIOS side effects remain inside generic cancel. Job read/SSE/importprogress projection are not writes. Kind completeness and typed owner registration remain pending; the raw external audit's '12 kinds' conflicts with its14rows and its unconditional no-receipt claim was rejected. RF06 adds two actual receipt autocommit operations and clarifies existing domain-only receipt notes. Current generic HTTP receipts are NOT atomic with domain changes. New behavioral cases remain PLANNED.",
-    "RF18 PARTIAL SOURCE_REVIEWED adds13 worker/observer/GC/expiry/retirement transaction entries. Normal Finish requires live lease unlike Recover;1s monitor owns a separate write-fence transaction. GC physical unlink follows catalog commit without digest lock; same-digest replacement/missing-original retry paths explicitly registered. Expiry nested GC resamples time,renew/finish use two clock samples. Release effect graph deletion details and nested owner scheduling full census still outstanding; no claim RF18 is complete. New behavior/fault/concurrency tests remain PLANNED."
+    "RF18 PARTIAL SOURCE_REVIEWED adds13 worker/observer/GC/expiry/retirement transaction entries. Normal Finish requires live lease unlike Recover;1s monitor owns a separate write-fence transaction. GC physical unlink follows catalog commit without digest lock; same-digest replacement/missing-original retry paths explicitly registered. Expiry nested GC resamples time,renew/finish use two clock samples. Release effect graph deletion details and nested owner scheduling full census still outstanding; no claim RF18 is complete. New behavior/fault/concurrency tests remain PLANNED.",
+    "RF18 release-effects graph source-reviewed as one standalone writer including every per-table delete/update phase,recursive owners,consumptions,session relations and nested GC. Scheduling helpers accept caller Scope/Tx and are not independent commits: parent RF13/RF14/RF16 operations must include job/input/event+owner linkage stages. Lifecycle is read-only but current constructor performs validation I/O; ImpactQueries.Game currently performs repository read from Model and must become Service orchestration with pure projection. All fault/concurrency verification remains PLANNED."
   ]
 }
