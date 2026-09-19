@@ -41,7 +41,7 @@ func (repository *WorkerSettlement) WithSettlement(
 	return nil
 }
 
-type workerSettlementRecords struct{ tx *sql.Tx }
+type workerSettlementRecords struct{ tx dbexec.Executor }
 
 func (records workerSettlementRecords) Current(ctx context.Context, id string) (application.ExecutionSnapshot, error) {
 	return leaseRecords(records).Current(ctx, id)

@@ -100,7 +100,7 @@ func scanRecovery(scanner dbexec.Scanner) (application.RecoverySnapshot, error) 
 	return value, nil
 }
 
-type recoveryRecords struct{ tx *sql.Tx }
+type recoveryRecords struct{ tx dbexec.Executor }
 
 func (records recoveryRecords) Current(ctx context.Context, id string) (application.RecoverySnapshot, error) {
 	return scanRecovery(records.tx.QueryRowContext(ctx, recoverySnapshotSQL+` AND job.id=?`, id))

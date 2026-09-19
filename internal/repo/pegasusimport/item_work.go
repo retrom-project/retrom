@@ -32,7 +32,7 @@ func (repository *ItemWork) WithItemWork(ctx context.Context, work func(applicat
 	return nil
 }
 
-type itemWorkRecords struct{ tx *sql.Tx }
+type itemWorkRecords struct{ tx dbexec.Executor }
 
 func (records itemWorkRecords) Execution(ctx context.Context, id string) (application.ExecutionSnapshot, error) {
 	return scanRecovery(records.tx.QueryRowContext(ctx, recoverySnapshotSQL+` AND job.id=?`, id))

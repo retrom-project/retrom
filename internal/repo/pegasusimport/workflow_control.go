@@ -155,7 +155,7 @@ func (repository *WorkflowControl) CommitRetryWorkflow(
 	return after.Summary, nil
 }
 
-type workflowRecords struct{ transaction *sql.Tx }
+type workflowRecords struct{ transaction dbexec.Executor }
 
 func (records workflowRecords) Current(ctx context.Context, id string) (application.WorkflowSnapshot, error) {
 	summary, err := (&Queries{database: records.transaction}).Get(ctx, id)

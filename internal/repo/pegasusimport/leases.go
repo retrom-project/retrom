@@ -86,7 +86,7 @@ func (repository *Leases) CommitLeaseRenewal(
 	return nil
 }
 
-type leaseRecords struct{ tx *sql.Tx }
+type leaseRecords struct{ tx dbexec.Executor }
 
 const leaseNextSQL = `SELECT job.id,plan.id,job.kind,plan.root_id,plan.root_config_digest,
 plan.source_relative_path,plan.created_by_user_id,job.execution_no,job.attempt_count,job.version,plan.version,
