@@ -3,7 +3,7 @@ set -euo pipefail
 
 # Generated OpenAPI code is compared byte-for-byte by api-check and therefore
 # retains the fixed generator's formatting.
-mapfile -t files < <(find cmd internal migrations -name '*.go' -type f ! -path '*/generated/*' | sort)
+mapfile -t files < <(find cmd internal migrations scripts/architecture-check -name '*.go' -type f ! -path '*/generated/*' | sort)
 if (( ${#files[@]} == 0 )); then
   exit 0
 fi

@@ -116,6 +116,30 @@ Provider 的 checkpoint 压缩依赖由 `retrom-runtime` 自己固定和审计�
 - `make dev` 的默认网络基线是 `http://localhost:4000`、Next `127.0.0.1:4000`、Go `127.0.0.1:8080` 与 runtime `http://{launchId}.rpg.localhost:8080`。PFB 命令与 `make dev` 并列且不成为其依赖；共享 PFB 网关继续独占宿主 3000，普通开发独占 4000，两者必须能够同时运行。全部 `make pfb-*` 命令和直接 PFB CLI 同样拒绝 root/sudo，PFB 应用与共享网关容器都显式使用发起命令的普通用户 UID/GID。
 - 本地自动化明确使用 `RETROM_MODE=test`，dev supervisor 将它转换为后端 CLI 的 `--mode=test` 后从 Go 子进程环境中移除，避免严格环境变量校验把前端编排变量误当作后端配置。测试模式只允许临时数据目录、固定 `test/test` 账号和显著 UI 警告；release 模式测试必须走 setup code，不得用测试账号旁路。
 
+### 源码所有权与类型盘点
+
+`make refactor-inventory` 在固定 Go、API 生成物及 Web 依赖准备后读取精确的
+`quality/architecture/package-ownership.json`，对每个实际源码目录和文件核对层、领域、RF owner
+及 production/test/tool/generated 类别。清单不接受目录通配规则；新文件必须显式登记，
+失效条目与未登记文件都失败。测试与工具类别仍进入图分析，不能供生产代码绕过边界。
+
+盘点同时覆盖 Go 默认和 integration 构建的类型、声明、导入及实际符号引用，以及全部 Go
+源码的语法（含被 build tag 排除的文件）。只有测试的包也必须保留。Web 使用锁定的
+TypeScript Compiler API 和当前 tsconfig 解析 static/type/export/dynamic literal 引用；
+Next 的 server-only/client-only 保留为框架边界标记。类型加载、解析或空扫描都为分析错误。
+
+每份 Go 盘点记录基线、HEAD、Git tree 和包含未提交源码字节的 SHA-256 指纹，报告写入
+被忽略的 `.artifacts/refactor/`；报告不能代替策略、Guard、原子事务或产品行为验收。
+兼容性核对从登记基线检查 migration SQL、API schema、Provider/DAT 数据输入、
+workspace manifest 与公开 fixture，变化或新增输入返回 AR11。基线必须是 HEAD 的祖先；
+检查器不修改 refs 或切换用户 checkout。
+
+检查器入口是 `scripts/architecture-check` 与 `web/scripts/architecture-check.mjs`，
+复用 `internal/testkit/architecture`。Go 入口纳入 formatter、test、lint；
+Web 工具测试纳入 `web-test`，脚本与测试同时受全仓结构及 ESLint 门槛约束。
+退出码：0 表示本次盘点检查通过，1 表示已发现归属或兼容性违规，2 表示输入或分析错误。
+盘点通过只说明这些检查已完成，不代表分层规则或重构最终验收已全部通过。
+
 ### 3.1 全仓源码结构门禁
 
 所有 Git 已跟踪及尚未提交但未被 ignore 的手写新旧源码执行同一规则；不建立存量 baseline、旧文件 allowlist、“只禁止继续增长”或按本次 diff 跳过的历史豁免。`make quality-structure-check` 在完整 lint 和测试前快速失败，并由 `make backend-check`、`make web-check`、`make ci` 及 CI quality job 调用同一实现。

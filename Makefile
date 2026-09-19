@@ -51,7 +51,7 @@ RETROM_CHROME_EXECUTABLE ?= $(abspath .cache/tools/retrom-chrome-for-testing)
 export PLAYWRIGHT_BROWSERS_PATH
 export RETROM_CHROME_EXECUTABLE
 
-GO_PACKAGES := ./cmd/... ./internal/... ./migrations/...
+GO_PACKAGES := ./cmd/... ./internal/... ./migrations/... ./scripts/architecture-check/...
 API_OPENAPI_SOURCES := api/openapi.yaml api/runtime-provider/v1/launch-envelope.schema.json \
 	api/runtime-provider/v1/provider-manifest.schema.json \
 	$(sort $(wildcard api/domains/*.yaml api/components/*.yaml))
@@ -83,8 +83,8 @@ install-golangci-lint: prepare-go
 	@if [[ ! -x bin/golangci-lint ]] || [[ "$$(bin/golangci-lint version 2>&1)" != *"$(GOLANGCI_LINT_VERSION:v%=%)"* ]]; then GOBIN="$(abspath bin)" go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION); fi
 
 fmt: install-go-formatters
-	@bin/gofumpt -w $$(find cmd internal migrations -name '*.go' -type f ! -path '*/generated/*' | sort)
-	@bin/goimports -w $$(find cmd internal migrations -name '*.go' -type f ! -path '*/generated/*' | sort)
+	@bin/gofumpt -w $$(find cmd internal migrations scripts/architecture-check -name '*.go' -type f ! -path '*/generated/*' | sort)
+	@bin/goimports -w $$(find cmd internal migrations scripts/architecture-check -name '*.go' -type f ! -path '*/generated/*' | sort)
 
 fmt-check: install-go-formatters
 	@scripts/fmt-check.sh
@@ -152,6 +152,7 @@ web-typecheck: prepare-node
 
 web-test: prepare-node
 	@cd web && $(NPM) run test:ci
+	@$(NODE_HOME)/bin/node --test web/scripts/architecture/graph.test.mjs
 
 NEXT_DIST_DIR ?= .next
 
@@ -345,3 +346,10 @@ acceptance-case: prepare-go prepare-node
 
 acceptance-report:
 	@scripts/acceptance/run.sh report
+
+.PHONY: refactor-inventory
+refactor-inventory: prepare-go api-generate-go web-install
+	@mkdir -p .artifacts/refactor
+	@go run ./scripts/architecture-check -mode inventory > .artifacts/refactor/inventory.json
+	@cd web && $(NPM) exec --no -- next typegen
+	@$(NODE_HOME)/bin/node web/scripts/architecture-check.mjs > .artifacts/refactor/web-inventory.json
