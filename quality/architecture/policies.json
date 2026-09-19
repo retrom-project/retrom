@@ -3709,6 +3709,55 @@
       ]
     },
     {
+      "id": "libraryimport.source.reviewHandoffKind",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "(retrom/internal/adapter/integration/libraryimport.preparedServerSource).reviewHandoffKind",
+      "consumers": [
+        "(*retrom/internal/adapter/integration/libraryimport.Service).CreateOwnedServerSource",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).createPreparedServerSource"
+      ],
+      "invariant": "Only explicitEmulationStation handoff remainsreserved; defaultDIRECT.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-approval_guard"
+      ]
+    },
+    {
+      "id": "libraryimport.source.totalUploadBytes",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/repo/libraryimport.totalUploadBytes",
+      "consumers": [
+        "retrom/internal/repo/libraryimport.InsertClonedUpload"
+      ],
+      "invariant": "Sum preparedfile sizes; baseline uncheckedint64 overflow,requiredcheckedarithmetic invaluepolicy.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-approval_guard"
+      ]
+    },
+    {
+      "id": "libraryimport.source.validateOwnedSourceReplay",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/adapter/integration/libraryimport.validateOwnedSourceReplay",
+      "consumers": [
+        "(*retrom/internal/adapter/integration/libraryimport.Service).CreateOwnedServerSource"
+      ],
+      "invariant": "Canonical primarypaths,exacttarget/compatible normalized RPG mode,boundednonemptyfiles andsorted manifestdigest mustmatch permanent sourcebinding.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-approval_guard"
+      ]
+    },
+    {
       "id": "libraryimport.validApprovalDecision",
       "owner": "libraryimport",
       "rf_id": "RF13",

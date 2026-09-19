@@ -12301,6 +12301,132 @@
       }
     },
     {
+      "operation_id": "libraryimport.create-server-source-upload",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "consumers": [
+        "(*retrom/internal/adapter/integration/libraryimport.Service).CreateOwnedServerSource",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).CreateServerSource",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).CreateServerSourceOnce",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).createServerSource",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).ensureServerSourceUpload",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).insertPreparedServerUpload"
+      ],
+      "snapshot": "retrom/internal/adapter/integration/libraryimport.preparedServerSource",
+      "prepare": "(*retrom/internal/adapter/integration/libraryimport.Service).insertPreparedServerUpload",
+      "commit": "(*retrom/internal/repo/libraryimport.ServerSourceUploads).Insert",
+      "policy_symbols": [
+        "(retrom/internal/adapter/integration/libraryimport.preparedServerSource).reviewHandoffKind",
+        "retrom/internal/adapter/integration/libraryimport.validateOwnedSourceReplay",
+        "retrom/internal/repo/libraryimport.totalUploadBytes"
+      ],
+      "fresh_facts": [
+        {
+          "name": "preparation Blob size",
+          "reader_symbol": "(*retrom/internal/repo/libraryimport.ServerSourceUploads).BlobSize",
+          "reason": "Outsidewriter: eachnonemptyBlobID mustexist withsize==request>=0; no currentdigest/physicalCAS verification; filepaths sorted andcase-insensitive unique"
+        },
+        {
+          "name": "idempotent upload replay",
+          "reader_symbol": "(*retrom/internal/repo/libraryimport.ServerSourceUploads).Present",
+          "reason": "BeforeInsert andonInsertfailure: exactCOMPLETE/sourceType/manifestdigest/totalbytes/filecount ofdeterministicuploadID; nofilelist/ownerbinding recheck"
+        },
+        {
+          "name": "existing source creation",
+          "reader_symbol": "(*retrom/internal/repo/libraryimport.ServerSourceUploads).Creation",
+          "reason": "Separateoutsidewriterlookup importparent/groupjob byupload+target+contentMode; incompatible existingimport =>ErrInvalid"
+        }
+      ],
+      "guards": [
+        {
+          "id": "server-files",
+          "fields": [
+            "count",
+            "path",
+            "BlobId",
+            "size"
+          ],
+          "expected_source": "1..ServerSourceFileLimit,nonemptypath/Blob,size>=0,casefoldpathunique andcatalogsizeexact; sizeadditionunchecked. Prepared files aretrusted values duringInsert; no fresh reread",
+          "rejection": "ErrInvalid / Blobsize read error",
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "id": "server-idempotency",
+          "fields": [
+            "key",
+            "owner",
+            "mode",
+            "manifest"
+          ],
+          "expected_source": "Nonemptykey makesdeterministic UUIDv5 namespaceOID prefixretrom:server-source:v1; ownerkind inferred PEGASUS|EMULATIONSTATION fromkey,otherwiseempty; ES-specific keysetsreviewhandoff. FILES exceptMULTI_DISC ->DIRECTORY. ManifestSHA over sortedoriginalfile descriptors",
+          "rejection": "Replay mismatch ErrInvalid",
+          "test_id": "RFA-RF13-format_paths"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "source-upload-session",
+          "repo_helper": "retrom/internal/repo/libraryimport.InsertClonedUpload",
+          "affected_records": [
+            "INSERT COMPLETE uploadsession sourceType/files/uncheckedtotalbytes/manifest/version1/expiresnow+24h/time"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "source-upload-files",
+          "repo_helper": "retrom/internal/repo/libraryimport.InsertClonedUpload",
+          "affected_records": [
+            "INSERT COMPLETE uploadfile perpreparedsource withnewRepoUUID,declared=receivedsize,finalBlob reference/time; originalsynthetic server-ID notpersisted"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "source-upload-owner",
+          "repo_helper": "(*retrom/internal/repo/libraryimport.ServerSourceUploads).Insert",
+          "affected_records": [
+            "Ifinferredownerkindnonempty INSERT server_import_upload_owners upload/kind/sourceItemID; nofreshsourceexecution authorityhere"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        }
+      ],
+      "idempotency": "DeterministicuploadID+matching Present permitsreplay/concurrentinsertfallback,then separate registered create-import operation bindsownedsource atomically. LookupOwnedServerSource isread-onlypermanentbinding lookup,doesnotauthorizewrites. validateOwnedSourceReplay checksprimarypaths/target/normalizedmode andsortedfilesmanifest digest; returnoriginalresult evenafterpayloadcleanup. ServerSourceUploads.Insert isseparatecommit fromactualimportcreation.",
+      "time_rule": "Baseline shared writer BeginTx with upper callback (or Repo-owned orchestration); Service clock position specified below. Target Repo must acquire write permission then sample technical Clock once; prepared identities generated before writer. UploadID generatedbeforewriter(random UUIDerrorignored; deterministicUUIDforidempotentkey); ServiceNow beforeBeginTx(nil); Repo generatesperfileUUIDwitherrorspropagated. Noowningwriter Clock or checkedTTL/sizearithmetic.",
+      "after_commit": [
+        {
+          "action": "Caller nextperformsregistered create-import withownedsource fencesorunownedlegacy creation; onerror RemoveUnused in separate registeredcleanup transaction",
+          "recovery": "Oncrash completeupload withsourceowner remainsdurable andidempotentkeycanresume; cleanup isWithoutCancel/unbounded/errorsignored baseline. Changesmustpreservepermanentownedreplay andseparateupload transaction.",
+          "test_id": "RFA-RF13-discard_handoff"
+        }
+      ],
+      "fault_points": [
+        "PLANNED source-upload-session: failaftereachrow andassertupload+owner rollback",
+        "PLANNED source-upload-files: failaftereachrow andassertupload+owner rollback",
+        "PLANNED source-upload-owner: failaftereachrow andassertupload+owner rollback",
+        "PLANNED concurrentdeterministickeyinsert,manifest/owner/uploadstate drift,BlobGC race,expiredsourceowner andcrashbetween upload/importcreation; unexecuted"
+      ],
+      "test_ids": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-publish_atomic",
+        "RFA-RF13-discard_handoff"
+      ],
+      "content_coordination": {
+        "required": true,
+        "reason": "Creates complete uploadfile.final_blob_id protective edges foralreadycataloged servercopied content. Baseline noD22coordinator; acquire sorted digeststripes beforewriter,verifycurrentowners/contentandholdthroughcommit.",
+        "digest_sources": [
+          "Everypreparedserverfile Blobdigest andphysicalavailability; currentAPI onlycarriesBlobID/size,soRF03/05mustaddverifieddigest/staging references"
+        ],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": "(*retrom/internal/repo/libraryimport.ServerSourceUploads).Insert",
+        "test_ids": [
+          "RFA-RF13-approval_guard",
+          "RFA-RF13-publish_atomic",
+          "RFA-RF18-gc_new_reference",
+          "RFA-RF18-digest_lock_process"
+        ]
+      }
+    },
+    {
       "operation_id": "libraryimport.deduplicate-review-page",
       "owner": "libraryimport",
       "rf_id": "RF13",
@@ -27637,6 +27763,7 @@
     "RF13 approval,ordinary/source/batch discard,deduplication page and final discarded-batch release source-reviewed. Bulk publication is a nested write set of approve-review,not a second commit. Pending: bulk admission/worker/cancel/retry/recovery,arcade/multidisc attachments,source upload handoff,format policies. New game/variant/media refs require D22; baseline bulk publication can renew expired worker because live lease/execution fence is absent.",
     "RF13 bulk admission plus10claim/item/outcome/finish/failure/cancel/retry/resume operations source-reviewed. Successful publication remains in approve-review owning transaction. Baseline misses complete execution authority and admission Clock,ignores settlement errors/UUID errors,uses untracked WithoutCancel goroutines,and startup resets live RUNNING jobs without expiry guard; RF13/RF17/RF02 must resolve. Attachment/source-handoff/format census still pending.",
     "RF13 seven arcade-parent admission/claim/accepted/rejected/retryable/cancellation operations source-reviewed. Acceptedcommit copiesprotective references withoutD22; admission performsstatinsidewriter; terminalrejected/retryable omitaffectedrowchecks; clocks/IDs/errorreporting/executionauthority needmigration. Multidisc/sourcehandoff/formatcensus pending.",
-    "RF13 nine multidisc attachment admission/claim/heartbeat/accepted/reject/retry/fallback/cancellation operations source-reviewed. Preserves separate retry andfallback transactions. Baseline prepublishedplaylist+new protective references lacksD22; heartbeat canreviveexpiredlease,doesnotincrementversion; completeauthority/fullsourceclosure/errorreporting remainrequired. Sourcehandoff/formatcensus stillpending."
+    "RF13 nine multidisc attachment admission/claim/heartbeat/accepted/reject/retry/fallback/cancellation operations source-reviewed. Preserves separate retry andfallback transactions. Baseline prepublishedplaylist+new protective references lacksD22; heartbeat canreviveexpiredlease,doesnotincrementversion; completeauthority/fullsourceclosure/errorreporting remainrequired. Sourcehandoff/formatcensus stillpending.",
+    "RF13 serverupload-envelope transaction nowregistered separatelyfromcreate-import+sourcebinding; allobservedlibraryimport BeginTx/write boundaries haveentriesoridentifiedread-only/helperowners. FinalRF13policy/consumer coverage audit stillpending; D22/Clock/authority/lifecycle/cleanupdefects remainunimplemented."
   ]
 }
