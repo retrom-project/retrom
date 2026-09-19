@@ -1675,11 +1675,18 @@ case/item/game/来源身份、真实预览与恢复会话、checkpoint 和截图
 `rpgmaker-product.json`，并内嵌到统一 `result.json.productEvidence`；Cookie、CSRF、Launch capability 和宿主
 绝对路径不得进入这两个文件。
 
+使用公共 Content I/O 的产品 Case 必须记录当次 Session 的获取配置：默认小文件阈值为 1 MiB（含等于），网络窗口为 512 KiB，内部缓存／通信块仍为 256 KiB。仅实际读取触发网络；小文件无有效缓存时允许显式整文件 GET，已有部分缓存时只补缺；大文件按对齐窗口的缺失连续区间获取，并裁剪文件尾部。观察器从配置、文件大小和已缓存块推导合法请求范围，不能把内部块大小当 HTTP 上限，也不能仅扩大上限而放过重复下载。除显式授权的小文件整文件响应外，仍要求准确单范围 206；大小、ETag/If-Match 和适用的全文 SHA 校验保持。未读取文件与其他窗口不得后台预取。跨 Session 修改窗口后旧内部块仍须复用。配置专项验收至少包含多组非默认阈值和窗口、阈值前／等于／后一字节、跨窗口／尾部、部分缓存、并发共享、部分／全部取消和缓存不可用。外网性能证据同时记录请求数、总下载字节和首次可用时间。
+
 002 至 008 的统一 runner 还必须在同一浏览器 context 中创建第二个不带存档的 PRODUCT Launch，并在两次首个
 可创建存档状态出现时冻结项目内容响应和固定 runtime asset Resource Timing 摘要。EasyRPG 两个 Launch 必须使用
 同一稳定 project content identity，只取索引声明中实际使用的部分文件且首屏 project bytes 小于项目总字节；mkxp
 必须只以 `206 Range` 读取不小于 4 MiB 的远程 `game.mkxpz`，不得出现项目 archive 的整包 `200`，读取 byte 小于
-archive 总大小；两类恢复 Launch 均至少命中一个固定 runtime asset 浏览器缓存。MV/MZ 保持 unique runtime origin，
+archive 总大小。EasyRPG 第二个 Launch 至少命中一个固定 runtime asset 浏览器缓存。mkxp 的 loading 证据使用 schemaVersion=3，逐次记录 BOOT 中实际冻结的获取配置，
+额外记录 contentIO：两个 Launch 各自从最新配置注册项目来源与固定核心 JS/WASM，在整个 browser context（包括 Worker）
+观测请求；冷启动必须下载两个核心资产，并逐条校验游戏 Range 的 206、长度、强 ETag 和符合当次配置的窗口边界与缺失区间。
+第二个 Launch 必须独立声明相同项目与核心资产身份，在实际 Player 可创建存档且帧继续推进时，游戏内容和两个核心资产
+均为零 HTTP 请求，以证明公共持久缓存复用。不得把零请求伪记为浏览器 HTTP 缓存命中，也不得从第一次配置复制第二次身份。
+MV/MZ 保持 unique runtime origin，
 两次首屏的 native project 响应数都必须大于零且严格小于导入文件总数，不得枚举或下载整个项目。结构化证据只记录
 Launch ID、计数和 byte，不记录 content identity、项目路径或资源名。
 
@@ -1804,10 +1811,10 @@ Review 与普通预览会话。`negative-matrix/matrix.json` 必须精确声明 
 ### ACC-RPG-009：项目资源与人工自包含确认
 
 - 上限：300 秒。执行：`make acceptance-case CASE=ACC-RPG-009`。该 Case 随独立 RTP 安装功能退役，改为检查项目资源策略，不再安装或删除运行包。
-- 输入：正常的 `RETROM_ACCEPTANCE_BASE_URL/USERNAME/PASSWORD` 与 `RETROM_CHROME_EXECUTABLE`，以及仓库自有的 2000/2003/XP/VX/VX Ace fixtures；通过临时副本仅修改 INI 外部资源声明形成阻断输入，不下载厂商 RTP。可用 `RETROM_ACCEPTANCE_HEADED=1` 在有显示环境的 Chrome 中运行。
+- 输入：正常的 `RETROM_ACCEPTANCE_BASE_URL/USERNAME/PASSWORD` 与 `RETROM_CHROME_EXECUTABLE`，以及仓库自有的 2000/2003/XP/VX/VX Ace fixtures；每次复制固定 fixture 并加入唯一且不被游戏引用的 `RetromAcceptanceRun.txt` 标记，再仅修改 INI 外部资源声明形成阻断输入；原始 fixture 不变，不下载厂商 RTP。可用 `RETROM_ACCEPTANCE_HEADED=1` 在有显示环境的 Chrome 中运行。
 - 流程：逐一真实上传并发布五个自包含项目；五个带外部 RTP 声明的项目必须默认不能发布，approve 返回 `409 REVIEW_VALIDATION_STALE`。保留人工确认：2000 项目通过真实审核页面勾选，其余通过普通 PATCH，确认后可发布，取消后恢复阻断，再确认后成功发布。不得把安装可用性或试玩截图当成确认。
 - 同时验证退休的列表/安装/删除 API 为 404，专用上传 purpose 被拒绝，BIOS 页面与服务器批量导入入口可用，不出现安装运行包入口。该 Case 只通过产品 API/UI 添加具名测试项目，不清理、转换或重置现有数据。
-- 证据：`rpgmaker-product.json` 保存五个世代各自的自包含 Game ID、外部依赖 Item ID、实际拒绝码、确认/撤销结果及确认后的 Game ID；保存 BIOS 与人工确认两张当次截图。证据验证拒绝重复身份、缺少世代或缺少撤销检查。不得写入口令、Cookie、CSRF、capability 或私有素材路径。
+- 证据：`rpgmaker-product.json` 保存五个世代各自的自包含 Game ID、外部依赖 Item ID、实际拒绝码、确认/撤销结果及确认后的 Game ID；保存 BIOS 与人工确认两张当次截图。`fixtureRecipes` 记录五个世代的固定源清单摘要、run UUID 和新增标记的名称/大小/SHA；证据验证拒绝源或标记不匹配、重复身份、缺少世代或缺少撤销检查。不得写入口令、Cookie、CSRF、capability 或私有素材路径。
 - 预览、运行、输入与跨 Launch 存档恢复继续分别执行受影响世代的 `ACC-RPG-002`–`008`，不能用此审核 Case 代替真实运行验证。
 
 ### ACC-RPG-010：版本选择与内容安全
@@ -1849,14 +1856,14 @@ Review 与普通预览会话。`negative-matrix/matrix.json` 必须精确声明 
 
 - 上限：300 秒。执行：`RETROM_ONS_SMOKE_ARCHIVE=<absolute-licensed-archive> make acceptance-case CASE=ACC-ONS-001`；同时需要公共的 `RETROM_ACCEPTANCE_BASE_URL/USERNAME/PASSWORD` 与 `RETROM_CHROME_EXECUTABLE`，基础地址必须为 HTTPS origin。
 - 流程：经正式 Upload 创建 `ONS_PROJECT` Import，等待唯一 Review；打开 ONS Review Preview，聚焦真实 canvas 并发送基本键盘输入，通过普通 Player 工具栏按需保存审核截图；审核通过并发布后创建 PRODUCT Launch，再次发送输入并从 Player 创建 `ONS_SAVE_BUNDLE_V1` 存档；关闭原页面，以该存档创建 ID 不同的第二个 PRODUCT Launch，等服务端 state 响应和 runtime restore ready，再发送恢复后输入。两次 Product Launch 都在首个有效 canvas 出现时冻结项目索引、内容响应和 runtime asset Resource Timing 摘要。
-- 通过标准：五次截图前都必须证明核心已把 canvas backing buffer 从浏览器默认 `300×150` 设置为实际游戏分辨率、backing/display 宽高比误差不超过 `0.01`、canvas 相对 `data-ons-runtime-surface` 的横纵中心偏差各不超过 1 px，且 canvas 已持有键盘焦点。预览、Product 输入前后、恢复和恢复后输入共五张实际 canvas PNG 均为非黑有效画面；Product 输入前后及恢复前后输入的 RGBA digest 必须变化；自动截图后审核按钮才可通过；checkpoint payload kind、大小和服务器回执有效；原/恢复 Launch 不同；浏览器没有 page error、console error 或意外 dialog。项目必须包含至少一个不小于 4 MiB 的未访问文件，首个有效画面前只请求索引声明的真正在用文件，请求文件数和响应 byte 都严格小于完整项目且未请求全部大文件；两个 Launch 必须解析到同一稳定 project content identity，恢复 Launch 至少命中一个固定 runtime asset 的浏览器缓存。结构化证据只记录计数/byte，不记录文件名或 logical path。ScriptProcessor/WebGL 性能 warning 不作为失败。
+- 通过标准：五次截图前都必须证明核心已把 canvas backing buffer 从浏览器默认 `300×150` 设置为实际游戏分辨率、backing/display 宽高比误差不超过 `0.01`、canvas 相对 `data-ons-runtime-surface` 的横纵中心偏差各不超过 1 px，且 canvas 已持有键盘焦点。预览、Product 输入前后、恢复和恢复后输入共五张实际 canvas PNG 均为非黑有效画面；Product 输入前后及恢复前后输入的 RGBA digest 必须变化；自动截图后审核按钮才可通过；checkpoint payload kind、大小和服务器回执有效；原/恢复 Launch 不同；浏览器没有 page error、console error 或意外 dialog。项目必须包含至少一个不小于 4 MiB 的未访问文件，首个有效画面前只请求索引声明的真正在用文件，请求文件数和响应 byte 都严格小于完整项目且未请求全部大文件；冷预览及两个 Launch 必须各自读取当前配置与索引并解析到同一稳定 project content identity。loading schemaVersion=2 同时保存冷预览、首屏和恢复摘要；冷预览必须有实际按需正文请求，之后两个 Product 首屏的项目正文请求均为零，证明公共持久缓存复用。ONS 的固定 runtime asset 保持上游浏览器加载，恢复时至少有一次 HTTP 缓存命中。结构化证据只记录计数/byte，不记录文件名或 logical path。ScriptProcessor/WebGL 性能 warning 不作为失败。
 - 证据：当次 `result.json`、`ons-product.json` 与五张 PNG。结构化证据只含非秘密产品 ID、payload kind/size、canvas backing/display 尺寸、居中偏差、焦点、非黑像素、RGBA digest、按需加载计数/byte和错误计数，不含归档路径、文件名、游戏 bytes、账号、CSRF、cookie 或 Launch capability。该 Case 只证明锁定 `retrom-runtime` tag 或显式本地候选与本次样本的最小兼容性；本地候选 PASS 只允许进入 runtime Release 流程，不能冒充固定 tag 的发布验收，也不扩大为全部 ONS 游戏兼容声明。
 
 ### ACC-KIRIKIRI-001：KiriKiri2 KAG 最小产品闭环
 
 - 上限：300 秒。执行：`RETROM_KIRIKIRI_SMOKE_ARCHIVE=<absolute-licensed-kag-archive> make acceptance-case CASE=ACC-KIRIKIRI-001`；同时需要公共的 `RETROM_ACCEPTANCE_BASE_URL/USERNAME/PASSWORD` 与 `RETROM_CHROME_EXECUTABLE`，基础地址必须为 HTTPS origin或 loopback 验收 origin。
 - 流程：经正式 Upload 创建 `KIRIKIRI_PROJECT` Import，等待唯一 Review；打开 Review Preview，注入浏览器标准手柄，先证明 B 键产生取消语义，再用左摇杆驱动运行时可见虚拟指针到归一化坐标 `(0.5,0.34)`，以 A 键触发 smoke 固定的第一个 KAG 选项，等待离开并重新进入可保存标签及按需截图；审核发布后先创建独立沉浸模式 PRODUCT Launch，以两次 Select+Start 组合键打开 Retrom 退出菜单并核对三个动作，并在启动后制造一次不足 250ms 的空手柄采样，证明不会误入重连；再创建普通 PRODUCT Launch，分别记录 core `postRun` 后 Player 进入运行态和稍后 KAG 书签可存档的时刻，以同一手柄输入在第一个 KAG 可保存标签上从 A 到 B并创建 `KIRIKIRI_SAVE_BUNDLE_V1` checkpoint，再输入到 C；关闭原页面，以该存档创建 ID 不同的 PRODUCT Launch，等待服务端 state、KAG 标签就绪和书签恢复完成，确认回到 B后继续用手柄输入。另以样本固定游戏菜单触发脚本退出，必须离开整个 Player 并幂等 finish。两个普通 Product Launch 都在首个有效 canvas 出现时冻结项目索引、XP3 响应和 runtime asset Resource Timing 摘要。
-- 通过标准：预览、沉浸模式 Launch 和各普通 PRODUCT Launch 都运行锁定 KiriKiri2 core；标准手柄左摇杆/方向、A 确认和 B 取消通过 adapter 的可见虚拟指针生效，不能以 Playwright 直接鼠标点击或键盘输入替代；沉浸模式同一活动手柄的两次 Select+Start 必须打开包含“取消、创建存档、退出游戏”的 Retrom 菜单，单个不足 250ms 的缺失采样不显示“请重新连接手柄”。无恢复数据的 Player 必须在 core `postRun` 后进入运行态，此时 KAG 尚不稳定则仅禁用创建存档，不能继续显示全局 loading；恢复 Launch 仍须等待书签完成。游戏菜单退出产生、同时匹配当前 `index.wasm` stack 与四个已登记间接调用 trap 之一的同步异常或 JSPI rejection，只能上报一次 `EXIT_REQUESTED`；页面返回 `returnTo` 且 Launch/PlaySession 正常结束，不留下 page error，其他 wasm trap 必须传播。canvas backing buffer不是浏览器默认 `300×150`，backing/display 宽高比误差不超过 `0.01`，相对 `data-kirikiri-runtime-surface` 横纵居中偏差各不超过 1 px且持有焦点。预览、A、B、C、恢复 B和恢复后输入截图均为非黑有效画面；A/B/C 与恢复后画面按输入发生变化，三个存档链 PRODUCT Launch ID 互不相同。恢复判定只使用 B 与 C 之间发生变化的降采样像素，要求恢复帧到 B 的平均 RGB 距离严格小于到 C 距离的一半且至少有 100 个判别像素；不得因不属于存档状态的瞬时 UI 动画或重绘时序要求全画面 SHA 逐字相同。checkpoint 大小为 `1..64 MiB`，payload kind固定为 `KIRIKIRI_SAVE_BUNDLE_V1`。XP3 必须不小于 4 MiB且只产生 `206 Range`，首屏收到的 project bytes 严格小于索引声明的总大小，不能出现整份项目 archive 的 `200`，两个 Launch 必须使用同一稳定 project content identity，恢复 Launch 至少命中一个固定 runtime asset 的浏览器缓存；结构化证据只保留计数/byte，不保留项目路径。浏览器无 page error、console error或意外 dialog。
+- 通过标准：预览、沉浸模式 Launch 和各普通 PRODUCT Launch 都运行锁定 KiriKiri2 core；标准手柄左摇杆/方向、A 确认和 B 取消通过 adapter 的可见虚拟指针生效，不能以 Playwright 直接鼠标点击或键盘输入替代；沉浸模式同一活动手柄的两次 Select+Start 必须打开包含“取消、创建存档、退出游戏”的 Retrom 菜单，单个不足 250ms 的缺失采样不显示“请重新连接手柄”。无恢复数据的 Player 必须在 core `postRun` 后进入运行态，此时 KAG 尚不稳定则仅禁用创建存档，不能继续显示全局 loading；恢复 Launch 仍须等待书签完成。游戏菜单退出产生、同时匹配当前 `index.wasm` stack 与四个已登记间接调用 trap 之一的同步异常或 JSPI rejection，只能上报一次 `EXIT_REQUESTED`；页面返回 `returnTo` 且 Launch/PlaySession 正常结束，不留下 page error，其他 wasm trap 必须传播。canvas backing buffer不是浏览器默认 `300×150`，backing/display 宽高比误差不超过 `0.01`，相对 `data-kirikiri-runtime-surface` 横纵居中偏差各不超过 1 px且持有焦点。预览、A、B、C、恢复 B和恢复后输入截图均为非黑有效画面；A/B/C 与恢复后画面按输入发生变化，三个存档链 PRODUCT Launch ID 互不相同。恢复判定只使用 B 与 C 之间发生变化的降采样像素，要求恢复帧到 B 的平均 RGB 距离严格小于到 C 距离的一半且至少有 100 个判别像素；不得因不属于存档状态的瞬时 UI 动画或重绘时序要求全画面 SHA 逐字相同。checkpoint 大小为 `1..64 MiB`，payload kind固定为 `KIRIKIRI_SAVE_BUNDLE_V1`。XP3 必须不小于 4 MiB且只产生 `206 Range`，首屏收到的 project bytes 严格小于索引声明的总大小，不能出现整份大型项目 archive 的 `200`；其他不超过当次阈值的小文件可整取，但须验证完整大小与身份，冷预览及两个 Launch 必须各自读取当前配置与索引，确认相同 project content identity 和核心资产身份。loading schemaVersion=4（逐阶段记录实际 BOOT 获取配置、来源大小与范围）的冷预览必须观测到实际有界 206 及四个固定核心资产请求；普通 Product 与恢复首屏不得重复下载已观测的同一内容块，四个核心资产 HTTP 请求必须为零。按需读取的音频等内容可能因场景与时间不同访问新块，必须逐块证明此前未读，不能把新块计为缓存失败，也不能把重复块隐藏在总量中。三个阶段的范围清单必须与请求数和字节数精确闭合；每个请求符合配置窗口及缺失区间，首屏仍须严格小于整个项目。全部观测覆盖 browser context 内的 Worker；结构化证据保存路径的 SHA-256、范围和计数/byte，不保留原项目路径。浏览器无 page error、console error或意外 dialog。
 - 能力边界：即时存档是 KAG `saveBookMark/loadBookMark` 的语义存档，保存 `/save` 与 `/savedata` 的确定性文件集合，不是任意 KiriKiri/TJS 游戏的 Wasm 内存快照。无法找到 KAG API、首个可保存标签或唯一启动 XP3 时必须 fail closed，不能生成看似成功但不可恢复的存档。加密来源归档无法在不接收密码的情况下进入安全扫描，服务端以 `ARCHIVE_ENCRYPTED_UNSUPPORTED` 拒绝，验收将该操作者输入记为 `BLOCKED`，不能误记为 core 运行失败；操作者可在仓库外解密后提供新的合法归档。
 - 证据：当次 `result.json`、`kirikiri-product.json`、六张 canvas PNG 与一张沉浸退出菜单 PNG。结构化证据只含非秘密产品 ID、菜单动作、payload kind/size、canvas 尺寸/居中/焦点、非黑像素、RGBA digest、按需加载计数/byte与错误计数，不含归档路径、文件名、游戏 bytes、账号、CSRF、cookie或 Launch capability。本地 `retrom-runtime` 候选 PASS 只允许进入 runtime Release 流程；Release 完成后 Retrom 必须解除本地链接、固定 tag/commit/assets并重跑本 Case。
 
@@ -1865,7 +1872,7 @@ Review 与普通预览会话。`negative-matrix/matrix.json` 必须精确声明 
 - 输入：ScummVM 官网发布的 `BASS-Floppy-1.3.zip`，通过 `RETROM_SCUMMVM_SKY_ARCHIVE` 指定已有归档；driver 校验其完整 SHA-256，并在临时归档中加入当次自有验收标识文本，保留原游戏文件逐字节不变，避免合法的重复导入跳过流程。上传完成即清理该临时归档。游戏文件不进入仓库、镜像或结构化证据。
 - 上限：600 秒。执行：`RETROM_SCUMMVM_SKY_ARCHIVE=<absolute-public-game-archive> make acceptance-case CASE=ACC-SCUMMVM-001`。需要 `RETROM_ACCEPTANCE_BASE_URL/USERNAME/PASSWORD`、`RETROM_CHROME_EXECUTABLE`；缺失输入在启动浏览器前产生 `BLOCKED`。WSL 的 WebGL 验证可用 `xvfb-run -a env RETROM_ACCEPTANCE_HEADED=1 ...` 运行相同 Case。
 - 步骤：通过实际上传与 `SCUMMVM_PROJECT` 导入，打开审核页确认上游识别的明确候选，运行审核试玩并创建试玩原生存档，然后发布。在游戏页新建 Product Launch，验证左摇杆第一次拨动、A 确认与 Y 取消，创建原生存档并退出；从该存档建立不同 Launch，等待核心实际读档完成，再验证同一组输入。沉浸式从手柄激活、启动到共享菜单存档、退出、不同 Launch 恢复与继续输入重复闭环。
-- 按需加载：网络证据只允许所选 `libsky.so`，首次游戏内容必须出现 Range 分块请求；新 Launch 重新取得 index，但复用已读内容块。引擎插件固定属于同一 Provider Bundle，不能跨构建混用。
+- 按需加载：网络证据只允许所选 `libsky.so`，该可执行资产由公共 Content I/O 完整校验后交给核心，冷读取为完整 200。游戏内容必须出现 Range 分块请求；新 Launch 重新取得 index，已读游戏块及所选插件正文的 HTTP 请求均为零（包括无 Range 的 GET），观测覆盖整个 browser context 内的 Worker 和失败请求。游戏请求必须逐项匹配当次 Launch 索引，并校验区间上限、Content-Range、准确长度和强 ETag；任意未声明路径、未经小文件策略授权的整文件响应或失败传输均不通过。引擎插件固定属于同一 Provider Bundle，不能跨构建混用。
 - 尺寸与截图：普通 Product Launch 暂停后依次切换 `1920×1080`、`900×600`、`1440×1000` 视口。每次都保持 `PAUSED`，WebGL 绘制区域必须与 canvas backing 尺寸一致；浏览器呈现后读取的原始 canvas PNG 必须有超过 20% 的有效像素，左右边距差小于画布宽度的 5%，上下边距差小于高度的六分之一。随后通过创建存档提交，实际下载的存档截图也须满足同一像素和居中断言，不能只检查文件非空。
 - 通过：上述链路全部成功；真实画面非黑屏；静态游戏菜单在第一次摇杆操作后有像素变化，确认/取消分别改变可见状态；Save API 返回 201；恢复包为 `scummvm-save-bundle-v1` 且含有效大小和 SHA-256；两个 Launch ID 不同；没有页面异常或意外原生弹窗。不可用的 CAPTURE、失败的原生读档或超时均为 FAIL，不能退回导出旧数据冒充成功。
 - 证据：当次 `scummvm-product.json` 保存公开语料 SHA、浏览器版本、审核/游戏/存档/Launch 的非秘密 ID、原生包摘要、插件与缓存统计、普通和沉浸式各阶段 RGBA 摘要及截图。不能保存 cookie、capability、宿主语料路径或游戏字节。此 Case 证明 Sky 的代表性链路；不能将其推广为 105 个已构建引擎均经过游戏实测。其他引擎的延迟保存、退出最终写入和游戏内手动读档需分别记录实际验证结果。
@@ -2008,9 +2015,126 @@ Launch 完成验证。原始 JAR 的 SHA-256 和字节数必须在上传、内�
 7. 原存档被更新或删除时拒绝旧草稿覆盖，幂等重试不重复创建；保留原 ID、名称和创建时间。
 8. 新 Launch 从保存结果在游戏菜单读档并继续输入；Review Preview 和即时快照保持各自语义。
 
+重复本地验收仍遵守按基础平台与内容摘要去重的契约；创建另一个平台实例不会绕过去重。
+KiriKiri 与 Butterscotch 的 runner 在临时归档的项目根目录加入当次自有标识文本，原始游戏 member 保持逐字节不变，上传完成即清理临时副本。
+MSX 可显式复用已发布游戏继续诊断，证据必须标记 reused 并关联此前导入记录；复测本身不代表再次验证导入。
+不得删除旧验收数据或把重复导入的零 Review 误报为通过。
+
+### ACC-WASM4-001：WASM-4 内容缓存、输入与即时状态
+
+通过 Content I/O 矩阵入口运行时，原产品程序在完成存档链并关闭浏览器后，串行执行
+下述缓存拒绝、大小边界、提交进度及性能子项，保留各自原始报告；整个 Case 仍受原有
+300 秒硬超时约束。所有报告携带同一运行 ID，实际原始／派生输入与矩阵冻结回执逐字节绑定，
+场景证明只在实际断言通过后写入。性能样本采用规范化来源回执摘要，并另外保留当次派生 cart
+摘要与配方；缺子项或超时不能仅凭原存档链通过而报 PASS。
+
+Content I/O 性能子项通过 `timeout 300 node scripts/acceptance/wasm4_performance.mjs` 执行，
+与上述产品存档链分别保留证据。`RETROM_CONTENT_IO_PERFORMANCE_INPUT` 指向本地 JSON：
+`baseline/candidate` 各包含 `baseURL/bundleSha256/moduleSha256`，`chromeArgs` 固定为
+`["--use-angle=swiftshader","--enable-unsafe-swiftshader"]`；其余认证、Chrome 和输出参数同产品入口，
+输出目录必须尚不存在。两个独立 PFB 使用同一份当次自有 cart，先分别发布并预热开发路由，
+再交替运行各五轮独立 Chrome/context 的 cold/warm Launch。预热原始记录单列，不计入样本。
+计时从产品页面导航开始：首帧为方块位于 `(20,20)`，可输入须先向右移动，再确认使纵坐标为 40；
+退出计时包含实际 Host finish 响应与 iframe/Worker 消失。固定观察 ID 在运行前声明，不能事后换终点。
+每次保留实际 cart 物化长度与 digest、画面、网络、内存和退出观测。旧实现从其正常 SHA 校验
+观察已消费的完整 cart，覆盖父页面／游戏 iframe 的不同作用域；候选从最终公共诊断读取物化量。
+旧完整 cart 路径只在
+所有响应成功、正文长度等于实际交付长度时计算消费字节；不推断部分请求或失败请求的消费量。
+Chrome 进程 RSS 是各进程 RSS 的总和，可能重复计算共享页；Wasm 内存按真实存活 Memory 对象测量，
+此 Case 拒绝意外的共享内存拓扑。公共缓存预算仍由候选最终完整 CLOSE 消息验证，旧实现填 null。
+`performance.json` 的二十份样本必须全部匹配预期 Bundle/module，并通过逐 Case 的中位数阈值。
+
+存储拒绝子项使用 `timeout 120 node scripts/acceptance/wasm4_storage_product.mjs`。
+`RETROM_CONTENT_IO_STORAGE_INPUT` 为本地 JSON，包含同版已发布自有游戏的 `gameId`、
+`source: {sha256, sizeBytes}`、`bundleSha256/moduleSha256`；公共认证、Chrome 与新输出目录参数同上。
+新 Chrome/context 通过原生 CDP 在已校验的 `retrom-content-io-v1` Worker 执行首条语句前，
+让可选 OPFS `getDirectory` 与 Cache API `open` 抛出 `NotAllowedError`，并实际调用确认注入生效。
+不改写 Provider 或 Worker 资产，也不修改其他 Worker 的 API。随后两个不同
+Product Launch 均须通过固定画面、方向／确认和正式退出，观察到 MEMORY 后端，各自重新请求
+完整 cart；不得报告不存在的持久命中。此子项是明确的浏览器故障注入，不宣称触发了浏览器原生
+配额耗尽。注入确认、错误类型、输入状态、请求和最终资源计数写入 `storage-product.json`。
+
+大小边界子项使用 `timeout 120 node scripts/acceptance/wasm4_boundary_product.mjs`，复用同一
+PFB 的认证和已启用 WASM-4 平台，输出目录须为新目录。唯一生成输入为上述自有 cart：追加
+不执行的 custom section，分别得到严格 65,536 和 65,537 字节的合法 Wasm；单元测试确认两者
+仍能运行原始移动／确认逻辑。最大值须真实上传、导入、发布、完整物化并接受输入、正常退出；
+超限值须在真实审核预览中显示 `PROVIDER_LAUNCH_REQUEST_INVALID`，且没有游戏正文请求、
+Worker 或 canvas 创建，再结束该被拒绝的预览会话。`boundary-product.json` 保留两个输入的
+实际摘要、字节数、身份和观测，不以格式损坏冒充大小拒绝。
+
+加载提交子项使用 `timeout 120 node scripts/acceptance/wasm4_progress_product.mjs`。
+`RETROM_CONTENT_IO_PROGRESS_INPUT` 沿用存储子项输入，并提供本地已安装 `workerPath` 和
+冻结的 `workerSha256`。测试通过 CDP 在完整 cart 校验结束、提交开始之前暂停真实 Worker，
+核验执行中的脚本摘要和 `written === size`；此时 Player 加载提示必须可见、进度低于 100%，
+且核心 canvas 尚未创建。恢复 Worker 后必须完成相同画面、方向／确认输入与正式退出。
+断点只用于这一故障子项，不用于性能样本，不改写 Worker 资产；源代码定位不唯一或脚本
+摘要不符即失败。`progress-product.json` 保留提交前状态和恢复后的完整运行观测。
+
+- 可重复输入：先校验仓库自有 fixture 的固定 SHA，再仅追加不参与执行的当次 WebAssembly custom section，保留原指令和初始内存；操作者 cart 同样在临时副本中追加该节，原文件不变。证据保存原始／上传字节的 SHA、大小和转换配方，避免已发布内容去重跳过审核。
+
+- 硬超时：300 秒。执行 `make acceptance-case CASE=ACC-WASM4-001`，或等价的 `timeout 300 .cache/tools/node-v24.18.0-linux-x64/bin/node scripts/acceptance/wasm4_product.mjs`。
+- 输入：公共 `RETROM_ACCEPTANCE_BASE_URL/USERNAME/PASSWORD`、`RETROM_CHROME_EXECUTABLE`、`RETROM_ACCEPTANCE_CASE_DIR`，以及操作者提供的合法 `RETROM_WASM4_CART`。确定性控制夹具为 `testdata/public-roms/wasm4-controls/controls.wasm`，唯一生成源和固定摘要位于同目录，并由 Node 测试验证。
+- 流程：真实上传、导入、预览并发布夹具；标准手柄向右移动方块，确认改变纵坐标；通过 Player 保存，关闭后在不同 Launch 中恢复原坐标，继续向左移动；不指定存档的新 Launch 必须回到初始坐标。再将操作者 cart 走完导入、预览、发布和方向/确认输入。
+- 通过标准：冷预览恰好一次完整 cart 响应且长度准确；恢复 Launch 的同内容网络请求为零，观测覆盖整个 browser context；保存和恢复的方块位置一致、恢复后继续移动，画面不是黑屏；无 page error。正式 Launch 均通过 Player 退出并等待 finish、iframe/Worker 消失及最终公共 CLOSE 计数归零；记录实际 Bundle/module 身份。不得直接调用私有核心状态接口伪造输入或恢复。
+- 证据：`wasm4-product.json` 记录阶段、请求数、Launch/save ID、存档大小和可见坐标，另保存当次 canvas PNG。缺少输入为 BLOCKED；位置、缓存或产品链断言失败为 FAIL。
+
 ### ACC-TIC-001：TIC-80 原生数据与真实产品链
 
-- 可选 `RETROM_FANTASY_FIXTURE_ID`（1–64 位小写字母、数字、点或短横线）将稳定标识写入自有卡带注释，便于保留已有游戏与存档后重新验收；公开卡带须选用库中尚未导入的完整文件，不绕过导入去重；如作者发布的是含 `#include` 的源码工程，只允许按原生 include 规则展开，保留作者代码与资源，并记录固定来源 commit、输入文件和输出 SHA-256。
+TIC-80 与 FAKE-08 的自有控制卡带统一由 `testdata/public-roms/fantasy-controls/build.mjs`
+生成，目录内固定字节和摘要由 `fantasy_fixture_test.mjs` 验证。方向键移动方块；确认键把
+调色板索引 8 改为 11，TIC-80 同时将位置与颜色写入 pmem。产品必须观察确认前后颜色变化，
+新 Launch 恢复后位置与颜色均一致，不能仅发送按键而无可观察结果。
+重复导入保留原文件：TIC-80 副本只追加原生加载器忽略的 DUMMY chunk；PICO-8 文本只追加
+忽略的 metadata section，PNG 只在 IEND 前插入 CRC 正确的 tEXt chunk，原像素编码字节不变。
+报告记录原始和上传字节的摘要、大小及配方。自有卡带另通过忽略的 DUMMY／文本 section
+构造严格 4 MiB 与 4 MiB+1 边界；实际核心测试须证明最大值仍可移动、确认与恢复，超限值
+由原生上限拒绝。真实产品大小边界仍须独立验收，不能用原生夹具冒充。
+显式原生补充验证使用 `RETROM_FANTASY_PROVIDER_ROOT=<已验证的安装基座> node --test
+scripts/acceptance/fantasy_controls_native.mjs`；该入口先核验实际 JS/Wasm 的 integrity 摘要，
+再执行相同卡带的移动、确认和新实例恢复，并记录实际核心与输入摘要。此 CORE 证据不能代替产品 Case。
+
+Content I/O 性能子项分别执行 `timeout 300 node scripts/acceptance/fantasy_performance.mjs tic80`
+和同入口的 `fake08` 参数。认证、Chrome、独立输出目录和 `RETROM_CONTENT_IO_PERFORMANCE_INPUT`
+同 WASM-4；此处 baseline/candidate 另需本地已验证基座的 `integrityPath`。入口先核验各自
+真实 client 摘要和两个核心资产摘要，要求旧／新使用相同核心字节；每次实际 Launch 仍独立核验
+Bundle/module。卡带使用同一份当次派生自有输入，各自预热开发路由后，交替运行五组独立
+浏览器 cold/warm。首帧为 x=20、调色板索引8；可输入终点为向右移动后确认变成索引11。
+
+这两个适配器同时物化 GAME 卡带与 CORE_ASSET JS/Wasm。对照中的 network/materialized
+计数必须覆盖相同三对象：旧实现从它自身成功的 digest 校验观察实际完整交付长度和摘要，
+并从真实请求类型区分 verified fetch 与随后独立的 JS module import；模块导入请求仍保留在
+原始网络报告，但不混入公共 Content I/O 对照计数。候选使用最终公共 CLOSE 计数，核对总物化
+长度等于三个声明对象之和。真实 Chrome 夹具验证父页面／iframe 的摘要观测及 fetch/script
+区分；缺对象、重复验证、短正文或无法识别的请求类型均失败。性能样本不注入调试断点或故障。
+
+浏览器故障子项使用 `timeout 120 node scripts/acceptance/fantasy_fault_product.mjs <tic80|fake08>
+<cache-denied|eager-progress>`；大小边界使用 `timeout 120 node
+scripts/acceptance/fantasy_boundary_product.mjs <tic80|fake08>`。共同输入
+`RETROM_CONTENT_IO_FANTASY_INPUT` 是本地 JSON：`core/gameId/source:{sha256,sizeBytes}`、
+`provider:{bundleSha256,moduleSha256,integrityPath}` 与 `workerPath/workerSha256`；其余认证、Chrome、
+URL、新输出目录同上。游戏必须是同版已发布的自有控制卡带。
+缓存拒绝使用同一受限 CDP 注入，使可选 OPFS／Cache API 明确抛错；两个新 Launch 均须完整
+物化相同三个对象、通过方向／确认和正式退出，MEMORY 后端不得宣称持久复用。提交进度只在
+真实 GAME 对象最后一次提交前暂停，核验执行脚本摘要、读完字节、进度低于100%、加载提示
+可见、核心 canvas 尚未创建；恢复后照常验证输入与退出。
+大小边界通过真实导入／发布运行4MiB卡带；4MiB+1须在 Review Preview 被既有适配器上限
+以 `FANTASY_RUNTIME_CONFIG_INVALID` 拒绝，无游戏正文和核心 canvas，并验证已启动的公共
+Session／Worker 清理，再结束该预览。适配器拒绝发生在打开文件之前，Provider 的失败路径
+会强制终止已经创建的 Worker；此处必须观察其 close 事件与存活数归零，不能要求已被终止的
+服务完成正常 CLOSE_SESSION 握手。关闭计数明确记录 unavailable 原因，不补写零值；正常
+4MiB运行仍必须保留真实最终 CLOSE 计数。每个原始报告保留实际资产身份、
+输入摘要、观测和错误；原生边界测试不能替代这些 Player 路径。
+
+完整 Content I/O 入口仍为两个原始产品 Case 和各自300秒硬超时。存在
+`RETROM_CONTENT_IO_RUN_ID` 时，入口在关闭原始产品浏览器后串行执行缓存拒绝、提交进度、
+大小边界和20份性能样本，核对当次冻结的 canonical 输入 receipts 与 Bundle/module/Worker/
+Chrome 身份，生成九项场景报告和 `content-io-product.json`，再运行独立证据校验器。
+子项失败、缺失原始报告、摘要不符或任一性能门槛失败都使原始 Case 失败；不能拼接旧运行结果。
+游戏和核心资源的已知总量必须在准备开始时公布，进度来自公共物化器的已验证字节；同阶段
+两个核心资产按固定总量累计，不能直到 Promise.all 完成才上报第一次进度。
+
+
+- 自有卡带使用仓库固定 canonical 输入，外部卡带使用操作者输入；每次仅加入原生加载器忽略的独立元数据以保留已有游戏与存档并重复验证。报告同时保留原始和派生文件的大小、SHA-256及配方，不修改操作者文件。含 `#include` 的源码工程只允许按原生 include 规则展开，保留作者代码与资源，并记录固定来源 commit、输入文件和输出 SHA-256。
 
 - WSL 无头 Chrome 如在 Canvas 绘制时阻塞，先以 `env -u DISPLAY -u WAYLAND_DISPLAY` 为前缀运行同一验收命令，避免继承 WSL 桌面显示连接；不修改系统环境或使用不同核心资产。
 
@@ -2029,6 +2153,26 @@ Launch 完成验证。原始 JAR 的 SHA-256 和字节数必须在上传、内�
 - 证据：`fantasy-product.json`、项目自有卡带和各阶段截图。自动化使用标准映射虚拟手柄，并观察真实 Web Audio 调度缓冲中存在非零音频；不替换音频播放或核心导出。实体手柄、听觉质量与未编译输入设备不在本 Case 证据范围内。
 
 ### ACC-FLASH-001：Ruffle 单文件与 SharedObject 产品闭环
+
+
+Content I/O 独立性能子项为 `timeout 300 node scripts/acceptance/ruffle_performance.mjs`，使用
+`RETROM_CONTENT_IO_PERFORMANCE_INPUT` 的已冻结 baseline/candidate URL、Bundle/module 摘要和
+与 WASM-4 相同的 Chrome 参数；baseline/candidate 各提供本地已验证基座的 `integrityPath`，
+入口要求 client 身份正确且三个 Ruffle 核心文件逐字节一致；另需 `RETROM_RUFFLE_FIXTURE`、
+认证、Chrome 与独立输出目录。
+首帧终点在运行前固定为自有程序的 x=20 白色方块，通过核心公开 captureFrame() 识别；可输入
+终点为右移超过10像素后 A/Space 触发 SharedObject.flush，Host 显示本次数据已暂存。不会把
+事件监听器就绪当作输入成功。五组独立浏览器 cold/warm 的20份样本均保留实际网络请求、
+物化字节、Wasm内存、进程RSS及退出计数；旧实现自身的缓存命中仍须观察成功SHA校验，允许
+已验证交付对应零网络正文，不能将缓存读出字节计作下载。
+该入口尚未整合进本 Case 的完整 Content I/O 场景证明；单独通过不能作为缓存拒绝、
+提交进度、最大大小边界或整个 `content-io-product.json` 通过的证据。
+
+重复输入使用 `ruffle_run_movie.mjs` 的 SWF 元数据配方：仅解压 FWS/CWS、更新文件长度和
+FileAttributes 的 metadata 标记，并在 End 前加入独立 Metadata tag；ASC 生成的完整
+ShowFrame-at-EOF 输入先补显式 End。帧头、可执行标签和资源
+字节保持原样。每次保留源文件与派生文件摘要，操作者文件不写入。边界输入用同一元数据 tag
+补齐物理64MiB／64MiB+1，普通单元测试只使用自有解析器字节，实际可运行性仍须产品验证。
 
 - 统一入口：`make acceptance-case CASE=ACC-FLASH-001`（先完成 `make acceptance-prepare` 并加载环境）。
 - 硬超时：300 秒。等价命令为 `timeout 300 node scripts/acceptance/ruffle_product.mjs`，使用 PFB 固定 Node 和 Chrome。
@@ -2194,7 +2338,7 @@ PSP 原生加载完成回执必须启用，不能用取消超时检查或放行�
 - 类型：操作者授权 PAK 的手动语料验收；不加入默认 CI 下载，游戏文件不进入 Git 或发布包。
 - 硬超时：600 秒。等价命令为 `timeout 600 env -u DISPLAY -u WAYLAND_DISPLAY .cache/tools/node-v24.18.0-linux-x64/bin/node scripts/acceptance/openbor_product.mjs`。
 - 输入：`RETROM_ACCEPTANCE_BASE_URL`、`RETROM_ACCEPTANCE_USERNAME`、`RETROM_ACCEPTANCE_PASSWORD`、`RETROM_CHROME_EXECUTABLE`、`RETROM_ACCEPTANCE_CASE_DIR`、`RETROM_OPENBOR_GAME`。使用独立 PFB；当前动作序列针对 8MAN 的 Robo_Rumble 模式，不能套用于任意 PAK 后声称通过。
-- 步骤：通过普通上传、导入和审核预览验证画面与输入，批准后创建 Product Launch；进入 Robo_Rumble 的实际关卡；通过原生 Options → System → Cheat Options 启用 Implacable March、Infinite Health、Touch of Death，以普通按键跨过首关，由游戏在下一关生成原生进度。首个实际关卡受引擎 `nosave` 保护，不应以刚进入第一关作为存档通过依据。在 Player 选择“存档并退出”，记录保存的难度与关卡；创建不同 Launch 并显式指定该存档，通过游戏内 Load Game 恢复，验证原生进度和继续输入。不选择存档的新 Launch 必须从空存档目录启动。
+- 步骤：通过普通上传、导入和审核预览验证画面与输入，批准后创建 Product Launch；进入 Robo_Rumble 的实际关卡；通过原生 Options → System → Cheat Options 保持 Implacable March 关闭，启用 Infinite Energy、Infinite Health、Touch of Death；使用普通移动、攻击和标准 Y 对应的原生 F/Special 跨过首关，由游戏在下一关生成原生进度。首个实际关卡受引擎 `nosave` 保护，不应以刚进入第一关作为存档通过依据。在 Player 选择“存档并退出”，记录保存的难度与关卡；创建不同 Launch 并显式指定该存档，通过游戏内 Load Game 恢复，验证原生进度和继续输入。不选择存档的新 Launch 必须从空存档目录启动。
 - 重跑：可显式提供 `RETROM_OPENBOR_REVIEW_ID` 和 `RETROM_OPENBOR_GAME_ID`，复用同一 PFB 的待审预览及已发布游戏；仅提供 GAME_ID 时复用已发布游戏并跳过已不存在的审核项，证据标记 `seeded=true`；此模式不声称重新完成发布，必须保留首次导入和发布的证据，且其 gameId 与续跑一致，汇总时说明分段验证。
 - 通过标准：无浏览器异常；标准手柄方向与确认、独立键盘输入、暂停和截图可用。新保存格式为 `openbor-game-save-v1-storage-v1`，一次有界 gzip 解压后为原生 JSON 封包，非空且与游戏摘要绑定，真实关卡进度在不同 Launch 中恢复。保存的是游戏原生关卡存档点，不要求保留关卡中途的位置。只报告实际样本的兼容性。
 - 证据：`openbor-product.json`、各阶段 PNG、非秘密 Launch/Save ID、游戏与保存摘要、Provider Bundle/Target 和浏览器版本。证据不保存 cookie、授权 URL、游戏字节或本机源路径。
@@ -2209,6 +2353,7 @@ PSP 原生加载完成回执必须启用，不能用取消超时检查或放行�
   最后一个变量是操作者授权游戏的绝对路径 JSON 数组，普通 CI 不读取或下载私有游戏。
 - 自有卡带由 `python3 scripts/acceptance/build_msx_fixture.py <输出路径.rom>` 确定性生成；不提交生成物。
   它只含项目自有 Z80 程序，用可见标记的位置与形状验证输入和恢复，不含 BIOS 或第三方片段。
+  画面采样须在 2 秒内取得间隔至少 50 毫秒、位置和形状一致的连续两帧，以避开程序清屏重绘的中间帧；持续空白或不稳定仍失败。
 - 自有卡带经过上传、导入、审核预览、批准和 Product Launch，标准虚拟手柄方向改变位置、
   A 改变形状，保留的 B/Escape 操作重置位置。即时存档必须为非空 `webmsx-state-v1-storage-v1`；
   关闭后以不同 Launch ID 恢复时位置、形状保持一致并继续响应方向。不选存档启动须回到初始状态。
@@ -2286,12 +2431,12 @@ PSP 原生加载完成回执必须启用，不能用取消超时检查或放行�
 - 用 Player 创建非空即时存档；关闭原页面，在不同 Launch 恢复，核验公共 gzip
   格式、传输大小/摘要，以及解压后完整原始状态摘要。恢复后继续方向、确认输入；
   不选存档另建 Launch 应重新启动。NeoCD 游戏资源必须为 `SEEKABLE_BLOB`/`rangeRequired=true`；
-  所有游戏请求均携带 Range 并返回 206，单块不超过 256 KiB。记录首次 ready 耗时、
+  所有游戏请求均携带 Range 并返回 206，每个区间符合配置窗口和缺失块边界。记录首次 ready 耗时、
   启动时已传输字节、各范围与总下载量；同一浏览器上下文跨实例不应重复请求已缓存块。
   大于 32 MiB 的样本在本 Case 中累计下载量必须小于镜像的一半，不得整包预取。
 - 输出 `neocd-storage-product.json` 和阶段 PNG；自动化先标记 `AWAITING_VISUAL_REVIEW`，
   逐图确认可操作游戏场景、状态恢复与输入生效后才能记录 PASS。仅有 BIOS 或标题画面不算通过。
-  `product-input.json` 允许失败重试复用当前样本；已发布样本复测需与首次审核证据一起保留。
+  `product-input.json` 允许失败重试复用当前样本；可通过 `RETROM_NEOCD_EXISTING_INPUT` 显式引用先前同一游戏的输入记录，重新核对 CHD 摘要，并记录复用阶段。已发布样本复测需与首次审核证据一起保留。
   已发布样本复测可额外传 `RETROM_NEOCD_PREVIEW_REVIEW_ID`，指定同一 CHD 的待审核项
   重跑当前 Provider 预览并保留该审核项；此复测不再次批准重复游戏。
   冷启动样本可设置 `RETROM_NEOCD_GAMEPLAY_WAIT_MS`（0–120000），在启动按键序列后
@@ -2384,7 +2529,7 @@ BIOS 通过正式 BIOS 管理安装 `8.BIN` 与 `E.BIN`；二者必须匹配登�
   退出后会话和核心资源释放。损坏、截断和超限存档必须失败，不得静默重开游戏。
 - 通过标准：两款游戏可见画面；公共存档格式为 `ppsspp-state-v1-storage-v1`，gzip 只包一层；
   新实例精确恢复执行状态与记忆棒文件，恢复后方向、确认仍工作。证据记录实例 ID、存档 ID、
-  格式、网络计数及截图。所有游戏请求必须携带单 Range，返回 206 且每块至多 256 KiB；
+  格式、网络计数及截图。所有游戏请求必须携带单 Range，返回 206 且每个区间符合配置窗口和缺失块边界；
   冷缓存预览进入菜单前的下载量必须小于全盘，记录实际字节与比例。自动化虚拟标准手柄证明
   浏览器映射；实体手柄仍需单独记录实测结果。
 - 限制：本 Case 不证明 EmulatorJS 旧存档兼容，也不代表整个 PSP 游戏库兼容。缺少实际运行
@@ -2398,7 +2543,7 @@ BIOS 通过正式 BIOS 管理安装 `8.BIN` 与 `E.BIN`；二者必须匹配登�
   `RETROM_PSP_REVIEW_ID` 指向保留的《傲气雄鹰》待审核项，用于当次实际 Review Preview；
   `RETROM_PSP_LEGACY_SAVE_ID` 指向 Range 调整前独立 PPSSPP 创建、菜单选中 HIGHSCORES 的存档。
 - 每个冷启动阶段使用全新 Chrome context，先验证待审核项的实际画面，再分别启动两款已发布
-  游戏。所有游戏响应必须为准确 206 单 Range、每块至多 256 KiB，区间、文件总长度和 ETag
+  游戏。所有游戏响应必须为准确 206 单 Range、每个区间符合配置窗口和缺失块边界，区间、文件总长度和 ETag
   匹配冻结游戏。进入菜单后暂停并统计当次下载字节；必须大于零且小于全盘，记录比例及截图。
 - 《傲气雄鹰》验证方向、新建即时存档、不同 Launch 恢复到同一菜单项；恢复到该已读场景时
   不新增游戏内容请求，随后方向与确认继续有效。再恢复 Range 改动前的存档，验证同一菜单
@@ -2406,3 +2551,102 @@ BIOS 通过正式 BIOS 管理安装 `8.BIN` 与 `E.BIN`；二者必须匹配登�
   与全部 Worker 释放。证据为 `ppsspp-range.json`；不能复用旧截图或旧网络记录作为当次结果。
 - 本 Case 聚焦内容读取边界；导入发布链路本身仍由 ACC-PSP-001 验证，结论不扩大到完整
   PSP 游戏库、CSO/CHD/PBP 的真实兼容性或硬件性能。
+
+
+### Content I/O 重复验收输入
+
+同一产品库内重复验收仍遵守平台级重复导入约束，不重置数据库。操作者可显式使用
+`scripts/acceptance/psp_run_disc.py` 从自有 ISO 生成独立 ISO/CSO：保留全部原始扇区，
+补齐卷描述声明的尾部空扇区后，在游戏逻辑卷之外附加一个运行来源扇区。
+CSO 使用逐扇区无损 deflate；输出旁的 `.source.json` 记录转换配方、原始和输出 SHA-256、
+大小及补齐扇区数。原文件保持不变，此转换只作为测试输入准备，不属于导入器行为。
+
+ACC-RPG-004/005/006 可通过 `rpgmaker_run_fixture.py create` 复制对应仓库自有 fixture，
+只新增 `RetromAcceptanceRun.txt`。预览准备与正式 Case 必须使用相同绝对路径的
+`RETROM_RPG_RUN_ROOT`；两个入口均校验原文件集合与字节完全一致，并拒绝符号链接、
+额外文件和修改过的原文件。证据使用 `RETROM_OWNED_RUN_FIXTURE`、
+`fixture-manifest-v1+run-marker-v1` 及 `runInstance` 转换回执，不能冒充原始固定 fixture。
+每次重跑均重新预览、操作、保存、恢复、发布和验证新 Launch，不复用历史截图。
+
+### Content I/O 产品矩阵
+
+`make content-io-host-check IO_ENV=<绝对环境文件> IO_OUTPUT=<新的证据目录>` 复用当前 PFB
+已经准备的开发工具链，顺序运行内容观察器、产品目录／RPG 策略单测、真实 Host 路由与 Launch
+集成测试、Web lint/typecheck/test。输出必须位于该 PFB 的 Content I/O 证据目录，不能覆盖
+旧运行；每条命令保留开始／结束时间、退出码、硬超时结果和标准输出／错误。
+此入口不构建核心、不导入 Provider、不启动应用、不重置数据。工具链缺失时失败。
+最终 Host 基础门禁可用同一模块的 `--quality` 执行；Next 构建使用 `.next-build`，并恢复该
+构建生成的 `next-env.d.ts` 路径。检测到不属于这一生成变化的编辑时失败并保留它。
+
+`make content-io-product-check IO_ENV=<绝对环境文件>` 只在该 PFB 正常运行、Chrome 和当前候选
+身份可验证时执行。操作者输入固定放在该 PFB 被忽略的
+`.pfb/workspace/content-io/operator-inputs.json`：v1 包含 `pfbId`、本地 `authentication` 的
+`username/password`，以及按完整 Case ID 索引的 `cases`。每项包含传给原入口的 `environment`
+和 `sources: [{id, role, path}]`；source id 和 role 必须分别完整覆盖目录的 `fixtureRef` 与
+`inputRoles`，包括 BIOS、多个盘和自有／外部游戏；同一 role 可声明多个不同文件。
+环境项只能是显式 `RETROM_*` 参数，不能覆盖 URL、Chrome、凭据、输出目录或运行 ID。
+路径与凭据留在该本地文件，不复制进汇总报告；所有来源在首个浏览器启动前生成内容回执。
+
+入口串行调用登记的原产品程序，每个 Case 使用新输出目录和原有硬超时。前后分别核验候选、
+四个核心、实际安装基座、当前 loose module/worker 和全部工作树；每个 Case 结束后复核输入
+字节。原程序退出零仍不足以通过：还必须生成当次 `content-io-product.json`，其
+`observedIdentity`、每个必需 scenario 的实际断言报告、20 份性能样本均通过独立摘要及身份
+校验。scenario 报告含同一 `runId/caseId`、场景名、状态和非空 `name/expected/observed`
+断言，以及非空 `evidence` 原始报告引用（相对路径与 SHA-256）。校验器逐份检查原始报告的
+`runId/caseId/status`，不接受缺原始记录的汇总；任一未执行场景、旧运行、不同资产、缺样本或失败断言均非零。该证明格式只描述真实
+Case 需要产出的证据，不能在原程序外根据历史 PASS 补造场景结果。
+
+性能的 baseline Bundle 必须匹配环境中冻结的生产基线，且不能与候选 Bundle 相同。
+`browserSha256` 是解析符号链接后实际 Chrome 可执行文件的 SHA-256，版本探针还必须匹配
+preflight；比较使用同一浏览器和运行配置。`sourceSha256` 是来源回执按 key 排序、无多余空白 JSON 的 SHA-256。
+最终 `make content-io-evidence-check IO_ENV=<绝对环境文件>` 调用同一 PFB 的 Runtime 校验器，
+只有 S00–S21 全部当前证据通过才输出 `CANDIDATE_VERIFIED`，不包括发布授权。
+
+当前完整场景证明已接入 WASM-4、TIC-80 和 FAKE-08 原产品入口；Ruffle 提供独立性能入口，
+其余原产品入口的普通生命周期报告不等于完整 Content I/O 场景证明。全矩阵入口仍保留严格
+校验，缺证明会失败。若任务明确缩减验证范围，交付记录必须分别列出实际版本和来源对应的
+已验证项、历史证据及未运行项；不得把范围缩减改写为完整矩阵或 `CANDIDATE_VERIFIED` 通过。
+
+`tests/fixtures/content-io/product-cases.json` 固定 21 个受影响 Target 的输入角色、来源回执、
+原产品入口、存档语义和必需场景。每个场景都有操作、可观察等待条件、最大等待预算、断言和
+失败码。清单只保存逻辑输入名；操作者路径和实际游戏留在本地验收目录。
+`scripts/acceptance/content_io_catalog.py` 校验完整 Target/Provider/模式集合、动作覆盖和场景集合，
+包括 Range 故障、原生桥、工作目录、已退役 RTP 产品边界与五轮 cold/warm 性能比较；删除这些场景不能使检查通过。
+
+Retrom 不再安装或装配独立 RTP；XP/VX/VX Ace 产品输入只包含自包含项目，另执行 ACC-RPG-009
+验证外部声明的阻断、确认和撤销，以及退役路由/上传的拒绝。不能将 Runtime 可选 `rtp` role
+解释为 Retrom 已恢复该产品能力。Runtime 面向其他 Host 的可选 RTP 接口仍保留，game/RTP
+句柄隔离和真实 WasmFS 读写/取消由 Runtime 与 core 的独立验收覆盖，不要求下载厂商 RTP 来
+绕过当前 Host 的合法输入边界。
+
+清单通过只证明验收定义完整。产品结论必须来自对应版本、当次执行的机器报告、实际资产身份、
+网络记录与状态/画面证据。缺少输入、未执行的场景和性能基线不可算 PASS；公共协议或原生桥
+fixture 的通过也不能替代真实产品操作。
+
+`scripts/acceptance/content_io_performance.mjs` 按单个 Case 校验并比较 20 份样本：旧实现和候选
+分别五轮 cold/warm。每轮 cold 使用独立浏览器 context，warm 在该 context 中创建新的 Launch；
+输入、Chrome、网络配置和预先定义的首帧/可输入观察事件必须一致，同一变体的 Bundle 不能变化。
+首帧和可输入耗时分别按 cold/warm 中位数比较，候选上限为基线的 1.15 倍加 100 ms。
+任意一项超限均失败，不能跨游戏平均。公共缓存、临时/输出池、SAB 和活动资源计数还必须符合预算，
+Session 关闭后归零。进程总内存不可取得时填 null 并注明原因，不能填零。校验器单元测试的合成
+样本只验证这些判定规则，不是产品性能证据；真实样本仍须关联原始观测报告与当次资产身份。
+
+浏览器诊断观察器保留最多 100 条事件历史，并独立保留每个 Session 的最新已观测数字和已观测
+最大值；历史满后仍处理最终资源计数。未知字段、URL、路径和凭据不进入指标；缺失指标保持缺失，
+非法数字计入诊断错误，Session 数超过观察上限会显式标记 overflow。`observedMax` 只表示消息
+中观测到的最大值，不能代替未观测期间的真实内存峰值，或被直接填作性能报告的完整公共资源峰值。
+
+数值诊断的首选来源是 Runtime Host 的 `CONTENT_IO_METRICS`，通过现有
+`retrom:runtime-diagnostic` 事件获取。该消息已经聚合公共 Client 的 L1 逻辑命中与 Content
+Worker 的 L2、持久存储、同步 SAB 和物化计数；一旦收到 Host 观测，同 Session 的原始端口快照
+不得再覆盖聚合指标。各资源历史峰值使用 Runtime 在分配/释放处维护的 `peak*` 字段。
+`memoryHitBytes/persistentHitBytes` 必须是实际消费切片长度，不能用整个已加载缓存块的长度替代。
+关闭结果以正常退出后最终 `CLOSE/codeNumber=0` 的完整资源快照为准，故障时缺失指标仍为缺失。
+
+`observeContentStoreEvents(context, {retain: true})` 将去敏数字观测保留到浏览器外的 Case
+进程，退出时 iframe 移除也不丢失最终消息。`closeCounts` 只含最后一条 CLOSE 实际携带的
+字段，不从 READ 历史补齐；`lastOperation/lastCodeNumber` 保留真实终止结果。
+`content_io_measurement.mjs` 从进入 Launch 页面前的单调时间开始，在 Case 的既定画面和
+方向＋确认状态断言通过后分别标记首帧与输入就绪，再单独计量实际退出。
+它拒绝未完成、多个 Session、只有传输观测、失败 CLOSE、缺失真实峰值或最终字段的样本。
+进程内存和 Wasm heap 由实际 Case 提供；不能把观测器单元测试或空白浏览器测试算作游戏性能。

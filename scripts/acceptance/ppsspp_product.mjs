@@ -9,6 +9,9 @@ import {installVirtualStandardGamepad} from "./standard_gamepad.mjs";
 import {fantasyClient, previewCart, launchCart, saveCart} from "./fantasy_product_client.mjs";
 import {singleFile, reviewForImport} from "./rpgmaker_security_upload.mjs";
 import {observeFantasyAudio, fantasyAudioEvidence} from "./fantasy_fixture.mjs";
+import {observeContentStoreEvents} from "./content_store_events.mjs";
+import {finalContentMetrics} from "./content_io_measurement.mjs";
+import {validateContentResources} from "./content_io_performance.mjs";
 import {observePSPRange, rangeSummary, assertPartialStartup} from "./ppsspp_range_observation.mjs";
 import {observePSP, openPSP, capturePSP, pressPSP, pausePSP, pspFrames, skyMenu, waitSkyMenu,
   waitHalfMinuteMenu, halfMinuteSelection, exitPSP, checkPSPLayout} from "./ppsspp_product_browser.mjs";
@@ -35,7 +38,8 @@ try {
     args: ["--autoplay-policy=no-user-gesture-required", ...(env.RETROM_ACCEPTANCE_SOFTWARE_GL === "1" ? ["--use-angle=swiftshader", "--enable-unsafe-swiftshader"] : [])]});
   const context = await browser.newContext({viewport: {width: 1280, height: 900}, ...proxy.contextOptions});
   await installVirtualStandardGamepad(context); await observeFantasyAudio(context); await observePSP(context, evidence);
-  const network = observePSPRange(context);
+  const contentMetrics = await observeContentStoreEvents(context, {retain: true});
+  const network = await observePSPRange(context);
   const client = await fantasyClient(context, base);
   await client.json("POST", "/api/v1/admin/platform-instances/recommendations/apply", {headers: client.writeHeaders(), data: {}});
   const platforms = await client.json("GET", "/api/v1/admin/platform-instances?platformId=psp&limit=100");
@@ -118,6 +122,11 @@ try {
   await second.page.waitForTimeout(2500); await capturePSP(second, directory, "second-confirmed");
   assert.equal(await halfMinuteSelection(second), null, "PSP_SECOND_CONFIRM_MISSING");
   await exitPSP(second, secondLaunch.launchId, evidence, base + `/games/${progress.second.gameId}`);
+  evidence.contentIO = [first, restored, second].map(opened => contentMetrics.snapshot(opened.page));
+  for (const sessions of evidence.contentIO) {
+    const measured = finalContentMetrics(sessions);
+    validateContentResources(measured.publicPeak, false); validateContentResources(measured.closed, true);
+  }
   assert.deepEqual(evidence.errors, []); evidence.status = "PASS";
 } catch (error) {evidence.errorCode = error.message; evidence.stack = error.stack; process.exitCode = 1;}
 finally {

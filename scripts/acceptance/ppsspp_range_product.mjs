@@ -31,7 +31,7 @@ try {
     args: ["--autoplay-policy=no-user-gesture-required", ...(env.RETROM_ACCEPTANCE_SOFTWARE_GL === "1" ? ["--use-angle=swiftshader", "--enable-unsafe-swiftshader"] : [])]});
   const context = await browser.newContext({viewport: {width: 1280, height: 900}, ...proxy.contextOptions});
   await installVirtualStandardGamepad(context); await observeFantasyAudio(context); await observePSP(context, evidence);
-  const network = observePSPRange(context), client = await fantasyClient(context, base);
+  const network = await observePSPRange(context), client = await fantasyClient(context, base);
   stage("review-preview");
   const preview = await openPSP(context, base, await previewCart(client, env.RETROM_PSP_REVIEW_ID), evidence);
   await waitSkyMenu(preview); await pausePSP(preview); await network.flush();
@@ -52,7 +52,7 @@ finally {clearTimeout(watchdog); await browser?.close(); await proxy?.close(); w
 async function checkGame(name, gameId) {
   const context = await browser.newContext({viewport: {width: 1280, height: 900}, ...proxy.contextOptions});
   await installVirtualStandardGamepad(context); await observeFantasyAudio(context); await observePSP(context, evidence);
-  const network = observePSPRange(context), client = await fantasyClient(context, base);
+  const network = await observePSPRange(context), client = await fantasyClient(context, base);
   const launch = await launchCart(client, gameId), first = await openPSP(context, base, launch, evidence);
   if (name === "sky") await waitSkyMenu(first); else await waitHalfMinuteMenu(first);
   await pausePSP(first); await network.flush();

@@ -1,4 +1,7 @@
 #!/usr/bin/env node
+import {observeContentStoreEvents} from "./content_store_events.mjs";
+import {contentStoreSnapshot} from "./content_store_snapshot.mjs";
+import {withProjectRunArchive} from "./project_run_archive.mjs";
 
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
@@ -12,7 +15,7 @@ import { compareKiriKiriVisualSamples } from "./kirikiri_visual_match.mjs";
 import { localRpgAcceptanceProxy } from "./rpgmaker_local_proxy.mjs";
 import { createProductClient, singleFile } from "./rpgmaker_security_upload.mjs";
 import { isLocalAcceptanceHostname } from "./rpgmaker_url.mjs";
-import { trackRuntimeLoading } from "./runtime_loading_evidence.mjs";
+import { indexedLoading, indexedLoadingEvidence } from "./indexed_loading_evidence.mjs";
 import {installVirtualStandardGamepad} from "./standard_gamepad.mjs";
 
 const caseId = "ACC-KIRIKIRI-001";
@@ -43,6 +46,7 @@ let browser;
 try {
   browser = await chromium.launch({ executablePath: process.env.RETROM_CHROME_EXECUTABLE, headless: true });
   const evidence = await runProductCase(browser);
+  writeFileSync(join(caseDirectory, "observed.json"), JSON.stringify(evidence, null, 2));
   assertKiriKiriProductEvidence(evidence);
   writeEvidence(evidence);
   process.stdout.write(`${JSON.stringify(evidence)}\n`);
@@ -62,6 +66,7 @@ async function runProductCase(activeBrowser) {
     viewport: { width: 1440, height: 1000 },
     ...localProxy.contextOptions,
   });
+  await observeContentStoreEvents(context);
   await installVirtualStandardGamepad(context);
   const browserErrors = { pageErrorCount: 0, consoleErrorCount: 0, dialogCount: 0 };
   try {
@@ -74,7 +79,8 @@ async function runProductCase(activeBrowser) {
     const login = await loginResponse.json();
     const client = createProductClient(context, baseUrl, login.csrfToken);
     const platformInstanceId = await kirikiriPlatformInstance(client);
-    const uploadId = await client.upload(singleFile(process.env.RETROM_KIRIKIRI_SMOKE_ARCHIVE), "FILES", "PROJECT");
+    const uploadId = await withProjectRunArchive(process.env.RETROM_KIRIKIRI_SMOKE_ARCHIVE, "data.xp3",
+      wrapped => client.upload(singleFile(wrapped), "FILES", "PROJECT"));
     const importedResponse = await client.raw("POST", "/api/v1/admin/imports", {
       headers: client.writeHeaders(),
       timeout: 120_000,
@@ -97,12 +103,17 @@ async function runProductCase(activeBrowser) {
     const review = await reviewForImport(client, imported.importJobId);
 
     const preview = await createPreview(client, review.itemId);
+    const coldDeclaration = await indexedLoading(context, preview.previewId, baseUrl, "kirikiri");
     const previewPage = await trackedPage(context, browserErrors);
+    const coldProbe = coldDeclaration.track(previewPage);
     await previewPage.goto(`${baseUrl}${preview.playUrl}`, { waitUntil: "domcontentloaded", timeout: 120_000 });
     const previewCanvas = await runtimeCanvas(previewPage);
     await withStableStage(
       () => waitForKagStable(previewCanvas), "KIRIKIRI_ACCEPTANCE_PREVIEW_RUNTIME_NOT_READY",
     );
+    const coldLoading = await coldProbe.snapshot();
+    writeFileSync(join(caseDirectory, "cache-cold-visible.json"), JSON.stringify(await contentStoreSnapshot(previewPage), null, 2));
+    coldProbe.stop();
     await withStableStage(
       () => verifyGamepadCancel(previewCanvas), "KIRIKIRI_ACCEPTANCE_GAMEPAD_CANCEL_FAILED",
     );
@@ -110,6 +121,7 @@ async function runProductCase(activeBrowser) {
     await captureOptionalReviewScreenshot(previewPage, preview.previewId);
     await focusRuntimeCanvas(previewCanvas);
     const previewFrame = await screenshotEvidence(previewCanvas, "preview.png");
+    writeFileSync(join(caseDirectory, "cache-cold-close.json"), JSON.stringify(await contentStoreSnapshot(previewPage), null, 2));
     await previewPage.close();
 
     const approved = await approveReview(client, review.itemId);
@@ -130,7 +142,8 @@ async function runProductCase(activeBrowser) {
 
     const original = await createLaunch(client, approved.gameId, null);
     const originalPage = await trackedPage(context, browserErrors);
-    const originalLoadingProbe = trackRuntimeLoading(originalPage, [], { timeoutMs: 60_000 });
+    const originalDeclaration = await indexedLoading(context, original.launchId, baseUrl, "kirikiri");
+    const originalLoadingProbe = originalDeclaration.track(originalPage);
     await originalPage.goto(`${baseUrl}${original.playUrl}`, { waitUntil: "domcontentloaded", timeout: 120_000 });
     const originalCanvas = await runtimeCanvas(originalPage);
     await waitForProductReady(originalPage);
@@ -139,6 +152,7 @@ async function runProductCase(activeBrowser) {
       () => originalLoadingProbe.snapshot(), "KIRIKIRI_ACCEPTANCE_LOADING_EVIDENCE_FAILED",
     );
     originalLoadingProbe.stop();
+    writeFileSync(join(caseDirectory, "cache-first-visible.json"), JSON.stringify(await contentStoreSnapshot(originalPage), null, 2));
     await advanceKag(originalCanvas);
     const afterInput = await screenshotEvidence(originalCanvas, "product-after-input.png");
     requireChanged(beforeInput, afterInput, "KIRIKIRI_ACCEPTANCE_PRODUCT_INPUT_UNOBSERVED");
@@ -147,12 +161,14 @@ async function runProductCase(activeBrowser) {
     await advanceKag(originalCanvas);
     const afterCheckpoint = await screenshotEvidence(originalCanvas, "product-after-checkpoint.png");
     requireChanged(afterInput, afterCheckpoint, "KIRIKIRI_ACCEPTANCE_PRODUCT_C_UNOBSERVED");
+    writeFileSync(join(caseDirectory, "cache-first-close.json"), JSON.stringify(await contentStoreSnapshot(originalPage), null, 2));
     await originalPage.close();
 
     const restored = await createLaunch(client, approved.gameId, saved.saveStateId);
     if (restored.launchId === original.launchId) {throw new Error("KIRIKIRI_ACCEPTANCE_RESTORE_LAUNCH_REUSED");}
     const restoredPage = await trackedPage(context, browserErrors);
-    const restoreLoadingProbe = trackRuntimeLoading(restoredPage, [], { timeoutMs: 60_000 });
+    const restoreDeclaration = await indexedLoading(context, restored.launchId, baseUrl, "kirikiri");
+    const restoreLoadingProbe = restoreDeclaration.track(restoredPage);
     const stateResponsePromise = restoredPage.waitForResponse((response) =>
       response.request().method() === "GET" && response.url().endsWith(`/runtime/launches/${restored.launchId}/state`),
     { timeout: 120_000 });
@@ -163,6 +179,7 @@ async function runProductCase(activeBrowser) {
       () => restoreLoadingProbe.snapshot(), "KIRIKIRI_ACCEPTANCE_LOADING_EVIDENCE_FAILED",
     );
     restoreLoadingProbe.stop();
+    writeFileSync(join(caseDirectory, "cache-restore-visible.json"), JSON.stringify(await contentStoreSnapshot(restoredPage), null, 2));
     const stateResponse = await stateResponsePromise;
     requireStatus(stateResponse.status(), 200, "KIRIKIRI_ACCEPTANCE_RESTORE_PAYLOAD_FAILED");
     const payloadSize = Number(stateResponse.headers()["content-length"]);
@@ -176,6 +193,9 @@ async function runProductCase(activeBrowser) {
     await restoredPage.close();
     if (Object.values(browserErrors).some((count) => count !== 0)) {throw new Error("KIRIKIRI_ACCEPTANCE_BROWSER_ERROR");}
 
+    writeFileSync(join(caseDirectory, "range-requests.json"), JSON.stringify({
+      cold: coldLoading.rangeBlocks, first: originalLoading.rangeBlocks, restored: restoreLoading.rangeBlocks,
+    }, null, 2));
     return {
       schemaVersion: 1,
       caseId,
@@ -188,13 +208,8 @@ async function runProductCase(activeBrowser) {
       immersiveMenu,
       checkpoint: { format: saved.checkpointFormat, sizeBytes: payloadSize },
       restoreComparison: restoreMatch.comparison,
-      loading: {
-        schemaVersion: 1,
-        sameProjectContentIdentity: originalLoading.projectContentIdentity !== null &&
-          originalLoading.projectContentIdentity === restoreLoading.projectContentIdentity,
-        firstVisible: originalLoading.evidence,
-        restoreVisible: restoreLoading.evidence,
-      },
+      loading: indexedLoadingEvidence(coldLoading, originalLoading, restoreLoading,
+        [coldDeclaration.assetIdentity, originalDeclaration.assetIdentity, restoreDeclaration.assetIdentity]),
       screenshots: {
         preview: previewFrame, productBeforeInput: beforeInput, productAfterInput: afterInput,
         productAfterCheckpoint: afterCheckpoint,

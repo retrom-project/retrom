@@ -297,6 +297,10 @@ func TestRuntimeContentIsPrivateImmutableRevalidatesAndRevokes(t *testing.T) {
 		assertImmutableRuntimeGETAndHEAD(t, parentURL, requestContent)
 	}
 
+	for name, contentURL := range map[string]string{"game": gameURL, "disc": firstDiscURL, "bios": biosURL, "parent": parentURL} {
+		t.Run(name+" Content I/O", func(t *testing.T) { assertContentIOProtocol(t, contentURL, requestContent) })
+	}
+
 	second, err := server.launcher.Create(t.Context(), "local", launch.CreateRequest{
 		GameID: gameID, ReturnTo: "/games/" + gameID,
 		ClientCapabilities: launch.Capabilities{
