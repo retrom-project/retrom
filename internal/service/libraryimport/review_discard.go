@@ -10,9 +10,6 @@ import (
 	model "retrom/internal/model/libraryimport"
 
 	"retrom/internal/capability/security/authn"
-	payloadreleasemodel "retrom/internal/model/payloadrelease"
-	payloadreleaseservice "retrom/internal/service/payloadrelease"
-	"retrom/internal/service/tagging"
 
 	"github.com/google/uuid"
 )
@@ -68,53 +65,6 @@ func discardActor(ctx context.Context) model.ReviewActor {
 	return actor
 }
 
-// DiscardInScope shares the complete decision with a caller-owned transaction.
-// Its result becomes durable only when that caller commits the whole operation.
-func (service *ReviewDiscards) DiscardInScope(
-	ctx context.Context, scope model.ReviewDiscardScope, request model.ReviewDiscardRequest,
-) (model.ReviewDecisionResult, error) {
-	request, err := normalizeReviewDiscard(request)
-	if err != nil {
-		return model.ReviewDecisionResult{}, err
-	}
-	snapshot, found, err := scope.Reader.Snapshot(ctx, request.ItemID)
-	if err != nil {
-		return model.ReviewDecisionResult{}, fmt.Errorf("read discard evidence: %w", err)
-	}
-	if !found || !canDiscardReview(snapshot, request) {
-		return model.ReviewDecisionResult{}, model.ErrInvalid
-	}
-	tags, err := tagging.ReviewDraftReferencesInScope(ctx, scope.Tags, snapshot.DraftID)
-	if err != nil {
-		return model.ReviewDecisionResult{}, fmt.Errorf("read discard tags: %w", err)
-	}
-	event, err := reviewDiscardEvidence(ctx, snapshot, tags, request.Reason)
-	if err != nil {
-		return model.ReviewDecisionResult{}, err
-	}
-	event.ID, err = service.newID()
-	if err != nil {
-		return model.ReviewDecisionResult{}, fmt.Errorf("create discard event ID: %w", err)
-	}
-	event.ItemID = request.ItemID
-	event.NowMS = service.now().UnixMilli()
-	aggregate, err := projectReviewDiscardAggregate(snapshot.Aggregate, event.NowMS)
-	if err != nil {
-		return model.ReviewDecisionResult{}, err
-	}
-	change := model.ReviewDiscardChange{
-		ItemID: request.ItemID, ImportID: snapshot.ImportID, ExpectedVersion: request.ExpectedVersion,
-		NowMS: event.NowMS, Aggregate: aggregate,
-	}
-	if err := persistReviewDiscard(ctx, scope, request, change, event); err != nil {
-		return model.ReviewDecisionResult{}, err
-	}
-	return model.ReviewDecisionResult{
-		ItemID: request.ItemID, EventID: event.ID, Status: "DISCARDED",
-		Version: snapshot.Version + 1, UpdatedAtMS: event.NowMS,
-	}, nil
-}
-
 func normalizeReviewDiscard(request model.ReviewDiscardRequest) (model.ReviewDiscardRequest, error) {
 	request.Reason = strings.TrimSpace(request.Reason)
 	if request.Mode == "" {
@@ -138,36 +88,3 @@ func canDiscardReview(snapshot model.ReviewDiscardSnapshot, request model.Review
 	return !snapshot.SourceBusy && (snapshot.HandoffKind == "DIRECT" || snapshot.EmulationStationReady)
 }
 
-func persistReviewDiscard(
-	ctx context.Context, scope model.ReviewDiscardScope, request model.ReviewDiscardRequest,
-	change model.ReviewDiscardChange, event model.ReviewDiscardEvent,
-) error {
-	writer := scope.Writer
-	if err := writer.CancelAttachments(ctx, request.ItemID, event.NowMS); err != nil {
-		return fmt.Errorf("cancel discarded attachments: %w", err)
-	}
-	if err := writer.DiscardItem(ctx, change); err != nil {
-		return fmt.Errorf("discard review and aggregate: %w", err)
-	}
-	if err := writer.RecordEvent(ctx, event); err != nil {
-		return fmt.Errorf("record discarded review: %w", err)
-	}
-	if err := writer.TransitionOwner(ctx, model.ReviewOwnerTransition{
-		ItemID: request.ItemID, State: model.ReviewOwnerDiscarded, Mode: request.Mode, NowMS: event.NowMS,
-	}); err != nil {
-		return fmt.Errorf("transition discarded review owner: %w", err)
-	}
-	if err := payloadreleaseservice.NewScheduler(nil).Review(
-		ctx,
-		scope.Payload,
-		payloadreleasemodel.ReviewRelease{
-			ItemID:   request.ItemID,
-			ImportID: change.ImportID,
-			Reason:   payloadreleasemodel.ReasonImportDiscarded,
-			NowMS:    event.NowMS,
-		},
-	); err != nil {
-		return fmt.Errorf("schedule discarded review payload: %w", err)
-	}
-	return nil
-}

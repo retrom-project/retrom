@@ -7,30 +7,32 @@ import (
 
 	model "retrom/internal/model/libraryimport"
 
+	"retrom/internal/capability/security/authn"
+
 	"github.com/google/uuid"
 )
 
 const reviewDeduplicatePageSize = 50
 
-type reviewInScopeDiscarder interface {
-	DiscardInScope(
-		context.Context,
-		model.ReviewDiscardScope,
-		model.ReviewDiscardRequest,
-	) (model.ReviewDecisionResult, error)
-}
-
 // ReviewDeduplicator applies the duplicate review policy while the repository
 // keeps all SQL and transaction lifecycle details behind typed ports.
 type ReviewDeduplicator struct {
 	repository model.ReviewDeduplicateRepository
-	discarder  reviewInScopeDiscarder
+	newID      func() (string, error)
+	now        func() time.Time
 }
 
 func NewReviewDeduplicator(repository model.ReviewDeduplicateRepository, now func() time.Time) *ReviewDeduplicator {
 	return &ReviewDeduplicator{
 		repository: repository,
-		discarder:  NewReviewDiscards(nil, now),
+		newID: func() (string, error) {
+			id, err := uuid.NewV7()
+			if err != nil {
+				return "", err
+			}
+			return id.String(), nil
+		},
+		now:        now,
 	}
 }
 
@@ -41,93 +43,34 @@ func (service *ReviewDeduplicator) Deduplicate(
 	if err != nil {
 		return model.ReviewDeduplicateResult{}, err
 	}
-	var result model.ReviewDeduplicateResult
-	err = service.repository.WithDeduplicate(ctx, func(scope model.ReviewDeduplicateScope) error {
-		var deduplicateErr error
-		result, deduplicateErr = service.deduplicateInScope(ctx, scope, request)
-		return deduplicateErr
-	})
-	if err != nil {
-		return model.ReviewDeduplicateResult{}, fmt.Errorf("deduplicate review items: %w", err)
-	}
-	return result, nil
-}
-
-func (service *ReviewDeduplicator) deduplicateInScope(
-	ctx context.Context, scope model.ReviewDeduplicateScope, request model.ReviewDeduplicateRequest,
-) (model.ReviewDeduplicateResult, error) {
-	through, err := reviewDeduplicateThrough(ctx, scope.Reader, request.ThroughItemID)
-	if err != nil || through == "" {
-		return model.ReviewDeduplicateResult{}, err
-	}
-	candidates, err := scope.Reader.Candidates(ctx, model.ReviewBulkCandidateQuery{
-		Scope:         request.Scope,
-		AfterItemID:   request.AfterItemID,
-		ThroughItemID: through,
-		Limit:         reviewDeduplicatePageSize + 1,
-	})
-	if err != nil {
-		return model.ReviewDeduplicateResult{}, fmt.Errorf("read review duplicate candidates: %w", err)
-	}
-	result := model.ReviewDeduplicateResult{ThroughItemID: &through}
-	if len(candidates) > reviewDeduplicatePageSize {
-		candidates = candidates[:reviewDeduplicatePageSize]
-		result.NextAfterItemID = &candidates[len(candidates)-1].ItemID
-	}
-	duplicates := NewContentDuplicates(scope.Duplicates)
-	for _, candidate := range candidates {
-		result.ScannedCount++
-		if candidate.AttachmentActive {
-			result.AttachmentActiveCount++
-			continue
-		}
-		discarded, err := service.discardDuplicate(ctx, scope, duplicates, candidate)
+	slots := make([]model.DeduplicateDiscardSlot, reviewDeduplicatePageSize)
+	for i := range slots {
+		id, err := service.newID()
 		if err != nil {
-			return model.ReviewDeduplicateResult{}, err
+			return model.ReviewDeduplicateResult{}, fmt.Errorf("create discard event ID: %w", err)
 		}
-		if discarded {
-			result.DiscardedCount++
-		}
+		slots[i] = model.DeduplicateDiscardSlot{EventID: id}
 	}
-	return result, nil
+	actor := deduplicateActor(ctx)
+	now := service.now().UnixMilli()
+	return service.repository.CommitDeduplicate(ctx, model.DeduplicateCommand{
+		Request:  request,
+		Discards: slots,
+		NowMS:    now,
+		Actor:    actor,
+	})
 }
 
-func reviewDeduplicateThrough(
-	ctx context.Context, reader model.ReviewDeduplicateReader, through string,
-) (string, error) {
-	if through != "" {
-		return through, nil
+func deduplicateActor(ctx context.Context) model.ReviewActor {
+	actor := model.ReviewActor{Kind: "SYSTEM"}
+	label := "deduplication"
+	actor.Label = &label
+	if principal, ok := authn.PrincipalFromContext(ctx); ok && principal.UserID != "" {
+		actor.Kind = "USER"
+		actor.UserID = &principal.UserID
+		actor.Label = nil
 	}
-	value, err := reader.LatestReviewItemID(ctx)
-	if err != nil {
-		return "", fmt.Errorf("read deduplication upper bound: %w", err)
-	}
-	if value == nil {
-		return "", nil
-	}
-	return *value, nil
-}
-
-func (service *ReviewDeduplicator) discardDuplicate(
-	ctx context.Context,
-	scope model.ReviewDeduplicateScope,
-	duplicates *ContentDuplicates,
-	candidate model.ReviewBulkCandidate,
-) (bool, error) {
-	games, err := duplicates.Matches(ctx, candidate.ItemID, candidate.PlatformID)
-	if err != nil {
-		return false, fmt.Errorf("read duplicate games: %w", err)
-	}
-	if len(games) == 0 {
-		return false, nil
-	}
-	if _, err := service.discarder.DiscardInScope(ctx, scope.Discard, model.ReviewDiscardRequest{
-		ItemID: candidate.ItemID, ExpectedVersion: candidate.ReviewVersion,
-		Reason: "快速去重：游戏内容已发布", Mode: model.ReviewDiscardSingle,
-	}); err != nil {
-		return false, fmt.Errorf("discard duplicate review: %w", err)
-	}
-	return true, nil
+	return actor
 }
 
 func normalizeReviewDeduplicateRequest(request model.ReviewDeduplicateRequest) (model.ReviewDeduplicateRequest, error) {

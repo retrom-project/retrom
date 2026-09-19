@@ -1,11 +1,9 @@
 package libraryimport
 
 import (
-	"context"
 	"database/sql"
 
 	application "retrom/internal/model/libraryimport"
-	"retrom/internal/repo/dbexec"
 )
 
 // ReviewDeduplicates owns the transaction-scoped readers and discard scope
@@ -14,19 +12,6 @@ type ReviewDeduplicates struct{ database *sql.DB }
 
 func NewReviewDeduplicates(database *sql.DB) *ReviewDeduplicates {
 	return &ReviewDeduplicates{database: database}
-}
-
-func (repository *ReviewDeduplicates) WithDeduplicate(
-	ctx context.Context, work func(application.ReviewDeduplicateScope) error,
-) error {
-	return NewTransactions(repository.database).Write(ctx, func(executor dbexec.Executor) error {
-		scope := application.ReviewDeduplicateScope{
-			Reader:     BindReviewBulkQueries(executor),
-			Duplicates: BindContentDuplicates(executor),
-			Discard:    BindReviewDiscard(executor),
-		}
-		return work(scope)
-	})
 }
 
 var _ application.ReviewDeduplicateRepository = (*ReviewDeduplicates)(nil)

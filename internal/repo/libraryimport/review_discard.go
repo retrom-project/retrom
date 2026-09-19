@@ -21,23 +21,6 @@ type (
 
 func NewReviewDiscards(database *sql.DB) *ReviewDiscards { return &ReviewDiscards{database: database} }
 
-func (repository *ReviewDiscards) WithDiscard(
-	ctx context.Context, work func(application.ReviewDiscardScope) error,
-) error {
-	transaction, err := repository.database.BeginTx(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("begin review discard: %w", err)
-	}
-	defer dbexec.Rollback(transaction)
-	if err := work(BindReviewDiscard(transaction)); err != nil {
-		return err
-	}
-	if err := transaction.Commit(); err != nil {
-		return fmt.Errorf("commit review discard: %w", err)
-	}
-	return nil
-}
-
 // BindReviewDiscard joins an existing transaction without committing it.
 func BindReviewDiscard(executor dbexec.Executor) application.ReviewDiscardScope {
 	records := reviewDiscardRecords{executor: executor}

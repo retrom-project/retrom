@@ -15,13 +15,6 @@ type discardReleaseRepository struct {
 	cause error
 }
 
-func (fixture discardReleaseRepository) WithDiscard(_ context.Context, work func(model.ReviewDiscardScope) error) error {
-	return work(model.ReviewDiscardScope{
-		Reader: fixture.discardFixture, Tags: fixture.discardFixture, Writer: fixture.discardFixture,
-		Payload: payloadrelease.ReleaseScope{Scheduling: failedReviewScheduling{cause: fixture.cause}},
-	})
-}
-
 func (fixture discardReleaseRepository) CommitDiscard(_ context.Context, cmd model.DiscardCommand) (model.ReviewDecisionResult, error) {
 	return model.ReviewDecisionResult{}, fixture.cause
 }
