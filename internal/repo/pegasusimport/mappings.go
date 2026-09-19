@@ -44,6 +44,20 @@ func (repository *Mappings) CommitMappingBatch(
 		records := mappingRecords{executor: db}
 		tags := tagrepository.BindCrossDomain(db)
 		for _, entry := range batch.Entries {
+			if entry.Change.Mapping.Action == "IMPORT" {
+				target, found, targetErr := records.EligibleTarget(
+					ctx, entry.Change.Mapping.PlatformInstanceID,
+				)
+				if targetErr != nil {
+					return fmt.Errorf(
+						"verify Pegasus mapping target: %w", targetErr,
+					)
+				}
+				if !found {
+					return application.ErrInvalid
+				}
+				entry.Change.Target = &target
+			}
 			_, references, tagErr := tags.ReplaceOwnerReferences(
 				ctx, entry.Owner, entry.TagIDs,
 				entry.ActorID, entry.Change.NowMS,

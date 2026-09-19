@@ -102,16 +102,6 @@ func (service *Mappings) prepareMappings(
 			return nil, model.ErrInvalid
 		}
 		change := model.CollectionMapping{ImportID: id, Mapping: mapping, NowMS: now}
-		if mapping.Action == "IMPORT" {
-			target, found, err := service.repository.LoadEligibleTarget(ctx, mapping.PlatformInstanceID)
-			if err != nil {
-				return nil, fmt.Errorf("read EmulationStation mapping target: %w", err)
-			}
-			if !found {
-				return nil, model.ErrInvalid
-			}
-			change.Target = &target
-		}
 		result = append(result, change)
 	}
 	return result, nil

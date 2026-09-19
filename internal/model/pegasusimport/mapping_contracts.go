@@ -28,7 +28,6 @@ type MappingBatch struct {
 type MappingRepository interface {
 	LoadImportSummary(context.Context, string) (Summary, error)
 	LoadCollectionOwner(context.Context, string) (string, error)
-	LoadEligibleTarget(context.Context, string) (MappingTarget, bool, error)
 	CommitMappingBatch(context.Context, MappingBatch) (Summary, error)
 }
 
