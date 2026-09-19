@@ -54,7 +54,14 @@ type QueuedImportRequest struct {
 }
 
 type ImportAdmissionRepository interface {
-	WithAdmission(context.Context, func(ImportAdmissionScope) error) error
+	ReadAdmissionFacts(context.Context, ImportRequest) (ImportAdmissionFacts, error)
+	CommitAdmission(context.Context, ImportAdmissionChange) error
+}
+type ImportAdmissionFacts struct {
+	Upload         ImportUpload
+	Target         ImportTarget
+	TargetSnapshot ImportTargetSnapshot
+	Files          []ImportFile
 }
 type ImportAdmissionScope struct {
 	Facts  ImportFactsReader

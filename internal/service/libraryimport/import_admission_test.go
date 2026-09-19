@@ -36,10 +36,57 @@ func admissionServiceFixture() (*ImportAdmissions, *admissionMemory, model.Impor
 	return service, memory, model.ImportRequest{UploadID: "upload", TargetPlatformInstanceID: "platform", MetadataProvider: "NONE"}
 }
 
-func (memory *admissionMemory) WithAdmission(_ context.Context, work func(model.ImportAdmissionScope) error) error {
+func (memory *admissionMemory) ReadAdmissionFacts(_ context.Context, request model.ImportRequest) (model.ImportAdmissionFacts, error) {
 	memory.events = append(memory.events, "begin")
-	if err := work(model.ImportAdmissionScope{Facts: memory, Tags: memory, Writer: memory}); err != nil {
+	if memory.readError != nil {
+		return model.ImportAdmissionFacts{}, memory.readError
+	}
+	upload := memory.upload
+	if upload.ID == "" {
+		return model.ImportAdmissionFacts{}, model.ErrInvalid
+	}
+	if upload.State != "COMPLETE" || upload.Version < 1 {
+		return model.ImportAdmissionFacts{}, model.ErrInvalid
+	}
+	target := memory.target
+	if target.ID == "" {
+		return model.ImportAdmissionFacts{}, model.ErrInvalid
+	}
+	if len(memory.bindings) == 0 || len(memory.bindings[0].Policy.SupportedContentKinds) == 0 {
+		return model.ImportAdmissionFacts{}, model.ErrInvalid
+	}
+	b := memory.bindings[0]
+	target.CoreID = target.DefaultCoreID
+	target.BindingID, target.CoreID = b.BindingID, b.CoreID
+	target.ProviderID, target.TargetID = b.ProviderID, b.TargetID
+	target.DeliveryProfile, target.Policy = b.DeliveryProfile, b.Policy
+	files := memory.files
+	if len(files) == 0 || int64(len(files)) != upload.FileCount {
+		return model.ImportAdmissionFacts{}, model.ErrInvalid
+	}
+	snapshot := model.ImportTargetSnapshot{
+		SchemaVersion: 1, DefaultCoreID: memory.target.DefaultCoreID, PlatformID: target.PlatformID,
+		PlatformInstanceID: target.ID, PlatformInstanceVersion: target.Version,
+		Targets: []model.ImportTargetGuard{{ProviderID: target.ProviderID, TargetID: target.TargetID, CoreID: target.CoreID}},
+	}
+	return model.ImportAdmissionFacts{Upload: upload, Target: target, TargetSnapshot: snapshot, Files: files}, nil
+}
+
+func (memory *admissionMemory) CommitAdmission(_ context.Context, change model.ImportAdmissionChange) error {
+	memory.events = append(memory.events, "write")
+	// Simulate repo-level tag validation and document building.
+	refs := make([]tagging.Reference, len(change.Request.TagIDs))
+	for i, id := range change.Request.TagIDs {
+		refs[i] = tagging.Reference{TagID: id}
+	}
+	documents, err := model.BuildAdmissionDocuments(change, refs)
+	if err != nil {
 		return err
+	}
+	change.Documents = documents
+	memory.change = change
+	if memory.writeError != nil {
+		return memory.writeError
 	}
 	if memory.commitError != nil {
 		return memory.commitError

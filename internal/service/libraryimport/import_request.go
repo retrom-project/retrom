@@ -2,9 +2,7 @@ package libraryimport
 
 import (
 	"errors"
-	"path/filepath"
 	"slices"
-	"strings"
 
 	model "retrom/internal/model/libraryimport"
 
@@ -26,7 +24,7 @@ func NormalizeImportRequest(request model.ImportRequest) (model.ImportRequest, s
 	if mode == "" {
 		mode = contentcapability.ModeStandard
 	}
-	if !ValidImportContentMode(mode) || (request.MetadataProvider != "NONE" && request.MetadataProvider != "HASHEOUS") {
+	if !model.ValidImportContentMode(mode) || (request.MetadataProvider != "NONE" && request.MetadataProvider != "HASHEOUS") {
 		return model.ImportRequest{}, "", model.ErrInvalid
 	}
 	if contentcapability.IsProjectMode(mode) {
@@ -35,69 +33,29 @@ func NormalizeImportRequest(request model.ImportRequest) (model.ImportRequest, s
 	return request, mode, nil
 }
 
+// ValidImportContentMode delegates to the model-level pure function.
 func ValidImportContentMode(mode string) bool {
-	return mode == contentcapability.ModeStandard || mode == contentcapability.ModeMultiDisc ||
-		contentcapability.IsProjectMode(mode)
+	return model.ValidImportContentMode(mode)
 }
 
-// NormalizeTargetImport applies the virtual platform's transport policy before freezing an input.
+// NormalizeTargetImport delegates to the model-level pure function.
 func NormalizeTargetImport(
 	request model.ImportRequest, mode, purpose, sourceType string, files []model.ImportFile, target model.ImportTarget,
 ) (model.ImportRequest, string, error) {
-	if target.PlatformID != "rpgmaker" {
-		return request, mode, nil
-	}
-	mode = NormalizeTargetImportMode(target.PlatformID, mode)
-	if mode == contentcapability.ModeRPGMakerProject {
-		request.ContentMode = mode
-		request.MetadataProvider = "NONE"
-	}
-	if mode != contentcapability.ModeRPGMakerProject || purpose != "GENERAL" || sourceType == "DIRECTORY" {
-		return request, mode, nil
-	}
-	if sourceType != "FILES" || len(files) != 1 {
-		return model.ImportRequest{}, "", model.ErrInvalid
-	}
-	format, reason := ImportArchiveFormat(files[0].Path)
-	if reason != "" || (format != contentprofile.ArchiveZIP && format != contentprofile.ArchiveSevenZip) {
-		return model.ImportRequest{}, "", model.ErrInvalid
-	}
-	return request, mode, nil
+	return model.NormalizeTargetImport(request, mode, purpose, sourceType, files, target)
 }
 
+// NormalizeTargetImportMode delegates to the model-level pure function.
 func NormalizeTargetImportMode(platformID, mode string) string {
-	if platformID == "rpgmaker" && mode == contentcapability.ModeStandard {
-		return contentcapability.ModeRPGMakerProject
-	}
-	return mode
+	return model.NormalizeTargetImportMode(platformID, mode)
 }
 
+// ValidateImportUpload delegates to the model-level pure function.
 func ValidateImportUpload(mode, sourceType, purpose string) error {
-	if mode == contentcapability.ModeMultiDisc && sourceType != "DIRECTORY" {
-		return model.ErrMultiDiscModeUnavailable
-	}
-	if contentcapability.IsProjectMode(mode) {
-		if purpose != "PROJECT" && purpose != "GENERAL" {
-			return model.ErrInvalid
-		}
-		return nil
-	}
-	if purpose != "GENERAL" {
-		return model.ErrInvalid
-	}
-	return nil
+	return model.ValidateImportUpload(mode, sourceType, purpose)
 }
 
+// ImportArchiveFormat delegates to the model-level pure function.
 func ImportArchiveFormat(filePath string) (contentprofile.ArchiveFormat, string) {
-	switch strings.ToLower(filepath.Ext(filePath)) {
-	case ".zip":
-		return contentprofile.ArchiveZIP, ""
-	case ".7z":
-		return contentprofile.ArchiveSevenZip, ""
-	default:
-		if strings.HasSuffix(strings.ToLower(filePath), ".7z.001") {
-			return "", "ARCHIVE_VOLUME_UNSUPPORTED"
-		}
-		return "", "UNSUPPORTED_CONTENT_FORMAT"
-	}
+	return model.ImportArchiveFormat(filePath)
 }
