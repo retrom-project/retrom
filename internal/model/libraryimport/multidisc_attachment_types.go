@@ -137,6 +137,5 @@ type AttachmentAdmissionCommand struct {
 }
 
 type MultiDiscAttachmentRepository interface {
-	WithAttachmentAdmission(context.Context, func(MultiDiscAttachmentScope) error) error
 	CommitAttachmentAdmission(context.Context, AttachmentAdmissionCommand) (MultiDiscAttachmentCreated, error)
 }
