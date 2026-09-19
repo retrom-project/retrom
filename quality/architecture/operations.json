@@ -12963,6 +12963,2175 @@
       }
     },
     {
+      "operation_id": "payloadrelease.cancel-protected-gc",
+      "owner": "payloadrelease",
+      "rf_id": "RF18",
+      "consumers": [
+        "(*retrom/internal/adapter/integration/payloadrelease.Service).ReconcileGC",
+        "(*retrom/internal/adapter/integration/payloadrelease.Service).ScheduleImmediateGC",
+        "(*retrom/internal/adapter/integration/payloadrelease.Service).stageAllUnreferenced",
+        "(*retrom/internal/service/payloadrelease.GCScheduler).Immediate",
+        "(*retrom/internal/service/payloadrelease.GCScheduler).Reconcile",
+        "(*retrom/internal/service/payloadrelease.GCScheduler).cancelProtected",
+        "(*retrom/internal/service/payloadrelease.Service).ReconcileGC",
+        "(*retrom/internal/service/payloadrelease.Service).ScheduleImmediateGC",
+        "(*retrom/internal/transport/httpapi.Server).adminStorageCleanup"
+      ],
+      "snapshot": "retrom/internal/model/payloadrelease.GCBlob",
+      "prepare": "(*retrom/internal/service/payloadrelease.GCScheduler).cancelProtected",
+      "commit": "(*retrom/internal/repo/payloadrelease.GC).WithGC",
+      "policy_symbols": [
+        "retrom/internal/service/payloadrelease.validGCCandidate"
+      ],
+      "fresh_facts": [
+        {
+          "name": "current Blob and candidate facts",
+          "reader_symbol": "(retrom/internal/repo/payloadrelease.gcRecords).Candidates",
+          "reason": "Inside writer Blob id/digest/size plus candidate firstUnreferenced/scheduled/attempt,complete candidate Work/input; Protected from current registered PROTECTIVE edges and protected-archive materialized members"
+        },
+        {
+          "name": "registry protective references",
+          "reader_symbol": "retrom/internal/repo/blobregistry.ProtectiveSet",
+          "reason": "Reads each registered PROTECTIVE table/column and one pass archive_entries archiveBlob/materializedBlob; bookkeeping/archive ownership alone is not protection"
+        }
+      ],
+      "guards": [
+        {
+          "id": "protected-valid-candidate",
+          "fields": [
+            "protected",
+            "hasCandidate",
+            "work.id",
+            "work.scope",
+            "work.kind",
+            "work.version",
+            "work.execution",
+            "work.state"
+          ],
+          "expected_source": "Select currently protected; candidate Work nonempty/exactBLOBscope/BLOB_GC;version and execution >0 <MaxInt64,stateQUEUED|RUNNING|FAILED",
+          "rejection": "ErrImmediateGCJobStateInvalid",
+          "test_id": "RFA-RF18-shared_digest"
+        },
+        {
+          "id": "gc-snapshot",
+          "fields": [
+            "blobId",
+            "digest",
+            "size",
+            "protected",
+            "candidate",
+            "work",
+            "input"
+          ],
+          "expected_source": "Fence UPDATE blobs id=id for <=200 IDs,exact count,then reread Selected and require exact entire comparable GCBlob incl protection/work facts",
+          "rejection": "ErrGCSnapshotChanged",
+          "test_id": "RFA-RF18-shared_digest"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "blob-fence",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.gcRecords).Fence",
+          "affected_records": [
+            "UPDATE blobs SET id=id per <=200 selected IDs,require exact count then full GCBlob equality recheck"
+          ],
+          "test_id": "RFA-RF18-shared_digest"
+        },
+        {
+          "stage": "candidate-job-fence",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.gcRecords).fenceJob",
+          "affected_records": [
+            "UPDATE jobs version=version with full current workFence,require1"
+          ],
+          "test_id": "RFA-RF18-shared_digest"
+        },
+        {
+          "stage": "cancel-candidate",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.gcRecords).Cancel",
+          "affected_records": [
+            "DELETE blob_gc_candidates exact blob/job/firstUnreferenced/scheduled/attempt,require1"
+          ],
+          "test_id": "RFA-RF18-shared_digest"
+        },
+        {
+          "stage": "complete-queued-gc",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.gcRecords).Cancel",
+          "affected_records": [
+            "QUEUED only jobs full fence -> SUCCEEDED,finished now,error/retryableNULL,version+1,time; RUNNING/FAILED job unchanged"
+          ],
+          "test_id": "RFA-RF18-shared_digest"
+        },
+        {
+          "stage": "protected-completion-event",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.gcRecords).event",
+          "affected_records": [
+            "QUEUED only INSERT SUCCEEDED schema1 reasonREFERENCE_RESTORED"
+          ],
+          "test_id": "RFA-RF18-shared_digest"
+        }
+      ],
+      "idempotency": "No domain receipt; durable exact identity/state/version fences control repeats. HTTP-triggered immediate cleanup is subject to separately registered generic receipt middleware.",
+      "time_rule": "Baseline BeginTx(ctx,nil) on shared writer and upper callback; Service clock sampled inside callback. Target requires one Repo admission sample after write permission. Exact sample/UUID positions below. Service samples after Blob+job facts fenced; one sample for all selected. No UUID.",
+      "after_commit": [
+        {
+          "action": "Running executor will reread missing candidate and avoid deletion; queued completed job has final event",
+          "recovery": "Protected references remain intact; failed/running job is not falsely marked successful by scheduler",
+          "test_id": "RFA-RF18-gc_crash_recovery"
+        }
+      ],
+      "fault_points": [
+        "PLANNED blob-fence: fail after applicable write; compare full job/event/audit/owner/reference/candidate/session state and require transaction rollback",
+        "PLANNED candidate-job-fence: fail after applicable write; compare full job/event/audit/owner/reference/candidate/session state and require transaction rollback",
+        "PLANNED cancel-candidate: fail after applicable write; compare full job/event/audit/owner/reference/candidate/session state and require transaction rollback",
+        "PLANNED complete-queued-gc: fail after applicable write; compare full job/event/audit/owner/reference/candidate/session state and require transaction rollback",
+        "PLANNED protected-completion-event: fail after applicable write; compare full job/event/audit/owner/reference/candidate/session state and require transaction rollback",
+        "PLANNED each Guard independently changed before writer,stale execution/candidate,digest replacement,shared ownership,commit failure,cancellation and crash/restart; never infer physical byte rollback from SQL rollback"
+      ],
+      "test_ids": [
+        "RFA-RF18-shared_digest",
+        "RFA-RF18-release_fence",
+        "RFA-RF18-gc_crash_recovery"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "This operation changes job/bookkeeping state or removes existing references; it neither publishes CAS bytes nor adds a protective Blob edge. Physical deletion is separately registered.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "payloadrelease.claim-work",
+      "owner": "payloadrelease",
+      "rf_id": "RF18",
+      "consumers": [
+        "(*retrom/internal/adapter/integration/payloadrelease.Service).RunOnce",
+        "(*retrom/internal/service/payloadrelease.Service).RunOnce",
+        "(*retrom/internal/service/payloadrelease.Worker).Claim",
+        "(*retrom/internal/service/payloadrelease.Worker).RunOnce",
+        "(*retrom/internal/service/payloadrelease.Worker).loop"
+      ],
+      "snapshot": "retrom/internal/model/payloadrelease.Work",
+      "prepare": "(*retrom/internal/service/payloadrelease.Worker).Claim",
+      "commit": "(*retrom/internal/repo/payloadrelease.Worker).WithWorker",
+      "policy_symbols": [
+        "retrom/internal/service/payloadrelease.RetryDelay",
+        "retrom/internal/service/payloadrelease.WorkErrorCode",
+        "retrom/internal/service/payloadrelease.executionBudgetFailure",
+        "retrom/internal/service/payloadrelease.validWork"
+      ],
+      "fresh_facts": [
+        {
+          "name": "current durable work",
+          "reader_symbol": "(retrom/internal/repo/payloadrelease.workerRecords).Next",
+          "reason": "Inside writer jobs id/kind/scope/state/worker/execution/attempt/max/version/available,nullable started/deadline/lease/heartbeat and exact current execution input JSON/digest/found"
+        },
+        {
+          "name": "exhausted-failure owner",
+          "reader_symbol": "(retrom/internal/repo/payloadrelease.scheduling).Owner",
+          "reason": "Only terminal FAILED nonBLOB/nonUPLOAD_CONSUMPTION: current semantic scope,releaseJobID,payloadState/version; RELEASED owner skipped"
+        }
+      ],
+      "guards": [
+        {
+          "id": "next-queued",
+          "fields": [
+            "state",
+            "available",
+            "kind"
+          ],
+          "expected_source": "Oldest eligible PAYLOAD_RELEASE|BLOB_GC QUEUED with available<=now ordered available/created/id LIMIT1; none is no-op",
+          "rejection": "ErrExecutionLost on invalid returned snapshot",
+          "test_id": "RFA-RF18-release_fence"
+        },
+        {
+          "id": "valid-claim",
+          "fields": [
+            "id",
+            "scope.id",
+            "execution",
+            "attempt",
+            "max",
+            "version"
+          ],
+          "expected_source": "validWork requires nonempty IDs,execution>0,attempt>=0,max>0,0<version<MaxInt64",
+          "rejection": "ErrExecutionLost",
+          "test_id": "RFA-RF18-release_fence"
+        },
+        {
+          "id": "execution-budget",
+          "fields": [
+            "deadline",
+            "attempt",
+            "max"
+          ],
+          "expected_source": "Deadline elapsed wins then attempts>=max; budget failure settles in THIS claim transaction without starting executor",
+          "rejection": "ErrExecutionTimeout / ErrAttemptsExhausted as durable failed outcome",
+          "test_id": "RFA-RF18-release_fence"
+        },
+        {
+          "id": "worker-identity",
+          "fields": [
+            "newWorkerId"
+          ],
+          "expected_source": "Generated worker identity must be nonempty",
+          "rejection": "ErrScheduleIDInvalid or original generator error",
+          "test_id": "RFA-RF18-release_fence"
+        },
+        {
+          "id": "full-work-snapshot",
+          "fields": [
+            "id",
+            "kind",
+            "scope",
+            "state",
+            "worker",
+            "execution",
+            "attempt",
+            "max",
+            "version",
+            "available",
+            "started",
+            "deadline",
+            "lease",
+            "heartbeat",
+            "inputFound",
+            "inputJSON",
+            "inputDigest"
+          ],
+          "expected_source": "workFence compares ALL observed fields and input snapshot existence/bytes/digest; nullable times via COALESCE(-1); exactly one SQL row",
+          "rejection": "ErrExecutionLost",
+          "test_id": "RFA-RF18-release_fence"
+        },
+        {
+          "id": "exhausted-failure-owner",
+          "fields": [
+            "scope",
+            "releaseJobId",
+            "payloadState",
+            "version"
+          ],
+          "expected_source": "Owner scope equals work scope and releaseJobID==work ID; owner RELEASED skipped,otherwise RELEASING|FAILED",
+          "rejection": "ErrExecutionLost / ErrScopeInvalid",
+          "test_id": "RFA-RF18-release_fence"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "claim-job-transition",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.workerRecords).Change",
+          "affected_records": [
+            "Active claim -> RUNNING,workerUUID,attempt+1,version+1,first started=now,first deadline=started+30min,lease=min(now+60s,deadline),heartbeat=now; full workFence,require1. Change also sets finished only SUCCEEDED/FAILED,error/retryable only when code nonempty"
+          ],
+          "test_id": "RFA-RF18-release_fence"
+        },
+        {
+          "stage": "claim-started-event",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.workerRecords).evidence",
+          "affected_records": [
+            "Active claim INSERT STARTED schema1 execution/attempt,time"
+          ],
+          "test_id": "RFA-RF18-release_fence"
+        },
+        {
+          "stage": "exhausted-job-transition",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.workerRecords).Change",
+          "affected_records": [
+            "Terminal/retry branch version+1,worker/lease/heartbeat cleared; success SUCCEEDED; error FAILED unless retryable and not timeout and budget remains -> QUEUED with available=now+1s/5s/30s; lost/cancelled/closed retry immediately; full workFence,require1. Change also sets finished only SUCCEEDED/FAILED,error/retryable only when code nonempty"
+          ],
+          "test_id": "RFA-RF18-release_fence"
+        },
+        {
+          "stage": "exhausted-failed-owner",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.workerRecords).failOwner",
+          "affected_records": [
+            "Terminal FAILED only: import_items/import_jobs/pegasus_import_items/emulationstation_import_items/games exact id/version/releaseJobId/payloadState -> payload_stateFAILED,lastError; only games also version+1,time; require1"
+          ],
+          "test_id": "RFA-RF18-release_fence"
+        },
+        {
+          "stage": "exhausted-outcome-event",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.workerRecords).evidence",
+          "affected_records": [
+            "INSERT SUCCEEDED/FAILED/RETRY_SCHEDULED job_events scope,schema1/errorCode/execution/attempt,time"
+          ],
+          "test_id": "RFA-RF18-release_fence"
+        },
+        {
+          "stage": "exhausted-outcome-audit",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.workerRecords).evidence",
+          "affected_records": [
+            "Terminal PAYLOAD_RELEASE only INSERT audit_events fresh UUID,SYSTEM,payload-release-worker,PAYLOAD_RELEASE_COMPLETED|FAILED,scope and schema1 job/scope/state/error JSON,time; no audit for BLOB_GC or retry"
+          ],
+          "test_id": "RFA-RF18-release_fence"
+        }
+      ],
+      "idempotency": "No domain receipt; durable exact identity/state/version fences control repeats. HTTP-triggered immediate cleanup is subject to separately registered generic receipt middleware.",
+      "time_rule": "Baseline BeginTx(ctx,nil) on shared writer and upper callback; Service clock sampled inside callback. Target requires one Repo admission sample after write permission. Exact sample/UUID positions below. Claim samples now BEFORE reading Next; worker ID generated afterward inside callback. Budget-failure terminal settlement may generate audit ID inside same callback. No general negative/overflow clock validation in baseline.",
+      "after_commit": [
+        {
+          "action": "Only committed active claim returned to RunOnce; DecodeWork then real executor runs outside writer",
+          "recovery": "250ms poll/Signal discovers QUEUED work; failed budget settles durably without claiming; claimed work authority is rechecked in each effect/monitor transaction",
+          "test_id": "RFA-RF18-gc_crash_recovery"
+        }
+      ],
+      "fault_points": [
+        "PLANNED claim-job-transition: fail after applicable write; compare full job/event/audit/owner/reference/candidate/session state and require transaction rollback",
+        "PLANNED claim-started-event: fail after applicable write; compare full job/event/audit/owner/reference/candidate/session state and require transaction rollback",
+        "PLANNED exhausted-job-transition: fail after applicable write; compare full job/event/audit/owner/reference/candidate/session state and require transaction rollback",
+        "PLANNED exhausted-failed-owner: fail after applicable write; compare full job/event/audit/owner/reference/candidate/session state and require transaction rollback",
+        "PLANNED exhausted-outcome-event: fail after applicable write; compare full job/event/audit/owner/reference/candidate/session state and require transaction rollback",
+        "PLANNED exhausted-outcome-audit: fail after applicable write; compare full job/event/audit/owner/reference/candidate/session state and require transaction rollback",
+        "PLANNED each Guard independently changed before writer,stale execution/candidate,digest replacement,shared ownership,commit failure,cancellation and crash/restart; never infer physical byte rollback from SQL rollback"
+      ],
+      "test_ids": [
+        "RFA-RF18-release_fence",
+        "RFA-RF18-gc_crash_recovery",
+        "RFA-RF18-shared_digest"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "This operation changes job/bookkeeping state or removes existing references; it neither publishes CAS bytes nor adds a protective Blob edge. Physical deletion is separately registered.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "payloadrelease.collect-garbage",
+      "owner": "payloadrelease",
+      "rf_id": "RF18",
+      "consumers": [
+        "(*retrom/internal/adapter/integration/payloadrelease.Service).execute",
+        "(*retrom/internal/adapter/integration/payloadrelease.Service).executeBlobGC",
+        "(*retrom/internal/service/payloadrelease.GarbageCollector).Execute",
+        "(*retrom/internal/service/payloadrelease.Service).Execute",
+        "(retrom/internal/adapter/integration/payloadrelease.releaseExecutor).Execute"
+      ],
+      "snapshot": "retrom/internal/model/payloadrelease.GarbageFacts",
+      "prepare": "(*retrom/internal/service/payloadrelease.GarbageCollector).Execute",
+      "commit": "(*retrom/internal/repo/payloadrelease.Garbage).WithGarbage",
+      "policy_symbols": [
+        "retrom/internal/service/payloadrelease.DecodeWork",
+        "retrom/internal/service/payloadrelease.sameExecution",
+        "retrom/internal/service/payloadrelease.validGarbageInput",
+        "retrom/internal/service/payloadrelease.validWork",
+        "retrom/internal/service/payloadrelease.validateWorkInput"
+      ],
+      "fresh_facts": [
+        {
+          "name": "current durable work",
+          "reader_symbol": "(retrom/internal/repo/payloadrelease.workerRecords).Current",
+          "reason": "Inside writer jobs id/kind/scope/state/worker/execution/attempt/max/version/available,nullable started/deadline/lease/heartbeat and exact current execution input JSON/digest/found"
+        },
+        {
+          "name": "current Blob and candidate facts",
+          "reader_symbol": "(retrom/internal/repo/payloadrelease.gcRecords).Selected",
+          "reason": "Inside writer Blob id/digest/size plus candidate firstUnreferenced/scheduled/attempt,complete candidate Work/input; Protected from current registered PROTECTIVE edges and protected-archive materialized members"
+        },
+        {
+          "name": "registry protective references",
+          "reader_symbol": "retrom/internal/repo/blobregistry.ProtectiveSet",
+          "reason": "Reads each registered PROTECTIVE table/column and one pass archive_entries archiveBlob/materializedBlob; bookkeeping/archive ownership alone is not protection"
+        },
+        {
+          "name": "digest replacement and archive count",
+          "reader_symbol": "(retrom/internal/repo/payloadrelease.garbageRecords).Facts",
+          "reason": "Inside writer selected requested Blob+protection/candidate,archive_entries count and EXISTS another blobs row same digest with different ID,even when original row absent"
+        }
+      ],
+      "guards": [
+        {
+          "id": "work-valid",
+          "fields": [
+            "id",
+            "scope.id",
+            "kind",
+            "execution",
+            "attempt",
+            "max",
+            "version"
+          ],
+          "expected_source": "Nonempty IDs,kind PAYLOAD_RELEASE|BLOB_GC,execution>0,attempt>=0,max>0,0<version<MaxInt64",
+          "rejection": "ErrExecutionLost",
+          "test_id": "RFA-RF18-gc_new_reference"
+        },
+        {
+          "id": "original-execution",
+          "fields": [
+            "id",
+            "kind",
+            "scope",
+            "state",
+            "worker",
+            "execution",
+            "attempt",
+            "max",
+            "started",
+            "deadline",
+            "inputFound",
+            "inputJSON",
+            "inputDigest"
+          ],
+          "expected_source": "sameExecution: both current/original RUNNING,nonempty matching worker,exact identity/scope/execution/attempt/max/start/deadline/input; current version/heartbeat may advance",
+          "rejection": "ErrExecutionLost",
+          "test_id": "RFA-RF18-gc_new_reference"
+        },
+        {
+          "id": "live-execution",
+          "fields": [
+            "lease",
+            "deadline",
+            "now"
+          ],
+          "expected_source": "Current lease and deadline both set and strictly > current Service sample",
+          "rejection": "ErrExecutionLost",
+          "test_id": "RFA-RF18-gc_new_reference"
+        },
+        {
+          "id": "full-work-snapshot",
+          "fields": [
+            "id",
+            "kind",
+            "scope",
+            "state",
+            "worker",
+            "execution",
+            "attempt",
+            "max",
+            "version",
+            "available",
+            "started",
+            "deadline",
+            "lease",
+            "heartbeat",
+            "inputFound",
+            "inputJSON",
+            "inputDigest"
+          ],
+          "expected_source": "workFence compares ALL observed fields and input snapshot existence/bytes/digest; nullable times via COALESCE(-1); exactly one SQL row",
+          "rejection": "ErrExecutionLost",
+          "test_id": "RFA-RF18-gc_new_reference"
+        },
+        {
+          "id": "garbage-input",
+          "fields": [
+            "input.sha256",
+            "input.schema",
+            "input.kind",
+            "input.scope",
+            "work.scope"
+          ],
+          "expected_source": "Hex32byte digest,nonempty BLOB scope,matching input scope,kindBLOB_GC,schema1; upstream DecodeWork validates frozen JSON digest,nonzero parseable UUID and kind/scope",
+          "rejection": "BLOB_GC_INPUT_INVALID / ErrInputInvalid",
+          "test_id": "RFA-RF18-gc_new_reference"
+        },
+        {
+          "id": "other-digest-owner",
+          "fields": [
+            "OtherDigestOwner",
+            "blob.id",
+            "digest"
+          ],
+          "expected_source": "Any other owner of requested digest prevents all deletion; existing Blob must exactly match requested ID/digest",
+          "rejection": "No-op or BLOB_GC_INPUT_INVALID",
+          "test_id": "RFA-RF18-gc_new_reference"
+        },
+        {
+          "id": "current-candidate",
+          "fields": [
+            "found",
+            "hasCandidate",
+            "candidate.workId",
+            "unit.workId",
+            "protected"
+          ],
+          "expected_source": "Missing original Blob with no replacement permits physical retry; existing Blob requires candidate matches claimed job; protected deletes candidate only",
+          "rejection": "No-op if missing/mismatched candidate; protected never deletes bytes",
+          "test_id": "RFA-RF18-gc_new_reference"
+        },
+        {
+          "id": "gc-snapshot",
+          "fields": [
+            "blobId",
+            "digest",
+            "size",
+            "protected",
+            "candidate",
+            "work",
+            "input"
+          ],
+          "expected_source": "Fence UPDATE blobs id=id for <=200 IDs,exact count,then reread Selected and require exact entire comparable GCBlob incl protection/work facts",
+          "rejection": "ErrGCSnapshotChanged",
+          "test_id": "RFA-RF18-gc_new_reference"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "initial-worker-fence",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.workerRecords).Fence",
+          "affected_records": [
+            "CheckInScope before facts UPDATE jobs version=version with full authority snapshot"
+          ],
+          "test_id": "RFA-RF18-gc_new_reference"
+        },
+        {
+          "stage": "blob-fence",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.gcRecords).Fence",
+          "affected_records": [
+            "UPDATE blobs SET id=id per <=200 selected IDs,require exact count then full GCBlob equality recheck"
+          ],
+          "test_id": "RFA-RF18-gc_new_reference"
+        },
+        {
+          "stage": "archive-index",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.garbageRecords).Remove",
+          "affected_records": [
+            "Unprotected matching candidate only DELETE archive_entries WHERE archive_blob_id=requestedID,require exact earlier count"
+          ],
+          "test_id": "RFA-RF18-gc_new_reference"
+        },
+        {
+          "stage": "remove-gc-candidate",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.garbageRecords).cancelCandidate",
+          "affected_records": [
+            "DELETE candidate exact blob/job/firstUnreferenced/scheduled/attempt,require1; protected cancellation uses this alone after Blob fence"
+          ],
+          "test_id": "RFA-RF18-gc_new_reference"
+        },
+        {
+          "stage": "remove-blob-catalog",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.garbageRecords).Remove",
+          "affected_records": [
+            "Unprotected branch DELETE blobs exact id/digest/size,require1"
+          ],
+          "test_id": "RFA-RF18-gc_new_reference"
+        },
+        {
+          "stage": "final-worker-fence",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.workerRecords).Fence",
+          "affected_records": [
+            "CheckInScope again before outer commit rereads current job and resamples clock; no detached postcommit fence"
+          ],
+          "test_id": "RFA-RF18-gc_new_reference"
+        }
+      ],
+      "idempotency": "Protected or replacement owner -> no physical delete. If prior catalog removal committed but original Blob absent,no replacement owner permits physical retry. Missing physical file succeeds. Worker finish is separate transaction,so crash after remove remains recoverable; baseline interphase digest race still unprotected.",
+      "time_rule": "Baseline BeginTx(ctx,nil) on shared writer and upper callback; Service clock sampled inside callback. Target requires one Repo admission sample after write permission. Exact sample/UUID positions below. Worker current() samples independently in both pre/post CheckInScope. Physical os.Remove occurs AFTER database commit,without a digest lock or postcommit OtherDigestOwner/lease reread.",
+      "after_commit": [
+        {
+          "action": "When authorized remove=true,adapter/files/payloadfiles.Store.Delete checks context then os.Remove(blobstore.Path(digest)); os.ErrNotExist accepted; other failures BLOB_GC_PHYSICAL_DELETE_FAILED; then worker independently finishes",
+          "recovery": "Physical failure after committed catalog removal retries from frozen input; same-digest new owner must be protected by planned lock/revalidation,not by assuming DB rollback restores bytes",
+          "test_id": "RFA-RF18-gc_crash_recovery"
+        }
+      ],
+      "fault_points": [
+        "PLANNED initial-worker-fence: fail after applicable write; compare full job/event/audit/owner/reference/candidate/session state and require transaction rollback",
+        "PLANNED blob-fence: fail after applicable write; compare full job/event/audit/owner/reference/candidate/session state and require transaction rollback",
+        "PLANNED archive-index: fail after applicable write; compare full job/event/audit/owner/reference/candidate/session state and require transaction rollback",
+        "PLANNED remove-gc-candidate: fail after applicable write; compare full job/event/audit/owner/reference/candidate/session state and require transaction rollback",
+        "PLANNED remove-blob-catalog: fail after applicable write; compare full job/event/audit/owner/reference/candidate/session state and require transaction rollback",
+        "PLANNED final-worker-fence: fail after applicable write; compare full job/event/audit/owner/reference/candidate/session state and require transaction rollback",
+        "PLANNED each Guard independently changed before writer,stale execution/candidate,digest replacement,shared ownership,commit failure,cancellation and crash/restart; never infer physical byte rollback from SQL rollback"
+      ],
+      "test_ids": [
+        "RFA-RF18-gc_new_reference",
+        "RFA-RF18-release_fence",
+        "RFA-RF18-gc_crash_recovery",
+        "RFA-RF18-shared_digest"
+      ],
+      "content_coordination": {
+        "required": true,
+        "reason": "GC catalog removal and subsequent physical unlink must share D22 digest stripe lock with all same-digest publishers/new protective owners. Baseline only has DB snapshots/fences and releases writer before file deletion; same digest can be newly registered in that gap. Acquire before writer,hold through remove/retry,never unlink lock file.",
+        "digest_sources": [
+          "Frozen verified BLOB_GC input SHA256,checked against current Blob and OtherDigestOwner after lock acquisition"
+        ],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": "(*retrom/internal/repo/payloadrelease.Garbage).WithGarbage",
+        "test_ids": [
+          "RFA-RF18-gc_new_reference",
+          "RFA-RF18-gc_stale_digest",
+          "RFA-RF18-digest_lock_process",
+          "RFA-RF18-shared_digest",
+          "RFA-RF18-gc_crash_recovery"
+        ]
+      }
+    },
+    {
+      "operation_id": "payloadrelease.expire-previews",
+      "owner": "payloadrelease",
+      "rf_id": "RF18",
+      "consumers": [
+        "(*retrom/internal/adapter/integration/payloadrelease.Service).ReconcileGC",
+        "(*retrom/internal/adapter/integration/payloadrelease.Service).releaseExpiredReviewPreviews",
+        "(*retrom/internal/service/payloadrelease.Expirations).PreviewBatch",
+        "(*retrom/internal/service/payloadrelease.Expirations).Previews",
+        "(*retrom/internal/service/payloadrelease.Service).ReconcileGC"
+      ],
+      "snapshot": "retrom/internal/model/payloadrelease.PreviewExpiration",
+      "prepare": "(*retrom/internal/service/payloadrelease.Expirations).PreviewBatch",
+      "commit": "(*retrom/internal/repo/payloadrelease.Expiration).WithExpiration",
+      "policy_symbols": [
+        "retrom/internal/service/payloadrelease.previewDue"
+      ],
+      "fresh_facts": [
+        {
+          "name": "expired preview sessions",
+          "reader_symbol": "(retrom/internal/repo/payloadrelease.expirationRecords).Previews",
+          "reason": "Writer selects <=200 ordered hardExpiry/id; CREATED bootstrap<=now OR hard<=now OR REVOKED,with nonterminal state or remaining checkpoint/restore references"
+        },
+        {
+          "name": "current Blob and candidate facts",
+          "reader_symbol": "(retrom/internal/repo/payloadrelease.gcRecords).Selected",
+          "reason": "Inside writer Blob id/digest/size plus candidate firstUnreferenced/scheduled/attempt,complete candidate Work/input; Protected from current registered PROTECTIVE edges and protected-archive materialized members"
+        },
+        {
+          "name": "registry protective references",
+          "reader_symbol": "retrom/internal/repo/blobregistry.ProtectiveSet",
+          "reason": "Reads each registered PROTECTIVE table/column and one pass archive_entries archiveBlob/materializedBlob; bookkeeping/archive ownership alone is not protection"
+        }
+      ],
+      "guards": [
+        {
+          "id": "preview-expiry",
+          "fields": [
+            "id",
+            "version",
+            "state",
+            "bootstrap",
+            "hard",
+            "finished",
+            "checkpointBlob",
+            "restoreBlob"
+          ],
+          "expected_source": "previewDue,nonempty ID,0<version<MaxInt64; SQL exact observed state/version/times/nullablefinish/Blob refs and due condition",
+          "rejection": "ErrExpirationSnapshotChanged",
+          "test_id": "RFA-RF18-shared_digest"
+        },
+        {
+          "id": "preview-gc-snapshot",
+          "fields": [
+            "blobId",
+            "digest",
+            "size",
+            "protected",
+            "candidate",
+            "work",
+            "input"
+          ],
+          "expected_source": "Fence UPDATE blobs id=id for <=200 IDs,exact count,then reread Selected and require exact entire comparable GCBlob incl protection/work facts",
+          "rejection": "ErrGCSnapshotChanged",
+          "test_id": "RFA-RF18-shared_digest"
+        },
+        {
+          "id": "preview-queue-eligibility",
+          "fields": [
+            "protected",
+            "hasCandidate",
+            "now",
+            "retention",
+            "digest",
+            "id",
+            "size"
+          ],
+          "expected_source": "Only unprotected with no candidate; nonnegative now <=MaxInt64-retention; Blob nonempty ID,size>=0,hex digest32bytes; configured retention24h..30days",
+          "rejection": "Skip protected/existing; ErrGCRetentionInvalid / ErrInputInvalid",
+          "test_id": "RFA-RF18-shared_digest"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "expire-preview",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.expirationRecords).ExpirePreview",
+          "affected_records": [
+            "sessionstore.ChangePreview exact snapshot -> EXPIRED (keep REVOKED),finished COALESCE,time,version+1,checkpointBlob/format/time and restoreBlob/formatNULL"
+          ],
+          "test_id": "RFA-RF18-shared_digest"
+        },
+        {
+          "stage": "revoke-preview-capability",
+          "repo_helper": "retrom/internal/repo/sessionstore.revokePreviewCapability",
+          "affected_records": [
+            "Nested same writer: isolated_runtime_capabilities exact preview and unrevoked -> revokedAt=preview.finished when terminal FINISHED|EXPIRED|REVOKED"
+          ],
+          "test_id": "RFA-RF18-shared_digest"
+        },
+        {
+          "stage": "preview-blob-fence",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.gcRecords).Fence",
+          "affected_records": [
+            "UPDATE blobs SET id=id per <=200 selected IDs,require exact count then full GCBlob equality recheck"
+          ],
+          "test_id": "RFA-RF18-shared_digest"
+        },
+        {
+          "stage": "preview-gc-job",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.gcRecords).Queue",
+          "affected_records": [
+            "INSERT jobs BLOB_GC scopeBLOB/id,new UUID,dedupe SHA(prefix NUL BLOB_GC NUL blobID NUL jobID),execution1,payload inputExecutionNo1,cancellable0,QUEUED,attempt0,max4,version1,available=now+retention,time"
+          ],
+          "test_id": "RFA-RF18-shared_digest"
+        },
+        {
+          "stage": "preview-gc-input",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.gcRecords).input",
+          "affected_records": [
+            "INSERT job_input_snapshots job/execution1,schema1/BLOB_GC/scope/executionUUID/digest input JSON and SHA256,time"
+          ],
+          "test_id": "RFA-RF18-shared_digest"
+        },
+        {
+          "stage": "preview-gc-event",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.gcRecords).event",
+          "affected_records": [
+            "INSERT QUEUED job_events scopeBLOB,JSONschema1 execution1 attempt0,time"
+          ],
+          "test_id": "RFA-RF18-shared_digest"
+        },
+        {
+          "stage": "preview-gc-candidate",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.gcRecords).Queue",
+          "affected_records": [
+            "INSERT blob_gc_candidates blobID/gcJobID,firstUnreferenced=now,scheduled=now+retention,attempt0"
+          ],
+          "test_id": "RFA-RF18-shared_digest"
+        }
+      ],
+      "idempotency": "Already EXPIRED/REVOKED with no checkpoint/restore bytes not selected again. Expiration does not remove content files here; parent release effect owns them.",
+      "time_rule": "Baseline BeginTx(ctx,nil) on shared writer and upper callback; Service clock sampled inside callback. Target requires one Repo admission sample after write permission. Exact sample/UUID positions below. Preview sample before page read; nested GC stager resamples per preview and creates IDs inside outer callback.",
+      "after_commit": [
+        {
+          "action": "Loop pages until fewer than200; expired capability and dropped references visible together",
+          "recovery": "Cancelled/failed page retries unchanged snapshots; shared references continue protecting bytes",
+          "test_id": "RFA-RF18-gc_crash_recovery"
+        }
+      ],
+      "fault_points": [
+        "PLANNED expire-preview: fail after applicable write; compare full job/event/audit/owner/reference/candidate/session state and require transaction rollback",
+        "PLANNED revoke-preview-capability: fail after applicable write; compare full job/event/audit/owner/reference/candidate/session state and require transaction rollback",
+        "PLANNED preview-blob-fence: fail after applicable write; compare full job/event/audit/owner/reference/candidate/session state and require transaction rollback",
+        "PLANNED preview-gc-job: fail after applicable write; compare full job/event/audit/owner/reference/candidate/session state and require transaction rollback",
+        "PLANNED preview-gc-input: fail after applicable write; compare full job/event/audit/owner/reference/candidate/session state and require transaction rollback",
+        "PLANNED preview-gc-event: fail after applicable write; compare full job/event/audit/owner/reference/candidate/session state and require transaction rollback",
+        "PLANNED preview-gc-candidate: fail after applicable write; compare full job/event/audit/owner/reference/candidate/session state and require transaction rollback",
+        "PLANNED each Guard independently changed before writer,stale execution/candidate,digest replacement,shared ownership,commit failure,cancellation and crash/restart; never infer physical byte rollback from SQL rollback"
+      ],
+      "test_ids": [
+        "RFA-RF18-shared_digest",
+        "RFA-RF18-release_fence",
+        "RFA-RF18-gc_crash_recovery"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "This operation changes job/bookkeeping state or removes existing references; it neither publishes CAS bytes nor adds a protective Blob edge. Physical deletion is separately registered.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "payloadrelease.expire-provider-payloads",
+      "owner": "payloadrelease",
+      "rf_id": "RF18",
+      "consumers": [
+        "(*retrom/internal/adapter/integration/payloadrelease.Service).ReconcileGC",
+        "(*retrom/internal/adapter/integration/payloadrelease.Service).releaseExpiredProviderPayloadBatch",
+        "(*retrom/internal/adapter/integration/payloadrelease.Service).releaseExpiredProviderPayloads",
+        "(*retrom/internal/service/payloadrelease.Expirations).ProviderBatch",
+        "(*retrom/internal/service/payloadrelease.Expirations).Providers",
+        "(*retrom/internal/service/payloadrelease.Service).ReconcileGC"
+      ],
+      "snapshot": "retrom/internal/model/payloadrelease.ProviderExpiration",
+      "prepare": "(*retrom/internal/service/payloadrelease.Expirations).ProviderBatch",
+      "commit": "(*retrom/internal/repo/payloadrelease.Expiration).WithExpiration",
+      "policy_symbols": [],
+      "fresh_facts": [
+        {
+          "name": "expired raw provider payloads",
+          "reader_symbol": "(retrom/internal/repo/payloadrelease.expirationRecords).Providers",
+          "reason": "Writer selects <=200 retained responses expires<=now ordered expiry/id,raw Blob and cache count; NOT EXISTS attempt->RUNNING scrape run"
+        },
+        {
+          "name": "current Blob and candidate facts",
+          "reader_symbol": "(retrom/internal/repo/payloadrelease.gcRecords).Selected",
+          "reason": "Inside writer Blob id/digest/size plus candidate firstUnreferenced/scheduled/attempt,complete candidate Work/input; Protected from current registered PROTECTIVE edges and protected-archive materialized members"
+        },
+        {
+          "name": "registry protective references",
+          "reader_symbol": "retrom/internal/repo/blobregistry.ProtectiveSet",
+          "reason": "Reads each registered PROTECTIVE table/column and one pass archive_entries archiveBlob/materializedBlob; bookkeeping/archive ownership alone is not protection"
+        }
+      ],
+      "guards": [
+        {
+          "id": "provider-expiry",
+          "fields": [
+            "id",
+            "state",
+            "blobId",
+            "expires",
+            "cacheCount",
+            "running"
+          ],
+          "expected_source": "Nonempty response/Blob,RETAINED,expires<=now,cacheCount>=0,no RUNNING associated scrape; SQL rechecks expiry and no-running",
+          "rejection": "ErrExpirationSnapshotChanged",
+          "test_id": "RFA-RF18-shared_digest"
+        },
+        {
+          "id": "released-gc-snapshot",
+          "fields": [
+            "blobId",
+            "digest",
+            "size",
+            "protected",
+            "candidate",
+            "work",
+            "input"
+          ],
+          "expected_source": "Fence UPDATE blobs id=id for <=200 IDs,exact count,then reread Selected and require exact entire comparable GCBlob incl protection/work facts",
+          "rejection": "ErrGCSnapshotChanged",
+          "test_id": "RFA-RF18-shared_digest"
+        },
+        {
+          "id": "released-queue-eligibility",
+          "fields": [
+            "protected",
+            "hasCandidate",
+            "now",
+            "retention",
+            "digest",
+            "id",
+            "size"
+          ],
+          "expected_source": "Only unprotected with no candidate; nonnegative now <=MaxInt64-retention; Blob nonempty ID,size>=0,hex digest32bytes; configured retention24h..30days",
+          "rejection": "Skip protected/existing; ErrGCRetentionInvalid / ErrInputInvalid",
+          "test_id": "RFA-RF18-shared_digest"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "provider-cache-removal",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.expirationRecords).ReleaseProvider",
+          "affected_records": [
+            "DELETE metadata_provider_cache current_response_id exact response; require count==observedCacheCount"
+          ],
+          "test_id": "RFA-RF18-shared_digest"
+        },
+        {
+          "stage": "provider-payload-release",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.expirationRecords).ReleaseProvider",
+          "affected_records": [
+            "Exact response id/state/blob/expiry and still expired/no-running -> rawBlobNULL,rawPayload RELEASED,releasedAt; require1; immutable identity/provider/request/status/outcome/fetched/expiry preserved via recordstore"
+          ],
+          "test_id": "RFA-RF18-shared_digest"
+        },
+        {
+          "stage": "released-blob-fence",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.gcRecords).Fence",
+          "affected_records": [
+            "UPDATE blobs SET id=id per <=200 selected IDs,require exact count then full GCBlob equality recheck"
+          ],
+          "test_id": "RFA-RF18-shared_digest"
+        },
+        {
+          "stage": "released-gc-job",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.gcRecords).Queue",
+          "affected_records": [
+            "INSERT jobs BLOB_GC scopeBLOB/id,new UUID,dedupe SHA(prefix NUL BLOB_GC NUL blobID NUL jobID),execution1,payload inputExecutionNo1,cancellable0,QUEUED,attempt0,max4,version1,available=now+retention,time"
+          ],
+          "test_id": "RFA-RF18-shared_digest"
+        },
+        {
+          "stage": "released-gc-input",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.gcRecords).input",
+          "affected_records": [
+            "INSERT job_input_snapshots job/execution1,schema1/BLOB_GC/scope/executionUUID/digest input JSON and SHA256,time"
+          ],
+          "test_id": "RFA-RF18-shared_digest"
+        },
+        {
+          "stage": "released-gc-event",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.gcRecords).event",
+          "affected_records": [
+            "INSERT QUEUED job_events scopeBLOB,JSONschema1 execution1 attempt0,time"
+          ],
+          "test_id": "RFA-RF18-shared_digest"
+        },
+        {
+          "stage": "released-gc-candidate",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.gcRecords).Queue",
+          "affected_records": [
+            "INSERT blob_gc_candidates blobID/gcJobID,firstUnreferenced=now,scheduled=now+retention,attempt0"
+          ],
+          "test_id": "RFA-RF18-shared_digest"
+        }
+      ],
+      "idempotency": "Released response no longer selected; immutable response evidence remains. Candidate scheduling is atomic with raw ownership/cache removal; shared Blob protection suppresses queue.",
+      "time_rule": "Baseline BeginTx(ctx,nil) on shared writer and upper callback; Service clock sampled inside callback. Target requires one Repo admission sample after write permission. Exact sample/UUID positions below. Expiry Service samples before <=200 response read; nested gc.StageInScope samples AGAIN after reference removal and generates pending GC IDs inside same outer transaction.",
+      "after_commit": [
+        {
+          "action": "Repeat batches until fewer than200; worker poll processes durable unprotected candidates",
+          "recovery": "All batch cache removals/response releases/GC jobs roll back together on any stage failure",
+          "test_id": "RFA-RF18-gc_crash_recovery"
+        }
+      ],
+      "fault_points": [
+        "PLANNED provider-cache-removal: fail after applicable write; compare full job/event/audit/owner/reference/candidate/session state and require transaction rollback",
+        "PLANNED provider-payload-release: fail after applicable write; compare full job/event/audit/owner/reference/candidate/session state and require transaction rollback",
+        "PLANNED released-blob-fence: fail after applicable write; compare full job/event/audit/owner/reference/candidate/session state and require transaction rollback",
+        "PLANNED released-gc-job: fail after applicable write; compare full job/event/audit/owner/reference/candidate/session state and require transaction rollback",
+        "PLANNED released-gc-input: fail after applicable write; compare full job/event/audit/owner/reference/candidate/session state and require transaction rollback",
+        "PLANNED released-gc-event: fail after applicable write; compare full job/event/audit/owner/reference/candidate/session state and require transaction rollback",
+        "PLANNED released-gc-candidate: fail after applicable write; compare full job/event/audit/owner/reference/candidate/session state and require transaction rollback",
+        "PLANNED each Guard independently changed before writer,stale execution/candidate,digest replacement,shared ownership,commit failure,cancellation and crash/restart; never infer physical byte rollback from SQL rollback"
+      ],
+      "test_ids": [
+        "RFA-RF18-shared_digest",
+        "RFA-RF18-release_fence",
+        "RFA-RF18-gc_crash_recovery"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "This operation changes job/bookkeeping state or removes existing references; it neither publishes CAS bytes nor adds a protective Blob edge. Physical deletion is separately registered.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "payloadrelease.finish-work",
+      "owner": "payloadrelease",
+      "rf_id": "RF18",
+      "consumers": [
+        "(*retrom/internal/adapter/integration/payloadrelease.Service).RunOnce",
+        "(*retrom/internal/service/payloadrelease.Service).RunOnce",
+        "(*retrom/internal/service/payloadrelease.Worker).Finish",
+        "(*retrom/internal/service/payloadrelease.Worker).RunOnce",
+        "(*retrom/internal/service/payloadrelease.Worker).loop"
+      ],
+      "snapshot": "retrom/internal/model/payloadrelease.Work",
+      "prepare": "(*retrom/internal/service/payloadrelease.Worker).Finish",
+      "commit": "(*retrom/internal/repo/payloadrelease.Worker).WithWorker",
+      "policy_symbols": [
+        "retrom/internal/service/payloadrelease.RetryDelay",
+        "retrom/internal/service/payloadrelease.WorkErrorCode",
+        "retrom/internal/service/payloadrelease.executionBudgetFailure",
+        "retrom/internal/service/payloadrelease.sameExecution",
+        "retrom/internal/service/payloadrelease.validWork"
+      ],
+      "fresh_facts": [
+        {
+          "name": "current durable work",
+          "reader_symbol": "(retrom/internal/repo/payloadrelease.workerRecords).Current",
+          "reason": "Inside writer jobs id/kind/scope/state/worker/execution/attempt/max/version/available,nullable started/deadline/lease/heartbeat and exact current execution input JSON/digest/found"
+        },
+        {
+          "name": "failure owner",
+          "reader_symbol": "(retrom/internal/repo/payloadrelease.scheduling).Owner",
+          "reason": "Only terminal FAILED nonBLOB/nonUPLOAD_CONSUMPTION: current semantic scope,releaseJobID,payloadState/version; RELEASED owner skipped"
+        }
+      ],
+      "guards": [
+        {
+          "id": "work-valid",
+          "fields": [
+            "id",
+            "scope.id",
+            "kind",
+            "execution",
+            "attempt",
+            "max",
+            "version"
+          ],
+          "expected_source": "Nonempty IDs,kind PAYLOAD_RELEASE|BLOB_GC,execution>0,attempt>=0,max>0,0<version<MaxInt64",
+          "rejection": "ErrExecutionLost",
+          "test_id": "RFA-RF18-release_fence"
+        },
+        {
+          "id": "original-execution",
+          "fields": [
+            "id",
+            "kind",
+            "scope",
+            "state",
+            "worker",
+            "execution",
+            "attempt",
+            "max",
+            "started",
+            "deadline",
+            "inputFound",
+            "inputJSON",
+            "inputDigest"
+          ],
+          "expected_source": "sameExecution: both current/original RUNNING,nonempty matching worker,exact identity/scope/execution/attempt/max/start/deadline/input; current version/heartbeat may advance",
+          "rejection": "ErrExecutionLost",
+          "test_id": "RFA-RF18-release_fence"
+        },
+        {
+          "id": "live-execution",
+          "fields": [
+            "lease",
+            "deadline",
+            "now"
+          ],
+          "expected_source": "Current lease and deadline both set and strictly > current Service sample",
+          "rejection": "ErrExecutionLost",
+          "test_id": "RFA-RF18-release_fence"
+        },
+        {
+          "id": "full-work-snapshot",
+          "fields": [
+            "id",
+            "kind",
+            "scope",
+            "state",
+            "worker",
+            "execution",
+            "attempt",
+            "max",
+            "version",
+            "available",
+            "started",
+            "deadline",
+            "lease",
+            "heartbeat",
+            "inputFound",
+            "inputJSON",
+            "inputDigest"
+          ],
+          "expected_source": "workFence compares ALL observed fields and input snapshot existence/bytes/digest; nullable times via COALESCE(-1); exactly one SQL row",
+          "rejection": "ErrExecutionLost",
+          "test_id": "RFA-RF18-release_fence"
+        },
+        {
+          "id": "failure-owner",
+          "fields": [
+            "scope",
+            "releaseJobId",
+            "payloadState",
+            "version"
+          ],
+          "expected_source": "Owner scope equals work scope and releaseJobID==work ID; owner RELEASED skipped,otherwise RELEASING|FAILED",
+          "rejection": "ErrExecutionLost / ErrScopeInvalid",
+          "test_id": "RFA-RF18-release_fence"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "job-transition",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.workerRecords).Change",
+          "affected_records": [
+            "Terminal/retry branch version+1,worker/lease/heartbeat cleared; success SUCCEEDED; error FAILED unless retryable and not timeout and budget remains -> QUEUED with available=now+1s/5s/30s; lost/cancelled/closed retry immediately; full workFence,require1. Change also sets finished only SUCCEEDED/FAILED,error/retryable only when code nonempty"
+          ],
+          "test_id": "RFA-RF18-release_fence"
+        },
+        {
+          "stage": "failed-owner",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.workerRecords).failOwner",
+          "affected_records": [
+            "Terminal FAILED only: import_items/import_jobs/pegasus_import_items/emulationstation_import_items/games exact id/version/releaseJobId/payloadState -> payload_stateFAILED,lastError; only games also version+1,time; require1"
+          ],
+          "test_id": "RFA-RF18-release_fence"
+        },
+        {
+          "stage": "outcome-event",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.workerRecords).evidence",
+          "affected_records": [
+            "INSERT SUCCEEDED/FAILED/RETRY_SCHEDULED job_events scope,schema1/errorCode/execution/attempt,time"
+          ],
+          "test_id": "RFA-RF18-release_fence"
+        },
+        {
+          "stage": "outcome-audit",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.workerRecords).evidence",
+          "affected_records": [
+            "Terminal PAYLOAD_RELEASE only INSERT audit_events fresh UUID,SYSTEM,payload-release-worker,PAYLOAD_RELEASE_COMPLETED|FAILED,scope and schema1 job/scope/state/error JSON,time; no audit for BLOB_GC or retry"
+          ],
+          "test_id": "RFA-RF18-release_fence"
+        }
+      ],
+      "idempotency": "Normal Finish requires original current RUNNING authority with live lease/deadline; repeat after terminal/requeue returns ErrExecutionLost. This differs from Recover,which deliberately selects stale executions.",
+      "time_rule": "Baseline BeginTx(ctx,nil) on shared writer and upper callback; Service clock sampled inside callback. Target requires one Repo admission sample after write permission. Exact sample/UUID positions below. current() first samples for LIVE lease/deadline authorization; Finish samples AGAIN for settlement. Normal Finish rejects expired lease/deadline; RunOnce then separately Recover under bounded5s WithoutCancel. Terminal audit UUID generated inside writer.",
+      "after_commit": [
+        {
+          "action": "Observer/renew errors cancel execution context; RunOnce joins monitor and returns original errors joined with finish/recovery",
+          "recovery": "Interrupted work is settled by separate Recover; clock expiry cannot be silently treated as normal finish success",
+          "test_id": "RFA-RF18-gc_crash_recovery"
+        }
+      ],
+      "fault_points": [
+        "PLANNED job-transition: fail after applicable write; compare full job/event/audit/owner/reference/candidate/session state and require transaction rollback",
+        "PLANNED failed-owner: fail after applicable write; compare full job/event/audit/owner/reference/candidate/session state and require transaction rollback",
+        "PLANNED outcome-event: fail after applicable write; compare full job/event/audit/owner/reference/candidate/session state and require transaction rollback",
+        "PLANNED outcome-audit: fail after applicable write; compare full job/event/audit/owner/reference/candidate/session state and require transaction rollback",
+        "PLANNED each Guard independently changed before writer,stale execution/candidate,digest replacement,shared ownership,commit failure,cancellation and crash/restart; never infer physical byte rollback from SQL rollback"
+      ],
+      "test_ids": [
+        "RFA-RF18-release_fence",
+        "RFA-RF18-gc_crash_recovery",
+        "RFA-RF18-shared_digest"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "This operation changes job/bookkeeping state or removes existing references; it neither publishes CAS bytes nor adds a protective Blob edge. Physical deletion is separately registered.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "payloadrelease.observe-work",
+      "owner": "payloadrelease",
+      "rf_id": "RF18",
+      "consumers": [
+        "(*retrom/internal/adapter/integration/payloadrelease.Service).RunOnce",
+        "(*retrom/internal/service/payloadrelease.Service).RunOnce",
+        "(*retrom/internal/service/payloadrelease.Worker).RunOnce",
+        "(*retrom/internal/service/payloadrelease.Worker).execute",
+        "(*retrom/internal/service/payloadrelease.Worker).loop",
+        "(*retrom/internal/service/payloadrelease.Worker).monitor"
+      ],
+      "snapshot": "retrom/internal/model/payloadrelease.Work",
+      "prepare": "(*retrom/internal/service/payloadrelease.Worker).monitor",
+      "commit": "(*retrom/internal/repo/payloadrelease.Worker).WithWorker",
+      "policy_symbols": [
+        "retrom/internal/service/payloadrelease.sameExecution",
+        "retrom/internal/service/payloadrelease.validWork"
+      ],
+      "fresh_facts": [
+        {
+          "name": "current durable work",
+          "reader_symbol": "(retrom/internal/repo/payloadrelease.workerRecords).Current",
+          "reason": "Inside writer jobs id/kind/scope/state/worker/execution/attempt/max/version/available,nullable started/deadline/lease/heartbeat and exact current execution input JSON/digest/found"
+        }
+      ],
+      "guards": [
+        {
+          "id": "work-valid",
+          "fields": [
+            "id",
+            "scope.id",
+            "kind",
+            "execution",
+            "attempt",
+            "max",
+            "version"
+          ],
+          "expected_source": "Nonempty IDs,kind PAYLOAD_RELEASE|BLOB_GC,execution>0,attempt>=0,max>0,0<version<MaxInt64",
+          "rejection": "ErrExecutionLost",
+          "test_id": "RFA-RF18-release_fence"
+        },
+        {
+          "id": "original-execution",
+          "fields": [
+            "id",
+            "kind",
+            "scope",
+            "state",
+            "worker",
+            "execution",
+            "attempt",
+            "max",
+            "started",
+            "deadline",
+            "inputFound",
+            "inputJSON",
+            "inputDigest"
+          ],
+          "expected_source": "sameExecution: both current/original RUNNING,nonempty matching worker,exact identity/scope/execution/attempt/max/start/deadline/input; current version/heartbeat may advance",
+          "rejection": "ErrExecutionLost",
+          "test_id": "RFA-RF18-release_fence"
+        },
+        {
+          "id": "live-execution",
+          "fields": [
+            "lease",
+            "deadline",
+            "now"
+          ],
+          "expected_source": "Current lease and deadline both set and strictly > current Service sample",
+          "rejection": "ErrExecutionLost",
+          "test_id": "RFA-RF18-release_fence"
+        },
+        {
+          "id": "full-work-snapshot",
+          "fields": [
+            "id",
+            "kind",
+            "scope",
+            "state",
+            "worker",
+            "execution",
+            "attempt",
+            "max",
+            "version",
+            "available",
+            "started",
+            "deadline",
+            "lease",
+            "heartbeat",
+            "inputFound",
+            "inputJSON",
+            "inputDigest"
+          ],
+          "expected_source": "workFence compares ALL observed fields and input snapshot existence/bytes/digest; nullable times via COALESCE(-1); exactly one SQL row",
+          "rejection": "ErrExecutionLost",
+          "test_id": "RFA-RF18-release_fence"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "observer-fence",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.workerRecords).Fence",
+          "affected_records": [
+            "UPDATE jobs SET version=version with full workFence; no business-state mutation,require1. This1-second observer owns its own transaction; CheckInScope also appears nested in effects/garbage."
+          ],
+          "test_id": "RFA-RF18-release_fence"
+        }
+      ],
+      "idempotency": "No domain receipt; durable exact identity/state/version fences control repeats. HTTP-triggered immediate cleanup is subject to separately registered generic receipt middleware.",
+      "time_rule": "Baseline BeginTx(ctx,nil) on shared writer and upper callback; Service clock sampled inside callback. Target requires one Repo admission sample after write permission. Exact sample/UUID positions below. current() samples after SELECT; periodic observer interval1s.",
+      "after_commit": [
+        {
+          "action": "Observer/renew errors cancel execution context; RunOnce joins monitor and returns original errors joined with finish/recovery",
+          "recovery": "Interrupted work is settled by separate Recover; clock expiry cannot be silently treated as normal finish success",
+          "test_id": "RFA-RF18-gc_crash_recovery"
+        }
+      ],
+      "fault_points": [
+        "PLANNED observer-fence: fail after applicable write; compare full job/event/audit/owner/reference/candidate/session state and require transaction rollback",
+        "PLANNED each Guard independently changed before writer,stale execution/candidate,digest replacement,shared ownership,commit failure,cancellation and crash/restart; never infer physical byte rollback from SQL rollback"
+      ],
+      "test_ids": [
+        "RFA-RF18-release_fence",
+        "RFA-RF18-gc_crash_recovery",
+        "RFA-RF18-shared_digest"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "This operation changes job/bookkeeping state or removes existing references; it neither publishes CAS bytes nor adds a protective Blob edge. Physical deletion is separately registered.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "payloadrelease.reconcile-gc-page",
+      "owner": "payloadrelease",
+      "rf_id": "RF18",
+      "consumers": [
+        "(*retrom/internal/adapter/integration/payloadrelease.Service).ReconcileGC",
+        "(*retrom/internal/adapter/integration/payloadrelease.Service).ScheduleImmediateGC",
+        "(*retrom/internal/adapter/integration/payloadrelease.Service).stageAllUnreferenced",
+        "(*retrom/internal/service/payloadrelease.GCScheduler).Immediate",
+        "(*retrom/internal/service/payloadrelease.GCScheduler).Reconcile",
+        "(*retrom/internal/service/payloadrelease.Service).ReconcileGC",
+        "(*retrom/internal/service/payloadrelease.Service).ScheduleImmediateGC",
+        "(*retrom/internal/transport/httpapi.Server).adminStorageCleanup"
+      ],
+      "snapshot": "retrom/internal/model/payloadrelease.GCBlob",
+      "prepare": "(*retrom/internal/service/payloadrelease.GCScheduler).Reconcile",
+      "commit": "(*retrom/internal/repo/payloadrelease.GC).WithGC",
+      "policy_symbols": [
+        "retrom/internal/service/payloadrelease.gcUniqueIDs"
+      ],
+      "fresh_facts": [
+        {
+          "name": "current Blob and candidate facts",
+          "reader_symbol": "(retrom/internal/repo/payloadrelease.gcRecords).Page",
+          "reason": "Inside writer Blob id/digest/size plus candidate firstUnreferenced/scheduled/attempt,complete candidate Work/input; Protected from current registered PROTECTIVE edges and protected-archive materialized members"
+        },
+        {
+          "name": "registry protective references",
+          "reader_symbol": "retrom/internal/repo/blobregistry.ProtectiveSet",
+          "reason": "Reads each registered PROTECTIVE table/column and one pass archive_entries archiveBlob/materializedBlob; bookkeeping/archive ownership alone is not protection"
+        }
+      ],
+      "guards": [
+        {
+          "id": "gc-snapshot",
+          "fields": [
+            "blobId",
+            "digest",
+            "size",
+            "protected",
+            "candidate",
+            "work",
+            "input"
+          ],
+          "expected_source": "Fence UPDATE blobs id=id for <=200 IDs,exact count,then reread Selected and require exact entire comparable GCBlob incl protection/work facts",
+          "rejection": "ErrGCSnapshotChanged",
+          "test_id": "RFA-RF18-gc_crash_recovery"
+        },
+        {
+          "id": "queue-eligibility",
+          "fields": [
+            "protected",
+            "hasCandidate",
+            "now",
+            "retention",
+            "digest",
+            "id",
+            "size"
+          ],
+          "expected_source": "Only unprotected with no candidate; nonnegative now <=MaxInt64-retention; Blob nonempty ID,size>=0,hex digest32bytes; configured retention24h..30days",
+          "rejection": "Skip protected/existing; ErrGCRetentionInvalid / ErrInputInvalid",
+          "test_id": "RFA-RF18-gc_crash_recovery"
+        },
+        {
+          "id": "monotone-page",
+          "fields": [
+            "cursor",
+            "nextId"
+          ],
+          "expected_source": "200Blob page ordered id>cursor; after committed full page nextID>cursor",
+          "rejection": "ErrGCSnapshotChanged; prior pages already committed",
+          "test_id": "RFA-RF18-gc_crash_recovery"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "blob-fence",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.gcRecords).Fence",
+          "affected_records": [
+            "UPDATE blobs SET id=id per <=200 selected IDs,require exact count then full GCBlob equality recheck"
+          ],
+          "test_id": "RFA-RF18-gc_crash_recovery"
+        },
+        {
+          "stage": "gc-job",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.gcRecords).Queue",
+          "affected_records": [
+            "INSERT jobs BLOB_GC scopeBLOB/id,new UUID,dedupe SHA(prefix NUL BLOB_GC NUL blobID NUL jobID),execution1,payload inputExecutionNo1,cancellable0,QUEUED,attempt0,max4,version1,available=now+retention,time"
+          ],
+          "test_id": "RFA-RF18-gc_crash_recovery"
+        },
+        {
+          "stage": "gc-input",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.gcRecords).input",
+          "affected_records": [
+            "INSERT job_input_snapshots job/execution1,schema1/BLOB_GC/scope/executionUUID/digest input JSON and SHA256,time"
+          ],
+          "test_id": "RFA-RF18-gc_crash_recovery"
+        },
+        {
+          "stage": "gc-event",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.gcRecords).event",
+          "affected_records": [
+            "INSERT QUEUED job_events scopeBLOB,JSONschema1 execution1 attempt0,time"
+          ],
+          "test_id": "RFA-RF18-gc_crash_recovery"
+        },
+        {
+          "stage": "gc-candidate",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.gcRecords).Queue",
+          "affected_records": [
+            "INSERT blob_gc_candidates blobID/gcJobID,firstUnreferenced=now,scheduled=now+retention,attempt0"
+          ],
+          "test_id": "RFA-RF18-gc_crash_recovery"
+        }
+      ],
+      "idempotency": "Existing candidate prevents duplicate queue; candidate ownership,not timestamp,deduplicates lifetime. New job UUID in dedupe permits later lifetime same millisecond. StageInScope uses same phases nested in caller transaction and creates no extra commit.",
+      "time_rule": "Baseline BeginTx(ctx,nil) on shared writer and upper callback; Service clock sampled inside callback. Target requires one Repo admission sample after write permission. Exact sample/UUID positions below. Each page separate transaction; stage samples now AFTER page facts,then generates job/execution IDs and JSON/digests inside callback. Reconcile first performs separate cancel-protected transaction.",
+      "after_commit": [
+        {
+          "action": "Worker poll eventually claims queued GC jobs after retention; full page advances read cursor",
+          "recovery": "Interrupted reconciliation retries safely against existing candidates; each page independently atomic",
+          "test_id": "RFA-RF18-gc_crash_recovery"
+        }
+      ],
+      "fault_points": [
+        "PLANNED blob-fence: fail after applicable write; compare full job/event/audit/owner/reference/candidate/session state and require transaction rollback",
+        "PLANNED gc-job: fail after applicable write; compare full job/event/audit/owner/reference/candidate/session state and require transaction rollback",
+        "PLANNED gc-input: fail after applicable write; compare full job/event/audit/owner/reference/candidate/session state and require transaction rollback",
+        "PLANNED gc-event: fail after applicable write; compare full job/event/audit/owner/reference/candidate/session state and require transaction rollback",
+        "PLANNED gc-candidate: fail after applicable write; compare full job/event/audit/owner/reference/candidate/session state and require transaction rollback",
+        "PLANNED each Guard independently changed before writer,stale execution/candidate,digest replacement,shared ownership,commit failure,cancellation and crash/restart; never infer physical byte rollback from SQL rollback"
+      ],
+      "test_ids": [
+        "RFA-RF18-gc_crash_recovery",
+        "RFA-RF18-release_fence",
+        "RFA-RF18-shared_digest"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "This operation changes job/bookkeeping state or removes existing references; it neither publishes CAS bytes nor adds a protective Blob edge. Physical deletion is separately registered.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "payloadrelease.recover-work",
+      "owner": "payloadrelease",
+      "rf_id": "RF18",
+      "consumers": [
+        "(*retrom/internal/adapter/integration/payloadrelease.Service).RunOnce",
+        "(*retrom/internal/adapter/integration/payloadrelease.Service).recoverInterruptedJobs",
+        "(*retrom/internal/service/payloadrelease.Service).Recover",
+        "(*retrom/internal/service/payloadrelease.Service).RunOnce",
+        "(*retrom/internal/service/payloadrelease.Worker).Recover",
+        "(*retrom/internal/service/payloadrelease.Worker).RunOnce",
+        "(*retrom/internal/service/payloadrelease.Worker).loop",
+        "(*retrom/internal/service/payloadrelease.Worker).maintenance"
+      ],
+      "snapshot": "retrom/internal/model/payloadrelease.Work",
+      "prepare": "(*retrom/internal/service/payloadrelease.Worker).Recover",
+      "commit": "(*retrom/internal/repo/payloadrelease.Worker).WithWorker",
+      "policy_symbols": [
+        "retrom/internal/service/payloadrelease.RetryDelay",
+        "retrom/internal/service/payloadrelease.WorkErrorCode",
+        "retrom/internal/service/payloadrelease.executionBudgetFailure"
+      ],
+      "fresh_facts": [
+        {
+          "name": "current durable work",
+          "reader_symbol": "(retrom/internal/repo/payloadrelease.workerRecords).Interrupted",
+          "reason": "Inside writer jobs id/kind/scope/state/worker/execution/attempt/max/version/available,nullable started/deadline/lease/heartbeat and exact current execution input JSON/digest/found"
+        },
+        {
+          "name": "failure owner",
+          "reader_symbol": "(retrom/internal/repo/payloadrelease.scheduling).Owner",
+          "reason": "Only terminal FAILED nonBLOB/nonUPLOAD_CONSUMPTION: current semantic scope,releaseJobID,payloadState/version; RELEASED owner skipped"
+        }
+      ],
+      "guards": [
+        {
+          "id": "interrupted-work",
+          "fields": [
+            "kind",
+            "state",
+            "lease",
+            "deadline"
+          ],
+          "expected_source": "Writer SELECT up to100 PAYLOAD_RELEASE|BLOB_GC RUNNING ordered ID with absent/expired lease or deadline; loop skips current live pair/nonRUNNING. Baseline recovery does not call validWork/sameExecution as normal Finish does.",
+          "rejection": "Ignore noninterrupted facts; SQL full-fence mismatch ErrExecutionLost",
+          "test_id": "RFA-RF18-gc_crash_recovery"
+        },
+        {
+          "id": "full-work-snapshot",
+          "fields": [
+            "id",
+            "kind",
+            "scope",
+            "state",
+            "worker",
+            "execution",
+            "attempt",
+            "max",
+            "version",
+            "available",
+            "started",
+            "deadline",
+            "lease",
+            "heartbeat",
+            "inputFound",
+            "inputJSON",
+            "inputDigest"
+          ],
+          "expected_source": "workFence compares ALL observed fields and input snapshot existence/bytes/digest; nullable times via COALESCE(-1); exactly one SQL row",
+          "rejection": "ErrExecutionLost",
+          "test_id": "RFA-RF18-gc_crash_recovery"
+        },
+        {
+          "id": "failure-owner",
+          "fields": [
+            "scope",
+            "releaseJobId",
+            "payloadState",
+            "version"
+          ],
+          "expected_source": "Owner scope equals work scope and releaseJobID==work ID; owner RELEASED skipped,otherwise RELEASING|FAILED",
+          "rejection": "ErrExecutionLost / ErrScopeInvalid",
+          "test_id": "RFA-RF18-gc_crash_recovery"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "job-transition",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.workerRecords).Change",
+          "affected_records": [
+            "Terminal/retry branch version+1,worker/lease/heartbeat cleared; success SUCCEEDED; error FAILED unless retryable and not timeout and budget remains -> QUEUED with available=now+1s/5s/30s; lost/cancelled/closed retry immediately; full workFence,require1. Change also sets finished only SUCCEEDED/FAILED,error/retryable only when code nonempty"
+          ],
+          "test_id": "RFA-RF18-gc_crash_recovery"
+        },
+        {
+          "stage": "failed-owner",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.workerRecords).failOwner",
+          "affected_records": [
+            "Terminal FAILED only: import_items/import_jobs/pegasus_import_items/emulationstation_import_items/games exact id/version/releaseJobId/payloadState -> payload_stateFAILED,lastError; only games also version+1,time; require1"
+          ],
+          "test_id": "RFA-RF18-gc_crash_recovery"
+        },
+        {
+          "stage": "outcome-event",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.workerRecords).evidence",
+          "affected_records": [
+            "INSERT SUCCEEDED/FAILED/RETRY_SCHEDULED job_events scope,schema1/errorCode/execution/attempt,time"
+          ],
+          "test_id": "RFA-RF18-gc_crash_recovery"
+        },
+        {
+          "stage": "outcome-audit",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.workerRecords).evidence",
+          "affected_records": [
+            "Terminal PAYLOAD_RELEASE only INSERT audit_events fresh UUID,SYSTEM,payload-release-worker,PAYLOAD_RELEASE_COMPLETED|FAILED,scope and schema1 job/scope/state/error JSON,time; no audit for BLOB_GC or retry"
+          ],
+          "test_id": "RFA-RF18-gc_crash_recovery"
+        }
+      ],
+      "idempotency": "Each selected stale work receives full snapshot fence; successful settlement removes it from interrupted RUNNING set. Batch failure rolls back every earlier settlement in that batch.",
+      "time_rule": "Baseline BeginTx(ctx,nil) on shared writer and upper callback; Service clock sampled inside callback. Target requires one Repo admission sample after write permission. Exact sample/UUID positions below. One Service sample before whole batch read; all <=100 settlements share it; audit IDs generated inside writer. Initial startup and1-second maintenance use this operation.",
+      "after_commit": [
+        {
+          "action": "QUEUED retries picked by poll; terminal failures keep durable error/owner/audit",
+          "recovery": "RunOnce invokes Recover only after failed normal Finish authority; startup maintenance also calls it before general reconciliation",
+          "test_id": "RFA-RF18-gc_crash_recovery"
+        }
+      ],
+      "fault_points": [
+        "PLANNED job-transition: fail after applicable write; compare full job/event/audit/owner/reference/candidate/session state and require transaction rollback",
+        "PLANNED failed-owner: fail after applicable write; compare full job/event/audit/owner/reference/candidate/session state and require transaction rollback",
+        "PLANNED outcome-event: fail after applicable write; compare full job/event/audit/owner/reference/candidate/session state and require transaction rollback",
+        "PLANNED outcome-audit: fail after applicable write; compare full job/event/audit/owner/reference/candidate/session state and require transaction rollback",
+        "PLANNED each Guard independently changed before writer,stale execution/candidate,digest replacement,shared ownership,commit failure,cancellation and crash/restart; never infer physical byte rollback from SQL rollback"
+      ],
+      "test_ids": [
+        "RFA-RF18-gc_crash_recovery",
+        "RFA-RF18-release_fence",
+        "RFA-RF18-shared_digest"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "This operation changes job/bookkeeping state or removes existing references; it neither publishes CAS bytes nor adds a protective Blob edge. Physical deletion is separately registered.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "payloadrelease.renew-work",
+      "owner": "payloadrelease",
+      "rf_id": "RF18",
+      "consumers": [
+        "(*retrom/internal/adapter/integration/payloadrelease.Service).RunOnce",
+        "(*retrom/internal/service/payloadrelease.Service).RunOnce",
+        "(*retrom/internal/service/payloadrelease.Worker).Renew",
+        "(*retrom/internal/service/payloadrelease.Worker).RunOnce",
+        "(*retrom/internal/service/payloadrelease.Worker).execute",
+        "(*retrom/internal/service/payloadrelease.Worker).loop",
+        "(*retrom/internal/service/payloadrelease.Worker).monitor"
+      ],
+      "snapshot": "retrom/internal/model/payloadrelease.Work",
+      "prepare": "(*retrom/internal/service/payloadrelease.Worker).Renew",
+      "commit": "(*retrom/internal/repo/payloadrelease.Worker).WithWorker",
+      "policy_symbols": [
+        "retrom/internal/service/payloadrelease.sameExecution",
+        "retrom/internal/service/payloadrelease.validWork"
+      ],
+      "fresh_facts": [
+        {
+          "name": "current durable work",
+          "reader_symbol": "(retrom/internal/repo/payloadrelease.workerRecords).Current",
+          "reason": "Inside writer jobs id/kind/scope/state/worker/execution/attempt/max/version/available,nullable started/deadline/lease/heartbeat and exact current execution input JSON/digest/found"
+        }
+      ],
+      "guards": [
+        {
+          "id": "work-valid",
+          "fields": [
+            "id",
+            "scope.id",
+            "kind",
+            "execution",
+            "attempt",
+            "max",
+            "version"
+          ],
+          "expected_source": "Nonempty IDs,kind PAYLOAD_RELEASE|BLOB_GC,execution>0,attempt>=0,max>0,0<version<MaxInt64",
+          "rejection": "ErrExecutionLost",
+          "test_id": "RFA-RF18-release_fence"
+        },
+        {
+          "id": "original-execution",
+          "fields": [
+            "id",
+            "kind",
+            "scope",
+            "state",
+            "worker",
+            "execution",
+            "attempt",
+            "max",
+            "started",
+            "deadline",
+            "inputFound",
+            "inputJSON",
+            "inputDigest"
+          ],
+          "expected_source": "sameExecution: both current/original RUNNING,nonempty matching worker,exact identity/scope/execution/attempt/max/start/deadline/input; current version/heartbeat may advance",
+          "rejection": "ErrExecutionLost",
+          "test_id": "RFA-RF18-release_fence"
+        },
+        {
+          "id": "live-execution",
+          "fields": [
+            "lease",
+            "deadline",
+            "now"
+          ],
+          "expected_source": "Current lease and deadline both set and strictly > current Service sample",
+          "rejection": "ErrExecutionLost",
+          "test_id": "RFA-RF18-release_fence"
+        },
+        {
+          "id": "full-work-snapshot",
+          "fields": [
+            "id",
+            "kind",
+            "scope",
+            "state",
+            "worker",
+            "execution",
+            "attempt",
+            "max",
+            "version",
+            "available",
+            "started",
+            "deadline",
+            "lease",
+            "heartbeat",
+            "inputFound",
+            "inputJSON",
+            "inputDigest"
+          ],
+          "expected_source": "workFence compares ALL observed fields and input snapshot existence/bytes/digest; nullable times via COALESCE(-1); exactly one SQL row",
+          "rejection": "ErrExecutionLost",
+          "test_id": "RFA-RF18-release_fence"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "job-transition",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.workerRecords).Change",
+          "affected_records": [
+            "Current after snapshot -> version+1,heartbeat=now,lease=min(now+60s,original deadline),all other execution identity fields retained; full workFence,require1. Change also sets finished only SUCCEEDED/FAILED,error/retryable only when code nonempty"
+          ],
+          "test_id": "RFA-RF18-release_fence"
+        }
+      ],
+      "idempotency": "No domain receipt; durable exact identity/state/version fences control repeats. HTTP-triggered immediate cleanup is subject to separately registered generic receipt middleware.",
+      "time_rule": "Baseline BeginTx(ctx,nil) on shared writer and upper callback; Service clock sampled inside callback. Target requires one Repo admission sample after write permission. Exact sample/UUID positions below. current() samples after reading authority,then Renew samples a SECOND time for lease update; monitor ticks every15s.",
+      "after_commit": [
+        {
+          "action": "Observer/renew errors cancel execution context; RunOnce joins monitor and returns original errors joined with finish/recovery",
+          "recovery": "Interrupted work is settled by separate Recover; clock expiry cannot be silently treated as normal finish success",
+          "test_id": "RFA-RF18-gc_crash_recovery"
+        }
+      ],
+      "fault_points": [
+        "PLANNED job-transition: fail after applicable write; compare full job/event/audit/owner/reference/candidate/session state and require transaction rollback",
+        "PLANNED each Guard independently changed before writer,stale execution/candidate,digest replacement,shared ownership,commit failure,cancellation and crash/restart; never infer physical byte rollback from SQL rollback"
+      ],
+      "test_ids": [
+        "RFA-RF18-release_fence",
+        "RFA-RF18-gc_crash_recovery",
+        "RFA-RF18-shared_digest"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "This operation changes job/bookkeeping state or removes existing references; it neither publishes CAS bytes nor adds a protective Blob edge. Physical deletion is separately registered.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "payloadrelease.request-immediate-gc",
+      "owner": "payloadrelease",
+      "rf_id": "RF18",
+      "consumers": [
+        "(*retrom/internal/adapter/integration/payloadrelease.Service).ScheduleImmediateGC",
+        "(*retrom/internal/service/payloadrelease.GCScheduler).Immediate",
+        "(*retrom/internal/service/payloadrelease.Service).ScheduleImmediateGC",
+        "(*retrom/internal/transport/httpapi.Server).adminStorageCleanup"
+      ],
+      "snapshot": "retrom/internal/model/payloadrelease.GCBlob",
+      "prepare": "(*retrom/internal/service/payloadrelease.GCScheduler).Immediate",
+      "commit": "(*retrom/internal/repo/payloadrelease.GC).WithGC",
+      "policy_symbols": [
+        "retrom/internal/service/payloadrelease.validGCCandidate"
+      ],
+      "fresh_facts": [
+        {
+          "name": "current Blob and candidate facts",
+          "reader_symbol": "(retrom/internal/repo/payloadrelease.gcRecords).Candidates",
+          "reason": "Inside writer Blob id/digest/size plus candidate firstUnreferenced/scheduled/attempt,complete candidate Work/input; Protected from current registered PROTECTIVE edges and protected-archive materialized members"
+        },
+        {
+          "name": "registry protective references",
+          "reader_symbol": "retrom/internal/repo/blobregistry.ProtectiveSet",
+          "reason": "Reads each registered PROTECTIVE table/column and one pass archive_entries archiveBlob/materializedBlob; bookkeeping/archive ownership alone is not protection"
+        }
+      ],
+      "guards": [
+        {
+          "id": "audit-actor",
+          "fields": [
+            "actor"
+          ],
+          "expected_source": "Nonempty authenticated actor required before preceding Reconcile",
+          "rejection": "ErrImmediateGCAuditActorMissing",
+          "test_id": "RFA-RF18-gc_crash_recovery"
+        },
+        {
+          "id": "immediate-candidates",
+          "fields": [
+            "protected",
+            "hasCandidate",
+            "work.identity",
+            "state",
+            "version",
+            "execution"
+          ],
+          "expected_source": "Skip protected; every selected candidate validGCCandidate with queued/running/failed work",
+          "rejection": "ErrImmediateGCJobStateInvalid",
+          "test_id": "RFA-RF18-gc_crash_recovery"
+        },
+        {
+          "id": "nonnegative-total",
+          "fields": [
+            "now",
+            "size",
+            "totalBytes"
+          ],
+          "expected_source": "now>=0 and each size>=0<=MaxInt64-currentTotal",
+          "rejection": "ErrInputInvalid / ErrImmediateGCBytesOverflow",
+          "test_id": "RFA-RF18-gc_crash_recovery"
+        },
+        {
+          "id": "gc-snapshot",
+          "fields": [
+            "blobId",
+            "digest",
+            "size",
+            "protected",
+            "candidate",
+            "work",
+            "input"
+          ],
+          "expected_source": "Fence UPDATE blobs id=id for <=200 IDs,exact count,then reread Selected and require exact entire comparable GCBlob incl protection/work facts",
+          "rejection": "ErrGCSnapshotChanged",
+          "test_id": "RFA-RF18-gc_crash_recovery"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "blob-fence",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.gcRecords).Fence",
+          "affected_records": [
+            "UPDATE blobs SET id=id per <=200 selected IDs,require exact count then full GCBlob equality recheck"
+          ],
+          "test_id": "RFA-RF18-gc_crash_recovery"
+        },
+        {
+          "stage": "immediate-job-fence",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.gcRecords).fenceJob",
+          "affected_records": [
+            "Each selected candidate job full workFence no-op update before advance"
+          ],
+          "test_id": "RFA-RF18-gc_crash_recovery"
+        },
+        {
+          "stage": "immediate-candidate",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.gcRecords).Advance",
+          "affected_records": [
+            "Candidate exact full fence -> scheduled=max(firstUnreferenced,acceptedNow),require1"
+          ],
+          "test_id": "RFA-RF18-gc_crash_recovery"
+        },
+        {
+          "stage": "immediate-queued-job",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.gcRecords).Advance",
+          "affected_records": [
+            "Existing QUEUED candidate job full fence -> available now,version+1,time; RUNNING only candidate schedule changes"
+          ],
+          "test_id": "RFA-RF18-gc_crash_recovery"
+        },
+        {
+          "stage": "retry-failed-input",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.gcRecords).input",
+          "affected_records": [
+            "FAILED alternative INSERT fresh input snapshot currentExecution+1 with fresh executionUUID/same Blob digest/frozen JSON+SHA"
+          ],
+          "test_id": "RFA-RF18-gc_crash_recovery"
+        },
+        {
+          "stage": "retry-failed-job",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.gcRecords).retry",
+          "affected_records": [
+            "FAILED alternative job full fence -> QUEUED,new execution/payload,attempt0,available now,clearfinished/start/deadline/worker/lease/heartbeat/error/retryable,version+1,time"
+          ],
+          "test_id": "RFA-RF18-gc_crash_recovery"
+        },
+        {
+          "stage": "immediate-retry-event",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.gcRecords).event",
+          "affected_records": [
+            "FAILED alternative INSERT MANUAL_RETRY schema1 execution/reasonIMMEDIATE_STORAGE_CLEANUP"
+          ],
+          "test_id": "RFA-RF18-gc_crash_recovery"
+        },
+        {
+          "stage": "cleanup-audit",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.gcRecords).Audit",
+          "affected_records": [
+            "INSERT audit_events UUID,USER actor,STORAGE_CLEANUP_REQUESTED,STORAGE/REGISTERED_CAS_PAYLOAD_V1,JSONschema1 selected count+bytes,time"
+          ],
+          "test_id": "RFA-RF18-gc_crash_recovery"
+        }
+      ],
+      "idempotency": "Repeated explicit immediate cleanup may write a new audit; only FAILED jobs increment execution; queued jobs change version/availability; running work identity is preserved. Generic JSON HTTP receipt,where used,is separate and recorded by RF06.",
+      "time_rule": "Baseline BeginTx(ctx,nil) on shared writer and upper callback; Service clock sampled inside callback. Target requires one Repo admission sample after write permission. Exact sample/UUID positions below. Immediate first commits independent Reconcile operations. Main writer reads candidates THEN samples acceptedNow inside immediateChanges; fresh retry execution IDs and audit UUID generated inside callback.",
+      "after_commit": [
+        {
+          "action": "Wake callback only after main candidate+audit commit; result reports count/bytes/acceptedAt",
+          "recovery": "Reconcile mutations already committed even if later immediate request fails; recovery uses durable work/input/candidates",
+          "test_id": "RFA-RF18-gc_crash_recovery"
+        }
+      ],
+      "fault_points": [
+        "PLANNED blob-fence: fail after applicable write; compare full job/event/audit/owner/reference/candidate/session state and require transaction rollback",
+        "PLANNED immediate-job-fence: fail after applicable write; compare full job/event/audit/owner/reference/candidate/session state and require transaction rollback",
+        "PLANNED immediate-candidate: fail after applicable write; compare full job/event/audit/owner/reference/candidate/session state and require transaction rollback",
+        "PLANNED immediate-queued-job: fail after applicable write; compare full job/event/audit/owner/reference/candidate/session state and require transaction rollback",
+        "PLANNED retry-failed-input: fail after applicable write; compare full job/event/audit/owner/reference/candidate/session state and require transaction rollback",
+        "PLANNED retry-failed-job: fail after applicable write; compare full job/event/audit/owner/reference/candidate/session state and require transaction rollback",
+        "PLANNED immediate-retry-event: fail after applicable write; compare full job/event/audit/owner/reference/candidate/session state and require transaction rollback",
+        "PLANNED cleanup-audit: fail after applicable write; compare full job/event/audit/owner/reference/candidate/session state and require transaction rollback",
+        "PLANNED each Guard independently changed before writer,stale execution/candidate,digest replacement,shared ownership,commit failure,cancellation and crash/restart; never infer physical byte rollback from SQL rollback"
+      ],
+      "test_ids": [
+        "RFA-RF18-gc_crash_recovery",
+        "RFA-RF18-release_fence",
+        "RFA-RF18-shared_digest"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "This operation changes job/bookkeeping state or removes existing references; it neither publishes CAS bytes nor adds a protective Blob edge. Physical deletion is separately registered.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "payloadrelease.retire-bios",
+      "owner": "payloadrelease",
+      "rf_id": "RF18",
+      "consumers": [
+        "(*retrom/internal/adapter/integration/payloadrelease.Service).ReconcileGC",
+        "(*retrom/internal/adapter/integration/payloadrelease.Service).releaseSupersededBIOS",
+        "(*retrom/internal/service/payloadrelease.Retirements).BIOS",
+        "(*retrom/internal/service/payloadrelease.Retirements).BIOSBatch",
+        "(*retrom/internal/service/payloadrelease.Service).ReconcileGC"
+      ],
+      "snapshot": "retrom/internal/model/payloadrelease.BIOSRetirement",
+      "prepare": "(*retrom/internal/service/payloadrelease.Retirements).BIOSBatch",
+      "commit": "(*retrom/internal/repo/payloadrelease.Retirement).WithRetirement",
+      "policy_symbols": [],
+      "fresh_facts": [
+        {
+          "name": "oldest inactive BIOS",
+          "reader_symbol": "(retrom/internal/repo/payloadrelease.retirementRecords).BIOS",
+          "reason": "Writer first inactive installation with nonNULLBlob ordered updated/id; id/Blob/version/EXISTS active installation same Blob; if unshared read <=200 BIOS_BUNDLE variant files ordered variant/name"
+        }
+      ],
+      "guards": [
+        {
+          "id": "bios-retirement-shape",
+          "fields": [
+            "id",
+            "blobId",
+            "version",
+            "sharedActive",
+            "files"
+          ],
+          "expected_source": "Found row nonempty IDs,0<version<MaxInt64; sharedActive implies no selected files",
+          "rejection": "ErrRetirementSnapshotChanged",
+          "test_id": "RFA-RF18-shared_digest"
+        },
+        {
+          "id": "inactive-shared-fence",
+          "fields": [
+            "id",
+            "version",
+            "blobId",
+            "isActive",
+            "sharedActive"
+          ],
+          "expected_source": "Exact id/version/blob,is_active0 and current active-same-Blob EXISTS equals observed SharedActive",
+          "rejection": "ErrRetirementSnapshotChanged",
+          "test_id": "RFA-RF18-shared_digest"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "bios-retirement-fence",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.retirementRecords).FenceBIOS",
+          "affected_records": [
+            "UPDATE bios_installations version=version with exact inactive/shared predicate,require1"
+          ],
+          "test_id": "RFA-RF18-shared_digest"
+        },
+        {
+          "stage": "retire-bios-files",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.retirementRecords).ReleaseBIOSFiles",
+          "affected_records": [
+            "Only not shared: DELETE variant_files roleBIOS_BUNDLE exact selected tuple(gameVariantID,logicalName,BlobID),require selected count"
+          ],
+          "test_id": "RFA-RF18-shared_digest"
+        },
+        {
+          "stage": "complete-bios-retirement",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.retirementRecords).CompleteBIOS",
+          "affected_records": [
+            "When selected files<200: exact id/version/blob/inactive and(active sameBlob OR no remaining BIOS_BUNDLE files) -> BlobNULL,payloadReleasedAt,version+1,time; require1"
+          ],
+          "test_id": "RFA-RF18-shared_digest"
+        }
+      ],
+      "idempotency": "Each batch removes exact selected references; shared active installation prevents file removal but permits old inactive installation release. Cleared Blob ends selection. Later general GC reconcile schedules any newly unprotected Blob.",
+      "time_rule": "Baseline BeginTx(ctx,nil) on shared writer and upper callback; Service clock sampled inside callback. Target requires one Repo admission sample after write permission. Exact sample/UUID positions below. BIOS fact read and fences before clock; Service samples only if completing installation after final file batch. No clock for exactly200 intermediate deletes.",
+      "after_commit": [
+        {
+          "action": "Continue oldest retirement until no found installation,then launch/expiry/GC reconciliation",
+          "recovery": "Failure rolls back that batch; previously completed file batches stay durable; no CAS unlink here",
+          "test_id": "RFA-RF18-gc_crash_recovery"
+        }
+      ],
+      "fault_points": [
+        "PLANNED bios-retirement-fence: fail after applicable write; compare full job/event/audit/owner/reference/candidate/session state and require transaction rollback",
+        "PLANNED retire-bios-files: fail after applicable write; compare full job/event/audit/owner/reference/candidate/session state and require transaction rollback",
+        "PLANNED complete-bios-retirement: fail after applicable write; compare full job/event/audit/owner/reference/candidate/session state and require transaction rollback",
+        "PLANNED each Guard independently changed before writer,stale execution/candidate,digest replacement,shared ownership,commit failure,cancellation and crash/restart; never infer physical byte rollback from SQL rollback"
+      ],
+      "test_ids": [
+        "RFA-RF18-shared_digest",
+        "RFA-RF18-release_fence",
+        "RFA-RF18-gc_crash_recovery"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "This operation changes job/bookkeeping state or removes existing references; it neither publishes CAS bytes nor adds a protective Blob edge. Physical deletion is separately registered.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "payloadrelease.retire-launch",
+      "owner": "payloadrelease",
+      "rf_id": "RF18",
+      "consumers": [
+        "(*retrom/internal/adapter/integration/payloadrelease.Service).ReconcileGC",
+        "(*retrom/internal/adapter/integration/payloadrelease.Service).releaseTerminalLaunches",
+        "(*retrom/internal/service/payloadrelease.Retirements).LaunchBatch",
+        "(*retrom/internal/service/payloadrelease.Retirements).Launches",
+        "(*retrom/internal/service/payloadrelease.Service).ReconcileGC"
+      ],
+      "snapshot": "retrom/internal/model/payloadrelease.LaunchRetirement",
+      "prepare": "(*retrom/internal/service/payloadrelease.Retirements).LaunchBatch",
+      "commit": "(*retrom/internal/repo/payloadrelease.Retirement).WithRetirement",
+      "policy_symbols": [
+        "retrom/internal/service/payloadrelease.validRetirement"
+      ],
+      "fresh_facts": [
+        {
+          "name": "due launch and retained references",
+          "reader_symbol": "(retrom/internal/repo/payloadrelease.retirementRecords).Launch",
+          "reason": "Writer earliest unreleased retirement due<=now joins launch state/version/bootstrap/hard/idle/finish; <=200 content and <=200 external references; current ACTIVE play ID/version"
+        }
+      ],
+      "guards": [
+        {
+          "id": "launch-deadline",
+          "fields": [
+            "id",
+            "version",
+            "due",
+            "state",
+            "bootstrap",
+            "hard",
+            "idle",
+            "finish",
+            "plays"
+          ],
+          "expected_source": "0<launch/playversions<MaxInt64,nonempty IDs,due<=now; CREATED due=min(bootstrap,hard),ACTIVE idle set and due=min(idle,hard),FINISHED|EXPIRED|REVOKED finish set equals due",
+          "rejection": "ErrRetirementSnapshotChanged",
+          "test_id": "RFA-RF18-shared_digest"
+        },
+        {
+          "id": "launch-snapshot",
+          "fields": [
+            "id",
+            "state",
+            "version",
+            "bootstrap",
+            "hard",
+            "idle",
+            "finish",
+            "retirementDue",
+            "released"
+          ],
+          "expected_source": "Exact current launch snapshot and matching unreleased retirement due",
+          "rejection": "ErrRetirementSnapshotChanged",
+          "test_id": "RFA-RF18-shared_digest"
+        },
+        {
+          "id": "terminal-file-owner",
+          "fields": [
+            "launch.state"
+          ],
+          "expected_source": "recordstore delete invariant: current owning launch must be FINISHED|EXPIRED|REVOKED before content/external references can be deleted",
+          "rejection": "recordstore ErrInvariant: immutable",
+          "test_id": "RFA-RF18-shared_digest"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "launch-retirement-fence",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.retirementRecords).FenceLaunch",
+          "affected_records": [
+            "UPDATE launch_sessions version=version with full snapshot and unreleased retirement EXISTS,require1"
+          ],
+          "test_id": "RFA-RF18-shared_digest"
+        },
+        {
+          "stage": "expire-active-launch",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.retirementRecords).TerminateLaunch",
+          "affected_records": [
+            "CREATED|ACTIVE only sessionstore.ChangeLaunch exact id/state/version -> EXPIRED,finishedCOALESCE,time,version+1"
+          ],
+          "test_id": "RFA-RF18-shared_digest"
+        },
+        {
+          "stage": "retirement-deadline",
+          "repo_helper": "retrom/internal/repo/sessionstore.updateLaunchRelations",
+          "affected_records": [
+            "Expired branch nested: unreleased launch_payload_retirements due recalculated from current terminal finish"
+          ],
+          "test_id": "RFA-RF18-shared_digest"
+        },
+        {
+          "stage": "retirement-capability",
+          "repo_helper": "retrom/internal/repo/sessionstore.updateLaunchRelations",
+          "affected_records": [
+            "Expired branch nested: unrevoked isolated_runtime_capabilities for terminal launch -> revokedAt=finished"
+          ],
+          "test_id": "RFA-RF18-shared_digest"
+        },
+        {
+          "stage": "retirement-restore",
+          "repo_helper": "retrom/internal/repo/sessionstore.updateLaunchRelations",
+          "affected_records": [
+            "Expired branch nested: launch_game_save_bindings restoreBlob/formatNULL when launch non CREATED|ACTIVE"
+          ],
+          "test_id": "RFA-RF18-shared_digest"
+        },
+        {
+          "stage": "retire-play",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.retirementRecords).TerminateLaunch",
+          "affected_records": [
+            "Each current ACTIVE play exact id/version/launch -> ABANDONED,end/time,version+1,require1; applies even already-terminal launch"
+          ],
+          "test_id": "RFA-RF18-shared_digest"
+        },
+        {
+          "stage": "retire-external-files",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.retirementRecords).ReleaseLaunchFiles",
+          "affected_records": [
+            "DELETE launch_external_files exact selected launch/virtualPath/Blob tuple,require selected count"
+          ],
+          "test_id": "RFA-RF18-shared_digest"
+        },
+        {
+          "stage": "retire-content-files",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.retirementRecords).ReleaseLaunchFiles",
+          "affected_records": [
+            "Then DELETE launch_content_files exact selected launch/logicalName/Blob tuple,require selected count"
+          ],
+          "test_id": "RFA-RF18-shared_digest"
+        },
+        {
+          "stage": "complete-launch-retirement",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.retirementRecords).CompleteLaunch",
+          "affected_records": [
+            "Only both selected lists<200: retirement exact launch/due/unreleased and no remaining content/external -> releasedAt=now,require1; due uses now when newly expired else original"
+          ],
+          "test_id": "RFA-RF18-shared_digest"
+        }
+      ],
+      "idempotency": "Unreleased due row remains until all paged files removed; already-terminal launch state preserved. Finishing last batch marks released; physical bytes remain until shared-owner-aware GC.",
+      "time_rule": "Baseline BeginTx(ctx,nil) on shared writer and upper callback; Service clock sampled inside callback. Target requires one Repo admission sample after write permission. Exact sample/UUID positions below. Service now sampled before due read; all row updates in batch share it. Newly expired relation uses COALESCE finished while completion expected due=now; preserve baseline validation behavior.",
+      "after_commit": [
+        {
+          "action": "Loop one launch per batch until no due row,then general reconciliation discovers unprotected bytes",
+          "recovery": "Each batch atomic including play/capability/save-binding changes; existing released row never reopened",
+          "test_id": "RFA-RF18-gc_crash_recovery"
+        }
+      ],
+      "fault_points": [
+        "PLANNED launch-retirement-fence: fail after applicable write; compare full job/event/audit/owner/reference/candidate/session state and require transaction rollback",
+        "PLANNED expire-active-launch: fail after applicable write; compare full job/event/audit/owner/reference/candidate/session state and require transaction rollback",
+        "PLANNED retirement-deadline: fail after applicable write; compare full job/event/audit/owner/reference/candidate/session state and require transaction rollback",
+        "PLANNED retirement-capability: fail after applicable write; compare full job/event/audit/owner/reference/candidate/session state and require transaction rollback",
+        "PLANNED retirement-restore: fail after applicable write; compare full job/event/audit/owner/reference/candidate/session state and require transaction rollback",
+        "PLANNED retire-play: fail after applicable write; compare full job/event/audit/owner/reference/candidate/session state and require transaction rollback",
+        "PLANNED retire-external-files: fail after applicable write; compare full job/event/audit/owner/reference/candidate/session state and require transaction rollback",
+        "PLANNED retire-content-files: fail after applicable write; compare full job/event/audit/owner/reference/candidate/session state and require transaction rollback",
+        "PLANNED complete-launch-retirement: fail after applicable write; compare full job/event/audit/owner/reference/candidate/session state and require transaction rollback",
+        "PLANNED each Guard independently changed before writer,stale execution/candidate,digest replacement,shared ownership,commit failure,cancellation and crash/restart; never infer physical byte rollback from SQL rollback"
+      ],
+      "test_ids": [
+        "RFA-RF18-shared_digest",
+        "RFA-RF18-release_fence",
+        "RFA-RF18-gc_crash_recovery"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "This operation changes job/bookkeeping state or removes existing references; it neither publishes CAS bytes nor adds a protective Blob edge. Physical deletion is separately registered.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
       "operation_id": "platforminstance.apply-recommendations",
       "owner": "platforminstance",
       "rf_id": "RF16",
@@ -16462,6 +18631,7 @@
     "RF11 SOURCE_REVIEWED census adds 9 transaction families: provider reconciliation, browser/server firmware, startup definitions, DAT ensure/recover,claim,publish,ready activation,failure. DAT requirements and firmware supersession are atomic nested steps, not standalone commits. BIOS/corevalidation are read-only services. Guards/stages and fixture references remain PLANNED; stale DAT execution fencing, writer time, external preparation, digest locking and full parser/Provider consumers require migration/verification.",
     "RF12 SOURCE_REVIEWED census adds 19 distinct transaction families, including original-session AbortPreparation separately from post-Launch record and active/passive expiry separately from startup recovery. Launch participant credential publication belongs to RF10; participant access/query/Hub frame protocol are read-only or memory operations, not fabricated SQL commands. Baseline Hub performs SQL under mutex and sometimes publishes memory before commit; writer time and UUID positions are recorded for migration. All new behavioral/fault/race cases remain PLANNED.",
     "RF15 SOURCE_REVIEWED: 10 standalone transaction entry families, with scrape claim/requeue/terminal branches and media claim/requeue/reconcile branches explicitly expanded. ScheduleImport is nested RF13; media scheduling is nested record-lookup; initial-review projection is nested finish-scrape. Recovery and cache expiry lookup are read-only here. Baseline record-lookup lacks fresh import payload/parent cancellation/evidence-to-run checks and samples two times. Clock/UUID positions, protective hash-evidence/raw/media Blob edges and remaining inline candidate/budget/evidence-selection policy extraction are recorded, not claimed fixed. All new fault/race tests remain PLANNED.",
-    "RF17 SOURCE_REVIEWED two generic mutation families; three registered owner adapters have separate RF13/RF14 transactions,not extra RF17 SQL,while BIOS side effects remain inside generic cancel. Job read/SSE/importprogress projection are not writes. Kind completeness and typed owner registration remain pending; the raw external audit's '12 kinds' conflicts with its14rows and its unconditional no-receipt claim was rejected. RF06 adds two actual receipt autocommit operations and clarifies existing domain-only receipt notes. Current generic HTTP receipts are NOT atomic with domain changes. New behavioral cases remain PLANNED."
+    "RF17 SOURCE_REVIEWED two generic mutation families; three registered owner adapters have separate RF13/RF14 transactions,not extra RF17 SQL,while BIOS side effects remain inside generic cancel. Job read/SSE/importprogress projection are not writes. Kind completeness and typed owner registration remain pending; the raw external audit's '12 kinds' conflicts with its14rows and its unconditional no-receipt claim was rejected. RF06 adds two actual receipt autocommit operations and clarifies existing domain-only receipt notes. Current generic HTTP receipts are NOT atomic with domain changes. New behavioral cases remain PLANNED.",
+    "RF18 PARTIAL SOURCE_REVIEWED adds13 worker/observer/GC/expiry/retirement transaction entries. Normal Finish requires live lease unlike Recover;1s monitor owns a separate write-fence transaction. GC physical unlink follows catalog commit without digest lock; same-digest replacement/missing-original retry paths explicitly registered. Expiry nested GC resamples time,renew/finish use two clock samples. Release effect graph deletion details and nested owner scheduling full census still outstanding; no claim RF18 is complete. New behavior/fault/concurrency tests remain PLANNED."
   ]
 }

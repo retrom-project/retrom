@@ -2535,6 +2535,203 @@
       ]
     },
     {
+      "id": "payloadrelease.DecodeWork",
+      "owner": "payloadrelease",
+      "rf_id": "RF18",
+      "symbol": "retrom/internal/service/payloadrelease.DecodeWork",
+      "consumers": [
+        "(*retrom/internal/service/payloadrelease.ReleaseEffects).Execute",
+        "(*retrom/internal/service/payloadrelease.Worker).RunOnce"
+      ],
+      "invariant": "Exact frozen input SHA,kind/scope/schema1,nonzero parseable execution UUID plus scope inputs.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF18-release_fence",
+        "RFA-RF18-gc_crash_recovery"
+      ]
+    },
+    {
+      "id": "payloadrelease.RetryDelay",
+      "owner": "payloadrelease",
+      "rf_id": "RF18",
+      "symbol": "retrom/internal/service/payloadrelease.RetryDelay",
+      "consumers": [
+        "(*retrom/internal/service/payloadrelease.Worker).settlement"
+      ],
+      "invariant": "Attempt1 delays1s,attempt2 5s,other attempts30s.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF18-release_fence",
+        "RFA-RF18-gc_crash_recovery"
+      ]
+    },
+    {
+      "id": "payloadrelease.WorkErrorCode",
+      "owner": "payloadrelease",
+      "rf_id": "RF18",
+      "symbol": "retrom/internal/service/payloadrelease.WorkErrorCode",
+      "consumers": [
+        "(*retrom/internal/service/payloadrelease.Worker).settlement"
+      ],
+      "invariant": "Stable input/timeout/attempt error codes,then coded cause,else PAYLOAD_RELEASE_DATABASE_FAILED.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF18-release_fence",
+        "RFA-RF18-gc_crash_recovery"
+      ]
+    },
+    {
+      "id": "payloadrelease.executionBudgetFailure",
+      "owner": "payloadrelease",
+      "rf_id": "RF18",
+      "symbol": "retrom/internal/service/payloadrelease.executionBudgetFailure",
+      "consumers": [
+        "(*retrom/internal/service/payloadrelease.Worker).Claim",
+        "(*retrom/internal/service/payloadrelease.Worker).Recover",
+        "(*retrom/internal/service/payloadrelease.Worker).settlement"
+      ],
+      "invariant": "Deadline expiration takes precedence over exhausted attempt count.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF18-release_fence",
+        "RFA-RF18-gc_crash_recovery"
+      ]
+    },
+    {
+      "id": "payloadrelease.gcUniqueIDs",
+      "owner": "payloadrelease",
+      "rf_id": "RF18",
+      "symbol": "retrom/internal/service/payloadrelease.gcUniqueIDs",
+      "consumers": [
+        "(*retrom/internal/service/payloadrelease.GCScheduler).StageInScope"
+      ],
+      "invariant": "Remove empty/duplicate IDs preserving first occurrence.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF18-release_fence",
+        "RFA-RF18-gc_crash_recovery"
+      ]
+    },
+    {
+      "id": "payloadrelease.previewDue",
+      "owner": "payloadrelease",
+      "rf_id": "RF18",
+      "symbol": "retrom/internal/service/payloadrelease.previewDue",
+      "consumers": [
+        "(*retrom/internal/service/payloadrelease.Expirations).PreviewBatch"
+      ],
+      "invariant": "Created bootstrap expiry,hard expiry or revoked,with state/reference work still remaining.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF18-release_fence",
+        "RFA-RF18-gc_crash_recovery"
+      ]
+    },
+    {
+      "id": "payloadrelease.sameExecution",
+      "owner": "payloadrelease",
+      "rf_id": "RF18",
+      "symbol": "retrom/internal/service/payloadrelease.sameExecution",
+      "consumers": [
+        "(*retrom/internal/service/payloadrelease.Worker).current"
+      ],
+      "invariant": "Exact durable execution identity including scope,start/deadline,input; renewal version/heartbeat changes allowed.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF18-release_fence",
+        "RFA-RF18-gc_crash_recovery"
+      ]
+    },
+    {
+      "id": "payloadrelease.validGCCandidate",
+      "owner": "payloadrelease",
+      "rf_id": "RF18",
+      "symbol": "retrom/internal/service/payloadrelease.validGCCandidate",
+      "consumers": [
+        "(*retrom/internal/service/payloadrelease.GCScheduler).cancelProtected",
+        "(*retrom/internal/service/payloadrelease.GCScheduler).immediateChanges"
+      ],
+      "invariant": "Exact candidate BLOB owner/BLOB_GC kind,queued/running/failed state,bounded positive execution/version.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF18-release_fence",
+        "RFA-RF18-gc_crash_recovery"
+      ]
+    },
+    {
+      "id": "payloadrelease.validGarbageInput",
+      "owner": "payloadrelease",
+      "rf_id": "RF18",
+      "symbol": "retrom/internal/service/payloadrelease.validGarbageInput",
+      "consumers": [
+        "(*retrom/internal/service/payloadrelease.GarbageCollector).Execute"
+      ],
+      "invariant": "Explicit BLOB_GC schema/scope and32byte hexadecimal digest.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF18-release_fence",
+        "RFA-RF18-gc_crash_recovery"
+      ]
+    },
+    {
+      "id": "payloadrelease.validRetirement",
+      "owner": "payloadrelease",
+      "rf_id": "RF18",
+      "symbol": "retrom/internal/service/payloadrelease.validRetirement",
+      "consumers": [
+        "(*retrom/internal/service/payloadrelease.Retirements).LaunchBatch"
+      ],
+      "invariant": "Validate launch/play versions and exact state-specific due deadline formula.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF18-release_fence",
+        "RFA-RF18-gc_crash_recovery"
+      ]
+    },
+    {
+      "id": "payloadrelease.validWork",
+      "owner": "payloadrelease",
+      "rf_id": "RF18",
+      "symbol": "retrom/internal/service/payloadrelease.validWork",
+      "consumers": [
+        "(*retrom/internal/service/payloadrelease.Worker).Claim",
+        "(*retrom/internal/service/payloadrelease.Worker).current"
+      ],
+      "invariant": "Nonempty job/scope identity,allowed kind,positive execution/max/bounded version and nonnegative attempt.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF18-release_fence",
+        "RFA-RF18-gc_crash_recovery"
+      ]
+    },
+    {
+      "id": "payloadrelease.validateWorkInput",
+      "owner": "payloadrelease",
+      "rf_id": "RF18",
+      "symbol": "retrom/internal/service/payloadrelease.validateWorkInput",
+      "consumers": [
+        "retrom/internal/service/payloadrelease.DecodeWork"
+      ],
+      "invariant": "BLOB_GC scope/digest or release valid scope/version/reason from explicit value.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF18-release_fence",
+        "RFA-RF18-gc_crash_recovery"
+      ]
+    },
+    {
       "id": "platformcatalog.Validate",
       "owner": "runtime",
       "rf_id": "RF04",
