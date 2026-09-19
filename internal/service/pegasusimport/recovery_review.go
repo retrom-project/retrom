@@ -39,6 +39,6 @@ func prepareRecoveryReview(
 		return model.RecoveryReviewChange{}, fmt.Errorf("seed recovered Pegasus review: %w", err)
 	}
 	return model.RecoveryReviewChange{Execution: execution, Handoff: model.ReviewHandoffChange{
-		Before: review, Warnings: mergeReviewMetadataWarnings(review.Warnings, warnings), NowMS: now.UnixMilli(),
+		Before: review, Warnings: model.MergeReviewMetadataWarnings(review.Warnings, warnings), NowMS: now.UnixMilli(),
 	}}, nil
 }

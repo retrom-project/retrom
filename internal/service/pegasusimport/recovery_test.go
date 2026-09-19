@@ -7,10 +7,40 @@ import (
 	"testing"
 	"time"
 
+	librarymodel "retrom/internal/model/libraryimport"
 	model "retrom/internal/model/pegasusimport"
 
 	library "retrom/internal/service/libraryimport"
 )
+
+type recoveryMetadataFake struct {
+	before model.ReviewHandoffSnapshot
+	seeds  int
+}
+
+func (m *recoveryMetadataFake) CurrentMetadata(_ context.Context, _ string) (librarymodel.MetadataDraft, error) {
+	return librarymodel.MetadataDraft{MetadataJSON: `{"Title":"t"}`, Version: 1}, nil
+}
+
+func (m *recoveryMetadataFake) SaveMetadata(_ context.Context, _ librarymodel.MetadataChange) error {
+	m.seeds++
+	return nil
+}
+
+func newRecoveryMetadataFake() *recoveryMetadataFake {
+	return &recoveryMetadataFake{
+		before: model.ReviewHandoffSnapshot{
+			Identity: model.ReviewHandoffRequest{
+				ItemID: "item", ImportID: "import", JobID: "job",
+				LibraryJobID: "lib-job", LibraryItemID: "lib-item",
+				ExecutionNo: 1, Attempt: 1, WorkerID: "worker",
+			},
+			State: "COPYING", ImportState: "RUNNING", JobState: "RUNNING",
+			Version: 1, ImportVersion: 3, LeaseUntilMS: 5, DeadlineMS: 100,
+			Metadata: librarymodel.ServerMetadata{Title: "t"},
+		},
+	}
+}
 
 func recoverySnapshot() model.RecoverySnapshot {
 	return model.RecoverySnapshot{JobID: "job", ImportID: "import", Kind: "SERVER_PEGASUS_IMPORT", JobState: "RUNNING", ImportState: "RUNNING", WorkerID: "lost", JobVersion: 2, ImportVersion: 3, ExecutionNo: 1, Attempt: 1, MaxAttempts: 4, LeaseUntilMS: 5, DeadlineMS: 100}
@@ -84,7 +114,7 @@ type recoveryFake struct {
 	limit     int
 	reviews   []model.ReviewHandoffSnapshot
 	completed int
-	metadata  *handoffMemory
+	metadata  *recoveryMetadataFake
 }
 
 func (fake *recoveryFake) ExpiredExecutions(_ context.Context, _ int64, limit int) ([]model.RecoverySnapshot, error) {
@@ -137,9 +167,10 @@ func TestRecoveryBoundsReviewReconciliationBeforeClosingExecution(t *testing.T) 
 	for _, count := range []int{100, 101} {
 		t.Run(fmt.Sprint(count), func(t *testing.T) {
 			t.Parallel()
-			fake := &recoveryFake{before: recoverySnapshot(), current: recoverySnapshot(), metadata: readyHandoffMemory()}
+			metadataFake := newRecoveryMetadataFake()
+			fake := &recoveryFake{before: recoverySnapshot(), current: recoverySnapshot(), metadata: metadataFake}
 			for i := range count {
-				review := readyHandoffMemory().before
+				review := newRecoveryMetadataFake().before
 				review.Identity.ItemID = fmt.Sprint(i)
 				review.Identity.ExecutionNo, review.Identity.Attempt = 1, 1
 				review.ImportVersion = fake.current.ImportVersion

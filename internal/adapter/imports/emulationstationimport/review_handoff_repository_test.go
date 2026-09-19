@@ -10,47 +10,23 @@ import (
 
 	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
 	persistence "retrom/internal/repo/emulationstationimport"
-	emulationstationimportservice "retrom/internal/service/emulationstationimport"
-	library "retrom/internal/service/libraryimport"
 	"retrom/internal/testkit/testsupport"
 )
 
-type handoffCallbackFailure struct {
+// handoffCommitFailure wraps a ReviewHandoffRepository to inject errors.
+type handoffCommitFailure struct {
 	emulationstationimportmodel.ReviewHandoffRepository
+	err error
 }
 
-func (repository handoffCallbackFailure) WithReviewHandoff(
-	ctx context.Context,
-	run func(emulationstationimportmodel.ReviewHandoffScope) error,
+func (h handoffCommitFailure) CommitReviewHandoff(
+	ctx context.Context, request emulationstationimportmodel.ReviewHandoffRequest, nowMS int64,
+	auditID, actorKind string, actorUserID, actorLabel *string,
 ) error {
-	return repository.ReviewHandoffRepository.WithReviewHandoff(ctx, func(scope emulationstationimportmodel.ReviewHandoffScope) error {
-		if err := run(scope); err != nil {
-			return err
-		}
-		return errExecutionReviewFault
-	})
-}
-
-func TestESReviewHandoffLateCallbackRollsBackAllWrites(t *testing.T) {
-	fixture := newLifecycleFixture(t)
-	_, unit := startLifecycleImport(t, fixture, "", "nes")
-	item, ordinary := reserveExecutionReview(t, fixture, unit)
-	before := executionReviewSnapshot(t, fixture, unit, ordinary.Items[0].ItemID)
-	service := emulationstationimportservice.NewReviewHandoff(
-		handoffCallbackFailure{persistence.NewReviewHandoff(fixture.database)},
-		library.NewMetadataSeeder(nil, fixture.service.now),
-		fixture.service.now,
-	)
-	err := service.Complete(
-		fixture.context,
-		emulationstationimportmodel.ReviewHandoffRequest{Execution: unit, ItemID: item.ID, LibraryJobID: ordinary.Created.ImportJobID, LibraryItemID: ordinary.Items[0].ItemID},
-	)
-	if !errors.Is(err, errExecutionReviewFault) {
-		t.Fatalf("callback cause=%v", err)
+	if err := h.ReviewHandoffRepository.CommitReviewHandoff(ctx, request, nowMS, auditID, actorKind, actorUserID, actorLabel); err != nil {
+		return err
 	}
-	if after := executionReviewSnapshot(t, fixture, unit, ordinary.Items[0].ItemID); after != before {
-		t.Fatal("late callback retained metadata, audit, source or progress")
-	}
+	return h.err
 }
 
 func TestESReviewHandoffReadFailuresRetainCauses(t *testing.T) {
@@ -99,3 +75,39 @@ func TestESReviewHandoffReadFailuresRetainCauses(t *testing.T) {
 		})
 	}
 }
+
+func TestESReviewHandoffLateCommitFailurePreservesState(t *testing.T) {
+	fixture := newLifecycleFixture(t)
+	_, unit := startLifecycleImport(t, fixture, "", "nes")
+	item, ordinary := reserveExecutionReview(t, fixture, unit)
+	before := executionReviewSnapshot(t, fixture, unit, ordinary.Items[0].ItemID)
+
+	var commits atomic.Int64
+	faultDB := testsupport.OpenSQLFaultDatabase(t, fixture.database, testsupport.SQLFaultHooks{
+		BeforeExec: func(_ context.Context, query string, _ []driver.NamedValue) error {
+			if strings.Contains(query, "COMMIT") {
+				commits.Add(1)
+				return errExecutionReviewFault
+			}
+			return nil
+		},
+	})
+	repo := persistence.NewReviewHandoff(faultDB)
+	err := repo.CommitReviewHandoff(
+		fixture.context,
+		emulationstationimportmodel.ReviewHandoffRequest{
+			Execution: unit, ItemID: item.ID,
+			LibraryJobID: ordinary.Created.ImportJobID, LibraryItemID: ordinary.Items[0].ItemID,
+		},
+		fixture.service.now().UnixMilli(),
+		"test-audit-id", "SYSTEM", nil, ptrStr("release-setup"),
+	)
+	if !errors.Is(err, errExecutionReviewFault) {
+		t.Fatalf("commit cause=%v", err)
+	}
+	if after := executionReviewSnapshot(t, fixture, unit, ordinary.Items[0].ItemID); after != before {
+		t.Fatal("late commit retained metadata, audit, source or progress")
+	}
+}
+
+func ptrStr(s string) *string { return &s }

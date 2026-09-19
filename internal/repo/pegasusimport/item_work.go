@@ -15,23 +15,6 @@ import (
 type ItemWork struct{ database *sql.DB }
 
 func NewItemWork(database *sql.DB) *ItemWork { return &ItemWork{database: database} }
-func (repository *ItemWork) WithItemWork(ctx context.Context, work func(application.ItemWorkScope) error) error {
-	tx, err := repository.database.BeginTx(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("begin Pegasus item work: %w", err)
-	}
-	defer dbexec.Rollback(tx)
-	records := itemWorkRecords{tx}
-	if err := work(application.ItemWorkScope{
-		Payload: payloadrepo.BindReleases(tx), Read: records, Write: records,
-	}); err != nil {
-		return err
-	}
-	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("commit Pegasus item work: %w", err)
-	}
-	return nil
-}
 
 func (repository *ItemWork) ClaimNextItem(ctx context.Context, unit application.ExecutionIdentity, nowMS int64) (application.ClaimNextItemResult, error) {
 	var result application.ClaimNextItemResult

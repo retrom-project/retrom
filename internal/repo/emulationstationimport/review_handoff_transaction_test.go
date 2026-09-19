@@ -8,82 +8,59 @@ import (
 	application "retrom/internal/model/emulationstationimport"
 )
 
-func TestReviewHandoffTransactionDoesNotCommitOnLateFailure(t *testing.T) {
+func TestReviewHandoffRejectsStaleIdentity(t *testing.T) {
 	t.Parallel()
-	for _, commit := range []bool{false, true} {
-		t.Run(map[bool]string{false: "callback", true: "commit"}[commit], func(t *testing.T) {
+	for _, field := range []string{"worker", "execution", "attempt"} {
+		t.Run(field, func(t *testing.T) {
 			t.Parallel()
-			db, _ := leaseDatabase(t, true)
+			db, unit := itemWorkDatabase(t)
 			before := planRows(t, db)
-			err := NewReviewHandoff(db).WithReviewHandoff(t.Context(), func(scope application.ReviewHandoffScope) error {
-				records, ok := scope.Write.(executionRecords)
-				if !ok {
-					t.Fatal("unexpected handoff writer")
-				}
-				if _, err := records.executor.ExecContext(
-					t.Context(),
-					`UPDATE emulationstation_imports SET version=version+1`,
-				); err != nil {
-					return err
-				}
-				if !commit {
-					return errLeaseStorage
-				}
-				if _, err := records.executor.ExecContext(t.Context(), `PRAGMA defer_foreign_keys=ON`); err != nil {
-					return err
-				}
-				_, err := records.executor.ExecContext(
-					t.Context(),
-					`INSERT INTO job_input_snapshots(job_id,execution_no,input_json,input_digest,created_at_ms) VALUES('missing-handoff-parent',1,'{}','`+planDigest+`',12)`,
-				)
-				return err
-			})
-			if err == nil || !commit && !errors.Is(err, errLeaseStorage) {
-				t.Fatalf("late error=%v", err)
+			request := application.ReviewHandoffRequest{
+				Execution: unit, ItemID: "source-0",
+				LibraryJobID: "lib-job", LibraryItemID: "lib-item",
+			}
+			switch field {
+			case "worker":
+				request.Execution.WorkerID = "other-worker"
+			case "execution":
+				request.Execution.ExecutionNo = 999
+			case "attempt":
+				request.Execution.Attempt = 999
+			}
+			label := "release-setup"
+			err := NewReviewHandoff(db).CommitReviewHandoff(
+				t.Context(), request, 1100, "audit-id", "SYSTEM", nil, &label,
+			)
+			if !errors.Is(err, application.ErrVersionConflict) {
+				t.Fatalf("stale %s error=%v", field, err)
 			}
 			if !reflect.DeepEqual(before, planRows(t, db)) {
-				t.Fatal("failed handoff committed plan or deferred child")
+				t.Fatalf("stale %s changed rows", field)
 			}
 		})
 	}
 }
 
-func TestReviewHandoffRepeatsExecutionFence(t *testing.T) {
+func TestReviewHandoffRejectsExpiredLease(t *testing.T) {
 	t.Parallel()
-	for _, mutation := range []string{
-		"UPDATE jobs SET version=version+1",
-		"UPDATE jobs SET worker_id='replacement'",
-		"UPDATE jobs SET leased_until_ms=1100",
-		"UPDATE jobs SET execution_deadline_at_ms=1100",
-		"UPDATE emulationstation_imports SET version=version+1",
-		"UPDATE emulationstation_imports SET root_id='replacement'",
-		"UPDATE emulationstation_imports SET source_relative_path='replacement'",
-		"UPDATE emulationstation_imports SET release_year_max=release_year_max+1",
-	} {
-		t.Run(mutation, func(t *testing.T) {
-			t.Parallel()
-			db, unit := itemWorkDatabase(t)
-			before := planRows(t, db)
-			err := NewReviewHandoff(db).WithReviewHandoff(t.Context(), func(scope application.ReviewHandoffScope) error {
-				current, found, err := scope.Read.Current(t.Context(), unit.JobID)
-				if err != nil || !found {
-					t.Fatalf("current=%v error=%v", found, err)
-				}
-				records, ok := scope.Write.(executionRecords)
-				if !ok {
-					t.Fatal("unexpected handoff writer")
-				}
-				if _, err := records.executor.ExecContext(t.Context(), mutation); err != nil {
-					t.Fatal(err)
-				}
-				return scope.Write.CompleteReview(t.Context(), application.ExecutionReviewCompletion{Before: current, NowMS: 1100})
-			})
-			if !errors.Is(err, application.ErrVersionConflict) {
-				t.Fatalf("changed handoff authority=%v", err)
-			}
-			if !reflect.DeepEqual(before, planRows(t, db)) {
-				t.Fatal("changed handoff authority committed")
-			}
-		})
+	db, unit := itemWorkDatabase(t)
+	if _, err := db.ExecContext(t.Context(), `UPDATE jobs SET leased_until_ms=1 WHERE id=?`, unit.JobID); err != nil {
+		t.Fatal(err)
+	}
+	before := planRows(t, db)
+	label := "release-setup"
+	err := NewReviewHandoff(db).CommitReviewHandoff(
+		t.Context(),
+		application.ReviewHandoffRequest{
+			Execution: unit, ItemID: "source-0",
+			LibraryJobID: "lib-job", LibraryItemID: "lib-item",
+		},
+		1100, "audit-id", "SYSTEM", nil, &label,
+	)
+	if !errors.Is(err, application.ErrVersionConflict) {
+		t.Fatalf("expired lease error=%v", err)
+	}
+	if !reflect.DeepEqual(before, planRows(t, db)) {
+		t.Fatal("expired lease changed rows")
 	}
 }

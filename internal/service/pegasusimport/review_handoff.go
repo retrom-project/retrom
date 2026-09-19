@@ -2,18 +2,17 @@ package pegasusimport
 
 import (
 	"context"
-	"fmt"
-	"math"
 	"time"
 
 	model "retrom/internal/model/pegasusimport"
 
-	library "retrom/internal/model/libraryimport"
+	"retrom/internal/capability/security/authn"
+
+	"github.com/google/uuid"
 )
 
 type ReviewHandoff struct {
 	repository model.ReviewHandoffRepository
-	metadata   model.ReviewMetadataSeeder
 	now        func() time.Time
 }
 
@@ -22,80 +21,22 @@ func NewReviewHandoff(
 	metadata model.ReviewMetadataSeeder,
 	now func() time.Time,
 ) *ReviewHandoff {
-	return &ReviewHandoff{repository: repository, metadata: metadata, now: now}
+	return &ReviewHandoff{repository: repository, now: now}
 }
 
 func (service *ReviewHandoff) Complete(ctx context.Context, request model.ReviewHandoffRequest) error {
-	err := service.repository.WithReviewHandoff(ctx, func(scope model.ReviewHandoffScope) error {
-		before, err := scope.Records.CurrentReviewHandoff(ctx, request.ItemID)
-		if err != nil {
-			return fmt.Errorf("read Pegasus review handoff: %w", err)
-		}
-		if before.Identity != request || request.LibraryItemID == "" || request.LibraryJobID == "" {
-			return model.ErrVersionConflict
-		}
-		if before.State == "REVIEW_PENDING" {
-			return nil
-		}
-		now := service.now()
-		if !canCompleteReviewHandoff(before, now.UnixMilli()) {
-			return model.ErrVersionConflict
-		}
-		_, warnings, err := service.metadata.SeedInScope(
-			ctx,
-			scope.Metadata,
-			request.LibraryItemID,
-			before.Metadata,
-			now.UTC().Year()+1,
-		)
-		if err != nil {
-			return fmt.Errorf("seed Pegasus review metadata: %w", err)
-		}
-		change := model.ReviewHandoffChange{
-			Before:   before,
-			Warnings: mergeReviewMetadataWarnings(before.Warnings, warnings),
-			NowMS:    now.UnixMilli(),
-		}
-		if err := scope.Records.FinishReviewHandoff(ctx, change); err != nil {
-			return fmt.Errorf("save Pegasus review handoff: %w", err)
-		}
-		return nil
-	})
-	if err != nil {
-		return fmt.Errorf("complete Pegasus review handoff: %w", err)
+	now := service.now()
+	auditID, _ := uuid.NewV7()
+	actorKind := "SYSTEM"
+	var actorUserID *string
+	label := "release-setup"
+	actorLabel := &label
+	if principal, ok := authn.PrincipalFromContext(ctx); ok && principal.UserID != "" {
+		actorKind = "USER"
+		actorUserID = &principal.UserID
+		actorLabel = nil
 	}
-	return nil
-}
-
-func canCompleteReviewHandoff(before model.ReviewHandoffSnapshot, now int64) bool {
-	if before.State != "VALIDATING" || before.Version < 1 || before.Version == math.MaxInt64 ||
-		before.ImportVersion < 1 || before.ImportVersion == math.MaxInt64 {
-		return false
-	}
-	active := before.ImportState == "RUNNING" && before.JobState == "RUNNING"
-	canceling := before.ImportState == "CANCEL_REQUESTED" && before.JobState == "CANCEL_REQUESTED"
-	return (active || canceling) && before.Identity.ExecutionNo > 0 && before.Identity.Attempt > 0 &&
-		before.Identity.WorkerID != "" &&
-		before.LeaseUntilMS > now && before.DeadlineMS > now
-}
-
-func mergeReviewMetadataWarnings(
-	existing []map[string]any,
-	additions []library.ServerMetadataWarning,
-) []map[string]any {
-	result := make([]map[string]any, 0, len(existing)+len(additions))
-	result = append(result, existing...)
-	for _, addition := range additions {
-		duplicate := false
-		for _, warning := range result {
-			if warning["code"] == addition.Code && warning["field"] == addition.Field {
-				duplicate = true
-				break
-			}
-		}
-		if !duplicate {
-			result = append(result, map[string]any{"code": addition.Code, "field": addition.Field})
-		}
-	}
-	return result
+	maximumYear := now.UTC().Year() + 1
+	return service.repository.CommitReviewHandoff(ctx, request, now.UnixMilli(),
+		auditID.String(), actorKind, actorUserID, actorLabel, maximumYear)
 }
