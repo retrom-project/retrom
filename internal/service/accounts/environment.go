@@ -12,7 +12,7 @@ type InitializationOptions struct {
 	Mode        config.Mode
 	Credentials accountmodel.SetupCredentials
 	Hasher      accountmodel.PasswordHasher
-	Blocklist   authn.Blocklist
+	Blocklist   *authn.Blocklist
 	Mint        accountmodel.SessionMinter
 	Now         func() time.Time
 }
@@ -20,7 +20,7 @@ type InitializationOptions struct {
 type LinkConsumptionOptions struct {
 	Tokens    accountmodel.LinkTokenReader
 	Hasher    accountmodel.PasswordHasher
-	Blocklist authn.Blocklist
+	Blocklist *authn.Blocklist
 	Mint      accountmodel.SessionMinter
 	Now       func() time.Time
 }

@@ -6,7 +6,6 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/capability/security/authn"
 	model "retrom/internal/model/accounts"
 )
 
@@ -59,7 +58,7 @@ func passwordMinter() (model.SessionMaterial, error) {
 func TestPasswordChangeRechecksCredentialAfterHashing(t *testing.T) {
 	memory, actor := passwordFixture()
 	hasher := passwordHasher{memory: memory, duringHash: func() { memory.state.Credential.PasswordHash = "concurrent-hash" }}
-	service := NewPasswords(memory, hasher, authn.EmptyBlocklist{}, passwordMinter, time.Now)
+	service := NewPasswords(memory, hasher, nil, passwordMinter, time.Now)
 	_, err := service.Change(t.Context(), actor, "old password", "replacement passphrase", "replacement passphrase")
 	if !errors.Is(err, model.ErrAuthenticationNeeded) || memory.writeCalls != 0 {
 		t.Fatalf("overwrote concurrent credential: %v", err)
@@ -69,7 +68,7 @@ func TestPasswordChangeRechecksCredentialAfterHashing(t *testing.T) {
 func TestPasswordCommitFailureReturnsNoReplacementSession(t *testing.T) {
 	memory, actor := passwordFixture()
 	memory.lateError = context.Canceled
-	service := NewPasswords(memory, passwordHasher{memory: memory}, authn.EmptyBlocklist{}, passwordMinter, func() time.Time { return time.UnixMilli(100) })
+	service := NewPasswords(memory, passwordHasher{memory: memory}, nil, passwordMinter, func() time.Time { return time.UnixMilli(100) })
 	session, err := service.Change(t.Context(), actor, "old password", "replacement passphrase", "replacement passphrase")
 	if !errors.Is(err, context.Canceled) || session.Principal.SessionID != "" || memory.writeCalls != 1 || memory.plan.Session.SessionVersion != 3 || memory.plan.ExpectedHash != "old-hash" {
 		t.Fatalf("password commit: %+v / %v", memory.plan, err)

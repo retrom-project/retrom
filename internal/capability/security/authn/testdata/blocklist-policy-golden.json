@@ -1,0 +1,203 @@
+{
+  "SourceRevision": "43b73ec928f6d88bfe041657c9884a6cf0f52e3f",
+  "SourceSHA256": {
+    "internal/capability/security/authn/blocklist.go": "607d9861b5e501f32c5b7e168f42f36e4d945f7dc83e1388dbcbaeacf75cc9e2",
+    "internal/capability/security/authn/password.go": "34105adecf643c2a7bbe64a6a9292089aa87738b2e7f264e6157e32c55bb6634"
+  },
+  "Policy": [
+    {
+      "Name": "nil permits uncommon",
+      "PasswordHex": "7365637572652070687261736520313233",
+      "ConfirmationHex": "7365637572652070687261736520313233",
+      "Username": "alice",
+      "DisplayName": "Alice",
+      "Blocklist": "nil",
+      "Entries": null,
+      "Normalized": "secure phrase 123",
+      "Error": "",
+      "Reason": "",
+      "IsPasswordInvalid": false
+    },
+    {
+      "Name": "empty permits common",
+      "PasswordHex": "70617373776f7264",
+      "ConfirmationHex": "70617373776f7264",
+      "Username": "alice",
+      "DisplayName": "Alice",
+      "Blocklist": "empty",
+      "Entries": null,
+      "Normalized": "password",
+      "Error": "",
+      "Reason": "",
+      "IsPasswordInvalid": false
+    },
+    {
+      "Name": "exact membership permits suffix",
+      "PasswordHex": "70617373776f726421",
+      "ConfirmationHex": "70617373776f726421",
+      "Username": "alice",
+      "DisplayName": "Alice",
+      "Blocklist": "custom",
+      "Entries": {
+        "password": true
+      },
+      "Normalized": "password!",
+      "Error": "",
+      "Reason": "",
+      "IsPasswordInvalid": false
+    },
+    {
+      "Name": "reserved context before custom",
+      "PasswordHex": "526554724f6d",
+      "ConfirmationHex": "526554724f6d",
+      "Username": "alice",
+      "DisplayName": "Alice",
+      "Blocklist": "custom",
+      "Entries": {
+        "retrom": true
+      },
+      "Normalized": "",
+      "Error": "CONTEXT_PASSWORD",
+      "Reason": "CONTEXT_PASSWORD",
+      "IsPasswordInvalid": true
+    },
+    {
+      "Name": "confirmation before context",
+      "PasswordHex": "526554724f6d",
+      "ConfirmationHex": "6f7468657221",
+      "Username": "alice",
+      "DisplayName": "Alice",
+      "Blocklist": "custom",
+      "Entries": {
+        "retrom": true
+      },
+      "Normalized": "",
+      "Error": "CONFIRMATION_MISMATCH",
+      "Reason": "CONFIRMATION_MISMATCH",
+      "IsPasswordInvalid": true
+    },
+    {
+      "Name": "NFC password and confirmation",
+      "PasswordHex": "43616665cc817879",
+      "ConfirmationHex": "436166c3a97879",
+      "Username": "alice",
+      "DisplayName": "Alice",
+      "Blocklist": "nil",
+      "Entries": null,
+      "Normalized": "Caféxy",
+      "Error": "",
+      "Reason": "",
+      "IsPasswordInvalid": false
+    },
+    {
+      "Name": "NFC folded membership",
+      "PasswordHex": "43414645cc815859",
+      "ConfirmationHex": "434146c3895859",
+      "Username": "alice",
+      "DisplayName": "Alice",
+      "Blocklist": "custom",
+      "Entries": {
+        "caféxy": true
+      },
+      "Normalized": "",
+      "Error": "COMMON_PASSWORD",
+      "Reason": "COMMON_PASSWORD",
+      "IsPasswordInvalid": true
+    },
+    {
+      "Name": "full casefold membership",
+      "PasswordHex": "53747261c39f6521",
+      "ConfirmationHex": "53747261c39f6521",
+      "Username": "alice",
+      "DisplayName": "Alice",
+      "Blocklist": "custom",
+      "Entries": {
+        "strasse!": true
+      },
+      "Normalized": "",
+      "Error": "COMMON_PASSWORD",
+      "Reason": "COMMON_PASSWORD",
+      "IsPasswordInvalid": true
+    },
+    {
+      "Name": "NFC before minimum length",
+      "PasswordHex": "61cc8162636465",
+      "ConfirmationHex": "c3a162636465",
+      "Username": "alice",
+      "DisplayName": "Alice",
+      "Blocklist": "nil",
+      "Entries": null,
+      "Normalized": "",
+      "Error": "TOO_SHORT",
+      "Reason": "TOO_SHORT",
+      "IsPasswordInvalid": true
+    },
+    {
+      "Name": "six unicode accepted",
+      "PasswordHex": "e794b2e4b999e4b899e4b881e6888ae5b7b1",
+      "ConfirmationHex": "e794b2e4b999e4b899e4b881e6888ae5b7b1",
+      "Username": "alice",
+      "DisplayName": "Alice",
+      "Blocklist": "nil",
+      "Entries": null,
+      "Normalized": "甲乙丙丁戊己",
+      "Error": "",
+      "Reason": "",
+      "IsPasswordInvalid": false
+    },
+    {
+      "Name": "maximum unicode bytes accepted",
+      "PasswordHex": "f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880",
+      "ConfirmationHex": "f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880",
+      "Username": "alice",
+      "DisplayName": "Alice",
+      "Blocklist": "nil",
+      "Entries": null,
+      "Normalized": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀",
+      "Error": "",
+      "Reason": "",
+      "IsPasswordInvalid": false
+    },
+    {
+      "Name": "over maximum unicode rejected",
+      "PasswordHex": "f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880",
+      "ConfirmationHex": "f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880f09f9880",
+      "Username": "alice",
+      "DisplayName": "Alice",
+      "Blocklist": "nil",
+      "Entries": null,
+      "Normalized": "",
+      "Error": "TOO_LONG",
+      "Reason": "TOO_LONG",
+      "IsPasswordInvalid": true
+    },
+    {
+      "Name": "control after overlength wins",
+      "PasswordHex": "78787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787800",
+      "ConfirmationHex": "6f7468657221",
+      "Username": "alice",
+      "DisplayName": "Alice",
+      "Blocklist": "nil",
+      "Entries": null,
+      "Normalized": "",
+      "Error": "CONTROL_CHARACTER",
+      "Reason": "CONTROL_CHARACTER",
+      "IsPasswordInvalid": true
+    },
+    {
+      "Name": "leading space is significant",
+      "PasswordHex": "2070617373776f7264",
+      "ConfirmationHex": "2070617373776f7264",
+      "Username": "alice",
+      "DisplayName": "Alice",
+      "Blocklist": "custom",
+      "Entries": {
+        "password": true
+      },
+      "Normalized": " password",
+      "Error": "",
+      "Reason": "",
+      "IsPasswordInvalid": false
+    }
+  ]
+}

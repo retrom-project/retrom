@@ -14,14 +14,14 @@ import (
 type RecoveryService struct {
 	repository model.RecoveryRepository
 	hasher     model.PasswordHasher
-	blocklist  authn.Blocklist
+	blocklist  *authn.Blocklist
 	now        func() time.Time
 }
 
 func NewRecovery(
 	repository model.RecoveryRepository,
 	hasher model.PasswordHasher,
-	blocklist authn.Blocklist,
+	blocklist *authn.Blocklist,
 	now func() time.Time,
 ) *RecoveryService {
 	return &RecoveryService{repository: repository, hasher: hasher, blocklist: blocklist, now: now}

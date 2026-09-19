@@ -34,7 +34,6 @@ import (
 	"retrom/internal/adapter/runtime/dependencies"
 	retromruntime "retrom/internal/adapter/runtime/runtime"
 	"retrom/internal/bootstrap/config"
-	"retrom/internal/capability/security/authn"
 	"retrom/internal/foundation/processlock"
 	tagpersistence "retrom/internal/repo/tagging"
 	"retrom/internal/service/tagging"
@@ -206,7 +205,7 @@ func TestBackupRestoreRoundTripAndOnlineRefusal(t *testing.T) {
 		t.Fatal(err)
 	}
 	accountService, err := composition.NewAccounts(
-		ctx, database.SQL, credentials, config.ModeTest, authn.EmptyBlocklist{}, time.Now,
+		ctx, database.SQL, credentials, config.ModeTest, nil, time.Now,
 	)
 	testassert.False(t, err != nil, err)
 	if err := accountService.Start(ctx); err != nil {

@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"retrom/internal/bootstrap/config"
-	"retrom/internal/capability/security/authn"
 	model "retrom/internal/model/accounts"
 )
 
@@ -93,7 +92,7 @@ func TestInitializationRechecksStateAfterHashing(t *testing.T) {
 
 func TestInitializationCommitFailureReturnsNoSession(t *testing.T) {
 	memory := &initializationMemory{state: model.InitializationState{State: "PENDING"}, lateError: context.Canceled}
-	options := InitializationOptions{Mode: config.ModeRelease, Credentials: setupProof{}, Hasher: initializationHasher{}, Blocklist: authn.EmptyBlocklist{}, Mint: initializationMint, Now: func() time.Time { return time.UnixMilli(100) }}
+	options := InitializationOptions{Mode: config.ModeRelease, Credentials: setupProof{}, Hasher: initializationHasher{}, Blocklist: nil, Mint: initializationMint, Now: func() time.Time { return time.UnixMilli(100) }}
 	session, err := NewInitialization(memory, options).Initialize(t.Context(), model.InitializeRequest{SetupCode: "setup-proof", Username: "admin", DisplayName: "Owner", Password: "initial passphrase", PasswordConfirmation: "initial passphrase"})
 	if !errors.Is(err, context.Canceled) || session.Principal.SessionID != "" || memory.writes != 1 || memory.plan.Kind != "RELEASE_SETUP" || memory.plan.ActorLabel != "release-setup" {
 		t.Fatalf("initialization commit: %+v / %v", memory.plan, err)

@@ -14,7 +14,7 @@ import (
 type PasswordService struct {
 	repository model.PasswordRepository
 	hasher     model.PasswordHasher
-	blocklist  authn.Blocklist
+	blocklist  *authn.Blocklist
 	mint       model.SessionMinter
 	now        func() time.Time
 }
@@ -22,7 +22,7 @@ type PasswordService struct {
 func NewPasswords(
 	repository model.PasswordRepository,
 	hasher model.PasswordHasher,
-	blocklist authn.Blocklist,
+	blocklist *authn.Blocklist,
 	mint model.SessionMinter,
 	now func() time.Time,
 ) *PasswordService {

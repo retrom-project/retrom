@@ -1965,6 +1965,18 @@
       "owner": "RF04",
       "files": [
         {
+          "path": "internal/adapter/security/authn/blocklist.go",
+          "kind": "production"
+        },
+        {
+          "path": "internal/adapter/security/authn/blocklist_integration_test.go",
+          "kind": "test"
+        },
+        {
+          "path": "internal/adapter/security/authn/blocklist_test.go",
+          "kind": "test"
+        },
+        {
           "path": "internal/adapter/security/authn/password.go",
           "kind": "production"
         },
@@ -3151,6 +3163,14 @@
         {
           "path": "internal/capability/security/authn/blocklist.go",
           "kind": "production"
+        },
+        {
+          "path": "internal/capability/security/authn/blocklist_compatibility_test.go",
+          "kind": "test"
+        },
+        {
+          "path": "internal/capability/security/authn/blocklist_test.go",
+          "kind": "test"
         },
         {
           "path": "internal/capability/security/authn/password.go",

@@ -85,14 +85,6 @@ func NormalizeDisplayName(value string) (string, error) {
 	return value, nil
 }
 
-type Blocklist interface {
-	Contains(foldedPassword string) bool
-}
-
-type EmptyBlocklist struct{}
-
-func (EmptyBlocklist) Contains(string) bool { return false }
-
 func NormalizePassword(password string) (string, error) {
 	if !utf8.ValidString(password) {
 		return "", &PasswordError{Reason: ReasonControl}
@@ -130,7 +122,7 @@ func NormalizeLoginPassword(password string) (string, error) {
 	return password, nil
 }
 
-func ValidatePassword(password, confirmation, username, displayName string, blocklist Blocklist) (string, error) {
+func ValidatePassword(password, confirmation, username, displayName string, blocklist *Blocklist) (string, error) {
 	normalized, err := NormalizePassword(password)
 	if err != nil {
 		return "", err

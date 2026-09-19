@@ -22,7 +22,7 @@ func NewAccounts(
 	database *sql.DB,
 	credentials *runtime.Credentials,
 	mode config.Mode,
-	blocklist authn.Blocklist,
+	blocklist *authn.Blocklist,
 	now func() time.Time,
 ) (*accounts.Service, error) {
 	hasher := authnadapter.NewPasswordHasher()

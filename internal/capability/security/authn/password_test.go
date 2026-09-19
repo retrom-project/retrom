@@ -7,10 +7,6 @@ import (
 	"retrom/internal/testkit/testassert"
 )
 
-type testBlocklist map[string]bool
-
-func (values testBlocklist) Contains(value string) bool { return values[value] }
-
 func TestIdentityNormalization(t *testing.T) {
 	t.Parallel()
 	if username, err := NormalizeUsername(" alice "); err != nil || username != "alice" {
@@ -28,12 +24,12 @@ func TestIdentityNormalization(t *testing.T) {
 
 func TestPasswordPolicyUsesNFCFoldAndExactBlocklist(t *testing.T) {
 	t.Parallel()
-	password, err := ValidatePassword("secure phrase 123", "secure phrase 123", "alice", "Alice", testBlocklist{})
+	password, err := ValidatePassword("secure phrase 123", "secure phrase 123", "alice", "Alice", &Blocklist{})
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return password != "secure phrase 123" }), "password = %q, %v", password, err)
-	_, err = ValidatePassword("COMMON PASSWORD 123", "COMMON PASSWORD 123", "alice", "Alice", testBlocklist{"common password 123": true})
+	_, err = ValidatePassword("COMMON PASSWORD 123", "COMMON PASSWORD 123", "alice", "Alice", &Blocklist{values: map[string]struct{}{"common password 123": {}}})
 	var policy *PasswordError
 	testassert.Falsef(t, testassert.Any(func() bool { return !errors.As(err, &policy) }, func() bool { return policy.Reason != ReasonCommon }), "common password error = %v", err)
-	_, err = ValidatePassword("different password", "different passwörd", "alice", "Alice", testBlocklist{})
+	_, err = ValidatePassword("different password", "different passwörd", "alice", "Alice", &Blocklist{})
 	testassert.Falsef(t, testassert.Any(func() bool { return !errors.As(err, &policy) }, func() bool { return policy.Reason != ReasonConfirmation }), "confirmation error = %v", err)
 }
 

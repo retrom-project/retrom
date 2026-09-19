@@ -1,0 +1,129 @@
+package main
+
+import (
+ "crypto/sha256"
+ "encoding/hex"
+ "encoding/json"
+ "errors"
+ "fmt"
+ "os"
+ "path/filepath"
+ "strings"
+
+ "retrom/internal/capability/security/authn"
+)
+
+type policyCase struct {
+ Name string
+ PasswordHex string
+ ConfirmationHex string
+ Username string
+ DisplayName string
+ Blocklist string
+ Entries map[string]bool
+ Normalized string
+ Error string
+ Reason authn.PasswordReason
+ IsPasswordInvalid bool
+}
+type memberCase struct { Query string; Contains bool }
+type loadCase struct { Name string; Error string; IsBlocklistInvalid bool; IsNotExist bool; NonNil bool }
+type golden struct {
+ SourceRevision string
+ SourceSHA256 map[string]string
+ PayloadSHA256 string
+ PayloadSize int
+ Policy []policyCase
+ Membership []memberCase
+ Loads []loadCase
+}
+type oldMap map[string]bool
+func (values oldMap) Contains(value string) bool { return values[value] }
+func fail(err error) { if err != nil { panic(err) } }
+func errText(err error) string { if err == nil { return "" }; return err.Error() }
+
+func main() {
+ repo, destination := os.Args[1], os.Args[2]
+ root := filepath.Join(repo, "data")
+ loaded, err := authn.LoadBlocklist(root)
+ fail(err)
+ payload, err := os.ReadFile(filepath.Join(root, "auth/password-blocklists/v1/payload/10k-most-common.txt"))
+ fail(err)
+ digest := sha256.Sum256(payload)
+ result := golden{
+  SourceRevision: "43b73ec928f6d88bfe041657c9884a6cf0f52e3f",
+  SourceSHA256: map[string]string{},
+  PayloadSHA256: hex.EncodeToString(digest[:]), PayloadSize: len(payload),
+ }
+ for _, source := range []string{"internal/capability/security/authn/blocklist.go", "internal/capability/security/authn/password.go"} {
+  body, readErr := os.ReadFile(filepath.Join(repo, source)); fail(readErr)
+  sum := sha256.Sum256(body); result.SourceSHA256[source] = hex.EncodeToString(sum[:])
+ }
+ for _, query := range []string{"password", "PASSWORD", "123456", "Password", "retrom", "qwerty", "", " password", "password ", "not-a-common-retrom-password-927!"} {
+  result.Membership = append(result.Membership, memberCase{Query: query, Contains: loaded.Contains(query)})
+ }
+ add := func(name, password, confirmation, username, display, kind string, entries oldMap) {
+  var blocklist authn.Blocklist
+  switch kind {
+  case "empty": blocklist = authn.EmptyBlocklist{}
+  case "public": blocklist = loaded
+  case "custom": blocklist = entries
+  }
+  normalized, validationErr := authn.ValidatePassword(password, confirmation, username, display, blocklist)
+  record := policyCase{
+   Name:name, PasswordHex:hex.EncodeToString([]byte(password)), ConfirmationHex:hex.EncodeToString([]byte(confirmation)),
+   Username:username, DisplayName:display, Blocklist:kind, Entries:entries, Normalized:normalized,
+   Error:errText(validationErr), IsPasswordInvalid:errors.Is(validationErr,authn.ErrPasswordInvalid),
+  }
+  var policy *authn.PasswordError
+  if errors.As(validationErr, &policy) { record.Reason = policy.Reason }
+  result.Policy = append(result.Policy, record)
+ }
+ add("nil permits uncommon", "secure phrase 123", "secure phrase 123", "alice", "Alice", "nil", nil)
+ add("empty permits common", "password", "password", "alice", "Alice", "empty", nil)
+ add("loaded rejects common", "password", "password", "alice", "Alice", "public", nil)
+ add("fold before membership", "PASSWORD", "PASSWORD", "alice", "Alice", "public", nil)
+ add("exact membership permits suffix", "password!", "password!", "alice", "Alice", "custom", oldMap{"password":true})
+ add("confirmation before common", "password", "different", "alice", "Alice", "public", nil)
+ add("context before common username", "password", "password", "PASSWORD", "Alice", "public", nil)
+ add("context before common display", "password", "password", "alice", "PASSWORD", "public", nil)
+ add("reserved context before custom", "ReTrOm", "ReTrOm", "alice", "Alice", "custom", oldMap{"retrom":true})
+ add("confirmation before context", "ReTrOm", "other!", "alice", "Alice", "custom", oldMap{"retrom":true})
+ add("control before mismatch", "a\n", "other!", "alice", "Alice", "public", nil)
+ add("short before mismatch", "short", "other!", "alice", "Alice", "public", nil)
+ add("invalid utf8 before mismatch", string([]byte{0xff,'a','b','c','d','e'}), "other!", "alice", "Alice", "public", nil)
+ add("long before mismatch", strings.Repeat("x",129), "other!", "alice", "Alice", "public", nil)
+ add("NFC password and confirmation", "Cafe\u0301xy", "Caféxy", "alice", "Alice", "nil", nil)
+ add("NFC folded membership", "CAFE\u0301XY", "CAFÉXY", "alice", "Alice", "custom", oldMap{"caféxy":true})
+ add("full casefold membership", "Straße!", "Straße!", "alice", "Alice", "custom", oldMap{"strasse!":true})
+ add("NFC before minimum length", "a\u0301bcde", "ábcde", "alice", "Alice", "nil", nil)
+ add("six unicode accepted", "甲乙丙丁戊己", "甲乙丙丁戊己", "alice", "Alice", "nil", nil)
+ add("maximum unicode bytes accepted", strings.Repeat("😀",128), strings.Repeat("😀",128), "alice", "Alice", "nil", nil)
+ add("over maximum unicode rejected", strings.Repeat("😀",129), strings.Repeat("😀",129), "alice", "Alice", "nil", nil)
+ add("control after overlength wins", strings.Repeat("x",129)+"\x00", "other!", "alice", "Alice", "nil", nil)
+ add("invalid confirmation mismatches", "secure phrase", string([]byte{0xff}), "alice", "Alice", "public", nil)
+ add("leading space is significant", " password", " password", "alice", "Alice", "custom", oldMap{"password":true})
+ tempRoot, err := os.MkdirTemp(filepath.Dir(destination), "rf04-blocklist-old-load-"); fail(err)
+ for _, name := range []string{"missing", "directory", "empty", "truncated", "oversized", "same-size-changed", "invalid-utf8", "valid"} {
+  dependencyRoot := filepath.Join(tempRoot,name)
+  target := filepath.Join(dependencyRoot,"auth/password-blocklists/v1/payload/10k-most-common.txt")
+  if name != "missing" {
+   fail(os.MkdirAll(filepath.Dir(target),0700))
+   bytes := append([]byte{},payload...)
+   switch name {
+   case "directory": fail(os.Mkdir(target,0700))
+   case "empty": bytes=[]byte{}
+   case "truncated": bytes=bytes[:len(bytes)-1]
+   case "oversized": bytes=append(bytes,'x')
+   case "same-size-changed": bytes[0]^=1
+   case "invalid-utf8": bytes[0]=0xff
+   }
+   if name!="directory" { fail(os.WriteFile(target,bytes,0600)) }
+  }
+  list, loadErr := authn.LoadBlocklist(dependencyRoot)
+  result.Loads=append(result.Loads,loadCase{Name:name,Error:errText(loadErr),IsBlocklistInvalid:errors.Is(loadErr,authn.ErrBlocklistInvalid),IsNotExist:errors.Is(loadErr,os.ErrNotExist),NonNil:list!=nil})
+ }
+ encoded, err := json.MarshalIndent(result,"","  "); fail(err)
+ fail(os.WriteFile(destination,append(encoded,'\n'),0600))
+ fmt.Printf("captured %d policy, %d membership, %d loading outcomes to %s\n",len(result.Policy),len(result.Membership),len(result.Loads),destination)
+}

@@ -16,7 +16,6 @@ import (
 	"retrom/internal/adapter/runtime/dependencies"
 	retromruntime "retrom/internal/adapter/runtime/runtime"
 	"retrom/internal/bootstrap/config"
-	"retrom/internal/capability/security/authn"
 	"retrom/internal/foundation/cleanup"
 	"retrom/internal/repo/store"
 	"retrom/internal/testkit/testassert"
@@ -36,7 +35,7 @@ func newAuthHTTPServer(t *testing.T, mode config.Mode) (*Server, *retromruntime.
 	credentials, err := retromruntime.LoadOrCreateCredentials(root)
 	testassert.False(t, err != nil, err)
 	accountService, err := composition.NewAccounts(
-		context.Background(), database.SQL, credentials, mode, authn.EmptyBlocklist{}, now,
+		context.Background(), database.SQL, credentials, mode, nil, now,
 	)
 	testassert.False(t, err != nil, err)
 	if err := accountService.Start(context.Background()); err != nil {

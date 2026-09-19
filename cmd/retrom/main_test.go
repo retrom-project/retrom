@@ -14,7 +14,6 @@ import (
 
 	retromruntime "retrom/internal/adapter/runtime/runtime"
 	"retrom/internal/bootstrap/config"
-	"retrom/internal/capability/security/authn"
 	"retrom/internal/foundation/cleanup"
 	"retrom/internal/foundation/processlock"
 	"retrom/internal/repo/store"
@@ -30,7 +29,7 @@ func accountCommandFixture(t *testing.T, mode config.Mode) (config.Maintenance, 
 	credentials, err := retromruntime.LoadOrCreateCredentials(root)
 	testassert.False(t, err != nil, err)
 	service, err := composition.NewAccounts(
-		context.Background(), database.SQL, credentials, mode, authn.EmptyBlocklist{}, time.Now,
+		context.Background(), database.SQL, credentials, mode, nil, time.Now,
 	)
 	testassert.False(t, err != nil, err)
 	if err := service.Start(context.Background()); err != nil {
@@ -96,7 +95,7 @@ func TestResetOfflineAdminRequiresLockAndTTYConfirmation(t *testing.T) {
 	credentials, err := retromruntime.LoadCredentials(configuration.DataDir)
 	testassert.False(t, err != nil, err)
 	service, err := composition.NewAccounts(
-		context.Background(), database.SQL, credentials, config.ModeRelease, authn.EmptyBlocklist{}, time.Now,
+		context.Background(), database.SQL, credentials, config.ModeRelease, nil, time.Now,
 	)
 	testassert.False(t, err != nil, err)
 	if err := service.Start(context.Background()); err != nil {

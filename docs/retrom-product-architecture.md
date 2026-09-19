@@ -76,6 +76,8 @@ Host 的平台、Core、AssetPack 目录定义及运行绑定由 `model/runtimec
 
 密码计算通过既有 `model/accounts.PasswordHasher` 端口接入；`adapter/security/authn` 独占随机 salt、Argon2 执行、四个并发槽位和取消处理。严格 PHC 编码/解析及身份、密码规范化仍在 `capability/security/authn` 保持唯一实现。Bootstrap 构造并注入同一个 hasher，固定 PHC 字节、旧凭据可验证性、错误顺序和槽位释放由旧 Go 捕获的公开测试样本保护。
 
+密码禁用词表的文件获取同样属于该 Adapter，按固定字节数加一限制读取；Capability 校验固定摘要、UTF-8 和行数并生成不可变的具体词表值。密码策略只接收该值，不接受可执行的 Contains 回调；nil 与零值保持空词表语义。装载失败的公开错误、关闭时机和固定公开词表的匹配行为由旧 Go 对照保护。
+
 Provider manifest、Target/Input/Checkpoint、安装声明及 Launch 输入同样由 `model/runtimecontract` 唯一定义。跨层 schema 和可变 JSON 内容使用 `json.RawMessage` 等封闭字节值；严格 JSON 与 schema dialect 的单一解析闭包位于 `capability/runtime/runtimejson`。解析/组装边界保持原有规范字节、整数精度、nil/empty 和错误阶段，固定旧 Go 输出验证协议兼容。
 
 GameContent、LibraryImport 和 Netplay 的 BIOS 读取依赖消费方 Model 中的窄 facts 接口。事务内直接使用原 scope 绑定的 Repository reader，取得事实后调用唯一的 `model/corevalidation` 规则；输入身份先校验，读取失败保留原原因与前缀。该接线不新开事务或替换为全局 reader，后续原子提交迁移仍需保持相同的新鲜度。

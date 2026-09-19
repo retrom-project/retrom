@@ -36,10 +36,10 @@ import (
 	"retrom/internal/adapter/runtime/dependencies"
 	retromruntime "retrom/internal/adapter/runtime/runtime"
 	"retrom/internal/adapter/runtime/runtimeprovider"
+	authnadapter "retrom/internal/adapter/security/authn"
 	"retrom/internal/bootstrap/config"
 	"retrom/internal/capability/engine/scummvm"
 	"retrom/internal/capability/format/importing"
-	"retrom/internal/capability/security/authn"
 	"retrom/internal/foundation/cleanup"
 	"retrom/internal/foundation/processlock"
 	maintenancepersistence "retrom/internal/repo/maintenance"
@@ -242,7 +242,7 @@ func resetOfflineAdmin(
 	if err != nil {
 		return fmt.Errorf("load offline recovery credentials: %w", err)
 	}
-	blocklist, err := authn.LoadBlocklist(configuration.DependencyRoot)
+	blocklist, err := authnadapter.LoadBlocklist(configuration.DependencyRoot)
 	if err != nil {
 		return fmt.Errorf("load offline recovery password blocklist: %w", err)
 	}
@@ -485,7 +485,7 @@ func initializeRuntimeServices(
 	if err := netplayService.Recover(ctx, "SERVER_RESTARTED"); err != nil {
 		return nil, nil, fmt.Errorf("recover netplay state: %w", err)
 	}
-	blocklist, err := authn.LoadBlocklist(configuration.DependencyRoot)
+	blocklist, err := authnadapter.LoadBlocklist(configuration.DependencyRoot)
 	if err != nil {
 		return nil, nil, fmt.Errorf("load password blocklist: %w", err)
 	}

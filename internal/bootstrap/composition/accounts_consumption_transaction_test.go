@@ -10,7 +10,6 @@ import (
 	authnadapter "retrom/internal/adapter/security/authn"
 
 	"retrom/internal/bootstrap/config"
-	"retrom/internal/capability/security/authn"
 	accountsmodel "retrom/internal/model/accounts"
 
 	accountpersistence "retrom/internal/repo/accounts"
@@ -37,7 +36,7 @@ func (repository failingConsumptionRepository) WithConsumptionWrite(ctx context.
 
 func failingConsumptionService(fixture accountFixture) *accountservice.LinkConsumptionService {
 	return accountservice.NewLinkConsumption(failingConsumptionRepository{accountpersistence.NewLinks(fixture.database.SQL)}, accountservice.LinkConsumptionOptions{
-		Tokens: fixture.credentials, Hasher: authnadapter.NewPasswordHasher(), Blocklist: authn.EmptyBlocklist{}, Mint: func() (accountsmodel.SessionMaterial, error) { return accountservice.MintSession(rand.Reader) }, Now: func() time.Time { return *fixture.now },
+		Tokens: fixture.credentials, Hasher: authnadapter.NewPasswordHasher(), Blocklist: nil, Mint: func() (accountsmodel.SessionMaterial, error) { return accountservice.MintSession(rand.Reader) }, Now: func() time.Time { return *fixture.now },
 	})
 }
 
