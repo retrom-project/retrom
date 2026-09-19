@@ -9104,6 +9104,189 @@
       }
     },
     {
+      "operation_id": "libraryimport.cleanup-reconfiguration-upload",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "consumers": [
+        "(*retrom/internal/adapter/integration/libraryimport.Service).Reconfigure",
+        "(*retrom/internal/service/libraryimport.Reconfigurations).Reconfigure",
+        "(*retrom/internal/transport/httpapi.Server).reconfigureImport"
+      ],
+      "snapshot": "retrom/internal/model/libraryimport.ReconfigurationClone",
+      "prepare": "(*retrom/internal/service/libraryimport.Reconfigurations).Reconfigure",
+      "commit": "(*retrom/internal/repo/libraryimport.Reconfigurations).RemoveUnused",
+      "policy_symbols": [],
+      "fresh_facts": [
+        {
+          "name": "all cloned upload consumption count",
+          "reader_symbol": "(*retrom/internal/repo/libraryimport.Reconfigurations).RemoveUnused",
+          "reason": "Insidewriter SELECTcount(upload_consumptions foruploadID),includingreleasedconsumptions. Current implementation holds this as localscalar,notnamedSnapshot; registry references existing Clone input context and this fact,RF03/RF05 mustintroducecomplete cleanupvalues"
+        }
+      ],
+      "guards": [
+        {
+          "id": "unused-upload",
+          "fields": [
+            "consumptionCount"
+          ],
+          "expected_source": "Only count==0 allows deletion; anyconsumptionreturnsnil withoutcommit (deferredrollback)",
+          "rejection": "Usedupload retained",
+          "test_id": "RFA-RF13-discard_handoff"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "cleanup-upload-files",
+          "repo_helper": "(*retrom/internal/repo/libraryimport.Reconfigurations).RemoveUnused",
+          "affected_records": [
+            "DELETE upload_files allforselectedupload; baseline no countcheck or ownership/clonepurposeguard beyond selectedID"
+          ],
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "stage": "cleanup-upload-session",
+          "repo_helper": "(*retrom/internal/repo/libraryimport.Reconfigurations).RemoveUnused",
+          "affected_records": [
+            "DELETE upload_sessions id afterfiles,samewriter; no countcheck"
+          ],
+          "test_id": "RFA-RF13-discard_handoff"
+        }
+      ],
+      "idempotency": "Repeateddeletes aftersuccessfulcleanup are harmlesswhenconsumptioncount0. DoesnotunlinkCASbytes; existing/sharedowners retained.",
+      "time_rule": "No clock/UUID inthisoperation. BeginTx(nil),countquery,conditionaldeletes andcommit; caller usesWithoutCancel afterfailedcreation andsilently ignorescleanupfailure.",
+      "after_commit": [
+        {
+          "action": "Return cleanupstatus tocaller; baselinecaller discards it",
+          "recovery": "Failures roll back bothdeletes; improveerror reporting withoutmasking originalcreationcause; laterGC ownsphysicaldeletion",
+          "test_id": "RFA-RF13-discard_handoff"
+        }
+      ],
+      "fault_points": [
+        "PLANNED cleanup-upload-files: fail after each row/write phase; assert all writes in this operation rollback",
+        "PLANNED cleanup-upload-session: fail after each row/write phase; assert all writes in this operation rollback",
+        "PLANNED eachGuardchangedbeforewriter,concurrentconsumption/reconfiguration/cancel/payloadrelease,commitfailure/crash; preserve multi-transaction boundary andoriginalerror"
+      ],
+      "test_ids": [
+        "RFA-RF13-discard_handoff",
+        "RFA-RF13-publish_atomic",
+        "RFA-RF13-format_paths"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "Changes durable job/aggregate/admission bookkeeping only; no new Blob row or protective Blob FK and no physical CAS publication/deletion. Existing upload Blob references remain authoritative.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "libraryimport.clone-reconfiguration-upload",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "consumers": [
+        "(*retrom/internal/adapter/integration/libraryimport.Service).Reconfigure",
+        "(*retrom/internal/service/libraryimport.Reconfigurations).Reconfigure",
+        "(*retrom/internal/transport/httpapi.Server).reconfigureImport"
+      ],
+      "snapshot": "retrom/internal/model/libraryimport.ReconfigurationClone",
+      "prepare": "(*retrom/internal/service/libraryimport.Reconfigurations).Reconfigure",
+      "commit": "(*retrom/internal/repo/libraryimport.Reconfigurations).Clone",
+      "policy_symbols": [
+        "retrom/internal/service/libraryimport.ReconfigurationManifestDigest"
+      ],
+      "fresh_facts": [
+        {
+          "name": "rejected source files before writer",
+          "reader_symbol": "(*retrom/internal/repo/libraryimport.Reconfigurations).Source",
+          "reason": "Outsidewriter requirePARTIAL_FAILURE/exactversion/notDiscardedImportJobs,then separatequery unresolvedREJECTED uploadfile IDs/path/declaredsize/finalBlob,orderpath/id. No read transaction joining thesequeries"
+        },
+        {
+          "name": "current reconfiguration parent",
+          "reader_symbol": "(*retrom/internal/repo/libraryimport.Reconfigurations).Clone",
+          "reason": "Insidewriter re-read parentstate/version only; baseline doesnot re-read rejected files,Blob metadata,current resolutions,sourceType or discarded status"
+        }
+      ],
+      "guards": [
+        {
+          "id": "reconfiguration-request",
+          "fields": [
+            "sourceImportId",
+            "expectedVersion",
+            "dependencies",
+            "files"
+          ],
+          "expected_source": "SourceImportIDnonempty,version>=1,repository/create configured,sourcefound withnonemptyfiles",
+          "rejection": "ErrInvalid",
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "id": "clone-parent",
+          "fields": [
+            "state",
+            "version"
+          ],
+          "expected_source": "Current PARTIAL_FAILURE andexact expectedVersion. Baseline tests state/version before generic SQLerror check,so manyerrors becomeErrInvalid",
+          "rejection": "ErrInvalid",
+          "test_id": "RFA-RF13-format_paths"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "cloned-upload",
+          "repo_helper": "retrom/internal/repo/libraryimport.InsertClonedUpload",
+          "affected_records": [
+            "INSERT COMPLETE uploadsession,sourceType,totalfiles,sumdeclaredsizes,manifestdigest,version1,expiry=Now+24h,timestamps; purpose uses schema default"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "cloned-upload-files",
+          "repo_helper": "retrom/internal/repo/libraryimport.InsertClonedUpload",
+          "affected_records": [
+            "Perfile UUIDv7 generated insidewriter; INSERT COMPLETE uploadfile copiedpath/declared+receivedsize/finalBlob/time. No payloadbytes copied,noBlobmetadata revalidation"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        }
+      ],
+      "idempotency": "Each invocation allocates freshupload; sourceversion onlygatesclone. Actualnewimport+oldresolution commits laterthroughcreate-prepared-import. No atomicity acrossclone/preparation/creation; onfailure cleanup isseparate.",
+      "time_rule": "Baseline shared writer BeginTx with upper callback (or Repo-owned orchestration); Service clock position specified below. Target Repo must acquire write permission then sample technical Clock once; prepared identities generated before writer. Service uploadUUID,manifestdigest,Now sampledbeforeBeginTx(nil); eachnewfileUUID insideRepo. totalUploadBytes currentlyunchecked signed sum; expiryaddition nooverflowguard.",
+      "after_commit": [
+        {
+          "action": "Invoke normalCreate withnewupload andoldrejectedfileIDs; successful creation atomicallyresolvesoldparent",
+          "recovery": "Oncreatefailure callsRemoveUnused(context.WithoutCancel) separately; baseline cleanup error discarded andnobound timeout. Crash betweencloneandcleanup canleaveunusedCOMPLETEupload forlaterexpiry/GC",
+          "test_id": "RFA-RF13-discard_handoff"
+        }
+      ],
+      "fault_points": [
+        "PLANNED cloned-upload: fail after each row/write phase; assert all writes in this operation rollback",
+        "PLANNED cloned-upload-files: fail after each row/write phase; assert all writes in this operation rollback",
+        "PLANNED eachGuardchangedbeforewriter,concurrentconsumption/reconfiguration/cancel/payloadrelease,commitfailure/crash; preserve multi-transaction boundary andoriginalerror"
+      ],
+      "test_ids": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-publish_atomic",
+        "RFA-RF13-discard_handoff"
+      ],
+      "content_coordination": {
+        "required": true,
+        "reason": "Adds new protective upload_files.final_blob_id edges to existing CAS content. Prepared rejected-file list canage beforewriter; D22 lock andfreshBlob/owner revalidation required evenwithoutnewphysicalbytes.",
+        "digest_sources": [
+          "Current verified digest/size for each prepared reusable uploadfile Blob ID; baseline passes onlyBlobID/declaredsize"
+        ],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": "(*retrom/internal/repo/libraryimport.Reconfigurations).Clone",
+        "test_ids": [
+          "RFA-RF13-format_paths",
+          "RFA-RF13-publish_atomic",
+          "RFA-RF18-gc_new_reference",
+          "RFA-RF18-digest_lock_process"
+        ]
+      }
+    },
+    {
       "operation_id": "libraryimport.create-prepared-import",
       "owner": "libraryimport",
       "rf_id": "RF13",
@@ -10647,6 +10830,151 @@
         "RFA-RF13-format_paths",
         "RFA-RF13-publish_atomic",
         "RFA-RF13-discard_handoff"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "Changes durable job/aggregate/admission bookkeeping only; no new Blob row or protective Blob FK and no physical CAS publication/deletion. Existing upload Blob references remain authoritative.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "libraryimport.seed-review-metadata",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "consumers": [
+        "(*retrom/internal/adapter/integration/libraryimport.Service).SeedServerReviewMetadata",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).SeedServerReviewMetadataAtYear",
+        "(*retrom/internal/service/libraryimport.MetadataSeeder).Seed"
+      ],
+      "snapshot": "retrom/internal/model/libraryimport.MetadataDraft",
+      "prepare": "(*retrom/internal/service/libraryimport.MetadataSeeder).Seed",
+      "commit": "(*retrom/internal/repo/libraryimport.Metadata).WithMetadata",
+      "policy_symbols": [
+        "retrom/internal/service/libraryimport.NormalizeServerReviewMetadata",
+        "retrom/internal/service/libraryimport.encodeMetadata",
+        "retrom/internal/service/libraryimport.metadataEvent",
+        "retrom/internal/service/libraryimport.validField",
+        "retrom/internal/service/libraryimport.validServerReviewMetadata",
+        "retrom/internal/service/libraryimport.validServerSourceMetadata"
+      ],
+      "fresh_facts": [
+        {
+          "name": "current review metadata",
+          "reader_symbol": "(retrom/internal/repo/libraryimport.metadataRecords).CurrentMetadata",
+          "reason": "Insidewriter joinedreviewdraftcurrentmetadataJSON/version anditem REVIEW_PENDING; absent/finalizeditem ->ErrInvalid"
+        }
+      ],
+      "guards": [
+        {
+          "id": "source-metadata",
+          "fields": [
+            "itemId",
+            "title",
+            "description",
+            "developer",
+            "publisher",
+            "genre",
+            "players",
+            "year"
+          ],
+          "expected_source": "ItemIDnonempty; validUTF8/trimmed/controlpolicy; title1..200runes,description<=20000,shortfields<=500,players1..64,sourceyear1000..9999",
+          "rejection": "ErrInvalid",
+          "test_id": "RFA-RF13-approval_guard"
+        },
+        {
+          "id": "review-normalization",
+          "fields": [
+            "metadata",
+            "maximumYear"
+          ],
+          "expected_source": "Truncatedescription10000andshortfields200withFIELD_TRUNCATED warnings; yearoutside1950..maximum ->NULL/FIELD_VALUE_INVALID; finalreviewvaluesmustvalid",
+          "rejection": "ErrInvalid",
+          "test_id": "RFA-RF13-approval_guard"
+        },
+        {
+          "id": "metadata-version",
+          "fields": [
+            "version",
+            "oldJSON",
+            "newJSON"
+          ],
+          "expected_source": "Version>=1; byteidenticalcanonicalJSON ->no-op withcurrentversion/warnings; changedversion<MaxInt64",
+          "rejection": "ErrVersionConflict",
+          "test_id": "RFA-RF13-approval_guard"
+        },
+        {
+          "id": "metadata-cas",
+          "fields": [
+            "itemId",
+            "version",
+            "oldJSON",
+            "itemState"
+          ],
+          "expected_source": "Exactdraftitem/version/metadataJSON andEXISTS REVIEW_PENDINGitem; exactly1; subsequentitemsearch updatealsoexact1",
+          "rejection": "ErrVersionConflict",
+          "test_id": "RFA-RF13-approval_guard"
+        },
+        {
+          "id": "audit-object",
+          "fields": [
+            "beforeJSON",
+            "afterJSON"
+          ],
+          "expected_source": "BothmetadataJSONdecodeinto nonnilobject,wrapschema2; actorcontext USER whenprincipalIDelseSYSTEM/release-setup",
+          "rejection": "Decodeerror / errMetadataObject",
+          "test_id": "RFA-RF13-approval_guard"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "review-metadata",
+          "repo_helper": "(retrom/internal/repo/libraryimport.metadataRecords).SaveMetadata",
+          "affected_records": [
+            "UPDATE reviewdraftmetadataJSON/version+1/time undercompleteobservedfence"
+          ],
+          "test_id": "RFA-RF13-approval_guard"
+        },
+        {
+          "stage": "review-search",
+          "repo_helper": "(retrom/internal/repo/libraryimport.metadataRecords).SaveMetadata",
+          "affected_records": [
+            "UPDATE REVIEW_PENDINGitemsearch_text=lower(normalizedTitle),require1; itemversion/time unchanged"
+          ],
+          "test_id": "RFA-RF13-approval_guard"
+        },
+        {
+          "stage": "review-metadata-audit",
+          "repo_helper": "(retrom/internal/repo/libraryimport.metadataRecords).appendMetadataEvent",
+          "affected_records": [
+            "INSERT DRAFT_SAVED reviewevent freshUUID,actor,before/aftermetadata schema2,diffmetadataChanged true,emptyconfig/DAT/provider schema2,time; require1"
+          ],
+          "test_id": "RFA-RF13-approval_guard"
+        }
+      ],
+      "idempotency": "Exactnormalized canonicalJSON equality preservesdraftversion andavoidsduplicatedaudit; changedcontent goes throughversion+oldJSON fence.",
+      "time_rule": "Baseline shared writer BeginTx with upper callback (or Repo-owned orchestration); Service clock position specified below. Target Repo must acquire write permission then sample technical Clock once; prepared identities generated before writer. BeginTx(nil); normalize+read+auditUUID insidecallback beforeServiceclock. No-opdoesnotgenerateID/sampleclock. SeedInScopeuses samephases insidecaller sourcehandofftransaction,notanadditionalcommit.",
+      "after_commit": [
+        {
+          "action": "Returncommittedversionandnormalizationwarnings onlyafterownercommit",
+          "recovery": "Nested sourcehandoff caller mustcommit allparentwork; anydraft/search/auditfailure rollsbackwholeownertransaction",
+          "test_id": "RFA-RF13-discard_handoff"
+        }
+      ],
+      "fault_points": [
+        "PLANNED review-metadata: fail after each row/write phase; assert all writes in this operation rollback",
+        "PLANNED review-search: fail after each row/write phase; assert all writes in this operation rollback",
+        "PLANNED review-metadata-audit: fail after each row/write phase; assert all writes in this operation rollback",
+        "PLANNED eachGuardchangedbeforewriter,concurrentconsumption/reconfiguration/cancel/payloadrelease,commitfailure/crash; preserve multi-transaction boundary andoriginalerror"
+      ],
+      "test_ids": [
+        "RFA-RF13-approval_guard",
+        "RFA-RF13-publish_atomic",
+        "RFA-RF13-discard_handoff",
+        "RFA-RF13-format_paths"
       ],
       "content_coordination": {
         "required": false,
@@ -21932,6 +22260,7 @@
     "RF18 PARTIAL SOURCE_REVIEWED adds13 worker/observer/GC/expiry/retirement transaction entries. Normal Finish requires live lease unlike Recover;1s monitor owns a separate write-fence transaction. GC physical unlink follows catalog commit without digest lock; same-digest replacement/missing-original retry paths explicitly registered. Expiry nested GC resamples time,renew/finish use two clock samples. Release effect graph deletion details and nested owner scheduling full census still outstanding; no claim RF18 is complete. New behavior/fault/concurrency tests remain PLANNED.",
     "RF18 release-effects graph source-reviewed as one standalone writer including every per-table delete/update phase,recursive owners,consumptions,session relations and nested GC. Scheduling helpers accept caller Scope/Tx and are not independent commits: parent RF13/RF14/RF16 operations must include job/input/event+owner linkage stages. Lifecycle is read-only but current constructor performs validation I/O; ImpactQueries.Game currently performs repository read from Model and must become Service orchestration with pure projection. All fault/concurrency verification remains PLANNED.",
     "RF13 PARTIAL source-reviewed admission,7distinct execution mutations,item retry,and aggregate cancellation (10standalone operations). Execution recovery is per-ID transaction; cancellation and nested payload scheduling atomic. Admission IDs insidewriter,Retry/batch cancellation clocks outsidewriter,Renew checks oldlease aftercallback. Baseline current execution reads admission request/target snapshots but not job_input_snapshots. Creation/review/publication/attachments/source handoff still outstanding; no complete RF13 claim.",
-    "RF13 prepared creation wholetransaction source-reviewed:direct/queued/owned-source/reconfiguration branches,allgroups,archive/catalog/materializedartifacts,duplicates,BIOS/validation,draft/tags,RPG,metadata andpayloadjobs included. Allscope transactions remaincallback-based andmixed Model ContentDuplicates stillperformsrepository I/O. Detailed formatparser policycensus,reconfiguration preparation,review/attachment/source upload reservation mutations remainoutstanding."
+    "RF13 prepared creation wholetransaction source-reviewed:direct/queued/owned-source/reconfiguration branches,allgroups,archive/catalog/materializedartifacts,duplicates,BIOS/validation,draft/tags,RPG,metadata andpayloadjobs included. Allscope transactions remaincallback-based andmixed Model ContentDuplicates stillperformsrepository I/O. Detailed formatparser policycensus,reconfiguration preparation,review/attachment/source upload reservation mutations remainoutstanding.",
+    "RF13 reconfiguration clone/cleanup andstandalone MetadataSeeder source-reviewed. Clone writer refreshesonlyparentstate/version,notfile/Blobfacts,andaddsprotectiveedgeswithoutD22. Cleanuphaslocalscalarcount(no namedfacts type)andcaller ignoresfailure; completecleanupvalues/errorreporting remainmigrationwork. Metadata SeedInScope mustbeincludedinRF14ownerhandoff writer."
   ]
 }

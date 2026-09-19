@@ -1978,6 +1978,22 @@
       ]
     },
     {
+      "id": "libraryimport.NormalizeServerReviewMetadata",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.NormalizeServerReviewMetadata",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.MetadataSeeder).SeedInScope"
+      ],
+      "invariant": "Validate sourcebounds,truncate description/shortfields withwarnings,dropout-of-range reviewyear,validatefinalvalues.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-approval_guard"
+      ]
+    },
+    {
       "id": "libraryimport.NormalizeTargetImport",
       "owner": "libraryimport",
       "rf_id": "RF13",
@@ -2048,6 +2064,22 @@
       "tests": [
         "RFA-RF13-format_paths",
         "RFA-RF13-publish_atomic"
+      ]
+    },
+    {
+      "id": "libraryimport.ReconfigurationManifestDigest",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.ReconfigurationManifestDigest",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.Reconfigurations).Reconfigure"
+      ],
+      "invariant": "Canonical schema1sourceimport/version/ordered reusablefileidentity/path/size/BlobID ->SHA256 clone manifest.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-approval_guard"
       ]
     },
     {
@@ -2195,6 +2227,22 @@
       "tests": [
         "RFA-RF13-format_paths",
         "RFA-RF13-discard_handoff"
+      ]
+    },
+    {
+      "id": "libraryimport.encodeMetadata",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.encodeMetadata",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.MetadataSeeder).SeedInScope"
+      ],
+      "invariant": "Fixedestablished metadataobjectfieldorder forbyteidenticalhandoff replay.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-approval_guard"
       ]
     },
     {
@@ -2412,6 +2460,22 @@
       ]
     },
     {
+      "id": "libraryimport.metadataEvent",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.metadataEvent",
+      "consumers": [
+        "retrom/internal/service/libraryimport.metadataAudit"
+      ],
+      "invariant": "Require JSONobject andwrapunchangedmetadata as schema2audit.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-approval_guard"
+      ]
+    },
+    {
       "id": "libraryimport.normalizeCreationOptions",
       "owner": "libraryimport",
       "rf_id": "RF13",
@@ -2540,6 +2604,58 @@
       "tests": [
         "RFA-RF13-format_paths",
         "RFA-RF13-publish_atomic"
+      ]
+    },
+    {
+      "id": "libraryimport.validField",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.validField",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.ImportBatchCancellations).Cancel",
+        "retrom/internal/service/libraryimport.normalizeReviewApproval",
+        "retrom/internal/service/libraryimport.normalizeReviewDiscard",
+        "retrom/internal/service/libraryimport.validServerReviewMetadata",
+        "retrom/internal/service/libraryimport.validServerSourceMetadata"
+      ],
+      "invariant": "ValidUTF8,alreadytrimmed,runebounded,controlchars forbiddenexceptnewline/carriagereturn/tabformultiline.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-approval_guard"
+      ]
+    },
+    {
+      "id": "libraryimport.validServerReviewMetadata",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.validServerReviewMetadata",
+      "consumers": [
+        "retrom/internal/service/libraryimport.NormalizeServerReviewMetadata"
+      ],
+      "invariant": "Reviewtitle1..200,description<=10000,shortfields<=200,players1..64,year1950..configuredmaximum.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-approval_guard"
+      ]
+    },
+    {
+      "id": "libraryimport.validServerSourceMetadata",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.validServerSourceMetadata",
+      "consumers": [
+        "retrom/internal/service/libraryimport.NormalizeServerReviewMetadata"
+      ],
+      "invariant": "SourceUTF8/trim/control limits,title1..200,description<=20000,others<=500,players1..64,year1000..9999.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-approval_guard"
       ]
     },
     {
