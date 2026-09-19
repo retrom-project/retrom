@@ -1,6 +1,8 @@
 package architecture
 
 import (
+	"reflect"
+	"slices"
 	"testing"
 )
 
@@ -54,5 +56,27 @@ func TestDependencyRulesAcceptPureCyclesWithoutHanging(t *testing.T) {
 	// must remain bounded when examining inactive build configurations.
 	if violations := InspectDependencyRules(sources, owners); len(violations) != 0 {
 		t.Fatalf("pure layer edges were rejected: %+v", violations)
+	}
+}
+
+func TestArchitectureFindingsHaveStableOrderingAndDeduplication(t *testing.T) {
+	t.Parallel()
+	first := Violation{
+		Rule: "AR03", File: "value.go", Line: 3, Symbol: "value.First",
+		Message: "callback", DependencyChain: []string{"value.First", "func()"},
+	}
+	second := Violation{
+		Rule: "AR03", File: "value.go", Line: 8, Symbol: "value.Second",
+		Message: "callback", DependencyChain: []string{"value.Second", "func()"},
+	}
+	left := []Violation{first, second, first, second}
+	right := []Violation{second, second, first, first}
+	for _, findings := range [][]Violation{left, right} {
+		slices.SortFunc(findings, compareViolations)
+	}
+	left = slices.CompactFunc(left, equalViolation)
+	right = slices.CompactFunc(right, equalViolation)
+	if len(left) != 2 || len(right) != 2 || !reflect.DeepEqual(left, right) {
+		t.Fatalf("report depends on package traversal order: left=%+v right=%+v", left, right)
 	}
 }

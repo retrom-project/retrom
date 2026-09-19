@@ -119,8 +119,17 @@ func compareViolations(left, right Violation) int {
 	if comparison := strings.Compare(left.File, right.File); comparison != 0 {
 		return comparison
 	}
+	if left.Line != right.Line {
+		return left.Line - right.Line
+	}
 	if comparison := strings.Compare(left.Rule, right.Rule); comparison != 0 {
 		return comparison
 	}
-	return strings.Compare(left.Message, right.Message)
+	if comparison := strings.Compare(left.Symbol, right.Symbol); comparison != 0 {
+		return comparison
+	}
+	if comparison := strings.Compare(left.Message, right.Message); comparison != 0 {
+		return comparison
+	}
+	return slices.Compare(left.DependencyChain, right.DependencyChain)
 }
