@@ -269,6 +269,54 @@
       ]
     },
     {
+      "id": "bios.validCursor",
+      "owner": "bios",
+      "rf_id": "RF11",
+      "symbol": "retrom/internal/service/bios.validCursor",
+      "consumers": [
+        "retrom/internal/service/bios.validListRequest"
+      ],
+      "invariant": "No cursor or exactly two sort values plus stable nonempty ID.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF11-catalog_bytes",
+        "RFA-RF11-dependency_start"
+      ]
+    },
+    {
+      "id": "bios.validListRequest",
+      "owner": "bios",
+      "rf_id": "RF11",
+      "symbol": "retrom/internal/service/bios.validListRequest",
+      "consumers": [
+        "(*retrom/internal/service/bios.Service).List"
+      ],
+      "invariant": "BIOS scope/quick/status/cursor and limit1..100 query shape.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF11-catalog_bytes",
+        "RFA-RF11-dependency_start"
+      ]
+    },
+    {
+      "id": "bios.validStatus",
+      "owner": "bios",
+      "rf_id": "RF11",
+      "symbol": "retrom/internal/service/bios.validStatus",
+      "consumers": [
+        "retrom/internal/service/bios.validListRequest"
+      ],
+      "invariant": "Closed public BIOS attention/status vocabulary.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF11-catalog_bytes",
+        "RFA-RF11-dependency_start"
+      ]
+    },
+    {
       "id": "contentcapability.Resolve",
       "owner": "content",
       "rf_id": "RF04",
@@ -289,6 +337,186 @@
       "target_layer": "capability",
       "tests": [
         "RFA-RF16-game_mutations"
+      ]
+    },
+    {
+      "id": "corevalidation.ResolveBIOSRecords",
+      "owner": "corevalidation",
+      "rf_id": "RF11",
+      "symbol": "retrom/internal/service/corevalidation.ResolveBIOSRecords",
+      "consumers": [
+        "(*retrom/internal/service/corevalidation.Service).ResolveBIOS",
+        "(*retrom/internal/service/libraryimport.MultiDiscAttachmentCommits).resolveValidation",
+        "(*retrom/internal/service/libraryimport.draftValidationState).resolveStaticBIOSDependencyState",
+        "retrom/internal/service/launch.ResolveProductBIOS"
+      ],
+      "invariant": "Apply condition rules and usable-installation/optional requirement semantics to explicit BIOS facts.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF11-catalog_bytes",
+        "RFA-RF11-dependency_start"
+      ]
+    },
+    {
+      "id": "datindex.buildRequirement",
+      "owner": "datindex",
+      "rf_id": "RF11",
+      "symbol": "retrom/internal/model/datindex.buildRequirement",
+      "consumers": [
+        "retrom/internal/model/datindex.BuildRequirement"
+      ],
+      "invariant": "Deterministic UUIDv5 and canonical DAT SHA/entries/machine digest preserve requirement identity and source URI.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF11-catalog_bytes",
+        "RFA-RF11-dependency_start"
+      ]
+    },
+    {
+      "id": "dependencies.decodeBIOSOptions",
+      "owner": "dependencies",
+      "rf_id": "RF11",
+      "symbol": "retrom/internal/service/dependencies.decodeBIOSOptions",
+      "consumers": [
+        "retrom/internal/service/dependencies.validateBIOSActivationOptions"
+      ],
+      "invariant": "Valid string-map JSON with at most eight option entries.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF11-catalog_bytes",
+        "RFA-RF11-dependency_start"
+      ]
+    },
+    {
+      "id": "dependencies.mergeBIOSOptions",
+      "owner": "dependencies",
+      "rf_id": "RF11",
+      "symbol": "retrom/internal/service/dependencies.mergeBIOSOptions",
+      "consumers": [
+        "retrom/internal/service/dependencies.validateBIOSActivationOptions"
+      ],
+      "invariant": "Printable bounded option keys/values and no conflicting per-core assignment.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF11-catalog_bytes",
+        "RFA-RF11-dependency_start"
+      ]
+    },
+    {
+      "id": "dependencies.preferredCoreVersions",
+      "owner": "dependencies",
+      "rf_id": "RF11",
+      "symbol": "retrom/internal/service/dependencies.preferredCoreVersions",
+      "consumers": [
+        "(*retrom/internal/service/dependencies.Service).Bootstrap"
+      ],
+      "invariant": "Last occurrence of each core in declared dependency version order is preferred.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF11-catalog_bytes",
+        "RFA-RF11-dependency_start"
+      ]
+    },
+    {
+      "id": "dependencies.statsMatch",
+      "owner": "dependencies",
+      "rf_id": "RF11",
+      "symbol": "retrom/internal/service/dependencies.statsMatch",
+      "consumers": [
+        "(*retrom/internal/service/dependencies.catalogBootstrap).loadCatalog"
+      ],
+      "invariant": "Every parsed catalog statistic including separate unresolved cloneof/romof counts equals fixed manifest expectation.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF11-catalog_bytes",
+        "RFA-RF11-dependency_start"
+      ]
+    },
+    {
+      "id": "dependencies.targetForCore",
+      "owner": "dependencies",
+      "rf_id": "RF11",
+      "symbol": "retrom/internal/service/dependencies.targetForCore",
+      "consumers": [
+        "(*retrom/internal/service/dependencies.Service).seedTarget",
+        "(*retrom/internal/service/dependencies.catalogBootstrap).targetForCore"
+      ],
+      "invariant": "One provider/target for all catalog bindings of a core; missing or ambiguous target is invalid.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF11-catalog_bytes",
+        "RFA-RF11-dependency_start"
+      ]
+    },
+    {
+      "id": "dependencies.validASCIIOption",
+      "owner": "dependencies",
+      "rf_id": "RF11",
+      "symbol": "retrom/internal/service/dependencies.validASCIIOption",
+      "consumers": [
+        "retrom/internal/service/dependencies.mergeBIOSOptions"
+      ],
+      "invariant": "Bounded printable ASCII activation option text.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF11-catalog_bytes",
+        "RFA-RF11-dependency_start"
+      ]
+    },
+    {
+      "id": "dependencies.validEmulatorPath",
+      "owner": "dependencies",
+      "rf_id": "RF11",
+      "symbol": "retrom/internal/service/dependencies.validEmulatorPath",
+      "consumers": [
+        "retrom/internal/service/dependencies.validateBIOSDelivery"
+      ],
+      "invariant": "Absolute bounded nonempty POSIX emulator path without traversal/control/query/fragment/backslash.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF11-catalog_bytes",
+        "RFA-RF11-dependency_start"
+      ]
+    },
+    {
+      "id": "dependencies.validateBIOSActivationOptions",
+      "owner": "dependencies",
+      "rf_id": "RF11",
+      "symbol": "retrom/internal/service/dependencies.validateBIOSActivationOptions",
+      "consumers": [
+        "retrom/internal/service/dependencies.bootstrapStaticBIOS"
+      ],
+      "invariant": "Each BIOS delivery and per-core option set remains valid and mutually consistent.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF11-catalog_bytes",
+        "RFA-RF11-dependency_start"
+      ]
+    },
+    {
+      "id": "dependencies.validateBIOSDelivery",
+      "owner": "dependencies",
+      "rf_id": "RF11",
+      "symbol": "retrom/internal/service/dependencies.validateBIOSDelivery",
+      "consumers": [
+        "retrom/internal/service/dependencies.validateBIOSActivationOptions"
+      ],
+      "invariant": "External emulator path versus BIOS bundle delivery and bounded expected digest/size.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF11-catalog_bytes",
+        "RFA-RF11-dependency_start"
       ]
     },
     {
@@ -409,6 +637,54 @@
       "target_layer": "capability",
       "tests": [
         "RFA-RF16-tags_favorites"
+      ]
+    },
+    {
+      "id": "firmware.evaluateArchive",
+      "owner": "firmware",
+      "rf_id": "RF11",
+      "symbol": "retrom/internal/service/firmware.evaluateArchive",
+      "consumers": [
+        "retrom/internal/service/firmware.evaluateInstall"
+      ],
+      "invariant": "Strict static archive rejects any missing/mismatch/warning; DAT comparison preserves matched/warning/missing status.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF11-catalog_bytes",
+        "RFA-RF11-firmware_race"
+      ]
+    },
+    {
+      "id": "firmware.matchesServerCatalog",
+      "owner": "firmware",
+      "rf_id": "RF11",
+      "symbol": "retrom/internal/service/firmware.matchesServerCatalog",
+      "consumers": [
+        "(*retrom/internal/service/firmware.Service).InstallServerCandidate"
+      ],
+      "invariant": "Current enabled source kind/version/digest/requirement version/provider/target equals prepared candidate.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF11-catalog_bytes",
+        "RFA-RF11-firmware_race"
+      ]
+    },
+    {
+      "id": "firmware.sameInstallSource",
+      "owner": "firmware",
+      "rf_id": "RF11",
+      "symbol": "retrom/internal/service/firmware.sameInstallSource",
+      "consumers": [
+        "(*retrom/internal/service/firmware.Service).Install"
+      ],
+      "invariant": "Prepared/current requirement source+file kinds and upload Blob+SHA identity.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF11-catalog_bytes",
+        "RFA-RF11-firmware_race"
       ]
     },
     {
@@ -1626,6 +1902,38 @@
       "target_layer": "capability",
       "tests": [
         "RFA-RF16-game_mutations"
+      ]
+    },
+    {
+      "id": "runtimeprovider.ValidateCheckpointFormats",
+      "owner": "runtimeprovider",
+      "rf_id": "RF11",
+      "symbol": "retrom/internal/service/runtimeprovider.ValidateCheckpointFormats",
+      "consumers": [
+        "retrom/internal/service/runtimeprovider.prepareReconciliation"
+      ],
+      "invariant": "Every existing checkpoint format remains in target readable formats.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF11-catalog_bytes",
+        "RFA-RF11-dependency_start"
+      ]
+    },
+    {
+      "id": "runtimeprovider.validateProviderVersion",
+      "owner": "runtimeprovider",
+      "rf_id": "RF11",
+      "symbol": "retrom/internal/service/runtimeprovider.validateProviderVersion",
+      "consumers": [
+        "retrom/internal/service/runtimeprovider.prepareReconciliation"
+      ],
+      "invariant": "Forward-only semver with no same-version bundle rebuild.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF11-catalog_bytes",
+        "RFA-RF11-dependency_start"
       ]
     },
     {

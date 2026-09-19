@@ -1819,6 +1819,772 @@
       }
     },
     {
+      "operation_id": "dependencies.activate-ready-dat",
+      "owner": "dependencies",
+      "rf_id": "RF11",
+      "consumers": [
+        "(*retrom/internal/service/dependencies.Service).BootstrapCatalogs",
+        "(*retrom/internal/service/dependencies.catalogBootstrap).activateReady",
+        "(*retrom/internal/service/dependencies.catalogBootstrap).runCore",
+        "retrom/cmd/retrom.bootstrapCatalogs",
+        "retrom/cmd/retrom.execute",
+        "retrom/cmd/retrom.executeWithPasswordReader",
+        "retrom/cmd/retrom.main",
+        "retrom/cmd/retrom.run",
+        "retrom/cmd/retrom.startCatalogBootstrap"
+      ],
+      "snapshot": "retrom/internal/model/dependencies.ActivationState",
+      "prepare": "(*retrom/internal/service/dependencies.catalogBootstrap).activateReady",
+      "commit": "(*retrom/internal/repo/dependencies.Repository).WithWrite",
+      "policy_symbols": [
+        "retrom/internal/model/datindex.buildRequirement"
+      ],
+      "fresh_facts": [
+        {
+          "name": "current DAT activation",
+          "reader_symbol": "(retrom/internal/repo/dependencies.datRecords).Activation",
+          "reason": "Writer rereads DAT provider/target joined to actual runtime target,parseStatus,active"
+        },
+        {
+          "name": "DAT requirement definition",
+          "reader_symbol": "(retrom/internal/repo/datindex.Records).Definition",
+          "reason": "Within activation writer: current core/provider/target/DAT SHA used in requirement identity/digest"
+        },
+        {
+          "name": "BIOS/base machines",
+          "reader_symbol": "(retrom/internal/repo/datindex.Records).MachineNames",
+          "reason": "Within writer: union explicit BIOS machines and romof targets distinct from cloneof"
+        },
+        {
+          "name": "DAT required ROM facts",
+          "reader_symbol": "(retrom/internal/repo/datindex.Records).RequiredEntries",
+          "reason": "Within writer each machine excludes NODUMP and nondefault BIOS set; ordinal-sorted entries including nil digest/merge/BIOS fields"
+        }
+      ],
+      "guards": [
+        {
+          "id": "dat-ready-activation",
+          "fields": [
+            "parseStatus",
+            "isActive",
+            "target"
+          ],
+          "expected_source": "Current READY required; already active returns without audit or requirement resync",
+          "rejection": "dependencies.ErrInvalid",
+          "test_id": "RFA-RF11-dependency_start"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "deselect-dat",
+          "repo_helper": "(retrom/internal/repo/dependencies.datRecords).Select",
+          "affected_records": [
+            "Other active dat_versions same provider/target -> inactive,version+1,time"
+          ],
+          "test_id": "RFA-RF11-dependency_start"
+        },
+        {
+          "stage": "activate-dat",
+          "repo_helper": "(retrom/internal/repo/dependencies.datRecords).Select",
+          "affected_records": [
+            "Exact id/provider/target READY/inactive -> active1,activated/time,version+1; require one row"
+          ],
+          "test_id": "RFA-RF11-dependency_start"
+        },
+        {
+          "stage": "audit-dat-activation",
+          "repo_helper": "(retrom/internal/repo/dependencies.datRecords).Select",
+          "affected_records": [
+            "INSERT audit_events generated UUID,ActorFromContext(release-setup),BUILTIN_DAT_ACTIVATED,DAT_VERSION,before/after active,source release-manifest,time"
+          ],
+          "test_id": "RFA-RF11-dependency_start"
+        },
+        {
+          "stage": "project-dat-requirements",
+          "repo_helper": "(retrom/internal/repo/datindex.Records).UpsertRequirement",
+          "affected_records": [
+            "For BIOS/base machine: UPSERT bios_requirements stable UUIDv5/provider/target/logical machine.zip,source DAT_MACHINE,current DAT digest/entries,REQUIRED/ARCADE_DAT_DEPENDENCY,enabled1; version increments only digest changed or prior disabled"
+          ],
+          "test_id": "RFA-RF11-dependency_start"
+        },
+        {
+          "stage": "disable-stale-dat-requirements",
+          "repo_helper": "(retrom/internal/repo/datindex.Records).DisableStale",
+          "affected_records": [
+            "bios_requirements same provider/target,DAT_MACHINE,enabled and other source_version -> disabled,version+1,time"
+          ],
+          "test_id": "RFA-RF11-dependency_start"
+        }
+      ],
+      "idempotency": "No persisted HTTP receipt. Preserve the current deterministic identity and conditional transitions recorded here.",
+      "time_rule": "Baseline BeginTx(ctx,nil), shared writer connection. Startup caller passes one earlier time.Time across operations; target needs one fresh Repo technical Clock sample after write permission. Activation audit UUID generated inside callback; deterministic requirement identities/hash computation also inside.",
+      "after_commit": [],
+      "fault_points": [
+        "PLANNED deselect-dat: fail after this SQL stage; compare complete before/after owner/reference/job/audit state and require rollback",
+        "PLANNED activate-dat: fail after this SQL stage; compare complete before/after owner/reference/job/audit state and require rollback",
+        "PLANNED audit-dat-activation: fail after this SQL stage; compare complete before/after owner/reference/job/audit state and require rollback",
+        "PLANNED project-dat-requirements: fail after this SQL stage; compare complete before/after owner/reference/job/audit state and require rollback",
+        "PLANNED disable-stale-dat-requirements: fail after this SQL stage; compare complete before/after owner/reference/job/audit state and require rollback",
+        "PLANNED change each Guard fact between preparation and write permission, then verify exact rejection/no writes",
+        "PLANNED cancellation, commit error, duplicate/recovery and after-commit wakeup failure with original error causes retained"
+      ],
+      "test_ids": [
+        "RFA-RF11-dependency_start",
+        "RFA-RF11-catalog_bytes"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "No CAS bytes are published and no Blob protection reference is added.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "dependencies.bootstrap-definitions",
+      "owner": "dependencies",
+      "rf_id": "RF11",
+      "consumers": [
+        "(*retrom/internal/service/dependencies.Service).Bootstrap",
+        "retrom/cmd/retrom.bootstrapServerResources",
+        "retrom/cmd/retrom.execute",
+        "retrom/cmd/retrom.executeWithPasswordReader",
+        "retrom/cmd/retrom.main",
+        "retrom/cmd/retrom.openAndBootstrapDatabase",
+        "retrom/cmd/retrom.run"
+      ],
+      "snapshot": "retrom/internal/model/dependencies.BIOSRequirement",
+      "prepare": "(*retrom/internal/service/dependencies.Service).Bootstrap",
+      "commit": "(*retrom/internal/repo/dependencies.Repository).WithWrite",
+      "policy_symbols": [
+        "retrom/internal/service/dependencies.preferredCoreVersions",
+        "retrom/internal/service/dependencies.targetForCore",
+        "retrom/internal/service/dependencies.validateBIOSActivationOptions",
+        "retrom/internal/service/dependencies.validateBIOSDelivery",
+        "retrom/internal/service/dependencies.decodeBIOSOptions",
+        "retrom/internal/service/dependencies.mergeBIOSOptions",
+        "retrom/internal/service/dependencies.validEmulatorPath",
+        "retrom/internal/service/dependencies.validASCIIOption"
+      ],
+      "fresh_facts": [
+        {
+          "name": "runtime target exists",
+          "reader_symbol": "(retrom/internal/repo/dependencies.targetRecords).Exists",
+          "reason": "Inside writer: each resolved core binding has one unambiguous provider/target and actual projected runtime target"
+        },
+        {
+          "name": "registered DAT identity",
+          "reader_symbol": "(retrom/internal/repo/dependencies.datRecords).Register",
+          "reason": "Inside writer existing provider/target/SHA256/parser identity selected or new UUIDv7 allocated; then current parse status and stored statistics reread"
+        }
+      ],
+      "guards": [
+        {
+          "id": "startup-target",
+          "fields": [
+            "coreId",
+            "providerId",
+            "targetId"
+          ],
+          "expected_source": "Manifest/core resolves to one target and target exists in projected database",
+          "rejection": "dependencies.ErrInvalid",
+          "test_id": "RFA-RF11-dependency_start"
+        },
+        {
+          "id": "static-bios-contract",
+          "fields": [
+            "deliveryKind",
+            "emulatorPath",
+            "size",
+            "SHA256",
+            "activationOptions"
+          ],
+          "expected_source": "BIOS_BUNDLE forbids external path; EXTERNAL_FILE safe absolute emulator path; size>=0;optional SHA256 length64; options<=8 bounded printable ASCII with consistent values per core",
+          "rejection": "errBIOSOptions",
+          "test_id": "RFA-RF11-dependency_start"
+        },
+        {
+          "id": "dat-statistics",
+          "fields": [
+            "parseStatus",
+            "storedStats",
+            "expectedStats",
+            "preferredVersion"
+          ],
+          "expected_source": "READY with stored stats different from fixed manifest expected resets PENDING; last core version in Set.Order is preferred and retires other active DAT for target",
+          "rejection": "Reset/retire, not error",
+          "test_id": "RFA-RF11-dependency_start"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "seed-static-bios",
+          "repo_helper": "(retrom/internal/repo/dependencies.biosRecords).Upsert",
+          "affected_records": [
+            "Per version/static catalog: UPSERT bios_requirements deterministic UUIDv5 provider/target/logical;mode/condition/options/digest/size/MD5/SHA256/source/version/delivery/path/members;enable1;increment version only when catalog digest changes"
+          ],
+          "test_id": "RFA-RF11-dependency_start"
+        },
+        {
+          "stage": "register-builtin-dat",
+          "repo_helper": "(retrom/internal/repo/dependencies.datRecords).Register",
+          "affected_records": [
+            "UPSERT dat_versions exact provider/target/SHA256/parser retrom-dat-v1: new UUID/PENDING/inactive/nullstats/version1 or update builtin_relative_path/time only"
+          ],
+          "test_id": "RFA-RF11-dependency_start"
+        },
+        {
+          "stage": "reset-incomplete-dat",
+          "repo_helper": "(retrom/internal/repo/dependencies.datRecords).Reset",
+          "affected_records": [
+            "If stored READY stats mismatch: dat_versions PENDING,inactive,clear stats/parsed/activated timestamps,version+1,time"
+          ],
+          "test_id": "RFA-RF11-dependency_start"
+        },
+        {
+          "stage": "retire-other-dat",
+          "repo_helper": "(retrom/internal/repo/dependencies.datRecords).Retire",
+          "affected_records": [
+            "For preferred core version: other active dat_versions same provider/target -> inactive,version+1,time"
+          ],
+          "test_id": "RFA-RF11-dependency_start"
+        }
+      ],
+      "idempotency": "Stable BIOS UUID/digest and DAT content identity; repeat seed preserves requirement version when digest unchanged and DAT identity. No schema/provider/core input changes.",
+      "time_rule": "Baseline BeginTx(ctx,nil), shared writer connection. Startup caller passes one earlier time.Time across operations; target needs one fresh Repo technical Clock sample after write permission. BIOS UUIDv5 is deterministic hashing; DAT UUIDv7 is generated in Repo Register inside writer. Static generated firmware manifest and global catalog reads still occur inside Service callback.",
+      "after_commit": [],
+      "fault_points": [
+        "PLANNED seed-static-bios: fail after this SQL stage; compare complete before/after owner/reference/job/audit state and require rollback",
+        "PLANNED register-builtin-dat: fail after this SQL stage; compare complete before/after owner/reference/job/audit state and require rollback",
+        "PLANNED reset-incomplete-dat: fail after this SQL stage; compare complete before/after owner/reference/job/audit state and require rollback",
+        "PLANNED retire-other-dat: fail after this SQL stage; compare complete before/after owner/reference/job/audit state and require rollback",
+        "PLANNED change each Guard fact between preparation and write permission, then verify exact rejection/no writes",
+        "PLANNED cancellation, commit error, duplicate/recovery and after-commit wakeup failure with original error causes retained"
+      ],
+      "test_ids": [
+        "RFA-RF11-dependency_start",
+        "RFA-RF11-catalog_bytes"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "No CAS bytes are published and no Blob protection reference is added.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "dependencies.claim-dat-job",
+      "owner": "dependencies",
+      "rf_id": "RF11",
+      "consumers": [
+        "(*retrom/internal/service/dependencies.Service).BootstrapCatalogs",
+        "(*retrom/internal/service/dependencies.catalogBootstrap).runCore",
+        "retrom/cmd/retrom.bootstrapCatalogs",
+        "retrom/cmd/retrom.execute",
+        "retrom/cmd/retrom.executeWithPasswordReader",
+        "retrom/cmd/retrom.main",
+        "retrom/cmd/retrom.run",
+        "retrom/cmd/retrom.startCatalogBootstrap",
+        "retrom/internal/service/dependencies.claimBuiltInDATJob"
+      ],
+      "snapshot": "retrom/internal/model/dependencies.JobClaim",
+      "prepare": "retrom/internal/service/dependencies.claimBuiltInDATJob",
+      "commit": "(*retrom/internal/repo/dependencies.Repository).WithWrite",
+      "policy_symbols": [],
+      "fresh_facts": [
+        {
+          "name": "queued job and parse state",
+          "reader_symbol": "(retrom/internal/repo/dependencies.jobRecords).Claim",
+          "reason": "Conditional job write observes id/QUEUED; following MarkParsing predicates PENDING/PARSING DAT status; no separate version/worker/lease snapshot read"
+        }
+      ],
+      "guards": [
+        {
+          "id": "dat-claim-state",
+          "fields": [
+            "job.id",
+            "job.state"
+          ],
+          "expected_source": "Exactly one requested QUEUED job updated; baseline does not check kind/scope/version/execution/attempt/availability",
+          "rejection": "ErrDATJobNotClaimed",
+          "test_id": "RFA-RF11-dependency_start"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "claim-dat",
+          "repo_helper": "(retrom/internal/repo/dependencies.jobRecords).Claim",
+          "affected_records": [
+            "jobs id/QUEUED -> RUNNING,attempt+1,COALESCE start/deadline(caller now,+30m),lease caller now+1m,heartbeat,builtin-dat-indexer,version+1,time"
+          ],
+          "test_id": "RFA-RF11-dependency_start"
+        },
+        {
+          "stage": "claim-dat-event",
+          "repo_helper": "(retrom/internal/repo/dependencies.jobRecords).event",
+          "affected_records": [
+            "INSERT STARTED job_event fixed schema1/execution1/attempt1"
+          ],
+          "test_id": "RFA-RF11-dependency_start"
+        },
+        {
+          "stage": "mark-dat-parsing",
+          "repo_helper": "(retrom/internal/repo/dependencies.catalogRecords).MarkParsing",
+          "affected_records": [
+            "UPDATE dat_versions id with PENDING/PARSING -> PARSING,version+1,time; affected count not checked"
+          ],
+          "test_id": "RFA-RF11-dependency_start"
+        }
+      ],
+      "idempotency": "No persisted HTTP receipt. Preserve the current deterministic identity and conditional transitions recorded here.",
+      "time_rule": "Baseline BeginTx(ctx,nil), shared writer connection. Startup caller passes one earlier time.Time across operations; target needs one fresh Repo technical Clock sample after write permission.",
+      "after_commit": [],
+      "fault_points": [
+        "PLANNED claim-dat: fail after this SQL stage; compare complete before/after owner/reference/job/audit state and require rollback",
+        "PLANNED claim-dat-event: fail after this SQL stage; compare complete before/after owner/reference/job/audit state and require rollback",
+        "PLANNED mark-dat-parsing: fail after this SQL stage; compare complete before/after owner/reference/job/audit state and require rollback",
+        "PLANNED change each Guard fact between preparation and write permission, then verify exact rejection/no writes",
+        "PLANNED cancellation, commit error, duplicate/recovery and after-commit wakeup failure with original error causes retained"
+      ],
+      "test_ids": [
+        "RFA-RF11-dependency_start",
+        "RFA-RF11-catalog_bytes"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "No CAS bytes are published and no Blob protection reference is added.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "dependencies.ensure-dat-job",
+      "owner": "dependencies",
+      "rf_id": "RF11",
+      "consumers": [
+        "(*retrom/internal/service/dependencies.Service).BootstrapCatalogs",
+        "(*retrom/internal/service/dependencies.catalogBootstrap).runCore",
+        "retrom/cmd/retrom.bootstrapCatalogs",
+        "retrom/cmd/retrom.execute",
+        "retrom/cmd/retrom.executeWithPasswordReader",
+        "retrom/cmd/retrom.main",
+        "retrom/cmd/retrom.run",
+        "retrom/cmd/retrom.startCatalogBootstrap",
+        "retrom/internal/service/dependencies.ensureBuiltInDATJob"
+      ],
+      "snapshot": "retrom/internal/model/dependencies.JobCreation",
+      "prepare": "retrom/internal/service/dependencies.ensureBuiltInDATJob",
+      "commit": "(*retrom/internal/repo/dependencies.Repository).WithWrite",
+      "policy_symbols": [],
+      "fresh_facts": [
+        {
+          "name": "existing DAT_PARSE dedupe",
+          "reader_symbol": "(retrom/internal/repo/dependencies.jobRecords).Find",
+          "reason": "Writer reads existing job id/state for SHA256 domain-separated DAT id/parser version dedupe"
+        },
+        {
+          "name": "current DAT version",
+          "reader_symbol": "(retrom/internal/repo/dependencies.catalogRecords).Version",
+          "reason": "Only new job: read current dat_versions.version before encoding immutable input"
+        }
+      ],
+      "guards": [
+        {
+          "id": "dat-retained-failure",
+          "fields": [
+            "job.state"
+          ],
+          "expected_source": "FAILED/CANCELLED preserve failure evidence and reject; RUNNING is requeued by startup; other existing states reuse ID",
+          "rejection": "ErrDATParseFailed",
+          "test_id": "RFA-RF11-dependency_start"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "recover-existing-dat",
+          "repo_helper": "(retrom/internal/repo/dependencies.jobRecords).Requeue",
+          "affected_records": [
+            "Existing RUNNING branch: UPDATE jobs by ID to QUEUED,clear start/deadline/lease/heartbeat/worker,version+1/time; baseline has no live-lease/attempt fence"
+          ],
+          "test_id": "RFA-RF11-dependency_start"
+        },
+        {
+          "stage": "create-dat-job",
+          "repo_helper": "(retrom/internal/repo/dependencies.jobRecords).Create",
+          "affected_records": [
+            "New branch INSERT jobs DAT_VERSION/DAT_PARSE,dedupe,execution1,cancellable0,QUEUED,attempt0,max2,availability/time,payload schema1/inputExecutionNo1"
+          ],
+          "test_id": "RFA-RF11-dependency_start"
+        },
+        {
+          "stage": "create-dat-input",
+          "repo_helper": "(retrom/internal/repo/dependencies.jobRecords).Create",
+          "affected_records": [
+            "INSERT job_input_snapshots new job/execution1,JSON schema/kind/scope/execution UUID/dat version+SHA/parser and exact SHA256"
+          ],
+          "test_id": "RFA-RF11-dependency_start"
+        },
+        {
+          "stage": "create-dat-event",
+          "repo_helper": "(retrom/internal/repo/dependencies.jobRecords).event",
+          "affected_records": [
+            "INSERT job_events DAT_VERSION QUEUED schema1/execution1/attempt0"
+          ],
+          "test_id": "RFA-RF11-dependency_start"
+        }
+      ],
+      "idempotency": "Stable DAT_PARSE dedupe reuses job; retained FAILED/CANCELLED is never silently reset; startup RUNNING recovery has no lease check in baseline.",
+      "time_rule": "Baseline BeginTx(ctx,nil), shared writer connection. Startup caller passes one earlier time.Time across operations; target needs one fresh Repo technical Clock sample after write permission. Job/execution UUIDs generated inside callback. Dedupe hashing before writer; snapshot JSON/hash inside.",
+      "after_commit": [],
+      "fault_points": [
+        "PLANNED recover-existing-dat: fail after this SQL stage; compare complete before/after owner/reference/job/audit state and require rollback",
+        "PLANNED create-dat-job: fail after this SQL stage; compare complete before/after owner/reference/job/audit state and require rollback",
+        "PLANNED create-dat-input: fail after this SQL stage; compare complete before/after owner/reference/job/audit state and require rollback",
+        "PLANNED create-dat-event: fail after this SQL stage; compare complete before/after owner/reference/job/audit state and require rollback",
+        "PLANNED change each Guard fact between preparation and write permission, then verify exact rejection/no writes",
+        "PLANNED cancellation, commit error, duplicate/recovery and after-commit wakeup failure with original error causes retained"
+      ],
+      "test_ids": [
+        "RFA-RF11-dependency_start",
+        "RFA-RF11-catalog_bytes"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "No CAS bytes are published and no Blob protection reference is added.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "dependencies.fail-dat",
+      "owner": "dependencies",
+      "rf_id": "RF11",
+      "consumers": [
+        "(*retrom/internal/service/dependencies.Service).BootstrapCatalogs",
+        "(*retrom/internal/service/dependencies.catalogBootstrap).loadCatalog",
+        "(*retrom/internal/service/dependencies.catalogBootstrap).runCore",
+        "retrom/cmd/retrom.bootstrapCatalogs",
+        "retrom/cmd/retrom.execute",
+        "retrom/cmd/retrom.executeWithPasswordReader",
+        "retrom/cmd/retrom.main",
+        "retrom/cmd/retrom.run",
+        "retrom/cmd/retrom.startCatalogBootstrap",
+        "retrom/internal/service/dependencies.failBuiltInDAT"
+      ],
+      "snapshot": "retrom/internal/model/dependencies.JobFinish",
+      "prepare": "retrom/internal/service/dependencies.failBuiltInDAT",
+      "commit": "(*retrom/internal/repo/dependencies.Repository).WithWrite",
+      "policy_symbols": [],
+      "fresh_facts": [
+        {
+          "name": "running failure target",
+          "reader_symbol": "(retrom/internal/repo/dependencies.jobRecords).Finish",
+          "reason": "Conditional final job UPDATE checks requested id/RUNNING; preceding DAT changes rollback if no owning row updated"
+        }
+      ],
+      "guards": [
+        {
+          "id": "dat-failure-owner",
+          "fields": [
+            "job.id",
+            "job.state"
+          ],
+          "expected_source": "Exactly one RUNNING job required; baseline lacks execution/worker/lease fence and uses caller context/time even after a canceled parse",
+          "rejection": "ErrDATJobNotClaimed",
+          "test_id": "RFA-RF11-dependency_start"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "dat-failure-state",
+          "repo_helper": "(retrom/internal/repo/dependencies.catalogRecords).MarkFailed",
+          "affected_records": [
+            "UPDATE dat_versions id -> FAILED,inactive,clear every stored index count/parsed timestamp,version+1/time"
+          ],
+          "test_id": "RFA-RF11-dependency_start"
+        },
+        {
+          "stage": "dat-failure-job",
+          "repo_helper": "(retrom/internal/repo/dependencies.jobRecords).Finish",
+          "affected_records": [
+            "UPDATE jobs id/RUNNING -> FAILED,provided error code,retryable0,finished/time,leaseNULL,version+1"
+          ],
+          "test_id": "RFA-RF11-dependency_start"
+        },
+        {
+          "stage": "dat-failure-event",
+          "repo_helper": "(retrom/internal/repo/dependencies.jobRecords).event",
+          "affected_records": [
+            "INSERT FAILED event schema1/execution1/attempt1/errorCode/errorRetryable=false"
+          ],
+          "test_id": "RFA-RF11-dependency_start"
+        }
+      ],
+      "idempotency": "No persisted HTTP receipt. Preserve the current deterministic identity and conditional transitions recorded here.",
+      "time_rule": "Baseline BeginTx(ctx,nil), shared writer connection. Startup caller passes one earlier time.Time across operations; target needs one fresh Repo technical Clock sample after write permission.",
+      "after_commit": [
+        {
+          "action": "Return preserved original parse/publication cause joined with failure-record error; startup readiness remains failed",
+          "recovery": "Subsequent ensureBuiltInDATJob rejects retained FAILED/CANCELLED evidence rather than reporting ready",
+          "test_id": "RFA-RF11-dependency_start"
+        }
+      ],
+      "fault_points": [
+        "PLANNED dat-failure-state: fail after this SQL stage; compare complete before/after owner/reference/job/audit state and require rollback",
+        "PLANNED dat-failure-job: fail after this SQL stage; compare complete before/after owner/reference/job/audit state and require rollback",
+        "PLANNED dat-failure-event: fail after this SQL stage; compare complete before/after owner/reference/job/audit state and require rollback",
+        "PLANNED change each Guard fact between preparation and write permission, then verify exact rejection/no writes",
+        "PLANNED cancellation, commit error, duplicate/recovery and after-commit wakeup failure with original error causes retained"
+      ],
+      "test_ids": [
+        "RFA-RF11-dependency_start",
+        "RFA-RF11-catalog_bytes"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "No CAS bytes are published and no Blob protection reference is added.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "dependencies.publish-dat",
+      "owner": "dependencies",
+      "rf_id": "RF11",
+      "consumers": [
+        "(*retrom/internal/service/dependencies.Service).BootstrapCatalogs",
+        "(*retrom/internal/service/dependencies.catalogBootstrap).runCore",
+        "retrom/cmd/retrom.bootstrapCatalogs",
+        "retrom/cmd/retrom.execute",
+        "retrom/cmd/retrom.executeWithPasswordReader",
+        "retrom/cmd/retrom.main",
+        "retrom/cmd/retrom.run",
+        "retrom/cmd/retrom.startCatalogBootstrap",
+        "retrom/internal/service/dependencies.publishBuiltInDATCatalog"
+      ],
+      "snapshot": "retrom/internal/model/dependencies.CatalogPublication",
+      "prepare": "retrom/internal/service/dependencies.publishBuiltInDATCatalog",
+      "commit": "(*retrom/internal/repo/dependencies.Repository).WithWrite",
+      "policy_symbols": [
+        "retrom/internal/service/dependencies.statsMatch",
+        "retrom/internal/model/datindex.buildRequirement"
+      ],
+      "fresh_facts": [
+        {
+          "name": "publication guard via job terminal update",
+          "reader_symbol": "(retrom/internal/repo/dependencies.jobRecords).Finish",
+          "reason": "Final UPDATE requires requested job still RUNNING; baseline has no execution/worker/lease/deadline or prepared DAT-version fence"
+        },
+        {
+          "name": "current DAT activation",
+          "reader_symbol": "(retrom/internal/repo/dependencies.datRecords).Activation",
+          "reason": "Writer rereads DAT provider/target joined to actual runtime target,parseStatus,active"
+        },
+        {
+          "name": "DAT requirement definition",
+          "reader_symbol": "(retrom/internal/repo/datindex.Records).Definition",
+          "reason": "Within activation writer: current core/provider/target/DAT SHA used in requirement identity/digest"
+        },
+        {
+          "name": "BIOS/base machines",
+          "reader_symbol": "(retrom/internal/repo/datindex.Records).MachineNames",
+          "reason": "Within writer: union explicit BIOS machines and romof targets distinct from cloneof"
+        },
+        {
+          "name": "DAT required ROM facts",
+          "reader_symbol": "(retrom/internal/repo/datindex.Records).RequiredEntries",
+          "reason": "Within writer each machine excludes NODUMP and nondefault BIOS set; ordinal-sorted entries including nil digest/merge/BIOS fields"
+        }
+      ],
+      "guards": [
+        {
+          "id": "dat-parse-evidence",
+          "fields": [
+            "parsedStats",
+            "manifestStats",
+            "indexedCount"
+          ],
+          "expected_source": "Outside writer bounded parser result must exactly match fixed stats; if existing indexed machine count equals expected, baseline may construct stats-only catalog and skip replacing index",
+          "rejection": "Preserved parse/statistics error",
+          "test_id": "RFA-RF11-catalog_bytes"
+        },
+        {
+          "id": "dat-publish-owner",
+          "fields": [
+            "job.id",
+            "job.state"
+          ],
+          "expected_source": "Final jobs.Finish requires one RUNNING row; target must strengthen actual stale-worker/lease guard without changing frozen formats",
+          "rejection": "ErrDATJobNotClaimed",
+          "test_id": "RFA-RF11-dependency_start"
+        },
+        {
+          "id": "dat-ready-activation",
+          "fields": [
+            "parseStatus",
+            "isActive",
+            "target"
+          ],
+          "expected_source": "Current READY required; already active returns without audit or requirement resync",
+          "rejection": "dependencies.ErrInvalid",
+          "test_id": "RFA-RF11-dependency_start"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "clear-dat-machines",
+          "repo_helper": "retrom/internal/repo/datindex.Replace",
+          "affected_records": [
+            "Only Replace branch: DELETE dat_machines for DAT; owned child dat_bios_sets/dat_rom_entries/dat_disk_entries follow schema relationships"
+          ],
+          "test_id": "RFA-RF11-dependency_start"
+        },
+        {
+          "stage": "insert-dat-machines",
+          "repo_helper": "retrom/internal/repo/datindex.Replace",
+          "affected_records": [
+            "Only Replace branch: INSERT each dat_machines DAT/name/description/year/manufacturer/cloneof/romof/explicitBIOS/classification"
+          ],
+          "test_id": "RFA-RF11-dependency_start"
+        },
+        {
+          "stage": "insert-dat-bios-sets",
+          "repo_helper": "retrom/internal/repo/datindex.insertMachineContents",
+          "affected_records": [
+            "Only Replace branch: INSERT dat_bios_sets DAT/machine/BIOS name/description/default"
+          ],
+          "test_id": "RFA-RF11-dependency_start"
+        },
+        {
+          "stage": "insert-dat-roms",
+          "repo_helper": "retrom/internal/repo/datindex.insertMachineContents",
+          "affected_records": [
+            "Only Replace branch: INSERT dat_rom_entries DAT/machine/ordinal/name/size/CRC/SHA1/status/merge/BIOS name"
+          ],
+          "test_id": "RFA-RF11-dependency_start"
+        },
+        {
+          "stage": "insert-dat-disks",
+          "repo_helper": "retrom/internal/repo/datindex.insertMachineContents",
+          "affected_records": [
+            "Only Replace branch: INSERT dat_disk_entries DAT/machine/ordinal/name/SHA1/status"
+          ],
+          "test_id": "RFA-RF11-dependency_start"
+        },
+        {
+          "stage": "publish-dat-statistics",
+          "repo_helper": "(retrom/internal/repo/dependencies.catalogRecords).Publish",
+          "affected_records": [
+            "UPDATE dat_versions id -> READY,inactive,all counts+combined unresolved count,parsed/time,version+1"
+          ],
+          "test_id": "RFA-RF11-dependency_start"
+        },
+        {
+          "stage": "deselect-dat",
+          "repo_helper": "(retrom/internal/repo/dependencies.datRecords).Select",
+          "affected_records": [
+            "Other active dat_versions same provider/target -> inactive,version+1,time"
+          ],
+          "test_id": "RFA-RF11-dependency_start"
+        },
+        {
+          "stage": "activate-dat",
+          "repo_helper": "(retrom/internal/repo/dependencies.datRecords).Select",
+          "affected_records": [
+            "Exact id/provider/target READY/inactive -> active1,activated/time,version+1; require one row"
+          ],
+          "test_id": "RFA-RF11-dependency_start"
+        },
+        {
+          "stage": "audit-dat-activation",
+          "repo_helper": "(retrom/internal/repo/dependencies.datRecords).Select",
+          "affected_records": [
+            "INSERT audit_events generated UUID,ActorFromContext(release-setup),BUILTIN_DAT_ACTIVATED,DAT_VERSION,before/after active,source release-manifest,time"
+          ],
+          "test_id": "RFA-RF11-dependency_start"
+        },
+        {
+          "stage": "project-dat-requirements",
+          "repo_helper": "(retrom/internal/repo/datindex.Records).UpsertRequirement",
+          "affected_records": [
+            "For BIOS/base machine: UPSERT bios_requirements stable UUIDv5/provider/target/logical machine.zip,source DAT_MACHINE,current DAT digest/entries,REQUIRED/ARCADE_DAT_DEPENDENCY,enabled1; version increments only digest changed or prior disabled"
+          ],
+          "test_id": "RFA-RF11-dependency_start"
+        },
+        {
+          "stage": "disable-stale-dat-requirements",
+          "repo_helper": "(retrom/internal/repo/datindex.Records).DisableStale",
+          "affected_records": [
+            "bios_requirements same provider/target,DAT_MACHINE,enabled and other source_version -> disabled,version+1,time"
+          ],
+          "test_id": "RFA-RF11-dependency_start"
+        },
+        {
+          "stage": "finish-dat-success",
+          "repo_helper": "(retrom/internal/repo/dependencies.jobRecords).Finish",
+          "affected_records": [
+            "UPDATE jobs id/RUNNING -> SUCCEEDED,finished/time,leaseNULL,heartbeat,version+1"
+          ],
+          "test_id": "RFA-RF11-dependency_start"
+        },
+        {
+          "stage": "finish-dat-success-event",
+          "repo_helper": "(retrom/internal/repo/dependencies.jobRecords).event",
+          "affected_records": [
+            "INSERT SUCCEEDED event schema1/execution1/attempt1/machineCount"
+          ],
+          "test_id": "RFA-RF11-dependency_start"
+        }
+      ],
+      "idempotency": "Publication, selected DAT, requirements and terminal job share one transaction. Retry begins via retained job/input state; startup sees READY index and uses independent activation path. No HTTP receipt.",
+      "time_rule": "Baseline BeginTx(ctx,nil), shared writer connection. Startup caller passes one earlier time.Time across operations; target needs one fresh Repo technical Clock sample after write permission. File open/parse occurs outside writer. Audit UUID generated in activation callback; DAT requirement identity/digest computed in nested Service->Model calls inside same writer.",
+      "after_commit": [],
+      "fault_points": [
+        "PLANNED clear-dat-machines: fail after this SQL stage; compare complete before/after owner/reference/job/audit state and require rollback",
+        "PLANNED insert-dat-machines: fail after this SQL stage; compare complete before/after owner/reference/job/audit state and require rollback",
+        "PLANNED insert-dat-bios-sets: fail after this SQL stage; compare complete before/after owner/reference/job/audit state and require rollback",
+        "PLANNED insert-dat-roms: fail after this SQL stage; compare complete before/after owner/reference/job/audit state and require rollback",
+        "PLANNED insert-dat-disks: fail after this SQL stage; compare complete before/after owner/reference/job/audit state and require rollback",
+        "PLANNED publish-dat-statistics: fail after this SQL stage; compare complete before/after owner/reference/job/audit state and require rollback",
+        "PLANNED deselect-dat: fail after this SQL stage; compare complete before/after owner/reference/job/audit state and require rollback",
+        "PLANNED activate-dat: fail after this SQL stage; compare complete before/after owner/reference/job/audit state and require rollback",
+        "PLANNED audit-dat-activation: fail after this SQL stage; compare complete before/after owner/reference/job/audit state and require rollback",
+        "PLANNED project-dat-requirements: fail after this SQL stage; compare complete before/after owner/reference/job/audit state and require rollback",
+        "PLANNED disable-stale-dat-requirements: fail after this SQL stage; compare complete before/after owner/reference/job/audit state and require rollback",
+        "PLANNED finish-dat-success: fail after this SQL stage; compare complete before/after owner/reference/job/audit state and require rollback",
+        "PLANNED finish-dat-success-event: fail after this SQL stage; compare complete before/after owner/reference/job/audit state and require rollback",
+        "PLANNED change each Guard fact between preparation and write permission, then verify exact rejection/no writes",
+        "PLANNED cancellation, commit error, duplicate/recovery and after-commit wakeup failure with original error causes retained"
+      ],
+      "test_ids": [
+        "RFA-RF11-dependency_start",
+        "RFA-RF11-catalog_bytes"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "No CAS bytes are published and no Blob protection reference is added.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
       "operation_id": "favorites.create-folder",
       "owner": "favorites",
       "rf_id": "RF16",
@@ -2719,6 +3485,455 @@
         "release_symbol": null,
         "protected_commit": null,
         "test_ids": []
+      }
+    },
+    {
+      "operation_id": "firmware.install-browser",
+      "owner": "firmware",
+      "rf_id": "RF11",
+      "consumers": [
+        "(*retrom/internal/service/firmware.Service).Install",
+        "(*retrom/internal/transport/httpapi.Server).installBIOS"
+      ],
+      "snapshot": "retrom/internal/service/firmware.installSnapshot",
+      "prepare": "(*retrom/internal/service/firmware.Service).prepareInstall",
+      "commit": "(*retrom/internal/repo/firmware.Repository).WithWrite",
+      "policy_symbols": [
+        "retrom/internal/service/firmware.sameInstallSource",
+        "retrom/internal/service/firmware.evaluateArchive"
+      ],
+      "fresh_facts": [
+        {
+          "name": "current BIOS requirement",
+          "reader_symbol": "(retrom/internal/repo/firmware.requirementRecords).Get",
+          "reason": "Before and inside writer: enabled requirement with exact request version and runtime target;source/file kind,expected size/hashes/static members/current DAT identity"
+        },
+        {
+          "name": "current upload Blob",
+          "reader_symbol": "(retrom/internal/repo/firmware.uploadRecords).Get",
+          "reason": "Before and inside writer: upload file COMPLETE,session ID/path/final blob metadata. This query does not itself reread session owner/state or consumption"
+        },
+        {
+          "name": "current archive requirements",
+          "reader_symbol": "(retrom/internal/repo/firmware.requirementRecords).DATEntries",
+          "reason": "For DAT archive inside writer: non-NODUMP required/default BIOS ROM entries ordered name+ordinal; static archive uses decoded supplied members"
+        },
+        {
+          "name": "old active installation",
+          "reader_symbol": "(retrom/internal/repo/firmware.supersessionRecords).Current",
+          "reason": "Inside same writer: current active ID,requirement,Blob,version"
+        },
+        {
+          "name": "old browser upload consumption",
+          "reader_symbol": "(retrom/internal/repo/firmware.supersessionRecords).Consumption",
+          "reason": "Inside writer: unreleased BIOS_INSTALLATION consumption for superseded installation; absent server-origin consumption skips release scheduling"
+        }
+      ],
+      "guards": [
+        {
+          "id": "browser-requirement",
+          "fields": [
+            "enabled",
+            "version",
+            "fileKind",
+            "sourceKind"
+          ],
+          "expected_source": "Current enabled matching request version; same source/file kind as prepared snapshot",
+          "rejection": "ErrInvalid",
+          "test_id": "RFA-RF11-firmware_race"
+        },
+        {
+          "id": "browser-upload",
+          "fields": [
+            "file.state",
+            "BlobId",
+            "SHA256"
+          ],
+          "expected_source": "Current COMPLETE upload file with exact prepared BlobId/SHA256 after bounded ZIP scan outside writer",
+          "rejection": "ErrInvalid",
+          "test_id": "RFA-RF11-firmware_race"
+        },
+        {
+          "id": "browser-archive-quality",
+          "fields": [
+            "expectedEntries",
+            "archiveMembers",
+            "actualEntries"
+          ],
+          "expected_source": "Pure comparison classifies MATCHED/HASH_WARNING/MISSING_ENTRY; strict static archive missing/mismatch/warning -> INVALID rejected before writes",
+          "rejection": "firmware.ArchiveContentError",
+          "test_id": "RFA-RF11-firmware_race"
+        },
+        {
+          "id": "superseded-installation",
+          "fields": [
+            "id",
+            "requirementId",
+            "blobId",
+            "version",
+            "isActive"
+          ],
+          "expected_source": "Current ID/Blob nonempty,same requirement,1<=version<MaxInt64; deactivate exact id/requirement/blob/version/active row",
+          "rejection": "ErrInvalid",
+          "test_id": "RFA-RF11-firmware_race"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "browser-archive-evidence",
+          "repo_helper": "(retrom/internal/repo/firmware.writes).Put",
+          "affected_records": [
+            "If archive: INSERT archive_entries ordinal/path/casefold/compression/size/CRC/MD5/SHA1/SHA256/materializedNULL/time; ON CONFLICT(blob,ordinal) DO NOTHING"
+          ],
+          "test_id": "RFA-RF11-firmware_race"
+        },
+        {
+          "stage": "supersede-installation",
+          "repo_helper": "(retrom/internal/repo/firmware.supersessionRecords).Deactivate",
+          "affected_records": [
+            "bios_installations: exact current active row -> is_active0,version+1,time"
+          ],
+          "test_id": "RFA-RF11-firmware_race"
+        },
+        {
+          "stage": "release-job",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.scheduling).CreateJob",
+          "affected_records": [
+            "If prior consumption needs release: jobs PAYLOAD_RELEASE,UPLOAD_CONSUMPTION scope,dedupe,QUEUED,execution1,max_attempts4,payload/time; existing deduped job reused; no upload_consumption_releases table/write"
+          ],
+          "test_id": "RFA-RF11-firmware_race"
+        },
+        {
+          "stage": "release-input",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.scheduling).CreateJob",
+          "affected_records": [
+            "If prior consumption needs release: job_input_snapshots exact new job/execution/frozen input JSON and digest; existing deduped job reused; no upload_consumption_releases table/write"
+          ],
+          "test_id": "RFA-RF11-firmware_race"
+        },
+        {
+          "stage": "release-event",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.scheduling).CreateJob",
+          "affected_records": [
+            "If prior consumption needs release: job_events UPLOAD_CONSUMPTION scope QUEUED/execution/attempt/time; existing deduped job reused; no upload_consumption_releases table/write"
+          ],
+          "test_id": "RFA-RF11-firmware_race"
+        },
+        {
+          "stage": "browser-installation",
+          "repo_helper": "(retrom/internal/repo/firmware.writes).Create",
+          "affected_records": [
+            "INSERT bios_installations UUID,requirement/blob/original filename,size/hashes,validated requirement version,status,detailsJSON,active1,version1,time,source BROWSER_UPLOAD"
+          ],
+          "test_id": "RFA-RF11-firmware_race"
+        },
+        {
+          "stage": "browser-consumption",
+          "repo_helper": "(retrom/internal/repo/firmware.writes).Consume",
+          "affected_records": [
+            "INSERT upload_consumptions UUID,session/file,BIOS_INSTALLATION consumer/new installation,time; recordstore validates ownership invariants"
+          ],
+          "test_id": "RFA-RF11-firmware_race"
+        }
+      ],
+      "idempotency": "HTTP validates Idempotency-Key shape but stores no receipt. Current requirement version is checked; repeated permitted upload may replace installation again. Do not claim the version check alone makes this HTTP-idempotent.",
+      "time_rule": "Baseline BeginTx(ctx,nil), then current requirement/upload and archive evaluation; one service.now sample inside callback. Installation/consumption UUIDs and payload-release identities are generated inside writer.",
+      "after_commit": [
+        {
+          "action": "Signal payload-release worker after full installation commit",
+          "recovery": "Persisted release job is discoverable by worker recovery when signal is absent",
+          "test_id": "RFA-RF11-firmware_race"
+        }
+      ],
+      "fault_points": [
+        "PLANNED browser-archive-evidence: fail after this SQL stage; compare complete before/after owner/reference/job/audit state and require rollback",
+        "PLANNED supersede-installation: fail after this SQL stage; compare complete before/after owner/reference/job/audit state and require rollback",
+        "PLANNED release-job: fail after this SQL stage; compare complete before/after owner/reference/job/audit state and require rollback",
+        "PLANNED release-input: fail after this SQL stage; compare complete before/after owner/reference/job/audit state and require rollback",
+        "PLANNED release-event: fail after this SQL stage; compare complete before/after owner/reference/job/audit state and require rollback",
+        "PLANNED browser-installation: fail after this SQL stage; compare complete before/after owner/reference/job/audit state and require rollback",
+        "PLANNED browser-consumption: fail after this SQL stage; compare complete before/after owner/reference/job/audit state and require rollback",
+        "PLANNED change each Guard fact between preparation and write permission, then verify exact rejection/no writes",
+        "PLANNED cancellation, commit error, duplicate/recovery and after-commit wakeup failure with original error causes retained"
+      ],
+      "test_ids": [
+        "RFA-RF11-firmware_race",
+        "RFA-RF11-catalog_bytes"
+      ],
+      "content_coordination": {
+        "required": true,
+        "reason": "Creates BIOS installation/upload-consumption Blob protection; baseline lacks shared digest acquisition/release. RF04/RF11/RF18 race protocol remains pending.",
+        "digest_sources": [
+          "Verified current upload SHA256 and installed Blob"
+        ],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": "(*retrom/internal/repo/firmware.Repository).WithWrite",
+        "test_ids": [
+          "RFA-RF18-gc_new_reference",
+          "RFA-RF18-digest_lock_process"
+        ]
+      }
+    },
+    {
+      "operation_id": "firmware.install-server",
+      "owner": "firmware",
+      "rf_id": "RF11",
+      "consumers": [
+        "(*retrom/internal/service/firmware.Service).InstallServerCandidate"
+      ],
+      "snapshot": "retrom/internal/model/firmware.ServerInstallRequest",
+      "prepare": "(*retrom/internal/service/firmware.Service).InstallServerCandidate",
+      "commit": "(*retrom/internal/repo/firmware.Repository).WithWrite",
+      "policy_symbols": [
+        "retrom/internal/service/firmware.matchesServerCatalog"
+      ],
+      "fresh_facts": [
+        {
+          "name": "running server import execution",
+          "reader_symbol": "(retrom/internal/repo/firmware.writes).LockExecution",
+          "reason": "First writer statement verifies job id/kind SERVER_BIOS_IMPORT/scope/import/execution/worker nonempty/RUNNING/live lease and linked server_import RUNNING; this is a conditional write fence"
+        },
+        {
+          "name": "current server requirement",
+          "reader_symbol": "(retrom/internal/repo/firmware.requirementRecords).Get",
+          "reason": "Writer rereads enabled/source kind/source version/catalog digest/requirement version/provider/target and compares request"
+        },
+        {
+          "name": "current installation quality",
+          "reader_symbol": "(retrom/internal/repo/firmware.installationRecords).Active",
+          "reason": "Writer rereads active installation ID,Blob,filename,size/hashes,status,validated version to decide skip/same/better replacement"
+        },
+        {
+          "name": "current archive evidence",
+          "reader_symbol": "(retrom/internal/repo/firmware.archiveRecords).Entries",
+          "reason": "For archive comparison, writer reads complete stored archive entries; missing evidence produces SKIPPED_NOT_BETTER with incomplete-evidence code"
+        },
+        {
+          "name": "old active installation",
+          "reader_symbol": "(retrom/internal/repo/firmware.supersessionRecords).Current",
+          "reason": "Inside same writer: current active ID,requirement,Blob,version"
+        },
+        {
+          "name": "old browser upload consumption",
+          "reader_symbol": "(retrom/internal/repo/firmware.supersessionRecords).Consumption",
+          "reason": "Inside writer: unreleased BIOS_INSTALLATION consumption for superseded installation; absent server-origin consumption skips release scheduling"
+        }
+      ],
+      "guards": [
+        {
+          "id": "server-execution",
+          "fields": [
+            "jobId",
+            "kind",
+            "scope",
+            "importState",
+            "executionNo",
+            "workerId",
+            "state",
+            "leasedUntil"
+          ],
+          "expected_source": "LockExecution requires exact owning worker and live lease; baseline does not compare execution deadline",
+          "rejection": "ErrInvalid",
+          "test_id": "RFA-RF11-firmware_race"
+        },
+        {
+          "id": "server-catalog",
+          "fields": [
+            "enabled",
+            "sourceKind",
+            "sourceVersion",
+            "catalogDigest",
+            "version",
+            "providerId",
+            "targetId"
+          ],
+          "expected_source": "matchesServerCatalog exact prepared authority",
+          "rejection": "ErrCatalogChanged",
+          "test_id": "RFA-RF11-firmware_race"
+        },
+        {
+          "id": "server-candidate",
+          "fields": [
+            "candidateId",
+            "serverImportId",
+            "requirementId",
+            "state"
+          ],
+          "expected_source": "Conditional SELECTED update requires exact current candidate and state ELIGIBLE or SELECTED",
+          "rejection": "ErrInvalid",
+          "test_id": "RFA-RF11-firmware_race"
+        },
+        {
+          "id": "replace-if-better",
+          "fields": [
+            "activeInstallation",
+            "replaceIfBetter",
+            "SHA256",
+            "validatedVersion",
+            "status",
+            "archiveEvidence"
+          ],
+          "expected_source": "Absent active -> install; !replace -> SKIPPED_EXISTING; identical bytes+same version/status -> ALREADY_SAME_BYTES; otherwise pure static/DAT quality must be strictly better with complete current evidence",
+          "rejection": "SKIPPED_NOT_BETTER or wrapped evidence error",
+          "test_id": "RFA-RF11-firmware_race"
+        },
+        {
+          "id": "server-item-outcome",
+          "fields": [
+            "item.state",
+            "serverImportId",
+            "requirementId"
+          ],
+          "expected_source": "Current item must be PENDING/EVALUATING for conditional result update",
+          "rejection": "ErrInvalid",
+          "test_id": "RFA-RF11-firmware_race"
+        },
+        {
+          "id": "superseded-installation",
+          "fields": [
+            "id",
+            "requirementId",
+            "blobId",
+            "version",
+            "isActive"
+          ],
+          "expected_source": "Current ID/Blob nonempty,same requirement,1<=version<MaxInt64; deactivate exact id/requirement/blob/version/active row",
+          "rejection": "ErrInvalid",
+          "test_id": "RFA-RF11-firmware_race"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "server-execution-fence",
+          "repo_helper": "(retrom/internal/repo/firmware.writes).LockExecution",
+          "affected_records": [
+            "jobs: conditional version+1/time write under exact server BIOS import worker/live lease"
+          ],
+          "test_id": "RFA-RF11-firmware_race"
+        },
+        {
+          "stage": "server-select-candidate",
+          "repo_helper": "(retrom/internal/repo/firmware.writes).SelectCandidate",
+          "affected_records": [
+            "server_bios_import_candidates: SELECTED,not_selected_reasonNULL,time for exact eligible candidate"
+          ],
+          "test_id": "RFA-RF11-firmware_race"
+        },
+        {
+          "stage": "server-blob",
+          "repo_helper": "(retrom/internal/repo/firmware.writes).Ensure",
+          "affected_records": [
+            "Only actual install: blobcatalog.EnsureRecord registers/reuses prepared Blob metadata application/octet-stream"
+          ],
+          "test_id": "RFA-RF11-firmware_race"
+        },
+        {
+          "stage": "server-archive-evidence",
+          "repo_helper": "(retrom/internal/repo/firmware.writes).Put",
+          "affected_records": [
+            "Only actual DAT/static-archive install: INSERT archive_entries frozen ordinal/path/compression/hash facts,ON CONFLICT DO NOTHING"
+          ],
+          "test_id": "RFA-RF11-firmware_race"
+        },
+        {
+          "stage": "supersede-installation",
+          "repo_helper": "(retrom/internal/repo/firmware.supersessionRecords).Deactivate",
+          "affected_records": [
+            "bios_installations: exact current active row -> is_active0,version+1,time"
+          ],
+          "test_id": "RFA-RF11-firmware_race"
+        },
+        {
+          "stage": "release-job",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.scheduling).CreateJob",
+          "affected_records": [
+            "If prior consumption needs release: jobs PAYLOAD_RELEASE,UPLOAD_CONSUMPTION scope,dedupe,QUEUED,execution1,max_attempts4,payload/time; existing deduped job reused; no upload_consumption_releases table/write"
+          ],
+          "test_id": "RFA-RF11-firmware_race"
+        },
+        {
+          "stage": "release-input",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.scheduling).CreateJob",
+          "affected_records": [
+            "If prior consumption needs release: job_input_snapshots exact new job/execution/frozen input JSON and digest; existing deduped job reused; no upload_consumption_releases table/write"
+          ],
+          "test_id": "RFA-RF11-firmware_race"
+        },
+        {
+          "stage": "release-event",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.scheduling).CreateJob",
+          "affected_records": [
+            "If prior consumption needs release: job_events UPLOAD_CONSUMPTION scope QUEUED/execution/attempt/time; existing deduped job reused; no upload_consumption_releases table/write"
+          ],
+          "test_id": "RFA-RF11-firmware_race"
+        },
+        {
+          "stage": "server-installation",
+          "repo_helper": "(retrom/internal/repo/firmware.writes).Create",
+          "affected_records": [
+            "Only actual install: INSERT bios_installations UUID,prepared Blob/facts,current requirement version,status,augmented schema1/matchMethod details,active1,version1,SERVER_DIRECTORY,candidate reference,time"
+          ],
+          "test_id": "RFA-RF11-firmware_race"
+        },
+        {
+          "stage": "server-item-result",
+          "repo_helper": "(retrom/internal/repo/firmware.writes).Finish",
+          "affected_records": [
+            "All outcomes including skip/same: UPDATE server_bios_import_items exact import/requirement/PENDING-or-EVALUATING -> outcome,match_method,details,outcome_code,old/new installation IDs,completed/time"
+          ],
+          "test_id": "RFA-RF11-firmware_race"
+        },
+        {
+          "stage": "server-result-event",
+          "repo_helper": "(retrom/internal/repo/firmware.writes).Finish",
+          "affected_records": [
+            "INSERT job_events SERVER_IMPORT scope PROGRESS with schema1/phase INSTALLING/result"
+          ],
+          "test_id": "RFA-RF11-firmware_race"
+        }
+      ],
+      "idempotency": "No HTTP receipt; exact item/candidate/execution owner gates duplicate handling. Existing identical valid installation yields ALREADY_SAME_BYTES but still records candidate selection, item outcome and event.",
+      "time_rule": "Baseline BeginTx(ctx,nil); service.now sampled for initial job fence then sampled again after requirement read. Installation UUID and retirement release identities generated inside callback; file/hash/evaluation preparation occurs in RF14 server-import caller.",
+      "after_commit": [
+        {
+          "action": "Signal payload-release after server result transaction",
+          "recovery": "Recovery uses persisted release jobs and server-import item outcome; late owners rejected by execution fence",
+          "test_id": "RFA-RF11-firmware_race"
+        }
+      ],
+      "fault_points": [
+        "PLANNED server-execution-fence: fail after this SQL stage; compare complete before/after owner/reference/job/audit state and require rollback",
+        "PLANNED server-select-candidate: fail after this SQL stage; compare complete before/after owner/reference/job/audit state and require rollback",
+        "PLANNED server-blob: fail after this SQL stage; compare complete before/after owner/reference/job/audit state and require rollback",
+        "PLANNED server-archive-evidence: fail after this SQL stage; compare complete before/after owner/reference/job/audit state and require rollback",
+        "PLANNED supersede-installation: fail after this SQL stage; compare complete before/after owner/reference/job/audit state and require rollback",
+        "PLANNED release-job: fail after this SQL stage; compare complete before/after owner/reference/job/audit state and require rollback",
+        "PLANNED release-input: fail after this SQL stage; compare complete before/after owner/reference/job/audit state and require rollback",
+        "PLANNED release-event: fail after this SQL stage; compare complete before/after owner/reference/job/audit state and require rollback",
+        "PLANNED server-installation: fail after this SQL stage; compare complete before/after owner/reference/job/audit state and require rollback",
+        "PLANNED server-item-result: fail after this SQL stage; compare complete before/after owner/reference/job/audit state and require rollback",
+        "PLANNED server-result-event: fail after this SQL stage; compare complete before/after owner/reference/job/audit state and require rollback",
+        "PLANNED change each Guard fact between preparation and write permission, then verify exact rejection/no writes",
+        "PLANNED cancellation, commit error, duplicate/recovery and after-commit wakeup failure with original error causes retained"
+      ],
+      "test_ids": [
+        "RFA-RF11-firmware_race",
+        "RFA-RF11-catalog_bytes"
+      ],
+      "content_coordination": {
+        "required": true,
+        "reason": "Creates BIOS installation/upload-consumption Blob protection; baseline lacks shared digest acquisition/release. RF04/RF11/RF18 race protocol remains pending.",
+        "digest_sources": [
+          "ServerInstallRequest.Metadata.SHA256 from verified candidate"
+        ],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": "(*retrom/internal/repo/firmware.Repository).WithWrite",
+        "test_ids": [
+          "RFA-RF18-gc_new_reference",
+          "RFA-RF18-digest_lock_process"
+        ]
       }
     },
     {
@@ -7092,6 +8307,327 @@
       }
     },
     {
+      "operation_id": "runtimeprovider.reconcile",
+      "owner": "runtimeprovider",
+      "rf_id": "RF11",
+      "consumers": [
+        "(*retrom/internal/service/runtimeprovider.Service).Reconcile",
+        "retrom/cmd/retrom.bootstrapServerResources",
+        "retrom/cmd/retrom.execute",
+        "retrom/cmd/retrom.executeWithPasswordReader",
+        "retrom/cmd/retrom.main",
+        "retrom/cmd/retrom.openAndBootstrapDatabase",
+        "retrom/cmd/retrom.run"
+      ],
+      "snapshot": "retrom/internal/model/runtimeprovider.Projection",
+      "prepare": "(*retrom/internal/service/runtimeprovider.Service).Reconcile",
+      "commit": "(*retrom/internal/repo/runtimeprovider.Repository).WithWrite",
+      "policy_symbols": [
+        "retrom/internal/service/runtimeprovider.validateProviderVersion",
+        "retrom/internal/service/runtimeprovider.ValidateCheckpointFormats"
+      ],
+      "fresh_facts": [
+        {
+          "name": "current providers and catalog",
+          "reader_symbol": "(retrom/internal/repo/runtimeprovider.catalogRecords).Current",
+          "reason": "Writer reads all provider versions/bundle hashes,provider/target identities and singleton catalog digest"
+        },
+        {
+          "name": "stored save formats",
+          "reader_symbol": "(retrom/internal/repo/runtimeprovider.catalogRecords).CheckpointFormats",
+          "reason": "Writer selects distinct nondeleted save checkpoint formats through source launch core and same-game selected runtime variant"
+        },
+        {
+          "name": "removed-target references",
+          "reader_symbol": "(retrom/internal/repo/runtimeprovider.catalogRecords).TargetReferenced",
+          "reason": "Writer checks BIOS requirements,DAT versions,server BIOS items,import jobs/core validations,RPG profiles,preview sessions/screenshots,game variants,launch/netplay sessions,Pegasus/EmulationStation collections"
+        }
+      ],
+      "guards": [
+        {
+          "id": "projection-shape",
+          "fields": [
+            "catalogSHA256",
+            "providers",
+            "nowMS"
+          ],
+          "expected_source": "64-character catalog digest,nonempty provider set,nonnegative supplied time",
+          "rejection": "ErrProjectionInvalid",
+          "test_id": "RFA-RF11-provider_forward"
+        },
+        {
+          "id": "forward-provider",
+          "fields": [
+            "providerVersion",
+            "bundleSHA256"
+          ],
+          "expected_source": "Semver never decreases; same version cannot carry another bundle; absent provider is new",
+          "rejection": "ErrProviderDowngrade/ErrProviderVersionRebuilt",
+          "test_id": "RFA-RF11-provider_forward"
+        },
+        {
+          "id": "checkpoint-readability",
+          "fields": [
+            "storedCheckpointFormats",
+            "target.readFormats"
+          ],
+          "expected_source": "Every stored nondeleted checkpoint format remains readable by the target",
+          "rejection": "ErrProviderCheckpointUnreadable",
+          "test_id": "RFA-RF11-provider_forward"
+        },
+        {
+          "id": "removed-target",
+          "fields": [
+            "providerId",
+            "targetId",
+            "references"
+          ],
+          "expected_source": "No current protected reference to removed runtime target; SQL FK also protects removed product definitions",
+          "rejection": "ErrProviderTargetReferenced/runtimecatalog.ErrCatalogInvalid",
+          "test_id": "RFA-RF11-provider_forward"
+        },
+        {
+          "id": "unchanged-projection",
+          "fields": [
+            "changedProviders",
+            "catalogSHA256"
+          ],
+          "expected_source": "No changed provider and same catalog hash is a no-op",
+          "rejection": "No write",
+          "test_id": "RFA-RF11-provider_forward"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "end-provider-rooms",
+          "repo_helper": "retrom/internal/repo/runtimeprovider.terminateProviderSessions",
+          "affected_records": [
+            "netplay_rooms WAITING/STARTING/RUNNING whose current session uses changed/removed provider -> ENDED,current_sessionNULL,SERVER_RESTARTED,end/time,version+1"
+          ],
+          "test_id": "RFA-RF11-provider_forward"
+        },
+        {
+          "stage": "fail-provider-sessions",
+          "repo_helper": "retrom/internal/repo/runtimeprovider.terminateProviderSessions",
+          "affected_records": [
+            "netplay_sessions for changed/removed provider not FINISHED/FAILED -> FAILED,SERVER_RESTARTED,finished/time,version+1"
+          ],
+          "test_id": "RFA-RF11-provider_forward"
+        },
+        {
+          "stage": "clear-runtime_binding_content_kinds",
+          "repo_helper": "retrom/internal/repo/runtimeprovider.clearHostBindings",
+          "affected_records": [
+            "runtime_binding_content_kinds: DELETE old Host binding projection"
+          ],
+          "test_id": "RFA-RF11-provider_forward"
+        },
+        {
+          "stage": "clear-runtime_binding_platforms",
+          "repo_helper": "retrom/internal/repo/runtimeprovider.clearHostBindings",
+          "affected_records": [
+            "runtime_binding_platforms: DELETE old Host binding projection"
+          ],
+          "test_id": "RFA-RF11-provider_forward"
+        },
+        {
+          "stage": "clear-runtime_target_bindings",
+          "repo_helper": "retrom/internal/repo/runtimeprovider.clearHostBindings",
+          "affected_records": [
+            "runtime_target_bindings: DELETE old Host binding projection"
+          ],
+          "test_id": "RFA-RF11-provider_forward"
+        },
+        {
+          "stage": "prune-platform_cores",
+          "repo_helper": "retrom/internal/repo/runtimecatalog.pruneUnreferencedDefinitions",
+          "affected_records": [
+            "platform_cores: DELETE definitions/relationships absent from supplied catalog; FK rejection rolls back entire provider activation"
+          ],
+          "test_id": "RFA-RF11-provider_forward"
+        },
+        {
+          "stage": "prune-cores",
+          "repo_helper": "retrom/internal/repo/runtimecatalog.pruneUnreferencedDefinitions",
+          "affected_records": [
+            "cores: DELETE definitions/relationships absent from supplied catalog; FK rejection rolls back entire provider activation"
+          ],
+          "test_id": "RFA-RF11-provider_forward"
+        },
+        {
+          "stage": "prune-platforms",
+          "repo_helper": "retrom/internal/repo/runtimecatalog.pruneUnreferencedDefinitions",
+          "affected_records": [
+            "platforms: DELETE definitions/relationships absent from supplied catalog; FK rejection rolls back entire provider activation"
+          ],
+          "test_id": "RFA-RF11-provider_forward"
+        },
+        {
+          "stage": "prune-content_kinds",
+          "repo_helper": "retrom/internal/repo/runtimecatalog.pruneUnreferencedDefinitions",
+          "affected_records": [
+            "content_kinds: DELETE definitions/relationships absent from supplied catalog; FK rejection rolls back entire provider activation"
+          ],
+          "test_id": "RFA-RF11-provider_forward"
+        },
+        {
+          "stage": "project-platforms",
+          "repo_helper": "retrom/internal/repo/runtimecatalog.SynchronizeDefinitions",
+          "affected_records": [
+            "platforms: INSERT/UPSERT name,sort_order,enabled,time"
+          ],
+          "test_id": "RFA-RF11-provider_forward"
+        },
+        {
+          "stage": "project-cores",
+          "repo_helper": "retrom/internal/repo/runtimecatalog.SynchronizeDefinitions",
+          "affected_records": [
+            "cores: INSERT/UPSERT name,enabled,time"
+          ],
+          "test_id": "RFA-RF11-provider_forward"
+        },
+        {
+          "stage": "project-content_kinds",
+          "repo_helper": "retrom/internal/repo/runtimecatalog.SynchronizeDefinitions",
+          "affected_records": [
+            "content_kinds: INSERT/UPSERT id only,ON CONFLICT DO NOTHING"
+          ],
+          "test_id": "RFA-RF11-provider_forward"
+        },
+        {
+          "stage": "disable-platform-core-relations",
+          "repo_helper": "retrom/internal/repo/runtimecatalog.writeProductRelations",
+          "affected_records": [
+            "platform_cores: disable enabled relations absent from catalog bindings"
+          ],
+          "test_id": "RFA-RF11-provider_forward"
+        },
+        {
+          "stage": "project-platform-core-relations",
+          "repo_helper": "retrom/internal/repo/runtimecatalog.writeProductRelations",
+          "affected_records": [
+            "platform_cores: INSERT/UPSERT declared pairs enabled iff current platform and core enabled"
+          ],
+          "test_id": "RFA-RF11-provider_forward"
+        },
+        {
+          "stage": "upsert-provider",
+          "repo_helper": "retrom/internal/repo/runtimeprovider.writeProvider",
+          "affected_records": [
+            "runtime_providers: UPSERT version/API/bundle/manifest/module hashes,source,release identity,activation time"
+          ],
+          "test_id": "RFA-RF11-provider_forward"
+        },
+        {
+          "stage": "upsert-target",
+          "repo_helper": "retrom/internal/repo/runtimeprovider.writeTarget",
+          "affected_records": [
+            "runtime_targets: UPSERT display name,options/capabilities/checkpoint/manifest fragment JSON for provider/target"
+          ],
+          "test_id": "RFA-RF11-provider_forward"
+        },
+        {
+          "stage": "remove-targets",
+          "repo_helper": "retrom/internal/repo/runtimeprovider.removeStaleProjection",
+          "affected_records": [
+            "runtime_targets: DELETE each obsolete provider/target"
+          ],
+          "test_id": "RFA-RF11-provider_forward"
+        },
+        {
+          "stage": "remove-providers",
+          "repo_helper": "retrom/internal/repo/runtimeprovider.removeStaleProjection",
+          "affected_records": [
+            "runtime_providers: DELETE each obsolete provider"
+          ],
+          "test_id": "RFA-RF11-provider_forward"
+        },
+        {
+          "stage": "insert-bindings",
+          "repo_helper": "retrom/internal/repo/runtimeprovider.writeHostBinding",
+          "affected_records": [
+            "runtime_target_bindings: INSERT declared binding after registered detector strategy resolves delivery; exact core/provider/target/platform/content members"
+          ],
+          "test_id": "RFA-RF11-provider_forward"
+        },
+        {
+          "stage": "insert-binding-platforms",
+          "repo_helper": "retrom/internal/repo/runtimeprovider.writeHostBinding",
+          "affected_records": [
+            "runtime_binding_platforms: INSERT declared binding after registered detector strategy resolves delivery; exact core/provider/target/platform/content members"
+          ],
+          "test_id": "RFA-RF11-provider_forward"
+        },
+        {
+          "stage": "insert-binding-kinds",
+          "repo_helper": "retrom/internal/repo/runtimeprovider.writeHostBinding",
+          "affected_records": [
+            "runtime_binding_content_kinds: INSERT declared binding after registered detector strategy resolves delivery; exact core/provider/target/platform/content members"
+          ],
+          "test_id": "RFA-RF11-provider_forward"
+        },
+        {
+          "stage": "catalog-state",
+          "repo_helper": "retrom/internal/repo/runtimeprovider.writeCatalogState",
+          "affected_records": [
+            "runtime_catalog_state: singleton1 UPSERT catalog digest/activation time"
+          ],
+          "test_id": "RFA-RF11-provider_forward"
+        },
+        {
+          "stage": "catalog-audit",
+          "repo_helper": "(retrom/internal/repo/runtimeprovider.projectionRecords).Audit",
+          "affected_records": [
+            "audit_events: UUIDv7,SYSTEM/runtime-provider-reconciliation,RUNTIME_PROVIDER_RECONCILED,active catalog,diff changed providers+digest,time"
+          ],
+          "test_id": "RFA-RF11-provider_forward"
+        }
+      ],
+      "idempotency": "Same provider versions/bundles and catalog hash produce no writes; changed provider IDs sorted. Candidate filesystem/manifest verification is outside this transaction, all SQL projection and affected netplay termination are atomic.",
+      "time_rule": "Baseline BeginTx(ctx,nil), shared writer connection. Startup caller passes one earlier time.Time across operations; target needs one fresh Repo technical Clock sample after write permission. Audit UUID is generated inside callback after projection writes; prepareReconciliation performs current-fact queries inside writer.",
+      "after_commit": [],
+      "fault_points": [
+        "PLANNED end-provider-rooms: fail after this SQL stage; compare complete before/after owner/reference/job/audit state and require rollback",
+        "PLANNED fail-provider-sessions: fail after this SQL stage; compare complete before/after owner/reference/job/audit state and require rollback",
+        "PLANNED clear-runtime_binding_content_kinds: fail after this SQL stage; compare complete before/after owner/reference/job/audit state and require rollback",
+        "PLANNED clear-runtime_binding_platforms: fail after this SQL stage; compare complete before/after owner/reference/job/audit state and require rollback",
+        "PLANNED clear-runtime_target_bindings: fail after this SQL stage; compare complete before/after owner/reference/job/audit state and require rollback",
+        "PLANNED prune-platform_cores: fail after this SQL stage; compare complete before/after owner/reference/job/audit state and require rollback",
+        "PLANNED prune-cores: fail after this SQL stage; compare complete before/after owner/reference/job/audit state and require rollback",
+        "PLANNED prune-platforms: fail after this SQL stage; compare complete before/after owner/reference/job/audit state and require rollback",
+        "PLANNED prune-content_kinds: fail after this SQL stage; compare complete before/after owner/reference/job/audit state and require rollback",
+        "PLANNED project-platforms: fail after this SQL stage; compare complete before/after owner/reference/job/audit state and require rollback",
+        "PLANNED project-cores: fail after this SQL stage; compare complete before/after owner/reference/job/audit state and require rollback",
+        "PLANNED project-content_kinds: fail after this SQL stage; compare complete before/after owner/reference/job/audit state and require rollback",
+        "PLANNED disable-platform-core-relations: fail after this SQL stage; compare complete before/after owner/reference/job/audit state and require rollback",
+        "PLANNED project-platform-core-relations: fail after this SQL stage; compare complete before/after owner/reference/job/audit state and require rollback",
+        "PLANNED upsert-provider: fail after this SQL stage; compare complete before/after owner/reference/job/audit state and require rollback",
+        "PLANNED upsert-target: fail after this SQL stage; compare complete before/after owner/reference/job/audit state and require rollback",
+        "PLANNED remove-targets: fail after this SQL stage; compare complete before/after owner/reference/job/audit state and require rollback",
+        "PLANNED remove-providers: fail after this SQL stage; compare complete before/after owner/reference/job/audit state and require rollback",
+        "PLANNED insert-bindings: fail after this SQL stage; compare complete before/after owner/reference/job/audit state and require rollback",
+        "PLANNED insert-binding-platforms: fail after this SQL stage; compare complete before/after owner/reference/job/audit state and require rollback",
+        "PLANNED insert-binding-kinds: fail after this SQL stage; compare complete before/after owner/reference/job/audit state and require rollback",
+        "PLANNED catalog-state: fail after this SQL stage; compare complete before/after owner/reference/job/audit state and require rollback",
+        "PLANNED catalog-audit: fail after this SQL stage; compare complete before/after owner/reference/job/audit state and require rollback",
+        "PLANNED change each Guard fact between preparation and write permission, then verify exact rejection/no writes",
+        "PLANNED cancellation, commit error, duplicate/recovery and after-commit wakeup failure with original error causes retained"
+      ],
+      "test_ids": [
+        "RFA-RF11-provider_forward",
+        "RFA-RF11-catalog_bytes"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "No CAS bytes are published and no Blob protection reference is added.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
       "owner": "saves",
       "rf_id": "RF08",
       "snapshot": "(*retrom/internal/service/saves.Service).loadLaunch",
@@ -9720,6 +11256,7 @@
     "Upload consumption insertion is an atomic child of RF11 firmware, RF13 library import/review/parent/disc and RF16 content/assets commits; it must not become a separate upload transaction.",
     "Current validateFinalizationFiles accepts a remaining-file subset after partial success and uses reflect.DeepEqual. RF04/RF09 must replace reflection while preserving nil/empty and every field's equality semantics.",
     "RF16 SOURCE_REVIEWED baseline census: 30 standalone transactions including separate content claim/heartbeat. Aggregate RFA links are planned, not per-Guard/stage PASS evidence. Target actor/impact/time freshness, prepared-upload binding, nested sessionstore stages, content locking and all real query consumers remain migration/verification work.",
-    "RF10 SOURCE_REVIEWED census adds 14 transaction families, including separate validation heartbeat/failure and isolated-capability revoke. Branch-specific SQL stages and nested sessionstore writes are explicit. Aggregate RFA references are PLANNED, not per-Guard/stage evidence. Actor/session freshness, prepared preview file closure, signed isolation expiry, all digest lock protocols and expired product receipts remain migration/behavior-review work."
+    "RF10 SOURCE_REVIEWED census adds 14 transaction families, including separate validation heartbeat/failure and isolated-capability revoke. Branch-specific SQL stages and nested sessionstore writes are explicit. Aggregate RFA references are PLANNED, not per-Guard/stage evidence. Actor/session freshness, prepared preview file closure, signed isolation expiry, all digest lock protocols and expired product receipts remain migration/behavior-review work.",
+    "RF11 SOURCE_REVIEWED census adds 9 transaction families: provider reconciliation, browser/server firmware, startup definitions, DAT ensure/recover,claim,publish,ready activation,failure. DAT requirements and firmware supersession are atomic nested steps, not standalone commits. BIOS/corevalidation are read-only services. Guards/stages and fixture references remain PLANNED; stale DAT execution fencing, writer time, external preparation, digest locking and full parser/Provider consumers require migration/verification."
   ]
 }
