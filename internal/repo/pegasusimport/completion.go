@@ -134,4 +134,3 @@ VALUES(?,'PEGASUS_IMPORT',?,'SUCCEEDED',?,?)`,
 	}
 	return nil
 }
-

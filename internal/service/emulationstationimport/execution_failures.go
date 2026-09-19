@@ -51,8 +51,9 @@ func (service *ExecutionControl) failAttempt(
 		return "", false, err
 	}
 	if change.JobState != "QUEUED" {
+		now := service.now()
 		result, err := service.repository.CommitExecutionReviewBatch(
-			ctx, unit, func() int64 { return service.now().UnixMilli() }, before.ReleaseYearMax,
+			ctx, unit, now.UnixMilli(), before.ReleaseYearMax,
 		)
 		if err != nil {
 			return "", false, err

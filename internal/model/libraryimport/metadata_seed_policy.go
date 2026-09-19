@@ -21,8 +21,8 @@ type MetadataSeedInput struct {
 
 // MetadataSeedPlan describes metadata changes ready for persistence.
 type MetadataSeedPlan struct {
-	Changed      bool
-	Change       MetadataChange
+	Changed       bool
+	Change        MetadataChange
 	ResultVersion int64
 }
 

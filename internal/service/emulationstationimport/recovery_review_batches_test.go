@@ -2,69 +2,37 @@ package emulationstationimport
 
 import (
 	"context"
-	"fmt"
 	"testing"
 	"time"
 
 	model "retrom/internal/model/emulationstationimport"
-	library "retrom/internal/model/libraryimport"
 )
 
 type recoveryReviewMemory struct {
-	before                                    model.LeaseSnapshot
+	before                                       model.LeaseSnapshot
 	remaining, completed, transactions, maxBatch int
-	applied                                    int
+	applied                                      int
 }
 
 func (memory *recoveryReviewMemory) Expired(context.Context, int64, int) ([]model.LeaseSnapshot, error) {
 	return []model.LeaseSnapshot{memory.before}, nil
 }
 
-func (memory *recoveryReviewMemory) WithRecovery(_ context.Context, run func(model.RecoveryScope) error) error {
-	before := memory.completed
-	if err := run(model.RecoveryScope{Payload: emptyPayloadScope(), Read: memory, Write: memory, Metadata: memory}); err != nil {
-		return err
-	}
-	memory.transactions++
-	memory.maxBatch = max(memory.maxBatch, memory.completed-before)
-	return nil
-}
-
-func (memory *recoveryReviewMemory) Current(_ context.Context, _ string) (model.LeaseSnapshot, bool, error) {
+func (memory *recoveryReviewMemory) CurrentRecovery(_ context.Context, _ string) (model.LeaseSnapshot, bool, error) {
 	return memory.before, true, nil
 }
 
-func (memory *recoveryReviewMemory) Reviews(_ context.Context, _ string, _ int) ([]model.ExecutionReview, error) {
-	result := make([]model.ExecutionReview, min(101, memory.remaining))
-	for index := range result {
-		result[index] = model.ExecutionReview{
-			ItemID: fmt.Sprint(memory.completed + index), State: "VALIDATING", ReservedItemID: "ordinary", ReservedJobID: "library",
-			Version: 1, MetadataJSON: `{"title":"Game"}`, WarningsJSON: "[]",
-		}
-	}
-	return result, nil
+func (memory *recoveryReviewMemory) CommitRecoveryReviewBatch(_ context.Context, candidate model.LeaseSnapshot, _ int64, _ int) (model.RecoveryReviewBatchResult, error) {
+	batch := min(100, memory.remaining)
+	memory.remaining -= batch
+	memory.completed += batch
+	memory.transactions++
+	memory.maxBatch = max(memory.maxBatch, batch)
+	memory.before.ImportVersion += int64(batch)
+	return model.RecoveryReviewBatchResult{Before: memory.before, Found: true, More: memory.remaining > 0}, nil
 }
 
-func (memory *recoveryReviewMemory) Fence(context.Context, model.LeaseSnapshot, int64) error {
-	return nil
-}
-
-func (memory *recoveryReviewMemory) CompleteReview(_ context.Context, _ model.ExecutionReviewCompletion) error {
-	memory.remaining--
-	memory.completed++
-	memory.before.ImportVersion++
-	return nil
-}
-
-func (*recoveryReviewMemory) CurrentMetadata(_ context.Context, _ string) (library.MetadataDraft, error) {
-	return library.MetadataDraft{Version: 1, MetadataJSON: `{"description":"","developer":"","genre":"","players":null,"publisher":"","releaseYear":null,"title":"Game"}`}, nil
-}
-
-func (*recoveryReviewMemory) SaveMetadata(_ context.Context, _ library.MetadataChange) error {
-	return nil
-}
-
-func (memory *recoveryReviewMemory) Apply(_ context.Context, change model.RecoveryChange) error {
+func (memory *recoveryReviewMemory) CommitRecovery(_ context.Context, change model.RecoveryChange) error {
 	memory.applied++
 	memory.before.JobState, memory.before.ImportState = change.JobState, change.ImportState
 	return nil

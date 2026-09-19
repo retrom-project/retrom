@@ -85,4 +85,3 @@ type ValidationTicker interface {
 	Ticks() <-chan time.Time
 	Stop()
 }
-

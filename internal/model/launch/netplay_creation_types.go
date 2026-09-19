@@ -41,4 +41,3 @@ type NetplayCreationRepository interface {
 	LoadNetplaySnapshot(context.Context, NetplayCreateRequest) (NetplayCreationSnapshot, error)
 	CommitNetplayCreation(context.Context, NetplayCreationPlan) error
 }
-

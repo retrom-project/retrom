@@ -2,37 +2,33 @@ package pegasusimport
 
 import (
 	"context"
+	"database/sql/driver"
 	"errors"
+	"strings"
 	"testing"
 
-	pegasusimportmodel "retrom/internal/model/pegasusimport"
 	repository "retrom/internal/repo/pegasusimport"
-	library "retrom/internal/service/libraryimport"
 	pegasusimportservice "retrom/internal/service/pegasusimport"
+	"retrom/internal/testkit/testsupport"
 )
-
-type failedRecovery struct {
-	pegasusimportmodel.RecoveryRepository
-	cause error
-}
-
-func (failure failedRecovery) WithRecovery(ctx context.Context, work func(pegasusimportmodel.RecoveryScope) error) error {
-	return failure.RecoveryRepository.WithRecovery(ctx, func(scope pegasusimportmodel.RecoveryScope) error {
-		if err := work(scope); err != nil {
-			return err
-		}
-		return failure.cause
-	})
-}
 
 func TestRecoveryRollsBackSeededReviewAndParentOnLateFailure(t *testing.T) {
 	t.Parallel()
 	service, _, _ := handoffFixture(t)
 	mustExecPegasusTest(t.Context(), t, service.database, `UPDATE jobs SET leased_until_ms=5 WHERE id='work'`)
 	before := readHandoffState(t, service)
+
 	cause := errors.New("recovery commit rejected")
-	storage := failedRecovery{RecoveryRepository: repository.NewRecovery(service.database), cause: cause}
-	recovery := pegasusimportservice.NewRecovery(storage, library.NewMetadataSeeder(nil, service.now), service.now)
+	faultDB := testsupport.OpenSQLFaultDatabase(t, service.database, testsupport.SQLFaultHooks{
+		BeforeExec: func(_ context.Context, query string, _ []driver.NamedValue) error {
+			if strings.TrimSpace(query) == "COMMIT" {
+				return cause
+			}
+			return nil
+		},
+	})
+	storage := repository.NewRecovery(faultDB)
+	recovery := pegasusimportservice.NewRecovery(storage, nil, service.now)
 	if err := recovery.Recover(t.Context()); !errors.Is(err, cause) {
 		t.Fatalf("late failure lost cause: %v", err)
 	}

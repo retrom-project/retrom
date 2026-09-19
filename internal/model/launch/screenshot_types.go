@@ -43,4 +43,3 @@ type ScreenshotRepository interface {
 	LoadScreenshotSource(context.Context, string) (ScreenshotSource, bool, error)
 	CommitScreenshot(context.Context, ScreenshotWrite) error
 }
-

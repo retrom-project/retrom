@@ -34,12 +34,12 @@ func NewAccounts(
 			accountpersistence.NewInitialization(
 				database,
 			),
-		accountsservice.InitializationOptions{
-			Mode:        mode,
-			Credentials: credentials,
-			Hasher:      hasher,
-			Blocklist:   blocklist,
-			Mint:        mint,
+			accountsservice.InitializationOptions{
+				Mode:        mode,
+				Credentials: credentials,
+				Hasher:      hasher,
+				Blocklist:   blocklist,
+				Mint:        mint,
 				Now:         now,
 			},
 		),

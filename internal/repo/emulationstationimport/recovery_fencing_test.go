@@ -2,43 +2,44 @@ package emulationstationimport
 
 import (
 	"context"
-	"errors"
 	"reflect"
 	"testing"
 	"time"
 
-	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
-	"retrom/internal/repo/dbexec"
+	model "retrom/internal/model/emulationstationimport"
 	emulationstationimportservice "retrom/internal/service/emulationstationimport"
 )
 
-type recoveryConcurrentChange struct {
-	*Recovery
+type recoveryCASRepo struct {
+	model.RecoveryRepository
 	scenario string
 }
 
-func (repository recoveryConcurrentChange) WithRecovery(ctx context.Context, work func(emulationstationimportmodel.RecoveryScope) error) error {
-	return repository.Recovery.WithRecovery(ctx, func(scope emulationstationimportmodel.RecoveryScope) error {
-		records, ok := scope.Write.(recoveryRecords)
-		if !ok {
-			return errors.New("unexpected recovery scope")
-		}
-		scope.Write = recoveryConcurrentWriter{RecoveryWriter: records, executor: records.executor, scenario: repository.scenario}
-		return work(scope)
-	})
-}
-
-type recoveryConcurrentWriter struct {
-	emulationstationimportmodel.RecoveryWriter
-	executor dbexec.Executor
-	scenario string
-}
-
-func (writer recoveryConcurrentWriter) Apply(ctx context.Context, change emulationstationimportmodel.RecoveryChange) error {
-	if err := injectLeaseReplacement(ctx, writer.executor, writer.scenario, change.Before.JobID); err != nil {
-		return err
+func (r recoveryCASRepo) CommitRecovery(ctx context.Context, change model.RecoveryChange) error {
+	before := &change.Before
+	switch r.scenario {
+	case "job version":
+		before.JobVersion++
+	case "plan version":
+		before.ImportVersion++
+	case "attempt":
+		before.Attempt++
+	case "execution":
+		before.ExecutionNo++
+	case "deadline":
+		before.DeadlineAtMS = 900
+	case "kind":
+		before.Kind = "SERVER_EMULATIONSTATION_IMPORT"
+	case "scope":
+		before.ImportID = "import-1"
+	case "link":
+		before.JobID = "other"
+	case "lease":
+		before.LeaseUntilMS = 1000
+	case "worker":
+		before.WorkerID = "replacement"
 	}
-	return writer.RecoveryWriter.Apply(ctx, change)
+	return r.RecoveryRepository.CommitRecovery(ctx, change)
 }
 
 func TestRecoveryCASRejectsReplacedScopeBudgetAndOwner(t *testing.T) {
@@ -49,7 +50,12 @@ func TestRecoveryCASRejectsReplacedScopeBudgetAndOwner(t *testing.T) {
 			db, _ := recoveryDatabase(t, false, true)
 			seedLeaseOrphan(t, db)
 			before := planRows(t, db)
-			err := emulationstationimportservice.NewRecovery(recoveryConcurrentChange{Recovery: NewRecovery(db), scenario: scenario}, func() time.Time { return time.UnixMilli(1500) }).Recover(t.Context())
+
+			repo := recoveryCASRepo{
+				RecoveryRepository: NewRecovery(db),
+				scenario:           scenario,
+			}
+			err := emulationstationimportservice.NewRecovery(repo, func() time.Time { return time.UnixMilli(1500) }).Recover(t.Context())
 			if err != nil {
 				t.Fatalf("stale candidate wasn't skipped: %v", err)
 			}

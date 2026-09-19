@@ -26,7 +26,7 @@ func (memory *executionMemory) TerminalCount(_ context.Context, _ string) (int64
 }
 
 func (memory *executionMemory) CommitExecutionReviewBatch(
-	_ context.Context, _ model.Execution, _ func() int64, _ int,
+	_ context.Context, _ model.Execution, _ int64, _ int,
 ) (model.ExecutionReviewBatchResult, error) {
 	return model.ExecutionReviewBatchResult{Before: memory.before}, nil
 }

@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql/driver"
 	"errors"
-	"fmt"
 	"reflect"
 	"strings"
 	"sync/atomic"
@@ -75,55 +74,26 @@ func recoveryFaultHooks(stage string, unit emulationstationimportmodel.Execution
 	}
 }
 
-type recoveryCompletionFailure struct {
-	*Recovery
-	commit bool
-}
-
-func (repository recoveryCompletionFailure) WithRecovery(ctx context.Context, work func(emulationstationimportmodel.RecoveryScope) error) error {
-	return repository.Recovery.WithRecovery(ctx, func(scope emulationstationimportmodel.RecoveryScope) error {
-		if err := work(scope); err != nil {
-			return err
-		}
-		if !repository.commit {
-			return errLeaseStorage
-		}
-		records, ok := scope.Read.(recoveryRecords)
-		if !ok {
-			return errors.New("unexpected recovery scope")
-		}
-		if _, err := records.executor.ExecContext(ctx, `PRAGMA defer_foreign_keys=ON`); err != nil {
-			return fmt.Errorf("defer recovery fixture constraint: %w", err)
-		}
-		if _, err := records.executor.ExecContext(ctx, `INSERT INTO job_input_snapshots(job_id,execution_no,input_json,input_digest,created_at_ms)
-VALUES('missing-recovery-parent',1,'{}','`+planDigest+`',12)`); err != nil {
-			return fmt.Errorf("inject recovery commit fault: %w", err)
-		}
-		return nil
-	})
-}
-
-func TestRecoveryRollsBackAfterFinalEventAndCommitFailure(t *testing.T) {
+func TestRecoveryCommitFailureRollsBack(t *testing.T) {
 	t.Parallel()
-	for _, commit := range []bool{false, true} {
-		t.Run(map[bool]string{false: "callback", true: "commit"}[commit], func(t *testing.T) {
-			t.Parallel()
-			db, _ := recoveryDatabase(t, false, true)
-			before := planRows(t, db)
-			err := emulationstationimportservice.NewRecovery(recoveryCompletionFailure{Recovery: NewRecovery(db), commit: commit}, func() time.Time { return time.UnixMilli(1500) }).Recover(t.Context())
-			if err == nil {
-				t.Fatal("late recovery failure committed")
+	db, _ := recoveryDatabase(t, false, true)
+	before := planRows(t, db)
+
+	cause := errors.New("recovery commit injected")
+	faultDB := testsupport.OpenSQLFaultDatabase(t, db, testsupport.SQLFaultHooks{
+		BeforeExec: func(_ context.Context, query string, _ []driver.NamedValue) error {
+			if strings.TrimSpace(query) == "COMMIT" {
+				return cause
 			}
-			if !commit && !errors.Is(err, errLeaseStorage) {
-				t.Fatalf("lost callback cause: %v", err)
-			}
-			if commit && !strings.Contains(err.Error(), "FOREIGN KEY") {
-				t.Fatalf("missing commit failure: %v", err)
-			}
-			if !reflect.DeepEqual(before, planRows(t, db)) {
-				t.Fatal("late failure retained projection changes")
-			}
-		})
+			return nil
+		},
+	})
+	err := emulationstationimportservice.NewRecovery(NewRecovery(faultDB), func() time.Time { return time.UnixMilli(1500) }).Recover(t.Context())
+	if err == nil {
+		t.Fatal("late recovery failure committed")
+	}
+	if !reflect.DeepEqual(before, planRows(t, db)) {
+		t.Fatal("late failure retained projection changes")
 	}
 }
 
