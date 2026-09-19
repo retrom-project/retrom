@@ -933,9 +933,15 @@
     {
       "id": "importprogress.Project",
       "owner": "importprogress",
-      "rf_id": "RF17",
+      "rf_id": "RF13",
       "symbol": "retrom/internal/model/importprogress.Project",
-      "consumers": [],
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.creationCommit).resolveReconfiguration",
+        "(*retrom/internal/service/libraryimport.reviewApprovalRun).projectAggregate",
+        "retrom/internal/service/libraryimport.creationProgress",
+        "retrom/internal/service/libraryimport.importProducedProjection",
+        "retrom/internal/service/libraryimport.projectReviewDiscardAggregate"
+      ],
       "invariant": "Validate counts; preserve cancellation/task-level failure; otherwise unique aggregate projection.",
       "status": "SOURCE_REVIEWED",
       "target_layer": "model",
@@ -946,7 +952,7 @@
     {
       "id": "importprogress.activeProjection",
       "owner": "importprogress",
-      "rf_id": "RF17",
+      "rf_id": "RF13",
       "symbol": "retrom/internal/model/importprogress.activeProjection",
       "consumers": [
         "retrom/internal/model/importprogress.Project"
@@ -961,7 +967,7 @@
     {
       "id": "importprogress.validCounts",
       "owner": "importprogress",
-      "rf_id": "RF17",
+      "rf_id": "RF13",
       "symbol": "retrom/internal/model/importprogress.validCounts",
       "consumers": [
         "retrom/internal/model/importprogress.Project"
