@@ -2537,6 +2537,125 @@
       ]
     },
     {
+      "id": "libraryimport.arcade.ValidArcadeParentAttachmentInput",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/model/libraryimport.ValidArcadeParentAttachmentInput",
+      "consumers": [
+        "retrom/internal/repo/libraryimport.readClaimedArcadeParentAttachment"
+      ],
+      "invariant": "Schema1 andallfrozenidentities plus64character policydigest required.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-approval_guard",
+        "RFA-RF13-discard_handoff"
+      ]
+    },
+    {
+      "id": "libraryimport.arcade.attachmentDependency",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/adapter/integration/libraryimport.attachmentDependency",
+      "consumers": [
+        "(*retrom/internal/adapter/integration/libraryimport.parentAttachmentSetup).validateSelectedValidation"
+      ],
+      "invariant": "Find exactmachine entry in frozen canonicaldependency snapshot.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-approval_guard",
+        "RFA-RF13-discard_handoff"
+      ]
+    },
+    {
+      "id": "libraryimport.arcade.invalidParentAttachmentRequest",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/adapter/integration/libraryimport.invalidParentAttachmentRequest",
+      "consumers": [
+        "(*retrom/internal/adapter/integration/libraryimport.Service).CreateArcadeParentAttachment"
+      ],
+      "invariant": "Validate parentrequest identity/version/machine and configured storagepresence; extract pure values from Service receiverdependency.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-approval_guard",
+        "RFA-RF13-discard_handoff"
+      ]
+    },
+    {
+      "id": "libraryimport.arcade.rootParentEntries",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/adapter/integration/libraryimport.rootParentEntries",
+      "consumers": [
+        "(*retrom/internal/adapter/integration/libraryimport.Service).validateParentArchive"
+      ],
+      "invariant": "Keep onlyrootarchiveentries andcount ignorednestedentries.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-approval_guard",
+        "RFA-RF13-discard_handoff"
+      ]
+    },
+    {
+      "id": "libraryimport.arcade.selectParentGroup",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/adapter/integration/libraryimport.selectParentGroup",
+      "consumers": [
+        "(*retrom/internal/adapter/integration/libraryimport.Service).prepareParentCommit"
+      ],
+      "invariant": "Choose preparedgroup containing CONTENT rootMachine.zip.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-approval_guard",
+        "RFA-RF13-discard_handoff"
+      ]
+    },
+    {
+      "id": "libraryimport.arcade.validArcadeMachine",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/adapter/integration/libraryimport.validArcadeMachine",
+      "consumers": [
+        "retrom/internal/adapter/integration/libraryimport.invalidParentAttachmentRequest"
+      ],
+      "invariant": "Valid boundednonempty machine without slash/backslash.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-approval_guard",
+        "RFA-RF13-discard_handoff"
+      ]
+    },
+    {
+      "id": "libraryimport.arcade.validationMatches",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "(*retrom/internal/adapter/integration/libraryimport.parentAttachmentSetup).validationMatches",
+      "consumers": [
+        "(*retrom/internal/adapter/integration/libraryimport.parentAttachmentSetup).validateSelectedValidation"
+      ],
+      "invariant": "Exacttarget/source/core/provider/runtime/currentDAT identity check; puremethod extract.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-approval_guard",
+        "RFA-RF13-discard_handoff"
+      ]
+    },
+    {
       "id": "libraryimport.canDiscardReview",
       "owner": "libraryimport",
       "rf_id": "RF13",

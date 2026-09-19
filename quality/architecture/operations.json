@@ -8246,6 +8246,423 @@
       }
     },
     {
+      "operation_id": "libraryimport.accept-arcade-parent",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "consumers": [
+        "(*retrom/internal/adapter/integration/libraryimport.Service).CreateArcadeParentAttachment",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).ResumeParentAttachmentJobs",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).commitAcceptedParentAttachment",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).runParentAttachment",
+        "(*retrom/internal/transport/httpapi.Server).createReviewArcadeParentAttachment",
+        "(*retrom/internal/transport/httpapi.Server).retryJob",
+        "retrom/cmd/retrom.execute",
+        "retrom/cmd/retrom.executeWithPasswordReader",
+        "retrom/cmd/retrom.main",
+        "retrom/cmd/retrom.run",
+        "retrom/internal/transport/httpapi.New"
+      ],
+      "snapshot": "retrom/internal/model/libraryimport.ArcadeParentAcceptedCommit",
+      "prepare": "(*retrom/internal/adapter/integration/libraryimport.Service).commitAcceptedParentAttachment",
+      "commit": "(*retrom/internal/repo/libraryimport.ArcadeParentCommitRepository).CommitAccepted",
+      "policy_symbols": [
+        "retrom/internal/adapter/integration/libraryimport.rootParentEntries",
+        "retrom/internal/adapter/integration/libraryimport.selectParentGroup",
+        "retrom/internal/model/libraryimport.PrepublishDigest"
+      ],
+      "fresh_facts": [
+        {
+          "name": "current review target",
+          "reader_symbol": "retrom/internal/repo/libraryimport.loadArcadeParentCommitTarget",
+          "reason": "Currentitem/draft/effective source + enabledplatform/core/runtimepolicy/activeDAT. Requires REVIEW_PENDING/exactbase/provider/runtime/policy digest/DAT; does not compare frozen draftversion/platformversion/source fileclosure/upload facts"
+        },
+        {
+          "name": "current job owner",
+          "reader_symbol": "retrom/internal/repo/libraryimport.validateArcadeParentCommitJob",
+          "reason": "Current jobstate andworkerID only; RUNNING matchingworker required,no kind/scope/lease/deadline/input/execution/version check"
+        }
+      ],
+      "guards": [
+        {
+          "id": "arcade-prepared-content",
+          "fields": [
+            "archive",
+            "requiredEntries",
+            "rootMachine",
+            "files",
+            "manifest",
+            "validation"
+          ],
+          "expected_source": "Outsidewriter ScanZIP archive limits/root-only entries; DAT matching andnoCHD,rootmachine group selection; preparedmanifest/files/validation forwarded. Commit doesnotrepeatfresh DAT requirements/BIOS or hash/currentupload identity checks",
+          "rejection": "Preparation REJECTED or FAILED_RETRYABLE; commit ErrInvalid",
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "id": "arcade-current-review",
+          "fields": [
+            "state",
+            "base",
+            "provider",
+            "runtime",
+            "policy",
+            "DAT"
+          ],
+          "expected_source": "Currenttarget guard describedabove; SQL/read failure collapsedErrInvalid; no sourcehandoff/parentpayload guard",
+          "rejection": "ErrInvalid",
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "id": "arcade-current-job",
+          "fields": [
+            "state",
+            "worker"
+          ],
+          "expected_source": "RUNNING and matchingworker; no fresh liveauthority",
+          "rejection": "ErrInvalid",
+          "test_id": "RFA-RF13-format_paths"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "arcade-result-snapshot",
+          "repo_helper": "retrom/internal/repo/libraryimport.insertArcadeParentCommitArtifacts",
+          "affected_records": [
+            "INSERT source snapshot newUUID/manifest/kind/createdByARCADE_PARENT_ATTACHMENT/time"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "arcade-result-files",
+          "repo_helper": "retrom/internal/repo/libraryimport.insertArcadeParentSnapshotFiles",
+          "affected_records": [
+            "INSERT each source snapshot file withBlob andarchive ownership,uploadidentity/order"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "arcade-archive-entries",
+          "repo_helper": "retrom/internal/repo/libraryimport.insertArcadeParentArchiveEntries",
+          "affected_records": [
+            "INSERT OR IGNORE each archive entry metadata/hashes with materializedBlobNULL; existing metadata notcompared"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "arcade-validation",
+          "repo_helper": "retrom/internal/repo/libraryimport.insertArcadeParentCoreValidation",
+          "affected_records": [
+            "INSERT validation newUUID/currenttarget/version/core/provider/DAT/newsource/canonicalPrepublishDigest/preparedstatus/dependencyJSON"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "arcade-validation-files",
+          "repo_helper": "retrom/internal/repo/libraryimport.insertArcadeParentCoreValidation",
+          "affected_records": [
+            "INSERT each preparedvalidationfile protectiveBlob reference"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "accept-parent-attachment",
+          "repo_helper": "(*retrom/internal/repo/libraryimport.ArcadeParentCommitRepository).CommitAccepted",
+          "affected_records": [
+            "UPDATE RUNNING attachment byid ACCEPTED/acceptedBlob/resultsnapshot/observeddigest+size/diagnostics/clearerror/finished/version+1/time; require1"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "consume-parent-upload",
+          "repo_helper": "(*retrom/internal/repo/libraryimport.ArcadeParentCommitRepository).CommitAccepted",
+          "affected_records": [
+            "INSERT file-scoped REVIEW_ARCADE_PARENT consumption newUUID"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "advance-parent-review-source",
+          "repo_helper": "(*retrom/internal/repo/libraryimport.ArcadeParentCommitRepository).CommitAccepted",
+          "affected_records": [
+            "UPDATE draft byid/exactbase to newsnapshot,selectedvalidation onlyifREADY elseNULL,version+1/time; require1; no draftversionCAS"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "advance-parent-import-item",
+          "repo_helper": "(*retrom/internal/repo/libraryimport.ArcadeParentCommitRepository).CommitAccepted",
+          "affected_records": [
+            "UPDATE REVIEW_PENDING item version+1/time; no affected-count check"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "parent-accepted-audit",
+          "repo_helper": "(*retrom/internal/repo/libraryimport.ArcadeParentCommitRepository).CommitAccepted",
+          "affected_records": [
+            "INSERT PARENT_ATTACHMENT_ACCEPTED event newUUID/schema2/context actor/evidence"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "parent-accepted-events",
+          "repo_helper": "(*retrom/internal/repo/libraryimport.ArcadeParentCommitRepository).CommitAccepted",
+          "affected_records": [
+            "INSERT5 job_events ARCHIVE_SCANNED/PARENT_MATCHED/SOURCE_SNAPSHOT_CREATED/CORE_VALIDATION_COMPLETED/SUCCEEDED"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "complete-parent-job",
+          "repo_helper": "(*retrom/internal/repo/libraryimport.ArcadeParentCommitRepository).CommitAccepted",
+          "affected_records": [
+            "UPDATE RUNNING matchingworker jobSUCCEEDED/finished/clearlease+HB/version+1/time; workerIDretained; require1"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        }
+      ],
+      "idempotency": "No domain receipt; current identity/state/version guard controls transitions. Generic JSON HTTP idempotency may separately persist a receipt after this domain transaction; RF06 registers that gap.",
+      "time_rule": "Baseline shared writer BeginTx with upper callback (or Repo-owned orchestration); Service clock position specified below. Target Repo must acquire write permission then sample technical Clock once; prepared identities generated before writer. Arcade facade supplies Service Now sampled BEFORE Repo BeginTx(nil),unless admission noted; target needs one admitted Repo timestamp and prepared UUIDs. Snapshot/validation/consumption/audit UUIDs generatedinsideRepo witherrorsignored. SuppliedpreparedNow used throughout; no freshadmission sample.",
+      "after_commit": [
+        {
+          "action": "Newreview effective snapshot selected atomically; accepted parent notpublished game until laterapprove-review",
+          "recovery": "Allartifacts,consumption,draft/audit/job result rollbacktogether. Commitfailure firstattemptscancellation else retryableINPUT_STALE; latergenericjob retry retains frozeninput",
+          "test_id": "RFA-RF13-discard_handoff"
+        }
+      ],
+      "fault_points": [
+        "PLANNED arcade-result-snapshot: failaftereachrow/stage; assertentireowningtransactionrollback",
+        "PLANNED arcade-result-files: failaftereachrow/stage; assertentireowningtransactionrollback",
+        "PLANNED arcade-archive-entries: failaftereachrow/stage; assertentireowningtransactionrollback",
+        "PLANNED arcade-validation: failaftereachrow/stage; assertentireowningtransactionrollback",
+        "PLANNED arcade-validation-files: failaftereachrow/stage; assertentireowningtransactionrollback",
+        "PLANNED accept-parent-attachment: failaftereachrow/stage; assertentireowningtransactionrollback",
+        "PLANNED consume-parent-upload: failaftereachrow/stage; assertentireowningtransactionrollback",
+        "PLANNED advance-parent-review-source: failaftereachrow/stage; assertentireowningtransactionrollback",
+        "PLANNED advance-parent-import-item: failaftereachrow/stage; assertentireowningtransactionrollback",
+        "PLANNED parent-accepted-audit: failaftereachrow/stage; assertentireowningtransactionrollback",
+        "PLANNED parent-accepted-events: failaftereachrow/stage; assertentireowningtransactionrollback",
+        "PLANNED complete-parent-job: failaftereachrow/stage; assertentireowningtransactionrollback",
+        "PLANNED stale/cancelled/superseded execution,source/DAT/policy/upload change,concurrentparentattachment/discard/publish,lateeventfailure,GC raced newreferences; notyetexecuted"
+      ],
+      "test_ids": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-publish_atomic",
+        "RFA-RF13-discard_handoff"
+      ],
+      "content_coordination": {
+        "required": true,
+        "reason": "Adds accepted_blob_id and newsource/validation protectiveBlob references plusarchive entries. Baseline noD22coordinator; acquire sorted digeststripes beforewriter,verifycurrentowners/contentandholdthroughcommit.",
+        "digest_sources": [
+          "UploadedparentBlob digest; allretainedsourcefile/archive/materialized digests; preparedvalidationBlob digests"
+        ],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": "(*retrom/internal/repo/libraryimport.ArcadeParentCommitRepository).CommitAccepted",
+        "test_ids": [
+          "RFA-RF13-approval_guard",
+          "RFA-RF13-publish_atomic",
+          "RFA-RF18-gc_new_reference",
+          "RFA-RF18-digest_lock_process"
+        ]
+      }
+    },
+    {
+      "operation_id": "libraryimport.admit-arcade-parent",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "consumers": [
+        "(*retrom/internal/adapter/integration/libraryimport.Service).CreateArcadeParentAttachment",
+        "(*retrom/internal/transport/httpapi.Server).createReviewArcadeParentAttachment"
+      ],
+      "snapshot": "retrom/internal/model/libraryimport.ArcadeParentAttachmentDraft",
+      "prepare": "(*retrom/internal/adapter/integration/libraryimport.Service).CreateArcadeParentAttachment",
+      "commit": "(*retrom/internal/repo/libraryimport.ArcadeParentAttachments).WithAdmission",
+      "policy_symbols": [
+        "(*retrom/internal/adapter/integration/libraryimport.parentAttachmentSetup).validationMatches",
+        "retrom/internal/adapter/integration/libraryimport.attachmentDependency",
+        "retrom/internal/adapter/integration/libraryimport.invalidParentAttachmentRequest",
+        "retrom/internal/adapter/integration/libraryimport.validArcadeMachine"
+      ],
+      "fresh_facts": [
+        {
+          "name": "arcade admission Draft",
+          "reader_symbol": "(retrom/internal/repo/libraryimport.arcadeParentAttachmentAdmissionRecords).Draft",
+          "reason": "Current draft/version/itemstate/effective source and enabled/notdeleted platform/defaultcore/nonDISABLED binding/current DAT/policy"
+        },
+        {
+          "name": "arcade admission Validation",
+          "reader_symbol": "(retrom/internal/repo/libraryimport.arcadeParentAttachmentAdmissionRecords).Validation",
+          "reason": "Requested item-owned validation source/target/core/provider/runtime/DAT/dependency snapshot; not required to be current selected validation"
+        },
+        {
+          "name": "arcade admission Upload",
+          "reader_symbol": "(retrom/internal/repo/libraryimport.arcadeParentAttachmentAdmissionRecords).Upload",
+          "reason": "Current file+session states,Blob id/digest/size,path,any session-wide consumption (including released); no purpose/file-level consumption test here"
+        },
+        {
+          "name": "arcade admission HasActive",
+          "reader_symbol": "(retrom/internal/repo/libraryimport.arcadeParentAttachmentAdmissionRecords).HasActive",
+          "reason": "Current QUEUED/RUNNING arcade attachments for same item"
+        },
+        {
+          "name": "arcade admission MachineRelation",
+          "reader_symbol": "(retrom/internal/repo/libraryimport.arcadeParentAttachmentAdmissionRecords).MachineRelation",
+          "reason": "Current DAT machine parent/BIOS closure for canonical dependency snapshot"
+        }
+      ],
+      "guards": [
+        {
+          "id": "arcade-request",
+          "fields": [
+            "version",
+            "item",
+            "validation",
+            "source",
+            "upload",
+            "machine",
+            "storage"
+          ],
+          "expected_source": "Version>=1/nonempty IDs,machine valid<=255/nonempty/no slash or backslash,configured Blob store; no MaxInt64 bound",
+          "rejection": "ParentErrorInvalid",
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "id": "arcade-review",
+          "fields": [
+            "found",
+            "state",
+            "version",
+            "platform",
+            "source",
+            "DAT"
+          ],
+          "expected_source": "Item found REVIEW_PENDING/exactdraftversion/arcade/current source equals requested base/active DAT exists",
+          "rejection": "NOT_FOUND / FINALIZED / VERSION / INPUT_STALE",
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "id": "arcade-selected-input",
+          "fields": [
+            "validation",
+            "target",
+            "source",
+            "core",
+            "provider",
+            "runtime",
+            "DAT",
+            "dependency"
+          ],
+          "expected_source": "Requested validation belongs item and exact current target/source/core/provider/runtime/DAT; canonical current closure requested machine must PARENT in MISSING|MISMATCH with requiredBy and depth1..63",
+          "rejection": "INPUT_STALE / NOT_REQUIRED / STRUCTURE",
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "id": "arcade-upload",
+          "fields": [
+            "session",
+            "file",
+            "consumption",
+            "path",
+            "size"
+          ],
+          "expected_source": "Session/file COMPLETE,no whole-session consumption,.zip case-insensitive; inside WRITER os.Stat physicalCAS path regular and exactcatalogsize. No full hash verification here",
+          "rejection": "ParentErrorInvalid; baseline filesystem I/O inside writer must move to preparation",
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "id": "arcade-active",
+          "fields": [
+            "attachments"
+          ],
+          "expected_source": "No QUEUED/RUNNING sameitem attachment; index also enforces,baseline classifies its SQL error by substring",
+          "rejection": "ParentErrorInProgress",
+          "test_id": "RFA-RF13-format_paths"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "arcade-job",
+          "repo_helper": "(retrom/internal/repo/libraryimport.arcadeParentAttachmentAdmissionRecords).Create",
+          "affected_records": [
+            "INSERT REVIEW_ARCADE_PARENT_VALIDATE job scopeIMPORT_ITEM,execution1,QUEUED,cancellable,max4,input JSON,dedupe SHA(item/base/machine/uploadBlobSHA/validation),available/time"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "arcade-input",
+          "repo_helper": "(retrom/internal/repo/libraryimport.arcadeParentAttachmentAdmissionRecords).Create",
+          "affected_records": [
+            "INSERT job_input_snapshots exactinputJSON+SHA/execution1/time"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "arcade-attachment",
+          "repo_helper": "(retrom/internal/repo/libraryimport.arcadeParentAttachmentAdmissionRecords).Create",
+          "affected_records": [
+            "INSERT QUEUED review_arcade_parent_attachments exactbase/dependency/currentprovider/DAT/uploadfile/path/job,version1/time"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "arcade-queued-event",
+          "repo_helper": "(retrom/internal/repo/libraryimport.arcadeParentAttachmentAdmissionRecords).Create",
+          "affected_records": [
+            "INSERT QUEUED job_event"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "arcade-draft-version",
+          "repo_helper": "(retrom/internal/repo/libraryimport.arcadeParentAttachmentAdmissionRecords).Create",
+          "affected_records": [
+            "UPDATE draft exactid/expectedversion ->version+1/time; require1 and propagate RowsAffectederror"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "arcade-request-audit",
+          "repo_helper": "(retrom/internal/repo/libraryimport.arcadeParentAttachmentAdmissionRecords).Create",
+          "affected_records": [
+            "INSERT PARENT_UPLOAD_REQUESTED review_event schema2 attachment kind/machine/base filename/QUEUED/context actor/time"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        }
+      ],
+      "idempotency": "No domain receipt; current identity/state/version guard controls transitions. Generic JSON HTTP idempotency may separately persist a receipt after this domain transaction; RF06 registers that gap.",
+      "time_rule": "Baseline shared writer BeginTx with upper callback (or Repo-owned orchestration); Service clock position specified below. Target Repo must acquire write permission then sample technical Clock once; prepared identities generated before writer. Arcade facade supplies Service Now sampled BEFORE Repo BeginTx(nil),unless admission noted; target needs one admitted Repo timestamp and prepared UUIDs. Admission exception: reads/canonical DAT graph plus os.Stat happen insidewriter,attachment/job UUIDs inside with errorsignored,input encoding errorignored,then Service sample; Repo also creates audit UUID inside writer(errorpropagated).",
+      "after_commit": [
+        {
+          "action": "After commit launches untracked goroutine WithoutCancel with explicit30minute worker timeout",
+          "recovery": "Startup resumes QUEUED jobs only; no attachment-specific RUNNING recovery here; generic RF17 recovery must own expired executions",
+          "test_id": "RFA-RF13-discard_handoff"
+        }
+      ],
+      "fault_points": [
+        "PLANNED arcade-job: failaftereachrow/stage; assertentireowningtransactionrollback",
+        "PLANNED arcade-input: failaftereachrow/stage; assertentireowningtransactionrollback",
+        "PLANNED arcade-attachment: failaftereachrow/stage; assertentireowningtransactionrollback",
+        "PLANNED arcade-queued-event: failaftereachrow/stage; assertentireowningtransactionrollback",
+        "PLANNED arcade-draft-version: failaftereachrow/stage; assertentireowningtransactionrollback",
+        "PLANNED arcade-request-audit: failaftereachrow/stage; assertentireowningtransactionrollback",
+        "PLANNED stale/cancelled/superseded execution,source/DAT/policy/upload change,concurrentparentattachment/discard/publish,lateeventfailure,GC raced newreferences; notyetexecuted"
+      ],
+      "test_ids": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-publish_atomic",
+        "RFA-RF13-discard_handoff"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "Admission stores upload-file identity and queued work only; accepted_blob_id absent until accepted commit,so existing upload remains sole relevant protection.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
       "operation_id": "libraryimport.admit-import",
       "owner": "libraryimport",
       "rf_id": "RF13",
@@ -9484,6 +9901,118 @@
         "RFA-RF13-discard_handoff",
         "RFA-RF13-publish_atomic",
         "RFA-RF13-format_paths"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "Changes durable job/aggregate/admission bookkeeping only; no new Blob row or protective Blob FK and no physical CAS publication/deletion. Existing upload Blob references remain authoritative.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "libraryimport.claim-arcade-parent",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "consumers": [
+        "(*retrom/internal/adapter/integration/libraryimport.Service).CreateArcadeParentAttachment",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).ResumeParentAttachmentJobs",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).claimParentAttachment",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).runParentAttachment",
+        "(*retrom/internal/transport/httpapi.Server).createReviewArcadeParentAttachment",
+        "(*retrom/internal/transport/httpapi.Server).retryJob",
+        "retrom/cmd/retrom.execute",
+        "retrom/cmd/retrom.executeWithPasswordReader",
+        "retrom/cmd/retrom.main",
+        "retrom/cmd/retrom.run",
+        "retrom/internal/transport/httpapi.New"
+      ],
+      "snapshot": "retrom/internal/model/libraryimport.ArcadeParentAttachmentWorkerClaim",
+      "prepare": "(*retrom/internal/adapter/integration/libraryimport.Service).claimParentAttachment",
+      "commit": "(*retrom/internal/repo/libraryimport.ArcadeParentAttachmentWorker).Claim",
+      "policy_symbols": [
+        "retrom/internal/model/libraryimport.ValidArcadeParentAttachmentInput"
+      ],
+      "fresh_facts": [
+        {
+          "name": "current claimed input and attachment",
+          "reader_symbol": "retrom/internal/repo/libraryimport.readClaimedArcadeParentAttachment",
+          "reason": "After tentativeclaim in samewriter current execution inputJSON/start plus RUNNING attachment joined currentuploadfile/Blob; no inputdigest column check"
+        }
+      ],
+      "guards": [
+        {
+          "id": "arcade-claim",
+          "fields": [
+            "jobKind",
+            "state",
+            "available",
+            "attachmentState"
+          ],
+          "expected_source": "Job exactid/REVIEW_ARCADE_PARENT_VALIDATE/QUEUED/available<=now; attachment byjob QUEUED|FAILED_RETRYABLE; both require1; no attemptmax/previousdeadline/version fence",
+          "rejection": "ErrInvalid",
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "id": "arcade-frozen-input",
+          "fields": [
+            "inputSchema",
+            "identities",
+            "policyDigest",
+            "attachment"
+          ],
+          "expected_source": "Schema1/nonempty IDs/machine/provider/runtime/DAT/upload and policy digest length64; exact attachment/item/draft/base/machine/provider/runtime/DAT/upload compared to currentrows. Not cryptographic inputdigest verification",
+          "rejection": "ErrInvalid",
+          "test_id": "RFA-RF13-format_paths"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "claim-arcade-job",
+          "repo_helper": "retrom/internal/repo/libraryimport.claimArcadeParentAttachmentRecords",
+          "affected_records": [
+            "UPDATE RUNNING,attempt+1,worker,startedCOALESCE(old,now),deadline=lease=now+30minutes,HB,version+1/time"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "claim-arcade-attachment",
+          "repo_helper": "retrom/internal/repo/libraryimport.claimArcadeParentAttachmentRecords",
+          "affected_records": [
+            "UPDATE RUNNING/clearerror/finished/version+1/time"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "claim-arcade-event",
+          "repo_helper": "retrom/internal/repo/libraryimport.claimArcadeParentAttachmentRecords",
+          "affected_records": [
+            "INSERT SELECT STARTED event; read/decode input failure rollsallback"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        }
+      ],
+      "idempotency": "No domain receipt; current identity/state/version guard controls transitions. Generic JSON HTTP idempotency may separately persist a receipt after this domain transaction; RF06 registers that gap.",
+      "time_rule": "Baseline shared writer BeginTx with upper callback (or Repo-owned orchestration); Service clock position specified below. Target Repo must acquire write permission then sample technical Clock once; prepared identities generated before writer. Arcade facade supplies Service Now sampled BEFORE Repo BeginTx(nil),unless admission noted; target needs one admitted Repo timestamp and prepared UUIDs. Worker UUID beforewriter,errorsignored. Existing started retained butdeadline overwritten eachclaim; no independentheartbeat.",
+      "after_commit": [
+        {
+          "action": "Outside writer ScanZIP boundedarchive policy,root-ROM filter,current DAT exact matching,noCHD; build new source snapshot and revalidate arcade groups beforeacceptedcommit",
+          "recovery": "Claim failure quietly ends goroutine; cancelled preparation may attempt terminal writes on same cancelled context",
+          "test_id": "RFA-RF13-discard_handoff"
+        }
+      ],
+      "fault_points": [
+        "PLANNED claim-arcade-job: failaftereachrow/stage; assertentireowningtransactionrollback",
+        "PLANNED claim-arcade-attachment: failaftereachrow/stage; assertentireowningtransactionrollback",
+        "PLANNED claim-arcade-event: failaftereachrow/stage; assertentireowningtransactionrollback",
+        "PLANNED stale/cancelled/superseded execution,source/DAT/policy/upload change,concurrentparentattachment/discard/publish,lateeventfailure,GC raced newreferences; notyetexecuted"
+      ],
+      "test_ids": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-publish_atomic",
+        "RFA-RF13-discard_handoff"
       ],
       "content_coordination": {
         "required": false,
@@ -12086,6 +12615,105 @@
       }
     },
     {
+      "operation_id": "libraryimport.fail-retryable-arcade-parent",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "consumers": [
+        "(*retrom/internal/adapter/integration/libraryimport.Service).CreateArcadeParentAttachment",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).ResumeParentAttachmentJobs",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).finishRetryableParentAttachment",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).prepareParentCommit",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).runParentAttachment",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).validateParentArchive",
+        "(*retrom/internal/transport/httpapi.Server).createReviewArcadeParentAttachment",
+        "(*retrom/internal/transport/httpapi.Server).retryJob",
+        "retrom/cmd/retrom.execute",
+        "retrom/cmd/retrom.executeWithPasswordReader",
+        "retrom/cmd/retrom.main",
+        "retrom/cmd/retrom.run",
+        "retrom/internal/transport/httpapi.New"
+      ],
+      "snapshot": "retrom/internal/model/libraryimport.ArcadeParentRetryableCommit",
+      "prepare": "(*retrom/internal/adapter/integration/libraryimport.Service).finishRetryableParentAttachment",
+      "commit": "(*retrom/internal/repo/libraryimport.ArcadeParentCommitRepository).FinishRetryable",
+      "policy_symbols": [],
+      "fresh_facts": [
+        {
+          "name": "terminal row predicates",
+          "reader_symbol": "(*retrom/internal/repo/libraryimport.ArcadeParentCommitRepository).FinishRetryable",
+          "reason": "Baseline nofresh SELECT; attachmentRUNNING andjobRUNNING/matchingworker UPDATE filters only"
+        }
+      ],
+      "guards": [
+        {
+          "id": "terminal-arcade-authority",
+          "fields": [
+            "attachmentState",
+            "jobState",
+            "worker"
+          ],
+          "expected_source": "UPDATEpredicates mayaffectzero; baseline neverchecks affectedcounts thenstillinsertsevents andcommits. Noexecution/lease/deadline/expectedversion guard",
+          "rejection": "Only SQLerrors reject; staleoutcomes can still append evidence",
+          "test_id": "RFA-RF13-format_paths"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "terminal-parent-attachment",
+          "repo_helper": "(*retrom/internal/repo/libraryimport.ArcadeParentCommitRepository).FinishRetryable",
+          "affected_records": [
+            "UPDATE RUNNING attachment FAILED_RETRYABLE/code/diagnostics/observedsize+SHA/finished/version+1/time"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "terminal-parent-job",
+          "repo_helper": "(*retrom/internal/repo/libraryimport.ArcadeParentCommitRepository).FinishRetryable",
+          "affected_records": [
+            "UPDATE RUNNING matchingworker job FAILED/retryable1/code/finished/clearlease+HB/version+1/time; no countcheck"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "terminal-parent-events",
+          "repo_helper": "(*retrom/internal/repo/libraryimport.ArcadeParentCommitRepository).FinishRetryable",
+          "affected_records": [
+            "INSERT FAILED job_events evenif priorupdatesaffectedzero"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        }
+      ],
+      "idempotency": "No effective repeat fence because zero-row updates accepted; repeated stale completion mayappendduplicate events/audit. Required RF13/RF17 fix,not assumed idempotent.",
+      "time_rule": "Baseline shared writer BeginTx with upper callback (or Repo-owned orchestration); Service clock position specified below. Target Repo must acquire write permission then sample technical Clock once; prepared identities generated before writer. Arcade facade supplies Service Now sampled BEFORE Repo BeginTx(nil),unless admission noted; target needs one admitted Repo timestamp and prepared UUIDs.",
+      "after_commit": [
+        {
+          "action": "Facade ignores entire terminal commit error; ordinary genericjob retry mayrequeue retryable failure",
+          "recovery": "Need bounded cleanup context and ErrorReporter preservingcause; currentworker canleave RUNNING on cancellation/commitfailure",
+          "test_id": "RFA-RF13-discard_handoff"
+        }
+      ],
+      "fault_points": [
+        "PLANNED terminal-parent-attachment: failaftereachrow/stage; assertentireowningtransactionrollback",
+        "PLANNED terminal-parent-job: failaftereachrow/stage; assertentireowningtransactionrollback",
+        "PLANNED terminal-parent-events: failaftereachrow/stage; assertentireowningtransactionrollback",
+        "PLANNED stale/cancelled/superseded execution,source/DAT/policy/upload change,concurrentparentattachment/discard/publish,lateeventfailure,GC raced newreferences; notyetexecuted"
+      ],
+      "test_ids": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-publish_atomic",
+        "RFA-RF13-discard_handoff"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "Changes durable job/aggregate/admission bookkeeping only; no new Blob row or protective Blob FK and no physical CAS publication/deletion. Existing upload Blob references remain authoritative.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
       "operation_id": "libraryimport.fail-review-bulk",
       "owner": "libraryimport",
       "rf_id": "RF13",
@@ -12299,6 +12927,103 @@
       "content_coordination": {
         "required": false,
         "reason": "Bulk scheduling/execution bookkeeping; actual published game/variant/media protective edges belong to the separately registered approve-review owning transaction.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "libraryimport.finish-arcade-parent-cancellation",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "consumers": [
+        "(*retrom/internal/adapter/integration/libraryimport.Service).CreateArcadeParentAttachment",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).ResumeParentAttachmentJobs",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).finishParentAttachmentCancellation",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).runParentAttachment",
+        "(*retrom/internal/transport/httpapi.Server).createReviewArcadeParentAttachment",
+        "(*retrom/internal/transport/httpapi.Server).retryJob",
+        "retrom/cmd/retrom.execute",
+        "retrom/cmd/retrom.executeWithPasswordReader",
+        "retrom/cmd/retrom.main",
+        "retrom/cmd/retrom.run",
+        "retrom/internal/transport/httpapi.New"
+      ],
+      "snapshot": "retrom/internal/model/libraryimport.ArcadeParentAttachmentCancellation",
+      "prepare": "(*retrom/internal/adapter/integration/libraryimport.Service).finishParentAttachmentCancellation",
+      "commit": "(*retrom/internal/repo/libraryimport.ArcadeParentCommitRepository).FinishCancellation",
+      "policy_symbols": [],
+      "fresh_facts": [
+        {
+          "name": "prewriter cancelled authority",
+          "reader_symbol": "(*retrom/internal/repo/libraryimport.ArcadeParentCommitRepository).FinishCancellation",
+          "reason": "Reads jobstate/worker BEFORE BeginTx; onlyCANCEL_REQUESTED enterswriter; SQLCAS rechecksstate/worker"
+        }
+      ],
+      "guards": [
+        {
+          "id": "parent-cancel-fence",
+          "fields": [
+            "jobState",
+            "worker",
+            "attachmentState"
+          ],
+          "expected_source": "AttachmentRUNNING andjobCANCEL_REQUESTED+matchingworker updatesrequire1; missesreturnfalse androllback; RowsAffectederrorspropagated",
+          "rejection": "falseorerror; facadeignoreserror",
+          "test_id": "RFA-RF13-format_paths"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "cancel-parent-attachment",
+          "repo_helper": "(*retrom/internal/repo/libraryimport.ArcadeParentCommitRepository).FinishCancellation",
+          "affected_records": [
+            "UPDATE attachmentRUNNING ->CANCELLED/diagnostics/error/finished/version+1/time"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "cancel-parent-job",
+          "repo_helper": "(*retrom/internal/repo/libraryimport.ArcadeParentCommitRepository).FinishCancellation",
+          "affected_records": [
+            "UPDATE jobCANCEL_REQUESTED+worker ->CANCELLED/finished/clearlease+HB/version+1/time; workerretained"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "cancel-parent-event",
+          "repo_helper": "(*retrom/internal/repo/libraryimport.ArcadeParentCommitRepository).FinishCancellation",
+          "affected_records": [
+            "INSERT CANCELLED event afterbothsuccessfulupdates"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        }
+      ],
+      "idempotency": "No domain receipt; current identity/state/version guard controls transitions. Generic JSON HTTP idempotency may separately persist a receipt after this domain transaction; RF06 registers that gap.",
+      "time_rule": "Baseline shared writer BeginTx with upper callback (or Repo-owned orchestration); Service clock position specified below. Target Repo must acquire write permission then sample technical Clock once; prepared identities generated before writer. Arcade facade supplies Service Now sampled BEFORE Repo BeginTx(nil),unless admission noted; target needs one admitted Repo timestamp and prepared UUIDs.",
+      "after_commit": [
+        {
+          "action": "Onlytrueaftercommit suppresses retryablefallback inworker",
+          "recovery": "No currentexecution/lease/input fence; failureandfalse collapseinlegacyfacade",
+          "test_id": "RFA-RF13-discard_handoff"
+        }
+      ],
+      "fault_points": [
+        "PLANNED cancel-parent-attachment: failaftereachrow/stage; assertentireowningtransactionrollback",
+        "PLANNED cancel-parent-job: failaftereachrow/stage; assertentireowningtransactionrollback",
+        "PLANNED cancel-parent-event: failaftereachrow/stage; assertentireowningtransactionrollback",
+        "PLANNED stale/cancelled/superseded execution,source/DAT/policy/upload change,concurrentparentattachment/discard/publish,lateeventfailure,GC raced newreferences; notyetexecuted"
+      ],
+      "test_ids": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-publish_atomic",
+        "RFA-RF13-discard_handoff"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "Changes durable job/aggregate/admission bookkeeping only; no new Blob row or protective Blob FK and no physical CAS publication/deletion. Existing upload Blob references remain authoritative.",
         "digest_sources": [],
         "acquire_symbol": null,
         "release_symbol": null,
@@ -13266,6 +13991,113 @@
       }
     },
     {
+      "operation_id": "libraryimport.reject-arcade-parent",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "consumers": [
+        "(*retrom/internal/adapter/integration/libraryimport.Service).CreateArcadeParentAttachment",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).ResumeParentAttachmentJobs",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).finishRejectedParentAttachment",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).runParentAttachment",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).validateParentArchive",
+        "(*retrom/internal/transport/httpapi.Server).createReviewArcadeParentAttachment",
+        "(*retrom/internal/transport/httpapi.Server).retryJob",
+        "retrom/cmd/retrom.execute",
+        "retrom/cmd/retrom.executeWithPasswordReader",
+        "retrom/cmd/retrom.main",
+        "retrom/cmd/retrom.run",
+        "retrom/internal/transport/httpapi.New"
+      ],
+      "snapshot": "retrom/internal/model/libraryimport.ArcadeParentRejectedCommit",
+      "prepare": "(*retrom/internal/adapter/integration/libraryimport.Service).finishRejectedParentAttachment",
+      "commit": "(*retrom/internal/repo/libraryimport.ArcadeParentCommitRepository).FinishRejected",
+      "policy_symbols": [],
+      "fresh_facts": [
+        {
+          "name": "terminal row predicates",
+          "reader_symbol": "(*retrom/internal/repo/libraryimport.ArcadeParentCommitRepository).FinishRejected",
+          "reason": "Baseline nofresh SELECT; attachmentRUNNING andjobRUNNING/matchingworker UPDATE filters only"
+        }
+      ],
+      "guards": [
+        {
+          "id": "terminal-arcade-authority",
+          "fields": [
+            "attachmentState",
+            "jobState",
+            "worker"
+          ],
+          "expected_source": "UPDATEpredicates mayaffectzero; baseline neverchecks affectedcounts thenstillinsertsevents andcommits. Noexecution/lease/deadline/expectedversion guard",
+          "rejection": "Only SQLerrors reject; staleoutcomes can still append evidence",
+          "test_id": "RFA-RF13-format_paths"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "terminal-parent-attachment",
+          "repo_helper": "(*retrom/internal/repo/libraryimport.ArcadeParentCommitRepository).FinishRejected",
+          "affected_records": [
+            "UPDATE RUNNING attachment REJECTED/code/diagnostics/observedsize+SHA/finished/version+1/time"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "terminal-parent-job",
+          "repo_helper": "(*retrom/internal/repo/libraryimport.ArcadeParentCommitRepository).FinishRejected",
+          "affected_records": [
+            "UPDATE RUNNING matchingworker job FAILED/retryable0/code/finished/clearlease+HB/version+1/time; no countcheck"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "terminal-parent-events",
+          "repo_helper": "(*retrom/internal/repo/libraryimport.ArcadeParentCommitRepository).FinishRejected",
+          "affected_records": [
+            "INSERT PARENT_REJECTED and FAILED job_events evenif priorupdatesaffectedzero"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "rejected-parent-audit",
+          "repo_helper": "(*retrom/internal/repo/libraryimport.ArcadeParentCommitRepository).FinishRejected",
+          "affected_records": [
+            "INSERT PARENT_ATTACHMENT_REJECTED review_event schema2/newUUID insidewriter(errorignored)/contextactor"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        }
+      ],
+      "idempotency": "No effective repeat fence because zero-row updates accepted; repeated stale completion mayappendduplicate events/audit. Required RF13/RF17 fix,not assumed idempotent.",
+      "time_rule": "Baseline shared writer BeginTx with upper callback (or Repo-owned orchestration); Service clock position specified below. Target Repo must acquire write permission then sample technical Clock once; prepared identities generated before writer. Arcade facade supplies Service Now sampled BEFORE Repo BeginTx(nil),unless admission noted; target needs one admitted Repo timestamp and prepared UUIDs.",
+      "after_commit": [
+        {
+          "action": "Facade ignores entire terminal commit error; ordinary genericjob retry mayrequeue retryable failure",
+          "recovery": "Need bounded cleanup context and ErrorReporter preservingcause; currentworker canleave RUNNING on cancellation/commitfailure",
+          "test_id": "RFA-RF13-discard_handoff"
+        }
+      ],
+      "fault_points": [
+        "PLANNED terminal-parent-attachment: failaftereachrow/stage; assertentireowningtransactionrollback",
+        "PLANNED terminal-parent-job: failaftereachrow/stage; assertentireowningtransactionrollback",
+        "PLANNED terminal-parent-events: failaftereachrow/stage; assertentireowningtransactionrollback",
+        "PLANNED rejected-parent-audit: failaftereachrow/stage; assertentireowningtransactionrollback",
+        "PLANNED stale/cancelled/superseded execution,source/DAT/policy/upload change,concurrentparentattachment/discard/publish,lateeventfailure,GC raced newreferences; notyetexecuted"
+      ],
+      "test_ids": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-publish_atomic",
+        "RFA-RF13-discard_handoff"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "Changes durable job/aggregate/admission bookkeeping only; no new Blob row or protective Blob FK and no physical CAS publication/deletion. Existing upload Blob references remain authoritative.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
       "operation_id": "libraryimport.release-discarded-review-batch",
       "owner": "libraryimport",
       "rf_id": "RF13",
@@ -14072,6 +14904,75 @@
         "RFA-RF13-publish_atomic",
         "RFA-RF13-discard_handoff",
         "RFA-RF13-format_paths"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "Changes durable job/aggregate/admission bookkeeping only; no new Blob row or protective Blob FK and no physical CAS publication/deletion. Existing upload Blob references remain authoritative.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "libraryimport.sync-arcade-parent-cancellation",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "consumers": [
+        "(*retrom/internal/adapter/integration/libraryimport.Service).SyncParentAttachmentCancellation",
+        "(*retrom/internal/transport/httpapi.Server).cancelJob"
+      ],
+      "snapshot": "retrom/internal/model/libraryimport.ArcadeParentCancellationSync",
+      "prepare": "(*retrom/internal/adapter/integration/libraryimport.Service).SyncParentAttachmentCancellation",
+      "commit": "(*retrom/internal/repo/libraryimport.ArcadeParentCommitRepository).SyncCancellation",
+      "policy_symbols": [],
+      "fresh_facts": [
+        {
+          "name": "cancelled job and linked attachment",
+          "reader_symbol": "(*retrom/internal/repo/libraryimport.ArcadeParentCommitRepository).SyncCancellation",
+          "reason": "Autocommit UPDATEwith correlatedEXISTS jobCANCELLED; target attachmentQUEUED/RUNNING/FAILED_RETRYABLE"
+        }
+      ],
+      "guards": [
+        {
+          "id": "parent-cancelled-sync",
+          "fields": [
+            "jobState",
+            "attachmentState"
+          ],
+          "expected_source": "Only cancelledjob permitslinkednonterminal/retryable attachmenttransition; zeroaffected isno-op",
+          "rejection": "SQLerroronly; facadeignoreserror",
+          "test_id": "RFA-RF13-format_paths"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "sync-parent-cancelled",
+          "repo_helper": "(*retrom/internal/repo/libraryimport.ArcadeParentCommitRepository).SyncCancellation",
+          "affected_records": [
+            "Single autocommit UPDATE attachmentCANCELLED/diagnostics/error/finished/version+1/time; noevent"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        }
+      ],
+      "idempotency": "No domain receipt; current identity/state/version guard controls transitions. Generic JSON HTTP idempotency may separately persist a receipt after this domain transaction; RF06 registers that gap.",
+      "time_rule": "Baseline shared writer BeginTx with upper callback (or Repo-owned orchestration); Service clock position specified below. Target Repo must acquire write permission then sample technical Clock once; prepared identities generated before writer. Arcade facade supplies Service Now sampled BEFORE Repo BeginTx(nil),unless admission noted; target needs one admitted Repo timestamp and prepared UUIDs. Single implicit SQLtransaction,no explicit BeginTx; timepreparedbyfacade.",
+      "after_commit": [
+        {
+          "action": "Aligns genericjob cancellation with attachmentstate; published review content untouched",
+          "recovery": "Repeatedsync no-op after attachmentterminal; no physicalBlobmutation",
+          "test_id": "RFA-RF13-discard_handoff"
+        }
+      ],
+      "fault_points": [
+        "PLANNED sync-parent-cancelled: failaftereachrow/stage; assertentireowningtransactionrollback",
+        "PLANNED stale/cancelled/superseded execution,source/DAT/policy/upload change,concurrentparentattachment/discard/publish,lateeventfailure,GC raced newreferences; notyetexecuted"
+      ],
+      "test_ids": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-publish_atomic",
+        "RFA-RF13-discard_handoff"
       ],
       "content_coordination": {
         "required": false,
@@ -25504,6 +26405,7 @@
     "RF13 reconfiguration clone/cleanup andstandalone MetadataSeeder source-reviewed. Clone writer refreshesonlyparentstate/version,notfile/Blobfacts,andaddsprotectiveedgeswithoutD22. Cleanuphaslocalscalarcount(no namedfacts type)andcaller ignoresfailure; completecleanupvalues/errorreporting remainmigrationwork. Metadata SeedInScope mustbeincludedinRF14ownerhandoff writer.",
     "RF13 reviewdraftpatch/previewvalidationrefresh/coverupload source-reviewed. LoadPatchSnapshot isread-only transaction,notfakewriteoperation. Patchandpreview alreadyacceptvalueplans butRepo stillowns domainrules,usespreparedclocks andcopiesprotective validationfiles withoutD22; coverseparateasset+consumption leavesdraftversionunchanged. Fullapproval/discard/bulk/attachments/sourceuploads andformatpolicycensus pending.",
     "RF13 approval,ordinary/source/batch discard,deduplication page and final discarded-batch release source-reviewed. Bulk publication is a nested write set of approve-review,not a second commit. Pending: bulk admission/worker/cancel/retry/recovery,arcade/multidisc attachments,source upload handoff,format policies. New game/variant/media refs require D22; baseline bulk publication can renew expired worker because live lease/execution fence is absent.",
-    "RF13 bulk admission plus10claim/item/outcome/finish/failure/cancel/retry/resume operations source-reviewed. Successful publication remains in approve-review owning transaction. Baseline misses complete execution authority and admission Clock,ignores settlement errors/UUID errors,uses untracked WithoutCancel goroutines,and startup resets live RUNNING jobs without expiry guard; RF13/RF17/RF02 must resolve. Attachment/source-handoff/format census still pending."
+    "RF13 bulk admission plus10claim/item/outcome/finish/failure/cancel/retry/resume operations source-reviewed. Successful publication remains in approve-review owning transaction. Baseline misses complete execution authority and admission Clock,ignores settlement errors/UUID errors,uses untracked WithoutCancel goroutines,and startup resets live RUNNING jobs without expiry guard; RF13/RF17/RF02 must resolve. Attachment/source-handoff/format census still pending.",
+    "RF13 seven arcade-parent admission/claim/accepted/rejected/retryable/cancellation operations source-reviewed. Acceptedcommit copiesprotective references withoutD22; admission performsstatinsidewriter; terminalrejected/retryable omitaffectedrowchecks; clocks/IDs/errorreporting/executionauthority needmigration. Multidisc/sourcehandoff/formatcensus pending."
   ]
 }
