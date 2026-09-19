@@ -14,12 +14,7 @@ func (service *ExecutionControl) Fail(
 	failure model.ExecutionFailure,
 ) (string, error) {
 	for {
-		state, more := "", false
-		err := service.repository.WithExecution(ctx, func(scope model.ExecutionScope) error {
-			var err error
-			state, more, err = service.failInScope(ctx, scope, unit, failure)
-			return err
-		})
+		state, more, err := service.failAttempt(ctx, unit, failure)
 		if err != nil {
 			return "", fmt.Errorf("fail EmulationStation execution: %w", err)
 		}
@@ -29,12 +24,15 @@ func (service *ExecutionControl) Fail(
 	}
 }
 
-func (service *ExecutionControl) failInScope(
-	ctx context.Context, scope model.ExecutionScope, unit model.Execution, failure model.ExecutionFailure,
+func (service *ExecutionControl) failAttempt(
+	ctx context.Context, unit model.Execution, failure model.ExecutionFailure,
 ) (string, bool, error) {
-	before, err := currentExecution(ctx, scope.Read, unit)
+	before, found, err := service.repository.CurrentExecution(ctx, unit.JobID)
 	if err != nil {
-		return "", false, err
+		return "", false, fmt.Errorf("read EmulationStation failure: %w", err)
+	}
+	if !found || before.Execution != unit {
+		return "", false, model.ErrVersionConflict
 	}
 	now := service.now().UnixMilli()
 	ownership := ExecutionState(before, unit, now)
@@ -44,7 +42,7 @@ func (service *ExecutionControl) failInScope(
 	if ownership != model.LeaseActive {
 		return "", false, model.ErrVersionConflict
 	}
-	terminal, err := scope.Read.TerminalCount(ctx, unit.ImportID)
+	terminal, err := service.repository.TerminalCount(ctx, unit.ImportID)
 	if err != nil {
 		return "", false, fmt.Errorf("read EmulationStation retry progress: %w", err)
 	}
@@ -53,25 +51,20 @@ func (service *ExecutionControl) failInScope(
 		return "", false, err
 	}
 	if change.JobState != "QUEUED" {
-		var more bool
-		before, more, err = completeExecutionReviews(
-			ctx,
-			model.ExecutionReviewScope{Read: scope.Read, Write: scope.Write, Metadata: scope.Metadata},
-			before,
-			service.now,
+		result, err := service.repository.CommitExecutionReviewBatch(
+			ctx, unit, func() int64 { return service.now().UnixMilli() }, before.ReleaseYearMax,
 		)
-		if err != nil || more {
-			return "", more, err
-		}
-		change.Before, change.NowMS = before, service.now().UnixMilli()
-	}
-	if err := scope.Write.Finish(ctx, change); err != nil {
-		return "", false, fmt.Errorf("persist EmulationStation execution failure: %w", err)
-	}
-	if change.SchedulePayload {
-		if err := scheduleTerminalPayloads(ctx, scope.Payload, change.Before.ImportID, change.NowMS); err != nil {
+		if err != nil {
 			return "", false, err
 		}
+		if result.More {
+			return "", true, nil
+		}
+		change.Before = result.Before
+		change.NowMS = service.now().UnixMilli()
+	}
+	if err := service.repository.CommitExecutionFinish(ctx, change); err != nil {
+		return "", false, fmt.Errorf("persist EmulationStation execution failure: %w", err)
 	}
 	return change.JobState, false, nil
 }

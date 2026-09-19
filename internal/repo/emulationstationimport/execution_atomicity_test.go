@@ -3,6 +3,7 @@ package emulationstationimport
 import (
 	"context"
 	"database/sql"
+	"database/sql/driver"
 	"errors"
 	"reflect"
 	"sync/atomic"
@@ -99,51 +100,28 @@ func TestExecutionControlSQLAndRowsAffectedFailuresRollBack(t *testing.T) {
 	}
 }
 
-type executionCompletionFailure struct {
-	*ExecutionControl
-	commit bool
-}
-
-func (repository executionCompletionFailure) WithExecution(
-	ctx context.Context,
-	run func(emulationstationimportmodel.ExecutionScope) error,
-) error {
-	return repository.ExecutionControl.WithExecution(ctx, func(scope emulationstationimportmodel.ExecutionScope) error {
-		if err := run(scope); err != nil {
-			return err
-		}
-		if !repository.commit {
-			return errLeaseStorage
-		}
-		records, ok := scope.Write.(executionRecords)
-		if !ok {
-			return errors.New("unexpected execution writer")
-		}
-		if _, err := records.executor.ExecContext(ctx, `PRAGMA defer_foreign_keys=ON`); err != nil {
-			return err
-		}
-		_, err := records.executor.ExecContext(ctx, `INSERT INTO job_input_snapshots(job_id,execution_no,input_json,input_digest,created_at_ms)
-VALUES('missing-execution-parent',1,'{}','`+planDigest+`',12)`)
-		return err
-	})
-}
-
-func TestExecutionControlCallbackAndRealCommitFailuresRollBack(t *testing.T) {
+func TestExecutionControlCommitFailuresRollBack(t *testing.T) {
 	t.Parallel()
 	for _, operation := range []string{"cancel", "retry", "fail"} {
-		for _, commit := range []bool{false, true} {
-			t.Run(operation+map[bool]string{false: "/callback", true: "/commit"}[commit], func(t *testing.T) {
-				t.Parallel()
-				db, unit := executionTestDatabase(t, operation)
-				before := planRows(t, db)
-				err := executeControlOperation(t, executionCompletionFailure{NewExecutionControl(db), commit}, unit, operation)
-				if err == nil || !commit && !errors.Is(err, errLeaseStorage) {
-					t.Fatalf("late failure=%v", err)
-				}
-				if !reflect.DeepEqual(before, planRows(t, db)) {
-					t.Fatal("late failure retained execution writes")
-				}
+		t.Run(operation, func(t *testing.T) {
+			t.Parallel()
+			db, unit := executionTestDatabase(t, operation)
+			before := planRows(t, db)
+			faultDB := testsupport.OpenSQLFaultDatabase(t, db, testsupport.SQLFaultHooks{
+				BeforeExec: func(_ context.Context, query string, _ []driver.NamedValue) error {
+					if query == "COMMIT" {
+						return errLeaseStorage
+					}
+					return nil
+				},
 			})
-		}
+			err := executeControlOperation(t, NewExecutionControl(faultDB), unit, operation)
+			if err == nil || !errors.Is(err, errLeaseStorage) {
+				t.Fatalf("commit failure=%v", err)
+			}
+			if !reflect.DeepEqual(before, planRows(t, db)) {
+				t.Fatal("commit failure retained execution writes")
+			}
+		})
 	}
 }

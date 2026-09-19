@@ -18,21 +18,14 @@ func NewExecutionControl(repository model.ExecutionRepository, now func() time.T
 }
 
 func (service *ExecutionControl) Observe(ctx context.Context, unit model.Execution) (model.LeaseState, error) {
-	state := model.LeaseLost
-	err := service.repository.WithExecution(ctx, func(scope model.ExecutionScope) error {
-		before, found, err := scope.Read.Current(ctx, unit.JobID)
-		if err != nil {
-			return fmt.Errorf("read EmulationStation execution ownership: %w", err)
-		}
-		if found {
-			state = ExecutionState(before, unit, service.now().UnixMilli())
-		}
-		return nil
-	})
+	before, found, err := service.repository.CurrentExecution(ctx, unit.JobID)
 	if err != nil {
 		return model.LeaseLost, fmt.Errorf("observe EmulationStation execution: %w", err)
 	}
-	return state, nil
+	if !found {
+		return model.LeaseLost, nil
+	}
+	return ExecutionState(before, unit, service.now().UnixMilli()), nil
 }
 
 func (service *ExecutionControl) CloseCancelled(ctx context.Context, unit model.Execution) (bool, error) {
@@ -50,74 +43,42 @@ func (service *ExecutionControl) CloseCancelled(ctx context.Context, unit model.
 func (service *ExecutionControl) closeCancelledAttempt(
 	ctx context.Context, unit model.Execution,
 ) (bool, bool, error) {
-	closed, more := false, false
-	err := service.repository.WithExecution(ctx, func(scope model.ExecutionScope) error {
-		return service.closeCancelledScope(ctx, scope, unit, &closed, &more)
-	})
+	before, found, err := service.repository.CurrentExecution(ctx, unit.JobID)
 	if err != nil {
-		return false, false, fmt.Errorf("run cancellation acknowledgement scope: %w", err)
+		return false, false, fmt.Errorf("read EmulationStation cancellation: %w", err)
 	}
-	return closed, more, nil
-}
-
-func (service *ExecutionControl) closeCancelledScope(
-	ctx context.Context,
-	scope model.ExecutionScope,
-	unit model.Execution,
-	closed, more *bool,
-) error {
-	before, err := currentExecution(ctx, scope.Read, unit)
-	if err != nil {
-		return err
+	if !found || before.Execution != unit {
+		return false, false, model.ErrVersionConflict
 	}
 	now := service.now().UnixMilli()
 	state := ExecutionState(before, unit, now)
 	if state == model.LeaseActive {
-		return nil
+		return false, false, nil
 	}
 	if state != model.LeaseCancelled || before.LeaseUntilMS <= now || before.DeadlineAtMS <= now {
-		return model.ErrVersionConflict
+		return false, false, model.ErrVersionConflict
 	}
-	return service.finishCancelledScope(ctx, scope, before, closed, more)
-}
-
-func (service *ExecutionControl) finishCancelledScope(
-	ctx context.Context,
-	scope model.ExecutionScope,
-	before model.LeaseSnapshot,
-	closed, more *bool,
-) error {
-	var err error
-	before, *more, err = completeExecutionReviews(
-		ctx,
-		model.ExecutionReviewScope{Read: scope.Read, Write: scope.Write, Metadata: scope.Metadata},
-		before,
-		service.now,
+	result, err := service.repository.CommitExecutionReviewBatch(
+		ctx, unit, func() int64 { return service.now().UnixMilli() }, before.ReleaseYearMax,
 	)
 	if err != nil {
-		return err
+		return false, false, err
 	}
-	if *more {
-		return nil
+	if result.More {
+		return false, true, nil
 	}
 	change := model.ExecutionFinish{
-		Before:      before,
+		Before:      result.Before,
 		NowMS:       service.now().UnixMilli(),
 		JobState:    "CANCELLED",
 		ImportState: "CANCELLED",
 		ItemState:   "CANCELLED",
 	}
 	planExecutionProjection(&change)
-	if err := scope.Write.Finish(ctx, change); err != nil {
-		return fmt.Errorf("persist EmulationStation cancellation acknowledgement: %w", err)
+	if err := service.repository.CommitExecutionFinish(ctx, change); err != nil {
+		return false, false, fmt.Errorf("persist EmulationStation cancellation: %w", err)
 	}
-	if change.SchedulePayload {
-		if err := scheduleTerminalPayloads(ctx, scope.Payload, change.Before.ImportID, change.NowMS); err != nil {
-			return err
-		}
-	}
-	*closed = true
-	return nil
+	return true, false, nil
 }
 
 func currentExecution(

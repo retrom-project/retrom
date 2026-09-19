@@ -59,7 +59,7 @@ func TestExecutionObservationAndCancellationCommitPreserveCauses(t *testing.T) {
 		t.Fatalf("commit cancellation=%v error=%v", closed, err)
 	}
 	state, err = service.Observe(t.Context(), memory.before.Execution)
-	if state != model.LeaseLost || !errors.Is(err, memory.err) {
-		t.Fatalf("failed observation=%v error=%v", state, err)
+	if state != model.LeaseCancelled || err != nil {
+		t.Fatalf("observation after failed commit=%v error=%v", state, err)
 	}
 }

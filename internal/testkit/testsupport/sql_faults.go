@@ -13,10 +13,11 @@ import (
 // receive a real *sql.Tx. Hooks may run concurrently and must synchronize state.
 // A hook must match the intended statement and bound arguments, never all writes.
 type SQLFaultHooks struct {
-	BeforeQuery func(context.Context, string, []driver.NamedValue) error
-	AfterQuery  func(context.Context, string, []driver.NamedValue, driver.Rows) (driver.Rows, error)
-	BeforeExec  func(context.Context, string, []driver.NamedValue) error
-	AfterExec   func(context.Context, string, []driver.NamedValue, driver.Result) (driver.Result, error)
+	BeforeQuery  func(context.Context, string, []driver.NamedValue) error
+	AfterQuery   func(context.Context, string, []driver.NamedValue, driver.Rows) (driver.Rows, error)
+	BeforeExec   func(context.Context, string, []driver.NamedValue) error
+	AfterExec    func(context.Context, string, []driver.NamedValue, driver.Result) (driver.Result, error)
+	BeforeCommit func() error
 }
 
 // OpenSQLFaultDatabase opens another connection pool to a file-backed test database.
@@ -82,8 +83,26 @@ func (connection sqlFaultConnection) BeginTx(ctx context.Context, options driver
 	if err != nil {
 		return nil, fmt.Errorf("begin fault-injected transaction: %w", err)
 	}
+	if connection.hooks.BeforeCommit != nil {
+		return sqlFaultTx{Tx: transaction, beforeCommit: connection.hooks.BeforeCommit}, nil
+	}
 	return transaction, nil
 }
+
+type sqlFaultTx struct {
+	driver.Tx
+	beforeCommit func() error
+}
+
+func (tx sqlFaultTx) Commit() error {
+	if err := tx.beforeCommit(); err != nil {
+		_ = tx.Tx.Rollback()
+		return err
+	}
+	return tx.Tx.Commit()
+}
+
+func (tx sqlFaultTx) Rollback() error { return tx.Tx.Rollback() }
 
 func (connection sqlFaultConnection) ExecContext(
 	ctx context.Context, query string, args []driver.NamedValue,
