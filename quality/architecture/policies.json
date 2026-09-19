@@ -1702,6 +1702,287 @@
       ]
     },
     {
+      "id": "netplay.EligibilityBlocker",
+      "owner": "netplay",
+      "rf_id": "RF12",
+      "symbol": "retrom/internal/service/netplay.EligibilityBlocker",
+      "consumers": [
+        "(*retrom/internal/service/netplay.Eligibility).profileEligibility"
+      ],
+      "invariant": "Ordered unavailable/content/core/dependency blocker selection.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF12-room_concurrency",
+        "RFA-RF12-peer_reconnect"
+      ]
+    },
+    {
+      "id": "netplay.EndDisposition",
+      "owner": "netplay",
+      "rf_id": "RF12",
+      "symbol": "retrom/internal/service/netplay.EndDisposition",
+      "consumers": [
+        "(*retrom/internal/service/netplay.RoomExit).finish",
+        "retrom/internal/transport/netplay.endDisposition"
+      ],
+      "invariant": "Unique room disposition policy for reason and host authority.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF12-room_concurrency",
+        "RFA-RF12-peer_reconnect"
+      ]
+    },
+    {
+      "id": "netplay.MatchesTargetProfile",
+      "owner": "netplay",
+      "rf_id": "RF12",
+      "symbol": "(*retrom/internal/service/netplay.Eligibility).MatchesTargetProfile",
+      "consumers": [
+        "(*retrom/internal/service/netplay.Eligibility).matchEligibleProfile"
+      ],
+      "invariant": "Registry allowed content kind and exact platform/core/provider/target selection.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF12-room_concurrency",
+        "RFA-RF12-peer_reconnect"
+      ]
+    },
+    {
+      "id": "netplay.ValidResyncSource",
+      "owner": "netplay",
+      "rf_id": "RF12",
+      "symbol": "retrom/internal/service/netplay.ValidResyncSource",
+      "consumers": [
+        "(*retrom/internal/service/netplay.SessionControl).Resync",
+        "retrom/internal/transport/netplay.validResyncSource"
+      ],
+      "invariant": "Exact cause/state matrix for reconnect,hash mismatch and host resume.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF12-room_concurrency",
+        "RFA-RF12-peer_reconnect"
+      ]
+    },
+    {
+      "id": "netplay.activeExitMember",
+      "owner": "netplay",
+      "rf_id": "RF12",
+      "symbol": "retrom/internal/service/netplay.activeExitMember",
+      "consumers": [
+        "(*retrom/internal/service/netplay.RoomExit).Leave",
+        "(*retrom/internal/service/netplay.RoomExit).end"
+      ],
+      "invariant": "Membership exists and is not left.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF12-room_concurrency",
+        "RFA-RF12-peer_reconnect"
+      ]
+    },
+    {
+      "id": "netplay.allControlPeersReady",
+      "owner": "netplay",
+      "rf_id": "RF12",
+      "symbol": "retrom/internal/service/netplay.allControlPeersReady",
+      "consumers": [
+        "(*retrom/internal/service/netplay.SessionControl).RuntimeReady"
+      ],
+      "invariant": "At least two current peers, including changed peer, all exactly RUNTIME_READY.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF12-room_concurrency",
+        "RFA-RF12-peer_reconnect"
+      ]
+    },
+    {
+      "id": "netplay.controlPeer",
+      "owner": "netplay",
+      "rf_id": "RF12",
+      "symbol": "retrom/internal/service/netplay.controlPeer",
+      "consumers": [
+        "(*retrom/internal/service/netplay.SessionControl).Disconnected",
+        "(*retrom/internal/service/netplay.SessionControl).RuntimeReady"
+      ],
+      "invariant": "Participant authority binds profile,seat and credential generation.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF12-room_concurrency",
+        "RFA-RF12-peer_reconnect"
+      ]
+    },
+    {
+      "id": "netplay.departingGuest",
+      "owner": "netplay",
+      "rf_id": "RF12",
+      "symbol": "retrom/internal/service/netplay.departingGuest",
+      "consumers": [
+        "(*retrom/internal/service/netplay.RoomExit).finish"
+      ],
+      "invariant": "Only selected guest reasons returning WAITING leave membership, preserving reason mapping.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF12-room_concurrency",
+        "RFA-RF12-peer_reconnect"
+      ]
+    },
+    {
+      "id": "netplay.lockedSnapshotJSON",
+      "owner": "netplay",
+      "rf_id": "RF12",
+      "symbol": "retrom/internal/service/netplay.lockedSnapshotJSON",
+      "consumers": [
+        "(*retrom/internal/service/netplay.Eligibility).dependencySnapshotCurrent"
+      ],
+      "invariant": "Parse and canonicalize explicit BIOS snapshot bytes.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF12-room_concurrency",
+        "RFA-RF12-peer_reconnect"
+      ]
+    },
+    {
+      "id": "netplay.netplayArcadeClosureIndex",
+      "owner": "netplay",
+      "rf_id": "RF12",
+      "symbol": "retrom/internal/service/netplay.netplayArcadeClosureIndex",
+      "consumers": [
+        "(*retrom/internal/service/netplay.Eligibility).ArcadeSnapshotRunnable"
+      ],
+      "invariant": "Unique allowed closure entries with one root CONTENT machine at depth0 and no parent.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF12-room_concurrency",
+        "RFA-RF12-peer_reconnect"
+      ]
+    },
+    {
+      "id": "netplay.netplayArcadeDependencyMatches",
+      "owner": "netplay",
+      "rf_id": "RF12",
+      "symbol": "retrom/internal/service/netplay.netplayArcadeDependencyMatches",
+      "consumers": [
+        "(*retrom/internal/service/netplay.Eligibility).arcadeSnapshotDependenciesRunnable"
+      ],
+      "invariant": "Exact closure depth/parent,logical zip,entry count/list and allowed usable state.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF12-room_concurrency",
+        "RFA-RF12-peer_reconnect"
+      ]
+    },
+    {
+      "id": "netplay.parseNetplayArcadeSnapshot",
+      "owner": "netplay",
+      "rf_id": "RF12",
+      "symbol": "retrom/internal/service/netplay.parseNetplayArcadeSnapshot",
+      "consumers": [
+        "(*retrom/internal/service/netplay.Eligibility).ArcadeSnapshotRunnable"
+      ],
+      "invariant": "Strict shape/schema/kind/DAT/machine/empty missing/mismatch facts of explicit locked snapshot.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF12-room_concurrency",
+        "RFA-RF12-peer_reconnect"
+      ]
+    },
+    {
+      "id": "netplay.sameExpirySession",
+      "owner": "netplay",
+      "rf_id": "RF12",
+      "symbol": "retrom/internal/service/netplay.sameExpirySession",
+      "consumers": [
+        "(*retrom/internal/service/netplay.RoomExit).EndExpired"
+      ],
+      "invariant": "Exact optional current-session identity comparison.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF12-room_concurrency",
+        "RFA-RF12-peer_reconnect"
+      ]
+    },
+    {
+      "id": "netplay.startSeatMask",
+      "owner": "netplay",
+      "rf_id": "RF12",
+      "symbol": "retrom/internal/service/netplay.startSeatMask",
+      "consumers": [
+        "(*retrom/internal/service/netplay.SessionStart).Start"
+      ],
+      "invariant": "Two or more ready, active, unique bounded seats including exact HOST P1; frozen player-count bound.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF12-room_concurrency",
+        "RFA-RF12-peer_reconnect"
+      ]
+    },
+    {
+      "id": "netplay.stateEvent",
+      "owner": "netplay",
+      "rf_id": "RF12",
+      "symbol": "retrom/internal/service/netplay.stateEvent",
+      "consumers": [
+        "(*retrom/internal/service/netplay.ParticipantPreparation).record",
+        "(*retrom/internal/service/netplay.SessionControl).Disconnected",
+        "(*retrom/internal/service/netplay.SessionControl).Resync",
+        "(*retrom/internal/service/netplay.SessionControl).Running",
+        "(*retrom/internal/service/netplay.SessionControl).RuntimeReady",
+        "(*retrom/internal/service/netplay.SessionControl).SetState"
+      ],
+      "invariant": "Deterministic schema1 transition event data, no runtime I/O.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF12-room_concurrency",
+        "RFA-RF12-peer_reconnect"
+      ]
+    },
+    {
+      "id": "netplay.validArcadeRuntimeSnapshot",
+      "owner": "netplay",
+      "rf_id": "RF12",
+      "symbol": "retrom/internal/service/netplay.validArcadeRuntimeSnapshot",
+      "consumers": [
+        "(*retrom/internal/service/netplay.Eligibility).ArcadeSnapshotRunnable"
+      ],
+      "invariant": "Validate explicit Arcade runtime dependency snapshot through existing pure parser.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF12-room_concurrency",
+        "RFA-RF12-peer_reconnect"
+      ]
+    },
+    {
+      "id": "netplay.validateSeat",
+      "owner": "netplay",
+      "rf_id": "RF12",
+      "symbol": "retrom/internal/service/netplay.validateSeat",
+      "consumers": [
+        "(*retrom/internal/service/netplay.RoomControl).SetSeat"
+      ],
+      "invariant": "Guest seat range, selected maxPlayers, not-ready/nonhost actor membership and single active occupant.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF12-room_concurrency",
+        "RFA-RF12-peer_reconnect"
+      ]
+    },
+    {
       "id": "payloadrelease.DecideGameDeletion",
       "owner": "payloadrelease",
       "rf_id": "RF18",

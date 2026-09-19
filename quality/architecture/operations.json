@@ -7761,6 +7761,3071 @@
       }
     },
     {
+      "operation_id": "netplay.abort-preparation",
+      "owner": "netplay",
+      "rf_id": "RF12",
+      "consumers": [
+        "(*retrom/internal/service/netplay.ParticipantPreparation).Fail",
+        "(*retrom/internal/service/netplay.ParticipantPreparation).Launch",
+        "(*retrom/internal/service/netplay.RoomExit).AbortPreparation",
+        "(*retrom/internal/service/netplay.Service).CreateParticipantLaunch",
+        "(*retrom/internal/transport/httpapi.Server).createNetplayLaunch"
+      ],
+      "snapshot": "retrom/internal/model/netplay.RoomExitSnapshot",
+      "prepare": "(*retrom/internal/service/netplay.RoomExit).AbortPreparation",
+      "commit": "(*retrom/internal/repo/netplay.RoomExit).WithExit",
+      "policy_symbols": [
+        "retrom/internal/service/netplay.EndDisposition",
+        "retrom/internal/service/netplay.departingGuest"
+      ],
+      "fresh_facts": [
+        {
+          "name": "current room and actor membership",
+          "reader_symbol": "(retrom/internal/repo/netplay.roomExitRecords).Current",
+          "reason": "Writer loads room host/state/version/selection and all active members plus actor's left membership, then exact current_session_id"
+        }
+      ],
+      "guards": [
+        {
+          "id": "original-session",
+          "fields": [
+            "roomExists",
+            "currentSessionId",
+            "originalSessionId"
+          ],
+          "expected_source": "Missing room or changed/missing current session returns no-op; only original session may abort",
+          "rejection": "No-op protects replacement",
+          "test_id": "RFA-RF12-peer_reconnect"
+        },
+        {
+          "id": "terminal-replay",
+          "fields": [
+            "room.state"
+          ],
+          "expected_source": "ENDED or EXPIRED returns success without writer changes",
+          "rejection": "No-op",
+          "test_id": "RFA-RF12-peer_reconnect"
+        },
+        {
+          "id": "waiting-selection",
+          "fields": [
+            "disposition",
+            "selection"
+          ],
+          "expected_source": "EndDisposition determines WAITING or ENDED; WAITING requires current selection",
+          "rejection": "ErrRoomConflict",
+          "test_id": "RFA-RF12-peer_reconnect"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "exit-room-fence",
+          "repo_helper": "(retrom/internal/repo/netplay.roomExitRecords).End",
+          "affected_records": [
+            "netplay_rooms exact id/version/state -> version=version; require one"
+          ],
+          "test_id": "RFA-RF12-peer_reconnect"
+        },
+        {
+          "stage": "close-session",
+          "repo_helper": "retrom/internal/repo/netplay.closeNetplaySession",
+          "affected_records": [
+            "If current session exists: netplay_sessions exact id/nonterminal -> FINISHED for NORMAL/USER_EXIT else FAILED,finish/reason/time/version+1"
+          ],
+          "test_id": "RFA-RF12-peer_reconnect"
+        },
+        {
+          "stage": "close-plays",
+          "repo_helper": "retrom/internal/repo/netplay.closeNetplaySession",
+          "affected_records": [
+            "If current session exists: play_sessions ACTIVE for its launches -> FINISHED for NORMAL/USER_EXIT else ABANDONED,end/time/version+1"
+          ],
+          "test_id": "RFA-RF12-peer_reconnect"
+        },
+        {
+          "stage": "revoke-launches",
+          "repo_helper": "retrom/internal/repo/netplay.closeNetplaySession",
+          "affected_records": [
+            "If current session exists: sessionstore.ChangeLaunch exact session and CREATED/ACTIVE -> REVOKED,finish/time/version+1; nested atomic uses same executor"
+          ],
+          "test_id": "RFA-RF12-peer_reconnect"
+        },
+        {
+          "stage": "exit-launch-retirement",
+          "repo_helper": "retrom/internal/repo/sessionstore.updateLaunchRelations",
+          "affected_records": [
+            "For each changed launch: UPDATE unreleased launch_payload_retirements dueAt=finishedAt for terminal state"
+          ],
+          "test_id": "RFA-RF12-peer_reconnect"
+        },
+        {
+          "stage": "exit-isolated-capabilities",
+          "repo_helper": "retrom/internal/repo/sessionstore.updateLaunchRelations",
+          "affected_records": [
+            "For each changed terminal launch: isolated_runtime_capabilities unrevoked launchId -> revokedAt=launch.finishedAt"
+          ],
+          "test_id": "RFA-RF12-peer_reconnect"
+        },
+        {
+          "stage": "exit-restore-binding",
+          "repo_helper": "retrom/internal/repo/sessionstore.updateLaunchRelations",
+          "affected_records": [
+            "For each changed launch state outside CREATED/ACTIVE: launch_game_save_bindings restoreBlob/checkpointFormatNULL"
+          ],
+          "test_id": "RFA-RF12-peer_reconnect"
+        },
+        {
+          "stage": "close-participants",
+          "repo_helper": "retrom/internal/repo/netplay.closeNetplaySession",
+          "affected_records": [
+            "If current session exists: netplay_session_participants exact session state!=LEFT -> LEFT,disconnect/leaseNULL,version+1,time"
+          ],
+          "test_id": "RFA-RF12-peer_reconnect"
+        },
+        {
+          "stage": "waiting-departing-guest",
+          "repo_helper": "(retrom/internal/repo/netplay.roomExitRecords).waiting",
+          "affected_records": [
+            "WAITING disposition only: optional exact room/profile GUEST/unleft -> ready0,leftAt/reason,version+1,time"
+          ],
+          "test_id": "RFA-RF12-peer_reconnect"
+        },
+        {
+          "stage": "waiting-clear-readiness",
+          "repo_helper": "(retrom/internal/repo/netplay.roomControlRecords).clearReady",
+          "affected_records": [
+            "WAITING disposition only: all active room members -> ready0,version+1,time"
+          ],
+          "test_id": "RFA-RF12-peer_reconnect"
+        },
+        {
+          "stage": "waiting-room",
+          "repo_helper": "(retrom/internal/repo/netplay.roomExitRecords).waiting",
+          "affected_records": [
+            "WAITING disposition only: netplay_rooms exact id/version -> WAITING,currentSessionNULL,waitingExpiry,version+1,time"
+          ],
+          "test_id": "RFA-RF12-peer_reconnect"
+        },
+        {
+          "stage": "end-room-members",
+          "repo_helper": "retrom/internal/repo/netplay.endRoomRecord",
+          "affected_records": [
+            "ENDED disposition only: all active room members -> ready0,leftAt,leaveReasonROOM_ENDED,version+1,time"
+          ],
+          "test_id": "RFA-RF12-peer_reconnect"
+        },
+        {
+          "stage": "end-room",
+          "repo_helper": "retrom/internal/repo/netplay.endRoomRecord",
+          "affected_records": [
+            "ENDED disposition only: netplay_rooms exact id -> ENDED,currentSessionNULL,endedAt/reason,version+1,time"
+          ],
+          "test_id": "RFA-RF12-peer_reconnect"
+        },
+        {
+          "stage": "exit-event",
+          "repo_helper": "(retrom/internal/repo/netplay.roomExitRecords).End",
+          "affected_records": [
+            "INSERT netplay_events ROOM_ENDED with actor for ENDED; SESSION_STATE_CHANGED actorNULL for WAITING with session; WAITING without current session emits no event"
+          ],
+          "test_id": "RFA-RF12-peer_reconnect"
+        }
+      ],
+      "idempotency": "Same original session only. PREPARE_FAILED returns room WAITING while failing current session, abandoning plays, revoking launches and clearing participant state. Repeated abort after room currentSession cleared is no-op.",
+      "time_rule": "Baseline BeginTx(ctx,nil) on shared single writer connection; Service samples now before acquiring the transaction. Target requires one Repo Clock sample after write permission. No current negative/overflow-time guard is assumed. Called using 5-second context.WithoutCancel; abort samples its own time before writer; no new ID.",
+      "after_commit": [],
+      "fault_points": [
+        "PLANNED exit-room-fence: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED close-session: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED close-plays: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED revoke-launches: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED exit-launch-retirement: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED exit-isolated-capabilities: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED exit-restore-binding: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED close-participants: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED waiting-departing-guest: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED waiting-clear-readiness: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED waiting-room: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED end-room-members: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED end-room: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED exit-event: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED each Guard independently raced between preparation and writer acquisition with exact error/no writes",
+        "PLANNED duplicate command, cancellation, commit failure, stale socket/session/generation and recovery",
+        "PLANNED Hub publication waits for durable control success; database/network blocking never holds Hub mutex; original causes retained"
+      ],
+      "test_ids": [
+        "RFA-RF12-peer_reconnect",
+        "RFA-RF12-hub_transaction",
+        "RFA-RF12-two_browser"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "Netplay control creates no CAS bytes or new Blob ownership; Launch publication is separately registered under launch.create-netplay. Terminal control only retires/releases existing launch references.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "netplay.clear-game",
+      "owner": "netplay",
+      "rf_id": "RF12",
+      "consumers": [
+        "(*retrom/internal/service/netplay.RoomControl).ClearGame",
+        "(*retrom/internal/service/netplay.Service).ClearGame",
+        "(*retrom/internal/transport/httpapi.Server).clearNetplayGame"
+      ],
+      "snapshot": "retrom/internal/model/netplay.RoomControlSnapshot",
+      "prepare": "(*retrom/internal/service/netplay.RoomControl).ClearGame",
+      "commit": "(*retrom/internal/repo/netplay.RoomControl).WithWrite",
+      "policy_symbols": [],
+      "fresh_facts": [
+        {
+          "name": "current room",
+          "reader_symbol": "(retrom/internal/repo/netplay.roomControlRecords).Current",
+          "reason": "Inside writer: room host/state/version/selected game+variant+profile+digest/maxPlayers"
+        },
+        {
+          "name": "current members",
+          "reader_symbol": "(retrom/internal/repo/netplay.roomControlRecords).controlMembers",
+          "reason": "Inside writer: every active occupant plus requesting actor's possibly-left membership; ID/profile/role/seat/ready/version/left time"
+        }
+      ],
+      "guards": [
+        {
+          "id": "host-authority",
+          "fields": [
+            "actorId",
+            "hostProfileId"
+          ],
+          "expected_source": "Request actor is current room host; caller authenticates account before entry",
+          "rejection": "ErrForbidden",
+          "test_id": "RFA-RF12-room_concurrency"
+        },
+        {
+          "id": "room-version",
+          "fields": [
+            "request.version",
+            "current.version"
+          ],
+          "expected_source": "Exact expected room version",
+          "rejection": "ErrPrecondition",
+          "test_id": "RFA-RF12-room_concurrency"
+        },
+        {
+          "id": "room-state",
+          "fields": [
+            "current.state"
+          ],
+          "expected_source": "Current state in WAITING",
+          "rejection": "ErrRoomConflict",
+          "test_id": "RFA-RF12-room_concurrency"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "clear-selection",
+          "repo_helper": "(retrom/internal/repo/netplay.roomControlRecords).Clear",
+          "affected_records": [
+            "netplay_rooms exact id/version -> DRAFT,selection game/variant/profile/digest/maxPlayers/currentSessionNULL,version+1,draftExpiry,time"
+          ],
+          "test_id": "RFA-RF12-room_concurrency"
+        },
+        {
+          "stage": "clear-readiness",
+          "repo_helper": "(retrom/internal/repo/netplay.roomControlRecords).clearReady",
+          "affected_records": [
+            "netplay_room_members every active room member -> ready0,version+1,time"
+          ],
+          "test_id": "RFA-RF12-room_concurrency"
+        },
+        {
+          "stage": "room-event",
+          "repo_helper": "(retrom/internal/repo/netplay.roomControlRecords).event",
+          "affected_records": [
+            "INSERT netplay_events room,sessionNULL,actor/player,GAME_CLEARED,schema1 JSON,time"
+          ],
+          "test_id": "RFA-RF12-room_concurrency"
+        }
+      ],
+      "idempotency": "No HTTP idempotency receipt. Preserve current conditional state/version and semantic replay branches below.",
+      "time_rule": "Baseline BeginTx(ctx,nil) on shared single writer connection; Service samples now before acquiring the transaction. Target requires one Repo Clock sample after write permission. No current negative/overflow-time guard is assumed.",
+      "after_commit": [
+        {
+          "action": "Return viewer projection loaded inside writer only after successful commit",
+          "recovery": "No early successful HTTP room projection; stale version fails and caller reloads",
+          "test_id": "RFA-RF12-hub_transaction"
+        }
+      ],
+      "fault_points": [
+        "PLANNED clear-selection: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED clear-readiness: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED room-event: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED each Guard independently raced between preparation and writer acquisition with exact error/no writes",
+        "PLANNED duplicate command, cancellation, commit failure, stale socket/session/generation and recovery",
+        "PLANNED Hub publication waits for durable control success; database/network blocking never holds Hub mutex; original causes retained"
+      ],
+      "test_ids": [
+        "RFA-RF12-room_concurrency",
+        "RFA-RF12-hub_transaction",
+        "RFA-RF12-two_browser"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "Netplay control creates no CAS bytes or new Blob ownership; Launch publication is separately registered under launch.create-netplay. Terminal control only retires/releases existing launch references.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "netplay.create-room",
+      "owner": "netplay",
+      "rf_id": "RF12",
+      "consumers": [
+        "(*retrom/internal/service/netplay.RoomCreation).Create",
+        "(*retrom/internal/service/netplay.Service).CreateRoom",
+        "(*retrom/internal/transport/httpapi.Server).createNetplayRoom"
+      ],
+      "snapshot": "retrom/internal/model/netplay.RoomCapacity",
+      "prepare": "(*retrom/internal/service/netplay.RoomCreation).Create",
+      "commit": "(*retrom/internal/repo/netplay.RoomCreation).WithCreate",
+      "policy_symbols": [],
+      "fresh_facts": [
+        {
+          "name": "live room capacity",
+          "reader_symbol": "(retrom/internal/repo/netplay.roomCreationRecords).Capacity",
+          "reason": "Writer counts all DRAFT/WAITING/STARTING/RUNNING rooms and EXISTS active room for host"
+        }
+      ],
+      "guards": [
+        {
+          "id": "one-room-per-host",
+          "fields": [
+            "hostActive"
+          ],
+          "expected_source": "Host has no active room; checked before maximum capacity",
+          "rejection": "ErrRoomConflict",
+          "test_id": "RFA-RF12-room_concurrency"
+        },
+        {
+          "id": "global-capacity",
+          "fields": [
+            "activeCount",
+            "maximum"
+          ],
+          "expected_source": "Current activeCount below configured maximum",
+          "rejection": "ErrCapacity",
+          "test_id": "RFA-RF12-room_concurrency"
+        },
+        {
+          "id": "host-unique-insert",
+          "fields": [
+            "hostProfileId",
+            "state"
+          ],
+          "expected_source": "INSERT ON CONFLICT(host_profile_id) WHERE active state DO NOTHING; exactly one row must insert",
+          "rejection": "ErrRoomConflict",
+          "test_id": "RFA-RF12-room_concurrency"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "room",
+          "repo_helper": "(retrom/internal/repo/netplay.roomCreationRecords).Insert",
+          "affected_records": [
+            "INSERT netplay_rooms roomUUID/host,DRAFT,version1,expiry/created/updated; conditional active-host uniqueness"
+          ],
+          "test_id": "RFA-RF12-room_concurrency"
+        },
+        {
+          "stage": "host-member",
+          "repo_helper": "(retrom/internal/repo/netplay.roomCreationRecords).Insert",
+          "affected_records": [
+            "INSERT netplay_room_members memberUUID/room/host,HOST,player1,ready0,version1,join/time"
+          ],
+          "test_id": "RFA-RF12-room_concurrency"
+        },
+        {
+          "stage": "created-event",
+          "repo_helper": "(retrom/internal/repo/netplay.roomCreationRecords).Insert",
+          "affected_records": [
+            "INSERT netplay_events ROOM_CREATED,host/player1,sessionNULL,schema1,time; only then load resulting room"
+          ],
+          "test_id": "RFA-RF12-room_concurrency"
+        }
+      ],
+      "idempotency": "No HTTP idempotency receipt. Preserve current conditional state/version and semantic replay branches below.",
+      "time_rule": "Baseline BeginTx(ctx,nil) on shared single writer connection; Service samples now before acquiring the transaction. Target requires one Repo Clock sample after write permission. No current negative/overflow-time guard is assumed. RoomCreation.plan generates room and member UUIDs inside callback after capacity check; idle expiry uses earlier Service time.",
+      "after_commit": [],
+      "fault_points": [
+        "PLANNED room: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED host-member: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED created-event: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED each Guard independently raced between preparation and writer acquisition with exact error/no writes",
+        "PLANNED duplicate command, cancellation, commit failure, stale socket/session/generation and recovery",
+        "PLANNED Hub publication waits for durable control success; database/network blocking never holds Hub mutex; original causes retained"
+      ],
+      "test_ids": [
+        "RFA-RF12-room_concurrency",
+        "RFA-RF12-hub_transaction",
+        "RFA-RF12-two_browser"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "Netplay control creates no CAS bytes or new Blob ownership; Launch publication is separately registered under launch.create-netplay. Terminal control only retires/releases existing launch references.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "netplay.end-room",
+      "owner": "netplay",
+      "rf_id": "RF12",
+      "consumers": [
+        "(*retrom/internal/service/netplay.RoomExit).End",
+        "(*retrom/internal/service/netplay.RoomExit).EndSystem",
+        "(*retrom/internal/service/netplay.RoomExit).end",
+        "(*retrom/internal/service/netplay.Service).EndRoom",
+        "(*retrom/internal/service/netplay.Service).EndSystem",
+        "(*retrom/internal/transport/httpapi.Server).Close",
+        "(*retrom/internal/transport/httpapi.Server).deleteNetplayRoom",
+        "(*retrom/internal/transport/httpapi.Server).endNetplaySession",
+        "(*retrom/internal/transport/httpapi.Server).netplaySocket",
+        "(*retrom/internal/transport/netplay.Hub).Close",
+        "(*retrom/internal/transport/netplay.Hub).Connect",
+        "(*retrom/internal/transport/netplay.peer).validateAndPing",
+        "(*retrom/internal/transport/netplay.peer).validationLoop",
+        "(*retrom/internal/transport/netplay.realtimeSession).acceptHash",
+        "(*retrom/internal/transport/netplay.realtimeSession).acceptHistoryApplied",
+        "(*retrom/internal/transport/netplay.realtimeSession).acceptPaused",
+        "(*retrom/internal/transport/netplay.realtimeSession).acceptStateApplied",
+        "(*retrom/internal/transport/netplay.realtimeSession).acceptStateReady",
+        "(*retrom/internal/transport/netplay.realtimeSession).completePauseLocked",
+        "(*retrom/internal/transport/netplay.realtimeSession).fail",
+        "(*retrom/internal/transport/netplay.realtimeSession).handleEndRequest",
+        "(*retrom/internal/transport/netplay.realtimeSession).handleFrame",
+        "(*retrom/internal/transport/netplay.realtimeSession).handleMessage",
+        "(*retrom/internal/transport/netplay.realtimeSession).handleMismatchLocked",
+        "(*retrom/internal/transport/netplay.realtimeSession).maybeStartLocked",
+        "(*retrom/internal/transport/netplay.realtimeSession).prepareHashResync",
+        "(*retrom/internal/transport/netplay.realtimeSession).prepareResync",
+        "(*retrom/internal/transport/netplay.realtimeSession).readMessages",
+        "(*retrom/internal/transport/netplay.realtimeSession).removePeer",
+        "retrom/cmd/retrom.execute",
+        "retrom/cmd/retrom.executeWithPasswordReader",
+        "retrom/cmd/retrom.main",
+        "retrom/cmd/retrom.run"
+      ],
+      "snapshot": "retrom/internal/model/netplay.RoomExitSnapshot",
+      "prepare": "(*retrom/internal/service/netplay.RoomExit).end",
+      "commit": "(*retrom/internal/repo/netplay.RoomExit).WithExit",
+      "policy_symbols": [
+        "retrom/internal/service/netplay.EndDisposition",
+        "retrom/internal/service/netplay.activeExitMember",
+        "retrom/internal/service/netplay.departingGuest"
+      ],
+      "fresh_facts": [
+        {
+          "name": "current room and actor membership",
+          "reader_symbol": "(retrom/internal/repo/netplay.roomExitRecords).Current",
+          "reason": "Writer loads room host/state/version/selection and all active members plus actor's left membership, then exact current_session_id"
+        }
+      ],
+      "guards": [
+        {
+          "id": "end-actor",
+          "fields": [
+            "actorId",
+            "hostId",
+            "member.leftAt",
+            "reason"
+          ],
+          "expected_source": "If user actor is not host: reason must not HOST_CLOSED and actor must be active member; nil actor is trusted system path",
+          "rejection": "ErrForbidden",
+          "test_id": "RFA-RF12-hub_transaction"
+        },
+        {
+          "id": "optional-end-version",
+          "fields": [
+            "expectedVersion",
+            "currentVersion"
+          ],
+          "expected_source": "When expectedVersion supplied it equals current room version",
+          "rejection": "ErrPrecondition",
+          "test_id": "RFA-RF12-hub_transaction"
+        },
+        {
+          "id": "terminal-replay",
+          "fields": [
+            "room.state"
+          ],
+          "expected_source": "ENDED or EXPIRED returns success without writer changes",
+          "rejection": "No-op",
+          "test_id": "RFA-RF12-hub_transaction"
+        },
+        {
+          "id": "waiting-selection",
+          "fields": [
+            "disposition",
+            "selection"
+          ],
+          "expected_source": "EndDisposition determines WAITING or ENDED; WAITING requires current selection",
+          "rejection": "ErrRoomConflict",
+          "test_id": "RFA-RF12-hub_transaction"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "exit-room-fence",
+          "repo_helper": "(retrom/internal/repo/netplay.roomExitRecords).End",
+          "affected_records": [
+            "netplay_rooms exact id/version/state -> version=version; require one"
+          ],
+          "test_id": "RFA-RF12-hub_transaction"
+        },
+        {
+          "stage": "close-session",
+          "repo_helper": "retrom/internal/repo/netplay.closeNetplaySession",
+          "affected_records": [
+            "If current session exists: netplay_sessions exact id/nonterminal -> FINISHED for NORMAL/USER_EXIT else FAILED,finish/reason/time/version+1"
+          ],
+          "test_id": "RFA-RF12-hub_transaction"
+        },
+        {
+          "stage": "close-plays",
+          "repo_helper": "retrom/internal/repo/netplay.closeNetplaySession",
+          "affected_records": [
+            "If current session exists: play_sessions ACTIVE for its launches -> FINISHED for NORMAL/USER_EXIT else ABANDONED,end/time/version+1"
+          ],
+          "test_id": "RFA-RF12-hub_transaction"
+        },
+        {
+          "stage": "revoke-launches",
+          "repo_helper": "retrom/internal/repo/netplay.closeNetplaySession",
+          "affected_records": [
+            "If current session exists: sessionstore.ChangeLaunch exact session and CREATED/ACTIVE -> REVOKED,finish/time/version+1; nested atomic uses same executor"
+          ],
+          "test_id": "RFA-RF12-hub_transaction"
+        },
+        {
+          "stage": "exit-launch-retirement",
+          "repo_helper": "retrom/internal/repo/sessionstore.updateLaunchRelations",
+          "affected_records": [
+            "For each changed launch: UPDATE unreleased launch_payload_retirements dueAt=finishedAt for terminal state"
+          ],
+          "test_id": "RFA-RF12-hub_transaction"
+        },
+        {
+          "stage": "exit-isolated-capabilities",
+          "repo_helper": "retrom/internal/repo/sessionstore.updateLaunchRelations",
+          "affected_records": [
+            "For each changed terminal launch: isolated_runtime_capabilities unrevoked launchId -> revokedAt=launch.finishedAt"
+          ],
+          "test_id": "RFA-RF12-hub_transaction"
+        },
+        {
+          "stage": "exit-restore-binding",
+          "repo_helper": "retrom/internal/repo/sessionstore.updateLaunchRelations",
+          "affected_records": [
+            "For each changed launch state outside CREATED/ACTIVE: launch_game_save_bindings restoreBlob/checkpointFormatNULL"
+          ],
+          "test_id": "RFA-RF12-hub_transaction"
+        },
+        {
+          "stage": "close-participants",
+          "repo_helper": "retrom/internal/repo/netplay.closeNetplaySession",
+          "affected_records": [
+            "If current session exists: netplay_session_participants exact session state!=LEFT -> LEFT,disconnect/leaseNULL,version+1,time"
+          ],
+          "test_id": "RFA-RF12-hub_transaction"
+        },
+        {
+          "stage": "waiting-departing-guest",
+          "repo_helper": "(retrom/internal/repo/netplay.roomExitRecords).waiting",
+          "affected_records": [
+            "WAITING disposition only: optional exact room/profile GUEST/unleft -> ready0,leftAt/reason,version+1,time"
+          ],
+          "test_id": "RFA-RF12-hub_transaction"
+        },
+        {
+          "stage": "waiting-clear-readiness",
+          "repo_helper": "(retrom/internal/repo/netplay.roomControlRecords).clearReady",
+          "affected_records": [
+            "WAITING disposition only: all active room members -> ready0,version+1,time"
+          ],
+          "test_id": "RFA-RF12-hub_transaction"
+        },
+        {
+          "stage": "waiting-room",
+          "repo_helper": "(retrom/internal/repo/netplay.roomExitRecords).waiting",
+          "affected_records": [
+            "WAITING disposition only: netplay_rooms exact id/version -> WAITING,currentSessionNULL,waitingExpiry,version+1,time"
+          ],
+          "test_id": "RFA-RF12-hub_transaction"
+        },
+        {
+          "stage": "end-room-members",
+          "repo_helper": "retrom/internal/repo/netplay.endRoomRecord",
+          "affected_records": [
+            "ENDED disposition only: all active room members -> ready0,leftAt,leaveReasonROOM_ENDED,version+1,time"
+          ],
+          "test_id": "RFA-RF12-hub_transaction"
+        },
+        {
+          "stage": "end-room",
+          "repo_helper": "retrom/internal/repo/netplay.endRoomRecord",
+          "affected_records": [
+            "ENDED disposition only: netplay_rooms exact id -> ENDED,currentSessionNULL,endedAt/reason,version+1,time"
+          ],
+          "test_id": "RFA-RF12-hub_transaction"
+        },
+        {
+          "stage": "exit-event",
+          "repo_helper": "(retrom/internal/repo/netplay.roomExitRecords).End",
+          "affected_records": [
+            "INSERT netplay_events ROOM_ENDED with actor for ENDED; SESSION_STATE_CHANGED actorNULL for WAITING with session; WAITING without current session emits no event"
+          ],
+          "test_id": "RFA-RF12-hub_transaction"
+        }
+      ],
+      "idempotency": "Terminal room is semantic no-op after actor/version checks. Host PEER_TIMEOUT becomes HOST_LOST. EndDisposition closes for HOST_CLOSED/HOST_LOST/PROFILE_REVOKED/SERVER_RESTARTED/RESTORE/HARD_EXPIRED, and for host AUTH_REVOKED/PEER_TIMEOUT/PROTOCOL_VIOLATION; other reasons return WAITING. Guest leave reason mapped only for configured exit reasons.",
+      "time_rule": "Baseline BeginTx(ctx,nil) on shared single writer connection; Service samples now before acquiring the transaction. Target requires one Repo Clock sample after write permission. No current negative/overflow-time guard is assumed.",
+      "after_commit": [
+        {
+          "action": "HTTP delete/end handlers call Hub.Terminate after successful persistence",
+          "recovery": "Baseline realtimeSession.fail instead sets ended,stops timers,queues SESSION_ENDED before end-room, then logs persistence failure/removes hub/flushes/closes sockets. RF12 must correct ordering without losing bounded terminal cleanup",
+          "test_id": "RFA-RF12-hub_transaction"
+        }
+      ],
+      "fault_points": [
+        "PLANNED exit-room-fence: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED close-session: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED close-plays: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED revoke-launches: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED exit-launch-retirement: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED exit-isolated-capabilities: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED exit-restore-binding: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED close-participants: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED waiting-departing-guest: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED waiting-clear-readiness: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED waiting-room: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED end-room-members: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED end-room: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED exit-event: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED each Guard independently raced between preparation and writer acquisition with exact error/no writes",
+        "PLANNED duplicate command, cancellation, commit failure, stale socket/session/generation and recovery",
+        "PLANNED Hub publication waits for durable control success; database/network blocking never holds Hub mutex; original causes retained"
+      ],
+      "test_ids": [
+        "RFA-RF12-hub_transaction",
+        "RFA-RF12-two_browser"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "Netplay control creates no CAS bytes or new Blob ownership; Launch publication is separately registered under launch.create-netplay. Terminal control only retires/releases existing launch references.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "netplay.expire-active-session",
+      "owner": "netplay",
+      "rf_id": "RF12",
+      "consumers": [
+        "(*retrom/internal/service/netplay.RoomExit).EndExpired",
+        "(*retrom/internal/service/netplay.RoomMaintenance).Expire",
+        "(*retrom/internal/service/netplay.Service).ExpireRooms",
+        "(*retrom/internal/service/netplay.Service).StartMaintenance",
+        "(*retrom/internal/service/netplay.Service).maintain",
+        "(*retrom/internal/transport/httpapi.Server).WithNetplay",
+        "retrom/cmd/retrom.execute",
+        "retrom/cmd/retrom.executeWithPasswordReader",
+        "retrom/cmd/retrom.main",
+        "retrom/cmd/retrom.run"
+      ],
+      "snapshot": "retrom/internal/model/netplay.ExpiryCandidate",
+      "prepare": "(*retrom/internal/service/netplay.RoomExit).EndExpired",
+      "commit": "(*retrom/internal/repo/netplay.RoomExit).WithExit",
+      "policy_symbols": [
+        "retrom/internal/service/netplay.EndDisposition",
+        "retrom/internal/service/netplay.departingGuest",
+        "retrom/internal/service/netplay.sameExpirySession"
+      ],
+      "fresh_facts": [
+        {
+          "name": "current room and actor membership",
+          "reader_symbol": "(retrom/internal/repo/netplay.roomExitRecords).Current",
+          "reason": "Writer loads room host/state/version/selection and all active members plus actor's left membership, then exact current_session_id"
+        },
+        {
+          "name": "active expiry candidates",
+          "reader_symbol": "(*retrom/internal/repo/netplay.RoomMaintenance).Active",
+          "reason": "Outside writer: STARTING room.updated<=sampledNow-2min or RUNNING session.started nonnull<=sampledNow-8h; ordered room.updated/id LIMIT100"
+        }
+      ],
+      "guards": [
+        {
+          "id": "active-expiry-snapshot",
+          "fields": [
+            "room.version",
+            "room.state",
+            "currentSessionId"
+          ],
+          "expected_source": "Current version/state/session identity exactly match scanned candidate; otherwise no-op",
+          "rejection": "No-op",
+          "test_id": "RFA-RF12-peer_reconnect"
+        },
+        {
+          "id": "active-expiry-state",
+          "fields": [
+            "room.state"
+          ],
+          "expected_source": "STARTING chooses START_TIMEOUT; RUNNING chooses HARD_EXPIRED; other matching state rejects",
+          "rejection": "ErrRoomConflict",
+          "test_id": "RFA-RF12-peer_reconnect"
+        },
+        {
+          "id": "terminal-replay",
+          "fields": [
+            "room.state"
+          ],
+          "expected_source": "ENDED or EXPIRED returns success without writer changes",
+          "rejection": "No-op",
+          "test_id": "RFA-RF12-peer_reconnect"
+        },
+        {
+          "id": "waiting-selection",
+          "fields": [
+            "disposition",
+            "selection"
+          ],
+          "expected_source": "EndDisposition determines WAITING or ENDED; WAITING requires current selection",
+          "rejection": "ErrRoomConflict",
+          "test_id": "RFA-RF12-peer_reconnect"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "exit-room-fence",
+          "repo_helper": "(retrom/internal/repo/netplay.roomExitRecords).End",
+          "affected_records": [
+            "netplay_rooms exact id/version/state -> version=version; require one"
+          ],
+          "test_id": "RFA-RF12-peer_reconnect"
+        },
+        {
+          "stage": "close-session",
+          "repo_helper": "retrom/internal/repo/netplay.closeNetplaySession",
+          "affected_records": [
+            "If current session exists: netplay_sessions exact id/nonterminal -> FINISHED for NORMAL/USER_EXIT else FAILED,finish/reason/time/version+1"
+          ],
+          "test_id": "RFA-RF12-peer_reconnect"
+        },
+        {
+          "stage": "close-plays",
+          "repo_helper": "retrom/internal/repo/netplay.closeNetplaySession",
+          "affected_records": [
+            "If current session exists: play_sessions ACTIVE for its launches -> FINISHED for NORMAL/USER_EXIT else ABANDONED,end/time/version+1"
+          ],
+          "test_id": "RFA-RF12-peer_reconnect"
+        },
+        {
+          "stage": "revoke-launches",
+          "repo_helper": "retrom/internal/repo/netplay.closeNetplaySession",
+          "affected_records": [
+            "If current session exists: sessionstore.ChangeLaunch exact session and CREATED/ACTIVE -> REVOKED,finish/time/version+1; nested atomic uses same executor"
+          ],
+          "test_id": "RFA-RF12-peer_reconnect"
+        },
+        {
+          "stage": "exit-launch-retirement",
+          "repo_helper": "retrom/internal/repo/sessionstore.updateLaunchRelations",
+          "affected_records": [
+            "For each changed launch: UPDATE unreleased launch_payload_retirements dueAt=finishedAt for terminal state"
+          ],
+          "test_id": "RFA-RF12-peer_reconnect"
+        },
+        {
+          "stage": "exit-isolated-capabilities",
+          "repo_helper": "retrom/internal/repo/sessionstore.updateLaunchRelations",
+          "affected_records": [
+            "For each changed terminal launch: isolated_runtime_capabilities unrevoked launchId -> revokedAt=launch.finishedAt"
+          ],
+          "test_id": "RFA-RF12-peer_reconnect"
+        },
+        {
+          "stage": "exit-restore-binding",
+          "repo_helper": "retrom/internal/repo/sessionstore.updateLaunchRelations",
+          "affected_records": [
+            "For each changed launch state outside CREATED/ACTIVE: launch_game_save_bindings restoreBlob/checkpointFormatNULL"
+          ],
+          "test_id": "RFA-RF12-peer_reconnect"
+        },
+        {
+          "stage": "close-participants",
+          "repo_helper": "retrom/internal/repo/netplay.closeNetplaySession",
+          "affected_records": [
+            "If current session exists: netplay_session_participants exact session state!=LEFT -> LEFT,disconnect/leaseNULL,version+1,time"
+          ],
+          "test_id": "RFA-RF12-peer_reconnect"
+        },
+        {
+          "stage": "waiting-departing-guest",
+          "repo_helper": "(retrom/internal/repo/netplay.roomExitRecords).waiting",
+          "affected_records": [
+            "WAITING disposition only: optional exact room/profile GUEST/unleft -> ready0,leftAt/reason,version+1,time"
+          ],
+          "test_id": "RFA-RF12-peer_reconnect"
+        },
+        {
+          "stage": "waiting-clear-readiness",
+          "repo_helper": "(retrom/internal/repo/netplay.roomControlRecords).clearReady",
+          "affected_records": [
+            "WAITING disposition only: all active room members -> ready0,version+1,time"
+          ],
+          "test_id": "RFA-RF12-peer_reconnect"
+        },
+        {
+          "stage": "waiting-room",
+          "repo_helper": "(retrom/internal/repo/netplay.roomExitRecords).waiting",
+          "affected_records": [
+            "WAITING disposition only: netplay_rooms exact id/version -> WAITING,currentSessionNULL,waitingExpiry,version+1,time"
+          ],
+          "test_id": "RFA-RF12-peer_reconnect"
+        },
+        {
+          "stage": "end-room-members",
+          "repo_helper": "retrom/internal/repo/netplay.endRoomRecord",
+          "affected_records": [
+            "ENDED disposition only: all active room members -> ready0,leftAt,leaveReasonROOM_ENDED,version+1,time"
+          ],
+          "test_id": "RFA-RF12-peer_reconnect"
+        },
+        {
+          "stage": "end-room",
+          "repo_helper": "retrom/internal/repo/netplay.endRoomRecord",
+          "affected_records": [
+            "ENDED disposition only: netplay_rooms exact id -> ENDED,currentSessionNULL,endedAt/reason,version+1,time"
+          ],
+          "test_id": "RFA-RF12-peer_reconnect"
+        },
+        {
+          "stage": "exit-event",
+          "repo_helper": "(retrom/internal/repo/netplay.roomExitRecords).End",
+          "affected_records": [
+            "INSERT netplay_events ROOM_ENDED with actor for ENDED; SESSION_STATE_CHANGED actorNULL for WAITING with session; WAITING without current session emits no event"
+          ],
+          "test_id": "RFA-RF12-peer_reconnect"
+        }
+      ],
+      "idempotency": "No HTTP idempotency receipt. Preserve current conditional state/version and semantic replay branches below.",
+      "time_rule": "Caller supplies earlier scan cutoff; BeginTx(ctx,nil); no local clock or in-transaction deadline reread in EndExpired beyond version/state/session guard. START_TIMEOUT returns WAITING; HARD_EXPIRED ends room.",
+      "after_commit": [],
+      "fault_points": [
+        "PLANNED exit-room-fence: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED close-session: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED close-plays: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED revoke-launches: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED exit-launch-retirement: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED exit-isolated-capabilities: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED exit-restore-binding: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED close-participants: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED waiting-departing-guest: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED waiting-clear-readiness: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED waiting-room: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED end-room-members: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED end-room: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED exit-event: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED each Guard independently raced between preparation and writer acquisition with exact error/no writes",
+        "PLANNED duplicate command, cancellation, commit failure, stale socket/session/generation and recovery",
+        "PLANNED Hub publication waits for durable control success; database/network blocking never holds Hub mutex; original causes retained"
+      ],
+      "test_ids": [
+        "RFA-RF12-peer_reconnect",
+        "RFA-RF12-hub_transaction",
+        "RFA-RF12-two_browser"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "Netplay control creates no CAS bytes or new Blob ownership; Launch publication is separately registered under launch.create-netplay. Terminal control only retires/releases existing launch references.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "netplay.expire-passive-room",
+      "owner": "netplay",
+      "rf_id": "RF12",
+      "consumers": [
+        "(*retrom/internal/service/netplay.RoomMaintenance).Expire",
+        "(*retrom/internal/service/netplay.Service).ExpireRooms",
+        "(*retrom/internal/service/netplay.Service).StartMaintenance",
+        "(*retrom/internal/service/netplay.Service).maintain",
+        "(*retrom/internal/transport/httpapi.Server).WithNetplay",
+        "retrom/cmd/retrom.execute",
+        "retrom/cmd/retrom.executeWithPasswordReader",
+        "retrom/cmd/retrom.main",
+        "retrom/cmd/retrom.run"
+      ],
+      "snapshot": "retrom/internal/model/netplay.ExpiryCandidate",
+      "prepare": "(*retrom/internal/service/netplay.RoomMaintenance).Expire",
+      "commit": "(*retrom/internal/repo/netplay.RoomMaintenance).WithMaintenance",
+      "policy_symbols": [],
+      "fresh_facts": [
+        {
+          "name": "passive candidates",
+          "reader_symbol": "(*retrom/internal/repo/netplay.RoomMaintenance).Passive",
+          "reason": "Outside writer reads DRAFT/WAITING expiry<=sampledNow ordered expiry/id LIMIT100; candidate host/state/version/current session"
+        },
+        {
+          "name": "passive conditional authority",
+          "reader_symbol": "(retrom/internal/repo/netplay.roomMaintenanceRecords).Expire",
+          "reason": "Within writer UPDATE predicate rechecks exact id/version,DRAFT-or-WAITING and expiresAt<=earlier sampledNow"
+        }
+      ],
+      "guards": [
+        {
+          "id": "passive-expiry",
+          "fields": [
+            "id",
+            "version",
+            "state",
+            "expiresAt"
+          ],
+          "expected_source": "Matching version/passive-state and expired deadline; zero changed rows means no-op",
+          "rejection": "No-op",
+          "test_id": "RFA-RF12-peer_reconnect"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "expire-room",
+          "repo_helper": "(retrom/internal/repo/netplay.roomMaintenanceRecords).Expire",
+          "affected_records": [
+            "netplay_rooms exact id/version/passive state/expiry -> EXPIRED,endedAt,HARD_EXPIRED,version+1,time"
+          ],
+          "test_id": "RFA-RF12-peer_reconnect"
+        },
+        {
+          "stage": "expire-event",
+          "repo_helper": "(retrom/internal/repo/netplay.roomMaintenanceRecords).Expire",
+          "affected_records": [
+            "Only changed room: INSERT netplay_events ROOM_EXPIRED schema1/HARD_EXPIRED,room/host,time. Does not clear members."
+          ],
+          "test_id": "RFA-RF12-peer_reconnect"
+        }
+      ],
+      "idempotency": "No HTTP idempotency receipt. Preserve current conditional state/version and semantic replay branches below.",
+      "time_rule": "Service samples now once before scanning. Independent BeginTx(ctx,nil) per passive candidate; same sampled cutoff carried into all transactions. Target must reevaluate with fresh Repo Clock.",
+      "after_commit": [],
+      "fault_points": [
+        "PLANNED expire-room: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED expire-event: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED each Guard independently raced between preparation and writer acquisition with exact error/no writes",
+        "PLANNED duplicate command, cancellation, commit failure, stale socket/session/generation and recovery",
+        "PLANNED Hub publication waits for durable control success; database/network blocking never holds Hub mutex; original causes retained"
+      ],
+      "test_ids": [
+        "RFA-RF12-peer_reconnect",
+        "RFA-RF12-hub_transaction",
+        "RFA-RF12-two_browser"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "Netplay control creates no CAS bytes or new Blob ownership; Launch publication is separately registered under launch.create-netplay. Terminal control only retires/releases existing launch references.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "netplay.kick-member",
+      "owner": "netplay",
+      "rf_id": "RF12",
+      "consumers": [
+        "(*retrom/internal/service/netplay.RoomExit).Kick",
+        "(*retrom/internal/service/netplay.Service).Kick",
+        "(*retrom/internal/transport/httpapi.Server).kickNetplayMember"
+      ],
+      "snapshot": "retrom/internal/model/netplay.RoomExitSnapshot",
+      "prepare": "(*retrom/internal/service/netplay.RoomExit).Kick",
+      "commit": "(*retrom/internal/repo/netplay.RoomExit).WithExit",
+      "policy_symbols": [
+        "retrom/internal/service/netplay.activeExitMember"
+      ],
+      "fresh_facts": [
+        {
+          "name": "current room and actor membership",
+          "reader_symbol": "(retrom/internal/repo/netplay.roomExitRecords).Current",
+          "reason": "Writer loads room host/state/version/selection and all active members plus actor's left membership, then exact current_session_id"
+        }
+      ],
+      "guards": [
+        {
+          "id": "removal-version",
+          "fields": [
+            "room.version",
+            "expectedVersion"
+          ],
+          "expected_source": "Exact expected room version",
+          "rejection": "ErrPrecondition",
+          "test_id": "RFA-RF12-room_concurrency"
+        },
+        {
+          "id": "kick-host",
+          "fields": [
+            "actorId",
+            "hostId"
+          ],
+          "expected_source": "Only current host can kick",
+          "rejection": "ErrForbidden",
+          "test_id": "RFA-RF12-room_concurrency"
+        },
+        {
+          "id": "kick-state",
+          "fields": [
+            "room.state"
+          ],
+          "expected_source": "WAITING only",
+          "rejection": "ErrRoomConflict",
+          "test_id": "RFA-RF12-room_concurrency"
+        },
+        {
+          "id": "kick-target",
+          "fields": [
+            "memberId",
+            "role",
+            "leftAt"
+          ],
+          "expected_source": "Target is current active GUEST occupant",
+          "rejection": "ErrForbidden",
+          "test_id": "RFA-RF12-room_concurrency"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "touch-room",
+          "repo_helper": "(retrom/internal/repo/netplay.roomControlRecords).touch",
+          "affected_records": [
+            "netplay_rooms exact id/version -> version+1,expiry,time; require one changed row"
+          ],
+          "test_id": "RFA-RF12-room_concurrency"
+        },
+        {
+          "stage": "remove-member",
+          "repo_helper": "(retrom/internal/repo/netplay.roomExitRecords).Remove",
+          "affected_records": [
+            "WAITING branch: exact member id/room/version/unleft -> ready0,leftAt,USER_LEFT or HOST_KICKED,version+1,time; require one"
+          ],
+          "test_id": "RFA-RF12-room_concurrency"
+        },
+        {
+          "stage": "room-event",
+          "repo_helper": "(retrom/internal/repo/netplay.roomControlRecords).event",
+          "affected_records": [
+            "INSERT netplay_events room,sessionNULL,actor/player,WAITING branch MEMBER_LEFT or MEMBER_KICKED,schema1 JSON,time"
+          ],
+          "test_id": "RFA-RF12-room_concurrency"
+        }
+      ],
+      "idempotency": "No HTTP idempotency receipt. Preserve current conditional state/version and semantic replay branches below.",
+      "time_rule": "Baseline BeginTx(ctx,nil) on shared single writer connection; Service samples now before acquiring the transaction. Target requires one Repo Clock sample after write permission. No current negative/overflow-time guard is assumed.",
+      "after_commit": [],
+      "fault_points": [
+        "PLANNED touch-room: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED remove-member: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED room-event: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED each Guard independently raced between preparation and writer acquisition with exact error/no writes",
+        "PLANNED duplicate command, cancellation, commit failure, stale socket/session/generation and recovery",
+        "PLANNED Hub publication waits for durable control success; database/network blocking never holds Hub mutex; original causes retained"
+      ],
+      "test_ids": [
+        "RFA-RF12-room_concurrency",
+        "RFA-RF12-hub_transaction",
+        "RFA-RF12-two_browser"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "Netplay control creates no CAS bytes or new Blob ownership; Launch publication is separately registered under launch.create-netplay. Terminal control only retires/releases existing launch references.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "netplay.leave-room",
+      "owner": "netplay",
+      "rf_id": "RF12",
+      "consumers": [
+        "(*retrom/internal/service/netplay.RoomExit).Leave",
+        "(*retrom/internal/service/netplay.Service).Leave",
+        "(*retrom/internal/transport/httpapi.Server).leaveNetplayRoom"
+      ],
+      "snapshot": "retrom/internal/model/netplay.RoomExitSnapshot",
+      "prepare": "(*retrom/internal/service/netplay.RoomExit).Leave",
+      "commit": "(*retrom/internal/repo/netplay.RoomExit).WithExit",
+      "policy_symbols": [
+        "retrom/internal/service/netplay.EndDisposition",
+        "retrom/internal/service/netplay.activeExitMember",
+        "retrom/internal/service/netplay.departingGuest"
+      ],
+      "fresh_facts": [
+        {
+          "name": "current room and actor membership",
+          "reader_symbol": "(retrom/internal/repo/netplay.roomExitRecords).Current",
+          "reason": "Writer loads room host/state/version/selection and all active members plus actor's left membership, then exact current_session_id"
+        }
+      ],
+      "guards": [
+        {
+          "id": "removal-version",
+          "fields": [
+            "room.version",
+            "expectedVersion"
+          ],
+          "expected_source": "Exact expected room version",
+          "rejection": "ErrPrecondition",
+          "test_id": "RFA-RF12-room_concurrency"
+        },
+        {
+          "id": "leave-member",
+          "fields": [
+            "member",
+            "role",
+            "leftAt"
+          ],
+          "expected_source": "Actor has active non-HOST membership; missing room mapped to ErrForbidden",
+          "rejection": "ErrForbidden",
+          "test_id": "RFA-RF12-room_concurrency"
+        },
+        {
+          "id": "leave-state",
+          "fields": [
+            "room.state"
+          ],
+          "expected_source": "WAITING removes only member; STARTING/RUNNING invokes full USER_EXIT session finish; other states reject",
+          "rejection": "ErrRoomConflict",
+          "test_id": "RFA-RF12-room_concurrency"
+        },
+        {
+          "id": "terminal-replay",
+          "fields": [
+            "room.state"
+          ],
+          "expected_source": "ENDED or EXPIRED returns success without writer changes",
+          "rejection": "No-op",
+          "test_id": "RFA-RF12-room_concurrency"
+        },
+        {
+          "id": "waiting-selection",
+          "fields": [
+            "disposition",
+            "selection"
+          ],
+          "expected_source": "EndDisposition determines WAITING or ENDED; WAITING requires current selection",
+          "rejection": "ErrRoomConflict",
+          "test_id": "RFA-RF12-room_concurrency"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "exit-room-fence",
+          "repo_helper": "(retrom/internal/repo/netplay.roomExitRecords).End",
+          "affected_records": [
+            "netplay_rooms exact id/version/state -> version=version; require one"
+          ],
+          "test_id": "RFA-RF12-room_concurrency"
+        },
+        {
+          "stage": "close-session",
+          "repo_helper": "retrom/internal/repo/netplay.closeNetplaySession",
+          "affected_records": [
+            "If current session exists: netplay_sessions exact id/nonterminal -> FINISHED for NORMAL/USER_EXIT else FAILED,finish/reason/time/version+1"
+          ],
+          "test_id": "RFA-RF12-room_concurrency"
+        },
+        {
+          "stage": "close-plays",
+          "repo_helper": "retrom/internal/repo/netplay.closeNetplaySession",
+          "affected_records": [
+            "If current session exists: play_sessions ACTIVE for its launches -> FINISHED for NORMAL/USER_EXIT else ABANDONED,end/time/version+1"
+          ],
+          "test_id": "RFA-RF12-room_concurrency"
+        },
+        {
+          "stage": "revoke-launches",
+          "repo_helper": "retrom/internal/repo/netplay.closeNetplaySession",
+          "affected_records": [
+            "If current session exists: sessionstore.ChangeLaunch exact session and CREATED/ACTIVE -> REVOKED,finish/time/version+1; nested atomic uses same executor"
+          ],
+          "test_id": "RFA-RF12-room_concurrency"
+        },
+        {
+          "stage": "exit-launch-retirement",
+          "repo_helper": "retrom/internal/repo/sessionstore.updateLaunchRelations",
+          "affected_records": [
+            "For each changed launch: UPDATE unreleased launch_payload_retirements dueAt=finishedAt for terminal state"
+          ],
+          "test_id": "RFA-RF12-room_concurrency"
+        },
+        {
+          "stage": "exit-isolated-capabilities",
+          "repo_helper": "retrom/internal/repo/sessionstore.updateLaunchRelations",
+          "affected_records": [
+            "For each changed terminal launch: isolated_runtime_capabilities unrevoked launchId -> revokedAt=launch.finishedAt"
+          ],
+          "test_id": "RFA-RF12-room_concurrency"
+        },
+        {
+          "stage": "exit-restore-binding",
+          "repo_helper": "retrom/internal/repo/sessionstore.updateLaunchRelations",
+          "affected_records": [
+            "For each changed launch state outside CREATED/ACTIVE: launch_game_save_bindings restoreBlob/checkpointFormatNULL"
+          ],
+          "test_id": "RFA-RF12-room_concurrency"
+        },
+        {
+          "stage": "close-participants",
+          "repo_helper": "retrom/internal/repo/netplay.closeNetplaySession",
+          "affected_records": [
+            "If current session exists: netplay_session_participants exact session state!=LEFT -> LEFT,disconnect/leaseNULL,version+1,time"
+          ],
+          "test_id": "RFA-RF12-room_concurrency"
+        },
+        {
+          "stage": "waiting-departing-guest",
+          "repo_helper": "(retrom/internal/repo/netplay.roomExitRecords).waiting",
+          "affected_records": [
+            "WAITING disposition only: optional exact room/profile GUEST/unleft -> ready0,leftAt/reason,version+1,time"
+          ],
+          "test_id": "RFA-RF12-room_concurrency"
+        },
+        {
+          "stage": "waiting-clear-readiness",
+          "repo_helper": "(retrom/internal/repo/netplay.roomControlRecords).clearReady",
+          "affected_records": [
+            "WAITING disposition only: all active room members -> ready0,version+1,time"
+          ],
+          "test_id": "RFA-RF12-room_concurrency"
+        },
+        {
+          "stage": "waiting-room",
+          "repo_helper": "(retrom/internal/repo/netplay.roomExitRecords).waiting",
+          "affected_records": [
+            "WAITING disposition only: netplay_rooms exact id/version -> WAITING,currentSessionNULL,waitingExpiry,version+1,time"
+          ],
+          "test_id": "RFA-RF12-room_concurrency"
+        },
+        {
+          "stage": "end-room-members",
+          "repo_helper": "retrom/internal/repo/netplay.endRoomRecord",
+          "affected_records": [
+            "ENDED disposition only: all active room members -> ready0,leftAt,leaveReasonROOM_ENDED,version+1,time"
+          ],
+          "test_id": "RFA-RF12-room_concurrency"
+        },
+        {
+          "stage": "end-room",
+          "repo_helper": "retrom/internal/repo/netplay.endRoomRecord",
+          "affected_records": [
+            "ENDED disposition only: netplay_rooms exact id -> ENDED,currentSessionNULL,endedAt/reason,version+1,time"
+          ],
+          "test_id": "RFA-RF12-room_concurrency"
+        },
+        {
+          "stage": "exit-event",
+          "repo_helper": "(retrom/internal/repo/netplay.roomExitRecords).End",
+          "affected_records": [
+            "INSERT netplay_events ROOM_ENDED with actor for ENDED; SESSION_STATE_CHANGED actorNULL for WAITING with session; WAITING without current session emits no event"
+          ],
+          "test_id": "RFA-RF12-room_concurrency"
+        },
+        {
+          "stage": "touch-room",
+          "repo_helper": "(retrom/internal/repo/netplay.roomControlRecords).touch",
+          "affected_records": [
+            "netplay_rooms exact id/version -> version+1,expiry,time; require one changed row"
+          ],
+          "test_id": "RFA-RF12-room_concurrency"
+        },
+        {
+          "stage": "remove-member",
+          "repo_helper": "(retrom/internal/repo/netplay.roomExitRecords).Remove",
+          "affected_records": [
+            "WAITING branch: exact member id/room/version/unleft -> ready0,leftAt,USER_LEFT or HOST_KICKED,version+1,time; require one"
+          ],
+          "test_id": "RFA-RF12-room_concurrency"
+        },
+        {
+          "stage": "room-event",
+          "repo_helper": "(retrom/internal/repo/netplay.roomControlRecords).event",
+          "affected_records": [
+            "INSERT netplay_events room,sessionNULL,actor/player,WAITING branch MEMBER_LEFT or MEMBER_KICKED,schema1 JSON,time"
+          ],
+          "test_id": "RFA-RF12-room_concurrency"
+        }
+      ],
+      "idempotency": "No HTTP idempotency receipt. Preserve current conditional state/version and semantic replay branches below.",
+      "time_rule": "Baseline BeginTx(ctx,nil) on shared single writer connection; Service samples now before acquiring the transaction. Target requires one Repo Clock sample after write permission. No current negative/overflow-time guard is assumed.",
+      "after_commit": [
+        {
+          "action": "HTTP leave calls Hub.Terminate only after commit",
+          "recovery": "If active-session finish fails, keep persisted room/session/launch/member state atomic and do not publish successful leave",
+          "test_id": "RFA-RF12-hub_transaction"
+        }
+      ],
+      "fault_points": [
+        "PLANNED exit-room-fence: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED close-session: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED close-plays: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED revoke-launches: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED exit-launch-retirement: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED exit-isolated-capabilities: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED exit-restore-binding: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED close-participants: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED waiting-departing-guest: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED waiting-clear-readiness: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED waiting-room: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED end-room-members: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED end-room: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED exit-event: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED touch-room: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED remove-member: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED room-event: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED each Guard independently raced between preparation and writer acquisition with exact error/no writes",
+        "PLANNED duplicate command, cancellation, commit failure, stale socket/session/generation and recovery",
+        "PLANNED Hub publication waits for durable control success; database/network blocking never holds Hub mutex; original causes retained"
+      ],
+      "test_ids": [
+        "RFA-RF12-room_concurrency",
+        "RFA-RF12-hub_transaction",
+        "RFA-RF12-two_browser"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "Netplay control creates no CAS bytes or new Blob ownership; Launch publication is separately registered under launch.create-netplay. Terminal control only retires/releases existing launch references.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "netplay.mark-disconnected",
+      "owner": "netplay",
+      "rf_id": "RF12",
+      "consumers": [
+        "(*retrom/internal/service/netplay.Service).MarkDisconnected",
+        "(*retrom/internal/service/netplay.SessionControl).Disconnected",
+        "(*retrom/internal/transport/httpapi.Server).netplaySocket",
+        "(*retrom/internal/transport/netplay.Hub).Connect",
+        "(*retrom/internal/transport/netplay.realtimeSession).removePeer"
+      ],
+      "snapshot": "retrom/internal/model/netplay.SessionControlSnapshot",
+      "prepare": "(*retrom/internal/service/netplay.SessionControl).Disconnected",
+      "commit": "(*retrom/internal/repo/netplay.SessionControl).WithControl",
+      "policy_symbols": [
+        "retrom/internal/service/netplay.controlPeer",
+        "retrom/internal/service/netplay.stateEvent"
+      ],
+      "fresh_facts": [
+        {
+          "name": "current controlled session",
+          "reader_symbol": "(retrom/internal/repo/netplay.sessionControlRecords).Current",
+          "reason": "Writer joins exact room.current_session to requested session; room STARTING/RUNNING; session not FINISHED/FAILED; reads host,room state/version,session state/version/resync"
+        },
+        {
+          "name": "current participant generations",
+          "reader_symbol": "(retrom/internal/repo/netplay.sessionControlRecords).peers",
+          "reason": "Writer reads all current session participant profile/seat/generation/state/version ordered seat; does not filter LEFT"
+        }
+      ],
+      "guards": [
+        {
+          "id": "current-session-authority",
+          "fields": [
+            "roomId",
+            "currentSessionId",
+            "room.state",
+            "sessionId",
+            "session.state"
+          ],
+          "expected_source": "Requested session remains room.current_session; active room and nonterminal session",
+          "rejection": "ErrSessionNotFound",
+          "test_id": "RFA-RF12-peer_reconnect"
+        },
+        {
+          "id": "current-peer",
+          "fields": [
+            "profileId",
+            "playerNo",
+            "credentialGeneration"
+          ],
+          "expected_source": "All three identity values match a current participant",
+          "rejection": "ErrForbidden",
+          "test_id": "RFA-RF12-peer_reconnect"
+        },
+        {
+          "id": "disconnect-state",
+          "fields": [
+            "peer.state"
+          ],
+          "expected_source": "Only CONNECTED mutates; other peer state no-op",
+          "rejection": "No write",
+          "test_id": "RFA-RF12-peer_reconnect"
+        },
+        {
+          "id": "pause-running-session",
+          "fields": [
+            "session.state"
+          ],
+          "expected_source": "Only current RUNNING session additionally pauses; other nonterminal state leaves session untouched",
+          "rejection": "No session update",
+          "test_id": "RFA-RF12-peer_reconnect"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "room-fence",
+          "repo_helper": "(retrom/internal/repo/netplay.sessionControlRecords).fence",
+          "affected_records": [
+            "netplay_rooms exact id/version/currentSession/state -> version=version; require one"
+          ],
+          "test_id": "RFA-RF12-peer_reconnect"
+        },
+        {
+          "stage": "peer-transition",
+          "repo_helper": "(retrom/internal/repo/netplay.sessionControlRecords).Peer",
+          "affected_records": [
+            "netplay_session_participants exact session/profile/player/credentialGeneration/version/oldState -> DISCONNECTED,disconnectedAt=now,leaseExpires=now+configuredReconnectLease,version+1,time; require one"
+          ],
+          "test_id": "RFA-RF12-peer_reconnect"
+        },
+        {
+          "stage": "pause-room-fence",
+          "repo_helper": "(retrom/internal/repo/netplay.sessionControlRecords).fence",
+          "affected_records": [
+            "netplay_rooms exact id/version/currentSession/state -> version=version; require one"
+          ],
+          "test_id": "RFA-RF12-peer_reconnect"
+        },
+        {
+          "stage": "pause-session-transition",
+          "repo_helper": "(retrom/internal/repo/netplay.sessionControlRecords).Session",
+          "affected_records": [
+            "netplay_sessions exact id/room/oldState/version -> state=PAUSED_RECONNECT (only previously RUNNING),resyncCount+0,optional COALESCE(startedAt,now),version+1,time; require one"
+          ],
+          "test_id": "RFA-RF12-peer_reconnect"
+        },
+        {
+          "stage": "pause-session-events",
+          "repo_helper": "(retrom/internal/repo/netplay.sessionControlRecords).events",
+          "affected_records": [
+            "INSERT each schema1 netplay_events session/room/actor/player/type/dataJSON/time in same writer"
+          ],
+          "test_id": "RFA-RF12-peer_reconnect"
+        }
+      ],
+      "idempotency": "No HTTP idempotency receipt. Preserve current conditional state/version and semantic replay branches below.",
+      "time_rule": "Baseline BeginTx(ctx,nil) on shared single writer connection; Service samples now before acquiring the transaction. Target requires one Repo Clock sample after write permission. No current negative/overflow-time guard is assumed.",
+      "after_commit": [
+        {
+          "action": "Disconnect persistence is invoked asynchronously from Hub.removePeer with WithoutCancel",
+          "recovery": "Baseline Hub removes peer/begins pause before SQL; DB failure only logged. Lease timer ends missing peer via end-room; old socket removal ignored if current peer pointer differs",
+          "test_id": "RFA-RF12-hub_transaction"
+        }
+      ],
+      "fault_points": [
+        "PLANNED room-fence: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED peer-transition: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED pause-room-fence: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED pause-session-transition: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED pause-session-events: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED each Guard independently raced between preparation and writer acquisition with exact error/no writes",
+        "PLANNED duplicate command, cancellation, commit failure, stale socket/session/generation and recovery",
+        "PLANNED Hub publication waits for durable control success; database/network blocking never holds Hub mutex; original causes retained"
+      ],
+      "test_ids": [
+        "RFA-RF12-peer_reconnect",
+        "RFA-RF12-hub_transaction",
+        "RFA-RF12-two_browser"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "Netplay control creates no CAS bytes or new Blob ownership; Launch publication is separately registered under launch.create-netplay. Terminal control only retires/releases existing launch references.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "netplay.mark-running",
+      "owner": "netplay",
+      "rf_id": "RF12",
+      "consumers": [
+        "(*retrom/internal/service/netplay.Service).MarkSessionRunning",
+        "(*retrom/internal/service/netplay.SessionControl).Running",
+        "(*retrom/internal/transport/httpapi.Server).netplaySocket",
+        "(*retrom/internal/transport/netplay.Hub).Connect",
+        "(*retrom/internal/transport/netplay.realtimeSession).acceptStateApplied",
+        "(*retrom/internal/transport/netplay.realtimeSession).acceptStateReady",
+        "(*retrom/internal/transport/netplay.realtimeSession).handleFrame",
+        "(*retrom/internal/transport/netplay.realtimeSession).handleMessage",
+        "(*retrom/internal/transport/netplay.realtimeSession).maybeStartLocked",
+        "(*retrom/internal/transport/netplay.realtimeSession).readMessages"
+      ],
+      "snapshot": "retrom/internal/model/netplay.SessionControlSnapshot",
+      "prepare": "(*retrom/internal/service/netplay.SessionControl).Running",
+      "commit": "(*retrom/internal/repo/netplay.SessionControl).WithControl",
+      "policy_symbols": [
+        "retrom/internal/service/netplay.stateEvent"
+      ],
+      "fresh_facts": [
+        {
+          "name": "current controlled session",
+          "reader_symbol": "(retrom/internal/repo/netplay.sessionControlRecords).Current",
+          "reason": "Writer joins exact room.current_session to requested session; room STARTING/RUNNING; session not FINISHED/FAILED; reads host,room state/version,session state/version/resync"
+        },
+        {
+          "name": "current participant generations",
+          "reader_symbol": "(retrom/internal/repo/netplay.sessionControlRecords).peers",
+          "reason": "Writer reads all current session participant profile/seat/generation/state/version ordered seat; does not filter LEFT"
+        }
+      ],
+      "guards": [
+        {
+          "id": "current-session-authority",
+          "fields": [
+            "roomId",
+            "currentSessionId",
+            "room.state",
+            "sessionId",
+            "session.state"
+          ],
+          "expected_source": "Requested session remains room.current_session; active room and nonterminal session",
+          "rejection": "ErrSessionNotFound",
+          "test_id": "RFA-RF12-hub_transaction"
+        },
+        {
+          "id": "running-source",
+          "fields": [
+            "currentState"
+          ],
+          "expected_source": "SYNCHRONIZING or RESYNCHRONIZING only",
+          "rejection": "ErrRoomConflict",
+          "test_id": "RFA-RF12-hub_transaction"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "room-fence",
+          "repo_helper": "(retrom/internal/repo/netplay.sessionControlRecords).fence",
+          "affected_records": [
+            "netplay_rooms exact id/version/currentSession/state -> version=version; require one"
+          ],
+          "test_id": "RFA-RF12-hub_transaction"
+        },
+        {
+          "stage": "session-transition",
+          "repo_helper": "(retrom/internal/repo/netplay.sessionControlRecords).Session",
+          "affected_records": [
+            "netplay_sessions exact id/room/oldState/version -> state=RUNNING,resyncCount+0,optional COALESCE(startedAt,now),version+1,time; require one"
+          ],
+          "test_id": "RFA-RF12-hub_transaction"
+        },
+        {
+          "stage": "session-peers",
+          "repo_helper": "(retrom/internal/repo/netplay.sessionControlRecords).transitionPeers",
+          "affected_records": [
+            "netplay_session_participants exact session eligible states: RUNTIME_READY/SYNCHRONIZED -> CONNECTED,version+1,time"
+          ],
+          "test_id": "RFA-RF12-hub_transaction"
+        },
+        {
+          "stage": "running-room",
+          "repo_helper": "(retrom/internal/repo/netplay.sessionControlRecords).Session",
+          "affected_records": [
+            "If room was STARTING: exact id/roomVersion/currentSession/STARTING -> RUNNING,version+1,time; require one"
+          ],
+          "test_id": "RFA-RF12-hub_transaction"
+        },
+        {
+          "stage": "session-events",
+          "repo_helper": "(retrom/internal/repo/netplay.sessionControlRecords).events",
+          "affected_records": [
+            "INSERT each schema1 netplay_events session/room/actor/player/type/dataJSON/time in same writer"
+          ],
+          "test_id": "RFA-RF12-hub_transaction"
+        }
+      ],
+      "idempotency": "No HTTP idempotency receipt. Preserve current conditional state/version and semantic replay branches below.",
+      "time_rule": "Baseline BeginTx(ctx,nil) on shared single writer connection; Service samples now before acquiring the transaction. Target requires one Repo Clock sample after write permission. No current negative/overflow-time guard is assumed.",
+      "after_commit": [
+        {
+          "action": "Publish START_EPOCH only for confirmed persisted current session",
+          "recovery": "Baseline maybeStartLocked clears transfer/increments epoch/sets running before SQL while holding mutex and treats ErrRoomConflict as publishable; this violates target ordering and requires fault/stale-session regression before migration",
+          "test_id": "RFA-RF12-hub_transaction"
+        }
+      ],
+      "fault_points": [
+        "PLANNED room-fence: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED session-transition: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED session-peers: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED running-room: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED session-events: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED each Guard independently raced between preparation and writer acquisition with exact error/no writes",
+        "PLANNED duplicate command, cancellation, commit failure, stale socket/session/generation and recovery",
+        "PLANNED Hub publication waits for durable control success; database/network blocking never holds Hub mutex; original causes retained"
+      ],
+      "test_ids": [
+        "RFA-RF12-hub_transaction",
+        "RFA-RF12-two_browser"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "Netplay control creates no CAS bytes or new Blob ownership; Launch publication is separately registered under launch.create-netplay. Terminal control only retires/releases existing launch references.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "netplay.mark-runtime-ready",
+      "owner": "netplay",
+      "rf_id": "RF12",
+      "consumers": [
+        "(*retrom/internal/service/netplay.Service).MarkRuntimeReady",
+        "(*retrom/internal/service/netplay.SessionControl).RuntimeReady",
+        "(*retrom/internal/transport/httpapi.Server).netplaySocket",
+        "(*retrom/internal/transport/netplay.Hub).Connect",
+        "(*retrom/internal/transport/netplay.realtimeSession).handleFrame",
+        "(*retrom/internal/transport/netplay.realtimeSession).handleMessage",
+        "(*retrom/internal/transport/netplay.realtimeSession).handleRuntimeReady",
+        "(*retrom/internal/transport/netplay.realtimeSession).readMessages"
+      ],
+      "snapshot": "retrom/internal/model/netplay.SessionControlSnapshot",
+      "prepare": "(*retrom/internal/service/netplay.SessionControl).RuntimeReady",
+      "commit": "(*retrom/internal/repo/netplay.SessionControl).WithControl",
+      "policy_symbols": [
+        "retrom/internal/service/netplay.allControlPeersReady",
+        "retrom/internal/service/netplay.controlPeer",
+        "retrom/internal/service/netplay.stateEvent"
+      ],
+      "fresh_facts": [
+        {
+          "name": "current controlled session",
+          "reader_symbol": "(retrom/internal/repo/netplay.sessionControlRecords).Current",
+          "reason": "Writer joins exact room.current_session to requested session; room STARTING/RUNNING; session not FINISHED/FAILED; reads host,room state/version,session state/version/resync"
+        },
+        {
+          "name": "current participant generations",
+          "reader_symbol": "(retrom/internal/repo/netplay.sessionControlRecords).peers",
+          "reason": "Writer reads all current session participant profile/seat/generation/state/version ordered seat; does not filter LEFT"
+        }
+      ],
+      "guards": [
+        {
+          "id": "current-session-authority",
+          "fields": [
+            "roomId",
+            "currentSessionId",
+            "room.state",
+            "sessionId",
+            "session.state"
+          ],
+          "expected_source": "Requested session remains room.current_session; active room and nonterminal session",
+          "rejection": "ErrSessionNotFound",
+          "test_id": "RFA-RF12-peer_reconnect"
+        },
+        {
+          "id": "current-peer",
+          "fields": [
+            "profileId",
+            "playerNo",
+            "credentialGeneration"
+          ],
+          "expected_source": "All three identity values match a current participant",
+          "rejection": "ErrForbidden",
+          "test_id": "RFA-RF12-peer_reconnect"
+        },
+        {
+          "id": "runtime-ready-state",
+          "fields": [
+            "peer.state"
+          ],
+          "expected_source": "LAUNCH_READY changes to RUNTIME_READY; other peer states remain unchanged",
+          "rejection": "Conditional peer no-op",
+          "test_id": "RFA-RF12-peer_reconnect"
+        },
+        {
+          "id": "all-runtime-ready",
+          "fields": [
+            "session.state",
+            "peers.states",
+            "peerCount"
+          ],
+          "expected_source": "Advance only LOADING with >=2 peers all RUNTIME_READY after local replacement of changed peer",
+          "rejection": "Return allReady=false without session transition",
+          "test_id": "RFA-RF12-peer_reconnect"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "room-fence",
+          "repo_helper": "(retrom/internal/repo/netplay.sessionControlRecords).fence",
+          "affected_records": [
+            "netplay_rooms exact id/version/currentSession/state -> version=version; require one"
+          ],
+          "test_id": "RFA-RF12-peer_reconnect"
+        },
+        {
+          "stage": "peer-transition",
+          "repo_helper": "(retrom/internal/repo/netplay.sessionControlRecords).Peer",
+          "affected_records": [
+            "netplay_session_participants exact session/profile/player/credentialGeneration/version/oldState -> RUNTIME_READY,disconnectedAtNULL,leaseExpiresNULL,version+1,time; require one"
+          ],
+          "test_id": "RFA-RF12-peer_reconnect"
+        },
+        {
+          "stage": "peer-ready-event",
+          "repo_helper": "(retrom/internal/repo/netplay.sessionControlRecords).events",
+          "affected_records": [
+            "Only changed LAUNCH_READY peer: INSERT PARTICIPANT_STATE_CHANGED"
+          ],
+          "test_id": "RFA-RF12-peer_reconnect"
+        },
+        {
+          "stage": "barrier-room-fence",
+          "repo_helper": "(retrom/internal/repo/netplay.sessionControlRecords).fence",
+          "affected_records": [
+            "netplay_rooms exact id/version/currentSession/state -> version=version; require one"
+          ],
+          "test_id": "RFA-RF12-peer_reconnect"
+        },
+        {
+          "stage": "barrier-session-transition",
+          "repo_helper": "(retrom/internal/repo/netplay.sessionControlRecords).Session",
+          "affected_records": [
+            "netplay_sessions exact id/room/oldState/version -> state=SYNCHRONIZING (only all ready),resyncCount+0,optional COALESCE(startedAt,now),version+1,time; require one"
+          ],
+          "test_id": "RFA-RF12-peer_reconnect"
+        },
+        {
+          "stage": "barrier-session-events",
+          "repo_helper": "(retrom/internal/repo/netplay.sessionControlRecords).events",
+          "affected_records": [
+            "INSERT each schema1 netplay_events session/room/actor/player/type/dataJSON/time in same writer"
+          ],
+          "test_id": "RFA-RF12-peer_reconnect"
+        }
+      ],
+      "idempotency": "No HTTP idempotency receipt. Preserve current conditional state/version and semantic replay branches below.",
+      "time_rule": "Baseline BeginTx(ctx,nil) on shared single writer connection; Service samples now before acquiring the transaction. Target requires one Repo Clock sample after write permission. No current negative/overflow-time guard is assumed.",
+      "after_commit": [
+        {
+          "action": "Hub begins INITIAL_SYNC transfer only when committed allReady=true",
+          "recovery": "Failure returns no ready success; Hub validates supplied provider/target/bundle before Service entry",
+          "test_id": "RFA-RF12-hub_transaction"
+        }
+      ],
+      "fault_points": [
+        "PLANNED room-fence: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED peer-transition: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED peer-ready-event: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED barrier-room-fence: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED barrier-session-transition: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED barrier-session-events: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED each Guard independently raced between preparation and writer acquisition with exact error/no writes",
+        "PLANNED duplicate command, cancellation, commit failure, stale socket/session/generation and recovery",
+        "PLANNED Hub publication waits for durable control success; database/network blocking never holds Hub mutex; original causes retained"
+      ],
+      "test_ids": [
+        "RFA-RF12-peer_reconnect",
+        "RFA-RF12-hub_transaction",
+        "RFA-RF12-two_browser"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "Netplay control creates no CAS bytes or new Blob ownership; Launch publication is separately registered under launch.create-netplay. Terminal control only retires/releases existing launch references.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "netplay.prepare-resync",
+      "owner": "netplay",
+      "rf_id": "RF12",
+      "consumers": [
+        "(*retrom/internal/service/netplay.Service).PrepareHashResync",
+        "(*retrom/internal/service/netplay.Service).PrepareHostResync",
+        "(*retrom/internal/service/netplay.Service).PrepareReconnectResync",
+        "(*retrom/internal/service/netplay.Service).prepareResync",
+        "(*retrom/internal/service/netplay.SessionControl).Resync",
+        "(*retrom/internal/transport/httpapi.Server).netplaySocket",
+        "(*retrom/internal/transport/httpapi.Server).resumeNetplaySession",
+        "(*retrom/internal/transport/netplay.Hub).Connect",
+        "(*retrom/internal/transport/netplay.Hub).Resume",
+        "(*retrom/internal/transport/netplay.realtimeSession).acceptHistoryApplied",
+        "(*retrom/internal/transport/netplay.realtimeSession).acceptPaused",
+        "(*retrom/internal/transport/netplay.realtimeSession).completePauseLocked",
+        "(*retrom/internal/transport/netplay.realtimeSession).handleFrame",
+        "(*retrom/internal/transport/netplay.realtimeSession).handleMessage",
+        "(*retrom/internal/transport/netplay.realtimeSession).prepareHashResync",
+        "(*retrom/internal/transport/netplay.realtimeSession).prepareResync",
+        "(*retrom/internal/transport/netplay.realtimeSession).readMessages"
+      ],
+      "snapshot": "retrom/internal/model/netplay.SessionControlSnapshot",
+      "prepare": "(*retrom/internal/service/netplay.SessionControl).Resync",
+      "commit": "(*retrom/internal/repo/netplay.SessionControl).WithControl",
+      "policy_symbols": [
+        "retrom/internal/service/netplay.ValidResyncSource",
+        "retrom/internal/service/netplay.stateEvent"
+      ],
+      "fresh_facts": [
+        {
+          "name": "current controlled session",
+          "reader_symbol": "(retrom/internal/repo/netplay.sessionControlRecords).Current",
+          "reason": "Writer joins exact room.current_session to requested session; room STARTING/RUNNING; session not FINISHED/FAILED; reads host,room state/version,session state/version/resync"
+        },
+        {
+          "name": "current participant generations",
+          "reader_symbol": "(retrom/internal/repo/netplay.sessionControlRecords).peers",
+          "reason": "Writer reads all current session participant profile/seat/generation/state/version ordered seat; does not filter LEFT"
+        }
+      ],
+      "guards": [
+        {
+          "id": "current-session-authority",
+          "fields": [
+            "roomId",
+            "currentSessionId",
+            "room.state",
+            "sessionId",
+            "session.state"
+          ],
+          "expected_source": "Requested session remains room.current_session; active room and nonterminal session",
+          "rejection": "ErrSessionNotFound",
+          "test_id": "RFA-RF12-peer_reconnect"
+        },
+        {
+          "id": "resync-source",
+          "fields": [
+            "cause",
+            "currentState"
+          ],
+          "expected_source": "Reconnect: PAUSED_RECONNECT/RUNNING; hash mismatch: RUNNING; host resume: PAUSED_RECONNECT; all other causes/states rejected",
+          "rejection": "ErrRoomConflict",
+          "test_id": "RFA-RF12-peer_reconnect"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "room-fence",
+          "repo_helper": "(retrom/internal/repo/netplay.sessionControlRecords).fence",
+          "affected_records": [
+            "netplay_rooms exact id/version/currentSession/state -> version=version; require one"
+          ],
+          "test_id": "RFA-RF12-peer_reconnect"
+        },
+        {
+          "stage": "session-transition",
+          "repo_helper": "(retrom/internal/repo/netplay.sessionControlRecords).Session",
+          "affected_records": [
+            "netplay_sessions exact id/room/oldState/version -> state=RESYNCHRONIZING,resyncCount+1,optional COALESCE(startedAt,now),version+1,time; require one"
+          ],
+          "test_id": "RFA-RF12-peer_reconnect"
+        },
+        {
+          "stage": "session-peers",
+          "repo_helper": "(retrom/internal/repo/netplay.sessionControlRecords).transitionPeers",
+          "affected_records": [
+            "netplay_session_participants exact session eligible states: CONNECTED/DISCONNECTED -> RUNTIME_READY,disconnect/leaseNULL,version+1,time"
+          ],
+          "test_id": "RFA-RF12-peer_reconnect"
+        },
+        {
+          "stage": "session-events",
+          "repo_helper": "(retrom/internal/repo/netplay.sessionControlRecords).events",
+          "affected_records": [
+            "INSERT each schema1 netplay_events session/room/actor/player/type/dataJSON/time in same writer"
+          ],
+          "test_id": "RFA-RF12-peer_reconnect"
+        }
+      ],
+      "idempotency": "No HTTP idempotency receipt. Preserve current conditional state/version and semantic replay branches below.",
+      "time_rule": "Baseline BeginTx(ctx,nil) on shared single writer connection; Service samples now before acquiring the transaction. Target requires one Repo Clock sample after write permission. No current negative/overflow-time guard is assumed.",
+      "after_commit": [
+        {
+          "action": "Begin state transfer after successful persistent resync",
+          "recovery": "Reconnect/hash paths call Service without mutex then recheck ended and peer count; Hub.Resume currently holds mutex across SQL and needs RF12 migration",
+          "test_id": "RFA-RF12-hub_transaction"
+        }
+      ],
+      "fault_points": [
+        "PLANNED room-fence: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED session-transition: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED session-peers: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED session-events: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED each Guard independently raced between preparation and writer acquisition with exact error/no writes",
+        "PLANNED duplicate command, cancellation, commit failure, stale socket/session/generation and recovery",
+        "PLANNED Hub publication waits for durable control success; database/network blocking never holds Hub mutex; original causes retained"
+      ],
+      "test_ids": [
+        "RFA-RF12-peer_reconnect",
+        "RFA-RF12-hub_transaction",
+        "RFA-RF12-two_browser"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "Netplay control creates no CAS bytes or new Blob ownership; Launch publication is separately registered under launch.create-netplay. Terminal control only retires/releases existing launch references.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "netplay.record-prepared",
+      "owner": "netplay",
+      "rf_id": "RF12",
+      "consumers": [
+        "(*retrom/internal/service/netplay.ParticipantPreparation).Launch",
+        "(*retrom/internal/service/netplay.ParticipantPreparation).record",
+        "(*retrom/internal/service/netplay.Service).CreateParticipantLaunch",
+        "(*retrom/internal/transport/httpapi.Server).createNetplayLaunch"
+      ],
+      "snapshot": "retrom/internal/model/netplay.PreparationSnapshot",
+      "prepare": "(*retrom/internal/service/netplay.ParticipantPreparation).record",
+      "commit": "(*retrom/internal/repo/netplay.ParticipantPreparation).WithPreparation",
+      "policy_symbols": [
+        "retrom/internal/service/netplay.stateEvent"
+      ],
+      "fresh_facts": [
+        {
+          "name": "current controlled session",
+          "reader_symbol": "(retrom/internal/repo/netplay.sessionControlRecords).Current",
+          "reason": "Writer joins exact room.current_session to requested session; room STARTING/RUNNING; session not FINISHED/FAILED; reads host,room state/version,session state/version/resync"
+        },
+        {
+          "name": "current participant generations",
+          "reader_symbol": "(retrom/internal/repo/netplay.sessionControlRecords).peers",
+          "reason": "Writer reads all current session participant profile/seat/generation/state/version ordered seat; does not filter LEFT"
+        },
+        {
+          "name": "prepared peer and existing event",
+          "reader_symbol": "(retrom/internal/repo/netplay.preparationRecords).Snapshot",
+          "reason": "Inside writer: matching peer by profile,LOCKED count,game/variant/provider/target/bundle plus EXISTS any PARTICIPANT_STATE_CHANGED event for room/session/profile"
+        }
+      ],
+      "guards": [
+        {
+          "id": "current-session-authority",
+          "fields": [
+            "roomId",
+            "currentSessionId",
+            "room.state",
+            "sessionId",
+            "session.state"
+          ],
+          "expected_source": "Requested session remains room.current_session; active room and nonterminal session",
+          "rejection": "ErrSessionNotFound",
+          "test_id": "RFA-RF12-peer_reconnect"
+        },
+        {
+          "id": "prepared-generation",
+          "fields": [
+            "peer.generation",
+            "peer.state",
+            "requestedGeneration"
+          ],
+          "expected_source": "Generation equals signed credential generation and peer state neither LOCKED nor LEFT",
+          "rejection": "ErrRoomConflict",
+          "test_id": "RFA-RF12-peer_reconnect"
+        },
+        {
+          "id": "record-replay",
+          "fields": [
+            "launchRecorded",
+            "lockedCount",
+            "session.state"
+          ],
+          "expected_source": "Emit participant event only if none exists; advance PREPARING->LOADING only when no LOCKED peers; no events means no write",
+          "rejection": "Semantic no-op",
+          "test_id": "RFA-RF12-peer_reconnect"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "room-fence",
+          "repo_helper": "(retrom/internal/repo/netplay.sessionControlRecords).fence",
+          "affected_records": [
+            "netplay_rooms exact id/version/currentSession/state -> version=version; require one"
+          ],
+          "test_id": "RFA-RF12-peer_reconnect"
+        },
+        {
+          "stage": "peer-fence",
+          "repo_helper": "(retrom/internal/repo/netplay.preparationRecords).fencePeer",
+          "affected_records": [
+            "netplay_session_participants exact session/profile/player/generation/version/state -> version=version; require one"
+          ],
+          "test_id": "RFA-RF12-peer_reconnect"
+        },
+        {
+          "stage": "nonadvancing-session-fence",
+          "repo_helper": "(retrom/internal/repo/netplay.preparationRecords).Record",
+          "affected_records": [
+            "If no loading advance: netplay_sessions exact id/room/version/state -> version=version; require one; append participant event"
+          ],
+          "test_id": "RFA-RF12-peer_reconnect"
+        },
+        {
+          "stage": "nonadvancing-events",
+          "repo_helper": "(retrom/internal/repo/netplay.sessionControlRecords).events",
+          "affected_records": [
+            "If no loading advance: INSERT planned participant transition event"
+          ],
+          "test_id": "RFA-RF12-peer_reconnect"
+        },
+        {
+          "stage": "advance-room-fence",
+          "repo_helper": "(retrom/internal/repo/netplay.sessionControlRecords).fence",
+          "affected_records": [
+            "netplay_rooms exact id/version/currentSession/state -> version=version; require one"
+          ],
+          "test_id": "RFA-RF12-peer_reconnect"
+        },
+        {
+          "stage": "advance-session-transition",
+          "repo_helper": "(retrom/internal/repo/netplay.sessionControlRecords).Session",
+          "affected_records": [
+            "netplay_sessions exact id/room/oldState/version -> state=LOADING (only AdvanceLoading),resyncCount+0,optional COALESCE(startedAt,now),version+1,time; require one"
+          ],
+          "test_id": "RFA-RF12-peer_reconnect"
+        },
+        {
+          "stage": "advance-session-events",
+          "repo_helper": "(retrom/internal/repo/netplay.sessionControlRecords).events",
+          "affected_records": [
+            "INSERT each schema1 netplay_events session/room/actor/player/type/dataJSON/time in same writer"
+          ],
+          "test_id": "RFA-RF12-peer_reconnect"
+        }
+      ],
+      "idempotency": "Outer ParticipantPreparation.Launch serializes using its mutex; read-only snapshot/signature/Launch.CreateNetplay occur before record transaction. Existing participant generation is reused (0 chooses1), signing/hash outside writer; launch.create-netplay owns launch+participant credential writes. Existing event+state produce no duplicate record. No independent credential rotation SQL exists in RF12.",
+      "time_rule": "Baseline BeginTx(ctx,nil) on shared single writer connection; Service samples now before acquiring the transaction. Target requires one Repo Clock sample after write permission. No current negative/overflow-time guard is assumed.",
+      "after_commit": [
+        {
+          "action": "Return launch and credential cookies only after RF10 launch and this record both succeed",
+          "recovery": "Either launch failure or record failure calls separate AbortPreparation in 5-second WithoutCancel context; exact original session prevents ending replacement; causes joined",
+          "test_id": "RFA-RF12-hub_transaction"
+        }
+      ],
+      "fault_points": [
+        "PLANNED room-fence: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED peer-fence: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED nonadvancing-session-fence: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED nonadvancing-events: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED advance-room-fence: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED advance-session-transition: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED advance-session-events: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED each Guard independently raced between preparation and writer acquisition with exact error/no writes",
+        "PLANNED duplicate command, cancellation, commit failure, stale socket/session/generation and recovery",
+        "PLANNED Hub publication waits for durable control success; database/network blocking never holds Hub mutex; original causes retained"
+      ],
+      "test_ids": [
+        "RFA-RF12-peer_reconnect",
+        "RFA-RF12-hub_transaction",
+        "RFA-RF12-two_browser"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "Netplay control creates no CAS bytes or new Blob ownership; Launch publication is separately registered under launch.create-netplay. Terminal control only retires/releases existing launch references.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "netplay.recover-runtime",
+      "owner": "netplay",
+      "rf_id": "RF12",
+      "consumers": [
+        "(*retrom/internal/service/netplay.RoomMaintenance).Recover",
+        "(*retrom/internal/service/netplay.Service).Recover",
+        "retrom/cmd/retrom.execute",
+        "retrom/cmd/retrom.executeWithPasswordReader",
+        "retrom/cmd/retrom.initializeRuntimeServices",
+        "retrom/cmd/retrom.main",
+        "retrom/cmd/retrom.run"
+      ],
+      "snapshot": "retrom/internal/model/netplay.RecoveryPlan",
+      "prepare": "(*retrom/internal/service/netplay.RoomMaintenance).Recover",
+      "commit": "(*retrom/internal/repo/netplay.RoomMaintenance).WithMaintenance",
+      "policy_symbols": [],
+      "fresh_facts": [
+        {
+          "name": "current global runtime rows",
+          "reader_symbol": "(retrom/internal/repo/netplay.roomMaintenanceRecords).Recover",
+          "reason": "Writer conditional SQL directly selects all nonterminal sessions,ACTIVE linked plays,CREATED/ACTIVE netplay launches,STARTING/RUNNING rooms; no preloaded business Snapshot"
+        }
+      ],
+      "guards": [
+        {
+          "id": "recovery-reason",
+          "fields": [
+            "reason"
+          ],
+          "expected_source": "Only SERVER_RESTARTED or RESTORE before writer",
+          "rejection": "ErrInvalidRecoveryReason",
+          "test_id": "RFA-RF12-peer_reconnect"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "recover-sessions",
+          "repo_helper": "(retrom/internal/repo/netplay.roomMaintenanceRecords).Recover",
+          "affected_records": [
+            "All netplay_sessions not FINISHED/FAILED -> FAILED,reason/finished/time/version+1"
+          ],
+          "test_id": "RFA-RF12-peer_reconnect"
+        },
+        {
+          "stage": "recover-plays",
+          "repo_helper": "(retrom/internal/repo/netplay.roomMaintenanceRecords).Recover",
+          "affected_records": [
+            "All ACTIVE play_sessions linked to any launch with netplay_session_id nonNULL -> ABANDONED,end/time/version+1"
+          ],
+          "test_id": "RFA-RF12-peer_reconnect"
+        },
+        {
+          "stage": "recover-launches",
+          "repo_helper": "(retrom/internal/repo/netplay.roomMaintenanceRecords).Recover",
+          "affected_records": [
+            "sessionstore.ChangeLaunch all netplay launches CREATED/ACTIVE -> REVOKED,finish/time/version+1"
+          ],
+          "test_id": "RFA-RF12-peer_reconnect"
+        },
+        {
+          "stage": "recover-launch-retirement",
+          "repo_helper": "retrom/internal/repo/sessionstore.updateLaunchRelations",
+          "affected_records": [
+            "For each changed launch: UPDATE unreleased launch_payload_retirements dueAt=finishedAt for terminal state"
+          ],
+          "test_id": "RFA-RF12-peer_reconnect"
+        },
+        {
+          "stage": "recover-isolated-capabilities",
+          "repo_helper": "retrom/internal/repo/sessionstore.updateLaunchRelations",
+          "affected_records": [
+            "For each changed terminal launch: isolated_runtime_capabilities unrevoked launchId -> revokedAt=launch.finishedAt"
+          ],
+          "test_id": "RFA-RF12-peer_reconnect"
+        },
+        {
+          "stage": "recover-restore-binding",
+          "repo_helper": "retrom/internal/repo/sessionstore.updateLaunchRelations",
+          "affected_records": [
+            "For each changed launch state outside CREATED/ACTIVE: launch_game_save_bindings restoreBlob/checkpointFormatNULL"
+          ],
+          "test_id": "RFA-RF12-peer_reconnect"
+        },
+        {
+          "stage": "recover-rooms",
+          "repo_helper": "(retrom/internal/repo/netplay.roomMaintenanceRecords).Recover",
+          "affected_records": [
+            "All netplay_rooms STARTING/RUNNING -> ENDED,currentSessionNULL,reason/ended/time/version+1; no room-member/participant update and no netplay event insertion"
+          ],
+          "test_id": "RFA-RF12-peer_reconnect"
+        }
+      ],
+      "idempotency": "Global startup/restore recovery uses current nonterminal predicates; repeated execution finds no active target rows. Preserve baseline scope distinction: unlike end-room this does not clear membership or participant rows.",
+      "time_rule": "Baseline BeginTx(ctx,nil) on shared single writer connection; Service samples now before acquiring the transaction. Target requires one Repo Clock sample after write permission. No current negative/overflow-time guard is assumed.",
+      "after_commit": [
+        {
+          "action": "Bootstrap readiness/restore continues only after recovery commit; maintenance loop starts separately",
+          "recovery": "Service maintenance every30s runs independent expiry; Close joins started loop, reporting errors via existing cleanup pending RF02 lifecycle migration",
+          "test_id": "RFA-RF12-hub_transaction"
+        }
+      ],
+      "fault_points": [
+        "PLANNED recover-sessions: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED recover-plays: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED recover-launches: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED recover-launch-retirement: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED recover-isolated-capabilities: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED recover-restore-binding: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED recover-rooms: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED each Guard independently raced between preparation and writer acquisition with exact error/no writes",
+        "PLANNED duplicate command, cancellation, commit failure, stale socket/session/generation and recovery",
+        "PLANNED Hub publication waits for durable control success; database/network blocking never holds Hub mutex; original causes retained"
+      ],
+      "test_ids": [
+        "RFA-RF12-peer_reconnect",
+        "RFA-RF12-hub_transaction",
+        "RFA-RF12-two_browser"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "Netplay control creates no CAS bytes or new Blob ownership; Launch publication is separately registered under launch.create-netplay. Terminal control only retires/releases existing launch references.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "netplay.select-game",
+      "owner": "netplay",
+      "rf_id": "RF12",
+      "consumers": [
+        "(*retrom/internal/service/netplay.RoomControl).SelectGame",
+        "(*retrom/internal/service/netplay.Service).SelectGame",
+        "(*retrom/internal/transport/httpapi.Server).selectNetplayGame"
+      ],
+      "snapshot": "retrom/internal/model/netplay.RoomControlSnapshot",
+      "prepare": "(*retrom/internal/service/netplay.RoomControl).SelectGame",
+      "commit": "(*retrom/internal/repo/netplay.RoomControl).WithWrite",
+      "policy_symbols": [
+        "(*retrom/internal/service/netplay.Eligibility).MatchesTargetProfile",
+        "retrom/internal/service/netplay.EligibilityBlocker",
+        "retrom/internal/service/netplay.lockedSnapshotJSON",
+        "retrom/internal/service/netplay.netplayArcadeClosureIndex",
+        "retrom/internal/service/netplay.netplayArcadeDependencyMatches",
+        "retrom/internal/service/netplay.parseNetplayArcadeSnapshot",
+        "retrom/internal/service/netplay.validArcadeRuntimeSnapshot"
+      ],
+      "fresh_facts": [
+        {
+          "name": "current room",
+          "reader_symbol": "(retrom/internal/repo/netplay.roomControlRecords).Current",
+          "reason": "Inside writer: room host/state/version/selected game+variant+profile+digest/maxPlayers"
+        },
+        {
+          "name": "current members",
+          "reader_symbol": "(retrom/internal/repo/netplay.roomControlRecords).controlMembers",
+          "reason": "Inside writer: every active occupant plus requesting actor's possibly-left membership; ID/profile/role/seat/ready/version/left time"
+        },
+        {
+          "name": "current eligible variants",
+          "reader_symbol": "(*retrom/internal/repo/netplay.Eligibility).Rows",
+          "reason": "Inside writer: published game,enabled platform instance,READY variant,netplay-enabled runtime target/provider bundle,non-DISABLED binding matching platform/core/content kind,content logical names,current dependencyJSON/DAT/sourceManifest; no separate core.enabled/platform.enabled check in this query"
+        },
+        {
+          "name": "current BIOS",
+          "reader_symbol": "(*retrom/internal/repo/corevalidation.Repository).BIOS",
+          "reason": "For non-Arcade writer uses current BIOS requirement/installation records through resolver and requires READY + exact locked snapshot JSON"
+        },
+        {
+          "name": "current Arcade dependencies",
+          "reader_symbol": "(*retrom/internal/repo/netplay.Eligibility).ArcadeDependencies",
+          "reason": "Writer reads kind/archive/machine/entryJSON/state for exact variant+DAT"
+        },
+        {
+          "name": "current dependency files",
+          "reader_symbol": "(*retrom/internal/repo/netplay.Eligibility).DependencyFileCount",
+          "reason": "External/hash-warning dependency requires exactly one current variant file with expected PARENT or BIOS_BUNDLE role/logical name"
+        }
+      ],
+      "guards": [
+        {
+          "id": "host-authority",
+          "fields": [
+            "actorId",
+            "hostProfileId"
+          ],
+          "expected_source": "Request actor is current room host; caller authenticates account before entry",
+          "rejection": "ErrForbidden",
+          "test_id": "RFA-RF12-room_concurrency"
+        },
+        {
+          "id": "room-version",
+          "fields": [
+            "request.version",
+            "current.version"
+          ],
+          "expected_source": "Exact expected room version",
+          "rejection": "ErrPrecondition",
+          "test_id": "RFA-RF12-room_concurrency"
+        },
+        {
+          "id": "room-state",
+          "fields": [
+            "current.state"
+          ],
+          "expected_source": "Current state in DRAFT or WAITING",
+          "rejection": "ErrRoomConflict",
+          "test_id": "RFA-RF12-room_concurrency"
+        },
+        {
+          "id": "eligible-profile",
+          "fields": [
+            "profileId",
+            "gameId",
+            "variantId",
+            "providerId",
+            "targetId",
+            "bundleSHA256",
+            "contentKind",
+            "platformId",
+            "dependencyJSON"
+          ],
+          "expected_source": "Candidate must match registry allowed content kinds and profile platform/core/provider/target; frozen canonical profile includes provider bundle/source manifest/dependency snapshot; BIOS current or exact runnable Arcade closure",
+          "rejection": "ErrInvalidProfile or ErrProfileStale at ready/start",
+          "test_id": "RFA-RF12-room_concurrency"
+        },
+        {
+          "id": "occupied-seat-range",
+          "fields": [
+            "occupants.playerNo",
+            "selection.maxPlayers"
+          ],
+          "expected_source": "Every active occupant fits newly selected profile maximum",
+          "rejection": "ErrInvalidSeat",
+          "test_id": "RFA-RF12-room_concurrency"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "select-game",
+          "repo_helper": "(retrom/internal/repo/netplay.roomControlRecords).Select",
+          "affected_records": [
+            "netplay_rooms exact id/version -> WAITING,selected game/variant/profile/digest/maxPlayers,currentSessionNULL,version+1,waitingExpiry,time"
+          ],
+          "test_id": "RFA-RF12-room_concurrency"
+        },
+        {
+          "stage": "clear-readiness",
+          "repo_helper": "(retrom/internal/repo/netplay.roomControlRecords).clearReady",
+          "affected_records": [
+            "netplay_room_members every active room member -> ready0,version+1,time"
+          ],
+          "test_id": "RFA-RF12-room_concurrency"
+        },
+        {
+          "stage": "room-event",
+          "repo_helper": "(retrom/internal/repo/netplay.roomControlRecords).event",
+          "affected_records": [
+            "INSERT netplay_events room,sessionNULL,actor/player,GAME_SELECTED,schema1 JSON,time"
+          ],
+          "test_id": "RFA-RF12-room_concurrency"
+        }
+      ],
+      "idempotency": "No HTTP idempotency receipt. Preserve current conditional state/version and semantic replay branches below.",
+      "time_rule": "Baseline BeginTx(ctx,nil) on shared single writer connection; Service samples now before acquiring the transaction. Target requires one Repo Clock sample after write permission. No current negative/overflow-time guard is assumed.",
+      "after_commit": [
+        {
+          "action": "Return viewer projection loaded inside writer only after successful commit",
+          "recovery": "No early successful HTTP room projection; stale version fails and caller reloads",
+          "test_id": "RFA-RF12-hub_transaction"
+        }
+      ],
+      "fault_points": [
+        "PLANNED select-game: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED clear-readiness: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED room-event: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED each Guard independently raced between preparation and writer acquisition with exact error/no writes",
+        "PLANNED duplicate command, cancellation, commit failure, stale socket/session/generation and recovery",
+        "PLANNED Hub publication waits for durable control success; database/network blocking never holds Hub mutex; original causes retained"
+      ],
+      "test_ids": [
+        "RFA-RF12-room_concurrency",
+        "RFA-RF12-hub_transaction",
+        "RFA-RF12-two_browser"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "Netplay control creates no CAS bytes or new Blob ownership; Launch publication is separately registered under launch.create-netplay. Terminal control only retires/releases existing launch references.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "netplay.set-ready",
+      "owner": "netplay",
+      "rf_id": "RF12",
+      "consumers": [
+        "(*retrom/internal/service/netplay.RoomControl).SetReady",
+        "(*retrom/internal/service/netplay.Service).SetReady",
+        "(*retrom/internal/transport/httpapi.Server).setNetplayReady"
+      ],
+      "snapshot": "retrom/internal/model/netplay.RoomControlSnapshot",
+      "prepare": "(*retrom/internal/service/netplay.RoomControl).SetReady",
+      "commit": "(*retrom/internal/repo/netplay.RoomControl).WithWrite",
+      "policy_symbols": [
+        "(*retrom/internal/service/netplay.Eligibility).MatchesTargetProfile",
+        "retrom/internal/service/netplay.EligibilityBlocker",
+        "retrom/internal/service/netplay.lockedSnapshotJSON",
+        "retrom/internal/service/netplay.netplayArcadeClosureIndex",
+        "retrom/internal/service/netplay.netplayArcadeDependencyMatches",
+        "retrom/internal/service/netplay.parseNetplayArcadeSnapshot",
+        "retrom/internal/service/netplay.validArcadeRuntimeSnapshot"
+      ],
+      "fresh_facts": [
+        {
+          "name": "current room",
+          "reader_symbol": "(retrom/internal/repo/netplay.roomControlRecords).Current",
+          "reason": "Inside writer: room host/state/version/selected game+variant+profile+digest/maxPlayers"
+        },
+        {
+          "name": "current members",
+          "reader_symbol": "(retrom/internal/repo/netplay.roomControlRecords).controlMembers",
+          "reason": "Inside writer: every active occupant plus requesting actor's possibly-left membership; ID/profile/role/seat/ready/version/left time"
+        },
+        {
+          "name": "current eligible variants",
+          "reader_symbol": "(*retrom/internal/repo/netplay.Eligibility).Rows",
+          "reason": "Inside writer: published game,enabled platform instance,READY variant,netplay-enabled runtime target/provider bundle,non-DISABLED binding matching platform/core/content kind,content logical names,current dependencyJSON/DAT/sourceManifest; no separate core.enabled/platform.enabled check in this query"
+        },
+        {
+          "name": "current BIOS",
+          "reader_symbol": "(*retrom/internal/repo/corevalidation.Repository).BIOS",
+          "reason": "For non-Arcade writer uses current BIOS requirement/installation records through resolver and requires READY + exact locked snapshot JSON"
+        },
+        {
+          "name": "current Arcade dependencies",
+          "reader_symbol": "(*retrom/internal/repo/netplay.Eligibility).ArcadeDependencies",
+          "reason": "Writer reads kind/archive/machine/entryJSON/state for exact variant+DAT"
+        },
+        {
+          "name": "current dependency files",
+          "reader_symbol": "(*retrom/internal/repo/netplay.Eligibility).DependencyFileCount",
+          "reason": "External/hash-warning dependency requires exactly one current variant file with expected PARENT or BIOS_BUNDLE role/logical name"
+        }
+      ],
+      "guards": [
+        {
+          "id": "room-version",
+          "fields": [
+            "request.version",
+            "current.version"
+          ],
+          "expected_source": "Exact expected room version",
+          "rejection": "ErrPrecondition",
+          "test_id": "RFA-RF12-room_concurrency"
+        },
+        {
+          "id": "room-state",
+          "fields": [
+            "current.state"
+          ],
+          "expected_source": "Current state in WAITING",
+          "rejection": "ErrRoomConflict",
+          "test_id": "RFA-RF12-room_concurrency"
+        },
+        {
+          "id": "active-member",
+          "fields": [
+            "member",
+            "member.leftAtMS"
+          ],
+          "expected_source": "Actor has current non-left membership",
+          "rejection": "ErrForbidden",
+          "test_id": "RFA-RF12-room_concurrency"
+        },
+        {
+          "id": "eligible-profile",
+          "fields": [
+            "profileId",
+            "gameId",
+            "variantId",
+            "providerId",
+            "targetId",
+            "bundleSHA256",
+            "contentKind",
+            "platformId",
+            "dependencyJSON"
+          ],
+          "expected_source": "Candidate must match registry allowed content kinds and profile platform/core/provider/target; frozen canonical profile includes provider bundle/source manifest/dependency snapshot; BIOS current or exact runnable Arcade closure",
+          "rejection": "ErrInvalidProfile or ErrProfileStale at ready/start",
+          "test_id": "RFA-RF12-room_concurrency"
+        },
+        {
+          "id": "ready-frozen-selection",
+          "fields": [
+            "ready",
+            "selection"
+          ],
+          "expected_source": "Only ready=true requires current eligible selection equal full locked RoomSelection (game,variant,profile,digest,maxPlayers); false may unready stale selection",
+          "rejection": "ErrProfileStale",
+          "test_id": "RFA-RF12-room_concurrency"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "touch-room",
+          "repo_helper": "(retrom/internal/repo/netplay.roomControlRecords).touch",
+          "affected_records": [
+            "netplay_rooms exact id/version -> version+1,expiry,time; require one changed row"
+          ],
+          "test_id": "RFA-RF12-room_concurrency"
+        },
+        {
+          "stage": "ready-member",
+          "repo_helper": "(retrom/internal/repo/netplay.roomControlRecords).Ready",
+          "affected_records": [
+            "netplay_room_members exact id/room/profile/version/unleft -> ready requested value,version+1,time"
+          ],
+          "test_id": "RFA-RF12-room_concurrency"
+        },
+        {
+          "stage": "room-event",
+          "repo_helper": "(retrom/internal/repo/netplay.roomControlRecords).event",
+          "affected_records": [
+            "INSERT netplay_events room,sessionNULL,actor/player,READY_CHANGED,schema1 JSON,time"
+          ],
+          "test_id": "RFA-RF12-room_concurrency"
+        }
+      ],
+      "idempotency": "No HTTP idempotency receipt. Preserve current conditional state/version and semantic replay branches below.",
+      "time_rule": "Baseline BeginTx(ctx,nil) on shared single writer connection; Service samples now before acquiring the transaction. Target requires one Repo Clock sample after write permission. No current negative/overflow-time guard is assumed.",
+      "after_commit": [
+        {
+          "action": "Return viewer projection loaded inside writer only after successful commit",
+          "recovery": "No early successful HTTP room projection; stale version fails and caller reloads",
+          "test_id": "RFA-RF12-hub_transaction"
+        }
+      ],
+      "fault_points": [
+        "PLANNED touch-room: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED ready-member: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED room-event: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED each Guard independently raced between preparation and writer acquisition with exact error/no writes",
+        "PLANNED duplicate command, cancellation, commit failure, stale socket/session/generation and recovery",
+        "PLANNED Hub publication waits for durable control success; database/network blocking never holds Hub mutex; original causes retained"
+      ],
+      "test_ids": [
+        "RFA-RF12-room_concurrency",
+        "RFA-RF12-hub_transaction",
+        "RFA-RF12-two_browser"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "Netplay control creates no CAS bytes or new Blob ownership; Launch publication is separately registered under launch.create-netplay. Terminal control only retires/releases existing launch references.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "netplay.set-seat",
+      "owner": "netplay",
+      "rf_id": "RF12",
+      "consumers": [
+        "(*retrom/internal/service/netplay.RoomControl).SetSeat",
+        "(*retrom/internal/service/netplay.Service).SetSeat",
+        "(*retrom/internal/transport/httpapi.Server).setNetplaySeat"
+      ],
+      "snapshot": "retrom/internal/model/netplay.RoomControlSnapshot",
+      "prepare": "(*retrom/internal/service/netplay.RoomControl).SetSeat",
+      "commit": "(*retrom/internal/repo/netplay.RoomControl).WithWrite",
+      "policy_symbols": [
+        "retrom/internal/service/netplay.validateSeat"
+      ],
+      "fresh_facts": [
+        {
+          "name": "current room",
+          "reader_symbol": "(retrom/internal/repo/netplay.roomControlRecords).Current",
+          "reason": "Inside writer: room host/state/version/selected game+variant+profile+digest/maxPlayers"
+        },
+        {
+          "name": "current members",
+          "reader_symbol": "(retrom/internal/repo/netplay.roomControlRecords).controlMembers",
+          "reason": "Inside writer: every active occupant plus requesting actor's possibly-left membership; ID/profile/role/seat/ready/version/left time"
+        }
+      ],
+      "guards": [
+        {
+          "id": "room-version",
+          "fields": [
+            "request.version",
+            "current.version"
+          ],
+          "expected_source": "Exact expected room version",
+          "rejection": "ErrPrecondition",
+          "test_id": "RFA-RF12-room_concurrency"
+        },
+        {
+          "id": "room-state",
+          "fields": [
+            "current.state"
+          ],
+          "expected_source": "Current state in WAITING",
+          "rejection": "ErrRoomConflict",
+          "test_id": "RFA-RF12-room_concurrency"
+        },
+        {
+          "id": "seat-input",
+          "fields": [
+            "playerNo"
+          ],
+          "expected_source": "Requested guest seat in 2..4 before transaction and <= current selection.maxPlayers inside writer",
+          "rejection": "ErrInvalidSeat",
+          "test_id": "RFA-RF12-room_concurrency"
+        },
+        {
+          "id": "selected-profile",
+          "fields": [
+            "selection"
+          ],
+          "expected_source": "Current selection exists",
+          "rejection": "ErrProfileStale",
+          "test_id": "RFA-RF12-room_concurrency"
+        },
+        {
+          "id": "membership-ready",
+          "fields": [
+            "member.ready"
+          ],
+          "expected_source": "Existing actor membership is not ready, even if it was left",
+          "rejection": "ErrRoomConflict",
+          "test_id": "RFA-RF12-room_concurrency"
+        },
+        {
+          "id": "guest-only",
+          "fields": [
+            "member.role"
+          ],
+          "expected_source": "Existing membership is not HOST",
+          "rejection": "ErrForbidden",
+          "test_id": "RFA-RF12-room_concurrency"
+        },
+        {
+          "id": "seat-unoccupied",
+          "fields": [
+            "occupants.playerNo",
+            "occupants.profileId"
+          ],
+          "expected_source": "Requested seat has no other active occupant",
+          "rejection": "ErrSeatTaken",
+          "test_id": "RFA-RF12-room_concurrency"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "touch-room",
+          "repo_helper": "(retrom/internal/repo/netplay.roomControlRecords).touch",
+          "affected_records": [
+            "netplay_rooms exact id/version -> version+1,expiry,time; require one changed row"
+          ],
+          "test_id": "RFA-RF12-room_concurrency"
+        },
+        {
+          "stage": "seat-member",
+          "repo_helper": "(retrom/internal/repo/netplay.roomControlRecords).seatMember",
+          "affected_records": [
+            "Existing member exact id/room/profile/version -> seat,ready0,left/reasonNULL,version+1,time; otherwise INSERT UUID GUEST seat ready0 version1 joined/time"
+          ],
+          "test_id": "RFA-RF12-room_concurrency"
+        },
+        {
+          "stage": "room-event",
+          "repo_helper": "(retrom/internal/repo/netplay.roomControlRecords).event",
+          "affected_records": [
+            "INSERT netplay_events room,sessionNULL,actor/player,SEAT_CHANGED or MEMBER_JOINED,schema1 JSON,time"
+          ],
+          "test_id": "RFA-RF12-room_concurrency"
+        }
+      ],
+      "idempotency": "No HTTP idempotency receipt. Preserve current conditional state/version and semantic replay branches below.",
+      "time_rule": "Baseline BeginTx(ctx,nil) on shared single writer connection; Service samples now before acquiring the transaction. Target requires one Repo Clock sample after write permission. No current negative/overflow-time guard is assumed. New guest UUID generated by seatPlan inside callback; existing left membership reuses identity and is reactivated.",
+      "after_commit": [
+        {
+          "action": "Return viewer projection loaded inside writer only after successful commit",
+          "recovery": "No early successful HTTP room projection; stale version fails and caller reloads",
+          "test_id": "RFA-RF12-hub_transaction"
+        }
+      ],
+      "fault_points": [
+        "PLANNED touch-room: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED seat-member: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED room-event: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED each Guard independently raced between preparation and writer acquisition with exact error/no writes",
+        "PLANNED duplicate command, cancellation, commit failure, stale socket/session/generation and recovery",
+        "PLANNED Hub publication waits for durable control success; database/network blocking never holds Hub mutex; original causes retained"
+      ],
+      "test_ids": [
+        "RFA-RF12-room_concurrency",
+        "RFA-RF12-hub_transaction",
+        "RFA-RF12-two_browser"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "Netplay control creates no CAS bytes or new Blob ownership; Launch publication is separately registered under launch.create-netplay. Terminal control only retires/releases existing launch references.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "netplay.set-session-state",
+      "owner": "netplay",
+      "rf_id": "RF12",
+      "consumers": [
+        "(*retrom/internal/service/netplay.Service).SetSessionState",
+        "(*retrom/internal/service/netplay.SessionControl).SetState",
+        "(*retrom/internal/transport/httpapi.Server).pauseNetplaySession",
+        "(*retrom/internal/transport/netplay.Hub).Pause"
+      ],
+      "snapshot": "retrom/internal/model/netplay.SessionControlSnapshot",
+      "prepare": "(*retrom/internal/service/netplay.SessionControl).SetState",
+      "commit": "(*retrom/internal/repo/netplay.SessionControl).WithControl",
+      "policy_symbols": [
+        "retrom/internal/service/netplay.stateEvent"
+      ],
+      "fresh_facts": [
+        {
+          "name": "current controlled session",
+          "reader_symbol": "(retrom/internal/repo/netplay.sessionControlRecords).Current",
+          "reason": "Writer joins exact room.current_session to requested session; room STARTING/RUNNING; session not FINISHED/FAILED; reads host,room state/version,session state/version/resync"
+        },
+        {
+          "name": "current participant generations",
+          "reader_symbol": "(retrom/internal/repo/netplay.sessionControlRecords).peers",
+          "reason": "Writer reads all current session participant profile/seat/generation/state/version ordered seat; does not filter LEFT"
+        }
+      ],
+      "guards": [
+        {
+          "id": "current-session-authority",
+          "fields": [
+            "roomId",
+            "currentSessionId",
+            "room.state",
+            "sessionId",
+            "session.state"
+          ],
+          "expected_source": "Requested session remains room.current_session; active room and nonterminal session",
+          "rejection": "ErrSessionNotFound",
+          "test_id": "RFA-RF12-hub_transaction"
+        },
+        {
+          "id": "control-target",
+          "fields": [
+            "target"
+          ],
+          "expected_source": "Before writer only PAUSED_RECONNECT or RUNNING",
+          "rejection": "ErrRoomConflict",
+          "test_id": "RFA-RF12-hub_transaction"
+        },
+        {
+          "id": "control-host",
+          "fields": [
+            "actorId",
+            "room.hostId"
+          ],
+          "expected_source": "Current host equals actor",
+          "rejection": "ErrForbidden",
+          "test_id": "RFA-RF12-hub_transaction"
+        },
+        {
+          "id": "pause-resume-source",
+          "fields": [
+            "target",
+            "currentState"
+          ],
+          "expected_source": "PAUSED_RECONNECT requires RUNNING; RUNNING requires PAUSED_RECONNECT",
+          "rejection": "ErrRoomConflict",
+          "test_id": "RFA-RF12-hub_transaction"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "room-fence",
+          "repo_helper": "(retrom/internal/repo/netplay.sessionControlRecords).fence",
+          "affected_records": [
+            "netplay_rooms exact id/version/currentSession/state -> version=version; require one"
+          ],
+          "test_id": "RFA-RF12-hub_transaction"
+        },
+        {
+          "stage": "session-transition",
+          "repo_helper": "(retrom/internal/repo/netplay.sessionControlRecords).Session",
+          "affected_records": [
+            "netplay_sessions exact id/room/oldState/version -> state=requested PAUSED_RECONNECT or RUNNING,resyncCount+0,optional COALESCE(startedAt,now),version+1,time; require one"
+          ],
+          "test_id": "RFA-RF12-hub_transaction"
+        },
+        {
+          "stage": "session-events",
+          "repo_helper": "(retrom/internal/repo/netplay.sessionControlRecords).events",
+          "affected_records": [
+            "INSERT each schema1 netplay_events session/room/actor/player/type/dataJSON/time in same writer"
+          ],
+          "test_id": "RFA-RF12-hub_transaction"
+        }
+      ],
+      "idempotency": "No HTTP idempotency receipt. Preserve current conditional state/version and semantic replay branches below.",
+      "time_rule": "Baseline BeginTx(ctx,nil) on shared single writer connection; Service samples now before acquiring the transaction. Target requires one Repo Clock sample after write permission. No current negative/overflow-time guard is assumed.",
+      "after_commit": [
+        {
+          "action": "Hub.Pause begins host pause only after commit",
+          "recovery": "Baseline Hub holds session mutex during SQL; RF12 must remove external I/O under mutex while preserving current-session fence",
+          "test_id": "RFA-RF12-hub_transaction"
+        }
+      ],
+      "fault_points": [
+        "PLANNED room-fence: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED session-transition: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED session-events: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED each Guard independently raced between preparation and writer acquisition with exact error/no writes",
+        "PLANNED duplicate command, cancellation, commit failure, stale socket/session/generation and recovery",
+        "PLANNED Hub publication waits for durable control success; database/network blocking never holds Hub mutex; original causes retained"
+      ],
+      "test_ids": [
+        "RFA-RF12-hub_transaction",
+        "RFA-RF12-two_browser"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "Netplay control creates no CAS bytes or new Blob ownership; Launch publication is separately registered under launch.create-netplay. Terminal control only retires/releases existing launch references.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "netplay.start-session",
+      "owner": "netplay",
+      "rf_id": "RF12",
+      "consumers": [
+        "(*retrom/internal/service/netplay.Service).Start",
+        "(*retrom/internal/service/netplay.SessionStart).Start",
+        "(*retrom/internal/transport/httpapi.Server).startNetplaySession"
+      ],
+      "snapshot": "retrom/internal/model/netplay.RoomControlSnapshot",
+      "prepare": "(*retrom/internal/service/netplay.SessionStart).Start",
+      "commit": "(*retrom/internal/repo/netplay.SessionStart).WithStart",
+      "policy_symbols": [
+        "(*retrom/internal/service/netplay.Eligibility).MatchesTargetProfile",
+        "retrom/internal/service/netplay.EligibilityBlocker",
+        "retrom/internal/service/netplay.lockedSnapshotJSON",
+        "retrom/internal/service/netplay.netplayArcadeClosureIndex",
+        "retrom/internal/service/netplay.netplayArcadeDependencyMatches",
+        "retrom/internal/service/netplay.parseNetplayArcadeSnapshot",
+        "retrom/internal/service/netplay.startSeatMask",
+        "retrom/internal/service/netplay.validArcadeRuntimeSnapshot"
+      ],
+      "fresh_facts": [
+        {
+          "name": "current room",
+          "reader_symbol": "(retrom/internal/repo/netplay.roomControlRecords).Current",
+          "reason": "Inside writer: room host/state/version/selected game+variant+profile+digest/maxPlayers"
+        },
+        {
+          "name": "current members",
+          "reader_symbol": "(retrom/internal/repo/netplay.roomControlRecords).controlMembers",
+          "reason": "Inside writer: every active occupant plus requesting actor's possibly-left membership; ID/profile/role/seat/ready/version/left time"
+        },
+        {
+          "name": "current eligible variants",
+          "reader_symbol": "(*retrom/internal/repo/netplay.Eligibility).Rows",
+          "reason": "Inside writer: published game,enabled platform instance,READY variant,netplay-enabled runtime target/provider bundle,non-DISABLED binding matching platform/core/content kind,content logical names,current dependencyJSON/DAT/sourceManifest; no separate core.enabled/platform.enabled check in this query"
+        },
+        {
+          "name": "current BIOS",
+          "reader_symbol": "(*retrom/internal/repo/corevalidation.Repository).BIOS",
+          "reason": "For non-Arcade writer uses current BIOS requirement/installation records through resolver and requires READY + exact locked snapshot JSON"
+        },
+        {
+          "name": "current Arcade dependencies",
+          "reader_symbol": "(*retrom/internal/repo/netplay.Eligibility).ArcadeDependencies",
+          "reason": "Writer reads kind/archive/machine/entryJSON/state for exact variant+DAT"
+        },
+        {
+          "name": "current dependency files",
+          "reader_symbol": "(*retrom/internal/repo/netplay.Eligibility).DependencyFileCount",
+          "reason": "External/hash-warning dependency requires exactly one current variant file with expected PARENT or BIOS_BUNDLE role/logical name"
+        },
+        {
+          "name": "next session number",
+          "reader_symbol": "(retrom/internal/repo/netplay.sessionStartRecords).NextNumber",
+          "reason": "Writer reads max(session_no)+1 for this room; fresh session UUID is generated inside same callback after this read"
+        }
+      ],
+      "guards": [
+        {
+          "id": "host-authority",
+          "fields": [
+            "actorId",
+            "hostProfileId"
+          ],
+          "expected_source": "Request actor is current room host; caller authenticates account before entry",
+          "rejection": "ErrForbidden",
+          "test_id": "RFA-RF12-room_concurrency"
+        },
+        {
+          "id": "room-version",
+          "fields": [
+            "request.version",
+            "current.version"
+          ],
+          "expected_source": "Exact expected room version",
+          "rejection": "ErrPrecondition",
+          "test_id": "RFA-RF12-room_concurrency"
+        },
+        {
+          "id": "room-state",
+          "fields": [
+            "current.state"
+          ],
+          "expected_source": "Current state in WAITING",
+          "rejection": "ErrRoomConflict",
+          "test_id": "RFA-RF12-room_concurrency"
+        },
+        {
+          "id": "eligible-profile",
+          "fields": [
+            "profileId",
+            "gameId",
+            "variantId",
+            "providerId",
+            "targetId",
+            "bundleSHA256",
+            "contentKind",
+            "platformId",
+            "dependencyJSON"
+          ],
+          "expected_source": "Candidate must match registry allowed content kinds and profile platform/core/provider/target; frozen canonical profile includes provider bundle/source manifest/dependency snapshot; BIOS current or exact runnable Arcade closure",
+          "rejection": "ErrInvalidProfile or ErrProfileStale at ready/start",
+          "test_id": "RFA-RF12-room_concurrency"
+        },
+        {
+          "id": "exact-locked-profile",
+          "fields": [
+            "selection",
+            "canonicalDigest",
+            "variantId"
+          ],
+          "expected_source": "Recomputed current profile selection equals every locked RoomSelection field",
+          "rejection": "ErrProfileStale",
+          "test_id": "RFA-RF12-room_concurrency"
+        },
+        {
+          "id": "ready-unique-seats",
+          "fields": [
+            "occupants",
+            "ready",
+            "leftAtMS",
+            "role",
+            "playerNo",
+            "hostId"
+          ],
+          "expected_source": "2..maxPlayers occupants; all ready and active; unique bounded seats; P1 occupied by HOST with room host profile",
+          "rejection": "ErrRoomNotReady",
+          "test_id": "RFA-RF12-room_concurrency"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "waiting-room-fence",
+          "repo_helper": "(retrom/internal/repo/netplay.sessionStartRecords).Insert",
+          "affected_records": [
+            "netplay_rooms id/version/WAITING -> version=version,require one row"
+          ],
+          "test_id": "RFA-RF12-room_concurrency"
+        },
+        {
+          "stage": "session",
+          "repo_helper": "(retrom/internal/repo/netplay.sessionStartRecords).session",
+          "affected_records": [
+            "INSERT netplay_sessions sessionUUID/room/sessionNo,PREPARING,game/variant/provider/target/bundle,canonical profileJSON/digest,playerCount,seatMask,authorityPlayer1,resync0,version1,time"
+          ],
+          "test_id": "RFA-RF12-room_concurrency"
+        },
+        {
+          "stage": "participants",
+          "repo_helper": "(retrom/internal/repo/netplay.sessionStartRecords).participant",
+          "affected_records": [
+            "Per active member INSERT netplay_session_participants exact session/profile/member/seat,LOCKED,credentialGeneration0,version1,time"
+          ],
+          "test_id": "RFA-RF12-room_concurrency"
+        },
+        {
+          "stage": "starting-room",
+          "repo_helper": "(retrom/internal/repo/netplay.sessionStartRecords).Insert",
+          "affected_records": [
+            "netplay_rooms exact id/version -> STARTING,currentSession=new session,version+1,time"
+          ],
+          "test_id": "RFA-RF12-room_concurrency"
+        },
+        {
+          "stage": "session-created-event",
+          "repo_helper": "(retrom/internal/repo/netplay.sessionStartRecords).Insert",
+          "affected_records": [
+            "INSERT netplay_events SESSION_CREATED host/P1,schema1 playerCount/seatMask,time"
+          ],
+          "test_id": "RFA-RF12-room_concurrency"
+        }
+      ],
+      "idempotency": "No HTTP idempotency receipt. Preserve current conditional state/version and semantic replay branches below.",
+      "time_rule": "Baseline BeginTx(ctx,nil) on shared single writer connection; Service samples now before acquiring the transaction. Target requires one Repo Clock sample after write permission. No current negative/overflow-time guard is assumed. Session UUID and sessionNo are obtained inside writer callback, not before the transaction.",
+      "after_commit": [],
+      "fault_points": [
+        "PLANNED waiting-room-fence: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED session: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED participants: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED starting-room: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED session-created-event: inject SQL failure after this stage and compare complete room/session/participant/event/launch/retirement/capability/restore/plays state; require rollback",
+        "PLANNED each Guard independently raced between preparation and writer acquisition with exact error/no writes",
+        "PLANNED duplicate command, cancellation, commit failure, stale socket/session/generation and recovery",
+        "PLANNED Hub publication waits for durable control success; database/network blocking never holds Hub mutex; original causes retained"
+      ],
+      "test_ids": [
+        "RFA-RF12-room_concurrency",
+        "RFA-RF12-hub_transaction",
+        "RFA-RF12-two_browser"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "Netplay control creates no CAS bytes or new Blob ownership; Launch publication is separately registered under launch.create-netplay. Terminal control only retires/releases existing launch references.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
       "operation_id": "platforminstance.apply-recommendations",
       "owner": "platforminstance",
       "rf_id": "RF16",
@@ -11257,6 +14322,7 @@
     "Current validateFinalizationFiles accepts a remaining-file subset after partial success and uses reflect.DeepEqual. RF04/RF09 must replace reflection while preserving nil/empty and every field's equality semantics.",
     "RF16 SOURCE_REVIEWED baseline census: 30 standalone transactions including separate content claim/heartbeat. Aggregate RFA links are planned, not per-Guard/stage PASS evidence. Target actor/impact/time freshness, prepared-upload binding, nested sessionstore stages, content locking and all real query consumers remain migration/verification work.",
     "RF10 SOURCE_REVIEWED census adds 14 transaction families, including separate validation heartbeat/failure and isolated-capability revoke. Branch-specific SQL stages and nested sessionstore writes are explicit. Aggregate RFA references are PLANNED, not per-Guard/stage evidence. Actor/session freshness, prepared preview file closure, signed isolation expiry, all digest lock protocols and expired product receipts remain migration/behavior-review work.",
-    "RF11 SOURCE_REVIEWED census adds 9 transaction families: provider reconciliation, browser/server firmware, startup definitions, DAT ensure/recover,claim,publish,ready activation,failure. DAT requirements and firmware supersession are atomic nested steps, not standalone commits. BIOS/corevalidation are read-only services. Guards/stages and fixture references remain PLANNED; stale DAT execution fencing, writer time, external preparation, digest locking and full parser/Provider consumers require migration/verification."
+    "RF11 SOURCE_REVIEWED census adds 9 transaction families: provider reconciliation, browser/server firmware, startup definitions, DAT ensure/recover,claim,publish,ready activation,failure. DAT requirements and firmware supersession are atomic nested steps, not standalone commits. BIOS/corevalidation are read-only services. Guards/stages and fixture references remain PLANNED; stale DAT execution fencing, writer time, external preparation, digest locking and full parser/Provider consumers require migration/verification.",
+    "RF12 SOURCE_REVIEWED census adds 19 distinct transaction families, including original-session AbortPreparation separately from post-Launch record and active/passive expiry separately from startup recovery. Launch participant credential publication belongs to RF10; participant access/query/Hub frame protocol are read-only or memory operations, not fabricated SQL commands. Baseline Hub performs SQL under mutex and sometimes publishes memory before commit; writer time and UUID positions are recorded for migration. All new behavioral/fault/race cases remain PLANNED."
   ]
 }
