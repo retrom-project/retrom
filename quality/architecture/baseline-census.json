@@ -1,0 +1,558 @@
+{
+  "schemaVersion": 1,
+  "baseline": "82834bade1648da3067ebda1b1fc89c18577fd6a",
+  "inspectionCommit": "f4b91a90654b0ee60a178823aca58d4be03a7f01",
+  "scope": "Completed source census of baseline runtime business write boundaries and named pure policies; not implementation or test acceptance.",
+  "counts": {
+    "registeredOperations": 246,
+    "registeredPolicies": 581,
+    "functionsWithBeginOrTopLevelDML": 461,
+    "directRootReachableEntries": 427,
+    "unreachedEntriesReviewed": 34,
+    "nonRF14Residuals": 31,
+    "nonRF14ExplicitReadOnly": 27,
+    "nonRF14DefaultOptionsQueryOnly": 1,
+    "nonRF14UnusedWriteMethod": 1,
+    "nonRF14MigrationTransaction": 1,
+    "nonRF14AcceptanceFixtureTransaction": 1,
+    "additionalRF14ReadSnapshots": 3,
+    "originalMissingConsumersReviewed": 11,
+    "rf14AdditionalMissingConsumers": 6,
+    "currentMissingPortConsumerSymbols": 16,
+    "registeredInternalHelpers": 11,
+    "queryOnlyWriterProbes": 5,
+    "resolvedConsumerCensusGaps": 1,
+    "additionalTechnicalOrReadPragmaCases": 6,
+    "readOnlyCTECases": 9,
+    "unreachedExecPrepareFunctions": 6,
+    "rawBeginFunctions": 4,
+    "portsWithNonRepoImplementationExtensions": 91
+  },
+  "classifiedResiduals": [
+    {
+      "symbol": "(*retrom/internal/repo/accounts.LinkRepository).ResetState",
+      "file": "internal/repo/accounts/link_consumption.go",
+      "sourceSha256": "93ba87e8d0616b16686b419af8cc287145c9c061250d9dae889d4399ec45f499",
+      "line": 31,
+      "layer": "repo",
+      "owner": "RF07",
+      "classification": "READ_ONLY_SNAPSHOT",
+      "reason": "Reads linkRecords.Current and Target in ReadOnly transaction; missing target returns absent state. ResetState is a password-reset view, not the password mutation."
+    },
+    {
+      "symbol": "(*retrom/internal/repo/bios.Repository).List",
+      "file": "internal/repo/bios/repository.go",
+      "sourceSha256": "27e70c2fc1b4412453eae8f27281a519efd616a2a569d9e6fe733379578ef84f",
+      "line": 24,
+      "layer": "repo",
+      "owner": "RF11",
+      "classification": "READ_ONLY_SNAPSHOT",
+      "reason": "ReadOnly transaction calls list and commits a consistent BIOS catalog view."
+    },
+    {
+      "symbol": "(*retrom/internal/repo/diagnostics.Repository).WithRead",
+      "file": "internal/repo/diagnostics/repository.go",
+      "sourceSha256": "be00b9189872ed2283132f930b1b5b858aa6c9babf94d1aa5fd3aa8b10173dda",
+      "line": 24,
+      "layer": "repo",
+      "owner": "RF19",
+      "classification": "READ_ONLY_SNAPSHOT",
+      "reason": "ReadOnly callback receives diagnostic read records; observed consumers perform diagnostics queries. A transaction name alone is not write evidence."
+    },
+    {
+      "symbol": "(*retrom/internal/repo/favorites.Repository).List",
+      "file": "internal/repo/favorites/list.go",
+      "sourceSha256": "49a1883c7cbcd0d7240a4758b7df5c36ca2bde41a535d08e9753e291c3d8668a",
+      "line": 522,
+      "layer": "repo",
+      "owner": "RF16",
+      "classification": "READ_ONLY_SNAPSHOT",
+      "reason": "ReadOnly snapshot reads folder existence, summary, folders/platforms, total, items/memberships/tags and pagination cursor, then commits."
+    },
+    {
+      "symbol": "(*retrom/internal/repo/firmware.Repository).WithRead",
+      "file": "internal/repo/firmware/repository.go",
+      "sourceSha256": "930afaf114bbad72c40e85f28e040551c002ab44029cf4afd4dee04b8439f828",
+      "line": 29,
+      "layer": "repo",
+      "owner": "RF11",
+      "classification": "READ_ONLY_SNAPSHOT",
+      "reason": "ReadOnly transaction exposes firmware readScope only and commits after successful callback."
+    },
+    {
+      "symbol": "(*retrom/internal/repo/gamecontent.Repository).WithRead",
+      "file": "internal/repo/gamecontent/repository.go",
+      "sourceSha256": "7f5a3797f4107274a524eddcf90a78b07f061779f1dc49d91976142d78507705",
+      "line": 37,
+      "layer": "repo",
+      "owner": "RF16",
+      "classification": "READ_ONLY_SNAPSHOT",
+      "reason": "ReadOnly transaction exposes gamecontent readScope; no production write through this boundary."
+    },
+    {
+      "symbol": "(*retrom/internal/repo/immersive.Repository).WithRead",
+      "file": "internal/repo/immersive/repository.go",
+      "sourceSha256": "f544aad37b20e65683bb9e711205d66c6c394ac58e00118dd0823852ed184ae6",
+      "line": 21,
+      "layer": "repo",
+      "owner": "RF16",
+      "classification": "READ_ONLY_SNAPSHOT",
+      "reason": "ReadOnly platform/library/save readers and query callback."
+    },
+    {
+      "symbol": "(*retrom/internal/repo/importdiscard.Repository).WithRead",
+      "file": "internal/repo/importdiscard/repository.go",
+      "sourceSha256": "2fea37665e532f4bddc9dfe83440b924aa186cab2ae59275761925b7cb5a190c",
+      "line": 19,
+      "layer": "repo",
+      "owner": "RF13",
+      "classification": "READ_ONLY_SNAPSHOT",
+      "reason": "ReadOnly records Reader; the four importdiscard mutations are separate registered writers."
+    },
+    {
+      "symbol": "(*retrom/internal/repo/jobs.Repository).WithRead",
+      "file": "internal/repo/jobs/progress.go",
+      "sourceSha256": "1344a369c5d6154ee79f88ba827bb78630e1b2b07a37f94499b4436c99bafe96",
+      "line": 14,
+      "layer": "repo",
+      "owner": "RF17",
+      "classification": "READ_ONLY_SNAPSHOT",
+      "reason": "ReadOnly progress ReadRecords callback followed by commit."
+    },
+    {
+      "symbol": "(*retrom/internal/repo/launch.Config).Load",
+      "file": "internal/repo/launch/config.go",
+      "sourceSha256": "933abf4b02f8344bf2d73212076e76a17f691214e2b52626a59e3835ac73d7f1",
+      "line": 16,
+      "layer": "repo",
+      "owner": "RF10",
+      "classification": "READ_ONLY_SNAPSHOT",
+      "reason": "ReadOnly source load, supplied authorization decision, authority/files queries; commits read view."
+    },
+    {
+      "symbol": "(*retrom/internal/repo/launch.Config).Project",
+      "file": "internal/repo/launch/config.go",
+      "sourceSha256": "933abf4b02f8344bf2d73212076e76a17f691214e2b52626a59e3835ac73d7f1",
+      "line": 97,
+      "layer": "repo",
+      "owner": "RF10",
+      "classification": "READ_ONLY_SNAPSHOT",
+      "reason": "ReadOnly product source then preview fallback, authorization and config files queries."
+    },
+    {
+      "symbol": "(*retrom/internal/repo/launch.NetplayCreation).Snapshot",
+      "file": "internal/repo/launch/netplay_creation.go",
+      "sourceSha256": "03a1c16872c420e0689cb0ebbf8339e19935135c09098379f47d60457d0cd337",
+      "line": 23,
+      "layer": "repo",
+      "owner": "RF10",
+      "classification": "READ_ONLY_SNAPSHOT",
+      "reason": "ReadOnly netplayCreationRecords.Snapshot."
+    },
+    {
+      "symbol": "(*retrom/internal/repo/launch.PreviewCreation).Snapshot",
+      "file": "internal/repo/launch/preview_create.go",
+      "sourceSha256": "3e78bc800b4fd6e6b7f7aee47fe72a9e304a42bd84aac9689101b8cd1540e4f8",
+      "line": 45,
+      "layer": "repo",
+      "owner": "RF10",
+      "classification": "READ_ONLY_SNAPSHOT",
+      "reason": "ReadOnly preview creation source and source/validation input-file facts."
+    },
+    {
+      "symbol": "(*retrom/internal/repo/launch.ProductCreation).Content",
+      "file": "internal/repo/launch/product_content.go",
+      "sourceSha256": "349aa9fb5ef5cb4cba95c74b812ade9063bfa01ca535a65fd1dca4e9671a341b",
+      "line": 28,
+      "layer": "repo",
+      "owner": "RF10",
+      "classification": "READ_ONLY_SNAPSHOT",
+      "reason": "ReadOnly ProductContentSnapshot facts."
+    },
+    {
+      "symbol": "(*retrom/internal/repo/launch.ProductCreation).Snapshot",
+      "file": "internal/repo/launch/product_create.go",
+      "sourceSha256": "f3a3b254e57a67a7cf3be0c83ebe93021516acd560c37a6d39db732091525979",
+      "line": 30,
+      "layer": "repo",
+      "owner": "RF10",
+      "classification": "READ_ONLY_SNAPSHOT",
+      "reason": "ReadOnly productCreationRecords.Snapshot facts."
+    },
+    {
+      "symbol": "(*retrom/internal/repo/launch.ProjectIndexes).ReadProjectIndex",
+      "file": "internal/repo/launch/project_index.go",
+      "sourceSha256": "3c1d40b5e91578f6d15a131323669494199a9d5008c5bc54cd0c543ea16c665f",
+      "line": 16,
+      "layer": "repo",
+      "owner": "RF10",
+      "classification": "READ_ONLY_SNAPSHOT",
+      "reason": "ReadOnly product/preview source, authorization and ordered project index files."
+    },
+    {
+      "symbol": "(*retrom/internal/repo/launch.ValidationWorker).Facts",
+      "file": "internal/repo/launch/validation_worker.go",
+      "sourceSha256": "890585e74a6ff52fcca261791687cbfc2ae24c27c79a03c8e739cbe3fde5943a",
+      "line": 42,
+      "layer": "repo",
+      "owner": "RF10",
+      "classification": "READ_ONLY_SNAPSHOT",
+      "reason": "ReadOnly validationWorkerRecords.Facts; validation result writer is elsewhere."
+    },
+    {
+      "symbol": "(*retrom/internal/repo/libraryimport.ReviewDetail).WithRead",
+      "file": "internal/repo/libraryimport/review_detail.go",
+      "sourceSha256": "d458835e1cc8192e15000d536f4051df0af2784b5db0596767174f08a48f6a9d",
+      "line": 17,
+      "layer": "repo",
+      "owner": "RF13",
+      "classification": "READ_ONLY_SNAPSHOT",
+      "reason": "ReadOnly review drafts/media/sources/validation/duplicates/dependencies/metadata/tags/relation projection. Dead UpdateRPGDependencyDigest is not invoked by these production readers."
+    },
+    {
+      "symbol": "(*retrom/internal/repo/mediaaccess.Repository).WithRead",
+      "file": "internal/repo/mediaaccess/repository.go",
+      "sourceSha256": "70398b84e087bddd6c674c87d78904ebe99de80959aac66c2c1248734c5fafd5",
+      "line": 19,
+      "layer": "repo",
+      "owner": "RF16",
+      "classification": "READ_ONLY_SNAPSHOT",
+      "reason": "ReadOnly service.Reader callback."
+    },
+    {
+      "symbol": "(*retrom/internal/repo/netplay.ParticipantPreparation).Snapshot",
+      "file": "internal/repo/netplay/participant_preparation.go",
+      "sourceSha256": "7bc7dcaf77dbd2203fdd2761887b53cdd7fbec14c2df2d0ddf0d25ce5c75bce0",
+      "line": 19,
+      "layer": "repo",
+      "owner": "RF12",
+      "classification": "READ_ONLY_SNAPSHOT",
+      "reason": "ReadOnly preparationRecords.Snapshot facts; record prepared operation is separately registered."
+    },
+    {
+      "symbol": "(*retrom/internal/repo/netplay.RoomEvents).Page",
+      "file": "internal/repo/netplay/room_events.go",
+      "sourceSha256": "74ea3365af0bdd69ff6c557ba577b4698f81c4d8f8c25fb6c4020578074ba394",
+      "line": 17,
+      "layer": "repo",
+      "owner": "RF12",
+      "classification": "READ_ONLY_SNAPSHOT",
+      "reason": "ReadOnly room existence and room event page queries."
+    },
+    {
+      "symbol": "(*retrom/internal/repo/netplay.RoomQueries).Snapshot",
+      "file": "internal/repo/netplay/room_snapshot.go",
+      "sourceSha256": "c8cdff56e0a34e98ff5803bf5d6280e763fac987e84dcff5c9ba4ec6affeb1fa",
+      "line": 14,
+      "layer": "repo",
+      "owner": "RF12",
+      "classification": "READ_ONLY_SNAPSHOT",
+      "reason": "ReadOnly loadRoomSnapshot projection."
+    },
+    {
+      "symbol": "(*retrom/internal/repo/payloadrelease.ImpactQueries).ReadImpact",
+      "file": "internal/repo/payloadrelease/impact_queries.go",
+      "sourceSha256": "b43f5b5d89f4b43146f0c2b39328b291f5d3c784d43ca7fdaed70b2b37965ffb",
+      "line": 22,
+      "layer": "repo",
+      "owner": "RF18",
+      "classification": "READ_ONLY_SNAPSHOT",
+      "reason": "ReadOnly bound impact query, not payload release."
+    },
+    {
+      "symbol": "(*retrom/internal/repo/payloadrelease.Lifecycle).WithLifecycle",
+      "file": "internal/repo/payloadrelease/lifecycle.go",
+      "sourceSha256": "0e702fc6e6b83a44f56d0a878a378404ad00eaff9771c90d8681873ea33ff1f6",
+      "line": 21,
+      "layer": "repo",
+      "owner": "RF18",
+      "classification": "READ_ONLY_SNAPSHOT",
+      "reason": "ReadOnly lifecycleReader callback; no release update."
+    },
+    {
+      "symbol": "(*retrom/internal/repo/platforminstance.Repository).WithRead",
+      "file": "internal/repo/platforminstance/repository.go",
+      "sourceSha256": "709bd01d056c6f23ca011b67c242ff18c93b1e74a7e3ff90ed17a99966b0d05a",
+      "line": 19,
+      "layer": "repo",
+      "owner": "RF16",
+      "classification": "READ_ONLY_SNAPSHOT",
+      "reason": "ReadOnly records Reader; writers use a separate WithWrite."
+    },
+    {
+      "symbol": "(*retrom/internal/repo/storageanalysis.Repository).Read",
+      "file": "internal/repo/storageanalysis/repository.go",
+      "sourceSha256": "4cf065ccd48f05e0607127276cebc37b57936e379d2dc176c8e4ebc1ff9695ee",
+      "line": 26,
+      "layer": "repo",
+      "owner": "RF19",
+      "classification": "READ_ONLY_SNAPSHOT",
+      "reason": "ReadOnly blob registry, protected references, usage/blobs/archives/saves/GC IDs; computes inspection view."
+    },
+    {
+      "symbol": "(*retrom/internal/repo/uploads.Repository).Snapshot",
+      "file": "internal/repo/uploads/reads.go",
+      "sourceSha256": "d31567b9052cde821906bb195ed22f6eedb258de1d8fc7a963b2835701980fb1",
+      "line": 14,
+      "layer": "repo",
+      "owner": "RF09",
+      "classification": "READ_ONLY_SNAPSHOT",
+      "reason": "ReadOnly upload session plus snapshot files and parts."
+    },
+    {
+      "symbol": "(*retrom/internal/repo/libraryimport.ReviewDraftPatches).LoadPatchSnapshot",
+      "file": "internal/repo/libraryimport/review_draft.go",
+      "sourceSha256": "5ff0c4cba5242867b11ffd5d8cb75feecff3143251f014eb16ca35afe080ddc0",
+      "line": 29,
+      "layer": "repo",
+      "owner": "RF13",
+      "classification": "READ_SNAPSHOT_DEFAULT_OPTIONS_ROLLBACK",
+      "reason": "BeginTx(ctx,nil), deferred rollback and no commit. loadPatchSnapshot reads pending draft/version, tags/relation references, source/upload paths and screenshots; JSON decoding builds immutable patch input. Default TxOptions do not make this a business write."
+    },
+    {
+      "symbol": "(*retrom/internal/repo/libraryimport.ReviewValidation).UpdateRPGDependencyDigest",
+      "file": "internal/repo/libraryimport/review_validation_refresh.go",
+      "sourceSha256": "bb208e0f4280764b2863275165d08ce6599110d4c440640c936d8b2e5de2afc6",
+      "line": 329,
+      "layer": "repo",
+      "owner": "RF13",
+      "classification": "UNUSED_WRITE_IMPLEMENTATION",
+      "reason": "Contains real UPDATE rpgmaker_review_profiles dependency_snapshot_sha256/updated_at_ms by draft ID on supplied executor, without own transaction or checked row count. Its Model port has empty consumers; full tracked-source search found only declaration/definition/pending registry discussion. Do not invent a production operation to retain a dead API."
+    },
+    {
+      "symbol": "retrom/internal/repo/store.runMigration",
+      "file": "internal/repo/store/store.go",
+      "sourceSha256": "448e28a17f6bfb6b2a31b52b6c67170d07568207f102321b8108aa8fdb721f54",
+      "line": 427,
+      "layer": "repo",
+      "owner": "RF05",
+      "classification": "TECHNICAL_MIGRATION_TRANSACTION",
+      "reason": "Dedicated connection, raw BEGIN IMMEDIATE; executes embedded migration contents, INSERTs schema_migrations(version,name,checksum,now UTC ms), then COMMIT. Deferred ROLLBACK uses context.WithoutCancel after failure. Called by applyMigration/applyMigrations/Open. This is a real independent technical writer, not a runtime domain operation."
+    },
+    {
+      "symbol": "retrom/scripts/acceptance.installSmokeDAT",
+      "file": "scripts/acceptance/seed-public-arcade-dat.go",
+      "sourceSha256": "ec7f4c2f4c2c2ff92e961cd7d578a18d0565a9c07f720d6082d90efe17d6147c",
+      "line": 199,
+      "layer": "tool",
+      "owner": "RF21",
+      "classification": "ACCEPTANCE_FIXTURE_TRANSACTION",
+      "reason": "Acceptance-only command: reads selected core provider/target, BeginTx(nil), deterministic SHA1 namespace ID and current time, inserts test DAT, datindex.Replace, deactivates target DAT, activates fixture DAT, datservice.SyncRequirements on same tx, commits. Real fixture mutation; not a production HTTP/business transaction. It must retain explicit fixture classification and guards."
+    },
+    {
+      "symbol": "(*retrom/internal/repo/emulationstationimport.Starter).Inspect",
+      "file": "internal/repo/emulationstationimport/start.go",
+      "sourceSha256": "52ce251871572a54dc2d2156737ff9ffd3ed235b4403ef571ae5e0915b940127",
+      "line": 17,
+      "layer": "repo",
+      "owner": "RF14",
+      "classification": "READ_ONLY_SNAPSHOT",
+      "reason": "ReadOnly startRecords.Current preflight before source verification; WithStart repeats writer authority."
+    },
+    {
+      "symbol": "(*retrom/internal/repo/emulationstationimport.WorkflowControl).InspectRetry",
+      "file": "internal/repo/emulationstationimport/workflow_control.go",
+      "sourceSha256": "283455cd1dfc3aab3192520599feb3acf3f8df3803e467c3608d41a97404171a",
+      "line": 20,
+      "layer": "repo",
+      "owner": "RF14",
+      "classification": "READ_ONLY_SNAPSHOT",
+      "reason": "ReadOnly workflowRecords.RetryCurrent preflight; WithControl repeats writer facts."
+    },
+    {
+      "symbol": "(*retrom/internal/repo/pegasusimport.Starter).Inspect",
+      "file": "internal/repo/pegasusimport/start.go",
+      "sourceSha256": "0e2170d2cd1508930ae45a5f95e199d0e6219fac47295cd6b5cb9dd4bdc2f97b",
+      "line": 18,
+      "layer": "repo",
+      "owner": "RF14",
+      "classification": "READ_ONLY_SNAPSHOT",
+      "reason": "ReadOnly startRecords.Current preflight; separate WithStart owns the queue write."
+    }
+  ],
+  "classifiedPortConsumers": [
+    {
+      "symbol": "(*retrom/internal/service/accounts.LinkIssuanceService).issue",
+      "file": "internal/service/accounts/link_issuance.go",
+      "sourceSha256": "2bf7245304e887fa184c313cba7579cbe6a9b4b2f777815ded7acfe2bff62f2c",
+      "line": 124,
+      "layer": "service",
+      "owner": "RF07",
+      "classification": "REGISTERED_OPERATION_INTERNAL_HELPER",
+      "reason": "Shared WithIssueWrite body reads replay/current facts, prepares link, persists Issue/audit/receipt in the parent's single transaction. No additional transaction outside these two operations."
+    },
+    {
+      "symbol": "(*retrom/internal/service/favorites.Service).idempotent",
+      "file": "internal/service/favorites/service.go",
+      "sourceSha256": "9f2bfb7ef871f05a2eac922dd97519abd5709a5c935219af9a12711695ccb26f",
+      "line": 129,
+      "layer": "service",
+      "owner": "RF16",
+      "classification": "REGISTERED_OPERATION_INTERNAL_HELPER",
+      "reason": "Shared WithWrite applies receipt lookup (including expired-receipt deletion), digest/replay checks, action callback and receipt save in one transaction. Actual direct callers are these six; do not attach every operation using the same WithWrite."
+    },
+    {
+      "symbol": "(*retrom/internal/service/libraryimport.ImportExecutions).owned",
+      "file": "internal/service/libraryimport/import_execution_operations.go",
+      "sourceSha256": "790043d07f9abc4c890900de73e5b9c1896ba0fd3a67e0db7f0ef5aa7f3533aa",
+      "line": 9,
+      "layer": "service",
+      "owner": "RF13",
+      "classification": "REGISTERED_OPERATION_INTERNAL_HELPER",
+      "reason": "Shared WithExecution checks Current/clock/ImportExecutionCurrent, runs caller's write then checks final clock/lease/deadline. Fail/Progress/Renew own the already registered transaction."
+    },
+    {
+      "symbol": "(*retrom/internal/service/netplay.RoomControl).mutate",
+      "file": "internal/service/netplay/room_control.go",
+      "sourceSha256": "b2c9188f5c708c3aa01453267b5531108e7c7e0535c446409d1f339bb99fc4c4",
+      "line": 44,
+      "layer": "service",
+      "owner": "RF12",
+      "classification": "REGISTERED_OPERATION_INTERNAL_HELPER",
+      "reason": "Shared WithWrite reads room ownership/version/state, applies the selected action, rereads view. One transaction per owning operation; now is sampled before tx in baseline."
+    },
+    {
+      "symbol": "(*retrom/internal/service/netplay.SessionControl).mutate",
+      "file": "internal/service/netplay/session_control.go",
+      "sourceSha256": "7fb6eca8e08211b2d9c93247b5bc99bb07c0342e761fededebfefa521c2e0689",
+      "line": 23,
+      "layer": "service",
+      "owner": "RF12",
+      "classification": "REGISTERED_OPERATION_INTERNAL_HELPER",
+      "reason": "Shared WithControl samples now before tx, reads Current and applies caller's control action."
+    },
+    {
+      "symbol": "(*retrom/internal/service/saves.Service).persistManualSave",
+      "file": "internal/service/saves/persist.go",
+      "sourceSha256": "52ad23e7a57a3da42e335eacd858bf0ea6d0dba628eefee3ea28aa87d4d1ff55",
+      "line": 39,
+      "layer": "service",
+      "owner": "RF08",
+      "classification": "REGISTERED_OPERATION_INTERNAL_HELPER",
+      "reason": "Shared WithWrite replays receipt, rereads writable launch, registers payload; PREVIEW ReplacePreview or PRODUCT persistProductCheckpoint. Product helper branches on GameSaves.Binding: no binding -> checkpoint, binding -> new/existing game-save sync, all same scope; stores receipt. Actual source confirms all three parents."
+    },
+    {
+      "symbol": "(*retrom/internal/service/uploads.Service).finalizeWrite",
+      "file": "internal/service/uploads/finalization_writes.go",
+      "sourceSha256": "cc6a4eef2a049307a4cba0ae21964b7f12de5e119fe7ccbac4ecdb0f0ac6939f",
+      "line": 32,
+      "layer": "service",
+      "owner": "RF09",
+      "classification": "REGISTERED_OPERATION_INTERNAL_HELPER",
+      "reason": "Shared WithWrite rereads currentFinalization/executionActive then invokes finalizeCandidate/finalizeFiles callback. These two operations own the already registered commits."
+    },
+    {
+      "symbol": "(*retrom/internal/service/emulationstationimport.Starter).queue",
+      "file": "internal/service/emulationstationimport/start.go",
+      "sourceSha256": "8bba518e79ac6574c050e8d14ef63c0681bcb6228a7abfd655db7fbbb938fa00",
+      "line": 48,
+      "layer": "service",
+      "owner": "RF14",
+      "classification": "REGISTERED_OPERATION_INTERNAL_HELPER",
+      "reason": "Start calls queue; one WithStart rereads Current/startState/readiness, samples clock, verifies sameFrozenSource, Queue plus same-scope terminal payload scheduling and reread."
+    },
+    {
+      "symbol": "(*retrom/internal/service/emulationstationimport.WorkflowControl).queueRetry",
+      "file": "internal/service/emulationstationimport/workflow_control.go",
+      "sourceSha256": "0c8b5394b2d8d972d2b8e5c5b5fcedb128a0f64a665365504a3de0317ae21d2e",
+      "line": 41,
+      "layer": "service",
+      "owner": "RF14",
+      "classification": "REGISTERED_OPERATION_INTERNAL_HELPER",
+      "reason": "Retry calls queueRetry; one WithControl rereads RetryCurrent, validatesRetry/sameRetryExecution/sameFrozenSource, samples clock, Retry and result reread."
+    },
+    {
+      "symbol": "(*retrom/internal/service/pegasusimport.ScanPublication).withOwner",
+      "file": "internal/service/pegasusimport/scan_publication.go",
+      "sourceSha256": "6830debc74d270980f7dc4229ac54d70bfba13312201a4aef08d2ed2b21c9270",
+      "line": 85,
+      "layer": "service",
+      "owner": "RF14",
+      "classification": "REGISTERED_OPERATION_INTERNAL_HELPER",
+      "reason": "Finish/Items/headerBatch call common WithScan; rereads Current and clock, validates execution and SERVER_PEGASUS_SCAN/RUNNING/SCANNING before same-scope work. Headers may create several registered batch transactions; no fourth independent business operation."
+    },
+    {
+      "symbol": "(*retrom/internal/service/pegasusimport.Starter).queue",
+      "file": "internal/service/pegasusimport/start.go",
+      "sourceSha256": "cfdff7c65d4e4fed79e301866688bf37a56f25870f4d1091842319a5103fc321",
+      "line": 99,
+      "layer": "service",
+      "owner": "RF14",
+      "classification": "REGISTERED_OPERATION_INTERNAL_HELPER",
+      "reason": "Start calls queue; one WithStart rereads Current, returns already-started replay, samples clock, validates readiness/root/source digests, Queue plus same-scope terminal payload scheduling and reread."
+    },
+    {
+      "symbol": "(*retrom/internal/adapter/integration/libraryimport.Service).reviewBulkCancellationRequested",
+      "file": "internal/adapter/integration/libraryimport/review_bulk_worker.go",
+      "sourceSha256": "0883c40a0777145472f926aef28e6b9de3ae913446a20ee0b6a9d39f55d86588",
+      "line": 216,
+      "layer": "adapter",
+      "owner": "RF13",
+      "classification": "QUERY_ONLY_PROBE_USING_SHARED_WRITER",
+      "reason": "WithWorker callback invokes only CancellationRequested SELECT state; returns CANCEL_REQUESTED flag and suppresses query error as false. It is a cancellation probe despite entering the shared writer transaction."
+    },
+    {
+      "symbol": "(*retrom/internal/adapter/integration/libraryimport.Service).reviewBulkItemStillFrozen",
+      "file": "internal/adapter/integration/libraryimport/review_bulk_worker.go",
+      "sourceSha256": "0883c40a0777145472f926aef28e6b9de3ae913446a20ee0b6a9d39f55d86588",
+      "line": 139,
+      "layer": "adapter",
+      "owner": "RF13",
+      "classification": "QUERY_ONLY_PROBE_USING_SHARED_WRITER",
+      "reason": "WithWorker callback invokes only ItemStillFrozen query for item/draft/validation/source ownership facts, compares frozen state/version/snapshot/validation ID/READY, errors become false. No SQL mutation."
+    },
+    {
+      "symbol": "(*retrom/internal/service/uploads.Service).validateReceivingPart",
+      "file": "internal/service/uploads/service.go",
+      "sourceSha256": "51cc9197b6f8045d926254a5e076b481cebaad849c10f781dfe61ba5c3103216",
+      "line": 226,
+      "layer": "service",
+      "owner": "RF09",
+      "classification": "QUERY_ONLY_PROBE_USING_SHARED_WRITER",
+      "reason": "FAILED receiving target uses WithWrite only for repairAllowed -> Finalize.Repair SELECT EXISTS over session/job/failed event and file/part identity. Name Repair is misleading: no repair update is performed. The actual part acceptance is a later registered write."
+    },
+    {
+      "symbol": "(*retrom/internal/service/pegasusimport.Companions).Find",
+      "file": "internal/service/pegasusimport/companions.go",
+      "sourceSha256": "401b723121170c534e05d58ae0dcfab859d77d76099a8012b15b1fea1fef452b",
+      "line": 20,
+      "layer": "service",
+      "owner": "RF14",
+      "classification": "QUERY_ONLY_PROBE_USING_SHARED_WRITER",
+      "reason": "WithCompanions calls owner validation reads then companionCandidates(scope.Read,before.Item). It does not call companion writer Record."
+    },
+    {
+      "symbol": "(*retrom/internal/service/pegasusimport.Materialization).Cancelled",
+      "file": "internal/service/pegasusimport/execution_phase.go",
+      "sourceSha256": "767165ebfa80c284ea8ef32d3ecede354bd3e224bedd1285a8e36c0de67722ab",
+      "line": 35,
+      "layer": "service",
+      "owner": "RF14",
+      "classification": "QUERY_ONLY_PROBE_USING_SHARED_WRITER",
+      "reason": "WithMaterialization reads Execution, validates identity/lease against now, returns JobState==CANCEL_REQUESTED. It performs no materialization mutation."
+    },
+    {
+      "symbol": "(*retrom/internal/adapter/integration/libraryimport.Service).removeUnusedClonedUpload",
+      "file": "internal/adapter/integration/libraryimport/service.go",
+      "sourceSha256": "2c1ed1bb6e8c6968400759a75d0d7fb506fbddc54fa5630aa3f62bcd8834f953",
+      "line": 86,
+      "layer": "adapter",
+      "owner": "RF13",
+      "classification": "RESOLVED_CONSUMER_CENSUS_GAP",
+      "reason": "Real independent compensation after earlier prepared-upload commit and failed import creation. Existing RemoveUnused commit/write set was already registered, but source-creation callers/context were omitted. f4b91a90 adds all nine typed consumers and distinguishes incomplete ReconfigurationClone value context. This is the existing cleanup operation, not a new operation ID."
+    }
+  ],
+  "technicalBoundaries": [
+    "Startup SQLite PRAGMAs",
+    "Migration schema DDL and versioned migration transaction",
+    "WAL checkpoint",
+    "Public acceptance fixture setup"
+  ],
+  "unusedWriteDisposition": "ReviewValidation.UpdateRPGDependencyDigest has no production caller; remove its unused port and SQL helper during import migration.",
+  "remainingImplementation": [
+    "Value commands and complete fresh facts/guards",
+    "Prepared identities and one post-writer admission clock",
+    "Digest coordination and per-operation interleaving coverage",
+    "Per-guard, per-write-stage, fault, recovery and direct-consumer test execution"
+  ]
+}

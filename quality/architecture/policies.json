@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "inventoryComplete": false,
+  "inventoryComplete": true,
   "policies": [
     {
       "id": "accounts.accountLinkState",
