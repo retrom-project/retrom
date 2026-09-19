@@ -199,7 +199,13 @@ func startNetplayFixture(
 			t.Fatal(err)
 		}
 	}
-	starter := netplayservice.NewSessionStart(netplaypersistence.NewSessionStart(database), registry, now)
+	starter := netplayservice.NewSessionStart(
+		netplaypersistence.NewSessionStart(database),
+		netplaypersistence.NewEligibility(database),
+		corevalidationservice.New(corevalidationrepo.New(database)),
+		registry,
+		now,
+	)
 	room, err = starter.Start(t.Context(), room.RoomID, netplayHostProfile, room.Version)
 	if err != nil {
 		t.Fatal(err)

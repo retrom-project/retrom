@@ -2,49 +2,40 @@ package netplay
 
 import (
 	"context"
+	"database/sql/driver"
 	"errors"
 	"reflect"
 	"testing"
 
 	netplaymodel "retrom/internal/model/netplay"
+	validationrepository "retrom/internal/repo/corevalidation"
 	repository "retrom/internal/repo/netplay"
+	"retrom/internal/service/corevalidation"
 	netplayservice "retrom/internal/service/netplay"
+	"retrom/internal/testkit/testsupport"
 )
 
-type failedSessionStart struct {
+type staleSessionStart struct {
 	repository netplaymodel.SessionStartRepository
-	failure    error
-	stale      bool
 }
 
-func (wrapper failedSessionStart) WithStart(ctx context.Context, work func(netplaymodel.SessionStartScope) error) error {
-	return wrapper.repository.WithStart(ctx, func(scope netplaymodel.SessionStartScope) error {
-		if wrapper.stale {
-			scope.Write = staleSessionStartWriter{scope.Write}
-		}
-		if err := work(scope); err != nil {
-			return err
-		}
-		return wrapper.failure
-	})
+func (wrapper staleSessionStart) InspectRoom(ctx context.Context, roomID, hostID string) (netplaymodel.RoomControlSnapshot, error) {
+	return wrapper.repository.InspectRoom(ctx, roomID, hostID)
 }
 
-type staleSessionStartWriter struct {
-	netplaymodel.SessionStartWriter
-}
-
-func (writer staleSessionStartWriter) Insert(ctx context.Context, plan netplaymodel.SessionStartPlan) (netplaymodel.Room, error) {
-	plan.Before.Version++
-	return writer.SessionStartWriter.Insert(ctx, plan)
+func (wrapper staleSessionStart) CommitSessionStart(ctx context.Context, cmd netplaymodel.SessionStartCommand) (netplaymodel.Room, error) {
+	cmd.ExpectedVersion++
+	return wrapper.repository.CommitSessionStart(ctx, cmd)
 }
 
 func TestSessionStartRollsBackSnapshotParticipantsAndEvent(t *testing.T) {
 	t.Parallel()
-	for _, stale := range []bool{false, true} {
-		t.Run(map[bool]string{false: "late failure", true: "stale version"}[stale], func(t *testing.T) {
-			assertFailedStartRollback(t, stale)
-		})
-	}
+	t.Run("late failure", func(t *testing.T) {
+		assertFailedStartRollbackCommitFault(t)
+	})
+	t.Run("stale version", func(t *testing.T) {
+		assertFailedStartRollbackStale(t)
+	})
 }
 
 func readyControlFixture(t *testing.T) controlFixture {
@@ -65,21 +56,63 @@ func readyControlFixture(t *testing.T) controlFixture {
 	return fixture
 }
 
-func assertFailedStartRollback(t *testing.T, stale bool) {
+func assertFailedStartRollbackCommitFault(t *testing.T) {
 	t.Helper()
 	fixture := readyControlFixture(t)
 	beforeVersions, beforeEvents := controlCounts(t, fixture)
-	sentinel := errors.New("late start failure")
-	want := sentinel
-	if stale {
-		want = ErrPrecondition
-	}
-	wrapped := failedSessionStart{repository: repository.NewSessionStart(fixture.database), failure: sentinel, stale: stale}
-	starter := netplayservice.NewSessionStart(wrapped, fixture.service.registry, fixture.service.clock.Now)
+	sentinel := errors.New("injected commit failure")
+	faultDB := testsupport.OpenSQLFaultDatabase(t, fixture.database, testsupport.SQLFaultHooks{
+		BeforeExec: func(_ context.Context, query string, _ []driver.NamedValue) error {
+			if query == "COMMIT" {
+				return sentinel
+			}
+			return nil
+		},
+	})
+	faultRepo := repository.NewSessionStart(faultDB)
+	eligibility := repository.NewEligibility(fixture.database)
+	bios := corevalidation.New(validationrepository.New(fixture.database))
+	starter := netplayservice.NewSessionStart(faultRepo, eligibility, bios, fixture.service.registry, fixture.service.clock.Now)
 	result, err := starter.Start(t.Context(), fixture.room.RoomID, "host", fixture.room.Version)
-	if !errors.Is(err, want) || result.RoomID != "" || result.CurrentSession != nil {
+	if !errors.Is(err, sentinel) || result.RoomID != "" || result.CurrentSession != nil {
 		t.Fatalf("failed start result=%+v error=%v", result, err)
 	}
+	assertSessionStartNoRecords(t, fixture)
+	after, err := fixture.service.Room(t.Context(), fixture.room.RoomID, "host")
+	if err != nil {
+		t.Fatal(err)
+	}
+	versions, events := controlCounts(t, fixture)
+	if !reflect.DeepEqual(after, fixture.room) || versions != beforeVersions || events != beforeEvents {
+		t.Fatalf("failed start changed room=%+v versions=%d/%d events=%d/%d", after, versions, beforeVersions, events, beforeEvents)
+	}
+}
+
+func assertFailedStartRollbackStale(t *testing.T) {
+	t.Helper()
+	fixture := readyControlFixture(t)
+	beforeVersions, beforeEvents := controlCounts(t, fixture)
+	wrapped := staleSessionStart{repository: repository.NewSessionStart(fixture.database)}
+	eligibility := repository.NewEligibility(fixture.database)
+	bios := corevalidation.New(validationrepository.New(fixture.database))
+	starter := netplayservice.NewSessionStart(wrapped, eligibility, bios, fixture.service.registry, fixture.service.clock.Now)
+	result, err := starter.Start(t.Context(), fixture.room.RoomID, "host", fixture.room.Version)
+	if !errors.Is(err, ErrPrecondition) || result.RoomID != "" || result.CurrentSession != nil {
+		t.Fatalf("failed start result=%+v error=%v", result, err)
+	}
+	assertSessionStartNoRecords(t, fixture)
+	after, err := fixture.service.Room(t.Context(), fixture.room.RoomID, "host")
+	if err != nil {
+		t.Fatal(err)
+	}
+	versions, events := controlCounts(t, fixture)
+	if !reflect.DeepEqual(after, fixture.room) || versions != beforeVersions || events != beforeEvents {
+		t.Fatalf("failed start changed room=%+v versions=%d/%d events=%d/%d", after, versions, beforeVersions, events, beforeEvents)
+	}
+}
+
+func assertSessionStartNoRecords(t *testing.T, fixture controlFixture) {
+	t.Helper()
 	for _, query := range []string{`SELECT count(*) FROM netplay_sessions`, `SELECT count(*) FROM netplay_session_participants`} {
 		var count int
 		if err := fixture.database.QueryRowContext(t.Context(), query).Scan(&count); err != nil {
@@ -88,13 +121,5 @@ func assertFailedStartRollback(t *testing.T, stale bool) {
 		if count != 0 {
 			t.Fatalf("failed start retained %d records", count)
 		}
-	}
-	after, err := fixture.service.Room(t.Context(), fixture.room.RoomID, "host")
-	if err != nil {
-		t.Fatal(err)
-	}
-	versions, events := controlCounts(t, fixture)
-	if !reflect.DeepEqual(after, fixture.room) || versions != beforeVersions || events != beforeEvents {
-		t.Fatalf("failed start changed room=%+v versions=%d/%d events=%d/%d", after, versions, beforeVersions, events, beforeEvents)
 	}
 }

@@ -46,7 +46,13 @@ func NewNetplay(
 			options.WaitingIdle,
 			now,
 		),
-		Starter: netplayservice.NewSessionStart(repository.NewSessionStart(database), registry, now),
+		Starter: netplayservice.NewSessionStart(
+			repository.NewSessionStart(database),
+			repository.NewEligibility(database),
+			corevalidation.New(validationrepository.New(database)),
+			registry,
+			now,
+		),
 		Exit:    exit,
 		Sessions: netplayservice.NewSessionControl(
 			repository.NewSessionControl(database),

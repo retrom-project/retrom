@@ -8,36 +8,31 @@ import (
 	"testing"
 	"time"
 
-	validation "retrom/internal/model/corevalidation"
 	model "retrom/internal/model/netplay"
+	corevalidationservice "retrom/internal/service/corevalidation"
 )
 
 type sessionStartMemory struct {
 	room                                        *roomControlMemory
-	eligibility                                 model.EligibilityRepository
-	bios                                        validation.Repository
-	number                                      int
-	plan                                        model.SessionStartPlan
+	cmd                                         model.SessionStartCommand
 	inserts                                     int
-	numberFailure, insertFailure, commitFailure error
+	commitFailure error
 }
 
-func (memory *sessionStartMemory) WithStart(_ context.Context, work func(model.SessionStartScope) error) error {
-	err := work(model.SessionStartScope{Read: memory.room, Write: memory, Eligibility: memory.eligibility, BIOS: memory.bios})
-	if err != nil {
-		return err
+func (memory *sessionStartMemory) InspectRoom(_ context.Context, _, _ string) (model.RoomControlSnapshot, error) {
+	if memory.room.readFailure != nil {
+		return model.RoomControlSnapshot{}, memory.room.readFailure
 	}
-	return memory.commitFailure
+	return memory.room.before, nil
 }
 
-func (memory *sessionStartMemory) NextNumber(context.Context, string) (int, error) {
-	return memory.number, memory.numberFailure
-}
-
-func (memory *sessionStartMemory) Insert(_ context.Context, plan model.SessionStartPlan) (model.Room, error) {
-	memory.plan = plan
+func (memory *sessionStartMemory) CommitSessionStart(_ context.Context, cmd model.SessionStartCommand) (model.Room, error) {
+	memory.cmd = cmd
 	memory.inserts++
-	return memory.room.result, memory.insertFailure
+	if memory.commitFailure != nil {
+		return model.Room{}, memory.commitFailure
+	}
+	return memory.room.result, nil
 }
 
 func sessionStartFixture(t *testing.T) (*SessionStart, *sessionStartMemory, *eligibilityMemory) {
@@ -54,12 +49,9 @@ func sessionStartFixture(t *testing.T) (*SessionStart, *sessionStartMemory, *eli
 		},
 	}
 	memory := &sessionStartMemory{
-		room:        room,
-		eligibility: eligibility,
-		bios:        controlBIOSRepository{},
-		number:      2,
+		room: room,
 	}
-	service := NewSessionStart(memory, control.registry, func() time.Time { return time.UnixMilli(1_786_000_000_000) })
+	service := NewSessionStart(memory, eligibility, corevalidationservice.New(controlBIOSRepository{}), control.registry, func() time.Time { return time.UnixMilli(1_786_000_000_000) })
 	service.newID = func() (string, error) { return "session", nil }
 	return service, memory, eligibility
 }
@@ -71,12 +63,12 @@ func TestSessionStartFreezesParticipantsAndProfile(t *testing.T) {
 	if err != nil || room.CurrentSession == nil || room.CurrentSession.SessionID != "session" || memory.inserts != 1 {
 		t.Fatalf("started room=%+v writes=%d error=%v", room, memory.inserts, err)
 	}
-	plan := memory.plan
-	if plan.SessionID != "session" || plan.SessionNo != 2 || plan.SeatMask != 3 || len(plan.Members) != 2 || plan.Profile.Selection != *memory.room.before.Selection || !json.Valid(plan.Profile.Canonical) {
-		t.Fatalf("frozen start plan=%+v", plan)
+	cmd := memory.cmd
+	if cmd.SessionID != "session" || cmd.SeatMask != 3 || len(cmd.Members) != 2 || cmd.FrozenProfile.Selection != *memory.room.before.Selection || !json.Valid(cmd.FrozenProfile.Canonical) {
+		t.Fatalf("frozen start cmd=%+v", cmd)
 	}
 	var event struct{ SchemaVersion, PlayerCount, OccupiedSeatMask int }
-	if err := json.Unmarshal(plan.Event, &event); err != nil {
+	if err := json.Unmarshal(cmd.Event, &event); err != nil {
 		t.Fatal(err)
 	}
 	if event.SchemaVersion != 1 || event.PlayerCount != 2 || event.OccupiedSeatMask != 3 {
@@ -87,18 +79,14 @@ func TestSessionStartFreezesParticipantsAndProfile(t *testing.T) {
 func TestSessionStartDoesNotPublishFailedWrites(t *testing.T) {
 	t.Parallel()
 	sentinel := errors.New("start failed")
-	for _, phase := range []string{"read", "number", "identity", "insert", "commit"} {
+	for _, phase := range []string{"read", "identity", "commit"} {
 		t.Run(phase, func(t *testing.T) {
 			service, memory, _ := sessionStartFixture(t)
 			switch phase {
 			case "read":
 				memory.room.readFailure = sentinel
-			case "number":
-				memory.numberFailure = sentinel
 			case "identity":
 				service.newID = func() (string, error) { return "", sentinel }
-			case "insert":
-				memory.insertFailure = sentinel
 			case "commit":
 				memory.commitFailure = sentinel
 			}
