@@ -16309,12 +16309,40 @@
       "owner": "RF21",
       "files": [
         {
+          "path": "web/scripts/architecture/boundaries.mjs",
+          "kind": "tool"
+        },
+        {
+          "path": "web/scripts/architecture/boundaries.test.mjs",
+          "kind": "test"
+        },
+        {
+          "path": "web/scripts/architecture/boundary-paths.mjs",
+          "kind": "tool"
+        },
+        {
           "path": "web/scripts/architecture/graph.mjs",
           "kind": "tool"
         },
         {
           "path": "web/scripts/architecture/graph.test.mjs",
           "kind": "test"
+        },
+        {
+          "path": "web/scripts/architecture/ownership.mjs",
+          "kind": "tool"
+        },
+        {
+          "path": "web/scripts/architecture/report.mjs",
+          "kind": "tool"
+        },
+        {
+          "path": "web/scripts/architecture/report.test.mjs",
+          "kind": "test"
+        },
+        {
+          "path": "web/scripts/architecture/runtime-boundaries.mjs",
+          "kind": "tool"
         },
         {
           "path": "web/scripts/architecture/source-inputs.mjs",

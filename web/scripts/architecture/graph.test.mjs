@@ -115,3 +115,14 @@ test("rejects symlinks instead of hashing their external targets", (t) => {
   symlinkSync("source.ts", path.join(root, "web/alias.ts"));
   assert.throws(() => inspectWeb(root), /symlinked source/);
 });
+
+test("type-only class reexports cannot be confused with runtime value exports", (t) => {
+  const root = fixture(t);
+  write(root, "web/tsconfig.json", JSON.stringify({ compilerOptions: { target: "es2022" } }));
+  write(root, "web/value.ts", "export class Value {}");
+  write(root, "web/contracts.ts", 'export type { Value } from "./value";');
+  write(root, "web/api.ts", 'export { Value } from "./value";');
+  const files = inspectWeb(root);
+  assert.equal(files.find((file) => file.file === "web/contracts.ts").exports[0].runtimeValue, false);
+  assert.equal(files.find((file) => file.file === "web/api.ts").exports[0].runtimeValue, true);
+});

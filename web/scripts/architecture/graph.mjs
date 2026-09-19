@@ -165,8 +165,16 @@ function exportedSymbols(source, checker, program) {
   return checker.getExportsOfModule(symbol).map((item) => ({
     name: item.name,
     alias: (item.flags & ts.SymbolFlags.Alias) !== 0,
-    runtimeValue: ((item.flags & ts.SymbolFlags.Alias) !== 0 ? checker.getAliasedSymbol(item) : item).flags & ts.SymbolFlags.Value ? true : false,
+    runtimeValue: hasRuntimeExport(item, checker),
   })).sort((left, right) => left.name.localeCompare(right.name, "en"));
+}
+
+function hasRuntimeExport(symbol, checker) {
+  if (symbol.declarations?.some((declaration) => ts.isTypeOnlyExportDeclaration(declaration))) {
+    return false;
+  }
+  const target = (symbol.flags & ts.SymbolFlags.Alias) !== 0 ? checker.getAliasedSymbol(symbol) : symbol;
+  return Boolean(target.flags & ts.SymbolFlags.Value);
 }
 
 function directives(source) {

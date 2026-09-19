@@ -59,7 +59,7 @@ API_CODEGEN_CONFIGS := $(sort $(wildcard api/codegen/*.yaml))
 API_BUNDLE := .cache/generated/openapi.bundle.yaml
 API_GO_GENERATED := internal/transport/httpapi/generated/models.gen.go internal/transport/httpapi/generated/server.gen.go internal/transport/httpapi/generated/spec.gen.go
 
-.PHONY: refactor-contract-check refactor-verify refactor-runner-selftest architecture-selftest architecture-check refactor-inventory fmt fmt-check quality-structure-check install-deps install-go-formatters install-golangci-lint prepare-go prepare-node prepare-e2e-browser \
+.PHONY: web-architecture-check web-architecture-selftest refactor-contract-check refactor-verify refactor-runner-selftest architecture-selftest architecture-check refactor-inventory fmt fmt-check quality-structure-check install-deps install-go-formatters install-golangci-lint prepare-go prepare-node prepare-e2e-browser \
 	build test lint-go backend-check web-install web-lint web-typecheck web-test web-build web-check integration-test api-bundle api-generate-go api-generate api-check \
 	public-fixtures-generate public-fixtures-check web-e2e data-check prepare-deps deps-check release-input-digest ci dev build-backend-image \
 	build-web-image build-images acceptance-prepare acceptance-case acceptance-report \
@@ -152,7 +152,7 @@ web-typecheck: prepare-node
 
 web-test: prepare-node
 	@cd web && $(NPM) run test:ci
-	@$(NODE_HOME)/bin/node --test web/scripts/architecture/graph.test.mjs
+	@$(NODE_HOME)/bin/node --test web/scripts/architecture/*.test.mjs
 
 NEXT_DIST_DIR ?= .next
 
@@ -354,8 +354,16 @@ refactor-verify: prepare-go api-generate-go
 	@test -n "$(POINT)" || { echo 'POINT is required' >&2; exit 2; }
 	@python3 scripts/refactor_verify.py point --point "$(POINT)"
 
-architecture-selftest: prepare-go api-generate-go refactor-runner-selftest
+architecture-selftest: prepare-go api-generate-go refactor-runner-selftest web-architecture-selftest
 	go test -count=1 ./internal/testkit/architecture/...
+
+web-architecture-selftest: prepare-node
+	@$(NODE_HOME)/bin/node --test web/scripts/architecture/*.test.mjs
+
+web-architecture-check: web-install
+	@mkdir -p .artifacts/refactor
+	@cd web && $(NPM) exec --no -- next typegen
+	@$(NODE_HOME)/bin/node web/scripts/architecture-check.mjs --mode check > .artifacts/refactor/web-architecture.json
 
 refactor-contract-check: prepare-go api-generate-go
 	@mkdir -p .artifacts/refactor

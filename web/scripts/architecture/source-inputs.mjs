@@ -3,6 +3,10 @@ import { lstatSync, readFileSync } from "node:fs";
 import path from "node:path";
 
 export function checkedText(root, name) {
+  return checkedBytes(root, name).toString("utf8");
+}
+
+export function checkedBytes(root, name) {
   const absolute = path.resolve(root, name);
   const relative = path.relative(root, absolute);
   if (relative === ".." || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) {
@@ -15,7 +19,10 @@ export function checkedText(root, name) {
       throw new Error(`architecture: symlinked source ${name}`);
     }
   }
-  return readFileSync(absolute, "utf8");
+  if (!lstatSync(absolute).isFile()) {
+    throw new Error("architecture: source is not a regular file");
+  }
+  return readFileSync(absolute);
 }
 
 export function contentDigest(text) {
