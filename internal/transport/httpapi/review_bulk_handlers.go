@@ -1,7 +1,6 @@
 package httpapi
 
 import (
-	"database/sql"
 	"errors"
 	"net/http"
 	"strconv"
@@ -67,7 +66,7 @@ func writeReviewBulkError(writer http.ResponseWriter, request *http.Request, err
 			writer, request, http.StatusConflict, "REVIEW_BULK_VERSION_CONFLICT",
 			"快速审批状态已经变化", map[string]any{},
 		)
-	case errors.Is(err, sql.ErrNoRows):
+	case errors.Is(err, libraryservice.ErrBulkNotFound):
 		serverNotFound(writer, request)
 	default:
 		writeError(writer, request, http.StatusInternalServerError, "INTERNAL_ERROR", "快速审批暂时不可用", map[string]any{})

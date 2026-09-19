@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"retrom/internal/adapter/integration/libraryimport"
-	librarycomposition "retrom/internal/bootstrap/composition/libraryimport"
 	"retrom/internal/capability/engine/rpgmaker/detector"
 	"retrom/internal/capability/engine/rpgmaker/fileset"
 	"retrom/internal/capability/format/importing"
@@ -24,7 +23,7 @@ import (
 type importListItem = libraryimportmodel.ImportListItem
 
 func (server *Server) importReads() *libraryimportservice.ImportReads {
-	return librarycomposition.NewImportReads(server.database)
+	return server.importReadService
 }
 
 func (server *Server) importSummary(writer http.ResponseWriter, request *http.Request) {

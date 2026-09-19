@@ -2,7 +2,6 @@ package httpapi
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"net/http"
@@ -181,7 +180,7 @@ func (server *Server) importMultiDiscItemSummaries(
 // Aggregate and item projections are read together to preserve one import snapshot response.
 func (server *Server) importDetail(writer http.ResponseWriter, request *http.Request) {
 	item, err := server.importReads().Detail(request.Context(), request.PathValue("importJobId"))
-	if errors.Is(err, sql.ErrNoRows) {
+	if errors.Is(err, libraryservice.ErrImportReadNotFound) {
 		server.notFound(writer, request)
 		return
 	}
@@ -432,7 +431,7 @@ func (server *Server) reviewHistoryEvent(writer http.ResponseWriter, request *ht
 	event, err := server.importReads().ReviewHistoryEvent(
 		request.Context(), request.PathValue("reviewEventId"),
 	)
-	if errors.Is(err, sql.ErrNoRows) {
+	if errors.Is(err, libraryservice.ErrImportReadNotFound) {
 		server.notFound(writer, request)
 		return
 	}

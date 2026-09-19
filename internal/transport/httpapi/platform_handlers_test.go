@@ -23,7 +23,7 @@ import (
 	"retrom/internal/adapter/integration/libraryimport"
 	"retrom/internal/capability/content/contentcapability"
 	"retrom/internal/capability/runtime/platformcatalog"
-	libraryservice "retrom/internal/model/libraryimport"
+	libraryimportservice "retrom/internal/service/libraryimport"
 	"retrom/internal/testkit/testassert"
 	"retrom/internal/testkit/testsupport"
 	"retrom/internal/transport/netplay"
@@ -220,7 +220,7 @@ func TestCreateImportQueuesContentInspectionAndMapsImmediateAdmissionErrors(t *t
 	server.importer = libraryimport.New(server.database, server.now, server.metadata).
 		WithBlobStore(server.blobs).WithMultiDiscImportEnabled(true)
 	server.importer.Start()
-	server.importAdmissions = composition.NewLibraryImportAdmissions(server.database, server.importer, libraryservice.ImportAdmissionOptions{
+	server.importAdmissions = composition.NewLibraryImportAdmissions(server.database, server.importer, libraryimportservice.ImportAdmissionOptions{
 		Now: server.now, MultiDiscEnabled: true, MetadataScraperAvailable: true,
 	})
 	metadata, err := server.blobs.Put(strings.NewReader("MComprHDdeterministic CHD fixture"))
