@@ -9,84 +9,114 @@ import (
 
 	model "retrom/internal/model/netplay"
 
-	validation "retrom/internal/service/corevalidation"
 	"retrom/internal/transport/netplay/profile"
 )
 
 type SessionStart struct {
-	repository model.SessionStartRepository
-	registry   *profile.Registry
-	now        func() time.Time
-	newID      func() (string, error)
+	repository  model.SessionStartRepository
+	eligibility model.EligibilityRepository
+	bios        model.BIOSResolver
+	registry    *profile.Registry
+	now         func() time.Time
+	newID       func() (string, error)
 }
 
 func NewSessionStart(
 	repository model.SessionStartRepository,
+	eligibility model.EligibilityRepository,
+	bios model.BIOSResolver,
 	registry *profile.Registry,
 	now func() time.Time,
 ) *SessionStart {
-	return &SessionStart{repository: repository, registry: registry, now: now, newID: roomUUID}
+	return &SessionStart{repository: repository, eligibility: eligibility, bios: bios, registry: registry, now: now, newID: roomUUID}
 }
 
 func (service *SessionStart) Start(ctx context.Context, roomID, hostID string, version int64) (model.Room, error) {
 	now := service.now().UnixMilli()
-	var result model.Room
-	err := service.repository.WithStart(ctx, func(scope model.SessionStartScope) error {
-		before, err := scope.Read.Current(ctx, roomID, hostID)
-		if err != nil {
-			return fmt.Errorf("netplay/start room snapshot: %w", err)
-		}
-		if before.HostID != hostID {
-			return model.ErrForbidden
-		}
-		if before.Version != version {
-			return model.ErrPrecondition
-		}
-		if before.State != model.RoomStateWaiting {
-			return model.ErrRoomConflict
-		}
-		frozen, err := service.lockedProfile(ctx, scope, before.Selection)
-		if err != nil {
-			return err
-		}
-		mask, err := startSeatMask(before)
-		if err != nil {
-			return err
-		}
-		plan, err := service.plan(ctx, scope, before, frozen, mask, now)
-		if err != nil {
-			return err
-		}
-		result, err = scope.Write.Insert(ctx, plan)
-		if err != nil {
-			return fmt.Errorf("netplay/start session: %w", err)
-		}
-		return nil
-	})
+	before, err := service.preReadRoom(ctx, roomID, hostID, version)
+	if err != nil {
+		return model.Room{}, fmt.Errorf("netplay/start: %w", err)
+	}
+	frozen, err := service.lockedProfilePreRead(ctx, before.Selection)
+	if err != nil {
+		return model.Room{}, fmt.Errorf("netplay/start: %w", err)
+	}
+	mask, err := startSeatMask(before)
+	if err != nil {
+		return model.Room{}, fmt.Errorf("netplay/start: %w", err)
+	}
+	id, err := service.newID()
+	if err != nil {
+		return model.Room{}, fmt.Errorf("netplay/session identity: %w", err)
+	}
+	data, err := json.Marshal(struct {
+		SchemaVersion    int `json:"schemaVersion"`
+		PlayerCount      int `json:"playerCount"`
+		OccupiedSeatMask int `json:"occupiedSeatMask"`
+	}{1, len(before.Occupants), mask})
+	if err != nil {
+		return model.Room{}, fmt.Errorf("netplay/start event: %w", err)
+	}
+	cmd := model.SessionStartCommand{
+		RoomID:          roomID,
+		HostID:          hostID,
+		ExpectedVersion: version,
+		FrozenProfile:   frozen,
+		SessionID:       id,
+		NowMS:           now,
+		SeatMask:        mask,
+		Members:         before.Occupants,
+		Event:           data,
+	}
+	result, err := service.repository.CommitSessionStart(ctx, cmd)
 	if err != nil {
 		return model.Room{}, fmt.Errorf("netplay/start: %w", err)
 	}
 	return roomForViewer(result, hostID, now), nil
 }
 
-func (service *SessionStart) lockedProfile(
+func (service *SessionStart) preReadRoom(ctx context.Context, roomID, hostID string, version int64) (model.RoomControlSnapshot, error) {
+	before, err := service.repository.InspectRoom(ctx, roomID, hostID)
+	if err != nil {
+		return model.RoomControlSnapshot{}, fmt.Errorf("netplay/start room snapshot: %w", err)
+	}
+	if before.HostID != hostID {
+		return model.RoomControlSnapshot{}, model.ErrForbidden
+	}
+	if before.Version != version {
+		return model.RoomControlSnapshot{}, model.ErrPrecondition
+	}
+	if before.State != model.RoomStateWaiting {
+		return model.RoomControlSnapshot{}, model.ErrRoomConflict
+	}
+	return before, nil
+}
+
+func (service *SessionStart) lockedProfilePreRead(
 	ctx context.Context,
-	scope model.SessionStartScope,
 	selected *model.RoomSelection,
 ) (model.FrozenRoomProfile, error) {
 	if selected == nil {
 		return model.FrozenRoomProfile{}, model.ErrProfileStale
 	}
-	eligibility := NewEligibility(scope.Eligibility, service.registry, nil, validation.New(scope.BIOS))
+	eligibility := NewEligibility(service.eligibility, service.registry, nil, service.bios)
 	candidates, err := eligibility.Profiles(ctx, selected.GameID)
 	if err != nil {
 		return model.FrozenRoomProfile{}, fmt.Errorf("netplay/start eligibility: %w", err)
 	}
+	return matchRoomProfile(service.registry, selected, candidates)
+}
+
+func matchRoomProfile(
+	registry *profile.Registry,
+	selected *model.RoomSelection,
+	candidates []model.EligibleProfile,
+) (model.FrozenRoomProfile, error) {
 	for _, candidate := range candidates {
 		if candidate.Manifest.ID != selected.ProfileID || candidate.VariantID != selected.VariantID {
 			continue
 		}
-		frozen, err := freezeRoomProfile(service.registry, selected.GameID, candidate)
+		frozen, err := freezeRoomProfile(registry, selected.GameID, candidate)
 		if errors.Is(err, model.ErrInvalidProfile) {
 			return model.FrozenRoomProfile{}, model.ErrProfileStale
 		}
@@ -125,38 +155,3 @@ func startSeatMask(before model.RoomControlSnapshot) (int, error) {
 	return mask, nil
 }
 
-func (service *SessionStart) plan(
-	ctx context.Context,
-	scope model.SessionStartScope,
-	before model.RoomControlSnapshot,
-	frozen model.FrozenRoomProfile,
-	mask int,
-	now int64,
-) (model.SessionStartPlan, error) {
-	sessionNo, err := scope.Write.NextNumber(ctx, before.RoomID)
-	if err != nil {
-		return model.SessionStartPlan{}, fmt.Errorf("netplay/session number: %w", err)
-	}
-	id, err := service.newID()
-	if err != nil {
-		return model.SessionStartPlan{}, fmt.Errorf("netplay/session identity: %w", err)
-	}
-	data, err := json.Marshal(struct {
-		SchemaVersion    int `json:"schemaVersion"`
-		PlayerCount      int `json:"playerCount"`
-		OccupiedSeatMask int `json:"occupiedSeatMask"`
-	}{1, len(before.Occupants), mask})
-	if err != nil {
-		return model.SessionStartPlan{}, fmt.Errorf("netplay/start event: %w", err)
-	}
-	return model.SessionStartPlan{
-		Before:    before,
-		SessionID: id,
-		SessionNo: sessionNo,
-		Profile:   frozen,
-		Members:   before.Occupants,
-		SeatMask:  mask,
-		Now:       now,
-		Event:     data,
-	}, nil
-}

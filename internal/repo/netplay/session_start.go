@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	"retrom/internal/model/netplay"
-	validation "retrom/internal/repo/corevalidation"
 	"retrom/internal/repo/dbexec"
 	"retrom/internal/repo/recordstore"
 )
@@ -14,25 +13,9 @@ import (
 type SessionStart struct{ database *sql.DB }
 
 func NewSessionStart(database *sql.DB) *SessionStart { return &SessionStart{database: database} }
-func (repository *SessionStart) WithStart(ctx context.Context, work func(netplay.SessionStartScope) error) error {
-	transaction, err := repository.database.BeginTx(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("netplay/begin start: %w", err)
-	}
-	defer dbexec.Rollback(transaction)
-	scope := netplay.SessionStartScope{
-		Read:        roomControlRecords{transaction},
-		Write:       sessionStartRecords{transaction},
-		Eligibility: NewEligibility(transaction),
-		BIOS:        validation.New(transaction),
-	}
-	if err := work(scope); err != nil {
-		return err
-	}
-	if err := transaction.Commit(); err != nil {
-		return fmt.Errorf("netplay/commit start: %w", err)
-	}
-	return nil
+
+func (repository *SessionStart) InspectRoom(ctx context.Context, roomID, hostID string) (netplay.RoomControlSnapshot, error) {
+	return roomControlRecords{repository.database}.Current(ctx, roomID, hostID)
 }
 
 type sessionStartRecords struct{ executor dbexec.Executor }
