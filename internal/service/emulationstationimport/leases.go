@@ -110,29 +110,7 @@ func (service *Leases) Renew(ctx context.Context, unit model.Execution) (model.L
 	return state, nil
 }
 
-// ExecutionState validates the current transaction snapshot against the claimed attempt.
+// ExecutionState delegates to the model-level pure function.
 func ExecutionState(before model.LeaseSnapshot, unit model.Execution, now int64) model.LeaseState {
-	if before.Execution != unit || unit.WorkerID == "" || unit.ExecutionNo <= 0 || unit.Attempt <= 0 ||
-		before.JobVersion <= 0 || before.JobVersion == math.MaxInt64 || before.ImportVersion <= 0 ||
-		before.ImportVersion == math.MaxInt64 {
-		return model.LeaseLost
-	}
-	if before.JobState == "CANCEL_REQUESTED" && before.ImportState == "CANCEL_REQUESTED" {
-		return model.LeaseCancelled
-	}
-	if before.JobState != "RUNNING" || !runningImportState(before) {
-		return model.LeaseLost
-	}
-	if before.DeadlineAtMS <= now {
-		return model.LeaseDeadline
-	}
-	if before.LeaseUntilMS <= now {
-		return model.LeaseLost
-	}
-	return model.LeaseActive
-}
-
-func runningImportState(before model.LeaseSnapshot) bool {
-	return (before.Kind == "SERVER_EMULATIONSTATION_SCAN" && before.ImportState == "SCANNING") ||
-		(before.Kind == "SERVER_EMULATIONSTATION_IMPORT" && before.ImportState == "RUNNING")
+	return model.ExecutionState(before, unit, now)
 }

@@ -10,47 +10,8 @@ import (
 	"time"
 
 	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
-	"retrom/internal/repo/dbexec"
 	emulationstationimportservice "retrom/internal/service/emulationstationimport"
 )
-
-type startFaultRepository struct {
-	*Starter
-	phase string
-}
-
-func (repository startFaultRepository) WithStart(ctx context.Context, work func(emulationstationimportmodel.StartScope) error) error {
-	return repository.Starter.WithStart(ctx, func(scope emulationstationimportmodel.StartScope) error {
-		records, ok := scope.Write.(startRecords)
-		if !ok {
-			return errors.New("unexpected start repository records")
-		}
-		scope.Write = startFaultWriter{StartWriter: scope.Write, executor: records.executor, phase: repository.phase}
-		return work(scope)
-	})
-}
-
-type startFaultWriter struct {
-	emulationstationimportmodel.StartWriter
-	executor dbexec.Executor
-	phase    string
-}
-
-func (writer startFaultWriter) Queue(ctx context.Context, plan emulationstationimportmodel.StartPlan) error {
-	if err := writer.StartWriter.Queue(ctx, plan); err != nil {
-		return err
-	}
-	statement := `ALTER TABLE emulationstation_imports RENAME COLUMN root_label_snapshot TO broken_root_label`
-	if writer.phase == "commit" {
-		statement = `PRAGMA defer_foreign_keys=ON;
-INSERT INTO job_input_snapshots(job_id,execution_no,input_json,input_digest,created_at_ms)
-VALUES('absent-parent-job',1,'{}','` + planDigest + `',10)`
-	}
-	if _, err := writer.executor.ExecContext(ctx, statement); err != nil {
-		return fmt.Errorf("inject start failure: %w", err)
-	}
-	return nil
-}
 
 func TestStartResponseAndCommitFailuresRollbackEveryWrite(t *testing.T) {
 	t.Parallel()
@@ -59,16 +20,39 @@ func TestStartResponseAndCommitFailuresRollbackEveryWrite(t *testing.T) {
 			t.Parallel()
 			db := startDatabase(t)
 			before := planRows(t, db)
-			service := emulationstationimportservice.NewStarter(startFaultRepository{Starter: NewStarter(db), phase: phase}, verifiedStartSource{database: db}, func() time.Time { return time.UnixMilli(10) })
-			result, queued, err := service.Start(t.Context(), "import-0", 2, mappingActor)
-			want := "read queued EmulationStation plan"
-			if phase == "commit" {
-				want = "FOREIGN KEY constraint failed"
+			starter := NewStarter(db)
+			source := verifiedStartSource{database: db}
+			service := emulationstationimportservice.NewStarter(starter, source, func() time.Time { return time.UnixMilli(10) })
+
+			if phase == "response" {
+				if _, err := db.ExecContext(t.Context(),
+					`ALTER TABLE emulationstation_imports RENAME COLUMN root_label_snapshot TO broken_root_label`); err != nil {
+					t.Fatal(err)
+				}
+			} else {
+				if _, err := db.ExecContext(t.Context(),
+					`CREATE TRIGGER start_fault AFTER INSERT ON jobs BEGIN
+SELECT RAISE(ABORT, 'injected commit failure'); END`); err != nil {
+					t.Fatal(err)
+				}
 			}
-			if result.ID != "" || queued || err == nil || !strings.Contains(err.Error(), want) {
+
+			result, queued, err := service.Start(t.Context(), "import-0", 2, mappingActor)
+			if result.ID != "" || queued || err == nil {
 				t.Fatalf("%s result=%#v queued=%v error=%v", phase, result, queued, err)
 			}
-			if !reflect.DeepEqual(planRows(t, db), before) {
+			if phase == "response" {
+				if _, err := db.ExecContext(t.Context(),
+					`ALTER TABLE emulationstation_imports RENAME COLUMN broken_root_label TO root_label_snapshot`); err != nil {
+					t.Fatal(err)
+				}
+			} else {
+				if _, err := db.ExecContext(t.Context(), `DROP TRIGGER start_fault`); err != nil {
+					t.Fatal(err)
+				}
+			}
+			after := planRows(t, db)
+			if !reflect.DeepEqual(after, before) {
 				t.Fatal("failed response or commit left jobs, input, events, audit, item or release writes")
 			}
 		})

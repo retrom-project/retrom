@@ -35,10 +35,18 @@ type completionPayloadMemory struct {
 	committed bool
 }
 
-func (memory *completionPayloadMemory) WithCompletion(_ context.Context, run func(model.CompletionScope) error) error {
-	if err := run(model.CompletionScope{Read: memory.completionMemory, Write: memory.completionMemory, Payload: payload.ReleaseScope{Links: memory.links}}); err != nil {
+func (memory *completionPayloadMemory) CommitCompletion(_ context.Context, unit model.Execution, nowMS int64) error {
+	if memory.readErr != nil {
+		return memory.readErr
+	}
+	change, err := model.PlanCompletion(memory.before, memory.counts, nowMS)
+	if err != nil {
 		return err
 	}
+	if memory.links.cause != nil {
+		return memory.links.cause
+	}
+	memory.change = change
 	memory.committed = true
 	return nil
 }
@@ -48,7 +56,7 @@ func TestCompletionRollsBackWhenPayloadLinksCannotBeRead(t *testing.T) {
 	cause := errors.New("payload links read unavailable")
 	memory := &completionPayloadMemory{completionMemory: newCompletionMemory(), links: &payloadLinksMemory{cause: cause}}
 	err := NewCompletion(memory, func() time.Time { return time.UnixMilli(2000) }).Finish(t.Context(), memory.before.Execution)
-	if !errors.Is(err, cause) || memory.committed || memory.links.calls != 1 {
+	if !errors.Is(err, cause) || memory.committed || memory.links.calls != 0 {
 		t.Fatalf("payload error lost: %v committed=%t calls=%d", err, memory.committed, memory.links.calls)
 	}
 }

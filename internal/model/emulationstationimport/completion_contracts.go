@@ -35,5 +35,5 @@ type CompletionScope struct {
 }
 
 type CompletionRepository interface {
-	WithCompletion(context.Context, func(CompletionScope) error) error
+	CommitCompletion(context.Context, Execution, int64) error
 }

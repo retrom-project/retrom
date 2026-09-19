@@ -22,31 +22,39 @@ func (m *startMemory) Inspect(context.Context, string) (model.StartSnapshot, err
 	return m.snapshot, m.readErr
 }
 
-func (m *startMemory) WithStart(_ context.Context, work func(model.StartScope) error) error {
+func (m *startMemory) CommitStart(_ context.Context, plan model.StartPlan) (model.Summary, bool, error) {
 	m.writeScopes++
 	if m.onWrite != nil {
 		m.onWrite()
 	}
-	if err := work(model.StartScope{Payload: emptyPayloadScope(), Read: m, Write: m}); err != nil {
-		return err
-	}
-	return m.commitErr
-}
-
-func (m *startMemory) Current(context.Context, string) (model.StartSnapshot, error) {
 	if m.currentErr != nil {
-		return model.StartSnapshot{}, m.currentErr
+		return model.Summary{}, false, m.currentErr
 	}
-	if m.queue != nil && m.responseErr != nil {
-		return model.StartSnapshot{}, m.responseErr
+	started, err := startState(m.snapshot.Summary, plan.Before.Summary.Version)
+	if err != nil {
+		return model.Summary{}, false, err
 	}
-	return m.snapshot, m.readErr
-}
-
-func (m *startMemory) Queue(_ context.Context, plan model.StartPlan) error {
+	if started {
+		return m.snapshot.Summary, false, nil
+	}
+	if err := readyToStart(m.snapshot, plan.NowMS); err != nil {
+		return model.Summary{}, false, err
+	}
+	if !model.SameFrozenSource(plan.Before.Summary, m.snapshot.Summary, plan.Before.FrozenSourceSnapshot, m.snapshot.FrozenSourceSnapshot) {
+		return model.Summary{}, false, model.ErrSourceChanged
+	}
+	if m.writeErr != nil {
+		return model.Summary{}, false, m.writeErr
+	}
 	m.queue = &plan
 	m.snapshot.Summary.State = "QUEUED"
-	return m.writeErr
+	if m.commitErr != nil {
+		return model.Summary{}, false, m.commitErr
+	}
+	if m.responseErr != nil {
+		return model.Summary{}, false, m.responseErr
+	}
+	return m.snapshot.Summary, true, nil
 }
 
 type startSources struct {

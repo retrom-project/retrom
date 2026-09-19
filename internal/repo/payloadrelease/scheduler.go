@@ -195,6 +195,38 @@ func (scheduler *Scheduler) linkSource(
 	return decision.ExistingJobID, nil
 }
 
+func (scheduler *Scheduler) TerminalSources(
+	ctx context.Context, scope application.ReleaseScope, batch application.SourceBatch, now int64,
+) error {
+	if batch.ImportID == "" || !isSourceItemScope(batch.Type) || now < 0 {
+		return application.ErrScopeInvalid
+	}
+	cursor := ""
+	for {
+		ids, err := scope.Links.RetainedSources(ctx, batch, cursor, 200)
+		if err != nil {
+			return fmt.Errorf("read source payload owners: %w", err)
+		}
+		if len(ids) == 0 {
+			return nil
+		}
+		for _, id := range ids {
+			if id <= cursor {
+				return application.ErrScopeInvalid
+			}
+			target := application.Scope{Type: batch.Type, ID: id}
+			if _, err := scheduler.TerminalSource(ctx, scope.Scheduling, target, now); err != nil {
+				return err
+			}
+			cursor = id
+		}
+	}
+}
+
+func isSourceItemScope(kind application.ScopeType) bool {
+	return kind == application.ScopePegasusImportItem || kind == application.ScopeEmulationStationImportItem
+}
+
 func (scheduler *Scheduler) Consumption(
 	ctx context.Context, scope application.SchedulingScope, id string, now int64,
 ) (string, error) {

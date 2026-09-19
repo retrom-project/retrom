@@ -53,47 +53,8 @@ func (service *Starter) Start(
 }
 
 func (service *Starter) queue(ctx context.Context, plan model.StartPlan, version int64) (model.Summary, bool, error) {
-	var result model.Summary
-	var queued bool
-	err := service.repository.WithStart(ctx, func(scope model.StartScope) error {
-		current, err := scope.Read.Current(ctx, plan.Before.Summary.ID)
-		if err != nil {
-			return fmt.Errorf("reread EmulationStation start: %w", err)
-		}
-		started, err := startState(current.Summary, version)
-		if err != nil {
-			return err
-		}
-		if started {
-			result = current.Summary
-			return nil
-		}
-		plan.NowMS = service.now().UnixMilli()
-		if err := readyToStart(current, plan.NowMS); err != nil {
-			return err
-		}
-		if !model.SameFrozenSource(
-			plan.Before.Summary,
-			current.Summary,
-			plan.Before.FrozenSourceSnapshot,
-			current.FrozenSourceSnapshot,
-		) {
-			return model.ErrSourceChanged
-		}
-		plan.Before = current
-		if err := scope.Write.Queue(ctx, plan); err != nil {
-			return fmt.Errorf("queue EmulationStation start: %w", err)
-		}
-		if err := scheduleTerminalPayloads(ctx, scope.Payload, plan.Before.Summary.ID, plan.NowMS); err != nil {
-			return err
-		}
-		after, err := scope.Read.Current(ctx, current.Summary.ID)
-		if err != nil {
-			return fmt.Errorf("read queued EmulationStation plan: %w", err)
-		}
-		result, queued = after.Summary, true
-		return nil
-	})
+	plan.NowMS = service.now().UnixMilli()
+	result, queued, err := service.repository.CommitStart(ctx, plan)
 	if err != nil {
 		return model.Summary{}, false, fmt.Errorf("finish EmulationStation start: %w", err)
 	}
