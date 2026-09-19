@@ -40,6 +40,14 @@ type ExecutionScope struct {
 	Metadata library.MetadataScope
 }
 
+type ExecutionReviewBatchResult struct {
+	Before LeaseSnapshot
+	More   bool
+}
+
 type ExecutionRepository interface {
-	WithExecution(context.Context, func(ExecutionScope) error) error
+	CurrentExecution(context.Context, string) (LeaseSnapshot, bool, error)
+	TerminalCount(context.Context, string) (int64, error)
+	CommitExecutionReviewBatch(ctx context.Context, unit Execution, nowFunc func() int64, releaseYearMax int) (ExecutionReviewBatchResult, error)
+	CommitExecutionFinish(ctx context.Context, change ExecutionFinish) error
 }

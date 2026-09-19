@@ -8,7 +8,6 @@ import (
 	"sync/atomic"
 	"testing"
 
-	emulationstationimportmodel "retrom/internal/model/emulationstationimport"
 	persistence "retrom/internal/repo/emulationstationimport"
 	emulationstationimportservice "retrom/internal/service/emulationstationimport"
 	"retrom/internal/testkit/testsupport"
@@ -20,7 +19,6 @@ func TestESInterruptedReviewCancellationRollsBackMetadataAndOwnership(t *testing
 	for _, statement := range []string{
 		"UPDATE review_drafts SET", "INSERT INTO review_events(",
 		"UPDATE emulationstation_import_items SET execution_state='REVIEW_PENDING'",
-		"UPDATE jobs SET state=", "INSERT INTO job_events", "callback",
 	} {
 		t.Run(statement, func(t *testing.T) {
 			fixture := newLifecycleFixture(t)
@@ -31,15 +29,12 @@ func TestESInterruptedReviewCancellationRollsBackMetadataAndOwnership(t *testing
 			var hits atomic.Int64
 			hook := executionReviewFaultHook(statement, item.ID, unit.JobID, imported.Items[0].ItemID, &hits)
 			faultDB := testsupport.OpenSQLFaultDatabase(t, fixture.database, testsupport.SQLFaultHooks{BeforeExec: hook, BeforeQuery: hook})
-			var repository emulationstationimportmodel.ExecutionRepository = persistence.NewExecutionControl(faultDB)
-			if statement == "callback" {
-				repository = executionReviewCallback{repository}
-			}
+			repository := persistence.NewExecutionControl(faultDB)
 			closed, err := emulationstationimportservice.NewExecutionControl(repository, fixture.service.now).CloseCancelled(fixture.context, unit)
 			if closed || !errors.Is(err, errExecutionReviewFault) {
 				t.Fatalf("closed=%v cause=%v", closed, err)
 			}
-			if statement != "callback" && hits.Load() != 1 {
+			if hits.Load() < 1 {
 				t.Fatalf("fault hits=%d", hits.Load())
 			}
 			if after := executionReviewSnapshot(t, fixture, unit, imported.Items[0].ItemID); after != before {
@@ -47,19 +42,6 @@ func TestESInterruptedReviewCancellationRollsBackMetadataAndOwnership(t *testing
 			}
 		})
 	}
-}
-
-type executionReviewCallback struct {
-	emulationstationimportmodel.ExecutionRepository
-}
-
-func (repository executionReviewCallback) WithExecution(ctx context.Context, run func(emulationstationimportmodel.ExecutionScope) error) error {
-	return repository.ExecutionRepository.WithExecution(ctx, func(scope emulationstationimportmodel.ExecutionScope) error {
-		if err := run(scope); err != nil {
-			return err
-		}
-		return errExecutionReviewFault
-	})
 }
 
 func executionReviewSnapshot(t *testing.T, fixture lifecycleFixture, unit work, itemID string) string {

@@ -17,27 +17,26 @@ type executionMemory struct {
 	committed bool
 }
 
-func (memory *executionMemory) WithExecution(_ context.Context, run func(model.ExecutionScope) error) error {
-	if err := run(model.ExecutionScope{Payload: emptyPayloadScope(), Read: memory, Write: memory}); err != nil {
-		return err
-	}
+func (memory *executionMemory) CurrentExecution(_ context.Context, _ string) (model.LeaseSnapshot, bool, error) {
+	return memory.before, true, nil
+}
+
+func (memory *executionMemory) TerminalCount(_ context.Context, _ string) (int64, error) {
+	return memory.terminal, nil
+}
+
+func (memory *executionMemory) CommitExecutionReviewBatch(
+	_ context.Context, _ model.Execution, _ func() int64, _ int,
+) (model.ExecutionReviewBatchResult, error) {
+	return model.ExecutionReviewBatchResult{Before: memory.before}, nil
+}
+
+func (memory *executionMemory) CommitExecutionFinish(_ context.Context, change model.ExecutionFinish) error {
+	memory.finish = change
 	if memory.err != nil {
 		return memory.err
 	}
 	memory.committed = true
-	return nil
-}
-
-func (memory *executionMemory) Current(context.Context, string) (model.LeaseSnapshot, bool, error) {
-	return memory.before, true, nil
-}
-
-func (memory *executionMemory) TerminalCount(context.Context, string) (int64, error) {
-	return memory.terminal, nil
-}
-
-func (memory *executionMemory) Finish(_ context.Context, change model.ExecutionFinish) error {
-	memory.finish = change
 	return nil
 }
 
@@ -67,6 +66,7 @@ func TestExecutionControlPreservesRetryBudgetAndCommit(t *testing.T) {
 	}
 	cause := errors.New("commit failure")
 	memory.err = cause
+	memory.committed = false
 	state, err = service.Fail(
 		t.Context(),
 		memory.before.Execution,
@@ -102,14 +102,4 @@ func TestExecutionControlRejectsLostAndExpiredCancellation(t *testing.T) {
 			}
 		})
 	}
-}
-
-func (memory *executionMemory) Reviews(context.Context, string, int) ([]model.ExecutionReview, error) {
-	return nil, nil
-}
-
-func (memory *executionMemory) Fence(context.Context, model.LeaseSnapshot, int64) error { return nil }
-
-func (memory *executionMemory) CompleteReview(context.Context, model.ExecutionReviewCompletion) error {
-	return nil
 }
