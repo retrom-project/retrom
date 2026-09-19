@@ -7761,6 +7761,1658 @@
       }
     },
     {
+      "operation_id": "metadatascrape.account-media",
+      "owner": "metadatascrape",
+      "rf_id": "RF15",
+      "consumers": [
+        "(*retrom/internal/service/metadatascrape.MediaWorker).Run",
+        "(*retrom/internal/service/metadatascrape.MediaWorker).account",
+        "(*retrom/internal/service/metadatascrape.MediaWorker).fetch"
+      ],
+      "snapshot": "retrom/internal/model/metadatascrape.MediaSnapshot",
+      "prepare": "(*retrom/internal/service/metadatascrape.MediaWorker).account",
+      "commit": "(*retrom/internal/repo/metadatascrape.MediaRepository).WithWrite",
+      "policy_symbols": [
+        "retrom/internal/service/metadatascrape.mediaDigest",
+        "retrom/internal/service/metadatascrape.mediaOwned",
+        "retrom/internal/service/metadatascrape.mediaSourceDigest",
+        "retrom/internal/service/metadatascrape.validateMediaInput"
+      ],
+      "fresh_facts": [
+        {
+          "name": "current media execution",
+          "reader_symbol": "(retrom/internal/repo/metadatascrape.mediaRecords).Snapshot",
+          "reason": "Inside writer job kind MEDIA_FETCH,scope/state/execution/attempt/max/version/worker/deadline/lease/available,input snapshot; asset identity/status/version/source/run/owner state,payload,parent cancellation,run frozen/budget/version and earlier unfinished ordering"
+        }
+      ],
+      "guards": [
+        {
+          "id": "media-worker-identity",
+          "fields": [
+            "jobId",
+            "execution",
+            "attempt",
+            "workerId"
+          ],
+          "expected_source": "Exact current job/execution/attempt/worker; baseline mediaOwned does not compare job version",
+          "rejection": "ErrExecutionLost",
+          "test_id": "RFA-RF15-scrape_owner"
+        },
+        {
+          "id": "media-input",
+          "fields": [
+            "inputDigest",
+            "inputJSON",
+            "executionUUID",
+            "schema",
+            "kind",
+            "scope",
+            "assetId",
+            "runId",
+            "responseId",
+            "sourceDigest"
+          ],
+          "expected_source": "SHA exact JSON; UUIDv7,schema1,MEDIA_FETCH,exact scope/asset/run/response/source digest; baseline JSON unmarshal accepts unknown fields",
+          "rejection": "ErrMediaInput with cause",
+          "test_id": "RFA-RF15-scrape_owner"
+        },
+        {
+          "id": "received-budget",
+          "fields": [
+            "received",
+            "limit",
+            "reserved"
+          ],
+          "expected_source": "Before writer 0<=received<=limit; fresh asset.reserved==claimed limit. No active lease/state/owner guard, deliberately accounts known bytes even after fetch failure",
+          "rejection": "ErrMediaBudget or ErrExecutionLost",
+          "test_id": "RFA-RF15-scrape_owner"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "refund-run",
+          "repo_helper": "(retrom/internal/repo/metadatascrape.mediaRecords).Account",
+          "affected_records": [
+            "metadata_media_runs exact run/charged>=refund -> charged-=reserved-received,version+1,time"
+          ],
+          "test_id": "RFA-RF15-media_atomic"
+        },
+        {
+          "stage": "refund-asset",
+          "repo_helper": "(retrom/internal/repo/metadatascrape.mediaRecords).Account",
+          "affected_records": [
+            "asset exact id/version/reserved expected -> charged-=refund,reserved0,version+1,time; both budget changes atomic"
+          ],
+          "test_id": "RFA-RF15-media_atomic"
+        }
+      ],
+      "idempotency": "Fresh reserved==limit and asset version prevent double refund; old execution/worker cannot modify new reservation. Crash with unknown received bytes keeps full prior charge.",
+      "time_rule": "Baseline BeginTx(ctx,nil) on shared writer; Service now sampled inside upper callback, not a Repo technical clock acquired after write permission. UUID positions are recorded separately below; no negative/overflow-time guard is assumed. Bounded5s WithoutCancel, sample after fresh identity/input/reservation checks; called after each fetch even on failure, BEFORE successful bytes Put.",
+      "after_commit": [
+        {
+          "action": "If fetch/cancel cause exists, settle failure; otherwise Put verified media bytes outside SQL then settle publication",
+          "recovery": "Publication failure may leave unowned CAS bytes, but budget settlement remains durable",
+          "test_id": "RFA-RF15-scrape_owner"
+        }
+      ],
+      "fault_points": [
+        "PLANNED refund-run: inject SQL failure immediately after applicable stage and compare complete scrape/job/event/candidate/asset/cache/input/import/budget state; require rollback",
+        "PLANNED refund-asset: inject SQL failure immediately after applicable stage and compare complete scrape/job/event/candidate/asset/cache/input/import/budget state; require rollback",
+        "PLANNED each Guard independently mutated before writer acquisition,assert exact rejection and no unauthorized writes",
+        "PLANNED concurrent duplicate candidate/attempt,old worker,lease expiry,parent cancellation/payload release,commit failure and crash/recovery; no aggregate PASS substitution"
+      ],
+      "test_ids": [
+        "RFA-RF15-scrape_owner",
+        "RFA-RF15-provider_outcomes",
+        "RFA-RF15-candidate_race",
+        "RFA-RF15-media_atomic"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "No CAS bytes or new direct protective Blob ownership edge is published by this transaction.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "metadatascrape.claim-media",
+      "owner": "metadatascrape",
+      "rf_id": "RF15",
+      "consumers": [
+        "(*retrom/internal/service/metadatascrape.MediaWorker).Run",
+        "(*retrom/internal/service/metadatascrape.MediaWorker).claim"
+      ],
+      "snapshot": "retrom/internal/model/metadatascrape.MediaSnapshot",
+      "prepare": "(*retrom/internal/service/metadatascrape.MediaWorker).claim",
+      "commit": "(*retrom/internal/repo/metadatascrape.MediaRepository).WithWrite",
+      "policy_symbols": [
+        "retrom/internal/service/metadatascrape.mediaClaimable",
+        "retrom/internal/service/metadatascrape.mediaDigest",
+        "retrom/internal/service/metadatascrape.mediaOwnerAvailable",
+        "retrom/internal/service/metadatascrape.mediaSourceDigest",
+        "retrom/internal/service/metadatascrape.mediaTerminalCause",
+        "retrom/internal/service/metadatascrape.metadataRetryDelay",
+        "retrom/internal/service/metadatascrape.sortMedia",
+        "retrom/internal/service/metadatascrape.validateMediaInput"
+      ],
+      "fresh_facts": [
+        {
+          "name": "current media execution",
+          "reader_symbol": "(retrom/internal/repo/metadatascrape.mediaRecords).Snapshot",
+          "reason": "Inside writer job kind MEDIA_FETCH,scope/state/execution/attempt/max/version/worker/deadline/lease/available,input snapshot; asset identity/status/version/source/run/owner state,payload,parent cancellation,run frozen/budget/version and earlier unfinished ordering"
+        },
+        {
+          "name": "media ordering facts",
+          "reader_symbol": "(retrom/internal/repo/metadatascrape.mediaRecords).Ordering",
+          "reason": "If not frozen read run asset id/providerGame/kind/ordinal/hitcount/min queryOrder; deterministic sort before first claim"
+        },
+        {
+          "name": "global active media",
+          "reader_symbol": "(retrom/internal/repo/metadatascrape.mediaRecords).Running",
+          "reason": "Writer counts MEDIA_FETCH RUNNING/CANCEL_REQUESTED live lease+deadline"
+        },
+        {
+          "name": "run active media",
+          "reader_symbol": "(retrom/internal/repo/metadatascrape.mediaRecords).RunExecuting",
+          "reason": "Writer EXISTS same scrape run live lease/deadline active media job"
+        }
+      ],
+      "guards": [
+        {
+          "id": "media-owner",
+          "fields": [
+            "asset.id",
+            "ownerKind",
+            "ownerId",
+            "scope",
+            "ownerState",
+            "payloadState",
+            "parentCancelled"
+          ],
+          "expected_source": "Existing asset scope equals job; GAME PUBLISHED or IMPORT_ITEM RETAINED not parent-cancelled with state SCRAPING|REVIEW_PENDING|FAILED_RETRYABLE",
+          "rejection": "ErrGameDeleted or CANCELLED disposition",
+          "test_id": "RFA-RF15-scrape_owner"
+        },
+        {
+          "id": "media-input",
+          "fields": [
+            "inputDigest",
+            "inputJSON",
+            "executionUUID",
+            "schema",
+            "kind",
+            "scope",
+            "assetId",
+            "runId",
+            "responseId",
+            "sourceDigest"
+          ],
+          "expected_source": "SHA exact JSON; UUIDv7,schema1,MEDIA_FETCH,exact scope/asset/run/response/source digest; baseline JSON unmarshal accepts unknown fields",
+          "rejection": "ErrMediaInput with cause",
+          "test_id": "RFA-RF15-scrape_owner"
+        },
+        {
+          "id": "claimable-state",
+          "fields": [
+            "state",
+            "lease",
+            "deadline"
+          ],
+          "expected_source": "QUEUED or expired RUNNING/CANCEL_REQUESTED; CANCELLED reconciles nonready/noncancelled asset only",
+          "rejection": "No-op if not claimable",
+          "test_id": "RFA-RF15-scrape_owner"
+        },
+        {
+          "id": "terminal-reason",
+          "fields": [
+            "state",
+            "owner",
+            "deadline",
+            "attempt",
+            "maxAttempts",
+            "input",
+            "status"
+          ],
+          "expected_source": "Ordered cancel,owner unavailable,deadline,exhausted attempts,input invalid,READY/CANCELLED asset; terminal acquisition skips reserve",
+          "rejection": "Terminal settle with corresponding original cause",
+          "test_id": "RFA-RF15-scrape_owner"
+        },
+        {
+          "id": "ready-ordered-capacity",
+          "fields": [
+            "runState",
+            "availableAt",
+            "first",
+            "running",
+            "runExecuting"
+          ],
+          "expected_source": "Active claim waits for parent scrape nonRUNNING,available<=now,first unfinished ordered asset,global<2,no active same run",
+          "rejection": "No-op",
+          "test_id": "RFA-RF15-scrape_owner"
+        },
+        {
+          "id": "media-budget",
+          "fields": [
+            "run.charged",
+            "limit"
+          ],
+          "expected_source": "Limit=min(provider max read,100MiB-runCharged); nonpositive becomes terminal budget failure; SQL reserve requires charged+limit<=100MiB",
+          "rejection": "ErrAssetReadLimit / ErrExecutionLost",
+          "test_id": "RFA-RF15-scrape_owner"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "cancelled-asset-reconcile",
+          "repo_helper": "(retrom/internal/repo/metadatascrape.mediaRecords).Fail",
+          "affected_records": [
+            "Alternative CANCELLED job: existing asset not READY/CANCELLED exact id/version/notREADY -> CANCELLED,MEDIA_CANCELLED,fetched/time,reserved0,version+1; no job rewrite"
+          ],
+          "test_id": "RFA-RF15-media_atomic"
+        },
+        {
+          "stage": "freeze-asset-order",
+          "repo_helper": "(retrom/internal/repo/metadatascrape.mediaRecords).Freeze",
+          "affected_records": [
+            "Active branch if not frozen: each run asset with media_fetch_order NULL -> sorted ordinal,version+1,time,require1 each"
+          ],
+          "test_id": "RFA-RF15-media_atomic"
+        },
+        {
+          "stage": "freeze-run",
+          "repo_helper": "(retrom/internal/repo/metadatascrape.mediaRecords).Freeze",
+          "affected_records": [
+            "metadata_media_runs order_frozen_at NULL and associated scrape run notRUNNING -> frozen now,version+1,time,require1 then reread snapshot"
+          ],
+          "test_id": "RFA-RF15-media_atomic"
+        },
+        {
+          "stage": "media-claim",
+          "repo_helper": "(retrom/internal/repo/metadatascrape.mediaRecords).Claim",
+          "affected_records": [
+            "Active jobs exact id/kind/execution/version/QUEUED/available/attempt/deadline -> RUNNING,attempt+1,started/deadlineCOALESCE,lease now+60s,heartbeat,worker,version+1,time; terminal alternative only worker/version/time on queued or expired active"
+          ],
+          "test_id": "RFA-RF15-media_atomic"
+        },
+        {
+          "stage": "media-started-event",
+          "repo_helper": "(retrom/internal/repo/metadatascrape.mediaRecords).event",
+          "affected_records": [
+            "Only active acquisition INSERT STARTED schema1 execution/attempt"
+          ],
+          "test_id": "RFA-RF15-media_atomic"
+        },
+        {
+          "stage": "reserve-run-budget",
+          "repo_helper": "(retrom/internal/repo/metadatascrape.mediaRecords).Reserve",
+          "affected_records": [
+            "Active metadata_media_runs exact run/charged+limit<=100MiB -> charged+=limit,version+1,time"
+          ],
+          "test_id": "RFA-RF15-media_atomic"
+        },
+        {
+          "stage": "reserve-asset-budget",
+          "repo_helper": "(retrom/internal/repo/metadatascrape.mediaRecords).Reserve",
+          "affected_records": [
+            "Active asset exact id/version/status PENDING|FETCHING|FAILED -> FETCHING,error/fetchedNULL,charged+=limit,reserved=limit,version+1,time"
+          ],
+          "test_id": "RFA-RF15-media_atomic"
+        },
+        {
+          "stage": "media-requeue",
+          "repo_helper": "(retrom/internal/repo/metadatascrape.mediaRecords).Requeue",
+          "affected_records": [
+            "Alternative expired RUNNING exact job/kind/execution/version/lease<=now/deadline>now -> QUEUED,available=min(now+retryDelay,deadline),worker/lease/heartbeatNULL,version+1,time"
+          ],
+          "test_id": "RFA-RF15-media_atomic"
+        },
+        {
+          "stage": "media-retry-event",
+          "repo_helper": "(retrom/internal/repo/metadatascrape.mediaRecords).event",
+          "affected_records": [
+            "Requeue INSERT RETRY_SCHEDULED schema1 execution/attempt/available"
+          ],
+          "test_id": "RFA-RF15-media_atomic"
+        }
+      ],
+      "idempotency": "No HTTP receipt; retain exact SQL identity/state/version and semantic repeat behavior below.",
+      "time_rule": "Baseline BeginTx(ctx,nil) on shared writer; Service now sampled inside upper callback, not a Repo technical clock acquired after write permission. UUID positions are recorded separately below; no negative/overflow-time guard is assumed. Worker UUID before writer; now after fresh Snapshot. Initial active deadline now+30minutes; previous crash reservation stays charged and next attempt pays separately.",
+      "after_commit": [
+        {
+          "action": "Only committed Acquired execution starts bounded network fetch; terminal acquired execution settles separately; no-op/requeue does no I/O",
+          "recovery": "Read-only Recoverable <=64 ordered jobs handles queued post-scrape/earlier blockers,expired active leases and cancelled asset reconciliation",
+          "test_id": "RFA-RF15-scrape_owner"
+        }
+      ],
+      "fault_points": [
+        "PLANNED cancelled-asset-reconcile: inject SQL failure immediately after applicable stage and compare complete scrape/job/event/candidate/asset/cache/input/import/budget state; require rollback",
+        "PLANNED freeze-asset-order: inject SQL failure immediately after applicable stage and compare complete scrape/job/event/candidate/asset/cache/input/import/budget state; require rollback",
+        "PLANNED freeze-run: inject SQL failure immediately after applicable stage and compare complete scrape/job/event/candidate/asset/cache/input/import/budget state; require rollback",
+        "PLANNED media-claim: inject SQL failure immediately after applicable stage and compare complete scrape/job/event/candidate/asset/cache/input/import/budget state; require rollback",
+        "PLANNED media-started-event: inject SQL failure immediately after applicable stage and compare complete scrape/job/event/candidate/asset/cache/input/import/budget state; require rollback",
+        "PLANNED reserve-run-budget: inject SQL failure immediately after applicable stage and compare complete scrape/job/event/candidate/asset/cache/input/import/budget state; require rollback",
+        "PLANNED reserve-asset-budget: inject SQL failure immediately after applicable stage and compare complete scrape/job/event/candidate/asset/cache/input/import/budget state; require rollback",
+        "PLANNED media-requeue: inject SQL failure immediately after applicable stage and compare complete scrape/job/event/candidate/asset/cache/input/import/budget state; require rollback",
+        "PLANNED media-retry-event: inject SQL failure immediately after applicable stage and compare complete scrape/job/event/candidate/asset/cache/input/import/budget state; require rollback",
+        "PLANNED each Guard independently mutated before writer acquisition,assert exact rejection and no unauthorized writes",
+        "PLANNED concurrent duplicate candidate/attempt,old worker,lease expiry,parent cancellation/payload release,commit failure and crash/recovery; no aggregate PASS substitution"
+      ],
+      "test_ids": [
+        "RFA-RF15-scrape_owner",
+        "RFA-RF15-provider_outcomes",
+        "RFA-RF15-candidate_race",
+        "RFA-RF15-media_atomic"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "No CAS bytes or new direct protective Blob ownership edge is published by this transaction.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "metadatascrape.claim-scrape",
+      "owner": "metadatascrape",
+      "rf_id": "RF15",
+      "consumers": [
+        "(*retrom/internal/service/metadatascrape.Worker).Run",
+        "(*retrom/internal/service/metadatascrape.Worker).claim"
+      ],
+      "snapshot": "retrom/internal/model/metadatascrape.WorkerRun",
+      "prepare": "(*retrom/internal/service/metadatascrape.Worker).claim",
+      "commit": "(*retrom/internal/repo/metadatascrape.WorkerRepository).WithWrite",
+      "policy_symbols": [
+        "retrom/internal/service/metadatascrape.metadataRetryDelay"
+      ],
+      "fresh_facts": [
+        {
+          "name": "pre-writer job/run",
+          "reader_symbol": "(*retrom/internal/repo/metadatascrape.WorkerRepository).Run",
+          "reason": "Read run/job/provider/state/payload/execution/version/attempt/max/deadline/lease/available BEFORE writer; current SQL predicates must fence this stale snapshot"
+        },
+        {
+          "name": "current claim predicates",
+          "reader_symbol": "(retrom/internal/repo/metadatascrape.workerRecords).Claim",
+          "reason": "Writer uses conditional UPDATE with exact job/execution/version/kind and EXISTS exact linked RUNNING scrape run; terminal branch rechecks expired/exhausted/cancel"
+        }
+      ],
+      "guards": [
+        {
+          "id": "claim-identity",
+          "fields": [
+            "jobId",
+            "executionNo",
+            "version",
+            "kind",
+            "runId",
+            "runState"
+          ],
+          "expected_source": "Exact job/execution/version,kind METADATA_SCRAPE,run links same job and remains RUNNING",
+          "rejection": "false claim without writes",
+          "test_id": "RFA-RF15-scrape_owner"
+        },
+        {
+          "id": "queued-available",
+          "fields": [
+            "job.state",
+            "availableAt",
+            "attempt",
+            "maxAttempts",
+            "deadline"
+          ],
+          "expected_source": "QUEUED,available<=now,attempt<max,deadline absent or future for active claim",
+          "rejection": "false claim",
+          "test_id": "RFA-RF15-scrape_owner"
+        },
+        {
+          "id": "terminal-takeover",
+          "fields": [
+            "state",
+            "lease",
+            "deadline",
+            "attempt",
+            "maxAttempts"
+          ],
+          "expected_source": "QUEUED or expired RUNNING/CANCEL_REQUESTED; deadline elapsed or attempts exhausted or cancel requested",
+          "rejection": "false terminal claim",
+          "test_id": "RFA-RF15-scrape_owner"
+        },
+        {
+          "id": "retry-expired",
+          "fields": [
+            "state",
+            "lease",
+            "deadline",
+            "attempt",
+            "maxAttempts"
+          ],
+          "expected_source": "Requeue only RUNNING with expired lease,future deadline,attempt<max",
+          "rejection": "false requeue",
+          "test_id": "RFA-RF15-scrape_owner"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "active-lease",
+          "repo_helper": "(retrom/internal/repo/metadatascrape.workerRecords).Claim",
+          "affected_records": [
+            "Active branch jobs -> RUNNING,attempt+1,started/deadline COALESCE,lease now+60000,heartbeat,workerUUID,version+1,time"
+          ],
+          "test_id": "RFA-RF15-media_atomic"
+        },
+        {
+          "stage": "started-event",
+          "repo_helper": "(retrom/internal/repo/metadatascrape.workerRecords).event",
+          "affected_records": [
+            "Active branch INSERT job_events STARTED data{} only after successful conditional update"
+          ],
+          "test_id": "RFA-RF15-media_atomic"
+        },
+        {
+          "stage": "terminal-worker",
+          "repo_helper": "(retrom/internal/repo/metadatascrape.workerRecords).claimTerminal",
+          "affected_records": [
+            "Alternative terminal branch jobs -> workerUUID,version+1,time; state/attempt/lease unchanged, no event"
+          ],
+          "test_id": "RFA-RF15-media_atomic"
+        },
+        {
+          "stage": "retry-queue",
+          "repo_helper": "(retrom/internal/repo/metadatascrape.workerRecords).Requeue",
+          "affected_records": [
+            "Alternative expired active lease -> QUEUED,available=min(now+retryDelay,deadline),worker/lease/heartbeat NULL,version+1,time"
+          ],
+          "test_id": "RFA-RF15-media_atomic"
+        },
+        {
+          "stage": "retry-event",
+          "repo_helper": "(retrom/internal/repo/metadatascrape.workerRecords).event",
+          "affected_records": [
+            "Requeue only INSERT RETRY_SCHEDULED JSON availableAtMs and next attempt"
+          ],
+          "test_id": "RFA-RF15-media_atomic"
+        }
+      ],
+      "idempotency": "No HTTP receipt; retain exact SQL identity/state/version and semantic repeat behavior below.",
+      "time_rule": "Baseline BeginTx(ctx,nil) on shared writer; Service now sampled inside upper callback, not a Repo technical clock acquired after write permission. UUID positions are recorded separately below; no negative/overflow-time guard is assumed. Worker UUID before writer; one Service sample inside callback; first execution deadline now+1hour; retry delays 1000/5000/30000/120000ms clamped by attempt/deadline.",
+      "after_commit": [
+        {
+          "action": "Run provider evidence loop only when active claim committed; terminal claim immediately settles separately; requeue returns without running",
+          "recovery": "Recoverable is read-only, selecting <=64 HASHEOUS RUNNING run jobs ready/exhausted/deadline/stale lease/cancelled",
+          "test_id": "RFA-RF15-scrape_owner"
+        }
+      ],
+      "fault_points": [
+        "PLANNED active-lease: inject SQL failure immediately after applicable stage and compare complete scrape/job/event/candidate/asset/cache/input/import/budget state; require rollback",
+        "PLANNED started-event: inject SQL failure immediately after applicable stage and compare complete scrape/job/event/candidate/asset/cache/input/import/budget state; require rollback",
+        "PLANNED terminal-worker: inject SQL failure immediately after applicable stage and compare complete scrape/job/event/candidate/asset/cache/input/import/budget state; require rollback",
+        "PLANNED retry-queue: inject SQL failure immediately after applicable stage and compare complete scrape/job/event/candidate/asset/cache/input/import/budget state; require rollback",
+        "PLANNED retry-event: inject SQL failure immediately after applicable stage and compare complete scrape/job/event/candidate/asset/cache/input/import/budget state; require rollback",
+        "PLANNED each Guard independently mutated before writer acquisition,assert exact rejection and no unauthorized writes",
+        "PLANNED concurrent duplicate candidate/attempt,old worker,lease expiry,parent cancellation/payload release,commit failure and crash/recovery; no aggregate PASS substitution"
+      ],
+      "test_ids": [
+        "RFA-RF15-scrape_owner",
+        "RFA-RF15-provider_outcomes",
+        "RFA-RF15-candidate_race",
+        "RFA-RF15-media_atomic"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "No CAS bytes or new direct protective Blob ownership edge is published by this transaction.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "metadatascrape.finish-media",
+      "owner": "metadatascrape",
+      "rf_id": "RF15",
+      "consumers": [
+        "(*retrom/internal/service/metadatascrape.MediaWorker).Run",
+        "(*retrom/internal/service/metadatascrape.MediaWorker).settle"
+      ],
+      "snapshot": "retrom/internal/model/metadatascrape.MediaSnapshot",
+      "prepare": "(*retrom/internal/service/metadatascrape.MediaWorker).settle",
+      "commit": "(*retrom/internal/repo/metadatascrape.MediaRepository).WithWrite",
+      "policy_symbols": [
+        "retrom/internal/service/metadatascrape.mediaActive",
+        "retrom/internal/service/metadatascrape.mediaCompletion",
+        "retrom/internal/service/metadatascrape.mediaDigest",
+        "retrom/internal/service/metadatascrape.mediaErrorCode",
+        "retrom/internal/service/metadatascrape.mediaOwned",
+        "retrom/internal/service/metadatascrape.mediaOwnerAvailable",
+        "retrom/internal/service/metadatascrape.mediaRetryable",
+        "retrom/internal/service/metadatascrape.mediaSourceDigest",
+        "retrom/internal/service/metadatascrape.stableAssetError",
+        "retrom/internal/service/metadatascrape.validateMediaInput"
+      ],
+      "fresh_facts": [
+        {
+          "name": "current media execution",
+          "reader_symbol": "(retrom/internal/repo/metadatascrape.mediaRecords).Snapshot",
+          "reason": "Inside writer job kind MEDIA_FETCH,scope/state/execution/attempt/max/version/worker/deadline/lease/available,input snapshot; asset identity/status/version/source/run/owner state,payload,parent cancellation,run frozen/budget/version and earlier unfinished ordering"
+        }
+      ],
+      "guards": [
+        {
+          "id": "media-worker-identity",
+          "fields": [
+            "jobId",
+            "execution",
+            "attempt",
+            "workerId"
+          ],
+          "expected_source": "Exact current job/execution/attempt/worker; baseline mediaOwned does not compare job version",
+          "rejection": "ErrExecutionLost",
+          "test_id": "RFA-RF15-scrape_owner"
+        },
+        {
+          "id": "media-owner",
+          "fields": [
+            "asset.id",
+            "ownerKind",
+            "ownerId",
+            "scope",
+            "ownerState",
+            "payloadState",
+            "parentCancelled"
+          ],
+          "expected_source": "Existing asset scope equals job; GAME PUBLISHED or IMPORT_ITEM RETAINED not parent-cancelled with state SCRAPING|REVIEW_PENDING|FAILED_RETRYABLE",
+          "rejection": "ErrGameDeleted or CANCELLED disposition",
+          "test_id": "RFA-RF15-scrape_owner"
+        },
+        {
+          "id": "media-input",
+          "fields": [
+            "inputDigest",
+            "inputJSON",
+            "executionUUID",
+            "schema",
+            "kind",
+            "scope",
+            "assetId",
+            "runId",
+            "responseId",
+            "sourceDigest"
+          ],
+          "expected_source": "SHA exact JSON; UUIDv7,schema1,MEDIA_FETCH,exact scope/asset/run/response/source digest; baseline JSON unmarshal accepts unknown fields",
+          "rejection": "ErrMediaInput with cause",
+          "test_id": "RFA-RF15-scrape_owner"
+        },
+        {
+          "id": "finishable-state",
+          "fields": [
+            "jobState"
+          ],
+          "expected_source": "RUNNING|QUEUED|CANCEL_REQUESTED only",
+          "rejection": "ErrExecutionLost",
+          "test_id": "RFA-RF15-scrape_owner"
+        },
+        {
+          "id": "outcome-authority",
+          "fields": [
+            "state",
+            "owner",
+            "lease",
+            "deadline",
+            "cause"
+          ],
+          "expected_source": "Cancel or unavailable owner wins; successful cause-free path requires mediaActive; other causes FAILED with retry policy; elapsed deadline overrides code EXPIRED",
+          "rejection": "CANCELLED/context.Canceled; FAILED preserves original error",
+          "test_id": "RFA-RF15-scrape_owner"
+        },
+        {
+          "id": "publication-asset",
+          "fields": [
+            "id",
+            "version",
+            "status",
+            "reserved"
+          ],
+          "expected_source": "Success exact current asset id/version/FETCHING/reserved0; failures exact id/version/notREADY; absent/READY asset skips failure publication",
+          "rejection": "ErrExecutionLost on required update mismatch",
+          "test_id": "RFA-RF15-scrape_owner"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "published-blob",
+          "repo_helper": "(retrom/internal/repo/metadatascrape.mediaRecords).Publish",
+          "affected_records": [
+            "SUCCEEDED only EnsureRecord prepared media Blob and media type; EnsureRecord SELECT sha256,existing ID reused,else fresh UUIDv7 INSERT blobs hash/size/md5/sha1/crc32/mediaType/time ON CONFLICT sha256 DO NOTHING then SELECT stable ID,all inside writer"
+          ],
+          "test_id": "RFA-RF15-media_atomic"
+        },
+        {
+          "stage": "ready-asset",
+          "repo_helper": "(retrom/internal/repo/metadatascrape.mediaRecords).Publish",
+          "affected_records": [
+            "SUCCEEDED asset exact id/version/FETCHING/reserved0 -> READY,Blob,width,height,mediaType,fetched,time,version+1"
+          ],
+          "test_id": "RFA-RF15-media_atomic"
+        },
+        {
+          "stage": "failed-asset",
+          "repo_helper": "(retrom/internal/repo/metadatascrape.mediaRecords).Fail",
+          "affected_records": [
+            "Alternative FAILED/CANCELLED nonREADY existing asset exact version -> terminal/error/fetched,reserved0,version+1,time"
+          ],
+          "test_id": "RFA-RF15-media_atomic"
+        },
+        {
+          "stage": "media-job-finish",
+          "repo_helper": "(retrom/internal/repo/metadatascrape.mediaRecords).Finish",
+          "affected_records": [
+            "jobs exact id/kindMEDIA_FETCH/execution/attempt/worker and QUEUED|RUNNING|CANCEL_REQUESTED -> terminal,error/retryable onlyFAILED,finished/heartbeat/time,leaseNULL,version+1; CANCELLED fills cancellation time/reason MEDIA_OWNER_UNAVAILABLE"
+          ],
+          "test_id": "RFA-RF15-media_atomic"
+        },
+        {
+          "stage": "media-finish-event",
+          "repo_helper": "(retrom/internal/repo/metadatascrape.mediaRecords).event",
+          "affected_records": [
+            "INSERT terminal job event schema1 executionNo/attempt/code in same writer"
+          ],
+          "test_id": "RFA-RF15-media_atomic"
+        }
+      ],
+      "idempotency": "No HTTP receipt; retain exact SQL identity/state/version and semantic repeat behavior below.",
+      "time_rule": "Baseline BeginTx(ctx,nil) on shared writer; Service now sampled inside upper callback, not a Repo technical clock acquired after write permission. UUID positions are recorded separately below; no negative/overflow-time guard is assumed. Bounded5s WithoutCancel; Snapshot first then Service now; downloaded/decoded bytes and CAS Put occurred outside writer and after independent byte accounting.",
+      "after_commit": [
+        {
+          "action": "Publish READY asset and terminal job/event together; return original cause joined with cleanup failure",
+          "recovery": "Repeated stale worker completion rejected; cancelled/failed assets reconciled by durable recovery; unreferenced prepared bytes are GC candidates",
+          "test_id": "RFA-RF15-scrape_owner"
+        }
+      ],
+      "fault_points": [
+        "PLANNED published-blob: inject SQL failure immediately after applicable stage and compare complete scrape/job/event/candidate/asset/cache/input/import/budget state; require rollback",
+        "PLANNED ready-asset: inject SQL failure immediately after applicable stage and compare complete scrape/job/event/candidate/asset/cache/input/import/budget state; require rollback",
+        "PLANNED failed-asset: inject SQL failure immediately after applicable stage and compare complete scrape/job/event/candidate/asset/cache/input/import/budget state; require rollback",
+        "PLANNED media-job-finish: inject SQL failure immediately after applicable stage and compare complete scrape/job/event/candidate/asset/cache/input/import/budget state; require rollback",
+        "PLANNED media-finish-event: inject SQL failure immediately after applicable stage and compare complete scrape/job/event/candidate/asset/cache/input/import/budget state; require rollback",
+        "PLANNED each Guard independently mutated before writer acquisition,assert exact rejection and no unauthorized writes",
+        "PLANNED concurrent duplicate candidate/attempt,old worker,lease expiry,parent cancellation/payload release,commit failure and crash/recovery; no aggregate PASS substitution"
+      ],
+      "test_ids": [
+        "RFA-RF15-scrape_owner",
+        "RFA-RF15-provider_outcomes",
+        "RFA-RF15-candidate_race",
+        "RFA-RF15-media_atomic"
+      ],
+      "content_coordination": {
+        "required": true,
+        "reason": "scrape_candidate_assets.blob_id is new PROTECTIVE ownership when READY is published. Baseline has no shared digest coordinator; migration must take sorted stripe locks before DB writer, verify staged bytes and current ownership, retain until commit or physical action completes.",
+        "digest_sources": [
+          "Prepared downloaded media Blob SHA256"
+        ],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": "(*retrom/internal/repo/metadatascrape.MediaRepository).WithWrite",
+        "test_ids": [
+          "RFA-RF18-gc_new_reference",
+          "RFA-RF18-gc_stale_digest",
+          "RFA-RF18-digest_lock_process"
+        ]
+      }
+    },
+    {
+      "operation_id": "metadatascrape.finish-scrape",
+      "owner": "metadatascrape",
+      "rf_id": "RF15",
+      "consumers": [
+        "(*retrom/internal/service/metadatascrape.Worker).Run",
+        "(*retrom/internal/service/metadatascrape.Worker).settle"
+      ],
+      "snapshot": "retrom/internal/model/metadatascrape.WorkerStatus",
+      "prepare": "(*retrom/internal/service/metadatascrape.Worker).settle",
+      "commit": "(*retrom/internal/repo/metadatascrape.WorkerRepository).WithWrite",
+      "policy_symbols": [
+        "retrom/internal/service/metadatascrape.compareInitialCandidate",
+        "retrom/internal/service/metadatascrape.initialProgress",
+        "retrom/internal/service/metadatascrape.mergeInitialReviewMetadata",
+        "retrom/internal/service/metadatascrape.selectInitialAssets",
+        "retrom/internal/service/metadatascrape.selectInitialCandidate"
+      ],
+      "fresh_facts": [
+        {
+          "name": "completion ownership",
+          "reader_symbol": "(retrom/internal/repo/metadatascrape.workerRecords).Status",
+          "reason": "Inside writer exact job/run RUNNING/execution/(worker matches OR empty worker with CANCELLED job); reads state,COALESCE lease/deadline expired true,parent import job cancellation"
+        },
+        {
+          "name": "initial import",
+          "reader_symbol": "(retrom/internal/repo/metadatascrape.initialRecords).Import",
+          "reason": "Same transaction reads import item state/import job version+counts; initial projection only when item SCRAPING and parent running count>=1"
+        },
+        {
+          "name": "initial candidates",
+          "reader_symbol": "(retrom/internal/repo/metadatascrape.initialRecords).Candidates",
+          "reason": "Same transaction candidate metadata,hit counts and first evidence query order"
+        },
+        {
+          "name": "initial draft",
+          "reader_symbol": "(retrom/internal/repo/metadatascrape.initialRecords).Draft",
+          "reason": "Same transaction existing review metadata"
+        },
+        {
+          "name": "initial ready assets",
+          "reader_symbol": "(retrom/internal/repo/metadatascrape.initialRecords).ReadyAssets",
+          "reason": "Same transaction candidate READY assets ordered ordinal/id"
+        }
+      ],
+      "guards": [
+        {
+          "id": "finish-authority",
+          "fields": [
+            "runId",
+            "jobId",
+            "executionNo",
+            "workerId",
+            "runState",
+            "jobState"
+          ],
+          "expected_source": "Current RUNNING run/execution/worker; missing record or non QUEUED/RUNNING/CANCEL_REQUESTED/CANCELLED state is no-op",
+          "rejection": "No-op for lost/non-applicable snapshot; ErrExecutionLost if finish conditional update misses",
+          "test_id": "RFA-RF15-scrape_owner"
+        },
+        {
+          "id": "completion-disposition",
+          "fields": [
+            "state",
+            "parentCancelled",
+            "cause",
+            "lease",
+            "deadline"
+          ],
+          "expected_source": "Cancellation first; error/expired => FAILED; otherwise COMPLETED/SUCCEEDED. Empty worker only reconciles already-CANCELLED job",
+          "rejection": "Preserve original cause; expired without prior cause becomes METADATA_EXECUTION_EXPIRED",
+          "test_id": "RFA-RF15-scrape_owner"
+        },
+        {
+          "id": "initial-progress",
+          "fields": [
+            "item.state",
+            "job.running",
+            "job.version"
+          ],
+          "expected_source": "Only SCRAPING item; parent Running>=1 before plan; SQL item exact SCRAPING and parent exact version AND running==ExpectedRunning>0",
+          "rejection": "ErrInitialItemState or ErrInitialProgressState",
+          "test_id": "RFA-RF15-scrape_owner"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "initial-draft",
+          "repo_helper": "(retrom/internal/repo/metadatascrape.initialRecords).Apply",
+          "affected_records": [
+            "Success only: review_drafts exact DraftID -> selected candidate/cover/background/merged metadata/time; no version increment/fence or affected-row requirement; recordstore validates changed cover cannot conflict with existing uploaded cover"
+          ],
+          "test_id": "RFA-RF15-media_atomic"
+        },
+        {
+          "stage": "initial-screenshots",
+          "repo_helper": "(retrom/internal/repo/metadatascrape.initialRecords).Apply",
+          "affected_records": [
+            "INSERT each review_draft_screenshot_assets draft/ordinal/candidateAsset/time in order; no prior delete"
+          ],
+          "test_id": "RFA-RF15-media_atomic"
+        },
+        {
+          "stage": "initial-search-index",
+          "repo_helper": "(retrom/internal/repo/metadatascrape.initialRecords).Apply",
+          "affected_records": [
+            "import_items exact itemID -> search_text=trim(existing || space || lower(selected title)); no item version increment"
+          ],
+          "test_id": "RFA-RF15-media_atomic"
+        },
+        {
+          "stage": "initial-item",
+          "repo_helper": "(retrom/internal/repo/metadatascrape.initialRecords).Advance",
+          "affected_records": [
+            "import_items exact SCRAPING -> REVIEW_PENDING,FAILED_RETRYABLE(stage SCRAPING+code),or CANCELLED; version+1,time"
+          ],
+          "test_id": "RFA-RF15-media_atomic"
+        },
+        {
+          "stage": "initial-job",
+          "repo_helper": "(retrom/internal/repo/metadatascrape.initialRecords).Advance",
+          "affected_records": [
+            "import_jobs exact id/version/running==ExpectedRunning>0 -> running-1,review/failed/cancelled count deltas,state RUNNING|REVIEW_PENDING|PARTIAL_FAILURE|CANCEL_REQUESTED|CANCELLED,version+1,time; same transaction as scrape outcome"
+          ],
+          "test_id": "RFA-RF15-media_atomic"
+        },
+        {
+          "stage": "scrape-job-finish",
+          "repo_helper": "(retrom/internal/repo/metadatascrape.workerRecords).Finish",
+          "affected_records": [
+            "Nonempty worker only jobs exact id/execution/worker state QUEUED|RUNNING|CANCEL_REQUESTED -> terminal,error code/retryable true only FAILED,finished,leaseNULL,heartbeat,time,version+1; require1"
+          ],
+          "test_id": "RFA-RF15-media_atomic"
+        },
+        {
+          "stage": "scrape-run-finish",
+          "repo_helper": "(retrom/internal/repo/metadatascrape.workerRecords).Finish",
+          "affected_records": [
+            "metadata_scrape_runs exact id/job/RUNNING -> COMPLETED|FAILED|CANCELLED,error,version+1,completed/time; require1"
+          ],
+          "test_id": "RFA-RF15-media_atomic"
+        },
+        {
+          "stage": "scrape-finish-event",
+          "repo_helper": "(retrom/internal/repo/metadatascrape.workerRecords).event",
+          "affected_records": [
+            "Nonempty worker only INSERT terminal event candidateCount or code; empty worker cancelled reconciliation leaves prior job/event intact"
+          ],
+          "test_id": "RFA-RF15-media_atomic"
+        }
+      ],
+      "idempotency": "Missing/non-RUNNING run makes later settle a no-op; initial item SCRAPING+parent version/running fences counters. Candidate selection hitCount DESC,firstQueryOrder/providerGameID/id ASC; merge nonblank strings/nonnull player/year,first COVER/BACKGROUND and ordered screenshots.",
+      "time_rule": "Baseline BeginTx(ctx,nil) on shared writer; Service now sampled inside upper callback, not a Repo technical clock acquired after write permission. UUID positions are recorded separately below; no negative/overflow-time guard is assumed. Bounded5s WithoutCancel completion. InitialReview Service currently constructed and invoked INSIDE worker callback, not a separate transaction.",
+      "after_commit": [
+        {
+          "action": "Expose initial review/counts and terminal run/job together; media recovery can now freeze order and run",
+          "recovery": "Parent cancel true cancels import progress; scrape cancellation without parent cancel advances review without candidate application; causes remain joined on cleanup failure",
+          "test_id": "RFA-RF15-scrape_owner"
+        }
+      ],
+      "fault_points": [
+        "PLANNED initial-draft: inject SQL failure immediately after applicable stage and compare complete scrape/job/event/candidate/asset/cache/input/import/budget state; require rollback",
+        "PLANNED initial-screenshots: inject SQL failure immediately after applicable stage and compare complete scrape/job/event/candidate/asset/cache/input/import/budget state; require rollback",
+        "PLANNED initial-search-index: inject SQL failure immediately after applicable stage and compare complete scrape/job/event/candidate/asset/cache/input/import/budget state; require rollback",
+        "PLANNED initial-item: inject SQL failure immediately after applicable stage and compare complete scrape/job/event/candidate/asset/cache/input/import/budget state; require rollback",
+        "PLANNED initial-job: inject SQL failure immediately after applicable stage and compare complete scrape/job/event/candidate/asset/cache/input/import/budget state; require rollback",
+        "PLANNED scrape-job-finish: inject SQL failure immediately after applicable stage and compare complete scrape/job/event/candidate/asset/cache/input/import/budget state; require rollback",
+        "PLANNED scrape-run-finish: inject SQL failure immediately after applicable stage and compare complete scrape/job/event/candidate/asset/cache/input/import/budget state; require rollback",
+        "PLANNED scrape-finish-event: inject SQL failure immediately after applicable stage and compare complete scrape/job/event/candidate/asset/cache/input/import/budget state; require rollback",
+        "PLANNED each Guard independently mutated before writer acquisition,assert exact rejection and no unauthorized writes",
+        "PLANNED concurrent duplicate candidate/attempt,old worker,lease expiry,parent cancellation/payload release,commit failure and crash/recovery; no aggregate PASS substitution"
+      ],
+      "test_ids": [
+        "RFA-RF15-scrape_owner",
+        "RFA-RF15-provider_outcomes",
+        "RFA-RF15-candidate_race",
+        "RFA-RF15-media_atomic"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "No CAS bytes or new direct protective Blob ownership edge is published by this transaction.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "metadatascrape.record-lookup",
+      "owner": "metadatascrape",
+      "rf_id": "RF15",
+      "consumers": [
+        "(*retrom/internal/service/metadatascrape.ResultRecorder).Record"
+      ],
+      "snapshot": "retrom/internal/model/metadatascrape.LookupAttempt",
+      "prepare": "(*retrom/internal/service/metadatascrape.ResultRecorder).Record",
+      "commit": "(*retrom/internal/repo/metadatascrape.ResultRepository).WithWrite",
+      "policy_symbols": [
+        "retrom/internal/service/metadatascrape.ResponseExpiry",
+        "retrom/internal/service/metadatascrape.evidenceTerminal",
+        "retrom/internal/service/metadatascrape.matchedHashes",
+        "retrom/internal/service/metadatascrape.mediaSourceDigest",
+        "retrom/internal/service/metadatascrape.prepareCandidate",
+        "retrom/internal/service/metadatascrape.retryableOutcome"
+      ],
+      "fresh_facts": [
+        {
+          "name": "current execution authority",
+          "reader_symbol": "(retrom/internal/repo/metadatascrape.resultRecords).Writable",
+          "reason": "Inside writer EXISTS exact run/job/execution/worker; run/job RUNNING,lease/deadline>fresh claim.Now; game absent or PUBLISHED. Baseline does NOT recheck import payload/parent cancel or evidence belongs to run"
+        },
+        {
+          "name": "matched evidence hashes",
+          "reader_symbol": "(retrom/internal/repo/metadatascrape.resultRecords).Hashes",
+          "reason": "Inside writer hashes by evidenceID only; baseline missing evidenceID/run ownership join"
+        },
+        {
+          "name": "candidate uniqueness",
+          "reader_symbol": "(retrom/internal/repo/metadatascrape.resultRecords).Candidate",
+          "reason": "INSERT ON CONFLICT(run,provider_game_id) DO NOTHING then read current existing ID when duplicate"
+        },
+        {
+          "name": "media subject",
+          "reader_symbol": "(retrom/internal/repo/metadatascrape.resultRecords).Subject",
+          "reason": "Inside result writer lookup run linked game/import scope for each new candidate asset"
+        }
+      ],
+      "guards": [
+        {
+          "id": "live-execution",
+          "fields": [
+            "runId",
+            "jobId",
+            "executionNo",
+            "workerId",
+            "runState",
+            "jobState",
+            "lease",
+            "deadline",
+            "gameStatus"
+          ],
+          "expected_source": "Writable exact current SQL predicate; preparation cancellation rejected before Blob preparation",
+          "rejection": "ErrExecutionLost",
+          "test_id": "RFA-RF15-candidate_race"
+        },
+        {
+          "id": "candidate-admission",
+          "fields": [
+            "AllowCandidate",
+            "lookup.Candidate"
+          ],
+          "expected_source": "Baseline allows nonnil candidate only from caller bool; evidence processor has pre-writer candidateCount<20, not fresh count guard",
+          "rejection": "Skip candidate when false; owner/count race requires RF15 coverage",
+          "test_id": "RFA-RF15-candidate_race"
+        },
+        {
+          "id": "unique-candidate",
+          "fields": [
+            "runId",
+            "providerGameId"
+          ],
+          "expected_source": "Duplicate candidate returns original ID and writes additional hit; enqueue media only if INSERT actually created candidate",
+          "rejection": "No duplicate assets/jobs",
+          "test_id": "RFA-RF15-candidate_race"
+        },
+        {
+          "id": "cache-response-ownership",
+          "fields": [
+            "responseId",
+            "provider",
+            "requestDigest"
+          ],
+          "expected_source": "recordstore validates cache response exists and exact provider/requestDigest after UPSERT inside same transaction",
+          "rejection": "recordstore ownership error: provider cache response mismatch",
+          "test_id": "RFA-RF15-media_atomic"
+        },
+        {
+          "id": "asset-game-ownership",
+          "fields": [
+            "asset.candidateId",
+            "run.gameId",
+            "game.status"
+          ],
+          "expected_source": "recordstore validates new asset candidate/run game remains PUBLISHED in same transaction",
+          "rejection": "recordstore ownership error: game payload owner is not published",
+          "test_id": "RFA-RF15-scrape_owner"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "raw-blob",
+          "repo_helper": "(retrom/internal/repo/metadatascrape.resultRecords).Response",
+          "affected_records": [
+            "Network response only: EnsureRecord raw prepared Blob application/json; bytes Put before writer; EnsureRecord SELECT sha256,existing ID reused,else fresh UUIDv7 INSERT blobs hash/size/md5/sha1/crc32/mediaType/time ON CONFLICT sha256 DO NOTHING then SELECT stable ID,all inside writer"
+          ],
+          "test_id": "RFA-RF15-media_atomic"
+        },
+        {
+          "stage": "provider-response",
+          "repo_helper": "(retrom/internal/repo/metadatascrape.resultRecords).Response",
+          "affected_records": [
+            "Network response INSERT metadata_provider_responses UUID,HASHEOUS,requestDigest,nullableHTTP,outcome,rawBlob/rawPayload RETAINED|NONE,fetched/expires"
+          ],
+          "test_id": "RFA-RF15-media_atomic"
+        },
+        {
+          "stage": "provider-cache",
+          "repo_helper": "(retrom/internal/repo/metadatascrape.resultRecords).Response",
+          "affected_records": [
+            "HIT or MISS only: UPSERT metadata_provider_cache(provider,request_digest) current_response_id,expires,updated; cache response reuse skips all three prior writes"
+          ],
+          "test_id": "RFA-RF15-media_atomic"
+        },
+        {
+          "stage": "lookup-attempt",
+          "repo_helper": "(retrom/internal/repo/metadatascrape.resultRecords).Attempt",
+          "affected_records": [
+            "INSERT metadata_scrape_query_attempts UUID,run,evidence,response,attemptNo,source CACHE|NETWORK,time"
+          ],
+          "test_id": "RFA-RF15-media_atomic"
+        },
+        {
+          "stage": "candidate",
+          "repo_helper": "(retrom/internal/repo/metadatascrape.resultRecords).Candidate",
+          "affected_records": [
+            "If admitted INSERT scrape_candidates UUID,run,primaryResponse,providerGameID,normalizedMetadataJSON,evidenceJSON,time ON CONFLICT run/providerGameID DO NOTHING"
+          ],
+          "test_id": "RFA-RF15-media_atomic"
+        },
+        {
+          "stage": "candidate-hit",
+          "repo_helper": "(retrom/internal/repo/metadatascrape.resultRecords).Hit",
+          "affected_records": [
+            "INSERT scrape_candidate_hits selected new/existing candidate,attempt,canonical matched hashes JSON,time; retain valid second hit"
+          ],
+          "test_id": "RFA-RF15-media_atomic"
+        },
+        {
+          "stage": "media-budget-run",
+          "repo_helper": "(retrom/internal/repo/metadatascrape.resultRecords).Enqueue",
+          "affected_records": [
+            "New candidate assets only INSERT metadata_media_runs run with zero budget/order not frozen ON CONFLICT DO NOTHING"
+          ],
+          "test_id": "RFA-RF15-media_atomic"
+        },
+        {
+          "stage": "media-job",
+          "repo_helper": "(retrom/internal/repo/metadatascrape.resultRecords).Enqueue",
+          "affected_records": [
+            "Each new asset INSERT jobs MEDIA_FETCH UUID,scope,dedupe SHA(retrom-job-dedupe-v1 NUL MEDIA_FETCH NUL canonical candidateAssetId JSON),payload,input execution1,cancellable1,QUEUED,attempt0,max4,available/time"
+          ],
+          "test_id": "RFA-RF15-media_atomic"
+        },
+        {
+          "stage": "media-input",
+          "repo_helper": "(retrom/internal/repo/metadatascrape.resultRecords).Enqueue",
+          "affected_records": [
+            "INSERT job_input_snapshots schema1 MEDIA_FETCH/scope/executionUUIDv7,asset/run/response/sourceDigest with SHA of exact JSON bytes"
+          ],
+          "test_id": "RFA-RF15-media_atomic"
+        },
+        {
+          "stage": "media-queued-event",
+          "repo_helper": "(retrom/internal/repo/metadatascrape.resultRecords).Enqueue",
+          "affected_records": [
+            "INSERT job_events QUEUED schema1 executionNo1 attempt0,time"
+          ],
+          "test_id": "RFA-RF15-media_atomic"
+        },
+        {
+          "stage": "candidate-assets",
+          "repo_helper": "(retrom/internal/repo/metadatascrape.resultRecords).Assets",
+          "affected_records": [
+            "INSERT each scrape_candidate_assets UUID,candidate,response,providerAsset,kind,ordinal,sourcePath,PENDING,version1,mediaJobID,time after media jobs; same result transaction"
+          ],
+          "test_id": "RFA-RF15-media_atomic"
+        }
+      ],
+      "idempotency": "Candidate uniqueness(run,providerGameID) prevents duplicate assets/media work and preserves new hit. Attempt/response are new records; cached response ID is reused without fresh TTL reread. No replay receipt. Current provider query retries at most3 per evidence with 100/200ms delays for rate-limit/timeout/network; cached or nonretryable/third attempt becomes terminal.",
+      "time_rule": "Baseline ResultRepository.BeginTx(ctx,nil); candidate JSON and raw Blob Put are prepared before writer. Record samples Service now before writer for all timestamps/TTL, then samples AGAIN inside writer for Writable lease check. Response/attempt/candidate/asset/media-job/execution UUIDs generated inside callback. Target must use one post-write-permission Repo sample and prepared IDs.",
+      "after_commit": [
+        {
+          "action": "Return whether candidate created only after all response/cache/attempt/hit/assets/input/job/event records commit; media worker starts through durable recovery",
+          "recovery": "Provider calls and media fetch happen outside result transaction; failed DB publication leaves unowned bytes for GC. Media processing waits for scrape run terminal and frozen order.",
+          "test_id": "RFA-RF15-scrape_owner"
+        }
+      ],
+      "fault_points": [
+        "PLANNED raw-blob: inject SQL failure immediately after applicable stage and compare complete scrape/job/event/candidate/asset/cache/input/import/budget state; require rollback",
+        "PLANNED provider-response: inject SQL failure immediately after applicable stage and compare complete scrape/job/event/candidate/asset/cache/input/import/budget state; require rollback",
+        "PLANNED provider-cache: inject SQL failure immediately after applicable stage and compare complete scrape/job/event/candidate/asset/cache/input/import/budget state; require rollback",
+        "PLANNED lookup-attempt: inject SQL failure immediately after applicable stage and compare complete scrape/job/event/candidate/asset/cache/input/import/budget state; require rollback",
+        "PLANNED candidate: inject SQL failure immediately after applicable stage and compare complete scrape/job/event/candidate/asset/cache/input/import/budget state; require rollback",
+        "PLANNED candidate-hit: inject SQL failure immediately after applicable stage and compare complete scrape/job/event/candidate/asset/cache/input/import/budget state; require rollback",
+        "PLANNED media-budget-run: inject SQL failure immediately after applicable stage and compare complete scrape/job/event/candidate/asset/cache/input/import/budget state; require rollback",
+        "PLANNED media-job: inject SQL failure immediately after applicable stage and compare complete scrape/job/event/candidate/asset/cache/input/import/budget state; require rollback",
+        "PLANNED media-input: inject SQL failure immediately after applicable stage and compare complete scrape/job/event/candidate/asset/cache/input/import/budget state; require rollback",
+        "PLANNED media-queued-event: inject SQL failure immediately after applicable stage and compare complete scrape/job/event/candidate/asset/cache/input/import/budget state; require rollback",
+        "PLANNED candidate-assets: inject SQL failure immediately after applicable stage and compare complete scrape/job/event/candidate/asset/cache/input/import/budget state; require rollback",
+        "PLANNED each Guard independently mutated before writer acquisition,assert exact rejection and no unauthorized writes",
+        "PLANNED concurrent duplicate candidate/attempt,old worker,lease expiry,parent cancellation/payload release,commit failure and crash/recovery; no aggregate PASS substitution"
+      ],
+      "test_ids": [
+        "RFA-RF15-candidate_race",
+        "RFA-RF15-provider_outcomes",
+        "RFA-RF15-media_atomic",
+        "RFA-RF15-scrape_owner"
+      ],
+      "content_coordination": {
+        "required": true,
+        "reason": "Network raw response registers metadata_provider_responses.raw_response_blob_id PROTECTIVE ownership. Baseline has no shared digest coordinator; migration must take sorted stripe locks before DB writer, verify staged bytes and current ownership, retain until commit or physical action completes.",
+        "digest_sources": [
+          "Prepared raw response SHA256 from server-computed Blob metadata"
+        ],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": "(*retrom/internal/repo/metadatascrape.ResultRepository).WithWrite",
+        "test_ids": [
+          "RFA-RF18-gc_new_reference",
+          "RFA-RF18-gc_stale_digest",
+          "RFA-RF18-digest_lock_process"
+        ]
+      }
+    },
+    {
+      "operation_id": "metadatascrape.renew-media",
+      "owner": "metadatascrape",
+      "rf_id": "RF15",
+      "consumers": [
+        "(*retrom/internal/service/metadatascrape.MediaWorker).Run",
+        "(*retrom/internal/service/metadatascrape.MediaWorker).heartbeat",
+        "(*retrom/internal/service/metadatascrape.MediaWorker).refresh"
+      ],
+      "snapshot": "retrom/internal/model/metadatascrape.MediaSnapshot",
+      "prepare": "(*retrom/internal/service/metadatascrape.MediaWorker).refresh",
+      "commit": "(*retrom/internal/repo/metadatascrape.MediaRepository).WithWrite",
+      "policy_symbols": [
+        "retrom/internal/service/metadatascrape.mediaActive",
+        "retrom/internal/service/metadatascrape.mediaDigest",
+        "retrom/internal/service/metadatascrape.mediaOwned",
+        "retrom/internal/service/metadatascrape.mediaOwnerAvailable",
+        "retrom/internal/service/metadatascrape.mediaSourceDigest",
+        "retrom/internal/service/metadatascrape.validateMediaInput"
+      ],
+      "fresh_facts": [
+        {
+          "name": "current media execution",
+          "reader_symbol": "(retrom/internal/repo/metadatascrape.mediaRecords).Snapshot",
+          "reason": "Inside writer job kind MEDIA_FETCH,scope/state/execution/attempt/max/version/worker/deadline/lease/available,input snapshot; asset identity/status/version/source/run/owner state,payload,parent cancellation,run frozen/budget/version and earlier unfinished ordering"
+        }
+      ],
+      "guards": [
+        {
+          "id": "media-worker-identity",
+          "fields": [
+            "jobId",
+            "execution",
+            "attempt",
+            "workerId"
+          ],
+          "expected_source": "Exact current job/execution/attempt/worker; baseline mediaOwned does not compare job version",
+          "rejection": "ErrExecutionLost",
+          "test_id": "RFA-RF15-scrape_owner"
+        },
+        {
+          "id": "media-owner",
+          "fields": [
+            "asset.id",
+            "ownerKind",
+            "ownerId",
+            "scope",
+            "ownerState",
+            "payloadState",
+            "parentCancelled"
+          ],
+          "expected_source": "Existing asset scope equals job; GAME PUBLISHED or IMPORT_ITEM RETAINED not parent-cancelled with state SCRAPING|REVIEW_PENDING|FAILED_RETRYABLE",
+          "rejection": "ErrGameDeleted or CANCELLED disposition",
+          "test_id": "RFA-RF15-scrape_owner"
+        },
+        {
+          "id": "media-input",
+          "fields": [
+            "inputDigest",
+            "inputJSON",
+            "executionUUID",
+            "schema",
+            "kind",
+            "scope",
+            "assetId",
+            "runId",
+            "responseId",
+            "sourceDigest"
+          ],
+          "expected_source": "SHA exact JSON; UUIDv7,schema1,MEDIA_FETCH,exact scope/asset/run/response/source digest; baseline JSON unmarshal accepts unknown fields",
+          "rejection": "ErrMediaInput with cause",
+          "test_id": "RFA-RF15-scrape_owner"
+        },
+        {
+          "id": "active-media-lease",
+          "fields": [
+            "state",
+            "lease",
+            "deadline"
+          ],
+          "expected_source": "RUNNING,deadline strictly future,lease strictly future; then exact id/execution/attempt/worker SQL update",
+          "rejection": "ErrExecutionLost or context.DeadlineExceeded",
+          "test_id": "RFA-RF15-scrape_owner"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "renew-media-lease",
+          "repo_helper": "(retrom/internal/repo/metadatascrape.mediaRecords).Refresh",
+          "affected_records": [
+            "jobs exact identity/state/live lease+deadline -> lease now+60000,heartbeat/time; no version change"
+          ],
+          "test_id": "RFA-RF15-media_atomic"
+        }
+      ],
+      "idempotency": "No HTTP receipt; retain exact SQL identity/state/version and semantic repeat behavior below.",
+      "time_rule": "Baseline BeginTx(ctx,nil) on shared writer; Service now sampled inside upper callback, not a Repo technical clock acquired after write permission. UUID positions are recorded separately below; no negative/overflow-time guard is assumed.",
+      "after_commit": [
+        {
+          "action": "15-second heartbeat cancels running fetch on any lost authority",
+          "recovery": "Run defers cancel and joins heartbeat; recover stale active work through separate claim",
+          "test_id": "RFA-RF15-scrape_owner"
+        }
+      ],
+      "fault_points": [
+        "PLANNED renew-media-lease: inject SQL failure immediately after applicable stage and compare complete scrape/job/event/candidate/asset/cache/input/import/budget state; require rollback",
+        "PLANNED each Guard independently mutated before writer acquisition,assert exact rejection and no unauthorized writes",
+        "PLANNED concurrent duplicate candidate/attempt,old worker,lease expiry,parent cancellation/payload release,commit failure and crash/recovery; no aggregate PASS substitution"
+      ],
+      "test_ids": [
+        "RFA-RF15-scrape_owner",
+        "RFA-RF15-provider_outcomes",
+        "RFA-RF15-candidate_race",
+        "RFA-RF15-media_atomic"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "No CAS bytes or new direct protective Blob ownership edge is published by this transaction.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "metadatascrape.renew-scrape",
+      "owner": "metadatascrape",
+      "rf_id": "RF15",
+      "consumers": [
+        "(*retrom/internal/service/metadatascrape.Worker).Run",
+        "(*retrom/internal/service/metadatascrape.Worker).heartbeat"
+      ],
+      "snapshot": "retrom/internal/model/metadatascrape.WorkerClaim",
+      "prepare": "(*retrom/internal/service/metadatascrape.Worker).heartbeat",
+      "commit": "(*retrom/internal/repo/metadatascrape.WorkerRepository).WithWrite",
+      "policy_symbols": [],
+      "fresh_facts": [
+        {
+          "name": "current heartbeat lease",
+          "reader_symbol": "(retrom/internal/repo/metadatascrape.workerRecords).Refresh",
+          "reason": "Conditional SQL reads current job identity/execution/worker/state/lease/deadline; no snapshot query"
+        }
+      ],
+      "guards": [
+        {
+          "id": "heartbeat-authority",
+          "fields": [
+            "jobId",
+            "executionNo",
+            "workerId",
+            "state",
+            "lease",
+            "deadline"
+          ],
+          "expected_source": "Exact job/execution/worker,RUNNING,lease and deadline strictly > now; no attempt/version/kind/run predicate in baseline",
+          "rejection": "ErrExecutionLost via cancel cause when zero rows",
+          "test_id": "RFA-RF15-scrape_owner"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "renew-lease",
+          "repo_helper": "(retrom/internal/repo/metadatascrape.workerRecords).Refresh",
+          "affected_records": [
+            "jobs exact active lease -> lease now+60000,heartbeat/updated now; no version increment"
+          ],
+          "test_id": "RFA-RF15-media_atomic"
+        }
+      ],
+      "idempotency": "No HTTP receipt; retain exact SQL identity/state/version and semantic repeat behavior below.",
+      "time_rule": "Baseline BeginTx(ctx,nil) on shared writer; Service now sampled inside upper callback, not a Repo technical clock acquired after write permission. UUID positions are recorded separately below; no negative/overflow-time guard is assumed.",
+      "after_commit": [
+        {
+          "action": "15-second ticker cancels provider context on lease loss or persistence error",
+          "recovery": "Worker run joins heartbeat when context finishes; later recovery can reclaim expired jobs",
+          "test_id": "RFA-RF15-scrape_owner"
+        }
+      ],
+      "fault_points": [
+        "PLANNED renew-lease: inject SQL failure immediately after applicable stage and compare complete scrape/job/event/candidate/asset/cache/input/import/budget state; require rollback",
+        "PLANNED each Guard independently mutated before writer acquisition,assert exact rejection and no unauthorized writes",
+        "PLANNED concurrent duplicate candidate/attempt,old worker,lease expiry,parent cancellation/payload release,commit failure and crash/recovery; no aggregate PASS substitution"
+      ],
+      "test_ids": [
+        "RFA-RF15-scrape_owner",
+        "RFA-RF15-provider_outcomes",
+        "RFA-RF15-candidate_race",
+        "RFA-RF15-media_atomic"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "No CAS bytes or new direct protective Blob ownership edge is published by this transaction.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "metadatascrape.schedule-game",
+      "owner": "metadatascrape",
+      "rf_id": "RF15",
+      "consumers": [
+        "(*retrom/internal/service/metadatascrape.Scheduler).ScheduleGame",
+        "(*retrom/internal/transport/httpapi.Server).scrapeGame"
+      ],
+      "snapshot": "retrom/internal/model/metadatascrape.GameSubject",
+      "prepare": "(*retrom/internal/service/metadatascrape.Scheduler).ScheduleGame",
+      "commit": "(*retrom/internal/repo/metadatascrape.ScheduleRepository).WithWrite",
+      "policy_symbols": [],
+      "fresh_facts": [
+        {
+          "name": "current schedule subject",
+          "reader_symbol": "(retrom/internal/repo/metadatascrape.scheduleReads).Game",
+          "reason": "Inside writer: PUBLISHED game + platform instance/default source manifest/version; no instance.enabled check"
+        },
+        {
+          "name": "normal content",
+          "reader_symbol": "(retrom/internal/repo/metadatascrape.scheduleReads).Files",
+          "reason": "Inside writer: CONTENT files with blob hashes, optional source archive Blob/ordinal and stable order; non-arcade skips plain ZIP without archive provenance"
+        },
+        {
+          "name": "Arcade DAT",
+          "reader_symbol": "(retrom/internal/repo/metadatascrape.scheduleReads).DAT",
+          "reason": "Inside writer: latest import validation or game default-core variant DAT + dependency JSON; absent DAT yields empty evidence"
+        },
+        {
+          "name": "Arcade ROM facts",
+          "reader_symbol": "(retrom/internal/repo/metadatascrape.scheduleReads).Arcade",
+          "reason": "Inside writer: archive entries match required non-NODUMP/default-BIOS DAT ROM logical name,size,CRC/SHA1 with at least one hash; machine from dependency JSON"
+        }
+      ],
+      "guards": [
+        {
+          "id": "subject-available",
+          "fields": [
+            "subject.id",
+            "subject.state"
+          ],
+          "expected_source": "Current PUBLISHED game",
+          "rejection": "ErrGameVersionConflict",
+          "test_id": "RFA-RF15-media_atomic"
+        },
+        {
+          "id": "subject-version",
+          "fields": [
+            "request.version",
+            "current.version"
+          ],
+          "expected_source": "Exact expected draft/game version",
+          "rejection": "ErrGameVersionConflict",
+          "test_id": "RFA-RF15-media_atomic"
+        },
+        {
+          "id": "arcade-snapshot",
+          "fields": [
+            "platform",
+            "dependencyJSON.machine"
+          ],
+          "expected_source": "If arcade and DAT found: parse JSON with nonempty machine; rank SHA1 present first,size descending,name ascending; dedupe CRC32 NUL SHA1,keep <=8",
+          "rejection": "ErrArcadeSnapshotInvalid",
+          "test_id": "RFA-RF15-media_atomic"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "scrape-job",
+          "repo_helper": "(retrom/internal/repo/metadatascrape.scheduleWrites).Create",
+          "affected_records": [
+            "INSERT jobs METADATA_SCRAPE,scope,jobUUID,dedupe,payload,execution1,cancellable1,state QUEUED or SUCCEEDED,attempt0,max4,available/created/updated/optional finished; no input snapshot"
+          ],
+          "test_id": "RFA-RF15-media_atomic"
+        },
+        {
+          "stage": "scrape-run",
+          "repo_helper": "(retrom/internal/repo/metadatascrape.scheduleWrites).Create",
+          "affected_records": [
+            "INSERT metadata_scrape_runs runUUID,subject,job,provider,provider_config_version1,state RUNNING or COMPLETED,created/updated/optionalcompleted"
+          ],
+          "test_id": "RFA-RF15-media_atomic"
+        },
+        {
+          "stage": "scrape-event",
+          "repo_helper": "(retrom/internal/repo/metadatascrape.scheduleWrites).Create",
+          "affected_records": [
+            "INSERT job_events QUEUED or SUCCEEDED,scope,dataJSON,time"
+          ],
+          "test_id": "RFA-RF15-media_atomic"
+        },
+        {
+          "stage": "hash-evidence",
+          "repo_helper": "(retrom/internal/repo/metadatascrape.scheduleWrites).Evidence",
+          "affected_records": [
+            "INSERT each content_hash_evidence UUID/run/profile RAW_FILE|SINGLE_ARCHIVE_MEMBER|ARCADE_DAT_ENTRIES,Blob or archiveBlob+ordinal,hashes,queryOrder,time; all run/job/evidence in one transaction"
+          ],
+          "test_id": "RFA-RF15-media_atomic"
+        },
+        {
+          "stage": "game-version",
+          "repo_helper": "(retrom/internal/repo/metadatascrape.scheduleWrites).Game",
+          "affected_records": [
+            "games exact id/version -> version+1,updated,require one row"
+          ],
+          "test_id": "RFA-RF15-media_atomic"
+        }
+      ],
+      "idempotency": "Optimistic draft/game version prevents repeat at old version. New explicit scrape gets unique dedupe and bypasses cache; provider NONE produces a durable completed no-op. Import scheduling is nested RF13, not a third independent schedule transaction.",
+      "time_rule": "Baseline BeginTx(ctx,nil) on shared writer; Service now sampled inside upper callback, not a Repo technical clock acquired after write permission. UUID positions are recorded separately below; no negative/overflow-time guard is assumed. Nonce/run/job/evidence/review-event UUIDs and now are generated inside writer callback. Review bypass dedupe includes fresh nonce; game dedupe includes game/manifest/fresh run ID.",
+      "after_commit": [
+        {
+          "action": "Dispatch committed HASHEOUS run only after commit; NONE remains completed no-op",
+          "recovery": "Worker Recoverable reads durable queued/expired/cancelled rows in batches64, supervisor periodically dispatches",
+          "test_id": "RFA-RF15-scrape_owner"
+        }
+      ],
+      "fault_points": [
+        "PLANNED scrape-job: inject SQL failure immediately after applicable stage and compare complete scrape/job/event/candidate/asset/cache/input/import/budget state; require rollback",
+        "PLANNED scrape-run: inject SQL failure immediately after applicable stage and compare complete scrape/job/event/candidate/asset/cache/input/import/budget state; require rollback",
+        "PLANNED scrape-event: inject SQL failure immediately after applicable stage and compare complete scrape/job/event/candidate/asset/cache/input/import/budget state; require rollback",
+        "PLANNED hash-evidence: inject SQL failure immediately after applicable stage and compare complete scrape/job/event/candidate/asset/cache/input/import/budget state; require rollback",
+        "PLANNED game-version: inject SQL failure immediately after applicable stage and compare complete scrape/job/event/candidate/asset/cache/input/import/budget state; require rollback",
+        "PLANNED each Guard independently mutated before writer acquisition,assert exact rejection and no unauthorized writes",
+        "PLANNED concurrent duplicate candidate/attempt,old worker,lease expiry,parent cancellation/payload release,commit failure and crash/recovery; no aggregate PASS substitution"
+      ],
+      "test_ids": [
+        "RFA-RF15-media_atomic",
+        "RFA-RF15-provider_outcomes",
+        "RFA-RF15-candidate_race",
+        "RFA-RF15-scrape_owner"
+      ],
+      "content_coordination": {
+        "required": true,
+        "reason": "content_hash_evidence.blob_id and archive_blob_id are registered PROTECTIVE edges even when bytes already exist. Baseline has no shared digest coordinator; migration must take sorted stripe locks before DB writer, verify staged bytes and current ownership, retain until commit or physical action completes.",
+        "digest_sources": [
+          "Current content Blob digests referenced by evidence",
+          "Current source archive digests for SINGLE_ARCHIVE_MEMBER/ARCADE_DAT_ENTRIES"
+        ],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": "(*retrom/internal/repo/metadatascrape.ScheduleRepository).WithWrite",
+        "test_ids": [
+          "RFA-RF18-gc_new_reference",
+          "RFA-RF18-gc_stale_digest",
+          "RFA-RF18-digest_lock_process"
+        ]
+      }
+    },
+    {
+      "operation_id": "metadatascrape.schedule-review",
+      "owner": "metadatascrape",
+      "rf_id": "RF15",
+      "consumers": [
+        "(*retrom/internal/service/metadatascrape.Scheduler).ScheduleReview",
+        "(*retrom/internal/transport/httpapi.Server).scrapeReview"
+      ],
+      "snapshot": "retrom/internal/model/metadatascrape.ReviewSubject",
+      "prepare": "(*retrom/internal/service/metadatascrape.Scheduler).ScheduleReview",
+      "commit": "(*retrom/internal/repo/metadatascrape.ScheduleRepository).WithWrite",
+      "policy_symbols": [],
+      "fresh_facts": [
+        {
+          "name": "current schedule subject",
+          "reader_symbol": "(retrom/internal/repo/metadatascrape.scheduleReads).Review",
+          "reason": "Inside writer: REVIEW_PENDING import item + review draft version/metadata"
+        },
+        {
+          "name": "import platform",
+          "reader_symbol": "(retrom/internal/repo/metadatascrape.scheduleReads).Import",
+          "reason": "Same writer joins item to its platform instance; scheduleImport called with bypassCache=true"
+        },
+        {
+          "name": "normal content",
+          "reader_symbol": "(retrom/internal/repo/metadatascrape.scheduleReads).Files",
+          "reason": "Inside writer: CONTENT files with blob hashes, optional source archive Blob/ordinal and stable order; non-arcade skips plain ZIP without archive provenance"
+        },
+        {
+          "name": "Arcade DAT",
+          "reader_symbol": "(retrom/internal/repo/metadatascrape.scheduleReads).DAT",
+          "reason": "Inside writer: latest import validation or game default-core variant DAT + dependency JSON; absent DAT yields empty evidence"
+        },
+        {
+          "name": "Arcade ROM facts",
+          "reader_symbol": "(retrom/internal/repo/metadatascrape.scheduleReads).Arcade",
+          "reason": "Inside writer: archive entries match required non-NODUMP/default-BIOS DAT ROM logical name,size,CRC/SHA1 with at least one hash; machine from dependency JSON"
+        }
+      ],
+      "guards": [
+        {
+          "id": "subject-available",
+          "fields": [
+            "subject.id",
+            "subject.state"
+          ],
+          "expected_source": "Current REVIEW_PENDING item",
+          "rejection": "ErrReviewVersionConflict",
+          "test_id": "RFA-RF15-media_atomic"
+        },
+        {
+          "id": "subject-version",
+          "fields": [
+            "request.version",
+            "current.version"
+          ],
+          "expected_source": "Exact expected draft/game version",
+          "rejection": "ErrReviewVersionConflict",
+          "test_id": "RFA-RF15-media_atomic"
+        },
+        {
+          "id": "provider",
+          "fields": [
+            "provider"
+          ],
+          "expected_source": "HASHEOUS or NONE; NONE makes completed run/succeeded job and skips evidence",
+          "rejection": "ErrProviderInvalid",
+          "test_id": "RFA-RF15-media_atomic"
+        },
+        {
+          "id": "arcade-snapshot",
+          "fields": [
+            "platform",
+            "dependencyJSON.machine"
+          ],
+          "expected_source": "If arcade and DAT found: parse JSON with nonempty machine; rank SHA1 present first,size descending,name ascending; dedupe CRC32 NUL SHA1,keep <=8",
+          "rejection": "ErrArcadeSnapshotInvalid",
+          "test_id": "RFA-RF15-media_atomic"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "scrape-job",
+          "repo_helper": "(retrom/internal/repo/metadatascrape.scheduleWrites).Create",
+          "affected_records": [
+            "INSERT jobs METADATA_SCRAPE,scope,jobUUID,dedupe,payload,execution1,cancellable1,state QUEUED or SUCCEEDED,attempt0,max4,available/created/updated/optional finished; no input snapshot"
+          ],
+          "test_id": "RFA-RF15-media_atomic"
+        },
+        {
+          "stage": "scrape-run",
+          "repo_helper": "(retrom/internal/repo/metadatascrape.scheduleWrites).Create",
+          "affected_records": [
+            "INSERT metadata_scrape_runs runUUID,subject,job,provider,provider_config_version1,state RUNNING or COMPLETED,created/updated/optionalcompleted"
+          ],
+          "test_id": "RFA-RF15-media_atomic"
+        },
+        {
+          "stage": "scrape-event",
+          "repo_helper": "(retrom/internal/repo/metadatascrape.scheduleWrites).Create",
+          "affected_records": [
+            "INSERT job_events QUEUED or SUCCEEDED,scope,dataJSON,time"
+          ],
+          "test_id": "RFA-RF15-media_atomic"
+        },
+        {
+          "stage": "hash-evidence",
+          "repo_helper": "(retrom/internal/repo/metadatascrape.scheduleWrites).Evidence",
+          "affected_records": [
+            "INSERT each content_hash_evidence UUID/run/profile RAW_FILE|SINGLE_ARCHIVE_MEMBER|ARCADE_DAT_ENTRIES,Blob or archiveBlob+ordinal,hashes,queryOrder,time; all run/job/evidence in one transaction"
+          ],
+          "test_id": "RFA-RF15-media_atomic"
+        },
+        {
+          "stage": "draft-version",
+          "repo_helper": "(retrom/internal/repo/metadatascrape.scheduleWrites).Review",
+          "affected_records": [
+            "review_drafts exact item/version -> version+1,time,require one row"
+          ],
+          "test_id": "RFA-RF15-media_atomic"
+        },
+        {
+          "stage": "review-event",
+          "repo_helper": "(retrom/internal/repo/metadatascrape.scheduleWrites).Review",
+          "affected_records": [
+            "INSERT review_events eventUUID,SCRAPE_REQUESTED,ActorFromContext release-setup fallback,version,before/after schema2 JSON,diff/evidence,time"
+          ],
+          "test_id": "RFA-RF15-media_atomic"
+        }
+      ],
+      "idempotency": "Optimistic draft/game version prevents repeat at old version. New explicit scrape gets unique dedupe and bypasses cache; provider NONE produces a durable completed no-op. Import scheduling is nested RF13, not a third independent schedule transaction.",
+      "time_rule": "Baseline BeginTx(ctx,nil) on shared writer; Service now sampled inside upper callback, not a Repo technical clock acquired after write permission. UUID positions are recorded separately below; no negative/overflow-time guard is assumed. Nonce/run/job/evidence/review-event UUIDs and now are generated inside writer callback. Review bypass dedupe includes fresh nonce; game dedupe includes game/manifest/fresh run ID.",
+      "after_commit": [
+        {
+          "action": "Dispatch committed HASHEOUS run only after commit; NONE remains completed no-op",
+          "recovery": "Worker Recoverable reads durable queued/expired/cancelled rows in batches64, supervisor periodically dispatches",
+          "test_id": "RFA-RF15-scrape_owner"
+        }
+      ],
+      "fault_points": [
+        "PLANNED scrape-job: inject SQL failure immediately after applicable stage and compare complete scrape/job/event/candidate/asset/cache/input/import/budget state; require rollback",
+        "PLANNED scrape-run: inject SQL failure immediately after applicable stage and compare complete scrape/job/event/candidate/asset/cache/input/import/budget state; require rollback",
+        "PLANNED scrape-event: inject SQL failure immediately after applicable stage and compare complete scrape/job/event/candidate/asset/cache/input/import/budget state; require rollback",
+        "PLANNED hash-evidence: inject SQL failure immediately after applicable stage and compare complete scrape/job/event/candidate/asset/cache/input/import/budget state; require rollback",
+        "PLANNED draft-version: inject SQL failure immediately after applicable stage and compare complete scrape/job/event/candidate/asset/cache/input/import/budget state; require rollback",
+        "PLANNED review-event: inject SQL failure immediately after applicable stage and compare complete scrape/job/event/candidate/asset/cache/input/import/budget state; require rollback",
+        "PLANNED each Guard independently mutated before writer acquisition,assert exact rejection and no unauthorized writes",
+        "PLANNED concurrent duplicate candidate/attempt,old worker,lease expiry,parent cancellation/payload release,commit failure and crash/recovery; no aggregate PASS substitution"
+      ],
+      "test_ids": [
+        "RFA-RF15-media_atomic",
+        "RFA-RF15-provider_outcomes",
+        "RFA-RF15-candidate_race",
+        "RFA-RF15-scrape_owner"
+      ],
+      "content_coordination": {
+        "required": true,
+        "reason": "content_hash_evidence.blob_id and archive_blob_id are registered PROTECTIVE edges even when bytes already exist. Baseline has no shared digest coordinator; migration must take sorted stripe locks before DB writer, verify staged bytes and current ownership, retain until commit or physical action completes.",
+        "digest_sources": [
+          "Current content Blob digests referenced by evidence",
+          "Current source archive digests for SINGLE_ARCHIVE_MEMBER/ARCADE_DAT_ENTRIES"
+        ],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": "(*retrom/internal/repo/metadatascrape.ScheduleRepository).WithWrite",
+        "test_ids": [
+          "RFA-RF18-gc_new_reference",
+          "RFA-RF18-gc_stale_digest",
+          "RFA-RF18-digest_lock_process"
+        ]
+      }
+    },
+    {
       "operation_id": "netplay.abort-preparation",
       "owner": "netplay",
       "rf_id": "RF12",
@@ -14323,6 +15975,7 @@
     "RF16 SOURCE_REVIEWED baseline census: 30 standalone transactions including separate content claim/heartbeat. Aggregate RFA links are planned, not per-Guard/stage PASS evidence. Target actor/impact/time freshness, prepared-upload binding, nested sessionstore stages, content locking and all real query consumers remain migration/verification work.",
     "RF10 SOURCE_REVIEWED census adds 14 transaction families, including separate validation heartbeat/failure and isolated-capability revoke. Branch-specific SQL stages and nested sessionstore writes are explicit. Aggregate RFA references are PLANNED, not per-Guard/stage evidence. Actor/session freshness, prepared preview file closure, signed isolation expiry, all digest lock protocols and expired product receipts remain migration/behavior-review work.",
     "RF11 SOURCE_REVIEWED census adds 9 transaction families: provider reconciliation, browser/server firmware, startup definitions, DAT ensure/recover,claim,publish,ready activation,failure. DAT requirements and firmware supersession are atomic nested steps, not standalone commits. BIOS/corevalidation are read-only services. Guards/stages and fixture references remain PLANNED; stale DAT execution fencing, writer time, external preparation, digest locking and full parser/Provider consumers require migration/verification.",
-    "RF12 SOURCE_REVIEWED census adds 19 distinct transaction families, including original-session AbortPreparation separately from post-Launch record and active/passive expiry separately from startup recovery. Launch participant credential publication belongs to RF10; participant access/query/Hub frame protocol are read-only or memory operations, not fabricated SQL commands. Baseline Hub performs SQL under mutex and sometimes publishes memory before commit; writer time and UUID positions are recorded for migration. All new behavioral/fault/race cases remain PLANNED."
+    "RF12 SOURCE_REVIEWED census adds 19 distinct transaction families, including original-session AbortPreparation separately from post-Launch record and active/passive expiry separately from startup recovery. Launch participant credential publication belongs to RF10; participant access/query/Hub frame protocol are read-only or memory operations, not fabricated SQL commands. Baseline Hub performs SQL under mutex and sometimes publishes memory before commit; writer time and UUID positions are recorded for migration. All new behavioral/fault/race cases remain PLANNED.",
+    "RF15 SOURCE_REVIEWED: 10 standalone transaction entry families, with scrape claim/requeue/terminal branches and media claim/requeue/reconcile branches explicitly expanded. ScheduleImport is nested RF13; media scheduling is nested record-lookup; initial-review projection is nested finish-scrape. Recovery and cache expiry lookup are read-only here. Baseline record-lookup lacks fresh import payload/parent cancellation/evidence-to-run checks and samples two times. Clock/UUID positions, protective hash-evidence/raw/media Blob edges and remaining inline candidate/budget/evidence-selection policy extraction are recorded, not claimed fixed. All new fault/race tests remain PLANNED."
   ]
 }

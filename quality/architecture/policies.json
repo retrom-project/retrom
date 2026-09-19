@@ -1702,6 +1702,402 @@
       ]
     },
     {
+      "id": "metadatascrape.ResponseExpiry",
+      "owner": "metadatascrape",
+      "rf_id": "RF15",
+      "symbol": "retrom/internal/service/metadatascrape.ResponseExpiry",
+      "consumers": [
+        "retrom/internal/service/metadatascrape.recordResponse"
+      ],
+      "invariant": "HIT expires after7days,MISS after1day,all other outcomes at now.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF15-provider_outcomes",
+        "RFA-RF15-scrape_owner"
+      ]
+    },
+    {
+      "id": "metadatascrape.compareInitialCandidate",
+      "owner": "metadatascrape",
+      "rf_id": "RF15",
+      "symbol": "retrom/internal/service/metadatascrape.compareInitialCandidate",
+      "consumers": [
+        "retrom/internal/service/metadatascrape.selectInitialCandidate"
+      ],
+      "invariant": "Rank hits descending,first query order/provider game ID/candidate ID ascending.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF15-provider_outcomes",
+        "RFA-RF15-scrape_owner"
+      ]
+    },
+    {
+      "id": "metadatascrape.evidenceTerminal",
+      "owner": "metadatascrape",
+      "rf_id": "RF15",
+      "symbol": "retrom/internal/service/metadatascrape.evidenceTerminal",
+      "consumers": [
+        "(*retrom/internal/service/metadatascrape.EvidenceProcessor).processScrapeEvidence"
+      ],
+      "invariant": "Any cached attempt,nonretryable outcome or >=3 attempts closes evidence; zero attempts remains open.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF15-provider_outcomes",
+        "RFA-RF15-scrape_owner"
+      ]
+    },
+    {
+      "id": "metadatascrape.initialProgress",
+      "owner": "metadatascrape",
+      "rf_id": "RF15",
+      "symbol": "retrom/internal/service/metadatascrape.initialProgress",
+      "consumers": [
+        "(*retrom/internal/service/metadatascrape.InitialReviewService).Cancel",
+        "(*retrom/internal/service/metadatascrape.InitialReviewService).Fail",
+        "(*retrom/internal/service/metadatascrape.InitialReviewService).advanceReview"
+      ],
+      "invariant": "Build initial import progress intent from explicit current counts/version and now.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF15-provider_outcomes",
+        "RFA-RF15-scrape_owner"
+      ]
+    },
+    {
+      "id": "metadatascrape.matchedHashes",
+      "owner": "metadatascrape",
+      "rf_id": "RF15",
+      "symbol": "retrom/internal/service/metadatascrape.matchedHashes",
+      "consumers": [
+        "retrom/internal/service/metadatascrape.recordCandidate"
+      ],
+      "invariant": "Stable JSON mapping only present crc32/md5/sha1/sha256 fields from explicit evidence.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF15-provider_outcomes",
+        "RFA-RF15-scrape_owner"
+      ]
+    },
+    {
+      "id": "metadatascrape.mediaActive",
+      "owner": "metadatascrape",
+      "rf_id": "RF15",
+      "symbol": "retrom/internal/service/metadatascrape.mediaActive",
+      "consumers": [
+        "(*retrom/internal/service/metadatascrape.MediaWorker).refresh",
+        "retrom/internal/service/metadatascrape.mediaCompletion"
+      ],
+      "invariant": "Owned RUNNING with future deadline/lease,available owner and valid input.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF15-provider_outcomes",
+        "RFA-RF15-scrape_owner"
+      ]
+    },
+    {
+      "id": "metadatascrape.mediaClaimable",
+      "owner": "metadatascrape",
+      "rf_id": "RF15",
+      "symbol": "retrom/internal/service/metadatascrape.mediaClaimable",
+      "consumers": [
+        "(*retrom/internal/service/metadatascrape.MediaWorker).claimInScope"
+      ],
+      "invariant": "QUEUED or expired RUNNING/CANCEL_REQUESTED can acquire; other states cannot.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF15-provider_outcomes",
+        "RFA-RF15-scrape_owner"
+      ]
+    },
+    {
+      "id": "metadatascrape.mediaCompletion",
+      "owner": "metadatascrape",
+      "rf_id": "RF15",
+      "symbol": "retrom/internal/service/metadatascrape.mediaCompletion",
+      "consumers": [
+        "(*retrom/internal/service/metadatascrape.MediaWorker).settle"
+      ],
+      "invariant": "Cancellation wins; success requires active authority; failure retryability/code/deadline mapping preserves causes.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF15-provider_outcomes",
+        "RFA-RF15-scrape_owner"
+      ]
+    },
+    {
+      "id": "metadatascrape.mediaDigest",
+      "owner": "metadatascrape",
+      "rf_id": "RF15",
+      "symbol": "retrom/internal/service/metadatascrape.mediaDigest",
+      "consumers": [
+        "retrom/internal/service/metadatascrape.validateMediaInput"
+      ],
+      "invariant": "SHA256 hexadecimal of exact frozen JSON bytes.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF15-provider_outcomes",
+        "RFA-RF15-scrape_owner"
+      ]
+    },
+    {
+      "id": "metadatascrape.mediaErrorCode",
+      "owner": "metadatascrape",
+      "rf_id": "RF15",
+      "symbol": "retrom/internal/service/metadatascrape.mediaErrorCode",
+      "consumers": [
+        "(*retrom/internal/service/metadatascrape.MediaWorker).fetch"
+      ],
+      "invariant": "Read-limit error maps budget exceeded,otherwise stable provider asset error.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF15-provider_outcomes",
+        "RFA-RF15-scrape_owner"
+      ]
+    },
+    {
+      "id": "metadatascrape.mediaOwned",
+      "owner": "metadatascrape",
+      "rf_id": "RF15",
+      "symbol": "retrom/internal/service/metadatascrape.mediaOwned",
+      "consumers": [
+        "(*retrom/internal/service/metadatascrape.MediaWorker).account",
+        "(*retrom/internal/service/metadatascrape.MediaWorker).settle",
+        "retrom/internal/service/metadatascrape.mediaActive"
+      ],
+      "invariant": "Exact job ID/execution/attempt/worker identity.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF15-provider_outcomes",
+        "RFA-RF15-scrape_owner"
+      ]
+    },
+    {
+      "id": "metadatascrape.mediaOwnerAvailable",
+      "owner": "metadatascrape",
+      "rf_id": "RF15",
+      "symbol": "retrom/internal/service/metadatascrape.mediaOwnerAvailable",
+      "consumers": [
+        "retrom/internal/service/metadatascrape.mediaActive",
+        "retrom/internal/service/metadatascrape.mediaCompletion",
+        "retrom/internal/service/metadatascrape.mediaTerminalCause"
+      ],
+      "invariant": "Exact asset scope; published game or retained active uncancelled import item.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF15-provider_outcomes",
+        "RFA-RF15-scrape_owner"
+      ]
+    },
+    {
+      "id": "metadatascrape.mediaRetryable",
+      "owner": "metadatascrape",
+      "rf_id": "RF15",
+      "symbol": "retrom/internal/service/metadatascrape.mediaRetryable",
+      "consumers": [
+        "retrom/internal/service/metadatascrape.mediaCompletion"
+      ],
+      "invariant": "Explicit permanent media/input/state/security/size/decode errors never retry.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF15-provider_outcomes",
+        "RFA-RF15-scrape_owner"
+      ]
+    },
+    {
+      "id": "metadatascrape.mediaSourceDigest",
+      "owner": "metadatascrape",
+      "rf_id": "RF15",
+      "symbol": "retrom/internal/service/metadatascrape.mediaSourceDigest",
+      "consumers": [
+        "retrom/internal/service/metadatascrape.newMediaJob",
+        "retrom/internal/service/metadatascrape.validateMediaInput"
+      ],
+      "invariant": "SHA256 of length-prefixed asset/candidate/response/providerAsset/path/kind/ordinal fields.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF15-provider_outcomes",
+        "RFA-RF15-scrape_owner"
+      ]
+    },
+    {
+      "id": "metadatascrape.mediaTerminalCause",
+      "owner": "metadatascrape",
+      "rf_id": "RF15",
+      "symbol": "retrom/internal/service/metadatascrape.mediaTerminalCause",
+      "consumers": [
+        "(*retrom/internal/service/metadatascrape.MediaWorker).claimInScope"
+      ],
+      "invariant": "Ordered cancellation,owner,deadline,attempt/input/asset-state terminal classification.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF15-provider_outcomes",
+        "RFA-RF15-scrape_owner"
+      ]
+    },
+    {
+      "id": "metadatascrape.mergeInitialReviewMetadata",
+      "owner": "metadatascrape",
+      "rf_id": "RF15",
+      "symbol": "retrom/internal/service/metadatascrape.mergeInitialReviewMetadata",
+      "consumers": [
+        "(*retrom/internal/service/metadatascrape.InitialReviewService).applyCandidate"
+      ],
+      "invariant": "Keep current known fields unless nonblank candidate strings or nonnil numeric values replace them; stable known-field JSON.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF15-provider_outcomes",
+        "RFA-RF15-scrape_owner"
+      ]
+    },
+    {
+      "id": "metadatascrape.metadataRetryDelay",
+      "owner": "metadatascrape",
+      "rf_id": "RF15",
+      "symbol": "retrom/internal/service/metadatascrape.metadataRetryDelay",
+      "consumers": [
+        "(*retrom/internal/service/metadatascrape.MediaWorker).claimInScope",
+        "(*retrom/internal/service/metadatascrape.Worker).claim"
+      ],
+      "invariant": "Clamped attempt-index delays1s/5s/30s/120s.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF15-provider_outcomes",
+        "RFA-RF15-scrape_owner"
+      ]
+    },
+    {
+      "id": "metadatascrape.prepareCandidate",
+      "owner": "metadatascrape",
+      "rf_id": "RF15",
+      "symbol": "retrom/internal/service/metadatascrape.prepareCandidate",
+      "consumers": [
+        "(*retrom/internal/service/metadatascrape.ResultRecorder).Record"
+      ],
+      "invariant": "AllowCandidate and nonnil candidate gate; stable metadata/evidence JSON from provider value.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF15-provider_outcomes",
+        "RFA-RF15-scrape_owner"
+      ]
+    },
+    {
+      "id": "metadatascrape.retryableOutcome",
+      "owner": "metadatascrape",
+      "rf_id": "RF15",
+      "symbol": "retrom/internal/service/metadatascrape.retryableOutcome",
+      "consumers": [
+        "(*retrom/internal/service/metadatascrape.EvidenceProcessor).processEvidenceItem",
+        "retrom/internal/service/metadatascrape.evidenceTerminal"
+      ],
+      "invariant": "Provider rate-limited,timeout,network outcomes retry; all other outcomes do not.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF15-provider_outcomes",
+        "RFA-RF15-scrape_owner"
+      ]
+    },
+    {
+      "id": "metadatascrape.selectInitialAssets",
+      "owner": "metadatascrape",
+      "rf_id": "RF15",
+      "symbol": "retrom/internal/service/metadatascrape.selectInitialAssets",
+      "consumers": [
+        "(*retrom/internal/service/metadatascrape.InitialReviewService).applyCandidate"
+      ],
+      "invariant": "First ordered COVER/BACKGROUND and all SCREENSHOT references.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF15-provider_outcomes",
+        "RFA-RF15-scrape_owner"
+      ]
+    },
+    {
+      "id": "metadatascrape.selectInitialCandidate",
+      "owner": "metadatascrape",
+      "rf_id": "RF15",
+      "symbol": "retrom/internal/service/metadatascrape.selectInitialCandidate",
+      "consumers": [
+        "(*retrom/internal/service/metadatascrape.InitialReviewService).applyCandidate"
+      ],
+      "invariant": "Choose deterministic best explicit candidate,or no selection for empty set.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF15-provider_outcomes",
+        "RFA-RF15-scrape_owner"
+      ]
+    },
+    {
+      "id": "metadatascrape.sortMedia",
+      "owner": "metadatascrape",
+      "rf_id": "RF15",
+      "symbol": "retrom/internal/service/metadatascrape.sortMedia",
+      "consumers": [
+        "retrom/internal/service/metadatascrape.freezeMediaOrder"
+      ],
+      "invariant": "Rank hits descending then query/providerGame/kind/ordinal/id ascending.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF15-provider_outcomes",
+        "RFA-RF15-scrape_owner"
+      ]
+    },
+    {
+      "id": "metadatascrape.stableAssetError",
+      "owner": "metadatascrape",
+      "rf_id": "RF15",
+      "symbol": "retrom/internal/service/metadatascrape.stableAssetError",
+      "consumers": [
+        "retrom/internal/service/metadatascrape.mediaErrorCode"
+      ],
+      "invariant": "Map known provider asset causes to stable codes; unknown ASSET_FETCH_FAILED.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF15-provider_outcomes",
+        "RFA-RF15-scrape_owner"
+      ]
+    },
+    {
+      "id": "metadatascrape.validateMediaInput",
+      "owner": "metadatascrape",
+      "rf_id": "RF15",
+      "symbol": "retrom/internal/service/metadatascrape.validateMediaInput",
+      "consumers": [
+        "(*retrom/internal/service/metadatascrape.MediaWorker).account",
+        "retrom/internal/service/metadatascrape.mediaActive",
+        "retrom/internal/service/metadatascrape.mediaTerminalCause"
+      ],
+      "invariant": "Exact input digest/schema/kind/UUIDv7/scope/asset/run/response/source authority.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF15-provider_outcomes",
+        "RFA-RF15-scrape_owner"
+      ]
+    },
+    {
       "id": "netplay.EligibilityBlocker",
       "owner": "netplay",
       "rf_id": "RF12",
