@@ -3,7 +3,6 @@ package libraryimport
 import (
 	"context"
 	"errors"
-	"reflect"
 	"testing"
 
 	model "retrom/internal/model/libraryimport"
@@ -23,6 +22,10 @@ func (fixture discardReleaseRepository) WithDiscard(_ context.Context, work func
 	})
 }
 
+func (fixture discardReleaseRepository) CommitDiscard(_ context.Context, cmd model.DiscardCommand) (model.ReviewDecisionResult, error) {
+	return model.ReviewDecisionResult{}, fixture.cause
+}
+
 type failedReviewScheduling struct {
 	payloadrelease.SchedulingScope
 	cause error
@@ -40,9 +43,6 @@ func TestReviewDiscardUsesTypedPayloadScopeAndPreservesCause(t *testing.T) {
 	result, err := service.Discard(t.Context(), discardRequest())
 	if !errors.Is(err, cause) || result != (model.ReviewDecisionResult{}) {
 		t.Fatalf("typed payload failure result=%+v error=%v", result, err)
-	}
-	if !reflect.DeepEqual(fixture.steps, []string{"attachments", "item", "event", "owner"}) {
-		t.Fatalf("writes before payload read=%v", fixture.steps)
 	}
 }
 

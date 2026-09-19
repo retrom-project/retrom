@@ -71,6 +71,50 @@ func (scheduler *Scheduler) identity() (string, error) {
 	return id, nil
 }
 
+// Review schedules payload releases for a discarded or deduplicated review item.
+// It processes the item itself, its bound import sources, and the parent import.
+func (scheduler *Scheduler) Review(
+	ctx context.Context, scope application.ReleaseScope, request application.ReviewRelease,
+) error {
+	if request.ItemID == "" || request.ImportID == "" || !application.ValidReason(request.Reason) || request.NowMS < 0 {
+		return application.ErrScopeInvalid
+	}
+	if _, err := scheduler.TerminalItem(ctx, scope.Scheduling, request.ItemID, request.Reason, request.NowMS); err != nil {
+		return err
+	}
+	if err := scheduler.reviewBoundSources(ctx, scope, request.ItemID, request.NowMS); err != nil {
+		return err
+	}
+	if _, err := scheduler.TerminalImport(ctx, scope.Scheduling, request.ImportID, request.NowMS); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (scheduler *Scheduler) reviewBoundSources(
+	ctx context.Context, scope application.ReleaseScope, itemID string, now int64,
+) error {
+	var cursor application.Scope
+	for {
+		sources, err := scope.Links.BoundSources(ctx, itemID, cursor, 200)
+		if err != nil {
+			return fmt.Errorf("read bound source release owners: %w", err)
+		}
+		if len(sources) == 0 {
+			return nil
+		}
+		for _, source := range sources {
+			if source.Type < cursor.Type || source.Type == cursor.Type && source.ID <= cursor.ID {
+				return application.ErrScopeInvalid
+			}
+			if _, err := scheduler.TerminalSource(ctx, scope.Scheduling, source, now); err != nil {
+				return err
+			}
+			cursor = source
+		}
+	}
+}
+
 func (scheduler *Scheduler) TerminalItem(
 	ctx context.Context, scope application.SchedulingScope, id string,
 	reason application.Reason, now int64,

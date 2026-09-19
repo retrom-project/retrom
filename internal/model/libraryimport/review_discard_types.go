@@ -72,8 +72,22 @@ type ReviewOwnerTransition struct {
 	GameID *string
 	NowMS  int64
 }
+type DiscardCommand struct {
+	Request ReviewDiscardRequest
+	EventID string
+	Actor   ReviewActor
+	NowMS   int64
+}
+
+type ReviewActor struct {
+	Kind    string
+	UserID  *string
+	Label   *string
+}
+
 type ReviewDiscardRepository interface {
 	WithDiscard(context.Context, func(ReviewDiscardScope) error) error
+	CommitDiscard(context.Context, DiscardCommand) (ReviewDecisionResult, error)
 }
 
 type ReviewBatchItem struct {
