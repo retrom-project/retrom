@@ -127,7 +127,7 @@ architecture-inventory: prepare-go api-generate-go
 architecture-check: prepare-go api-generate-go
 	@mkdir -p "$(LAYERING_EVIDENCE)"
 	@go test -count=1 ./internal/testkit/architecture/... ./scripts/architecture-audit/...
-	@go run ./scripts/architecture-audit -root . -mode=check -output "$(LAYERING_EVIDENCE)/architecture-report.json" -fail-on=LAYER-001,LAYER-002,LAYER-006,LAYER-007
+	@go run ./scripts/architecture-audit -root . -mode=check -output "$(LAYERING_EVIDENCE)/architecture-report.json"
 
 test-layering: prepare-go api-generate-go
 	@go test -count=1 -tags=integration $(GO_PACKAGES)

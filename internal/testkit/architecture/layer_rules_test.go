@@ -20,7 +20,7 @@ func repoRoot(t *testing.T) string {
 		}
 		dir = filepath.Dir(dir)
 	}
-	t.Skip("cannot locate repository root")
+	t.Fatal("cannot locate repository root")
 	return ""
 }
 
