@@ -14,6 +14,8 @@ import (
 	"testing"
 	"time"
 
+	firmwaresource "retrom/internal/adapter/content/firmwaremanifest"
+
 	dependencypersistence "retrom/internal/repo/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 
@@ -75,7 +77,7 @@ func TestOrdinaryRGSSReviewServesDeclaredArchiveThroughAuthenticatedHTTP(t *test
 func newProjectArchiveReviewHTTPFixture(t *testing.T, generation string) (*Server, string) {
 	t.Helper()
 	server := newTestServer(t)
-	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database)).Bootstrap(t.Context(), time.Now()); err != nil {
+	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database), firmwaresource.Source{}).Bootstrap(t.Context(), time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	uploadID := completeRPGMakerHTTPUpload(t, t.Context(), server, rpgMakerHTTPFixture(t, generation))

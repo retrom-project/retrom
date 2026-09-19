@@ -17,6 +17,8 @@ import (
 	"syscall"
 	"time"
 
+	firmwaresource "retrom/internal/adapter/content/firmwaremanifest"
+
 	runtimeprofile "retrom/internal/adapter/runtime/netplayprofile"
 	"retrom/internal/model/netplayprofile"
 
@@ -455,7 +457,9 @@ func openAndBootstrapDatabase(
 	if err := providers.Reconcile(ctx, resources.runtimeProviders.Projection, time.Now()); err != nil {
 		return fmt.Errorf("reconcile runtime providers: %w", err)
 	}
-	dependencies := dependencyservice.New(resources.dependencies, dependencypersistence.New(database.SQL))
+	dependencies := dependencyservice.New(
+		resources.dependencies, dependencypersistence.New(database.SQL), firmwaresource.Source{},
+	)
 	if err := dependencies.Bootstrap(ctx, time.Now()); err != nil {
 		return fmt.Errorf("bootstrap dependency records: %w", err)
 	}
@@ -509,7 +513,7 @@ func startCatalogBootstrap(resources serverResources) context.CancelFunc {
 }
 
 func bootstrapCatalogs(ctx context.Context, dependencySet *dependencies.Set, database *sql.DB) {
-	dependencies := dependencyservice.New(dependencySet, dependencypersistence.New(database))
+	dependencies := dependencyservice.New(dependencySet, dependencypersistence.New(database), firmwaresource.Source{})
 	if err := dependencies.BootstrapCatalogs(ctx, time.Now()); err != nil {
 		slog.Error("background DAT indexing failed", "error", err)
 		return

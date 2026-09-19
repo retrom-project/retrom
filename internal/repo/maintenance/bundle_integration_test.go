@@ -17,6 +17,8 @@ import (
 	"testing"
 	"time"
 
+	firmwaresource "retrom/internal/adapter/content/firmwaremanifest"
+
 	"retrom/internal/bootstrap/composition"
 	maintenancemodel "retrom/internal/model/maintenance"
 	uploadsmodel "retrom/internal/model/uploads"
@@ -181,7 +183,7 @@ func TestBackupRestoreRoundTripAndOnlineRefusal(t *testing.T) {
 	testassert.False(t, err != nil, err)
 	dependencySet, err := dependencies.Load(dependencyRoot, []string{"4.2.3"}, "4.2.3")
 	testassert.False(t, err != nil, err)
-	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, time.Now()); err != nil {
+	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL), firmwaresource.Source{}).Bootstrap(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	blobs, err := blobstore.Open(dataDir)

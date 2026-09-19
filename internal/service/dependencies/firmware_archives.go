@@ -7,11 +7,18 @@ import (
 	"retrom/internal/capability/content/firmwaremanifest"
 )
 
-func completeStaticBIOSCatalog() ([]staticBIOS, error) {
-	generated, err := firmwaremanifest.Load()
+func (service *Service) loadStaticBIOSCatalog() ([]staticBIOS, error) {
+	if len(service.set.Order) == 0 {
+		return nil, nil
+	}
+	generated, err := service.firmware.LoadCatalog()
 	if err != nil {
 		return nil, fmt.Errorf("load source firmware catalog: %w", err)
 	}
+	return completeStaticBIOSCatalog(generated)
+}
+
+func completeStaticBIOSCatalog(generated firmwaremanifest.Catalog) ([]staticBIOS, error) {
 	catalog := append([]staticBIOS(nil), staticBIOSCatalog...)
 	for _, item := range generated.Items {
 		members, err := json.Marshal(item.Members)

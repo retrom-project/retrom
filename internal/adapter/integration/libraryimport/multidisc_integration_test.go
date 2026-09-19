@@ -21,6 +21,8 @@ import (
 	"testing"
 	"time"
 
+	firmwaresource "retrom/internal/adapter/content/firmwaremanifest"
+
 	uploadsmodel "retrom/internal/model/uploads"
 	savepersistence "retrom/internal/repo/saves"
 
@@ -126,7 +128,7 @@ VALUES('01980000-0000-7000-8000-000000009991','multi-disc-profile','multi-disc-a
 	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", "..", "..", ".."))
 	dependencySet, err := dependencies.Load(filepath.Join(repositoryRoot, "data"), []string{"4.2.3"}, "4.2.3")
 	testassert.False(t, err != nil, err)
-	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, time.Now()); err != nil {
+	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL), firmwaresource.Source{}).Bootstrap(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	blobs, err := blobstore.Open(dataDir)

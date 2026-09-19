@@ -78,6 +78,8 @@ Host 的平台、Core、AssetPack 目录定义及运行绑定由 `model/runtimec
 
 密码禁用词表的文件获取同样属于该 Adapter，按固定字节数加一限制读取；Capability 校验固定摘要、UTF-8 和行数并生成不可变的具体词表值。密码策略只接收该值，不接受可执行的 Contains 回调；nil 与零值保持空词表语义。装载失败的公开错误、关闭时机和固定公开词表的匹配行为由旧 Go 对照保护。
 
+静态固件目录的生成配方和嵌入数据归 `adapter/content/firmwaremanifest`，唯一解析与声明校验位于 `capability/content/firmwaremanifest.Parse`。依赖用例经 `model/dependencies.FirmwareCatalogSource` 获取声明，并在进入写入范围前完成装载和目录组合；事务只消费确定的目录值。嵌入目录的来源摘要、顺序和成员 JSON 保持不变，生成工具与测试消费同一数据位置。ZIP 名称的 GB18030 解码归 `capability/format/zipentry`，导入扫描与 DOS 运行时引用同一纯实现；Foundation 不承担第三方编码库的格式规则。
+
 Provider manifest、Target/Input/Checkpoint、安装声明及 Launch 输入同样由 `model/runtimecontract` 唯一定义。跨层 schema 和可变 JSON 内容使用 `json.RawMessage` 等封闭字节值；严格 JSON 与 schema dialect 的单一解析闭包位于 `capability/runtime/runtimejson`。解析/组装边界保持原有规范字节、整数精度、nil/empty 和错误阶段，固定旧 Go 输出验证协议兼容。
 
 GameContent、LibraryImport 和 Netplay 的 BIOS 读取依赖消费方 Model 中的窄 facts 接口。事务内直接使用原 scope 绑定的 Repository reader，取得事实后调用唯一的 `model/corevalidation` 规则；输入身份先校验，读取失败保留原原因与前缀。该接线不新开事务或替换为全局 reader，后续原子提交迁移仍需保持相同的新鲜度。

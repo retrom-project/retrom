@@ -12,6 +12,8 @@ import (
 	"testing"
 	"time"
 
+	firmwaresource "retrom/internal/adapter/content/firmwaremanifest"
+
 	dependencypersistence "retrom/internal/repo/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 
@@ -69,7 +71,7 @@ func TestScanMapImportCreatesReviewBeforePublishingGameAndMedia(t *testing.T) {
 	testassert.False(t, err != nil, err)
 	err = testsupport.SeedRuntimeProviders(ctx, database.SQL, dependencySet.RuntimeCatalog)
 	testassert.False(t, err != nil, err)
-	err = dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, time.Now())
+	err = dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL), firmwaresource.Source{}).Bootstrap(ctx, time.Now())
 	testassert.False(t, err != nil, err)
 	mustExecPegasusTest(ctx, t, database.SQL, `
 INSERT INTO profiles(id,display_name,created_at_ms) VALUES('pegasus-profile','Pegasus Test',1);

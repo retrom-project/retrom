@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	firmwaresource "retrom/internal/adapter/content/firmwaremanifest"
+
 	"retrom/internal/adapter/runtime/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 
@@ -31,10 +33,10 @@ func TestBootstrapCatalogsMaterializesPinnedDATsIdempotently(t *testing.T) {
 	if err := testsupport.SeedPlatformInstances(ctx, database.SQL); err != nil {
 		t.Fatal(err)
 	}
-	if err := dependencyservice.New(set, New(database.SQL)).Bootstrap(ctx, time.Now()); err != nil {
+	if err := dependencyservice.New(set, New(database.SQL), firmwaresource.Source{}).Bootstrap(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
-	if err := dependencyservice.New(set, New(database.SQL)).BootstrapCatalogs(ctx, time.Now()); err != nil {
+	if err := dependencyservice.New(set, New(database.SQL), firmwaresource.Source{}).BootstrapCatalogs(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	var machines int64
@@ -86,7 +88,7 @@ AND core_id IN ('fbalpha2012_cps1','fbalpha2012_cps2')
 `).Scan(&expansionRequirements); err != nil || expansionRequirements != 0 {
 		t.Fatalf("FBA2012 DAT requirements = %d, error=%v", expansionRequirements, err)
 	}
-	if err := dependencyservice.New(set, New(database.SQL)).BootstrapCatalogs(ctx, time.Now()); err != nil {
+	if err := dependencyservice.New(set, New(database.SQL), firmwaresource.Source{}).BootstrapCatalogs(ctx, time.Now()); err != nil {
 		t.Fatalf("idempotent bootstrap: %v", err)
 	}
 	var providerID, targetID, selectedDATID string
@@ -112,7 +114,7 @@ VALUES(?,'fbneo',?,?,'legacy/fbneo.dat',?,'legacy-parser','READY',1,
 		t.Fatal(err)
 	}
 	selectionTime := time.Now().Add(time.Second)
-	if err := dependencyservice.New(set, New(database.SQL)).Bootstrap(ctx, selectionTime); err != nil {
+	if err := dependencyservice.New(set, New(database.SQL), firmwaresource.Source{}).Bootstrap(ctx, selectionTime); err != nil {
 		t.Fatal(err)
 	}
 	var activeAfterSelection, supersededActive int
@@ -123,7 +125,7 @@ SELECT (SELECT count(*) FROM dat_versions WHERE provider_id=? AND target_id=? AN
 		t.Fatal(err)
 	}
 	testassert.Falsef(t, testassert.Any(func() bool { return activeAfterSelection != 0 }, func() bool { return supersededActive != 0 }), "manifest selection = active:%d superseded:%d", activeAfterSelection, supersededActive)
-	if err := dependencyservice.New(set, New(database.SQL)).BootstrapCatalogs(ctx, selectionTime); err != nil {
+	if err := dependencyservice.New(set, New(database.SQL), firmwaresource.Source{}).BootstrapCatalogs(ctx, selectionTime); err != nil {
 		t.Fatal(err)
 	}
 	var selectedActive, selectedRequirements int

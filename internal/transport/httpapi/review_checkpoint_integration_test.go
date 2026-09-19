@@ -13,6 +13,8 @@ import (
 	"testing"
 	"time"
 
+	firmwaresource "retrom/internal/adapter/content/firmwaremanifest"
+
 	dependencypersistence "retrom/internal/repo/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 
@@ -63,7 +65,7 @@ SELECT (SELECT count(*) FROM games)+(SELECT count(*) FROM launch_sessions)+
 func newCheckpointReviewHTTPFixture(t *testing.T) (*Server, string) {
 	t.Helper()
 	server := newTestServer(t)
-	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database)).Bootstrap(t.Context(), time.Now()); err != nil {
+	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database), firmwaresource.Source{}).Bootstrap(t.Context(), time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	uploadID := completeMultiDiscHTTPUpload(t, server, "FILES", []multiDiscHTTPFile{

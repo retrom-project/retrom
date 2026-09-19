@@ -14,6 +14,8 @@ import (
 	"testing"
 	"time"
 
+	firmwaresource "retrom/internal/adapter/content/firmwaremanifest"
+
 	blobmodel "retrom/internal/model/blob"
 	libraryimportmodel "retrom/internal/model/libraryimport"
 
@@ -77,7 +79,7 @@ func TestBlockedReviewDetailRemainsVisibleWithoutSelectedValidation(t *testing.T
 	t.Parallel()
 	server := newTestServer(t)
 	now := time.Now()
-	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database)).Bootstrap(context.Background(), now); err != nil {
+	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database), firmwaresource.Source{}).Bootstrap(context.Background(), now); err != nil {
 		t.Fatal(err)
 	}
 	target, err := testsupport.LookupRuntimeTarget(t.Context(), server.database, "mgba")

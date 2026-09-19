@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	firmwaresource "retrom/internal/adapter/content/firmwaremanifest"
+
 	"retrom/internal/bootstrap/composition"
 	importdiscardmodel "retrom/internal/model/importdiscard"
 	"retrom/internal/service/importdiscard"
@@ -55,7 +57,7 @@ func newFixture(t *testing.T) *fixture {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := dependencyservice.New(deps, dependencypersistence.New(database.SQL)).Bootstrap(ctx, now()); err != nil {
+	if err := dependencyservice.New(deps, dependencypersistence.New(database.SQL), firmwaresource.Source{}).Bootstrap(ctx, now()); err != nil {
 		t.Fatal(err)
 	}
 	blobs, err := blobstore.Open(dir)

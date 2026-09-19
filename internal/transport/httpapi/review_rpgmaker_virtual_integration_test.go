@@ -18,6 +18,8 @@ import (
 	"testing"
 	"time"
 
+	firmwaresource "retrom/internal/adapter/content/firmwaremanifest"
+
 	uploadsmodel "retrom/internal/model/uploads"
 	dependencypersistence "retrom/internal/repo/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
@@ -30,7 +32,7 @@ func TestRPGMakerReviewDetailUsesDetectedCoreBehindVirtualPlatform(t *testing.T)
 	t.Parallel()
 	server := newTestServer(t)
 	ctx := context.Background()
-	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database)).Bootstrap(ctx, time.Now()); err != nil {
+	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database), firmwaresource.Source{}).Bootstrap(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	uploadID := completeRPGMakerHTTPUpload(t, ctx, server, rpgMakerHTTPFixture(t, "rpg2000"))

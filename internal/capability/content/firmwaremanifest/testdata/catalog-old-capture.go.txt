@@ -1,0 +1,35 @@
+package firmwaremanifest
+
+import (
+ "encoding/json"
+ "errors"
+ "fmt"
+ "os"
+ "testing"
+)
+
+func TestCaptureOldGo(t *testing.T) {
+ contents, err := os.ReadFile("cases.json")
+ if err != nil { panic(err) }
+ var cases []struct { Name, Input string }
+ if err := json.Unmarshal(contents, &cases); err != nil { panic(err) }
+ results := make([]map[string]any, 0, len(cases))
+ for _, test := range cases {
+  catalogJSON = []byte(test.Input)
+  value, err := Load()
+  encoded, marshalErr := json.Marshal(value)
+  if marshalErr != nil { panic(marshalErr) }
+  message, kind := "", ""
+  if err != nil { message, kind = err.Error(), fmt.Sprintf("%T", err) }
+  results = append(results, map[string]any{
+   "name":test.Name, "input":test.Input, "json":string(encoded),
+   "error":message, "errorType":kind, "invalid":errors.Is(err, ErrInvalid),
+  })
+ }
+ output, err := os.Create("captured.json")
+ if err != nil { t.Fatal(err) }
+ defer func() { if err := output.Close(); err != nil { t.Error(err) } }()
+ encoder := json.NewEncoder(output)
+ encoder.SetIndent("", "  ")
+ if err := encoder.Encode(results); err != nil { panic(err) }
+}

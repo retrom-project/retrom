@@ -1,0 +1,10 @@
+{
+  "head": "0bca6452b6b242965e5ec4fb4feecfc7e6d67589",
+  "source": "internal/capability/content/firmwaremanifest/catalog.go",
+  "sourceSha256": "705517ffe2aa88552d806e7d4ff6e150d13bdcb505546937e074a082560b5793",
+  "catalogSha256": "1412453891020c6f8b8cdba604f695706fff0a19644ae38d9baf9adbe7254f8c",
+  "goldenSha256": "9ab44e274456e99fcaa0797986eb9831fba78f05a71cb55079984cd54ec4f8b6",
+  "tool": "go version go1.26.5 linux/amd64",
+  "caseCount": 21,
+  "method": "Actual unchanged old catalog.go (including package name and Load body), with a same-package test driver overriding embedded input before each Load. Each case input is stored in the golden. Preserving the package name also preserves encoding/json type-error text."
+}

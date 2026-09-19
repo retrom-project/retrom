@@ -12,7 +12,7 @@ import (
 	"sort"
 	"strings"
 
-	"retrom/internal/foundation/zipentry"
+	"retrom/internal/capability/format/zipentry"
 )
 
 var ErrInvalid = errors.New("DOS_BUNDLE_INVALID")

@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	firmwaresource "retrom/internal/adapter/content/firmwaremanifest"
+
 	"retrom/internal/adapter/files/blobstore"
 	"retrom/internal/adapter/files/serversource"
 	"retrom/internal/adapter/integration/libraryimport"
@@ -52,7 +54,7 @@ VALUES(?,'es-composition-profile','es-composition','Composition','ADMIN','ENABLE
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := dependencyservice.New(deps, dependencyrepository.New(database.SQL)).Bootstrap(ctx, current); err != nil {
+	if err := dependencyservice.New(deps, dependencyrepository.New(database.SQL), firmwaresource.Source{}).Bootstrap(ctx, current); err != nil {
 		t.Fatal(err)
 	}
 	blobs, err := blobstore.Open(root)

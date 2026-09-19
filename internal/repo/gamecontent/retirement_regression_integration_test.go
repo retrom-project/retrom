@@ -14,6 +14,8 @@ import (
 	"testing"
 	"time"
 
+	firmwaresource "retrom/internal/adapter/content/firmwaremanifest"
+
 	"retrom/internal/adapter/files/blobstore"
 	"retrom/internal/adapter/integration/libraryimport"
 	"retrom/internal/adapter/integration/payloadrelease"
@@ -51,7 +53,7 @@ func contentRetirementFixture(t *testing.T) retirementFixture {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := dependencyservice.New(catalog, dependencypersistence.New(database.SQL)).Bootstrap(t.Context(), time.Now()); err != nil {
+	if err := dependencyservice.New(catalog, dependencypersistence.New(database.SQL), firmwaresource.Source{}).Bootstrap(t.Context(), time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	blobs, err := blobstore.Open(dir)

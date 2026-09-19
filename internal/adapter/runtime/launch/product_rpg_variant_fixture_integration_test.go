@@ -16,6 +16,8 @@ import (
 	"testing"
 	"time"
 
+	firmwaresource "retrom/internal/adapter/content/firmwaremanifest"
+
 	"retrom/internal/adapter/files/blobstore"
 	"retrom/internal/adapter/integration/libraryimport"
 	"retrom/internal/adapter/runtime/dependencies"
@@ -55,7 +57,7 @@ func newProductRPGFixture(t *testing.T, generation string) productRPGFixture {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, now()); err != nil {
+	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL), firmwaresource.Source{}).Bootstrap(ctx, now()); err != nil {
 		t.Fatal(err)
 	}
 	blobs, err := blobstore.Open(dataDir)

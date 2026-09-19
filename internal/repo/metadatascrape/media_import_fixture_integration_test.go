@@ -13,6 +13,8 @@ import (
 	"testing"
 	"time"
 
+	firmwaresource "retrom/internal/adapter/content/firmwaremanifest"
+
 	"retrom/internal/adapter/files/blobstore"
 	"retrom/internal/adapter/integration/libraryimport"
 	"retrom/internal/adapter/metadata/hasheous"
@@ -59,7 +61,7 @@ func createMediaImportFixture(t *testing.T, client hasheous.HTTPDoer) mediaImpor
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := dependencyservice.New(catalog, dependencypersistence.New(database.SQL)).Bootstrap(t.Context(), mediaFixtureNow()); err != nil {
+	if err := dependencyservice.New(catalog, dependencypersistence.New(database.SQL), firmwaresource.Source{}).Bootstrap(t.Context(), mediaFixtureNow()); err != nil {
 		t.Fatal(err)
 	}
 	blobs, err := blobstore.Open(root)

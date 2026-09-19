@@ -31,6 +31,22 @@
       ]
     },
     {
+      "path": "internal/adapter/content/firmwaremanifest",
+      "layer": "adapter",
+      "module": "content",
+      "owner": "RF04",
+      "files": [
+        {
+          "path": "internal/adapter/content/firmwaremanifest/catalog.go",
+          "kind": "production"
+        },
+        {
+          "path": "internal/adapter/content/firmwaremanifest/catalog_test.go",
+          "kind": "test"
+        }
+      ]
+    },
+    {
       "path": "internal/adapter/files/blobstore",
       "layer": "adapter",
       "module": "files",
@@ -2489,6 +2505,10 @@
           "kind": "production"
         },
         {
+          "path": "internal/capability/content/firmwaremanifest/catalog_compatibility_test.go",
+          "kind": "test"
+        },
+        {
           "path": "internal/capability/content/firmwaremanifest/catalog_test.go",
           "kind": "test"
         }
@@ -2987,6 +3007,22 @@
       ]
     },
     {
+      "path": "internal/capability/format/zipentry",
+      "layer": "capability",
+      "module": "format",
+      "owner": "RF04",
+      "files": [
+        {
+          "path": "internal/capability/format/zipentry/name.go",
+          "kind": "production"
+        },
+        {
+          "path": "internal/capability/format/zipentry/name_test.go",
+          "kind": "test"
+        }
+      ]
+    },
+    {
       "path": "internal/capability/runtime/platformcatalog",
       "layer": "capability",
       "module": "runtime",
@@ -3251,18 +3287,6 @@
       ]
     },
     {
-      "path": "internal/foundation/zipentry",
-      "layer": "foundation",
-      "module": "zipentry",
-      "owner": "RF04",
-      "files": [
-        {
-          "path": "internal/foundation/zipentry/name.go",
-          "kind": "production"
-        }
-      ]
-    },
-    {
       "path": "internal/model/accounts",
       "layer": "model",
       "module": "accounts",
@@ -3412,6 +3436,10 @@
       "module": "dependencies",
       "owner": "RF11",
       "files": [
+        {
+          "path": "internal/model/dependencies/firmware_ports.go",
+          "kind": "production"
+        },
         {
           "path": "internal/model/dependencies/repository.go",
           "kind": "production"
@@ -8559,6 +8587,10 @@
         {
           "path": "internal/service/dependencies/firmware_archives.go",
           "kind": "production"
+        },
+        {
+          "path": "internal/service/dependencies/firmware_source_test.go",
+          "kind": "test"
         },
         {
           "path": "internal/service/dependencies/intellivision_test.go",

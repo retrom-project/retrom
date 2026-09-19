@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	firmwaresource "retrom/internal/adapter/content/firmwaremanifest"
+
 	"retrom/internal/adapter/files/blobstore"
 	"retrom/internal/adapter/runtime/dependencies"
 	retromruntime "retrom/internal/adapter/runtime/runtime"
@@ -57,7 +59,7 @@ VALUES(?,'tyrano-profile','tyrano-admin','Tyrano Admin','ADMIN','ENABLED',0,0)`,
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, now()); err != nil {
+	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL), firmwaresource.Source{}).Bootstrap(ctx, now()); err != nil {
 		t.Fatal(err)
 	}
 	blobs, err := blobstore.Open(dataDir)

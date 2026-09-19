@@ -16,6 +16,8 @@ import (
 	"testing"
 	"time"
 
+	firmwaresource "retrom/internal/adapter/content/firmwaremanifest"
+
 	uploadsmodel "retrom/internal/model/uploads"
 	uploadpersistence "retrom/internal/repo/uploads"
 
@@ -75,7 +77,7 @@ VALUES(?,'wasm4-profile','wasm4-admin','WASM-4 Admin','ADMIN','ENABLED',0,0);
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, time.Now()); err != nil {
+	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL), firmwaresource.Source{}).Bootstrap(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	blobs, err := blobstore.Open(dataDir)

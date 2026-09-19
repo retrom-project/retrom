@@ -285,12 +285,9 @@ func bootstrapStaticBIOS(
 	records model.BIOSRecords,
 	versionName string,
 	selectedTargets map[string]model.RuntimeTarget,
+	catalog []staticBIOS,
 	now time.Time,
 ) error {
-	catalog, err := completeStaticBIOSCatalog()
-	if err != nil {
-		return err
-	}
 	if err := validateBIOSActivationOptions(catalog); err != nil {
 		return err
 	}

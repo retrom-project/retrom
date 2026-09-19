@@ -12,6 +12,8 @@ import (
 	"testing"
 	"time"
 
+	firmwaresource "retrom/internal/adapter/content/firmwaremanifest"
+
 	dependencypersistence "retrom/internal/repo/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 
@@ -137,7 +139,7 @@ func newNativeReviewIsolationFixture(t *testing.T, engine string) (*Server, stri
 			t.Error(err)
 		}
 	})
-	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database)).Bootstrap(t.Context(), time.Now()); err != nil {
+	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database), firmwaresource.Source{}).Bootstrap(t.Context(), time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	prefix, version := "rpg", "1.6.2"

@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	firmwaresource "retrom/internal/adapter/content/firmwaremanifest"
+
 	"retrom/internal/adapter/runtime/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 
@@ -30,7 +32,7 @@ func TestCDRequirementsDoNotBlockPCECartridges(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := dependencyservice.New(set, New(database.SQL)).Bootstrap(ctx, time.Now()); err != nil {
+	if err := dependencyservice.New(set, New(database.SQL), firmwaresource.Source{}).Bootstrap(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	for _, test := range []struct {

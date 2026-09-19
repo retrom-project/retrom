@@ -14,9 +14,9 @@ import (
 	"path/filepath"
 	"strings"
 
+	"retrom/internal/capability/format/zipentry"
 	"retrom/internal/foundation/cleanup"
 	"retrom/internal/foundation/legacychecksum"
-	"retrom/internal/foundation/zipentry"
 )
 
 var (

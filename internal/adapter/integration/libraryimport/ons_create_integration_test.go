@@ -14,6 +14,8 @@ import (
 	"testing"
 	"time"
 
+	firmwaresource "retrom/internal/adapter/content/firmwaremanifest"
+
 	uploadsmodel "retrom/internal/model/uploads"
 	uploadpersistence "retrom/internal/repo/uploads"
 
@@ -41,7 +43,7 @@ func TestCreateONSArchiveReachesTrialRequiredReview(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, time.Now()); err != nil {
+	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL), firmwaresource.Source{}).Bootstrap(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	blobs, err := blobstore.Open(dataDir)

@@ -17,6 +17,8 @@ import (
 	"testing"
 	"time"
 
+	firmwaresource "retrom/internal/adapter/content/firmwaremanifest"
+
 	uploadsmodel "retrom/internal/model/uploads"
 	uploadpersistence "retrom/internal/repo/uploads"
 
@@ -64,7 +66,7 @@ func newScummVMFixtureAt(t *testing.T, roots []string, now func() time.Time) scu
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, now()); err != nil {
+	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL), firmwaresource.Source{}).Bootstrap(ctx, now()); err != nil {
 		t.Fatal(err)
 	}
 	blobs, err := blobstore.Open(dir)

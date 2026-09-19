@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	firmwaresource "retrom/internal/adapter/content/firmwaremanifest"
+
 	runtimeprofile "retrom/internal/adapter/runtime/netplayprofile"
 
 	"retrom/internal/bootstrap/composition"
@@ -34,7 +36,7 @@ import (
 func TestAdminPlatformsProjectsManifestBoundNetplayCapability(t *testing.T) {
 	t.Parallel()
 	server := newTestServer(t)
-	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database)).Bootstrap(t.Context(), time.UnixMilli(1_786_000_000_000)); err != nil {
+	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database), firmwaresource.Source{}).Bootstrap(t.Context(), time.UnixMilli(1_786_000_000_000)); err != nil {
 		t.Fatal(err)
 	}
 	repositoryRoot, err := filepath.Abs(filepath.Join("..", "..", ".."))
@@ -214,7 +216,7 @@ func TestCreateImportQueuesContentInspectionAndMapsImmediateAdmissionErrors(t *t
 	t.Parallel()
 	server := newTestServer(t)
 	now := time.UnixMilli(1_786_000_000_000)
-	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database)).Bootstrap(context.Background(), now); err != nil {
+	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database), firmwaresource.Source{}).Bootstrap(context.Background(), now); err != nil {
 		t.Fatal(err)
 	}
 	server.importer.Close()
@@ -362,7 +364,7 @@ func assertPlatformExtensions(
 func TestPlatformImportCapabilitiesUseFeaturePlatformAndArtifactIntersection(t *testing.T) {
 	t.Parallel()
 	server := newTestServer(t)
-	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database)).Bootstrap(t.Context(), time.UnixMilli(1_786_000_000_000)); err != nil {
+	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database), firmwaresource.Source{}).Bootstrap(t.Context(), time.UnixMilli(1_786_000_000_000)); err != nil {
 		t.Fatal(err)
 	}
 	read := func() map[string]platformCapabilityProjection {

@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	firmwaresource "retrom/internal/adapter/content/firmwaremanifest"
+
 	dependencypersistence "retrom/internal/repo/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 
@@ -69,7 +71,7 @@ func retirementFixture(t *testing.T) (*sql.DB, *payloadrelease.Service, int64) {
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
 	deps, err := dependencies.Load(filepath.Join("..", "..", "..", "data"), []string{"4.2.3"}, "4.2.3")
 	testassert.False(t, err != nil, err)
-	testassert.False(t, dependencyservice.New(deps, dependencypersistence.New(database.SQL)).Bootstrap(ctx, time.Now()) != nil, "bootstrap")
+	testassert.False(t, dependencyservice.New(deps, dependencypersistence.New(database.SQL), firmwaresource.Source{}).Bootstrap(ctx, time.Now()) != nil, "bootstrap")
 	identity, err := testsupport.LookupRuntimeTarget(ctx, database.SQL, "mgba")
 	testassert.False(t, err != nil, err)
 	blobs, err := blobstore.Open(dir)

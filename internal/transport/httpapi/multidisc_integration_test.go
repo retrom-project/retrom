@@ -15,6 +15,8 @@ import (
 	"testing"
 	"time"
 
+	firmwaresource "retrom/internal/adapter/content/firmwaremanifest"
+
 	uploadsmodel "retrom/internal/model/uploads"
 	dependencypersistence "retrom/internal/repo/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
@@ -104,10 +106,10 @@ func multiDiscHTTPCHD(value string) []byte {
 func createMultiDiscHTTPLaunch(t *testing.T, server *Server) (launch.Created, string) {
 	t.Helper()
 	ctx := context.Background()
-	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database)).Bootstrap(ctx, time.Now()); err != nil {
+	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database), firmwaresource.Source{}).Bootstrap(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
-	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database)).BootstrapCatalogs(ctx, time.Now()); err != nil {
+	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database), firmwaresource.Source{}).BootstrapCatalogs(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	server.importer.WithMultiDiscImportEnabled(true)
@@ -339,10 +341,10 @@ func TestRuntimeContentIsPrivateImmutableRevalidatesAndRevokes(t *testing.T) {
 func TestMultiDiscAttachmentHTTPContractAndProviderUpgradeProjection(t *testing.T) {
 	server := newTestServer(t)
 	ctx := context.Background()
-	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database)).Bootstrap(ctx, time.Now()); err != nil {
+	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database), firmwaresource.Source{}).Bootstrap(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
-	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database)).BootstrapCatalogs(ctx, time.Now()); err != nil {
+	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database), firmwaresource.Source{}).BootstrapCatalogs(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	server.importer.WithMultiDiscImportEnabled(true)
@@ -453,10 +455,10 @@ WHERE provider_id=(
 func TestMultiDiscPlayerEventHTTPContract(t *testing.T) {
 	server := newTestServer(t)
 	ctx := context.Background()
-	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database)).Bootstrap(ctx, time.Now()); err != nil {
+	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database), firmwaresource.Source{}).Bootstrap(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
-	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database)).BootstrapCatalogs(ctx, time.Now()); err != nil {
+	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database), firmwaresource.Source{}).BootstrapCatalogs(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	server.importer.WithMultiDiscImportEnabled(true)

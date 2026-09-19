@@ -19,21 +19,26 @@ var (
 type Service struct {
 	set        *dependencies.Set
 	repository model.Repository
+	firmware   model.FirmwareCatalogSource
 }
 
-func New(set *dependencies.Set, repository model.Repository) *Service {
-	return &Service{set: set, repository: repository}
+func New(set *dependencies.Set, repository model.Repository, firmware model.FirmwareCatalogSource) *Service {
+	return &Service{set: set, repository: repository, firmware: firmware}
 }
 
 func (service *Service) Bootstrap(ctx context.Context, now time.Time) error {
 	preferred := preferredCoreVersions(service.set)
-	err := service.repository.WithWrite(ctx, func(scope model.WriteScope) error {
+	catalog, err := service.loadStaticBIOSCatalog()
+	if err != nil {
+		return fmt.Errorf("bootstrap dependency definitions: %w", err)
+	}
+	err = service.repository.WithWrite(ctx, func(scope model.WriteScope) error {
 		for _, versionName := range service.set.Order {
-			targets, err := service.staticBIOSTargets(ctx, scope.Targets)
+			targets, err := service.staticBIOSTargets(ctx, scope.Targets, catalog)
 			if err != nil {
 				return err
 			}
-			if err := bootstrapStaticBIOS(ctx, scope.BIOS, versionName, targets, now); err != nil {
+			if err := bootstrapStaticBIOS(ctx, scope.BIOS, versionName, targets, catalog, now); err != nil {
 				return err
 			}
 			if err := service.bootstrapVersionDATs(
@@ -90,11 +95,8 @@ func targetForCore(catalog runtimecontract.Catalog, coreID string) (model.Runtim
 func (service *Service) staticBIOSTargets(
 	ctx context.Context,
 	records model.TargetRecords,
+	catalog []staticBIOS,
 ) (map[string]model.RuntimeTarget, error) {
-	catalog, err := completeStaticBIOSCatalog()
-	if err != nil {
-		return nil, err
-	}
 	result := make(map[string]model.RuntimeTarget, len(catalog))
 	for _, requirement := range catalog {
 		if _, exists := result[requirement.coreID]; exists {

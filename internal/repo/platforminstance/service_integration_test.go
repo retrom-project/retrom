@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	firmwaresource "retrom/internal/adapter/content/firmwaremanifest"
+
 	platforminstancemodel "retrom/internal/model/platforminstance"
 	dependencypersistence "retrom/internal/repo/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
@@ -47,7 +49,7 @@ VALUES(?,'test-profile','directory-admin','Directory Admin','ADMIN','ENABLED',0,
 	if err := testsupport.SeedRuntimeProviders(t.Context(), database.SQL, dependencySet.RuntimeCatalog); err != nil {
 		t.Fatal(err)
 	}
-	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(t.Context(), time.UnixMilli(1_786_000_000_000)); err != nil {
+	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL), firmwaresource.Source{}).Bootstrap(t.Context(), time.UnixMilli(1_786_000_000_000)); err != nil {
 		t.Fatal(err)
 	}
 	service := platforminstance.New(platformpersistence.New(database.SQL), func() time.Time {

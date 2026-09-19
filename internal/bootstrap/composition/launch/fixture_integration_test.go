@@ -14,6 +14,8 @@ import (
 	"testing"
 	"time"
 
+	firmwaresource "retrom/internal/adapter/content/firmwaremanifest"
+
 	"retrom/internal/adapter/files/blobstore"
 	"retrom/internal/adapter/integration/libraryimport"
 	"retrom/internal/adapter/runtime/dependencies"
@@ -68,7 +70,7 @@ VALUES(?,?,'assembly','Assembly','ADMIN','ENABLED',?,?)`,
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := dependencyservice.New(deps, dependencypersistence.New(database.SQL)).Bootstrap(t.Context(), now()); err != nil {
+	if err := dependencyservice.New(deps, dependencypersistence.New(database.SQL), firmwaresource.Source{}).Bootstrap(t.Context(), now()); err != nil {
 		t.Fatal(err)
 	}
 	blobs, err := blobstore.Open(dir)

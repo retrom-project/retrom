@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	firmwaresource "retrom/internal/adapter/content/firmwaremanifest"
+
 	accountsmodel "retrom/internal/model/accounts"
 	dependencypersistence "retrom/internal/repo/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
@@ -246,7 +248,7 @@ func newTestServer(t *testing.T) *Server {
 func newRecommendationTestServer(t *testing.T) *Server {
 	t.Helper()
 	server := newTestServerWithPlatformFixtures(t, false, []string{"4.2.3", "4.3.0-pre"})
-	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database)).Bootstrap(t.Context(), time.Now()); err != nil {
+	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database), firmwaresource.Source{}).Bootstrap(t.Context(), time.Now()); err != nil {
 		t.Fatalf("bootstrap recommendation dependencies: %v", err)
 	}
 	server.startupReady.Store(true)

@@ -16,6 +16,8 @@ import (
 	"testing"
 	"time"
 
+	firmwaresource "retrom/internal/adapter/content/firmwaremanifest"
+
 	"retrom/internal/adapter/integration/libraryimport"
 	"retrom/internal/adapter/runtime/dependencies"
 	"retrom/internal/adapter/runtime/launch"
@@ -51,7 +53,7 @@ func newValidationRetryFixture(t *testing.T) validationRetryFixture {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := dependencyservice.New(catalog, dependencypersistence.New(database.SQL)).Bootstrap(t.Context(), now()); err != nil {
+	if err := dependencyservice.New(catalog, dependencypersistence.New(database.SQL), firmwaresource.Source{}).Bootstrap(t.Context(), now()); err != nil {
 		t.Fatal(err)
 	}
 	server := &Server{

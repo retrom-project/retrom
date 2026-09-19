@@ -13,6 +13,8 @@ import (
 	"testing"
 	"time"
 
+	firmwaresource "retrom/internal/adapter/content/firmwaremanifest"
+
 	runtimeprofile "retrom/internal/adapter/runtime/netplayprofile"
 	uploadsmodel "retrom/internal/model/uploads"
 
@@ -65,7 +67,7 @@ func newNetplayLaunchFixture(t *testing.T) netplayLaunchFixture {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := dependencyservice.New(deps, dependencypersistence.New(database.SQL)).Bootstrap(
+	if err := dependencyservice.New(deps, dependencypersistence.New(database.SQL), firmwaresource.Source{}).Bootstrap(
 		t.Context(),
 		now(),
 	); err != nil {
