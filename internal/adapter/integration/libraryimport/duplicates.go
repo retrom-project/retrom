@@ -7,6 +7,7 @@ import (
 	application "retrom/internal/model/libraryimport"
 	"retrom/internal/repo/dbexec"
 	repository "retrom/internal/repo/libraryimport"
+	libraryimportservice "retrom/internal/service/libraryimport"
 )
 
 var ErrDuplicateContent = application.ErrDuplicateContent
@@ -20,7 +21,7 @@ func findDuplicateGames(
 	executor dbexec.Executor,
 	itemID, platformID string,
 ) ([]DuplicateGame, error) {
-	duplicates := application.NewContentDuplicates(repository.BindContentDuplicates(executor))
+	duplicates := libraryimportservice.NewContentDuplicates(repository.BindContentDuplicates(executor))
 	games, err := duplicates.Matches(ctx, itemID, platformID)
 	if err != nil {
 		return nil, fmt.Errorf("read duplicate games: %w", err)
@@ -32,7 +33,7 @@ func (service *Service) DuplicateGames(
 	ctx context.Context,
 	itemID string,
 ) ([]DuplicateGame, string, error) {
-	duplicates := application.NewContentDuplicates(repository.BindContentDuplicates(service.database))
+	duplicates := libraryimportservice.NewContentDuplicates(repository.BindContentDuplicates(service.database))
 	games, digest, err := duplicates.Review(ctx, itemID)
 	if err != nil {
 		return nil, "", fmt.Errorf("read review duplicates: %w", err)

@@ -176,7 +176,7 @@ func (run *creationCommit) discardDuplicate(
 	scope model.ImportCreationScope,
 	record *creationGroup,
 ) (bool, error) {
-	games, digest, err := model.NewContentDuplicates(scope.Duplicates).Inspect(
+	games, digest, err := NewContentDuplicates(scope.Duplicates).Inspect(
 		ctx,
 		model.ContentSnapshot{ID: record.snapshotID, Kind: record.kind},
 		run.plan.Target.PlatformID,

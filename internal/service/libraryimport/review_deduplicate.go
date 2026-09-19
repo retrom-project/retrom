@@ -74,7 +74,7 @@ func (service *ReviewDeduplicator) deduplicateInScope(
 		candidates = candidates[:reviewDeduplicatePageSize]
 		result.NextAfterItemID = &candidates[len(candidates)-1].ItemID
 	}
-	duplicates := model.NewContentDuplicates(scope.Duplicates)
+	duplicates := NewContentDuplicates(scope.Duplicates)
 	for _, candidate := range candidates {
 		result.ScannedCount++
 		if candidate.AttachmentActive {
@@ -111,7 +111,7 @@ func reviewDeduplicateThrough(
 func (service *ReviewDeduplicator) discardDuplicate(
 	ctx context.Context,
 	scope model.ReviewDeduplicateScope,
-	duplicates *model.ContentDuplicates,
+	duplicates *ContentDuplicates,
 	candidate model.ReviewBulkCandidate,
 ) (bool, error) {
 	games, err := duplicates.Matches(ctx, candidate.ItemID, candidate.PlatformID)

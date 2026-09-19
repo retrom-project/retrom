@@ -70,7 +70,7 @@ func (repository *ReviewDetail) LoadReviewDetail(ctx context.Context, itemID str
 		return application.ReviewDetail{}, fmt.Errorf("read review DOS entries: %w", err)
 	}
 
-	result.DuplicateGames, result.ContentIdentityDigest, err = application.NewContentDuplicates(duplicates).Inspect(ctx,
+	result.DuplicateGames, result.ContentIdentityDigest, err = inspectDuplicates(ctx, duplicates.executor,
 		application.ContentSnapshot{ID: head.SnapshotID, Kind: head.ContentKind}, head.PlatformID)
 	if err != nil {
 		return application.ReviewDetail{}, fmt.Errorf("inspect content duplicates: %w", err)
