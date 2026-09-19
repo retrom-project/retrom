@@ -8246,6 +8246,1820 @@
       }
     },
     {
+      "operation_id": "libraryimport.admit-import",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "consumers": [
+        "(*retrom/internal/adapter/integration/libraryimport.Service).QueueCreate",
+        "(*retrom/internal/service/libraryimport.ImportAdmissions).Queue",
+        "(*retrom/internal/transport/httpapi.Server).createImport"
+      ],
+      "snapshot": "retrom/internal/model/libraryimport.ImportAdmissionChange",
+      "prepare": "(*retrom/internal/service/libraryimport.ImportAdmissions).Queue",
+      "commit": "(*retrom/internal/repo/libraryimport.ImportAdmissions).WithAdmission",
+      "policy_symbols": [
+        "retrom/internal/service/libraryimport.ImportArchiveFormat",
+        "retrom/internal/service/libraryimport.NormalizeImportRequest",
+        "retrom/internal/service/libraryimport.NormalizeTargetImport",
+        "retrom/internal/service/libraryimport.NormalizeTargetImportMode",
+        "retrom/internal/service/libraryimport.ValidImportContentMode",
+        "retrom/internal/service/libraryimport.ValidateImportUpload",
+        "retrom/internal/service/libraryimport.admissionDocuments",
+        "retrom/internal/service/libraryimport.checkImportContent"
+      ],
+      "fresh_facts": [
+        {
+          "name": "current complete upload",
+          "reader_symbol": "(retrom/internal/repo/libraryimport.ImportFacts).Upload",
+          "reason": "Upload current id/state/version/purpose/sourceType/manifestDigest/fileCount"
+        },
+        {
+          "name": "current complete files",
+          "reader_symbol": "(retrom/internal/repo/libraryimport.ImportFacts).Files",
+          "reason": "All upload COMPLETE files joined to Blob id/digest/size,orderedrelativePath/id"
+        },
+        {
+          "name": "current enabled target",
+          "reader_symbol": "(retrom/internal/repo/libraryimport.ImportFacts).Target",
+          "reason": "Platform instance exists enabled and notdeleted,current version/platform/defaultcore"
+        },
+        {
+          "name": "current runtime bindings",
+          "reader_symbol": "(retrom/internal/repo/libraryimport.ImportFacts).Bindings",
+          "reason": "Current matching platform/core nonDISABLED runtime bindings and content policy. Virtual RPG target must have exactly7bindings; snapshot sorted byprovider/target"
+        }
+      ],
+      "guards": [
+        {
+          "id": "request",
+          "fields": [
+            "uploadId",
+            "targetId",
+            "mode",
+            "metadataProvider"
+          ],
+          "expected_source": "Nonempty IDs,validmode(defaultSTANDARD),providerNONE|HASHEOUS; project modes forceNONE; tag IDs cloned",
+          "rejection": "ErrInvalid",
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "id": "upload-complete",
+          "fields": [
+            "upload.state",
+            "version",
+            "fileCount",
+            "files"
+          ],
+          "expected_source": "Found COMPLETE/version>=1; files nonempty and count equals total_files",
+          "rejection": "ErrInvalid",
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "id": "target-content",
+          "fields": [
+            "target",
+            "binding",
+            "policy",
+            "sourceType",
+            "purpose",
+            "mode",
+            "metadataAvailability"
+          ],
+          "expected_source": "Enabled target and matching binding with supported kinds (or virtualRPG); RPG standard->project,GENERAL nondirectory must oneFILES ZIP/7z; mode-purpose policy; MULTIDISC needsDIRECTORY+capability enabled;HASHEOUS configured",
+          "rejection": "ErrInvalid / ErrMultiDiscModeUnavailable / ErrMetadataScraperNotConfigured",
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "id": "tag-actor",
+          "fields": [
+            "tagIds",
+            "actorId",
+            "tags"
+          ],
+          "expected_source": "Nonempty tags require authenticated context principal ID; tagging.ValidateReferences in writer checks current tags. Baseline no refreshed actor authorization query",
+          "rejection": "ErrInvalid / tagging errors",
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "id": "admission-upload-fence",
+          "fields": [
+            "upload.id",
+            "version",
+            "manifestDigest",
+            "fileCount",
+            "state"
+          ],
+          "expected_source": "SQL no-op version update exact current complete upload fields,require1",
+          "rejection": "ErrVersionConflict",
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "id": "admission-target-fence",
+          "fields": [
+            "target.id",
+            "version",
+            "platform",
+            "defaultCore",
+            "enabled",
+            "deleted"
+          ],
+          "expected_source": "SQL no-op version update exact selected current platform instance fields,require1",
+          "rejection": "ErrVersionConflict",
+          "test_id": "RFA-RF13-format_paths"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "fence-upload",
+          "repo_helper": "(retrom/internal/repo/libraryimport.admissionRecords).fence",
+          "affected_records": [
+            "UPDATE upload_sessions version=version matching complete/version/manifest/total"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "fence-platform",
+          "repo_helper": "(retrom/internal/repo/libraryimport.admissionRecords).fence",
+          "affected_records": [
+            "UPDATE platform_instances version=version matching enabled/notdeleted/version/defaultcore/platform"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "admission-job",
+          "repo_helper": "(retrom/internal/repo/libraryimport.admissionRecords).job",
+          "affected_records": [
+            "INSERT IMPORT_GROUP jobs with kind/scopeIMPORT_GROUP,stable import-ID dedupe,execution1,inputExecutionNo1,cancellable1,QUEUED,max4"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "admission-input",
+          "repo_helper": "(retrom/internal/repo/libraryimport.admissionRecords).job",
+          "affected_records": [
+            "INSERT job_input_snapshots input schema1,executionUUID,upload version/manifest,request digest called importConfigSnapshotDigest"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "import-aggregate",
+          "repo_helper": "(retrom/internal/repo/libraryimport.admissionRecords).job",
+          "affected_records": [
+            "INSERT import_jobs QUEUED/version1/zero counts,provisional target and config schema3PENDING/tags/digest"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "admission-request",
+          "repo_helper": "(retrom/internal/repo/libraryimport.admissionRecords).request",
+          "affected_records": [
+            "INSERT import_group_requests schema1,requestJSON/digest,actor,uploadversion/manifest,target snapshot/digest"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "admission-consumption",
+          "repo_helper": "(retrom/internal/repo/libraryimport.admissionRecords).sources",
+          "affected_records": [
+            "INSERT upload_consumptions upload-session-wide IMPORT_JOB owner with prepared consumption UUID"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "admission-files",
+          "repo_helper": "(retrom/internal/repo/libraryimport.admissionRecords).sources",
+          "affected_records": [
+            "INSERT import_job_files PENDING for every observed complete upload file"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "admission-event",
+          "repo_helper": "(retrom/internal/repo/libraryimport.admissionRecords).event",
+          "affected_records": [
+            "INSERT QUEUED job_event schema1/execution1/attempt0/phaseWAITING_FOR_WORKER"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        }
+      ],
+      "idempotency": "No domain receipt; current identity/state/version guard controls transitions. Generic JSON HTTP idempotency may separately persist a receipt after this domain transaction; RF06 registers that gap.",
+      "time_rule": "Baseline shared writer BeginTx with upper callback (or Repo-owned orchestration); Service clock position specified below. Target Repo must acquire write permission then sample technical Clock once; prepared identities generated before writer. Serializable transaction; read upload/files/target/runtime/tags before sampling Service Now. Four IDs import/job/execution/consumption and encoded snapshots generated inside callback after sample.",
+      "after_commit": [
+        {
+          "action": "NotifyImportGroup only after commit; durable one-second queue poll can rediscover missing wake",
+          "recovery": "Atomic job/input/import/request/consumption/files/event rollback; committed admission is recovered by IMPORT_GROUP worker",
+          "test_id": "RFA-RF13-discard_handoff"
+        }
+      ],
+      "fault_points": [
+        "PLANNED fence-upload: fail after each applicable SQL phase,assert whole owning transaction rolls back including job,input,event,parent,item,consumption and nested release",
+        "PLANNED fence-platform: fail after each applicable SQL phase,assert whole owning transaction rolls back including job,input,event,parent,item,consumption and nested release",
+        "PLANNED admission-job: fail after each applicable SQL phase,assert whole owning transaction rolls back including job,input,event,parent,item,consumption and nested release",
+        "PLANNED admission-input: fail after each applicable SQL phase,assert whole owning transaction rolls back including job,input,event,parent,item,consumption and nested release",
+        "PLANNED import-aggregate: fail after each applicable SQL phase,assert whole owning transaction rolls back including job,input,event,parent,item,consumption and nested release",
+        "PLANNED admission-request: fail after each applicable SQL phase,assert whole owning transaction rolls back including job,input,event,parent,item,consumption and nested release",
+        "PLANNED admission-consumption: fail after each applicable SQL phase,assert whole owning transaction rolls back including job,input,event,parent,item,consumption and nested release",
+        "PLANNED admission-files: fail after each applicable SQL phase,assert whole owning transaction rolls back including job,input,event,parent,item,consumption and nested release",
+        "PLANNED admission-event: fail after each applicable SQL phase,assert whole owning transaction rolls back including job,input,event,parent,item,consumption and nested release",
+        "PLANNED independently change each Guard before writer; concurrent cancel/claim/renew/recovery,stale parent/version/lease/input,commit failure and crash/restart; no aggregate sample substitutes for per-operation matrix"
+      ],
+      "test_ids": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-publish_atomic",
+        "RFA-RF13-discard_handoff"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "Changes durable job/aggregate/admission bookkeeping only; no new Blob row or protective Blob FK and no physical CAS publication/deletion. Existing upload Blob references remain authoritative.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "libraryimport.cancel-import-batch",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "consumers": [
+        "(*retrom/internal/adapter/integration/libraryimport.DiscardWorkflow).CancelForDiscard",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).Cancel",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).CancelForDiscard",
+        "(*retrom/internal/adapter/integration/libraryimport.Service).cancelImport",
+        "(*retrom/internal/service/libraryimport.ImportBatchCancellations).Cancel",
+        "(*retrom/internal/transport/httpapi.Server).cancelImport"
+      ],
+      "snapshot": "retrom/internal/repo/libraryimport.importCancellationEvidence",
+      "prepare": "(*retrom/internal/service/libraryimport.ImportBatchCancellations).Cancel",
+      "commit": "(*retrom/internal/repo/libraryimport.ImportBatchCancellations).Cancel",
+      "policy_symbols": [],
+      "fresh_facts": [
+        {
+          "name": "aggregate and cancellable item counts",
+          "reader_symbol": "retrom/internal/repo/libraryimport.loadImportCancellationEvidence",
+          "reason": "Same writer parentstate/version/storedrunning count and realcountQUEUED/REVIEW_PENDING/FAILED_RETRYABLE; current IMPORT_GROUP jobid/state subqueries"
+        },
+        {
+          "name": "release scope current owner",
+          "reader_symbol": "(retrom/internal/repo/payloadrelease.scheduling).Owner",
+          "reason": "Same writer all newly CANCELLED+RETAINED items orderedID then terminal aggregate current state/version/payload/releaseJob; PendingChildren must be0 for aggregate. Source/ordinary linkage not a detached transaction"
+        }
+      ],
+      "guards": [
+        {
+          "id": "batch-request",
+          "fields": [
+            "id",
+            "version",
+            "reason"
+          ],
+          "expected_source": "NonemptyimportID/version>=1,trimmedreason1..500runes and validField rejects unsafe field content",
+          "rejection": "ErrInvalid",
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "id": "batch-parent",
+          "fields": [
+            "state",
+            "version"
+          ],
+          "expected_source": "Read must succeed and version exact; COMPLETED|CANCELLED|FAILED rejected. Baseline masks every readerror asErrInvalid",
+          "rejection": "ErrInvalid",
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "id": "pending-cancel",
+          "fields": [
+            "runningCount",
+            "groupState",
+            "preserveReviews"
+          ],
+          "expected_source": "Pending iff storedrunning>0 or group RUNNING|CANCEL_REQUESTED. PreserveReviews excludes REVIEW_PENDING from cancellation counts/writes",
+          "rejection": "Return CANCEL_REQUESTED elseCANCELLED; retained reviews preserve baseline partial behavior",
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "id": "terminal-release",
+          "fields": [
+            "owner.state",
+            "owner.version",
+            "payloadState",
+            "releaseJob",
+            "pendingChildren"
+          ],
+          "expected_source": "Terminal scope with all children settled; RETAINED advances version with new work; alreadyRELEASING/FAILED/RELEASED requires existing job. Nonterminal aggregate or pending children is no-op",
+          "rejection": "ErrScopeInvalid / original generator or SQL failure",
+          "test_id": "RFA-RF13-discard_handoff"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "cancel-batch-items",
+          "repo_helper": "(*retrom/internal/repo/libraryimport.ImportBatchCancellations).Cancel",
+          "affected_records": [
+            "UPDATE item QUEUED/FAILED_RETRYABLE and REVIEW_PENDING unlesspreserve ->CANCELLED,clearfailedstage/error,completion/time/version+1; no affected-count equality"
+          ],
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "stage": "cancel-batch-parent",
+          "repo_helper": "(*retrom/internal/repo/libraryimport.ImportBatchCancellations).Cancel",
+          "affected_records": [
+            "UPDATE parentid only with computed cancelstate/time/reason,cancelledCount+=actual selected,subtractqueued/review/failed,version+1,time/completed condition; baseline lacksCASinWHERE/count check"
+          ],
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "stage": "cancel-batch-job",
+          "repo_helper": "retrom/internal/repo/libraryimport.transitionImportGroupCancellation",
+          "affected_records": [
+            "Current groupQUEUED|FAILED->CANCELLED+finish/cancel/version/time; currentRUNNING->CANCEL_REQUESTED/cancel/version/time; statepredicate only,noexecution/version/affected-count fence"
+          ],
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "stage": "cancel-batch-event",
+          "repo_helper": "retrom/internal/repo/libraryimport.transitionImportGroupCancellation",
+          "affected_records": [
+            "INSERT SELECT respective cancellation event from group job,reason/schema1/execution/attempt/time; alreadyCANCEL_REQUESTED unchanged"
+          ],
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "stage": "payload-job",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.scheduling).CreateJob",
+          "affected_records": [
+            "INSERT PAYLOAD_RELEASE jobs per eligible retained terminal owner,QUEUED,execution1,max4,noncancellable,stable per-scope dedupe; require1,nested owner transaction"
+          ],
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "stage": "payload-input",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.scheduling).CreateJob",
+          "affected_records": [
+            "INSERT job_input_snapshots schema1/scope/scopeVersion/reason/fresh execution ID/JSON digest; require1,nested owner transaction"
+          ],
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "stage": "payload-event",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.scheduling).CreateJob",
+          "affected_records": [
+            "INSERT QUEUED payload job_event schema1/execution1/attempt0; require1,nested owner transaction"
+          ],
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "stage": "payload-owner",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.scheduling).BeginRelease",
+          "affected_records": [
+            "Owner exact id/version/state/RETAINED/old releaseJob -> RELEASING,new releaseJob,version+1; scope-specific fields fenced,require1"
+          ],
+          "test_id": "RFA-RF13-discard_handoff"
+        }
+      ],
+      "idempotency": "No domain receipt; current identity/state/version guard controls transitions. Generic JSON HTTP idempotency may separately persist a receipt after this domain transaction; RF06 registers that gap.",
+      "time_rule": "Baseline shared writer BeginTx with upper callback (or Repo-owned orchestration); Service clock position specified below. Target Repo must acquire write permission then sample technical Clock once; prepared identities generated before writer. Conditional release Scheduler generates job/execution UUIDs inside owner transaction using supplied now. Service passes now BEFORE BeginTx(nil); Repo owns cancellation policy/counter projection. Release IDs generated inside writer; this is wholebatch atomic unlike review per-item batch workflow.",
+      "after_commit": [
+        {
+          "action": "Return groupjobID/Pending so caller can notify cooperative worker cancellation",
+          "recovery": "All selected item states,parent counters,group event and release jobs share transaction. PreserveReviews intentionally leaves review items; must retain public contract during migration",
+          "test_id": "RFA-RF13-discard_handoff"
+        }
+      ],
+      "fault_points": [
+        "PLANNED cancel-batch-items: fail after each applicable SQL phase,assert whole owning transaction rolls back including job,input,event,parent,item,consumption and nested release",
+        "PLANNED cancel-batch-parent: fail after each applicable SQL phase,assert whole owning transaction rolls back including job,input,event,parent,item,consumption and nested release",
+        "PLANNED cancel-batch-job: fail after each applicable SQL phase,assert whole owning transaction rolls back including job,input,event,parent,item,consumption and nested release",
+        "PLANNED cancel-batch-event: fail after each applicable SQL phase,assert whole owning transaction rolls back including job,input,event,parent,item,consumption and nested release",
+        "PLANNED payload-job: fail after each applicable SQL phase,assert whole owning transaction rolls back including job,input,event,parent,item,consumption and nested release",
+        "PLANNED payload-input: fail after each applicable SQL phase,assert whole owning transaction rolls back including job,input,event,parent,item,consumption and nested release",
+        "PLANNED payload-event: fail after each applicable SQL phase,assert whole owning transaction rolls back including job,input,event,parent,item,consumption and nested release",
+        "PLANNED payload-owner: fail after each applicable SQL phase,assert whole owning transaction rolls back including job,input,event,parent,item,consumption and nested release",
+        "PLANNED independently change each Guard before writer; concurrent cancel/claim/renew/recovery,stale parent/version/lease/input,commit failure and crash/restart; no aggregate sample substitutes for per-operation matrix"
+      ],
+      "test_ids": [
+        "RFA-RF13-discard_handoff",
+        "RFA-RF13-publish_atomic",
+        "RFA-RF13-format_paths"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "Changes durable job/aggregate/admission bookkeeping only; no new Blob row or protective Blob FK and no physical CAS publication/deletion. Existing upload Blob references remain authoritative.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "libraryimport.cancel-import-job",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.ImportExecutions).CancelJob",
+        "(retrom/internal/bootstrap/composition/libraryimport.importCancellation).CancelJob"
+      ],
+      "snapshot": "retrom/internal/model/libraryimport.ImportWorkerSnapshot",
+      "prepare": "(*retrom/internal/service/libraryimport.ImportExecutions).CancelJob",
+      "commit": "(*retrom/internal/repo/libraryimport.ImportExecutions).WithExecution",
+      "policy_symbols": [
+        "retrom/internal/service/libraryimport.importCancellable",
+        "retrom/internal/service/libraryimport.importCancellationProjection",
+        "retrom/internal/service/libraryimport.importCancelledTransition",
+        "retrom/internal/service/libraryimport.normalizeImportCancellation"
+      ],
+      "fresh_facts": [
+        {
+          "name": "durable execution and aggregate",
+          "reader_symbol": "(retrom/internal/repo/libraryimport.importExecutionRecords).Current",
+          "reason": "Same writer jobs IMPORT_GROUP+scope matches parent; job/parent versions and states; immutable identity/worker/execution/attempt/start/deadline/actor; request+target JSON/digests,upload snapshot; lease/heartbeat/availability/error/cancel; parent counters,current item and resolved-file counts. Baseline does not read job_input_snapshots here"
+        },
+        {
+          "name": "release scope current owner",
+          "reader_symbol": "(retrom/internal/repo/payloadrelease.scheduling).Owner",
+          "reason": "Same writer terminal aggregate current state/version/payload/releaseJob; PendingChildren must be0 for aggregate. Source/ordinary linkage not a detached transaction"
+        }
+      ],
+      "guards": [
+        {
+          "id": "cancel-request",
+          "fields": [
+            "jobId",
+            "importId",
+            "expectedVersion",
+            "reason"
+          ],
+          "expected_source": "IDs nonempty/version>=1/reason trim1..500runes",
+          "rejection": "ErrInvalid",
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "id": "cancel-current",
+          "fields": [
+            "found",
+            "parentId",
+            "jobVersion",
+            "cancellable",
+            "state",
+            "retryable"
+          ],
+          "expected_source": "Exact requested parent and jobversion,cancellable; QUEUED|RUNNING orFAILEDretryabletrue",
+          "rejection": "ErrVersionConflict",
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "id": "bounded-versions",
+          "fields": [
+            "job.version",
+            "parent.version"
+          ],
+          "expected_source": "Both current versions positive and less thanMaxInt64,even when parent not written",
+          "rejection": "ErrVersionConflict",
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "id": "job-cas",
+          "fields": [
+            "job.id",
+            "scope",
+            "kind",
+            "state",
+            "version",
+            "worker",
+            "execution",
+            "attempt",
+            "start",
+            "deadline",
+            "lease"
+          ],
+          "expected_source": "writeJob exact IMPORT_GROUP identity/parent scope/version/state/COALESCE worker/start/deadline/lease and execution/attempt; optional live lease>AtMS; require1",
+          "rejection": "ErrVersionConflict",
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "id": "parent-cas",
+          "fields": [
+            "parent.id",
+            "version",
+            "state",
+            "job.id",
+            "job.version"
+          ],
+          "expected_source": "Exact parent id/version/state and EXISTS corresponding job at observedVersion+1 (same version for ParentOnly); require1",
+          "rejection": "ErrVersionConflict",
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "id": "terminal-release",
+          "fields": [
+            "owner.state",
+            "owner.version",
+            "payloadState",
+            "releaseJob",
+            "pendingChildren"
+          ],
+          "expected_source": "Terminal scope with all children settled; RETAINED advances version with new work; alreadyRELEASING/FAILED/RELEASED requires existing job. Nonterminal aggregate or pending children is no-op",
+          "rejection": "ErrScopeInvalid / original generator or SQL failure",
+          "test_id": "RFA-RF13-discard_handoff"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "job-transition",
+          "repo_helper": "(retrom/internal/repo/libraryimport.importExecutionRecords).writeJob",
+          "affected_records": [
+            "UPDATE full supplied job projection,version+1/time under exact observed fence; ParentOnly path deliberately skips this write"
+          ],
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "stage": "parent-transition",
+          "repo_helper": "(retrom/internal/repo/libraryimport.importExecutionRecords).writeParent",
+          "affected_records": [
+            "UPDATE aggregate state/completion/cancel/error,version+1/time under parent fence; counts unchanged"
+          ],
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "stage": "execution-event",
+          "repo_helper": "(retrom/internal/repo/libraryimport.importExecutionRecords).Transition",
+          "affected_records": [
+            "INSERT typed IMPORT_GROUP event after job/optional parent writes,schema1/execution/attempt/action data/time; require1"
+          ],
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "stage": "payload-job",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.scheduling).CreateJob",
+          "affected_records": [
+            "INSERT PAYLOAD_RELEASE jobs per eligible retained terminal owner,QUEUED,execution1,max4,noncancellable,stable per-scope dedupe; require1,nested owner transaction"
+          ],
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "stage": "payload-input",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.scheduling).CreateJob",
+          "affected_records": [
+            "INSERT job_input_snapshots schema1/scope/scopeVersion/reason/fresh execution ID/JSON digest; require1,nested owner transaction"
+          ],
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "stage": "payload-event",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.scheduling).CreateJob",
+          "affected_records": [
+            "INSERT QUEUED payload job_event schema1/execution1/attempt0; require1,nested owner transaction"
+          ],
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "stage": "payload-owner",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.scheduling).BeginRelease",
+          "affected_records": [
+            "Owner exact id/version/state/RETAINED/old releaseJob -> RELEASING,new releaseJob,version+1; scope-specific fields fenced,require1"
+          ],
+          "test_id": "RFA-RF13-discard_handoff"
+        }
+      ],
+      "idempotency": "No domain receipt; current identity/state/version guard controls transitions. Generic JSON HTTP idempotency may separately persist a receipt after this domain transaction; RF06 registers that gap.",
+      "time_rule": "Baseline shared writer BeginTx with upper callback (or Repo-owned orchestration); Service clock position specified below. Target Repo must acquire write permission then sample technical Clock once; prepared identities generated before writer. Conditional release Scheduler generates job/execution UUIDs inside owner transaction using supplied now. Read+validate then sample now. RUNNING preserves execution owner/lease/HB and becomesCANCEL_REQUESTED with parent likewise; other permitted states clearowner andbecomeCANCELLED. Existing cancellation time/reason preserved by transition.",
+      "after_commit": [
+        {
+          "action": "Return Pending for cooperative RUNNING cancellation; worker heartbeat observes new jobstate",
+          "recovery": "Terminal cancellation atomically schedules aggregate release when eligible; no future worker claim",
+          "test_id": "RFA-RF13-discard_handoff"
+        }
+      ],
+      "fault_points": [
+        "PLANNED job-transition: fail after each applicable SQL phase,assert whole owning transaction rolls back including job,input,event,parent,item,consumption and nested release",
+        "PLANNED parent-transition: fail after each applicable SQL phase,assert whole owning transaction rolls back including job,input,event,parent,item,consumption and nested release",
+        "PLANNED execution-event: fail after each applicable SQL phase,assert whole owning transaction rolls back including job,input,event,parent,item,consumption and nested release",
+        "PLANNED payload-job: fail after each applicable SQL phase,assert whole owning transaction rolls back including job,input,event,parent,item,consumption and nested release",
+        "PLANNED payload-input: fail after each applicable SQL phase,assert whole owning transaction rolls back including job,input,event,parent,item,consumption and nested release",
+        "PLANNED payload-event: fail after each applicable SQL phase,assert whole owning transaction rolls back including job,input,event,parent,item,consumption and nested release",
+        "PLANNED payload-owner: fail after each applicable SQL phase,assert whole owning transaction rolls back including job,input,event,parent,item,consumption and nested release",
+        "PLANNED independently change each Guard before writer; concurrent cancel/claim/renew/recovery,stale parent/version/lease/input,commit failure and crash/restart; no aggregate sample substitutes for per-operation matrix"
+      ],
+      "test_ids": [
+        "RFA-RF13-discard_handoff",
+        "RFA-RF13-publish_atomic",
+        "RFA-RF13-format_paths"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "Changes durable job/aggregate/admission bookkeeping only; no new Blob row or protective Blob FK and no physical CAS publication/deletion. Existing upload Blob references remain authoritative.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "libraryimport.claim-import",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.ImportExecutions).Claim"
+      ],
+      "snapshot": "retrom/internal/model/libraryimport.ImportWorkerSnapshot",
+      "prepare": "(*retrom/internal/service/libraryimport.ImportExecutions).Claim",
+      "commit": "(*retrom/internal/repo/libraryimport.ImportExecutions).WithExecution",
+      "policy_symbols": [
+        "retrom/internal/service/libraryimport.ImportFailure",
+        "retrom/internal/service/libraryimport.MatchesImportDocumentDigest",
+        "retrom/internal/service/libraryimport.decodeImportWork",
+        "retrom/internal/service/libraryimport.importClaimAvailable",
+        "retrom/internal/service/libraryimport.importClaimProblem",
+        "retrom/internal/service/libraryimport.importClaimProjection",
+        "retrom/internal/service/libraryimport.importFailedTransition"
+      ],
+      "fresh_facts": [
+        {
+          "name": "durable execution and aggregate",
+          "reader_symbol": "(retrom/internal/repo/libraryimport.importExecutionRecords).Current",
+          "reason": "Same writer jobs IMPORT_GROUP+scope matches parent; job/parent versions and states; immutable identity/worker/execution/attempt/start/deadline/actor; request+target JSON/digests,upload snapshot; lease/heartbeat/availability/error/cancel; parent counters,current item and resolved-file counts. Baseline does not read job_input_snapshots here"
+        },
+        {
+          "name": "current frozen upload",
+          "reader_symbol": "(retrom/internal/repo/libraryimport.ImportFacts).Upload",
+          "reason": "Only active claim branch validates COMPLETE upload version/manifest equal admitted request"
+        },
+        {
+          "name": "release scope current owner",
+          "reader_symbol": "(retrom/internal/repo/payloadrelease.scheduling).Owner",
+          "reason": "Same writer terminal aggregate current state/version/payload/releaseJob; PendingChildren must be0 for aggregate. Source/ordinary linkage not a detached transaction"
+        }
+      ],
+      "guards": [
+        {
+          "id": "queued-available",
+          "fields": [
+            "job.state",
+            "available",
+            "parent.state",
+            "itemCount",
+            "resolvedFiles"
+          ],
+          "expected_source": "QUEUED available<=now,parentQUEUED|FAILED,itemCount0,resolvedFiles0; otherwise no-op",
+          "rejection": "No claim",
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "id": "claim-budget",
+          "fields": [
+            "deadline",
+            "attempt",
+            "max"
+          ],
+          "expected_source": "Elapsed existing deadline first -> DeadlineExceeded; attempts>=max -> ErrInvalid; both produce durable rejected job/parent in same claim transaction",
+          "rejection": "IMPORT_GROUP_EXECUTION_TIMEOUT retryable / IMPORT_INPUT_INVALID nonretryable",
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "id": "request-documents",
+          "fields": [
+            "hasRequest",
+            "requestDigest",
+            "targetDigest",
+            "schemas",
+            "targetIds",
+            "uploadId"
+          ],
+          "expected_source": "Canonical digest of request/target JSON valid,schema1,target listnonempty,platform ID matches request,upload matches parent,request normalization passes; no frozen job-input digest check in baseline",
+          "rejection": "ErrInvalid commits failed/nonretryable outcome; infrastructure read errors rollback",
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "id": "frozen-upload",
+          "fields": [
+            "state",
+            "version",
+            "manifest"
+          ],
+          "expected_source": "Found COMPLETE equal admitted uploadversion/digest",
+          "rejection": "ErrInvalid commits rejected outcome",
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "id": "claim-end-time",
+          "fields": [
+            "finishedNow",
+            "newLease",
+            "deadline"
+          ],
+          "expected_source": "Second sample after Transition must precede new lease and execution deadline",
+          "rejection": "ErrVersionConflict",
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "id": "bounded-versions",
+          "fields": [
+            "job.version",
+            "parent.version"
+          ],
+          "expected_source": "Both current versions positive and less thanMaxInt64,even when parent not written",
+          "rejection": "ErrVersionConflict",
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "id": "job-cas",
+          "fields": [
+            "job.id",
+            "scope",
+            "kind",
+            "state",
+            "version",
+            "worker",
+            "execution",
+            "attempt",
+            "start",
+            "deadline",
+            "lease"
+          ],
+          "expected_source": "writeJob exact IMPORT_GROUP identity/parent scope/version/state/COALESCE worker/start/deadline/lease and execution/attempt; optional live lease>AtMS; require1",
+          "rejection": "ErrVersionConflict",
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "id": "parent-cas",
+          "fields": [
+            "parent.id",
+            "version",
+            "state",
+            "job.id",
+            "job.version"
+          ],
+          "expected_source": "Exact parent id/version/state and EXISTS corresponding job at observedVersion+1 (same version for ParentOnly); require1",
+          "rejection": "ErrVersionConflict",
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "id": "terminal-release",
+          "fields": [
+            "owner.state",
+            "owner.version",
+            "payloadState",
+            "releaseJob",
+            "pendingChildren"
+          ],
+          "expected_source": "Terminal scope with all children settled; RETAINED advances version with new work; alreadyRELEASING/FAILED/RELEASED requires existing job. Nonterminal aggregate or pending children is no-op",
+          "rejection": "ErrScopeInvalid / original generator or SQL failure",
+          "test_id": "RFA-RF13-format_paths"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "job-transition",
+          "repo_helper": "(retrom/internal/repo/libraryimport.importExecutionRecords).writeJob",
+          "affected_records": [
+            "UPDATE full supplied job projection,version+1/time under exact observed fence; ParentOnly path deliberately skips this write"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "parent-transition",
+          "repo_helper": "(retrom/internal/repo/libraryimport.importExecutionRecords).writeParent",
+          "affected_records": [
+            "UPDATE aggregate state/completion/cancel/error,version+1/time under parent fence; counts unchanged"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "execution-event",
+          "repo_helper": "(retrom/internal/repo/libraryimport.importExecutionRecords).Transition",
+          "affected_records": [
+            "INSERT typed IMPORT_GROUP event after job/optional parent writes,schema1/execution/attempt/action data/time; require1"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "payload-job",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.scheduling).CreateJob",
+          "affected_records": [
+            "INSERT PAYLOAD_RELEASE jobs per eligible retained terminal owner,QUEUED,execution1,max4,noncancellable,stable per-scope dedupe; require1,nested owner transaction"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "payload-input",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.scheduling).CreateJob",
+          "affected_records": [
+            "INSERT job_input_snapshots schema1/scope/scopeVersion/reason/fresh execution ID/JSON digest; require1,nested owner transaction"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "payload-event",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.scheduling).CreateJob",
+          "affected_records": [
+            "INSERT QUEUED payload job_event schema1/execution1/attempt0; require1,nested owner transaction"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "payload-owner",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.scheduling).BeginRelease",
+          "affected_records": [
+            "Owner exact id/version/state/RETAINED/old releaseJob -> RELEASING,new releaseJob,version+1; scope-specific fields fenced,require1"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        }
+      ],
+      "idempotency": "Exact current job/parent fences admit one claim. Rejected invalid input/budget branch commits FAILED projections before returning the classified error; rejected nonretryable owner may schedule payload release. No active worker returned on rejection.",
+      "time_rule": "Baseline shared writer BeginTx with upper callback (or Repo-owned orchestration); Service clock position specified below. Target Repo must acquire write permission then sample technical Clock once; prepared identities generated before writer. Conditional release Scheduler generates job/execution UUIDs inside owner transaction using supplied now. Worker UUID generated BEFORE writer. Serializable transaction reads current then samples now; active branch fresh started(now ifnil),deadline(now+6h ifnil),lease=min(now+60s,deadline),attempt+1; final second clock sample checks resulting lease/budget. Existing budget preserved.",
+      "after_commit": [
+        {
+          "action": "Return only committed active work to external file preparation,15s heartbeat and progress; no queued work means no executor",
+          "recovery": "1s recovery handles interrupted job; absent request/input invalidity is durably classified rather than silently retried",
+          "test_id": "RFA-RF13-discard_handoff"
+        }
+      ],
+      "fault_points": [
+        "PLANNED job-transition: fail after each applicable SQL phase,assert whole owning transaction rolls back including job,input,event,parent,item,consumption and nested release",
+        "PLANNED parent-transition: fail after each applicable SQL phase,assert whole owning transaction rolls back including job,input,event,parent,item,consumption and nested release",
+        "PLANNED execution-event: fail after each applicable SQL phase,assert whole owning transaction rolls back including job,input,event,parent,item,consumption and nested release",
+        "PLANNED payload-job: fail after each applicable SQL phase,assert whole owning transaction rolls back including job,input,event,parent,item,consumption and nested release",
+        "PLANNED payload-input: fail after each applicable SQL phase,assert whole owning transaction rolls back including job,input,event,parent,item,consumption and nested release",
+        "PLANNED payload-event: fail after each applicable SQL phase,assert whole owning transaction rolls back including job,input,event,parent,item,consumption and nested release",
+        "PLANNED payload-owner: fail after each applicable SQL phase,assert whole owning transaction rolls back including job,input,event,parent,item,consumption and nested release",
+        "PLANNED independently change each Guard before writer; concurrent cancel/claim/renew/recovery,stale parent/version/lease/input,commit failure and crash/restart; no aggregate sample substitutes for per-operation matrix"
+      ],
+      "test_ids": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-publish_atomic",
+        "RFA-RF13-discard_handoff"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "Changes durable job/aggregate/admission bookkeeping only; no new Blob row or protective Blob FK and no physical CAS publication/deletion. Existing upload Blob references remain authoritative.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "libraryimport.fail-import",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.ImportExecutions).Fail"
+      ],
+      "snapshot": "retrom/internal/model/libraryimport.ImportWorkerSnapshot",
+      "prepare": "(*retrom/internal/service/libraryimport.ImportExecutions).Fail",
+      "commit": "(*retrom/internal/repo/libraryimport.ImportExecutions).WithExecution",
+      "policy_symbols": [
+        "retrom/internal/service/libraryimport.ImportExecutionCurrent",
+        "retrom/internal/service/libraryimport.ImportFailure",
+        "retrom/internal/service/libraryimport.importCancelledTransition",
+        "retrom/internal/service/libraryimport.importFailedTransition",
+        "retrom/internal/service/libraryimport.importFailureProjection",
+        "retrom/internal/service/libraryimport.importRetryDelay",
+        "retrom/internal/service/libraryimport.importRetryTransition",
+        "retrom/internal/service/libraryimport.sameImportExecutionIdentity"
+      ],
+      "fresh_facts": [
+        {
+          "name": "durable execution and aggregate",
+          "reader_symbol": "(retrom/internal/repo/libraryimport.importExecutionRecords).Current",
+          "reason": "Same writer jobs IMPORT_GROUP+scope matches parent; job/parent versions and states; immutable identity/worker/execution/attempt/start/deadline/actor; request+target JSON/digests,upload snapshot; lease/heartbeat/availability/error/cancel; parent counters,current item and resolved-file counts. Baseline does not read job_input_snapshots here"
+        },
+        {
+          "name": "release scope current owner",
+          "reader_symbol": "(retrom/internal/repo/payloadrelease.scheduling).Owner",
+          "reason": "Same writer terminal aggregate current state/version/payload/releaseJob; PendingChildren must be0 for aggregate. Source/ordinary linkage not a detached transaction"
+        }
+      ],
+      "guards": [
+        {
+          "id": "live-owned-execution",
+          "fields": [
+            "job.state",
+            "job.version",
+            "lease",
+            "expectedIdentity"
+          ],
+          "expected_source": "Current RUNNING|CANCEL_REQUESTED,bounded positive jobversion,lease>now; expected nonempty import/worker,positive execution/attempt; exactjob/import/worker/exec/attempt/start/deadline/actor. Does not require deadline live itself",
+          "rejection": "ErrVersionConflict",
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "id": "end-of-writer-lease",
+          "fields": [
+            "originalLease",
+            "finishedNow"
+          ],
+          "expected_source": "After callback fresh Service sample must be before ORIGINAL observed lease; Fail can settle after execution deadline",
+          "rejection": "ErrVersionConflict rolls back writes",
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "id": "failure-cause",
+          "fields": [
+            "cause"
+          ],
+          "expected_source": "Non-nil cause required",
+          "rejection": "ErrInvalid",
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "id": "failure-projection",
+          "fields": [
+            "state",
+            "deadline",
+            "cause",
+            "attempt",
+            "max"
+          ],
+          "expected_source": "Cancellation requested->CANCELLED/release; expireddeadline->FAILED timeout retryable/no release; workerclosed/contextcancel->immediateQUEUED; retryable withinattempt/budget andbackoff beforedeadline->QUEUED; elseFAILED,release only nonretryable",
+          "rejection": "Transition returns stable error classification; SQL conflicts rollback",
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "id": "bounded-versions",
+          "fields": [
+            "job.version",
+            "parent.version"
+          ],
+          "expected_source": "Both current versions positive and less thanMaxInt64,even when parent not written",
+          "rejection": "ErrVersionConflict",
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "id": "job-cas",
+          "fields": [
+            "job.id",
+            "scope",
+            "kind",
+            "state",
+            "version",
+            "worker",
+            "execution",
+            "attempt",
+            "start",
+            "deadline",
+            "lease"
+          ],
+          "expected_source": "writeJob exact IMPORT_GROUP identity/parent scope/version/state/COALESCE worker/start/deadline/lease and execution/attempt; optional live lease>AtMS; require1",
+          "rejection": "ErrVersionConflict",
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "id": "parent-cas",
+          "fields": [
+            "parent.id",
+            "version",
+            "state",
+            "job.id",
+            "job.version"
+          ],
+          "expected_source": "Exact parent id/version/state and EXISTS corresponding job at observedVersion+1 (same version for ParentOnly); require1",
+          "rejection": "ErrVersionConflict",
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "id": "terminal-release",
+          "fields": [
+            "owner.state",
+            "owner.version",
+            "payloadState",
+            "releaseJob",
+            "pendingChildren"
+          ],
+          "expected_source": "Terminal scope with all children settled; RETAINED advances version with new work; alreadyRELEASING/FAILED/RELEASED requires existing job. Nonterminal aggregate or pending children is no-op",
+          "rejection": "ErrScopeInvalid / original generator or SQL failure",
+          "test_id": "RFA-RF13-discard_handoff"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "job-transition",
+          "repo_helper": "(retrom/internal/repo/libraryimport.importExecutionRecords).writeJob",
+          "affected_records": [
+            "UPDATE full supplied job projection,version+1/time under exact observed fence; ParentOnly path deliberately skips this write"
+          ],
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "stage": "parent-transition",
+          "repo_helper": "(retrom/internal/repo/libraryimport.importExecutionRecords).writeParent",
+          "affected_records": [
+            "UPDATE aggregate state/completion/cancel/error,version+1/time under parent fence; counts unchanged"
+          ],
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "stage": "execution-event",
+          "repo_helper": "(retrom/internal/repo/libraryimport.importExecutionRecords).Transition",
+          "affected_records": [
+            "INSERT typed IMPORT_GROUP event after job/optional parent writes,schema1/execution/attempt/action data/time; require1"
+          ],
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "stage": "payload-job",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.scheduling).CreateJob",
+          "affected_records": [
+            "INSERT PAYLOAD_RELEASE jobs per eligible retained terminal owner,QUEUED,execution1,max4,noncancellable,stable per-scope dedupe; require1,nested owner transaction"
+          ],
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "stage": "payload-input",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.scheduling).CreateJob",
+          "affected_records": [
+            "INSERT job_input_snapshots schema1/scope/scopeVersion/reason/fresh execution ID/JSON digest; require1,nested owner transaction"
+          ],
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "stage": "payload-event",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.scheduling).CreateJob",
+          "affected_records": [
+            "INSERT QUEUED payload job_event schema1/execution1/attempt0; require1,nested owner transaction"
+          ],
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "stage": "payload-owner",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.scheduling).BeginRelease",
+          "affected_records": [
+            "Owner exact id/version/state/RETAINED/old releaseJob -> RELEASING,new releaseJob,version+1; scope-specific fields fenced,require1"
+          ],
+          "test_id": "RFA-RF13-discard_handoff"
+        }
+      ],
+      "idempotency": "No domain receipt; current identity/state/version guard controls transitions. Generic JSON HTTP idempotency may separately persist a receipt after this domain transaction; RF06 registers that gap.",
+      "time_rule": "Baseline shared writer BeginTx with upper callback (or Repo-owned orchestration); Service clock position specified below. Target Repo must acquire write permission then sample technical Clock once; prepared identities generated before writer. owned reads current facts then samples now,and samples finished after writes; Renew final check uses OLD lease,not the newly extended lease. Conditional release Scheduler generates job/execution UUIDs inside owner transaction using supplied now. Old lease must remain live through both samples; final check intentionally allows elapsed deadline. Retry backoff1/5/30s; current execution and start/deadline retained,owner/lease/heartbeat cleared.",
+      "after_commit": [
+        {
+          "action": "Return original execution failure; worker settlement runs with30s WithoutCancel context and joins settlement error",
+          "recovery": "When old lease expired settlement is rejected; Recover later handles it. Durable retries discovered by1s queue",
+          "test_id": "RFA-RF13-discard_handoff"
+        }
+      ],
+      "fault_points": [
+        "PLANNED job-transition: fail after each applicable SQL phase,assert whole owning transaction rolls back including job,input,event,parent,item,consumption and nested release",
+        "PLANNED parent-transition: fail after each applicable SQL phase,assert whole owning transaction rolls back including job,input,event,parent,item,consumption and nested release",
+        "PLANNED execution-event: fail after each applicable SQL phase,assert whole owning transaction rolls back including job,input,event,parent,item,consumption and nested release",
+        "PLANNED payload-job: fail after each applicable SQL phase,assert whole owning transaction rolls back including job,input,event,parent,item,consumption and nested release",
+        "PLANNED payload-input: fail after each applicable SQL phase,assert whole owning transaction rolls back including job,input,event,parent,item,consumption and nested release",
+        "PLANNED payload-event: fail after each applicable SQL phase,assert whole owning transaction rolls back including job,input,event,parent,item,consumption and nested release",
+        "PLANNED payload-owner: fail after each applicable SQL phase,assert whole owning transaction rolls back including job,input,event,parent,item,consumption and nested release",
+        "PLANNED independently change each Guard before writer; concurrent cancel/claim/renew/recovery,stale parent/version/lease/input,commit failure and crash/restart; no aggregate sample substitutes for per-operation matrix"
+      ],
+      "test_ids": [
+        "RFA-RF13-discard_handoff",
+        "RFA-RF13-publish_atomic",
+        "RFA-RF13-format_paths"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "Changes durable job/aggregate/admission bookkeeping only; no new Blob row or protective Blob FK and no physical CAS publication/deletion. Existing upload Blob references remain authoritative.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "libraryimport.record-import-progress",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.ImportExecutions).Progress"
+      ],
+      "snapshot": "retrom/internal/model/libraryimport.ImportWorkerSnapshot",
+      "prepare": "(*retrom/internal/service/libraryimport.ImportExecutions).Progress",
+      "commit": "(*retrom/internal/repo/libraryimport.ImportExecutions).WithExecution",
+      "policy_symbols": [
+        "retrom/internal/service/libraryimport.ImportExecutionCurrent",
+        "retrom/internal/service/libraryimport.sameImportExecutionIdentity"
+      ],
+      "fresh_facts": [
+        {
+          "name": "durable execution and aggregate",
+          "reader_symbol": "(retrom/internal/repo/libraryimport.importExecutionRecords).Current",
+          "reason": "Same writer jobs IMPORT_GROUP+scope matches parent; job/parent versions and states; immutable identity/worker/execution/attempt/start/deadline/actor; request+target JSON/digests,upload snapshot; lease/heartbeat/availability/error/cancel; parent counters,current item and resolved-file counts. Baseline does not read job_input_snapshots here"
+        }
+      ],
+      "guards": [
+        {
+          "id": "live-owned-execution",
+          "fields": [
+            "job.state",
+            "job.version",
+            "lease",
+            "expectedIdentity"
+          ],
+          "expected_source": "Current RUNNING|CANCEL_REQUESTED,bounded positive jobversion,lease>now; expected nonempty import/worker,positive execution/attempt; exactjob/import/worker/exec/attempt/start/deadline/actor. Does not require deadline live itself",
+          "rejection": "ErrVersionConflict",
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "id": "end-of-writer-lease",
+          "fields": [
+            "originalLease",
+            "finishedNow",
+            "deadline"
+          ],
+          "expected_source": "After callback fresh Service sample must be before ORIGINAL observed lease and immutable deadline",
+          "rejection": "ErrVersionConflict rolls back writes",
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "id": "progress-authority",
+          "fields": [
+            "itemCount",
+            "state",
+            "deadline"
+          ],
+          "expected_source": "itemCount>=0 before writer; current stateRUNNING anddeadline>now",
+          "rejection": "ErrInvalid / ErrVersionConflict",
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "id": "bounded-versions",
+          "fields": [
+            "job.version",
+            "parent.version"
+          ],
+          "expected_source": "Both current versions positive and less thanMaxInt64,even when parent not written",
+          "rejection": "ErrVersionConflict",
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "id": "job-cas",
+          "fields": [
+            "job.id",
+            "scope",
+            "kind",
+            "state",
+            "version",
+            "worker",
+            "execution",
+            "attempt",
+            "start",
+            "deadline",
+            "lease"
+          ],
+          "expected_source": "writeJob exact IMPORT_GROUP identity/parent scope/version/state/COALESCE worker/start/deadline/lease and execution/attempt; optional live lease>AtMS; require1",
+          "rejection": "ErrVersionConflict",
+          "test_id": "RFA-RF13-format_paths"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "job-transition",
+          "repo_helper": "(retrom/internal/repo/libraryimport.importExecutionRecords).writeJob",
+          "affected_records": [
+            "UPDATE full supplied job projection,version+1/time under exact observed fence; ParentOnly path deliberately skips this write"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "execution-event",
+          "repo_helper": "(retrom/internal/repo/libraryimport.importExecutionRecords).Transition",
+          "affected_records": [
+            "INSERT typed IMPORT_GROUP event after job/optional parent writes,schema1/execution/attempt/action data/time; require1"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        }
+      ],
+      "idempotency": "No domain receipt; current identity/state/version guard controls transitions. Generic JSON HTTP idempotency may separately persist a receipt after this domain transaction; RF06 registers that gap.",
+      "time_rule": "Baseline shared writer BeginTx with upper callback (or Repo-owned orchestration); Service clock position specified below. Target Repo must acquire write permission then sample technical Clock once; prepared identities generated before writer. owned reads current facts then samples now,and samples finished after writes; Renew final check uses OLD lease,not the newly extended lease. Job projection otherwise unchanged; version/time and PROGRESS phasePERSISTING,completedUnits=totalUnits=itemCount,unitITEM event.",
+      "after_commit": [
+        {
+          "action": "Preparation continues to separate CommitPrepared only after progress commit",
+          "recovery": "A progress record does not mean items were published; final creation transaction remains separately fenced",
+          "test_id": "RFA-RF13-discard_handoff"
+        }
+      ],
+      "fault_points": [
+        "PLANNED job-transition: fail after each applicable SQL phase,assert whole owning transaction rolls back including job,input,event,parent,item,consumption and nested release",
+        "PLANNED execution-event: fail after each applicable SQL phase,assert whole owning transaction rolls back including job,input,event,parent,item,consumption and nested release",
+        "PLANNED independently change each Guard before writer; concurrent cancel/claim/renew/recovery,stale parent/version/lease/input,commit failure and crash/restart; no aggregate sample substitutes for per-operation matrix"
+      ],
+      "test_ids": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-publish_atomic",
+        "RFA-RF13-discard_handoff"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "Changes durable job/aggregate/admission bookkeeping only; no new Blob row or protective Blob FK and no physical CAS publication/deletion. Existing upload Blob references remain authoritative.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "libraryimport.recover-import",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.ImportExecutions).Recover",
+        "(*retrom/internal/service/libraryimport.ImportExecutions).recoverOne"
+      ],
+      "snapshot": "retrom/internal/model/libraryimport.ImportWorkerSnapshot",
+      "prepare": "(*retrom/internal/service/libraryimport.ImportExecutions).recoverOne",
+      "commit": "(*retrom/internal/repo/libraryimport.ImportExecutions).WithExecution",
+      "policy_symbols": [
+        "retrom/internal/service/libraryimport.importCancelledTransition",
+        "retrom/internal/service/libraryimport.importFailedTransition",
+        "retrom/internal/service/libraryimport.importProducedProjection",
+        "retrom/internal/service/libraryimport.importRecoveryProjection",
+        "retrom/internal/service/libraryimport.importRecoveryRequired",
+        "retrom/internal/service/libraryimport.importRetryTransition"
+      ],
+      "fresh_facts": [
+        {
+          "name": "durable execution and aggregate",
+          "reader_symbol": "(retrom/internal/repo/libraryimport.importExecutionRecords).Current",
+          "reason": "Same writer jobs IMPORT_GROUP+scope matches parent; job/parent versions and states; immutable identity/worker/execution/attempt/start/deadline/actor; request+target JSON/digests,upload snapshot; lease/heartbeat/availability/error/cancel; parent counters,current item and resolved-file counts. Baseline does not read job_input_snapshots here"
+        },
+        {
+          "name": "release scope current owner",
+          "reader_symbol": "(retrom/internal/repo/payloadrelease.scheduling).Owner",
+          "reason": "Same writer terminal aggregate current state/version/payload/releaseJob; PendingChildren must be0 for aggregate. Source/ordinary linkage not a detached transaction"
+        }
+      ],
+      "guards": [
+        {
+          "id": "recovery-eligibility",
+          "fields": [
+            "state",
+            "lease",
+            "deadline",
+            "itemCount",
+            "resolvedFiles",
+            "attempt",
+            "max"
+          ],
+          "expected_source": "Per ID re-read; CANCELLED syncparent; QUEUED onlyelapseddeadline/exhaustedattempts/existingitems/resolvedfiles; RUNNING|CANCEL_REQUESTED onlyelapseddeadline/lease",
+          "rejection": "Other state/livework no-op",
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "id": "recovery-projection",
+          "fields": [
+            "state",
+            "produced",
+            "counts",
+            "deadline",
+            "attempt"
+          ],
+          "expected_source": "CANCEL_REQUESTED wins ->cancel+release; otherwise produced items/resolvedfiles ->SUCCEEDED+current importprogress projection+conditionalrelease; otherwisedeadline/attempt exhausted ->FAILEDretryable,elseimmediateQUEUED",
+          "rejection": "Stable projection errors / ErrVersionConflict",
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "id": "bounded-versions",
+          "fields": [
+            "job.version",
+            "parent.version"
+          ],
+          "expected_source": "Both current versions positive and less thanMaxInt64,even when parent not written",
+          "rejection": "ErrVersionConflict",
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "id": "job-cas",
+          "fields": [
+            "job.id",
+            "scope",
+            "kind",
+            "state",
+            "version",
+            "worker",
+            "execution",
+            "attempt",
+            "start",
+            "deadline",
+            "lease"
+          ],
+          "expected_source": "writeJob exact IMPORT_GROUP identity/parent scope/version/state/COALESCE worker/start/deadline/lease and execution/attempt; optional live lease>AtMS; require1",
+          "rejection": "ErrVersionConflict",
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "id": "parent-cas",
+          "fields": [
+            "parent.id",
+            "version",
+            "state",
+            "job.id",
+            "job.version"
+          ],
+          "expected_source": "Exact parent id/version/state and EXISTS corresponding job at observedVersion+1 (same version for ParentOnly); require1",
+          "rejection": "ErrVersionConflict",
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "id": "terminal-release",
+          "fields": [
+            "owner.state",
+            "owner.version",
+            "payloadState",
+            "releaseJob",
+            "pendingChildren"
+          ],
+          "expected_source": "Terminal scope with all children settled; RETAINED advances version with new work; alreadyRELEASING/FAILED/RELEASED requires existing job. Nonterminal aggregate or pending children is no-op",
+          "rejection": "ErrScopeInvalid / original generator or SQL failure",
+          "test_id": "RFA-RF13-discard_handoff"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "job-transition",
+          "repo_helper": "(retrom/internal/repo/libraryimport.importExecutionRecords).writeJob",
+          "affected_records": [
+            "UPDATE full supplied job projection,version+1/time under exact observed fence; ParentOnly path deliberately skips this write"
+          ],
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "stage": "parent-transition",
+          "repo_helper": "(retrom/internal/repo/libraryimport.importExecutionRecords).writeParent",
+          "affected_records": [
+            "UPDATE aggregate state/completion/cancel/error,version+1/time under parent fence; counts unchanged"
+          ],
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "stage": "execution-event",
+          "repo_helper": "(retrom/internal/repo/libraryimport.importExecutionRecords).Transition",
+          "affected_records": [
+            "INSERT typed IMPORT_GROUP event after job/optional parent writes,schema1/execution/attempt/action data/time; require1"
+          ],
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "stage": "payload-job",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.scheduling).CreateJob",
+          "affected_records": [
+            "INSERT PAYLOAD_RELEASE jobs per eligible retained terminal owner,QUEUED,execution1,max4,noncancellable,stable per-scope dedupe; require1,nested owner transaction"
+          ],
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "stage": "payload-input",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.scheduling).CreateJob",
+          "affected_records": [
+            "INSERT job_input_snapshots schema1/scope/scopeVersion/reason/fresh execution ID/JSON digest; require1,nested owner transaction"
+          ],
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "stage": "payload-event",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.scheduling).CreateJob",
+          "affected_records": [
+            "INSERT QUEUED payload job_event schema1/execution1/attempt0; require1,nested owner transaction"
+          ],
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "stage": "payload-owner",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.scheduling).BeginRelease",
+          "affected_records": [
+            "Owner exact id/version/state/RETAINED/old releaseJob -> RELEASING,new releaseJob,version+1; scope-specific fields fenced,require1"
+          ],
+          "test_id": "RFA-RF13-discard_handoff"
+        }
+      ],
+      "idempotency": "Each ID commits independently; earlier successes survive later error. Recovered produced output settles job rather than duplicating items; recovery can settle expired lease without live-lease predicate.",
+      "time_rule": "Baseline shared writer BeginTx with upper callback (or Repo-owned orchestration); Service clock position specified below. Target Repo must acquire write permission then sample technical Clock once; prepared identities generated before writer. Conditional release Scheduler generates job/execution UUIDs inside owner transaction using supplied now. Recoverable IDs query outside writer sample then up to64 separate transactions,each current read then own new sample. Baseline item/counter/current snapshot accepted as facts but SQL fences only versions/state/identity,not full request documents/counters.",
+      "after_commit": [
+        {
+          "action": "Queue and maintenance loops run every1s; recoverable conditional release persists together with transition",
+          "recovery": "Crash retries remaining IDs; no dependence on old process memory",
+          "test_id": "RFA-RF13-discard_handoff"
+        }
+      ],
+      "fault_points": [
+        "PLANNED job-transition: fail after each applicable SQL phase,assert whole owning transaction rolls back including job,input,event,parent,item,consumption and nested release",
+        "PLANNED parent-transition: fail after each applicable SQL phase,assert whole owning transaction rolls back including job,input,event,parent,item,consumption and nested release",
+        "PLANNED execution-event: fail after each applicable SQL phase,assert whole owning transaction rolls back including job,input,event,parent,item,consumption and nested release",
+        "PLANNED payload-job: fail after each applicable SQL phase,assert whole owning transaction rolls back including job,input,event,parent,item,consumption and nested release",
+        "PLANNED payload-input: fail after each applicable SQL phase,assert whole owning transaction rolls back including job,input,event,parent,item,consumption and nested release",
+        "PLANNED payload-event: fail after each applicable SQL phase,assert whole owning transaction rolls back including job,input,event,parent,item,consumption and nested release",
+        "PLANNED payload-owner: fail after each applicable SQL phase,assert whole owning transaction rolls back including job,input,event,parent,item,consumption and nested release",
+        "PLANNED independently change each Guard before writer; concurrent cancel/claim/renew/recovery,stale parent/version/lease/input,commit failure and crash/restart; no aggregate sample substitutes for per-operation matrix"
+      ],
+      "test_ids": [
+        "RFA-RF13-discard_handoff",
+        "RFA-RF13-publish_atomic",
+        "RFA-RF13-format_paths"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "Changes durable job/aggregate/admission bookkeeping only; no new Blob row or protective Blob FK and no physical CAS publication/deletion. Existing upload Blob references remain authoritative.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "libraryimport.renew-import",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.ImportExecutions).Renew"
+      ],
+      "snapshot": "retrom/internal/model/libraryimport.ImportWorkerSnapshot",
+      "prepare": "(*retrom/internal/service/libraryimport.ImportExecutions).Renew",
+      "commit": "(*retrom/internal/repo/libraryimport.ImportExecutions).WithExecution",
+      "policy_symbols": [
+        "retrom/internal/service/libraryimport.ImportExecutionCurrent",
+        "retrom/internal/service/libraryimport.sameImportExecutionIdentity"
+      ],
+      "fresh_facts": [
+        {
+          "name": "durable execution and aggregate",
+          "reader_symbol": "(retrom/internal/repo/libraryimport.importExecutionRecords).Current",
+          "reason": "Same writer jobs IMPORT_GROUP+scope matches parent; job/parent versions and states; immutable identity/worker/execution/attempt/start/deadline/actor; request+target JSON/digests,upload snapshot; lease/heartbeat/availability/error/cancel; parent counters,current item and resolved-file counts. Baseline does not read job_input_snapshots here"
+        }
+      ],
+      "guards": [
+        {
+          "id": "live-owned-execution",
+          "fields": [
+            "job.state",
+            "job.version",
+            "lease",
+            "expectedIdentity"
+          ],
+          "expected_source": "Current RUNNING|CANCEL_REQUESTED,bounded positive jobversion,lease>now; expected nonempty import/worker,positive execution/attempt; exactjob/import/worker/exec/attempt/start/deadline/actor. Does not require deadline live itself",
+          "rejection": "ErrVersionConflict",
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "id": "end-of-writer-lease",
+          "fields": [
+            "originalLease",
+            "finishedNow",
+            "deadline"
+          ],
+          "expected_source": "After callback fresh Service sample must be before ORIGINAL observed lease and immutable deadline",
+          "rejection": "ErrVersionConflict rolls back writes",
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "id": "renew-budget",
+          "fields": [
+            "deadline",
+            "state"
+          ],
+          "expected_source": "CANCEL_REQUESTED returns cancelled=true without writes after old lease/deadline final check; RUNNING deadline must be>now",
+          "rejection": "context.DeadlineExceeded / ErrVersionConflict",
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "id": "bounded-versions",
+          "fields": [
+            "job.version",
+            "parent.version"
+          ],
+          "expected_source": "Both current versions positive and less thanMaxInt64,even when parent not written",
+          "rejection": "ErrVersionConflict",
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "id": "job-cas",
+          "fields": [
+            "job.id",
+            "scope",
+            "kind",
+            "state",
+            "version",
+            "worker",
+            "execution",
+            "attempt",
+            "start",
+            "deadline",
+            "lease"
+          ],
+          "expected_source": "writeJob exact IMPORT_GROUP identity/parent scope/version/state/COALESCE worker/start/deadline/lease and execution/attempt; optional live lease>AtMS; require1",
+          "rejection": "ErrVersionConflict",
+          "test_id": "RFA-RF13-format_paths"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "job-transition",
+          "repo_helper": "(retrom/internal/repo/libraryimport.importExecutionRecords).writeJob",
+          "affected_records": [
+            "UPDATE full supplied job projection,version+1/time under exact observed fence; ParentOnly path deliberately skips this write"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        }
+      ],
+      "idempotency": "No domain receipt; current identity/state/version guard controls transitions. Generic JSON HTTP idempotency may separately persist a receipt after this domain transaction; RF06 registers that gap.",
+      "time_rule": "Baseline shared writer BeginTx with upper callback (or Repo-owned orchestration); Service clock position specified below. Target Repo must acquire write permission then sample technical Clock once; prepared identities generated before writer. owned reads current facts then samples now,and samples finished after writes; Renew final check uses OLD lease,not the newly extended lease. Active renewal lease=min(now+60s,deadline),heartbeat=now,version+1; parent untouched.",
+      "after_commit": [
+        {
+          "action": "Cancellation flag or renewal failure cancels preparation context; monitor joins before settlement",
+          "recovery": "Worker can only continue with durable current execution; no standalone observer write beyond Renew",
+          "test_id": "RFA-RF13-discard_handoff"
+        }
+      ],
+      "fault_points": [
+        "PLANNED job-transition: fail after each applicable SQL phase,assert whole owning transaction rolls back including job,input,event,parent,item,consumption and nested release",
+        "PLANNED independently change each Guard before writer; concurrent cancel/claim/renew/recovery,stale parent/version/lease/input,commit failure and crash/restart; no aggregate sample substitutes for per-operation matrix"
+      ],
+      "test_ids": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-publish_atomic",
+        "RFA-RF13-discard_handoff"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "Changes durable job/aggregate/admission bookkeeping only; no new Blob row or protective Blob FK and no physical CAS publication/deletion. Existing upload Blob references remain authoritative.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "libraryimport.retry-import-item",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "consumers": [
+        "(*retrom/internal/adapter/integration/libraryimport.Service).RetryItem",
+        "(*retrom/internal/service/libraryimport.ImportItemRetries).Retry",
+        "(*retrom/internal/transport/httpapi.Server).retryImportItem"
+      ],
+      "snapshot": "retrom/internal/model/libraryimport.ImportItemRetrySnapshot",
+      "prepare": "(*retrom/internal/service/libraryimport.ImportItemRetries).Retry",
+      "commit": "(*retrom/internal/repo/libraryimport.ImportItemRetries).WithRetry",
+      "policy_symbols": [],
+      "fresh_facts": [
+        {
+          "name": "current failed item",
+          "reader_symbol": "(retrom/internal/repo/libraryimport.importItemRetryScope).Current",
+          "reason": "Same writer item currentparent/failedstage/sourceManifestDigest/version/state; parent only read implicitly by write condition"
+        }
+      ],
+      "guards": [
+        {
+          "id": "retry-request",
+          "fields": [
+            "itemId",
+            "expectedVersion"
+          ],
+          "expected_source": "TrimmeditemID nonempty,expectedVersion>=1; originalID preserved",
+          "rejection": "ErrInvalid",
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "id": "retry-item",
+          "fields": [
+            "found",
+            "state",
+            "version"
+          ],
+          "expected_source": "Found FAILED_RETRYABLE with exact expectedVersion",
+          "rejection": "ErrInvalid",
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "id": "retry-parent-counter",
+          "fields": [
+            "parent.id",
+            "failedCount"
+          ],
+          "expected_source": "Parent UPDATErequiresfailed_item_count>0; baseline no parent version/state/cancellation/payload fence",
+          "rejection": "ErrInvalid when affectedcount!=1",
+          "test_id": "RFA-RF13-format_paths"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "retry-item-job",
+          "repo_helper": "(retrom/internal/repo/libraryimport.importItemRetryScope).Retry",
+          "affected_records": [
+            "INSERT IMPORT_ITEM_PIPELINE jobscopeIMPORT_ITEM,execution1,cancellable1,QUEUED,max2,payloadsourceManifestDigest; no job_input_snapshot"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "retry-item-state",
+          "repo_helper": "(retrom/internal/repo/libraryimport.importItemRetryScope).Retry",
+          "affected_records": [
+            "UPDATE itemFAILED_RETRYABLE/exactversion ->QUEUED,clearfailedstage/error,version+1/time; require1"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "retry-aggregate",
+          "repo_helper": "(retrom/internal/repo/libraryimport.importItemRetryScope).Retry",
+          "affected_records": [
+            "UPDATE parentfailedCount-1,queuedCount+1,stateRUNNING,version+1/time WHEREfailedCount>0; require1; completion field notcleared"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        },
+        {
+          "stage": "retry-item-event",
+          "repo_helper": "(retrom/internal/repo/libraryimport.importItemRetryScope).Retry",
+          "affected_records": [
+            "INSERT MANUAL_RETRY jobevent body{}"
+          ],
+          "test_id": "RFA-RF13-format_paths"
+        }
+      ],
+      "idempotency": "No domain receipt; current identity/state/version guard controls transitions. Generic JSON HTTP idempotency may separately persist a receipt after this domain transaction; RF06 registers that gap.",
+      "time_rule": "Baseline shared writer BeginTx with upper callback (or Repo-owned orchestration); Service clock position specified below. Target Repo must acquire write permission then sample technical Clock once; prepared identities generated before writer. Fresh jobUUID and Service timestamp both BEFORE BeginTx(nil); dedupeSHA(itemID:stage:UTC RFC3339Nano of same millisecond sample). No postcommit dispatch in this usecase.",
+      "after_commit": [
+        {
+          "action": "Durable queued IMPORT_ITEM_PIPELINE returned; caller/queue policy owns further execution",
+          "recovery": "Transaction rollback preserves failed item and parent counters; lack of fresh parent/payload guards remains a migration concern",
+          "test_id": "RFA-RF13-discard_handoff"
+        }
+      ],
+      "fault_points": [
+        "PLANNED retry-item-job: fail after each applicable SQL phase,assert whole owning transaction rolls back including job,input,event,parent,item,consumption and nested release",
+        "PLANNED retry-item-state: fail after each applicable SQL phase,assert whole owning transaction rolls back including job,input,event,parent,item,consumption and nested release",
+        "PLANNED retry-aggregate: fail after each applicable SQL phase,assert whole owning transaction rolls back including job,input,event,parent,item,consumption and nested release",
+        "PLANNED retry-item-event: fail after each applicable SQL phase,assert whole owning transaction rolls back including job,input,event,parent,item,consumption and nested release",
+        "PLANNED independently change each Guard before writer; concurrent cancel/claim/renew/recovery,stale parent/version/lease/input,commit failure and crash/restart; no aggregate sample substitutes for per-operation matrix"
+      ],
+      "test_ids": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-publish_atomic",
+        "RFA-RF13-discard_handoff"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "Changes durable job/aggregate/admission bookkeeping only; no new Blob row or protective Blob FK and no physical CAS publication/deletion. Existing upload Blob references remain authoritative.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "libraryimport.sync-import-cancellation",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "consumers": [
+        "(*retrom/internal/adapter/integration/libraryimport.Service).SyncImportGroupCancellation",
+        "(*retrom/internal/service/libraryimport.ImportExecutions).SyncCancellation",
+        "(*retrom/internal/transport/httpapi.Server).cancelJob"
+      ],
+      "snapshot": "retrom/internal/model/libraryimport.ImportWorkerSnapshot",
+      "prepare": "(*retrom/internal/service/libraryimport.ImportExecutions).SyncCancellation",
+      "commit": "(*retrom/internal/repo/libraryimport.ImportExecutions).WithExecution",
+      "policy_symbols": [
+        "retrom/internal/service/libraryimport.importCancelledTransition"
+      ],
+      "fresh_facts": [
+        {
+          "name": "durable execution and aggregate",
+          "reader_symbol": "(retrom/internal/repo/libraryimport.importExecutionRecords).Current",
+          "reason": "Same writer jobs IMPORT_GROUP+scope matches parent; job/parent versions and states; immutable identity/worker/execution/attempt/start/deadline/actor; request+target JSON/digests,upload snapshot; lease/heartbeat/availability/error/cancel; parent counters,current item and resolved-file counts. Baseline does not read job_input_snapshots here"
+        },
+        {
+          "name": "release scope current owner",
+          "reader_symbol": "(retrom/internal/repo/payloadrelease.scheduling).Owner",
+          "reason": "Same writer terminal aggregate current state/version/payload/releaseJob; PendingChildren must be0 for aggregate. Source/ordinary linkage not a detached transaction"
+        }
+      ],
+      "guards": [
+        {
+          "id": "cancelled-job",
+          "fields": [
+            "found",
+            "state"
+          ],
+          "expected_source": "Only existing jobCANCELLED; otherstate no-op",
+          "rejection": "No-op",
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "id": "bounded-versions",
+          "fields": [
+            "job.version",
+            "parent.version"
+          ],
+          "expected_source": "Both current versions positive and less thanMaxInt64,even when parent not written",
+          "rejection": "ErrVersionConflict",
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "id": "parent-cas",
+          "fields": [
+            "parent.id",
+            "version",
+            "state",
+            "job.id",
+            "job.version"
+          ],
+          "expected_source": "Exact parent id/version/state and EXISTS corresponding job at observedVersion+1 (same version for ParentOnly); require1",
+          "rejection": "ErrVersionConflict",
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "id": "terminal-release",
+          "fields": [
+            "owner.state",
+            "owner.version",
+            "payloadState",
+            "releaseJob",
+            "pendingChildren"
+          ],
+          "expected_source": "Terminal scope with all children settled; RETAINED advances version with new work; alreadyRELEASING/FAILED/RELEASED requires existing job. Nonterminal aggregate or pending children is no-op",
+          "rejection": "ErrScopeInvalid / original generator or SQL failure",
+          "test_id": "RFA-RF13-discard_handoff"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "parent-transition",
+          "repo_helper": "(retrom/internal/repo/libraryimport.importExecutionRecords).writeParent",
+          "affected_records": [
+            "UPDATE aggregate state/completion/cancel/error,version+1/time under parent fence; counts unchanged"
+          ],
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "stage": "payload-job",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.scheduling).CreateJob",
+          "affected_records": [
+            "INSERT PAYLOAD_RELEASE jobs per eligible retained terminal owner,QUEUED,execution1,max4,noncancellable,stable per-scope dedupe; require1,nested owner transaction"
+          ],
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "stage": "payload-input",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.scheduling).CreateJob",
+          "affected_records": [
+            "INSERT job_input_snapshots schema1/scope/scopeVersion/reason/fresh execution ID/JSON digest; require1,nested owner transaction"
+          ],
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "stage": "payload-event",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.scheduling).CreateJob",
+          "affected_records": [
+            "INSERT QUEUED payload job_event schema1/execution1/attempt0; require1,nested owner transaction"
+          ],
+          "test_id": "RFA-RF13-discard_handoff"
+        },
+        {
+          "stage": "payload-owner",
+          "repo_helper": "(retrom/internal/repo/payloadrelease.scheduling).BeginRelease",
+          "affected_records": [
+            "Owner exact id/version/state/RETAINED/old releaseJob -> RELEASING,new releaseJob,version+1; scope-specific fields fenced,require1"
+          ],
+          "test_id": "RFA-RF13-discard_handoff"
+        }
+      ],
+      "idempotency": "No domain receipt; current identity/state/version guard controls transitions. Generic JSON HTTP idempotency may separately persist a receipt after this domain transaction; RF06 registers that gap.",
+      "time_rule": "Baseline shared writer BeginTx with upper callback (or Repo-owned orchestration); Service clock position specified below. Target Repo must acquire write permission then sample technical Clock once; prepared identities generated before writer. Conditional release Scheduler generates job/execution UUIDs inside owner transaction using supplied now. Current query then one Service sample. ParentOnly transition only when parent notCANCELLED; no job write/event. Release scheduling also attempted when parent alreadyCANCELLED.",
+      "after_commit": [
+        {
+          "action": "Cancelled parent and payload intent become durable; no worker execution",
+          "recovery": "Repeated sync reuses existing release intent and does not increment cancelled parent again",
+          "test_id": "RFA-RF13-discard_handoff"
+        }
+      ],
+      "fault_points": [
+        "PLANNED parent-transition: fail after each applicable SQL phase,assert whole owning transaction rolls back including job,input,event,parent,item,consumption and nested release",
+        "PLANNED payload-job: fail after each applicable SQL phase,assert whole owning transaction rolls back including job,input,event,parent,item,consumption and nested release",
+        "PLANNED payload-input: fail after each applicable SQL phase,assert whole owning transaction rolls back including job,input,event,parent,item,consumption and nested release",
+        "PLANNED payload-event: fail after each applicable SQL phase,assert whole owning transaction rolls back including job,input,event,parent,item,consumption and nested release",
+        "PLANNED payload-owner: fail after each applicable SQL phase,assert whole owning transaction rolls back including job,input,event,parent,item,consumption and nested release",
+        "PLANNED independently change each Guard before writer; concurrent cancel/claim/renew/recovery,stale parent/version/lease/input,commit failure and crash/restart; no aggregate sample substitutes for per-operation matrix"
+      ],
+      "test_ids": [
+        "RFA-RF13-discard_handoff",
+        "RFA-RF13-publish_atomic",
+        "RFA-RF13-format_paths"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "Changes durable job/aggregate/admission bookkeeping only; no new Blob row or protective Blob FK and no physical CAS publication/deletion. Existing upload Blob references remain authoritative.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
       "operation_id": "metadatascrape.account-media",
       "owner": "metadatascrape",
       "rf_id": "RF15",
@@ -19368,6 +21182,7 @@
     "RF15 SOURCE_REVIEWED: 10 standalone transaction entry families, with scrape claim/requeue/terminal branches and media claim/requeue/reconcile branches explicitly expanded. ScheduleImport is nested RF13; media scheduling is nested record-lookup; initial-review projection is nested finish-scrape. Recovery and cache expiry lookup are read-only here. Baseline record-lookup lacks fresh import payload/parent cancellation/evidence-to-run checks and samples two times. Clock/UUID positions, protective hash-evidence/raw/media Blob edges and remaining inline candidate/budget/evidence-selection policy extraction are recorded, not claimed fixed. All new fault/race tests remain PLANNED.",
     "RF17 SOURCE_REVIEWED two generic mutation families; three registered owner adapters have separate RF13/RF14 transactions,not extra RF17 SQL,while BIOS side effects remain inside generic cancel. Job read/SSE/importprogress projection are not writes. Kind completeness and typed owner registration remain pending; the raw external audit's '12 kinds' conflicts with its14rows and its unconditional no-receipt claim was rejected. RF06 adds two actual receipt autocommit operations and clarifies existing domain-only receipt notes. Current generic HTTP receipts are NOT atomic with domain changes. New behavioral cases remain PLANNED.",
     "RF18 PARTIAL SOURCE_REVIEWED adds13 worker/observer/GC/expiry/retirement transaction entries. Normal Finish requires live lease unlike Recover;1s monitor owns a separate write-fence transaction. GC physical unlink follows catalog commit without digest lock; same-digest replacement/missing-original retry paths explicitly registered. Expiry nested GC resamples time,renew/finish use two clock samples. Release effect graph deletion details and nested owner scheduling full census still outstanding; no claim RF18 is complete. New behavior/fault/concurrency tests remain PLANNED.",
-    "RF18 release-effects graph source-reviewed as one standalone writer including every per-table delete/update phase,recursive owners,consumptions,session relations and nested GC. Scheduling helpers accept caller Scope/Tx and are not independent commits: parent RF13/RF14/RF16 operations must include job/input/event+owner linkage stages. Lifecycle is read-only but current constructor performs validation I/O; ImpactQueries.Game currently performs repository read from Model and must become Service orchestration with pure projection. All fault/concurrency verification remains PLANNED."
+    "RF18 release-effects graph source-reviewed as one standalone writer including every per-table delete/update phase,recursive owners,consumptions,session relations and nested GC. Scheduling helpers accept caller Scope/Tx and are not independent commits: parent RF13/RF14/RF16 operations must include job/input/event+owner linkage stages. Lifecycle is read-only but current constructor performs validation I/O; ImpactQueries.Game currently performs repository read from Model and must become Service orchestration with pure projection. All fault/concurrency verification remains PLANNED.",
+    "RF13 PARTIAL source-reviewed admission,7distinct execution mutations,item retry,and aggregate cancellation (10standalone operations). Execution recovery is per-ID transaction; cancellation and nested payload scheduling atomic. Admission IDs insidewriter,Retry/batch cancellation clocks outsidewriter,Renew checks oldlease aftercallback. Baseline current execution reads admission request/target snapshots but not job_input_snapshots. Creation/review/publication/attachments/source handoff still outstanding; no complete RF13 claim."
   ]
 }

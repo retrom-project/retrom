@@ -1842,6 +1842,455 @@
       ]
     },
     {
+      "id": "libraryimport.ImportArchiveFormat",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.ImportArchiveFormat",
+      "consumers": [
+        "retrom/internal/service/libraryimport.NormalizeTargetImport",
+        "retrom/internal/service/libraryimport.profileArchiveFormat"
+      ],
+      "invariant": "ZIP and7z only; split7z first-volume suffix has explicit unsupported-volume reason.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-discard_handoff"
+      ]
+    },
+    {
+      "id": "libraryimport.ImportExecutionCurrent",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.ImportExecutionCurrent",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.ImportExecutions).owned",
+        "(*retrom/internal/service/libraryimport.creationCommit).checkQueued"
+      ],
+      "invariant": "RUNNING/CANCEL_REQUESTED with live lease,boundedversion,valid expected identities and exact immutable execution tuple.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-discard_handoff"
+      ]
+    },
+    {
+      "id": "libraryimport.ImportFailure",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.ImportFailure",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.ImportExecutions).rejectQueued",
+        "retrom/internal/service/libraryimport.importFailureProjection"
+      ],
+      "invariant": "Preserve known detector/project/archive/input codes as nonretryable; deadline timeout retryable; unknownfailure retryable.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-discard_handoff"
+      ]
+    },
+    {
+      "id": "libraryimport.MatchesImportDocumentDigest",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.MatchesImportDocumentDigest",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.creationCommit).checkQueuedDocuments",
+        "retrom/internal/service/libraryimport.decodeImportWork"
+      ],
+      "invariant": "Canonical JSON digest must match supplied snapshot digest.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-discard_handoff"
+      ]
+    },
+    {
+      "id": "libraryimport.NormalizeImportRequest",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.NormalizeImportRequest",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.ImportAdmissions).Queue",
+        "(*retrom/internal/service/libraryimport.ImportPreparation).Prepare",
+        "(*retrom/internal/service/libraryimport.creationCommit).checkQueuedDocuments",
+        "retrom/internal/service/libraryimport.decodeImportWork"
+      ],
+      "invariant": "Require IDs/recognized content mode and metadata provider; default mode STANDARD,project forces NONE; clone tag slice.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-discard_handoff"
+      ]
+    },
+    {
+      "id": "libraryimport.NormalizeTargetImport",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.NormalizeTargetImport",
+      "consumers": [
+        "retrom/internal/adapter/integration/libraryimport.normalizeTargetCreateRequest",
+        "retrom/internal/service/libraryimport.checkImportContent"
+      ],
+      "invariant": "Virtual RPG platform converts standard to project; GENERAL file upload must be exactly one ZIP/7z unless directory.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-discard_handoff"
+      ]
+    },
+    {
+      "id": "libraryimport.NormalizeTargetImportMode",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.NormalizeTargetImportMode",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.creationCommit).checkQueuedDocuments",
+        "retrom/internal/adapter/integration/libraryimport.normalizeTargetContentMode",
+        "retrom/internal/service/libraryimport.NormalizeTargetImport"
+      ],
+      "invariant": "RPG standard mode becomes RPG project; other modes unchanged.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-discard_handoff"
+      ]
+    },
+    {
+      "id": "libraryimport.ValidImportContentMode",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.ValidImportContentMode",
+      "consumers": [
+        "retrom/internal/service/libraryimport.NormalizeImportRequest"
+      ],
+      "invariant": "Accept STANDARD/MULTI_DISC and recognized project modes only.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-discard_handoff"
+      ]
+    },
+    {
+      "id": "libraryimport.ValidateImportUpload",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.ValidateImportUpload",
+      "consumers": [
+        "retrom/internal/service/libraryimport.checkImportContent"
+      ],
+      "invariant": "Multi-disc requires directory; project purposes GENERAL|PROJECT; other modes GENERAL only.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-discard_handoff"
+      ]
+    },
+    {
+      "id": "libraryimport.admissionDocuments",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.admissionDocuments",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.ImportAdmissions).prepare"
+      ],
+      "invariant": "Frozen canonical request/target/config/input JSON with matching SHA and stable import-ID job dedupe; schemas preserve baseline.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-discard_handoff"
+      ]
+    },
+    {
+      "id": "libraryimport.checkImportContent",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.checkImportContent",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.ImportAdmissions).checkContent",
+        "(*retrom/internal/service/libraryimport.ImportPreparation).Prepare"
+      ],
+      "invariant": "Combine target normalization,upload mode/purpose,metadata availability and enabled multi-disc policy from explicit values.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-discard_handoff"
+      ]
+    },
+    {
+      "id": "libraryimport.decodeImportWork",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.decodeImportWork",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.ImportExecutions).Claim"
+      ],
+      "invariant": "Require current admitted request/target canonical digests/schema/identity,then normalize request; does not validate job_input_snapshots.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-discard_handoff"
+      ]
+    },
+    {
+      "id": "libraryimport.importCancellable",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.importCancellable",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.ImportExecutions).CancelJob"
+      ],
+      "invariant": "QUEUED/RUNNING orFAILED with explicitretryabletrue only.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-discard_handoff"
+      ]
+    },
+    {
+      "id": "libraryimport.importCancellationProjection",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.importCancellationProjection",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.ImportExecutions).CancelJob"
+      ],
+      "invariant": "RUNNING cooperativecancel preserves execution/lease and leavesunfinished; other allowed states terminal cancellation.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-discard_handoff"
+      ]
+    },
+    {
+      "id": "libraryimport.importCancelledTransition",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.importCancelledTransition",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.ImportExecutions).syncCancelled",
+        "retrom/internal/service/libraryimport.importCancellationProjection",
+        "retrom/internal/service/libraryimport.importFailureProjection",
+        "retrom/internal/service/libraryimport.importRecoveryProjection"
+      ],
+      "invariant": "Clearowner; CANCELLED job/parent; preserve first cancel reason/time; terminaltime and event.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-discard_handoff"
+      ]
+    },
+    {
+      "id": "libraryimport.importClaimAvailable",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.importClaimAvailable",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.ImportExecutions).Claim"
+      ],
+      "invariant": "Queue claim only available QUEUED job,QUEUED/FAILED parent and zero produced item/resolvedfile counts.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-discard_handoff"
+      ]
+    },
+    {
+      "id": "libraryimport.importClaimProblem",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.importClaimProblem",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.ImportExecutions).Claim"
+      ],
+      "invariant": "Elapsed existing execution budget precedes exhausted attempts.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-discard_handoff"
+      ]
+    },
+    {
+      "id": "libraryimport.importClaimProjection",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.importClaimProjection",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.ImportExecutions).Claim"
+      ],
+      "invariant": "Increment attempt; preserve initial6h budget,start,assign worker and bounded60s lease; project RUNNING job/parent and STARTED.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-discard_handoff"
+      ]
+    },
+    {
+      "id": "libraryimport.importFailedTransition",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.importFailedTransition",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.ImportExecutions).rejectQueued",
+        "retrom/internal/service/libraryimport.importFailureProjection",
+        "retrom/internal/service/libraryimport.importRecoveryProjection"
+      ],
+      "invariant": "Clear executionowner; FAILED job/parent,finishedtime,error/retryable plus typed event.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-discard_handoff"
+      ]
+    },
+    {
+      "id": "libraryimport.importFailureProjection",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.importFailureProjection",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.ImportExecutions).Fail"
+      ],
+      "invariant": "Cancellation priority,then timeout,interruption immediate retry,then bounded retry delay or durable failure; release only terminal nonretryable/cancel.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-discard_handoff"
+      ]
+    },
+    {
+      "id": "libraryimport.importProducedProjection",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.importProducedProjection",
+      "consumers": [
+        "retrom/internal/service/libraryimport.importRecoveryProjection"
+      ],
+      "invariant": "Use single importprogress.Project rule to reconstruct aggregate from current counters while completing durable groupjob.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-discard_handoff"
+      ]
+    },
+    {
+      "id": "libraryimport.importRecoveryProjection",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.importRecoveryProjection",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.ImportExecutions).recoverOne"
+      ],
+      "invariant": "Cancel first,then producedoutput success,then budget/attemptfailure,else immediate retry.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-discard_handoff"
+      ]
+    },
+    {
+      "id": "libraryimport.importRecoveryRequired",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.importRecoveryRequired",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.ImportExecutions).recoverOne"
+      ],
+      "invariant": "Queued budget/attempt/produced-output inconsistency or running/cancelrequested expiredlease/deadline requiresrecovery.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-discard_handoff"
+      ]
+    },
+    {
+      "id": "libraryimport.importRetryDelay",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.importRetryDelay",
+      "consumers": [
+        "retrom/internal/service/libraryimport.importFailureProjection"
+      ],
+      "invariant": "Attempts1/2/other delay1s/5s/30s.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-discard_handoff"
+      ]
+    },
+    {
+      "id": "libraryimport.importRetryTransition",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.importRetryTransition",
+      "consumers": [
+        "retrom/internal/service/libraryimport.importFailureProjection",
+        "retrom/internal/service/libraryimport.importRecoveryProjection"
+      ],
+      "invariant": "Clearowner; QUEUED job/parent,clearfinished/completion,newavailable/error/retryable,event; preserve executionbudget.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-discard_handoff"
+      ]
+    },
+    {
+      "id": "libraryimport.normalizeImportCancellation",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.normalizeImportCancellation",
+      "consumers": [
+        "(*retrom/internal/service/libraryimport.ImportExecutions).CancelJob"
+      ],
+      "invariant": "Nonempty identities,positive expectedversion,trimmedreason1..500runes.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-discard_handoff"
+      ]
+    },
+    {
+      "id": "libraryimport.sameImportExecutionIdentity",
+      "owner": "libraryimport",
+      "rf_id": "RF13",
+      "symbol": "retrom/internal/service/libraryimport.sameImportExecutionIdentity",
+      "consumers": [
+        "retrom/internal/service/libraryimport.ImportExecutionCurrent"
+      ],
+      "invariant": "Exact job/import/worker/execution/attempt/start/deadline/actor tuple; no clock or SQL.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF13-format_paths",
+        "RFA-RF13-discard_handoff"
+      ]
+    },
+    {
       "id": "metadatascrape.ResponseExpiry",
       "owner": "metadatascrape",
       "rf_id": "RF15",
