@@ -16315,6 +16315,10 @@
         {
           "path": "web/scripts/architecture/graph.test.mjs",
           "kind": "test"
+        },
+        {
+          "path": "web/scripts/architecture/source-inputs.mjs",
+          "kind": "tool"
         }
       ]
     },
