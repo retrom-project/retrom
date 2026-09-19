@@ -1916,7 +1916,7 @@
           "test_id": "RFA-RF11-dependency_start"
         }
       ],
-      "idempotency": "No persisted HTTP receipt. Preserve the current deterministic identity and conditional transitions recorded here.",
+      "idempotency": "No persisted HTTP receipt. Preserve the current deterministic identity and conditional transitions recorded here. Domain transaction receipt observations do not exclude the separate HTTP middleware: when OpenAPI operation/key are present,operation is not domainIdempotencyOperations-exempt,and semanticRequestDigest accepts JSON or empty body,idempotencyHandler replays or stores a successful <=1MiB response in a separate24h receipt transaction. Multipart/non-JSON body bypasses this generic receipt. See idempotency.purge-expired/store-reply; target must remove the split commit window.",
       "time_rule": "Baseline BeginTx(ctx,nil), shared writer connection. Startup caller passes one earlier time.Time across operations; target needs one fresh Repo technical Clock sample after write permission. Activation audit UUID generated inside callback; deterministic requirement identities/hash computation also inside.",
       "after_commit": [],
       "fault_points": [
@@ -2052,7 +2052,7 @@
           "test_id": "RFA-RF11-dependency_start"
         }
       ],
-      "idempotency": "Stable BIOS UUID/digest and DAT content identity; repeat seed preserves requirement version when digest unchanged and DAT identity. No schema/provider/core input changes.",
+      "idempotency": "Stable BIOS UUID/digest and DAT content identity; repeat seed preserves requirement version when digest unchanged and DAT identity. No schema/provider/core input changes. Domain transaction receipt observations do not exclude the separate HTTP middleware: when OpenAPI operation/key are present,operation is not domainIdempotencyOperations-exempt,and semanticRequestDigest accepts JSON or empty body,idempotencyHandler replays or stores a successful <=1MiB response in a separate24h receipt transaction. Multipart/non-JSON body bypasses this generic receipt. See idempotency.purge-expired/store-reply; target must remove the split commit window.",
       "time_rule": "Baseline BeginTx(ctx,nil), shared writer connection. Startup caller passes one earlier time.Time across operations; target needs one fresh Repo technical Clock sample after write permission. BIOS UUIDv5 is deterministic hashing; DAT UUIDv7 is generated in Repo Register inside writer. Static generated firmware manifest and global catalog reads still occur inside Service callback.",
       "after_commit": [],
       "fault_points": [
@@ -2141,7 +2141,7 @@
           "test_id": "RFA-RF11-dependency_start"
         }
       ],
-      "idempotency": "No persisted HTTP receipt. Preserve the current deterministic identity and conditional transitions recorded here.",
+      "idempotency": "No persisted HTTP receipt. Preserve the current deterministic identity and conditional transitions recorded here. Domain transaction receipt observations do not exclude the separate HTTP middleware: when OpenAPI operation/key are present,operation is not domainIdempotencyOperations-exempt,and semanticRequestDigest accepts JSON or empty body,idempotencyHandler replays or stores a successful <=1MiB response in a separate24h receipt transaction. Multipart/non-JSON body bypasses this generic receipt. See idempotency.purge-expired/store-reply; target must remove the split commit window.",
       "time_rule": "Baseline BeginTx(ctx,nil), shared writer connection. Startup caller passes one earlier time.Time across operations; target needs one fresh Repo technical Clock sample after write permission.",
       "after_commit": [],
       "fault_points": [
@@ -2241,7 +2241,7 @@
           "test_id": "RFA-RF11-dependency_start"
         }
       ],
-      "idempotency": "Stable DAT_PARSE dedupe reuses job; retained FAILED/CANCELLED is never silently reset; startup RUNNING recovery has no lease check in baseline.",
+      "idempotency": "Stable DAT_PARSE dedupe reuses job; retained FAILED/CANCELLED is never silently reset; startup RUNNING recovery has no lease check in baseline. Domain transaction receipt observations do not exclude the separate HTTP middleware: when OpenAPI operation/key are present,operation is not domainIdempotencyOperations-exempt,and semanticRequestDigest accepts JSON or empty body,idempotencyHandler replays or stores a successful <=1MiB response in a separate24h receipt transaction. Multipart/non-JSON body bypasses this generic receipt. See idempotency.purge-expired/store-reply; target must remove the split commit window.",
       "time_rule": "Baseline BeginTx(ctx,nil), shared writer connection. Startup caller passes one earlier time.Time across operations; target needs one fresh Repo technical Clock sample after write permission. Job/execution UUIDs generated inside callback. Dedupe hashing before writer; snapshot JSON/hash inside.",
       "after_commit": [],
       "fault_points": [
@@ -2331,7 +2331,7 @@
           "test_id": "RFA-RF11-dependency_start"
         }
       ],
-      "idempotency": "No persisted HTTP receipt. Preserve the current deterministic identity and conditional transitions recorded here.",
+      "idempotency": "No persisted HTTP receipt. Preserve the current deterministic identity and conditional transitions recorded here. Domain transaction receipt observations do not exclude the separate HTTP middleware: when OpenAPI operation/key are present,operation is not domainIdempotencyOperations-exempt,and semanticRequestDigest accepts JSON or empty body,idempotencyHandler replays or stores a successful <=1MiB response in a separate24h receipt transaction. Multipart/non-JSON body bypasses this generic receipt. See idempotency.purge-expired/store-reply; target must remove the split commit window.",
       "time_rule": "Baseline BeginTx(ctx,nil), shared writer connection. Startup caller passes one earlier time.Time across operations; target needs one fresh Repo technical Clock sample after write permission.",
       "after_commit": [
         {
@@ -2550,7 +2550,7 @@
           "test_id": "RFA-RF11-dependency_start"
         }
       ],
-      "idempotency": "Publication, selected DAT, requirements and terminal job share one transaction. Retry begins via retained job/input state; startup sees READY index and uses independent activation path. No HTTP receipt.",
+      "idempotency": "Publication, selected DAT, requirements and terminal job share one transaction. Retry begins via retained job/input state; startup sees READY index and uses independent activation path. No receipt inside this domain transaction. Domain transaction receipt observations do not exclude the separate HTTP middleware: when OpenAPI operation/key are present,operation is not domainIdempotencyOperations-exempt,and semanticRequestDigest accepts JSON or empty body,idempotencyHandler replays or stores a successful <=1MiB response in a separate24h receipt transaction. Multipart/non-JSON body bypasses this generic receipt. See idempotency.purge-expired/store-reply; target must remove the split commit window.",
       "time_rule": "Baseline BeginTx(ctx,nil), shared writer connection. Startup caller passes one earlier time.Time across operations; target needs one fresh Repo technical Clock sample after write permission. File open/parse occurs outside writer. Audit UUID generated in activation callback; DAT requirement identity/digest computed in nested Service->Model calls inside same writer.",
       "after_commit": [],
       "fault_points": [
@@ -3636,7 +3636,7 @@
           "test_id": "RFA-RF11-firmware_race"
         }
       ],
-      "idempotency": "HTTP validates Idempotency-Key shape but stores no receipt. Current requirement version is checked; repeated permitted upload may replace installation again. Do not claim the version check alone makes this HTTP-idempotent.",
+      "idempotency": "HTTP validates Idempotency-Key shape but stores no receipt. Current requirement version is checked; repeated permitted upload may replace installation again. Do not claim the version check alone makes this HTTP-idempotent. Domain transaction receipt observations do not exclude the separate HTTP middleware: when OpenAPI operation/key are present,operation is not domainIdempotencyOperations-exempt,and semanticRequestDigest accepts JSON or empty body,idempotencyHandler replays or stores a successful <=1MiB response in a separate24h receipt transaction. Multipart/non-JSON body bypasses this generic receipt. See idempotency.purge-expired/store-reply; target must remove the split commit window.",
       "time_rule": "Baseline BeginTx(ctx,nil), then current requirement/upload and archive evaluation; one service.now sample inside callback. Installation/consumption UUIDs and payload-release identities are generated inside writer.",
       "after_commit": [
         {
@@ -3893,7 +3893,7 @@
           "test_id": "RFA-RF11-firmware_race"
         }
       ],
-      "idempotency": "No HTTP receipt; exact item/candidate/execution owner gates duplicate handling. Existing identical valid installation yields ALREADY_SAME_BYTES but still records candidate selection, item outcome and event.",
+      "idempotency": "No receipt inside this domain transaction; exact item/candidate/execution owner gates duplicate handling. Existing identical valid installation yields ALREADY_SAME_BYTES but still records candidate selection, item outcome and event. Domain transaction receipt observations do not exclude the separate HTTP middleware: when OpenAPI operation/key are present,operation is not domainIdempotencyOperations-exempt,and semanticRequestDigest accepts JSON or empty body,idempotencyHandler replays or stores a successful <=1MiB response in a separate24h receipt transaction. Multipart/non-JSON body bypasses this generic receipt. See idempotency.purge-expired/store-reply; target must remove the split commit window.",
       "time_rule": "Baseline BeginTx(ctx,nil); service.now sampled for initial job fence then sampled again after requirement read. Installation UUID and retirement release identities generated inside callback; file/hash/evaluation preparation occurs in RF14 server-import caller.",
       "after_commit": [
         {
@@ -5704,6 +5704,192 @@
       }
     },
     {
+      "operation_id": "idempotency.purge-expired",
+      "owner": "idempotency",
+      "rf_id": "RF06",
+      "consumers": [
+        "(*retrom/internal/service/idempotency.Service).PurgeExpired",
+        "(*retrom/internal/transport/httpapi.Server).Handler",
+        "(*retrom/internal/transport/httpapi.Server).idempotencyHandler",
+        "(*retrom/internal/transport/httpapi.Server).openAPIHandler",
+        "retrom/cmd/retrom.execute",
+        "retrom/cmd/retrom.executeWithPasswordReader",
+        "retrom/cmd/retrom.main",
+        "retrom/cmd/retrom.run",
+        "retrom/cmd/retrom.serveHTTP"
+      ],
+      "snapshot": "retrom/internal/model/idempotency.Receipt",
+      "prepare": "(*retrom/internal/service/idempotency.Service).PurgeExpired",
+      "commit": "(*retrom/internal/repo/idempotency.Repository).DeleteExpired",
+      "policy_symbols": [],
+      "fresh_facts": [
+        {
+          "name": "current receipt expiry",
+          "reader_symbol": "(*retrom/internal/repo/idempotency.Repository).DeleteExpired",
+          "reason": "DELETE predicate reads current exact operation/key/principal and expiry in one autocommit statement; no prior SELECT needed"
+        }
+      ],
+      "guards": [
+        {
+          "id": "expired-key",
+          "fields": [
+            "operationId",
+            "key",
+            "principalId",
+            "expiresAt",
+            "now"
+          ],
+          "expected_source": "Exact receipt identity and expires_at_ms<=caller now",
+          "rejection": "Unmatched/not expired row is no-op",
+          "test_id": "RFA-RF06-replay_bytes"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "purge-receipt",
+          "repo_helper": "(*retrom/internal/repo/idempotency.Repository).DeleteExpired",
+          "affected_records": [
+            "DELETE idempotency_records exact operation/key/principal/expired cutoff"
+          ],
+          "test_id": "RFA-RF06-replay_bytes"
+        }
+      ],
+      "idempotency": "Repeated delete is no-op; only this principal/operation/key expires,not global purge. Lookup afterward has no expiry predicate itself.",
+      "after_commit": [
+        {
+          "action": "Continue receipt lookup; if present compare digest and replay without domain call",
+          "recovery": "Delete failure returns database error before handler; next request retries purge.",
+          "test_id": "RFA-RF06-replay_bytes"
+        }
+      ],
+      "time_rule": "No explicit transaction; caller middleware samples now after process-local mutex,BEFORE autocommit write permission and before domain handler. Service does not validate negative time.",
+      "fault_points": [
+        "PLANNED purge-receipt: inject failure after each applicable SQL stage,compare full job/input/event/domain/receipt state and atomic rollback boundaries",
+        "PLANNED every Guard independently changed,concurrent identical/conflicting keys,cancel/retry/stale owner execution,failed commit,lost/duplicate wake and restart"
+      ],
+      "test_ids": [
+        "RFA-RF06-replay_bytes"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "Mechanical job state/input/event or opaque receipt bytes only; no new CAS object/protective Blob edge.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "idempotency.store-reply",
+      "owner": "idempotency",
+      "rf_id": "RF06",
+      "consumers": [
+        "(*retrom/internal/service/idempotency.Service).Store",
+        "(*retrom/internal/transport/httpapi.Server).Handler",
+        "(*retrom/internal/transport/httpapi.Server).idempotencyHandler",
+        "(*retrom/internal/transport/httpapi.Server).openAPIHandler",
+        "(*retrom/internal/transport/httpapi.Server).storeBufferedIdempotencyResponse",
+        "retrom/cmd/retrom.execute",
+        "retrom/cmd/retrom.executeWithPasswordReader",
+        "retrom/cmd/retrom.main",
+        "retrom/cmd/retrom.run",
+        "retrom/cmd/retrom.serveHTTP"
+      ],
+      "snapshot": "retrom/internal/model/idempotency.Receipt",
+      "prepare": "(*retrom/internal/service/idempotency.Service).Store",
+      "commit": "(*retrom/internal/repo/idempotency.Repository).Save",
+      "policy_symbols": [],
+      "fresh_facts": [
+        {
+          "name": "receipt identity constraint",
+          "reader_symbol": "(*retrom/internal/repo/idempotency.Repository).Save",
+          "reason": "Autocommit INSERT constrained by unique principal/operation/key; baseline no transaction reread/domain reconciliation"
+        }
+      ],
+      "guards": [
+        {
+          "id": "receipt-required-fields",
+          "fields": [
+            "operationId",
+            "key",
+            "principalId",
+            "requestDigest"
+          ],
+          "expected_source": "All nonempty before SQL",
+          "rejection": "ErrInvalidReceipt",
+          "test_id": "RFA-RF06-replay_bytes"
+        },
+        {
+          "id": "receipt-status-time",
+          "fields": [
+            "HTTPStatus",
+            "createdAt",
+            "expiresAt"
+          ],
+          "expected_source": "Status>=100,created>=0,expires>=created; baseline no HTTPStatus upper bound",
+          "rejection": "ErrInvalidReceipt",
+          "test_id": "RFA-RF06-replay_bytes"
+        },
+        {
+          "id": "http-buffer-eligibility",
+          "fields": [
+            "response.status",
+            "body.length"
+          ],
+          "expected_source": "Middleware only attempts store for2xx and body<=1MiB; otherwise skips receipt and registered after-commit effects",
+          "rejection": "No store and committed=false",
+          "test_id": "RFA-RF06-replay_bytes"
+        },
+        {
+          "id": "unique-receipt",
+          "fields": [
+            "principalId",
+            "operationId",
+            "key"
+          ],
+          "expected_source": "Unique key enforced by DB; no UPSERT/ON CONFLICT/replay inside Save",
+          "rejection": "Original DB constraint error wrapped",
+          "test_id": "RFA-RF06-replay_bytes"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "receipt",
+          "repo_helper": "(*retrom/internal/repo/idempotency.Repository).Save",
+          "affected_records": [
+            "INSERT idempotency_records principal,operation,key,canonical request digest,opaque HTTP status/allowlisted headers JSON/original body bytes,created/expires"
+          ],
+          "test_id": "RFA-RF06-replay_bytes"
+        }
+      ],
+      "idempotency": "Future matching request replays original bytes,status,Content-Type/Location/ETag/Retry-After with replay header; digest mismatch409. Netplay launch replay reissues cookies through separate authority check. Process-local mutex serializes only this Server; cross-process/domain commit vs receipt gap remains.",
+      "after_commit": [
+        {
+          "action": "Copy buffered response then run registered transient effects only after successful receipt INSERT",
+          "recovery": "Receipt failure returns database error though earlier domain mutation is already committed; no DB rollback can undo it. RF05/RF06 must migrate this boundary without re-encoding historical replies.",
+          "test_id": "RFA-RF06-replay_bytes"
+        }
+      ],
+      "time_rule": "Standalone database.ExecContext autocommit AFTER handler/domain commit. Middleware reuses pre-handler now and expiry now+24h; Service Store validates shape but does not read a clock.",
+      "fault_points": [
+        "PLANNED receipt: inject failure after each applicable SQL stage,compare full job/input/event/domain/receipt state and atomic rollback boundaries",
+        "PLANNED every Guard independently changed,concurrent identical/conflicting keys,cancel/retry/stale owner execution,failed commit,lost/duplicate wake and restart"
+      ],
+      "test_ids": [
+        "RFA-RF06-replay_bytes"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "Mechanical job state/input/event or opaque receipt bytes only; no new CAS object/protective Blob edge.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
       "operation_id": "isolation.consume-ticket",
       "owner": "isolation",
       "rf_id": "RF10",
@@ -5780,7 +5966,7 @@
           "test_id": "RFA-RF10-launch_atomic"
         }
       ],
-      "idempotency": "Single-use ticket: repeated consumption rejected; issued secret returned only after both SQL writes commit. Digest and secret are never copied to evidence.",
+      "idempotency": "Single-use ticket: repeated consumption rejected; issued secret returned only after both SQL writes commit. Digest and secret are never copied to evidence. Domain transaction receipt observations do not exclude the separate HTTP middleware: when OpenAPI operation/key are present,operation is not domainIdempotencyOperations-exempt,and semanticRequestDigest accepts JSON or empty body,idempotencyHandler replays or stores a successful <=1MiB response in a separate24h receipt transaction. Multipart/non-JSON body bypasses this generic receipt. See idempotency.purge-expired/store-reply; target must remove the split commit window.",
       "time_rule": "Baseline generates 32 random capability bytes and samples service.now before BeginTx(ctx,nil). A wait for write access can make ticket/session expire before commit; RF10 requires one fresh writer Clock sample.",
       "after_commit": [],
       "fault_points": [
@@ -5857,7 +6043,7 @@
           "test_id": "RFA-RF10-launch_atomic"
         }
       ],
-      "idempotency": "No receipt. A repeat with no unrevoked row returns ErrCredential; transport cleanup maps authentication/revoke failure to not-found and clears cookie/storage only on success.",
+      "idempotency": "No receipt. A repeat with no unrevoked row returns ErrCredential; transport cleanup maps authentication/revoke failure to not-found and clears cookie/storage only on success. Domain transaction receipt observations do not exclude the separate HTTP middleware: when OpenAPI operation/key are present,operation is not domainIdempotencyOperations-exempt,and semanticRequestDigest accepts JSON or empty body,idempotencyHandler replays or stores a successful <=1MiB response in a separate24h receipt transaction. Multipart/non-JSON body bypasses this generic receipt. See idempotency.purge-expired/store-reply; target must remove the split commit window.",
       "time_rule": "Baseline service.now sampled before Repo; recordstore.Atomic(*sql.DB) then BeginTx(ctx,nil)/savepoint performs UPDATE. Repo checks affected count after helper returns.",
       "after_commit": [],
       "fault_points": [
@@ -5873,6 +6059,305 @@
       "content_coordination": {
         "required": false,
         "reason": "Does not publish CAS bytes or add Blob protection references.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "jobs.cancel",
+      "owner": "jobs",
+      "rf_id": "RF17",
+      "consumers": [
+        "(*retrom/internal/service/jobs.Service).Cancel",
+        "(*retrom/internal/transport/httpapi.Server).cancelJob"
+      ],
+      "snapshot": "retrom/internal/model/jobs.Job",
+      "prepare": "(*retrom/internal/service/jobs.Service).Cancel",
+      "commit": "(*retrom/internal/repo/jobs.Repository).WithWrite",
+      "policy_symbols": [
+        "retrom/internal/service/jobs.validReason",
+        "retrom/internal/service/jobs.cancellableJobState"
+      ],
+      "fresh_facts": [
+        {
+          "name": "current job",
+          "reader_symbol": "(retrom/internal/repo/jobs.records).Get",
+          "reason": "Inside writer exact ID reads kind/scope/state/cancellable/retryable/execution/version; missing row returns ErrConflict"
+        },
+        {
+          "name": "current BIOS import",
+          "reader_symbol": "(retrom/internal/repo/jobs.records).CancelServerImport",
+          "reason": "Only SERVER_BIOS_IMPORT generic branch: pending update conditional current RUNNING; nonpending reads server_imports.id by job ID and current pending/evaluating items"
+        }
+      ],
+      "guards": [
+        {
+          "id": "cancel-reason",
+          "fields": [
+            "reason"
+          ],
+          "expected_source": "Before any transaction: trimmed reason nonempty and <=500 runes",
+          "rejection": "ErrConflict",
+          "test_id": "RFA-RF17-cancel_running"
+        },
+        {
+          "id": "expected-version",
+          "fields": [
+            "request.version",
+            "job.version"
+          ],
+          "expected_source": "Exact current version",
+          "rejection": "ErrConflict",
+          "test_id": "RFA-RF17-cancel_running"
+        },
+        {
+          "id": "cancellable",
+          "fields": [
+            "job.cancellable"
+          ],
+          "expected_source": "Current cancellable integer exactly1",
+          "rejection": "ErrConflict",
+          "test_id": "RFA-RF17-cancel_running"
+        },
+        {
+          "id": "cancel-state",
+          "fields": [
+            "job.state",
+            "job.retryable"
+          ],
+          "expected_source": "QUEUED or RUNNING or FAILED with retryable true",
+          "rejection": "ErrConflict",
+          "test_id": "RFA-RF17-cancel_running"
+        },
+        {
+          "id": "domain-cancel",
+          "fields": [
+            "job.kind",
+            "registeredHandler"
+          ],
+          "expected_source": "REVIEW_BULK_APPROVE rejected; registered5kinds cause no-write outer commit then owner handler; all unregistered kinds currently use generic mutation",
+          "rejection": "ErrRetryViaDomain for bulk; owner error preserved after dispatch",
+          "test_id": "RFA-RF17-cancel_running"
+        },
+        {
+          "id": "update-version",
+          "fields": [
+            "jobId",
+            "expectedVersion"
+          ],
+          "expected_source": "SQL exact id/version and require1 changed row",
+          "rejection": "ErrConflict",
+          "test_id": "RFA-RF17-cancel_running"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "cancel-job",
+          "repo_helper": "(retrom/internal/repo/jobs.records).Cancel",
+          "affected_records": [
+            "jobs exact id/version -> CANCEL_REQUESTED if previously RUNNING else CANCELLED; cancel timestamp/trimmed reason,finishedNULL for pending else now,version+1,time; other worker/lease/attempt fields preserved"
+          ],
+          "test_id": "RFA-RF17-cancel_running"
+        },
+        {
+          "stage": "cancel-event",
+          "repo_helper": "(retrom/internal/repo/jobs.records).Cancel",
+          "affected_records": [
+            "INSERT SELECT job_events exact job current scope,event state,reason JSON,time; same transaction"
+          ],
+          "test_id": "RFA-RF17-cancel_running"
+        },
+        {
+          "stage": "bios-pending",
+          "repo_helper": "(retrom/internal/repo/jobs.records).CancelServerImport",
+          "affected_records": [
+            "Conditional alternative SERVER_BIOS_IMPORT pending: server_imports exact job_id/stateRUNNING -> CANCEL_REQUESTED,reason/requestedAt,version+1,time; no affected-row requirement"
+          ],
+          "test_id": "RFA-RF17-cancel_running"
+        },
+        {
+          "stage": "bios-cancel-items",
+          "repo_helper": "(retrom/internal/repo/jobs.records).CancelServerImport",
+          "affected_records": [
+            "Nonpending BIOS branch: server_bios_import_items exact importID/statePENDING|EVALUATING -> CANCELLED,outcome CANCELLED,completed/time through recordstore; no installation ownership fields change"
+          ],
+          "test_id": "RFA-RF17-cancel_running"
+        },
+        {
+          "stage": "bios-cancel-import",
+          "repo_helper": "(retrom/internal/repo/jobs.records).CancelServerImport",
+          "affected_records": [
+            "Nonpending BIOS branch: server_imports exact importID/stateQUEUED -> CANCELLED,requested/reason,cancelled count from items,completed,version+1,time; no affected-row requirement; FAILED retryable generic job can take this branch while import predicate is a no-op"
+          ],
+          "test_id": "RFA-RF17-cancel_running"
+        }
+      ],
+      "idempotency": "HTTP postAdminJobCancel/postAdminJobRetry use generic idempotencyHandler: process-local mutex, purge expired exact principal/operation/key, lookup digest, replay stored status/headers/body for match or IDEMPOTENCY_KEY_REUSED for mismatch. After domain commit a SECOND autocommit INSERT stores <=1MiB successful response for24h. Receipt storage failure does not undo domain mutation; RF05/RF06 must make receipt atomic with the domain command. Internal Service calls use only current version/state fences.",
+      "after_commit": [
+        {
+          "action": "For registered SERVER_PEGASUS_SCAN/IMPORT,SERVER_EMULATIONSTATION_SCAN/IMPORT,IMPORT_GROUP invoke owner only after successful no-write outer commit. Source handlers require auth principal and recheck domain request; RF13/RF14 own those transactions.",
+          "recovery": "Outer commit failure never invokes owner; stale interval between read scope and owner transaction must be revalidated; no domain cancellation occurs under common writer callback.",
+          "test_id": "RFA-RF17-wake_recovery"
+        },
+        {
+          "action": "HTTP completed cancellation then synchronizes ordinary import/parent/multidisc projections in their own operations; pending cancellation requests importer worker stop. ETag returns v+1,HTTP200 or202; generic receipt is stored after handler returns.",
+          "recovery": "Missing/repeated sync/stop and receipt failures require recovery tests; owner snapshots and durable job state remain recovery authority.",
+          "test_id": "RFA-RF17-wake_recovery"
+        }
+      ],
+      "time_rule": "Baseline BeginTx(ctx,nil) then job read/guards; Service samples now inside callback only for generic mutation,after fact read. Domain dispatch commits read-only outer scope before separate owner transaction and samples its own time there. No receipt clock in this transaction.",
+      "fault_points": [
+        "PLANNED cancel-job: inject failure after each applicable SQL stage,compare full job/input/event/domain/receipt state and atomic rollback boundaries",
+        "PLANNED cancel-event: inject failure after each applicable SQL stage,compare full job/input/event/domain/receipt state and atomic rollback boundaries",
+        "PLANNED bios-pending: inject failure after each applicable SQL stage,compare full job/input/event/domain/receipt state and atomic rollback boundaries",
+        "PLANNED bios-cancel-items: inject failure after each applicable SQL stage,compare full job/input/event/domain/receipt state and atomic rollback boundaries",
+        "PLANNED bios-cancel-import: inject failure after each applicable SQL stage,compare full job/input/event/domain/receipt state and atomic rollback boundaries",
+        "PLANNED every Guard independently changed,concurrent identical/conflicting keys,cancel/retry/stale owner execution,failed commit,lost/duplicate wake and restart"
+      ],
+      "test_ids": [
+        "RFA-RF17-cancel_running",
+        "RFA-RF17-lease_fencing",
+        "RFA-RF17-wake_recovery",
+        "RFA-RF17-event_order",
+        "RFA-RF17-kind_complete",
+        "RFA-RF06-replay_bytes"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "Mechanical job state/input/event or opaque receipt bytes only; no new CAS object/protective Blob edge.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "jobs.retry",
+      "owner": "jobs",
+      "rf_id": "RF17",
+      "consumers": [
+        "(*retrom/internal/service/jobs.Service).Retry",
+        "(*retrom/internal/transport/httpapi.Server).retryJob"
+      ],
+      "snapshot": "retrom/internal/model/jobs.Job",
+      "prepare": "(*retrom/internal/service/jobs.Service).Retry",
+      "commit": "(*retrom/internal/repo/jobs.Repository).WithWrite",
+      "policy_symbols": [
+        "retrom/internal/service/jobs.retryEligibility"
+      ],
+      "fresh_facts": [
+        {
+          "name": "current failed job",
+          "reader_symbol": "(retrom/internal/repo/jobs.records).Get",
+          "reason": "Inside writer kind,scope,state,retryable,execution,version; no current lease/worker facts loaded"
+        },
+        {
+          "name": "previous frozen input",
+          "reader_symbol": "(retrom/internal/repo/jobs.records).Input",
+          "reason": "Inside writer input_json by exact job/current execution; baseline does not read/verify stored input_digest"
+        }
+      ],
+      "guards": [
+        {
+          "id": "retry-version-state",
+          "fields": [
+            "version",
+            "state",
+            "retryable"
+          ],
+          "expected_source": "Expected version,current FAILED and retryable true",
+          "rejection": "ErrConflict",
+          "test_id": "RFA-RF17-lease_fencing"
+        },
+        {
+          "id": "domain-retry",
+          "fields": [
+            "kind"
+          ],
+          "expected_source": "METADATA_SCRAPE,SERVER_BIOS_IMPORT,REVIEW_BULK_APPROVE require domain action; other kinds not centrally registered/validated",
+          "rejection": "ErrRetryViaDomain",
+          "test_id": "RFA-RF17-lease_fencing"
+        },
+        {
+          "id": "retry-input",
+          "fields": [
+            "inputJSON",
+            "schema",
+            "kind",
+            "scope",
+            "executionID",
+            "inputs"
+          ],
+          "expected_source": "JSON parses,schema1,kind/scope exact to current job,inputs nonempty valid JSON,old executionID parses as UUID (not necessarily v7); ignores unknown envelope fields",
+          "rejection": "ErrConflict",
+          "test_id": "RFA-RF17-lease_fencing"
+        },
+        {
+          "id": "retry-conditional",
+          "fields": [
+            "jobId",
+            "expectedVersion"
+          ],
+          "expected_source": "UPDATE exact id/version,require one; scope/execution/state not repeated in SQL predicate beyond fresh read",
+          "rejection": "ErrConflict",
+          "test_id": "RFA-RF17-lease_fencing"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "retry-input",
+          "repo_helper": "(retrom/internal/repo/jobs.records).Retry",
+          "affected_records": [
+            "INSERT job_input_snapshots job/new execution=current+1,re-encoded envelope with fresh UUIDv7 and old raw inputs,SHA256 exact JSON,time"
+          ],
+          "test_id": "RFA-RF17-lease_fencing"
+        },
+        {
+          "stage": "retry-job",
+          "repo_helper": "(retrom/internal/repo/jobs.records).Retry",
+          "affected_records": [
+            "jobs exact id/version -> QUEUED,new execution,payload schema1 inputExecutionNo,attempt0,available/time; clear started/deadline/lease/heartbeat/finished/worker/error/retryable/cancellation fields; version+1"
+          ],
+          "test_id": "RFA-RF17-lease_fencing"
+        },
+        {
+          "stage": "retry-event",
+          "repo_helper": "(retrom/internal/repo/jobs.records).Retry",
+          "affected_records": [
+            "INSERT SELECT job_events MANUAL_RETRY from current job scope,data executionNo,time in same transaction"
+          ],
+          "test_id": "RFA-RF17-lease_fencing"
+        }
+      ],
+      "idempotency": "HTTP postAdminJobCancel/postAdminJobRetry use generic idempotencyHandler: process-local mutex, purge expired exact principal/operation/key, lookup digest, replay stored status/headers/body for match or IDEMPOTENCY_KEY_REUSED for mismatch. After domain commit a SECOND autocommit INSERT stores <=1MiB successful response for24h. Receipt storage failure does not undo domain mutation; RF05/RF06 must make receipt atomic with the domain command. Internal Service calls use only current version/state fences.",
+      "after_commit": [
+        {
+          "action": "HTTP calls importer ResumeParentAttachmentJobs/ResumeMultiDiscAttachmentJobs/ResumeImportGroupJobs before buffered response is stored; then202/ETag. Only after successful receipt commit, WithoutCancel context dispatches VARIANT_VALIDATE goroutine,UPLOAD_FINALIZE,MEDIA_FETCH.",
+          "recovery": "Missing immediate wake for source scan/import and GAME_CONTENT_REPLACE relies on owner durable recovery; unknown/missing owner registration currently does not fail startup. Retry invalidates prior execution identity.",
+          "test_id": "RFA-RF17-wake_recovery"
+        }
+      ],
+      "time_rule": "BeginTx(ctx,nil),read job+input; retryInputSnapshot generates UUIDv7/JSON and SHA inside callback; Service now sampled afterward. All must move to prepared identity/value plus fresh Repo time in target; retryInputSnapshot is not registered as pure because it generates random identity.",
+      "fault_points": [
+        "PLANNED retry-input: inject failure after each applicable SQL stage,compare full job/input/event/domain/receipt state and atomic rollback boundaries",
+        "PLANNED retry-job: inject failure after each applicable SQL stage,compare full job/input/event/domain/receipt state and atomic rollback boundaries",
+        "PLANNED retry-event: inject failure after each applicable SQL stage,compare full job/input/event/domain/receipt state and atomic rollback boundaries",
+        "PLANNED every Guard independently changed,concurrent identical/conflicting keys,cancel/retry/stale owner execution,failed commit,lost/duplicate wake and restart"
+      ],
+      "test_ids": [
+        "RFA-RF17-lease_fencing",
+        "RFA-RF17-wake_recovery",
+        "RFA-RF17-event_order",
+        "RFA-RF17-kind_complete",
+        "RFA-RF06-replay_bytes"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "Mechanical job state/input/event or opaque receipt bytes only; no new CAS object/protective Blob edge.",
         "digest_sources": [],
         "acquire_symbol": null,
         "release_symbol": null,
@@ -5998,7 +6483,7 @@
           "test_id": "RFA-RF10-launch_atomic"
         }
       ],
-      "idempotency": "No HTTP receipt is stored by this operation; preserve the conditional transition and conflict classification described below.",
+      "idempotency": "No HTTP receipt is stored by this operation; preserve the conditional transition and conflict classification described below. Domain transaction receipt observations do not exclude the separate HTTP middleware: when OpenAPI operation/key are present,operation is not domainIdempotencyOperations-exempt,and semanticRequestDigest accepts JSON or empty body,idempotencyHandler replays or stores a successful <=1MiB response in a separate24h receipt transaction. Multipart/non-JSON body bypasses this generic receipt. See idempotency.purge-expired/store-reply; target must remove the split commit window.",
       "time_rule": "Baseline BeginTx(ctx,nil) on the shared single-writer handle. Service samples time inside the business callback after reads; target must acquire SQLite write permission before one Repo technical Clock sample. Provider envelope/signing/blob preparation occurs outside writer, authorization callback also runs inside read-only Load; final credential matching currently invokes environment callback in writer.",
       "after_commit": [],
       "fault_points": [
@@ -6102,7 +6587,7 @@
           "test_id": "RFA-RF10-launch_atomic"
         }
       ],
-      "idempotency": "No HTTP receipt is stored by this operation; preserve the conditional transition and conflict classification described below.",
+      "idempotency": "No HTTP receipt is stored by this operation; preserve the conditional transition and conflict classification described below. Domain transaction receipt observations do not exclude the separate HTTP middleware: when OpenAPI operation/key are present,operation is not domainIdempotencyOperations-exempt,and semanticRequestDigest accepts JSON or empty body,idempotencyHandler replays or stores a successful <=1MiB response in a separate24h receipt transaction. Multipart/non-JSON body bypasses this generic receipt. See idempotency.purge-expired/store-reply; target must remove the split commit window.",
       "time_rule": "Baseline BeginTx(ctx,nil) on the shared single-writer handle. Service samples time inside the business callback after reads; target must acquire SQLite write permission before one Repo technical Clock sample. Image IO/CAS publication outside writer; screenshot UUID checked/generated inside callback. Baseline replacement adds no explicit GC job for dropped screenshot blobs.",
       "after_commit": [],
       "fault_points": [
@@ -6214,7 +6699,7 @@
           "test_id": "RFA-RF10-launch_atomic"
         }
       ],
-      "idempotency": "No HTTP receipt is stored by this operation; preserve the conditional transition and conflict classification described below.",
+      "idempotency": "No HTTP receipt is stored by this operation; preserve the conditional transition and conflict classification described below. Domain transaction receipt observations do not exclude the separate HTTP middleware: when OpenAPI operation/key are present,operation is not domainIdempotencyOperations-exempt,and semanticRequestDigest accepts JSON or empty body,idempotencyHandler replays or stores a successful <=1MiB response in a separate24h receipt transaction. Multipart/non-JSON body bypasses this generic receipt. See idempotency.purge-expired/store-reply; target must remove the split commit window.",
       "time_rule": "Baseline BeginTx(ctx,nil) on the shared single-writer handle. Service samples time inside the business callback after reads; target must acquire SQLite write permission before one Repo technical Clock sample. Worker UUID currently generated after read/time inside callback; job budget is 30 minutes (validationBudget in validation_worker_types.go), lease60s capped by deadline.",
       "after_commit": [],
       "fault_points": [
@@ -6381,7 +6866,7 @@
           "test_id": "RFA-RF10-launch_atomic"
         }
       ],
-      "idempotency": "Participant launch binding is the identity: reuse existing live matching launch and original deadlines; no idempotency_records row. Baseline preparation serializes netplay caller with mutex and may record a separate preparation event after this transaction (RF12 owns it).",
+      "idempotency": "Participant launch binding is the identity: reuse existing live matching launch and original deadlines; no idempotency_records row. Baseline preparation serializes netplay caller with mutex and may record a separate preparation event after this transaction (RF12 owns it). Domain transaction receipt observations do not exclude the separate HTTP middleware: when OpenAPI operation/key are present,operation is not domainIdempotencyOperations-exempt,and semanticRequestDigest accepts JSON or empty body,idempotencyHandler replays or stores a successful <=1MiB response in a separate24h receipt transaction. Multipart/non-JSON body bypasses this generic receipt. See idempotency.purge-expired/store-reply; target must remove the split commit window.",
       "time_rule": "Baseline BeginTx(ctx,nil) on the shared single-writer handle. Service samples time inside the business callback after reads; target must acquire SQLite write permission before one Repo technical Clock sample. New launch UUID and capability prepared outside; clock callback before writer discarded; final now inside callback sets +5m/+8h but has no explicit negative/overflow check.",
       "after_commit": [],
       "fault_points": [
@@ -6562,7 +7047,7 @@
           "test_id": "RFA-RF10-launch_atomic"
         }
       ],
-      "idempotency": "Unique preview (actor_user_id,idempotency_key); replay compares item and restore ID before final source/actor checks, signs same preview capability; no StoredReply row or expiry filter.",
+      "idempotency": "Unique preview (actor_user_id,idempotency_key); replay compares item and restore ID before final source/actor checks, signs same preview capability; no StoredReply row or expiry filter. Domain transaction receipt observations do not exclude the separate HTTP middleware: when OpenAPI operation/key are present,operation is not domainIdempotencyOperations-exempt,and semanticRequestDigest accepts JSON or empty body,idempotencyHandler replays or stores a successful <=1MiB response in a separate24h receipt transaction. Multipart/non-JSON body bypasses this generic receipt. See idempotency.purge-expired/store-reply; target must remove the split commit window.",
       "time_rule": "Baseline BeginTx(ctx,nil) on the shared single-writer handle. Service samples time inside the business callback after reads; target must acquire SQLite write permission before one Repo technical Clock sample. Preview UUID/capability/isolation signed outside writer; replay signing can occur inside callback; final admission time resets DB ticket expiry rather than carrying signed expiry.",
       "after_commit": [],
       "fault_points": [
@@ -6865,7 +7350,7 @@
           "test_id": "RFA-RF10-launch_atomic"
         }
       ],
-      "idempotency": "Exact (ActorID,postLaunch,key), constant-time canonical request digest. Pre-read and final-writer replay precede fresh authority. Baseline stores expiry but Replay does not filter/prune expiry; preserve recorded behavior until a separately proven correction. 201/202 status and body bytes are frozen; capability is derived outside body. No-key internal Create stores no receipt.",
+      "idempotency": "Exact (ActorID,postLaunch,key), constant-time canonical request digest. Pre-read and final-writer replay precede fresh authority. Baseline stores expiry but Replay does not filter/prune expiry; preserve recorded behavior until a separately proven correction. 201/202 status and body bytes are frozen; capability is derived outside body. No-key internal Create stores no receipt. Domain transaction receipt observations do not exclude the separate HTTP middleware: when OpenAPI operation/key are present,operation is not domainIdempotencyOperations-exempt,and semanticRequestDigest accepts JSON or empty body,idempotencyHandler replays or stores a successful <=1MiB response in a separate24h receipt transaction. Multipart/non-JSON body bypasses this generic receipt. See idempotency.purge-expired/store-reply; target must remove the split commit window.",
       "time_rule": "Baseline BeginTx(ctx,nil) on the shared single-writer handle. Service samples time inside the business callback after reads; target must acquire SQLite write permission before one Repo technical Clock sample. Preparation generates launch ID/signatures outside writer; validation variant/job/execution UUIDs and replay capability signing currently occur inside callback. Isolation DB expiry is admission-now+60s, so signed expiry drift must be tested rather than assumed protected.",
       "after_commit": [
         {
@@ -7029,7 +7514,7 @@
           "test_id": "RFA-RF10-launch_atomic"
         }
       ],
-      "idempotency": "Validation dedupe determines reuse/retry; no Launch, isolation ticket, HTTP receipt or automatic worker dispatch. Caller decides when to resume.",
+      "idempotency": "Validation dedupe determines reuse/retry; no Launch, isolation ticket, HTTP receipt or automatic worker dispatch. Caller decides when to resume. Domain transaction receipt observations do not exclude the separate HTTP middleware: when OpenAPI operation/key are present,operation is not domainIdempotencyOperations-exempt,and semanticRequestDigest accepts JSON or empty body,idempotencyHandler replays or stores a successful <=1MiB response in a separate24h receipt transaction. Multipart/non-JSON body bypasses this generic receipt. See idempotency.purge-expired/store-reply; target must remove the split commit window.",
       "time_rule": "Baseline BeginTx(ctx,nil) on the shared single-writer handle. Service samples time inside the business callback after reads; target must acquire SQLite write permission before one Repo technical Clock sample. Variant/job/execution UUID generation currently occurs inside callback.",
       "after_commit": [],
       "fault_points": [
@@ -7123,7 +7608,7 @@
           "test_id": "RFA-RF10-launch_atomic"
         }
       ],
-      "idempotency": "No HTTP receipt is stored by this operation; preserve the conditional transition and conflict classification described below.",
+      "idempotency": "No HTTP receipt is stored by this operation; preserve the conditional transition and conflict classification described below. Domain transaction receipt observations do not exclude the separate HTTP middleware: when OpenAPI operation/key are present,operation is not domainIdempotencyOperations-exempt,and semanticRequestDigest accepts JSON or empty body,idempotencyHandler replays or stores a successful <=1MiB response in a separate24h receipt transaction. Multipart/non-JSON body bypasses this generic receipt. See idempotency.purge-expired/store-reply; target must remove the split commit window.",
       "time_rule": "Baseline BeginTx(ctx,nil) on the shared single-writer handle. Service samples time inside the business callback after reads; target must acquire SQLite write permission before one Repo technical Clock sample. Settlement runs in context.WithTimeout(context.WithoutCancel(parent),5s); time sampled once after owner check.",
       "after_commit": [],
       "fault_points": [
@@ -7385,7 +7870,7 @@
           "test_id": "RFA-RF10-launch_atomic"
         }
       ],
-      "idempotency": "Product (play_session_id,client_sequence) exact semantic replay of event and accepted duration. Unstarted finish and finished-preview finish are state-idempotent; preview does not persist sequence records.",
+      "idempotency": "Product (play_session_id,client_sequence) exact semantic replay of event and accepted duration. Unstarted finish and finished-preview finish are state-idempotent; preview does not persist sequence records. Domain transaction receipt observations do not exclude the separate HTTP middleware: when OpenAPI operation/key are present,operation is not domainIdempotencyOperations-exempt,and semanticRequestDigest accepts JSON or empty body,idempotencyHandler replays or stores a successful <=1MiB response in a separate24h receipt transaction. Multipart/non-JSON body bypasses this generic receipt. See idempotency.purge-expired/store-reply; target must remove the split commit window.",
       "time_rule": "Baseline BeginTx(ctx,nil) on the shared single-writer handle. Service samples time inside the business callback after reads; target must acquire SQLite write permission before one Repo technical Clock sample. Product start UUID currently generated inside callback; capability matcher is an injected business callback in writer.",
       "after_commit": [],
       "fault_points": [
@@ -7495,7 +7980,7 @@
           "test_id": "RFA-RF10-launch_atomic"
         }
       ],
-      "idempotency": "No HTTP receipt is stored by this operation; preserve the conditional transition and conflict classification described below.",
+      "idempotency": "No HTTP receipt is stored by this operation; preserve the conditional transition and conflict classification described below. Domain transaction receipt observations do not exclude the separate HTTP middleware: when OpenAPI operation/key are present,operation is not domainIdempotencyOperations-exempt,and semanticRequestDigest accepts JSON or empty body,idempotencyHandler replays or stores a successful <=1MiB response in a separate24h receipt transaction. Multipart/non-JSON body bypasses this generic receipt. See idempotency.purge-expired/store-reply; target must remove the split commit window.",
       "time_rule": "Baseline BeginTx(ctx,nil) on the shared single-writer handle. Service samples time inside the business callback after reads; target must acquire SQLite write permission before one Repo technical Clock sample.",
       "after_commit": [
         {
@@ -7580,7 +8065,7 @@
           "test_id": "RFA-RF10-launch_atomic"
         }
       ],
-      "idempotency": "No HTTP receipt is stored by this operation; preserve the conditional transition and conflict classification described below.",
+      "idempotency": "No HTTP receipt is stored by this operation; preserve the conditional transition and conflict classification described below. Domain transaction receipt observations do not exclude the separate HTTP middleware: when OpenAPI operation/key are present,operation is not domainIdempotencyOperations-exempt,and semanticRequestDigest accepts JSON or empty body,idempotencyHandler replays or stores a successful <=1MiB response in a separate24h receipt transaction. Multipart/non-JSON body bypasses this generic receipt. See idempotency.purge-expired/store-reply; target must remove the split commit window.",
       "time_rule": "Baseline BeginTx(ctx,nil) on the shared single-writer handle. Service samples time inside the business callback after reads; target must acquire SQLite write permission before one Repo technical Clock sample.",
       "after_commit": [
         {
@@ -7728,7 +8213,7 @@
           "test_id": "RFA-RF10-launch_atomic"
         }
       ],
-      "idempotency": "No HTTP receipt is stored by this operation; preserve the conditional transition and conflict classification described below.",
+      "idempotency": "No HTTP receipt is stored by this operation; preserve the conditional transition and conflict classification described below. Domain transaction receipt observations do not exclude the separate HTTP middleware: when OpenAPI operation/key are present,operation is not domainIdempotencyOperations-exempt,and semanticRequestDigest accepts JSON or empty body,idempotencyHandler replays or stores a successful <=1MiB response in a separate24h receipt transaction. Multipart/non-JSON body bypasses this generic receipt. See idempotency.purge-expired/store-reply; target must remove the split commit window.",
       "time_rule": "Baseline BeginTx(ctx,nil) on the shared single-writer handle. Service samples time inside the business callback after reads; target must acquire SQLite write permission before one Repo technical Clock sample.",
       "after_commit": [],
       "fault_points": [
@@ -7846,7 +8331,7 @@
           "test_id": "RFA-RF15-media_atomic"
         }
       ],
-      "idempotency": "Fresh reserved==limit and asset version prevent double refund; old execution/worker cannot modify new reservation. Crash with unknown received bytes keeps full prior charge.",
+      "idempotency": "Fresh reserved==limit and asset version prevent double refund; old execution/worker cannot modify new reservation. Crash with unknown received bytes keeps full prior charge. Domain transaction receipt observations do not exclude the separate HTTP middleware: when OpenAPI operation/key are present,operation is not domainIdempotencyOperations-exempt,and semanticRequestDigest accepts JSON or empty body,idempotencyHandler replays or stores a successful <=1MiB response in a separate24h receipt transaction. Multipart/non-JSON body bypasses this generic receipt. See idempotency.purge-expired/store-reply; target must remove the split commit window.",
       "time_rule": "Baseline BeginTx(ctx,nil) on shared writer; Service now sampled inside upper callback, not a Repo technical clock acquired after write permission. UUID positions are recorded separately below; no negative/overflow-time guard is assumed. Bounded5s WithoutCancel, sample after fresh identity/input/reservation checks; called after each fetch even on failure, BEFORE successful bytes Put.",
       "after_commit": [
         {
@@ -8078,7 +8563,7 @@
           "test_id": "RFA-RF15-media_atomic"
         }
       ],
-      "idempotency": "No HTTP receipt; retain exact SQL identity/state/version and semantic repeat behavior below.",
+      "idempotency": "No receipt inside this domain transaction; retain exact SQL identity/state/version and semantic repeat behavior below. Domain transaction receipt observations do not exclude the separate HTTP middleware: when OpenAPI operation/key are present,operation is not domainIdempotencyOperations-exempt,and semanticRequestDigest accepts JSON or empty body,idempotencyHandler replays or stores a successful <=1MiB response in a separate24h receipt transaction. Multipart/non-JSON body bypasses this generic receipt. See idempotency.purge-expired/store-reply; target must remove the split commit window.",
       "time_rule": "Baseline BeginTx(ctx,nil) on shared writer; Service now sampled inside upper callback, not a Repo technical clock acquired after write permission. UUID positions are recorded separately below; no negative/overflow-time guard is assumed. Worker UUID before writer; now after fresh Snapshot. Initial active deadline now+30minutes; previous crash reservation stays charged and next attempt pays separately.",
       "after_commit": [
         {
@@ -8239,7 +8724,7 @@
           "test_id": "RFA-RF15-media_atomic"
         }
       ],
-      "idempotency": "No HTTP receipt; retain exact SQL identity/state/version and semantic repeat behavior below.",
+      "idempotency": "No receipt inside this domain transaction; retain exact SQL identity/state/version and semantic repeat behavior below. Domain transaction receipt observations do not exclude the separate HTTP middleware: when OpenAPI operation/key are present,operation is not domainIdempotencyOperations-exempt,and semanticRequestDigest accepts JSON or empty body,idempotencyHandler replays or stores a successful <=1MiB response in a separate24h receipt transaction. Multipart/non-JSON body bypasses this generic receipt. See idempotency.purge-expired/store-reply; target must remove the split commit window.",
       "time_rule": "Baseline BeginTx(ctx,nil) on shared writer; Service now sampled inside upper callback, not a Repo technical clock acquired after write permission. UUID positions are recorded separately below; no negative/overflow-time guard is assumed. Worker UUID before writer; one Service sample inside callback; first execution deadline now+1hour; retry delays 1000/5000/30000/120000ms clamped by attempt/deadline.",
       "after_commit": [
         {
@@ -8426,7 +8911,7 @@
           "test_id": "RFA-RF15-media_atomic"
         }
       ],
-      "idempotency": "No HTTP receipt; retain exact SQL identity/state/version and semantic repeat behavior below.",
+      "idempotency": "No receipt inside this domain transaction; retain exact SQL identity/state/version and semantic repeat behavior below. Domain transaction receipt observations do not exclude the separate HTTP middleware: when OpenAPI operation/key are present,operation is not domainIdempotencyOperations-exempt,and semanticRequestDigest accepts JSON or empty body,idempotencyHandler replays or stores a successful <=1MiB response in a separate24h receipt transaction. Multipart/non-JSON body bypasses this generic receipt. See idempotency.purge-expired/store-reply; target must remove the split commit window.",
       "time_rule": "Baseline BeginTx(ctx,nil) on shared writer; Service now sampled inside upper callback, not a Repo technical clock acquired after write permission. UUID positions are recorded separately below; no negative/overflow-time guard is assumed. Bounded5s WithoutCancel; Snapshot first then Service now; downloaded/decoded bytes and CAS Put occurred outside writer and after independent byte accounting.",
       "after_commit": [
         {
@@ -8617,7 +9102,7 @@
           "test_id": "RFA-RF15-media_atomic"
         }
       ],
-      "idempotency": "Missing/non-RUNNING run makes later settle a no-op; initial item SCRAPING+parent version/running fences counters. Candidate selection hitCount DESC,firstQueryOrder/providerGameID/id ASC; merge nonblank strings/nonnull player/year,first COVER/BACKGROUND and ordered screenshots.",
+      "idempotency": "Missing/non-RUNNING run makes later settle a no-op; initial item SCRAPING+parent version/running fences counters. Candidate selection hitCount DESC,firstQueryOrder/providerGameID/id ASC; merge nonblank strings/nonnull player/year,first COVER/BACKGROUND and ordered screenshots. Domain transaction receipt observations do not exclude the separate HTTP middleware: when OpenAPI operation/key are present,operation is not domainIdempotencyOperations-exempt,and semanticRequestDigest accepts JSON or empty body,idempotencyHandler replays or stores a successful <=1MiB response in a separate24h receipt transaction. Multipart/non-JSON body bypasses this generic receipt. See idempotency.purge-expired/store-reply; target must remove the split commit window.",
       "time_rule": "Baseline BeginTx(ctx,nil) on shared writer; Service now sampled inside upper callback, not a Repo technical clock acquired after write permission. UUID positions are recorded separately below; no negative/overflow-time guard is assumed. Bounded5s WithoutCancel completion. InitialReview Service currently constructed and invoked INSIDE worker callback, not a separate transaction.",
       "after_commit": [
         {
@@ -8845,7 +9330,7 @@
           "test_id": "RFA-RF15-media_atomic"
         }
       ],
-      "idempotency": "Candidate uniqueness(run,providerGameID) prevents duplicate assets/media work and preserves new hit. Attempt/response are new records; cached response ID is reused without fresh TTL reread. No replay receipt. Current provider query retries at most3 per evidence with 100/200ms delays for rate-limit/timeout/network; cached or nonretryable/third attempt becomes terminal.",
+      "idempotency": "Candidate uniqueness(run,providerGameID) prevents duplicate assets/media work and preserves new hit. Attempt/response are new records; cached response ID is reused without fresh TTL reread. No replay receipt. Current provider query retries at most3 per evidence with 100/200ms delays for rate-limit/timeout/network; cached or nonretryable/third attempt becomes terminal. Domain transaction receipt observations do not exclude the separate HTTP middleware: when OpenAPI operation/key are present,operation is not domainIdempotencyOperations-exempt,and semanticRequestDigest accepts JSON or empty body,idempotencyHandler replays or stores a successful <=1MiB response in a separate24h receipt transaction. Multipart/non-JSON body bypasses this generic receipt. See idempotency.purge-expired/store-reply; target must remove the split commit window.",
       "time_rule": "Baseline ResultRepository.BeginTx(ctx,nil); candidate JSON and raw Blob Put are prepared before writer. Record samples Service now before writer for all timestamps/TTL, then samples AGAIN inside writer for Writable lease check. Response/attempt/candidate/asset/media-job/execution UUIDs generated inside callback. Target must use one post-write-permission Repo sample and prepared IDs.",
       "after_commit": [
         {
@@ -8986,7 +9471,7 @@
           "test_id": "RFA-RF15-media_atomic"
         }
       ],
-      "idempotency": "No HTTP receipt; retain exact SQL identity/state/version and semantic repeat behavior below.",
+      "idempotency": "No receipt inside this domain transaction; retain exact SQL identity/state/version and semantic repeat behavior below. Domain transaction receipt observations do not exclude the separate HTTP middleware: when OpenAPI operation/key are present,operation is not domainIdempotencyOperations-exempt,and semanticRequestDigest accepts JSON or empty body,idempotencyHandler replays or stores a successful <=1MiB response in a separate24h receipt transaction. Multipart/non-JSON body bypasses this generic receipt. See idempotency.purge-expired/store-reply; target must remove the split commit window.",
       "time_rule": "Baseline BeginTx(ctx,nil) on shared writer; Service now sampled inside upper callback, not a Repo technical clock acquired after write permission. UUID positions are recorded separately below; no negative/overflow-time guard is assumed.",
       "after_commit": [
         {
@@ -9061,7 +9546,7 @@
           "test_id": "RFA-RF15-media_atomic"
         }
       ],
-      "idempotency": "No HTTP receipt; retain exact SQL identity/state/version and semantic repeat behavior below.",
+      "idempotency": "No receipt inside this domain transaction; retain exact SQL identity/state/version and semantic repeat behavior below. Domain transaction receipt observations do not exclude the separate HTTP middleware: when OpenAPI operation/key are present,operation is not domainIdempotencyOperations-exempt,and semanticRequestDigest accepts JSON or empty body,idempotencyHandler replays or stores a successful <=1MiB response in a separate24h receipt transaction. Multipart/non-JSON body bypasses this generic receipt. See idempotency.purge-expired/store-reply; target must remove the split commit window.",
       "time_rule": "Baseline BeginTx(ctx,nil) on shared writer; Service now sampled inside upper callback, not a Repo technical clock acquired after write permission. UUID positions are recorded separately below; no negative/overflow-time guard is assumed.",
       "after_commit": [
         {
@@ -9199,7 +9684,7 @@
           "test_id": "RFA-RF15-media_atomic"
         }
       ],
-      "idempotency": "Optimistic draft/game version prevents repeat at old version. New explicit scrape gets unique dedupe and bypasses cache; provider NONE produces a durable completed no-op. Import scheduling is nested RF13, not a third independent schedule transaction.",
+      "idempotency": "Optimistic draft/game version prevents repeat at old version. New explicit scrape gets unique dedupe and bypasses cache; provider NONE produces a durable completed no-op. Import scheduling is nested RF13, not a third independent schedule transaction. Domain transaction receipt observations do not exclude the separate HTTP middleware: when OpenAPI operation/key are present,operation is not domainIdempotencyOperations-exempt,and semanticRequestDigest accepts JSON or empty body,idempotencyHandler replays or stores a successful <=1MiB response in a separate24h receipt transaction. Multipart/non-JSON body bypasses this generic receipt. See idempotency.purge-expired/store-reply; target must remove the split commit window.",
       "time_rule": "Baseline BeginTx(ctx,nil) on shared writer; Service now sampled inside upper callback, not a Repo technical clock acquired after write permission. UUID positions are recorded separately below; no negative/overflow-time guard is assumed. Nonce/run/job/evidence/review-event UUIDs and now are generated inside writer callback. Review bypass dedupe includes fresh nonce; game dedupe includes game/manifest/fresh run ID.",
       "after_commit": [
         {
@@ -9370,7 +9855,7 @@
           "test_id": "RFA-RF15-media_atomic"
         }
       ],
-      "idempotency": "Optimistic draft/game version prevents repeat at old version. New explicit scrape gets unique dedupe and bypasses cache; provider NONE produces a durable completed no-op. Import scheduling is nested RF13, not a third independent schedule transaction.",
+      "idempotency": "Optimistic draft/game version prevents repeat at old version. New explicit scrape gets unique dedupe and bypasses cache; provider NONE produces a durable completed no-op. Import scheduling is nested RF13, not a third independent schedule transaction. Domain transaction receipt observations do not exclude the separate HTTP middleware: when OpenAPI operation/key are present,operation is not domainIdempotencyOperations-exempt,and semanticRequestDigest accepts JSON or empty body,idempotencyHandler replays or stores a successful <=1MiB response in a separate24h receipt transaction. Multipart/non-JSON body bypasses this generic receipt. See idempotency.purge-expired/store-reply; target must remove the split commit window.",
       "time_rule": "Baseline BeginTx(ctx,nil) on shared writer; Service now sampled inside upper callback, not a Repo technical clock acquired after write permission. UUID positions are recorded separately below; no negative/overflow-time guard is assumed. Nonce/run/job/evidence/review-event UUIDs and now are generated inside writer callback. Review bypass dedupe includes fresh nonce; game dedupe includes game/manifest/fresh run ID.",
       "after_commit": [
         {
@@ -9583,7 +10068,7 @@
           "test_id": "RFA-RF12-peer_reconnect"
         }
       ],
-      "idempotency": "Same original session only. PREPARE_FAILED returns room WAITING while failing current session, abandoning plays, revoking launches and clearing participant state. Repeated abort after room currentSession cleared is no-op.",
+      "idempotency": "Same original session only. PREPARE_FAILED returns room WAITING while failing current session, abandoning plays, revoking launches and clearing participant state. Repeated abort after room currentSession cleared is no-op. Domain transaction receipt observations do not exclude the separate HTTP middleware: when OpenAPI operation/key are present,operation is not domainIdempotencyOperations-exempt,and semanticRequestDigest accepts JSON or empty body,idempotencyHandler replays or stores a successful <=1MiB response in a separate24h receipt transaction. Multipart/non-JSON body bypasses this generic receipt. See idempotency.purge-expired/store-reply; target must remove the split commit window.",
       "time_rule": "Baseline BeginTx(ctx,nil) on shared single writer connection; Service samples now before acquiring the transaction. Target requires one Repo Clock sample after write permission. No current negative/overflow-time guard is assumed. Called using 5-second context.WithoutCancel; abort samples its own time before writer; no new ID.",
       "after_commit": [],
       "fault_points": [
@@ -9702,7 +10187,7 @@
           "test_id": "RFA-RF12-room_concurrency"
         }
       ],
-      "idempotency": "No HTTP idempotency receipt. Preserve current conditional state/version and semantic replay branches below.",
+      "idempotency": "No receipt inside this domain transaction. Preserve current conditional state/version and semantic replay branches below. Domain transaction receipt observations do not exclude the separate HTTP middleware: when OpenAPI operation/key are present,operation is not domainIdempotencyOperations-exempt,and semanticRequestDigest accepts JSON or empty body,idempotencyHandler replays or stores a successful <=1MiB response in a separate24h receipt transaction. Multipart/non-JSON body bypasses this generic receipt. See idempotency.purge-expired/store-reply; target must remove the split commit window.",
       "time_rule": "Baseline BeginTx(ctx,nil) on shared single writer connection; Service samples now before acquiring the transaction. Target requires one Repo Clock sample after write permission. No current negative/overflow-time guard is assumed.",
       "after_commit": [
         {
@@ -9811,7 +10296,7 @@
           "test_id": "RFA-RF12-room_concurrency"
         }
       ],
-      "idempotency": "No HTTP idempotency receipt. Preserve current conditional state/version and semantic replay branches below.",
+      "idempotency": "No receipt inside this domain transaction. Preserve current conditional state/version and semantic replay branches below. Domain transaction receipt observations do not exclude the separate HTTP middleware: when OpenAPI operation/key are present,operation is not domainIdempotencyOperations-exempt,and semanticRequestDigest accepts JSON or empty body,idempotencyHandler replays or stores a successful <=1MiB response in a separate24h receipt transaction. Multipart/non-JSON body bypasses this generic receipt. See idempotency.purge-expired/store-reply; target must remove the split commit window.",
       "time_rule": "Baseline BeginTx(ctx,nil) on shared single writer connection; Service samples now before acquiring the transaction. Target requires one Repo Clock sample after write permission. No current negative/overflow-time guard is assumed. RoomCreation.plan generates room and member UUIDs inside callback after capacity check; idle expiry uses earlier Service time.",
       "after_commit": [],
       "fault_points": [
@@ -10048,7 +10533,7 @@
           "test_id": "RFA-RF12-hub_transaction"
         }
       ],
-      "idempotency": "Terminal room is semantic no-op after actor/version checks. Host PEER_TIMEOUT becomes HOST_LOST. EndDisposition closes for HOST_CLOSED/HOST_LOST/PROFILE_REVOKED/SERVER_RESTARTED/RESTORE/HARD_EXPIRED, and for host AUTH_REVOKED/PEER_TIMEOUT/PROTOCOL_VIOLATION; other reasons return WAITING. Guest leave reason mapped only for configured exit reasons.",
+      "idempotency": "Terminal room is semantic no-op after actor/version checks. Host PEER_TIMEOUT becomes HOST_LOST. EndDisposition closes for HOST_CLOSED/HOST_LOST/PROFILE_REVOKED/SERVER_RESTARTED/RESTORE/HARD_EXPIRED, and for host AUTH_REVOKED/PEER_TIMEOUT/PROTOCOL_VIOLATION; other reasons return WAITING. Guest leave reason mapped only for configured exit reasons. Domain transaction receipt observations do not exclude the separate HTTP middleware: when OpenAPI operation/key are present,operation is not domainIdempotencyOperations-exempt,and semanticRequestDigest accepts JSON or empty body,idempotencyHandler replays or stores a successful <=1MiB response in a separate24h receipt transaction. Multipart/non-JSON body bypasses this generic receipt. See idempotency.purge-expired/store-reply; target must remove the split commit window.",
       "time_rule": "Baseline BeginTx(ctx,nil) on shared single writer connection; Service samples now before acquiring the transaction. Target requires one Repo Clock sample after write permission. No current negative/overflow-time guard is assumed.",
       "after_commit": [
         {
@@ -10281,7 +10766,7 @@
           "test_id": "RFA-RF12-peer_reconnect"
         }
       ],
-      "idempotency": "No HTTP idempotency receipt. Preserve current conditional state/version and semantic replay branches below.",
+      "idempotency": "No receipt inside this domain transaction. Preserve current conditional state/version and semantic replay branches below. Domain transaction receipt observations do not exclude the separate HTTP middleware: when OpenAPI operation/key are present,operation is not domainIdempotencyOperations-exempt,and semanticRequestDigest accepts JSON or empty body,idempotencyHandler replays or stores a successful <=1MiB response in a separate24h receipt transaction. Multipart/non-JSON body bypasses this generic receipt. See idempotency.purge-expired/store-reply; target must remove the split commit window.",
       "time_rule": "Caller supplies earlier scan cutoff; BeginTx(ctx,nil); no local clock or in-transaction deadline reread in EndExpired beyond version/state/session guard. START_TIMEOUT returns WAITING; HARD_EXPIRED ends room.",
       "after_commit": [],
       "fault_points": [
@@ -10381,7 +10866,7 @@
           "test_id": "RFA-RF12-peer_reconnect"
         }
       ],
-      "idempotency": "No HTTP idempotency receipt. Preserve current conditional state/version and semantic replay branches below.",
+      "idempotency": "No receipt inside this domain transaction. Preserve current conditional state/version and semantic replay branches below. Domain transaction receipt observations do not exclude the separate HTTP middleware: when OpenAPI operation/key are present,operation is not domainIdempotencyOperations-exempt,and semanticRequestDigest accepts JSON or empty body,idempotencyHandler replays or stores a successful <=1MiB response in a separate24h receipt transaction. Multipart/non-JSON body bypasses this generic receipt. See idempotency.purge-expired/store-reply; target must remove the split commit window.",
       "time_rule": "Service samples now once before scanning. Independent BeginTx(ctx,nil) per passive candidate; same sampled cutoff carried into all transactions. Target must reevaluate with fresh Repo Clock.",
       "after_commit": [],
       "fault_points": [
@@ -10496,7 +10981,7 @@
           "test_id": "RFA-RF12-room_concurrency"
         }
       ],
-      "idempotency": "No HTTP idempotency receipt. Preserve current conditional state/version and semantic replay branches below.",
+      "idempotency": "No receipt inside this domain transaction. Preserve current conditional state/version and semantic replay branches below. Domain transaction receipt observations do not exclude the separate HTTP middleware: when OpenAPI operation/key are present,operation is not domainIdempotencyOperations-exempt,and semanticRequestDigest accepts JSON or empty body,idempotencyHandler replays or stores a successful <=1MiB response in a separate24h receipt transaction. Multipart/non-JSON body bypasses this generic receipt. See idempotency.purge-expired/store-reply; target must remove the split commit window.",
       "time_rule": "Baseline BeginTx(ctx,nil) on shared single writer connection; Service samples now before acquiring the transaction. Target requires one Repo Clock sample after write permission. No current negative/overflow-time guard is assumed.",
       "after_commit": [],
       "fault_points": [
@@ -10735,7 +11220,7 @@
           "test_id": "RFA-RF12-room_concurrency"
         }
       ],
-      "idempotency": "No HTTP idempotency receipt. Preserve current conditional state/version and semantic replay branches below.",
+      "idempotency": "No receipt inside this domain transaction. Preserve current conditional state/version and semantic replay branches below. Domain transaction receipt observations do not exclude the separate HTTP middleware: when OpenAPI operation/key are present,operation is not domainIdempotencyOperations-exempt,and semanticRequestDigest accepts JSON or empty body,idempotencyHandler replays or stores a successful <=1MiB response in a separate24h receipt transaction. Multipart/non-JSON body bypasses this generic receipt. See idempotency.purge-expired/store-reply; target must remove the split commit window.",
       "time_rule": "Baseline BeginTx(ctx,nil) on shared single writer connection; Service samples now before acquiring the transaction. Target requires one Repo Clock sample after write permission. No current negative/overflow-time guard is assumed.",
       "after_commit": [
         {
@@ -10897,7 +11382,7 @@
           "test_id": "RFA-RF12-peer_reconnect"
         }
       ],
-      "idempotency": "No HTTP idempotency receipt. Preserve current conditional state/version and semantic replay branches below.",
+      "idempotency": "No receipt inside this domain transaction. Preserve current conditional state/version and semantic replay branches below. Domain transaction receipt observations do not exclude the separate HTTP middleware: when OpenAPI operation/key are present,operation is not domainIdempotencyOperations-exempt,and semanticRequestDigest accepts JSON or empty body,idempotencyHandler replays or stores a successful <=1MiB response in a separate24h receipt transaction. Multipart/non-JSON body bypasses this generic receipt. See idempotency.purge-expired/store-reply; target must remove the split commit window.",
       "time_rule": "Baseline BeginTx(ctx,nil) on shared single writer connection; Service samples now before acquiring the transaction. Target requires one Repo Clock sample after write permission. No current negative/overflow-time guard is assumed.",
       "after_commit": [
         {
@@ -11031,7 +11516,7 @@
           "test_id": "RFA-RF12-hub_transaction"
         }
       ],
-      "idempotency": "No HTTP idempotency receipt. Preserve current conditional state/version and semantic replay branches below.",
+      "idempotency": "No receipt inside this domain transaction. Preserve current conditional state/version and semantic replay branches below. Domain transaction receipt observations do not exclude the separate HTTP middleware: when OpenAPI operation/key are present,operation is not domainIdempotencyOperations-exempt,and semanticRequestDigest accepts JSON or empty body,idempotencyHandler replays or stores a successful <=1MiB response in a separate24h receipt transaction. Multipart/non-JSON body bypasses this generic receipt. See idempotency.purge-expired/store-reply; target must remove the split commit window.",
       "time_rule": "Baseline BeginTx(ctx,nil) on shared single writer connection; Service samples now before acquiring the transaction. Target requires one Repo Clock sample after write permission. No current negative/overflow-time guard is assumed.",
       "after_commit": [
         {
@@ -11194,7 +11679,7 @@
           "test_id": "RFA-RF12-peer_reconnect"
         }
       ],
-      "idempotency": "No HTTP idempotency receipt. Preserve current conditional state/version and semantic replay branches below.",
+      "idempotency": "No receipt inside this domain transaction. Preserve current conditional state/version and semantic replay branches below. Domain transaction receipt observations do not exclude the separate HTTP middleware: when OpenAPI operation/key are present,operation is not domainIdempotencyOperations-exempt,and semanticRequestDigest accepts JSON or empty body,idempotencyHandler replays or stores a successful <=1MiB response in a separate24h receipt transaction. Multipart/non-JSON body bypasses this generic receipt. See idempotency.purge-expired/store-reply; target must remove the split commit window.",
       "time_rule": "Baseline BeginTx(ctx,nil) on shared single writer connection; Service samples now before acquiring the transaction. Target requires one Repo Clock sample after write permission. No current negative/overflow-time guard is assumed.",
       "after_commit": [
         {
@@ -11330,7 +11815,7 @@
           "test_id": "RFA-RF12-peer_reconnect"
         }
       ],
-      "idempotency": "No HTTP idempotency receipt. Preserve current conditional state/version and semantic replay branches below.",
+      "idempotency": "No receipt inside this domain transaction. Preserve current conditional state/version and semantic replay branches below. Domain transaction receipt observations do not exclude the separate HTTP middleware: when OpenAPI operation/key are present,operation is not domainIdempotencyOperations-exempt,and semanticRequestDigest accepts JSON or empty body,idempotencyHandler replays or stores a successful <=1MiB response in a separate24h receipt transaction. Multipart/non-JSON body bypasses this generic receipt. See idempotency.purge-expired/store-reply; target must remove the split commit window.",
       "time_rule": "Baseline BeginTx(ctx,nil) on shared single writer connection; Service samples now before acquiring the transaction. Target requires one Repo Clock sample after write permission. No current negative/overflow-time guard is assumed.",
       "after_commit": [
         {
@@ -11491,7 +11976,7 @@
           "test_id": "RFA-RF12-peer_reconnect"
         }
       ],
-      "idempotency": "Outer ParticipantPreparation.Launch serializes using its mutex; read-only snapshot/signature/Launch.CreateNetplay occur before record transaction. Existing participant generation is reused (0 chooses1), signing/hash outside writer; launch.create-netplay owns launch+participant credential writes. Existing event+state produce no duplicate record. No independent credential rotation SQL exists in RF12.",
+      "idempotency": "Outer ParticipantPreparation.Launch serializes using its mutex; read-only snapshot/signature/Launch.CreateNetplay occur before record transaction. Existing participant generation is reused (0 chooses1), signing/hash outside writer; launch.create-netplay owns launch+participant credential writes. Existing event+state produce no duplicate record. No independent credential rotation SQL exists in RF12. Domain transaction receipt observations do not exclude the separate HTTP middleware: when OpenAPI operation/key are present,operation is not domainIdempotencyOperations-exempt,and semanticRequestDigest accepts JSON or empty body,idempotencyHandler replays or stores a successful <=1MiB response in a separate24h receipt transaction. Multipart/non-JSON body bypasses this generic receipt. See idempotency.purge-expired/store-reply; target must remove the split commit window.",
       "time_rule": "Baseline BeginTx(ctx,nil) on shared single writer connection; Service samples now before acquiring the transaction. Target requires one Repo Clock sample after write permission. No current negative/overflow-time guard is assumed.",
       "after_commit": [
         {
@@ -11620,7 +12105,7 @@
           "test_id": "RFA-RF12-peer_reconnect"
         }
       ],
-      "idempotency": "Global startup/restore recovery uses current nonterminal predicates; repeated execution finds no active target rows. Preserve baseline scope distinction: unlike end-room this does not clear membership or participant rows.",
+      "idempotency": "Global startup/restore recovery uses current nonterminal predicates; repeated execution finds no active target rows. Preserve baseline scope distinction: unlike end-room this does not clear membership or participant rows. Domain transaction receipt observations do not exclude the separate HTTP middleware: when OpenAPI operation/key are present,operation is not domainIdempotencyOperations-exempt,and semanticRequestDigest accepts JSON or empty body,idempotencyHandler replays or stores a successful <=1MiB response in a separate24h receipt transaction. Multipart/non-JSON body bypasses this generic receipt. See idempotency.purge-expired/store-reply; target must remove the split commit window.",
       "time_rule": "Baseline BeginTx(ctx,nil) on shared single writer connection; Service samples now before acquiring the transaction. Target requires one Repo Clock sample after write permission. No current negative/overflow-time guard is assumed.",
       "after_commit": [
         {
@@ -11793,7 +12278,7 @@
           "test_id": "RFA-RF12-room_concurrency"
         }
       ],
-      "idempotency": "No HTTP idempotency receipt. Preserve current conditional state/version and semantic replay branches below.",
+      "idempotency": "No receipt inside this domain transaction. Preserve current conditional state/version and semantic replay branches below. Domain transaction receipt observations do not exclude the separate HTTP middleware: when OpenAPI operation/key are present,operation is not domainIdempotencyOperations-exempt,and semanticRequestDigest accepts JSON or empty body,idempotencyHandler replays or stores a successful <=1MiB response in a separate24h receipt transaction. Multipart/non-JSON body bypasses this generic receipt. See idempotency.purge-expired/store-reply; target must remove the split commit window.",
       "time_rule": "Baseline BeginTx(ctx,nil) on shared single writer connection; Service samples now before acquiring the transaction. Target requires one Repo Clock sample after write permission. No current negative/overflow-time guard is assumed.",
       "after_commit": [
         {
@@ -11962,7 +12447,7 @@
           "test_id": "RFA-RF12-room_concurrency"
         }
       ],
-      "idempotency": "No HTTP idempotency receipt. Preserve current conditional state/version and semantic replay branches below.",
+      "idempotency": "No receipt inside this domain transaction. Preserve current conditional state/version and semantic replay branches below. Domain transaction receipt observations do not exclude the separate HTTP middleware: when OpenAPI operation/key are present,operation is not domainIdempotencyOperations-exempt,and semanticRequestDigest accepts JSON or empty body,idempotencyHandler replays or stores a successful <=1MiB response in a separate24h receipt transaction. Multipart/non-JSON body bypasses this generic receipt. See idempotency.purge-expired/store-reply; target must remove the split commit window.",
       "time_rule": "Baseline BeginTx(ctx,nil) on shared single writer connection; Service samples now before acquiring the transaction. Target requires one Repo Clock sample after write permission. No current negative/overflow-time guard is assumed.",
       "after_commit": [
         {
@@ -12114,7 +12599,7 @@
           "test_id": "RFA-RF12-room_concurrency"
         }
       ],
-      "idempotency": "No HTTP idempotency receipt. Preserve current conditional state/version and semantic replay branches below.",
+      "idempotency": "No receipt inside this domain transaction. Preserve current conditional state/version and semantic replay branches below. Domain transaction receipt observations do not exclude the separate HTTP middleware: when OpenAPI operation/key are present,operation is not domainIdempotencyOperations-exempt,and semanticRequestDigest accepts JSON or empty body,idempotencyHandler replays or stores a successful <=1MiB response in a separate24h receipt transaction. Multipart/non-JSON body bypasses this generic receipt. See idempotency.purge-expired/store-reply; target must remove the split commit window.",
       "time_rule": "Baseline BeginTx(ctx,nil) on shared single writer connection; Service samples now before acquiring the transaction. Target requires one Repo Clock sample after write permission. No current negative/overflow-time guard is assumed. New guest UUID generated by seatPlan inside callback; existing left membership reuses identity and is reactivated.",
       "after_commit": [
         {
@@ -12244,7 +12729,7 @@
           "test_id": "RFA-RF12-hub_transaction"
         }
       ],
-      "idempotency": "No HTTP idempotency receipt. Preserve current conditional state/version and semantic replay branches below.",
+      "idempotency": "No receipt inside this domain transaction. Preserve current conditional state/version and semantic replay branches below. Domain transaction receipt observations do not exclude the separate HTTP middleware: when OpenAPI operation/key are present,operation is not domainIdempotencyOperations-exempt,and semanticRequestDigest accepts JSON or empty body,idempotencyHandler replays or stores a successful <=1MiB response in a separate24h receipt transaction. Multipart/non-JSON body bypasses this generic receipt. See idempotency.purge-expired/store-reply; target must remove the split commit window.",
       "time_rule": "Baseline BeginTx(ctx,nil) on shared single writer connection; Service samples now before acquiring the transaction. Target requires one Repo Clock sample after write permission. No current negative/overflow-time guard is assumed.",
       "after_commit": [
         {
@@ -12449,7 +12934,7 @@
           "test_id": "RFA-RF12-room_concurrency"
         }
       ],
-      "idempotency": "No HTTP idempotency receipt. Preserve current conditional state/version and semantic replay branches below.",
+      "idempotency": "No receipt inside this domain transaction. Preserve current conditional state/version and semantic replay branches below. Domain transaction receipt observations do not exclude the separate HTTP middleware: when OpenAPI operation/key are present,operation is not domainIdempotencyOperations-exempt,and semanticRequestDigest accepts JSON or empty body,idempotencyHandler replays or stores a successful <=1MiB response in a separate24h receipt transaction. Multipart/non-JSON body bypasses this generic receipt. See idempotency.purge-expired/store-reply; target must remove the split commit window.",
       "time_rule": "Baseline BeginTx(ctx,nil) on shared single writer connection; Service samples now before acquiring the transaction. Target requires one Repo Clock sample after write permission. No current negative/overflow-time guard is assumed. Session UUID and sessionNo are obtained inside writer callback, not before the transaction.",
       "after_commit": [],
       "fault_points": [
@@ -12762,7 +13247,7 @@
           "test_id": "RFA-RF16-impact_atomic"
         }
       ],
-      "idempotency": "HTTP validates Idempotency-Key shape, but baseline Create persists no receipt; repeated create chooses another slug.",
+      "idempotency": "HTTP validates Idempotency-Key shape, but baseline Create persists no receipt; repeated create chooses another slug. Domain transaction receipt observations do not exclude the separate HTTP middleware: when OpenAPI operation/key are present,operation is not domainIdempotencyOperations-exempt,and semanticRequestDigest accepts JSON or empty body,idempotencyHandler replays or stores a successful <=1MiB response in a separate24h receipt transaction. Multipart/non-JSON body bypasses this generic receipt. See idempotency.purge-expired/store-reply; target must remove the split commit window.",
       "time_rule": "Baseline BEGIN IMMEDIATE then Service clock inside callback. Instance/audit UUIDs still generated in callback; target prepares identities outside and uses one writer Clock sample.",
       "after_commit": [],
       "fault_points": [
@@ -13300,7 +13785,7 @@
           "test_id": "RFA-RF11-provider_forward"
         }
       ],
-      "idempotency": "Same provider versions/bundles and catalog hash produce no writes; changed provider IDs sorted. Candidate filesystem/manifest verification is outside this transaction, all SQL projection and affected netplay termination are atomic.",
+      "idempotency": "Same provider versions/bundles and catalog hash produce no writes; changed provider IDs sorted. Candidate filesystem/manifest verification is outside this transaction, all SQL projection and affected netplay termination are atomic. Domain transaction receipt observations do not exclude the separate HTTP middleware: when OpenAPI operation/key are present,operation is not domainIdempotencyOperations-exempt,and semanticRequestDigest accepts JSON or empty body,idempotencyHandler replays or stores a successful <=1MiB response in a separate24h receipt transaction. Multipart/non-JSON body bypasses this generic receipt. See idempotency.purge-expired/store-reply; target must remove the split commit window.",
       "time_rule": "Baseline BeginTx(ctx,nil), shared writer connection. Startup caller passes one earlier time.Time across operations; target needs one fresh Repo technical Clock sample after write permission. Audit UUID is generated inside callback after projection writes; prepareReconciliation performs current-fact queries inside writer.",
       "after_commit": [],
       "fault_points": [
@@ -15976,6 +16461,7 @@
     "RF10 SOURCE_REVIEWED census adds 14 transaction families, including separate validation heartbeat/failure and isolated-capability revoke. Branch-specific SQL stages and nested sessionstore writes are explicit. Aggregate RFA references are PLANNED, not per-Guard/stage evidence. Actor/session freshness, prepared preview file closure, signed isolation expiry, all digest lock protocols and expired product receipts remain migration/behavior-review work.",
     "RF11 SOURCE_REVIEWED census adds 9 transaction families: provider reconciliation, browser/server firmware, startup definitions, DAT ensure/recover,claim,publish,ready activation,failure. DAT requirements and firmware supersession are atomic nested steps, not standalone commits. BIOS/corevalidation are read-only services. Guards/stages and fixture references remain PLANNED; stale DAT execution fencing, writer time, external preparation, digest locking and full parser/Provider consumers require migration/verification.",
     "RF12 SOURCE_REVIEWED census adds 19 distinct transaction families, including original-session AbortPreparation separately from post-Launch record and active/passive expiry separately from startup recovery. Launch participant credential publication belongs to RF10; participant access/query/Hub frame protocol are read-only or memory operations, not fabricated SQL commands. Baseline Hub performs SQL under mutex and sometimes publishes memory before commit; writer time and UUID positions are recorded for migration. All new behavioral/fault/race cases remain PLANNED.",
-    "RF15 SOURCE_REVIEWED: 10 standalone transaction entry families, with scrape claim/requeue/terminal branches and media claim/requeue/reconcile branches explicitly expanded. ScheduleImport is nested RF13; media scheduling is nested record-lookup; initial-review projection is nested finish-scrape. Recovery and cache expiry lookup are read-only here. Baseline record-lookup lacks fresh import payload/parent cancellation/evidence-to-run checks and samples two times. Clock/UUID positions, protective hash-evidence/raw/media Blob edges and remaining inline candidate/budget/evidence-selection policy extraction are recorded, not claimed fixed. All new fault/race tests remain PLANNED."
+    "RF15 SOURCE_REVIEWED: 10 standalone transaction entry families, with scrape claim/requeue/terminal branches and media claim/requeue/reconcile branches explicitly expanded. ScheduleImport is nested RF13; media scheduling is nested record-lookup; initial-review projection is nested finish-scrape. Recovery and cache expiry lookup are read-only here. Baseline record-lookup lacks fresh import payload/parent cancellation/evidence-to-run checks and samples two times. Clock/UUID positions, protective hash-evidence/raw/media Blob edges and remaining inline candidate/budget/evidence-selection policy extraction are recorded, not claimed fixed. All new fault/race tests remain PLANNED.",
+    "RF17 SOURCE_REVIEWED two generic mutation families; three registered owner adapters have separate RF13/RF14 transactions,not extra RF17 SQL,while BIOS side effects remain inside generic cancel. Job read/SSE/importprogress projection are not writes. Kind completeness and typed owner registration remain pending; the raw external audit's '12 kinds' conflicts with its14rows and its unconditional no-receipt claim was rejected. RF06 adds two actual receipt autocommit operations and clarifies existing domain-only receipt notes. Current generic HTTP receipts are NOT atomic with domain changes. New behavioral cases remain PLANNED."
   ]
 }

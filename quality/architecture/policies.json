@@ -931,6 +931,49 @@
       ]
     },
     {
+      "id": "importprogress.Project",
+      "owner": "importprogress",
+      "rf_id": "RF17",
+      "symbol": "retrom/internal/model/importprogress.Project",
+      "consumers": [],
+      "invariant": "Validate counts; preserve cancellation/task-level failure; otherwise unique aggregate projection.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF17-event_order"
+      ]
+    },
+    {
+      "id": "importprogress.activeProjection",
+      "owner": "importprogress",
+      "rf_id": "RF17",
+      "symbol": "retrom/internal/model/importprogress.activeProjection",
+      "consumers": [
+        "retrom/internal/model/importprogress.Project"
+      ],
+      "invariant": "Not-started QUEUED,queued/running RUNNING,failed/unresolvedRejected PARTIAL_FAILURE,reviewPending REVIEW_PENDING,otherwise COMPLETED at explicit now.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF17-event_order"
+      ]
+    },
+    {
+      "id": "importprogress.validCounts",
+      "owner": "importprogress",
+      "rf_id": "RF17",
+      "symbol": "retrom/internal/model/importprogress.validCounts",
+      "consumers": [
+        "retrom/internal/model/importprogress.Project"
+      ],
+      "invariant": "All counts nonnegative,resolvedRejected<=rejected.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF17-event_order"
+      ]
+    },
+    {
       "id": "isolation.activeSession",
       "owner": "isolation",
       "rf_id": "RF10",
@@ -963,6 +1006,97 @@
       "tests": [
         "RFA-RF10-launch_authority",
         "RFA-RF10-launch_atomic"
+      ]
+    },
+    {
+      "id": "jobs.cancellableJobState",
+      "owner": "jobs",
+      "rf_id": "RF17",
+      "symbol": "retrom/internal/service/jobs.cancellableJobState",
+      "consumers": [
+        "(*retrom/internal/service/jobs.Service).Cancel"
+      ],
+      "invariant": "QUEUED/RUNNING or FAILED retryable cancellation state.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF17-cancel_running"
+      ]
+    },
+    {
+      "id": "jobs.importTerminal",
+      "owner": "jobs",
+      "rf_id": "RF17",
+      "symbol": "retrom/internal/service/jobs.importTerminal",
+      "consumers": [
+        "(*retrom/internal/service/jobs.Service).ImportEvents"
+      ],
+      "invariant": "COMPLETED/FAILED/CANCELLED/REVIEW_PENDING/PARTIAL_FAILURE end import event stream after backlog.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF17-event_order"
+      ]
+    },
+    {
+      "id": "jobs.jobTerminal",
+      "owner": "jobs",
+      "rf_id": "RF17",
+      "symbol": "retrom/internal/service/jobs.jobTerminal",
+      "consumers": [
+        "(*retrom/internal/service/jobs.Service).JobEvents"
+      ],
+      "invariant": "SUCCEEDED/FAILED/CANCELLED are job terminal states.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF17-event_order"
+      ]
+    },
+    {
+      "id": "jobs.progressBatch",
+      "owner": "jobs",
+      "rf_id": "RF17",
+      "symbol": "retrom/internal/service/jobs.progressBatch",
+      "consumers": [
+        "(*retrom/internal/service/jobs.Service).ImportEvents",
+        "(*retrom/internal/service/jobs.Service).JobEvents"
+      ],
+      "invariant": "Preserve read error; terminal flag only when terminal state and fewer than1000 events,so full backlog drains.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF17-event_order"
+      ]
+    },
+    {
+      "id": "jobs.retryEligibility",
+      "owner": "jobs",
+      "rf_id": "RF17",
+      "symbol": "retrom/internal/service/jobs.retryEligibility",
+      "consumers": [
+        "(*retrom/internal/service/jobs.Service).Retry"
+      ],
+      "invariant": "Exact expected version,FAILED retryable; explicit domain-only kinds.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF17-lease_fencing"
+      ]
+    },
+    {
+      "id": "jobs.validReason",
+      "owner": "jobs",
+      "rf_id": "RF17",
+      "symbol": "retrom/internal/service/jobs.validReason",
+      "consumers": [
+        "(*retrom/internal/service/jobs.Service).Cancel"
+      ],
+      "invariant": "Nonempty trimmed cancellation reason <=500 runes.",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "model",
+      "tests": [
+        "RFA-RF17-cancel_running"
       ]
     },
     {
