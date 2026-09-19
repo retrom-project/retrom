@@ -16,39 +16,77 @@ type itemWorkMemory struct {
 	readErr, writeErr, commitErr error
 }
 
-func (memory *itemWorkMemory) WithItemWork(_ context.Context, run func(model.ItemWorkScope) error) error {
-	if err := run(model.ItemWorkScope{Read: memory, Write: memory, Payload: payloadItemScope(memory)}); err != nil {
+func (memory *itemWorkMemory) ClaimNextItem(ctx context.Context, unit model.Execution, nowMS int64) (model.ClaimNextItemResult, error) {
+	if memory.readErr != nil {
+		return model.ClaimNextItemResult{}, memory.readErr
+	}
+	execution := memory.before.Execution
+	if execution.Execution != unit {
+		return model.ClaimNextItemResult{}, model.ErrVersionConflict
+	}
+	if err := model.ValidateImportExecution(execution, unit, nowMS); err != nil {
+		return model.ClaimNextItemResult{}, err
+	}
+	item := memory.before.Item
+	if item.ImportID != unit.ImportID || !model.ValidItemVersion(item.Version) || !model.WorkingItemState(item.State) {
+		return model.ClaimNextItemResult{}, model.ErrVersionConflict
+	}
+	if item.State != "PENDING" {
+		return model.ClaimNextItemResult{Found: true, Item: item}, memory.commitErr
+	}
+	if memory.writeErr != nil {
+		return model.ClaimNextItemResult{}, memory.writeErr
+	}
+	memory.claimed++
+	item.State, item.Version = "COPYING", item.Version+1
+	return model.ClaimNextItemResult{Found: true, Item: item}, memory.commitErr
+}
+
+func (memory *itemWorkMemory) CommitItemResume(ctx context.Context, unit model.Execution, itemID, jobID, ordinaryID string, nowMS int64) error {
+	if memory.readErr != nil {
+		return memory.readErr
+	}
+	if err := model.ValidateImportExecution(memory.before.Execution, unit, nowMS); err != nil {
 		return err
 	}
+	if memory.before.Item.ID != itemID || memory.before.Item.ImportID != unit.ImportID || !model.ValidItemVersion(memory.before.Item.Version) {
+		return model.ErrVersionConflict
+	}
+	if jobID == "" || ordinaryID == "" || memory.before.Item.LibraryImportJobID != jobID || memory.before.Item.LibraryImportItemID != ordinaryID {
+		return model.ErrVersionConflict
+	}
+	if memory.before.Item.State == "VALIDATING" || memory.before.Item.State == "REVIEW_PENDING" {
+		return memory.commitErr
+	}
+	if memory.before.Item.State != "COPYING" {
+		return model.ErrVersionConflict
+	}
+	if memory.writeErr != nil {
+		return memory.writeErr
+	}
+	memory.resumed++
 	return memory.commitErr
 }
 
-func (memory *itemWorkMemory) Current(context.Context, string) (model.LeaseSnapshot, bool, error) {
-	return memory.before.Execution, true, memory.readErr
-}
-
-func (memory *itemWorkMemory) Next(context.Context, string) (model.ExecutionItem, bool, error) {
-	return memory.before.Item, true, memory.readErr
-}
-
-func (memory *itemWorkMemory) Item(context.Context, string) (model.OwnedItem, error) {
-	return memory.before, memory.readErr
-}
-
-func (memory *itemWorkMemory) Claim(context.Context, model.ItemClaim) error {
-	memory.claimed++
-	return memory.writeErr
-}
-
-func (memory *itemWorkMemory) Resume(context.Context, model.ItemResume) error {
-	memory.resumed++
-	return memory.writeErr
-}
-
-func (memory *itemWorkMemory) Finish(_ context.Context, change model.ItemFinish) error {
+func (memory *itemWorkMemory) CommitItemFinish(ctx context.Context, unit model.Execution, itemID string, outcome model.ItemOutcome, nowMS int64) error {
+	if memory.readErr != nil {
+		return memory.readErr
+	}
+	if err := model.ValidateImportExecution(memory.before.Execution, unit, nowMS); err != nil {
+		return err
+	}
+	if memory.before.Item.ID != itemID || memory.before.Item.ImportID != unit.ImportID || !model.ValidItemVersion(memory.before.Item.Version) {
+		return model.ErrVersionConflict
+	}
+	if memory.before.Item.State != "COPYING" && memory.before.Item.State != "VALIDATING" {
+		return model.ErrVersionConflict
+	}
+	if memory.writeErr != nil {
+		return memory.writeErr
+	}
 	memory.finished++
-	memory.outcome = change.Outcome
-	return memory.writeErr
+	memory.outcome = outcome
+	return memory.commitErr
 }
 
 func newItemWorkMemory() *itemWorkMemory {

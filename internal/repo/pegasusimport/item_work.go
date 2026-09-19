@@ -5,7 +5,8 @@ import (
 	"database/sql"
 	"fmt"
 
-	payload "retrom/internal/repo/payloadrelease"
+	payloadmodel "retrom/internal/model/payloadrelease"
+	payloadrepo "retrom/internal/repo/payloadrelease"
 
 	application "retrom/internal/model/pegasusimport"
 	"retrom/internal/repo/dbexec"
@@ -22,7 +23,7 @@ func (repository *ItemWork) WithItemWork(ctx context.Context, work func(applicat
 	defer dbexec.Rollback(tx)
 	records := itemWorkRecords{tx}
 	if err := work(application.ItemWorkScope{
-		Payload: payload.BindReleases(tx), Read: records, Write: records,
+		Payload: payloadrepo.BindReleases(tx), Read: records, Write: records,
 	}); err != nil {
 		return err
 	}
@@ -30,6 +31,110 @@ func (repository *ItemWork) WithItemWork(ctx context.Context, work func(applicat
 		return fmt.Errorf("commit Pegasus item work: %w", err)
 	}
 	return nil
+}
+
+func (repository *ItemWork) ClaimNextItem(ctx context.Context, unit application.ExecutionIdentity, nowMS int64) (application.ClaimNextItemResult, error) {
+	var result application.ClaimNextItemResult
+	err := dbexec.Immediate(ctx, repository.database, func(executor dbexec.Executor) error {
+		records := itemWorkRecords{executor}
+		execution, err := records.Execution(ctx, unit.JobID)
+		if err != nil {
+			return fmt.Errorf("read Pegasus item execution: %w", err)
+		}
+		if err := application.ValidateExecution(execution, unit, nowMS); err != nil {
+			return err
+		}
+		if execution.Kind != "SERVER_PEGASUS_IMPORT" || execution.JobState != "RUNNING" {
+			return application.ErrVersionConflict
+		}
+		item, found, err := records.Next(ctx, unit.ImportID)
+		if err != nil {
+			return fmt.Errorf("read next Pegasus item: %w", err)
+		}
+		if !found {
+			return nil
+		}
+		result.Found = true
+		if item.ImportID != unit.ImportID || item.State != "PENDING" || !application.ValidItemVersion(item.Version) {
+			return application.ErrVersionConflict
+		}
+		if err := records.Claim(ctx, application.ItemClaim{
+			Before: application.OwnedItem{Execution: execution, Item: item}, NowMS: nowMS,
+		}); err != nil {
+			return fmt.Errorf("claim Pegasus item: %w", err)
+		}
+		item.State, item.Version = "COPYING", item.Version+1
+		result.Item = item
+		return nil
+	})
+	if err != nil {
+		return application.ClaimNextItemResult{}, err
+	}
+	return result, nil
+}
+
+func (repository *ItemWork) CommitItemResume(ctx context.Context, unit application.ExecutionIdentity, itemID, jobID, ordinaryID string, nowMS int64) error {
+	return dbexec.Immediate(ctx, repository.database, func(executor dbexec.Executor) error {
+		records := itemWorkRecords{executor}
+		before, err := records.Current(ctx, itemID)
+		if err != nil {
+			return fmt.Errorf("read Pegasus item ownership: %w", err)
+		}
+		if err := application.ValidateExecution(before.Execution, unit, nowMS); err != nil {
+			return err
+		}
+		if before.Item.ID != itemID || before.Item.ImportID != unit.ImportID || !application.ValidItemVersion(before.Item.Version) {
+			return application.ErrVersionConflict
+		}
+		if jobID == "" || ordinaryID == "" || before.Item.LibraryImportJobID != jobID ||
+			before.Item.LibraryImportItemID != ordinaryID {
+			return application.ErrVersionConflict
+		}
+		if before.Item.State == "VALIDATING" || before.Item.State == "REVIEW_PENDING" {
+			return nil
+		}
+		if before.Item.State != "COPYING" {
+			return application.ErrVersionConflict
+		}
+		if err := records.Resume(ctx, application.ItemResume{Before: before, NowMS: nowMS}); err != nil {
+			return fmt.Errorf("resume Pegasus review item: %w", err)
+		}
+		return nil
+	})
+}
+
+func (repository *ItemWork) CommitItemFinish(ctx context.Context, unit application.ExecutionIdentity, itemID string, outcome application.ItemOutcome, nowMS int64) error {
+	return dbexec.Immediate(ctx, repository.database, func(executor dbexec.Executor) error {
+		records := itemWorkRecords{executor}
+		before, err := records.Current(ctx, itemID)
+		if err != nil {
+			return fmt.Errorf("read Pegasus item ownership: %w", err)
+		}
+		if err := application.ValidateExecution(before.Execution, unit, nowMS); err != nil {
+			return err
+		}
+		if before.Item.ID != itemID || before.Item.ImportID != unit.ImportID || !application.ValidItemVersion(before.Item.Version) {
+			return application.ErrVersionConflict
+		}
+		if before.Item.State == outcome.State {
+			return nil
+		}
+		if before.Item.State != "COPYING" && before.Item.State != "VALIDATING" {
+			return application.ErrVersionConflict
+		}
+		if err := records.Finish(ctx, application.ItemFinish{Before: before, Outcome: outcome, NowMS: nowMS}); err != nil {
+			return fmt.Errorf("save Pegasus item outcome: %w", err)
+		}
+		scope := payloadrepo.BindReleases(executor)
+		_, err = payloadrepo.NewScheduler(nil).TerminalSource(
+			ctx, scope.Scheduling,
+			payloadmodel.Scope{Type: payloadmodel.ScopePegasusImportItem, ID: itemID}, nowMS,
+		)
+		if err != nil {
+			return fmt.Errorf("schedule Pegasus item payloads: %w", err)
+		}
+		return nil
+	})
 }
 
 type itemWorkRecords struct{ tx dbexec.Executor }

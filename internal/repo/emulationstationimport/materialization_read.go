@@ -14,7 +14,7 @@ func (records materialRecords) Source(
 	ctx context.Context,
 	key application.MaterialKey,
 ) (application.MaterialSnapshot, error) {
-	owned, err := itemWorkRecords(records).Item(ctx, key.ItemID)
+	owned, err := (itemWorkRecords{executor: records.executor}).Item(ctx, key.ItemID)
 	if err != nil {
 		return application.MaterialSnapshot{}, err
 	}
