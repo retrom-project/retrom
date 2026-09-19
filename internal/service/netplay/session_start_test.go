@@ -13,9 +13,9 @@ import (
 )
 
 type sessionStartMemory struct {
-	room                                        *roomControlMemory
-	cmd                                         model.SessionStartCommand
-	inserts                                     int
+	room          *roomControlMemory
+	cmd           model.SessionStartCommand
+	inserts       int
 	commitFailure error
 }
 

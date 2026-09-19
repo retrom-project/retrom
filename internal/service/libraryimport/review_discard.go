@@ -87,4 +87,3 @@ func canDiscardReview(snapshot model.ReviewDiscardSnapshot, request model.Review
 	}
 	return !snapshot.SourceBusy && (snapshot.HandoffKind == "DIRECT" || snapshot.EmulationStationReady)
 }
-

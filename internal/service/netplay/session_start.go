@@ -154,4 +154,3 @@ func startSeatMask(before model.RoomControlSnapshot) (int, error) {
 	}
 	return mask, nil
 }
-

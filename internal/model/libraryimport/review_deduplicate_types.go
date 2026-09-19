@@ -3,10 +3,10 @@ package libraryimport
 import "context"
 
 type DeduplicateCommand struct {
-	Request    ReviewDeduplicateRequest
-	Discards   []DeduplicateDiscardSlot
-	NowMS      int64
-	Actor      ReviewActor
+	Request  ReviewDeduplicateRequest
+	Discards []DeduplicateDiscardSlot
+	NowMS    int64
+	Actor    ReviewActor
 }
 
 type DeduplicateDiscardSlot struct {

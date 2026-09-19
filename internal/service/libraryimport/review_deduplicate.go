@@ -32,7 +32,7 @@ func NewReviewDeduplicator(repository model.ReviewDeduplicateRepository, now fun
 			}
 			return id.String(), nil
 		},
-		now:        now,
+		now: now,
 	}
 }
 

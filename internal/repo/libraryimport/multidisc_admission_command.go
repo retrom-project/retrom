@@ -97,7 +97,7 @@ func prepareMultiDiscAdmissionInput(
 		PlatformVersion: admission.PlatformVersion, CoreID: admission.CoreID,
 		ProviderID: admission.ProviderID, TargetID: admission.TargetID,
 		ContentPolicyDigest: admission.Policy.DigestFor("MULTI_DISC"),
-		MaxDiscs: capabilities.MultiDisc.MaxDiscs, MaxTotalBytes: capabilities.MultiDisc.MaxTotalBytes,
+		MaxDiscs:            capabilities.MultiDisc.MaxDiscs, MaxTotalBytes: capabilities.MultiDisc.MaxTotalBytes,
 	}, nil
 }
 
