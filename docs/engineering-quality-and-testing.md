@@ -652,3 +652,9 @@ Go package 总结 PASS、零匹配、skip、重复结果、无效耗时或运行
 因此，即使本点的已实现 leaf 全部通过，点级结果仍返回非零及 NOT_READY。
 `make refactor-runner-selftest` 使用独立临时 Go 模块验证真实通过、失败、跳过和零匹配的区别；
 该自测也由 `make architecture-selftest` 调用。
+
+`make refactor-contract-check` 独立检查 `operations.json`、`policies.json` 和
+`test-cases.json` 的静态声明及真实 Go 定义，不读取最终执行报告作为前置条件。
+操作 schema 拒绝缺少事实、Guard、写阶段或内容协调字段的记录；内容引用写入必须提供真实的摘要锁定义。
+测试中的同名函数不能充当生产提交定义，具名用例必须位于登记源文件并具有 Go 测试签名。
+目前操作/策略语义盘点和前端测试发现尚未完成，入口会如实记录缺口并返回非零。

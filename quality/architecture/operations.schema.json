@@ -1,0 +1,306 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Retrom Architecture Operation Record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "operation_id",
+    "owner",
+    "rf_id",
+    "consumers",
+    "snapshot",
+    "prepare",
+    "commit",
+    "policy_symbols",
+    "fresh_facts",
+    "guards",
+    "write_set",
+    "idempotency",
+    "after_commit",
+    "time_rule",
+    "fault_points",
+    "test_ids",
+    "content_coordination"
+  ],
+  "properties": {
+    "operation_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "owner": {
+      "type": "string",
+      "minLength": 1
+    },
+    "rf_id": {
+      "type": "string",
+      "pattern": "^RF[0-9]{2}$"
+    },
+    "consumers": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "snapshot": {
+      "type": "string",
+      "minLength": 1
+    },
+    "prepare": {
+      "type": "string",
+      "minLength": 1
+    },
+    "commit": {
+      "type": "string",
+      "minLength": 1
+    },
+    "idempotency": {
+      "type": "string",
+      "minLength": 1
+    },
+    "time_rule": {
+      "type": "string",
+      "minLength": 1
+    },
+    "policy_symbols": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "fresh_facts": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "name",
+          "reader_symbol",
+          "reason"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "reader_symbol": {
+            "type": "string",
+            "minLength": 1
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "guards": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "fields",
+          "expected_source",
+          "rejection",
+          "test_id"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "fields": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string"
+            }
+          },
+          "expected_source": {
+            "type": "string",
+            "minLength": 1
+          },
+          "rejection": {
+            "type": "string",
+            "minLength": 1
+          },
+          "test_id": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "write_set": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "stage",
+          "repo_helper",
+          "affected_records",
+          "test_id"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "stage": {
+            "type": "string",
+            "minLength": 1
+          },
+          "repo_helper": {
+            "type": "string",
+            "minLength": 1
+          },
+          "affected_records": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string"
+            }
+          },
+          "test_id": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "after_commit": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "action",
+          "recovery",
+          "test_id"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "type": "string",
+            "minLength": 1
+          },
+          "recovery": {
+            "type": "string",
+            "minLength": 1
+          },
+          "test_id": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "fault_points": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "test_ids": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "content_coordination": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "required",
+        "reason",
+        "digest_sources",
+        "acquire_symbol",
+        "release_symbol",
+        "protected_commit",
+        "test_ids"
+      ],
+      "properties": {
+        "required": {
+          "type": "boolean"
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        },
+        "digest_sources": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "acquire_symbol": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "release_symbol": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "protected_commit": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "test_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "required": {
+                "const": true
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "digest_sources": {
+                "minItems": 1
+              },
+              "acquire_symbol": {
+                "type": "string",
+                "minLength": 1
+              },
+              "release_symbol": {
+                "type": "string",
+                "minLength": 1
+              },
+              "protected_commit": {
+                "type": "string",
+                "minLength": 1
+              },
+              "test_ids": {
+                "minItems": 1
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

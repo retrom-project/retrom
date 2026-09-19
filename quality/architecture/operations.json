@@ -1,0 +1,795 @@
+{
+  "schemaVersion": 1,
+  "baseline": "82834bade1648da3067ebda1b1fc89c18577fd6a",
+  "inventoryComplete": false,
+  "status": "IN_PROGRESS",
+  "operations": [
+    {
+      "owner": "saves",
+      "rf_id": "RF08",
+      "snapshot": "(*retrom/internal/service/saves.Service).loadLaunch",
+      "prepare": "(*retrom/internal/service/saves.Service).createManualForLaunch",
+      "commit": "(*retrom/internal/repo/saves.Repository).WithWrite",
+      "policy_symbols": [
+        "retrom/internal/service/saves.validateLaunch",
+        "retrom/internal/service/saves.validLaunchDiscShape",
+        "retrom/internal/service/saves.sameCheckpointOwner"
+      ],
+      "fresh_facts": [
+        {
+          "name": "prior save receipt",
+          "reader_symbol": "(retrom/internal/repo/saves.records).Replay",
+          "reason": "Same principal/key/postRuntimeSaveState and expires_at_ms > sampled AtMS; replay precedes current launch write checks"
+        },
+        {
+          "name": "launch authority and checkpoint contract",
+          "reader_symbol": "(retrom/internal/repo/saves.records).LoadLaunch",
+          "reason": "Reload principal/profile/game/purpose, state, expiry, credential hash, provider checkpoint JSON, multidisc facts and product/review liveness before any new reference"
+        },
+        {
+          "name": "optional game-save binding",
+          "reader_symbol": "(retrom/internal/repo/saves.records).Binding",
+          "reason": "No binding selects ordinary checkpoint creation, not GAME_SAVE update"
+        },
+        {
+          "name": "active duration",
+          "reader_symbol": "(retrom/internal/repo/saves.records).Duration",
+          "reason": "Read active play time from play_sessions at commit time"
+        }
+      ],
+      "guards": [
+        {
+          "id": "launch-contract",
+          "fields": [
+            "checkpoint.writeFormat",
+            "checkpoint.maxBytes",
+            "contentFormat",
+            "discCount",
+            "initialDiscIndex"
+          ],
+          "expected_source": "current launch read within WithWrite; validateLaunch and validLaunchDiscShape",
+          "rejection": "ErrCheckpointUnavailable or ErrCredential",
+          "test_id": "RFA-RF08-save_authority"
+        },
+        {
+          "id": "same-owner",
+          "fields": [
+            "profileID",
+            "principalID",
+            "gameID",
+            "purpose",
+            "checkpoint.writeFormat"
+          ],
+          "expected_source": "sameCheckpointOwner(current, preparedLaunch)",
+          "rejection": "ErrCredential",
+          "test_id": "RFA-RF08-save_authority"
+        },
+        {
+          "id": "active-capability",
+          "fields": [
+            "state",
+            "hardExpiresAtMS",
+            "credentialHash"
+          ],
+          "expected_source": "non-local-draft branch: ACTIVE, expiry after service clock, bytes equal to authenticated pre-read",
+          "rejection": "ErrCredential",
+          "test_id": "RFA-RF08-save_authority"
+        },
+        {
+          "id": "payload-bound",
+          "fields": [
+            "checkpoint.maxBytes",
+            "preparedPayload.size"
+          ],
+          "expected_source": "current limit and fixed 256 MiB service bound",
+          "rejection": "ErrTooLarge",
+          "test_id": "RFA-RF08-save_authority"
+        },
+        {
+          "id": "idempotency-digest",
+          "fields": [
+            "principal_id",
+            "operation_id",
+            "key",
+            "request_digest",
+            "expires_at_ms"
+          ],
+          "expected_source": "Replay uses postRuntimeSaveState and unexpired key; constant-time compare with digest(id NUL metadata JSON NUL payload SHA NUL screenshot SHA)",
+          "rejection": "ErrSequenceReused",
+          "test_id": "RFA-RF08-save_atomic"
+        },
+        {
+          "id": "published-product",
+          "fields": [
+            "purpose",
+            "gameStatus"
+          ],
+          "expected_source": "current purpose PRODUCT and gameStatus PUBLISHED",
+          "rejection": "ErrCredential",
+          "test_id": "RFA-RF08-save_authority"
+        }
+      ],
+      "idempotency": "postRuntimeSaveState; principal + key; request digest includes launch ID, exact metadata JSON, payload SHA256 and optional screenshot SHA256. Matching receipt is decoded before fresh authority check. New response status=201, headers={}, JSON body, expires=sampled AtMS+24h; all recorded inside the callback transaction.",
+      "after_commit": [],
+      "time_rule": "Baseline: Service.now is sampled inside WithWrite once for receipt and writes, and again inside ensureWritable for expiry. Repository uses BeginTx(nil), not explicit BEGIN IMMEDIATE. RF05/RF08 must move one clock sample after obtaining the write permission into Repo; do not retain the upper callback.",
+      "fault_points": [
+        "payload blob registration",
+        "screenshot registration when present",
+        "game_save_versions insert after save creation",
+        "domain record mutation",
+        "receipt insertion",
+        "database commit"
+      ],
+      "test_ids": [
+        "RFA-RF08-save_atomic",
+        "RFA-RF08-save_authority",
+        "RFA-RF08-stream_parts",
+        "RFA-RF08-formats"
+      ],
+      "content_coordination": {
+        "required": true,
+        "reason": "Publishes prepared payload and optional screenshot and creates protected CAS references; baseline has no cross-process digest lock and can race GC.",
+        "digest_sources": [
+          "prepared payload SHA256",
+          "optional prepared screenshot SHA256"
+        ],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": "(*retrom/internal/repo/saves.Repository).WithWrite",
+        "test_ids": [
+          "RFA-RF18-gc_new_reference",
+          "RFA-RF18-shared_digest"
+        ]
+      },
+      "operation_id": "saves.checkpoint.product",
+      "consumers": [
+        "(*retrom/internal/service/saves.Service).CreateManual"
+      ],
+      "write_set": [
+        {
+          "stage": "payload-catalog",
+          "repo_helper": "(retrom/internal/repo/saves.records).Ensure",
+          "affected_records": [
+            "blobs[sha256]: ID preserved on duplicate, md5,sha1,crc32,size_bytes,media_type,created_at_ms"
+          ],
+          "test_id": "RFA-RF08-save_atomic"
+        },
+        {
+          "stage": "screenshot-catalog",
+          "repo_helper": "(retrom/internal/repo/saves.records).Ensure",
+          "affected_records": [
+            "blobs[screenshot sha256]: ID preserved on duplicate, hash facts,size_bytes,media_type,created_at_ms; only if screenshot present"
+          ],
+          "test_id": "RFA-RF08-save_atomic"
+        },
+        {
+          "stage": "create-save",
+          "repo_helper": "(retrom/internal/repo/saves.writes).CreateSave",
+          "affected_records": [
+            "save_states[new UUIDv7]: profile_id,game_id,checkpoint_format,dos_entry_path,payload_blob_id,payload_sha256,payload_size_bytes,screenshot_blob_id,name,active_duration_ms,version=1,created_at_ms,updated_at_ms,source_launch_session_id,disc_index",
+            "recordstore.ValidateSaveStates performs current published-game, source launch/profile, disc-shape and read-format validation"
+          ],
+          "test_id": "RFA-RF08-save_atomic"
+        },
+        {
+          "stage": "initial-data-version",
+          "repo_helper": "retrom/internal/repo/sessionstore.createSaveVersion",
+          "affected_records": [
+            "game_save_versions[save_state_id=new save]: data_version defaults to 1, last_synced_at_ms and last_writer_launch_session_id initially NULL; follows ValidateSaveStates within same savepoint"
+          ],
+          "test_id": "RFA-RF08-save_atomic"
+        },
+        {
+          "stage": "receipt",
+          "repo_helper": "(retrom/internal/repo/saves.records).Remember",
+          "affected_records": [
+            "idempotency_records[principal_id,operation_id=postRuntimeSaveState,key]: request_digest,http_status=201,response_headers_json={},response_body,created_at_ms,expires_at_ms"
+          ],
+          "test_id": "RFA-RF08-save_atomic"
+        }
+      ]
+    },
+    {
+      "owner": "saves",
+      "rf_id": "RF08",
+      "snapshot": "(*retrom/internal/service/saves.Service).loadLaunch",
+      "prepare": "(*retrom/internal/service/saves.Service).createManualForLaunch",
+      "commit": "(*retrom/internal/repo/saves.Repository).WithWrite",
+      "policy_symbols": [
+        "retrom/internal/service/saves.validateLaunch",
+        "retrom/internal/service/saves.validLaunchDiscShape",
+        "retrom/internal/service/saves.sameCheckpointOwner"
+      ],
+      "fresh_facts": [
+        {
+          "name": "prior save receipt",
+          "reader_symbol": "(retrom/internal/repo/saves.records).Replay",
+          "reason": "Same principal/key/postRuntimeSaveState and expires_at_ms > sampled AtMS; replay precedes current launch write checks"
+        },
+        {
+          "name": "launch authority and checkpoint contract",
+          "reader_symbol": "(retrom/internal/repo/saves.records).LoadLaunch",
+          "reason": "Reload principal/profile/game/purpose, state, expiry, credential hash, provider checkpoint JSON, multidisc facts and product/review liveness before any new reference"
+        }
+      ],
+      "guards": [
+        {
+          "id": "launch-contract",
+          "fields": [
+            "checkpoint.writeFormat",
+            "checkpoint.maxBytes",
+            "contentFormat",
+            "discCount",
+            "initialDiscIndex"
+          ],
+          "expected_source": "current launch read within WithWrite; validateLaunch and validLaunchDiscShape",
+          "rejection": "ErrCheckpointUnavailable or ErrCredential",
+          "test_id": "RFA-RF08-save_authority"
+        },
+        {
+          "id": "same-owner",
+          "fields": [
+            "profileID",
+            "principalID",
+            "gameID",
+            "purpose",
+            "checkpoint.writeFormat"
+          ],
+          "expected_source": "sameCheckpointOwner(current, preparedLaunch)",
+          "rejection": "ErrCredential",
+          "test_id": "RFA-RF08-save_authority"
+        },
+        {
+          "id": "active-capability",
+          "fields": [
+            "state",
+            "hardExpiresAtMS",
+            "credentialHash"
+          ],
+          "expected_source": "non-local-draft branch: ACTIVE, expiry after service clock, bytes equal to authenticated pre-read",
+          "rejection": "ErrCredential",
+          "test_id": "RFA-RF08-save_authority"
+        },
+        {
+          "id": "payload-bound",
+          "fields": [
+            "checkpoint.maxBytes",
+            "preparedPayload.size"
+          ],
+          "expected_source": "current limit and fixed 256 MiB service bound",
+          "rejection": "ErrTooLarge",
+          "test_id": "RFA-RF08-save_authority"
+        },
+        {
+          "id": "idempotency-digest",
+          "fields": [
+            "principal_id",
+            "operation_id",
+            "key",
+            "request_digest",
+            "expires_at_ms"
+          ],
+          "expected_source": "Replay uses postRuntimeSaveState and unexpired key; constant-time compare with digest(id NUL metadata JSON NUL payload SHA NUL screenshot SHA)",
+          "rejection": "ErrSequenceReused",
+          "test_id": "RFA-RF08-save_atomic"
+        },
+        {
+          "id": "review-retained",
+          "fields": [
+            "purpose",
+            "itemState",
+            "payloadState"
+          ],
+          "expected_source": "non-PRODUCT: itemState REVIEW_PENDING and payloadState RETAINED",
+          "rejection": "ErrCredential",
+          "test_id": "RFA-RF08-save_authority"
+        }
+      ],
+      "idempotency": "postRuntimeSaveState; principal + key; request digest includes launch ID, exact metadata JSON, payload SHA256 and optional screenshot SHA256. Matching receipt is decoded before fresh authority check. New response status=201, headers={}, JSON body, expires=sampled AtMS+24h; all recorded inside the callback transaction.",
+      "after_commit": [],
+      "time_rule": "Baseline: Service.now is sampled inside WithWrite once for receipt and writes, and again inside ensureWritable for expiry. Repository uses BeginTx(nil), not explicit BEGIN IMMEDIATE. RF05/RF08 must move one clock sample after obtaining the write permission into Repo; do not retain the upper callback.",
+      "fault_points": [
+        "payload blob registration",
+        "preview mutation",
+        "preview capability relation helper",
+        "receipt insertion",
+        "database commit"
+      ],
+      "test_ids": [
+        "RFA-RF08-save_atomic",
+        "RFA-RF08-save_authority",
+        "RFA-RF08-stream_parts",
+        "RFA-RF08-formats"
+      ],
+      "content_coordination": {
+        "required": true,
+        "reason": "Publishes prepared payload and optional screenshot and creates protected CAS references; baseline has no cross-process digest lock and can race GC.",
+        "digest_sources": [
+          "prepared payload SHA256",
+          "optional prepared screenshot SHA256"
+        ],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": "(*retrom/internal/repo/saves.Repository).WithWrite",
+        "test_ids": [
+          "RFA-RF18-gc_new_reference",
+          "RFA-RF18-shared_digest"
+        ]
+      },
+      "operation_id": "saves.checkpoint.preview",
+      "consumers": [
+        "(*retrom/internal/service/saves.Service).CreateManual"
+      ],
+      "write_set": [
+        {
+          "stage": "payload-catalog",
+          "repo_helper": "(retrom/internal/repo/saves.records).Ensure",
+          "affected_records": [
+            "blobs[sha256]: ID preserved on duplicate, md5,sha1,crc32,size_bytes,media_type,created_at_ms"
+          ],
+          "test_id": "RFA-RF08-save_atomic"
+        },
+        {
+          "stage": "replace-preview",
+          "repo_helper": "(retrom/internal/repo/saves.writes).ReplacePreview",
+          "affected_records": [
+            "review_preview_sessions[id=launch ID]: checkpoint_payload_blob_id,checkpoint_format,checkpoint_created_at_ms,updated_at_ms,version+1; validated by sessionstore.ChangePreview/recordstore"
+          ],
+          "test_id": "RFA-RF08-save_atomic"
+        },
+        {
+          "stage": "preview-capability-relation",
+          "repo_helper": "retrom/internal/repo/sessionstore.revokePreviewCapability",
+          "affected_records": [
+            "isolated_runtime_capabilities[preview_id,revoked_at_ms IS NULL]: revoked_at_ms copied from review_preview_sessions.finished_at_ms only if state FINISHED/EXPIRED/REVOKED; active checkpoint normally matches no rows, but helper is part of atomic call path"
+          ],
+          "test_id": "RFA-RF08-save_atomic"
+        },
+        {
+          "stage": "receipt",
+          "repo_helper": "(retrom/internal/repo/saves.records).Remember",
+          "affected_records": [
+            "idempotency_records[principal_id,operation_id=postRuntimeSaveState,key]: request_digest,http_status=201,response_headers_json={},response_body,created_at_ms,expires_at_ms"
+          ],
+          "test_id": "RFA-RF08-save_atomic"
+        }
+      ]
+    },
+    {
+      "owner": "saves",
+      "rf_id": "RF08",
+      "snapshot": "(*retrom/internal/service/saves.Service).loadLaunch",
+      "prepare": "(*retrom/internal/service/saves.Service).createManualForLaunch",
+      "commit": "(*retrom/internal/repo/saves.Repository).WithWrite",
+      "policy_symbols": [
+        "retrom/internal/service/saves.validateLaunch",
+        "retrom/internal/service/saves.validLaunchDiscShape",
+        "retrom/internal/service/saves.sameCheckpointOwner",
+        "retrom/internal/service/saves.localDraftWritable"
+      ],
+      "fresh_facts": [
+        {
+          "name": "prior save receipt",
+          "reader_symbol": "(retrom/internal/repo/saves.records).Replay",
+          "reason": "Same principal/key/postRuntimeSaveState and expires_at_ms > sampled AtMS; replay precedes current launch write checks"
+        },
+        {
+          "name": "launch authority and checkpoint contract",
+          "reader_symbol": "(retrom/internal/repo/saves.records).LoadLaunch",
+          "reason": "Reload principal/profile/game/purpose, state, expiry, credential hash, provider checkpoint JSON, multidisc facts and product/review liveness before any new reference"
+        },
+        {
+          "name": "game-save binding",
+          "reader_symbol": "(retrom/internal/repo/saves.records).Binding",
+          "reason": "Read save_state_id and expected_data_version for the launch; null save ID denotes a new slot"
+        },
+        {
+          "name": "current game-save slot",
+          "reader_symbol": "(retrom/internal/repo/saves.records).Saved",
+          "reason": "Join save_states/game_save_versions: data version, profile/game ownership, format, deleted flag, current payload digest and user-visible fields"
+        },
+        {
+          "name": "play duration",
+          "reader_symbol": "(retrom/internal/repo/saves.records).Duration",
+          "reason": "Read binding.initial_active_duration_ms and current play_sessions.active_duration_ms"
+        }
+      ],
+      "guards": [
+        {
+          "id": "launch-contract",
+          "fields": [
+            "checkpoint.writeFormat",
+            "checkpoint.maxBytes",
+            "contentFormat",
+            "discCount",
+            "initialDiscIndex"
+          ],
+          "expected_source": "current launch read within WithWrite; validateLaunch and validLaunchDiscShape",
+          "rejection": "ErrCheckpointUnavailable or ErrCredential",
+          "test_id": "RFA-RF08-save_authority"
+        },
+        {
+          "id": "same-owner",
+          "fields": [
+            "profileID",
+            "principalID",
+            "gameID",
+            "purpose",
+            "checkpoint.writeFormat"
+          ],
+          "expected_source": "sameCheckpointOwner(current, preparedLaunch)",
+          "rejection": "ErrCredential",
+          "test_id": "RFA-RF08-save_authority"
+        },
+        {
+          "id": "active-capability",
+          "fields": [
+            "state",
+            "hardExpiresAtMS",
+            "credentialHash"
+          ],
+          "expected_source": "non-local-draft branch: ACTIVE, expiry after service clock, bytes equal to authenticated pre-read",
+          "rejection": "ErrCredential",
+          "test_id": "RFA-RF08-save_authority"
+        },
+        {
+          "id": "payload-bound",
+          "fields": [
+            "checkpoint.maxBytes",
+            "preparedPayload.size"
+          ],
+          "expected_source": "current limit and fixed 256 MiB service bound",
+          "rejection": "ErrTooLarge",
+          "test_id": "RFA-RF08-save_authority"
+        },
+        {
+          "id": "idempotency-digest",
+          "fields": [
+            "principal_id",
+            "operation_id",
+            "key",
+            "request_digest",
+            "expires_at_ms"
+          ],
+          "expected_source": "Replay uses postRuntimeSaveState and unexpired key; constant-time compare with digest(id NUL metadata JSON NUL payload SHA NUL screenshot SHA)",
+          "rejection": "ErrSequenceReused",
+          "test_id": "RFA-RF08-save_atomic"
+        },
+        {
+          "id": "published-product",
+          "fields": [
+            "purpose",
+            "gameStatus"
+          ],
+          "expected_source": "PRODUCT and PUBLISHED",
+          "rejection": "ErrCredential",
+          "test_id": "RFA-RF08-save_authority"
+        },
+        {
+          "id": "local-draft",
+          "fields": [
+            "localDraft",
+            "state",
+            "hasGameSaveBinding",
+            "checkpoint.semantics"
+          ],
+          "expected_source": "only local-draft branch: PRODUCT, PUBLISHED, ACTIVE/FINISHED/EXPIRED, binding present, semantics GAME_SAVE; normal branch retains active-capability guard",
+          "rejection": "ErrCredential",
+          "test_id": "RFA-RF08-save_authority"
+        },
+        {
+          "id": "screenshot-required",
+          "fields": [
+            "preparedScreenshot"
+          ],
+          "expected_source": "GAME_SAVE binding exists",
+          "rejection": "ErrCheckpointInvalid",
+          "test_id": "RFA-RF08-stream_parts"
+        },
+        {
+          "id": "new-binding-version",
+          "fields": [
+            "binding.saveID",
+            "binding.expectedVersion"
+          ],
+          "expected_source": "null binding save ID requires expected data version 0",
+          "rejection": "ErrSyncConflict",
+          "test_id": "RFA-RF08-save_authority"
+        },
+        {
+          "id": "existing-slot",
+          "fields": [
+            "slot.dataVersion",
+            "slot.profileID",
+            "slot.gameID",
+            "slot.format",
+            "slot.deletedAtMS"
+          ],
+          "expected_source": "matches binding expected version and authenticated launch owner/format, not deleted",
+          "rejection": "ErrSyncConflict",
+          "test_id": "RFA-RF08-save_authority"
+        },
+        {
+          "id": "identical-payload",
+          "fields": [
+            "slot.payloadSHA256",
+            "preparedPayload.SHA256"
+          ],
+          "expected_source": "same SHA returns prior saved result/data version, preserving name/screenshot/duration and rebinding existing version",
+          "rejection": "no mutation of existing save payload; not an error",
+          "test_id": "RFA-RF08-save_atomic"
+        }
+      ],
+      "idempotency": "postRuntimeSaveState; principal + key; request digest includes launch ID, exact metadata JSON, payload SHA256 and optional screenshot SHA256. Matching receipt is decoded before fresh authority check. New response status=201, headers={}, JSON body, expires=sampled AtMS+24h; all recorded inside the callback transaction.",
+      "after_commit": [],
+      "time_rule": "Baseline: Service.now is sampled inside WithWrite once for receipt and writes, and again inside ensureWritable for expiry. Repository uses BeginTx(nil), not explicit BEGIN IMMEDIATE. RF05/RF08 must move one clock sample after obtaining the write permission into Repo; do not retain the upper callback.",
+      "fault_points": [
+        "payload blob registration",
+        "screenshot registration",
+        "game_save_versions insert after save creation",
+        "new save insertion",
+        "initial sync fields",
+        "data version increment",
+        "existing slot payload update",
+        "binding advance",
+        "receipt insertion",
+        "database commit"
+      ],
+      "test_ids": [
+        "RFA-RF08-save_atomic",
+        "RFA-RF08-save_authority",
+        "RFA-RF08-stream_parts",
+        "RFA-RF08-formats"
+      ],
+      "content_coordination": {
+        "required": true,
+        "reason": "Publishes prepared payload and optional screenshot and creates protected CAS references; baseline has no cross-process digest lock and can race GC.",
+        "digest_sources": [
+          "prepared payload SHA256",
+          "optional prepared screenshot SHA256"
+        ],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": "(*retrom/internal/repo/saves.Repository).WithWrite",
+        "test_ids": [
+          "RFA-RF18-gc_new_reference",
+          "RFA-RF18-shared_digest"
+        ]
+      },
+      "operation_id": "saves.game-save.sync",
+      "consumers": [
+        "(*retrom/internal/service/saves.Service).CreateManual",
+        "(*retrom/internal/service/saves.Service).CreateLocalDraft"
+      ],
+      "write_set": [
+        {
+          "stage": "payload-catalog",
+          "repo_helper": "(retrom/internal/repo/saves.records).Ensure",
+          "affected_records": [
+            "blobs[sha256]: ID preserved on duplicate, md5,sha1,crc32,size_bytes,media_type,created_at_ms"
+          ],
+          "test_id": "RFA-RF08-save_atomic"
+        },
+        {
+          "stage": "screenshot-catalog",
+          "repo_helper": "(retrom/internal/repo/saves.records).Ensure",
+          "affected_records": [
+            "blobs[screenshot sha256]: ID preserved on duplicate, hash facts,size_bytes,media_type,created_at_ms; only if screenshot present"
+          ],
+          "test_id": "RFA-RF08-save_atomic"
+        },
+        {
+          "stage": "create-save",
+          "repo_helper": "(retrom/internal/repo/saves.writes).CreateSave",
+          "affected_records": [
+            "save_states[new UUIDv7]: profile_id,game_id,checkpoint_format,dos_entry_path,payload_blob_id,payload_sha256,payload_size_bytes,screenshot_blob_id,name,active_duration_ms,version=1,created_at_ms,updated_at_ms,source_launch_session_id,disc_index",
+            "recordstore.ValidateSaveStates performs current published-game, source launch/profile, disc-shape and read-format validation"
+          ],
+          "test_id": "RFA-RF08-save_atomic"
+        },
+        {
+          "stage": "initial-data-version",
+          "repo_helper": "retrom/internal/repo/sessionstore.createSaveVersion",
+          "affected_records": [
+            "game_save_versions[save_state_id=new save]: data_version defaults to 1, last_synced_at_ms and last_writer_launch_session_id initially NULL; follows ValidateSaveStates within same savepoint"
+          ],
+          "test_id": "RFA-RF08-save_atomic"
+        },
+        {
+          "stage": "initial-sync",
+          "repo_helper": "(retrom/internal/repo/saves.records).MarkSynced",
+          "affected_records": [
+            "game_save_versions[save_state_id=new slot]: last_synced_at_ms,last_writer_launch_session_id; inserted by sessionstore.createSaveVersion before update"
+          ],
+          "test_id": "RFA-RF08-save_atomic"
+        },
+        {
+          "stage": "advance-data-version",
+          "repo_helper": "(retrom/internal/repo/saves.records).UpdateSave",
+          "affected_records": [
+            "game_save_versions[save_state_id,expected data_version]: last_synced_at_ms,last_writer_launch_session_id,data_version+1"
+          ],
+          "test_id": "RFA-RF08-save_atomic"
+        },
+        {
+          "stage": "replace-existing-slot",
+          "repo_helper": "(retrom/internal/repo/saves.records).UpdateSave",
+          "affected_records": [
+            "save_states[id,deleted_at_ms IS NULL]: payload_blob_id,payload_sha256,payload_size_bytes,screenshot_blob_id,updated_at_ms,active_duration_ms,version+1; preserve user name and created_at_ms"
+          ],
+          "test_id": "RFA-RF08-save_atomic"
+        },
+        {
+          "stage": "advance-binding",
+          "repo_helper": "(retrom/internal/repo/saves.records).Bind",
+          "affected_records": [
+            "launch_game_save_bindings[launch_session_id]: save_state_id,expected_data_version"
+          ],
+          "test_id": "RFA-RF08-save_atomic"
+        },
+        {
+          "stage": "receipt",
+          "repo_helper": "(retrom/internal/repo/saves.records).Remember",
+          "affected_records": [
+            "idempotency_records[principal_id,operation_id=postRuntimeSaveState,key]: request_digest,http_status=201,response_headers_json={},response_body,created_at_ms,expires_at_ms"
+          ],
+          "test_id": "RFA-RF08-save_atomic"
+        }
+      ]
+    },
+    {
+      "operation_id": "saves.rename",
+      "owner": "saves",
+      "rf_id": "RF08",
+      "consumers": [
+        "(*retrom/internal/service/saves.Service).Rename"
+      ],
+      "snapshot": "retrom/internal/model/saves.RenameRequest",
+      "prepare": "(*retrom/internal/service/saves.Service).Rename",
+      "commit": "(*retrom/internal/repo/saves.Repository).Rename",
+      "policy_symbols": [
+        "retrom/internal/repo/recordstore.SaveStatesUpdateRule"
+      ],
+      "fresh_facts": [
+        {
+          "name": "current save predicate and immutable fields",
+          "reader_symbol": "retrom/internal/repo/recordstore.UpdateSaveStates",
+          "reason": "recordstore.Atomic reads previous id/checkpoint_format/disc_index/source_launch_session_id for the same id/profile/version/not-deleted predicate; failed match is classified by checkMutationResult after helper returns"
+        }
+      ],
+      "guards": [
+        {
+          "id": "owner-visible",
+          "fields": [
+            "save_state_id",
+            "profile_id",
+            "deleted_at_ms"
+          ],
+          "expected_source": "HTTP authenticated profile; target exists, same profile and not deleted",
+          "rejection": "ErrNotFound",
+          "test_id": "RFA-RF08-save_authority"
+        },
+        {
+          "id": "expected-version",
+          "fields": [
+            "version"
+          ],
+          "expected_source": "If-Match parsed ETag passed as ExpectedVersion; one affected row",
+          "rejection": "ErrVersionConflict",
+          "test_id": "RFA-RF08-save_authority"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "rename",
+          "repo_helper": "(*retrom/internal/repo/saves.Repository).Rename",
+          "affected_records": [
+            "save_states[id,profile_id,expected version,deleted_at_ms IS NULL]: name,version+1,updated_at_ms"
+          ],
+          "test_id": "RFA-RF08-save_atomic"
+        }
+      ],
+      "idempotency": "No stored receipt: optimistic version predicate. A repeated mutation with the old version must not apply again.",
+      "after_commit": [],
+      "time_rule": "Baseline UpdatedAtMS is supplied by HTTP server.now before Repo/lock; migrate to transaction-time Repo Clock in RF05/RF08 without changing the wire version/error contract.",
+      "fault_points": [
+        "conditional save-state mutation",
+        "recordstore invariant validation",
+        "database commit"
+      ],
+      "test_ids": [
+        "RFA-RF08-save_atomic",
+        "RFA-RF08-save_authority"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "Rename changes user metadata; Delete only marks deleted_at_ms. Neither publishes CAS bytes or creates a new protective content reference.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    },
+    {
+      "operation_id": "saves.delete",
+      "owner": "saves",
+      "rf_id": "RF08",
+      "consumers": [
+        "(*retrom/internal/service/saves.Service).Delete"
+      ],
+      "snapshot": "retrom/internal/model/saves.DeleteRequest",
+      "prepare": "(*retrom/internal/service/saves.Service).Delete",
+      "commit": "(*retrom/internal/repo/saves.Repository).Delete",
+      "policy_symbols": [
+        "retrom/internal/repo/recordstore.SaveStatesUpdateRule"
+      ],
+      "fresh_facts": [
+        {
+          "name": "current save predicate and immutable fields",
+          "reader_symbol": "retrom/internal/repo/recordstore.UpdateSaveStates",
+          "reason": "recordstore.Atomic reads previous id/checkpoint_format/disc_index/source_launch_session_id for the same id/profile/version/not-deleted predicate; failed match is classified by checkMutationResult after helper returns"
+        }
+      ],
+      "guards": [
+        {
+          "id": "owner-visible",
+          "fields": [
+            "save_state_id",
+            "profile_id",
+            "deleted_at_ms"
+          ],
+          "expected_source": "HTTP authenticated profile; target exists, same profile and not deleted",
+          "rejection": "ErrNotFound",
+          "test_id": "RFA-RF08-save_authority"
+        },
+        {
+          "id": "expected-version",
+          "fields": [
+            "version"
+          ],
+          "expected_source": "If-Match parsed ETag passed as ExpectedVersion; one affected row",
+          "rejection": "ErrVersionConflict",
+          "test_id": "RFA-RF08-save_authority"
+        }
+      ],
+      "write_set": [
+        {
+          "stage": "delete",
+          "repo_helper": "(*retrom/internal/repo/saves.Repository).Delete",
+          "affected_records": [
+            "save_states[id,profile_id,expected version,deleted_at_ms IS NULL]: deleted_at_ms,version+1,updated_at_ms"
+          ],
+          "test_id": "RFA-RF08-save_atomic"
+        }
+      ],
+      "idempotency": "No stored receipt: optimistic version predicate. A repeated mutation with the old version must not apply again.",
+      "after_commit": [],
+      "time_rule": "Baseline UpdatedAtMS is supplied by HTTP server.now before Repo/lock; migrate to transaction-time Repo Clock in RF05/RF08 without changing the wire version/error contract.",
+      "fault_points": [
+        "conditional save-state mutation",
+        "recordstore invariant validation",
+        "database commit"
+      ],
+      "test_ids": [
+        "RFA-RF08-save_atomic",
+        "RFA-RF08-save_authority"
+      ],
+      "content_coordination": {
+        "required": false,
+        "reason": "Rename changes user metadata; Delete only marks deleted_at_ms. Neither publishes CAS bytes or creates a new protective content reference.",
+        "digest_sources": [],
+        "acquire_symbol": null,
+        "release_symbol": null,
+        "protected_commit": null,
+        "test_ids": []
+      }
+    }
+  ],
+  "pending": [
+    "Other domains are not yet semantically registered; the typed whole-tree call/SQL inventory remains discovery evidence, not a verified operation matrix.",
+    "These records describe baseline callbacks/current symbols and planned case links; leaf cases are not yet implemented and must not be reported as PASS.",
+    "Saves digest lock acquire/release definitions are absent, intentionally null; the required coordination schema must reject these records until RF03/RF04/RF08/RF18 implement them.",
+    "Existing failure-injection tests cover selected late failures only. Add independent assertions after every listed write stage and for each guard at RF08."
+  ]
+}

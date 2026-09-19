@@ -1,0 +1,88 @@
+{
+  "schemaVersion": 1,
+  "inventoryComplete": false,
+  "policies": [
+    {
+      "id": "saves.validateLaunch",
+      "owner": "saves",
+      "rf_id": "RF08",
+      "symbol": "retrom/internal/service/saves.validateLaunch",
+      "consumers": [
+        "(*retrom/internal/service/saves.Service).loadLaunch",
+        "(*retrom/internal/service/saves.Service).ensureWritable"
+      ],
+      "invariant": "Require write format, positive max bytes and valid multidisc shape",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF08-save_authority",
+        "RFA-RF08-formats"
+      ]
+    },
+    {
+      "id": "saves.validLaunchDiscShape",
+      "owner": "saves",
+      "rf_id": "RF08",
+      "symbol": "retrom/internal/service/saves.validLaunchDiscShape",
+      "consumers": [
+        "retrom/internal/service/saves.validateLaunch"
+      ],
+      "invariant": "Single-disc has zero count/index; multidisc requires at least two discs and in-range index",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF08-save_authority",
+        "RFA-RF08-formats"
+      ]
+    },
+    {
+      "id": "saves.sameCheckpointOwner",
+      "owner": "saves",
+      "rf_id": "RF08",
+      "symbol": "retrom/internal/service/saves.sameCheckpointOwner",
+      "consumers": [
+        "(*retrom/internal/service/saves.Service).ensureWritable"
+      ],
+      "invariant": "Preserve profile, principal, game, purpose and checkpoint write format across preparation",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF08-save_authority",
+        "RFA-RF08-formats"
+      ]
+    },
+    {
+      "id": "saves.localDraftWritable",
+      "owner": "saves",
+      "rf_id": "RF08",
+      "symbol": "retrom/internal/service/saves.localDraftWritable",
+      "consumers": [
+        "(*retrom/internal/service/saves.Service).CreateLocalDraft",
+        "(*retrom/internal/service/saves.Service).ensureWritable"
+      ],
+      "invariant": "Only published PRODUCT GAME_SAVE with binding and ACTIVE/FINISHED/EXPIRED permits local draft",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF08-save_authority",
+        "RFA-RF08-formats"
+      ]
+    },
+    {
+      "id": "saves.validRestore",
+      "owner": "saves",
+      "rf_id": "RF08",
+      "symbol": "retrom/internal/service/saves.validRestore",
+      "consumers": [
+        "(*retrom/internal/service/saves.Service).stateDigestAuthorized"
+      ],
+      "invariant": "Positive bounded size and exact membership in provider read formats",
+      "status": "SOURCE_REVIEWED",
+      "target_layer": "capability",
+      "tests": [
+        "RFA-RF08-save_authority",
+        "RFA-RF08-formats"
+      ]
+    }
+  ]
+}

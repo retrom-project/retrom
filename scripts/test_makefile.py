@@ -50,6 +50,12 @@ class MakefileDependencyTests(unittest.TestCase):
         self.assertIn("module.source_entries()", script)
         self.assertIn("module.sha256(module.canonical", script)
 
+    def test_refactor_contract_does_not_invoke_final_or_point_execution(self) -> None:
+        output = self.dry_run("refactor-contract-check")
+        self.assertIn("scripts/architecture-check -mode contract", output)
+        self.assertNotIn("refactor-final", output)
+        self.assertNotIn("refactor_verify.py point", output)
+
     def test_refactor_point_prepares_codegen_then_calls_one_leaf_coordinator(self) -> None:
         output = subprocess.run(
             ["make", "--no-print-directory", "--dry-run", "--always-make", "refactor-verify", "POINT=RF01"],

@@ -11569,6 +11569,18 @@
           "kind": "tool"
         },
         {
+          "path": "internal/testkit/architecture/contract_references.go",
+          "kind": "tool"
+        },
+        {
+          "path": "internal/testkit/architecture/contract_registry_test.go",
+          "kind": "test"
+        },
+        {
+          "path": "internal/testkit/architecture/contract_report.go",
+          "kind": "tool"
+        },
+        {
           "path": "internal/testkit/architecture/dependency_rules.go",
           "kind": "tool"
         },
@@ -11606,6 +11618,14 @@
         },
         {
           "path": "internal/testkit/architecture/inventory_report.go",
+          "kind": "tool"
+        },
+        {
+          "path": "internal/testkit/architecture/operation_registry.go",
+          "kind": "tool"
+        },
+        {
+          "path": "internal/testkit/architecture/operation_schema.go",
           "kind": "tool"
         },
         {

@@ -44,7 +44,8 @@ func InspectRepository(ctx context.Context, root string) (InventoryReport, error
 	config, err := SnapshotFiles(root, []string{
 		"go.mod", "go.sum", "Makefile", "web/package.json", "web/package-lock.json", "web/tsconfig.json",
 		"quality/architecture/package-ownership.json", "quality/architecture/characterizations.json",
-		"quality/architecture/test-cases.json",
+		"quality/architecture/test-cases.json", "quality/architecture/operations.json",
+		"quality/architecture/operations.schema.json", "quality/architecture/policies.json",
 	})
 	if err != nil {
 		return InventoryReport{}, err
