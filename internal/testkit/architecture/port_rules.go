@@ -11,17 +11,18 @@ import (
 
 // PortInventory connects an actual interface method to its concrete repository implementations.
 type PortInventory struct {
-	Symbol       string   `json:"symbol"`
-	File         string   `json:"file"`
-	Line         int      `json:"line"`
-	Module       string   `json:"module"`
-	Owner        string   `json:"owner"`
-	Signature    string   `json:"signature"`
-	Repositories []string `json:"repositories"`
+	Symbol            string         `json:"symbol"`
+	File              string         `json:"file"`
+	Line              int            `json:"line"`
+	Module            string         `json:"module"`
+	Owner             string         `json:"owner"`
+	Signature         string         `json:"signature"`
+	Repositories      []string       `json:"repositories"`
+	RepositoryMethods []string       `json:"repositoryMethods"`
+	Consumers         []PortConsumer `json:"consumers"`
 }
 
 type ownedType struct {
-	pkg   *packages.Package
 	value *types.Named
 }
 
@@ -65,7 +66,7 @@ func collectRepoTypes(
 			}
 			value, ok := object.Type().(*types.Named)
 			if ok {
-				result = append(result, ownedType{pkg: pkg, value: value})
+				result = append(result, ownedType{value: value})
 			}
 		}
 	}
@@ -98,7 +99,9 @@ func inspectModelPorts(
 			record := PortInventory{
 				Symbol: inventoryObjectID(method), File: location.Filename, Line: location.Line,
 				Owner: owner.Owner, Module: owner.Module, Signature: types.TypeString(method.Type(), packagePath),
-				Repositories: implementations,
+				Repositories:      implementations,
+				RepositoryMethods: repositoryMethodDefinitions(port, method, repositories),
+				Consumers:         []PortConsumer{},
 			}
 			ports = append(ports, record)
 			violations = append(violations, inspectPortMethod(record, method, len(implementations) > 0)...)

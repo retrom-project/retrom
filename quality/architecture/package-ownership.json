@@ -11553,6 +11553,10 @@
           "kind": "tool"
         },
         {
+          "path": "internal/testkit/architecture/call_effects.go",
+          "kind": "tool"
+        },
+        {
           "path": "internal/testkit/architecture/compatibility.go",
           "kind": "tool"
         },
@@ -11571,6 +11575,10 @@
         {
           "path": "internal/testkit/architecture/dependency_rules_test.go",
           "kind": "test"
+        },
+        {
+          "path": "internal/testkit/architecture/function_graph.go",
+          "kind": "tool"
         },
         {
           "path": "internal/testkit/architecture/go_inventory.go",
@@ -11609,6 +11617,10 @@
           "kind": "tool"
         },
         {
+          "path": "internal/testkit/architecture/port_consumers.go",
+          "kind": "tool"
+        },
+        {
           "path": "internal/testkit/architecture/port_positions.go",
           "kind": "tool"
         },
@@ -11618,6 +11630,14 @@
         },
         {
           "path": "internal/testkit/architecture/port_rules_test.go",
+          "kind": "test"
+        },
+        {
+          "path": "internal/testkit/architecture/purity_rules.go",
+          "kind": "tool"
+        },
+        {
+          "path": "internal/testkit/architecture/purity_rules_test.go",
           "kind": "test"
         },
         {
@@ -11631,6 +11651,14 @@
         {
           "path": "internal/testkit/architecture/source_inventory.go",
           "kind": "tool"
+        },
+        {
+          "path": "internal/testkit/architecture/sql_inventory.go",
+          "kind": "tool"
+        },
+        {
+          "path": "internal/testkit/architecture/sql_inventory_test.go",
+          "kind": "test"
         },
         {
           "path": "internal/testkit/architecture/strict_json.go",

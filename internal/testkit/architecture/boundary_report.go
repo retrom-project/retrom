@@ -9,16 +9,17 @@ import (
 // BoundaryReport is deliberately NOT_READY until every permanent rule is implemented
 // and the complete production graph is clean. Partial checks never imply verification.
 type BoundaryReport struct {
-	SchemaVersion       int             `json:"schemaVersion"`
-	Status              string          `json:"status"`
-	Baseline            BaselineReport  `json:"baseline"`
-	SourceSHA256        string          `json:"sourceSha256"`
-	CompiledSHA256      string          `json:"compiledSha256"`
-	ConfigurationSHA256 string          `json:"configurationSha256"`
-	Checks              []string        `json:"implementedChecks"`
-	Pending             []string        `json:"pendingChecks"`
-	Ports               []PortInventory `json:"ports"`
-	Violations          []Violation     `json:"violations"`
+	SchemaVersion       int                 `json:"schemaVersion"`
+	Status              string              `json:"status"`
+	Baseline            BaselineReport      `json:"baseline"`
+	SourceSHA256        string              `json:"sourceSha256"`
+	CompiledSHA256      string              `json:"compiledSha256"`
+	ConfigurationSHA256 string              `json:"configurationSha256"`
+	Checks              []string            `json:"implementedChecks"`
+	Pending             []string            `json:"pendingChecks"`
+	Ports               []PortInventory     `json:"ports"`
+	Functions           []FunctionInventory `json:"functions"`
+	Violations          []Violation         `json:"violations"`
 }
 
 // InspectBoundaries runs the currently implemented semantic checks over all builds.
@@ -32,6 +33,7 @@ func InspectBoundaries(ctx context.Context, root string, inventory InventoryRepo
 		sources = append(sources, source.Path)
 	}
 	ports := make([]PortInventory, 0)
+	functions := make([]FunctionInventory, 0)
 	violations := append([]Violation(nil), inventory.Violations...)
 	violations = append(violations, InspectDependencyRules(inventory.GoSources, registry)...)
 	for _, build := range []string{"default", "integration"} {
@@ -41,6 +43,9 @@ func InspectBoundaries(ctx context.Context, root string, inventory InventoryRepo
 		}
 		nextPorts, nextViolations := inspectPortGraph(root, graph, registry)
 		ports = append(ports, nextPorts...)
+		nextFunctions := inspectFunctionGraph(root, graph, registry)
+		functions = append(functions, nextFunctions...)
+		violations = append(violations, inspectExecutionRules(nextFunctions)...)
 		violations = append(violations, nextViolations...)
 	}
 	if err := verifyUnchangedSourceSet(ctx, root, inventory.Sources); err != nil {
@@ -53,6 +58,13 @@ func InspectBoundaries(ctx context.Context, root string, inventory InventoryRepo
 	ports = slices.CompactFunc(ports, func(left, right PortInventory) bool {
 		return left.Symbol == right.Symbol && left.Signature == right.Signature
 	})
+	slices.SortFunc(functions, func(left, right FunctionInventory) int {
+		return strings.Compare(left.Symbol, right.Symbol)
+	})
+	functions = slices.CompactFunc(functions, func(left, right FunctionInventory) bool {
+		return left.Symbol == right.Symbol && left.File == right.File
+	})
+	attachPortConsumers(ports, functions)
 	slices.SortFunc(violations, compareViolations)
 	violations = slices.CompactFunc(violations, equalViolation)
 	return BoundaryReport{
@@ -61,8 +73,9 @@ func InspectBoundaries(ctx context.Context, root string, inventory InventoryRepo
 		ConfigurationSHA256: inventory.Configuration.SHA256,
 		Checks: []string{
 			"source ownership", "compatibility inputs", "layer dependencies", "model port value graphs",
+			"resolved execution graph", "known I/O and SQL execution effects",
 		},
-		Pending: pendingBoundaryChecks(), Ports: ports, Violations: violations,
+		Pending: pendingBoundaryChecks(), Ports: ports, Functions: functions, Violations: violations,
 	}, nil
 }
 

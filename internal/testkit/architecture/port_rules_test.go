@@ -32,15 +32,21 @@ func (*Repository) Snapshot(context.Context) (model.Pure, error) { return model.
 func transaction(apply func() error) error { return apply() }
 func persist() error { return transaction(func() error { return nil }) }
 `)
+	writeInventoryFile(t, root, "internal/service/value/service.go", `package value
+import ("context"; model "retrom/internal/model/value")
+func Execute(ctx context.Context, port model.Repository) error { return port.Commit(ctx, model.Hidden{}) }
+`)
 	owners := OwnershipRegistry{Packages: []PackageOwnership{
 		{Path: "internal/model/value", Layer: "model", Module: "value", Owner: "RF05"},
 		{Path: "internal/repo/value", Layer: "repo", Module: "value", Owner: "RF05"},
+		{Path: "internal/service/value", Layer: "service", Module: "value", Owner: "RF05"},
 	}}
 	graph, err := loadInventoryGraph(t.Context(), root, []string{"./internal/..."}, "default")
 	if err != nil {
 		t.Fatal(err)
 	}
 	ports, violations := inspectPortGraph(root, graph, owners)
+	attachPortConsumers(ports, inspectFunctionGraph(root, graph, owners))
 	if len(ports) != 4 {
 		t.Fatalf("missing actual port methods: %+v", ports)
 	}
@@ -56,7 +62,8 @@ func persist() error { return transaction(func() error { return nil }) }
 		}
 	}
 	for _, port := range ports {
-		if strings.Contains(port.Symbol, ".Repository).Commit") && len(port.Repositories) != 1 {
+		if strings.Contains(port.Symbol, ".Repository).Commit") &&
+			(len(port.Repositories) != 1 || len(port.RepositoryMethods) != 1 || len(port.Consumers) != 1) {
 			t.Fatalf("implicit repository implementation was lost: %+v", port)
 		}
 	}

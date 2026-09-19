@@ -64,3 +64,57 @@ func TestValueGraphRejectsUninstantiatedGenerics(t *testing.T) {
 		t.Fatalf("unresolved generic accepted: %+v", issues)
 	}
 }
+
+func TestRefactorRF21_purity_evasion(t *testing.T) {
+	t.Parallel()
+	root := newInventoryRepository(t)
+	writeInventoryFile(t, root, "go.mod", "module retrom\n\ngo 1.26.5\n")
+	writeInventoryFile(t, root, "internal/model/value/policy.go", `package value
+import (
+	"crypto/sha256"
+	"time"
+	"retrom/internal/capability/helper"
+)
+type Clock interface { NowMS() int64 }
+func Pure(input []byte) [32]byte { return sha256.Sum256(input) }
+func HiddenFile() ([]byte, error) { return helper.Read() }
+func HiddenClock() int64 { return helper.Now() }
+func Background() { go func() {}() }
+func init() { _ = time.Now() }
+var Prepared = helper.Now()
+`)
+	writeInventoryFile(t, root, "internal/capability/helper/helper.go", `package helper
+import ("os"; "time")
+func Read() ([]byte, error) { return os.ReadFile("input") }
+func Now() int64 { return time.Now().UnixMilli() }
+`)
+	owners := OwnershipRegistry{Packages: []PackageOwnership{
+		{Path: "internal/model/value", Layer: "model", Module: "value"},
+		{Path: "internal/capability/helper", Layer: "capability", Module: "helper"},
+	}}
+	graph, err := loadInventoryGraph(t.Context(), root, []string{"./internal/..."}, "default")
+	if err != nil {
+		t.Fatal(err)
+	}
+	functions := inspectFunctionGraph(root, graph, owners)
+	violations := inspectExecutionRules(functions)
+	required := map[string]bool{"HiddenFile": false, "HiddenClock": false, "Background": false, "init@": false, "<init>@": false}
+	for _, violation := range violations {
+		if strings.HasSuffix(violation.Symbol, ".Pure") {
+			t.Fatalf("pure hashing or a port declaration was classified as execution: %+v", violation)
+		}
+		for key := range required {
+			if strings.Contains(violation.Symbol, key) {
+				required[key] = true
+			}
+		}
+		if strings.HasSuffix(violation.Symbol, ".HiddenFile") && len(violation.DependencyChain) < 3 {
+			t.Fatalf("helper chain missing: %+v", violation)
+		}
+	}
+	for key, found := range required {
+		if !found {
+			t.Errorf("missed purity violation in %s: %+v", key, violations)
+		}
+	}
+}
