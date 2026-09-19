@@ -20,6 +20,26 @@ func (m *settlementMemory) WithSettlement(_ context.Context, work func(model.Wor
 	return work(model.WorkerSettlementScope{Payload: emptyPayloadScope(), Read: m, Write: m})
 }
 
+func (m *settlementMemory) CurrentSettlement(_ context.Context, _ string) (model.ExecutionSnapshot, error) {
+	return m.before, m.failure
+}
+
+func (m *settlementMemory) CommitSettlementReviewBatch(_ context.Context, _ model.ExecutionIdentity, _ func() int64, _ int) (model.SettlementReviewBatchResult, error) {
+	if m.failure != nil {
+		return model.SettlementReviewBatchResult{}, m.failure
+	}
+	return model.SettlementReviewBatchResult{Before: m.before, More: false}, nil
+}
+
+func (m *settlementMemory) CommitSettlement(_ context.Context, change model.WorkerSettlementChange) error {
+	if m.failure != nil {
+		return m.failure
+	}
+	m.writes++
+	m.change = change
+	return nil
+}
+
 func (m *settlementMemory) Current(context.Context, string) (model.ExecutionSnapshot, error) {
 	return m.before, m.failure
 }

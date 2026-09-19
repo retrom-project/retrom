@@ -10,16 +10,15 @@ import (
 
 type WorkerSettlement struct {
 	repository model.WorkerSettlementRepository
-	metadata   model.ReviewMetadataSeeder
 	now        func() time.Time
 }
 
 func NewWorkerSettlement(
 	repository model.WorkerSettlementRepository,
-	metadata model.ReviewMetadataSeeder,
+	_ model.ReviewMetadataSeeder,
 	now func() time.Time,
 ) *WorkerSettlement {
-	return &WorkerSettlement{repository: repository, metadata: metadata, now: now}
+	return &WorkerSettlement{repository: repository, now: now}
 }
 
 func (service *WorkerSettlement) Fail(
@@ -44,104 +43,43 @@ func (service *WorkerSettlement) settle(
 	failure *model.ExecutionFailure,
 ) (bool, error) {
 	for {
-		closed, more := false, false
-		err := service.repository.WithSettlement(ctx, func(scope model.WorkerSettlementScope) error {
-			var err error
-			closed, more, err = service.settleInScope(ctx, scope, id, failure)
-			return err
-		})
+		before, err := service.repository.CurrentSettlement(ctx, id.JobID)
+		if err != nil {
+			return false, fmt.Errorf("read Pegasus settlement owner: %w", err)
+		}
+		if err := ValidateExecution(before, id, service.now().UnixMilli()); err != nil {
+			return false, err
+		}
+		if before.Kind != "SERVER_PEGASUS_IMPORT" && before.Kind != "SERVER_PEGASUS_SCAN" {
+			return false, model.ErrInvalid
+		}
+
+		cancel := before.JobState == "CANCEL_REQUESTED"
+		if failure == nil && !cancel {
+			return false, nil
+		}
+
+		releaseYearMax := service.now().UTC().Year() + 1
+		batch, err := service.repository.CommitSettlementReviewBatch(ctx, id, func() int64 { return service.now().UnixMilli() }, releaseYearMax)
 		if err != nil {
 			return false, fmt.Errorf("settle Pegasus worker: %w", err)
 		}
-		if !more {
-			return closed, nil
+		if batch.More {
+			continue
 		}
-	}
-}
 
-func (service *WorkerSettlement) current(
-	ctx context.Context,
-	read model.WorkerSettlementReader,
-	id model.ExecutionIdentity,
-) (model.ExecutionSnapshot, error) {
-	before, err := read.Current(ctx, id.JobID)
-	if err != nil {
-		return model.ExecutionSnapshot{}, fmt.Errorf("read Pegasus settlement owner: %w", err)
-	}
-	if err := ValidateExecution(before, id, service.now().UnixMilli()); err != nil {
-		return model.ExecutionSnapshot{}, err
-	}
-	if before.Kind != "SERVER_PEGASUS_IMPORT" && before.Kind != "SERVER_PEGASUS_SCAN" {
-		return model.ExecutionSnapshot{}, model.ErrInvalid
-	}
-	return before, nil
-}
-
-func (service *WorkerSettlement) reconcile(
-	ctx context.Context,
-	scope model.WorkerSettlementScope,
-	id model.ExecutionIdentity,
-	before model.ExecutionSnapshot,
-) (bool, error) {
-	if before.Kind == "SERVER_PEGASUS_SCAN" {
-		return false, nil
-	}
-	reviews, err := scope.Read.Reviews(ctx, before.ImportID, 101)
-	if err != nil {
-		return false, fmt.Errorf("read Pegasus settlement reviews: %w", err)
-	}
-	for _, review := range reviews[:min(len(reviews), 100)] {
-		current, err := service.current(ctx, scope.Read, id)
-		if err != nil {
+		current := batch.Before
+		if err := ValidateExecution(current, id, service.now().UnixMilli()); err != nil {
 			return false, err
 		}
-		review.ImportVersion = current.ImportVersion
-		change, err := prepareRecoveryReview(ctx, service.metadata, scope.Metadata, current, review, service.now())
-		if err != nil {
-			return false, err
+		change := model.WorkerSettlementChange{Before: current, State: "CANCELLED", NowMS: service.now().UnixMilli()}
+		if !cancel {
+			change.State = "FAILED"
+			change.Failure = *failure
 		}
-		if err := scope.Write.CompleteReview(ctx, change); err != nil {
-			return false, fmt.Errorf("retain Pegasus review on settlement: %w", err)
+		if err := service.repository.CommitSettlement(ctx, change); err != nil {
+			return false, fmt.Errorf("settle Pegasus worker: %w", err)
 		}
+		return true, nil
 	}
-	return len(reviews) > 100, nil
-}
-
-func (service *WorkerSettlement) settleInScope(
-	ctx context.Context,
-	scope model.WorkerSettlementScope,
-	id model.ExecutionIdentity,
-	failure *model.ExecutionFailure,
-) (bool, bool, error) {
-	before, err := service.current(ctx, scope.Read, id)
-	if err != nil {
-		return false, false, err
-	}
-	cancel := before.JobState == "CANCEL_REQUESTED"
-	if failure == nil && !cancel {
-		return false, false, nil
-	}
-	more, err := service.reconcile(ctx, scope, id, before)
-	if err != nil || more {
-		return false, more, err
-	}
-	current, err := service.current(ctx, scope.Read, id)
-	if err != nil {
-		return false, false, err
-	}
-	change := model.WorkerSettlementChange{Before: current, State: "CANCELLED", NowMS: service.now().UnixMilli()}
-	if !cancel {
-		change.State = "FAILED"
-		change.Failure = *failure
-	}
-	if err := ValidateExecution(current, id, change.NowMS); err != nil {
-		return false, false, err
-	}
-	if err := scope.Write.Close(ctx, change); err != nil {
-		return false, false, fmt.Errorf("persist Pegasus worker settlement: %w", err)
-	}
-	if err := scheduleTerminalPayloads(ctx, scope.Payload, current.ImportID, change.NowMS); err != nil {
-		return false, false, err
-	}
-	return true, false, nil
 }
