@@ -10,7 +10,10 @@
       "rf_id": "RF07",
       "consumers": [
         "(*retrom/internal/service/accounts.LinkConsumptionService).AcceptInvitation",
-        "(*retrom/internal/service/accounts.Service).AcceptInvitation"
+        "(*retrom/internal/service/accounts.LinkConsumptionService).prepareInvitation",
+        "(*retrom/internal/service/accounts.Service).AcceptInvitation",
+        "(*retrom/internal/service/accounts.Service).AcceptInvitationRateLimited",
+        "(*retrom/internal/transport/httpapi.Server).authInvitationAccept"
       ],
       "snapshot": "retrom/internal/model/accounts.AcceptInvitationRequest",
       "prepare": "(*retrom/internal/service/accounts.LinkConsumptionService).prepareInvitation",
@@ -135,7 +138,8 @@
       "rf_id": "RF07",
       "consumers": [
         "(*retrom/internal/service/accounts.AdministrationService).Delete",
-        "(*retrom/internal/service/accounts.Service).DeleteUser"
+        "(*retrom/internal/service/accounts.Service).DeleteUser",
+        "(*retrom/internal/transport/httpapi.Server).adminDeleteUser"
       ],
       "snapshot": "retrom/internal/model/accounts.ManagedUser",
       "prepare": "(*retrom/internal/service/accounts.AdministrationService).Delete",
@@ -350,7 +354,8 @@
       "rf_id": "RF07",
       "consumers": [
         "(*retrom/internal/service/accounts.AdministrationService).Update",
-        "(*retrom/internal/service/accounts.Service).UpdateUser"
+        "(*retrom/internal/service/accounts.Service).UpdateUser",
+        "(*retrom/internal/transport/httpapi.Server).adminPatchUser"
       ],
       "snapshot": "retrom/internal/model/accounts.ManagedUser",
       "prepare": "(*retrom/internal/service/accounts.AdministrationService).Update",
@@ -549,7 +554,10 @@
       "rf_id": "RF07",
       "consumers": [
         "(*retrom/internal/service/accounts.Authentication).Login",
-        "(*retrom/internal/service/accounts.Service).Login"
+        "(*retrom/internal/service/accounts.Authentication).verify",
+        "(*retrom/internal/service/accounts.Service).Login",
+        "(*retrom/internal/service/accounts.Service).LoginRateLimited",
+        "(*retrom/internal/transport/httpapi.Server).authLogin"
       ],
       "snapshot": "(*retrom/internal/repo/accounts.Authentication).Credential",
       "prepare": "(*retrom/internal/service/accounts.Authentication).verify",
@@ -637,7 +645,9 @@
       "rf_id": "RF07",
       "consumers": [
         "(*retrom/internal/service/accounts.PasswordService).Change",
-        "(*retrom/internal/service/accounts.Service).ChangePassword"
+        "(*retrom/internal/service/accounts.PasswordService).prepare",
+        "(*retrom/internal/service/accounts.Service).ChangePassword",
+        "(*retrom/internal/transport/httpapi.Server).authChangePassword"
       ],
       "snapshot": "(*retrom/internal/repo/accounts.PasswordRepository).Current",
       "prepare": "(*retrom/internal/service/accounts.PasswordService).prepare",
@@ -774,7 +784,10 @@
       "rf_id": "RF07",
       "consumers": [
         "(*retrom/internal/service/accounts.LinkConsumptionService).CompleteReset",
-        "(*retrom/internal/service/accounts.Service).CompletePasswordReset"
+        "(*retrom/internal/service/accounts.LinkConsumptionService).prepareReset",
+        "(*retrom/internal/service/accounts.Service).CompletePasswordReset",
+        "(*retrom/internal/service/accounts.Service).CompletePasswordResetRateLimited",
+        "(*retrom/internal/transport/httpapi.Server).authPasswordResetComplete"
       ],
       "snapshot": "(*retrom/internal/repo/accounts.LinkRepository).ResetState",
       "prepare": "(*retrom/internal/service/accounts.LinkConsumptionService).prepareReset",
@@ -925,7 +938,16 @@
       "consumers": [
         "(*retrom/internal/service/accounts.InitializationService).Initialize",
         "(*retrom/internal/service/accounts.InitializationService).Start",
-        "(*retrom/internal/service/accounts.InitializationService).bootstrap"
+        "(*retrom/internal/service/accounts.InitializationService).bootstrap",
+        "(*retrom/internal/service/accounts.Service).Initialize",
+        "(*retrom/internal/service/accounts.Service).InitializeRateLimited",
+        "(*retrom/internal/service/accounts.Service).Start",
+        "(*retrom/internal/transport/httpapi.Server).authInitialize",
+        "retrom/cmd/retrom.execute",
+        "retrom/cmd/retrom.executeWithPasswordReader",
+        "retrom/cmd/retrom.initializeRuntimeServices",
+        "retrom/cmd/retrom.main",
+        "retrom/cmd/retrom.run"
       ],
       "snapshot": "(*retrom/internal/service/accounts.InitializationService).State",
       "prepare": "(*retrom/internal/service/accounts.InitializationService).bootstrap",
@@ -1051,7 +1073,8 @@
       "rf_id": "RF07",
       "consumers": [
         "(*retrom/internal/service/accounts.LinkIssuanceService).Invitation",
-        "(*retrom/internal/service/accounts.Service).CreateInvitation"
+        "(*retrom/internal/service/accounts.Service).CreateInvitation",
+        "(*retrom/internal/transport/httpapi.Server).adminCreateInvitation"
       ],
       "snapshot": "retrom/internal/model/accounts.LinkCreator",
       "prepare": "(*retrom/internal/service/accounts.LinkIssuanceService).Invitation",
@@ -1158,7 +1181,8 @@
       "rf_id": "RF07",
       "consumers": [
         "(*retrom/internal/service/accounts.LinkIssuanceService).PasswordReset",
-        "(*retrom/internal/service/accounts.Service).CreatePasswordReset"
+        "(*retrom/internal/service/accounts.Service).CreatePasswordReset",
+        "(*retrom/internal/transport/httpapi.Server).adminCreatePasswordReset"
       ],
       "snapshot": "retrom/internal/model/accounts.LinkTarget",
       "prepare": "(*retrom/internal/service/accounts.LinkIssuanceService).PasswordReset",
@@ -1290,7 +1314,9 @@
       "rf_id": "RF07",
       "consumers": [
         "(*retrom/internal/service/accounts.Authentication).Logout",
-        "(*retrom/internal/service/accounts.Service).Logout"
+        "(*retrom/internal/service/accounts.Service).Logout",
+        "(*retrom/internal/transport/httpapi.Server).authLogout",
+        "(*retrom/internal/transport/httpapi.Server).revokeLogoutSession"
       ],
       "snapshot": "retrom/internal/model/accounts.Session",
       "prepare": "(*retrom/internal/service/accounts.Authentication).Logout",
@@ -1358,7 +1384,13 @@
       "rf_id": "RF07",
       "consumers": [
         "(*retrom/internal/service/accounts.RecoveryService).Reset",
-        "(*retrom/internal/service/accounts.Service).OfflineAdminReset"
+        "(*retrom/internal/service/accounts.RecoveryService).prepare",
+        "(*retrom/internal/service/accounts.Service).OfflineAdminReset",
+        "retrom/cmd/retrom.execute",
+        "retrom/cmd/retrom.executeAdminReset",
+        "retrom/cmd/retrom.executeWithPasswordReader",
+        "retrom/cmd/retrom.main",
+        "retrom/cmd/retrom.resetOfflineAdmin"
       ],
       "snapshot": "(*retrom/internal/repo/accounts.RecoveryRepository).ByUsername",
       "prepare": "(*retrom/internal/service/accounts.RecoveryService).prepare",
@@ -1484,8 +1516,21 @@
       "owner": "accounts",
       "rf_id": "RF07",
       "consumers": [
+        "(*retrom/internal/service/accounts.Limiter).Check",
         "(*retrom/internal/service/accounts.Limiter).Clear",
-        "(*retrom/internal/service/accounts.Service).LoginRateLimited"
+        "(*retrom/internal/service/accounts.Limiter).Record",
+        "(*retrom/internal/service/accounts.Limiter).key",
+        "(*retrom/internal/service/accounts.Limiter).record",
+        "(*retrom/internal/service/accounts.Service).AcceptInvitationRateLimited",
+        "(*retrom/internal/service/accounts.Service).CompletePasswordResetRateLimited",
+        "(*retrom/internal/service/accounts.Service).InitializeRateLimited",
+        "(*retrom/internal/service/accounts.Service).InspectAccountLinkRateLimited",
+        "(*retrom/internal/service/accounts.Service).LoginRateLimited",
+        "(*retrom/internal/transport/httpapi.Server).authAccountLinkInspect",
+        "(*retrom/internal/transport/httpapi.Server).authInitialize",
+        "(*retrom/internal/transport/httpapi.Server).authInvitationAccept",
+        "(*retrom/internal/transport/httpapi.Server).authLogin",
+        "(*retrom/internal/transport/httpapi.Server).authPasswordResetComplete"
       ],
       "snapshot": "retrom/internal/model/accounts.RateLimitKey",
       "prepare": "(*retrom/internal/service/accounts.Limiter).key",
@@ -1546,12 +1591,21 @@
       "owner": "accounts",
       "rf_id": "RF07",
       "consumers": [
+        "(*retrom/internal/service/accounts.Limiter).Check",
+        "(*retrom/internal/service/accounts.Limiter).Clear",
         "(*retrom/internal/service/accounts.Limiter).Record",
+        "(*retrom/internal/service/accounts.Limiter).key",
+        "(*retrom/internal/service/accounts.Limiter).record",
         "(*retrom/internal/service/accounts.Service).AcceptInvitationRateLimited",
         "(*retrom/internal/service/accounts.Service).CompletePasswordResetRateLimited",
         "(*retrom/internal/service/accounts.Service).InitializeRateLimited",
         "(*retrom/internal/service/accounts.Service).InspectAccountLinkRateLimited",
-        "(*retrom/internal/service/accounts.Service).LoginRateLimited"
+        "(*retrom/internal/service/accounts.Service).LoginRateLimited",
+        "(*retrom/internal/transport/httpapi.Server).authAccountLinkInspect",
+        "(*retrom/internal/transport/httpapi.Server).authInitialize",
+        "(*retrom/internal/transport/httpapi.Server).authInvitationAccept",
+        "(*retrom/internal/transport/httpapi.Server).authLogin",
+        "(*retrom/internal/transport/httpapi.Server).authPasswordResetComplete"
       ],
       "snapshot": "retrom/internal/model/accounts.RateLimitSubject",
       "prepare": "(*retrom/internal/service/accounts.Limiter).key",
@@ -1623,7 +1677,27 @@
       "rf_id": "RF07",
       "consumers": [
         "(*retrom/internal/service/accounts.Authentication).Authenticate",
-        "(*retrom/internal/service/accounts.Authentication).refresh"
+        "(*retrom/internal/service/accounts.Authentication).refresh",
+        "(*retrom/internal/service/accounts.Service).Authenticate",
+        "(*retrom/internal/service/accounts.Service).Context",
+        "(*retrom/internal/transport/httpapi.Server).Handler",
+        "(*retrom/internal/transport/httpapi.Server).authChangePassword",
+        "(*retrom/internal/transport/httpapi.Server).authContext",
+        "(*retrom/internal/transport/httpapi.Server).authInitialize",
+        "(*retrom/internal/transport/httpapi.Server).authInvitationAccept",
+        "(*retrom/internal/transport/httpapi.Server).authLogin",
+        "(*retrom/internal/transport/httpapi.Server).authLogout",
+        "(*retrom/internal/transport/httpapi.Server).authPasswordResetComplete",
+        "(*retrom/internal/transport/httpapi.Server).authenticateRequest",
+        "(*retrom/internal/transport/httpapi.Server).baseMiddleware",
+        "(*retrom/internal/transport/httpapi.Server).revokeLogoutSession",
+        "(*retrom/internal/transport/httpapi.Server).serveBaseMiddleware",
+        "(*retrom/internal/transport/httpapi.Server).writeAuthenticatedSession",
+        "retrom/cmd/retrom.execute",
+        "retrom/cmd/retrom.executeWithPasswordReader",
+        "retrom/cmd/retrom.main",
+        "retrom/cmd/retrom.run",
+        "retrom/cmd/retrom.serveHTTP"
       ],
       "snapshot": "(*retrom/internal/repo/accounts.Authentication).Session",
       "prepare": "(*retrom/internal/service/accounts.Authentication).Authenticate",
@@ -1700,7 +1774,8 @@
       "rf_id": "RF07",
       "consumers": [
         "(*retrom/internal/service/accounts.LinkService).Revoke",
-        "(*retrom/internal/service/accounts.Service).RevokeAccountLink"
+        "(*retrom/internal/service/accounts.Service).RevokeAccountLink",
+        "(*retrom/internal/transport/httpapi.Server).adminRevokeAccountLink"
       ],
       "snapshot": "retrom/internal/model/accounts.LinkRecord",
       "prepare": "(*retrom/internal/service/accounts.LinkService).Revoke",
@@ -3493,6 +3568,7 @@
       "rf_id": "RF11",
       "consumers": [
         "(*retrom/internal/service/firmware.Service).Install",
+        "(*retrom/internal/service/firmware.Service).prepareInstall",
         "(*retrom/internal/transport/httpapi.Server).installBIOS"
       ],
       "snapshot": "retrom/internal/service/firmware.installSnapshot",
@@ -4078,7 +4154,9 @@
       "rf_id": "RF16",
       "consumers": [
         "(*retrom/internal/service/gameassets.Service).Create",
-        "(*retrom/internal/transport/httpapi.Server).createGameAsset"
+        "(*retrom/internal/service/gameassets.Service).Prepare",
+        "(*retrom/internal/transport/httpapi.Server).createGameAsset",
+        "(*retrom/internal/transport/httpapi.Server).readGameAssetUpload"
       ],
       "snapshot": "retrom/internal/service/gameassets.CreateRequest",
       "prepare": "(*retrom/internal/service/gameassets.Service).Prepare",
@@ -4271,7 +4349,12 @@
       "rf_id": "RF16",
       "consumers": [
         "(*retrom/internal/service/gamecontent.Service).Run",
-        "(*retrom/internal/service/gamecontent.Service).schedule"
+        "(*retrom/internal/service/gamecontent.Service).Schedule",
+        "(*retrom/internal/service/gamecontent.Service).ScheduleIdempotent",
+        "(*retrom/internal/service/gamecontent.Service).ScheduleIdempotentMode",
+        "(*retrom/internal/service/gamecontent.Service).ScheduleMode",
+        "(*retrom/internal/service/gamecontent.Service).schedule",
+        "(*retrom/internal/transport/httpapi.Server).createGameContentReplacement"
       ],
       "snapshot": "retrom/internal/model/gamecontent.Claim",
       "prepare": "(*retrom/internal/service/gamecontent.Service).Run",
@@ -4664,7 +4747,13 @@
       "rf_id": "RF16",
       "consumers": [
         "(*retrom/internal/service/gamecontent.Service).Run",
-        "(*retrom/internal/service/gamecontent.Service).publish"
+        "(*retrom/internal/service/gamecontent.Service).Schedule",
+        "(*retrom/internal/service/gamecontent.Service).ScheduleIdempotent",
+        "(*retrom/internal/service/gamecontent.Service).ScheduleIdempotentMode",
+        "(*retrom/internal/service/gamecontent.Service).ScheduleMode",
+        "(*retrom/internal/service/gamecontent.Service).publish",
+        "(*retrom/internal/service/gamecontent.Service).schedule",
+        "(*retrom/internal/transport/httpapi.Server).createGameContentReplacement"
       ],
       "snapshot": "retrom/internal/model/gamecontent.JobSnapshot",
       "prepare": "(*retrom/internal/service/gamecontent.Service).publish",
@@ -5073,7 +5162,13 @@
       "rf_id": "RF16",
       "consumers": [
         "(*retrom/internal/service/gamecontent.Service).Run",
-        "(*retrom/internal/service/gamecontent.Service).heartbeat"
+        "(*retrom/internal/service/gamecontent.Service).Schedule",
+        "(*retrom/internal/service/gamecontent.Service).ScheduleIdempotent",
+        "(*retrom/internal/service/gamecontent.Service).ScheduleIdempotentMode",
+        "(*retrom/internal/service/gamecontent.Service).ScheduleMode",
+        "(*retrom/internal/service/gamecontent.Service).heartbeat",
+        "(*retrom/internal/service/gamecontent.Service).schedule",
+        "(*retrom/internal/transport/httpapi.Server).createGameContentReplacement"
       ],
       "snapshot": "retrom/internal/model/gamecontent.Claim",
       "prepare": "(*retrom/internal/service/gamecontent.Service).heartbeat",
@@ -5140,9 +5235,11 @@
       "rf_id": "RF16",
       "consumers": [
         "(*retrom/internal/service/gamecontent.Service).Schedule",
+        "(*retrom/internal/service/gamecontent.Service).ScheduleIdempotent",
         "(*retrom/internal/service/gamecontent.Service).ScheduleIdempotentMode",
         "(*retrom/internal/service/gamecontent.Service).ScheduleMode",
-        "(*retrom/internal/service/gamecontent.Service).schedule"
+        "(*retrom/internal/service/gamecontent.Service).schedule",
+        "(*retrom/internal/transport/httpapi.Server).createGameContentReplacement"
       ],
       "snapshot": "retrom/internal/model/gamecontent.JobSnapshot",
       "prepare": "(*retrom/internal/service/gamecontent.Service).schedule",
@@ -5305,7 +5402,13 @@
       "rf_id": "RF16",
       "consumers": [
         "(*retrom/internal/service/gamecontent.Service).Run",
-        "(*retrom/internal/service/gamecontent.Service).settleFailure"
+        "(*retrom/internal/service/gamecontent.Service).Schedule",
+        "(*retrom/internal/service/gamecontent.Service).ScheduleIdempotent",
+        "(*retrom/internal/service/gamecontent.Service).ScheduleIdempotentMode",
+        "(*retrom/internal/service/gamecontent.Service).ScheduleMode",
+        "(*retrom/internal/service/gamecontent.Service).schedule",
+        "(*retrom/internal/service/gamecontent.Service).settleFailure",
+        "(*retrom/internal/transport/httpapi.Server).createGameContentReplacement"
       ],
       "snapshot": "retrom/internal/model/gamecontent.Outcome",
       "prepare": "(*retrom/internal/service/gamecontent.Service).settleFailure",
@@ -7204,6 +7307,7 @@
       "rf_id": "RF10",
       "consumers": [
         "(*retrom/internal/service/launch.NetplayCreator).CreateNetplay",
+        "(*retrom/internal/service/launch.NetplayCreator).prepare",
         "(*retrom/internal/service/launch.Service).CreateNetplay",
         "(*retrom/internal/service/netplay.ParticipantPreparation).Launch",
         "(*retrom/internal/service/netplay.Service).CreateParticipantLaunch",
@@ -7379,6 +7483,7 @@
       "rf_id": "RF10",
       "consumers": [
         "(*retrom/internal/service/launch.PreviewCreator).Create",
+        "(*retrom/internal/service/launch.PreviewCreator).prepare",
         "(*retrom/internal/service/launch.Service).CreateReviewPreview",
         "(*retrom/internal/transport/httpapi.Server).createReviewPreview"
       ],
@@ -7558,6 +7663,7 @@
       "rf_id": "RF10",
       "consumers": [
         "(*retrom/internal/service/launch.ProductCreator).Create",
+        "(*retrom/internal/service/launch.ProductCreator).prepare",
         "(*retrom/internal/service/launch.Service).Create",
         "(*retrom/internal/service/launch.Service).CreateProduct",
         "(*retrom/internal/transport/httpapi.Server).createLaunch"
@@ -10492,8 +10598,18 @@
         "(*retrom/internal/adapter/integration/libraryimport.Service).Cancel",
         "(*retrom/internal/adapter/integration/libraryimport.Service).CancelForDiscard",
         "(*retrom/internal/adapter/integration/libraryimport.Service).cancelImport",
+        "(*retrom/internal/service/importdiscard.Service).RunOnce",
+        "(*retrom/internal/service/importdiscard.Service).Start",
+        "(*retrom/internal/service/importdiscard.Service).discardImport",
+        "(*retrom/internal/service/importdiscard.Service).process",
         "(*retrom/internal/service/libraryimport.ImportBatchCancellations).Cancel",
-        "(*retrom/internal/transport/httpapi.Server).cancelImport"
+        "(*retrom/internal/transport/httpapi.Server).cancelImport",
+        "(retrom/internal/bootstrap/composition.discardImports).CancelForDiscard",
+        "retrom/cmd/retrom.execute",
+        "retrom/cmd/retrom.executeWithPasswordReader",
+        "retrom/cmd/retrom.main",
+        "retrom/cmd/retrom.run",
+        "retrom/internal/transport/httpapi.New"
       ],
       "snapshot": "retrom/internal/repo/libraryimport.importCancellationEvidence",
       "prepare": "(*retrom/internal/service/libraryimport.ImportBatchCancellations).Cancel",
@@ -10980,7 +11096,9 @@
       "owner": "libraryimport",
       "rf_id": "RF13",
       "consumers": [
-        "(*retrom/internal/service/libraryimport.ImportExecutions).Claim"
+        "(*retrom/internal/service/libraryimport.ImportExecutions).Claim",
+        "(*retrom/internal/service/libraryimport.ImportWorker).drain",
+        "(*retrom/internal/service/libraryimport.ImportWorker).runQueue"
       ],
       "snapshot": "retrom/internal/model/libraryimport.ImportWorkerSnapshot",
       "prepare": "(*retrom/internal/service/libraryimport.ImportExecutions).Claim",
@@ -11842,6 +11960,12 @@
         "(*retrom/internal/adapter/integration/libraryimport.Service).createServerSource",
         "(*retrom/internal/service/libraryimport.ImportCreations).CommitPrepared",
         "(*retrom/internal/service/libraryimport.ImportCreations).Create",
+        "(*retrom/internal/service/libraryimport.ImportWorker).Run",
+        "(*retrom/internal/service/libraryimport.ImportWorker).drain",
+        "(*retrom/internal/service/libraryimport.ImportWorker).execute",
+        "(*retrom/internal/service/libraryimport.ImportWorker).runClaimed",
+        "(*retrom/internal/service/libraryimport.ImportWorker).runQueue",
+        "(*retrom/internal/service/libraryimport.ImportWorker).runRegistered",
         "(*retrom/internal/transport/httpapi.Server).reconfigureImport",
         "retrom/internal/bootstrap/composition/libraryimport.NewReconfigurations"
       ],
@@ -13226,10 +13350,20 @@
         "(*retrom/internal/adapter/integration/libraryimport.DiscardWorkflow).DiscardBatchReviews",
         "(*retrom/internal/adapter/integration/libraryimport.Service).Discard",
         "(*retrom/internal/adapter/integration/libraryimport.Service).DiscardBatchReviews",
+        "(*retrom/internal/service/importdiscard.Service).RunOnce",
+        "(*retrom/internal/service/importdiscard.Service).Start",
+        "(*retrom/internal/service/importdiscard.Service).discardImport",
+        "(*retrom/internal/service/importdiscard.Service).process",
         "(*retrom/internal/service/libraryimport.ReviewBatchDiscards).DiscardBatch",
         "(*retrom/internal/service/libraryimport.ReviewDiscards).Discard",
         "(*retrom/internal/service/libraryimport.ReviewDiscards).DiscardInScope",
-        "(*retrom/internal/transport/httpapi.Server).discardReview"
+        "(*retrom/internal/transport/httpapi.Server).discardReview",
+        "(retrom/internal/bootstrap/composition.discardImports).DiscardBatchReviews",
+        "retrom/cmd/retrom.execute",
+        "retrom/cmd/retrom.executeWithPasswordReader",
+        "retrom/cmd/retrom.main",
+        "retrom/cmd/retrom.run",
+        "retrom/internal/transport/httpapi.New"
       ],
       "snapshot": "retrom/internal/model/libraryimport.ReviewDiscardSnapshot",
       "prepare": "(*retrom/internal/service/libraryimport.ReviewDiscards).Discard",
@@ -13495,7 +13629,13 @@
       "owner": "libraryimport",
       "rf_id": "RF13",
       "consumers": [
-        "(*retrom/internal/service/libraryimport.ImportExecutions).Fail"
+        "(*retrom/internal/service/libraryimport.ImportExecutions).Fail",
+        "(*retrom/internal/service/libraryimport.ImportWorker).Run",
+        "(*retrom/internal/service/libraryimport.ImportWorker).drain",
+        "(*retrom/internal/service/libraryimport.ImportWorker).runClaimed",
+        "(*retrom/internal/service/libraryimport.ImportWorker).runQueue",
+        "(*retrom/internal/service/libraryimport.ImportWorker).runRegistered",
+        "(*retrom/internal/service/libraryimport.ImportWorker).settle"
       ],
       "snapshot": "retrom/internal/model/libraryimport.ImportWorkerSnapshot",
       "prepare": "(*retrom/internal/service/libraryimport.ImportExecutions).Fail",
@@ -14997,7 +15137,13 @@
       "owner": "libraryimport",
       "rf_id": "RF13",
       "consumers": [
-        "(*retrom/internal/service/libraryimport.ImportExecutions).Progress"
+        "(*retrom/internal/service/libraryimport.ImportExecutions).Progress",
+        "(*retrom/internal/service/libraryimport.ImportWorker).Run",
+        "(*retrom/internal/service/libraryimport.ImportWorker).drain",
+        "(*retrom/internal/service/libraryimport.ImportWorker).execute",
+        "(*retrom/internal/service/libraryimport.ImportWorker).runClaimed",
+        "(*retrom/internal/service/libraryimport.ImportWorker).runQueue",
+        "(*retrom/internal/service/libraryimport.ImportWorker).runRegistered"
       ],
       "snapshot": "retrom/internal/model/libraryimport.ImportWorkerSnapshot",
       "prepare": "(*retrom/internal/service/libraryimport.ImportExecutions).Progress",
@@ -15130,8 +15276,11 @@
       "owner": "libraryimport",
       "rf_id": "RF13",
       "consumers": [
+        "(*retrom/internal/adapter/integration/libraryimport.Service).RecoverImportGroupJobs",
         "(*retrom/internal/service/libraryimport.ImportExecutions).Recover",
-        "(*retrom/internal/service/libraryimport.ImportExecutions).recoverOne"
+        "(*retrom/internal/service/libraryimport.ImportExecutions).recoverOne",
+        "(*retrom/internal/service/libraryimport.ImportWorker).Recover",
+        "(*retrom/internal/service/libraryimport.ImportWorker).runMaintenance"
       ],
       "snapshot": "retrom/internal/model/libraryimport.ImportWorkerSnapshot",
       "prepare": "(*retrom/internal/service/libraryimport.ImportExecutions).recoverOne",
@@ -15733,7 +15882,17 @@
       "consumers": [
         "(*retrom/internal/adapter/integration/libraryimport.DiscardWorkflow).ReleaseDiscardedBatch",
         "(*retrom/internal/adapter/integration/libraryimport.Service).ReleaseDiscardedBatch",
-        "(*retrom/internal/service/libraryimport.ReviewBatchDiscards).Release"
+        "(*retrom/internal/service/importdiscard.Service).RunOnce",
+        "(*retrom/internal/service/importdiscard.Service).Start",
+        "(*retrom/internal/service/importdiscard.Service).discardImport",
+        "(*retrom/internal/service/importdiscard.Service).process",
+        "(*retrom/internal/service/libraryimport.ReviewBatchDiscards).Release",
+        "(retrom/internal/bootstrap/composition.discardImports).ReleaseDiscardedBatch",
+        "retrom/cmd/retrom.execute",
+        "retrom/cmd/retrom.executeWithPasswordReader",
+        "retrom/cmd/retrom.main",
+        "retrom/cmd/retrom.run",
+        "retrom/internal/transport/httpapi.New"
       ],
       "snapshot": "retrom/internal/model/libraryimport.ReviewDiscardAggregate",
       "prepare": "(*retrom/internal/service/libraryimport.ReviewBatchDiscards).Release",
@@ -15860,7 +16019,13 @@
       "owner": "libraryimport",
       "rf_id": "RF13",
       "consumers": [
-        "(*retrom/internal/service/libraryimport.ImportExecutions).Renew"
+        "(*retrom/internal/service/libraryimport.ImportExecutions).Renew",
+        "(*retrom/internal/service/libraryimport.ImportWorker).Run",
+        "(*retrom/internal/service/libraryimport.ImportWorker).drain",
+        "(*retrom/internal/service/libraryimport.ImportWorker).monitor",
+        "(*retrom/internal/service/libraryimport.ImportWorker).runClaimed",
+        "(*retrom/internal/service/libraryimport.ImportWorker).runQueue",
+        "(*retrom/internal/service/libraryimport.ImportWorker).runRegistered"
       ],
       "snapshot": "retrom/internal/model/libraryimport.ImportWorkerSnapshot",
       "prepare": "(*retrom/internal/service/libraryimport.ImportExecutions).Renew",
@@ -18530,7 +18695,11 @@
       "owner": "metadatascrape",
       "rf_id": "RF15",
       "consumers": [
-        "(*retrom/internal/service/metadatascrape.ResultRecorder).Record"
+        "(*retrom/internal/service/metadatascrape.EvidenceProcessor).Process",
+        "(*retrom/internal/service/metadatascrape.EvidenceProcessor).processEvidenceItem",
+        "(*retrom/internal/service/metadatascrape.EvidenceProcessor).processScrapeEvidence",
+        "(*retrom/internal/service/metadatascrape.ResultRecorder).Record",
+        "(*retrom/internal/service/metadatascrape.Worker).Run"
       ],
       "snapshot": "retrom/internal/model/metadatascrape.LookupAttempt",
       "prepare": "(*retrom/internal/service/metadatascrape.ResultRecorder).Record",
@@ -22353,10 +22522,15 @@
       "owner": "payloadrelease",
       "rf_id": "RF18",
       "consumers": [
+        "(*retrom/internal/adapter/integration/payloadrelease.Service).RunOnce",
         "(*retrom/internal/adapter/integration/payloadrelease.Service).execute",
         "(*retrom/internal/adapter/integration/payloadrelease.Service).releaseEffect",
         "(*retrom/internal/service/payloadrelease.ReleaseEffects).Execute",
         "(*retrom/internal/service/payloadrelease.Service).Execute",
+        "(*retrom/internal/service/payloadrelease.Service).RunOnce",
+        "(*retrom/internal/service/payloadrelease.Worker).RunOnce",
+        "(*retrom/internal/service/payloadrelease.Worker).execute",
+        "(*retrom/internal/service/payloadrelease.Worker).loop",
         "(retrom/internal/adapter/integration/payloadrelease.releaseExecutor).Execute"
       ],
       "snapshot": "retrom/internal/model/payloadrelease.EffectOwner",
@@ -23427,10 +23601,15 @@
       "owner": "payloadrelease",
       "rf_id": "RF18",
       "consumers": [
+        "(*retrom/internal/adapter/integration/payloadrelease.Service).RunOnce",
         "(*retrom/internal/adapter/integration/payloadrelease.Service).execute",
         "(*retrom/internal/adapter/integration/payloadrelease.Service).executeBlobGC",
         "(*retrom/internal/service/payloadrelease.GarbageCollector).Execute",
         "(*retrom/internal/service/payloadrelease.Service).Execute",
+        "(*retrom/internal/service/payloadrelease.Service).RunOnce",
+        "(*retrom/internal/service/payloadrelease.Worker).RunOnce",
+        "(*retrom/internal/service/payloadrelease.Worker).execute",
+        "(*retrom/internal/service/payloadrelease.Worker).loop",
         "(retrom/internal/adapter/integration/payloadrelease.releaseExecutor).Execute"
       ],
       "snapshot": "retrom/internal/model/payloadrelease.GarbageFacts",
@@ -24503,8 +24682,11 @@
       "owner": "payloadrelease",
       "rf_id": "RF18",
       "consumers": [
+        "(*retrom/internal/adapter/integration/libraryimport.Service).RecoverImportGroupJobs",
         "(*retrom/internal/adapter/integration/payloadrelease.Service).RunOnce",
         "(*retrom/internal/adapter/integration/payloadrelease.Service).recoverInterruptedJobs",
+        "(*retrom/internal/service/libraryimport.ImportWorker).Recover",
+        "(*retrom/internal/service/libraryimport.ImportWorker).runMaintenance",
         "(*retrom/internal/service/payloadrelease.Service).Recover",
         "(*retrom/internal/service/payloadrelease.Service).RunOnce",
         "(*retrom/internal/service/payloadrelease.Worker).Recover",
@@ -26248,7 +26430,11 @@
       },
       "operation_id": "saves.checkpoint.preview",
       "consumers": [
-        "(*retrom/internal/service/saves.Service).CreateManual"
+        "(*retrom/internal/service/saves.Service).CreateLocalDraft",
+        "(*retrom/internal/service/saves.Service).CreateManual",
+        "(*retrom/internal/service/saves.Service).createManualForLaunch",
+        "(*retrom/internal/transport/httpapi.Server).createLocalGameSave",
+        "(*retrom/internal/transport/httpapi.Server).createSaveState"
       ],
       "write_set": [
         {
@@ -26424,7 +26610,11 @@
       },
       "operation_id": "saves.checkpoint.product",
       "consumers": [
-        "(*retrom/internal/service/saves.Service).CreateManual"
+        "(*retrom/internal/service/saves.Service).CreateLocalDraft",
+        "(*retrom/internal/service/saves.Service).CreateManual",
+        "(*retrom/internal/service/saves.Service).createManualForLaunch",
+        "(*retrom/internal/transport/httpapi.Server).createLocalGameSave",
+        "(*retrom/internal/transport/httpapi.Server).createSaveState"
       ],
       "write_set": [
         {
@@ -26475,7 +26665,8 @@
       "owner": "saves",
       "rf_id": "RF08",
       "consumers": [
-        "(*retrom/internal/service/saves.Service).Delete"
+        "(*retrom/internal/service/saves.Service).Delete",
+        "(*retrom/internal/transport/httpapi.Server).deleteSave"
       ],
       "snapshot": "retrom/internal/model/saves.DeleteRequest",
       "prepare": "(*retrom/internal/service/saves.Service).Delete",
@@ -26747,8 +26938,11 @@
       },
       "operation_id": "saves.game-save.sync",
       "consumers": [
+        "(*retrom/internal/service/saves.Service).CreateLocalDraft",
         "(*retrom/internal/service/saves.Service).CreateManual",
-        "(*retrom/internal/service/saves.Service).CreateLocalDraft"
+        "(*retrom/internal/service/saves.Service).createManualForLaunch",
+        "(*retrom/internal/transport/httpapi.Server).createLocalGameSave",
+        "(*retrom/internal/transport/httpapi.Server).createSaveState"
       ],
       "write_set": [
         {
@@ -26831,7 +27025,8 @@
       "owner": "saves",
       "rf_id": "RF08",
       "consumers": [
-        "(*retrom/internal/service/saves.Service).Rename"
+        "(*retrom/internal/service/saves.Service).Rename",
+        "(*retrom/internal/transport/httpapi.Server).patchSave"
       ],
       "snapshot": "retrom/internal/model/saves.RenameRequest",
       "prepare": "(*retrom/internal/service/saves.Service).Rename",
@@ -27421,6 +27616,7 @@
       "rf_id": "RF09",
       "consumers": [
         "(*retrom/internal/service/uploads.Service).PutPart",
+        "(*retrom/internal/service/uploads.Service).stageUploadPart",
         "(*retrom/internal/transport/httpapi.Server).putUploadPart"
       ],
       "snapshot": "(*retrom/internal/repo/uploads.Repository).Target",
@@ -27679,8 +27875,22 @@
       "owner": "uploads",
       "rf_id": "RF09",
       "consumers": [
+        "(*retrom/internal/adapter/integration/libraryimport.Service).RecoverImportGroupJobs",
+        "(*retrom/internal/service/libraryimport.ImportWorker).Recover",
+        "(*retrom/internal/service/libraryimport.ImportWorker).runMaintenance",
+        "(*retrom/internal/service/uploads.Service).Complete",
+        "(*retrom/internal/service/uploads.Service).Recover",
+        "(*retrom/internal/service/uploads.Service).Resume",
         "(*retrom/internal/service/uploads.Service).Run",
-        "(*retrom/internal/service/uploads.Service).claim"
+        "(*retrom/internal/service/uploads.Service).Start",
+        "(*retrom/internal/service/uploads.Service).claim",
+        "(*retrom/internal/transport/httpapi.Server).completeUpload",
+        "(*retrom/internal/transport/httpapi.Server).retryJob",
+        "retrom/cmd/retrom.execute",
+        "retrom/cmd/retrom.executeWithPasswordReader",
+        "retrom/cmd/retrom.main",
+        "retrom/cmd/retrom.run",
+        "retrom/internal/transport/httpapi.New"
       ],
       "snapshot": "retrom/internal/model/uploads.Job",
       "prepare": "(*retrom/internal/service/uploads.Service).claim",
@@ -27902,8 +28112,22 @@
       "owner": "uploads",
       "rf_id": "RF09",
       "consumers": [
+        "(*retrom/internal/adapter/integration/libraryimport.Service).RecoverImportGroupJobs",
+        "(*retrom/internal/service/libraryimport.ImportWorker).Recover",
+        "(*retrom/internal/service/libraryimport.ImportWorker).runMaintenance",
+        "(*retrom/internal/service/uploads.Service).Complete",
+        "(*retrom/internal/service/uploads.Service).Recover",
+        "(*retrom/internal/service/uploads.Service).Resume",
         "(*retrom/internal/service/uploads.Service).Run",
-        "(*retrom/internal/service/uploads.Service).fail"
+        "(*retrom/internal/service/uploads.Service).Start",
+        "(*retrom/internal/service/uploads.Service).fail",
+        "(*retrom/internal/transport/httpapi.Server).completeUpload",
+        "(*retrom/internal/transport/httpapi.Server).retryJob",
+        "retrom/cmd/retrom.execute",
+        "retrom/cmd/retrom.executeWithPasswordReader",
+        "retrom/cmd/retrom.main",
+        "retrom/cmd/retrom.run",
+        "retrom/internal/transport/httpapi.New"
       ],
       "snapshot": "retrom/internal/model/uploads.Run",
       "prepare": "(*retrom/internal/service/uploads.Service).fail",
@@ -28065,8 +28289,23 @@
       "owner": "uploads",
       "rf_id": "RF09",
       "consumers": [
+        "(*retrom/internal/adapter/integration/libraryimport.Service).RecoverImportGroupJobs",
+        "(*retrom/internal/service/libraryimport.ImportWorker).Recover",
+        "(*retrom/internal/service/libraryimport.ImportWorker).runMaintenance",
+        "(*retrom/internal/service/uploads.Service).Complete",
+        "(*retrom/internal/service/uploads.Service).Recover",
+        "(*retrom/internal/service/uploads.Service).Resume",
+        "(*retrom/internal/service/uploads.Service).Run",
+        "(*retrom/internal/service/uploads.Service).Start",
         "(*retrom/internal/service/uploads.Service).finalizeFiles",
-        "retrom/internal/service/uploads.finishFinalization"
+        "(*retrom/internal/transport/httpapi.Server).completeUpload",
+        "(*retrom/internal/transport/httpapi.Server).retryJob",
+        "retrom/cmd/retrom.execute",
+        "retrom/cmd/retrom.executeWithPasswordReader",
+        "retrom/cmd/retrom.main",
+        "retrom/cmd/retrom.run",
+        "retrom/internal/service/uploads.finishFinalization",
+        "retrom/internal/transport/httpapi.New"
       ],
       "snapshot": "retrom/internal/model/uploads.SessionState",
       "prepare": "(*retrom/internal/service/uploads.Service).finalizeFiles",
@@ -28195,8 +28434,24 @@
       "owner": "uploads",
       "rf_id": "RF09",
       "consumers": [
+        "(*retrom/internal/adapter/integration/libraryimport.Service).RecoverImportGroupJobs",
+        "(*retrom/internal/service/libraryimport.ImportWorker).Recover",
+        "(*retrom/internal/service/libraryimport.ImportWorker).runMaintenance",
+        "(*retrom/internal/service/uploads.Service).Complete",
+        "(*retrom/internal/service/uploads.Service).Recover",
+        "(*retrom/internal/service/uploads.Service).Resume",
+        "(*retrom/internal/service/uploads.Service).Run",
+        "(*retrom/internal/service/uploads.Service).Start",
+        "(*retrom/internal/service/uploads.Service).assembleFile",
         "(*retrom/internal/service/uploads.Service).finalizeCandidate",
-        "(*retrom/internal/service/uploads.Service).finalizeFiles"
+        "(*retrom/internal/service/uploads.Service).finalizeFiles",
+        "(*retrom/internal/transport/httpapi.Server).completeUpload",
+        "(*retrom/internal/transport/httpapi.Server).retryJob",
+        "retrom/cmd/retrom.execute",
+        "retrom/cmd/retrom.executeWithPasswordReader",
+        "retrom/cmd/retrom.main",
+        "retrom/cmd/retrom.run",
+        "retrom/internal/transport/httpapi.New"
       ],
       "snapshot": "(*retrom/internal/repo/uploads.Repository).Parts",
       "prepare": "(*retrom/internal/service/uploads.Service).assembleFile",
@@ -28339,8 +28594,24 @@
       "owner": "uploads",
       "rf_id": "RF09",
       "consumers": [
+        "(*retrom/internal/adapter/integration/libraryimport.Service).RecoverImportGroupJobs",
+        "(*retrom/internal/service/libraryimport.ImportWorker).Recover",
+        "(*retrom/internal/service/libraryimport.ImportWorker).runMaintenance",
+        "(*retrom/internal/service/uploads.Service).Complete",
+        "(*retrom/internal/service/uploads.Service).Recover",
+        "(*retrom/internal/service/uploads.Service).Resume",
+        "(*retrom/internal/service/uploads.Service).Run",
+        "(*retrom/internal/service/uploads.Service).Start",
+        "(*retrom/internal/service/uploads.Service).claim",
         "(*retrom/internal/service/uploads.Service).claimCurrent",
-        "(*retrom/internal/service/uploads.finalizationClaim).reconcile"
+        "(*retrom/internal/service/uploads.finalizationClaim).reconcile",
+        "(*retrom/internal/transport/httpapi.Server).completeUpload",
+        "(*retrom/internal/transport/httpapi.Server).retryJob",
+        "retrom/cmd/retrom.execute",
+        "retrom/cmd/retrom.executeWithPasswordReader",
+        "retrom/cmd/retrom.main",
+        "retrom/cmd/retrom.run",
+        "retrom/internal/transport/httpapi.New"
       ],
       "snapshot": "retrom/internal/model/uploads.Job",
       "prepare": "(*retrom/internal/service/uploads.finalizationClaim).reconcile",
@@ -28438,8 +28709,22 @@
       "owner": "uploads",
       "rf_id": "RF09",
       "consumers": [
+        "(*retrom/internal/adapter/integration/libraryimport.Service).RecoverImportGroupJobs",
+        "(*retrom/internal/service/libraryimport.ImportWorker).Recover",
+        "(*retrom/internal/service/libraryimport.ImportWorker).runMaintenance",
+        "(*retrom/internal/service/uploads.Service).Complete",
+        "(*retrom/internal/service/uploads.Service).Recover",
+        "(*retrom/internal/service/uploads.Service).Resume",
         "(*retrom/internal/service/uploads.Service).Run",
-        "(*retrom/internal/service/uploads.Service).monitor"
+        "(*retrom/internal/service/uploads.Service).Start",
+        "(*retrom/internal/service/uploads.Service).monitor",
+        "(*retrom/internal/transport/httpapi.Server).completeUpload",
+        "(*retrom/internal/transport/httpapi.Server).retryJob",
+        "retrom/cmd/retrom.execute",
+        "retrom/cmd/retrom.executeWithPasswordReader",
+        "retrom/cmd/retrom.main",
+        "retrom/cmd/retrom.run",
+        "retrom/internal/transport/httpapi.New"
       ],
       "snapshot": "retrom/internal/model/uploads.Job",
       "prepare": "(*retrom/internal/service/uploads.Service).monitor",
@@ -28536,8 +28821,23 @@
       "owner": "uploads",
       "rf_id": "RF09",
       "consumers": [
+        "(*retrom/internal/adapter/integration/libraryimport.Service).RecoverImportGroupJobs",
+        "(*retrom/internal/service/libraryimport.ImportWorker).Recover",
+        "(*retrom/internal/service/libraryimport.ImportWorker).runMaintenance",
+        "(*retrom/internal/service/uploads.Service).Complete",
+        "(*retrom/internal/service/uploads.Service).Recover",
+        "(*retrom/internal/service/uploads.Service).Resume",
+        "(*retrom/internal/service/uploads.Service).Run",
+        "(*retrom/internal/service/uploads.Service).Start",
         "(*retrom/internal/service/uploads.Service).claim",
-        "(*retrom/internal/service/uploads.Service).claimCurrent"
+        "(*retrom/internal/service/uploads.Service).claimCurrent",
+        "(*retrom/internal/transport/httpapi.Server).completeUpload",
+        "(*retrom/internal/transport/httpapi.Server).retryJob",
+        "retrom/cmd/retrom.execute",
+        "retrom/cmd/retrom.executeWithPasswordReader",
+        "retrom/cmd/retrom.main",
+        "retrom/cmd/retrom.run",
+        "retrom/internal/transport/httpapi.New"
       ],
       "snapshot": "retrom/internal/model/uploads.Job",
       "prepare": "(*retrom/internal/service/uploads.Service).claimCurrent",

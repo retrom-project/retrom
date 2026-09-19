@@ -6085,8 +6085,8 @@
       "rf_id": "RF08",
       "symbol": "retrom/internal/service/saves.validateLaunch",
       "consumers": [
-        "(*retrom/internal/service/saves.Service).loadLaunch",
-        "(*retrom/internal/service/saves.Service).ensureWritable"
+        "(*retrom/internal/service/saves.Service).ensureWritable",
+        "(*retrom/internal/service/saves.Service).loadLaunch"
       ],
       "invariant": "Require write format, positive max bytes and valid multidisc shape",
       "status": "SOURCE_REVIEWED",
