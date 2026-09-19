@@ -11,17 +11,10 @@ import (
 )
 
 type Play struct {
-	database      *sql.DB
-	preCommitHook func(dbexec.Executor) error
+	database *sql.DB
 }
 
 func NewPlay(database *sql.DB) *Play { return &Play{database: database} }
-
-func (repository *Play) WithPreCommitHook(
-	hook func(dbexec.Executor) error,
-) {
-	repository.preCommitHook = hook
-}
 
 func (repository *Play) LoadPlaySource(
 	ctx context.Context, id string,
@@ -42,27 +35,12 @@ func (repository *Play) LoadPlayEvent(
 }
 
 func (repository *Play) commitPlay(
-	ctx context.Context, label string,
+	ctx context.Context, _ string,
 	execute func(playRecords) error,
 ) error {
-	tx, err := repository.database.BeginTx(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("begin play %s: %w", label, err)
-	}
-	defer dbexec.Rollback(tx)
-	records := playRecords{transaction: tx, executor: tx}
-	if err := execute(records); err != nil {
-		return err
-	}
-	if repository.preCommitHook != nil {
-		if err := repository.preCommitHook(tx); err != nil {
-			return err
-		}
-	}
-	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("commit play %s: %w", label, err)
-	}
-	return nil
+	return dbexec.Immediate(ctx, repository.database, func(db dbexec.Executor) error {
+		return execute(playRecords{executor: db})
+	})
 }
 
 func (repository *Play) CommitPlayStart(
@@ -90,8 +68,7 @@ func (repository *Play) CommitPlayFinish(
 }
 
 type playRecords struct {
-	transaction *sql.Tx
-	executor    dbexec.Executor
+	executor dbexec.Executor
 }
 
 func (records playRecords) Source(

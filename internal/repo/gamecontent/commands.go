@@ -717,11 +717,6 @@ func (repository *Repository) CommitPublish(
 	if err != nil {
 		return model.PublishResult{}, fmt.Errorf("commit replacement publication: %w", err)
 	}
-	if repository.publishPreCommit != nil {
-		if err := repository.publishPreCommit(); err != nil {
-			return model.PublishResult{}, err
-		}
-	}
 	if err := commitScope(tx); err != nil {
 		return model.PublishResult{}, err
 	}

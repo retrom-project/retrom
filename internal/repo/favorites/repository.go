@@ -16,56 +16,11 @@ type idempotentWork func(dbexec.Executor) (int, map[string]string, any, error)
 
 func New(database *sql.DB) *Repository { return &Repository{database: database} }
 
-func (repository *Repository) beginImmediate(ctx context.Context) (*sql.Conn, func(), error) {
-	connection, err := repository.database.Conn(ctx)
-	if err != nil {
-		return nil, nil, fmt.Errorf("favorites: acquire connection: %w", err)
-	}
-	if _, err := connection.ExecContext(ctx, "BEGIN IMMEDIATE"); err != nil {
-		_ = connection.Close()
-		return nil, nil, fmt.Errorf("favorites: begin immediate: %w", err)
-	}
-	committed := false
-	cleanup := func() {
-		if !committed {
-			_, _ = connection.ExecContext(context.WithoutCancel(ctx), "ROLLBACK")
-		}
-		_ = connection.Close()
-	}
-	commit := func() error {
-		if _, err := connection.ExecContext(ctx, "COMMIT"); err != nil {
-			return fmt.Errorf("favorites: commit: %w", err)
-		}
-		committed = true
-		return nil
-	}
-	_ = commit // used below via closure
-	return connection, cleanup, nil
-}
-
-func (repository *Repository) commitImmediate(
-	ctx context.Context,
-	work func(dbexec.Executor) error,
-) error {
-	connection, rollback, err := repository.beginImmediate(ctx)
-	if err != nil {
-		return err
-	}
-	defer rollback()
-	if err := work(connection); err != nil {
-		return err
-	}
-	if _, err := connection.ExecContext(ctx, "COMMIT"); err != nil {
-		return fmt.Errorf("favorites: commit: %w", err)
-	}
-	return nil
-}
-
 func (repository *Repository) CommitFavorite(
 	ctx context.Context, cmd favorites.FavoriteCommand,
 ) (favorites.State, error) {
 	var state favorites.State
-	err := repository.commitImmediate(ctx, func(db dbexec.Executor) error {
+	err := dbexec.Immediate(ctx, repository.database, func(db dbexec.Executor) error {
 		games := gameRecords{db}
 		visible, err := games.Visible(ctx, cmd.GameID)
 		if err != nil {
@@ -94,7 +49,7 @@ func (repository *Repository) CommitReplaceFolders(
 	ctx context.Context, cmd favorites.ReplaceFoldersCommand,
 ) (favorites.State, error) {
 	var state favorites.State
-	err := repository.commitImmediate(ctx, func(db dbexec.Executor) error {
+	err := dbexec.Immediate(ctx, repository.database, func(db dbexec.Executor) error {
 		games := gameRecords{db}
 		folders := folderRecords{db}
 		memberships := membershipRecords{db}
@@ -159,7 +114,7 @@ func (repository *Repository) commitIdempotent(
 	work idempotentWork,
 ) (favorites.IdempotentResponse, error) {
 	var response favorites.IdempotentResponse
-	err := repository.commitImmediate(ctx, func(db dbexec.Executor) error {
+	err := dbexec.Immediate(ctx, repository.database, func(db dbexec.Executor) error {
 		replayed, found, err := checkIdempotency(ctx, db, envelope)
 		if err != nil {
 			return err
