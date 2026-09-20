@@ -1,14 +1,14 @@
 import assert from "node:assert/strict";
-import {approveScummvm, importScummvm, trackScummvmTraffic} from "./scummvm_product_api.mjs";
+import {approveScummvm, importScummvm} from "./scummvm_product_api.mjs";
 import {captureScummvm, exitScummvm, gamepad, readyScummvm, resumeScummvm, scummvmFrame} from "./scummvm_product_controls.mjs";
+import {trackScummvmTraffic} from "./scummvm_traffic.mjs";
 import {scummvmSaveProof} from "./scummvm_product_save_proof.mjs";
 
-export async function deferredScummvm(context, client, archive, directory) {
-  const trafficSets = [];
-  const track = (page) => trafficSets.push(trackScummvmTraffic(page));
-  context.on("page", track);
+export async function deferredScummvm(context, client, archive, directory, baseUrl) {
   const review = await importScummvm(client, archive);
-  const reviewPage = await context.newPage(); await reviewPage.goto(`/admin/reviews/${review.itemId}`);
+  const reviewPage = await context.newPage();
+  const traffic = await trackScummvmTraffic(reviewPage, baseUrl);
+  await reviewPage.goto(`/admin/reviews/${review.itemId}`);
   const preview = await openPreview(reviewPage, "运行游戏");
   await comiScene(preview);
   const previewSaved = await captureScummvm(preview);
@@ -21,7 +21,7 @@ export async function deferredScummvm(context, client, archive, directory) {
   await scummvmFrame(resumedPreview, directory, "deferred-preview-restored");
   await exitScummvm(resumedPreview);
   await resumedPreview.waitForEvent("close").catch(() => assert(resumedPreview.isClosed()));
-  const {gameId} = await approveScummvm(client, review.itemId); await reviewPage.close();
+  const {gameId} = await approveScummvm(client, review.itemId);
   const page = await context.newPage();
   await page.goto(`/games/${gameId}`);
   await page.getByRole("button", {name: "开始游戏", exact: true}).click();
@@ -39,10 +39,12 @@ export async function deferredScummvm(context, client, archive, directory) {
   const restore = await scummvmSaveProof(context, restoredLaunchId, true);
   const restored = await scummvmFrame(page, directory, "deferred-restored");
   const input = await comiInput(page, directory);
-  const plugins = trafficSets.flat().filter((item) => item.path.includes("/plugins/"));
-  assert(plugins.length > 0 && plugins.every((item) => item.path.endsWith("/libscumm.so") && item.status === 206));
+  await traffic.validate(restoredLaunchId);
+  const plugins = traffic.filter((item) => item.method !== "HEAD" && item.path.includes("/plugins/"));
+  assert(plugins.length > 0 && plugins.every((item) => item.path.endsWith("/libscumm.so") &&
+    item.status === 200 && item.range === null && item.sizeBytes > 0));
   await exitScummvm(page); await page.waitForURL(`/games/${gameId}`); await page.close();
-  context.off("page", track);
+  await reviewPage.close();
   return {itemId: review.itemId, gameId, originalLaunchId, restoredLaunchId, saveStateId: saved.saveStateId,
     previewRestoreId, previewRestore, restore, captureMilliseconds, before, restored, input,
     selectedEngineId: "scumm", selectedPluginResponses: plugins.length};
