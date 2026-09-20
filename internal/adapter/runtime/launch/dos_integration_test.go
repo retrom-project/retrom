@@ -60,79 +60,9 @@ func TestDOSLaunchLocksMenuOrSelectedDeterministicBundle(t *testing.T) {
 	}
 	blobs, err := blobstore.Open(dataDir)
 	testassert.False(t, err != nil, err)
-	files := []uploadsmodel.FileDeclaration{
-		{ClientFileID: "exe", RelativePath: "DOOM/DOOM.EXE", SizeBytes: 3},
-		{ClientFileID: "wad", RelativePath: "DOOM/DATA.WAD", SizeBytes: 3},
-		{ClientFileID: "unsafe", RelativePath: "DOOM/SETUP%.BAT", SizeBytes: 3},
-	}
-	uploadService := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
-	upload, err := uploadService.Create(ctx, uploadsmodel.CreateRequest{SourceType: "DIRECTORY", Files: files})
-	testassert.False(t, err != nil, err)
-	for index, body := range [][]byte{[]byte("exe"), []byte("wad"), []byte("bat")} {
-		digest := sha256.Sum256(body)
-		if err := uploadService.PutPart(ctx, upload.ID, upload.Files[index].ID, 0, "bytes 0-2/3", "sha-256=:"+base64.StdEncoding.EncodeToString(digest[:])+":", bytes.NewReader(body)); err != nil {
-			t.Fatal(err)
-		}
-	}
-	current, err := uploadService.Get(ctx, upload.ID)
-	testassert.False(t, err != nil, err)
-	finalizeJobID, _, err := uploadService.Complete(ctx, upload.ID, current.Version)
-	testassert.False(t, err != nil, err)
-	for deadline := time.Now().Add(3 * time.Second); ; {
-		var state string
-		_ = database.SQL.QueryRowContext(ctx, `
-SELECT state
-FROM jobs
-WHERE id=?
-`, finalizeJobID).Scan(&state)
-		if state == "SUCCEEDED" {
-			break
-		}
-		testassert.Falsef(t, testassert.Any(func() bool { return state == "FAILED" }, func() bool { return time.Now().After(deadline) }), "DOS upload finalize = %s", state)
-		time.Sleep(10 * time.Millisecond)
-	}
-	importService := libraryimport.New(database.SQL, time.Now).WithBlobStore(blobs)
+	uploadID := uploadDOSDirectoryForLaunch(ctx, t, database.SQL, blobs, dataDir)
 	dosID := testsupport.MustPlatformInstanceID(t, database.SQL, "dos/dosbox_pure")
-	createdImport, err := importService.Create(
-		ctx,
-		libraryimport.CreateRequest{
-			UploadID:                 upload.ID,
-			TargetPlatformInstanceID: dosID,
-			MetadataProvider:         "NONE",
-		},
-	)
-	testassert.False(t, err != nil, err)
-	var itemID string
-	if err := database.SQL.QueryRowContext(ctx, `
-SELECT id
-FROM import_items
-WHERE import_job_id=?
-`, createdImport.ImportJobID).Scan(&itemID); err != nil {
-		t.Fatal(err)
-	}
-	var defaultPatch libraryimport.DraftPatch
-	if err := json.Unmarshal([]byte(`{"defaultDosEntry":null,"tagIds":[]}`), &defaultPatch); err != nil {
-		t.Fatal(err)
-	}
-	patched, err := importService.PatchDraft(ctx, itemID, 1, defaultPatch)
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return patched.Version != 2 }), "clear default DOS entry = %#v, error=%v", patched, err)
-	var validationCount int
-	var selectedDefault sql.NullString
-	if err := database.SQL.QueryRowContext(ctx, `
-SELECT (SELECT count(*)
-FROM import_item_core_validations
-WHERE import_item_id=?),
-v.default_dos_entry
-FROM review_drafts d
-JOIN import_item_core_validations v ON v.id=d.selected_validation_id
-WHERE d.import_item_id=?
-`, itemID, itemID).Scan(&validationCount, &selectedDefault); err != nil ||
-		validationCount != 2 ||
-		selectedDefault.Valid {
-		t.Fatalf("DOS default validation clone = %d/%v, error=%v", validationCount, selectedDefault, err)
-	}
-	approved, err := importService.Approve(ctx, itemID, 2)
-	testassert.False(t, err != nil, err)
+	gameID := approveDOSDirectoryImport(ctx, t, database.SQL, blobs, uploadID, dosID)
 	credentials, err := retromruntime.LoadOrCreateCredentials(dataDir)
 	testassert.False(t, err != nil, err)
 	runtimeBuilder, err := testsupport.NewRuntimeBuilder(ctx, database.SQL)
@@ -149,9 +79,9 @@ WHERE d.import_item_id=?
 		ctx,
 		"local",
 		CreateRequest{
-			GameID:             approved.GameID,
+			GameID:             gameID,
 			DOSEntry:           &selected,
-			ReturnTo:           "/games/" + approved.GameID,
+			ReturnTo:           "/games/" + gameID,
 			ClientCapabilities: capabilities,
 		},
 	)
@@ -189,7 +119,7 @@ WHERE launch_session_id=?
 	menu, err := service.Create(
 		ctx,
 		"local",
-		CreateRequest{GameID: approved.GameID, ReturnTo: "/games/" + approved.GameID, ClientCapabilities: capabilities},
+		CreateRequest{GameID: gameID, ReturnTo: "/games/" + gameID, ClientCapabilities: capabilities},
 	)
 	testassert.False(t, err != nil, err)
 	menuConfig, err := service.Config(ctx, menu.LaunchID, menu.Capability)
@@ -204,29 +134,132 @@ WHERE launch_session_id=?
 		func() bool { return !strings.HasSuffix(menuURL, "game.zip") },
 	), "DOS menu envelope = %#v", menuEnvelope)
 	unsafe := "DOOM/SETUP%.BAT"
-	if _, err := service.Create(ctx, "local", CreateRequest{GameID: approved.GameID, DOSEntry: &unsafe, ReturnTo: "/", ClientCapabilities: capabilities}); !errors.Is(
+	if _, err := service.Create(ctx, "local", CreateRequest{GameID: gameID, DOSEntry: &unsafe, ReturnTo: "/", ClientCapabilities: capabilities}); !errors.Is(
 		err,
 		ErrDOSEntryUnsafe,
 	) {
 		t.Fatalf("unsafe DOS entry error = %v", err)
 	}
 	missing := "DOOM/MISSING.EXE"
-	if _, err := service.Create(ctx, "local", CreateRequest{GameID: approved.GameID, DOSEntry: &missing, ReturnTo: "/", ClientCapabilities: capabilities}); !errors.Is(
+	if _, err := service.Create(ctx, "local", CreateRequest{GameID: gameID, DOSEntry: &missing, ReturnTo: "/", ClientCapabilities: capabilities}); !errors.Is(
 		err,
 		ErrDOSEntryMissing,
 	) {
 		t.Fatalf("missing DOS entry error = %v", err)
 	}
+	assertDOSValidationRetryLifecycle(ctx, t, database.SQL, service, gameID)
+}
+
+func uploadDOSDirectoryForLaunch(
+	ctx context.Context,
+	t *testing.T,
+	database *sql.DB,
+	blobs *blobstore.Store,
+	dataDir string,
+) string {
+	files := []uploadsmodel.FileDeclaration{
+		{ClientFileID: "exe", RelativePath: "DOOM/DOOM.EXE", SizeBytes: 3},
+		{ClientFileID: "wad", RelativePath: "DOOM/DATA.WAD", SizeBytes: 3},
+		{ClientFileID: "unsafe", RelativePath: "DOOM/SETUP%.BAT", SizeBytes: 3},
+	}
+	uploadService := uploads.New(uploadpersistence.New(database), blobs, dataDir, time.Now)
+	upload, err := uploadService.Create(ctx, uploadsmodel.CreateRequest{SourceType: "DIRECTORY", Files: files})
+	testassert.False(t, err != nil, err)
+	for index, body := range [][]byte{[]byte("exe"), []byte("wad"), []byte("bat")} {
+		digest := sha256.Sum256(body)
+		if err := uploadService.PutPart(ctx, upload.ID, upload.Files[index].ID, 0, "bytes 0-2/3", "sha-256=:"+base64.StdEncoding.EncodeToString(digest[:])+":", bytes.NewReader(body)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	current, err := uploadService.Get(ctx, upload.ID)
+	testassert.False(t, err != nil, err)
+	finalizeJobID, _, err := uploadService.Complete(ctx, upload.ID, current.Version)
+	testassert.False(t, err != nil, err)
+	for deadline := time.Now().Add(3 * time.Second); ; {
+		var state string
+		_ = database.QueryRowContext(ctx, `
+SELECT state
+FROM jobs
+WHERE id=?
+`, finalizeJobID).Scan(&state)
+		if state == "SUCCEEDED" {
+			break
+		}
+		testassert.Falsef(t, testassert.Any(func() bool { return state == "FAILED" }, func() bool { return time.Now().After(deadline) }), "DOS upload finalize = %s", state)
+		time.Sleep(10 * time.Millisecond)
+	}
+	return upload.ID
+}
+
+func approveDOSDirectoryImport(
+	ctx context.Context,
+	t *testing.T,
+	database *sql.DB,
+	blobs *blobstore.Store,
+	uploadID string,
+	dosID string,
+) string {
+	importService := libraryimport.New(database, time.Now).WithBlobStore(blobs)
+	createdImport, err := importService.Create(
+		ctx,
+		libraryimport.CreateRequest{
+			UploadID:                 uploadID,
+			TargetPlatformInstanceID: dosID,
+			MetadataProvider:         "NONE",
+		},
+	)
+	testassert.False(t, err != nil, err)
+	var itemID string
+	if err := database.QueryRowContext(ctx, `
+SELECT id
+FROM import_items
+WHERE import_job_id=?
+`, createdImport.ImportJobID).Scan(&itemID); err != nil {
+		t.Fatal(err)
+	}
+	var defaultPatch libraryimport.DraftPatch
+	if err := json.Unmarshal([]byte(`{"defaultDosEntry":null,"tagIds":[]}`), &defaultPatch); err != nil {
+		t.Fatal(err)
+	}
+	patched, err := importService.PatchDraft(ctx, itemID, 1, defaultPatch)
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return patched.Version != 2 }), "clear default DOS entry = %#v, error=%v", patched, err)
+	var validationCount int
+	var selectedDefault sql.NullString
+	if err := database.QueryRowContext(ctx, `
+SELECT (SELECT count(*)
+FROM import_item_core_validations
+WHERE import_item_id=?),
+v.default_dos_entry
+FROM review_drafts d
+JOIN import_item_core_validations v ON v.id=d.selected_validation_id
+WHERE d.import_item_id=?
+`, itemID, itemID).Scan(&validationCount, &selectedDefault); err != nil ||
+		validationCount != 2 ||
+		selectedDefault.Valid {
+		t.Fatalf("DOS default validation clone = %d/%v, error=%v", validationCount, selectedDefault, err)
+	}
+	approved, err := importService.Approve(ctx, itemID, 2)
+	testassert.False(t, err != nil, err)
+	return approved.GameID
+}
+
+func assertDOSValidationRetryLifecycle(
+	ctx context.Context,
+	t *testing.T,
+	database *sql.DB,
+	service *Service,
+	gameID string,
+) {
 	var variantID, providerID, targetID string
 	var gameVersion int64
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := database.QueryRowContext(ctx, `
 SELECT variant.id,variant.provider_id,variant.target_id,game.version
 FROM game_variants variant JOIN games game ON game.id=variant.game_id
 WHERE variant.game_id=?
-`, approved.GameID).Scan(&variantID, &providerID, &targetID, &gameVersion); err != nil {
+`, gameID).Scan(&variantID, &providerID, &targetID, &gameVersion); err != nil {
 		t.Fatal(err)
 	}
-	transaction, err := database.SQL.BeginTx(ctx, nil)
+	transaction, err := database.BeginTx(ctx, nil)
 	testassert.False(t, err != nil, err)
 	inputs := launchmodel.ValidationInputs{
 		GameVariantID: variantID, GameID: "missing-game", GameVersion: gameVersion,
@@ -247,11 +280,11 @@ WHERE variant.game_id=?
 	service.ResumeValidationJob(ctx, invalidJobID)
 	var failedState string
 	var retryable int
-	if err := database.SQL.QueryRowContext(ctx, `SELECT state,error_retryable FROM jobs WHERE id=?`, invalidJobID).
+	if err := database.QueryRowContext(ctx, `SELECT state,error_retryable FROM jobs WHERE id=?`, invalidJobID).
 		Scan(&failedState, &retryable); err != nil || failedState != "FAILED" || retryable != 1 {
 		t.Fatalf("failed validation terminal state = %s/%d, error=%v", failedState, retryable, err)
 	}
-	retryTx, err := database.SQL.BeginTx(ctx, nil)
+	retryTx, err := database.BeginTx(ctx, nil)
 	testassert.False(t, err != nil, err)
 	defer dbexec.Rollback(retryTx)
 	retried, err := application.NewValidationScheduler(persistence.NewValidationJobs(retryTx),
@@ -262,15 +295,25 @@ WHERE variant.game_id=?
 		t.Fatal(err)
 	}
 	var executionNo, retryEvents int
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := database.QueryRowContext(ctx, `
 SELECT execution_no,(SELECT count(*) FROM job_events WHERE job_id=jobs.id AND event_type='RETRY_SCHEDULED'
   AND json_extract(data_json,'$.trigger')='LAUNCH')
 FROM jobs WHERE id=? AND state='QUEUED'
 `, invalidJobID).Scan(&executionNo, &retryEvents); err != nil || executionNo != 2 || retryEvents != 1 {
 		t.Fatalf("automatic validation retry evidence = execution %d/events %d, error=%v", executionNo, retryEvents, err)
 	}
+	assertDOSStaleValidationRecovery(ctx, t, database, service, invalidJobID)
+}
+
+func assertDOSStaleValidationRecovery(
+	ctx context.Context,
+	t *testing.T,
+	database *sql.DB,
+	service *Service,
+	invalidJobID string,
+) {
 	now := time.Now().UnixMilli()
-	if _, err := database.SQL.ExecContext(ctx, `
+	if _, err := database.ExecContext(ctx, `
 UPDATE jobs
 SET state='RUNNING',attempt_count=1,finished_at_ms=NULL,error_code=NULL,error_retryable=NULL,
 leased_until_ms=?,updated_at_ms=?
@@ -281,14 +324,15 @@ WHERE id=?
 	service.ResumeValidationJob(ctx, invalidJobID)
 	var duplicateState string
 	var duplicateAttempts int
-	if err := database.SQL.QueryRowContext(ctx, `SELECT state,attempt_count FROM jobs WHERE id=?`, invalidJobID).
+	if err := database.QueryRowContext(ctx, `SELECT state,attempt_count FROM jobs WHERE id=?`, invalidJobID).
 		Scan(&duplicateState, &duplicateAttempts); err != nil || duplicateState != "RUNNING" || duplicateAttempts != 1 {
 		t.Fatalf("duplicate validation resume = %s/%d, error=%v", duplicateState, duplicateAttempts, err)
 	}
 	if _, err := service.validationWorker().Recover(ctx); err != nil {
 		t.Fatal(err)
 	}
-	if err := database.SQL.QueryRowContext(ctx, `SELECT state FROM jobs WHERE id=?`, invalidJobID).
+	var failedState string
+	if err := database.QueryRowContext(ctx, `SELECT state FROM jobs WHERE id=?`, invalidJobID).
 		Scan(&failedState); err != nil || failedState != "QUEUED" {
 		t.Fatalf("stale validation recovery = %s, error=%v", failedState, err)
 	}

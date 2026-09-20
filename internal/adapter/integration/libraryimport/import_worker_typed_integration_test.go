@@ -43,55 +43,62 @@ func TestTypedImportWorkerClaimsFrozenInput(t *testing.T) {
 }
 
 func TestTypedImportWorkerRejectsExpiredProgressAndRenew(t *testing.T) {
-	for _, change := range []struct{ name, sql string }{
+	for _, change := range []typedImportAuthorityChange{
 		{"execution", `UPDATE jobs SET execution_no=execution_no+1 WHERE id=?`},
 		{"attempt", `UPDATE jobs SET attempt_count=attempt_count+1 WHERE id=?`},
 		{"lease", `UPDATE jobs SET leased_until_ms=1 WHERE id=?`},
 		{"deadline", `UPDATE jobs SET execution_deadline_at_ms=1 WHERE id=?`},
 	} {
-		t.Run(
-			change.name,
-			func(t *testing.T) {
-				service, work := workerAuthorityFixture(t)
-				if _, err := service.database.ExecContext(t.Context(), change.sql, work.jobID); err != nil {
-					t.Fatal(err)
-				}
-				var beforeLease, afterLease int64
-				if err := service.database.QueryRowContext(t.Context(), `SELECT leased_until_ms FROM jobs WHERE id=?`, work.jobID).Scan(
-					&beforeLease,
-				); err != nil {
-					t.Fatal(err)
-				}
-				current := typedImportExecutions(service)
-				if err := current.Progress(t.Context(), *work.creationIntent(), 1); !errors.Is(err, ErrVersionConflict) {
-					t.Fatalf("progress stale error=%v", err)
-				}
-				if cancelled, err := current.Renew(t.Context(), *work.creationIntent()); cancelled || !errors.Is(err, ErrVersionConflict) {
-					t.Fatalf("renew stale cancelled=%t error=%v", cancelled, err)
-				}
-				if err := service.database.QueryRowContext(t.Context(), `SELECT leased_until_ms FROM jobs WHERE id=?`, work.jobID).Scan(
-					&afterLease,
-				); err != nil {
-					t.Fatal(err)
-				}
-				if afterLease != beforeLease {
-					t.Fatalf("stale renew changed lease: before=%d after=%d", beforeLease, afterLease)
-				}
-				var count int
-				if err := service.database.QueryRowContext(
-					t.Context(),
-					`SELECT count(*) FROM job_events WHERE job_id=? AND event_type='PROGRESS'`,
-					work.jobID,
-				).Scan(
-					&count,
-				); err != nil {
-					t.Fatal(err)
-				}
-				if count != 0 {
-					t.Fatalf("stale progress events=%d", count)
-				}
-			},
-		)
+		t.Run(change.name, func(t *testing.T) {
+			assertTypedImportWorkerRejectsExpiredChange(t, change)
+		})
+	}
+}
+
+type typedImportAuthorityChange struct {
+	name string
+	sql  string
+}
+
+func assertTypedImportWorkerRejectsExpiredChange(t *testing.T, change typedImportAuthorityChange) {
+	t.Helper()
+	service, work := workerAuthorityFixture(t)
+	if _, err := service.database.ExecContext(t.Context(), change.sql, work.jobID); err != nil {
+		t.Fatal(err)
+	}
+	var beforeLease, afterLease int64
+	if err := service.database.QueryRowContext(t.Context(), `SELECT leased_until_ms FROM jobs WHERE id=?`, work.jobID).Scan(
+		&beforeLease,
+	); err != nil {
+		t.Fatal(err)
+	}
+	current := typedImportExecutions(service)
+	if err := current.Progress(t.Context(), *work.creationIntent(), 1); !errors.Is(err, ErrVersionConflict) {
+		t.Fatalf("progress stale error=%v", err)
+	}
+	if cancelled, err := current.Renew(t.Context(), *work.creationIntent()); cancelled || !errors.Is(err, ErrVersionConflict) {
+		t.Fatalf("renew stale cancelled=%t error=%v", cancelled, err)
+	}
+	if err := service.database.QueryRowContext(t.Context(), `SELECT leased_until_ms FROM jobs WHERE id=?`, work.jobID).Scan(
+		&afterLease,
+	); err != nil {
+		t.Fatal(err)
+	}
+	if afterLease != beforeLease {
+		t.Fatalf("stale renew changed lease: before=%d after=%d", beforeLease, afterLease)
+	}
+	var count int
+	if err := service.database.QueryRowContext(
+		t.Context(),
+		`SELECT count(*) FROM job_events WHERE job_id=? AND event_type='PROGRESS'`,
+		work.jobID,
+	).Scan(
+		&count,
+	); err != nil {
+		t.Fatal(err)
+	}
+	if count != 0 {
+		t.Fatalf("stale progress events=%d", count)
 	}
 }
 

@@ -93,19 +93,31 @@ func TestCreateRPGMakerMVArchiveReachesReviewPending(t *testing.T) {
 	if created.ItemCount != 1 || created.State != "REVIEW_PENDING" {
 		t.Fatalf("Create(RPG Maker MV) = %#v", created)
 	}
+	assertRPGMakerReviewProjection(ctx, t, database.SQL, blobs, created.ImportJobID)
+	assertRPGMakerNestedSourceSnapshot(ctx, t, database.SQL, created.ImportJobID)
+	assertRPGMakerStableRouteAfterProviderUpgrade(ctx, t, database.SQL, created.ImportJobID)
+}
+
+func assertRPGMakerReviewProjection(
+	ctx context.Context,
+	t *testing.T,
+	database *sql.DB,
+	blobs *blobstore.Store,
+	importJobID string,
+) {
 	noiseDigest := sha256.Sum256([]byte("packaging noise"))
 	if _, err := os.Stat(blobs.Path(fmt.Sprintf("%x", noiseDigest))); !os.IsNotExist(err) {
 		t.Fatalf("excluded packaging noise reached CAS: %v", err)
 	}
 	var state, code, title, metadataProvider string
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := database.QueryRowContext(ctx, `
 SELECT item.state,validation.compatibility_code,json_extract(draft.metadata_json,'$.title'),job.metadata_provider
 FROM import_items item
 JOIN import_jobs job ON job.id=item.import_job_id
 JOIN import_item_core_validations validation ON validation.import_item_id=item.id
 JOIN review_drafts draft ON draft.import_item_id=item.id
 WHERE item.import_job_id=?
-`, created.ImportJobID).Scan(&state, &code, &title, &metadataProvider); err != nil {
+`, importJobID).Scan(&state, &code, &title, &metadataProvider); err != nil {
 		t.Fatal(err)
 	}
 	if state != "REVIEW_PENDING" || code != "READY" || title != "fixture" ||
@@ -113,36 +125,44 @@ WHERE item.import_job_id=?
 		t.Fatalf("RPG review state/code/title/provider = %s/%s/%q/%s", state, code, title, metadataProvider)
 	}
 	var defaultCoreID, providerID, targetID, generation string
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := database.QueryRowContext(ctx, `
 SELECT instance.default_core_id,profile.provider_id,profile.target_id,profile.generation
 FROM import_items item
 JOIN review_drafts draft ON draft.import_item_id=item.id
 JOIN platform_instances instance ON instance.id=draft.target_platform_instance_id
 JOIN rpgmaker_review_profiles profile ON profile.review_draft_id=draft.id
 WHERE item.import_job_id=?
-`, created.ImportJobID).Scan(&defaultCoreID, &providerID, &targetID, &generation); err != nil {
+`, importJobID).Scan(&defaultCoreID, &providerID, &targetID, &generation); err != nil {
 		t.Fatal(err)
 	}
 	if defaultCoreID != "rpgmaker" || providerID != "retrom-runtime" || targetID != "rpgmaker-mv" ||
 		generation != "RPGMV" {
 		t.Fatalf("virtual binding = %s/%s/%s/%s", defaultCoreID, providerID, targetID, generation)
 	}
+}
+
+func assertRPGMakerNestedSourceSnapshot(
+	ctx context.Context,
+	t *testing.T,
+	database *sql.DB,
+	importJobID string,
+) {
 	var role, nestedSHA, nestedBlobID string
 	var nestedOrdinal int
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := database.QueryRowContext(ctx, `
 SELECT file.role,blob.sha256,file.blob_id,file.source_archive_entry_ordinal
 FROM import_items item
 JOIN review_drafts draft ON draft.import_item_id=item.id
 JOIN import_item_source_snapshot_files file ON file.source_snapshot_id=draft.effective_source_snapshot_id
 JOIN blobs blob ON blob.id=file.blob_id
 WHERE item.import_job_id=? AND file.logical_name='audio/bgm/config'
-`, created.ImportJobID).Scan(&role, &nestedSHA, &nestedBlobID, &nestedOrdinal); err != nil {
+`, importJobID).Scan(&role, &nestedSHA, &nestedBlobID, &nestedOrdinal); err != nil {
 		t.Fatal(err)
 	}
 	nestedBody := []byte("7z\xbc\xaf\x27\x1c encrypted MTool sidecar")
 	wantNestedSHA := sha256.Sum256(nestedBody)
 	var recursivelyIndexed int
-	if err := database.SQL.QueryRowContext(
+	if err := database.QueryRowContext(
 		ctx, "SELECT COUNT(*) FROM archive_entries WHERE archive_blob_id=?", nestedBlobID,
 	).Scan(&recursivelyIndexed); err != nil {
 		t.Fatal(err)
@@ -154,10 +174,17 @@ WHERE item.import_job_id=? AND file.logical_name='audio/bgm/config'
 			role, nestedOrdinal, nestedSHA, recursivelyIndexed,
 		)
 	}
+}
 
-	var itemID, validationID string
+func assertRPGMakerStableRouteAfterProviderUpgrade(
+	ctx context.Context,
+	t *testing.T,
+	database *sql.DB,
+	importJobID string,
+) {
+	var itemID, validationID, providerID, targetID string
 	var draftVersion int64
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := database.QueryRowContext(ctx, `
 SELECT item.id,draft.version,profile.provider_id,profile.target_id,
  (SELECT validation.id FROM import_item_core_validations validation
   WHERE validation.import_item_id=item.id ORDER BY validation.created_at_ms DESC,validation.id DESC LIMIT 1)
@@ -165,23 +192,23 @@ FROM import_items item
 JOIN review_drafts draft ON draft.import_item_id=item.id
 JOIN rpgmaker_review_profiles profile ON profile.review_draft_id=draft.id
 WHERE item.import_job_id=?
-`, created.ImportJobID).Scan(&itemID, &draftVersion, &providerID, &targetID, &validationID); err != nil {
+`, importJobID).Scan(&itemID, &draftVersion, &providerID, &targetID, &validationID); err != nil {
 		t.Fatal(err)
 	}
 	replacementBundle := fmt.Sprintf("%064x", 42)
-	if _, err := database.SQL.ExecContext(ctx, `
+	if _, err := database.ExecContext(ctx, `
 UPDATE runtime_providers SET provider_version='1.1.0',bundle_sha256=?,activated_at_ms=activated_at_ms+1
 WHERE provider_id='retrom-runtime'
 `, replacementBundle); err != nil {
 		t.Fatal(err)
 	}
-	validationCurrent, err := New(database.SQL, time.Now).ReviewValidationCurrent(ctx, validationID)
+	validationCurrent, err := New(database, time.Now).ReviewValidationCurrent(ctx, validationID)
 	if err != nil || !validationCurrent {
 		t.Fatalf("review validation after provider bundle upgrade = %t, error=%v", validationCurrent, err)
 	}
 	var reboundProvider, reboundTarget string
 	var reboundVersion int64
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := database.QueryRowContext(ctx, `
 SELECT draft.version,profile.provider_id,profile.target_id
 FROM review_drafts draft
 JOIN rpgmaker_review_profiles profile ON profile.review_draft_id=draft.id
@@ -196,7 +223,7 @@ WHERE draft.import_item_id=?
 		)
 	}
 	var validationCount int
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := database.QueryRowContext(ctx, `
 	SELECT COUNT(*) FROM import_item_core_validations WHERE import_item_id=?
 `, itemID).Scan(&validationCount); err != nil {
 		t.Fatal(err)
@@ -204,7 +231,7 @@ WHERE draft.import_item_id=?
 	if validationCount != 1 {
 		t.Fatalf("provider bundle upgrade created redundant review validations: %d", validationCount)
 	}
-	approved, err := New(database.SQL, time.Now).Approve(ctx, itemID, draftVersion)
+	approved, err := New(database, time.Now).Approve(ctx, itemID, draftVersion)
 	if err != nil || approved.GameID == "" {
 		t.Fatalf("READY RPG review must approve without a runtime proof session: %+v %v", approved, err)
 	}

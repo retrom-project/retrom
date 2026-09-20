@@ -173,166 +173,23 @@ func testArcadeImportUsesInstalledBIOS(t *testing.T, installationStatus string) 
 	}
 	blobs, err := blobstore.Open(dataDir)
 	testassert.False(t, err != nil, err)
-	target, err := testsupport.LookupRuntimeTarget(ctx, database.SQL, "fbneo")
-	if err != nil {
-		t.Fatal(err)
-	}
-	now := time.Now().UnixMilli()
-	dummy, err := blobs.Put(bytes.NewReader([]byte("synthetic DAT")))
-	testassert.False(t, err != nil, err)
-	if _, err := database.SQL.ExecContext(ctx, `
-UPDATE dat_versions SET is_active=0,version=version+1,updated_at_ms=?
-WHERE provider_id=? AND target_id=? AND is_active=1
-`, now, target.ProviderID, target.TargetID); err != nil {
-		t.Fatal(err)
-	}
-	const datID = "01990000-0000-7000-8000-000000000201"
-	if _, err := database.SQL.ExecContext(ctx, `
-INSERT INTO dat_versions(id,core_id,provider_id,target_id,builtin_relative_path,sha256,parser_version,
-parse_status,is_active,machine_count,rom_entry_count,disk_entry_count,
-bios_set_count,default_bios_set_count,explicit_bios_machine_count,base_dependency_target_count,
-unresolved_relation_count,version,created_at_ms,updated_at_ms,parsed_at_ms,activated_at_ms)
-VALUES(?,'fbneo',?,?,'testdata/installed-bios.dat',?,'test','READY',1,2,2,0,0,0,1,1,0,1,?,?,?,?)
-`, datID, target.ProviderID, target.TargetID, dummy.SHA256, now, now, now, now); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := database.SQL.ExecContext(ctx, `
-INSERT INTO dat_machines(dat_version_id,machine_name,description,year,manufacturer,cloneof,romof,
-is_explicit_bios,classification) VALUES
-(?,'codexchild','Child','','',NULL,'codexbios',0,'NORMAL'),
-(?,'codexbios','BIOS','','',NULL,NULL,1,'EXPLICIT_BIOS')
-`, datID, datID); err != nil {
-		t.Fatal(err)
-	}
-	childArchive := makeZIP(t, map[string][]byte{"c.bin": []byte("child")})
-	biosArchive := makeZIP(t, map[string][]byte{"b.bin": []byte("bios")})
-	type archiveRecord struct {
-		machine string
-		entry   string
-		body    []byte
-		bytes   []byte
-	}
-	for _, fixture := range []archiveRecord{
-		{machine: "codexchild", entry: "c.bin", body: []byte("child"), bytes: childArchive},
-		{machine: "codexbios", entry: "b.bin", body: []byte("bios"), bytes: biosArchive},
-	} {
-		metadata, putErr := blobs.Put(bytes.NewReader(fixture.bytes))
-		testassert.False(t, putErr != nil, putErr)
-		entries, scanErr := importing.ScanZIP(ctx, blobs.Path(metadata.SHA256), importing.DefaultArchiveLimits())
-		testassert.Falsef(t, testassert.Any(func() bool { return scanErr != nil }, func() bool { return len(entries) != 1 }), "scan %s = %#v, error=%v", fixture.machine, entries, scanErr)
-		if _, err := database.SQL.ExecContext(ctx, `
-INSERT INTO dat_rom_entries(dat_version_id,machine_name,ordinal,name,size_bytes,crc32,sha1,status)
-VALUES(?,?,0,?,?,?,?,'GOOD')
-`, datID, fixture.machine, fixture.entry, len(fixture.body), entries[0].CRC32, entries[0].SHA1); err != nil {
-			t.Fatal(err)
-		}
-	}
-	biosMetadata, err := blobs.Put(bytes.NewReader(biosArchive))
-	testassert.False(t, err != nil, err)
-	biosBlobID, err := blobcatalog.EnsureRecord(ctx, database.SQL, biosMetadata, "application/zip", now)
-	testassert.False(t, err != nil, err)
-	const requirementID = "01990000-0000-7000-8000-000000000202"
-	if _, err := database.SQL.ExecContext(ctx, `
-INSERT INTO bios_requirements(id,core_id,provider_id,target_id,source_kind,dat_machine_name,logical_name,
-requirement_mode,condition_code,activation_options_json,catalog_digest,size_bytes,md5,sha1,sha256,
-source_url,source_version,enabled,version,created_at_ms,updated_at_ms,delivery_kind,emulator_path)
-VALUES(?,'fbneo',?,?,'DAT_MACHINE','codexbios','codexbios.zip','REQUIRED',
-'ARCADE_DAT_DEPENDENCY','{}',?,NULL,NULL,NULL,NULL,'test://bios',?,1,1,?,?,'BIOS_BUNDLE',NULL)
-`, requirementID, target.ProviderID, target.TargetID,
-		strings.Repeat("a", 64), datID, now, now); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := database.SQL.ExecContext(ctx, `
-INSERT INTO bios_installations(id,requirement_id,blob_id,original_filename,size_bytes,md5,sha1,sha256,
-validated_requirement_version,status,validation_details_json,is_active,version,created_at_ms,updated_at_ms)
-VALUES('01990000-0000-7000-8000-000000000203',?,?,?, ?,?,?,?,1,?,'{}',1,1,?,?)
-`, requirementID, biosBlobID, "codexbios.zip", biosMetadata.Size, biosMetadata.MD5, biosMetadata.SHA1,
-		biosMetadata.SHA256, installationStatus, now, now); err != nil {
-		t.Fatal(err)
-	}
-	uploadService := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
-	upload, err := uploadService.Create(ctx, uploadsmodel.CreateRequest{
-		SourceType: "FILES",
-		Files: []uploadsmodel.FileDeclaration{{
-			ClientFileID: "child", RelativePath: "codexchild.zip", SizeBytes: int64(len(childArchive)),
-		}},
-	})
-	testassert.False(t, err != nil, err)
-	digest := sha256.Sum256(childArchive)
-	if err := uploadService.PutPart(
-		ctx,
-		upload.ID,
-		upload.Files[0].ID,
-		0,
-		fmt.Sprintf("bytes 0-%d/%d", len(childArchive)-1, len(childArchive)),
-		"sha-256=:"+base64.StdEncoding.EncodeToString(digest[:])+":",
-		bytes.NewReader(childArchive),
-	); err != nil {
-		t.Fatal(err)
-	}
-	current, err := uploadService.Get(ctx, upload.ID)
-	testassert.False(t, err != nil, err)
-	jobID, _, err := uploadService.Complete(ctx, upload.ID, current.Version)
-	testassert.False(t, err != nil, err)
-	deadline := time.Now().Add(3 * time.Second)
-	for {
-		var state string
-		if err := database.SQL.QueryRowContext(ctx, "SELECT state FROM jobs WHERE id=?", jobID).Scan(&state); err != nil {
-			t.Fatal(err)
-		}
-		if state == "SUCCEEDED" {
-			break
-		}
-		testassert.Falsef(t, time.Now().After(deadline), "upload finalization = %s", state)
-		time.Sleep(10 * time.Millisecond)
-	}
-	importService := New(database.SQL, time.Now).WithBlobStore(blobs)
-	created, err := importService.Create(ctx, CreateRequest{
-		UploadID:                 upload.ID,
-		TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(t, database.SQL, "arcade/fbneo"),
-		MetadataProvider:         "NONE",
-	})
-	testassert.False(t, err != nil, err)
-	var validationID, status, code, snapshotJSON string
-	if err := database.SQL.QueryRowContext(ctx, `
-SELECT draft.selected_validation_id,validation.status,validation.compatibility_code,
-validation.dependency_snapshot_json
-FROM import_items item
-JOIN review_drafts draft ON draft.import_item_id=item.id
-JOIN import_item_core_validations validation ON validation.id=draft.selected_validation_id
-WHERE item.import_job_id=?
-`, created.ImportJobID).Scan(&validationID, &status, &code, &snapshotJSON); err != nil {
-		t.Fatal(err)
-	}
-	testassert.Falsef(t, testassert.Any(func() bool { return status != "READY" }, func() bool { return code != "READY" }), "initial validation = %s/%s", status, code)
-	var snapshot arcadeDraftSnapshot
-	if err := json.Unmarshal([]byte(snapshotJSON), &snapshot); err != nil || len(snapshot.MissingEntries) != 0 ||
-		len(snapshot.Dependencies) != 1 || snapshot.Dependencies[0].State != installedBIOSDependencyState(installationStatus) {
-		t.Fatalf("initial snapshot = %#v, error=%v", snapshot, err)
-	}
-	var validationBlobID string
-	if err := database.SQL.QueryRowContext(ctx, `
-SELECT blob_id FROM import_item_validation_files
-WHERE import_item_core_validation_id=? AND role='BIOS_BUNDLE' AND logical_name='codexbios.zip'
-`, validationID).Scan(&validationBlobID); err != nil {
-		t.Fatal(err)
-	}
-	testassert.Falsef(t, validationBlobID != biosBlobID, "initial BIOS blob = %s, want %s", validationBlobID, biosBlobID)
-	var itemID string
-	var draftVersion int64
-	if err := database.SQL.QueryRowContext(ctx, `
-SELECT item.id,draft.version
-FROM import_items item
-JOIN review_drafts draft ON draft.import_item_id=item.id
-WHERE item.import_job_id=?
-	`, created.ImportJobID).Scan(&itemID, &draftVersion); err != nil {
-		t.Fatal(err)
-	}
+	fixture := seedInstalledArcadeBIOS(ctx, t, database.SQL, blobs, installationStatus)
+	now := fixture.now
+	biosArchive := fixture.biosArchive
+	childArchive := fixture.childArchive
+	biosBlobID := fixture.biosBlobID
+	requirementID := fixture.requirementID
+	uploadID := completeArcadeChildUpload(ctx, t, database.SQL, blobs, dataDir, childArchive)
+	platformInstanceID := testsupport.MustPlatformInstanceID(t, database.SQL, "arcade/fbneo")
+	importService, itemID, draftVersion := inspectArcadeImportWithInstalledBIOS(
+		ctx, t, database.SQL, blobs, uploadID, platformInstanceID, installationStatus, biosBlobID,
+	)
 	if installationStatus == "MISSING_ENTRY" {
 		draftVersion = assertPreviewRefreshesLegacyBIOS(t, database.SQL, importService, itemID, biosBlobID)
 	}
 	approved, err := importService.Approve(ctx, itemID, draftVersion)
 	testassert.False(t, err != nil, err)
+	gameID := approved.GameID
 	replacementMetadata, err := blobs.Put(bytes.NewReader(append(biosArchive, []byte("replacement")...)))
 	testassert.False(t, err != nil, err)
 	replacementBlobID, err := blobcatalog.EnsureRecord(
@@ -370,11 +227,11 @@ INSERT INTO profiles(id,display_name,created_at_ms) VALUES('local','Arcade BIOS 
 		SecureContext: true, CrossOriginIsolated: true, SharedArrayBuffer: true,
 	}
 	pending, err := launcher.Create(ctx, "local", launch.CreateRequest{
-		GameID: approved.GameID, CoreID: &coreID, ReturnTo: "/games/" + approved.GameID,
+		GameID: gameID, CoreID: &coreID, ReturnTo: "/games/" + gameID,
 		ClientCapabilities: capabilities,
 	})
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return pending.Status != "VALIDATION_PENDING" }, func() bool { return pending.JobID == "" }), "Arcade BIOS revalidation = %#v, error=%v", pending, err)
-	deadline = time.Now().Add(3 * time.Second)
+	deadline := time.Now().Add(3 * time.Second)
 	for {
 		var state string
 		var errorCode sql.NullString
@@ -393,7 +250,7 @@ INSERT INTO profiles(id,display_name,created_at_ms) VALUES('local','Arcade BIOS 
 SELECT variant.dependency_snapshot_json
 FROM game_variants variant
 WHERE variant.game_id=? AND variant.core_id='fbneo'
-`, approved.GameID).Scan(&refreshedSnapshot); err != nil {
+`, gameID).Scan(&refreshedSnapshot); err != nil {
 		t.Fatal(err)
 	}
 	var refreshedEnvelope struct {
@@ -404,7 +261,7 @@ WHERE variant.game_id=? AND variant.core_id='fbneo'
 		t.Fatalf("refreshed Arcade dependency snapshot = %s, error=%v", refreshedSnapshot, err)
 	}
 	createdLaunch, err := launcher.Create(ctx, "local", launch.CreateRequest{
-		GameID: approved.GameID, CoreID: &coreID, ReturnTo: "/games/" + approved.GameID,
+		GameID: gameID, CoreID: &coreID, ReturnTo: "/games/" + gameID,
 		ClientCapabilities: capabilities,
 	})
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return createdLaunch.LaunchID == "" }), "Arcade BIOS launch after revalidation = %#v, error=%v", createdLaunch, err)
@@ -415,6 +272,209 @@ WHERE variant.game_id=? AND variant.core_id='fbneo'
 	testassert.Falsef(t, bios["kind"] != "BIOS_BUNDLE", "Arcade BIOS launch resource = %#v", bios)
 	bundle, err := launcher.BundleFiles(ctx, createdLaunch.LaunchID, createdLaunch.Capability, "BIOS_BUNDLE")
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return len(bundle) != 1 }, func() bool { return bundle[0].LogicalName != "codexbios.zip" }, func() bool { return bundle[0].SHA256 != replacementMetadata.SHA256 }), "Arcade BIOS launch bundle = %#v, error=%v", bundle, err)
+}
+
+func completeArcadeChildUpload(
+	ctx context.Context,
+	t *testing.T,
+	database *sql.DB,
+	blobs *blobstore.Store,
+	dataDir string,
+	childArchive []byte,
+) string {
+	uploadService := uploads.New(uploadpersistence.New(database), blobs, dataDir, time.Now)
+	upload, err := uploadService.Create(ctx, uploadsmodel.CreateRequest{
+		SourceType: "FILES",
+		Files: []uploadsmodel.FileDeclaration{{
+			ClientFileID: "child", RelativePath: "codexchild.zip", SizeBytes: int64(len(childArchive)),
+		}},
+	})
+	testassert.False(t, err != nil, err)
+	digest := sha256.Sum256(childArchive)
+	if err := uploadService.PutPart(
+		ctx,
+		upload.ID,
+		upload.Files[0].ID,
+		0,
+		fmt.Sprintf("bytes 0-%d/%d", len(childArchive)-1, len(childArchive)),
+		"sha-256=:"+base64.StdEncoding.EncodeToString(digest[:])+":",
+		bytes.NewReader(childArchive),
+	); err != nil {
+		t.Fatal(err)
+	}
+	current, err := uploadService.Get(ctx, upload.ID)
+	testassert.False(t, err != nil, err)
+	jobID, _, err := uploadService.Complete(ctx, upload.ID, current.Version)
+	testassert.False(t, err != nil, err)
+	deadline := time.Now().Add(3 * time.Second)
+	for {
+		var state string
+		if err := database.QueryRowContext(ctx, "SELECT state FROM jobs WHERE id=?", jobID).Scan(&state); err != nil {
+			t.Fatal(err)
+		}
+		if state == "SUCCEEDED" {
+			break
+		}
+		testassert.Falsef(t, time.Now().After(deadline), "upload finalization = %s", state)
+		time.Sleep(10 * time.Millisecond)
+	}
+	return upload.ID
+}
+
+func inspectArcadeImportWithInstalledBIOS(
+	ctx context.Context,
+	t *testing.T,
+	database *sql.DB,
+	blobs *blobstore.Store,
+	uploadID string,
+	platformInstanceID string,
+	installationStatus string,
+	biosBlobID string,
+) (*Service, string, int64) {
+	importService := New(database, time.Now).WithBlobStore(blobs)
+	created, err := importService.Create(ctx, CreateRequest{
+		UploadID:                 uploadID,
+		TargetPlatformInstanceID: platformInstanceID,
+		MetadataProvider:         "NONE",
+	})
+	testassert.False(t, err != nil, err)
+	var validationID, status, code, snapshotJSON string
+	if err := database.QueryRowContext(ctx, `
+SELECT draft.selected_validation_id,validation.status,validation.compatibility_code,
+validation.dependency_snapshot_json
+FROM import_items item
+JOIN review_drafts draft ON draft.import_item_id=item.id
+JOIN import_item_core_validations validation ON validation.id=draft.selected_validation_id
+WHERE item.import_job_id=?
+`, created.ImportJobID).Scan(&validationID, &status, &code, &snapshotJSON); err != nil {
+		t.Fatal(err)
+	}
+	testassert.Falsef(t, testassert.Any(func() bool { return status != "READY" }, func() bool { return code != "READY" }), "initial validation = %s/%s", status, code)
+	var snapshot arcadeDraftSnapshot
+	if err := json.Unmarshal([]byte(snapshotJSON), &snapshot); err != nil || len(snapshot.MissingEntries) != 0 ||
+		len(snapshot.Dependencies) != 1 || snapshot.Dependencies[0].State != installedBIOSDependencyState(installationStatus) {
+		t.Fatalf("initial snapshot = %#v, error=%v", snapshot, err)
+	}
+	var validationBlobID string
+	if err := database.QueryRowContext(ctx, `
+SELECT blob_id FROM import_item_validation_files
+WHERE import_item_core_validation_id=? AND role='BIOS_BUNDLE' AND logical_name='codexbios.zip'
+`, validationID).Scan(&validationBlobID); err != nil {
+		t.Fatal(err)
+	}
+	testassert.Falsef(t, validationBlobID != biosBlobID, "initial BIOS blob = %s, want %s", validationBlobID, biosBlobID)
+	var itemID string
+	var draftVersion int64
+	if err := database.QueryRowContext(ctx, `
+SELECT item.id,draft.version
+FROM import_items item
+JOIN review_drafts draft ON draft.import_item_id=item.id
+WHERE item.import_job_id=?
+	`, created.ImportJobID).Scan(&itemID, &draftVersion); err != nil {
+		t.Fatal(err)
+	}
+	return importService, itemID, draftVersion
+}
+
+type installedArcadeBIOSFixture struct {
+	now           int64
+	biosArchive   []byte
+	childArchive  []byte
+	biosBlobID    string
+	requirementID string
+}
+
+func seedInstalledArcadeBIOS(
+	ctx context.Context,
+	t *testing.T,
+	database *sql.DB,
+	blobs *blobstore.Store,
+	installationStatus string,
+) installedArcadeBIOSFixture {
+	target, err := testsupport.LookupRuntimeTarget(ctx, database, "fbneo")
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now().UnixMilli()
+	dummy, err := blobs.Put(bytes.NewReader([]byte("synthetic DAT")))
+	testassert.False(t, err != nil, err)
+	if _, err := database.ExecContext(ctx, `
+UPDATE dat_versions SET is_active=0,version=version+1,updated_at_ms=?
+WHERE provider_id=? AND target_id=? AND is_active=1
+`, now, target.ProviderID, target.TargetID); err != nil {
+		t.Fatal(err)
+	}
+	const datID = "01990000-0000-7000-8000-000000000201"
+	if _, err := database.ExecContext(ctx, `
+INSERT INTO dat_versions(id,core_id,provider_id,target_id,builtin_relative_path,sha256,parser_version,
+parse_status,is_active,machine_count,rom_entry_count,disk_entry_count,
+bios_set_count,default_bios_set_count,explicit_bios_machine_count,base_dependency_target_count,
+unresolved_relation_count,version,created_at_ms,updated_at_ms,parsed_at_ms,activated_at_ms)
+VALUES(?,'fbneo',?,?,'testdata/installed-bios.dat',?,'test','READY',1,2,2,0,0,0,1,1,0,1,?,?,?,?)
+`, datID, target.ProviderID, target.TargetID, dummy.SHA256, now, now, now, now); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := database.ExecContext(ctx, `
+INSERT INTO dat_machines(dat_version_id,machine_name,description,year,manufacturer,cloneof,romof,
+is_explicit_bios,classification) VALUES
+(?,'codexchild','Child','','',NULL,'codexbios',0,'NORMAL'),
+(?,'codexbios','BIOS','','',NULL,NULL,1,'EXPLICIT_BIOS')
+`, datID, datID); err != nil {
+		t.Fatal(err)
+	}
+	childArchive := makeZIP(t, map[string][]byte{"c.bin": []byte("child")})
+	biosArchive := makeZIP(t, map[string][]byte{"b.bin": []byte("bios")})
+	type archiveRecord struct {
+		machine string
+		entry   string
+		body    []byte
+		bytes   []byte
+	}
+	for _, fixture := range []archiveRecord{
+		{machine: "codexchild", entry: "c.bin", body: []byte("child"), bytes: childArchive},
+		{machine: "codexbios", entry: "b.bin", body: []byte("bios"), bytes: biosArchive},
+	} {
+		metadata, putErr := blobs.Put(bytes.NewReader(fixture.bytes))
+		testassert.False(t, putErr != nil, putErr)
+		entries, scanErr := importing.ScanZIP(ctx, blobs.Path(metadata.SHA256), importing.DefaultArchiveLimits())
+		testassert.Falsef(t, testassert.Any(func() bool { return scanErr != nil }, func() bool { return len(entries) != 1 }), "scan %s = %#v, error=%v", fixture.machine, entries, scanErr)
+		if _, err := database.ExecContext(ctx, `
+INSERT INTO dat_rom_entries(dat_version_id,machine_name,ordinal,name,size_bytes,crc32,sha1,status)
+VALUES(?,?,0,?,?,?,?,'GOOD')
+`, datID, fixture.machine, fixture.entry, len(fixture.body), entries[0].CRC32, entries[0].SHA1); err != nil {
+			t.Fatal(err)
+		}
+	}
+	biosMetadata, err := blobs.Put(bytes.NewReader(biosArchive))
+	testassert.False(t, err != nil, err)
+	biosBlobID, err := blobcatalog.EnsureRecord(ctx, database, biosMetadata, "application/zip", now)
+	testassert.False(t, err != nil, err)
+	const requirementID = "01990000-0000-7000-8000-000000000202"
+	if _, err := database.ExecContext(ctx, `
+INSERT INTO bios_requirements(id,core_id,provider_id,target_id,source_kind,dat_machine_name,logical_name,
+requirement_mode,condition_code,activation_options_json,catalog_digest,size_bytes,md5,sha1,sha256,
+source_url,source_version,enabled,version,created_at_ms,updated_at_ms,delivery_kind,emulator_path)
+VALUES(?,'fbneo',?,?,'DAT_MACHINE','codexbios','codexbios.zip','REQUIRED',
+'ARCADE_DAT_DEPENDENCY','{}',?,NULL,NULL,NULL,NULL,'test://bios',?,1,1,?,?,'BIOS_BUNDLE',NULL)
+`, requirementID, target.ProviderID, target.TargetID,
+		strings.Repeat("a", 64), datID, now, now); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := database.ExecContext(ctx, `
+INSERT INTO bios_installations(id,requirement_id,blob_id,original_filename,size_bytes,md5,sha1,sha256,
+validated_requirement_version,status,validation_details_json,is_active,version,created_at_ms,updated_at_ms)
+VALUES('01990000-0000-7000-8000-000000000203',?,?,?, ?,?,?,?,1,?,'{}',1,1,?,?)
+`, requirementID, biosBlobID, "codexbios.zip", biosMetadata.Size, biosMetadata.MD5, biosMetadata.SHA1,
+		biosMetadata.SHA256, installationStatus, now, now); err != nil {
+		t.Fatal(err)
+	}
+	return installedArcadeBIOSFixture{
+		now:           now,
+		biosArchive:   biosArchive,
+		childArchive:  childArchive,
+		biosBlobID:    biosBlobID,
+		requirementID: requirementID,
+	}
 }
 
 func installedBIOSDependencyState(status string) string {

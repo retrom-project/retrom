@@ -92,7 +92,35 @@ VALUES(?,'wasm4-profile','wasm4-admin','WASM-4 Admin','ADMIN','ENABLED',0,0);
 			t.Fatal(err)
 		}
 	}
-	uploadService := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
+	uploadID, jobID, digest := uploadSingleBlobReviewItem(ctx, t, database.SQL, blobs, dataDir, input, cart)
+	waitForWASM4Job(t, database.SQL, jobID)
+
+	importService := libraryimport.New(database.SQL, time.Now)
+	platformInstanceID := createSingleBlobDirectory(t, database.SQL, input, actorID)
+	itemID := importSingleBlobReviewItem(ctx, t, database.SQL, importService, uploadID, platformInstanceID)
+	credentials, err := retromruntime.LoadOrCreateCredentials(dataDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	runtimeBuilder, err := testsupport.NewRuntimeBuilder(ctx, database.SQL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	service := New(database.SQL, dependencySet, credentials, time.Now).WithBlobStore(blobs).
+		WithRuntimeProvider(dependencySet.RuntimeCatalog, runtimeBuilder)
+	verifySingleBlobReviewRuntime(ctx, t, service, importService, input, cart, digest, itemID, actorID)
+}
+
+func uploadSingleBlobReviewItem(
+	ctx context.Context,
+	t *testing.T,
+	database *sql.DB,
+	blobs *blobstore.Store,
+	dataDir string,
+	input singleBlobCase,
+	cart []byte,
+) (string, string, [32]byte) {
+	uploadService := uploads.New(uploadpersistence.New(database), blobs, dataDir, time.Now)
 	upload, err := uploadService.Create(ctx, uploadsmodel.CreateRequest{
 		SourceType: "FILES", Files: []uploadsmodel.FileDeclaration{{
 			ClientFileID: "pong", RelativePath: input.filename, SizeBytes: int64(len(cart)),
@@ -117,34 +145,59 @@ VALUES(?,'wasm4-profile','wasm4-admin','WASM-4 Admin','ADMIN','ENABLED',0,0);
 	if err != nil {
 		t.Fatal(err)
 	}
-	waitForWASM4Job(t, database.SQL, jobID)
+	return upload.ID, jobID, digest
+}
 
-	importService := libraryimport.New(database.SQL, time.Now)
+func importSingleBlobReviewItem(
+	ctx context.Context,
+	t *testing.T,
+	database *sql.DB,
+	importService *libraryimport.Service,
+	uploadID string,
+	platformInstanceID string,
+) string {
 	createdImport, err := importService.Create(ctx, libraryimport.CreateRequest{
-		UploadID:                 upload.ID,
-		TargetPlatformInstanceID: createSingleBlobDirectory(t, database.SQL, input, actorID),
+		UploadID:                 uploadID,
+		TargetPlatformInstanceID: platformInstanceID,
 		MetadataProvider:         "NONE",
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	var itemID string
-	if err := database.SQL.QueryRowContext(
+	if err := database.QueryRowContext(
 		ctx, `SELECT id FROM import_items WHERE import_job_id=?`, createdImport.ImportJobID,
 	).Scan(&itemID); err != nil {
 		t.Fatal(err)
 	}
+	return itemID
+}
 
-	credentials, err := retromruntime.LoadOrCreateCredentials(dataDir)
-	if err != nil {
-		t.Fatal(err)
-	}
-	runtimeBuilder, err := testsupport.NewRuntimeBuilder(ctx, database.SQL)
-	if err != nil {
-		t.Fatal(err)
-	}
-	service := New(database.SQL, dependencySet, credentials, time.Now).WithBlobStore(blobs).
-		WithRuntimeProvider(dependencySet.RuntimeCatalog, runtimeBuilder)
+func verifySingleBlobReviewRuntime(
+	ctx context.Context,
+	t *testing.T,
+	service *Service,
+	importService *libraryimport.Service,
+	input singleBlobCase,
+	cart []byte,
+	digest [32]byte,
+	itemID string,
+	actorID string,
+) {
+	verifySingleBlobReviewPreview(ctx, t, service, input, cart, digest, itemID, actorID)
+	verifySingleBlobReviewProduct(ctx, t, service, importService, input, cart, digest, itemID)
+}
+
+func verifySingleBlobReviewPreview(
+	ctx context.Context,
+	t *testing.T,
+	service *Service,
+	input singleBlobCase,
+	cart []byte,
+	digest [32]byte,
+	itemID string,
+	actorID string,
+) {
 	preview, err := service.CreateReviewPreview(ctx, ReviewPreviewRequest{
 		ImportItemID: itemID, ActorUserID: actorID, IdempotencyKey: "wasm4-preview-1",
 		ClientCapabilities: Capabilities{SecureContext: true, CrossOriginIsolated: true, SharedArrayBuffer: true},
@@ -182,6 +235,18 @@ VALUES(?,'wasm4-profile','wasm4-admin','WASM-4 Admin','ADMIN','ENABLED',0,0);
 	); err != nil {
 		t.Fatal(err)
 	}
+}
+
+func verifySingleBlobReviewProduct(
+	ctx context.Context,
+	t *testing.T,
+	service *Service,
+	importService *libraryimport.Service,
+	input singleBlobCase,
+	cart []byte,
+	digest [32]byte,
+	itemID string,
+) {
 	approved, err := importService.Approve(ctx, itemID, 1)
 	if err != nil {
 		t.Fatal(err)
