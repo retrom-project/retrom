@@ -51,6 +51,8 @@ def validate_provider_lock(value: Any) -> dict[str, Any]:
         _lock_invalid()
     if not _match(SEMVER, value["providerVersion"]) or not _match(RELEASE_TAG, value["tag"]):
         _lock_invalid()
+    if value["providerVersion"] != value["tag"][1:]:
+        _lock_invalid()
     if not _match(LOWER_COMMIT, value["commit"]) or not _match(LOWER_DIGEST, value["bundleSha256"]):
         _lock_invalid()
     if not _match(LOWER_DIGEST, value["manifestSha256"]):

@@ -1644,6 +1644,9 @@ ID。没有实体设备时自动化 Case 可以 PASS，但沉浸模式发布验�
 
 ### ACC-PROVIDER-006：Candidate、镜像与发布边界
 
+- runtime `v0.46.0` 起，正式 release tag 是两个 Provider 版本的唯一来源；lock、manifest、客户端导出与归档名称必须使用 tag 去掉 `v` 的同一版本。安装回归须拒绝独立 Provider 版本、混合版本及与 tag 不匹配的 active descriptor；候选 `0.0.0-dev` 不得冒充正式发布，PFB 模块必须沿用基座版本。
+- 从旧 EmulatorJS `2.x` 开发数据切换到统一版本时，先验证新正式基座，停机后通过 exact-ID `pfb-data-reset SOURCE_ROOT=...` 归档数据库、上传和 active/dev 状态，再启动同一 PFB。证据记录归档路径、稳定 ID/URL、新版本及两类受影响游戏的产品 Case；保留 ACC-PROVIDER-005 的降级/同版换 bytes 拒绝断言，不提供旧数据迁移。
+
 - 上限：900 秒。证明 PFB loose/production 隔离、release input digest 和镜像 active identity 使用同一生产Provider输入，且正式流程不读取`.pfb/`。
 
 ### ACC-PROVIDER-007：EmulatorJS 行为闭包

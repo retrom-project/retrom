@@ -42,6 +42,12 @@ Provider manifest 的 `providerApiVersion` 在结构层只要求正整数，使�
 
 `retrom-runtime` Bundle 从独立仓库生成，Target 集合以 Provider declaration 为准，生产可用集合以正式 lock 为准。`provider-sources.json` 只记录上游或本地 core 构建来源，不声明 Retrom 路由或产品 binding；Target registry 只存在于 Provider declaration。正式 package 校验声明的上游输入及其锁定 source/tag/asset，源码构建或缓存复用都必须得到声明的字节。
 
+### 统一发布版本
+
+从 runtime `v0.46.0` 开始，GitHub 的不可移动 tag 是发布版本的唯一事实源。`retrom-runtime` 与 `emulatorjs` 两个 Provider 的 `providerVersion` 都等于 tag 去掉 `v` 的值；manifest、client 导出、archive 文件名和正式 lock 必须一致。Retrom 的 pin、prepare 与 active 校验拒绝版本与 tag 不匹配的正式包。源码中的 npm package、上游来源清单和 Provider catalog 不再独立维护发布版本。未打 tag 的 runtime 构建使用 `0.0.0-dev`；PFB loose module 只沿用已校验基座的版本。
+
+这一规则不兼容原来的 EmulatorJS `2.x` 开发数据。未上线环境必须停止对应实例，归档旧数据库/上传及 Provider active/dev 状态，并用新的正式基座重建；PFB 使用 `pfb-data-reset SOURCE_ROOT=<已验证新基座> CONFIRM=<当前精确ID>`，保持原 PFB ID、URL、immutable installation 与构建缓存，命令返回的备份路径必须保留。不能把旧 `2.x` 记录改写成 `0.46.0`，也不能关闭同版本重建和降级检查。生产向前升级规则不变，此次不提供旧数据兼容迁移。
+
 ## 4. Retrom binding catalog
 
 `data/runtime-target-bindings/v1/catalog.json`（以仓库实际路径为准）为每个产品 Core 指定：
