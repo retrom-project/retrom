@@ -245,10 +245,14 @@ func (graph *archiveOriginGraph) checkArchiveGlobal(function *archiveFunction, n
 		return nil
 	}
 	if types.Identical(value.Type(), types.Universe.Lookup("error").Type()) ||
-		graph.diagnosticReporter(value.Type()) || len(InspectValueType(value.Type())) == 0 {
+		graph.diagnosticReporter(value.Type()) ||
+		len(InspectValueType(value.Type())) == 0 && !archiveGlobalExecution(value.Type()) {
 		return nil
 	}
-	return archiveOriginError(function, name, "package-level executable or resource state has no owned origin")
+	if graph.external == nil {
+		graph.external = newArchiveExternalProof(graph)
+	}
+	return graph.external.check(function, name, value)
 }
 
 func archiveContextDataCall(function *types.Func) bool {

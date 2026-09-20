@@ -11969,12 +11969,48 @@
           "kind": "test"
         },
         {
+          "path": "internal/testkit/architecture/archive_resource_external.go",
+          "kind": "production"
+        },
+        {
+          "path": "internal/testkit/architecture/archive_resource_external_calls.go",
+          "kind": "production"
+        },
+        {
+          "path": "internal/testkit/architecture/archive_resource_external_fixture_test.go",
+          "kind": "test"
+        },
+        {
+          "path": "internal/testkit/architecture/archive_resource_external_module.go",
+          "kind": "production"
+        },
+        {
+          "path": "internal/testkit/architecture/archive_resource_external_range_test.go",
+          "kind": "test"
+        },
+        {
+          "path": "internal/testkit/architecture/archive_resource_external_test.go",
+          "kind": "test"
+        },
+        {
+          "path": "internal/testkit/architecture/archive_resource_external_uses.go",
+          "kind": "production"
+        },
+        {
+          "path": "internal/testkit/architecture/archive_resource_external_values.go",
+          "kind": "production"
+        },
+        {
           "path": "internal/testkit/architecture/archive_resource_fixture_test.go",
           "kind": "test"
         },
         {
           "path": "internal/testkit/architecture/archive_resource_graph.go",
           "kind": "tool"
+        },
+        {
+          "path": "internal/testkit/architecture/archive_resource_guard_test.go",
+          "kind": "test"
         },
         {
           "path": "internal/testkit/architecture/archive_resource_injection.go",

@@ -56,6 +56,14 @@ func (analysis *archiveResourceAnalysis) prove(method *types.Func, value types.T
 		proof.Status, proof.Reason = "UNPROVEN", err.Error()
 		return proof
 	}
+	if origins.external != nil {
+		external, err := origins.external.snapshot()
+		if err != nil {
+			proof.Status, proof.Reason = "UNPROVEN", err.Error()
+			return proof
+		}
+		proof.ExternalSources = external
+	}
 	proof.Sources = sources
 	proof.Status = "PROVEN"
 	return proof

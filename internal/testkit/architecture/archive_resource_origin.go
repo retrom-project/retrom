@@ -305,7 +305,7 @@ func (graph *archiveOriginGraph) failedReturn(function *archiveFunction, stateme
 	last := results[len(results)-1]
 	if name, ok := last.(*ast.Ident); ok {
 		object := function.pkg.TypesInfo.ObjectOf(name)
-		return statement.nonNil[object] && len(function.locals[object]) <= 1 && !graph.mutated[object]
+		return graph.guardedFailure(function, statement, object)
 	}
 	call, ok := last.(*ast.CallExpr)
 	if !ok {
@@ -315,6 +315,175 @@ func (graph *archiveOriginGraph) failedReturn(function *archiveFunction, stateme
 	return ok && target.Pkg() != nil &&
 		(target.Pkg().Path() == "errors" && target.Name() == "New" ||
 			target.Pkg().Path() == "fmt" && target.Name() == "Errorf")
+}
+
+type archiveFailurePath struct {
+	info   *types.Info
+	target *ast.ReturnStmt
+	object types.Object
+}
+
+func (graph *archiveOriginGraph) guardedFailure(
+	function *archiveFunction, statement archiveReturn, object types.Object,
+) bool {
+	local, ok := object.(*types.Var)
+	if !ok || local.Pkg() == nil || local.Parent() == local.Pkg().Scope() ||
+		!statement.nonNil[object] || graph.mutated[object] || archiveFailureGoto(function.node.Body) {
+		return false
+	}
+	// The guarded value is local and cannot be changed through an escaped address
+	// or captured writer. Only the structured path to this return establishes it;
+	// assignments in later statements do not execute on that return path.
+	proof := archiveFailurePath{info: function.pkg.TypesInfo, target: statement.node, object: object}
+	return !proof.capturedWrite(function.node.Body) && proof.block(function.node.Body, false, 0)
+}
+
+func (proof archiveFailurePath) block(body *ast.BlockStmt, nonNil bool, depth int) bool {
+	return proof.statements(body.List, nonNil, depth)
+}
+
+func (proof archiveFailurePath) statements(statements []ast.Stmt, nonNil bool, depth int) bool {
+	if depth > archiveOriginDepth {
+		return false
+	}
+	for _, statement := range statements {
+		if proof.contains(statement) {
+			return proof.statement(statement, nonNil, depth+1)
+		}
+		if proof.writes(statement) {
+			nonNil = false
+		}
+	}
+	return false
+}
+
+func (proof archiveFailurePath) statement(statement ast.Stmt, nonNil bool, depth int) bool {
+	if depth > archiveOriginDepth {
+		return false
+	}
+	switch node := statement.(type) {
+	case *ast.ReturnStmt:
+		return node == proof.target && nonNil
+	case *ast.BlockStmt:
+		return proof.block(node, nonNil, depth+1)
+	case *ast.SwitchStmt:
+		return proof.switchCase(node, nonNil, depth+1)
+	case *ast.IfStmt:
+		if proof.writes(node.Init) {
+			nonNil = false
+		}
+		if proof.contains(node.Body) {
+			return proof.block(node.Body, proof.condition(node.Cond, true, nonNil), depth+1)
+		}
+		if node.Else != nil && proof.contains(node.Else) {
+			return proof.statement(node.Else, proof.condition(node.Cond, false, nonNil), depth+1)
+		}
+	}
+	// Loops, type switches and labels require a different control-flow proof. They do
+	// not inherit a syntactic non-nil map from an enclosing guard.
+	return false
+}
+
+func (proof archiveFailurePath) switchCase(node *ast.SwitchStmt, nonNil bool, depth int) bool {
+	if depth > archiveOriginDepth || archiveFailureBranch(node.Body, token.FALLTHROUGH) {
+		return false
+	}
+	if proof.writes(node.Init) || proof.writes(node.Tag) {
+		nonNil = false
+	}
+	for _, item := range node.Body.List {
+		clause, ok := item.(*ast.CaseClause)
+		if !ok {
+			return false
+		}
+		if proof.contains(clause) {
+			return proof.statements(clause.Body, nonNil, depth+1)
+		}
+	}
+	return false
+}
+
+func (proof archiveFailurePath) capturedWrite(body *ast.BlockStmt) bool {
+	written := false
+	ast.Inspect(body, func(node ast.Node) bool {
+		if written {
+			return false
+		}
+		if closure, ok := node.(*ast.FuncLit); ok {
+			written = proof.writes(closure.Body)
+			return false
+		}
+		return true
+	})
+	return written
+}
+
+func (proof archiveFailurePath) contains(node ast.Node) bool {
+	return node != nil && node.Pos() <= proof.target.Pos() && proof.target.End() <= node.End()
+}
+
+func (proof archiveFailurePath) condition(condition ast.Expr, yes, known bool) bool {
+	binary, ok := condition.(*ast.BinaryExpr)
+	if !ok || binary.Op != token.EQL && binary.Op != token.NEQ {
+		return known
+	}
+	name, ok := binary.X.(*ast.Ident)
+	if !ok || proof.info.ObjectOf(name) != proof.object || !archiveNil(proof.info, binary.Y) {
+		return known
+	}
+	return yes == (binary.Op == token.NEQ)
+}
+
+func (proof archiveFailurePath) writes(node ast.Node) bool {
+	if node == nil {
+		return false
+	}
+	written := false
+	ast.Inspect(node, func(candidate ast.Node) bool {
+		if written {
+			return false
+		}
+		switch statement := candidate.(type) {
+		case *ast.AssignStmt:
+			for _, left := range statement.Lhs {
+				written = written || proof.destination(left)
+			}
+		case *ast.RangeStmt:
+			written = proof.destination(statement.Key) || proof.destination(statement.Value)
+		case *ast.ValueSpec:
+			for _, name := range statement.Names {
+				written = written || proof.info.ObjectOf(name) == proof.object
+			}
+		}
+		return !written
+	})
+	return written
+}
+
+func (proof archiveFailurePath) destination(expression ast.Expr) bool {
+	if expression == nil {
+		return false
+	}
+	name, ok := ast.Unparen(expression).(*ast.Ident)
+	return ok && proof.info.ObjectOf(name) == proof.object
+}
+
+func archiveFailureGoto(body *ast.BlockStmt) bool {
+	return archiveFailureBranch(body, token.GOTO)
+}
+
+func archiveFailureBranch(body *ast.BlockStmt, kind token.Token) bool {
+	found := false
+	ast.Inspect(body, func(node ast.Node) bool {
+		if _, closure := node.(*ast.FuncLit); closure {
+			return false
+		}
+		if branch, ok := node.(*ast.BranchStmt); ok && branch.Tok == kind {
+			found = true
+		}
+		return !found
+	})
+	return found
 }
 
 func (graph *archiveOriginGraph) noteOriginUse(frame *archiveFrame, object types.Object, position token.Pos) {

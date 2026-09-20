@@ -60,6 +60,7 @@ type archiveValue struct {
 }
 
 type archiveOriginGraph struct {
+	external       *archiveExternalProof
 	contract       archiveContract
 	functions      map[*types.Func]*archiveFunction
 	callers        map[*types.Func][]archiveCall

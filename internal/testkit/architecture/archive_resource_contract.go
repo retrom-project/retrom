@@ -10,12 +10,13 @@ import (
 
 // ArchiveResourceProof is generated from one compiled build, never a symbol allowlist.
 type ArchiveResourceProof struct {
-	Build    string                   `json:"build"`
-	Resource string                   `json:"resource"`
-	Status   string                   `json:"status"`
-	Reason   string                   `json:"reason,omitempty"`
-	Bindings []ArchiveResourceBinding `json:"bindings"`
-	Sources  []SourceFile             `json:"sources"`
+	Build           string                   `json:"build"`
+	Resource        string                   `json:"resource"`
+	Status          string                   `json:"status"`
+	Reason          string                   `json:"reason,omitempty"`
+	Bindings        []ArchiveResourceBinding `json:"bindings"`
+	Sources         []SourceFile             `json:"sources"`
+	ExternalSources []ArchiveExternalSource  `json:"externalSources,omitempty"`
 }
 
 // ArchiveResourceBinding records the construction, invocation and return origins.
