@@ -42,7 +42,7 @@ try {
     page.on("dialog", async (dialog) => {errors.push("UNEXPECTED_DIALOG"); await dialog.dismiss();});
   });
   const client = await scummvmClient(context, url.origin);
-  completed.deferred = await deferredScummvm(context, client, comiArchive, directory);
+  completed.deferred = await deferredScummvm(context, client, comiArchive, directory, url.origin);
   completed.manual = await manualScummvm(context, client, skyArchive, directory);
   assert.deepEqual(errors, []);
   write({schemaVersion: 1, caseId, status: "PASS", sources, browserVersion: browser.version(),

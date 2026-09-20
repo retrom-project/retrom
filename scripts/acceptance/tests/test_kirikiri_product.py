@@ -47,20 +47,14 @@ class KiriKiriProductAcceptanceTests(unittest.TestCase):
     def test_product_case_records_range_loading_and_cross_launch_cache_evidence(self) -> None:
         contents = DRIVER_PATH.read_text(encoding="utf-8")
         contract = (ROOT / "scripts/acceptance/kirikiri_product_contract.mjs").read_text(encoding="utf-8")
-        self.assertIn('trackRuntimeLoading(originalPage, [], { timeoutMs: 60_000 })', contents)
-        self.assertIn('trackRuntimeLoading(restoredPage, [], { timeoutMs: 60_000 })', contents)
-        self.assertIn('sameProjectContentIdentity:', contents)
-        self.assertIn('value.fullProjectFileResponseCount !== 0', contract)
-        self.assertIn('value.rangeProjectFileResponseCount < 1', contract)
-        self.assertIn('requireCacheHit && value.runtimeAssetCacheHitCount < 1', contract)
-        self.assertIn(
-            "trackRuntimeLoading(originalPage, [], { timeoutMs: 60_000 })",
-            contents,
-        )
-        self.assertIn(
-            "trackRuntimeLoading(restoredPage, [], { timeoutMs: 60_000 })",
-            contents,
-        )
+        loading = (ROOT / "scripts/acceptance/indexed_loading_evidence.mjs").read_text(encoding="utf-8")
+        for declaration, page in (("coldDeclaration", "previewPage"),
+                                  ("originalDeclaration", "originalPage"),
+                                  ("restoreDeclaration", "restoredPage")):
+            self.assertIn(f"{declaration}.track({page})", contents)
+        self.assertIn("loading: indexedLoadingEvidence(coldLoading, originalLoading, restoreLoading,", contents)
+        self.assertIn("sameProjectContentIdentity:", loading)
+        self.assertIn('assertIndexedLoading(value, true, "KIRIKIRI_ACCEPTANCE_EVIDENCE_INVALID")', contract)
         self.assertIn("KIRIKIRI_ACCEPTANCE_LOADING_EVIDENCE_FAILED", contents)
 
     def test_local_acceptance_routes_rpg_subdomains_through_the_loopback_proxy(self) -> None:

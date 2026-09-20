@@ -1,6 +1,7 @@
 package runtimebundle
 
 import (
+	"encoding/json"
 	"errors"
 	"strings"
 	"testing"
@@ -23,6 +24,27 @@ func TestParseActiveDescriptorClosesCandidateIdentity(t *testing.T) {
 	} {
 		if _, err := ParseActiveDescriptor([]byte(mutation)); !errors.Is(err, ErrActiveInvalid) {
 			t.Fatalf("invalid active descriptor accepted: %v", err)
+		}
+	}
+}
+
+func TestProductionProviderVersionsFollowReleaseTag(t *testing.T) {
+	value, err := ParseActiveDescriptor([]byte(validCandidateActive))
+	if err != nil {
+		t.Fatal(err)
+	}
+	value.Source = "production"
+	value.SourceTreeSHA256 = nil
+	value.Release = &ReleaseIdentity{Repository: providerRepository, Tag: "v0.46.0", Commit: strings.Repeat("a", 40)}
+	for _, version := range []string{"0.46.0", "2.21.0", "0.45.0", "0.0.0-dev"} {
+		value.Providers[0].ProviderVersion = version
+		contents, marshalErr := json.Marshal(value)
+		if marshalErr != nil {
+			t.Fatal(marshalErr)
+		}
+		_, parseErr := ParseActiveDescriptor(contents)
+		if version == "0.46.0" && parseErr != nil || version != "0.46.0" && !errors.Is(parseErr, ErrActiveInvalid) {
+			t.Fatalf("version %s: %v", version, parseErr)
 		}
 	}
 }
