@@ -57,7 +57,7 @@ func (graph *archiveOriginGraph) resolveIdentifier(
 		return []archiveValue{{isNil: true}}, nil
 	}
 	object := function.pkg.TypesInfo.ObjectOf(name)
-	graph.noteOriginUse(function, object, name.Pos())
+	graph.noteOriginUse(operand.frame, object, name.Pos())
 	assignments := function.locals[object]
 	if binding, exists := operand.frame.bindings[object]; exists && len(assignments) == 0 && !graph.mutated[object] {
 		return graph.resolve(binding, depth+1)
@@ -193,8 +193,12 @@ func (graph *archiveOriginGraph) bindFrame(
 	if !supported {
 		return nil, archiveOriginError(call.caller, call.node, "unsupported constructor argument binding")
 	}
-	if err := graph.validateArchiveConstructor(call, target, signature); err != nil {
-		return nil, err
+	// Reachability supplies a calling frame, not evidence that this call creates the resource.
+	// Only demanded factory/return origins use the strict constructor path.
+	if !bridge {
+		if err := graph.validateArchiveConstructor(call, target, signature); err != nil {
+			return nil, err
+		}
 	}
 	frame := &archiveFrame{function: target, bindings: make(map[types.Object]archiveOperand)}
 	for index := range boundParameters {
@@ -313,10 +317,17 @@ func (graph *archiveOriginGraph) failedReturn(function *archiveFunction, stateme
 			target.Pkg().Path() == "fmt" && target.Name() == "Errorf")
 }
 
-func (graph *archiveOriginGraph) noteOriginUse(function *archiveFunction, object types.Object, position token.Pos) {
+func (graph *archiveOriginGraph) noteOriginUse(frame *archiveFrame, object types.Object, position token.Pos) {
+	function := frame.function
 	signature, ok := function.object.Type().(*types.Signature)
-	if !ok || signature.Recv() == object {
-		return // A Service receiver's ordinary business uses are not constructor escapes.
+	if !ok {
+		return
+	}
+	binding := frame.bindings[object]
+	if signature.Recv() == object && len(binding.values) != 0 {
+		// Concrete consumer/factory receivers are explicitly bound by the proof.
+		// A demanded ordinary ancestor receiver still needs all uses accounted for.
+		return
 	}
 	use := graph.originUses[object]
 	if use == nil {

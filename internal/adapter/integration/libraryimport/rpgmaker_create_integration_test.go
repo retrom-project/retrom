@@ -79,7 +79,7 @@ func TestCreateRPGMakerMVArchiveReachesReviewPending(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	waitForRPGUploadFinalization(t, ctx, database.SQL, jobID)
+	waitForRPGUploadFinalization(ctx, t, database.SQL, jobID)
 
 	created, err := New(database.SQL, time.Now).WithBlobStore(blobs).Create(ctx, CreateRequest{
 		UploadID: upload.ID, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(
@@ -210,7 +210,10 @@ WHERE draft.import_item_id=?
 	}
 }
 
-func waitForRPGUploadFinalization(t *testing.T, ctx context.Context, database *sql.DB, jobID string) {
+func waitForRPGUploadFinalization(
+	ctx context.Context,
+	t *testing.T, database *sql.DB, jobID string,
+) {
 	t.Helper()
 	for deadline := time.Now().Add(3 * time.Second); ; {
 		var state string

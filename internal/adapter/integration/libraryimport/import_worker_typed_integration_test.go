@@ -4,6 +4,7 @@ package libraryimport
 
 import (
 	"context"
+	"database/sql"
 	"database/sql/driver"
 	"errors"
 	"strings"
@@ -126,18 +127,15 @@ func TestTypedImportWorkerRecoveryPreservesBudgetAndLiveOwner(t *testing.T) {
 	}
 }
 
-func TestTypedImportWorkerFailureAndPayloadShareTransaction(t *testing.T) {
-	service, work := workerAuthorityFixture(t)
-	cause := errors.New("payload scheduling unavailable")
-	writes, release := int64(0), 0
-	source := service.database
-	service.database = testsupport.OpenSQLFaultDatabase(
+func newTypedImportFailureFault(t *testing.T, source *sql.DB, cause error, writes *int64, release *int) *sql.DB {
+	t.Helper()
+	return testsupport.OpenSQLFaultDatabase(
 		t,
 		source,
 		testsupport.SQLFaultHooks{
 			BeforeExec: func(_ context.Context, query string, _ []driver.NamedValue) error {
 				if strings.HasPrefix(strings.TrimSpace(query), "INSERT INTO jobs(") && strings.Contains(query, "'PAYLOAD_RELEASE'") {
-					release++
+					(*release)++
 					return cause
 				}
 				return nil
@@ -149,12 +147,20 @@ func TestTypedImportWorkerFailureAndPayloadShareTransaction(t *testing.T) {
 					if err != nil {
 						return nil, err
 					}
-					writes += count
+					*writes += count
 				}
 				return result, nil
 			},
 		},
 	)
+}
+
+func TestTypedImportWorkerFailureAndPayloadShareTransaction(t *testing.T) {
+	service, work := workerAuthorityFixture(t)
+	cause := errors.New("payload scheduling unavailable")
+	writes, release := int64(0), 0
+	source := service.database
+	service.database = newTypedImportFailureFault(t, source, cause, &writes, &release)
 	err := typedImportExecutions(service).Fail(t.Context(), *work.creationIntent(), ErrInvalid)
 	if !errors.Is(err, cause) || writes != 1 || release != 1 {
 		t.Fatalf("atomic failure: writes=%d release=%d err=%v", writes, release, err)

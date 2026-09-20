@@ -124,7 +124,7 @@ func uploadKiriKiriProject(ctx context.Context, t *testing.T, database *sql.DB, 
 	if err != nil {
 		t.Fatal(err)
 	}
-	waitForRPGUploadFinalization(t, ctx, database, jobID)
+	waitForRPGUploadFinalization(ctx, t, database, jobID)
 	return upload.ID
 }
 

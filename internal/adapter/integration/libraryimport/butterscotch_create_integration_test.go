@@ -123,7 +123,7 @@ func uploadButterscotchProject(ctx context.Context, t *testing.T, database *sql.
 	if err != nil {
 		t.Fatal(err)
 	}
-	waitForRPGUploadFinalization(t, ctx, database, jobID)
+	waitForRPGUploadFinalization(ctx, t, database, jobID)
 	return upload.ID
 }
 

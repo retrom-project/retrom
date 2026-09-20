@@ -89,6 +89,49 @@ VALUES(?,'ons-preview-profile','ons-preview-admin','ONS Admin','ADMIN','ENABLED'
 	if err != nil {
 		t.Fatalf("CreateReviewPreview(ONS) = %#v, %v", preview, err)
 	}
+	projectRoot := assertONSReviewPreviewEnvelope(ctx, t, service, preview)
+	assertONSReviewPreviewProject(ctx, t, service, preview, projectRoot)
+	pngBody, err := base64.StdEncoding.DecodeString(
+		"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	storedScreenshot, err := service.StoreReviewScreenshot(
+		ctx, preview.PreviewID, preview.Capability, bytes.NewReader(pngBody),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	seedOlderReviewScreenshot(t, database.SQL, storedScreenshot)
+	assertRepeatedPreviewKeepsScreenshot(t, database.SQL, service, importService, actorID, storedScreenshot, pngBody)
+	approved, err := importService.Approve(ctx, itemID, 1)
+	if err != nil {
+		t.Fatalf("Approve(ONS) error = %v", err)
+	}
+	gameID := approved.GameID
+	var contentKind, compatibilityCode string
+	if err := database.SQL.QueryRowContext(ctx, `
+SELECT game.content_kind,variant.compatibility_code
+FROM games game
+JOIN game_variants variant ON variant.game_id=game.id
+WHERE game.id=?
+`, gameID).Scan(&contentKind, &compatibilityCode); err != nil ||
+		contentKind != onsProjectFormat || compatibilityCode != reviewScreenshotOverrideCode {
+		t.Fatalf("published ONS = %s/%s, %v", contentKind, compatibilityCode, err)
+	}
+	assertONSProductRoundTrip(
+		ctx, t, service, database.SQL, blobs, gameID, pngBody,
+	)
+}
+
+func assertONSReviewPreviewEnvelope(
+	ctx context.Context,
+	t *testing.T,
+	service *Service,
+	preview ReviewPreviewCreated,
+) string {
+	t.Helper()
 	configuration, err := service.ReviewPreviewConfig(ctx, preview.PreviewID, preview.Capability)
 	if err != nil {
 		t.Fatalf("ReviewPreviewConfig(ONS) = %#v, %v", configuration, err)
@@ -112,6 +155,17 @@ VALUES(?,'ons-preview-profile','ons-preview-admin','ONS Admin','ADMIN','ENABLED'
 		bytes.Contains(encoded, []byte(`"emulatorjsVersion"`)) {
 		t.Fatalf("ONS review config JSON = %s, %v", encoded, err)
 	}
+	return projectRoot
+}
+
+func assertONSReviewPreviewProject(
+	ctx context.Context,
+	t *testing.T,
+	service *Service,
+	preview ReviewPreviewCreated,
+	projectRoot string,
+) {
+	t.Helper()
 	index, err := service.ReviewPreviewProjectIndex(ctx, preview.PreviewID, preview.Capability)
 	if err != nil {
 		t.Fatal(err)
@@ -138,37 +192,6 @@ VALUES(?,'ons-preview-profile','ons-preview-admin','ONS Admin','ADMIN','ENABLED'
 			t.Fatalf("ONS project file %q = %#v, %v", file.Path, content, contentErr)
 		}
 	}
-	pngBody, err := base64.StdEncoding.DecodeString(
-		"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	storedScreenshot, err := service.StoreReviewScreenshot(
-		ctx, preview.PreviewID, preview.Capability, bytes.NewReader(pngBody),
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	seedOlderReviewScreenshot(t, database.SQL, storedScreenshot)
-	assertRepeatedPreviewKeepsScreenshot(t, database.SQL, service, importService, actorID, storedScreenshot, pngBody)
-	approved, err := importService.Approve(ctx, itemID, 1)
-	if err != nil {
-		t.Fatalf("Approve(ONS) error = %v", err)
-	}
-	var contentKind, compatibilityCode string
-	if err := database.SQL.QueryRowContext(ctx, `
-SELECT game.content_kind,variant.compatibility_code
-FROM games game
-JOIN game_variants variant ON variant.game_id=game.id
-WHERE game.id=?
-`, approved.GameID).Scan(&contentKind, &compatibilityCode); err != nil ||
-		contentKind != onsProjectFormat || compatibilityCode != reviewScreenshotOverrideCode {
-		t.Fatalf("published ONS = %s/%s, %v", contentKind, compatibilityCode, err)
-	}
-	assertONSProductRoundTrip(
-		ctx, t, service, database.SQL, blobs, approved.GameID, pngBody,
-	)
 }
 
 func assertONSProductRoundTrip(
@@ -180,6 +203,29 @@ func assertONSProductRoundTrip(
 	gameID string,
 	screenshot []byte,
 ) {
+	t.Helper()
+	launchID, capability, productGame := createONSProductLaunch(ctx, t, service, gameID)
+	saveService := retromsaves.New(savepersistence.New(database), blobs, time.Now)
+	checkpoint := []byte("RETROM ONS CHECKPOINT V1")
+	result, replayed, err := saveService.CreateManual(
+		ctx, launchID, capability, "ons-product-save-1",
+		onsManualRequest(ctx, t, checkpoint, screenshot),
+	)
+	if err != nil || replayed || result.ResourceKind != "SAVE_STATE" || result.SaveStateID == "" ||
+		result.CheckpointFormat != "test-checkpoint-v1" {
+		t.Fatalf("CreateManual(ONS) = %#v, replayed=%v, err=%v", result, replayed, err)
+	}
+	providerID, targetID := assertONSOriginalSaveBinding(ctx, t, database, launchID, result.SaveStateID)
+	assertONSProductRestore(ctx, t, service, saveService.StateDigest, gameID, launchID, result.SaveStateID, checkpoint, productGame)
+	assertONSIncompatibleUpgrade(ctx, t, service, database, gameID, result.SaveStateID, providerID, targetID)
+}
+
+func createONSProductLaunch(
+	ctx context.Context,
+	t *testing.T,
+	service *Service,
+	gameID string,
+) (string, string, map[string]any) {
 	t.Helper()
 	created, err := service.Create(ctx, "ons-preview-profile", CreateRequest{
 		GameID: gameID, ReturnTo: "/games/" + gameID,
@@ -208,31 +254,44 @@ func assertONSProductRoundTrip(
 	if err != nil || content.Format != onsProjectFormat {
 		t.Fatalf("Content(ONS product) = %#v, %v", content, err)
 	}
-	saveService := retromsaves.New(savepersistence.New(database), blobs, time.Now)
-	checkpoint := []byte("RETROM ONS CHECKPOINT V1")
-	result, replayed, err := saveService.CreateManual(
-		ctx, created.LaunchID, created.Capability, "ons-product-save-1",
-		onsManualRequest(ctx, t, checkpoint, screenshot),
-	)
-	if err != nil || replayed || result.ResourceKind != "SAVE_STATE" || result.SaveStateID == "" ||
-		result.CheckpointFormat != "test-checkpoint-v1" {
-		t.Fatalf("CreateManual(ONS) = %#v, replayed=%v, err=%v", result, replayed, err)
-	}
+	return created.LaunchID, created.Capability, productGame
+}
+
+func assertONSOriginalSaveBinding(
+	ctx context.Context,
+	t *testing.T,
+	database *sql.DB,
+	launchID, saveStateID string,
+) (string, string) {
+	t.Helper()
 	var providerID, targetID, checkpointFormat string
 	if err := database.QueryRowContext(ctx, `
 SELECT launch.provider_id,launch.target_id,save.checkpoint_format
 FROM launch_sessions launch
 JOIN save_states save ON save.source_launch_session_id=launch.id
 WHERE launch.id=? AND save.id=?
-`, created.LaunchID, result.SaveStateID).Scan(&providerID, &targetID, &checkpointFormat); err != nil ||
+`, launchID, saveStateID).Scan(&providerID, &targetID, &checkpointFormat); err != nil ||
 		providerID != "retrom-runtime" || targetID != "onscripter-yuri" || checkpointFormat != "test-checkpoint-v1" {
 		t.Fatalf("original ONS save binding = %s/%s/%s, error=%v", providerID, targetID, checkpointFormat, err)
 	}
+	return providerID, targetID
+}
+
+func assertONSProductRestore(
+	ctx context.Context,
+	t *testing.T,
+	service *Service,
+	stateDigest func(context.Context, string, string) (string, error),
+	gameID, originalLaunchID, saveStateID string,
+	checkpoint []byte,
+	productGame map[string]any,
+) {
+	t.Helper()
 	restored, err := service.Create(ctx, "ons-preview-profile", CreateRequest{
-		GameID: gameID, SaveStateID: &result.SaveStateID, ReturnTo: "/games/" + gameID,
+		GameID: gameID, SaveStateID: &saveStateID, ReturnTo: "/games/" + gameID,
 		ClientCapabilities: Capabilities{SecureContext: true},
 	})
-	if err != nil || restored.LaunchID == created.LaunchID {
+	if err != nil || restored.LaunchID == originalLaunchID {
 		t.Fatalf("Create(ONS restore) = %#v, %v", restored, err)
 	}
 	restoreConfig, err := service.Config(ctx, restored.LaunchID, restored.Capability)
@@ -247,18 +306,28 @@ WHERE launch.id=? AND save.id=?
 		restoreGame["indexUrl"] != productGame["indexUrl"] {
 		t.Fatalf("ONS restore envelope = %#v", restoreEnvelope)
 	}
-	digest, err := saveService.StateDigest(ctx, restored.LaunchID, restored.Capability)
+	digest, err := stateDigest(ctx, restored.LaunchID, restored.Capability)
 	expected := sha256.Sum256(checkpoint)
 	if err != nil || digest != fmt.Sprintf("%x", expected) {
 		t.Fatalf("StateDigest(ONS restore) = %s, %v", digest, err)
 	}
+}
+
+func assertONSIncompatibleUpgrade(
+	ctx context.Context,
+	t *testing.T,
+	service *Service,
+	database *sql.DB,
+	gameID, saveStateID, providerID, targetID string,
+) {
+	t.Helper()
 	if _, err := database.ExecContext(ctx, `
 UPDATE runtime_targets SET checkpoint_json='{"writeFormat":"replacement-v2","readFormats":["replacement-v2"],"maxBytes":268435456}'
 WHERE provider_id=? AND target_id=?
 `, providerID, targetID); err != nil {
 		t.Fatal(err)
 	}
-	_, err = service.Create(ctx, "ons-preview-profile", CreateRequest{
+	_, err := service.Create(ctx, "ons-preview-profile", CreateRequest{
 		GameID: gameID, ReturnTo: "/games/" + gameID,
 		ClientCapabilities: Capabilities{SecureContext: true},
 	})
@@ -270,7 +339,7 @@ WHERE provider_id=? AND target_id=?
 		t.Fatal(err)
 	}
 	if _, err := service.Create(ctx, "ons-preview-profile", CreateRequest{
-		GameID: gameID, SaveStateID: &result.SaveStateID, ReturnTo: "/games/" + gameID,
+		GameID: gameID, SaveStateID: &saveStateID, ReturnTo: "/games/" + gameID,
 		ClientCapabilities: Capabilities{SecureContext: true},
 	}); !errors.Is(err, ErrSaveIncompatible) {
 		t.Fatalf("Create(ONS incompatible restore) error = %v, want %v", err, ErrSaveIncompatible)
@@ -282,7 +351,7 @@ WHERE provider_id=? AND target_id=?
 	}
 	if err := database.QueryRowContext(ctx, `
 SELECT status FROM (`+storequery.SaveRuntimeCompatibility+`) WHERE save_state_id=?
-`, result.SaveStateID).Scan(&compatibilityStatus); err != nil || launchCountAfter != launchCount ||
+`, saveStateID).Scan(&compatibilityStatus); err != nil || launchCountAfter != launchCount ||
 		compatibilityStatus != "INCOMPATIBLE_RUNTIME" {
 		t.Fatalf("incompatible ONS save = launches:%d/%d status:%s error=%v",
 			launchCount, launchCountAfter, compatibilityStatus, err)
@@ -359,7 +428,7 @@ func createONSReviewItem(
 	if err != nil {
 		t.Fatal(err)
 	}
-	waitForONSReviewJob(t, ctx, database, jobID)
+	waitForONSReviewJob(ctx, t, database, jobID)
 	importService := libraryimport.New(database, time.Now).WithBlobStore(blobs)
 	platformInstanceID, err := testsupport.PlatformInstanceID(ctx, database, "ons/onscripter_yuri")
 	if err != nil {
@@ -381,7 +450,10 @@ func createONSReviewItem(
 	return itemID, importService
 }
 
-func waitForONSReviewJob(t *testing.T, ctx context.Context, database *sql.DB, jobID string) {
+func waitForONSReviewJob(
+	ctx context.Context,
+	t *testing.T, database *sql.DB, jobID string,
+) {
 	t.Helper()
 	for deadline := time.Now().Add(3 * time.Second); ; {
 		var state string

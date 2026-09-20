@@ -28,7 +28,7 @@ type preparedRPGFile struct {
 
 func preparedRPGFixture(t *testing.T) (*Service, CreateRequest, string) {
 	t.Helper()
-	database, blobs, dataDir := openImportGroupFixture(t, t.Context())
+	database, blobs, dataDir := openImportGroupFixture(t.Context(), t)
 	files := preparedPublicRPGFiles(t, "rpgxp")
 	uploadService := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
 	declarations := make([]uploadsmodel.FileDeclaration, 0, len(files))
@@ -52,7 +52,7 @@ func preparedRPGFixture(t *testing.T) (*Service, CreateRequest, string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	waitForRPGUploadFinalization(t, t.Context(), database.SQL, jobID)
+	waitForRPGUploadFinalization(t.Context(), t, database.SQL, jobID)
 	service := New(database.SQL, time.Now).WithBlobStore(blobs)
 	request := CreateRequest{
 		UploadID:                 upload.ID,

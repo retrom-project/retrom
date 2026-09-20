@@ -3,6 +3,7 @@
 package launch
 
 import (
+	"context"
 	"path/filepath"
 	"testing"
 	"time"
@@ -55,6 +56,17 @@ SELECT (SELECT count(*) FROM games),(SELECT count(*) FROM review_preview_session
 	if testsupport.RuntimeEnvelopeObject(t, envelope, "session")["purpose"] != "REVIEW_PREVIEW" {
 		t.Fatal("RPG trial retained a dedicated runtime-validation purpose")
 	}
+	exerciseRPGReviewPreviewLifecycle(ctx, t, launcher, created, now)
+}
+
+func exerciseRPGReviewPreviewLifecycle(
+	ctx context.Context,
+	t *testing.T,
+	launcher *Service,
+	created ReviewPreviewCreated,
+	now func() time.Time,
+) {
+	t.Helper()
 	for _, logicalName := range []string{"RPG_RT.ldb", "Map0001.lmu", rpgEasyIndexName} {
 		content, err := launcher.ReviewPreviewProjectContent(ctx, created.PreviewID, created.Capability, logicalName)
 		if err != nil || content.Format != rpgProjectFormat {

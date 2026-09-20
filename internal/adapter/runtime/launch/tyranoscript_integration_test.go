@@ -268,7 +268,7 @@ func createTyranoScriptReviewItem(
 	if err != nil {
 		t.Fatal(err)
 	}
-	waitForONSReviewJob(t, ctx, database, jobID)
+	waitForONSReviewJob(ctx, t, database, jobID)
 	importService := libraryimport.New(database, now).WithBlobStore(blobs)
 	platformInstanceID, err := testsupport.PlatformInstanceID(ctx, database, "tyranoscript/tyranoscript")
 	if err != nil {

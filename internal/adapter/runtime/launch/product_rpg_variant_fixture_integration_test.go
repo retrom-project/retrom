@@ -128,7 +128,7 @@ func uploadProductRPGFixture(t *testing.T, database *sql.DB, blobs *blobstore.St
 	if err != nil {
 		t.Fatal(err)
 	}
-	waitForONSReviewJob(t, ctx, database, jobID)
+	waitForONSReviewJob(ctx, t, database, jobID)
 	return upload.ID
 }
 

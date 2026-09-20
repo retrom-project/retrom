@@ -150,18 +150,7 @@ func testArcadeParentAttachmentsAdvanceImmutableSnapshotsUntilReadyAndPublish(t 
 	if pegasus {
 		linkReviewToPegasusOrigin(t, database.SQL, created.ImportJobID, itemID, snapshotID)
 	}
-	view, found, err := importer.ReviewArcadeDependencies(ctx, itemID)
-	testassert.False(t, err != nil, err)
-	testassert.True(t, found, "arcade dependencies were not projected")
-	viewMap, ok := view.(map[string]any)
-	if !ok {
-		t.Fatalf("initial dependency view type = %T", view)
-	}
-	nodes, ok := viewMap["nodes"].([]map[string]any)
-	if !ok {
-		t.Fatalf("initial dependency nodes type = %T", viewMap["nodes"])
-	}
-	testassert.Falsef(t, testassert.Any(func() bool { return viewMap["machine"] != "a" }, func() bool { return len(nodes) != 2 }), "initial dependency view = %#v", view)
+	assertInitialArcadeDependencyView(ctx, t, importer, itemID)
 	parent := uploadCompleteFile(ctx, t, database.SQL, uploadService, "anything.zip", parentZIP)
 	acceptedB, err := importer.CreateArcadeParentAttachment(ctx, itemID, version, ParentAttachmentRequest{
 		ValidationID: validationID, BaseSourceSnapshotID: snapshotID, DependencyMachine: "b",
@@ -171,18 +160,7 @@ func testArcadeParentAttachmentsAdvanceImmutableSnapshotsUntilReadyAndPublish(t 
 	waitParentJob(ctx, t, database.SQL, acceptedB.JobID, "SUCCEEDED")
 	itemID, version, snapshotID, validationID = reviewAttachmentInputs(t, database.SQL, created.ImportJobID)
 	testassert.Falsef(t, version != 3, "draft version after b = %d", version)
-	var snapshotCount int
-	var validationStatus, validationCode, snapshotSource string
-	if err := database.SQL.QueryRowContext(ctx, `
-SELECT snapshot.created_by,validation.status,validation.compatibility_code,
-(SELECT count(*) FROM import_item_source_snapshots WHERE import_item_id=snapshot.import_item_id)
-FROM import_item_source_snapshots snapshot
-JOIN import_item_core_validations validation ON validation.source_snapshot_id=snapshot.id
-WHERE snapshot.id=? ORDER BY validation.created_at_ms DESC LIMIT 1
-`, snapshotID).Scan(&snapshotSource, &validationStatus, &validationCode, &snapshotCount); err != nil {
-		t.Fatal(err)
-	}
-	testassert.Falsef(t, testassert.Any(func() bool { return snapshotSource != "ARCADE_PARENT_ATTACHMENT" }, func() bool { return snapshotCount != 2 }, func() bool { return validationStatus != "BLOCKED" }, func() bool { return validationCode != "LAUNCH_PARENT_MISSING" }), "after b = source:%s count:%d validation:%s/%s", snapshotSource, snapshotCount, validationStatus, validationCode)
+	assertAcceptedArcadeParentSnapshot(ctx, t, database.SQL, snapshotID)
 	wrong := uploadCompleteFile(ctx, t, database.SQL, uploadService, "c.zip", wrongZIP)
 	rejectedC, err := importer.CreateArcadeParentAttachment(ctx, itemID, version, ParentAttachmentRequest{
 		ValidationID: validationID, BaseSourceSnapshotID: snapshotID, DependencyMachine: "c",
@@ -190,16 +168,7 @@ WHERE snapshot.id=? ORDER BY validation.created_at_ms DESC LIMIT 1
 	})
 	testassert.False(t, err != nil, err)
 	waitParentJob(ctx, t, database.SQL, rejectedC.JobID, "FAILED")
-	var attachmentState, attachmentCode, currentSnapshotID string
-	if err := database.SQL.QueryRowContext(ctx, `
-SELECT attachment.state,attachment.error_code,draft.effective_source_snapshot_id
-FROM review_arcade_parent_attachments attachment
-JOIN review_drafts draft ON draft.import_item_id=attachment.import_item_id
-WHERE attachment.id=?
-`, rejectedC.AttachmentID).Scan(&attachmentState, &attachmentCode, &currentSnapshotID); err != nil {
-		t.Fatal(err)
-	}
-	testassert.Falsef(t, testassert.Any(func() bool { return attachmentState != "REJECTED" }, func() bool { return attachmentCode != ParentErrorMismatch }, func() bool { return currentSnapshotID != snapshotID }), "wrong c = %s/%s snapshot=%s", attachmentState, attachmentCode, currentSnapshotID)
+	assertRejectedArcadeParent(ctx, t, database.SQL, rejectedC.AttachmentID, snapshotID)
 	itemID, version, snapshotID, validationID = reviewAttachmentInputs(t, database.SQL, created.ImportJobID)
 	root := uploadCompleteFile(ctx, t, database.SQL, uploadService, "renamed-root.zip", rootZIP)
 	acceptedC, err := importer.CreateArcadeParentAttachment(ctx, itemID, version, ParentAttachmentRequest{
@@ -208,27 +177,8 @@ WHERE attachment.id=?
 	})
 	testassert.False(t, err != nil, err)
 	waitParentJob(ctx, t, database.SQL, acceptedC.JobID, "SUCCEEDED")
-	itemID, version, snapshotID, validationID = reviewAttachmentInputs(t, database.SQL, created.ImportJobID)
-	testassert.Falsef(t, version != 6, "draft version after c = %d", version)
-	if err := database.SQL.QueryRowContext(ctx, `
-SELECT count(*) FROM import_item_source_snapshots WHERE import_item_id=?
-`, itemID).Scan(&snapshotCount); err != nil || snapshotCount != 3 {
-		t.Fatalf("source evidence count = %d, error=%v", snapshotCount, err)
-	}
-	if err := database.SQL.QueryRowContext(ctx, `
-SELECT status,compatibility_code FROM import_item_core_validations WHERE id=?
-`, validationID).Scan(&validationStatus, &validationCode); err != nil ||
-		validationStatus != "READY" || validationCode != "READY" {
-		t.Fatalf("final validation = %s/%s, error=%v", validationStatus, validationCode, err)
-	}
-	var acceptedDiagnostics string
-	if err := database.SQL.QueryRowContext(ctx, `
-SELECT diagnostics_json FROM review_arcade_parent_attachments WHERE id=?
-`, acceptedC.AttachmentID).Scan(&acceptedDiagnostics); err != nil ||
-		!strings.Contains(acceptedDiagnostics, `"observedRootEntryCount":1`) ||
-		!strings.Contains(acceptedDiagnostics, `"ignoredNestedEntryCount":1`) {
-		t.Fatalf("merged-style parent diagnostics = %q, error=%v", acceptedDiagnostics, err)
-	}
+	itemID, version, _, validationID = reviewAttachmentInputs(t, database.SQL, created.ImportJobID)
+	assertReadyArcadeParent(ctx, t, database.SQL, itemID, version, validationID, acceptedC.AttachmentID)
 	preview, err := importer.PreviewReviewBulk(ctx, ReviewBulkScope{ImportJobID: created.ImportJobID})
 	testassert.False(t, err != nil, err)
 	testassert.Falsef(t, testassert.Any(func() bool { return preview.Counts.Matched != 1 }, func() bool { return preview.Counts.StrictReady != 1 }, func() bool { return preview.Counts.NotReadyOrStale != 0 }), "arcade parent bulk preview = %#v", preview.Counts)
@@ -287,6 +237,100 @@ JOIN variant_dependencies dependency ON dependency.game_variant_id=variant.id
 WHERE variant.game_id=? ORDER BY dependency.kind,dependency.logical_archive
 `, approved.GameID)
 	testassert.Falsef(t, fmt.Sprint(revalidatedDependencies) != "[PARENT:b.zip PARENT:c.zip]", "published dependencies = %v", revalidatedDependencies)
+}
+
+func assertInitialArcadeDependencyView(
+	ctx context.Context,
+	t *testing.T,
+	importer *Service,
+	itemID string,
+) {
+	t.Helper()
+	view, found, err := importer.ReviewArcadeDependencies(ctx, itemID)
+	testassert.False(t, err != nil, err)
+	testassert.True(t, found, "arcade dependencies were not projected")
+	viewMap, ok := view.(map[string]any)
+	if !ok {
+		t.Fatalf("initial dependency view type = %T", view)
+	}
+	nodes, ok := viewMap["nodes"].([]map[string]any)
+	if !ok {
+		t.Fatalf("initial dependency nodes type = %T", viewMap["nodes"])
+	}
+	testassert.Falsef(t, testassert.Any(func() bool { return viewMap["machine"] != "a" }, func() bool { return len(nodes) != 2 }), "initial dependency view = %#v", view)
+}
+
+func assertAcceptedArcadeParentSnapshot(
+	ctx context.Context,
+	t *testing.T,
+	database *sql.DB,
+	snapshotID string,
+) {
+	t.Helper()
+	var snapshotCount int
+	var validationStatus, validationCode, snapshotSource string
+	if err := database.QueryRowContext(ctx, `
+SELECT snapshot.created_by,validation.status,validation.compatibility_code,
+(SELECT count(*) FROM import_item_source_snapshots WHERE import_item_id=snapshot.import_item_id)
+FROM import_item_source_snapshots snapshot
+JOIN import_item_core_validations validation ON validation.source_snapshot_id=snapshot.id
+WHERE snapshot.id=? ORDER BY validation.created_at_ms DESC LIMIT 1
+`, snapshotID).Scan(&snapshotSource, &validationStatus, &validationCode, &snapshotCount); err != nil {
+		t.Fatal(err)
+	}
+	testassert.Falsef(t, testassert.Any(func() bool { return snapshotSource != "ARCADE_PARENT_ATTACHMENT" }, func() bool { return snapshotCount != 2 }, func() bool { return validationStatus != "BLOCKED" }, func() bool { return validationCode != "LAUNCH_PARENT_MISSING" }), "after b = source:%s count:%d validation:%s/%s", snapshotSource, snapshotCount, validationStatus, validationCode)
+}
+
+func assertRejectedArcadeParent(
+	ctx context.Context,
+	t *testing.T,
+	database *sql.DB,
+	attachmentID, snapshotID string,
+) {
+	t.Helper()
+	var attachmentState, attachmentCode, currentSnapshotID string
+	if err := database.QueryRowContext(ctx, `
+SELECT attachment.state,attachment.error_code,draft.effective_source_snapshot_id
+FROM review_arcade_parent_attachments attachment
+JOIN review_drafts draft ON draft.import_item_id=attachment.import_item_id
+WHERE attachment.id=?
+`, attachmentID).Scan(&attachmentState, &attachmentCode, &currentSnapshotID); err != nil {
+		t.Fatal(err)
+	}
+	testassert.Falsef(t, testassert.Any(func() bool { return attachmentState != "REJECTED" }, func() bool { return attachmentCode != ParentErrorMismatch }, func() bool { return currentSnapshotID != snapshotID }), "wrong c = %s/%s snapshot=%s", attachmentState, attachmentCode, currentSnapshotID)
+}
+
+func assertReadyArcadeParent(
+	ctx context.Context,
+	t *testing.T,
+	database *sql.DB,
+	itemID string,
+	version int64,
+	validationID, attachmentID string,
+) {
+	t.Helper()
+	var snapshotCount int
+	var validationStatus, validationCode string
+	testassert.Falsef(t, version != 6, "draft version after c = %d", version)
+	if err := database.QueryRowContext(ctx, `
+SELECT count(*) FROM import_item_source_snapshots WHERE import_item_id=?
+`, itemID).Scan(&snapshotCount); err != nil || snapshotCount != 3 {
+		t.Fatalf("source evidence count = %d, error=%v", snapshotCount, err)
+	}
+	if err := database.QueryRowContext(ctx, `
+SELECT status,compatibility_code FROM import_item_core_validations WHERE id=?
+`, validationID).Scan(&validationStatus, &validationCode); err != nil ||
+		validationStatus != "READY" || validationCode != "READY" {
+		t.Fatalf("final validation = %s/%s, error=%v", validationStatus, validationCode, err)
+	}
+	var acceptedDiagnostics string
+	if err := database.QueryRowContext(ctx, `
+SELECT diagnostics_json FROM review_arcade_parent_attachments WHERE id=?
+`, attachmentID).Scan(&acceptedDiagnostics); err != nil ||
+		!strings.Contains(acceptedDiagnostics, `"observedRootEntryCount":1`) ||
+		!strings.Contains(acceptedDiagnostics, `"ignoredNestedEntryCount":1`) {
+		t.Fatalf("merged-style parent diagnostics = %q, error=%v", acceptedDiagnostics, err)
+	}
 }
 
 func linkReviewToPegasusOrigin(

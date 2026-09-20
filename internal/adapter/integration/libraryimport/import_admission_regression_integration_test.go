@@ -15,8 +15,8 @@ import (
 
 func admissionFixture(t *testing.T) (*Service, CreateRequest) {
 	t.Helper()
-	database, blobs, dataDir := openImportGroupFixture(t, t.Context())
-	uploadID := completeImportGroupUpload(t, t.Context(), database.SQL, blobs, dataDir, onsProjectArchive(t))
+	database, blobs, dataDir := openImportGroupFixture(t.Context(), t)
+	uploadID := completeImportGroupUpload(t.Context(), t, database.SQL, blobs, dataDir, onsProjectArchive(t))
 	service := New(database.SQL, time.Now).WithBlobStore(blobs)
 	return service, CreateRequest{
 		UploadID:                 uploadID,
@@ -78,7 +78,7 @@ func TestImportAdmissionRejectsTargetDisabledBeforeQueueWrite(t *testing.T) {
 	t.Cleanup(func() {
 		release()
 		if queued != "" {
-			waitForImportGroupTerminal(t, context.WithoutCancel(t.Context()), sourceDB, queued, "FAILED")
+			waitForImportGroupTerminal(context.WithoutCancel(t.Context()), t, sourceDB, queued, "FAILED")
 		}
 	})
 	result, err := service.QueueCreate(t.Context(), request)

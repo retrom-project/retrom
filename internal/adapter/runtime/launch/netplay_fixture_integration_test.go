@@ -135,7 +135,7 @@ func publishNetplayROM(
 	if err != nil {
 		t.Fatal(err)
 	}
-	waitForONSReviewJob(t, t.Context(), database, jobID)
+	waitForONSReviewJob(t.Context(), t, database, jobID)
 	importer := libraryimport.New(database, now).WithBlobStore(blobs)
 	imported, err := importer.Create(t.Context(), libraryimport.CreateRequest{
 		UploadID: upload.ID, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(

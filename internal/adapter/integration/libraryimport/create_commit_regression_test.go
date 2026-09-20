@@ -84,8 +84,8 @@ func TestImportCreationRejectsStaleQueuedExecution(t *testing.T) {
 
 func preparedCommitFixture(t *testing.T) (*Service, creationPlan) {
 	t.Helper()
-	database, blobs, directory := openImportGroupFixture(t, t.Context())
-	uploadID := completeImportGroupUpload(t, t.Context(), database.SQL, blobs, directory, onsProjectArchive(t))
+	database, blobs, directory := openImportGroupFixture(t.Context(), t)
+	uploadID := completeImportGroupUpload(t.Context(), t, database.SQL, blobs, directory, onsProjectArchive(t))
 	service := New(database.SQL, time.Now).WithBlobStore(blobs)
 	plan, err := service.prepareCreation(t.Context(), onsImportGroupRequest(t, database.SQL, uploadID))
 	if err != nil {

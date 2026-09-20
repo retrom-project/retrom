@@ -23,8 +23,8 @@ import (
 func TestRPGReviewRejectsExternalRTPEvenWithInstalledPack(t *testing.T) {
 	t.Parallel()
 	ctx := t.Context()
-	database, blobs, dataDir := openImportGroupFixture(t, ctx)
-	uploadID := completeProjectUpload(t, ctx, database.SQL, blobs, dataDir, "GENERAL", requiredRPGPackArchive(t))
+	database, blobs, dataDir := openImportGroupFixture(ctx, t)
+	uploadID := completeProjectUpload(ctx, t, database.SQL, blobs, dataDir, "GENERAL", requiredRPGPackArchive(t))
 	importer := New(database.SQL, time.Now).WithBlobStore(blobs)
 	created, err := importer.Create(ctx, CreateRequest{
 		UploadID: uploadID, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(t, database.SQL, "rpgmaker/rpgmaker"),

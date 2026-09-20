@@ -29,7 +29,7 @@ type deduplicateFixture struct {
 func newDeduplicateFixture(t *testing.T) deduplicateFixture {
 	t.Helper()
 	ctx := t.Context()
-	database, blobs, _ := openImportGroupFixture(t, ctx)
+	database, blobs, _ := openImportGroupFixture(ctx, t)
 	return deduplicateFixture{
 		ctx, database.SQL, New(database.SQL, time.Now).WithBlobStore(blobs), blobs,
 		testsupport.MustPlatformInstanceID(t, database.SQL, "gba/mgba"),

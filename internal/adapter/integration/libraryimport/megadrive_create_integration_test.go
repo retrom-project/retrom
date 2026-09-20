@@ -32,7 +32,7 @@ func TestMegaDriveROMImportPreservesPayloadAndReachesReview(t *testing.T) {
 	} {
 		t.Run(source.name, func(t *testing.T) {
 			ctx := t.Context()
-			database, blobs, _ := openImportGroupFixture(t, ctx)
+			database, blobs, _ := openImportGroupFixture(ctx, t)
 			metadata, err := blobs.Put(bytes.NewReader(source.body))
 			if err != nil {
 				t.Fatal(err)

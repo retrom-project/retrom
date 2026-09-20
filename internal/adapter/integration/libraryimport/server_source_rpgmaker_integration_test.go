@@ -13,9 +13,9 @@ import (
 
 func TestServerRPGArchiveHandoffReplaysCanonicalImport(t *testing.T) {
 	ctx := context.Background()
-	database, blobs, dataDir := openImportGroupFixture(t, ctx)
+	database, blobs, dataDir := openImportGroupFixture(ctx, t)
 	archive := rpgMakerMVArchiveWithMToolSidecar(t)
-	uploadID := completeProjectUpload(t, ctx, database.SQL, blobs, dataDir, "GENERAL", archive)
+	uploadID := completeProjectUpload(ctx, t, database.SQL, blobs, dataDir, "GENERAL", archive)
 	var file ServerSourceFile
 	if err := database.SQL.QueryRowContext(ctx, `
 SELECT file.relative_path,file.final_blob_id,blob.size_bytes

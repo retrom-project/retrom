@@ -28,6 +28,7 @@ import (
 	"retrom/internal/adapter/files/blobstore"
 	"retrom/internal/adapter/runtime/dependencies"
 	"retrom/internal/foundation/cleanup"
+	"retrom/internal/repo/store"
 	"retrom/internal/service/uploads"
 	"retrom/internal/testkit/testassert"
 	"retrom/internal/testkit/testsupport"
@@ -298,113 +299,21 @@ func TestImportGroupsSingleArchiveMemberAndReportsEveryFile(t *testing.T) {
 		"wrong-platform.iso": []byte("raw-psp-content"),
 		".DS_Store":          []byte("sidecar"),
 	}
-	uploadService := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
-	declarations := make([]uploadsmodel.FileDeclaration, 0, len(files))
-	paths := make([]string, 0, len(files))
-	for path := range files {
-		paths = append(paths, path)
-	}
-	sort.Strings(paths)
-	for _, path := range paths {
-		contents := files[path]
-		declarations = append(
-			declarations, uploadsmodel.FileDeclaration{ClientFileID: path, RelativePath: path, SizeBytes: int64(len(contents))},
-		)
-	}
-	upload, err := uploadService.Create(ctx, uploadsmodel.CreateRequest{SourceType: "FILES", Files: declarations})
-	testassert.False(t, err != nil, err)
-	fileByPath := make(map[string]uploadsmodel.File, len(upload.Files))
-	for _, file := range upload.Files {
-		fileByPath[file.RelativePath] = file
-	}
-	for _, path := range paths {
-		contents := files[path]
-		digest := sha256.Sum256(contents)
-		header := "sha-256=:" + base64.StdEncoding.EncodeToString(digest[:]) + ":"
-		if err := uploadService.PutPart(ctx, upload.ID, fileByPath[path].ID, 0, fmt.Sprintf("bytes 0-%d/%d", len(contents)-1, len(contents)), header, bytes.NewReader(contents)); err != nil {
-			t.Fatal(err)
-		}
-	}
-	current, err := uploadService.Get(ctx, upload.ID)
-	testassert.False(t, err != nil, err)
-	jobID, _, err := uploadService.Complete(ctx, upload.ID, current.Version)
-	testassert.False(t, err != nil, err)
-	waitForJob(ctx, t, database, jobID)
+	uploadID := completeArchiveMemberUpload(ctx, t, database, blobs, dataDir, files)
 	importer := New(database.SQL, time.Now).WithBlobStore(blobs)
 	created, err := importer.Create(
 		ctx,
 		CreateRequest{
-			UploadID:                 upload.ID,
+			UploadID:                 uploadID,
 			TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(t, database.SQL, "gba/mgba"),
 			MetadataProvider:         "NONE",
 		},
 	)
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return created.State != "PARTIAL_FAILURE" }, func() bool { return created.ItemCount != 1 }), "archive import = %#v, error=%v", created, err)
-	var source, ignored, rejected, itemCount int
-	if err := database.SQL.QueryRowContext(ctx, `
-SELECT
-(SELECT count(*)
-FROM import_job_files
-WHERE import_job_id=?
-AND disposition='SOURCE'),
-(SELECT count(*)
-FROM import_job_files
-WHERE import_job_id=?
-AND disposition='IGNORED'
-AND reason_code='IGNORED_SYSTEM_SIDECAR'),
-(SELECT count(*)
-FROM import_job_files
-WHERE import_job_id=?
-AND disposition='REJECTED'
-AND reason_code='UNSUPPORTED_CONTENT_FORMAT'),
-(SELECT count(*)
-FROM import_items
-WHERE import_job_id=?)
-`, created.ImportJobID, created.ImportJobID, created.ImportJobID, created.ImportJobID).Scan(
-		&source,
-		&ignored,
-		&rejected,
-		&itemCount,
-	); err != nil || source != 1 || ignored != 1 || rejected != 1 || itemCount != 1 {
-		t.Fatalf("file dispositions/items = %d/%d/%d/%d, error=%v", source, ignored, rejected, itemCount, err)
-	}
-	var itemID, logicalName, contentSHA, archiveSHA string
-	var archiveOrdinal int
-	if err := database.SQL.QueryRowContext(ctx, `
-SELECT i.id,
-s.logical_name,
-b.sha256,
-archive.sha256,
-s.source_archive_entry_ordinal
-FROM import_items i
-JOIN import_item_source_files s ON s.import_item_id=i.id
-JOIN blobs b ON b.id=s.blob_id
-JOIN blobs archive ON archive.id=s.source_archive_blob_id
-WHERE i.import_job_id=?
-`, created.ImportJobID).Scan(&itemID, &logicalName, &contentSHA, &archiveSHA, &archiveOrdinal); err != nil {
-		t.Fatal(err)
-	}
-	romDigest := sha256.Sum256(rom)
-	archiveDigest := sha256.Sum256(archive)
-	testassert.Falsef(t, testassert.Any(func() bool { return logicalName != "Wrapped.gba" }, func() bool { return contentSHA != fmt.Sprintf("%x", romDigest) }, func() bool { return archiveSHA != fmt.Sprintf("%x", archiveDigest) }, func() bool { return archiveOrdinal < 0 }), "archive source = %s %s %s %d", logicalName, contentSHA, archiveSHA, archiveOrdinal)
+	itemID := assertArchiveMemberEvidence(ctx, t, database.SQL, created.ImportJobID, rom, archive)
 	approved, err := importer.Approve(ctx, itemID, 1)
 	testassert.False(t, err != nil, err)
-	var publishedLogical, publishedSHA string
-	var sourceArchive string
-	if err := database.SQL.QueryRowContext(ctx, `
-SELECT f.logical_name,
-b.sha256,
-f.source_archive_blob_id
-FROM games g
-JOIN game_files f ON f.game_id=g.id
-JOIN blobs b ON b.id=f.blob_id
-WHERE g.id=?
-`, approved.GameID).Scan(&publishedLogical, &publishedSHA, &sourceArchive); err != nil ||
-		publishedLogical != "Wrapped.gba" ||
-		publishedSHA != fmt.Sprintf("%x", romDigest) ||
-		sourceArchive == "" {
-		t.Fatalf("published archive member = %s/%s/%s, error=%v", publishedLogical, publishedSHA, sourceArchive, err)
-	}
+	assertPublishedArchiveMember(ctx, t, database.SQL, approved.GameID, rom)
 	var finalState string
 	var completedAt sql.NullInt64
 	if err := database.SQL.QueryRowContext(ctx, `
@@ -471,5 +380,134 @@ WHERE source.id=?
 		MetadataProvider:         "NONE",
 	}); !errors.Is(err, ErrInvalid) {
 		t.Fatalf("stale reconfiguration error = %v", err)
+	}
+}
+
+func completeArchiveMemberUpload(
+	ctx context.Context,
+	t *testing.T,
+	database *store.DB,
+	blobs *blobstore.Store,
+	dataDir string,
+	files map[string][]byte,
+) string {
+	t.Helper()
+	uploadService := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
+	declarations := make([]uploadsmodel.FileDeclaration, 0, len(files))
+	paths := make([]string, 0, len(files))
+	for path := range files {
+		paths = append(paths, path)
+	}
+	sort.Strings(paths)
+	for _, path := range paths {
+		contents := files[path]
+		declarations = append(
+			declarations, uploadsmodel.FileDeclaration{ClientFileID: path, RelativePath: path, SizeBytes: int64(len(contents))},
+		)
+	}
+	upload, err := uploadService.Create(ctx, uploadsmodel.CreateRequest{SourceType: "FILES", Files: declarations})
+	testassert.False(t, err != nil, err)
+	fileByPath := make(map[string]uploadsmodel.File, len(upload.Files))
+	for _, file := range upload.Files {
+		fileByPath[file.RelativePath] = file
+	}
+	for _, path := range paths {
+		contents := files[path]
+		digest := sha256.Sum256(contents)
+		header := "sha-256=:" + base64.StdEncoding.EncodeToString(digest[:]) + ":"
+		if err := uploadService.PutPart(ctx, upload.ID, fileByPath[path].ID, 0, fmt.Sprintf("bytes 0-%d/%d", len(contents)-1, len(contents)), header, bytes.NewReader(contents)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	current, err := uploadService.Get(ctx, upload.ID)
+	testassert.False(t, err != nil, err)
+	jobID, _, err := uploadService.Complete(ctx, upload.ID, current.Version)
+	testassert.False(t, err != nil, err)
+	waitForJob(ctx, t, database, jobID)
+	return upload.ID
+}
+
+func assertArchiveMemberEvidence(
+	ctx context.Context,
+	t *testing.T,
+	database *sql.DB,
+	importID string,
+	rom, archive []byte,
+) string {
+	t.Helper()
+	var source, ignored, rejected, itemCount int
+	if err := database.QueryRowContext(ctx, `
+SELECT
+(SELECT count(*)
+FROM import_job_files
+WHERE import_job_id=?
+AND disposition='SOURCE'),
+(SELECT count(*)
+FROM import_job_files
+WHERE import_job_id=?
+AND disposition='IGNORED'
+AND reason_code='IGNORED_SYSTEM_SIDECAR'),
+(SELECT count(*)
+FROM import_job_files
+WHERE import_job_id=?
+AND disposition='REJECTED'
+AND reason_code='UNSUPPORTED_CONTENT_FORMAT'),
+(SELECT count(*)
+FROM import_items
+WHERE import_job_id=?)
+`, importID, importID, importID, importID).Scan(
+		&source,
+		&ignored,
+		&rejected,
+		&itemCount,
+	); err != nil || source != 1 || ignored != 1 || rejected != 1 || itemCount != 1 {
+		t.Fatalf("file dispositions/items = %d/%d/%d/%d, error=%v", source, ignored, rejected, itemCount, err)
+	}
+	var itemID, logicalName, contentSHA, archiveSHA string
+	var archiveOrdinal int
+	if err := database.QueryRowContext(ctx, `
+SELECT i.id,
+s.logical_name,
+b.sha256,
+archive.sha256,
+s.source_archive_entry_ordinal
+FROM import_items i
+JOIN import_item_source_files s ON s.import_item_id=i.id
+JOIN blobs b ON b.id=s.blob_id
+JOIN blobs archive ON archive.id=s.source_archive_blob_id
+WHERE i.import_job_id=?
+`, importID).Scan(&itemID, &logicalName, &contentSHA, &archiveSHA, &archiveOrdinal); err != nil {
+		t.Fatal(err)
+	}
+	romDigest := sha256.Sum256(rom)
+	archiveDigest := sha256.Sum256(archive)
+	testassert.Falsef(t, testassert.Any(func() bool { return logicalName != "Wrapped.gba" }, func() bool { return contentSHA != fmt.Sprintf("%x", romDigest) }, func() bool { return archiveSHA != fmt.Sprintf("%x", archiveDigest) }, func() bool { return archiveOrdinal < 0 }), "archive source = %s %s %s %d", logicalName, contentSHA, archiveSHA, archiveOrdinal)
+	return itemID
+}
+
+func assertPublishedArchiveMember(
+	ctx context.Context,
+	t *testing.T,
+	database *sql.DB,
+	gameID string,
+	rom []byte,
+) {
+	t.Helper()
+	romDigest := sha256.Sum256(rom)
+	var publishedLogical, publishedSHA string
+	var sourceArchive string
+	if err := database.QueryRowContext(ctx, `
+SELECT f.logical_name,
+b.sha256,
+f.source_archive_blob_id
+FROM games g
+JOIN game_files f ON f.game_id=g.id
+JOIN blobs b ON b.id=f.blob_id
+WHERE g.id=?
+`, gameID).Scan(&publishedLogical, &publishedSHA, &sourceArchive); err != nil ||
+		publishedLogical != "Wrapped.gba" ||
+		publishedSHA != fmt.Sprintf("%x", romDigest) ||
+		sourceArchive == "" {
+		t.Fatalf("published archive member = %s/%s/%s, error=%v", publishedLogical, publishedSHA, sourceArchive, err)
 	}
 }

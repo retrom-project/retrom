@@ -145,7 +145,7 @@ func uploadScummVMFixture(t *testing.T, database *sql.DB, blobs *blobstore.Store
 	if err != nil {
 		t.Fatal(err)
 	}
-	waitForONSReviewJob(t, ctx, database, jobID)
+	waitForONSReviewJob(ctx, t, database, jobID)
 	created, err := importer.Create(ctx, libraryimport.CreateRequest{UploadID: upload.ID, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(t, database, "scummvm/scummvm"), MetadataProvider: "NONE", ContentMode: scummvm.ContentKind})
 	if err != nil {
 		t.Fatal(err)
