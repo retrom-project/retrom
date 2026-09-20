@@ -54,10 +54,13 @@ function evidence() {
     },
     checkpoint: { format: "ons-save-bundle-v1-storage-v1", sizeBytes: 36_194 },
     loading: {
-      schemaVersion: 1,
+      schemaVersion: 2,
+      sameCoreAssetIdentity: true,
+      coldVisible: loadingSnapshot({cacheHits: 0, requestedBytes: 2048}),
+      coreAssetRequests: {cold: 0, first: 0, restored: 0},
       sameProjectContentIdentity: true,
-      firstVisible: loadingSnapshot({ cacheHits: 1, requestedBytes: 2048 }),
-      restoreVisible: loadingSnapshot({ cacheHits: 2, requestedBytes: 2048 }),
+      firstVisible: warmSnapshot(),
+      restoreVisible: warmSnapshot(),
     },
     screenshots: {
       preview: screenshot("1"), productBeforeInput: screenshot("2"), productAfterInput: screenshot("3"),
@@ -83,4 +86,10 @@ function loadingSnapshot({ cacheHits, requestedBytes }) {
     runtimeAssetRequestCount: 2,
     runtimeAssetTransferredBytes: 0,
   };
+}
+
+function warmSnapshot() {
+  const value = loadingSnapshot({cacheHits: 2, requestedBytes: 0});
+  for (const key of ["fullProjectFileResponseCount", "rangeProjectFileResponseCount", "requestedLargeFileCount", "requestedProjectFileCount", "requestedProjectBytes"]) value[key] = 0;
+  return value;
 }

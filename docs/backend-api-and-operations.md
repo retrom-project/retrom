@@ -310,6 +310,11 @@ PFB ID 从调用者给出的逻辑名称确定性派生为短 slug 加 SHA-256 �
 
 PFB 命令闭集为 `pfb-init/validate/build/up/use/restart/down/status/logs/verify/core-build/migrate-storage/data-reset/remove/destroy` 和 `pfb-gateway-up/down`。参数错误返回 2，工具链或运行失败返回 1；所有命令失败关闭，不自动操作 Git、不自动删除迁移前旧卷，也不把 Docker socket 挂入应用容器。`pfb-build` 只准备摘要变化的工具链/package依赖/生成代码；`up` 固定 `--no-build`，`restart` 只重启 app，core 只由显式 `core-build CORE=<id>` 触发。源码与 Provider digest 不参与数据兼容性：兼容 migration 原地前进，只有明确的数据语义不兼容才由 exact ID 的 `data-reset` 归档旧数据并新建空根。
 
+主机 inotify 文件监听额度不足时，可在该 PFB 的 `pfb-up` 命令前显式设置
+`PFB_WATCH_POLLING=1000`，让 Next/Watchpack 每秒轮询。默认值为 `false`，不改变普通监听；
+此设置只进入对应 app 容器，不修改系统额度或终止其他编辑器进程。再次执行 `up` 时须保留
+该环境参数；比较两套 PFB 的性能时，两侧使用相同设置，并在计时前完成开发路由预热。
+
 运行中的 Retrom/runtime 源码直接 bind mount。Next HMR 消费 Web 变化，Go 源码在轻量 restart 后由 `go run` 重编译；runtime watcher 只重建 PFB loose `client.mjs` 和本地 adapter 资源。基座 Provider 的 bundle/manifest/Target declaration 与大体积静态资产仍逐字节验证；开发文件以一份内含字节的 `dev-provider.json` 原子发布，Go 启动时校验路径/大小/摘要后保存在内存，只覆盖基座公开路径并使用 `no-store` 响应；不保留历史产物目录。详细布局、迁移和命令语义见 [PFB 轻量开发容器](./pfb-development.md)。
 
 开发拓扑仍只有一个标准 Go 进程和一个标准 `next dev` 进程。`scripts/dev.sh` 只给 Next 子进程预加载仓库内的 upgrade hook；该 hook 仅匹配精确的 `/runtime/netplay/rooms/{roomId}/socket` 路径，把 method、Origin、Cookie、Fetch Metadata、Upgrade 与 `Sec-WebSocket-Protocol` 原样转发到 `NEXT_BACKEND_ORIGIN`，并逐字节桥接升级后的 socket。其他 upgrade（包括 HMR）继续由 Next 自己处理，普通 HTTP 仍走既有 rewrite。验收必须证明未认证的合法联机 upgrade 经前端端口到达 Go 并返回 `401 AUTHENTICATION_REQUIRED`，而不是由 Next 返回自己的 403；生产不加载此开发 hook，仍由上一节 NG 路由负责。

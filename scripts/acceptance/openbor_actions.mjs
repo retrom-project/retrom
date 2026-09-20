@@ -90,9 +90,12 @@ export async function advanceToNativeSave(page, canvas, output) {
   await pad(page, 9);
   for (let i = 0; i < 2; i++) await pad(page, 13);
   await pad(page, 9);
-  await pad(page, 15);
-  for (let i = 0; i < 3; i++) await pad(page, 13);
-  await pad(page, 15);
+  // Keep Implacable March off: running past a waiting wave can strand enemies
+  // outside the camera and prevents the normal level-completion save boundary.
+  for (let i = 0; i < 2; i++) await pad(page, 13);
+  await pad(page, 15); // Infinite Energy for the normal special-attack control.
+  await pad(page, 13);
+  await pad(page, 15); // Infinite Health.
   for (let i = 0; i < 3; i++) await pad(page, 13);
   await pad(page, 15);
   await canvas.screenshot({path: `${output}/native-test-options.png`});
@@ -104,7 +107,7 @@ export async function advanceToNativeSave(page, canvas, output) {
     if (i < 4) {
       await pad(page, 15, 5000, 100);
     } else {
-      await pad(page, 5, 150, 500);
+      await pad(page, 3, 150, 500); // Standard Y maps to native F / Special; RB is Attack 4.
       // Sweep the screen while striking so enemies left behind the camera edge are reached.
       await fightSweep(page, i % 2 ? 15 : 14);
       await pad(page, i % 4 < 2 ? 12 : 13, 300, 100);

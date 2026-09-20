@@ -6,7 +6,8 @@ import {join, resolve} from "node:path";
 import {chromium, expect} from "../../web/node_modules/@playwright/test/index.mjs";
 import {connectVirtualStandardGamepad, installVirtualStandardGamepad} from "./standard_gamepad.mjs";
 import {isLocalAcceptanceHostname} from "./rpgmaker_url.mjs";
-import {approveScummvm, assertScummvmTraffic, importScummvm, scummvmClient, trackScummvmTraffic} from "./scummvm_product_api.mjs";
+import {approveScummvm, importScummvm, scummvmClient} from "./scummvm_product_api.mjs";
+import {assertScummvmTraffic, trackScummvmTraffic} from "./scummvm_traffic.mjs";
 import {captureScummvm, exitScummvm, readyScummvm, scummvmFrame, skyGamepadProof, skyScene} from "./scummvm_product_controls.mjs";
 import {immersiveScummvm} from "./scummvm_product_immersive.mjs";
 import {readableScummvmImage, resizePausedScummvm} from "./scummvm_product_resize.mjs";
@@ -43,6 +44,7 @@ try {
   const published = await approveScummvm(client, review.itemId);
   const product = await ordinaryScummvm(context, published.gameId);
   const cache = assertScummvmTraffic([...preview.traffic, ...product.firstTraffic], product.restoreTraffic, "sky");
+  cache.fetchPolicy = preview.traffic.fetchPolicy;
   const immersive = await immersiveScummvm(context, published.gameId, directory);
   assert.deepEqual(errors, []);
   write({schemaVersion: 1, caseId, status: "PASS", sourceSha256, browserVersion: browser.version(),
@@ -64,15 +66,16 @@ async function previewScummvm(context, itemId) {
   const selection = reviewPage.getByRole("combobox", {name: /^运行版本/u});
   await expect(selection).toHaveValue(/^[0-9a-f]{64}$/u);
   const candidateId = await selection.inputValue();
+  const traffic = await trackScummvmTraffic(reviewPage, baseUrl);
   const popup = reviewPage.waitForEvent("popup");
   await reviewPage.getByRole("button", {name: "运行游戏", exact: true}).click();
   const page = await popup;
-  const traffic = trackScummvmTraffic(page);
   await page.bringToFront(); await readyScummvm(page); await skyScene(page);
   const frame = await scummvmFrame(page, directory, "preview");
   const input = await skyGamepadProof(page, directory, "preview");
   const receipt = await captureScummvm(page);
   assert.equal(receipt.resourceKind, "REVIEW_PREVIEW_CHECKPOINT");
+  await traffic.validate(new URL(page.url()).pathname.split("/").at(-1));
   await exitScummvm(page);
   await page.waitForEvent("close").catch(() => assert(page.isClosed()));
   await reviewPage.close();
@@ -81,7 +84,7 @@ async function previewScummvm(context, itemId) {
 
 async function ordinaryScummvm(context, gameId) {
   const page = await context.newPage();
-  const firstTraffic = trackScummvmTraffic(page);
+  const firstTraffic = await trackScummvmTraffic(page, baseUrl);
   await page.goto(`/games/${gameId}`);
   await page.getByRole("button", {name: "开始游戏", exact: true}).click();
   await page.waitForURL(/\/play\//u); await readyScummvm(page); await skyScene(page);
@@ -93,9 +96,11 @@ async function ordinaryScummvm(context, gameId) {
   const pausedResize = await resizePausedScummvm(page, directory);
   const saved = await captureScummvm(page);
   const screenshot = await readableScummvmImage(page, `/content/save-states/${saved.saveStateId}/screenshot`);
+  await firstTraffic.validate(originalLaunchId);
   await exitScummvm(page); await page.waitForURL(`/games/${gameId}`);
   const first = [...firstTraffic];
-  const restoreTraffic = trackScummvmTraffic(page);
+  firstTraffic.stop();
+  const restoreTraffic = await trackScummvmTraffic(page, baseUrl);
   await page.getByRole("button", {name: "▶ 从这里继续", exact: true}).click();
   await page.waitForURL(/\/play\//u); await readyScummvm(page);
   const restoredLaunchId = new URL(page.url()).pathname.split("/").at(-1);
@@ -105,6 +110,7 @@ async function ordinaryScummvm(context, gameId) {
   assert(config.restore.sizeBytes > 0 && /^[0-9a-f]{64}$/u.test(config.restore.sha256));
   await connectVirtualStandardGamepad(page);
   const restoredInput = await skyGamepadProof(page, directory, "ordinary-restored");
+  await restoreTraffic.validate(restoredLaunchId);
   await exitScummvm(page); await page.waitForURL(`/games/${gameId}`); await page.close();
   return {firstTraffic: first, restoreTraffic, evidence: {originalLaunchId, restoredLaunchId,
     saveStateId: saved.saveStateId, restore: {format: config.restore.format, sizeBytes: config.restore.sizeBytes,

@@ -345,3 +345,16 @@ acceptance-case: prepare-go prepare-node
 
 acceptance-report:
 	@scripts/acceptance/run.sh report
+
+.PHONY: content-io-host-check content-io-evidence-check content-io-product-check
+content-io-host-check:
+	@test -n "$(IO_ENV)" && test -n "$(IO_OUTPUT)" || { echo 'IO_ENV and IO_OUTPUT are required' >&2; exit 2; }
+	@python3 -m scripts.acceptance.content_io_host_check --env "$(IO_ENV)" --output "$(IO_OUTPUT)"
+
+content-io-evidence-check:
+	@test -n "$(IO_ENV)" || { echo 'IO_ENV is required' >&2; exit 2; }
+	@python3 -m scripts.acceptance.content_io_evidence_check --env "$(IO_ENV)"
+
+content-io-product-check:
+	@test -n "$(IO_ENV)" || { echo 'IO_ENV is required' >&2; exit 2; }
+	@python3 -m scripts.acceptance.content_io_product_check --env "$(IO_ENV)"

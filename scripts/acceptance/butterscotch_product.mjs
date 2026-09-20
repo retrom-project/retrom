@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import {withProjectRunArchive} from "./project_run_archive.mjs";
 
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
@@ -80,9 +81,8 @@ async function runProductCase(activeBrowser) {
     const login = await loginResponse.json();
     const client = createProductClient(context, baseUrl, login.csrfToken);
     const platformInstanceId = await butterscotchPlatformInstance(client);
-    const uploadId = await client.upload(
-      singleFile(process.env.RETROM_BUTTERSCOTCH_SMOKE_ARCHIVE), "FILES", "PROJECT",
-    );
+    const uploadId = await withProjectRunArchive(process.env.RETROM_BUTTERSCOTCH_SMOKE_ARCHIVE, "data.win",
+      wrapped => client.upload(singleFile(wrapped), "FILES", "PROJECT"));
     const importedResponse = await client.raw("POST", "/api/v1/admin/imports", {
       headers: client.writeHeaders(), timeout: 120_000,
       data: {

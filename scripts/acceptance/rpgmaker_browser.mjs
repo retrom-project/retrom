@@ -5,6 +5,7 @@ import { basename, dirname, isAbsolute, join } from "node:path";
 import { chromium } from "../../web/node_modules/playwright/index.mjs";
 import { localRpgAcceptanceProxy } from "./rpgmaker_local_proxy.mjs";
 import { normalizedBase } from "./rpgmaker_url.mjs";
+import { trackMkxpLoading } from "./mkxp_loading_evidence.mjs";
 import { trackRuntimeLoading } from "./runtime_loading_evidence.mjs";
 
 const caseId = required("RETROM_RPG_CASE_ID");
@@ -166,6 +167,7 @@ async function generationCase(context, writeHeaders) {
   const loadingProbeOptions = {
     collectRuntimeTimings: !["rpgmaker-mv", "rpgmaker-mz"].includes(config.runtime.targetId),
   };
+  const managedLoading = await trackMkxpLoading(context, config, baseUrl);
   const page = await context.newPage();
   const loadingProbe = trackRuntimeLoading(page, projectDeclarations, loadingProbeOptions);
   const pageErrors = [];
@@ -217,6 +219,8 @@ async function generationCase(context, writeHeaders) {
     await loadingProbe.snapshot(), config, inputTranscript.upload,
   );
   progress("first-launch-loading-snapshot");
+  const firstManagedLoading = await managedLoading?.snapshot();
+  managedLoading?.stop();
   loadingProbe.stop();
   await revealProductToolbar(page);
   await moreActions.click();
@@ -271,6 +275,9 @@ async function generationCase(context, writeHeaders) {
       clientCapabilities: { secureContext: true, crossOriginIsolated: true, sharedArrayBuffer: true },
     },
   });
+  const cacheConfig = await jsonRequest(context.request, "GET", `/runtime/launches/${cacheLaunch.launchId}/config`);
+  const cacheProjectDeclarations = projectLoadingDeclarations(cacheConfig);
+  const cacheManagedLoading = await trackMkxpLoading(context, cacheConfig, baseUrl);
   const cachePage = await context.newPage();
   const cacheCdp = await context.newCDPSession(cachePage);
   await cacheCdp.send("Runtime.enable");
@@ -301,15 +308,17 @@ async function generationCase(context, writeHeaders) {
     dialogs.push(dialog.message().slice(0, 400));
     await dialog.dismiss();
   });
-  const cacheLoadingProbe = trackRuntimeLoading(cachePage, projectDeclarations, loadingProbeOptions);
+  const cacheLoadingProbe = trackRuntimeLoading(cachePage, cacheProjectDeclarations, loadingProbeOptions);
   progress("cache-launch-navigation");
   await cachePage.goto(`${baseUrl}${cacheLaunch.playUrl}`, { waitUntil: "domcontentloaded" });
   await waitForProductSaveAvailability(cachePage, pageErrors, runtimeExceptions, dialogs, caseId);
   progress("cache-launch-ready");
   const cacheVisibleLoading = applyEasyProjectDeclaration(
-    await cacheLoadingProbe.snapshot(), config, inputTranscript.upload,
+    await cacheLoadingProbe.snapshot(), cacheConfig, inputTranscript.upload,
   );
   progress("cache-launch-loading-snapshot");
+  const cachedManagedLoading = await cacheManagedLoading?.snapshot();
+  cacheManagedLoading?.stop();
   cacheLoadingProbe.stop();
   await assertNoPlayerErrors(
     pageErrors, runtimeExceptions, consoleDiagnostics, failedResponses,
@@ -344,7 +353,11 @@ async function generationCase(context, writeHeaders) {
     },
     ...(originInventory ? { originInventory } : {}),
     loading: {
-      schemaVersion: 1,
+      schemaVersion: managedLoading ? 3 : 1,
+      ...(managedLoading ? {contentIO: {
+        sameCoreAssetIdentity: managedLoading.assetIdentity === cacheManagedLoading?.assetIdentity,
+        firstVisible: firstManagedLoading, cacheLaunchVisible: cachedManagedLoading,
+      }} : {}),
       cacheLaunchId: cacheLaunch.launchId,
       sameProjectContentIdentity,
       firstVisible: firstVisibleLoading.evidence,

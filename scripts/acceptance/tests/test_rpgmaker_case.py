@@ -9,6 +9,7 @@ import struct
 import subprocess
 import sys
 import tempfile
+import copy
 import unittest
 import zlib
 from contextlib import redirect_stdout
@@ -539,6 +540,29 @@ class EvidenceContractTests(unittest.TestCase):
         with self.assertRaisesRegex(rpgmaker.ContractError, "ORIGIN_INVENTORY_INVALID"):
             rpgmaker.validate_generation_evidence(payload, spec, "a" * 64)
 
+    def test_mkxp_persistent_cache_requires_cold_range_and_warm_zero_network(self) -> None:
+        spec = rpgmaker.GENERATION_CASES["ACC-RPG-004"]
+        value = runtime_loading_evidence(spec.generation)
+        value["schemaVersion"] = 3
+        value["contentIO"] = {
+            "sameCoreAssetIdentity": True,
+            "firstVisible": {"rangeRequests": 4, "downloadedBytes": 524288, "coreAssetRequests": 2, "fetchPolicy": {"smallFileThresholdBytes": 1048576, "networkWindowBytes": 524288}},
+            "cacheLaunchVisible": {"rangeRequests": 0, "downloadedBytes": 0, "coreAssetRequests": 0, "fetchPolicy": {"smallFileThresholdBytes": 1048576, "networkWindowBytes": 524288}},
+        }
+        cached = value["cacheLaunchVisible"]
+        for key in ("rangeProjectFileResponseCount", "requestedLargeFileCount", "requestedProjectBytes",
+                    "requestedProjectFileCount", "runtimeAssetCacheHitCount"):
+            cached[key] = 0
+        rpgmaker.validate_runtime_loading(value, spec, "11111111-1111-4111-8111-111111111111", 10)
+        for path, replacement in (("sameCoreAssetIdentity", False), ("cacheLaunchVisible", {
+            "rangeRequests": 0, "downloadedBytes": 0, "coreAssetRequests": 1,
+            "fetchPolicy": {"smallFileThresholdBytes": 1048576, "networkWindowBytes": 524288},
+        })):
+            invalid = copy.deepcopy(value)
+            invalid["contentIO"][path] = replacement
+            with self.assertRaisesRegex(rpgmaker.ContractError, "RUNTIME_LOADING_INVALID"):
+                rpgmaker.validate_runtime_loading(invalid, spec, "11111111-1111-4111-8111-111111111111", 10)
+
     def test_generation_evidence_rejects_eager_or_missing_runtime_loading(self) -> None:
         spec = rpgmaker.GENERATION_CASES["ACC-RPG-004"]
         payload = product_payload(spec, "a" * 64)
@@ -631,7 +655,7 @@ class EvidenceContractTests(unittest.TestCase):
             ),
             2,
         )
-        self.assertIn("trackRuntimeLoading(cachePage, projectDeclarations, loadingProbeOptions)", source)
+        self.assertIn("trackRuntimeLoading(cachePage, cacheProjectDeclarations, loadingProbeOptions)", source)
         self.assertIn("cacheLaunchId: cacheLaunch.launchId", source)
         self.assertIn("sameProjectContentIdentity,", source)
         loading_source = (MODULE_PATH.parent / "runtime_loading_evidence.mjs").read_text()
@@ -1019,12 +1043,24 @@ def runtime_loading_evidence(generation: str) -> dict:
             "runtimeAssetTransferredBytes": 0 if cache_hits else 1_000_000,
         }
 
+    first, cached = snapshot(0), snapshot(0 if native else 2)
+    managed = {}
+    if mkxp:
+        for key in ("rangeProjectFileResponseCount", "requestedLargeFileCount", "requestedProjectBytes",
+                    "requestedProjectFileCount", "runtimeAssetCacheHitCount"):
+            cached[key] = 0
+        managed = {"contentIO": {
+            "sameCoreAssetIdentity": True,
+            "firstVisible": {"rangeRequests": 4, "downloadedBytes": 524288, "coreAssetRequests": 2, "fetchPolicy": {"smallFileThresholdBytes": 1048576, "networkWindowBytes": 524288}},
+            "cacheLaunchVisible": {"rangeRequests": 0, "downloadedBytes": 0, "coreAssetRequests": 0, "fetchPolicy": {"smallFileThresholdBytes": 1048576, "networkWindowBytes": 524288}},
+        }}
     return {
-        "schemaVersion": 1,
+        "schemaVersion": 3 if mkxp else 1,
+        **managed,
         "cacheLaunchId": cache_launch_id,
         "sameProjectContentIdentity": None if native else True,
-        "firstVisible": snapshot(0),
-        "cacheLaunchVisible": snapshot(0 if native else 2),
+        "firstVisible": first,
+        "cacheLaunchVisible": cached,
     }
 
 
