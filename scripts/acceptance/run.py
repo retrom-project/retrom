@@ -33,6 +33,7 @@ BUTTERSCOTCH_CASES = {"ACC-BUTTERSCOTCH-001"}
 SCUMMVM_CASES = {"ACC-SCUMMVM-001", "ACC-SCUMMVM-002"}
 TYRANOSCRIPT_CASES = {"ACC-TYRANOSCRIPT-001"}
 PROVIDER_CASES = {f"ACC-PROVIDER-{number:03d}" for number in range(1, 9)}
+WASM4_CASES = {"ACC-WASM4-001"}
 FANTASY_CASES = {"ACC-TIC-001", "ACC-PICO-001"}
 FLASH_CASES = {"ACC-FLASH-001"}
 MSX_CASES = {"ACC-MSX-001"}
@@ -46,7 +47,7 @@ PC88_CASES = {"ACC-PC88-001"}
 STORAGE_CASES = {"ACC-SAVE-004"}
 BBKRPG_CASES = {"ACC-BBKRPG-001"}
 UZEBOX_CASES = {"ACC-UZEBOX-001"}
-PRODUCT_CASES = BBKRPG_CASES | UZEBOX_CASES | PSP_CASES | NXENGINE_CASES | POKEMINI_CASES | OPENBOR_CASES | MSX_CASES | FLASH_CASES | STORAGE_CASES | PC98_CASES | PC88_CASES | PS2_CASES | FANTASY_CASES | RPG_CASES | ONS_CASES | KIRIKIRI_CASES | BUTTERSCOTCH_CASES | TYRANOSCRIPT_CASES | SCUMMVM_CASES
+PRODUCT_CASES = WASM4_CASES | BBKRPG_CASES | UZEBOX_CASES | PSP_CASES | NXENGINE_CASES | POKEMINI_CASES | OPENBOR_CASES | MSX_CASES | FLASH_CASES | STORAGE_CASES | PC98_CASES | PC88_CASES | PS2_CASES | FANTASY_CASES | RPG_CASES | ONS_CASES | KIRIKIRI_CASES | BUTTERSCOTCH_CASES | TYRANOSCRIPT_CASES | SCUMMVM_CASES
 
 
 # These commands are intentionally focused. Cases omitted here are emitted as
@@ -493,6 +494,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
         )
         for case_id in RPG_CASES
     },
+    "ACC-WASM4-001": (300, ".cache/tools/node-v24.18.0-linux-x64/bin/node scripts/acceptance/wasm4_product.mjs"),
     "ACC-TIC-001": (300, ".cache/tools/node-v24.18.0-linux-x64/bin/node scripts/acceptance/fantasy_product.mjs tic80"),
     "ACC-SAVE-004": (300, "env -u DISPLAY -u WAYLAND_DISPLAY .cache/tools/node-v24.18.0-linux-x64/bin/node scripts/acceptance/checkpoint_storage_product.mjs"),
     "ACC-BBKRPG-001": (600, "env -u DISPLAY -u WAYLAND_DISPLAY .cache/tools/node-v24.18.0-linux-x64/bin/node scripts/acceptance/bbkrpg_product.mjs"),
@@ -748,7 +750,7 @@ def archive_previous(case_dir: Path) -> None:
     moved: dict[str, str] = {}
     for name in (
         "result.json", "stdout.log", "network.json", "rpgmaker-product.json", "ons-product.json",
-        "kirikiri-product.json", "butterscotch-product.json", "tyranoscript-product.json", "fantasy-product.json", "scummvm-product.json", "play-product.json",
+        "kirikiri-product.json", "butterscotch-product.json", "tyranoscript-product.json", "wasm4-product.json", "fantasy-product.json", "scummvm-product.json", "play-product.json",
         "openbor-product.json", "ruffle-product.json", "pc98-product.json", "checkpoint-storage-product.json", "bbkrpg-product.json", "bbkrpg-browser-diagnostics.log", "bbkrpg-failure.txt", "rerun-resolution.json",
     ):
         source = case_dir / name
@@ -1034,6 +1036,8 @@ def execute_case(case_id: str) -> int:
                 product_filename = "openbor-product.json"
             elif case_id in PS2_CASES:
                 product_filename = "play-product.json"
+            elif case_id in WASM4_CASES:
+                product_filename = "wasm4-product.json"
             elif case_id in FANTASY_CASES:
                 product_filename = "fantasy-product.json"
             elif case_id in MSX_CASES:

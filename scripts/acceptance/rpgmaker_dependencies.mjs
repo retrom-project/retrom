@@ -32,7 +32,7 @@ try {
   await page.screenshot({path:join(caseDir,"screenshots/rpgmaker-bios-only.png"),fullPage:true});
   const projects = [];
   for (const generation of ["rpg2000","rpg2003","rpgxp","rpgvx","rpgvxace"]) {
-    const files = directoryFiles(resolve("testdata/public-roms/rpgmaker-smoke",generation),`${generation}/`);
+    const files = directoryFiles(resolve(caseDir,"policy-inputs",generation),`${generation}/`);
     const ordinary = await importReview(client,files,platformId);
     assert.equal(ordinary.canApprove,true);
     const ordinaryPublished = await approve(client,ordinary,201);

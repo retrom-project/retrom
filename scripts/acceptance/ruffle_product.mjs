@@ -1,10 +1,11 @@
+import {rufflePosition as position} from "./ruffle_product_surface.mjs";
 import assert from "node:assert/strict";
 import {mkdirSync, writeFileSync} from "node:fs";
 import {join, resolve} from "node:path";
 import {chromium} from "../../web/node_modules/playwright/index.mjs";
 import {localRpgAcceptanceProxy} from "./rpgmaker_local_proxy.mjs";
 import {installVirtualStandardGamepad} from "./standard_gamepad.mjs";
-import {singleFile, reviewForImport} from "./rpgmaker_security_upload.mjs";
+import {importRuffleMovie} from "./ruffle_product_client.mjs";
 import {fantasyClient, previewCart, approveCart, launchCart, gamepad, saveCart} from "./fantasy_product_client.mjs";
 
 const baseUrl = process.env.RETROM_ACCEPTANCE_BASE_URL;
@@ -74,18 +75,7 @@ try {
 }
 
 async function publish(context, client, filename, label) {
-  await client.json("POST", "/api/v1/admin/platform-instances/recommendations/apply", {
-    headers: client.writeHeaders(), data: {}, expected: 200,
-  });
-  const platforms = await client.json("GET", "/api/v1/admin/platform-instances?platformId=flash&limit=100");
-  const instance = platforms.items.find((item) => item.enabled && item.defaultCoreId === "ruffle");
-  assert.ok(instance, "RUFFLE_PLATFORM_MISSING");
-  const uploadId = await client.upload(singleFile(filename), "FILES", "GENERAL");
-  const imported = await client.json("POST", "/api/v1/admin/imports", {
-    headers: client.writeHeaders(), expected: 202,
-    data: {uploadId, targetPlatformInstanceId: instance.id, metadataProvider: "NONE", contentMode: "STANDARD", tagIds: []},
-  });
-  const review = await reviewForImport(client, imported.importJobId);
+  const review = await importRuffleMovie(client, filename);
   const preview = await previewCart(client, review.itemId);
   const opened = await open(context, preview, `${label}-preview`);
   await gamepad(opened.page, 0); await opened.page.close();
@@ -171,28 +161,4 @@ async function verifySave(context, client, gameId) {
     saveStateId: saved.saveStateId, updatedSaveStateId: updated.saveStateId, newSaveStateId: newContainer.saveStateId,
     checkpointFormat: saved.checkpointFormat, initial, savedPosition, updatedPosition};
   evidence.stages.push("owned:direction-confirm-cancel-native-save-transfer-fresh-launch-restore-input-clean-launch");
-}
-
-async function position(canvas) {
-  const png = await canvas.evaluate(async (element) => {
-    const blob = await element.getRootNode().host.ruffle().captureFrame();
-    const bytes = new Uint8Array(await blob.arrayBuffer());
-    let encoded = "";
-    for (let i = 0; i < bytes.length; i += 8192) {encoded += String.fromCharCode(...bytes.subarray(i, i + 8192));}
-    return btoa(encoded);
-  });
-  return canvas.page().evaluate(async (encoded) => {
-    const bytes = Uint8Array.from(atob(encoded), (c) => c.charCodeAt(0));
-    const image = await createImageBitmap(new Blob([bytes], {type: "image/png"}));
-    const surface = document.createElement("canvas"); surface.width = image.width; surface.height = image.height;
-    const ctx = surface.getContext("2d"); ctx.drawImage(image, 0, 0); image.close();
-    const scale = Math.min(surface.width / 320, surface.height / 240);
-    const left = (surface.width - scale * 320) / 2;
-    const top = (surface.height - scale * 240) / 2;
-    const row = ctx.getImageData(0, Math.floor(top + scale * 105), surface.width, 1).data;
-    for (let x = 0; x < surface.width; x++) {
-      if (row[x * 4] > 230 && row[x * 4 + 1] > 230 && row[x * 4 + 2] > 230) {return (x - left) / scale;}
-    }
-    throw Error("RUFFLE_FIXTURE_MARKER_MISSING");
-  }, png);
 }

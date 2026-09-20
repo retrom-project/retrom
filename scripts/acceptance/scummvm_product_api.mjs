@@ -34,29 +34,3 @@ export async function approveScummvm(client, itemId) {
     headers: {...client.writeHeaders(), "If-Match": snapshot.headers().etag}, data: {}, expected: 201,
   });
 }
-
-export function trackScummvmTraffic(page) {
-  const responses = [];
-  page.on("response", (response) => {
-    const path = new URL(response.url()).pathname;
-    if (response.request().method() === "GET" && (/\/plugins\//u.test(path) || path.startsWith("/runtime/content/project/"))) {
-      responses.push({path, status: response.status(), range: response.request().headers().range ?? null});
-    }
-  });
-  return responses;
-}
-
-export function assertScummvmTraffic(first, restored, engineId) {
-  const plugins = first.filter((item) => item.path.includes("/plugins/"));
-  assert(plugins.length > 0, "SCUMMVM_PLUGIN_REQUEST_MISSING");
-  assert(plugins.every((item) => item.path.endsWith(`/lib${engineId}.so`) && item.status === 206));
-  const content = (items) => items.filter((item) => item.path.startsWith("/runtime/content/project/"));
-  const initial = content(first), resumed = content(restored);
-  assert(initial.some((item) => item.status === 206 && item.range), "SCUMMVM_LAZY_CONTENT_UNOBSERVED");
-  assert(resumed.some((item) => item.path.endsWith("/index.json") && item.status === 200));
-  assert.equal(resumed.filter((item) => item.range).length, 0, "SCUMMVM_CONTENT_CACHE_NOT_REUSED");
-  const identities = new Set([...initial, ...resumed].map((item) => item.path.split("/")[4]));
-  assert.equal(identities.size, 1);
-  return {engineId, contentDigest: [...identities][0], firstPluginResponses: plugins.length,
-    firstBlockResponses: initial.filter((item) => item.range).length, restoredBlockResponses: 0};
-}

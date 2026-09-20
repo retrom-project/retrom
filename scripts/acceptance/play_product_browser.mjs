@@ -1,3 +1,4 @@
+import {observePlayLoading} from "./play_loading_evidence.mjs";
 import assert from "node:assert/strict";
 import {join} from "node:path";
 import {writeFileSync} from "node:fs";
@@ -23,15 +24,12 @@ export async function observePlay(context) {
 }
 
 export async function openPlay(context, base, launch, evidence) {
+  const network = await observePlayLoading(context, base, launch, evidence);
   const page = await context.newPage();
+  page.once("close", () => network.close());
   page.on("pageerror", error => evidence.errors.push(error.message));
   page.on("console", message => {
     if (message.text().includes("WebGL: INVALID")) {evidence.errors.push(message.text());}
-  });
-  page.on("response", response => {
-    if (response.request().headers().range) {
-      evidence.rangeRequests++; evidence.rangeBytes += Number(response.headers()["content-length"] ?? 0);
-    }
   });
   await page.goto(base + launch.playUrl, {waitUntil: "domcontentloaded", timeout: 60000});
   const until = Date.now() + 90000;
@@ -42,7 +40,7 @@ export async function openPlay(context, base, launch, evidence) {
         await canvas.click({position: {x: 100, y: 100}});
         await waitForPlayPicture(page, canvas);
         evidence.launches.push(launch.launchId ?? launch.previewId);
-        return {page, canvas, frame};
+        return {page, canvas, frame, network, config: network.config};
       }
     }
     assert.equal(await page.getByText("RUNTIME_FAILED", {exact: true}).isVisible(), false, "PLAY_RUNTIME_FAILED");
@@ -88,6 +86,7 @@ export async function pressPlay(opened, button) {
 }
 
 export async function capturePlay(opened, directory, name) {
+  await opened.network.snapshot();
   const data = await opened.canvas.evaluate(canvas => canvas.toDataURL("image/png"));
   const bytes = Buffer.from(data.split(",")[1], "base64");
   assert.ok(bytes.length > 1024, "PLAY_SCREENSHOT_EMPTY");

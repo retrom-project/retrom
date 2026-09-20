@@ -1,5 +1,7 @@
 import copy
 import unittest
+from pathlib import Path
+from scripts.acceptance.rpgmaker_policy_fixture import receipt, GENERATIONS
 
 from scripts.acceptance.rpgmaker_case import ContractError, validate_resource_policy_evidence
 
@@ -17,6 +19,7 @@ def evidence():
         })
     return {
         "schemaVersion": 1, "caseId": "ACC-RPG-009", "status": "PASS", "projects": projects,
+        "fixtureRecipes": [receipt(Path(__file__).resolve().parents[3] / "testdata/public-roms/rpgmaker-smoke" / name, "11111111-1111-4111-8111-111111111111") for name in GENERATIONS],
         "retired": {"routes": [{"method": method, "status": 404} for method in ("GET", "POST", "DELETE")], "uploadStatus": 400},
         "screenshots": ["screenshots/rpgmaker-bios-only.png", "screenshots/rpgmaker-self-contained-confirmation.png"],
     }
@@ -47,3 +50,10 @@ class ResourcePolicyEvidenceTests(unittest.TestCase):
         sample["retired"]["routes"][1]["status"] = 202
         with self.assertRaises(ContractError):
             validate_resource_policy_evidence(sample)
+
+    def test_missing_or_forged_input_receipts_cannot_pass(self):
+        for value in (None, [], [{"recipe": "forged"}] * 5):
+            sample = evidence()
+            sample["fixtureRecipes"] = value
+            with self.assertRaises(ContractError):
+                validate_resource_policy_evidence(sample)

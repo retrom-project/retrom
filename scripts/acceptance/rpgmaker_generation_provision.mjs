@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { execFileSync } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
 import {
   closeSync, existsSync, lstatSync, openSync, readFileSync, readSync, writeFileSync,
@@ -78,7 +79,17 @@ const tracePath = caseId === "ACC-RPG-004"
   : null;
 const trialPath = checkedTracePath(required("RETROM_RPG_PROVISION_EVIDENCE"));
 const restoredImagePath = checkedTracePath(trialPath + "-restored.png");
-const sourceFiles = directoryFiles(config.source(), config.prefix);
+let sourceRoot = config.source();
+if (process.env.RETROM_RPG_RUN_ROOT) {
+  if (!["ACC-RPG-004", "ACC-RPG-005", "ACC-RPG-006"].includes(caseId) ||
+      !isAbsolute(process.env.RETROM_RPG_RUN_ROOT)) {
+    throw new Error("RPG_RUN_ROOT_INVALID");
+  }
+  execFileSync("python3", [resolve("scripts/acceptance/rpgmaker_run_fixture.py"),
+    "validate", sourceRoot, process.env.RETROM_RPG_RUN_ROOT]);
+  sourceRoot = process.env.RETROM_RPG_RUN_ROOT;
+}
+const sourceFiles = directoryFiles(sourceRoot, config.prefix);
 if (caseId === "ACC-RPG-008") {
   validateMZProvenance(sourceFiles, required("RPG_MZ_SMOKE_PROVENANCE"));
 }

@@ -871,9 +871,11 @@ RPG 条目的 Review detail 额外返回可空 `rpgMaker`，包含 `selectedCore
 
 EasyRPG 与 mkxp 的同源内容端点属于严格 OpenAPI 契约，不能只在 Go router 中注册：
 
-ONS/KiriKiri/Butterscotch 的 `index.json` 逐项必须包含准确 `path/sizeBytes/url`。ONS 非视频文件以含稳定 content identity 的完整 URL 作为持久缓存身份，流式读取时必须与 `sizeBytes` 精确一致；adapter 优先把文件有界串行写入 origin-private file system，OPFS 不可用时才回退 Cache Storage，因此数百 MiB 归档不依赖 Chromium 普通 HTTP disk-cache 或 Cache Storage 的单项大小限制。ONS 视频直接把该 URL 交给浏览器媒体元素并消费同一内容端点的 Range，不得为了缓存而先完整下载到 Wasm 文件系统。KiriKiri 的大型 XP3 继续由 VLFS 按 256 KiB 有界 Range 注册，不能在 adapter 中预取整包。
+ONS/KiriKiri/Butterscotch 的 `index.json` 逐项必须包含准确 `path/sizeBytes/url`。Provider 的公共 Content I/O 服务负责受管游戏文件的下载、身份验证和跨 Launch 缓存；Host 只提供冻结资源、授权和标准 HTTP 语义，不复制核心的读取策略。索引项以项目 digest 与规范 logical path 标识，首次读取固定强 ETag；单文件 digest 资源要求匹配 `"sha256-<digest>"`。Range 响应必须是准确的单段 206，长度、总长度和 ETag 必须一致；变更或失效的身份必须失败，不能拼接不同版本的块。内容响应不进行传输压缩，支持 `If-Match`（不匹配返回 412），无效或多段 Range 返回 416。
 
-Butterscotch core 需要本地文件路径，因此 adapter 必须先把冻结索引的每个项目文件流式写入按 content digest 分区的 OPFS，再启动 worker；下载过程按总字节上报进度。缓存文件长度与索引一致时跨 Launch 复用，长度漂移则删除并重新下载；恢复 Launch 仍重新读取 `index.json` 和 grant，但不重复获取已完整缓存的 `data.win`。
+公共层以 256 KiB 块使用 OPFS，后端失败时依次回退有界 Cache Storage 块和内存/网络。缓存身份包含 storage origin 与内容身份，缓存不可用不妨碍普通内容读取。ONS 非视频文件在实际打开时才完整物化；KiriKiri XP3、mkxp WasmFS、PSP 和 Play 按需读取，不能在注册文件树时下载正文。ONS 视频直接把冻结 URL 交给浏览器媒体元素并消费同一内容端点的 Range，不得为了缓存而先完整下载到 Wasm 文件系统。
+
+Butterscotch core 需要本地文件路径，因此公共 workspace helper 必须先把冻结索引的每个文件流式写入不可变 OPFS generation，再启动 worker；下载过程按总字节上报进度。完整 receipt 包含准确长度与本地 SHA-256，复用前逐块校验；只有长度相等不足以证明缓存完整。发布 generation 后由独立 lease 保护直到 native worker 停止，运行期存档写入 Session overlay；恢复 Launch 仍读取 `index.json` 和 grant，但完整、校验通过的文件不重复下载。该核心确实需要 OPFS，不能把必需 workspace 的创建失败当作普通可选缓存失败。完整 workspace generation 暂不自动 GC；raw block 与 workspace 副本可能同时占用磁盘。
 
 - `GET|HEAD /runtime/providers/{providerId}/{bundleSha256}/{runtimePath}` 只允许命中已激活 Provider Bundle 的逐文件 allowlist，本地逐字节复核 size/hash 后返回不可变公共响应；未知 Provider、摘要、路径或 MIME 返回 404；
 - `GET|HEAD /runtime/content/project/{contentIdentity}/{projectPath}` 使用通用 `/runtime/content/` HttpOnly Launch grant。`contentIdentity` 由冻结项目的规范 logical path、format 与逐文件 digest，以及 EasyRPG/mkxp 派生索引与 bundle 的锁定内容共同确定；相同内容和运行投影在不同 Launch 中得到相同 URL，替换任一文件必须产生新 identity。服务端逐个验证当前有效 grant 实际锁定的身份，不能仅凭 path 查询可变 Game/Review。`index.json` 是 EasyRPG/ONS/KiriKiri/Butterscotch adapter 使用的保留虚拟索引，不提供外部 RTP 索引或文件端点。所有响应为 `private, max-age=31536000, immutable`、强 ETag、准确 MIME/长度并支持单 Range；未知、未授权或跨身份文件不能回退到上传源、当前可变 GameFiles 或 ReviewDraft。 动态项目索引在同一只读快照中校验授权并读取冻结文件，Service 按唯一格式生成索引；只有确认使用静态索引的格式才允许读取其冻结索引文件。授权失效返回 `401 LAUNCH_CREDENTIAL_INVALID`，真实存储失败返回 `500 INTERNAL_ERROR`，不得把失败当作其他格式继续尝试。

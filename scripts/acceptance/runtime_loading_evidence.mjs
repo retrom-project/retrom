@@ -12,23 +12,26 @@ export function trackRuntimeLoading(
   const responses = [];
   const indexes = declaredProjectFiles.length ? [{ files: declaredProjectFiles }] : [];
   const pending = new Set();
+  const errors = [];
+  const events = page.context();
   const listener = (response) => {
     if (!trackedUrl(response.url())) {return;}
-    const task = recordResponse(response, responses, indexes).finally(() => pending.delete(task));
+    const task = recordResponse(response, responses, indexes).catch(error => errors.push(error)).finally(() => pending.delete(task));
     pending.add(task);
   };
-  page.on("response", listener);
+  events.on("response", listener);
   return {
     snapshot: () => withDeadline((async () => {
       while (pending.size) {await Promise.allSettled([...pending]);}
+      if (errors.length) throw new AggregateError(errors, "RUNTIME_LOADING_OBSERVATION_FAILED");
       return {
         evidence: summarizeRuntimeLoading({
           indexes, responses, timings: collectRuntimeTimings ? await runtimeTimings(page) : [],
         }),
-        projectContentIdentity: singleProjectIdentity(responses),
+        projectContentIdentity: singleProjectIdentity([...declaredFiles(indexes).keys()].map(url => ({url})).concat(responses)),
       };
     })(), timeoutMs),
-    stop: () => page.off("response", listener),
+    stop: () => events.off("response", listener),
   };
 }
 
@@ -46,7 +49,7 @@ export function summarizeRuntimeLoading({ indexes, responses, timings }) {
     (item) => projectFileIdentity(item.url) !== null && item.method !== "HEAD",
   );
   const requestedFiles = new Set(projectResponses.map((item) => item.url));
-  const identities = new Set(projectResponses.map((item) => projectFileIdentity(item.url)).filter(Boolean));
+  const identities = new Set([...files.keys(), ...projectResponses.map(item => item.url)].map(projectFileIdentity).filter(Boolean));
   const runtimeResponses = new Set(
     responses.filter((item) => runtimeAsset(item.url)).map((item) => item.url),
   );

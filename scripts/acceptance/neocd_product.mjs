@@ -20,7 +20,9 @@ let browser, proxy, ranges, discUrl, discSize;
 const requests = [], consoleMessages = [];
 async function prepare(client) {
   const file = join(directory, "product-input.json");
-  const progress = existsSync(file) ? JSON.parse(readFileSync(file)) : {};
+  const source = env.RETROM_NEOCD_EXISTING_INPUT ?? file;
+  const progress = existsSync(source) ? JSON.parse(readFileSync(source)) : {};
+  if (env.RETROM_NEOCD_EXISTING_INPUT) {assert.ok(progress.gameId && progress.digest, "NEOCD_REUSE_PROVENANCE_MISSING");}
   const digest = hash(readFileSync(env.RETROM_NEOCD_CHD));
   if (progress.digest) {assert.equal(progress.digest, digest);}
   const requirements = (await client.json("GET", "/api/v1/admin/bios?scope=FULL_CATALOG&coreId=neocd&limit=100")).items;
@@ -64,7 +66,15 @@ async function prepare(client) {
 }
 async function open(launch) {
   const requestStart = requests.length, started = Date.now();
-  const page = await browser.contexts()[0].newPage();
+  const context = browser.contexts()[0];
+  const configResponse = await context.request.get(`${base}/runtime/launches/${launch.launchId ?? launch.previewId}/config`);
+  assert.equal(configResponse.status(), 200);
+  const config = await configResponse.json();
+  assert.equal(config.runtime.targetId, "neocd");
+  const disk = config.resources.find(resource => resource.kind === "SEEKABLE_BLOB");
+  assert.ok(disk?.rangeRequired);
+  ranges.register(disk, base);
+  const page = await context.newPage();
   page.__retromFatalError = new Promise(resolve => page.once("pageerror", resolve));
   page.on("pageerror", error => evidence.errors.push(error.message.slice(0, 200)));
   page.on("console", message => {
@@ -88,10 +98,6 @@ async function open(launch) {
   const controls = await frame.evaluate(() => window.EJS_defaultControls[0]);
   assert.equal(controls[0].value2, "BUTTON_1", "NEOCD_PRIMARY_BUTTON_MAPPING");
   assert.equal(controls[8].value2, "BUTTON_2", "NEOCD_SECONDARY_BUTTON_MAPPING");
-  const config = await page.evaluate(async id => (await fetch(`/runtime/launches/${id}/config`)).json(), launch.launchId ?? launch.previewId);
-  assert.equal(config.runtime.targetId, "neocd");
-  const disk = config.resources.find(resource => resource.kind === "SEEKABLE_BLOB");
-  assert.ok(disk?.rangeRequired);
   discUrl = new URL(disk.url, base).href; discSize = disk.sizeBytes;
   const initial = await ranges.snapshot(discUrl);
   (evidence.startups ??= []).push({...initial, readyMs: Date.now() - started});
@@ -141,7 +147,7 @@ try {
     args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--autoplay-policy=no-user-gesture-required"]});
   const context = await browser.newContext({viewport: {width: 1280, height: 900}, ...proxy.contextOptions});
   context.on("request", request => requests.push(request.url()));
-  ranges = observeNeoCDRanges(context);
+  ranges = await observeNeoCDRanges(context);
   context.setDefaultTimeout(30000); context.setDefaultNavigationTimeout(120000); await installVirtualStandardGamepad(context); await observeFantasyAudio(context);
   const client = await fantasyClient(context, base), progress = await prepare(client);
   evidence.gameId = progress.gameId; evidence.gameSha256 = progress.digest;
@@ -190,6 +196,7 @@ try {
   assert.deepEqual(evidence.errors, []); evidence.status = "AWAITING_VISUAL_REVIEW";
 } catch (error) {evidence.error = error.message.slice(0, 500); process.exitCode = 1;}
 finally {
+  ranges?.close();
   await browser?.close(); await proxy?.close();
   writeFileSync(join(directory, "browser-console.log"), consoleMessages.join("\n"));
   writeFileSync(join(directory, "neocd-storage-product.json"), JSON.stringify(evidence, null, 2));
