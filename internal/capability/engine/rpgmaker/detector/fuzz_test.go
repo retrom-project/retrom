@@ -22,7 +22,7 @@ func FuzzDetectBoundedFormats(f *testing.F) {
 		}
 		cores := []string{"rpgmaker_2000", "rpgmaker_2000", "rpgmaker_xp", "rpgmaker_mv", "rpgmaker_mv"}
 		for index, project := range projects {
-			profile, err := Detect(cores[index], project)
+			profile, err := detectFixture(cores[index], project)
 			if err == nil && profile.ExpectedGeneration == "" {
 				t.Fatalf("successful detection returned an empty profile: %#v", profile)
 			}

@@ -3,6 +3,8 @@ package libraryimport
 import (
 	"time"
 
+	"retrom/internal/model/diagnostics"
+
 	librarymodel "retrom/internal/model/libraryimport"
 )
 
@@ -22,11 +24,15 @@ type ImportAdmissionOptions struct {
 }
 
 type ImportPreparationOptions struct {
+	ProjectArchives                            librarymodel.ProjectArchiveOpener
+	ArchiveInspector                           librarymodel.ArchiveInspector
+	Diagnostics                                diagnostics.ErrorReporter
 	MultiDiscEnabled, MetadataScraperAvailable bool
 	ScummVMDetector                            librarymodel.ScummVMDetector
 	ONSDetector                                librarymodel.ONSProjectDetector
 	ButterscotchDetector                       librarymodel.ButterscotchProjectDetector
 	NXEngineDetector                           librarymodel.NXEngineProjectDetector
+	RPGMakerDetector                           librarymodel.RPGMakerDetector
 }
 
 type MultiDiscAttachmentOptions struct {

@@ -6,10 +6,14 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
+
+	archiveadapter "retrom/internal/adapter/content/archive"
+	cleanupadapter "retrom/internal/adapter/system/cleanup"
 
 	serverimportmodel "retrom/internal/model/serverimport"
 	firmwarepersistence "retrom/internal/repo/firmware"
@@ -73,7 +77,7 @@ VALUES('fixture-requirement','mgba',?,?,'STATIC',NULL,'bios.bin','REQUIRED',NULL
 		fmt.Sprintf("%x", sha256.Sum256(contents))); err != nil {
 		t.Fatal(err)
 	}
-	service := New(database.SQL, blobs, firmwareservice.New(firmwarepersistence.New(database.SQL), time.Now).WithBlobStore(blobs), credentials,
+	service := New(database.SQL, blobs, firmwareservice.New(firmwarepersistence.New(database.SQL), time.Now, archiveadapter.New(cleanupadapter.NewReporter(slog.Default()))).WithBlobStore(blobs), credentials,
 		[]serversource.Root{{ID: "bios-root", Label: "BIOS Root", Path: rootDir}}, time.Now)
 	created, err := service.Create(ctx, serverimportmodel.CreateRequest{Kind: "BIOS_DIRECTORY", RootID: "bios-root"}, "01980000-0000-7000-8000-00000000b001")
 	testassert.False(t, err != nil, err)

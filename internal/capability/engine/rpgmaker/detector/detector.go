@@ -44,53 +44,25 @@ func CoreForGeneration(generation Generation) (string, error) {
 	return "", newError(CodeGenerationUnsupported, "generation has no internal runtime core", nil)
 }
 
-func Detect(coreID string, source FileIndex) (Profile, error) {
-	if coreID == VirtualCoreID {
-		return detectVirtualCore(source)
+func (inspection *Inspection) Result() (Profile, error) {
+	if inspection.stage != inspectionDone {
+		return Profile{}, errInspectionSequence
 	}
-	expected, err := GenerationForCore(coreID)
-	if err != nil {
-		return Profile{}, err
-	}
-	files, err := newCatalog(source)
-	if err != nil {
-		return Profile{}, withExpected(err, expected)
-	}
-	evidenceSet, err := collectEvidence(files)
-	if err != nil {
-		return Profile{}, withExpected(err, expected)
-	}
+	evidenceSet := inspection.evidence
 	if len(evidenceSet) == 0 {
-		unsupported := newError(CodeGenerationUnsupported, "no supported generation signature", nil)
-		return Profile{}, withExpected(unsupported, expected)
-	}
-	if len(evidenceSet) > 1 {
-		markerPaths := mergeMarkers(evidenceSet)
-		detectionError := newError(CodeGenerationAmbiguous, "multiple generation signatures are complete", nil)
-		detectionError.MarkerPaths = markerPaths
-		return Profile{}, withExpected(detectionError, expected)
-	}
-	return resolveEvidence(coreID, expected, evidenceSet[0])
-}
-
-func detectVirtualCore(source FileIndex) (Profile, error) {
-	files, err := newCatalog(source)
-	if err != nil {
-		return Profile{}, err
-	}
-	evidenceSet, err := collectEvidence(files)
-	if err != nil {
-		return Profile{}, err
-	}
-	if len(evidenceSet) == 0 {
-		return Profile{}, newError(CodeGenerationUnsupported, "no supported generation signature", nil)
+		return Profile{}, withExpected(
+			newError(CodeGenerationUnsupported, "no supported generation signature", nil), inspection.expected,
+		)
 	}
 	if len(evidenceSet) > 1 {
 		detectionError := newError(CodeGenerationAmbiguous, "multiple generation signatures are complete", nil)
 		detectionError.MarkerPaths = mergeMarkers(evidenceSet)
-		return Profile{}, detectionError
+		return Profile{}, withExpected(detectionError, inspection.expected)
 	}
 	found := evidenceSet[0]
+	if inspection.coreID != VirtualCoreID {
+		return resolveEvidence(inspection.coreID, inspection.expected, found)
+	}
 	if found.generation == "" {
 		detectionError := newError(CodeGenerationAmbiguous, "RPG Maker 2000/2003 generation is not distinguishable", nil)
 		detectionError.EvidenceFamily = found.family
@@ -102,19 +74,6 @@ func detectVirtualCore(source FileIndex) (Profile, error) {
 		return Profile{}, err
 	}
 	return profileFromEvidence(coreID, found.generation, found, Matched, ConfidenceExact), nil
-}
-
-func collectEvidence(files *catalog) ([]evidence, error) {
-	parsers := []func(*catalog) ([]evidence, error){detectRPG2K, detectRGSS, detectWeb}
-	result := make([]evidence, 0, 2)
-	for _, parser := range parsers {
-		matches, err := parser(files)
-		if err != nil {
-			return nil, err
-		}
-		result = append(result, matches...)
-	}
-	return result, nil
 }
 
 func resolveEvidence(coreID string, expected Generation, found evidence) (Profile, error) {

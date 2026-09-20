@@ -10,9 +10,13 @@ import (
 	"errors"
 	"fmt"
 	"hash/crc32"
+	"log/slog"
 	"path/filepath"
 	"testing"
 	"time"
+
+	archiveadapter "retrom/internal/adapter/content/archive"
+	cleanupadapter "retrom/internal/adapter/system/cleanup"
 
 	"retrom/internal/capability/content/firmware"
 	firmwaremodel "retrom/internal/model/firmware"
@@ -77,7 +81,7 @@ VALUES('fixture','same_cdi',?,?,'STATIC','fixture.zip','REQUIRED',?,'retrom:test
 				t.Fatal(err)
 			}
 			fileID := completeFirmwareUpload(t, ctx, database.SQL, upload, "fixture.zip", archive.Bytes())
-			service := firmwareservice.New(New(database.SQL), time.Now).WithBlobStore(blobs)
+			service := firmwareservice.New(New(database.SQL), time.Now, archiveadapter.New(cleanupadapter.NewReporter(slog.Default()))).WithBlobStore(blobs)
 			installed, err := service.Install(ctx, "fixture", 1, firmwaremodel.InstallRequest{UploadFileID: fileID})
 			if test.status == "INVALID" {
 				var invalid *firmware.ArchiveContentError

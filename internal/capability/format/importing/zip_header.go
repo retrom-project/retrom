@@ -9,8 +9,8 @@ import (
 	"retrom/internal/capability/format/zipentry"
 )
 
-// zipHeaderFacts contains only the directory metadata used by ZIP rules.
-type zipHeaderFacts struct {
+// ZIPHeaderFacts contains only the directory metadata used by ZIP rules.
+type ZIPHeaderFacts struct {
 	Name               string
 	NonUTF8            bool
 	Mode               fs.FileMode
@@ -36,7 +36,7 @@ func checkedArchiveSize(value uint64) (int64, bool) {
 	return int64(value), true
 }
 
-func validateZIPItem(item zipHeaderFacts, limits ArchiveLimits, expanded int64) (string, bool, error) {
+func validateZIPItem(item ZIPHeaderFacts, limits ArchiveLimits, expanded int64) (string, bool, error) {
 	entryName, err := zipEntryName(item)
 	if err != nil {
 		return "", false, err
@@ -67,7 +67,7 @@ func validateZIPItem(item zipHeaderFacts, limits ArchiveLimits, expanded int64) 
 	return pathValue, false, nil
 }
 
-func invalidZIPSize(item zipHeaderFacts, limits ArchiveLimits, expanded int64) bool {
+func invalidZIPSize(item ZIPHeaderFacts, limits ArchiveLimits, expanded int64) bool {
 	if limits.MaxEntryBytes < 0 || item.UncompressedSize64 > uint64(limits.MaxEntryBytes) {
 		return true
 	}
@@ -91,7 +91,7 @@ func recordArchivePath(seenPath, seenFold map[string]struct{}, pathValue, folded
 	return nil
 }
 
-func zipEntryName(item zipHeaderFacts) (string, error) {
+func zipEntryName(item ZIPHeaderFacts) (string, error) {
 	decoded, err := zipentry.DecodeName(item.Name, item.NonUTF8)
 	if err != nil {
 		return "", ErrArchiveUnsafe

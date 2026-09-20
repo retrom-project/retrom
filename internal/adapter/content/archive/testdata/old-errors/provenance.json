@@ -1,0 +1,39 @@
+{
+  "command": [
+    "go",
+    "test",
+    "-count=1",
+    "archive.go",
+    "asar_header.go",
+    "capture_test.go",
+    "electron_asar_layout.go",
+    "electron_asar_zip.go",
+    "nwjs_executable.go",
+    "path.go",
+    "zip_header.go",
+    "-run",
+    "^TestCaptureOldErrorShapes$"
+  ],
+  "source_sha256": {
+    "archive.go": "8f10cb0b8d2f9be46b263d899e01cd2aef717ea53e4709c6626e95fac9c99664",
+    "zip_header.go": "baf01c021fbaa8887643404727b76351b911650dad082413ffbca23169b1d262",
+    "nwjs_executable.go": "85092abc4660a07625237df25b2296ab0452f4b429e61f9fc952783d83e0c578",
+    "electron_asar_zip.go": "b922ca58ee39eec213866d8f6ec5bca9f7b8164210f1b95adadbb3acd3a0252c",
+    "electron_asar_layout.go": "588be0e944f977aeffb6f28f84ec73474b251d2bcd1ecef669725b5d3b0a83ea",
+    "asar_header.go": "1f927289fe913228f8fa1cffa5254dc8be6a403a22329776fbafee4b7e191545",
+    "path.go": "e7a1c7db6c1c1cad427086b5a7f391439ead1f6ddc3edb4712efb5cd3b85a491",
+    "capture_test.go": "3decab35382f55c30586ff93c3bcaece4836745a994e341d12d1c22ed9ead9a5"
+  },
+  "source_location": "old-source/*.go.txt (original package importing); capture.go.txt",
+  "source_HEAD": "95bc3c741399540158607952b36ffbf96523efd5",
+  "golden_sha256": "8552e3066764146909bef9983bb3322090a4057af134b9ada7e6ddd3032938ae",
+  "cases": 12,
+  "reproduce": {
+    "working_directory": "An empty temporary directory under the repository, so imports resolve against its go.mod.",
+    "source_materialization": "Copy old-source/*.go.txt to the same basenames without .txt; copy capture.go.txt to capture_test.go. Preserve all captured source bytes and original package importing.",
+    "environment": {
+      "RETROM_OLD_ERROR_CAPTURE": "An explicit output path for the captured JSON; never overwrite the checked-in golden while verifying."
+    },
+    "validation": "Run command in this materialized directory. Compare output bytes against old-go-golden.json and verify source_sha256 first."
+  }
+}

@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
 	"sort"
 
 	blobmodel "retrom/internal/model/blob"
@@ -23,28 +22,6 @@ import (
 	"retrom/internal/capability/engine/rpgmaker/materializer"
 )
 
-type rpgReplacementIndex struct {
-	sourceFiles []detector.File
-	digests     map[string]string
-	blobs       *blobstore.Store
-}
-
-func (index rpgReplacementIndex) Files() []detector.File {
-	return append([]detector.File(nil), index.sourceFiles...)
-}
-
-func (index rpgReplacementIndex) Open(logicalPath string) (io.ReadCloser, error) {
-	digest, exists := index.digests[logicalPath]
-	if !exists {
-		return nil, os.ErrNotExist
-	}
-	reader, err := index.blobs.OpenDigest(digest)
-	if err != nil {
-		return nil, fmt.Errorf("open RPG replacement file: %w", err)
-	}
-	return reader, nil
-}
-
 func (service *Service) prepareRPGMakerReplacement(
 	ctx context.Context,
 	snapshot model.JobSnapshot,
@@ -53,7 +30,7 @@ func (service *Service) prepareRPGMakerReplacement(
 	if service.blobs == nil || snapshot.RPGGeneration == "" || len(files) == 0 {
 		return model.PreparedReplacement{}, &replacementValidationError{code: "RPG_REPLACEMENT_INPUT_INVALID"}
 	}
-	project, profile, err := service.detectRPGMakerReplacement(files)
+	project, profile, err := service.detectRPGMakerReplacement(ctx, files)
 	if err != nil {
 		return model.PreparedReplacement{}, err
 	}
@@ -98,6 +75,7 @@ func (service *Service) prepareRPGMakerReplacement(
 }
 
 func (service *Service) detectRPGMakerReplacement(
+	ctx context.Context,
 	files []model.UploadedFile,
 ) (fileset.Project, detector.Profile, error) {
 	sources := make([]fileset.SourceFile, 0, len(files))
@@ -110,18 +88,18 @@ func (service *Service) detectRPGMakerReplacement(
 	if err != nil {
 		return fileset.Project{}, detector.Profile{}, rpgReplacementProjectError(err)
 	}
-	detectionIndex := rpgReplacementIndex{
-		sourceFiles: make([]detector.File, 0, len(project.Files)),
-		digests:     make(map[string]string, len(project.Files)), blobs: service.blobs,
+	if service.rpgMakerDetector == nil {
+		return fileset.Project{}, detector.Profile{}, &replacementValidationError{code: "RPG_REPLACEMENT_INPUT_INVALID"}
 	}
+	probes := make([]model.RPGMakerBlobFile, 0, len(project.Files))
 	for _, projectFile := range project.Files {
 		source := files[projectFile.SourceIndex]
-		detectionIndex.sourceFiles = append(detectionIndex.sourceFiles, detector.File{
-			Path: projectFile.Path, Size: projectFile.SizeBytes,
+		probes = append(probes, model.RPGMakerBlobFile{
+			File:   detector.File{Path: projectFile.Path, Size: projectFile.SizeBytes},
+			SHA256: source.SHA256,
 		})
-		detectionIndex.digests[projectFile.Path] = source.SHA256
 	}
-	profile, err := detector.Detect(detector.VirtualCoreID, detectionIndex)
+	profile, err := service.rpgMakerDetector.DetectBlobs(ctx, detector.VirtualCoreID, probes)
 	if err != nil {
 		return fileset.Project{}, detector.Profile{}, rpgReplacementDetectionError(err)
 	}

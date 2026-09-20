@@ -11,10 +11,13 @@ import (
 func TestArchiveFactsHaveNoResourceTypes(t *testing.T) {
 	t.Parallel()
 	for _, typ := range []reflect.Type{
-		reflect.TypeFor[zipHeaderFacts](),
-		reflect.TypeFor[validatedElectronZIPItem](),
-		reflect.TypeFor[electronZIPLayout](),
-		reflect.TypeFor[asarMember](),
+		reflect.TypeFor[ArchiveMemberHeader](),
+		reflect.TypeFor[ZIPDirectory](),
+		reflect.TypeFor[ASARPickle](),
+		reflect.TypeFor[ZIPHeaderFacts](),
+		reflect.TypeFor[ZIPMember](),
+		reflect.TypeFor[ElectronZIPLayout](),
+		reflect.TypeFor[ASARMember](),
 	} {
 		assertArchiveFactType(t, typ, make(map[reflect.Type]bool))
 	}
@@ -50,35 +53,45 @@ func assertArchiveFactType(t *testing.T, typ reflect.Type, seen map[reflect.Type
 
 func TestElectronLayoutUsesClosedHeaderFacts(t *testing.T) {
 	t.Parallel()
-	headers := []zipHeaderFacts{
+	headers := []ZIPHeaderFacts{
 		{Name: "Game/", Mode: fs.ModeDir},
 		{Name: "Game/Game.exe", Method: zip.Store},
 		{Name: "Game/resources/app.asar", Method: zip.Store},
 		{
-			Name: "Game/resources/app.asar.unpacked/Native.DLL", Method: zip.Store,
+			Name: "Game/resources/app.asar.Unpacked/Native.DLL", Method: zip.Store,
 			UncompressedSize64: 3, CompressedSize64: 3,
 		},
 	}
-	items, err := validateElectronZIPDirectory(headers, DefaultArchiveLimits())
+	directory, err := NewZIPDirectory(len(headers), DefaultArchiveLimits())
 	if err != nil {
 		t.Fatal(err)
 	}
-	layout, detected, err := locateElectronZIPLayout(items)
-	if err != nil || !detected || layout.appASAR.ordinal != 2 || layout.unpacked["native.dll"].ordinal != 3 {
+	items := make([]ZIPMember, 0, len(headers))
+	for ordinal, header := range headers {
+		item, isDirectory, err := directory.Add(ordinal, header)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !isDirectory {
+			items = append(items, item)
+		}
+	}
+	layout, detected, err := LocateElectronZIPLayout(items)
+	if err != nil || !detected || layout.AppASAR.Ordinal != 2 || layout.Unpacked["native.dll"].Ordinal != 3 {
 		t.Fatalf("layout = %#v, detected=%v, error=%v", layout, detected, err)
 	}
-	members := []asarMember{{path: "native.dll", size: 3, unpacked: true, ordinal: 0}}
-	before := append([]asarMember(nil), members...)
-	if err := validateUnpackedASARMembers(members, layout); err != nil {
+	members := []ASARMember{{Path: "native.dll", Size: 3, Unpacked: true, Ordinal: 0}}
+	before := append([]ASARMember(nil), members...)
+	if err := ValidateUnpackedASARMembers(members, layout); err != nil {
 		t.Fatal(err)
 	}
 	if !reflect.DeepEqual(members, before) {
 		t.Fatal("binding validation changed pure ASAR member facts")
 	}
-	member := layout.unpacked["native.dll"]
-	member.header.UncompressedSize64++
-	layout.unpacked["native.dll"] = member
-	if err := validateUnpackedASARMembers(members, layout); !errors.Is(err, ErrElectronASARInvalid) {
+	member := layout.Unpacked["native.dll"]
+	member.Header.UncompressedSize64++
+	layout.Unpacked["native.dll"] = member
+	if err := ValidateUnpackedASARMembers(members, layout); !errors.Is(err, ErrElectronASARInvalid) {
 		t.Fatalf("mismatched unpacked size = %v", err)
 	}
 }

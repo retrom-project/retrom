@@ -53,7 +53,7 @@ func (service *Service) validateParentArchive(
 	candidate parentAttachmentCandidate,
 	jobID, workerID string,
 ) (validatedParentArchive, bool) {
-	entries, err := importing.ScanZIP(
+	entries, err := service.archiveInspector.ScanZIP(
 		ctx, service.blobs.Path(candidate.blobSHA), importing.DefaultArchiveLimits(),
 	)
 	if err != nil {

@@ -33,7 +33,7 @@ func TestLCFParserRejectsBoundAndStructureFailures(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			_, err := Detect("rpgmaker_2000", test.files)
+			_, err := detectFixture("rpgmaker_2000", test.files)
 			assertErrorCode(t, err, test.code)
 		})
 	}
@@ -42,9 +42,9 @@ func TestLCFParserRejectsBoundAndStructureFailures(t *testing.T) {
 func TestLCFMapTreeAcceptsLibLCFAdministrativeMapRecords(t *testing.T) {
 	project := rpg2KProject(0)
 	project["RPG_RT.lmt"] = makeLMTWithAdministrativeRecords()
-	profile, err := Detect("rpgmaker_2000", project)
+	profile, err := detectFixture("rpgmaker_2000", project)
 	if err != nil {
-		t.Fatalf("Detect() error = %v", err)
+		t.Fatalf("detectFixture() error = %v", err)
 	}
 	if profile.ExpectedGeneration != RPG2000 || profile.EvidenceConfidence != ConfidenceExact {
 		t.Fatalf("profile = %#v", profile)
@@ -62,7 +62,7 @@ func TestRPGRTINIRequiresASCIIUnambiguousFullPackageFlag(t *testing.T) {
 		t.Run(string(rune('A'+index)), func(t *testing.T) {
 			project := rpg2KProject(0)
 			project["RPG_RT.ini"] = contents
-			_, err := Detect("rpgmaker_2000", project)
+			_, err := detectFixture("rpgmaker_2000", project)
 			assertErrorCode(t, err, CodeINIInvalid)
 		})
 	}
@@ -71,9 +71,9 @@ func TestRPGRTINIRequiresASCIIUnambiguousFullPackageFlag(t *testing.T) {
 func TestRPGRTINIFullPackageFlagProducesSelfContainedProfile(t *testing.T) {
 	project := rpg2KProject(0)
 	project["RPG_RT.ini"] = append([]byte{0xef, 0xbb, 0xbf}, []byte("[RPG_RT]\r\nFullPackageFlag=1\r\n")...)
-	profile, err := Detect("rpgmaker_2000", project)
+	profile, err := detectFixture("rpgmaker_2000", project)
 	if err != nil {
-		t.Fatalf("Detect() error = %v", err)
+		t.Fatalf("detectFixture() error = %v", err)
 	}
 	if !profile.SelfContained || len(profile.Requirements) != 0 {
 		t.Fatalf("self-contained profile = %#v", profile)

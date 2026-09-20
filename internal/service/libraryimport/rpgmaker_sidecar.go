@@ -41,52 +41,6 @@ func (service *ImportPreparation) scanProjectArchive(
 	return service.scanProjectArchivePath(ctx, service.blobs.Path(file.SHA256), archiveFormat)
 }
 
-func (service *ImportPreparation) scanProjectArchivePath(
-	ctx context.Context,
-	archivePath string,
-	archiveFormat contentprofile.ArchiveFormat,
-) ([]importing.ArchiveEntry, map[int]*blobstore.Candidate, error) {
-	limits := importing.RPGMakerArchiveLimits()
-	var entries []importing.ArchiveEntry
-	candidates := make(map[int]*blobstore.Candidate)
-	var err error
-	consumer := func(entry importing.ArchiveEntry, reader io.Reader) (importing.ArchiveContent, error) {
-		candidate, stageErr := service.blobs.Stage(reader)
-		if stageErr != nil {
-			return importing.ArchiveContent{}, fmt.Errorf("stage project entry: %w", stageErr)
-		}
-		metadata := candidate.Metadata()
-		candidates[entry.Ordinal] = candidate
-		return importing.ArchiveContent{
-			Size: metadata.Size, CRC32: metadata.CRC32, MD5: metadata.MD5,
-			SHA1: metadata.SHA1, SHA256: metadata.SHA256,
-		}, nil
-	}
-	switch archiveFormat {
-	case contentprofile.ArchiveZIP:
-		entries, err = importing.ScanZIPWithConsumer(
-			ctx, archivePath, limits, consumer,
-		)
-	case contentprofile.ArchiveNWJSExecutable:
-		entries, err = importing.ScanNWJSExecutableWithConsumer(
-			ctx, archivePath, limits, consumer,
-		)
-	case contentprofile.ArchiveElectronASAR:
-		entries, err = importing.ScanElectronASARZIPWithConsumer(
-			ctx, archivePath, limits, consumer,
-		)
-	case contentprofile.ArchiveSevenZip:
-		entries, err = importing.ScanSevenZip(ctx, archivePath, limits)
-	default:
-		err = importing.ErrArchiveUnsafe
-	}
-	if err != nil {
-		discardProjectArchiveCandidates(candidates)
-		return nil, nil, fmt.Errorf("libraryimport/RPG Maker archive: %w", err)
-	}
-	return entries, candidates, nil
-}
-
 type projectArchiveInput struct {
 	blobmodel.PreparedBlob
 	Path string

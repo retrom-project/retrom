@@ -474,7 +474,7 @@ func (service *ImportPreparation) prepareDOSArchive(
 		return appendRejectedDOSFiles(dispositions, candidates, "AMBIGUOUS_DOS_BUNDLE"), nil, nil
 	}
 	file := candidates[0]
-	entries, err := importing.ScanZIP(ctx, service.blobs.Path(file.SHA256), importing.DOSArchiveLimits())
+	entries, err := service.archiveInspector.ScanZIP(ctx, service.blobs.Path(file.SHA256), importing.DOSArchiveLimits())
 	if err != nil {
 		return append(dispositions, rejectedDisposition(file, ArchiveReason(err))), nil, nil
 	}

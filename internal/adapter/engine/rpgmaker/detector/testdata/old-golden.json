@@ -1,0 +1,5672 @@
+[
+  {
+    "Name": "public/rpg2000",
+    "Operation": "Detect",
+    "Core": "rpgmaker",
+    "ProfileJSON": "{\"SelectedCoreID\":\"rpgmaker_2000\",\"Status\":\"MATCHED\",\"ExpectedGeneration\":\"RPG2000\",\"EvidenceGeneration\":\"RPG2000\",\"EvidenceFamily\":\"RPG2K\",\"EvidenceConfidence\":\"MATCHED\",\"MarkerPaths\":[\"Map0001.lmu\",\"RPG_RT.ini\",\"RPG_RT.ldb\",\"RPG_RT.lmt\"],\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":true}",
+    "ErrorChain": null,
+    "DetectionError": null,
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "RPG_RT.ini",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 55
+      },
+      {
+        "Path": "RPG_RT.ldb",
+        "Opens": 1,
+        "Reads": 5,
+        "Closes": 1,
+        "Bytes": 1400
+      },
+      {
+        "Path": "RPG_RT.lmt",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 64
+      }
+    ],
+    "BytesReturned": 0,
+    "BytesSHA256": ""
+  },
+  {
+    "Name": "public/rpg2003",
+    "Operation": "Detect",
+    "Core": "rpgmaker",
+    "ProfileJSON": "{\"SelectedCoreID\":\"rpgmaker_2003\",\"Status\":\"MATCHED\",\"ExpectedGeneration\":\"RPG2003\",\"EvidenceGeneration\":\"RPG2003\",\"EvidenceFamily\":\"RPG2K\",\"EvidenceConfidence\":\"MATCHED\",\"MarkerPaths\":[\"Map0001.lmu\",\"RPG_RT.ini\",\"RPG_RT.ldb\",\"RPG_RT.lmt\"],\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":true}",
+    "ErrorChain": null,
+    "DetectionError": null,
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "RPG_RT.ini",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 55
+      },
+      {
+        "Path": "RPG_RT.ldb",
+        "Opens": 1,
+        "Reads": 5,
+        "Closes": 1,
+        "Bytes": 1401
+      },
+      {
+        "Path": "RPG_RT.lmt",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 64
+      }
+    ],
+    "BytesReturned": 0,
+    "BytesSHA256": ""
+  },
+  {
+    "Name": "public/rpgxp",
+    "Operation": "Detect",
+    "Core": "rpgmaker",
+    "ProfileJSON": "{\"SelectedCoreID\":\"rpgmaker_xp\",\"Status\":\"MATCHED\",\"ExpectedGeneration\":\"RPGXP\",\"EvidenceGeneration\":\"RPGXP\",\"EvidenceFamily\":\"RGSS\",\"EvidenceConfidence\":\"MATCHED\",\"MarkerPaths\":[\"Data/Scripts.rxdata\",\"Game.ini\",\"Game.rxproj\"],\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": null,
+    "DetectionError": null,
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "Game.ini",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 79
+      }
+    ],
+    "BytesReturned": 0,
+    "BytesSHA256": ""
+  },
+  {
+    "Name": "public/rpgvx",
+    "Operation": "Detect",
+    "Core": "rpgmaker",
+    "ProfileJSON": "{\"SelectedCoreID\":\"rpgmaker_vx\",\"Status\":\"MATCHED\",\"ExpectedGeneration\":\"RPGVX\",\"EvidenceGeneration\":\"RPGVX\",\"EvidenceFamily\":\"RGSS\",\"EvidenceConfidence\":\"MATCHED\",\"MarkerPaths\":[\"Data/Scripts.rvdata\",\"Game.ini\",\"Game.rvproj\"],\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": null,
+    "DetectionError": null,
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "Game.ini",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 79
+      }
+    ],
+    "BytesReturned": 0,
+    "BytesSHA256": ""
+  },
+  {
+    "Name": "public/rpgvxace",
+    "Operation": "Detect",
+    "Core": "rpgmaker",
+    "ProfileJSON": "{\"SelectedCoreID\":\"rpgmaker_vx_ace\",\"Status\":\"MATCHED\",\"ExpectedGeneration\":\"RPGVXACE\",\"EvidenceGeneration\":\"RPGVXACE\",\"EvidenceFamily\":\"RGSS\",\"EvidenceConfidence\":\"MATCHED\",\"MarkerPaths\":[\"Data/Scripts.rvdata2\",\"Game.ini\",\"Game.rvproj2\"],\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": null,
+    "DetectionError": null,
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "Game.ini",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 83
+      }
+    ],
+    "BytesReturned": 0,
+    "BytesSHA256": ""
+  },
+  {
+    "Name": "public/rpgmv",
+    "Operation": "Detect",
+    "Core": "rpgmaker",
+    "ProfileJSON": "{\"SelectedCoreID\":\"rpgmaker_mv\",\"Status\":\"MATCHED\",\"ExpectedGeneration\":\"RPGMV\",\"EvidenceGeneration\":\"RPGMV\",\"EvidenceFamily\":\"MV\",\"EvidenceConfidence\":\"MATCHED\",\"MarkerPaths\":[\"data/System.json\",\"index.html\",\"js/main.js\",\"js/plugins.js\",\"js/rpg_core.js\",\"js/rpg_managers.js\",\"js/rpg_objects.js\",\"js/rpg_scenes.js\",\"js/rpg_sprites.js\",\"js/rpg_windows.js\"],\"EngineVersion\":\"1.6.1\",\"Requirements\":[\"NATIVE_WEB_ISOLATION_REQUIRED\"],\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": null,
+    "DetectionError": null,
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "data/System.json",
+        "Opens": 1,
+        "Reads": 6,
+        "Closes": 1,
+        "Bytes": 1941
+      },
+      {
+        "Path": "index.html",
+        "Opens": 1,
+        "Reads": 4,
+        "Closes": 1,
+        "Bytes": 899
+      },
+      {
+        "Path": "js/libs/fpsmeter.js",
+        "Opens": 1,
+        "Reads": 9,
+        "Closes": 1,
+        "Bytes": 7571
+      },
+      {
+        "Path": "js/libs/iphone-inline-video.browser.js",
+        "Opens": 1,
+        "Reads": 7,
+        "Closes": 1,
+        "Bytes": 3664
+      },
+      {
+        "Path": "js/libs/lz-string.js",
+        "Opens": 1,
+        "Reads": 9,
+        "Closes": 1,
+        "Bytes": 6702
+      },
+      {
+        "Path": "js/libs/pixi-picture.js",
+        "Opens": 1,
+        "Reads": 12,
+        "Closes": 1,
+        "Bytes": 22927
+      },
+      {
+        "Path": "js/libs/pixi-tilemap.js",
+        "Opens": 1,
+        "Reads": 13,
+        "Closes": 1,
+        "Bytes": 42752
+      },
+      {
+        "Path": "js/libs/pixi.js",
+        "Opens": 1,
+        "Reads": 22,
+        "Closes": 1,
+        "Bytes": 1295220
+      },
+      {
+        "Path": "js/main.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 158
+      },
+      {
+        "Path": "js/plugins.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 165
+      },
+      {
+        "Path": "js/plugins/RetromSmoke.js",
+        "Opens": 1,
+        "Reads": 8,
+        "Closes": 1,
+        "Bytes": 4578
+      },
+      {
+        "Path": "js/rpg_core.js",
+        "Opens": 1,
+        "Reads": 17,
+        "Closes": 1,
+        "Bytes": 246637
+      },
+      {
+        "Path": "js/rpg_managers.js",
+        "Opens": 1,
+        "Reads": 15,
+        "Closes": 1,
+        "Bytes": 83846
+      },
+      {
+        "Path": "js/rpg_objects.js",
+        "Opens": 1,
+        "Reads": 18,
+        "Closes": 1,
+        "Bytes": 297572
+      },
+      {
+        "Path": "js/rpg_scenes.js",
+        "Opens": 1,
+        "Reads": 15,
+        "Closes": 1,
+        "Bytes": 78975
+      },
+      {
+        "Path": "js/rpg_sprites.js",
+        "Opens": 1,
+        "Reads": 15,
+        "Closes": 1,
+        "Bytes": 78084
+      },
+      {
+        "Path": "js/rpg_windows.js",
+        "Opens": 1,
+        "Reads": 17,
+        "Closes": 1,
+        "Bytes": 177274
+      }
+    ],
+    "BytesReturned": 0,
+    "BytesSHA256": ""
+  },
+  {
+    "Name": "public/malicious-rpgmv",
+    "Operation": "Detect",
+    "Core": "rpgmaker",
+    "ProfileJSON": "{\"SelectedCoreID\":\"rpgmaker_mv\",\"Status\":\"MATCHED\",\"ExpectedGeneration\":\"RPGMV\",\"EvidenceGeneration\":\"RPGMV\",\"EvidenceFamily\":\"MV\",\"EvidenceConfidence\":\"MATCHED\",\"MarkerPaths\":[\"data/System.json\",\"index.html\",\"js/main.js\",\"js/plugins.js\",\"js/rpg_core.js\",\"js/rpg_managers.js\",\"js/rpg_objects.js\",\"js/rpg_scenes.js\",\"js/rpg_sprites.js\",\"js/rpg_windows.js\"],\"EngineVersion\":\"1.6.2\",\"Requirements\":[\"NATIVE_WEB_ISOLATION_REQUIRED\"],\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": null,
+    "DetectionError": null,
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "data/System.json",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 82
+      },
+      {
+        "Path": "index.html",
+        "Opens": 1,
+        "Reads": 3,
+        "Closes": 1,
+        "Bytes": 515
+      },
+      {
+        "Path": "js/main.js",
+        "Opens": 1,
+        "Reads": 9,
+        "Closes": 1,
+        "Bytes": 6679
+      },
+      {
+        "Path": "js/plugins.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 33
+      },
+      {
+        "Path": "js/rpg_core.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 101
+      },
+      {
+        "Path": "js/rpg_managers.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 33
+      },
+      {
+        "Path": "js/rpg_objects.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 33
+      },
+      {
+        "Path": "js/rpg_scenes.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 33
+      },
+      {
+        "Path": "js/rpg_sprites.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 33
+      },
+      {
+        "Path": "js/rpg_windows.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 33
+      }
+    ],
+    "BytesReturned": 0,
+    "BytesSHA256": ""
+  },
+  {
+    "Name": "public/malicious-rpgmz",
+    "Operation": "Detect",
+    "Core": "rpgmaker",
+    "ProfileJSON": "{\"SelectedCoreID\":\"rpgmaker_mz\",\"Status\":\"MATCHED\",\"ExpectedGeneration\":\"RPGMZ\",\"EvidenceGeneration\":\"RPGMZ\",\"EvidenceFamily\":\"MZ\",\"EvidenceConfidence\":\"MATCHED\",\"MarkerPaths\":[\"data/System.json\",\"index.html\",\"js/libs/localforage.min.js\",\"js/main.js\",\"js/plugins.js\",\"js/rmmz_core.js\",\"js/rmmz_managers.js\",\"js/rmmz_objects.js\",\"js/rmmz_scenes.js\",\"js/rmmz_sprites.js\",\"js/rmmz_windows.js\"],\"EngineVersion\":\"1.9.0\",\"Requirements\":[\"NATIVE_WEB_ISOLATION_REQUIRED\"],\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": null,
+    "DetectionError": null,
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "data/System.json",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 82
+      },
+      {
+        "Path": "index.html",
+        "Opens": 1,
+        "Reads": 3,
+        "Closes": 1,
+        "Bytes": 576
+      },
+      {
+        "Path": "js/libs/localforage.min.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 33
+      },
+      {
+        "Path": "js/main.js",
+        "Opens": 1,
+        "Reads": 9,
+        "Closes": 1,
+        "Bytes": 6679
+      },
+      {
+        "Path": "js/plugins.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 33
+      },
+      {
+        "Path": "js/rmmz_core.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 101
+      },
+      {
+        "Path": "js/rmmz_managers.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 33
+      },
+      {
+        "Path": "js/rmmz_objects.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 33
+      },
+      {
+        "Path": "js/rmmz_scenes.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 33
+      },
+      {
+        "Path": "js/rmmz_sprites.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 33
+      },
+      {
+        "Path": "js/rmmz_windows.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 33
+      }
+    ],
+    "BytesReturned": 0,
+    "BytesSHA256": ""
+  },
+  {
+    "Name": "public-mismatch/rpg2000/rpgmaker_2003",
+    "Operation": "Detect",
+    "Core": "rpgmaker_2003",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_SELECTED_CORE_MISMATCH: exact RPG2K generation conflicts with selected core"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_SELECTED_CORE_MISMATCH",
+      "ExpectedGeneration": "RPG2003",
+      "EvidenceGeneration": "RPG2000",
+      "EvidenceFamily": "RPG2K",
+      "MarkerPaths": [
+        "RPG_RT.ldb",
+        "RPG_RT.lmt",
+        "Map0001.lmu",
+        "RPG_RT.ini"
+      ]
+    },
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "RPG_RT.ini",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 55
+      },
+      {
+        "Path": "RPG_RT.ldb",
+        "Opens": 1,
+        "Reads": 5,
+        "Closes": 1,
+        "Bytes": 1400
+      },
+      {
+        "Path": "RPG_RT.lmt",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 64
+      }
+    ],
+    "BytesReturned": 0,
+    "BytesSHA256": ""
+  },
+  {
+    "Name": "public-mismatch/rpg2000/rpgmaker_xp",
+    "Operation": "Detect",
+    "Core": "rpgmaker_xp",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_SELECTED_CORE_MISMATCH: RPG2K family conflicts with selected core"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_SELECTED_CORE_MISMATCH",
+      "ExpectedGeneration": "RPGXP",
+      "EvidenceGeneration": null,
+      "EvidenceFamily": "RPG2K",
+      "MarkerPaths": [
+        "RPG_RT.ldb",
+        "RPG_RT.lmt",
+        "Map0001.lmu",
+        "RPG_RT.ini"
+      ]
+    },
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "RPG_RT.ini",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 55
+      },
+      {
+        "Path": "RPG_RT.ldb",
+        "Opens": 1,
+        "Reads": 5,
+        "Closes": 1,
+        "Bytes": 1400
+      },
+      {
+        "Path": "RPG_RT.lmt",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 64
+      }
+    ],
+    "BytesReturned": 0,
+    "BytesSHA256": ""
+  },
+  {
+    "Name": "public-mismatch/rpg2000/rpgmaker_vx",
+    "Operation": "Detect",
+    "Core": "rpgmaker_vx",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_SELECTED_CORE_MISMATCH: RPG2K family conflicts with selected core"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_SELECTED_CORE_MISMATCH",
+      "ExpectedGeneration": "RPGVX",
+      "EvidenceGeneration": null,
+      "EvidenceFamily": "RPG2K",
+      "MarkerPaths": [
+        "RPG_RT.ldb",
+        "RPG_RT.lmt",
+        "Map0001.lmu",
+        "RPG_RT.ini"
+      ]
+    },
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "RPG_RT.ini",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 55
+      },
+      {
+        "Path": "RPG_RT.ldb",
+        "Opens": 1,
+        "Reads": 5,
+        "Closes": 1,
+        "Bytes": 1400
+      },
+      {
+        "Path": "RPG_RT.lmt",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 64
+      }
+    ],
+    "BytesReturned": 0,
+    "BytesSHA256": ""
+  },
+  {
+    "Name": "public-mismatch/rpg2000/rpgmaker_vx_ace",
+    "Operation": "Detect",
+    "Core": "rpgmaker_vx_ace",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_SELECTED_CORE_MISMATCH: RPG2K family conflicts with selected core"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_SELECTED_CORE_MISMATCH",
+      "ExpectedGeneration": "RPGVXACE",
+      "EvidenceGeneration": null,
+      "EvidenceFamily": "RPG2K",
+      "MarkerPaths": [
+        "RPG_RT.ldb",
+        "RPG_RT.lmt",
+        "Map0001.lmu",
+        "RPG_RT.ini"
+      ]
+    },
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "RPG_RT.ini",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 55
+      },
+      {
+        "Path": "RPG_RT.ldb",
+        "Opens": 1,
+        "Reads": 5,
+        "Closes": 1,
+        "Bytes": 1400
+      },
+      {
+        "Path": "RPG_RT.lmt",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 64
+      }
+    ],
+    "BytesReturned": 0,
+    "BytesSHA256": ""
+  },
+  {
+    "Name": "public-mismatch/rpg2000/rpgmaker_mv",
+    "Operation": "Detect",
+    "Core": "rpgmaker_mv",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_SELECTED_CORE_MISMATCH: RPG2K family conflicts with selected core"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_SELECTED_CORE_MISMATCH",
+      "ExpectedGeneration": "RPGMV",
+      "EvidenceGeneration": null,
+      "EvidenceFamily": "RPG2K",
+      "MarkerPaths": [
+        "RPG_RT.ldb",
+        "RPG_RT.lmt",
+        "Map0001.lmu",
+        "RPG_RT.ini"
+      ]
+    },
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "RPG_RT.ini",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 55
+      },
+      {
+        "Path": "RPG_RT.ldb",
+        "Opens": 1,
+        "Reads": 5,
+        "Closes": 1,
+        "Bytes": 1400
+      },
+      {
+        "Path": "RPG_RT.lmt",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 64
+      }
+    ],
+    "BytesReturned": 0,
+    "BytesSHA256": ""
+  },
+  {
+    "Name": "public-mismatch/rpg2000/rpgmaker_mz",
+    "Operation": "Detect",
+    "Core": "rpgmaker_mz",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_SELECTED_CORE_MISMATCH: RPG2K family conflicts with selected core"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_SELECTED_CORE_MISMATCH",
+      "ExpectedGeneration": "RPGMZ",
+      "EvidenceGeneration": null,
+      "EvidenceFamily": "RPG2K",
+      "MarkerPaths": [
+        "RPG_RT.ldb",
+        "RPG_RT.lmt",
+        "Map0001.lmu",
+        "RPG_RT.ini"
+      ]
+    },
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "RPG_RT.ini",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 55
+      },
+      {
+        "Path": "RPG_RT.ldb",
+        "Opens": 1,
+        "Reads": 5,
+        "Closes": 1,
+        "Bytes": 1400
+      },
+      {
+        "Path": "RPG_RT.lmt",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 64
+      }
+    ],
+    "BytesReturned": 0,
+    "BytesSHA256": ""
+  },
+  {
+    "Name": "public-mismatch/rpg2003/rpgmaker_2000",
+    "Operation": "Detect",
+    "Core": "rpgmaker_2000",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_SELECTED_CORE_MISMATCH: exact RPG2K generation conflicts with selected core"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_SELECTED_CORE_MISMATCH",
+      "ExpectedGeneration": "RPG2000",
+      "EvidenceGeneration": "RPG2003",
+      "EvidenceFamily": "RPG2K",
+      "MarkerPaths": [
+        "RPG_RT.ldb",
+        "RPG_RT.lmt",
+        "Map0001.lmu",
+        "RPG_RT.ini"
+      ]
+    },
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "RPG_RT.ini",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 55
+      },
+      {
+        "Path": "RPG_RT.ldb",
+        "Opens": 1,
+        "Reads": 5,
+        "Closes": 1,
+        "Bytes": 1401
+      },
+      {
+        "Path": "RPG_RT.lmt",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 64
+      }
+    ],
+    "BytesReturned": 0,
+    "BytesSHA256": ""
+  },
+  {
+    "Name": "public-mismatch/rpg2003/rpgmaker_xp",
+    "Operation": "Detect",
+    "Core": "rpgmaker_xp",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_SELECTED_CORE_MISMATCH: RPG2K family conflicts with selected core"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_SELECTED_CORE_MISMATCH",
+      "ExpectedGeneration": "RPGXP",
+      "EvidenceGeneration": null,
+      "EvidenceFamily": "RPG2K",
+      "MarkerPaths": [
+        "RPG_RT.ldb",
+        "RPG_RT.lmt",
+        "Map0001.lmu",
+        "RPG_RT.ini"
+      ]
+    },
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "RPG_RT.ini",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 55
+      },
+      {
+        "Path": "RPG_RT.ldb",
+        "Opens": 1,
+        "Reads": 5,
+        "Closes": 1,
+        "Bytes": 1401
+      },
+      {
+        "Path": "RPG_RT.lmt",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 64
+      }
+    ],
+    "BytesReturned": 0,
+    "BytesSHA256": ""
+  },
+  {
+    "Name": "public-mismatch/rpg2003/rpgmaker_vx",
+    "Operation": "Detect",
+    "Core": "rpgmaker_vx",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_SELECTED_CORE_MISMATCH: RPG2K family conflicts with selected core"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_SELECTED_CORE_MISMATCH",
+      "ExpectedGeneration": "RPGVX",
+      "EvidenceGeneration": null,
+      "EvidenceFamily": "RPG2K",
+      "MarkerPaths": [
+        "RPG_RT.ldb",
+        "RPG_RT.lmt",
+        "Map0001.lmu",
+        "RPG_RT.ini"
+      ]
+    },
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "RPG_RT.ini",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 55
+      },
+      {
+        "Path": "RPG_RT.ldb",
+        "Opens": 1,
+        "Reads": 5,
+        "Closes": 1,
+        "Bytes": 1401
+      },
+      {
+        "Path": "RPG_RT.lmt",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 64
+      }
+    ],
+    "BytesReturned": 0,
+    "BytesSHA256": ""
+  },
+  {
+    "Name": "public-mismatch/rpg2003/rpgmaker_vx_ace",
+    "Operation": "Detect",
+    "Core": "rpgmaker_vx_ace",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_SELECTED_CORE_MISMATCH: RPG2K family conflicts with selected core"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_SELECTED_CORE_MISMATCH",
+      "ExpectedGeneration": "RPGVXACE",
+      "EvidenceGeneration": null,
+      "EvidenceFamily": "RPG2K",
+      "MarkerPaths": [
+        "RPG_RT.ldb",
+        "RPG_RT.lmt",
+        "Map0001.lmu",
+        "RPG_RT.ini"
+      ]
+    },
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "RPG_RT.ini",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 55
+      },
+      {
+        "Path": "RPG_RT.ldb",
+        "Opens": 1,
+        "Reads": 5,
+        "Closes": 1,
+        "Bytes": 1401
+      },
+      {
+        "Path": "RPG_RT.lmt",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 64
+      }
+    ],
+    "BytesReturned": 0,
+    "BytesSHA256": ""
+  },
+  {
+    "Name": "public-mismatch/rpg2003/rpgmaker_mv",
+    "Operation": "Detect",
+    "Core": "rpgmaker_mv",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_SELECTED_CORE_MISMATCH: RPG2K family conflicts with selected core"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_SELECTED_CORE_MISMATCH",
+      "ExpectedGeneration": "RPGMV",
+      "EvidenceGeneration": null,
+      "EvidenceFamily": "RPG2K",
+      "MarkerPaths": [
+        "RPG_RT.ldb",
+        "RPG_RT.lmt",
+        "Map0001.lmu",
+        "RPG_RT.ini"
+      ]
+    },
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "RPG_RT.ini",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 55
+      },
+      {
+        "Path": "RPG_RT.ldb",
+        "Opens": 1,
+        "Reads": 5,
+        "Closes": 1,
+        "Bytes": 1401
+      },
+      {
+        "Path": "RPG_RT.lmt",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 64
+      }
+    ],
+    "BytesReturned": 0,
+    "BytesSHA256": ""
+  },
+  {
+    "Name": "public-mismatch/rpg2003/rpgmaker_mz",
+    "Operation": "Detect",
+    "Core": "rpgmaker_mz",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_SELECTED_CORE_MISMATCH: RPG2K family conflicts with selected core"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_SELECTED_CORE_MISMATCH",
+      "ExpectedGeneration": "RPGMZ",
+      "EvidenceGeneration": null,
+      "EvidenceFamily": "RPG2K",
+      "MarkerPaths": [
+        "RPG_RT.ldb",
+        "RPG_RT.lmt",
+        "Map0001.lmu",
+        "RPG_RT.ini"
+      ]
+    },
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "RPG_RT.ini",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 55
+      },
+      {
+        "Path": "RPG_RT.ldb",
+        "Opens": 1,
+        "Reads": 5,
+        "Closes": 1,
+        "Bytes": 1401
+      },
+      {
+        "Path": "RPG_RT.lmt",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 64
+      }
+    ],
+    "BytesReturned": 0,
+    "BytesSHA256": ""
+  },
+  {
+    "Name": "public-mismatch/rpgxp/rpgmaker_2000",
+    "Operation": "Detect",
+    "Core": "rpgmaker_2000",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_SELECTED_CORE_MISMATCH: exact generation conflicts with selected core"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_SELECTED_CORE_MISMATCH",
+      "ExpectedGeneration": "RPG2000",
+      "EvidenceGeneration": "RPGXP",
+      "EvidenceFamily": "",
+      "MarkerPaths": [
+        "Game.rxproj",
+        "Game.ini",
+        "Data/Scripts.rxdata"
+      ]
+    },
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "Game.ini",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 79
+      }
+    ],
+    "BytesReturned": 0,
+    "BytesSHA256": ""
+  },
+  {
+    "Name": "public-mismatch/rpgxp/rpgmaker_2003",
+    "Operation": "Detect",
+    "Core": "rpgmaker_2003",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_SELECTED_CORE_MISMATCH: exact generation conflicts with selected core"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_SELECTED_CORE_MISMATCH",
+      "ExpectedGeneration": "RPG2003",
+      "EvidenceGeneration": "RPGXP",
+      "EvidenceFamily": "",
+      "MarkerPaths": [
+        "Game.rxproj",
+        "Game.ini",
+        "Data/Scripts.rxdata"
+      ]
+    },
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "Game.ini",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 79
+      }
+    ],
+    "BytesReturned": 0,
+    "BytesSHA256": ""
+  },
+  {
+    "Name": "public-mismatch/rpgxp/rpgmaker_vx",
+    "Operation": "Detect",
+    "Core": "rpgmaker_vx",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_SELECTED_CORE_MISMATCH: exact generation conflicts with selected core"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_SELECTED_CORE_MISMATCH",
+      "ExpectedGeneration": "RPGVX",
+      "EvidenceGeneration": "RPGXP",
+      "EvidenceFamily": "",
+      "MarkerPaths": [
+        "Game.rxproj",
+        "Game.ini",
+        "Data/Scripts.rxdata"
+      ]
+    },
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "Game.ini",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 79
+      }
+    ],
+    "BytesReturned": 0,
+    "BytesSHA256": ""
+  },
+  {
+    "Name": "public-mismatch/rpgxp/rpgmaker_vx_ace",
+    "Operation": "Detect",
+    "Core": "rpgmaker_vx_ace",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_SELECTED_CORE_MISMATCH: exact generation conflicts with selected core"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_SELECTED_CORE_MISMATCH",
+      "ExpectedGeneration": "RPGVXACE",
+      "EvidenceGeneration": "RPGXP",
+      "EvidenceFamily": "",
+      "MarkerPaths": [
+        "Game.rxproj",
+        "Game.ini",
+        "Data/Scripts.rxdata"
+      ]
+    },
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "Game.ini",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 79
+      }
+    ],
+    "BytesReturned": 0,
+    "BytesSHA256": ""
+  },
+  {
+    "Name": "public-mismatch/rpgxp/rpgmaker_mv",
+    "Operation": "Detect",
+    "Core": "rpgmaker_mv",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_SELECTED_CORE_MISMATCH: exact generation conflicts with selected core"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_SELECTED_CORE_MISMATCH",
+      "ExpectedGeneration": "RPGMV",
+      "EvidenceGeneration": "RPGXP",
+      "EvidenceFamily": "",
+      "MarkerPaths": [
+        "Game.rxproj",
+        "Game.ini",
+        "Data/Scripts.rxdata"
+      ]
+    },
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "Game.ini",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 79
+      }
+    ],
+    "BytesReturned": 0,
+    "BytesSHA256": ""
+  },
+  {
+    "Name": "public-mismatch/rpgxp/rpgmaker_mz",
+    "Operation": "Detect",
+    "Core": "rpgmaker_mz",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_SELECTED_CORE_MISMATCH: exact generation conflicts with selected core"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_SELECTED_CORE_MISMATCH",
+      "ExpectedGeneration": "RPGMZ",
+      "EvidenceGeneration": "RPGXP",
+      "EvidenceFamily": "",
+      "MarkerPaths": [
+        "Game.rxproj",
+        "Game.ini",
+        "Data/Scripts.rxdata"
+      ]
+    },
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "Game.ini",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 79
+      }
+    ],
+    "BytesReturned": 0,
+    "BytesSHA256": ""
+  },
+  {
+    "Name": "public-mismatch/rpgvx/rpgmaker_2000",
+    "Operation": "Detect",
+    "Core": "rpgmaker_2000",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_SELECTED_CORE_MISMATCH: exact generation conflicts with selected core"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_SELECTED_CORE_MISMATCH",
+      "ExpectedGeneration": "RPG2000",
+      "EvidenceGeneration": "RPGVX",
+      "EvidenceFamily": "",
+      "MarkerPaths": [
+        "Game.rvproj",
+        "Game.ini",
+        "Data/Scripts.rvdata"
+      ]
+    },
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "Game.ini",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 79
+      }
+    ],
+    "BytesReturned": 0,
+    "BytesSHA256": ""
+  },
+  {
+    "Name": "public-mismatch/rpgvx/rpgmaker_2003",
+    "Operation": "Detect",
+    "Core": "rpgmaker_2003",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_SELECTED_CORE_MISMATCH: exact generation conflicts with selected core"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_SELECTED_CORE_MISMATCH",
+      "ExpectedGeneration": "RPG2003",
+      "EvidenceGeneration": "RPGVX",
+      "EvidenceFamily": "",
+      "MarkerPaths": [
+        "Game.rvproj",
+        "Game.ini",
+        "Data/Scripts.rvdata"
+      ]
+    },
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "Game.ini",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 79
+      }
+    ],
+    "BytesReturned": 0,
+    "BytesSHA256": ""
+  },
+  {
+    "Name": "public-mismatch/rpgvx/rpgmaker_xp",
+    "Operation": "Detect",
+    "Core": "rpgmaker_xp",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_SELECTED_CORE_MISMATCH: exact generation conflicts with selected core"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_SELECTED_CORE_MISMATCH",
+      "ExpectedGeneration": "RPGXP",
+      "EvidenceGeneration": "RPGVX",
+      "EvidenceFamily": "",
+      "MarkerPaths": [
+        "Game.rvproj",
+        "Game.ini",
+        "Data/Scripts.rvdata"
+      ]
+    },
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "Game.ini",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 79
+      }
+    ],
+    "BytesReturned": 0,
+    "BytesSHA256": ""
+  },
+  {
+    "Name": "public-mismatch/rpgvx/rpgmaker_vx_ace",
+    "Operation": "Detect",
+    "Core": "rpgmaker_vx_ace",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_SELECTED_CORE_MISMATCH: exact generation conflicts with selected core"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_SELECTED_CORE_MISMATCH",
+      "ExpectedGeneration": "RPGVXACE",
+      "EvidenceGeneration": "RPGVX",
+      "EvidenceFamily": "",
+      "MarkerPaths": [
+        "Game.rvproj",
+        "Game.ini",
+        "Data/Scripts.rvdata"
+      ]
+    },
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "Game.ini",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 79
+      }
+    ],
+    "BytesReturned": 0,
+    "BytesSHA256": ""
+  },
+  {
+    "Name": "public-mismatch/rpgvx/rpgmaker_mv",
+    "Operation": "Detect",
+    "Core": "rpgmaker_mv",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_SELECTED_CORE_MISMATCH: exact generation conflicts with selected core"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_SELECTED_CORE_MISMATCH",
+      "ExpectedGeneration": "RPGMV",
+      "EvidenceGeneration": "RPGVX",
+      "EvidenceFamily": "",
+      "MarkerPaths": [
+        "Game.rvproj",
+        "Game.ini",
+        "Data/Scripts.rvdata"
+      ]
+    },
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "Game.ini",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 79
+      }
+    ],
+    "BytesReturned": 0,
+    "BytesSHA256": ""
+  },
+  {
+    "Name": "public-mismatch/rpgvx/rpgmaker_mz",
+    "Operation": "Detect",
+    "Core": "rpgmaker_mz",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_SELECTED_CORE_MISMATCH: exact generation conflicts with selected core"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_SELECTED_CORE_MISMATCH",
+      "ExpectedGeneration": "RPGMZ",
+      "EvidenceGeneration": "RPGVX",
+      "EvidenceFamily": "",
+      "MarkerPaths": [
+        "Game.rvproj",
+        "Game.ini",
+        "Data/Scripts.rvdata"
+      ]
+    },
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "Game.ini",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 79
+      }
+    ],
+    "BytesReturned": 0,
+    "BytesSHA256": ""
+  },
+  {
+    "Name": "public-mismatch/rpgvxace/rpgmaker_2000",
+    "Operation": "Detect",
+    "Core": "rpgmaker_2000",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_SELECTED_CORE_MISMATCH: exact generation conflicts with selected core"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_SELECTED_CORE_MISMATCH",
+      "ExpectedGeneration": "RPG2000",
+      "EvidenceGeneration": "RPGVXACE",
+      "EvidenceFamily": "",
+      "MarkerPaths": [
+        "Game.rvproj2",
+        "Game.ini",
+        "Data/Scripts.rvdata2"
+      ]
+    },
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "Game.ini",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 83
+      }
+    ],
+    "BytesReturned": 0,
+    "BytesSHA256": ""
+  },
+  {
+    "Name": "public-mismatch/rpgvxace/rpgmaker_2003",
+    "Operation": "Detect",
+    "Core": "rpgmaker_2003",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_SELECTED_CORE_MISMATCH: exact generation conflicts with selected core"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_SELECTED_CORE_MISMATCH",
+      "ExpectedGeneration": "RPG2003",
+      "EvidenceGeneration": "RPGVXACE",
+      "EvidenceFamily": "",
+      "MarkerPaths": [
+        "Game.rvproj2",
+        "Game.ini",
+        "Data/Scripts.rvdata2"
+      ]
+    },
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "Game.ini",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 83
+      }
+    ],
+    "BytesReturned": 0,
+    "BytesSHA256": ""
+  },
+  {
+    "Name": "public-mismatch/rpgvxace/rpgmaker_xp",
+    "Operation": "Detect",
+    "Core": "rpgmaker_xp",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_SELECTED_CORE_MISMATCH: exact generation conflicts with selected core"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_SELECTED_CORE_MISMATCH",
+      "ExpectedGeneration": "RPGXP",
+      "EvidenceGeneration": "RPGVXACE",
+      "EvidenceFamily": "",
+      "MarkerPaths": [
+        "Game.rvproj2",
+        "Game.ini",
+        "Data/Scripts.rvdata2"
+      ]
+    },
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "Game.ini",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 83
+      }
+    ],
+    "BytesReturned": 0,
+    "BytesSHA256": ""
+  },
+  {
+    "Name": "public-mismatch/rpgvxace/rpgmaker_vx",
+    "Operation": "Detect",
+    "Core": "rpgmaker_vx",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_SELECTED_CORE_MISMATCH: exact generation conflicts with selected core"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_SELECTED_CORE_MISMATCH",
+      "ExpectedGeneration": "RPGVX",
+      "EvidenceGeneration": "RPGVXACE",
+      "EvidenceFamily": "",
+      "MarkerPaths": [
+        "Game.rvproj2",
+        "Game.ini",
+        "Data/Scripts.rvdata2"
+      ]
+    },
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "Game.ini",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 83
+      }
+    ],
+    "BytesReturned": 0,
+    "BytesSHA256": ""
+  },
+  {
+    "Name": "public-mismatch/rpgvxace/rpgmaker_mv",
+    "Operation": "Detect",
+    "Core": "rpgmaker_mv",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_SELECTED_CORE_MISMATCH: exact generation conflicts with selected core"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_SELECTED_CORE_MISMATCH",
+      "ExpectedGeneration": "RPGMV",
+      "EvidenceGeneration": "RPGVXACE",
+      "EvidenceFamily": "",
+      "MarkerPaths": [
+        "Game.rvproj2",
+        "Game.ini",
+        "Data/Scripts.rvdata2"
+      ]
+    },
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "Game.ini",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 83
+      }
+    ],
+    "BytesReturned": 0,
+    "BytesSHA256": ""
+  },
+  {
+    "Name": "public-mismatch/rpgvxace/rpgmaker_mz",
+    "Operation": "Detect",
+    "Core": "rpgmaker_mz",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_SELECTED_CORE_MISMATCH: exact generation conflicts with selected core"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_SELECTED_CORE_MISMATCH",
+      "ExpectedGeneration": "RPGMZ",
+      "EvidenceGeneration": "RPGVXACE",
+      "EvidenceFamily": "",
+      "MarkerPaths": [
+        "Game.rvproj2",
+        "Game.ini",
+        "Data/Scripts.rvdata2"
+      ]
+    },
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "Game.ini",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 83
+      }
+    ],
+    "BytesReturned": 0,
+    "BytesSHA256": ""
+  },
+  {
+    "Name": "public-mismatch/malicious-rpgmv/rpgmaker_2000",
+    "Operation": "Detect",
+    "Core": "rpgmaker_2000",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_SELECTED_CORE_MISMATCH: exact generation conflicts with selected core"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_SELECTED_CORE_MISMATCH",
+      "ExpectedGeneration": "RPG2000",
+      "EvidenceGeneration": "RPGMV",
+      "EvidenceFamily": "",
+      "MarkerPaths": [
+        "index.html",
+        "data/System.json",
+        "js/rpg_core.js",
+        "js/rpg_managers.js",
+        "js/rpg_objects.js",
+        "js/rpg_scenes.js",
+        "js/rpg_sprites.js",
+        "js/rpg_windows.js",
+        "js/plugins.js",
+        "js/main.js"
+      ]
+    },
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "data/System.json",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 82
+      },
+      {
+        "Path": "index.html",
+        "Opens": 1,
+        "Reads": 3,
+        "Closes": 1,
+        "Bytes": 515
+      },
+      {
+        "Path": "js/main.js",
+        "Opens": 1,
+        "Reads": 9,
+        "Closes": 1,
+        "Bytes": 6679
+      },
+      {
+        "Path": "js/plugins.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 33
+      },
+      {
+        "Path": "js/rpg_core.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 101
+      },
+      {
+        "Path": "js/rpg_managers.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 33
+      },
+      {
+        "Path": "js/rpg_objects.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 33
+      },
+      {
+        "Path": "js/rpg_scenes.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 33
+      },
+      {
+        "Path": "js/rpg_sprites.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 33
+      },
+      {
+        "Path": "js/rpg_windows.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 33
+      }
+    ],
+    "BytesReturned": 0,
+    "BytesSHA256": ""
+  },
+  {
+    "Name": "public-mismatch/malicious-rpgmv/rpgmaker_2003",
+    "Operation": "Detect",
+    "Core": "rpgmaker_2003",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_SELECTED_CORE_MISMATCH: exact generation conflicts with selected core"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_SELECTED_CORE_MISMATCH",
+      "ExpectedGeneration": "RPG2003",
+      "EvidenceGeneration": "RPGMV",
+      "EvidenceFamily": "",
+      "MarkerPaths": [
+        "index.html",
+        "data/System.json",
+        "js/rpg_core.js",
+        "js/rpg_managers.js",
+        "js/rpg_objects.js",
+        "js/rpg_scenes.js",
+        "js/rpg_sprites.js",
+        "js/rpg_windows.js",
+        "js/plugins.js",
+        "js/main.js"
+      ]
+    },
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "data/System.json",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 82
+      },
+      {
+        "Path": "index.html",
+        "Opens": 1,
+        "Reads": 3,
+        "Closes": 1,
+        "Bytes": 515
+      },
+      {
+        "Path": "js/main.js",
+        "Opens": 1,
+        "Reads": 9,
+        "Closes": 1,
+        "Bytes": 6679
+      },
+      {
+        "Path": "js/plugins.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 33
+      },
+      {
+        "Path": "js/rpg_core.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 101
+      },
+      {
+        "Path": "js/rpg_managers.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 33
+      },
+      {
+        "Path": "js/rpg_objects.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 33
+      },
+      {
+        "Path": "js/rpg_scenes.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 33
+      },
+      {
+        "Path": "js/rpg_sprites.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 33
+      },
+      {
+        "Path": "js/rpg_windows.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 33
+      }
+    ],
+    "BytesReturned": 0,
+    "BytesSHA256": ""
+  },
+  {
+    "Name": "public-mismatch/malicious-rpgmv/rpgmaker_xp",
+    "Operation": "Detect",
+    "Core": "rpgmaker_xp",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_SELECTED_CORE_MISMATCH: exact generation conflicts with selected core"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_SELECTED_CORE_MISMATCH",
+      "ExpectedGeneration": "RPGXP",
+      "EvidenceGeneration": "RPGMV",
+      "EvidenceFamily": "",
+      "MarkerPaths": [
+        "index.html",
+        "data/System.json",
+        "js/rpg_core.js",
+        "js/rpg_managers.js",
+        "js/rpg_objects.js",
+        "js/rpg_scenes.js",
+        "js/rpg_sprites.js",
+        "js/rpg_windows.js",
+        "js/plugins.js",
+        "js/main.js"
+      ]
+    },
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "data/System.json",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 82
+      },
+      {
+        "Path": "index.html",
+        "Opens": 1,
+        "Reads": 3,
+        "Closes": 1,
+        "Bytes": 515
+      },
+      {
+        "Path": "js/main.js",
+        "Opens": 1,
+        "Reads": 9,
+        "Closes": 1,
+        "Bytes": 6679
+      },
+      {
+        "Path": "js/plugins.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 33
+      },
+      {
+        "Path": "js/rpg_core.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 101
+      },
+      {
+        "Path": "js/rpg_managers.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 33
+      },
+      {
+        "Path": "js/rpg_objects.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 33
+      },
+      {
+        "Path": "js/rpg_scenes.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 33
+      },
+      {
+        "Path": "js/rpg_sprites.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 33
+      },
+      {
+        "Path": "js/rpg_windows.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 33
+      }
+    ],
+    "BytesReturned": 0,
+    "BytesSHA256": ""
+  },
+  {
+    "Name": "public-mismatch/malicious-rpgmv/rpgmaker_vx",
+    "Operation": "Detect",
+    "Core": "rpgmaker_vx",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_SELECTED_CORE_MISMATCH: exact generation conflicts with selected core"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_SELECTED_CORE_MISMATCH",
+      "ExpectedGeneration": "RPGVX",
+      "EvidenceGeneration": "RPGMV",
+      "EvidenceFamily": "",
+      "MarkerPaths": [
+        "index.html",
+        "data/System.json",
+        "js/rpg_core.js",
+        "js/rpg_managers.js",
+        "js/rpg_objects.js",
+        "js/rpg_scenes.js",
+        "js/rpg_sprites.js",
+        "js/rpg_windows.js",
+        "js/plugins.js",
+        "js/main.js"
+      ]
+    },
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "data/System.json",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 82
+      },
+      {
+        "Path": "index.html",
+        "Opens": 1,
+        "Reads": 3,
+        "Closes": 1,
+        "Bytes": 515
+      },
+      {
+        "Path": "js/main.js",
+        "Opens": 1,
+        "Reads": 9,
+        "Closes": 1,
+        "Bytes": 6679
+      },
+      {
+        "Path": "js/plugins.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 33
+      },
+      {
+        "Path": "js/rpg_core.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 101
+      },
+      {
+        "Path": "js/rpg_managers.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 33
+      },
+      {
+        "Path": "js/rpg_objects.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 33
+      },
+      {
+        "Path": "js/rpg_scenes.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 33
+      },
+      {
+        "Path": "js/rpg_sprites.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 33
+      },
+      {
+        "Path": "js/rpg_windows.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 33
+      }
+    ],
+    "BytesReturned": 0,
+    "BytesSHA256": ""
+  },
+  {
+    "Name": "public-mismatch/malicious-rpgmv/rpgmaker_vx_ace",
+    "Operation": "Detect",
+    "Core": "rpgmaker_vx_ace",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_SELECTED_CORE_MISMATCH: exact generation conflicts with selected core"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_SELECTED_CORE_MISMATCH",
+      "ExpectedGeneration": "RPGVXACE",
+      "EvidenceGeneration": "RPGMV",
+      "EvidenceFamily": "",
+      "MarkerPaths": [
+        "index.html",
+        "data/System.json",
+        "js/rpg_core.js",
+        "js/rpg_managers.js",
+        "js/rpg_objects.js",
+        "js/rpg_scenes.js",
+        "js/rpg_sprites.js",
+        "js/rpg_windows.js",
+        "js/plugins.js",
+        "js/main.js"
+      ]
+    },
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "data/System.json",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 82
+      },
+      {
+        "Path": "index.html",
+        "Opens": 1,
+        "Reads": 3,
+        "Closes": 1,
+        "Bytes": 515
+      },
+      {
+        "Path": "js/main.js",
+        "Opens": 1,
+        "Reads": 9,
+        "Closes": 1,
+        "Bytes": 6679
+      },
+      {
+        "Path": "js/plugins.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 33
+      },
+      {
+        "Path": "js/rpg_core.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 101
+      },
+      {
+        "Path": "js/rpg_managers.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 33
+      },
+      {
+        "Path": "js/rpg_objects.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 33
+      },
+      {
+        "Path": "js/rpg_scenes.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 33
+      },
+      {
+        "Path": "js/rpg_sprites.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 33
+      },
+      {
+        "Path": "js/rpg_windows.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 33
+      }
+    ],
+    "BytesReturned": 0,
+    "BytesSHA256": ""
+  },
+  {
+    "Name": "public-mismatch/malicious-rpgmv/rpgmaker_mz",
+    "Operation": "Detect",
+    "Core": "rpgmaker_mz",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_SELECTED_CORE_MISMATCH: exact generation conflicts with selected core"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_SELECTED_CORE_MISMATCH",
+      "ExpectedGeneration": "RPGMZ",
+      "EvidenceGeneration": "RPGMV",
+      "EvidenceFamily": "",
+      "MarkerPaths": [
+        "index.html",
+        "data/System.json",
+        "js/rpg_core.js",
+        "js/rpg_managers.js",
+        "js/rpg_objects.js",
+        "js/rpg_scenes.js",
+        "js/rpg_sprites.js",
+        "js/rpg_windows.js",
+        "js/plugins.js",
+        "js/main.js"
+      ]
+    },
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "data/System.json",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 82
+      },
+      {
+        "Path": "index.html",
+        "Opens": 1,
+        "Reads": 3,
+        "Closes": 1,
+        "Bytes": 515
+      },
+      {
+        "Path": "js/main.js",
+        "Opens": 1,
+        "Reads": 9,
+        "Closes": 1,
+        "Bytes": 6679
+      },
+      {
+        "Path": "js/plugins.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 33
+      },
+      {
+        "Path": "js/rpg_core.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 101
+      },
+      {
+        "Path": "js/rpg_managers.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 33
+      },
+      {
+        "Path": "js/rpg_objects.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 33
+      },
+      {
+        "Path": "js/rpg_scenes.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 33
+      },
+      {
+        "Path": "js/rpg_sprites.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 33
+      },
+      {
+        "Path": "js/rpg_windows.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 33
+      }
+    ],
+    "BytesReturned": 0,
+    "BytesSHA256": ""
+  },
+  {
+    "Name": "public-mismatch/malicious-rpgmz/rpgmaker_2000",
+    "Operation": "Detect",
+    "Core": "rpgmaker_2000",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_SELECTED_CORE_MISMATCH: exact generation conflicts with selected core"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_SELECTED_CORE_MISMATCH",
+      "ExpectedGeneration": "RPG2000",
+      "EvidenceGeneration": "RPGMZ",
+      "EvidenceFamily": "",
+      "MarkerPaths": [
+        "index.html",
+        "data/System.json",
+        "js/rmmz_core.js",
+        "js/rmmz_managers.js",
+        "js/rmmz_objects.js",
+        "js/rmmz_scenes.js",
+        "js/rmmz_sprites.js",
+        "js/rmmz_windows.js",
+        "js/plugins.js",
+        "js/main.js",
+        "js/libs/localforage.min.js"
+      ]
+    },
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "data/System.json",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 82
+      },
+      {
+        "Path": "index.html",
+        "Opens": 1,
+        "Reads": 3,
+        "Closes": 1,
+        "Bytes": 576
+      },
+      {
+        "Path": "js/libs/localforage.min.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 33
+      },
+      {
+        "Path": "js/main.js",
+        "Opens": 1,
+        "Reads": 9,
+        "Closes": 1,
+        "Bytes": 6679
+      },
+      {
+        "Path": "js/plugins.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 33
+      },
+      {
+        "Path": "js/rmmz_core.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 101
+      },
+      {
+        "Path": "js/rmmz_managers.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 33
+      },
+      {
+        "Path": "js/rmmz_objects.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 33
+      },
+      {
+        "Path": "js/rmmz_scenes.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 33
+      },
+      {
+        "Path": "js/rmmz_sprites.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 33
+      },
+      {
+        "Path": "js/rmmz_windows.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 33
+      }
+    ],
+    "BytesReturned": 0,
+    "BytesSHA256": ""
+  },
+  {
+    "Name": "public-mismatch/malicious-rpgmz/rpgmaker_2003",
+    "Operation": "Detect",
+    "Core": "rpgmaker_2003",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_SELECTED_CORE_MISMATCH: exact generation conflicts with selected core"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_SELECTED_CORE_MISMATCH",
+      "ExpectedGeneration": "RPG2003",
+      "EvidenceGeneration": "RPGMZ",
+      "EvidenceFamily": "",
+      "MarkerPaths": [
+        "index.html",
+        "data/System.json",
+        "js/rmmz_core.js",
+        "js/rmmz_managers.js",
+        "js/rmmz_objects.js",
+        "js/rmmz_scenes.js",
+        "js/rmmz_sprites.js",
+        "js/rmmz_windows.js",
+        "js/plugins.js",
+        "js/main.js",
+        "js/libs/localforage.min.js"
+      ]
+    },
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "data/System.json",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 82
+      },
+      {
+        "Path": "index.html",
+        "Opens": 1,
+        "Reads": 3,
+        "Closes": 1,
+        "Bytes": 576
+      },
+      {
+        "Path": "js/libs/localforage.min.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 33
+      },
+      {
+        "Path": "js/main.js",
+        "Opens": 1,
+        "Reads": 9,
+        "Closes": 1,
+        "Bytes": 6679
+      },
+      {
+        "Path": "js/plugins.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 33
+      },
+      {
+        "Path": "js/rmmz_core.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 101
+      },
+      {
+        "Path": "js/rmmz_managers.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 33
+      },
+      {
+        "Path": "js/rmmz_objects.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 33
+      },
+      {
+        "Path": "js/rmmz_scenes.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 33
+      },
+      {
+        "Path": "js/rmmz_sprites.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 33
+      },
+      {
+        "Path": "js/rmmz_windows.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 33
+      }
+    ],
+    "BytesReturned": 0,
+    "BytesSHA256": ""
+  },
+  {
+    "Name": "public-mismatch/malicious-rpgmz/rpgmaker_xp",
+    "Operation": "Detect",
+    "Core": "rpgmaker_xp",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_SELECTED_CORE_MISMATCH: exact generation conflicts with selected core"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_SELECTED_CORE_MISMATCH",
+      "ExpectedGeneration": "RPGXP",
+      "EvidenceGeneration": "RPGMZ",
+      "EvidenceFamily": "",
+      "MarkerPaths": [
+        "index.html",
+        "data/System.json",
+        "js/rmmz_core.js",
+        "js/rmmz_managers.js",
+        "js/rmmz_objects.js",
+        "js/rmmz_scenes.js",
+        "js/rmmz_sprites.js",
+        "js/rmmz_windows.js",
+        "js/plugins.js",
+        "js/main.js",
+        "js/libs/localforage.min.js"
+      ]
+    },
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "data/System.json",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 82
+      },
+      {
+        "Path": "index.html",
+        "Opens": 1,
+        "Reads": 3,
+        "Closes": 1,
+        "Bytes": 576
+      },
+      {
+        "Path": "js/libs/localforage.min.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 33
+      },
+      {
+        "Path": "js/main.js",
+        "Opens": 1,
+        "Reads": 9,
+        "Closes": 1,
+        "Bytes": 6679
+      },
+      {
+        "Path": "js/plugins.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 33
+      },
+      {
+        "Path": "js/rmmz_core.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 101
+      },
+      {
+        "Path": "js/rmmz_managers.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 33
+      },
+      {
+        "Path": "js/rmmz_objects.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 33
+      },
+      {
+        "Path": "js/rmmz_scenes.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 33
+      },
+      {
+        "Path": "js/rmmz_sprites.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 33
+      },
+      {
+        "Path": "js/rmmz_windows.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 33
+      }
+    ],
+    "BytesReturned": 0,
+    "BytesSHA256": ""
+  },
+  {
+    "Name": "public-mismatch/malicious-rpgmz/rpgmaker_vx",
+    "Operation": "Detect",
+    "Core": "rpgmaker_vx",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_SELECTED_CORE_MISMATCH: exact generation conflicts with selected core"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_SELECTED_CORE_MISMATCH",
+      "ExpectedGeneration": "RPGVX",
+      "EvidenceGeneration": "RPGMZ",
+      "EvidenceFamily": "",
+      "MarkerPaths": [
+        "index.html",
+        "data/System.json",
+        "js/rmmz_core.js",
+        "js/rmmz_managers.js",
+        "js/rmmz_objects.js",
+        "js/rmmz_scenes.js",
+        "js/rmmz_sprites.js",
+        "js/rmmz_windows.js",
+        "js/plugins.js",
+        "js/main.js",
+        "js/libs/localforage.min.js"
+      ]
+    },
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "data/System.json",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 82
+      },
+      {
+        "Path": "index.html",
+        "Opens": 1,
+        "Reads": 3,
+        "Closes": 1,
+        "Bytes": 576
+      },
+      {
+        "Path": "js/libs/localforage.min.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 33
+      },
+      {
+        "Path": "js/main.js",
+        "Opens": 1,
+        "Reads": 9,
+        "Closes": 1,
+        "Bytes": 6679
+      },
+      {
+        "Path": "js/plugins.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 33
+      },
+      {
+        "Path": "js/rmmz_core.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 101
+      },
+      {
+        "Path": "js/rmmz_managers.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 33
+      },
+      {
+        "Path": "js/rmmz_objects.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 33
+      },
+      {
+        "Path": "js/rmmz_scenes.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 33
+      },
+      {
+        "Path": "js/rmmz_sprites.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 33
+      },
+      {
+        "Path": "js/rmmz_windows.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 33
+      }
+    ],
+    "BytesReturned": 0,
+    "BytesSHA256": ""
+  },
+  {
+    "Name": "public-mismatch/malicious-rpgmz/rpgmaker_vx_ace",
+    "Operation": "Detect",
+    "Core": "rpgmaker_vx_ace",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_SELECTED_CORE_MISMATCH: exact generation conflicts with selected core"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_SELECTED_CORE_MISMATCH",
+      "ExpectedGeneration": "RPGVXACE",
+      "EvidenceGeneration": "RPGMZ",
+      "EvidenceFamily": "",
+      "MarkerPaths": [
+        "index.html",
+        "data/System.json",
+        "js/rmmz_core.js",
+        "js/rmmz_managers.js",
+        "js/rmmz_objects.js",
+        "js/rmmz_scenes.js",
+        "js/rmmz_sprites.js",
+        "js/rmmz_windows.js",
+        "js/plugins.js",
+        "js/main.js",
+        "js/libs/localforage.min.js"
+      ]
+    },
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "data/System.json",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 82
+      },
+      {
+        "Path": "index.html",
+        "Opens": 1,
+        "Reads": 3,
+        "Closes": 1,
+        "Bytes": 576
+      },
+      {
+        "Path": "js/libs/localforage.min.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 33
+      },
+      {
+        "Path": "js/main.js",
+        "Opens": 1,
+        "Reads": 9,
+        "Closes": 1,
+        "Bytes": 6679
+      },
+      {
+        "Path": "js/plugins.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 33
+      },
+      {
+        "Path": "js/rmmz_core.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 101
+      },
+      {
+        "Path": "js/rmmz_managers.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 33
+      },
+      {
+        "Path": "js/rmmz_objects.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 33
+      },
+      {
+        "Path": "js/rmmz_scenes.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 33
+      },
+      {
+        "Path": "js/rmmz_sprites.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 33
+      },
+      {
+        "Path": "js/rmmz_windows.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 33
+      }
+    ],
+    "BytesReturned": 0,
+    "BytesSHA256": ""
+  },
+  {
+    "Name": "public-mismatch/malicious-rpgmz/rpgmaker_mv",
+    "Operation": "Detect",
+    "Core": "rpgmaker_mv",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_SELECTED_CORE_MISMATCH: exact generation conflicts with selected core"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_SELECTED_CORE_MISMATCH",
+      "ExpectedGeneration": "RPGMV",
+      "EvidenceGeneration": "RPGMZ",
+      "EvidenceFamily": "",
+      "MarkerPaths": [
+        "index.html",
+        "data/System.json",
+        "js/rmmz_core.js",
+        "js/rmmz_managers.js",
+        "js/rmmz_objects.js",
+        "js/rmmz_scenes.js",
+        "js/rmmz_sprites.js",
+        "js/rmmz_windows.js",
+        "js/plugins.js",
+        "js/main.js",
+        "js/libs/localforage.min.js"
+      ]
+    },
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "data/System.json",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 82
+      },
+      {
+        "Path": "index.html",
+        "Opens": 1,
+        "Reads": 3,
+        "Closes": 1,
+        "Bytes": 576
+      },
+      {
+        "Path": "js/libs/localforage.min.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 33
+      },
+      {
+        "Path": "js/main.js",
+        "Opens": 1,
+        "Reads": 9,
+        "Closes": 1,
+        "Bytes": 6679
+      },
+      {
+        "Path": "js/plugins.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 33
+      },
+      {
+        "Path": "js/rmmz_core.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 101
+      },
+      {
+        "Path": "js/rmmz_managers.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 33
+      },
+      {
+        "Path": "js/rmmz_objects.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 33
+      },
+      {
+        "Path": "js/rmmz_scenes.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 33
+      },
+      {
+        "Path": "js/rmmz_sprites.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 33
+      },
+      {
+        "Path": "js/rmmz_windows.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 33
+      }
+    ],
+    "BytesReturned": 0,
+    "BytesSHA256": ""
+  },
+  {
+    "Name": "public-negative/external",
+    "Operation": "Detect",
+    "Core": "rpgmaker_mv",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_NATIVE_DEPENDENCY_UNSUPPORTED: external script[src] URL"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_NATIVE_DEPENDENCY_UNSUPPORTED",
+      "ExpectedGeneration": "RPGMV",
+      "EvidenceGeneration": null,
+      "EvidenceFamily": "",
+      "MarkerPaths": null
+    },
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "data/System.json",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 3
+      },
+      {
+        "Path": "index.html",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 59
+      }
+    ],
+    "BytesReturned": 0,
+    "BytesSHA256": ""
+  },
+  {
+    "Name": "public-negative/referenced-native",
+    "Operation": "Detect",
+    "Core": "rpgmaker_mv",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_NATIVE_DEPENDENCY_UNSUPPORTED: native script[src] dependency"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_NATIVE_DEPENDENCY_UNSUPPORTED",
+      "ExpectedGeneration": "RPGMV",
+      "EvidenceGeneration": null,
+      "EvidenceFamily": "",
+      "MarkerPaths": null
+    },
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "data/System.json",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 3
+      },
+      {
+        "Path": "index.html",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 74
+      }
+    ],
+    "BytesReturned": 0,
+    "BytesSHA256": ""
+  },
+  {
+    "Name": "shape/empty",
+    "Operation": "Detect",
+    "Core": "rpgmaker",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_GENERATION_UNSUPPORTED: no supported generation signature"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_GENERATION_UNSUPPORTED",
+      "ExpectedGeneration": "",
+      "EvidenceGeneration": null,
+      "EvidenceFamily": "",
+      "MarkerPaths": null
+    },
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 0,
+    "ActiveAtReturn": 0,
+    "IO": null,
+    "BytesReturned": 0,
+    "BytesSHA256": ""
+  },
+  {
+    "Name": "shape/unknown-core",
+    "Operation": "Detect",
+    "Core": "other",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_CORE_UNSUPPORTED: core is not a supported RPG Maker version core"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_CORE_UNSUPPORTED",
+      "ExpectedGeneration": "",
+      "EvidenceGeneration": null,
+      "EvidenceFamily": "",
+      "MarkerPaths": null
+    },
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 0,
+    "MaxActive": 0,
+    "ActiveAtReturn": 0,
+    "IO": null,
+    "BytesReturned": 0,
+    "BytesSHA256": ""
+  },
+  {
+    "Name": "shape/only-ldb",
+    "Operation": "Detect",
+    "Core": "rpgmaker",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_LMT_INVALID: RPG_RT.lmt is missing"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_LMT_INVALID",
+      "ExpectedGeneration": "",
+      "EvidenceGeneration": null,
+      "EvidenceFamily": "",
+      "MarkerPaths": null
+    },
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 0,
+    "ActiveAtReturn": 0,
+    "IO": null,
+    "BytesReturned": 0,
+    "BytesSHA256": ""
+  },
+  {
+    "Name": "shape/only-lmt",
+    "Operation": "Detect",
+    "Core": "rpgmaker",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_LCF_INVALID: RPG_RT.ldb is missing"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_LCF_INVALID",
+      "ExpectedGeneration": "",
+      "EvidenceGeneration": null,
+      "EvidenceFamily": "",
+      "MarkerPaths": null
+    },
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 0,
+    "ActiveAtReturn": 0,
+    "IO": null,
+    "BytesReturned": 0,
+    "BytesSHA256": ""
+  },
+  {
+    "Name": "shape/missing-start-map",
+    "Operation": "Detect",
+    "Core": "rpgmaker",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_LMT_INVALID: start map file is missing"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_LMT_INVALID",
+      "ExpectedGeneration": "",
+      "EvidenceGeneration": null,
+      "EvidenceFamily": "",
+      "MarkerPaths": null
+    },
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "RPG_RT.ldb",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 15
+      },
+      {
+        "Path": "RPG_RT.lmt",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 21
+      }
+    ],
+    "BytesReturned": 0,
+    "BytesSHA256": ""
+  },
+  {
+    "Name": "shape/incomplete-mv",
+    "Operation": "Detect",
+    "Core": "rpgmaker",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_GENERATION_UNSUPPORTED: no supported generation signature"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_GENERATION_UNSUPPORTED",
+      "ExpectedGeneration": "",
+      "EvidenceGeneration": null,
+      "EvidenceFamily": "",
+      "MarkerPaths": null
+    },
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 0,
+    "ActiveAtReturn": 0,
+    "IO": null,
+    "BytesReturned": 0,
+    "BytesSHA256": ""
+  },
+  {
+    "Name": "shape/incomplete-mz-localforage",
+    "Operation": "Detect",
+    "Core": "rpgmaker",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_GENERATION_UNSUPPORTED: no supported generation signature"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_GENERATION_UNSUPPORTED",
+      "ExpectedGeneration": "",
+      "EvidenceGeneration": null,
+      "EvidenceFamily": "",
+      "MarkerPaths": null
+    },
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 0,
+    "ActiveAtReturn": 0,
+    "IO": null,
+    "BytesReturned": 0,
+    "BytesSHA256": ""
+  },
+  {
+    "Name": "shape/rgss-marker-no-ini",
+    "Operation": "Detect",
+    "Core": "rpgmaker",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_INI_INVALID: Game.ini is missing"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_INI_INVALID",
+      "ExpectedGeneration": "",
+      "EvidenceGeneration": null,
+      "EvidenceFamily": "",
+      "MarkerPaths": null
+    },
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 0,
+    "ActiveAtReturn": 0,
+    "IO": null,
+    "BytesReturned": 0,
+    "BytesSHA256": ""
+  },
+  {
+    "Name": "shape/rgss-no-scripts",
+    "Operation": "Detect",
+    "Core": "rpgmaker",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_INI_INVALID: Scripts file and matching encrypted archive are absent"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_INI_INVALID",
+      "ExpectedGeneration": "",
+      "EvidenceGeneration": null,
+      "EvidenceFamily": "",
+      "MarkerPaths": null
+    },
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "Game.ini",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 41
+      }
+    ],
+    "BytesReturned": 0,
+    "BytesSHA256": ""
+  },
+  {
+    "Name": "shape/rgss-library-conflict",
+    "Operation": "Detect",
+    "Core": "rpgmaker",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_RGSS_GENERATION_CONFLICT: Library prefix conflicts with Scripts"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_RGSS_GENERATION_CONFLICT",
+      "ExpectedGeneration": "",
+      "EvidenceGeneration": null,
+      "EvidenceFamily": "",
+      "MarkerPaths": null
+    },
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "Game.ini",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 53
+      }
+    ],
+    "BytesReturned": 0,
+    "BytesSHA256": ""
+  },
+  {
+    "Name": "shape/rgss-marker-conflict",
+    "Operation": "Detect",
+    "Core": "rpgmaker",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_RGSS_GENERATION_CONFLICT: RGSS marker generations conflict"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_RGSS_GENERATION_CONFLICT",
+      "ExpectedGeneration": "",
+      "EvidenceGeneration": null,
+      "EvidenceFamily": "",
+      "MarkerPaths": null
+    },
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "Game.ini",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 41
+      }
+    ],
+    "BytesReturned": 0,
+    "BytesSHA256": ""
+  },
+  {
+    "Name": "shape/unknown-ldb-id",
+    "Operation": "Detect",
+    "Core": "rpgmaker",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_LCF_GENERATION_UNKNOWN: unsupported ldb_id 2001"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_LCF_GENERATION_UNKNOWN",
+      "ExpectedGeneration": "",
+      "EvidenceGeneration": null,
+      "EvidenceFamily": "",
+      "MarkerPaths": null
+    },
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "RPG_RT.ldb",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 19
+      }
+    ],
+    "BytesReturned": 0,
+    "BytesSHA256": ""
+  },
+  {
+    "Name": "shape/duplicate-ldb-id",
+    "Operation": "Detect",
+    "Core": "rpgmaker",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_LCF_INVALID: duplicate ldb_id field"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_LCF_INVALID",
+      "ExpectedGeneration": "",
+      "EvidenceGeneration": null,
+      "EvidenceFamily": "",
+      "MarkerPaths": null
+    },
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "RPG_RT.ldb",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 23
+      }
+    ],
+    "BytesReturned": 0,
+    "BytesSHA256": ""
+  },
+  {
+    "Name": "shape/truncated-ldb",
+    "Operation": "Detect",
+    "Core": "rpgmaker",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_LCF_INVALID: invalid LCF header length"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_LCF_INVALID",
+      "ExpectedGeneration": "",
+      "EvidenceGeneration": null,
+      "EvidenceFamily": "",
+      "MarkerPaths": null
+    },
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "RPG_RT.ldb",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 1
+      }
+    ],
+    "BytesReturned": 0,
+    "BytesSHA256": ""
+  },
+  {
+    "Name": "shape/invalid-path",
+    "Operation": "Detect",
+    "Core": "rpgmaker",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_PATH_COLLISION: invalid normalized file index entry"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_PATH_COLLISION",
+      "ExpectedGeneration": "",
+      "EvidenceGeneration": null,
+      "EvidenceFamily": "",
+      "MarkerPaths": null
+    },
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 0,
+    "ActiveAtReturn": 0,
+    "IO": null,
+    "BytesReturned": 0,
+    "BytesSHA256": ""
+  },
+  {
+    "Name": "shape/negative-size",
+    "Operation": "Detect",
+    "Core": "rpgmaker",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_PATH_COLLISION: invalid normalized file index entry"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_PATH_COLLISION",
+      "ExpectedGeneration": "",
+      "EvidenceGeneration": null,
+      "EvidenceFamily": "",
+      "MarkerPaths": null
+    },
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 0,
+    "ActiveAtReturn": 0,
+    "IO": null,
+    "BytesReturned": 0,
+    "BytesSHA256": ""
+  },
+  {
+    "Name": "shape/complete-mv-and-mz",
+    "Operation": "Detect",
+    "Core": "rpgmaker",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_GENERATION_AMBIGUOUS: multiple generation signatures are complete"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_GENERATION_AMBIGUOUS",
+      "ExpectedGeneration": "",
+      "EvidenceGeneration": null,
+      "EvidenceFamily": "",
+      "MarkerPaths": [
+        "data/System.json",
+        "index.html",
+        "js/libs/localforage.min.js",
+        "js/main.js",
+        "js/plugins.js",
+        "js/rmmz_core.js",
+        "js/rmmz_managers.js",
+        "js/rmmz_objects.js",
+        "js/rmmz_scenes.js",
+        "js/rmmz_sprites.js",
+        "js/rmmz_windows.js",
+        "js/rpg_core.js",
+        "js/rpg_managers.js",
+        "js/rpg_objects.js",
+        "js/rpg_scenes.js",
+        "js/rpg_sprites.js",
+        "js/rpg_windows.js"
+      ]
+    },
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 0,
+    "ActiveAtReturn": 0,
+    "IO": null,
+    "BytesReturned": 0,
+    "BytesSHA256": ""
+  },
+  {
+    "Name": "shape/complete-rgss-and-mv",
+    "Operation": "Detect",
+    "Core": "rpgmaker",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_GENERATION_AMBIGUOUS: multiple generation signatures are complete"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_GENERATION_AMBIGUOUS",
+      "ExpectedGeneration": "",
+      "EvidenceGeneration": null,
+      "EvidenceFamily": "",
+      "MarkerPaths": [
+        "Data/Scripts.rxdata",
+        "Game.ini",
+        "data/System.json",
+        "index.html",
+        "js/main.js",
+        "js/plugins.js",
+        "js/rpg_core.js",
+        "js/rpg_managers.js",
+        "js/rpg_objects.js",
+        "js/rpg_scenes.js",
+        "js/rpg_sprites.js",
+        "js/rpg_windows.js"
+      ]
+    },
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "Game.ini",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 41
+      },
+      {
+        "Path": "data/System.json",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 30
+      },
+      {
+        "Path": "index.html",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 368
+      },
+      {
+        "Path": "js/main.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 10
+      },
+      {
+        "Path": "js/plugins.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 10
+      },
+      {
+        "Path": "js/rpg_core.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 33
+      },
+      {
+        "Path": "js/rpg_managers.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 10
+      },
+      {
+        "Path": "js/rpg_objects.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 10
+      },
+      {
+        "Path": "js/rpg_scenes.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 10
+      },
+      {
+        "Path": "js/rpg_sprites.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 10
+      },
+      {
+        "Path": "js/rpg_windows.js",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 10
+      }
+    ],
+    "BytesReturned": 0,
+    "BytesSHA256": ""
+  },
+  {
+    "Name": "shape/invalid-first-family-wins",
+    "Operation": "Detect",
+    "Core": "rpgmaker",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_LCF_INVALID: invalid LCF header length"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_LCF_INVALID",
+      "ExpectedGeneration": "",
+      "EvidenceGeneration": null,
+      "EvidenceFamily": "",
+      "MarkerPaths": null
+    },
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "RPG_RT.ldb",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 3
+      }
+    ],
+    "BytesReturned": 0,
+    "BytesSHA256": ""
+  },
+  {
+    "Name": "io/open",
+    "Operation": "Detect",
+    "Core": "rpgmaker_2003",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_LCF_INVALID: open \"RPG_RT.ldb\""
+      },
+      {
+        "Type": "*errors.errorString",
+        "Text": "rf04 injected open failure"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_LCF_INVALID",
+      "ExpectedGeneration": "RPG2003",
+      "EvidenceGeneration": null,
+      "EvidenceFamily": "",
+      "MarkerPaths": null
+    },
+    "IsOpen": true,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 0,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "RPG_RT.ldb",
+        "Opens": 1,
+        "Reads": 0,
+        "Closes": 0,
+        "Bytes": 0
+      }
+    ],
+    "BytesReturned": 0,
+    "BytesSHA256": ""
+  },
+  {
+    "Name": "io/nil",
+    "Operation": "Detect",
+    "Core": "rpgmaker_2003",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_LCF_INVALID: open \"RPG_RT.ldb\" returned no reader"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_LCF_INVALID",
+      "ExpectedGeneration": "RPG2003",
+      "EvidenceGeneration": null,
+      "EvidenceFamily": "",
+      "MarkerPaths": null
+    },
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 0,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "RPG_RT.ldb",
+        "Opens": 1,
+        "Reads": 0,
+        "Closes": 0,
+        "Bytes": 0
+      }
+    ],
+    "BytesReturned": 0,
+    "BytesSHA256": ""
+  },
+  {
+    "Name": "io/read",
+    "Operation": "Detect",
+    "Core": "rpgmaker_2003",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_LCF_INVALID: read \"RPG_RT.ldb\""
+      },
+      {
+        "Type": "*errors.errorString",
+        "Text": "rf04 injected read failure"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_LCF_INVALID",
+      "ExpectedGeneration": "RPG2003",
+      "EvidenceGeneration": null,
+      "EvidenceFamily": "",
+      "MarkerPaths": null
+    },
+    "IsOpen": false,
+    "IsRead": true,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "RPG_RT.ldb",
+        "Opens": 1,
+        "Reads": 1,
+        "Closes": 1,
+        "Bytes": 0
+      }
+    ],
+    "BytesReturned": 0,
+    "BytesSHA256": ""
+  },
+  {
+    "Name": "io/close",
+    "Operation": "Detect",
+    "Core": "rpgmaker_2003",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_LCF_INVALID: close \"RPG_RT.ldb\""
+      },
+      {
+        "Type": "*errors.errorString",
+        "Text": "rf04 injected close failure"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_LCF_INVALID",
+      "ExpectedGeneration": "RPG2003",
+      "EvidenceGeneration": null,
+      "EvidenceFamily": "",
+      "MarkerPaths": null
+    },
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": true,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "RPG_RT.ldb",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 19
+      }
+    ],
+    "BytesReturned": 0,
+    "BytesSHA256": ""
+  },
+  {
+    "Name": "io/read-close",
+    "Operation": "Detect",
+    "Core": "rpgmaker_2003",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_LCF_INVALID: read \"RPG_RT.ldb\""
+      },
+      {
+        "Type": "*errors.errorString",
+        "Text": "rf04 injected read failure"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_LCF_INVALID",
+      "ExpectedGeneration": "RPG2003",
+      "EvidenceGeneration": null,
+      "EvidenceFamily": "",
+      "MarkerPaths": null
+    },
+    "IsOpen": false,
+    "IsRead": true,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "RPG_RT.ldb",
+        "Opens": 1,
+        "Reads": 1,
+        "Closes": 1,
+        "Bytes": 0
+      }
+    ],
+    "BytesReturned": 0,
+    "BytesSHA256": ""
+  },
+  {
+    "Name": "io/partial-read-close",
+    "Operation": "Detect",
+    "Core": "rpgmaker_2003",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_LCF_INVALID: read \"RPG_RT.ldb\""
+      },
+      {
+        "Type": "*errors.errorString",
+        "Text": "rf04 injected read failure"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_LCF_INVALID",
+      "ExpectedGeneration": "RPG2003",
+      "EvidenceGeneration": null,
+      "EvidenceFamily": "",
+      "MarkerPaths": null
+    },
+    "IsOpen": false,
+    "IsRead": true,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "RPG_RT.ldb",
+        "Opens": 1,
+        "Reads": 1,
+        "Closes": 1,
+        "Bytes": 19
+      }
+    ],
+    "BytesReturned": 0,
+    "BytesSHA256": ""
+  },
+  {
+    "Name": "io/reader-and-open-error",
+    "Operation": "Detect",
+    "Core": "rpgmaker_2003",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_LCF_INVALID: open \"RPG_RT.ldb\""
+      },
+      {
+        "Type": "*errors.errorString",
+        "Text": "rf04 injected open failure"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_LCF_INVALID",
+      "ExpectedGeneration": "RPG2003",
+      "EvidenceGeneration": null,
+      "EvidenceFamily": "",
+      "MarkerPaths": null
+    },
+    "IsOpen": true,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 0,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "RPG_RT.ldb",
+        "Opens": 1,
+        "Reads": 0,
+        "Closes": 0,
+        "Bytes": 0
+      }
+    ],
+    "BytesReturned": 0,
+    "BytesSHA256": ""
+  },
+  {
+    "Name": "io/short-size-",
+    "Operation": "Detect",
+    "Core": "rpgmaker_2003",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_LCF_INVALID: size of \"RPG_RT.ldb\" changed during detection"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_LCF_INVALID",
+      "ExpectedGeneration": "RPG2003",
+      "EvidenceGeneration": null,
+      "EvidenceFamily": "",
+      "MarkerPaths": null
+    },
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "RPG_RT.ldb",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 19
+      }
+    ],
+    "BytesReturned": 0,
+    "BytesSHA256": ""
+  },
+  {
+    "Name": "io/short-size-close",
+    "Operation": "Detect",
+    "Core": "rpgmaker_2003",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_LCF_INVALID: close \"RPG_RT.ldb\""
+      },
+      {
+        "Type": "*errors.errorString",
+        "Text": "rf04 injected close failure"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_LCF_INVALID",
+      "ExpectedGeneration": "RPG2003",
+      "EvidenceGeneration": null,
+      "EvidenceFamily": "",
+      "MarkerPaths": null
+    },
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": true,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "RPG_RT.ldb",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 19
+      }
+    ],
+    "BytesReturned": 0,
+    "BytesSHA256": ""
+  },
+  {
+    "Name": "io/short-size-read-close",
+    "Operation": "Detect",
+    "Core": "rpgmaker_2003",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_LCF_INVALID: read \"RPG_RT.ldb\""
+      },
+      {
+        "Type": "*errors.errorString",
+        "Text": "rf04 injected read failure"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_LCF_INVALID",
+      "ExpectedGeneration": "RPG2003",
+      "EvidenceGeneration": null,
+      "EvidenceFamily": "",
+      "MarkerPaths": null
+    },
+    "IsOpen": false,
+    "IsRead": true,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "RPG_RT.ldb",
+        "Opens": 1,
+        "Reads": 1,
+        "Closes": 1,
+        "Bytes": 0
+      }
+    ],
+    "BytesReturned": 0,
+    "BytesSHA256": ""
+  },
+  {
+    "Name": "ini-size/65535",
+    "Operation": "Detect",
+    "Core": "rpgmaker",
+    "ProfileJSON": "{\"SelectedCoreID\":\"rpgmaker_2000\",\"Status\":\"MATCHED\",\"ExpectedGeneration\":\"RPG2000\",\"EvidenceGeneration\":\"RPG2000\",\"EvidenceFamily\":\"RPG2K\",\"EvidenceConfidence\":\"MATCHED\",\"MarkerPaths\":[\"Map0001.lmu\",\"RPG_RT.ini\",\"RPG_RT.ldb\",\"RPG_RT.lmt\"],\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":true}",
+    "ErrorChain": null,
+    "DetectionError": null,
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "RPG_RT.ini",
+        "Opens": 1,
+        "Reads": 14,
+        "Closes": 1,
+        "Bytes": 65535
+      },
+      {
+        "Path": "RPG_RT.ldb",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 15
+      },
+      {
+        "Path": "RPG_RT.lmt",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 21
+      }
+    ],
+    "BytesReturned": 0,
+    "BytesSHA256": ""
+  },
+  {
+    "Name": "ini-size/65536",
+    "Operation": "Detect",
+    "Core": "rpgmaker",
+    "ProfileJSON": "{\"SelectedCoreID\":\"rpgmaker_2000\",\"Status\":\"MATCHED\",\"ExpectedGeneration\":\"RPG2000\",\"EvidenceGeneration\":\"RPG2000\",\"EvidenceFamily\":\"RPG2K\",\"EvidenceConfidence\":\"MATCHED\",\"MarkerPaths\":[\"Map0001.lmu\",\"RPG_RT.ini\",\"RPG_RT.ldb\",\"RPG_RT.lmt\"],\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":true}",
+    "ErrorChain": null,
+    "DetectionError": null,
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "RPG_RT.ini",
+        "Opens": 1,
+        "Reads": 14,
+        "Closes": 1,
+        "Bytes": 65536
+      },
+      {
+        "Path": "RPG_RT.ldb",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 15
+      },
+      {
+        "Path": "RPG_RT.lmt",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 21
+      }
+    ],
+    "BytesReturned": 0,
+    "BytesSHA256": ""
+  },
+  {
+    "Name": "ini-size/65537",
+    "Operation": "Detect",
+    "Core": "rpgmaker",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_INI_INVALID: file \"RPG_RT.ini\" exceeds 65536 bytes"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_INI_INVALID",
+      "ExpectedGeneration": "",
+      "EvidenceGeneration": null,
+      "EvidenceFamily": "",
+      "MarkerPaths": null
+    },
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "RPG_RT.ldb",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 15
+      },
+      {
+        "Path": "RPG_RT.lmt",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 21
+      }
+    ],
+    "BytesReturned": 0,
+    "BytesSHA256": ""
+  },
+  {
+    "Name": "io/unread-opaque-assets",
+    "Operation": "Detect",
+    "Core": "rpgmaker",
+    "ProfileJSON": "{\"SelectedCoreID\":\"rpgmaker_2000\",\"Status\":\"MATCHED\",\"ExpectedGeneration\":\"RPG2000\",\"EvidenceGeneration\":\"RPG2000\",\"EvidenceFamily\":\"RPG2K\",\"EvidenceConfidence\":\"MATCHED\",\"MarkerPaths\":[\"Map0001.lmu\",\"RPG_RT.ldb\",\"RPG_RT.lmt\"],\"EngineVersion\":\"\",\"Requirements\":[\"RPG2K_RTP_REQUIRED\"],\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": null,
+    "DetectionError": null,
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "RPG_RT.ldb",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 15
+      },
+      {
+        "Path": "RPG_RT.lmt",
+        "Opens": 1,
+        "Reads": 2,
+        "Closes": 1,
+        "Bytes": 21
+      }
+    ],
+    "BytesReturned": 0,
+    "BytesSHA256": ""
+  },
+  {
+    "Name": "index/nil",
+    "Operation": "Detect",
+    "Core": "rpgmaker_2000",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_PROJECT_NOT_FOUND: nil file index"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_PROJECT_NOT_FOUND",
+      "ExpectedGeneration": "RPG2000",
+      "EvidenceGeneration": null,
+      "EvidenceFamily": "",
+      "MarkerPaths": null
+    },
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 0,
+    "MaxActive": 0,
+    "ActiveAtReturn": 0,
+    "IO": null,
+    "BytesReturned": 0,
+    "BytesSHA256": ""
+  },
+  {
+    "Name": "index/unsupported-before-nil",
+    "Operation": "Detect",
+    "Core": "other",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_CORE_UNSUPPORTED: core is not a supported RPG Maker version core"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_CORE_UNSUPPORTED",
+      "ExpectedGeneration": "",
+      "EvidenceGeneration": null,
+      "EvidenceFamily": "",
+      "MarkerPaths": null
+    },
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 0,
+    "MaxActive": 0,
+    "ActiveAtReturn": 0,
+    "IO": null,
+    "BytesReturned": 0,
+    "BytesSHA256": ""
+  },
+  {
+    "Name": "bound/RPG_RT.ldb/limit-minus-one",
+    "Operation": "catalog.read",
+    "Core": "",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": null,
+    "DetectionError": null,
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "RPG_RT.ldb",
+        "Opens": 1,
+        "Reads": 32,
+        "Closes": 1,
+        "Bytes": 67108863
+      }
+    ],
+    "BytesReturned": 67108863,
+    "BytesSHA256": "db1c8b00542f319ab452fcf272ff7b9013a1751e1e05c73bf64c4521f2baee63"
+  },
+  {
+    "Name": "bound/RPG_RT.ldb/limit",
+    "Operation": "catalog.read",
+    "Core": "",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": null,
+    "DetectionError": null,
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "RPG_RT.ldb",
+        "Opens": 1,
+        "Reads": 32,
+        "Closes": 1,
+        "Bytes": 67108864
+      }
+    ],
+    "BytesReturned": 67108864,
+    "BytesSHA256": "3b6a07d0d404fab4e23b6d34bc6696a6a312dd92821332385e5af7c01c421351"
+  },
+  {
+    "Name": "bound/RPG_RT.ldb/declared-over",
+    "Operation": "catalog.read",
+    "Core": "",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_LCF_INVALID: file \"RPG_RT.ldb\" exceeds 67108864 bytes"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_LCF_INVALID",
+      "ExpectedGeneration": "",
+      "EvidenceGeneration": null,
+      "EvidenceFamily": "",
+      "MarkerPaths": null
+    },
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 0,
+    "ActiveAtReturn": 0,
+    "IO": null,
+    "BytesReturned": 0,
+    "BytesSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "Name": "bound/RPG_RT.ldb/actual-over",
+    "Operation": "catalog.read",
+    "Core": "",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_LCF_INVALID: size of \"RPG_RT.ldb\" changed during detection"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_LCF_INVALID",
+      "ExpectedGeneration": "",
+      "EvidenceGeneration": null,
+      "EvidenceFamily": "",
+      "MarkerPaths": null
+    },
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "RPG_RT.ldb",
+        "Opens": 1,
+        "Reads": 31,
+        "Closes": 1,
+        "Bytes": 67108865
+      }
+    ],
+    "BytesReturned": 0,
+    "BytesSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "Name": "bound/RPG_RT.ldb/actual-short",
+    "Operation": "catalog.read",
+    "Core": "",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_LCF_INVALID: size of \"RPG_RT.ldb\" changed during detection"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_LCF_INVALID",
+      "ExpectedGeneration": "",
+      "EvidenceGeneration": null,
+      "EvidenceFamily": "",
+      "MarkerPaths": null
+    },
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "RPG_RT.ldb",
+        "Opens": 1,
+        "Reads": 32,
+        "Closes": 1,
+        "Bytes": 67108863
+      }
+    ],
+    "BytesReturned": 0,
+    "BytesSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "Name": "bound/RPG_RT.lmt/limit-minus-one",
+    "Operation": "catalog.read",
+    "Core": "",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": null,
+    "DetectionError": null,
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "RPG_RT.lmt",
+        "Opens": 1,
+        "Reads": 28,
+        "Closes": 1,
+        "Bytes": 16777215
+      }
+    ],
+    "BytesReturned": 16777215,
+    "BytesSHA256": "dd48399d7166dcfbfefc7cd21dc962d696af3742c0be1dd531d650a5796fecda"
+  },
+  {
+    "Name": "bound/RPG_RT.lmt/limit",
+    "Operation": "catalog.read",
+    "Core": "",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": null,
+    "DetectionError": null,
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "RPG_RT.lmt",
+        "Opens": 1,
+        "Reads": 28,
+        "Closes": 1,
+        "Bytes": 16777216
+      }
+    ],
+    "BytesReturned": 16777216,
+    "BytesSHA256": "080acf35a507ac9849cfcba47dc2ad83e01b75663a516279c8b9d243b719643e"
+  },
+  {
+    "Name": "bound/RPG_RT.lmt/declared-over",
+    "Operation": "catalog.read",
+    "Core": "",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_LMT_INVALID: file \"RPG_RT.lmt\" exceeds 16777216 bytes"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_LMT_INVALID",
+      "ExpectedGeneration": "",
+      "EvidenceGeneration": null,
+      "EvidenceFamily": "",
+      "MarkerPaths": null
+    },
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 0,
+    "ActiveAtReturn": 0,
+    "IO": null,
+    "BytesReturned": 0,
+    "BytesSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "Name": "bound/RPG_RT.lmt/actual-over",
+    "Operation": "catalog.read",
+    "Core": "",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_LMT_INVALID: size of \"RPG_RT.lmt\" changed during detection"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_LMT_INVALID",
+      "ExpectedGeneration": "",
+      "EvidenceGeneration": null,
+      "EvidenceFamily": "",
+      "MarkerPaths": null
+    },
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "RPG_RT.lmt",
+        "Opens": 1,
+        "Reads": 27,
+        "Closes": 1,
+        "Bytes": 16777217
+      }
+    ],
+    "BytesReturned": 0,
+    "BytesSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "Name": "bound/RPG_RT.lmt/actual-short",
+    "Operation": "catalog.read",
+    "Core": "",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_LMT_INVALID: size of \"RPG_RT.lmt\" changed during detection"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_LMT_INVALID",
+      "ExpectedGeneration": "",
+      "EvidenceGeneration": null,
+      "EvidenceFamily": "",
+      "MarkerPaths": null
+    },
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "RPG_RT.lmt",
+        "Opens": 1,
+        "Reads": 28,
+        "Closes": 1,
+        "Bytes": 16777215
+      }
+    ],
+    "BytesReturned": 0,
+    "BytesSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "Name": "bound/RPG_RT.ini/limit-minus-one",
+    "Operation": "catalog.read",
+    "Core": "",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": null,
+    "DetectionError": null,
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "RPG_RT.ini",
+        "Opens": 1,
+        "Reads": 14,
+        "Closes": 1,
+        "Bytes": 65535
+      }
+    ],
+    "BytesReturned": 65535,
+    "BytesSHA256": "9f797b60edaf440d5831da53c35f4d4847a2f55adc64cfe887a7bcfcd9eca495"
+  },
+  {
+    "Name": "bound/RPG_RT.ini/limit",
+    "Operation": "catalog.read",
+    "Core": "",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": null,
+    "DetectionError": null,
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "RPG_RT.ini",
+        "Opens": 1,
+        "Reads": 14,
+        "Closes": 1,
+        "Bytes": 65536
+      }
+    ],
+    "BytesReturned": 65536,
+    "BytesSHA256": "de2f256064a0af797747c2b97505dc0b9f3df0de4f489eac731c23ae9ca9cc31"
+  },
+  {
+    "Name": "bound/RPG_RT.ini/declared-over",
+    "Operation": "catalog.read",
+    "Core": "",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_INI_INVALID: file \"RPG_RT.ini\" exceeds 65536 bytes"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_INI_INVALID",
+      "ExpectedGeneration": "",
+      "EvidenceGeneration": null,
+      "EvidenceFamily": "",
+      "MarkerPaths": null
+    },
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 0,
+    "ActiveAtReturn": 0,
+    "IO": null,
+    "BytesReturned": 0,
+    "BytesSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "Name": "bound/RPG_RT.ini/actual-over",
+    "Operation": "catalog.read",
+    "Core": "",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_INI_INVALID: size of \"RPG_RT.ini\" changed during detection"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_INI_INVALID",
+      "ExpectedGeneration": "",
+      "EvidenceGeneration": null,
+      "EvidenceFamily": "",
+      "MarkerPaths": null
+    },
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "RPG_RT.ini",
+        "Opens": 1,
+        "Reads": 13,
+        "Closes": 1,
+        "Bytes": 65537
+      }
+    ],
+    "BytesReturned": 0,
+    "BytesSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "Name": "bound/RPG_RT.ini/actual-short",
+    "Operation": "catalog.read",
+    "Core": "",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_INI_INVALID: size of \"RPG_RT.ini\" changed during detection"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_INI_INVALID",
+      "ExpectedGeneration": "",
+      "EvidenceGeneration": null,
+      "EvidenceFamily": "",
+      "MarkerPaths": null
+    },
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "RPG_RT.ini",
+        "Opens": 1,
+        "Reads": 14,
+        "Closes": 1,
+        "Bytes": 65535
+      }
+    ],
+    "BytesReturned": 0,
+    "BytesSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "Name": "bound/Game.ini/limit-minus-one",
+    "Operation": "catalog.read",
+    "Core": "",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": null,
+    "DetectionError": null,
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "Game.ini",
+        "Opens": 1,
+        "Reads": 14,
+        "Closes": 1,
+        "Bytes": 65535
+      }
+    ],
+    "BytesReturned": 65535,
+    "BytesSHA256": "9f797b60edaf440d5831da53c35f4d4847a2f55adc64cfe887a7bcfcd9eca495"
+  },
+  {
+    "Name": "bound/Game.ini/limit",
+    "Operation": "catalog.read",
+    "Core": "",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": null,
+    "DetectionError": null,
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "Game.ini",
+        "Opens": 1,
+        "Reads": 14,
+        "Closes": 1,
+        "Bytes": 65536
+      }
+    ],
+    "BytesReturned": 65536,
+    "BytesSHA256": "de2f256064a0af797747c2b97505dc0b9f3df0de4f489eac731c23ae9ca9cc31"
+  },
+  {
+    "Name": "bound/Game.ini/declared-over",
+    "Operation": "catalog.read",
+    "Core": "",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_INI_INVALID: file \"Game.ini\" exceeds 65536 bytes"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_INI_INVALID",
+      "ExpectedGeneration": "",
+      "EvidenceGeneration": null,
+      "EvidenceFamily": "",
+      "MarkerPaths": null
+    },
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 0,
+    "ActiveAtReturn": 0,
+    "IO": null,
+    "BytesReturned": 0,
+    "BytesSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "Name": "bound/Game.ini/actual-over",
+    "Operation": "catalog.read",
+    "Core": "",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_INI_INVALID: size of \"Game.ini\" changed during detection"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_INI_INVALID",
+      "ExpectedGeneration": "",
+      "EvidenceGeneration": null,
+      "EvidenceFamily": "",
+      "MarkerPaths": null
+    },
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "Game.ini",
+        "Opens": 1,
+        "Reads": 13,
+        "Closes": 1,
+        "Bytes": 65537
+      }
+    ],
+    "BytesReturned": 0,
+    "BytesSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "Name": "bound/Game.ini/actual-short",
+    "Operation": "catalog.read",
+    "Core": "",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_INI_INVALID: size of \"Game.ini\" changed during detection"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_INI_INVALID",
+      "ExpectedGeneration": "",
+      "EvidenceGeneration": null,
+      "EvidenceFamily": "",
+      "MarkerPaths": null
+    },
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "Game.ini",
+        "Opens": 1,
+        "Reads": 14,
+        "Closes": 1,
+        "Bytes": 65535
+      }
+    ],
+    "BytesReturned": 0,
+    "BytesSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "Name": "bound/data/System.json/limit-minus-one",
+    "Operation": "catalog.read",
+    "Core": "",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": null,
+    "DetectionError": null,
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "data/System.json",
+        "Opens": 1,
+        "Reads": 26,
+        "Closes": 1,
+        "Bytes": 8388607
+      }
+    ],
+    "BytesReturned": 8388607,
+    "BytesSHA256": "3057d206a6a595b89e17a91813aaec0df31cd59a4204cf8ca786c23321c4ca1b"
+  },
+  {
+    "Name": "bound/data/System.json/limit",
+    "Operation": "catalog.read",
+    "Core": "",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": null,
+    "DetectionError": null,
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "data/System.json",
+        "Opens": 1,
+        "Reads": 26,
+        "Closes": 1,
+        "Bytes": 8388608
+      }
+    ],
+    "BytesReturned": 8388608,
+    "BytesSHA256": "2daeb1f36095b44b318410b3f4e8b5d989dcc7bb023d1426c492dab0a3053e74"
+  },
+  {
+    "Name": "bound/data/System.json/declared-over",
+    "Operation": "catalog.read",
+    "Core": "",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_WEB_FORMAT_INVALID: file \"data/System.json\" exceeds 8388608 bytes"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_WEB_FORMAT_INVALID",
+      "ExpectedGeneration": "",
+      "EvidenceGeneration": null,
+      "EvidenceFamily": "",
+      "MarkerPaths": null
+    },
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 0,
+    "ActiveAtReturn": 0,
+    "IO": null,
+    "BytesReturned": 0,
+    "BytesSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "Name": "bound/data/System.json/actual-over",
+    "Operation": "catalog.read",
+    "Core": "",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_WEB_FORMAT_INVALID: size of \"data/System.json\" changed during detection"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_WEB_FORMAT_INVALID",
+      "ExpectedGeneration": "",
+      "EvidenceGeneration": null,
+      "EvidenceFamily": "",
+      "MarkerPaths": null
+    },
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "data/System.json",
+        "Opens": 1,
+        "Reads": 25,
+        "Closes": 1,
+        "Bytes": 8388609
+      }
+    ],
+    "BytesReturned": 0,
+    "BytesSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "Name": "bound/data/System.json/actual-short",
+    "Operation": "catalog.read",
+    "Core": "",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_WEB_FORMAT_INVALID: size of \"data/System.json\" changed during detection"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_WEB_FORMAT_INVALID",
+      "ExpectedGeneration": "",
+      "EvidenceGeneration": null,
+      "EvidenceFamily": "",
+      "MarkerPaths": null
+    },
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "data/System.json",
+        "Opens": 1,
+        "Reads": 26,
+        "Closes": 1,
+        "Bytes": 8388607
+      }
+    ],
+    "BytesReturned": 0,
+    "BytesSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "Name": "bound/index.html/limit-minus-one",
+    "Operation": "catalog.read",
+    "Core": "",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": null,
+    "DetectionError": null,
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "index.html",
+        "Opens": 1,
+        "Reads": 23,
+        "Closes": 1,
+        "Bytes": 2097151
+      }
+    ],
+    "BytesReturned": 2097151,
+    "BytesSHA256": "3eae3e14862b9061a2cbe9c782df1366039096b2d1888c30850b66fb8d87813c"
+  },
+  {
+    "Name": "bound/index.html/limit",
+    "Operation": "catalog.read",
+    "Core": "",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": null,
+    "DetectionError": null,
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "index.html",
+        "Opens": 1,
+        "Reads": 23,
+        "Closes": 1,
+        "Bytes": 2097152
+      }
+    ],
+    "BytesReturned": 2097152,
+    "BytesSHA256": "5647f05ec18958947d32874eeb788fa396a05d0bab7c1b71f112ceb7e9b31eee"
+  },
+  {
+    "Name": "bound/index.html/declared-over",
+    "Operation": "catalog.read",
+    "Core": "",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_WEB_FORMAT_INVALID: file \"index.html\" exceeds 2097152 bytes"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_WEB_FORMAT_INVALID",
+      "ExpectedGeneration": "",
+      "EvidenceGeneration": null,
+      "EvidenceFamily": "",
+      "MarkerPaths": null
+    },
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 0,
+    "ActiveAtReturn": 0,
+    "IO": null,
+    "BytesReturned": 0,
+    "BytesSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "Name": "bound/index.html/actual-over",
+    "Operation": "catalog.read",
+    "Core": "",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_WEB_FORMAT_INVALID: size of \"index.html\" changed during detection"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_WEB_FORMAT_INVALID",
+      "ExpectedGeneration": "",
+      "EvidenceGeneration": null,
+      "EvidenceFamily": "",
+      "MarkerPaths": null
+    },
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "index.html",
+        "Opens": 1,
+        "Reads": 22,
+        "Closes": 1,
+        "Bytes": 2097153
+      }
+    ],
+    "BytesReturned": 0,
+    "BytesSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "Name": "bound/index.html/actual-short",
+    "Operation": "catalog.read",
+    "Core": "",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_WEB_FORMAT_INVALID: size of \"index.html\" changed during detection"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_WEB_FORMAT_INVALID",
+      "ExpectedGeneration": "",
+      "EvidenceGeneration": null,
+      "EvidenceFamily": "",
+      "MarkerPaths": null
+    },
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "index.html",
+        "Opens": 1,
+        "Reads": 23,
+        "Closes": 1,
+        "Bytes": 2097151
+      }
+    ],
+    "BytesReturned": 0,
+    "BytesSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "Name": "bound/js/main.js/limit-minus-one",
+    "Operation": "catalog.read",
+    "Core": "",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": null,
+    "DetectionError": null,
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "js/main.js",
+        "Opens": 1,
+        "Reads": 28,
+        "Closes": 1,
+        "Bytes": 16777215
+      }
+    ],
+    "BytesReturned": 16777215,
+    "BytesSHA256": "dd48399d7166dcfbfefc7cd21dc962d696af3742c0be1dd531d650a5796fecda"
+  },
+  {
+    "Name": "bound/js/main.js/limit",
+    "Operation": "catalog.read",
+    "Core": "",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": null,
+    "DetectionError": null,
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "js/main.js",
+        "Opens": 1,
+        "Reads": 28,
+        "Closes": 1,
+        "Bytes": 16777216
+      }
+    ],
+    "BytesReturned": 16777216,
+    "BytesSHA256": "080acf35a507ac9849cfcba47dc2ad83e01b75663a516279c8b9d243b719643e"
+  },
+  {
+    "Name": "bound/js/main.js/declared-over",
+    "Operation": "catalog.read",
+    "Core": "",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_WEB_FORMAT_INVALID: file \"js/main.js\" exceeds 16777216 bytes"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_WEB_FORMAT_INVALID",
+      "ExpectedGeneration": "",
+      "EvidenceGeneration": null,
+      "EvidenceFamily": "",
+      "MarkerPaths": null
+    },
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 0,
+    "ActiveAtReturn": 0,
+    "IO": null,
+    "BytesReturned": 0,
+    "BytesSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "Name": "bound/js/main.js/actual-over",
+    "Operation": "catalog.read",
+    "Core": "",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_WEB_FORMAT_INVALID: size of \"js/main.js\" changed during detection"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_WEB_FORMAT_INVALID",
+      "ExpectedGeneration": "",
+      "EvidenceGeneration": null,
+      "EvidenceFamily": "",
+      "MarkerPaths": null
+    },
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "js/main.js",
+        "Opens": 1,
+        "Reads": 27,
+        "Closes": 1,
+        "Bytes": 16777217
+      }
+    ],
+    "BytesReturned": 0,
+    "BytesSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "Name": "bound/js/main.js/actual-short",
+    "Operation": "catalog.read",
+    "Core": "",
+    "ProfileJSON": "{\"SelectedCoreID\":\"\",\"Status\":\"\",\"ExpectedGeneration\":\"\",\"EvidenceGeneration\":null,\"EvidenceFamily\":\"\",\"EvidenceConfidence\":\"\",\"MarkerPaths\":null,\"EngineVersion\":\"\",\"Requirements\":null,\"RTPDependencies\":null,\"SelfContained\":false}",
+    "ErrorChain": [
+      {
+        "Type": "*detector.Error",
+        "Text": "RPG_WEB_FORMAT_INVALID: size of \"js/main.js\" changed during detection"
+      }
+    ],
+    "DetectionError": {
+      "Code": "RPG_WEB_FORMAT_INVALID",
+      "ExpectedGeneration": "",
+      "EvidenceGeneration": null,
+      "EvidenceFamily": "",
+      "MarkerPaths": null
+    },
+    "IsOpen": false,
+    "IsRead": false,
+    "IsClose": false,
+    "FilesCalls": 1,
+    "MaxActive": 1,
+    "ActiveAtReturn": 0,
+    "IO": [
+      {
+        "Path": "js/main.js",
+        "Opens": 1,
+        "Reads": 28,
+        "Closes": 1,
+        "Bytes": 16777215
+      }
+    ],
+    "BytesReturned": 0,
+    "BytesSHA256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  }
+]

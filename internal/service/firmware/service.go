@@ -15,14 +15,15 @@ import (
 )
 
 type Service struct {
+	archives   model.ArchiveInspector
 	repository model.Repository
 	blobs      *blobstore.Store
 	releases   model.ReleaseSignal
 	now        func() time.Time
 }
 
-func New(repository model.Repository, now func() time.Time) *Service {
-	return &Service{repository: repository, now: now}
+func New(repository model.Repository, now func() time.Time, archives model.ArchiveInspector) *Service {
+	return &Service{repository: repository, now: now, archives: archives}
 }
 
 func (service *Service) WithBlobStore(blobs *blobstore.Store) *Service {
@@ -83,10 +84,10 @@ func (service *Service) prepareInstall(
 		return preparedInstall{}, fmt.Errorf("prepare BIOS installation: %w", err)
 	}
 	if prepared.snapshot.Requirement.FileKind == "ARCHIVE" {
-		if service.blobs == nil {
+		if service.blobs == nil || service.archives == nil {
 			return preparedInstall{}, model.ErrInvalid
 		}
-		entries, err := importing.ScanZIP(
+		entries, err := service.archives.ScanZIP(
 			ctx,
 			service.blobs.Path(
 				prepared.snapshot.Upload.SHA256,

@@ -31,6 +31,102 @@
       ]
     },
     {
+      "path": "internal/adapter/content/archive",
+      "layer": "adapter",
+      "module": "content",
+      "owner": "RF04",
+      "files": [
+        {
+          "path": "internal/adapter/content/archive/archive.go",
+          "kind": "production"
+        },
+        {
+          "path": "internal/adapter/content/archive/archive_lifecycle_test.go",
+          "kind": "test"
+        },
+        {
+          "path": "internal/adapter/content/archive/archive_test.go",
+          "kind": "test"
+        },
+        {
+          "path": "internal/adapter/content/archive/asar_cursor.go",
+          "kind": "production"
+        },
+        {
+          "path": "internal/adapter/content/archive/asar_cursor_test.go",
+          "kind": "test"
+        },
+        {
+          "path": "internal/adapter/content/archive/asar_header.go",
+          "kind": "production"
+        },
+        {
+          "path": "internal/adapter/content/archive/asar_header_test.go",
+          "kind": "test"
+        },
+        {
+          "path": "internal/adapter/content/archive/asar_unpacked.go",
+          "kind": "production"
+        },
+        {
+          "path": "internal/adapter/content/archive/diagnostics.go",
+          "kind": "production"
+        },
+        {
+          "path": "internal/adapter/content/archive/electron_asar_lifecycle_linux_test.go",
+          "kind": "test"
+        },
+        {
+          "path": "internal/adapter/content/archive/electron_asar_test.go",
+          "kind": "test"
+        },
+        {
+          "path": "internal/adapter/content/archive/electron_asar_zip.go",
+          "kind": "production"
+        },
+        {
+          "path": "internal/adapter/content/archive/error_compatibility_test.go",
+          "kind": "test"
+        },
+        {
+          "path": "internal/adapter/content/archive/nwjs_executable.go",
+          "kind": "production"
+        },
+        {
+          "path": "internal/adapter/content/archive/nwjs_executable_test.go",
+          "kind": "test"
+        },
+        {
+          "path": "internal/adapter/content/archive/project_test.go",
+          "kind": "test"
+        },
+        {
+          "path": "internal/adapter/content/archive/reader.go",
+          "kind": "production"
+        },
+        {
+          "path": "internal/adapter/content/archive/zip.go",
+          "kind": "production"
+        },
+        {
+          "path": "internal/adapter/content/archive/zip_cursor.go",
+          "kind": "production"
+        },
+        {
+          "path": "internal/adapter/content/archive/zip_cursor_eof_test.go",
+          "kind": "test"
+        },
+        {
+          "path": "internal/adapter/content/archive/zip_cursor_fault_test.go",
+          "kind": "test"
+        },
+        {
+          "path": "internal/adapter/content/archive/zip_scan.go",
+          "kind": "production"
+        }
+      ]
+    },
+    {
       "path": "internal/adapter/content/firmwaremanifest",
       "layer": "adapter",
       "module": "content",
@@ -90,6 +186,66 @@
         },
         {
           "path": "internal/adapter/engine/ons/detector/detector_test.go",
+          "kind": "test"
+        }
+      ]
+    },
+    {
+      "path": "internal/adapter/engine/rpgmaker/detector",
+      "layer": "adapter",
+      "module": "engine",
+      "owner": "RF04",
+      "files": [
+        {
+          "path": "internal/adapter/engine/rpgmaker/detector/blobs.go",
+          "kind": "production"
+        },
+        {
+          "path": "internal/adapter/engine/rpgmaker/detector/blobs_linux_test.go",
+          "kind": "test"
+        },
+        {
+          "path": "internal/adapter/engine/rpgmaker/detector/blobs_test.go",
+          "kind": "test"
+        },
+        {
+          "path": "internal/adapter/engine/rpgmaker/detector/compatibility_test.go",
+          "kind": "test"
+        },
+        {
+          "path": "internal/adapter/engine/rpgmaker/detector/detector.go",
+          "kind": "production"
+        },
+        {
+          "path": "internal/adapter/engine/rpgmaker/detector/fixture_inputs_test.go",
+          "kind": "test"
+        },
+        {
+          "path": "internal/adapter/engine/rpgmaker/detector/prepared.go",
+          "kind": "production"
+        },
+        {
+          "path": "internal/adapter/engine/rpgmaker/detector/prepared_test.go",
+          "kind": "test"
+        },
+        {
+          "path": "internal/adapter/engine/rpgmaker/detector/provenance_test.go",
+          "kind": "test"
+        },
+        {
+          "path": "internal/adapter/engine/rpgmaker/detector/public_security_fixture_test.go",
+          "kind": "test"
+        },
+        {
+          "path": "internal/adapter/engine/rpgmaker/detector/reader.go",
+          "kind": "production"
+        },
+        {
+          "path": "internal/adapter/engine/rpgmaker/detector/reader_test.go",
+          "kind": "test"
+        },
+        {
+          "path": "internal/adapter/engine/rpgmaker/detector/trace_index_test.go",
           "kind": "test"
         }
       ]
@@ -2253,7 +2409,15 @@
           "kind": "test"
         },
         {
+          "path": "internal/bootstrap/composition/firmware.go",
+          "kind": "production"
+        },
+        {
           "path": "internal/bootstrap/composition/gameassets.go",
+          "kind": "production"
+        },
+        {
+          "path": "internal/bootstrap/composition/gamecontent.go",
           "kind": "production"
         },
         {
@@ -2360,6 +2524,10 @@
       "module": "composition",
       "owner": "RF02",
       "files": [
+        {
+          "path": "internal/bootstrap/composition/libraryimport/archive.go",
+          "kind": "production"
+        },
         {
           "path": "internal/bootstrap/composition/libraryimport/cancellation.go",
           "kind": "production"
@@ -2793,6 +2961,14 @@
           "kind": "production"
         },
         {
+          "path": "internal/capability/engine/rpgmaker/detector/inspection.go",
+          "kind": "production"
+        },
+        {
+          "path": "internal/capability/engine/rpgmaker/detector/inspection_test.go",
+          "kind": "test"
+        },
+        {
           "path": "internal/capability/engine/rpgmaker/detector/javascript.go",
           "kind": "production"
         },
@@ -2802,10 +2978,6 @@
         },
         {
           "path": "internal/capability/engine/rpgmaker/detector/lcf_test.go",
-          "kind": "test"
-        },
-        {
-          "path": "internal/capability/engine/rpgmaker/detector/public_security_fixture_test.go",
           "kind": "test"
         },
         {
@@ -3061,8 +3233,8 @@
           "kind": "test"
         },
         {
-          "path": "internal/capability/format/importing/archive_test.go",
-          "kind": "test"
+          "path": "internal/capability/format/importing/archive_project.go",
+          "kind": "production"
         },
         {
           "path": "internal/capability/format/importing/archive_worker_linux.go",
@@ -3085,24 +3257,12 @@
           "kind": "production"
         },
         {
-          "path": "internal/capability/format/importing/electron_asar_lifecycle_linux_test.go",
-          "kind": "test"
-        },
-        {
-          "path": "internal/capability/format/importing/electron_asar_test.go",
-          "kind": "test"
-        },
-        {
           "path": "internal/capability/format/importing/electron_asar_zip.go",
           "kind": "production"
         },
         {
           "path": "internal/capability/format/importing/nwjs_executable.go",
           "kind": "production"
-        },
-        {
-          "path": "internal/capability/format/importing/nwjs_executable_test.go",
-          "kind": "test"
         },
         {
           "path": "internal/capability/format/importing/path.go",
@@ -3123,6 +3283,10 @@
         {
           "path": "internal/capability/format/importing/sevenzip_test.go",
           "kind": "test"
+        },
+        {
+          "path": "internal/capability/format/importing/zip_directory.go",
+          "kind": "production"
         },
         {
           "path": "internal/capability/format/importing/zip_header.go",
@@ -3737,6 +3901,10 @@
       "owner": "RF11",
       "files": [
         {
+          "path": "internal/model/firmware/archive_ports.go",
+          "kind": "production"
+        },
+        {
           "path": "internal/model/firmware/errors.go",
           "kind": "production"
         },
@@ -3794,6 +3962,10 @@
         },
         {
           "path": "internal/model/gamecontent/retirement_types.go",
+          "kind": "production"
+        },
+        {
+          "path": "internal/model/gamecontent/rpgmaker_ports.go",
           "kind": "production"
         },
         {
@@ -4025,6 +4197,10 @@
           "kind": "production"
         },
         {
+          "path": "internal/model/libraryimport/archive_ports.go",
+          "kind": "production"
+        },
+        {
           "path": "internal/model/libraryimport/artifact_ports.go",
           "kind": "production"
         },
@@ -4202,6 +4378,10 @@
         },
         {
           "path": "internal/model/libraryimport/review_validation_types.go",
+          "kind": "production"
+        },
+        {
+          "path": "internal/model/libraryimport/rpgmaker_ports.go",
           "kind": "production"
         },
         {
@@ -4684,6 +4864,10 @@
       "module": "serverimport",
       "owner": "RF14",
       "files": [
+        {
+          "path": "internal/model/serverimport/archive_ports.go",
+          "kind": "production"
+        },
         {
           "path": "internal/model/serverimport/candidate_types.go",
           "kind": "production"
@@ -9373,6 +9557,10 @@
           "kind": "production"
         },
         {
+          "path": "internal/service/gamecontent/rpgmaker_detection_test.go",
+          "kind": "test"
+        },
+        {
           "path": "internal/service/gamecontent/schedule.go",
           "kind": "production"
         },
@@ -10317,6 +10505,26 @@
           "kind": "test"
         },
         {
+          "path": "internal/service/libraryimport/project_archive.go",
+          "kind": "production"
+        },
+        {
+          "path": "internal/service/libraryimport/project_archive_error_test.go",
+          "kind": "test"
+        },
+        {
+          "path": "internal/service/libraryimport/project_archive_fixture_test.go",
+          "kind": "test"
+        },
+        {
+          "path": "internal/service/libraryimport/project_archive_lifecycle_test.go",
+          "kind": "test"
+        },
+        {
+          "path": "internal/service/libraryimport/project_archive_zip_eof_test.go",
+          "kind": "test"
+        },
+        {
           "path": "internal/service/libraryimport/project_prepare.go",
           "kind": "production"
         },
@@ -10515,6 +10723,10 @@
         {
           "path": "internal/service/libraryimport/review_validation.go",
           "kind": "production"
+        },
+        {
+          "path": "internal/service/libraryimport/rpgmaker_detection_test.go",
+          "kind": "test"
         },
         {
           "path": "internal/service/libraryimport/rpgmaker_import.go",
@@ -11938,7 +12150,7 @@
         },
         {
           "path": "internal/testkit/architecture/archive_resource_binding.go",
-          "kind": "tool"
+          "kind": "production"
         },
         {
           "path": "internal/testkit/architecture/archive_resource_binding_test.go",
@@ -11954,7 +12166,7 @@
         },
         {
           "path": "internal/testkit/architecture/archive_resource_contract.go",
-          "kind": "tool"
+          "kind": "production"
         },
         {
           "path": "internal/testkit/architecture/archive_resource_contract_test.go",
@@ -11962,7 +12174,7 @@
         },
         {
           "path": "internal/testkit/architecture/archive_resource_effects.go",
-          "kind": "tool"
+          "kind": "production"
         },
         {
           "path": "internal/testkit/architecture/archive_resource_evidence_test.go",
@@ -12006,7 +12218,7 @@
         },
         {
           "path": "internal/testkit/architecture/archive_resource_graph.go",
-          "kind": "tool"
+          "kind": "production"
         },
         {
           "path": "internal/testkit/architecture/archive_resource_guard_test.go",
@@ -12014,15 +12226,15 @@
         },
         {
           "path": "internal/testkit/architecture/archive_resource_injection.go",
-          "kind": "tool"
+          "kind": "production"
         },
         {
           "path": "internal/testkit/architecture/archive_resource_origin.go",
-          "kind": "tool"
+          "kind": "production"
         },
         {
           "path": "internal/testkit/architecture/archive_resource_positions.go",
-          "kind": "tool"
+          "kind": "production"
         },
         {
           "path": "internal/testkit/architecture/archive_resource_rejection_test.go",
@@ -12034,19 +12246,19 @@
         },
         {
           "path": "internal/testkit/architecture/baseline.go",
-          "kind": "tool"
+          "kind": "production"
         },
         {
           "path": "internal/testkit/architecture/boundary_report.go",
-          "kind": "tool"
+          "kind": "production"
         },
         {
           "path": "internal/testkit/architecture/call_effects.go",
-          "kind": "tool"
+          "kind": "production"
         },
         {
           "path": "internal/testkit/architecture/compatibility.go",
-          "kind": "tool"
+          "kind": "production"
         },
         {
           "path": "internal/testkit/architecture/compatibility_test.go",
@@ -12054,11 +12266,11 @@
         },
         {
           "path": "internal/testkit/architecture/compilation_scope.go",
-          "kind": "tool"
+          "kind": "production"
         },
         {
           "path": "internal/testkit/architecture/contract_references.go",
-          "kind": "tool"
+          "kind": "production"
         },
         {
           "path": "internal/testkit/architecture/contract_registry_test.go",
@@ -12066,11 +12278,11 @@
         },
         {
           "path": "internal/testkit/architecture/contract_report.go",
-          "kind": "tool"
+          "kind": "production"
         },
         {
           "path": "internal/testkit/architecture/dependency_rules.go",
-          "kind": "tool"
+          "kind": "production"
         },
         {
           "path": "internal/testkit/architecture/dependency_rules_test.go",
@@ -12078,11 +12290,11 @@
         },
         {
           "path": "internal/testkit/architecture/function_graph.go",
-          "kind": "tool"
+          "kind": "production"
         },
         {
           "path": "internal/testkit/architecture/go_inventory.go",
-          "kind": "tool"
+          "kind": "production"
         },
         {
           "path": "internal/testkit/architecture/go_inventory_test.go",
@@ -12090,15 +12302,15 @@
         },
         {
           "path": "internal/testkit/architecture/go_symbols.go",
-          "kind": "tool"
+          "kind": "production"
         },
         {
           "path": "internal/testkit/architecture/go_syntax.go",
-          "kind": "tool"
+          "kind": "production"
         },
         {
           "path": "internal/testkit/architecture/imports.go",
-          "kind": "tool"
+          "kind": "production"
         },
         {
           "path": "internal/testkit/architecture/imports_test.go",
@@ -12106,27 +12318,27 @@
         },
         {
           "path": "internal/testkit/architecture/inventory_report.go",
-          "kind": "tool"
+          "kind": "production"
         },
         {
           "path": "internal/testkit/architecture/operation_registry.go",
-          "kind": "tool"
+          "kind": "production"
         },
         {
           "path": "internal/testkit/architecture/operation_schema.go",
-          "kind": "tool"
+          "kind": "production"
         },
         {
           "path": "internal/testkit/architecture/ownership.go",
-          "kind": "tool"
+          "kind": "production"
         },
         {
           "path": "internal/testkit/architecture/physical_ownership.go",
-          "kind": "tool"
+          "kind": "production"
         },
         {
           "path": "internal/testkit/architecture/port_consumers.go",
-          "kind": "tool"
+          "kind": "production"
         },
         {
           "path": "internal/testkit/architecture/port_implementations_test.go",
@@ -12134,11 +12346,11 @@
         },
         {
           "path": "internal/testkit/architecture/port_positions.go",
-          "kind": "tool"
+          "kind": "production"
         },
         {
           "path": "internal/testkit/architecture/port_rules.go",
-          "kind": "tool"
+          "kind": "production"
         },
         {
           "path": "internal/testkit/architecture/port_rules_test.go",
@@ -12146,7 +12358,7 @@
         },
         {
           "path": "internal/testkit/architecture/purity_rules.go",
-          "kind": "tool"
+          "kind": "production"
         },
         {
           "path": "internal/testkit/architecture/purity_rules_test.go",
@@ -12186,11 +12398,11 @@
         },
         {
           "path": "internal/testkit/architecture/source_inventory.go",
-          "kind": "tool"
+          "kind": "production"
         },
         {
           "path": "internal/testkit/architecture/sql_inventory.go",
-          "kind": "tool"
+          "kind": "production"
         },
         {
           "path": "internal/testkit/architecture/sql_inventory_test.go",
@@ -12198,11 +12410,11 @@
         },
         {
           "path": "internal/testkit/architecture/strict_json.go",
-          "kind": "tool"
+          "kind": "production"
         },
         {
           "path": "internal/testkit/architecture/value_graph.go",
-          "kind": "tool"
+          "kind": "production"
         }
       ]
     },

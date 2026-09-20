@@ -12,10 +12,14 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"sort"
 	"strings"
 	"time"
 
+	archiveadapter "retrom/internal/adapter/content/archive"
+	"retrom/internal/capability/content/contentprofile"
 	importing "retrom/internal/capability/format/importing"
+	"retrom/internal/testkit/testsupport"
 )
 
 var errConsumerFailure = errors.New("CAPTURE_CONSUMER_FAILURE")
@@ -107,7 +111,7 @@ func compatCaseContext(test archiveCase) (context.Context, context.CancelFunc) {
 	return ctx, cancel
 }
 
-func compatConsumer(test archiveCase, outcome *result, cancel context.CancelFunc) importing.ArchiveContentConsumer {
+func compatConsumer(test archiveCase, outcome *result, cancel context.CancelFunc) func(importing.ArchiveEntry, io.Reader) (importing.ArchiveContent, error) {
 	return func(entry importing.ArchiveEntry, reader io.Reader) (importing.ArchiveContent, error) {
 		trace := callTrace{Ordinal: entry.Ordinal, Path: entry.NormalizedPath}
 		if test.Mode == "fail-before" || test.Mode == "fail-unpacked" && entry.NormalizedPath == "u.node" {
@@ -148,24 +152,25 @@ func runCase(test archiveCase) result {
 	if test.Mode == "nil" {
 		consumer = nil
 	}
+	factory := archiveadapter.New(&testsupport.DiagnosticRecorder{})
 	var err error
 	switch test.Kind {
 	case "zip-scan":
-		result.Entries, err = importing.ScanZIP(ctx, test.Path, test.Limits)
+		result.Entries, err = factory.ScanZIP(ctx, test.Path, test.Limits)
 	case "zip-consume":
-		result.Entries, err = importing.ScanZIPWithConsumer(ctx, test.Path, test.Limits, consumer)
+		result.Entries, err = compatProject(ctx, factory, test.Path, contentprofile.ArchiveZIP, test.Limits, consumer)
 	case "flat":
-		result.Entries, err = importing.ScanFlatZIP(ctx, test.Path, test.Limits)
+		result.Entries, err = factory.ScanFlatZIP(ctx, test.Path, test.Limits)
 	case "nwjs-validate":
-		err = importing.ValidateNWJSExecutable(test.Path)
+		err = factory.ValidateNWJSExecutable(ctx, test.Path)
 	case "nwjs-scan":
-		result.Entries, err = importing.ScanNWJSExecutable(ctx, test.Path, test.Limits)
+		result.Entries, err = factory.ScanNWJSExecutable(ctx, test.Path, test.Limits)
 	case "nwjs-consume":
-		result.Entries, err = importing.ScanNWJSExecutableWithConsumer(ctx, test.Path, test.Limits, consumer)
+		result.Entries, err = compatProject(ctx, factory, test.Path, contentprofile.ArchiveNWJSExecutable, test.Limits, consumer)
 	case "asar-detect":
-		result.Detected, err = importing.DetectElectronASARZIP(test.Path, test.Limits)
+		result.Detected, err = factory.DetectElectronASARZIP(ctx, test.Path, test.Limits)
 	case "asar-consume":
-		result.Entries, err = importing.ScanElectronASARZIPWithConsumer(ctx, test.Path, test.Limits, consumer)
+		result.Entries, err = compatProject(ctx, factory, test.Path, contentprofile.ArchiveElectronASAR, test.Limits, consumer)
 	case "7z-scan":
 		result.Entries, err = importing.ScanSevenZip(ctx, test.Path, test.Limits)
 	case "7z-batch":
@@ -191,4 +196,45 @@ func protocol(ctx context.Context, executable, path string, args []string) resul
 	command.ExtraFiles = []*os.File{input}
 	wire, err := command.Output()
 	return result{Name: "worker " + strings.Join(args, " "), Kind: "worker-wire", WireHex: hex.EncodeToString(wire), Error: errorText(err), ErrorIs: exactError(err)}
+}
+
+// compatProject replays the old consumer observations through the actual new cursor.
+// The three nil-consumer inputs are separately recorded as API_REMOVED.
+func compatProject(
+	ctx context.Context, factory *archiveadapter.Factory, path string, format contentprofile.ArchiveFormat,
+	limits importing.ArchiveLimits, consume func(importing.ArchiveEntry, io.Reader) (importing.ArchiveContent, error),
+) ([]importing.ArchiveEntry, error) {
+	cursor, err := factory.OpenProject(ctx, path, format, limits)
+	if err != nil {
+		return nil, err
+	}
+	closed := false
+	defer func() {
+		if !closed {
+			must(cursor.Close())
+		}
+	}()
+	entries := make([]importing.ArchiveEntry, 0)
+	for {
+		header, err := cursor.Next()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			return nil, err
+		}
+		content, err := consume(header.Entry, cursor)
+		if err != nil {
+			closeErr := cursor.Close()
+			closed = true
+			return nil, importing.ProjectArchiveStageError(header, err, closeErr)
+		}
+		entry, err := cursor.Complete(content)
+		if err != nil {
+			return nil, err
+		}
+		entries = append(entries, entry)
+	}
+	sort.Slice(entries, func(left, right int) bool { return entries[left].Ordinal < entries[right].Ordinal })
+	return entries, nil
 }

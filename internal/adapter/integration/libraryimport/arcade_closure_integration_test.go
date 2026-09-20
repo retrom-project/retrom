@@ -8,12 +8,16 @@ import (
 	"context"
 	"crypto/sha256"
 	"database/sql"
+	"log/slog"
 	"path/filepath"
 	"runtime"
 	"sort"
 	"strings"
 	"testing"
 	"time"
+
+	archiveadapter "retrom/internal/adapter/content/archive"
+	cleanupadapter "retrom/internal/adapter/system/cleanup"
 
 	firmwaresource "retrom/internal/adapter/content/firmwaremanifest"
 
@@ -192,7 +196,7 @@ func (fixture arcadeGroupingFixture) createArchives(ctx context.Context, t *test
 			SHA256: metadata.SHA256,
 		}
 		entryDigest := sha256.Sum256(fixtures[index].body)
-		entries, scanErr := importing.ScanZIP(ctx, blobs.Path(metadata.SHA256), importing.DefaultArchiveLimits())
+		entries, scanErr := archiveadapter.New(cleanupadapter.NewReporter(slog.Default())).ScanZIP(ctx, blobs.Path(metadata.SHA256), importing.DefaultArchiveLimits())
 		testassert.Falsef(t, testassert.Any(func() bool { return scanErr != nil }, func() bool { return len(entries) != 1 }), "scan %s = %#v, error=%v", fixtures[index].name, entries, scanErr)
 		machine := strings.TrimSuffix(fixtures[index].name, ".zip")
 		if _, err := database.SQL.ExecContext(ctx, `

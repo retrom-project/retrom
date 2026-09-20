@@ -47,12 +47,14 @@ type Repositories struct {
 	Outcomes  model.OutcomeRepository
 }
 type Options struct {
+	Archives model.ArchiveInspector
 	Sources  []SourceRoot
 	Blobs    BlobStore
 	Firmware FirmwareInstaller
 	Now      func() time.Time
 }
 type Service struct {
+	archives    model.ArchiveInspector
 	blobs       BlobStore
 	firmware    FirmwareInstaller
 	roots       map[string]Root
@@ -79,7 +81,7 @@ func New(repositories Repositories, options Options) *Service {
 		digests[source.ID] = source.Digest
 	}
 	return &Service{
-		blobs: options.Blobs, firmware: options.Firmware, roots: roots, now: options.Now,
+		blobs: options.Blobs, firmware: options.Firmware, roots: roots, now: options.Now, archives: options.Archives,
 		queries: NewQueries(
 			repositories.Queries,
 		), creation: NewCreation(

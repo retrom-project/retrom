@@ -1,0 +1,33 @@
+{
+  "head": "d8ca8806fd674cd1581ee11f9f20a13f60eafbdf",
+  "capture_method": "Go test same-package overlay adds only capture test, actual tracked detector sources unchanged; fixture helper symbols reused from existing tests.",
+  "source_sha256": {
+    "internal/capability/engine/rpgmaker/detector/dependencies.go": "5b2c065b553d863a883a20a02d5f79285b95014e0aac98037c195724d9545474",
+    "internal/capability/engine/rpgmaker/detector/dependencies_test.go": "f9e752f9acb2f3e2d177cb22ddbc0272a9455c3bf6fe690e73a0d7b26cf66d1c",
+    "internal/capability/engine/rpgmaker/detector/detector.go": "4e68ba236010815e10b660d3aa4c14b619b4c7d3d50bd2065894c02257d0a03a",
+    "internal/capability/engine/rpgmaker/detector/detector_test.go": "9411fc283910590604e9262227115d719fac5925f41507805797913541549787",
+    "internal/capability/engine/rpgmaker/detector/fuzz_test.go": "b473dcf72da2e393fec2cf50121572852d270c11a5d70f08e19383d780b57e09",
+    "internal/capability/engine/rpgmaker/detector/html.go": "526c0fc75f1b7f2ec7d3c1af1bed67cea4c9069a1390282d9592d645fffd4663",
+    "internal/capability/engine/rpgmaker/detector/index.go": "fe49b3cca21591285433d5dd94e646a9fcac09cb4e5db6b2af6962497e467b65",
+    "internal/capability/engine/rpgmaker/detector/ini.go": "fe2e5efdfda4532fd8ef51792ce25d83feccb32285a9362f8520f02ec8837d79",
+    "internal/capability/engine/rpgmaker/detector/javascript.go": "3e3e67040faf0839c9fbf8b38526dbc0d472e57be96f0c4a2ff02408469855a1",
+    "internal/capability/engine/rpgmaker/detector/lcf.go": "6103ef132d475262810423decc9f41d24cc58da9bccaaa798b686078e1f408b2",
+    "internal/capability/engine/rpgmaker/detector/lcf_test.go": "72e41011686f7e5be6c79b9be5e73c884bfd4771690d1a61ac2e9c7a4cee4cb4",
+    "internal/capability/engine/rpgmaker/detector/public_security_fixture_test.go": "ce23bfb7312630182f8e0cc63ee537727ea8b4b6e04119c8a671be393715c20c",
+    "internal/capability/engine/rpgmaker/detector/rgss.go": "90ca02234e6224413982bf8b5c3d756ac548b73c2ee034ebc224b8aefe2776e5",
+    "internal/capability/engine/rpgmaker/detector/rgss_test.go": "629b57d8a722f99c5d4b47e99fe7e78d80f2777bc68abee9df215b9916458e43",
+    "internal/capability/engine/rpgmaker/detector/types.go": "777a1cc4c7b0aebf05fd9f3cd89b24d4bfec406a993638ada9698deea0b7c285",
+    "internal/capability/engine/rpgmaker/detector/web.go": "7271da0b18c211db2e65f66bbeedf4681f70551b834297e1b932cf02f998e0c4",
+    "internal/capability/engine/rpgmaker/detector/web_test.go": "699fdb478c2617ed79ad23b5786fb8ab733fb6c33e7773505761b4e4010fc8fb"
+  },
+  "fixture_manifest_sha256": "d66a3983aae52022c2acd0b46a264ade70193c014578add7b8cd5993929ac546",
+  "go_version": "go version go1.26.5 linux/amd64",
+  "source_unmodified_at_capture_end": true,
+  "old_golden_sha256": "1ce3b90ccead224cca1a9f28d4d4a3d122a78aca8f3bb1cbd06de27aa5edb439",
+  "fixture_inputs_sha256": "da1130e28947423a7ac57d3f936a43ba8fd450cf966a2e09314c36144813f552",
+  "input_capture_source_sha256": "45a44ed6afdde191db7581d7b7e59fa50b991f2d580c52cf29962c3d755b96f7",
+  "capture_cases": 122,
+  "input_capture_method": "Each original detector source/test restored through Go overlay from the recorded commit and checked against source_sha256; new Inspection hidden; actual original 122 observations equal frozen old-golden. Extra output records original synthetic bytes and existing public fixture relative paths.",
+  "capture_command": "RF04_REPOSITORY_ROOT=<checkout> RF04_CAPTURE_DIR=<output> go test -count=1 -timeout=90s -overlay <original-source-overlay.json> -run '^TestRF04OldDetectorCapture$' ./internal/capability/engine/rpgmaker/detector",
+  "bounded_inputs_sha256": "8f7ddaefadda3e040b06f5f2c0a2a1a86cc1bac133fec83a6b72b9d5a74c4737"
+}

@@ -1,4 +1,4 @@
-package importing
+package archive
 
 import (
 	"archive/zip"
@@ -18,6 +18,10 @@ import (
 	"sort"
 	"strings"
 	"testing"
+
+	"retrom/internal/capability/content/contentprofile"
+	"retrom/internal/capability/format/importing"
+	"retrom/internal/testkit/testsupport"
 )
 
 func TestScanElectronASARZIPStreamsPackedAndUnpackedMembers(t *testing.T) {
@@ -30,24 +34,23 @@ func TestScanElectronASARZIPStreamsPackedAndUnpackedMembers(t *testing.T) {
 	}
 	unpacked := map[string][]byte{"data/native/helper.node": []byte("native-sidecar")}
 	archivePath := writeElectronASARZIP(t, packed, unpacked, true)
-	detected, err := DetectElectronASARZIP(archivePath, DefaultArchiveLimits())
+	detected, err := New(&testsupport.DiagnosticRecorder{}).DetectElectronASARZIP(t.Context(), archivePath, importing.DefaultArchiveLimits())
 	if err != nil || !detected {
 		t.Fatalf("DetectElectronASARZIP() = %t, error=%v", detected, err)
 	}
 	consumed := make(map[string][]byte)
-	entries, err := ScanElectronASARZIPWithConsumer(
-		context.Background(), archivePath, DefaultArchiveLimits(),
-		func(entry ArchiveEntry, reader io.Reader) (ArchiveContent, error) {
+	entries, err := consumeProject(context.Background(), t, contentprofile.ArchiveElectronASAR, archivePath, importing.DefaultArchiveLimits(),
+		func(entry importing.ArchiveEntry, reader io.Reader) (importing.ArchiveContent, error) {
 			contents, readErr := io.ReadAll(reader)
 			if readErr != nil {
-				return ArchiveContent{}, readErr
+				return importing.ArchiveContent{}, readErr
 			}
 			consumed[entry.NormalizedPath] = contents
 			return testArchiveContent(contents), nil
 		},
 	)
 	if err != nil || len(entries) != len(packed)+len(unpacked) {
-		t.Fatalf("ScanElectronASARZIPWithConsumer() entries=%#v error=%v", entries, err)
+		t.Fatalf("ASAR project cursor entries=%#v error=%v", entries, err)
 	}
 	for path, expected := range packed {
 		if !bytes.Equal(consumed[path], expected) {
@@ -106,9 +109,8 @@ func TestElectronASARZIPRejectsUnsafeHeadersAndIntegrityMismatch(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			archivePath := writeRawElectronASARZIP(t, encodeASAR(t, test.header, test.body), true, nil)
-			_, err := ScanElectronASARZIPWithConsumer(
-				context.Background(), archivePath, DefaultArchiveLimits(),
-				func(_ ArchiveEntry, reader io.Reader) (ArchiveContent, error) {
+			_, err := consumeProject(context.Background(), t, contentprofile.ArchiveElectronASAR, archivePath, importing.DefaultArchiveLimits(),
+				func(_ importing.ArchiveEntry, reader io.Reader) (importing.ArchiveContent, error) {
 					contents, readErr := io.ReadAll(reader)
 					return testArchiveContent(contents), readErr
 				},
@@ -123,7 +125,7 @@ func TestElectronASARZIPRejectsUnsafeHeadersAndIntegrityMismatch(t *testing.T) {
 func TestDetectElectronASARZIPRequiresWindowsShellSibling(t *testing.T) {
 	t.Parallel()
 	archivePath := writeElectronASARZIP(t, map[string][]byte{"index.html": []byte("ok")}, nil, false)
-	detected, err := DetectElectronASARZIP(archivePath, DefaultArchiveLimits())
+	detected, err := New(&testsupport.DiagnosticRecorder{}).DetectElectronASARZIP(t.Context(), archivePath, importing.DefaultArchiveLimits())
 	if err != nil || detected {
 		t.Fatalf("DetectElectronASARZIP() = %t, error=%v", detected, err)
 	}
@@ -253,11 +255,11 @@ func writeRawElectronASARZIP(
 	return archivePath
 }
 
-func testArchiveContent(contents []byte) ArchiveContent {
+func testArchiveContent(contents []byte) importing.ArchiveContent {
 	md5Digest := md5.Sum(contents)
 	sha1Digest := sha1.Sum(contents)
 	sha256Digest := sha256.Sum256(contents)
-	return ArchiveContent{
+	return importing.ArchiveContent{
 		Size: int64(len(contents)), CRC32: fmt.Sprintf("%08x", crc32.ChecksumIEEE(contents)),
 		MD5: hex.EncodeToString(md5Digest[:]), SHA1: hex.EncodeToString(sha1Digest[:]),
 		SHA256: hex.EncodeToString(sha256Digest[:]),

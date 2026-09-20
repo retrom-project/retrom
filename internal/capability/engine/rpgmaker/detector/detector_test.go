@@ -1,10 +1,7 @@
 package detector
 
 import (
-	"bytes"
 	"errors"
-	"fmt"
-	"io"
 	"testing"
 )
 
@@ -18,12 +15,39 @@ func (index memoryIndex) Files() []File {
 	return files
 }
 
-func (index memoryIndex) Open(name string) (io.ReadCloser, error) {
-	contents, ok := index[name]
-	if !ok {
-		return nil, fmt.Errorf("missing memory file %q", name)
+func (index memoryIndex) contents(name string) []byte {
+	return index[name]
+}
+
+type fixtureSource interface {
+	Files() []File
+	contents(string) []byte
+}
+
+func detectFixture(coreID string, source fixtureSource) (Profile, error) {
+	inspection, err := Begin(coreID)
+	if err != nil {
+		return Profile{}, err
 	}
-	return io.NopCloser(bytes.NewReader(contents)), nil
+	facts := CatalogFacts{Present: source != nil}
+	if source != nil {
+		facts.Files = source.Files()
+	}
+	if err := inspection.Index(facts); err != nil {
+		return Profile{}, err
+	}
+	for {
+		probe, ready, err := inspection.Next()
+		if err != nil {
+			return Profile{}, err
+		}
+		if !ready {
+			return inspection.Result()
+		}
+		if err := inspection.Accept(source.contents(probe.File.Path)); err != nil {
+			return Profile{}, err
+		}
+	}
 }
 
 func TestCoreGenerationIsFixedForEveryInternalRuntimeCore(t *testing.T) {
@@ -63,9 +87,9 @@ func TestVirtualCoreDetectsEveryExactGeneration(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			profile, err := Detect("rpgmaker", test.data)
+			profile, err := detectFixture("rpgmaker", test.data)
 			if err != nil {
-				t.Fatalf("Detect() error = %v", err)
+				t.Fatalf("detectFixture() error = %v", err)
 			}
 			if profile.SelectedCoreID != test.core || profile.ExpectedGeneration != test.want ||
 				profile.EvidenceGeneration == nil || *profile.EvidenceGeneration != test.want {
@@ -76,9 +100,9 @@ func TestVirtualCoreDetectsEveryExactGeneration(t *testing.T) {
 }
 
 func TestDetectRPG2003ExactEvidence(t *testing.T) {
-	profile, err := Detect("rpgmaker_2003", rpg2KProject(2003))
+	profile, err := detectFixture("rpgmaker_2003", rpg2KProject(2003))
 	if err != nil {
-		t.Fatalf("Detect() error = %v", err)
+		t.Fatalf("detectFixture() error = %v", err)
 	}
 	assertProfile(t, profile, RPG2003, RPG2003)
 	if profile.EvidenceFamily != FamilyRPG2K {
@@ -87,7 +111,7 @@ func TestDetectRPG2003ExactEvidence(t *testing.T) {
 }
 
 func TestDetectRPG2003ExactEvidenceConflictsWithSelected2000(t *testing.T) {
-	_, err := Detect("rpgmaker_2000", rpg2KProject(2003))
+	_, err := detectFixture("rpgmaker_2000", rpg2KProject(2003))
 	assertErrorCode(t, err, CodeSelectedCoreMismatch)
 	var detectionError *Error
 	if !errors.As(err, &detectionError) || detectionError.EvidenceFamily != FamilyRPG2K ||
@@ -97,9 +121,9 @@ func TestDetectRPG2003ExactEvidenceConflictsWithSelected2000(t *testing.T) {
 }
 
 func TestDetectRPG2KWithout2003IdentifierSelects2000(t *testing.T) {
-	profile, err := Detect("rpgmaker_2000", rpg2KProject(0))
+	profile, err := detectFixture("rpgmaker_2000", rpg2KProject(0))
 	if err != nil {
-		t.Fatalf("Detect() error = %v", err)
+		t.Fatalf("detectFixture() error = %v", err)
 	}
 	if profile.Status != Matched || profile.EvidenceGeneration == nil ||
 		*profile.EvidenceGeneration != RPG2000 || profile.EvidenceFamily != FamilyRPG2K {
@@ -108,12 +132,12 @@ func TestDetectRPG2KWithout2003IdentifierSelects2000(t *testing.T) {
 }
 
 func TestDetectRPG2KWithout2003IdentifierConflictsWithSelected2003(t *testing.T) {
-	_, err := Detect("rpgmaker_2003", rpg2KProject(0))
+	_, err := detectFixture("rpgmaker_2003", rpg2KProject(0))
 	assertErrorCode(t, err, CodeSelectedCoreMismatch)
 }
 
 func TestDetectRPG2KEvidenceConflictsWithRGSSCore(t *testing.T) {
-	_, err := Detect("rpgmaker_xp", rpg2KProject(0))
+	_, err := detectFixture("rpgmaker_xp", rpg2KProject(0))
 	assertErrorCode(t, err, CodeSelectedCoreMismatch)
 	var detectionError *Error
 	if !errors.As(err, &detectionError) || detectionError.ExpectedGeneration != RPGXP ||
@@ -127,13 +151,13 @@ func TestDetectRejectsAmbiguousAndUnsupportedProjects(t *testing.T) {
 	for name, contents := range rgssProject("Data/Scripts.rxdata") {
 		ambiguous[name] = contents
 	}
-	_, err := Detect("rpgmaker_mv", ambiguous)
+	_, err := detectFixture("rpgmaker_mv", ambiguous)
 	assertErrorCode(t, err, CodeGenerationAmbiguous)
 
-	_, err = Detect("rpgmaker_mv", memoryIndex{"readme.txt": []byte("nothing")})
+	_, err = detectFixture("rpgmaker_mv", memoryIndex{"readme.txt": []byte("nothing")})
 	assertErrorCode(t, err, CodeGenerationUnsupported)
 
-	_, err = Detect("rpgmaker_mz", mvProject())
+	_, err = detectFixture("rpgmaker_mz", mvProject())
 	assertErrorCode(t, err, CodeSelectedCoreMismatch)
 	var detectionError *Error
 	if !errors.As(err, &detectionError) || detectionError.EvidenceGeneration == nil ||
@@ -148,7 +172,7 @@ func TestFileIndexUsesNFKCCaseFoldAndRejectsCollisions(t *testing.T) {
 		"rpg_rt.lmt":  makeLMT(),
 		"map0001.lmu": []byte("map"),
 	}
-	profile, err := Detect("rpgmaker_2000", lowercase)
+	profile, err := detectFixture("rpgmaker_2000", lowercase)
 	if err != nil || profile.Status != Matched {
 		t.Fatalf("case-folded detection = %#v, %v", profile, err)
 	}
@@ -157,14 +181,14 @@ func TestFileIndexUsesNFKCCaseFoldAndRejectsCollisions(t *testing.T) {
 	}
 
 	collision := memoryIndex{"Data/System.json": []byte("{}"), "Data/Ｓystem.json": []byte("{}")}
-	_, err = Detect("rpgmaker_mv", collision)
+	_, err = detectFixture("rpgmaker_mv", collision)
 	assertErrorCode(t, err, CodePathCollision)
 }
 
 func TestDetectionRejectsDeclaredFilesOverFormatLimit(t *testing.T) {
 	project := rpg2KProject(0)
 	oversize := sizedIndex{memoryIndex: project, sizes: map[string]int64{"RPG_RT.ldb": maxLDBBytes + 1}}
-	_, err := Detect("rpgmaker_2000", oversize)
+	_, err := detectFixture("rpgmaker_2000", oversize)
 	assertErrorCode(t, err, CodeLCFInvalid)
 }
 

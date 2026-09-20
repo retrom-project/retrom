@@ -118,7 +118,7 @@ func (service *ImportPreparation) prepareMarkerProjectArchive(
 	file model.ImportFile,
 	definition markerProjectDefinition,
 ) (model.PreparedDisposition, model.PreparedGroup, model.PreparedArchive, error) {
-	format, err := service.resolveMarkerProjectArchiveFormat(file, definition)
+	format, err := service.resolveMarkerProjectArchiveFormat(ctx, file, definition)
 	if err != nil {
 		return model.PreparedDisposition{}, model.PreparedGroup{}, model.PreparedArchive{}, err
 	}
@@ -159,6 +159,7 @@ func (service *ImportPreparation) prepareMarkerProjectArchive(
 }
 
 func (service *ImportPreparation) resolveMarkerProjectArchiveFormat(
+	ctx context.Context,
 	file model.ImportFile,
 	definition markerProjectDefinition,
 ) (contentprofile.ArchiveFormat, error) {
@@ -172,7 +173,8 @@ func (service *ImportPreparation) resolveMarkerProjectArchiveFormat(
 	if !definition.electronASAR || format != contentprofile.ArchiveZIP {
 		return format, nil
 	}
-	detected, err := importing.DetectElectronASARZIP(
+	detected, err := service.archiveInspector.DetectElectronASARZIP(
+		ctx,
 		service.blobs.Path(file.SHA256), importing.RPGMakerArchiveLimits(),
 	)
 	if err != nil {
@@ -237,7 +239,7 @@ func (service *ImportPreparation) scanWrappedTyranoScriptNWJS(
 			return nil, nil, false, importing.ErrArchiveUnsafe
 		}
 		candidatePath := candidate.Path()
-		if err := importing.ValidateNWJSExecutable(candidatePath); err != nil {
+		if err := service.archiveInspector.ValidateNWJSExecutable(ctx, candidatePath); err != nil {
 			if errors.Is(err, importing.ErrNWJSExecutableInvalid) {
 				continue
 			}

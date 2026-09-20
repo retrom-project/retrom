@@ -3,7 +3,11 @@ package composition
 import (
 	"database/sql"
 	"encoding/hex"
+	"log/slog"
 	"time"
+
+	archiveadapter "retrom/internal/adapter/content/archive"
+	cleanupadapter "retrom/internal/adapter/system/cleanup"
 
 	"retrom/internal/adapter/files/blobstore"
 	"retrom/internal/adapter/files/serversource"
@@ -46,5 +50,8 @@ func NewServerImports(
 		), Outcomes: importpersistence.NewOutcomes(
 			database,
 		),
-	}, serverimport.Options{Sources: sources, Blobs: blobs, Firmware: installer, Now: now})
+	}, serverimport.Options{
+		Sources: sources, Blobs: blobs, Firmware: installer, Now: now,
+		Archives: archiveadapter.New(cleanupadapter.NewReporter(slog.Default())),
+	})
 }

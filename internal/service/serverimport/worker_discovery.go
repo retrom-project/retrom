@@ -323,7 +323,7 @@ func (service *Service) evaluate(
 		}
 		return candidate, fmt.Errorf("wait for archive scan slot: %w", ctx.Err())
 	}
-	entries, err := importing.ScanZIP(ctx, service.blobs.Path(metadata.SHA256), importing.DefaultArchiveLimits())
+	entries, err := service.archives.ScanZIP(ctx, service.blobs.Path(metadata.SHA256), importing.DefaultArchiveLimits())
 	if err != nil {
 		return candidate, fmt.Errorf("scan server import ZIP candidate: %w", err)
 	}

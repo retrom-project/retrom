@@ -8,14 +8,18 @@ import (
 	"path/filepath"
 	"runtime"
 	"testing"
+
+	policy "retrom/internal/capability/engine/rpgmaker/detector"
 )
 
 type publicFixtureIndex struct {
 	root  string
-	files []File
+	files []policy.File
 }
 
-func (index publicFixtureIndex) Files() []File { return append([]File(nil), index.files...) }
+func (index publicFixtureIndex) Files() []policy.File {
+	return append([]policy.File(nil), index.files...)
+}
 
 func (index publicFixtureIndex) Open(logicalPath string) (io.ReadCloser, error) {
 	return os.Open(filepath.Join(index.root, filepath.FromSlash(logicalPath)))
@@ -29,20 +33,20 @@ func TestPublicMaliciousShapeFixturesRemainDetectableWithoutExecutingNativePaylo
 	))
 	for _, test := range []struct {
 		directory, core string
-		generation      Generation
+		generation      policy.Generation
 	}{
-		{directory: "malicious-rpgmv", core: "rpgmaker_mv", generation: RPGMV},
-		{directory: "malicious-rpgmz", core: "rpgmaker_mz", generation: RPGMZ},
+		{directory: "malicious-rpgmv", core: "rpgmaker_mv", generation: policy.RPGMV},
+		{directory: "malicious-rpgmz", core: "rpgmaker_mz", generation: policy.RPGMZ},
 	} {
 		t.Run(test.directory, func(t *testing.T) {
 			index := readPublicFixtureIndex(t, filepath.Join(root, test.directory))
-			profile, err := Detect(test.core, index)
+			profile, err := detect(test.core, index)
 			if err != nil {
-				t.Fatalf("Detect(%s) error = %v", test.directory, err)
+				t.Fatalf("detect(%s) error = %v", test.directory, err)
 			}
 			if profile.EvidenceGeneration == nil || *profile.EvidenceGeneration != test.generation ||
-				profile.ExpectedGeneration != test.generation || profile.Status != Matched {
-				t.Fatalf("Detect(%s) profile = %#v", test.directory, profile)
+				profile.ExpectedGeneration != test.generation || profile.Status != policy.Matched {
+				t.Fatalf("detect(%s) profile = %#v", test.directory, profile)
 			}
 		})
 	}
@@ -74,13 +78,13 @@ func TestPublicWrongCoreMatrixHasFortyTwoMismatches(t *testing.T) {
 		index := readPublicFixtureIndex(t, filepath.Join(root, source.Fixture))
 		for _, target := range source.Targets {
 			combinations++
-			profile, detectErr := Detect(target.CoreID, index)
+			profile, detectErr := detect(target.CoreID, index)
 			if target.Accepted {
 				t.Fatalf("wrong-core target unexpectedly marked accepted: %s -> %s (%#v)", source.Fixture, target.CoreID, profile)
 			}
-			var detectionError *Error
-			if !errors.As(detectErr, &detectionError) || detectionError.Code != CodeSelectedCoreMismatch ||
-				target.ExpectedCode != string(CodeSelectedCoreMismatch) {
+			var detectionError *policy.Error
+			if !errors.As(detectErr, &detectionError) || detectionError.Code != policy.CodeSelectedCoreMismatch ||
+				target.ExpectedCode != string(policy.CodeSelectedCoreMismatch) {
 				t.Fatalf("mismatch %s -> %s error=%v", source.Fixture, target.CoreID, detectErr)
 			}
 		}
@@ -99,10 +103,10 @@ func TestPublicNativeDependencyFixturesReachTheNativeDependencyGate(t *testing.T
 	for _, directory := range []string{"external", "referenced-native"} {
 		t.Run(directory, func(t *testing.T) {
 			index := readPublicFixtureIndex(t, filepath.Join(root, "negative-matrix", directory))
-			_, err := Detect("rpgmaker_mv", index)
-			var detectionError *Error
-			if !errors.As(err, &detectionError) || detectionError.Code != CodeNativeDependencyUnsupported {
-				t.Fatalf("Detect(%s) error = %v, want %s", directory, err, CodeNativeDependencyUnsupported)
+			_, err := detect("rpgmaker_mv", index)
+			var detectionError *policy.Error
+			if !errors.As(err, &detectionError) || detectionError.Code != policy.CodeNativeDependencyUnsupported {
+				t.Fatalf("detect(%s) error = %v, want %s", directory, err, policy.CodeNativeDependencyUnsupported)
 			}
 		})
 	}
@@ -123,7 +127,7 @@ func readPublicFixtureIndex(t *testing.T, root string) publicFixtureIndex {
 		if err != nil {
 			return err
 		}
-		index.files = append(index.files, File{Path: filepath.ToSlash(relative), Size: info.Size()})
+		index.files = append(index.files, policy.File{Path: filepath.ToSlash(relative), Size: info.Size()})
 		return nil
 	})
 	if err != nil {

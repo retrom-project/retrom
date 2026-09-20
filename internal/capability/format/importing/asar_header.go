@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"io"
 	"math"
 	"sort"
 	"strconv"
@@ -24,29 +23,28 @@ type asarIntegrity struct {
 	blocks    []string
 }
 
-type asarMember struct {
-	path      string
-	size      int64
-	offset    int64
-	unpacked  bool
+type ASARMember struct {
+	Path      string
+	Size      int64
+	Offset    int64
+	Unpacked  bool
 	integrity *asarIntegrity
-	ordinal   int
+	Ordinal   int
 }
 
 type asarHeaderWalk struct {
 	limits   ArchiveLimits
 	seenPath map[string]struct{}
 	seenFold map[string]struct{}
-	members  []asarMember
+	members  []ASARMember
 	nodes    int
 	total    int64
 }
 
-func readASARHeader(reader io.Reader, archiveSize int64, limits ArchiveLimits) ([]asarMember, int64, error) {
-	var prefix [16]byte
-	if _, err := io.ReadFull(reader, prefix[:]); err != nil {
-		return nil, 0, invalidElectronASAR("truncated pickle header")
-	}
+// ASARPickle describes the bounded JSON header region proven by its prefix.
+type ASARPickle struct{ JSONSize, Padding, DataOffset int64 }
+
+func ParseASARPickle(prefix [16]byte, archiveSize int64) (ASARPickle, error) {
 	sizePicklePayload := int64(littleEndianUint32(prefix[0:4]))
 	headerPickleSize := int64(littleEndianUint32(prefix[4:8]))
 	headerPayloadSize := int64(littleEndianUint32(prefix[8:12]))
@@ -55,26 +53,13 @@ func readASARHeader(reader io.Reader, archiveSize int64, limits ArchiveLimits) (
 	padding := headerPayloadSize - 4 - jsonSize
 	if sizePicklePayload != 4 || headerPickleSize != headerPayloadSize+4 ||
 		headerPickleSize < 8 || headerPickleSize > maximumASARHeaderBytes ||
-		headerPickleSize%4 != 0 || jsonSize < 2 || padding < 0 || padding > 3 ||
-		dataOffset > archiveSize {
-		return nil, 0, invalidElectronASAR("invalid pickle lengths")
+		headerPickleSize%4 != 0 || jsonSize < 2 || padding < 0 || padding > 3 || dataOffset > archiveSize {
+		return ASARPickle{}, invalidElectronASAR("invalid pickle lengths")
 	}
-	headerBytes := make([]byte, jsonSize)
-	if _, err := io.ReadFull(reader, headerBytes); err != nil {
-		return nil, 0, invalidElectronASAR("truncated JSON header")
-	}
-	paddingBytes := make([]byte, padding)
-	if _, err := io.ReadFull(reader, paddingBytes); err != nil || !allZero(paddingBytes) {
-		return nil, 0, invalidElectronASAR("invalid pickle padding")
-	}
-	members, err := decodeASARHeader(headerBytes, archiveSize-dataOffset, limits)
-	if err != nil {
-		return nil, 0, err
-	}
-	return members, dataOffset, nil
+	return ASARPickle{JSONSize: jsonSize, Padding: padding, DataOffset: dataOffset}, nil
 }
 
-func decodeASARHeader(contents []byte, dataSize int64, limits ArchiveLimits) ([]asarMember, error) {
+func DecodeASARHeader(contents []byte, dataSize int64, limits ArchiveLimits) ([]ASARMember, error) {
 	var root map[string]json.RawMessage
 	if err := json.Unmarshal(contents, &root); err != nil || len(root) != 1 {
 		return nil, invalidElectronASAR("invalid JSON root")
@@ -85,7 +70,7 @@ func decodeASARHeader(contents []byte, dataSize int64, limits ArchiveLimits) ([]
 	}
 	walk := asarHeaderWalk{
 		limits: limits, seenPath: make(map[string]struct{}), seenFold: make(map[string]struct{}),
-		members: make([]asarMember, 0),
+		members: make([]ASARMember, 0),
 	}
 	if err := walk.directory(files, "", 0); err != nil {
 		return nil, err
@@ -97,10 +82,10 @@ func decodeASARHeader(contents []byte, dataSize int64, limits ArchiveLimits) ([]
 		return nil, err
 	}
 	sort.Slice(walk.members, func(left, right int) bool {
-		return walk.members[left].path < walk.members[right].path
+		return walk.members[left].Path < walk.members[right].Path
 	})
 	for index := range walk.members {
-		walk.members[index].ordinal = index
+		walk.members[index].Ordinal = index
 	}
 	return walk.members, nil
 }
@@ -161,12 +146,12 @@ func (walk *asarHeaderWalk) path(prefix, name string) (string, error) {
 	return validated, nil
 }
 
-func (walk *asarHeaderWalk) addMember(member asarMember) error {
-	if member.size < 0 || member.size > walk.limits.MaxEntryBytes ||
-		walk.total > walk.limits.MaxExpandedBytes-member.size {
+func (walk *asarHeaderWalk) addMember(member ASARMember) error {
+	if member.Size < 0 || member.Size > walk.limits.MaxEntryBytes ||
+		walk.total > walk.limits.MaxExpandedBytes-member.Size {
 		return ErrArchiveLimitExceeded
 	}
-	walk.total += member.size
+	walk.total += member.Size
 	walk.members = append(walk.members, member)
 	return nil
 }
@@ -180,34 +165,34 @@ func validateASARDirectoryNode(node map[string]json.RawMessage) error {
 	return nil
 }
 
-func decodeASARMember(pathValue string, node map[string]json.RawMessage) (asarMember, error) {
+func decodeASARMember(pathValue string, node map[string]json.RawMessage) (ASARMember, error) {
 	allowed := map[string]bool{
 		"size": true, "offset": true, "unpacked": true, "executable": true, "integrity": true,
 	}
 	for key := range node {
 		if !allowed[key] {
-			return asarMember{}, invalidElectronASAR("unsupported file metadata")
+			return ASARMember{}, invalidElectronASAR("unsupported file metadata")
 		}
 	}
 	var size int64
 	if raw, exists := node["size"]; !exists || json.Unmarshal(raw, &size) != nil || size < 0 {
-		return asarMember{}, invalidElectronASAR("invalid file size")
+		return ASARMember{}, invalidElectronASAR("invalid file size")
 	}
 	unpacked, err := decodeOptionalBool(node, "unpacked")
 	if err != nil {
-		return asarMember{}, err
+		return ASARMember{}, err
 	}
 	if _, err := decodeOptionalBool(node, "executable"); err != nil {
-		return asarMember{}, err
+		return ASARMember{}, err
 	}
-	member := asarMember{path: pathValue, size: size, unpacked: unpacked}
+	member := ASARMember{Path: pathValue, Size: size, Unpacked: unpacked}
 	if err := decodeASAROffset(node, &member); err != nil {
-		return asarMember{}, err
+		return ASARMember{}, err
 	}
 	if raw, exists := node["integrity"]; exists {
 		member.integrity, err = decodeASARIntegrity(raw, size)
 		if err != nil {
-			return asarMember{}, err
+			return ASARMember{}, err
 		}
 	}
 	return member, nil
@@ -225,9 +210,9 @@ func decodeOptionalBool(node map[string]json.RawMessage, name string) (bool, err
 	return value, nil
 }
 
-func decodeASAROffset(node map[string]json.RawMessage, member *asarMember) error {
+func decodeASAROffset(node map[string]json.RawMessage, member *ASARMember) error {
 	raw, exists := node["offset"]
-	if member.unpacked {
+	if member.Unpacked {
 		if exists {
 			return invalidElectronASAR("unpacked member has an offset")
 		}
@@ -242,7 +227,7 @@ func decodeASAROffset(node map[string]json.RawMessage, member *asarMember) error
 	if err != nil {
 		return invalidElectronASAR("invalid file offset")
 	}
-	member.offset = int64(offset)
+	member.Offset = int64(offset)
 	return nil
 }
 
@@ -275,26 +260,26 @@ func decodeASARIntegrity(raw json.RawMessage, size int64) (*asarIntegrity, error
 	}, nil
 }
 
-func validateASARRanges(members []asarMember, dataSize int64) error {
-	packed := make([]asarMember, 0, len(members))
+func validateASARRanges(members []ASARMember, dataSize int64) error {
+	packed := make([]ASARMember, 0, len(members))
 	for _, member := range members {
-		if !member.unpacked {
+		if !member.Unpacked {
 			packed = append(packed, member)
 		}
 	}
 	sort.Slice(packed, func(left, right int) bool {
-		if packed[left].offset != packed[right].offset {
-			return packed[left].offset < packed[right].offset
+		if packed[left].Offset != packed[right].Offset {
+			return packed[left].Offset < packed[right].Offset
 		}
-		return packed[left].path < packed[right].path
+		return packed[left].Path < packed[right].Path
 	})
 	var previousEnd int64
 	for _, member := range packed {
-		if member.offset < previousEnd || member.offset > dataSize || member.size > dataSize-member.offset {
+		if member.Offset < previousEnd || member.Offset > dataSize || member.Size > dataSize-member.Offset {
 			return invalidElectronASAR("overlapping or out-of-bounds file range")
 		}
-		if member.size > 0 {
-			previousEnd = member.offset + member.size
+		if member.Size > 0 {
+			previousEnd = member.Offset + member.Size
 		}
 	}
 	return nil
@@ -308,7 +293,7 @@ func validSHA256(value string) bool {
 	return err == nil && len(decoded) == sha256.Size
 }
 
-func allZero(contents []byte) bool {
+func ValidASARPadding(contents []byte) bool {
 	for _, value := range contents {
 		if value != 0 {
 			return false
@@ -322,9 +307,9 @@ func littleEndianUint32(contents []byte) uint32 {
 		uint32(contents[2])<<16 | uint32(contents[3])<<24
 }
 
-func validateASARIntegrity(member asarMember, content ArchiveContent) error {
+func validateASARIntegrity(member ASARMember, content ArchiveContent) error {
 	if member.integrity != nil && content.SHA256 != member.integrity.hash {
-		return fmt.Errorf("%w: integrity mismatch for %q", ErrElectronASARInvalid, member.path)
+		return fmt.Errorf("%w: integrity mismatch for %q", ErrElectronASARInvalid, member.Path)
 	}
 	return nil
 }

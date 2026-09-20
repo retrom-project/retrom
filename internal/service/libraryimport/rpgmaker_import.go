@@ -3,8 +3,6 @@ package libraryimport
 import (
 	"context"
 	"fmt"
-	"io"
-	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -16,38 +14,17 @@ import (
 	model "retrom/internal/model/libraryimport"
 )
 
-type rpgProjectIndex struct {
-	files []detector.File
-	paths map[string]string
-}
-
-func (index rpgProjectIndex) Files() []detector.File {
-	return append([]detector.File(nil), index.files...)
-}
-
-func (index rpgProjectIndex) Open(logicalPath string) (io.ReadCloser, error) {
-	localPath, exists := index.paths[logicalPath]
-	if !exists {
-		return nil, os.ErrNotExist
-	}
-	reader, err := os.Open(localPath)
-	if err != nil {
-		return nil, fmt.Errorf("open RPG Maker project file: %w", err)
-	}
-	return reader, nil
-}
-
 func (service *ImportPreparation) PrepareRPGMakerProject(
 	ctx context.Context,
 	sourceType string,
 	files []model.ImportFile,
 	coreID string,
 ) ([]model.PreparedDisposition, []model.PreparedGroup, []model.PreparedArchive, error) {
-	if service.blobs == nil {
+	if service.blobs == nil || service.rpgMakerDetector == nil {
 		return nil, nil, nil, model.ErrInvalid
 	}
 	if sourceType == "DIRECTORY" {
-		dispositions, group, err := service.prepareRPGMakerDirectory(files, coreID)
+		dispositions, group, err := service.prepareRPGMakerDirectory(ctx, files, coreID)
 		if err != nil {
 			return nil, nil, nil, err
 		}
@@ -64,6 +41,7 @@ func (service *ImportPreparation) PrepareRPGMakerProject(
 }
 
 func (service *ImportPreparation) prepareRPGMakerDirectory(
+	ctx context.Context,
 	files []model.ImportFile,
 	coreID string,
 ) ([]model.PreparedDisposition, model.PreparedGroup, error) {
@@ -82,13 +60,15 @@ func (service *ImportPreparation) prepareRPGMakerDirectory(
 	if err != nil {
 		return nil, model.PreparedGroup{}, fmt.Errorf("normalize RPG Maker directory: %w", err)
 	}
-	index := rpgProjectIndex{paths: make(map[string]string, len(project.Files))}
+	probes := make([]model.RPGMakerProbeFile, 0, len(project.Files))
 	for _, file := range project.Files {
 		source := files[file.SourceIndex]
-		index.files = append(index.files, detector.File{Path: file.Path, Size: file.SizeBytes})
-		index.paths[file.Path] = service.blobs.Path(source.SHA256)
+		probes = append(probes, model.RPGMakerProbeFile{
+			File:       detector.File{Path: file.Path, Size: file.SizeBytes},
+			SourcePath: service.blobs.Path(source.SHA256),
+		})
 	}
-	profile, err := detector.Detect(coreID, index)
+	profile, err := service.rpgMakerDetector.DetectPrepared(ctx, coreID, probes)
 	if err != nil {
 		return nil, model.PreparedGroup{}, fmt.Errorf("detect RPG Maker directory: %w", err)
 	}
@@ -165,13 +145,15 @@ func (service *ImportPreparation) prepareRPGMakerArchive(
 	if err != nil {
 		return model.PreparedDisposition{}, model.PreparedGroup{}, model.PreparedArchive{}, err
 	}
-	index := rpgProjectIndex{paths: make(map[string]string, len(project.Files))}
+	probes := make([]model.RPGMakerProbeFile, 0, len(project.Files))
 	for _, projectFile := range project.Files {
 		entry := entryByOrdinal[projectFile.SourceIndex]
-		index.files = append(index.files, detector.File{Path: projectFile.Path, Size: projectFile.SizeBytes})
-		index.paths[projectFile.Path] = readMetadata[entry.Ordinal].Path
+		probes = append(probes, model.RPGMakerProbeFile{
+			File:       detector.File{Path: projectFile.Path, Size: projectFile.SizeBytes},
+			SourcePath: readMetadata[entry.Ordinal].Path,
+		})
 	}
-	profile, err := detector.Detect(coreID, index)
+	profile, err := service.rpgMakerDetector.DetectPrepared(ctx, coreID, probes)
 	if err != nil {
 		return model.PreparedDisposition{}, model.PreparedGroup{}, model.PreparedArchive{}, fmt.Errorf(
 			"detect RPG Maker archive: %w", err,

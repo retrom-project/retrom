@@ -10,11 +10,15 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
 	"time"
+
+	archiveadapter "retrom/internal/adapter/content/archive"
+	cleanupadapter "retrom/internal/adapter/system/cleanup"
 
 	firmwaresource "retrom/internal/adapter/content/firmwaremanifest"
 
@@ -436,7 +440,7 @@ is_explicit_bios,classification) VALUES
 	} {
 		metadata, putErr := blobs.Put(bytes.NewReader(fixture.bytes))
 		testassert.False(t, putErr != nil, putErr)
-		entries, scanErr := importing.ScanZIP(ctx, blobs.Path(metadata.SHA256), importing.DefaultArchiveLimits())
+		entries, scanErr := archiveadapter.New(cleanupadapter.NewReporter(slog.Default())).ScanZIP(ctx, blobs.Path(metadata.SHA256), importing.DefaultArchiveLimits())
 		testassert.Falsef(t, testassert.Any(func() bool { return scanErr != nil }, func() bool { return len(entries) != 1 }), "scan %s = %#v, error=%v", fixture.machine, entries, scanErr)
 		if _, err := database.ExecContext(ctx, `
 INSERT INTO dat_rom_entries(dat_version_id,machine_name,ordinal,name,size_bytes,crc32,sha1,status)

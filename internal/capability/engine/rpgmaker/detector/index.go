@@ -3,7 +3,6 @@ package detector
 import (
 	"bytes"
 	"fmt"
-	"io"
 	"strings"
 	"unicode/utf8"
 
@@ -17,16 +16,12 @@ type catalogFile struct {
 }
 
 type catalog struct {
-	source FileIndex
-	files  map[string]catalogFile
+	files map[string]catalogFile
 }
 
-func newCatalog(source FileIndex) (*catalog, error) {
-	if source == nil {
-		return nil, newError(CodeProjectNotFound, "nil file index", nil)
-	}
-	result := &catalog{source: source, files: make(map[string]catalogFile)}
-	for _, file := range source.Files() {
+func newCatalog(entries []File) (*catalog, error) {
+	result := &catalog{files: make(map[string]catalogFile)}
+	for _, file := range entries {
 		if !validIndexedPath(file.Path) || file.Size < 0 {
 			return nil, newError(CodePathCollision, "invalid normalized file index entry", nil)
 		}
@@ -56,33 +51,15 @@ func (files *catalog) paths() []catalogFile {
 	return result
 }
 
-func (files *catalog) read(path string, limit int64, code Code) ([]byte, error) {
+func (files *catalog) probe(path string, limit int64, code Code) (Probe, error) {
 	file, exists := files.files[lookupKey(path)]
 	if !exists {
-		return nil, newError(code, fmt.Sprintf("required file %q is missing", path), nil)
+		return Probe{}, newError(code, fmt.Sprintf("required file %q is missing", path), nil)
 	}
 	if file.size > limit {
-		return nil, newError(code, fmt.Sprintf("file %q exceeds %d bytes", file.path, limit), nil)
+		return Probe{}, newError(code, fmt.Sprintf("file %q exceeds %d bytes", file.path, limit), nil)
 	}
-	reader, err := files.source.Open(file.path)
-	if err != nil {
-		return nil, newError(code, fmt.Sprintf("open %q", file.path), err)
-	}
-	if reader == nil {
-		return nil, newError(code, fmt.Sprintf("open %q returned no reader", file.path), nil)
-	}
-	contents, readErr := io.ReadAll(io.LimitReader(reader, limit+1))
-	closeErr := reader.Close()
-	if readErr != nil {
-		return nil, newError(code, fmt.Sprintf("read %q", file.path), readErr)
-	}
-	if closeErr != nil {
-		return nil, newError(code, fmt.Sprintf("close %q", file.path), closeErr)
-	}
-	if int64(len(contents)) != file.size || int64(len(contents)) > limit {
-		return nil, newError(code, fmt.Sprintf("size of %q changed during detection", file.path), nil)
-	}
-	return contents, nil
+	return Probe{File: File{Path: file.path, Size: file.size}, MaxBytes: limit, Code: code}, nil
 }
 
 func lookupKey(path string) string {

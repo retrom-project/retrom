@@ -1,4 +1,4 @@
-package importing
+package archive
 
 import (
 	"archive/zip"
@@ -8,23 +8,26 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"retrom/internal/capability/format/importing"
+	"retrom/internal/testkit/testsupport"
 )
 
 func TestScanNWJSExecutableRequiresPEAndAppendedZIP(t *testing.T) {
 	t.Parallel()
 	valid := writeNWJSExecutable(t, true, true)
-	entries, err := ScanNWJSExecutable(context.Background(), valid, DefaultArchiveLimits())
+	entries, err := New(&testsupport.DiagnosticRecorder{}).ScanNWJSExecutable(context.Background(), valid, importing.DefaultArchiveLimits())
 	if err != nil || len(entries) != 1 || entries[0].NormalizedPath != "index.html" {
-		t.Fatalf("ScanNWJSExecutable()=%#v, error=%v", entries, err)
+		t.Fatalf("New(&testsupport.DiagnosticRecorder{}).ScanNWJSExecutable()=%#v, error=%v", entries, err)
 	}
 	for name, candidate := range map[string]string{
 		"zip-renamed.exe": writeNWJSExecutable(t, false, true),
 		"pe-only.exe":     writeNWJSExecutable(t, true, false),
 	} {
-		if _, err := ScanNWJSExecutable(
-			context.Background(), candidate, DefaultArchiveLimits(),
-		); !errors.Is(err, ErrNWJSExecutableInvalid) {
-			t.Fatalf("%s error=%v, want %v", name, err, ErrNWJSExecutableInvalid)
+		if _, err := New(&testsupport.DiagnosticRecorder{}).ScanNWJSExecutable(
+			context.Background(), candidate, importing.DefaultArchiveLimits(),
+		); !errors.Is(err, importing.ErrNWJSExecutableInvalid) {
+			t.Fatalf("%s error=%v, want %v", name, err, importing.ErrNWJSExecutableInvalid)
 		}
 	}
 }

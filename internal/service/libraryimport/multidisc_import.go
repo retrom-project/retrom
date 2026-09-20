@@ -168,7 +168,7 @@ func (service *ImportPreparation) scanProfileArchive(
 	var entries []importing.ArchiveEntry
 	var err error
 	if archiveFormat == contentprofile.ArchiveZIP {
-		entries, err = importing.ScanZIP(ctx, archivePath, importing.DefaultArchiveLimits())
+		entries, err = service.archiveInspector.ScanZIP(ctx, archivePath, importing.DefaultArchiveLimits())
 	} else {
 		entries, err = importing.ScanSevenZip(ctx, archivePath, importing.DefaultArchiveLimits())
 	}

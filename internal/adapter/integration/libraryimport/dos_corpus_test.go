@@ -5,11 +5,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 	"testing"
+
+	archiveadapter "retrom/internal/adapter/content/archive"
+	cleanupadapter "retrom/internal/adapter/system/cleanup"
 
 	"retrom/internal/capability/engine/dosbundle"
 	"retrom/internal/capability/format/importing"
@@ -58,7 +62,7 @@ func discoverDOSCorpusArchives(root string) ([]string, error) {
 }
 
 func validateDOSCorpusArchive(archivePath string) (bool, error) {
-	entries, err := importing.ScanZIP(context.Background(), archivePath, importing.DOSArchiveLimits())
+	entries, err := archiveadapter.New(cleanupadapter.NewReporter(slog.Default())).ScanZIP(context.Background(), archivePath, importing.DOSArchiveLimits())
 	if err != nil {
 		return false, fmt.Errorf("scan: %w", err)
 	}

@@ -6,18 +6,18 @@ import (
 )
 
 func TestDetectMVAndMZExactMarkers(t *testing.T) {
-	mv, err := Detect("rpgmaker_mv", mvProject())
+	mv, err := detectFixture("rpgmaker_mv", mvProject())
 	if err != nil {
-		t.Fatalf("Detect(MV) error = %v", err)
+		t.Fatalf("detectFixture(MV) error = %v", err)
 	}
 	assertProfile(t, mv, RPGMV, RPGMV)
 	if mv.EngineVersion != "1.6.2" || mv.EvidenceFamily != FamilyMV {
 		t.Fatalf("MV engine version = %q", mv.EngineVersion)
 	}
 
-	mz, err := Detect("rpgmaker_mz", mzProject())
+	mz, err := detectFixture("rpgmaker_mz", mzProject())
 	if err != nil {
-		t.Fatalf("Detect(MZ) error = %v", err)
+		t.Fatalf("detectFixture(MZ) error = %v", err)
 	}
 	assertProfile(t, mz, RPGMZ, RPGMZ)
 	if mz.EngineVersion != "1.9.0" || mz.EvidenceFamily != FamilyMZ {
@@ -29,8 +29,8 @@ func TestDetectMVAndMZExactMarkers(t *testing.T) {
 	alternate["index.html"] = []byte(strings.ReplaceAll(
 		string(alternate["index.html"]), "js/libs/localforage.min.js", "js/libs/localforage.js",
 	))
-	if _, err := Detect("rpgmaker_mz", alternate); err != nil {
-		t.Fatalf("Detect(MZ alternate localforage) error = %v", err)
+	if _, err := detectFixture("rpgmaker_mz", alternate); err != nil {
+		t.Fatalf("detectFixture(MZ alternate localforage) error = %v", err)
 	}
 }
 
@@ -46,7 +46,7 @@ func TestWebDetectorRejectsStrictJSONFailures(t *testing.T) {
 		t.Run(string(rune('A'+index)), func(t *testing.T) {
 			project := mvProject()
 			project["data/System.json"] = contents
-			_, err := Detect("rpgmaker_mv", project)
+			_, err := detectFixture("rpgmaker_mv", project)
 			assertErrorCode(t, err, CodeWebFormatInvalid)
 		})
 	}
@@ -85,7 +85,7 @@ func TestWebDetectorRejectsUnsafeBrowserDependencies(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			project := mvProject()
 			test.mutate(project)
-			_, err := Detect("rpgmaker_mv", project)
+			_, err := detectFixture("rpgmaker_mv", project)
 			assertErrorCode(t, err, test.code)
 		})
 	}
@@ -100,9 +100,9 @@ func TestWebDetectorRetainsOpaqueDesktopFiles(t *testing.T) {
 	} {
 		project[name] = []byte("opaque desktop payload")
 	}
-	profile, err := Detect("rpgmaker_mz", project)
+	profile, err := detectFixture("rpgmaker_mz", project)
 	if err != nil {
-		t.Fatalf("Detect(MZ with opaque desktop files) error = %v", err)
+		t.Fatalf("detectFixture(MZ with opaque desktop files) error = %v", err)
 	}
 	assertProfile(t, profile, RPGMZ, RPGMZ)
 }
@@ -118,8 +118,8 @@ func TestWebDetectorAllowsDesktopCompatibilityBranches(t *testing.T) {
 	for _, source := range tests {
 		project := mvProject()
 		project["js/main.js"] = []byte(source)
-		if _, err := Detect("rpgmaker_mv", project); err != nil {
-			t.Errorf("Detect(MV desktop compatibility branch) error = %v", err)
+		if _, err := detectFixture("rpgmaker_mv", project); err != nil {
+			t.Errorf("detectFixture(MV desktop compatibility branch) error = %v", err)
 		}
 	}
 }
@@ -131,7 +131,7 @@ func TestWebDetectorRejectsBothCompleteMarkerSets(t *testing.T) {
 			project[name] = contents
 		}
 	}
-	_, err := Detect("rpgmaker_mv", project)
+	_, err := detectFixture("rpgmaker_mv", project)
 	assertErrorCode(t, err, CodeGenerationAmbiguous)
 }
 

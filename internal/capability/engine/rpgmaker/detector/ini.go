@@ -9,15 +9,8 @@ import (
 	"golang.org/x/text/transform"
 )
 
-func parseRPGRTINI(files *catalog) (bool, error) {
-	if !files.exists("RPG_RT.ini") {
-		return false, nil
-	}
-	contents, err := files.read("RPG_RT.ini", maxINIBytes, CodeINIInvalid)
-	if err != nil {
-		return false, err
-	}
-	contents, err = prepareRPGRTINI(contents)
+func parseRPGRTINI(contents []byte) (bool, error) {
+	contents, err := prepareRPGRTINI(contents)
 	if err != nil {
 		return false, err
 	}

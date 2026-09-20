@@ -11,11 +11,15 @@ import (
 	"encoding/base64"
 	"fmt"
 	"hash/crc32"
+	"log/slog"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
 	"time"
+
+	archiveadapter "retrom/internal/adapter/content/archive"
+	cleanupadapter "retrom/internal/adapter/system/cleanup"
 
 	firmwaresource "retrom/internal/adapter/content/firmwaremanifest"
 
@@ -119,7 +123,7 @@ WHERE f.id=?
 	}
 	releases, err := payloadrelease.New(database.SQL, blobs, time.Now, 7*24*time.Hour)
 	testassert.False(t, err != nil, err)
-	service := firmwareservice.New(New(database.SQL), time.Now).WithBlobStore(blobs).WithPayloadRelease(releases)
+	service := firmwareservice.New(New(database.SQL), time.Now, archiveadapter.New(cleanupadapter.NewReporter(slog.Default()))).WithBlobStore(blobs).WithPayloadRelease(releases)
 	result, err := service.Install(ctx, requirementID, version, firmwaremodel.InstallRequest{UploadFileID: upload.Files[0].ID})
 	testassert.False(t, err != nil, err)
 	testassert.Falsef(t, testassert.Any(func() bool { return result.Status != "HASH_WARNING" }, func() bool { return !result.Active }), "installation = %#v", result)
@@ -452,14 +456,14 @@ VALUES('requirement-test','mame2003_plus',?,?,'DAT_MACHINE','stvbios','stvbios.z
 		testassert.Falsef(t, time.Now().After(deadline), "finalize state = %s", state)
 		time.Sleep(10 * time.Millisecond)
 	}
-	result, err := firmwareservice.New(New(database.SQL), time.Now).WithBlobStore(blobs).Install(
+	result, err := firmwareservice.New(New(database.SQL), time.Now, archiveadapter.New(cleanupadapter.NewReporter(slog.Default()))).WithBlobStore(blobs).Install(
 		ctx, "requirement-test", 1, firmwaremodel.InstallRequest{UploadFileID: upload.Files[0].ID},
 	)
 	testassert.False(t, err != nil, err)
 	testassert.Falsef(t, testassert.Any(func() bool { return result.Status != "MATCHED" }, func() bool { return !result.Active }), "installation = %#v", result)
 	warnings, ok := result.ValidationDetails["warnings"].([]string)
 	testassert.Falsef(t, testassert.Any(func() bool { return !ok }, func() bool { return len(warnings) != 1 }, func() bool { return !strings.Contains(warnings[0], "epr-19730.ic8") }), "alias warnings = %#v", result.ValidationDetails["warnings"])
-	inspection, err := firmwareservice.New(New(database.SQL), time.Now).InspectArchive(ctx, "requirement-test")
+	inspection, err := firmwareservice.New(New(database.SQL), time.Now, archiveadapter.New(cleanupadapter.NewReporter(slog.Default()))).InspectArchive(ctx, "requirement-test")
 	testassert.False(t, err != nil, err)
 	testassert.Falsef(t, testassert.Any(func() bool { return inspection.LogicalName != "stvbios.zip" }, func() bool { return inspection.InstallationStatus != "MATCHED" }, func() bool { return len(inspection.Entries) != 2 }), "inspection = %#v", inspection)
 	if comparison := inspection.Entries[0]; comparison.Status != "ALIASED" ||

@@ -2,7 +2,6 @@ package detector
 
 import (
 	"fmt"
-	"io"
 )
 
 type Generation string
@@ -68,11 +67,6 @@ const (
 type File struct {
 	Path string
 	Size int64
-}
-
-type FileIndex interface {
-	Files() []File
-	Open(path string) (io.ReadCloser, error)
 }
 
 type Profile struct {

@@ -12,13 +12,10 @@ import (
 	accountsmodel "retrom/internal/model/accounts"
 	netplayservice "retrom/internal/service/netplay"
 
-	gamecontentpersistence "retrom/internal/repo/gamecontent"
-
 	"retrom/internal/bootstrap/composition"
 	librarycomposition "retrom/internal/bootstrap/composition/libraryimport"
 	payloadcomposition "retrom/internal/bootstrap/composition/payloadrelease"
 
-	firmwarepersistence "retrom/internal/repo/firmware"
 	firmwareservice "retrom/internal/service/firmware"
 
 	savepersistence "retrom/internal/repo/saves"
@@ -248,8 +245,7 @@ func New(
 	importer.ResumeParentAttachmentJobs(context.Background())
 	importer.ResumeMultiDiscAttachmentJobs(context.Background())
 	importer.ResumeReviewBulkJobs(context.Background())
-	firmwareService := firmwareservice.New(firmwarepersistence.New(database), now).WithBlobStore(blobs).
-		WithPayloadRelease(payloadReleaseService)
+	firmwareService := composition.NewFirmware(database, now, blobs, payloadReleaseService)
 	serverImportService := composition.NewServerImports(
 		database,
 		blobs,
@@ -295,9 +291,9 @@ func New(
 		diagnosticsService:      composition.NewDiagnostics(database),
 		platformDirectories:     platforminstance.New(platformpersistence.New(database), now),
 		metadata:                scraper,
-		gameContent: gamecontent.New(gamecontentpersistence.New(database), now).WithBlobStore(blobs).
-			WithPayloadRelease(payloadReleaseService).WithGCStager(payloadReleaseService).
-			WithMultiDiscImportEnabled(config.MultiDiscImportEnabled),
+		gameContent: composition.NewGameContent(
+			database, blobs, payloadReleaseService, payloadReleaseService, now, config.MultiDiscImportEnabled,
+		),
 		gameListService:    composition.NewGameList(database),
 		homeService:        composition.NewHome(database, tagService),
 		gameAssets:         composition.NewGameAssets(database, blobs, now, payloadReleaseService),

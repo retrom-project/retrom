@@ -21,6 +21,7 @@ import (
 )
 
 type Service struct {
+	archiveInspector       librarymodel.ArchiveInspector
 	scummVMDetector        librarymodel.ScummVMDetector
 	database               *sql.DB
 	blobs                  *blobstore.Store
@@ -50,7 +51,8 @@ func (service *Service) WithBlobStore(blobs *blobstore.Store) *Service {
 
 func New(database *sql.DB, now func() time.Time, scraper ...*metadatascrape.Service) *Service {
 	service := &Service{
-		database: database, now: now, tags: tagging.New(tagpersistence.New(database), now),
+		archiveInspector: composition.NewArchiveInspector(),
+		database:         database, now: now, tags: tagging.New(tagpersistence.New(database), now),
 	}
 	service.reviewDrafts = composition.NewReviewDrafts(database, now)
 	if len(scraper) > 0 {

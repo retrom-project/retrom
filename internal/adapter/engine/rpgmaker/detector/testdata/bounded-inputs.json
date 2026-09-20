@@ -1,0 +1,282 @@
+[
+  {
+    "Name": "bound/RPG_RT.ldb/limit-minus-one",
+    "Path": "RPG_RT.ldb",
+    "Limit": 67108864,
+    "Declared": 67108863,
+    "Actual": 67108863,
+    "Code": "RPG_LCF_INVALID"
+  },
+  {
+    "Name": "bound/RPG_RT.ldb/limit",
+    "Path": "RPG_RT.ldb",
+    "Limit": 67108864,
+    "Declared": 67108864,
+    "Actual": 67108864,
+    "Code": "RPG_LCF_INVALID"
+  },
+  {
+    "Name": "bound/RPG_RT.ldb/declared-over",
+    "Path": "RPG_RT.ldb",
+    "Limit": 67108864,
+    "Declared": 67108865,
+    "Actual": 67108865,
+    "Code": "RPG_LCF_INVALID"
+  },
+  {
+    "Name": "bound/RPG_RT.ldb/actual-over",
+    "Path": "RPG_RT.ldb",
+    "Limit": 67108864,
+    "Declared": 67108864,
+    "Actual": 67112960,
+    "Code": "RPG_LCF_INVALID"
+  },
+  {
+    "Name": "bound/RPG_RT.ldb/actual-short",
+    "Path": "RPG_RT.ldb",
+    "Limit": 67108864,
+    "Declared": 67108864,
+    "Actual": 67108863,
+    "Code": "RPG_LCF_INVALID"
+  },
+  {
+    "Name": "bound/RPG_RT.lmt/limit-minus-one",
+    "Path": "RPG_RT.lmt",
+    "Limit": 16777216,
+    "Declared": 16777215,
+    "Actual": 16777215,
+    "Code": "RPG_LMT_INVALID"
+  },
+  {
+    "Name": "bound/RPG_RT.lmt/limit",
+    "Path": "RPG_RT.lmt",
+    "Limit": 16777216,
+    "Declared": 16777216,
+    "Actual": 16777216,
+    "Code": "RPG_LMT_INVALID"
+  },
+  {
+    "Name": "bound/RPG_RT.lmt/declared-over",
+    "Path": "RPG_RT.lmt",
+    "Limit": 16777216,
+    "Declared": 16777217,
+    "Actual": 16777217,
+    "Code": "RPG_LMT_INVALID"
+  },
+  {
+    "Name": "bound/RPG_RT.lmt/actual-over",
+    "Path": "RPG_RT.lmt",
+    "Limit": 16777216,
+    "Declared": 16777216,
+    "Actual": 16781312,
+    "Code": "RPG_LMT_INVALID"
+  },
+  {
+    "Name": "bound/RPG_RT.lmt/actual-short",
+    "Path": "RPG_RT.lmt",
+    "Limit": 16777216,
+    "Declared": 16777216,
+    "Actual": 16777215,
+    "Code": "RPG_LMT_INVALID"
+  },
+  {
+    "Name": "bound/RPG_RT.ini/limit-minus-one",
+    "Path": "RPG_RT.ini",
+    "Limit": 65536,
+    "Declared": 65535,
+    "Actual": 65535,
+    "Code": "RPG_INI_INVALID"
+  },
+  {
+    "Name": "bound/RPG_RT.ini/limit",
+    "Path": "RPG_RT.ini",
+    "Limit": 65536,
+    "Declared": 65536,
+    "Actual": 65536,
+    "Code": "RPG_INI_INVALID"
+  },
+  {
+    "Name": "bound/RPG_RT.ini/declared-over",
+    "Path": "RPG_RT.ini",
+    "Limit": 65536,
+    "Declared": 65537,
+    "Actual": 65537,
+    "Code": "RPG_INI_INVALID"
+  },
+  {
+    "Name": "bound/RPG_RT.ini/actual-over",
+    "Path": "RPG_RT.ini",
+    "Limit": 65536,
+    "Declared": 65536,
+    "Actual": 69632,
+    "Code": "RPG_INI_INVALID"
+  },
+  {
+    "Name": "bound/RPG_RT.ini/actual-short",
+    "Path": "RPG_RT.ini",
+    "Limit": 65536,
+    "Declared": 65536,
+    "Actual": 65535,
+    "Code": "RPG_INI_INVALID"
+  },
+  {
+    "Name": "bound/Game.ini/limit-minus-one",
+    "Path": "Game.ini",
+    "Limit": 65536,
+    "Declared": 65535,
+    "Actual": 65535,
+    "Code": "RPG_INI_INVALID"
+  },
+  {
+    "Name": "bound/Game.ini/limit",
+    "Path": "Game.ini",
+    "Limit": 65536,
+    "Declared": 65536,
+    "Actual": 65536,
+    "Code": "RPG_INI_INVALID"
+  },
+  {
+    "Name": "bound/Game.ini/declared-over",
+    "Path": "Game.ini",
+    "Limit": 65536,
+    "Declared": 65537,
+    "Actual": 65537,
+    "Code": "RPG_INI_INVALID"
+  },
+  {
+    "Name": "bound/Game.ini/actual-over",
+    "Path": "Game.ini",
+    "Limit": 65536,
+    "Declared": 65536,
+    "Actual": 69632,
+    "Code": "RPG_INI_INVALID"
+  },
+  {
+    "Name": "bound/Game.ini/actual-short",
+    "Path": "Game.ini",
+    "Limit": 65536,
+    "Declared": 65536,
+    "Actual": 65535,
+    "Code": "RPG_INI_INVALID"
+  },
+  {
+    "Name": "bound/data/System.json/limit-minus-one",
+    "Path": "data/System.json",
+    "Limit": 8388608,
+    "Declared": 8388607,
+    "Actual": 8388607,
+    "Code": "RPG_WEB_FORMAT_INVALID"
+  },
+  {
+    "Name": "bound/data/System.json/limit",
+    "Path": "data/System.json",
+    "Limit": 8388608,
+    "Declared": 8388608,
+    "Actual": 8388608,
+    "Code": "RPG_WEB_FORMAT_INVALID"
+  },
+  {
+    "Name": "bound/data/System.json/declared-over",
+    "Path": "data/System.json",
+    "Limit": 8388608,
+    "Declared": 8388609,
+    "Actual": 8388609,
+    "Code": "RPG_WEB_FORMAT_INVALID"
+  },
+  {
+    "Name": "bound/data/System.json/actual-over",
+    "Path": "data/System.json",
+    "Limit": 8388608,
+    "Declared": 8388608,
+    "Actual": 8392704,
+    "Code": "RPG_WEB_FORMAT_INVALID"
+  },
+  {
+    "Name": "bound/data/System.json/actual-short",
+    "Path": "data/System.json",
+    "Limit": 8388608,
+    "Declared": 8388608,
+    "Actual": 8388607,
+    "Code": "RPG_WEB_FORMAT_INVALID"
+  },
+  {
+    "Name": "bound/index.html/limit-minus-one",
+    "Path": "index.html",
+    "Limit": 2097152,
+    "Declared": 2097151,
+    "Actual": 2097151,
+    "Code": "RPG_WEB_FORMAT_INVALID"
+  },
+  {
+    "Name": "bound/index.html/limit",
+    "Path": "index.html",
+    "Limit": 2097152,
+    "Declared": 2097152,
+    "Actual": 2097152,
+    "Code": "RPG_WEB_FORMAT_INVALID"
+  },
+  {
+    "Name": "bound/index.html/declared-over",
+    "Path": "index.html",
+    "Limit": 2097152,
+    "Declared": 2097153,
+    "Actual": 2097153,
+    "Code": "RPG_WEB_FORMAT_INVALID"
+  },
+  {
+    "Name": "bound/index.html/actual-over",
+    "Path": "index.html",
+    "Limit": 2097152,
+    "Declared": 2097152,
+    "Actual": 2101248,
+    "Code": "RPG_WEB_FORMAT_INVALID"
+  },
+  {
+    "Name": "bound/index.html/actual-short",
+    "Path": "index.html",
+    "Limit": 2097152,
+    "Declared": 2097152,
+    "Actual": 2097151,
+    "Code": "RPG_WEB_FORMAT_INVALID"
+  },
+  {
+    "Name": "bound/js/main.js/limit-minus-one",
+    "Path": "js/main.js",
+    "Limit": 16777216,
+    "Declared": 16777215,
+    "Actual": 16777215,
+    "Code": "RPG_WEB_FORMAT_INVALID"
+  },
+  {
+    "Name": "bound/js/main.js/limit",
+    "Path": "js/main.js",
+    "Limit": 16777216,
+    "Declared": 16777216,
+    "Actual": 16777216,
+    "Code": "RPG_WEB_FORMAT_INVALID"
+  },
+  {
+    "Name": "bound/js/main.js/declared-over",
+    "Path": "js/main.js",
+    "Limit": 16777216,
+    "Declared": 16777217,
+    "Actual": 16777217,
+    "Code": "RPG_WEB_FORMAT_INVALID"
+  },
+  {
+    "Name": "bound/js/main.js/actual-over",
+    "Path": "js/main.js",
+    "Limit": 16777216,
+    "Declared": 16777216,
+    "Actual": 16781312,
+    "Code": "RPG_WEB_FORMAT_INVALID"
+  },
+  {
+    "Name": "bound/js/main.js/actual-short",
+    "Path": "js/main.js",
+    "Limit": 16777216,
+    "Declared": 16777216,
+    "Actual": 16777215,
+    "Code": "RPG_WEB_FORMAT_INVALID"
+  }
+]

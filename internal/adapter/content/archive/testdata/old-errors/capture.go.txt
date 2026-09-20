@@ -1,0 +1,66 @@
+package importing
+
+import (
+ "archive/zip";"bytes";"context";"encoding/json";"fmt";"io";"os";"testing"
+)
+
+type oldErrorNode struct {Type string; Text string; Children []oldErrorNode}
+func captureErrorShape(err error) oldErrorNode {
+ node:=oldErrorNode{Type:fmt.Sprintf("%T",err),Text:err.Error()}
+ if joined,ok:=err.(interface{Unwrap()[]error});ok {
+  for _,child:=range joined.Unwrap(){node.Children=append(node.Children,captureErrorShape(child))}
+ } else if wrapped,ok:=err.(interface{Unwrap()error});ok && wrapped.Unwrap()!=nil {
+  node.Children=append(node.Children,captureErrorShape(wrapped.Unwrap()))
+ }
+ return node
+}
+
+func TestCaptureOldErrorShapes(t *testing.T) {
+ cases:=make(map[string]oldErrorNode)
+ _,_,err:=readASARHeader(bytes.NewReader(make([]byte,16)),100,DefaultArchiveLimits())
+ cases["pickle lengths"]=captureErrorShape(err)
+ _,err=decodeASARHeader([]byte("{"),100,DefaultArchiveLimits())
+ cases["ASAR JSON"]=captureErrorShape(err)
+ _,err=decodeASARHeader([]byte("{\"files\":{\"..\":{\"size\":1,\"offset\":\"0\"}}}"),100,DefaultArchiveLimits())
+ cases["ASAR path"]=captureErrorShape(err)
+ _,err=validateElectronZIPDirectory([]zipHeaderFacts{{Name:"../escape"}},DefaultArchiveLimits())
+ cases["ZIP path"]=captureErrorShape(err)
+ _,err=validateElectronZIPDirectory([]zipHeaderFacts{{Name:"a"},{Name:"a"}},DefaultArchiveLimits())
+ cases["ZIP duplicate"]=captureErrorShape(err)
+ _,err=validateElectronZIPDirectory([]zipHeaderFacts{{Name:"a",Flags:1}},DefaultArchiveLimits())
+ cases["ZIP encrypted"]=captureErrorShape(err)
+ _,err=validateElectronZIPDirectory([]zipHeaderFacts{{Name:"a",Method:99}},DefaultArchiveLimits())
+ cases["ZIP method"]=captureErrorShape(err)
+ _,err=validateElectronZIPDirectory([]zipHeaderFacts{{Name:"a",UncompressedSize64:9}},ArchiveLimits{MaxEntries:10,MaxEntryBytes:1})
+ cases["ZIP limit"]=captureErrorShape(err)
+ // The original resource monitor preserves the read cause, while its byte
+ // limit dominates that same cause before accounting or prefix capture.
+ monitor:=&archiveReadMonitor{ctx:context.Background(),reader:&captureFaultReader{},limit:10}
+ _,err=monitor.Read(make([]byte,4))
+ cases["member read"]=captureErrorShape(err)
+ monitor=&archiveReadMonitor{ctx:context.Background(),reader:&captureFaultReader{},limit:1}
+ _,err=monitor.Read(make([]byte,4))
+ cases["member limit"]=captureErrorShape(err)
+ _,err=ScanFlatZIP(context.Background(),oldCaptureZIP(t,"dir/",nil),DefaultArchiveLimits())
+ cases["flat directory"]=captureErrorShape(err)
+ _,err=ScanZIP(context.Background(),oldCaptureZIP(t,"data.bin",[]byte{'P','K',3,4}),DefaultArchiveLimits())
+ cases["scan nested"]=captureErrorShape(err)
+ body,err:=json.MarshalIndent(cases,"","  ")
+ if err!=nil {t.Fatal(err)}
+ if err:=os.WriteFile(os.Getenv("RETROM_OLD_ERROR_CAPTURE"),append(body,'\n'),0600);err!=nil {t.Fatal(err)}
+}
+type captureFaultReader struct{}
+func (*captureFaultReader)Read(buffer []byte)(int,error){return copy(buffer,[]byte("abc")),io.ErrUnexpectedEOF}
+
+func oldCaptureZIP(t *testing.T,name string,body []byte)string{
+ t.Helper()
+ var contents bytes.Buffer
+ writer:=zip.NewWriter(&contents)
+ member,err:=writer.Create(name)
+ if err!=nil {t.Fatal(err)}
+ if len(body)>0 {if _,err:=member.Write(body);err!=nil {t.Fatal(err)}}
+ if err:=writer.Close();err!=nil {t.Fatal(err)}
+ path:=t.TempDir()+"/fixture.zip"
+ if err:=os.WriteFile(path,contents.Bytes(),0600);err!=nil {t.Fatal(err)}
+ return path
+}

@@ -34,6 +34,7 @@ import (
 
 	"github.com/google/uuid"
 
+	rpgmakerdetector "retrom/internal/adapter/engine/rpgmaker/detector"
 	"retrom/internal/adapter/files/blobstore"
 	"retrom/internal/adapter/integration/libraryimport"
 	"retrom/internal/adapter/integration/payloadrelease"
@@ -84,7 +85,8 @@ SELECT id,version FROM games WHERE id=?
 	releases, err := payloadrelease.New(database.SQL, blobs, time.Now, 7*24*time.Hour)
 	testassert.False(t, err != nil, err)
 	t.Cleanup(releases.Close)
-	service := gamecontent.New(New(database.SQL), time.Now).WithBlobStore(blobs).WithPayloadRelease(releases).WithGCStager(releases)
+	service := gamecontent.New(New(database.SQL), time.Now).WithBlobStore(blobs).
+		WithRPGMakerDetector(rpgmakerdetector.NewBlobDetector(blobs)).WithPayloadRelease(releases).WithGCStager(releases)
 	if binding, bindingErr := loadReplacementBinding(ctx, database.SQL, published.GameID); bindingErr != nil {
 		t.Fatalf("load RPG replacement binding: %v", bindingErr)
 	} else if binding.RPGGeneration != "RPG2000" {
@@ -319,7 +321,8 @@ WHERE game.id=? ORDER BY file.sort_order LIMIT 1
 	releaseService, err := payloadrelease.New(database.SQL, blobs, time.Now, 7*24*time.Hour)
 	testassert.False(t, err != nil, err)
 	t.Cleanup(releaseService.Close)
-	service := gamecontent.New(New(database.SQL), time.Now).WithBlobStore(blobs).WithPayloadRelease(releaseService).WithGCStager(releaseService)
+	service := gamecontent.New(New(database.SQL), time.Now).WithBlobStore(blobs).
+		WithRPGMakerDetector(rpgmakerdetector.NewBlobDetector(blobs)).WithPayloadRelease(releaseService).WithGCStager(releaseService)
 	saveID, launchID, savePayloads := seedReplacementSave(
 		t, ctx, database.SQL, blobs, published.GameID,
 	)
@@ -480,6 +483,7 @@ WHERE game.id=? ORDER BY file.sort_order LIMIT 1
 	testassert.False(t, err != nil, err)
 	t.Cleanup(releaseService.Close)
 	service := gamecontent.New(New(database.SQL), time.Now).WithBlobStore(blobs).
+		WithRPGMakerDetector(rpgmakerdetector.NewBlobDetector(blobs)).
 		WithPayloadRelease(releaseService).WithGCStager(releaseService).WithMultiDiscImportEnabled(true)
 	scheduled, err := service.ScheduleMode(
 		ctx, published.GameID, replacementUpload, "MULTI_DISC", gameVersion,

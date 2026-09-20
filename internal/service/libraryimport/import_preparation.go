@@ -6,6 +6,7 @@ import (
 	"io"
 
 	blobmodel "retrom/internal/model/blob"
+	"retrom/internal/model/diagnostics"
 	model "retrom/internal/model/libraryimport"
 
 	"retrom/internal/adapter/files/blobstore"
@@ -14,6 +15,9 @@ import (
 )
 
 type ImportPreparation struct {
+	projectArchives      model.ProjectArchiveOpener
+	archiveInspector     model.ArchiveInspector
+	diagnostics          diagnostics.ErrorReporter
 	facts                model.ImportFactsReader
 	catalog              model.ImportPreparationCatalog
 	blobs                *blobstore.Store
@@ -21,6 +25,7 @@ type ImportPreparation struct {
 	onsDetector          model.ONSProjectDetector
 	butterscotchDetector model.ButterscotchProjectDetector
 	nxengineDetector     model.NXEngineProjectDetector
+	rpgMakerDetector     model.RPGMakerDetector
 	options              ImportPreparationOptions
 }
 
@@ -31,9 +36,11 @@ func NewImportPreparation(
 	options ImportPreparationOptions,
 ) *ImportPreparation {
 	return &ImportPreparation{
-		facts: facts, catalog: catalog, blobs: blobs, options: options, scummVMDetector: options.ScummVMDetector,
+		projectArchives: options.ProjectArchives, archiveInspector: options.ArchiveInspector,
+		diagnostics: options.Diagnostics,
+		facts:       facts, catalog: catalog, blobs: blobs, options: options, scummVMDetector: options.ScummVMDetector,
 		onsDetector: options.ONSDetector, butterscotchDetector: options.ButterscotchDetector,
-		nxengineDetector: options.NXEngineDetector,
+		nxengineDetector: options.NXEngineDetector, rpgMakerDetector: options.RPGMakerDetector,
 	}
 }
 

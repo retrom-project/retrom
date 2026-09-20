@@ -19,6 +19,7 @@ type Scheduled struct {
 type Service struct {
 	repository             model.Repository
 	blobs                  *blobstore.Store
+	rpgMakerDetector       model.RPGMakerDetector
 	payloadReleases        model.ReleaseSignal
 	gc                     payloadreleasemodel.GCStager
 	multiDiscImportEnabled bool
@@ -31,6 +32,11 @@ func New(repository model.Repository, now func() time.Time) *Service {
 
 func (service *Service) WithBlobStore(blobs *blobstore.Store) *Service {
 	service.blobs = blobs
+	return service
+}
+
+func (service *Service) WithRPGMakerDetector(detector model.RPGMakerDetector) *Service {
+	service.rpgMakerDetector = detector
 	return service
 }
 

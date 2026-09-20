@@ -18,54 +18,64 @@ type lcfReader struct {
 	code     Code
 }
 
-func detectRPG2K(files *catalog) ([]evidence, error) {
-	hasLDB := files.exists("RPG_RT.ldb")
-	hasLMT := files.exists("RPG_RT.lmt")
+func (inspection *Inspection) beginRPG2K() error {
+	hasLDB := inspection.files.exists("RPG_RT.ldb")
+	hasLMT := inspection.files.exists("RPG_RT.lmt")
 	if !hasLDB && !hasLMT {
-		return nil, nil
+		inspection.stage = inspectionRGSS
+		return nil
 	}
 	if !hasLDB {
-		return nil, newError(CodeLCFInvalid, "RPG_RT.ldb is missing", nil)
+		return newError(CodeLCFInvalid, "RPG_RT.ldb is missing", nil)
 	}
 	if !hasLMT {
-		return nil, newError(CodeLMTInvalid, "RPG_RT.lmt is missing", nil)
+		return newError(CodeLMTInvalid, "RPG_RT.lmt is missing", nil)
 	}
-	ldb, err := files.read("RPG_RT.ldb", maxLDBBytes, CodeLCFInvalid)
+	inspection.current = evidence{}
+	inspection.stage = inspectionLDB
+	return nil
+}
+
+func (inspection *Inspection) acceptLDB(contents []byte) error {
+	generation, family, err := parseLDB(contents)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	generation, family, err := parseLDB(ldb)
+	inspection.current.generation = generation
+	inspection.current.family = family
+	inspection.stage = inspectionLMT
+	return nil
+}
+
+func (inspection *Inspection) acceptLMT(contents []byte) error {
+	startMapID, err := parseLMT(contents)
 	if err != nil {
-		return nil, err
-	}
-	lmt, err := files.read("RPG_RT.lmt", maxLMTBytes, CodeLMTInvalid)
-	if err != nil {
-		return nil, err
-	}
-	startMapID, err := parseLMT(lmt)
-	if err != nil {
-		return nil, err
+		return err
 	}
 	startMapPath := fmt.Sprintf("Map%04d.lmu", startMapID)
-	if !files.exists(startMapPath) {
-		return nil, newError(CodeLMTInvalid, "start map file is missing", nil)
+	if !inspection.files.exists(startMapPath) {
+		return newError(CodeLMTInvalid, "start map file is missing", nil)
 	}
-	selfContained, err := parseRPGRTINI(files)
-	if err != nil {
-		return nil, err
+	inspection.current.markers = []string{
+		inspection.files.original("RPG_RT.ldb"), inspection.files.original("RPG_RT.lmt"),
+		inspection.files.original(startMapPath),
 	}
-	requirements := []Requirement{}
+	inspection.stage = inspectionRPGINI
+	return nil
+}
+
+func (inspection *Inspection) finishRPG2K(selfContained bool) {
+	inspection.current.selfContained = selfContained
+	inspection.current.requirements = []Requirement{}
 	if !selfContained {
-		requirements = append(requirements, RequirementRPG2KRTP)
+		inspection.current.requirements = append(inspection.current.requirements, RequirementRPG2KRTP)
 	}
-	markers := []string{files.original("RPG_RT.ldb"), files.original("RPG_RT.lmt"), files.original(startMapPath)}
-	if files.exists("RPG_RT.ini") {
-		markers = append(markers, files.original("RPG_RT.ini"))
+	if inspection.files.exists("RPG_RT.ini") {
+		inspection.current.markers = append(inspection.current.markers, inspection.files.original("RPG_RT.ini"))
 	}
-	return []evidence{{
-		generation: generation, family: family, selfContained: selfContained,
-		markers: markers, requirements: requirements,
-	}}, nil
+	inspection.evidence = append(inspection.evidence, inspection.current)
+	inspection.current = evidence{}
+	inspection.stage = inspectionRGSS
 }
 
 func parseLDB(contents []byte) (Generation, string, error) {

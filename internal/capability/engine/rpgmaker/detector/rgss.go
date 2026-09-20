@@ -20,19 +20,21 @@ var archiveGenerations = map[string]Generation{
 	".rgssad": RPGXP, ".rgss2a": RPGVX, ".rgss3a": RPGVXAce,
 }
 
-func detectRGSS(files *catalog) ([]evidence, error) {
-	hasINI := files.exists("Game.ini")
-	hasMarker := hasRGSSFileMarker(files)
+func (inspection *Inspection) beginRGSS() error {
+	hasINI := inspection.files.exists("Game.ini")
+	hasMarker := hasRGSSFileMarker(inspection.files)
 	if !hasINI && !hasMarker {
-		return nil, nil
+		inspection.stage = inspectionWeb
+		return nil
 	}
 	if !hasINI {
-		return nil, newError(CodeINIInvalid, "Game.ini is missing", nil)
+		return newError(CodeINIInvalid, "Game.ini is missing", nil)
 	}
-	contents, err := files.read("Game.ini", maxINIBytes, CodeINIInvalid)
-	if err != nil {
-		return nil, err
-	}
+	inspection.stage = inspectionGameINI
+	return nil
+}
+
+func parseRGSS(files *catalog, contents []byte) ([]evidence, error) {
 	decoded, err := decodeGameINI(contents)
 	if err != nil {
 		return nil, err

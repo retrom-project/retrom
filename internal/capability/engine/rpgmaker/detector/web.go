@@ -33,51 +33,64 @@ var mzMarkers = []string{
 	"js/plugins.js", "js/main.js",
 }
 
-func detectWeb(files *catalog) ([]evidence, error) {
+func (inspection *Inspection) beginWeb() {
+	files := inspection.files
 	mvComplete := hasAll(files, mvMarkers)
 	mzComplete := hasAll(files, mzMarkers) &&
 		(files.exists("js/libs/localforage.js") || files.exists("js/libs/localforage.min.js"))
-	if hasAll(files, mvMarkers) && mzComplete {
-		return []evidence{
-			{generation: RPGMV, markers: actualMarkers(files, mvMarkers)},
-			{generation: RPGMZ, markers: mzCompleteMarkers(files)},
-		}, nil
+	if mvComplete && mzComplete {
+		inspection.evidence = append(inspection.evidence,
+			evidence{generation: RPGMV, markers: actualMarkers(files, mvMarkers)},
+			evidence{generation: RPGMZ, markers: mzCompleteMarkers(files)},
+		)
+		inspection.stage = inspectionDone
+		return
 	}
 	if !mvComplete && !mzComplete {
-		return nil, nil
+		inspection.stage = inspectionDone
+		return
 	}
-	generation := RPGMV
-	family := FamilyMV
-	markers := actualMarkers(files, mvMarkers)
-	corePath := "js/rpg_core.js"
-	if mzComplete {
-		generation = RPGMZ
-		family = FamilyMZ
-		markers = mzCompleteMarkers(files)
-		corePath = "js/rmmz_core.js"
-	}
-	systemJSON, err := files.read("data/System.json", maxSystemJSONBytes, CodeWebFormatInvalid)
-	if err != nil {
-		return nil, err
-	}
-	if err := validateSystemJSON(systemJSON); err != nil {
-		return nil, err
-	}
-	indexHTML, err := files.read("index.html", maxIndexHTMLBytes, CodeWebFormatInvalid)
-	if err != nil {
-		return nil, err
-	}
-	if err := validateIndexHTML(indexHTML, files); err != nil {
-		return nil, err
-	}
-	engineVersion, err := validateJavaScript(files, corePath)
-	if err != nil {
-		return nil, err
-	}
-	return []evidence{{
-		generation: generation, family: family, markers: markers, engineVersion: engineVersion,
+	inspection.current = evidence{
+		generation: RPGMV, family: FamilyMV, markers: actualMarkers(files, mvMarkers),
 		requirements: []Requirement{RequirementNativeWebIsolation},
-	}}, nil
+	}
+	inspection.corePath = "js/rpg_core.js"
+	if mzComplete {
+		inspection.current.generation = RPGMZ
+		inspection.current.family = FamilyMZ
+		inspection.current.markers = mzCompleteMarkers(files)
+		inspection.corePath = "js/rmmz_core.js"
+	}
+	inspection.stage = inspectionSystemJSON
+}
+
+func (inspection *Inspection) nextJavaScript() error {
+	for inspection.javaScriptPosition < len(inspection.javaScriptFiles) {
+		file := inspection.javaScriptFiles[inspection.javaScriptPosition]
+		extension := strings.ToLower(path.Ext(file.path))
+		if extension == ".js" || extension == ".mjs" {
+			return inspection.selectProbe(file.path, maxCoreJSBytes, CodeWebFormatInvalid)
+		}
+		inspection.javaScriptPosition++
+	}
+	inspection.evidence = append(inspection.evidence, inspection.current)
+	inspection.current = evidence{}
+	inspection.javaScriptFiles = nil
+	inspection.stage = inspectionDone
+	return nil
+}
+
+func (inspection *Inspection) acceptJavaScript(contents []byte) error {
+	cleaned := stripJSComments(contents)
+	if hasUnsafeBrowserJavaScriptDependency(cleaned) {
+		return newError(CodeNativeDependencyUnsupported,
+			fmt.Sprintf("unsupported dependency in %q", inspection.pending.File.Path), nil)
+	}
+	if lookupKey(inspection.pending.File.Path) == lookupKey(inspection.corePath) {
+		inspection.current.engineVersion = parseEngineVersion(cleaned)
+	}
+	inspection.javaScriptPosition++
+	return nil
 }
 
 func hasAll(files *catalog, markers []string) bool {
@@ -179,28 +192,6 @@ func consumeJSONValue(decoder *json.Decoder, depth int) error {
 		}
 	}
 	return nil
-}
-
-func validateJavaScript(files *catalog, corePath string) (string, error) {
-	engineVersion := ""
-	for _, file := range files.paths() {
-		extension := strings.ToLower(path.Ext(file.path))
-		if extension != ".js" && extension != ".mjs" {
-			continue
-		}
-		contents, err := files.read(file.path, maxCoreJSBytes, CodeWebFormatInvalid)
-		if err != nil {
-			return "", err
-		}
-		cleaned := stripJSComments(contents)
-		if hasUnsafeBrowserJavaScriptDependency(cleaned) {
-			return "", newError(CodeNativeDependencyUnsupported, fmt.Sprintf("unsupported dependency in %q", file.path), nil)
-		}
-		if lookupKey(file.path) == lookupKey(corePath) {
-			engineVersion = parseEngineVersion(cleaned)
-		}
-	}
-	return engineVersion, nil
 }
 
 func hasUnsafeBrowserJavaScriptDependency(contents []byte) bool {

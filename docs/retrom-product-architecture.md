@@ -84,15 +84,17 @@ ScummVM 原生探测器的目录检查、进程执行、输出限额及清理归
 
 ONS、Butterscotch、NXEngine 的文件选择、格式判断和 Profile 编码仍由各自 Capability 唯一定义；纯选择状态不再接收可执行 Files/Open 接口。对应 `adapter/engine/<engine>/detector` 通过消费方 Model 端口获得规范逻辑名、声明大小及当前受控来源路径，执行一次有界读取并关闭资源；Bootstrap 显式注入诊断输出。ONS 保持 TXT 首 1 MiB 与 DAT 零读取，Butterscotch/NXEngine 保持 8/2 字节头部探测、既有错误优先级及不额外要求物理长度相等；原非致命 Close 失败通过诊断报告。TyranoScript 只消费文件值清单，既有 Profile/Snapshot 协议保持不变。
 
+RPG Maker 使用只保存目录事实和已解析证据的纯 Inspection，按旧 RPG2K、RGSS、Web 顺序逐个请求探针；不保存资源、回调、context、error 或探针原始 bytes。Adapter 逐项读取，关闭后才把 bytes 交回纯规则，保留读取错误优先于关闭错误、关闭错误优先于大小变化的顺序。导入端口使用调用方持有的暂存/来源路径，替换端口使用 CAS SHA256 并保留 OpenDigest 的校验；两者的资源身份不能互换。单探针按原限制加一有界读取，不预读整树；这不是总堆内存上限。公开旧 Go 对照和真实资源测试固定各世代证据、字节边界及候选存活期；物化器和其他尚未迁移的归档资源仍由后续阶段处理。
+
 离线维护和服务启动的数据目录互斥由 `adapter/system/processlock.Locker` 提供。`model/maintenance.DataRootLocker` 与 `DataRootLease` 明确描述锁资源获取和释放，维护 Service 通过端口取得锁后才执行数据库 checkpoint；Bootstrap 注入实际 Adapter。锁文件权限、非阻塞 flock、重复释放和错误优先级由旧 Go 对照保持，租约不进入 Command、Snapshot 或持久化数据。此锁用于整棵数据目录的进程互斥，不替代 CAS 发布与回收需要的 blob lease。
 
 非致命清理错误通过 `model/diagnostics.ErrorReporter` 输出，事件只有 operation、code、message、requestID 四个字符串。唯一纯构造器 `CleanupFailure` 限制字段形状和长度，message 仅保存外层错误类型；异常字段使用固定回退值，绝对路径与错误正文不进入日志。`adapter/system/cleanup.Reporter` 持有 Bootstrap 显式注入的 logger，保留 WARN、固定消息和原 operation/errorType 字段，并在输出前再次校验事件。数据根锁内部的关闭失败与维护备份的锁释放采用这一边界；关闭失败仍不替换原始操作错误，取消 context 也不丢弃诊断。Repo 的清理诊断须作为纯值副产物返回，由调用方输出。
 
-ZIP 目录校验和 Electron ASAR 布局校验消费封闭 header、路径和原目录 ordinal 事实；ASAR 成员值不再保存 `zip.File`。现有归档资源拥有者负责将 SDK 信息转换为事实并按 ordinal 读取内容，packed ASAR 的尾部校验仍先于 unpacked 内容读取。64 项旧 Go 对照固定目录校验顺序、CRC、取消、消费顺序、worker wire 和返回错误；归档 I/O 与业务消费闭包的后续会话迁移仍待完成。
+ZIP 目录校验、NWJS 可执行文件判定和 Electron ASAR header/布局校验消费封闭 header、路径和原目录 ordinal 事实；ASAR 成员值不保存 `zip.File`。这些格式的文件获取、SDK 访问和顺序流读取归 `adapter/content/archive`，Bootstrap 向各消费模块的 Model 端口注入同一技术 Factory。项目导入由 Service 驱动 Reader 并暂存 CAS 候选；固件、服务端扫描及普通 ZIP 导入通过各自消费口取得扫描事实。packed ASAR 的整体 CRC 和尾部校验先于 unpacked 内容读取，最终结果按原目录 ordinal 返回。冻结的旧 Go 对照继续约束目录校验顺序、CRC、取消、错误对象及其包装层数；原三个 nil-consumer 场景随 callback API 移除，不能算作新 Reader 的通过用例。7z worker、单成员及批量物化的迁移另行保持原协议边界。
 
 归档流的固定资源合同采用一个由调用 Service 独占的 Reader：仅有 `Next() (ArchiveMemberHeader, error)`、`Read([]byte) (int, error)`、`Complete(ArchiveContent) (ArchiveEntry, error)` 和 `Close() error` 四个方法。Next 的终端 EOF 必须晚于整体 CRC、尾部以及 worker 退出校验；当前成员完成前不允许跳到下一项，Close 幂等释放资源。CAS 同步借用 Reader，Service 在 Complete 前登记暂存内容的清理责任；业务消费错误保留在 Service，不通过 Abort(error) 或回调送入 Adapter。ASAR unpacked 的主错误、成员关闭错误和格式错误组合顺序保持原实现。ArchiveMemberHeader 只有既有 ArchiveEntry 和 Unpacked 两个封闭字段，ArchiveContent 与 ArchiveEntry 继续使用唯一格式事实定义。
 
-这一类别仅可出现在非 Repo 获取端口的直接结果；不得进入 Command、Plan、Snapshot、容器或其他纯值图。门禁需同时验证准确方法和事实字段、无泛型/变参/嵌入/额外业务方法、真实 Adapter 返回来源、Bootstrap 注入及 Service 获取调用；未知来源、只有结构兼容或未使用工厂均不构成有效绑定。Repo 资源和业务回调仍禁止。此有限合同不扩大递归纯值规则；实际资源实现与绑定完成前保持未验证，静态来源检查也不能代替状态机、取消和关闭竞争测试。旧归档 golden 保持冻结；移除 callback API 时，三个 nil-consumer 场景明确记录为 API_REMOVED，其余实际行为继续逐项对照。
+这一类别仅可出现在非 Repo 获取端口的直接结果；不得进入 Command、Plan、Snapshot、容器或其他纯值图。门禁需同时验证准确方法和事实字段、无泛型/变参/嵌入/额外业务方法、真实 Adapter 返回来源、Bootstrap 注入及 Service 获取调用；未知来源、只有结构兼容或未使用工厂均不构成有效绑定。Repo 资源和业务回调仍禁止。此有限合同不扩大递归纯值规则；实际资源来源和消费绑定必须有可复现证据，静态来源检查不能代替状态机、取消和关闭竞争测试。旧归档 golden 保持冻结；移除 callback API 时，三个 nil-consumer 场景明确记录为 API_REMOVED，其余实际行为继续逐项对照。
 
 Provider manifest、Target/Input/Checkpoint、安装声明及 Launch 输入同样由 `model/runtimecontract` 唯一定义。跨层 schema 和可变 JSON 内容使用 `json.RawMessage` 等封闭字节值；严格 JSON 与 schema dialect 的单一解析闭包位于 `capability/runtime/runtimejson`。解析/组装边界保持原有规范字节、整数精度、nil/empty 和错误阶段，固定旧 Go 输出验证协议兼容。
 

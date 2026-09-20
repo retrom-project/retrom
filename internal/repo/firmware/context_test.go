@@ -4,8 +4,12 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"log/slog"
 	"testing"
 	"time"
+
+	archiveadapter "retrom/internal/adapter/content/archive"
+	cleanupadapter "retrom/internal/adapter/system/cleanup"
 
 	firmwaremodel "retrom/internal/model/firmware"
 	firmwareservice "retrom/internal/service/firmware"
@@ -25,7 +29,7 @@ func TestBIOSPreparationPreservesCancelledRead(t *testing.T) {
 	})
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
-	_, err = firmwareservice.New(New(database), time.Now).Install(ctx, "requirement", 1, firmwaremodel.InstallRequest{UploadFileID: "upload"})
+	_, err = firmwareservice.New(New(database), time.Now, archiveadapter.New(cleanupadapter.NewReporter(slog.Default()))).Install(ctx, "requirement", 1, firmwaremodel.InstallRequest{UploadFileID: "upload"})
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("cancelled catalog read was lost: %v", err)
 	}

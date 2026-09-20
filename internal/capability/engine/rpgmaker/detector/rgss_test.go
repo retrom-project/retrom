@@ -19,9 +19,9 @@ func TestDetectRGSSGenerationsFromReversibleINI(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.core, func(t *testing.T) {
-			profile, err := Detect(test.core, rgssProject(test.scriptPath))
+			profile, err := detectFixture(test.core, rgssProject(test.scriptPath))
 			if err != nil {
-				t.Fatalf("Detect() error = %v", err)
+				t.Fatalf("detectFixture() error = %v", err)
 			}
 			assertProfile(t, profile, test.generation, test.generation)
 			if profile.EvidenceFamily != FamilyRGSS {
@@ -35,16 +35,16 @@ func TestDetectRGSSGenerationsFromReversibleINI(t *testing.T) {
 		t.Fatalf("encode fixture: %v", err)
 	}
 	project := memoryIndex{"Game.ini": cp932INI, "Data/Scripts.rxdata": []byte("scripts")}
-	profile, err := Detect("rpgmaker_xp", project)
+	profile, err := detectFixture("rpgmaker_xp", project)
 	if err != nil {
-		t.Fatalf("Detect(CP932) error = %v", err)
+		t.Fatalf("detectFixture(CP932) error = %v", err)
 	}
 	if len(profile.RTPDependencies) != 1 || profile.RTPDependencies[0].Slot != 1 ||
 		profile.RTPDependencies[0].DeclaredName != "標準" || profile.RTPDependencies[0].NormalizedName != "標準" {
 		t.Fatalf("RTPDependencies = %#v", profile.RTPDependencies)
 	}
 	slotProject := rgssINI("[Game]\nScripts=Data/Scripts.rxdata\nRTP2=Standard\n", "Data/Scripts.rxdata")
-	slotProfile, err := Detect("rpgmaker_xp", slotProject)
+	slotProfile, err := detectFixture("rpgmaker_xp", slotProject)
 	if err != nil || len(slotProfile.RTPDependencies) != 1 || slotProfile.RTPDependencies[0].Slot != 2 {
 		t.Fatalf("RTP2 slot profile = %#v, %v", slotProfile, err)
 	}
@@ -66,7 +66,7 @@ func TestRGSSParserRejectsConflictsAndUnsafeInputs(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			_, err := Detect("rpgmaker_xp", test.project)
+			_, err := detectFixture("rpgmaker_xp", test.project)
 			assertErrorCode(t, err, test.code)
 		})
 	}
@@ -77,9 +77,9 @@ func TestRGSSMatchingEncryptedArchiveCanReplaceLooseScripts(t *testing.T) {
 		"Game.ini":    []byte("[Game]\nScripts=Data/Scripts.rvdata2\n"),
 		"Game.rgss3a": []byte("opaque archive"),
 	}
-	profile, err := Detect("rpgmaker_vx_ace", project)
+	profile, err := detectFixture("rpgmaker_vx_ace", project)
 	if err != nil {
-		t.Fatalf("Detect() error = %v", err)
+		t.Fatalf("detectFixture() error = %v", err)
 	}
 	assertProfile(t, profile, RPGVXAce, RPGVXAce)
 }

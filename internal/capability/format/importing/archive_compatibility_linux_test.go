@@ -3,6 +3,9 @@ package importing_test
 import (
 	"context"
 	"encoding/json"
+	"go/ast"
+	"go/parser"
+	"go/token"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -25,19 +28,28 @@ func TestArchiveCompatibilityGolden(t *testing.T) {
 	cases := append(compatArchiveCases(inputs), compatSevenZipCases(sourceRoot, inputs)...)
 	actual := make([]result, 0, len(golden.Cases))
 	for _, test := range cases {
+		if removedArchiveCase(test.Name) {
+			continue
+		}
 		outcome := runCase(test)
 		outcome.Error = strings.ReplaceAll(outcome.Error, inputs.dir, "<fixture>")
 		outcome.Error = strings.ReplaceAll(outcome.Error, repo, "<repo>")
 		actual = append(actual, outcome)
 	}
 	actual = append(actual, compatWorkerCases(t, filepath.Join(sourceRoot, "testdata/sevenzip/single.7z"))...)
-	if len(actual) != 64 || len(golden.Cases) != 64 {
+	if len(actual) != 61 || len(golden.Cases) != 64 {
 		t.Fatalf("case count actual=%d expected=%d", len(actual), len(golden.Cases))
 	}
-	for index, want := range golden.Cases {
+	index := 0
+	for _, want := range golden.Cases {
+		if removedArchiveCase(want.Name) {
+			continue
+		}
+		actualIndex := index
+		index++
 		t.Run(want.Name, func(t *testing.T) {
-			if !reflect.DeepEqual(actual[index], want) {
-				gotJSON, _ := json.Marshal(actual[index])
+			if !reflect.DeepEqual(actual[actualIndex], want) {
+				gotJSON, _ := json.Marshal(actual[actualIndex])
 				wantJSON, _ := json.Marshal(want)
 				t.Fatalf("legacy behavior changed\ngot: %s\nwant: %s", gotJSON, wantJSON)
 			}
@@ -146,4 +158,57 @@ func compatWorkerChildren(t *testing.T) string {
 	}
 	sort.Strings(children)
 	return strings.Join(children, " ")
+}
+
+// Only the obsolete nil-callback guards disappear with callback acquisition.
+// Their captured observations remain immutable in the original 64-case artifact.
+func removedArchiveCase(name string) bool {
+	switch name {
+	case "ZIP nil consumer precedes opening", "NWJS nil consumer first", "ASAR nil consumer first":
+		return true
+	}
+	return false
+}
+
+func TestArchiveRemovedConsumerAPIs(t *testing.T) {
+	golden := loadArchiveGolden(t)
+	removed := 0
+	for _, test := range golden.Cases {
+		if removedArchiveCase(test.Name) {
+			removed++
+		}
+	}
+	if removed != 3 {
+		t.Fatalf("API_REMOVED observations=%d, want 3", removed)
+	}
+	entries, err := os.ReadDir(".")
+	if err != nil {
+		t.Fatal(err)
+	}
+	removedSymbols := map[string]bool{
+		"ArchiveContentConsumer": true, "ScanZIPWithConsumer": true,
+		"ScanNWJSExecutableWithConsumer": true, "ScanElectronASARZIPWithConsumer": true,
+	}
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".go") || strings.HasSuffix(entry.Name(), "_test.go") {
+			continue
+		}
+		file, err := parser.ParseFile(token.NewFileSet(), entry.Name(), nil, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		ast.Inspect(file, func(node ast.Node) bool {
+			switch value := node.(type) {
+			case *ast.FuncDecl:
+				if removedSymbols[value.Name.Name] {
+					t.Errorf("removed function remains: %s", value.Name.Name)
+				}
+			case *ast.TypeSpec:
+				if removedSymbols[value.Name.Name] {
+					t.Errorf("removed type remains: %s", value.Name.Name)
+				}
+			}
+			return true
+		})
+	}
 }

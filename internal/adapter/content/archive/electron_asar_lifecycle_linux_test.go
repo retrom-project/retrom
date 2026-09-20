@@ -1,6 +1,6 @@
 //go:build linux
 
-package importing
+package archive
 
 import (
 	"context"
@@ -10,6 +10,9 @@ import (
 	"path/filepath"
 	"runtime/debug"
 	"testing"
+
+	"retrom/internal/capability/content/contentprofile"
+	"retrom/internal/capability/format/importing"
 )
 
 func TestElectronASARZIPClosesUnrecognizedArchive(t *testing.T) {
@@ -24,14 +27,13 @@ func TestElectronASARZIPClosesUnrecognizedArchive(t *testing.T) {
 
 	consumerCalls := 0
 	for attempt := range 2 {
-		entries, err := ScanElectronASARZIPWithConsumer(
-			context.Background(), archivePath, DefaultArchiveLimits(),
-			func(ArchiveEntry, io.Reader) (ArchiveContent, error) {
+		entries, err := consumeProject(context.Background(), t, contentprofile.ArchiveElectronASAR, archivePath, importing.DefaultArchiveLimits(),
+			func(importing.ArchiveEntry, io.Reader) (importing.ArchiveContent, error) {
 				consumerCalls++
-				return ArchiveContent{}, ErrArchiveUnsafe
+				return importing.ArchiveContent{}, importing.ErrArchiveUnsafe
 			},
 		)
-		if !errors.Is(err, ErrElectronASARInvalid) || !errors.Is(err, ErrArchiveUnsafe) {
+		if !errors.Is(err, importing.ErrElectronASARInvalid) || !errors.Is(err, importing.ErrArchiveUnsafe) {
 			t.Fatalf("scan %d error = %v, want the ASAR and archive sentinels", attempt, err)
 		}
 		if err.Error() != "ARCHIVE_UNSAFE: ELECTRON_ASAR_INVALID" || entries != nil || consumerCalls != 0 {

@@ -1,0 +1,239 @@
+package detector
+
+import (
+ "bytes"
+ "crypto/sha256"
+ "encoding/hex"
+ "encoding/json"
+ "errors"
+ "fmt"
+ "io"
+ "os"
+ "path/filepath"
+ "sort"
+ "testing"
+)
+
+var rf04OpenFailure = errors.New("rf04 injected open failure")
+var rf04ReadFailure = errors.New("rf04 injected read failure")
+var rf04CloseFailure = errors.New("rf04 injected close failure")
+
+type rf04FileStats struct {
+ Path string
+ Opens, Reads, Closes int
+ Bytes int64
+}
+type rf04TraceIndex struct {
+ source FileIndex
+ sizes map[string]int64
+ target, mode string
+ stats map[string]*rf04FileStats
+ events []string
+ active, maxActive, filesCalls int
+}
+func (x *rf04TraceIndex) Files() []File {
+ x.filesCalls++
+ fs:=x.source.Files()
+ for i:=range fs { if size,ok:=x.sizes[fs[i].Path];ok {fs[i].Size=size} }
+ return fs
+}
+func (x *rf04TraceIndex) Open(name string)(io.ReadCloser,error){
+ s:=x.stats[name];if s==nil {s=&rf04FileStats{Path:name};x.stats[name]=s}
+ s.Opens++;x.events=append(x.events,"open:"+name)
+ mode:="";if name==x.target {mode=x.mode}
+ if mode=="open" {return nil,rf04OpenFailure}
+ if mode=="nil" {return nil,nil}
+ var r io.ReadCloser
+ if mode=="reader-and-open-error" {r=io.NopCloser(bytes.NewReader(nil))} else {
+  var err error;r,err=x.source.Open(name);if err!=nil{return nil,err}
+ }
+ q:=&rf04TraceReader{ReadCloser:r,index:x,stats:s,mode:mode}
+ if mode=="reader-and-open-error" {return q,rf04OpenFailure}
+ x.active++;if x.active>x.maxActive{x.maxActive=x.active}
+ return q,nil
+}
+type rf04TraceReader struct {
+ io.ReadCloser
+ index *rf04TraceIndex
+ stats *rf04FileStats
+ mode string
+}
+func(r *rf04TraceReader)Read(p []byte)(int,error){
+ r.stats.Reads++
+ if r.stats.Reads==1 {r.index.events=append(r.index.events,"read:"+r.stats.Path)}
+ if r.mode=="read"||r.mode=="read-close" {return 0,rf04ReadFailure}
+ if r.mode=="partial-read-close"{
+  n,err:=r.ReadCloser.Read(p);r.stats.Bytes+=int64(n);if n>0{return n,rf04ReadFailure};return n,err
+ }
+ n,err:=r.ReadCloser.Read(p);r.stats.Bytes+=int64(n);return n,err
+}
+func(r *rf04TraceReader)Close()error{
+ r.stats.Closes++;r.index.events=append(r.index.events,"close:"+r.stats.Path)
+ r.index.active--
+ err:=r.ReadCloser.Close()
+ if r.mode=="close"||r.mode=="read-close"||r.mode=="partial-read-close"{return rf04CloseFailure}
+ return err
+}
+type rf04ErrorPart struct{ Type, Text string }
+type rf04Observation struct {
+ Name, Operation, Core string
+ ProfileJSON string
+ ErrorChain []rf04ErrorPart
+ DetectionError *Error
+ IsOpen, IsRead, IsClose bool
+ FilesCalls, MaxActive, ActiveAtReturn int
+ IO []rf04FileStats
+ BytesReturned int
+ BytesSHA256 string
+}
+type rf04CapturedBound struct {
+ Name, Path string
+ Limit, Declared, Actual int64
+ Code Code
+}
+type rf04CapturedInput struct {
+ Name, Core, Directory, Target, Mode string
+ Sizes map[string]int64
+ Contents map[string][]byte
+}
+type rf04RawTrace struct { Name string; Events []string }
+func rf04Observe(name,op,core string,profile Profile,err error,index *rf04TraceIndex,contents []byte)rf04Observation{
+ encoded,marshalErr:=json.Marshal(profile);if marshalErr!=nil{panic(marshalErr)}
+ o:=rf04Observation{Name:name,Operation:op,Core:core,ProfileJSON:string(encoded)}
+ for cause:=err;cause!=nil;cause=errors.Unwrap(cause){o.ErrorChain=append(o.ErrorChain,rf04ErrorPart{fmt.Sprintf("%T",cause),cause.Error()})}
+ if err!=nil {errors.As(err,&o.DetectionError)}
+ o.IsOpen=errors.Is(err,rf04OpenFailure);o.IsRead=errors.Is(err,rf04ReadFailure);o.IsClose=errors.Is(err,rf04CloseFailure)
+ if index!=nil{
+  o.FilesCalls=index.filesCalls;o.MaxActive=index.maxActive;o.ActiveAtReturn=index.active
+  for _,s:=range index.stats{o.IO=append(o.IO,*s)}
+  sort.Slice(o.IO,func(i,j int)bool{return o.IO[i].Path<o.IO[j].Path})
+ }
+ if op=="catalog.read" {o.BytesReturned=len(contents);h:=sha256.Sum256(contents);o.BytesSHA256=hex.EncodeToString(h[:])}
+ return o
+}
+type rf04RepeatedIndex struct { name string; declared, actual int64 }
+func(x rf04RepeatedIndex)Files()[]File{return []File{{Path:x.name,Size:x.declared}}}
+func(x rf04RepeatedIndex)Open(string)(io.ReadCloser,error){return &rf04RepeatedReader{remaining:x.actual},nil}
+type rf04RepeatedReader struct{remaining int64}
+func(r *rf04RepeatedReader)Read(p []byte)(int,error){
+ if r.remaining==0{return 0,io.EOF}
+ n:=int64(len(p));if n>r.remaining{n=r.remaining}
+ clear(p[:n]);r.remaining-=n;return int(n),nil
+}
+func(*rf04RepeatedReader)Close()error{return nil}
+func TestRF04OldDetectorCapture(t *testing.T){
+ root:=os.Getenv("RF04_REPOSITORY_ROOT");out:=os.Getenv("RF04_CAPTURE_DIR")
+ if root==""||out==""{t.Fatal("capture requires explicit repository/output roots")}
+ var observations []rf04Observation
+ var raw []rf04RawTrace
+ var inputs []rf04CapturedInput
+ var bounds []rf04CapturedBound
+ run:=func(name,core string,source FileIndex,sizes map[string]int64,target,mode string){
+  input:=rf04CapturedInput{Name:name,Core:core,Sizes:sizes,Target:target,Mode:mode}
+  switch typed:=source.(type){
+  case memoryIndex: input.Contents=typed
+  case publicFixtureIndex:
+   relative,err:=filepath.Rel(filepath.Join(root,"testdata/public-roms/rpgmaker-smoke"),typed.root)
+   if err!=nil{t.Fatal(err)};input.Directory=filepath.ToSlash(relative)
+  default:t.Fatalf("unexpected captured input %T",source)
+  }
+  inputs=append(inputs,input)
+  x:=&rf04TraceIndex{source:source,sizes:sizes,target:target,mode:mode,stats:map[string]*rf04FileStats{}}
+  profile,err:=Detect(core,x)
+  observations=append(observations,rf04Observe(name,"Detect",core,profile,err,x,nil))
+  raw=append(raw,rf04RawTrace{name,x.events})
+ }
+ publicRoot:=filepath.Join(root,"testdata/public-roms/rpgmaker-smoke")
+ for _,dir:=range []string{"rpg2000","rpg2003","rpgxp","rpgvx","rpgvxace","rpgmv","malicious-rpgmv","malicious-rpgmz"}{
+  run("public/"+dir,VirtualCoreID,readPublicFixtureIndex(t,filepath.Join(publicRoot,dir)),nil,"","")
+ }
+ var matrix struct{WrongCore []struct{Fixture string;Targets []struct{CoreID string `json:"coreId"`}} `json:"wrongCore"`}
+ data,err:=os.ReadFile(filepath.Join(publicRoot,"negative-matrix/matrix.json"));if err!=nil{t.Fatal(err)}
+ if err:=json.Unmarshal(data,&matrix);err!=nil{t.Fatal(err)}
+ for _,row:=range matrix.WrongCore{
+  for _,target:=range row.Targets{
+   run("public-mismatch/"+row.Fixture+"/"+target.CoreID,target.CoreID,readPublicFixtureIndex(t,filepath.Join(publicRoot,row.Fixture)),nil,"","")
+  }
+ }
+ for _,dir:=range []string{"external","referenced-native"}{
+  run("public-negative/"+dir,"rpgmaker_mv",readPublicFixtureIndex(t,filepath.Join(publicRoot,"negative-matrix",dir)),nil,"","")
+ }
+ for _,tc:=range []struct{name,core string;files memoryIndex}{
+  {"empty",VirtualCoreID,memoryIndex{}},
+  {"unknown-core","other",memoryIndex{}},
+  {"only-ldb",VirtualCoreID,without(rpg2KProject(0),"RPG_RT.lmt")},
+  {"only-lmt",VirtualCoreID,without(rpg2KProject(0),"RPG_RT.ldb")},
+  {"missing-start-map",VirtualCoreID,without(rpg2KProject(0),"Map0001.lmu")},
+  {"incomplete-mv",VirtualCoreID,without(mvProject(),"js/rpg_windows.js")},
+  {"incomplete-mz-localforage",VirtualCoreID,without(mzProject(),"js/libs/localforage.min.js")},
+  {"rgss-marker-no-ini",VirtualCoreID,memoryIndex{"Game.rxproj":[]byte("marker")}},
+  {"rgss-no-scripts",VirtualCoreID,without(rgssProject("Data/Scripts.rxdata"),"Data/Scripts.rxdata")},
+  {"rgss-library-conflict",VirtualCoreID,with(rgssProject("Data/Scripts.rxdata"),"Game.ini",[]byte("[Game]\nScripts=Data/Scripts.rxdata\nLibrary=RGSS3.dll\n"))},
+  {"rgss-marker-conflict",VirtualCoreID,with(rgssProject("Data/Scripts.rxdata"),"Game.rvproj",[]byte("marker"))},
+  {"unknown-ldb-id",VirtualCoreID,rpg2KProject(2001)},
+  {"duplicate-ldb-id",VirtualCoreID,replaceLDB(rpg2KProject(0),makeLDBWithIDs(2003,2003))},
+  {"truncated-ldb",VirtualCoreID,replaceLDB(rpg2KProject(0),[]byte{0x80})},
+  {"invalid-path",VirtualCoreID,memoryIndex{"../escape":[]byte("x")}},
+  {"negative-size",VirtualCoreID,rpg2KProject(0)},
+ }{
+  var sizes map[string]int64;if tc.name=="negative-size"{sizes=map[string]int64{"RPG_RT.ldb":-1}}
+  run("shape/"+tc.name,tc.core,tc.files,sizes,"","")
+ }
+ both:=mvProject();for name,contents:=range mzProject(){if _,ok:=both[name];!ok{both[name]=contents}}
+ run("shape/complete-mv-and-mz",VirtualCoreID,both,nil,"","")
+ mixed:=cloneIndex(mvProject());for name,contents:=range rgssProject("Data/Scripts.rxdata"){mixed[name]=contents}
+ run("shape/complete-rgss-and-mv",VirtualCoreID,mixed,nil,"","")
+ // Both later families are complete, but the RPG2K parser must still fail first.
+ first:=cloneIndex(mixed);first["RPG_RT.ldb"]=[]byte("bad");first["RPG_RT.lmt"]=makeLMT()
+ run("shape/invalid-first-family-wins",VirtualCoreID,first,nil,"","")
+ for _,mode:=range []string{"open","nil","read","close","read-close","partial-read-close","reader-and-open-error"}{
+  run("io/"+mode,"rpgmaker_2003",rpg2KProject(2003),nil,"RPG_RT.ldb",mode)
+ }
+ for _,mode:=range []string{"","close","read-close"}{
+  run("io/short-size-"+mode,"rpgmaker_2003",rpg2KProject(2003),map[string]int64{"RPG_RT.ldb":100},"RPG_RT.ldb",mode)
+ }
+ // Public self-contained INI is extended only with ignorable ASCII comment bytes.
+ ini:=[]byte("[RPG_RT]\nFullPackageFlag=1\n;")
+ for _,size:=range []int{maxINIBytes-1,maxINIBytes,maxINIBytes+1}{
+  content:=append(append([]byte(nil),ini...),bytes.Repeat([]byte{'x'},size-len(ini))...)
+  run(fmt.Sprintf("ini-size/%d",size),VirtualCoreID,with(rpg2KProject(0),"RPG_RT.ini",content),nil,"","")
+ }
+ // No read should ever be issued for a huge opaque asset or start-map marker.
+ untouched:=rpg2KProject(0);untouched["movie.bin"]=nil
+ run("io/unread-opaque-assets",VirtualCoreID,untouched,map[string]int64{"movie.bin":8<<30,"Map0001.lmu":8<<30},"movie.bin","open")
+ profile,nilErr:=Detect("rpgmaker_2000",nil)
+ observations=append(observations,rf04Observe("index/nil","Detect","rpgmaker_2000",profile,nilErr,nil,nil))
+ profile,nilErr=Detect("other",nil)
+ observations=append(observations,rf04Observe("index/unsupported-before-nil","Detect","other",profile,nilErr,nil,nil))
+ // Exercise old private read at every real limit; synthetic stream allocates no input tree.
+ for _,spec:=range []struct{name string;limit int64;code Code}{
+  {"RPG_RT.ldb",maxLDBBytes,CodeLCFInvalid},{"RPG_RT.lmt",maxLMTBytes,CodeLMTInvalid},
+  {"RPG_RT.ini",maxINIBytes,CodeINIInvalid},{"Game.ini",maxINIBytes,CodeINIInvalid},
+  {"data/System.json",maxSystemJSONBytes,CodeWebFormatInvalid},
+  {"index.html",maxIndexHTMLBytes,CodeWebFormatInvalid},{"js/main.js",maxCoreJSBytes,CodeWebFormatInvalid},
+ }{
+  for _,edge:=range []struct{name string;declared,actual int64}{
+   {"limit-minus-one",spec.limit-1,spec.limit-1},{"limit",spec.limit,spec.limit},
+   {"declared-over",spec.limit+1,spec.limit+1},{"actual-over",spec.limit,spec.limit+4096},
+   {"actual-short",spec.limit,spec.limit-1},
+  }{
+   name:="bound/"+spec.name+"/"+edge.name
+   bounds=append(bounds,rf04CapturedBound{name,spec.name,spec.limit,edge.declared,edge.actual,spec.code})
+   x:=&rf04TraceIndex{source:rf04RepeatedIndex{spec.name,edge.declared,edge.actual},stats:map[string]*rf04FileStats{}}
+   catalog,err:=newCatalog(x);if err!=nil{t.Fatal(err)}
+   contents,readErr:=catalog.read(spec.name,spec.limit,spec.code)
+   observations=append(observations,rf04Observe(name,"catalog.read","",Profile{},readErr,x,contents))
+   raw=append(raw,rf04RawTrace{name,x.events})
+  }
+ }
+ for _,item:=range []struct{name string;value any}{
+  {"rf04-rpgmaker-detector-old-golden.json",observations},
+  {"rf04-rpgmaker-detector-old-traces.json",raw},
+  {"rf04-rpgmaker-detector-fixture-inputs.json",inputs},
+  {"rf04-rpgmaker-detector-bounded-inputs.json",bounds},
+ }{
+  data,err:=json.MarshalIndent(item.value,"","  ");if err!=nil{t.Fatal(err)}
+  if err:=os.WriteFile(filepath.Join(out,item.name),append(data,'\n'),0600);err!=nil{t.Fatal(err)}
+ }
+ t.Logf("captured %d actual old implementation observations",len(observations))
+}

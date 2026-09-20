@@ -1,0 +1,98 @@
+{
+  "ASAR JSON": {
+    "Type": "*fmt.wrapError",
+    "Text": "ARCHIVE_UNSAFE: ELECTRON_ASAR_INVALID: invalid JSON root",
+    "Children": [
+      {
+        "Type": "*fmt.wrapError",
+        "Text": "ARCHIVE_UNSAFE: ELECTRON_ASAR_INVALID",
+        "Children": [
+          {
+            "Type": "*errors.errorString",
+            "Text": "ARCHIVE_UNSAFE",
+            "Children": null
+          }
+        ]
+      }
+    ]
+  },
+  "ASAR path": {
+    "Type": "*errors.errorString",
+    "Text": "UNSAFE_LOGICAL_PATH",
+    "Children": null
+  },
+  "ZIP duplicate": {
+    "Type": "*errors.errorString",
+    "Text": "ARCHIVE_UNSAFE",
+    "Children": null
+  },
+  "ZIP encrypted": {
+    "Type": "*errors.errorString",
+    "Text": "ARCHIVE_ENCRYPTED_UNSUPPORTED",
+    "Children": null
+  },
+  "ZIP limit": {
+    "Type": "*errors.errorString",
+    "Text": "ARCHIVE_LIMIT_EXCEEDED",
+    "Children": null
+  },
+  "ZIP method": {
+    "Type": "*errors.errorString",
+    "Text": "ARCHIVE_METHOD_UNSUPPORTED",
+    "Children": null
+  },
+  "ZIP path": {
+    "Type": "*errors.errorString",
+    "Text": "UNSAFE_LOGICAL_PATH",
+    "Children": null
+  },
+  "flat directory": {
+    "Type": "*errors.errorString",
+    "Text": "NESTED_ARCHIVE_UNSUPPORTED",
+    "Children": null
+  },
+  "member limit": {
+    "Type": "*errors.errorString",
+    "Text": "ARCHIVE_LIMIT_EXCEEDED",
+    "Children": null
+  },
+  "member read": {
+    "Type": "*fmt.wrapError",
+    "Text": "importing/archive: read member: unexpected EOF",
+    "Children": [
+      {
+        "Type": "*errors.errorString",
+        "Text": "unexpected EOF",
+        "Children": null
+      }
+    ]
+  },
+  "pickle lengths": {
+    "Type": "*fmt.wrapError",
+    "Text": "ARCHIVE_UNSAFE: ELECTRON_ASAR_INVALID: invalid pickle lengths",
+    "Children": [
+      {
+        "Type": "*fmt.wrapError",
+        "Text": "ARCHIVE_UNSAFE: ELECTRON_ASAR_INVALID",
+        "Children": [
+          {
+            "Type": "*errors.errorString",
+            "Text": "ARCHIVE_UNSAFE",
+            "Children": null
+          }
+        ]
+      }
+    ]
+  },
+  "scan nested": {
+    "Type": "*fmt.wrapError",
+    "Text": "scan archive entry \"data.bin\": NESTED_ARCHIVE_UNSUPPORTED",
+    "Children": [
+      {
+        "Type": "*errors.errorString",
+        "Text": "NESTED_ARCHIVE_UNSUPPORTED",
+        "Children": null
+      }
+    ]
+  }
+}

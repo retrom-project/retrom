@@ -6,9 +6,12 @@ import (
 	"log/slog"
 	"time"
 
+	archiveadapter "retrom/internal/adapter/content/archive"
+
 	butterscotchadapter "retrom/internal/adapter/engine/butterscotch/detector"
 	nxengineadapter "retrom/internal/adapter/engine/nxengine/detector"
 	onsadapter "retrom/internal/adapter/engine/ons/detector"
+	rpgmakeradapter "retrom/internal/adapter/engine/rpgmaker/detector"
 	"retrom/internal/adapter/files/blobstore"
 	cleanupadapter "retrom/internal/adapter/system/cleanup"
 	librarymodel "retrom/internal/model/libraryimport"
@@ -35,13 +38,16 @@ func NewCreations(database *sql.DB, now func() time.Time, options CreationOption
 
 func NewPreparation(database *sql.DB, options CreationOptions) *application.ImportPreparation {
 	reporter := cleanupadapter.NewReporter(slog.Default())
+	archives := archiveadapter.New(reporter)
 	return application.NewImportPreparation(
 		repository.BindImportFacts(database), repository.BindPreparationCatalog(database),
 		options.Blobs, application.ImportPreparationOptions{
+			ProjectArchives: archives, ArchiveInspector: archives, Diagnostics: reporter,
 			MultiDiscEnabled: options.MultiDiscEnabled, MetadataScraperAvailable: options.Scraper != nil,
 			ScummVMDetector: options.ScummVMDetector,
 			ONSDetector:     onsadapter.New(reporter), ButterscotchDetector: butterscotchadapter.New(reporter),
 			NXEngineDetector: nxengineadapter.New(reporter),
+			RPGMakerDetector: rpgmakeradapter.PreparedDetector{},
 		},
 	)
 }
