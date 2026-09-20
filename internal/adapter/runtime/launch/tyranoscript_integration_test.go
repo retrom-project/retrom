@@ -68,7 +68,7 @@ VALUES(?,'tyrano-preview-profile','tyrano-preview-admin','Tyrano Admin','ADMIN',
 	if err != nil {
 		t.Fatal(err)
 	}
-	itemID, importService := createTyranoScriptReviewItem(t, ctx, database.SQL, blobs, dataDir, now)
+	itemID, importService := createTyranoScriptReviewItem(ctx, t, database.SQL, blobs, dataDir, now)
 	credentials, err := retromruntime.LoadOrCreateCredentials(dataDir)
 	if err != nil {
 		t.Fatal(err)
@@ -228,11 +228,14 @@ SELECT (SELECT count(*) FROM isolated_runtime_bootstrap_tickets WHERE preview_id
 	if rows.Next() {
 		t.Fatal("TyranoScript preview cleanup left a foreign key violation")
 	}
+	if err := rows.Err(); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func createTyranoScriptReviewItem(
-	t *testing.T,
 	ctx context.Context,
+	t *testing.T,
 	database *sql.DB,
 	blobs *blobstore.Store,
 	dataDir string,
@@ -267,10 +270,12 @@ func createTyranoScriptReviewItem(
 	}
 	waitForONSReviewJob(t, ctx, database, jobID)
 	importService := libraryimport.New(database, now).WithBlobStore(blobs)
+	platformInstanceID, err := testsupport.PlatformInstanceID(ctx, database, "tyranoscript/tyranoscript")
+	if err != nil {
+		t.Fatal(err)
+	}
 	created, err := importService.Create(ctx, libraryimport.CreateRequest{
-		UploadID: upload.ID, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(
-			t, database, "tyranoscript/tyranoscript",
-		),
+		UploadID: upload.ID, TargetPlatformInstanceID: platformInstanceID,
 		MetadataProvider: "NONE", ContentMode: tyranoScriptProjectFormat,
 	})
 	if err != nil {

@@ -169,7 +169,7 @@ func TestValidationWorkerFailureEventIsAtomic(t *testing.T) {
 	}
 }
 
-func assertValidationRejectsRetiredBIOS(t *testing.T, ctx context.Context, database *sql.DB, selected launchmodel.ProductSnapshot, variantID string) {
+func assertValidationRejectsRetiredBIOS(ctx context.Context, t *testing.T, database *sql.DB, selected launchmodel.ProductSnapshot, variantID string) {
 	t.Helper()
 	inputs, err := application.ProductValidationInputs(selected, variantID)
 	if err != nil {

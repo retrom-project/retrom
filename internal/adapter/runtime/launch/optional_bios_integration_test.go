@@ -10,7 +10,7 @@ import (
 )
 
 // A missing optional external archive must not turn a READY variant into a blocked launch.
-func seedOptionalExternalBIOS(t *testing.T, ctx context.Context, database *sql.DB, providerID, targetID string) {
+func seedOptionalExternalBIOS(ctx context.Context, t *testing.T, database *sql.DB, providerID, targetID string) {
 	t.Helper()
 	_, err := database.ExecContext(ctx, `INSERT INTO bios_requirements(id,core_id,provider_id,target_id,source_kind,
 logical_name,requirement_mode,catalog_digest,source_url,source_version,enabled,version,created_at_ms,

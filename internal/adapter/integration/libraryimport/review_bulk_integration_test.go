@@ -93,7 +93,7 @@ VALUES(?,?,'bulk.review.admin','Bulk Review Admin','ADMIN','ENABLED',1,1)
 		testassert.False(t, err != nil, err)
 		jobID, _, err := uploader.Complete(ctx, upload.ID, current.Version)
 		testassert.False(t, err != nil, err)
-		waitForJob(t, database, jobID)
+		waitForJob(ctx, t, database, jobID)
 		created, err := importer.Create(ctx, CreateRequest{
 			UploadID: upload.ID, TargetPlatformInstanceID: platformInstanceID, MetadataProvider: "NONE",
 		})

@@ -4,6 +4,7 @@ package launch
 
 import (
 	"context"
+	"database/sql"
 	"database/sql/driver"
 	"errors"
 	"strings"
@@ -40,20 +41,7 @@ FROM review_preview_sessions WHERE id=?`, preview.PreviewID).Scan(&beforeState, 
 	*fixture.now = fixture.now.Add(3 * time.Hour)
 	cause := errors.New("preview expiry count failure")
 	var hits atomic.Int64
-	fault := testsupport.OpenSQLFaultDatabase(t, fixture.database, testsupport.SQLFaultHooks{
-		AfterExec: func(_ context.Context, query string, args []driver.NamedValue, result driver.Result) (driver.Result, error) {
-			if strings.HasPrefix(strings.Join(strings.Fields(query), " "), "UPDATE review_preview_sessions SET") &&
-				strings.Contains(query, "checkpoint_payload_blob_id=NULL") {
-				for _, arg := range args {
-					if arg.Value == preview.PreviewID {
-						hits.Add(1)
-						return previewExpirationCountFailure{Result: result, cause: cause}, nil
-					}
-				}
-			}
-			return result, nil
-		},
-	})
+	fault := newPreviewExpirationFault(t, fixture.database, preview.PreviewID, cause, &hits)
 	blobs, err := blobstore.Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
@@ -64,12 +52,35 @@ FROM review_preview_sessions WHERE id=?`, preview.PreviewID).Scan(&beforeState, 
 	}
 	defer releaser.Close()
 	err = releaser.ReconcileGC(t.Context())
+	assertPreviewExpirationRollback(t, fixture.database, preview.PreviewID, checkpointID, beforeState, beforeVersion, cause, &hits, err)
+}
+
+func newPreviewExpirationFault(t *testing.T, database *sql.DB, previewID string, cause error, hits *atomic.Int64) *sql.DB {
+	t.Helper()
+	return testsupport.OpenSQLFaultDatabase(t, database, testsupport.SQLFaultHooks{
+		AfterExec: func(_ context.Context, query string, args []driver.NamedValue, result driver.Result) (driver.Result, error) {
+			if strings.HasPrefix(strings.Join(strings.Fields(query), " "), "UPDATE review_preview_sessions SET") &&
+				strings.Contains(query, "checkpoint_payload_blob_id=NULL") {
+				for _, arg := range args {
+					if arg.Value == previewID {
+						hits.Add(1)
+						return previewExpirationCountFailure{Result: result, cause: cause}, nil
+					}
+				}
+			}
+			return result, nil
+		},
+	})
+}
+
+func assertPreviewExpirationRollback(t *testing.T, database *sql.DB, previewID, checkpointID, beforeState string, beforeVersion int64, cause error, hits *atomic.Int64, err error) {
+	t.Helper()
 	var state string
 	var version int64
 	var retained, candidates int
-	readErr := fixture.database.QueryRowContext(t.Context(), `SELECT state,version,checkpoint_payload_blob_id IS NOT NULL,
+	readErr := database.QueryRowContext(t.Context(), `SELECT state,version,checkpoint_payload_blob_id IS NOT NULL,
 (SELECT count(*) FROM blob_gc_candidates WHERE blob_id=?)
-FROM review_preview_sessions WHERE id=?`, checkpointID, preview.PreviewID).Scan(&state, &version, &retained, &candidates)
+FROM review_preview_sessions WHERE id=?`, checkpointID, previewID).Scan(&state, &version, &retained, &candidates)
 	if !errors.Is(err, cause) || hits.Load() != 1 || readErr != nil || state != beforeState || version != beforeVersion ||
 		retained != 1 || candidates != 0 {
 		t.Fatalf("preview expiry retained partial writes: state=%s version=%d payload=%d candidates=%d hits=%d err=%v read=%v",

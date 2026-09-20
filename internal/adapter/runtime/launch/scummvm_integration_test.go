@@ -14,6 +14,13 @@ import (
 
 func TestScummVMReviewSelectionPublishesExactGameAndCompleteTree(t *testing.T) {
 	fixture := newScummVMFixture(t, []string{"One", "Two"})
+	version, request := selectScummVMReviewCandidate(t, fixture)
+	assertScummVMReviewPreview(t, fixture, request)
+	assertScummVMProduct(t, fixture, version)
+}
+
+func selectScummVMReviewCandidate(t *testing.T, fixture scummVMFixture) (int64, ReviewPreviewRequest) {
+	t.Helper()
 	ctx := t.Context()
 	firstID, snapshot := fixture.snapshot(t)
 	if status, code := snapshot.Status(); status != "BLOCKED" || code != "SCUMMVM_ROOT_SELECTION_REQUIRED" {
@@ -43,6 +50,12 @@ func TestScummVMReviewSelectionPublishesExactGameAndCompleteTree(t *testing.T) {
 		t.Fatalf("selection not immutable: %s %s %+v", firstID, nextID, next)
 	}
 	request.IdempotencyKey = "scummvm-preview-2"
+	return version.Version, request
+}
+
+func assertScummVMReviewPreview(t *testing.T, fixture scummVMFixture, request ReviewPreviewRequest) {
+	t.Helper()
+	ctx := t.Context()
 	preview, err := fixture.service.CreateReviewPreview(ctx, request)
 	if err != nil {
 		t.Fatal(err)
@@ -57,7 +70,12 @@ func TestScummVMReviewSelectionPublishesExactGameAndCompleteTree(t *testing.T) {
 		t.Fatalf("options=%+v", options)
 	}
 	assertScummVMTree(t, fixture.service, preview.PreviewID, preview.Capability)
-	approved, err := fixture.importer.Approve(ctx, fixture.itemID, version.Version)
+}
+
+func assertScummVMProduct(t *testing.T, fixture scummVMFixture, version int64) {
+	t.Helper()
+	ctx := t.Context()
+	approved, err := fixture.importer.Approve(ctx, fixture.itemID, version)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -69,7 +87,7 @@ func TestScummVMReviewSelectionPublishesExactGameAndCompleteTree(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	options = testsupport.RuntimeEnvelopeObject(t, testsupport.RuntimeEnvelope(t, product), "targetOptions")
+	options := testsupport.RuntimeEnvelopeObject(t, testsupport.RuntimeEnvelope(t, product), "targetOptions")
 	if options["root"] != "Two" {
 		t.Fatalf("product lost selected root: %+v", options)
 	}

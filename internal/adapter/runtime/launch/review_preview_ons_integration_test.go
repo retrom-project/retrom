@@ -71,7 +71,7 @@ VALUES(?,'ons-preview-profile','ons-preview-admin','ONS Admin','ADMIN','ENABLED'
 	if err != nil {
 		t.Fatal(err)
 	}
-	itemID, importService := createONSReviewItem(t, ctx, database.SQL, blobs, dataDir)
+	itemID, importService := createONSReviewItem(ctx, t, database.SQL, blobs, dataDir)
 	credentials, err := retromruntime.LoadOrCreateCredentials(dataDir)
 	if err != nil {
 		t.Fatal(err)
@@ -167,13 +167,13 @@ WHERE game.id=?
 		t.Fatalf("published ONS = %s/%s, %v", contentKind, compatibilityCode, err)
 	}
 	assertONSProductRoundTrip(
-		t, ctx, service, database.SQL, blobs, approved.GameID, pngBody,
+		ctx, t, service, database.SQL, blobs, approved.GameID, pngBody,
 	)
 }
 
 func assertONSProductRoundTrip(
-	t *testing.T,
 	ctx context.Context,
+	t *testing.T,
 	service *Service,
 	database *sql.DB,
 	blobs *blobstore.Store,
@@ -212,7 +212,7 @@ func assertONSProductRoundTrip(
 	checkpoint := []byte("RETROM ONS CHECKPOINT V1")
 	result, replayed, err := saveService.CreateManual(
 		ctx, created.LaunchID, created.Capability, "ons-product-save-1",
-		onsManualRequest(t, checkpoint, screenshot),
+		onsManualRequest(ctx, t, checkpoint, screenshot),
 	)
 	if err != nil || replayed || result.ResourceKind != "SAVE_STATE" || result.SaveStateID == "" ||
 		result.CheckpointFormat != "test-checkpoint-v1" {
@@ -289,7 +289,7 @@ SELECT status FROM (`+storequery.SaveRuntimeCompatibility+`) WHERE save_state_id
 	}
 }
 
-func onsManualRequest(t *testing.T, checkpoint, screenshot []byte) retromsaves.ManualUpload {
+func onsManualRequest(ctx context.Context, t *testing.T, checkpoint, screenshot []byte) retromsaves.ManualUpload {
 	t.Helper()
 	var body bytes.Buffer
 	writer := multipart.NewWriter(&body)
@@ -317,7 +317,7 @@ func onsManualRequest(t *testing.T, checkpoint, screenshot []byte) retromsaves.M
 	if err := writer.Close(); err != nil {
 		t.Fatal(err)
 	}
-	request, err := http.NewRequestWithContext(context.Background(), http.MethodPost, "/", &body)
+	request, err := http.NewRequestWithContext(ctx, http.MethodPost, "/", &body)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -326,8 +326,8 @@ func onsManualRequest(t *testing.T, checkpoint, screenshot []byte) retromsaves.M
 }
 
 func createONSReviewItem(
-	t *testing.T,
 	ctx context.Context,
+	t *testing.T,
 	database *sql.DB,
 	blobs *blobstore.Store,
 	dataDir string,
@@ -361,9 +361,13 @@ func createONSReviewItem(
 	}
 	waitForONSReviewJob(t, ctx, database, jobID)
 	importService := libraryimport.New(database, time.Now).WithBlobStore(blobs)
+	platformInstanceID, err := testsupport.PlatformInstanceID(ctx, database, "ons/onscripter_yuri")
+	if err != nil {
+		t.Fatal(err)
+	}
 	created, err := importService.Create(ctx, libraryimport.CreateRequest{
 		UploadID:                 upload.ID,
-		TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(t, database, "ons/onscripter_yuri"),
+		TargetPlatformInstanceID: platformInstanceID,
 		MetadataProvider:         "NONE", ContentMode: onsProjectFormat,
 	})
 	if err != nil {

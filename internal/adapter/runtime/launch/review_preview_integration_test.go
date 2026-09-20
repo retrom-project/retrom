@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"database/sql"
 	"encoding/base64"
 	"fmt"
 	"path/filepath"
@@ -63,87 +64,9 @@ VALUES(?,'review-preview-profile','review-preview-admin','Review Preview Admin',
 	testassert.False(t, err != nil, err)
 	uploadService := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
 	importService := libraryimport.New(database.SQL, time.Now)
-	createReview := func(name string, contents []byte, targetID string) string {
-		t.Helper()
-		upload, createErr := uploadService.Create(ctx, uploadsmodel.CreateRequest{
-			SourceType: "FILES", Files: []uploadsmodel.FileDeclaration{{
-				ClientFileID: name, RelativePath: name, SizeBytes: int64(len(contents)),
-			}},
-		})
-		testassert.False(t, createErr != nil, createErr)
-		digest := sha256.Sum256(contents)
-		if putErr := uploadService.PutPart(ctx, upload.ID, upload.Files[0].ID, 0,
-			fmt.Sprintf("bytes 0-%d/%d", len(contents)-1, len(contents)),
-			"sha-256=:"+base64.StdEncoding.EncodeToString(digest[:])+":", bytes.NewReader(contents)); putErr != nil {
-			t.Fatal(putErr)
-		}
-		current, getErr := uploadService.Get(ctx, upload.ID)
-		testassert.False(t, getErr != nil, getErr)
-		jobID, _, completeErr := uploadService.Complete(ctx, upload.ID, current.Version)
-		testassert.False(t, completeErr != nil, completeErr)
-		for deadline := time.Now().Add(3 * time.Second); ; {
-			var state string
-			if queryErr := database.SQL.QueryRowContext(ctx, `SELECT state FROM jobs WHERE id=?`, jobID).Scan(&state); queryErr != nil {
-				t.Fatal(queryErr)
-			}
-			if state == "SUCCEEDED" {
-				break
-			}
-			testassert.Falsef(t, testassert.Any(func() bool { return state == "FAILED" }, func() bool { return time.Now().After(deadline) }), "review preview upload finalization = %s", state)
-			time.Sleep(10 * time.Millisecond)
-		}
-		created, importErr := importService.Create(ctx, libraryimport.CreateRequest{
-			UploadID: upload.ID, TargetPlatformInstanceID: targetID, MetadataProvider: "NONE",
-		})
-		testassert.False(t, importErr != nil, importErr)
-		var itemID string
-		if queryErr := database.SQL.QueryRowContext(ctx, `
-SELECT id FROM import_items WHERE import_job_id=?
-`, created.ImportJobID).Scan(&itemID); queryErr != nil {
-			t.Fatal(queryErr)
-		}
-		return itemID
-	}
-
-	readyItemID := createReview("ready.gba", []byte("review-preview-ready"), testsupport.MustPlatformInstanceID(t, database.SQL, "gba/mgba"))
-	blockedItemID := createReview("blocked.fds", []byte("review-preview-blocked"), testsupport.MustPlatformInstanceID(t, database.SQL, "nes/fceumm"))
-	parentMetadata, err := blobs.Put(bytes.NewReader([]byte("review-preview-parent")))
-	testassert.False(t, err != nil, err)
-	parentBlobID, err := blobcatalog.EnsureRecord(ctx, database.SQL, parentMetadata, "application/zip", time.Now().UnixMilli())
-	testassert.False(t, err != nil, err)
-	var baseValidationID, sourceSnapshotID, datVersionID string
-	if err := database.SQL.QueryRowContext(ctx, `
-SELECT draft.selected_validation_id,draft.effective_source_snapshot_id,(SELECT id FROM dat_versions ORDER BY id LIMIT 1)
-FROM review_drafts draft WHERE draft.import_item_id=?
-`, readyItemID).Scan(&baseValidationID, &sourceSnapshotID, &datVersionID); err != nil {
-		t.Fatal(err)
-	}
-	arcadeValidationID := newUUID()
-	arcadeSnapshot := fmt.Sprintf(`{"schemaVersion":1,"kind":"ARCADE","machine":"review-child","datVersionId":%q,"closure":[],"dependencies":[{"kind":"PARENT","machine":"review-parent","state":"SATISFIED_EXTERNAL","requiredEntries":[]}],"missingEntries":[],"mismatchedEntries":[],"warnings":[]}`, datVersionID)
-	if _, err := database.SQL.ExecContext(ctx, `
-INSERT INTO import_item_core_validations(id,import_item_id,target_platform_instance_id,
-platform_instance_version,core_id,provider_id,target_id,
-dat_version_id,default_dos_entry,source_manifest_digest,source_snapshot_id,prepublish_input_digest,
-status,compatibility_code,dependency_snapshot_json,created_at_ms)
-SELECT ?,import_item_id,target_platform_instance_id,platform_instance_version,core_id,provider_id,target_id,
-?,default_dos_entry,source_manifest_digest,source_snapshot_id,
-?,status,compatibility_code,?,created_at_ms+1
-FROM import_item_core_validations WHERE id=?
-`, arcadeValidationID, datVersionID, strings.Repeat("a", 64), arcadeSnapshot, baseValidationID); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := database.SQL.ExecContext(ctx, `
-INSERT INTO import_item_validation_files(import_item_core_validation_id,role,logical_name,blob_id,sort_order,created_at_ms)
-VALUES(?,'PARENT','review-parent.zip',?,0,0)
-`, arcadeValidationID, parentBlobID); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := database.SQL.ExecContext(ctx, `
-UPDATE review_drafts SET selected_validation_id=?,version=version+1,updated_at_ms=updated_at_ms+1
-WHERE import_item_id=? AND effective_source_snapshot_id=?
-`, arcadeValidationID, readyItemID, sourceSnapshotID); err != nil {
-		t.Fatal(err)
-	}
+	readyItemID := createReviewPreviewItem(ctx, t, database.SQL, uploadService, importService, "ready.gba", []byte("review-preview-ready"), testsupport.MustPlatformInstanceID(t, database.SQL, "gba/mgba"))
+	blockedItemID := createReviewPreviewItem(ctx, t, database.SQL, uploadService, importService, "blocked.fds", []byte("review-preview-blocked"), testsupport.MustPlatformInstanceID(t, database.SQL, "nes/fceumm"))
+	parentBlobID, parentSHA256, datVersionID := seedReviewPreviewParentValidation(ctx, t, database.SQL, blobs, readyItemID)
 	credentials, err := retromruntime.LoadOrCreateCredentials(dataDir)
 	testassert.False(t, err != nil, err)
 	runtimeBuilder, err := testsupport.NewRuntimeBuilder(ctx, database.SQL)
@@ -241,7 +164,91 @@ VALUES(?,'BIOS_BUNDLE','review-bios.zip',?,0)
 	publishedBIOS, err := service.BundleFiles(
 		ctx, createdLaunch.LaunchID, createdLaunch.Capability, "BIOS_BUNDLE",
 	)
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return len(publishedBIOS) != 1 }, func() bool { return publishedBIOS[0].LogicalName != "review-bios.zip" }, func() bool { return publishedBIOS[0].SHA256 != parentMetadata.SHA256 }), "screenshot-approved Arcade BIOS = %#v, error=%v", publishedBIOS, err)
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return len(publishedBIOS) != 1 }, func() bool { return publishedBIOS[0].LogicalName != "review-bios.zip" }, func() bool { return publishedBIOS[0].SHA256 != parentSHA256 }), "screenshot-approved Arcade BIOS = %#v, error=%v", publishedBIOS, err)
+}
+
+func seedReviewPreviewParentValidation(ctx context.Context, t *testing.T, database *sql.DB, blobs *blobstore.Store, readyItemID string) (string, string, string) {
+	t.Helper()
+	parentMetadata, err := blobs.Put(bytes.NewReader([]byte("review-preview-parent")))
+	testassert.False(t, err != nil, err)
+	parentBlobID, err := blobcatalog.EnsureRecord(ctx, database, parentMetadata, "application/zip", time.Now().UnixMilli())
+	testassert.False(t, err != nil, err)
+	var baseValidationID, sourceSnapshotID, datVersionID string
+	if err := database.QueryRowContext(ctx, `
+SELECT draft.selected_validation_id,draft.effective_source_snapshot_id,(SELECT id FROM dat_versions ORDER BY id LIMIT 1)
+FROM review_drafts draft WHERE draft.import_item_id=?
+`, readyItemID).Scan(&baseValidationID, &sourceSnapshotID, &datVersionID); err != nil {
+		t.Fatal(err)
+	}
+	arcadeValidationID := newUUID()
+	arcadeSnapshot := fmt.Sprintf(`{"schemaVersion":1,"kind":"ARCADE","machine":"review-child","datVersionId":%q,"closure":[],"dependencies":[{"kind":"PARENT","machine":"review-parent","state":"SATISFIED_EXTERNAL","requiredEntries":[]}],"missingEntries":[],"mismatchedEntries":[],"warnings":[]}`, datVersionID)
+	if _, err := database.ExecContext(ctx, `
+INSERT INTO import_item_core_validations(id,import_item_id,target_platform_instance_id,
+platform_instance_version,core_id,provider_id,target_id,
+dat_version_id,default_dos_entry,source_manifest_digest,source_snapshot_id,prepublish_input_digest,
+status,compatibility_code,dependency_snapshot_json,created_at_ms)
+SELECT ?,import_item_id,target_platform_instance_id,platform_instance_version,core_id,provider_id,target_id,
+?,default_dos_entry,source_manifest_digest,source_snapshot_id,
+?,status,compatibility_code,?,created_at_ms+1
+FROM import_item_core_validations WHERE id=?
+`, arcadeValidationID, datVersionID, strings.Repeat("a", 64), arcadeSnapshot, baseValidationID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := database.ExecContext(ctx, `
+INSERT INTO import_item_validation_files(import_item_core_validation_id,role,logical_name,blob_id,sort_order,created_at_ms)
+VALUES(?,'PARENT','review-parent.zip',?,0,0)
+`, arcadeValidationID, parentBlobID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := database.ExecContext(ctx, `
+UPDATE review_drafts SET selected_validation_id=?,version=version+1,updated_at_ms=updated_at_ms+1
+WHERE import_item_id=? AND effective_source_snapshot_id=?
+`, arcadeValidationID, readyItemID, sourceSnapshotID); err != nil {
+		t.Fatal(err)
+	}
+	return parentBlobID, parentMetadata.SHA256, datVersionID
+}
+
+func createReviewPreviewItem(ctx context.Context, t *testing.T, database *sql.DB, uploadService *uploads.Service, importService *libraryimport.Service, name string, contents []byte, targetID string) string {
+	t.Helper()
+	upload, createErr := uploadService.Create(ctx, uploadsmodel.CreateRequest{
+		SourceType: "FILES", Files: []uploadsmodel.FileDeclaration{{
+			ClientFileID: name, RelativePath: name, SizeBytes: int64(len(contents)),
+		}},
+	})
+	testassert.False(t, createErr != nil, createErr)
+	digest := sha256.Sum256(contents)
+	if putErr := uploadService.PutPart(ctx, upload.ID, upload.Files[0].ID, 0,
+		fmt.Sprintf("bytes 0-%d/%d", len(contents)-1, len(contents)),
+		"sha-256=:"+base64.StdEncoding.EncodeToString(digest[:])+":", bytes.NewReader(contents)); putErr != nil {
+		t.Fatal(putErr)
+	}
+	current, getErr := uploadService.Get(ctx, upload.ID)
+	testassert.False(t, getErr != nil, getErr)
+	jobID, _, completeErr := uploadService.Complete(ctx, upload.ID, current.Version)
+	testassert.False(t, completeErr != nil, completeErr)
+	for deadline := time.Now().Add(3 * time.Second); ; {
+		var state string
+		if queryErr := database.QueryRowContext(ctx, `SELECT state FROM jobs WHERE id=?`, jobID).Scan(&state); queryErr != nil {
+			t.Fatal(queryErr)
+		}
+		if state == "SUCCEEDED" {
+			break
+		}
+		testassert.Falsef(t, testassert.Any(func() bool { return state == "FAILED" }, func() bool { return time.Now().After(deadline) }), "review preview upload finalization = %s", state)
+		time.Sleep(10 * time.Millisecond)
+	}
+	created, importErr := importService.Create(ctx, libraryimport.CreateRequest{
+		UploadID: upload.ID, TargetPlatformInstanceID: targetID, MetadataProvider: "NONE",
+	})
+	testassert.False(t, importErr != nil, importErr)
+	var itemID string
+	if queryErr := database.QueryRowContext(ctx, `
+SELECT id FROM import_items WHERE import_job_id=?
+`, created.ImportJobID).Scan(&itemID); queryErr != nil {
+		t.Fatal(queryErr)
+	}
+	return itemID
 }
 
 func ptr(value string) *string { return &value }

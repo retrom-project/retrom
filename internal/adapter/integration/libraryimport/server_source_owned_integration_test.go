@@ -87,6 +87,15 @@ func TestOwnedServerSourceRejectsWorkerWithoutCreatingImport(t *testing.T) {
 func TestOwnedDuplicateReplaysByBindingAfterPayloadCleanup(t *testing.T) {
 	t.Parallel()
 	fixture, request := ownedSourceFixture(t)
+	result := createOwnedDuplicateForRelease(t, fixture, request)
+	finishOwnedDuplicateFixture(t, fixture, result.Items[0].ExistingGameID)
+	releaseOwnedSourceFixture(t, fixture)
+	assertReleasedOwnedDuplicateReplay(t, fixture, request, result)
+	assertReleasedOwnedDuplicateCreate(t, fixture, request, result)
+}
+
+func createOwnedDuplicateForRelease(t *testing.T, fixture deduplicateFixture, request libraryimportmodel.OwnedServerSourceRequest) ServerImportResult {
+	t.Helper()
 	published, err := fixture.service.CreateServerSource(fixture.ctx, fixture.platform, "STANDARD", request.Files, nil, "")
 	if err != nil {
 		t.Fatal(err)
@@ -99,8 +108,11 @@ func TestOwnedDuplicateReplaysByBindingAfterPayloadCleanup(t *testing.T) {
 		t.Fatalf("owned duplicate: %#v %v", result, err)
 	}
 	assertOwnedSourceBinding(t, fixture, result)
-	finishOwnedDuplicateFixture(t, fixture, result.Items[0].ExistingGameID)
-	releaseOwnedSourceFixture(t, fixture)
+	return result
+}
+
+func assertReleasedOwnedDuplicateReplay(t *testing.T, fixture deduplicateFixture, request libraryimportmodel.OwnedServerSourceRequest, result ServerImportResult) {
+	t.Helper()
 	replay, found, err := fixture.service.LookupOwnedServerSource(fixture.ctx, request.Intent)
 	if err != nil || !found || len(replay.Items) != 1 {
 		t.Fatalf("released replay: %#v found=%v err=%v", replay, found, err)
@@ -111,6 +123,10 @@ func TestOwnedDuplicateReplaysByBindingAfterPayloadCleanup(t *testing.T) {
 	if len(replay.Items[0].SourceRelativePaths) != 0 {
 		t.Fatalf("fixture did not release original paths: %#v", replay.Items[0].SourceRelativePaths)
 	}
+}
+
+func assertReleasedOwnedDuplicateCreate(t *testing.T, fixture deduplicateFixture, request libraryimportmodel.OwnedServerSourceRequest, result ServerImportResult) {
+	t.Helper()
 	repeated, err := fixture.service.CreateOwnedServerSource(fixture.ctx, request)
 	if err != nil || len(repeated.Items) != 1 || repeated.Items[0].ItemID != result.Items[0].ItemID || ownedImportCount(t, fixture) != 1 {
 		t.Fatalf("released create replay: %#v %v", repeated, err)

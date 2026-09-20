@@ -190,7 +190,7 @@ updated_at_ms) VALUES(?,
 	); err != nil || status != "BLOCKED" || code != "LAUNCH_BIOS_MISSING" {
 		t.Fatalf("missing required FDS BIOS validation = %s/%s", status, code)
 	}
-	assertMissingFDSValidationFinishes(t, ctx, database.SQL, service, approved.GameID)
+	assertMissingFDSValidationFinishes(ctx, t, database.SQL, service, approved.GameID)
 	createdLaunch, err := service.Create(
 		ctx,
 		"local",
@@ -478,8 +478,8 @@ sort_order) VALUES(?,
 }
 
 func assertMissingFDSValidationFinishes(
-	t *testing.T,
 	ctx context.Context,
+	t *testing.T,
 	database *sql.DB,
 	service *Service,
 	sourceGameID string,

@@ -66,7 +66,7 @@ VALUES(?,'tyrano-profile','tyrano-admin','Tyrano Admin','ADMIN','ENABLED',0,0)`,
 	if err != nil {
 		t.Fatal(err)
 	}
-	itemID, importer := createTyranoScriptReviewItem(t, ctx, database.SQL, blobs, dataDir, now)
+	itemID, importer := createTyranoScriptReviewItem(ctx, t, database.SQL, blobs, dataDir, now)
 	credentials, err := retromruntime.LoadOrCreateCredentials(dataDir)
 	if err != nil {
 		t.Fatal(err)

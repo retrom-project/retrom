@@ -153,8 +153,15 @@ func testArcadeParentAttachmentsAdvanceImmutableSnapshotsUntilReadyAndPublish(t 
 	view, found, err := importer.ReviewArcadeDependencies(ctx, itemID)
 	testassert.False(t, err != nil, err)
 	testassert.True(t, found, "arcade dependencies were not projected")
-	viewMap := view.(map[string]any)
-	testassert.Falsef(t, testassert.Any(func() bool { return viewMap["machine"] != "a" }, func() bool { return len(viewMap["nodes"].([]map[string]any)) != 2 }), "initial dependency view = %#v", view)
+	viewMap, ok := view.(map[string]any)
+	if !ok {
+		t.Fatalf("initial dependency view type = %T", view)
+	}
+	nodes, ok := viewMap["nodes"].([]map[string]any)
+	if !ok {
+		t.Fatalf("initial dependency nodes type = %T", viewMap["nodes"])
+	}
+	testassert.Falsef(t, testassert.Any(func() bool { return viewMap["machine"] != "a" }, func() bool { return len(nodes) != 2 }), "initial dependency view = %#v", view)
 	parent := uploadCompleteFile(ctx, t, database.SQL, uploadService, "anything.zip", parentZIP)
 	acceptedB, err := importer.CreateArcadeParentAttachment(ctx, itemID, version, ParentAttachmentRequest{
 		ValidationID: validationID, BaseSourceSnapshotID: snapshotID, DependencyMachine: "b",
@@ -485,6 +492,9 @@ func queryAttachmentStrings(t *testing.T, database *sql.DB, query string, argume
 			t.Fatal(err)
 		}
 		values = append(values, value)
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatal(err)
 	}
 	return values
 }

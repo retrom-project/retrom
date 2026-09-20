@@ -102,7 +102,7 @@ VALUES(?,?,?,?,?,?,?,?,?,'HASH_WARNING','{}',?,1,?,?)
 	for index := range requirements {
 		requirements[index].oldDigest = install(&requirements[index], "old", 1)
 	}
-	seedOptionalExternalBIOS(t, ctx, database.SQL, target.ProviderID, target.TargetID)
+	seedOptionalExternalBIOS(ctx, t, database.SQL, target.ProviderID, target.TargetID)
 	gameMetadata, err := blobs.Put(bytes.NewReader([]byte("nds-content")))
 	testassert.False(t, err != nil, err)
 	gameBlobID, err := blobcatalog.EnsureRecord(ctx, database.SQL, gameMetadata, "application/octet-stream", time.Now().UnixMilli())
@@ -152,7 +152,7 @@ VALUES(?,?,'melonds',?,?,NULL,8100,'READY','READY',?,1,?,?)`, []any{variantID, g
 	melonds := "melonds"
 	oldLaunch, err := service.Create(ctx, "local", CreateRequest{GameID: gameID, CoreID: &melonds, ReturnTo: "/games/" + gameID, ClientCapabilities: capabilities})
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return oldLaunch.LaunchID == "" }), "old MelonDS launch = %#v, error=%v", oldLaunch, err)
-	assertMelonDSLaunch(t, ctx, service, oldLaunch, requirements, false)
+	assertMelonDSLaunch(ctx, t, service, oldLaunch, requirements, false)
 	savedID := seedBIOSResumeSave(t, database.SQL, gameID, oldLaunch.LaunchID, gameBlobID, gameMetadata.SHA256, gameMetadata.Size)
 	command := launchmodel.ProductCreateCommand{ProfileID: "local", Request: CreateRequest{GameID: gameID, SaveStateID: &savedID, CoreID: &melonds, ReturnTo: "/games/" + gameID, ClientCapabilities: capabilities}}
 	selected, err := launchpersistence.NewProductCreation(database.SQL).Snapshot(ctx, command)
@@ -164,27 +164,27 @@ VALUES(?,?,'melonds',?,?,NULL,8100,'READY','READY',?,1,?,?)`, []any{variantID, g
 		testassert.False(t, tx.Commit() != nil, "commit BIOS switch")
 		requirements[index].newDigest = install(&requirements[index], "new", 1)
 	}
-	assertMelonDSLaunch(t, ctx, service, oldLaunch, requirements, false)
+	assertMelonDSLaunch(ctx, t, service, oldLaunch, requirements, false)
 	if manualOverride {
 		assertApprovedBIOSResume(t, service, database.SQL, gameID, variantID, savedID, requirements, capabilities)
 		return
 	}
 	assertProductSnapshotRejected(t, service, command, selected)
-	assertValidationRejectsRetiredBIOS(t, ctx, database.SQL, selected, variantID)
+	assertValidationRejectsRetiredBIOS(ctx, t, database.SQL, selected, variantID)
 	pending, err := service.Create(ctx, "local", CreateRequest{GameID: gameID, SaveStateID: &savedID, CoreID: &melonds, ReturnTo: "/games/" + gameID, ClientCapabilities: capabilities})
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return pending.Status != "VALIDATION_PENDING" }, func() bool { return pending.JobID == "" }), "new BIOS validation = %#v, error=%v", pending, err)
 	waitForProductBIOSValidation(ctx, t, database.SQL, pending.JobID)
 	newLaunch, err := service.Create(ctx, "local", CreateRequest{GameID: gameID, SaveStateID: &savedID, CoreID: &melonds, ReturnTo: "/games/" + gameID, ClientCapabilities: capabilities})
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return newLaunch.LaunchID == "" }), "new MelonDS launch = %#v, error=%v", newLaunch, err)
-	assertMelonDSLaunch(t, ctx, service, newLaunch, requirements, true)
+	assertMelonDSLaunch(ctx, t, service, newLaunch, requirements, true)
 	if _, err := service.ExternalBlob(ctx, newLaunch.LaunchID, oldLaunch.Capability, requirements[0].logicalName); !errors.Is(err, ErrCredential) {
 		t.Fatalf("cross-launch capability error = %v", err)
 	}
 }
 
 func assertMelonDSLaunch(
-	t *testing.T,
 	ctx context.Context,
+	t *testing.T,
 	service *Service,
 	launch Created,
 	requirements []melondsRequirement,

@@ -31,7 +31,7 @@ func assertApprovedBIOSResume(t *testing.T, service *Service, database *sql.DB,
 	})
 	testassert.False(t, err != nil, err)
 	testassert.True(t, created.LaunchID != "", "manual approval was converted to a blocking validation")
-	assertMelonDSLaunch(t, t.Context(), service, created, requirements, true)
+	assertMelonDSLaunch(t.Context(), t, service, created, requirements, true)
 	var code string
 	err = database.QueryRowContext(t.Context(), `SELECT compatibility_code FROM game_variants WHERE id=?`, variantID).Scan(&code)
 	testassert.False(t, err != nil, err)

@@ -207,7 +207,7 @@ func TestDuplicateContentIsSkippedDuringIdentificationAndConfirmedDuringReview(t
 		testassert.False(t, getErr != nil, getErr)
 		jobID, _, completeErr := uploader.Complete(ctx, upload.ID, current.Version)
 		testassert.False(t, completeErr != nil, completeErr)
-		waitForJob(t, database, jobID)
+		waitForJob(ctx, t, database, jobID)
 		created, importErr := importer.Create(ctx, CreateRequest{
 			UploadID: upload.ID, TargetPlatformInstanceID: platformInstanceID, MetadataProvider: "NONE",
 		})
@@ -329,7 +329,7 @@ func TestImportGroupsSingleArchiveMemberAndReportsEveryFile(t *testing.T) {
 	testassert.False(t, err != nil, err)
 	jobID, _, err := uploadService.Complete(ctx, upload.ID, current.Version)
 	testassert.False(t, err != nil, err)
-	waitForJob(t, database, jobID)
+	waitForJob(ctx, t, database, jobID)
 	importer := New(database.SQL, time.Now).WithBlobStore(blobs)
 	created, err := importer.Create(
 		ctx,

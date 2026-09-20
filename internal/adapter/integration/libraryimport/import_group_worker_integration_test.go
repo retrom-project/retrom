@@ -98,6 +98,9 @@ SELECT event_type FROM job_events WHERE job_id=? ORDER BY id
 		}
 		events = append(events, event)
 	}
+	if err := rows.Err(); err != nil {
+		t.Fatal(err)
+	}
 	want := []string{"QUEUED", "STARTED", "PROGRESS", "SUCCEEDED"}
 	if fmt.Sprint(events) != fmt.Sprint(want) {
 		t.Fatalf("events = %v, want %v", events, want)

@@ -4,6 +4,7 @@ package launch
 
 import (
 	"bytes"
+	"context"
 	"database/sql"
 	"fmt"
 	"testing"
@@ -19,12 +20,20 @@ func assertRepeatedPreviewKeepsScreenshot(
 ) {
 	t.Helper()
 	ctx := t.Context()
-	readEvidence := func() (string, string, int64, int) {
-		t.Helper()
-		var validationID, screenshotID string
-		var version int64
-		var count int
-		if err := database.QueryRowContext(ctx, `
+	validationID, screenshotID, version, count := readReviewEvidence(ctx, t, database, screenshot)
+	if screenshotID != screenshot.ID {
+		t.Fatalf("initial screenshot=%s, want %s", screenshotID, screenshot.ID)
+	}
+	next := repeatReviewPreview(ctx, t, database, service, importer, actorID, screenshot, validationID, screenshotID, version, count)
+	assertReviewScreenshotReplacement(ctx, t, database, service, next, screenshot, image, validationID, screenshotID)
+}
+
+func readReviewEvidence(ctx context.Context, t *testing.T, database *sql.DB, screenshot ReviewScreenshot) (string, string, int64, int) {
+	t.Helper()
+	var validationID, screenshotID string
+	var version int64
+	var count int
+	if err := database.QueryRowContext(ctx, `
 SELECT validation.id,COALESCE(screenshot.id,''),draft.version,
  (SELECT count(*) FROM import_item_core_validations WHERE import_item_id=draft.import_item_id)
 FROM review_drafts draft
@@ -35,14 +44,13 @@ LEFT JOIN review_runtime_screenshots screenshot ON screenshot.import_item_id=dra
  AND screenshot.validation_id=validation.id
 WHERE draft.import_item_id=?
 `, screenshot.ImportItemID).Scan(&validationID, &screenshotID, &version, &count); err != nil {
-			t.Fatal(err)
-		}
-		return validationID, screenshotID, version, count
+		t.Fatal(err)
 	}
-	validationID, screenshotID, version, count := readEvidence()
-	if screenshotID != screenshot.ID {
-		t.Fatalf("initial screenshot=%s, want %s", screenshotID, screenshot.ID)
-	}
+	return validationID, screenshotID, version, count
+}
+
+func repeatReviewPreview(ctx context.Context, t *testing.T, database *sql.DB, service *Service, importer *libraryimport.Service, actorID string, screenshot ReviewScreenshot, validationID, screenshotID string, version int64, count int) ReviewPreviewCreated {
+	t.Helper()
 	var next ReviewPreviewCreated
 	for index := range 2 {
 		if err := importer.RefreshReviewPreviewValidation(ctx, screenshot.ImportItemID); err != nil {
@@ -60,7 +68,7 @@ WHERE draft.import_item_id=?
 			t.Fatal(err)
 		}
 		next = created
-		currentValidation, currentScreenshot, currentVersion, currentCount := readEvidence()
+		currentValidation, currentScreenshot, currentVersion, currentCount := readReviewEvidence(ctx, t, database, screenshot)
 		if currentValidation != validationID || currentScreenshot != screenshotID || currentCount != count {
 			t.Fatalf("repeated trial changed review evidence: validation=%s screenshot=%s version=%d count=%d; want %s/%s/%d/%d",
 				currentValidation, currentScreenshot, currentVersion, currentCount, validationID, screenshotID, version, count)
@@ -70,11 +78,16 @@ WHERE draft.import_item_id=?
 		}
 		version = currentVersion
 	}
+	return next
+}
+
+func assertReviewScreenshotReplacement(ctx context.Context, t *testing.T, database *sql.DB, service *Service, next ReviewPreviewCreated, screenshot ReviewScreenshot, image []byte, validationID, screenshotID string) {
+	t.Helper()
 	updated, err := service.StoreReviewScreenshot(ctx, next.PreviewID, next.Capability, bytes.NewReader(image))
 	if err != nil {
 		t.Fatal(err)
 	}
-	currentValidation, currentScreenshot, _, _ := readEvidence()
+	currentValidation, currentScreenshot, _, _ := readReviewEvidence(ctx, t, database, screenshot)
 	if updated.ID == screenshotID || currentScreenshot != updated.ID || currentValidation != validationID {
 		t.Fatal("a new capture did not replace the screenshot for the same validation")
 	}

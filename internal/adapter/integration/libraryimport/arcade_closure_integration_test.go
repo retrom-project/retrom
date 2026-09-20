@@ -382,12 +382,12 @@ func makeZIP(t *testing.T, files map[string][]byte) []byte {
 	return contents.Bytes()
 }
 
-func waitForJob(t *testing.T, database *store.DB, jobID string) {
+func waitForJob(ctx context.Context, t *testing.T, database *store.DB, jobID string) {
 	t.Helper()
 	deadline := time.Now().Add(3 * time.Second)
 	for {
 		var state string
-		if err := database.SQL.QueryRowContext(context.Background(), `
+		if err := database.SQL.QueryRowContext(ctx, `
 SELECT state
 FROM jobs
 WHERE id=?

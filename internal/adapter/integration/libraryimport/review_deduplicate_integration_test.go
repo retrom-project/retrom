@@ -74,6 +74,14 @@ func TestReviewDeduplicateDiscardsOnlyPublishedContentAcrossPages(t *testing.T) 
 	different := fixture.create(t, "same-name", "different content", 1)
 	otherScope := fixture.create(t, "other-scope", "published content", 1)
 	pendingOnly := fixture.create(t, "pending-only", "no published owner", 2)
+	assertDeduplicatePages(t, fixture, original, copies)
+	assertDeduplicatePendingItems(t, fixture, different, otherScope, pendingOnly)
+	assertDeduplicatePublishedCounts(t, fixture, copies)
+	assertDeduplicateRemainingScope(t, fixture)
+}
+
+func assertDeduplicatePages(t *testing.T, fixture deduplicateFixture, original, copies ServerImportResult) {
+	t.Helper()
 	if _, err := fixture.service.Approve(fixture.ctx, original.Items[0].ItemID, 1); err != nil {
 		t.Fatal(err)
 	}
@@ -92,11 +100,19 @@ func TestReviewDeduplicateDiscardsOnlyPublishedContentAcrossPages(t *testing.T) 
 	if err != nil || repeated.ScannedCount != 0 || repeated.DiscardedCount != 0 {
 		t.Fatalf("repeat = %#v, %v", repeated, err)
 	}
-	for _, result := range []ServerImportResult{different, otherScope, pendingOnly} {
+}
+
+func assertDeduplicatePendingItems(t *testing.T, fixture deduplicateFixture, results ...ServerImportResult) {
+	t.Helper()
+	for _, result := range results {
 		for _, item := range result.Items {
 			assertDeduplicateItemState(t, fixture, item.ItemID, "REVIEW_PENDING")
 		}
 	}
+}
+
+func assertDeduplicatePublishedCounts(t *testing.T, fixture deduplicateFixture, copies ServerImportResult) {
+	t.Helper()
 	var games, events, discarded, pending int
 	if err := fixture.database.QueryRowContext(fixture.ctx, `
 SELECT (SELECT count(*) FROM games WHERE status='PUBLISHED'),
@@ -108,6 +124,10 @@ SELECT (SELECT count(*) FROM games WHERE status='PUBLISHED'),
 	if games != 1 || events != 52 || discarded != 52 || pending != 0 {
 		t.Fatalf("games/events/discarded/pending = %d/%d/%d/%d", games, events, discarded, pending)
 	}
+}
+
+func assertDeduplicateRemainingScope(t *testing.T, fixture deduplicateFixture) {
+	t.Helper()
 	all, err := fixture.service.DeduplicateReviews(fixture.ctx, ReviewDeduplicateRequest{})
 	if err != nil || all.DiscardedCount != 1 {
 		t.Fatalf("remaining scope = %#v, %v", all, err)
