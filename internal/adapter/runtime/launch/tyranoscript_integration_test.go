@@ -81,6 +81,35 @@ VALUES(?,'tyrano-preview-profile','tyrano-preview-admin','Tyrano Admin','ADMIN',
 		WithRPGRuntimeOriginTemplate("https://{launchId}.rpg-runtime.example").
 		WithRuntimeProvider(dependencySet.RuntimeCatalog, runtimeBuilder)
 	assertPreviewCreationRollback(t, service, ReviewPreviewRequest{ImportItemID: itemID, ActorUserID: actorID, IdempotencyKey: "isolated-rollback"})
+	preview, isolationService := assertTyranoScriptPreview(ctx, t, database.SQL, service, itemID, actorID, now)
+	assertTyranoContentReadCauses(t, service, preview.PreviewID, true)
+	canvas := image.NewRGBA(image.Rect(0, 0, 2, 2))
+	canvas.Set(0, 0, color.RGBA{R: 220, G: 70, B: 40, A: 255})
+	var screenshot bytes.Buffer
+	if err := jpeg.Encode(&screenshot, canvas, &jpeg.Options{Quality: 80}); err != nil {
+		t.Fatal(err)
+	}
+	storedScreenshot, err := service.StoreReviewScreenshot(
+		ctx, preview.PreviewID, preview.Capability, bytes.NewReader(screenshot.Bytes()),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertRepeatedPreviewKeepsScreenshot(t, database.SQL, service, importService, actorID, storedScreenshot, screenshot.Bytes())
+	launchID := assertTyranoScriptProduct(ctx, t, service, importService, isolationService, itemID)
+	assertTyranoContentReadCauses(t, service, launchID, false)
+	assertTyranoScriptPreviewIsolationCleanup(t, database.SQL, preview.PreviewID, now)
+}
+
+func assertTyranoScriptPreview(
+	ctx context.Context,
+	t *testing.T,
+	database *sql.DB,
+	service *Service,
+	itemID string,
+	actorID string,
+	now func() time.Time,
+) (ReviewPreviewCreated, *isolation.Service) {
 	preview, err := service.CreateReviewPreview(ctx, ReviewPreviewRequest{
 		ImportItemID: itemID, ActorUserID: actorID, IdempotencyKey: "tyrano-preview-1",
 		ClientCapabilities: Capabilities{SecureContext: true},
@@ -88,6 +117,18 @@ VALUES(?,'tyrano-preview-profile','tyrano-preview-admin','Tyrano Admin','ADMIN',
 	if err != nil {
 		t.Fatalf("CreateReviewPreview(TyranoScript)=%#v, %v", preview, err)
 	}
+	previewOrigin, previewTicket := assertTyranoPreviewConfiguration(ctx, t, service, preview)
+	isolationService := assertTyranoPreviewAuthorization(ctx, t, database, service, preview, previewOrigin, previewTicket, now)
+	return preview, isolationService
+}
+
+func assertTyranoPreviewConfiguration(
+	ctx context.Context,
+	t *testing.T,
+	service *Service,
+	preview ReviewPreviewCreated,
+) (string, string) {
+	t.Helper()
 	configuration, err := service.ReviewPreviewConfig(ctx, preview.PreviewID, preview.Capability)
 	if err != nil {
 		t.Fatalf("ReviewPreviewConfig(TyranoScript)=%#v, %v", configuration, err)
@@ -108,8 +149,22 @@ VALUES(?,'tyrano-preview-profile','tyrano-preview-admin','Tyrano Admin','ADMIN',
 	); err != nil || identity == "" {
 		t.Fatalf("TyranoScript preview content identity=%q, %v", identity, err)
 	}
+	return previewOrigin, previewTicket
+}
+
+func assertTyranoPreviewAuthorization(
+	ctx context.Context,
+	t *testing.T,
+	database *sql.DB,
+	service *Service,
+	preview ReviewPreviewCreated,
+	previewOrigin string,
+	previewTicket string,
+	now func() time.Time,
+) *isolation.Service {
+	t.Helper()
 	isolationService := isolation.New(
-		isolationpersistence.New(database.SQL), "https://{launchId}.rpg-runtime.example", now,
+		isolationpersistence.New(database), "https://{launchId}.rpg-runtime.example", now,
 	)
 	previewCredential, previewAccess, err := isolationService.ConsumeTicket(
 		ctx, preview.PreviewID, previewOrigin, previewTicket,
@@ -123,7 +178,7 @@ VALUES(?,'tyrano-preview-profile','tyrano-preview-admin','Tyrano Admin','ADMIN',
 		t.Fatalf("authenticate TyranoScript preview=%#v, %v", authorized, err)
 	}
 	var lockedPreviewID string
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := database.QueryRowContext(ctx, `
 SELECT preview_id FROM isolated_runtime_bootstrap_tickets WHERE preview_id=?
 `, preview.PreviewID).Scan(&lockedPreviewID); err != nil || lockedPreviewID != preview.PreviewID {
 		t.Fatalf("TyranoScript preview bootstrap ticket=%q, %v", lockedPreviewID, err)
@@ -136,20 +191,17 @@ SELECT preview_id FROM isolated_runtime_bootstrap_tickets WHERE preview_id=?
 			t.Fatalf("preview content %q=%#v, %v", logicalName, content, contentErr)
 		}
 	}
-	assertTyranoContentReadCauses(t, service, preview.PreviewID, true)
-	canvas := image.NewRGBA(image.Rect(0, 0, 2, 2))
-	canvas.Set(0, 0, color.RGBA{R: 220, G: 70, B: 40, A: 255})
-	var screenshot bytes.Buffer
-	if err := jpeg.Encode(&screenshot, canvas, &jpeg.Options{Quality: 80}); err != nil {
-		t.Fatal(err)
-	}
-	storedScreenshot, err := service.StoreReviewScreenshot(
-		ctx, preview.PreviewID, preview.Capability, bytes.NewReader(screenshot.Bytes()),
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	assertRepeatedPreviewKeepsScreenshot(t, database.SQL, service, importService, actorID, storedScreenshot, screenshot.Bytes())
+	return isolationService
+}
+
+func assertTyranoScriptProduct(
+	ctx context.Context,
+	t *testing.T,
+	service *Service,
+	importService *libraryimport.Service,
+	isolationService *isolation.Service,
+	itemID string,
+) string {
 	approved, err := importService.Approve(ctx, itemID, 1)
 	if err != nil {
 		t.Fatalf("Approve(TyranoScript)=%v", err)
@@ -161,7 +213,8 @@ SELECT preview_id FROM isolated_runtime_bootstrap_tickets WHERE preview_id=?
 	if err != nil {
 		t.Fatalf("Create(TyranoScript product)=%v", err)
 	}
-	product, err := service.Config(ctx, created.LaunchID, created.Capability)
+	launchID := created.LaunchID
+	product, err := service.Config(ctx, launchID, created.Capability)
 	if err != nil {
 		t.Fatalf("Config(TyranoScript product)=%#v, %v", product, err)
 	}
@@ -174,22 +227,21 @@ SELECT preview_id FROM isolated_runtime_bootstrap_tickets WHERE preview_id=?
 		t.Fatalf("TyranoScript product envelope=%#v", productEnvelope)
 	}
 	productCredential, productAccess, err := isolationService.ConsumeTicket(
-		ctx, created.LaunchID, productOrigin, productTicket,
+		ctx, launchID, productOrigin, productTicket,
 	)
 	if err != nil || productAccess.Preview || productAccess.ContentFormat != tyranoScriptProjectFormat {
 		t.Fatalf("consume TyranoScript product ticket=%#v, %v", productAccess, err)
 	}
 	if authorized, err := isolationService.Authenticate(
-		ctx, created.LaunchID, productOrigin, productCredential,
+		ctx, launchID, productOrigin, productCredential,
 	); err != nil || authorized.Preview || authorized.ContentFormat != tyranoScriptProjectFormat {
 		t.Fatalf("authenticate TyranoScript product=%#v, %v", authorized, err)
 	}
-	content, err := service.TyranoScriptProjectContentAuthorized(ctx, created.LaunchID, "index.html", false)
+	content, err := service.TyranoScriptProjectContentAuthorized(ctx, launchID, "index.html", false)
 	if err != nil || content.Format != tyranoScriptProjectFormat {
 		t.Fatalf("product content=%#v, %v", content, err)
 	}
-	assertTyranoContentReadCauses(t, service, created.LaunchID, false)
-	assertTyranoScriptPreviewIsolationCleanup(t, database.SQL, preview.PreviewID, now)
+	return launchID
 }
 
 func assertTyranoScriptPreviewIsolationCleanup(t *testing.T, database *sql.DB, previewID string, clock func() time.Time) {

@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"database/sql"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -26,6 +27,7 @@ import (
 	"retrom/internal/repo/dbexec"
 
 	"retrom/internal/repo/recordstore"
+	"retrom/internal/repo/store"
 
 	"retrom/internal/adapter/files/blobstore"
 	"retrom/internal/adapter/runtime/dependencies"
@@ -71,37 +73,24 @@ VALUES(?,?,'bulk.review.admin','Bulk Review Admin','ADMIN','ENABLED',1,1)
 	testassert.False(t, err != nil, err)
 	uploader := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
 	importer := New(database.SQL, time.Now).WithBlobStore(blobs)
-	createImport := func(name, contents string) string {
-		t.Helper()
-		payload := []byte(contents)
-		upload, createErr := uploader.Create(ctx, uploadsmodel.CreateRequest{
-			SourceType: "FILES",
-			Files: []uploadsmodel.FileDeclaration{{
-				ClientFileID: "game", RelativePath: name, SizeBytes: int64(len(payload)),
-			}},
-		})
-		testassert.False(t, createErr != nil, createErr)
-		digest := sha256.Sum256(payload)
-		if err := uploader.PutPart(
-			ctx, upload.ID, upload.Files[0].ID, 0,
-			fmt.Sprintf("bytes 0-%d/%d", len(payload)-1, len(payload)),
-			"sha-256=:"+base64.StdEncoding.EncodeToString(digest[:])+":", bytes.NewReader(payload),
-		); err != nil {
-			t.Fatal(err)
-		}
-		current, err := uploader.Get(ctx, upload.ID)
-		testassert.False(t, err != nil, err)
-		jobID, _, err := uploader.Complete(ctx, upload.ID, current.Version)
-		testassert.False(t, err != nil, err)
-		waitForJob(ctx, t, database, jobID)
-		created, err := importer.Create(ctx, CreateRequest{
-			UploadID: upload.ID, TargetPlatformInstanceID: platformInstanceID, MetadataProvider: "NONE",
-		})
-		testassert.False(t, err != nil, err)
-		return created.ImportJobID
-	}
-	firstImportID := createImport("bulk-first.gba", "bulk-ready-first")
-	createImport("bulk-second.gba", "bulk-ready-second")
+
+	assertInitialReviewBulkApproval(ctx, t, database, uploader, importer, platformInstanceID)
+	assertStaleReviewBulkPreview(ctx, t, database, uploader, importer, platformInstanceID)
+	assertReviewBulkResume(ctx, t, database.SQL, importer, adminID)
+	assertReviewBulkCancel(ctx, t, database, uploader, importer, platformInstanceID, adminID)
+}
+
+func assertInitialReviewBulkApproval(
+	ctx context.Context,
+	t *testing.T,
+	database *store.DB,
+	uploader *uploads.Service,
+	importer *Service,
+	platformInstanceID string,
+) {
+	t.Helper()
+	firstImportID := createReviewBulkImport(ctx, t, database, uploader, importer, platformInstanceID, "bulk-first.gba", "bulk-ready-first")
+	createReviewBulkImport(ctx, t, database, uploader, importer, platformInstanceID, "bulk-second.gba", "bulk-ready-second")
 	preview, err := importer.PreviewReviewBulk(ctx, ReviewBulkScope{})
 	testassert.False(t, err != nil, err)
 	testassert.Falsef(t, testassert.Any(func() bool { return preview.Counts.Matched != 2 }, func() bool { return preview.Counts.StrictReady != 2 }, func() bool { return preview.ActiveBulkApproval != nil }), "preview counts = %#v active=%#v", preview.Counts, preview.ActiveBulkApproval)
@@ -160,8 +149,18 @@ bulk_approval_id=? AND import_item_id=(
 	}); err == nil {
 		t.Fatal("bulk approval item accepted a frozen review version update")
 	}
+}
 
-	createImport("bulk-stale.gba", "bulk-ready-stale")
+func assertStaleReviewBulkPreview(
+	ctx context.Context,
+	t *testing.T,
+	database *store.DB,
+	uploader *uploads.Service,
+	importer *Service,
+	platformInstanceID string,
+) {
+	t.Helper()
+	createReviewBulkImport(ctx, t, database, uploader, importer, platformInstanceID, "bulk-stale.gba", "bulk-ready-stale")
 	stalePreview, err := importer.PreviewReviewBulk(ctx, ReviewBulkScope{})
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return stalePreview.Counts.StrictReady != 1 }), "stale preview = %#v, %v", stalePreview, err)
 	if _, err := recordstore.UpdateReviewDrafts(ctx, database.SQL, recordstore.Update{
@@ -178,67 +177,22 @@ bulk_approval_id=? AND import_item_id=(
 	}); !errors.Is(err, ErrReviewBulkPreviewStale) {
 		t.Fatalf("stale create error = %v", err)
 	}
+}
 
-	insertInterruptedBatch := func(t *testing.T, bulkID, jobID, state string) ReviewBulkSummary {
-		t.Helper()
-		transaction, err := database.SQL.BeginTx(ctx, nil)
-		testassert.False(t, err != nil, err)
-		defer dbexec.Rollback(transaction)
-		currentPreview, candidates, err := importer.reviewBulkPreviewInTransaction(ctx, transaction, ReviewBulkScope{})
-		testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return len(candidates) != 1 }), "interrupted preview = %#v candidates=%d error=%v", currentPreview, len(candidates), err)
-		candidate := candidates[0]
-		jobState := state
-		workerID := any(nil)
-		startedAt := any(nil)
-		itemState := "PENDING"
-		itemStartedAt := any(nil)
-		if state == "RUNNING" {
-			workerID = "interrupted-worker"
-			startedAt = int64(20)
-			itemState = "RUNNING"
-			itemStartedAt = int64(20)
-		}
-		if _, err := transaction.ExecContext(ctx, `
-INSERT INTO jobs(id,scope_type,scope_id,kind,dedupe_key,execution_no,payload_json,cancellable,state,
-attempt_count,max_attempts,version,available_at_ms,execution_started_at_ms,worker_id,created_at_ms,updated_at_ms)
-VALUES(?,'REVIEW_BULK_APPROVAL',?,'REVIEW_BULK_APPROVE',?,1,'{}',1,?,0,4,1,10,?,?,10,20)
-`, jobID, bulkID, fmt.Sprintf("%x", sha256.Sum256([]byte(bulkID))), jobState, startedAt, workerID); err != nil {
-			t.Fatal(err)
-		}
-		if _, err := transaction.ExecContext(ctx, `
-INSERT INTO job_input_snapshots(job_id,execution_no,input_json,input_digest,created_at_ms)
-VALUES(?,1,'{}',?,10)
-`, jobID, strings.Repeat("d", 64)); err != nil {
-			t.Fatal(err)
-		}
-		if _, err := transaction.ExecContext(ctx, `
-INSERT INTO review_bulk_approvals(id,job_id,state,scope_json,scope_digest,candidate_manifest_digest,
-matched_count,candidate_count,screenshot_only_count,duplicate_count,attachment_active_count,
-source_flagged_count,not_ready_or_stale_count,created_by_user_id,version,created_at_ms,started_at_ms,updated_at_ms)
-VALUES(?,? ,?,'{}',?,?,1,1,0,0,0,0,0,?,1,10,?,20)
-`, bulkID, jobID, state, currentPreview.ScopeDigest, currentPreview.CandidateManifestDigest, adminID, startedAt); err != nil {
-			t.Fatal(err)
-		}
-		if _, err := transaction.ExecContext(ctx, `
-INSERT INTO review_bulk_approval_items(bulk_approval_id,import_item_id,ordinal,expected_review_version,
-expected_validation_id,expected_source_snapshot_id,title_snapshot,target_platform_instance_id,
-target_platform_name_snapshot,state,created_at_ms,started_at_ms)
-VALUES(?,?,?,?,?,?,?,?,?,?,10,?)
-`, bulkID, candidate.itemID, 0, candidate.reviewVersion, candidate.validationID.String,
-			candidate.sourceSnapshotID, strings.TrimSpace(candidate.title), candidate.platformInstanceID,
-			candidate.platformName, itemState, itemStartedAt); err != nil {
-			t.Fatal(err)
-		}
-		if err := transaction.Commit(); err != nil {
-			t.Fatal(err)
-		}
-		return ReviewBulkSummary{BulkApprovalID: bulkID, JobID: jobID, State: state, Version: 1}
-	}
-
-	restarted := insertInterruptedBatch(t,
+func assertReviewBulkResume(
+	ctx context.Context,
+	t *testing.T,
+	database *sql.DB,
+	importer *Service,
+	adminID string,
+) {
+	t.Helper()
+	var summary ReviewBulkSummary
+	var err error
+	restarted := insertInterruptedReviewBulk(ctx, t, database, importer, adminID,
 		"01990000-0000-7000-8000-00000000b720", "01990000-0000-7000-8000-00000000b721", "RUNNING")
 	importer.ResumeReviewBulkJobs(ctx)
-	deadline = time.Now().Add(5 * time.Second)
+	deadline := time.Now().Add(5 * time.Second)
 	for {
 		summary, err = importer.GetReviewBulk(ctx, restarted.BulkApprovalID)
 		testassert.False(t, err != nil, err)
@@ -250,16 +204,132 @@ VALUES(?,?,?,?,?,?,?,?,?,?,10,?)
 	}
 	testassert.Falsef(t, testassert.Any(func() bool { return summary.State != "COMPLETED" }, func() bool { return summary.Progress.Published != 1 }), "restarted result = %#v", summary)
 	var gameCount int
-	if err := database.SQL.QueryRowContext(ctx, `SELECT count(*) FROM games WHERE status='PUBLISHED'`).Scan(&gameCount); err != nil || gameCount != 3 {
+	if err := database.QueryRowContext(ctx, `SELECT count(*) FROM games WHERE status='PUBLISHED'`).Scan(&gameCount); err != nil || gameCount != 3 {
 		t.Fatalf("published game count after restart = %d, %v", gameCount, err)
 	}
+}
 
-	createImport("bulk-cancel.gba", "bulk-ready-cancel")
-	cancelled := insertInterruptedBatch(t,
+func assertReviewBulkCancel(
+	ctx context.Context,
+	t *testing.T,
+	database *store.DB,
+	uploader *uploads.Service,
+	importer *Service,
+	platformInstanceID string,
+	adminID string,
+) {
+	t.Helper()
+	var gameCount int
+	createReviewBulkImport(ctx, t, database, uploader, importer, platformInstanceID, "bulk-cancel.gba", "bulk-ready-cancel")
+	cancelled := insertInterruptedReviewBulk(ctx, t, database.SQL, importer, adminID,
 		"01990000-0000-7000-8000-00000000b722", "01990000-0000-7000-8000-00000000b723", "QUEUED")
 	cancelledSummary, err := importer.CancelReviewBulk(ctx, cancelled.BulkApprovalID, cancelled.Version, "integration cancel")
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return cancelledSummary.State != "CANCELLED" }, func() bool { return cancelledSummary.Progress.Cancelled != 1 }), "cancelled result = %#v, %v", cancelledSummary, err)
 	if err := database.SQL.QueryRowContext(ctx, `SELECT count(*) FROM games WHERE status='PUBLISHED'`).Scan(&gameCount); err != nil || gameCount != 3 {
 		t.Fatalf("published game count after cancel = %d, %v", gameCount, err)
 	}
+}
+
+func createReviewBulkImport(
+	ctx context.Context,
+	t *testing.T,
+	database *store.DB,
+	uploader *uploads.Service,
+	importer *Service,
+	platformInstanceID string,
+	name string,
+	contents string,
+) string {
+	t.Helper()
+	payload := []byte(contents)
+	upload, createErr := uploader.Create(ctx, uploadsmodel.CreateRequest{
+		SourceType: "FILES",
+		Files: []uploadsmodel.FileDeclaration{{
+			ClientFileID: "game", RelativePath: name, SizeBytes: int64(len(payload)),
+		}},
+	})
+	testassert.False(t, createErr != nil, createErr)
+	digest := sha256.Sum256(payload)
+	if err := uploader.PutPart(
+		ctx, upload.ID, upload.Files[0].ID, 0,
+		fmt.Sprintf("bytes 0-%d/%d", len(payload)-1, len(payload)),
+		"sha-256=:"+base64.StdEncoding.EncodeToString(digest[:])+":", bytes.NewReader(payload),
+	); err != nil {
+		t.Fatal(err)
+	}
+	current, err := uploader.Get(ctx, upload.ID)
+	testassert.False(t, err != nil, err)
+	jobID, _, err := uploader.Complete(ctx, upload.ID, current.Version)
+	testassert.False(t, err != nil, err)
+	waitForJob(ctx, t, database, jobID)
+	created, err := importer.Create(ctx, CreateRequest{
+		UploadID: upload.ID, TargetPlatformInstanceID: platformInstanceID, MetadataProvider: "NONE",
+	})
+	testassert.False(t, err != nil, err)
+	return created.ImportJobID
+}
+
+func insertInterruptedReviewBulk(
+	ctx context.Context,
+	t *testing.T,
+	database *sql.DB,
+	importer *Service,
+	adminID string,
+	bulkID string,
+	jobID string,
+	state string,
+) ReviewBulkSummary {
+	t.Helper()
+	transaction, err := database.BeginTx(ctx, nil)
+	testassert.False(t, err != nil, err)
+	defer dbexec.Rollback(transaction)
+	currentPreview, candidates, err := importer.reviewBulkPreviewInTransaction(ctx, transaction, ReviewBulkScope{})
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return len(candidates) != 1 }), "interrupted preview = %#v candidates=%d error=%v", currentPreview, len(candidates), err)
+	candidate := candidates[0]
+	jobState := state
+	workerID := any(nil)
+	startedAt := any(nil)
+	itemState := "PENDING"
+	itemStartedAt := any(nil)
+	if state == "RUNNING" {
+		workerID = "interrupted-worker"
+		startedAt = int64(20)
+		itemState = "RUNNING"
+		itemStartedAt = int64(20)
+	}
+	if _, err := transaction.ExecContext(ctx, `
+INSERT INTO jobs(id,scope_type,scope_id,kind,dedupe_key,execution_no,payload_json,cancellable,state,
+attempt_count,max_attempts,version,available_at_ms,execution_started_at_ms,worker_id,created_at_ms,updated_at_ms)
+VALUES(?,'REVIEW_BULK_APPROVAL',?,'REVIEW_BULK_APPROVE',?,1,'{}',1,?,0,4,1,10,?,?,10,20)
+`, jobID, bulkID, fmt.Sprintf("%x", sha256.Sum256([]byte(bulkID))), jobState, startedAt, workerID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := transaction.ExecContext(ctx, `
+INSERT INTO job_input_snapshots(job_id,execution_no,input_json,input_digest,created_at_ms)
+VALUES(?,1,'{}',?,10)
+`, jobID, strings.Repeat("d", 64)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := transaction.ExecContext(ctx, `
+INSERT INTO review_bulk_approvals(id,job_id,state,scope_json,scope_digest,candidate_manifest_digest,
+matched_count,candidate_count,screenshot_only_count,duplicate_count,attachment_active_count,
+source_flagged_count,not_ready_or_stale_count,created_by_user_id,version,created_at_ms,started_at_ms,updated_at_ms)
+VALUES(?,? ,?,'{}',?,?,1,1,0,0,0,0,0,?,1,10,?,20)
+`, bulkID, jobID, state, currentPreview.ScopeDigest, currentPreview.CandidateManifestDigest, adminID, startedAt); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := transaction.ExecContext(ctx, `
+INSERT INTO review_bulk_approval_items(bulk_approval_id,import_item_id,ordinal,expected_review_version,
+expected_validation_id,expected_source_snapshot_id,title_snapshot,target_platform_instance_id,
+target_platform_name_snapshot,state,created_at_ms,started_at_ms)
+VALUES(?,?,?,?,?,?,?,?,?,?,10,?)
+`, bulkID, candidate.itemID, 0, candidate.reviewVersion, candidate.validationID.String,
+		candidate.sourceSnapshotID, strings.TrimSpace(candidate.title), candidate.platformInstanceID,
+		candidate.platformName, itemState, itemStartedAt); err != nil {
+		t.Fatal(err)
+	}
+	if err := transaction.Commit(); err != nil {
+		t.Fatal(err)
+	}
+	return ReviewBulkSummary{BulkApprovalID: bulkID, JobID: jobID, State: state, Version: 1}
 }

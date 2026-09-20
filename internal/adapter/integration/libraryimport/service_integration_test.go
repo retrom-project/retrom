@@ -273,26 +273,43 @@ WHERE job.id=?
 		t.Fatalf("default tag inheritance = drafts:%d config:%s error:%v", inheritedDrafts, initialConfigSnapshot, err)
 	}
 	importer := New(database.SQL, time.Now)
-	transientTag, err := tagging.New(tagpersistence.New(database.SQL), time.Now).Create(ctx, adminID, "删除失效")
+	discardVersion := assertReviewTagAndNullableMetadata(ctx, t, database.SQL, importer, discardItemID, itemID, adminID, defaultTag.TagID)
+	crossPlatform := testsupport.MustPlatformInstanceID(t, database.SQL, "nes/fceumm")
+	refreshedValidationID := assertReviewConfigRefresh(ctx, t, database.SQL, importer, itemID, crossPlatform)
+	gameID := assertReviewBIOSAndPublish(ctx, t, database.SQL, importer, itemID, upload.Files[0].ID, refreshedValidationID, defaultTag.TagID)
+	assertDiscardReleaseAndAudit(ctx, t, database.SQL, importer, blobs, discardItemID, discardBlobID, discardVersion, gameID, created.ImportJobID, upload.ID, itemID)
+}
+
+func assertReviewTagAndNullableMetadata(
+	ctx context.Context,
+	t *testing.T,
+	database *sql.DB,
+	importer *Service,
+	discardItemID string,
+	itemID string,
+	adminID string,
+	defaultTagID string,
+) int64 {
+	transientTag, err := tagging.New(tagpersistence.New(database), time.Now).Create(ctx, adminID, "删除失效")
 	testassert.False(t, err != nil, err)
 	transientDraft, err := importer.PatchDraft(ctx, discardItemID, 1, DraftPatch{
-		TagIDs: []string{defaultTag.TagID, transientTag.TagID},
+		TagIDs: []string{defaultTagID, transientTag.TagID},
 	})
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return transientDraft.Version != 2 }), "add transient review tag = %#v, %v", transientDraft, err)
-	currentTransientTag, err := tagging.New(tagpersistence.New(database.SQL), time.Now).Get(ctx, transientTag.TagID)
+	currentTransientTag, err := tagging.New(tagpersistence.New(database), time.Now).Get(ctx, transientTag.TagID)
 	testassert.False(t, err != nil, err)
-	if _, _, err := tagging.New(tagpersistence.New(database.SQL), time.Now).Delete(
+	if _, _, err := tagging.New(tagpersistence.New(database), time.Now).Delete(
 		ctx, adminID, transientTag.TagID, transientTag.Name, currentTransientTag.Version,
 	); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := importer.PatchDraft(ctx, discardItemID, 2, DraftPatch{TagIDs: []string{defaultTag.TagID}}); !errors.Is(err, ErrVersionConflict) {
+	if _, err := importer.PatchDraft(ctx, discardItemID, 2, DraftPatch{TagIDs: []string{defaultTagID}}); !errors.Is(err, ErrVersionConflict) {
 		t.Fatalf("stale review after tag delete error = %v", err)
 	}
 	refreshedTransientDraft, err := importer.PatchDraft(
-		ctx, discardItemID, 3, DraftPatch{TagIDs: []string{defaultTag.TagID}},
+		ctx, discardItemID, 3, DraftPatch{TagIDs: []string{defaultTagID}},
 	)
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return refreshedTransientDraft.Version != 4 }, func() bool { return len(refreshedTransientDraft.Tags) != 1 }, func() bool { return refreshedTransientDraft.Tags[0].TagID != defaultTag.TagID }), "refresh deleted review tag = %#v, %v", refreshedTransientDraft, err)
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return refreshedTransientDraft.Version != 4 }, func() bool { return len(refreshedTransientDraft.Tags) != 1 }, func() bool { return refreshedTransientDraft.Tags[0].TagID != defaultTagID }), "refresh deleted review tag = %#v, %v", refreshedTransientDraft, err)
 	var metadataPatch DraftPatch
 	if err := json.Unmarshal([]byte(`{"metadata":{"players":2,"releaseYear":2001},"tagIds":[]}`), &metadataPatch); err != nil {
 		t.Fatal(err)
@@ -304,11 +321,22 @@ WHERE job.id=?
 	}
 	patched, err = importer.PatchDraft(ctx, itemID, 2, metadataPatch)
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return patched.Version != 3 }, func() bool { return patched.Metadata["players"] != nil }, func() bool { return patched.Metadata["releaseYear"] != nil }), "clear nullable metadata values = %#v, error=%v", patched, err)
-	crossPlatform := testsupport.MustPlatformInstanceID(t, database.SQL, "nes/fceumm")
-	_, err = importer.PatchDraft(ctx, itemID, 3, DraftPatch{TargetPlatformInstanceID: &crossPlatform, TagIDs: []string{}})
+	return refreshedTransientDraft.Version
+}
+
+func assertReviewConfigRefresh(
+	ctx context.Context,
+	t *testing.T,
+	database *sql.DB,
+	importer *Service,
+	itemID string,
+	crossPlatform string,
+) string {
+	var metadataPatch DraftPatch
+	_, err := importer.PatchDraft(ctx, itemID, 3, DraftPatch{TargetPlatformInstanceID: &crossPlatform, TagIDs: []string{}})
 	testassert.Truef(t, errors.Is(err, ErrReimportRequiredPlatformChange), "cross-platform draft change error = %v", err)
 	var oldValidationID, importConfigSnapshot string
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := database.QueryRowContext(ctx, `
 SELECT d.selected_validation_id,
 j.config_snapshot_json
 FROM review_drafts d
@@ -318,7 +346,7 @@ WHERE d.import_item_id=?
 `, itemID).Scan(&oldValidationID, &importConfigSnapshot); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := recordstore.UpdatePlatformInstances(ctx, database.SQL, recordstore.Update{
+	if _, err := recordstore.UpdatePlatformInstances(ctx, database, recordstore.Update{
 		Set: `
 version=version+1,
 updated_at_ms=updated_at_ms+1
@@ -339,7 +367,7 @@ updated_at_ms=updated_at_ms+1
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return refreshed.Version != 4 }), "refresh config validation = %#v, error=%v", refreshed, err)
 	var refreshedValidationID string
 	var refreshedPlatformVersion int64
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := database.QueryRowContext(ctx, `
 SELECT d.selected_validation_id,
 v.platform_instance_version
 FROM review_drafts d
@@ -350,20 +378,33 @@ WHERE d.import_item_id=?
 		!strings.Contains(importConfigSnapshot, `"platformInstanceVersion":1`) {
 		t.Fatalf("old/new validation snapshot = %s/%s v%d config=%s error=%v", oldValidationID, refreshedValidationID, refreshedPlatformVersion, importConfigSnapshot, err)
 	}
+	return refreshedValidationID
+}
+
+func assertReviewBIOSAndPublish(
+	ctx context.Context,
+	t *testing.T,
+	database *sql.DB,
+	importer *Service,
+	itemID string,
+	uploadFileID string,
+	refreshedValidationID string,
+	defaultTagID string,
+) string {
 	var sourceBlobID string
-	if err := database.SQL.QueryRowContext(ctx, "SELECT final_blob_id FROM upload_files WHERE id=?", upload.Files[0].ID).Scan(&sourceBlobID); err != nil {
+	if err := database.QueryRowContext(ctx, "SELECT final_blob_id FROM upload_files WHERE id=?", uploadFileID).Scan(&sourceBlobID); err != nil {
 		t.Fatal(err)
 	}
 	var requirementID, md5Value, sha1Value, sha256Value string
 	var requirementVersion, sourceSize int64
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := database.QueryRowContext(ctx, `
 SELECT id,version
 FROM bios_requirements
 WHERE core_id='mgba' AND logical_name='gba_bios.bin' AND enabled=1
 `).Scan(&requirementID, &requirementVersion); err != nil {
 		t.Fatal(err)
 	}
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := database.QueryRowContext(ctx, `
 SELECT size_bytes,md5,sha1,sha256
 FROM blobs
 WHERE id=?
@@ -371,7 +412,7 @@ WHERE id=?
 		t.Fatal(err)
 	}
 	const biosInstallationID = "01990000-0000-7000-8000-000000000010"
-	if _, err := database.SQL.ExecContext(ctx, `
+	if _, err := database.ExecContext(ctx, `
 INSERT INTO bios_installations(id,requirement_id,blob_id,original_filename,size_bytes,md5,sha1,sha256,
 validated_requirement_version,status,validation_details_json,is_active,version,created_at_ms,updated_at_ms)
 VALUES(?,?,?,?,?,?,?,?,?,'HASH_WARNING','{}',1,1,?,?)
@@ -384,13 +425,14 @@ VALUES(?,?,?,?,?,?,?,?,?,'HASH_WARNING','{}',1,1,?,?)
 	}); !errors.Is(err, ErrInvalid) {
 		t.Fatalf("stale explicit validation selection error = %v", err)
 	}
+	var metadataPatch DraftPatch
 	if err := json.Unmarshal([]byte(`{"metadata":{"description":"BIOS snapshot refreshed"},"tagIds":[]}`), &metadataPatch); err != nil {
 		t.Fatal(err)
 	}
 	biosRefreshed, err := importer.PatchDraft(ctx, itemID, 4, metadataPatch)
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return biosRefreshed.Version != 5 }), "refresh BIOS validation = %#v, error=%v", biosRefreshed, err)
 	var biosValidationID, biosSnapshotJSON, validationBIOSBlobID string
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := database.QueryRowContext(ctx, `
 SELECT d.selected_validation_id,v.dependency_snapshot_json,f.blob_id
 FROM review_drafts d
 JOIN import_item_core_validations v ON v.id=d.selected_validation_id
@@ -403,20 +445,20 @@ WHERE d.import_item_id=?
 	biosSnapshot, err := corevalidation.ParseSnapshot(biosSnapshotJSON)
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return biosValidationID == refreshedValidationID }, func() bool { return validationBIOSBlobID != sourceBlobID }, func() bool { return len(biosSnapshot.BIOS) != 1 }, func() bool { return biosSnapshot.BIOS[0].InstallationID == nil }, func() bool { return *biosSnapshot.BIOS[0].InstallationID != biosInstallationID }), "refreshed BIOS validation = %s snapshot=%s blob=%s error=%v", biosValidationID, biosSnapshotJSON, validationBIOSBlobID, err)
 	manualCoverID := "01990000-0000-7000-8000-000000000001"
-	if _, err := database.SQL.ExecContext(ctx, `
+	if _, err := database.ExecContext(ctx, `
 INSERT INTO review_uploaded_assets(id,import_item_id,upload_file_id,blob_id,kind,width_px,height_px,media_type,created_at_ms)
 VALUES(?,?,?,?,'COVER',600,900,'image/png',?)
-`, manualCoverID, itemID, upload.Files[0].ID, sourceBlobID, time.Now().UnixMilli()); err != nil {
+`, manualCoverID, itemID, uploadFileID, sourceBlobID, time.Now().UnixMilli()); err != nil {
 		t.Fatal(err)
 	}
 	selected, err := importer.PatchDraft(ctx, itemID, 5, DraftPatch{
-		SelectedAssets: &SelectedAssets{CoverUploadedAssetID: &manualCoverID}, TagIDs: []string{defaultTag.TagID},
+		SelectedAssets: &SelectedAssets{CoverUploadedAssetID: &manualCoverID}, TagIDs: []string{defaultTagID},
 	})
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return selected.Version != 6 }), "select uploaded review cover = %#v, error=%v", selected, err)
 	approved, err := importer.Approve(ctx, itemID, 6)
 	testassert.Falsef(t, err != nil, "approve: %v", err)
 	var title, titleInitial, variantStatus, publishedCoverBlobID string
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := database.QueryRowContext(ctx, `
 SELECT g.title,
 g.title_initial,
 v.status,
@@ -434,16 +476,48 @@ WHERE g.id=?
 		func() bool { return publishedCoverBlobID != sourceBlobID },
 	), "published title/initial/status/cover = %s/%s/%s/%s", title, titleInitial, variantStatus, publishedCoverBlobID)
 	var publishedTags int
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := database.QueryRowContext(ctx, `
 SELECT count(*) FROM game_tags WHERE game_id=? AND tag_id=?
-`, approved.GameID, defaultTag.TagID).Scan(&publishedTags); err != nil || publishedTags != 1 {
+`, approved.GameID, defaultTagID).Scan(&publishedTags); err != nil || publishedTags != 1 {
 		t.Fatalf("published game tag = %d, %v", publishedTags, err)
 	}
-	discarded, err := importer.Discard(ctx, discardItemID, refreshedTransientDraft.Version, "")
+	return approved.GameID
+}
+
+func assertDiscardReleaseAndAudit(
+	ctx context.Context,
+	t *testing.T,
+	database *sql.DB,
+	importer *Service,
+	blobs *blobstore.Store,
+	discardItemID string,
+	discardBlobID string,
+	discardVersion int64,
+	gameID string,
+	importJobID string,
+	uploadID string,
+	itemID string,
+) {
+	eventID := assertDiscardAggregate(ctx, t, database, importer, discardItemID, discardVersion, importJobID)
+	assertReleasedImportPayload(ctx, t, database, blobs, importJobID, uploadID, itemID, discardItemID, gameID)
+	assertDiscardAudit(ctx, t, database, discardBlobID, eventID)
+}
+
+func assertDiscardAggregate(
+	ctx context.Context,
+	t *testing.T,
+	database *sql.DB,
+	importer *Service,
+	discardItemID string,
+	discardVersion int64,
+	importJobID string,
+) string {
+	t.Helper()
+	discarded, err := importer.Discard(ctx, discardItemID, discardVersion, "")
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return discarded.Status != "DISCARDED" }), "discard review = %#v, error=%v", discarded, err)
 	var discardedJobState, discardedItemState string
 	var discardedJobPending, discardedJobPublished, discardedJobDiscarded int64
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := database.QueryRowContext(ctx, `
 SELECT job.state,
 job.review_pending_item_count,
 job.published_item_count,
@@ -452,7 +526,7 @@ item.state
 FROM import_jobs job
 JOIN import_items item ON item.import_job_id=job.id
 WHERE job.id=? AND item.id=?
-`, created.ImportJobID, discardItemID).Scan(
+`, importJobID, discardItemID).Scan(
 		&discardedJobState,
 		&discardedJobPending,
 		&discardedJobPublished,
@@ -462,7 +536,22 @@ WHERE job.id=? AND item.id=?
 		t.Fatal(err)
 	}
 	testassert.Falsef(t, testassert.Any(func() bool { return discardedJobState != "COMPLETED" }, func() bool { return discardedJobPending != 0 }, func() bool { return discardedJobPublished != 1 }, func() bool { return discardedJobDiscarded != 1 }, func() bool { return discardedItemState != "DISCARDED" }), "discard aggregate = job:%s pending:%d published:%d discarded:%d item:%s", discardedJobState, discardedJobPending, discardedJobPublished, discardedJobDiscarded, discardedItemState)
-	releases, err := payloadcomposition.New(ctx, database.SQL, blobs, time.Now, 7*24*time.Hour)
+	return discarded.EventID
+}
+
+func assertReleasedImportPayload(
+	ctx context.Context,
+	t *testing.T,
+	database *sql.DB,
+	blobs *blobstore.Store,
+	importJobID string,
+	uploadID string,
+	itemID string,
+	discardItemID string,
+	gameID string,
+) {
+	t.Helper()
+	releases, err := payloadcomposition.New(ctx, database, blobs, time.Now, 7*24*time.Hour)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -477,7 +566,7 @@ WHERE job.id=? AND item.id=?
 		}
 	}
 	var releasedItems, releasedJobs, purgedFiles, sourceRows, uploadedAssetRows, publishedPayloadRows int64
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := database.QueryRowContext(ctx, `
 SELECT
  (SELECT count(*) FROM import_items WHERE import_job_id=? AND payload_state='RELEASED'),
  (SELECT count(*) FROM import_jobs WHERE id=? AND payload_state='RELEASED'),
@@ -486,8 +575,8 @@ SELECT
  (SELECT count(*) FROM review_uploaded_assets WHERE import_item_id IN (?,?)),
  (SELECT count(*) FROM game_files file WHERE file.game_id=?)+
  (SELECT count(*) FROM game_assets WHERE game_id=?)
-`, created.ImportJobID, created.ImportJobID, upload.ID, itemID, discardItemID, itemID, discardItemID,
-		approved.GameID, approved.GameID).Scan(
+`, importJobID, importJobID, uploadID, itemID, discardItemID, itemID, discardItemID,
+		gameID, gameID).Scan(
 		&releasedItems, &releasedJobs, &purgedFiles, &sourceRows, &uploadedAssetRows, &publishedPayloadRows,
 	); err != nil {
 		t.Fatal(err)
@@ -498,10 +587,20 @@ SELECT
 		func() bool { return uploadedAssetRows != 0 }, func() bool { return publishedPayloadRows != 2 },
 	), "released import = items:%d job:%d files:%d source:%d assets:%d published:%d",
 		releasedItems, releasedJobs, purgedFiles, sourceRows, uploadedAssetRows, publishedPayloadRows)
+}
+
+func assertDiscardAudit(
+	ctx context.Context,
+	t *testing.T,
+	database *sql.DB,
+	discardBlobID string,
+	eventID string,
+) {
+	t.Helper()
 	var publishedDiscard, retainedBlob int
 	var beforeJSON, configEvidenceJSON, datEvidenceJSON string
 	var discardReason sql.NullString
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := database.QueryRowContext(ctx, `
 SELECT (SELECT count(*)
 FROM games g
 WHERE g.title='Discarded'),
@@ -513,7 +612,7 @@ dat_evidence_json
 reason
 FROM review_events
 WHERE id=?
-`, discardBlobID, discarded.EventID).Scan(&publishedDiscard, &retainedBlob, &beforeJSON, &configEvidenceJSON, &datEvidenceJSON, &discardReason); err != nil ||
+`, discardBlobID, eventID).Scan(&publishedDiscard, &retainedBlob, &beforeJSON, &configEvidenceJSON, &datEvidenceJSON, &discardReason); err != nil ||
 		publishedDiscard != 0 || retainedBlob != 1 ||
 		discardReason.Valid ||
 		strings.Contains(beforeJSON, "sourceManifest") ||
@@ -525,11 +624,11 @@ WHERE id=?
 		!strings.Contains(datEvidenceJSON, `"datMatched":false`) {
 		t.Fatalf("discard evidence = games:%d blob:%d before:%s config:%s dat:%s error=%v", publishedDiscard, retainedBlob, beforeJSON, configEvidenceJSON, datEvidenceJSON, err)
 	}
-	if _, err := recordstore.UpdateReviewEvents(ctx, database.SQL, recordstore.Update{
+	if _, err := recordstore.UpdateReviewEvents(ctx, database, recordstore.Update{
 		Set: `reason='tampered'`,
 		Scope: recordstore.Scope{
 			Where: `id=?`,
-			Args:  []any{discarded.EventID},
+			Args:  []any{eventID},
 		},
 	}); err == nil ||
 		!strings.Contains(err.Error(), "immutable") {
