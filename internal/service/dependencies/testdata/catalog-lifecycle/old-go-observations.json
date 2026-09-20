@@ -1,0 +1,786 @@
+[
+  {
+    "Name": "valid",
+    "Catalog": {
+      "Stats": {
+        "machine_count": 1,
+        "rom_entry_count": 1,
+        "rom_entry_with_merge_count": 0,
+        "rom_entry_with_bios_count": 0,
+        "rom_nodump_count": 0,
+        "rom_baddump_count": 0,
+        "rom_missing_crc32_count": 0,
+        "rom_missing_sha1_count": 1,
+        "rom_missing_all_hash_count": 0,
+        "non_nodump_rom_missing_all_hash_count": 0,
+        "bios_set_count": 0,
+        "default_bios_set_count": 0,
+        "disk_entry_count": 0,
+        "disk_missing_sha1_count": 0,
+        "sample_entry_count": 0,
+        "cloneof_relation_count": 0,
+        "romof_relation_count": 0,
+        "explicit_bios_machine_count": 0,
+        "base_dependency_target_count": 0,
+        "unresolved_cloneof_target_count": 0,
+        "unresolved_romof_target_count": 0
+      },
+      "Machines": [
+        {
+          "Name": "demo",
+          "Description": "",
+          "Year": "",
+          "Manufacturer": "",
+          "CloneOf": "",
+          "ROMOf": "",
+          "ExplicitBIOS": false,
+          "Classification": "NORMAL",
+          "BIOSSets": null,
+          "ROMs": [
+            {
+              "Ordinal": 0,
+              "Name": "demo.bin",
+              "SizeBytes": 1,
+              "CRC32": "12345678",
+              "SHA1": "",
+              "Status": "GOOD",
+              "MergeName": "",
+              "BIOSName": ""
+            }
+          ],
+          "Disks": null
+        }
+      ]
+    },
+    "Error": null,
+    "Events": null,
+    "Code": "",
+    "Canceled": false,
+    "Missing": false,
+    "WriteCause": false
+  },
+  {
+    "Name": "indexed-shortcut-missing",
+    "Catalog": {
+      "Stats": {
+        "machine_count": 1,
+        "rom_entry_count": 1,
+        "rom_entry_with_merge_count": 0,
+        "rom_entry_with_bios_count": 0,
+        "rom_nodump_count": 0,
+        "rom_baddump_count": 0,
+        "rom_missing_crc32_count": 0,
+        "rom_missing_sha1_count": 0,
+        "rom_missing_all_hash_count": 0,
+        "non_nodump_rom_missing_all_hash_count": 0,
+        "bios_set_count": 0,
+        "default_bios_set_count": 0,
+        "disk_entry_count": 0,
+        "disk_missing_sha1_count": 0,
+        "sample_entry_count": 0,
+        "cloneof_relation_count": 0,
+        "romof_relation_count": 0,
+        "explicit_bios_machine_count": 0,
+        "base_dependency_target_count": 0,
+        "unresolved_cloneof_target_count": 0,
+        "unresolved_romof_target_count": 0
+      },
+      "Machines": null
+    },
+    "Error": null,
+    "Events": null,
+    "Code": "",
+    "Canceled": false,
+    "Missing": false,
+    "WriteCause": false
+  },
+  {
+    "Name": "open-missing",
+    "Catalog": {
+      "Stats": {
+        "machine_count": 0,
+        "rom_entry_count": 0,
+        "rom_entry_with_merge_count": 0,
+        "rom_entry_with_bios_count": 0,
+        "rom_nodump_count": 0,
+        "rom_baddump_count": 0,
+        "rom_missing_crc32_count": 0,
+        "rom_missing_sha1_count": 0,
+        "rom_missing_all_hash_count": 0,
+        "non_nodump_rom_missing_all_hash_count": 0,
+        "bios_set_count": 0,
+        "default_bios_set_count": 0,
+        "disk_entry_count": 0,
+        "disk_missing_sha1_count": 0,
+        "sample_entry_count": 0,
+        "cloneof_relation_count": 0,
+        "romof_relation_count": 0,
+        "explicit_bios_machine_count": 0,
+        "base_dependency_target_count": 0,
+        "unresolved_cloneof_target_count": 0,
+        "unresolved_romof_target_count": 0
+      },
+      "Machines": null
+    },
+    "Error": {
+      "Type": "*errors.joinError",
+      "Text": "open built-in DAT: open \u003cROOT\u003e/fixture.dat: no such file or directory",
+      "Children": [
+        {
+          "Type": "*fmt.wrapError",
+          "Text": "open built-in DAT: open \u003cROOT\u003e/fixture.dat: no such file or directory",
+          "Children": [
+            {
+              "Type": "*fs.PathError",
+              "Text": "open \u003cROOT\u003e/fixture.dat: no such file or directory",
+              "Children": [
+                {
+                  "Type": "syscall.Errno",
+                  "Text": "no such file or directory",
+                  "Children": null
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "Events": [
+      "transaction",
+      "mark-failed",
+      "finish"
+    ],
+    "Code": "DEPENDENCY_DAT_BLOB_UNAVAILABLE",
+    "Canceled": false,
+    "Missing": true,
+    "WriteCause": false
+  },
+  {
+    "Name": "open-missing-write-failed",
+    "Catalog": {
+      "Stats": {
+        "machine_count": 0,
+        "rom_entry_count": 0,
+        "rom_entry_with_merge_count": 0,
+        "rom_entry_with_bios_count": 0,
+        "rom_nodump_count": 0,
+        "rom_baddump_count": 0,
+        "rom_missing_crc32_count": 0,
+        "rom_missing_sha1_count": 0,
+        "rom_missing_all_hash_count": 0,
+        "non_nodump_rom_missing_all_hash_count": 0,
+        "bios_set_count": 0,
+        "default_bios_set_count": 0,
+        "disk_entry_count": 0,
+        "disk_missing_sha1_count": 0,
+        "sample_entry_count": 0,
+        "cloneof_relation_count": 0,
+        "romof_relation_count": 0,
+        "explicit_bios_machine_count": 0,
+        "base_dependency_target_count": 0,
+        "unresolved_cloneof_target_count": 0,
+        "unresolved_romof_target_count": 0
+      },
+      "Machines": null
+    },
+    "Error": {
+      "Type": "*errors.joinError",
+      "Text": "open built-in DAT: open \u003cROOT\u003e/fixture.dat: no such file or directory\nrecord built-in DAT failure: DAT failure record unavailable",
+      "Children": [
+        {
+          "Type": "*fmt.wrapError",
+          "Text": "open built-in DAT: open \u003cROOT\u003e/fixture.dat: no such file or directory",
+          "Children": [
+            {
+              "Type": "*fs.PathError",
+              "Text": "open \u003cROOT\u003e/fixture.dat: no such file or directory",
+              "Children": [
+                {
+                  "Type": "syscall.Errno",
+                  "Text": "no such file or directory",
+                  "Children": null
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "Type": "*fmt.wrapError",
+          "Text": "record built-in DAT failure: DAT failure record unavailable",
+          "Children": [
+            {
+              "Type": "*errors.errorString",
+              "Text": "DAT failure record unavailable",
+              "Children": null
+            }
+          ]
+        }
+      ]
+    },
+    "Events": [
+      "transaction"
+    ],
+    "Code": "",
+    "Canceled": false,
+    "Missing": true,
+    "WriteCause": true
+  },
+  {
+    "Name": "canceled-open-missing",
+    "Catalog": {
+      "Stats": {
+        "machine_count": 0,
+        "rom_entry_count": 0,
+        "rom_entry_with_merge_count": 0,
+        "rom_entry_with_bios_count": 0,
+        "rom_nodump_count": 0,
+        "rom_baddump_count": 0,
+        "rom_missing_crc32_count": 0,
+        "rom_missing_sha1_count": 0,
+        "rom_missing_all_hash_count": 0,
+        "non_nodump_rom_missing_all_hash_count": 0,
+        "bios_set_count": 0,
+        "default_bios_set_count": 0,
+        "disk_entry_count": 0,
+        "disk_missing_sha1_count": 0,
+        "sample_entry_count": 0,
+        "cloneof_relation_count": 0,
+        "romof_relation_count": 0,
+        "explicit_bios_machine_count": 0,
+        "base_dependency_target_count": 0,
+        "unresolved_cloneof_target_count": 0,
+        "unresolved_romof_target_count": 0
+      },
+      "Machines": null
+    },
+    "Error": {
+      "Type": "*errors.joinError",
+      "Text": "open built-in DAT: open \u003cROOT\u003e/fixture.dat: no such file or directory",
+      "Children": [
+        {
+          "Type": "*fmt.wrapError",
+          "Text": "open built-in DAT: open \u003cROOT\u003e/fixture.dat: no such file or directory",
+          "Children": [
+            {
+              "Type": "*fs.PathError",
+              "Text": "open \u003cROOT\u003e/fixture.dat: no such file or directory",
+              "Children": [
+                {
+                  "Type": "syscall.Errno",
+                  "Text": "no such file or directory",
+                  "Children": null
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "Events": [
+      "transaction",
+      "mark-failed",
+      "finish"
+    ],
+    "Code": "DEPENDENCY_DAT_BLOB_UNAVAILABLE",
+    "Canceled": false,
+    "Missing": true,
+    "WriteCause": false
+  },
+  {
+    "Name": "statistics-mismatch",
+    "Catalog": {
+      "Stats": {
+        "machine_count": 0,
+        "rom_entry_count": 0,
+        "rom_entry_with_merge_count": 0,
+        "rom_entry_with_bios_count": 0,
+        "rom_nodump_count": 0,
+        "rom_baddump_count": 0,
+        "rom_missing_crc32_count": 0,
+        "rom_missing_sha1_count": 0,
+        "rom_missing_all_hash_count": 0,
+        "non_nodump_rom_missing_all_hash_count": 0,
+        "bios_set_count": 0,
+        "default_bios_set_count": 0,
+        "disk_entry_count": 0,
+        "disk_missing_sha1_count": 0,
+        "sample_entry_count": 0,
+        "cloneof_relation_count": 0,
+        "romof_relation_count": 0,
+        "explicit_bios_machine_count": 0,
+        "base_dependency_target_count": 0,
+        "unresolved_cloneof_target_count": 0,
+        "unresolved_romof_target_count": 0
+      },
+      "Machines": null
+    },
+    "Error": {
+      "Type": "*errors.joinError",
+      "Text": "DEPENDENCY_INVALID: built-in DAT statistics mismatch",
+      "Children": [
+        {
+          "Type": "*fmt.wrapError",
+          "Text": "DEPENDENCY_INVALID: built-in DAT statistics mismatch",
+          "Children": [
+            {
+              "Type": "*errors.errorString",
+              "Text": "DEPENDENCY_INVALID",
+              "Children": null
+            }
+          ]
+        }
+      ]
+    },
+    "Events": [
+      "transaction",
+      "mark-failed",
+      "finish"
+    ],
+    "Code": "DEPENDENCY_DAT_STATISTICS_MISMATCH",
+    "Canceled": false,
+    "Missing": false,
+    "WriteCause": false
+  },
+  {
+    "Name": "statistics-mismatch-write-failed",
+    "Catalog": {
+      "Stats": {
+        "machine_count": 0,
+        "rom_entry_count": 0,
+        "rom_entry_with_merge_count": 0,
+        "rom_entry_with_bios_count": 0,
+        "rom_nodump_count": 0,
+        "rom_baddump_count": 0,
+        "rom_missing_crc32_count": 0,
+        "rom_missing_sha1_count": 0,
+        "rom_missing_all_hash_count": 0,
+        "non_nodump_rom_missing_all_hash_count": 0,
+        "bios_set_count": 0,
+        "default_bios_set_count": 0,
+        "disk_entry_count": 0,
+        "disk_missing_sha1_count": 0,
+        "sample_entry_count": 0,
+        "cloneof_relation_count": 0,
+        "romof_relation_count": 0,
+        "explicit_bios_machine_count": 0,
+        "base_dependency_target_count": 0,
+        "unresolved_cloneof_target_count": 0,
+        "unresolved_romof_target_count": 0
+      },
+      "Machines": null
+    },
+    "Error": {
+      "Type": "*errors.joinError",
+      "Text": "DEPENDENCY_INVALID: built-in DAT statistics mismatch\nrecord built-in DAT failure: DAT failure record unavailable",
+      "Children": [
+        {
+          "Type": "*fmt.wrapError",
+          "Text": "DEPENDENCY_INVALID: built-in DAT statistics mismatch",
+          "Children": [
+            {
+              "Type": "*errors.errorString",
+              "Text": "DEPENDENCY_INVALID",
+              "Children": null
+            }
+          ]
+        },
+        {
+          "Type": "*fmt.wrapError",
+          "Text": "record built-in DAT failure: DAT failure record unavailable",
+          "Children": [
+            {
+              "Type": "*errors.errorString",
+              "Text": "DAT failure record unavailable",
+              "Children": null
+            }
+          ]
+        }
+      ]
+    },
+    "Events": [
+      "transaction"
+    ],
+    "Code": "",
+    "Canceled": false,
+    "Missing": false,
+    "WriteCause": true
+  },
+  {
+    "Name": "invalid-xml",
+    "Catalog": {
+      "Stats": {
+        "machine_count": 0,
+        "rom_entry_count": 0,
+        "rom_entry_with_merge_count": 0,
+        "rom_entry_with_bios_count": 0,
+        "rom_nodump_count": 0,
+        "rom_baddump_count": 0,
+        "rom_missing_crc32_count": 0,
+        "rom_missing_sha1_count": 0,
+        "rom_missing_all_hash_count": 0,
+        "non_nodump_rom_missing_all_hash_count": 0,
+        "bios_set_count": 0,
+        "default_bios_set_count": 0,
+        "disk_entry_count": 0,
+        "disk_missing_sha1_count": 0,
+        "sample_entry_count": 0,
+        "cloneof_relation_count": 0,
+        "romof_relation_count": 0,
+        "explicit_bios_machine_count": 0,
+        "base_dependency_target_count": 0,
+        "unresolved_cloneof_target_count": 0,
+        "unresolved_romof_target_count": 0
+      },
+      "Machines": null
+    },
+    "Error": {
+      "Type": "*errors.joinError",
+      "Text": "parse built-in DAT: DAT_INVALID_DOCUMENT: machine name",
+      "Children": [
+        {
+          "Type": "*fmt.wrapError",
+          "Text": "parse built-in DAT: DAT_INVALID_DOCUMENT: machine name",
+          "Children": [
+            {
+              "Type": "*fmt.wrapError",
+              "Text": "DAT_INVALID_DOCUMENT: machine name",
+              "Children": [
+                {
+                  "Type": "*errors.errorString",
+                  "Text": "DAT_INVALID_DOCUMENT",
+                  "Children": null
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "Events": [
+      "transaction",
+      "mark-failed",
+      "finish"
+    ],
+    "Code": "DEPENDENCY_DAT_PARSE_FAILED",
+    "Canceled": false,
+    "Missing": false,
+    "WriteCause": false
+  },
+  {
+    "Name": "invalid-xml-write-failed",
+    "Catalog": {
+      "Stats": {
+        "machine_count": 0,
+        "rom_entry_count": 0,
+        "rom_entry_with_merge_count": 0,
+        "rom_entry_with_bios_count": 0,
+        "rom_nodump_count": 0,
+        "rom_baddump_count": 0,
+        "rom_missing_crc32_count": 0,
+        "rom_missing_sha1_count": 0,
+        "rom_missing_all_hash_count": 0,
+        "non_nodump_rom_missing_all_hash_count": 0,
+        "bios_set_count": 0,
+        "default_bios_set_count": 0,
+        "disk_entry_count": 0,
+        "disk_missing_sha1_count": 0,
+        "sample_entry_count": 0,
+        "cloneof_relation_count": 0,
+        "romof_relation_count": 0,
+        "explicit_bios_machine_count": 0,
+        "base_dependency_target_count": 0,
+        "unresolved_cloneof_target_count": 0,
+        "unresolved_romof_target_count": 0
+      },
+      "Machines": null
+    },
+    "Error": {
+      "Type": "*errors.joinError",
+      "Text": "parse built-in DAT: DAT_INVALID_DOCUMENT: machine name\nrecord built-in DAT failure: DAT failure record unavailable",
+      "Children": [
+        {
+          "Type": "*fmt.wrapError",
+          "Text": "parse built-in DAT: DAT_INVALID_DOCUMENT: machine name",
+          "Children": [
+            {
+              "Type": "*fmt.wrapError",
+              "Text": "DAT_INVALID_DOCUMENT: machine name",
+              "Children": [
+                {
+                  "Type": "*errors.errorString",
+                  "Text": "DAT_INVALID_DOCUMENT",
+                  "Children": null
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "Type": "*fmt.wrapError",
+          "Text": "record built-in DAT failure: DAT failure record unavailable",
+          "Children": [
+            {
+              "Type": "*errors.errorString",
+              "Text": "DAT failure record unavailable",
+              "Children": null
+            }
+          ]
+        }
+      ]
+    },
+    "Events": [
+      "transaction"
+    ],
+    "Code": "",
+    "Canceled": false,
+    "Missing": false,
+    "WriteCause": true
+  },
+  {
+    "Name": "empty-dat",
+    "Catalog": {
+      "Stats": {
+        "machine_count": 0,
+        "rom_entry_count": 0,
+        "rom_entry_with_merge_count": 0,
+        "rom_entry_with_bios_count": 0,
+        "rom_nodump_count": 0,
+        "rom_baddump_count": 0,
+        "rom_missing_crc32_count": 0,
+        "rom_missing_sha1_count": 0,
+        "rom_missing_all_hash_count": 0,
+        "non_nodump_rom_missing_all_hash_count": 0,
+        "bios_set_count": 0,
+        "default_bios_set_count": 0,
+        "disk_entry_count": 0,
+        "disk_missing_sha1_count": 0,
+        "sample_entry_count": 0,
+        "cloneof_relation_count": 0,
+        "romof_relation_count": 0,
+        "explicit_bios_machine_count": 0,
+        "base_dependency_target_count": 0,
+        "unresolved_cloneof_target_count": 0,
+        "unresolved_romof_target_count": 0
+      },
+      "Machines": null
+    },
+    "Error": {
+      "Type": "*errors.joinError",
+      "Text": "parse built-in DAT: DAT_INVALID_DOCUMENT",
+      "Children": [
+        {
+          "Type": "*fmt.wrapError",
+          "Text": "parse built-in DAT: DAT_INVALID_DOCUMENT",
+          "Children": [
+            {
+              "Type": "*errors.errorString",
+              "Text": "DAT_INVALID_DOCUMENT",
+              "Children": null
+            }
+          ]
+        }
+      ]
+    },
+    "Events": [
+      "transaction",
+      "mark-failed",
+      "finish"
+    ],
+    "Code": "DEPENDENCY_DAT_PARSE_FAILED",
+    "Canceled": false,
+    "Missing": false,
+    "WriteCause": false
+  },
+  {
+    "Name": "canceled-valid",
+    "Catalog": {
+      "Stats": {
+        "machine_count": 0,
+        "rom_entry_count": 0,
+        "rom_entry_with_merge_count": 0,
+        "rom_entry_with_bios_count": 0,
+        "rom_nodump_count": 0,
+        "rom_baddump_count": 0,
+        "rom_missing_crc32_count": 0,
+        "rom_missing_sha1_count": 0,
+        "rom_missing_all_hash_count": 0,
+        "non_nodump_rom_missing_all_hash_count": 0,
+        "bios_set_count": 0,
+        "default_bios_set_count": 0,
+        "disk_entry_count": 0,
+        "disk_missing_sha1_count": 0,
+        "sample_entry_count": 0,
+        "cloneof_relation_count": 0,
+        "romof_relation_count": 0,
+        "explicit_bios_machine_count": 0,
+        "base_dependency_target_count": 0,
+        "unresolved_cloneof_target_count": 0,
+        "unresolved_romof_target_count": 0
+      },
+      "Machines": null
+    },
+    "Error": {
+      "Type": "*errors.joinError",
+      "Text": "parse built-in DAT: arcadedat/parser: context canceled",
+      "Children": [
+        {
+          "Type": "*fmt.wrapError",
+          "Text": "parse built-in DAT: arcadedat/parser: context canceled",
+          "Children": [
+            {
+              "Type": "*fmt.wrapError",
+              "Text": "arcadedat/parser: context canceled",
+              "Children": [
+                {
+                  "Type": "*errors.errorString",
+                  "Text": "context canceled",
+                  "Children": null
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "Events": [
+      "transaction",
+      "mark-failed",
+      "finish"
+    ],
+    "Code": "DEPENDENCY_DAT_PARSE_FAILED",
+    "Canceled": true,
+    "Missing": false,
+    "WriteCause": false
+  },
+  {
+    "Name": "canceled-valid-write-failed",
+    "Catalog": {
+      "Stats": {
+        "machine_count": 0,
+        "rom_entry_count": 0,
+        "rom_entry_with_merge_count": 0,
+        "rom_entry_with_bios_count": 0,
+        "rom_nodump_count": 0,
+        "rom_baddump_count": 0,
+        "rom_missing_crc32_count": 0,
+        "rom_missing_sha1_count": 0,
+        "rom_missing_all_hash_count": 0,
+        "non_nodump_rom_missing_all_hash_count": 0,
+        "bios_set_count": 0,
+        "default_bios_set_count": 0,
+        "disk_entry_count": 0,
+        "disk_missing_sha1_count": 0,
+        "sample_entry_count": 0,
+        "cloneof_relation_count": 0,
+        "romof_relation_count": 0,
+        "explicit_bios_machine_count": 0,
+        "base_dependency_target_count": 0,
+        "unresolved_cloneof_target_count": 0,
+        "unresolved_romof_target_count": 0
+      },
+      "Machines": null
+    },
+    "Error": {
+      "Type": "*errors.joinError",
+      "Text": "parse built-in DAT: arcadedat/parser: context canceled\nrecord built-in DAT failure: DAT failure record unavailable",
+      "Children": [
+        {
+          "Type": "*fmt.wrapError",
+          "Text": "parse built-in DAT: arcadedat/parser: context canceled",
+          "Children": [
+            {
+              "Type": "*fmt.wrapError",
+              "Text": "arcadedat/parser: context canceled",
+              "Children": [
+                {
+                  "Type": "*errors.errorString",
+                  "Text": "context canceled",
+                  "Children": null
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "Type": "*fmt.wrapError",
+          "Text": "record built-in DAT failure: DAT failure record unavailable",
+          "Children": [
+            {
+              "Type": "*errors.errorString",
+              "Text": "DAT failure record unavailable",
+              "Children": null
+            }
+          ]
+        }
+      ]
+    },
+    "Events": [
+      "transaction"
+    ],
+    "Code": "",
+    "Canceled": true,
+    "Missing": false,
+    "WriteCause": true
+  },
+  {
+    "Name": "unsupported-core",
+    "Catalog": {
+      "Stats": {
+        "machine_count": 0,
+        "rom_entry_count": 0,
+        "rom_entry_with_merge_count": 0,
+        "rom_entry_with_bios_count": 0,
+        "rom_nodump_count": 0,
+        "rom_baddump_count": 0,
+        "rom_missing_crc32_count": 0,
+        "rom_missing_sha1_count": 0,
+        "rom_missing_all_hash_count": 0,
+        "non_nodump_rom_missing_all_hash_count": 0,
+        "bios_set_count": 0,
+        "default_bios_set_count": 0,
+        "disk_entry_count": 0,
+        "disk_missing_sha1_count": 0,
+        "sample_entry_count": 0,
+        "cloneof_relation_count": 0,
+        "romof_relation_count": 0,
+        "explicit_bios_machine_count": 0,
+        "base_dependency_target_count": 0,
+        "unresolved_cloneof_target_count": 0,
+        "unresolved_romof_target_count": 0
+      },
+      "Machines": null
+    },
+    "Error": {
+      "Type": "*errors.joinError",
+      "Text": "parse built-in DAT: DAT_INVALID_DOCUMENT: unsupported core",
+      "Children": [
+        {
+          "Type": "*fmt.wrapError",
+          "Text": "parse built-in DAT: DAT_INVALID_DOCUMENT: unsupported core",
+          "Children": [
+            {
+              "Type": "*fmt.wrapError",
+              "Text": "DAT_INVALID_DOCUMENT: unsupported core",
+              "Children": [
+                {
+                  "Type": "*errors.errorString",
+                  "Text": "DAT_INVALID_DOCUMENT",
+                  "Children": null
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "Events": [
+      "transaction",
+      "mark-failed",
+      "finish"
+    ],
+    "Code": "DEPENDENCY_DAT_PARSE_FAILED",
+    "Canceled": false,
+    "Missing": false,
+    "WriteCause": false
+  }
+]

@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -17,6 +18,7 @@ import (
 	"time"
 
 	firmwaresource "retrom/internal/adapter/content/firmwaremanifest"
+	"retrom/internal/bootstrap/composition"
 
 	dependencypersistence "retrom/internal/repo/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
@@ -44,7 +46,7 @@ func TestGameMovePreviewQueuesTargetCoreValidationAndPreservesHistory(t *testing
 	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database), firmwaresource.Source{}).Bootstrap(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
-	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database), firmwaresource.Source{}).BootstrapCatalogs(ctx, time.Now()); err != nil {
+	if err := composition.NewDependencyCatalogs(server.dependencies, server.database, slog.Default()).BootstrapCatalogs(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	gameID, contentID := seedMovableGame(t, server)
@@ -207,7 +209,7 @@ func TestPlatformInstanceVisibilityAndNonEmptyDeletionBoundaries(t *testing.T) {
 	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database), firmwaresource.Source{}).Bootstrap(context.Background(), time.Now()); err != nil {
 		t.Fatal(err)
 	}
-	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database), firmwaresource.Source{}).BootstrapCatalogs(context.Background(), time.Now()); err != nil {
+	if err := composition.NewDependencyCatalogs(server.dependencies, server.database, slog.Default()).BootstrapCatalogs(context.Background(), time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	gameID, _ := seedMovableGame(t, server)
@@ -284,7 +286,7 @@ func TestDefaultCoreImpactPaginationRejectsDriftAndPreservesSaveLaunch(t *testin
 	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database), firmwaresource.Source{}).Bootstrap(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
-	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database), firmwaresource.Source{}).BootstrapCatalogs(ctx, time.Now()); err != nil {
+	if err := composition.NewDependencyCatalogs(server.dependencies, server.database, slog.Default()).BootstrapCatalogs(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	gameID, _ := seedMovableGame(t, server)
@@ -774,7 +776,7 @@ func newReadyHTTPServer(t *testing.T) *Server {
 	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database), firmwaresource.Source{}).Bootstrap(context.Background(), time.Now()); err != nil {
 		t.Fatal(err)
 	}
-	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database), firmwaresource.Source{}).BootstrapCatalogs(context.Background(), time.Now()); err != nil {
+	if err := composition.NewDependencyCatalogs(server.dependencies, server.database, slog.Default()).BootstrapCatalogs(context.Background(), time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	return server

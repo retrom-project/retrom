@@ -1,0 +1,137 @@
+package dependencies
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+	"time"
+
+	runtime "retrom/internal/adapter/runtime/dependencies"
+	"retrom/internal/capability/format/arcadedat"
+	model "retrom/internal/model/dependencies"
+)
+
+const captureValidDAT = "<datafile><game name=\"demo\"><rom name=\"demo.bin\" size=\"1\" crc=\"12345678\"/></game></datafile>"
+
+type captureCase struct {
+	Name string
+	Contents string
+	Missing, Cancel, WriteFailure bool
+	Core string
+	Expected model.CatalogStats
+	Indexed int64
+}
+
+type captureTree struct {
+	Type string
+	Text string
+	Children []captureTree
+}
+
+type captureObservation struct {
+	Name string
+	Catalog arcadedat.Catalog
+	Error *captureTree
+	Events []string
+	Code string
+	Canceled, Missing, WriteCause bool
+}
+
+type captureRepository struct {
+	model.Repository
+	model.CatalogRecords
+	model.JobRecords
+	events []string
+	code string
+	failure error
+}
+
+func (repository *captureRepository) WithWrite(ctx context.Context, work func(model.WriteScope) error) error {
+	repository.events = append(repository.events, "transaction")
+	if repository.failure != nil {
+		return repository.failure
+	}
+	return work(model.WriteScope{Catalog: repository, Jobs: repository})
+}
+
+func (repository *captureRepository) MarkFailed(context.Context, string, int64) error {
+	repository.events = append(repository.events, "mark-failed")
+	return nil
+}
+
+func (repository *captureRepository) Finish(_ context.Context, finish model.JobFinish) error {
+	repository.events = append(repository.events, "finish")
+	repository.code = finish.Code
+	return nil
+}
+
+func captureError(err error, root string) *captureTree {
+	if err == nil { return nil }
+	result := &captureTree{Type: fmt.Sprintf("%T", err), Text: strings.ReplaceAll(err.Error(), root, "<ROOT>")}
+	switch cause := err.(type) {
+	case interface{ Unwrap() []error }:
+		for _, child := range cause.Unwrap() {
+			result.Children = append(result.Children, *captureError(child, root))
+		}
+	case interface{ Unwrap() error }:
+		if child := cause.Unwrap(); child != nil {
+			result.Children = append(result.Children, *captureError(child, root))
+		}
+	}
+	return result
+}
+
+func TestCaptureCatalogBaseline(t *testing.T) {
+	expected := model.CatalogStats{MachineCount: 1, ROMEntryCount: 1}
+	cases := []captureCase{
+		{Name: "valid", Contents: captureValidDAT, Expected: expected},
+		{Name: "indexed-shortcut-missing", Missing: true, Expected: expected, Indexed: 1},
+		{Name: "open-missing", Missing: true, Expected: expected},
+		{Name: "open-missing-write-failed", Missing: true, WriteFailure: true, Expected: expected},
+		{Name: "canceled-open-missing", Missing: true, Cancel: true, Expected: expected},
+		{Name: "statistics-mismatch", Contents: captureValidDAT, Expected: model.CatalogStats{MachineCount: 2}},
+		{Name: "statistics-mismatch-write-failed", Contents: captureValidDAT, Expected: model.CatalogStats{MachineCount: 2}, WriteFailure: true},
+		{Name: "invalid-xml", Contents: "<datafile><game></datafile>", Expected: expected},
+		{Name: "invalid-xml-write-failed", Contents: "<datafile><game></datafile>", Expected: expected, WriteFailure: true},
+		{Name: "empty-dat", Contents: "", Expected: expected},
+		{Name: "canceled-valid", Contents: captureValidDAT, Cancel: true, Expected: expected},
+		{Name: "canceled-valid-write-failed", Contents: captureValidDAT, Cancel: true, WriteFailure: true, Expected: expected},
+		{Name: "unsupported-core", Contents: captureValidDAT, Core: "unsupported", Expected: expected},
+	}
+	observations := make([]captureObservation, 0, len(cases))
+	for _, testCase := range cases {
+		observations = append(observations, captureOne(t, testCase))
+	}
+	contents, err := json.MarshalIndent(observations, "", "  ")
+	if err != nil { t.Fatal(err) }
+	if err := os.WriteFile("old-go-observations.json", append(contents, '\n'), 0o600); err != nil { t.Fatal(err) }
+	t.Logf("captured %d original loadCatalog observations", len(observations))
+}
+
+func captureOne(t *testing.T, testCase captureCase) captureObservation {
+	t.Helper()
+	root := t.TempDir()
+	if !testCase.Missing {
+		if err := os.WriteFile(filepath.Join(root, "fixture.dat"), []byte(testCase.Contents), 0o600); err != nil { t.Fatal(err) }
+	}
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	if testCase.Cancel { cancel() }
+	repository := &captureRepository{}
+	writeFailure := errors.New("DAT failure record unavailable")
+	if testCase.WriteFailure { repository.failure = writeFailure }
+	core := testCase.Core
+	if core == "" { core = "fbneo" }
+	bootstrap := catalogBootstrap{ctx: ctx, repository: repository, now: time.UnixMilli(1000)}
+	catalog, err := bootstrap.loadCatalog(&runtime.Version{DATRoot: root}, core, "fixture.dat", testCase.Expected, testCase.Indexed, "dat", "job")
+	return captureObservation{
+		Name: testCase.Name, Catalog: catalog, Error: captureError(err, root),
+		Events: repository.events, Code: repository.code,
+		Canceled: errors.Is(err, context.Canceled), Missing: errors.Is(err, os.ErrNotExist), WriteCause: errors.Is(err, writeFailure),
+	}
+}

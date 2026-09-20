@@ -9,6 +9,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -16,6 +17,7 @@ import (
 	"time"
 
 	firmwaresource "retrom/internal/adapter/content/firmwaremanifest"
+	"retrom/internal/bootstrap/composition"
 
 	uploadsmodel "retrom/internal/model/uploads"
 	dependencypersistence "retrom/internal/repo/dependencies"
@@ -109,7 +111,7 @@ func createMultiDiscHTTPLaunch(t *testing.T, server *Server) (launch.Created, st
 	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database), firmwaresource.Source{}).Bootstrap(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
-	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database), firmwaresource.Source{}).BootstrapCatalogs(ctx, time.Now()); err != nil {
+	if err := composition.NewDependencyCatalogs(server.dependencies, server.database, slog.Default()).BootstrapCatalogs(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	server.importer.WithMultiDiscImportEnabled(true)
@@ -437,7 +439,7 @@ func TestMultiDiscAttachmentHTTPContractAndProviderUpgradeProjection(t *testing.
 	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database), firmwaresource.Source{}).Bootstrap(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
-	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database), firmwaresource.Source{}).BootstrapCatalogs(ctx, time.Now()); err != nil {
+	if err := composition.NewDependencyCatalogs(server.dependencies, server.database, slog.Default()).BootstrapCatalogs(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	server.importer.WithMultiDiscImportEnabled(true)
@@ -498,7 +500,7 @@ func TestMultiDiscPlayerEventHTTPContract(t *testing.T) {
 	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database), firmwaresource.Source{}).Bootstrap(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
-	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database), firmwaresource.Source{}).BootstrapCatalogs(ctx, time.Now()); err != nil {
+	if err := composition.NewDependencyCatalogs(server.dependencies, server.database, slog.Default()).BootstrapCatalogs(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	server.importer.WithMultiDiscImportEnabled(true)

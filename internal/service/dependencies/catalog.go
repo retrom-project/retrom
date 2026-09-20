@@ -4,19 +4,20 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
-	"path/filepath"
 	"sort"
 	"time"
 
 	"retrom/internal/adapter/runtime/dependencies"
 	"retrom/internal/capability/format/arcadedat"
-	"retrom/internal/foundation/cleanup"
 	model "retrom/internal/model/dependencies"
+	"retrom/internal/model/diagnostics"
 )
 
-func (service *Service) BootstrapCatalogs(ctx context.Context, now time.Time) error {
-	bootstrap := catalogBootstrap{ctx: ctx, repository: service.repository, set: service.set, now: now}
+func (service *CatalogService) BootstrapCatalogs(ctx context.Context, now time.Time) error {
+	bootstrap := catalogBootstrap{
+		ctx: ctx, repository: service.repository, set: service.set, now: now,
+		source: service.source, reporter: service.reporter,
+	}
 	names := make([]string, 0, len(service.set.Versions))
 	for name := range service.set.Versions {
 		names = append(names, name)
@@ -39,6 +40,8 @@ type catalogBootstrap struct {
 	set          *dependencies.Set
 	now          time.Time
 	firstFailure error
+	source       model.DATCatalogSource
+	reporter     diagnostics.ErrorReporter
 }
 
 func (bootstrap *catalogBootstrap) runCore(version *dependencies.Version, index int) {
@@ -161,7 +164,7 @@ func (bootstrap *catalogBootstrap) loadCatalog(
 	if indexed == expected.MachineCount {
 		return catalogFromStats(expected), nil
 	}
-	file, err := os.Open(filepath.Join(version.DATRoot, filepath.FromSlash(relativePath)))
+	file, err := bootstrap.source.OpenBuiltIn(version.DATRoot, relativePath)
 	if err != nil {
 		failure := failBuiltInDAT(
 			bootstrap.ctx,
@@ -171,10 +174,12 @@ func (bootstrap *catalogBootstrap) loadCatalog(
 			"DEPENDENCY_DAT_BLOB_UNAVAILABLE",
 			bootstrap.now,
 		)
-		return arcadedat.Catalog{}, errors.Join(fmt.Errorf("open built-in DAT: %w", err), failure)
+		return arcadedat.Catalog{}, errors.Join(err, failure)
 	}
 	catalog, parseErr := arcadedat.ParseCatalog(bootstrap.ctx, file, coreID)
-	cleanup.Error("close", file.Close())
+	if err := file.Close(); err != nil {
+		bootstrap.reporter.Report(bootstrap.ctx, diagnostics.CleanupFailure("close", "", fmt.Sprintf("%T", err)))
+	}
 	if parseErr == nil && statsMatch(catalog.Stats, expected) {
 		return catalog, nil
 	}

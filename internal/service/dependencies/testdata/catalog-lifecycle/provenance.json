@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "status": "ACTUAL_OLD_GO_CAPTURE",
+  "sourceCommit": "2e98c03b59dc2a636092a523fd4d045d67ad2133",
+  "go": "go1.26.5 linux/amd64",
+  "packageName": "dependencies",
+  "sourceFiles": [
+    {
+      "source": "internal/service/dependencies/bios_catalog.go",
+      "sha256": "ebc993dd6702c0e9cb27acba4644cba46d0d5b8b5aaccd84737273dc2542d128",
+      "bytes": 17125
+    },
+    {
+      "source": "internal/service/dependencies/catalog.go",
+      "sha256": "2c89bd5b8175b61e45521fca4e1349e4cf30c0c8c49d3d8f5d74181f578125ed",
+      "bytes": 5533
+    },
+    {
+      "source": "internal/service/dependencies/firmware_archives.go",
+      "sha256": "4fad547b8fcba8d96a97400052216f3298e998b182ceb9115bf23a9f6381fd3f",
+      "bytes": 1197
+    },
+    {
+      "source": "internal/service/dependencies/jobs.go",
+      "sha256": "48b6bc17797596886d36c19db692b3876af485117bee20cd014012a54d86a3c1",
+      "bytes": 4748
+    },
+    {
+      "source": "internal/service/dependencies/pc88.go",
+      "sha256": "f79a4ad0017e5820fbd123cd7c2ff8fa7a2af43e307bd0d198d021b916e980c5",
+      "bytes": 2593
+    },
+    {
+      "source": "internal/service/dependencies/publication.go",
+      "sha256": "37dbc93269ccf76283add02a8c7d3fbd6a8e68aae64b583d119888534c12435d",
+      "bytes": 2306
+    },
+    {
+      "source": "internal/service/dependencies/service.go",
+      "sha256": "11f1244eb44c345c9f714cdb9612f188a1b36508147e1955254e796ca47811ad",
+      "bytes": 5539
+    },
+    {
+      "source": "internal/service/dependencies/statistics.go",
+      "sha256": "d1b6edea29e414f0e52f4d492a2ddaac1e287339bb7fc4319c615a8f0454d4c4",
+      "bytes": 1526
+    }
+  ],
+  "captureDriver": "capture_driver_test.go.txt",
+  "captureDriverSHA256": "206950c2ebba9d5aed6f79d35e832eeec1a3a72f9ee012850b72f14f43a96cf5",
+  "golden": "old-go-observations.json",
+  "goldenSHA256": "d3d5fd1ac961bfa41b5eba50a2f1eb01dcfbc48ccb05e13d875294b429e0d3a6",
+  "observations": 13,
+  "command": "go test -count=1 -run '^TestCaptureCatalogBaseline$' -v ./.artifacts/refactor/rf04-dat-catalog-old-capture",
+  "preparation": "Reconstruct only the listed production files from sourceCommit with git show into .artifacts/refactor/rf04-dat-catalog-old-capture, verify each SHA256, then copy capture_driver_test.go.txt as capture_test.go. The package name and original production code are unchanged; no Open/Read/Close instrumentation or substitutes are added to the old implementation.",
+  "normalization": "Only each test temporary root in error text becomes <ROOT>. Full error node types, unwrap order, original Catalog value, failure-write events, stable error code and Is markers are retained.",
+  "input": "The listed driver uses a small Retrom-owned XML document, ordinary absent files, normal invalid XML/empty input, caller cancellation and a fake failure-record repository. No third-party games/BIOS, network or worker processes.",
+  "scope": "Close-failure and read-failure injection are separate new resource-port regression tests, not claimed to be observed through old os.Open."
+}

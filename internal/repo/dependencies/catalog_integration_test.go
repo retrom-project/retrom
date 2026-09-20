@@ -4,6 +4,8 @@ package dependencies
 
 import (
 	"context"
+	"database/sql"
+	"log/slog"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -11,6 +13,8 @@ import (
 	"time"
 
 	firmwaresource "retrom/internal/adapter/content/firmwaremanifest"
+	datsource "retrom/internal/adapter/format/arcadedat"
+	cleanupadapter "retrom/internal/adapter/system/cleanup"
 
 	"retrom/internal/adapter/runtime/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
@@ -36,7 +40,7 @@ func TestBootstrapCatalogsMaterializesPinnedDATsIdempotently(t *testing.T) {
 	if err := dependencyservice.New(set, New(database.SQL), firmwaresource.Source{}).Bootstrap(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
-	if err := dependencyservice.New(set, New(database.SQL), firmwaresource.Source{}).BootstrapCatalogs(ctx, time.Now()); err != nil {
+	if err := newCatalogsForTest(set, database.SQL).BootstrapCatalogs(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	var machines int64
@@ -88,7 +92,7 @@ AND core_id IN ('fbalpha2012_cps1','fbalpha2012_cps2')
 `).Scan(&expansionRequirements); err != nil || expansionRequirements != 0 {
 		t.Fatalf("FBA2012 DAT requirements = %d, error=%v", expansionRequirements, err)
 	}
-	if err := dependencyservice.New(set, New(database.SQL), firmwaresource.Source{}).BootstrapCatalogs(ctx, time.Now()); err != nil {
+	if err := newCatalogsForTest(set, database.SQL).BootstrapCatalogs(ctx, time.Now()); err != nil {
 		t.Fatalf("idempotent bootstrap: %v", err)
 	}
 	var providerID, targetID, selectedDATID string
@@ -125,7 +129,7 @@ SELECT (SELECT count(*) FROM dat_versions WHERE provider_id=? AND target_id=? AN
 		t.Fatal(err)
 	}
 	testassert.Falsef(t, testassert.Any(func() bool { return activeAfterSelection != 0 }, func() bool { return supersededActive != 0 }), "manifest selection = active:%d superseded:%d", activeAfterSelection, supersededActive)
-	if err := dependencyservice.New(set, New(database.SQL), firmwaresource.Source{}).BootstrapCatalogs(ctx, selectionTime); err != nil {
+	if err := newCatalogsForTest(set, database.SQL).BootstrapCatalogs(ctx, selectionTime); err != nil {
 		t.Fatal(err)
 	}
 	var selectedActive, selectedRequirements int
@@ -136,4 +140,8 @@ SELECT (SELECT is_active FROM dat_versions WHERE id=?),
 		t.Fatal(err)
 	}
 	testassert.Falsef(t, testassert.Any(func() bool { return selectedActive != 1 }, func() bool { return selectedRequirements == 0 }), "selected built-in DAT = active:%d requirements:%d", selectedActive, selectedRequirements)
+}
+
+func newCatalogsForTest(set *dependencies.Set, database *sql.DB) *dependencyservice.CatalogService {
+	return dependencyservice.NewCatalogs(set, New(database), datsource.Source{}, cleanupadapter.NewReporter(slog.Default()))
 }

@@ -243,6 +243,22 @@
       ]
     },
     {
+      "path": "internal/adapter/format/arcadedat",
+      "layer": "adapter",
+      "module": "format",
+      "owner": "RF04",
+      "files": [
+        {
+          "path": "internal/adapter/format/arcadedat/source.go",
+          "kind": "production"
+        },
+        {
+          "path": "internal/adapter/format/arcadedat/source_test.go",
+          "kind": "test"
+        }
+      ]
+    },
+    {
       "path": "internal/adapter/imports/emulationstationimport",
       "layer": "adapter",
       "module": "imports",
@@ -2217,6 +2233,10 @@
           "kind": "production"
         },
         {
+          "path": "internal/bootstrap/composition/dependency_catalogs.go",
+          "kind": "production"
+        },
+        {
           "path": "internal/bootstrap/composition/diagnostics.go",
           "kind": "production"
         },
@@ -3552,6 +3572,10 @@
       "module": "dependencies",
       "owner": "RF11",
       "files": [
+        {
+          "path": "internal/model/dependencies/catalog_source.go",
+          "kind": "production"
+        },
         {
           "path": "internal/model/dependencies/firmware_ports.go",
           "kind": "production"
@@ -8719,6 +8743,22 @@
         {
           "path": "internal/service/dependencies/catalog.go",
           "kind": "production"
+        },
+        {
+          "path": "internal/service/dependencies/catalog_error_contract_test.go",
+          "kind": "test"
+        },
+        {
+          "path": "internal/service/dependencies/catalog_lifecycle_test.go",
+          "kind": "test"
+        },
+        {
+          "path": "internal/service/dependencies/catalog_service.go",
+          "kind": "production"
+        },
+        {
+          "path": "internal/service/dependencies/catalog_test_fixtures_test.go",
+          "kind": "test"
         },
         {
           "path": "internal/service/dependencies/firmware_archives.go",

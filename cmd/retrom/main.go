@@ -520,7 +520,7 @@ func startCatalogBootstrap(resources serverResources) context.CancelFunc {
 }
 
 func bootstrapCatalogs(ctx context.Context, dependencySet *dependencies.Set, database *sql.DB) {
-	dependencies := dependencyservice.New(dependencySet, dependencypersistence.New(database), firmwaresource.Source{})
+	dependencies := composition.NewDependencyCatalogs(dependencySet, database, slog.Default())
 	if err := dependencies.BootstrapCatalogs(ctx, time.Now()); err != nil {
 		slog.Error("background DAT indexing failed", "error", err)
 		return

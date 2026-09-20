@@ -113,7 +113,7 @@ Retrom 镜像构建输入必须包含：
 
 ## 8. DAT 与 BIOS
 
-`internal/adapter/runtime/dependencies` 负责清单与文件校验；`internal/service/dependencies` 编排 BIOS 定义初始化、DAT 任务恢复、解析及激活；`internal/repo/dependencies` 实现事务和目录读写。DAT 解析在写事务之外运行。任务领取、目录状态与事件必须共同提交或回滚；发布索引、切换激活版本、同步 Requirement、记录审计及完成任务也共享一个写事务。失败事件不能静默丢弃，保留的失败任务不在启动时自动重建。
+`internal/adapter/runtime/dependencies` 负责清单与文件校验；`internal/service/dependencies` 编排 BIOS 定义初始化、DAT 任务恢复、解析及激活；`internal/repo/dependencies` 实现事务和目录读写。DAT 解析在写事务之外运行。DAT 索引由独立的 `CatalogService` 编排，Bootstrap 通过 `model/dependencies.DATCatalogSource` 注入 `adapter/format/arcadedat.Source`；文件打开沿用安装清单的根目录和相对路径，纯解析器继续消费有界 Reader。Service 在解析返回后、统计判定和状态写入前关闭流一次，非致命关闭错误只通过显式诊断端口记录错误类型；打开、读取、取消和解析错误的先后顺序不变。任务领取、目录状态与事件必须共同提交或回滚；发布索引、切换激活版本、同步 Requirement、记录审计及完成任务也共享一个写事务。失败事件不能静默丢弃，保留的失败任务不在启动时自动重建。
 
 EmulatorJS DAT 的 binding 使用稳定 `(providerId,targetId)`。`data-check` 与启动校验都要求：
 
