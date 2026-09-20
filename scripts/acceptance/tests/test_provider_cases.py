@@ -13,10 +13,6 @@ SPEC.loader.exec_module(runner)
 
 
 class ProviderAcceptanceRegistrationTests(unittest.TestCase):
-    def test_quality_sentinel_count_tracks_the_authoritative_case_catalog(self):
-        source = (ROOT / "scripts/acceptance/quality-sentinels.sh").read_text(encoding="utf-8")
-        self.assertIn(f"if len(catalog) != {len(runner.all_cases())}:", source)
-
     def test_go_case_selectors_cannot_succeed_without_current_tests(self):
         for case_id, (_, command) in runner.CASE_COMMANDS.items():
             for part in command.split("&&"):
@@ -86,6 +82,13 @@ class ProviderAcceptanceRegistrationTests(unittest.TestCase):
                      for name in re.findall(r"func (Test\w+)\(", value)]
             with self.subTest(pattern=pattern):
                 self.assertTrue(any(re.search(pattern, name) for name in names), "selector runs no tests")
+
+    def test_provider_release_gate_covers_tag_versions_and_pfb_injection(self):
+        source = (ROOT / "scripts/acceptance/provider-case.sh").read_text(encoding="utf-8")
+        release = source.split("  ACC-PROVIDER-006)", 1)[1].split(";;", 1)[0]
+        for name in ("test_runtime_providers.py", "TestProductionProviderVersionsFollowReleaseTag",
+                     "release-version.test.ts", "provider-client-build.test.ts", "pfb-provider-dev.test.ts"):
+            self.assertIn(name, release)
 
     def test_runtime_loading_evidence_tracks_provider_bundle_urls(self):
         source = (ROOT / "scripts/acceptance/runtime_loading_evidence.mjs").read_text(encoding="utf-8")

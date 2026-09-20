@@ -122,16 +122,7 @@ func validActive(value ActiveDescriptor) bool {
 	if value.SchemaVersion != 1 || len(value.Providers) == 0 {
 		return false
 	}
-	switch value.Source {
-	case "candidate":
-		if value.Release != nil || value.SourceTreeSHA256 == nil || !digestPattern(*value.SourceTreeSHA256) {
-			return false
-		}
-	case "production":
-		if value.SourceTreeSHA256 != nil || value.Release == nil || !validRelease(*value.Release) {
-			return false
-		}
-	default:
+	if !validActiveSource(value) {
 		return false
 	}
 	previous := ""
@@ -139,9 +130,23 @@ func validActive(value ActiveDescriptor) bool {
 		if !validActiveProvider(provider) || previous != "" && previous >= provider.ProviderID {
 			return false
 		}
+		if value.Source == "production" && provider.ProviderVersion != value.Release.Tag[1:] {
+			return false
+		}
 		previous = provider.ProviderID
 	}
 	return true
+}
+
+func validActiveSource(value ActiveDescriptor) bool {
+	switch value.Source {
+	case "candidate":
+		return value.Release == nil && value.SourceTreeSHA256 != nil && digestPattern(*value.SourceTreeSHA256)
+	case "production":
+		return value.SourceTreeSHA256 == nil && value.Release != nil && validRelease(*value.Release)
+	default:
+		return false
+	}
 }
 
 func validRelease(value ReleaseIdentity) bool {

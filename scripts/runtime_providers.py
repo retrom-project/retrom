@@ -167,6 +167,8 @@ def check_active_providers(active_path: Path, installed_root: Path, expected_sou
         raise ValueError("RUNTIME_PROVIDER_ACTIVE_INVALID")
     providers = _active_providers(active)
     for provider in providers.values():
+        if expected_source == "production" and provider["providerVersion"] != active["release"]["tag"][1:]:
+            raise ValueError("RUNTIME_PROVIDER_ACTIVE_INVALID")
         record = {
             "archive": f'{provider["providerId"]}/{provider["providerId"]}-provider-{provider["providerVersion"]}.tar.gz',
             "bundleDirectory": f'{provider["providerId"]}/{provider["providerId"]}-{provider["providerVersion"]}',
@@ -221,6 +223,8 @@ def _load_release_metadata(path: Path) -> dict[str, Any]:
             not _valid_release_identity(value["release"]):
         raise ValueError("PROVIDER_RELEASE_METADATA_INVALID")
     _validate_provider_records(value.get("providers"))
+    if any(provider["providerVersion"] != value["release"]["tag"][1:] for provider in value["providers"]):
+        raise ValueError("PROVIDER_RELEASE_METADATA_INVALID")
     return value
 
 

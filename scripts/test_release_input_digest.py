@@ -46,7 +46,7 @@ class ProviderInputTests(unittest.TestCase):
             root = Path(temporary)
             locks = root / "data/runtime-providers"
             locks.mkdir(parents=True)
-            for provider_id, version in (("emulatorjs", "1.0.0"), ("retrom-runtime", "0.12.0")):
+            for provider_id, version in (("emulatorjs", "0.46.0"), ("retrom-runtime", "0.46.0")):
                 (locks / f"{provider_id}.lock.json").write_text(json.dumps(
                     lock_fixture(provider_id, version), separators=(",", ":"), sort_keys=True,
                 ), encoding="utf-8")
@@ -66,7 +66,7 @@ def lock_fixture(provider_id: str, version: str) -> dict[str, object]:
         "bundleSizeBytes": 100,
         "bundleUrl": (
             "https://github.com/retrom-project/retrom-runtime/releases/download/"
-            f"v0.12.0/{provider_id}-provider-{version}.tar.gz"
+            f"v0.46.0/{provider_id}-provider-{version}.tar.gz"
         ),
         "commit": "b" * 40,
         "fileCount": 6,
@@ -75,7 +75,7 @@ def lock_fixture(provider_id: str, version: str) -> dict[str, object]:
         "providerVersion": version,
         "repository": "https://github.com/retrom-project/retrom-runtime",
         "schemaVersion": 1,
-        "tag": "v0.12.0",
+        "tag": "v0.46.0",
         "unpackedSizeBytes": 200,
     }
 

@@ -85,11 +85,26 @@ class RuntimeProviderInstallerTest(unittest.TestCase):
                     with self.assertRaisesRegex(ValueError, "PROVIDER_BUNDLE_UNSAFE"):
                         install_provider_bundle(candidate, candidate_lock, root / "installed-malicious")
 
-    def test_accepts_provider_version_independent_from_release_tag(self):
+    def test_rejects_provider_version_independent_from_release_tag(self):
         with tempfile.TemporaryDirectory() as temporary:
             _, lock = fixture_bundle(Path(temporary))
             lock["tag"] = "v0.12.0"
-            self.assertEqual(validate_provider_lock(lock), lock)
+            with self.assertRaisesRegex(ValueError, "PROVIDER_LOCK_INVALID"):
+                validate_provider_lock(lock)
+
+    def test_rejects_release_metadata_with_a_different_provider_version(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            archive, lock = fixture_bundle(root)
+            target = root / "release/providers/fixture" / archive.name
+            target.parent.mkdir(parents=True)
+            target.write_bytes(archive.read_bytes())
+            metadata = formal_release_metadata(lock)
+            metadata["release"]["tag"] = "v0.46.0"
+            (root / "release/providers/provider-release.json").write_text(json.dumps(metadata), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "PROVIDER_RELEASE_METADATA_INVALID"):
+                pin_provider_release(root / "release", root / "locks")
+            self.assertFalse((root / "locks").exists())
 
     def test_rejects_a_manifest_whose_asset_closure_differs_from_the_bundle(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -215,6 +230,12 @@ class RuntimeProviderInstallerTest(unittest.TestCase):
             self.assertEqual(active["source"], "production")
             self.assertEqual(active["release"], metadata["release"])
             check_active_providers(active_path, root / "installed-a", "production")
+            changed = json.loads(active_path.read_text(encoding="utf-8"))
+            changed["release"]["tag"] = "v0.46.0"
+            active_path.write_text(json.dumps(changed), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "RUNTIME_PROVIDER_ACTIVE_INVALID"):
+                check_active_providers(active_path, root / "installed-a", "production")
+            active_path.write_text(json.dumps(active), encoding="utf-8")
 
             def offline(_url, _maximum):
                 raise AssertionError("verified cache hit must not access the network")
@@ -416,7 +437,7 @@ def formal_release_metadata(lock):
         "release": {
             "commit": "a" * 40,
             "repository": "https://github.com/retrom-project/retrom-runtime",
-            "tag": "v0.12.0",
+            "tag": "v1.0.0",
         },
         "schemaVersion": 1,
     }
