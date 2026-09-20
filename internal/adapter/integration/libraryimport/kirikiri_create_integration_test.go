@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"database/sql"
 	"encoding/base64"
 	"fmt"
 	"path/filepath"
@@ -51,7 +52,53 @@ func TestCreateKiriKiriArchiveReachesTrialRequiredReview(t *testing.T) {
 		t.Fatal(err)
 	}
 	archive := kirikiriProjectArchive(t)
-	uploadService := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
+	uploadID := uploadKiriKiriProject(ctx, t, database.SQL, blobs, dataDir, archive)
+	created, err := New(database.SQL, time.Now).WithBlobStore(blobs).Create(ctx, CreateRequest{
+		UploadID: uploadID, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(
+			t, database.SQL, "kirikiri/kirikiri2",
+		),
+		MetadataProvider: "HASHEOUS", ContentMode: "KIRIKIRI_PROJECT", TagIDs: []string{},
+	})
+	if err != nil {
+		t.Fatalf("Create(KiriKiri) error = %v", err)
+	}
+	if created.ItemCount != 1 || created.State != "REVIEW_PENDING" {
+		t.Fatalf("Create(KiriKiri) = %#v", created)
+	}
+	assertKiriKiriReview(ctx, t, database.SQL, created)
+}
+
+func assertKiriKiriReview(ctx context.Context, t *testing.T, database *sql.DB, created Created) {
+	t.Helper()
+	var state, code, contentKind, metadataProvider, providerID, targetID string
+	var selectedValidation any
+	if err := database.QueryRowContext(ctx, `
+SELECT item.state,validation.compatibility_code,snapshot.content_kind,job.metadata_provider,
+	   validation.provider_id,validation.target_id,draft.selected_validation_id
+FROM import_items item
+JOIN import_jobs job ON job.id=item.import_job_id
+JOIN import_item_core_validations validation ON validation.import_item_id=item.id
+JOIN import_item_source_snapshots snapshot ON snapshot.id=validation.source_snapshot_id
+JOIN review_drafts draft ON draft.import_item_id=item.id
+WHERE item.import_job_id=?
+`, created.ImportJobID).Scan(
+		&state, &code, &contentKind, &metadataProvider, &providerID, &targetID, &selectedValidation,
+	); err != nil {
+		t.Fatal(err)
+	}
+	if state != "REVIEW_PENDING" || code != "KIRIKIRI_RUNTIME_TRIAL_REQUIRED" ||
+		contentKind != "KIRIKIRI_PROJECT" || metadataProvider != "NONE" || providerID != "retrom-runtime" ||
+		targetID != "kirikiri2-kag" || selectedValidation != nil {
+		t.Fatalf(
+			"KiriKiri review = %s/%s/%s/%s/%s/%s selected=%v",
+			state, code, contentKind, metadataProvider, providerID, targetID, selectedValidation,
+		)
+	}
+}
+
+func uploadKiriKiriProject(ctx context.Context, t *testing.T, database *sql.DB, blobs *blobstore.Store, dataDir string, archive []byte) string {
+	t.Helper()
+	uploadService := uploads.New(uploadpersistence.New(database), blobs, dataDir, time.Now)
 	upload, err := uploadService.Create(ctx, uploadsmodel.CreateRequest{
 		Purpose: "PROJECT", SourceType: "FILES",
 		Files: []uploadsmodel.FileDeclaration{{
@@ -77,43 +124,8 @@ func TestCreateKiriKiriArchiveReachesTrialRequiredReview(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	waitForRPGUploadFinalization(t, ctx, database.SQL, jobID)
-	created, err := New(database.SQL, time.Now).WithBlobStore(blobs).Create(ctx, CreateRequest{
-		UploadID: upload.ID, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(
-			t, database.SQL, "kirikiri/kirikiri2",
-		),
-		MetadataProvider: "HASHEOUS", ContentMode: "KIRIKIRI_PROJECT", TagIDs: []string{},
-	})
-	if err != nil {
-		t.Fatalf("Create(KiriKiri) error = %v", err)
-	}
-	if created.ItemCount != 1 || created.State != "REVIEW_PENDING" {
-		t.Fatalf("Create(KiriKiri) = %#v", created)
-	}
-	var state, code, contentKind, metadataProvider, providerID, targetID string
-	var selectedValidation any
-	if err := database.SQL.QueryRowContext(ctx, `
-SELECT item.state,validation.compatibility_code,snapshot.content_kind,job.metadata_provider,
-	   validation.provider_id,validation.target_id,draft.selected_validation_id
-FROM import_items item
-JOIN import_jobs job ON job.id=item.import_job_id
-JOIN import_item_core_validations validation ON validation.import_item_id=item.id
-JOIN import_item_source_snapshots snapshot ON snapshot.id=validation.source_snapshot_id
-JOIN review_drafts draft ON draft.import_item_id=item.id
-WHERE item.import_job_id=?
-`, created.ImportJobID).Scan(
-		&state, &code, &contentKind, &metadataProvider, &providerID, &targetID, &selectedValidation,
-	); err != nil {
-		t.Fatal(err)
-	}
-	if state != "REVIEW_PENDING" || code != "KIRIKIRI_RUNTIME_TRIAL_REQUIRED" ||
-		contentKind != "KIRIKIRI_PROJECT" || metadataProvider != "NONE" || providerID != "retrom-runtime" ||
-		targetID != "kirikiri2-kag" || selectedValidation != nil {
-		t.Fatalf(
-			"KiriKiri review = %s/%s/%s/%s/%s/%s selected=%v",
-			state, code, contentKind, metadataProvider, providerID, targetID, selectedValidation,
-		)
-	}
+	waitForRPGUploadFinalization(t, ctx, database, jobID)
+	return upload.ID
 }
 
 func kirikiriProjectArchive(t *testing.T) []byte {

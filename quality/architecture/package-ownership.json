@@ -11901,6 +11901,10 @@
           "kind": "test"
         },
         {
+          "path": "internal/testkit/architecture/archive_resource_bridge_test.go",
+          "kind": "test"
+        },
+        {
           "path": "internal/testkit/architecture/archive_resource_constructor_test.go",
           "kind": "test"
         },

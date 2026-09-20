@@ -191,7 +191,7 @@ func (graph *archiveOriginGraph) reachableFrames(
 			return nil, err
 		}
 		for _, parent := range parents {
-			frame, err := graph.callFrame(call, parent)
+			frame, err := graph.bridgeFrame(call, parent)
 			if err != nil {
 				return nil, err
 			}

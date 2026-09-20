@@ -3,6 +3,7 @@
 package libraryimport
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"strings"
@@ -27,29 +28,7 @@ WHERE draft.import_item_id=?
 	if err := json.Unmarshal([]byte(snapshotJSON), &snapshot); err != nil {
 		t.Fatal(err)
 	}
-	snapshot.Dependencies[0].State = "MISSING"
-	snapshot.MissingEntries = []string{"codexbios.zip"}
-	snapshot.Warnings = []string{}
-	legacyJSON, err := json.Marshal(snapshot)
-	if err != nil {
-		t.Fatal(err)
-	}
-	metadata := `{"title":"Child","description":"` + strings.Repeat("界", 12167) + `"}`
-	// Seed the immutable evidence produced before missing-entry uploads were usable.
-	legacyID := uuid.NewString()
-	if _, err := database.ExecContext(ctx, `
-INSERT INTO import_item_core_validations(id,import_item_id,target_platform_instance_id,platform_instance_version,
-core_id,provider_id,target_id,dat_version_id,default_dos_entry,source_manifest_digest,source_snapshot_id,
-prepublish_input_digest,status,compatibility_code,dependency_snapshot_json,created_at_ms)
-SELECT ?,import_item_id,target_platform_instance_id,platform_instance_version,core_id,provider_id,target_id,
-dat_version_id,default_dos_entry,source_manifest_digest,source_snapshot_id,prepublish_input_digest,
-'BLOCKED','LAUNCH_BIOS_MISSING',?,created_at_ms+1 FROM import_item_core_validations WHERE id=?;
-`, legacyID, string(legacyJSON), validationID); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := database.ExecContext(ctx, `UPDATE review_drafts SET selected_validation_id=NULL,metadata_json=? WHERE import_item_id=?`, metadata, itemID); err != nil {
-		t.Fatal(err)
-	}
+	legacyID, legacyJSON, metadata := seedLegacyPreviewBIOSValidation(ctx, t, database, snapshot, validationID, itemID)
 	if err := importer.RefreshReviewPreviewValidation(ctx, itemID); err != nil {
 		t.Fatal(err)
 	}
@@ -84,4 +63,32 @@ WHERE draft.import_item_id=?
 		t.Fatal("unchanged dependencies changed the draft version")
 	}
 	return nextVersion
+}
+
+func seedLegacyPreviewBIOSValidation(ctx context.Context, t *testing.T, database *sql.DB, snapshot arcadeDraftSnapshot, validationID, itemID string) (string, []byte, string) {
+	t.Helper()
+	snapshot.Dependencies[0].State = "MISSING"
+	snapshot.MissingEntries = []string{"codexbios.zip"}
+	snapshot.Warnings = []string{}
+	legacyJSON, err := json.Marshal(snapshot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	metadata := `{"title":"Child","description":"` + strings.Repeat("界", 12167) + `"}`
+	// Seed the immutable evidence produced before missing-entry uploads were usable.
+	legacyID := uuid.NewString()
+	if _, err := database.ExecContext(ctx, `
+INSERT INTO import_item_core_validations(id,import_item_id,target_platform_instance_id,platform_instance_version,
+core_id,provider_id,target_id,dat_version_id,default_dos_entry,source_manifest_digest,source_snapshot_id,
+prepublish_input_digest,status,compatibility_code,dependency_snapshot_json,created_at_ms)
+SELECT ?,import_item_id,target_platform_instance_id,platform_instance_version,core_id,provider_id,target_id,
+dat_version_id,default_dos_entry,source_manifest_digest,source_snapshot_id,prepublish_input_digest,
+'BLOCKED','LAUNCH_BIOS_MISSING',?,created_at_ms+1 FROM import_item_core_validations WHERE id=?;
+`, legacyID, string(legacyJSON), validationID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := database.ExecContext(ctx, `UPDATE review_drafts SET selected_validation_id=NULL,metadata_json=? WHERE import_item_id=?`, metadata, itemID); err != nil {
+		t.Fatal(err)
+	}
+	return legacyID, legacyJSON, metadata
 }

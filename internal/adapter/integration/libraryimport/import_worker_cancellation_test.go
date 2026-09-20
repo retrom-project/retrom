@@ -4,6 +4,7 @@ package libraryimport
 
 import (
 	"context"
+	"database/sql"
 	"database/sql/driver"
 	"errors"
 	"strings"
@@ -39,30 +40,7 @@ func TestImportWorkerDomainCancelRollsBackFailedPayloadScheduling(t *testing.T) 
 	source := service.database
 	cause := errors.New("cancel payload scheduling unavailable")
 	writes, attempts := int64(0), 0
-	fault := testsupport.OpenSQLFaultDatabase(
-		t,
-		source,
-		testsupport.SQLFaultHooks{
-			BeforeExec: func(_ context.Context, query string, _ []driver.NamedValue) error {
-				if strings.HasPrefix(strings.TrimSpace(query), "INSERT INTO jobs(") && strings.Contains(query, "'PAYLOAD_RELEASE'") {
-					attempts++
-					return cause
-				}
-				return nil
-			},
-			AfterExec: func(_ context.Context, query string, args []driver.NamedValue, result driver.Result) (driver.Result, error) {
-				if strings.HasPrefix(strings.TrimSpace(query), "UPDATE jobs SET state=") && len(args) > 0 &&
-					args[0].Value == "CANCELLED" {
-					count, err := result.RowsAffected()
-					if err != nil {
-						return nil, err
-					}
-					writes += count
-				}
-				return result, nil
-			},
-		},
-	)
+	fault := newImportCancellationFault(t, source, cause, &writes, &attempts)
 	handler := composition.WithJobCancellation(jobs.New(jobpersistence.New(fault), service.now), fault, service.now)
 	result, pending, err := handler.Cancel(t.Context(), created.JobID, 1, "operator request")
 	if !errors.Is(err, cause) || result != (jobs.Result{}) || pending || writes != 1 || attempts != 1 {
@@ -82,6 +60,34 @@ func TestImportWorkerDomainCancelRollsBackFailedPayloadScheduling(t *testing.T) 
 		t.Fatalf("cancel retry=%+v pending=%t error=%v", result, pending, err)
 	}
 	assertImportCancellationState(t, service, created, "CANCELLED", "CANCELLED", "RELEASING", 2)
+}
+
+func newImportCancellationFault(t *testing.T, source *sql.DB, cause error, writes *int64, attempts *int) *sql.DB {
+	t.Helper()
+	return testsupport.OpenSQLFaultDatabase(
+		t,
+		source,
+		testsupport.SQLFaultHooks{
+			BeforeExec: func(_ context.Context, query string, _ []driver.NamedValue) error {
+				if strings.HasPrefix(strings.TrimSpace(query), "INSERT INTO jobs(") && strings.Contains(query, "'PAYLOAD_RELEASE'") {
+					(*attempts)++
+					return cause
+				}
+				return nil
+			},
+			AfterExec: func(_ context.Context, query string, args []driver.NamedValue, result driver.Result) (driver.Result, error) {
+				if strings.HasPrefix(strings.TrimSpace(query), "UPDATE jobs SET state=") && len(args) > 0 &&
+					args[0].Value == "CANCELLED" {
+					count, err := result.RowsAffected()
+					if err != nil {
+						return nil, err
+					}
+					*writes += count
+				}
+				return result, nil
+			},
+		},
+	)
 }
 
 func TestImportWorkerDomainCancelKeepsOwnerUntilExecutionStops(t *testing.T) {

@@ -171,21 +171,34 @@ func (graph *archiveOriginGraph) resolveCall(
 }
 
 func (graph *archiveOriginGraph) callFrame(call archiveCall, parent *archiveFrame) (*archiveFrame, error) {
+	return graph.bindFrame(call, parent, false)
+}
+
+func (graph *archiveOriginGraph) bridgeFrame(call archiveCall, parent *archiveFrame) (*archiveFrame, error) {
+	return graph.bindFrame(call, parent, true)
+}
+
+func (graph *archiveOriginGraph) bindFrame(
+	call archiveCall, parent *archiveFrame, bridge bool,
+) (*archiveFrame, error) {
 	target := graph.functions[call.target]
 	if target == nil {
 		return nil, archiveOriginError(call.caller, call.node, "constructor has no local production definition")
 	}
 	signature, ok := target.object.Type().(*types.Signature)
-	if !ok || signature.Variadic() || signature.TypeParams().Len() != 0 ||
-		signature.RecvTypeParams().Len() != 0 || len(call.node.Args) != signature.Params().Len() {
+	if !ok || signature.TypeParams().Len() != 0 || signature.RecvTypeParams().Len() != 0 {
+		return nil, archiveOriginError(call.caller, call.node, "unsupported constructor argument binding")
+	}
+	boundParameters, supported := archiveFrameParameterCount(signature, call.node, bridge)
+	if !supported {
 		return nil, archiveOriginError(call.caller, call.node, "unsupported constructor argument binding")
 	}
 	if err := graph.validateArchiveConstructor(call, target, signature); err != nil {
 		return nil, err
 	}
 	frame := &archiveFrame{function: target, bindings: make(map[types.Object]archiveOperand)}
-	for index, argument := range call.node.Args {
-		frame.bindings[signature.Params().At(index)] = archiveOperand{node: argument, frame: parent}
+	for index := range boundParameters {
+		frame.bindings[signature.Params().At(index)] = archiveOperand{node: call.node.Args[index], frame: parent}
 	}
 	if signature.Recv() != nil {
 		selector, ok := call.node.Fun.(*ast.SelectorExpr)
@@ -196,6 +209,20 @@ func (graph *archiveOriginGraph) callFrame(call archiveCall, parent *archiveFram
 		frame.bindings[signature.Recv()] = archiveOperand{node: selector.X, frame: parent}
 	}
 	return frame, nil
+}
+
+func archiveFrameParameterCount(signature *types.Signature, call *ast.CallExpr, bridge bool) (int, bool) {
+	bound := signature.Params().Len()
+	if signature.Variadic() {
+		if !bridge || call.Ellipsis.IsValid() {
+			return 0, false
+		}
+		// Reachability through an ordinary caller does not prove its optional values.
+		// Leave this slot unbound: demanding it later must fail in resolveIdentifier.
+		// Actual factory/return construction always uses the strict callFrame path.
+		bound--
+	}
+	return bound, len(call.Args) >= bound && (signature.Variadic() || len(call.Args) == bound)
 }
 
 func (graph *archiveOriginGraph) validateArchiveConstructor(
