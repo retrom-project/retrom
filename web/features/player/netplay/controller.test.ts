@@ -347,9 +347,9 @@ describe("NetplayController lockstep", () => {
       frame, occupiedSeatMask: 3, players,
     }));}
     await vi.waitFor(() => expect(runNetplayFrame).toHaveBeenCalledTimes(120));
+    await vi.waitFor(() => expect(socket.sent.filter((value) => typeof value === "string" && JSON.parse(value).type === "HASH")
+      .map((value) => JSON.parse(value as string))).toMatchObject([{ frame: 119 }]));
     expect(bridge.captureState).toHaveBeenCalledOnce();
-    expect(socket.sent.filter((value) => typeof value === "string" && JSON.parse(value).type === "HASH")
-      .map((value) => JSON.parse(value as string))).toMatchObject([{ frame: 119 }]);
 
     const inputs = socket.sent.filter((value): value is string => typeof value === "string")
       .map((value) => JSON.parse(value) as { type: string; frame?: number })
