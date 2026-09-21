@@ -5,8 +5,8 @@ import (
 	"sync"
 	"time"
 
-	"retrom/internal/foundation/cleanup"
-	"retrom/internal/transport/netplay/profile"
+	"retrom/internal/cleanup"
+	"retrom/internal/netplay/profile"
 )
 
 type Options struct {

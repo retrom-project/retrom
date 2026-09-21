@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"retrom/internal/foundation/cleanup"
+	"retrom/internal/cleanup"
 )
 
 func (service *Service) Create(ctx context.Context, request CreateRequest, actorID string) (Summary, error) {

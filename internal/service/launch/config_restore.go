@@ -5,7 +5,7 @@ import (
 	"net/url"
 	"slices"
 
-	"retrom/internal/capability/runtime/runtimebundle"
+	"retrom/internal/runtimebundle"
 )
 
 func providerRestore(id string, restore ConfigRestore, target runtimebundle.Target) (any, bool, error) {

@@ -6,10 +6,10 @@ import (
 	"os"
 	"time"
 
-	"retrom/internal/adapter/files/blobstore"
-	"retrom/internal/adapter/files/serversource"
-	"retrom/internal/adapter/runtime/runtime"
-	"retrom/internal/bootstrap/composition"
+	"retrom/internal/blobstore"
+	"retrom/internal/composition"
+	"retrom/internal/runtime"
+	"retrom/internal/serversource"
 	"retrom/internal/service/firmware"
 	importservice "retrom/internal/service/serverimport"
 )

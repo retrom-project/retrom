@@ -9,9 +9,9 @@ import (
 	"math"
 	"time"
 
-	"retrom/internal/capability/content/contentcapability"
-	"retrom/internal/capability/content/multidisc"
-	"retrom/internal/capability/security/authn"
+	"retrom/internal/authn"
+	"retrom/internal/contentcapability"
+	"retrom/internal/multidisc"
 )
 
 type MultiDiscAttachments struct {

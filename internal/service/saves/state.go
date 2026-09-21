@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"io"
 
-	"retrom/internal/foundation/cleanup"
+	"retrom/internal/cleanup"
 )
 
 func (service *Service) StateDigest(ctx context.Context, launchID, capability string) (string, error) {

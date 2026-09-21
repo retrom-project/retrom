@@ -1,5 +1,5 @@
 package: generated
-output: internal/transport/httpapi/generated/models.gen.go
+output: internal/httpapi/generated/models.gen.go
 generate:
   models: true
 output-options:

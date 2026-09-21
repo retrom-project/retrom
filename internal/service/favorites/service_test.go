@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"retrom/internal/testkit/testassert"
+	"retrom/internal/testassert"
 )
 
 func favoriteBoundaryID(prefix byte, index int) string {

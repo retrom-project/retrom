@@ -8,15 +8,19 @@ import (
 	"io"
 	"slices"
 
-	"retrom/internal/adapter/files/blobstore"
-	"retrom/internal/capability/engine/rpgmaker/detector"
-	"retrom/internal/capability/engine/rpgmaker/materializer"
+	"retrom/internal/blobstore"
+	"retrom/internal/rpgmaker/detector"
+	"retrom/internal/rpgmaker/materializer"
 )
 
 // ImportArtifactBlobs stores immutable bytes during preparation, before a writer is acquired.
 type ImportArtifactBlobs interface {
 	OpenDigest(string) (io.ReadCloser, error)
 	Put(io.Reader) (blobstore.Metadata, error)
+}
+
+type ImportArtifactWriter interface {
+	Register(context.Context, blobstore.Metadata, int64) (string, error)
 }
 
 type ImportArtifacts struct{ blobs ImportArtifactBlobs }

@@ -16,8 +16,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"retrom/internal/capability/format/importing"
-	"retrom/internal/foundation/cleanup"
+	"retrom/internal/cleanup"
+	"retrom/internal/importing"
 )
 
 func validateBundle(root string, lineage Lineage) (Manifest, error) {

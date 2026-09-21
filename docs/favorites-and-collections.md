@@ -53,15 +53,15 @@ stateDiagram-v2
 实现依赖方向固定为：
 
 ```text
-internal/transport/httpapi/favorite_handlers.go
+internal/httpapi/favorite_handlers.go
             ↓
 internal/service/favorites（业务与 Repository 接口）
             ↓
-internal/repo/favorites（SQL 与事务实现）
+internal/persistence/favorites（SQL 与事务实现）
 ```
 
 - Handler 只负责严格协议解析、认证主体提取与稳定错误映射；名称规范、上限、集合差异、幂等决策和事务范围属于 `internal/service/favorites`。Service 只依赖本模块定义的 Repository 接口，不接收数据库连接、SQL 或 SET/WHERE 片段。
-- `internal/repo/favorites` 实现 Repository，封装字段扫描、列表投影和原子写入。`WithWrite` 提供绑定到同一事务的收藏、成员、目录和幂等记录能力；回调失败或提交前请求取消时撤销全部修改。列表使用同一读取快照，生成时刻由 Service 注入的时钟提供。
+- `internal/persistence/favorites` 实现 Repository，封装字段扫描、列表投影和原子写入。`WithWrite` 提供绑定到同一事务的收藏、成员、目录和幂等记录能力；回调失败或提交前请求取消时撤销全部修改。列表使用同一读取快照，生成时刻由 Service 注入的时钟提供。
 - UUID、批量边数、JSON 和名称格式在事务前校验；所有可见性、owner、Folder 数量与版本在短 `BEGIN IMMEDIATE` 事务内重新校验。
 - 收藏、精确分类、创建 Folder、批量整理、取消、恢复和删除 Folder 都以一次事务提交；事务内不访问网络、文件系统或 Blob，也不逐 Game 提交。
 - 取消收藏按 Membership → Favorite 删除，删除 Folder 按 Membership → Folder 删除；数据库使用限制型外键，不用隐藏级联代替业务顺序。

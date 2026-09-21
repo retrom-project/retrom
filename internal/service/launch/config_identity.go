@@ -7,8 +7,8 @@ import (
 	"slices"
 	"strings"
 
-	"retrom/internal/capability/content/contentprofile"
-	"retrom/internal/capability/format/importing"
+	"retrom/internal/contentprofile"
+	"retrom/internal/importing"
 )
 
 const (

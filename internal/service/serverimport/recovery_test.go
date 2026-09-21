@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"retrom/internal/capability/content/firmware"
+	"retrom/internal/firmware"
 )
 
 type recoveryMemory struct {

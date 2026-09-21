@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/adapter/files/blobstore"
-	"retrom/internal/adapter/metadata/hasheous"
+	"retrom/internal/blobstore"
+	"retrom/internal/hasheous"
 )
 
 type memoryCache struct {

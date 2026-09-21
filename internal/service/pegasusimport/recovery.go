@@ -6,13 +6,49 @@ import (
 	"fmt"
 	"math"
 	"time"
+
+	payload "retrom/internal/service/payloadrelease"
+
+	library "retrom/internal/service/libraryimport"
 )
 
-type Recovery struct {
-	repository RecoveryRepository
-	metadata   ReviewMetadataSeeder
-	now        func() time.Time
-}
+type (
+	ExecutionSnapshot struct {
+		JobID, ImportID, Kind, JobState, ImportState, WorkerID       string
+		JobVersion, ImportVersion, ExecutionNo, Attempt, MaxAttempts int64
+		LeaseUntilMS, DeadlineMS                                     int64
+	}
+	RecoverySnapshot = ExecutionSnapshot
+	RecoveryChange   struct {
+		Before                                                  RecoverySnapshot
+		JobState, ImportState, ItemState, Code, ItemCode, Event string
+		NowMS                                                   int64
+	}
+	RecoveryReviewChange struct {
+		Execution RecoverySnapshot
+		Handoff   ReviewHandoffChange
+	}
+	RecoveryRecords interface {
+		Current(context.Context, string) (RecoverySnapshot, error)
+		Reviews(context.Context, string, int) ([]ReviewHandoffSnapshot, error)
+		CompleteReview(context.Context, RecoveryReviewChange) error
+		Apply(context.Context, RecoveryChange) error
+	}
+	RecoveryScope struct {
+		Payload  payload.ReleaseScope
+		Records  RecoveryRecords
+		Metadata library.MetadataScope
+	}
+	RecoveryRepository interface {
+		ExpiredExecutions(context.Context, int64, int) ([]RecoverySnapshot, error)
+		WithRecovery(context.Context, func(RecoveryScope) error) error
+	}
+	Recovery struct {
+		repository RecoveryRepository
+		metadata   ReviewMetadataSeeder
+		now        func() time.Time
+	}
+)
 
 func NewRecovery(repository RecoveryRepository, metadata ReviewMetadataSeeder, now func() time.Time) *Recovery {
 	return &Recovery{repository: repository, metadata: metadata, now: now}

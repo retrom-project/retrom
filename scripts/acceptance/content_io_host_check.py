@@ -29,8 +29,9 @@ def commands(quality: bool = False) -> list[list[str]]:
          "scripts.acceptance.tests.test_content_io_product_inputs", "scripts.acceptance.tests.test_content_io_host_check",
          "scripts.acceptance.tests.test_content_io_product_process",
          "scripts.acceptance.tests.test_rpgmaker_policy_fixture", "scripts.acceptance.tests.test_rpgmaker_resource_policy"],
-        ["go", "test", "-tags", "integration", "./internal/transport/httpapi/...",
-         "./internal/adapter/runtime/launch/...", "./internal/capability/runtime/...", "-count=1"],
+        ["go", "test", "-tags", "integration", "./internal/httpapi/...", "./internal/launch/...",
+         "./internal/platformcatalog/...", "./internal/runtimebundle/...", "./internal/runtimecatalog/...",
+         "./internal/runtimelaunch/...", "./internal/runtimeoptions/...", "-count=1"],
         ["make", "web-lint", "web-typecheck", "web-test"],
     ]
 

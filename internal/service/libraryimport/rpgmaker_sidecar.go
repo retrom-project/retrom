@@ -7,10 +7,10 @@ import (
 	"io"
 	"os"
 
-	"retrom/internal/adapter/files/blobstore"
-	"retrom/internal/capability/content/contentprofile"
-	"retrom/internal/capability/format/importing"
-	"retrom/internal/foundation/cleanup"
+	"retrom/internal/blobstore"
+	"retrom/internal/cleanup"
+	"retrom/internal/contentprofile"
+	"retrom/internal/importing"
 )
 
 func (service *ImportPreparation) rpgMakerNestedArchiveFormat(

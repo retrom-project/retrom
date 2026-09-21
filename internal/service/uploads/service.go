@@ -12,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	"retrom/internal/adapter/files/uploadfiles"
+	"retrom/internal/uploadfiles"
 
 	"github.com/google/uuid"
 )

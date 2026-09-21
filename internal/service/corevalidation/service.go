@@ -5,8 +5,18 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"retrom/internal/capability/content/corevalidation"
+	"retrom/internal/corevalidation"
 )
+
+type Repository interface {
+	Catalog(context.Context, string, string) ([]corevalidation.BIOSCatalogEntry, error)
+	BIOS(context.Context, string, string) ([]BIOSRecord, error)
+}
+
+type BIOSRecord struct {
+	Dependency        corevalidation.BIOSDependency
+	ActivationOptions *string
+}
 
 type Service struct{ repository Repository }
 

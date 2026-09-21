@@ -5,8 +5,8 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/bootstrap/config"
-	"retrom/internal/capability/security/authn"
+	"retrom/internal/authn"
+	"retrom/internal/config"
 )
 
 type Modules struct {

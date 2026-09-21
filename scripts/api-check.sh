@@ -8,7 +8,7 @@ tmp_dir="$(mktemp -d)"
 cleanup() { rm -rf -- "$tmp_dir"; }
 trap cleanup EXIT
 
-mkdir -p "$tmp_dir/internal/transport/httpapi/generated" "$tmp_dir/web/lib/api/generated" "$tmp_dir/generated"
+mkdir -p "$tmp_dir/internal/httpapi/generated" "$tmp_dir/web/lib/api/generated" "$tmp_dir/generated"
 ln -s "$repository_root/go.mod" "$tmp_dir/go.mod"
 ln -s "$repository_root/go.sum" "$tmp_dir/go.sum"
 (
@@ -31,7 +31,7 @@ ln -s "$repository_root/go.sum" "$tmp_dir/go.sum"
     -o "$tmp_dir/web/lib/api/generated/schema.d.ts"
 )
 for generated in models.gen.go server.gen.go spec.gen.go; do
-  path="internal/transport/httpapi/generated/$generated"
+  path="internal/httpapi/generated/$generated"
   if git -C "$repository_root" ls-files --error-unmatch "$path" >/dev/null 2>&1; then
     echo "$path is generated during backend builds and must not be tracked" >&2
     exit 1

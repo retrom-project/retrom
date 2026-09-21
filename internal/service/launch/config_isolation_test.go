@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	"retrom/internal/capability/runtime/runtimebundle"
+	"retrom/internal/runtimebundle"
 )
 
 func TestConfigIsolationRechecksRevocationAndExpiry(t *testing.T) {

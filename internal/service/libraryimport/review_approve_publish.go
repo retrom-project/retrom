@@ -7,8 +7,8 @@ import (
 
 	"retrom/internal/service/payloadrelease"
 
-	"retrom/internal/capability/content/gametitle"
-	"retrom/internal/capability/security/authn"
+	"retrom/internal/authn"
+	"retrom/internal/gametitle"
 )
 
 func (run *reviewApprovalRun) publish() error {

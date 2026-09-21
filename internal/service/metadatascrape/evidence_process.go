@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"retrom/internal/adapter/metadata/hasheous"
+	"retrom/internal/hasheous"
 )
 
 func hashString(value *string) string {

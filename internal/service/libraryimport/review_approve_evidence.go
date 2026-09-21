@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"retrom/internal/capability/security/authn"
+	"retrom/internal/authn"
 	"retrom/internal/service/tagging"
 )
 

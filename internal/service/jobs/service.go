@@ -9,7 +9,10 @@ import (
 	"time"
 )
 
-var ErrRetryViaDomain = errors.New("RETRY_VIA_DOMAIN_ACTION")
+var (
+	ErrConflict       = errors.New("JOB_CONFLICT")
+	ErrRetryViaDomain = errors.New("RETRY_VIA_DOMAIN_ACTION")
+)
 
 type Result struct {
 	Kind        string `json:"-"`

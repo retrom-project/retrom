@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"retrom/internal/capability/content/multidisc"
+	"retrom/internal/multidisc"
 )
 
 type ReviewDependencies struct{ reader ReviewDependencyReader }
@@ -89,11 +89,11 @@ func (service *ReviewDependencies) MultiDisc(
 	retryRequired := false
 	for i := range attachments {
 		attachment := &attachments[i]
-		attachment.CanRetry = attachment.Retryable()
+		attachment.CanRetry = attachment.retryable()
 		if result.LatestAttachment == nil {
 			result.LatestAttachment = attachment
 		}
-		if result.ActiveAttachment == nil && attachment.Active() {
+		if result.ActiveAttachment == nil && attachment.active() {
 			result.ActiveAttachment = attachment
 		}
 		if attachment.State == "FAILED_RETRYABLE" {
@@ -152,4 +152,14 @@ func arcadeAttachmentUnsupported(code string) bool {
 	default:
 		return false
 	}
+}
+
+func (attachment MultiDiscAttachment) retryable() bool {
+	return attachment.State == "FAILED_RETRYABLE" && attachment.JobState == "FAILED" &&
+		attachment.ErrorRetryable != nil && *attachment.ErrorRetryable
+}
+
+func (attachment MultiDiscAttachment) active() bool {
+	pending := attachment.State == "QUEUED" || attachment.State == "RUNNING" || attachment.State == "FAILED_RETRYABLE"
+	return pending && (attachment.JobState == "QUEUED" || attachment.JobState == "RUNNING")
 }

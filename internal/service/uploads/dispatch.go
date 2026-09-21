@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"retrom/internal/foundation/cleanup"
+	"retrom/internal/cleanup"
 )
 
 func (service *Service) register(parent context.Context, id string) (context.Context, func(), bool) {

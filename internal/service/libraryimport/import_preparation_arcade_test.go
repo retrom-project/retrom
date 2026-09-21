@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	"retrom/internal/capability/format/importing"
+	"retrom/internal/importing"
 )
 
 func TestArcadePreparationFiltersDefaultBIOSAndRetainsHashRequirements(t *testing.T) {

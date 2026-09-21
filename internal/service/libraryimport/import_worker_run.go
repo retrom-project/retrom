@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"retrom/internal/capability/security/authn"
+	"retrom/internal/authn"
 )
 
 func (worker *ImportWorker) Run(parent context.Context, work ImportWork) error {

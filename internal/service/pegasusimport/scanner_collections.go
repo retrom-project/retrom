@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"strings"
 
-	"retrom/internal/capability/format/pegasusmeta"
+	"retrom/internal/pegasusmeta"
 )
 
 func (service *Scanner) projectMetadata(ctx context.Context,

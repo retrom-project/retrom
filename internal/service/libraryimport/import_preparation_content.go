@@ -3,7 +3,7 @@ package libraryimport
 import (
 	"context"
 
-	"retrom/internal/capability/content/contentcapability"
+	"retrom/internal/contentcapability"
 )
 
 func (service *ImportPreparation) prepareContent(

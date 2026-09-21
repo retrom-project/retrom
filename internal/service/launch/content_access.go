@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"retrom/internal/capability/content/contentprofile"
-	"retrom/internal/capability/format/importing"
+	"retrom/internal/contentprofile"
+	"retrom/internal/importing"
 )
 
 type ContentAccess struct {
