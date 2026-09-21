@@ -3,7 +3,7 @@ package serverimport
 import (
 	"errors"
 
-	"retrom/internal/foundation/cleanup"
+	"retrom/internal/cleanup"
 )
 
 func (service *Service) workerError(operation string, err error) {

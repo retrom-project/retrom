@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"net/url"
 	"strings"
@@ -13,12 +14,23 @@ import (
 	"github.com/google/uuid"
 )
 
+var ErrCredential = errors.New("RPG_ISOLATED_RUNTIME_CREDENTIAL_INVALID")
+
 const originMarker = "00000000-0000-4000-8000-000000000000"
 
 type Service struct {
 	repository Repository
 	now        func() time.Time
 	template   string
+}
+
+type Access struct {
+	LaunchID      string
+	Origin        string
+	Profile       string
+	ContentFormat string
+	Preview       bool
+	Expires       int64
 }
 
 func New(repository Repository, template string, now func() time.Time) *Service {

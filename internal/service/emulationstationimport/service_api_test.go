@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"retrom/internal/capability/security/authn"
+	"retrom/internal/authn"
 )
 
 type processMemory struct {

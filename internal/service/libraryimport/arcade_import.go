@@ -9,8 +9,8 @@ import (
 	"sort"
 	"strings"
 
-	"retrom/internal/capability/content/corevalidation"
-	"retrom/internal/capability/format/importing"
+	"retrom/internal/corevalidation"
+	"retrom/internal/importing"
 )
 
 type arcadePreparedArchive struct {

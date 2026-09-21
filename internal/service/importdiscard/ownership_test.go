@@ -34,9 +34,9 @@ func TestLegacyEnvelopeRequiresCompleteCanonicalContentAndUniqueOwner(t *testing
 		),
 		Files: []EnvelopeFile{
 			{
-				RelativePath: "game.nes",
-				BlobID:       "blob",
-				SizeBytes:    8,
+				"game.nes",
+				"blob",
+				8,
 			},
 		},
 	}

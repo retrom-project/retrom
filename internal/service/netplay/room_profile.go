@@ -3,8 +3,14 @@ package netplay
 import (
 	"fmt"
 
-	"retrom/internal/transport/netplay/profile"
+	"retrom/internal/netplay/profile"
 )
+
+type FrozenRoomProfile struct {
+	Selection                          RoomSelection
+	ProviderID, TargetID, BundleSHA256 string
+	Canonical                          []byte
+}
 
 func freezeRoomProfile(
 	registry *profile.Registry,

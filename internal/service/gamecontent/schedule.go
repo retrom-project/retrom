@@ -8,9 +8,9 @@ import (
 	"fmt"
 	"time"
 
-	"retrom/internal/capability/content/contentcapability"
-	"retrom/internal/capability/security/authn"
-	"retrom/internal/foundation/cleanup"
+	"retrom/internal/authn"
+	"retrom/internal/cleanup"
+	"retrom/internal/contentcapability"
 
 	"github.com/google/uuid"
 )

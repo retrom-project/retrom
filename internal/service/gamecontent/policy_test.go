@@ -4,8 +4,8 @@ import (
 	"errors"
 	"testing"
 
-	"retrom/internal/capability/content/contentcapability"
-	"retrom/internal/capability/content/multidisc"
+	"retrom/internal/contentcapability"
+	"retrom/internal/multidisc"
 )
 
 func TestReplacementUploadModeAndConsumptionRules(t *testing.T) {
@@ -38,7 +38,7 @@ func TestReplacementUploadModeAndConsumptionRules(t *testing.T) {
 func TestReplacementIdentityUsesDiscOrderAndContentBytes(t *testing.T) {
 	prepared := PreparedReplacement{ContentKind: multidisc.ContentKind, OrderedDiscSHA256: []string{"first", "second"}, Files: []ReplacementFile{{Role: "PLAYLIST_SOURCE", SHA256: "renamed-playlist"}}}
 	identity := preparedContentIdentity(prepared)
-	if len(identity) != 2 || identity[0] != (IdentityFile{Role: "DISC", SHA256: "first"}) || identity[1] != (IdentityFile{Role: "DISC", SHA256: "second"}) {
+	if len(identity) != 2 || identity[0] != (IdentityFile{"DISC", "first"}) || identity[1] != (IdentityFile{"DISC", "second"}) {
 		t.Fatalf("disc identity: %+v", identity)
 	}
 	prepared.ContentKind = "SINGLE_FILE"

@@ -5,10 +5,18 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/google/uuid"
+)
+
+var (
+	ErrProviderInvalid       = errors.New("METADATA_PROVIDER_INVALID")
+	ErrArcadeSnapshotInvalid = errors.New("ARCADE_EVIDENCE_SNAPSHOT_INVALID")
+	ErrReviewVersionConflict = errors.New("REVIEW_VERSION_CONFLICT")
+	ErrGameVersionConflict   = errors.New("GAME_VERSION_CONFLICT")
 )
 
 type Scheduled struct {

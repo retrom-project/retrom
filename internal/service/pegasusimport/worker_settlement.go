@@ -4,13 +4,46 @@ import (
 	"context"
 	"fmt"
 	"time"
+
+	payload "retrom/internal/service/payloadrelease"
+
+	library "retrom/internal/service/libraryimport"
 )
 
-type WorkerSettlement struct {
-	repository WorkerSettlementRepository
-	metadata   ReviewMetadataSeeder
-	now        func() time.Time
-}
+type (
+	ExecutionFailure struct {
+		Code      string
+		Retryable bool
+	}
+	WorkerSettlementChange struct {
+		Before  ExecutionSnapshot
+		State   string
+		Failure ExecutionFailure
+		NowMS   int64
+	}
+	WorkerSettlementReader interface {
+		Current(context.Context, string) (ExecutionSnapshot, error)
+		Reviews(context.Context, string, int) ([]ReviewHandoffSnapshot, error)
+	}
+	WorkerSettlementWriter interface {
+		CompleteReview(context.Context, RecoveryReviewChange) error
+		Close(context.Context, WorkerSettlementChange) error
+	}
+	WorkerSettlementScope struct {
+		Payload  payload.ReleaseScope
+		Read     WorkerSettlementReader
+		Write    WorkerSettlementWriter
+		Metadata library.MetadataScope
+	}
+	WorkerSettlementRepository interface {
+		WithSettlement(context.Context, func(WorkerSettlementScope) error) error
+	}
+	WorkerSettlement struct {
+		repository WorkerSettlementRepository
+		metadata   ReviewMetadataSeeder
+		now        func() time.Time
+	}
+)
 
 func NewWorkerSettlement(
 	repository WorkerSettlementRepository,

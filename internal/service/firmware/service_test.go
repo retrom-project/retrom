@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/capability/content/firmware"
-	"retrom/internal/capability/format/importing"
+	"retrom/internal/firmware"
+	"retrom/internal/importing"
 )
 
 func TestInstallRechecksSourceBeforePublishing(t *testing.T) {

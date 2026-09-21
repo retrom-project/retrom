@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"slices"
 
-	"retrom/internal/capability/content/corevalidation"
-	"retrom/internal/capability/content/multidisc"
+	"retrom/internal/corevalidation"
+	"retrom/internal/multidisc"
 	validation "retrom/internal/service/corevalidation"
 )
 

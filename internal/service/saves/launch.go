@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"slices"
 
-	retromruntime "retrom/internal/adapter/runtime/runtime"
+	retromruntime "retrom/internal/runtime"
 )
 
 const maxStoredCheckpointBytes = int64(256 << 20)
@@ -68,7 +68,7 @@ func (service *Service) ensureWritable(ctx context.Context, records LaunchReader
 	if !sameCheckpointOwner(current, expected) {
 		return ErrCredential
 	}
-	if expected.LocalDraft {
+	if expected.localDraft {
 		if !localDraftWritable(current) {
 			return ErrCredential
 		}

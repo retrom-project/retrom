@@ -1,5 +1,5 @@
 package: generated
-output: internal/transport/httpapi/generated/spec.gen.go
+output: internal/httpapi/generated/spec.gen.go
 generate:
   embedded-spec: true
 output-options:

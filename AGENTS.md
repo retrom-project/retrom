@@ -67,12 +67,8 @@
 
 - 禁止使用数据库 VIEW 和 TRIGGER；迁移与运行时代码不得创建或依赖它们，相关查询、校验与联动使用应用层显式 SQL，并在事务中保证一致性。
 - HTTP handler 负责协议解析、校验和错误映射；业务规则进入对应应用模块；SQL 与持久化细节留在存储层。
-- SQL 语句的执行必须收拢在 `internal/repo/` 及其子包；禁止在 `internal/repo/` 目录外直接构造 SQL 并调用 `database/sql` 或 SQLite 驱动提供的 `Exec*`、`Query*`、`Begin*`、`Prepare*` 等执行方法。Service、Capability、Adapter、Transport 等上层只能依赖 `internal/model` 的业务接口或 port；具体 repo 实现在 composition 中注入。
-- `internal/model/` 持有跨层共享的 DTO、Entity、领域错误、Repository/Capability port 及纯领域策略；`internal/service/` 只负责用例编排；`internal/repo/` 实现 model port 和 SQL。生产代码中的 `internal/model/` 与 `internal/repo/` 禁止导入 `internal/service/`，共享契约不得反向放回 service 包。
-- 分层同时约束编译期依赖和运行时业务调用：目标 A 要求 service 不导入具体 repo、model/repo 不导入 service；目标 B 要求 repo 不经由注入的业务接口、闭包、回调或 adapter 再调用上层 service、校验或流程编排。需要跨层写入时，service 生成只含业务值和并发 guard 的 plan，由 repo 在自己的短事务中原子提交。
-- repo 不得向 service、adapter 或其他上层传播 `dbexec.Executor`、`*sql.Tx`、`sql.Rows`、`sql.Result` 或 SQL nullable 值；repo 可以调用 repo 内部持久化组件和无 I/O 的纯规则。共享 Unit of Work 回调只有在明确属于通用事务机制、且不承载上层业务回调时才可保留。
 - 后台任务只负责编排、租约和重试，不复制领域规则。耗时哈希、网络访问、归档扫描和 DAT 解析不得占用长数据库写事务。
-- 依赖方向遵循 `httpapi/jobs -> 应用模块 -> repo/blobstore`。底层包不得反向依赖 HTTP、任务编排或进程入口。
+- 依赖方向遵循 `httpapi/jobs -> 应用模块 -> store/blobstore`。底层包不得反向依赖 HTTP、任务编排或进程入口。
 - 错误必须保留原因并在边界映射为稳定错误码；不得静默吞错、依赖错误字符串分支或输出临时调试日志。
 - 已发布数据库只能通过有序 migration 演进；运行时代码不得动态修补 schema。每个迁移都要覆盖新建库和旧库升级路径。
 - SQLite 中表示业务时刻的字段必须为 Unix 毫秒 `INTEGER`，命名为 `*_at_ms`；Go/API 使用 `int64`。详细规则见存储专题。
@@ -198,7 +194,7 @@ make acceptance-case CASE=ACC-IMM-006
 make ci
 ```
 
-新增/修改 HTTP route、DTO、错误码或 client 调用时，必须先改 `api/openapi.yaml` 并运行 `make api-generate`。Go 生成物 `internal/transport/httpapi/generated/api.gen.go` 由后端 build/test/lint/integration/dev 与镜像构建按需生成，必须被 Git 忽略且不得提交；TypeScript 生成物 `web/lib/api/generated/schema.d.ts` 必须提交。随后运行不会写工作树的 `make api-check`；禁止手改 generated 文件。
+新增/修改 HTTP route、DTO、错误码或 client 调用时，必须先改 `api/openapi.yaml` 并运行 `make api-generate`。Go 生成物 `internal/httpapi/generated/api.gen.go` 由后端 build/test/lint/integration/dev 与镜像构建按需生成，必须被 Git 忽略且不得提交；TypeScript 生成物 `web/lib/api/generated/schema.d.ts` 必须提交。随后运行不会写工作树的 `make api-check`；禁止手改 generated 文件。
 
 修改 Dockerfile、镜像内容、构建参数或发布资产时还必须运行：
 

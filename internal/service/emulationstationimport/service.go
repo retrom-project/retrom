@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"retrom/internal/capability/security/authn"
+	"retrom/internal/authn"
 )
 
 type PlanCreator interface {

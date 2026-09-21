@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	importpersistence "retrom/internal/repo/serverimport"
+	importpersistence "retrom/internal/persistence/serverimport"
 	importservice "retrom/internal/service/serverimport"
 )
 

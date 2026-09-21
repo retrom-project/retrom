@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"io"
 
-	"retrom/internal/adapter/files/blobstore"
-	"retrom/internal/capability/format/importing"
+	"retrom/internal/blobstore"
+	"retrom/internal/importing"
 )
 
 func (service *ImportPreparation) materializeArchiveEntries(

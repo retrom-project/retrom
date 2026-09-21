@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/capability/content/contentcapability"
+	"retrom/internal/contentcapability"
 )
 
 type admissionMemory struct {

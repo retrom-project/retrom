@@ -1,6 +1,6 @@
 package dependencies
 
-import "retrom/internal/capability/format/arcadedat"
+import "retrom/internal/arcadedat"
 
 func catalogFromStats(stats CatalogStats) arcadedat.Catalog {
 	return arcadedat.Catalog{Stats: arcadedat.Stats{

@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"retrom/internal/foundation/cleanup"
+	"retrom/internal/cleanup"
 
 	"github.com/google/uuid"
 )

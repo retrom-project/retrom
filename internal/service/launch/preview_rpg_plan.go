@@ -5,7 +5,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"retrom/internal/capability/engine/rpgmaker/nativeweb"
+	"retrom/internal/rpgmaker/nativeweb"
 )
 
 const (

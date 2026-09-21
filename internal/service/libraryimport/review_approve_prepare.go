@@ -7,8 +7,8 @@ import (
 	"math"
 	"strings"
 
-	"retrom/internal/capability/content/corevalidation"
-	"retrom/internal/capability/engine/scummvm"
+	"retrom/internal/corevalidation"
+	"retrom/internal/scummvm"
 	"retrom/internal/service/importprogress"
 	"retrom/internal/service/tagging"
 )

@@ -3,12 +3,12 @@ package launch
 import (
 	"fmt"
 
-	butter "retrom/internal/capability/engine/butterscotch/detector"
-	kiri "retrom/internal/capability/engine/kirikiri/detector"
-	nx "retrom/internal/capability/engine/nxengine/detector"
-	ons "retrom/internal/capability/engine/ons/detector"
-	"retrom/internal/capability/engine/scummvm"
-	tyrano "retrom/internal/capability/engine/tyranoscript/detector"
+	butter "retrom/internal/butterscotch/detector"
+	kiri "retrom/internal/kirikiri/detector"
+	nx "retrom/internal/nxengine/detector"
+	ons "retrom/internal/ons/detector"
+	"retrom/internal/scummvm"
+	tyrano "retrom/internal/tyranoscript/detector"
 )
 
 func previewProjectContent(snapshot PreviewSnapshot) (PreviewContent, error) {

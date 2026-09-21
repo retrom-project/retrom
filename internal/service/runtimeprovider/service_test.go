@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/capability/runtime/runtimebundle"
+	"retrom/internal/runtimebundle"
 )
 
 func TestRejectedVersionDoesNotWriteProjection(t *testing.T) {

@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"strings"
 
-	"retrom/internal/capability/runtime/runtimebundle"
-	"retrom/internal/capability/runtime/runtimecatalog"
-	"retrom/internal/capability/runtime/runtimeoptions"
+	"retrom/internal/runtimebundle"
+	"retrom/internal/runtimecatalog"
+	"retrom/internal/runtimeoptions"
 )
 
 func providerWarnings(source ConfigSource) []string {

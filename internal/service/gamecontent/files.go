@@ -10,12 +10,12 @@ import (
 	"path/filepath"
 	"strings"
 
-	"retrom/internal/adapter/files/blobstore"
-	"retrom/internal/capability/content/contentcapability"
-	"retrom/internal/capability/content/contentmanifest"
-	"retrom/internal/capability/content/contentprofile"
-	"retrom/internal/capability/content/multidisc"
-	"retrom/internal/foundation/cleanup"
+	"retrom/internal/blobstore"
+	"retrom/internal/cleanup"
+	"retrom/internal/contentcapability"
+	"retrom/internal/contentmanifest"
+	"retrom/internal/contentprofile"
+	"retrom/internal/multidisc"
 )
 
 func (service *Service) prepareReplacement(

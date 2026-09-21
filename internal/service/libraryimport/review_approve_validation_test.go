@@ -6,8 +6,8 @@ import (
 	"math"
 	"testing"
 
-	"retrom/internal/capability/content/contentcapability"
-	"retrom/internal/capability/content/corevalidation"
+	"retrom/internal/contentcapability"
+	"retrom/internal/corevalidation"
 )
 
 type approvalValidationStub struct {

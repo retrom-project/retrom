@@ -83,7 +83,7 @@ func (service *PreviewCreator) prepare(
 ) (PreviewCreatePlan, string, error) {
 	id, err := service.environment.NewID()
 	if err != nil {
-		return PreviewCreatePlan{}, "", fmt.Errorf("create preview identity: %w", err)
+		return PreviewCreatePlan{}, "", err
 	}
 	parsed, err := uuid.Parse(id)
 	if err != nil || parsed.Version() != 7 {
@@ -91,7 +91,7 @@ func (service *PreviewCreator) prepare(
 	}
 	capability, hash, err := service.environment.SignCapability(id)
 	if err != nil {
-		return PreviewCreatePlan{}, "", fmt.Errorf("sign preview capability: %w", err)
+		return PreviewCreatePlan{}, "", err
 	}
 	plan := PreviewCreatePlan{Request: request, Source: source, Content: content, ID: id, CredentialHash: hash}
 	if source.DeliveryProfile == "ISOLATED_WEB_PROJECT" {
@@ -100,7 +100,7 @@ func (service *PreviewCreator) prepare(
 		}
 		ticket, signErr := service.environment.SignIsolation(id)
 		if signErr != nil {
-			return PreviewCreatePlan{}, "", fmt.Errorf("sign preview isolation ticket: %w", signErr)
+			return PreviewCreatePlan{}, "", signErr
 		}
 		plan.Isolation = &ticket
 	}
@@ -174,7 +174,7 @@ func (service *PreviewCreator) replay(
 	}
 	capability, _, err := service.environment.SignCapability(receipt.ID)
 	if err != nil {
-		return ReviewPreviewCreated{}, fmt.Errorf("sign replayed preview capability: %w", err)
+		return ReviewPreviewCreated{}, err
 	}
 	return ReviewPreviewCreated{
 		PreviewID: receipt.ID, PlayURL: "/admin/review-previews/" + receipt.ID, Capability: capability,

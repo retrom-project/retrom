@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"retrom/internal/capability/security/authn"
+	"retrom/internal/authn"
 
 	"github.com/google/uuid"
 )

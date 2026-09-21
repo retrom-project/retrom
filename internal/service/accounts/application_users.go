@@ -3,7 +3,7 @@ package accounts
 import (
 	"context"
 
-	"retrom/internal/capability/security/authn"
+	"retrom/internal/authn"
 )
 
 func (service *Service) GetUser(ctx context.Context, id string) (AdminUser, error) {

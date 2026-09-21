@@ -4,11 +4,36 @@ import (
 	"context"
 	"fmt"
 
-	"retrom/internal/transport/netplay/capability"
+	"retrom/internal/netplay/capability"
 
 	"github.com/google/uuid"
 )
 
+type SocketParticipant struct {
+	RoomID, SessionID, ProfileID                      string
+	PlayerNo                                          int
+	CredentialGeneration                              int64
+	ProfileDigest, ProviderID, TargetID, BundleSHA256 string
+	RoomVersion, SessionVersion                       int64
+	SessionState                                      string
+	OccupiedSeatMask, PlayerCount                     int
+}
+type SocketAccessRecord struct {
+	Participant    SocketParticipant
+	CredentialHash []byte
+	LaunchState    string
+}
+type ParticipantCredentialRecord struct {
+	Generation     int64
+	CredentialHash []byte
+}
+type ParticipantAccessRepository interface {
+	Socket(context.Context, string, string) (SocketAccessRecord, error)
+	Credential(context.Context, string, string) (ParticipantCredentialRecord, error)
+}
+type CredentialSigner interface {
+	Capability(uuid.UUID, uuid.UUID, uint32) [32]byte
+}
 type ParticipantAccess struct {
 	repository ParticipantAccessRepository
 	signer     CredentialSigner

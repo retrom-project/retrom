@@ -6,13 +6,54 @@ import (
 	"math"
 	"time"
 
+	payload "retrom/internal/service/payloadrelease"
+
 	"github.com/google/uuid"
 )
 
-type WorkflowControl struct {
-	repository WorkflowRepository
-	now        func() time.Time
-}
+type (
+	WorkflowSnapshot struct {
+		Summary               Summary
+		JobState              string
+		JobVersion, Execution int64
+		OtherActive           bool
+		RetryableItems        int64
+	}
+	WorkflowScope struct {
+		Payload payload.ReleaseScope
+		Read    WorkflowReader
+		Write   WorkflowWriter
+	}
+	WorkflowReader interface {
+		Current(context.Context, string) (WorkflowSnapshot, error)
+		CurrentJob(context.Context, string) (WorkflowSnapshot, error)
+	}
+	WorkflowWriter interface {
+		Cancel(context.Context, CancellationPlan) error
+		Retry(context.Context, RetryPlan) error
+	}
+	WorkflowRepository interface {
+		WithControl(context.Context, func(WorkflowScope) error) error
+	}
+	CancellationPlan struct {
+		Before                   WorkflowSnapshot
+		State                    string
+		Pending                  bool
+		CompletedAtMS            *int64
+		Reason, ActorID, AuditID string
+		NowMS                    int64
+	}
+	RetryPlan struct {
+		Before                        WorkflowSnapshot
+		Execution                     int64
+		ExecutionID, AuditID, ActorID string
+		NowMS                         int64
+	}
+	WorkflowControl struct {
+		repository WorkflowRepository
+		now        func() time.Time
+	}
+)
 
 func NewWorkflowControl(repository WorkflowRepository, now func() time.Time) *WorkflowControl {
 	return &WorkflowControl{repository: repository, now: now}

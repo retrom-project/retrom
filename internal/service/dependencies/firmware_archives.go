@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"retrom/internal/capability/content/firmwaremanifest"
+	"retrom/internal/firmwaremanifest"
 )
 
 func completeStaticBIOSCatalog() ([]staticBIOS, error) {

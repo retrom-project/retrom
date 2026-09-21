@@ -5,7 +5,7 @@ import (
 	"errors"
 	"time"
 
-	"retrom/internal/adapter/metadata/hasheous"
+	"retrom/internal/hasheous"
 )
 
 func (worker *MediaWorker) claim(ctx context.Context, id string) (mediaExecution, error) {
