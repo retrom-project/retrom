@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"path"
 
-	"retrom/internal/capability/format/emulationstationmeta"
+	"retrom/internal/emulationstationmeta"
 )
 
 func (service *Scanner) projectGamelist(
@@ -69,7 +69,7 @@ func (service *Scanner) projectGamelist(
 		if err != nil {
 			return err
 		}
-		collectGame(result, &collection, game, item, extensions)
+		result.collectGame(&collection, game, item, extensions)
 	}
 	collection.ExtensionSummaryJSON, collection.ExtensionOtherCount = extensionSummary(extensions)
 	result.Collections = append(result.Collections, collection)
@@ -91,8 +91,7 @@ func parserErrorCode(err error) string {
 	}
 }
 
-func collectGame(
-	result *scanResult,
+func (result *ScanProjection) collectGame(
 	collection *scannedCollection, game emulationstationmeta.Game,
 	item scannedItem, extensions map[string]int64,
 ) {
@@ -109,5 +108,5 @@ func collectGame(
 	if game.Path != "" {
 		extensions[extensionName(game.Path)]++
 	}
-	result.CollectItem(item)
+	result.collectItem(item)
 }

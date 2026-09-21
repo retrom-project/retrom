@@ -2,13 +2,16 @@ package accounts
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
-	"retrom/internal/capability/security/authn"
+	"retrom/internal/authn"
 
 	"github.com/google/uuid"
 )
+
+var ErrOfflineAdmin = errors.New("OFFLINE_ADMIN_INVALID")
 
 type RecoveryService struct {
 	repository RecoveryRepository

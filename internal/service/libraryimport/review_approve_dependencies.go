@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"math"
 
-	"retrom/internal/capability/content/contentcapability"
-	"retrom/internal/capability/content/corevalidation"
-	"retrom/internal/capability/content/multidisc"
+	"retrom/internal/contentcapability"
+	"retrom/internal/corevalidation"
+	"retrom/internal/multidisc"
 	validation "retrom/internal/service/corevalidation"
 )
 

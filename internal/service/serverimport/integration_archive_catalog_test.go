@@ -13,16 +13,16 @@ import (
 	"testing"
 	"time"
 
-	firmwarepersistence "retrom/internal/repo/firmware"
+	firmwarepersistence "retrom/internal/persistence/firmware"
 	firmwareservice "retrom/internal/service/firmware"
 
-	"retrom/internal/adapter/files/blobstore"
-	"retrom/internal/adapter/files/serversource"
-	retromruntime "retrom/internal/adapter/runtime/runtime"
-	"retrom/internal/capability/content/firmwaremanifest"
-	"retrom/internal/foundation/cleanup"
-	"retrom/internal/foundation/legacychecksum"
-	"retrom/internal/testkit/testsupport"
+	"retrom/internal/blobstore"
+	"retrom/internal/cleanup"
+	"retrom/internal/firmwaremanifest"
+	"retrom/internal/legacychecksum"
+	retromruntime "retrom/internal/runtime"
+	"retrom/internal/serversource"
+	"retrom/internal/testsupport"
 )
 
 func TestServerArchiveImportFreezesMembersAndRecoversEvaluations(t *testing.T) {

@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/capability/content/contentcapability"
+	"retrom/internal/contentcapability"
 	library "retrom/internal/service/libraryimport"
 )
 

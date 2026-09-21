@@ -7,8 +7,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"retrom/internal/capability/content/contentcapability"
-	"retrom/internal/capability/security/authn"
+	"retrom/internal/authn"
+	"retrom/internal/contentcapability"
 	"retrom/internal/service/tagging"
 )
 

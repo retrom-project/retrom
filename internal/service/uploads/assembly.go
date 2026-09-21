@@ -11,8 +11,8 @@ import (
 	"io/fs"
 	"sort"
 
-	"retrom/internal/adapter/files/blobstore"
-	"retrom/internal/adapter/files/uploadfiles"
+	"retrom/internal/blobstore"
+	"retrom/internal/uploadfiles"
 )
 
 func (service *Service) assembleFile(ctx context.Context, file Candidate, parts []Part) (blobstore.Metadata, error) {

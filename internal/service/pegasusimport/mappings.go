@@ -10,11 +10,52 @@ import (
 	"retrom/internal/service/tagging"
 )
 
-type Mappings struct {
-	repository MappingRepository
-	tags       MappingTagWriter
-	now        func() time.Time
-}
+type (
+	MappingScope struct {
+		Read  MappingReader
+		Write MappingWriter
+		Tags  tagging.WriteScope
+	}
+	MappingReader interface {
+		Import(context.Context, string) (Summary, error)
+		CollectionOwner(context.Context, string) (string, error)
+		EligibleTarget(context.Context, string) (MappingTarget, bool, error)
+	}
+	MappingWriter interface {
+		Put(context.Context, CollectionMapping) error
+		Advance(context.Context, MappingAdvance) error
+	}
+	MappingRepository interface {
+		WithMappings(context.Context, func(MappingScope) error) error
+	}
+	MappingTagWriter interface {
+		ReplacePegasusCollectionTags(
+			context.Context, tagging.WriteScope, string, []string, string, int64,
+		) ([]tagging.Reference, error)
+	}
+	MappingTarget struct {
+		InstanceID                               string
+		InstanceVersion                          int64
+		PlatformID, CoreID, ProviderID, TargetID string
+		DATVersionID                             *string
+	}
+	CollectionMapping struct {
+		ImportID string
+		Mapping  Mapping
+		Target   *MappingTarget
+		Tags     []tagging.Reference
+		NowMS    int64
+	}
+	MappingAdvance struct {
+		Before Summary
+		NowMS  int64
+	}
+	Mappings struct {
+		repository MappingRepository
+		tags       MappingTagWriter
+		now        func() time.Time
+	}
+)
 
 func NewMappings(repository MappingRepository, tags MappingTagWriter, now func() time.Time) *Mappings {
 	return &Mappings{repository: repository, tags: tags, now: now}

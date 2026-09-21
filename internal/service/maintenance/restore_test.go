@@ -91,7 +91,7 @@ func TestRestoreFenceHasOneClockAndOneAtomicScope(t *testing.T) {
 	}) {
 		t.Fatalf("fence escaped atomic scope: %+v %+v", repository, records)
 	}
-	if records.audit.Now != 17 || records.audit.ID == "" || records.audit.Counts != (FenceCounts{Sessions: 1, Links: 2, Launches: 3, BIOS: 4, Pegasus: 5, EmulationStation: 6}) {
+	if records.audit.Now != 17 || records.audit.ID == "" || records.audit.Counts != (FenceCounts{1, 2, 3, 4, 5, 6}) {
 		t.Fatalf("audit evidence: %+v", records.audit)
 	}
 	records.failAudit = context.Canceled
@@ -106,7 +106,7 @@ func TestRestoreFenceHasOneClockAndOneAtomicScope(t *testing.T) {
 func TestRestoreDoesNotRevokeAccessBeforeContentValidation(t *testing.T) {
 	sum := sha256.Sum256([]byte("original"))
 	digest := hex.EncodeToString(sum[:])
-	repository := &memoryRepository{records: &restoreRecords{}, snapshot: Snapshot{Blobs: []Blob{{SHA256: digest, SizeBytes: 8}}}}
+	repository := &memoryRepository{records: &restoreRecords{}, snapshot: Snapshot{Blobs: []Blob{{digest, 8}}}}
 	service := New(repository, func() time.Time { return time.UnixMilli(17) })
 	root := t.TempDir()
 	blob := filepath.Join(root, "blobs", "sha256", digest[:2], digest[2:4], digest)

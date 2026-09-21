@@ -5,7 +5,7 @@ import (
 	"path"
 	"strings"
 
-	"retrom/internal/capability/content/corevalidation"
+	"retrom/internal/corevalidation"
 )
 
 func productExternalFiles(snapshot ProductSnapshot, content ProductContent) ([]ProductExternalFile, error) {
@@ -96,6 +96,11 @@ func productExternalBIOS(
 		)
 	}
 	return files, nil
+}
+
+type ProductExternalSnapshot struct {
+	DependencySnapshot, ContentName string
+	Files                           []ProductExternalFile
 }
 
 func FreezeProductExternalBIOS(snapshot ProductExternalSnapshot, allowMissing bool) ([]ProductExternalFile, error) {

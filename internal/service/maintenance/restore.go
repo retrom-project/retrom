@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"retrom/internal/adapter/runtime/dependencies"
-	"retrom/internal/bootstrap/config"
+	"retrom/internal/config"
+	"retrom/internal/dependencies"
 )
 
 func (service *Service) Restore(

@@ -38,7 +38,7 @@ class ProviderAcceptanceRegistrationTests(unittest.TestCase):
                         self.assertTrue(any(name.startswith(prefix) for name in names), f"retired test: {prefix}")
 
     def test_database_cases_select_existing_tests(self):
-        source = "\n".join(path.read_text(encoding="utf-8") for path in (ROOT / "internal/repo/store").glob("*_test.go"))
+        source = "\n".join(path.read_text(encoding="utf-8") for path in (ROOT / "internal/store").glob("*_test.go"))
         names = re.findall(r"func (Test\w+)\(", source)
         for case_id in ("ACC-DB-001", "ACC-DB-002"):
             command = runner.CASE_COMMANDS[case_id][1]
@@ -64,8 +64,8 @@ class ProviderAcceptanceRegistrationTests(unittest.TestCase):
         source = (ROOT / "scripts/acceptance/provider-case.sh").read_text(encoding="utf-8")
         checkpoint = source.split("  ACC-PROVIDER-004)", 1)[1].split(";;", 1)[0]
         self.assertIn("-tags=integration", checkpoint)
-        self.assertIn("./internal/adapter/runtime/launch", checkpoint)
-        self.assertIn("./internal/transport/httpapi", checkpoint)
+        self.assertIn("./internal/launch", checkpoint)
+        self.assertIn("./internal/httpapi", checkpoint)
         self.assertIn("OrdinaryReviewCheckpointHTTP", checkpoint)
 
     def test_provider_go_selectors_cannot_pass_by_running_no_tests(self):

@@ -3,10 +3,10 @@ package serverimport
 import (
 	"sort"
 
-	"retrom/internal/adapter/files/blobstore"
-	"retrom/internal/adapter/files/serversource"
-	"retrom/internal/capability/content/firmware"
-	"retrom/internal/capability/format/importing"
+	"retrom/internal/blobstore"
+	"retrom/internal/firmware"
+	"retrom/internal/importing"
+	"retrom/internal/serversource"
 )
 
 type EvaluatedCandidate struct {

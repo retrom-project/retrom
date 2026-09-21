@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/adapter/files/serversource"
-	"retrom/internal/capability/content/firmware"
+	"retrom/internal/firmware"
+	"retrom/internal/serversource"
 )
 
 type discoveryMemory struct {

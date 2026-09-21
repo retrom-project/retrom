@@ -10,11 +10,37 @@ import (
 	"github.com/google/uuid"
 )
 
-type Creation struct {
-	repository CreationRepository
-	sources    SourceSelector
-	now        func() time.Time
-}
+type (
+	CreateRequest struct {
+		RootID             string `json:"rootId"`
+		SourceRelativePath string `json:"sourceRelativePath"`
+	}
+	SelectedRoot   struct{ ID, Label, Digest string }
+	SourceSelector interface {
+		Select(context.Context, string, string) (SelectedRoot, error)
+	}
+	CreationPlan struct {
+		Request                                                   CreateRequest
+		Root                                                      SelectedRoot
+		ImportID, JobID, ExecutionID, AuditID, ActorID, DedupeKey string
+		NowMS, ExpiresAtMS                                        int64
+	}
+)
+
+type (
+	CreationRepository interface {
+		WithCreate(context.Context, func(CreationWriter) error) error
+	}
+	CreationWriter interface {
+		PendingPlans(context.Context) (int, error)
+		Insert(context.Context, CreationPlan) (Summary, error)
+	}
+	Creation struct {
+		repository CreationRepository
+		sources    SourceSelector
+		now        func() time.Time
+	}
+)
 
 func NewCreation(
 	repository CreationRepository,

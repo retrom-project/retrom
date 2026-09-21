@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/bootstrap/config"
+	"retrom/internal/config"
 )
 
 func TestApplicationContextSeparatesPendingReadyAndSessionFailures(t *testing.T) {

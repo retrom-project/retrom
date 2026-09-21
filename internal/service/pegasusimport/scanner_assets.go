@@ -7,8 +7,8 @@ import (
 	"path"
 	"strings"
 
-	"retrom/internal/adapter/files/mediaasset"
-	"retrom/internal/adapter/files/serversource"
+	"retrom/internal/mediaasset"
+	"retrom/internal/serversource"
 )
 
 func (service *Scanner) chooseAsset(

@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/capability/security/authn"
+	"retrom/internal/authn"
 )
 
 type recoveryMemory struct {

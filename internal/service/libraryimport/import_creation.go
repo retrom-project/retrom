@@ -6,7 +6,7 @@ import (
 	"slices"
 	"time"
 
-	"retrom/internal/capability/security/authn"
+	"retrom/internal/authn"
 	"retrom/internal/service/metadatascrape"
 	"retrom/internal/service/payloadrelease"
 	"retrom/internal/service/tagging"

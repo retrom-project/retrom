@@ -28,33 +28,13 @@ func (service *Service) ReplaceReviewDraftTags(
 	if err != nil {
 		return nil, nil, repositoryError("read review tags", err)
 	}
-	plan, err := BuildReplacementPlan(owner, before, desired, actorUserID, now)
-	if err != nil {
-		return nil, nil, err
+	if sameReferences(before, desired) {
+		return before, desired, nil
 	}
-	if err := applyReplacementPlan(ctx, scope, plan); err != nil {
-		return nil, nil, err
+	if !ValidID(actorUserID) {
+		return nil, nil, ErrInvalid
 	}
-	return plan.Before, plan.After, nil
-}
-
-func applyReplacementPlan(ctx context.Context, scope WriteScope, plan ReplacementPlan) error {
-	if !plan.Changed {
-		return nil
-	}
-	if err := scope.Relations.Remove(ctx, plan.Owner, ReferenceIDs(plan.Removed)); err != nil {
-		return repositoryError("remove owner tags", err)
-	}
-	if err := scope.Relations.Add(ctx, Assignment{
-		Owner: plan.Owner, References: plan.Added, ActorUserID: plan.ActorUserID, NowMS: plan.NowMS,
-	}); err != nil {
-		return repositoryError("add owner tags", err)
-	}
-	touched := append(ReferenceIDs(plan.Added), ReferenceIDs(plan.Removed)...)
-	if err := scope.Relations.TouchTags(ctx, plan.ActorUserID, touched, plan.NowMS); err != nil {
-		return repositoryError("touch owner tags", err)
-	}
-	return nil
+	return replaceOwnerReferences(ctx, scope, owner, actorUserID, desired, now)
 }
 
 func (service *Service) AssignReviewDraftTags(
@@ -85,7 +65,7 @@ func (service *Service) AssignReviewDraftTags(
 	); err != nil {
 		return repositoryError("assign review tags", err)
 	}
-	return repositoryError("touch assigned tags", scope.Relations.TouchTags(ctx, actorUserID, ReferenceIDs(refs), now))
+	return repositoryError("touch assigned tags", scope.Relations.TouchTags(ctx, actorUserID, referenceIDs(refs), now))
 }
 
 func (service *Service) ReviewDraftReferences(
@@ -129,7 +109,7 @@ func (service *Service) CopyDraftTagsToGame(
 	); err != nil {
 		return nil, repositoryError("copy draft tags", err)
 	}
-	if err := scope.Relations.TouchTags(ctx, actorUserID, ReferenceIDs(refs), now); err != nil {
+	if err := scope.Relations.TouchTags(ctx, actorUserID, referenceIDs(refs), now); err != nil {
 		return nil, repositoryError("touch copied tags", err)
 	}
 	return refs, nil

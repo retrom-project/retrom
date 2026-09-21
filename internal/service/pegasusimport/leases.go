@@ -9,9 +9,52 @@ import (
 	"github.com/google/uuid"
 )
 
-type Leases struct {
-	repository LeaseRepository
-	now        func() time.Time
+type (
+	ExecutionIdentity struct {
+		JobID, ImportID, WorkerID string
+		ExecutionNo, Attempt      int64
+	}
+	Work struct {
+		JobID, ImportID, Kind, RootID, RootDigest, RelativePath string
+		CreatedByUserID, WorkerID                               string
+		ExecutionNo, Attempt, DeadlineAtMS                      int64
+	}
+	LeaseCandidate struct {
+		Work                                   Work
+		ImportState                            string
+		JobVersion, ImportVersion, MaxAttempts int64
+		StartedAtMS, DeadlineAtMS              *int64
+	}
+	LeaseClaim struct {
+		Before                           LeaseCandidate
+		Work                             Work
+		ImportState, Phase               string
+		NowMS, StartedAtMS, LeaseUntilMS int64
+	}
+	LeaseRenewal struct {
+		Before              ExecutionSnapshot
+		NowMS, LeaseUntilMS int64
+	}
+	LeaseRecords interface {
+		Next(context.Context, int64) (LeaseCandidate, bool, error)
+		Claim(context.Context, LeaseClaim) error
+		Current(context.Context, string) (ExecutionSnapshot, error)
+		Renew(context.Context, LeaseRenewal) error
+	}
+	LeaseRepository interface {
+		WithLease(context.Context, func(LeaseRecords) error) error
+	}
+	Leases struct {
+		repository LeaseRepository
+		now        func() time.Time
+	}
+)
+
+func (unit Work) Identity() ExecutionIdentity {
+	return ExecutionIdentity{
+		JobID: unit.JobID, ImportID: unit.ImportID, WorkerID: unit.WorkerID,
+		ExecutionNo: unit.ExecutionNo, Attempt: unit.Attempt,
+	}
 }
 
 func NewLeases(repository LeaseRepository, now func() time.Time) *Leases {

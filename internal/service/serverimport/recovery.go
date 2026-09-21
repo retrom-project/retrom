@@ -4,11 +4,18 @@ import (
 	"context"
 	"fmt"
 
-	"retrom/internal/adapter/files/blobstore"
-	"retrom/internal/adapter/files/serversource"
-	"retrom/internal/capability/content/firmware"
+	"retrom/internal/blobstore"
+	"retrom/internal/firmware"
+	"retrom/internal/serversource"
 )
 
+type CandidateEvidence struct {
+	ID, RequirementID, Association, State string
+	Facts                                 firmware.FileFacts
+	Static                                *firmware.StaticEvaluation
+	DAT                                   *firmware.DATEvaluation
+	Details                               map[string]any
+}
 type RecoveryRepository interface {
 	Items(context.Context, string) ([]CatalogItem, error)
 	Phase(context.Context, string) (string, error)

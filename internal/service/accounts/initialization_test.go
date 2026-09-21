@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/bootstrap/config"
-	"retrom/internal/capability/security/authn"
+	"retrom/internal/authn"
+	"retrom/internal/config"
 )
 
 type initializationMemory struct {

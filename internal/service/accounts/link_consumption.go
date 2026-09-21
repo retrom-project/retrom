@@ -2,12 +2,15 @@ package accounts
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
-	"retrom/internal/capability/security/authn"
+	"retrom/internal/authn"
 
 	"github.com/google/uuid"
 )
+
+var ErrUsernameUnavailable = errors.New("USERNAME_UNAVAILABLE")
 
 type LinkConsumptionService struct {
 	repository LinkConsumptionRepository

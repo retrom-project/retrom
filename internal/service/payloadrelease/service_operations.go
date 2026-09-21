@@ -1,9 +1,6 @@
 package payloadrelease
 
-import (
-	"context"
-	"fmt"
-)
+import "context"
 
 func (service *Service) Start()  { service.worker.Start() }
 func (service *Service) Close()  { service.worker.Close() }
@@ -22,9 +19,5 @@ func (service *Service) ScheduleImmediateGC(ctx context.Context, actor string) (
 }
 
 func (service *Service) GameDeleteImpact(ctx context.Context, id string) (GameImpact, error) {
-	impact, err := service.impact.Game(ctx, id)
-	if err != nil {
-		return GameImpact{}, fmt.Errorf("read game deletion impact: %w", err)
-	}
-	return impact, nil
+	return service.impact.Game(ctx, id)
 }

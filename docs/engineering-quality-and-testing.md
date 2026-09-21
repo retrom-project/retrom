@@ -169,9 +169,9 @@ Provider 的 checkpoint 压缩依赖由 `retrom-runtime` 自己固定和审计�
 模块路径确定后必须用 `depguard` 把以下方向写入 `.golangci.yml`，不能只靠代码评审记忆：
 
 1. `internal/**` 不得导入 `cmd/**`；
-2. `internal/repo/store/**` 与 `internal/adapter/files/blobstore/**` 不得导入 `httpapi`、`jobs` 或上层功能模块；
-3. `internal/capability/format/arcadedat/**` 是解析与依赖图底层，不得导入 `httpapi`、`jobs`、`metadata`、`bios` 或 `catalog`；
-4. `internal/transport/httpapi/**` 可以调用应用模块，但 handler 不得绕过模块直接依赖具体 SQL 实现；
+2. `internal/store/**` 与 `internal/blobstore/**` 不得导入 `httpapi`、`jobs` 或上层功能模块；
+3. `internal/arcadedat/**` 是解析与依赖图底层，不得导入 `httpapi`、`jobs`、`metadata`、`bios` 或 `catalog`；
+4. `internal/httpapi/**` 可以调用应用模块，但 handler 不得绕过模块直接依赖具体 SQL 实现；
 5. `internal/service/jobs/**` 管理通用取消与重试；领域 Service 不得反向依赖该管理用例，领域 Worker 仍维护自身领取和执行协议。
 
 如果后续目录布局有经过评审的变化，应先更新架构专题和本节，再修改 `depguard`；不得为了修复循环依赖直接删掉规则。
@@ -333,7 +333,7 @@ flat config 必须设置 `linterOptions.noInlineConfig=true` 且 unused disable 
 
 影响多盘 parser、Launch resource、Provider `discSwitch` 实现或换盘时，除受影响单元/集成/Web 测试外还必须执行 `make web-e2e` 与 `ACC-MDISC-001`–`008` 的受影响产品测试。当前没有真实 Saturn ROM 的浏览器产品 E2E；交付时必须明确这一边界，不能用伪 CHD、独立 EmulatorJS 页面或历史截图替代。
 
-影响 `internal/transport/netplay`、联机 manifest、WebSocket、Player netplay adapter 或房间 UI 时，必须运行聚焦 Go/Web 测试、`go test -race ./internal/transport/netplay`、migration/HTTP integration、`make web-e2e`，并按 [`ACC-NP-010`–`022`](./project-acceptance.md#19-联机游玩) 生成当次协议、安全、feature flag、单机回归与双浏览器核心证据。`ACC-NP-014`–`022` 只证明 manifest 锁定的八个 profile/artifact 与项目自有 fixture；其他 ROM/core 版本仍必须明确列为未覆盖。
+影响 `internal/netplay`、联机 manifest、WebSocket、Player netplay adapter 或房间 UI 时，必须运行聚焦 Go/Web 测试、`go test -race ./internal/netplay`、migration/HTTP integration、`make web-e2e`，并按 [`ACC-NP-010`–`022`](./project-acceptance.md#19-联机游玩) 生成当次协议、安全、feature flag、单机回归与双浏览器核心证据。`ACC-NP-014`–`022` 只证明 manifest 锁定的八个 profile/artifact 与项目自有 fixture；其他 ROM/core 版本仍必须明确列为未覆盖。
 
 ## 8. Bug 回归固化流程
 
@@ -414,7 +414,7 @@ RPG Maker fixture 必须遵守同一再分发规则：生成源、许可、固�
 4. 新增 `web/eslint.config.mjs`、严格 `tsconfig.json`、Vitest config/setup、package scripts、`web/next.config.ts` 和 `web/proxy.ts`。`next.config.ts` 负责 standalone、开发 rewrite 与固定隔离头；`proxy.ts` 按 HTTP 契约为动态 HTML 生成逐响应 nonce CSP 并把同一 header 传入 App Router，不得改用静态 nonce 或旧 `middleware.ts`。
 5. 新增以 `api/openapi.yaml` 为入口的 OpenAPI 领域文件、bundle 与两端生成配置，先覆盖通用 envelope、session/health 与一条代表性 CRUD；Go 生成物在后端编译前按需生成且不提交，TypeScript schema 提交并检查漂移；实现 `api-generate/api-check`，后续每个 route 必须先扩对应领域 schema 和入口闭集再写 handler/UI。
 6. 新增根 Makefile，实现第 3 节所有命令；golangci-lint 安装到仓库本地并固定版本。
-7. 更新 `.gitignore`：忽略 `bin/`、`.cache/`、`internal/transport/httpapi/generated/*.gen.go`、`web/node_modules/`、`web/.next/`、coverage/E2E 报告和五份 DAT payload；继续跟踪 TypeScript schema、真实来源 manifest、SHA256SUMS、物化配方与可提交验证清单。
+7. 更新 `.gitignore`：忽略 `bin/`、`.cache/`、`internal/httpapi/generated/*.gen.go`、`web/node_modules/`、`web/.next/`、coverage/E2E 报告和五份 DAT payload；继续跟踪 TypeScript schema、真实来源 manifest、SHA256SUMS、物化配方与可提交验证清单。
 
 ### Phase Q1：基础测试
 
@@ -446,7 +446,7 @@ RPG Maker fixture 必须遵守同一再分发规则：生成源、许可、固�
 | `/AGENTS.md` | Agent 实施铁律 |
 | `/api/openapi.yaml`、`/api/domains/`、`/api/components/` | HTTP 事实源入口、领域 route/DTO 与跨领域组件 |
 | `/api/codegen/`、`/scripts/openapi-bundle/` | Go 分层生成配置与只接受本地引用的确定性 bundle 工具 |
-| `/internal/transport/httpapi/generated/{models,server,spec}.gen.go` | 后端编译前由统一 bundle 按需生成的 Go 类型、strict server/router 与内嵌规范；禁止手改、被 Git 忽略且不得提交 |
+| `/internal/httpapi/generated/{models,server,spec}.gen.go` | 后端编译前由统一 bundle 按需生成的 Go 类型、strict server/router 与内嵌规范；禁止手改、被 Git 忽略且不得提交 |
 | `/migrations/embed.go`、`/migrations/*.sql` | 编译进后端的顺序 migration 与 checksum 输入 |
 | `/.golangci.yml` | Go lint、formatter、排除与 depguard |
 | `/quality/go-suppressions.json`、`/scripts/quality_structure.py` | 非结构性 Go suppression 中央清单与全仓源码结构门禁 |

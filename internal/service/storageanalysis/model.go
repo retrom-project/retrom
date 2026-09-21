@@ -82,6 +82,17 @@ type Snapshot struct {
 	Excluded      []string
 }
 
+type Usage uint8
+
+const (
+	UsageGame Usage = 1 << iota
+	UsageBIOS
+	UsageSaves
+	UsageMedia
+	UsageWorkflow
+	UsageRuntime
+)
+
 const durableUsage = UsageGame | UsageBIOS | UsageSaves | UsageMedia
 
 var errIntegerOverflow = errors.New("STORAGE_ANALYSIS_INTEGER_OVERFLOW")

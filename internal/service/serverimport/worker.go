@@ -9,7 +9,7 @@ import (
 
 	firmwareservice "retrom/internal/service/firmware"
 
-	"retrom/internal/foundation/cleanup"
+	"retrom/internal/cleanup"
 )
 
 var (

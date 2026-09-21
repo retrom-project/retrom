@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/adapter/files/mediaasset"
+	"retrom/internal/mediaasset"
 )
 
 type screenshotMemory struct {

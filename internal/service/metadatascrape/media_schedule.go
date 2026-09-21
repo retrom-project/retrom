@@ -9,6 +9,32 @@ import (
 	"strconv"
 )
 
+type MediaInput struct {
+	AssetID      string `json:"candidateAssetId"`
+	RunID        string `json:"scrapeRunId"`
+	ResponseID   string `json:"providerResponseId"`
+	SourceDigest string `json:"sourceDigest"`
+}
+type MediaInputScope struct {
+	Type string `json:"type"`
+	ID   string `json:"id"`
+}
+type MediaInputEnvelope struct {
+	SchemaVersion int             `json:"schemaVersion"`
+	Kind          string          `json:"kind"`
+	Scope         MediaInputScope `json:"scope"`
+	ExecutionID   string          `json:"executionId"`
+	Inputs        MediaInput      `json:"inputs"`
+}
+type MediaJobPlan struct {
+	JobID, RunID, AssetID, InputJSON, InputDigest, Dedupe string
+	Scope                                                 Subject
+	Now                                                   int64
+}
+type MediaQueueWriter interface {
+	Enqueue(context.Context, MediaJobPlan) error
+}
+
 func newMediaJob(scope Subject, runID string, asset CandidateAsset) (MediaJobPlan, error) {
 	jobID, err := scheduleID()
 	if err != nil {

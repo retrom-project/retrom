@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/adapter/files/serversource"
+	"retrom/internal/serversource"
 )
 
 type ScanSourceProvider interface {

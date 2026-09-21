@@ -12,8 +12,8 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"retrom/internal/adapter/files/blobstore"
-	"retrom/internal/foundation/cleanup"
+	"retrom/internal/blobstore"
+	"retrom/internal/cleanup"
 )
 
 type manualMetadata struct {

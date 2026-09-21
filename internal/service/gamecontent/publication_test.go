@@ -68,7 +68,7 @@ func TestPublicationRejectsChangedContentBeforeRetirement(t *testing.T) {
 		{name: "lost lease", code: "GAME_CONTENT_EXECUTION_LOST"},
 		{name: "game changed", current: true, binding: Binding{Version: 2}, code: "GAME_CONTENT_CHANGED"},
 		{name: "DAT changed", current: true, binding: Binding{DATID: &dat}, code: "GAME_CONTENT_CHANGED"},
-		{name: "same bytes", current: true, identity: []IdentityFile{{Role: "CONTENT", SHA256: "same"}}, code: "GAME_CONTENT_UNCHANGED"},
+		{name: "same bytes", current: true, identity: []IdentityFile{{"CONTENT", "same"}}, code: "GAME_CONTENT_UNCHANGED"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			repository := &workflowRepository{scope: WriteScope{
