@@ -2,10 +2,19 @@ package accounts
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
-	"retrom/internal/bootstrap/config"
-	"retrom/internal/capability/security/authn"
+	"retrom/internal/authn"
+	"retrom/internal/config"
+)
+
+var (
+	ErrInitialization      = errors.New("INITIALIZATION_REQUIRED")
+	ErrInitializationDone  = errors.New("INITIALIZATION_ALREADY_COMPLETED")
+	ErrInitializationProof = errors.New("INITIALIZATION_PROOF_INVALID")
+	ErrInitializationState = errors.New("INITIALIZATION_STATE_INVALID")
+	ErrTestCredential      = errors.New("TEST_DEFAULT_CREDENTIAL_ACTIVE")
 )
 
 type InitializationService struct {

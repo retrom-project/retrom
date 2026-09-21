@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/capability/runtime/runtimebundle"
+	"retrom/internal/runtimebundle"
 )
 
 func writableLaunch() Launch {

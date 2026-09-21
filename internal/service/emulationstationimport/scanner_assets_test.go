@@ -5,8 +5,8 @@ import (
 	"errors"
 	"testing"
 
-	"retrom/internal/adapter/files/mediaasset"
-	"retrom/internal/capability/format/emulationstationmeta"
+	"retrom/internal/emulationstationmeta"
+	"retrom/internal/mediaasset"
 )
 
 func TestScannerAssetFailuresKeepWarningPolicyExceptCancellation(t *testing.T) {

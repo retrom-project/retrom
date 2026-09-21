@@ -9,11 +9,11 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/adapter/runtime/dependencies"
-	"retrom/internal/capability/content/corevalidation"
-	"retrom/internal/capability/runtime/runtimecatalog"
+	"retrom/internal/corevalidation"
+	"retrom/internal/dependencies"
+	"retrom/internal/netplay/profile"
+	"retrom/internal/runtimecatalog"
 	validation "retrom/internal/service/corevalidation"
-	"retrom/internal/transport/netplay/profile"
 )
 
 type controlBIOSRepository struct{}

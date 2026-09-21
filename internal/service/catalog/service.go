@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"retrom/internal/capability/content/contentcapability"
-	"retrom/internal/capability/content/contentprofile"
+	"retrom/internal/contentcapability"
+	"retrom/internal/contentprofile"
 )
 
 type PlatformTargetSupport interface {

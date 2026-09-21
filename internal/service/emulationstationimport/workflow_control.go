@@ -5,13 +5,59 @@ import (
 	"errors"
 	"fmt"
 	"time"
+
+	payload "retrom/internal/service/payloadrelease"
 )
 
-type WorkflowControl struct {
-	repository WorkflowRepository
-	sources    FrozenSources
-	now        func() time.Time
-}
+type (
+	WorkflowSnapshot struct {
+		Summary               Summary
+		JobState              string
+		JobVersion, Execution int64
+		OtherActive           bool
+		RetryableItems        int64
+	}
+	RetrySnapshot struct {
+		WorkflowSnapshot
+		FrozenSourceSnapshot
+		TargetsValid bool
+	}
+	WorkflowScope struct {
+		Payload payload.ReleaseScope
+		Read    WorkflowReader
+		Write   WorkflowWriter
+	}
+	WorkflowReader interface {
+		Current(context.Context, string) (WorkflowSnapshot, error)
+		RetryCurrent(context.Context, string) (RetrySnapshot, error)
+	}
+	WorkflowWriter interface {
+		Cancel(context.Context, CancellationPlan) error
+		Retry(context.Context, RetryPlan) error
+	}
+	WorkflowRepository interface {
+		InspectRetry(context.Context, string) (RetrySnapshot, error)
+		WithControl(context.Context, func(WorkflowScope) error) error
+	}
+	CancellationPlan struct {
+		Before                          WorkflowSnapshot
+		State, Reason, ActorID, AuditID string
+		Pending                         bool
+		CompletedAtMS                   *int64
+		NowMS                           int64
+	}
+	RetryPlan struct {
+		Before                        RetrySnapshot
+		Execution                     int64
+		ExecutionID, AuditID, ActorID string
+		NowMS                         int64
+	}
+	WorkflowControl struct {
+		repository WorkflowRepository
+		sources    FrozenSources
+		now        func() time.Time
+	}
+)
 
 func NewWorkflowControl(repository WorkflowRepository, sources FrozenSources, now func() time.Time) *WorkflowControl {
 	return &WorkflowControl{repository: repository, sources: sources, now: now}

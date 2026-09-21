@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"retrom/internal/capability/content/firmware"
-	"retrom/internal/capability/format/importing"
+	"retrom/internal/firmware"
+	"retrom/internal/importing"
 )
 
 func expectedArchive(

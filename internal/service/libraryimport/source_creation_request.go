@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"slices"
 
-	"retrom/internal/capability/content/contentcapability"
+	"retrom/internal/contentcapability"
 	"retrom/internal/service/tagging"
 )
 

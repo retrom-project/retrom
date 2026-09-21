@@ -6,9 +6,9 @@ import (
 	"slices"
 	"testing"
 
-	"retrom/internal/capability/content/corevalidation"
+	"retrom/internal/corevalidation"
+	"retrom/internal/netplay/profile"
 	"retrom/internal/service/tagging"
-	"retrom/internal/transport/netplay/profile"
 )
 
 type eligibilityMemory struct {

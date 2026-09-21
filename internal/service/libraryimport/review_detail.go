@@ -118,7 +118,7 @@ func readReviewContent(ctx context.Context, scope ReviewReadScope, head ReviewHe
 	result.DuplicateGames, result.ContentIdentityDigest, err = NewContentDuplicates(scope.Duplicates).Inspect(ctx,
 		ContentSnapshot{ID: head.SnapshotID, Kind: head.ContentKind}, head.PlatformID)
 	if err != nil {
-		return fmt.Errorf("inspect content duplicates: %w", err)
+		return err
 	}
 	dependencies := NewReviewDependencies(scope.Dependencies)
 	dependencyHead := ReviewDependencyHead{

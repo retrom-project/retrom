@@ -6,7 +6,7 @@ import (
 	"testing"
 	"unicode/utf8"
 
-	"retrom/internal/testkit/testassert"
+	"retrom/internal/testassert"
 )
 
 func TestNormalizeName(t *testing.T) {

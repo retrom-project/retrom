@@ -43,7 +43,7 @@ COPY cmd cmd
 COPY internal internal
 COPY migrations migrations
 COPY scripts/openapi-bundle scripts/openapi-bundle
-RUN mkdir -p internal/transport/httpapi/generated .cache/generated \
+RUN mkdir -p internal/httpapi/generated .cache/generated \
   && go run ./scripts/openapi-bundle -input api/openapi.yaml -output .cache/generated/openapi.bundle.yaml \
   && for config in api/codegen/*.yaml; do \
     go run github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@v2.8.0 --config "$config" .cache/generated/openapi.bundle.yaml; \

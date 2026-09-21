@@ -7,7 +7,12 @@ import (
 	"strings"
 	"time"
 
-	"retrom/internal/capability/security/authn"
+	"retrom/internal/authn"
+)
+
+var (
+	ErrAuthentication       = errors.New("AUTHENTICATION_FAILED")
+	ErrAuthenticationNeeded = errors.New("AUTHENTICATION_REQUIRED")
 )
 
 type Authentication struct {

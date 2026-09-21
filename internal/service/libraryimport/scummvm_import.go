@@ -5,11 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"retrom/internal/adapter/files/blobstore"
-	"retrom/internal/capability/content/contentprofile"
-	"retrom/internal/capability/engine/rpgmaker/fileset"
-	"retrom/internal/capability/engine/scummvm"
-	"retrom/internal/capability/format/importing"
+	"retrom/internal/blobstore"
+	"retrom/internal/contentprofile"
+	"retrom/internal/importing"
+	"retrom/internal/rpgmaker/fileset"
+	"retrom/internal/scummvm"
 )
 
 func (service *ImportPreparation) PrepareScummVMProject(

@@ -8,15 +8,17 @@ import (
 	"path/filepath"
 	"sort"
 
-	"retrom/internal/adapter/runtime/dependencies"
-	"retrom/internal/bootstrap/config"
-	"retrom/internal/foundation/cleanup"
-	"retrom/internal/foundation/processlock"
+	"retrom/internal/cleanup"
+	"retrom/internal/config"
+	"retrom/internal/dependencies"
+	"retrom/internal/processlock"
 )
 
 var (
 	ErrBackupOffline      = errors.New("BACKUP_REQUIRES_OFFLINE")
+	ErrInvalidBundle      = errors.New("BACKUP_BUNDLE_INVALID")
 	ErrDependencyMismatch = errors.New("RESTORE_DEPENDENCY_CONFIG_MISMATCH")
+	ErrCheckpointFailed   = errors.New("BACKUP_CHECKPOINT_FAILED")
 )
 
 type FileEntry struct {

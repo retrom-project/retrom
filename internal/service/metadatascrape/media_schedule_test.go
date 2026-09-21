@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"retrom/internal/adapter/metadata/hasheous"
+	"retrom/internal/hasheous"
 
 	"github.com/google/uuid"
 )

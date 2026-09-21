@@ -8,10 +8,37 @@ import (
 	"time"
 )
 
-type Companions struct {
-	repository CompanionRepository
-	now        func() time.Time
-}
+type (
+	CompanionCandidate struct {
+		ItemID string
+		File   ExecutionFile
+	}
+	CompanionRegistration struct {
+		Before    OwnedItem
+		Candidate CompanionCandidate
+		Blob      VerifiedBlob
+		NowMS     int64
+	}
+	CompanionReader interface {
+		Owner(context.Context, string) (OwnedItem, error)
+		Dependencies(context.Context, string, string) ([]string, error)
+		Candidates(context.Context, ExecutionItem) ([]CompanionCandidate, error)
+	}
+	CompanionWriter interface {
+		Register(context.Context, CompanionRegistration) (string, error)
+	}
+	CompanionScope struct {
+		Read  CompanionReader
+		Write CompanionWriter
+	}
+	CompanionRepository interface {
+		WithCompanions(context.Context, func(CompanionScope) error) error
+	}
+	Companions struct {
+		repository CompanionRepository
+		now        func() time.Time
+	}
+)
 
 func NewCompanions(repository CompanionRepository, now func() time.Time) *Companions {
 	return &Companions{repository: repository, now: now}

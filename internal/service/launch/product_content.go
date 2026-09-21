@@ -5,7 +5,7 @@ import (
 	"errors"
 	"slices"
 
-	"retrom/internal/capability/content/corevalidation"
+	"retrom/internal/corevalidation"
 )
 
 func BuildProductContent(snapshot ProductSnapshot) (ProductContent, error) {

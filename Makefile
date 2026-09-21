@@ -57,7 +57,7 @@ API_OPENAPI_SOURCES := api/openapi.yaml api/runtime-provider/v1/launch-envelope.
 	$(sort $(wildcard api/domains/*.yaml api/components/*.yaml))
 API_CODEGEN_CONFIGS := $(sort $(wildcard api/codegen/*.yaml))
 API_BUNDLE := .cache/generated/openapi.bundle.yaml
-API_GO_GENERATED := internal/transport/httpapi/generated/models.gen.go internal/transport/httpapi/generated/server.gen.go internal/transport/httpapi/generated/spec.gen.go
+API_GO_GENERATED := internal/httpapi/generated/models.gen.go internal/httpapi/generated/server.gen.go internal/httpapi/generated/spec.gen.go
 
 .PHONY: fmt fmt-check quality-structure-check install-deps install-go-formatters install-golangci-lint prepare-go prepare-node prepare-e2e-browser \
 	build test lint-go backend-check web-install web-lint web-typecheck web-test web-build web-check integration-test api-bundle api-generate-go api-generate api-check \

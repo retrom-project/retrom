@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/capability/security/authn"
+	"retrom/internal/authn"
 )
 
 type metadataMemory struct {
@@ -137,7 +137,7 @@ func TestMetadataNormalizationPreservesRuneLimitsAndWarningOrder(t *testing.T) {
 	if err != nil || len([]rune(normalized.Description)) != 10000 || len([]rune(normalized.Developer)) != 200 || len([]rune(normalized.Publisher)) != 200 || len([]rune(normalized.Genre)) != 200 || normalized.ReleaseYear != nil {
 		t.Fatalf("normalization=%#v %v", normalized, err)
 	}
-	expected := []ServerMetadataWarning{{Code: "FIELD_TRUNCATED", Field: "description"}, {Code: "FIELD_TRUNCATED", Field: "developer"}, {Code: "FIELD_TRUNCATED", Field: "publisher"}, {Code: "FIELD_TRUNCATED", Field: "genre"}, {Code: "FIELD_VALUE_INVALID", Field: "releaseYear"}}
+	expected := []ServerMetadataWarning{{"FIELD_TRUNCATED", "description"}, {"FIELD_TRUNCATED", "developer"}, {"FIELD_TRUNCATED", "publisher"}, {"FIELD_TRUNCATED", "genre"}, {"FIELD_VALUE_INVALID", "releaseYear"}}
 	if !reflect.DeepEqual(warnings, expected) {
 		t.Fatalf("warnings=%#v", warnings)
 	}

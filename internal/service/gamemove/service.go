@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"retrom/internal/capability/content/corevalidation"
+	"retrom/internal/corevalidation"
 
 	"github.com/google/uuid"
 )

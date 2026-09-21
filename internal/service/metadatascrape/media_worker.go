@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"time"
 
-	"retrom/internal/adapter/metadata/hasheous"
+	"retrom/internal/hasheous"
 )
 
 type MediaWorker struct {

@@ -5,7 +5,7 @@ import (
 	"os"
 	"time"
 
-	"retrom/internal/adapter/files/serversource"
+	"retrom/internal/serversource"
 )
 
 // Worker access is test-only so integration tests can exercise crash boundaries without exporting them in the application API.

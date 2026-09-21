@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"retrom/internal/capability/runtime/runtimebundle"
+	"retrom/internal/runtimebundle"
 )
 
 func TestReviewCheckpointResultJSONUsesOpaqueProviderFormat(t *testing.T) {

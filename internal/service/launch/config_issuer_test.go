@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/capability/runtime/runtimebundle"
-	"retrom/internal/capability/runtime/runtimelaunch"
+	"retrom/internal/runtimebundle"
+	"retrom/internal/runtimelaunch"
 )
 
 type configTestRepository struct {

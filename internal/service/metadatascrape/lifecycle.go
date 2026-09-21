@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"retrom/internal/foundation/cleanup"
+	"retrom/internal/cleanup"
 )
 
 func (service *executionSupervisor) register(

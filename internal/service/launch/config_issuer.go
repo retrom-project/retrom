@@ -124,7 +124,7 @@ func (service *ConfigIssuer) isolationTicket(id string, authority ConfigAuthorit
 	}
 	ticket, err := service.environment.SignIsolation(id)
 	if err != nil {
-		return IsolationTicket{}, fmt.Errorf("sign isolation ticket: %w", err)
+		return IsolationTicket{}, err
 	}
 	if !validIsolationGrant(authority.Isolation, ticket, service.environment.Now().UnixMilli()) {
 		return IsolationTicket{}, ErrBlocked

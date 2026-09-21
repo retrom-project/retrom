@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"retrom/internal/capability/security/authn"
+	"retrom/internal/authn"
 
 	"golang.org/x/text/unicode/norm"
 )

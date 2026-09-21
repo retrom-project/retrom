@@ -1,0 +1,79 @@
+package pegasusimport
+
+import (
+	"context"
+	"fmt"
+
+	"retrom/internal/blobstore"
+	repository "retrom/internal/persistence/pegasusimport"
+	application "retrom/internal/service/pegasusimport"
+)
+
+func (service *Service) materialization() *application.Materialization {
+	return application.NewMaterialization(repository.NewMaterialization(service.database), service.now)
+}
+
+func (service *Service) recordCopiedFile(
+	ctx context.Context,
+	unit work,
+	itemID string,
+	file executionFile,
+	metadata blobstore.Metadata,
+) (string, error) {
+	result, err := service.materialization().Copy(ctx, unit.Identity(), application.MaterialSource{
+		Key:  application.MaterialKey{ItemID: itemID, Ordinal: file.Ordinal},
+		Path: file.Path, Facts: file.Facts, Size: file.Size,
+	}, verifiedMaterial(metadata))
+	if err != nil {
+		return "", fmt.Errorf("pegasusimport/bind copied file: %w", err)
+	}
+	return result, nil
+}
+
+func (service *Service) recordCopiedAsset(
+	ctx context.Context,
+	unit work,
+	itemID string,
+	asset executionAsset,
+	metadata blobstore.Metadata,
+) (string, error) {
+	result, err := service.materialization().Copy(
+		ctx,
+		unit.Identity(),
+		application.AssetMaterial(itemID, asset),
+		verifiedMaterial(metadata),
+	)
+	if err != nil {
+		return "", fmt.Errorf("pegasusimport/bind copied asset: %w", err)
+	}
+	return result, nil
+}
+
+func (service *Service) closeAssetWarning(
+	ctx context.Context,
+	unit work,
+	itemID string,
+	asset executionAsset,
+	code string,
+) error {
+	if err := service.materialization().Warning(
+		ctx, unit.Identity(), application.AssetMaterial(itemID, asset), code,
+	); err != nil {
+		return fmt.Errorf("pegasusimport/write asset warning: %w", err)
+	}
+	return nil
+}
+
+func (service *Service) updateExecutionPhase(ctx context.Context, unit work, phase string) error {
+	if err := service.materialization().SetPhase(
+		ctx,
+		unit.Identity(),
+		phase,
+	); err != nil {
+		return fmt.Errorf(
+			"pegasusimport/update phase: %w",
+			err,
+		)
+	}
+	return nil
+}

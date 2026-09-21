@@ -7,14 +7,43 @@ import (
 	"fmt"
 	"time"
 
+	payload "retrom/internal/service/payloadrelease"
+
 	"github.com/google/uuid"
 )
 
-type Starter struct {
-	repository StartRepository
-	sources    FrozenSources
-	now        func() time.Time
-}
+type (
+	StartSnapshot struct {
+		Summary Summary
+		FrozenSourceSnapshot
+		TagsValid, TargetsValid, OtherActive bool
+	}
+	StartScope struct {
+		Payload payload.ReleaseScope
+		Read    StartReader
+		Write   StartWriter
+	}
+	StartReader interface {
+		Current(context.Context, string) (StartSnapshot, error)
+	}
+	StartWriter interface {
+		Queue(context.Context, StartPlan) error
+	}
+	StartRepository interface {
+		Inspect(context.Context, string) (StartSnapshot, error)
+		WithStart(context.Context, func(StartScope) error) error
+	}
+	StartPlan struct {
+		Before                                          StartSnapshot
+		JobID, ExecutionID, AuditID, ActorID, DedupeKey string
+		NowMS                                           int64
+	}
+	Starter struct {
+		repository StartRepository
+		sources    FrozenSources
+		now        func() time.Time
+	}
+)
 
 func NewStarter(repository StartRepository, sources FrozenSources, now func() time.Time) *Starter {
 	return &Starter{repository: repository, sources: sources, now: now}

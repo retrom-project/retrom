@@ -3,7 +3,7 @@ package metadatascrape
 import (
 	"testing"
 
-	"retrom/internal/adapter/metadata/hasheous"
+	"retrom/internal/hasheous"
 )
 
 func TestProviderResponseExpiryUsesPersistedFetchTime(t *testing.T) {

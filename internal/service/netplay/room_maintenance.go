@@ -7,6 +7,37 @@ import (
 	"time"
 )
 
+var ErrInvalidRecoveryReason = errors.New("netplay/recovery: invalid reason")
+
+type ExpiryCutoffs struct {
+	Now, StartingBefore, RunningBefore int64
+	Limit                              int
+}
+type ExpiryCandidate struct {
+	RoomID, HostID, State string
+	Version               int64
+	SessionID             *string
+}
+type ExpiryPlan struct {
+	Before ExpiryCandidate
+	Now    int64
+}
+type RecoveryPlan struct {
+	Reason string
+	Now    int64
+}
+type MaintenanceWriter interface {
+	Expire(context.Context, ExpiryPlan) error
+	Recover(context.Context, RecoveryPlan) error
+}
+type MaintenanceRepository interface {
+	Passive(context.Context, ExpiryCutoffs) ([]ExpiryCandidate, error)
+	Active(context.Context, ExpiryCutoffs) ([]ExpiryCandidate, error)
+	WithMaintenance(context.Context, func(MaintenanceWriter) error) error
+}
+type ExpiredSessionEnder interface {
+	EndExpired(context.Context, ExpiryCandidate, int64) error
+}
 type RoomMaintenance struct {
 	repository MaintenanceRepository
 	ender      ExpiredSessionEnder
