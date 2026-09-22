@@ -1,5 +1,3 @@
-/* Reserve the page scrollbar gutter so BIOS scope changes keep the same left edge. */
-html:has(.runtime-dependency-page) { scrollbar-gutter: stable; }
 .runtime-dependency-page { min-width: 0; }
 .runtime-dependency-page .page-header { margin-bottom: 20px; }
 .runtime-dependency-page .page-header svg { width: 17px; height: 17px; }
