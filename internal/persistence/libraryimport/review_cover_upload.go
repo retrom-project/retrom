@@ -70,12 +70,10 @@ func (records reviewCoverRecords) Draft(
 	var draft application.ReviewCoverDraft
 	err := records.executor.QueryRowContext(ctx, `
 SELECT d.version,i.state,
-EXISTS(SELECT 1 FROM source_import_items source
- WHERE source.library_import_item_id=i.id AND source.execution_state='REVIEW_PENDING'),
 (EXISTS(SELECT 1 FROM source_import_items source
  WHERE source.library_import_item_id=i.id AND source.execution_state<>'REVIEW_PENDING'))
 FROM review_drafts d JOIN import_items i ON i.id=d.import_item_id WHERE i.id=?
-`, itemID).Scan(&draft.Version, &draft.State, &draft.SourceReady, &draft.SourceBusy)
+`, itemID).Scan(&draft.Version, &draft.State, &draft.SourceBusy)
 	if errors.Is(err, sql.ErrNoRows) {
 		return application.ReviewCoverDraft{}, false, nil
 	}

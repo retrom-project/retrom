@@ -55,8 +55,6 @@ SELECT d.id,i.import_job_id,d.metadata_json,d.version,i.state,
 d.selected_validation_id,v.dat_version_id,d.selected_candidate_id,
 (d.cover_candidate_asset_id IS NOT NULL OR d.cover_uploaded_asset_id IS NOT NULL),
 d.background_candidate_asset_id IS NOT NULL,
-EXISTS(SELECT 1 FROM source_import_items source
- WHERE source.library_import_item_id=i.id AND source.execution_state='REVIEW_PENDING'),
 (EXISTS(SELECT 1 FROM source_import_items source
  WHERE source.library_import_item_id=i.id AND source.execution_state<>'REVIEW_PENDING')),
 j.version,j.state,j.queued_item_count,j.running_item_count,j.review_pending_item_count,
@@ -68,7 +66,7 @@ JOIN review_drafts d ON d.import_item_id=i.id
 LEFT JOIN import_item_core_validations v ON v.id=d.selected_validation_id
 WHERE i.id=?`, itemID).Scan(&result.DraftID, &result.ImportID, &result.MetadataJSON, &result.Version,
 		&result.State, &result.ValidationID, &result.DatID, &result.CandidateID,
-		&result.HasCover, &result.HasBackground, &result.SourceReady, &result.SourceBusy,
+		&result.HasCover, &result.HasBackground, &result.SourceBusy,
 		&result.Aggregate.Version, &result.Aggregate.Progress.State,
 		&result.Aggregate.Progress.Counts.Queued, &result.Aggregate.Progress.Counts.Running,
 		&result.Aggregate.Progress.Counts.ReviewPending, &result.Aggregate.Progress.Counts.Failed,

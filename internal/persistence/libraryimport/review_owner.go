@@ -14,11 +14,11 @@ func TransitionReviewOwners(
 	if change.State != application.ReviewOwnerPublished && change.State != application.ReviewOwnerDiscarded {
 		return application.ErrInvalid
 	}
-	pegasusAffected, err := transitionServerReviewOwner(ctx, executor, "source_import_items", change)
+	sourceAffected, err := transitionServerReviewOwner(ctx, executor, "source_import_items", change)
 	if err != nil {
 		return err
 	}
-	if pegasusAffected == 0 {
+	if sourceAffected == 0 {
 		return nil
 	}
 	return refreshSourceReviewCounts(ctx, executor, change.ItemID, change.NowMS)

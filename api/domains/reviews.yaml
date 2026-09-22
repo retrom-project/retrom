@@ -295,7 +295,6 @@ components:
         - sourceKind
         - sourceLabel
         - sourceImportId
-        - emulationStationImportId
         - updatedAtMs
       properties:
         itemId:
@@ -363,10 +362,6 @@ components:
           type: string
           format: uuid
           nullable: true
-        emulationStationImportId:
-          type: string
-          format: uuid
-          nullable: true
         updatedAtMs:
           type: integer
           format: int64
@@ -400,9 +395,6 @@ components:
           type: string
           format: uuid
         sourceImportId:
-          type: string
-          format: uuid
-        emulationStationImportId:
           type: string
           format: uuid
         platformInstanceId:

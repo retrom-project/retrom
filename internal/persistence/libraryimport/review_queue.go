@@ -84,20 +84,20 @@ func reviewQueueStatement(query application.ReviewQueueQuery) (string, []any) {
 
 func scanReviewQueueRecord(scanner dbexec.Scanner) (application.ReviewQueueRecord, error) {
 	var result application.ReviewQueueRecord
-	var pegasusID, sourceImportID, pegasusLabel *string
-	var pegasusCover bool
+	var sourceID, sourceImportID, sourceLabel *string
+	var sourceCover bool
 	err := scanner.Scan(
 		&result.ItemID, &result.Version, &result.ImportJobID, &result.DraftTitle, &result.SourceName,
 		&result.Platform.ID, &result.Platform.Name, &result.ValidationStatus, &result.CompatibilityCode,
 		&result.UpdatedAtMS, &result.CandidateCount, &result.SourceTotalSizeBytes, &result.SourceMD5, &result.CoverAssetID,
-		&pegasusID, &sourceImportID, &pegasusLabel, &pegasusCover,
+		&sourceID, &sourceImportID, &sourceLabel, &sourceCover,
 	)
 	if err != nil {
 		return application.ReviewQueueRecord{}, fmt.Errorf("scan review queue item: %w", err)
 	}
-	if pegasusID != nil && sourceImportID != nil {
+	if sourceID != nil && sourceImportID != nil {
 		result.Source = &application.ReviewQueueSource{
-			ItemID: *pegasusID, ImportID: *sourceImportID, Label: pegasusLabel, HasCover: pegasusCover,
+			ItemID: *sourceID, ImportID: *sourceImportID, Label: sourceLabel, HasCover: sourceCover,
 		}
 	}
 	return result, nil

@@ -2816,7 +2816,7 @@ export interface components {
             /** Format: int64 */
             reviewDraftCount: number;
             /** Format: int64 */
-            pegasusCollectionCount: number;
+            sourceCollectionCount: number;
         };
         TagAdminItem: {
             /** Format: uuid */
@@ -3617,8 +3617,6 @@ export interface components {
             sourceLabel: string | null;
             /** Format: uuid */
             sourceImportId: string | null;
-            /** Format: uuid */
-            emulationStationImportId: string | null;
             /** Format: int64 */
             updatedAtMs: number;
         };
@@ -3634,8 +3632,6 @@ export interface components {
             importJobId?: string;
             /** Format: uuid */
             sourceImportId?: string;
-            /** Format: uuid */
-            emulationStationImportId?: string;
             /** Format: uuid */
             platformInstanceId?: string;
             blockerCode?: string;

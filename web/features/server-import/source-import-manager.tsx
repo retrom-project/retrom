@@ -103,7 +103,7 @@ export function SourceImportDrawer({ open, roots, platformInstances, activeTags 
     if (refreshRequest.current?.planId === planId) {return refreshRequest.current.promise;}
     const promise = (async () => {
       const { data, response } = await api.GET("/api/v1/admin/source-imports/{sourceImportId}", { params: { path: { sourceImportId: planId } } });
-      if (!data) {throw new Error(await message(response, "Source 计划读取失败"));}
+      if (!data) {throw new Error(await message(response, "来源计划读取失败"));}
       setPlan(data);
       if (data.state === "AWAITING_MAPPING") {
         const loaded = await loadCollections(data.id);
@@ -128,7 +128,7 @@ export function SourceImportDrawer({ open, roots, platformInstances, activeTags 
     queueMicrotask(() => {
       if (!active) {return;}
       hydratedPlanId.current = resumablePlanId;
-      void refreshPlan(resumablePlanId).catch((caught: unknown) => setError(caught instanceof Error ? caught.message : "Source 计划读取失败"));
+      void refreshPlan(resumablePlanId).catch((caught: unknown) => setError(caught instanceof Error ? caught.message : "来源计划读取失败"));
     });
     return () => {active = false;};
   }, [open, refreshPlan, resumablePlanId]);

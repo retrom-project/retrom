@@ -24,9 +24,9 @@ type ReviewCoverSource struct {
 	SizeBytes                                 int64
 }
 type ReviewCoverDraft struct {
-	Version                 int64
-	State                   string
-	SourceReady, SourceBusy bool
+	Version    int64
+	State      string
+	SourceBusy bool
 }
 type ReviewCoverRecord struct {
 	ID, ItemID, UploadFileID, BlobID, MediaType string

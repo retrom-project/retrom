@@ -40,7 +40,7 @@ type Usage struct {
 	PublishedGameCount    int64 `json:"publishedGameCount"`
 	DeletedGameCount      int64 `json:"deletedGameCount"`
 	ReviewDraftCount      int64 `json:"reviewDraftCount"`
-	SourceCollectionCount int64 `json:"pegasusCollectionCount"`
+	SourceCollectionCount int64 `json:"sourceCollectionCount"`
 }
 
 type AdminItem struct {
@@ -78,7 +78,7 @@ type DeleteImpact struct {
 	PublishedGameCount    int64 `json:"publishedGameCount"`
 	DeletedGameCount      int64 `json:"deletedGameCount"`
 	ReviewDraftCount      int64 `json:"reviewDraftCount"`
-	SourceCollectionCount int64 `json:"pegasusCollectionCount"`
+	SourceCollectionCount int64 `json:"sourceCollectionCount"`
 }
 
 type GameTagResult struct {

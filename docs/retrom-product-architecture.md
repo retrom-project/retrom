@@ -158,7 +158,7 @@ Saturn/yabause 的 `MULTI_DISC` 内容由同一物理目录中的一个来源 M3
 
 ### 3.11 标签是实例共享、管理员维护的分类
 
-Tag 必须先由管理员建立，再以稳定 ID 关联 Game、导入 ReviewDraft、Pegasus Collection 或 EmulationStation Collection；普通用户只能看到可见游戏已关联的活动标签。它与 Profile 私有 FavoriteFolder、单归属 PlatformInstance、metadata genre 和外部来源 tags 都是不同概念。重命名通过动态关系投影立即生效；删除还会推进受影响 owner version，使旧写入稳定冲突。两者都不改写游戏元信息或内容，也不进入 Launch、Player 或存档。完整边界见 [游戏标签](./game-tags.md)。
+Tag 必须先由管理员建立，再以稳定 ID 关联 Game、导入 ReviewDraft、通用来源 Collection；普通用户只能看到可见游戏已关联的活动标签。它与 Profile 私有 FavoriteFolder、单归属 PlatformInstance、metadata genre 和外部来源 tags 都是不同概念。重命名通过动态关系投影立即生效；删除还会推进受影响 owner version，使旧写入稳定冲突。两者都不改写游戏元信息或内容，也不进入 Launch、Player 或存档。完整边界见 [游戏标签](./game-tags.md)。
 
 ### 3.12 流程 payload 短期保留，Game 删除保留墓碑
 

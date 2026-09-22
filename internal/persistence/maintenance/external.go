@@ -19,7 +19,7 @@ WHERE kind='SERVER_BIOS_IMPORT' AND state IN ('QUEUED','RUNNING','CANCEL_REQUEST
 	if err != nil {
 		return maintenance.ImportCounts{}, fmt.Errorf("maintenance/bundle: fence restored server import jobs: %w", err)
 	}
-	pegasusJobs, err := transaction.ExecContext(ctx, `
+	sourceJobs, err := transaction.ExecContext(ctx, `
 UPDATE jobs SET state='FAILED',error_code='SERVER_IMPORT_SOURCE_NOT_RESTORED',error_retryable=0,
 finished_at_ms=?,leased_until_ms=NULL,heartbeat_at_ms=NULL,worker_id=NULL,
 cancel_requested_at_ms=NULL,cancel_reason=NULL,version=version+1,updated_at_ms=?
@@ -118,7 +118,7 @@ completed_at_ms=?,version=version+1,updated_at_ms=?
 		return maintenance.ImportCounts{}, fmt.Errorf("maintenance/bundle: fence restored Source imports: %w", err)
 	}
 
-	counts, err := affected(serverJobs, pegasusJobs)
+	counts, err := affected(serverJobs, sourceJobs)
 	if err != nil {
 		return maintenance.ImportCounts{}, err
 	}
