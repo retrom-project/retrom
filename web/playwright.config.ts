@@ -1,5 +1,8 @@
 import { defineConfig, devices } from "@playwright/test";
 import { fileURLToPath } from "node:url";
+import {installLocalhostDNS} from "./e2e/localhost-dns";
+
+installLocalhostDNS();
 
 const chromeExecutablePath = process.env.RETROM_CHROME_EXECUTABLE
   ?? fileURLToPath(new URL("../.cache/tools/retrom-chrome-for-testing", import.meta.url));
