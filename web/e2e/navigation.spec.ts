@@ -426,9 +426,9 @@ test("game detail keeps its one-screen hierarchy and opens saves without navigat
 test("BIOS and save controls are labeled and keyboard reachable", async ({ page }, testInfo) => {
   await page.goto("/admin/bios?scope=FULL_CATALOG");
   await expect(page.getByRole("heading", { name: "运行依赖" })).toBeVisible();
-  const biosTab = page.getByRole("tab", { name: "BIOS 文件" });
-  await expect(biosTab).toHaveAttribute("aria-selected", "true");
-  await expect(page.getByRole("tabpanel", { name: "BIOS 文件" })
+  const scope = page.getByRole("button", { name: /^完整 BIOS 目录/ });
+  await expect(scope).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("region", { name: "筛选 BIOS 文件" })
     .getByRole("searchbox", { name: "搜索 BIOS 文件" })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
   await page.goto("/saves?availability=ALL");

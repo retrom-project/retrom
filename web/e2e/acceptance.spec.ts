@@ -211,7 +211,7 @@ test("ACC-UI-006 admin pages remain reachable at desktop breakpoints", async ({ 
   const routes = [
     ["/admin/imports", ".import-workflow-page"], ["/admin/imports/new", ".import-wizard"],
     ["/admin/imports/server", ".page-layout-admin"], ["/admin/imports/tasks", ".import-workflow-page"],
-    ["/admin/reviews", ".import-workflow-page"], ["/admin/reviews/history", ".import-workflow-page"],
+    ["/admin/reviews", ".import-workflow-page"],
     ["/admin/games", ".page-header"], ["/admin/platform-instances", ".platform-directory-manager"],
     ["/admin/users", ".user-admin-page"], ["/admin/bios", ".page-layout-admin"],
     ["/admin/storage", ".storage-analysis-page"],

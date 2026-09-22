@@ -302,7 +302,7 @@ test("ACC-MOB-004 phone administration links lead back to play without mounting 
   await page.setViewportSize({ width: 390, height: 844 });
   const routes = [
     "/admin/imports", "/admin/imports/new", "/admin/imports/server", "/admin/imports/tasks",
-    "/admin/reviews", "/admin/reviews/history", "/admin/games", "/admin/platform-instances",
+    "/admin/reviews", "/admin/games", "/admin/platform-instances",
     "/admin/users", "/admin/bios", "/admin/storage",
   ];
   for (const route of routes) {

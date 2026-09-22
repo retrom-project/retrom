@@ -112,9 +112,9 @@ make acceptance-report
 | 入库数据 | 小规模的 queued/running/review-pending/failed Item 与 已发布/丢弃 Item，供总览、任务、待审核和任务结果使用 |
 | Hasheous stub | 命中、未命中、429、超时、500、401 和畸形响应七种固定路由，不要求凭证 |
 | 公开 mGBA ROM | `testdata/public-roms/gba-smoke/gba-smoke.gba`、`pegasus-smoke.gba` 与 `emulationstation-smoke.gba`；项目自有源码生成、MIT 许可且具有三个不同内容身份，生成器与普通上传/Pegasus/EmulationStation 实际消费者分别锁定 size/SHA-256/bytes；普通上传与 EmulationStation 使用两组内容身份不同的项目自有封面/视频，后者配套最小严格 `gamelist.xml` |
-| 公开 FCEUmm NES ROM | `testdata/public-roms/nes-smoke/nes-smoke.nes`；项目自有 MIT iNES 1.0 NROM 程序，生成器与真实上传/导入/审核/发布/双浏览器消费者锁定 size/SHA-256/bytes，程序读取 P1/P2 控制器并更新可见画面；不需要 BIOS |
+| 公开 FCEUmm NES ROM | `testdata/public-roms/nes-smoke/nes-smoke.nes`；项目自有 MIT iNES 1.0 NROM 程序，生成器与真实上传/导入/审核/发布/浏览器消费者锁定 size/SHA-256/bytes，程序读取 P1/P2 控制器并更新可见画面；不需要 BIOS |
 | 公开 Nestopia NES ROM | `testdata/public-roms/nes-smoke/nestopia-smoke.nes`；与 FCEUmm fixture 由同一项目自有生成器产出，执行与图形 bytes 相同，只用未执行 marker 形成独立内容身份，使两个游戏分别通过产品去重、导入与审核链路；消费者独立锁定 size/SHA-256/bytes；不需要 BIOS |
-| 公开 SNES9x ROM | `testdata/public-roms/snes-smoke/snes-smoke.sfc`；项目自有 MIT 32 KiB LoROM，显式初始化 PPU/WRAM/自动 joypad，生成器与真实上传/审核/Launch/单浏览器/双浏览器消费者锁定 header/checksum/size/SHA-256/bytes；不需要 BIOS、SRAM 或私有 SDK |
+| 公开 SNES9x ROM | `testdata/public-roms/snes-smoke/snes-smoke.sfc`；项目自有 MIT 32 KiB LoROM，显式初始化 PPU/WRAM/自动 joypad，生成器与真实上传/审核/Launch/浏览器消费者锁定 header/checksum/size/SHA-256/bytes；不需要 BIOS、SRAM 或私有 SDK |
 | 公开 MAME 2003 split set | `testdata/public-roms/arcade-smoke/`；项目自有 Z80 程序、生成资源、小型 DAT 与测试 BIOS，MIT 许可；生成器与消费者锁定 Child/Parent/BIOS archive、entry、size、CRC32、SHA-1 和 SHA-256；DAT 只由 acceptance-only 装置登记为 test-only BUILTIN，不经 HTTP 上传 |
 | 公开 MAME 2003 Plus split set | `testdata/public-roms/arcade-smoke/mame2003_plus/`；复用相同 driver-visible 项目自有成员，固定 ZIP comment 形成独立内容身份；独立小型 DAT 与消费者锁定 Child/Parent/BIOS 及完整 bytes |
 | 公开 FBNeo split set | `testdata/public-roms/arcade-smoke/fbneo/`；项目自有 Z80 程序、生成图形/PROM、Logiqx DAT 与测试 BIOS，MIT 许可；driver CRC32 由生成器对其控制的 4 bytes 做确定性校正，完整 bytes 由 SHA-1/SHA-256 锁定；DAT 只由 acceptance-only 装置登记为 test-only BUILTIN，不经 HTTP 上传 |
