@@ -164,7 +164,8 @@ fi
 emulatorjs_bundle_sha256="$(jq -er '.providers[] | select(.providerId == "emulatorjs") | .bundleSha256' \
   "$dev_state/runtime-providers/active.json")"
 
-(cd web && \
+# Chrome's Unix socket path must stay short even when the test data uses a PFB TMPDIR.
+(cd web && TMPDIR=/tmp \
   RETROM_WEB_ORIGIN="$web_origin" \
   RETROM_E2E_SERVER_SOURCE="$temporary_root/source" \
   RETROM_E2E_DATABASE="$temporary_root/data/retrom.db" \
