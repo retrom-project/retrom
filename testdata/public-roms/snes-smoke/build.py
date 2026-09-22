@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build Retrom's project-owned deterministic SNES netplay fixture."""
+"""Build Retrom's project-owned deterministic SNES fixture."""
 
 from __future__ import annotations
 
