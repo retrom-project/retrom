@@ -44,7 +44,7 @@ FROM games WHERE id=?`, scope.ID).Scan(
 		err = records.executor.QueryRowContext(ctx, `SELECT import_job_id FROM import_items WHERE id=?`, scope.ID).Scan(
 			&facts.ParentID,
 		)
-	case application.ScopePegasusImportItem, application.ScopeEmulationStationImportItem:
+	case application.ScopeSourceImportItem:
 		spec, specErr := effectSourceSpec(scope.Type)
 		if specErr != nil {
 			return specErr
@@ -150,8 +150,7 @@ func (records effectRecords) Links(ctx context.Context, scope application.Scope)
 func (records effectRecords) boundSources(ctx context.Context, id string) ([]application.Scope, error) {
 	links := make([]application.Scope, 0)
 	for _, kind := range []application.ScopeType{
-		application.ScopePegasusImportItem,
-		application.ScopeEmulationStationImportItem,
+		application.ScopeSourceImportItem,
 	} {
 		spec, err := effectSourceSpec(kind)
 		if err != nil {

@@ -238,17 +238,17 @@
   .runtime-toolbar,
   .runtime-active-grid,
   .server-root-options,
-  .pegasus-scan-summary,
-  .pegasus-collection-list article,
+  .source-scan-summary,
+  .source-collection-list article,
   .server-import-result-filters,
-  .server-import-result-filters.pegasus-result-filters,
-  .pegasus-runtime-diagnostic-body > dl,
-  .pegasus-internal-diagnostic dl { grid-template-columns: minmax(0, 1fr); }
+  .server-import-result-filters.source-result-filters,
+  .source-runtime-diagnostic-body > dl,
+  .source-internal-diagnostic dl { grid-template-columns: minmax(0, 1fr); }
 
   .import-priority-grid article,
   .import-selected-summary,
   .server-import-detail-head,
-  .pegasus-review-callout { align-items: flex-start; flex-direction: column; }
+  .source-review-callout { align-items: flex-start; flex-direction: column; }
   .import-priority-grid article > div:last-child,
   .server-import-detail-head > div:last-child { width: 100%; justify-items: start; justify-content: flex-start; }
   .import-pipeline-panel,
@@ -264,10 +264,8 @@
   .import-stage-actions > * { width: 100%; }
   .import-task-list,
   .review-workflow-list,
-  .review-history-list { overflow: visible; }
   .import-task-entry,
   .review-workflow-row,
-  .review-history-list > article { min-width: 0; }
   .import-task-card { min-height: 0; padding: 14px; grid-template-columns: minmax(0, 1fr); gap: 12px; }
   .import-task-card > .status { justify-self: start; }
   .import-task-main h3,
@@ -300,7 +298,6 @@
   .review-bulk-status-head .button { width: 100%; }
   .review-bulk-stats { grid-template-columns: 1fr 1fr; }
   .review-bulk-results a { align-items: flex-start; flex-direction: column; gap: 2px; }
-  .review-history-list > article { min-height: 0; padding: 14px; grid-template-columns: minmax(0, 1fr); gap: 9px; }
   .review-overview-card { height: auto; min-height: 220px; }
   .review-source-package > summary { grid-template-columns: auto minmax(0, 1fr); }
   .review-source-package > summary small { grid-column: 2; }
@@ -387,14 +384,14 @@
   .bios-entry-comparison { grid-template-columns: minmax(0, 1fr); }
 
   .server-import-result-table,
-  .pegasus-result-table { overflow: visible; border: 0; background: transparent; }
+  .source-result-table { overflow: visible; border: 0; background: transparent; }
   .server-import-result-table > article,
-  .pegasus-result-table > article { min-width: 0; min-height: 0; margin-bottom: 10px; padding: 14px; grid-template-columns: minmax(0, 1fr); gap: 10px; border: 1px solid var(--line); border-radius: var(--radius-panel); background: white; }
+  .source-result-table > article { min-width: 0; min-height: 0; margin-bottom: 10px; padding: 14px; grid-template-columns: minmax(0, 1fr); gap: 10px; border: 1px solid var(--line); border-radius: var(--radius-panel); background: white; }
   .server-import-result-table strong,
-  .pegasus-result-table h3 { overflow: visible; white-space: normal; overflow-wrap: anywhere; }
-  .pegasus-collection-list { max-height: none; }
-  .pegasus-review-table > div { align-items: flex-start; flex-direction: column; }
-  .pegasus-review-table strong { max-width: none; text-align: left; }
+  .source-result-table h3 { overflow: visible; white-space: normal; overflow-wrap: anywhere; }
+  .source-collection-list { max-height: none; }
+  .source-review-table > div { align-items: flex-start; flex-direction: column; }
+  .source-review-table strong { max-width: none; text-align: left; }
 
   .user-table-panel { border: 0; background: transparent; }
   .user-table-wrap,

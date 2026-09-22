@@ -3,11 +3,15 @@
 | 属性 | 内容 |
 | --- | --- |
 | 文档状态 | 已审定 / 一期实施基线 |
-| 版本 | 1.6 |
-| 日期 | 2026-09-08 |
+| 版本 | 1.7 |
+| 日期 | 2026-09-22 |
 | 元信息源 | Hasheous 公共 Hash Lookup |
 
 ## 1. 边界
+
+浏览器单文件、目录和服务器组织格式共用一条导入链路。UploadSession/UploadFile 只负责传输；接收成功时在同一事务写入独立的 `import_files`，保存会话、规范相对路径、Blob、大小和接收时间，不保存 Pegasus/gamelist 格式。分组、校验、审核、重配置都从此表读取，未完成上传不能进入该表。
+
+Pegasus 与 gamelist.xml 只负责把文件组织、文字元数据和媒体引用解析为统一的扫描投影。它们共享 `source_imports` 计划、`source_import_items` 和通用 `jobs` 中的 `IMPORT_SCAN/IMPORT_RECEIVE`，使用同一 Worker、映射、复制、取消、重试与恢复。文件接收后复用 `ImportPreparation/ImportCreations`，生成同一 `import_jobs/import_items/review_drafts`；下游不按格式选择上传或审核流。
 
 导入链路将文件接收、运行依赖识别、展示元信息刮削和人工审核分开：
 
@@ -37,7 +41,7 @@ ScummVM 使用与浏览器核心同一上游基线的原生检测器，Host 只�
 - `ImportItemCoreValidation/ImportItemValidationFile`：发布前针对目标游戏目录默认核心完成的不可变验证结论和派生依赖文件；普通审核通过复制 READY 证据，截图人工放行复制同一当前阻断证据中已实际具备的文件，两者都不在事务中重新扫描/打包。
 - `MetadataScrapeRun`：一个 ImportItem（或已发布 Game 的重新刮削）的一次 provider/hash 证据批次；provider=NONE 只保留一次明确的 no-op Run/Job 和审核选择，不创建伪造的 ContentHashEvidence、QueryAttempt、ProviderResponse 或 Candidate。
 - `ScrapeCandidate/ScrapeCandidateAsset`：一次 run 中 provider 返回的展示元信息候选和可独立下载/失败的媒体候选。
-- `ReviewEvent`：追加式审核事件与前后快照。
+- `ReviewDraft`：当前审核草稿与并发版本；最终状态由 ImportItem 与发布 Game 表示。
 
 所有时间点使用 `_at_ms INTEGER` Unix 毫秒，任务耗时使用 `_duration_ms INTEGER`。
 
@@ -104,13 +108,13 @@ ImportJob 按下列优先级聚合，不能让同一计数组合得到两种状�
 
 普通单条审批与快速审批的逐项发布共用 Service/Repository 事务；当前验证、重复内容确认、媒体/标签、Game/Variant、审核事件、来源归属、父聚合与 payload 登记必须一起提交。末端同时校验草稿版本、有效来源/目标及父版本/待审计数；任一步失败都回滚本项发布。父任务复用上述唯一聚合优先级，不能因当前项已发布而忽略其他运行项或失败项。快速审批前一项已提交后，后一项失败只回滚后一项，并保留前一项结果。
 
-每阶段幂等，重试不能重复创建 Blob、Validation、候选、Game 或 ReviewEvent。lease 固定 60 秒、worker 每 15 秒 heartbeat；超过 lease 的运行任务可重新领取。Hasheous 超时/未命中不是 Item failure，仍进入审核并标记“需手动补全”。用户可重试 `FAILED_RETRYABLE`，attempt 用尽或确定性坏输入进入 `FAILED_FINAL`。
+每阶段幂等，重试不能重复创建 Blob、Validation、候选、Game 或重复审核决定。lease 固定 60 秒、worker 每 15 秒 heartbeat；超过 lease 的运行任务可重新领取。Hasheous 超时/未命中不是 Item failure，仍进入审核并标记“需手动补全”。用户可重试 `FAILED_RETRYABLE`，attempt 用尽或确定性坏输入进入 `FAILED_FINAL`。
 
 重复内容采用两个阶段约束。内容身份固定为“基础 `platform_id` + Item 当前全部 source file 的 `(role, Blob SHA-256, occurrence count)` 规范排序摘要”，不包含上传任务、文件名、逻辑名、ZIP/7z wrapper 名或目标 PlatformInstance；因此同一平台内改名或换 archive wrapper 不能绕过判断，不同基础平台不互相误判。识别阶段在 SourceFile 已闭合、CoreValidation/ReviewDraft/刮削尚未创建时，查询是否已有 `PUBLISHED`（即未软删除）Game 的 current GameFiles 使用完全相同内容身份：命中则把 Item 原子转为 `DISCARDED`，记录全部已有 Game/当时 GameFiles 的不可变匹配证据，并把任务计数投影为“已导入并跳过”；不会创建待审核条目或重复游戏。底层 ImportJobFile 仍为可追溯的 `SOURCE`，详情 API 仅将参与该匹配的上传文件投影为 `ALREADY_IMPORTED`。
 
-审核阶段必须重新执行相同判断，以覆盖两个任务在任一任务发布前都完成识别的竞态。普通 Approve 若命中当前未删除 Game，返回 `409 DUPLICATE_GAME_CONFIRMATION_REQUIRED` 及当前完整已有游戏集合，不创建任何发布实体。用户只有在二次确认中提交 `duplicatePolicy=ALLOW_NEW` 和与服务端当前集合完全一致、无重复的 `acknowledgedGameIds`，才能继续发布；集合变化必须再次确认。内容身份 claim 与查询/发布位于同一 SQLite 写事务，单写者下并发首发不能双双越过检查。确认 policy、内容摘要和已确认 Game ID 写入最终 ReviewEvent diff；软删除的 Game 不阻止重新导入。
+审核阶段必须重新执行相同判断，以覆盖两个任务在任一任务发布前都完成识别的竞态。普通 Approve 若命中当前未删除 Game，返回 `409 DUPLICATE_GAME_CONFIRMATION_REQUIRED` 及当前完整已有游戏集合，不创建任何发布实体。用户只有在二次确认中提交 `duplicatePolicy=ALLOW_NEW` 和与服务端当前集合完全一致、无重复的 `acknowledgedGameIds`，才能继续发布；集合变化必须再次确认。内容身份 claim 与查询/发布位于同一 SQLite 写事务，单写者下并发首发不能双双越过检查。确认只在当前发布事务内生效，不保存字段差异或审核快照；软删除的 Game 不阻止重新导入。
 
-ImportItem 进入失败态时必须写 `failed_stage=HASHING|IDENTIFYING|SCRAPING`。前两类 Item retry 增加原 IMPORT_ITEM_PIPELINE Job execution并继续使用 ImportJob 创建时冻结的配置；SCRAPING retry 根据同一 provider/config 新建 MetadataScrapeRun/Job，绝不重开或污染旧 Run。领域输入后来变化时由审核过期/重新验证流程处理，不能用 retry 静默改目标目录、DAT、BIOS 或 provider 版本。
+ImportItem 进入失败态时必须写 `failed_stage=HASHING|IDENTIFYING|SCRAPING`。前两类 Item retry 增加原 IMPORT_ITEM_PIPELINE Job execution并继续使用 ImportJob 创建时冻结的配置；SCRAPING retry 根据同一 provider/config 新建 MetadataScrapeRun/Job，并原子删除旧 Run 及其候选。领域输入后来变化时由审核过期/重新验证流程处理，不能用 retry 静默改目标目录、DAT、BIOS 或 provider 版本。
 
 Job 交接只有一条实现路径：`IMPORT_ITEM_PIPELINE` 完成 hash、分组后识别、默认 CoreValidation 与派生文件，随后在一个短事务把 Item 转为 SCRAPING，并创建该 Item 的首个 MetadataScrapeRun/`METADATA_SCRAPE` Job；到此 pipeline Job 即 SUCCEEDED，不持有线程轮询另一个 Job。Metadata Job 对每条 eligible evidence 执行有界查询；HIT、MISS、INVALID_RESPONSE，以及用尽内部 attempt 后的 RATE_LIMITED/TIMEOUT/NETWORK_ERROR 都是该 evidence 的持久终态。所有 evidence 已终态（或本来为零）时，Job/Run 为 SUCCEEDED/COMPLETED，provider 错误作为 Warning 留在 Response/Attempt，不把 Item 错误地打成失败。只有数据库/CAS/领域不变量故障或整个 Job execution deadline 导致证据集合无法闭合时，Run/Job 才为 FAILED，并按 retryable 属性把 Item 转为 FAILED_RETRYABLE/FAILED_FINAL。候选创建时同时投递独立 MEDIA_FETCH Job；媒体仍在 PENDING/FETCHING 或单项失败都不阻止 Run 完成和 Item 进入 REVIEW_PENDING，只有 READY 媒体可被采用。
 
@@ -118,7 +122,7 @@ Metadata worker 以独立 worker ID 和 execution number 领取任务，领取�
 
 取消投影同样固定：整条 Import 已请求取消时，初始 Metadata Job 停止后 Item 跟随 Import 进入 CANCELLED，不能创建审核草稿；没有父级取消而用户单独取消初始 Metadata Job 时，Run/Job 为 CANCELLED，并以 basename fallback 初始化草稿、把 Item 转 REVIEW_PENDING，允许手工审核或从审核页新建另一次 Run。取消 REVIEW_PENDING Item 的后续重刮削只终止该 Run，不改变现有草稿/Item；取消 Game 重刮削只终止候选批次，不改变发布元信息。MEDIA_FETCH 取消只把对应 Asset/Job 置 CANCELLED。任何一种取消都不复活旧 Job，且已持久化的 Response/Candidate 仍作为证据保留。
 
-首个自动 Run 完成时，负责它的 Metadata Job 在同一短事务创建唯一 ReviewDraft、把 Item 转为 REVIEW_PENDING：READY 的默认 CoreValidation 自动写入 `selected_validation_id`，BLOCKED/INCOMPATIBLE 时该字段为空并展示 blocker；候选按第 7 节固定顺序非空时自动选择第一项并复制其 normalized metadata，候选为空时用 primary content 的安全 basename 去掉最后扩展名作为初始 title，其他展示字段为空。DOS 目录使用 common root 最后一段，DOS ZIP 使用 ZIP basename；结果 trim 后若为空或含控制字符则 title 为空并禁用 Approve，不能写“未命名游戏”后误发布。自动初始化不选择尚未完成的媒体，也不写冒充人工操作的 ReviewEvent；候选/Run/Validation 本身已是不可变来源。审核者之后清除 `selected_candidate_id` 只表示改为人工来源，不自动回滚当前字段；字段变化必须由同一次 PATCH 明示并写 ReviewEvent。后续显式重刮削只新增 Run/Candidate，不自动改现有草稿。
+首个自动 Run 完成时，负责它的 Metadata Job 在同一短事务创建唯一 ReviewDraft、把 Item 转为 REVIEW_PENDING：READY 的默认 CoreValidation 自动写入 `selected_validation_id`，BLOCKED/INCOMPATIBLE 时该字段为空并展示 blocker；候选按第 7 节固定顺序非空时自动选择第一项并复制其 normalized metadata，候选为空时用 primary content 的安全 basename 去掉最后扩展名作为初始 title，其他展示字段为空。DOS 目录使用 common root 最后一段，DOS ZIP 使用 ZIP basename；结果 trim 后若为空或含控制字符则 title 为空并禁用 Approve，不能写“未命名游戏”后误发布。自动初始化不选择尚未完成的媒体。审核者之后清除 `selected_candidate_id` 只表示改为人工来源，不自动回滚当前字段；字段变化必须由同一次 PATCH 明示。后续显式重抓取原子替换当前 Run 及其候选，清除旧候选和媒体选择，保留已编辑的草稿文字。
 
 ### 丢弃本批次未发布内容
 
@@ -227,10 +231,12 @@ ScummVM 项目不执行在线哈希刮削；游戏数据 EXE 和附带 `scummvm.
 
 ## 7. Hasheous 适配器
 
+每个 ImportItem 或 Game 只保留一份当前 MetadataScrapeRun。显式重新抓取在同一事务取消旧的活动抓取/媒体 Job、删除旧 run 及候选/查询证据/媒体引用、清空指向旧候选的草稿选择，再建立当前 run；任一步失败保留原结果。已发布 GameAsset 不依赖候选生命周期。Provider response 缓存仍按 TTL 复用，是按查询键共享的网络缓存，不是按游戏保留的抓取历史。
+
 抓取结果由 Service 决定缓存复用、候选去重后的媒体登记和命中证据内容，原始响应文件在数据库写事务前写入 CAS。Repository 在同一事务内登记响应及 Blob 引用、更新缓存、保存查询 attempt、候选、命中与待抓取媒体；事务提交失败不得报告候选创建成功。
 
 
-抓取调度由 `internal/service/metadatascrape.Scheduler` 判断 Provider、游戏/审核版本、原始文件与归档证据，并决定 Arcade 查询排序、去重与上限。任务、抓取记录、证据、版本推进和审核事件使用同一个 Repository 写事务；初次导入通过调用方已有事务绑定同样的业务端口。只有提交成功后才启动抓取，数据库错误不应被转换成版本冲突。
+抓取调度由 `internal/service/metadatascrape.Scheduler` 判断 Provider、游戏/审核版本、原始文件与归档证据，并决定 Arcade 查询排序、去重与上限。任务、当前抓取记录、证据和版本推进使用同一个 Repository 写事务；初次导入通过调用方已有事务绑定同样的业务端口。只有提交成功后才启动抓取，数据库错误不应被转换成版本冲突。
 
 元数据抓取由应用 Service 统一登记执行、提交后调度、启动恢复和关闭，每次最多运行两个抓取。持久队列负责补领暂时未获得并发名额的任务；关闭取消并等待执行和监测退出，不能在普通导入提交后启动无归属的 goroutine。过期租约按既有退避进入下一 attempt，保留最初的一小时 execution 期限；未过期的其他 worker 不受影响，已经到期的 execution 不能被未来的 available 时间或租约继续延长。恢复从持久 evidence 结果和 attempt 继续，已终结的证据及已有候选计入同一执行，不重复写 attempt 1；缓存命中也使用当前的下一 attempt 编号。
 
@@ -340,7 +346,7 @@ type MetadataProvider interface {
 
 每次保存草稿都要把所选 Validation 的静态 BIOS snapshot 与当前 Requirement/active Installation 重新比较。完全相同时复用原不可变记录；BIOS 安装、版本、Blob、状态或交付映射变化时，以当前快照创建新的 CoreValidation，并只替换其中的 `BIOS_BUNDLE` 文件引用，旧 Validation/ValidationFiles 保留作历史证据。新结果为 READY 才能写入 `selected_validation_id`；若必需 BIOS 当前缺失，则保存其他草稿字段但清空选择并禁用 Approve。这样后续安装 BIOS 后再次保存即可恢复 READY，不会继续选择已过期证据，也不会为了元信息编辑复制无变化记录。
 
-发布前校验游戏目录仍启用且当前 version/default Provider Target/DAT/BIOS input 与 ReviewDraft.selectedValidation 完全一致。Approve 事务用已审核的 source manifest 创建 Game、GameFiles/GameContentFiles、默认核心 GameVariant/READY GameVariant、复制 ValidationFiles、Game 当前元信息字段/Asset 和 ReviewEvent，并同时闭合 Game 的 metadata/content current 与 Variant current；任一步失败全部回滚。事务不得读取大 archive、生成 ZIP 或访问网络；Validation 非 READY/过期时返回可修复冲突并投递新验证，不能发布。
+发布前校验游戏目录仍启用且当前 version/default Provider Target/DAT/BIOS input 与 ReviewDraft.selectedValidation 完全一致。Approve 事务用已审核的 source manifest 创建 Game、GameFiles/GameContentFiles、默认核心 GameVariant/READY GameVariant、复制 ValidationFiles、Game 当前元信息字段/Asset，并更新 ImportItem 状态，并同时闭合 Game 的 metadata/content current 与 Variant current；任一步失败全部回滚。事务不得读取大 archive、生成 ZIP 或访问网络；Validation 非 READY/过期时返回可修复冲突并投递新验证，不能发布。
 
 ### 9.1 Arcade Parent 补充与来源快照
 
@@ -355,48 +361,39 @@ QUEUED -> RUNNING -> ACCEPTED
 QUEUED/RUNNING/FAILED_RETRYABLE -> CANCELLED
 ```
 
-同一 Item 同时最多一个 `QUEUED/RUNNING` Attachment。Worker 在事务外执行安全 ZIP 扫描，只以根级 regular-file entry 对锁定 DAT 做 name/size/CRC/SHA-1 严格匹配并完整重跑 Arcade validator；浏览器文件名不参与 machine 判定。ZIP 可以同时保留不冲突的安全子目录 clone 文件作为原始归档证据，但这些子目录 entry 只计入 diagnostics，不能满足 Parent DAT、替代缺失根 entry 或让 Merged 主 ROMset 获得支持；真正的嵌套 archive、路径穿越、碰撞和统一 ArchiveLimits 超限仍拒绝。接受时在一个短事务内追加后继来源快照、Validation/ValidationFiles、UploadConsumption、ReviewEvent/JobEvent，更新草稿有效快照并递增版本；闭包仍缺其他 Parent 时 Attachment 仍为 ACCEPTED，但 Validation 保持 BLOCKED 且草稿不选择 Validation。拒绝或可重试失败不产生后继快照，旧有效快照不变。
+同一 Item 同时最多一个 `QUEUED/RUNNING` Attachment。Worker 在事务外执行安全 ZIP 扫描，只以根级 regular-file entry 对锁定 DAT 做 name/size/CRC/SHA-1 严格匹配并完整重跑 Arcade validator；浏览器文件名不参与 machine 判定。ZIP 可以同时保留不冲突的安全子目录 clone 文件作为原始归档证据，但这些子目录 entry 只计入 diagnostics，不能满足 Parent DAT、替代缺失根 entry 或让 Merged 主 ROMset 获得支持；真正的嵌套 archive、路径穿越、碰撞和统一 ArchiveLimits 超限仍拒绝。接受时在一个短事务内追加后继来源快照、Validation/ValidationFiles、UploadConsumption、JobEvent，更新草稿有效快照并递增版本；闭包仍缺其他 Parent 时 Attachment 仍为 ACCEPTED，但 Validation 保持 BLOCKED 且草稿不选择 Validation。拒绝或可重试失败不产生后继快照，旧有效快照不变。
 
-审核者可按 `a -> b -> c` 分步补齐：接受 b 后重新投影完整闭包并继续展示 c；全部依赖与 BIOS 满足后才自动选择 READY Validation。Merged、CHD、关系环、DAT/config/source 漂移不允许通过补传降级放行。Discard 会请求取消 active Job；离开页面不会取消，返回时由 Review GET 与 Job SSE 恢复。补传推进 Review version 是来源快照切换的并发保护，不能因此永久阻断发布：客户端在 Attachment 终态重新读取当前 Review；若发布仍因遗漏的系统版本推进返回 stale，只能在完整发布草稿等价、最新 Validation 可发布且没有 active Attachment 时用新 ETag 有界重试一次，任何人工字段并发变化仍必须停止。补传审计事件只保存 Attachment/Job/Validation/快照 ID、machine、原文件名、observed hash/size、状态和稳定错误码，不保存 ROM bytes 或宿主绝对路径。
+审核者可按 `a -> b -> c` 分步补齐：接受 b 后重新投影完整闭包并继续展示 c；全部依赖与 BIOS 满足后才自动选择 READY Validation。Merged、CHD、关系环、DAT/config/source 漂移不允许通过补传降级放行。Discard 会请求取消 active Job；离开页面不会取消，返回时由 Review GET 与 Job SSE 恢复。补传推进 Review version 是来源快照切换的并发保护，不能因此永久阻断发布：客户端在 Attachment 终态重新读取当前 Review；若发布仍因遗漏的系统版本推进返回 stale，只能在完整发布草稿等价、最新 Validation 可发布且没有 active Attachment 时用新 ETag 有界重试一次，任何人工字段并发变化仍必须停止。补传任务诊断只保存 Attachment/Job/Validation/快照 ID、machine、原文件名、observed hash/size、状态和稳定错误码，不保存 ROM bytes 或宿主绝对路径。
 
-Parent 改变有效 source manifest 和 content identity。每次接受后重新计算重复内容证据；进入人工审核的 Item 即使命中已发布游戏也不自动丢弃，Approve 继续以新 digest 做事务内最终重复检查并要求显式确认。发布时 ContentFiles 来自有效来源快照，VariantFiles 的 PARENT/BIOS 来自同快照 READY Validation，不得沿用 child-only 证据。若 Item 由 Pegasus 目录交接，最终 metadata/content 的来源仍记录为 `SERVER_PEGASUS_IMPORT` 并引用 Pegasus Item，但数据库必须沿一一关联的 `library_import_item_id -> ReviewDraft.effective_source_snapshot_id` 校验最终 content manifest；Pegasus 初始 manifest 只作为原始来源证据，不能阻断合法的 Parent 或多盘后继快照。
+Parent 改变有效 source manifest 和 content identity。每次接受后重新计算重复内容证据；进入人工审核的 Item 即使命中已发布游戏也不自动丢弃，Approve 继续以新 digest 做事务内最终重复检查并要求显式确认。发布时 ContentFiles 来自有效来源快照，VariantFiles 的 PARENT/BIOS 来自同快照 READY Validation，不得沿用 child-only 证据。若 Item 由 Pegasus 目录交接，最终 metadata/content 的来源仍记录为 `IMPORT_RECEIVE` 并引用 Pegasus Item，但数据库必须沿一一关联的 `library_import_item_id -> ReviewDraft.effective_source_snapshot_id` 校验最终 content manifest；Pegasus 初始 manifest 只作为原始来源证据，不能阻断合法的 Parent 或多盘后继快照。
 
-审核页允许调整元信息源：`HASHEOUS` 会显式 bypass cache 新建 MetadataScrapeRun/Job，`NONE` 建立无网络的已完成 run；两者都写 `SCRAPE_REQUESTED` ReviewEvent，服务端不会自动覆盖持久化草稿。首次自动刮削已有候选且草稿尚未选择来源时，前端把首个候选基础信息与 READY 封面填入客户端状态，并通过当前 ETag 防抖、串行实时保存；没有候选时必须把最新持久化 Run 的精确结论常驻投影到审核摘要，区分无特征、精确未命中、上游限流/超时/网络异常和响应无法解析，不能一律折叠成“未找到游戏信息”。之后显式查询原位等待 Job 终态，并以单个“当前信息 / 最新信息”左右两栏对比对话框呈现结果；每栏内部上方为短元信息与 3:4 封面，下方为完整简介。右栏可编辑且可上传人工封面，取消不采用，应用更新客户端状态并触发实时 PATCH；不得把历次候选卡不断追加到页面正文。草稿在决策前可以引用当前 run/candidate/asset；ReviewEvent v2 只冻结文字字段、候选/Validation/Run 等结构化审计 ID 与选择结论，不保存 asset/blob/upload ID 或媒体 URL。
+审核页允许调整元信息源：`HASHEOUS` 会显式 bypass cache 新建 MetadataScrapeRun/Job，`NONE` 建立无网络的已完成 run；两者都替换当前抓取结果，服务端不会自动覆盖持久化草稿。首次自动刮削已有候选且草稿尚未选择来源时，前端把首个候选基础信息与 READY 封面填入客户端状态，并通过当前 ETag 防抖、串行实时保存；没有候选时必须把最新持久化 Run 的精确结论常驻投影到审核摘要，区分无特征、精确未命中、上游限流/超时/网络异常和响应无法解析，不能一律折叠成“未找到游戏信息”。之后显式查询原位等待 Job 终态，并以单个“当前信息 / 最新信息”左右两栏对比对话框呈现结果；每栏内部上方为短元信息与 3:4 封面，下方为完整简介。右栏可编辑且可上传人工封面，取消不采用，应用更新客户端状态并触发实时 PATCH；不得把历次候选卡不断追加到页面正文。草稿在决策前可以引用当前 run/candidate/asset；替换结果时解除旧候选和媒体引用，已编辑的文字草稿保持不变。
 
-单条丢弃、批次处置和快速去重共用 `internal/service/libraryimport.ReviewDiscards` 的审核决定规则。单条丢弃拥有独立事务，批次逐项提交，快速去重的一页继续共享同一事务；附件取消、Item 与父任务计数、v2 审计、服务器来源状态和 payload 释放登记必须一起成功。最终写入同时检查待审状态和草稿版本；单条来源只能从已交接的 `REVIEW_PENDING` 收口，批次处置沿用其未发布预约清理权限。状态或版本不符返回冲突，数据库与损坏审计证据错误保留原因并返回服务器错误。
+单条丢弃、批次处置和快速去重共用 `internal/service/libraryimport.ReviewDiscards` 的审核决定规则。单条丢弃拥有独立事务，批次逐项提交，快速去重的一页继续共享同一事务；附件取消、Item 与父任务计数、服务器来源状态和 payload 释放登记必须一起成功。最终写入同时检查待审状态和草稿版本；单条来源只能从已交接的 `REVIEW_PENDING` 收口，批次处置沿用其未发布预约清理权限。状态或版本不符返回冲突，数据库与当前持久化证据错误保留原因并返回服务器错误。
 
 丢弃后的任务状态由 `internal/service/importprogress` 按既定聚合优先级计算，保留排队、运行、失败和未解决拒绝记录的影响。Repository 在同一事务读取聚合快照，保存时同时检查父任务版本与原待审数量；丢弃最后一个待审项不能把仍有失败或在途条目的任务改为 `COMPLETED`，也不能提前释放其 payload。
 
-## 10. 审核历史
+## 10. 当前审核结果
 
-ReviewEvent v2 只追加不覆盖，至少包含：
+审核只维护当前 ReviewDraft、ImportItem 状态及发布后的 Game。PATCH、Approve、Discard 不写审核历史表，不保存字段 diff 或决定快照，也没有审核历史页面/API。并发版本、幂等、输入重验、来源归属与 payload 释放仍必须在同一事务成立；JobEvent 保留任务执行诊断，账户与管理操作的 AuditEvent 不属于审核历史。
 
-- ImportItem ID、事件类型和真实 `USER` actor；后台/离线系统事件使用封闭 `SYSTEM` actor label。
-- 输入、输出与文字/标签 diff 快照。
-- 目标游戏目录、候选/Validation/Run/Attachment 等结构化审计 ID 和决定结论。
-- DAT/provider 的文字结论与稳定错误码。
-- `decision`、可空兼容原因和 `created_at_ms`；当前 UI 不采集发布说明或丢弃原因。
-
-草稿实时保存、改变目标目录、应用/撤销候选、Approve 和 Discard 都写一条事件；纯自动 Worker 进度写 JobEvent，不混入 ReviewEvent。历史页默认按最终 `APPROVED/DISCARDED` 决策列出记录，详情可回放此前文字与结构化事件。
-
-ImportItem 进入 `PUBLISHED/DISCARDED/FAILED_FINAL/CANCELLED` 后立即进入异步 PayloadRelease；历史页仍可还原来源名称、大小、manifest/hash 摘要、文字修改、标签、Validation/候选结论和最终决定，但不保存或回放封面、视频、运行截图、原始 provider response 或任何 CAS payload。历史列表和详情均为纯文字/结构化审计，不提供媒体占位或旧内容端点兜底。
+ImportItem 进入 `PUBLISHED/DISCARDED/FAILED_FINAL/CANCELLED` 后异步释放工作流 payload。发布的 Game 独立保护其当前内容和媒体；终态导入仅保留来源摘要、状态与错误供任务诊断。
 
 ### 10.1 管理后台页面职责
 
 普通审核 Preview 与 Player 由各类项目共用。本小节 `REVIEW_SCREENSHOT_OVERRIDE` 的截图人工放行只适用于非 RPG Maker 条目；RPG Maker 按第 17 节的真实来源、Target 和依赖检查决定能否发布，截图或试运行成功不覆盖缺失依赖。管理员可按需试运行、保存审核截图及会话级临时 checkpoint，但不需要专用运行证明。
 
-游戏入库使用“父级总览 + 五个同级子页”，不能再用一个页面内的 Tab 同时承载导入、任务和历史：
+游戏入库使用“父级总览 + 四个同级子页”，不能再用一个页面内的 Tab 同时承载导入、任务和历史：
 
 | 页面 | 路由 | 主要问题 | 允许的主要操作 |
 | --- | --- | --- | --- |
-| 游戏入库总览 | `/admin/imports` | 当前流水线是否健康、哪里需要处理 | 新建导入、跳转任务/待审核/历史 |
+| 游戏入库总览 | `/admin/imports` | 当前流水线是否健康、哪里需要处理 | 新建导入、跳转任务/待审核 |
 | 导入游戏 | `/admin/imports/new` | 本次导入什么、归属哪个游戏目录、冻结什么配置 | 选择内容、配置、预检、创建 ImportJob |
 | 本地扫描 | `/admin/imports/server` | 配置的只读服务端目录中有哪些 BIOS、Pegasus 或 EmulationStation 游戏 | 浏览允许目录、创建对应服务器导入、映射与查看结果 |
 | 任务进度 | `/admin/imports/tasks` | ImportJob/ImportItem 运行到哪里、为何失败 | 查看事件、取消任务、重试失败条目 |
 | 待审核 | `/admin/reviews`、`/admin/reviews/:itemId` | 候选是否正确、最终发布内容是什么 | 预览/启动严格 READY 快速审批；实时编辑、替换封面、Discard、逐项通过并发布 |
-| 审核历史 | `/admin/reviews/history` | 当时依据什么作出什么决策 | 筛选、查看不可变快照与字段 diff |
 
-总览的数据是聚合摘要，不复制完整任务管理能力。页首先展示待审核与异常任务两类优先事项，随后用进行中批次、等待审核、异常条目和历史完成批次四项 KPI，以及“上传与校验—识别—运行检查—游戏信息—人工审核—发布”六阶段流水线和最近任务摘要解释当前状态。所有批次数按用户发起的顶层操作统计：浏览器上传/重新配置产生的 ImportJob 各计一次，PegasusImport 与 EmulationStationImport 各计一次；服务器目录任务为复用普通审核管线而逐游戏创建的 ImportJob 是内部交接记录，不得出现在普通任务列表、最近任务或批次 KPI 中。处理中条目使用非终态顶层批次当前已知的普通 `total_item_count` 或对应服务器计划 `game_count`，异常条目使用普通失败 Item 加未解决 REJECTED 文件、或服务器计划 blocked/failed Item；不得从“最近三条任务”反推任何流水线统计。“待审核条目/等待审核/人工审核”三处必须共用实际可进入审核的 `state=REVIEW_PENDING` ImportItem 总数；带 EmulationStation handoff 预留但尚未 attach 到 `REVIEW_PENDING` 来源 Item 的内部条目不得计入。“发布”使用实际 `state=PUBLISHED` 的 ImportItem 总数，不能把含待审核内容的任务数、任务缓存计数或已经 DISCARDED 的 Item 计入。界面不能为不可观测阶段伪造精确进度。
+总览的数据是聚合摘要，不复制完整任务管理能力。页首先展示待审核与异常任务两类优先事项，随后用进行中批次、等待审核、异常条目和历史完成批次四项 KPI，以及“上传与校验—识别—运行检查—游戏信息—人工审核—发布”六阶段流水线和最近任务摘要解释当前状态。所有批次数按用户发起的顶层操作统计：浏览器上传/重新配置产生的 ImportJob 各计一次，SourceImport 每个计划计一次；服务器目录任务为复用普通审核管线而逐游戏创建的 ImportJob 是内部交接记录，不得出现在普通任务列表、最近任务或批次 KPI 中。处理中条目使用非终态顶层批次当前已知的普通 `total_item_count` 或对应服务器计划 `game_count`，异常条目使用普通失败 Item 加未解决 REJECTED 文件、或服务器计划 blocked/failed Item；不得从“最近三条任务”反推任何流水线统计。“待审核条目/等待审核/人工审核”三处必须共用实际可进入审核的 `state=REVIEW_PENDING` ImportItem 总数；尚未交接到 `REVIEW_PENDING` 来源 Item 的内部条目不得计入。“发布”使用实际 `state=PUBLISHED` 的 ImportItem 总数，不能把含待审核内容的任务数、任务缓存计数或已经 DISCARDED 的 Item 计入。界面不能为不可观测阶段伪造精确进度。
 
 “导入游戏”固定为选择内容、确认配置、上传并验证三步；目标游戏目录没有默认值，用户选择后才显示基础平台和推荐运行方式。实例不存在任何游戏目录时，普通导入和服务器计划的 `AWAITING_MAPPING` 都不得展示不可完成的内容/映射选择器或允许确认；页面说明需先进入“游戏目录”执行“一键创建推荐目录”，并提供“前往游戏目录”入口。上传、终结校验与创建 ImportJob 按顺序执行，成功后进入任务进度，不直接跳入尚未生成内容的待审核队列。任务进度只列浏览器上传/重新配置产生的普通 ImportJob；Pegasus 与 EmulationStation 批次在“本地扫描”各按一个顶层计划展示，其内部逐游戏 ImportJob 仅供详情诊断。普通任务进度按更新时间游标分页，每页最多 20 条；滚动到已加载列表末尾再取下一页。只对已加载且仍为 `QUEUED/RUNNING/CANCEL_REQUESTED` 的任务每秒读取一次详情，同页多批任务并行更新，全部进入终态后停止；尚未加载的运行任务不轮询。任务卡展示阶段、条目分布、异常和下一步；异常数必须同时包含失败 Item 与尚未解决的 REJECTED 文件，并分别说明“条目失败”和“文件未被接受”，不能把仅含拒绝文件的任务显示为 0 异常。任务同时存在待审核条目和拒绝文件时，“审核 N 个条目”与进度条下可点击的“N 异常”必须同时可见；异常数为零时只显示文本，不提供无效操作。展开区以普通语言说明六阶段和处理路径；每个稳定 reason code 可聚焦并以 tooltip 展示具体含义，REJECTED 文件提供“重新配置并导入”入口，不暴露内部 UUID。已导入并跳过不是异常：完成任务明确展示被跳过文件、`ALREADY_IMPORTED` 原因和已有游戏链接。
 
@@ -410,15 +407,15 @@ ImportItem 进入 `PUBLISHED/DISCARDED/FAILED_FINAL/CANCELLED` 后立即进入�
 
 截图保存由 `internal/service/launch.ScreenshotSaver` 编排：先验证 Preview capability，再在数据库事务外有界读取和检查 PNG/JPEG，最后在写事务重验当前审核、保留的 payload、来源、启用的目录、最新 Validation、Provider Target 与会话有效期。最终权限判断和 `captured_at_ms` 使用同一时刻；数据库或读取失败保留原因，不能伪装成凭证错误。Blob 登记、清除旧 Validation 截图和替换当前截图原子提交；重复保存生成新 ID，保留首次创建时间，提交失败不返回成功结果。
 
-任务进度只展示 Worker/阶段运行态；待审核只展示未决条目；审核历史只读且按 ReviewEvent 回放。这三个边界可避免“失败任务”“待业务决策”和“已决审计记录”在同一列表中混淆。
+任务进度展示 Worker/阶段运行态；待审核只展示未决条目；发布结果进入游戏库，丢弃结果保留在任务状态中。
 
-待审核不是隐式的“下一条”游标。`/admin/reviews` 展示跨 ImportJob 的分页未决队列，每页最多 20 条并在滚动到底部后继续取页；可按 `importJobId` 收窄到同一批导入，任务页进入审核时必须携带该筛选。“当前已加载 / 可以发布 / 运行异常 / 未找到信息”是对已加载集合的真实即时筛选按钮，数量与筛选结果同步更新而不是装饰统计。用户可以查看各条目的来源、草稿标题、目录、Validation/Blocker、候选和更新时间后任意选择，详情路由保持队列上下文。普通 Approve/Discard 仍是逐 ImportItem、逐 ETag 和逐 Idempotency-Key 的原子决策；快速审批只在服务端枚举当前 URL 中的 `q/tagId/importJobId/pegasusImportId/platformInstanceId/blockerCode` 全范围，不使用 sort、cursor 或浏览器已加载集合。
+待审核不是隐式的“下一条”游标。`/admin/reviews` 展示跨 ImportJob 的分页未决队列，每页最多 20 条并在滚动到底部后继续取页；可按 `importJobId` 收窄到同一批导入，任务页进入审核时必须携带该筛选。“当前已加载 / 可以发布 / 运行异常 / 未找到信息”是对已加载集合的真实即时筛选按钮，数量与筛选结果同步更新而不是装饰统计。用户可以查看各条目的来源、草稿标题、目录、Validation/Blocker、候选和更新时间后任意选择，详情路由保持队列上下文。普通 Approve/Discard 仍是逐 ImportItem、逐 ETag 和逐 Idempotency-Key 的原子决策；快速审批只在服务端枚举当前 URL 中的 `q/tagId/importJobId/sourceImportId/platformInstanceId/blockerCode` 全范围，不使用 sort、cursor 或浏览器已加载集合。
 
 “快速审批”先打开影响预览，明确 matched、严格 READY candidate，以及阻断截图放行、重复内容、活动 Parent/多盘补传和其他不 READY/已过期排除数。只有严格 `READY`、当前 generation/来源/目录/Provider Target/active DAT/BIOS/DOS entry/dependency snapshot 均一致、标题合法、没有重复内容和活动 Attachment 的 Item 才能进入 candidate；仅靠按需运行截图启用逐项按钮的条目永不自动发布。dependency snapshot 必须按内容类型进入同一普通发布校验分支：两者统一使用 schemaVersion=1，静态 BIOS/多盘为 `kind=STATIC`，Arcade 为 `kind=ARCADE` 并包含 machine/DAT/closure/dependencies；后者重新核对当前 active DAT 的闭包、required entries 与冻结 ValidationFile，不得送入 STATIC 解析器。预览返回 scope digest 与候选 manifest digest；确认创建时服务端在一个事务重新枚举，任何筛选或 Item 输入漂移都以 `REVIEW_BULK_PREVIEW_STALE` 要求重新确认。空范围拒绝启动，单批上限 10,000，全实例同时只允许一个 active batch。
 
-后台按冻结顺序逐项复用普通 Approve 事务。成功 Item 的 Game/GameFiles/GameVariant/ReviewEvent、普通与对应服务器来源聚合和批次 `PUBLISHED` 结果必须同事务提交；ReviewEvent diff 增加 `approvalMode=QUICK_STRICT_READY` 和 `bulkApprovalId`，不建立第二套发布规则。处理前重复变为 `SKIPPED_DUPLICATE`，版本/Validation/来源漂移为 `SKIPPED_CHANGED`，严格门禁不再满足为 `SKIPPED_NOT_READY`，意外项故障为 `FAILED_FINAL` 并继续剩余项。取消只收口尚未提交的 Item；进程重启恢复未提交项，restore 使遗留批次以 `RESTORE_INTERRUPTED` 失败且不回滚已发布 Game。终态页面清除相关审核队列缓存、刷新列表，并提供逐项结果链接。
+后台按冻结顺序逐项复用普通 Approve 事务。成功 Item 的 Game/GameFiles/GameVariant、普通与对应服务器来源聚合和批次 `PUBLISHED` 结果必须同事务提交；批次结果保存 Game ID，不建立第二套发布规则。处理前重复变为 `SKIPPED_DUPLICATE`，版本/Validation/来源漂移为 `SKIPPED_CHANGED`，严格门禁不再满足为 `SKIPPED_NOT_READY`，意外项故障为 `FAILED_FINAL` 并继续剩余项。取消只收口尚未提交的 Item；进程重启恢复未提交项，restore 使遗留批次以 `RESTORE_INTERRUPTED` 失败且不回滚已发布 Game。终态页面清除相关审核队列缓存、刷新列表，并提供逐项结果链接。
 
-“快速去重”由管理员点击后自动丢弃当前 URL 筛选范围内与已发布 Game 内容相同的未决条目，覆盖全部分页。匹配复用普通重复检查：相同基础平台、完整来源文件的角色/Blob/数量一致，多盘还要求盘序一致；标题相同不足以判重。只有待审条目彼此重复但尚无已发布 Game 时不丢弃。正在 Parent/多盘补传的条目暂时跳过。每页最多检查 50 项，在同一事务重查有效来源、已发布匹配和审核版本，调用普通 Discard，写入“快速去重：游戏内容已发布”的 ReviewEvent 原因，并推进普通/服务器来源计数、调度既有 PayloadRelease。已发布 Game 及其引用保持不变。无需新增批次记录或 migration；一次分页失败会回滚该页，先前成功页保留，再次点击可继续处理剩余未决项。关闭页面会停止后续分页请求。
+“快速去重”由管理员点击后自动丢弃当前 URL 筛选范围内与已发布 Game 内容相同的未决条目，覆盖全部分页。匹配复用普通重复检查：相同基础平台、完整来源文件的角色/Blob/数量一致，多盘还要求盘序一致；标题相同不足以判重。只有待审条目彼此重复但尚无已发布 Game 时不丢弃。正在 Parent/多盘补传的条目暂时跳过。每页最多检查 50 项，在同一事务重查有效来源、已发布匹配和审核版本，调用普通 Discard，更新 ImportItem 当前状态，并推进普通/服务器来源计数、调度既有 PayloadRelease。已发布 Game 及其引用保持不变。无需新增批次记录或 migration；一次分页失败会回滚该页，先前成功页保留，再次点击可继续处理剩余未决项。关闭页面会停止后续分页请求。
 
 审核详情的来源文件和单个 archive 成员审计预览分别最多渲染前 200 项并显示完整总数。完整清单仍保存在来源证据、参与内容摘要与发布，但不得作为 Client Component 属性重复发送或让数千行 DOM 阻塞审核操作 hydration。
 
@@ -440,15 +437,13 @@ Import create 的 `contentMode` 缺省等价于 `STANDARD`；新 Web 对两种�
 
 发布要求完整盘组、当前 generation 4 READY validation、Provider Target declaration/content capability 未漂移。发布保留来源 M3U 作为证据，但 GameFiles 的 DISC 使用规范顺序，VariantFile 另锁定服务端 canonical playlist。统一验收见 `ACC-MDISC-001`–`003`、`007`–`008`。
 
-## 14. Pegasus 服务器目录导入
+## 14. 统一服务器文件接收
 
 创建计划先验证只读来源目录并生成所有身份；随机源失败必须保留错误原因且不得创建记录。20 个未开始计划的容量包含尚未收口的扫描取消请求；容量检查与 scan job、不可变 input snapshot、计划、事件和创建审计在同一写事务内完成；Repository 在实际插入时再次约束容量，并在提交前读取完整响应，任何步骤失败都整体回滚。计划有效期固定为创建时刻起 7 天，后台唤醒只发生在提交成功后。
 
-查询通过 `internal/service/pegasusimport` 的类型化端口调用 `internal/persistence/pegasusimport`。Service 校验分页参数并区分等待映射时的活动标签与执行后的冻结选择；Repository 负责 SQL、游标排序、可空字段和持久化 JSON 解码。缺少 Collection 的条目仍可查询，标签返回空数组；未设置的可选数组规范化为空数组，损坏或类型不符的诊断数据必须返回错误，不得静默伪装成没有 warning 或运行依赖。
+查询通过 `internal/service/sourceimport` 的类型化端口调用 `internal/persistence/sourceimport`。Service 校验分页参数并区分等待映射时的活动标签与执行后的冻结选择；Repository 负责 SQL、游标排序、可空字段和持久化 JSON 解码。缺少 Collection 的条目仍可查询，标签返回空数组；未设置的可选数组规范化为空数组，损坏或类型不符的诊断数据必须返回错误，不得静默伪装成没有 warning 或运行依赖。
 
-Pegasus source 以每个 `metadata.pegasus.txt` 中的 segment 为独立 Collection；解析器只保存允许的纯文本字段和相对文件引用，忽略 `launch`、`command`、`logo` 与未知规则，不执行或持久化命令 payload。扫描只读取 metadata、目录项 facts、大小和受限媒体头，不读取完整 ROM、不写业务 Blob、不创建 Game；结果冻结 metadata digest、确定性 source key、可处理/阻断计数、媒体候选和 `estimatedSourceBytes` 上限。
-
-`internal/service/pegasusimport.Scanner` 负责 metadata 解析、Collection/游戏投影、路径决策、媒体候选顺序及确定性快照。来源适配器只提供目录发现、metadata 读取和媒体检查，三种访问都使用共享 reader 预算并检查取消。先发现文件特征，再按路径顺序逐份读取 metadata，解析结果不跨文件保留；单份超过 8 MiB 时只登记 `INVALID/PEGASUS_METADATA_TOO_LARGE`、大小及 facts，不读取内容、不生成内容摘要，其他合法 metadata 仍可生成候选。启动时对此类记录只重验 no-follow 文件特征；正常 metadata 必须重验内容摘要。随机源失败终止扫描，已取消或被替换的执行不能继续发布投影。
+`internal/service/sourceimport.Scanner` 负责 metadata 解析、Collection/游戏投影、路径决策、媒体候选顺序及确定性快照。来源适配器只提供目录发现、metadata 读取和媒体检查，三种访问都使用共享 reader 预算并检查取消。先发现文件特征，再按路径顺序逐份读取 metadata，解析结果不跨文件保留；单份超过 8 MiB 时只登记 `INVALID/PEGASUS_METADATA_TOO_LARGE`、大小及 facts，不读取内容、不生成内容摘要，其他合法 metadata 仍可生成候选。启动时对此类记录只重验 no-follow 文件特征；正常 metadata 必须重验内容摘要。随机源失败终止扫描，已取消或被替换的执行不能继续发布投影。
 
 每个 Collection 必须由管理员明确 `IMPORT + enabled PlatformInstance` 或 `SKIP`，没有默认映射。映射 Service 先校验整个批次的数量、唯一 Collection、动作与显式 Tag 数组，再在一个写事务内读取计划版本、Collection 归属和当前可用的运行目标。Collection 选择、标签关系及其版本、冻结的目标/Tag 快照和计划映射版本原子更新；跳过会清空目标与标签。存储错误保留原因，不能误报为计划不存在或普通输入错误；并发版本冲突及任一步失败必须整体回滚。
 
@@ -456,39 +451,33 @@ Pegasus source 以每个 `metadata.pegasus.txt` 中的 segment 为独立 Collect
 
 映射冻结后，Worker 在数据库事务外经 no-follow fd 读取源文件并写 CAS，再复用普通导入的 content profile、archive、M3U、DAT/Arcade companion、BIOS、CoreValidation、duplicate 和审核管线。单文件、单 archive/DOS ZIP、以及一个 M3U 加按序 2–8 个 CHD 走既有能力；其他多个可启动文件稳定阻断，不取第一项。同一任务、同一目标游戏目录下其他游戏显式声明的 ZIP 只有在冻结 DAT 的 parent/romof 闭包中被当前 machine 直接或间接依赖时才可成为 Arcade companion；不得把 Collection 中全部 ZIP 作为候选传给单个游戏。
 
-`internal/service/pegasusimport.ImportExecutor` 编排永久关联重放、文件复制与绑定、独立媒体告警、伴随文件组装、取消检查点和普通审核交接；宿主路径与 CAS 读取留在适配器。每次持久化都携带同一 execution/attempt/worker 身份。条目失败成功持久化后才允许继续领取；结果写入本身失败时立即停止领取，并由当前有效 worker 原子收口未完成条目与任务。取消、租约过期或所有权丢失不授权旧执行再次写入。审核交接失败的诊断保留已形成的内部 ImportJob/Item 身份及原始原因，宿主绝对路径必须脱敏；数据库驱动错误分类集中在持久化层。
+`internal/service/sourceimport.ImportExecutor` 编排永久关联重放、文件复制与绑定、独立媒体告警、伴随文件组装、取消检查点和普通审核交接；宿主路径与 CAS 读取留在适配器。每次持久化都携带同一 execution/attempt/worker 身份。条目失败成功持久化后才允许继续领取；结果写入本身失败时立即停止领取，并由当前有效 worker 原子收口未完成条目与任务。取消、租约过期或所有权丢失不授权旧执行再次写入。审核交接失败的诊断保留已形成的内部 ImportJob/Item 身份及原始原因，宿主绝对路径必须脱敏；数据库驱动错误分类集中在持久化层。
 
-普通 ImportJob/Item 的创建与 Pegasus 来源关联在同一短事务提交。Service 先校验当前 worker、execution、attempt、租约、截止时刻及冻结目标；创建事务重验来源版本、声明路径与已复制文件的 Blob、大小、状态和 facts。一个来源只允许一个匹配全部声明主文件的 group，Arcade companion 必须留在该 group 的依赖中；零个或多个独立 group 在创建前作为内容阻塞拒绝。`PROJECT_FILE` 的原始项目归档参与主文件身份。恢复先按永久关联读取唯一结果，再决定重复收口或审核交接，不访问已释放的宿主/CAS 来源重新选取结果。
+普通 ImportJob/Item 的创建与 来源 来源关联在同一短事务提交。Service 先校验当前 worker、execution、attempt、租约、截止时刻及冻结目标；创建事务重验来源版本、声明路径与已复制文件的 Blob、大小、状态和 facts。一个来源只允许一个匹配全部声明主文件的 group，Arcade companion 必须留在该 group 的依赖中；零个或多个独立 group 在创建前作为内容阻塞拒绝。`PROJECT_FILE` 的原始项目归档参与主文件身份。恢复先按永久关联读取唯一结果，再决定重复收口或审核交接，不访问已释放的宿主/CAS 来源重新选取结果。
 
-内容管线产出的普通 ImportItem 无论 CoreValidation 为 READY 还是 BLOCKED/INCOMPATIBLE，都会带冻结的 Pegasus metadata、COVER/VIDEO 来源和一一关联关系进入统一 `REVIEW_PENDING` 队列；Worker 在此停止，不创建 Game。Pegasus 原始 metadata 仍作为不可变来源证据，交接到普通 ReviewDraft 前必须按通用审核字段契约归一化：description 在 code point 边界截断到 10,000，developer/publisher/genre 截断到 200，不在 `1950..当前 UTC 年+1` 的 releaseYear 置空；每个调整以 `{code:"FIELD_TRUNCATED"|"FIELD_VALUE_INVALID",field}` 追加到 Pegasus Item warning，不得把超出 Review PATCH 契约的值直接写入草稿。生成初始 Validation 时，Arcade `BIOS_OR_BASE` 必须先按冻结 Provider Target 精确合并当前 active 的匹配 DAT BIOS，并把 Blob 写入 `BIOS_BUNDLE` ValidationFile；不能把导入前已经安装的 BIOS 推迟到后续审核写操作才纳入校验。队列可按 `pegasusImportId` 精确收窄，Pegasus 来源 metadata 不计作“未找到信息”，详情显示来源 Collection、封面和不自动播放的等比居中 VIDEO。管理员逐项处理运行依赖、编辑草稿和 Discard；严格 READY 的无重复条目也可通过同一筛选范围的快速审批发布。Approve 才在普通审核事务内形成 `SERVER_PEGASUS_IMPORT` Game 当前元信息字段/GameFiles 并复制来源媒体，人工候选/上传封面优先于 Pegasus COVER；Discard 保留普通 ReviewEvent 并把 Pegasus Item 收口为 `REVIEW_DISCARDED`。审核前必须为零 Game，逐项或快速审批的每次成功决策都同时更新普通 ImportJob 与 Pegasus 聚合。
+内容管线产出的普通 ImportItem 无论 CoreValidation 为 READY 还是 BLOCKED/INCOMPATIBLE，都会带冻结的 来源 metadata、COVER/VIDEO 来源和一一关联关系进入统一 `REVIEW_PENDING` 队列；Worker 在此停止，不创建 Game。来源 原始 metadata 仍作为不可变来源证据，交接到普通 ReviewDraft 前必须按通用审核字段契约归一化：description 在 code point 边界截断到 10,000，developer/publisher/genre 截断到 200，不在 `1950..当前 UTC 年+1` 的 releaseYear 置空；每个调整以 `{code:"FIELD_TRUNCATED"|"FIELD_VALUE_INVALID",field}` 追加到 来源 Item warning，不得把超出 Review PATCH 契约的值直接写入草稿。生成初始 Validation 时，Arcade `BIOS_OR_BASE` 必须先按冻结 Provider Target 精确合并当前 active 的匹配 DAT BIOS，并把 Blob 写入 `BIOS_BUNDLE` ValidationFile；不能把导入前已经安装的 BIOS 推迟到后续审核写操作才纳入校验。队列可按 `sourceImportId` 精确收窄，来源 来源 metadata 不计作“未找到信息”，详情显示来源 Collection、封面和不自动播放的等比居中 VIDEO。管理员逐项处理运行依赖、编辑草稿和 Discard；严格 READY 的无重复条目也可通过同一筛选范围的快速审批发布。Approve 才在普通审核事务内形成 `IMPORT_RECEIVE` Game 当前元信息字段/GameFiles 并复制来源媒体，人工候选/上传封面优先于 来源 COVER；Discard 把来源 Item 收口为 `REVIEW_DISCARDED`。审核前必须为零 Game，逐项或快速审批的每次成功决策都同时更新普通 ImportJob 与 来源 聚合。
 
-审核交接由 Pegasus Service 通过类型化事务端口编排，共用元数据 Service 的 scoped 写入。冻结 metadata 的归一化、ReviewDraft 版本更新、搜索字段、ReviewEvent v2 审计、来源条目的 `REVIEW_PENDING`、告警去重、聚合计数与进度事件在同一事务提交；任一步失败全部回滚。写入重验来源与内部条目的关联、条目和计划版本、当前 execution/attempt、活动状态、租约与 deadline，旧执行不能覆盖当前结果。重放已交接条目不再次覆盖人工草稿或新增审计；取消检查点前已创建的审核可完成交接并保留。共享元数据 Service 以调用方传入的年份上界归一化，存储、随机源和受影响行数读取失败保留原始原因，不得伪装成输入错误或成功。
+审核交接由 来源 Service 通过类型化事务端口编排，共用元数据 Service 的 scoped 写入。冻结 metadata 的归一化、ReviewDraft 版本更新、搜索字段、来源条目的 `REVIEW_PENDING`、告警去重、聚合计数与进度事件在同一事务提交；任一步失败全部回滚。写入重验来源与内部条目的关联、条目和计划版本、当前 execution/attempt、活动状态、租约与 deadline，旧执行不能覆盖当前结果。重放已交接条目不再次覆盖人工草稿；取消检查点前已创建的审核可完成交接并保留。共享元数据 Service 以调用方传入的年份上界归一化，存储、随机源和受影响行数读取失败保留原始原因，不得伪装成输入错误或成功。
 
-相同规范内容不生成审核事项或第二个 Game，而是保存所有匹配证据并以 `SKIPPED_EXISTING` 收口。运行检查未通过时必须保留 library validation 的精确 `status/compatibilityCode/core` 和经过封闭投影的依赖快照，包括 machine、缺失/不匹配条目、parent/BIOS 逻辑归档、必需 entry 与多盘缺失引用。library import 自身发生内部失败时收口为可重试 `PEGASUS_LIBRARY_IMPORT_FAILED`，并持久化失败 stage、operation、稳定 cause、受限技术文本、相对路径、输入数量/上限和可用内部关联 ID，不得只返回聚合错误码，也不得误报为内容不兼容。COVER/VIDEO 独立按 game 显式、Collection 显式、title 目录、file basename 目录的顺序选择；媒体读取或格式失败只留下 warning，不使可运行 ROM 失败。取消只停止尚未交接的工作，已经生成的审核事项继续保留；retry 只重开服务端标记 retryable 的失败 Item，复用冻结映射与 snapshot，不重做成功、待审核、已发布、审核丢弃、已存在或确定性阻断项，并清空旧失败详情。交接阶段崩溃时复用已关联的内部 ImportItem 并幂等补齐 metadata，不能制造不可见的第二个审核条目；原计划重检始终从当前冻结输入重新生成精确结论和详细证据。
+相同规范内容不生成审核事项或第二个 Game，而是保存所有匹配证据并以 `SKIPPED_EXISTING` 收口。运行检查未通过时必须保留 library validation 的精确 `status/compatibilityCode/core` 和经过封闭投影的依赖快照，包括 machine、缺失/不匹配条目、parent/BIOS 逻辑归档、必需 entry 与多盘缺失引用。library import 自身发生内部失败时收口为可重试 `SOURCE_LIBRARY_IMPORT_FAILED`，并持久化失败 stage、operation、稳定 cause、受限技术文本、相对路径、输入数量/上限和可用内部关联 ID，不得只返回聚合错误码，也不得误报为内容不兼容。COVER/VIDEO 独立按 game 显式、Collection 显式、title 目录、file basename 目录的顺序选择；媒体读取或格式失败只留下 warning，不使可运行 ROM 失败。取消只停止尚未交接的工作，已经生成的审核事项继续保留；retry 只重开服务端标记 retryable 的失败 Item，复用冻结映射与 snapshot，不重做成功、待审核、已发布、审核丢弃、已存在或确定性阻断项，并清空旧失败详情。交接阶段崩溃时复用已关联的内部 ImportItem 并幂等补齐 metadata，不能制造不可见的第二个审核条目；原计划重检始终从当前冻结输入重新生成精确结论和详细证据。
 
-聚合状态为 `SCANNING → AWAITING_MAPPING → QUEUED → RUNNING → COMPLETED|PARTIAL_FAILURE`，另有 `CANCEL_REQUESTED/CANCELLED/FAILED/EXPIRED`；等待映射计划 7 天过期，全实例至多 20 个未开始计划和一个执行中的 Pegasus import。统一验收见 `ACC-PEG-001`–`006` 与 `ACC-MEDIA-001`。
+聚合状态为 `SCANNING → AWAITING_MAPPING → QUEUED → RUNNING → COMPLETED|PARTIAL_FAILURE`，另有 `CANCEL_REQUESTED/CANCELLED/FAILED/EXPIRED`；等待映射计划 7 天过期，全实例至多 20 个未开始计划和一个执行中的来源导入。统一验收见 `ACC-PEG-001`–`006` 与 `ACC-MEDIA-001`。
 
-取消和手动重试由 Pegasus Service 在同一工作单元读取计划及 Job 状态、版本与 execution，再交给 Repository 原子保存。扫描 Job 同样支持取消：未领取时原子清除尚未发布的扫描投影并关闭计划，已领取时先请求取消，旧扫描不能继续发布结果。扫描及其取消状态不占用正式 import 的唯一执行名额。通用 Job 取消接口把调用方原始 Job ETag 传入领域事务，同时核对 kind、scope 与计划的当前 Job 关联；不得用另一次读取的新版本代替旧 ETag。已经被 worker 领取的 Job 即使计划仍为 `QUEUED`，也先进入 `CANCEL_REQUESTED`，由 worker 在检查点收口；真正未领取的队列取消只终止尚未交接条目，并在同一事务登记终态 payload 释放。手动重试要求没有其他活动 Pegasus execution，生成并检查新的 execution/audit ID，只重置可重试失败项并重新计算失败计数；冻结输入、待审核项和其他既有结果保持有效。新的手动 execution 才清空旧 attempt/deadline/lease，输入快照、Job、计划、事件和操作者审计必须一起提交；提交失败不返回成功结果，也不唤醒 worker。
+取消和手动重试由 来源 Service 在同一工作单元读取计划及 Job 状态、版本与 execution，再交给 Repository 原子保存。扫描 Job 同样支持取消：未领取时原子清除尚未发布的扫描投影并关闭计划，已领取时先请求取消，旧扫描不能继续发布结果。扫描及其取消状态不占用正式 import 的唯一执行名额。通用 Job 取消接口把调用方原始 Job ETag 传入领域事务，同时核对 kind、scope 与计划的当前 Job 关联；不得用另一次读取的新版本代替旧 ETag。已经被 worker 领取的 Job 即使计划仍为 `QUEUED`，也先进入 `CANCEL_REQUESTED`，由 worker 在检查点收口；真正未领取的队列取消只终止尚未交接条目，并在同一事务登记终态 payload 释放。手动重试要求没有其他活动 来源 execution，生成并检查新的 execution/audit ID，只重置可重试失败项并重新计算失败计数；冻结输入、待审核项和其他既有结果保持有效。新的手动 execution 才清空旧 attempt/deadline/lease，输入快照、Job、计划、事件和操作者审计必须一起提交；提交失败不返回成功结果，也不唤醒 worker。
 
 执行领取、续租、子项领取/恢复/结果以及导入完成由 Service 决定，Repository 在事务内检查当前 worker、execution、attempt、Job/计划/子项版本和未过期的租约及 deadline。每次领取生成独立且经过错误检查的 worker 身份；自动接管返回原先持久化的执行截止时刻，续租不能越过它。心跳失败或上下文结束时停止续租，执行返回前等待心跳退出。队列和维护由独立循环运行，扫描或复制不能阻塞过期恢复。启动幂等；关闭时取消队列、维护与当前执行的上下文，并等待操作和心跳全部退出。运行中的取消通过提交后通知与每秒持久状态检查传递到执行上下文；确认取消后使用独立的 30 秒清理上下文，并在收口事务重新核对当前归属。失去归属或到期只能停止执行，不能据此冒充取消权限。完成导入前必须确认没有 PENDING/COPYING/VALIDATING 子项，结果计数、终态释放与事件整体提交；重复结果不追加事件，旧 worker 不得领取子项、写审核元数据或关闭当前执行。
 
-过期执行恢复由 Pegasus Service 决定取消、超时、重试耗尽或自动重排队，Repository 按每个候选事务核对 Job/计划版本、execution、attempt、worker 和原租约。每轮最多读取 100 个候选，并在每个事务最多补齐 100 个已绑定的普通审核；剩余交接留在过期执行中由后续维护继续。恢复先原子补齐审核元数据与来源状态，再关闭未交接条目、重算计数并登记事件和终态释放。取消优先于超时；超时原因必须一致传递给未完成条目。自动恢复保留原始输入、execution、attempt、开始时刻和 deadline，不覆盖已经交接的结果。重排队后耗尽原始时限或次数的 Job 直接按原预算收口，不能再次领取并重置预算。维护在运行期间持续执行，失败保留原因并记录诊断。
+过期执行恢复由 来源 Service 决定取消、超时、重试耗尽或自动重排队，Repository 按每个候选事务核对 Job/计划版本、execution、attempt、worker 和原租约。每轮最多读取 100 个候选，并在每个事务最多补齐 100 个已绑定的普通审核；剩余交接留在过期执行中由后续维护继续。恢复先原子补齐审核元数据与来源状态，再关闭未交接条目、重算计数并登记事件和终态释放。取消优先于超时；超时原因必须一致传递给未完成条目。自动恢复保留原始输入、execution、attempt、开始时刻和 deadline，不覆盖已经交接的结果。重排队后耗尽原始时限或次数的 Job 直接按原预算收口，不能再次领取并重置预算。维护在运行期间持续执行，失败保留原因并记录诊断。
 
 未开始执行的 `AWAITING_MAPPING/EXPIRED` 计划可按当前版本删除。删除事务先验证计划未被启动，再解除 Collection 标签关系、推进相关 Tag version、删除可变扫描投影并记录操作者审计；Tag 本身及既有 job/input/event 证据保留。任一删除或审计步骤失败必须整体回滚。过期处理按有界候选批次重新校验状态、版本与过期时刻，不得覆盖已经启动、删除或更新的计划。
 
-Pegasus Item 一旦发布、审核丢弃、跳过、阻断、取消或进入不可重试错误，就只长期保留 metadata、来源相对路径、大小/facts digest、映射、warning/error、审核关联和发布/已有 Game ID。已交接普通 ImportItem 的条目共用普通 Item 的 PayloadRelease；未交接条目使用独立 Pegasus scope。文件和 COVER/VIDEO Blob 字段转为 `PAYLOAD_RELEASED` 形态，管理详情显示“源文件已清理”，不得尝试加载旧媒体 URL。仍可 retry 的错误和普通 `REVIEW_PENDING` 必须继续保留 payload。Pegasus/EmulationStation 已绑定的 `SKIPPED_EXISTING` 只有在普通 Item 已是 `DISCARDED` 且保存了对应既有 Game 的识别匹配证据时，才允许共用普通 Item 的释放流程；全部重复匹配与永久关联保留。
+来源 Item 一旦发布、审核丢弃、跳过、阻断、取消或进入不可重试错误，就只长期保留 metadata、来源相对路径、大小/facts digest、映射、warning/error、审核关联和发布/已有 Game ID。已交接普通 ImportItem 的条目共用普通 Item 的 PayloadRelease；未交接条目使用统一 SOURCE_IMPORT_ITEM scope。文件和 COVER/VIDEO Blob 字段转为 `PAYLOAD_RELEASED` 形态，管理详情显示“源文件已清理”，不得尝试加载旧媒体 URL。仍可 retry 的错误和普通 `REVIEW_PENDING` 必须继续保留 payload。来源 已绑定的 `SKIPPED_EXISTING` 只有在普通 Item 已是 `DISCARDED` 且保存了对应既有 Game 的识别匹配证据时，才允许共用普通 Item 的释放流程；全部重复匹配与永久关联保留。
 
-## 15. EmulationStation 服务器目录导入
 
-HTTP、通用 Job 操作和批次丢弃统一对接 `internal/service/emulationstationimport.Service`，进程通过 composition 组装全部用例、Repository、来源适配器和受控 Worker。应用层负责业务编排、调度、取消与生命周期；`internal/emulationstationimport` 仅保留有界来源读取、CAS 复制及诊断适配，SQL 与数据库事务集中在对应持久化包。
 
-创建及未开始计划的删除、过期由 EmulationStation Service 编排，Repository 原子保存。创建从同一次时钟读取冻结七天期限和 UTC `releaseYearMax`，检查所有身份生成结果，并在最终事务内检查未开始计划容量；Job、输入、计划、事件、审计及返回结果一起提交。删除按当前版本解除标签关系、递增相关 Tag version、删除扫描投影并记录操作者，保留不可变执行证据。过期每轮最多处理 100 个候选，逐个事务重验版本和截止时刻，取消未执行条目并同时重算阻断/取消计数，避免重复计数；未执行扫描投影不创建 payload 释放任务。
+## 15. 文件组织格式适配
 
-查询通过 `internal/service/emulationstationimport` 的类型化端口调用 `internal/persistence/emulationstationimport`。Service 校验分页边界并区分等待映射时的活动标签与执行后的冻结选择；Repository 负责 SQL、游标排序、可空字段和持久化诊断解码。有效的空列表和诊断数组返回空数组；损坏或字段类型不符的清单、条目与运行依赖数据必须保留原因返回错误，不得静默伪装成没有 warning 或依赖。
-
-映射 Service 在任何写入前校验完整批次、Collection 归属、显式 Tag 数组和可用目标；空 Collection 可以跳过但不能导入。标签关系和版本、冻结目标/DAT/Tag 快照、聚合及映射版本与返回结果在同一事务提交，存储错误保留原因。
-
-启动 Service 在一致快照外完成 no-follow 来源校验，再于写事务重验版本、到期时间、活动标签、启用的目标、root/source/year 与清单证据；Job、不可变输入、子项投影、事件、操作者审计和释放登记原子提交，提交前读取响应。ES 重复启动仍先校验请求版本，匹配时返回已开始的计划且不再访问源目录。扫描时超大的 INVALID 清单允许以 NULL 内容摘要和冻结 facts 校验，不能读取超限 XML 内容。
+Pegasus 递归发现精确名称 `metadata.pegasus.txt`，以每份文件中的 segment 形成 Collection。解析器只保留允许的纯文本和相对文件引用，忽略 `launch/command/logo` 与未知执行规则。单份 metadata 上限 8 MiB，超限只保存 facts 与稳定错误，不读取内容。
 
 EmulationStation import 复用管理员服务器文件系统浏览和普通导入主链，不读取 `es_systems.cfg`。扫描从管理员选择的规范相对目录递归发现文件名精确为小写 `gamelist.xml` 的普通文件；不跟随符号链接，清单内引用仍限定在所选来源目录内，每份可解析清单形成一个独立 Collection。因而同一入口同时支持两种稳定形态：一个所选目录包含多个子目录、每个子目录各有自己的 `gamelist.xml`；或一个没有子目录的目录只含一份 `gamelist.xml` 与多份游戏文件。其他大小写的清单名不匹配，也不能把父子清单合并为一个 Collection。
 
@@ -496,35 +485,15 @@ XML 必须是严格 UTF-8，可带 UTF-8 BOM，根元素必须是无 namespace �
 
 游戏和媒体路径都以所属 `gamelist.xml` 的目录为基准。`./foo`、普通相对路径与 Windows 分隔符在验证后规范化；空值、控制/空白路径、`..`、绝对路径、`~`、盘符、UNC、URI、过长路径、符号链接逃逸和类型漂移必须阻断。扫描只读取有界 XML、目录 facts、M3U 与媒体头，并且只打开 M3U 实际引用的 CHD 读取固定头；同目录未引用 CHD 不得因候选枚举被打开。XML parser 至少每消费 256 个 token 检查一次取消；目录发现、清单、媒体和 CHD 读取都进入共享 reader semaphore。扫描不读取完整 ROM，不创建业务 Blob、内部 ImportJob、ReviewDraft 或 Game。扫描发现后的索引、XML 投影、容量规则和身份生成由应用 Scanner 统一管理，来源适配器提供有界目录、文件、光盘头及媒体读取。最终投影也必须检查取消，取消或读取失败不能伪装为成功条目；执行路由与失败清理由 Service 编排，保留原始原因及执行期限，清理失败同时返回其原因。每次计划冻结 root/source facts、XML digest、确定性 source key、Collection/game 顺序、媒体候选、warning、来源 manifest 和预计读取量；重新扫描同一不变输入必须得到相同业务快照。扫描结果由 Service 按头信息、每批至多 500 个游戏及最终发布划分短事务；Repository 在每个事务检查当前扫描 Job 与计划的关联、版本、worker、execution/attempt、租约、截止时刻及冻结 root/path/year。清理暂存与写入拒绝诊断也执行相同检查，旧执行不能覆盖新执行；最终计数、来源摘要、等待映射状态、成功 Job 与事件原子提交。Collection 和游戏身份生成失败必须保留随机源原因，不留下零身份记录。
 
-扫描和导入取消共用 EmulationStation Service 的领域事务。通用 Job 入口传递原始 Job ETag、kind、scope 与操作者，事务内检查计划关联和版本，并原子保存 Job、计划、事件、审计及响应快照；真实存储错误返回服务器错误。未领取的扫描同时清除未拥有映射、CAS、审核或 Game 的暂存投影并归零计数，已领取扫描先进入 `CANCEL_REQUESTED`。尚未收口的扫描取消仍占未开始计划容量，但不占正式导入 execution 的唯一名额。恢复同样通过该所有权检查清理未发布扫描，再以 `SERVER_IMPORT_SOURCE_NOT_RESTORED` 关闭，任一步失败整体回滚。
+Gamelist parser 与有界 scanner 位于 `internal/emulationstationmeta` 和 `internal/importformat/gamelist`。适配器将扫描结果转为共享 ScanResult；XML 专属错误只用于解释输入问题，格式不进入接收文件表、普通导入、审核或发布规则。`hidden/adult/kidGame` 作为统一来源标记保存；hidden/adult 排除快速审批，仍可逐项审核。清单最多 500 份、每份 8 MiB、总 XML 64 MiB，游戏最多 100,000，每游戏最多 64 个源文件。执行、容量、到期、取消与恢复统一遵循第 14 节，不保留独立 EmulationStation 任务表或 Worker。
 
-活动 worker 的失败、自动重试和取消确认由 Service 决定，写事务同时检查 Job 与计划版本、原始 execution/attempt、worker、租约、deadline 和冻结输入。重试沿用原始截止时刻及已复制进度；旧 worker 或已过期执行不能用活动执行权限收口。永久失败或取消前，已预留普通 `REVIEW_PENDING` 的来源必须复用该条目完成关联、冻结 metadata、搜索字段、审核审计和来源状态；每个事务至多处理 100 条，后续批次重验权限。尚未 attach、已 attach 但未写 metadata、以及 metadata 已写但来源未收口的中断都不能遗留隐藏审核。最后再原子关闭未完成来源、任务、聚合与进度事件，扫描取消同时清除未发布投影并归零计数；任何写入或提交失败都保留原因并回滚当前事务。
-
-EmulationStation Worker 的启动幂等，关闭会取消并等待队列、执行、监测和独立维护全部退出；耗时导入不阻塞恢复与过期维护。原始 execution 截止时刻与注入时钟决定剩余预算，较短的调用方 deadline 或进程关闭不能被记为导入超时。每秒观察持久取消与所有权，每 15 秒续租，执行返回前再检查一次取消；停止 I/O 后用独立有界上下文按当前权限收口。条目内部取消检查点不能先关闭来源，否则会隐藏已经预留的普通审核。
-
-逐项导入由 Service 的 `ImportExecutor` 编排，条目领取、文件/媒体结果、终态与批次完成通过类型化 Repository 事务保存。每次写入携带最初领取的 execution，并重验 Job/计划版本、worker、租约、原始期限与冻结来源；文件绑定还核对条目和原始文件事实。Blob 登记与绑定、终态 payload 任务与计数/进度事件各自在同一事务提交，失败时不得返回可用结果。可选媒体失败只生成受限警告；记录失败结果本身若遇存储错误，必须保留两层错误并停止，不能继续领取下一条。分块读取继续观察原始执行权限，来源打开失败及观察数据库失败均保留原始原因。
-
-EmulationStation 的 `ReviewPreparer` 编排普通来源创建、永久绑定重放和结果处理，先查询已绑定的普通条目，再决定是否读取来源和准备 companion。新创建使用共享 owned source 接口，创建事务已绑定来源身份；普通审核仍要等来源完成 `REVIEW_PENDING` 交接后才可见。后续交接事务失败时保留该身份，并记录可重试失败，显式重试复用同一条目；写失败结果也失败时保留两层错误并停止。
-
-正常执行的审核交接也由 Service 在类型化 Repository 事务中完成：先校验最初领取的执行权限、来源归属与预留普通条目，再使用冻结 metadata 和年份上限更新草稿、搜索、审核审计、来源警告与聚合进度。已经交接的重复调用不推进版本或重复写事件；任一写入、返回记录数或提交失败都回滚本次交接。
-
-过期租约恢复使用独立的过期执行权限完成同一审核交接，每轮至多 100 条，并将剩余工作留给后续维护轮次；每条更新重新读取聚合版本，冻结 root/path、操作者与年份也参与写入条件。已经记录可重试 `SOURCE_CHANGED/READ_FAILED/COMMIT_FAILED`、但仍保留普通待审核预留的来源，沿既有状态转换重新交接同一条目，不能创建新审核或 Game。没有审核预留的失败结果保持原样；取消后保留失败计数，但不提供批次重试。扫描清理、未完成条目收尾及 payload 释放登记由 Service 明确决定，Repository 只执行当前事务内的受检写入。
-
-每个有效 Collection 必须由管理员显式选择 `IMPORT + PlatformInstance + tagIds` 或 `SKIP`；没有默认映射，不依据清单路径、扩展名、外部平台名或同名目录猜测。批量标签只以去重 union 追加到尚未跳过的 Collection，`SKIP` 清空标签。start 前要求至少一个非空 `IMPORT` Collection，并以 plan ETag 同时校验 source snapshot、root snapshot、目标 PlatformInstance/version/default Provider Target/DAT 与 Tag 状态；目标漂移返回可修复的重新映射冲突，来源漂移要求新建计划，不能沿旧 mapping 静默执行。
-
-执行阶段重新 no-follow 打开冻结 source manifest，流式复制到 CAS，再复用普通 import 的格式分组、内容身份、CoreValidation、DAT、BIOS、重复检查、审核与发布服务。M3U 只接受与清单同目录的 2–8 个现存 CHD；其他多文件格式不猜分组。Arcade companion 只允许来自同一次 execution、同一目标目录与同一冻结 DAT 的显式 ZIP 依赖闭包。伴随文件选择冻结主来源及映射，复制在事务外完成；随后逐个短事务重验原始执行权限、当前目标、来源与映射快照以及精确候选身份，并原子登记 Blob。可选宿主伴随文件缺失可继续，取消、期限或存储观察失败必须保留原因并停止，提交失败不能返回 Blob 身份。封面按 `image → boxart → mix → thumbnail/s` 选择，video 独立；缺失或坏媒体只写 warning，不阻断可运行内容。
-
-Worker 对每个新候选在普通 `REVIEW_PENDING` 停止，审核前 Game 数必须为零；`CreateServerSourceOnce` 在创建内部 ImportJob/ImportItem 的同一事务写入不可变 `EMULATIONSTATION` handoff 预留，并在崩溃重试时复用同一 Item。在来源 Item attach 且进入 `REVIEW_PENDING` 之前，该普通 Item 不进入队列、详情、批量审批、审核决定或待审核 KPI；attach 完成后这些入口才同时开放。队列可按 `emulationStationImportId` 精确收窄，来源类型为 `EMULATIONSTATION`，并显示清单/Collection、cover/video 与来源 flag。只有普通 Approve 或既有严格 READY 快速审批事务可创建 `SERVER_EMULATIONSTATION_IMPORT` 的 Game 当前元信息字段/GameFiles/Game；Discard、重复与内部失败继续复用普通审计和确定性错误边界。取消不删除已交接审核事项，retry 只重跑服务端声明可重试的失败 Item，崩溃恢复复用既有关联，不能创建第二个不可见 ImportItem。
-
-聚合状态固定为 `SCANNING → AWAITING_MAPPING → QUEUED → RUNNING → COMPLETED|PARTIAL_FAILURE`，另有 `EXPIRED/CANCEL_REQUESTED/CANCELLED/FAILED`；phase 封闭为 `DISCOVERING_GAMELISTS/PARSING_GAMELISTS/RESOLVING_SOURCES/COPYING_CONTENT/VALIDATING/PREPARING_REVIEWS`。Item 的发现状态封闭为 `READY/BLOCKED_SOURCE/BLOCKED_CONTENT`，执行状态封闭为 `PENDING/COPYING/VALIDATING/REVIEW_PENDING/PUBLISHED/REVIEW_DISCARDED/SKIPPED_EXISTING/SKIPPED_MAPPING/BLOCKED_SOURCE/BLOCKED_CONTENT/SOURCE_CHANGED/READ_FAILED/COMMIT_FAILED/CANCELLED`。`COMPLETED` 只表示全部所选条目已准备审核或进入其他确定性结果，不表示 Game 已发布；至少一个 Item 失败时使用 `PARTIAL_FAILURE`。扫描深度至多 64、目录 250,000、普通文件 2,000,000、清单 1,000、单清单读取上限 8 MiB、XML 总读取量 64 MiB、游戏 100,000、每游戏来源文件 64、warning 64、预计来源 2 TiB；超过单清单上限的文件以 `INVALID/EMULATIONSTATION_GAMELIST_TOO_LARGE` 独立留证，不读取内容且不阻断其他合法清单。单次 execution 最长 8 小时。实例最多保留 20 个未开始/等待映射计划、等待 7 天后过期，同一时刻最多一个 EmulationStation execution，外部目录读取与其他服务器导入共享容量为 2 的 reader semaphore。
-
-发布、丢弃、跳过、阻断、取消或不可重试失败后的来源 payload 按普通/Pegasus 同一 ownership registry 与 PayloadRelease/GC 规则释放；已交接条目共用普通 ImportItem scope，未交接条目使用 EmulationStation scope。Game 永久删除继续保留墓碑审计，并异步解除 Game 内容、媒体、存档与运行 payload；任何共享 Blob 引用仍受保护。恢复前所有依赖外部 source 的 EmulationStation 计划和 execution 必须先以稳定原因收口，已进入 CAS 的待审/已发布内容随 backup/restore 保留。统一验收见 `ACC-ES-001`–`006`。
+统一验收保留按输入格式命名的 `ACC-PEG-*` 与 `ACC-ES-*` Case，两者验证同一导入和审核链路。
 
 ## 16. 标签默认值与发布传播
 
 普通 Import 创建与 rejected-only reconfigure 接受既有活动 `tagIds`。服务在同一写事务先验证 0–20 个唯一 ID，再冻结按名称排序的 `{tagId,name}` 到配置 snapshot，并将集合复制到本次创建的每个 ReviewDraft；任一 Tag 不存在或已删除时不创建 ImportJob/Item，也不消费 Upload。reconfigure 页面只预填旧 snapshot 中仍活动的 Tag；标签不进入 source manifest、content identity 或重复内容判定。
 
-ReviewDraft PATCH 必须携带当前完整 `tagIds`，并与元信息、Validation、媒体等共用 Review version 与自动保存序列。Tag 删除会推进待审核 Draft version；旧 PATCH/Approve 返回 `VERSION_CONFLICT`。Approve 在原发布事务重新验证并把当前活动 ReviewDraftTag 复制到 GameTag，Game、ReviewEvent 和 Tag 关系要么同时提交、要么全部回滚。Discard 不发布 GameTag，但保留 Draft 关系和最终 ReviewEvent 的 `{tagId,name}` snapshot。
+ReviewDraft PATCH 必须携带当前完整 `tagIds`，并与元信息、Validation、媒体等共用 Review version 与自动保存序列。Tag 删除会推进待审核 Draft version；旧 PATCH/Approve 返回 `VERSION_CONFLICT`。Approve 在原发布事务重新验证并把当前活动 ReviewDraftTag 复制到 GameTag，Game 和 Tag 关系要么同时提交、要么全部回滚。Discard 不发布 GameTag，保留 Draft 的当前关系。
 
 Pegasus Collection 的 `IMPORT` mapping 必须显式提供 `tagIds`，`SKIP` 必须为空；mapping 事务同时保存关系与名称 snapshot。start 后冻结，retry、lease recovery 和 handoff 复用同一 Collection 选择，尚未 handoff 的 Item 只继承仍 ACTIVE 的 ID；已经待审/发布/丢弃/跳过的 Item 不重复分配。Pegasus metadata 的 `tags:`、genre 及其他外部标签绝不自动创建或按名称关联 Retrom Tag；`SKIPPED_EXISTING` 不改变既有 GameTag。完整生命周期见 [`game-tags.md`](./game-tags.md)。
 

@@ -76,11 +76,6 @@ describe("ReviewActions metadata", () => {
     render(<ReviewActions review={{
       ...review,
       scrapeRuns: [{
-        scrapeRunId: "run-older-miss", jobId: "job-older-miss", provider: "HASHEOUS",
-        state: "COMPLETED", jobState: "SUCCEEDED", createdAtMs: 1, completedAtMs: 2,
-        errorCode: null, evidenceCount: 1, attemptCount: 1, candidateCount: 0,
-        outcomes: { hit: 0, miss: 1, rateLimited: 0, timeout: 0, invalidResponse: 0, networkError: 0 },
-      }, {
         scrapeRunId: "run-rate-limited", jobId: "job-rate-limited", provider: "HASHEOUS",
         state: "COMPLETED", jobState: "SUCCEEDED", createdAtMs: 3, completedAtMs: 4,
         errorCode: null, evidenceCount: 1, attemptCount: 3, candidateCount: 0,
@@ -267,26 +262,26 @@ describe("ReviewActions metadata continuation", () => {
     expect(screen.queryByText("信息来源")).not.toBeInTheDocument();
   });
 
-  it("uses Pegasus cover and a manual centered video preview as review source media", () => {
+  it("uses Source cover and a manual centered video preview as review source media", () => {
     const { container } = render(<ReviewActions review={{
       ...review,
       sourceMedia: {
-        sourceKind: "PEGASUS",
-        sourceRefId: "pegasus-item-1",
-        pegasusImportId: "pegasus-import-1",
+        sourceKind: "SOURCE",
+        sourceRefId: "source-item-1",
+        sourceImportId: "source-import-1",
         sourceLabel: "FC",
-        coverUrl: "/api/v1/admin/review-assets/pegasus-item-1?kind=COVER",
+        coverUrl: "/api/v1/admin/review-assets/source-item-1?kind=COVER",
         coverWidthPx: 320,
         coverHeightPx: 480,
-        videoUrl: "/api/v1/admin/review-assets/pegasus-item-1?kind=VIDEO",
+        videoUrl: "/api/v1/admin/review-assets/source-item-1?kind=VIDEO",
       },
     }} />);
 
-    expect(screen.getByText("来源：Pegasus · FC")).toBeVisible();
-    expect(screen.getByText("已读取 Pegasus 信息")).toBeVisible();
+    expect(screen.getByText("来源：来源文件 · FC")).toBeVisible();
+    expect(screen.getByText("已读取来源信息")).toBeVisible();
     expect(screen.getByAltText("当前选择的游戏封面")).toHaveAttribute("src", expect.stringContaining("kind=COVER"));
     const video = container.querySelector<HTMLVideoElement>(".review-source-video video");
-    expect(video).toHaveAttribute("src", "/api/v1/admin/review-assets/pegasus-item-1?kind=VIDEO");
+    expect(video).toHaveAttribute("src", "/api/v1/admin/review-assets/source-item-1?kind=VIDEO");
     expect(video).toHaveAttribute("controls");
     expect(video?.autoplay).toBe(false);
   });
@@ -295,9 +290,10 @@ describe("ReviewActions metadata continuation", () => {
     const { container } = render(<ReviewActions review={{
       ...review,
       sourceMedia: {
-        sourceKind: "EMULATIONSTATION",
+        sourceKind: "SOURCE",
         sourceRefId: "emulationstation-item-1",
-        emulationStationImportId: "emulationstation-import-1",
+        sourceFlags: { hidden: true, adult: true, kidGame: false },
+        sourceImportId: "emulationstation-import-1",
         sourceLabel: "NES gamelist.xml",
         coverUrl: "/api/v1/admin/review-assets/emulationstation-item-1?kind=COVER",
         coverWidthPx: 320,
@@ -306,9 +302,10 @@ describe("ReviewActions metadata continuation", () => {
       },
     }} />);
 
-    expect(screen.getByText("来源：EmulationStation · NES gamelist.xml")).toBeVisible();
-    expect(screen.getByText("已读取 Gamelist 信息")).toBeVisible();
-    expect(screen.getByText("EmulationStation 视频预览")).toBeVisible();
+    expect(screen.getByText("来源：来源文件 · NES gamelist.xml")).toBeVisible();
+    expect(screen.getByText("已读取来源信息")).toBeVisible();
+    expect(screen.getByText("来源文件 视频预览")).toBeVisible();
+    expect(screen.getByRole("note")).toHaveTextContent("来源标记：隐藏、成人。请逐项核对。");
     expect(container.querySelector<HTMLVideoElement>(".review-source-video video")).toHaveAttribute(
       "src",
       "/api/v1/admin/review-assets/emulationstation-item-1?kind=VIDEO",

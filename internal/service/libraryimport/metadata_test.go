@@ -2,7 +2,6 @@ package libraryimport
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"math"
 	"reflect"
@@ -39,7 +38,7 @@ func (m *metadataMemory) WithMetadata(_ context.Context, work func(MetadataScope
 }
 func metadataClock() time.Time { return time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC) }
 
-func TestMetadataSeederWritesTypedAuditAndSupportsIdempotency(t *testing.T) {
+func TestMetadataSeederWritesCurrentMetadataAndSupportsIdempotency(t *testing.T) {
 	t.Parallel()
 	m := &metadataMemory{current: MetadataDraft{MetadataJSON: `{"title":"Before"}`, Version: 7}}
 	ctx := authn.WithPrincipal(t.Context(), authn.Principal{UserID: "actor"})
@@ -49,8 +48,6 @@ func TestMetadataSeederWritesTypedAuditAndSupportsIdempotency(t *testing.T) {
 	}
 	change := m.change
 	assertMetadataChange(t, change, m.current)
-	assertMetadataAuditDocument(t, change.Audit.BeforeJSON, "Before")
-	assertMetadataAuditDocument(t, change.Audit.AfterJSON, "After")
 	m.current = MetadataDraft{MetadataJSON: change.MetadataJSON, Version: 8}
 	version, _, err = NewMetadataSeeder(m, metadataClock).Seed(ctx, "item", ServerMetadata{Title: "After"}, 2027)
 	if err != nil || version != 8 || m.writes != 1 {
@@ -61,23 +58,8 @@ func TestMetadataSeederWritesTypedAuditAndSupportsIdempotency(t *testing.T) {
 func assertMetadataChange(t *testing.T, change MetadataChange, before MetadataDraft) {
 	t.Helper()
 	if change.ItemID != "item" || change.Before != before || change.SearchText != "after" ||
-		change.NowMS != metadataClock().UnixMilli() || change.Audit.ID == "" ||
-		change.Audit.ActorKind != "USER" || change.Audit.ActorUserID == nil ||
-		*change.Audit.ActorUserID != "actor" || change.Audit.ActorLabel != nil {
+		change.NowMS != metadataClock().UnixMilli() {
 		t.Fatalf("change=%#v", change)
-	}
-}
-
-func assertMetadataAuditDocument(t *testing.T, document, title string) {
-	t.Helper()
-	var event struct {
-		SchemaVersion int `json:"schemaVersion"`
-		Metadata      struct {
-			Title string `json:"title"`
-		} `json:"metadata"`
-	}
-	if err := json.Unmarshal([]byte(document), &event); err != nil || event.SchemaVersion != 2 || event.Metadata.Title != title {
-		t.Fatalf("audit=%#v expected title=%s err=%v", event, title, err)
 	}
 }
 

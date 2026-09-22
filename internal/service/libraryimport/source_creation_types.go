@@ -7,17 +7,11 @@ const ServerSourceFileLimit = 64
 type SourceOwnerKind string
 
 const (
-	SourceOwnerPegasus          SourceOwnerKind = "PEGASUS"
-	SourceOwnerEmulationStation SourceOwnerKind = "EMULATIONSTATION"
+	SourceOwnerSource SourceOwnerKind = "SOURCE"
 )
 
 func (kind SourceOwnerKind) Valid() bool {
-	return kind == SourceOwnerPegasus || kind == SourceOwnerEmulationStation
-}
-
-type SourceCreationFrozen struct {
-	RootID, RootDigest, RelativePath, ActorUserID, TagSnapshotJSON, ContentKind, CollectionID string
-	MappingVersion, MaxAttempts, StartedAtMS, ReleaseYearMax                                  int64
+	return kind == SourceOwnerSource
 }
 
 type (
@@ -66,7 +60,6 @@ type (
 	}
 	SourceCreationSnapshot struct {
 		Kind                                                            SourceOwnerKind
-		Frozen                                                          SourceCreationFrozen
 		ImportID, ItemID, JobID, WorkerID                               string
 		SourceState, ImportState, JobState, MappingAction               string
 		SourceVersion, ImportVersion, JobVersion, ExecutionNo, Attempt  int64

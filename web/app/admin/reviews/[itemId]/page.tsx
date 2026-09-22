@@ -53,7 +53,7 @@ function PreviewNotice({ hidden, total }: { hidden: number; total: number }) {
 function safeReturnTo(raw: string | undefined) {
   if (!raw) {return "/admin/reviews";}
   const parsed = new URL(raw, "http://retrom.invalid");
-  const allowed = new Set(["q", "tagId", "importJobId", "pegasusImportId", "emulationStationImportId", "platformInstanceId", "blockerCode", "sort"]);
+  const allowed = new Set(["q", "tagId", "importJobId", "sourceImportId", "platformInstanceId", "blockerCode", "sort"]);
   if (parsed.origin !== "http://retrom.invalid" || parsed.pathname !== "/admin/reviews") {return "/admin/reviews";}
   for (const [name] of parsed.searchParams) {if (!allowed.has(name) || parsed.searchParams.getAll(name).length !== 1) {return "/admin/reviews";}}
   return `${parsed.pathname}${parsed.search}`;

@@ -13,8 +13,7 @@ import (
 type creationTarget = application.ImportTarget
 
 type creationOptions struct {
-	reviewHandoffKind string
-	sourceCreation    *ownedSourceCreation
+	sourceCreation *ownedSourceCreation
 }
 
 func (service *Service) importPreparation() *application.ImportPreparation {

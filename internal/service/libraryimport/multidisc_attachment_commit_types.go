@@ -36,8 +36,8 @@ type MultiDiscAttachmentCommitRequest struct {
 
 type MultiDiscAttachmentCommitWrite struct {
 	MultiDiscAttachmentCommitRequest
-	SourceSnapshotID, ValidationID, ConsumptionID, EventID string
-	NowMS                                                  int64
+	SourceSnapshotID, ValidationID, ConsumptionID string
+	NowMS                                         int64
 }
 
 type MultiDiscAttachmentCommitScope interface {
@@ -72,10 +72,10 @@ type MultiDiscAttachmentRejectRequest struct {
 }
 
 type MultiDiscAttachmentRejectWrite struct {
-	Target                                       MultiDiscAttachmentTerminalTarget
-	Actor                                        MultiDiscAttachmentActor
-	Code, DiagnosticsJSON, EvidenceJSON, EventID string
-	NowMS                                        int64
+	Target                MultiDiscAttachmentTerminalTarget
+	Actor                 MultiDiscAttachmentActor
+	Code, DiagnosticsJSON string
+	NowMS                 int64
 }
 
 type MultiDiscAttachmentRetryRequest struct {

@@ -32,7 +32,7 @@ func terminalEffectOwner(owner Owner) bool {
 		return TerminalImportItem(owner.State)
 	case ScopeImportJob:
 		return TerminalImportJob(owner.State)
-	case ScopePegasusImportItem, ScopeEmulationStationImportItem:
+	case ScopeSourceImportItem:
 		return TerminalSourceItem(owner.State, owner.Retryable)
 	case ScopeUploadConsumption, ScopeBlob:
 		return false
@@ -54,10 +54,9 @@ func effectReason(owner Owner) Reason {
 		return ReasonGameDeleted
 	case ScopeImportJob:
 		return ReasonImportTerminal
-	case ScopePegasusImportItem:
-		return ReasonPegasusTerminal
-	case ScopeEmulationStationImportItem:
-		return ReasonEmulationStationTerminal
+	case ScopeSourceImportItem:
+		return ReasonSourceTerminal
+
 	case ScopeImportItem:
 		switch owner.State {
 		case "PUBLISHED":
@@ -104,10 +103,9 @@ func gameEffectSource(source EffectSource) (Scope, bool) {
 	switch source.Kind {
 	case "IMPORT_REVIEW":
 		scope = ScopeImportItem
-	case "SERVER_PEGASUS_IMPORT":
-		scope = ScopePegasusImportItem
-	case "SERVER_EMULATIONSTATION_IMPORT":
-		scope = ScopeEmulationStationImportItem
+	case "IMPORT_RECEIVE":
+		scope = ScopeSourceImportItem
+
 	default:
 		return Scope{}, false
 	}

@@ -1,6 +1,6 @@
 -- Media order and byte accounting are durable domain facts; jobs own execution state.
 CREATE TABLE metadata_media_runs (
-  scrape_run_id TEXT PRIMARY KEY REFERENCES metadata_scrape_runs(id),
+  scrape_run_id TEXT PRIMARY KEY REFERENCES metadata_scrape_runs(id) ON DELETE CASCADE,
   order_frozen_at_ms INTEGER CHECK(order_frozen_at_ms IS NULL OR order_frozen_at_ms>=0),
   charged_bytes INTEGER NOT NULL DEFAULT 0 CHECK(charged_bytes BETWEEN 0 AND 104857600),
   version INTEGER NOT NULL DEFAULT 1 CHECK(version>=1),

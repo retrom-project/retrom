@@ -20,15 +20,7 @@ type preparedServerSource struct {
 	files                                             []reusableUploadFile
 	totalBytes                                        int64
 	idempotent                                        bool
-	handoffKind                                       string
 	ownerKind, ownerItemID                            string
-}
-
-func (prepared preparedServerSource) reviewHandoffKind() string {
-	if prepared.handoffKind == reviewHandoffEmulationStation {
-		return reviewHandoffEmulationStation
-	}
-	return reviewHandoffDirect
 }
 
 func (service *Service) prepareServerSource(
@@ -47,14 +39,11 @@ func (service *Service) prepareServerSource(
 		return preparedServerSource{}, err
 	}
 	ownerKind, ownerItemID, _ := strings.Cut(idempotencyKey, ":")
-	ownerKind = strings.TrimPrefix(ownerKind, "SERVER_")
-	ownerKind = strings.TrimSuffix(ownerKind, "_IMPORT")
-	if ownerKind != "PEGASUS" && ownerKind != "EMULATIONSTATION" {
-		ownerKind, ownerItemID = "", ""
+	if ownerKind == "IMPORT_RECEIVE" {
+		ownerKind = "SOURCE"
 	}
-	handoffKind := reviewHandoffDirect
-	if strings.HasPrefix(idempotencyKey, "SERVER_EMULATIONSTATION_IMPORT:") {
-		handoffKind = reviewHandoffEmulationStation
+	if ownerKind != "SOURCE" {
+		ownerKind, ownerItemID = "", ""
 	}
 	uploadID, _ := uuid.NewV7()
 	if idempotencyKey != "" {
@@ -70,7 +59,7 @@ func (service *Service) prepareServerSource(
 		uploadID: uploadID.String(), sourceType: sourceType,
 		manifestDigest: hex.EncodeToString(digest[:]), contentMode: contentMode,
 		files: reusable, totalBytes: totalBytes, idempotent: idempotencyKey != "",
-		handoffKind: handoffKind, ownerKind: ownerKind, ownerItemID: ownerItemID,
+		ownerKind: ownerKind, ownerItemID: ownerItemID,
 	}, nil
 }
 

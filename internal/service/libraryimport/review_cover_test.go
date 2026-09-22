@@ -90,7 +90,7 @@ func coverFixture(t *testing.T) (*coverRepositoryFixture, coverBlobFixture) {
 	source := ReviewCoverSource{FileID: "upload", UploadID: "session", BlobID: "blob", Digest: "digest", Purpose: "GENERAL"}
 	repository := &coverRepositoryFixture{
 		source: source, current: source,
-		draft: ReviewCoverDraft{Version: 1, State: "REVIEW_PENDING", HandoffKind: "DIRECT"},
+		draft: ReviewCoverDraft{Version: 1, State: "REVIEW_PENDING"},
 	}
 	var contents bytes.Buffer
 	if err := png.Encode(&contents, image.NewNRGBA(image.Rect(0, 0, 2, 3))); err != nil {
@@ -174,7 +174,6 @@ func TestReviewCoverRechecksAuthorityAfterPreparation(t *testing.T) {
 		{"lost upload", func(repo *coverRepositoryFixture) { repo.current = ReviewCoverSource{} }, ErrReviewCoverUploadInvalid},
 		{"stale draft", func(repo *coverRepositoryFixture) { repo.draft.Version++ }, ErrReviewCoverVersion},
 		{"terminal item", func(repo *coverRepositoryFixture) { repo.draft.State = "DISCARDED" }, ErrReviewCoverVersion},
-		{"reserved source", func(repo *coverRepositoryFixture) { repo.draft.HandoffKind = "EMULATIONSTATION" }, ErrReviewCoverVersion},
 		{"busy owner", func(repo *coverRepositoryFixture) { repo.draft.SourceBusy = true }, ErrReviewCoverVersion},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -258,13 +257,12 @@ func TestReviewCoverIDAndCommitErrorsDoNotLeakSuccess(t *testing.T) {
 	}
 }
 
-func TestReviewCoverReadyReservationAndDraftErrors(t *testing.T) {
+func TestReviewCoverReadySourceAndDraftErrors(t *testing.T) {
 	t.Parallel()
-	t.Run("ready reservation", func(t *testing.T) {
+	t.Run("ready source", func(t *testing.T) {
 		t.Parallel()
 		repository, blobs := coverFixture(t)
-		repository.draft.HandoffKind = "EMULATIONSTATION"
-		repository.draft.EmulationStationReady = true
+		repository.draft.SourceBusy = false
 		result, err := coverService(repository, blobs).Upload(t.Context(), coverRequest())
 		if err != nil || result.Width != 2 || result.Height != 3 || result.CreatedAtMS != 100 || repository.assetWrites != 1 || repository.consumptions != 1 {
 			t.Fatalf("ready review not accepted: %+v err=%v", result, err)

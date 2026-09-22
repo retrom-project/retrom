@@ -40,11 +40,8 @@ WHERE s.deleted_at_ms IS NULL AND s.profile_id=?
 SELECT count(*)
 FROM import_items item
 WHERE item.state='REVIEW_PENDING'
- AND (item.review_handoff_kind='DIRECT' OR EXISTS (
-  SELECT 1 FROM emulationstation_import_items source
-  WHERE source.library_import_item_id=item.id
-   AND source.execution_state='REVIEW_PENDING'
- ))`, nil, &result.ReviewCount},
+ AND NOT EXISTS (SELECT 1 FROM source_import_items source
+  WHERE source.library_import_item_id=item.id AND source.execution_state<>'REVIEW_PENDING')`, nil, &result.ReviewCount},
 		{`
 SELECT COALESCE(sum(ps.active_duration_ms),0)
 FROM play_sessions ps

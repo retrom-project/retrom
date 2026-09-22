@@ -23,7 +23,7 @@ func TestRestoredPayloadSchedulingRollsBackSecurityAndReviewWrites(t *testing.T)
 
 func verifyRestorePayloadFailure(t *testing.T, stage string) {
 	t.Helper()
-	db := restoreReviewFixture(t, "EMULATIONSTATION")
+	db := restorePayloadFixture(t)
 	before := reviewRestoreSnapshot(t, db)
 	cause := errors.New("payload schedule storage failed")
 	fault := &restorePayloadFault{stage: stage, cause: cause}
@@ -46,10 +46,10 @@ func verifyRestorePayloadFailure(t *testing.T, stage string) {
 	var jobs, inputs, events int
 	err = db.QueryRowContext(t.Context(), `SELECT count(*),
 (SELECT count(*) FROM job_input_snapshots input JOIN jobs job ON input.job_id=job.id
- WHERE job.kind='PAYLOAD_RELEASE' AND job.scope_id='item'),
+ WHERE job.kind='PAYLOAD_RELEASE' AND job.scope_id='failed-source'),
 (SELECT count(*) FROM job_events event JOIN jobs job ON event.job_id=job.id
- WHERE job.kind='PAYLOAD_RELEASE' AND job.scope_id='item')
-FROM jobs WHERE kind='PAYLOAD_RELEASE' AND scope_id='item'`).Scan(&jobs, &inputs, &events)
+ WHERE job.kind='PAYLOAD_RELEASE' AND job.scope_id='failed-source')
+FROM jobs WHERE kind='PAYLOAD_RELEASE' AND scope_id='failed-source'`).Scan(&jobs, &inputs, &events)
 	if err != nil || jobs != 1 || inputs != 1 || events != 1 {
 		t.Fatalf("retry duplicated schedule: jobs=%d inputs=%d events=%d err=%v", jobs, inputs, events, err)
 	}
@@ -59,13 +59,13 @@ func matchesRestoredPayloadWrite(stage, query string, args []driver.NamedValue, 
 	var prefix, id string
 	switch stage {
 	case "job":
-		prefix, id = "INSERT INTO jobs", "PEGASUS_IMPORT_ITEM"
+		prefix, id = "INSERT INTO jobs", "SOURCE_IMPORT_ITEM"
 	case "input":
 		prefix, id = "INSERT INTO job_input_snapshots", jobID
 	case "event":
 		prefix, id = "INSERT INTO job_events", jobID
 	case "owner":
-		prefix, id = "UPDATE pegasus_import_items SET payload_state='RELEASING'", "item"
+		prefix, id = "UPDATE source_import_items SET payload_state='RELEASING'", "failed-source"
 	default:
 		return false
 	}
@@ -88,7 +88,7 @@ type restorePayloadFault struct {
 }
 
 func (fault *restorePayloadFault) beforeQuery(_ context.Context, query string, args []driver.NamedValue) error {
-	if fault.stage == "read" && query == "SELECT id FROM pegasus_import_items WHERE payload_state='RETAINED' AND id>? ORDER BY id LIMIT ?" && len(args) == 2 && args[1].Value == int64(100) {
+	if fault.stage == "read" && query == "SELECT id FROM source_import_items WHERE payload_state='RETAINED' AND id>? ORDER BY id LIMIT ?" && len(args) == 2 && args[1].Value == int64(100) {
 		fault.hits.Add(1)
 		return fault.cause
 	}

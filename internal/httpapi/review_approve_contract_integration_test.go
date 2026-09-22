@@ -29,7 +29,7 @@ func TestReviewApprovalHTTPKeepsSuccessConflictAndDuplicateContracts(t *testing.
 	if err := json.Unmarshal(response.Body.Bytes(), &published); err != nil {
 		t.Fatal(err)
 	}
-	if published.GameID == "" || published.EventID == "" || published.Status != "PUBLISHED" {
+	if published.GameID == "" || published.Status != "PUBLISHED" {
 		t.Fatalf("published=%+v", published)
 	}
 	duplicate := requestReviewApprove(t, server, second, `"v1"`, `{}`)

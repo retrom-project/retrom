@@ -11,9 +11,9 @@ import (
 	"github.com/google/uuid"
 )
 
-func seedHTTPPegasusScan(t *testing.T, server *Server, running bool) (string, string) {
+func seedHTTPSourceScan(t *testing.T, server *Server, running bool) (string, string) {
 	t.Helper()
-	server.pegasusImports.Close()
+	server.sourceImports.Close()
 	planID, jobID := uuid.NewString(), uuid.NewString()
 	var actorID string
 	if err := server.database.QueryRowContext(t.Context(), `SELECT id FROM users WHERE role='ADMIN' LIMIT 1`).Scan(
@@ -26,7 +26,7 @@ func seedHTTPPegasusScan(t *testing.T, server *Server, running bool) (string, st
 		t.Context(),
 		`INSERT INTO jobs(id,scope_type,scope_id,kind,dedupe_key,execution_no,
 payload_json,cancellable,state,attempt_count,max_attempts,available_at_ms,created_at_ms,updated_at_ms)
-VALUES(?,'PEGASUS_IMPORT',?,'SERVER_PEGASUS_SCAN',?,1,'{}',1,'QUEUED',0,4,?,?,?)`,
+VALUES(?,'SOURCE_IMPORT',?,'IMPORT_SCAN',?,1,'{}',1,'QUEUED',0,4,?,?,?)`,
 		jobID,
 		planID,
 		strings.Repeat("e", 64),
@@ -39,7 +39,7 @@ VALUES(?,'PEGASUS_IMPORT',?,'SERVER_PEGASUS_SCAN',?,1,'{}',1,'QUEUED',0,4,?,?,?)
 	}
 	_, err = server.database.ExecContext(
 		t.Context(),
-		`INSERT INTO pegasus_imports(id,root_id,root_label_snapshot,
+		`INSERT INTO source_imports(id,root_id,root_label_snapshot,
 source_relative_path,root_config_digest,state,scan_job_id,created_by_user_id,created_at_ms,updated_at_ms,expires_at_ms)
 VALUES(?,'games','Games','',?,'SCANNING',?,?,?,?,?)`,
 		planID,
@@ -85,11 +85,11 @@ func cancelHTTPScan(t *testing.T, server *Server, jobID string) *httptest.Respon
 	return response
 }
 
-func TestJobHTTPScanCancellationChangesPegasusPlanInSameCommit(t *testing.T) {
+func TestJobHTTPScanCancellationChangesSourcePlanInSameCommit(t *testing.T) {
 	for _, running := range []bool{false, true} {
 		t.Run(fmt.Sprintf("running=%v", running), func(t *testing.T) {
 			server := newTestServer(t)
-			planID, jobID := seedHTTPPegasusScan(t, server, running)
+			planID, jobID := seedHTTPSourceScan(t, server, running)
 			response := cancelHTTPScan(t, server, jobID)
 			expectedState, status := "CANCELLED", http.StatusOK
 			if running {
@@ -101,7 +101,7 @@ func TestJobHTTPScanCancellationChangesPegasusPlanInSameCommit(t *testing.T) {
 			var planState, jobState string
 			var jobVersion int64
 			err := server.database.QueryRowContext(t.Context(), `SELECT plan.state,job.state,job.version
-FROM pegasus_imports plan JOIN jobs job ON job.id=plan.scan_job_id WHERE plan.id=?`, planID).Scan(
+FROM source_imports plan JOIN jobs job ON job.id=plan.scan_job_id WHERE plan.id=?`, planID).Scan(
 				&planState,
 				&jobState,
 				&jobVersion,

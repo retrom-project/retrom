@@ -15,8 +15,8 @@ func TestReviewAccessPreservesPrimaryPriorityAndRejectsAmbiguousSource(t *testin
 	}
 	memory.primary = nil
 	memory.sources = []ReviewAsset{
-		{Resource: Resource{Digest: "first"}, Kind: "PEGASUS", State: "COPIED", ItemState: "REVIEW_PENDING"},
-		{Resource: Resource{Digest: "second"}, Kind: "EMULATIONSTATION", State: "COPIED", TerminalReview: true},
+		{Resource: Resource{Digest: "first"}, Kind: "SOURCE", State: "COPIED", ItemState: "REVIEW_PENDING"},
+		{Resource: Resource{Digest: "second"}, Kind: "SOURCE", State: "COPIED", TerminalReview: true},
 	}
 	if _, err := New(memory).Review(t.Context(), "source", "COVER"); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("ambiguous source was published: %v", err)

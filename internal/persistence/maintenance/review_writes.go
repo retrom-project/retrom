@@ -78,10 +78,9 @@ func (records reviewRecords) update(
 	var result sql.Result
 	var err error
 	switch kind {
-	case "PEGASUS":
-		result, err = recordstore.UpdatePegasusImportItems(ctx, records.executor, change)
-	case "EMULATIONSTATION":
-		result, err = recordstore.UpdateEmulationstationImportItems(ctx, records.executor, change)
+	case "SOURCE":
+		result, err = recordstore.UpdateSourceImportItems(ctx, records.executor, change)
+
 	default:
 		return nil, application.ErrInvalidBundle
 	}

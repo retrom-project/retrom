@@ -26,15 +26,15 @@ describe("ReviewDeduplicate", () => {
       return Response.json({ scannedCount: 50, discardedCount: 2, attachmentActiveCount: 1,
         nextAfterItemId: requests.length === 1 ? after : null, throughItemId: through });
     }));
-    render(<ReviewDeduplicate values={{ pegasusImportId: through, q: "test", sort: "UPDATED_DESC", cursor: "ignored" }} />);
+    render(<ReviewDeduplicate values={{ sourceImportId: through, q: "test", sort: "UPDATED_DESC", cursor: "ignored" }} />);
     expect(requests).toHaveLength(0);
     await userEvent.setup().click(screen.getByRole("button", { name: "快速去重" }));
     await waitFor(() => expect(refreshReviewQueue).toHaveBeenCalledWith("admin", {
       tone: "warn", message: "去重完成，已丢弃 4 个与已发布游戏重复的条目。另有 2 个条目正在补传，已跳过。",
     }));
     expect(requests).toHaveLength(2);
-    expect(await requests[0].json()).toEqual({ scope: { pegasusImportId: through, q: "test" } });
-    expect(await requests[1].json()).toEqual({ scope: { pegasusImportId: through, q: "test" }, afterItemId: after, throughItemId: through });
+    expect(await requests[0].json()).toEqual({ scope: { sourceImportId: through, q: "test" } });
+    expect(await requests[1].json()).toEqual({ scope: { sourceImportId: through, q: "test" }, afterItemId: after, throughItemId: through });
     expect(requests[0].headers.get("X-Retrom-Csrf")).toBe("csrf-test");
     expect(requests[0].headers.get("Idempotency-Key")).toBeTruthy();
     expect(requests[0].headers.get("Idempotency-Key")).not.toBe(requests[1].headers.get("Idempotency-Key"));

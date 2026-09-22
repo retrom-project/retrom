@@ -35,7 +35,7 @@ func (service *Service) fenceRestore(ctx context.Context, path string) error {
 		}
 		if err := records.Audit(ctx, FenceAudit{ID: id.String(), Now: now, Counts: FenceCounts{
 			Sessions: access.Sessions, Links: access.Links, Launches: access.Launches,
-			BIOS: imports.BIOS, Pegasus: imports.Pegasus, EmulationStation: imports.EmulationStation,
+			BIOS: imports.BIOS, Source: imports.Source,
 		}}); err != nil {
 			return fmt.Errorf("record restore security audit: %w", err)
 		}

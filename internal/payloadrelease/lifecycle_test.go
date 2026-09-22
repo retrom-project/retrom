@@ -33,21 +33,21 @@ func TestTerminalStateMatricesOnlyReleaseFinalScopes(t *testing.T) {
 		retryable bool
 		terminal  bool
 	}{
-		{name: "Pegasus published through public item", state: "PUBLISHED", terminal: true},
-		{name: "Pegasus review discarded", state: "REVIEW_DISCARDED", terminal: true},
-		{name: "Pegasus duplicate", state: "SKIPPED_EXISTING", terminal: true},
-		{name: "Pegasus mapping skipped", state: "SKIPPED_MAPPING", terminal: true},
-		{name: "Pegasus cancelled", state: "CANCELLED", terminal: true},
-		{name: "Pegasus final source failure", state: "SOURCE_CHANGED", terminal: true},
-		{name: "Pegasus retryable source failure", state: "SOURCE_CHANGED", retryable: true},
-		{name: "Pegasus final read failure", state: "READ_FAILED", terminal: true},
-		{name: "Pegasus retryable read failure", state: "READ_FAILED", retryable: true},
-		{name: "Pegasus review pending", state: "REVIEW_PENDING"},
-		{name: "Pegasus running", state: "COPYING"},
+		{name: "Source published through public item", state: "PUBLISHED", terminal: true},
+		{name: "Source review discarded", state: "REVIEW_DISCARDED", terminal: true},
+		{name: "Source duplicate", state: "SKIPPED_EXISTING", terminal: true},
+		{name: "Source mapping skipped", state: "SKIPPED_MAPPING", terminal: true},
+		{name: "Source cancelled", state: "CANCELLED", terminal: true},
+		{name: "Source final source failure", state: "SOURCE_CHANGED", terminal: true},
+		{name: "Source retryable source failure", state: "SOURCE_CHANGED", retryable: true},
+		{name: "Source final read failure", state: "READ_FAILED", terminal: true},
+		{name: "Source retryable read failure", state: "READ_FAILED", retryable: true},
+		{name: "Source review pending", state: "REVIEW_PENDING"},
+		{name: "Source running", state: "COPYING"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			if got := terminalPegasusItem(test.state, test.retryable); got != test.terminal {
-				t.Fatalf("terminalPegasusItem(%q, %v) = %v, want %v", test.state, test.retryable, got, test.terminal)
+			if got := terminalSourceItem(test.state, test.retryable); got != test.terminal {
+				t.Fatalf("terminalSourceItem(%q, %v) = %v, want %v", test.state, test.retryable, got, test.terminal)
 			}
 		})
 	}

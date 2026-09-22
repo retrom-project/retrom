@@ -9,7 +9,7 @@ func validEffectRemoval(group application.EffectReferenceGroup, scope applicatio
 	case application.EffectImportReview, application.EffectImportEvidence, application.EffectImportFiles:
 		return scope == application.ScopeImportItem
 	case application.EffectSourceFiles, application.EffectSourceAssets:
-		return scope == application.ScopePegasusImportItem || scope == application.ScopeEmulationStationImportItem
+		return scope == application.ScopeSourceImportItem
 	default:
 		return false
 	}

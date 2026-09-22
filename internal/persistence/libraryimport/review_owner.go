@@ -14,19 +14,12 @@ func TransitionReviewOwners(
 	if change.State != application.ReviewOwnerPublished && change.State != application.ReviewOwnerDiscarded {
 		return application.ErrInvalid
 	}
-	pegasusAffected, err := transitionServerReviewOwner(ctx, executor, "pegasus_import_items", change)
+	sourceAffected, err := transitionServerReviewOwner(ctx, executor, "source_import_items", change)
 	if err != nil {
 		return err
 	}
-	emulationStationAffected, err := transitionServerReviewOwner(ctx, executor, "emulationstation_import_items", change)
-	if err != nil {
-		return err
-	}
-	if pegasusAffected+emulationStationAffected == 0 {
+	if sourceAffected == 0 {
 		return nil
 	}
-	if pegasusAffected > 0 {
-		return refreshPegasusReviewCounts(ctx, executor, change.ItemID, change.NowMS)
-	}
-	return refreshEmulationStationReviewCounts(ctx, executor, change.ItemID, change.NowMS)
+	return refreshSourceReviewCounts(ctx, executor, change.ItemID, change.NowMS)
 }

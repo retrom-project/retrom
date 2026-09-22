@@ -150,7 +150,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     ),
     "ACC-TAG-004": (
         180,
-        "go test -tags=integration ./internal/pegasusimport -run '^TestScanMapImportCreatesReviewBeforePublishingGameAndMedia$' -count=1",
+        "go test -tags=integration ./internal/sourceimport -run '^TestScanMapImportCreatesReviewBeforePublishingGameAndMedia$' -count=1",
     ),
     "ACC-TAG-005": (180, "make web-test && scripts/acceptance/ui-case.sh ACC-TAG-005"),
     "ACC-OPS-001": (
@@ -159,7 +159,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     ),
     "ACC-AUTH-001": (
         120,
-        "go test ./internal/composition ./internal/httpapi -run 'TestReadSetupCodeIsReadOnlyAndPendingOnly|TestAuthHTTPReleasePendingRequiresSetupAndExactOrigin|TestReleaseInitializationLoginExpiryAndPasswordRotation' -count=1",
+        "go test ./internal/composition ./internal/httpapi -run 'TestAuthHTTPConcurrentInitializationCreatesExactlyOneAdministrator|TestAuthHTTPReleaseInitializesWithoutCodeAndRequiresExactOrigin|TestReleaseInitializationLoginExpiryAndPasswordRotation' -count=1",
     ),
     "ACC-AUTH-002": (
         120,
@@ -302,19 +302,19 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     ),
     "ACC-PEG-001": (
         180,
-        "go test ./internal/pegasusmeta ./internal/pegasusimport ./internal/service/pegasusimport -run 'TestParse|TestScan' -count=1",
+        "go test ./internal/pegasusmeta ./internal/sourceimport ./internal/service/sourceimport -run 'TestParse|TestScan' -count=1",
     ),
     "ACC-PEG-002": (
         180,
-        "go test ./internal/serversource ./internal/httpapi -run 'TestDeclaredPathNormalization|TestWalkAndOpenStayWithinNoFollowDescriptors|TestPegasusImportHTTPScanMappingAndSourceDrift' -count=1",
+        "go test ./internal/serversource ./internal/httpapi -run 'TestDeclaredPathNormalization|TestWalkAndOpenStayWithinNoFollowDescriptors|TestSourceImportHTTPScanMappingAndSourceDrift' -count=1",
     ),
     "ACC-PEG-003": (
         300,
-        "go test -tags=integration ./internal/pegasusimport ./internal/libraryimport ./internal/service/pegasusimport ./internal/persistence/pegasusimport ./internal/service/libraryimport ./internal/persistence/libraryimport -run 'TestScanMapImportCreatesReviewBeforePublishingGameAndMedia|TestReviewPreparation|TestOwned|TestSourceOwnership|TestServerSource|TestServerImportResult|TestServerRPGArchive|TestLinkedDuplicate|TestEmulationStationDuplicateBinding|TestMultiDiscDirectoryCreatesOrderedItemsAndPublishesCanonicalContent|TestArcadeGroupingBuildsCoreScopedParentAndBIOSClosure|TestReviewHandoff|TestServerMetadata|TestMetadata|TestReviewDiscard' -count=1",
+        "go test -tags=integration ./internal/sourceimport ./internal/libraryimport ./internal/service/sourceimport ./internal/persistence/sourceimport ./internal/service/libraryimport ./internal/persistence/libraryimport -run 'TestScanMapImportCreatesReviewBeforePublishingGameAndMedia|TestReviewPreparation|TestOwned|TestSourceOwnership|TestServerSource|TestServerImportResult|TestServerRPGArchive|TestLinkedDuplicate|TestMultiDiscDirectoryCreatesOrderedItemsAndPublishesCanonicalContent|TestArcadeGroupingBuildsCoreScopedParentAndBIOSClosure|TestReviewHandoff|TestServerMetadata|TestMetadata|TestReviewDiscard' -count=1",
     ),
     "ACC-PEG-004": (
         300,
-        "go test ./internal/pegasusimport ./internal/serversource -run 'TestClaim|TestFinishImport|TestItemCompletion|TestQueuedRecovery|TestRecovery|TestRecoverWorkClosesExhaustedLeaseAsFailed|TestWalkAndOpenStayWithinNoFollowDescriptors|TestRetry|TestCancel|TestWorker|TestScanner|TestScanCancellation' -count=1 && go test ./internal/service/pegasusimport ./internal/persistence/pegasusimport -run 'TestLease|TestCompletion|TestItemWork|TestQueuedRecovery|TestWorkflow|TestQueuedCancellation|TestRecovery|TestWorker|TestScan|TestMaterial|TestCreation' -count=1 && go test -tags=integration ./internal/service/maintenance ./internal/persistence/maintenance -run 'TestBackupRestoreRoundTripAndOnlineRefusal|TestRestore.*Pegasus' -count=1 && go test ./internal/persistence/blobgc -run '^TestRunOnceHonorsGraceAndConcurrentReference$' -count=1 && go test ./internal/httpapi -run 'TestJobHTTPScanCancellationChangesPegasusPlanInSameCommit|TestJobCancellationRetainsOriginalETagAfterGenericRead|TestJobCancellationSQLFailureIsAnInfrastructureError' -count=1",
+        "go test ./internal/sourceimport ./internal/serversource -run 'TestClaim|TestFinishImport|TestItemCompletion|TestQueuedRecovery|TestRecovery|TestRecoverWorkClosesExhaustedLeaseAsFailed|TestWalkAndOpenStayWithinNoFollowDescriptors|TestRetry|TestCancel|TestWorker|TestScanner|TestScanCancellation' -count=1 && go test ./internal/service/sourceimport ./internal/persistence/sourceimport -run 'TestLease|TestCompletion|TestItemWork|TestQueuedRecovery|TestWorkflow|TestQueuedCancellation|TestRecovery|TestWorker|TestScan|TestMaterial|TestCreation' -count=1 && go test -tags=integration ./internal/service/maintenance ./internal/persistence/maintenance -run 'TestBackupRestoreRoundTripAndOnlineRefusal|TestRestore.*Source|TestRestoredSource' -count=1 && go test ./internal/persistence/blobgc -run '^TestRunOnceHonorsGraceAndConcurrentReference$' -count=1 && go test ./internal/httpapi -run 'TestJobHTTPScanCancellationChangesSourcePlanInSameCommit|TestJobCancellationRetainsOriginalETagAfterGenericRead|TestJobCancellationSQLFailureIsAnInfrastructureError' -count=1",
     ),
     "ACC-PEG-005": (240, "scripts/acceptance/ui-case.sh ACC-PEG-005"),
     "ACC-PEG-006": (300, "scripts/acceptance/ui-case.sh ACC-PEG-006"),
@@ -324,15 +324,15 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     ),
     "ACC-ES-002": (
         240,
-        "go test ./internal/emulationstationimport ./internal/serversource ./internal/httpapi -run 'TestScan|TestWalkAndOpenStayWithinNoFollowDescriptors|TestEmulationStationImportHTTP|TestCreation|TestMapping|TestStart|TestQuer|TestGamelistsReject' -count=1 && go test ./internal/service/emulationstationimport ./internal/persistence/emulationstationimport -count=1",
+        "go test ./internal/importformat/gamelist ./internal/sourceimport ./internal/serversource ./internal/httpapi -run 'TestScan|TestWalkAndOpenStayWithinNoFollowDescriptors|TestSourceImportHTTP|TestCreation|TestMapping|TestStart|TestQuer|TestQueriesReject' -count=1 && go test ./internal/service/sourceimport ./internal/persistence/sourceimport -count=1",
     ),
     "ACC-ES-003": (
         300,
-        "go test ./internal/emulationstationimport ./internal/libraryimport -count=1",
+        "go test ./internal/importformat/gamelist ./internal/sourceimport ./internal/libraryimport -count=1",
     ),
     "ACC-ES-004": (
         300,
-        "go test ./internal/emulationstationimport ./internal/service/emulationstationimport ./internal/persistence/emulationstationimport ./internal/payloadrelease ./internal/persistence/blobgc -count=1 && go test -tags=integration ./internal/httpapi -run 'TestGamePermanentDeleteIsIdempotentReleasesPayloadAndPreservesTombstone|TestJobHTTPScanCancellationChangesEmulationStationPlanInSameCommit|TestESJobCancellation|TestESGenericCancellation' -count=1 && go test -tags=integration ./internal/persistence/maintenance -run 'TestRestoreClearsUnexecutedScanningAndPendingCancellation|TestRestoredScan' -count=1",
+        "go test ./internal/importformat/gamelist ./internal/sourceimport ./internal/service/sourceimport ./internal/persistence/sourceimport ./internal/payloadrelease ./internal/persistence/blobgc -count=1 && go test -tags=integration ./internal/httpapi -run 'TestGamePermanentDeleteIsIdempotentReleasesPayloadAndPreservesTombstone|TestJobHTTPScanCancellationChangesSourcePlanInSameCommit|TestJobCancellationRetainsOriginalETagAfterGenericRead' -count=1 && go test -tags=integration ./internal/persistence/maintenance -run 'TestRestore.*Source|TestRestoredSource' -count=1",
     ),
     "ACC-ES-005": (300, "scripts/acceptance/ui-case.sh ACC-ES-005"),
     "ACC-ES-006": (

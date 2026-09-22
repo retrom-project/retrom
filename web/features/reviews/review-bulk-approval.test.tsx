@@ -13,7 +13,7 @@ const counts = {
 };
 
 const preview = {
-  scope: { pegasusImportId: "01990000-0000-7000-8000-000000000001" },
+  scope: { sourceImportId: "01990000-0000-7000-8000-000000000001" },
   scopeDigest: "a".repeat(64), candidateManifestDigest: "b".repeat(64), counts, activeBulkApproval: null,
 };
 
@@ -39,7 +39,7 @@ function renderApproval(restoreBulkApprovalId?: string) {
   root.id = "review-bulk-status-root";
   document.body.append(root);
   return render(<ReviewBulkApproval
-    values={{ pegasusImportId: preview.scope.pegasusImportId, sort: "UPDATED_DESC" }}
+    values={{ sourceImportId: preview.scope.sourceImportId, sort: "UPDATED_DESC" }}
     restoreBulkApprovalId={restoreBulkApprovalId}
   />);
 }
@@ -60,7 +60,7 @@ describe("ReviewBulkApproval", () => {
     expect(screen.getByText(/hidden\/adult 来源标记需逐项核对/)).toHaveTextContent("3");
     expect(screen.getByRole("button", { name: "确认快速发布 7 个游戏" })).toBeEnabled();
     expect(fetchMock).toHaveBeenCalledWith(
-      expect.stringContaining("pegasusImportId=01990000-0000-7000-8000-000000000001"),
+      expect.stringContaining("sourceImportId=01990000-0000-7000-8000-000000000001"),
       { cache: "no-store" },
     );
     expect(String(fetchMock.mock.calls[0]?.[0])).not.toContain("sort=");
@@ -69,19 +69,19 @@ describe("ReviewBulkApproval", () => {
   it("keeps an EmulationStation batch as an independent frozen scope", async () => {
     const user = userEvent.setup();
     const emulationStationId = "01990000-0000-7000-8000-000000000099";
-    const emulationStationPreview = { ...preview, scope: { emulationStationImportId: emulationStationId } };
+    const emulationStationPreview = { ...preview, scope: { sourceImportId: emulationStationId } };
     const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => emulationStationPreview });
     vi.stubGlobal("fetch", fetchMock);
     const root = document.createElement("div");
     root.id = "review-bulk-status-root";
     document.body.append(root);
-    render(<ReviewBulkApproval values={{ emulationStationImportId: emulationStationId }} />);
+    render(<ReviewBulkApproval values={{ sourceImportId: emulationStationId }} />);
 
     await user.click(screen.getByRole("button", { name: "快速审批" }));
 
-    expect(await screen.findByText(/EmulationStation 批次 .* 的全部分页结果/)).toBeVisible();
+    expect(await screen.findByText(/来源文件批次 .* 的全部分页结果/)).toBeVisible();
     expect(fetchMock).toHaveBeenCalledWith(
-      expect.stringContaining(`emulationStationImportId=${emulationStationId}`),
+      expect.stringContaining(`sourceImportId=${emulationStationId}`),
       { cache: "no-store" },
     );
   });
@@ -92,7 +92,7 @@ describe("ReviewBulkApproval", () => {
       .mockResolvedValueOnce({ ok: true, json: async () => preview })
       .mockResolvedValueOnce({ ok: true, json: async () => queued });
     vi.stubGlobal("fetch", fetchMock);
-    window.history.replaceState({}, "", "/admin/reviews?pegasusImportId=" + preview.scope.pegasusImportId);
+    window.history.replaceState({}, "", "/admin/reviews?sourceImportId=" + preview.scope.sourceImportId);
 
     renderApproval();
     await user.click(screen.getByRole("button", { name: "快速审批" }));

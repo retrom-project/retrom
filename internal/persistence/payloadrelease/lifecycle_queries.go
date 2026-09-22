@@ -9,11 +9,8 @@ SELECT 'IMPORT_JOB',id,state,version,payload_state,COALESCE(payload_release_job_
 UNION ALL
 SELECT 'GAME',id,status,version,payload_state,COALESCE(payload_release_job_id,''),'',0 FROM games
 UNION ALL
-SELECT 'PEGASUS_IMPORT_ITEM',id,execution_state,version,payload_state,
-COALESCE(payload_release_job_id,''),COALESCE(library_import_item_id,''),retryable FROM pegasus_import_items
-UNION ALL
-SELECT 'EMULATIONSTATION_IMPORT_ITEM',id,execution_state,version,payload_state,
-COALESCE(payload_release_job_id,''),COALESCE(library_import_item_id,''),retryable FROM emulationstation_import_items
+SELECT 'SOURCE_IMPORT_ITEM',id,execution_state,version,payload_state,
+COALESCE(payload_release_job_id,''),COALESCE(library_import_item_id,''),retryable FROM source_import_items
 )
 SELECT owner.scope_type,owner.id,owner.state,owner.version,owner.payload_state,owner.release_job_id,
 owner.public_id,owner.retryable,COALESCE(job.id,''),COALESCE(job.kind,''),COALESCE(job.scope_type,''),

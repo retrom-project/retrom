@@ -116,7 +116,7 @@ async function expectNoSeriousAxeViolations(page: Page) {
 
 async function readImport(page: Page, importId: string) {
   const response = await page.request.get(
-    `/api/v1/admin/emulationstation-imports/${importId}`,
+    `/api/v1/admin/source-imports/${importId}`,
   );
   expect(response.ok()).toBe(true);
   return await response.json() as ImportSummary;
@@ -124,7 +124,7 @@ async function readImport(page: Page, importId: string) {
 
 async function readItems(page: Page, importId: string) {
   const response = await page.request.get(
-    `/api/v1/admin/emulationstation-imports/${importId}/items?limit=50`,
+    `/api/v1/admin/source-imports/${importId}/items?limit=50`,
   );
   expect(response.ok()).toBe(true);
   return (await response.json() as { items: ImportItem[] }).items;
@@ -167,9 +167,9 @@ function unreferencedCategory(snapshot: StorageSnapshot) {
 
 async function scanPublicSource(page: Page) {
   await page.goto("/admin/imports/server");
-  const capability = page.locator(".emulationstation-capability");
+  const capability = page.locator(".source-capability");
   await expect(
-    capability.getByRole("heading", { name: "扫描 gamelist.xml 并准备审核" }),
+    capability.getByRole("heading", { name: "扫描并准备审核事项" }),
   ).toBeVisible();
   await activateWithKeyboard(
     capability.getByRole("button", {
@@ -177,14 +177,15 @@ async function scanPublicSource(page: Page) {
     }),
   );
   const drawer = page.getByRole("dialog", {
-    name: "从 gamelist.xml 准备审核事项",
+    name: "从目录准备审核事项",
   });
   await expect(drawer).toBeVisible();
+  await drawer.getByRole("combobox", { name: "文件组织格式" }).selectOption("GAMELIST");
   await selectServerSource(drawer, "EmulationStationPlayable", activateWithKeyboard);
   await expect(drawer).toContainText(`服务器文件系统 / ${serverSourcePath("EmulationStationPlayable")}`);
   const created = page.waitForResponse((response) => {
     const url = new URL(response.url());
-    return url.pathname === "/api/v1/admin/emulationstation-imports"
+    return url.pathname === "/api/v1/admin/source-imports"
       && response.request().method() === "POST";
   });
   await activateWithKeyboard(
@@ -207,7 +208,7 @@ async function mapToGBA(drawer: Locator, mapping: Locator) {
   await activateWithKeyboard(
     drawer.getByRole("button", { name: "确认映射" }),
   );
-  await expect(drawer).toContainText("全部进入待审核，不会自动发布");
+  await expect(drawer).toContainText("全部进入待审核，由管理员逐项决定");
 }
 
 async function verifyResponsiveImportExperience(page: Page, testInfo: TestInfo) {
@@ -226,9 +227,11 @@ async function verifyResponsiveImportExperience(page: Page, testInfo: TestInfo) 
   await expect(steps).toContainText("选择目录");
   await expect(steps).toContainText("检查与映射");
   await expect(steps).toContainText("确认审核计划");
+  await expect(steps).toHaveCSS("display", "grid");
   await expect(drawer).toContainText("1 个游戏");
   await expectNoPageOverflow(page);
   await mapToGBA(drawer, mapping);
+  await expect(drawer.locator(".source-review-table > div").first()).toHaveCSS("display", "flex");
   await expectNoSeriousAxeViolations(page);
   // Full-page capture briefly resizes Chromium to 1x1 and would activate the phone guard.
   // Capture the live viewport so taking evidence cannot unmount this open drawer.
@@ -259,17 +262,17 @@ async function verifyResponsiveImportExperience(page: Page, testInfo: TestInfo) 
       .locator("footer")
       .getByRole("button", { name: "关闭", exact: true }),
   );
-  await page.goto(`/admin/imports/server/emulationstation/${plan.id}`);
+  await page.goto(`/admin/imports/server/source/${plan.id}`);
   await expect(
-    page.getByRole("region", { name: "EmulationStation 导入摘要" }),
+    page.getByRole("region", { name: "游戏导入摘要" }),
   ).toBeVisible();
   await activateWithKeyboard(
     page.getByRole("button", { name: "继续映射" }),
   );
   const recovered = page.getByRole("dialog", {
-    name: "从 gamelist.xml 准备审核事项",
+    name: "从目录准备审核事项",
   });
-  await expect(recovered).toContainText("全部进入待审核，不会自动发布");
+  await expect(recovered).toContainText("全部进入待审核，由管理员逐项决定");
   await activateWithKeyboard(
     recovered
       .locator("footer")
@@ -292,7 +295,7 @@ async function verifyResponsiveImportExperience(page: Page, testInfo: TestInfo) 
   );
   await expect(page).toHaveURL(/\/admin\/imports\/server$/);
   const deleted = await page.request.get(
-    `/api/v1/admin/emulationstation-imports/${plan.id}`,
+    `/api/v1/admin/source-imports/${plan.id}`,
   );
   expect(deleted.status()).toBe(404);
 }
@@ -313,25 +316,26 @@ async function verifyFullProductLifecycle(page: Page, testInfo: TestInfo) {
 
   const { drawer, mapping, plan } = await scanPublicSource(page);
   await mapToGBA(drawer, mapping);
+  await expect(drawer.locator(".source-review-table > div").first()).toHaveCSS("display", "flex");
   await drawer.getByRole("button", { name: "开始准备审核事项" }).click();
   await expect(page).toHaveURL(
-    new RegExp(`/admin/imports/server/emulationstation/${plan.id}$`),
+    new RegExp(`/admin/imports/server/source/${plan.id}$`),
   );
   await expect.poll(
     async () => (await readImport(page, plan.id)).state,
     { timeout: 60_000 },
   ).toBe("COMPLETED");
-  const resultTable = page.getByRole("table", { name: "EmulationStation 导入结果" });
+  const resultTable = page.getByRole("table", { name: "游戏导入结果" });
   await expect(
     resultTable.getByRole("row").filter({ hasText: title }),
   ).toContainText("待管理员审核");
   const reviewLink = page.getByRole("link", { name: /逐项审核 1 个游戏/ });
   await expect(reviewLink).toHaveAttribute(
     "href",
-    `/admin/reviews?emulationStationImportId=${plan.id}`,
+    `/admin/reviews?sourceImportId=${plan.id}`,
   );
   const reviewAPI = await page.request.get(
-    `/api/v1/admin/reviews?emulationStationImportId=${plan.id}&limit=20`,
+    `/api/v1/admin/reviews?sourceImportId=${plan.id}&limit=20`,
   );
   expect(reviewAPI.ok(), await reviewAPI.text()).toBe(true);
   const reviewList = await reviewAPI.json() as {
@@ -358,13 +362,13 @@ async function verifyFullProductLifecycle(page: Page, testInfo: TestInfo) {
   await expectLockedPayload(page, reviewDetail.sourceMedia.videoUrl!, videoFixture);
   await reviewLink.click();
   await expect(page).toHaveURL(
-    new RegExp(`/admin/reviews\\?emulationStationImportId=${plan.id}$`),
+    new RegExp(`/admin/reviews\\?sourceImportId=${plan.id}$`),
   );
 
   const reviewRow = page.locator(".review-workflow-row").filter({ hasText: title });
   await expect(reviewRow).toContainText("可以发布", { timeout: 30_000 });
   await reviewRow.getByRole("link", { name: "审核条目" }).click();
-  await expect(page.getByText(/来源：EmulationStation/)).toBeVisible();
+  await expect(page.getByText(/来源：来源文件/)).toBeVisible();
   const reviewCover = page.getByRole("img", { name: "当前选择的游戏封面" });
   await expect(reviewCover).toBeVisible();
   await expect(reviewCover).toHaveAttribute("src", reviewDetail.sourceMedia.coverUrl!);
@@ -373,7 +377,7 @@ async function verifyFullProductLifecycle(page: Page, testInfo: TestInfo) {
   await expect(reviewVideo).toHaveAttribute("src", reviewDetail.sourceMedia.videoUrl!);
   await expectVideoMetadata(reviewVideo);
   await page.reload();
-  await expect(page.getByText(/来源：EmulationStation/)).toBeVisible();
+  await expect(page.getByText(/来源：来源文件/)).toBeVisible();
   await expect(page.getByRole("button", { name: "通过并发布" })).toBeEnabled();
   await page.getByRole("button", { name: "通过并发布" }).click();
   await expect(page.locator(".app-toast")).toContainText("游戏已成功发布", {
@@ -548,7 +552,7 @@ async function verifyFullProductLifecycle(page: Page, testInfo: TestInfo) {
 }
 
 test(
-  "ACC-ES-005 EmulationStation three-card drawer, explicit mapping and responsive recovery",
+  "ACC-ES-005 Gamelist shared drawer, explicit mapping and responsive recovery",
   async ({ page }, testInfo) => {
     test.setTimeout(120_000);
     await verifyResponsiveImportExperience(page, testInfo);

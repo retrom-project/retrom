@@ -14,28 +14,28 @@ import (
 )
 
 type reviewApprovalRun struct {
-	ctx                        context.Context
-	service                    *ReviewApprovals
-	scope                      ReviewApprovalScope
-	request                    ReviewApprovalRequest
-	head                       ReviewApprovalHead
-	metadata                   ApprovalMetadata
-	origin                     ApprovalOrigin
-	assets                     []ApprovalAsset
-	screenshotIDs              []string
-	gameID, variantID, eventID string
-	now                        int64
-	screenshotOverride         bool
-	runtimeDependencyJSON      string
-	rpgProfile                 RPGReviewProfile
-	rpgDependencies            RPGReviewDependencies
-	publication                ApprovalPublication
-	publishedTags              []tagging.Reference
-	duplicateGames             []DuplicateGame
+	ctx                   context.Context
+	service               *ReviewApprovals
+	scope                 ReviewApprovalScope
+	request               ReviewApprovalRequest
+	head                  ReviewApprovalHead
+	metadata              ApprovalMetadata
+	origin                ApprovalOrigin
+	assets                []ApprovalAsset
+	screenshotIDs         []string
+	gameID, variantID     string
+	now                   int64
+	screenshotOverride    bool
+	runtimeDependencyJSON string
+	rpgProfile            RPGReviewProfile
+	rpgDependencies       RPGReviewDependencies
+	publication           ApprovalPublication
+	publishedTags         []tagging.Reference
+	duplicateGames        []DuplicateGame
 }
 
 func (run *reviewApprovalRun) result() ReviewApproved {
-	return ReviewApproved{GameID: run.gameID, EventID: run.eventID, Status: "PUBLISHED"}
+	return ReviewApproved{GameID: run.gameID, Status: "PUBLISHED"}
 }
 
 func (run *reviewApprovalRun) load() error {
@@ -183,7 +183,7 @@ func (run *reviewApprovalRun) projectAggregate() error {
 }
 
 func (run *reviewApprovalRun) allocateIDs() error {
-	for _, destination := range []*string{&run.gameID, &run.variantID, &run.eventID} {
+	for _, destination := range []*string{&run.gameID, &run.variantID} {
 		id, err := run.service.newID()
 		if err != nil {
 			return fmt.Errorf("allocate approval identity: %w", err)

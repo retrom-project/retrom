@@ -101,15 +101,6 @@
       "reviewAfter": "2027-08-22"
     },
     {
-      "path": "internal/service/libraryimport/import_reads_types.go",
-      "line": 181,
-      "symbol": "type ImportReadRepository interface",
-      "linter": "interfacebloat",
-      "reason": "Administrator import and review screens consume a cohesive set of read projections.",
-      "invariant": "Overview, list, detail, multidisc, and history reads remain independent of the storage engine.",
-      "reviewAfter": "2027-08-22"
-    },
-    {
       "path": "internal/service/libraryimport/review_validation_types.go",
       "line": 76,
       "symbol": "type ReviewValidationRefreshRepository interface",

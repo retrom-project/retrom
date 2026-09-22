@@ -8,16 +8,11 @@ import (
 	"math"
 	"strings"
 	"time"
-
-	"github.com/google/uuid"
-
-	"retrom/internal/authn"
 )
 
 var (
 	ErrInvalid         = errors.New("IMPORT_INVALID")
 	ErrVersionConflict = errors.New("VERSION_CONFLICT")
-	errMetadataObject  = errors.New("server review metadata audit must be an object")
 )
 
 type (
@@ -33,16 +28,10 @@ type (
 		MetadataJSON string
 		Version      int64
 	}
-	MetadataAudit struct {
-		ID, ActorKind           string
-		ActorUserID, ActorLabel *string
-		BeforeJSON, AfterJSON   string
-	}
 	MetadataChange struct {
 		ItemID                   string
 		Before                   MetadataDraft
 		MetadataJSON, SearchText string
-		Audit                    MetadataAudit
 		NowMS                    int64
 	}
 	MetadataScope interface {
@@ -94,6 +83,10 @@ func (service *MetadataSeeder) SeedInScope(
 	if err != nil {
 		return 0, nil, fmt.Errorf("read server review metadata: %w", err)
 	}
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(before.MetadataJSON), &fields); err != nil || fields == nil {
+		return 0, nil, ErrInvalid
+	}
 	if before.Version < 1 {
 		return 0, nil, ErrVersionConflict
 	}
@@ -107,13 +100,9 @@ func (service *MetadataSeeder) SeedInScope(
 	if before.Version == math.MaxInt64 {
 		return 0, nil, ErrVersionConflict
 	}
-	audit, err := metadataAudit(ctx, before.MetadataJSON, encoded)
-	if err != nil {
-		return 0, nil, err
-	}
 	change := MetadataChange{
 		ItemID: itemID, Before: before, MetadataJSON: encoded,
-		SearchText: strings.ToLower(normalized.Title), Audit: audit, NowMS: service.now().UnixMilli(),
+		SearchText: strings.ToLower(normalized.Title), NowMS: service.now().UnixMilli(),
 	}
 	if err := scope.SaveMetadata(ctx, change); err != nil {
 		return 0, nil, fmt.Errorf("save server review metadata: %w", err)
@@ -123,7 +112,7 @@ func (service *MetadataSeeder) SeedInScope(
 
 func encodeMetadata(metadata ServerMetadata) (string, error) {
 	// Match the established metadata object order so repeated handoffs retain
-	// the current draft version and do not append duplicate audit events.
+	// the current draft version.
 	encoded, err := json.Marshal(struct {
 		Description string `json:"description"`
 		Developer   string `json:"developer"`
@@ -138,48 +127,6 @@ func encodeMetadata(metadata ServerMetadata) (string, error) {
 	})
 	if err != nil {
 		return "", fmt.Errorf("encode server review metadata: %w", err)
-	}
-	return string(encoded), nil
-}
-
-func metadataAudit(ctx context.Context, before, after string) (MetadataAudit, error) {
-	beforeJSON, err := metadataEvent(before)
-	if err != nil {
-		return MetadataAudit{}, err
-	}
-	afterJSON, err := metadataEvent(after)
-	if err != nil {
-		return MetadataAudit{}, err
-	}
-	id, err := uuid.NewV7()
-	if err != nil {
-		return MetadataAudit{}, fmt.Errorf("create server review event ID: %w", err)
-	}
-	audit := MetadataAudit{ID: id.String(), ActorKind: "SYSTEM", BeforeJSON: beforeJSON, AfterJSON: afterJSON}
-	label := "release-setup"
-	audit.ActorLabel = &label
-	if principal, ok := authn.PrincipalFromContext(ctx); ok && principal.UserID != "" {
-		audit.ActorKind = "USER"
-		audit.ActorUserID = &principal.UserID
-		audit.ActorLabel = nil
-	}
-	return audit, nil
-}
-
-func metadataEvent(metadata string) (string, error) {
-	var fields map[string]json.RawMessage
-	if err := json.Unmarshal([]byte(metadata), &fields); err != nil {
-		return "", fmt.Errorf("decode server review metadata audit: %w", err)
-	}
-	if fields == nil {
-		return "", errMetadataObject
-	}
-	encoded, err := json.Marshal(struct {
-		Metadata      json.RawMessage `json:"metadata"`
-		SchemaVersion int             `json:"schemaVersion"`
-	}{json.RawMessage(metadata), 2})
-	if err != nil {
-		return "", fmt.Errorf("encode server review metadata audit: %w", err)
 	}
 	return string(encoded), nil
 }

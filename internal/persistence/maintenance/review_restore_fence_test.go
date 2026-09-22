@@ -33,13 +33,12 @@ func (records *changedRestoreReview) Pending(
 func TestRestoredReviewRechecksFrozenOwnershipBeforeHandoff(t *testing.T) {
 	t.Parallel()
 	for _, test := range []struct{ name, mutation string }{
-		{"plan", `UPDATE emulationstation_imports SET version=version+1 WHERE id='es-import'`},
-		{"source", `UPDATE emulationstation_import_items SET version=version+1 WHERE id='es-item'`},
-		{"job", `UPDATE jobs SET version=version+1 WHERE id='es-work'`},
+		{"plan", `UPDATE source_imports SET version=version+1 WHERE id='import'`},
+		{"source", `UPDATE source_import_items SET version=version+1 WHERE id='item'`},
+		{"job", `UPDATE jobs SET version=version+1 WHERE id='work'`},
 		{"ordinary", `UPDATE import_items SET version=version+1 WHERE id='handoff-item'`},
-		{"owner", `DELETE FROM server_import_upload_owners WHERE source_item_id='es-item'`},
-		{"year", `UPDATE emulationstation_imports SET release_year_max=1972 WHERE id='es-import'`},
-		{"root", `UPDATE emulationstation_imports SET root_id='replacement' WHERE id='es-import'`},
+		{"owner", `INSERT INTO server_import_upload_owners(upload_session_id,kind,source_item_id) VALUES('handoff-upload','SOURCE','other')`},
+		{"root", `UPDATE source_imports SET root_id='replacement' WHERE id='import'`},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
@@ -50,7 +49,7 @@ func TestRestoredReviewRechecksFrozenOwnershipBeforeHandoff(t *testing.T) {
 
 func verifyRestoredReviewFence(t *testing.T, mutation string) {
 	t.Helper()
-	db := restoreReviewFixture(t, "EMULATIONSTATION")
+	db := restoreReviewFixture(t)
 	before := reviewRestoreSnapshot(t, db)
 	tx, err := db.BeginTx(t.Context(), nil)
 	if err != nil {
@@ -66,7 +65,7 @@ func verifyRestoredReviewFence(t *testing.T, mutation string) {
 	var title string
 	var events int
 	err = tx.QueryRowContext(t.Context(), `SELECT json_extract(metadata_json,'$.title'),
-(SELECT count(*) FROM review_events WHERE import_item_id='handoff-item')
+(SELECT version-1 FROM review_drafts WHERE import_item_id='handoff-item')
 FROM review_drafts WHERE import_item_id='handoff-item'`).Scan(&title, &events)
 	if err != nil || title != "Restored title" || events != 1 {
 		t.Fatalf("fence did not follow actual metadata writes: title=%q events=%d err=%v", title, events, err)
@@ -79,11 +78,11 @@ FROM review_drafts WHERE import_item_id='handoff-item'`).Scan(&title, &events)
 	}
 }
 
-func TestRestoreRejectsPegasusReviewOwnedByAnotherSource(t *testing.T) {
+func TestRestoreRejectsSourceReviewOwnedByAnotherSource(t *testing.T) {
 	t.Parallel()
-	db := restoreReviewFixture(t, "PEGASUS")
+	db := restoreReviewFixture(t)
 	_, err := db.ExecContext(t.Context(), `INSERT INTO server_import_upload_owners(upload_session_id,kind,source_item_id)
-VALUES('handoff-upload','PEGASUS','other-source')`)
+VALUES('handoff-upload','SOURCE','other-source')`)
 	if err != nil {
 		t.Fatal(err)
 	}

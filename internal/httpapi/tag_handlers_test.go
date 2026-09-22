@@ -44,13 +44,15 @@ func tagHTTPRequest(
 
 func TestTagDefaultsHTTPIsAtomicAndIdempotent(t *testing.T) {
 	t.Parallel()
-	server, _ := newAuthHTTPServer(t, config.ModeTest)
+	server := newAuthHTTPServer(t, config.ModeTest)
 	handler := server.Handler()
 	auth := accountHTTPLogin(t, handler)
 
 	created := tagHTTPRequest(t, handler, &auth, http.MethodPost, "/api/v1/admin/tags",
 		`{"name":"动作冒险"}`, map[string]string{"Idempotency-Key": uuid.NewString()})
 	testassert.Falsef(t, created.Code != http.StatusCreated, "seed common tag = %d %s", created.Code, created.Body.String())
+	testassert.Truef(t, strings.Contains(created.Body.String(), `"sourceCollectionCount":0`),
+		"tag usage must expose the shared source count: %s", created.Body.String())
 	key := uuid.NewString()
 	apply := tagHTTPRequest(t, handler, &auth, http.MethodPost, "/api/v1/admin/tags/defaults",
 		`{}`, map[string]string{"Idempotency-Key": key})
@@ -99,7 +101,7 @@ SELECT
 
 func TestTagHTTPCRUDGameAssignmentSearchAndDeleteInvalidation(t *testing.T) {
 	t.Parallel()
-	server, _ := newAuthHTTPServer(t, config.ModeTest)
+	server := newAuthHTTPServer(t, config.ModeTest)
 	handler := server.Handler()
 	const gameID = "01980000-0000-7000-8000-00000000f434"
 	seedFavoriteHTTPGame(t, server, gameID, "34", "Search Fixture")

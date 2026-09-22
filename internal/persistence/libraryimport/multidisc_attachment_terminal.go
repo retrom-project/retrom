@@ -47,17 +47,7 @@ INSERT INTO job_events(job_id,scope_type,scope_id,event_type,data_json,created_a
 		write.Target.JobID, write.Target.ItemID, write.DiagnosticsJSON, write.NowMS); err != nil {
 		return fmt.Errorf("record rejected multi-disc job events: %w", err)
 	}
-	actorUserID := nullableStringValue(write.Actor.UserID)
-	actorLabel := nullableStringValue(write.Actor.Label)
-	if _, err := recordstore.CreateReviewEvents(ctx, transaction, `
-INSERT INTO review_events(id,import_item_id,event_type,actor_kind,actor_user_id,actor_label,
-before_json,after_json,diff_json,config_evidence_json,dat_evidence_json,provider_evidence_json,created_at_ms)
-VALUES(?,?,'DISC_ATTACHMENT_REJECTED',?,?,?,?,?,?,?,?,?,?)
-`, write.EventID, write.Target.ItemID, write.Actor.Kind, actorUserID, actorLabel,
-		`{"schemaVersion":2}`, write.EvidenceJSON, write.EvidenceJSON, `{"schemaVersion":2}`,
-		`{"schemaVersion":2}`, `{"schemaVersion":2}`, write.NowMS); err != nil {
-		return fmt.Errorf("record rejected multi-disc review event: %w", err)
-	}
+
 	if err := transaction.Commit(); err != nil {
 		return fmt.Errorf("commit rejected multi-disc attachment: %w", err)
 	}

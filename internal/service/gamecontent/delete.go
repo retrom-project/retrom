@@ -224,7 +224,6 @@ func deleteGameAuditImpact(impact DeleteGameImpact) map[string]any {
 		"contentFileCount":   impact.ContentFileCount,
 		"activeLaunchCount":  impact.ActiveLaunchCount,
 		"activeNetplayCount": impact.ActiveNetplayCount,
-		"reviewEventCount":   impact.ReviewEventCount,
 		"sourceKinds":        impact.SourceKinds,
 	}
 }

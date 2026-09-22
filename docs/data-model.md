@@ -4,7 +4,7 @@
 
 ## 1. 基线
 
-- 001–014 组成新的未发布建库基线，只创建表、声明式约束、索引与空实例状态，不创建 trigger/view 或回填历史数据。此次基线与旧开发库不兼容，旧库必须停机归档并重建；不转换历史数据、不双写、不运行时修补 schema。校验和仍严格匹配，只允许当前基线的有序前缀续跑。
+- 001–014 组成新的未发布建库基线，只创建表、声明式约束、索引与空实例状态，不创建 trigger/view 或回填历史数据。此次基线与旧开发库不兼容，旧开发库必须停机重建，可在确认环境作用域后直接清除数据；不转换历史数据、不双写、不运行时修补 schema。校验和仍严格匹配，只允许当前基线的有序前缀续跑。
 - 业务主键使用 UUIDv7，摘要使用 64 位小写 SHA-256，时刻使用 Unix 毫秒 `INTEGER`。
 - 当前业务状态原位更新并推进 `version`；需要追踪的历史进入 audit、event、job input、来源快照和验证证据，不为 metadata、content、Variant 建平行业务版本树。
 - 数据库不保存 Launch 明文 capability、Cookie、CSRF token、用户主机绝对路径或 Provider 私有实现映射。
@@ -58,7 +58,7 @@ metadata 编辑和媒体替换原位推进 Game；内容替换在后台准备完
 
 ## 5. 导入、审核与刮削
 
-Upload、Archive、ImportJob、ImportItem、来源快照、Validation、ReviewDraft/Event、ScrapeRun 与服务器导入维持各自 owner、版本、幂等和 payload release 边界。运行选择只保存稳定 `provider_id/target_id`；ReviewDraft 只选择与当前来源、目录 Core、Target、DAT、依赖和内容策略完全匹配的 Validation，写事务发现输入变化时直接创建或切换当前选择。历史校验不进入当前 HTTP 投影，Provider Bundle 单独升级不使审核结果失效。
+Upload、ImportFile、Archive、ImportJob、ImportItem、来源快照、Validation、ReviewDraft、ScrapeRun 与服务器导入维持各自 owner、版本、幂等和 payload release 边界。运行选择只保存稳定 `provider_id/target_id`；ReviewDraft 只选择与当前来源、目录 Core、Target、DAT、依赖和内容策略完全匹配的 Validation，写事务发现输入变化时直接创建或切换当前选择。历史校验不进入当前 HTTP 投影，Provider Bundle 单独升级不使审核结果失效。
 
 来源快照是不可变的输入证据，不是业务版本树：不分配 revision 序号；每个 Item 最多一份 `created_by=IDENTIFICATION` 初始来源，当前来源只由 `ReviewDraft.effective_source_snapshot_id` 选择，不按创建时间或最大序号猜测。
 
@@ -84,17 +84,25 @@ RPG Maker profile 保存实际检测得到的项目 fingerprint、generation、P
 
 原生存档格式与槽位属于 Provider payload，数据库只记录公共 checkpoint format/大小/摘要；预览存档与正式用户存档继续使用既有 owner、冻结恢复输入和释放规则。
 
+### 归一化接收文件与当前结果
+
+`import_files` 是所有传输来源共用的接收表。每行包含 `id/upload_session_id/relative_path/blob_id/size_bytes/created_at_ms/released_at_ms`，没有格式或来源类型字段；ID 与 transport UploadFile 对应，路径在会话内唯一。接收与 Blob 绑定原子提交；幂等重放不能改变路径、大小或内容。校验和审核只读取已接收行，释放时同时清空 Blob 与记录释放时间，Blob registry 保护有效引用。
+
+不创建 `review_events`。审核版本仅用于并发控制；批准/丢弃保留当前 Item 状态和发布 Game，API 不返回 reviewEventId。`metadata_scrape_runs` 分别以 `import_item_id/game_id` 建唯一约束；重新抓取替换旧 run，级联删除其候选、evidence、query attempts 与 media budget，并取消旧活动 Job。当前 GameAsset 独立保留；共享 provider cache 由 TTL 管理。
+
 ### 服务器 metadata 扫描证据
 
-`pegasus_import_metadata_files` 保存来源相对路径、实际大小、文件特征、解析状态与错误。大小不超过 8 MiB 的记录必须保存内容摘要；仅超过该上限且状态为 `INVALID/PEGASUS_METADATA_TOO_LARGE` 时允许摘要为 NULL，此时扫描和启动重验都不得读取超限内容。无摘要不能表示正常 metadata 或其他解析错误，相关组合由表级 CHECK 保证。
+`source_imports` 的 `format=PEGASUS|GAMELIST` 只选择解析器；Collection、Item、file、asset、metadata evidence 共用 `source_import_*` 表。通用 jobs 使用 `IMPORT_SCAN/IMPORT_RECEIVE`，不再创建格式专属任务表。
+
+`source_import_metadata_files` 保存来源相对路径、实际大小、文件特征、解析状态与错误。大小不超过 8 MiB 的记录必须保存内容摘要；仅超过该上限且状态为 `INVALID/PEGASUS_METADATA_TOO_LARGE` 或 `INVALID/EMULATIONSTATION_GAMELIST_TOO_LARGE` 时允许摘要为 NULL，此时扫描和启动重验都不得读取超限内容。无摘要不能表示正常 metadata 或其他解析错误，相关组合由表级 CHECK 保证。
 
 ### 批次丢弃与服务器上传归属
 
-`import_batch_discards` 对 `(kind,import_id)` 只保留一个当前处置，kind 为普通导入、Pegasus 或 EmulationStation。`REQUESTED → COMPLETED|FAILED`，失败可回到 REQUESTED；记录请求管理员、错误码和毫秒时间，不增加试玩 revision 或按运行次数累积记录。来源批次由服务校验；请求落库后，发布/重试事务通过 `storequery.DiscardedImportJobs` 查询与 `recordstore` 状态校验共同阻止批次再次发布、重试导入。
+`import_batch_discards` 对 `(kind,import_id)` 只保留一个当前处置，kind 仅为 `IMPORT/SOURCE`。`REQUESTED → COMPLETED|FAILED`，失败可回到 REQUESTED；记录请求管理员、错误码和毫秒时间，不增加试玩 revision 或按运行次数累积记录。来源批次由服务校验；请求落库后，发布/重试事务通过 `storequery.DiscardedImportJobs` 查询与 `recordstore` 状态校验共同阻止批次再次发布、重试导入。
 
-`server_import_upload_owners` 将内部 UploadSession 唯一关联到一个来源 Item，与内部上传同事务创建，覆盖“创建内部导入后、尚未交接审核前”的中断和不支持格式分支。UploadSession 删除级联移除此归属；该表仅记录身份，不增加 Blob 引用。旧来源按确定性上传 ID 恢复；旧 Pegasus 随机 ID 仅在完整文件集合、目标和执行时间以及内部 manifest 摘要唯一匹配时恢复，歧义保留数据并报错。
+`server_import_upload_owners` 将内部 UploadSession 唯一关联到一个来源 Item，与内部上传同事务创建，覆盖“创建内部导入后、尚未交接审核前”的中断和不支持格式分支。UploadSession 删除级联移除此归属；该表仅记录身份，不增加 Blob 引用。不保留旧格式或历史数据库的归属推断/修复路径。
 
-批量处置中的真实待审核 Item 通过正常 Discard 事务生成审核决定。未产生审核的失败来源也可进入 `REVIEW_DISCARDED`，由批次处置作为证据，保留原错误码和详情，不伪造 ReviewEvent。PUBLISHED/SKIPPED_EXISTING 不进入该转换；普通导入被取消的执行项与拒绝文件保留原终态及失败证据。引用释放仍以现有 payload state 和 release job 为唯一事实源。
+批量处置中的真实待审核 Item 通过正常 Discard 事务生成审核决定。未产生审核的失败来源也可进入 `REVIEW_DISCARDED`，由批次处置作为证据，保留原错误码和详情，不生成审核历史。PUBLISHED/SKIPPED_EXISTING 不进入该转换；普通导入被取消的执行项与拒绝文件保留原终态及失败证据。引用释放仍以现有 payload state 和 release job 为唯一事实源。
 
 ## 6. Launch 与资源冻结
 

@@ -2,10 +2,7 @@ package metadatascrape
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-
-	"retrom/internal/authn"
 )
 
 func (scheduler *Scheduler) ScheduleReview(
@@ -40,49 +37,13 @@ func (scheduler *Scheduler) ScheduleReview(
 		if err != nil {
 			return err
 		}
-		return recordReviewRequest(ctx, scope.Writes, itemID, provider, draft, scheduled, now)
+		return scope.Writes.Review(ctx, ReviewChange{ItemID: itemID, Version: draft.Version, Now: now})
 	})
 	if err != nil {
 		return Scheduled{}, 0, fmt.Errorf("schedule review scrape: %w", err)
 	}
 	scheduler.start(ctx, scheduled)
 	return scheduled, version + 1, nil
-}
-
-func recordReviewRequest(
-	ctx context.Context,
-	writer ScheduleWriter,
-	itemID, provider string,
-	draft ReviewSubject,
-	scheduled Scheduled,
-	now int64,
-) error {
-	before, err := json.Marshal(map[string]any{"schemaVersion": 2, "metadata": json.RawMessage(draft.MetadataJSON)})
-	if err != nil {
-		return fmt.Errorf("encode review scrape prior state: %w", err)
-	}
-	after, err := json.Marshal(
-		map[string]any{
-			"schemaVersion":    2,
-			"metadataProvider": provider,
-			"scrapeRunId":      scheduled.RunID,
-		},
-	)
-	if err != nil {
-		return fmt.Errorf("encode review scrape request: %w", err)
-	}
-	id, err := scheduleID()
-	if err != nil {
-		return err
-	}
-	err = writer.Review(ctx, ReviewChange{
-		ID: id, ItemID: itemID, BeforeJSON: string(before), AfterJSON: string(after),
-		Actor: authn.ActorFromContext(ctx, "release-setup"), Version: draft.Version, Now: now,
-	})
-	if err != nil {
-		return fmt.Errorf("record review scrape request: %w", err)
-	}
-	return nil
 }
 
 func (scheduler *Scheduler) ScheduleGame(ctx context.Context, id string, version int64) (Scheduled, int64, error) {

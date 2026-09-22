@@ -11,8 +11,6 @@ import (
 	"retrom/internal/persistence/contentquery"
 	"retrom/internal/persistence/recordstore"
 	application "retrom/internal/service/libraryimport"
-
-	"github.com/google/uuid"
 )
 
 // ArcadeParentAttachments owns the transaction used while an uploaded parent
@@ -117,13 +115,13 @@ func (records arcadeParentAttachmentAdmissionRecords) Upload(
 	var result application.ArcadeParentAttachmentUpload
 	var wholeSessionConsumed int64
 	err := records.executor.QueryRowContext(ctx, `
-SELECT session.id,session.state,file.state,file.relative_path,file.final_blob_id,
+SELECT session.id,session.state,'COMPLETE',file.relative_path,file.blob_id,
   blob.sha256,blob.size_bytes,
   EXISTS(SELECT 1 FROM upload_consumptions consumption
     WHERE consumption.upload_session_id=session.id AND consumption.upload_file_id IS NULL)
-FROM upload_files file
+FROM import_files file
 JOIN upload_sessions session ON session.id=file.upload_session_id
-JOIN blobs blob ON blob.id=file.final_blob_id
+JOIN blobs blob ON blob.id=file.blob_id
 WHERE file.id=?
 `, uploadFileID).Scan(
 		&result.UploadSessionID, &result.SessionState, &result.FileState, &result.RelativePath,
@@ -210,25 +208,9 @@ VALUES(?,'IMPORT_ITEM',?,'QUEUED','{}',?)
 	if changed != 1 {
 		return application.ErrVersionConflict
 	}
-	eventID, err := uuid.NewV7()
-	if err != nil {
-		return fmt.Errorf("allocate arcade parent review event: %w", err)
-	}
-	if _, err := recordstore.CreateReviewEvents(ctx, records.executor, `
-INSERT INTO review_events(
-  id,import_item_id,event_type,actor_kind,actor_user_id,actor_label,before_json,
-  after_json,diff_json,config_evidence_json,dat_evidence_json,provider_evidence_json,created_at_ms
-) VALUES(?,?,'PARENT_UPLOAD_REQUESTED',?,?,?,?,?,?,?,?,?,?)
-`, eventID.String(), write.ItemID, write.Actor.Kind, write.Actor.UserID, write.Actor.Label,
-		emptyArcadeParentReviewEvent, write.EvidenceJSON, write.EvidenceJSON,
-		emptyArcadeParentReviewEvent, emptyArcadeParentReviewEvent, emptyArcadeParentReviewEvent,
-		write.NowMS); err != nil {
-		return fmt.Errorf("record arcade parent review event: %w", err)
-	}
+
 	return nil
 }
-
-const emptyArcadeParentReviewEvent = `{"schemaVersion":2}`
 
 func nullableString(value sql.NullString) (string, bool) {
 	if !value.Valid {

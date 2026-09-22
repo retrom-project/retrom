@@ -43,7 +43,7 @@ func (handler *dispatchHandler) CancelJob(ctx context.Context, command DomainCan
 }
 
 func dispatchFixture() (*dispatchRepository, *dispatchHandler) {
-	repository := &dispatchRepository{memoryJobs: &memoryJobs{job: Job{Kind: "SERVER_EMULATIONSTATION_SCAN", ScopeType: "EMULATIONSTATION_IMPORT", ScopeID: "plan", State: "RUNNING", Cancellable: true, Version: 4, ExecutionNo: 7}}}
+	repository := &dispatchRepository{memoryJobs: &memoryJobs{job: Job{Kind: "IMPORT_SCAN", ScopeType: "SOURCE_IMPORT", ScopeID: "plan", State: "RUNNING", Cancellable: true, Version: 4, ExecutionNo: 7}}}
 	return repository, &dispatchHandler{repository: repository}
 }
 
@@ -51,8 +51,8 @@ func TestDomainCancellationClosesUnmodifiedScopeBeforeDispatch(t *testing.T) {
 	t.Parallel()
 	repository, handler := dispatchFixture()
 	ctx := t.Context()
-	result, pending, err := New(repository, time.Now).WithDomainCancellation(map[string]DomainCanceller{"SERVER_EMULATIONSTATION_SCAN": handler}).Cancel(ctx, "scan-job", 4, " stop ")
-	want := DomainCancellation{JobID: "scan-job", Kind: "SERVER_EMULATIONSTATION_SCAN", ScopeID: "plan", Reason: "stop", ExpectedVersion: 4}
+	result, pending, err := New(repository, time.Now).WithDomainCancellation(map[string]DomainCanceller{"IMPORT_SCAN": handler}).Cancel(ctx, "scan-job", 4, " stop ")
+	want := DomainCancellation{JobID: "scan-job", Kind: "IMPORT_SCAN", ScopeID: "plan", Reason: "stop", ExpectedVersion: 4}
 	if err != nil || !pending || result.Version != 5 || result.ExecutionNo != 7 || handler.command != want || handler.context != ctx || repository.cancellation != nil {
 		t.Fatalf("result=%#v pending=%v error=%v command=%#v", result, pending, err, handler.command)
 	}
@@ -62,7 +62,7 @@ func TestDomainCancellationDropsPartialFailureResponse(t *testing.T) {
 	t.Parallel()
 	repository, handler := dispatchFixture()
 	handler.failure = errors.New("domain storage unavailable")
-	result, pending, err := New(repository, time.Now).WithDomainCancellation(map[string]DomainCanceller{"SERVER_EMULATIONSTATION_SCAN": handler}).Cancel(t.Context(), "scan-job", 4, "stop")
+	result, pending, err := New(repository, time.Now).WithDomainCancellation(map[string]DomainCanceller{"IMPORT_SCAN": handler}).Cancel(t.Context(), "scan-job", 4, "stop")
 	if !errors.Is(err, handler.failure) || pending || result.JobID != "" {
 		t.Fatalf("result=%#v pending=%v error=%v", result, pending, err)
 	}
@@ -72,7 +72,7 @@ func TestDomainCancellationNeverDispatchesFailedOuterCommit(t *testing.T) {
 	t.Parallel()
 	repository, handler := dispatchFixture()
 	repository.commitErr = errors.New("outer commit unavailable")
-	result, pending, err := New(repository, time.Now).WithDomainCancellation(map[string]DomainCanceller{"SERVER_EMULATIONSTATION_SCAN": handler}).Cancel(t.Context(), "scan-job", 4, "stop")
+	result, pending, err := New(repository, time.Now).WithDomainCancellation(map[string]DomainCanceller{"IMPORT_SCAN": handler}).Cancel(t.Context(), "scan-job", 4, "stop")
 	if !errors.Is(err, repository.commitErr) || handler.called || pending || result.JobID != "" {
 		t.Fatalf("result=%#v pending=%v error=%v called=%v", result, pending, err, handler.called)
 	}
@@ -81,11 +81,11 @@ func TestDomainCancellationNeverDispatchesFailedOuterCommit(t *testing.T) {
 func TestDomainCancellationRegistryCopiesAndMerges(t *testing.T) {
 	t.Parallel()
 	repository, handler := dispatchFixture()
-	registry := map[string]DomainCanceller{"SERVER_EMULATIONSTATION_SCAN": handler}
+	registry := map[string]DomainCanceller{"IMPORT_SCAN": handler}
 	original := New(repository, time.Now)
 	configured := original.WithDomainCancellation(registry)
-	delete(registry, "SERVER_EMULATIONSTATION_SCAN")
-	merged := configured.WithDomainCancellation(map[string]DomainCanceller{"SERVER_PEGASUS_SCAN": handler})
+	delete(registry, "IMPORT_SCAN")
+	merged := configured.WithDomainCancellation(map[string]DomainCanceller{"IMPORT_RECEIVE": handler})
 	if len(original.cancellations) != 0 || len(configured.cancellations) != 1 || len(merged.cancellations) != 2 {
 		t.Fatal("configuration mutated an existing registry")
 	}
@@ -116,7 +116,7 @@ func TestDomainCancellationPreconditionsNeverCallHandler(t *testing.T) {
 				repository.readErr = errors.New("read unavailable")
 				want = repository.readErr
 			}
-			result, pending, err := New(repository, time.Now).WithDomainCancellation(map[string]DomainCanceller{"SERVER_EMULATIONSTATION_SCAN": handler}).Cancel(t.Context(), "scan-job", version, reason)
+			result, pending, err := New(repository, time.Now).WithDomainCancellation(map[string]DomainCanceller{"IMPORT_SCAN": handler}).Cancel(t.Context(), "scan-job", version, reason)
 			if !errors.Is(err, want) || handler.called || pending || result.JobID != "" || repository.cancellation != nil {
 				t.Fatalf("result=%#v pending=%v error=%v called=%v", result, pending, err, handler.called)
 			}

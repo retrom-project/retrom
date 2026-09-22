@@ -29,7 +29,6 @@ const adminNavigation: NavItem[] = [
   { href: "/admin/imports/server", label: "本地扫描", icon: "database", child: true },
   { href: "/admin/imports/tasks", label: "任务进度", icon: "clock", child: true },
   { href: "/admin/reviews", label: "待审核", icon: "check", exact: true, child: true },
-  { href: "/admin/reviews/history", label: "审核历史", icon: "history", child: true },
   { href: "/admin/games", label: "游戏管理", icon: "library" },
   { href: "/admin/tags", label: "标签管理", icon: "list" },
   { href: "/admin/platform-instances", label: "游戏目录", icon: "list" },
@@ -115,7 +114,6 @@ const exactPageTitles = new Map<string, string>([
   ["/admin/imports/new", "导入游戏"],
   ["/admin/imports/tasks", "任务进度"],
   ["/admin/imports", "游戏入库"],
-  ["/admin/reviews/history", "审核历史"],
   ["/admin/reviews", "待审核"],
   ["/admin/games", "游戏管理"],
   ["/admin/tags", "标签管理"],
@@ -126,7 +124,7 @@ const exactPageTitles = new Map<string, string>([
 ]);
 
 const prefixPageTitles: Array<[string, string]> = [
-  ["/admin/imports/server/pegasus/", "Pegasus 导入详情"],
+  ["/admin/imports/server/source/", "游戏导入详情"],
   ["/admin/imports/server/", "服务器导入详情"],
   ["/admin/reviews/", "审核详情"],
   ["/admin/games/", "游戏管理详情"],

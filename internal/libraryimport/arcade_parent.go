@@ -291,10 +291,6 @@ func (setup *parentAttachmentSetup) persist() (ParentAttachmentCreated, error) {
 		setup.itemID, setup.effectiveSnapshotID, setup.dependency.Machine,
 		setup.blobSHA, setup.request.ValidationID,
 	}, "\x00")))
-	evidence := marshalReviewEventV2(map[string]any{
-		"attachmentKind": "ARCADE_PARENT", "machine": setup.dependency.Machine,
-		"originalFilename": filepath.Base(setup.originalName), "state": "QUEUED",
-	})
 	err := setup.scope.Write.Create(setup.ctx, application.ArcadeParentAttachmentWrite{
 		Input: input, InputJSON: string(inputJSON),
 		InputDigest: hex.EncodeToString(inputDigest[:]), DedupeKey: hex.EncodeToString(dedupe[:]),
@@ -304,7 +300,7 @@ func (setup *parentAttachmentSetup) persist() (ParentAttachmentCreated, error) {
 		Depth: setup.dependency.Depth, ProviderID: setup.providerID, TargetID: setup.runtimeTargetID,
 		DATVersionID: setup.activeDATID, UploadID: setup.request.UploadFileID,
 		OriginalFilename: filepath.Base(setup.originalName), ExpectedDraftVersion: setup.expectedVersion,
-		NowMS: now, Actor: reviewActor(setup.ctx), EvidenceJSON: evidence,
+		NowMS: now, Actor: reviewActor(setup.ctx),
 	})
 	if err != nil {
 		if errors.Is(err, application.ErrArcadeParentAttachmentActive) {

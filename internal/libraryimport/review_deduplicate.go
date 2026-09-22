@@ -59,10 +59,9 @@ func (service *Service) DeduplicateReviews(
 		ctx, libraryservice.ReviewDeduplicateRequest{
 			Scope: libraryservice.ReviewBulkScope{
 				Q: request.Scope.Q, TagID: request.Scope.TagID, ImportJobID: request.Scope.ImportJobID,
-				PegasusImportID:          request.Scope.PegasusImportID,
-				EmulationStationImportID: request.Scope.EmulationStationImportID,
-				PlatformInstanceID:       request.Scope.PlatformInstanceID,
-				BlockerCode:              request.Scope.BlockerCode,
+				SourceImportID:     request.Scope.SourceImportID,
+				PlatformInstanceID: request.Scope.PlatformInstanceID,
+				BlockerCode:        request.Scope.BlockerCode,
 			},
 			AfterItemID: request.AfterItemID, ThroughItemID: request.ThroughItemID,
 		},

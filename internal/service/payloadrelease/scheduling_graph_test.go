@@ -46,7 +46,7 @@ func (memory *releaseGraphMemory) RetainedSources(_ context.Context, batch Sourc
 func reviewReleaseMemory() *releaseGraphMemory {
 	item := Scope{Type: ScopeImportItem, ID: "ordinary"}
 	job := Scope{Type: ScopeImportJob, ID: "import"}
-	source := Scope{Type: ScopeEmulationStationImportItem, ID: "source"}
+	source := Scope{Type: ScopeSourceImportItem, ID: "source"}
 	return &releaseGraphMemory{scheduleMemory: scheduleMemory{owners: map[Scope]Owner{
 		item:   {Scope: item, State: "PUBLISHED", PayloadState: "RETAINED", Version: 3},
 		job:    {Scope: job, State: "COMPLETED", PayloadState: "RETAINED", Version: 4},

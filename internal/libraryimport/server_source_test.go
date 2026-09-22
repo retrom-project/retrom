@@ -23,7 +23,7 @@ CREATE TABLE review_drafts(import_item_id TEXT PRIMARY KEY,selected_validation_i
 CREATE TABLE import_item_core_validations(id TEXT PRIMARY KEY,import_item_id TEXT,target_platform_instance_id TEXT,source_snapshot_id TEXT,status TEXT,compatibility_code TEXT,core_id TEXT,dependency_snapshot_json TEXT,created_at_ms INTEGER);
 CREATE TABLE cores(id TEXT PRIMARY KEY,name TEXT);
 CREATE TABLE import_item_duplicate_matches(import_item_id TEXT,existing_game_id TEXT);
-CREATE TABLE upload_files(id TEXT PRIMARY KEY,relative_path TEXT);
+CREATE TABLE import_files(id TEXT PRIMARY KEY,relative_path TEXT);
 CREATE TABLE import_item_source_files(import_item_id TEXT,upload_file_id TEXT,role TEXT);
 CREATE TABLE import_job_files(import_job_id TEXT,disposition TEXT,reason_code TEXT);
 INSERT INTO import_items VALUES('item','job','REVIEW_PENDING');
@@ -34,7 +34,7 @@ INSERT INTO import_item_core_validations VALUES(
  'validation','item','platform','snapshot','BLOCKED','LAUNCH_PARENT_MISSING','fbneo',
  '{"schemaVersion":1,"kind":"ARCADE","machine":"1944j","missingEntries":["1944.zip"],"mismatchedEntries":[],"dependencies":[]}',2
 );
-INSERT INTO upload_files VALUES('file','1944j.zip');
+INSERT INTO import_files VALUES('file','1944j.zip');
 INSERT INTO import_item_source_files VALUES('item','file','CONTENT');
 `); err != nil {
 		t.Fatal(err)

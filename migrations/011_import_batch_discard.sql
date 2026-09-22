@@ -1,6 +1,6 @@
 -- One durable disposition per import batch; payload deletion stays in PAYLOAD_RELEASE/GC.
 CREATE TABLE import_batch_discards (
-  kind TEXT NOT NULL CHECK(kind IN ('IMPORT','PEGASUS','EMULATIONSTATION')),
+  kind TEXT NOT NULL CHECK(kind IN ('IMPORT','SOURCE')),
   import_id TEXT NOT NULL,
   requested_by_user_id TEXT NOT NULL REFERENCES users(id),
   state TEXT NOT NULL CHECK(state IN ('REQUESTED','COMPLETED','FAILED')),
@@ -15,7 +15,7 @@ CREATE TABLE import_batch_discards (
 
 CREATE TABLE server_import_upload_owners (
  upload_session_id TEXT PRIMARY KEY REFERENCES upload_sessions(id) ON DELETE CASCADE,
- kind TEXT NOT NULL CHECK(kind IN ('PEGASUS','EMULATIONSTATION')),
+ kind TEXT NOT NULL CHECK(kind IN ('SOURCE')),
  source_item_id TEXT NOT NULL,
  UNIQUE(kind,source_item_id)
 );

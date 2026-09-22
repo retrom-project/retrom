@@ -8,6 +8,7 @@ import (
 
 	"retrom/internal/cleanup"
 	"retrom/internal/dbexec"
+	"retrom/internal/persistence/importfiles"
 	"retrom/internal/persistence/storequery"
 	application "retrom/internal/service/libraryimport"
 
@@ -45,9 +46,9 @@ WHERE import_job.id=?
 		return application.ReconfigurationSource{}, false, nil
 	}
 	rows, err := repository.database.QueryContext(ctx, `
-SELECT upload_file.id,upload_file.relative_path,upload_file.declared_size_bytes,upload_file.final_blob_id
+SELECT upload_file.id,upload_file.relative_path,upload_file.size_bytes,upload_file.blob_id
 FROM import_job_files import_file
-JOIN upload_files upload_file ON upload_file.id=import_file.upload_file_id
+JOIN import_files upload_file ON upload_file.id=import_file.upload_file_id
 LEFT JOIN import_job_file_resolutions resolution
   ON resolution.import_job_id=import_file.import_job_id
  AND resolution.upload_file_id=import_file.upload_file_id
@@ -130,6 +131,9 @@ VALUES(?,?,?,?,?,?,'COMPLETE',?,?)
 `, fileID.String(), uploadID, file.Path, file.Size, file.Size, file.BlobID, now, now); err != nil {
 			return fmt.Errorf("insert cloned upload file: %w", err)
 		}
+	}
+	if err := importfiles.Receive(ctx, executor, uploadID); err != nil {
+		return fmt.Errorf("publish reused files: %w", err)
 	}
 	return nil
 }

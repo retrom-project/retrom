@@ -138,7 +138,7 @@ SQLite 使用 WAL；所有用户文件写入一个明确的数据目录。Next.j
 
 ### 3.7 账户边界与数据库 lineage
 
-- 默认 `release` 模式的空实例进入 `PENDING`，只有持有主机侧 `retrom setup-code` 输出的人能创建首位启用管理员；初始化完成后不可重开。
+- 默认 `release` 模式的空实例进入 `PENDING`，访问 `/setup` 并提交合法账号信息和密码即可创建首位启用管理员；初始化完成后不可重开。
 - `--mode=test` 只供明确的开发/验收数据根使用，会在空库创建 `test/test` 并显示警告；除此之外不放宽认证、授权、Origin、CSRF、cookie 或数据隔离。
 - 已初始化实例的普通 API 要求有效 AuthSession，`/api/v1/admin/**` 另要求 `ADMIN`。普通管理员只管理账号和共享内容，不能查看其他用户的存档名称、截图、游玩记录或保存内容。
 - 数据库只接受当前 clean migration 集合的精确有序前缀或完整 lineage；名称、checksum、缺口、未知或未来记录都在执行 DDL/DML 前以 `DATABASE_REBUILD_REQUIRED` 拒绝。当前项目未发布，开发期旧 lineage 和旧备份必须使用全新空数据根重建，不做数据转换。
@@ -158,11 +158,11 @@ Saturn/yabause 的 `MULTI_DISC` 内容由同一物理目录中的一个来源 M3
 
 ### 3.11 标签是实例共享、管理员维护的分类
 
-Tag 必须先由管理员建立，再以稳定 ID 关联 Game、导入 ReviewDraft、Pegasus Collection 或 EmulationStation Collection；普通用户只能看到可见游戏已关联的活动标签。它与 Profile 私有 FavoriteFolder、单归属 PlatformInstance、metadata genre 和外部来源 tags 都是不同概念。重命名通过动态关系投影立即生效；删除还会推进受影响 owner version，使旧写入稳定冲突。两者都不改写游戏元信息或内容，也不进入 Launch、Player 或存档。完整边界见 [游戏标签](./game-tags.md)。
+Tag 必须先由管理员建立，再以稳定 ID 关联 Game、导入 ReviewDraft、通用来源 Collection；普通用户只能看到可见游戏已关联的活动标签。它与 Profile 私有 FavoriteFolder、单归属 PlatformInstance、metadata genre 和外部来源 tags 都是不同概念。重命名通过动态关系投影立即生效；删除还会推进受影响 owner version，使旧写入稳定冲突。两者都不改写游戏元信息或内容，也不进入 Launch、Player 或存档。完整边界见 [游戏标签](./game-tags.md)。
 
 ### 3.12 流程 payload 短期保留，Game 删除保留墓碑
 
-导入、审核、Pegasus 与 EmulationStation 流程只在可重试/待决期间保留 ROM、媒体、运行预览、provider raw response 等 CAS payload。发布、丢弃、最终失败或取消进入真终态后，持久 PayloadRelease Job 解除流程引用；ReviewEvent v2 长期只保存文字和结构化审计，不保存封面、视频或 CAS 定位信息。Game 永久删除保留原标题、内容摘要、审核/操作/游玩/收藏/联机关系作为墓碑，同时异步释放 Game 内容、媒体、存档和运行 payload。Blob 物理删除统一经过共享引用保护和宽限期 GC，浏览器上传、Pegasus 与 EmulationStation 三条导入路径遵循同一 ownership registry。
+统一导入、审核流程只在可重试/待决期间保留 ROM、媒体、运行预览、provider raw response 等 CAS payload。发布、丢弃、最终失败或取消进入真终态后，持久 PayloadRelease Job 解除流程引用；审核只保留当前决定，不保存历史版本。Game 永久删除保留原标题、内容摘要、审核/操作/游玩/收藏/联机关系作为墓碑，同时异步释放 Game 内容、媒体、存档和运行 payload。Blob 物理删除统一经过共享引用保护和宽限期 GC，单文件、目录、Pegasus 与 gamelist.xml 经统一 `import_files` 进入同一验证/审核流程，并遵循同一 ownership registry。
 
 ### 3.13 沉浸模式是独立电视交互面
 
@@ -363,7 +363,7 @@ erDiagram
   - 本地扫描
   - 任务进度
   - 待审核
-  - 审核历史
+  - 审核结果（任务状态）
 - 游戏管理
 - 游戏目录
 - 用户管理
@@ -415,7 +415,7 @@ flowchart LR
 
 服务器导入是一期管理能力：管理员可从服务器根目录浏览、选择服务进程有读取权限的目录，无需配置应用目录白名单；容器内可见范围由部署挂载决定。浏览器提交固定 root ID `filesystem` 与相对 `/` 的规范目录，导入只读取来源，不跟随符号链接或执行来源命令。BIOS 任务冻结当前产品 Core binding 闭包内全部 Provider Target 的完整 catalog，先完整发现和评估，再逐 Requirement 短事务安装；Pegasus 与 EmulationStation 任务都分为受限 metadata/facts 扫描、管理员逐 Collection 显式映射、逐游戏复制/运行检查/审核交接三阶段，不执行来源命令，也不按名称、扩展名或外部系统配置猜测目标游戏目录。EmulationStation 递归发现精确小写 `gamelist.xml`，每份有效文件形成一个 Collection，因此既支持所选目录下多个子目录各有一份清单，也支持单目录一份清单配多份游戏文件。
 
-两类游戏目录 Worker 都只生成普通 `REVIEW_PENDING` 事项，不创建 Game；管理员可在统一审核工作台修复或逐项决定，也可对当前筛选范围启动一次快速审批。快速审批只冻结并处理严格 `READY`、无内容重复、无活动补传且所有当前发布输入一致的条目；截图人工放行、重复内容和任何已漂移条目都不自动发布。每个成功项仍独占一个短发布事务，复用普通 Approve 的 Game/GameFiles/GameVariant/ReviewEvent 与来源聚合规则，并与批次结果原子记账。管理员可在审核详情用独立子窗体尽最大可能运行当前来源：现有 Parent/BIOS 会被锁定交付，缺失依赖被省略；READY 与阻断 Validation 都在通过普通 Player 按需写入截图。当前阻断截图与来源、目标、Provider Target 和 当前校验输入 一致时，可作为管理员逐项放行证据；发布的单机 Variant 保留 override 标记并继续最佳努力交付，Netplay 仍执行严格依赖门禁。外部 source 与原始 metadata 不属于 Retrom 数据根、CAS 或 backup；交接审核后的 ROM、封面和 VIDEO 已进入 CAS/backup，恢复时所有仍依赖外部 source 的任务必须失败收口。已创建的 Launch/Netplay 会话继续引用创建时物化的不可变资源与 Bundle；Game/GameVariant 只表达当前状态。详细领域、协议和页面契约分别见 [`bios-and-arcade.md`](./bios-and-arcade.md)、[`import-and-review.md`](./import-and-review.md)、[`http-api-contract.md`](./http-api-contract.md) 与 [`ui-specification.md`](./ui-specification.md)。
+两类游戏目录 Worker 都只生成普通 `REVIEW_PENDING` 事项，不创建 Game；管理员可在统一审核工作台修复或逐项决定，也可对当前筛选范围启动一次快速审批。快速审批只冻结并处理严格 `READY`、无内容重复、无活动补传且所有当前发布输入一致的条目；截图人工放行、重复内容和任何已漂移条目都不自动发布。每个成功项仍独占一个短发布事务，复用普通 Approve 的 Game/GameFiles/GameVariant 与来源聚合规则，并与批次结果原子记账。管理员可在审核详情用独立子窗体尽最大可能运行当前来源：现有 Parent/BIOS 会被锁定交付，缺失依赖被省略；READY 与阻断 Validation 都在通过普通 Player 按需写入截图。当前阻断截图与来源、目标、Provider Target 和 当前校验输入 一致时，可作为管理员逐项放行证据；发布的单机 Variant 保留 override 标记并继续最佳努力交付，Netplay 仍执行严格依赖门禁。外部 source 与原始 metadata 不属于 Retrom 数据根、CAS 或 backup；交接审核后的 ROM、封面和 VIDEO 已进入 CAS/backup，恢复时所有仍依赖外部 source 的任务必须失败收口。已创建的 Launch/Netplay 会话继续引用创建时物化的不可变资源与 Bundle；Game/GameVariant 只表达当前状态。详细领域、协议和页面契约分别见 [`bios-and-arcade.md`](./bios-and-arcade.md)、[`import-and-review.md`](./import-and-review.md)、[`http-api-contract.md`](./http-api-contract.md) 与 [`ui-specification.md`](./ui-specification.md)。
 
 游戏详情是唯一允许请求 VIDEO 的用户页面。详情先用 COVER 保持稳定的 3:4 识别位，媒体区在前台与 viewport 内累计可见满两秒后才尝试 `muted + playsInline + loop`；收到 `playing` 前不隐藏封面，播放拒绝、解码/停滞、隐藏标签页与减少动态效果均有确定性封面回退或手动入口。首页、游戏库、收藏、最近、存档和搜索的 DTO/查询保持 cover-only。
 
@@ -468,7 +468,7 @@ Phase 0 未通过时，不进入大规模业务实现。
 
 ### Phase 2：导入与管理
 
-- 文件/目录导入、任务恢复、Hasheous 适配器、DAT 解析和审核历史。
+- 文件/目录导入、任务恢复、Hasheous 适配器、DAT 解析和审核结果。
 - 游戏目录、游戏内容维护 与 BIOS 管理。
 - 内置 DAT 索引、release 版本切换和受影响 Variant 的可观察重校验。
 

@@ -55,7 +55,7 @@ func (service *Service) InitializeRateLimited(
 		return Session{}, fmt.Errorf("authentication limit check: %w", err)
 	}
 	session, err := service.Initialize(ctx, request)
-	if rateLimitedSetupFailure(err) {
+	if credentialInputFailure(err) {
 		if rateErr := service.modules.Limiter.Record(ctx, subject); rateErr != nil {
 			return Session{}, fmt.Errorf("authentication limit record: %w", rateErr)
 		}
@@ -114,10 +114,6 @@ func (service *Service) CompletePasswordResetRateLimited(
 		}
 	}
 	return result, err
-}
-
-func rateLimitedSetupFailure(err error) bool {
-	return errors.Is(err, ErrInitializationProof) || credentialInputFailure(err)
 }
 
 func rateLimitedLinkFailure(err error) bool {

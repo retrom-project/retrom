@@ -70,8 +70,8 @@ func TestReviewBulkQueriesRejectInvalidScopeAndCursorBeforeStorage(t *testing.T)
 	}{
 		{"multiple source filters", func() error {
 			_, err := service.Candidates(t.Context(), ReviewBulkScope{
-				ImportJobID:     "019b0000-0000-7000-8000-000000000001",
-				PegasusImportID: "019b0000-0000-7000-8000-000000000002",
+				ImportJobID:    "019b0000-0000-7000-8000-000000000001",
+				SourceImportID: "019b0000-0000-7000-8000-000000000002",
 			})
 			return err
 		}},

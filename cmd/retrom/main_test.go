@@ -1,10 +1,8 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"errors"
-	"os"
 	"path/filepath"
 	"runtime"
 	"testing"
@@ -21,7 +19,7 @@ import (
 	"retrom/internal/testassert"
 )
 
-func accountCommandFixture(t *testing.T, mode config.Mode) (config.Maintenance, *retromruntime.Credentials) {
+func accountCommandFixture(t *testing.T, mode config.Mode) config.Maintenance {
 	t.Helper()
 	root := t.TempDir()
 	databasePath := filepath.Join(root, "retrom.db")
@@ -43,24 +41,12 @@ func accountCommandFixture(t *testing.T, mode config.Mode) (config.Maintenance, 
 	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
 	return config.Maintenance{
 		DataDir: root, DBPath: databasePath, DependencyRoot: filepath.Join(repositoryRoot, "data"),
-	}, credentials
-}
-
-func TestReadSetupCodeCommandDoesNotModifyDatabase(t *testing.T) {
-	t.Parallel()
-	configuration, credentials := accountCommandFixture(t, config.ModeRelease)
-	before, err := os.ReadFile(configuration.DBPath)
-	testassert.False(t, err != nil, err)
-	code, err := readSetupCode(context.Background(), configuration)
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return code != credentials.SetupCode() }), "readSetupCode() = %q, %v", code, err)
-	after, err := os.ReadFile(configuration.DBPath)
-	testassert.False(t, err != nil, err)
-	testassert.True(t, bytes.Equal(before, after), "setup-code command modified the database")
+	}
 }
 
 func TestResetOfflineAdminRequiresLockAndTTYConfirmation(t *testing.T) {
 	t.Parallel()
-	configuration, _ := accountCommandFixture(t, config.ModeTest)
+	configuration := accountCommandFixture(t, config.ModeTest)
 	lock, err := processlock.Acquire(configuration.DataDir)
 	testassert.False(t, err != nil, err)
 	readCount := 0
@@ -111,10 +97,17 @@ func TestOfflineCommandArgumentsAreClosed(t *testing.T) {
 	t.Parallel()
 	reader := func(string) (string, error) { return "unused", nil }
 	for _, arguments := range [][]string{
-		{"setup-code", "extra"}, {"admin-reset"}, {"admin-reset", "--username", "admin", "extra"},
+		{"admin-reset"}, {"admin-reset", "--username", "admin", "extra"},
 	} {
 		if err := executeWithPasswordReader(arguments, reader); err == nil {
 			t.Fatalf("arguments %#v accepted", arguments)
 		}
+	}
+}
+
+func TestRemovedSetupCodeCommandIsRejected(t *testing.T) {
+	t.Parallel()
+	if err := execute([]string{"setup-code"}); !errors.Is(err, errCommand) {
+		t.Fatalf("removed setup-code command = %v", err)
 	}
 }

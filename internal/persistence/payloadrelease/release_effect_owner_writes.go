@@ -51,7 +51,7 @@ AND content_source_kind=? AND COALESCE(content_source_ref_id,'')=?`
 			"UPDATE import_jobs SET "+update.Set+" WHERE "+update.Scope.Where,
 			args...,
 		)
-	case application.ScopePegasusImportItem, application.ScopeEmulationStationImportItem:
+	case application.ScopeSourceImportItem:
 		spec, specErr := effectSourceSpec(before.Scope.Type)
 		if specErr != nil {
 			return specErr

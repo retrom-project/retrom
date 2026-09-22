@@ -9,7 +9,7 @@ import (
 
 func TestApplicationUserWritesPreserveIdentityAndLastAdministrator(t *testing.T) {
 	t.Parallel()
-	fixture := openEmulationStationSchemaFixture(t)
+	fixture := openApplicationFixture(t)
 	db := fixture.database.SQL
 
 	for _, tc := range []struct {

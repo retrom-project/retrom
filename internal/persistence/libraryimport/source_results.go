@@ -36,7 +36,7 @@ snapshot.content_kind,snapshot.source_manifest_json,snapshot.source_manifest_dig
 COALESCE(duplicate.existing_game_id,''),
 COALESCE((SELECT json_group_array(relative_path) FROM (
  SELECT DISTINCT upload.relative_path AS relative_path
- FROM import_item_source_files source JOIN upload_files upload ON upload.id=source.upload_file_id
+ FROM import_item_source_files source JOIN import_files upload ON upload.id=source.upload_file_id
  WHERE source.import_item_id=item.id AND source.role IN ('CONTENT','DOS_SOURCE','PLAYLIST_SOURCE','DISC','PROJECT_FILE')
  ORDER BY upload.relative_path
 )),'[]')

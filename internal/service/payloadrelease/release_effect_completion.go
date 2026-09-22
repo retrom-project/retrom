@@ -33,7 +33,7 @@ func (run *effectRun) finish(ctx context.Context, before EffectOwner) error {
 	after := before.Owner
 	after.PayloadState = "RELEASED"
 	if after.Scope.Type == ScopeGame ||
-		after.Scope.Type == ScopePegasusImportItem || after.Scope.Type == ScopeEmulationStationImportItem {
+		after.Scope.Type == ScopeSourceImportItem {
 		after.Version++
 	}
 	if err := run.scope.Write.ChangeOwner(

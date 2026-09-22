@@ -41,7 +41,7 @@ func (*effectGraphMemory) Consume(context.Context, EffectConsumptionChange) erro
 }
 
 func TestReleaseEffectBoundDuplicateRequiresPermanentProof(t *testing.T) {
-	for _, kind := range []ScopeType{ScopePegasusImportItem, ScopeEmulationStationImportItem} {
+	for _, kind := range []ScopeType{ScopeSourceImportItem, ScopeSourceImportItem} {
 		t.Run(string(kind), func(t *testing.T) {
 			public := EffectOwner{Found: true, Owner: Owner{Scope: Scope{Type: ScopeImportItem, ID: "ordinary"}, State: "DISCARDED", PayloadState: "RELEASING", ReleaseJobID: "ordinary-release", Version: 2}}
 			source := EffectOwner{Found: true, ParentID: "plan", ExistingGameID: "game", Owner: Owner{Scope: Scope{Type: kind, ID: "source"}, State: "SKIPPED_EXISTING", PayloadState: "RETAINED", PublicID: "ordinary", Version: 4}}
@@ -92,9 +92,9 @@ func TestReleaseEffectAggregateRejectsProtectedChildren(t *testing.T) {
 }
 
 func TestReleaseEffectSourceMappingDeduplicatesOnlyIdenticalOwners(t *testing.T) {
-	source := EffectSource{Kind: "SERVER_EMULATIONSTATION_IMPORT", ID: "source"}
+	source := EffectSource{Kind: "IMPORT_RECEIVE", ID: "source"}
 	links := gameEffectSources(EffectOwner{MetadataSource: source, ContentSource: source})
-	if len(links) != 1 || links[0] != (Scope{Type: ScopeEmulationStationImportItem, ID: "source"}) {
+	if len(links) != 1 || links[0] != (Scope{Type: ScopeSourceImportItem, ID: "source"}) {
 		t.Fatalf("deduplicated=%#v", links)
 	}
 	links = gameEffectSources(EffectOwner{MetadataSource: source, ContentSource: EffectSource{Kind: "IMPORT_REVIEW", ID: "source"}})

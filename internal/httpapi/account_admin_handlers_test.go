@@ -66,7 +66,7 @@ func accountHTTPRequest(
 
 func TestAccountAdministrationHTTPInvitationAndAuthorization(t *testing.T) {
 	t.Parallel()
-	server, _ := newAuthHTTPServer(t, config.ModeTest)
+	server := newAuthHTTPServer(t, config.ModeTest)
 	handler := server.Handler()
 	admin := accountHTTPLogin(t, handler)
 

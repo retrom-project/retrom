@@ -18,10 +18,9 @@ func ownerTable(kind tagging.OwnerKind) (string, string, error) {
 		return "game_tags", "game_id", nil
 	case tagging.OwnerReviewDraft:
 		return "review_draft_tags", "review_draft_id", nil
-	case tagging.OwnerPegasusCollection:
-		return "pegasus_collection_tags", "collection_id", nil
-	case tagging.OwnerEmulationStationCollection:
-		return "emulationstation_collection_tags", "collection_id", nil
+	case tagging.OwnerSourceCollection:
+		return "source_collection_tags", "collection_id", nil
+
 	case tagging.OwnerReviewItem:
 		return "", "", tagging.ErrInvalid
 	default:
@@ -147,10 +146,9 @@ func createOwnerTag(ctx context.Context, db dbexec.Executor, table, query string
 		result, err = db.ExecContext(ctx, query, args...)
 	case "review_draft_tags":
 		result, err = recordstore.CreateReviewDraftTags(ctx, db, query, args...)
-	case "pegasus_collection_tags":
-		result, err = recordstore.CreatePegasusCollectionTags(ctx, db, query, args...)
-	case "emulationstation_collection_tags":
-		result, err = recordstore.CreateEmulationstationCollectionTags(ctx, db, query, args...)
+	case "source_collection_tags":
+		result, err = recordstore.CreateSourceCollectionTags(ctx, db, query, args...)
+
 	default:
 		return nil, tagging.ErrInvalid
 	}
@@ -172,10 +170,9 @@ func deleteOwnerTag(
 	switch table {
 	case "review_draft_tags":
 		result, err = recordstore.DeleteReviewDraftTags(ctx, db, scope)
-	case "pegasus_collection_tags":
-		result, err = recordstore.DeletePegasusCollectionTags(ctx, db, scope)
-	case "emulationstation_collection_tags":
-		result, err = recordstore.DeleteEmulationstationCollectionTags(ctx, db, scope)
+	case "source_collection_tags":
+		result, err = recordstore.DeleteSourceCollectionTags(ctx, db, scope)
+
 	case "game_tags":
 		result, err = db.ExecContext(ctx, "DELETE FROM game_tags WHERE "+scope.Where, scope.Args...)
 	default:

@@ -40,7 +40,7 @@ func (records scheduling) BeginRelease(ctx context.Context, change application.O
 			update.Values = append(update.Values, change.NowMS, change.NowMS)
 		}
 		result, err = recordstore.UpdateGames(ctx, records.executor, update)
-	case application.ScopePegasusImportItem, application.ScopeEmulationStationImportItem:
+	case application.ScopeSourceImportItem:
 		result, err = records.beginSourceRelease(ctx, update, before)
 	case application.ScopeUploadConsumption, application.ScopeBlob:
 		return application.ErrScopeInvalid
@@ -58,16 +58,9 @@ func (records scheduling) beginSourceRelease(
 ) (sql.Result, error) {
 	update.Scope.Where += " AND execution_state=? AND retryable=? AND COALESCE(library_import_item_id,'')=?"
 	update.Scope.Args = append(update.Scope.Args, before.State, before.Retryable, before.PublicID)
-	if before.Scope.Type == application.ScopePegasusImportItem {
-		result, err := recordstore.UpdatePegasusImportItems(ctx, records.executor, update)
-		if err != nil {
-			return nil, fmt.Errorf("enter Pegasus payload release: %w", err)
-		}
-		return result, nil
-	}
-	result, err := recordstore.UpdateEmulationstationImportItems(ctx, records.executor, update)
+	result, err := recordstore.UpdateSourceImportItems(ctx, records.executor, update)
 	if err != nil {
-		return nil, fmt.Errorf("enter EmulationStation payload release: %w", err)
+		return nil, fmt.Errorf("enter source payload release: %w", err)
 	}
 	return result, nil
 }

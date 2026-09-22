@@ -22,10 +22,7 @@ func (records sourceOwnership) ReadSource(
 	ctx context.Context,
 	intent application.SourceCreationIntent,
 ) (application.SourceCreationSnapshot, error) {
-	if intent.Kind == application.SourceOwnerEmulationStation {
-		return records.readESSource(ctx, intent)
-	}
-	if intent.Kind != application.SourceOwnerPegasus {
+	if intent.Kind != application.SourceOwnerSource {
 		return application.SourceCreationSnapshot{}, application.ErrInvalid
 	}
 	var value application.SourceCreationSnapshot
@@ -40,11 +37,11 @@ COALESCE(collection.target_provider_id,''),COALESCE(collection.target_id,''),
 COALESCE(collection.target_dat_version_id,''),
 COALESCE(owner.upload_session_id,''),COALESCE(source.library_import_job_id,''),
 COALESCE(source.library_import_item_id,'')
-FROM pegasus_import_items source JOIN pegasus_imports plan ON plan.id=source.import_id
-JOIN jobs job ON job.id=plan.import_job_id AND job.scope_type='PEGASUS_IMPORT' AND job.scope_id=plan.id
- AND job.kind='SERVER_PEGASUS_IMPORT'
-LEFT JOIN pegasus_import_collections collection ON collection.id=source.collection_id AND collection.import_id=plan.id
-LEFT JOIN server_import_upload_owners owner ON owner.kind='PEGASUS' AND owner.source_item_id=source.id
+FROM source_import_items source JOIN source_imports plan ON plan.id=source.import_id
+JOIN jobs job ON job.id=plan.import_job_id AND job.scope_type='SOURCE_IMPORT' AND job.scope_id=plan.id
+ AND job.kind='IMPORT_RECEIVE'
+LEFT JOIN source_import_collections collection ON collection.id=source.collection_id AND collection.import_id=plan.id
+LEFT JOIN server_import_upload_owners owner ON owner.kind='SOURCE' AND owner.source_item_id=source.id
 WHERE source.id=? AND source.import_id=?`, intent.ItemID, intent.ImportID).Scan(
 		&value.ItemID,
 		&value.ImportID,
@@ -116,13 +113,10 @@ SELECT relative_path FROM `+table+` WHERE item_id=? ORDER BY ordinal`, itemID)
 
 func (records sourceOwnership) BindSource(ctx context.Context, change application.SourceBindingChange) error {
 	before := change.Before
-	if before.Kind == application.SourceOwnerEmulationStation {
-		return records.bindESSource(ctx, change)
-	}
-	if before.Kind != application.SourceOwnerPegasus {
+	if before.Kind != application.SourceOwnerSource {
 		return application.ErrInvalid
 	}
-	result, err := recordstore.UpdatePegasusImportItems(ctx, records.executor, recordstore.Update{
+	result, err := recordstore.UpdateSourceImportItems(ctx, records.executor, recordstore.Update{
 		Set: `execution_state='VALIDATING',content_kind=?,source_manifest_json=?,source_manifest_digest=?,
 library_import_job_id=?,library_import_item_id=?,version=version+1,updated_at_ms=?`,
 		Values: []any{
@@ -136,15 +130,15 @@ library_import_job_id=?,library_import_item_id=?,version=version+1,updated_at_ms
 		Scope: recordstore.Scope{
 			Where: `id=? AND import_id=? AND version=? AND execution_state='COPYING'
 AND library_import_job_id IS NULL AND library_import_item_id IS NULL
-AND EXISTS(SELECT 1 FROM pegasus_imports plan JOIN jobs job ON job.id=plan.import_job_id
- WHERE plan.id=pegasus_import_items.import_id AND plan.version=? AND plan.state='RUNNING'
- AND job.id=? AND job.version=? AND job.scope_type='PEGASUS_IMPORT' AND job.scope_id=plan.id
- AND job.kind='SERVER_PEGASUS_IMPORT' AND job.state='RUNNING' AND job.worker_id=?
+AND EXISTS(SELECT 1 FROM source_imports plan JOIN jobs job ON job.id=plan.import_job_id
+ WHERE plan.id=source_import_items.import_id AND plan.version=? AND plan.state='RUNNING'
+ AND job.id=? AND job.version=? AND job.scope_type='SOURCE_IMPORT' AND job.scope_id=plan.id
+ AND job.kind='IMPORT_RECEIVE' AND job.state='RUNNING' AND job.worker_id=?
  AND job.execution_no=? AND job.attempt_count=? AND job.leased_until_ms>? AND job.execution_deadline_at_ms>?)
 AND EXISTS(SELECT 1 FROM server_import_upload_owners owner
  JOIN import_jobs imported ON imported.upload_session_id=owner.upload_session_id
  JOIN import_items item ON item.import_job_id=imported.id
- WHERE owner.kind='PEGASUS' AND owner.source_item_id=pegasus_import_items.id AND owner.upload_session_id=?
+ WHERE owner.kind='SOURCE' AND owner.source_item_id=source_import_items.id AND owner.upload_session_id=?
  AND imported.id=? AND item.id=?)`,
 			Args: []any{
 				before.ItemID,

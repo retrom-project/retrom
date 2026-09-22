@@ -35,12 +35,11 @@ func NewAccounts(
 				database,
 			),
 			accounts.InitializationOptions{
-				Mode:        mode,
-				Credentials: credentials,
-				Hasher:      hasher,
-				Blocklist:   blocklist,
-				Mint:        mint,
-				Now:         now,
+				Mode:      mode,
+				Hasher:    hasher,
+				Blocklist: blocklist,
+				Mint:      mint,
+				Now:       now,
 			},
 		),
 		Authentication: accounts.NewAuthentication(accountpersistence.NewAuthentication(database), hasher, mint, dummy, now),
@@ -63,21 +62,4 @@ func NewAccounts(
 		Limiter: accounts.NewLimiter(accountpersistence.NewRateLimits(database), credentials, now),
 	}
 	return accounts.New(modules, mode), nil
-}
-
-func ReadAccountSetupCode(ctx context.Context, database *sql.DB, credentials *runtime.Credentials) (string, error) {
-	value, err := accounts.NewInitialization(
-		accountpersistence.NewInitialization(
-			database,
-		),
-		accounts.InitializationOptions{
-			Credentials: credentials,
-		},
-	).ReadSetupCode(
-		ctx,
-	)
-	if err != nil {
-		return "", fmt.Errorf("read setup-code state: %w", err)
-	}
-	return value, nil
 }

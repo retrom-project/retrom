@@ -23,10 +23,9 @@ type ImportCreationResult struct {
 	Owned   ServerImportResult
 }
 type ImportCreationOptions struct {
-	ReviewHandoffKind string
-	Queued            *QueuedImportExecution
-	Source            *OwnedImportCreation
-	Reconfiguration   *ImportReconfiguration
+	Queued          *QueuedImportExecution
+	Source          *OwnedImportCreation
+	Reconfiguration *ImportReconfiguration
 }
 type OwnedImportCreation struct {
 	Intent SourceCreationIntent
@@ -120,7 +119,6 @@ type CreationSource struct {
 	ContentKind    string
 	GroupKey       string
 	State          string
-	HandoffKind    string
 	ManifestJSON   string
 	ManifestDigest string
 	SearchText     string

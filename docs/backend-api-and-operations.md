@@ -40,13 +40,12 @@ cmd/retrom/               进程入口、配置和优雅关闭
 internal/httpapi/         路由、中间件、DTO、错误映射
 internal/catalog/         Platform、PlatformInstance、Game、GameVariant
 internal/importing/       导入任务、分组、刮削与审核编排
-internal/pegasusimport/   服务器目录、metadata/媒体读取、CAS 写入及路径脱敏适配器
-internal/service/pegasusimport/ 应用入口、扫描/导入编排、计划/映射/启动、worker 生命周期与结果恢复
-internal/persistence/pegasusimport/ 计划与执行快照、扫描/物化/交接/收口事务及归属校验
+internal/importformat/gamelist/ 严格 XML 文件组织扫描与统一结果适配
+internal/persistence/importfiles/ 所有来源共享的接收文件表
+internal/sourceimport/   服务器目录、metadata/媒体读取、CAS 写入及路径脱敏适配器
+internal/service/sourceimport/ 应用入口、扫描/导入编排、计划/映射/启动、worker 生命周期与结果恢复
+internal/persistence/sourceimport/ 计划与执行快照、扫描/物化/交接/收口事务及归属校验
 internal/emulationstationmeta/ 严格 EmulationStation XML 解析与规范化；不读环境/数据库/CAS
-internal/emulationstationimport/ EmulationStation 扫描、映射快照、执行与普通审核交接
-internal/service/emulationstationimport/ 查询、计划与映射、扫描发布、worker 生命周期、取消/重试与恢复
-internal/persistence/emulationstationimport/ 查询映射、计划/扫描/租约/恢复事务与来源归属校验
 internal/metadata/        Hasheous 适配器与缓存
 internal/arcadedat/       DAT 安装、解析、依赖图与诊断
 internal/firmware/        BIOS 文件与归档匹配、候选质量比较
@@ -146,7 +145,7 @@ BIOS 校验 Repository 批量读取目录与安装事实，Service 按内容后�
 
 Pegasus 与 EmulationStation 的通用 Job 取消由领域 Service 接管：通用资格读取事务结束后，携带原始 Job 版本、kind、scope 与操作者进入领域事务，重新校验当前关联并原子取消；不得只更新 Job 而遗漏来源计划，也不得用刷新后的版本替换客户端 ETag。返回值取自提交前同一快照，提交失败不返回成功或发送唤醒。
 
-Pegasus 的 HTTP 与批次处置直接调用应用 Service；`composition.NewPegasusImport` 在启动时一次性组装查询、命令、Repository、来源适配器与 worker。HTTP 显式传入操作者，Service 决定提交后的唤醒；扫描与导入共用 worker 的维护、取消和关闭流程，每次执行只绑定冻结来源，不重新构造数据库依赖。旧 `internal/pegasusimport` 包只保留文件/CAS 适配器，架构测试禁止它导入数据库实现，也禁止 HTTP 重新依赖该包。
+Pegasus 的 HTTP 与批次处置直接调用应用 Service；`composition.NewSourceImport` 在启动时一次性组装查询、命令、Repository、来源适配器与 worker。HTTP 显式传入操作者，Service 决定提交后的唤醒；扫描与导入共用 worker 的维护、取消和关闭流程，每次执行只绑定冻结来源，不重新构造数据库依赖。旧 `internal/sourceimport` 包只保留文件/CAS 适配器，架构测试禁止它导入数据库实现，也禁止 HTTP 重新依赖该包。
 
 Launch 的 HTTP 入口直接使用 `internal/service/launch.Service`，由 `internal/composition/launch` 一次组装用例、Repository 和来源适配器。Product 提交后的异步校验、显式重试与启动恢复共用一个 `ValidationSupervisor`；调度前登记执行，关闭时取消并等待所有执行和清理结束。请求结束可与已提交的后台工作分离，但后台工作仍受进程关闭控制。根 Launch 包只保留文件/Provider/签名适配与类型兼容，不读写数据库。
 
@@ -233,7 +232,7 @@ SQLite 队列表和 worker 必须实现 [数据模型第 7 节](./data-model.md#
 
 不要把长时间哈希、网络请求、DAT 解析或归档扫描放在持有数据库写锁的事务中。先执行可重入计算，再用短事务提交结果和状态转换。
 
-快速审批在创建时冻结最多 10,000 个严格 READY Item，Worker 顺序领取并逐项调用唯一 Approve 服务；整个批次不得持有一个长写事务。EmulationStation `hidden/adult` 来源项在预览中计入 `sourceFlagged` 并排除候选。每项成功的发布对象、ReviewEvent、普通与对应服务器来源聚合和批次结果共用同一事务及 state/worker fence。取消在 Item 边界检查，重启只把未提交 RUNNING Item 恢复为 PENDING；restore 不继续旧批次。只有 worker 基础设施故障允许快速审批领域 retry，业务 skip/final failure 不通过 retry 复活。
+快速审批在创建时冻结最多 10,000 个严格 READY Item，Worker 顺序领取并逐项调用唯一 Approve 服务；整个批次不得持有一个长写事务。EmulationStation `hidden/adult` 来源项在预览中计入 `sourceFlagged` 并排除候选。每项成功的发布对象、普通与对应服务器来源聚合和批次结果共用同一事务及 state/worker fence。取消在 Item 边界检查，重启只把未提交 RUNNING Item 恢复为 PENDING；restore 不继续旧批次。只有 worker 基础设施故障允许快速审批领域 retry，业务 skip/final failure 不通过 retry 复活。
 
 导入任务及审核语义见 [导入、刮削与审核](./import-and-review.md)。
 
@@ -407,7 +406,7 @@ SQLite 基线：启用外键、WAL 和合理的 `busy_timeout`；仅通过版本
 
 ## 9. 账户模式与安全边界
 
-无参数服务固定为 `release`；唯一可选服务参数为 `--mode=release|test`。release 空实例先启动到 PENDING，主机操作者再运行只读 `retrom setup-code` 取得证明并通过 `/setup` 创建首位管理员；该命令不取写锁、不修改数据库且不打印路径或其他状态。`retrom admin-reset --username <existing-admin>` 必须在服务停止并取得同一 data-root lock 后，从 `/dev/tty` 隐藏读取两次 release 合规密码；它只操作现有非 DELETED ADMIN，重新启用、撤销 session并写 SYSTEM 审计，密码不允许进入参数、环境或日志。
+无参数服务固定为 `release`；唯一可选服务参数为 `--mode=release|test`。release 空实例先启动到 PENDING，通过网页 `/setup` 填写管理员用户名、显示名称、密码及密码确认即可创建首位管理员并登录；初始化完成后不可重开。`retrom admin-reset --username <existing-admin>` 必须在服务停止并取得同一 data-root lock 后，从 `/dev/tty` 隐藏读取两次 release 合规密码；它只操作现有非 DELETED ADMIN，重新启用、撤销 session并写 SYSTEM 审计，密码不允许进入参数、环境或日志。
 
 初始化 Service 在一个读快照中判断实例状态、用户/Profile 数量和管理员不变量，并在写事务内重新检查首位管理员的创建资格。密码哈希与 Session 随机材料在写事务前准备；用户、Profile、凭据、实例状态、Session 和初始化审计一起提交。已初始化实例启动时，每个未删除的用户都必须具有可验证格式的凭据；已删除用户允许清除凭据。
 

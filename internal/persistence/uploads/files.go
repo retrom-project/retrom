@@ -9,6 +9,7 @@ import (
 	"retrom/internal/blobstore"
 	"retrom/internal/dbexec"
 	"retrom/internal/persistence/blobcatalog"
+	"retrom/internal/persistence/importfiles"
 	service "retrom/internal/service/uploads"
 )
 
@@ -62,7 +63,7 @@ UPDATE upload_files SET state='FINALIZING',updated_at_ms=? WHERE upload_session_
 }
 
 func (records fileRecords) Publish(ctx context.Context, input service.FilePublication) error {
-	return requireChange(
+	err := requireChange(
 		records.executor.ExecContext(
 			ctx,
 			`
@@ -83,6 +84,13 @@ WHERE id=? AND upload_session_id=? AND state='FINALIZING'
 			input.Run.WorkerID, input.Run.Attempt, input.AtMS, input.AtMS,
 		),
 	)
+	if err != nil {
+		return err
+	}
+	if err := importfiles.ReceiveFile(ctx, records.executor, input.FileID); err != nil {
+		return fmt.Errorf("publish received upload: %w", err)
+	}
+	return nil
 }
 
 func (records fileRecords) FailPending(ctx context.Context, input service.PendingFailure) error {

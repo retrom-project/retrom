@@ -16,7 +16,7 @@ func TestReviewDeduplicateRejectsInvalidScopeAndContinuation(t *testing.T) {
 		{"missing bound", ReviewDeduplicateRequest{AfterItemID: first}},
 		{"reversed range", ReviewDeduplicateRequest{AfterItemID: last, ThroughItemID: first}},
 		{"equal range", ReviewDeduplicateRequest{AfterItemID: last, ThroughItemID: last}},
-		{"conflicting batches", ReviewDeduplicateRequest{Scope: ReviewBulkScope{ImportJobID: first, PegasusImportID: last}}},
+		{"conflicting batches", ReviewDeduplicateRequest{Scope: ReviewBulkScope{ImportJobID: first, SourceImportID: last}}},
 	}
 	for _, item := range cases {
 		t.Run(item.name, func(t *testing.T) {

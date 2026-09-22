@@ -23,7 +23,6 @@ type GameImpact struct {
 	ContentFileCount   int64    `json:"contentFileCount"`
 	ActiveLaunchCount  int64    `json:"activeLaunchCount"`
 	ActiveNetplayCount int64    `json:"activeNetplayCount"`
-	ReviewEventCount   int64    `json:"reviewEventCount"`
 	SourceKinds        []string `json:"sourceKinds"`
 }
 
@@ -37,7 +36,6 @@ type impactCanonical struct {
 	ContentFileCount   int64    `json:"contentFileCount"`
 	ActiveLaunchCount  int64    `json:"activeLaunchCount"`
 	ActiveNetplayCount int64    `json:"activeNetplayCount"`
-	ReviewEventCount   int64    `json:"reviewEventCount"`
 	SourceKinds        []string `json:"sourceKinds"`
 }
 
@@ -49,8 +47,8 @@ func GameDeleteAuditImpact(impact GameImpact) map[string]any {
 		"sharedBytes": impact.SharedBytes, "blobCount": impact.BlobCount,
 		"saveStateCount": impact.SaveStateCount, "assetCount": impact.AssetCount,
 		"contentFileCount": impact.ContentFileCount, "activeLaunchCount": impact.ActiveLaunchCount,
-		"activeNetplayCount": impact.ActiveNetplayCount, "reviewEventCount": impact.ReviewEventCount,
-		"sourceKinds": impact.SourceKinds,
+		"activeNetplayCount": impact.ActiveNetplayCount,
+		"sourceKinds":        impact.SourceKinds,
 	}
 }
 
@@ -62,7 +60,7 @@ type ImpactBlob struct {
 }
 
 type ImpactCounts struct {
-	SaveStates, Assets, ContentFiles, ActiveLaunches, ActiveNetplay, ReviewEvents int64
+	SaveStates, Assets, ContentFiles, ActiveLaunches, ActiveNetplay int64
 }
 
 type ImpactSnapshot struct {
@@ -100,14 +98,14 @@ func (queries *ImpactQueries) Game(ctx context.Context, gameID string) (GameImpa
 		SaveStateCount: source.Counts.SaveStates, AssetCount: source.Counts.Assets,
 		ContentFileCount:  source.Counts.ContentFiles,
 		ActiveLaunchCount: source.Counts.ActiveLaunches, ActiveNetplayCount: source.Counts.ActiveNetplay,
-		ReviewEventCount: source.Counts.ReviewEvents, SourceKinds: NormalizeImpactSourceKinds(source.SourceKinds),
+		SourceKinds: NormalizeImpactSourceKinds(source.SourceKinds),
 	}
 	canonical := impactCanonical{
 		RegisteredBytes: result.RegisteredBytes, ExclusiveBytes: result.ExclusiveBytes, SharedBytes: result.SharedBytes,
 		BlobCount: result.BlobCount, SaveStateCount: result.SaveStateCount, AssetCount: result.AssetCount,
 		ContentFileCount: result.ContentFileCount, ActiveLaunchCount: result.ActiveLaunchCount,
-		ActiveNetplayCount: result.ActiveNetplayCount, ReviewEventCount: result.ReviewEventCount,
-		SourceKinds: result.SourceKinds,
+		ActiveNetplayCount: result.ActiveNetplayCount,
+		SourceKinds:        result.SourceKinds,
 	}
 	encoded, err := json.Marshal(canonical)
 	if err != nil {
@@ -146,7 +144,7 @@ func impactTotals(blobs []ImpactBlob) (int64, int64, int64, error) {
 func validImpactCounts(counts ImpactCounts) bool {
 	for _, count := range []int64{
 		counts.SaveStates, counts.Assets, counts.ContentFiles, counts.ActiveLaunches,
-		counts.ActiveNetplay, counts.ReviewEvents,
+		counts.ActiveNetplay,
 	} {
 		if count < 0 {
 			return false
@@ -172,7 +170,7 @@ func NormalizeImpactSourceKinds(values []string) []string {
 
 func normalizedImpactSourceKind(source string) (string, bool) {
 	switch source {
-	case "SERVER_PEGASUS_IMPORT", "SERVER_EMULATIONSTATION_IMPORT":
+	case "IMPORT_RECEIVE":
 		return "SERVER_SCAN", true
 	case "ADMIN_REPLACE":
 		return "ADMIN_REPLACE", true

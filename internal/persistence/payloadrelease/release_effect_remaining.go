@@ -15,7 +15,7 @@ func (records effectRecords) Remaining(ctx context.Context, scope application.Sc
 		return records.itemRemaining(ctx, scope.ID)
 	case application.ScopeImportJob:
 		return records.aggregateRemaining(ctx, scope.ID)
-	case application.ScopePegasusImportItem, application.ScopeEmulationStationImportItem:
+	case application.ScopeSourceImportItem:
 		spec, err := effectSourceSpec(scope.Type)
 		if err != nil {
 			return 0, err
@@ -80,22 +80,14 @@ SELECT
   (SELECT count(*) FROM scrape_candidate_assets asset
    JOIN scrape_candidates candidate ON candidate.id=asset.scrape_candidate_id
    JOIN metadata_scrape_runs run ON run.id=candidate.scrape_run_id WHERE run.import_item_id=?)+
-  (SELECT count(*) FROM pegasus_import_item_files file
-   JOIN pegasus_import_items item ON item.id=file.item_id
+  (SELECT count(*) FROM source_import_item_files file
+   JOIN source_import_items item ON item.id=file.item_id
    WHERE item.library_import_item_id=?
      AND (file.blob_id IS NOT NULL OR file.source_archive_blob_id IS NOT NULL))+
-  (SELECT count(*) FROM pegasus_import_item_assets asset
-   JOIN pegasus_import_items item ON item.id=asset.item_id
-   WHERE item.library_import_item_id=? AND asset.blob_id IS NOT NULL)+
-  (SELECT count(*) FROM emulationstation_import_item_files file
-   JOIN emulationstation_import_items item ON item.id=file.item_id
-   WHERE item.library_import_item_id=?
-     AND (file.blob_id IS NOT NULL OR file.source_archive_blob_id IS NOT NULL))+
-  (SELECT count(*) FROM emulationstation_import_item_assets asset
-   JOIN emulationstation_import_items item ON item.id=asset.item_id
+  (SELECT count(*) FROM source_import_item_assets asset
+   JOIN source_import_items item ON item.id=asset.item_id
    WHERE item.library_import_item_id=? AND asset.blob_id IS NOT NULL)
-`, id, id, id, id, id, id, id, id, id,
-		id, id)
+`, id, id, id, id, id, id, id, id, id)
 }
 
 func (records effectRecords) aggregateRemaining(ctx context.Context, id string) (int64, error) {

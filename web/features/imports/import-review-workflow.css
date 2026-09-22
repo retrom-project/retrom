@@ -129,7 +129,7 @@
 .import-workflow-search > span:last-child:focus-within { border-color: var(--purple); box-shadow: 0 0 0 3px rgb(98 80 210 / 12%); }
 .import-workflow-search svg { width: 17px; height: 17px; color: #7e8799; }
 .import-workflow-search input { min-width: 0; width: 100%; height: 100%; padding: 0; border: 0; outline: 0; color: var(--ink); background: transparent; font-size: 12px; }
-.import-task-list, .review-workflow-list, .review-history-list { overflow-x: auto; display: grid; gap: 10px; }
+.import-task-list, .review-workflow-list { overflow-x: auto; display: grid; gap: 10px; }
 .import-task-entry { min-width: 1120px; overflow: hidden; border: 1px solid var(--line); border-radius: var(--radius-panel); background: white; }
 .import-task-card { min-height: 92px; padding: 14px 16px; display: grid; grid-template-columns: minmax(220px, 1.4fr) 92px minmax(180px, .95fr) minmax(130px, .65fr) 264px; align-items: center; gap: 18px; }
 .import-task-card.has-error { box-shadow: inset 4px 0 #d75562; }
@@ -185,7 +185,7 @@
 .import-workflow-footer { min-height: 46px; display: flex; align-items: center; justify-content: center; gap: 12px; color: var(--muted); font-size: 11px; }
 .import-workflow-footer button { padding: 5px 9px; color: var(--purple-dark); border: 1px solid var(--line); border-radius: var(--radius-control); background: white; cursor: pointer; }
 
-.review-workflow-row, .review-history-list > article { min-width: 1120px; min-height: 82px; padding: 12px 15px; display: grid; align-items: center; gap: 16px; border: 1px solid var(--line); border-radius: var(--radius-panel); background: white; }
+.review-workflow-row { min-width: 1120px; min-height: 82px; padding: 12px 15px; display: grid; align-items: center; gap: 16px; border: 1px solid var(--line); border-radius: var(--radius-panel); background: white; }
 .review-workflow-row { grid-template-columns: minmax(280px, 1.45fr) minmax(150px, .65fr) minmax(170px, .3fr) minmax(140px, .65fr) minmax(120px, .55fr) 96px; }
 .review-workflow-game { min-width: 0; display: flex; align-items: center; gap: 12px; }
 .review-workflow-thumb { position: relative; overflow: hidden; width: 56px; height: 56px; flex: 0 0 56px; display: grid; place-items: center; color: var(--purple-dark); border-radius: var(--radius-cover); background: var(--purple-soft); font-size: 12px; font-weight: 850; }
@@ -370,10 +370,6 @@
 .review-workflow-cover-side .review-cover-upload .asset-placeholder, .review-workflow-cover-side .review-cover-upload img { width: 100%; height: 100%; max-height: none; aspect-ratio: auto; object-fit: contain; object-position: center bottom; }
 .review-workflow-cover-side > .button { position: absolute; z-index: 2; top: 43px; right: 20px; box-shadow: 0 3px 12px rgb(24 32 51 / 12%); }
 
-.review-history-list > article { grid-template-columns: minmax(280px, 1.4fr) auto minmax(260px, 1fr) 190px auto; cursor: pointer; transition: border-color .15s ease, transform .15s ease; }
-.review-history-list > article:hover, .review-history-list > article:focus-visible { border-color: #bcb1ee; transform: translateY(-1px); }
-.review-history-list h3 { margin: 0; font-size: 14px; }
-.review-history-list small, .review-history-list article > span:not(.button), .review-history-list time { color: var(--muted); font-size: 11px; }
 .game-detail-page { padding-bottom: 2px; }
 .game-detail-breadcrumb { margin-bottom: 10px; }
 .game-detail-breadcrumb a { display: inline-flex; align-items: center; min-height: 28px; color: var(--purple-dark); font-size: 12px; font-weight: 400; }

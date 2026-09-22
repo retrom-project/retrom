@@ -76,8 +76,7 @@ func reviewBulkCandidateStatement(query application.ReviewBulkCandidateQuery) (s
 		value, condition string
 	}{
 		{query.Scope.ImportJobID, " AND item.import_job_id=?"},
-		{query.Scope.PegasusImportID, " AND pegasus.import_id=?"},
-		{query.Scope.EmulationStationImportID, " AND emulationstation.import_id=?"},
+		{query.Scope.SourceImportID, " AND source_owner.import_id=?"},
 		{query.Scope.PlatformInstanceID, " AND draft.target_platform_instance_id=?"},
 	} {
 		if filter.value != "" {
@@ -135,8 +134,8 @@ SELECT item.id,draft.version,draft.effective_source_snapshot_id,
          WHERE attachment.import_item_id=item.id AND attachment.state IN ('QUEUED','RUNNING')) OR
        EXISTS(SELECT 1 FROM review_multidisc_attachments attachment
          WHERE attachment.import_item_id=item.id AND attachment.state IN ('QUEUED','RUNNING')),
-       COALESCE(json_extract(emulationstation.source_flags_json,'$.hidden'),0)=1 OR
-       COALESCE(json_extract(emulationstation.source_flags_json,'$.adult'),0)=1
+       COALESCE(json_extract(source_owner.source_flags_json,'$.hidden'),0)=1 OR
+       COALESCE(json_extract(source_owner.source_flags_json,'$.adult'),0)=1
 FROM import_items item
 JOIN review_drafts draft ON draft.import_item_id=item.id
 JOIN import_item_source_snapshots source ON source.id=draft.effective_source_snapshot_id
@@ -155,13 +154,9 @@ LEFT JOIN runtime_target_bindings binding
  AND binding.core_id=validation.core_id AND binding.launch_policy!='DISABLED'
 LEFT JOIN runtime_binding_platforms binding_platform ON binding_platform.binding_id=binding.binding_id
  AND binding_platform.platform_id=instance.platform_id
-LEFT JOIN pegasus_import_items pegasus ON pegasus.library_import_item_id=item.id
-LEFT JOIN emulationstation_import_items emulationstation
- ON emulationstation.library_import_item_id=item.id
+LEFT JOIN source_import_items source_owner ON source_owner.library_import_item_id=item.id
 WHERE item.state='REVIEW_PENDING'
-AND (item.review_handoff_kind='DIRECT' OR emulationstation.execution_state='REVIEW_PENDING')
-AND (pegasus.id IS NULL OR pegasus.execution_state='REVIEW_PENDING')
-AND (emulationstation.id IS NULL OR emulationstation.execution_state='REVIEW_PENDING')`
+AND (source_owner.id IS NULL OR source_owner.execution_state='REVIEW_PENDING')`
 
 func scanReviewBulkCandidate(scanner dbexec.Scanner) (application.ReviewBulkCandidate, error) {
 	var candidate application.ReviewBulkCandidate
@@ -224,14 +219,13 @@ func (repository *ReviewBulkQueries) Items(
 	result := make([]application.ReviewBulkItemRecord, 0, query.Limit)
 	for rows.Next() {
 		var item application.ReviewBulkItemRecord
-		var gameID, eventID, code, details sql.NullString
+		var gameID, code, details sql.NullString
 		var completed sql.NullInt64
 		if err := rows.Scan(&item.ImportItemID, &item.Title, &item.PlatformName, &item.State,
-			&gameID, &eventID, &code, &details, &completed, &item.Ordinal); err != nil {
+			&gameID, &code, &details, &completed, &item.Ordinal); err != nil {
 			return nil, fmt.Errorf("scan review bulk item: %w", err)
 		}
 		item.GameID = nullableReviewBulkString(gameID)
-		item.ReviewEventID = nullableReviewBulkString(eventID)
 		item.OutcomeCode = nullableReviewBulkString(code)
 		item.CompletedAtMS = nullableReviewBulkInt(completed)
 		if details.Valid {
@@ -251,7 +245,7 @@ func reviewBulkItemStatement(query application.ReviewBulkItemQuery) (string, []a
 		return "", nil, application.ErrReviewBulkQuery
 	}
 	statement := `SELECT import_item_id,title_snapshot,target_platform_name_snapshot,state,game_id,
-review_event_id,outcome_code,outcome_details_json,completed_at_ms,ordinal
+outcome_code,outcome_details_json,completed_at_ms,ordinal
 FROM review_bulk_approval_items WHERE bulk_approval_id=? AND ordinal>?`
 	arguments := []any{query.BulkApprovalID, query.AfterOrdinal}
 	if query.Outcome != "" {

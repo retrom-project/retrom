@@ -41,6 +41,20 @@ CREATE TABLE upload_files (
   )
 );
 
+-- Normalized, format-independent import input. Transport state stays in upload_files.
+-- The shared ID lets attachments and archive provenance refer to the same received file.
+CREATE TABLE import_files (
+  id TEXT PRIMARY KEY REFERENCES upload_files(id) ON DELETE CASCADE,
+  upload_session_id TEXT NOT NULL REFERENCES upload_sessions(id),
+  relative_path TEXT NOT NULL,
+  blob_id TEXT REFERENCES blobs(id),
+  size_bytes INTEGER NOT NULL CHECK(size_bytes >= 0),
+  created_at_ms INTEGER NOT NULL CHECK(created_at_ms >= 0),
+  released_at_ms INTEGER,
+  UNIQUE(upload_session_id, relative_path),
+  CHECK((blob_id IS NULL) = (released_at_ms IS NOT NULL))
+);
+
 CREATE TABLE upload_parts (
   upload_file_id TEXT NOT NULL REFERENCES upload_files(id),
   part_no INTEGER NOT NULL CHECK(part_no >= 0),
@@ -90,7 +104,7 @@ CREATE TABLE "upload_consumptions" (
   released_at_ms INTEGER,
   release_reason TEXT CHECK(release_reason IS NULL OR release_reason IN (
     'IMPORT_PUBLISHED','IMPORT_DISCARDED','IMPORT_FAILED_FINAL','IMPORT_CANCELLED',
-    'IMPORT_JOB_TERMINAL','PEGASUS_TERMINAL','UPLOAD_CONSUMED','GAME_DELETED'
+    'IMPORT_JOB_TERMINAL','SOURCE_TERMINAL','UPLOAD_CONSUMED','GAME_DELETED'
   )),
   created_at_ms INTEGER NOT NULL CHECK(created_at_ms>=0),
   UNIQUE(consumer_type,consumer_id),

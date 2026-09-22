@@ -12,7 +12,7 @@ func TestOwnedSourcePlanRetainsCompanionInsideSelectedGroup(t *testing.T) {
 	}
 	plan := PreparedImport{Target: ImportTarget{Version: 1}, Groups: []PreparedGroup{group}}
 	source := &OwnedImportCreation{
-		Intent: SourceCreationIntent{Kind: SourceOwnerPegasus, PrimaryPaths: []string{"child.zip"}},
+		Intent: SourceCreationIntent{Kind: SourceOwnerSource, PrimaryPaths: []string{"child.zip"}},
 		Before: SourceCreationSnapshot{TargetVersion: 1},
 	}
 	if err := validateOwnedImportPlan(plan, source); err != nil {
