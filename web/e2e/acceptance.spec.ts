@@ -53,7 +53,6 @@ test("ACC-UI-002 import parent and child routes preserve browser history", async
     ["/admin/imports/server", "本地扫描"],
     ["/admin/imports/tasks", "任务进度"],
     ["/admin/reviews", "待审核"],
-    ["/admin/reviews/history", "审核历史"],
   ] as const;
   for (const [index, [route, label]] of routes.entries()) {
     await page.goto(route);
@@ -67,9 +66,11 @@ test("ACC-UI-002 import parent and child routes preserve browser history", async
     await page.screenshot({ path: evidencePath(testInfo, `import-route-${index + 1}.png`), fullPage: true });
   }
   await page.goBack();
-  await expect(page).toHaveURL(/\/admin\/reviews$/);
+  await expect(page).toHaveURL(/\/admin\/imports\/tasks$/);
   await page.goForward();
-  await expect(page).toHaveURL(/\/admin\/reviews\/history$/);
+  await expect(page).toHaveURL(/\/admin\/reviews$/);
+  await expect(page.getByRole("link", { name: "审核历史" })).toHaveCount(0);
+  expect((await page.request.get("/api/v1/admin/review-history")).status()).toBe(404);
 });
 
 test("ACC-UI-003 library filters and game detail use URL state", async ({ page }, testInfo) => {

@@ -72,6 +72,12 @@ SELECT '11000000-0000-7000-8000-000000000002','10000000-0000-7000-8000-000000000
        'shared/Game.gba',size_bytes,size_bytes,blob_id,'COMPLETE',NULL,NULL,1786000200000,1786000200000
 FROM acceptance_base;
 
+INSERT INTO import_files(id,upload_session_id,relative_path,blob_id,size_bytes,created_at_ms)
+SELECT id,upload_session_id,relative_path,final_blob_id,received_size_bytes,created_at_ms
+FROM upload_files WHERE upload_session_id IN (
+  '10000000-0000-7000-8000-000000000001','10000000-0000-7000-8000-000000000002'
+);
+
 INSERT INTO import_jobs(id,upload_session_id,target_platform_instance_id,platform_instance_version,platform_id,default_core_id,provider_id,target_id,dat_version_id,metadata_provider,config_snapshot_json,config_snapshot_digest,state,total_item_count,queued_item_count,running_item_count,review_pending_item_count,published_item_count,discarded_item_count,failed_item_count,cancelled_item_count,ignored_file_count,rejected_file_count,last_error_code,cancel_requested_at_ms,cancel_reason,version,created_at_ms,updated_at_ms,completed_at_ms)
 SELECT '20000000-0000-7000-8000-000000000001','10000000-0000-7000-8000-000000000001',target_platform_instance_id,platform_instance_version,platform_id,default_core_id,provider_id,target_id,dat_version_id,'NONE',config_snapshot_json,config_snapshot_digest,'REVIEW_PENDING',60,0,0,60,0,0,0,0,0,0,NULL,NULL,NULL,1,1786000100000,1786000100000,NULL
 FROM import_jobs WHERE id=(SELECT job_id FROM acceptance_base);
