@@ -275,7 +275,7 @@ test("ACC-PEG-006 project-owned Source GBA source publishes and advances real em
     });
   });
 
-  const title = "Source GBA Smoke";
+  const title = "Pegasus GBA Smoke";
   const beforeGamesResponse = await page.request.get(`/api/v1/admin/games?q=${encodeURIComponent(title)}&limit=100`);
   expect(beforeGamesResponse.ok()).toBe(true);
   const beforeGames = await beforeGamesResponse.json() as { items: Array<{ gameId: string; title: string }> };
@@ -345,7 +345,7 @@ test("ACC-PEG-006 project-owned Source GBA source publishes and advances real em
     runtime: {providerId: "emulatorjs", providerApiVersion: 1, targetId: "mgba"},
   });
   expect(runtimeResourceURL(runtimeResource(configuration, "game"))).toMatch(
-    /\/runtime\/content\/game\/[0-9a-f]{64}\/source-smoke\.gba$/,
+    /\/runtime\/content\/game\/[0-9a-f]{64}\/pegasus-smoke\.gba$/,
   );
 
   const player = page.frameLocator("iframe.player-frame");
