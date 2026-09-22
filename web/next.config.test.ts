@@ -7,13 +7,13 @@ import nextConfig, { backendProxyLimits } from "./next.config";
 afterEach(() => {vi.unstubAllEnvs(); vi.resetModules();});
 
 test("keeps the development indicator out of acceptance interactions", async () => {
-  vi.stubEnv("RETROM_WEB_E2E", "true");
+  vi.stubEnv("NEXT_WEB_E2E", "true");
   vi.resetModules();
   expect((await import("./next.config")).default.devIndicators).toBe(false);
 });
 
 test("retains the development indicator during ordinary development", async () => {
-  vi.stubEnv("RETROM_WEB_E2E", "");
+  vi.stubEnv("NEXT_WEB_E2E", "");
   vi.resetModules();
   expect((await import("./next.config")).default.devIndicators).toEqual({position: "bottom-right"});
 });
