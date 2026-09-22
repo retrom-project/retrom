@@ -64,7 +64,9 @@ test("ACC-FAV-003 user flow remains consistent across library, detail, folders, 
   page.setDefaultTimeout(10_000);
   test.skip(testInfo.project.name !== "chrome-1280", "The stateful favorite flow runs once.");
   const admin = await login(page.request);
-  await page.goto("/library?platformId=gba");
+  // The shared setup publishes FCEUmm and Nestopia fixtures independently of
+  // the import test selection, so this flow also runs as an isolated Case.
+  await page.goto("/library?platformId=nes");
 
   const available = page.locator('.library-game-card:has(button[aria-label^="收藏“"])');
   expect(await available.count()).toBeGreaterThanOrEqual(2);
@@ -134,8 +136,8 @@ test("ACC-FAV-003 user flow remains consistent across library, detail, folders, 
   await page.getByRole("searchbox", { name: "搜索收藏" }).fill("");
   await page.getByRole("combobox", { name: "排序方式" }).selectOption("TITLE_ASC");
   await expect(page).toHaveURL(/sort=TITLE_ASC/);
-  await page.getByRole("button", { name: /Game Boy Advance 2$/ }).click();
-  await expect(page).toHaveURL(/platformId=gba/);
+  await page.getByRole("button", { name: /NES \/ Famicom 2$/ }).click();
+  await expect(page).toHaveURL(/platformId=nes/);
   await page.getByRole("button", { name: /^全部 \d+$/ }).click();
   await expect(page).not.toHaveURL(/platformId=/);
   await page.getByRole("button", { name: /待通关 1$/ }).click();
