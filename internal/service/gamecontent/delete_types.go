@@ -46,17 +46,16 @@ type DeleteGameState struct {
 }
 
 type DeleteGameImpact struct {
-	ImpactDigest       string
-	RegisteredBytes    string
-	ExclusiveBytes     string
-	SharedBytes        string
-	BlobCount          int64
-	SaveStateCount     int64
-	AssetCount         int64
-	ContentFileCount   int64
-	ActiveLaunchCount  int64
-	ActiveNetplayCount int64
-	SourceKinds        []string
+	ImpactDigest      string
+	RegisteredBytes   string
+	ExclusiveBytes    string
+	SharedBytes       string
+	BlobCount         int64
+	SaveStateCount    int64
+	AssetCount        int64
+	ContentFileCount  int64
+	ActiveLaunchCount int64
+	SourceKinds       []string
 }
 
 type DeleteGameReplay struct {

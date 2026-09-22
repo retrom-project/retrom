@@ -6,7 +6,6 @@ import "context"
 type ServiceDependencies struct {
 	Product     *ProductCreator
 	Preview     *PreviewCreator
-	Netplay     *NetplayCreator
 	Config      *ConfigIssuer
 	Play        *PlayController
 	Content     *ContentAccess

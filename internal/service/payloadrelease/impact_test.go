@@ -25,13 +25,13 @@ func TestImpactQueriesClassifyUniqueBlobsAndFreezeTheDigest(t *testing.T) {
 			{ID: "shared", SizeBytes: 20, ProtectiveReferences: 3, GameReferences: 1},
 			{ID: "exclusive", SizeBytes: 10, ProtectiveReferences: 2, GameReferences: 2},
 		}, SourceKinds: []string{"IMPORT_RECEIVE", "IMPORT_RECEIVE", "IMPORT_REVIEW", "ADMIN_REPLACE"},
-		Counts: ImpactCounts{SaveStates: 1, Assets: 2, ContentFiles: 3, ActiveLaunches: 4, ActiveNetplay: 5},
+		Counts: ImpactCounts{SaveStates: 1, Assets: 2, ContentFiles: 3, ActiveLaunches: 4},
 	}
 	result, err := NewImpactQueries(impactMemory{snapshot: input}).Game(t.Context(), "game")
 	want := GameImpact{
 		ImpactDigest: result.ImpactDigest, RegisteredBytes: "30", ExclusiveBytes: "10", SharedBytes: "20",
 		BlobCount: 2, SaveStateCount: 1, AssetCount: 2, ContentFileCount: 3, ActiveLaunchCount: 4,
-		ActiveNetplayCount: 5, SourceKinds: []string{"ADMIN_REPLACE", "SERVER_SCAN", "USER_UPLOAD"},
+		SourceKinds: []string{"ADMIN_REPLACE", "SERVER_SCAN", "USER_UPLOAD"},
 	}
 	if err != nil || !reflect.DeepEqual(result, want) {
 		t.Fatalf("wrong deletion impact: %+v %v", result, err)

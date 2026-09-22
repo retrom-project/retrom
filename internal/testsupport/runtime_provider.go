@@ -219,7 +219,7 @@ func insertFixtureTargets(
 		capabilities := map[string]any{
 			"pause": true, "screenshot": true, "checkpoint": true, "standardGamepad": true,
 			"frameCounter": true, "volume": true, "discSwitch": binding.TargetID == "yabause",
-			"nativeSettings": true, "inputFilter": true, "netplayPort": binding.ProviderID == "emulatorjs",
+			"nativeSettings": true, "inputFilter": true,
 			"videoModes": []string{"original"}, "requiresThreads": false, "frameMode": "NONE",
 		}
 		checkpoint := map[string]any{

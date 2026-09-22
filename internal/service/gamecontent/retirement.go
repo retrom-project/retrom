@@ -117,12 +117,6 @@ func retirementState(before RetirementOwner, selected string) (string, bool, err
 	case RetirementPlay:
 		needed = before.State == "ACTIVE"
 		state = "ABANDONED"
-	case RetirementNetplay:
-		needed = before.State != "FINISHED" && before.State != "FAILED"
-		state = "FAILED"
-	case RetirementRoom:
-		needed = before.State == "WAITING" || before.State == "STARTING" || before.State == "RUNNING"
-		state = "ENDED"
 	case RetirementVariant:
 		needed = before.ID != selected
 		state = "BLOCKED"

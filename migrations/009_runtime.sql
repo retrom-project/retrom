@@ -55,75 +55,6 @@ CREATE TABLE play_session_events (
   CHECK(event_kind != 'START' OR accepted_duration_ms = 0)
 );
 
-CREATE TABLE netplay_room_members (
-  id TEXT PRIMARY KEY CHECK(id=lower(id)),
-  room_id TEXT NOT NULL REFERENCES netplay_rooms(id),
-  profile_id TEXT NOT NULL REFERENCES profiles(id),
-  role TEXT NOT NULL CHECK(role IN ('HOST','GUEST')),
-  player_no INTEGER NOT NULL CHECK(player_no BETWEEN 1 AND 4),
-  ready INTEGER NOT NULL DEFAULT 0 CHECK(ready IN (0,1)),
-  version INTEGER NOT NULL DEFAULT 1 CHECK(version>=1),
-  joined_at_ms INTEGER NOT NULL CHECK(joined_at_ms>=0),
-  updated_at_ms INTEGER NOT NULL CHECK(updated_at_ms>=joined_at_ms),
-  left_at_ms INTEGER,
-  leave_reason TEXT CHECK(leave_reason IS NULL OR leave_reason IN ('USER_LEFT','HOST_KICKED','SESSION_ENDED','ROOM_ENDED','AUTH_REVOKED')),
-  UNIQUE(room_id,profile_id),
-  CHECK((role='HOST')=(player_no=1)),
-  CHECK((left_at_ms IS NULL)=(leave_reason IS NULL)),
-  CHECK(left_at_ms IS NULL OR left_at_ms>=joined_at_ms),
-  CHECK(left_at_ms IS NULL OR ready=0)
-);
-
-CREATE TABLE netplay_session_participants (
-  netplay_session_id TEXT NOT NULL REFERENCES netplay_sessions(id),
-  profile_id TEXT NOT NULL REFERENCES profiles(id),
-  room_member_id TEXT NOT NULL REFERENCES netplay_room_members(id),
-  player_no INTEGER NOT NULL CHECK(player_no BETWEEN 1 AND 4),
-  launch_session_id TEXT UNIQUE REFERENCES launch_sessions(id),
-  credential_sha256 BLOB CHECK(credential_sha256 IS NULL OR length(credential_sha256)=32),
-  state TEXT NOT NULL CHECK(state IN (
-    'LOCKED','LAUNCH_READY','RUNTIME_READY','SYNCHRONIZED','CONNECTED','DISCONNECTED','LEFT'
-  )),
-  credential_generation INTEGER NOT NULL DEFAULT 0 CHECK(credential_generation>=0),
-  disconnected_at_ms INTEGER,
-  lease_expires_at_ms INTEGER,
-  version INTEGER NOT NULL DEFAULT 1 CHECK(version>=1),
-  created_at_ms INTEGER NOT NULL CHECK(created_at_ms>=0),
-  updated_at_ms INTEGER NOT NULL CHECK(updated_at_ms>=created_at_ms),
-  PRIMARY KEY(netplay_session_id,profile_id),
-  UNIQUE(netplay_session_id,player_no),
-  UNIQUE(netplay_session_id,room_member_id),
-  CHECK(
-    state='LOCKED' AND launch_session_id IS NULL AND credential_sha256 IS NULL AND credential_generation=0 OR
-    state='LEFT' AND (
-      launch_session_id IS NULL AND credential_sha256 IS NULL AND credential_generation=0 OR
-      launch_session_id IS NOT NULL AND credential_sha256 IS NOT NULL AND credential_generation>=1
-    ) OR
-    state NOT IN ('LOCKED','LEFT') AND launch_session_id IS NOT NULL AND credential_sha256 IS NOT NULL AND credential_generation>=1
-  ),
-  CHECK(
-    state='DISCONNECTED' AND disconnected_at_ms IS NOT NULL AND lease_expires_at_ms IS NOT NULL
-      AND lease_expires_at_ms>=disconnected_at_ms OR
-    state!='DISCONNECTED' AND disconnected_at_ms IS NULL AND lease_expires_at_ms IS NULL
-  )
-);
-
-CREATE TABLE netplay_events (
-  id INTEGER PRIMARY KEY,
-  room_id TEXT NOT NULL REFERENCES netplay_rooms(id),
-  netplay_session_id TEXT REFERENCES netplay_sessions(id),
-  profile_id TEXT REFERENCES profiles(id),
-  player_no INTEGER CHECK(player_no IS NULL OR player_no BETWEEN 1 AND 4),
-  event_type TEXT NOT NULL CHECK(event_type IN (
-    'ROOM_CREATED','GAME_SELECTED','GAME_CLEARED','MEMBER_JOINED','SEAT_CHANGED','READY_CHANGED',
-    'MEMBER_LEFT','MEMBER_KICKED','SESSION_CREATED','SESSION_STATE_CHANGED',
-    'PARTICIPANT_STATE_CHANGED','PAUSED','RESUMED','RESYNCED','ROOM_ENDED','ROOM_EXPIRED'
-  )),
-  result_code TEXT CHECK(result_code IS NULL OR length(CAST(result_code AS BLOB)) BETWEEN 1 AND 64),
-  data_json TEXT NOT NULL CHECK(json_valid(data_json) AND json_type(data_json)='object'),
-  created_at_ms INTEGER NOT NULL CHECK(created_at_ms>=0)
-);
-
 CREATE TABLE "launch_sessions" (
   id TEXT PRIMARY KEY,
   profile_id TEXT NOT NULL REFERENCES profiles(id),
@@ -147,8 +78,8 @@ CREATE TABLE "launch_sessions" (
   hard_expires_at_ms INTEGER NOT NULL,
   created_at_ms INTEGER NOT NULL,
   updated_at_ms INTEGER NOT NULL,
-  version INTEGER NOT NULL DEFAULT 1, initial_disc_index INTEGER NOT NULL DEFAULT 0 CHECK(initial_disc_index BETWEEN 0 AND 7), netplay_session_id TEXT REFERENCES netplay_sessions(id), netplay_player_no INTEGER CHECK(netplay_player_no IS NULL OR netplay_player_no BETWEEN 1 AND 4), save_access TEXT NOT NULL DEFAULT 'NORMAL'
-  CHECK(save_access IN ('NORMAL','NETPLAY_DISABLED')),
+  version INTEGER NOT NULL DEFAULT 1,
+  initial_disc_index INTEGER NOT NULL DEFAULT 0 CHECK(initial_disc_index BETWEEN 0 AND 7),
   FOREIGN KEY(provider_id,target_id) REFERENCES runtime_targets(provider_id,target_id),
   CHECK(hard_expires_at_ms >= bootstrap_expires_at_ms),
   CHECK(state != 'ACTIVE' OR activated_at_ms IS NOT NULL),
@@ -214,79 +145,4 @@ CREATE TABLE "play_sessions" (
   created_at_ms INTEGER NOT NULL,
   updated_at_ms INTEGER NOT NULL,
   CHECK((state = 'ACTIVE') = (ended_at_ms IS NULL))
-);
-
-CREATE TABLE "netplay_rooms" (
-  id TEXT PRIMARY KEY CHECK(id=lower(id)),
-  host_profile_id TEXT NOT NULL REFERENCES profiles(id),
-  state TEXT NOT NULL CHECK(state IN ('DRAFT','WAITING','STARTING','RUNNING','ENDED','EXPIRED')),
-  selected_game_id TEXT REFERENCES games(id),
-  selected_game_variant_id TEXT REFERENCES game_variants(id),
-  netplay_profile_id TEXT,
-  profile_digest TEXT CHECK(profile_digest IS NULL OR profile_digest GLOB '[0-9a-f]*' AND length(profile_digest)=64),
-  max_players INTEGER CHECK(max_players IS NULL OR max_players BETWEEN 2 AND 4),
-  current_session_id TEXT,
-  version INTEGER NOT NULL DEFAULT 1 CHECK(version>=1),
-  expires_at_ms INTEGER NOT NULL CHECK(expires_at_ms>=0),
-  created_at_ms INTEGER NOT NULL CHECK(created_at_ms>=0),
-  updated_at_ms INTEGER NOT NULL CHECK(updated_at_ms>=created_at_ms),
-  ended_at_ms INTEGER,
-  end_reason TEXT CHECK(end_reason IS NULL OR end_reason IN (
-    'NORMAL','USER_EXIT','HOST_CLOSED','HOST_LOST','PEER_TIMEOUT','AUTH_REVOKED','START_TIMEOUT',
-    'PREPARE_FAILED','PROFILE_REVOKED','SERVER_RESTARTED','RESTORE','HARD_EXPIRED',
-    'ROLLBACK_WINDOW_EXCEEDED','STATE_RING_CAPACITY_EXCEEDED','STATE_TRANSFER_TIMEOUT',
-    'STATE_INVALID','NETPLAY_UNSTABLE','PEER_TOO_SLOW','PROTOCOL_VIOLATION','INTERNAL_ERROR','GAME_DELETED',
-    'GAME_CONTENT_REPLACED','BIOS_REPLACED'
-  )),
-  CHECK(
-    selected_game_id IS NULL AND selected_game_variant_id IS NULL AND netplay_profile_id IS NULL
-      AND profile_digest IS NULL AND max_players IS NULL OR
-    selected_game_id IS NOT NULL AND selected_game_variant_id IS NOT NULL AND netplay_profile_id IS NOT NULL
-      AND profile_digest IS NOT NULL AND max_players IS NOT NULL
-  ),
-  CHECK(state!='DRAFT' OR selected_game_id IS NULL),
-  CHECK(state NOT IN ('WAITING','STARTING','RUNNING') OR selected_game_id IS NOT NULL),
-  CHECK((state IN ('STARTING','RUNNING'))=(current_session_id IS NOT NULL)),
-  CHECK((state IN ('ENDED','EXPIRED'))=(ended_at_ms IS NOT NULL)),
-  CHECK((ended_at_ms IS NULL)=(end_reason IS NULL)),
-  CHECK(ended_at_ms IS NULL OR ended_at_ms>=created_at_ms)
-);
-
-CREATE TABLE "netplay_sessions" (
-  id TEXT PRIMARY KEY CHECK(id=lower(id)),
-  room_id TEXT NOT NULL REFERENCES netplay_rooms(id),
-  session_no INTEGER NOT NULL CHECK(session_no>=1),
-  state TEXT NOT NULL CHECK(state IN (
-    'PREPARING','LOADING','SYNCHRONIZING','RUNNING','PAUSED_RECONNECT','RESYNCHRONIZING','FINISHED','FAILED'
-  )),
-  game_id TEXT NOT NULL REFERENCES games(id),
-  game_variant_id TEXT NOT NULL REFERENCES game_variants(id),
-  provider_id TEXT NOT NULL REFERENCES runtime_providers(provider_id),
-  target_id TEXT NOT NULL,
-  bundle_sha256 TEXT NOT NULL CHECK(length(bundle_sha256)=64 AND bundle_sha256=lower(bundle_sha256)),
-  netplay_profile_id TEXT NOT NULL,
-  profile_json TEXT NOT NULL CHECK(json_valid(profile_json) AND json_type(profile_json)='object'),
-  profile_digest TEXT NOT NULL CHECK(profile_digest GLOB '[0-9a-f]*' AND length(profile_digest)=64),
-  player_count INTEGER NOT NULL CHECK(player_count BETWEEN 2 AND 4),
-  occupied_seat_mask INTEGER NOT NULL CHECK(occupied_seat_mask BETWEEN 3 AND 15 AND (occupied_seat_mask & 1)=1),
-  authority_player_no INTEGER NOT NULL DEFAULT 1 CHECK(authority_player_no=1),
-  resync_count INTEGER NOT NULL DEFAULT 0 CHECK(resync_count>=0),
-  version INTEGER NOT NULL DEFAULT 1 CHECK(version>=1),
-  created_at_ms INTEGER NOT NULL CHECK(created_at_ms>=0),
-  updated_at_ms INTEGER NOT NULL CHECK(updated_at_ms>=created_at_ms),
-  started_at_ms INTEGER,
-  finished_at_ms INTEGER,
-  end_reason TEXT CHECK(end_reason IS NULL OR end_reason IN (
-    'NORMAL','USER_EXIT','HOST_CLOSED','HOST_LOST','PEER_TIMEOUT','AUTH_REVOKED','START_TIMEOUT',
-    'PREPARE_FAILED','PROFILE_REVOKED','SERVER_RESTARTED','RESTORE','HARD_EXPIRED',
-    'ROLLBACK_WINDOW_EXCEEDED','STATE_RING_CAPACITY_EXCEEDED','STATE_TRANSFER_TIMEOUT',
-    'STATE_INVALID','NETPLAY_UNSTABLE','PEER_TOO_SLOW','PROTOCOL_VIOLATION','INTERNAL_ERROR','GAME_DELETED',
-    'GAME_CONTENT_REPLACED','BIOS_REPLACED'
-  )),
-  UNIQUE(room_id,session_no),
-  FOREIGN KEY(provider_id,target_id) REFERENCES runtime_targets(provider_id,target_id),
-  CHECK((state IN ('FINISHED','FAILED'))=(finished_at_ms IS NOT NULL)),
-  CHECK((finished_at_ms IS NULL)=(end_reason IS NULL)),
-  CHECK(started_at_ms IS NULL OR started_at_ms>=created_at_ms),
-  CHECK(finished_at_ms IS NULL OR finished_at_ms>=created_at_ms)
 );

@@ -166,7 +166,7 @@ func removeBackupSidecars(staging string) error {
 
 func stageBackupSecrets(configuration config.Maintenance, staging string, manifest *Manifest) error {
 	for _, secret := range []struct{ name, kind string }{
-		{"launch-capability.key", "LAUNCH_KEY"}, {"netplay-capability.key", "NETPLAY_KEY"},
+		{"launch-capability.key", "LAUNCH_KEY"},
 	} {
 		entry, err := copyVerified(
 			filepath.Join(configuration.DataDir, "secrets", secret.name),

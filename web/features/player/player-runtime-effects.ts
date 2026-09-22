@@ -3,7 +3,6 @@
 import { useEffect, type Dispatch, type RefObject, type SetStateAction } from "react";
 import type {PlayerRuntimeV1} from "./runtime/contract";
 import { samplePlayerDebugMetrics, type PlayerDebugMetrics, type PlayerDebugSample } from "./player-debug";
-import type { NetplayController } from "./netplay/controller";
 import { shouldAutoHidePlayerControls } from "./player-controls-visibility";
 
 type Mutable<T> = { current: T };
@@ -12,7 +11,6 @@ type RuntimeEffectParams = {
   state: "loading" | "running" | "error"; debugOpen: boolean; orientationBlocked: boolean;
   runtime: Mutable<PlayerRuntimeV1 | null>; orientationButtonRef: RefObject<HTMLButtonElement | null>;
   running: Mutable<boolean>; pausedRef: Mutable<boolean>; chromePinned: Mutable<boolean>; controlsTimer: Mutable<number | null>;
-  playerMode: Mutable<"single" | "netplay">; netplayController: Mutable<NetplayController | null>;
   clearControlsTimer: () => void; setControlsVisible: Dispatch<SetStateAction<boolean>>; setFullscreen: Dispatch<SetStateAction<boolean>>;
   setDebugOpen: Dispatch<SetStateAction<boolean>>; setDebugMetrics: Dispatch<SetStateAction<PlayerDebugMetrics | null>>;
 };
@@ -51,13 +49,6 @@ export function usePlayerRuntimeEffects(params: RuntimeEffectParams) {
     return () => {window.cancelAnimationFrame(initialFrame); window.clearInterval(timer); window.removeEventListener("resize", sample);};
   }, [params]);
 
-  useEffect(() => {
-    const releaseHidden = () => {if (document.visibilityState === "hidden" && params.playerMode.current === "netplay") {params.netplayController.current?.handleFocusLoss();}};
-    const releaseBlurred = () => {if (params.playerMode.current === "netplay") {params.netplayController.current?.handleFocusLoss();}};
-    document.addEventListener("visibilitychange", releaseHidden);
-    window.addEventListener("blur", releaseBlurred);
-    return () => {document.removeEventListener("visibilitychange", releaseHidden); window.removeEventListener("blur", releaseBlurred);};
-  }, [params]);
 
   function toggleDebug() {
     if (!params.debugOpen) {params.setDebugMetrics(null);}

@@ -78,7 +78,6 @@ type Capabilities struct {
 	DiscSwitch      bool     `json:"discSwitch"`
 	NativeSettings  bool     `json:"nativeSettings"`
 	InputFilter     bool     `json:"inputFilter"`
-	NetplayPort     bool     `json:"netplayPort"`
 	VideoModes      []string `json:"videoModes"`
 	RequiresThreads bool     `json:"requiresThreads"`
 	FrameMode       string   `json:"frameMode"`
@@ -236,7 +235,7 @@ func validManifestRawTarget(value any) bool {
 	capabilities, ok := target["capabilities"].(map[string]any)
 	if !ok || !exactMap(capabilities,
 		"pause", "screenshot", "checkpoint", "standardGamepad", "frameCounter", "volume", "discSwitch",
-		"nativeSettings", "inputFilter", "netplayPort", "videoModes", "requiresThreads", "frameMode") {
+		"nativeSettings", "inputFilter", "videoModes", "requiresThreads", "frameMode") {
 		return false
 	}
 	inputs, ok := target["inputs"].([]any)

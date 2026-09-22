@@ -352,7 +352,7 @@ func (server *Server) deleteAdminGame(writer http.ResponseWriter, request *http.
 	}
 	if result.Replayed {
 		server.replayIdempotentResponse(
-			writer, request, gamecontent.DeleteGameOperation, input.requestDigest,
+			writer, request, input.requestDigest,
 			result.Replay.RequestDigest, result.Replay.HTTPStatus, result.Replay.HeadersJSON, result.Replay.Body,
 		)
 		return

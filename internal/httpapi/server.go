@@ -9,8 +9,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	netplayservice "retrom/internal/service/netplay"
-
 	gamecontentpersistence "retrom/internal/persistence/gamecontent"
 
 	"retrom/internal/composition"
@@ -41,7 +39,6 @@ import (
 	"retrom/internal/hasheous"
 	"retrom/internal/launch"
 	"retrom/internal/libraryimport"
-	"retrom/internal/netplay"
 	favoritepersistence "retrom/internal/persistence/favorites"
 	idempotencypersistence "retrom/internal/persistence/idempotency"
 	mediapersistence "retrom/internal/persistence/mediaaccess"
@@ -158,12 +155,8 @@ type Server struct {
 	idempotencyQueueDrained *sync.Cond
 	authenticator           Authenticator
 	accounts                *accounts.Service
-	netplay                 *netplayservice.Service
 	diagnosticsService      *diagnosticsservice.Service
 	idempotencyService      *idempotencyservice.Service
-	netplayHub              *netplay.Hub
-	netplayObserversMu      sync.Mutex
-	netplayObservers        map[string]int
 	runtimeProvider         http.Handler
 }
 
@@ -180,19 +173,6 @@ func (server *Server) WithRuntimeProvider(
 ) *Server {
 	server.launchSources.WithRuntimeProvider(builder)
 	return server.WithRuntimeProviderHandler(handler)
-}
-
-func (server *Server) WithNetplay(service *netplayservice.Service) *Server {
-	server.netplay = service
-	if server.catalogService != nil {
-		server.catalogService.WithNetplay(service)
-	}
-	server.netplayHub = netplay.NewHub(
-		netplay.HubServices{Sessions: service, Peers: service, Termination: service},
-		netplay.HubOptions{ReconnectLease: server.config.NetplayReconnectLease, Now: server.now},
-	)
-	service.StartMaintenance()
-	return server
 }
 
 func (server *Server) WithReadinessDatabase(database *sql.DB) *Server {
@@ -280,7 +260,7 @@ func New(
 		immersive:           immersive.New(immersivepersistence.New(database)),
 		firmware:            firmwareService,
 		biosService:         composition.NewBIOS(database),
-		catalogService:      composition.NewCatalog(database, nil),
+		catalogService:      composition.NewCatalog(database),
 		serverImports:       serverImportService,
 		sourceImports:       sourceImportService,
 		payloadReleases:     payloadReleaseService,
@@ -300,7 +280,6 @@ func New(
 		tagService:         tagService,
 		now:                now,
 		sseHeartbeat:       15 * time.Second,
-		netplayObservers:   make(map[string]int),
 		idempotencyService: idempotencyservice.New(idempotencypersistence.New(database)),
 		runtimeProvider:    http.NotFoundHandler(),
 	}
@@ -337,10 +316,6 @@ func (server *Server) Close() {
 	server.launcher.Close()
 	server.importDiscards.Close()
 	server.importer.Close()
-	if server.netplay != nil {
-		server.netplayHub.Close()
-		server.netplay.Close()
-	}
 	server.serverImports.Close()
 	server.sourceImports.Close()
 	server.metadata.Close()
@@ -393,9 +368,6 @@ func (server *Server) registerPublicRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("PATCH /api/v1/saves/{saveStateId}", server.patchSave)
 	mux.HandleFunc("DELETE /api/v1/saves/{saveStateId}", server.deleteSave)
 	mux.HandleFunc("POST /api/v1/launches", server.createLaunch)
-	if server.config.NetplayEnabled {
-		server.registerNetplayRoutes(mux)
-	}
 }
 
 func (server *Server) registerAdminAccountRoutes(mux *http.ServeMux) {

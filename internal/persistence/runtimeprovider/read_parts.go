@@ -48,7 +48,6 @@ func (records catalogRecords) TargetReferenced(ctx context.Context, target servi
 		{"review_runtime_screenshots", "provider_id", "target_id"},
 		{"game_variants", "provider_id", "target_id"},
 		{"launch_sessions", "provider_id", "target_id"},
-		{"netplay_sessions", "provider_id", "target_id"},
 		{"source_import_collections", "target_provider_id", "target_id"},
 	}
 	for _, reference := range references {

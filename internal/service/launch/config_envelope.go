@@ -25,10 +25,6 @@ func (service *ConfigIssuer) envelope(id string, snapshot ConfigSnapshot, ticket
 	if err != nil {
 		return Config{}, err
 	}
-	netplay, mode, err := providerNetplay(service.environment.PublicOrigin, source)
-	if err != nil {
-		return Config{}, err
-	}
 	options, err := providerTargetOptions(target.TargetOptionsSchema, source)
 	if err != nil {
 		return Config{}, err
@@ -38,10 +34,10 @@ func (service *ConfigIssuer) envelope(id string, snapshot ConfigSnapshot, ticket
 			ProviderID: source.ProviderID, TargetID: source.TargetID, CoreID: source.CoreID, LaunchPolicy: "SUPPORTED",
 		},
 		Session: runtimelaunch.Session{
-			ID: id, Purpose: source.Purpose, Mode: mode, Title: source.Title, PlatformName: source.PlatformName,
+			ID: id, Purpose: source.Purpose, Mode: "SINGLE", Title: source.Title, PlatformName: source.PlatformName,
 			CoreName: source.CoreName, ReturnTo: source.ReturnTo, Warnings: providerWarnings(source),
 		},
-		Resources: resources, TargetOptions: options, Restore: restore, Netplay: netplay,
+		Resources: resources, TargetOptions: options, Restore: restore,
 	})
 	if err != nil {
 		return Config{}, fmt.Errorf("build Provider launch envelope: %w", err)

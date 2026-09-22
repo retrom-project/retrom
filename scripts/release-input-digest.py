@@ -122,7 +122,6 @@ def release_input_value(versions: list[str], active: str) -> dict[str, object]:
         "passwordBlocklistManifestSha256": sha256(
             (ROOT / "data/auth/password-blocklists/v1/manifest.json").read_bytes()
         ),
-        "netplayManifestSha256": sha256((ROOT / "data/netplay/v2/manifest.json").read_bytes()),
         "runtimeTargetCatalogSha256": sha256(
             (ROOT / "data/runtime-target-bindings/v1/catalog.json").read_bytes()
         ),

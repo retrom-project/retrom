@@ -7,7 +7,6 @@ import type {RuntimeSavePayload} from "./runtime/runtime-actions";
 import { uploadWithProgress, type SaveUploadProgress } from "./upload-with-progress";
 import { maximumManualSaveScreenshotBytes, prepareManualSaveScreenshot } from "./manual-save-screenshot";
 import { reducePlayerOrientation, unlockLandscape, type PlayerOrientationState } from "./orientation";
-import type { NetplayController } from "./netplay/controller";
 import {saveReviewScreenshot} from "./review-preview-screenshot";
 import {GameSaveConflict, isGameSaveConflict} from "./game-save-upload-error";
 import {notifyReviewCheckpoint} from "./review-preview-receipt";
@@ -18,12 +17,10 @@ type Mutable<T> = { current: T };
 type SyncTone = "synced" | "busy" | "warning";
 
 export type PlayerSessionParams = {
-  launchId: string; runtime: Mutable<PlayerRuntimeV1 | null>; playerMode: Mutable<"single" | "netplay">;
-  envelope: Mutable<LaunchEnvelopeV1 | null>;
+  launchId: string; runtime: Mutable<PlayerRuntimeV1 | null>; envelope: Mutable<LaunchEnvelopeV1 | null>;
   sequence: Mutable<number>; started: Mutable<boolean>; finishing: Mutable<boolean>;
   heartbeat: Mutable<number | null>; playEventQueue: Mutable<Promise<void>>; saveUploadQueue: Mutable<Promise<void>>;
   orientationStateRef: Mutable<PlayerOrientationState>; returnTo: Mutable<string>;
-  netplayController: Mutable<NetplayController | null>;
   replaceImmersiveRoute: (url: string) => void;
   setOrientationState: Dispatch<SetStateAction<PlayerOrientationState>>; setSaveUploadProgress: Dispatch<SetStateAction<number | null>>;
   setSyncText: Dispatch<SetStateAction<string>>; setSyncTone: Dispatch<SetStateAction<SyncTone>>;
@@ -116,7 +113,6 @@ async function exitPlayer(params: PlayerSessionParams, sendEvent: (kind: "start"
   params.setOrientationState(exiting.state);
   if (exiting.effects.includes("unlock")) {unlockLandscape();}
   try {
-    if (params.playerMode.current === "netplay") {params.netplayController.current?.end();}
     await params.saveUploadQueue.current;
     await sendEvent("finish");
   } catch { /* expiry is already a terminal server state */ }

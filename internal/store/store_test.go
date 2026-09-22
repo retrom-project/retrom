@@ -35,7 +35,7 @@ func TestMigrationsCreateCurrentSchemaWithoutProductSeeds(t *testing.T) {
 	for _, table := range tables {
 		assertIntegerTimeColumns(t, database.SQL, table)
 	}
-	testassert.Falsef(t, len(tables) != 121, "fresh schema table count = %d", len(tables))
+	testassert.Falsef(t, len(tables) != 116, "fresh schema table count = %d", len(tables))
 	assertColumns(t, database.SQL, "metadata_media_runs", "scrape_run_id", "order_frozen_at_ms", "charged_bytes", "version")
 	assertColumns(t, database.SQL, "scrape_candidate_assets", "media_fetch_job_id", "media_fetch_order",
 		"media_charged_bytes", "media_reserved_bytes")
@@ -57,13 +57,6 @@ func TestMigrationsCreateCurrentSchemaWithoutProductSeeds(t *testing.T) {
 			t.Fatalf("obsolete review screenshot policy remains: %s.%s", removed.table, removed.column)
 		}
 	}
-	assertColumns(t, database.SQL, "netplay_rooms", "host_profile_id", "state", "profile_digest", "expires_at_ms")
-	assertColumns(t, database.SQL, "netplay_room_members", "room_id", "profile_id", "player_no", "ready")
-	assertColumns(t, database.SQL, "netplay_sessions", "provider_id", "target_id", "bundle_sha256",
-		"profile_json", "occupied_seat_mask", "resync_count")
-	assertColumns(t, database.SQL, "netplay_session_participants", "credential_sha256", "lease_expires_at_ms")
-	assertColumns(t, database.SQL, "netplay_events", "event_type", "data_json", "created_at_ms")
-	assertColumns(t, database.SQL, "launch_sessions", "netplay_session_id", "netplay_player_no", "save_access")
 	assertColumns(t, database.SQL, "launch_sessions", "game_id", "core_id", "provider_id",
 		"target_id", "bundle_sha256", "content_kind", "dependency_snapshot_json", "compatibility_code")
 	assertColumns(t, database.SQL, "runtime_providers", "provider_version", "provider_api_version",

@@ -4,14 +4,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AppShell } from "@/components/app-shell";
 import { MobileProfile } from "./mobile-profile";
 
-const state = vi.hoisted(() => ({ pathname: "/", role: "ADMIN", netplayEnabled: false }));
+const state = vi.hoisted(() => ({ pathname: "/", role: "ADMIN", }));
 vi.mock("next/link", () => ({
   default: ({ children, href, ...props }: { children: ReactNode; href: string }) => <a href={href} {...props}>{children}</a>,
   useLinkStatus: () => ({ pending: false }),
 }));
 vi.mock("next/navigation", () => ({ usePathname: () => state.pathname }));
 vi.mock("@/features/auth/auth-provider", () => ({ useAuth: () => ({
-  context: { instanceState: "READY", authenticationState: "AUTHENTICATED", netplayEnabled: state.netplayEnabled,
+  context: { instanceState: "READY", authenticationState: "AUTHENTICATED",
     user: { userId: "one", username: "one", displayName: "玩家", role: state.role } },
   logout: vi.fn(),
 }) }));
@@ -22,7 +22,6 @@ beforeEach(() => {
   phone = true;
   state.pathname = "/";
   state.role = "ADMIN";
-  state.netplayEnabled = false;
   vi.stubGlobal("fetch", vi.fn(async () => new Response(null, { status: 200 })));
   vi.stubGlobal("matchMedia", vi.fn(() => ({
     matches: phone,
@@ -78,15 +77,12 @@ describe("phone application boundary", () => {
     expect(screen.queryByRole("navigation")).not.toBeInTheDocument();
   });
 
-  it("groups personal game tools and honors the netplay feature flag", () => {
-    const view = render(<MobileProfile />);
+  it("groups personal game tools", () => {
+    render(<MobileProfile />);
     for (const label of ["我的收藏", "我的存档", "最近游玩", "账户设置"]) {
       expect(screen.getByRole("link", { name: label })).toBeInTheDocument();
     }
     expect(screen.queryByRole("link", { name: "管理后台" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "联机游玩" })).not.toBeInTheDocument();
-    state.netplayEnabled = true;
-    view.rerender(<MobileProfile />);
-    expect(screen.getByRole("link", { name: "联机游玩" })).toBeInTheDocument();
   });
 });

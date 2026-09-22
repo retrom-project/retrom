@@ -78,17 +78,16 @@ func (writes writes) DeleteGameImpact(
 		return application.DeleteGameImpact{}, fmt.Errorf("read game deletion impact: %w", err)
 	}
 	return application.DeleteGameImpact{
-		ImpactDigest:       impact.ImpactDigest,
-		RegisteredBytes:    impact.RegisteredBytes,
-		ExclusiveBytes:     impact.ExclusiveBytes,
-		SharedBytes:        impact.SharedBytes,
-		BlobCount:          impact.BlobCount,
-		SaveStateCount:     impact.SaveStateCount,
-		AssetCount:         impact.AssetCount,
-		ContentFileCount:   impact.ContentFileCount,
-		ActiveLaunchCount:  impact.ActiveLaunchCount,
-		ActiveNetplayCount: impact.ActiveNetplayCount,
-		SourceKinds:        impact.SourceKinds,
+		ImpactDigest:      impact.ImpactDigest,
+		RegisteredBytes:   impact.RegisteredBytes,
+		ExclusiveBytes:    impact.ExclusiveBytes,
+		SharedBytes:       impact.SharedBytes,
+		BlobCount:         impact.BlobCount,
+		SaveStateCount:    impact.SaveStateCount,
+		AssetCount:        impact.AssetCount,
+		ContentFileCount:  impact.ContentFileCount,
+		ActiveLaunchCount: impact.ActiveLaunchCount,
+		SourceKinds:       impact.SourceKinds,
 	}, nil
 }
 
@@ -140,30 +139,6 @@ version=version+1
 UPDATE play_sessions SET state='ABANDONED',ended_at_ms=?,updated_at_ms=?,version=version+1
 WHERE game_id=? AND state='ACTIVE'`, now, now, gameID); err != nil {
 		return fmt.Errorf("abandon game deletion sessions: %w", err)
-	}
-	if _, err := recordstore.UpdateNetplaySessions(ctx, writes.transaction, recordstore.Update{
-		Set: `
-state='FAILED',finished_at_ms=?,end_reason='GAME_DELETED',updated_at_ms=?,
-version=version+1
-`,
-		Scope: recordstore.Scope{
-			Where: `game_id=? AND state NOT IN ('FINISHED','FAILED')`, Args: []any{gameID},
-		},
-		Values: []any{now, now},
-	}); err != nil {
-		return fmt.Errorf("fail game deletion netplay sessions: %w", err)
-	}
-	if _, err := recordstore.UpdateNetplayRooms(ctx, writes.transaction, recordstore.Update{
-		Set: `
-state='ENDED',ended_at_ms=?,end_reason='GAME_DELETED',updated_at_ms=?,
-version=version+1
-`,
-		Scope: recordstore.Scope{
-			Where: `selected_game_id=? AND state IN ('DRAFT','WAITING','STARTING','RUNNING')`, Args: []any{gameID},
-		},
-		Values: []any{now, now},
-	}); err != nil {
-		return fmt.Errorf("end game deletion netplay rooms: %w", err)
 	}
 	if _, err := sessionstore.ChangeLaunch(ctx, writes.transaction, recordstore.Update{
 		Set: `save_state_id=NULL`,

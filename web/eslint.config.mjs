@@ -65,7 +65,6 @@ export default defineConfig([
     ".next-e2e/**",
     ".next-pfb-*/**",
     ".next-runtime-dev/**",
-    ".next-netplay-*/**",
     "lib/api/generated/**",
     "playwright-report/**",
     "test-results/**",

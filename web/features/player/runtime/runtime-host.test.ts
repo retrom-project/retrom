@@ -112,11 +112,11 @@ describe("RuntimeHostV1", () => {
 
 function envelope(): LaunchEnvelopeV1 {
   return {
-    netplay: null, resources: [], restore: null, schemaVersion: 1,
+    resources: [], restore: null, schemaVersion: 1,
     runtime: {
       bundleSha256: "b".repeat(64), capabilities: {
         checkpoint: true, frameCounter: false, frameMode: "SAME_ORIGIN_BLANK", pause: true,
-        discSwitch: false, inputFilter: false, nativeSettings: false, netplayPort: false,
+        discSwitch: false, inputFilter: false, nativeSettings: false,
         requiresThreads: false, screenshot: true, standardGamepad: true,
         videoModes: [], volume: true,
       }, checkpoint: {maxBytes: 1024, readFormats: ["fixture-v1"], writeFormat: "fixture-v1"},

@@ -19,7 +19,6 @@ func (server *Server) platforms(writer http.ResponseWriter, request *http.Reques
 		for _, core := range platform.Cores {
 			cores = append(cores, map[string]any{
 				"id": core.ID, "name": core.Name, "enabled": core.Enabled,
-				"netplaySupported": core.NetplaySupported,
 			})
 		}
 		items = append(items, map[string]any{

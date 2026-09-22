@@ -282,7 +282,7 @@ func validIdempotencyKey(value string) bool {
 }
 
 func (server *Server) createSaveState(writer http.ResponseWriter, request *http.Request) {
-	if server.rejectNetplaySave(writer, request) {
+	if server.rejectInvalidSaveSession(writer, request) {
 		return
 	}
 	key := request.Header.Get("Idempotency-Key")
@@ -346,7 +346,7 @@ func writeSaveStateResult(
 }
 
 func (server *Server) checkpointStatus(writer http.ResponseWriter, request *http.Request) {
-	if server.rejectNetplaySave(writer, request) {
+	if server.rejectInvalidSaveSession(writer, request) {
 		return
 	}
 	result, err := server.saveService.CheckpointStatus(
@@ -363,23 +363,19 @@ func (server *Server) checkpointStatus(writer http.ResponseWriter, request *http
 	writeJSON(writer, http.StatusOK, result)
 }
 
-func (server *Server) rejectNetplaySave(writer http.ResponseWriter, request *http.Request) bool {
-	access, err := server.launcher.SaveAccess(
+func (server *Server) rejectInvalidSaveSession(writer http.ResponseWriter, request *http.Request) bool {
+	err := server.launcher.AuthorizeSave(
 		request.Context(), request.PathValue("launchId"), server.launchCapability(request),
 	)
 	if err != nil {
 		writeError(writer, request, http.StatusUnauthorized, "LAUNCH_CREDENTIAL_INVALID", "启动会话不可用", map[string]any{})
 		return true
 	}
-	if access == "NETPLAY_DISABLED" {
-		writeError(writer, request, http.StatusConflict, "NETPLAY_SAVE_UNSUPPORTED", "联机模式不支持存档", map[string]any{})
-		return true
-	}
 	return false
 }
 
 func (server *Server) launchState(writer http.ResponseWriter, request *http.Request) {
-	if server.rejectNetplaySave(writer, request) {
+	if server.rejectInvalidSaveSession(writer, request) {
 		return
 	}
 	if rejectMultipleRanges(writer, request) {

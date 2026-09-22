@@ -43,11 +43,6 @@ func applyChangedProjection(
 	change Publication,
 	changed []string,
 ) error {
-	for _, providerID := range changed {
-		if err := records.TerminateSessions(ctx, providerID, change.AtMS); err != nil {
-			return fmt.Errorf("terminate changed provider sessions: %w", err)
-		}
-	}
 	if err := records.Publish(ctx, change); err != nil {
 		return fmt.Errorf("publish runtime catalog: %w", err)
 	}

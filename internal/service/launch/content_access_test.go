@@ -45,7 +45,7 @@ func matchTestCapability(capability string, hash []byte) bool {
 func activeSession() SessionRecord {
 	return SessionRecord{
 		State: "ACTIVE", HardExpiresAtMS: 101, CredentialHash: []byte("hash"),
-		ProviderID: "provider", TargetID: "target", BundleSHA256: "frozen", SaveAccess: "NORMAL",
+		ProviderID: "provider", TargetID: "target", BundleSHA256: "frozen",
 	}
 }
 

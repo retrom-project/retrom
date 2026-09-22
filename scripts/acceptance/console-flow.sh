@@ -13,7 +13,7 @@ case "$fixture_id" in
     fixture_builder="$repository_root/testdata/public-roms/nes-smoke/build.py"
     expected_size=24592
     expected_sha256="6b5224f3227879472e19e4d419008d77e69296140205771fd2df8370f18a01f8"
-    logical_name="Retrom FCEUmm Netplay Smoke.nes"
+    logical_name="Retrom FCEUmm Smoke.nes"
     ;;
   nestopia)
     platform_id="nes"
@@ -22,7 +22,7 @@ case "$fixture_id" in
     fixture_builder="$repository_root/testdata/public-roms/nes-smoke/build.py"
     expected_size=24592
     expected_sha256="ab4adf02261946fbb80bb8a2141908589fd6cd7a32408875d7541eb94efc61ff"
-    logical_name="Retrom Nestopia Netplay Smoke.nes"
+    logical_name="Retrom Nestopia Smoke.nes"
     ;;
   snes9x)
     platform_id="snes"
@@ -31,14 +31,14 @@ case "$fixture_id" in
     fixture_builder="$repository_root/testdata/public-roms/snes-smoke/build.py"
     expected_size=32768
     expected_sha256="408574e6a6b7db1273e21142789bc50e5a1acb529bcf61c059cced5cfe1082db"
-    logical_name="Retrom SNES9x Netplay Smoke.sfc"
+    logical_name="Retrom SNES9x Smoke.sfc"
     ;;
   *)
-    echo "usage: netplay-nes-flow.sh [fceumm|nestopia|snes9x]" >&2
+    echo "usage: console-flow.sh [fceumm|nestopia|snes9x]" >&2
     exit 2
     ;;
 esac
-evidence="$(mktemp -d "$repository_root/.cache/retrom/acceptance/netplay-${fixture_id}-flow-XXXXXX")"
+evidence="$(mktemp -d "$repository_root/.cache/retrom/acceptance/console-${fixture_id}-flow-XXXXXX")"
 
 python3 "$fixture_builder" --check
 size="$(stat -c %s "$fixture")"
@@ -69,7 +69,7 @@ if [[ -z "$platform_instance_id" ]]; then
   platform_instance_id="$(jq -er .id <<<"$platform_instance")"
 fi
 
-upload_body="$(jq -nc --argjson size "$size" --arg path "$logical_name" '{sourceType:"FILES",files:[{clientFileId:"netplay-fixture",relativePath:$path,sizeBytes:$size}]}')"
+upload_body="$(jq -nc --argjson size "$size" --arg path "$logical_name" '{sourceType:"FILES",files:[{clientFileId:"console-fixture",relativePath:$path,sizeBytes:$size}]}')"
 upload="$(curl --fail --silent --show-error "${common[@]}" "${write[@]}" -H "Content-Type: application/json" -H "Idempotency-Key: $(new_id)" -d "$upload_body" "$backend/api/v1/admin/uploads")"
 upload_id="$(jq -r .uploadId <<<"$upload")"
 file_id="$(jq -r '.files[0].fileId' <<<"$upload")"

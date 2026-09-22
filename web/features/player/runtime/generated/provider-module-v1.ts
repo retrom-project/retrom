@@ -1,7 +1,7 @@
 export type ProviderApiVersionV1 = 1;
 
 export type RuntimePurposeV1 = "PRODUCT" | "REVIEW_PREVIEW";
-export type RuntimeModeV1 = "SINGLE" | "NETPLAY";
+export type RuntimeModeV1 = "SINGLE";
 export type RuntimeStateV1 = "CREATED" | "MOUNTING" | "RUNNING" | "PAUSED" |
   "CHECKPOINTING" | "EXITING" | "EXITED" | "FAILED";
 export type RuntimeFrameModeV1 =
@@ -26,7 +26,6 @@ export type RuntimeCapabilitiesV1 = {
   discSwitch: boolean;
   nativeSettings: boolean;
   inputFilter: boolean;
-  netplayPort: boolean;
   videoModes: RuntimeVideoModeV1[];
   requiresThreads: boolean;
   frameMode: RuntimeFrameModeV1;
@@ -101,17 +100,6 @@ export type RuntimeEventV1 =
 
 export type RuntimeEventListenerV1 = (event: RuntimeEventV1) => void;
 
-export interface RuntimeNetplayPortV1 {
-  readonly controlCount: number;
-  pauseAtBoundary(): Promise<number>;
-  captureState(frame: number): Promise<Uint8Array>;
-  loadStateAndWait(state: Uint8Array, frame: number): Promise<void>;
-  runFrame(controls: Int16Array, frame: number, suppressOutput: boolean): Promise<void>;
-  sampleLocalControls(): Int16Array;
-  resetLocalControls(): void;
-  close(): Promise<void>;
-}
-
 export interface PlayerRuntimeV1 {
   mount(target: HTMLElement): Promise<void>;
   pause(): Promise<void>;
@@ -127,7 +115,6 @@ export interface PlayerRuntimeV1 {
   getDiscState(): Promise<RuntimeDiscStateV1>;
   switchDisc(index: number): Promise<RuntimeDiscStateV1>;
   setInputFilter(policy: RuntimeInputFilterPolicyV1 | null): Promise<void>;
-  getNetplayPort(): Promise<RuntimeNetplayPortV1>;
   getState(): RuntimeStateV1;
   getCapabilities(): RuntimeCapabilitiesV1;
   getCheckpointAvailability(): RuntimeCheckpointAvailabilityV1;
@@ -197,33 +184,6 @@ export type RuntimeJSONValueV1 = null | boolean | string | number |
   RuntimeJSONValueV1[] | { [key: string]: RuntimeJSONValueV1 };
 export type TargetOptionsV1 = { [key: string]: RuntimeJSONValueV1 };
 
-export type NetplayProfileV2 = {
-  bundleSha256: string;
-  canonicalHistoryFrames: 600;
-  checkpointEveryFrames: 120;
-  controlCount: 24;
-  coreId: string;
-  dependencySnapshotDigest: string;
-  maxPlayers: number;
-  maxPredictionFrames: number;
-  maxRollbackFrames: 120;
-  maxStateBytes: 1048576;
-  platformIds: string[];
-  profileId: string;
-  protocolVersion: "retrom-netplay-v2";
-  providerId: string;
-  schemaVersion: 2;
-  sourceManifestDigest: string;
-  targetId: string;
-};
-export type RuntimeNetplayV1 = {
-  roomId: string;
-  sessionId: string;
-  playerNo: number;
-  socketUrl: string;
-  profile: NetplayProfileV2;
-};
-
 export type LaunchEnvelopeV1 = {
   schemaVersion: 1;
   session: {
@@ -252,7 +212,6 @@ export type LaunchEnvelopeV1 = {
   resources: RuntimeResourceV1[];
   targetOptions: TargetOptionsV1;
   restore: RestoreDescriptorV1 | null;
-  netplay: RuntimeNetplayV1 | null;
 };
 
 export type ProviderLaunchRequestV1 = LaunchEnvelopeV1;

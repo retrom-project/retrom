@@ -38,7 +38,7 @@ func TestResourceQueriesPreserveCancellation(t *testing.T) {
 
 func cancelledResourceQueries(service *Service) map[string]func(context.Context) error {
 	return map[string]func(context.Context) error{
-		"save": func(ctx context.Context) error { _, err := service.SaveAccess(ctx, "id", "capability"); return err },
+		"save": func(ctx context.Context) error { return service.AuthorizeSave(ctx, "id", "capability") },
 		"content": func(ctx context.Context) error {
 			_, err := service.Content(ctx, "id", "capability", "file")
 			return err

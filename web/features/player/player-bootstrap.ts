@@ -4,19 +4,15 @@ import type {CheckpointSemantics} from "./checkpoint-semantics";
 
 import {useEffect, type Dispatch, type RefObject, type SetStateAction} from "react";
 import {getImmersiveAudioPreferences} from "@/features/immersive/immersive-audio-preferences";
-import {sha256} from "@/lib/crypto";
 import type {ImmersiveGamepadFilter} from "./immersive-gamepad-filter";
 import type {MultiDiscPlayerEvent} from "./multi-disc-telemetry";
-import {NetplayController} from "./netplay/controller";
-import {parseNetplayProfile, type NetplayProfile} from "./netplay/controller-model";
-import {mobilePlayerQuery, portraitPlayerQuery, reducePlayerOrientation, waitForStableLandscape, type PlayerOrientationState, type PlayerRuntimeKind} from "./orientation";
+import {mobilePlayerQuery, portraitPlayerQuery, reducePlayerOrientation, waitForStableLandscape, type PlayerOrientationState} from "./orientation";
 import {useSerializedPlayerBootstrap} from "./player-bootstrap-lifecycle";
 import {productCheckpointPresentation} from "./player-checkpoint-availability";
 import type {PlayerDebugRuntime} from "./player-chrome";
 import type {PlayerLoadProgress} from "./player-loading";
 import type {LaunchEnvelopeV1, PlayerRuntimeV1, RuntimeDiscStateV1, RuntimeEventV1, RuntimeFinalSnapshotV1, RuntimeVideoModeV1} from "./runtime/contract";
 import {parseLaunchEnvelopeJSON} from "./runtime/envelope";
-import {RuntimeNetplayPortAdapter} from "./runtime/netplay-port-adapter";
 import {mountProviderRuntime, type RuntimeController} from "./runtime/runtime-controller";
 import {installRuntimeE2EDiagnostics} from "./runtime/e2e-diagnostics";
 import {installRuntimeSurfaceControls} from "./runtime/surface-controls";
@@ -34,7 +30,6 @@ export type PlayerBootstrapParams = {
   runtimeController: Mutable<RuntimeController | null>;
   envelope: Mutable<LaunchEnvelopeV1 | null>;
   returnTo: Mutable<string>;
-  playerMode: Mutable<"single" | "netplay">;
   manualSaveAvailableRef: Mutable<boolean>;
   dosProgramMenuRef: Mutable<boolean>;
   orientationStateRef: Mutable<PlayerOrientationState>;
@@ -44,14 +39,11 @@ export type PlayerBootstrapParams = {
   finishing: Mutable<boolean>;
   heartbeat: Mutable<number | null>;
   toastTimer: Mutable<number | null>;
-  netplayController: Mutable<NetplayController | null>;
-  netplayPausedRef: Mutable<boolean>;
   setMessage: Dispatch<SetStateAction<string>>;
   setLoadProgress: Dispatch<SetStateAction<PlayerLoadProgress | null>>;
   setState: Dispatch<SetStateAction<ShellState>>;
   setManualSaveAvailable: Dispatch<SetStateAction<boolean>>;
   setDosProgramMenu: Dispatch<SetStateAction<boolean>>;
-  setNetplayPlayerNo: Dispatch<SetStateAction<number | null>>;
   setWarnings: Dispatch<SetStateAction<string[]>>;
   setGameTitle: Dispatch<SetStateAction<string>>;
   setCheckpointSemantics?: Dispatch<SetStateAction<CheckpointSemantics>>;
@@ -65,7 +57,6 @@ export type PlayerBootstrapParams = {
   setEmulatorVolume: Dispatch<SetStateAction<number>>;
   setEmulatorMuted: Dispatch<SetStateAction<boolean>>;
   setPaused: Dispatch<SetStateAction<boolean>>;
-  setNetplayPaused: Dispatch<SetStateAction<boolean>>;
   setReviewScreenshotAvailable: Dispatch<SetStateAction<boolean>>;
   setPlayerReturnTo: Dispatch<SetStateAction<string>>;
   reportPlayerEvent: (event: MultiDiscPlayerEvent) => void;
@@ -82,7 +73,6 @@ type BootstrapResources = {
   controller?: RuntimeController;
   surfaceControlsCleanup?: () => void;
   inputSubscription?: () => void;
-  netplayController?: NetplayController;
   e2eDiagnosticsCleanup?: () => void;
 };
 
@@ -108,7 +98,7 @@ async function bootstrapPlayer(params: PlayerBootstrapParams, resources: Bootstr
   const envelope = parseLaunchEnvelopeJSON(await response.text());
   validateExperience(params.experience, envelope);
   applyEnvelope(params, envelope);
-  await prepareOrientation(params, envelope, abort.signal);
+  await prepareOrientation(params, abort.signal);
   if (!params.stage.current) {throw new Error("PLAYER_RUNTIME_FRAME_INVALID");}
 
   const mounted = await mountProviderRuntime(envelope, params.stage.current, {
@@ -133,7 +123,7 @@ async function bootstrapPlayer(params: PlayerBootstrapParams, resources: Bootstr
     onShowControls: params.onShowControls,
     onSurface: params.onGameSurface,
   });
-  await configureMountedRuntime(params, resources, envelope, mounted.runtime);
+  await configureMountedRuntime(params, resources, mounted.runtime);
 }
 
 function applyEnvelope(params: PlayerBootstrapParams, envelope: LaunchEnvelopeV1) {
@@ -141,8 +131,6 @@ function applyEnvelope(params: PlayerBootstrapParams, envelope: LaunchEnvelopeV1
   params.returnTo.current = envelope.session.returnTo;
   params.setPlayerReturnTo(envelope.session.returnTo);
   params.setReviewScreenshotAvailable(envelope.session.purpose === "REVIEW_PREVIEW" && envelope.runtime.capabilities.screenshot);
-  params.playerMode.current = envelope.session.mode === "NETPLAY" ? "netplay" : "single";
-  params.setNetplayPlayerNo(envelope.netplay?.playerNo ?? null);
   params.setWarnings(envelope.session.warnings);
   params.setGameTitle(envelope.session.title);
   params.setCoreName(envelope.session.coreName);
@@ -170,7 +158,6 @@ function applyEnvelope(params: PlayerBootstrapParams, envelope: LaunchEnvelopeV1
 async function configureMountedRuntime(
   params: PlayerBootstrapParams,
   resources: BootstrapResources,
-  envelope: LaunchEnvelopeV1,
   runtime: PlayerRuntimeV1,
 ) {
   const capabilities = runtime.getCapabilities();
@@ -196,10 +183,6 @@ async function configureMountedRuntime(
     params.setDiscState(disc);
     params.reportPlayerEvent({eventType: "START", resultCode: "OK", discCount: disc.count, observedDiscCount: disc.count});
   }
-  if (envelope.session.mode === "NETPLAY") {
-    await startNetplay(params, resources, envelope, runtime);
-    return;
-  }
   await completeSingleStart(params);
 }
 
@@ -213,51 +196,6 @@ async function completeSingleStart(params: PlayerBootstrapParams) {
   const canSave = availability.available;
   updateCheckpointAvailability(params, canSave);
   params.heartbeat.current = window.setInterval(() => {void params.sendEvent("heartbeat");}, 30_000);
-}
-
-async function startNetplay(
-  params: PlayerBootstrapParams,
-  resources: BootstrapResources,
-  envelope: LaunchEnvelopeV1,
-  runtime: PlayerRuntimeV1,
-) {
-  const netplay = envelope.netplay;
-  if (!netplay) {throw new Error("PLAYER_NETPLAY_CONFIG_INVALID");}
-  const profile = parseNetplayProfile(netplay.profile);
-  const profileDigest = await digestProfile(profile);
-  const port = new RuntimeNetplayPortAdapter(await runtime.getNetplayPort());
-  const config = {
-    roomId: netplay.roomId, sessionId: netplay.sessionId, playerNo: netplay.playerNo,
-    runtimeSocketUrl: netplay.socketUrl, netplayProfile: profile,
-  };
-  const holder: {current?: NetplayController} = {};
-  const current = () => params.netplayController.current === holder.current;
-  const controller = new NetplayController(config, profileDigest, port, {
-    onStatus: (text, tone) => {if (current()) {params.setSyncText(text); params.setSyncTone(tone);}},
-    onRunning: () => {
-      if (!current()) {return;}
-      params.netplayPausedRef.current = false;
-      params.setNetplayPaused(false);
-      applyStartedOrientation(params);
-      if (params.started.current) {return;}
-      void params.sendEvent("start").then(() => {
-        params.setState("running");
-        params.heartbeat.current = window.setInterval(() => {void params.sendEvent("heartbeat");}, 30_000);
-      }).catch(() => {params.setState("error"); params.setMessage("PLAY_SESSION_EVENT_FAILED");});
-    },
-    onPaused: () => {if (current()) {params.netplayPausedRef.current = true; params.setNetplayPaused(true);}},
-    onEnded: (reason) => {
-      if (!current()) {return;}
-      params.setSyncText("联机已结束"); params.setSyncTone("warning"); params.setMessage(reason);
-      void params.sendEvent("finish").catch(() => undefined)
-        .finally(() => window.setTimeout(() => window.location.replace(params.returnTo.current), 600));
-    },
-  });
-  holder.current = controller;
-  resources.netplayController = controller;
-  params.netplayController.current = controller;
-  params.setMessage("正在建立联机同步屏障…");
-  await controller.start();
 }
 
 function handleRuntimeEvent(event: RuntimeEventV1, params: PlayerBootstrapParams) {
@@ -283,21 +221,17 @@ function updateCheckpointAvailability(params: PlayerBootstrapParams, available: 
   if (params.envelope.current?.runtime.checkpoint?.semantics === "GAME_SAVE") {return;}
   params.manualSaveAvailableRef.current = available;
   params.setManualSaveAvailable(available);
-  if (params.playerMode.current === "single") {
-    const presentation = productCheckpointPresentation(available);
-    params.setSyncText(presentation.text);
-    params.setSyncTone(presentation.tone);
-  }
+  const presentation = productCheckpointPresentation(available);
+  params.setSyncText(presentation.text);
+  params.setSyncTone(presentation.tone);
 }
 
-async function prepareOrientation(params: PlayerBootstrapParams, envelope: LaunchEnvelopeV1, signal: AbortSignal) {
+async function prepareOrientation(params: PlayerBootstrapParams, signal: AbortSignal) {
   if (typeof window.matchMedia !== "function") {return;}
   const mobile = window.matchMedia(mobilePlayerQuery);
   const portrait = window.matchMedia(portraitPlayerQuery);
-  const kind: PlayerRuntimeKind = envelope.session.mode === "SINGLE" ? "single" :
-    envelope.netplay?.playerNo === 1 ? "netplay-p1" : "netplay-p2";
   let transition = reducePlayerOrientation(params.orientationStateRef.current, {
-    type: "config-ready", mobile: mobile.matches, portrait: portrait.matches, runtimeKind: kind,
+    type: "config-ready", mobile: mobile.matches, portrait: portrait.matches,
   });
   params.orientationStateRef.current = transition.state;
   params.setOrientationState(transition.state);
@@ -327,12 +261,6 @@ function validateExperience(experience: "standard" | "immersive", envelope: Laun
   }
 }
 
-async function digestProfile(profile: NetplayProfile) {
-  const bytes = new TextEncoder().encode(JSON.stringify(profile));
-  const digest = await sha256(bytes);
-  return [...digest].map((value) => value.toString(16).padStart(2, "0")).join("");
-}
-
 function handleBootstrapError(error: unknown, abort: AbortController, params: PlayerBootstrapParams) {
   if (abort.signal.aborted) {return;}
   const code = error instanceof Error ? error.message : "PLAYER_RUNTIME_FAILED";
@@ -345,8 +273,6 @@ async function cleanupBootstrap(params: PlayerBootstrapParams, resources: Bootst
   resources.surfaceControlsCleanup?.();
   resources.inputSubscription?.();
   resources.e2eDiagnosticsCleanup?.();
-  resources.netplayController?.dispose();
-  if (params.netplayController.current === resources.netplayController) {params.netplayController.current = null;}
   if (params.heartbeat.current !== null) {window.clearInterval(params.heartbeat.current); params.heartbeat.current = null;}
   if (params.toastTimer.current !== null) {window.clearTimeout(params.toastTimer.current); params.toastTimer.current = null;}
   await resources.controller?.exit().catch(() => undefined);

@@ -20,10 +20,10 @@ func (repository *SessionQueries) Session(
 	ctx context.Context,
 	ref application.SessionRef,
 ) (application.SessionRecord, bool, error) {
-	query := `SELECT credential_sha256,state,hard_expires_at_ms,provider_id,target_id,bundle_sha256,save_access
+	query := `SELECT credential_sha256,state,hard_expires_at_ms,provider_id,target_id,bundle_sha256
  FROM launch_sessions WHERE id=?`
 	if ref.Preview {
-		query = `SELECT credential_sha256,state,hard_expires_at_ms,provider_id,target_id,bundle_sha256,'NORMAL'
+		query = `SELECT credential_sha256,state,hard_expires_at_ms,provider_id,target_id,bundle_sha256
  FROM review_preview_sessions WHERE id=?`
 	}
 	return scanSession(repository.executor.QueryRowContext(ctx, query, ref.ID))
@@ -31,10 +31,10 @@ func (repository *SessionQueries) Session(
 
 func (repository *SessionQueries) SaveSession(ctx context.Context, id string) (application.SessionRecord, bool, error) {
 	return scanSession(repository.executor.QueryRowContext(ctx, `
- SELECT credential_sha256,state,hard_expires_at_ms,provider_id,target_id,bundle_sha256,save_access
+ SELECT credential_sha256,state,hard_expires_at_ms,provider_id,target_id,bundle_sha256
  FROM launch_sessions WHERE id=?
  UNION ALL
- SELECT credential_sha256,state,hard_expires_at_ms,provider_id,target_id,bundle_sha256,'NORMAL'
+ SELECT credential_sha256,state,hard_expires_at_ms,provider_id,target_id,bundle_sha256
  FROM review_preview_sessions WHERE id=?
  `, id, id))
 }
@@ -42,7 +42,7 @@ func (repository *SessionQueries) SaveSession(ctx context.Context, id string) (a
 func scanSession(row dbexec.Scanner) (application.SessionRecord, bool, error) {
 	var result application.SessionRecord
 	err := row.Scan(&result.CredentialHash, &result.State, &result.HardExpiresAtMS,
-		&result.ProviderID, &result.TargetID, &result.BundleSHA256, &result.SaveAccess)
+		&result.ProviderID, &result.TargetID, &result.BundleSHA256)
 	if errors.Is(err, sql.ErrNoRows) {
 		return application.SessionRecord{}, false, nil
 	}

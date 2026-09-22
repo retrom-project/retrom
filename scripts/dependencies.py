@@ -24,8 +24,6 @@ REPOSITORY_ROOT = Path(__file__).resolve().parent.parent
 DATA_ROOT = Path(os.environ.get("RETROM_DEPENDENCY_ROOT", REPOSITORY_ROOT / "data")).resolve()
 AUTH_ROOT = DATA_ROOT / "auth/password-blocklists/v1"
 AUTH_MANIFEST_PATH = AUTH_ROOT / "manifest.json"
-NETPLAY_MANIFEST_PATH = DATA_ROOT / "netplay/v2/manifest.json"
-NETPLAY_SCHEMA_PATH = DATA_ROOT / "netplay/v2/schema.json"
 TARGET_CATALOG_ROOT = DATA_ROOT / "runtime-target-bindings/v1"
 TARGET_CATALOG_PATH = TARGET_CATALOG_ROOT / "catalog.json"
 TARGET_CATALOG_SCHEMA_PATH = TARGET_CATALOG_ROOT / "schema.json"
@@ -258,48 +256,6 @@ def load_auth_manifest() -> dict[str, Any]:
     return manifest
 
 
-def validate_netplay_manifest() -> None:
-    manifest = load_json(NETPLAY_MANIFEST_PATH)
-    catalog = load_json(TARGET_CATALOG_PATH)
-    if manifest.get("schemaVersion") != 5 or not NETPLAY_SCHEMA_PATH.is_file():
-        raise CheckError("NETPLAY_MANIFEST_INVALID")
-    expected_protocol = {
-        "version": "retrom-netplay-v2", "controlCount": 24, "checkpointEveryFrames": 120,
-        "maxPredictionFrames": 8, "maxRollbackFrames": 120,
-        "canonicalHistoryFrames": 600, "maxStateBytes": 1_048_576,
-        "allowedContentKinds": ["SINGLE_FILE"],
-    }
-    if manifest.get("protocol") != expected_protocol or catalog.get("schemaVersion") != 1:
-        raise CheckError("NETPLAY_MANIFEST_INVALID")
-    bindings = catalog.get("bindings")
-    profiles = manifest.get("profiles")
-    if not isinstance(bindings, list) or not isinstance(profiles, list) or len(profiles) != 8:
-        raise CheckError("NETPLAY_MANIFEST_INVALID")
-    seen: set[str] = set()
-    for profile in profiles:
-        if not valid_netplay_profile(profile, bindings) or profile["id"] in seen:
-            raise CheckError("NETPLAY_MANIFEST_INVALID")
-        seen.add(profile["id"])
-
-
-def valid_netplay_profile(profile: object, bindings: list[object]) -> bool:
-    fields = {
-        "id", "providerId", "targetId", "coreId", "platformIds",
-        "maxPlayers", "maxPredictionFrames",
-    }
-    if not isinstance(profile, dict) or set(profile) != fields or profile.get("providerId") != "emulatorjs" or \
-            not isinstance(profile.get("platformIds"), list) or not 2 <= profile.get("maxPlayers", 0) <= 4 or \
-            not 0 <= profile.get("maxPredictionFrames", -1) <= 8:
-        return False
-    return any(
-        isinstance(binding, dict) and binding.get("providerId") == profile["providerId"] and
-        binding.get("targetId") == profile["targetId"] and binding.get("coreId") == profile["coreId"] and
-        "SINGLE_FILE" in binding.get("acceptedContentKinds", []) and
-        all(platform in binding.get("platformIds", []) for platform in profile["platformIds"])
-        for binding in bindings
-    )
-
-
 def check_dat_payload(version: str, manifest: dict[str, Any]) -> None:
     root = DATA_ROOT / "dat" / "emulatorjs" / version
     for core in manifest["cores"]:
@@ -435,8 +391,6 @@ def image_export_entries(
     for key in ("passwords", "license"):
         relative = safe_relative_path(auth_manifest[key]["output_relative_path"], "AUTH_BLOCKLIST_PATH_INVALID")
         add(AUTH_ROOT / relative, f"auth/password-blocklists/v1/{relative}")
-    add(NETPLAY_MANIFEST_PATH, "netplay/v2/manifest.json")
-    add(NETPLAY_SCHEMA_PATH, "netplay/v2/schema.json")
     add(TARGET_CATALOG_PATH, "runtime-target-bindings/v1/catalog.json")
     add(TARGET_CATALOG_SCHEMA_PATH, "runtime-target-bindings/v1/schema.json")
     return result
@@ -485,7 +439,6 @@ def main() -> int:
         versions = parse_versions(args.versions)
         manifests = [load_manifest(version) for version in versions]
         auth_manifest = load_auth_manifest()
-        validate_netplay_manifest()
         if args.action == "prepare":
             for version, manifest in zip(versions, manifests, strict=True):
                 prepare_dat(version, manifest)

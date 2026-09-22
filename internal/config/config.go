@@ -28,13 +28,8 @@ var knownVariables = map[string]struct{}{
 	"RETROM_PROVIDER_ACTIVE_PATH": {}, "RETROM_PROVIDER_INSTALLED_ROOT": {},
 	"RETROM_PROVIDER_DEV_ROOT":     {},
 	"RETROM_STARTUP_CHECK_TIMEOUT": {}, "RETROM_LOG_LEVEL": {},
-	"RETROM_MULTI_DISC_IMPORT_ENABLED":    {},
-	"RETROM_PFB_ID":                       {},
-	"RETROM_NETPLAY_ENABLED":              {},
-	"RETROM_NETPLAY_MAX_ACTIVE_ROOMS":     {},
-	"RETROM_NETPLAY_ROOM_IDLE_DRAFT_MS":   {},
-	"RETROM_NETPLAY_ROOM_IDLE_WAITING_MS": {},
-	"RETROM_NETPLAY_RECONNECT_LEASE_MS":   {},
+	"RETROM_MULTI_DISC_IMPORT_ENABLED": {},
+	"RETROM_PFB_ID":                    {},
 }
 
 var ignoredPrefixes = []string{
@@ -59,11 +54,6 @@ type Config struct {
 	StartupCheckTimeout      time.Duration
 	LogLevel                 string
 	MultiDiscImportEnabled   bool
-	NetplayEnabled           bool
-	NetplayMaxActiveRooms    int
-	NetplayRoomIdleDraft     time.Duration
-	NetplayRoomIdleWaiting   time.Duration
-	NetplayReconnectLease    time.Duration
 	PFBID                    string
 }
 
@@ -156,10 +146,6 @@ func Load(mode Mode) (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
-	netplay, err := loadNetplayConfig()
-	if err != nil {
-		return Config{}, err
-	}
 	providerActivePath, err := checkedAbsolutePath(
 		"RETROM_PROVIDER_ACTIVE_PATH", os.Getenv("RETROM_PROVIDER_ACTIVE_PATH"),
 	)
@@ -186,11 +172,7 @@ func Load(mode Mode) (Config, error) {
 		RuntimeTargetCatalogPath: filepath.Join(base.dependencyRoot, "runtime-target-bindings", "v1", "catalog.json"),
 		TrustedProxies:           network.proxies, StartupCheckTimeout: runtimeOptions.startupTimeout,
 		LogLevel: runtimeOptions.logLevel, MultiDiscImportEnabled: runtimeOptions.multiDiscImportEnabled,
-		NetplayEnabled: netplay.enabled, NetplayMaxActiveRooms: netplay.maxActiveRooms,
-		NetplayRoomIdleDraft:   netplay.roomIdleDraft,
-		NetplayRoomIdleWaiting: netplay.roomIdleWaiting,
-		NetplayReconnectLease:  netplay.reconnectLease,
-		PFBID:                  pfbID,
+		PFBID: pfbID,
 	}, nil
 }
 
@@ -386,72 +368,6 @@ func loadRuntimeOptions() (runtimeOptions, error) {
 		return runtimeOptions{}, err
 	}
 	return result, nil
-}
-
-type netplayConfig struct {
-	enabled         bool
-	maxActiveRooms  int
-	roomIdleDraft   time.Duration
-	roomIdleWaiting time.Duration
-	reconnectLease  time.Duration
-}
-
-func loadNetplayConfig() (netplayConfig, error) {
-	var result netplayConfig
-	var err error
-	result.enabled, err = parseStrictBoolean(
-		"RETROM_NETPLAY_ENABLED", os.Getenv("RETROM_NETPLAY_ENABLED"), false,
-	)
-	if err != nil {
-		return netplayConfig{}, err
-	}
-	result.maxActiveRooms, err = parseIntegerRange(
-		"RETROM_NETPLAY_MAX_ACTIVE_ROOMS", os.Getenv("RETROM_NETPLAY_MAX_ACTIVE_ROOMS"), 16, 1, 128,
-	)
-	if err != nil {
-		return netplayConfig{}, err
-	}
-	result.roomIdleDraft, err = parseFixedMilliseconds(
-		"RETROM_NETPLAY_ROOM_IDLE_DRAFT_MS", os.Getenv("RETROM_NETPLAY_ROOM_IDLE_DRAFT_MS"), 900_000,
-	)
-	if err != nil {
-		return netplayConfig{}, err
-	}
-	result.roomIdleWaiting, err = parseFixedMilliseconds(
-		"RETROM_NETPLAY_ROOM_IDLE_WAITING_MS", os.Getenv("RETROM_NETPLAY_ROOM_IDLE_WAITING_MS"), 1_800_000,
-	)
-	if err != nil {
-		return netplayConfig{}, err
-	}
-	result.reconnectLease, err = parseFixedMilliseconds(
-		"RETROM_NETPLAY_RECONNECT_LEASE_MS", os.Getenv("RETROM_NETPLAY_RECONNECT_LEASE_MS"), 10_000,
-	)
-	if err != nil {
-		return netplayConfig{}, err
-	}
-	return result, nil
-}
-
-func parseIntegerRange(name, raw string, defaultValue, minimum, maximum int) (int, error) {
-	if raw == "" {
-		return defaultValue, nil
-	}
-	value, err := strconv.Atoi(raw)
-	if err != nil || value < minimum || value > maximum || strconv.Itoa(value) != raw {
-		return 0, fmt.Errorf("%w: %s", errInvalidConfig, name)
-	}
-	return value, nil
-}
-
-func parseFixedMilliseconds(name, raw string, expected int) (time.Duration, error) {
-	if raw == "" {
-		return time.Duration(expected) * time.Millisecond, nil
-	}
-	value, err := strconv.Atoi(raw)
-	if err != nil || value != expected || strconv.Itoa(value) != raw {
-		return 0, fmt.Errorf("%w: %s", errInvalidConfig, name)
-	}
-	return time.Duration(value) * time.Millisecond, nil
 }
 
 func parseStrictBoolean(name, value string, defaultValue bool) (bool, error) {

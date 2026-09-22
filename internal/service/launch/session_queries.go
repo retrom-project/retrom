@@ -22,17 +22,17 @@ func NewSessionQueries(
 	return &SessionQueries{reader: reader, assets: assets, policy: accessPolicy{now: now, matches: matches}}
 }
 
-func (service *SessionQueries) SaveAccess(ctx context.Context, id, capability string) (string, error) {
+func (service *SessionQueries) AuthorizeSave(ctx context.Context, id, capability string) error {
 	session, found, err := service.reader.SaveSession(ctx, id)
 	if err != nil {
-		return "", fmt.Errorf("read launch save access: %w", err)
+		return fmt.Errorf("read launch save access: %w", err)
 	}
 	if !found || (session.State != "CREATED" && session.State != "ACTIVE") ||
 		session.HardExpiresAtMS <= service.policy.now().UnixMilli() || service.policy.matches == nil ||
 		!service.policy.matches(capability, session.CredentialHash) {
-		return "", ErrCredential
+		return ErrCredential
 	}
-	return session.SaveAccess, nil
+	return nil
 }
 
 func (service *SessionQueries) BundleFiles(

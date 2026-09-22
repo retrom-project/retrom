@@ -26,18 +26,13 @@ export async function readBoundedResponse(response: Response, maximumBytes: numb
   return result;
 }
 
-export function reportsNativeExit(mode: "single" | "netplay", finishing = false) {
-  return mode === "single" && !finishing;
-}
-
 export function canResumeFromGameSurface(input: {
-  mode: "single" | "netplay";
   running: boolean;
   paused: boolean;
   chromePinned: boolean;
   source?: "runtime" | "pause-overlay";
 }) {
-  return input.mode === "single" && input.running && input.paused &&
+  return input.running && input.paused &&
     (!input.chromePinned || input.source === "pause-overlay");
 }
 

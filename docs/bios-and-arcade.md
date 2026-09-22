@@ -100,7 +100,7 @@ EmulatorJS 4.2.3 manifest 另声明下列 14 个静态 Requirement；精确 size
 | `gearcoleco` | `colecovision.rom` | `REQUIRED` | `BIOS_BUNDLE` |
 | `prboom` | `prboom.wad` | `REQUIRED` | `BIOS_BUNDLE` |
 
-MelonDS 三项必须全部存在才能得到 READY。它们不进入根 BIOS bundle：Variant dependency snapshot 锁定 installation/version/blob/delivery/path，Launch 创建事务复制到 `launch_external_files`，配置只生成三个受 capability 保护的同源 URL。同一 Requirement 切换 active installation 只影响后续启动；已有 Launch/Play/Netplay 保留冻结的旧文件，存档保留。新 Launch（包括存档恢复）发现 BIOS 已变化时先按当前安装重验；替换与创建并发时，创建事务必须拒绝混合快照和文件。旧安装与过时 Variant BIOS 文件引用由后台分批释放，Launch 文件引用直到会话结束或过期后才释放，最后由常规 GC 回收无引用文件。外部文件不得在仍运行的 Launch 内静默漂移。
+MelonDS 三项必须全部存在才能得到 READY。它们不进入根 BIOS bundle：Variant dependency snapshot 锁定 installation/version/blob/delivery/path，Launch 创建事务复制到 `launch_external_files`，配置只生成三个受 capability 保护的同源 URL。同一 Requirement 切换 active installation 只影响后续启动；已有 Launch/Play 保留冻结的旧文件，存档保留。新 Launch（包括存档恢复）发现 BIOS 已变化时先按当前安装重验；替换与创建并发时，创建事务必须拒绝混合快照和文件。旧安装与过时 Variant BIOS 文件引用由后台分批释放，Launch 文件引用直到会话结束或过期后才释放，最后由常规 GC 回收无引用文件。外部文件不得在仍运行的 Launch 内静默漂移。
 
 ### 3.6 Arcade Core
 
@@ -251,7 +251,7 @@ Full Non-Merged 已包含 parent/BIOS entry 时显示“由游戏文件满足”
 
 ### 8.1 V2 完整闭包与审核补充
 
-Arcade 识别从 CONTENT machine 开始，沿每一级 `cloneof` 继续到根 parent，并在每一级把 `romof != cloneof` 的目标加入 `BIOS_OR_BASE`；闭包最大 64 个节点。每个节点显式记录 `kind/machine/requiredBy/depth/expectedLogicalName/state/requiredEntryCount/requiredEntries`，并按 depth、kind、machine 形成 canonical V2 dependency snapshot。自环、`a -> b -> a`、超限或关系目标缺失产生稳定的不兼容结果；所有 Arcade writer、reader、审核、Launch 与 Netplay 只接受 V2。
+Arcade 识别从 CONTENT machine 开始，沿每一级 `cloneof` 继续到根 parent，并在每一级把 `romof != cloneof` 的目标加入 `BIOS_OR_BASE`；闭包最大 64 个节点。每个节点显式记录 `kind/machine/requiredBy/depth/expectedLogicalName/state/requiredEntryCount/requiredEntries`，并按 depth、kind、machine 形成 canonical V2 dependency snapshot。自环、`a -> b -> a`、超限或关系目标缺失产生稳定的不兼容结果；所有 Arcade writer、reader、审核、Launch 只接受 V2。
 
 Full Non-Merged 可以由 CONTENT 满足闭包；Split 的独立 Parent 使用来源快照中的 COMPANION。审核补充只允许 V2 闭包中可修复的 Parent `MISSING/MISMATCH` 节点，BIOS/Base 仍由 BIOS 管理页安装，Merged/CHD/cycle/DAT stale 不生成 `canAttach`。补传 ZIP 必须是单个安全 archive：拒绝加密、损坏、路径穿越、绝对路径、控制字符、symlink、ASCII case-insensitive 路径碰撞、真正嵌套的 archive 和超出统一 ArchiveLimits 的展开量/压缩比。Parent DAT 只匹配根级 regular-file entry；像 `1944.zip` 这样同时携带根级 parent ROM 与安全 clone 子目录的归档可以保留子目录 bytes 作为原始证据，但子目录 entry 只作为 diagnostics 中的 ignored extra，不能满足缺失的根 entry、参与 Parent 判定或放开 Merged 主 ROMset。客户端文件名不用于识别；请求 machine 与锁定 DAT 唯一决定期望逻辑名。
 
@@ -265,7 +265,7 @@ Parent 必需 ROM 排除 NODUMP、保留 BADDUMP warning，按 ASCII case-insens
 
 CPS1 测试 DAT 把 `1941` 表示为无 parent/BIOS 的完整根集合。锁定的 FBA2012 CPS2 core loader 在载入 Phoenix `spf2xjd` 时会按 driver 的 zip-name 链强制打开 `spf2t.zip`，因此测试 DAT 保留真实 `cloneof/romof=spf2t`，并提供只有 `retrom-parent.marker` 的项目自有父归档。该 marker 只让 Retrom 的 Parent 识别、依赖快照、bundle 和核心 loader 开包路径闭环，不冒充或复制 `spf2t` ROM，也不被目标 driver 执行；Launch 必须有 `parentUrl`、不得有 `biosUrl`。
 
-真实 release DAT 的来源、物化、parser stats 与 manifest 精确 active 选择由 `ACC-DAT-001/002/004` 证明。`ACC-RUN-006/007/010/011/012` 与 `ACC-NP-015/016/019/020/021/022` 为了合法执行自制 ROM，由 acceptance-only 装置在临时数据库中把对应小型 DAT 直接登记为 test-only `BUILTIN`；该装置只接受代码内固定的 fixture ID/path/hash/machine allowlist，没有 HTTP/UI 入口，不能在生产构建中调用，也不构成用户 DAT 功能。Case 仍经过真实产品导入、审核 schema v2、发布、受限内容和 Chrome Player；启动前后必须保持同一 DatVersion 和 schema v2。测试 BIOS 与 CPS2 marker parent 不被目标驱动执行，因此只证明 Retrom 的解析、装配、冻结与交付，不证明核心内部 BIOS/parent 程序执行语义；双浏览器 Case 只证明精确 profile 的 lockstep 与 digest 收敛。
+真实 release DAT 的来源、物化、parser stats 与 manifest 精确 active 选择由 `ACC-DAT-001/002/004` 证明。`ACC-RUN-006/007/010/011/012` 为了合法执行自制 ROM，由 acceptance-only 装置在临时数据库中把对应小型 DAT 直接登记为 test-only `BUILTIN`；该装置只接受代码内固定的 fixture ID/path/hash/machine allowlist，没有 HTTP/UI 入口，不能在生产构建中调用，也不构成用户 DAT 功能。Case 仍经过真实产品导入、审核 schema v2、发布、受限内容和 Chrome Player；启动前后必须保持同一 DatVersion 和 schema v2。测试 BIOS 与 CPS2 marker parent 不被目标驱动执行，因此只证明 Retrom 的解析、装配、冻结与交付，不证明核心内部 BIOS/parent 程序执行语义。
 
 ## 9. 管理页面
 
@@ -299,4 +299,4 @@ Arcade DAT 没有管理员 HTTP API；运行时只通过审核、GameVariant、L
 
 STATIC 的可信 exact 要求全部已声明 size/hash 同时一致；否则依次按期望 size、精确 basename、较大 size 作低置信度选择，结果保持 `HASH_WARNING`。ARCHIVE 只把逻辑 `.zip` 交给全局串行 archive scanner，并优先安全、可启动、matched/aliased 更多且 mismatched/missing 更少的候选；最后以规范相对路径和确定性 ID 稳定排序。只以质量证据比较是否覆盖，身份、文件名或新扫描本身不增加质量。
 
-`replaceIfBetter=false` 保留任何 active Installation；开启后也只允许严格更优，禁止同分、证据不完整或降级替换。相同 bytes 且 Requirement/catalog 未变时保持当前态；Requirement 改变时相同 bytes 仍重新校验。提交前重新检查完整 catalog digest、Requirement/稳定 Provider Target、DAT 和 source bytes；漂移分别以稳定条目结果收口。真正替换时仅原子切换活动安装，不扫描依赖 JSON、不终止已有 Launch/Play/Netplay，也不删除 SaveState。旧 Installation、VariantFile 与会话 payload 按[数据模型](./data-model.md#bios-与-launch-延迟回收)的索引和分批排期释放；新的启动按需重校验，未替换分支不产生回收副作用。
+`replaceIfBetter=false` 保留任何 active Installation；开启后也只允许严格更优，禁止同分、证据不完整或降级替换。相同 bytes 且 Requirement/catalog 未变时保持当前态；Requirement 改变时相同 bytes 仍重新校验。提交前重新检查完整 catalog digest、Requirement/稳定 Provider Target、DAT 和 source bytes；漂移分别以稳定条目结果收口。真正替换时仅原子切换活动安装，不扫描依赖 JSON、不终止已有 Launch/Play，也不删除 SaveState。旧 Installation、VariantFile 与会话 payload 按[数据模型](./data-model.md#bios-与-launch-延迟回收)的索引和分批排期释放；新的启动按需重校验，未替换分支不产生回收副作用。
