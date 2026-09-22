@@ -235,11 +235,6 @@ FROM import_items import_item
 JOIN review_drafts draft ON draft.import_item_id=import_item.id
 LEFT JOIN import_item_core_validations validation ON validation.id=draft.selected_validation_id
 WHERE import_item.id=?
-AND (import_item.review_handoff_kind='DIRECT' OR EXISTS(
- SELECT 1 FROM emulationstation_import_items reserved_source
- WHERE reserved_source.library_import_item_id=import_item.id
- AND reserved_source.execution_state='REVIEW_PENDING'
-))
 	`, item.ImportItemID).Scan(&state, &version, &sourceSnapshotID, &validationID, &validationStatus)
 	if err != nil {
 		return false, fmt.Errorf("query frozen review bulk item: %w", err)

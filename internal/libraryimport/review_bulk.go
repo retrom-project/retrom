@@ -38,13 +38,12 @@ var (
 )
 
 type ReviewBulkScope struct {
-	Q                        string `json:"q,omitempty"`
-	TagID                    string `json:"tagId,omitempty"`
-	ImportJobID              string `json:"importJobId,omitempty"`
-	PegasusImportID          string `json:"pegasusImportId,omitempty"`
-	EmulationStationImportID string `json:"emulationStationImportId,omitempty"`
-	PlatformInstanceID       string `json:"platformInstanceId,omitempty"`
-	BlockerCode              string `json:"blockerCode,omitempty"`
+	Q                  string `json:"q,omitempty"`
+	TagID              string `json:"tagId,omitempty"`
+	ImportJobID        string `json:"importJobId,omitempty"`
+	SourceImportID     string `json:"sourceImportId,omitempty"`
+	PlatformInstanceID string `json:"platformInstanceId,omitempty"`
+	BlockerCode        string `json:"blockerCode,omitempty"`
 }
 
 type ReviewBulkCounts struct {
@@ -104,7 +103,6 @@ type ReviewBulkItemResult struct {
 	PlatformName   string  `json:"platformName"`
 	State          string  `json:"state"`
 	GameID         *string `json:"gameId"`
-	ReviewEventID  *string `json:"reviewEventId"`
 	OutcomeCode    *string `json:"outcomeCode"`
 	OutcomeDetails any     `json:"outcomeDetails"`
 	CompletedAtMS  *int64  `json:"completedAtMs"`
@@ -126,15 +124,14 @@ func normalizeReviewBulkScope(scope ReviewBulkScope) (ReviewBulkScope, error) {
 	scope.Q = strings.ToLower(strings.Join(strings.Fields(scope.Q), " "))
 	scope.TagID = strings.TrimSpace(scope.TagID)
 	scope.ImportJobID = strings.TrimSpace(scope.ImportJobID)
-	scope.PegasusImportID = strings.TrimSpace(scope.PegasusImportID)
-	scope.EmulationStationImportID = strings.TrimSpace(scope.EmulationStationImportID)
+	scope.SourceImportID = strings.TrimSpace(scope.SourceImportID)
 	scope.PlatformInstanceID = strings.TrimSpace(scope.PlatformInstanceID)
 	scope.BlockerCode = strings.TrimSpace(scope.BlockerCode)
 	if !utf8.ValidString(scope.Q) || len([]rune(scope.Q)) > 200 || len(scope.BlockerCode) > 120 {
 		return ReviewBulkScope{}, ErrReviewBulkInvalidScope
 	}
 	sourceFilterCount := 0
-	for _, value := range []string{scope.ImportJobID, scope.PegasusImportID, scope.EmulationStationImportID} {
+	for _, value := range []string{scope.ImportJobID, scope.SourceImportID} {
 		if value != "" {
 			sourceFilterCount++
 		}
@@ -143,8 +140,8 @@ func normalizeReviewBulkScope(scope ReviewBulkScope) (ReviewBulkScope, error) {
 		return ReviewBulkScope{}, ErrReviewBulkInvalidScope
 	}
 	for _, value := range []string{
-		scope.TagID, scope.ImportJobID, scope.PegasusImportID,
-		scope.EmulationStationImportID, scope.PlatformInstanceID,
+		scope.TagID, scope.ImportJobID, scope.SourceImportID,
+		scope.PlatformInstanceID,
 	} {
 		if value == "" {
 			continue
@@ -178,7 +175,7 @@ func scanReviewBulkCandidates(
 		ctx, libraryservice.ReviewBulkCandidateQuery{
 			Scope: libraryservice.ReviewBulkScope{
 				Q: scope.Q, TagID: scope.TagID, ImportJobID: scope.ImportJobID,
-				PegasusImportID: scope.PegasusImportID, EmulationStationImportID: scope.EmulationStationImportID,
+				SourceImportID:     scope.SourceImportID,
 				PlatformInstanceID: scope.PlatformInstanceID, BlockerCode: scope.BlockerCode,
 			},
 			Limit: reviewBulkMaximumCandidates + 1,
@@ -403,7 +400,7 @@ func insertReviewBulkRecords(
 		BulkApprovalID: bulkID.String(), JobID: jobID.String(), CreatedByUserID: createdBy,
 		Scope: libraryservice.ReviewBulkScope{
 			Q: preview.Scope.Q, TagID: preview.Scope.TagID, ImportJobID: preview.Scope.ImportJobID,
-			PegasusImportID: preview.Scope.PegasusImportID, EmulationStationImportID: preview.Scope.EmulationStationImportID,
+			SourceImportID:     preview.Scope.SourceImportID,
 			PlatformInstanceID: preview.Scope.PlatformInstanceID, BlockerCode: preview.Scope.BlockerCode,
 		}, ScopeJSON: scopeJSON, ScopeDigest: preview.ScopeDigest,
 		CandidateManifestDigest: preview.CandidateManifestDigest, PayloadJSON: string(payload),
@@ -513,9 +510,8 @@ func reviewBulkSummaryFromApplication(summary libraryservice.ReviewBulkSummary) 
 		Version: summary.Version,
 		Scope: ReviewBulkScope{
 			Q: summary.Scope.Q, TagID: summary.Scope.TagID, ImportJobID: summary.Scope.ImportJobID,
-			PegasusImportID:          summary.Scope.PegasusImportID,
-			EmulationStationImportID: summary.Scope.EmulationStationImportID,
-			PlatformInstanceID:       summary.Scope.PlatformInstanceID, BlockerCode: summary.Scope.BlockerCode,
+			SourceImportID:     summary.Scope.SourceImportID,
+			PlatformInstanceID: summary.Scope.PlatformInstanceID, BlockerCode: summary.Scope.BlockerCode,
 		},
 		Counts: ReviewBulkCounts{
 			Matched: summary.Counts.Matched, StrictReady: summary.Counts.StrictReady,

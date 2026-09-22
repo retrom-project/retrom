@@ -73,9 +73,6 @@ func progressFor(key Key, done bool, workErr error, now int64) Progress {
 		if errors.Is(workErr, ErrReleaseFailed) {
 			code = "IMPORT_BATCH_DISCARD_RELEASE_FAILED"
 		}
-		if errors.Is(workErr, ErrAmbiguousOwner) {
-			code = "IMPORT_BATCH_DISCARD_OWNER_AMBIGUOUS"
-		}
 		result.ErrorCode = &code
 	}
 	return result

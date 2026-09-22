@@ -28,7 +28,7 @@ func admissionFixture(t *testing.T) (*Service, CreateRequest) {
 
 func TestImportAdmissionPreservesReadFailure(t *testing.T) {
 	t.Parallel()
-	for _, match := range []string{"FROM upload_sessions", "FROM platform_instances pi", "FROM upload_files f"} {
+	for _, match := range []string{"FROM upload_sessions", "FROM platform_instances pi", "FROM import_files f"} {
 		t.Run(match, func(t *testing.T) {
 			t.Parallel()
 			service, request := admissionFixture(t)

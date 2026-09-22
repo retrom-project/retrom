@@ -50,7 +50,7 @@ func (reader reader) Review(ctx context.Context, id string) ([]service.ReviewAss
 }
 
 func (reader reader) Sources(ctx context.Context, id, kind string) ([]service.ReviewAsset, error) {
-	rows, err := reader.executor.QueryContext(ctx, sourceAssetsSQL, id, kind, id, kind)
+	rows, err := reader.executor.QueryContext(ctx, sourceAssetsSQL, id, kind)
 	if err != nil {
 		return nil, fmt.Errorf("read source assets: %w", err)
 	}

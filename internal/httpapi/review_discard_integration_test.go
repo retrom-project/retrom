@@ -19,7 +19,7 @@ import (
 func TestReviewDiscardSQLFailuresAreServerErrors(t *testing.T) {
 	t.Parallel()
 	for _, test := range []struct{ name, query string }{
-		{"evidence read", "JOIN review_drafts d"}, {"event insert", "INSERT INTO review_events"},
+		{"evidence read", "JOIN review_drafts d"}, {"item transition", "UPDATE import_items SET state="},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
@@ -27,15 +27,14 @@ func TestReviewDiscardSQLFailuresAreServerErrors(t *testing.T) {
 			itemID := createReviewSnapshotItem(t, server)
 			cause := errors.New("review discard database unavailable")
 			hits := 0
-			database := testsupport.OpenSQLFaultDatabase(t, server.database, testsupport.SQLFaultHooks{
-				BeforeQuery: func(_ context.Context, query string, _ []driver.NamedValue) error {
-					if strings.Contains(query, test.query) {
-						hits++
-						return cause
-					}
-					return nil
-				},
-			})
+			fault := func(_ context.Context, query string, _ []driver.NamedValue) error {
+				if strings.Contains(strings.Join(strings.Fields(query), " "), test.query) {
+					hits++
+					return cause
+				}
+				return nil
+			}
+			database := testsupport.OpenSQLFaultDatabase(t, server.database, testsupport.SQLFaultHooks{BeforeQuery: fault, BeforeExec: fault})
 			server.reviewDiscards = composition.NewLibraryReviewDiscards(database, server.now)
 			response := requestReviewDiscard(t, server, itemID, `"v1"`)
 			if response.Code != http.StatusInternalServerError || hits != 1 {
@@ -64,7 +63,6 @@ func TestReviewDiscardSuccessAndVersionConflict(t *testing.T) {
 	response := requestReviewDiscard(t, server, itemID, `"v1"`)
 	var result struct {
 		ItemID      string `json:"itemId"`
-		EventID     string `json:"reviewEventId"`
 		Status      string `json:"status"`
 		Version     int64  `json:"version"`
 		UpdatedAtMS int64  `json:"updatedAtMs"`
@@ -72,7 +70,7 @@ func TestReviewDiscardSuccessAndVersionConflict(t *testing.T) {
 	if err := json.Unmarshal(response.Body.Bytes(), &result); err != nil {
 		t.Fatal(err)
 	}
-	if response.Code != http.StatusOK || result.ItemID != itemID || result.EventID == "" || result.Status != "DISCARDED" || result.Version != 2 || result.UpdatedAtMS <= 0 {
+	if response.Code != http.StatusOK || result.ItemID != itemID || result.Status != "DISCARDED" || result.Version != 2 || result.UpdatedAtMS <= 0 {
 		t.Fatalf("discard response changed: status=%d body=%s", response.Code, response.Body.String())
 	}
 	repeated := requestReviewDiscard(t, server, itemID, `"v1"`)
@@ -80,10 +78,10 @@ func TestReviewDiscardSuccessAndVersionConflict(t *testing.T) {
 		t.Fatalf("terminal review accepted second decision: status=%d body=%s", repeated.Code, repeated.Body.String())
 	}
 	var count int
-	if err := server.database.QueryRowContext(t.Context(), `SELECT COUNT(*) FROM review_events WHERE import_item_id=? AND event_type='DISCARDED'`, itemID).Scan(&count); err != nil {
+	if err := server.database.QueryRowContext(t.Context(), `SELECT COUNT(*) FROM import_items WHERE id=? AND state='DISCARDED'`, itemID).Scan(&count); err != nil {
 		t.Fatal(err)
 	}
 	if count != 1 {
-		t.Fatalf("discard replay created %d events", count)
+		t.Fatalf("discard replay retained %d terminal items", count)
 	}
 }

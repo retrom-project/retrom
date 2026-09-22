@@ -62,11 +62,11 @@ func TestProjectReviewArchiveFormatRequiresValidatedTyranoScriptExecutableContex
 func TestReviewListRejectsMultipleSourceBatchFilters(t *testing.T) {
 	t.Parallel()
 	values := url.Values{
-		"importJobId":              {"01980000-0000-7000-8000-000000000001"},
-		"emulationStationImportId": {"01980000-0000-7000-8000-000000000002"},
+		"importJobId":    {"01980000-0000-7000-8000-000000000001"},
+		"sourceImportId": {"01980000-0000-7000-8000-000000000002"},
 	}
 	_, err := libraryservice.NormalizeReviewQueueFilter(libraryservice.ReviewQueueFilter{
-		ImportJobID: values.Get("importJobId"), EmulationStationImportID: values.Get("emulationStationImportId"),
+		ImportJobID: values.Get("importJobId"), SourceImportID: values.Get("sourceImportId"),
 	})
 	testassert.Truef(t, errors.Is(err, errInvalidReviewQuery), "error = %v", err)
 }
@@ -185,7 +185,7 @@ WHERE provider_id=?
 	testassert.Falsef(t, anyTrue(filteredList.Code != http.StatusOK,
 		!strings.Contains(filteredList.Body.String(), `"itemId":"`+itemID+`"`)),
 		"review queue import filter = %d %s", filteredList.Code, filteredList.Body.String())
-	assertPegasusReviewSources(
+	assertSourceReviewSources(
 		t, server, itemID, importID, target, coverBlobID,
 		manifest, digest, timestamp, coverMetadata,
 	)
@@ -237,7 +237,7 @@ func createReviewCoverFixture(t *testing.T, server *Server, itemID, uploadFileID
 	return result.AssetID
 }
 
-func assertPegasusReviewSources(
+func assertSourceReviewSources(
 	t *testing.T,
 	server *Server,
 	itemID, importID string, target testsupport.RuntimeTargetIdentity, coverBlobID string,
@@ -245,51 +245,51 @@ func assertPegasusReviewSources(
 	timestamp int64,
 	coverMetadata blobstore.Metadata,
 ) {
-	pegasusImportID := "01980000-0000-7000-8000-000000000138"
+	sourceImportID := "01980000-0000-7000-8000-000000000138"
 	pegasusScanJobID := "01980000-0000-7000-8000-000000000139"
 	pegasusWorkJobID := "01980000-0000-7000-8000-000000000140"
 	pegasusCollectionID := "01980000-0000-7000-8000-000000000141"
 	pegasusItemID := "01980000-0000-7000-8000-000000000142"
 	pegasusVideoBlobID := "01980000-0000-7000-8000-000000000143"
-	videoPayload := []byte("pegasus review video fixture")
+	videoPayload := []byte("source review video fixture")
 	videoMetadata, err := server.blobs.Put(bytes.NewReader(videoPayload))
 	testassert.False(t, err != nil, err)
 	mustExecHTTPTest(t, server.database, `
 INSERT INTO jobs(id,scope_type,scope_id,kind,dedupe_key,execution_no,payload_json,cancellable,state,
 attempt_count,max_attempts,version,available_at_ms,finished_at_ms,created_at_ms,updated_at_ms)
-VALUES(?,'PEGASUS_IMPORT',?,'SERVER_PEGASUS_SCAN',?,1,'{}',1,'SUCCEEDED',1,4,1,?,?,?,?),
-      (?,'PEGASUS_IMPORT',?,'SERVER_PEGASUS_IMPORT',?,1,'{}',1,'SUCCEEDED',1,4,1,?,?,?,?)
-`, pegasusScanJobID, pegasusImportID, strings.Repeat("1", 64), timestamp, timestamp, timestamp, timestamp,
-		pegasusWorkJobID, pegasusImportID, strings.Repeat("2", 64), timestamp, timestamp, timestamp, timestamp,
+VALUES(?,'SOURCE_IMPORT',?,'IMPORT_SCAN',?,1,'{}',1,'SUCCEEDED',1,4,1,?,?,?,?),
+      (?,'SOURCE_IMPORT',?,'IMPORT_RECEIVE',?,1,'{}',1,'SUCCEEDED',1,4,1,?,?,?,?)
+`, pegasusScanJobID, sourceImportID, strings.Repeat("1", 64), timestamp, timestamp, timestamp, timestamp,
+		pegasusWorkJobID, sourceImportID, strings.Repeat("2", 64), timestamp, timestamp, timestamp, timestamp,
 	)
 	mustExecHTTPTest(t, server.database, `
-INSERT INTO pegasus_imports(
+INSERT INTO source_imports(
  id,root_id,root_label_snapshot,source_relative_path,root_config_digest,state,phase,scan_job_id,
  import_job_id,collection_count,game_count,mapped_collection_count,processable_item_count,
  review_pending_item_count,created_by_user_id,created_at_ms,updated_at_ms,scan_completed_at_ms,
  started_at_ms,completed_at_ms,expires_at_ms
 ) VALUES(?,'games','Games','FC',?,'COMPLETED','PREPARING_REVIEWS',?,?,1,1,1,1,1,
  '01980000-0000-7000-8000-000000009999',?,?,?,?,?,?)
-`, pegasusImportID, strings.Repeat("3", 64), pegasusScanJobID, pegasusWorkJobID,
+`, sourceImportID, strings.Repeat("3", 64), pegasusScanJobID, pegasusWorkJobID,
 		timestamp, timestamp, timestamp, timestamp, timestamp, timestamp+60_000,
 	)
 	mustExecHTTPTest(t, server.database, `
-INSERT INTO pegasus_import_collections(
+INSERT INTO source_import_collections(
  id,import_id,metadata_relative_path,segment_ordinal,name,game_count,mapping_action,
  target_platform_instance_id,target_platform_instance_version,target_platform_id,target_default_core_id,
  target_provider_id,target_id,created_at_ms,updated_at_ms
 ) VALUES(?,?,'FC/metadata.pegasus.txt',0,'FC',1,'IMPORT',
  (SELECT id FROM platform_instances WHERE catalog_template_key='gba/mgba'),1,'gba','mgba',?,?,?,?)
-`, pegasusCollectionID, pegasusImportID, target.ProviderID, target.TargetID,
+`, pegasusCollectionID, sourceImportID, target.ProviderID, target.TargetID,
 		timestamp, timestamp)
 	mustExecHTTPTest(t, server.database, `
-INSERT INTO pegasus_import_items(
+INSERT INTO source_import_items(
  id,import_id,collection_id,metadata_relative_path,game_ordinal,source_key,title,discovery_state,
  execution_state,content_kind,metadata_json,source_manifest_json,source_manifest_digest,
  library_import_job_id,library_import_item_id,created_at_ms,updated_at_ms,completed_at_ms
-) VALUES(?,?,?,'FC/metadata.pegasus.txt',0,?,'Pegasus source title','READY','REVIEW_PENDING',
- 'SINGLE_FILE','{"title":"Pegasus source title"}',?,?,?,?,?,?,?)
-`, pegasusItemID, pegasusImportID, pegasusCollectionID, strings.Repeat("4", 64), manifest, digest,
+) VALUES(?,?,?,'FC/metadata.pegasus.txt',0,?,'Source source title','READY','REVIEW_PENDING',
+ 'SINGLE_FILE','{"title":"Source source title"}',?,?,?,?,?,?,?)
+`, pegasusItemID, sourceImportID, pegasusCollectionID, strings.Repeat("4", 64), manifest, digest,
 		importID, itemID, timestamp, timestamp, timestamp,
 	)
 	mustExecHTTPTest(t, server.database, `
@@ -299,7 +299,7 @@ VALUES(?,?,?,?,?,?,'video/mp4',?)
 		videoMetadata.SHA1, videoMetadata.CRC32, timestamp,
 	)
 	mustExecHTTPTest(t, server.database, `
-INSERT INTO pegasus_import_item_assets(
+INSERT INTO source_import_item_assets(
  item_id,kind,resolution_method,relative_path,size_bytes,source_facts_digest,blob_id,media_type,
  width_px,height_px,state,created_at_ms,updated_at_ms
 ) VALUES(?,'COVER','EXPLICIT_GAME','FC/media/cover.png',?,?,?,'image/png',1,1,'COPIED',?,?),
@@ -308,45 +308,45 @@ INSERT INTO pegasus_import_item_assets(
 		pegasusItemID, videoMetadata.Size, strings.Repeat("6", 64), pegasusVideoBlobID, timestamp, timestamp,
 	)
 	mustExecHTTPTest(t, server.database, `
-UPDATE pegasus_import_items
+UPDATE source_import_items
 SET execution_state='VALIDATING',completed_at_ms=NULL
 WHERE id=?
 `, pegasusItemID)
-	hiddenPegasusList := httptest.NewRecorder()
+	hiddenSourceList := httptest.NewRecorder()
 	server.reviews(
-		hiddenPegasusList,
-		httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/admin/reviews?pegasusImportId="+pegasusImportID, nil),
+		hiddenSourceList,
+		httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/admin/reviews?sourceImportId="+sourceImportID, nil),
 	)
-	testassert.Falsef(t, anyTrue(hiddenPegasusList.Code != http.StatusOK,
-		strings.Contains(hiddenPegasusList.Body.String(), itemID)),
-		"incomplete Pegasus handoff leaked into review queue = %d %s", hiddenPegasusList.Code, hiddenPegasusList.Body.String())
-	hiddenPegasusDetail := httptest.NewRecorder()
-	hiddenPegasusDetailRequest := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/admin/reviews/"+itemID, nil)
-	hiddenPegasusDetailRequest.SetPathValue("importItemId", itemID)
-	server.review(hiddenPegasusDetail, hiddenPegasusDetailRequest)
-	testassert.Falsef(t, hiddenPegasusDetail.Code != http.StatusNotFound, "incomplete Pegasus handoff detail = %d %s", hiddenPegasusDetail.Code, hiddenPegasusDetail.Body.String())
+	testassert.Falsef(t, anyTrue(hiddenSourceList.Code != http.StatusOK,
+		strings.Contains(hiddenSourceList.Body.String(), itemID)),
+		"incomplete Source handoff leaked into review queue = %d %s", hiddenSourceList.Code, hiddenSourceList.Body.String())
+	hiddenSourceDetail := httptest.NewRecorder()
+	hiddenSourceDetailRequest := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/admin/reviews/"+itemID, nil)
+	hiddenSourceDetailRequest.SetPathValue("importItemId", itemID)
+	server.review(hiddenSourceDetail, hiddenSourceDetailRequest)
+	testassert.Falsef(t, hiddenSourceDetail.Code != http.StatusNotFound, "incomplete Source handoff detail = %d %s", hiddenSourceDetail.Code, hiddenSourceDetail.Body.String())
 	mustExecHTTPTest(t, server.database, `
-UPDATE pegasus_import_items
+UPDATE source_import_items
 SET execution_state='REVIEW_PENDING',completed_at_ms=?
 WHERE id=?
 `, timestamp, pegasusItemID)
 	pegasusList := httptest.NewRecorder()
 	server.reviews(
 		pegasusList,
-		httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/admin/reviews?pegasusImportId="+pegasusImportID, nil),
+		httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/admin/reviews?sourceImportId="+sourceImportID, nil),
 	)
-	testassert.Falsef(t, testassert.Any(func() bool { return pegasusList.Code != http.StatusOK }, func() bool { return !strings.Contains(pegasusList.Body.String(), `"itemId":"`+itemID+`"`) }, func() bool { return !strings.Contains(pegasusList.Body.String(), `"sourceKind":"PEGASUS"`) }, func() bool { return !strings.Contains(pegasusList.Body.String(), `"sourceLabel":"FC"`) }, func() bool {
-		return !strings.Contains(pegasusList.Body.String(), `"pegasusImportId":"`+pegasusImportID+`"`)
-	}), "Pegasus review queue filter = %d %s", pegasusList.Code, pegasusList.Body.String())
+	testassert.Falsef(t, testassert.Any(func() bool { return pegasusList.Code != http.StatusOK }, func() bool { return !strings.Contains(pegasusList.Body.String(), `"itemId":"`+itemID+`"`) }, func() bool { return !strings.Contains(pegasusList.Body.String(), `"sourceKind":"SOURCE"`) }, func() bool { return !strings.Contains(pegasusList.Body.String(), `"sourceLabel":"FC"`) }, func() bool {
+		return !strings.Contains(pegasusList.Body.String(), `"sourceImportId":"`+sourceImportID+`"`)
+	}), "Source review queue filter = %d %s", pegasusList.Code, pegasusList.Body.String())
 	pegasusDetail := httptest.NewRecorder()
 	pegasusDetailRequest := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/admin/reviews/"+itemID, nil)
 	pegasusDetailRequest.SetPathValue("importItemId", itemID)
 	server.review(pegasusDetail, pegasusDetailRequest)
-	testassert.Falsef(t, testassert.Any(func() bool { return pegasusDetail.Code != http.StatusOK }, func() bool { return !strings.Contains(pegasusDetail.Body.String(), `"sourceKind":"PEGASUS"`) }, func() bool {
+	testassert.Falsef(t, testassert.Any(func() bool { return pegasusDetail.Code != http.StatusOK }, func() bool { return !strings.Contains(pegasusDetail.Body.String(), `"sourceKind":"SOURCE"`) }, func() bool {
 		return !strings.Contains(pegasusDetail.Body.String(), `"coverUrl":"/api/v1/admin/review-assets/`+pegasusItemID+`?kind=COVER"`)
 	}, func() bool {
 		return !strings.Contains(pegasusDetail.Body.String(), `"videoUrl":"/api/v1/admin/review-assets/`+pegasusItemID+`?kind=VIDEO"`)
-	}), "Pegasus review source media = %d %s", pegasusDetail.Code, pegasusDetail.Body.String())
+	}), "Source review source media = %d %s", pegasusDetail.Code, pegasusDetail.Body.String())
 	pegasusVideo := httptest.NewRecorder()
 	pegasusVideoRequest := httptest.NewRequestWithContext(context.Background(),
 		http.MethodGet,
@@ -357,34 +357,7 @@ WHERE id=?
 	server.reviewCandidateAsset(pegasusVideo, pegasusVideoRequest)
 	testassert.Falsef(t, anyTrue(pegasusVideo.Code != http.StatusOK,
 		!bytes.Equal(pegasusVideo.Body.Bytes(), videoPayload), pegasusVideo.Header().Get("Content-Type") != "video/mp4"),
-		"Pegasus review video = %d/%s %q", pegasusVideo.Code, pegasusVideo.Header().Get("Content-Type"), pegasusVideo.Body.Bytes())
-	assertHistoricalReviewEvent(t, server, itemID, timestamp)
-}
-
-func assertHistoricalReviewEvent(t *testing.T, server *Server, itemID string, timestamp int64) {
-	mustExecHTTPTest(t, server.database, `
-UPDATE import_items SET state='PUBLISHED' WHERE id=?;
-INSERT INTO review_events(id,import_item_id,event_type,actor_kind,actor_user_id,actor_label,before_json,after_json,diff_json,
-config_evidence_json,dat_evidence_json,provider_evidence_json,reason,created_at_ms)
-VALUES('01980000-0000-7000-8000-000000000135',?,'APPROVED','SYSTEM',NULL,'release-setup',?,
-'{"schemaVersion":2,"decision":"APPROVED"}','{}','{}','{}','{}',NULL,?)
-`, itemID, `{"schemaVersion":2,"metadata":{"title":"Visible candidate"}}`, timestamp)
-	historyDetail := httptest.NewRecorder()
-	historyRequest := httptest.NewRequestWithContext(context.Background(),
-		http.MethodGet,
-		"/api/v1/admin/review-history/01980000-0000-7000-8000-000000000135",
-		nil,
-	)
-	historyRequest.SetPathValue("reviewEventId", "01980000-0000-7000-8000-000000000135")
-	server.reviewHistoryEvent(historyDetail, historyRequest)
-	testassert.Falsef(t, testassert.Any(func() bool { return historyDetail.Code != http.StatusOK }, func() bool {
-		return !strings.Contains(historyDetail.Body.String(), `"actor":{"kind":"SYSTEM","label":"release-setup","userId":null}`)
-	}, func() bool {
-		return !strings.Contains(historyDetail.Body.String(), `"before":{"metadata":{"title":"Visible candidate"},"schemaVersion":2}`)
-	}, func() bool {
-		return strings.Contains(historyDetail.Body.String(), `"coverUrl"`) ||
-			strings.Contains(historyDetail.Body.String(), `"selectedAssets"`)
-	}), "review history detail = %d %s", historyDetail.Code, historyDetail.Body.String())
+		"Source review video = %d/%s %q", pegasusVideo.Code, pegasusVideo.Header().Get("Content-Type"), pegasusVideo.Body.Bytes())
 }
 
 func seedReviewSources(
@@ -483,6 +456,7 @@ VALUES(?,?, 'blocked.zip',4096,4096,?,'COMPLETE',?,?),
 (?,?,'manual-cover.png',?,?,?,'COMPLETE',?,?)
 	`, uploadFileID, uploadID, sourceBlobID, timestamp, timestamp,
 		coverUploadFileID, uploadID, coverMetadata.Size, coverMetadata.Size, coverBlobID, timestamp, timestamp)
+	mustExecHTTPTest(t, transaction, `INSERT INTO import_files(id,upload_session_id,relative_path,blob_id,size_bytes,created_at_ms) SELECT id,upload_session_id,relative_path,final_blob_id,received_size_bytes,created_at_ms FROM upload_files WHERE upload_session_id=?`, uploadID)
 	mustExecHTTPTest(t, transaction, `
 INSERT INTO archive_entries(archive_blob_id,ordinal,original_relative_path,normalized_path,ascii_casefold_path,
 archive_format,compression_profile,uncompressed_size_bytes,crc32,md5,sha1,sha256,materialized_blob_id,created_at_ms)

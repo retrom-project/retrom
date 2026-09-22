@@ -24,10 +24,7 @@ func BindImportReads(executor dbexec.Executor) *ImportReads {
 }
 
 const userVisibleImportJobPredicate = `i.id NOT IN (
- SELECT pegasus_item.library_import_job_id FROM pegasus_import_items pegasus_item
- WHERE pegasus_item.library_import_job_id IS NOT NULL
- UNION ALL
- SELECT source_item.library_import_job_id FROM emulationstation_import_items source_item
+ SELECT source_item.library_import_job_id FROM source_import_items source_item
  WHERE source_item.library_import_job_id IS NOT NULL
  UNION ALL
  SELECT job.id FROM import_jobs job
@@ -42,45 +39,29 @@ WITH ordinary AS (
 )
 SELECT
  (SELECT count(*) FROM ordinary WHERE state IN ('QUEUED','RUNNING','CANCEL_REQUESTED'))+
- (SELECT count(*) FROM pegasus_imports
-  WHERE state IN ('SCANNING','AWAITING_MAPPING','QUEUED','RUNNING','CANCEL_REQUESTED'))+
- (SELECT count(*) FROM emulationstation_imports
+ (SELECT count(*) FROM source_imports
   WHERE state IN ('SCANNING','AWAITING_MAPPING','QUEUED','RUNNING','CANCEL_REQUESTED')),
  (SELECT count(*)
   FROM import_items item
   WHERE item.state='REVIEW_PENDING'
-  AND (
-   item.review_handoff_kind='DIRECT'
-   OR EXISTS (
-    SELECT 1
-    FROM emulationstation_import_items source
-    WHERE source.library_import_item_id=item.id
-    AND source.execution_state='REVIEW_PENDING'
-   )
-  )),
+  AND NOT EXISTS (SELECT 1 FROM source_import_items source
+   WHERE source.library_import_item_id=item.id AND source.execution_state<>'REVIEW_PENDING')),
  (SELECT count(*) FROM import_items WHERE state='PUBLISHED'),
  (SELECT count(*) FROM ordinary WHERE state='COMPLETED')+
- (SELECT count(*) FROM pegasus_imports WHERE state='COMPLETED')+
- (SELECT count(*) FROM emulationstation_imports WHERE state='COMPLETED'),
+ (SELECT count(*) FROM source_imports WHERE state='COMPLETED'),
  (SELECT count(*) FROM ordinary WHERE state IN ('PARTIAL_FAILURE','FAILED'))+
- (SELECT count(*) FROM pegasus_imports WHERE state IN ('PARTIAL_FAILURE','FAILED'))+
- (SELECT count(*) FROM emulationstation_imports WHERE state IN ('PARTIAL_FAILURE','FAILED')),
+ (SELECT count(*) FROM source_imports WHERE state IN ('PARTIAL_FAILURE','FAILED')),
  (SELECT count(*) FROM ordinary WHERE state IN ('PARTIAL_FAILURE','FAILED')),
- (SELECT count(*) FROM pegasus_imports WHERE state IN ('PARTIAL_FAILURE','FAILED')),
- (SELECT count(*) FROM emulationstation_imports WHERE state IN ('PARTIAL_FAILURE','FAILED')),
+ (SELECT count(*) FROM source_imports WHERE state IN ('PARTIAL_FAILURE','FAILED')),
  COALESCE((SELECT sum(total_item_count) FROM ordinary
   WHERE state IN ('QUEUED','RUNNING','CANCEL_REQUESTED')),0)+
- COALESCE((SELECT sum(game_count) FROM pegasus_imports
-  WHERE state IN ('SCANNING','AWAITING_MAPPING','QUEUED','RUNNING','CANCEL_REQUESTED')),0)+
- COALESCE((SELECT sum(game_count) FROM emulationstation_imports
+ COALESCE((SELECT sum(game_count) FROM source_imports
   WHERE state IN ('SCANNING','AWAITING_MAPPING','QUEUED','RUNNING','CANCEL_REQUESTED')),0),
  COALESCE((SELECT sum(failed_item_count+CASE
    WHEN rejected_file_count>resolved_rejected_file_count
    THEN rejected_file_count-resolved_rejected_file_count ELSE 0 END)
   FROM ordinary WHERE state IN ('PARTIAL_FAILURE','FAILED')),0)+
- COALESCE((SELECT sum(blocked_item_count+failed_item_count) FROM pegasus_imports
-  WHERE state IN ('PARTIAL_FAILURE','FAILED')),0)+
- COALESCE((SELECT sum(blocked_item_count+failed_item_count) FROM emulationstation_imports
+ COALESCE((SELECT sum(blocked_item_count+failed_item_count) FROM source_imports
   WHERE state IN ('PARTIAL_FAILURE','FAILED')),0)
 `
 
@@ -93,8 +74,7 @@ func (repository *ImportReads) Summary(ctx context.Context) (application.ImportO
 		&result.Completed,
 		&result.Failed,
 		&result.OrdinaryFailed,
-		&result.PegasusFailed,
-		&result.EmulationStationFailed,
+		&result.SourceFailed,
 		&result.ProcessingItems,
 		&result.IssueItems,
 	)
@@ -316,7 +296,7 @@ JOIN import_item_source_snapshots snapshot ON snapshot.id=COALESCE(
 )
 JOIN import_item_source_snapshot_files playlist ON playlist.source_snapshot_id=snapshot.id
 AND playlist.role='PLAYLIST_SOURCE'
-JOIN upload_files upload ON upload.id=playlist.upload_file_id
+JOIN import_files upload ON upload.id=playlist.upload_file_id
 LEFT JOIN import_item_multidisc_entries entry ON entry.source_snapshot_id=snapshot.id
 WHERE item.import_job_id=? AND snapshot.content_kind='MULTI_DISC'
 GROUP BY item.id,item.state,snapshot.content_kind,playlist.logical_name,upload.relative_path
@@ -350,7 +330,7 @@ ORDER BY upload.relative_path,item.id
 	ignoredRows, err := repository.executor.QueryContext(ctx, `
 SELECT upload.relative_path
 FROM import_job_files outcome
-JOIN upload_files upload ON upload.id=outcome.upload_file_id
+JOIN import_files upload ON upload.id=outcome.upload_file_id
 WHERE outcome.import_job_id=? AND outcome.disposition='IGNORED'
 ORDER BY upload.relative_path,upload.id
 `, importJobID)
@@ -388,7 +368,7 @@ func (repository *ImportReads) fileOutcomes(
 	rows, err := repository.executor.QueryContext(ctx, `
 SELECT u.id,
 u.relative_path,
-u.declared_size_bytes,
+u.size_bytes,
 f.disposition,
 f.reason_code,
 resolution.action,
@@ -414,7 +394,7 @@ AND NOT EXISTS(
   )
 )
 FROM import_job_files f
-JOIN upload_files u ON u.id=f.upload_file_id
+JOIN import_files u ON u.id=f.upload_file_id
 LEFT JOIN import_job_file_resolutions resolution
 ON resolution.import_job_id=f.import_job_id
 AND resolution.upload_file_id=f.upload_file_id
@@ -506,125 +486,6 @@ ORDER BY item.created_at_ms,item.id,game.created_at_ms,game.id
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("iterate import duplicate matches: %w", err)
 	}
-	return result, nil
-}
-
-const reviewHistorySQL = `
-SELECT e.id,
-e.import_item_id,
-e.event_type,
-e.reason,
-e.created_at_ms,
-COALESCE(json_extract(d.metadata_json,
-'$.title'),
-''),
-i.import_job_id
-FROM review_events e
-JOIN import_items i ON i.id=e.import_item_id
-LEFT JOIN review_drafts d ON d.import_item_id=i.id
-WHERE e.event_type IN ('APPROVED',
-'DISCARDED')
-`
-
-func (repository *ImportReads) ReviewHistory(
-	ctx context.Context,
-	query application.ReviewHistoryQuery,
-) ([]application.ReviewHistoryItem, error) {
-	sqlQuery := reviewHistorySQL
-	arguments := make([]any, 0, 3)
-	if query.QueryText != "" {
-		sqlQuery += " AND (instr(lower(COALESCE(json_extract(d.metadata_json,'$.title'),'')),?)>0" +
-			" OR instr(i.search_text,?)>0)"
-		arguments = append(arguments, query.QueryText, query.QueryText)
-	}
-	if query.Decision != "" {
-		sqlQuery += " AND e.event_type=?"
-		arguments = append(arguments, query.Decision)
-	}
-	sqlQuery += " ORDER BY e.created_at_ms DESC,e.id DESC LIMIT 100"
-	rows, err := repository.executor.QueryContext(ctx, sqlQuery, arguments...)
-	if err != nil {
-		return nil, fmt.Errorf("query review history: %w", err)
-	}
-	defer func() { cleanup.Error("close review history", rows.Close()) }()
-	result := make([]application.ReviewHistoryItem, 0)
-	for rows.Next() {
-		var item application.ReviewHistoryItem
-		var reason sql.NullString
-		if err := rows.Scan(
-			&item.ReviewEventID,
-			&item.ImportItemID,
-			&item.Decision,
-			&reason,
-			&item.CreatedAtMS,
-			&item.Title,
-			&item.ImportJobID,
-		); err != nil {
-			return nil, fmt.Errorf("scan review history: %w", err)
-		}
-		item.Reason = importReadString(reason)
-		result = append(result, item)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate review history: %w", err)
-	}
-	return result, nil
-}
-
-func (repository *ImportReads) ReviewHistoryEvent(
-	ctx context.Context,
-	eventID string,
-) (application.ReviewHistoryEvent, error) {
-	var result application.ReviewHistoryEvent
-	var actorUserID, actorLabel, reason sql.NullString
-	var before, after, diff, config, dat, provider string
-	err := repository.executor.QueryRowContext(ctx, `
-SELECT id,
-import_item_id,
-event_type,
-actor_kind,
-actor_user_id,
-actor_label,
-before_json,
-after_json,
-diff_json,
-config_evidence_json,
-dat_evidence_json,
-provider_evidence_json,
-reason,
-created_at_ms
-FROM review_events
-WHERE id=?
-AND event_type IN ('APPROVED',
-'DISCARDED')
-`, eventID).Scan(
-		&result.ReviewEventID,
-		&result.ImportItemID,
-		&result.EventType,
-		&result.Actor.Kind,
-		&actorUserID,
-		&actorLabel,
-		&before,
-		&after,
-		&diff,
-		&config,
-		&dat,
-		&provider,
-		&reason,
-		&result.CreatedAtMS,
-	)
-	if err != nil {
-		return application.ReviewHistoryEvent{}, fmt.Errorf("query review history event: %w", err)
-	}
-	result.Actor.UserID = importReadString(actorUserID)
-	result.Actor.Label = importReadString(actorLabel)
-	result.Before = application.DecodeImportDocument(before)
-	result.After = application.DecodeImportDocument(after)
-	result.Diff = application.DecodeImportDocument(diff)
-	result.ConfigEvidence = application.DecodeImportDocument(config)
-	result.DANEvidence = application.DecodeImportDocument(dat)
-	result.ProviderEvidence = application.DecodeImportDocument(provider)
-	result.Reason = importReadString(reason)
 	return result, nil
 }
 

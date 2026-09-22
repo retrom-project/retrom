@@ -56,7 +56,6 @@ type DeleteGameImpact struct {
 	ContentFileCount   int64
 	ActiveLaunchCount  int64
 	ActiveNetplayCount int64
-	ReviewEventCount   int64
 	SourceKinds        []string
 }
 

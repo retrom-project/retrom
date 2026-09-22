@@ -130,7 +130,7 @@ async function generationCase(context, writeHeaders) {
   if (runtimeTrial.routeEvidence?.projectFingerprint !== expectedDigest) {
     throw new Error("RPG_ACCEPTANCE_FIXTURE_DIGEST_MISMATCH");
   }
-  const approved = await approvedReview(context.request, itemId, gameId);
+  const approved = await approvedReview(context.request, itemId, gameId, runtimeTrial.importJobId);
   const review = approved.event;
   const inputTranscript = await readInputTranscript(context.request, approved.importJobId);
   const screenshot = runtimeTrial.restoredScreenshot;
@@ -533,19 +533,14 @@ function safeStackUrl(value) {
   }
 }
 
-async function approvedReview(request, itemId, gameId) {
-  const history = await jsonRequest(request, "GET", "/api/v1/admin/review-history");
-  const matches = array(history.items).filter((item) =>
-    item.importItemId === itemId && item.decision === "APPROVED");
-  exact(matches.length, 1, "RPG_ACCEPTANCE_APPROVED_REVIEW_COUNT");
-  const event = await jsonRequest(
-    request, "GET", `/api/v1/admin/review-history/${matches[0].reviewEventId}`,
-  );
-  if (event.importItemId !== itemId || event.eventType !== "APPROVED" || event.after?.gameId !== gameId) {
-    throw new Error("RPG_ACCEPTANCE_APPROVED_REVIEW_RELATION_INVALID");
-  }
-  if (!matches[0].importJobId) { throw new Error("RPG_ACCEPTANCE_APPROVED_IMPORT_RELATION_MISSING"); }
-  return { event, importJobId: matches[0].importJobId };
+async function approvedReview(request, itemId, gameId, importJobId) {
+  if (!importJobId) { throw new Error("RPG_ACCEPTANCE_APPROVED_IMPORT_RELATION_MISSING"); }
+  const imported = await jsonRequest(request, "GET", `/api/v1/admin/imports/${importJobId}`);
+  exact(imported.counts.total, 1, "RPG_ACCEPTANCE_APPROVED_IMPORT_COUNT");
+  exact(imported.counts.published, 1, "RPG_ACCEPTANCE_APPROVED_ITEM_COUNT");
+  const game = await jsonRequest(request, "GET", `/api/v1/games/${gameId}`);
+  exact(game.gameId ?? game.id, gameId, "RPG_ACCEPTANCE_APPROVED_GAME_ID");
+  return { event: { itemId, status: "PUBLISHED" }, importJobId };
 }
 
 async function readInputTranscript(request, importJobId) {
@@ -656,7 +651,7 @@ async function jsonRequest(request, method, path, options = {}) {
 function safeReview(review, runtimeTrial) {
   const route = runtimeTrial.routeEvidence;
   return {
-    itemId: review.importItemId, reviewEventId: review.reviewEventId, decision: review.eventType,
+    itemId: review.itemId, decision: review.status,
     version: null, contentIdentityDigest: route.projectFingerprint,
     rpgMaker: {
       selectedCoreId: "rpgmaker", generation: route.generation,

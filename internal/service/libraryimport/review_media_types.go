@@ -16,19 +16,25 @@ type ReviewUploadedAsset struct {
 	CreatedAtMS int64  `json:"createdAtMs"`
 	URL         string `json:"url"`
 }
+type ReviewSourceFlags struct {
+	Hidden  bool `json:"hidden"`
+	Adult   bool `json:"adult"`
+	KidGame bool `json:"kidGame"`
+}
+
 type ReviewSourceMedia struct {
-	SourceKind               string  `json:"sourceKind"`
-	SourceRefID              string  `json:"sourceRefId"`
-	ImportID                 string  `json:"-"`
-	Label                    *string `json:"sourceLabel"`
-	HasCover                 bool    `json:"-"`
-	HasVideo                 bool    `json:"-"`
-	CoverWidthPX             *int64  `json:"coverWidthPx"`
-	CoverHeightPX            *int64  `json:"coverHeightPx"`
-	CoverURL                 *string `json:"coverUrl"`
-	VideoURL                 *string `json:"videoUrl"`
-	PegasusImportID          string  `json:"pegasusImportId,omitempty"`
-	EmulationStationImportID string  `json:"emulationStationImportId,omitempty"`
+	SourceFlags    ReviewSourceFlags `json:"sourceFlags"`
+	SourceKind     string            `json:"sourceKind"`
+	SourceRefID    string            `json:"sourceRefId"`
+	ImportID       string            `json:"-"`
+	Label          *string           `json:"sourceLabel"`
+	HasCover       bool              `json:"-"`
+	HasVideo       bool              `json:"-"`
+	CoverWidthPX   *int64            `json:"coverWidthPx"`
+	CoverHeightPX  *int64            `json:"coverHeightPx"`
+	CoverURL       *string           `json:"coverUrl"`
+	VideoURL       *string           `json:"videoUrl"`
+	SourceImportID string            `json:"sourceImportId,omitempty"`
 }
 type ReviewRuntimeScreenshot struct {
 	ID           string `json:"screenshotId"`

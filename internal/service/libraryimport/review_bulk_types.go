@@ -18,13 +18,12 @@ const ReviewBulkItemLimit = 50
 var ErrReviewBulkQuery = errors.New("INVALID_REVIEW_BULK_QUERY")
 
 type ReviewBulkScope struct {
-	Q                        string `json:"q,omitempty"`
-	TagID                    string `json:"tagId,omitempty"`
-	ImportJobID              string `json:"importJobId,omitempty"`
-	PegasusImportID          string `json:"pegasusImportId,omitempty"`
-	EmulationStationImportID string `json:"emulationStationImportId,omitempty"`
-	PlatformInstanceID       string `json:"platformInstanceId,omitempty"`
-	BlockerCode              string `json:"blockerCode,omitempty"`
+	Q                  string `json:"q,omitempty"`
+	TagID              string `json:"tagId,omitempty"`
+	ImportJobID        string `json:"importJobId,omitempty"`
+	SourceImportID     string `json:"sourceImportId,omitempty"`
+	PlatformInstanceID string `json:"platformInstanceId,omitempty"`
+	BlockerCode        string `json:"blockerCode,omitempty"`
 }
 
 type ReviewBulkCandidateQuery struct {
@@ -63,7 +62,6 @@ type ReviewBulkItemRecord struct {
 	PlatformName   string          `json:"platformName"`
 	State          string          `json:"state"`
 	GameID         *string         `json:"gameId"`
-	ReviewEventID  *string         `json:"reviewEventId"`
 	OutcomeCode    *string         `json:"outcomeCode"`
 	OutcomeDetails json.RawMessage `json:"outcomeDetails"`
 	CompletedAtMS  *int64          `json:"completedAtMs"`

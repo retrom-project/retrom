@@ -1,44 +1,227 @@
 {
   "schemaVersion": 1,
   "edges": [
-    {"table":"archive_entries","column":"archive_blob_id","target":"BLOBS","class":"ARCHIVE_OWNERSHIP"},
-    {"table":"archive_entries","column":"materialized_blob_id","target":"BLOBS","class":"ARCHIVE_OWNERSHIP"},
-    {"table":"bios_installations","column":"blob_id","target":"BLOBS","class":"PROTECTIVE"},
-    {"table":"blob_gc_candidates","column":"blob_id","target":"BLOBS","class":"BOOKKEEPING"},
-    {"table":"content_hash_evidence","column":"archive_blob_id","target":"ARCHIVE_ENTRY","class":"PROTECTIVE"},
-    {"table":"content_hash_evidence","column":"blob_id","target":"BLOBS","class":"PROTECTIVE"},
-    {"table":"emulationstation_import_item_assets","column":"blob_id","target":"BLOBS","class":"PROTECTIVE"},
-    {"table":"emulationstation_import_item_files","column":"blob_id","target":"BLOBS","class":"PROTECTIVE"},
-    {"table":"emulationstation_import_item_files","column":"source_archive_blob_id","target":"BLOBS","class":"PROTECTIVE"},
-    {"table":"game_assets","column":"blob_id","target":"BLOBS","class":"PROTECTIVE"},
-    {"table":"game_files","column":"blob_id","target":"BLOBS","class":"PROTECTIVE"},
-    {"table":"game_files","column":"source_archive_blob_id","target":"ARCHIVE_ENTRY","class":"PROTECTIVE"},
-    {"table":"import_item_source_files","column":"blob_id","target":"BLOBS","class":"PROTECTIVE"},
-    {"table":"import_item_source_files","column":"source_archive_blob_id","target":"ARCHIVE_ENTRY","class":"PROTECTIVE"},
-    {"table":"import_item_source_snapshot_files","column":"blob_id","target":"BLOBS","class":"PROTECTIVE"},
-    {"table":"import_item_source_snapshot_files","column":"source_archive_blob_id","target":"ARCHIVE_ENTRY","class":"PROTECTIVE"},
-    {"table":"import_item_multidisc_entries","column":"blob_id","target":"BLOBS","class":"PROTECTIVE"},
-    {"table":"import_item_validation_files","column":"blob_id","target":"BLOBS","class":"PROTECTIVE"},
-    {"table":"review_arcade_parent_attachments","column":"accepted_blob_id","target":"BLOBS","class":"PROTECTIVE"},
-    {"table":"launch_game_save_bindings","column":"restore_payload_blob_id","target":"BLOBS","class":"PROTECTIVE"},
-    {"table":"launch_content_files","column":"blob_id","target":"BLOBS","class":"PROTECTIVE"},
-    {"table":"launch_external_files","column":"blob_id","target":"BLOBS","class":"PROTECTIVE"},
-    {"table":"metadata_provider_responses","column":"raw_response_blob_id","target":"BLOBS","class":"PROTECTIVE"},
-    {"table":"pegasus_import_item_assets","column":"blob_id","target":"BLOBS","class":"PROTECTIVE"},
-    {"table":"pegasus_import_item_files","column":"blob_id","target":"BLOBS","class":"PROTECTIVE"},
-    {"table":"pegasus_import_item_files","column":"source_archive_blob_id","target":"BLOBS","class":"PROTECTIVE"},
-    {"table":"review_uploaded_assets","column":"blob_id","target":"BLOBS","class":"PROTECTIVE"},
-    {"table":"review_preview_sessions","column":"content_blob_id","target":"BLOBS","class":"PROTECTIVE"},
-    {"table":"review_preview_sessions","column":"checkpoint_payload_blob_id","target":"BLOBS","class":"PROTECTIVE"},
-    {"table":"review_preview_sessions","column":"restore_payload_blob_id","target":"BLOBS","class":"PROTECTIVE"},
-    {"table":"review_preview_files","column":"blob_id","target":"BLOBS","class":"PROTECTIVE"},
-    {"table":"review_runtime_screenshots","column":"blob_id","target":"BLOBS","class":"PROTECTIVE"},
-    {"table":"runtime_asset_pack_files","column":"blob_id","target":"BLOBS","class":"PROTECTIVE"},
-    {"table":"runtime_asset_pack_installations","column":"bundle_blob_id","target":"BLOBS","class":"PROTECTIVE"},
-    {"table":"save_states","column":"payload_blob_id","target":"BLOBS","class":"PROTECTIVE"},
-    {"table":"save_states","column":"screenshot_blob_id","target":"BLOBS","class":"PROTECTIVE"},
-    {"table":"scrape_candidate_assets","column":"blob_id","target":"BLOBS","class":"PROTECTIVE"},
-    {"table":"upload_files","column":"final_blob_id","target":"BLOBS","class":"PROTECTIVE"},
-    {"table":"variant_files","column":"blob_id","target":"BLOBS","class":"PROTECTIVE"}
+    {
+      "table": "import_files",
+      "column": "blob_id",
+      "target": "BLOBS",
+      "class": "PROTECTIVE"
+    },
+    {
+      "table": "archive_entries",
+      "column": "archive_blob_id",
+      "target": "BLOBS",
+      "class": "ARCHIVE_OWNERSHIP"
+    },
+    {
+      "table": "archive_entries",
+      "column": "materialized_blob_id",
+      "target": "BLOBS",
+      "class": "ARCHIVE_OWNERSHIP"
+    },
+    {
+      "table": "bios_installations",
+      "column": "blob_id",
+      "target": "BLOBS",
+      "class": "PROTECTIVE"
+    },
+    {
+      "table": "blob_gc_candidates",
+      "column": "blob_id",
+      "target": "BLOBS",
+      "class": "BOOKKEEPING"
+    },
+    {
+      "table": "content_hash_evidence",
+      "column": "archive_blob_id",
+      "target": "ARCHIVE_ENTRY",
+      "class": "PROTECTIVE"
+    },
+    {
+      "table": "content_hash_evidence",
+      "column": "blob_id",
+      "target": "BLOBS",
+      "class": "PROTECTIVE"
+    },
+    {
+      "table": "game_assets",
+      "column": "blob_id",
+      "target": "BLOBS",
+      "class": "PROTECTIVE"
+    },
+    {
+      "table": "game_files",
+      "column": "blob_id",
+      "target": "BLOBS",
+      "class": "PROTECTIVE"
+    },
+    {
+      "table": "game_files",
+      "column": "source_archive_blob_id",
+      "target": "ARCHIVE_ENTRY",
+      "class": "PROTECTIVE"
+    },
+    {
+      "table": "import_item_source_files",
+      "column": "blob_id",
+      "target": "BLOBS",
+      "class": "PROTECTIVE"
+    },
+    {
+      "table": "import_item_source_files",
+      "column": "source_archive_blob_id",
+      "target": "ARCHIVE_ENTRY",
+      "class": "PROTECTIVE"
+    },
+    {
+      "table": "import_item_source_snapshot_files",
+      "column": "blob_id",
+      "target": "BLOBS",
+      "class": "PROTECTIVE"
+    },
+    {
+      "table": "import_item_source_snapshot_files",
+      "column": "source_archive_blob_id",
+      "target": "ARCHIVE_ENTRY",
+      "class": "PROTECTIVE"
+    },
+    {
+      "table": "import_item_multidisc_entries",
+      "column": "blob_id",
+      "target": "BLOBS",
+      "class": "PROTECTIVE"
+    },
+    {
+      "table": "import_item_validation_files",
+      "column": "blob_id",
+      "target": "BLOBS",
+      "class": "PROTECTIVE"
+    },
+    {
+      "table": "review_arcade_parent_attachments",
+      "column": "accepted_blob_id",
+      "target": "BLOBS",
+      "class": "PROTECTIVE"
+    },
+    {
+      "table": "launch_game_save_bindings",
+      "column": "restore_payload_blob_id",
+      "target": "BLOBS",
+      "class": "PROTECTIVE"
+    },
+    {
+      "table": "launch_content_files",
+      "column": "blob_id",
+      "target": "BLOBS",
+      "class": "PROTECTIVE"
+    },
+    {
+      "table": "launch_external_files",
+      "column": "blob_id",
+      "target": "BLOBS",
+      "class": "PROTECTIVE"
+    },
+    {
+      "table": "metadata_provider_responses",
+      "column": "raw_response_blob_id",
+      "target": "BLOBS",
+      "class": "PROTECTIVE"
+    },
+    {
+      "table": "source_import_item_assets",
+      "column": "blob_id",
+      "target": "BLOBS",
+      "class": "PROTECTIVE"
+    },
+    {
+      "table": "source_import_item_files",
+      "column": "blob_id",
+      "target": "BLOBS",
+      "class": "PROTECTIVE"
+    },
+    {
+      "table": "source_import_item_files",
+      "column": "source_archive_blob_id",
+      "target": "BLOBS",
+      "class": "PROTECTIVE"
+    },
+    {
+      "table": "review_uploaded_assets",
+      "column": "blob_id",
+      "target": "BLOBS",
+      "class": "PROTECTIVE"
+    },
+    {
+      "table": "review_preview_sessions",
+      "column": "content_blob_id",
+      "target": "BLOBS",
+      "class": "PROTECTIVE"
+    },
+    {
+      "table": "review_preview_sessions",
+      "column": "checkpoint_payload_blob_id",
+      "target": "BLOBS",
+      "class": "PROTECTIVE"
+    },
+    {
+      "table": "review_preview_sessions",
+      "column": "restore_payload_blob_id",
+      "target": "BLOBS",
+      "class": "PROTECTIVE"
+    },
+    {
+      "table": "review_preview_files",
+      "column": "blob_id",
+      "target": "BLOBS",
+      "class": "PROTECTIVE"
+    },
+    {
+      "table": "review_runtime_screenshots",
+      "column": "blob_id",
+      "target": "BLOBS",
+      "class": "PROTECTIVE"
+    },
+    {
+      "table": "runtime_asset_pack_files",
+      "column": "blob_id",
+      "target": "BLOBS",
+      "class": "PROTECTIVE"
+    },
+    {
+      "table": "runtime_asset_pack_installations",
+      "column": "bundle_blob_id",
+      "target": "BLOBS",
+      "class": "PROTECTIVE"
+    },
+    {
+      "table": "save_states",
+      "column": "payload_blob_id",
+      "target": "BLOBS",
+      "class": "PROTECTIVE"
+    },
+    {
+      "table": "save_states",
+      "column": "screenshot_blob_id",
+      "target": "BLOBS",
+      "class": "PROTECTIVE"
+    },
+    {
+      "table": "scrape_candidate_assets",
+      "column": "blob_id",
+      "target": "BLOBS",
+      "class": "PROTECTIVE"
+    },
+    {
+      "table": "upload_files",
+      "column": "final_blob_id",
+      "target": "BLOBS",
+      "class": "PROTECTIVE"
+    },
+    {
+      "table": "variant_files",
+      "column": "blob_id",
+      "target": "BLOBS",
+      "class": "PROTECTIVE"
+    }
   ]
 }

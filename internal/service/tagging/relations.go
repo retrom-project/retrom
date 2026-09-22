@@ -134,7 +134,7 @@ func replaceCollectionTags(
 	return after, err
 }
 
-func (service *Service) ReplacePegasusCollectionTags(
+func (service *Service) ReplaceSourceCollectionTags(
 	ctx context.Context,
 	scope WriteScope,
 	id string,
@@ -142,34 +142,14 @@ func (service *Service) ReplacePegasusCollectionTags(
 	actorUserID string,
 	now int64,
 ) ([]Reference, error) {
-	return replaceCollectionTags(ctx, scope, Owner{Kind: OwnerPegasusCollection, ID: id}, ids, actorUserID, now)
+	return replaceCollectionTags(ctx, scope, Owner{Kind: OwnerSourceCollection, ID: id}, ids, actorUserID, now)
 }
 
-func (service *Service) ReplaceEmulationStationCollectionTags(
-	ctx context.Context,
-	scope WriteScope,
-	id string,
-	ids []string,
-	actorUserID string,
-	now int64,
-) ([]Reference, error) {
-	return replaceCollectionTags(ctx, scope, Owner{Kind: OwnerEmulationStationCollection, ID: id}, ids, actorUserID, now)
-}
-
-func (service *Service) PegasusCollectionReferences(
+func (service *Service) SourceCollectionReferences(
 	ctx context.Context,
 	scope WriteScope,
 	id string,
 ) ([]Reference, error) {
-	refs, err := scope.Relations.References(ctx, Owner{Kind: OwnerPegasusCollection, ID: id})
-	return refs, repositoryError("collection references", err)
-}
-
-func (service *Service) EmulationStationCollectionReferences(
-	ctx context.Context,
-	scope WriteScope,
-	id string,
-) ([]Reference, error) {
-	refs, err := scope.Relations.References(ctx, Owner{Kind: OwnerEmulationStationCollection, ID: id})
+	refs, err := scope.Relations.References(ctx, Owner{Kind: OwnerSourceCollection, ID: id})
 	return refs, repositoryError("collection references", err)
 }

@@ -18,7 +18,7 @@ import (
 
 func TestRestoredReviewFailureRollsBackSecurityAndHandoff(t *testing.T) {
 	t.Parallel()
-	for _, kind := range []string{"PEGASUS", "EMULATIONSTATION"} {
+	for _, kind := range []string{"SOURCE"} {
 		for _, stage := range []string{"read", "metadata", "source", "affected", "progress", "aggregate", "audit"} {
 			t.Run(kind+"/"+stage, func(t *testing.T) {
 				t.Parallel()
@@ -28,14 +28,9 @@ func TestRestoredReviewFailureRollsBackSecurityAndHandoff(t *testing.T) {
 	}
 }
 
-func restoreReviewFixture(t *testing.T, kind string) *sql.DB {
+func restoreReviewFixture(t *testing.T) *sql.DB {
 	t.Helper()
-	var db *sql.DB
-	if kind == "PEGASUS" {
-		db, _ = restoredPegasusReview(t)
-	} else {
-		db, _ = restoredEmulationStationReview(t, false, false)
-	}
+	db, _ := restoredSourceReview(t)
 	_, err := db.ExecContext(t.Context(), `INSERT INTO auth_sessions(id,user_id,token_sha256,user_session_version,
 created_at_ms,last_seen_at_ms,idle_expires_at_ms,absolute_expires_at_ms)
 VALUES('restore-session','user',zeroblob(32),1,0,0,1000,10000)`)
@@ -47,7 +42,7 @@ VALUES('restore-session','user',zeroblob(32),1,0,0,1000,10000)`)
 
 func verifyRestoreReviewFailure(t *testing.T, kind, stage string) {
 	t.Helper()
-	db := restoreReviewFixture(t, kind)
+	db := restoreReviewFixture(t)
 	before := reviewRestoreSnapshot(t, db)
 	cause := errors.New("restore handoff storage failed")
 	var hits, drafts, sources atomic.Int64
@@ -57,7 +52,7 @@ func verifyRestoreReviewFailure(t *testing.T, kind, stage string) {
 	if !errors.Is(err, cause) || hits.Load() != 1 {
 		t.Fatalf("restore=%v fault hits=%d", err, hits.Load())
 	}
-	if stage != "read" && drafts.Load() != 1 {
+	if stage != "read" && stage != "metadata" && drafts.Load() != 1 {
 		t.Fatalf("failure preceded real metadata write: %d", drafts.Load())
 	}
 	if restoreFaultFollowsSourceWrite(stage) && sources.Load() != 1 {
@@ -72,7 +67,7 @@ func verifyRestoreReviewFailure(t *testing.T, kind, stage string) {
 	var audits, events, pending int
 	err = db.QueryRowContext(t.Context(), `SELECT
 (SELECT count(*) FROM audit_events WHERE id='restore-audit'),
-(SELECT count(*) FROM review_events WHERE import_item_id='handoff-item'),
+(SELECT version-1 FROM review_drafts WHERE import_item_id='handoff-item'),
 (SELECT count(*) FROM import_items WHERE id='handoff-item' AND state='REVIEW_PENDING')`).Scan(&audits, &events, &pending)
 	if err != nil || audits != 1 || events != 1 || pending != 1 {
 		t.Fatalf("retry duplicated or lost result: audits=%d events=%d pending=%d error=%v", audits, events, pending, err)
@@ -130,13 +125,13 @@ func (result restoreAffectedFailure) RowsAffected() (int64, error) { return 0, r
 
 func matchesReviewRestoreWrite(kind, stage, query string, args []driver.NamedValue) bool {
 	prefix, id := strings.ToLower(kind), "item"
-	if kind == "EMULATIONSTATION" {
-		id = "es-item"
+	if kind == "SOURCE" {
+		id = "item"
 	}
 	statement, wanted := "", any(nil)
 	switch stage {
 	case "metadata":
-		statement, wanted = "INSERT INTO review_events", "handoff-item"
+		statement, wanted = "UPDATE review_drafts SET metadata_json=", "handoff-item"
 	case "source", "affected":
 		statement, wanted = "UPDATE "+prefix+"_import_items SET execution_state='REVIEW_PENDING'", id
 	case "progress":
@@ -192,8 +187,8 @@ func reviewRestoreSnapshot(t *testing.T, db *sql.DB) string {
 	snapshot := map[string][][]any{}
 	for _, table := range []string{
 		"auth_sessions", "account_links", "launch_sessions", "audit_events", "jobs",
-		"job_events", "job_input_snapshots", "import_jobs", "import_items", "review_drafts", "review_events", "server_import_upload_owners",
-		"pegasus_imports", "pegasus_import_items", "emulationstation_imports", "emulationstation_import_items",
+		"job_events", "job_input_snapshots", "import_jobs", "import_items", "review_drafts", "server_import_upload_owners",
+		"source_imports", "source_import_items",
 	} {
 		snapshot[table] = restoredTableRows(t, db, table)
 	}
@@ -202,4 +197,37 @@ func reviewRestoreSnapshot(t *testing.T, db *sql.DB) string {
 		t.Fatal(err)
 	}
 	return string(data)
+}
+
+func restoredTableRows(t *testing.T, db *sql.DB, table string) [][]any {
+	t.Helper()
+	rows, err := db.QueryContext(t.Context(), "SELECT * FROM "+table+" ORDER BY rowid")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := rows.Close(); err != nil {
+			t.Error(err)
+		}
+	}()
+	columns, err := rows.Columns()
+	if err != nil {
+		t.Fatal(err)
+	}
+	result := [][]any{}
+	for rows.Next() {
+		values := make([]any, len(columns))
+		pointers := make([]any, len(columns))
+		for index := range values {
+			pointers[index] = &values[index]
+		}
+		if err := rows.Scan(pointers...); err != nil {
+			t.Fatal(err)
+		}
+		result = append(result, values)
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatal(err)
+	}
+	return result
 }

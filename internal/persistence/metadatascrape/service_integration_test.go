@@ -366,29 +366,8 @@ WHERE provider='HASHEOUS')
 	approved, err := importer.ApproveWithReason(ctx, firstItemID, draftVersion, &reason)
 	testassert.False(t, err != nil, err)
 	var publishedAssets int
-	var providerEvidence, storedReason string
-	if err := database.SQL.QueryRowContext(ctx, `
-SELECT (SELECT count(*)
-FROM game_assets
-WHERE game_id=?
-AND kind='COVER'),
-provider_evidence_json,
-reason
-FROM review_events
-WHERE import_item_id=?
-AND event_type='APPROVED'
-	`, approved.GameID, firstItemID).Scan(&publishedAssets, &providerEvidence, &storedReason); err != nil ||
-		publishedAssets != 1 ||
-		storedReason != reason ||
-		!strings.Contains(providerEvidence, `"candidateSelected":true`) ||
-		strings.Contains(providerEvidence, candidateAssetID) {
-		t.Fatalf(
-			"published review assets/evidence = %d %s %q, error=%v",
-			publishedAssets,
-			providerEvidence,
-			storedReason,
-			err,
-		)
+	if err := database.SQL.QueryRowContext(ctx, "SELECT count(*) FROM game_assets WHERE game_id=? AND kind='COVER'", approved.GameID).Scan(&publishedAssets); err != nil || publishedAssets != 1 {
+		t.Fatalf("published cover=%d err=%v", publishedAssets, err)
 	}
 
 	failureContents := []byte("deterministic metadata failure fixture")

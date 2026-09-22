@@ -61,13 +61,3 @@ AND target_platform_instance_id=?`, Args: []any{
 	})
 	return attachmentAdmissionCount(result, err, application.MultiDiscAttachmentErrorVersion)
 }
-
-func (records multidiscAdmissionRecords) Audit(ctx context.Context, value application.MultiDiscAttachmentWrite) error {
-	empty := `{"schemaVersion":2}`
-	result, err := recordstore.CreateReviewEvents(ctx, records.executor, `INSERT INTO review_events
-(id,import_item_id,event_type,actor_kind,actor_user_id,actor_label,before_json,after_json,diff_json,
-config_evidence_json,dat_evidence_json,provider_evidence_json,created_at_ms)
-VALUES(?,?,'DISC_UPLOAD_REQUESTED','USER',?,NULL,?,?,?,?,?,?,?)`, value.AuditID, value.Input.ImportItemID,
-		value.Input.RequestedByUserID, empty, value.AuditJSON, value.AuditJSON, empty, empty, empty, value.Now)
-	return attachmentAdmissionCount(result, err, application.MultiDiscAttachmentErrorUnavailable)
-}

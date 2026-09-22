@@ -135,12 +135,12 @@ CREATE TABLE "games" (
   players INTEGER CHECK(players IS NULL OR players BETWEEN 1 AND 64),
   release_year INTEGER,
   metadata_source_kind TEXT NOT NULL CHECK(metadata_source_kind IN (
-    'IMPORT_REVIEW','ADMIN_EDIT','RESCRAPE_APPLY','SERVER_PEGASUS_IMPORT','SERVER_EMULATIONSTATION_IMPORT'
+    'IMPORT_REVIEW','ADMIN_EDIT','RESCRAPE_APPLY','IMPORT_RECEIVE'
   )),
   metadata_source_ref_id TEXT,
   content_kind TEXT NOT NULL DEFAULT 'SINGLE_FILE' REFERENCES content_kinds(id),
   content_source_kind TEXT NOT NULL CHECK(content_source_kind IN (
-    'IMPORT_REVIEW','ADMIN_REPLACE','SERVER_PEGASUS_IMPORT','SERVER_EMULATIONSTATION_IMPORT'
+    'IMPORT_REVIEW','ADMIN_REPLACE','IMPORT_RECEIVE'
   )),
   content_source_ref_id TEXT NOT NULL,
   source_manifest_json TEXT NOT NULL,

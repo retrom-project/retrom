@@ -24,8 +24,6 @@ type ArcadeParentCommitRepository struct{ database *sql.DB }
 
 var _ application.ArcadeParentCommitRepository = (*ArcadeParentCommitRepository)(nil)
 
-const emptyArcadeParentCommitReviewEvent = `{"schemaVersion":2}`
-
 func NewArcadeParentCommitRepository(database *sql.DB) *ArcadeParentCommitRepository {
 	return &ArcadeParentCommitRepository{database: database}
 }
@@ -59,8 +57,6 @@ func (repository *ArcadeParentCommitRepository) CommitAccepted(
 		selectedValidation = artifacts.validationID
 	}
 	consumptionID, _ := uuid.NewV7()
-	eventID, _ := uuid.NewV7()
-	evidence := request.EvidenceJSON
 	result, err := recordstore.UpdateReviewArcadeParentAttachments(ctx, transaction, recordstore.Update{
 		Set: `
 state='ACCEPTED',accepted_blob_id=?,
@@ -115,16 +111,7 @@ version=version+1,updated_at_ms=?
 	}); err != nil {
 		return arcadeParentCommitStoreError("advance import item", err)
 	}
-	if _, err := recordstore.CreateReviewEvents(ctx, transaction, `
-INSERT INTO review_events(id,import_item_id,event_type,actor_kind,actor_user_id,actor_label,
-before_json,after_json,diff_json,
-config_evidence_json,dat_evidence_json,provider_evidence_json,created_at_ms)
-VALUES(?,?,'PARENT_ATTACHMENT_ACCEPTED',?,?,?,?,?,?,?,?,?,?)
-`, eventID.String(), request.Candidate.ItemID, request.Actor.Kind, request.Actor.UserID, request.Actor.Label,
-		emptyArcadeParentCommitReviewEvent, evidence, evidence, emptyArcadeParentCommitReviewEvent,
-		emptyArcadeParentCommitReviewEvent, emptyArcadeParentCommitReviewEvent, request.NowMS); err != nil {
-		return arcadeParentCommitStoreError("record parent review event", err)
-	}
+
 	if _, err := transaction.ExecContext(ctx, `
 INSERT INTO job_events(job_id,scope_type,scope_id,event_type,data_json,created_at_ms) VALUES
 (?,'IMPORT_ITEM',?,'ARCHIVE_SCANNED','{}',?),
@@ -189,17 +176,7 @@ VALUES(?,'IMPORT_ITEM',?,'PARENT_REJECTED',?,?),(?,'IMPORT_ITEM',?,'FAILED',?,?)
 		request.JobID, request.ItemID, fmt.Sprintf(`{"errorCode":%q}`, request.Code), request.NowMS); err != nil {
 		return arcadeParentCommitStoreError("record rejected parent events", err)
 	}
-	eventID, _ := uuid.NewV7()
-	if _, err := recordstore.CreateReviewEvents(ctx, transaction, `
-INSERT INTO review_events(id,import_item_id,event_type,actor_kind,actor_user_id,actor_label,
-before_json,after_json,diff_json,
-config_evidence_json,dat_evidence_json,provider_evidence_json,created_at_ms)
-VALUES(?,?,'PARENT_ATTACHMENT_REJECTED',?,?,?,?,?,?,?,?,?,?)
-`, eventID.String(), request.ItemID, request.Actor.Kind, request.Actor.UserID, request.Actor.Label,
-		emptyArcadeParentCommitReviewEvent, request.EvidenceJSON, request.EvidenceJSON, emptyArcadeParentCommitReviewEvent,
-		emptyArcadeParentCommitReviewEvent, emptyArcadeParentCommitReviewEvent, request.NowMS); err != nil {
-		return arcadeParentCommitStoreError("record rejected parent review event", err)
-	}
+
 	if err := transaction.Commit(); err != nil {
 		return arcadeParentCommitStoreError("commit rejected attachment", err)
 	}

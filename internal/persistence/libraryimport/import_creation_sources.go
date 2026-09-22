@@ -11,13 +11,12 @@ func (records creationRecords) Source(ctx context.Context, change application.Cr
 	result, err := records.transaction.ExecContext(
 		ctx,
 		`
-INSERT INTO import_items(id,import_job_id,group_key,state,review_handoff_kind,source_manifest_json,
- source_manifest_digest,search_text,version,created_at_ms,updated_at_ms) VALUES(?,?,?,?,?,?,?,?,1,?,?)`,
+INSERT INTO import_items(id,import_job_id,group_key,state,source_manifest_json,
+ source_manifest_digest,search_text,version,created_at_ms,updated_at_ms) VALUES(?,?,?,?,?,?,?,1,?,?)`,
 		change.ItemID,
 		change.ImportID,
 		change.GroupKey,
 		change.State,
-		change.HandoffKind,
 		change.ManifestJSON,
 		change.ManifestDigest,
 		change.SearchText,

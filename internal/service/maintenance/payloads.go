@@ -31,7 +31,7 @@ type RestoredPayloadScope struct {
 // The shared scheduler keeps materialized reviews and retryable sources retained.
 func ScheduleRestoredPayloads(ctx context.Context, scope RestoredPayloadScope, now int64) error {
 	scheduler := release.NewScheduler(nil)
-	for _, kind := range []release.ScopeType{release.ScopePegasusImportItem, release.ScopeEmulationStationImportItem} {
+	for _, kind := range []release.ScopeType{release.ScopeSourceImportItem} {
 		query := RestoredPayloadQuery{Kind: kind, Limit: 100}
 		for {
 			ids, err := scope.Records.RetainedSources(ctx, query)

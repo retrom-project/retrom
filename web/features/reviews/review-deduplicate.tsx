@@ -9,7 +9,7 @@ import { responseError } from "@/lib/upload";
 import { refreshReviewQueue } from "./review-queue-refresh";
 
 type Request = components["schemas"]["ReviewDeduplicateRequest"];
-const scopeKeys = ["q", "tagId", "importJobId", "pegasusImportId", "emulationStationImportId", "platformInstanceId", "blockerCode"];
+const scopeKeys = ["q", "tagId", "importJobId", "sourceImportId", "platformInstanceId", "blockerCode"];
 
 export function ReviewDeduplicate({ values }: { values: Record<string, string> }) {
   const { context } = useAuth();

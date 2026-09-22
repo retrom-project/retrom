@@ -8,7 +8,7 @@ import (
 
 func TestTerminalSourceEligibilityAndSharedRelease(t *testing.T) {
 	t.Parallel()
-	for _, kind := range []ScopeType{ScopePegasusImportItem, ScopeEmulationStationImportItem} {
+	for _, kind := range []ScopeType{ScopeSourceImportItem, ScopeSourceImportItem} {
 		for _, state := range []string{"REVIEW_PENDING", "COMMIT_FAILED", "REVIEW_DISCARDED"} {
 			for _, retryable := range []bool{false, true} {
 				t.Run(string(kind)+"/"+state+"/retryable="+boolName(retryable), func(t *testing.T) {
@@ -42,7 +42,7 @@ func TestBoundSourceSharesOrdinaryReleaseWithoutNewJob(t *testing.T) {
 	for _, state := range []string{"RELEASING", "RELEASED", "FAILED"} {
 		t.Run(state, func(t *testing.T) {
 			t.Parallel()
-			ref := Scope{Type: ScopeEmulationStationImportItem, ID: "source"}
+			ref := Scope{Type: ScopeSourceImportItem, ID: "source"}
 			ordinary := Scope{Type: ScopeImportItem, ID: "ordinary"}
 			owner := Owner{Scope: ref, Version: 9, State: "PUBLISHED", PayloadState: "RETAINED", PublicID: ordinary.ID}
 			records := &scheduleMemory{owners: map[Scope]Owner{

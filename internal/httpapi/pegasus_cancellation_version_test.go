@@ -7,15 +7,15 @@ import (
 	"testing"
 
 	"retrom/internal/composition"
-	application "retrom/internal/service/pegasusimport"
+	application "retrom/internal/service/sourceimport"
 )
 
-type beforePegasusCancellation struct {
+type beforeSourceCancellation struct {
 	service *application.Service
 	before  func(application.JobCancellationRequest)
 }
 
-func (gate beforePegasusCancellation) CancelJob(
+func (gate beforeSourceCancellation) CancelJob(
 	ctx context.Context,
 	request application.JobCancellationRequest,
 ) (application.JobCancellationResult, bool, error) {
@@ -29,10 +29,10 @@ func (gate beforePegasusCancellation) CancelJob(
 
 func TestJobCancellationRetainsOriginalETagAfterGenericRead(t *testing.T) {
 	server := newTestServer(t)
-	planID, jobID := seedHTTPPegasusScan(t, server, false)
+	planID, jobID := seedHTTPSourceScan(t, server, false)
 	hits := 0
-	server.jobService = composition.WithPegasusJobCancellation(server.jobService, beforePegasusCancellation{
-		service: server.pegasusImports,
+	server.jobService = composition.WithSourceJobCancellation(server.jobService, beforeSourceCancellation{
+		service: server.sourceImports,
 		before: func(request application.JobCancellationRequest) {
 			hits++
 			if request.ExpectedVersion != 1 || request.ScopeID != planID || request.JobID != jobID || request.ActorID == "" {
@@ -54,7 +54,7 @@ func TestJobCancellationRetainsOriginalETagAfterGenericRead(t *testing.T) {
 	var planState, jobState string
 	var version int64
 	err := server.database.QueryRowContext(t.Context(), `SELECT plan.state,job.state,job.version
-FROM pegasus_imports plan JOIN jobs job ON job.id=plan.scan_job_id WHERE plan.id=?`, planID).Scan(
+FROM source_imports plan JOIN jobs job ON job.id=plan.scan_job_id WHERE plan.id=?`, planID).Scan(
 		&planState,
 		&jobState,
 		&version,

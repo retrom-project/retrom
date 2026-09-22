@@ -7,13 +7,13 @@ import (
 )
 
 func TestReleaseOrdinaryBindingWritesRollBackSourcePayload(t *testing.T) {
-	for _, stage := range []effectWriteFailure{{"UPDATE pegasus_import_item_files", "effect-source"}, {"UPDATE pegasus_import_items SET payload_state='RELEASED'", "effect-source"}} {
+	for _, stage := range []effectWriteFailure{{"UPDATE source_import_item_files", "effect-source"}, {"UPDATE source_import_items SET payload_state='RELEASED'", "effect-source"}} {
 		for _, mode := range []string{"sql", "count", "zero"} {
 			t.Run(stage.prefix+"/"+mode, func(t *testing.T) {
 				fixture := queuedReleaseWorker(t)
 				seedEffectGamePayload(t, fixture.database)
 				ordinaryJob := seedEffectOrdinarySource(t, fixture.database)
-				seedEffectBoundPegasus(t, fixture.database)
+				seedEffectBoundSource(t, fixture.database)
 				if _, err := fixture.database.ExecContext(t.Context(), `UPDATE jobs SET available_at_ms=1000 WHERE id=?`, fixture.jobID); err != nil {
 					t.Fatal(err)
 				}
@@ -45,8 +45,8 @@ func assertBoundEffectRetained(t *testing.T, fixture releaseWorkerFixture) {
 	err := fixture.database.QueryRowContext(t.Context(), `SELECT
  (SELECT payload_state FROM import_items WHERE id='effect-item'),payload_state,
  (SELECT count(*) FROM import_item_source_files WHERE import_item_id='effect-item')+
- (SELECT count(*) FROM pegasus_import_item_files WHERE item_id='effect-source' AND blob_id='effect-blob')
- FROM pegasus_import_items WHERE id='effect-source'`).Scan(&ordinary, &source, &refs)
+ (SELECT count(*) FROM source_import_item_files WHERE item_id='effect-source' AND blob_id='effect-blob')
+ FROM source_import_items WHERE id='effect-source'`).Scan(&ordinary, &source, &refs)
 	if err != nil || ordinary != "RELEASING" || source != "RELEASING" || refs != 2 {
 		t.Fatalf("bound partial ordinary=%s source=%s refs=%d error=%v", ordinary, source, refs, err)
 	}

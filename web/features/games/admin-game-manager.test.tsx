@@ -34,8 +34,7 @@ const game: AdminGame = {
   deleteImpact: {
     impactDigest: "d".repeat(64), registeredBytes: "5242880", exclusiveBytes: "4194304",
     sharedBytes: "1048576", blobCount: 4, saveStateCount: 44, assetCount: 2,
-    contentFileCount: 1, activeLaunchCount: 0, activeNetplayCount: 1,
-    reviewEventCount: 2, sourceKinds: ["USER_UPLOAD"],
+    contentFileCount: 1, activeLaunchCount: 0, activeNetplayCount: 1, sourceKinds: ["USER_UPLOAD"],
   },
   assets: [],
   variants: [{ id: "variant-1", coreId: "fbneo", coreName: "FinalBurn Neo", providerId: "libretro", targetId: "fbneo", datVersionId: null, status: "READY", compatibilityCode: "READY", version: 1, createdAtMs: 180, updatedAtMs: 180 }],

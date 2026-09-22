@@ -66,7 +66,7 @@ func newFixture(t *testing.T) *fixture {
 INSERT INTO users(id,profile_id,username,display_name,role,status,created_at_ms,updated_at_ms)
 VALUES(?,'discard-profile','discard-admin','Discard','ADMIN','ENABLED',0,0)`, adminID)
 	f.importer = libraryimport.New(f.db, now).WithBlobStore(blobs)
-	f.service = composition.NewImportDiscard(f.db, libraryimport.NewDiscardWorkflow(f.importer), nil, nil, now)
+	f.service = composition.NewImportDiscard(f.db, libraryimport.NewDiscardWorkflow(f.importer), nil, now)
 	f.releases, err = payloadrelease.New(f.db, blobs, now, 7*24*time.Hour)
 	if err != nil {
 		t.Fatal(err)
@@ -151,7 +151,7 @@ func TestDiscardRejectedOnlyBatchReleasesUploadAndIsIdempotent(t *testing.T) {
 		}
 	}
 	// Recreate the coordinator to prove the request does not depend on the HTTP request/browser.
-	f.service = composition.NewImportDiscard(f.db, libraryimport.NewDiscardWorkflow(f.importer), nil, nil, f.now)
+	f.service = composition.NewImportDiscard(f.db, libraryimport.NewDiscardWorkflow(f.importer), nil, f.now)
 	f.finish(t, "IMPORT", result.Created.ImportJobID)
 	if n := f.count(t, `SELECT count(*) FROM upload_consumptions WHERE consumer_id=? AND released_at_ms IS NULL`, result.Created.ImportJobID); n != 0 {
 		t.Fatalf("active consumption: %d", n)
@@ -194,7 +194,7 @@ func TestDiscardPreservesPublishedGameAndOtherBatch(t *testing.T) {
 	if n := f.count(t, `SELECT count(*) FROM import_items WHERE id=? AND state='DISCARDED'`, discarded.ItemID); n != 1 {
 		t.Fatal("review not discarded")
 	}
-	if n := f.count(t, `SELECT count(*) FROM review_events WHERE import_item_id=? AND event_type='DISCARDED'`, discarded.ItemID); n != 1 {
+	if n := f.count(t, `SELECT count(*) FROM import_items WHERE id=? AND state='DISCARDED'`, discarded.ItemID); n != 1 {
 		t.Fatal("missing ordinary discard decision")
 	}
 	if n := f.count(t, `SELECT count(*) FROM games WHERE status='PUBLISHED'`); n != 1 {
@@ -227,9 +227,9 @@ func TestDiscardWaitsForExecutionStopAndResumesAfterRestart(t *testing.T) {
 		t.Fatal("review was destroyed before explicit disposition")
 	}
 	f.importer.RecoverImportGroupJobs(f.ctx)
-	f.service = composition.NewImportDiscard(f.db, libraryimport.NewDiscardWorkflow(f.importer), nil, nil, f.now)
+	f.service = composition.NewImportDiscard(f.db, libraryimport.NewDiscardWorkflow(f.importer), nil, f.now)
 	f.finish(t, "IMPORT", result.Created.ImportJobID)
-	if n := f.count(t, `SELECT count(*) FROM review_events WHERE event_type='DISCARDED'`); n != 1 {
+	if n := f.count(t, `SELECT count(*) FROM import_items WHERE state='DISCARDED'`); n != 1 {
 		t.Fatal("restart lost or duplicated discard decision")
 	}
 }

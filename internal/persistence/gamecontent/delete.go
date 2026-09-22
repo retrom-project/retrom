@@ -88,7 +88,6 @@ func (writes writes) DeleteGameImpact(
 		ContentFileCount:   impact.ContentFileCount,
 		ActiveLaunchCount:  impact.ActiveLaunchCount,
 		ActiveNetplayCount: impact.ActiveNetplayCount,
-		ReviewEventCount:   impact.ReviewEventCount,
 		SourceKinds:        impact.SourceKinds,
 	}, nil
 }

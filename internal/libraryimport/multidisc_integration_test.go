@@ -417,17 +417,15 @@ SELECT state FROM import_item_multidisc_entries WHERE source_snapshot_id=? ORDER
 SELECT state FROM import_item_multidisc_entries WHERE source_snapshot_id=? ORDER BY ordinal
 `, resultSnapshotID)
 	testassert.Falsef(t, testassert.Any(func() bool { return fmt.Sprint(oldEntries) != "[PRESENT PRESENT MISSING]" }, func() bool { return fmt.Sprint(newEntries) != "[PRESENT PRESENT PRESENT]" }), "old/new entries = %v / %v", oldEntries, newEntries)
-	var requestedBy, eventActor, attachmentState string
+	var requestedBy, attachmentState string
 	if err := database.SQL.QueryRowContext(context.Background(), `
-SELECT attachment.requested_by_user_id,attachment.state,event.actor_user_id
+SELECT attachment.requested_by_user_id,attachment.state
 FROM review_multidisc_attachments attachment
-JOIN review_events event ON event.import_item_id=attachment.import_item_id
-AND event.event_type='DISC_ATTACHMENT_ACCEPTED'
 WHERE attachment.id=?
-`, attachment.AttachmentID).Scan(&requestedBy, &attachmentState, &eventActor); err != nil {
+`, attachment.AttachmentID).Scan(&requestedBy, &attachmentState); err != nil {
 		t.Fatal(err)
 	}
-	testassert.Falsef(t, testassert.Any(func() bool { return requestedBy != "01980000-0000-7000-8000-000000009991" }, func() bool { return eventActor != requestedBy }, func() bool { return attachmentState != "ACCEPTED" }), "attachment actor/state = %s/%s/%s", requestedBy, eventActor, attachmentState)
+	testassert.Falsef(t, testassert.Any(func() bool { return requestedBy != "01980000-0000-7000-8000-000000009991" }, func() bool { return attachmentState != "ACCEPTED" }), "attachment actor/state = %s/%s", requestedBy, attachmentState)
 	acceptedReview, hasMultiDisc, err := importer.ReviewMultiDisc(ctx, itemID)
 	acceptedProjection, projectionOK := acceptedReview.(map[string]any)
 	latest, latestOK := acceptedProjection["latestAttachment"].(map[string]any)

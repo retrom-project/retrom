@@ -73,11 +73,11 @@ describe("ReviewQueue", () => {
     expect(screen.getByText("已加载 2 条")).toBeVisible();
   });
 
-  it("treats Pegasus metadata as reviewable source information instead of a scrape miss", () => {
-    const pegasus = { ...item, sourceKind: "PEGASUS" as const, sourceLabel: "FC", candidateCount: 0 };
-    render(<ReviewQueue initial={{ items: [pegasus], nextCursor: null }} values={{ pegasusImportId: "batch-1" }} />);
+  it("treats Source metadata as reviewable source information instead of a scrape miss", () => {
+    const source = { ...item, sourceKind: "SOURCE" as const, sourceLabel: "FC", candidateCount: 0 };
+    render(<ReviewQueue initial={{ items: [source], nextCursor: null }} values={{ sourceImportId: "batch-1" }} />);
 
-    expect(screen.getByText("已读取 Pegasus 信息")).toBeVisible();
+    expect(screen.getByText("已读取来源信息")).toBeVisible();
     expect(screen.getByText("等待管理员核对")).toBeVisible();
     expect(screen.getByRole("link", { name: "审核条目" })).toBeVisible();
   });
@@ -85,16 +85,16 @@ describe("ReviewQueue", () => {
   it("identifies EmulationStation metadata and keeps its zero-candidate items reviewable", () => {
     const emulationStation = {
       ...item,
-      sourceKind: "EMULATIONSTATION" as const,
+      sourceKind: "SOURCE" as const,
       sourceLabel: "NES gamelist.xml",
       candidateCount: 0,
-      emulationStationImportId: "es-batch-1",
+      sourceImportId: "es-batch-1",
     };
-    render(<ReviewQueue initial={{ items: [emulationStation], nextCursor: null }} values={{ emulationStationImportId: "es-batch-1" }} />);
+    render(<ReviewQueue initial={{ items: [emulationStation], nextCursor: null }} values={{ sourceImportId: "es-batch-1" }} />);
 
-    expect(screen.getByText("已读取 Gamelist 信息")).toBeVisible();
-    expect(screen.getByText("EmulationStation · NES gamelist.xml")).toBeVisible();
-    expect(screen.getByText("等待管理员核对来源标记与媒体")).toBeVisible();
+    expect(screen.getByText("已读取来源信息")).toBeVisible();
+    expect(screen.getByText("来源文件 · NES gamelist.xml")).toBeVisible();
+    expect(screen.getByText("等待管理员核对")).toBeVisible();
     expect(screen.getByRole("link", { name: "审核条目" })).toBeVisible();
   });
 

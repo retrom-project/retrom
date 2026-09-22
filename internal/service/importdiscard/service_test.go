@@ -114,8 +114,8 @@ func TestDiscardAvailabilityUsesBusinessFacts(t *testing.T) {
 		batch      Batch
 		want       bool
 	}{
-		{"not started", "PEGASUS", Batch{State: "QUEUED"}, false},
-		{"scan", "PEGASUS", Batch{Started: true, State: "SCANNING"}, false},
+		{"not started", "SOURCE", Batch{State: "QUEUED"}, false},
+		{"scan", "SOURCE", Batch{Started: true, State: "SCANNING"}, false},
 		{"mapping", "EMULATIONSTATION", Batch{Started: true, State: "AWAITING_MAPPING"}, false},
 		{"active import", "IMPORT", Batch{Started: true, State: "RUNNING"}, true},
 		{
@@ -144,7 +144,7 @@ func TestDiscardAvailabilityUsesBusinessFacts(t *testing.T) {
 		},
 		{
 			"source decided",
-			"PEGASUS",
+			"SOURCE",
 			Batch{
 				Started: true,
 				State:   "COMPLETED",
@@ -197,7 +197,6 @@ func TestProgressDoesNotMarkFailuresCompleted(t *testing.T) {
 	}{
 		{errors.New("storage failed"), "IMPORT_BATCH_DISCARD_FAILED"},
 		{ErrReleaseFailed, "IMPORT_BATCH_DISCARD_RELEASE_FAILED"},
-		{ErrAmbiguousOwner, "IMPORT_BATCH_DISCARD_OWNER_AMBIGUOUS"},
 	}
 	for _, test := range tests {
 		result := progressFor(Key{"IMPORT", batchID}, true, test.err, 17)

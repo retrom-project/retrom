@@ -52,7 +52,6 @@ import (
 var (
 	errBackupArgument  = errors.New("BACKUP_ARGUMENT_INVALID")
 	errRestoreArgument = errors.New("RESTORE_ARGUMENT_INVALID")
-	errSetupArgument   = errors.New("SETUP_CODE_ARGUMENT_INVALID")
 	errAdminArgument   = errors.New("ADMIN_RESET_ARGUMENT_INVALID")
 	errCommand         = errors.New("COMMAND_INVALID")
 	errTerminal        = errors.New("TERMINAL_DESCRIPTOR_INVALID")
@@ -90,8 +89,6 @@ func executeWithPasswordReader(arguments []string, readPassword func(string) (st
 		return run(mode)
 	}
 	switch arguments[0] {
-	case "setup-code":
-		return executeSetupCode(arguments[1:])
 	case "admin-reset":
 		return executeAdminReset(arguments[1:], readPassword)
 	case "backup":
@@ -101,25 +98,6 @@ func executeWithPasswordReader(arguments []string, readPassword func(string) (st
 	default:
 		return errCommand
 	}
-}
-
-func executeSetupCode(arguments []string) error {
-	flags := flag.NewFlagSet("retrom setup-code", flag.ContinueOnError)
-	if err := flags.Parse(arguments); err != nil || flags.NArg() != 0 {
-		return errSetupArgument
-	}
-	configuration, err := config.LoadBackupMaintenance()
-	if err != nil {
-		return fmt.Errorf("retrom/main: %w", err)
-	}
-	code, err := readSetupCode(context.Background(), configuration)
-	if err != nil {
-		return fmt.Errorf("retrom/main: %w", err)
-	}
-	if _, err := fmt.Fprintln(os.Stdout, code); err != nil {
-		return fmt.Errorf("write setup code: %w", err)
-	}
-	return nil
 }
 
 func executeAdminReset(arguments []string, readPassword func(string) (string, error)) error {
@@ -192,23 +170,6 @@ func executeRestore(arguments []string) error {
 		"requiredDependencyVersions":      manifest.DependencyVersions,
 		"requiredActiveEmulatorjsVersion": manifest.ActiveEmulatorjsVersion,
 	})
-}
-
-func readSetupCode(ctx context.Context, configuration config.Maintenance) (string, error) {
-	database, err := sql.Open("sqlite", "file:"+filepath.ToSlash(configuration.DBPath)+"?mode=ro")
-	if err != nil {
-		return "", fmt.Errorf("open setup-code database: %w", err)
-	}
-	defer func() { cleanup.Error("close", database.Close()) }()
-	credentials, err := retromruntime.LoadCredentials(configuration.DataDir)
-	if err != nil {
-		return "", fmt.Errorf("load setup-code credentials: %w", err)
-	}
-	code, err := composition.ReadAccountSetupCode(ctx, database, credentials)
-	if err != nil {
-		return "", fmt.Errorf("derive setup code: %w", err)
-	}
-	return code, nil
 }
 
 func resetOfflineAdmin(

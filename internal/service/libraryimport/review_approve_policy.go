@@ -47,7 +47,7 @@ func validBulkPublicationIntent(intent *BulkPublicationIntent) bool {
 }
 
 func ValidApprovalSourceKind(value string) bool {
-	return value == "SERVER_PEGASUS_IMPORT" || value == "SERVER_EMULATIONSTATION_IMPORT"
+	return value == "IMPORT_RECEIVE"
 }
 
 func ValidApprovalExternalAssets(assets []ApprovalExternalAsset) bool {

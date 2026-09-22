@@ -21,6 +21,13 @@ import (
 
 func TestUploadPartAndFinalization(t *testing.T) {
 	t.Parallel()
+	for _, source := range []string{"FILES", "DIRECTORY"} {
+		t.Run(source, func(t *testing.T) { t.Parallel(); testUploadReception(t, source) })
+	}
+}
+
+func testUploadReception(t *testing.T, source string) {
+	t.Helper()
 	ctx := context.Background()
 	dataDir := t.TempDir()
 	database, err := store.Open(ctx, filepath.Join(dataDir, "retrom.db"), time.Now)
@@ -32,7 +39,7 @@ func TestUploadPartAndFinalization(t *testing.T) {
 	session, err := service.Create(
 		ctx,
 		uploadservice.CreateRequest{
-			SourceType: "FILES",
+			SourceType: source,
 			Files:      []uploadservice.FileDeclaration{{ClientFileID: "f1", RelativePath: "game.gba", SizeBytes: 5}},
 		},
 	)
@@ -73,6 +80,10 @@ func TestUploadPartAndFinalization(t *testing.T) {
 	); err != nil ||
 		count != 1 {
 		t.Fatalf("blob count = %d, error = %v", count, err)
+	}
+	var received int
+	if err := database.SQL.QueryRowContext(ctx, `SELECT count(*) FROM import_files WHERE upload_session_id=? AND relative_path='game.gba' AND size_bytes=5 AND blob_id IS NOT NULL`, session.ID).Scan(&received); err != nil || received != 1 {
+		t.Fatalf("finalization did not publish normalized files: %d %v", received, err)
 	}
 	var started, inputs int
 	if err := database.SQL.QueryRowContext(ctx, `SELECT

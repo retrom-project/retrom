@@ -93,7 +93,7 @@ id IN (
 	}); err != nil {
 		return fmt.Errorf("tagging: advance reviews after delete: %w", err)
 	}
-	if _, err := recordstore.UpdatePegasusImports(ctx, records.database, recordstore.Update{
+	if _, err := recordstore.UpdateSourceImports(ctx, records.database, recordstore.Update{
 		Set: `
 version=version+1,
     mapping_version=mapping_version+CASE WHEN state='AWAITING_MAPPING' THEN 1 ELSE 0 END,
@@ -103,8 +103,8 @@ version=version+1,
 			Where: `
 state IN ('SCANNING','AWAITING_MAPPING','QUEUED','RUNNING','CANCEL_REQUESTED')
 AND id IN (
-  SELECT collection.import_id FROM pegasus_collection_tags relation
-  JOIN pegasus_import_collections collection ON collection.id=relation.collection_id
+  SELECT collection.import_id FROM source_collection_tags relation
+  JOIN source_import_collections collection ON collection.id=relation.collection_id
   WHERE relation.tag_id=?
 )
 `,
@@ -112,28 +112,7 @@ AND id IN (
 		},
 		Values: []any{input.NowMS},
 	}); err != nil {
-		return fmt.Errorf("tagging: advance Pegasus plans after delete: %w", err)
-	}
-	if _, err := recordstore.UpdateEmulationstationImports(ctx, records.database, recordstore.Update{
-		Set: `
-version=version+1,
-    mapping_version=mapping_version+CASE WHEN state='AWAITING_MAPPING' THEN 1 ELSE 0 END,
-    updated_at_ms=?
-`,
-		Scope: recordstore.Scope{
-			Where: `
-state IN ('SCANNING','AWAITING_MAPPING','QUEUED','RUNNING','CANCEL_REQUESTED')
-AND id IN (
-  SELECT collection.import_id FROM emulationstation_collection_tags relation
-  JOIN emulationstation_import_collections collection ON collection.id=relation.collection_id
-  WHERE relation.tag_id=?
-)
-`,
-			Args: []any{input.ID},
-		},
-		Values: []any{input.NowMS},
-	}); err != nil {
-		return fmt.Errorf("tagging: advance EmulationStation plans after delete: %w", err)
+		return fmt.Errorf("tagging: advance Source plans after delete: %w", err)
 	}
 	return nil
 }

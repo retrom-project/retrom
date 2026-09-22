@@ -33,7 +33,7 @@ func TestMediaAccessChecksCurrentGameAndSaveOwner(t *testing.T) {
 	}
 }
 
-func TestReviewMediaPreservesReadyAndHistoricalVisibility(t *testing.T) {
+func TestReviewMediaPreservesReadyAndTerminalVisibility(t *testing.T) {
 	for _, test := range []struct {
 		name  string
 		asset ReviewAsset
@@ -42,13 +42,13 @@ func TestReviewMediaPreservesReadyAndHistoricalVisibility(t *testing.T) {
 		{"pending candidate", ReviewAsset{Kind: "CANDIDATE", State: "PENDING", ItemState: "REVIEW_PENDING"}, false},
 		{"ready current candidate", ReviewAsset{Kind: "CANDIDATE", State: "READY", ItemState: "REVIEW_PENDING"}, true},
 		{"game candidate", ReviewAsset{Kind: "CANDIDATE", State: "READY", GameState: "PUBLISHED"}, true},
-		{"finished without audit", ReviewAsset{Kind: "UPLOAD", ItemState: "DISCARDED"}, false},
-		{"historical upload", ReviewAsset{Kind: "UPLOAD", ItemState: "DISCARDED", TerminalReview: true}, true},
+		{"finished without retained payload", ReviewAsset{Kind: "UPLOAD", ItemState: "DISCARDED"}, false},
+		{"terminal upload", ReviewAsset{Kind: "UPLOAD", ItemState: "DISCARDED", TerminalReview: true}, true},
 		{"current screenshot", ReviewAsset{Kind: "SCREENSHOT", ItemState: "REVIEW_PENDING"}, true},
-		{"historical screenshot", ReviewAsset{Kind: "SCREENSHOT", ItemState: "PUBLISHED", TerminalReview: true}, true},
-		{"copied source", ReviewAsset{Kind: "PEGASUS", State: "COPIED", ItemState: "REVIEW_PENDING"}, true},
-		{"pending source", ReviewAsset{Kind: "EMULATIONSTATION", State: "PENDING", TerminalReview: true}, false},
-		{"historical source", ReviewAsset{Kind: "EMULATIONSTATION", State: "COPIED", TerminalReview: true}, true},
+		{"terminal screenshot", ReviewAsset{Kind: "SCREENSHOT", ItemState: "PUBLISHED", TerminalReview: true}, true},
+		{"copied source", ReviewAsset{Kind: "SOURCE", State: "COPIED", ItemState: "REVIEW_PENDING"}, true},
+		{"pending source", ReviewAsset{Kind: "SOURCE", State: "PENDING", TerminalReview: true}, false},
+		{"terminal source", ReviewAsset{Kind: "SOURCE", State: "COPIED", TerminalReview: true}, true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			test.asset.Resource = Resource{Digest: "media"}

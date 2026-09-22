@@ -58,14 +58,12 @@ func (service *Service) CreateOwnedServerSource(
 	if err != nil {
 		return ServerImportResult{}, fmt.Errorf("create owned server source: %w", err)
 	}
-	if err := application.ValidateOwnedSourceRequest(before, request); err != nil {
-		return ServerImportResult{}, fmt.Errorf("validate frozen source request: %w", err)
-	}
+
 	if err := application.ValidateOwnedSourceFiles(before, request.Files); err != nil {
 		return ServerImportResult{}, fmt.Errorf("validate copied source files: %w", err)
 	}
 	prepared, err := service.prepareServerSource(
-		ctx, "SERVER_"+string(request.Intent.Kind)+"_IMPORT:"+request.Intent.ItemID, request.ContentMode, request.Files,
+		ctx, "IMPORT_RECEIVE:"+request.Intent.ItemID, request.ContentMode, request.Files,
 	)
 	if err != nil {
 		return ServerImportResult{}, fmt.Errorf("create owned server source: %w", err)
@@ -89,7 +87,7 @@ func (service *Service) CreateOwnedServerSource(
 	_, err = service.create(ctx, CreateRequest{
 		UploadID: prepared.uploadID, TargetPlatformInstanceID: request.TargetPlatformInstanceID,
 		MetadataProvider: "NONE", ContentMode: prepared.contentMode, TagIDs: request.TagIDs,
-	}, nil, creationOptions{sourceCreation: binding, reviewHandoffKind: prepared.reviewHandoffKind()})
+	}, nil, creationOptions{sourceCreation: binding})
 	if err != nil {
 		service.removeUnusedClonedUpload(ctx, prepared.uploadID)
 		return ServerImportResult{}, fmt.Errorf("create owned server source: %w", err)

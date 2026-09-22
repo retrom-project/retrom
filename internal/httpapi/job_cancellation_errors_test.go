@@ -16,7 +16,7 @@ import (
 
 func TestJobCancellationSQLFailureIsAnInfrastructureError(t *testing.T) {
 	server := newTestServer(t)
-	_, jobID := seedHTTPPegasusScan(t, server, false)
+	_, jobID := seedHTTPSourceScan(t, server, false)
 	cause := errors.New("job cancellation read failed")
 	hits := 0
 	fault := testsupport.OpenSQLFaultDatabase(t, server.database, testsupport.SQLFaultHooks{

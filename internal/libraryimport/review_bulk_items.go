@@ -36,7 +36,7 @@ func (service *Service) ListReviewBulkItems(
 		}
 		items = append(items, ReviewBulkItemResult{
 			ImportItemID: item.ImportItemID, Title: item.Title, PlatformName: item.PlatformName,
-			State: item.State, GameID: item.GameID, ReviewEventID: item.ReviewEventID,
+			State: item.State, GameID: item.GameID,
 			OutcomeCode: item.OutcomeCode, OutcomeDetails: details, CompletedAtMS: item.CompletedAtMS,
 		})
 	}

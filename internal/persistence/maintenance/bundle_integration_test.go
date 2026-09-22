@@ -222,7 +222,7 @@ func TestBackupRestoreRoundTripAndOnlineRefusal(t *testing.T) {
 	seedBackupTags(t, ctx, database.SQL, admin.Principal.UserID)
 	const serverImportID = "01980000-0000-7000-8000-00000000f601"
 	const serverImportJobID = "01980000-0000-7000-8000-00000000f602"
-	const pegasusImportID = "01980000-0000-7000-8000-00000000f603"
+	const sourceImportID = "01980000-0000-7000-8000-00000000f603"
 	const pegasusScanJobID = "01980000-0000-7000-8000-00000000f604"
 	const emulationStationImportID = "01980000-0000-7000-8000-00000000f605"
 	const emulationStationScanJobID = "01980000-0000-7000-8000-00000000f606"
@@ -245,30 +245,30 @@ VALUES(?,'BIOS_DIRECTORY','backup-root','Backup root','bios',?,?,0,'RUNNING','DI
 	if _, err := database.SQL.ExecContext(context.Background(), `
 INSERT INTO jobs(id,scope_type,scope_id,kind,dedupe_key,execution_no,payload_json,cancellable,state,
 attempt_count,max_attempts,version,available_at_ms,finished_at_ms,created_at_ms,updated_at_ms)
-VALUES(?,'PEGASUS_IMPORT',?,'SERVER_PEGASUS_SCAN',?,1,'{"inputExecutionNo":1}',1,'SUCCEEDED',1,4,1,1,1,1,1)
-`, pegasusScanJobID, pegasusImportID, strings.Repeat("d", 64)); err != nil {
+VALUES(?,'SOURCE_IMPORT',?,'IMPORT_SCAN',?,1,'{"inputExecutionNo":1}',1,'SUCCEEDED',1,4,1,1,1,1,1)
+`, pegasusScanJobID, sourceImportID, strings.Repeat("d", 64)); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := database.SQL.ExecContext(context.Background(), `
-INSERT INTO pegasus_imports(id,root_id,root_label_snapshot,source_relative_path,root_config_digest,state,phase,
+INSERT INTO source_imports(id,root_id,root_label_snapshot,source_relative_path,root_config_digest,state,phase,
 scan_job_id,created_by_user_id,created_at_ms,updated_at_ms,expires_at_ms)
 VALUES(?,'backup-root','Backup root','games',?,'AWAITING_MAPPING',NULL,?,?,1,1,9999999999999)
-`, pegasusImportID, strings.Repeat("e", 64), pegasusScanJobID, admin.Principal.UserID); err != nil {
+`, sourceImportID, strings.Repeat("e", 64), pegasusScanJobID, admin.Principal.UserID); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := database.SQL.ExecContext(context.Background(), `
 INSERT INTO jobs(id,scope_type,scope_id,kind,dedupe_key,execution_no,payload_json,cancellable,state,
 attempt_count,max_attempts,version,available_at_ms,leased_until_ms,heartbeat_at_ms,worker_id,created_at_ms,updated_at_ms)
-VALUES(?,'EMULATIONSTATION_IMPORT',?,'SERVER_EMULATIONSTATION_SCAN',?,1,'{"inputExecutionNo":1}',1,
+VALUES(?,'SOURCE_IMPORT',?,'IMPORT_SCAN',?,1,'{"inputExecutionNo":1}',1,
 'RUNNING',1,4,1,1,60000,1,'emulationstation-import-worker',1,1)
 `, emulationStationScanJobID, emulationStationImportID, strings.Repeat("f", 64)); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := database.SQL.ExecContext(context.Background(), `
-INSERT INTO emulationstation_imports(
- id,root_id,root_label_snapshot,source_relative_path,root_config_digest,release_year_max,state,phase,
+INSERT INTO source_imports(
+ id,root_id,root_label_snapshot,source_relative_path,root_config_digest,format,state,phase,
  scan_job_id,created_by_user_id,created_at_ms,updated_at_ms,expires_at_ms)
-VALUES(?,'backup-root','Backup root','emulationstation',?,2026,'SCANNING','DISCOVERING_GAMELISTS',?,?,1,1,
+VALUES(?,'backup-root','Backup root','emulationstation',?,'GAMELIST','SCANNING','DISCOVERING_METADATA',?,?,1,1,
 9999999999999)
 `, emulationStationImportID, strings.Repeat("1", 64), emulationStationScanJobID,
 		admin.Principal.UserID); err != nil {
@@ -315,7 +315,7 @@ VALUES(?,'backup-root','Backup root','emulationstation',?,2026,'SCANNING','DISCO
 	testassert.Falsef(t, testassert.Any(func() bool { return restoredFavoriteRows != favoriteRows }, func() bool { return restoredFavoriteHash != favoriteHash }), "favorite backup snapshot changed: before=%d/%s after=%d/%s", favoriteRows, favoriteHash, restoredFavoriteRows, restoredFavoriteHash)
 	restoredTagHash, restoredTagRows := tagBackupSnapshot(t, restoredDatabase)
 	testassert.Falsef(t, testassert.Any(func() bool { return restoredTagRows != tagRows }, func() bool { return restoredTagHash != tagHash }), "tag backup snapshot changed: before=%d/%s after=%d/%s", tagRows, tagHash, restoredTagRows, restoredTagHash)
-	var fencedSessions, fencedLinks, fenceAudits, fencedServerImports, fencedPegasusImports int
+	var fencedSessions, fencedLinks, fenceAudits, fencedServerImports, fencedSourceImports int
 	var fencedEmulationStationImports int
 	if err := restoredDatabase.QueryRowContext(context.Background(), `
 SELECT
@@ -323,34 +323,34 @@ SELECT
   (SELECT count(*) FROM account_links WHERE revoked_by_kind='SYSTEM' AND revoked_at_ms IS NOT NULL),
   (SELECT count(*) FROM audit_events
    WHERE actor_kind='SYSTEM' AND actor_label='restore-security-fence' AND action='RESTORE_SECURITY_FENCE'
-   AND json_extract(after_json,'$.failedEmulationStationJobCount')=1),
+   AND json_extract(after_json,'$.failedSourceJobCount')=1),
   (SELECT count(*) FROM server_imports import JOIN jobs job ON job.id=import.job_id
    WHERE import.id=? AND import.state='FAILED' AND import.last_error_code='SERVER_IMPORT_SOURCE_NOT_RESTORED'
    AND job.state='FAILED' AND job.error_code='SERVER_IMPORT_SOURCE_NOT_RESTORED' AND job.error_retryable=0),
-  (SELECT count(*) FROM pegasus_imports WHERE id=? AND state='FAILED'
+  (SELECT count(*) FROM source_imports WHERE id=? AND state='FAILED'
 	AND last_error_code='SERVER_IMPORT_SOURCE_NOT_RESTORED' AND completed_at_ms IS NOT NULL),
-  (SELECT count(*) FROM emulationstation_imports import JOIN jobs job ON job.id=import.scan_job_id
+  (SELECT count(*) FROM source_imports import JOIN jobs job ON job.id=import.scan_job_id
    WHERE import.id=? AND import.state='FAILED'
    AND import.last_error_code='SERVER_IMPORT_SOURCE_NOT_RESTORED' AND import.completed_at_ms IS NOT NULL
    AND job.state='FAILED' AND job.error_code='SERVER_IMPORT_SOURCE_NOT_RESTORED' AND job.error_retryable=0)
-`, serverImportID, pegasusImportID, emulationStationImportID).Scan(
+`, serverImportID, sourceImportID, emulationStationImportID).Scan(
 		&fencedSessions,
 		&fencedLinks,
 		&fenceAudits,
 		&fencedServerImports,
-		&fencedPegasusImports,
+		&fencedSourceImports,
 		&fencedEmulationStationImports,
 	); err != nil ||
 		fencedSessions < 1 || fencedLinks != 1 || fenceAudits != 1 || fencedServerImports != 1 ||
-		fencedPegasusImports != 1 || fencedEmulationStationImports != 1 {
+		fencedSourceImports != 1 || fencedEmulationStationImports != 1 {
 		t.Fatalf(
-			"restore fence = sessions=%d links=%d audits=%d serverImports=%d pegasusImports=%d "+
+			"restore fence = sessions=%d links=%d audits=%d serverImports=%d sourceImports=%d "+
 				"emulationStationImports=%d error=%v",
 			fencedSessions,
 			fencedLinks,
 			fenceAudits,
 			fencedServerImports,
-			fencedPegasusImports,
+			fencedSourceImports,
 			fencedEmulationStationImports,
 			err,
 		)

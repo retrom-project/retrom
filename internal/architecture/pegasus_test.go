@@ -2,7 +2,7 @@ package architecture
 
 import "testing"
 
-func TestPegasusAdaptersDoNotConstructPersistence(t *testing.T) {
+func TestSourceAdaptersDoNotConstructPersistence(t *testing.T) {
 	t.Parallel()
-	assertBusinessImports(t, "../pegasusimport")
+	assertBusinessImports(t, "../sourceimport")
 }

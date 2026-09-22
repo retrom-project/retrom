@@ -14,8 +14,7 @@ type ReviewBulkScope = {
   q?: string;
   tagId?: string;
   importJobId?: string;
-  pegasusImportId?: string;
-  emulationStationImportId?: string;
+  sourceImportId?: string;
   platformInstanceId?: string;
   blockerCode?: string;
 };
@@ -75,7 +74,7 @@ const terminalStates = new Set(["COMPLETED", "PARTIAL_FAILURE", "CANCELLED", "FA
 
 function bulkScope(values: Record<string, string>): ReviewBulkScope {
   const scope: ReviewBulkScope = {};
-  for (const key of ["q", "tagId", "importJobId", "pegasusImportId", "emulationStationImportId", "platformInstanceId", "blockerCode"] as const) {
+  for (const key of ["q", "tagId", "importJobId", "sourceImportId", "platformInstanceId", "blockerCode"] as const) {
     if (values[key]) {scope[key] = values[key];}
   }
   return scope;
@@ -86,8 +85,7 @@ function previewURL(scope: ReviewBulkScope) {
 }
 
 function scopeLabel(scope: ReviewBulkScope) {
-  if (scope.pegasusImportId) {return `Pegasus 批次 ${scope.pegasusImportId.slice(0, 8)}… 的全部分页结果`;}
-  if (scope.emulationStationImportId) {return `EmulationStation 批次 ${scope.emulationStationImportId.slice(0, 8)}… 的全部分页结果`;}
+  if (scope.sourceImportId) {return `来源文件批次 ${scope.sourceImportId.slice(0, 8)}… 的全部分页结果`;}
   if (scope.importJobId) {return `导入批次 ${scope.importJobId.slice(0, 8)}… 的全部分页结果`;}
   if (Object.keys(scope).length) {return "当前筛选范围的全部分页结果";}
   return "全部待审核条目";

@@ -90,5 +90,5 @@ func (service *Scheduler) TerminalSources(ctx context.Context, scope ReleaseScop
 }
 
 func isSourceItemScope(kind ScopeType) bool {
-	return kind == ScopePegasusImportItem || kind == ScopeEmulationStationImportItem
+	return kind == ScopeSourceImportItem
 }

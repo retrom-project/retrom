@@ -29,7 +29,7 @@ import (
 
 func TestHealthIsPublicAndProtectedWritesRequireAuthentication(t *testing.T) {
 	t.Parallel()
-	server, _ := newAuthHTTPServer(t, config.ModeTest)
+	server := newAuthHTTPServer(t, config.ModeTest)
 	handler := server.Handler()
 
 	live := httptest.NewRecorder()
@@ -83,7 +83,7 @@ func TestAuthenticationMiddlewareClearsCookieOnlyForDefinitiveRevocation(t *test
 
 func TestProtectedWritesRejectInvalidOriginWithoutEnablingCORS(t *testing.T) {
 	t.Parallel()
-	server, _ := newAuthHTTPServer(t, config.ModeTest)
+	server := newAuthHTTPServer(t, config.ModeTest)
 	handler := server.Handler()
 	auth := accountHTTPLogin(t, handler)
 	send := func(name string, headers map[string]string) *httptest.ResponseRecorder {
@@ -351,6 +351,8 @@ INSERT INTO import_jobs(id,upload_session_id,target_platform_instance_id,platfor
 provider_id,target_id,metadata_provider,config_snapshot_json,config_snapshot_digest,state,total_item_count,rejected_file_count,version,created_at_ms,updated_at_ms)
 VALUES(?,?,(SELECT id FROM platform_instances WHERE catalog_template_key='nes/fceumm'),1,'nes','fceumm',?,?,'HASHEOUS','{}',?,'PARTIAL_FAILURE',0,1,1,?,?)
 `, importID, uploadID, target.ProviderID, target.TargetID, digest, timestamp, timestamp)
+	mustExecHTTPTest(t, transaction, `INSERT INTO import_files(id,upload_session_id,relative_path,blob_id,size_bytes,created_at_ms)
+SELECT id,upload_session_id,relative_path,final_blob_id,received_size_bytes,created_at_ms FROM upload_files WHERE upload_session_id=?`, uploadID)
 	mustExecHTTPTest(t, transaction, `
 INSERT INTO import_job_files(import_job_id,upload_file_id,disposition,reason_code,created_at_ms,updated_at_ms)
 VALUES(?,?,'REJECTED','ARCHIVE_UNSAFE',?,?)
@@ -385,7 +387,7 @@ VALUES(?,?,(SELECT id FROM platform_instances WHERE catalog_template_key='nes/fc
 		Completed       int64 `json:"completed"`
 		Failed          int64 `json:"failed"`
 		OrdinaryFailed  int64 `json:"ordinaryFailed"`
-		PegasusFailed   int64 `json:"pegasusFailed"`
+		SourceFailed    int64 `json:"sourceFailed"`
 		ProcessingItems int64 `json:"processingItems"`
 		IssueItems      int64 `json:"issueItems"`
 	}
@@ -393,7 +395,7 @@ VALUES(?,?,(SELECT id FROM platform_instances WHERE catalog_template_key='nes/fc
 	testassert.Falsef(t, anyTrue(decodeErr != nil, summaryResponse.Code != http.StatusOK,
 		overview.Running != 0, overview.ReviewPending != 0, overview.PublishedItems != 0,
 		overview.Completed != 20, overview.Failed != 1, overview.OrdinaryFailed != 1,
-		overview.PegasusFailed != 0, overview.ProcessingItems != 0, overview.IssueItems != 1),
+		overview.SourceFailed != 0, overview.ProcessingItems != 0, overview.IssueItems != 1),
 		"import overview = %d %s, parsed=%#v error=%v",
 		summaryResponse.Code, summaryResponse.Body.String(), overview, decodeErr)
 	list := httptest.NewRecorder()
@@ -443,7 +445,7 @@ VALUES(?,?,(SELECT id FROM platform_instances WHERE catalog_template_key='nes/fc
 		"import detail = %d %s", detail.Code, detail.Body.String())
 }
 
-func TestImportOverviewCountsPegasusOnceAndHidesItsInternalJob(t *testing.T) {
+func TestImportOverviewCountsSourceOnceAndHidesItsInternalJob(t *testing.T) {
 	t.Parallel()
 	server := newTestServer(t)
 	now := time.Now()
@@ -488,10 +490,10 @@ VALUES(?,?,?,'DISCARDED','{"files":[]}',?,'discarded.gba',2,?,?,?)
 	mustExecHTTPTest(t, server.database, `
 INSERT INTO jobs(id,scope_type,scope_id,kind,dedupe_key,execution_no,payload_json,cancellable,state,
 attempt_count,max_attempts,version,available_at_ms,finished_at_ms,created_at_ms,updated_at_ms)
-VALUES(?,'PEGASUS_IMPORT',?,'SERVER_PEGASUS_SCAN',?,1,'{}',1,'SUCCEEDED',1,4,1,?,?,?,?)
+VALUES(?,'SOURCE_IMPORT',?,'IMPORT_SCAN',?,1,'{}',1,'SUCCEEDED',1,4,1,?,?,?,?)
 `, pegasusScanJob, pegasusID, strings.Repeat("b", 64), timestamp, timestamp, timestamp, timestamp)
 	mustExecHTTPTest(t, server.database, `
-INSERT INTO pegasus_imports(
+INSERT INTO source_imports(
  id,root_id,root_label_snapshot,source_relative_path,root_config_digest,state,scan_job_id,
  game_count,processable_item_count,review_discarded_item_count,created_by_user_id,
  created_at_ms,updated_at_ms,completed_at_ms,expires_at_ms
@@ -499,7 +501,7 @@ INSERT INTO pegasus_imports(
 `, pegasusID, strings.Repeat("c", 64), pegasusScanJob, userID,
 		timestamp, timestamp, timestamp, timestamp+60_000)
 	mustExecHTTPTest(t, server.database, `
-INSERT INTO pegasus_import_items(
+INSERT INTO source_import_items(
  id,import_id,metadata_relative_path,game_ordinal,source_key,title,discovery_state,execution_state,
  metadata_json,source_manifest_json,source_manifest_digest,retryable,
  library_import_job_id,library_import_item_id,created_at_ms,updated_at_ms,completed_at_ms
@@ -516,7 +518,7 @@ INSERT INTO pegasus_import_items(
 		Completed       int64 `json:"completed"`
 		Failed          int64 `json:"failed"`
 		OrdinaryFailed  int64 `json:"ordinaryFailed"`
-		PegasusFailed   int64 `json:"pegasusFailed"`
+		SourceFailed    int64 `json:"sourceFailed"`
 		ProcessingItems int64 `json:"processingItems"`
 		IssueItems      int64 `json:"issueItems"`
 	}
@@ -524,7 +526,7 @@ INSERT INTO pegasus_import_items(
 	testassert.Falsef(t, anyTrue(decodeErr != nil, recorder.Code != http.StatusOK,
 		summary.Running != 0, summary.ReviewPending != 0, summary.PublishedItems != 0,
 		summary.Completed != 1, summary.Failed != 0, summary.OrdinaryFailed != 0,
-		summary.PegasusFailed != 0, summary.ProcessingItems != 0, summary.IssueItems != 0),
+		summary.SourceFailed != 0, summary.ProcessingItems != 0, summary.IssueItems != 0),
 		"import summary = %d %s, parsed=%#v error=%v", recorder.Code, recorder.Body.String(), summary, decodeErr)
 	list := httptest.NewRecorder()
 	server.imports(list, httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/admin/imports?limit=20", nil))
@@ -541,12 +543,7 @@ func TestReviewWorkflowQueriesAreAllowed(t *testing.T) {
 	requests := []*http.Request{
 		httptest.NewRequestWithContext(context.Background(),
 			http.MethodGet,
-			"/api/v1/admin/reviews?pegasusImportId=01980000-0000-7000-8000-000000000001&limit=20",
-			nil,
-		),
-		httptest.NewRequestWithContext(context.Background(),
-			http.MethodGet,
-			"/api/v1/admin/reviews?emulationStationImportId=01980000-0000-7000-8000-000000000005&limit=20",
+			"/api/v1/admin/reviews?sourceImportId=01980000-0000-7000-8000-000000000001&limit=20",
 			nil,
 		),
 		httptest.NewRequestWithContext(context.Background(),
@@ -562,11 +559,6 @@ func TestReviewWorkflowQueriesAreAllowed(t *testing.T) {
 		httptest.NewRequestWithContext(context.Background(),
 			http.MethodGet,
 			"/api/v1/admin/review-bulk-approval-preview?importJobId=01980000-0000-7000-8000-000000000003&blockerCode=MISSING_BIOS",
-			nil,
-		),
-		httptest.NewRequestWithContext(context.Background(),
-			http.MethodGet,
-			"/api/v1/admin/review-bulk-approval-preview?emulationStationImportId=01980000-0000-7000-8000-000000000006",
 			nil,
 		),
 		httptest.NewRequestWithContext(context.Background(),

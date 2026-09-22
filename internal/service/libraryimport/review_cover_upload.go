@@ -151,7 +151,7 @@ func checkReviewCoverAuthority(
 		return fmt.Errorf("read review cover authority: %w", err)
 	}
 	if !found || draft.Version != request.ExpectedVersion || draft.State != "REVIEW_PENDING" ||
-		(draft.HandoffKind != "DIRECT" && !draft.EmulationStationReady) || draft.SourceBusy {
+		draft.SourceBusy {
 		return ErrReviewCoverVersion
 	}
 	return nil

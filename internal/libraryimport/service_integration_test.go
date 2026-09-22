@@ -6,7 +6,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
-	"database/sql"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
@@ -492,40 +491,7 @@ SELECT
 	), "released import = items:%d job:%d files:%d source:%d assets:%d published:%d",
 		releasedItems, releasedJobs, purgedFiles, sourceRows, uploadedAssetRows, publishedPayloadRows)
 	var publishedDiscard, retainedBlob int
-	var beforeJSON, configEvidenceJSON, datEvidenceJSON string
-	var discardReason sql.NullString
-	if err := database.SQL.QueryRowContext(ctx, `
-SELECT (SELECT count(*)
-FROM games g
-WHERE g.title='Discarded'),
-(SELECT count(*) FROM blobs WHERE id=?),
-before_json,
-config_evidence_json,
-dat_evidence_json
-,
-reason
-FROM review_events
-WHERE id=?
-`, discardBlobID, discarded.EventID).Scan(&publishedDiscard, &retainedBlob, &beforeJSON, &configEvidenceJSON, &datEvidenceJSON, &discardReason); err != nil ||
-		publishedDiscard != 0 || retainedBlob != 1 ||
-		discardReason.Valid ||
-		strings.Contains(beforeJSON, "sourceManifest") ||
-		strings.Contains(beforeJSON, "selectedAssets") ||
-		!strings.Contains(beforeJSON, `"name":"待通关"`) ||
-		strings.Contains(configEvidenceJSON, "configSnapshot") ||
-		strings.Contains(datEvidenceJSON, "dependencySnapshot") ||
-		!strings.Contains(configEvidenceJSON, `"validationAvailable":true`) ||
-		!strings.Contains(datEvidenceJSON, `"datMatched":false`) {
-		t.Fatalf("discard evidence = games:%d blob:%d before:%s config:%s dat:%s error=%v", publishedDiscard, retainedBlob, beforeJSON, configEvidenceJSON, datEvidenceJSON, err)
-	}
-	if _, err := recordstore.UpdateReviewEvents(ctx, database.SQL, recordstore.Update{
-		Set: `reason='tampered'`,
-		Scope: recordstore.Scope{
-			Where: `id=?`,
-			Args:  []any{discarded.EventID},
-		},
-	}); err == nil ||
-		!strings.Contains(err.Error(), "immutable") {
-		t.Fatalf("immutable review event update error = %v", err)
+	if err := database.SQL.QueryRowContext(ctx, `SELECT (SELECT count(*) FROM games WHERE title='Discarded'),(SELECT count(*) FROM blobs WHERE id=?)`, discardBlobID).Scan(&publishedDiscard, &retainedBlob); err != nil || publishedDiscard != 0 || retainedBlob != 1 {
+		t.Fatalf("discard payload: %d %d %v", publishedDiscard, retainedBlob, err)
 	}
 }

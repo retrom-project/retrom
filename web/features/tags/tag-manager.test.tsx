@@ -7,7 +7,7 @@ afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 const initialTag: TagAdminItem = {
   tagId: "01980000-0000-7000-8000-000000000901", name: "动作", status: "ACTIVE", version: 2,
-  usage: { publishedGameCount: 3, deletedGameCount: 1, reviewDraftCount: 2, pegasusCollectionCount: 4 },
+  usage: { publishedGameCount: 3, deletedGameCount: 1, reviewDraftCount: 2, sourceCollectionCount: 4 },
   createdAtMs: 1_000, updatedAtMs: 2_000, deletedAtMs: null,
 };
 
@@ -44,8 +44,8 @@ describe("TagManager", () => {
 
   it("atomically adds the common tag template and reports existing items", async () => {
     const createdItems = [
-      { ...initialTag, tagId: "01980000-0000-7000-8000-000000000910", name: "动作冒险", version: 1, usage: { publishedGameCount: 0, deletedGameCount: 0, reviewDraftCount: 0, pegasusCollectionCount: 0 } },
-      { ...initialTag, tagId: "01980000-0000-7000-8000-000000000911", name: "益智解谜", version: 1, usage: { publishedGameCount: 0, deletedGameCount: 0, reviewDraftCount: 0, pegasusCollectionCount: 0 } },
+      { ...initialTag, tagId: "01980000-0000-7000-8000-000000000910", name: "动作冒险", version: 1, usage: { publishedGameCount: 0, deletedGameCount: 0, reviewDraftCount: 0, sourceCollectionCount: 0 } },
+      { ...initialTag, tagId: "01980000-0000-7000-8000-000000000911", name: "益智解谜", version: 1, usage: { publishedGameCount: 0, deletedGameCount: 0, reviewDraftCount: 0, sourceCollectionCount: 0 } },
     ];
     const fetchMock = vi.fn().mockResolvedValue(json({ createdItems, existingItems: [initialTag] }));
     vi.stubGlobal("fetch", fetchMock);
@@ -64,7 +64,7 @@ describe("TagManager", () => {
   });
 
   it("creates, renames and name-confirms a soft delete using optimistic versions", async () => {
-    const created: TagAdminItem = { ...initialTag, tagId: "01980000-0000-7000-8000-000000000902", name: "双人", version: 1, usage: { publishedGameCount: 0, deletedGameCount: 0, reviewDraftCount: 0, pegasusCollectionCount: 0 } };
+    const created: TagAdminItem = { ...initialTag, tagId: "01980000-0000-7000-8000-000000000902", name: "双人", version: 1, usage: { publishedGameCount: 0, deletedGameCount: 0, reviewDraftCount: 0, sourceCollectionCount: 0 } };
     const renamed = { ...initialTag, name: "动作游戏", version: 3 };
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(json(created, 201))

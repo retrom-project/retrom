@@ -48,13 +48,6 @@ type (
 	}
 )
 
-type ApprovalEvent struct {
-	ID, ItemID, ActorKind                                              string
-	ActorUserID, ActorLabel, Reason                                    *string
-	BeforeJSON, AfterJSON, DiffJSON, ConfigJSON, DATJSON, ProviderJSON string
-	NowMS                                                              int64
-}
-
 type ApprovalPublication struct {
 	ItemID, ImportID, SnapshotID, PlatformInstanceID             string
 	ExpectedDraftVersion, ExpectedParentVersion, ExpectedPending int64
@@ -88,7 +81,6 @@ type ApprovalVariantWriter interface {
 
 type ApprovalDecisionWriter interface {
 	ClaimIdentity(context.Context, string, string, int64) error
-	RecordEvent(context.Context, ApprovalEvent) error
 	PublishItem(context.Context, ApprovalPublication) error
 	TransitionOwner(context.Context, ReviewOwnerTransition) error
 }

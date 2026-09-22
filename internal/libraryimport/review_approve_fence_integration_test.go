@@ -36,11 +36,11 @@ func TestApprovalFinalFenceRollsBackEarlierPublication(t *testing.T) {
 		{"parent version", `UPDATE import_jobs SET version=version+1 WHERE id=?`},
 		{"pending count", `UPDATE import_jobs SET review_pending_item_count=1,discarded_item_count=1 WHERE id=?`},
 	} {
-		t.Run(test.name, func(t *testing.T) { t.Parallel(); verifyApprovalFence(t, test.query) })
+		t.Run(test.name, func(t *testing.T) { t.Parallel(); verifyApprovalFence(t, test.name, test.query) })
 	}
 }
 
-func verifyApprovalFence(t *testing.T, mutation string) {
+func verifyApprovalFence(t *testing.T, stage, mutation string) {
 	t.Helper()
 	fixture := newDeduplicateFixture(t)
 	created := fixture.create(t, "Approval final fence", "Retrom owned approval CAS", 2)
@@ -56,12 +56,16 @@ func verifyApprovalFence(t *testing.T, mutation string) {
 	if !errors.Is(err, ErrInvalid) || result != (Approved{}) {
 		t.Fatalf("result=%+v err=%v", result, err)
 	}
-	var games, variants, events int
-	if err := transaction.QueryRowContext(t.Context(), `SELECT (SELECT count(*) FROM games),(SELECT count(*) FROM game_variants),(SELECT count(*) FROM review_events WHERE event_type='APPROVED')`).Scan(&games, &variants, &events); err != nil {
+	var games, variants, published int
+	if err := transaction.QueryRowContext(t.Context(), `SELECT (SELECT count(*) FROM games),(SELECT count(*) FROM game_variants),(SELECT count(*) FROM import_items WHERE state='PUBLISHED')`).Scan(&games, &variants, &published); err != nil {
 		t.Fatal(err)
 	}
-	if games != 1 || variants != 1 || events != 1 {
-		t.Fatalf("fence did not follow real publication: games=%d variants=%d events=%d", games, variants, events)
+	expectedPublished := 1
+	if stage == "draft version" {
+		expectedPublished = 0
+	}
+	if games != 1 || variants != 1 || published != expectedPublished {
+		t.Fatalf("fence did not follow real publication: games=%d variants=%d published=%d", games, variants, published)
 	}
 	if err := transaction.Rollback(); err != nil {
 		t.Fatal(err)

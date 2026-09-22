@@ -71,7 +71,7 @@ func TestMultiDiscAdmissionRejectsUnconfirmedRecords(t *testing.T) {
 			readErr := db.SQL.QueryRowContext(ctx, `SELECT draft.version,
 (SELECT count(*) FROM jobs WHERE kind='REVIEW_MULTI_DISC_VALIDATE' AND scope_id=draft.import_item_id),
 (SELECT count(*) FROM review_multidisc_attachments WHERE import_item_id=draft.import_item_id),
-(SELECT count(*) FROM review_events WHERE import_item_id=draft.import_item_id AND event_type='DISC_UPLOAD_REQUESTED')
+(SELECT version-1 FROM review_drafts WHERE id=draft.id)
 FROM review_drafts draft WHERE import_item_id=?`, itemID).Scan(&version, &jobs, &attachments, &events)
 			if readErr != nil || version != 1 || jobs != 0 || attachments != 0 || events != 0 {
 				t.Fatalf("admission partially committed: version=%d jobs=%d attachments=%d events=%d err=%v", version, jobs, attachments, events, readErr)

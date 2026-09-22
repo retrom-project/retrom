@@ -38,23 +38,22 @@ type ArcadeParentValidation struct {
 }
 
 type ArcadeParentAcceptedCommit struct {
-	Candidate                     ArcadeParentCommitCandidate
-	JobID, WorkerID               string
-	Entries                       []importing.ArchiveEntry
-	Files                         []ArcadeParentSourceFile
-	ManifestJSON                  string
-	ManifestDigest                string
-	Validation                    ArcadeParentValidation
-	DiagnosticsJSON, EvidenceJSON string
-	Actor                         authn.Actor
-	NowMS                         int64
+	Candidate       ArcadeParentCommitCandidate
+	JobID, WorkerID string
+	Entries         []importing.ArchiveEntry
+	Files           []ArcadeParentSourceFile
+	ManifestJSON    string
+	ManifestDigest  string
+	Validation      ArcadeParentValidation
+	DiagnosticsJSON string
+	Actor           authn.Actor
+	NowMS           int64
 }
 
 type ArcadeParentRejectedCommit struct {
 	AttachmentID, ItemID, JobID, WorkerID string
 	Code                                  string
 	DiagnosticsJSON                       string
-	EvidenceJSON                          string
 	BlobSize                              int64
 	BlobSHA                               string
 	Actor                                 authn.Actor

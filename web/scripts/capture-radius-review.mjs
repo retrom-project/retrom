@@ -32,7 +32,6 @@ const pages = [
   ["import-server", "本地扫描", "/admin/imports/server", ".page-header"],
   ["import-tasks", "任务", "/admin/imports/tasks", ".page-header"],
   ["reviews", "待审核", "/admin/reviews", ".review-workflow-row"],
-  ["history", "审核历史", "/admin/reviews/history", ".page-header"],
   ["admin-games", "游戏管理", "/admin/games", ".page-header"],
   ["tags", "标签管理", "/admin/tags", ".page-header"],
   ["platforms", "游戏目录", "/admin/platform-instances", ".page-header"],

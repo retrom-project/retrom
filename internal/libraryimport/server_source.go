@@ -16,11 +16,6 @@ type ServerSourceFile = libraryservice.ServerSourceFile
 
 const ServerSourceFileLimit = libraryservice.ServerSourceFileLimit
 
-const (
-	reviewHandoffDirect           = "DIRECT"
-	reviewHandoffEmulationStation = "EMULATIONSTATION"
-)
-
 type (
 	ServerImportItem     = libraryservice.ServerImportItem
 	ServerDuplicateMatch = libraryservice.ServerDuplicateMatch
@@ -107,7 +102,7 @@ func (service *Service) createPreparedServerSource(
 	created, err := service.create(ctx, CreateRequest{
 		UploadID: prepared.uploadID, TargetPlatformInstanceID: targetPlatformInstanceID,
 		MetadataProvider: "NONE", ContentMode: prepared.contentMode, TagIDs: tagIDs,
-	}, nil, creationOptions{reviewHandoffKind: prepared.reviewHandoffKind()})
+	}, nil, creationOptions{})
 	if err != nil {
 		created, found, lookupErr := service.serverSourceCreation(
 			ctx, prepared.uploadID, targetPlatformInstanceID, prepared.contentMode,

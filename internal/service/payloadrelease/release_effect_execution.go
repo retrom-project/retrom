@@ -94,7 +94,7 @@ func (run *effectRun) release(ctx context.Context, before EffectOwner) error {
 		return run.item(ctx, before)
 	case ScopeImportJob:
 		return run.aggregate(ctx, before)
-	case ScopePegasusImportItem, ScopeEmulationStationImportItem:
+	case ScopeSourceImportItem:
 		return run.source(ctx, before)
 	case ScopeUploadConsumption, ScopeBlob:
 		return ErrScopeInvalid

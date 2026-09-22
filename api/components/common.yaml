@@ -129,7 +129,7 @@ components:
           enum:
             - HASHEOUS
             - NONE
-    PegasusItemFailureDetails:
+    SourceItemFailureDetails:
       type: object
       additionalProperties: false
       required:
@@ -190,7 +190,7 @@ components:
           type: string
           format: uuid
           nullable: true
-    PegasusRuntimeDependency:
+    SourceRuntimeDependency:
       type: object
       additionalProperties: false
       required:
@@ -226,7 +226,7 @@ components:
           type: array
           items:
             type: string
-    PegasusRuntimeBIOS:
+    SourceRuntimeBIOS:
       type: object
       additionalProperties: false
       required:
@@ -254,7 +254,7 @@ components:
             - HASH_WARNING
             - MISSING_ENTRY
             - INVALID
-    PegasusRuntimeMissingDisc:
+    SourceRuntimeMissingDisc:
       type: object
       additionalProperties: false
       required:
@@ -267,7 +267,7 @@ components:
           minimum: 0
         sourceReference:
           type: string
-    PegasusRuntimeCheck:
+    SourceRuntimeCheck:
       type: object
       additionalProperties: false
       required:
@@ -308,15 +308,15 @@ components:
         dependencies:
           type: array
           items:
-            $ref: '#/components/schemas/PegasusRuntimeDependency'
+            $ref: '#/components/schemas/SourceRuntimeDependency'
         bios:
           type: array
           items:
-            $ref: '#/components/schemas/PegasusRuntimeBIOS'
+            $ref: '#/components/schemas/SourceRuntimeBIOS'
         missingDiscs:
           type: array
           items:
-            $ref: '#/components/schemas/PegasusRuntimeMissingDisc'
+            $ref: '#/components/schemas/SourceRuntimeMissingDisc'
     Session:
       type: object
       additionalProperties: false
@@ -656,8 +656,6 @@ components:
         retryAfterMs: {}
         retryable: {}
         returnTo: {}
-        reviewEventCount: {}
-        reviewEventId: {}
         reviewPending: {}
         reviewPendingCount: {}
         reviewPendingItemCount: {}
@@ -684,7 +682,11 @@ components:
         scopeType: {}
         score: {}
         scrapeRunId: {}
-        scrapeRuns: {}
+        scrapeRuns:
+          type: array
+          maxItems: 1
+          items:
+            type: object
         outcomes: {}
         evidenceCount: {}
         completedAtMs: {}

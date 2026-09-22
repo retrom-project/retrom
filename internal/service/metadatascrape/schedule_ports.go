@@ -2,8 +2,6 @@ package metadatascrape
 
 import (
 	"context"
-
-	"retrom/internal/authn"
 )
 
 type (
@@ -63,9 +61,8 @@ type SchedulePlan struct {
 	Now                                                                        int64
 }
 type ReviewChange struct {
-	ID, ItemID, BeforeJSON, AfterJSON string
-	Actor                             authn.Actor
-	Version, Now                      int64
+	ItemID       string
+	Version, Now int64
 }
 type ScheduleWriter interface {
 	Create(context.Context, SchedulePlan) error

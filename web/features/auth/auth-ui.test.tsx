@@ -27,7 +27,7 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 describe("authentication UI", () => {
-  it("submits every setup credential and enters the authenticated context", async () => {
+  it("creates the first administrator without a setup code and enters the authenticated context", async () => {
     navigation.pathname = "/setup";
     window.history.replaceState(null, "", "/setup");
     const fetchMock = vi.fn(async () => new Response(JSON.stringify(registered), { status: 201, headers: { "Content-Type": "application/json" } }));
@@ -35,7 +35,7 @@ describe("authentication UI", () => {
     wrapped(<SetupForm />, { ...anonymous, instanceState: "INITIALIZATION_REQUIRED", mode: "release", authenticationState: "NOT_APPLICABLE" });
     expect(screen.getByRole("button", { name: "创建管理员并进入 Retrom" }).closest("form")).toHaveAttribute("method", "post");
     const user = userEvent.setup();
-    await user.type(screen.getByLabelText("初始化码", { selector: "input" }), "setup-proof");
+    expect(screen.queryByLabelText("初始化码", { selector: "input" })).not.toBeInTheDocument();
     await user.type(screen.getByLabelText("管理员用户名"), "admin");
     await user.type(screen.getByLabelText("显示名称"), "Server Admin");
     const password = "A1!x2z";
@@ -49,10 +49,7 @@ describe("authentication UI", () => {
     await user.click(screen.getByRole("button", { name: "创建管理员并进入 Retrom" }));
     await waitFor(() => expect(navigation.replace).toHaveBeenCalledWith("/"));
     expect(fetchMock).toHaveBeenCalledWith("/api/v1/auth/initialize", expect.objectContaining({
-      method: "POST", body: expect.stringContaining('"setupCode":"setup-proof"')
-    }));
-    expect(fetchMock).toHaveBeenCalledWith("/api/v1/auth/initialize", expect.objectContaining({
-      method: "POST", body: expect.stringContaining('"password":"A1!x2z"')
+      method: "POST", body: JSON.stringify({ username: "admin", displayName: "Server Admin", password, passwordConfirmation: password })
     }));
   });
 

@@ -22,7 +22,7 @@ func captureDiscardOwner(t *testing.T, fixture deduplicateFixture, sourceID stri
 	if err := fixture.database.QueryRowContext(t.Context(), `
 SELECT i.execution_state,i.payload_state,i.version,i.updated_at_ms,i.payload_release_job_id,
 p.state,p.version,p.review_pending_item_count,p.review_discarded_item_count,p.published_item_count
-FROM pegasus_import_items i JOIN pegasus_imports p ON p.id=i.import_id WHERE i.id=?`, sourceID).
+FROM source_import_items i JOIN source_imports p ON p.id=i.import_id WHERE i.id=?`, sourceID).
 		Scan(&result.State, &result.PayloadState, &result.Version, &result.UpdatedAt, &result.PayloadJob, &result.ParentState, &result.ParentVersion, &result.Pending, &result.Discarded, &result.Published); err != nil {
 		t.Fatal(err)
 	}
@@ -31,7 +31,7 @@ FROM pegasus_import_items i JOIN pegasus_imports p ON p.id=i.import_id WHERE i.i
 
 func TestDiscardLateFailureRollsBackLibraryOwnerAndPayload(t *testing.T) {
 	t.Parallel()
-	for _, stage := range []string{"event", "owner aggregate", "payload event"} {
+	for _, stage := range []string{"owner aggregate", "payload event"} {
 		t.Run(stage, func(t *testing.T) {
 			t.Parallel()
 			testDiscardLateFailure(t, stage)
@@ -47,8 +47,8 @@ func testDiscardLateFailure(t *testing.T, stage string) {
 		t.Fatal(err)
 	}
 	itemID := created.Items[0].ItemID
-	fixture.execute(t, `UPDATE pegasus_import_items SET execution_state='REVIEW_PENDING',completed_at_ms=? WHERE id=?`, ownedSourceNow().UnixMilli(), request.Intent.ItemID)
-	fixture.execute(t, `UPDATE pegasus_imports SET review_pending_item_count=1 WHERE id=?`, request.Intent.ImportID)
+	fixture.execute(t, `UPDATE source_import_items SET execution_state='REVIEW_PENDING',completed_at_ms=? WHERE id=?`, ownedSourceNow().UnixMilli(), request.Intent.ItemID)
+	fixture.execute(t, `UPDATE source_imports SET review_pending_item_count=1 WHERE id=?`, request.Intent.ImportID)
 	before := captureDeduplicatePage(t, fixture, created.Created.ImportJobID)
 	ownerBefore := captureDiscardOwner(t, fixture, request.Intent.ItemID)
 	fault := newReviewDiscardFault(t, fixture, itemID, stage)
@@ -57,44 +57,34 @@ func testDiscardLateFailure(t *testing.T, stage string) {
 	if !errors.Is(err, fault.cause) || result != (DecisionResult{}) || fault.itemWrites != 1 || fault.faults != 1 {
 		t.Fatalf("late failure cause/atomic boundary missing: result=%+v err=%v writes=%d fault.faults=%d", result, err, fault.itemWrites, fault.faults)
 	}
-	if stage != "event" && fault.sourceWrites != 1 {
+	if fault.sourceWrites != 1 {
 		t.Fatalf("late fault did not follow actual source write: %d", fault.sourceWrites)
 	}
 	assertDiscardRollback(t, fixture, created.Created.ImportJobID, itemID, request.Intent.ItemID, before, ownerBefore)
 	fixture.service.database = fixture.database
 	result, err = fixture.service.Discard(ctx, itemID, 1, "Requested discard")
-	if err != nil || result.Status != "DISCARDED" || result.EventID == "" {
+	if err != nil || result.Status != "DISCARDED" || result.ItemID == "" {
 		t.Fatalf("retry=%+v err=%v", result, err)
 	}
-	assertDiscardOwnerRetry(t, fixture, itemID, request.Intent.ItemID, result.EventID)
+	assertDiscardOwnerRetry(t, fixture, itemID, request.Intent.ItemID)
 }
 
-func assertDiscardOwnerRetry(t *testing.T, fixture deduplicateFixture, itemID, sourceID, eventID string) {
+func assertDiscardOwnerRetry(t *testing.T, fixture deduplicateFixture, itemID, sourceID string) {
 	t.Helper()
 	owner := captureDiscardOwner(t, fixture, sourceID)
 	if owner.State != "REVIEW_DISCARDED" || owner.Pending != 0 || owner.Discarded != 1 || owner.Published != 0 || owner.PayloadState != "RELEASING" || owner.PayloadJob == nil {
 		t.Fatalf("discard owner was not finalized once: %+v", owner)
 	}
-	var actor, kind, decision string
-	var version, eventCount int
-	if err := fixture.database.QueryRowContext(t.Context(), `
-SELECT actor_kind,actor_user_id,json_extract(after_json,'$.decision'),json_extract(before_json,'$.schemaVersion'),
-(SELECT COUNT(*) FROM review_events WHERE import_item_id=?) FROM review_events WHERE id=?`, itemID, eventID).
-		Scan(&kind, &actor, &decision, &version, &eventCount); err != nil {
-		t.Fatal(err)
-	}
-	if kind != "USER" || actor != "owner-actor" || decision != "DISCARDED" || version != 2 || eventCount != 1 {
-		t.Fatalf("retry event actor/v2/identity mismatch: kind=%s actor=%s decision=%s schema=%d count=%d", kind, actor, decision, version, eventCount)
+	var state string
+	if err := fixture.database.QueryRowContext(t.Context(), "SELECT state FROM import_items WHERE id=?", itemID).Scan(&state); err != nil || state != "DISCARDED" {
+		t.Fatalf("discard state=%s err=%v", state, err)
 	}
 }
 
-func TestDiscardBatchKeepsReservedReviewsAndPerItemTransactions(t *testing.T) {
+func TestDiscardBatchKeepsPerItemTransactions(t *testing.T) {
 	t.Parallel()
 	fixture := newDeduplicateFixture(t)
 	created := fixture.create(t, "Batch discard", "Retrom owned batch discard fixture", 2)
-	for _, item := range created.Items {
-		fixture.execute(t, `UPDATE import_items SET review_handoff_kind='EMULATIONSTATION' WHERE id=?`, item.ItemID)
-	}
 	fault := newDeduplicateDiscardFault(t, fixture, created)
 	done, err := fixture.service.DiscardBatchReviews(t.Context(), created.Created.ImportJobID)
 	if !errors.Is(err, errDeduplicateDiscard) || done {
@@ -110,7 +100,7 @@ func TestDiscardBatchKeepsReservedReviewsAndPerItemTransactions(t *testing.T) {
 	}
 	assertDeduplicateItemState(t, fixture, fault.lastID, "DISCARDED")
 	var count int
-	if err := fixture.database.QueryRowContext(t.Context(), `SELECT COUNT(*) FROM review_events WHERE event_type='DISCARDED'`).Scan(&count); err != nil {
+	if err := fixture.database.QueryRowContext(t.Context(), `SELECT COUNT(*) FROM import_items WHERE state='DISCARDED'`).Scan(&count); err != nil {
 		t.Fatal(err)
 	}
 	if count != 2 {
@@ -125,7 +115,7 @@ func assertDiscardRollback(t *testing.T, fixture deduplicateFixture, importID, i
 		t.Fatalf("owner changed on rollback: before=%+v after=%+v", ownerBefore, after)
 	}
 	var events int
-	if err := fixture.database.QueryRowContext(t.Context(), `SELECT COUNT(*) FROM review_events WHERE import_item_id=?`, itemID).Scan(&events); err != nil {
+	if err := fixture.database.QueryRowContext(t.Context(), `SELECT COUNT(*) FROM import_items WHERE id=? AND state='DISCARDED'`, itemID).Scan(&events); err != nil {
 		t.Fatal(err)
 	}
 	if events != 0 {

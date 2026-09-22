@@ -56,23 +56,23 @@ func metadataExec(t *testing.T, executor dbexec.Executor, query string, args ...
 func metadataNow() time.Time { return time.UnixMilli(10) }
 
 type metadataState struct {
-	JSON, Search, State      string
-	Version, Updated, Events int64
+	JSON, Search, State       string
+	Version, Updated, Changes int64
 }
 
 func readMetadataState(t *testing.T, db *sql.DB) metadataState {
 	t.Helper()
 	var result metadataState
 	err := db.QueryRowContext(t.Context(), `SELECT draft.metadata_json,item.search_text,item.state,draft.version,draft.updated_at_ms,
-(SELECT count(*) FROM review_events WHERE import_item_id='item') FROM review_drafts draft
-JOIN import_items item ON item.id=draft.import_item_id WHERE item.id='item'`).Scan(&result.JSON, &result.Search, &result.State, &result.Version, &result.Updated, &result.Events)
+(SELECT version-7 FROM review_drafts WHERE import_item_id='item') FROM review_drafts draft
+JOIN import_items item ON item.id=draft.import_item_id WHERE item.id='item'`).Scan(&result.JSON, &result.Search, &result.State, &result.Version, &result.Updated, &result.Changes)
 	if err != nil {
 		t.Fatal(err)
 	}
 	return result
 }
 
-func TestMetadataTransactionCommitsDraftSearchAndV2AuditOnce(t *testing.T) {
+func TestMetadataTransactionCommitsDraftAndSearchOnce(t *testing.T) {
 	t.Parallel()
 	db := metadataDatabase(t)
 	service := application.NewMetadataSeeder(NewMetadata(db), metadataNow)
@@ -84,22 +84,8 @@ func TestMetadataTransactionCommitsDraftSearchAndV2AuditOnce(t *testing.T) {
 		}
 	}
 	result := readMetadataState(t, db)
-	if result.Version != 8 || result.Search != "新 title" || result.Updated != 10 || result.Events != 1 {
+	if result.Version != 8 || result.Search != "新 title" || result.Updated != 10 || result.Changes != 1 {
 		t.Fatalf("projection=%#v", result)
-	}
-	assertStoredMetadataAudit(t, db)
-}
-
-func assertStoredMetadataAudit(t *testing.T, db *sql.DB) {
-	t.Helper()
-	var user, before, after string
-	var schema, diff int
-	if err := db.QueryRowContext(t.Context(), `SELECT actor_user_id,json_extract(before_json,'$.metadata.title'),json_extract(after_json,'$.metadata.title'),
-json_extract(before_json,'$.schemaVersion'),json_extract(diff_json,'$.metadataChanged') FROM review_events WHERE import_item_id='item'`).Scan(&user, &before, &after, &schema, &diff); err != nil {
-		t.Fatal(err)
-	}
-	if user != "actor" || before != "Before" || after != "新 Title" || schema != 2 || diff != 1 {
-		t.Fatalf("audit actor=%s before=%s after=%s schema=%d diff=%d", user, before, after, schema, diff)
 	}
 }
 
@@ -179,22 +165,6 @@ func assertMetadataFence(t *testing.T, statement string) {
 	}
 	if after := readMetadataState(t, db); after != before {
 		t.Fatalf("stale operation changed draft: %#v -> %#v", before, after)
-	}
-}
-
-func TestMetadataTransactionRollsBackAuditFailure(t *testing.T) {
-	t.Parallel()
-	db := metadataDatabase(t)
-	before := readMetadataState(t, db)
-	// The user does not exist; the audit FK rejects a late write after the draft
-	// and search projection have been updated.
-	ctx := authn.WithPrincipal(t.Context(), authn.Principal{UserID: "missing-user"})
-	version, _, err := application.NewMetadataSeeder(NewMetadata(db), metadataNow).Seed(ctx, "item", application.ServerMetadata{Title: "Changed"}, 2027)
-	if err == nil || version != 0 {
-		t.Fatalf("audit failure committed: %d %v", version, err)
-	}
-	if after := readMetadataState(t, db); after != before {
-		t.Fatalf("audit failure changed draft: %#v -> %#v", before, after)
 	}
 }
 

@@ -5,14 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"time"
-
-	"github.com/google/uuid"
 )
 
 type MultiDiscAttachmentTerminals struct {
 	repository MultiDiscAttachmentTerminalRepository
 	now        func() time.Time
-	newID      func() (string, error)
 }
 
 func NewMultiDiscAttachmentTerminals(
@@ -21,15 +18,7 @@ func NewMultiDiscAttachmentTerminals(
 	if now == nil {
 		now = time.Now
 	}
-	return &MultiDiscAttachmentTerminals{repository: repository, now: now, newID: newMultiDiscAttachmentTerminalID}
-}
-
-func newMultiDiscAttachmentTerminalID() (string, error) {
-	id, err := uuid.NewV7()
-	if err != nil {
-		return "", fmt.Errorf("allocate multi-disc attachment terminal event ID: %w", err)
-	}
-	return id.String(), nil
+	return &MultiDiscAttachmentTerminals{repository: repository, now: now}
 }
 
 func (service *MultiDiscAttachmentTerminals) Reject(
@@ -38,21 +27,14 @@ func (service *MultiDiscAttachmentTerminals) Reject(
 	if !validMultiDiscAttachmentTarget(request.Target) || request.Code == "" {
 		return ErrInvalid
 	}
-	eventID, err := service.newID()
-	if err != nil {
-		return err
-	}
 	now := service.now().UnixMilli()
 	diagnostics, _ := json.Marshal(map[string]any{
 		"schemaVersion": 1, "errorCode": request.Code, "causeCode": request.Cause,
 		"durationMs": multiDiscAttachmentDurationMS(request.Target.ExecutionStartedAtMS, now),
 	})
-	evidence := multiDiscReviewEventJSON(map[string]any{
-		"attachmentKind": "MULTI_DISC", "state": "REJECTED", "errorCode": request.Code,
-	})
 	if err := service.repository.Reject(ctx, MultiDiscAttachmentRejectWrite{
 		Target: request.Target, Actor: request.Actor, Code: request.Code,
-		DiagnosticsJSON: string(diagnostics), EvidenceJSON: evidence, EventID: eventID, NowMS: now,
+		DiagnosticsJSON: string(diagnostics), NowMS: now,
 	}); err != nil {
 		return fmt.Errorf("reject multi-disc attachment: %w", err)
 	}

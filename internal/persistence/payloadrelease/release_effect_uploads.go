@@ -79,5 +79,10 @@ AND ` + effectUploadConsumptions + `=? AND (` + effectUploadReferences + `)=?`
 	if err := effectCount(result, err, 1); err != nil {
 		return fmt.Errorf("purge upload reference: %w", err)
 	}
+	if _, err := records.executor.ExecContext(ctx,
+		`UPDATE import_files SET blob_id=NULL,released_at_ms=? WHERE id=? AND blob_id=?`,
+		now, file.ID, file.BlobID); err != nil {
+		return fmt.Errorf("release received import file: %w", err)
+	}
 	return nil
 }

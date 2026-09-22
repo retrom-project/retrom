@@ -54,7 +54,6 @@ import (
 	biosservice "retrom/internal/service/bios"
 	catalogservice "retrom/internal/service/catalog"
 	diagnosticsservice "retrom/internal/service/diagnostics"
-	"retrom/internal/service/emulationstationimport"
 	"retrom/internal/service/favorites"
 	gameassetsservice "retrom/internal/service/gameassets"
 	"retrom/internal/service/gamecontent"
@@ -70,11 +69,11 @@ import (
 	libraryservice "retrom/internal/service/libraryimport"
 	"retrom/internal/service/mediaaccess"
 	"retrom/internal/service/metadatascrape"
-	"retrom/internal/service/pegasusimport"
 	"retrom/internal/service/platforminstance"
 	readinessservice "retrom/internal/service/readiness"
 	"retrom/internal/service/saves"
 	"retrom/internal/service/serverimport"
+	"retrom/internal/service/sourceimport"
 	"retrom/internal/service/storageanalysis"
 	"retrom/internal/service/tagging"
 	"retrom/internal/service/uploads"
@@ -147,8 +146,7 @@ type Server struct {
 	importAdmissions        *libraryservice.ImportAdmissions
 	metadataEvidence        *metadatascrape.EvidenceQueries
 	serverImports           *serverimport.Service
-	pegasusImports          *pegasusimport.Service
-	emulationStationImports *emulationstationimport.Service
+	sourceImports           *sourceimport.Service
 	payloadReleases         *payloadcomposition.Service
 	platformDirectories     *platforminstance.Service
 	storageAnalysis         *storageanalysis.Service
@@ -258,42 +256,37 @@ func New(
 		now,
 	)
 	serverImportService.Start()
-	pegasusImportService := composition.NewPegasusImport(
+	sourceImportService := composition.NewSourceImport(
 		database, blobs, importer, credentials, serversource.FilesystemRoots(), now,
 	)
-	pegasusImportService.Start()
-	emulationStationImportService := composition.NewEmulationStationImport(
-		database, blobs, importer, credentials, serversource.FilesystemRoots(), now,
-	)
-	emulationStationImportService.Start()
+	sourceImportService.Start()
 	tagService := tagging.New(tagpersistence.New(database), now)
 	server := &Server{
-		config:                  config,
-		database:                database,
-		readinessDatabase:       database,
-		readinessService:        composition.NewReadiness(database),
-		dependencies:            dependencySet,
-		blobs:                   blobs,
-		credentials:             credentials,
-		authenticator:           authenticator,
-		accounts:                accountService,
-		cursors:                 cursor.New(credentials.CursorKey(), now),
-		uploads:                 uploads.New(uploadpersistence.New(database), blobs, config.DataDir, now),
-		importer:                importer,
-		launcher:                launcher,
-		launchSources:           launchSources,
-		jobService:              jobs.New(jobpersistence.New(database), now),
-		immersive:               immersive.New(immersivepersistence.New(database)),
-		firmware:                firmwareService,
-		biosService:             composition.NewBIOS(database),
-		catalogService:          composition.NewCatalog(database, nil),
-		serverImports:           serverImportService,
-		pegasusImports:          pegasusImportService,
-		emulationStationImports: emulationStationImportService,
-		payloadReleases:         payloadReleaseService,
-		diagnosticsService:      composition.NewDiagnostics(database),
-		platformDirectories:     platforminstance.New(platformpersistence.New(database), now),
-		metadata:                scraper,
+		config:              config,
+		database:            database,
+		readinessDatabase:   database,
+		readinessService:    composition.NewReadiness(database),
+		dependencies:        dependencySet,
+		blobs:               blobs,
+		credentials:         credentials,
+		authenticator:       authenticator,
+		accounts:            accountService,
+		cursors:             cursor.New(credentials.CursorKey(), now),
+		uploads:             uploads.New(uploadpersistence.New(database), blobs, config.DataDir, now),
+		importer:            importer,
+		launcher:            launcher,
+		launchSources:       launchSources,
+		jobService:          jobs.New(jobpersistence.New(database), now),
+		immersive:           immersive.New(immersivepersistence.New(database)),
+		firmware:            firmwareService,
+		biosService:         composition.NewBIOS(database),
+		catalogService:      composition.NewCatalog(database, nil),
+		serverImports:       serverImportService,
+		sourceImports:       sourceImportService,
+		payloadReleases:     payloadReleaseService,
+		diagnosticsService:  composition.NewDiagnostics(database),
+		platformDirectories: platforminstance.New(platformpersistence.New(database), now),
+		metadata:            scraper,
 		gameContent: gamecontent.New(gamecontentpersistence.New(database), now).WithBlobStore(blobs).
 			WithPayloadRelease(payloadReleaseService).WithGCStager(payloadReleaseService).
 			WithMultiDiscImportEnabled(config.MultiDiscImportEnabled),
@@ -322,16 +315,14 @@ func New(
 			Now: now, MultiDiscEnabled: config.MultiDiscImportEnabled, MetadataScraperAvailable: true,
 		},
 	)
-	server.jobService = composition.WithPegasusJobCancellation(server.jobService, pegasusImportService)
-	server.jobService = composition.WithEmulationStationJobCancellation(server.jobService, emulationStationImportService)
+	server.jobService = composition.WithSourceJobCancellation(server.jobService, sourceImportService)
 	server.jobService = librarycomposition.WithJobCancellation(server.jobService, database, now)
 	server.mediaAccess = mediaaccess.New(mediapersistence.New(database))
 	server.metadataEvidence = composition.NewMetadataEvidenceQueries(database)
 	server.importDiscards = composition.NewImportDiscard(
 		database,
 		libraryimport.NewDiscardWorkflow(importer),
-		pegasusImportService,
-		emulationStationImportService,
+		sourceImportService,
 		now,
 	)
 	server.importDiscards.Start()
@@ -351,8 +342,7 @@ func (server *Server) Close() {
 		server.netplay.Close()
 	}
 	server.serverImports.Close()
-	server.pegasusImports.Close()
-	server.emulationStationImports.Close()
+	server.sourceImports.Close()
 	server.metadata.Close()
 	server.payloadReleases.Close()
 }
@@ -464,57 +454,19 @@ func (server *Server) registerAdminImportRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/admin/server-imports/{serverImportId}/retry", server.retryServerImport)
 	mux.HandleFunc("GET /api/v1/admin/import-batches/{kind}/{importId}/discard", server.getImportBatchDiscard)
 	mux.HandleFunc("POST /api/v1/admin/import-batches/{kind}/{importId}/discard", server.discardImportBatch)
-	mux.HandleFunc("POST /api/v1/admin/pegasus-imports", server.createPegasusImport)
-	mux.HandleFunc("GET /api/v1/admin/pegasus-imports", server.pegasusImportList)
-	mux.HandleFunc("GET /api/v1/admin/pegasus-imports/{pegasusImportId}", server.pegasusImportDetail)
-	mux.HandleFunc("DELETE /api/v1/admin/pegasus-imports/{pegasusImportId}", server.deletePegasusImport)
-	mux.HandleFunc("GET /api/v1/admin/pegasus-imports/{pegasusImportId}/collections", server.pegasusImportCollections)
+	mux.HandleFunc("POST /api/v1/admin/source-imports", server.createSourceImport)
+	mux.HandleFunc("GET /api/v1/admin/source-imports", server.sourceImportList)
+	mux.HandleFunc("GET /api/v1/admin/source-imports/{sourceImportId}", server.sourceImportDetail)
+	mux.HandleFunc("DELETE /api/v1/admin/source-imports/{sourceImportId}", server.deleteSourceImport)
+	mux.HandleFunc("GET /api/v1/admin/source-imports/{sourceImportId}/collections", server.sourceImportCollections)
 	mux.HandleFunc(
-		"PUT /api/v1/admin/pegasus-imports/{pegasusImportId}/collection-mappings",
-		server.updatePegasusMappings,
+		"PUT /api/v1/admin/source-imports/{sourceImportId}/collection-mappings",
+		server.updateSourceMappings,
 	)
-	mux.HandleFunc("POST /api/v1/admin/pegasus-imports/{pegasusImportId}/start", server.startPegasusImport)
-	mux.HandleFunc("GET /api/v1/admin/pegasus-imports/{pegasusImportId}/items", server.pegasusImportItems)
-	mux.HandleFunc("POST /api/v1/admin/pegasus-imports/{pegasusImportId}/cancel", server.cancelPegasusImport)
-	mux.HandleFunc("POST /api/v1/admin/pegasus-imports/{pegasusImportId}/retry", server.retryPegasusImport)
-	mux.HandleFunc("POST /api/v1/admin/emulationstation-imports", server.createEmulationStationImport)
-	mux.HandleFunc("GET /api/v1/admin/emulationstation-imports", server.emulationStationImportList)
-	mux.HandleFunc(
-		"GET /api/v1/admin/emulationstation-imports/{emulationStationImportId}",
-		server.emulationStationImportDetail,
-	)
-	mux.HandleFunc(
-		"DELETE /api/v1/admin/emulationstation-imports/{emulationStationImportId}",
-		server.deleteEmulationStationImport,
-	)
-	mux.HandleFunc(
-		"GET /api/v1/admin/emulationstation-imports/{emulationStationImportId}/gamelists",
-		server.emulationStationImportGamelists,
-	)
-	mux.HandleFunc(
-		"GET /api/v1/admin/emulationstation-imports/{emulationStationImportId}/collections",
-		server.emulationStationImportCollections,
-	)
-	mux.HandleFunc(
-		"PUT /api/v1/admin/emulationstation-imports/{emulationStationImportId}/collection-mappings",
-		server.updateEmulationStationMappings,
-	)
-	mux.HandleFunc(
-		"POST /api/v1/admin/emulationstation-imports/{emulationStationImportId}/start",
-		server.startEmulationStationImport,
-	)
-	mux.HandleFunc(
-		"GET /api/v1/admin/emulationstation-imports/{emulationStationImportId}/items",
-		server.emulationStationImportItems,
-	)
-	mux.HandleFunc(
-		"POST /api/v1/admin/emulationstation-imports/{emulationStationImportId}/cancel",
-		server.cancelEmulationStationImport,
-	)
-	mux.HandleFunc(
-		"POST /api/v1/admin/emulationstation-imports/{emulationStationImportId}/retry",
-		server.retryEmulationStationImport,
-	)
+	mux.HandleFunc("POST /api/v1/admin/source-imports/{sourceImportId}/start", server.startSourceImport)
+	mux.HandleFunc("GET /api/v1/admin/source-imports/{sourceImportId}/items", server.sourceImportItems)
+	mux.HandleFunc("POST /api/v1/admin/source-imports/{sourceImportId}/cancel", server.cancelSourceImport)
+	mux.HandleFunc("POST /api/v1/admin/source-imports/{sourceImportId}/retry", server.retrySourceImport)
 	mux.HandleFunc("GET /api/v1/admin/imports/summary", server.importSummary)
 	mux.HandleFunc("GET /api/v1/admin/imports", server.imports)
 	mux.HandleFunc("POST /api/v1/admin/imports", server.createImport)
@@ -555,8 +507,6 @@ func (server *Server) registerAdminImportRoutes(mux *http.ServeMux) {
 	)
 	mux.HandleFunc("POST /api/v1/admin/reviews/{importItemId}/approve", server.approveReview)
 	mux.HandleFunc("POST /api/v1/admin/reviews/{importItemId}/discard", server.discardReview)
-	mux.HandleFunc("GET /api/v1/admin/review-history", server.reviewHistory)
-	mux.HandleFunc("GET /api/v1/admin/review-history/{reviewEventId}", server.reviewHistoryEvent)
 }
 
 func (server *Server) registerAdminLibraryRoutes(mux *http.ServeMux) {

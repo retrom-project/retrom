@@ -47,7 +47,7 @@ export function SetupForm() {
     const form = event.currentTarget;
     const values = new FormData(form);
     const response = await fetch("/api/v1/auth/initialize", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
-      setupCode: values.get("setupCode"), username: values.get("username"), displayName: values.get("displayName"), password: values.get("password"), passwordConfirmation: values.get("passwordConfirmation")
+      username: values.get("username"), displayName: values.get("displayName"), password: values.get("password"), passwordConfirmation: values.get("passwordConfirmation")
     }) }).catch(() => null);
     if (!response) { setState({ busy: false, error: "无法连接服务器，请检查网络后重试" }); return; }
     if (!response.ok) {
@@ -55,15 +55,13 @@ export function SetupForm() {
       if (["INITIALIZATION_ALREADY_COMPLETED", "INSTANCE_ALREADY_INITIALIZED"].includes(issue.code)) {
         form.reset(); router.replace("/login"); return;
       }
-      setState({ busy: false, error: issue.code === "INITIALIZATION_PROOF_INVALID" ? "初始化码无效" : issue.message, requestId: issue.requestId }); return;
+      setState({ busy: false, error: issue.message, requestId: issue.requestId }); return;
     }
     acceptContext(await response.json() as AuthContext); router.replace("/"); router.refresh();
   }
   return <AuthPanel eyebrow="首次设置" title="创建首位管理员" description="创建此服务器的首位管理员。初始化完成后，其他账号只能通过邀请创建。" width="wide">
     <form className="auth-form" method="post" onSubmit={(event) => void submit(event)} aria-busy={state.busy}>
       <ErrorSummary message={state.error} requestId={state.requestId} errorRef={errorRef} />
-      <PasswordField autoComplete="off" label="初始化码" name="setupCode" />
-      <p className="field-help">在服务器主机执行 <code>retrom setup-code</code> 获取；命令结果不会在浏览器显示。</p>
       <div className="form-field"><label htmlFor="username">管理员用户名</label><input autoComplete="username" id="username" name="username" required /></div>
       <div className="form-field"><label htmlFor="displayName">显示名称</label><input autoComplete="name" id="displayName" name="displayName" required /></div>
       <PasswordField autoComplete="new-password" label="密码" name="password" />

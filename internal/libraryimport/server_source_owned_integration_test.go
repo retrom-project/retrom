@@ -44,7 +44,7 @@ func assertOwnedSourceBinding(t *testing.T, fixture deduplicateFixture, result S
 	t.Helper()
 	var state, jobID, itemID string
 	var version int64
-	if err := fixture.database.QueryRowContext(fixture.ctx, `SELECT execution_state,library_import_job_id,library_import_item_id,version FROM pegasus_import_items WHERE id='unlinked-source'`).Scan(&state, &jobID, &itemID, &version); err != nil {
+	if err := fixture.database.QueryRowContext(fixture.ctx, `SELECT execution_state,library_import_job_id,library_import_item_id,version FROM source_import_items WHERE id='unlinked-source'`).Scan(&state, &jobID, &itemID, &version); err != nil {
 		t.Fatal(err)
 	}
 	if state != "VALIDATING" || jobID != result.Created.ImportJobID || itemID != result.Items[0].ItemID || version != 2 {
@@ -55,7 +55,7 @@ func assertOwnedSourceBinding(t *testing.T, fixture deduplicateFixture, result S
 func ownedImportCount(t *testing.T, fixture deduplicateFixture) int {
 	t.Helper()
 	var count int
-	if err := fixture.database.QueryRowContext(fixture.ctx, `SELECT count(*) FROM import_jobs imported JOIN server_import_upload_owners owner ON owner.upload_session_id=imported.upload_session_id WHERE owner.kind='PEGASUS' AND owner.source_item_id='unlinked-source'`).Scan(&count); err != nil {
+	if err := fixture.database.QueryRowContext(fixture.ctx, `SELECT count(*) FROM import_jobs imported JOIN server_import_upload_owners owner ON owner.upload_session_id=imported.upload_session_id WHERE owner.kind='SOURCE' AND owner.source_item_id='unlinked-source'`).Scan(&count); err != nil {
 		t.Fatal(err)
 	}
 	return count
@@ -138,11 +138,11 @@ func releaseOwnedSourceFixture(t *testing.T, fixture deduplicateFixture) {
 func TestOwnedSourceRejectsExistingUnboundLegacyCreation(t *testing.T) {
 	t.Parallel()
 	fixture, request := ownedSourceFixture(t)
-	_, err := fixture.service.CreateServerSourceOnce(fixture.ctx, "SERVER_PEGASUS_IMPORT:unlinked-source", fixture.platform, "STANDARD", request.Files, nil, "")
+	_, err := fixture.service.CreateServerSourceOnce(fixture.ctx, "IMPORT_RECEIVE:unlinked-source", fixture.platform, "STANDARD", request.Files, nil, "")
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, found, err := fixture.service.LookupOwnedServerSource(fixture.ctx, application.SourceCreationIntent{Kind: application.SourceOwnerPegasus, ImportID: request.Intent.ImportID, ItemID: request.Intent.ItemID})
+	result, found, err := fixture.service.LookupOwnedServerSource(fixture.ctx, application.SourceCreationIntent{Kind: application.SourceOwnerSource, ImportID: request.Intent.ImportID, ItemID: request.Intent.ItemID})
 	if !errors.Is(err, ErrVersionConflict) || found || result.Created.ImportJobID != "" {
 		t.Fatalf("guessed legacy ownership: %#v found=%v err=%v", result, found, err)
 	}
@@ -155,10 +155,10 @@ func finishOwnedDuplicateFixture(t *testing.T, fixture deduplicateFixture, gameI
 		t.Fatal(err)
 	}
 	defer dbexec.Rollback(tx)
-	if _, err := tx.ExecContext(fixture.ctx, `UPDATE pegasus_import_items SET execution_state='SKIPPED_EXISTING',existing_game_id=?,completed_at_ms=?,version=version+1 WHERE id='unlinked-source'`, gameID, ownedSourceNow().UnixMilli()); err != nil {
+	if _, err := tx.ExecContext(fixture.ctx, `UPDATE source_import_items SET execution_state='SKIPPED_EXISTING',existing_game_id=?,completed_at_ms=?,version=version+1 WHERE id='unlinked-source'`, gameID, ownedSourceNow().UnixMilli()); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := payloadservice.NewScheduler(nil).TerminalSource(fixture.ctx, payloadpersistence.BindScheduling(tx), payloadservice.Scope{Type: payloadservice.ScopePegasusImportItem, ID: "unlinked-source"}, ownedSourceNow().UnixMilli()); err != nil {
+	if _, err := payloadservice.NewScheduler(nil).TerminalSource(fixture.ctx, payloadpersistence.BindScheduling(tx), payloadservice.Scope{Type: payloadservice.ScopeSourceImportItem, ID: "unlinked-source"}, ownedSourceNow().UnixMilli()); err != nil {
 		t.Fatal(err)
 	}
 	if err := tx.Commit(); err != nil {
