@@ -10,8 +10,8 @@ export async function expectSidebarFooterAlignment(page: Page) {
   expect(context).not.toBeNull();
   expect(status).not.toBeNull();
   if (!account || !context || !status) {throw new Error("Sidebar footer bounds unavailable");}
-  expect(account.height).toBe(54);
-  expect(context.height).toBe(54);
+  expect(account.height).toBe(44);
+  expect(context.height).toBe(44);
   expect(context.x).toBe(account.x);
   expect(context.width).toBe(account.width);
   expect(context.y - account.y - account.height).toBe(10);
