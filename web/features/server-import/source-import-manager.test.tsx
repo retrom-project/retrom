@@ -1,10 +1,10 @@
-import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { StrictMode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { SourceImportDetailManager, SourceImportDrawer, type SourceImportSummary, type SourceItem, type SourcePlatformInstance } from "./source-import-manager";
 
-const router = vi.hoisted(() => ({ push: vi.fn() }));
+const router = vi.hoisted(() => ({ push: vi.fn(), refresh: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => router }));
 
 const root = { id: "games", label: "游戏资料库", status: "AVAILABLE" as const };
@@ -30,6 +30,7 @@ function json(value: unknown, status = 200) {
 afterEach(() => {
   cleanup();
   router.push.mockReset();
+  router.refresh.mockReset();
   vi.useRealTimers();
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
@@ -185,6 +186,7 @@ describe("SourceImportDetailManager", () => {
     render(<SourceImportDetailManager initialSummary={result} initialItems={{ items: [blocked], nextCursor: null }} collections={[]} roots={[root]} platformInstances={[platform]} initialFilters={{ query: "", outcome: "", warning: "", collectionId: "" }} />);
 
     expect(screen.queryByRole("button", { name: "重试失败条目" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "删除计划" })).not.toBeInTheDocument();
     expect(screen.getAllByText("缺少父 ROM")[0]).toBeVisible();
     await user.click(screen.getByText("查看具体原因与处理建议"));
     expect(screen.getByText("LAUNCH_PARENT_MISSING")).toBeVisible();
@@ -250,4 +252,40 @@ describe("SourceImportDetailManager", () => {
     expect(screen.queryByRole("button", { name: /批量/ })).not.toBeInTheDocument();
     expect(screen.getByText("内容已准备好，但尚未进入游戏库")).toBeVisible();
   });
+});
+
+it.each(["PEGASUS", "GAMELIST"] as const)("deletes an unstarted %s plan only after confirmation", async (format) => {
+  const plan = summary("AWAITING_MAPPING", 3, { format });
+  const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 204 }));
+  vi.stubGlobal("fetch", fetchMock);
+  const user = userEvent.setup();
+  render(<SourceImportDetailManager initialSummary={plan} initialItems={{ items: [], nextCursor: null }} collections={[]} roots={[root]} platformInstances={[platform]} initialFilters={{ query: "", outcome: "", warning: "", collectionId: "" }} />);
+  await user.click(screen.getByRole("button", { name: "删除计划" }));
+  const dialog = screen.getByRole("alertdialog", { name: "删除这份未执行计划？" });
+  expect(fetchMock).not.toHaveBeenCalled();
+  await user.click(within(dialog).getByRole("button", { name: "删除计划" }));
+  await waitFor(() => expect(router.push).toHaveBeenCalledWith("/admin/imports/server"));
+  const request = fetchMock.mock.calls[0]?.[0];
+  expect(request).toBeInstanceOf(Request);
+  expect(request.method).toBe("DELETE");
+  expect(request.url).toContain(`/api/v1/admin/source-imports/${plan.id}`);
+  expect(request.headers.get("If-Match")).toBe('"v3"');
+  expect(router.refresh).toHaveBeenCalledOnce();
+});
+
+it("keeps an unstarted plan and its dialog when deletion fails", async () => {
+  const plan = summary("EXPIRED", 4);
+  const fetchMock = vi.fn().mockResolvedValue(json({ error: { code: "VERSION_MISMATCH", message: "计划已变化" } }, 409));
+  vi.stubGlobal("fetch", fetchMock);
+  const user = userEvent.setup();
+  render(<SourceImportDetailManager initialSummary={plan} initialItems={{ items: [], nextCursor: null }} collections={[]} roots={[root]} platformInstances={[platform]} initialFilters={{ query: "", outcome: "", warning: "", collectionId: "" }} />);
+  await user.click(screen.getByRole("button", { name: "删除计划" }));
+  const dialog = screen.getByRole("alertdialog", { name: "删除这份未执行计划？" });
+  await user.click(within(dialog).getByRole("button", { name: "删除计划" }));
+  await waitFor(() => expect(within(dialog).getByRole("button", { name: "删除计划" })).toBeEnabled());
+  expect(router.push).not.toHaveBeenCalled();
+  expect(dialog).toBeVisible();
+  await user.click(within(dialog).getByRole("button", { name: "取消" }));
+  expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+  expect(fetchMock).toHaveBeenCalledOnce();
 });

@@ -10,6 +10,7 @@ import { TagChips, TagPicker, type TagReference } from "@/components/tag-picker"
 import { StatusBadge } from "@/components/ui";
 import { formatBytes } from "@/lib/backend";
 import type { ServerImportRoot } from "./server-import-manager";
+import { SourcePlanDelete } from "./source-plan-delete";
 import {
   sourceOutcomeLabels,
   sourcePhaseLabels,
@@ -195,11 +196,11 @@ type DetailViewProps = { onDiscarded?: () => void; summary: SourceImportSummary;
 
 function DetailHeader({ props, reviewURL, phase }: { props: DetailViewProps; reviewURL: string; phase: string }) {
   return <section className="server-import-detail-head panel"><div><StatusBadge tone={sourceStateTone(props.summary.state)}>{sourceStateLabels[props.summary.state]}</StatusBadge><h2>{props.summary.root.label} / {props.summary.sourceRelativePath || "根目录"}</h2><p aria-live="polite">{phase}</p></div><div>{["SCANNING", "QUEUED", "RUNNING"].includes(props.summary.state) ? <button type="button" className="button secondary" disabled={props.busy} onClick={() => props.onCancelOpen(true)}>取消任务</button> : null}{props.summary.retryable ? <button type="button" className="button secondary" disabled={props.busy} onClick={props.onRetry}>重试失败条目</button> : null}{props.summary.counts.reviewPending ? <Link href={reviewURL} className="button">逐项审核 {props.summary.counts.reviewPending} 个游戏</Link> : null}{props.summary.importJobId ? <ImportBatchDiscard kind="SOURCE" importId={props.summary.id} version={props.summary.version} onCompleted={props.onDiscarded} /> : null}
-    {props.summary.state === "AWAITING_MAPPING" ? <button type="button" className="button" disabled={props.busy} onClick={() => props.onMappingOpen(true)}>继续映射</button> : <Link href="/admin/imports/server?action=source" className="button secondary">新建 游戏导入</Link>}</div></section>;
+    {props.summary.state === "AWAITING_MAPPING" ? <button type="button" className="button" disabled={props.busy} onClick={() => props.onMappingOpen(true)}>继续映射</button> : <Link href="/admin/imports/server?action=source" className="button secondary">新建游戏导入</Link>}<SourcePlanDelete summary={props.summary} disabled={props.busy} /></div></section>;
 }
 
 function DetailSummary({ summary }: { summary: SourceImportSummary }) {
-  return <section className="runtime-kpis" aria-label="游戏导入摘要"><article><small>扫描范围</small><strong>{summary.counts.games}</strong><p>{summary.counts.collections} 个 Collection · {summary.counts.processable} 项可处理</p></article><article className={summary.counts.reviewPending ? "has-warning" : ""}><small>等待逐项审核</small><strong>{summary.counts.reviewPending}</strong><p>不会自动发布到游戏库</p></article><article className="has-success"><small>已发布 / 已丢弃 / 已存在</small><strong>{summary.counts.published} / {summary.counts.reviewDiscarded} / {summary.counts.existing}</strong><p>均保留来源与审核证据</p></article><article className={summary.counts.blocked + summary.counts.failed ? "has-danger" : ""}><small>源内容阻断 / 任务失败</small><strong>{summary.counts.blocked} / {summary.counts.failed}</strong><p>{summary.counts.mediaWarnings} 个媒体警告</p></article></section>;
+  return <section className="runtime-kpis" aria-label="游戏导入摘要"><article><small>扫描范围</small><strong>{summary.counts.games}</strong><p>{summary.counts.collections} 个 Collection · {summary.counts.processable} 项可处理</p></article><article className={summary.counts.reviewPending ? "has-warning" : ""}><small>等待逐项审核</small><strong>{summary.counts.reviewPending}</strong><p>不会自动发布到游戏库</p></article><article className="has-success"><small>已发布 / 已丢弃 / 已存在</small><strong>{summary.counts.published} / {summary.counts.reviewDiscarded} / {summary.counts.existing}</strong><p>保留当前结果与计数</p></article><article className={summary.counts.blocked + summary.counts.failed ? "has-danger" : ""}><small>源内容阻断 / 任务失败</small><strong>{summary.counts.blocked} / {summary.counts.failed}</strong><p>{summary.counts.mediaWarnings} 个媒体警告</p></article></section>;
 }
 
 function DetailResults({ props, reviewURL }: { props: DetailViewProps; reviewURL: string }) {
