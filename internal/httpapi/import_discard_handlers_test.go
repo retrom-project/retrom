@@ -12,7 +12,7 @@ import (
 )
 
 func TestImportBatchDiscardRequiresAdminAndCSRF(t *testing.T) {
-	server, _ := newAuthHTTPServer(t, config.ModeTest)
+	server := newAuthHTTPServer(t, config.ModeTest)
 	handler := server.Handler()
 	path := "/api/v1/admin/import-batches/IMPORT/01980000-0000-7000-8000-000000000111/discard"
 	anonymous := httptest.NewRecorder()

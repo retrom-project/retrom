@@ -88,9 +88,9 @@ func TestReleaseInitializationLoginExpiryAndPasswordRotation(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, err := fixture.service.Initialize(context.Background(), accountservice.InitializeRequest{
-		SetupCode: "invalid", Username: "admin", DisplayName: "Administrator",
+		Username: "!invalid", DisplayName: "Administrator",
 		Password: "a sufficiently long phrase", PasswordConfirmation: "a sufficiently long phrase",
-	}); !errors.Is(err, accountservice.ErrInitializationProof) {
+	}); !errors.Is(err, authn.ErrUsernameInvalid) {
 		t.Fatalf("invalid setup = %v", err)
 	}
 	var users int
@@ -98,14 +98,14 @@ func TestReleaseInitializationLoginExpiryAndPasswordRotation(t *testing.T) {
 		t.Fatalf("users after invalid setup = %d, %v", users, err)
 	}
 	initialized, err := fixture.service.Initialize(context.Background(), accountservice.InitializeRequest{
-		SetupCode: fixture.credentials.SetupCode(), Username: "admin", DisplayName: "Administrator",
+		Username: "admin", DisplayName: "Administrator",
 		Password: "a sufficiently long phrase", PasswordConfirmation: "a sufficiently long phrase",
 	})
 	testassert.False(t, err != nil, err)
 	testassert.Falsef(t, testassert.Any(func() bool { return initialized.User.Role != "ADMIN" }, func() bool { return initialized.CSRFToken == "" }, func() bool { return initialized.CookieToken == "" }), "initialized session = %#v", initialized)
 	otherPassword := strings.Repeat("other phrase ", 2)
 	if _, err := fixture.service.Initialize(context.Background(), accountservice.InitializeRequest{
-		SetupCode: fixture.credentials.SetupCode(), Username: "other", DisplayName: "Other Admin",
+		Username: "other", DisplayName: "Other Admin",
 		Password: otherPassword, PasswordConfirmation: otherPassword,
 	}); !errors.Is(err, accountservice.ErrInitializationDone) {
 		t.Fatalf("reinitialize = %v", err)

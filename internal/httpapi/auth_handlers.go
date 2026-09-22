@@ -49,15 +49,12 @@ func (server *Server) authContext(writer http.ResponseWriter, request *http.Requ
 }
 
 func (server *Server) authInitialize(writer http.ResponseWriter, request *http.Request) {
-	var body struct {
-		SetupCode string `json:"setupCode"`
-		newAccountCredentialRequest
-	}
+	var body newAccountCredentialRequest
 	if !decodeNewAccountCredential(writer, request, &body, "初始化请求无效") {
 		return
 	}
 	session, err := server.accounts.InitializeRateLimited(request.Context(), accounts.InitializeRequest{
-		SetupCode: body.SetupCode, Username: body.Username, DisplayName: body.DisplayName,
+		Username: body.Username, DisplayName: body.DisplayName,
 		Password: body.Password, PasswordConfirmation: body.PasswordConfirmation,
 	}, server.authenticationClientIP(request))
 	if err != nil {
@@ -195,8 +192,6 @@ func (server *Server) writeAccountError(writer http.ResponseWriter, request *htt
 		writeError(writer, request, http.StatusTooManyRequests, "AUTH_RATE_LIMITED", "认证请求过于频繁", map[string]any{})
 	case errors.Is(err, accounts.ErrAuthentication):
 		writeError(writer, request, http.StatusUnauthorized, "AUTHENTICATION_FAILED", "用户名或密码不正确", map[string]any{})
-	case errors.Is(err, accounts.ErrInitializationProof):
-		writeError(writer, request, http.StatusUnauthorized, "INITIALIZATION_PROOF_INVALID", "初始化码无效", map[string]any{})
 	case errors.Is(err, accounts.ErrInitializationDone):
 		writeError(writer, request, http.StatusConflict, "INITIALIZATION_ALREADY_COMPLETED", "实例已完成初始化", map[string]any{})
 	case errors.Is(err, accounts.ErrAccountLinkUnavailable):

@@ -2729,7 +2729,6 @@ export interface components {
             issueItems: number;
         };
         AuthInitializeRequest: {
-            setupCode: string;
             username: string;
             displayName: string;
             password: string;

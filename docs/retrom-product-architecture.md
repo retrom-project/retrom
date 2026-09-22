@@ -138,7 +138,7 @@ SQLite 使用 WAL；所有用户文件写入一个明确的数据目录。Next.j
 
 ### 3.7 账户边界与数据库 lineage
 
-- 默认 `release` 模式的空实例进入 `PENDING`，只有持有主机侧 `retrom setup-code` 输出的人能创建首位启用管理员；初始化完成后不可重开。
+- 默认 `release` 模式的空实例进入 `PENDING`，访问 `/setup` 并提交合法账号信息和密码即可创建首位启用管理员；初始化完成后不可重开。
 - `--mode=test` 只供明确的开发/验收数据根使用，会在空库创建 `test/test` 并显示警告；除此之外不放宽认证、授权、Origin、CSRF、cookie 或数据隔离。
 - 已初始化实例的普通 API 要求有效 AuthSession，`/api/v1/admin/**` 另要求 `ADMIN`。普通管理员只管理账号和共享内容，不能查看其他用户的存档名称、截图、游玩记录或保存内容。
 - 数据库只接受当前 clean migration 集合的精确有序前缀或完整 lineage；名称、checksum、缺口、未知或未来记录都在执行 DDL/DML 前以 `DATABASE_REBUILD_REQUIRED` 拒绝。当前项目未发布，开发期旧 lineage 和旧备份必须使用全新空数据根重建，不做数据转换。

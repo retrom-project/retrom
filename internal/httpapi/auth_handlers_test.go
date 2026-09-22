@@ -23,7 +23,7 @@ import (
 	"retrom/internal/testsupport"
 )
 
-func newAuthHTTPServer(t *testing.T, mode config.Mode) (*Server, *retromruntime.Credentials) {
+func newAuthHTTPServer(t *testing.T, mode config.Mode) *Server {
 	t.Helper()
 	root := t.TempDir()
 	now := func() time.Time { return time.UnixMilli(1_786_000_000_000).UTC() }
@@ -58,12 +58,12 @@ func newAuthHTTPServer(t *testing.T, mode config.Mode) (*Server, *retromruntime.
 		database.SQL, dependencySet, blobs, credentials, accountService, accountService, now,
 	)
 	server.startupReady.Store(true)
-	return server, credentials
+	return server
 }
 
 func TestAuthHTTPTestLoginCookieCSRFAndLogout(t *testing.T) {
 	t.Parallel()
-	server, _ := newAuthHTTPServer(t, config.ModeTest)
+	server := newAuthHTTPServer(t, config.ModeTest)
 	handler := server.Handler()
 	contextRecorder := httptest.NewRecorder()
 	handler.ServeHTTP(contextRecorder, httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/auth/context", nil))
@@ -117,21 +117,22 @@ func TestAuthHTTPTestLoginCookieCSRFAndLogout(t *testing.T) {
 	testassert.Falsef(t, testassert.Any(func() bool { return logoutRecorder.Code != http.StatusNoContent }, func() bool { return logoutRecorder.Header().Get("Clear-Site-Data") == "" }), "logout = %d %s", logoutRecorder.Code, logoutRecorder.Body.String())
 }
 
-func TestAuthHTTPReleasePendingRequiresSetupAndExactOrigin(t *testing.T) {
+func TestAuthHTTPReleaseInitializesWithoutCodeAndRequiresExactOrigin(t *testing.T) {
 	t.Parallel()
-	server, credentials := newAuthHTTPServer(t, config.ModeRelease)
+	server := newAuthHTTPServer(t, config.ModeRelease)
 	handler := server.Handler()
 	ordinary := httptest.NewRecorder()
 	handler.ServeHTTP(ordinary, httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/home", nil))
 	testassert.Falsef(t, testassert.Any(func() bool { return ordinary.Code != http.StatusPreconditionRequired }, func() bool { return !strings.Contains(ordinary.Body.String(), "INITIALIZATION_REQUIRED") }), "pending ordinary = %d %s", ordinary.Code, ordinary.Body.String())
-	body := `{"setupCode":"` + credentials.SetupCode() + `","username":"admin","displayName":"Administrator","password":"A1!x2z","passwordConfirmation":"A1!x2z"}`
+	body := `{"username":"admin","displayName":"Administrator","password":"A1!x2z","passwordConfirmation":"A1!x2z"}`
 	crossSite := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/auth/initialize", strings.NewReader(body))
 	crossSite.Header.Set("Content-Type", "application/json")
 	crossSite.Header.Set("Origin", "http://attacker.invalid")
 	crossRecorder := httptest.NewRecorder()
 	handler.ServeHTTP(crossRecorder, crossSite)
 	testassert.Falsef(t, testassert.Any(func() bool { return crossRecorder.Code != http.StatusForbidden }, func() bool { return !strings.Contains(crossRecorder.Body.String(), "REQUEST_ORIGIN_INVALID") }), "cross-site setup = %d %s", crossRecorder.Code, crossRecorder.Body.String())
-	tooShortBody := `{"setupCode":"` + credentials.SetupCode() + `","username":"admin","displayName":"Administrator","password":"A1!x2","passwordConfirmation":"A1!x2"}`
+	assertInitializationRows(t, server, 0)
+	tooShortBody := `{"username":"admin","displayName":"Administrator","password":"A1!x2","passwordConfirmation":"A1!x2"}`
 	tooShort := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/auth/initialize", strings.NewReader(tooShortBody))
 	tooShort.Header.Set("Content-Type", "application/json")
 	tooShort.Header.Set("Origin", "http://localhost:3000")
@@ -140,6 +141,7 @@ func TestAuthHTTPReleasePendingRequiresSetupAndExactOrigin(t *testing.T) {
 	testassert.Falsef(t, testassert.Any(func() bool { return tooShortRecorder.Code != http.StatusUnprocessableEntity }, func() bool {
 		return !strings.Contains(tooShortRecorder.Body.String(), `"code":"PASSWORD_POLICY_VIOLATION"`)
 	}, func() bool { return !strings.Contains(tooShortRecorder.Body.String(), `"reasonCode":"TOO_SHORT"`) }), "five-character setup = %d %s", tooShortRecorder.Code, tooShortRecorder.Body.String())
+	assertInitializationRows(t, server, 0)
 	initialize := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/auth/initialize", strings.NewReader(body))
 	initialize.Header.Set("Content-Type", "application/json")
 	initialize.Header.Set("Origin", "http://localhost:3000")
@@ -150,7 +152,7 @@ func TestAuthHTTPReleasePendingRequiresSetupAndExactOrigin(t *testing.T) {
 
 func TestAuthHTTPLoginRateLimitReturnsRetryAfter(t *testing.T) {
 	t.Parallel()
-	server, _ := newAuthHTTPServer(t, config.ModeTest)
+	server := newAuthHTTPServer(t, config.ModeTest)
 	handler := server.Handler()
 	for attempt := 1; attempt <= 5; attempt++ {
 		request := httptest.NewRequestWithContext(context.Background(),

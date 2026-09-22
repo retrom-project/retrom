@@ -20,7 +20,6 @@ import (
 const (
 	launchDomain       = "retrom-launch-v1\x00"
 	cursorKeyDomain    = "retrom-cursor-key-v1"
-	setupCodeDomain    = "retrom-setup-v1"
 	accountKeyDomain   = "retrom-account-link-key-v1"
 	accountLinkDomain  = "retrom-account-link-v1\x00"
 	rateLimitKeyDomain = "retrom-rate-limit-key-v1"
@@ -39,15 +38,6 @@ func LoadCredentials(dataDir string) (*Credentials, error) {
 		return nil, err
 	}
 	return &Credentials{key: key}, nil
-}
-
-func (credentials *Credentials) SetupCode() string {
-	return EncodeCapability(credentials.derive(setupCodeDomain))
-}
-
-func (credentials *Credentials) MatchesSetupCode(value string) bool {
-	expected := credentials.SetupCode()
-	return subtle.ConstantTimeCompare([]byte(value), []byte(expected)) == 1
 }
 
 func (credentials *Credentials) AccountLinkToken(kind string, linkID uuid.UUID) string {

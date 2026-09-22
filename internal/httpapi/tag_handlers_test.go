@@ -44,7 +44,7 @@ func tagHTTPRequest(
 
 func TestTagDefaultsHTTPIsAtomicAndIdempotent(t *testing.T) {
 	t.Parallel()
-	server, _ := newAuthHTTPServer(t, config.ModeTest)
+	server := newAuthHTTPServer(t, config.ModeTest)
 	handler := server.Handler()
 	auth := accountHTTPLogin(t, handler)
 
@@ -101,7 +101,7 @@ SELECT
 
 func TestTagHTTPCRUDGameAssignmentSearchAndDeleteInvalidation(t *testing.T) {
 	t.Parallel()
-	server, _ := newAuthHTTPServer(t, config.ModeTest)
+	server := newAuthHTTPServer(t, config.ModeTest)
 	handler := server.Handler()
 	const gameID = "01980000-0000-7000-8000-00000000f434"
 	seedFavoriteHTTPGame(t, server, gameID, "34", "Search Fixture")

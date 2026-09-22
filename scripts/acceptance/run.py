@@ -159,7 +159,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     ),
     "ACC-AUTH-001": (
         120,
-        "go test ./internal/composition ./internal/httpapi -run 'TestReadSetupCodeIsReadOnlyAndPendingOnly|TestAuthHTTPReleasePendingRequiresSetupAndExactOrigin|TestReleaseInitializationLoginExpiryAndPasswordRotation' -count=1",
+        "go test ./internal/composition ./internal/httpapi -run 'TestAuthHTTPConcurrentInitializationCreatesExactlyOneAdministrator|TestAuthHTTPReleaseInitializesWithoutCodeAndRequiresExactOrigin|TestReleaseInitializationLoginExpiryAndPasswordRotation' -count=1",
     ),
     "ACC-AUTH-002": (
         120,

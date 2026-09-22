@@ -406,7 +406,7 @@ SQLite 基线：启用外键、WAL 和合理的 `busy_timeout`；仅通过版本
 
 ## 9. 账户模式与安全边界
 
-无参数服务固定为 `release`；唯一可选服务参数为 `--mode=release|test`。release 空实例先启动到 PENDING，主机操作者再运行只读 `retrom setup-code` 取得证明并通过 `/setup` 创建首位管理员；该命令不取写锁、不修改数据库且不打印路径或其他状态。`retrom admin-reset --username <existing-admin>` 必须在服务停止并取得同一 data-root lock 后，从 `/dev/tty` 隐藏读取两次 release 合规密码；它只操作现有非 DELETED ADMIN，重新启用、撤销 session并写 SYSTEM 审计，密码不允许进入参数、环境或日志。
+无参数服务固定为 `release`；唯一可选服务参数为 `--mode=release|test`。release 空实例先启动到 PENDING，通过网页 `/setup` 填写管理员用户名、显示名称、密码及密码确认即可创建首位管理员并登录；初始化完成后不可重开。`retrom admin-reset --username <existing-admin>` 必须在服务停止并取得同一 data-root lock 后，从 `/dev/tty` 隐藏读取两次 release 合规密码；它只操作现有非 DELETED ADMIN，重新启用、撤销 session并写 SYSTEM 审计，密码不允许进入参数、环境或日志。
 
 初始化 Service 在一个读快照中判断实例状态、用户/Profile 数量和管理员不变量，并在写事务内重新检查首位管理员的创建资格。密码哈希与 Session 随机材料在写事务前准备；用户、Profile、凭据、实例状态、Session 和初始化审计一起提交。已初始化实例启动时，每个未删除的用户都必须具有可验证格式的凭据；已删除用户允许清除凭据。
 

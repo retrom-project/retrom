@@ -93,7 +93,7 @@ flowchart LR
 
 ### M1A：账户与数据隔离边界
 
-范围：当前 clean schema 中的账户模型、release 初始化与显式 test 模式、Argon2id 密码和阻断列表、AuthSession/CSRF/Origin/限流、Invitation/PasswordReset、账号生命周期、principal-scoped 幂等/cursor、所有私有数据 SQL owner predicate、主机只读 `setup-code`、离线 `admin-reset` 与恢复安全围栏；前端完成 server-side 入口守卫、账户页和用户管理页。
+范围：当前 clean schema 中的账户模型、release 初始化与显式 test 模式、Argon2id 密码和阻断列表、AuthSession/CSRF/Origin/限流、Invitation/PasswordReset、账号生命周期、principal-scoped 幂等/cursor、所有私有数据 SQL owner predicate、离线 `admin-reset` 与恢复安全围栏；前端完成 server-side 入口守卫、账户页和用户管理页。
 
 退出门禁：`ACC-AUTH-001`–`006`、`ACC-ISO-001`–`003`、`ACC-DB-002`、`ACC-BKP-001` 和 `ACC-UI-009`。数据库只验证当前账户模型与 lineage，不建立共享主体或匿名写入模式。
 

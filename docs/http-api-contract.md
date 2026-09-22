@@ -93,7 +93,7 @@ release 密码分别做 NFC 但不 trim，最少 6 个字符且不超过 128 个
 
 ### 2.1 初始化、邀请与密码重置
 
-- `POST /api/v1/auth/initialize` 只接受 release+PENDING、同源 Origin、43 字符 setup code、合法用户名/显示名称和确认后的 release 密码。成功原子创建唯一 ADMIN/Profile/Credential、完成 InstanceState、写审计并签发 session；错误证明零写入，重复/并发初始化冲突。
+- `POST /api/v1/auth/initialize` 只接受 release+PENDING、同源 Origin、合法用户名/显示名称和确认后的 release 密码。成功原子创建唯一 ADMIN/Profile/Credential、完成 InstanceState、写审计并签发 session；账号或密码校验失败不创建账号或会话，重复/并发初始化冲突。
 - Invitation/PasswordReset capability 固定为 64 字符，由公开 link ID 与实例 key 的 domain-separated MAC组成，只通过 `/register#invite=...` 或 `/reset-password#reset=...` URL fragment传递。前端首个 effect读取后立即 `history.replaceState` 清 fragment，token只在组件内存存在。
 - `POST /api/v1/auth/account-links/inspect` 只向有效持有者返回 kind、邀请 role或重置目标 username、到期时刻；无效、过期、消费、撤销、kind错和 MAC错统一 404。
 - ADMIN 创建 Invitation必须有 `Idempotency-Key`，role为 USER时 `confirmAdminRole=false`，ADMIN时必须 true。创建/同 key replay可返回同一完整 URL；列表仅返回非秘密元数据。Invitation 与 PasswordReset创建后 1h、消费或撤销后失效，并发消费最多一次成功。

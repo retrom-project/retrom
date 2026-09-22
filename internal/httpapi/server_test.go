@@ -29,7 +29,7 @@ import (
 
 func TestHealthIsPublicAndProtectedWritesRequireAuthentication(t *testing.T) {
 	t.Parallel()
-	server, _ := newAuthHTTPServer(t, config.ModeTest)
+	server := newAuthHTTPServer(t, config.ModeTest)
 	handler := server.Handler()
 
 	live := httptest.NewRecorder()
@@ -83,7 +83,7 @@ func TestAuthenticationMiddlewareClearsCookieOnlyForDefinitiveRevocation(t *test
 
 func TestProtectedWritesRejectInvalidOriginWithoutEnablingCORS(t *testing.T) {
 	t.Parallel()
-	server, _ := newAuthHTTPServer(t, config.ModeTest)
+	server := newAuthHTTPServer(t, config.ModeTest)
 	handler := server.Handler()
 	auth := accountHTTPLogin(t, handler)
 	send := func(name string, headers map[string]string) *httptest.ResponseRecorder {
