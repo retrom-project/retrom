@@ -895,12 +895,12 @@ Mega Drive 导入回归另用测试内生成的非游戏 payload，经服务器�
 - 通过标准：cancel/retry/recovery 不删除已交接审核事项、不回滚已发布 Game、不重复 ImportItem/Game；共享 reader 不超过 2，任务按 lease/heartbeat/attempt/deadline 稳定收口。只有规定终态释放来源 payload，`REVIEW_PENDING`/retryable failure 保留；release 重启/重放幂等。Game 删除转墓碑、立即不可 Launch/读内容，异步释放 Game 内容/媒体/存档/运行与已终态 EmulationStation 来源链；共享 Blob 在最后 durable owner 消失前始终受保护，新引用撤销 GC candidate，最后无引用且宽限到期才删除 bytes/Blob 行。backup 不含外部 root/XML，restore 保留待审/已发布 CAS 与历史，并在 HTTP 前以 `SERVER_IMPORT_SOURCE_NOT_RESTORED` 收口所有外部 source Job。
 - 证据：worker/release/GC JobEvent、payload/ownership registry 分类、删除 impact/墓碑、删除前后 CAS/Blob/共享引用、fake clock、backup manifest 与 restore 前后 canonical 摘要。
 
-### ACC-ES-005：三卡、三步 Drawer、详情审核与多尺寸无障碍
+### ACC-ES-005：gamelist.xml 通用 Drawer、详情审核与多尺寸无障碍
 
 - 上限：240 秒。
 - 执行：`make acceptance-case CASE=ACC-ES-005`。
 - 流程：先在 390×844 验证后台提示页不挂载表单与 Drawer，再切到 768×1024、1280×800、2560×1440 与物理 4K 150% scale 打开服务器导入页，只用键盘从 EmulationStation 卡选择 Case A 父目录、扫描、关闭 Drawer、从计划详情恢复第二步，为每份有效清单逐项 IMPORT/SKIP 与映射并批量/逐项编辑 Tag，再确认启动。完成后从详情进入 `sourceImportId` 限定审核队列，检查 READY、blocker 与 hidden/adult 项、来源媒体和快速审批预览；注入无 root/无 PlatformInstance、invalid Gamelist、library failure、SSE 断线、cancel/retry/delete、loading/empty/error/payload released 状态。
-- 通过标准：BIOS/Pegasus/EmulationStation 三卡等宽等高等权，文案明确只读 `gamelist.xml`、不执行命令/不自动发布。760px Drawer 三步、背景锁定、焦点/滚动/未保存选择行为正确；每份有效 Gamelist 一行，显示目录/清单、game/extension/issue/folder/hidden/adult 且无默认 mapping，第三步显示来源 flag 警告和全量审核边界。详情计数分组、过滤/分页、继续映射、逐行审核/已有 Game/诊断/释放状态可操作；固定审核筛选不可被“清除全部”移除，sourceFlagged 排除解释清楚。手机提示页及四个管理尺寸 document 零横向溢出，target 至少 44px，键盘顺序、Escape、焦点返回、aria-live、reduced-motion 正确，axe 无 serious/critical。
+- 通过标准：BIOS 与游戏来源两张能力卡，游戏 Drawer 显式选择 gamelist.xml 格式，文案明确不执行命令、不自动发布。760px Drawer 三步、背景锁定、焦点/滚动/未保存选择行为正确；每份有效 Gamelist 归一为 Collection，显示清单路径、游戏数与问题数且无默认 mapping；条目保留来源 flag，第三步说明全量审核边界。详情计数分组、过滤/分页、继续映射、逐行审核/已有 Game/诊断/释放状态可操作；固定审核筛选不可被“清除全部”移除，sourceFlagged 排除解释清楚。手机提示页及四个管理尺寸 document 零横向溢出，target 至少 44px，键盘顺序、Escape、焦点返回、aria-live、reduced-motion 正确，axe 无 serious/critical。
 - 证据：手机提示页及四个管理尺寸当次截图、Playwright DOM/布局/URL/network、键盘/focus/axe trace、状态与诊断文本断言。
 
 ### ACC-ES-006：自有 GBA 清单全链发布、游玩与删除回归

@@ -15,15 +15,15 @@ type SourceJobCanceller interface {
 }
 
 func WithSourceJobCancellation(service *jobs.Service, source SourceJobCanceller) *jobs.Service {
-	handler := pegasusCancellation{source: source}
+	handler := sourceCancellation{source: source}
 	return service.WithDomainCancellation(map[string]jobs.DomainCanceller{
 		"IMPORT_SCAN": handler, "IMPORT_RECEIVE": handler,
 	})
 }
 
-type pegasusCancellation struct{ source SourceJobCanceller }
+type sourceCancellation struct{ source SourceJobCanceller }
 
-func (handler pegasusCancellation) CancelJob(
+func (handler sourceCancellation) CancelJob(
 	ctx context.Context,
 	command jobs.DomainCancellation,
 ) (jobs.Result, bool, error) {

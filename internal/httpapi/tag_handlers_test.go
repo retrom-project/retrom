@@ -51,6 +51,8 @@ func TestTagDefaultsHTTPIsAtomicAndIdempotent(t *testing.T) {
 	created := tagHTTPRequest(t, handler, &auth, http.MethodPost, "/api/v1/admin/tags",
 		`{"name":"动作冒险"}`, map[string]string{"Idempotency-Key": uuid.NewString()})
 	testassert.Falsef(t, created.Code != http.StatusCreated, "seed common tag = %d %s", created.Code, created.Body.String())
+	testassert.Truef(t, strings.Contains(created.Body.String(), `"sourceCollectionCount":0`),
+		"tag usage must expose the shared source count: %s", created.Body.String())
 	key := uuid.NewString()
 	apply := tagHTTPRequest(t, handler, &auth, http.MethodPost, "/api/v1/admin/tags/defaults",
 		`{}`, map[string]string{"Idempotency-Key": key})

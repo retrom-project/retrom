@@ -38,7 +38,7 @@ type ReviewDiscardSnapshot struct {
 	DraftID, ImportID, MetadataJSON  string
 	Version                          int64
 	State                            string
-	SourceReady, SourceBusy          bool
+	SourceBusy                       bool
 	ValidationID, DatID, CandidateID *string
 	HasCover, HasBackground          bool
 	Aggregate                        ReviewDiscardAggregate

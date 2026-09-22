@@ -142,6 +142,8 @@ test("ACC-PEG-005 three-step Source import recovers and remains bounded at deskt
   let drawer = page.getByRole("dialog", { name: "从目录准备审核事项" });
   await expect(drawer).toBeVisible();
   await expect(drawer.getByRole("list", { name: "导入步骤" })).toContainText("选择目录");
+  await expect(drawer.getByRole("list", { name: "导入步骤" })).toHaveCSS("display", "grid");
+  expect(await page.locator(".server-import-capabilities").evaluate((element) => getComputedStyle(element).gridTemplateColumns.split(" ").length)).toBe(2);
   await selectServerSource(drawer, "Games");
   await expect(drawer).toContainText(`服务器文件系统 / ${serverSourcePath("Games")}`);
   const scanResponse = page.waitForResponse((response) => new URL(response.url()).pathname === "/api/v1/admin/source-imports" && response.request().method() === "POST");

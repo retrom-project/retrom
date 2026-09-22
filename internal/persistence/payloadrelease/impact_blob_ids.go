@@ -25,14 +25,14 @@ UNION SELECT content_source_ref_id FROM games WHERE id=? AND content_source_kind
 		}
 		ids = append(ids, itemIDs...)
 	}
-	pegasusIDs, err := collectIDs(ctx, transaction, `
+	sourceIDs, err := collectIDs(ctx, transaction, `
 SELECT metadata_source_ref_id FROM games WHERE id=? AND metadata_source_kind='IMPORT_RECEIVE'
 UNION SELECT content_source_ref_id FROM games WHERE id=? AND content_source_kind='IMPORT_RECEIVE'
 `, gameID, gameID)
 	if err != nil {
 		return nil, err
 	}
-	for _, itemID := range uniqueStrings(pegasusIDs) {
+	for _, itemID := range uniqueStrings(sourceIDs) {
 		values, itemErr := collectIDs(ctx, transaction, `
 SELECT blob_id FROM source_import_item_files WHERE item_id=?
 UNION ALL SELECT source_archive_blob_id FROM source_import_item_files WHERE item_id=?

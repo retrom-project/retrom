@@ -364,7 +364,7 @@ components:
         - publishedGameCount
         - deletedGameCount
         - reviewDraftCount
-        - pegasusCollectionCount
+        - sourceCollectionCount
       properties:
         publishedGameCount:
           type: integer
@@ -378,7 +378,7 @@ components:
           type: integer
           format: int64
           minimum: 0
-        pegasusCollectionCount:
+        sourceCollectionCount:
           type: integer
           format: int64
           minimum: 0

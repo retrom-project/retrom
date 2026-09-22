@@ -227,9 +227,11 @@ async function verifyResponsiveImportExperience(page: Page, testInfo: TestInfo) 
   await expect(steps).toContainText("选择目录");
   await expect(steps).toContainText("检查与映射");
   await expect(steps).toContainText("确认审核计划");
+  await expect(steps).toHaveCSS("display", "grid");
   await expect(drawer).toContainText("1 个游戏");
   await expectNoPageOverflow(page);
   await mapToGBA(drawer, mapping);
+  await expect(drawer.locator(".source-review-table > div").first()).toHaveCSS("display", "flex");
   await expectNoSeriousAxeViolations(page);
   // Full-page capture briefly resizes Chromium to 1x1 and would activate the phone guard.
   // Capture the live viewport so taking evidence cannot unmount this open drawer.
@@ -314,6 +316,7 @@ async function verifyFullProductLifecycle(page: Page, testInfo: TestInfo) {
 
   const { drawer, mapping, plan } = await scanPublicSource(page);
   await mapToGBA(drawer, mapping);
+  await expect(drawer.locator(".source-review-table > div").first()).toHaveCSS("display", "flex");
   await drawer.getByRole("button", { name: "开始准备审核事项" }).click();
   await expect(page).toHaveURL(
     new RegExp(`/admin/imports/server/source/${plan.id}$`),
