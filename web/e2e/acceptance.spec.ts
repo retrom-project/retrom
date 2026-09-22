@@ -18,7 +18,7 @@ test("ACC-UI-001 authenticated navigation exposes the administrator entry", asyn
   test.setTimeout(180_000);
   await page.goto("/");
   const navigation = page.getByRole("navigation", { name: "主要导航" });
-  await expect(navigation.getByRole("link")).toHaveCount(6);
+  await expect(navigation.getByRole("link")).toHaveCount(5);
   await expect(navigation.getByRole("link")).toHaveText([
     "首页", "游戏库", "我的存档", "我的收藏", "最近游玩"
   ]);
@@ -30,7 +30,7 @@ test("ACC-UI-001 authenticated navigation exposes the administrator entry", asyn
   if (await firstGame.count()) {
     await firstGame.getByRole("link").first().click();
     await page.waitForURL(/\/games\/[0-9a-f-]+$/, { timeout: 30_000 });
-    await expect(page.getByRole("navigation", { name: "主要导航" }).getByRole("link")).toHaveCount(6);
+    await expect(page.getByRole("navigation", { name: "主要导航" }).getByRole("link")).toHaveCount(5);
   }
   const userSidebarFoot = page.locator(".sidebar-foot");
   await expect(userSidebarFoot.locator(".sidebar-account-row .connection")).toHaveCount(1);
@@ -167,7 +167,7 @@ test("ACC-UI-004 loading, empty, retryable error, warning, and blocker states ar
 
   await page.goto("/admin/bios?scope=FULL_CATALOG&q=gba_bios.bin");
   await expect(page.getByRole("heading", { name: "运行依赖" })).toBeVisible();
-  await expect(page.getByRole("tab", { name: "BIOS 文件" })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("button", { name: /^完整 BIOS 目录/ })).toHaveAttribute("aria-pressed", "true");
   const gbaRow = page.getByRole("row").filter({ hasText: "gba_bios.bin" });
   await gbaRow.locator('input[type="file"]').setInputFiles({ name: "gba_bios.bin", mimeType: "application/octet-stream", buffer: Buffer.from("retrom-invalid-bios\n") });
   await expect(gbaRow.getByText("校验值不一致", { exact: true })).toBeVisible();
