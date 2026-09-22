@@ -28,7 +28,7 @@ func TestRejectedVersionDoesNotWriteProjection(t *testing.T) {
 	}
 }
 
-func TestUnchangedProjectionDoesNotInterruptSessions(t *testing.T) {
+func TestUnchangedProjectionDoesNotWrite(t *testing.T) {
 	candidate := businessCandidate("1.0.0", "a")
 	repo := &reconciliationRepository{current: CurrentState{Providers: map[string]CurrentProvider{
 		"provider": {Version: "1.0.0", BundleSHA256: strings.Repeat("a", 64)},
@@ -41,7 +41,7 @@ func TestUnchangedProjectionDoesNotInterruptSessions(t *testing.T) {
 	}
 }
 
-func TestUnreadableCheckpointRejectsBeforeTermination(t *testing.T) {
+func TestUnreadableCheckpointRejectsBeforePublication(t *testing.T) {
 	repo := &reconciliationRepository{formats: []string{"legacy"}}
 	candidate := businessCandidate("1.1.0", "b")
 	candidate.Providers[0].Targets = []TargetProjection{{Target: runtimebundle.Target{
@@ -65,7 +65,7 @@ func TestReferencedTargetCannotBeRemoved(t *testing.T) {
 func TestActivationUsesOneTransactionAndOrderedWrites(t *testing.T) {
 	repo := &reconciliationRepository{}
 	err := New(repo).Reconcile(t.Context(), businessCandidate("1.1.0", "b"), time.UnixMilli(1000))
-	if err != nil || repo.transactions != 1 || !reflect.DeepEqual(repo.writes, []string{"terminate:provider", "publish", "audit"}) {
+	if err != nil || repo.transactions != 1 || !reflect.DeepEqual(repo.writes, []string{"publish", "audit"}) {
 		t.Fatalf("activation workflow: transactions=%d writes=%v error=%v", repo.transactions, repo.writes, err)
 	}
 }
@@ -74,7 +74,7 @@ func TestProjectionWriteFailurePreservesCause(t *testing.T) {
 	failure := errors.New("catalog storage unavailable")
 	repo := &reconciliationRepository{publishError: failure}
 	err := New(repo).Reconcile(t.Context(), businessCandidate("1.1.0", "b"), time.UnixMilli(1000))
-	if !errors.Is(err, failure) || !reflect.DeepEqual(repo.writes, []string{"terminate:provider", "publish"}) {
+	if !errors.Is(err, failure) || !reflect.DeepEqual(repo.writes, []string{"publish"}) {
 		t.Fatalf("publication failure: writes=%v error=%v", repo.writes, err)
 	}
 }
@@ -114,11 +114,6 @@ func (repo *reconciliationRepository) TargetReferenced(context.Context, TargetId
 func (repo *reconciliationRepository) Publish(context.Context, Publication) error {
 	repo.writes = append(repo.writes, "publish")
 	return repo.publishError
-}
-
-func (repo *reconciliationRepository) TerminateSessions(_ context.Context, id string, _ int64) error {
-	repo.writes = append(repo.writes, "terminate:"+id)
-	return nil
 }
 
 func (repo *reconciliationRepository) Audit(context.Context, Audit) error {

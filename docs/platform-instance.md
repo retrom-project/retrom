@@ -182,7 +182,7 @@ SQLite 无法仅靠上述外键验证 `platform_cores.enabled = 1` 或“GameVar
 - <code>target_platform_instance_id</code>。
 - <code>platform_id_snapshot</code>。
 - <code>default_core_id_snapshot</code>。
-- 默认 Core 当前 binding 的稳定 `providerId/targetId` 快照；Bundle 只在实际 Launch/Preview/Netplay 创建时冻结。
+- 默认 Core 当前 binding 的稳定 `providerId/targetId` 快照；Bundle 只在实际 Launch/Preview 创建时冻结。
 - Arcade 使用的 <code>dat_version_id_snapshot</code>。
 
 这样可以避免任务执行期间游戏目录或活动 DAT 发生变化而静默改变识别结果。
@@ -269,7 +269,7 @@ SQLite 无法仅靠上述外键验证 `platform_cores.enabled = 1` 或“GameVar
 
 管理后台新增“游戏目录”页面，用于维护 PlatformInstance，包含：
 
-- 目录名称、基础平台、默认核心、游戏数量、联机核心能力和兼容性摘要。联机能力按平台、默认核心及当前启用 Provider Target 精确匹配联机 manifest，不按核心名称硬编码，也不代表目录内每款游戏已经通过联机资格检查。
+- 目录名称、基础平台、默认核心、游戏数量和兼容性摘要。
 - 名称与用户说明通过各自铅笔在行内编辑；说明编辑器保持单行紧凑高度；默认核心以“推荐运行方式”下拉框呈现，启用状态以 checkbox 呈现。
 - 拖拽/键盘排序和启停不显示会推动表格的成功提示条，失败才显示错误；非空目录可启停，但红色删除 X 禁用并显示原因，空目录才可删除。
 - 下拉切换默认核心后自动进入影响预览，确认前不提交。

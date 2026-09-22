@@ -44,7 +44,7 @@ func ParseLaunchEnvelope(contents []byte) (map[string]any, error) {
 func validLaunchEnvelope(value map[string]any) bool {
 	if !exactMap(
 		value,
-		"netplay", "resources", "restore", "runtime", "schemaVersion", "session", "targetOptions",
+		"resources", "restore", "runtime", "schemaVersion", "session", "targetOptions",
 	) ||
 		value["schemaVersion"] != int64(1) {
 		return false
@@ -58,17 +58,15 @@ func validLaunchEnvelope(value map[string]any) bool {
 		!validLaunchOptions(value["targetOptions"]) {
 		return false
 	}
-	capabilities, _ := launchObject(runtime["capabilities"])
 	checkpoint := runtime["checkpoint"]
-	return validLaunchRestore(value["restore"], checkpoint) &&
-		validLaunchNetplay(value["netplay"], capabilities, session)
+	return validLaunchRestore(value["restore"], checkpoint)
 }
 
 func validLaunchSession(value map[string]any) bool {
 	if !exactMap(value, "coreName", "id", "mode", "platformName", "purpose", "returnTo", "title", "warnings") ||
 		!uuidPattern.MatchString(stringValue(value["id"])) ||
 		!oneOf(stringValue(value["purpose"]), "PRODUCT", "REVIEW_PREVIEW") ||
-		!oneOf(stringValue(value["mode"]), "SINGLE", "NETPLAY") ||
+		!oneOf(stringValue(value["mode"]), "SINGLE") ||
 		!boundedString(value["title"], 500) || !boundedString(value["platformName"], 200) ||
 		!boundedString(value["coreName"], 200) ||
 		!relativeURLValue(value["returnTo"]) {
@@ -117,12 +115,12 @@ func validLaunchRuntimeIdentity(value map[string]any) bool {
 func validLaunchCapabilities(value map[string]any) bool {
 	if !exactMap(
 		value,
-		"checkpoint", "discSwitch", "frameCounter", "frameMode", "inputFilter", "nativeSettings", "netplayPort",
+		"checkpoint", "discSwitch", "frameCounter", "frameMode", "inputFilter", "nativeSettings",
 		"pause", "requiresThreads", "screenshot", "standardGamepad", "videoModes", "volume") {
 		return false
 	}
 	for _, key := range []string{
-		"checkpoint", "discSwitch", "frameCounter", "inputFilter", "nativeSettings", "netplayPort",
+		"checkpoint", "discSwitch", "frameCounter", "inputFilter", "nativeSettings",
 		"pause", "requiresThreads", "screenshot", "standardGamepad", "volume",
 	} {
 		if _, ok := value[key].(bool); !ok {
@@ -304,20 +302,6 @@ func validLaunchRestore(value, checkpointValue any) bool {
 	return ok && contains(formats, stringValue(restore["format"])) && size <= maximum
 }
 
-func validLaunchNetplay(value any, capabilities, session map[string]any) bool {
-	if value == nil {
-		return session["mode"] != "NETPLAY"
-	}
-	netplay, ok := launchObject(value)
-	port, _ := capabilities["netplayPort"].(bool)
-	player, playerOK := netplay["playerNo"].(int64)
-	return ok && port && session["mode"] == "NETPLAY" &&
-		exactMap(netplay, "playerNo", "profile", "roomId", "sessionId", "socketUrl") &&
-		boundedString(netplay["roomId"], 128) && uuidPattern.MatchString(stringValue(netplay["sessionId"])) &&
-		playerOK && player >= 1 && player <= 16 && validWebSocketURL(netplay["socketUrl"]) &&
-		validJSONValue(netplay["profile"], 0, true)
-}
-
 func validJSONValue(value any, depth int, requireObject bool) bool {
 	if depth > 8 {
 		return false
@@ -414,13 +398,6 @@ func sameOriginURL(value any, origin string) bool {
 	base, baseErr := url.Parse(origin)
 	return ok && err == nil && baseErr == nil && parsed.Fragment == "" &&
 		parsed.Scheme == base.Scheme && parsed.Host == base.Host
-}
-
-func validWebSocketURL(value any) bool {
-	text, ok := value.(string)
-	parsed, err := url.Parse(text)
-	return ok && len(text) <= 2048 && err == nil && (parsed.Scheme == "ws" || parsed.Scheme == "wss") &&
-		parsed.Host != "" && parsed.Fragment == ""
 }
 
 func launchStringSet(value any, allowEmpty bool) ([]string, bool) {

@@ -70,12 +70,12 @@ func (service *Service) WithPublicOrigin(origin string) *Service {
 	return service
 }
 
-func (service *Service) SaveAccess(ctx context.Context, launchID, capability string) (string, error) {
-	result, err := service.sessionQueries().SaveAccess(ctx, launchID, capability)
+func (service *Service) AuthorizeSave(ctx context.Context, launchID, capability string) error {
+	err := service.sessionQueries().AuthorizeSave(ctx, launchID, capability)
 	if err != nil {
-		return result, fmt.Errorf("launch resource query: %w", err)
+		return fmt.Errorf("launch resource query: %w", err)
 	}
-	return result, nil
+	return nil
 }
 
 func (service *Service) sources() *Sources {

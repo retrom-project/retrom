@@ -9,44 +9,8 @@ import (
 
 	runtimecatalogpersistence "retrom/internal/persistence/runtimecatalog"
 
-	"retrom/internal/persistence/recordstore"
-
 	"retrom/internal/runtimecatalog"
 )
-
-func terminateProviderSessions(ctx context.Context, transaction *sql.Tx, providerID string, now int64) error {
-	if _, err := recordstore.UpdateNetplayRooms(ctx, transaction, recordstore.Update{
-		Set: `
-state='ENDED',current_session_id=NULL,ended_at_ms=?,end_reason='SERVER_RESTARTED',
-updated_at_ms=?,version=version+1
-`,
-		Scope: recordstore.Scope{
-			Where: `
-state IN ('WAITING','STARTING','RUNNING') AND current_session_id IN (
- SELECT id FROM netplay_sessions WHERE provider_id=?
-)
-`,
-			Args: []any{providerID},
-		},
-		Values: []any{now, now},
-	}); err != nil {
-		return fmt.Errorf("reconcile runtime providers: terminate sessions: %w", err)
-	}
-	if _, err := recordstore.UpdateNetplaySessions(ctx, transaction, recordstore.Update{
-		Set: `
-state='FAILED',end_reason='SERVER_RESTARTED',
-finished_at_ms=?,updated_at_ms=?,version=version+1
-`,
-		Scope: recordstore.Scope{
-			Where: `provider_id=? AND state NOT IN ('FINISHED','FAILED')`,
-			Args:  []any{providerID},
-		},
-		Values: []any{now, now},
-	}); err != nil {
-		return fmt.Errorf("reconcile runtime providers: terminate sessions: %w", err)
-	}
-	return nil
-}
 
 func clearHostBindings(ctx context.Context, transaction *sql.Tx) error {
 	tables := []struct {

@@ -193,7 +193,7 @@ function fixtureEnvelope(): LaunchEnvelopeV1 {
       bundleSha256: bundle,
       capabilities: {
         checkpoint: false, frameCounter: false, frameMode: "NONE", pause: false,
-        discSwitch: false, inputFilter: false, nativeSettings: false, netplayPort: false,
+        discSwitch: false, inputFilter: false, nativeSettings: false,
         requiresThreads: false, screenshot: false, standardGamepad: false,
         videoModes: [], volume: false,
       },
@@ -206,7 +206,6 @@ function fixtureEnvelope(): LaunchEnvelopeV1 {
       runtimeBaseUrl: `/runtime/providers/fixture/${bundle}/`,
       targetId: "fixture",
     },
-    netplay: null,
     schemaVersion: 1,
     session: {
       coreName: "Fixture Core",
@@ -237,7 +236,6 @@ function fixtureRuntime(): PlayerRuntimeV1 {
     getCheckpointAvailability: () => ({available: false, reason: "UNSUPPORTED"}),
     getDiscState: vi.fn(async () => {throw new Error("unused");}),
     getFrameCount: () => null,
-    getNetplayPort: vi.fn(async () => {throw new Error("unused");}),
     getState: () => "CREATED",
     mount: vi.fn(async () => undefined),
     openNativeSettings: vi.fn(async () => {throw new Error("unused");}),

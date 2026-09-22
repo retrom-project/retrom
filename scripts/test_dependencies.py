@@ -47,27 +47,6 @@ class DATManifestTests(unittest.TestCase):
         self.assertEqual(declared, set(sums))
 
 
-class NetplayTests(unittest.TestCase):
-    def test_profiles_resolve_through_host_bindings(self) -> None:
-        dependencies.validate_netplay_manifest()
-
-    def test_unbound_target_is_rejected(self) -> None:
-        manifest = dependencies.load_json(dependencies.NETPLAY_MANIFEST_PATH)
-        catalog = dependencies.load_json(dependencies.TARGET_CATALOG_PATH)
-        manifest["profiles"][0]["targetId"] = "missing-target"
-
-        def load(path: Path) -> dict[str, object]:
-            return manifest if path == dependencies.NETPLAY_MANIFEST_PATH else catalog
-
-        with tempfile.TemporaryDirectory(dir="/tmp") as directory:
-            schema = Path(directory) / "schema.json"
-            schema.write_text("{}", encoding="utf-8")
-            with mock.patch.object(dependencies, "load_json", side_effect=load), \
-                    mock.patch.object(dependencies, "NETPLAY_SCHEMA_PATH", schema):
-                with self.assertRaisesRegex(dependencies.CheckError, "NETPLAY_MANIFEST_INVALID"):
-                    dependencies.validate_netplay_manifest()
-
-
 class MaterializationTests(unittest.TestCase):
     def test_existing_auth_payload_is_normalized_to_private_mode(self) -> None:
         contents = b"fixture\n"
@@ -102,7 +81,6 @@ class MaterializationTests(unittest.TestCase):
         )
         self.assertFalse(any(path.startswith("runtime/") for path in entries))
         self.assertIn("runtime-target-bindings/v1/catalog.json", entries)
-        self.assertIn("netplay/v2/manifest.json", entries)
 
 
 if __name__ == "__main__":

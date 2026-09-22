@@ -50,7 +50,6 @@ def valid_manifest() -> dict[str, object]:
                     "discSwitch": False,
                     "nativeSettings": False,
                     "inputFilter": True,
-                    "netplayPort": False,
                     "videoModes": ["original", "pixel"],
                     "requiresThreads": False,
                     "frameMode": "NONE",
@@ -204,12 +203,7 @@ class RuntimeProviderAuthorityTests(unittest.TestCase):
         source = (ROOT / "api/runtime-provider/v1/provider-module-v1.d.ts").read_text(encoding="utf-8")
         for operation in (
             "setVideoMode(", "openNativeSettings(", "closeNativeSettings(", "getDiscState(",
-            "switchDisc(", "setInputFilter(", "getNetplayPort(",
-        ):
-            self.assertIn(operation, source)
-        for operation in (
-            "pauseAtBoundary(", "captureState(", "loadStateAndWait(", "runFrame(",
-            "sampleLocalControls(", "resetLocalControls(", "close(",
+            "switchDisc(", "setInputFilter(",
         ):
             self.assertIn(operation, source)
         self.assertNotIn("NETPLAY_CHANNEL", source)
@@ -313,13 +307,10 @@ class RuntimeProviderAuthorityTests(unittest.TestCase):
                     "fixtures/invalid/float-json-input.json",
                     "fixtures/invalid/invalid-unicode.json",
                     "fixtures/invalid/missing-capability.json",
-                    "fixtures/invalid/netplay-mode-mismatch.json",
-                    "fixtures/invalid/netplay-resource.json",
                     "fixtures/invalid/unknown-top-level.json",
                     "fixtures/invalid/unsafe-integer-json-input.json",
                     "fixtures/target-options/schema-validation.json",
                     "fixtures/valid/checkpoint-restore.json",
-                    "fixtures/valid/netplay.json",
                     "fixtures/valid/single-minimal.json",
                     "launch-envelope.schema.json",
                     "provider-integrity.schema.json",

@@ -52,7 +52,7 @@ func TestRecordPlayFinishDuringLoadingClosesCreatedLaunch(t *testing.T) {
 	if state != "FINISHED" || playCount != 0 {
 		t.Fatalf("loading finish left state=%s play sessions=%d", state, playCount)
 	}
-	if _, err := fixture.launcher.SaveAccess(t.Context(), created.LaunchID, created.Capability); !errors.Is(err, ErrCredential) {
+	if err := fixture.launcher.AuthorizeSave(t.Context(), created.LaunchID, created.Capability); !errors.Is(err, ErrCredential) {
 		t.Fatalf("finished capability remains usable: %v", err)
 	}
 }

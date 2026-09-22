@@ -14,7 +14,7 @@ export function parseLaunchEnvelopeJSON(source: string): LaunchEnvelopeV1 {
 
 export function validateLaunchEnvelopeBoundary(value: unknown): LaunchEnvelopeV1 {
   if (!record(value) || !exactKeys(value, [
-    "netplay", "resources", "restore", "runtime", "schemaVersion", "session", "targetOptions",
+    "resources", "restore", "runtime", "schemaVersion", "session", "targetOptions",
   ]) || value.schemaVersion !== 1 || !validSession(value.session)) {invalid();}
   const runtime = launchRuntime(value.runtime);
   if (!runtime || !validEnvelopeBody(value, runtime)) {invalid();}
@@ -43,15 +43,14 @@ function validEnvelopeBody(value: Record<string, unknown>, runtime: LaunchEnvelo
   const base = `/runtime/providers/${runtime.providerId}/${runtime.bundleSha256}/`;
   return runtime.runtimeBaseUrl === base && runtime.moduleUrl === `${base}client.mjs` &&
     validResources(value.resources) && validTargetOptions(value.targetOptions) &&
-    validRestore(value.restore, runtime.checkpoint) &&
-    validNetplay(value.netplay, runtime.capabilities.netplayPort, value.session);
+    validRestore(value.restore, runtime.checkpoint);
 }
 
 function validSession(value: unknown) {
   return record(value) && exactKeys(value, [
     "coreName", "id", "mode", "platformName", "purpose", "returnTo", "title", "warnings",
   ]) && uuid(value.id) && ["PRODUCT", "REVIEW_PREVIEW"].includes(String(value.purpose)) &&
-    ["SINGLE", "NETPLAY"].includes(String(value.mode)) && bounded(value.title, 1, 500) &&
+    ["SINGLE"].includes(String(value.mode)) && bounded(value.title, 1, 500) &&
     bounded(value.platformName, 1, 200) && bounded(value.coreName, 1, 200) &&
     relativeURL(value.returnTo) && Array.isArray(value.warnings) &&
     value.warnings.length <= 16 && value.warnings.every((warning) => bounded(warning, 1, 200));
@@ -59,11 +58,11 @@ function validSession(value: unknown) {
 
 function validCapabilities(value: unknown): value is RuntimeCapabilitiesV1 {
   if (!record(value) || !exactKeys(value, [
-    "checkpoint", "discSwitch", "frameCounter", "frameMode", "inputFilter", "nativeSettings", "netplayPort",
+    "checkpoint", "discSwitch", "frameCounter", "frameMode", "inputFilter", "nativeSettings",
     "pause", "requiresThreads", "screenshot", "standardGamepad", "videoModes", "volume",
   ])) {return false;}
   for (const key of [
-    "checkpoint", "discSwitch", "frameCounter", "inputFilter", "nativeSettings", "netplayPort", "pause",
+    "checkpoint", "discSwitch", "frameCounter", "inputFilter", "nativeSettings", "pause",
     "requiresThreads", "screenshot", "standardGamepad", "volume",
   ]) {if (typeof value[key] !== "boolean") {return false;}}
   return ["NONE", "SAME_ORIGIN_BLANK", "SAME_ORIGIN_RESOURCE", "ISOLATED_ORIGIN_RESOURCE"]
@@ -165,14 +164,6 @@ function validRestore(value: unknown, checkpoint: unknown) {
     typeof checkpoint.maxBytes === "number" && value.sizeBytes <= checkpoint.maxBytes && relativeURL(value.url);
 }
 
-function validNetplay(value: unknown, supported: boolean, session: unknown) {
-  if (value === null) {return record(session) && session.mode !== "NETPLAY";}
-  return supported && record(session) && session.mode === "NETPLAY" && record(value) && exactKeys(value, [
-    "playerNo", "profile", "roomId", "sessionId", "socketUrl",
-  ]) && bounded(value.roomId, 1, 128) && uuid(value.sessionId) && positiveInteger(value.playerNo) &&
-    value.playerNo <= 16 && webSocketURL(value.socketUrl) && jsonRecord(value.profile);
-}
-
 function record(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
@@ -214,11 +205,6 @@ function validOrigin(value: unknown): value is string {
 function sameOrigin(value: unknown, origin: string) {
   if (typeof value !== "string") {return false;}
   try {const url = new URL(value); return ["http:", "https:"].includes(url.protocol) && url.origin === origin && !url.hash;}
-  catch {return false;}
-}
-function webSocketURL(value: unknown) {
-  if (typeof value !== "string" || value.length > 2048) {return false;}
-  try {const url = new URL(value); return ["ws:", "wss:"].includes(url.protocol) && !url.hash;}
   catch {return false;}
 }
 function sortedUnique(values: unknown[]) {

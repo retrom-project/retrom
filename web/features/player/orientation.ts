@@ -3,14 +3,10 @@ export const portraitPlayerQuery = "(orientation: portrait)";
 export const orientationStabilityMs = 250;
 
 export type PlayerOrientationPhase = "player-config" | "orientation-blocked" | "preflight" | "running" | "exiting";
-export type PlayerRuntimeKind = "single" | "netplay-p1" | "netplay-p2";
 export type PlayerOrientationEffect =
   | "release-input"
   | "pause-single"
-  | "pause-netplay"
-  | "warn-netplay-p2"
   | "resume-single"
-  | "resume-netplay"
   | "unlock";
 
 export type PlayerOrientationState = {
@@ -19,16 +15,13 @@ export type PlayerOrientationState = {
   portrait: boolean;
   hidden: boolean;
   started: boolean;
-  runtimeKind: PlayerRuntimeKind;
   pausedBeforeBlock: boolean;
-  netplayPauseOwned: boolean;
 };
 
 export type PlayerOrientationAction =
-  | { type: "config-ready"; mobile: boolean; portrait: boolean; runtimeKind: PlayerRuntimeKind }
+  | { type: "config-ready"; mobile: boolean; portrait: boolean }
   | { type: "runtime-started"; paused: boolean }
   | { type: "orientation-stable"; portrait: boolean; paused: boolean }
-  | { type: "netplay-pause-owned" }
   | { type: "visibility"; hidden: boolean }
   | { type: "exit" };
 
@@ -43,19 +36,14 @@ export const initialPlayerOrientationState: PlayerOrientationState = {
   portrait: false,
   hidden: false,
   started: false,
-  runtimeKind: "single",
   pausedBeforeBlock: false,
-  netplayPauseOwned: false,
 };
 
 function resumeFromBlock(state: PlayerOrientationState): PlayerOrientationTransition {
   if (!state.started) {return { state: { ...state, phase: "preflight" }, effects: [] };}
   if (state.hidden) {return { state, effects: [] };}
-  if (state.runtimeKind === "single" && !state.pausedBeforeBlock) {
+  if (!state.pausedBeforeBlock) {
     return { state: { ...state, phase: "running" }, effects: ["resume-single"] };
-  }
-  if (state.runtimeKind === "netplay-p1" && state.netplayPauseOwned) {
-    return { state: { ...state, phase: "running", netplayPauseOwned: false }, effects: ["resume-netplay"] };
   }
   return { state: { ...state, phase: "running" }, effects: [] };
 }
@@ -67,7 +55,6 @@ export function reducePlayerOrientation(state: PlayerOrientationState, action: P
       return { state: { ...state, started: true, pausedBeforeBlock: action.paused, phase: "running" }, effects: [] };
     case "exit":
       return { state: { ...state, phase: "exiting" }, effects: state.mobile ? ["unlock"] : [] };
-    case "netplay-pause-owned": return reduceNetplayPauseOwned(state);
     case "visibility": return reduceVisibility(state, action.hidden);
     case "orientation-stable": return reduceOrientationStable(state, action);
   }
@@ -78,15 +65,7 @@ function reduceConfigReady(
   action: Extract<PlayerOrientationAction, { type: "config-ready" }>,
 ): PlayerOrientationTransition {
   const phase = action.mobile && action.portrait ? "orientation-blocked" as const : "preflight" as const;
-  return { state: { ...state, mobile: action.mobile, portrait: action.portrait, runtimeKind: action.runtimeKind, phase }, effects: [] };
-}
-
-function reduceNetplayPauseOwned(state: PlayerOrientationState): PlayerOrientationTransition {
-  const next = { ...state, netplayPauseOwned: true };
-  if (!next.portrait && !next.hidden && next.started) {
-    return { state: { ...next, phase: "running", netplayPauseOwned: false }, effects: ["resume-netplay"] };
-  }
-  return { state: next, effects: [] };
+  return { state: { ...state, mobile: action.mobile, portrait: action.portrait, phase }, effects: [] };
 }
 
 function reduceVisibility(state: PlayerOrientationState, hidden: boolean): PlayerOrientationTransition {
@@ -111,13 +90,10 @@ function reduceOrientationStable(
       portrait: true,
       phase: "orientation-blocked" as const,
       pausedBeforeBlock: state.started ? action.paused : state.pausedBeforeBlock,
-      netplayPauseOwned: false,
     };
     if (!state.started) {return { state: next, effects: [] };}
     const effects: PlayerOrientationEffect[] = ["release-input"];
-    if (state.runtimeKind === "single" && !action.paused) {effects.push("pause-single");}
-    if (state.runtimeKind === "netplay-p1" && !action.paused) {effects.push("pause-netplay");}
-    if (state.runtimeKind === "netplay-p2") {effects.push("warn-netplay-p2");}
+    if (!action.paused) {effects.push("pause-single");}
     return { state: next, effects };
   }
   const next = { ...state, portrait: false };

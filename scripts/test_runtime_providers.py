@@ -268,7 +268,7 @@ def fixture_bundle(root: Path, manifest_asset="assets/core.wasm", provider_api=1
         "capabilities": {
             "checkpoint": False, "frameCounter": False, "frameMode": "NONE",
             "discSwitch": False, "inputFilter": False, "nativeSettings": False,
-            "netplayPort": False, "pause": False, "requiresThreads": False,
+            "pause": False, "requiresThreads": False,
             "screenshot": False, "standardGamepad": False,
             "videoModes": [], "volume": False,
         },

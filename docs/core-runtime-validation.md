@@ -17,9 +17,9 @@
 | Target/能力 | 入口 | 确定性输入 | 已证明边界 |
 | --- | --- | --- | --- |
 | `mgba` | `make web-e2e`、`ACC-RUN-002`、`ACC-PEG-006`、`ACC-IMM-004/005/010` | `testdata/public-roms/gba-smoke/` | 普通与服务器导入、审核发布、真实帧、手柄、显式 checkpoint 与跨 Launch 恢复 |
-| `fceumm`、`nestopia` | `ACC-RUN-009`、`ACC-NP-014/016/018` | `testdata/public-roms/nes-smoke/` | 单机恢复、双浏览器输入、state transfer、rollback/lockstep、断线重连 |
-| `snes9x` | `ACC-RUN-008`、`ACC-NP-017` | `testdata/public-roms/snes-smoke/` | 单机恢复、checkpoint 收敛、冻结和重连 |
-| `mame2003`、`mame2003_plus`、`fbneo`、`fbalpha2012_cps1/cps2` | `ACC-RUN-006/007/010/011/012`、`ACC-NP-015/019/020/021/022`、`ACC-IMM-006` | `testdata/public-roms/arcade-smoke/` | DAT parent/BIOS 闭包、真实画面/输入、checkpoint、双浏览器与沉浸多手柄 |
+| `fceumm`、`nestopia` | `ACC-RUN-009` | `testdata/public-roms/nes-smoke/` | 普通启动、输入、存档与恢复 |
+| `snes9x` | `ACC-RUN-008` | `testdata/public-roms/snes-smoke/` | 普通启动、输入、存档与跨 Launch 恢复 |
+| `mame2003`、`mame2003_plus`、`fbneo`、`fbalpha2012_cps1/cps2` | `ACC-RUN-006/007/010/011/012`、`ACC-IMM-006` | `testdata/public-roms/arcade-smoke/` | DAT parent/BIOS 闭包、真实画面/输入、checkpoint 与沉浸多手柄 |
 | Saturn 多盘 | `ACC-MDISC-001..008` | 确定性临时 fixture | 导入、盘序、换盘事件和 checkpoint；不代表真实商业 ROM 兼容 |
 | RPG Maker 2000/2003/XP/VX/VX Ace/MV | `ACC-RPG-002..007` | `testdata/public-roms/rpgmaker-smoke/` | 单一虚拟 Core 选择 retrom-runtime Target，真实地图/输入/音频、A→B→C、跨 Launch 恢复 B |
 | RPG Maker MZ | `ACC-RPG-008` | 操作者合法输入 | 与 MV 相同的 unique-origin、场景、帧、输入和恢复；缺输入时 BLOCKED |
@@ -39,21 +39,21 @@
 - Provider Module 的 URL、SHA-256、Provider 身份、API 版本与 Bundle 必须一致。
 - `runtime.capabilities` 必须与返回的 `PlayerRuntimeV1` 行为闭合；声明支持却缺方法、未声明却暴露行为均失败。
 - checkpoint 只按 format/size/hash 处理，Host 不解析字节；恢复必须由 Target `readFormats` 明确允许。
-- content、BIOS、parent、多盘、pack、unique-origin 与 netplay 资源必须全部来自 envelope grant。
+- content、BIOS、parent、多盘、pack、unique-origin 资源必须全部来自 envelope grant。
 - 所有测试必须证明退出/失败/卸载会清理 Provider、撤销 Launch 并停止输入与帧回调。
 
 ## 4. EmulatorJS 特殊边界
 
-EmulatorJS Provider declaration 是 56 个 Target 的唯一行为 registry。`mame2003` 的 4.2.1 core 覆盖、DOSBox Pure 的 state 修复、线程 core、shader、启动动作、多盘和八个 netplay profile 都封装在该 Provider 中。Retrom 只看 Target declaration 与标准能力，不按 core 名在 Go 或前端复制规则。
+EmulatorJS Provider declaration 是 56 个 Target 的唯一行为 registry。`mame2003` 的 4.2.1 core 覆盖、DOSBox Pure 的 state 修复、线程 core、shader、启动动作与多盘都封装在该 Provider 中。Retrom 只看 Target declaration 与标准能力，不按 core 名在 Go 或前端复制规则。
 
 原始画面与锐利像素使用显式颜色直通、无滤波的 `retrom-passthrough` shader，避开 4.2.3 关闭 shader 后在原生分辨率切换时出现纯色/裁切的 GL fallback。浏览器画面必须与核心截图保持完整内容，启动和跨 Launch 恢复均需覆盖；不能用切换画面模式的人工操作替代默认模式验收。
 
 
-新增 `fuse`、`gearcoleco`、`prboom`、`puae`、`vice-x128`、`vice-x64sc`、`vice-xvic` 与 `virtualjaguar` 只声明 `SINGLE_FILE`，`discSwitch=false` 且不开放 netplay。逐核产品验收按 [ACC-RUN-013](./project-acceptance.md#acc-run-013八个-emulatorjs-单文件候选的逐核产品验证) 执行；首次验收可从产品白名单任选一种扩展名，一个 Target 的结果不能替代另一个 Target。
+新增 `fuse`、`gearcoleco`、`prboom`、`puae`、`vice-x128`、`vice-x64sc`、`vice-xvic` 与 `virtualjaguar` 只声明 `SINGLE_FILE`，`discSwitch=false`。逐核产品验收按 [ACC-RUN-013](./project-acceptance.md#acc-run-013八个-emulatorjs-单文件候选的逐核产品验证) 执行；首次验收可从产品白名单任选一种扩展名，一个 Target 的结果不能替代另一个 Target。
 
 SNES 的 `bsnes` 通过独立 `emulatorjs/bsnes` Target 使用锁定的 EmulatorJS 4.3.0-pre
 前端与 `retrom-project/bsnes-libretro` 的单线程 WASM candidate，接收平台允许的单文件 ROM。它作为备用核心供显式选择，不改变 Snes9x 默认推荐目录，
-不新增推荐目录、不开放联机或多盘。标准 SNES 手柄和即时存档沿用 Provider 公共边界；bsnes 声明
+不新增推荐目录、不开放多盘。标准 SNES 手柄和即时存档沿用 Provider 公共边界；bsnes 声明
 独立的 `bsnes-state-v1-storage-v1` 格式，不读取通用 EmulatorJS 格式。宿主按 `readFormats`
 检查兼容性，因此 bsnes 与 Snes9x 即时存档不能混用，不增加存档身份字段或按核心分支。该 PFB candidate 修复上游缺失的
 Asyncify 和协程重建能力、异步保存回调及原生内存所有权，来源基线为 `4b344745e3878e7c0675a60c624582935524b8f7`，
@@ -76,7 +76,7 @@ Provider 私有的 PSP 存档读取必须等待原生异步序列化结束，期
 
 Dreamcast 通过 `emulatorjs/flycast` Target 接入 nasomers/flycast-wasm 的 WASM JIT，由
 `retrom-project/flycast-wasm` 固定源码构建。首期只接受单文件 `.chd`，使用 WebGL2、
-640×480、无 pthreads；Windows CE/MMU、NAOMI、Atomiswave、多盘与联机不在支持范围。
+640×480、无 pthreads；Windows CE/MMU、NAOMI、Atomiswave 与多盘不在支持范围。
 BIOS 使用安装快照中的 `/dc/dc_boot.bin` 与 `/dc/dc_flash.bin`，关闭 HLE BIOS。
 标准手柄的 A/B/X/Y 按 Dreamcast 物理位置绑定，方向、摇杆及 L/R 扳机由标准输入表传递。
 
@@ -90,7 +90,7 @@ Flycast 的 iframe 在创建 WebGL 上下文时保留绘图缓冲区，避免浏
 操作者语料的验收规则见 `ACC-FLYCAST-001`；单个样本结果不能外推为 Dreamcast 全库兼容。
 
 Intellivision 使用 EmulatorJS 4.3.0-pre 的 `freeintv`，仅声明单卡带、标准手柄与即时存档，
-不开放多盘或联机。ECS 扩展不在支持范围。通过 `ACC-INTV-001` 对操作者提供的样本验证；
+不开放多盘。ECS 扩展不在支持范围。通过 `ACC-INTV-001` 对操作者提供的样本验证；
 Provider declaration 与构建成功不能代替该次产品链路结果。
 
 ## 5. retrom-runtime 特殊边界
@@ -126,7 +126,7 @@ EmulatorJS Provider 的 `quasi88` Target 接收单文件 D88/U88，默认 N88 V2
 通过 EXTERNAL_FILE 装入 `/retroarch/userdata/system/quasi88/`，不随游戏或 Provider 分发。
 D-pad 对应数字小键盘 8/2/4/6，主确认键通过原生 Start 发送 Return；真实键盘独立。
 《The Librarian》的六边形地图使用 7/9/4/6/1/3，四个斜向和事件字母键需要键盘。
-首版不声明多盘切换、联机或未验证的媒体格式。共享 gzip 即时状态使用
+首版不声明多盘切换或未验证的媒体格式。共享 gzip 即时状态使用
 `emulatorjs-state-v1-storage-v1`，须验证不同 Launch 回到保存时的位置并继续输入。
 产品验收为 `ACC-PC88-001`，外部语料为作者公开发布的《The Librarian》v0.91。
 
@@ -166,7 +166,7 @@ EmulatorJS 4.2.3 的恢复就绪以 native serializer 成功返回非空状态�
 ### Vectrex / VecX
 
 `emulatorjs/vecx` 使用 libretro-vecx 的固定 fork，以软件向量渲染运行 `.vec/.bin` 单卡带；
-不要求管理员另行上传 BIOS，不声明多盘、联机、Light Pen 或 3D Imager 支持。
+不要求管理员另行上传 BIOS，不声明多盘、Light Pen 或 3D Imager 支持。
 标准方向键和四个面键各自只映射一个原生输入。原始键盘输入保持独立。
 fork 的完整即时状态包括 CPU、RAM、VIA、PSG、卡带银行、模拟电路与向量画面；
 不能读取上游不完整的 VecX 状态。Provider 公共层按 `emulatorjs-state-v1-storage-v1`
@@ -195,8 +195,7 @@ Provider 将 CHD 声明为 `SEEKABLE_BLOB`，通过 256 KiB Range 块按需读�
 
 `gbe-pokemini` 必须通过 `ACC-POKEMINI-001` 的真实产品流程，验证标准手柄
 方向与确认、音频、暂停、截图、完整即时存档、不同 Launch 恢复后输入和跨实例内容缓存。
-用户提供的 Mini 游戏与 BIOS 不进入 fixture。GBE+ 桌面已有红外功能不意味着本浏览器
-Target 支持联机；当前只验证单机。
+用户提供的 Mini 游戏与 BIOS 不进入 fixture。当前验证单机。
 
 ### Uzebox / Uzem
 

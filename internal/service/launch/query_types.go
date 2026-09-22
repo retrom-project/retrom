@@ -35,10 +35,10 @@ type (
 )
 
 type SessionRecord struct {
-	CredentialHash                                 []byte
-	State                                          string
-	HardExpiresAtMS                                int64
-	ProviderID, TargetID, BundleSHA256, SaveAccess string
+	CredentialHash                     []byte
+	State                              string
+	HardExpiresAtMS                    int64
+	ProviderID, TargetID, BundleSHA256 string
 }
 type ContentRecord struct {
 	Session SessionRecord

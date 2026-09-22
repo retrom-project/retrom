@@ -47,7 +47,7 @@ Launch options 按声明绑定的明确接入策略一次组装，再接受 Prov
 
 `providerId` 与 `targetId` 是跨升级稳定的语义身份。Provider 当前版本和 manifest 投影可以前移，但已创建的 `launch_sessions` 会冻结当次 `bundleSha256`、内容文件、外部依赖文件、Target、options 和恢复输入。Bundle 升级不会让现有审核结果或已发布 Variant 自动 stale；只有来源内容、Core/Target、DAT、依赖闭包、项目证据或其他真实验证输入改变时才需要重新检查。
 
-内容替换是破坏性的 current-state 切换：新内容必须先完整准备并验证，事务提交时撤销旧 Launch/Netplay、结束游玩、删除旧存档和旧派生文件，再原子写入当前文件、profile 与 Variant；失败时旧当前态保持不变。BIOS 替换仅原子切换当前安装；已创建的 Launch/Play/Netplay 保留冻结的旧 BIOS 文件与授权直到各自结束或过期，game-scoped 存档继续保留。新启动（包括从存档继续）按需核对当前 BIOS，变化时先重验；创建事务再次核对快照，避免并发替换混用版本。人工截图放行的 Variant 保留放行状态，在新 Launch 事务中只刷新已安装的受管 BIOS；不清除手动提供的无关 Arcade 文件。
+内容替换是破坏性的 current-state 切换：新内容必须先完整准备并验证，事务提交时撤销旧 Launch、结束游玩、删除旧存档和旧派生文件，再原子写入当前文件、profile 与 Variant；失败时旧当前态保持不变。BIOS 替换仅原子切换当前安装；已创建的 Launch/Play 保留冻结的旧 BIOS 文件与授权直到各自结束或过期，game-scoped 存档继续保留。新启动（包括从存档继续）按需核对当前 BIOS，变化时先重验；创建事务再次核对快照，避免并发替换混用版本。人工截图放行的 Variant 保留放行状态，在新 Launch 事务中只刷新已安装的受管 BIOS；不清除手动提供的无关 Arcade 文件。
 
 内容替换由 `internal/service/gamecontent` 编排，`internal/persistence/gamecontent` 负责查询和写事务。执行读取并校验持久化输入摘要，首次领取时以 6 小时预算设置持久化截止时间和执行 context，领取任务时匹配游戏 scope、执行次数与输入摘要，使用每次独立的 worker 身份。发布事务重新核对未过期的租约和执行期限、当前绑定与内容身份，并在同一事务中解析 BIOS 引用、退役旧内容、发布新内容、推进任务和事件以及释放上传消费。取消请求由当前 worker 确认为取消；已终态或已更换执行身份的任务不接受旧 worker 的失败回调。释放信号只能在事务提交后发出。
 
@@ -60,7 +60,7 @@ Launch options 按声明绑定的明确接入策略一次组装，再接受 Prov
 - `runtime` 保存 Provider 版本、冻结 Bundle、稳定 Target、模块 URL/SHA-256、能力与 checkpoint declaration；
 - `resources[]` 保存带 role、kind、大小、摘要和访问 URL 的授权输入；
 - `targetOptions` 是由当前 Target 的闭合 `targetOptionsSchema` 校验后的 Provider 私有配置；
-- `restore`、`netplay` 分别是可空的标准恢复和联机输入；生产 Envelope 不携带研发验证脚本或位置证明。
+- `restore` 是可空的标准恢复输入；生产 Envelope 不携带研发验证脚本或位置证明。
 
 配置签发由 `internal/service/launch.ConfigIssuer` 编排，Repository 先在只读快照内读取会话并交给 Service 校验 capability，授权通过后才读取资源。完整 Envelope 构建成功后，在短写事务内重新检查授权、bootstrap/hard/idle 期限、冻结输入和版本，再激活 CREATED 会话；提交成功才返回配置。构建、最终查询、激活或提交失败均不留下部分激活。已 ACTIVE 的配置重取不刷新 idle 或游玩时间；并发合法激活及 START/heartbeat 的版本推进可以继续签发，结束或撤销后的会话不能重新激活。可选资源只有实际缺失时可省略，存储故障与取消必须保留原因。
 
@@ -70,13 +70,13 @@ Provider 是核心生命周期的唯一所有者，不包装第二个 controller
 
 ## 4. Provider dispatcher 与渲染隔离
 
-Player Host 只消费 `PlayerRuntimeV1` 的标准能力和事件，不按 Provider、Target 或游戏类型分支。暂停、音量、输入过滤、视频模式、换盘、截图、帧计数、checkpoint、联机端口和退出由 Provider 实现。退出、异常与 React 卸载共用 exactly-once cleanup；Host 先等待 Provider `exit()`，再撤销 frame、MessagePort、observer 和请求 signal。加载期间退出也必须取消当前 bootstrap 并等待其终止，再完成会话与导航；尚未返回 runtime controller 不表示没有启动任务。取消后晚到的 runtime 只执行清理，不得 mount 或重新开始游戏。
+Player Host 只消费 `PlayerRuntimeV1` 的标准能力和事件，不按 Provider、Target 或游戏类型分支。暂停、音量、输入过滤、视频模式、换盘、截图、帧计数、checkpoint 和退出由 Provider 实现。退出、异常与 React 卸载共用 exactly-once cleanup；Host 先等待 Provider `exit()`，再撤销 frame、MessagePort、observer 和请求 signal。加载期间退出也必须取消当前 bootstrap 并等待其终止，再完成会话与导航；尚未返回 runtime controller 不表示没有启动任务。取消后晚到的 runtime 只执行清理，不得 mount 或重新开始游戏。
 
 除独立 origin 的 Web 项目外，会挂载 DOM/canvas 的运行时都在 Provider 创建的同源空白 frame 内执行。Provider 负责满尺寸 surface、原始宽高比最大内接、居中和 resize observer；Host 不给单个核心补 CSS。该边界同时防止核心全局变量、异常和样式污染 Next.js document，并保证普通与沉浸 Player 一致。
 
 从 Host 控制栏或暂停遮罩恢复运行后，Provider 在核心确认恢复且会话仍有效时，把键盘焦点交还游戏 canvas；不暴露 canvas 的隔离项目聚焦其运行窗口。暂停、恢复失败或被退出抢占时不得抢回 Host 焦点。这个行为由两个 Provider 的公共入口实现，不由单个核心或验收脚本补焦点。
 
-Host 区分运行时内部普通点击与暂停遮罩上的明确恢复：前者保留控制区占用保护，后者先由 Chrome 检查设置/退出/换盘阻断，再请求公共 resume；只读调试面板的可见性固定状态不构成恢复阻断。该边界与 Provider/Target 无关，单机运行、暂停状态和联机权限检查仍然有效；回归见 `ACC-RUN-002`。
+Host 区分运行时内部普通点击与暂停遮罩上的明确恢复：前者保留控制区占用保护，后者先由 Chrome 检查设置/退出/换盘阻断，再请求公共 resume；只读调试面板的可见性固定状态不构成恢复阻断。该边界与 Provider/Target 无关，运行和暂停状态检查仍然有效；回归见 `ACC-RUN-002`。
 
 浏览器开发工具注入的 Web Vitals 脚本不属于游戏运行时。应用 document、Provider 与运行 frame 不拦截或吞掉该脚本的异常，也不修改浏览器性能 API、DevTools 设置或其独立执行上下文。匿名脚本错误必须先按执行上下文、脚本字节与实际堆栈定位，不能因含有 `startTime` 就归因于 Player；诊断与回归边界见工程质量专题第 8.2 节。
 
@@ -121,24 +121,6 @@ Provider 可在存档边界无损压缩完整原生 checkpoint，格式仍由 Ta
 退出、关闭、失败和加载取消都走相同 Player/Provider 清理并撤销试运行授权；可重复试运行，不维护 gate、序列、机器证明或独立 PASS/FAIL 决定。精确帧、输入、画面及跨会话位置恢复断言仅存在于研发验收，不能为测试保留生产探针 API、fixtureState 或 A/B/C 证明协议。
 
 草稿 PATCH、来源替换和依赖处理按当前真实输入更新或创建 validation，并原子切换 ReviewDraft 的当前选择；审核页没有 `validationStale` 或人工“重新运行检查”状态。Provider Bundle 前移不会改变稳定 Provider/Target，也不会要求用户在上传后无故重检；来源、Target、DAT、依赖或项目证据改变时，对应写事务直接生成新的当前校验。当前 validation 即使为 BLOCKED，仍允许尽最大可能启动诊断 Player。
-
-## 8. 联机
-
-联机资格由稳定 Provider/Target、Target 的标准能力和 Retrom 的受控 profile 共同决定。Netplay profile 与 session 冻结 Bundle、Provider/Target、内容和依赖摘要；不再维护平行的稳定 Target字段。参与者必须取得完全一致的冻结输入。Provider 只通过 `PlayerRuntimeV1.netplayPort` 交换标准消息；单机 Launch 不取得联机凭据，联机 Launch 禁止普通存档。
-
-联机 Launch 由 `service/launch.NetplayCreator` 在写事务外准备 Provider、内容与签名，再由 Repository 的短事务重验当前 Session/Room/Member/Participant、冻结目标及内容/依赖，原子写入 Launch、引用与参与者绑定。内容或权限变化拒绝创建；只修改标题等无关字段不使冻结内容失效。同一参与者的并发请求复用唯一已提交 Launch 与凭据，提交失败不返回凭据。`ParticipantPreparation` 随后独立推进参与者与 Session 事件；第二阶段失败或请求取消仍须用有界清理撤销已经提交的 Launch，不得留下可用授权。
-
-游戏目录分页、profile 匹配和依赖快照判定由 `internal/service/netplay` 通过类型化端口编排；相应 SQL 和行映射位于 `internal/persistence/netplay`。受控 profile 解析与 canonical digest 位于无数据库依赖的 `internal/netplay/profile`。禁用的平台实例同时退出目录候选与按游戏 ID 的资格查询，不能继续用于选择游戏或启动新的联机会话。
-
-联机业务统一进入 `internal/service/netplay`，通过类型化端口访问数据；`internal/persistence/netplay` 负责 SQL、映射和事务，`internal/composition` 组装依赖。`internal/netplay` 保留 Hub、WebSocket 协议和传输处理，Hub 分别依赖会话、参与者和结束操作接口，并显式接收时钟与重连租约配置。签名与密钥文件保护由独立 capability 包维护。
-
-房间列表和详情在同一读事务中加载房间、成员、会话，再由 Service 装配权限。活动房间只包含本人仍占座的记录；退出后的房间按最近 24 小时终态窗口进入历史列表。创建、选游戏、清除选择、占座、准备和启动均在写事务内校验角色、房间/成员版本及当前状态；创建检查容量和房主唯一性，选择与启动重验资格、Variant 和冻结摘要。身份生成、写入或提交失败均不留下部分成员、Session 或事件，也不返回成功投影。
-
-结束、离房和踢人由 Service 决定房间去向与成员离开原因；Session、Launch、Play、成员和事件在同一事务中更新。关闭整个房间仅允许房主；游戏中离房保留请求的版本约束。草稿不能通过结束会话变成缺少游戏选择的 WAITING 房间。暂停、运行就绪、运行和重连准备通过同一状态机处理；连接通知必须匹配当前会话、参与者、席位与凭据代次。重复断线不延长租约或重复写事件，提交失败不得发布全员就绪。
-
-参与者 Launch 通过类型化启动接口编排，准备记录再次核对房间、会话和参与者版本。准备失败只收尾原 Session，不能影响同房间的替代会话；请求取消后仍在独立、有界的上下文中收尾，并保留原始错误。Socket 认证校验活动 Launch 和规范编码；凭据重取校验身份、凭据代次及已存哈希。缺失授权和存储故障使用不同错误，失败不返回部分身份或凭据。
-
-维护任务按有界批次扫描空闲过期、启动超时和运行时长上限，写入前重新核对候选版本和会话身份；变化的候选留给后续扫描。启动恢复只接受 SERVER_RESTARTED 或 RESTORE，在单一事务内结束旧会话及关联 Launch/Play。事件查询在一个读事务中确认房间并读取游标后的记录，条数为 1–100，缺省或无效限制使用 100。维护任务的启动与关闭幂等，未启动也可关闭；失败记录不含凭据的错误类型日志，不静默丢失。
 
 ## 9. PlaySession 生命周期
 
@@ -194,7 +176,7 @@ PlayerRuntimeV1 可选的 `startInputDiagnostics()` 返回当前会话的有界 
 浏览器事件、runtime 已有 getGamepads 调用返回值和 adapter 的实际投递分别报告 BROWSER/RUNTIME/DELIVERED。
 记录按下、松开、数值变化和按住时长；摇杆诊断值按 0.1 量化，不修改交给游戏的原值。最多观察前四个手柄、每个 32 按钮/8 轴，保留最近 64 条事件，超出明确计数。
 禁止诊断再次调用有状态 filter、额外推进帧、派发输入、暂停/恢复或轮询手柄。关闭时恢复自己的包装函数，若函数已被其他模块替换则停止记录并保留后来的替换。
-EmulatorJS 单机可观察 simulateInput 成功返回；联机不包装该接口，避免把本地采集误报为联机帧执行。
+EmulatorJS 单机可观察 simulateInput 成功返回。
 ONS/KiriKiri 在已有映射派发处报告；MV/MZ 隔离 bridge 按需开启观察，复用现有 STATUS 通道返回有界快照，不增加状态轮询频率。
 无法访问的隔离页面及尚未提供回执的核心明确标为未接入。runtime 未取样时没有手柄记录，不能据此推断物理按键未按下。
 所有当前实现的 coreRead 为 false；已投递不意味着核心已读取，更不意味着剧情可跳过。
@@ -236,7 +218,7 @@ Provider 使用 `scummvm-save-bundle-v1`（`GAME_SAVE`，上限 64 MiB），原�
 
 准确的恢复槽位由 Provider 保存于 payload。自动恢复同时要求引擎支持指定存档启动和核心能确认实际读档结果；当前构建已接入 Sky、SCUMM、SCI、Queen、Drascula 的结果通知，其他引擎保留游戏内读档。新 Launch 在运行前导入文件，等待准确槽位的成功通知后才完成运行时装载；失败、槽位不符或 60 秒内未完成均报错，不能静默新开游戏。
 仅收集游戏菜单写入、无法确定准确槽位或游戏不支持自动启动恢复时，完整导入后由用户在游戏菜单读档。
-未选择存档的新 Launch 使用空保存目录。当前不声明 ScummVM 即时内存快照、联机或回滚能力。
+未选择存档的新 Launch 使用空保存目录。当前不声明 ScummVM 即时内存快照或回滚能力。
 
 代表性产品验收见 [ACC-SCUMMVM-001](./project-acceptance.md#acc-scummvm-001scummvm-原生存档与手柄产品闭环) 与 [ACC-SCUMMVM-002](./project-acceptance.md#acc-scummvm-002scummvm-延迟保存原生退出与手动读档)。构建成功或能力标志不等于全部游戏经过实测。
 
@@ -260,7 +242,7 @@ SHA-256 校验的不可变镜像。游戏写入只改变本次实例的内存副
 核心原生封包 `np2kai-state-v1` 为即时快照，包含原生执行状态和相对原盘的 64 KiB 块增量；总量上限 384 MiB，
 绑定原盘 SHA-256。不同 Launch 显式恢复时先安装磁盘增量，再加载执行状态。Host 通过公共 checkpoint
 与 Player 控件提供保存、暂停、截图及恢复，不理解 NP2kai 状态。标准手柄覆盖方向、Space 确认、Escape 取消。
-当前实现不开放联机、换盘、音量设置或外置 BIOS。核心固定为 `retrom-core-g5939e0c6d598-r1`，Provider 统一管理存储格式与压缩。
+当前实现不开放换盘、音量设置或外置 BIOS。核心固定为 `retrom-core-g5939e0c6d598-r1`，Provider 统一管理存储格式与压缩。
 
 真实产品检查入口为 `ACC-PC98-001`；通过单个游戏不代表全部 PC-98 软件兼容。
 
@@ -278,7 +260,7 @@ Provider 在恢复及原生存档持久化确认前有界解压。核心 adapter
 
 `retrom-runtime/openbor` 使用独立 `openbor-host-v1` 浏览器核心。不可变 PAK 在启动前完整物化，
 提供确定字节进度，并以 4 MiB 分块写入浏览器持久缓存；跨实例复用前校验准确长度和整包摘要。
-存储不可用时回退到网络。当前单包上限为 512 MiB，不声明线程、联机或即时快照。
+存储不可用时回退到网络。当前单包上限为 512 MiB，不声明线程或即时快照。
 
 核心原生 checkpoint 为 `openbor-game-save-v1`，公共层写入 `openbor-game-save-v1-storage-v1`，最大 16 MiB，声明 `GAME_SAVE`、`capture=IN_GAME`、
 `restore=IN_GAME`。它携带游戏内容摘要和核心原生的进度、脚本变量与高分文件，排除按键、显示等配置。
@@ -295,7 +277,7 @@ Provider 校验准确长度及 SHA-256，按内容摘要复用浏览器持久缓
 `webmsx-state-v1` 是最大 32 MiB 的 `INSTANT` 快照，包括 CPU、内存、视频、声音与可写媒体的机器状态，
 并绑定游戏摘要。恢复在新机器启动前读取显式快照；不选存档启动不读取 WebMSX 的历史 localStorage。
 暂停、截图、创建存档、退出继续使用共享 Player 和 Provider dispatcher。核心在 iframe 内自行保持 4:3 物理画面，
-响应横竖屏尺寸变化；公共 Provider 不暴露帧计数、音量、联机或多盘能力。固定机器为 MSX2PJ。
+响应横竖屏尺寸变化；公共 Provider 不暴露帧计数、音量或多盘能力。固定机器为 MSX2PJ。
 真实产品证据与适用范围见 `ACC-MSX-001`；本地候选不修改正式生产 lock。
 
 ## PX68K 单磁盘运行
@@ -305,7 +287,7 @@ Provider 校验准确长度及 SHA-256，按内容摘要复用浏览器持久缓
 平台 `x68000` / Core `px68k` 绑定 `retrom-runtime/px68k`。Host 的 `PX68K_DISK`
 策略复用已有 BIOS 感知内容装配，无额外 launch options；支持单个 `.dim`、`.xdf`、`.hdf`
 以及仅含一个受支持镜像的 ZIP/7z。多镜像归档保持歧义错误，不将它们自动拼接。
-当前不开放 D88、M3U、多盘切换与联机。
+当前不开放 D88、M3U 与多盘切换。
 
 Provider 使用 Musashi Wasm，初始 4 MiB RAM / 10 MHz CPU，由宿主按核心报告帧率逐帧调度。
 键盘方向键、字母、Enter、Escape 和 F1–F12 传入 X68000 键码；点击游戏画面取得键盘焦点。
@@ -330,4 +312,4 @@ Provider 在同源空白 iframe 中运行 GBE+ Pokémon Mini，支持标准手�
 帧计数和即时存档。原生状态同时绑定游戏 SHA-256 与状态 SHA-256，公共层写入
 `gbe-pokemini-state-v1-storage-v1`，上限 1 MiB。不同 Launch 恢复必须通过
 `ACC-POKEMINI-001`，不得以启动新游戏替代恢复成功。ROM 与 BIOS 按不可变 URL 持久缓存，
-再次 Launch 不重复下载；首次完整下载有公共进度。当前不声明红外联机。
+再次 Launch 不重复下载；首次完整下载有公共进度。

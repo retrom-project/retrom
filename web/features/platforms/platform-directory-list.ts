@@ -4,7 +4,7 @@ export type Platform = {
   id: string;
   name: string;
   enabled: boolean;
-  cores: Array<{ id: string; name: string; enabled: boolean; netplaySupported: boolean }>;
+  cores: Array<{ id: string; name: string; enabled: boolean }>;
 };
 
 export type PlatformRecommendations = components["schemas"]["PlatformInstanceRecommendations"];

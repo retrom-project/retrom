@@ -13,7 +13,6 @@ func TestOpenAPIUsesOnlyTheProviderLaunchEnvelopeAndOpaqueCheckpointContract(t *
 		filepath.Join(root, "components", "common.yaml"),
 		filepath.Join(root, "domains", "runtime.yaml"),
 		filepath.Join(root, "domains", "reviews.yaml"),
-		filepath.Join(root, "domains", "netplay.yaml"),
 	}
 	var contents strings.Builder
 	for _, path := range paths {

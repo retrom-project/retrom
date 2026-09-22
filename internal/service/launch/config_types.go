@@ -27,8 +27,7 @@ type ConfigSource struct {
 	ProviderID, TargetID, BundleDigest, CoreID, CoreName              string
 	DetectorProfile, Delivery, Purpose, Title, PlatformName, ReturnTo string
 	ContentKind, DependencyJSON, Compatibility                        string
-	SaveID, DOSEntry, NetplayID, NetplayRoom, NetplayProfile          *string
-	NetplayPlayer                                                     *int64
+	SaveID, DOSEntry                                                  *string
 	BootstrapEnd, HardEnd, InitialDisc                                int64
 	IdleEnd                                                           *int64
 }

@@ -43,7 +43,7 @@ func TestConfigConcurrentActivationThenPlayKeepsValidIssuance(t *testing.T) {
 						t.Fatalf("legitimate heartbeat: state=%s duration=%d error=%v", result.State, result.AcceptedDuration, err)
 					}
 				}
-				if _, err := fixture.launcher.SaveAccess(t.Context(), created.LaunchID, created.Capability); err != nil {
+				if err := fixture.launcher.AuthorizeSave(t.Context(), created.LaunchID, created.Capability); err != nil {
 					t.Fatalf("current capability unexpectedly invalid: %v", err)
 				}
 				if err := fixture.database.QueryRowContext(t.Context(),

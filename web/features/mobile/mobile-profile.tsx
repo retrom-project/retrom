@@ -17,7 +17,6 @@ export function MobileProfile() {
     <div className="phone-profile-identity"><span aria-hidden="true">{context.user?.displayName.slice(0, 1).toUpperCase()}</span><div><strong>{context.user?.displayName}</strong><p>@{context.user?.username}</p></div></div>
     <nav className="phone-profile-links" aria-label="个人游戏资料">
       {destinations.map((item) => <Link key={item.href} href={item.href}><AppIcon name={item.icon} /><span>{item.label}</span></Link>)}
-      {context.netplayEnabled ? <Link href="/netplay"><AppIcon name="gamepad" /><span>联机游玩</span></Link> : null}
     </nav>
     <div className="phone-profile-links">
       <Link href="/account"><AppIcon name="settings" /><span>账户设置</span></Link>

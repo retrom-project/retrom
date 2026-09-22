@@ -147,7 +147,7 @@ test("ACC-MOB-001 exact phone and tablet shell baselines have no page overflow",
 test("ACC-MOB-002 user routes, filter sheet, active navigation and accessibility remain usable", async ({ page }) => {
   test.setTimeout(180_000);
   await page.setViewportSize({ width: 390, height: 844 });
-  const routes = ["/", "/library", "/me", "/saves", "/favorites", "/recent", "/netplay", "/account"];
+  const routes = ["/", "/library", "/me", "/saves", "/favorites", "/recent", "/account"];
   for (const route of routes) {
     await page.goto(route);
     await expect(page.locator("main").first()).toBeVisible();

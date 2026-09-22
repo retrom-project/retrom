@@ -60,10 +60,6 @@ func (records projectionRecords) Publish(ctx context.Context, input service.Publ
 	return writeCatalogState(ctx, tx, input.Candidate, input.AtMS)
 }
 
-func (records projectionRecords) TerminateSessions(ctx context.Context, id string, now int64) error {
-	return terminateProviderSessions(ctx, records.transaction, id, now)
-}
-
 func (records projectionRecords) Audit(ctx context.Context, input service.Audit) error {
 	if _, err := records.transaction.ExecContext(ctx, `
 INSERT INTO audit_events(

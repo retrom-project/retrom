@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canResumeFromGameSurface, readBoundedResponse, reportsNativeExit } from "./player-shell";
+import { canResumeFromGameSurface, readBoundedResponse } from "./player-shell";
 
 describe("readBoundedResponse", () => {
   it("assembles a bounded streamed state", async () => {
@@ -27,32 +27,23 @@ describe("readBoundedResponse", () => {
   });
 });
 
-describe("reportsNativeExit", () => {
-  it("leaves netplay termination to its global session controller", () => {
-    expect(reportsNativeExit("single")).toBe(true);
-    expect(reportsNativeExit("netplay")).toBe(false);
-    expect(reportsNativeExit("single", true)).toBe(false);
-  });
-});
-
 describe("canResumeFromGameSurface", () => {
   it("allows explicit pause-overlay activation while read-only chrome stays pinned", () => {
-    expect(canResumeFromGameSurface({mode: "single", running: true, paused: true, chromePinned: true, source: "pause-overlay"}))
+    expect(canResumeFromGameSurface({running: true, paused: true, chromePinned: true, source: "pause-overlay"}))
       .toBe(true);
   });
 
   it.each([
-    {mode: "netplay" as const, running: true, paused: true},
-    {mode: "single" as const, running: false, paused: true},
-    {mode: "single" as const, running: true, paused: false},
+    {running: false, paused: true},
+    {running: true, paused: false},
   ])("does not bypass runtime state for explicit resume: %j", (state) => {
     expect(canResumeFromGameSurface({...state, chromePinned: true, source: "pause-overlay"})).toBe(false);
   });
 
   it("does not resume while host chrome owns the interaction", () => {
-    expect(canResumeFromGameSurface({mode: "single", running: true, paused: true, chromePinned: true}))
+    expect(canResumeFromGameSurface({running: true, paused: true, chromePinned: true}))
       .toBe(false);
-    expect(canResumeFromGameSurface({mode: "single", running: true, paused: true, chromePinned: false}))
+    expect(canResumeFromGameSurface({running: true, paused: true, chromePinned: false}))
       .toBe(true);
   });
 });
