@@ -38,11 +38,6 @@ func (memory *initializationMemory) Bootstrap(_ context.Context, plan BootstrapP
 	return nil
 }
 
-type setupProof struct{}
-
-func (setupProof) SetupCode() string                  { return "setup-proof" }
-func (setupProof) MatchesSetupCode(value string) bool { return value == "setup-proof" }
-
 type initializationHasher struct{ duringHash func() }
 
 func (initializationHasher) Verify(context.Context, string, string) (bool, error) { return true, nil }
@@ -64,19 +59,6 @@ func TestInitializationRejectsPartialPendingAndOrphanedCompletedState(t *testing
 	}
 }
 
-func TestSetupProofReadNeverWritesInstanceState(t *testing.T) {
-	memory := &initializationMemory{state: InitializationState{State: "PENDING"}}
-	service := NewInitialization(memory, InitializationOptions{Credentials: setupProof{}})
-	proof, err := service.ReadSetupCode(t.Context())
-	if err != nil || proof != "setup-proof" || memory.writes != 0 {
-		t.Fatalf("setup proof: %q / %v", proof, err)
-	}
-	memory.state.Users = 1
-	if _, err := service.ReadSetupCode(t.Context()); !errors.Is(err, ErrInitializationDone) {
-		t.Fatalf("exposed setup proof for partial instance: %v", err)
-	}
-}
-
 func TestInitializationRechecksStateAfterHashing(t *testing.T) {
 	memory := &initializationMemory{state: InitializationState{State: "PENDING"}}
 	options := InitializationOptions{Mode: config.ModeTest, Hasher: initializationHasher{duringHash: func() { memory.state.State = "COMPLETED" }}, Mint: initializationMint, Now: time.Now}
@@ -86,10 +68,26 @@ func TestInitializationRechecksStateAfterHashing(t *testing.T) {
 	}
 }
 
+func TestReleaseStartLeavesEmptyInstancePending(t *testing.T) {
+	memory := &initializationMemory{state: InitializationState{State: "PENDING"}}
+	service := NewInitialization(memory, InitializationOptions{Mode: config.ModeRelease})
+	if err := service.Start(t.Context()); err != nil || memory.writes != 0 {
+		t.Fatalf("release startup wrote an account: writes=%d error=%v", memory.writes, err)
+	}
+}
+
+func TestTestModeRejectsManualInitialization(t *testing.T) {
+	memory := &initializationMemory{state: InitializationState{State: "PENDING"}}
+	service := NewInitialization(memory, InitializationOptions{Mode: config.ModeTest})
+	if _, err := service.Initialize(t.Context(), InitializeRequest{}); !errors.Is(err, ErrInitializationDone) || memory.writes != 0 {
+		t.Fatalf("test mode accepted manual initialization: writes=%d error=%v", memory.writes, err)
+	}
+}
+
 func TestInitializationCommitFailureReturnsNoSession(t *testing.T) {
 	memory := &initializationMemory{state: InitializationState{State: "PENDING"}, lateError: context.Canceled}
-	options := InitializationOptions{Mode: config.ModeRelease, Credentials: setupProof{}, Hasher: initializationHasher{}, Blocklist: authn.EmptyBlocklist{}, Mint: initializationMint, Now: func() time.Time { return time.UnixMilli(100) }}
-	session, err := NewInitialization(memory, options).Initialize(t.Context(), InitializeRequest{SetupCode: "setup-proof", Username: "admin", DisplayName: "Owner", Password: "initial passphrase", PasswordConfirmation: "initial passphrase"})
+	options := InitializationOptions{Mode: config.ModeRelease, Hasher: initializationHasher{}, Blocklist: authn.EmptyBlocklist{}, Mint: initializationMint, Now: func() time.Time { return time.UnixMilli(100) }}
+	session, err := NewInitialization(memory, options).Initialize(t.Context(), InitializeRequest{Username: "admin", DisplayName: "Owner", Password: "initial passphrase", PasswordConfirmation: "initial passphrase"})
 	if !errors.Is(err, context.Canceled) || session.Principal.SessionID != "" || memory.writes != 1 || memory.plan.Kind != "RELEASE_SETUP" || memory.plan.ActorLabel != "release-setup" {
 		t.Fatalf("initialization commit: %+v / %v", memory.plan, err)
 	}

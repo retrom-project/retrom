@@ -463,8 +463,8 @@ make acceptance-case CASE=<case-id>
 
 - 上限：120 秒。
 - 执行：`make acceptance-case CASE=ACC-AUTH-001`。
-- 流程：以 release 和全新数据根启动到 PENDING，读取匿名 auth context；运行主机只读 `retrom setup-code`，分别提交错误 code、两个并发正确 initialize 和初始化后的重复请求；扫描命令/API/日志与数据库。
-- 通过标准：启动时为 `PENDING` 且无 User/Profile；错误 code 零写入；并发最多一个 `201`，同事务只创建一名 `ADMIN/ENABLED` User、Profile、Argon2id credential、AuthSession 与初始化审计，另一个和重复请求为稳定冲突。setup code 不进数据库/日志，初始化响应只在安全 cookie/封闭 DTO 中返回会话材料。
+- 流程：以 release 和全新数据根启动到 PENDING，读取匿名 auth context；直接提交账号信息与密码，分别验证跨源请求、无效账号/密码、两个并发合法 initialize 和初始化后的重复请求；检查 API 与数据库。
+- 通过标准：启动时为 `PENDING` 且无 User/Profile；无效账号/密码或跨源请求不创建账号或会话；并发最多一个 `201`，同事务只创建一名 `ADMIN/ENABLED` User、Profile、Argon2id credential、AuthSession 与初始化审计，另一个和重复请求为稳定冲突。初始化请求只需用户名、显示名称、密码及密码确认；成功响应签发安全 cookie，随后读取 context 为已登录管理员，会话材料只在安全 cookie/封闭 DTO 中返回。
 - 证据：context/HTTP 记录、User/Profile/credential 行数、审计摘要和敏感模式扫描。
 
 ### ACC-AUTH-002：release/test 模式隔离与 lineage 拒绝
@@ -480,7 +480,7 @@ make acceptance-case CASE=<case-id>
 - 上限：120 秒。
 - 执行：`make acceptance-case CASE=ACC-AUTH-003`。
 - 流程：覆盖正确/错误/停用登录、logout、idle 8h、absolute 24h、并发改密、当前/其他 session rotation、Argon2 参数、10,000 项 blocklist、Origin/Fetch Metadata/CSRF 和 username+IP 双维限流；用 fake clock 和可信/不可信代理矩阵，不真实等待。
-- 通过标准：登录错误通用且等时路径不泄露账号状态；所有包含密码、初始化码或一次性账号 capability 的 HTML form 都声明原生 `method=post`，即使用户在 React hydration 完成前提交也不得把凭据编码进 URL、查询参数、浏览器历史或代理 access log；hydration 完成后的请求仍使用契约规定的 JSON API。session cookie/CSRF/缓存属性符合契约，过期和撤销立即生效；改密要求当前密码并只保留轮换后的当前会话。release 密码最少 6 个 Unicode 字符，5 个字符稳定拒绝，长度边界与物化 blocklist 均 fail-closed；限流只信任 allowlist 代理并返回稳定 `429/Retry-After`。
+- 通过标准：登录错误通用且等时路径不泄露账号状态；所有包含密码或一次性账号 capability 的 HTML form 都声明原生 `method=post`，即使用户在 React hydration 完成前提交也不得把凭据编码进 URL、查询参数、浏览器历史或代理 access log；hydration 完成后的请求仍使用契约规定的 JSON API。session cookie/CSRF/缓存属性符合契约，过期和撤销立即生效；改密要求当前密码并只保留轮换后的当前会话。release 密码最少 6 个 Unicode 字符，5 个字符稳定拒绝，长度边界与物化 blocklist 均 fail-closed；限流只信任 allowlist 代理并返回稳定 `429/Retry-After`。
 - 证据：cookie 属性、受控时钟、密码校验与请求负向矩阵、blocklist hash。
 
 ### ACC-AUTH-004：邀请与密码重置 capability

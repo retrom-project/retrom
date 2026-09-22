@@ -114,7 +114,7 @@ Provider 的 checkpoint 压缩依赖由 `retrom-runtime` 自己固定和审计�
 - 三个 image targets 只能调用镜像构建，不得依赖 `dev`，也不得执行 `docker run`、`docker compose`、push、登录 registry 或部署操作。
 - `make dev` 必须先拒绝 real/effective UID 为 0 或带任一 sudo 调用标记的进程，再前置执行 `make prepare-go`、Go API 生成、`make prepare-deps` 与 `make web-install`，之后只能以当前普通用户运行宿主机的 `go run ./cmd/retrom` 与固定 `--webpack` 的 `npm run dev`（可以由 `scripts/dev.sh` 编排）。固定 bundler 是开发入口的可重复性要求：当前锁定的 Next/Tailwind 组合在 Turbopack PostCSS transform 中会生成无法解析的内部 `@vercel/turbopack/postcss` 引用，不能让标准开发入口因机器缓存不同而有时可用、有时 500。脚本必须正确转发 `SIGINT/SIGTERM` 并在任一子进程异常退出时结束另一进程；登记必须同时覆盖 supervisor 与两个独立 process group 的 PID/start ticks。启动前以仓库专用 PID/start ticks/工作目录/命令行身份安全停止并等待旧 dev supervisor；若 supervisor 被强制终止，则还要以登记的 process group/session 和子进程身份安全接管遗留 Go/Next.js。身份无法确认时只能失败，不能按端口或名称误杀其他进程；不得要求 Docker daemon。
 - `make dev` 的默认网络基线是 `http://localhost:4000`、Next `127.0.0.1:4000`、Go `127.0.0.1:8080` 与 runtime `http://{launchId}.rpg.localhost:8080`。PFB 命令与 `make dev` 并列且不成为其依赖；共享 PFB 网关继续独占宿主 3000，普通开发独占 4000，两者必须能够同时运行。全部 `make pfb-*` 命令和直接 PFB CLI 同样拒绝 root/sudo，PFB 应用与共享网关容器都显式使用发起命令的普通用户 UID/GID。
-- 本地自动化明确使用 `RETROM_MODE=test`，dev supervisor 将它转换为后端 CLI 的 `--mode=test` 后从 Go 子进程环境中移除，避免严格环境变量校验把前端编排变量误当作后端配置。测试模式只允许临时数据目录、固定 `test/test` 账号和显著 UI 警告；release 模式测试必须走 setup code，不得用测试账号旁路。
+- 本地自动化明确使用 `RETROM_MODE=test`，dev supervisor 将它转换为后端 CLI 的 `--mode=test` 后从 Go 子进程环境中移除，避免严格环境变量校验把前端编排变量误当作后端配置。测试模式只允许临时数据目录、固定 `test/test` 账号和显著 UI 警告；release 模式测试必须通过初始化表单或 API 创建首位管理员，不得用测试账号旁路。
 
 ### 3.1 全仓源码结构门禁
 
@@ -286,7 +286,7 @@ flat config 必须设置 `linterOptions.noInlineConfig=true` 且 unused disable 
 | BIOS 安装与诊断 | 文件名/哈希匹配；哈希不符保存并警告；必需项缺失阻断；可选项缺失不阻断；不同核心状态不串用 |
 | 启动预检与 capability | 默认核心与单次覆盖、必需依赖、DOS 程序、静态 BIOS schema v1 与 Arcade DAT schema v2 分流、Arcade 冻结 BIOS bundle、cookie capability hash/过期/范围/一次启动绑定、复制 launchId 无 cookie 拒绝、未授权 Blob 与路径逃逸拒绝、日志脱敏 |
 | 多盘发布、Launch 与存档 | canonical playlist/ordered identity、artifact V3 digest、config discSet、playlist/Disc GET/HEAD/单 Range、跨 Launch/原名拒绝、当前盘存档与先切盘后恢复、替换失败保持当前内容 |
-| 账户初始化与认证 | 数据库 `PENDING/COMPLETED` 及 context 映射、release setup code、test bootstrap、Argon2 参数、密码 blocklist、通用登录错误、session 轮换/过期/撤销、Origin/Fetch Metadata/CSRF、限流与可信代理 |
+| 账户初始化与认证 | 数据库 `PENDING/COMPLETED` 及 context 映射、release 首位管理员初始化、test bootstrap、Argon2 参数、密码 blocklist、通用登录错误、session 轮换/过期/撤销、Origin/Fetch Metadata/CSRF、限流与可信代理 |
 | 用户管理 | 邀请/重置 secret 单次显示且数据库不保存 secret/hash、角色和状态转换、ETag、本人保护、最后管理员保护、停用/删除级联撤销、离线 admin-reset 与 restore 安全栅栏 |
 | 私有数据隔离 | 所有 Profile 派生列表/详情/写入按认证主体限定；跨用户 ID、cursor、Idempotency-Key、SaveState 和 Launch 探测均不泄露也不串写 |
 | 收藏与收藏夹 | 名称 NFC/空白/case-fold 边界、收藏状态机、Folder 上限/version、批量边界和原子失败；卡片 E2E 锁定收藏前后相同的按钮/图标几何、居中位置及红色实心状态；current-schema 复合 owner FK、隐藏投影；每条 route 的 strict JSON/query、CSRF、cursor、ETag、幂等与两个 Profile 隔离 |

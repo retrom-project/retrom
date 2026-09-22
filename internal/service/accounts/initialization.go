@@ -12,7 +12,6 @@ import (
 var (
 	ErrInitialization      = errors.New("INITIALIZATION_REQUIRED")
 	ErrInitializationDone  = errors.New("INITIALIZATION_ALREADY_COMPLETED")
-	ErrInitializationProof = errors.New("INITIALIZATION_PROOF_INVALID")
 	ErrInitializationState = errors.New("INITIALIZATION_STATE_INVALID")
 	ErrTestCredential      = errors.New("TEST_DEFAULT_CREDENTIAL_ACTIVE")
 )
@@ -71,23 +70,9 @@ func (service *InitializationService) validateCredentials(ctx context.Context) e
 	return nil
 }
 
-func (service *InitializationService) ReadSetupCode(ctx context.Context) (string, error) {
-	state, err := service.State(ctx)
-	if err != nil {
-		return "", err
-	}
-	if state.State != "PENDING" || state.Users != 0 || state.Profiles != 0 {
-		return "", ErrInitializationDone
-	}
-	return service.options.Credentials.SetupCode(), nil
-}
-
 func (service *InitializationService) Initialize(ctx context.Context, request InitializeRequest) (Session, error) {
 	if service.options.Mode != config.ModeRelease {
 		return Session{}, ErrInitializationDone
-	}
-	if !service.options.Credentials.MatchesSetupCode(request.SetupCode) {
-		return Session{}, ErrInitializationProof
 	}
 	username, err := authn.NormalizeUsername(request.Username)
 	if err != nil {

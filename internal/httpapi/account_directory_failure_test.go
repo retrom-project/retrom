@@ -10,7 +10,7 @@ import (
 )
 
 func TestAdminUserDirectoryStorageFailureIsServerError(t *testing.T) {
-	server, _ := newAuthHTTPServer(t, config.ModeTest)
+	server := newAuthHTTPServer(t, config.ModeTest)
 	if _, err := server.database.ExecContext(t.Context(), `DROP TABLE auth_sessions`); err != nil {
 		t.Fatal(err)
 	}

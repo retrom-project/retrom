@@ -12,27 +12,6 @@ import (
 	"github.com/google/uuid"
 )
 
-func TestReadSetupCodeIsReadOnlyAndPendingOnly(t *testing.T) {
-	t.Parallel()
-	fixture := newAccountFixture(t, config.ModeRelease)
-	if err := fixture.service.Start(context.Background()); err != nil {
-		t.Fatal(err)
-	}
-	code, err := ReadAccountSetupCode(context.Background(), fixture.database.SQL, fixture.credentials)
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return code != fixture.credentials.SetupCode() }), "pending setup code = %q, %v", code, err)
-	if _, err := fixture.service.Initialize(context.Background(), accountservice.InitializeRequest{
-		SetupCode: code, Username: "admin", DisplayName: "Administrator",
-		Password: "a sufficiently long phrase", PasswordConfirmation: "a sufficiently long phrase",
-	}); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := ReadAccountSetupCode(
-		context.Background(), fixture.database.SQL, fixture.credentials,
-	); !errors.Is(err, accountservice.ErrInitializationDone) {
-		t.Fatalf("completed setup code = %v", err)
-	}
-}
-
 func TestOfflineAdminResetRotatesCredentialAndSecurityState(t *testing.T) {
 	t.Parallel()
 	fixture := newAccountFixture(t, config.ModeTest)

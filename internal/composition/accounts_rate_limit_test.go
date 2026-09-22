@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/authn"
 	"retrom/internal/config"
 	accountservice "retrom/internal/service/accounts"
 	"retrom/internal/testassert"
@@ -86,12 +87,12 @@ func TestSetupAndLinkRateLimitsUseIndependentIPBuckets(t *testing.T) {
 		t.Fatal(err)
 	}
 	invalidSetup := accountservice.InitializeRequest{
-		SetupCode: "invalid", Username: "admin", DisplayName: "Administrator",
+		Username: "!invalid", DisplayName: "Administrator",
 		Password: "a sufficiently long phrase", PasswordConfirmation: "a sufficiently long phrase",
 	}
 	for attempt := 1; attempt <= 5; attempt++ {
 		_, err := release.service.InitializeRateLimited(context.Background(), invalidSetup, "198.51.100.5")
-		testassert.Falsef(t, testassert.All(func() bool { return attempt < 5 }, func() bool { return !errors.Is(err, accountservice.ErrInitializationProof) }), "setup failure %d = %v", attempt, err)
+		testassert.Falsef(t, testassert.All(func() bool { return attempt < 5 }, func() bool { return !errors.Is(err, authn.ErrUsernameInvalid) }), "setup failure %d = %v", attempt, err)
 		testassert.Falsef(t, testassert.All(func() bool { return attempt == 5 }, func() bool {
 			return (!errors.Is(err, accountservice.ErrRateLimited) || accountservice.RateLimitRetryAfter(err) != 900)
 		}), "setup threshold = %v retry=%d", err, accountservice.RateLimitRetryAfter(err))

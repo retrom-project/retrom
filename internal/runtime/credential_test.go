@@ -55,9 +55,6 @@ func TestCredentialPurposeSeparationAndAccountLinkValidation(t *testing.T) {
 	t.Parallel()
 	credentials, err := LoadOrCreateCredentials(t.TempDir())
 	testassert.False(t, err != nil, err)
-	if code := credentials.SetupCode(); len(code) != 43 || !credentials.MatchesSetupCode(code) || credentials.MatchesSetupCode(code+"x") {
-		t.Fatalf("setup code validation failed: length=%d", len(code))
-	}
 	linkID := uuid.MustParse("01980000-0000-7000-8000-000000000001")
 	token := credentials.AccountLinkToken("INVITATION", linkID)
 	if parsed, ok := credentials.ParseAccountLinkToken("INVITATION", token); !ok || parsed != linkID {

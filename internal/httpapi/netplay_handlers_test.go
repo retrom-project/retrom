@@ -95,7 +95,7 @@ func TestNetplayEventStreamDisablesProxyTransformationAndBuffering(t *testing.T)
 
 func TestNetplayFeatureFlagHidesRoutesAndAuthProjection(t *testing.T) {
 	t.Parallel()
-	server, _ := newAuthHTTPServer(t, config.ModeTest)
+	server := newAuthHTTPServer(t, config.ModeTest)
 	t.Cleanup(server.Close)
 	handler := server.Handler()
 	auth := accountHTTPLogin(t, handler)
@@ -115,7 +115,7 @@ func TestNetplayFeatureFlagHidesRoutesAndAuthProjection(t *testing.T) {
 
 func TestNetplayRoomCreateIsAuthenticatedIdempotentAndVersioned(t *testing.T) {
 	t.Parallel()
-	server, _ := newAuthHTTPServer(t, config.ModeTest)
+	server := newAuthHTTPServer(t, config.ModeTest)
 	server.config.NetplayEnabled = true
 	repositoryRoot, err := filepath.Abs(filepath.Join("..", ".."))
 	testassert.False(t, err != nil, err)
@@ -164,7 +164,7 @@ func TestNetplayRoomCreateIsAuthenticatedIdempotentAndVersioned(t *testing.T) {
 
 func TestAcceptanceNP010NetplaySocketRejectsEveryNonExactOriginAndProtocol(t *testing.T) {
 	t.Parallel()
-	server, _ := newAuthHTTPServer(t, config.ModeTest)
+	server := newAuthHTTPServer(t, config.ModeTest)
 	t.Cleanup(server.Close)
 	valid := func() *http.Request {
 		request := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/runtime/netplay/rooms/room/socket", nil)

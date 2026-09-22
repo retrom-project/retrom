@@ -38,16 +38,11 @@ type InitializationRepository interface {
 	Credentials(context.Context) ([]StoredCredential, error)
 	WithWrite(context.Context, func(InitializationScope) error) error
 }
-type SetupCredentials interface {
-	SetupCode() string
-	MatchesSetupCode(string) bool
-}
 type InitializationOptions struct {
-	Mode        config.Mode
-	Credentials SetupCredentials
-	Hasher      PasswordHasher
-	Blocklist   authn.Blocklist
-	Mint        SessionMinter
-	Now         func() time.Time
+	Mode      config.Mode
+	Hasher    PasswordHasher
+	Blocklist authn.Blocklist
+	Mint      SessionMinter
+	Now       func() time.Time
 }
-type InitializeRequest struct{ SetupCode, Username, DisplayName, Password, PasswordConfirmation string }
+type InitializeRequest struct{ Username, DisplayName, Password, PasswordConfirmation string }
