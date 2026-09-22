@@ -229,7 +229,7 @@ paths:
   /api/v1/admin/platforms:
     get:
       operationId: getAdminPlatforms
-      description: The platform/core catalog. Each core projects netplaySupported from its active Provider Target and current netplay profile; it is a core capability marker, not per-game eligibility.
+      description: The platform/core catalog with the enabled state of each active Provider Target.
       responses:
         '200':
           $ref: ../components/common.yaml#/components/responses/JSONResponse
@@ -686,7 +686,6 @@ components:
         - assetCount
         - contentFileCount
         - activeLaunchCount
-        - activeNetplayCount
         - sourceKinds
       properties:
         impactDigest:
@@ -714,9 +713,6 @@ components:
           type: integer
           minimum: 0
         activeLaunchCount:
-          type: integer
-          minimum: 0
-        activeNetplayCount:
           type: integer
           minimum: 0
         sourceKinds:

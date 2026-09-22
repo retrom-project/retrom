@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build Retrom's deterministic project-owned NES netplay smoke ROMs."""
+"""Build Retrom's deterministic project-owned NES smoke ROMs."""
 
 from __future__ import annotations
 

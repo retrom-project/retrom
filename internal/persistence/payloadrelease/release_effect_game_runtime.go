@@ -26,30 +26,6 @@ WHERE game_id=? AND state='ACTIVE'
 `, now, now, gameID); err != nil {
 		return fmt.Errorf("payloadrelease/end play sessions: %w", err)
 	}
-	if err := records.checkedUpdate(ctx, "netplay_sessions", recordstore.UpdateNetplaySessions, recordstore.Update{
-		Set: `
-state='FAILED',finished_at_ms=?,end_reason='GAME_DELETED',updated_at_ms=?,version=version+1
-`,
-		Scope: recordstore.Scope{
-			Where: `game_id=? AND state NOT IN ('FINISHED','FAILED')`,
-			Args:  []any{gameID},
-		},
-		Values: []any{now, now},
-	}); err != nil {
-		return fmt.Errorf("payloadrelease/end netplay sessions: %w", err)
-	}
-	if err := records.checkedUpdate(ctx, "netplay_rooms", recordstore.UpdateNetplayRooms, recordstore.Update{
-		Set: `
-state='ENDED',ended_at_ms=?,end_reason='GAME_DELETED',updated_at_ms=?,version=version+1
-`,
-		Scope: recordstore.Scope{
-			Where: `selected_game_id=? AND state IN ('DRAFT','WAITING','STARTING','RUNNING')`,
-			Args:  []any{gameID},
-		},
-		Values: []any{now, now},
-	}); err != nil {
-		return fmt.Errorf("payloadrelease/end netplay rooms: %w", err)
-	}
 	if err := records.checkedUpdate(ctx, "launch_sessions", sessionstore.ChangeLaunch, recordstore.Update{
 		Set: `save_state_id=NULL`,
 		Scope: recordstore.Scope{

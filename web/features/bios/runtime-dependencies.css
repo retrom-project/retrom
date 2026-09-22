@@ -1,5 +1,3 @@
-/* Reserve the page scrollbar gutter so BIOS scope changes keep the same left edge. */
-html:has(.runtime-dependency-page) { scrollbar-gutter: stable; }
 .runtime-dependency-page { min-width: 0; }
 .runtime-dependency-page .page-header { margin-bottom: 20px; }
 .runtime-dependency-page .page-header svg { width: 17px; height: 17px; }
@@ -62,7 +60,7 @@ html:has(.runtime-dependency-page) { scrollbar-gutter: stable; }
 .runtime-core strong, .runtime-core small, .runtime-usage strong, .runtime-usage small, .runtime-dat-content strong, .runtime-dat-content small { display: block; }
 .runtime-core strong, .runtime-usage strong, .runtime-dat-content strong { font-size: 12px; }
 .runtime-core small, .runtime-usage small, .runtime-dat-content small { margin-top: 3px; color: var(--muted); font-size: 10px; }
-.runtime-row-actions { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 6px; }
+.runtime-row-actions { position: relative; display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 6px; }
 .runtime-row-actions .button { min-height: 34px; padding-inline: 11px; box-shadow: none; font-size: 11px; white-space: nowrap; }
 .runtime-no-action { color: var(--muted); font-size: 11px; }
 .runtime-inline-empty { min-height: 220px; padding: 30px; display: grid; place-items: center; align-content: center; text-align: center; border: 1px dashed #cfd5df; border-radius: var(--radius-panel); background: rgb(255 255 255 / 58%); }

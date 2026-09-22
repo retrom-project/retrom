@@ -5,7 +5,7 @@
 | 文档状态 | 已审定 / 一期实施基线 |
 | 版本 | 2.0 |
 | 日期 | 2026-08-25 |
-| 适用范围 | Go 后端、Next.js 前端、SQLite/XML 集成、WebSocket rollback 联机与 EmulatorJS/RetromRpgRuntime 运行时验证 |
+| 适用范围 | Go 后端、Next.js 前端、SQLite/XML 集成、EmulatorJS/RetromRpgRuntime 运行时验证 |
 | 质量原则 | 零 lint warning、关键路径有测试、每个已发现 bug 有回归用例、不设覆盖率百分比门槛 |
 
 ## 1. 文档职责
@@ -73,7 +73,7 @@ Provider 的 checkpoint 压缩依赖由 `retrom-runtime` 自己固定和审计�
 | `make integration-test` | 按需生成被 Git 忽略的 Go API 文件，再运行 Go `integration` build tag：migration、SQLite、HTTP 与跨模块流程 | 会写被忽略的 Go 生成物 |
 | `make api-generate` | 先把 OpenAPI 领域文件确定性合并为统一 bundle、以锁文件安装前端依赖，再生成被忽略的 Go models/server/spec 与须提交的前端 TypeScript schema | 会重建依赖目录并修改两端 generated 文件 |
 | `make api-check` | 在临时目录用固定生成器验证 OpenAPI 和两端生成结果，逐字节比较已提交的 TypeScript schema，并拒绝 Go 生成物被跟踪或未被 ignore | 仅依赖产物 |
-| `make web-e2e` | 先执行 `prepare-e2e-browser`，再用缓存中固定 Chrome for Testing 运行关键 Playwright 场景，包括项目自有 GBA/NES/SNES/Arcade 单机与双浏览器联机产品链路 | 会写浏览器缓存并产生本地报告 |
+| `make web-e2e` | 先执行 `prepare-e2e-browser`，再用缓存中固定 Chrome for Testing 运行关键 Playwright 场景，包括项目自有 GBA/NES/SNES/Arcade 单机与产品链路 | 会写浏览器缓存并产生本地报告 |
 | `make public-fixtures-check` | 从仓库内唯一生成源重建公开 ROM/metadata fixture 到临时目录，逐字节核对 bytes、SHA-256、许可、三个 GBA 来源身份及真实产品消费者；不得读取私有 source | 否 |
 | `make data-check` | 离线校验 Makefile/GitHub Actions 的 clean-checkout 依赖顺序、`docs/design` 图片不跟踪/不引用边界，以及已提交的小型依赖 manifest/SHA-256/DAT/许可配方 schema；CPS fixture 只与已提交的 source commit/hash/count 元数据对齐，不读取生产 DAT，无 payload 也通过 | 否 |
 | `make prepare-deps` | 按固定 manifest 物化 EmulatorJS/core/五份 DAT/许可文件并生成 notice；两个 FBA2012 DAT 从锁定源码确定性原生生成两次；正确缓存不联网；完成后执行 `deps-check` | 会写被忽略的依赖缓存 |
@@ -257,7 +257,6 @@ flat config 必须设置 `linterOptions.noInlineConfig=true` 且 unused disable 
 | Chrome E2E | 路由联动、用户激活/Fullscreen、移动方向门禁、响应式与 4K 关键布局 | `web/e2e/` + Playwright Chrome | 按影响范围/发布门禁 |
 | 产品运行时 E2E | 真实 Retrom 导入/Launch/内容端点/Player 是否能驱动 EmulatorJS 核心 | `web/e2e/` + `testdata/public-roms/` 项目自有 ROM | 按影响范围/发布门禁 |
 | RPG Maker 产品 E2E | 七版本项目导入、Provider/Target、三 adapter、unique-origin、A→B→C→不同 Launch 恢复到 B 与恢复后 `RESTORE_INPUT` | `web/e2e/` + 合法确定性 fixture/操作者 MZ deployment | 发布门禁 |
-| 联机协议与回归 | 房间/协议边界、安全拒绝、feature flag、容量、单机路径，以及八个精确 profile 的双浏览器核心与生命周期 | 聚焦 Go/Web 测试 + `ACC-NP-010`–`022` | 按影响范围/发布门禁 |
 | PFB 基础设施 | ID/spec/registry、严格 Host、共享网关、双PFB隔离、持久workspace、loose provider 开发文件、无隐式build、显式core、旧卷迁移、release拒绝与销毁确认 | Python/Node/Go单测 + Docker/Chrome `ACC-PFB-001`–`012` | PFB实现、runtime开发层或存储边界变更 |
 
 命名要求：
@@ -290,7 +289,6 @@ flat config 必须设置 `linterOptions.noInlineConfig=true` 且 unused disable 
 | 用户管理 | 邀请/重置 secret 单次显示且数据库不保存 secret/hash、角色和状态转换、ETag、本人保护、最后管理员保护、停用/删除级联撤销、离线 admin-reset 与 restore 安全栅栏 |
 | 私有数据隔离 | 所有 Profile 派生列表/详情/写入按认证主体限定；跨用户 ID、cursor、Idempotency-Key、SaveState 和 Launch 探测均不泄露也不串写 |
 | 收藏与收藏夹 | 名称 NFC/空白/case-fold 边界、收藏状态机、Folder 上限/version、批量边界和原子失败；卡片 E2E 锁定收藏前后相同的按钮/图标几何、居中位置及红色实心状态；current-schema 复合 owner FK、隐藏投影；每条 route 的 strict JSON/query、CSRF、cursor、ETag、幂等与两个 Profile 隔离 |
-| 联机控制面与实时协议 | Room/Member/Session 全状态与非法边、core profile 准入（同 artifact 的不同 ROM 名称/大小/hash 均可选，错版本/artifact/content kind/READY/dependency 均拒绝）、profile canonical digest、2/3/4 occupied mask、乱序贡献与 neutral seat、seq/frame/int16/大小校验、租约/history、前三次真实 resync/第四次终局、slow peer/backpressure、prepare/restart/restore 收口；Hub 必须跑 race test，SQLite 不保存实时 state/input bytes |
 | NG/代理边界 | 只信任 allowlist 代理的转发头、公开 origin 校验、伪造 `X-Forwarded-*` 拒绝、应用仅绑定 HTTP 且没有证书配置路径 |
 | 存档与恢复 | 非空 checkpoint payload 必需、PRODUCT 截图可选且缺失时 API/UI 明确返回空预览；存档按 Profile+Game 归属并记录 checkpoint format，恢复时由该 Game 当前 READY Target 的 `readFormats` 判定兼容，不匹配时保留存档并明确拒绝；Launch 已物化 payload 由自身引用保护，不依赖业务版本表；Provider 只向前升级时普通启动使用当前 Bundle，旧存档只要格式可读即可恢复；RPG runtime validation 的恢复证据截图仍是发布 gate 必需项 |
 | RPG Maker 项目与运行时 | selected-core×signature outcome（含 RPG2K family-only）、LCF/INI/HTML/JSON/parser fuzz、路径/gencache 冲突、V2 fileset、pack match/ref protection、route uniqueness、validation 状态机、bootstrap ticket 一次消费、native bundle codec、checkpoint compatibility；恢复必须断言 A→B 保存→C→不同 Launch 的 map/坐标/变量回到 B |
@@ -322,9 +320,8 @@ flat config 必须设置 `linterOptions.noInlineConfig=true` 且 unused disable 
 | NG 同源部署 | 通过测试 NG 访问时页面、API、content、runtime 均为同一公开 origin；内部地址不进入 bundle；`isSecureContext` 与 `crossOriginIsolated` 为真 |
 | PFB 本机网关 | 裸 localhost只安全重定向；两个规范 `.localhost` app Host、两个 unique runtime Host、Cookie/storage/DB/CAS/cache互不串用；非法Host、未知alias、跨PFB capability、外部监听与转发头欺骗全部失败关闭 |
 | RPG Maker 浏览器运行 | 七版本 core 选择无底层实现名；EasyRPG engine 与 mkxp RGSS profile 强制生效；MV/MZ exact unique origin、bootstrap/CSP/MessageChannel/恶意隔离；每版真实 marker、输入/音频/帧、A→B→C→新 Launch 恢复 B 和恢复后 `RESTORE_INPUT` |
-| 联机房间与 Player | feature flag 导航、SUPPORTED/ALL 与全部筛选/URL、分享/选座/ready/start gate、loading/空/error/blocker、确认弹层和焦点；Player 只暴露联机允许控件，启动前安装 v4.2.3 frame/state hook，rollback 输出抑制必须 finally 恢复，页面隐藏/断线全局暂停并在 lease 内原座恢复 |
 | 响应式应用壳与页面 | `320×568`、`360×800`、`390×844`、`412×915` 手机与 `768×1024`、`1024×768` 平板；路由上下文、底栏/Drawer/Sheet、草稿应用/取消、焦点归还、44px target、safe area、卡片列数和 document 零横向溢出 |
-| 移动 Player 方向门禁 | reducer/clock 单测覆盖首次竖屏、250ms 抖动、单机门禁拥有的暂停、用户暂停不误恢复、P1/P2 职责和 hidden 优先级；Chrome E2E 覆盖 config-first、竖屏零 iframe/core/game/PlaySession 请求、旋转后单次启动，以及 `568×320`、`667×375`、`844×390`、`932×430` HUD/Sheet |
+| 移动 Player 方向门禁 | reducer/clock 单测覆盖首次竖屏、250ms 抖动、单机门禁拥有的暂停、用户暂停不误恢复和 hidden 优先级；Chrome E2E 覆盖 config-first、竖屏零 iframe/core/game/PlaySession 请求、旋转后单次启动，以及 `568×320`、`667×375`、`844×390`、`932×430` HUD/Sheet |
 | 4K 与桌面体验 | 1280×800 最小桌面、2560×1440，以及物理 3840×2160、150% scale（CSS 2560×1440、DPR 1.5）的关键页面无失控拉伸、遮挡和不可达操作；4K viewport 截图实际为 3840×2160 像素，Player 保持正确比例 |
 
 响应式与 4K 视觉回归不能只依赖像素快照：E2E 还应断言内容最大宽度、关键控件可见、页面无横向溢出、Player canvas/阻断层在视口内、关键 target 尺寸以及导航层级可达。手机普通页面至少覆盖全部四个固定手机视口，平板覆盖两个固定横/竖视口；移动 Player 横屏至少覆盖四个固定视口。截图用于评审证据，不取代语义断言。
@@ -333,7 +330,6 @@ flat config 必须设置 `linterOptions.noInlineConfig=true` 且 unused disable 
 
 影响多盘 parser、Launch resource、Provider `discSwitch` 实现或换盘时，除受影响单元/集成/Web 测试外还必须执行 `make web-e2e` 与 `ACC-MDISC-001`–`008` 的受影响产品测试。当前没有真实 Saturn ROM 的浏览器产品 E2E；交付时必须明确这一边界，不能用伪 CHD、独立 EmulatorJS 页面或历史截图替代。
 
-影响 `internal/netplay`、联机 manifest、WebSocket、Player netplay adapter 或房间 UI 时，必须运行聚焦 Go/Web 测试、`go test -race ./internal/netplay`、migration/HTTP integration、`make web-e2e`，并按 [`ACC-NP-010`–`022`](./project-acceptance.md#19-联机游玩) 生成当次协议、安全、feature flag、单机回归与双浏览器核心证据。`ACC-NP-014`–`022` 只证明 manifest 锁定的八个 profile/artifact 与项目自有 fixture；其他 ROM/core 版本仍必须明确列为未覆盖。
 
 ## 8. Bug 回归固化流程
 
@@ -398,7 +394,7 @@ make web-e2e
 - 解析器可以使用小型、可读、带来源说明的确定性片段覆盖边界和畸形输入。
 - Arcade 兼容性结论必须另有针对 `make prepare-deps` 物化到 `data/dat/` 的完整、真实、版本锁定 DAT 的集成校验；小片段不能替代真实基线，payload 也不能因此提交 Git。
 - 负向安全测试可以构造恶意 ZIP/XML/路径，因为它们用于验证拒绝行为，不能被描述为真实游戏数据。
-- 自动化测试不得读取或下载用户 ROM/BIOS。仓库内公开 ROM 只允许使用项目自有、许可清晰、生成源可审查且由 `data-check/public-fixtures-check` 逐字节验证的夹具；GBA 的三个独立身份分别覆盖普通上传、Pegasus 与 EmulationStation，其中 `emulationstation-smoke.gba` 随最小严格 `gamelist.xml` 使用且不能复用已发布的另一个身份；NES 的两个内容身份分别覆盖 FCEUmm/Nestopia，SNES 夹具覆盖 SNES9x，Arcade 夹具覆盖 MAME 2003/Plus、FBNeo 与 FBA2012 CPS1/CPS2 的依赖装配、单机帧执行和双浏览器联机。真实 release DAT 的物化、解析和精确 active 选择由 `ACC-DAT-004` 使用 production manifest 独立证明；Arcade 产品 Case 的项目自有小型 DAT 由 acceptance-only 装置直接登记为 test-only `BUILTIN`，不得经过 DAT 上传 API，也不得冒充 production baseline。Case 必须显式核对 schema v2 的 `PARENT` 与 `BIOS_OR_BASE`、同一 DatVersion 及冻结内容 bytes。测试 BIOS 不被目标驱动执行；CPS2 的 `spf2t` 父归档只含项目自有 marker 且不被驱动执行；双浏览器结果只证明锁定 profile/artifact 与项目自有 fixture。
+- 自动化测试不得读取或下载用户 ROM/BIOS。仓库内公开 ROM 只允许使用项目自有、许可清晰、生成源可审查且由 `data-check/public-fixtures-check` 逐字节验证的夹具；GBA 的三个独立身份分别覆盖普通上传、Pegasus 与 EmulationStation，其中 `emulationstation-smoke.gba` 随最小严格 `gamelist.xml` 使用且不能复用已发布的另一个身份；NES 的两个内容身份分别覆盖 FCEUmm/Nestopia，SNES 夹具覆盖 SNES9x，Arcade 夹具覆盖 MAME 2003/Plus、FBNeo 与 FBA2012 CPS1/CPS2 的依赖装配、单机帧执行。真实 release DAT 的物化、解析和精确 active 选择由 `ACC-DAT-004` 使用 production manifest 独立证明；Arcade 产品 Case 的项目自有小型 DAT 由 acceptance-only 装置直接登记为 test-only `BUILTIN`，不得经过 DAT 上传 API，也不得冒充 production baseline。Case 必须显式核对 schema v2 的 `PARENT` 与 `BIOS_OR_BASE`、同一 DatVersion 及冻结内容 bytes。测试 BIOS 不被目标驱动执行；CPS2 的 `spf2t` 父归档只含项目自有 marker 且不被驱动执行。
 
 RPG Maker fixture 必须遵守同一再分发规则：生成源、许可、固定 bytes 与真实 Retrom 产品消费者同时存在，不得包含厂商 RTP、商业 runtime、官方 executable 或来源不明脚本。MZ 没有可提交商业 runtime 时，自动化只覆盖自有 shape/isolation harness，最终兼容性必须由操作者合法 Web deployment 的 `ACC-RPG-008` 证明，harness 不得冒充真实 MZ 运行。
 
@@ -510,9 +506,9 @@ RPG Maker fixture 必须遵守同一再分发规则：生成源、许可、固�
 
 - migration/store：当前空库与应用事务写入、表/列/partial unique/index/应用写入校验/INTEGER 时刻/FK、DELETED 不可恢复、同名新 ID、20/21 owner 上限，以及 backup/restore 对 tombstone、关系和审计的保真。
 - Tagging/HTTP：NFC、Unicode whitespace/case-fold/control、40/41 code point、160/161 byte、1,000/1,001 实例上限；CRUD/usage/cursor/filter/sort、ADMIN/USER、strict JSON/CSRF/If-Match/Idempotency、同名并发、关系 no-op、delete 与 assignment 两种提交顺序、版本联动和审计。
-- 搜索/投影：Game/Admin/Review 的 `q/tagId` 在 SQL 分页前取交集，cursor 不跨筛选复用；Favorite/Recent/Save/Netplay 与 detail 的数组始终非 null、名称稳定排序、删除立即隐藏且列表批量读取无 N+1。
+- 搜索/投影：Game/Admin/Review 的 `q/tagId` 在 SQL 分页前取交集，cursor 不跨筛选复用；Favorite/Recent/Save 与 detail 的数组始终非 null、名称稳定排序、删除立即隐藏且列表批量读取无 N+1。
 - Import/Review/Pegasus/EmulationStation：批次默认标签、多 Item 继承、reconfigure、逐项 autosave、删除后的旧 ETag、Approve 原子复制、Discard snapshot；逐 Collection 集合、SKIP 空值、mapping 恢复/start 漂移/retry/handoff 幂等和外部 metadata tags 不自动关联。
-- React/Chrome：TagPicker 键盘/20 上限/空 taxonomy，管理页 loading/empty/error/conflict/Drawer/Dialog 焦点，导入/Pegasus/EmulationStation/审核/管理员游戏写入，Library/Admin/Favorite/Recent/Save/Netplay 的名称搜索和精确 URL 恢复；390/1280/2560/物理 4K 150% scale 无页面横向溢出且 axe serious/critical 为零。
+- React/Chrome：TagPicker 键盘/20 上限/空 taxonomy，管理页 loading/empty/error/conflict/Drawer/Dialog 焦点，导入/Pegasus/EmulationStation/审核/管理员游戏写入，Library/Admin/Favorite/Recent/Save 的名称搜索和精确 URL 恢复；390/1280/2560/物理 4K 150% scale 无页面横向溢出且 axe serious/critical 为零。
 
 该切片运行 `make api-check`、后端四门禁、`make integration-test`、前端五门禁、`make web-e2e`、`ACC-TAG-001`–`005` 与 `make ci`。标签不进入 EmulatorJS、内容字节、Variant 或存档协议，因此不因本切片运行 core smoke、fixture 或依赖基线；若实际调用链改变则重新判定。
 
@@ -535,8 +531,7 @@ RPG Maker fixture 必须遵守同一再分发规则：生成源、许可、固�
   菜单顺序、上下/左右/A/B 与全屏拒绝；测试不得真实播放或写全局用户状态；
 - Provider 测试必须证明过滤器先于私有 loader 安装、仅过滤活动手柄 Select/Start、第一次 chord 不泄漏、
   菜单期间所有本地手柄归零、取消只恢复本菜单拥有的暂停、创建存档只走手动非空 state+可选截图链路且 payload 失败可重试、
-  退出完成并撤销 Launch、teardown 恢复原 `getGamepads`；4.2.3 与 4.3.0-pre 都覆盖，联机 legacy adapter
-  不能继承过滤；
+  退出完成并撤销 Launch、teardown 恢复原 `getGamepads`；4.2.3 与 4.3.0-pre 都覆盖；
 - 内容端点集成测试覆盖 Asset/ROM/多盘外部文件/BIOS/parent 相同 bytes URL 稳定、任一替换 URL 改变、旧
   identity 授权失败或退役、immutable private/public cache header，以及 SaveState/state screenshot 始终
   Profile 私有 no-store；
@@ -546,13 +541,13 @@ RPG Maker fixture 必须遵守同一再分发规则：生成源、许可、固�
 
 `ACC-IMM-001`–`012` 是唯一验收步骤事实源。修改输入过滤、普通 adapter manifest/registry、Player Shell、
 沉浸 API 或内容身份缓存时，除聚焦测试外必须运行 `make data-check`、`make deps-check`、`make web-e2e` 及
-普通/联机既有回归；不得通过复用联机 adapter 或降低输入断言取得通过。
+普通既有回归；不得通过降低输入断言取得通过。
 
 ## 13.2 RPG Maker 测试矩阵
 
 - 纯逻辑：唯一用户虚拟 Core、Provider 声明的七世代 Target 与 Host 受限接入策略、七世代自动检测与 42 个跨世代 mismatch、LCF varint/chunk、INI UTF-8/CP932、RGSS marker、MV/MZ HTML/JSON、安全逻辑路径与 fileset、deterministic mkxpz、项目资源声明与人工自包含确认、checkpoint codec 和唯一 Provider 生命周期；parser/codec 使用固定 seed fuzz，不能引入 I/O/panic/无界分配或第二份映射 registry。
 - SQLite/HTTP：001–014 最终 bootstrap、Provider/Target/pack/save/Launch 约束、启动目录原子同步及用户配置保留、只向前激活与持久存档 readFormats 保护、ticket 单次消费/过期/重放、review ETag/相关 prepublish 输入、普通审核 Preview/checkpoint/冻结恢复/TTL/终态清理、270 MiB multipart、Range/ETag/MIME/Host/Origin；无旧库转换或运行证明专用表/API。
-- Web：上传目的及 ZIP/目录自动识别、依赖就绪与普通试运行、唯一用户 Core、准确世代显示、loading/disabled/error、按需截图、会话级 checkpoint/恢复、dispatcher、Provider 启动取消/存档中退出/主动退出/失败清理，以及移动/桌面/4K/focus/axe。覆盖所有直接消费共享生命周期的普通、沉浸和联机分支；不保留 gate 面板或第二层 controller/factory。
+- Web：上传目的及 ZIP/目录自动识别、依赖就绪与普通试运行、唯一用户 Core、准确世代显示、loading/disabled/error、按需截图、会话级 checkpoint/恢复、dispatcher、Provider 启动取消/存档中退出/主动退出/失败清理，以及移动/桌面/4K/focus/axe。覆盖所有直接消费共享生命周期的普通和沉浸分支；不保留 gate 面板或第二层 controller/factory。
 - Chrome 产品链：七世代都经过真实上传、审核、Launch、受授权内容、普通 Player、marker、输入/音频/连续帧、checkpoint、结束和不同 Launch 恢复。A、B、C、restore 与继续输入均由研发 harness 观察普通 checkpoint、真实核心/fixture 和可见画面；证明 restore=B 且与 A/C 可区分。HTTP 201、load 成功、Blob/hash 相等、同进程 load 或单张截图均不能替代运行证明。
 - 项目资源策略：`ACC-RPG-009` 在现有开发实例中增量添加自有 fixture，验证五个 RTP 世代的默认阻断、人工确认、取消确认及发布；安装接口、专用上传和挂载已退役。保留已有游戏/存档，不清库。运行验证仍按受影响世代分别执行，不以审核就绪代替真实运行。具体步骤与证据只以[统一验收 ACC-RPG-009](./project-acceptance.md#acc-rpg-009项目资源与人工自包含确认)为准。
 - 安全/供应链：七世代闭环后执行 MV/MZ malicious harness 与扩展矩阵；Provider/Target/Bundle、许可来源、core 候选身份、checkpoint 格式与正式双镜像输入逐项闭合。PFB candidate 不冒充正式 tag/release 或外部分发证据。

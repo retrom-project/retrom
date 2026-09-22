@@ -17,7 +17,6 @@ SELECT launch.credential_sha256,launch.state,launch.version,launch.provider_id,l
  'PRODUCT',game.title,platform.name,launch.return_to,
  launch.content_kind,launch.dependency_snapshot_json,launch.compatibility_code,
  launch.save_state_id,launch.dos_entry_path,
- launch.netplay_session_id,launch.netplay_player_no,session.room_id,session.profile_json,
  launch.bootstrap_expires_at_ms,launch.hard_expires_at_ms,launch.idle_expires_at_ms,
  launch.initial_disc_index
 FROM launch_sessions launch
@@ -26,7 +25,6 @@ JOIN games game ON game.id=launch.game_id
 JOIN platform_instances instance ON instance.id=game.platform_instance_id
 JOIN platforms platform ON platform.id=instance.platform_id
 JOIN runtime_target_bindings binding ON binding.provider_id=launch.provider_id AND binding.target_id=launch.target_id
-LEFT JOIN netplay_sessions session ON session.id=launch.netplay_session_id
 WHERE launch.id=?
 `
 
@@ -36,7 +34,7 @@ SELECT preview.credential_sha256,preview.state,preview.version,preview.provider_
  binding.core_id,core.name,binding.detector_profile,binding.delivery_profile,
  'REVIEW_PREVIEW',preview.title,instance.name,
  '/admin/reviews/' || preview.import_item_id,preview.content_kind,preview.dependency_snapshot_json,'',
-	 NULL,preview.default_dos_entry,NULL,NULL,NULL,NULL,
+	 NULL,preview.default_dos_entry,
  preview.bootstrap_expires_at_ms,preview.hard_expires_at_ms,NULL,0
 FROM review_preview_sessions preview
 JOIN platform_instances instance ON instance.id=preview.target_platform_instance_id
@@ -64,8 +62,7 @@ func scanConfigSource(row dbexec.Scanner) (application.ConfigSource, bool, error
 		&source.BundleDigest, &source.CoreID, &source.CoreName,
 		&source.DetectorProfile, &source.Delivery, &source.Purpose, &source.Title, &source.PlatformName, &source.ReturnTo,
 		&source.ContentKind, &source.DependencyJSON, &source.Compatibility, &source.SaveID,
-		&source.DOSEntry, &source.NetplayID, &source.NetplayPlayer,
-		&source.NetplayRoom, &source.NetplayProfile, &source.BootstrapEnd, &source.HardEnd,
+		&source.DOSEntry, &source.BootstrapEnd, &source.HardEnd,
 		&source.IdleEnd, &source.InitialDisc,
 	)
 	if errors.Is(err, sql.ErrNoRows) {

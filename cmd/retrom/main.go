@@ -17,8 +17,6 @@ import (
 	"syscall"
 	"time"
 
-	netplayservice "retrom/internal/service/netplay"
-
 	"retrom/internal/composition"
 
 	providerpersistence "retrom/internal/persistence/runtimeprovider"
@@ -36,7 +34,6 @@ import (
 	"retrom/internal/dependencies"
 	"retrom/internal/httpapi"
 	"retrom/internal/importing"
-	"retrom/internal/netplay"
 	maintenancepersistence "retrom/internal/persistence/maintenance"
 	platformpersistence "retrom/internal/persistence/platforminstance"
 	"retrom/internal/processlock"
@@ -269,7 +266,7 @@ func run(mode config.Mode) error {
 		return err
 	}
 	defer resources.close()
-	netplayService, accountService, err := initializeRuntimeServices(
+	accountService, err := initializeAccountService(
 		startupContext, configuration, resources,
 	)
 	if err != nil {
@@ -280,7 +277,7 @@ func run(mode config.Mode) error {
 	apiServer := httpapi.New(
 		configuration, resources.database.SQL, resources.dependencies, resources.blobs,
 		resources.credentials, accountService, accountService, time.Now, resources.scummVMDetector,
-	).WithReadinessDatabase(resources.database.ReadOnly).WithNetplay(netplayService)
+	).WithReadinessDatabase(resources.database.ReadOnly)
 	apiServer.WithRuntimeProvider(
 		resources.runtimeProviders.Builder,
 		resources.runtimeProviders.Handler,
@@ -305,15 +302,13 @@ func loadServerConfiguration(mode config.Mode) (config.Config, error) {
 }
 
 type serverResources struct {
-	lock               *processlock.Lock
-	dependencies       *dependencies.Set
-	database           *store.DB
-	blobs              *blobstore.Store
-	credentials        *retromruntime.Credentials
-	netplayRegistry    *netplay.Registry
-	netplayCredentials *netplay.Credentials
-	runtimeProviders   runtimeprovider.Installation
-	scummVMDetector    *scummvm.Detector
+	lock             *processlock.Lock
+	dependencies     *dependencies.Set
+	database         *store.DB
+	blobs            *blobstore.Store
+	credentials      *retromruntime.Credentials
+	runtimeProviders runtimeprovider.Installation
+	scummVMDetector  *scummvm.Detector
 }
 
 func (resources *serverResources) close() {
@@ -378,16 +373,7 @@ func bootstrapServerResources(
 	if err != nil {
 		return result, fmt.Errorf("load launch credentials: %w", err)
 	}
-	result.netplayRegistry, err = netplay.LoadRegistry(
-		configuration.DependencyRoot, result.dependencies,
-	)
-	if err != nil {
-		return result, fmt.Errorf("load netplay registry: %w", err)
-	}
-	result.netplayCredentials, err = netplay.LoadOrCreateCredentials(configuration.DataDir)
-	if err != nil {
-		return result, fmt.Errorf("load netplay credentials: %w", err)
-	}
+
 	succeeded = true
 	return result, nil
 }
@@ -426,38 +412,26 @@ func openAndBootstrapDatabase(
 	return nil
 }
 
-func initializeRuntimeServices(
+func initializeAccountService(
 	ctx context.Context,
 	configuration config.Config,
 	resources serverResources,
-) (*netplayservice.Service, *accounts.Service, error) {
-	netplayService := composition.NewNetplay(
-		resources.database.SQL, resources.netplayRegistry, resources.netplayCredentials,
-		netplay.Options{
-			MaxActiveRooms: configuration.NetplayMaxActiveRooms,
-			DraftIdle:      configuration.NetplayRoomIdleDraft,
-			WaitingIdle:    configuration.NetplayRoomIdleWaiting,
-			ReconnectLease: configuration.NetplayReconnectLease,
-		}, time.Now,
-	)
-	if err := netplayService.Recover(ctx, "SERVER_RESTARTED"); err != nil {
-		return nil, nil, fmt.Errorf("recover netplay state: %w", err)
-	}
+) (*accounts.Service, error) {
 	blocklist, err := authn.LoadBlocklist(configuration.DependencyRoot)
 	if err != nil {
-		return nil, nil, fmt.Errorf("load password blocklist: %w", err)
+		return nil, fmt.Errorf("load password blocklist: %w", err)
 	}
 	accountService, err := composition.NewAccounts(
 		ctx, resources.database.SQL, resources.credentials,
 		configuration.Mode, blocklist, time.Now,
 	)
 	if err != nil {
-		return nil, nil, fmt.Errorf("initialize account service: %w", err)
+		return nil, fmt.Errorf("initialize account service: %w", err)
 	}
 	if err := accountService.Start(ctx); err != nil {
-		return nil, nil, fmt.Errorf("validate account state: %w", err)
+		return nil, fmt.Errorf("validate account state: %w", err)
 	}
-	return netplayService, accountService, nil
+	return accountService, nil
 }
 
 func startCatalogBootstrap(resources serverResources) context.CancelFunc {

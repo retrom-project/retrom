@@ -8,22 +8,12 @@ import (
 	"retrom/internal/contentprofile"
 )
 
-type PlatformTargetSupport interface {
-	SupportsPlatformTarget(platformID, coreID, providerID, targetID string) bool
-}
-
 type Service struct {
 	repository Repository
-	netplay    PlatformTargetSupport
 }
 
-func New(repository Repository, netplay PlatformTargetSupport) *Service {
-	return &Service{repository: repository, netplay: netplay}
-}
-
-func (service *Service) WithNetplay(netplay PlatformTargetSupport) *Service {
-	service.netplay = netplay
-	return service
+func New(repository Repository) *Service {
+	return &Service{repository: repository}
 }
 
 type Platform struct {
@@ -34,9 +24,8 @@ type Platform struct {
 }
 
 type PlatformCore struct {
-	ID, Name         string
-	Enabled          bool
-	NetplaySupported bool
+	ID, Name string
+	Enabled  bool
 }
 
 type (
@@ -68,10 +57,7 @@ func (service *Service) Platforms(ctx context.Context) ([]Platform, error) {
 			continue
 		}
 		coreID := *row.CoreID
-		if coreIndex, exists := cores[index][coreID]; exists {
-			if service.supports(row, items[index].ID, coreID) {
-				items[index].Cores[coreIndex].NetplaySupported = true
-			}
+		if _, exists := cores[index][coreID]; exists {
 			continue
 		}
 		core := PlatformCore{ID: coreID}
@@ -81,16 +67,10 @@ func (service *Service) Platforms(ctx context.Context) ([]Platform, error) {
 		if row.CoreEnabled != nil {
 			core.Enabled = *row.CoreEnabled
 		}
-		core.NetplaySupported = service.supports(row, items[index].ID, coreID)
 		cores[index][coreID] = len(items[index].Cores)
 		items[index].Cores = append(items[index].Cores, core)
 	}
 	return items, nil
-}
-
-func (service *Service) supports(row PlatformRow, platformID, coreID string) bool {
-	return service.netplay != nil && row.ProviderID != nil && row.TargetID != nil &&
-		service.netplay.SupportsPlatformTarget(platformID, coreID, *row.ProviderID, *row.TargetID)
 }
 
 func (service *Service) RuntimeTargets(ctx context.Context) ([]RuntimeTargetView, error) {

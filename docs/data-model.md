@@ -27,12 +27,12 @@ RuntimeProvider
        ├─ RuntimeTargetBinding ── Product Core / Platform / content kind
        ├─ BIOSRequirement / DatVersion
        ├─ ImportValidation / GameVariant
-       └─ LaunchSession / NetplaySession
+       └─ LaunchSession
 ```
 
 `runtime_providers` 每个 Provider 一行，保存当前 SemVer、Provider API、Bundle/manifest/module SHA-256、来源与激活时刻。安装器拒绝降级、同版本换字节、身份不一致和活动文件漂移。
 
-`runtime_targets` 的主键是 `(provider_id,target_id)`，保存当前 Provider manifest 投影的展示名、闭合 options schema、能力、checkpoint declaration 和公开 fragment。稳定引用只使用 Provider/Target；Bundle digest 只在需要重现实际执行字节的 Launch、Preview 与 Netplay session 中冻结。
+`runtime_targets` 的主键是 `(provider_id,target_id)`，保存当前 Provider manifest 投影的展示名、闭合 options schema、能力、checkpoint declaration 和公开 fragment。稳定引用只使用 Provider/Target；Bundle digest 只在需要重现实际执行字节的 Launch 与 Preview 中冻结。
 
 `runtime_target_bindings` 把产品 `core_id` 绑定到一个稳定 Target，并通过 platform/content-kind 关系收紧适用范围。数据库不保存 adapter、引擎 core、入口或资产映射。
 
@@ -106,7 +106,7 @@ RPG Maker profile 保存实际检测得到的项目 fingerprint、generation、P
 
 ## 6. Launch 与资源冻结
 
-`launch_sessions` 保存 Game/Core、稳定 Provider/Target、冻结 `bundle_sha256`、内容类型、依赖 snapshot、兼容状态、可选 save/netplay owner、凭据摘要和生命周期。`launch_content_files` 与 `launch_external_files` 锁定本次内容、BIOS、parent 和 disc Blob；创建后 Game、Variant、DAT、BIOS 或 Provider 当前态变化都不能改写既有 Launch。
+`launch_sessions` 保存 Game/Core、稳定 Provider/Target、冻结 `bundle_sha256`、内容类型、依赖 snapshot、兼容状态、可选 save owner、凭据摘要和生命周期。`launch_content_files` 与 `launch_external_files` 锁定本次内容、BIOS、parent 和 disc Blob；创建后 Game、Variant、DAT、BIOS 或 Provider 当前态变化都不能改写既有 Launch。
 
 Review Preview 使用相同冻结原则和 Player，但保留审核来源 owner，不创建假 Game。启动、心跳和退出只推进会话授权状态，不写入已发布游戏的游玩统计。Provider 静态资源由 Provider/Bundle/path 三元组读取并逐请求校验 allowlist 与摘要。
 
@@ -118,11 +118,10 @@ Review Preview 使用相同冻结原则和 Player，但保留审核来源 owner�
 
 Provider 激活前按来源 Launch 的 Core 关联其当前 Variant/Target，保证该核心现有未删除持久存档格式仍在 `readFormats` 中；同一 Game 的其他备用核心不继承这项格式要求。审核临时 checkpoint 不参与升级门槛，也不以 `maxBytes` 减少阻塞升级。审核结束由既有 payload release 清除临时引用；普通 GC 周期释放过期 preview 的 checkpoint/restore 引用。实际 CAS 删除仍按剩余 owner 与宽限期执行。
 
-## 8. Play、隔离与联机
+## 8. Play 与隔离
 
 `play_sessions` 与事件使用连续 client sequence 计算有效游玩时长。`isolated_runtime_bootstrap_tickets` 和 `isolated_runtime_capabilities` 为每个 Launch/Preview 提供一次性、exact-origin 授权。
 
-Netplay room、session、participant 与 event 保存当前选择和会话冻结态。Netplay session 冻结 Provider/Target、Bundle、内容/依赖摘要和 profile；参与者 Launch 必须一致。联机兼容由标准 Target 能力和 profile 精确匹配决定，不使用平行稳定 Target字段。
 
 ## 9. Blob ownership 与释放
 
@@ -132,7 +131,7 @@ Game 内容替换会立即移除旧 Game-owned 与 Game-runtime-owned 边；BIOS
 
 ### BIOS 与 Launch 延迟回收
 
-`013_bios_session_retirement.sql` 为未释放的非活动 BIOS 安装、按 Blob 定位的 `BIOS_BUNDLE` VariantFile 和当前活动 BIOS Blob 建立索引。替换由 firmware Service 在安装事务内组织，Repository 按原安装 ID、Requirement、Blob、版本和活动状态切换当前安装，并确认恰好更新一行。旧上传消费的释放排期复用 payloadrelease Service，与安装切换一起提交；读取、写入或排期失败均回滚。替换事务不遍历依赖 JSON，也不更新 GameVariant、Launch、Play、Netplay 或 SaveState。旧安装仍持有 Blob，后台每个事务最多移除 200 条旧 Variant BIOS 边；同一 Blob 仍被其他活动安装采用时保留这些边。释放安装的 Blob 引用后仍保留名称/hash/来源审计。
+`013_bios_session_retirement.sql` 为未释放的非活动 BIOS 安装、按 Blob 定位的 `BIOS_BUNDLE` VariantFile 和当前活动 BIOS Blob 建立索引。替换由 firmware Service 在安装事务内组织，Repository 按原安装 ID、Requirement、Blob、版本和活动状态切换当前安装，并确认恰好更新一行。旧上传消费的释放排期复用 payloadrelease Service，与安装切换一起提交；读取、写入或排期失败均回滚。替换事务不遍历依赖 JSON，也不更新 GameVariant、Launch、Play 或 SaveState。旧安装仍持有 Blob，后台每个事务最多移除 200 条旧 Variant BIOS 边；同一 Blob 仍被其他活动安装采用时保留这些边。释放安装的 Blob 引用后仍保留名称/hash/来源审计。
 
 `launch_payload_retirements` 是 Launch 的回收排期，包含 `launch_session_id`、`due_at_ms`、`released_at_ms`。`sessionstore.CreateLaunch` 创建排期，`sessionstore.ChangeLaunch` 在状态/心跳更新的同一事务维护截止时间：CREATED 取 bootstrap/hard 最早值，ACTIVE 取 idle/hard 最早值，终态取 finished 时间；已释放行不重新入队。后台按未释放截止时间的部分索引逐会话处理，每个短事务分别最多释放 200 条内容文件和 200 条外部文件引用。超时会话标为 EXPIRED，并按 Launch ID 结束对应 Play；大项目跨批次继续，全部文件引用释放后才记录释放时间。存档和会话来源记录保留，物理文件仍受其他 owner 与 GC 宽限期保护。普通启动与每小时 GC 对账重试未完成工作；单次替换无需等待对账，服务重启可续做。
 
@@ -142,7 +141,7 @@ Game 内容替换会立即移除旧 Game-owned 与 Game-runtime-owned 边；BIOS
 
 `recordstore`、`sessionstore` 与声明式数据库约束共同保证：
 
-- Provider/Target 引用命中当前 catalog，Launch/Netplay 的 Bundle 命中创建时的当前 Provider；
+- Provider/Target 引用命中当前 catalog，Launch 的 Bundle 命中创建时的当前 Provider；
 - Game、Variant 的稳定 owner 和逐次 `version` 更新；
 - Launch、Preview、Save、Validation 与资源 owner 一致；
 - checkpoint format 位于 Target 的可读格式集合；

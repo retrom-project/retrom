@@ -151,34 +151,12 @@ func TestParseVersionsRequiresStrictSortedSemver(t *testing.T) {
 
 func TestRejectUnknownVariablesAllowsToolPrefixesOnly(t *testing.T) {
 	t.Parallel()
-	if err := rejectUnknownVariables([]string{"RETROM_ACCEPTANCE_BASE_URL=https://example.invalid", "RETROM_HTTP_ADDR=x", "RETROM_ALLOW_INSECURE_PUBLIC_ORIGIN=true", "RETROM_MULTI_DISC_IMPORT_ENABLED=false", "RETROM_NETPLAY_ENABLED=true"}); err != nil {
+	if err := rejectUnknownVariables([]string{"RETROM_ACCEPTANCE_BASE_URL=https://example.invalid", "RETROM_HTTP_ADDR=x", "RETROM_ALLOW_INSECURE_PUBLIC_ORIGIN=true", "RETROM_MULTI_DISC_IMPORT_ENABLED=false"}); err != nil {
 		t.Fatalf("known variables rejected: %v", err)
 	}
 	for _, variable := range []string{"RETROM_DATA_DI=typo", "RETROM_EXAMPLE_ROOT=removed"} {
 		if err := rejectUnknownVariables([]string{variable}); err == nil {
 			t.Fatalf("unknown RETROM variable %q was accepted", variable)
-		}
-	}
-}
-
-func TestParseNetplayCapacityAndFixedProtocolTimers(t *testing.T) {
-	t.Parallel()
-	for _, value := range []string{"1", "16", "128"} {
-		if _, err := parseIntegerRange("RETROM_NETPLAY_MAX_ACTIVE_ROOMS", value, 16, 1, 128); err != nil {
-			t.Fatalf("valid room capacity %q rejected: %v", value, err)
-		}
-	}
-	for _, value := range []string{"0", "129", "01", " 16"} {
-		if _, err := parseIntegerRange("RETROM_NETPLAY_MAX_ACTIVE_ROOMS", value, 16, 1, 128); err == nil {
-			t.Fatalf("invalid room capacity %q accepted", value)
-		}
-	}
-	if duration, err := parseFixedMilliseconds("RETROM_NETPLAY_RECONNECT_LEASE_MS", "", 10_000); err != nil || duration != 10_000_000_000 {
-		t.Fatalf("default reconnect lease = %s, %v", duration, err)
-	}
-	for _, value := range []string{"9999", "10001", "010000"} {
-		if _, err := parseFixedMilliseconds("RETROM_NETPLAY_RECONNECT_LEASE_MS", value, 10_000); err == nil {
-			t.Fatalf("invalid reconnect lease %q accepted", value)
 		}
 	}
 }

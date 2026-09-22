@@ -26,7 +26,6 @@ const pages = [
   ["favorites", "收藏", "/favorites", ".page-header"],
   ["recent", "最近游玩", "/recent", ".page-header"],
   ["account", "账户", "/account", ".account-password-form"],
-  ["netplay", "联机大厅", "/netplay", ".page-header"],
   ["imports", "入库总览", "/admin/imports", ".page-header"],
   ["import-new", "新建导入", "/admin/imports/new", ".page-header"],
   ["import-server", "本地扫描", "/admin/imports/server", ".page-header"],

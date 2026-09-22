@@ -1,8 +1,6 @@
 "use client";
 
 import type {Dispatch, SetStateAction} from "react";
-import {newUuid} from "@/lib/crypto";
-import {writeHeaders} from "@/lib/api/client";
 import type {EmulatorSettingsPanel} from "./emulator-settings";
 import type {GameSaveSync} from "./game-save-sync";
 import {multiDiscPlayerResultCode, type MultiDiscPlayerEvent} from "./multi-disc-telemetry";
@@ -38,10 +36,7 @@ type RuntimeActionParams = {
   setEmulatorVolume: Dispatch<SetStateAction<number>>;
   setEmulatorMuted: Dispatch<SetStateAction<boolean>>;
   videoRenderingModeRef: Mutable<VideoRenderingMode>;
-  netplayPaused: boolean;
-  netplayPausedRef: Mutable<boolean>;
-  setNetplayPaused: Dispatch<SetStateAction<boolean>>;
-};
+  };
 
 export function usePlayerRuntimeActions(params: RuntimeActionParams) {
   async function saveManualState() {
@@ -124,26 +119,8 @@ export function usePlayerRuntimeActions(params: RuntimeActionParams) {
     void setRuntimeVideoMode(runtime, mode).then(() => params.showToast("画面模式已应用"));
   }
 
-  async function toggleNetplayPause() {
-    const action = params.netplayPaused ? "resume" : "pause";
-    if (!await requestNetplayPause(action)) {params.showToast("无法更改全局暂停状态，请重试。", 4_000);}
-  }
 
-  const requestNetplayPause = (action: "pause" | "resume") => requestGlobalPause(action, params);
   return {saveManualState, selectDisc, toggleFullscreen, openEmulatorSettings, closeEmulatorSettings,
     openEmulatorPanel, changeEmulatorVolume, toggleEmulatorMute, changeVideoRenderingMode,
-    toggleNetplayPause, requestNetplayPause};
-}
-
-async function requestGlobalPause(action: "pause" | "resume", params: RuntimeActionParams) {
-  const netplay = params.envelope.current?.netplay;
-  if (!netplay || netplay.playerNo !== 1) {return false;}
-  const response = await fetch(`/api/v1/netplay/rooms/${netplay.roomId}/sessions/${netplay.sessionId}/${action}`, {
-    method: "POST", credentials: "same-origin",
-    headers: writeHeaders({"Content-Type": "application/json", "Idempotency-Key": newUuid()}), body: "{}",
-  }).catch(() => null);
-  if (!response?.ok) {return false;}
-  params.netplayPausedRef.current = action === "pause";
-  params.setNetplayPaused(action === "pause");
-  return true;
+  };
 }

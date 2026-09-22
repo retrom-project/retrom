@@ -3,29 +3,26 @@
 import { useCallback, useEffect, type Dispatch, type SetStateAction } from "react";
 import { observeStableOrientation, portraitPlayerQuery, reducePlayerOrientation, requestFullscreenAndLandscape, type PlayerOrientationEffect, type PlayerOrientationState } from "./orientation";
 import type {PlayerRuntimeV1} from "./runtime/contract";
-import type { NetplayController } from "./netplay/controller";
 
 type Mutable<T> = { current: T };
 
 type OrientationParams = {
-  playerMode: Mutable<"single" | "netplay">; netplayController: Mutable<NetplayController | null>;
-  runtime: Mutable<PlayerRuntimeV1 | null>; pausedRef: Mutable<boolean>; netplayPausedRef: Mutable<boolean>;
-  orientationStateRef: Mutable<PlayerOrientationState>; setOrientationState: Dispatch<SetStateAction<PlayerOrientationState>>;
+  runtime: Mutable<PlayerRuntimeV1 | null>; pausedRef: Mutable<boolean>; orientationStateRef: Mutable<PlayerOrientationState>; setOrientationState: Dispatch<SetStateAction<PlayerOrientationState>>;
   setPaused: Dispatch<SetStateAction<boolean>>; setOrientationHelp: Dispatch<SetStateAction<string>>;
-  requestNetplayPause: (action: "pause" | "resume") => Promise<boolean>; showControls: () => void; showToast: (message: string, timeout?: number) => void;
+  showControls: () => void; showToast: (message: string, timeout?: number) => void;
 };
 
 export function usePlayerOrientationRuntime(params: OrientationParams) {
   const runEffects = useCallback(async (effects: PlayerOrientationEffect[]) => {
     const queue = [...effects];
-    while (queue.length) {await runOrientationEffect(queue.shift(), queue, params);}
+    while (queue.length) {await runOrientationEffect(queue.shift(), params);}
   }, [params]);
 
   useEffect(() => {
     if (typeof window.matchMedia !== "function") {return;}
     const portraitQuery = window.matchMedia(portraitPlayerQuery);
     const apply = (portrait: boolean) => {
-      const paused = params.playerMode.current === "single" ? params.pausedRef.current : params.netplayPausedRef.current;
+      const paused = params.pausedRef.current;
       applyTransition(reducePlayerOrientation(params.orientationStateRef.current, { type: "orientation-stable", portrait, paused }), params, runEffects);
     };
     return observeStableOrientation(portraitQuery, apply);
@@ -47,18 +44,14 @@ export function usePlayerOrientationRuntime(params: OrientationParams) {
   return { retryLandscape };
 }
 
-async function runOrientationEffect(effect: PlayerOrientationEffect | undefined, queue: PlayerOrientationEffect[], params: OrientationParams) {
-  if (effect === "release-input") {releaseInput(params); return;}
+async function runOrientationEffect(effect: PlayerOrientationEffect | undefined, params: OrientationParams) {
+  if (effect === "release-input") {releaseInput(); return;}
   if (effect === "pause-single") {await pauseSingle(params); return;}
   if (effect === "resume-single") {await resumeSingle(params); return;}
-  if (effect === "pause-netplay") {await pauseNetplay(queue, params); return;}
-  if (effect === "resume-netplay") {if (!await params.requestNetplayPause("resume")) {params.showToast("无法自动恢复联机，请由房主手动继续。", 4_000);} return;}
-  if (effect === "warn-netplay-p2") {params.showToast("本局仍在进行，请立即横屏。", 4_000);}
 }
 
-function releaseInput(params: OrientationParams) {
+function releaseInput() {
   if (document.activeElement instanceof HTMLElement) {document.activeElement.blur();}
-  if (params.playerMode.current === "netplay") {params.netplayController.current?.handleFocusLoss();}
 }
 
 async function pauseSingle(params: OrientationParams) {
@@ -74,14 +67,6 @@ async function resumeSingle(params: OrientationParams) {
   params.pausedRef.current = false;
   params.setPaused(false);
   params.showControls();
-}
-
-async function pauseNetplay(queue: PlayerOrientationEffect[], params: OrientationParams) {
-  if (!await params.requestNetplayPause("pause")) {params.showToast("无法在旋转时暂停联机，请立即横屏并手动确认状态。", 4_000); return;}
-  const transition = reducePlayerOrientation(params.orientationStateRef.current, { type: "netplay-pause-owned" });
-  params.orientationStateRef.current = transition.state;
-  params.setOrientationState(transition.state);
-  queue.unshift(...transition.effects);
 }
 
 function applyTransition(transition: { state: PlayerOrientationState; effects: PlayerOrientationEffect[] }, params: OrientationParams, runEffects: (effects: PlayerOrientationEffect[]) => Promise<void>) {

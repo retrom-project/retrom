@@ -18,9 +18,9 @@ test("ACC-UI-001 authenticated navigation exposes the administrator entry", asyn
   test.setTimeout(180_000);
   await page.goto("/");
   const navigation = page.getByRole("navigation", { name: "主要导航" });
-  await expect(navigation.getByRole("link")).toHaveCount(6);
+  await expect(navigation.getByRole("link")).toHaveCount(5);
   await expect(navigation.getByRole("link")).toHaveText([
-    "首页", "游戏库", "我的存档", "我的收藏", "最近游玩", "联机游玩"
+    "首页", "游戏库", "我的存档", "我的收藏", "最近游玩"
   ]);
   await navigation.getByRole("link", { name: "最近游玩" }).click();
   await expect(page).toHaveURL(/\/recent$/);
@@ -30,7 +30,7 @@ test("ACC-UI-001 authenticated navigation exposes the administrator entry", asyn
   if (await firstGame.count()) {
     await firstGame.getByRole("link").first().click();
     await page.waitForURL(/\/games\/[0-9a-f-]+$/, { timeout: 30_000 });
-    await expect(page.getByRole("navigation", { name: "主要导航" }).getByRole("link")).toHaveCount(6);
+    await expect(page.getByRole("navigation", { name: "主要导航" }).getByRole("link")).toHaveCount(5);
   }
   const userSidebarFoot = page.locator(".sidebar-foot");
   await expect(userSidebarFoot.locator(".sidebar-account-row .connection")).toHaveCount(1);
@@ -167,7 +167,7 @@ test("ACC-UI-004 loading, empty, retryable error, warning, and blocker states ar
 
   await page.goto("/admin/bios?scope=FULL_CATALOG&q=gba_bios.bin");
   await expect(page.getByRole("heading", { name: "运行依赖" })).toBeVisible();
-  await expect(page.getByRole("tab", { name: "BIOS 文件" })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("button", { name: /^完整 BIOS 目录/ })).toHaveAttribute("aria-pressed", "true");
   const gbaRow = page.getByRole("row").filter({ hasText: "gba_bios.bin" });
   await gbaRow.locator('input[type="file"]').setInputFiles({ name: "gba_bios.bin", mimeType: "application/octet-stream", buffer: Buffer.from("retrom-invalid-bios\n") });
   await expect(gbaRow.getByText("校验值不一致", { exact: true })).toBeVisible();
@@ -211,7 +211,7 @@ test("ACC-UI-006 admin pages remain reachable at desktop breakpoints", async ({ 
   const routes = [
     ["/admin/imports", ".import-workflow-page"], ["/admin/imports/new", ".import-wizard"],
     ["/admin/imports/server", ".page-layout-admin"], ["/admin/imports/tasks", ".import-workflow-page"],
-    ["/admin/reviews", ".import-workflow-page"], ["/admin/reviews/history", ".import-workflow-page"],
+    ["/admin/reviews", ".import-workflow-page"],
     ["/admin/games", ".page-header"], ["/admin/platform-instances", ".platform-directory-manager"],
     ["/admin/users", ".user-admin-page"], ["/admin/bios", ".page-layout-admin"],
     ["/admin/storage", ".storage-analysis-page"],
@@ -272,41 +272,18 @@ test("ACC-UI-006 admin pages remain reachable at desktop breakpoints", async ({ 
   await expect(page.getByRole("heading", { name: "游戏目录", exact: true })).toBeVisible();
   await expect(page.getByRole("navigation", { name: "主要导航" }).getByText("游戏目录", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "✓ 推荐目录已创建" })).toBeDisabled();
-  await expect(page.getByRole("columnheader", { name: /^联机/ })).toBeVisible();
   await expect(page.getByRole("columnheader", { name: "启用状态" })).toBeVisible();
   const platformHeader = await page.getByRole("columnheader", { name: "游戏平台" }).boundingBox();
-  const netplayHeader = await page.getByRole("columnheader", { name: /^联机/ }).boundingBox();
   const extensionHeader = await page.getByRole("columnheader", { name: "扩展名" }).boundingBox();
   expect(platformHeader).not.toBeNull();
-  expect(netplayHeader).not.toBeNull();
   expect(extensionHeader).not.toBeNull();
-  expect(platformHeader!.x).toBeLessThan(netplayHeader!.x);
-  expect(netplayHeader!.x).toBeLessThan(extensionHeader!.x);
+  expect(platformHeader!.x).toBeLessThan(extensionHeader!.x);
   await expect(page.getByText("FDS 游戏", { exact: true })).toHaveCount(0);
   await expect(page.getByText("MAME 2003 游戏", { exact: true })).toHaveCount(0);
   const nesDirectory = page.locator(".platform-directory-row").filter({ has: page.getByRole("heading", { name: "NES 游戏", exact: true }) });
   await expect(nesDirectory.getByText(".fds", { exact: true })).toHaveCount(1);
-  const supportedNetplayIndicator = nesDirectory.getByLabel("支持联机");
-  await expect(supportedNetplayIndicator).toHaveCount(1);
-  const iconCenterOffset = await supportedNetplayIndicator.evaluate((indicator) => {
-    const icon = indicator.querySelector("svg");
-    if (!(icon instanceof SVGGraphicsElement)) {return null;}
-    const matrix = icon.getScreenCTM();
-    if (!matrix) {return null;}
-    const indicatorBounds = indicator.getBoundingClientRect();
-    const iconBounds = icon.getBBox();
-    const topLeft = new DOMPoint(iconBounds.x, iconBounds.y).matrixTransform(matrix);
-    const bottomRight = new DOMPoint(iconBounds.x + iconBounds.width, iconBounds.y + iconBounds.height).matrixTransform(matrix);
-    return { x: (topLeft.x + bottomRight.x - indicatorBounds.left - indicatorBounds.right) / 2, y: (topLeft.y + bottomRight.y - indicatorBounds.top - indicatorBounds.bottom) / 2 };
-  });
-  expect(iconCenterOffset).not.toBeNull();
-  expect(Math.abs(iconCenterOffset!.x)).toBeLessThanOrEqual(0.5);
-  expect(Math.abs(iconCenterOffset!.y)).toBeLessThanOrEqual(0.5);
   const mamePlusDirectory = page.locator(".platform-directory-row").filter({ has: page.getByRole("heading", { name: "MAME 2003 Plus 游戏", exact: true }) });
   await expect(mamePlusDirectory.getByText(".zip", { exact: true })).toHaveCount(1);
-  await expect(mamePlusDirectory.getByLabel("支持联机")).toHaveCount(1);
-  const gbaDirectory = page.locator(".platform-directory-row").filter({ has: page.getByRole("heading", { name: "GBA 游戏", exact: true }) });
-  await expect(gbaDirectory.getByLabel("不支持联机")).toHaveCount(1);
   const directoryRowHeights = await page.locator(".platform-directory-row").evaluateAll((rows) => rows.map((row) => row.getBoundingClientRect().height));
   expect(directoryRowHeights.length).toBeGreaterThan(0);
   expect(directoryRowHeights.every((height) => height >= 87 && height <= 90)).toBe(true);

@@ -10,7 +10,6 @@ import {shouldRevealPlayerControls, shouldRevealPlayerControlsForKey} from "./pl
 import type {PlayerDebugMetrics} from "./player-debug";
 import {applyVideoRenderingMode, readVideoRenderingMode, subscribeVideoRenderingMode, type VideoRenderingMode} from "./video-rendering";
 import {initialPlayerOrientationState, type PlayerOrientationState} from "./orientation";
-import type {NetplayController} from "./netplay/controller";
 import {usePlayerBootstrap} from "./player-bootstrap";
 import {usePlayerSession} from "./player-session";
 import {NativeSaveToast} from "./checkpoint-help";
@@ -30,7 +29,7 @@ import type {LaunchEnvelopeV1, PlayerRuntimeV1, RuntimeDiscStateV1} from "./runt
 import type {RuntimeController} from "./runtime/runtime-controller";
 import {captureRuntimeSave} from "./runtime/runtime-actions";
 import {canResumeFromGameSurface} from "./player-shell-model";
-export {canResumeFromGameSurface, readBoundedResponse, reportsNativeExit} from "./player-shell-model";
+export {canResumeFromGameSurface, readBoundedResponse} from "./player-shell-model";
 
 type ShellState = "loading" | "running" | "error";
 
@@ -84,16 +83,12 @@ export function PlayerShell({launchId, experience = "standard"}: {launchId: stri
     () => "pixel",
   );
   const [discState, setDiscState] = useState<RuntimeDiscStateV1 | null>(null);
-  const [netplayPlayerNo, setNetplayPlayerNo] = useState<number | null>(null);
-  const [netplayPaused, setNetplayPaused] = useState(false);
   const [debugOpen, setDebugOpen] = useState(false);
   const [orientationState, setOrientationState] = useState<PlayerOrientationState>(initialPlayerOrientationState);
   const [orientationHelp, setOrientationHelp] = useState("若浏览器不能自动锁定方向，请手动旋转设备。");
   const [debugMetrics, setDebugMetrics] = useState<PlayerDebugMetrics | null>(null);
   const [debugRuntime, setDebugRuntime] = useState<PlayerDebugRuntime>(initialDebugRuntime);
   const returnTo = useRef("/library");
-  const playerMode = useRef<"single" | "netplay">("single");
-  const netplayController = useRef<NetplayController | null>(null);
   const sequence = useRef(0);
   const started = useRef(false);
   const finishing = useRef(false);
@@ -110,7 +105,6 @@ export function PlayerShell({launchId, experience = "standard"}: {launchId: stri
   const pausePending = useRef(false);
   const chromePinned = useRef(false);
   const lastAudibleVolume = useRef(0.5);
-  const netplayPausedRef = useRef(false);
   const orientationStateRef = useRef<PlayerOrientationState>(initialPlayerOrientationState);
   const videoRenderingModeRef = useRef<VideoRenderingMode>("pixel");
   const keyboardPauseAction = useRef<() => void>(() => undefined);
@@ -170,7 +164,7 @@ export function PlayerShell({launchId, experience = "standard"}: {launchId: stri
   }, [clearControlsTimer, controlsVisible, showControls]);
 
   const pauseForToolbarInteraction = useCallback(() => {
-    if (playerMode.current === "netplay" || !running.current || pausedRef.current || pausePending.current) {return;}
+    if (!running.current || pausedRef.current || pausePending.current) {return;}
     const active = runtime.current;
     if (!active?.getCapabilities().pause) {return;}
     pausePending.current = true;
@@ -184,7 +178,7 @@ export function PlayerShell({launchId, experience = "standard"}: {launchId: stri
   }, [clearControlsTimer, showToast]);
 
   const resumeFromSurface = useCallback((source: "runtime" | "pause-overlay") => {
-    if (!canResumeFromGameSurface({mode: playerMode.current, running: running.current, paused: pausedRef.current, chromePinned: chromePinned.current, source})) {return;}
+    if (!canResumeFromGameSurface({running: running.current, paused: pausedRef.current, chromePinned: chromePinned.current, source})) {return;}
     const active = runtime.current;
     if (!active?.getCapabilities().pause) {return;}
     void active.resume().then(() => {
@@ -196,8 +190,8 @@ export function PlayerShell({launchId, experience = "standard"}: {launchId: stri
   }, [showControls, showToast]);
   const handleGameSurfaceInteraction = useCallback(() => resumeFromSurface("runtime"), [resumeFromSurface]);
   const sessionParams = useMemo(() => ({
-    launchId, runtime, envelope, playerMode, sequence, started, finishing, heartbeat, playEventQueue, saveUploadQueue,
-    orientationStateRef, returnTo, netplayController, setOrientationState, setSaveUploadProgress,
+    launchId, runtime, envelope, sequence, started, finishing, heartbeat, playEventQueue, saveUploadQueue,
+    orientationStateRef, returnTo, setOrientationState, setSaveUploadProgress,
     setSyncText, setSyncTone, showToast, replaceImmersiveRoute,
   }), [launchId, replaceImmersiveRoute, showToast]);
   const {sendEvent, uploadManualState, captureReviewScreenshot, exit, exitStrict, exitImmersiveAfterRuntimeExit} = usePlayerSession(sessionParams);
@@ -229,11 +223,11 @@ export function PlayerShell({launchId, experience = "standard"}: {launchId: stri
   });
   const bootstrapParams = useMemo(() => ({
     launchId, experience, immersiveGamepadFilter: immersive.filter, stage, runtime, runtimeController, envelope,
-    returnTo, playerMode, manualSaveAvailableRef, dosProgramMenuRef, orientationStateRef, videoRenderingModeRef,
-    pausedRef, started, finishing, heartbeat, toastTimer, netplayController, netplayPausedRef,
-    setMessage, setLoadProgress, setState, setManualSaveAvailable, setDosProgramMenu, setNetplayPlayerNo,
+    returnTo, manualSaveAvailableRef, dosProgramMenuRef, orientationStateRef, videoRenderingModeRef,
+    pausedRef, started, finishing, heartbeat, toastTimer,
+    setMessage, setLoadProgress, setState, setManualSaveAvailable, setDosProgramMenu,
     setWarnings, setGameTitle, setCheckpointSemantics, setCoreName, setPlatformName, setDebugRuntime, setDiscState, setOrientationState,
-    setSyncText, setSyncTone, setEmulatorVolume, setEmulatorMuted, setPaused, setNetplayPaused,
+    setSyncText, setSyncTone, setEmulatorVolume, setEmulatorMuted, setPaused,
     setPlayerReturnTo, setReviewScreenshotAvailable, reportPlayerEvent,
     onKeyboardPause: () => keyboardPauseAction.current(), onImmersiveMenuShortcut: immersive.requestMenu,
     onRevealControls: revealControlsAtTopEdge, onShowControls: showControls, onGameSurface: handleGameSurfaceInteraction,
@@ -243,7 +237,7 @@ export function PlayerShell({launchId, experience = "standard"}: {launchId: stri
   usePlayerBootstrap(bootstrapParams, cancelBootstrap);
   const runtimeEffectParams = useMemo(() => ({
     state, debugOpen, orientationBlocked: orientationState.phase === "orientation-blocked", runtime,
-    orientationButtonRef, running, pausedRef, chromePinned, controlsTimer, playerMode, netplayController,
+    orientationButtonRef, running, pausedRef, chromePinned, controlsTimer,
     clearControlsTimer, setControlsVisible, setFullscreen, setDebugOpen, setDebugMetrics,
   }), [clearControlsTimer, debugOpen, orientationState.phase, state]);
   const {toggleDebug} = usePlayerRuntimeEffects(runtimeEffectParams);
@@ -253,21 +247,21 @@ export function PlayerShell({launchId, experience = "standard"}: {launchId: stri
     discState, setDiscState, reportPlayerEvent, showToast, setSyncText, setSyncTone,
     setEmulatorToolbarOpen, holdControls, releaseControls, lastAudibleVolume, emulatorVolume,
     emulatorMuted, setEmulatorVolume, setEmulatorMuted, videoRenderingModeRef,
-    netplayPaused, netplayPausedRef, setNetplayPaused,
-  }), [discState, emulatorMuted, emulatorVolume, gameSaveSync, holdControls, netplayPaused, releaseControls, reportPlayerEvent, showToast, state, uploadManualState, userId]);
+
+  }), [discState, emulatorMuted, emulatorVolume, gameSaveSync, holdControls, releaseControls, reportPlayerEvent, showToast, state, uploadManualState, userId]);
   const actions = usePlayerRuntimeActions(runtimeActionParams);
 
   usePlayerKeyboardPause({
-    runtime, keyboardPauseActionRef: keyboardPauseAction, playerMode, running, chromePinned, pausePending,
-    netplayPlayerNo, pausedRef, setPaused, setControlsVisible, clearControlsTimer, showControls,
-    showToast, toggleNetplayPause: actions.toggleNetplayPause,
+    runtime, keyboardPauseActionRef: keyboardPauseAction, running, chromePinned, pausePending,
+    pausedRef, setPaused, setControlsVisible, clearControlsTimer, showControls,
+    showToast,
   });
 
   const orientationParams = useMemo(() => ({
-    playerMode, netplayController, runtime, pausedRef, netplayPausedRef, orientationStateRef,
-    setOrientationState, setPaused, setOrientationHelp, requestNetplayPause: actions.requestNetplayPause,
+    runtime, pausedRef, orientationStateRef,
+    setOrientationState, setPaused, setOrientationHelp,
     showControls, showToast,
-  }), [actions.requestNetplayPause, showControls, showToast]);
+  }), [showControls, showToast]);
   const {retryLandscape} = usePlayerOrientationRuntime(orientationParams);
 
   usePlayerVideoMode(runtime, videoRenderingModeRef, videoRenderingMode);
@@ -277,7 +271,7 @@ export function PlayerShell({launchId, experience = "standard"}: {launchId: stri
     controlsVisible, running: state === "running", paused, fullscreen, gameTitle, coreName, platformName,
     syncText, syncTone, saveUploadProgress, saveAvailable: manualSaveAvailable, dosProgramMenu, toast, warnings,
     emulatorToolbarOpen, emulatorVolume, emulatorMuted, videoRenderingMode, discSet, discState,
-    inputRuntime: runtime, netplayPlayerNo, netplayPaused, debugOpen, debugMetrics, debugRuntime, runtimeState: state,
+    inputRuntime: runtime, debugOpen, debugMetrics, debugRuntime, runtimeState: state,
     onHoldControls: holdControls, onReleaseControls: releaseControls, onToggleControls: toggleControls,
     onScreenshot: reviewScreenshotAvailable ? () => void captureReviewScreenshot() : undefined,
     onSave: actions.saveManualState, onPauseForToolbarInteraction: pauseForToolbarInteraction,
@@ -285,7 +279,7 @@ export function PlayerShell({launchId, experience = "standard"}: {launchId: stri
     onCloseEmulatorSettings: actions.closeEmulatorSettings, onOpenEmulatorPanel: actions.openEmulatorPanel,
     onChangeEmulatorVolume: actions.changeEmulatorVolume, onToggleEmulatorMute: actions.toggleEmulatorMute,
     onChangeVideoRenderingMode: actions.changeVideoRenderingMode, onSelectDisc: actions.selectDisc,
-    onToggleNetplayPause: () => void actions.toggleNetplayPause(), onToggleDebug: toggleDebug,
+    onToggleDebug: toggleDebug,
     onGameSurface: () => resumeFromSurface("pause-overlay"), onExit: () => void exitRuntime(),
   };
   return <PlayerShellView nativeExitDialog={nativeExit.dialog} experience={experience} immersive={immersive} paused={paused} orientationState={orientationState}
@@ -339,13 +333,12 @@ function OrientationGate({state, gameTitle, help, buttonRef, onRetry}: {
   state: PlayerOrientationState; gameTitle: string; help: string;
   buttonRef: RefObject<HTMLButtonElement | null>; onRetry: () => void;
 }) {
-  const activeP2 = state.runtimeKind === "netplay-p2" && state.started;
-  const status = activeP2 ? "联机仍在进行" : state.started ? "游戏已暂停" : "移动 Player 需要横屏";
+  const status = state.started ? "游戏已暂停" : "移动 Player 需要横屏";
   return <section className="player-orientation-gate" role="dialog" aria-modal="true" aria-labelledby="player-orientation-title"
     onKeyDown={(event) => {if (event.key === "Tab") {event.preventDefault(); buttonRef.current?.focus();}}}>
     <div className="player-rotate-mark" aria-hidden="true"><span>↻</span></div><p>{status}</p>
     <h1 id="player-orientation-title">请横向握持设备开始游戏</h1><strong>{gameTitle}</strong>
-    <small>{activeP2 ? "你是 P2，不能暂停全局联机；本地输入已清空。" : help}</small>
+    <small>{help}</small>
     <button ref={buttonRef} className="button" type="button" onClick={onRetry}>尝试进入全屏并横屏</button>
   </section>;
 }

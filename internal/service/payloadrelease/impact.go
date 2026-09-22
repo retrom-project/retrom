@@ -13,30 +13,28 @@ import (
 )
 
 type GameImpact struct {
-	ImpactDigest       string   `json:"impactDigest"`
-	RegisteredBytes    string   `json:"registeredBytes"`
-	ExclusiveBytes     string   `json:"exclusiveBytes"`
-	SharedBytes        string   `json:"sharedBytes"`
-	BlobCount          int64    `json:"blobCount"`
-	SaveStateCount     int64    `json:"saveStateCount"`
-	AssetCount         int64    `json:"assetCount"`
-	ContentFileCount   int64    `json:"contentFileCount"`
-	ActiveLaunchCount  int64    `json:"activeLaunchCount"`
-	ActiveNetplayCount int64    `json:"activeNetplayCount"`
-	SourceKinds        []string `json:"sourceKinds"`
+	ImpactDigest      string   `json:"impactDigest"`
+	RegisteredBytes   string   `json:"registeredBytes"`
+	ExclusiveBytes    string   `json:"exclusiveBytes"`
+	SharedBytes       string   `json:"sharedBytes"`
+	BlobCount         int64    `json:"blobCount"`
+	SaveStateCount    int64    `json:"saveStateCount"`
+	AssetCount        int64    `json:"assetCount"`
+	ContentFileCount  int64    `json:"contentFileCount"`
+	ActiveLaunchCount int64    `json:"activeLaunchCount"`
+	SourceKinds       []string `json:"sourceKinds"`
 }
 
 type impactCanonical struct {
-	RegisteredBytes    string   `json:"registeredBytes"`
-	ExclusiveBytes     string   `json:"exclusiveBytes"`
-	SharedBytes        string   `json:"sharedBytes"`
-	BlobCount          int64    `json:"blobCount"`
-	SaveStateCount     int64    `json:"saveStateCount"`
-	AssetCount         int64    `json:"assetCount"`
-	ContentFileCount   int64    `json:"contentFileCount"`
-	ActiveLaunchCount  int64    `json:"activeLaunchCount"`
-	ActiveNetplayCount int64    `json:"activeNetplayCount"`
-	SourceKinds        []string `json:"sourceKinds"`
+	RegisteredBytes   string   `json:"registeredBytes"`
+	ExclusiveBytes    string   `json:"exclusiveBytes"`
+	SharedBytes       string   `json:"sharedBytes"`
+	BlobCount         int64    `json:"blobCount"`
+	SaveStateCount    int64    `json:"saveStateCount"`
+	AssetCount        int64    `json:"assetCount"`
+	ContentFileCount  int64    `json:"contentFileCount"`
+	ActiveLaunchCount int64    `json:"activeLaunchCount"`
+	SourceKinds       []string `json:"sourceKinds"`
 }
 
 // GameDeleteAuditImpact intentionally omits ImpactDigest. The digest protects
@@ -47,8 +45,7 @@ func GameDeleteAuditImpact(impact GameImpact) map[string]any {
 		"sharedBytes": impact.SharedBytes, "blobCount": impact.BlobCount,
 		"saveStateCount": impact.SaveStateCount, "assetCount": impact.AssetCount,
 		"contentFileCount": impact.ContentFileCount, "activeLaunchCount": impact.ActiveLaunchCount,
-		"activeNetplayCount": impact.ActiveNetplayCount,
-		"sourceKinds":        impact.SourceKinds,
+		"sourceKinds": impact.SourceKinds,
 	}
 }
 
@@ -60,7 +57,7 @@ type ImpactBlob struct {
 }
 
 type ImpactCounts struct {
-	SaveStates, Assets, ContentFiles, ActiveLaunches, ActiveNetplay int64
+	SaveStates, Assets, ContentFiles, ActiveLaunches int64
 }
 
 type ImpactSnapshot struct {
@@ -97,15 +94,14 @@ func (queries *ImpactQueries) Game(ctx context.Context, gameID string) (GameImpa
 		SharedBytes: strconv.FormatInt(registered-exclusive, 10), BlobCount: count,
 		SaveStateCount: source.Counts.SaveStates, AssetCount: source.Counts.Assets,
 		ContentFileCount:  source.Counts.ContentFiles,
-		ActiveLaunchCount: source.Counts.ActiveLaunches, ActiveNetplayCount: source.Counts.ActiveNetplay,
-		SourceKinds: NormalizeImpactSourceKinds(source.SourceKinds),
+		ActiveLaunchCount: source.Counts.ActiveLaunches,
+		SourceKinds:       NormalizeImpactSourceKinds(source.SourceKinds),
 	}
 	canonical := impactCanonical{
 		RegisteredBytes: result.RegisteredBytes, ExclusiveBytes: result.ExclusiveBytes, SharedBytes: result.SharedBytes,
 		BlobCount: result.BlobCount, SaveStateCount: result.SaveStateCount, AssetCount: result.AssetCount,
 		ContentFileCount: result.ContentFileCount, ActiveLaunchCount: result.ActiveLaunchCount,
-		ActiveNetplayCount: result.ActiveNetplayCount,
-		SourceKinds:        result.SourceKinds,
+		SourceKinds: result.SourceKinds,
 	}
 	encoded, err := json.Marshal(canonical)
 	if err != nil {
@@ -144,7 +140,6 @@ func impactTotals(blobs []ImpactBlob) (int64, int64, int64, error) {
 func validImpactCounts(counts ImpactCounts) bool {
 	for _, count := range []int64{
 		counts.SaveStates, counts.Assets, counts.ContentFiles, counts.ActiveLaunches,
-		counts.ActiveNetplay,
 	} {
 		if count < 0 {
 			return false

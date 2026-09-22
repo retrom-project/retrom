@@ -232,9 +232,6 @@ PlatformInstance 的复合外键、游戏唯一归属和迁移规则见 [游戏�
 | `play_sessions` | 有效游玩会话和 heartbeat |
 | `play_session_events` | 连续 client sequence、服务端计时判定与幂等证据 |
 | `launch_sessions` | 短期不可变启动配置、非秘密 launchId 与 capability hash |
-| `netplay_rooms` / `netplay_room_members` | 联机房间聚合、占座、ready 与终态 |
-| `netplay_sessions` / `netplay_session_participants` | 锁定 profile snapshot、每人 Launch/credential hash、断线 lease 与 resync 状态 |
-| `netplay_events` | 不含输入/state/秘密的房间 append-only 控制事件 |
 
 所有表中的时间点和时长必须遵守第 2 节，不能由各模块自行选择类型或单位。表的必需字段、枚举、唯一索引、append-only evidence 和应用写入校验 以 [一期数据库实体与不变量](./data-model.md) 为唯一数据字典；本节只做模块目录，不能据此省略该文档的约束。
 
@@ -265,7 +262,6 @@ data/
   retrom.db
   blobs/sha256/ab/cd/<64-char-sha256>
   secrets/launch-capability.key
-  secrets/netplay-capability.key
   tmp/uploads/<upload-id>/
   tmp/jobs/
 .dev-data/dev-state/         # make dev PID 登记与接管锁，不进入版本控制
@@ -406,7 +402,6 @@ retrom restore --input /backup-volume/retrom-20260806 \
   blobs/sha256/ab/cd/<64-lowercase-hex>
   tmp/uploads/<upload_parts.storage_key>
   secrets/launch-capability.key
-  secrets/netplay-capability.key
   dependencies/emulatorjs/<version>/manifest.json
   dependencies/emulatorjs/<version>/SHA256SUMS
 ```
@@ -415,7 +410,6 @@ retrom restore --input /backup-volume/retrom-20260806 \
 - `blobs/sha256/...` 精确复制 staging 数据库快照中每一条 `blobs` 行对应的 CAS 文件，包括审核/provider 证据、游戏、媒体、存档，以及仍在 GC 宽限期但暂时没有业务保护边的 Blob。因为 `retrom.db` 是未裁剪的原样快照，少复制其中任一 Blob 行都会制造不可恢复数据库；反之，只有物理 CAS 文件存在而数据库没有 Blob 行的 crash orphan 不复制。
 - `tmp/uploads/...` 只复制快照中 `upload_parts.storage_key` 仍引用的未完成分块，并逐项验证 size/SHA-256；完成上传的 part 已按清理契约不存在。`storage_key` 是相对于 `RETROM_DATA_DIR/tmp/uploads/` 的 `SAFE_LOGICAL_PATH_V1` 路径，本身不得再带 `tmp/uploads/` 前缀；备份路径只拼接一次该前缀。key 必须数据库唯一并在复制前重新校验，不能借备份复制任意宿主文件。
 - `secrets/launch-capability.key` 是原始 32 bytes；manifest 可记录其 SHA-256 用于完整性，但日志/报告只能给出校验布尔值。
-- `secrets/netplay-capability.key` 是独立原始 32 bytes，使用同样的 owner-only、no-follow、完整性与恢复规则；不能由 launch key 派生或替代。恢复任一 key 漂移都拒绝启动。
 - 每个配置版本只复制小型 dependency manifest 和对应 `SHA256SUMS` 作为恢复证据。内置 runtime/DAT/许可大 payload 不进入 bundle，由部署方按固定 manifest 预先物化到只读依赖根。不存在另一个含糊的“运行配置快照”文件，active 与版本列表只在 `backup.json` 表达。
 
 `backup.json` 必须是下列封闭 schema 的 RFC 8785 canonical JSON；字段名、类型与枚举不得由实现自行扩展。`files` 覆盖除 `backup.json` 自身外的全部普通文件，按 `path` 的原始 UTF-8 bytes 升序；路径使用 `/`、非空相对路径、无 `.`/`..`/反斜杠/NUL/控制字符，且不能重复或 ASCII case-fold 冲突。`dependencyManifests` 按 SemVer 升序且与 `dependencyVersions` 一一对应：
@@ -463,7 +457,7 @@ retrom restore --input /backup-volume/retrom-20260806 \
 }
 ```
 
-`files.kind` 只允许 `DATABASE | CAS_BLOB | UPLOAD_PART | LAUNCH_KEY | NETPLAY_KEY | DEPENDENCY_MANIFEST | DEPENDENCY_SHA256SUMS`，且路径与 kind 必须符合上面的唯一目录槽；恰有一个 DATABASE、一个 LAUNCH_KEY、一个 NETPLAY_KEY、每版本一对依赖证据。`databaseSha256` 必须等于 DATABASE 行，四个 count 必须与数组/路径实际计数相等，所有 `sizeBytes` 是非负 int64。schema v2 的 object 全部拒绝未知字段；`migrationLineageDigest` 是当前有序 migration name + checksum 的 SHA-256，必须与数据库完整 lineage 和当前二进制完全相同。`backup.json` 不自包含 hash，最终 bundle 的外部签名不在一期范围。清单不放入自由形式的应用版本字符串；恢复兼容性由 manifest schema、完整 migration lineage 与固定依赖证据决定，交付 commit 和双镜像 release-input label 由验收报告记录。清单不得含源/目标绝对路径、cookie、capability/key 明文或 Blob 业务名称。
+`files.kind` 只允许 `DATABASE | CAS_BLOB | UPLOAD_PART | LAUNCH_KEY | DEPENDENCY_MANIFEST | DEPENDENCY_SHA256SUMS`，且路径与 kind 必须符合上面的唯一目录槽；恰有一个 DATABASE、一个 LAUNCH_KEY、每版本一对依赖证据。`databaseSha256` 必须等于 DATABASE 行，四个 count 必须与数组/路径实际计数相等，所有 `sizeBytes` 是非负 int64。schema v2 的 object 全部拒绝未知字段；`migrationLineageDigest` 是当前有序 migration name + checksum 的 SHA-256，必须与数据库完整 lineage 和当前二进制完全相同。`backup.json` 不自包含 hash，最终 bundle 的外部签名不在一期范围。清单不放入自由形式的应用版本字符串；恢复兼容性由 manifest schema、完整 migration lineage 与固定依赖证据决定，交付 commit 和双镜像 release-input label 由验收报告记录。清单不得含源/目标绝对路径、cookie、capability/key 明文或 Blob 业务名称。
 
 `tmp/jobs` 永远只是可丢弃 scratch：Job 的唯一可恢复输入必须是数据库、CAS、ArchiveEntry 或 UploadFile 引用，不能只存在该目录，所以它不进入备份。新增任何 Blob FK/JSON blob 引用时必须同时更新第 7 节唯一且带边分类的 `blob reference registry`；GC 从它计算保护闭包，备份/完整性检查从它验证每条引用边都命中 `blobs` 行，CI 以 schema introspection 证明没有遗漏，禁止三个模块各维护一份手写引用清单。备份的物理 CAS 枚举则始终直接来自 staging DB 的全部 `blobs` 行，不能把 GC 保护闭包误当作备份集合。
 
@@ -507,10 +501,6 @@ EmulationStation 递归发现只匹配精确小写 `gamelist.xml`；每个 XML �
 
 预览内容、现有依赖、运行截图及临时 checkpoint/restore Blob 边均登记为 protective reference。截图只对仍匹配草稿当前来源、目标平台、Provider Target 和 prepublish input digest 的 Validation 投影；该 Validation 可以是 READY 或阻断状态，后者的当前截图会启用管理员人工放行。在同一 Validation 下再次保存截图会原子替换当前截图的 Blob 引用，旧 Blob 随统一 GC 规则回收，不在 HTTP、日志或清单中暴露 Blob ID/hash。完整字段和应用写入约束 见 [`data-model.md`](./data-model.md)。
 
-## 13. 联机持久化与恢复边界
-
-房间/成员/Session/Participant/Event 只保存控制面；逐帧 input、canonical history、hash 和 state transfer 永不进入 SQLite/CAS/backup。备份离线停服时所有活动实时 hub 已消失，但数据库可保留终态和等待房间；restore 在首次 serve 前以 `RESTORE` 结束任何遗留 STARTING/RUNNING Session、撤销其 Launch，不能恢复 WebSocket 或 room cookie。普通 DRAFT/WAITING 房间仍按绝对过期时刻处理。
-
 ## 14. 标签数据、备份与恢复边界
 
 Tag、Game/Review/Pegasus/EmulationStation 关系和 tombstone 全部只存在 SQLite，不新增 CAS payload、Blob reference、外部 taxonomy 或运行期下载。离线备份必须逐行保留活动 Tag、DELETED tombstone、关系、mapping 名称 snapshot 与审计；restore 不重连同名新 Tag，也不清理指向 tombstone 的关系。GC registry、物理 CAS 枚举和依赖物化均不因标签改变。
@@ -521,9 +511,9 @@ Tag 删除是业务软删除，不是存储清理：不得以减小数据库为�
 
 服务在开放业务路由前先逐字节校验 active descriptor、已安装 Bundle、manifest、module 和所有声明资产，再把两个
 Provider 及 61 个 Target 投影为一个 canonical catalog。协调事务只能整体写入 Provider、Target、binding 和 catalog
-state；任一 Target、Host binding、DAT、BIOS、checkpoint reference 或 netplay reference 不闭合时不得部分激活。
+state；任一 Target、Host binding、DAT、BIOS、checkpoint reference 不闭合时不得部分激活。
 
-升级只允许 SemVer 增长。事务必须证明所有被 Variant、Validation 和 Netplay 引用的 Target 仍存在，且每个存档的
+升级只允许 SemVer 增长。事务必须证明所有被 Variant 和 Validation 引用的 Target 仍存在，且每个存档的
 checkpoint format 仍可由至少一个当前 READY GameVariant 的 Target `readFormats` 读取。同版换 bytes、降级、移除受引用 Target、catalog digest 不一致或 active
 文件在协调后变化均使 readiness 失败。没有数据库降级或恢复旧 Provider 的路径。
 

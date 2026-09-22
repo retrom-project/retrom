@@ -13,16 +13,30 @@
     "targets"
   ],
   "properties": {
-    "schemaVersion": { "const": 1 },
-    "providerId": { "$ref": "#/$defs/identity" },
-    "providerVersion": { "$ref": "#/$defs/semver" },
-    "providerApiVersion": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
-    "clientModulePath": { "const": "client.mjs" },
+    "schemaVersion": {
+      "const": 1
+    },
+    "providerId": {
+      "$ref": "#/$defs/identity"
+    },
+    "providerVersion": {
+      "$ref": "#/$defs/semver"
+    },
+    "providerApiVersion": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "clientModulePath": {
+      "const": "client.mjs"
+    },
     "targets": {
       "type": "array",
       "minItems": 1,
       "uniqueItems": true,
-      "items": { "$ref": "#/$defs/target" }
+      "items": {
+        "$ref": "#/$defs/target"
+      }
     }
   },
   "$defs": {
@@ -57,26 +71,44 @@
         "assetPaths"
       ],
       "properties": {
-        "id": { "$ref": "#/$defs/identity" },
-        "displayName": { "type": "string", "minLength": 1, "maxLength": 120 },
-        "targetOptionsSchema": { "$ref": "#/$defs/targetOptionsSchema" },
-        "capabilities": { "$ref": "#/$defs/capabilities" },
+        "id": {
+          "$ref": "#/$defs/identity"
+        },
+        "displayName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "targetOptionsSchema": {
+          "$ref": "#/$defs/targetOptionsSchema"
+        },
+        "capabilities": {
+          "$ref": "#/$defs/capabilities"
+        },
         "inputs": {
           "type": "array",
           "minItems": 1,
-          "items": { "$ref": "#/$defs/input" }
+          "items": {
+            "$ref": "#/$defs/input"
+          }
         },
         "checkpoint": {
           "oneOf": [
-            { "type": "null" },
-            { "$ref": "#/$defs/checkpoint" }
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/checkpoint"
+            }
           ]
         },
         "assetPaths": {
           "type": "array",
           "minItems": 1,
           "uniqueItems": true,
-          "items": { "$ref": "#/$defs/safePath" }
+          "items": {
+            "$ref": "#/$defs/safePath"
+          }
         }
       }
     },
@@ -93,28 +125,54 @@
         "discSwitch",
         "nativeSettings",
         "inputFilter",
-        "netplayPort",
         "videoModes",
         "requiresThreads",
         "frameMode"
       ],
       "properties": {
-        "pause": { "type": "boolean" },
-        "screenshot": { "type": "boolean" },
-        "checkpoint": { "type": "boolean" },
-        "standardGamepad": { "type": "boolean" },
-        "frameCounter": { "type": "boolean" },
-        "volume": { "type": "boolean" },
-        "discSwitch": { "type": "boolean" },
-        "nativeSettings": { "type": "boolean" },
-        "inputFilter": { "type": "boolean" },
-        "netplayPort": { "type": "boolean" },
+        "pause": {
+          "type": "boolean"
+        },
+        "screenshot": {
+          "type": "boolean"
+        },
+        "checkpoint": {
+          "type": "boolean"
+        },
+        "standardGamepad": {
+          "type": "boolean"
+        },
+        "frameCounter": {
+          "type": "boolean"
+        },
+        "volume": {
+          "type": "boolean"
+        },
+        "discSwitch": {
+          "type": "boolean"
+        },
+        "nativeSettings": {
+          "type": "boolean"
+        },
+        "inputFilter": {
+          "type": "boolean"
+        },
         "videoModes": {
           "type": "array",
           "uniqueItems": true,
-          "items": { "enum": ["original", "pixel", "smooth", "sharp-bilinear", "adaptive-sharpen"] }
+          "items": {
+            "enum": [
+              "original",
+              "pixel",
+              "smooth",
+              "sharp-bilinear",
+              "adaptive-sharpen"
+            ]
+          }
         },
-        "requiresThreads": { "type": "boolean" },
+        "requiresThreads": {
+          "type": "boolean"
+        },
         "frameMode": {
           "enum": [
             "NONE",
@@ -128,9 +186,16 @@
     "input": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["role", "kind", "cardinality", "optional"],
+      "required": [
+        "role",
+        "kind",
+        "cardinality",
+        "optional"
+      ],
       "properties": {
-        "role": { "$ref": "#/$defs/identity" },
+        "role": {
+          "$ref": "#/$defs/identity"
+        },
         "kind": {
           "enum": [
             "ROM_BLOB",
@@ -145,120 +210,268 @@
             "WASM4_CART"
           ]
         },
-        "cardinality": { "enum": ["ONE", "MANY"] },
-        "optional": { "type": "boolean" }
+        "cardinality": {
+          "enum": [
+            "ONE",
+            "MANY"
+          ]
+        },
+        "optional": {
+          "type": "boolean"
+        }
       }
     },
     "checkpoint": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["writeFormat", "readFormats", "maxBytes"],
+      "required": [
+        "writeFormat",
+        "readFormats",
+        "maxBytes"
+      ],
       "properties": {
         "semantics": {
-          "enum": ["INSTANT", "GAME_SAVE"],
+          "enum": [
+            "INSTANT",
+            "GAME_SAVE"
+          ],
           "description": "Omission means INSTANT. GAME_SAVE preserves native game save data and may require in-game save/load menus."
         },
-        "writeFormat": { "$ref": "#/$defs/token" },
+        "writeFormat": {
+          "$ref": "#/$defs/token"
+        },
         "readFormats": {
           "type": "array",
           "minItems": 1,
           "uniqueItems": true,
-          "items": { "$ref": "#/$defs/token" }
+          "items": {
+            "$ref": "#/$defs/token"
+          }
         },
-        "maxBytes": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 }
+        "maxBytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        }
       }
     },
     "targetOptionsSchema": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["type", "additionalProperties", "properties", "required"],
+      "required": [
+        "type",
+        "additionalProperties",
+        "properties",
+        "required"
+      ],
       "properties": {
-        "type": { "const": "object" },
-        "additionalProperties": { "const": false },
+        "type": {
+          "const": "object"
+        },
+        "additionalProperties": {
+          "const": false
+        },
         "properties": {
           "type": "object",
           "maxProperties": 64,
-          "propertyNames": { "pattern": "^[A-Za-z][A-Za-z0-9]{0,63}$" },
-          "additionalProperties": { "$ref": "#/$defs/targetOptionsPropertySchema" }
+          "propertyNames": {
+            "pattern": "^[A-Za-z][A-Za-z0-9]{0,63}$"
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/targetOptionsPropertySchema"
+          }
         },
         "required": {
           "type": "array",
           "maxItems": 64,
           "uniqueItems": true,
-          "items": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9]{0,63}$" }
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9]{0,63}$"
+          }
         }
       }
     },
     "targetOptionsPropertySchema": {
       "oneOf": [
-        { "$ref": "#/$defs/targetOptionsObjectPropertySchema" },
-        { "$ref": "#/$defs/targetOptionsArrayPropertySchema" },
-        { "$ref": "#/$defs/targetOptionsStringPropertySchema" },
-        { "$ref": "#/$defs/targetOptionsIntegerPropertySchema" },
-        { "$ref": "#/$defs/targetOptionsBooleanPropertySchema" }
+        {
+          "$ref": "#/$defs/targetOptionsObjectPropertySchema"
+        },
+        {
+          "$ref": "#/$defs/targetOptionsArrayPropertySchema"
+        },
+        {
+          "$ref": "#/$defs/targetOptionsStringPropertySchema"
+        },
+        {
+          "$ref": "#/$defs/targetOptionsIntegerPropertySchema"
+        },
+        {
+          "$ref": "#/$defs/targetOptionsBooleanPropertySchema"
+        }
       ]
     },
     "targetOptionsObjectPropertySchema": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["type", "additionalProperties", "properties", "required"],
+      "required": [
+        "type",
+        "additionalProperties",
+        "properties",
+        "required"
+      ],
       "properties": {
-        "type": { "enum": ["object", ["object", "null"]] },
-        "additionalProperties": { "const": false },
+        "type": {
+          "enum": [
+            "object",
+            [
+              "object",
+              "null"
+            ]
+          ]
+        },
+        "additionalProperties": {
+          "const": false
+        },
         "properties": {
           "type": "object",
           "maxProperties": 64,
-          "propertyNames": { "pattern": "^[A-Za-z][A-Za-z0-9]{0,63}$" },
-          "additionalProperties": { "$ref": "#/$defs/targetOptionsPropertySchema" }
+          "propertyNames": {
+            "pattern": "^[A-Za-z][A-Za-z0-9]{0,63}$"
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/targetOptionsPropertySchema"
+          }
         },
         "required": {
-          "type": "array", "maxItems": 64, "uniqueItems": true,
-          "items": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9]{0,63}$" }
+          "type": "array",
+          "maxItems": 64,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9]{0,63}$"
+          }
         }
       }
     },
     "targetOptionsArrayPropertySchema": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["type", "items", "maxItems"],
+      "required": [
+        "type",
+        "items",
+        "maxItems"
+      ],
       "properties": {
-        "type": { "enum": ["array", ["array", "null"]] },
-        "items": { "$ref": "#/$defs/targetOptionsPropertySchema" },
-        "minItems": { "type": "integer", "minimum": 0, "maximum": 256 },
-        "maxItems": { "type": "integer", "minimum": 0, "maximum": 256 }
+        "type": {
+          "enum": [
+            "array",
+            [
+              "array",
+              "null"
+            ]
+          ]
+        },
+        "items": {
+          "$ref": "#/$defs/targetOptionsPropertySchema"
+        },
+        "minItems": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 256
+        },
+        "maxItems": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 256
+        }
       }
     },
     "targetOptionsStringPropertySchema": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["type"],
+      "required": [
+        "type"
+      ],
       "properties": {
-        "type": { "enum": ["string", ["string", "null"]] },
-        "enum": {
-          "type": "array", "minItems": 1, "maxItems": 64, "uniqueItems": true,
-          "items": { "type": "string", "maxLength": 4096 }
+        "type": {
+          "enum": [
+            "string",
+            [
+              "string",
+              "null"
+            ]
+          ]
         },
-        "format": { "const": "safe-path" },
-        "minLength": { "type": "integer", "minimum": 0, "maximum": 4096 },
-        "maxLength": { "type": "integer", "minimum": 0, "maximum": 4096 }
+        "enum": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "maxLength": 4096
+          }
+        },
+        "format": {
+          "const": "safe-path"
+        },
+        "minLength": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4096
+        },
+        "maxLength": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4096
+        }
       }
     },
     "targetOptionsIntegerPropertySchema": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["type"],
+      "required": [
+        "type"
+      ],
       "properties": {
-        "type": { "enum": ["integer", ["integer", "null"]] },
-        "minimum": { "type": "integer", "minimum": -9007199254740991, "maximum": 9007199254740991 },
-        "maximum": { "type": "integer", "minimum": -9007199254740991, "maximum": 9007199254740991 }
+        "type": {
+          "enum": [
+            "integer",
+            [
+              "integer",
+              "null"
+            ]
+          ]
+        },
+        "minimum": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        },
+        "maximum": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        }
       }
     },
     "targetOptionsBooleanPropertySchema": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["type"],
+      "required": [
+        "type"
+      ],
       "properties": {
-        "type": { "enum": ["boolean", ["boolean", "null"]] }
+        "type": {
+          "enum": [
+            "boolean",
+            [
+              "boolean",
+              "null"
+            ]
+          ]
+        }
       }
     }
   }

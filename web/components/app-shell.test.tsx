@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AppShell } from "./app-shell";
 
-const shellState = vi.hoisted(() => ({ pathname: "/", role: "ADMIN" as "ADMIN" | "USER", netplayEnabled: false }));
+const shellState = vi.hoisted(() => ({ pathname: "/", role: "ADMIN" as "ADMIN" | "USER", }));
 
 vi.mock("next/link", () => ({
   default: ({ children, href, ...props }: { children: ReactNode; href: string }) => <a href={href} {...props}>{children}</a>,
@@ -18,7 +18,6 @@ vi.mock("@/features/auth/auth-provider", () => ({
     context: {
       instanceState: "READY",
       authenticationState: "AUTHENTICATED",
-      netplayEnabled: shellState.netplayEnabled,
       user: { userId: "user-1", username: "test", displayName: "Test", role: shellState.role }
     },
     logout: vi.fn()
@@ -30,7 +29,6 @@ afterEach(() => {
   vi.unstubAllGlobals();
   shellState.pathname = "/";
   shellState.role = "ADMIN";
-  shellState.netplayEnabled = false;
 });
 
 describe("AppShell", () => {
@@ -107,20 +105,15 @@ describe("AppShell", () => {
     expect(within(navigation).getByRole("link", { name: "容量分析" })).toHaveAttribute("aria-current", "page");
   });
 
-  it("shows netplay immediately after recent games only when enabled", () => {
-    shellState.netplayEnabled = true;
+  it("offers recent games without a multiplayer entry", () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response(null, { status: 200 })));
-    const { rerender } = render(<AppShell><div>页面内容</div></AppShell>);
-    const labels = Array.from(screen.getByRole("navigation", { name: "主要导航" }).querySelectorAll("a"), (link) => link.textContent);
-    expect(labels.slice(-2)).toEqual(["最近游玩", "联机游玩"]);
-    shellState.netplayEnabled = false;
-    rerender(<AppShell><div>页面内容</div></AppShell>);
+    render(<AppShell><div>页面内容</div></AppShell>);
+    expect(screen.getByRole("link", { name: "最近游玩" })).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "联机游玩" })).not.toBeInTheDocument();
   });
 
   it("keeps detail routes in the library tab and restores focus after More closes", async () => {
     shellState.pathname = "/games/game-1";
-    shellState.netplayEnabled = true;
     vi.stubGlobal("fetch", vi.fn(async () => new Response(null, { status: 200 })));
     const user = userEvent.setup();
     render(<AppShell><div>页面内容</div></AppShell>);
@@ -131,7 +124,6 @@ describe("AppShell", () => {
     await user.click(more);
     const sheet = screen.getByRole("dialog", { name: "更多" });
     expect(within(sheet).getByRole("link", { name: /最近游玩/ })).toHaveAttribute("href", "/recent");
-    expect(within(sheet).getByRole("link", { name: /联机游玩/ })).toHaveAttribute("href", "/netplay");
     await user.click(within(sheet).getByRole("button", { name: "关闭更多" }));
     expect(more).toHaveFocus();
   });

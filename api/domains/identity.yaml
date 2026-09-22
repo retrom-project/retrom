@@ -431,7 +431,6 @@ components:
         - idleExpiresAtMs
         - absoluteExpiresAtMs
         - testDefaultAccountActive
-        - netplayEnabled
       properties:
         instanceState:
           type: string
@@ -469,8 +468,6 @@ components:
           minimum: 0
           nullable: true
         testDefaultAccountActive:
-          type: boolean
-        netplayEnabled:
           type: boolean
     AccountLinkInspection:
       type: object

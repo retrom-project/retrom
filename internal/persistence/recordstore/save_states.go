@@ -44,7 +44,6 @@ WHEN (NOT EXISTS(
 target.target_id=launch.target_id
   WHERE launch.id=candidate.source_launch_session_id
     AND launch.game_id=candidate.game_id AND launch.profile_id=candidate.profile_id
-    AND launch.save_access='NORMAL'
     AND target.checkpoint_json IS NOT NULL
     AND EXISTS(
       SELECT 1 FROM json_each(target.checkpoint_json,'$.readFormats') readable

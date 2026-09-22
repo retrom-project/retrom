@@ -121,7 +121,7 @@ func (server *Server) idempotencyHandler(next http.Handler) http.Handler {
 		}
 		if found {
 			server.replayIdempotentResponse(
-				writer, request, operationID, digest, stored.RequestDigest,
+				writer, request, digest, stored.RequestDigest,
 				stored.HTTPStatus, stored.HeadersJSON, stored.Body,
 			)
 			return
@@ -201,7 +201,7 @@ func (server *Server) waitForQueuedIdempotentRequests() {
 func (server *Server) replayIdempotentResponse(
 	writer http.ResponseWriter,
 	request *http.Request,
-	operationID, digest, storedDigest string,
+	digest, storedDigest string,
 	storedStatus int,
 	headersJSON string,
 	storedBody []byte,
@@ -215,12 +215,6 @@ func (server *Server) replayIdempotentResponse(
 	}
 	var headers map[string]string
 	_ = json.Unmarshal([]byte(headersJSON), &headers)
-	if operationID == "postNetplayLaunch" {
-		if err := server.reissueNetplayCookies(writer, request, storedBody); err != nil {
-			serverError(writer, request, err)
-			return
-		}
-	}
 	for name, value := range headers {
 		writer.Header().Set(name, value)
 	}

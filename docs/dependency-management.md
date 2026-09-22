@@ -15,7 +15,7 @@
 3. DAT/BIOS catalog：游戏识别、Arcade parent/machine 和静态 BIOS 要求；
 4. 用户安装的 runtime asset pack：RTP 等由管理员提供、按内容冻结的运行输入。
 
-Provider Bundle 是 Target 行为的唯一事实源。Retrom 的 binding catalog 与 DAT 只引用稳定 `providerId/targetId` 和 Host 产品策略，不得重新声明入口、能力或引擎映射。Bundle 摘要只由需要重现实例字节的 Launch、Preview 与 Netplay session 冻结。
+Provider Bundle 是 Target 行为的唯一事实源。Retrom 的 binding catalog 与 DAT 只引用稳定 `providerId/targetId` 和 Host 产品策略，不得重新声明入口、能力或引擎映射。Bundle 摘要只由需要重现实例字节的 Launch 与 Preview 冻结。
 
 核心接入的手柄准入要求为方向移动和确认，取消可选；同一映射配置内坚持单按钮单目标，不用原生按钮与键盘重复发送补足确认/取消。输入行为和验证边界统一见[核心运行时验证基线](./core-runtime-validation.md#3-共享验证规则)，已有正常取消及宿主菜单 B 返回保留。
 
@@ -38,7 +38,7 @@ Provider manifest 的 `providerApiVersion` 在结构层只要求正整数，使�
 
 ## 3. 两个 Provider
 
-`emulatorjs` Bundle 从独立 retrom-runtime 仓库中锁定的 EJS upstream 与 fork Release 输入生成，Target 集合以 Provider declaration 为准。它独占 EJS core、core options、启动动作、多盘和 8 个联机 profile 的行为映射。
+`emulatorjs` Bundle 从独立 retrom-runtime 仓库中锁定的 EJS upstream 与 fork Release 输入生成，Target 集合以 Provider declaration 为准。它独占 EJS core、core options、启动动作与多盘的行为映射。
 
 `retrom-runtime` Bundle 从独立仓库生成，Target 集合以 Provider declaration 为准，生产可用集合以正式 lock 为准。`provider-sources.json` 只记录上游或本地 core 构建来源，不声明 Retrom 路由或产品 binding；Target registry 只存在于 Provider declaration。正式 package 校验声明的上游输入及其锁定 source/tag/asset，源码构建或缓存复用都必须得到声明的字节。
 
@@ -64,7 +64,7 @@ catalog 中的 content kind、detector/delivery profile、launch/review policy �
 
 Provider 安装和数据库 reconcile 在对外 ready 之前完成。激活事务登记 Bundle 与 Target、验证所有当前 binding 和 checkpoint 格式引用，然后一次切换 active identity。
 
-安装资源读取与完整性检查位于 `internal/runtimeprovider`；激活候选校验、版本比较、引用保护和 checkpoint 兼容性规则位于 `internal/service/runtimeprovider`。`internal/persistence/runtimeprovider` 提供当前目录事实和事务内的写入能力。Service 在同一个事务范围内完成兼容性判断、终止受影响的联机会话、发布新目录及写入审计；候选未变化时不终止会话、不重复写入。任一步失败时目录与会话状态共同回滚。
+安装资源读取与完整性检查位于 `internal/runtimeprovider`；激活候选校验、版本比较、引用保护和 checkpoint 兼容性规则位于 `internal/service/runtimeprovider`。`internal/persistence/runtimeprovider` 提供当前目录事实和事务内的写入能力。Service 在同一个事务范围内完成兼容性判断、发布新目录及写入审计；候选未变化时不重复写入。任一步失败时目录与审计共同回滚。
 
 系统只支持向前升级：
 
@@ -178,7 +178,7 @@ PFB 将完整、已验证 Provider 候选作为不可变基座导入，后续 ad
 
 诊断可以显示 Provider、Bundle、Target、source commit、Release 坐标和验证结果，但不能暴露宿主路径、capability、私有游戏内容或上传 Blob 标识。许可证与 notice 随 Bundle 和镜像分发；应用 HTTP API 不提供任意宿主文件读取。
 
-Launch、Preview 与 Netplay session 必须用 `bundleSha256` 追溯到精确 Provider 字节；Validation 与 Variant 使用稳定 Provider/Target 和各自真实输入证据；Save 只保存 checkpoint format，并由恢复时的当前 Target `readFormats` 判定兼容性。
+Launch 与 Preview 必须用 `bundleSha256` 追溯到精确 Provider 字节；Validation 与 Variant 使用稳定 Provider/Target 和各自真实输入证据；Save 只保存 checkpoint format，并由恢复时的当前 Target `readFormats` 判定兼容性。
 
 ### Flycast 核心与开发候选
 

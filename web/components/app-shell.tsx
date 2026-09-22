@@ -9,7 +9,7 @@ import { useEffect, useRef, useState, type ReactNode, type RefObject } from "rea
 import { AppIcon, type AppIconName } from "@/components/app-icon";
 import { ResponsiveSheet } from "@/components/responsive-sheet";
 import { useAuth } from "@/features/auth/auth-provider";
-import type { AuthContext, AuthUser } from "@/features/auth/types";
+import type { AuthUser } from "@/features/auth/types";
 
 type NavItem = { href: string; label: string; icon: AppIconName; exact?: boolean; child?: boolean };
 type CompactPanel = "navigation" | "more" | "health" | "account" | null;
@@ -20,7 +20,6 @@ const userNavigation: NavItem[] = [
   { href: "/saves", label: "我的存档", icon: "save" },
   { href: "/favorites", label: "我的收藏", icon: "heart" },
   { href: "/recent", label: "最近游玩", icon: "history" },
-  { href: "/netplay", label: "联机游玩", icon: "gamepad" }
 ];
 
 const adminNavigation: NavItem[] = [
@@ -107,7 +106,6 @@ const exactPageTitles = new Map<string, string>([
   ["/saves", "我的存档"],
   ["/favorites", "我的收藏"],
   ["/recent", "最近游玩"],
-  ["/netplay", "联机游玩"],
   ["/account", "账户设置"],
   ["/me", "我的"],
   ["/admin/imports/server", "本地扫描"],
@@ -128,7 +126,6 @@ const prefixPageTitles: Array<[string, string]> = [
   ["/admin/imports/server/", "服务器导入详情"],
   ["/admin/reviews/", "审核详情"],
   ["/admin/games/", "游戏管理详情"],
-  ["/netplay/rooms/", "联机房间"],
   ["/games/", "游戏详情"],
 ];
 
@@ -191,11 +188,10 @@ function StandardAppShell({ children, pathname }: { children: ReactNode; pathnam
   }
   const administrator = pathname.startsWith("/admin");
   const user = context.user;
-  const visibleUserNavigation = userNavigation.filter((item) => item.href !== "/netplay" || context.netplayEnabled);
   const section = mobileSection(pathname);
-  const navigationItems = administrator ? adminNavigation : visibleUserNavigation;
+  const navigationItems = administrator ? adminNavigation : userNavigation;
   return <AppFrame {...{
-    accountButtonRef, accountMenuRef, administrator, children, compactPanel, context, health, healthButtonRef,
+    accountButtonRef, accountMenuRef, administrator, children, compactPanel, health, healthButtonRef,
     logout, moreButtonRef, navigationButtonRef, navigationItems, pathname, section, setCompactPanel, user,
   }} />;
 }
@@ -206,7 +202,6 @@ type AppFrameProps = {
   administrator: boolean;
   children: ReactNode;
   compactPanel: CompactPanel;
-  context: AuthContext;
   health: ServiceHealthState;
   healthButtonRef: RefObject<HTMLButtonElement | null>;
   logout: () => Promise<void>;
@@ -220,7 +215,7 @@ type AppFrameProps = {
 };
 
 function AppFrame({
-  accountButtonRef, accountMenuRef, administrator, children, compactPanel, context, health, healthButtonRef,
+  accountButtonRef, accountMenuRef, administrator, children, compactPanel, health, healthButtonRef,
   logout, moreButtonRef, navigationButtonRef, navigationItems, pathname, section, setCompactPanel, user,
 }: AppFrameProps) {
   const phone = usePhoneLayout();
@@ -237,7 +232,7 @@ function AppFrame({
       </div>
       <MobileBottomNavigation {...{ administrator, compactPanel, moreButtonRef, section, setCompactPanel }} />
       <CompactSheets {...{
-        accountButtonRef, administrator, compactPanel, context, health, healthButtonRef, logout, moreButtonRef,
+        accountButtonRef, administrator, compactPanel, health, healthButtonRef, logout, moreButtonRef,
         navigationButtonRef, navigationItems, pathname, setCompactPanel, user,
       }} />
     </div>
@@ -353,13 +348,12 @@ function healthLabel(state: ServiceHealthState["state"], checkingLabel = "正在
 }
 
 function CompactMoreSheet({
-  compactPanel, context, health, logout, moreButtonRef, setCompactPanel, user,
-}: Pick<AppFrameProps, "compactPanel" | "context" | "health" | "logout" | "moreButtonRef" |
+  compactPanel, health, logout, moreButtonRef, setCompactPanel, user,
+}: Pick<AppFrameProps, "compactPanel" | "health" | "logout" | "moreButtonRef" |
   "setCompactPanel" | "user">) {
-  return <ResponsiveSheet open={compactPanel === "more"} title="更多" description="最近游玩、联机和账户能力。" placement="bottom" onClose={() => setCompactPanel(null)} returnFocusRef={moreButtonRef} className="compact-more-sheet">
+  return <ResponsiveSheet open={compactPanel === "more"} title="更多" description="最近游玩和账户设置。" placement="bottom" onClose={() => setCompactPanel(null)} returnFocusRef={moreButtonRef} className="compact-more-sheet">
     <div id="compact-more-sheet" className="compact-action-list">
       <Link href="/recent" onClick={() => setCompactPanel(null)}><AppIcon name="history" /><span><strong>最近游玩</strong><small>查看游玩历史与累计时长</small></span></Link>
-      {context.netplayEnabled ? <Link href="/netplay" onClick={() => setCompactPanel(null)}><AppIcon name="gamepad" /><span><strong>联机游玩</strong><small>创建或加入同源房间</small></span></Link> : null}
       <Link href="/account" onClick={() => setCompactPanel(null)}><AppIcon name="settings" /><span><strong>账户设置</strong><small>{user?.displayName} · @{user?.username}</small></span></Link>
       {user?.role === "ADMIN" ? <Link href="/admin/imports" onClick={() => setCompactPanel(null)}><AppIcon name="settings" /><span><strong>管理后台</strong><small>入库、审核和运行依赖</small></span></Link> : null}
       <button type="button" onClick={() => setCompactPanel("health")}><AppIcon name="chip" /><span><strong>服务状态</strong><small>{healthLabel(health.state)}</small></span></button>

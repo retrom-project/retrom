@@ -16,7 +16,6 @@ type CatalogRecords interface {
 }
 type ProjectionRecords interface {
 	Publish(context.Context, Publication) error
-	TerminateSessions(context.Context, string, int64) error
 	Audit(context.Context, Audit) error
 }
 type (

@@ -503,7 +503,7 @@ class PublicFixtureTests(unittest.TestCase):
             text=True,
         )
 
-    def test_nes_netplay_smoke_is_a_locked_mapper_zero_rom(self) -> None:
+    def test_nes_smoke_is_a_locked_mapper_zero_rom(self) -> None:
         subprocess.run(
             ["python3", str(NES_FIXTURE_ROOT / "build.py"), "--check"],
             cwd=REPOSITORY_ROOT,
@@ -528,7 +528,7 @@ class PublicFixtureTests(unittest.TestCase):
                 identities.add(digest)
         self.assertEqual(len(NES_ROMS), len(identities))
 
-    def test_snes_netplay_smoke_is_a_locked_lorom(self) -> None:
+    def test_snes_smoke_is_a_locked_lorom(self) -> None:
         subprocess.run(
             ["python3", str(SNES_FIXTURE_ROOT / "build.py"), "--check"],
             cwd=REPOSITORY_ROOT,

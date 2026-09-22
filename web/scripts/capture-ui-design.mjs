@@ -32,9 +32,6 @@ const designCaptures = [
   ["retrom-ui-favorites-folder-manager.png", "favorites", 1280, 800, "folder-manager"],
   ["retrom-ui-favorites-unfavorite-dialog.png", "favorites", 1280, 800, "unfavorite-dialog"],
   ["retrom-ui-recent-4k.png", "recent", 3840, 2160],
-  ["retrom-ui-netplay.png", "netplay", 2560, 1440],
-  ["retrom-ui-netplay-room.png", "netplay-room", 2560, 1440],
-  ["retrom-ui-netplay-player.png", "netplay-player", 2560, 1440],
   ["retrom-ui-immersive-entry.png", "immersive-entry", 1280, 720],
   ["retrom-ui-immersive-platforms.png", "immersive-platforms", 1920, 1080],
   ["retrom-ui-immersive-games.png", "immersive-games", 1920, 1080],
@@ -93,7 +90,6 @@ const designCaptures = [
   ["retrom-ui-launch-options-mobile.png", "detail", 390, 844, "phone-launch-options"],
   ["retrom-ui-saves-mobile.png", "saves", 390, 844],
   ["retrom-ui-favorites-mobile.png", "favorites", 390, 844],
-  ["retrom-ui-netplay-room-mobile.png", "netplay-room", 390, 844],
   ["retrom-ui-admin-review-mobile.png", "admin-review", 390, 844],
   ["retrom-ui-play-portrait-mobile.png", "play", 390, 844, "mobile-portrait"],
   ["retrom-ui-play-landscape-mobile.png", "play", 844, 390]
@@ -154,7 +150,7 @@ try {
       await frame.locator('[data-mobile-page="me"]').click();
     } else if (view === "account") {
       await frame.locator('[data-review-scene="account"]').click();
-    } else if (width < 768 && ["saves", "favorites", "recent", "netplay"].includes(view)) {
+    } else if (width < 768 && ["saves", "favorites", "recent"].includes(view)) {
       await frame.locator('[data-mobile-page="me"]').click();
       await frame.locator(`.rt-phone-profile [data-page-link="${view}"]`).click();
     } else if (view === "detail") {
@@ -170,10 +166,6 @@ try {
     } else if (view === "admin-source-import-detail") {
       await activate('[data-page-target="admin-server-import"]');
       await activate('[data-page-link="admin-source-import-detail"]');
-    } else if (view === "netplay-room") {
-      await frame.locator('[data-review-scene="netplay-room"]').click();
-    } else if (view === "netplay-player") {
-      await frame.locator('[data-review-scene="netplay-player"]').click();
     } else if (!(view in rpgViewPages) && !["home", "setup", "login", "register", "reset"].includes(view)) {
       if (view.startsWith("admin-")) {await activate(`[data-page-target="${view}"], [data-page-link="${view}"]`);}
       else {await clickVisible(`[data-page-target="${view}"], [data-page-link="${view}"]`);}

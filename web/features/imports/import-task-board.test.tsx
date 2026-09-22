@@ -9,6 +9,18 @@ import { ImportTaskBoard } from "./import-task-board";
 describe("ImportTaskBoard", () => {
   afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
+  it("opens the current completed batch details without an audit-history route", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({fileOutcomes: []}), {status: 200})));
+    render(<ImportTaskBoard initial={{items: [{
+      id: "completed", state: "COMPLETED", platformInstanceName: "完成目录", metadataProvider: "NONE",
+      totalItemCount: 1, reviewPendingItemCount: 0, failedItemCount: 0, rejectedFileCount: 0,
+      version: 1, createdAtMs: 1, updatedAtMs: 2,
+    }], nextCursor: null}} />);
+    await userEvent.setup().click(screen.getByRole("button", {name: "查看结果"}));
+    expect(await screen.findByRole("region", {name: "完成目录 阶段详情"})).toBeVisible();
+    expect(screen.queryByRole("link", {name: "查看结果"})).not.toBeInTheDocument();
+  });
+
   it("filters tasks through the dropdown without summary buttons", async () => {
     const user = userEvent.setup();
     const base = { metadataProvider: "NONE", totalItemCount: 1, reviewPendingItemCount: 0, failedItemCount: 0, rejectedFileCount: 0, version: 1, createdAtMs: 1, updatedAtMs: 2 };

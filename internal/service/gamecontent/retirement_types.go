@@ -11,8 +11,6 @@ type RetirementOwnerKind string
 const (
 	RetirementLaunch  RetirementOwnerKind = "LAUNCH"
 	RetirementPlay    RetirementOwnerKind = "PLAY"
-	RetirementNetplay RetirementOwnerKind = "NETPLAY"
-	RetirementRoom    RetirementOwnerKind = "ROOM"
 	RetirementVariant RetirementOwnerKind = "VARIANT"
 )
 

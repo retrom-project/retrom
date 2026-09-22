@@ -71,8 +71,7 @@ case "$CASE_ID" in
     runtime_test src/providers/emulatorjs
     web_test features/player/player-session.test.tsx features/player/multi-disc-telemetry.test.ts \
       features/player/immersive-controls.test.ts features/player/immersive-gamepad-filter.test.ts \
-      features/player/use-immersive-player.test.tsx features/player/netplay \
-      features/player/runtime/netplay-port-adapter.test.ts
+      features/player/use-immersive-player.test.tsx
     ;;
   ACC-PROVIDER-008)
     runtime_test src/providers/retrom-runtime tests/repository-boundary.test.ts

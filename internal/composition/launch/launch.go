@@ -34,16 +34,8 @@ func New(database *sql.DB, source *launch.Sources, publicOrigin string, now func
 			Now: now, SignCapability: source.SignCapability, SignIsolation: source.SignIsolation,
 		},
 	)
-	netplay := application.NewNetplayCreator(
-		repository.NewNetplayCreation(database),
-		source,
-		source,
-		application.NetplayCreationEnvironment{
-			Now: now, SignCapability: source.SignCapability,
-		},
-	)
 	return application.New(application.ServiceDependencies{
-		Product: product, Preview: preview, Netplay: netplay, Validation: supervisor,
+		Product: product, Preview: preview, Validation: supervisor,
 		Config: application.NewConfigIssuer(repository.NewConfig(database), source, application.ConfigEnvironment{
 			Now: now, Matches: retromruntime.MatchesCapability, PublicOrigin: publicOrigin, SignIsolation: source.SignIsolation,
 		}),

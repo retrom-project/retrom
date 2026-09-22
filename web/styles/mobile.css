@@ -640,14 +640,4 @@
   .recent-history-launch .button,
   .recent-history-detail { min-height: 48px; }
 
-  /* Netplay */
-  .netplay-room-grid,
-  .netplay-seat-grid,
-  .netplay-loading-grid { grid-template-columns: minmax(0, 1fr); }
-  .netplay-room-card { min-height: 176px; padding: 16px; }
-  .netplay-room-summary { align-items: flex-start; flex-direction: column; }
-  .netplay-seat { min-height: 190px; }
-  .netplay-actions { position: sticky; z-index: 5; bottom: calc(68px + env(safe-area-inset-bottom)); padding: 10px; flex-direction: column; }
-  .netplay-actions .button { width: 100%; }
-  .netplay-profile-dialog { max-height: calc(100dvh - 32px); padding: 18px; overflow-y: auto; }
 }

@@ -15,8 +15,7 @@ type Capabilities = application.Capabilities
 type CreateRequest = application.CreateRequest
 
 type (
-	Created              = application.Created
-	NetplayCreateRequest = application.NetplayCreateRequest
+	Created = application.Created
 )
 
 type (

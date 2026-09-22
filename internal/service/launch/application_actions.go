@@ -210,14 +210,6 @@ func (service *Service) CreateReviewPreview(
 	return result, nil
 }
 
-func (service *Service) CreateNetplay(ctx context.Context, request NetplayCreateRequest) (Created, error) {
-	result, err := service.dependencies.Netplay.CreateNetplay(ctx, request)
-	if err != nil {
-		return Created{}, fmt.Errorf("launch netplay creation: %w", err)
-	}
-	return result, nil
-}
-
 func (service *Service) ReviewPreviewConfig(ctx context.Context, id, capability string) (Config, error) {
 	configuration, err := service.dependencies.Config.Issue(ctx, SessionRef{ID: id, Preview: true}, capability)
 	if err != nil {
@@ -270,12 +262,12 @@ func (service *Service) ProviderAssetAuthorized(
 	return result, nil
 }
 
-func (service *Service) SaveAccess(ctx context.Context, launchID, capability string) (string, error) {
-	result, err := service.dependencies.Sessions.SaveAccess(ctx, launchID, capability)
+func (service *Service) AuthorizeSave(ctx context.Context, launchID, capability string) error {
+	err := service.dependencies.Sessions.AuthorizeSave(ctx, launchID, capability)
 	if err != nil {
-		return result, fmt.Errorf("launch resource query: %w", err)
+		return fmt.Errorf("launch resource query: %w", err)
 	}
-	return result, nil
+	return nil
 }
 
 func (service *Service) TyranoScriptProjectContentAuthorized(

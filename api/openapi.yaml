@@ -80,36 +80,6 @@ paths:
     $ref: ./domains/runtime.yaml#/paths/~1api~1v1~1launches~1{launchId}~1local-save
   /api/v1/launches:
     $ref: ./domains/library.yaml#/paths/~1api~1v1~1launches
-  /api/v1/netplay/games:
-    $ref: ./domains/netplay.yaml#/paths/~1api~1v1~1netplay~1games
-  /api/v1/netplay/rooms:
-    $ref: ./domains/netplay.yaml#/paths/~1api~1v1~1netplay~1rooms
-  /api/v1/netplay/rooms/{roomId}:
-    $ref: ./domains/netplay.yaml#/paths/~1api~1v1~1netplay~1rooms~1{roomId}
-  /api/v1/netplay/rooms/{roomId}/game:
-    $ref: ./domains/netplay.yaml#/paths/~1api~1v1~1netplay~1rooms~1{roomId}~1game
-  /api/v1/netplay/rooms/{roomId}/members/me/seat:
-    $ref: ./domains/netplay.yaml#/paths/~1api~1v1~1netplay~1rooms~1{roomId}~1members~1me~1seat
-  /api/v1/netplay/rooms/{roomId}/members/me/ready:
-    $ref: ./domains/netplay.yaml#/paths/~1api~1v1~1netplay~1rooms~1{roomId}~1members~1me~1ready
-  /api/v1/netplay/rooms/{roomId}/members/me:
-    $ref: ./domains/netplay.yaml#/paths/~1api~1v1~1netplay~1rooms~1{roomId}~1members~1me
-  /api/v1/netplay/rooms/{roomId}/members/{memberId}:
-    $ref: ./domains/netplay.yaml#/paths/~1api~1v1~1netplay~1rooms~1{roomId}~1members~1{memberId}
-  /api/v1/netplay/rooms/{roomId}/start:
-    $ref: ./domains/netplay.yaml#/paths/~1api~1v1~1netplay~1rooms~1{roomId}~1start
-  /api/v1/netplay/rooms/{roomId}/sessions/{sessionId}/launch:
-    $ref: ./domains/netplay.yaml#/paths/~1api~1v1~1netplay~1rooms~1{roomId}~1sessions~1{sessionId}~1launch
-  /api/v1/netplay/rooms/{roomId}/sessions/{sessionId}/pause:
-    $ref: ./domains/netplay.yaml#/paths/~1api~1v1~1netplay~1rooms~1{roomId}~1sessions~1{sessionId}~1pause
-  /api/v1/netplay/rooms/{roomId}/sessions/{sessionId}/resume:
-    $ref: ./domains/netplay.yaml#/paths/~1api~1v1~1netplay~1rooms~1{roomId}~1sessions~1{sessionId}~1resume
-  /api/v1/netplay/rooms/{roomId}/sessions/{sessionId}/end:
-    $ref: ./domains/netplay.yaml#/paths/~1api~1v1~1netplay~1rooms~1{roomId}~1sessions~1{sessionId}~1end
-  /api/v1/netplay/rooms/{roomId}/events:
-    $ref: ./domains/netplay.yaml#/paths/~1api~1v1~1netplay~1rooms~1{roomId}~1events
-  /runtime/netplay/rooms/{roomId}/socket:
-    $ref: ./domains/netplay.yaml#/paths/~1runtime~1netplay~1rooms~1{roomId}~1socket
   /api/v1/admin/uploads:
     $ref: ./domains/imports.yaml#/paths/~1api~1v1~1admin~1uploads
   /api/v1/admin/uploads/{uploadId}:
@@ -451,34 +421,6 @@ components:
       $ref: ./components/common.yaml#/components/schemas/ClientCapabilities
     LaunchRequest:
       $ref: ./domains/library.yaml#/components/schemas/LaunchRequest
-    NetplaySelectGameRequest:
-      $ref: ./domains/netplay.yaml#/components/schemas/NetplaySelectGameRequest
-    NetplaySeatRequest:
-      $ref: ./domains/netplay.yaml#/components/schemas/NetplaySeatRequest
-    NetplayReadyRequest:
-      $ref: ./domains/netplay.yaml#/components/schemas/NetplayReadyRequest
-    NetplayLaunchRequest:
-      $ref: ./domains/netplay.yaml#/components/schemas/NetplayLaunchRequest
-    NetplayProfileSummary:
-      $ref: ./domains/netplay.yaml#/components/schemas/NetplayProfileSummary
-    NetplayGameSummary:
-      $ref: ./domains/netplay.yaml#/components/schemas/NetplayGameSummary
-    NetplayGameList:
-      $ref: ./domains/netplay.yaml#/components/schemas/NetplayGameList
-    NetplayRoomMember:
-      $ref: ./domains/netplay.yaml#/components/schemas/NetplayRoomMember
-    NetplayRoomGame:
-      $ref: ./domains/netplay.yaml#/components/schemas/NetplayRoomGame
-    NetplaySessionSummary:
-      $ref: ./domains/netplay.yaml#/components/schemas/NetplaySessionSummary
-    NetplayRoomPermissions:
-      $ref: ./domains/netplay.yaml#/components/schemas/NetplayRoomPermissions
-    NetplayRoom:
-      $ref: ./domains/netplay.yaml#/components/schemas/NetplayRoom
-    NetplayRoomList:
-      $ref: ./domains/netplay.yaml#/components/schemas/NetplayRoomList
-    NetplayLaunchResponseBody:
-      $ref: ./domains/netplay.yaml#/components/schemas/NetplayLaunchResponseBody
     StartupAction:
       $ref: ./domains/runtime.yaml#/components/schemas/StartupAction
     DiscEntry:
@@ -728,14 +670,6 @@ components:
       $ref: ./domains/library.yaml#/components/requestBodies/FromRenameSave
     Launch:
       $ref: ./domains/library.yaml#/components/requestBodies/Launch
-    NetplaySelectGame:
-      $ref: ./domains/netplay.yaml#/components/requestBodies/NetplaySelectGame
-    NetplaySeat:
-      $ref: ./domains/netplay.yaml#/components/requestBodies/NetplaySeat
-    NetplayReady:
-      $ref: ./domains/netplay.yaml#/components/requestBodies/NetplayReady
-    NetplayLaunch:
-      $ref: ./domains/netplay.yaml#/components/requestBodies/NetplayLaunch
     CreateUpload:
       $ref: ./domains/imports.yaml#/components/requestBodies/CreateUpload
     CreateImport:
@@ -941,14 +875,6 @@ components:
       $ref: ./domains/library.yaml#/components/responses/ImmersiveLibraryGameListResponse
     LaunchConfigResponse:
       $ref: ./domains/runtime.yaml#/components/responses/LaunchConfigResponse
-    NetplayRoomResponse:
-      $ref: ./domains/netplay.yaml#/components/responses/NetplayRoomResponse
-    NetplayGameListResponse:
-      $ref: ./domains/netplay.yaml#/components/responses/NetplayGameListResponse
-    NetplayRoomListResponse:
-      $ref: ./domains/netplay.yaml#/components/responses/NetplayRoomListResponse
-    NetplayLaunchResponse:
-      $ref: ./domains/netplay.yaml#/components/responses/NetplayLaunchResponse
     SSEResponse:
       $ref: ./components/common.yaml#/components/responses/SSEResponse
     BinaryResponse:
@@ -958,10 +884,6 @@ components:
       $ref: ./components/common.yaml#/components/parameters/Q
     Q80:
       $ref: ./components/common.yaml#/components/parameters/Q80
-    NetplayAvailability:
-      $ref: ./domains/netplay.yaml#/components/parameters/NetplayAvailability
-    NetplayRoomView:
-      $ref: ./domains/netplay.yaml#/components/parameters/NetplayRoomView
     Role:
       $ref: ./domains/identity.yaml#/components/parameters/Role
     PlatformIDQuery:
@@ -1106,12 +1028,6 @@ components:
       $ref: ./domains/runtime.yaml#/components/parameters/LaunchID
     ContentIdentity:
       $ref: ./domains/runtime.yaml#/components/parameters/ContentIdentity
-    NetplayRoomID:
-      $ref: ./domains/netplay.yaml#/components/parameters/NetplayRoomID
-    NetplayMemberID:
-      $ref: ./domains/netplay.yaml#/components/parameters/NetplayMemberID
-    NetplaySessionID:
-      $ref: ./domains/netplay.yaml#/components/parameters/NetplaySessionID
     UserID:
       $ref: ./domains/identity.yaml#/components/parameters/UserID
     AccountLinkID:

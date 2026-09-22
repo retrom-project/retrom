@@ -30,7 +30,7 @@ describe("LaunchButton thread capability guard", () => {
     expect(screen.getByRole("alert")).toHaveTextContent("远程明文 HTTP 无法提供 SharedArrayBuffer");
   });
 
-  it("replays a game through an ordinary single-player launch even when the recent session was netplay", async () => {
+  it("replays a recent game through an ordinary launch", async () => {
     const user = userEvent.setup();
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
       launchId: "launch-single", playUrl: "/play/launch-single",
@@ -39,7 +39,7 @@ describe("LaunchButton thread capability guard", () => {
     vi.stubGlobal("isSecureContext", true);
     vi.stubGlobal("crossOriginIsolated", true);
 
-    render(<LaunchButton gameId="game-from-netplay" returnTo="/" label="再玩一次" />);
+    render(<LaunchButton gameId="recent-game" returnTo="/" label="再玩一次" />);
     await user.click(screen.getByRole("button", { name: "再玩一次" }));
 
     await vi.waitFor(() => expect(navigation.replacePlayerDocument).toHaveBeenCalledWith("/play/launch-single", navigation.replace));
@@ -48,7 +48,7 @@ describe("LaunchButton thread capability guard", () => {
     const request = fetchMock.mock.calls[0]?.[1] as RequestInit;
     expect(request.method).toBe("POST");
     expect(JSON.parse(request.body as string)).toEqual({
-      gameId: "game-from-netplay",
+      gameId: "recent-game",
       coreId: null,
       saveStateId: null,
       dosEntry: null,

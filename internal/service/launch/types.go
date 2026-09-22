@@ -18,19 +18,3 @@ type Created struct {
 	Capability           string   `json:"-"`
 	Existing             bool     `json:"-"`
 }
-
-type NetplayCreateRequest struct {
-	RoomID                  string
-	SessionID               string
-	ProfileID               string
-	PlayerNo                int
-	GameID                  string
-	GameVariantID           string
-	ProviderID              string
-	TargetID                string
-	BundleSHA256            string
-	ReturnTo                string
-	ClientCapabilities      Capabilities
-	CredentialGeneration    int64
-	NetplayCredentialSHA256 []byte
-}

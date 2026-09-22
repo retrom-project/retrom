@@ -64,7 +64,9 @@ test("ACC-FAV-003 user flow remains consistent across library, detail, folders, 
   page.setDefaultTimeout(10_000);
   test.skip(testInfo.project.name !== "chrome-1280", "The stateful favorite flow runs once.");
   const admin = await login(page.request);
-  await page.goto("/library?platformId=gba");
+  // The shared setup publishes FCEUmm and Nestopia fixtures independently of
+  // the import test selection, so this flow also runs as an isolated Case.
+  await page.goto("/library?platformId=nes");
 
   const available = page.locator('.library-game-card:has(button[aria-label^="收藏“"])');
   expect(await available.count()).toBeGreaterThanOrEqual(2);
@@ -134,8 +136,8 @@ test("ACC-FAV-003 user flow remains consistent across library, detail, folders, 
   await page.getByRole("searchbox", { name: "搜索收藏" }).fill("");
   await page.getByRole("combobox", { name: "排序方式" }).selectOption("TITLE_ASC");
   await expect(page).toHaveURL(/sort=TITLE_ASC/);
-  await page.getByRole("button", { name: /Game Boy Advance 2$/ }).click();
-  await expect(page).toHaveURL(/platformId=gba/);
+  await page.getByRole("button", { name: /NES \/ Famicom 2$/ }).click();
+  await expect(page).toHaveURL(/platformId=nes/);
   await page.getByRole("button", { name: /^全部 \d+$/ }).click();
   await expect(page).not.toHaveURL(/platformId=/);
   await page.getByRole("button", { name: /待通关 1$/ }).click();
@@ -143,7 +145,7 @@ test("ACC-FAV-003 user flow remains consistent across library, detail, folders, 
   const rename = page.getByRole("dialog", { name: "编辑收藏夹" });
   await rename.getByRole("textbox", { name: "收藏夹名称" }).fill("近期必玩");
   await rename.getByRole("button", { name: "保存" }).click();
-  await expect(page.getByRole("heading", { name: "近期必玩" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /近期必玩 1$/ })).toHaveAttribute("aria-current", "page");
 
   await page.getByRole("button", { name: /全部收藏 \d+$/ }).click();
   await page.getByRole("button", { name: "批量整理" }).click();
@@ -215,7 +217,6 @@ test("ACC-FAV-004 favorite states, keyboard semantics and bounded layout hold at
     const rail = document.querySelector<HTMLElement>(".favorite-rail")!;
     const railList = document.querySelector<HTMLElement>(".favorite-rail nav")!;
     const cards = [...document.querySelectorAll<HTMLElement>(".favorite-game-card")];
-    const firstCard = cards[0].getBoundingClientRect();
     const firstCover = cards[0].querySelector<HTMLElement>(".favorite-game-cover")!.getBoundingClientRect();
     const heart = cards[0].querySelector<HTMLElement>(".favorite-heart")!;
     const heartRect = heart.getBoundingClientRect();
@@ -244,7 +245,8 @@ test("ACC-FAV-004 favorite states, keyboard semantics and bounded layout hold at
       heartFill: getComputedStyle(heartIcon).fill,
       heartRadius: getComputedStyle(heart).borderRadius,
       manageText: manage.textContent,
-      manageInsideBody: manageRect.top >= firstCover.bottom && manageRect.bottom <= firstCard.bottom + 1,
+      manageCoverRightGap: firstCover.right - manageRect.right,
+      manageCoverTopGap: manageRect.top - firstCover.top,
       toolbarBackground: getComputedStyle(document.querySelector<HTMLElement>(".favorite-toolbar")!).backgroundColor,
       summaryBackground: getComputedStyle(document.querySelector<HTMLElement>(".favorite-platforms")!).backgroundColor,
     };
@@ -262,7 +264,8 @@ test("ACC-FAV-004 favorite states, keyboard semantics and bounded layout hold at
   expect(layout.heartFill).toBe("rgb(220, 66, 87)");
   expect(layout.heartRadius).toBe("50%");
   expect(layout.manageText).toBe("•••");
-  expect(layout.manageInsideBody).toBe(true);
+  expect(layout.manageCoverRightGap).toBeCloseTo(9, 0);
+  expect(layout.manageCoverTopGap).toBeCloseTo(9, 0);
   expect(layout.toolbarBackground).toBe("rgb(255, 255, 255)");
   expect(layout.summaryBackground).toBe("rgba(0, 0, 0, 0)");
   await expect(page.getByRole("button", { name: "新建收藏夹", exact: true })).toBeVisible();

@@ -1,4 +1,4 @@
-# Retrom SNES netplay smoke ROM
+# Retrom SNES smoke ROM
 
 `snes-smoke.sfc` is a project-owned, MIT-licensed 32 KiB SNES LoROM generated
 deterministically by `build.py`. It contains no Nintendo logo, commercial game,
@@ -13,5 +13,6 @@ RTC, random input, network, or persistent files.
 
 Generate with `python3 build.py`; verify committed bytes with
 `python3 build.py --check`. The output is consumed only by Retrom's real import,
-Launch, content endpoint, and Player paths: dual-browser SNES9x netplay and
-bsnes single-player input/checkpoint restoration (ACC-RUN-016).
+Launch, content endpoint, and Player paths: SNES9x and bsnes input/checkpoint
+restoration (ACC-RUN-008 and ACC-RUN-016). Historical marker bytes remain
+unchanged to preserve the locked content identity.
