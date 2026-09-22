@@ -83,7 +83,7 @@ printf '\000\000\000\030ftypisom\000\000\000\000isommp42' >"$temporary_root/sour
 "$repository_root/scripts/acceptance/prepare-pegasus-gba-source.sh" "$temporary_root/source/Playable"
 "$repository_root/scripts/acceptance/prepare-emulationstation-gba-source.sh" "$temporary_root/source/EmulationStationPlayable"
 cd "$repository_root"
-setsid make dev \
+RETROM_WEB_E2E=true setsid make dev \
   RETROM_MODE="test" \
   RETROM_DEV_STATE_DIR="$dev_state" \
   RETROM_DATA_DIR="$temporary_root/data" \

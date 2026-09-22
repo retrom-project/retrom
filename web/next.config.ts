@@ -9,7 +9,7 @@ export const backendProxyLimits = {
 } as const;
 
 const nextConfig: NextConfig = {
-  devIndicators: { position: "bottom-right" },
+  devIndicators: process.env.RETROM_WEB_E2E === "true" ? false : { position: "bottom-right" },
   allowedDevOrigins: localDevOrigins(),
   distDir: process.env.NEXT_DIST_DIR ?? ".next",
   experimental: {
