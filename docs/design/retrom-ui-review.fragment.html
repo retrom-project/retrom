@@ -1820,15 +1820,15 @@
     #retrom-ui-review .rt-server-history dt { color: var(--retrom-muted); font-size: 8px; }
     #retrom-ui-review .rt-server-history dd { margin: 2px 0 0; font-size: 13px; font-weight: 700; }
     #retrom-ui-review .rt-server-drawer { width: 620px; }
-    #retrom-ui-review .rt-pegasus-drawer { width: 760px; }
-    #retrom-ui-review .rt-pegasus-stepper { margin: 0; padding: 12px 20px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; border-bottom: 1px solid var(--retrom-line); list-style: none; }
-    #retrom-ui-review .rt-pegasus-stepper li { padding: 8px; color: var(--retrom-muted); border-radius: var(--radius-panel); background: var(--retrom-bg); font-size: 9px; font-weight: 700; }
-    #retrom-ui-review .rt-pegasus-stepper li.is-complete { color: var(--retrom-green); background: var(--retrom-green-soft); }
-    #retrom-ui-review .rt-pegasus-stepper li.is-active { color: var(--retrom-purple); background: var(--retrom-purple-soft); }
-    #retrom-ui-review .rt-pegasus-mapping { display: grid; gap: 8px; }
-    #retrom-ui-review .rt-pegasus-mapping article { padding: 11px; display: grid; grid-template-columns: minmax(0, 1fr) 250px; align-items: center; gap: 10px; border: 1px solid var(--retrom-line); border-radius: var(--radius-panel); }
-    #retrom-ui-review .rt-pegasus-mapping h3 { margin: 0; font-size: 12px; }
-    #retrom-ui-review .rt-pegasus-mapping p { margin: 3px 0 0; color: var(--retrom-muted); font-size: 9px; }
+    #retrom-ui-review .rt-source-drawer { width: 760px; }
+    #retrom-ui-review .rt-source-stepper { margin: 0; padding: 12px 20px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; border-bottom: 1px solid var(--retrom-line); list-style: none; }
+    #retrom-ui-review .rt-source-stepper li { padding: 8px; color: var(--retrom-muted); border-radius: var(--radius-panel); background: var(--retrom-bg); font-size: 9px; font-weight: 700; }
+    #retrom-ui-review .rt-source-stepper li.is-complete { color: var(--retrom-green); background: var(--retrom-green-soft); }
+    #retrom-ui-review .rt-source-stepper li.is-active { color: var(--retrom-purple); background: var(--retrom-purple-soft); }
+    #retrom-ui-review .rt-source-mapping { display: grid; gap: 8px; }
+    #retrom-ui-review .rt-source-mapping article { padding: 11px; display: grid; grid-template-columns: minmax(0, 1fr) 250px; align-items: center; gap: 10px; border: 1px solid var(--retrom-line); border-radius: var(--radius-panel); }
+    #retrom-ui-review .rt-source-mapping h3 { margin: 0; font-size: 12px; }
+    #retrom-ui-review .rt-source-mapping p { margin: 3px 0 0; color: var(--retrom-muted); font-size: 9px; }
     #retrom-ui-review .rt-emulationstation-step[hidden] { display: none; }
     #retrom-ui-review .rt-emulationstation-mapping article { grid-template-columns: minmax(0, 1fr) 270px; }
     #retrom-ui-review .rt-emulationstation-mapping article.is-flagged { border-color: #e4c890; background: var(--retrom-amber-soft); }
@@ -1842,23 +1842,23 @@
     #retrom-ui-review .rt-emulationstation-gamelists { margin: 12px 0; padding: 12px; border: 1px solid var(--retrom-line); border-radius: var(--radius-panel); background: var(--retrom-panel); }
     #retrom-ui-review .rt-emulationstation-gamelists summary { cursor: pointer; font-size: 11px; font-weight: 760; }
     #retrom-ui-review .rt-emulationstation-gamelists p { margin: 8px 0 0; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-    #retrom-ui-review .rt-emulationstation-flags { display: inline-flex; gap: 4px; margin-top: 5px; }
-    #retrom-ui-review .rt-emulationstation-flags small { padding: 2px 6px; color: var(--retrom-amber); border-radius: 999px; background: var(--retrom-amber-soft); font-weight: 760; }
-    #retrom-ui-review .rt-pegasus-review-action { font-size: 14px; }
-    #retrom-ui-review .rt-pegasus-result-row { grid-template-columns: minmax(260px, 1fr) 210px 180px 120px; }
-    #retrom-ui-review .rt-pegasus-diagnostic { grid-column: 1 / -1; border: 1px solid #ead7da; border-radius: var(--radius-panel); background: #fffafb; }
-    #retrom-ui-review .rt-pegasus-diagnostic > summary { min-height: 34px; padding: 0 10px; display: flex; align-items: center; color: #8f3c47; cursor: pointer; font-size: 10px; font-weight: 780; }
-    #retrom-ui-review .rt-pegasus-diagnostic[open] > summary { border-bottom: 1px solid #f0dfe2; }
-    #retrom-ui-review .rt-pegasus-diagnostic-body { padding: 12px; display: grid; gap: 10px; }
-    #retrom-ui-review .rt-pegasus-diagnostic-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
-    #retrom-ui-review .rt-pegasus-diagnostic-head p { max-width: 780px; margin: 4px 0 0; color: var(--retrom-muted); font-size: 10px; }
-    #retrom-ui-review .rt-pegasus-diagnostic code { padding: 2px 5px; overflow-wrap: anywhere; color: #68434a; border-radius: 4px; background: #f8ecee; font-size: 9px; }
-    #retrom-ui-review .rt-pegasus-diagnostic-facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; }
-    #retrom-ui-review .rt-pegasus-diagnostic-facts div { padding: 8px 9px; border: 1px solid #eee8e4; border-radius: var(--radius-panel); background: white; }
-    #retrom-ui-review .rt-pegasus-diagnostic-facts span { display: block; margin-bottom: 5px; color: var(--retrom-muted); font-size: 8px; font-weight: 760; }
-    #retrom-ui-review .rt-pegasus-diagnostic-technical { padding: 9px 10px; display: grid; gap: 5px; border: 1px solid #eee8e4; border-radius: var(--radius-panel); background: #fff; }
-    #retrom-ui-review .rt-pegasus-diagnostic-technical span { color: var(--retrom-muted); font-size: 8px; font-weight: 760; }
-    #retrom-ui-review .rt-pegasus-diagnostic-action { margin: 0; padding: 9px 10px; color: #5f5154; border-left: 3px solid #be6a77; background: #fff4f6; font-size: 10px; }
+    #retrom-ui-review .rt-source-flags { display: inline-flex; gap: 4px; margin-top: 5px; }
+    #retrom-ui-review .rt-source-flags small { padding: 2px 6px; color: var(--retrom-amber); border-radius: 999px; background: var(--retrom-amber-soft); font-weight: 760; }
+    #retrom-ui-review .rt-source-review-action { font-size: 14px; }
+    #retrom-ui-review .rt-source-result-row { grid-template-columns: minmax(260px, 1fr) 210px 180px 120px; }
+    #retrom-ui-review .rt-source-diagnostic { grid-column: 1 / -1; border: 1px solid #ead7da; border-radius: var(--radius-panel); background: #fffafb; }
+    #retrom-ui-review .rt-source-diagnostic > summary { min-height: 34px; padding: 0 10px; display: flex; align-items: center; color: #8f3c47; cursor: pointer; font-size: 10px; font-weight: 780; }
+    #retrom-ui-review .rt-source-diagnostic[open] > summary { border-bottom: 1px solid #f0dfe2; }
+    #retrom-ui-review .rt-source-diagnostic-body { padding: 12px; display: grid; gap: 10px; }
+    #retrom-ui-review .rt-source-diagnostic-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+    #retrom-ui-review .rt-source-diagnostic-head p { max-width: 780px; margin: 4px 0 0; color: var(--retrom-muted); font-size: 10px; }
+    #retrom-ui-review .rt-source-diagnostic code { padding: 2px 5px; overflow-wrap: anywhere; color: #68434a; border-radius: 4px; background: #f8ecee; font-size: 9px; }
+    #retrom-ui-review .rt-source-diagnostic-facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; }
+    #retrom-ui-review .rt-source-diagnostic-facts div { padding: 8px 9px; border: 1px solid #eee8e4; border-radius: var(--radius-panel); background: white; }
+    #retrom-ui-review .rt-source-diagnostic-facts span { display: block; margin-bottom: 5px; color: var(--retrom-muted); font-size: 8px; font-weight: 760; }
+    #retrom-ui-review .rt-source-diagnostic-technical { padding: 9px 10px; display: grid; gap: 5px; border: 1px solid #eee8e4; border-radius: var(--radius-panel); background: #fff; }
+    #retrom-ui-review .rt-source-diagnostic-technical span { color: var(--retrom-muted); font-size: 8px; font-weight: 760; }
+    #retrom-ui-review .rt-source-diagnostic-action { margin: 0; padding: 9px 10px; color: #5f5154; border-left: 3px solid #be6a77; background: #fff4f6; font-size: 10px; }
     #retrom-ui-review .rt-video-preview-chip { position: absolute; left: 12px; bottom: 12px; z-index: 2; padding: 7px 9px; display: inline-flex; align-items: center; gap: 6px; color: #fff; border: 1px solid rgb(255 255 255 / .3); border-radius: 999px; background: rgb(18 22 34 / .72); font-size: 9px; backdrop-filter: blur(8px); }
     #retrom-ui-review .rt-server-root-choice, #retrom-ui-review .rt-server-overwrite { padding: 12px; display: flex; align-items: flex-start; gap: 9px; border: 1px solid var(--retrom-line); border-radius: var(--radius-panel); }
     #retrom-ui-review .rt-server-root-choice span, #retrom-ui-review .rt-server-overwrite span { display: grid; gap: 3px; }
@@ -1869,9 +1869,9 @@
     #retrom-ui-review .rt-server-selection { padding: 11px; border-radius: var(--radius-panel); background: var(--retrom-cyan-soft); font-size: 10px; }
     #retrom-ui-review .rt-server-detail-head { padding: 18px 20px; display: flex; align-items: center; justify-content: space-between; }
     #retrom-ui-review .rt-server-detail-head h1 { margin-top: 8px; }
-    #retrom-ui-review .rt-pegasus-review-callout { margin-top: 12px; padding: 16px 18px; display: flex; align-items: center; justify-content: space-between; gap: 22px; border-color: #d8d0f5; background: linear-gradient(110deg, #fff 0%, #faf8ff 70%, #f2efff 100%); }
-    #retrom-ui-review .rt-pegasus-review-callout h2 { margin: 6px 0 0; font-size: 15px; }
-    #retrom-ui-review .rt-pegasus-review-callout p { max-width: 760px; margin: 5px 0 0; color: var(--retrom-muted); font-size: 9px; line-height: 1.6; }
+    #retrom-ui-review .rt-source-review-callout { margin-top: 12px; padding: 16px 18px; display: flex; align-items: center; justify-content: space-between; gap: 22px; border-color: #d8d0f5; background: linear-gradient(110deg, #fff 0%, #faf8ff 70%, #f2efff 100%); }
+    #retrom-ui-review .rt-source-review-callout h2 { margin: 6px 0 0; font-size: 15px; }
+    #retrom-ui-review .rt-source-review-callout p { max-width: 760px; margin: 5px 0 0; color: var(--retrom-muted); font-size: 9px; line-height: 1.6; }
     #retrom-ui-review .rt-server-result-filter { margin: 14px 0 9px; padding: 11px; display: grid; grid-template-columns: minmax(240px, 1fr) 180px 180px auto; align-items: end; gap: 9px; }
     #retrom-ui-review .rt-server-result-filter label { display: grid; gap: 5px; color: var(--retrom-muted); font-size: 9px; }
     #retrom-ui-review .rt-server-result-table { overflow-x: auto; }
@@ -2799,7 +2799,6 @@
               <button type="button" class="rt-nav-button rt-nav-child" data-page-target="admin-server-import"><span class="rt-nav-label">本地扫描</span></button>
               <button type="button" class="rt-nav-button rt-nav-child" data-page-target="admin-import-tasks"><span class="rt-nav-label">任务进度</span><span class="rt-nav-count">2</span></button>
               <button type="button" class="rt-nav-button rt-nav-child" data-page-target="admin-review"><span class="rt-nav-label">待审核</span><span class="rt-nav-count">4</span></button>
-              <button type="button" class="rt-nav-button rt-nav-child" data-page-target="admin-review-history"><span class="rt-nav-label">审核历史</span></button>
             </div>
           </div>
           <button type="button" class="rt-nav-button" data-page-target="admin-games"><i data-lucide="settings-2" aria-hidden="true"></i><span>游戏管理</span></button>
@@ -3089,7 +3088,7 @@
 
         <div class="rt-section-head"><div><h2>最近任务</h2><p class="rt-subtitle">按用户发起的批次展示；Pegasus 目录导入只占一行。</p></div><div class="rt-page-head-actions"><button type="button" class="rt-text-link" data-page-link="admin-import-tasks">普通任务</button><button type="button" class="rt-text-link" data-page-link="admin-server-import">本地扫描</button></div></div>
         <div class="rt-panel rt-table-wrap"><table class="rt-table"><thead><tr><th>创建时间 / 目标目录</th><th>当前状态</th><th>当前阶段</th><th>条目摘要</th><th>操作</th></tr></thead><tbody>
-          <tr><td><div class="rt-table-title">今天 22:41 · 服务器文件系统 / FBNeo</div><div class="rt-table-sub">109 个条目 · Pegasus 目录</div></td><td><span class="rt-badge rt-badge-green">准备完成</span></td><td>准备完成</td><td>107 个已发布 · 2 个已丢弃</td><td><button class="rt-button" data-page-link="admin-pegasus-import-detail">查看</button></td></tr>
+          <tr><td><div class="rt-table-title">今天 22:41 · 服务器文件系统 / FBNeo</div><div class="rt-table-sub">109 个条目 · Pegasus 目录</div></td><td><span class="rt-badge rt-badge-green">准备完成</span></td><td>准备完成</td><td>107 个已发布 · 2 个已丢弃</td><td><button class="rt-button" data-page-link="admin-source-import-detail">查看</button></td></tr>
           <tr><td><div class="rt-table-title">今天 22:18 · DOS 经典游戏</div><div class="rt-table-sub">4 个条目 · Hasheous 哈希查询</div></td><td><span class="rt-badge rt-badge-amber">等待审核</span></td><td>人工审核</td><td>4 个待审核</td><td><button class="rt-button" data-page-link="admin-review">审核</button></td></tr>
           <tr><td><div class="rt-table-title">昨天 23:18 · NES 游戏</div><div class="rt-table-sub">28 个条目 · 不刮削</div></td><td><span class="rt-badge rt-badge-red">部分失败</span></td><td>运行检查</td><td>2 个异常</td><td><button class="rt-button" data-page-link="admin-import-tasks">查看</button></td></tr>
         </tbody></table></div>
@@ -3133,18 +3132,17 @@
 
       <template data-ui-state="admin-import-no-game-directories">
         <section class="rt-panel rt-empty-note"><h2>还没有游戏目录</h2><p>请先进入游戏目录，使用“一键创建推荐目录”建立可用目录，再回来导入游戏。</p><button type="button" class="rt-button rt-button-primary">前往游戏目录</button></section>
-        <section class="rt-panel rt-empty-note"><h2>还没有游戏目录</h2><p>请先进入游戏目录，使用“一键创建推荐目录”建立映射目标，再回来继续这次 Pegasus 导入。</p><button type="button" class="rt-button rt-button-primary">前往游戏目录</button></section>
+        <section class="rt-panel rt-empty-note"><h2>还没有游戏目录</h2><p>请先进入游戏目录，使用“一键创建推荐目录”建立映射目标，再回来继续这次目录导入。</p><button type="button" class="rt-button rt-button-primary">前往游戏目录</button></section>
       </template>
 
       <section class="rt-page" data-page="admin-server-import">
-        <div class="rt-page-head"><div><h1>从服务器目录导入</h1><p class="rt-subtitle">浏览服务器可读取的目录，支持 BIOS、Pegasus 与 EmulationStation 游戏目录导入。</p></div><div class="rt-page-head-actions"><button type="button" class="rt-button" data-page-link="admin-bios">BIOS 文件</button></div></div>
-        <div class="rt-server-capability-grid"><section class="rt-panel rt-server-capability"><div><span class="rt-badge rt-badge-purple">BIOS DIRECTORY</span><h2>扫描并导入 BIOS</h2><p>完整发现和候选排序结束后才逐项安装；默认保留已有 BIOS，开启替换也只允许严格更优候选。</p><div class="rt-server-capability-stats"><div><span>完整目录</span><strong>286</strong></div><div><span>需要处理</span><strong>43</strong></div><div><span>最近任务</span><strong style="font-size:13px">已完成</strong></div><div><span>扫描来源</span><strong style="font-size:13px">只读</strong></div></div></div><button type="button" class="rt-button rt-button-primary" data-open-server-import-drawer>选择目录并开始</button></section><section class="rt-panel rt-server-capability is-pegasus"><div><span class="rt-badge rt-badge-cyan">PEGASUS ROM DIRECTORY</span><h2>扫描并准备审核事项</h2><p>读取 metadata.pegasus.txt，显式映射 Collection，再复制、运行检查并交给管理员逐项审核；不会自动发布。</p><div class="rt-server-capability-stats"><div><span>可用位置</span><strong>1</strong></div><div><span>待映射</span><strong>1</strong></div><div><span>待逐项审核</span><strong>42</strong></div><div><span>发布方式</span><strong style="font-size:13px">人工逐项</strong></div></div></div><button type="button" class="rt-button rt-button-primary" data-open-pegasus-drawer>选择目录并扫描</button></section><section class="rt-panel rt-server-capability is-emulationstation"><div><span class="rt-badge rt-badge-purple">EMULATIONSTATION GAMELIST</span><h2>扫描 gamelist.xml 并准备审核</h2><p>递归读取精确小写 gamelist.xml，每份有效清单显式选择 IMPORT 或 SKIP；不执行 command、emulator 或 core。</p><div class="rt-server-capability-stats"><div><span>可用位置</span><strong>1</strong></div><div><span>待映射</span><strong>1</strong></div><div><span>待逐项审核</span><strong>23</strong></div><div><span>发布方式</span><strong style="font-size:13px">零自动发布</strong></div></div></div><button type="button" class="rt-button rt-button-primary" data-open-emulationstation-drawer>选择目录并扫描</button></section></div>
+        <div class="rt-page-head"><div><h1>从服务器目录导入</h1><p class="rt-subtitle">浏览服务器可读取的目录，支持 BIOS 与按 Pegasus、gamelist.xml 组织的游戏目录。</p></div><div class="rt-page-head-actions"><button type="button" class="rt-button" data-page-link="admin-bios">BIOS 文件</button></div></div>
+        <div class="rt-server-capability-grid"><section class="rt-panel rt-server-capability"><div><span class="rt-badge rt-badge-purple">BIOS DIRECTORY</span><h2>扫描并导入 BIOS</h2><p>完整发现和候选排序结束后才逐项安装；默认保留已有 BIOS，开启替换也只允许严格更优候选。</p><div class="rt-server-capability-stats"><div><span>完整目录</span><strong>286</strong></div><div><span>需要处理</span><strong>43</strong></div><div><span>最近任务</span><strong style="font-size:13px">已完成</strong></div><div><span>扫描来源</span><strong style="font-size:13px">只读</strong></div></div></div><button type="button" class="rt-button rt-button-primary" data-open-server-import-drawer>选择目录并开始</button></section><section class="rt-panel rt-server-capability is-pegasus"><div><span class="rt-badge rt-badge-cyan">游戏文件</span><h2>扫描并准备审核事项</h2><p>选择 Pegasus 或 gamelist.xml 文件组织格式，显式映射 Collection，再复制、运行检查并交给管理员逐项审核；不会自动发布。</p><div class="rt-server-capability-stats"><div><span>可用位置</span><strong>1</strong></div><div><span>待映射</span><strong>1</strong></div><div><span>待逐项审核</span><strong>42</strong></div><div><span>发布方式</span><strong style="font-size:13px">人工逐项</strong></div></div></div><button type="button" class="rt-button rt-button-primary" data-open-source-drawer>选择目录并扫描</button></section></div>
         <div class="rt-server-roots"><article class="rt-panel rt-server-root"><div><h3>Pegasus BIOS</h3><p>pegasus-bios · 只显示配置别名</p></div><span class="rt-badge rt-badge-green">可用</span></article><article class="rt-panel rt-server-root"><div><h3>归档盘</h3><p>archive · 历史仍可查看</p></div><span class="rt-badge rt-badge-red">不可用</span></article></div>
         <div class="rt-section-head"><div><h2>导入历史</h2><p class="rt-subtitle">任务离开页面后继续，详情可恢复实时进度。</p></div><button type="button" class="rt-text-link">查看全部历史</button></div>
-        <div class="rt-server-history"><article class="rt-panel"><div><span class="rt-badge rt-badge-green">BIOS · 已完成</span><h3>服务器文件系统 / BIOS</h3><p>今天 11:42 · 站点管理员</p></div><dl><div><dt>候选</dt><dd>17</dd></div><div><dt>已评估</dt><dd>286</dd></div><div><dt>已导入</dt><dd>6</dd></div><div><dt>失败</dt><dd>1</dd></div></dl><button type="button" class="rt-button" data-page-link="admin-server-import-detail">查看</button></article><article class="rt-panel"><div><span class="rt-badge rt-badge-cyan">Pegasus ROM · 审核事项已生成</span><h3>服务器文件系统 / Games</h3><p>今天 11:48 · 站点管理员</p></div><dl><div><dt>游戏</dt><dd>184</dd></div><div><dt>待审核</dt><dd>42</dd></div><div><dt>发布/丢弃</dt><dd>126/8</dd></div><div><dt>阻断/失败</dt><dd>7</dd></div></dl><button type="button" class="rt-button" data-page-link="admin-pegasus-import-detail">查看</button></article><article class="rt-panel"><div><span class="rt-badge rt-badge-purple">EmulationStation · 审核事项已生成</span><h3>服务器文件系统 / Batocera</h3><p>今天 12:06 · 站点管理员</p></div><dl><div><dt>清单 / 游戏</dt><dd>3 / 28</dd></div><div><dt>待审核</dt><dd>23</dd></div><div><dt>发布/丢弃</dt><dd>2/1</dd></div><div><dt>阻断/失败</dt><dd>2</dd></div></dl><button type="button" class="rt-button" data-page-link="admin-emulationstation-import-detail">查看</button></article></div>
+        <div class="rt-server-history"><article class="rt-panel"><div><span class="rt-badge rt-badge-green">BIOS · 已完成</span><h3>服务器文件系统 / BIOS</h3><p>今天 11:42 · 站点管理员</p></div><dl><div><dt>候选</dt><dd>17</dd></div><div><dt>已评估</dt><dd>286</dd></div><div><dt>已导入</dt><dd>6</dd></div><div><dt>失败</dt><dd>1</dd></div></dl><button type="button" class="rt-button" data-page-link="admin-server-import-detail">查看</button></article><article class="rt-panel"><div><span class="rt-badge rt-badge-cyan">Pegasus ROM · 审核事项已生成</span><h3>服务器文件系统 / Games</h3><p>今天 11:48 · 站点管理员</p></div><dl><div><dt>游戏</dt><dd>184</dd></div><div><dt>待审核</dt><dd>42</dd></div><div><dt>发布/丢弃</dt><dd>126/8</dd></div><div><dt>阻断/失败</dt><dd>7</dd></div></dl><button type="button" class="rt-button" data-page-link="admin-source-import-detail">查看</button></article><article class="rt-panel"><div><span class="rt-badge rt-badge-purple">EmulationStation · 审核事项已生成</span><h3>服务器文件系统 / Batocera</h3><p>今天 12:06 · 站点管理员</p></div><dl><div><dt>清单 / 游戏</dt><dd>3 / 28</dd></div><div><dt>待审核</dt><dd>23</dd></div><div><dt>发布/丢弃</dt><dd>2/1</dd></div><div><dt>阻断/失败</dt><dd>2</dd></div></dl><button type="button" class="rt-button" data-page-link="admin-source-import-detail">查看</button></article></div>
         <div class="rt-runtime-drawer-backdrop" data-server-import-backdrop hidden></div><aside class="rt-runtime-drawer rt-server-drawer" data-server-import-drawer hidden><header><div><span class="rt-badge rt-badge-purple">服务器导入</span><h2>选择 BIOS 所在目录</h2><p>从服务器根目录选择可读取的目录。</p></div><button type="button" class="rt-button" data-close-server-import-drawer aria-label="关闭"><i data-lucide="x" aria-hidden="true"></i></button></header><div class="rt-runtime-drawer-body"><label class="rt-server-root-choice"><input type="radio" checked><span><strong>服务器文件系统</strong><small>可用 · filesystem</small></span></label><div class="rt-server-browser"><div class="rt-server-breadcrumbs"><button type="button" class="rt-button">根目录</button><button type="button" class="rt-button">/ BIOS</button></div><button type="button" class="rt-server-folder"><span>Arcade</span></button><button type="button" class="rt-server-folder"><span>Console</span></button></div><label class="rt-server-overwrite"><input type="checkbox"><span><strong>允许使用更优候选替换已有 BIOS</strong><small>不会用同分或更差文件替换现有安装。</small></span></label><div class="rt-server-selection"><strong>服务器文件系统 / BIOS</strong><br>将检查完整 BIOS 目录 286 项，包含可选和按需 BIOS。</div></div><footer><button type="button" class="rt-button" data-close-server-import-drawer>取消</button><button type="button" class="rt-button rt-button-primary">开始异步导入</button></footer></aside>
-        <div class="rt-runtime-drawer-backdrop" data-pegasus-backdrop hidden></div><aside class="rt-runtime-drawer rt-pegasus-drawer" data-pegasus-drawer hidden><header><div><span class="rt-badge rt-badge-cyan">PEGASUS ROM</span><h2>从 Pegasus 目录准备审核事项</h2><p>扫描与准备不会创建游戏；游戏先进入统一审核，再由管理员决定。</p></div><button type="button" class="rt-button" data-close-pegasus-drawer aria-label="关闭"><i data-lucide="x" aria-hidden="true"></i></button></header><ol class="rt-pegasus-stepper"><li class="is-complete">1　选择目录</li><li class="is-active">2　检查与映射</li><li>3　确认审核计划</li></ol><div class="rt-runtime-drawer-body"><div class="rt-server-kpis"><div><span>Metadata</span><strong>1</strong></div><div><span>Collection</span><strong>1</strong></div><div><span>Game</span><strong>108</strong></div><div><span>发现视频</span><strong>108</strong></div></div><div class="rt-server-selection"><strong>批量添加默认标签</strong><br>选择一次后追加到所有未跳过 Collection，不覆盖已有选择；下方仍可逐项调整。<div class="rt-tag-picker" style="margin-top:10px"><div class="rt-tag-list"><span class="rt-tag-pill">飞行游戏　×</span></div><input class="rt-input" placeholder="搜索并添加标签" aria-label="批次标签"><small>已选择 1 / 20 · 标签必须先在标签管理中建立</small></div><div class="rt-dialog-actions" style="margin-top:10px"><button type="button" class="rt-button rt-button-primary">应用到所有未跳过 Collection</button></div></div><div class="rt-pegasus-mapping"><article><div><h3>GB</h3><p>metadata.pegasus.txt · segment 1 · 108 个游戏</p></div><select class="rt-select" aria-label="GB 处理方式"><option>导入到 Game Boy 游戏 · Gambatte</option></select></article></div><div class="rt-server-selection"><strong>批量结果</strong><br>已追加到 1 个未跳过 Collection，覆盖 108 个游戏；最终进入审核时仍可逐项调整。</div></div><footer><button type="button" class="rt-button" data-close-pegasus-drawer>关闭</button><button type="button" class="rt-button rt-button-primary">确认映射</button></footer></aside>
-        <div class="rt-runtime-drawer-backdrop" data-emulationstation-backdrop hidden></div><aside class="rt-runtime-drawer rt-pegasus-drawer" data-emulationstation-drawer hidden><header><div><span class="rt-badge rt-badge-purple">EMULATIONSTATION</span><h2>从 gamelist.xml 准备审核事项</h2><p>每份有效清单形成一个 Collection；扫描只读取有界元数据和文件事实。</p></div><button type="button" class="rt-button" data-close-emulationstation-drawer aria-label="关闭"><i data-lucide="x" aria-hidden="true"></i></button></header><ol class="rt-pegasus-stepper" data-emulationstation-stepper><li class="is-active">1　选择目录</li><li>2　检查与映射</li><li>3　确认审核计划</li></ol><div class="rt-runtime-drawer-body" tabindex="0" aria-label="EmulationStation 导入步骤内容"><section class="rt-emulationstation-step" data-emulationstation-step="1"><label class="rt-server-root-choice"><input type="radio" checked><span><strong>服务器文件系统</strong><small>可用 · filesystem</small></span></label><div class="rt-server-browser"><div class="rt-server-breadcrumbs"><button type="button" class="rt-button">根目录</button><button type="button" class="rt-button">/ Batocera</button></div><button type="button" class="rt-server-folder"><span>nes</span></button><button type="button" class="rt-server-folder"><span>arcade</span></button></div><div class="rt-server-selection"><strong>服务器文件系统 / Batocera</strong><br>递归读取精确小写 gamelist.xml；不会执行 command、emulator 或 core，也不会在扫描阶段复制完整游戏内容。</div></section><section class="rt-emulationstation-step" data-emulationstation-step="2" hidden><div class="rt-server-kpis"><div><span>Gamelist</span><strong>3</strong></div><div><span>有效 Collection</span><strong>2</strong></div><div><span>Game</span><strong>28</strong></div><div><span>无效清单</span><strong>1</strong></div></div><details class="rt-emulationstation-invalid"><summary>1 份清单无法解析</summary><p><code>broken/gamelist.xml</code> · EMULATIONSTATION_XML_INVALID</p></details><p class="rt-subtitle">每份有效 gamelist.xml 都必须明确 IMPORT 或 SKIP；Retrom 不根据目录名、扩展名或外部配置猜测。</p><div class="rt-pegasus-mapping rt-emulationstation-mapping"><article class="is-flagged"><div><h3>NES 清单</h3><p>nes/gamelist.xml · 23 个游戏 · .nes 23</p><small>1 个问题 · 忽略 2 个 folder · hidden 1 · adult 0</small></div><select class="rt-select" aria-label="NES 清单处理方式"><option>IMPORT → NES 游戏 · FCEUmm</option><option>SKIP · 跳过此清单</option></select></article><article><div><h3>Arcade 清单</h3><p>arcade/gamelist.xml · 5 个游戏 · .zip 5</p><small>0 个问题 · 忽略 0 个 folder · hidden 0 · adult 0</small></div><select class="rt-select" aria-label="Arcade 清单处理方式"><option>SKIP · 跳过此清单</option><option>IMPORT → FBNeo 游戏 · FinalBurn Neo</option></select></article></div></section><section class="rt-emulationstation-step" data-emulationstation-step="3" hidden><div class="rt-emulationstation-review-grid"><div><span>来源</span><strong>服务器文件系统 / Batocera</strong></div><div><span>映射</span><strong>1 个 IMPORT · 1 个 SKIP</strong></div><div><span>可处理 / 阻断</span><strong>23 / 0 个游戏</strong></div><div><span>来源提示</span><strong>1 个 hidden/adult 标记</strong></div><div><span>预计最多读取</span><strong>32.4 MiB</strong></div><div><span>发布方式</span><strong>全部进入待审核，零自动发布</strong></div></div><div class="rt-server-selection" style="margin-top:10px"><strong>开始前重新校验</strong><br>清单、源文件和目标游戏目录都会重新核对；来源 flag 只用于人工判断，并会排除在快速审批之外。</div></section></div><footer><button type="button" class="rt-button" data-close-emulationstation-drawer>关闭</button><button type="button" class="rt-button rt-button-primary" data-emulationstation-next>扫描此目录</button></footer></aside>
+        <div class="rt-runtime-drawer-backdrop" data-source-backdrop hidden></div><aside class="rt-runtime-drawer rt-source-drawer" data-source-drawer hidden><header><div><span class="rt-badge rt-badge-cyan">游戏文件 ROM</span><h2>从目录准备审核事项</h2><p>扫描与准备不会创建游戏；游戏先进入统一审核，再由管理员决定。</p></div><button type="button" class="rt-button" data-close-source-drawer aria-label="关闭"><i data-lucide="x" aria-hidden="true"></i></button></header><ol class="rt-source-stepper"><li class="is-complete">1　选择目录</li><li class="is-active">2　检查与映射</li><li>3　确认审核计划</li></ol><div class="rt-runtime-drawer-body"><label>文件组织格式<select class="rt-select" aria-label="文件组织格式"><option>Pegasus · metadata.pegasus.txt</option><option>gamelist.xml</option></select></label><div class="rt-server-kpis"><div><span>Metadata</span><strong>1</strong></div><div><span>Collection</span><strong>1</strong></div><div><span>Game</span><strong>108</strong></div><div><span>发现视频</span><strong>108</strong></div></div><div class="rt-server-selection"><strong>批量添加默认标签</strong><br>选择一次后追加到所有未跳过 Collection，不覆盖已有选择；下方仍可逐项调整。<div class="rt-tag-picker" style="margin-top:10px"><div class="rt-tag-list"><span class="rt-tag-pill">飞行游戏　×</span></div><input class="rt-input" placeholder="搜索并添加标签" aria-label="批次标签"><small>已选择 1 / 20 · 标签必须先在标签管理中建立</small></div><div class="rt-dialog-actions" style="margin-top:10px"><button type="button" class="rt-button rt-button-primary">应用到所有未跳过 Collection</button></div></div><div class="rt-source-mapping"><article><div><h3>GB</h3><p>metadata.pegasus.txt · segment 1 · 108 个游戏</p></div><select class="rt-select" aria-label="GB 处理方式"><option>导入到 Game Boy 游戏 · Gambatte</option></select></article></div><div class="rt-server-selection"><strong>批量结果</strong><br>已追加到 1 个未跳过 Collection，覆盖 108 个游戏；最终进入审核时仍可逐项调整。</div></div><footer><button type="button" class="rt-button" data-close-source-drawer>关闭</button><button type="button" class="rt-button rt-button-primary">确认映射</button></footer></aside>
       </section>
 
       <section class="rt-page" data-page="admin-server-import-detail">
@@ -3155,45 +3153,31 @@
         <div class="rt-panel rt-server-result-table"><article class="rt-server-result-row"><div><strong>gba_bios.bin</strong><small>mGBA · bundle 4.2.3 · REQUIRED</small><small>候选：Console/GBA/gba_bios.bin</small></div><div><span class="rt-badge rt-badge-green">已导入·匹配</span><small>未替换现有安装</small></div><div><strong>EXACT_HASH</strong><small>无旧安装 → MATCHED</small></div><button type="button" class="rt-button">查看候选（2）</button></article><article class="rt-server-result-row"><div><strong>neogeo.zip</strong><small>FinalBurn Neo · bundle 4.2.3 · REQUIRED</small><small>候选：Arcade/neogeo.zip</small></div><div><span class="rt-badge rt-badge-amber">已导入·警告</span><small>已替换现有安装</small></div><div><strong>DAT_ENTRY_WARNING</strong><small>HASH_WARNING → HASH_WARNING</small></div><button type="button" class="rt-button">查看候选（4）</button></article><article class="rt-server-result-row"><div><strong>stvbios.zip</strong><small>MAME 2003 Plus · bundle 4.2.3 · CONDITIONAL</small></div><div><span class="rt-badge rt-badge-red">源文件已变化</span><small>未替换现有安装</small></div><div><strong>DAT_ENTRY_MATCH</strong><small>SERVER_IMPORT_SOURCE_CHANGED</small></div><button type="button" class="rt-button">查看候选（3）</button></article></div>
       </section>
 
-      <section class="rt-page" data-page="admin-pegasus-import-detail">
+      <section class="rt-page" data-page="admin-source-import-detail">
         <section class="rt-panel rt-server-detail-head"><div><span class="rt-badge rt-badge-green">审核事项已生成</span><h1>服务器文件系统 / Games</h1><p class="rt-subtitle">准备任务已结束 · 游戏仍需管理员逐项决定</p></div><div class="rt-page-head-actions"><button type="button" class="rt-button" data-page-link="admin-server-import">返回历史</button><button type="button" class="rt-button rt-button-primary" data-page-link="admin-review">逐项审核 42 个游戏</button><button type="button" class="rt-button" data-open-batch-discard>丢弃</button></div></section>
-        <section class="rt-panel rt-pegasus-review-callout"><div><span class="rt-badge rt-badge-purple">下一步 · 人工审核</span><h2>42 个游戏已准备好，但尚未进入游戏库</h2><p>来源内容、Pegasus 元信息、封面、视频和运行检查均已保留。进入统一审核页后，可快速审批严格就绪的项目。</p></div><button type="button" class="rt-button rt-button-primary" data-page-link="admin-review">审核 42 个游戏</button></section>
+        <section class="rt-panel rt-source-review-callout"><div><span class="rt-badge rt-badge-purple">下一步 · 人工审核</span><h2>42 个游戏已准备好，但尚未进入游戏库</h2><p>来源内容、Pegasus 元信息、封面、视频和运行检查均已保留。进入统一审核页后，可快速审批严格就绪的项目。</p></div><button type="button" class="rt-button rt-button-primary" data-page-link="admin-review">审核 42 个游戏</button></section>
         <div class="rt-server-kpis"><div><span>扫描范围</span><strong>184</strong></div><div><span>等待审核</span><strong>42</strong></div><div><span>已发布 / 丢弃 / 已存在</span><strong>126 / 8 / 1</strong></div><div><span>源阻断 / 任务失败</span><strong>6 / 1</strong></div></div>
         <div class="rt-section-head" style="margin-top:22px"><div><h2>准备与审核结果</h2><p class="rt-subtitle">后台只准备审核事项；最终决定在统一审核页完成。</p></div><span class="rt-badge">50 / 184 项</span></div>
         <form class="rt-panel rt-server-result-filter"><label>搜索标题<input class="rt-input" value=""></label><label>结果<select class="rt-select"><option>全部结果</option><option>已发布</option></select></label><label>Collection<select class="rt-select"><option>全部 Collection</option><option>Sega Saturn</option></select></label><button type="button" class="rt-button">应用筛选</button></form>
         <div class="rt-panel rt-server-result-table">
-          <article class="rt-server-result-row rt-pegasus-result-row">
+          <article class="rt-server-result-row rt-source-result-row">
             <div><strong>1944 循环的征服者</strong><small>飞机街机 → FBNeo 游戏</small><small>metadata.pegasus.txt · SINGLE_FILE</small></div>
             <div><span class="rt-badge rt-badge-green">封面 READY</span> <span class="rt-badge rt-badge-green">视频 READY</span></div>
             <div><span class="rt-badge rt-badge-red">提交失败</span><small>Arcade companion 候选数量超过内部上限</small></div>
             <span>—</span>
-            <details class="rt-pegasus-diagnostic" open>
+            <details class="rt-source-diagnostic" open>
               <summary>查看具体原因与处理建议</summary>
-              <div class="rt-pegasus-diagnostic-body">
-                <div class="rt-pegasus-diagnostic-head"><div><strong>Arcade companion 候选数量超过内部上限</strong><p>系统为单个游戏组装了过多来源 ZIP，内部入库在内容检查前就拒绝了请求。</p></div><code>PEGASUS_LIBRARY_IMPORT_FAILED</code></div>
-                <div class="rt-pegasus-diagnostic-facts"><div><span>失败阶段</span><code>LIBRARY_IMPORT</code></div><div><span>内部操作</span><code>CREATE_SERVER_SOURCE</code></div><div><span>底层原因分类</span><code>SOURCE_FILE_LIMIT_EXCEEDED</code></div></div>
-                <div class="rt-pegasus-diagnostic-facts"><div><span>Pegasus Item ID</span><code>019ff632-9eb4-73e1-98a9-4af488b914b0</code></div><div><span>来源相对路径</span><code>1944j.zip</code></div><div><span>组装文件数量</span><strong>109 / 上限 64</strong></div></div>
-                <div class="rt-pegasus-diagnostic-technical"><span>技术详情</span><code>Pegasus assembled 109 source files for one Arcade item; library import accepts at most 64.</code></div>
-                <p class="rt-pegasus-diagnostic-action"><strong>处理建议：</strong>这是服务端 companion 选择范围问题；升级修复后直接重新运行检查，不需要调整 ROM 目录。</p>
+              <div class="rt-source-diagnostic-body">
+                <div class="rt-source-diagnostic-head"><div><strong>Arcade companion 候选数量超过内部上限</strong><p>系统为单个游戏组装了过多来源 ZIP，内部入库在内容检查前就拒绝了请求。</p></div><code>游戏文件_LIBRARY_IMPORT_FAILED</code></div>
+                <div class="rt-source-diagnostic-facts"><div><span>失败阶段</span><code>LIBRARY_IMPORT</code></div><div><span>内部操作</span><code>CREATE_SERVER_SOURCE</code></div><div><span>底层原因分类</span><code>SOURCE_FILE_LIMIT_EXCEEDED</code></div></div>
+                <div class="rt-source-diagnostic-facts"><div><span>来源项 ID</span><code>019ff632-9eb4-73e1-98a9-4af488b914b0</code></div><div><span>来源相对路径</span><code>1944j.zip</code></div><div><span>组装文件数量</span><strong>109 / 上限 64</strong></div></div>
+                <div class="rt-source-diagnostic-technical"><span>技术详情</span><code>Source import assembled 109 source files for one Arcade item; library import accepts at most 64.</code></div>
+                <p class="rt-source-diagnostic-action"><strong>处理建议：</strong>这是服务端 companion 选择范围问题；升级修复后直接重新运行检查，不需要调整 ROM 目录。</p>
               </div>
             </details>
           </article>
-          <article class="rt-server-result-row rt-pegasus-result-row"><div><strong>19YY 警长射击</strong><small>飞机街机 → FBNeo 游戏</small><small>metadata.pegasus.txt · SINGLE_FILE</small></div><div><span class="rt-badge rt-badge-green">封面 READY</span> <span class="rt-badge">视频 MISSING</span></div><div><span class="rt-badge rt-badge-amber">等待审核</span><small>缺少 BIOS / 基础 ROM</small></div><button type="button" class="rt-button rt-pegasus-review-action">处理运行问题</button></article>
-          <article class="rt-server-result-row rt-pegasus-result-row"><div><strong>P-47 战机</strong><small>飞机街机 → FBNeo 游戏</small><small>metadata.pegasus.txt · SINGLE_FILE</small></div><div><span class="rt-badge rt-badge-green">封面 READY</span> <span class="rt-badge rt-badge-green">视频 READY</span></div><div><span class="rt-badge rt-badge-cyan">等待审核</span><small>运行检查 READY</small></div><button type="button" class="rt-button rt-button-primary rt-pegasus-review-action">审核并决定</button></article>
-        </div>
-      </section>
-
-      <section class="rt-page" data-page="admin-emulationstation-import-detail">
-        <section class="rt-panel rt-server-detail-head"><div><span class="rt-badge rt-badge-green">审核事项已生成</span><h1>服务器文件系统 / Batocera</h1><p class="rt-subtitle">已准备 23 个待审核游戏 · 游戏尚未自动发布</p></div><div class="rt-page-head-actions"><button type="button" class="rt-button" data-page-link="admin-server-import">返回历史</button><button type="button" class="rt-button rt-button-primary" data-open-emulationstation-review>逐项审核 23 个游戏</button><button type="button" class="rt-button" data-open-batch-discard>丢弃</button></div></section>
-        <section class="rt-panel rt-pegasus-review-callout"><div><span class="rt-badge rt-badge-purple">下一步 · 人工审核</span><h2>清单内容已准备好，但尚未进入游戏库</h2><p>逐条核对运行检查、标题、媒体和来源 flag；hidden/adult 项不会进入快速审批，只有管理员明确通过才会发布。</p></div><button type="button" class="rt-button rt-button-primary" data-open-emulationstation-review>打开这批审核队列</button></section>
-        <div class="rt-server-kpis"><div><span>Gamelist / 无效</span><strong>3 / 1</strong></div><div><span>等待审核</span><strong>23</strong></div><div><span>已发布 / 丢弃 / 已存在</span><strong>2 / 1 / 0</strong></div><div><span>阻断 / 失败</span><strong>2 / 0</strong></div></div>
-        <details class="rt-emulationstation-gamelists" open><summary>查看 3 份 Gamelist 扫描结果</summary><p><code>nes/gamelist.xml</code><span class="rt-badge rt-badge-green">23 个游戏 · folder 2</span></p><p><code>arcade/gamelist.xml</code><span class="rt-badge rt-badge-green">5 个游戏</span></p><p><code>broken/gamelist.xml</code><span class="rt-badge rt-badge-red">EMULATIONSTATION_XML_INVALID</span></p></details>
-        <div class="rt-section-head" style="margin-top:22px"><div><h2>准备与审核结果</h2><p class="rt-subtitle">来源 flag 是核对提示，不代表权限或兼容性结论；终态 payload 会显示释放状态。</p></div><span class="rt-badge">3 / 28 项</span></div>
-        <form class="rt-panel rt-server-result-filter"><label>搜索标题<input class="rt-input" value=""></label><label>结果<select class="rt-select"><option>全部结果</option><option>等待审核</option></select></label><label>媒体或来源提示<input class="rt-input" value="EMULATIONSTATION_MEDIA_MISSING"></label><button type="button" class="rt-button">应用筛选</button></form>
-        <div class="rt-panel rt-server-result-table">
-          <article class="rt-server-result-row rt-pegasus-result-row"><div><strong>Flagged Adventure</strong><span class="rt-emulationstation-flags"><small>hidden</small><small>kidgame</small></span><small>NES 清单 → NES 游戏</small><small>nes/gamelist.xml · SINGLE_FILE</small></div><div><span class="rt-badge rt-badge-green">封面 READY</span> <span class="rt-badge">视频 MISSING</span></div><div><span class="rt-badge rt-badge-cyan">等待审核</span><small>EMULATIONSTATION_MEDIA_MISSING</small></div><button type="button" class="rt-button rt-button-primary rt-pegasus-review-action" data-open-emulationstation-review>审核并决定</button></article>
-          <article class="rt-server-result-row rt-pegasus-result-row"><div><strong>Published Racer</strong><small>NES 清单 → NES 游戏</small><small>nes/gamelist.xml · SINGLE_FILE</small></div><div><span class="rt-badge rt-badge-green">源文件已清理</span></div><div><span class="rt-badge rt-badge-green">已发布</span><small>payload RELEASED</small></div><button type="button" class="rt-button">查看游戏</button></article>
-          <article class="rt-server-result-row rt-pegasus-result-row"><div><strong>Skipped Arcade Set</strong><small>Arcade 清单 → 未映射</small><small>arcade/gamelist.xml</small></div><div><span class="rt-badge">没有复制 payload</span></div><div><span class="rt-badge rt-badge-amber">清单已跳过</span><small>SKIPPED_MAPPING</small></div><span>—</span></article>
+          <article class="rt-server-result-row rt-source-result-row"><div><strong>19YY 警长射击</strong><small>飞机街机 → FBNeo 游戏</small><small>metadata.pegasus.txt · SINGLE_FILE</small></div><div><span class="rt-badge rt-badge-green">封面 READY</span> <span class="rt-badge">视频 MISSING</span></div><div><span class="rt-badge rt-badge-amber">等待审核</span><small>缺少 BIOS / 基础 ROM</small></div><button type="button" class="rt-button rt-source-review-action">处理运行问题</button></article>
+          <article class="rt-server-result-row rt-source-result-row"><div><strong>P-47 战机</strong><small>飞机街机 → FBNeo 游戏</small><small>metadata.pegasus.txt · SINGLE_FILE</small></div><div><span class="rt-badge rt-badge-green">封面 READY</span> <span class="rt-badge rt-badge-green">视频 READY</span></div><div><span class="rt-badge rt-badge-cyan">等待审核</span><small>运行检查 READY</small></div><button type="button" class="rt-button rt-button-primary rt-source-review-action">审核并决定</button></article>
         </div>
       </section>
 
@@ -3223,7 +3207,7 @@
             <article class="rt-job-row">
               <div class="rt-job-head"><div class="rt-table-title">昨天 23:30 · NES 游戏</div><span class="rt-badge rt-badge-green">已完成</span></div>
               <div class="rt-job-progress"><span style="width:100%"></span></div>
-              <div class="rt-job-footer"><div class="rt-job-counts"><span>全部已发布或丢弃</span><span>0 待审核</span></div><div class="rt-job-actions"><button type="button" class="rt-button" data-page-link="admin-review-history">查看结果</button><button type="button" class="rt-button" data-open-batch-discard disabled title="本批次没有待丢弃内容">丢弃</button></div></div>
+              <div class="rt-job-footer"><div class="rt-job-counts"><span>全部已发布或丢弃</span><span>0 待审核</span></div><div class="rt-job-actions"><button type="button" class="rt-button" data-page-link="admin-import-tasks">查看结果</button><button type="button" class="rt-button" data-open-batch-discard disabled title="本批次没有待丢弃内容">丢弃</button></div></div>
             </article>
             <article class="rt-job-row">
               <div class="rt-job-head"><div><div class="rt-job-title"><i data-lucide="folder" aria-hidden="true"></i><div><div class="rt-table-title">昨天 23:18 · NES 游戏</div><div class="rt-table-sub">28 个条目 · 不刮削 · 更新于昨天 23:18</div></div></div></div><span class="rt-badge rt-badge-red">部分失败</span></div>
@@ -3235,7 +3219,7 @@
       </section>
 
       <section class="rt-page" data-page="admin-review">
-        <div class="rt-page-head"><div><h1 data-review-page-title>待审核</h1><p class="rt-subtitle"><span data-review-position>已加载 5 条</span> · 可任意选择审核顺序</p></div><div class="rt-page-head-actions"><button type="button" class="rt-button" data-review-return data-page-link="admin-pegasus-import-detail">← 返回 Pegasus 任务</button><button type="button" class="rt-button" data-review-deduplicate title="自动丢弃当前筛选范围内与已发布游戏内容相同的待审核条目">快速去重</button><button type="button" class="rt-button" data-open-review-bulk><i data-lucide="list-checks" aria-hidden="true"></i>快速审批</button><button type="button" class="rt-button" data-page-link="admin-review-history"><i data-lucide="history" aria-hidden="true"></i>审核历史</button></div></div>
+        <div class="rt-page-head"><div><h1 data-review-page-title>待审核</h1><p class="rt-subtitle"><span data-review-position>已加载 5 条</span> · 可任意选择审核顺序</p></div><div class="rt-page-head-actions"><button type="button" class="rt-button" data-review-return data-page-link="admin-source-import-detail">← 返回 Pegasus 任务</button><button type="button" class="rt-button" data-review-deduplicate title="自动丢弃当前筛选范围内与已发布游戏内容相同的待审核条目">快速去重</button><button type="button" class="rt-button" data-open-review-bulk><i data-lucide="list-checks" aria-hidden="true"></i>快速审批</button><button type="button" class="rt-button" data-page-link="admin-import-tasks"><i data-lucide="history" aria-hidden="true"></i>任务结果</button></div></div>
         <section class="rt-panel rt-review-bulk-status" data-review-bulk-status aria-live="polite" hidden>
           <div class="rt-review-bulk-status-head"><div><h2>正在快速审批</h2><p class="rt-subtitle" data-review-bulk-scope>Pegasus 批次的全部分页结果 · 已处理 11 / 19</p></div><button type="button" class="rt-button" data-stop-review-bulk>停止未处理项目</button></div>
           <div class="rt-review-bulk-meter" aria-label="快速审批进度 11 / 19"><i></i></div>
@@ -3284,8 +3268,8 @@
               <button type="button" class="rt-review-item" data-review-item data-review-source="scummvm" data-review-position-value="ScummVM 项目" data-review-file="Adventure Collection.zip" data-review-preview="Adventure Collection" data-review-title="Adventure Collection" data-review-year="" data-review-developer="" data-review-players="1" data-review-description="" data-review-validation-status="BLOCKED" data-review-validation="请选择要运行的游戏版本；运行截图不能代替候选选择。">
                 <span class="rt-review-thumb">SCUMM</span><span><span class="rt-review-item-title">Adventure Collection</span><span class="rt-review-item-source">Adventure Collection.zip</span></span><span>ScummVM 游戏</span><span class="rt-badge rt-badge-amber">选择运行版本</span><span>2 个游戏根目录</span><span>刚刚</span>
               </button>
-              <button type="button" class="rt-review-item" data-review-item data-review-source="emulationstation" data-review-position-value="已选 1 / 1" data-review-file="EmulationStation · nes/gamelist.xml" data-review-preview="FLAGGED ADVENTURE" data-review-title="Flagged Adventure" data-review-year="1991" data-review-developer="Example Studio" data-review-players="1" data-review-description="从 gamelist.xml 读取的受限元信息，等待管理员核对来源标记与媒体。" data-review-candidate="Gamelist 信息" data-review-candidate-meta="NES 清单 · 来源 flag 需核对" data-review-candidate-badge="EmulationStation" data-review-validation-status="READY" data-review-validation="✓ 当前来源文件和运行依赖均已就绪；hidden 来源标记仍需人工决定" hidden>
-                <span class="rt-review-thumb" style="background:var(--retrom-cover-a)">FLAG</span><span><span class="rt-review-item-title">Flagged Adventure <span class="rt-badge rt-badge-purple">EmulationStation · NES 清单</span></span><span class="rt-emulationstation-flags"><small>hidden</small><small>kidgame</small></span><span class="rt-review-item-source">nes/gamelist.xml</span><span class="rt-review-item-meta"><span>4.0 MiB · MD5 8c21…11af</span></span></span><span>NES 游戏</span><span class="rt-badge rt-badge-green">可以发布</span><span>已读取 Gamelist 信息</span><span>刚刚</span>
+              <button type="button" class="rt-review-item" data-review-item data-review-source="source" data-review-position-value="已选 1 / 1" data-review-file="来源文件 · nes/gamelist.xml" data-review-preview="FLAGGED ADVENTURE" data-review-title="Flagged Adventure" data-review-year="1991" data-review-developer="Example Studio" data-review-players="1" data-review-description="从 gamelist.xml 读取的受限元信息，等待管理员核对来源标记与媒体。" data-review-candidate="Gamelist 信息" data-review-candidate-meta="NES 清单 · 来源 flag 需核对" data-review-candidate-badge="来源文件" data-review-validation-status="READY" data-review-validation="✓ 当前来源文件和运行依赖均已就绪；hidden 来源标记仍需人工决定" hidden>
+                <span class="rt-review-thumb" style="background:var(--retrom-cover-a)">FLAG</span><span><span class="rt-review-item-title">Flagged Adventure <span class="rt-badge rt-badge-purple">来源文件 · NES 清单</span></span><span class="rt-source-flags"><small>hidden</small><small>kidgame</small></span><span class="rt-review-item-source">nes/gamelist.xml</span><span class="rt-review-item-meta"><span>4.0 MiB · MD5 8c21…11af</span></span></span><span>NES 游戏</span><span class="rt-badge rt-badge-green">可以发布</span><span>已读取 Gamelist 信息</span><span>刚刚</span>
               </button>
             </div>
             <div class="rt-review-queue-footer"><span>已加载 5 条 · 按更新时间升序</span><span class="rt-review-queue-pages"><button type="button" class="rt-button" disabled>上一页</button><button type="button" class="rt-button" disabled>继续加载</button></span></div>
@@ -3315,27 +3299,6 @@
               </div>
               <section class="rt-panel rt-review-form"><div class="rt-review-editor-head"><div><h2>② 发布成什么？</h2><p class="rt-subtitle">核对标题、简介、封面和标签；修改会实时保存。</p></div><button type="button" class="rt-button" data-open-compare><i data-lucide="refresh-cw" aria-hidden="true"></i>重新查询游戏信息</button></div><div class="rt-review-metadata"><div class="rt-form-grid"><label class="rt-field rt-field-wide"><span class="rt-label">游戏标题</span><input class="rt-input" data-review-field="title" value="NOeL 3"></label><label class="rt-field rt-field-wide"><span class="rt-label">简介</span><textarea class="rt-textarea" data-review-field="description"></textarea></label><label class="rt-field rt-field-half"><span class="rt-label">开发商</span><input class="rt-input" data-review-field="developer" value=""></label><label class="rt-field rt-field-half"><span class="rt-label">发行商</span><input class="rt-input" value=""></label><label class="rt-field rt-field-third"><span class="rt-label">类型</span><input class="rt-input" value=""></label><label class="rt-field rt-field-third"><span class="rt-label">玩家人数</span><input class="rt-input" data-review-field="players" value="1"></label><label class="rt-field rt-field-third"><span class="rt-label">发行年份</span><input class="rt-input" data-review-field="year" value=""></label><div class="rt-field rt-field-wide"><span class="rt-label">标签</span><div class="rt-tag-picker"><div class="rt-tag-list"><span class="rt-tag-pill">剧情　×</span><span class="rt-tag-pill">多盘　×</span></div><input class="rt-input" placeholder="搜索已建立的标签"><small>已选择 2 / 20 · 与其他草稿字段一起实时保存</small></div></div></div><aside class="rt-review-cover-side"><span class="rt-label">当前封面</span><button type="button" class="rt-review-cover-upload"><span><i data-lucide="upload" aria-hidden="true"></i> 点击封面上传替换</span></button></aside></div></section>
             </div>
-          </div>
-        </div>
-      </section>
-
-      <section class="rt-page" data-page="admin-review-history">
-        <div class="rt-page-head">
-          <div><h1>审核历史</h1><p class="rt-subtitle">查询已经发布或丢弃的条目，并查看审核完成时采用的信息和决定。</p></div>
-          <div class="rt-page-head-actions"><button type="button" class="rt-button" data-page-link="admin-review"><i data-lucide="list-checks" aria-hidden="true"></i>返回待审核</button></div>
-        </div>
-        <div class="rt-toolbar">
-          <label class="rt-search"><i data-lucide="search" aria-hidden="true"></i><span class="sr-only">搜索审核记录</span><input class="rt-input" type="search" placeholder="输入游戏标题或来源文件"></label>
-          <select class="rt-select rt-filter-select" aria-label="审核结果"><option>全部结果</option><option>通过并发布</option><option>已丢弃</option></select>
-          <select class="rt-select rt-filter-select" aria-label="游戏目录"><option>全部游戏目录</option><option>FBNeo 游戏列表</option><option>MAME 游戏列表</option><option>DOS 经典游戏</option></select>
-          <select class="rt-select rt-filter-select" aria-label="时间范围"><option>最近 30 天</option><option>最近 7 天</option><option>全部时间</option></select>
-        </div>
-        <div class="rt-history-layout">
-          <div class="rt-review-queue-list">
-            <button class="rt-review-item" type="button" data-open-history><span><span class="rt-review-item-title">打击者1945加强版</span><span class="rt-review-item-source">Pegasus 导入 · 文字与结构化审计信息</span></span><span class="rt-badge rt-badge-green">已发布</span><span>审核通过并发布</span><span>8 月 5 日 22:09</span><span>查看决定</span></button>
-            <button class="rt-review-item" type="button" data-open-history><span><span class="rt-review-item-title">Bad Dump (U)</span><span class="rt-review-item-source">浏览器上传 · 文字与结构化审计信息</span></span><span class="rt-badge rt-badge-red">已丢弃</span><span>管理员丢弃条目</span><span>8 月 4 日 19:32</span><span>查看决定</span></button>
-            <button class="rt-review-item" type="button" data-open-history><span><span class="rt-review-item-title">DOOM</span><span class="rt-review-item-source">目录上传 · 文字与结构化审计信息</span></span><span class="rt-badge rt-badge-green">已发布</span><span>审核通过并发布</span><span>8 月 2 日 20:17</span><span>查看决定</span></button>
-            <button class="rt-review-item" type="button" data-open-history><span><span class="rt-review-item-title">Metroid Fusion</span><span class="rt-review-item-source">浏览器上传 · 文字与结构化审计信息</span></span><span class="rt-badge rt-badge-green">已发布</span><span>审核通过并发布</span><span>7 月 29 日 18:44</span><span>查看决定</span></button>
           </div>
         </div>
       </section>
@@ -3552,18 +3515,10 @@
     </section>
   </div>
 
-  <div class="rt-dialog-backdrop" data-history-dialog hidden>
-    <section class="rt-dialog is-wide" role="dialog" aria-modal="true" aria-labelledby="rt-history-title">
-      <div class="rt-panel-heading"><div><h2 id="rt-history-title">审核完成时的游戏信息</h2><p class="rt-dialog-copy">2026 年 8 月 5 日 22:09 · 通过并发布</p></div><button type="button" class="rt-button" data-close-history aria-label="关闭"><i data-lucide="x" aria-hidden="true"></i></button></div>
-      <div><h2>打击者1945加强版</h2><p class="rt-subtitle">Arcade · FBNeo 游戏 · 1999</p><div class="rt-info-list"><div class="rt-info-row"><span>开发商 / 发行商</span><span>Psikyo / Psikyo</span></div><div class="rt-info-row"><span>玩家人数</span><span>1–2 人</span></div><div class="rt-info-row"><span>运行方式</span><span>FBNeo</span></div><div class="rt-info-row"><span>来源类型</span><span>Pegasus 导入</span></div><div class="rt-info-row"><span>审核决定</span><span>通过并发布</span></div></div><div class="rt-section-head"><h3>当时的简介</h3></div><p class="rt-dialog-copy">审核历史只保留文字和结构化审计信息；封面、截图、视频和其他工作流 payload 已在终态释放。</p></div>
-      <div class="rt-dialog-actions"><button type="button" class="rt-button rt-button-primary" data-close-history>关闭</button></div>
-    </section>
-  </div>
-
   <div class="rt-dialog-backdrop" data-game-delete-dialog hidden>
     <section class="rt-dialog is-wide" role="alertdialog" aria-modal="true" aria-labelledby="rt-game-delete-title">
       <div class="rt-dialog-head"><span class="rt-dialog-mark" aria-hidden="true">!</span><div><h2 id="rt-game-delete-title">永久删除游戏</h2><p class="rt-dialog-copy">游戏会立即不可启动；后台将清理内容、媒体、存档与运行时 payload，审核和关系历史只保留文字墓碑。</p></div></div>
-      <div class="rt-dialog-impact"><ul><li>4 份存档、3 个内容版本、2 个媒体文件</li><li>0 个活动游戏会话、0 个联机房间</li><li>独占数据 770.8 MiB 将进入回收；共享数据 18.6 MiB 继续保留</li><li>来源：浏览器上传、Pegasus 导入</li></ul></div>
+      <div class="rt-dialog-impact"><ul><li>4 份存档、3 个内容版本、2 个媒体文件</li><li>0 个活动游戏会话、0 个联机房间</li><li>独占数据 770.8 MiB 将进入回收；共享数据 18.6 MiB 继续保留</li><li>来源：导入文件</li></ul></div>
       <div class="rt-notice">影响摘要刚刚计算；如果确认前数据变化，系统会要求刷新后重新确认。</div>
       <div class="rt-dialog-actions"><button type="button" class="rt-button" data-close-game-delete>取消</button><button type="button" class="rt-button rt-button-danger" data-close-game-delete>永久删除并清理数据</button></div>
     </section>
@@ -3704,8 +3659,8 @@
       const pageNames = {
         home: '首页', me: '我的', library: '游戏库', saves: '我的存档', favorites: '我的收藏', recent: '最近游玩', netplay: '联机游玩', 'netplay-room': '联机房间', 'netplay-player': '联机 Player', account: '账户设置', detail: '游戏详情', play: '游玩',
         'admin-import': '游戏入库', 'admin-import-new': '导入游戏', 'admin-import-tasks': '任务进度',
-        'admin-server-import': '本地扫描', 'admin-server-import-detail': 'BIOS 导入详情', 'admin-pegasus-import-detail': 'Pegasus 导入详情', 'admin-emulationstation-import-detail': 'EmulationStation 导入详情',
-        'admin-review': '待审核', 'admin-review-history': '审核历史', 'admin-games': '游戏管理', 'admin-game-detail': '游戏管理详情', 'admin-tags': '标签管理', 'admin-platform-instances': '游戏目录', 'admin-users': '用户管理', 'admin-bios': '运行依赖', 'admin-storage': '容量分析'
+        'admin-server-import': '本地扫描', 'admin-server-import-detail': 'BIOS 导入详情', 'admin-source-import-detail': '来源准备任务',
+        'admin-review': '待审核', 'admin-import-tasks': '任务结果', 'admin-games': '游戏管理', 'admin-game-detail': '游戏管理详情', 'admin-tags': '标签管理', 'admin-platform-instances': '游戏目录', 'admin-users': '用户管理', 'admin-bios': '运行依赖', 'admin-storage': '容量分析'
       };
       const authPageNames = new Set(['setup', 'login', 'register', 'reset']);
       function selectReviewScene(scene) {
@@ -3723,20 +3678,19 @@
         root.querySelectorAll('[data-immersive-page]').forEach((element) => { element.hidden = element.dataset.immersivePage !== page; });
         selectReviewScene(page);
       }
-      function setReviewScope(scope) {
-        const emulationStation = scope === 'emulationstation';
-        root.querySelector('[data-review-page-title]').textContent = emulationStation ? '审核这批 EmulationStation 游戏' : '待审核';
-        root.querySelector('[data-review-position]').textContent = emulationStation ? '已加载 1 条 · 固定批次范围' : '已加载 5 条';
+      function setReviewScope() {
+        root.querySelector('[data-review-page-title]').textContent = '审核这批来源游戏';
+        root.querySelector('[data-review-position]').textContent = '已加载 6 条 · 固定批次范围';
         const returnButton = root.querySelector('[data-review-return]');
-        returnButton.textContent = emulationStation ? '← 返回 EmulationStation 任务' : '← 返回 Pegasus 任务';
-        returnButton.dataset.pageLink = emulationStation ? 'admin-emulationstation-import-detail' : 'admin-pegasus-import-detail';
-        root.querySelector('[data-review-scope-title]').textContent = emulationStation ? 'EmulationStation 批次 · 服务器文件系统 / Batocera' : 'Pegasus 批次 · 服务器文件系统 / Games';
-        root.querySelector('[data-review-scope-count]').textContent = emulationStation ? '1 条' : '5 条';
-        root.querySelector('[data-review-scope-context]').textContent = emulationStation ? '这里只显示当前 EmulationStation 任务交接的审核事项；清除搜索或状态仍保留 emulationStationImportId。快速审批会排除 hidden/adult 来源标记并给出 sourceFlagged 数量。' : '这里只显示当前 Pegasus 任务已交接的审核事项；清除搜索或状态仍保留批次。快速审批会检查这个范围的全部分页结果，需人工判断的项目仍逐条确认。';
-        root.querySelector('[data-review-bulk-scope]').textContent = `${emulationStation ? 'EmulationStation' : 'Pegasus'} 批次的全部分页结果 · 已处理 11 / 19`;
-        root.querySelector('[data-review-dialog-scope]').textContent = `${emulationStation ? 'EmulationStation' : 'Pegasus'} 批次的全部分页结果`;
-        root.querySelector('[data-review-source-flagged]').textContent = emulationStation ? '1' : '0';
-        root.querySelectorAll('[data-review-item]').forEach((item) => { item.hidden = emulationStation ? item.dataset.reviewSource !== 'emulationstation' : item.dataset.reviewSource === 'emulationstation'; });
+        returnButton.textContent = '返回来源任务';
+        returnButton.dataset.pageLink = 'admin-source-import-detail';
+        root.querySelector('[data-review-scope-title]').textContent = '来源批次 · 服务器文件系统 / Games';
+        root.querySelector('[data-review-scope-count]').textContent = '6 条';
+        root.querySelector('[data-review-scope-context]').textContent = '这里只显示当前任务已交接的审核事项；清除搜索或状态仍保留批次。快速审批覆盖全部分页，并排除隐藏或成人来源标记。';
+        root.querySelector('[data-review-bulk-scope]').textContent = '来源文件批次的全部分页结果 · 已处理 11 / 19';
+        root.querySelector('[data-review-dialog-scope]').textContent = '来源文件批次的全部分页结果';
+        root.querySelector('[data-review-source-flagged]').textContent = '1';
+        root.querySelectorAll('[data-review-item]').forEach((item) => { item.hidden = false; });
       }
       function resetRpgDesign() {
         delete app.dataset.rpgScene;
@@ -3777,7 +3731,7 @@
         selectReviewScene(scene);
       }
       function showPage(page) {
-        const serverImportDetails = ['admin-server-import-detail', 'admin-pegasus-import-detail', 'admin-emulationstation-import-detail'];
+        const serverImportDetails = ['admin-server-import-detail', 'admin-source-import-detail'];
         const activeNavigationTarget = page === 'detail' ? 'library' : ['netplay-room', 'netplay-player'].includes(page) ? 'netplay' : page === 'admin-game-detail' ? 'admin-games' : serverImportDetails.includes(page) ? 'admin-server-import' : page;
         resetRpgDesign();
         app.hidden = false;
@@ -3789,9 +3743,9 @@
         root.querySelector('[data-mobile-title]').textContent = pageNames[page] || 'Retrom';
         root.querySelectorAll('[data-mobile-page]').forEach((button) => button.classList.toggle('is-active', button.dataset.mobilePage === activeNavigationTarget || (button.dataset.mobilePage === 'me' && !['home', 'library'].includes(activeNavigationTarget))));
         selectReviewScene(page);
-        root.querySelector('[data-ingest-parent]').classList.toggle('is-context', ['admin-import-new', 'admin-import-tasks', 'admin-server-import', ...serverImportDetails, 'admin-review', 'admin-review-history'].includes(page));
+        root.querySelector('[data-ingest-parent]').classList.toggle('is-context', ['admin-import-new', 'admin-import-tasks', 'admin-server-import', ...serverImportDetails, 'admin-review', 'admin-import-tasks'].includes(page));
         if (page === 'admin-review') {
-          setReviewScope('pegasus');
+          setReviewScope();
           root.querySelector('[data-review-view="list"]').hidden = false;
           root.querySelector('[data-review-view="detail"]').hidden = true;
         }
@@ -4453,31 +4407,14 @@
       root.querySelectorAll('[data-close-server-import-drawer]').forEach((button) => button.addEventListener('click', closeServerImportDrawer));
       serverImportBackdrop.addEventListener('click', closeServerImportDrawer);
 
-      const pegasusDrawer = root.querySelector('[data-pegasus-drawer]');
-      const pegasusBackdrop = root.querySelector('[data-pegasus-backdrop]');
-      const closePegasusDrawer = () => { pegasusDrawer.hidden = true; pegasusBackdrop.hidden = true; };
-      root.querySelectorAll('[data-open-pegasus-drawer]').forEach((button) => button.addEventListener('click', () => { pegasusDrawer.hidden = false; pegasusBackdrop.hidden = false; }));
-      root.querySelectorAll('[data-close-pegasus-drawer]').forEach((button) => button.addEventListener('click', closePegasusDrawer));
-      pegasusBackdrop.addEventListener('click', closePegasusDrawer);
+      const sourceDrawer = root.querySelector('[data-source-drawer]');
+      const sourceBackdrop = root.querySelector('[data-source-backdrop]');
+      const closeSourceDrawer = () => { sourceDrawer.hidden = true; sourceBackdrop.hidden = true; };
+      root.querySelectorAll('[data-open-source-drawer]').forEach((button) => button.addEventListener('click', () => { sourceDrawer.hidden = false; sourceBackdrop.hidden = false; }));
+      root.querySelectorAll('[data-close-source-drawer]').forEach((button) => button.addEventListener('click', closeSourceDrawer));
+      sourceBackdrop.addEventListener('click', closeSourceDrawer);
 
-      const emulationStationDrawer = root.querySelector('[data-emulationstation-drawer]');
-      const emulationStationBackdrop = root.querySelector('[data-emulationstation-backdrop]');
-      const emulationStationNext = root.querySelector('[data-emulationstation-next]');
-      let emulationStationStep = 1;
-      const renderEmulationStationStep = () => {
-        root.querySelectorAll('[data-emulationstation-step]').forEach((section) => { section.hidden = Number(section.dataset.emulationstationStep) !== emulationStationStep; });
-        root.querySelectorAll('[data-emulationstation-stepper] li').forEach((item, index) => {
-          item.classList.toggle('is-active', index + 1 === emulationStationStep);
-          item.classList.toggle('is-complete', index + 1 < emulationStationStep);
-        });
-        emulationStationNext.textContent = emulationStationStep === 1 ? '扫描此目录' : emulationStationStep === 2 ? '确认映射' : '开始准备审核事项';
-      };
-      const closeEmulationStationDrawer = () => { emulationStationDrawer.hidden = true; emulationStationBackdrop.hidden = true; };
-      root.querySelectorAll('[data-open-emulationstation-drawer]').forEach((button) => button.addEventListener('click', () => { emulationStationStep = 1; renderEmulationStationStep(); emulationStationDrawer.hidden = false; emulationStationBackdrop.hidden = false; }));
-      root.querySelectorAll('[data-close-emulationstation-drawer]').forEach((button) => button.addEventListener('click', closeEmulationStationDrawer));
-      emulationStationBackdrop.addEventListener('click', closeEmulationStationDrawer);
-      emulationStationNext.addEventListener('click', () => { if (emulationStationStep < 3) { emulationStationStep += 1; renderEmulationStationStep(); } else { closeEmulationStationDrawer(); showPage('admin-emulationstation-import-detail'); } });
-      root.querySelectorAll('[data-open-emulationstation-review]').forEach((button) => button.addEventListener('click', () => { showPage('admin-review'); setReviewScope('emulationstation'); }));
+
 
       root.querySelectorAll('.rt-candidate').forEach((button) => button.addEventListener('click', () => {
         root.querySelectorAll('.rt-candidate').forEach((peer) => peer.classList.toggle('is-selected', peer === button));
@@ -4663,13 +4600,6 @@
       const compareDialog = root.querySelector('[data-compare-dialog]');
       root.querySelector('[data-open-compare]').addEventListener('click', () => { compareDialog.hidden = false; });
       root.querySelectorAll('[data-close-compare]').forEach((button) => button.addEventListener('click', () => { compareDialog.hidden = true; }));
-      const historyDialog = root.querySelector('[data-history-dialog]');
-      root.querySelectorAll('[data-open-history]').forEach((row) => {
-        const openHistory = () => { historyDialog.hidden = false; };
-        row.addEventListener('click', openHistory);
-        row.addEventListener('keydown', (event) => { if (event.key === 'Enter' || event.key === ' ') openHistory(); });
-      });
-      root.querySelectorAll('[data-close-history]').forEach((button) => button.addEventListener('click', () => { historyDialog.hidden = true; }));
       const gameDeleteDialog = root.querySelector('[data-game-delete-dialog]');
       root.querySelector('[data-open-game-delete]').addEventListener('click', () => { gameDeleteDialog.hidden = false; });
       root.querySelectorAll('[data-close-game-delete]').forEach((button) => button.addEventListener('click', () => { gameDeleteDialog.hidden = true; }));

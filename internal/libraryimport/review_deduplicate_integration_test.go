@@ -100,7 +100,7 @@ func TestReviewDeduplicateDiscardsOnlyPublishedContentAcrossPages(t *testing.T) 
 	var games, events, discarded, pending int
 	if err := fixture.database.QueryRowContext(fixture.ctx, `
 SELECT (SELECT count(*) FROM games WHERE status='PUBLISHED'),
- (SELECT count(*) FROM review_events WHERE event_type='DISCARDED'),
+ (SELECT count(*) FROM import_items WHERE state='DISCARDED'),
  discarded_item_count,review_pending_item_count FROM import_jobs WHERE id=?`, copies.Created.ImportJobID).
 		Scan(&games, &events, &discarded, &pending); err != nil {
 		t.Fatal(err)
@@ -145,7 +145,7 @@ func TestReviewDeduplicateRollsBackPageOnDiscardFailure(t *testing.T) {
 		assertDeduplicateItemState(t, fixture, item.ItemID, "REVIEW_PENDING")
 	}
 	var count int
-	if err := fixture.database.QueryRowContext(fixture.ctx, "SELECT count(*) FROM review_events WHERE event_type='DISCARDED'").Scan(&count); err != nil {
+	if err := fixture.database.QueryRowContext(fixture.ctx, "SELECT count(*) FROM import_items WHERE state='DISCARDED'").Scan(&count); err != nil {
 		t.Fatal(err)
 	}
 	if count != 0 {

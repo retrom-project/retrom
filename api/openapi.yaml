@@ -172,10 +172,6 @@ paths:
     $ref: ./domains/reviews.yaml#/paths/~1api~1v1~1admin~1reviews~1{importItemId}~1approve
   /api/v1/admin/reviews/{importItemId}/discard:
     $ref: ./domains/reviews.yaml#/paths/~1api~1v1~1admin~1reviews~1{importItemId}~1discard
-  /api/v1/admin/review-history:
-    $ref: ./domains/reviews.yaml#/paths/~1api~1v1~1admin~1review-history
-  /api/v1/admin/review-history/{reviewEventId}:
-    $ref: ./domains/reviews.yaml#/paths/~1api~1v1~1admin~1review-history~1{reviewEventId}
   /api/v1/admin/tags:
     $ref: ./domains/catalog.yaml#/paths/~1api~1v1~1admin~1tags
   /api/v1/admin/tags/defaults:
@@ -236,40 +232,22 @@ paths:
     $ref: ./domains/server-imports.yaml#/paths/~1api~1v1~1admin~1server-imports~1{serverImportId}~1cancel
   /api/v1/admin/server-imports/{serverImportId}/retry:
     $ref: ./domains/server-imports.yaml#/paths/~1api~1v1~1admin~1server-imports~1{serverImportId}~1retry
-  /api/v1/admin/pegasus-imports:
-    $ref: ./domains/pegasus-imports.yaml#/paths/~1api~1v1~1admin~1pegasus-imports
-  /api/v1/admin/pegasus-imports/{pegasusImportId}:
-    $ref: ./domains/pegasus-imports.yaml#/paths/~1api~1v1~1admin~1pegasus-imports~1{pegasusImportId}
-  /api/v1/admin/pegasus-imports/{pegasusImportId}/collections:
-    $ref: ./domains/pegasus-imports.yaml#/paths/~1api~1v1~1admin~1pegasus-imports~1{pegasusImportId}~1collections
-  /api/v1/admin/pegasus-imports/{pegasusImportId}/collection-mappings:
-    $ref: ./domains/pegasus-imports.yaml#/paths/~1api~1v1~1admin~1pegasus-imports~1{pegasusImportId}~1collection-mappings
-  /api/v1/admin/pegasus-imports/{pegasusImportId}/start:
-    $ref: ./domains/pegasus-imports.yaml#/paths/~1api~1v1~1admin~1pegasus-imports~1{pegasusImportId}~1start
-  /api/v1/admin/pegasus-imports/{pegasusImportId}/items:
-    $ref: ./domains/pegasus-imports.yaml#/paths/~1api~1v1~1admin~1pegasus-imports~1{pegasusImportId}~1items
-  /api/v1/admin/pegasus-imports/{pegasusImportId}/cancel:
-    $ref: ./domains/pegasus-imports.yaml#/paths/~1api~1v1~1admin~1pegasus-imports~1{pegasusImportId}~1cancel
-  /api/v1/admin/pegasus-imports/{pegasusImportId}/retry:
-    $ref: ./domains/pegasus-imports.yaml#/paths/~1api~1v1~1admin~1pegasus-imports~1{pegasusImportId}~1retry
-  /api/v1/admin/emulationstation-imports:
-    $ref: ./domains/emulationstation-imports.yaml#/paths/~1api~1v1~1admin~1emulationstation-imports
-  /api/v1/admin/emulationstation-imports/{emulationStationImportId}:
-    $ref: ./domains/emulationstation-imports.yaml#/paths/~1api~1v1~1admin~1emulationstation-imports~1{emulationStationImportId}
-  /api/v1/admin/emulationstation-imports/{emulationStationImportId}/gamelists:
-    $ref: ./domains/emulationstation-imports.yaml#/paths/~1api~1v1~1admin~1emulationstation-imports~1{emulationStationImportId}~1gamelists
-  /api/v1/admin/emulationstation-imports/{emulationStationImportId}/collections:
-    $ref: ./domains/emulationstation-imports.yaml#/paths/~1api~1v1~1admin~1emulationstation-imports~1{emulationStationImportId}~1collections
-  /api/v1/admin/emulationstation-imports/{emulationStationImportId}/collection-mappings:
-    $ref: ./domains/emulationstation-imports.yaml#/paths/~1api~1v1~1admin~1emulationstation-imports~1{emulationStationImportId}~1collection-mappings
-  /api/v1/admin/emulationstation-imports/{emulationStationImportId}/start:
-    $ref: ./domains/emulationstation-imports.yaml#/paths/~1api~1v1~1admin~1emulationstation-imports~1{emulationStationImportId}~1start
-  /api/v1/admin/emulationstation-imports/{emulationStationImportId}/items:
-    $ref: ./domains/emulationstation-imports.yaml#/paths/~1api~1v1~1admin~1emulationstation-imports~1{emulationStationImportId}~1items
-  /api/v1/admin/emulationstation-imports/{emulationStationImportId}/cancel:
-    $ref: ./domains/emulationstation-imports.yaml#/paths/~1api~1v1~1admin~1emulationstation-imports~1{emulationStationImportId}~1cancel
-  /api/v1/admin/emulationstation-imports/{emulationStationImportId}/retry:
-    $ref: ./domains/emulationstation-imports.yaml#/paths/~1api~1v1~1admin~1emulationstation-imports~1{emulationStationImportId}~1retry
+  /api/v1/admin/source-imports:
+    $ref: ./domains/source-imports.yaml#/paths/~1api~1v1~1admin~1source-imports
+  /api/v1/admin/source-imports/{sourceImportId}:
+    $ref: ./domains/source-imports.yaml#/paths/~1api~1v1~1admin~1source-imports~1{sourceImportId}
+  /api/v1/admin/source-imports/{sourceImportId}/collections:
+    $ref: ./domains/source-imports.yaml#/paths/~1api~1v1~1admin~1source-imports~1{sourceImportId}~1collections
+  /api/v1/admin/source-imports/{sourceImportId}/collection-mappings:
+    $ref: ./domains/source-imports.yaml#/paths/~1api~1v1~1admin~1source-imports~1{sourceImportId}~1collection-mappings
+  /api/v1/admin/source-imports/{sourceImportId}/start:
+    $ref: ./domains/source-imports.yaml#/paths/~1api~1v1~1admin~1source-imports~1{sourceImportId}~1start
+  /api/v1/admin/source-imports/{sourceImportId}/items:
+    $ref: ./domains/source-imports.yaml#/paths/~1api~1v1~1admin~1source-imports~1{sourceImportId}~1items
+  /api/v1/admin/source-imports/{sourceImportId}/cancel:
+    $ref: ./domains/source-imports.yaml#/paths/~1api~1v1~1admin~1source-imports~1{sourceImportId}~1cancel
+  /api/v1/admin/source-imports/{sourceImportId}/retry:
+    $ref: ./domains/source-imports.yaml#/paths/~1api~1v1~1admin~1source-imports~1{sourceImportId}~1retry
   /api/v1/admin/bios/{requirementId}/installations:
     $ref: ./domains/server-imports.yaml#/paths/~1api~1v1~1admin~1bios~1{requirementId}~1installations
   /api/v1/admin/bios/{requirementId}/entries:
@@ -619,22 +597,14 @@ components:
       $ref: ./domains/server-imports.yaml#/components/schemas/InstallBIOSRequest
     CreateServerImportRequest:
       $ref: ./domains/server-imports.yaml#/components/schemas/CreateServerImportRequest
-    CreatePegasusImportRequest:
-      $ref: ./domains/pegasus-imports.yaml#/components/schemas/CreatePegasusImportRequest
-    PegasusCollectionMapping:
-      $ref: ./domains/pegasus-imports.yaml#/components/schemas/PegasusCollectionMapping
-    PegasusCollectionMappingsRequest:
-      $ref: ./domains/pegasus-imports.yaml#/components/schemas/PegasusCollectionMappingsRequest
-    PegasusImportStartRequest:
-      $ref: ./domains/pegasus-imports.yaml#/components/schemas/PegasusImportStartRequest
-    CreateEmulationStationImportRequest:
-      $ref: ./domains/emulationstation-imports.yaml#/components/schemas/CreateEmulationStationImportRequest
-    EmulationStationCollectionMapping:
-      $ref: ./domains/emulationstation-imports.yaml#/components/schemas/EmulationStationCollectionMapping
-    EmulationStationCollectionMappingsRequest:
-      $ref: ./domains/emulationstation-imports.yaml#/components/schemas/EmulationStationCollectionMappingsRequest
-    EmulationStationImportStartRequest:
-      $ref: ./domains/emulationstation-imports.yaml#/components/schemas/EmulationStationImportStartRequest
+    CreateSourceImportRequest:
+      $ref: ./domains/source-imports.yaml#/components/schemas/CreateSourceImportRequest
+    SourceCollectionMapping:
+      $ref: ./domains/source-imports.yaml#/components/schemas/SourceCollectionMapping
+    SourceCollectionMappingsRequest:
+      $ref: ./domains/source-imports.yaml#/components/schemas/SourceCollectionMappingsRequest
+    SourceImportStartRequest:
+      $ref: ./domains/source-imports.yaml#/components/schemas/SourceImportStartRequest
     ServerImportRoot:
       $ref: ./domains/server-imports.yaml#/components/schemas/ServerImportRoot
     ServerImportRootList:
@@ -657,56 +627,32 @@ components:
       $ref: ./domains/server-imports.yaml#/components/schemas/ServerBIOSImportCandidate
     ServerImportCandidateList:
       $ref: ./domains/server-imports.yaml#/components/schemas/ServerImportCandidateList
-    PegasusImportCounts:
-      $ref: ./domains/pegasus-imports.yaml#/components/schemas/PegasusImportCounts
-    PegasusImportSummary:
-      $ref: ./domains/pegasus-imports.yaml#/components/schemas/PegasusImportSummary
-    PegasusImportList:
-      $ref: ./domains/pegasus-imports.yaml#/components/schemas/PegasusImportList
-    PegasusSourceCollection:
-      $ref: ./domains/pegasus-imports.yaml#/components/schemas/PegasusSourceCollection
-    PegasusCollectionList:
-      $ref: ./domains/pegasus-imports.yaml#/components/schemas/PegasusCollectionList
-    PegasusItem:
-      $ref: ./domains/pegasus-imports.yaml#/components/schemas/PegasusItem
-    PegasusWarningValue:
-      $ref: ./domains/pegasus-imports.yaml#/components/schemas/PegasusWarningValue
-    PegasusItemFailureDetails:
-      $ref: ./components/common.yaml#/components/schemas/PegasusItemFailureDetails
-    PegasusRuntimeDependency:
-      $ref: ./components/common.yaml#/components/schemas/PegasusRuntimeDependency
-    PegasusRuntimeBIOS:
-      $ref: ./components/common.yaml#/components/schemas/PegasusRuntimeBIOS
-    PegasusRuntimeMissingDisc:
-      $ref: ./components/common.yaml#/components/schemas/PegasusRuntimeMissingDisc
-    PegasusRuntimeCheck:
-      $ref: ./components/common.yaml#/components/schemas/PegasusRuntimeCheck
-    PegasusItemList:
-      $ref: ./domains/pegasus-imports.yaml#/components/schemas/PegasusItemList
-    EmulationStationImportCounts:
-      $ref: ./domains/emulationstation-imports.yaml#/components/schemas/EmulationStationImportCounts
-    EmulationStationImportSummary:
-      $ref: ./domains/emulationstation-imports.yaml#/components/schemas/EmulationStationImportSummary
-    EmulationStationImportList:
-      $ref: ./domains/emulationstation-imports.yaml#/components/schemas/EmulationStationImportList
-    EmulationStationGamelist:
-      $ref: ./domains/emulationstation-imports.yaml#/components/schemas/EmulationStationGamelist
-    EmulationStationGamelistList:
-      $ref: ./domains/emulationstation-imports.yaml#/components/schemas/EmulationStationGamelistList
-    EmulationStationExtensionSummary:
-      $ref: ./domains/emulationstation-imports.yaml#/components/schemas/EmulationStationExtensionSummary
-    EmulationStationSourceCollection:
-      $ref: ./domains/emulationstation-imports.yaml#/components/schemas/EmulationStationSourceCollection
-    EmulationStationCollectionList:
-      $ref: ./domains/emulationstation-imports.yaml#/components/schemas/EmulationStationCollectionList
-    EmulationStationSourceFlags:
-      $ref: ./domains/emulationstation-imports.yaml#/components/schemas/EmulationStationSourceFlags
-    EmulationStationWarningValue:
-      $ref: ./domains/emulationstation-imports.yaml#/components/schemas/EmulationStationWarningValue
-    EmulationStationItem:
-      $ref: ./domains/emulationstation-imports.yaml#/components/schemas/EmulationStationItem
-    EmulationStationItemList:
-      $ref: ./domains/emulationstation-imports.yaml#/components/schemas/EmulationStationItemList
+    SourceImportCounts:
+      $ref: ./domains/source-imports.yaml#/components/schemas/SourceImportCounts
+    SourceImportSummary:
+      $ref: ./domains/source-imports.yaml#/components/schemas/SourceImportSummary
+    SourceImportList:
+      $ref: ./domains/source-imports.yaml#/components/schemas/SourceImportList
+    SourceSourceCollection:
+      $ref: ./domains/source-imports.yaml#/components/schemas/SourceSourceCollection
+    SourceCollectionList:
+      $ref: ./domains/source-imports.yaml#/components/schemas/SourceCollectionList
+    SourceItem:
+      $ref: ./domains/source-imports.yaml#/components/schemas/SourceItem
+    SourceWarningValue:
+      $ref: ./domains/source-imports.yaml#/components/schemas/SourceWarningValue
+    SourceItemFailureDetails:
+      $ref: ./components/common.yaml#/components/schemas/SourceItemFailureDetails
+    SourceRuntimeDependency:
+      $ref: ./components/common.yaml#/components/schemas/SourceRuntimeDependency
+    SourceRuntimeBIOS:
+      $ref: ./components/common.yaml#/components/schemas/SourceRuntimeBIOS
+    SourceRuntimeMissingDisc:
+      $ref: ./components/common.yaml#/components/schemas/SourceRuntimeMissingDisc
+    SourceRuntimeCheck:
+      $ref: ./components/common.yaml#/components/schemas/SourceRuntimeCheck
+    SourceItemList:
+      $ref: ./domains/source-imports.yaml#/components/schemas/SourceItemList
     BIOSInstallationSummary:
       $ref: ./domains/catalog.yaml#/components/schemas/BIOSInstallationSummary
     BIOSRequirementSummary:
@@ -866,18 +812,12 @@ components:
       $ref: ./domains/server-imports.yaml#/components/requestBodies/InstallBIOS
     CreateServerImport:
       $ref: ./domains/server-imports.yaml#/components/requestBodies/CreateServerImport
-    CreatePegasusImport:
-      $ref: ./domains/pegasus-imports.yaml#/components/requestBodies/CreatePegasusImport
-    PegasusCollectionMappings:
-      $ref: ./domains/pegasus-imports.yaml#/components/requestBodies/PegasusCollectionMappings
-    PegasusImportStart:
-      $ref: ./domains/pegasus-imports.yaml#/components/requestBodies/PegasusImportStart
-    CreateEmulationStationImport:
-      $ref: ./domains/emulationstation-imports.yaml#/components/requestBodies/CreateEmulationStationImport
-    EmulationStationCollectionMappings:
-      $ref: ./domains/emulationstation-imports.yaml#/components/requestBodies/EmulationStationCollectionMappings
-    EmulationStationImportStart:
-      $ref: ./domains/emulationstation-imports.yaml#/components/requestBodies/EmulationStationImportStart
+    CreateSourceImport:
+      $ref: ./domains/source-imports.yaml#/components/requestBodies/CreateSourceImport
+    SourceCollectionMappings:
+      $ref: ./domains/source-imports.yaml#/components/requestBodies/SourceCollectionMappings
+    SourceImportStart:
+      $ref: ./domains/source-imports.yaml#/components/requestBodies/SourceImportStart
     PlayEvent:
       $ref: ./domains/runtime.yaml#/components/requestBodies/PlayEvent
     MultiDiscPlayerEvent:
@@ -949,24 +889,14 @@ components:
       $ref: ./domains/server-imports.yaml#/components/responses/ServerImportDetailResponse
     ServerImportCandidateListResponse:
       $ref: ./domains/server-imports.yaml#/components/responses/ServerImportCandidateListResponse
-    PegasusImportResponse:
-      $ref: ./domains/pegasus-imports.yaml#/components/responses/PegasusImportResponse
-    PegasusImportListResponse:
-      $ref: ./domains/pegasus-imports.yaml#/components/responses/PegasusImportListResponse
-    PegasusCollectionListResponse:
-      $ref: ./domains/pegasus-imports.yaml#/components/responses/PegasusCollectionListResponse
-    PegasusItemListResponse:
-      $ref: ./domains/pegasus-imports.yaml#/components/responses/PegasusItemListResponse
-    EmulationStationImportResponse:
-      $ref: ./domains/emulationstation-imports.yaml#/components/responses/EmulationStationImportResponse
-    EmulationStationImportListResponse:
-      $ref: ./domains/emulationstation-imports.yaml#/components/responses/EmulationStationImportListResponse
-    EmulationStationGamelistListResponse:
-      $ref: ./domains/emulationstation-imports.yaml#/components/responses/EmulationStationGamelistListResponse
-    EmulationStationCollectionListResponse:
-      $ref: ./domains/emulationstation-imports.yaml#/components/responses/EmulationStationCollectionListResponse
-    EmulationStationItemListResponse:
-      $ref: ./domains/emulationstation-imports.yaml#/components/responses/EmulationStationItemListResponse
+    SourceImportResponse:
+      $ref: ./domains/source-imports.yaml#/components/responses/SourceImportResponse
+    SourceImportListResponse:
+      $ref: ./domains/source-imports.yaml#/components/responses/SourceImportListResponse
+    SourceCollectionListResponse:
+      $ref: ./domains/source-imports.yaml#/components/responses/SourceCollectionListResponse
+    SourceItemListResponse:
+      $ref: ./domains/source-imports.yaml#/components/responses/SourceItemListResponse
     HealthLiveResponse:
       $ref: ./domains/identity.yaml#/components/responses/HealthLiveResponse
     HealthReadyResponse:
@@ -1054,10 +984,8 @@ components:
       $ref: ./domains/catalog.yaml#/components/parameters/TargetIDQuery
     ImportJobIDQuery:
       $ref: ./domains/reviews.yaml#/components/parameters/ImportJobIDQuery
-    PegasusImportIDQuery:
-      $ref: ./domains/reviews.yaml#/components/parameters/PegasusImportIDQuery
-    EmulationStationImportIDQuery:
-      $ref: ./domains/reviews.yaml#/components/parameters/EmulationStationImportIDQuery
+    SourceImportIDQuery:
+      $ref: ./domains/reviews.yaml#/components/parameters/SourceImportIDQuery
     Availability:
       $ref: ./domains/library.yaml#/components/parameters/Availability
     State:
@@ -1078,18 +1006,12 @@ components:
       $ref: ./components/common.yaml#/components/parameters/Outcome
     MatchMethod:
       $ref: ./domains/server-imports.yaml#/components/parameters/MatchMethod
-    PegasusWarning:
-      $ref: ./domains/pegasus-imports.yaml#/components/parameters/PegasusWarning
+    SourceWarning:
+      $ref: ./domains/source-imports.yaml#/components/parameters/SourceWarning
     ReviewSourceMediaKind:
       $ref: ./domains/runtime.yaml#/components/parameters/ReviewSourceMediaKind
-    PegasusCollectionIDQuery:
-      $ref: ./domains/pegasus-imports.yaml#/components/parameters/PegasusCollectionIDQuery
-    EmulationStationGamelistParseStateFilter:
-      $ref: ./domains/emulationstation-imports.yaml#/components/parameters/EmulationStationGamelistParseStateFilter
-    EmulationStationWarning:
-      $ref: ./domains/emulationstation-imports.yaml#/components/parameters/EmulationStationWarning
-    EmulationStationCollectionIDQuery:
-      $ref: ./domains/emulationstation-imports.yaml#/components/parameters/EmulationStationCollectionIDQuery
+    SourceCollectionIDQuery:
+      $ref: ./domains/source-imports.yaml#/components/parameters/SourceCollectionIDQuery
     ServerImportKind:
       $ref: ./domains/server-imports.yaml#/components/parameters/ServerImportKind
     ServerRelativePath:
@@ -1164,8 +1086,6 @@ components:
       $ref: ./domains/reviews.yaml#/components/parameters/BulkApprovalID
     JobID:
       $ref: ./domains/imports.yaml#/components/parameters/JobID
-    ReviewEventID:
-      $ref: ./domains/reviews.yaml#/components/parameters/ReviewEventID
     CandidateID:
       $ref: ./domains/catalog.yaml#/components/parameters/CandidateID
     PlatformInstanceID:
@@ -1176,10 +1096,8 @@ components:
       $ref: ./domains/server-imports.yaml#/components/parameters/ServerImportRootID
     ServerImportID:
       $ref: ./domains/server-imports.yaml#/components/parameters/ServerImportID
-    PegasusImportID:
-      $ref: ./domains/pegasus-imports.yaml#/components/parameters/PegasusImportID
-    EmulationStationImportID:
-      $ref: ./domains/emulationstation-imports.yaml#/components/parameters/EmulationStationImportID
+    SourceImportID:
+      $ref: ./domains/source-imports.yaml#/components/parameters/SourceImportID
     GameAssetKind:
       $ref: ./domains/catalog.yaml#/components/parameters/GameAssetKind
     AssetID:

@@ -220,10 +220,10 @@ FROM upload_sessions WHERE id=?
 	}
 	result.Consumed = consumed != 0
 	rows, err := repository.database.QueryContext(ctx, `
-SELECT file.relative_path,file.id,file.final_blob_id,blob.sha256,blob.size_bytes
-FROM upload_files file
-JOIN blobs blob ON blob.id=file.final_blob_id
-WHERE file.upload_session_id=? AND file.state='COMPLETE'
+SELECT file.relative_path,file.id,file.blob_id,blob.sha256,blob.size_bytes
+FROM import_files file
+JOIN blobs blob ON blob.id=file.blob_id
+WHERE file.upload_session_id=? AND file.released_at_ms IS NULL
 ORDER BY file.relative_path,file.id
 `, sessionID)
 	if err != nil {

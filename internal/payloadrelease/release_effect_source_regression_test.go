@@ -15,7 +15,7 @@ func TestReleaseGameFollowsBoundSourceToOrdinaryPayload(t *testing.T) {
 	fixture := queuedReleaseWorker(t)
 	seedEffectGamePayload(t, fixture.database)
 	ordinaryJob := seedEffectOrdinarySource(t, fixture.database)
-	seedEffectBoundPegasus(t, fixture.database)
+	seedEffectBoundSource(t, fixture.database)
 	claim := claimEffect(t, fixture)
 	if claim.ID != fixture.jobID {
 		t.Fatalf("claimed %s instead of game %s", claim.ID, fixture.jobID)
@@ -29,8 +29,8 @@ func TestReleaseGameFollowsBoundSourceToOrdinaryPayload(t *testing.T) {
 	err := fixture.database.QueryRowContext(t.Context(), `SELECT
  (SELECT payload_state FROM import_items WHERE id='effect-item'),payload_state,payload_release_job_id,
  (SELECT count(*) FROM import_item_source_files WHERE import_item_id='effect-item')+
- (SELECT count(*) FROM pegasus_import_item_files WHERE item_id='effect-source' AND blob_id IS NOT NULL)
- FROM pegasus_import_items WHERE id='effect-source'`).Scan(&ordinary, &source, &releaseJob, &refs)
+ (SELECT count(*) FROM source_import_item_files WHERE item_id='effect-source' AND blob_id IS NOT NULL)
+ FROM source_import_items WHERE id='effect-source'`).Scan(&ordinary, &source, &releaseJob, &refs)
 	if err != nil || ordinary != "RELEASED" || source != "RELEASED" || releaseJob != ordinaryJob || refs != 0 {
 		t.Fatalf("source graph ordinary=%s source=%s job=%s refs=%d error=%v", ordinary, source, releaseJob, refs, err)
 	}

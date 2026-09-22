@@ -5,7 +5,6 @@ package libraryimport
 import (
 	"context"
 	"database/sql/driver"
-	"encoding/json"
 	"errors"
 	"strings"
 	"testing"
@@ -36,7 +35,7 @@ func TestDiscardPreservesEvidenceReadFailure(t *testing.T) {
 	assertDeduplicateItemState(t, fixture, itemID, "REVIEW_PENDING")
 }
 
-func TestDiscardRejectsPegasusReviewBeforeHandoff(t *testing.T) {
+func TestDiscardRejectsSourceReviewBeforeHandoff(t *testing.T) {
 	t.Parallel()
 	fixture, request := ownedSourceFixture(t)
 	created, err := fixture.service.CreateOwnedServerSource(t.Context(), request)
@@ -46,16 +45,16 @@ func TestDiscardRejectsPegasusReviewBeforeHandoff(t *testing.T) {
 	itemID := created.Items[0].ItemID
 	before := captureDeduplicatePage(t, fixture, created.Created.ImportJobID)
 	var beforeState string
-	if err := fixture.database.QueryRowContext(t.Context(), `SELECT execution_state FROM pegasus_import_items WHERE id=?`, request.Intent.ItemID).Scan(&beforeState); err != nil {
+	if err := fixture.database.QueryRowContext(t.Context(), `SELECT execution_state FROM source_import_items WHERE id=?`, request.Intent.ItemID).Scan(&beforeState); err != nil {
 		t.Fatal(err)
 	}
 	result, err := fixture.service.Discard(t.Context(), itemID, 1, "")
 	if !errors.Is(err, ErrInvalid) || result != (DecisionResult{}) {
-		t.Fatalf("unhanded Pegasus review lacked domain rejection: result=%+v err=%v", result, err)
+		t.Fatalf("unhanded Source review lacked domain rejection: result=%+v err=%v", result, err)
 	}
 	assertDeduplicatePageUnchanged(t, fixture, created.Created.ImportJobID, before)
 	var state string
-	if err := fixture.database.QueryRowContext(t.Context(), `SELECT execution_state FROM pegasus_import_items WHERE id=?`, request.Intent.ItemID).Scan(&state); err != nil {
+	if err := fixture.database.QueryRowContext(t.Context(), `SELECT execution_state FROM source_import_items WHERE id=?`, request.Intent.ItemID).Scan(&state); err != nil {
 		t.Fatal(err)
 	}
 	if state != beforeState {
@@ -63,17 +62,15 @@ func TestDiscardRejectsPegasusReviewBeforeHandoff(t *testing.T) {
 	}
 }
 
-func TestDiscardMalformedMetadataPreservesJSONFailure(t *testing.T) {
+func TestDiscardMalformedMetadataCanBeReleasedWithoutHistory(t *testing.T) {
 	t.Parallel()
 	fixture := newDeduplicateFixture(t)
-	created := fixture.create(t, "Discard invalid evidence", "Retrom owned malformed evidence fixture", 1)
+	created := fixture.create(t, "Discard malformed metadata", "Retrom owned malformed metadata", 1)
 	itemID := created.Items[0].ItemID
 	fixture.execute(t, `UPDATE review_drafts SET metadata_json='{' WHERE import_item_id=?`, itemID)
-	before := captureDeduplicatePage(t, fixture, created.Created.ImportJobID)
 	result, err := fixture.service.Discard(t.Context(), itemID, 1, "")
-	var syntax *json.SyntaxError
-	if !errors.As(err, &syntax) || result != (DecisionResult{}) {
-		t.Fatalf("invalid metadata JSON cause lost: result=%+v err=%v", result, err)
+	if err != nil || result.Status != "DISCARDED" {
+		t.Fatalf("malformed draft cannot be discarded: %+v %v", result, err)
 	}
-	assertDeduplicatePageUnchanged(t, fixture, created.Created.ImportJobID, before)
+	assertDeduplicateItemState(t, fixture, itemID, "DISCARDED")
 }

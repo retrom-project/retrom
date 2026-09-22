@@ -16,11 +16,10 @@ SELECT
  (SELECT count(*) FROM game_files file
   WHERE file.game_id=?),
  (SELECT count(*) FROM launch_sessions WHERE game_id=? AND state IN ('CREATED','ACTIVE')),
- (SELECT count(*) FROM netplay_sessions WHERE game_id=? AND state NOT IN ('FINISHED','FAILED')),
- (SELECT count(*) FROM review_events WHERE json_extract(after_json,'$.gameId')=?)
-`, gameID, gameID, gameID, gameID, gameID, gameID).Scan(
+ (SELECT count(*) FROM netplay_sessions WHERE game_id=? AND state NOT IN ('FINISHED','FAILED'))
+`, gameID, gameID, gameID, gameID, gameID).Scan(
 		&result.SaveStates, &result.Assets, &result.ContentFiles,
-		&result.ActiveLaunches, &result.ActiveNetplay, &result.ReviewEvents,
+		&result.ActiveLaunches, &result.ActiveNetplay,
 	)
 	if err != nil {
 		return application.ImpactCounts{}, fmt.Errorf("payloadrelease/impact counts: %w", err)

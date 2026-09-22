@@ -27,10 +27,9 @@ func (records workerRecords) failOwner(ctx context.Context, change application.W
 		args := append(append([]any{}, update.Values...), update.Scope.Args...)
 		result, err = records.executor.ExecContext(ctx,
 			"UPDATE import_jobs SET "+update.Set+" WHERE "+update.Scope.Where, args...)
-	case application.ScopePegasusImportItem:
-		result, err = recordstore.UpdatePegasusImportItems(ctx, records.executor, update)
-	case application.ScopeEmulationStationImportItem:
-		result, err = recordstore.UpdateEmulationstationImportItems(ctx, records.executor, update)
+	case application.ScopeSourceImportItem:
+		result, err = recordstore.UpdateSourceImportItems(ctx, records.executor, update)
+
 	case application.ScopeGame:
 		update.Set += ",version=version+1,updated_at_ms=?"
 		update.Values = append(update.Values, change.NowMS)

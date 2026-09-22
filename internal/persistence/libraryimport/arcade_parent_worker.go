@@ -93,10 +93,10 @@ SELECT attachment.id,attachment.import_item_id,attachment.review_draft_id,
 attachment.base_source_snapshot_id,attachment.dependency_machine,attachment.required_by_machine,
 attachment.depth,attachment.provider_id,attachment.target_id,
 attachment.dat_version_id,attachment.upload_file_id,
-file.upload_session_id,attachment.original_filename,file.final_blob_id,blob.sha256,blob.size_bytes
+file.upload_session_id,attachment.original_filename,file.blob_id,blob.sha256,blob.size_bytes
 FROM review_arcade_parent_attachments attachment
-JOIN upload_files file ON file.id=attachment.upload_file_id
-JOIN blobs blob ON blob.id=file.final_blob_id
+JOIN import_files file ON file.id=attachment.upload_file_id
+JOIN blobs blob ON blob.id=file.blob_id
 WHERE attachment.job_id=? AND attachment.state='RUNNING'
 `, jobID).Scan(
 		&candidate.AttachmentID, &candidate.ItemID, &candidate.DraftID, &candidate.BaseSnapshotID,

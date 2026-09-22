@@ -46,11 +46,7 @@ func projectReviewSourceMediaURLs(media *libraryservice.ReviewSourceMedia) {
 	if media == nil {
 		return
 	}
-	if media.SourceKind == "PEGASUS" {
-		media.PegasusImportID = media.ImportID
-	} else {
-		media.EmulationStationImportID = media.ImportID
-	}
+	media.SourceImportID = media.ImportID
 	base := "/api/v1/admin/review-assets/" + media.SourceRefID
 	if media.HasCover {
 		value := base + "?kind=COVER"

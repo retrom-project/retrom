@@ -39,7 +39,7 @@ func TestReviewDiscardUsesTypedPayloadScopeAndPreservesCause(t *testing.T) {
 	if !errors.Is(err, cause) || result != (ReviewDecisionResult{}) {
 		t.Fatalf("typed payload failure result=%+v error=%v", result, err)
 	}
-	if !reflect.DeepEqual(fixture.steps, []string{"attachments", "item", "event", "owner"}) {
+	if !reflect.DeepEqual(fixture.steps, []string{"attachments", "item", "owner"}) {
 		t.Fatalf("writes before payload read=%v", fixture.steps)
 	}
 }

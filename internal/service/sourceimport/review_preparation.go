@@ -1,0 +1,155 @@
+package sourceimport
+
+import (
+	"context"
+	"errors"
+	"fmt"
+
+	"retrom/internal/contentcapability"
+	library "retrom/internal/service/libraryimport"
+)
+
+type (
+	ReviewSourceCreator interface {
+		LookupOwnedServerSource(context.Context, library.SourceCreationIntent) (library.ServerImportResult, bool, error)
+		CreateOwnedServerSource(context.Context, library.OwnedServerSourceRequest) (library.ServerImportResult, error)
+	}
+	ReviewItemTransitions interface {
+		Resume(context.Context, ExecutionIdentity, string, string, string) error
+		Finish(context.Context, ExecutionIdentity, string, ItemOutcome) error
+	}
+	ReviewCompleter interface {
+		Complete(context.Context, ReviewHandoffRequest) error
+	}
+	ReviewPreparation struct {
+		sources ReviewSourceCreator
+		items   ReviewItemTransitions
+		handoff ReviewCompleter
+	}
+)
+
+func NewReviewPreparation(
+	sources ReviewSourceCreator,
+	items ReviewItemTransitions,
+	handoff ReviewCompleter,
+) *ReviewPreparation {
+	return &ReviewPreparation{sources: sources, items: items, handoff: handoff}
+}
+
+func sourceIntent(unit Work, item ExecutionItem) library.SourceCreationIntent {
+	paths := make([]string, 0, len(item.Files))
+	for _, file := range item.Files {
+		paths = append(paths, file.Path)
+	}
+	return library.SourceCreationIntent{
+		Kind:     library.SourceOwnerSource,
+		ImportID: unit.ImportID, ItemID: item.ID, JobID: unit.JobID,
+		WorkerID: unit.WorkerID, ExecutionNo: unit.ExecutionNo, Attempt: unit.Attempt, PrimaryPaths: paths,
+	}
+}
+
+// Resume precedes host/CAS reads, so retained identities can be replayed after payload cleanup.
+func (service *ReviewPreparation) Resume(ctx context.Context, unit Work, item ExecutionItem) (bool, error) {
+	result, found, err := service.sources.LookupOwnedServerSource(ctx, sourceIntent(unit, item))
+	if err != nil {
+		return false, fmt.Errorf("lookup Source bound review: %w", err)
+	}
+	if !found {
+		return false, nil
+	}
+	if err := service.accept(ctx, unit, item, result); err != nil {
+		return true, err
+	}
+	return true, nil
+}
+
+func (service *ReviewPreparation) Create(
+	ctx context.Context,
+	unit Work,
+	item ExecutionItem,
+	files []library.ServerSourceFile,
+) error {
+	mode := contentcapability.ModeStandard
+	if len(item.Files) > 1 {
+		mode = contentcapability.ModeMultiDisc
+	}
+	result, err := service.sources.CreateOwnedServerSource(ctx, library.OwnedServerSourceRequest{
+		Intent: sourceIntent(unit, item), TargetPlatformInstanceID: item.TargetPlatformID, ContentMode: mode,
+		Files: files, TagIDs: item.TagIDs, AssignedByUserID: unit.CreatedByUserID,
+	})
+	if errors.Is(err, library.ErrSourceGrouping) {
+		return service.blockContent(ctx, unit, item)
+	}
+	if err != nil {
+		return fmt.Errorf("create Source owned review: %w", err)
+	}
+	return service.accept(ctx, unit, item, result)
+}
+
+func (service *ReviewPreparation) accept(
+	ctx context.Context,
+	unit Work,
+	item ExecutionItem,
+	result library.ServerImportResult,
+) error {
+	if result.Created.ImportJobID == "" || len(result.Items) != 1 || result.Items[0].ItemID == "" {
+		return ErrInvalid
+	}
+	if err := service.acceptResult(ctx, unit, item, result); err != nil {
+		return &ReviewPreparationError{
+			LibraryJobID: result.Created.ImportJobID, LibraryItemID: result.Items[0].ItemID, Cause: err,
+		}
+	}
+	return nil
+}
+
+func (service *ReviewPreparation) acceptResult(
+	ctx context.Context,
+	unit Work,
+	item ExecutionItem,
+	result library.ServerImportResult,
+) error {
+	imported := result.Items[0]
+	err := service.items.Resume(ctx, unit.Identity(), item.ID, result.Created.ImportJobID, imported.ItemID)
+	if err != nil {
+		return fmt.Errorf("resume Source review identity: %w", err)
+	}
+	if imported.ExistingGameID != "" {
+		if imported.State != "DISCARDED" || len(imported.ExistingMatches) == 0 {
+			return ErrInvalid
+		}
+		matches := make([]ExistingMatch, 0, len(imported.ExistingMatches))
+		for _, match := range imported.ExistingMatches {
+			matches = append(matches, ExistingMatch{GameID: match.GameID})
+		}
+		if err := service.items.Finish(ctx, unit.Identity(), item.ID, ItemOutcome{
+			State: "SKIPPED_EXISTING", ExistingGameID: imported.ExistingGameID, ExistingMatches: matches,
+		}); err != nil {
+			return fmt.Errorf("complete Source duplicate: %w", err)
+		}
+		return nil
+	}
+	if imported.State != "REVIEW_PENDING" {
+		return service.blockContent(ctx, unit, item)
+	}
+	if err := service.handoff.Complete(ctx, ReviewHandoffRequest{
+		ItemID: item.ID, ImportID: unit.ImportID, JobID: unit.JobID, WorkerID: unit.WorkerID,
+		LibraryJobID: result.Created.ImportJobID, LibraryItemID: imported.ItemID,
+		ExecutionNo: unit.ExecutionNo, Attempt: unit.Attempt,
+	}); err != nil {
+		return fmt.Errorf("complete Source review preparation: %w", err)
+	}
+	return nil
+}
+
+func (service *ReviewPreparation) blockContent(ctx context.Context, unit Work, item ExecutionItem) error {
+	if err := service.items.Finish(
+		ctx,
+		unit.Identity(),
+		item.ID,
+		ItemOutcome{State: "BLOCKED_CONTENT", Code: "PEGASUS_CONTENT_FORMAT_UNSUPPORTED"},
+	); err != nil {
+		return fmt.Errorf("complete unsupported Source content: %w", err)
+	}
+	return nil
+}

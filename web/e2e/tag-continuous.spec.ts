@@ -40,7 +40,7 @@ test("ACC-TAG-005 repeated selection and creation keep tag controls open", async
       return;
     }
     created++;
-    await route.fulfill({ status: 201, json: { tagId: `preview-${created}`, name, status: "ACTIVE", version: 1, usage: { publishedGameCount: 0, deletedGameCount: 0, reviewDraftCount: 0, pegasusCollectionCount: 0 }, createdAtMs: 1000, updatedAtMs: 1000, deletedAtMs: null } });
+    await route.fulfill({ status: 201, json: { tagId: `preview-${created}`, name, status: "ACTIVE", version: 1, usage: { publishedGameCount: 0, deletedGameCount: 0, reviewDraftCount: 0, sourceCollectionCount: 0 }, createdAtMs: 1000, updatedAtMs: 1000, deletedAtMs: null } });
   });
   await page.getByRole("button", { name: "新建标签", exact: true }).click();
   const drawer = page.getByRole("dialog", { name: "新建标签" });

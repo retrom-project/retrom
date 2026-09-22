@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/persistence/importfiles"
+
 	"retrom/internal/composition"
 
 	dependencypersistence "retrom/internal/persistence/dependencies"
@@ -240,6 +242,9 @@ INSERT INTO upload_files(id,upload_session_id,relative_path,declared_size_bytes,
 final_blob_id,state,created_at_ms,updated_at_ms)
 VALUES(?,?,'game.chd',?,?,?,'COMPLETE',?,?)
 `, fileID, uploadID, metadata.Size, metadata.Size, blobID, now.UnixMilli(), now.UnixMilli()); err != nil {
+			t.Fatal(err)
+		}
+		if err := importfiles.Receive(t.Context(), server.database, uploadID); err != nil {
 			t.Fatal(err)
 		}
 	}

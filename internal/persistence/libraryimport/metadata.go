@@ -75,7 +75,7 @@ SELECT 1 FROM import_items item WHERE item.id=review_drafts.import_item_id AND i
 	if err := requireMetadataChange(result, err); err != nil {
 		return err
 	}
-	return records.appendMetadataEvent(ctx, change)
+	return nil
 }
 
 func requireMetadataChange(result sql.Result, err error) error {
@@ -88,21 +88,6 @@ func requireMetadataChange(result sql.Result, err error) error {
 	}
 	if affected != 1 {
 		return application.ErrVersionConflict
-	}
-	return nil
-}
-
-func (records metadataRecords) appendMetadataEvent(ctx context.Context, change application.MetadataChange) error {
-	const emptyEvidence = `{"schemaVersion":2}`
-	const diff = `{"metadataChanged":true,"schemaVersion":2}`
-	result, err := recordstore.CreateReviewEvents(ctx, records.executor, `
-INSERT INTO review_events(id,import_item_id,event_type,actor_kind,actor_user_id,actor_label,before_json,
-after_json,diff_json,config_evidence_json,dat_evidence_json,provider_evidence_json,created_at_ms)
-VALUES(?,?,'DRAFT_SAVED',?,?,?,?,?,?,?,?,?,?)`,
-		change.Audit.ID, change.ItemID, change.Audit.ActorKind, change.Audit.ActorUserID, change.Audit.ActorLabel,
-		change.Audit.BeforeJSON, change.Audit.AfterJSON, diff, emptyEvidence, emptyEvidence, emptyEvidence, change.NowMS)
-	if err := requireMetadataChange(result, err); err != nil {
-		return fmt.Errorf("append server review metadata audit: %w", err)
 	}
 	return nil
 }

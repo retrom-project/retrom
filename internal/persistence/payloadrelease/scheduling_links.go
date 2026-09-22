@@ -20,10 +20,9 @@ func (reader sourceReleaseReader) RetainedSources(
 ) ([]string, error) {
 	table := ""
 	switch batch.Type {
-	case application.ScopePegasusImportItem:
-		table = "pegasus_import_items"
-	case application.ScopeEmulationStationImportItem:
-		table = "emulationstation_import_items"
+	case application.ScopeSourceImportItem:
+		table = "source_import_items"
+
 	case application.ScopeImportItem, application.ScopeImportJob,
 		application.ScopeUploadConsumption, application.ScopeGame, application.ScopeBlob:
 		return nil, application.ErrScopeInvalid
@@ -36,10 +35,9 @@ func (reader sourceReleaseReader) BoundSources(
 	ctx context.Context, id string, after application.Scope, limit int,
 ) ([]application.Scope, error) {
 	rows, err := reader.executor.QueryContext(ctx, `WITH sources AS (
-SELECT 'PEGASUS_IMPORT_ITEM' AS kind,id FROM pegasus_import_items WHERE library_import_item_id=?
-UNION ALL SELECT 'EMULATIONSTATION_IMPORT_ITEM',id FROM emulationstation_import_items WHERE library_import_item_id=?
+SELECT 'SOURCE_IMPORT_ITEM' AS kind,id FROM source_import_items WHERE library_import_item_id=?
 ) SELECT kind,id FROM sources WHERE kind>? OR (kind=? AND id>?) ORDER BY kind,id LIMIT ?`,
-		id, id, after.Type, after.Type, after.ID, limit)
+		id, after.Type, after.Type, after.ID, limit)
 	if err != nil {
 		return nil, fmt.Errorf("read bound source release links: %w", err)
 	}

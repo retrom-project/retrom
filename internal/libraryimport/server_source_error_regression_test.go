@@ -35,3 +35,7 @@ func TestServerSourcePreservesBlobReadFailure(t *testing.T) {
 		t.Fatalf("blob read cause lost: got=%v expected=%v", err, expected)
 	}
 }
+
+type metadataEntropyFailure struct{}
+
+func (metadataEntropyFailure) Read([]byte) (int, error) { return 0, io.ErrUnexpectedEOF }

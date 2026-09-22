@@ -15,10 +15,7 @@ export type ReviewMultiDisc = {
 };
 export type DuplicateGame = { gameId: string; title: string; platformInstanceId: string; platformInstanceName: string };
 type ReviewSourceMediaBase = { sourceRefId: string; sourceLabel: string | null; coverUrl: string | null; coverWidthPx: number | null; coverHeightPx: number | null; videoUrl: string | null };
-export type ReviewSourceMedia = ReviewSourceMediaBase & (
-  | { sourceKind: "PEGASUS"; pegasusImportId: string; emulationStationImportId?: never }
-  | { sourceKind: "EMULATIONSTATION"; emulationStationImportId: string; pegasusImportId?: never }
-);
+export type ReviewSourceMedia = ReviewSourceMediaBase & { sourceKind: "SOURCE"; sourceImportId: string; sourceFlags?: { hidden: boolean; adult: boolean; kidGame: boolean } };
 export type RPGMakerReview = {
   selectedCoreId: string; generation: string; evidenceGeneration: string | null; evidenceConfidence: "MATCHED" | "FAMILY_ONLY";
   selfContained: boolean; selfContainedOverride: boolean;

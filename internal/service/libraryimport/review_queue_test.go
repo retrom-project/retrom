@@ -57,9 +57,8 @@ func TestReviewQueueRejectsInvalidFiltersBeforeReading(t *testing.T) {
 		{name: "sort", filter: ReviewQueueFilter{Sort: "TITLE_ASC"}},
 		{name: "negative limit", filter: ReviewQueueFilter{Limit: -1}},
 		{name: "large limit", filter: ReviewQueueFilter{Limit: 21}},
-		{name: "ordinary pegasus", filter: ReviewQueueFilter{ImportJobID: "job", PegasusImportID: "pegasus"}},
-		{name: "ordinary es", filter: ReviewQueueFilter{ImportJobID: "job", EmulationStationImportID: "es"}},
-		{name: "two server sources", filter: ReviewQueueFilter{PegasusImportID: "pegasus", EmulationStationImportID: "es"}},
+		{name: "ordinary source", filter: ReviewQueueFilter{ImportJobID: "job", SourceImportID: "source"}},
+		{name: "ordinary es", filter: ReviewQueueFilter{ImportJobID: "job", SourceImportID: "es"}},
 		{name: "missing cursor id", after: &ReviewQueuePosition{UpdatedAtMS: 1}},
 		{name: "negative cursor time", after: &ReviewQueuePosition{ItemID: "item", UpdatedAtMS: -1}},
 	} {
@@ -105,9 +104,9 @@ func TestReviewQueueProjectsValidationAndSourceCoverPriority(t *testing.T) {
 		{name: "ordinary missing validation", kind: "STANDARD", status: "NEEDS_VALIDATION", blockers: []string{}},
 		{name: "ready", record: ReviewQueueRecord{ValidationStatus: queueString("READY"), CompatibilityCode: queueString("OK")}, kind: "STANDARD", status: "READY", blockers: []string{}},
 		{name: "blocked", record: ReviewQueueRecord{ValidationStatus: queueString("BLOCKED"), CompatibilityCode: queueString("DEPENDENCY_MISSING")}, kind: "STANDARD", status: "BLOCKED", blockers: []string{"DEPENDENCY_MISSING"}},
-		{name: "pegasus", record: ReviewQueueRecord{Pegasus: &ReviewQueueSource{ItemID: "peg-item", ImportID: "peg-import", Label: queueString("Collection"), HasCover: true}}, kind: "PEGASUS", status: "NEEDS_VALIDATION", cover: queueString("/api/v1/admin/review-assets/peg-item?kind=COVER"), blockers: []string{}},
-		{name: "es", record: ReviewQueueRecord{EmulationStation: &ReviewQueueSource{ItemID: "es-item", ImportID: "es-import", HasCover: true}}, kind: "EMULATIONSTATION", status: "NEEDS_VALIDATION", cover: queueString("/api/v1/admin/review-assets/es-item?kind=COVER"), blockers: []string{}},
-		{name: "selected cover first", record: ReviewQueueRecord{CoverAssetID: queueString("selected"), Pegasus: &ReviewQueueSource{ItemID: "peg-item", ImportID: "peg-import", HasCover: true}}, kind: "PEGASUS", status: "NEEDS_VALIDATION", cover: queueString("/api/v1/admin/review-assets/selected"), blockers: []string{}},
+		{name: "source", record: ReviewQueueRecord{Source: &ReviewQueueSource{ItemID: "peg-item", ImportID: "peg-import", Label: queueString("Collection"), HasCover: true}}, kind: "SOURCE", status: "NEEDS_VALIDATION", cover: queueString("/api/v1/admin/review-assets/peg-item?kind=COVER"), blockers: []string{}},
+		{name: "es", record: ReviewQueueRecord{Source: &ReviewQueueSource{ItemID: "es-item", ImportID: "es-import", HasCover: true}}, kind: "SOURCE", status: "NEEDS_VALIDATION", cover: queueString("/api/v1/admin/review-assets/es-item?kind=COVER"), blockers: []string{}},
+		{name: "selected cover first", record: ReviewQueueRecord{CoverAssetID: queueString("selected"), Source: &ReviewQueueSource{ItemID: "peg-item", ImportID: "peg-import", HasCover: true}}, kind: "SOURCE", status: "NEEDS_VALIDATION", cover: queueString("/api/v1/admin/review-assets/selected"), blockers: []string{}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()

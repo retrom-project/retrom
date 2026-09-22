@@ -36,7 +36,7 @@
 .server-import-task dt { color: var(--muted); font-size: 9px; }
 .server-import-task dd { margin: 2px 0 0; font-size: 14px; font-weight: 800; }
 .server-import-drawer { width: min(620px, 100vw); }
-.pegasus-import-drawer { width: min(760px, 100vw); }
+.source-import-drawer { width: min(760px, 100vw); }
 .pegasus-stepper { margin: 0; padding: 13px 22px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; border-bottom: 1px solid var(--line); background: #fafbfc; list-style: none; }
 .pegasus-stepper li { display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: 10px; font-weight: 760; }
 .pegasus-stepper li::after { content: ""; height: 1px; flex: 1; background: #dfe3e8; }

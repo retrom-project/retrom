@@ -11,13 +11,9 @@ type importReadsRepositoryStub struct {
 	list            []ImportListItem
 	detail          ImportDetail
 	multiDisc       []ImportMultiDiscItemSummary
-	history         []ReviewHistoryItem
-	historyEvent    ReviewHistoryEvent
 	err             error
 	listQuery       ImportListQuery
-	historyQuery    ReviewHistoryQuery
 	lastImportJobID string
-	lastEventID     string
 }
 
 func (stub *importReadsRepositoryStub) Summary(context.Context) (ImportOverviewSummary, error) {
@@ -42,22 +38,6 @@ func (stub *importReadsRepositoryStub) MultiDiscItemSummaries(
 	return stub.multiDisc, stub.err
 }
 
-func (stub *importReadsRepositoryStub) ReviewHistory(
-	_ context.Context,
-	query ReviewHistoryQuery,
-) ([]ReviewHistoryItem, error) {
-	stub.historyQuery = query
-	return stub.history, stub.err
-}
-
-func (stub *importReadsRepositoryStub) ReviewHistoryEvent(
-	_ context.Context,
-	eventID string,
-) (ReviewHistoryEvent, error) {
-	stub.lastEventID = eventID
-	return stub.historyEvent, stub.err
-}
-
 func TestImportReadsRejectsInvalidQueriesBeforeRepository(t *testing.T) {
 	t.Parallel()
 	stub := &importReadsRepositoryStub{}
@@ -65,16 +45,15 @@ func TestImportReadsRejectsInvalidQueriesBeforeRepository(t *testing.T) {
 	if _, err := service.List(t.Context(), ImportListQuery{SortCode: "UPDATED_DESC"}); !errors.Is(err, ErrImportReadQuery) {
 		t.Fatalf("list error = %v", err)
 	}
-	if stub.lastImportJobID != "" || stub.lastEventID != "" {
+	if stub.lastImportJobID != "" {
 		t.Fatalf("repository called for invalid query: %#v", stub)
 	}
 }
 
-func TestImportReadsPassesDecodedListAndHistoryQueries(t *testing.T) {
+func TestImportReadsPassesDecodedListQueries(t *testing.T) {
 	t.Parallel()
 	stub := &importReadsRepositoryStub{
-		list:    []ImportListItem{{ID: "job"}},
-		history: []ReviewHistoryItem{{ReviewEventID: "event"}},
+		list: []ImportListItem{{ID: "job"}},
 	}
 	service := NewImportReads(stub)
 	query := ImportListQuery{
@@ -85,10 +64,6 @@ func TestImportReadsPassesDecodedListAndHistoryQueries(t *testing.T) {
 	if err != nil || len(items) != 1 || stub.listQuery != query {
 		t.Fatalf("list = %#v/%v query=%#v", items, err, stub.listQuery)
 	}
-	history, err := service.ReviewHistory(t.Context(), ReviewHistoryQuery{QueryText: "title", Decision: "APPROVED"})
-	if err != nil || len(history) != 1 || stub.historyQuery != (ReviewHistoryQuery{QueryText: "title", Decision: "APPROVED"}) {
-		t.Fatalf("history = %#v/%v query=%#v", history, err, stub.historyQuery)
-	}
 }
 
 func TestImportReadsWrapsRepositoryErrors(t *testing.T) {
@@ -97,8 +72,5 @@ func TestImportReadsWrapsRepositoryErrors(t *testing.T) {
 	service := NewImportReads(&importReadsRepositoryStub{err: cause})
 	if _, err := service.Summary(t.Context()); !errors.Is(err, cause) {
 		t.Fatalf("summary error = %v", err)
-	}
-	if _, err := service.ReviewHistoryEvent(t.Context(), "event"); !errors.Is(err, cause) {
-		t.Fatalf("history event error = %v", err)
 	}
 }

@@ -30,19 +30,18 @@ type ReviewDiscardRequest struct {
 }
 type ReviewDecisionResult struct {
 	ItemID      string `json:"itemId"`
-	EventID     string `json:"reviewEventId"`
 	Status      string `json:"status"`
 	Version     int64  `json:"version"`
 	UpdatedAtMS int64  `json:"updatedAtMs"`
 }
 type ReviewDiscardSnapshot struct {
-	DraftID, ImportID, MetadataJSON   string
-	Version                           int64
-	State, HandoffKind                string
-	EmulationStationReady, SourceBusy bool
-	ValidationID, DatID, CandidateID  *string
-	HasCover, HasBackground           bool
-	Aggregate                         ReviewDiscardAggregate
+	DraftID, ImportID, MetadataJSON  string
+	Version                          int64
+	State                            string
+	SourceReady, SourceBusy          bool
+	ValidationID, DatID, CandidateID *string
+	HasCover, HasBackground          bool
+	Aggregate                        ReviewDiscardAggregate
 }
 type ReviewDiscardAggregate struct {
 	Version  int64
@@ -57,13 +56,6 @@ type ReviewDiscardChange struct {
 	ExpectedVersion  int64
 	NowMS            int64
 	Aggregate        ReviewDiscardAggregateChange
-}
-type ReviewDiscardEvent struct {
-	ID, ItemID, Reason                            string
-	ActorKind                                     string
-	ActorUserID, ActorLabel                       *string
-	BeforeJSON, ConfigJSON, DatJSON, ProviderJSON string
-	NowMS                                         int64
 }
 type ReviewOwnerTransition struct {
 	Mode   ReviewDiscardMode
@@ -97,6 +89,5 @@ type ReviewDiscardReader interface {
 type ReviewDiscardWriter interface {
 	CancelAttachments(context.Context, string, int64) error
 	DiscardItem(context.Context, ReviewDiscardChange) error
-	RecordEvent(context.Context, ReviewDiscardEvent) error
 	TransitionOwner(context.Context, ReviewOwnerTransition) error
 }

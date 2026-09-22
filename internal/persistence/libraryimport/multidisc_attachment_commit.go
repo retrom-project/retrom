@@ -117,9 +117,6 @@ VALUES(?,?,NULL,'REVIEW_MULTI_DISC',?,?)
 	if err := requireMultiDiscChange(result, err, "advance import item"); err != nil {
 		return err
 	}
-	if err := scope.recordAcceptedReviewEvent(ctx, write); err != nil {
-		return err
-	}
 	if err := scope.recordAcceptedJobEvents(ctx, write); err != nil {
 		return err
 	}
@@ -317,24 +314,6 @@ INSERT INTO import_item_duplicate_matches(
 	return nil
 }
 
-func (scope multiDiscAttachmentCommitScope) recordAcceptedReviewEvent(
-	ctx context.Context, write application.MultiDiscAttachmentCommitWrite,
-) error {
-	evidence := reviewEventJSON(map[string]any{
-		"attachmentKind": "MULTI_DISC", "validationStatus": write.Validation.Status, "state": "ACCEPTED",
-	})
-	if _, err := recordstore.CreateReviewEvents(ctx, scope.transaction, `
-INSERT INTO review_events(id,import_item_id,event_type,actor_kind,actor_user_id,actor_label,
-before_json,after_json,diff_json,config_evidence_json,dat_evidence_json,provider_evidence_json,created_at_ms)
-VALUES(?,?,'DISC_ATTACHMENT_ACCEPTED','USER',?,NULL,?,?,?,?,?,?,?)
-`, write.EventID, write.Input.ImportItemID, write.Input.RequestedByUserID,
-		`{"schemaVersion":2}`, evidence, evidence, `{"schemaVersion":2}`,
-		`{"schemaVersion":2}`, `{"schemaVersion":2}`, write.NowMS); err != nil {
-		return fmt.Errorf("record multi-disc review event: %w", err)
-	}
-	return nil
-}
-
 func (scope multiDiscAttachmentCommitScope) recordAcceptedJobEvents(
 	ctx context.Context, write application.MultiDiscAttachmentCommitWrite,
 ) error {
@@ -383,12 +362,6 @@ func nullableStringValue(value string) any {
 		return nil
 	}
 	return value
-}
-
-func reviewEventJSON(fields map[string]any) string {
-	fields["schemaVersion"] = 2
-	encoded, _ := json.Marshal(fields)
-	return string(encoded)
 }
 
 func multiDiscAttachmentDurationMS(startedAtMS, nowMS int64) int64 {

@@ -7,28 +7,16 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
-
 	"retrom/internal/service/payloadrelease"
-	"retrom/internal/service/tagging"
 )
 
 type ReviewDiscards struct {
 	repository ReviewDiscardRepository
 	now        func() time.Time
-	newID      func() (string, error)
 }
 
 func NewReviewDiscards(repository ReviewDiscardRepository, now func() time.Time) *ReviewDiscards {
-	return &ReviewDiscards{repository: repository, now: now, newID: newReviewDiscardID}
-}
-
-func newReviewDiscardID() (string, error) {
-	id, err := uuid.NewV7()
-	if err != nil {
-		return "", fmt.Errorf("create review discard ID: %w", err)
-	}
-	return id.String(), nil
+	return &ReviewDiscards{repository: repository, now: now}
 }
 
 func (service *ReviewDiscards) Discard(
@@ -66,34 +54,21 @@ func (service *ReviewDiscards) DiscardInScope(
 	if !found || !canDiscardReview(snapshot, request) {
 		return ReviewDecisionResult{}, ErrInvalid
 	}
-	tags, err := tagging.ReviewDraftReferencesInScope(ctx, scope.Tags, snapshot.DraftID)
-	if err != nil {
-		return ReviewDecisionResult{}, fmt.Errorf("read discard tags: %w", err)
-	}
-	event, err := reviewDiscardEvidence(ctx, snapshot, tags, request.Reason)
-	if err != nil {
-		return ReviewDecisionResult{}, err
-	}
-	event.ID, err = service.newID()
-	if err != nil {
-		return ReviewDecisionResult{}, fmt.Errorf("create discard event ID: %w", err)
-	}
-	event.ItemID = request.ItemID
-	event.NowMS = service.now().UnixMilli()
-	aggregate, err := projectReviewDiscardAggregate(snapshot.Aggregate, event.NowMS)
+	now := service.now().UnixMilli()
+	aggregate, err := projectReviewDiscardAggregate(snapshot.Aggregate, now)
 	if err != nil {
 		return ReviewDecisionResult{}, err
 	}
 	change := ReviewDiscardChange{
 		ItemID: request.ItemID, ImportID: snapshot.ImportID, ExpectedVersion: request.ExpectedVersion,
-		NowMS: event.NowMS, Aggregate: aggregate,
+		NowMS: now, Aggregate: aggregate,
 	}
-	if err := persistReviewDiscard(ctx, scope, request, change, event); err != nil {
+	if err := persistReviewDiscard(ctx, scope, request, change); err != nil {
 		return ReviewDecisionResult{}, err
 	}
 	return ReviewDecisionResult{
-		ItemID: request.ItemID, EventID: event.ID, Status: "DISCARDED",
-		Version: snapshot.Version + 1, UpdatedAtMS: event.NowMS,
+		ItemID: request.ItemID, Status: "DISCARDED",
+		Version: snapshot.Version + 1, UpdatedAtMS: now,
 	}, nil
 }
 
@@ -117,25 +92,23 @@ func canDiscardReview(snapshot ReviewDiscardSnapshot, request ReviewDiscardReque
 	if request.Mode == ReviewDiscardBatch {
 		return true
 	}
-	return !snapshot.SourceBusy && (snapshot.HandoffKind == "DIRECT" || snapshot.EmulationStationReady)
+	return !snapshot.SourceBusy
 }
 
 func persistReviewDiscard(
 	ctx context.Context, scope ReviewDiscardScope, request ReviewDiscardRequest,
-	change ReviewDiscardChange, event ReviewDiscardEvent,
+	change ReviewDiscardChange,
 ) error {
 	writer := scope.Writer
-	if err := writer.CancelAttachments(ctx, request.ItemID, event.NowMS); err != nil {
+	now := change.NowMS
+	if err := writer.CancelAttachments(ctx, request.ItemID, now); err != nil {
 		return fmt.Errorf("cancel discarded attachments: %w", err)
 	}
 	if err := writer.DiscardItem(ctx, change); err != nil {
 		return fmt.Errorf("discard review and aggregate: %w", err)
 	}
-	if err := writer.RecordEvent(ctx, event); err != nil {
-		return fmt.Errorf("record discarded review: %w", err)
-	}
 	if err := writer.TransitionOwner(ctx, ReviewOwnerTransition{
-		ItemID: request.ItemID, State: ReviewOwnerDiscarded, Mode: request.Mode, NowMS: event.NowMS,
+		ItemID: request.ItemID, State: ReviewOwnerDiscarded, Mode: request.Mode, NowMS: now,
 	}); err != nil {
 		return fmt.Errorf("transition discarded review owner: %w", err)
 	}
@@ -146,7 +119,7 @@ func persistReviewDiscard(
 			ItemID:   request.ItemID,
 			ImportID: change.ImportID,
 			Reason:   payloadrelease.ReasonImportDiscarded,
-			NowMS:    event.NowMS,
+			NowMS:    now,
 		},
 	); err != nil {
 		return fmt.Errorf("schedule discarded review payload: %w", err)

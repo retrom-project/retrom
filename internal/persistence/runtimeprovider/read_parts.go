@@ -49,8 +49,7 @@ func (records catalogRecords) TargetReferenced(ctx context.Context, target servi
 		{"game_variants", "provider_id", "target_id"},
 		{"launch_sessions", "provider_id", "target_id"},
 		{"netplay_sessions", "provider_id", "target_id"},
-		{"pegasus_import_collections", "target_provider_id", "target_id"},
-		{"emulationstation_import_collections", "target_provider_id", "target_id"},
+		{"source_import_collections", "target_provider_id", "target_id"},
 	}
 	for _, reference := range references {
 		query := fmt.Sprintf("SELECT EXISTS(SELECT 1 FROM %s WHERE %s=? AND %s=? LIMIT 1)",

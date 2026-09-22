@@ -23,6 +23,6 @@ func CollectScopeIDs(ctx context.Context, transaction *sql.Tx, query string, arg
 
 func terminalImportItem(state string) bool { return application.TerminalImportItem(state) }
 
-func terminalPegasusItem(state string, retryable bool) bool {
+func terminalSourceItem(state string, retryable bool) bool {
 	return application.TerminalSourceItem(state, retryable)
 }

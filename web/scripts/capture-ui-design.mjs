@@ -51,9 +51,9 @@ const designCaptures = [
   ["retrom-ui-server-import.png", "admin-server-import", 2560, 1440],
   ["retrom-ui-server-import-drawer.png", "admin-server-import", 1280, 800, "server-import-drawer"],
   ["retrom-ui-server-import-detail-4k.png", "admin-server-import-detail", 3840, 2160],
-  ["retrom-ui-pegasus-import.png", "admin-server-import", 2560, 1440],
-  ["retrom-ui-pegasus-import-drawer.png", "admin-server-import", 1280, 800, "pegasus-import-drawer"],
-  ["retrom-ui-pegasus-import-detail-4k.png", "admin-pegasus-import-detail", 3840, 2160],
+  ["retrom-ui-source-import.png", "admin-server-import", 2560, 1440],
+  ["retrom-ui-source-import-drawer.png", "admin-server-import", 1280, 800, "source-import-drawer"],
+  ["retrom-ui-source-import-detail-4k.png", "admin-source-import-detail", 3840, 2160],
   ["retrom-ui-admin-import-tasks-4k.png", "admin-import-tasks", 3840, 2160],
   ["retrom-ui-admin-review-4k.png", "admin-review", 3840, 2160],
   ["retrom-ui-admin-review-bulk-approval-4k.png", "admin-review", 3840, 2160, "review-bulk-approval"],
@@ -65,8 +65,6 @@ const designCaptures = [
   ["retrom-ui-admin-review-ready-4k.png", "admin-review", 3840, 2160, "review-ready"],
   ["retrom-ui-admin-review-override-4k.png", "admin-review", 3840, 2160, "review-override"],
   ["retrom-ui-admin-review-compare-4k.png", "admin-review", 3840, 2160, "review-compare"],
-  ["retrom-ui-admin-review-history-4k.png", "admin-review-history", 3840, 2160],
-  ["retrom-ui-admin-review-history-detail-4k.png", "admin-review-history", 3840, 2160, "history-detail"],
   ["retrom-ui-admin-games-4k.png", "admin-games", 3840, 2160],
   ["retrom-ui-admin-game-detail-4k.png", "admin-game-detail", 3840, 2160],
   ["retrom-ui-admin-tags-4k.png", "admin-tags", 3840, 2160],
@@ -169,9 +167,9 @@ try {
     } else if (view === "admin-server-import-detail") {
       await activate('[data-page-target="admin-server-import"]');
       await activate('[data-page-link="admin-server-import-detail"]');
-    } else if (view === "admin-pegasus-import-detail") {
+    } else if (view === "admin-source-import-detail") {
       await activate('[data-page-target="admin-server-import"]');
-      await activate('[data-page-link="admin-pegasus-import-detail"]');
+      await activate('[data-page-link="admin-source-import-detail"]');
     } else if (view === "netplay-room") {
       await frame.locator('[data-review-scene="netplay-room"]').click();
     } else if (view === "netplay-player") {
@@ -192,7 +190,7 @@ try {
     if (variant === "bios-entries") {await frame.locator("[data-open-bios-entries]").click();}
     if (variant === "rpg-pack-drawer") {await frame.locator("[data-open-rpg-pack-drawer]").first().click();}
     if (variant === "server-import-drawer") {await frame.locator("[data-open-server-import-drawer]").click();}
-    if (variant === "pegasus-import-drawer") {await frame.locator("[data-open-pegasus-drawer]").click();}
+    if (variant === "source-import-drawer") {await frame.locator("[data-open-source-drawer]").click();}
     if (variant === "drawer") {await frame.locator("[data-open-platform-drawer]").click();}
     if (variant === "dialog") {await frame.locator("[data-preview-core]").first().click();}
     if (variant === "user-drawer") {await frame.locator("[data-open-user-drawer]").nth(1).click();}
@@ -220,7 +218,6 @@ try {
     if (variant === "review-ready") {await frame.locator("#retrom-ui-review").evaluate((element) => element.dispatchEvent(new CustomEvent("retrom:set-disc-state", { detail: "ready" })));}
     if (variant === "review-override") {await frame.locator("#retrom-ui-review").evaluate((element) => element.dispatchEvent(new CustomEvent("retrom:set-disc-state", { detail: "override" })));}
     if (variant === "review-compare") {await frame.locator("[data-open-compare]").click();}
-    if (variant === "history-detail") {await frame.locator("[data-open-history]").first().click();}
     if (variant === "core-override") {
       await frame.locator("[data-open-detail-runtime]").click();
       await frame.locator("#rt-core-select").selectOption({ label: "MAME 2003 Plus · 可选" });

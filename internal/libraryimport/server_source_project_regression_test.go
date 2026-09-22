@@ -47,12 +47,12 @@ func TestOwnedProjectArchiveBindsAndReplaysCanonicalMode(t *testing.T) {
 		t.Fatal(err)
 	}
 	target := testsupport.MustPlatformInstanceID(t, fixture.database, "rpgmaker/rpgmaker")
-	fixture.execute(t, `UPDATE pegasus_import_collections SET
+	fixture.execute(t, `UPDATE source_import_collections SET
 (target_platform_instance_id,target_platform_instance_version,target_platform_id,target_default_core_id,target_provider_id,target_id)=
 (SELECT p.id,p.version,p.platform_id,p.default_core_id,b.provider_id,b.target_id FROM platform_instances p
  JOIN runtime_target_bindings b ON b.core_id=p.default_core_id WHERE p.id=? ORDER BY b.binding_id LIMIT 1)
 WHERE id='owner-collection'`, target)
-	fixture.execute(t, `UPDATE pegasus_import_item_files SET relative_path='fixture.zip',blob_id=?,size_bytes=? WHERE item_id='unlinked-source'`, blobID, metadata.Size)
+	fixture.execute(t, `UPDATE source_import_item_files SET relative_path='fixture.zip',blob_id=?,size_bytes=? WHERE item_id='unlinked-source'`, blobID, metadata.Size)
 	request.TargetPlatformInstanceID = target
 	request.Intent.PrimaryPaths = []string{"fixture.zip"}
 	request.Files = []ServerSourceFile{{RelativePath: "fixture.zip", BlobID: blobID, SizeBytes: metadata.Size}}

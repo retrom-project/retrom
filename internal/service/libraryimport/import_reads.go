@@ -50,25 +50,3 @@ func (service *ImportReads) MultiDiscItemSummaries(
 	}
 	return result, nil
 }
-
-func (service *ImportReads) ReviewHistory(
-	ctx context.Context,
-	query ReviewHistoryQuery,
-) ([]ReviewHistoryItem, error) {
-	result, err := service.repository.ReviewHistory(ctx, query)
-	if err != nil {
-		return nil, fmt.Errorf("read review history: %w", err)
-	}
-	return result, nil
-}
-
-func (service *ImportReads) ReviewHistoryEvent(
-	ctx context.Context,
-	eventID string,
-) (ReviewHistoryEvent, error) {
-	result, err := service.repository.ReviewHistoryEvent(ctx, eventID)
-	if err != nil {
-		return ReviewHistoryEvent{}, fmt.Errorf("read review history event: %w", err)
-	}
-	return result, nil
-}

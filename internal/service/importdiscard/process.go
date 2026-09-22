@@ -12,9 +12,6 @@ func (service *Service) process(ctx context.Context, key Key, userID string) (bo
 		if err != nil || !stopped {
 			return false, failure("process discarded content", err)
 		}
-		if err := service.recoverSourceLinks(ctx, key); err != nil {
-			return false, failure("process discarded content", err)
-		}
 	}
 	ids := []string{key.ID}
 	if key.Kind != "IMPORT" {

@@ -23,16 +23,12 @@ WHERE kind='SERVER_BIOS_IMPORT' AND state IN ('QUEUED','RUNNING','CANCEL_REQUEST
 UPDATE jobs SET state='FAILED',error_code='SERVER_IMPORT_SOURCE_NOT_RESTORED',error_retryable=0,
 finished_at_ms=?,leased_until_ms=NULL,heartbeat_at_ms=NULL,worker_id=NULL,
 cancel_requested_at_ms=NULL,cancel_reason=NULL,version=version+1,updated_at_ms=?
-WHERE kind IN ('SERVER_PEGASUS_SCAN','SERVER_PEGASUS_IMPORT') AND state IN ('QUEUED','RUNNING','CANCEL_REQUESTED')
+WHERE kind IN ('IMPORT_SCAN','IMPORT_RECEIVE') AND state IN ('QUEUED','RUNNING','CANCEL_REQUESTED')
 `, nowMS, nowMS)
 	if err != nil {
-		return maintenance.ImportCounts{}, fmt.Errorf("maintenance/bundle: fence restored Pegasus jobs: %w", err)
+		return maintenance.ImportCounts{}, fmt.Errorf("maintenance/bundle: fence restored Source jobs: %w", err)
 	}
-	if err := clearRestoredPegasusScans(ctx, transaction); err != nil {
-		return maintenance.ImportCounts{}, err
-	}
-	emulationStationJobCount, err := fenceRestoredEmulationStation(ctx, transaction, nowMS)
-	if err != nil {
+	if err := clearRestoredSourceScans(ctx, transaction); err != nil {
 		return maintenance.ImportCounts{}, err
 	}
 	if _, err := recordstore.UpdateServerBiosImportItems(ctx, transaction, recordstore.Update{
@@ -75,7 +71,7 @@ WHERE state IN ('QUEUED','RUNNING','CANCEL_REQUESTED')
 `, nowMS, nowMS); err != nil {
 		return maintenance.ImportCounts{}, fmt.Errorf("maintenance/bundle: fence restored server imports: %w", err)
 	}
-	if _, err := recordstore.UpdatePegasusImportItems(ctx, transaction, recordstore.Update{
+	if _, err := recordstore.UpdateSourceImportItems(ctx, transaction, recordstore.Update{
 		Set: `
 execution_state='COMMIT_FAILED',error_code='SERVER_IMPORT_SOURCE_NOT_RESTORED',
 retryable=0,completed_at_ms=?,updated_at_ms=?
@@ -83,35 +79,35 @@ retryable=0,completed_at_ms=?,updated_at_ms=?
 		Scope: recordstore.Scope{
 			Where: `
 import_id IN (
-  SELECT id FROM pegasus_imports WHERE state IN ('SCANNING','AWAITING_MAPPING','QUEUED','RUNNING',
+  SELECT id FROM source_imports WHERE state IN ('SCANNING','AWAITING_MAPPING','QUEUED','RUNNING',
 'CANCEL_REQUESTED')
 ) AND execution_state IN ('PENDING','COPYING','VALIDATING')
 `,
 		},
 		Values: []any{nowMS, nowMS},
 	}); err != nil {
-		return maintenance.ImportCounts{}, fmt.Errorf("maintenance/bundle: fence restored Pegasus items: %w", err)
+		return maintenance.ImportCounts{}, fmt.Errorf("maintenance/bundle: fence restored Source items: %w", err)
 	}
-	if _, err := recordstore.UpdatePegasusImports(ctx, transaction, recordstore.Update{
+	if _, err := recordstore.UpdateSourceImports(ctx, transaction, recordstore.Update{
 		Set: `
 state='FAILED',phase=NULL,last_error_code='SERVER_IMPORT_SOURCE_NOT_RESTORED',
 retryable=0,cancel_reason=NULL,
-review_pending_item_count=(SELECT count(*) FROM pegasus_import_items item
-  WHERE item.import_id=pegasus_imports.id AND item.execution_state='REVIEW_PENDING'),
-review_discarded_item_count=(SELECT count(*) FROM pegasus_import_items item
-  WHERE item.import_id=pegasus_imports.id AND item.execution_state='REVIEW_DISCARDED'),
-published_item_count=(SELECT count(*) FROM pegasus_import_items item
-  WHERE item.import_id=pegasus_imports.id AND item.execution_state='PUBLISHED'),
-existing_item_count=(SELECT count(*) FROM pegasus_import_items item
-  WHERE item.import_id=pegasus_imports.id AND item.execution_state='SKIPPED_EXISTING'),
-blocked_item_count=(SELECT count(*) FROM pegasus_import_items item
-  WHERE item.import_id=pegasus_imports.id
+review_pending_item_count=(SELECT count(*) FROM source_import_items item
+  WHERE item.import_id=source_imports.id AND item.execution_state='REVIEW_PENDING'),
+review_discarded_item_count=(SELECT count(*) FROM source_import_items item
+  WHERE item.import_id=source_imports.id AND item.execution_state='REVIEW_DISCARDED'),
+published_item_count=(SELECT count(*) FROM source_import_items item
+  WHERE item.import_id=source_imports.id AND item.execution_state='PUBLISHED'),
+existing_item_count=(SELECT count(*) FROM source_import_items item
+  WHERE item.import_id=source_imports.id AND item.execution_state='SKIPPED_EXISTING'),
+blocked_item_count=(SELECT count(*) FROM source_import_items item
+  WHERE item.import_id=source_imports.id
   AND item.execution_state IN ('BLOCKED_SOURCE','BLOCKED_CONTENT')),
-failed_item_count=(SELECT count(*) FROM pegasus_import_items item
-  WHERE item.import_id=pegasus_imports.id
+failed_item_count=(SELECT count(*) FROM source_import_items item
+  WHERE item.import_id=source_imports.id
   AND item.execution_state IN ('SOURCE_CHANGED','READ_FAILED','COMMIT_FAILED')),
-cancelled_item_count=(SELECT count(*) FROM pegasus_import_items item
-  WHERE item.import_id=pegasus_imports.id AND item.execution_state='CANCELLED'),
+cancelled_item_count=(SELECT count(*) FROM source_import_items item
+  WHERE item.import_id=source_imports.id AND item.execution_state='CANCELLED'),
 completed_at_ms=?,version=version+1,updated_at_ms=?
 `,
 		Scope: recordstore.Scope{
@@ -119,12 +115,12 @@ completed_at_ms=?,version=version+1,updated_at_ms=?
 		},
 		Values: []any{nowMS, nowMS},
 	}); err != nil {
-		return maintenance.ImportCounts{}, fmt.Errorf("maintenance/bundle: fence restored Pegasus imports: %w", err)
+		return maintenance.ImportCounts{}, fmt.Errorf("maintenance/bundle: fence restored Source imports: %w", err)
 	}
 
 	counts, err := affected(serverJobs, pegasusJobs)
 	if err != nil {
 		return maintenance.ImportCounts{}, err
 	}
-	return maintenance.ImportCounts{BIOS: counts[0], Pegasus: counts[1], EmulationStation: emulationStationJobCount}, nil
+	return maintenance.ImportCounts{BIOS: counts[0], Source: counts[1]}, nil
 }

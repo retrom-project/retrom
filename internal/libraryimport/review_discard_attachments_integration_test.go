@@ -38,11 +38,11 @@ func verifyDiscardAttachment(t *testing.T, test discardAttachmentCase) {
 		t.Fatal(err)
 	}
 	itemID := created.Items[0].ItemID
-	fixture.execute(t, `UPDATE pegasus_import_items SET execution_state='REVIEW_PENDING',completed_at_ms=? WHERE id=?`, ownedSourceNow().UnixMilli(), request.Intent.ItemID)
-	fixture.execute(t, `UPDATE pegasus_imports SET review_pending_item_count=1 WHERE id=?`, request.Intent.ImportID)
+	fixture.execute(t, `UPDATE source_import_items SET execution_state='REVIEW_PENDING',completed_at_ms=? WHERE id=?`, ownedSourceNow().UnixMilli(), request.Intent.ItemID)
+	fixture.execute(t, `UPDATE source_imports SET review_pending_item_count=1 WHERE id=?`, request.Intent.ImportID)
 	seedDiscardAttachment(t, fixture, itemID, test)
 	before := readDiscardAttachment(t, fixture, test.kind)
-	fault := newReviewDiscardFault(t, fixture, itemID, "event")
+	fault := newReviewDiscardFault(t, fixture, itemID, "item")
 	result, err := fixture.service.Discard(t.Context(), itemID, 1, "")
 	if !errors.Is(err, fault.cause) || result != (DecisionResult{}) || fault.itemWrites != 1 || fault.faults != 1 {
 		t.Fatalf("attachment fault missed decision write: result=%+v err=%v writes=%d hits=%d", result, err, fault.itemWrites, fault.faults)

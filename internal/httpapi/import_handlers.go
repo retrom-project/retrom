@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"strings"
 
 	"retrom/internal/libraryimport"
 	libraryservice "retrom/internal/service/libraryimport"
@@ -404,53 +403,4 @@ func (server *Server) scrapeReview(writer http.ResponseWriter, request *http.Req
 		status,
 		map[string]any{"scrapeRunId": scheduled.RunID, "jobId": scheduled.JobID, "state": state, "version": version},
 	)
-}
-
-func (server *Server) reviewHistory(writer http.ResponseWriter, request *http.Request) {
-	query := libraryservice.ReviewHistoryQuery{
-		QueryText: strings.ToLower(strings.Join(strings.Fields(request.URL.Query().Get("q")), " ")),
-		Decision:  request.URL.Query().Get("decision"),
-	}
-	if query.Decision != "" && query.Decision != "APPROVED" && query.Decision != "DISCARDED" {
-		writeError(writer, request, http.StatusBadRequest, "INVALID_QUERY", "审核决定筛选无效", map[string]any{})
-		return
-	}
-	items, err := server.importReads().ReviewHistory(request.Context(), query)
-	if err != nil {
-		server.databaseError(writer, request, err)
-		return
-	}
-	writeJSON(writer, http.StatusOK, map[string]any{"items": items, "nextCursor": nil})
-}
-
-func (server *Server) reviewHistoryEvent(writer http.ResponseWriter, request *http.Request) {
-	event, err := server.importReads().ReviewHistoryEvent(
-		request.Context(), request.PathValue("reviewEventId"),
-	)
-	if errors.Is(err, sql.ErrNoRows) {
-		server.notFound(writer, request)
-		return
-	}
-	if err != nil {
-		server.databaseError(writer, request, err)
-		return
-	}
-	writeJSON(writer, http.StatusOK, map[string]any{
-		"reviewEventId": event.ReviewEventID,
-		"importItemId":  event.ImportItemID,
-		"eventType":     event.EventType,
-		"actor": map[string]any{
-			"kind":   event.Actor.Kind,
-			"userId": event.Actor.UserID,
-			"label":  event.Actor.Label,
-		},
-		"before":           event.Before,
-		"after":            event.After,
-		"diff":             event.Diff,
-		"configEvidence":   event.ConfigEvidence,
-		"datEvidence":      event.DANEvidence,
-		"providerEvidence": event.ProviderEvidence,
-		"reason":           event.Reason,
-		"createdAtMs":      event.CreatedAtMS,
-	})
 }

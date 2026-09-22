@@ -181,7 +181,7 @@ flowchart LR
 
 ### M16：Payload 生命周期与 Game 永久删除
 
-范围：在 001–014 最终基线中同步更新 OpenAPI 与对应领域建表文件，建立 Blob/ownership registry 双向门禁、ReviewEvent v2 和各领域 payload state；随后实现持久 PayloadRelease/Provider TTL/BLOB_GC dispatcher，并把普通上传、Pegasus、文件/媒体替换的全部终态入口接通。最后实现 Game 影响摘要、墓碑式永久删除、共享引用保护、公共内容阻断、最近/收藏/联机历史墓碑和管理端进度/重试。
+范围：在 001–014 最终基线中同步更新 OpenAPI 与对应领域建表文件，建立 Blob/ownership registry 双向门禁 v2 和各领域 payload state；随后实现持久 PayloadRelease/Provider TTL/BLOB_GC dispatcher，并把普通上传、Pegasus、文件/媒体替换的全部终态入口接通。最后实现 Game 影响摘要、墓碑式永久删除、共享引用保护、公共内容阻断、最近/收藏/联机历史墓碑和管理端进度/重试。
 
 退出门禁：完整执行 `ACC-GAME-003`、`ACC-IMP-007/008`、`ACC-PEG-004`、`ACC-CAS-002`、`ACC-STOR-001`、`ACC-UI-008`，并运行 API、后端、集成、前端、`make web-e2e` 与 `make ci` 全门禁。全新数据库和开发实例必须重建；普通上传与 Pegasus 发布/丢弃、共享 Blob、进程中断、provider TTL、Game 删除和 GC 宽限均需确定性证据。正式文档与统一 UI 源/导出 HTML 闭环后删除临时方案目录。
 

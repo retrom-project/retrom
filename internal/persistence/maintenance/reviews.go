@@ -83,20 +83,13 @@ func scanRestoredReview(scanner dbexec.Scanner) (application.RestoredReview, err
 func restoredReviewSQL(kind string) (string, error) {
 	var prefix, year, owner, joins, states string
 	switch kind {
-	case "PEGASUS":
-		prefix, year, owner = "pegasus", "0", "COALESCE(owner.upload_session_id,'')"
+	case "SOURCE":
+		prefix, year, owner = "source", "0", "COALESCE(owner.upload_session_id,'')"
 		joins = `JOIN import_jobs ordinary ON ordinary.id=source.library_import_job_id
 JOIN import_items item ON item.id=source.library_import_item_id AND item.import_job_id=ordinary.id
 LEFT JOIN server_import_upload_owners owner ON owner.upload_session_id=ordinary.upload_session_id`
 		states = `source.execution_state IN ('PENDING','COPYING','VALIDATING')`
-	case "EMULATIONSTATION":
-		prefix, year, owner = "emulationstation", "plan.release_year_max", "owner.upload_session_id"
-		joins = `JOIN server_import_upload_owners owner
-ON owner.kind='EMULATIONSTATION' AND owner.source_item_id=source.id
-JOIN import_jobs ordinary ON ordinary.upload_session_id=owner.upload_session_id
-JOIN import_items item ON item.import_job_id=ordinary.id AND item.review_handoff_kind='EMULATIONSTATION'`
-		states = `(source.execution_state IN ('PENDING','COPYING','VALIDATING') OR
-source.retryable=1 AND source.execution_state IN ('SOURCE_CHANGED','READ_FAILED','COMMIT_FAILED'))`
+
 	default:
 		return "", application.ErrInvalidBundle
 	}
@@ -110,7 +103,7 @@ source.metadata_json,source.warnings_json,plan.root_id,plan.root_config_digest,p
 plan.created_by_user_id,` + year + `,source.retryable
 FROM ` + prefix + `_import_items source JOIN ` + prefix + `_imports plan ON plan.id=source.import_id
 JOIN jobs job ON job.id=plan.import_job_id AND job.scope_type='` + kind + `_IMPORT'
-AND job.scope_id=plan.id AND job.kind='SERVER_` + kind + `_IMPORT'
+AND job.scope_id=plan.id AND job.kind='IMPORT_RECEIVE'
 ` + joins + ` WHERE plan.state IN ('QUEUED','RUNNING','CANCEL_REQUESTED')
 AND job.state IN ('QUEUED','RUNNING','CANCEL_REQUESTED') AND item.state='REVIEW_PENDING'
 AND ` + states, nil

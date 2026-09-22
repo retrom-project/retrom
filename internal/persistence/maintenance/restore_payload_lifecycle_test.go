@@ -9,7 +9,7 @@ import (
 
 func TestRestoredSourceFailureSatisfiesStartupPayloadLifecycle(t *testing.T) {
 	t.Parallel()
-	db := restoreReviewFixture(t, "EMULATIONSTATION")
+	db := restorePayloadFixture(t)
 	if err := runReviewRestoreTransaction(t.Context(), db); err != nil {
 		t.Fatal(err)
 	}
@@ -21,10 +21,10 @@ func TestRestoredSourceFailureSatisfiesStartupPayloadLifecycle(t *testing.T) {
 	var sourceState, payloadState, kind, scopeType, scopeID string
 	err = db.QueryRowContext(t.Context(), `SELECT source.execution_state,source.payload_state,
 COALESCE(job.kind,''),COALESCE(job.scope_type,''),COALESCE(job.scope_id,'')
-FROM pegasus_import_items source LEFT JOIN jobs job ON job.id=source.payload_release_job_id WHERE source.id='item'`).Scan(
+FROM source_import_items source LEFT JOIN jobs job ON job.id=source.payload_release_job_id WHERE source.id='failed-source'`).Scan(
 		&sourceState, &payloadState, &kind, &scopeType, &scopeID)
 	if err != nil || sourceState != "COMMIT_FAILED" || payloadState != "RELEASING" || kind != "PAYLOAD_RELEASE" ||
-		scopeType != "PEGASUS_IMPORT_ITEM" || scopeID != "item" {
+		scopeType != "SOURCE_IMPORT_ITEM" || scopeID != "failed-source" {
 		t.Fatalf("restored terminal payload is not scheduled: %s/%s/%s/%s/%s %v",
 			sourceState, payloadState, kind, scopeType, scopeID, err)
 	}

@@ -104,7 +104,7 @@ func ValidateRelativePath(value string) error {
 	return nil
 }
 
-// NormalizeDeclaredPath accepts the backslash separator used by real Pegasus
+// NormalizeDeclaredPath accepts the backslash separator used by real Source
 // libraries, while rejecting host-absolute, drive, UNC, URI, and traversal forms.
 func NormalizeDeclaredPath(value string) (string, error) {
 	value = strings.TrimSpace(value)

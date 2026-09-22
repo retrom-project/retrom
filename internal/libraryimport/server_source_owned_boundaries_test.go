@@ -80,7 +80,7 @@ func TestOwnedSourceRejectsDifferentCopiedBlobAtDeclaredPath(t *testing.T) {
 func TestOwnedSourceRejectsZeroContentGroupsWithoutReview(t *testing.T) {
 	t.Parallel()
 	fixture, request := ownedSourceFixture(t)
-	fixture.execute(t, `UPDATE pegasus_import_item_files SET relative_path='unsupported.txt' WHERE item_id='unlinked-source'`)
+	fixture.execute(t, `UPDATE source_import_item_files SET relative_path='unsupported.txt' WHERE item_id='unlinked-source'`)
 	request.Intent.PrimaryPaths = []string{"unsupported.txt"}
 	request.Files[0].RelativePath = "unsupported.txt"
 	result, err := fixture.service.CreateOwnedServerSource(fixture.ctx, request)

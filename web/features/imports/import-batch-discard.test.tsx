@@ -20,11 +20,11 @@ describe("ImportBatchDiscard", () => {
     vi.stubGlobal("fetch", vi.fn(async (request: Request) => {
       requests.push(request);
       if (request.method === "POST") { state = "REQUESTED"; }
-      return Response.json({ kind: "PEGASUS", importId, state, errorCode: null });
+      return Response.json({ kind: "SOURCE", importId, state, errorCode: null });
     }));
     const completed = vi.fn();
     const user = userEvent.setup();
-    render(<ImportBatchDiscard kind="PEGASUS" importId={importId} onCompleted={completed} />);
+    render(<ImportBatchDiscard kind="SOURCE" importId={importId} onCompleted={completed} />);
     await waitFor(() => expect(screen.getByRole("button", { name: "丢弃" })).toBeEnabled());
     await user.click(screen.getByRole("button", { name: "丢弃" }));
     expect(screen.getByRole("alertdialog")).toHaveTextContent("已发布游戏和服务器原始文件保留");
@@ -33,7 +33,7 @@ describe("ImportBatchDiscard", () => {
     expect(await screen.findByRole("button", { name: "正在丢弃…" })).toBeDisabled();
     const writes = requests.filter((request) => request.method === "POST");
     expect(writes).toHaveLength(1);
-    expect(new URL(writes[0].url).pathname).toBe(`/api/v1/admin/import-batches/PEGASUS/${importId}/discard`);
+    expect(new URL(writes[0].url).pathname).toBe(`/api/v1/admin/import-batches/SOURCE/${importId}/discard`);
     expect(writes[0].headers.get("X-Retrom-Csrf")).toBe("test-csrf");
     expect(writes[0].headers.get("Idempotency-Key")).toBeTruthy();
     state = "COMPLETED";
@@ -52,11 +52,11 @@ describe("ImportBatchDiscard", () => {
 
   it("keeps a failed batch actionable and allows retry of the same disposition", async () => {
     vi.stubGlobal("fetch", vi.fn(async (request: Request) => Response.json({
-      kind: "EMULATIONSTATION", importId, state: request.method === "POST" ? "REQUESTED" : "FAILED",
+      kind: "SOURCE", importId, state: request.method === "POST" ? "REQUESTED" : "FAILED",
       errorCode: request.method === "POST" ? null : "IMPORT_BATCH_DISCARD_FAILED",
     })));
     const user = userEvent.setup();
-    render(<ImportBatchDiscard kind="EMULATIONSTATION" importId={importId} />);
+    render(<ImportBatchDiscard kind="SOURCE" importId={importId} />);
     await user.click(await screen.findByRole("button", { name: "重试丢弃" }));
     await user.click(screen.getByRole("button", { name: "确认丢弃" }));
     expect(await screen.findByRole("button", { name: "正在丢弃…" })).toBeDisabled();

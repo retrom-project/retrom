@@ -78,7 +78,7 @@ func TestReviewApprovalPreservesReadAndContextErrors(t *testing.T) {
 
 func TestReviewApprovalAllocatesEveryIdentityBeforePublication(t *testing.T) {
 	cause := errors.New("entropy unavailable")
-	for failAt := 1; failAt <= 5; failAt++ {
+	for failAt := 1; failAt <= 4; failAt++ {
 		calls := 0
 		service := NewReviewApprovals(nil, nil, nil)
 		service.newID = func() (string, error) {

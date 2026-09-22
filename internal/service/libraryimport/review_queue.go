@@ -18,7 +18,7 @@ func NormalizeReviewQueueFilter(filter ReviewQueueFilter) (ReviewQueueFilter, er
 		return ReviewQueueFilter{}, ErrReviewQuery
 	}
 	sourceCount := 0
-	for _, id := range []string{filter.ImportJobID, filter.PegasusImportID, filter.EmulationStationImportID} {
+	for _, id := range []string{filter.ImportJobID, filter.SourceImportID} {
 		if id != "" {
 			sourceCount++
 		}
@@ -97,14 +97,10 @@ func projectReviewQueueItem(record ReviewQueueRecord) ReviewQueueItem {
 		url := "/api/v1/admin/review-assets/" + *record.CoverAssetID
 		item.CoverURL = &url
 	}
-	if record.Pegasus != nil {
-		item.SourceKind = "PEGASUS"
-		item.PegasusImportID = &record.Pegasus.ImportID
-		projectReviewQueueSource(&item, record.Pegasus)
-	} else if record.EmulationStation != nil {
-		item.SourceKind = "EMULATIONSTATION"
-		item.EmulationStationImportID = &record.EmulationStation.ImportID
-		projectReviewQueueSource(&item, record.EmulationStation)
+	if record.Source != nil {
+		item.SourceKind = "SOURCE"
+		item.SourceImportID = &record.Source.ImportID
+		projectReviewQueueSource(&item, record.Source)
 	}
 	return item
 }

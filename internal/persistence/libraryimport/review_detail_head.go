@@ -66,19 +66,9 @@ ORDER BY candidate.created_at_ms DESC,
 candidate.id DESC LIMIT 1))
 WHERE i.id=?
 AND i.state='REVIEW_PENDING'
-AND (i.review_handoff_kind='DIRECT' OR EXISTS(
-  SELECT 1 FROM emulationstation_import_items reserved_source
-  WHERE reserved_source.library_import_item_id=i.id
-  AND reserved_source.execution_state='REVIEW_PENDING'
-))
 AND NOT EXISTS(
-  SELECT 1 FROM pegasus_import_items pegasus
-  WHERE pegasus.library_import_item_id=i.id AND pegasus.execution_state<>'REVIEW_PENDING'
-)
-AND NOT EXISTS(
-  SELECT 1 FROM emulationstation_import_items emulationstation
-  WHERE emulationstation.library_import_item_id=i.id
-  AND emulationstation.execution_state<>'REVIEW_PENDING'
+  SELECT 1 FROM source_import_items source
+  WHERE source.library_import_item_id=i.id AND source.execution_state<>'REVIEW_PENDING'
 )
 `
 

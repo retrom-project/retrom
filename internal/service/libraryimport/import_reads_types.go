@@ -9,16 +9,15 @@ import (
 // dashboard.  It intentionally combines ordinary and source specific imports
 // into the same projection used by the HTTP API.
 type ImportOverviewSummary struct {
-	Running                int64 `json:"running"`
-	ReviewPending          int64 `json:"reviewPending"`
-	PublishedItems         int64 `json:"publishedItems"`
-	Completed              int64 `json:"completed"`
-	Failed                 int64 `json:"failed"`
-	OrdinaryFailed         int64 `json:"ordinaryFailed"`
-	PegasusFailed          int64 `json:"pegasusFailed"`
-	EmulationStationFailed int64 `json:"emulationStationFailed"`
-	ProcessingItems        int64 `json:"processingItems"`
-	IssueItems             int64 `json:"issueItems"`
+	Running         int64 `json:"running"`
+	ReviewPending   int64 `json:"reviewPending"`
+	PublishedItems  int64 `json:"publishedItems"`
+	Completed       int64 `json:"completed"`
+	Failed          int64 `json:"failed"`
+	OrdinaryFailed  int64 `json:"ordinaryFailed"`
+	SourceFailed    int64 `json:"sourceFailed"`
+	ProcessingItems int64 `json:"processingItems"`
+	IssueItems      int64 `json:"issueItems"`
 }
 
 // ImportListQuery is the storage independent input for the administrator
@@ -139,53 +138,13 @@ type ImportDetail struct {
 	UpdatedAtMS                 int64                        `json:"updatedAtMs"`
 }
 
-type ReviewHistoryQuery struct {
-	QueryText string
-	Decision  string
-}
-
-type ReviewHistoryItem struct {
-	ReviewEventID string  `json:"reviewEventId"`
-	ImportItemID  string  `json:"importItemId"`
-	ImportJobID   string  `json:"importJobId"`
-	Title         string  `json:"title"`
-	Decision      string  `json:"decision"`
-	Reason        *string `json:"reason"`
-	CreatedAtMS   int64   `json:"createdAtMs"`
-}
-
-type ReviewHistoryActor struct {
-	Kind   string  `json:"kind"`
-	UserID *string `json:"userId"`
-	Label  *string `json:"label"`
-}
-
-type ReviewHistoryEvent struct {
-	ReviewEventID    string             `json:"reviewEventId"`
-	ImportItemID     string             `json:"importItemId"`
-	EventType        string             `json:"eventType"`
-	Actor            ReviewHistoryActor `json:"actor"`
-	Before           any                `json:"before"`
-	After            any                `json:"after"`
-	Diff             any                `json:"diff"`
-	ConfigEvidence   any                `json:"configEvidence"`
-	DANEvidence      any                `json:"datEvidence"`
-	ProviderEvidence any                `json:"providerEvidence"`
-	Reason           *string            `json:"reason"`
-	CreatedAtMS      int64              `json:"createdAtMs"`
-}
-
 // ImportReadRepository owns all SQL projections used by the administrator
 // import and review history endpoints.
-//
-//nolint:interfacebloat // these projections are one cohesive administrator read boundary
 type ImportReadRepository interface {
 	Summary(context.Context) (ImportOverviewSummary, error)
 	List(context.Context, ImportListQuery) ([]ImportListItem, error)
 	Detail(context.Context, string) (ImportDetail, error)
 	MultiDiscItemSummaries(context.Context, string) ([]ImportMultiDiscItemSummary, error)
-	ReviewHistory(context.Context, ReviewHistoryQuery) ([]ReviewHistoryItem, error)
-	ReviewHistoryEvent(context.Context, string) (ReviewHistoryEvent, error)
 }
 
 // ImportReadDocuments is kept separate from the SQL row types so the service

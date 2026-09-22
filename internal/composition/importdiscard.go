@@ -9,14 +9,13 @@ import (
 	"time"
 
 	discardpersistence "retrom/internal/persistence/importdiscard"
-	"retrom/internal/service/emulationstationimport"
 	"retrom/internal/service/importdiscard"
 	"retrom/internal/service/libraryimport"
-	"retrom/internal/service/pegasusimport"
+	"retrom/internal/service/sourceimport"
 )
 
-func NewImportDiscard(database *sql.DB, importer importdiscard.ImportWorkflow, pegasus *pegasusimport.Service,
-	emulationstation *emulationstationimport.Service, now func() time.Time,
+func NewImportDiscard(database *sql.DB, importer importdiscard.ImportWorkflow, source *sourceimport.Service,
+	now func() time.Time,
 ) *importdiscard.Service {
 	return importdiscard.New(
 		discardpersistence.New(
@@ -24,8 +23,7 @@ func NewImportDiscard(database *sql.DB, importer importdiscard.ImportWorkflow, p
 		),
 		discardImports{workflow: importer},
 		discardSources{
-			pegasus,
-			emulationstation,
+			source,
 		},
 		now,
 	)
@@ -69,21 +67,18 @@ func (imports discardImports) ReleaseDiscardedBatch(ctx context.Context, id stri
 }
 
 type discardSources struct {
-	pegasus          *pegasusimport.Service
-	emulationstation *emulationstationimport.Service
+	source *sourceimport.Service
 }
 
 func (sources discardSources) Cancel(ctx context.Context, kind, id string, version int64, reason, userID string) error {
 	var err error
 	switch kind {
-	case "PEGASUS":
-		_, _, err = sources.pegasus.Cancel(ctx, id, version, reason, userID)
-	case "EMULATIONSTATION":
-		_, _, err = sources.emulationstation.Cancel(ctx, id, version, reason, userID)
+	case "SOURCE":
+		_, _, err = sources.source.Cancel(ctx, id, version, reason, userID)
 	default:
 		return importdiscard.ErrInvalid
 	}
-	if errors.Is(err, pegasusimport.ErrNotCancellable) || errors.Is(err, emulationstationimport.ErrNotCancellable) {
+	if errors.Is(err, sourceimport.ErrNotCancellable) {
 		return importdiscard.ErrNotCancellable
 	}
 	if err != nil {

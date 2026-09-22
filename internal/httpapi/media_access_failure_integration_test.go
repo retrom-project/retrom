@@ -37,7 +37,7 @@ func TestMediaAccessPreservesStorageFailureBoundary(t *testing.T) {
 			hits := 0
 			table := map[string]string{
 				"game": "FROM game_assets", "save": "FROM save_states",
-				"review": "FROM scrape_candidate_assets", "review-source": "FROM pegasus_import_item_assets",
+				"review": "FROM scrape_candidate_assets", "review-source": "FROM source_import_item_assets",
 			}[name]
 			fault := testsupport.OpenSQLFaultDatabase(t, database.SQL, testsupport.SQLFaultHooks{
 				BeforeQuery: func(_ context.Context, query string, args []driver.NamedValue) error {

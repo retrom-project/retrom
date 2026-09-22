@@ -158,7 +158,7 @@ func assertDeduplicateRetry(t *testing.T, fixture deduplicateFixture, copies Ser
 	if after.Pending != 0 || after.Discarded != 2 {
 		t.Fatalf("retry aggregate = %+v", after)
 	}
-	if err := fixture.database.QueryRowContext(fixture.ctx, "SELECT count(*) FROM review_events WHERE event_type='DISCARDED'").Scan(&count); err != nil {
+	if err := fixture.database.QueryRowContext(fixture.ctx, "SELECT count(*) FROM import_items WHERE state='DISCARDED'").Scan(&count); err != nil {
 		t.Fatal(err)
 	}
 	if count != 2 {

@@ -30,14 +30,13 @@ type Repository interface {
 }
 type (
 	AccessCounts struct{ Sessions, Links, Launches int64 }
-	ImportCounts struct{ BIOS, Pegasus, EmulationStation int64 }
+	ImportCounts struct{ BIOS, Source int64 }
 	FenceCounts  struct {
-		Sessions         int64 `json:"revokedSessionCount"`
-		Links            int64 `json:"revokedAccountLinkCount"`
-		Launches         int64 `json:"revokedLaunchCount"`
-		BIOS             int64 `json:"failedServerImportCount"`
-		Pegasus          int64 `json:"failedPegasusJobCount"`
-		EmulationStation int64 `json:"failedEmulationStationJobCount"`
+		Sessions int64 `json:"revokedSessionCount"`
+		Links    int64 `json:"revokedAccountLinkCount"`
+		Launches int64 `json:"revokedLaunchCount"`
+		BIOS     int64 `json:"failedServerImportCount"`
+		Source   int64 `json:"failedSourceJobCount"`
 	}
 )
 

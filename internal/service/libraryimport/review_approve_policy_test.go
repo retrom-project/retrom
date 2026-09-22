@@ -40,7 +40,7 @@ func TestReviewApprovalDecisionRequiresCompleteAuthority(t *testing.T) {
 		{"unknown policy", ReviewApprovalDecision{DuplicatePolicy: "OVERWRITE"}},
 		{"ack without policy", ReviewApprovalDecision{AcknowledgedGameIDs: []string{"game"}}},
 		{"unknown origin", ReviewApprovalDecision{SourceKind: "USER", SourceRefID: "source"}},
-		{"origin without ref", ReviewApprovalDecision{SourceKind: "SERVER_PEGASUS_IMPORT"}},
+		{"origin without ref", ReviewApprovalDecision{SourceKind: "IMPORT_RECEIVE"}},
 		{"ref without origin", ReviewApprovalDecision{SourceRefID: "source"}},
 		{"media without origin", ReviewApprovalDecision{ExternalAssets: []ApprovalExternalAsset{{Kind: "VIDEO", BlobID: "blob", MediaType: "video/mp4"}}}},
 	}
@@ -52,7 +52,7 @@ func TestReviewApprovalDecisionRequiresCompleteAuthority(t *testing.T) {
 			}
 		})
 	}
-	for _, kind := range []string{"SERVER_PEGASUS_IMPORT", "SERVER_EMULATIONSTATION_IMPORT"} {
+	for _, kind := range []string{"IMPORT_RECEIVE"} {
 		if !validApprovalDecision(ReviewApprovalDecision{SourceKind: kind, SourceRefID: "source"}) {
 			t.Fatal(kind)
 		}

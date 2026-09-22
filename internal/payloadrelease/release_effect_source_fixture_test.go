@@ -44,7 +44,7 @@ VALUES('effect-item','CONTENT','fixture.gba','effect-file','effect-blob',0,10)`,
 	return id
 }
 
-func seedEffectBoundPegasus(t *testing.T, database *sql.DB) {
+func seedEffectBoundSource(t *testing.T, database *sql.DB) {
 	t.Helper()
 	_, err := database.ExecContext(t.Context(), `
 INSERT INTO profiles(id,display_name,created_at_ms) VALUES('effect-profile','Effect',10);
@@ -52,18 +52,18 @@ INSERT INTO users(id,profile_id,username,display_name,role,status,created_at_ms,
 VALUES('effect-user','effect-profile','effectuser','Effect','ADMIN','ENABLED',10,10);
 INSERT INTO jobs(id,scope_type,scope_id,kind,dedupe_key,execution_no,payload_json,cancellable,state,
 attempt_count,max_attempts,available_at_ms,finished_at_ms,created_at_ms,updated_at_ms)
-VALUES('effect-scan','PEGASUS_IMPORT','effect-plan','SERVER_PEGASUS_SCAN',?,1,'{}',1,'SUCCEEDED',1,4,10,10,10,10);
-INSERT INTO pegasus_imports(id,root_id,root_label_snapshot,source_relative_path,root_config_digest,state,scan_job_id,
+VALUES('effect-scan','SOURCE_IMPORT','effect-plan','IMPORT_SCAN',?,1,'{}',1,'SUCCEEDED',1,4,10,10,10,10);
+INSERT INTO source_imports(id,root_id,root_label_snapshot,source_relative_path,root_config_digest,state,scan_job_id,
 game_count,published_item_count,created_by_user_id,created_at_ms,updated_at_ms,completed_at_ms,expires_at_ms)
 VALUES('effect-plan','effect-root','Effect','',?,'COMPLETED','effect-scan',1,1,'effect-user',10,10,10,10000);
-INSERT INTO pegasus_import_items(id,import_id,metadata_relative_path,game_ordinal,source_key,title,
+INSERT INTO source_import_items(id,import_id,metadata_relative_path,game_ordinal,source_key,title,
 discovery_state,execution_state,content_kind,metadata_json,source_manifest_json,source_manifest_digest,
 library_import_job_id,library_import_item_id,published_game_id,created_at_ms,updated_at_ms,completed_at_ms)
 VALUES('effect-source','effect-plan','metadata.pegasus.txt',0,?,'Effect','READY','PUBLISHED','SINGLE_FILE','{}','{}',?,
 'effect-import','effect-item','schedule-game',10,10,10);
-INSERT INTO pegasus_import_item_files(item_id,ordinal,declared_kind,relative_path,size_bytes,blob_id,state,created_at_ms,updated_at_ms)
+INSERT INTO source_import_item_files(item_id,ordinal,declared_kind,relative_path,size_bytes,blob_id,state,created_at_ms,updated_at_ms)
 VALUES('effect-source',0,'FILE','fixture.gba',1,'effect-blob','COPIED',10,10);
-UPDATE games SET content_source_kind='SERVER_PEGASUS_IMPORT',content_source_ref_id='effect-source' WHERE id='schedule-game'`, strings.Repeat("9", 64), strings.Repeat("8", 64), strings.Repeat("7", 64), strings.Repeat("6", 64))
+UPDATE games SET content_source_kind='IMPORT_RECEIVE',content_source_ref_id='effect-source' WHERE id='schedule-game'`, strings.Repeat("9", 64), strings.Repeat("8", 64), strings.Repeat("7", 64), strings.Repeat("6", 64))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -72,7 +72,7 @@ UPDATE games SET content_source_kind='SERVER_PEGASUS_IMPORT',content_source_ref_
 		t.Fatal(err)
 	}
 	defer dbexec.Rollback(tx)
-	if _, err := ScheduleTerminalPegasusItem(t.Context(), tx, "effect-source", 10); err != nil {
+	if _, err := ScheduleTerminalSourceItem(t.Context(), tx, "effect-source", 10); err != nil {
 		t.Fatal(err)
 	}
 	if err := tx.Commit(); err != nil {

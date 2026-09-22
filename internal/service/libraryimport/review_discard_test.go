@@ -2,7 +2,6 @@ package libraryimport
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"math"
 	"reflect"
@@ -21,7 +20,6 @@ type discardFixture struct {
 	snapshotError, tagError, commitError, writeError error
 	failAt                                           string
 	steps                                            []string
-	event                                            ReviewDiscardEvent
 	change                                           ReviewDiscardChange
 	transactions                                     int
 }
@@ -59,18 +57,13 @@ func (fixture *discardFixture) DiscardItem(_ context.Context, change ReviewDisca
 	return fixture.step("item")
 }
 
-func (fixture *discardFixture) RecordEvent(_ context.Context, event ReviewDiscardEvent) error {
-	fixture.event = event
-	return fixture.step("event")
-}
-
 func (fixture *discardFixture) TransitionOwner(context.Context, ReviewOwnerTransition) error {
 	return fixture.step("owner")
 }
 
 func newDiscardFixture() *discardFixture {
 	return &discardFixture{snapshot: ReviewDiscardSnapshot{
-		DraftID: "draft", ImportID: "import", MetadataJSON: `{"title":"Retrom 自有"}`, Version: 1, State: "REVIEW_PENDING", HandoffKind: "DIRECT",
+		DraftID: "draft", ImportID: "import", MetadataJSON: `{"title":"Retrom 自有"}`, Version: 1, State: "REVIEW_PENDING",
 		Aggregate: ReviewDiscardAggregate{Version: 1, Progress: importprogress.Snapshot{
 			State: "REVIEW_PENDING", Counts: importprogress.Counts{ReviewPending: 1},
 		}},
@@ -83,11 +76,10 @@ func discardRequest() ReviewDiscardRequest {
 
 func discardService(fixture *discardFixture) *ReviewDiscards {
 	service := NewReviewDiscards(fixture, func() time.Time { return time.UnixMilli(88) })
-	service.newID = func() (string, error) { return "event", nil }
 	return service
 }
 
-func TestReviewDiscardsPreservesV2EvidenceAndActor(t *testing.T) {
+func TestReviewDiscardsUpdatesCurrentStateAndSchedulesRelease(t *testing.T) {
 	t.Parallel()
 	fixture := newDiscardFixture()
 	validation, candidate, dat := "validation", "candidate", "dat"
@@ -97,15 +89,10 @@ func TestReviewDiscardsPreservesV2EvidenceAndActor(t *testing.T) {
 	fixture.snapshot.HasCover = true
 	fixture.snapshot.HasBackground = true
 	result, err := discardService(fixture).Discard(authn.WithPrincipal(t.Context(), authn.Principal{UserID: "actor"}), discardRequest())
-	if err != nil || result != (ReviewDecisionResult{ItemID: "item", EventID: "event", Status: "DISCARDED", Version: 2, UpdatedAtMS: 88}) {
+	if err != nil || result != (ReviewDecisionResult{ItemID: "item", Status: "DISCARDED", Version: 2, UpdatedAtMS: 88}) {
 		t.Fatalf("discard result=%+v err=%v", result, err)
 	}
-	event := fixture.event
-	if event.ActorKind != "USER" || event.ActorUserID == nil || *event.ActorUserID != "actor" || event.ActorLabel != nil || event.Reason != "test reason" {
-		t.Fatalf("discard actor/reason=%+v", event)
-	}
-	assertDiscardV2Event(t, event, fixture.snapshot, fixture.tags)
-	if !reflect.DeepEqual(fixture.steps, []string{"attachments", "item", "event", "owner", "payload"}) {
+	if !reflect.DeepEqual(fixture.steps, []string{"attachments", "item", "owner", "payload"}) {
 		t.Fatalf("discard ordering=%v", fixture.steps)
 	}
 }
@@ -148,10 +135,10 @@ func TestReviewDiscardsRechecksModeAndAuthority(t *testing.T) {
 		{"version overflow", func(s *ReviewDiscardSnapshot) { s.Version = math.MaxInt64 }, ReviewDiscardSingle, false},
 		{"already published", func(s *ReviewDiscardSnapshot) { s.State = "PUBLISHED" }, ReviewDiscardBatch, false},
 		{"missing draft", func(s *ReviewDiscardSnapshot) { s.DraftID = "" }, ReviewDiscardSingle, false},
-		{"single reserved", func(s *ReviewDiscardSnapshot) { s.HandoffKind = "EMULATIONSTATION" }, ReviewDiscardSingle, false},
+		{"single source busy", func(s *ReviewDiscardSnapshot) { s.SourceBusy = true }, ReviewDiscardSingle, false},
 		{"single busy owner", func(s *ReviewDiscardSnapshot) { s.SourceBusy = true }, ReviewDiscardSingle, false},
-		{"single ready reservation", func(s *ReviewDiscardSnapshot) { s.HandoffKind = "EMULATIONSTATION"; s.EmulationStationReady = true }, ReviewDiscardSingle, true},
-		{"batch reserved", func(s *ReviewDiscardSnapshot) { s.HandoffKind = "EMULATIONSTATION"; s.SourceBusy = true }, ReviewDiscardBatch, true},
+		{"single source ready", func(s *ReviewDiscardSnapshot) { s.SourceBusy = false }, ReviewDiscardSingle, true},
+		{"batch source busy", func(s *ReviewDiscardSnapshot) { s.SourceBusy = true }, ReviewDiscardBatch, true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
@@ -164,7 +151,7 @@ func TestReviewDiscardsRechecksModeAndAuthority(t *testing.T) {
 			}
 			result, err := discardService(fixture).Discard(t.Context(), request)
 			if test.allowed {
-				if err != nil || result.EventID == "" {
+				if err != nil || result.ItemID == "" {
 					t.Fatalf("authorized discard rejected: %+v err=%v", result, err)
 				}
 				return
@@ -179,7 +166,7 @@ func TestReviewDiscardsRechecksModeAndAuthority(t *testing.T) {
 func TestReviewDiscardsFailurePreservesCauseAndClearsResult(t *testing.T) {
 	t.Parallel()
 	cause := errors.New("discard boundary failed")
-	for _, stage := range []string{"snapshot", "tags", "id", "attachments", "item", "event", "owner", "payload", "commit"} {
+	for _, stage := range []string{"snapshot", "attachments", "item", "owner", "payload", "commit"} {
 		t.Run(stage, func(t *testing.T) {
 			t.Parallel()
 			fixture := newDiscardFixture()
@@ -187,10 +174,6 @@ func TestReviewDiscardsFailurePreservesCauseAndClearsResult(t *testing.T) {
 			switch stage {
 			case "snapshot":
 				fixture.snapshotError = cause
-			case "tags":
-				fixture.tagError = cause
-			case "id":
-				service.newID = func() (string, error) { return "", cause }
 			case "commit":
 				fixture.commitError = cause
 			default:
@@ -201,34 +184,20 @@ func TestReviewDiscardsFailurePreservesCauseAndClearsResult(t *testing.T) {
 			if !errors.Is(err, cause) || errors.Is(err, ErrInvalid) || result != (ReviewDecisionResult{}) {
 				t.Fatalf("failure lost cause/leaked success: %+v err=%v", result, err)
 			}
-			if (stage == "snapshot" || stage == "tags" || stage == "id") && len(fixture.steps) != 0 {
+			if stage == "snapshot" && len(fixture.steps) != 0 {
 				t.Fatalf("preparation failure wrote: %v", fixture.steps)
 			}
 		})
 	}
 }
 
-func TestReviewDiscardsReasonBoundaryAndSystemActor(t *testing.T) {
+func TestReviewDiscardsReasonBoundary(t *testing.T) {
 	t.Parallel()
 	fixture := newDiscardFixture()
 	request := discardRequest()
 	request.Reason = strings.Repeat("中", 497) + "\n\tX"
 	result, err := discardService(fixture).Discard(t.Context(), request)
-	if err != nil || result.EventID == "" || fixture.event.ActorKind != "SYSTEM" || fixture.event.ActorUserID != nil || fixture.event.ActorLabel == nil || *fixture.event.ActorLabel != "release-setup" {
-		t.Fatalf("valid multiline reason/system actor rejected: %+v event=%+v err=%v", result, fixture.event, err)
-	}
-}
-
-func assertDiscardV2Event(t *testing.T, event ReviewDiscardEvent, snapshot ReviewDiscardSnapshot, tags []tagging.Reference) {
-	t.Helper()
-	var before discardedReviewEvidence
-	if err := json.Unmarshal([]byte(event.BeforeJSON), &before); err != nil {
-		t.Fatal(err)
-	}
-	if before.SchemaVersion != 2 || string(before.Metadata) != snapshot.MetadataJSON || !reflect.DeepEqual(before.Tags, tags) || !before.MediaSelection.Cover || !before.MediaSelection.Background {
-		t.Fatalf("discard evidence changed: %+v", before)
-	}
-	if event.ConfigJSON != `{"schemaVersion":2,"validationAvailable":true}` || event.DatJSON != `{"schemaVersion":2,"datMatched":true}` || event.ProviderJSON != `{"schemaVersion":2,"selectedCandidateId":"candidate","candidateSelected":true}` {
-		t.Fatalf("auxiliary v2 evidence changed: %+v", event)
+	if err != nil || result.ItemID == "" {
+		t.Fatalf("valid multiline reason rejected: %+v err=%v", result, err)
 	}
 }

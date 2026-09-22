@@ -69,7 +69,6 @@ type ArcadeParentAttachmentWrite struct {
 	ExpectedDraftVersion   int64
 	NowMS                  int64
 	Actor                  authn.Actor
-	EvidenceJSON           string
 }
 
 type ArcadeParentAttachmentAdmissionReader interface {

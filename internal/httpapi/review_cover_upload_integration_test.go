@@ -22,7 +22,7 @@ import (
 func TestReviewCoverSQLFailuresRemainServerErrors(t *testing.T) {
 	t.Parallel()
 	for _, test := range []struct{ name, query string }{
-		{"source read", "FROM upload_files"}, {"draft authority read", "FROM review_drafts"},
+		{"source read", "FROM import_files"}, {"draft authority read", "FROM review_drafts"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
@@ -88,5 +88,6 @@ INSERT INTO upload_files(id,upload_session_id,relative_path,declared_size_bytes,
 VALUES(?,?,'review-cover.png',?,?,?,'COMPLETE',0,0)`, fileID, uploadID, blob.Size, blob.Size, blobID); err != nil {
 		t.Fatal(err)
 	}
+	mustExecHTTPTest(t, server.database, `INSERT INTO import_files(id,upload_session_id,relative_path,blob_id,size_bytes,created_at_ms) SELECT id,upload_session_id,relative_path,final_blob_id,received_size_bytes,created_at_ms FROM upload_files WHERE id=?`, fileID)
 	return fileID
 }

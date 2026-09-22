@@ -194,7 +194,7 @@ FBNeo、MAME2003-Plus 与两个 FBA2012 source commit 按 EmulatorJS v4.2.3 官�
 3. 缺少索引时创建唯一、不可取消的 `DAT_PARSE` Job，并在事务外使用第 7.1 节的 streaming XML parser。当前 Arcade Provider Target 完成前服务 live 但以 `DEPENDENCY_INDEXING` not ready；确定性失败时以 `DEPENDENCY_DAT_PARSE_FAILED` not ready，不能回退到空目录、其他 Core 的 DAT 或旧 Target。
 4. 只有 manifest 固定的 SHA-256、EmulatorJS version 与实际 Provider Target 均匹配，且解析统计与 manifest 一致的内置 DatVersion 才能在短事务内成为 active。激活同时同步 DAT_MACHINE requirements、写系统审计；已建立正确索引的重复启动只修复 active 指针，不重复解析。
 5. 管理员和普通用户都不能上传、创建、比较、启用、回滚或删除 DAT。OpenAPI、HTTP router、数据库 schema 和 Web UI 均不存在用户 DAT、DAT diff 或 base-version 输入分支。
-6. DatVersion 身份仍被 Import、GameVariant、ReviewEvent 和 Launch 精确引用；release manifest 升级产生新的内置 DatVersion，成功索引后由启动引导激活，受影响稳定 GameVariant 通过既有版本/输入漂移机制按需重校验。既有 current GameVariant 和 Launch 保留原 DatVersion 与依赖快照，不被静默改写。
+6. DatVersion 身份仍被 Import、GameVariant和 Launch 精确引用；release manifest 升级产生新的内置 DatVersion，成功索引后由启动引导激活，受影响稳定 GameVariant 通过既有版本/输入漂移机制按需重校验。既有 current GameVariant 和 Launch 保留原 DatVersion 与依赖快照，不被静默改写。
 
 同步启动 60 秒预算不包含后台解析，解析使用通用 DAT_PARSE execution deadline 与重启 lease 恢复规则。文件名相同但 SHA-256 不同仍是不同内置版本；同一 `(Provider Target, SHA-256, parser version)` 只能有一条记录。
 

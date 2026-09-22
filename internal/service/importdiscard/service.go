@@ -15,7 +15,6 @@ var (
 	ErrInvalid        = errors.New("IMPORT_BATCH_DISCARD_INVALID")
 	ErrNotFound       = errors.New("IMPORT_BATCH_DISCARD_NOT_FOUND")
 	ErrReleaseFailed  = errors.New("IMPORT_BATCH_DISCARD_RELEASE_FAILED")
-	ErrAmbiguousOwner = errors.New("IMPORT_BATCH_DISCARD_OWNER_AMBIGUOUS")
 	ErrNotCancellable = errors.New("IMPORT_BATCH_DISCARD_NOT_CANCELLABLE")
 )
 
@@ -41,7 +40,7 @@ func New(repository Repository, importer ImportWorkflow, sources SourceWorkflow,
 }
 
 func validKey(key Key) bool {
-	if key.Kind != "IMPORT" && key.Kind != "PEGASUS" && key.Kind != "EMULATIONSTATION" {
+	if key.Kind != "IMPORT" && key.Kind != "SOURCE" {
 		return false
 	}
 	_, err := uuid.Parse(key.ID)

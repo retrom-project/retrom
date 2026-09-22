@@ -24,7 +24,7 @@ func TestDiscardRequestRechecksPublishedBatchBeforeWriting(t *testing.T) {
 		}
 		return f.now()
 	}
-	f.service = composition.NewImportDiscard(f.db, libraryimport.NewDiscardWorkflow(f.importer), nil, nil, clock)
+	f.service = composition.NewImportDiscard(f.db, libraryimport.NewDiscardWorkflow(f.importer), nil, clock)
 	_, err := f.service.Request(f.ctx, "IMPORT", result.Created.ImportJobID, adminID)
 	if !errors.Is(err, importdiscard.ErrInvalid) {
 		t.Fatalf("already published batch accepted for discard: %v", err)

@@ -14,18 +14,6 @@ VALUES(?,?,?) ON CONFLICT(platform_id,content_identity_digest) DO NOTHING`, plat
 	return approvalMutation(result, err, "claim approval identity", false)
 }
 
-func (records reviewApprovalRecords) RecordEvent(ctx context.Context, event application.ApprovalEvent) error {
-	result, err := recordstore.CreateReviewEvents(ctx, records.transaction, `
-INSERT INTO review_events(
- id,import_item_id,event_type,actor_kind,actor_user_id,actor_label,before_json,after_json,diff_json,
- config_evidence_json,dat_evidence_json,provider_evidence_json,reason,created_at_ms
-) VALUES(?,?,'APPROVED',?,?,?,?,?,?,?,?,?,?,?)`,
-		event.ID, event.ItemID, event.ActorKind, event.ActorUserID, event.ActorLabel,
-		event.BeforeJSON, event.AfterJSON, event.DiffJSON, event.ConfigJSON, event.DATJSON,
-		event.ProviderJSON, event.Reason, event.NowMS)
-	return approvalMutation(result, err, "insert approval event", true)
-}
-
 func (records reviewApprovalRecords) PublishItem(ctx context.Context, change application.ApprovalPublication) error {
 	result, err := recordstore.UpdateImportItems(ctx, records.transaction, recordstore.Update{
 		Set: `state='PUBLISHED',version=version+1,updated_at_ms=?,completed_at_ms=?`,

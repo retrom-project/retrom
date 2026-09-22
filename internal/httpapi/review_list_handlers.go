@@ -24,7 +24,7 @@ type reviewListSpec struct {
 
 func validReviewQueryKeys(values url.Values) bool {
 	allowed := map[string]struct{}{
-		"q": {}, "tagId": {}, "importJobId": {}, "pegasusImportId": {}, "emulationStationImportId": {},
+		"q": {}, "tagId": {}, "importJobId": {}, "sourceImportId": {},
 		"platformInstanceId": {}, "blockerCode": {}, "sort": {}, "cursor": {}, "limit": {},
 	}
 	for key := range values {
@@ -56,7 +56,7 @@ func (server *Server) prepareReviewList(values url.Values, principalID string) (
 	}
 	filter, err := libraryservice.NormalizeReviewQueueFilter(libraryservice.ReviewQueueFilter{
 		Query: values.Get("q"), TagID: values.Get("tagId"), ImportJobID: values.Get("importJobId"),
-		PegasusImportID: values.Get("pegasusImportId"), EmulationStationImportID: values.Get("emulationStationImportId"),
+		SourceImportID:     values.Get("sourceImportId"),
 		PlatformInstanceID: values.Get("platformInstanceId"), BlockerCode: values.Get("blockerCode"),
 		Sort: values.Get("sort"), Limit: limit,
 	})
@@ -65,7 +65,7 @@ func (server *Server) prepareReviewList(values url.Values, principalID string) (
 	}
 	spec := reviewListSpec{filter: filter, filterDigest: cursor.FilterDigest(map[string]any{
 		"principalId": principalID, "q": filter.Query, "tagId": filter.TagID, "importJobId": filter.ImportJobID,
-		"pegasusImportId": filter.PegasusImportID, "emulationStationImportId": filter.EmulationStationImportID,
+		"sourceImportId":     filter.SourceImportID,
 		"platformInstanceId": filter.PlatformInstanceID, "blockerCode": filter.BlockerCode,
 	})}
 	if err := server.applyReviewListCursor(&spec, values.Get("cursor")); err != nil {

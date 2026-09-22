@@ -47,26 +47,17 @@ COALESCE(d.cover_uploaded_asset_id,(SELECT asset.id
  asset.ordinal,
  asset.id
  LIMIT 1))
-,pegasus.id,pegasus.import_id,pegasus_collection.name,
+,source.id,source.import_id,source_collection.name,
 EXISTS(
- SELECT 1 FROM pegasus_import_item_assets pegasus_asset
- WHERE pegasus_asset.item_id=pegasus.id AND pegasus_asset.kind='COVER'
- AND pegasus_asset.state='COPIED' AND pegasus_asset.blob_id IS NOT NULL
-),emulationstation.id,emulationstation.import_id,emulationstation_collection.display_name,
-EXISTS(
- SELECT 1 FROM emulationstation_import_item_assets source_asset
- WHERE source_asset.item_id=emulationstation.id AND source_asset.kind='COVER'
+ SELECT 1 FROM source_import_item_assets source_asset
+ WHERE source_asset.item_id=source.id AND source_asset.kind='COVER'
  AND source_asset.state='COPIED' AND source_asset.blob_id IS NOT NULL
 )
 FROM import_items i
 JOIN review_drafts d ON d.import_item_id=i.id
 JOIN platform_instances pi ON pi.id=d.target_platform_instance_id
-	LEFT JOIN pegasus_import_items pegasus ON pegasus.library_import_item_id=i.id
-	LEFT JOIN pegasus_import_collections pegasus_collection ON pegasus_collection.id=pegasus.collection_id
-	LEFT JOIN emulationstation_import_items emulationstation
-	 ON emulationstation.library_import_item_id=i.id
-	LEFT JOIN emulationstation_import_collections emulationstation_collection
-	 ON emulationstation_collection.id=emulationstation.collection_id
+	LEFT JOIN source_import_items source ON source.library_import_item_id=i.id
+	LEFT JOIN source_import_collections source_collection ON source_collection.id=source.collection_id
 	LEFT
 JOIN import_item_core_validations v ON v.id=COALESCE(d.selected_validation_id,
 (SELECT candidate.id
@@ -77,8 +68,5 @@ AND candidate.target_platform_instance_id=d.target_platform_instance_id
 ORDER BY candidate.created_at_ms DESC,
 candidate.id DESC LIMIT 1))
 WHERE i.state='REVIEW_PENDING'
-AND (i.review_handoff_kind='DIRECT' OR
-  emulationstation.execution_state='REVIEW_PENDING')
-AND (pegasus.id IS NULL OR pegasus.execution_state='REVIEW_PENDING')
-AND (emulationstation.id IS NULL OR emulationstation.execution_state='REVIEW_PENDING')
+AND (source.id IS NULL OR source.execution_state='REVIEW_PENDING')
 `

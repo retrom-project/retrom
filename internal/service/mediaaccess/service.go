@@ -98,7 +98,7 @@ func visibleReview(asset ReviewAsset) bool {
 		return asset.State == "READY" && (owner || asset.GameState == "PUBLISHED")
 	case "UPLOAD", "SCREENSHOT":
 		return owner
-	case "PEGASUS", "EMULATIONSTATION":
+	case "SOURCE":
 		return asset.State == "COPIED" && owner
 	default:
 		return false

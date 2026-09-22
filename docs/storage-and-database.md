@@ -182,8 +182,13 @@ PlatformInstance 的复合外键、游戏唯一归属和迁移规则见 [游戏�
 
 ### 4.4 导入、审核与元信息
 
+所有接收文件写入 `import_files`，与上传完成事务一同提交，Blob 引用进入 registry。格式仅保存在统一的 `source_imports` 扫描计划；Collection、Item、metadata evidence、file、asset 使用同一 `source_import_*` 表。审核不保存历史；抓取按 subject 只保存当前 run、候选及证据，替换时原子取消旧任务并级联清理。详细约束见数据模型第 5 节。
+
 | 表 | 用途 |
 | --- | --- |
+| `import_files` | 所有来源的已接收文件、规范路径、大小与当前 Blob 引用 |
+| `source_imports` / `source_import_collections` / `source_import_items` | 格式适配共享的扫描计划、显式映射与来源条目 |
+| `source_import_metadata_files` / `source_import_item_files` / `source_import_item_assets` | 有界扫描证据、待接收来源及独立媒体 |
 | `import_jobs` | 一次导入任务及目标游戏目录快照 |
 | `import_job_files` | UploadSession 每个文件的 SOURCE/IGNORED/REJECTED 分类与原因 |
 | `import_items` | 单个游戏候选 |
@@ -193,7 +198,7 @@ PlatformInstance 的复合外键、游戏唯一归属和迁移规则见 [游戏�
 | `upload_sessions` / `upload_files` | 浏览器上传会话与相对路径 |
 | `upload_parts` | 分块上传 |
 | `upload_consumptions` | 已完成上传到 Import、游戏文件替换 Job、BIOS/Game Asset/Review Asset 的互斥审计归属 |
-| `metadata_scrape_runs` | ImportItem 或 Game 的一次 hash/provider 证据批次 |
+| `metadata_scrape_runs` | ImportItem 或 Game 唯一的当前 hash/provider 证据批次 |
 | `content_hash_evidence` | run 内的版本化 hash profile、来源 Blob/archive entry 与查询顺序 |
 | `metadata_scrape_query_attempts` | run/evidence 到每次网络或缓存 response 的不可变关联 |
 | `scrape_candidates` / `scrape_candidate_hits` | Hasheous 元信息候选及多 hash/entry 命中关系 |
@@ -206,12 +211,8 @@ PlatformInstance 的复合外键、游戏唯一归属和迁移规则见 [游戏�
 | `review_draft_screenshot_assets` | 草稿截图选择的规范顺序与外键 |
 | `review_preview_sessions` / `review_preview_files` | 审核子窗体的短时不可变运行快照与实际可交付依赖 |
 | `review_runtime_screenshots` | 当前 READY 或阻断 Validation 在普通 Player 中按需生成的审核截图与人工放行证据 |
-| `review_events` | 追加式审核历史 |
 | `review_draft_tags` | 待审核草稿的当前活动标签选择；决定后保留历史关系 |
-| `pegasus_collection_tags` | Pegasus Collection 的管理员标签映射；名称证据另冻结在 Collection snapshot |
-| `emulationstation_imports` / `emulationstation_import_gamelists` / `emulationstation_import_collections` | EmulationStation 顶层计划、严格 XML 发现结果与显式 Collection 映射 |
-| `emulationstation_import_items` / `emulationstation_import_item_files` / `emulationstation_import_item_assets` | EmulationStation 游戏候选、no-follow source snapshot、CAS 复制和来源媒体 |
-| `emulationstation_collection_tags` | EmulationStation Collection 的管理员标签映射；名称证据冻结在 Collection snapshot |
+| `source_collection_tags` | 统一 Collection 的管理员标签映射；名称证据另冻结在 Collection snapshot |
 
 ### 4.5 通用任务、幂等与审计
 
@@ -327,12 +328,12 @@ data/
 游戏内容替换由 `service/gamecontent` 决定运行终止、旧存档清理与备用 Variant 阻断；Repository 读取当前事实，按原 ID、版本、状态及精确文件键执行写入。引用每批最多读取 200 条，不能用不确定或零受影响行数表示成功。替换与发布、GC 排期、上传消费释放及 Job 完成处于同一事务；GC 和释放排期复用 payloadrelease Service，Repository 不回调旧业务包。
 
 - GC、备份完整性检查和存储审计共用一份机器可读 `blob reference registry`，每个 schema 中的 Blob FK/JSON Blob 引用必须恰好登记为以下一类：`PROTECTIVE`（业务根引用）、`ARCHIVE_OWNERSHIP`（`archive_entries.archive_blob_id/materialized_blob_id` 的派生所有权边）或 `BOOKKEEPING`（`blob_gc_candidates.blob_id` 等不阻止删除的记账边）。未登记、重复登记或分类错误都使 CI 失败；不把可变 `ref_count` 作为事实源。
-- 业务释放同时使用代码内 `payload ownership registry`，其边集必须与 Blob registry 双向完全一致，并把每条边唯一归入 Game、运行时、ImportItem、PegasusItem、EmulationStationItem、ScrapeRun、Upload、全局 TTL、全局耐久、Archive 或记账生命周期。PayloadRelease 只解除其 scope 被授权的边；BIOS 等全局耐久引用不受 Game/Import 清理影响。
+- 业务释放同时使用代码内 `payload ownership registry`，其边集必须与 Blob registry 双向完全一致，并把每条边唯一归入 Game、运行时、ImportItem、SourceImportItem、ScrapeRun、Upload、全局 TTL、全局耐久、Archive 或记账生命周期。PayloadRelease 只解除其 scope 被授权的边；BIOS 等全局耐久引用不受 Game/Import 清理影响。
 - 释放调度由 `service/payloadrelease.Scheduler` 判断终态、重放与来源共享关系；`persistence/payloadrelease` 参与调用者的终态事务，原子登记 Job、不可变输入、排队事件与 owner 的 `RELEASING` 转换。更新必须核对读取到的版本、状态、可重试标记和普通审核绑定；受影响行数读取失败保留原始原因，未更新唯一 owner 时整体回滚。已绑定普通 ImportItem 的来源复用该 Item 的释放 Job，不创建第二份释放任务。
 - GC 保护集先取所有 `PROTECTIVE` Blob，再对其中的 archive Blob 加入该 ArchiveEntry 已物化的 entry Blob；一期从不递归展开嵌套 archive，DOS 与 RPG Maker 都只保留内层 archive 文件本身的一层原始 entry bytes，因此一层闭包即完整。`ARCHIVE_OWNERSHIP` 不会反向把一个无业务根的 owning archive 变成永久受保护；`BOOKKEEPING` 从不进入保护集。备份不能直接采用这个 GC 保护集：它逐字节复制未裁剪的 SQLite 快照，所以必须复制快照中每一条 `blobs` 行对应的物理文件，包括尚在 GC 宽限期的无业务引用行；registry 用于证明所有引用边都命中这些 Blob 行。只有“物理文件存在但数据库没有 Blob 行”的 crash orphan 才不进入备份。
 - Game/GameFiles、ImportItem/Upload/Job、Review snapshot、SaveState、媒体、旧 GameVariant 和 DAT 均可能引用 Blob。
 - 游戏删除影响由 `service/payloadrelease.ImpactQueries` 计算，Repository 在一次只读快照中读取 Game 及来源的 Blob 集合、共享保护引用和运行/审核计数；删除事务内重算时复用同一类型化读取接口。Service 按 Blob ID 去重并受检累加已登记、独占与共享容量，规范化来源类型并生成稳定摘要；读取失败、事实冲突或整数溢出均使整次计算失败，不能返回部分统计或可用摘要。
-- Pegasus 与 EmulationStation 扫描阶段都不写 Blob；执行阶段复制出的 item file、source archive 与 COVER/VIDEO 分别在格式专属 file/asset 表中形成 protective 边。发布后的 Game/Asset 继续独立保护相同 CAS bytes，计划历史与 Game 生命周期互不代替。
+- Pegasus 与 EmulationStation 扫描阶段都不写 Blob；执行阶段复制出的 item file、source archive 与 COVER/VIDEO 分别在统一 source_import_item_files/source_import_item_assets 表中形成 protective 边。发布后的 Game/Asset 继续独立保护相同 CAS bytes，计划历史与 Game 生命周期互不代替。
 - Import publish/discard/final-fail/cancel、Pegasus/EmulationStation 终态、替换文件/媒体消费完成会异步解除流程 payload；Game 永久删除会解除 Game/运行时及其已终态来源链的 payload。游戏媒体当前态切换还会在同一事务删除旧 GameAsset 叶子引用并登记 GC 候选，避免文字 metadata 历史长期保护旧封面/视频。领域事务不直接删除 Blob 或 CAS 文件。
 - GC 候选选择、保留期、恢复引用和立即回收策略由应用 `GCScheduler` 统一编排；Repository 批量读取同一事务中的 Blob、保护引用、候选及任务输入事实，取得写入权限后重验快照。任务、不可变输入、事件和候选原子保存，任何写入、受影响行数或提交失败都不能返回成功；立即回收的审计也在同一事务，提交后才唤醒 worker。
 - 失去最后保护引用后先进入默认 7 天回收保留期，配置只允许 24 小时至 30 天；每个候选关联唯一 BLOB_GC Job。宽限到期时再次计算完整保护集，有新引用就撤销候选，不得误删共享内容。ADMIN 可通过容量页显式确认立即回收；该操作先补齐全部未引用候选，再把仍未引用候选的 `available_at_ms/scheduled_at_ms` 推进到当前时刻，失败 Job 创建新 execution 和新的输入身份、清空旧租约与执行预算后重排队，并写 `STORAGE_CLEANUP_REQUESTED` AuditEvent。它只跳过保留时间，不绕过 worker、保护集合复核、物理删除重试或共享引用保护。
@@ -492,9 +493,9 @@ GC 把初始和 effective SourceSnapshot、accepted/retryable Attachment、GameC
 
 EmulationStation 递归发现只匹配精确小写 `gamelist.xml`；每个 XML 与其中游戏/媒体路径都保留相对于服务器根目录 `/` 的规范路径和 no-follow facts，不保存绝对路径。XML、目录 facts、M3U 与媒体/CHD 头在扫描期受独立字节/数量上限约束，完整 ROM 只在 start 后按冻结 manifest 流式复制进 CAS。一个所选目录内的多个子目录清单各自形成 Collection；单目录的一份清单和多文件形成一个 Collection，二者使用同一存储边界。
 
-候选 bytes 可由 SHA-256 CAS 去重；只有 Installation、ImportItem、来源 Item 或 Game 等业务引用保护 Blob，无引用候选由统一 GC 回收。backup 保留 ServerImport/Item/Candidate 审计和已经导入的 CAS bytes，但不打包外部目录。restore 在开放 HTTP 前把所有非终态 `SERVER_BIOS_IMPORT`、`SERVER_PEGASUS_SCAN|IMPORT` 与 `SERVER_EMULATIONSTATION_SCAN|IMPORT` Job 及对应 aggregate 置为不可重试 `FAILED/SERVER_IMPORT_SOURCE_NOT_RESTORED`，即使恢复主机存在同名 root 也不得自动继续。已经进入普通审核或发布 Game 的 CAS 内容继续随完整数据根恢复。
+候选 bytes 可由 SHA-256 CAS 去重；只有 Installation、ImportItem、来源 Item 或 Game 等业务引用保护 Blob，无引用候选由统一 GC 回收。backup 保留 ServerImport/Item/Candidate 审计和已经导入的 CAS bytes，但不打包外部目录。restore 在开放 HTTP 前把所有非终态 `SERVER_BIOS_IMPORT`、`IMPORT_SCAN|IMPORT_RECEIVE` Job 及对应 aggregate 置为不可重试 `FAILED/SERVER_IMPORT_SOURCE_NOT_RESTORED`，即使恢复主机存在同名 root 也不得自动继续。已经进入普通审核或发布 Game 的 CAS 内容继续随完整数据根恢复。
 
-停止外部 execution 前，恢复 Service 在同一安全围栏事务内完成已经形成的普通待审核交接：Pegasus 永久关联与 EmulationStation 预留关系必须指向唯一普通 Item，绑定不能属于其他来源。来源仍在准备阶段时，复用冻结 metadata、搜索字段和审核审计，再将来源置为 `REVIEW_PENDING` 并刷新聚合；已经交接完成的人工草稿保持原样。EmulationStation 复用计划冻结的年份上限，允许按既有状态路径接续仍有待审预留的可重试失败。每次最多读取 100 条，全部分页、权限撤销、任务收口和最终审计仍共用一次提交；任何读取、解码、所有权变化或写入失败都使恢复整体失败。恢复不打开外部来源、不重新创建 Game，也不复用活动 worker 的租约权限。
+停止外部 execution 前，恢复 Service 在同一事务完成已形成的普通待审核交接。统一来源关联必须指向唯一普通 Item，绑定不能属于其他来源。准备阶段复用冻结 metadata 与搜索字段，将来源置为 `REVIEW_PENDING` 并刷新聚合；已交接的人工草稿保持原样。分页、权限撤销、任务收口与恢复审计共用一次提交；任何失败整体回滚。恢复不打开外部来源、不重新创建 Game，不复用活动 worker 租约，也不保留格式专属预约规则。
 
 停止外部 execution 后，恢复 Service 在这同一事务中分页读取仍保留 payload 的来源，由共享释放调度规则为最终失败等终态登记释放任务。待审核记录继续保留引用；恢复生成的终态不能停留在未登记释放任务的 `RETAINED` 状态，否则会违反正常启动时的 payload 生命周期校验。调度、owner 转换或最终审计失败时，权限撤销和审核交接也一起回滚。
 

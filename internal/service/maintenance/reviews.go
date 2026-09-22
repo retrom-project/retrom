@@ -7,9 +7,8 @@ import (
 	"math"
 	"time"
 
-	es "retrom/internal/service/emulationstationimport"
 	library "retrom/internal/service/libraryimport"
-	pegasus "retrom/internal/service/pegasusimport"
+	source "retrom/internal/service/sourceimport"
 )
 
 type RestoredReview struct {
@@ -52,7 +51,7 @@ type RestoredReviewScope struct {
 // reading the former host's sources. The caller owns the entire restore transaction,
 // including access revocation, external job termination and the security audit.
 func CompleteRestoredReviews(ctx context.Context, scope RestoredReviewScope, now time.Time) error {
-	for _, kind := range []string{"PEGASUS", "EMULATIONSTATION"} {
+	for _, kind := range []string{"SOURCE"} {
 		query := RestoredReviewQuery{Kind: kind, Limit: 100}
 		for {
 			reviews, err := scope.Records.Pending(ctx, query)
@@ -94,7 +93,7 @@ func completeRestoredReview(
 		return fmt.Errorf("decode restored source metadata: %w", err)
 	}
 	maximumYear := review.ReleaseYearMax
-	if review.Kind == "PEGASUS" {
+	if review.Kind == "SOURCE" {
 		maximumYear = now.UTC().Year() + 1
 	}
 	_, additions, err := library.NewMetadataSeeder(nil, func() time.Time { return now }).SeedInScope(
@@ -122,11 +121,10 @@ func validRestoredReview(review RestoredReview) bool {
 	if !activeRestoredImport(review.ImportState) || !activeRestoredImport(review.JobState) {
 		return false
 	}
-	if review.Kind == "PEGASUS" {
+	if review.Kind == "SOURCE" {
 		return review.LibraryItemID != ""
 	}
-	return review.Kind == "EMULATIONSTATION" && review.UploadID != "" && review.OwnerUpload == review.UploadID &&
-		review.ReleaseYearMax > 0
+	return false
 }
 
 func validRestoredReviewIdentity(review RestoredReview) bool {
@@ -166,13 +164,6 @@ func activeRestoredImport(state string) bool {
 }
 
 func restoredReviewPreparation(review RestoredReview) ([]string, error) {
-	if review.Kind == "EMULATIONSTATION" {
-		states, err := es.ReviewPreparation(es.ExecutionReview{State: review.State, Retryable: review.Retryable})
-		if err != nil {
-			return nil, fmt.Errorf("prepare restored EmulationStation review: %w", err)
-		}
-		return states, nil
-	}
 	switch review.State {
 	case "PENDING":
 		return []string{"COPYING", "VALIDATING"}, nil
@@ -186,23 +177,16 @@ func restoredReviewPreparation(review RestoredReview) ([]string, error) {
 }
 
 func restoredReviewWarnings(review RestoredReview, additions []library.ServerMetadataWarning) (string, error) {
-	if review.Kind == "EMULATIONSTATION" {
-		warnings, err := es.AppendReviewMetadataWarnings(review.WarningsJSON, additions)
-		if err != nil {
-			return "", fmt.Errorf("merge restored EmulationStation warnings: %w", err)
-		}
-		return warnings, nil
-	}
 	var warnings []map[string]any
 	if err := json.Unmarshal([]byte(review.WarningsJSON), &warnings); err != nil {
-		return "", fmt.Errorf("decode restored Pegasus warnings: %w", err)
+		return "", fmt.Errorf("decode restored Source warnings: %w", err)
 	}
 	if warnings == nil {
 		return "", ErrInvalidBundle
 	}
-	encoded, err := json.Marshal(pegasus.MergeReviewMetadataWarnings(warnings, additions))
+	encoded, err := json.Marshal(source.MergeReviewMetadataWarnings(warnings, additions))
 	if err != nil {
-		return "", fmt.Errorf("encode restored Pegasus warnings: %w", err)
+		return "", fmt.Errorf("encode restored Source warnings: %w", err)
 	}
 	return string(encoded), nil
 }

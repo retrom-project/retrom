@@ -64,7 +64,7 @@ func (records *restoreRecords) RevokeAccess(_ context.Context, _ int64) (AccessC
 
 func (records *restoreRecords) StopExternalImports(context.Context, int64) (ImportCounts, error) {
 	records.calls = append(records.calls, "external")
-	return ImportCounts{BIOS: 4, Pegasus: 5, EmulationStation: 6}, nil
+	return ImportCounts{BIOS: 4, Source: 5}, nil
 }
 
 func (records *restoreRecords) StopBulkApprovals(context.Context, int64) error {
@@ -87,11 +87,11 @@ func TestRestoreFenceHasOneClockAndOneAtomicScope(t *testing.T) {
 		t.Fatal(err)
 	}
 	if clockCalls != 1 || !repository.committed || repository.writes != 1 || !reflect.DeepEqual(records.calls, []string{
-		"revoke", "reviews", "external", "PEGASUS_IMPORT_ITEM", "EMULATIONSTATION_IMPORT_ITEM", "bulk", "audit",
+		"revoke", "reviews", "external", "SOURCE_IMPORT_ITEM", "bulk", "audit",
 	}) {
 		t.Fatalf("fence escaped atomic scope: %+v %+v", repository, records)
 	}
-	if records.audit.Now != 17 || records.audit.ID == "" || records.audit.Counts != (FenceCounts{1, 2, 3, 4, 5, 6}) {
+	if records.audit.Now != 17 || records.audit.ID == "" || records.audit.Counts != (FenceCounts{1, 2, 3, 4, 5}) {
 		t.Fatalf("audit evidence: %+v", records.audit)
 	}
 	records.failAudit = context.Canceled

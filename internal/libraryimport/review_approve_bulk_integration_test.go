@@ -117,7 +117,7 @@ func assertCompletedBulkPublication(t *testing.T, fixture deduplicateFixture, bu
 	t.Helper()
 	var processed, publishedCount, events int
 	err := fixture.database.QueryRowContext(t.Context(), `SELECT processed_count,published_count,
- (SELECT count(*) FROM review_events WHERE event_type='APPROVED') FROM review_bulk_approvals WHERE id=?`, bulkID).
+ (SELECT count(*) FROM import_items WHERE state='PUBLISHED') FROM review_bulk_approvals WHERE id=?`, bulkID).
 		Scan(&processed, &publishedCount, &events)
 	if err != nil {
 		t.Fatal(err)

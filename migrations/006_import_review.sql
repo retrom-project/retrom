@@ -35,8 +35,6 @@ CREATE TABLE import_items (
   import_job_id TEXT NOT NULL REFERENCES import_jobs(id),
   group_key TEXT NOT NULL CHECK(length(group_key) = 64),
   state TEXT NOT NULL CHECK(state IN ('QUEUED','HASHING','IDENTIFYING','SCRAPING','REVIEW_PENDING','PUBLISHED','DISCARDED','FAILED_RETRYABLE','FAILED_FINAL','CANCELLED')),
-  review_handoff_kind TEXT NOT NULL DEFAULT 'DIRECT'
-    CHECK(review_handoff_kind IN ('DIRECT','EMULATIONSTATION')),
   source_manifest_json TEXT NOT NULL,
   source_manifest_digest TEXT NOT NULL CHECK(length(source_manifest_digest) = 64),
   search_text TEXT NOT NULL,
@@ -168,33 +166,6 @@ CREATE TABLE review_draft_runtime_pack_selections (
     REFERENCES runtime_asset_pack_installations(id,definition_id)
 );
 
-CREATE TABLE "review_events" (
-  id TEXT PRIMARY KEY,
-  import_item_id TEXT NOT NULL REFERENCES import_items(id),
-  event_type TEXT NOT NULL CHECK(event_type IN (
-    'DRAFT_SAVED','TARGET_CHANGED','SCRAPE_REQUESTED','CANDIDATE_APPLIED','CANDIDATE_REMOVED',
-    'PARENT_UPLOAD_REQUESTED','PARENT_ATTACHMENT_ACCEPTED','PARENT_ATTACHMENT_REJECTED',
-    'DISC_UPLOAD_REQUESTED','DISC_ATTACHMENT_ACCEPTED','DISC_ATTACHMENT_REJECTED','APPROVED','DISCARDED'
-  )),
-  actor_kind TEXT NOT NULL CHECK(actor_kind IN ('USER','SYSTEM')),
-  actor_user_id TEXT REFERENCES users(id),
-  actor_label TEXT CHECK(actor_label IN (
-    'release-setup','offline-recovery','startup-test-bootstrap','restore-security-fence'
-  )),
-  before_json TEXT NOT NULL CHECK(json_valid(before_json) AND json_extract(before_json,'$.schemaVersion')=2),
-  after_json TEXT NOT NULL CHECK(json_valid(after_json) AND json_extract(after_json,'$.schemaVersion')=2),
-  diff_json TEXT NOT NULL CHECK(json_valid(diff_json) AND json_extract(diff_json,'$.schemaVersion')=2),
-  config_evidence_json TEXT NOT NULL CHECK(json_valid(config_evidence_json) AND json_extract(config_evidence_json,'$.schemaVersion')=2),
-  dat_evidence_json TEXT NOT NULL CHECK(json_valid(dat_evidence_json) AND json_extract(dat_evidence_json,'$.schemaVersion')=2),
-  provider_evidence_json TEXT NOT NULL CHECK(json_valid(provider_evidence_json) AND json_extract(provider_evidence_json,'$.schemaVersion')=2),
-  reason TEXT,
-  created_at_ms INTEGER NOT NULL CHECK(created_at_ms>=0),
-  CHECK(
-    actor_kind='USER' AND actor_user_id IS NOT NULL AND actor_label IS NULL OR
-    actor_kind='SYSTEM' AND actor_user_id IS NULL AND actor_label IS NOT NULL
-  )
-);
-
 CREATE TABLE review_uploaded_assets (
   id TEXT PRIMARY KEY,
   import_item_id TEXT NOT NULL REFERENCES import_items(id),
@@ -264,7 +235,7 @@ CREATE TABLE review_preview_files (
 CREATE TABLE review_draft_screenshot_assets (
   review_draft_id TEXT NOT NULL REFERENCES review_drafts(id),
   ordinal INTEGER NOT NULL CHECK(ordinal BETWEEN 0 AND 31),
-  candidate_asset_id TEXT NOT NULL REFERENCES scrape_candidate_assets(id),
+  candidate_asset_id TEXT NOT NULL REFERENCES scrape_candidate_assets(id) ON DELETE CASCADE,
   created_at_ms INTEGER NOT NULL,
   PRIMARY KEY(review_draft_id, ordinal),
   UNIQUE(review_draft_id, candidate_asset_id)
@@ -326,7 +297,6 @@ CREATE TABLE review_bulk_approval_items (
     'FAILED_FINAL','CANCELLED'
   )),
   game_id TEXT REFERENCES games(id),
-  review_event_id TEXT REFERENCES review_events(id),
   outcome_code TEXT,
   outcome_details_json TEXT CHECK(
     outcome_details_json IS NULL OR (json_valid(outcome_details_json) AND length(CAST(outcome_details_json AS BLOB))<=8192)
@@ -337,7 +307,7 @@ CREATE TABLE review_bulk_approval_items (
   PRIMARY KEY(bulk_approval_id,import_item_id),
   UNIQUE(bulk_approval_id,ordinal),
   CHECK((state IN ('PENDING','RUNNING'))=(completed_at_ms IS NULL)),
-  CHECK((state='PUBLISHED')=(game_id IS NOT NULL AND review_event_id IS NOT NULL))
+  CHECK((state='PUBLISHED')=(game_id IS NOT NULL))
 );
 
 CREATE TABLE review_draft_tags (
@@ -377,8 +347,8 @@ CREATE TABLE metadata_provider_responses (
 
 CREATE TABLE metadata_scrape_query_attempts (
   id TEXT PRIMARY KEY,
-  scrape_run_id TEXT NOT NULL REFERENCES metadata_scrape_runs(id),
-  content_hash_evidence_id TEXT NOT NULL REFERENCES content_hash_evidence(id),
+  scrape_run_id TEXT NOT NULL REFERENCES metadata_scrape_runs(id) ON DELETE CASCADE,
+  content_hash_evidence_id TEXT NOT NULL REFERENCES content_hash_evidence(id) ON DELETE CASCADE,
   provider_response_id TEXT NOT NULL REFERENCES metadata_provider_responses(id),
   attempt_no INTEGER NOT NULL CHECK(attempt_no >= 1),
   source TEXT NOT NULL CHECK(source IN ('NETWORK','CACHE')),
@@ -388,7 +358,7 @@ CREATE TABLE metadata_scrape_query_attempts (
 
 CREATE TABLE scrape_candidates (
   id TEXT PRIMARY KEY,
-  scrape_run_id TEXT NOT NULL REFERENCES metadata_scrape_runs(id),
+  scrape_run_id TEXT NOT NULL REFERENCES metadata_scrape_runs(id) ON DELETE CASCADE,
   primary_response_id TEXT NOT NULL REFERENCES metadata_provider_responses(id),
   provider_game_id TEXT NOT NULL,
   normalized_metadata_json TEXT NOT NULL,
@@ -398,8 +368,8 @@ CREATE TABLE scrape_candidates (
 );
 
 CREATE TABLE scrape_candidate_hits (
-  scrape_candidate_id TEXT NOT NULL REFERENCES scrape_candidates(id),
-  query_attempt_id TEXT NOT NULL REFERENCES metadata_scrape_query_attempts(id),
+  scrape_candidate_id TEXT NOT NULL REFERENCES scrape_candidates(id) ON DELETE CASCADE,
+  query_attempt_id TEXT NOT NULL REFERENCES metadata_scrape_query_attempts(id) ON DELETE CASCADE,
   matched_hashes_json TEXT NOT NULL,
   created_at_ms INTEGER NOT NULL,
   PRIMARY KEY(scrape_candidate_id, query_attempt_id)
@@ -407,7 +377,7 @@ CREATE TABLE scrape_candidate_hits (
 
 CREATE TABLE scrape_candidate_assets (
   id TEXT PRIMARY KEY,
-  scrape_candidate_id TEXT NOT NULL REFERENCES scrape_candidates(id),
+  scrape_candidate_id TEXT NOT NULL REFERENCES scrape_candidates(id) ON DELETE CASCADE,
   provider_response_id TEXT NOT NULL REFERENCES metadata_provider_responses(id),
   provider_asset_id TEXT NOT NULL,
   kind_hint TEXT NOT NULL CHECK(kind_hint IN ('COVER','BACKGROUND','SCREENSHOT','UNKNOWN')),
@@ -434,7 +404,7 @@ CREATE TABLE scrape_candidate_assets (
 
 CREATE TABLE content_hash_evidence (
   id TEXT PRIMARY KEY,
-  scrape_run_id TEXT NOT NULL REFERENCES metadata_scrape_runs(id),
+  scrape_run_id TEXT NOT NULL REFERENCES metadata_scrape_runs(id) ON DELETE CASCADE,
   profile TEXT NOT NULL CHECK(
     length(profile) BETWEEN 2 AND 64 AND profile=upper(profile)
     AND profile NOT GLOB '*[^A-Z0-9_]*'
@@ -562,9 +532,9 @@ CREATE TABLE "review_drafts" (
   import_item_id TEXT NOT NULL UNIQUE REFERENCES import_items(id),
   target_platform_instance_id TEXT NOT NULL REFERENCES platform_instances(id),
   selected_validation_id TEXT REFERENCES import_item_core_validations(id),
-  selected_candidate_id TEXT REFERENCES scrape_candidates(id),
-  cover_candidate_asset_id TEXT REFERENCES scrape_candidate_assets(id),
-  background_candidate_asset_id TEXT REFERENCES scrape_candidate_assets(id),
+  selected_candidate_id TEXT REFERENCES scrape_candidates(id) ON DELETE SET NULL,
+  cover_candidate_asset_id TEXT REFERENCES scrape_candidate_assets(id) ON DELETE SET NULL,
+  background_candidate_asset_id TEXT REFERENCES scrape_candidate_assets(id) ON DELETE SET NULL,
   default_dos_entry TEXT,
   metadata_json TEXT NOT NULL,
   version INTEGER NOT NULL DEFAULT 1,
@@ -730,6 +700,8 @@ CREATE TABLE "metadata_scrape_runs" (
   updated_at_ms INTEGER NOT NULL,
   completed_at_ms INTEGER,
   error_code TEXT,
+  UNIQUE(import_item_id),
+  UNIQUE(game_id),
   CHECK((import_item_id IS NOT NULL) != (game_id IS NOT NULL)),
   CHECK((state = 'RUNNING') = (completed_at_ms IS NULL)),
   CHECK((state = 'FAILED') = (error_code IS NOT NULL))

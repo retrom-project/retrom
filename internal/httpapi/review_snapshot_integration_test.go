@@ -117,7 +117,7 @@ func TestReviewDetailInvisibleHeadlinePrecedesChildReads(t *testing.T) {
 	server := newTestServer(t)
 	itemID := createReviewSnapshotItem(t, server)
 	if _, err := server.database.ExecContext(t.Context(),
-		`UPDATE import_items SET review_handoff_kind='EMULATIONSTATION' WHERE id=?`, itemID); err != nil {
+		`UPDATE import_items SET state='DISCARDED' WHERE id=?`, itemID); err != nil {
 		t.Fatal(err)
 	}
 	queries := 0

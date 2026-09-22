@@ -38,9 +38,12 @@ func TestSourcePayloadSchedulingFencesEveryOwnerFact(t *testing.T) {
 	} {
 		t.Run(change.name, func(t *testing.T) {
 			t.Parallel()
-			db := restoreReviewFixture(t, "EMULATIONSTATION")
-			if _, err := db.ExecContext(t.Context(), `UPDATE pegasus_import_items
-SET execution_state='COMMIT_FAILED',retryable=0,completed_at_ms=10 WHERE id='item'`); err != nil {
+			db := restorePayloadFixture(t)
+			if _, err := db.ExecContext(t.Context(), `UPDATE source_import_items SET library_import_item_id=NULL WHERE id='item'`); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := db.ExecContext(t.Context(), `UPDATE source_import_items
+SET execution_state='COMMIT_FAILED',retryable=0,completed_at_ms=10 WHERE id='failed-source'`); err != nil {
 				t.Fatal(err)
 			}
 			before := reviewRestoreSnapshot(t, db)
@@ -51,16 +54,16 @@ SET execution_state='COMMIT_FAILED',retryable=0,completed_at_ms=10 WHERE id='ite
 			defer dbexec.Rollback(tx)
 			scope := &changedPayloadOwner{
 				SchedulingScope: persistence.BindScheduling(tx), transaction: tx,
-				mutation: "UPDATE pegasus_import_items SET " + change.mutation + " WHERE id='item'",
+				mutation: "UPDATE source_import_items SET " + change.mutation + " WHERE id='failed-source'",
 			}
 			id, err := release.NewScheduler(nil).TerminalSource(t.Context(), scope,
-				release.Scope{Type: release.ScopePegasusImportItem, ID: "item"}, 10)
+				release.Scope{Type: release.ScopeSourceImportItem, ID: "failed-source"}, 10)
 			if id != "" || !errors.Is(err, release.ErrScopeInvalid) || !scope.changed {
 				t.Fatalf("payload scheduler ignored stale owner: %q/%v changed=%t", id, err, scope.changed)
 			}
 			var jobs int
 			if err := tx.QueryRowContext(t.Context(), `SELECT count(*) FROM jobs
-WHERE kind='PAYLOAD_RELEASE' AND scope_type='PEGASUS_IMPORT_ITEM' AND scope_id='item'`).Scan(&jobs); err != nil || jobs != 1 {
+WHERE kind='PAYLOAD_RELEASE' AND scope_type='SOURCE_IMPORT_ITEM' AND scope_id='failed-source'`).Scan(&jobs); err != nil || jobs != 1 {
 				t.Fatalf("owner fence did not follow actual job writes: %d/%v", jobs, err)
 			}
 			if err := tx.Rollback(); err != nil {

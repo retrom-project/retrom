@@ -14,8 +14,8 @@ func TestLifecyclePolicyChecksTerminalOwnersAndReleaseBinding(t *testing.T) {
 	}{
 		{"active retained", LifecycleOwner{Owner: Owner{Scope: Scope{Type: ScopeImportItem, ID: "item"}, State: "REVIEW_PENDING", PayloadState: "RETAINED"}}, true},
 		{"terminal retained", LifecycleOwner{Owner: Owner{Scope: Scope{Type: ScopeImportItem, ID: "item"}, State: "PUBLISHED", PayloadState: "RETAINED"}}, false},
-		{"retryable source retained", LifecycleOwner{Owner: Owner{Scope: Scope{Type: ScopePegasusImportItem, ID: "item"}, State: "READ_FAILED", Retryable: true, PayloadState: "RETAINED"}}, true},
-		{"final source retained", LifecycleOwner{Owner: Owner{Scope: Scope{Type: ScopeEmulationStationImportItem, ID: "item"}, State: "READ_FAILED", PayloadState: "RETAINED"}}, false},
+		{"retryable source retained", LifecycleOwner{Owner: Owner{Scope: Scope{Type: ScopeSourceImportItem, ID: "item"}, State: "READ_FAILED", Retryable: true, PayloadState: "RETAINED"}}, true},
+		{"final source retained", LifecycleOwner{Owner: Owner{Scope: Scope{Type: ScopeSourceImportItem, ID: "item"}, State: "READ_FAILED", PayloadState: "RETAINED"}}, false},
 		{"owned release", lifecycleReleased(Scope{Type: ScopeGame, ID: "game"}), true},
 		{"public item release", lifecycleBoundSource(), true},
 	} {
@@ -49,7 +49,7 @@ func lifecycleReleased(scope Scope) LifecycleOwner {
 }
 
 func lifecycleBoundSource() LifecycleOwner {
-	owner := lifecycleReleased(Scope{Type: ScopeEmulationStationImportItem, ID: "source"})
+	owner := lifecycleReleased(Scope{Type: ScopeSourceImportItem, ID: "source"})
 	owner.Owner.PublicID = "public"
 	owner.ReleaseScope = Scope{Type: ScopeImportItem, ID: "public"}
 	owner.PublicReleaseJobID = "release"

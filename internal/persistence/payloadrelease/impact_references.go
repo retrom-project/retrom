@@ -15,16 +15,11 @@ WITH game_import_items(id) AS (
  WHERE id=?1 AND metadata_source_kind='IMPORT_REVIEW'
  UNION SELECT content_source_ref_id FROM games
  WHERE id=?1 AND content_source_kind='IMPORT_REVIEW'
-), game_pegasus_items(id) AS (
+), game_source_items(id) AS (
  SELECT metadata_source_ref_id FROM games
- WHERE id=?1 AND metadata_source_kind='SERVER_PEGASUS_IMPORT'
+ WHERE id=?1 AND metadata_source_kind='IMPORT_RECEIVE'
  UNION SELECT content_source_ref_id FROM games
- WHERE id=?1 AND content_source_kind='SERVER_PEGASUS_IMPORT'
-), game_emulationstation_items(id) AS (
- SELECT metadata_source_ref_id FROM games
- WHERE id=?1 AND metadata_source_kind='SERVER_EMULATIONSTATION_IMPORT'
- UNION SELECT content_source_ref_id FROM games
- WHERE id=?1 AND content_source_kind='SERVER_EMULATIONSTATION_IMPORT'
+ WHERE id=?1 AND content_source_kind='IMPORT_RECEIVE'
 )
 SELECT count(*) FROM (
  SELECT asset.id FROM game_assets asset WHERE asset.game_id=?1 AND asset.blob_id=?2
@@ -96,38 +91,21 @@ SELECT count(*) FROM (
  JOIN scrape_candidates candidate ON candidate.id=asset.scrape_candidate_id
  JOIN metadata_scrape_runs run ON run.id=candidate.scrape_run_id
  WHERE run.import_item_id IN (SELECT id FROM game_import_items) AND asset.blob_id=?2
- UNION ALL SELECT file.rowid FROM pegasus_import_item_files file
- JOIN pegasus_import_items item ON item.id=file.item_id
+ UNION ALL SELECT file.rowid FROM source_import_item_files file
+ JOIN source_import_items item ON item.id=file.item_id
  WHERE item.library_import_item_id IN (SELECT id FROM game_import_items) AND file.blob_id=?2
- UNION ALL SELECT file.rowid FROM pegasus_import_item_files file
- JOIN pegasus_import_items item ON item.id=file.item_id
+ UNION ALL SELECT file.rowid FROM source_import_item_files file
+ JOIN source_import_items item ON item.id=file.item_id
  WHERE item.library_import_item_id IN (SELECT id FROM game_import_items) AND file.source_archive_blob_id=?2
- UNION ALL SELECT asset.rowid FROM pegasus_import_item_assets asset
- JOIN pegasus_import_items item ON item.id=asset.item_id
+ UNION ALL SELECT asset.rowid FROM source_import_item_assets asset
+ JOIN source_import_items item ON item.id=asset.item_id
  WHERE item.library_import_item_id IN (SELECT id FROM game_import_items) AND asset.blob_id=?2
- UNION ALL SELECT file.rowid FROM pegasus_import_item_files file
- WHERE file.item_id IN (SELECT id FROM game_pegasus_items) AND file.blob_id=?2
- UNION ALL SELECT file.rowid FROM pegasus_import_item_files file
- WHERE file.item_id IN (SELECT id FROM game_pegasus_items) AND file.source_archive_blob_id=?2
- UNION ALL SELECT asset.rowid FROM pegasus_import_item_assets asset
- WHERE asset.item_id IN (SELECT id FROM game_pegasus_items) AND asset.blob_id=?2
- UNION ALL SELECT file.rowid FROM emulationstation_import_item_files file
- JOIN emulationstation_import_items item ON item.id=file.item_id
- WHERE item.library_import_item_id IN (SELECT id FROM game_import_items) AND file.blob_id=?2
- UNION ALL SELECT file.rowid FROM emulationstation_import_item_files file
- JOIN emulationstation_import_items item ON item.id=file.item_id
- WHERE item.library_import_item_id IN (SELECT id FROM game_import_items)
-   AND file.source_archive_blob_id=?2
- UNION ALL SELECT asset.rowid FROM emulationstation_import_item_assets asset
- JOIN emulationstation_import_items item ON item.id=asset.item_id
- WHERE item.library_import_item_id IN (SELECT id FROM game_import_items) AND asset.blob_id=?2
- UNION ALL SELECT file.rowid FROM emulationstation_import_item_files file
- WHERE file.item_id IN (SELECT id FROM game_emulationstation_items) AND file.blob_id=?2
- UNION ALL SELECT file.rowid FROM emulationstation_import_item_files file
- WHERE file.item_id IN (SELECT id FROM game_emulationstation_items)
-   AND file.source_archive_blob_id=?2
- UNION ALL SELECT asset.rowid FROM emulationstation_import_item_assets asset
- WHERE asset.item_id IN (SELECT id FROM game_emulationstation_items) AND asset.blob_id=?2
+ UNION ALL SELECT file.rowid FROM source_import_item_files file
+ WHERE file.item_id IN (SELECT id FROM game_source_items) AND file.blob_id=?2
+ UNION ALL SELECT file.rowid FROM source_import_item_files file
+ WHERE file.item_id IN (SELECT id FROM game_source_items) AND file.source_archive_blob_id=?2
+ UNION ALL SELECT asset.rowid FROM source_import_item_assets asset
+ WHERE asset.item_id IN (SELECT id FROM game_source_items) AND asset.blob_id=?2
 )
 `, gameID, blobID).Scan(&count)
 	if err != nil {

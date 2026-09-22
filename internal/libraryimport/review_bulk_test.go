@@ -46,8 +46,8 @@ func TestPreliminaryQuickApprovalReadyRequiresStrictCurrentReadyEvidence(t *test
 func TestNormalizeReviewBulkScopeRejectsMultipleSourceBatches(t *testing.T) {
 	t.Parallel()
 	_, err := normalizeReviewBulkScope(ReviewBulkScope{
-		ImportJobID:     "01980000-0000-7000-8000-000000000001",
-		PegasusImportID: "01980000-0000-7000-8000-000000000002",
+		ImportJobID:    "01980000-0000-7000-8000-000000000001",
+		SourceImportID: "01980000-0000-7000-8000-000000000002",
 	})
 	testassert.Truef(t, errors.Is(err, ErrReviewBulkInvalidScope), "error = %v", err)
 }

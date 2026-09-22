@@ -100,10 +100,9 @@ type (
 type (
 	MultiDiscAttachmentActivity struct{ Active, Retryable int64 }
 	MultiDiscAttachmentWrite    struct {
-		Input                                             MultiDiscAttachmentInput
-		JobID, AuditID, InputJSON, InputDigest, DedupeKey string
-		RequestVersion, Now                               int64
-		AuditJSON                                         string
+		Input                                    MultiDiscAttachmentInput
+		JobID, InputJSON, InputDigest, DedupeKey string
+		RequestVersion, Now                      int64
 	}
 )
 
@@ -122,7 +121,6 @@ type MultiDiscAttachmentQueue interface {
 type MultiDiscAttachmentReview interface {
 	Attachment(context.Context, MultiDiscAttachmentWrite) error
 	Draft(context.Context, MultiDiscAttachmentWrite) error
-	Audit(context.Context, MultiDiscAttachmentWrite) error
 }
 type MultiDiscAttachmentScope struct {
 	Read   MultiDiscAttachmentReader

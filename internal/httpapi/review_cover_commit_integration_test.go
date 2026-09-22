@@ -48,17 +48,17 @@ func TestReviewCoverConsumptionFailureRemainsServerError(t *testing.T) {
 	assertReviewCoverCounts(t, server, itemID, 0)
 }
 
-func TestReviewCoverReservedDraftCannotConsumeUpload(t *testing.T) {
+func TestReviewCoverDiscardedDraftCannotConsumeUpload(t *testing.T) {
 	t.Parallel()
 	server := newTestServer(t)
 	itemID := createReviewSnapshotItem(t, server)
 	fileID := createReviewCoverUpload(t, server)
-	if _, err := server.database.ExecContext(t.Context(), `UPDATE import_items SET review_handoff_kind='EMULATIONSTATION' WHERE id=?`, itemID); err != nil {
+	if _, err := server.database.ExecContext(t.Context(), `UPDATE import_items SET state='DISCARDED' WHERE id=?`, itemID); err != nil {
 		t.Fatal(err)
 	}
 	response := requestReviewCover(t, server, itemID, fileID)
 	if response.Code != http.StatusConflict {
-		t.Fatalf("reserved review accepted cover before handoff: status=%d body=%s", response.Code, response.Body.String())
+		t.Fatalf("discarded review accepted cover: status=%d body=%s", response.Code, response.Body.String())
 	}
 	assertReviewCoverCounts(t, server, itemID, 0)
 }

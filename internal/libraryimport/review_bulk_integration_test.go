@@ -120,16 +120,14 @@ VALUES(?,?,'bulk.review.admin','Bulk Review Admin','ADMIN','ENABLED',1,1)
 	}
 	testassert.Falsef(t, testassert.Any(func() bool { return summary.State != "COMPLETED" }, func() bool { return summary.Progress.Published != 2 }, func() bool { return summary.Progress.Processed != 2 }, func() bool { return summary.Progress.Failed != 0 }), "bulk result = %#v", summary)
 	var published, events, bulkItems int
-	var auditDiff string
 	if err := database.SQL.QueryRowContext(ctx, `
 SELECT (SELECT count(*) FROM games WHERE status='PUBLISHED'),
-       (SELECT count(*) FROM review_events WHERE event_type='APPROVED'),
-       (SELECT count(*) FROM review_bulk_approval_items WHERE bulk_approval_id=? AND state='PUBLISHED'),
-       (SELECT diff_json FROM review_events WHERE diff_json LIKE '%QUICK_STRICT_READY%' LIMIT 1)
-`, created.BulkApprovalID).Scan(&published, &events, &bulkItems, &auditDiff); err != nil {
+       (SELECT count(*) FROM import_items WHERE state='PUBLISHED'),
+       (SELECT count(*) FROM review_bulk_approval_items WHERE bulk_approval_id=? AND state='PUBLISHED')
+`, created.BulkApprovalID).Scan(&published, &events, &bulkItems); err != nil {
 		t.Fatal(err)
 	}
-	testassert.Falsef(t, testassert.Any(func() bool { return published != 2 }, func() bool { return events != 2 }, func() bool { return bulkItems != 2 }, func() bool { return !strings.Contains(auditDiff, created.BulkApprovalID) }, func() bool { return !strings.Contains(auditDiff, `"approvalMode":"QUICK_STRICT_READY"`) }), "published/events/items = %d/%d/%d diff=%s", published, events, bulkItems, auditDiff)
+	testassert.Falsef(t, testassert.Any(func() bool { return published != 2 }, func() bool { return events != 2 }, func() bool { return bulkItems != 2 }), "published/events/items = %d/%d/%d", published, events, bulkItems)
 	var importState string
 	if err := database.SQL.QueryRowContext(ctx, `SELECT state FROM import_jobs WHERE id=?`, firstImportID).
 		Scan(&importState); err != nil || importState != "COMPLETED" {

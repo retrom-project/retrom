@@ -80,12 +80,8 @@ func (service *Service) ReviewReferences(ctx context.Context, ids []string) (map
 	return service.references(ctx, OwnerReviewItem, ids)
 }
 
-func (service *Service) PegasusReferences(ctx context.Context, ids []string) (map[string][]Reference, error) {
-	return service.references(ctx, OwnerPegasusCollection, ids)
-}
-
-func (service *Service) EmulationStationReferences(ctx context.Context, ids []string) (map[string][]Reference, error) {
-	return service.references(ctx, OwnerEmulationStationCollection, ids)
+func (service *Service) SourceReferences(ctx context.Context, ids []string) (map[string][]Reference, error) {
+	return service.references(ctx, OwnerSourceCollection, ids)
 }
 
 func applyListCursor(filter ListFilter, query *ListQuery) error {
