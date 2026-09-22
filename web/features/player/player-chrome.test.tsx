@@ -27,8 +27,6 @@ function props(overrides: Partial<Parameters<typeof PlayerChrome>[0]> = {}): Par
     videoRenderingMode: "pixel",
     discSet: null,
     discState: null,
-    netplayPlayerNo: null,
-    netplayPaused: false,
     debugOpen: false,
     debugMetrics: null,
     debugRuntime: {
@@ -49,7 +47,6 @@ function props(overrides: Partial<Parameters<typeof PlayerChrome>[0]> = {}): Par
     onToggleEmulatorMute: vi.fn(),
     onChangeVideoRenderingMode: vi.fn(),
     onSelectDisc: vi.fn().mockResolvedValue(true),
-    onToggleNetplayPause: vi.fn(),
     onToggleDebug: vi.fn(),
     onGameSurface: vi.fn(),
     onExit: vi.fn(),
@@ -132,18 +129,6 @@ describe("PlayerChrome", () => {
     expect(dialog).not.toHaveTextContent("DOS");
   });
 
-  it("locks local save, pause, disc and emulator settings controls in netplay mode", async () => {
-    const user = userEvent.setup();
-    const values = props({ netplayPlayerNo: 1, netplayPaused: false });
-    render(<PlayerChrome {...values} />);
-    expect(screen.getByText("FinalBurn Neo · Arcade · 联机 · P1")).toBeVisible();
-    expect(screen.queryByRole("button", { name: "创建存档" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "暂停" })).not.toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "全局暂停" }));
-    expect(values.onToggleNetplayPause).toHaveBeenCalledOnce();
-    await user.click(screen.getByRole("button", { name: "更多操作" }));
-    expect(screen.queryByRole("menuitem", { name: "模拟器设置" })).not.toBeInTheDocument();
-  });
 
   it("shows the locked disc set and changes discs without exposing server paths", async () => {
     const user = userEvent.setup();
@@ -341,12 +326,6 @@ describe("PlayerChrome explicit resume", () => {
     expect(overlay.classList.contains("is-settings-passthrough")).toBe(false);
   });
 
-  it("keeps netplay resume under the session controller", async () => {
-    const values = props({paused: true, netplayPaused: true, netplayPlayerNo: 1});
-    render(<PlayerChrome {...values} />);
-    await userEvent.setup().click(screen.getByRole("button", {name: "继续游戏"}));
-    expect(values.onGameSurface).not.toHaveBeenCalled();
-  });
 
   it("does not resume behind an exit confirmation", async () => {
     const values = props({paused: true, debugOpen: true});

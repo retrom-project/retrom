@@ -59,7 +59,7 @@ Tag 删除与关系变化都在短数据库写事务内完成，不执行文件�
 
 游戏关键字 `q` 在 SQL 分页之前匹配既有游戏搜索文本或任一活动 Tag 名；`GET /games`、`GET /admin/games` 和 `GET /admin/reviews` 另接受一个精确 `tagId`。`q`、`tagId`、平台、目录和既有状态条件取交集，cursor digest 绑定 `tagId`，不能跨筛选复用。不存在或已删除 `tagId` 得到合法空页，格式非法仍是 `400 INVALID_REQUEST`。
 
-用户列表只投影 PUBLISHED 且目录可见 Game 的活动标签；管理列表可投影 PUBLISHED/DELETED Game 的活动标签。标签随 Game summary/detail 进入游戏库、首页、最近、收藏、存档、联机选择、管理游戏和审核；数组始终为 `[]` 或按稳定顺序排列的引用，不得为 null。游戏库、收藏卡片、我的存档分组和管理游戏列表不外露标签，仍保留数据投影和筛选能力；其他列表通常显示前 2–3 个和可访问的 `+N`，详情显示全部；Player 和运行时响应不携带标签。
+用户列表只投影 PUBLISHED 且目录可见 Game 的活动标签；管理列表可投影 PUBLISHED/DELETED Game 的活动标签。标签随 Game summary/detail 进入游戏库、首页、最近、收藏、存档、管理游戏和审核；数组始终为 `[]` 或按稳定顺序排列的引用，不得为 null。游戏库、收藏卡片、我的存档分组和管理游戏列表不外露标签，仍保留数据投影和筛选能力；其他列表通常显示前 2–3 个和可访问的 `+N`，详情显示全部；Player 和运行时响应不携带标签。
 
 标签管理页可读取 ACTIVE/DELETED 列表、summary 与 usage。DELETED 行只读且保留历史 usage；普通 USER 没有列出全实例 taxonomy 的端点，以免暴露不可见游戏使用的分类。
 

@@ -21,17 +21,6 @@ func (records retirementRecords) Change(ctx context.Context, value gamecontent.R
 		return requireChanged(records.executor.ExecContext(ctx, `UPDATE play_sessions
 SET state=?,ended_at_ms=?,updated_at_ms=?,version=version+1 WHERE id=? AND game_id=? AND version=? AND state=?`,
 			value.State, value.Now, value.Now, before.ID, value.GameID, before.Version, before.State))
-	case gamecontent.RetirementNetplay:
-		return requireChanged(recordstore.UpdateNetplaySessions(ctx, records.executor, recordstore.Update{
-			Set: `state=?,finished_at_ms=?,end_reason=?,updated_at_ms=?,version=version+1`, Scope: scope,
-			Values: []any{value.State, value.Now, value.Reason, value.Now},
-		}))
-	case gamecontent.RetirementRoom:
-		scope.Where = `id=? AND selected_game_id=? AND version=? AND state=?`
-		return requireChanged(recordstore.UpdateNetplayRooms(ctx, records.executor, recordstore.Update{
-			Set: `state=?,current_session_id=NULL,ended_at_ms=?,end_reason=?,updated_at_ms=?,version=version+1`, Scope: scope,
-			Values: []any{value.State, value.Now, value.Reason, value.Now},
-		}))
 	case gamecontent.RetirementVariant:
 		scope.Where = `id=? AND game_id=? AND version=? AND status=?`
 		return requireChanged(recordstore.UpdateGameVariants(ctx, records.executor, recordstore.Update{

@@ -32,7 +32,7 @@ _TARGET_KEYS = {
 }
 _CAPABILITY_KEYS = {
     "pause", "screenshot", "checkpoint", "standardGamepad", "frameCounter",
-    "volume", "discSwitch", "nativeSettings", "inputFilter", "netplayPort",
+    "volume", "discSwitch", "nativeSettings", "inputFilter",
     "videoModes", "requiresThreads", "frameMode",
 }
 _INPUT_KEYS = {"role", "kind", "cardinality", "optional"}
@@ -61,13 +61,10 @@ _AUTHORITY_FILES = (
     "fixtures/invalid/float-json-input.json",
     "fixtures/invalid/invalid-unicode.json",
     "fixtures/invalid/missing-capability.json",
-    "fixtures/invalid/netplay-mode-mismatch.json",
-    "fixtures/invalid/netplay-resource.json",
     "fixtures/invalid/unknown-top-level.json",
     "fixtures/invalid/unsafe-integer-json-input.json",
     "fixtures/target-options/schema-validation.json",
     "fixtures/valid/checkpoint-restore.json",
-    "fixtures/valid/netplay.json",
     "fixtures/valid/single-minimal.json",
 )
 _AUTHORITY_REPOSITORY = "https://github.com/retrom-project/retrom"
@@ -138,7 +135,7 @@ def parse_launch_envelope(contents: bytes) -> dict[str, object]:
 def validate_launch_envelope(value: object) -> None:
     envelope = _launch_record(value, "envelope")
     _launch_keys(envelope, {
-        "netplay", "resources", "restore", "runtime", "schemaVersion", "session", "targetOptions",
+        "resources", "restore", "runtime", "schemaVersion", "session", "targetOptions",
     }, "envelope")
     if envelope["schemaVersion"] != 1:
         _fail("envelope.schemaVersion must be 1")
@@ -147,7 +144,6 @@ def validate_launch_envelope(value: object) -> None:
     _validate_launch_resources(envelope["resources"])
     _validate_launch_options(envelope["targetOptions"])
     _validate_launch_restore(envelope["restore"], runtime["checkpoint"])
-    _validate_launch_netplay(envelope["netplay"], runtime["capabilities"], session)
 
 
 def _validate_launch_session(value: object) -> Mapping[str, object]:
@@ -156,7 +152,7 @@ def _validate_launch_session(value: object) -> Mapping[str, object]:
     if not isinstance(session["id"], str) or not re.fullmatch(
         r"[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}", session["id"]
     ) or session["purpose"] not in {"PRODUCT", "REVIEW_PREVIEW"} or \
-            session["mode"] not in {"SINGLE", "NETPLAY"}:
+            session["mode"] not in {"SINGLE"}:
         _fail("session identity, purpose, or mode is invalid")
     _launch_text(session["title"], 1, 500, "session.title")
     _launch_text(session["platformName"], 1, 200, "session.platformName")
@@ -201,7 +197,7 @@ def _validate_launch_runtime(value: object) -> Mapping[str, object]:
 def _validate_launch_capabilities(value: object) -> Mapping[str, object]:
     capabilities = _launch_record(value, "runtime.capabilities")
     keys = {
-        "checkpoint", "discSwitch", "frameCounter", "frameMode", "inputFilter", "nativeSettings", "netplayPort",
+        "checkpoint", "discSwitch", "frameCounter", "frameMode", "inputFilter", "nativeSettings",
         "pause", "requiresThreads", "screenshot", "standardGamepad", "videoModes", "volume",
     }
     _launch_keys(capabilities, keys, "runtime.capabilities")
@@ -322,28 +318,6 @@ def _validate_launch_restore(value: object, checkpoint_value: object) -> None:
     if restore["sizeBytes"] > checkpoint["maxBytes"]:
         _fail("restore exceeds checkpoint maxBytes")
     _launch_relative_url(restore["url"], "restore.url")
-
-
-def _validate_launch_netplay(value: object, capabilities_value: object, session: Mapping[str, object]) -> None:
-    capabilities = _launch_record(capabilities_value, "runtime.capabilities")
-    if value is None:
-        if session["mode"] == "NETPLAY":
-            _fail("NETPLAY session requires netplay configuration")
-        return
-    netplay = _launch_record(value, "netplay")
-    _launch_keys(netplay, {"playerNo", "profile", "roomId", "sessionId", "socketUrl"}, "netplay")
-    if session["mode"] != "NETPLAY" or capabilities["netplayPort"] is not True:
-        _fail("netplay configuration is unsupported")
-    _launch_text(netplay["roomId"], 1, 128, "netplay.roomId")
-    if not isinstance(netplay["sessionId"], str) or not re.fullmatch(
-        r"[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}", netplay["sessionId"]
-    ) or not isinstance(netplay["playerNo"], int) or isinstance(netplay["playerNo"], bool) or not 1 <= netplay["playerNo"] <= 16:
-        _fail("netplay identity is invalid")
-    if not isinstance(netplay["socketUrl"], str) or not re.fullmatch(r"wss?://[^#]+", netplay["socketUrl"]):
-        _fail("netplay.socketUrl is invalid")
-    _validate_launch_json(netplay["profile"], 0)
-    if not isinstance(netplay["profile"], Mapping):
-        _fail("netplay.profile must be an object")
 
 
 def _validate_launch_json(value: object, depth: int) -> None:

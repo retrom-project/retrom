@@ -2,7 +2,16 @@ import { expect, test } from "@playwright/test";
 
 test("ACC-TAG-005 repeated selection and creation keep tag controls open", async ({ page }, testInfo) => {
   const origin = process.env.RETROM_WEB_ORIGIN ?? "http://localhost:4000";
-  expect((await page.request.post("/api/v1/auth/login", { headers: { Origin: origin }, data: { username: "test", password: "test" } })).ok()).toBe(true);
+  const login = await page.request.post("/api/v1/auth/login", { headers: { Origin: origin }, data: { username: "test", password: "test" } });
+  expect(login.ok()).toBe(true);
+  const {csrfToken} = await login.json() as {csrfToken: string};
+  for (const suffix of ["一", "二"]) {
+    const created = await page.request.post("/api/v1/admin/tags", {
+      headers: {Origin: origin, "X-Retrom-Csrf": csrfToken, "Idempotency-Key": crypto.randomUUID()},
+      data: {name: `连续选择 ${testInfo.project.name} ${suffix}`},
+    });
+    expect(created.status()).toBe(201);
+  }
   await page.goto("/admin/games");
   await expect(page.locator(".admin-game-identity").first()).toBeVisible();
   await expect(page.locator(".admin-game-identity .tag-chips")).toHaveCount(0);

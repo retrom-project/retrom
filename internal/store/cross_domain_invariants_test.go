@@ -21,7 +21,7 @@ func TestCurrentCrossDomainInvariantsContainNoLegacyCompatibilityIndexes(t *test
 
 	names := queryStrings(t, database.SQL, `
 SELECT name FROM sqlite_schema
-WHERE name IN ('runtime_targets_game_compatibility','runtime_targets_netplay_compatibility',
+WHERE name IN ('runtime_targets_game_compatibility',
                'game_variant_runtime_packs_immutable_update','game_variant_runtime_packs_immutable_delete')
 ORDER BY name`)
 	testassert.Truef(t, len(names) == 0, "legacy compatibility/current-state immutability objects remain: %v", names)
@@ -76,17 +76,6 @@ func TestCurrentSessionSnapshotsRejectForeignGameVariantAndLaunchOwners(t *testi
 	defer func() { cleanup.Error("close", database.Close()) }()
 	seedCurrentRuntimeGraph(t, database.SQL)
 
-	_, err = recordstore.CreateNetplayRooms(t.Context(), database.SQL, `
-INSERT INTO netplay_rooms(
- id,host_profile_id,state,selected_game_id,selected_game_variant_id,netplay_profile_id,
- profile_digest,max_players,expires_at_ms,created_at_ms,updated_at_ms
-) VALUES(
- 'foreign-room','current-profile','WAITING','current-game-a','current-variant-b','current-profile-v1',
- 'dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd',2,100,1,1
-)`)
-	testassert.Truef(t, err != nil && strings.Contains(err.Error(), "invalid netplay game variant"),
-		"foreign netplay room variant error = %v", err)
-
 	_, err = recordstore.CreateLaunchSessions(t.Context(), database.SQL, currentLaunchInsertSQL,
 		"foreign-target-launch", "current-game-a", "target-b")
 	testassert.Truef(t, err != nil && strings.Contains(err.Error(), "invalid runtime target snapshot"),
@@ -99,21 +88,6 @@ INSERT INTO netplay_rooms(
 	testassert.Truef(t, err != nil && strings.Contains(err.Error(), "invalid runtime checkpoint snapshot"),
 		"foreign save source launch error = %v", err)
 	_, err = recordstore.CreateSaveStates(t.Context(), database.SQL, currentSaveInsertSQL, "current-save", "current-game-a")
-	testassert.False(t, err != nil, err)
-
-	_, err = recordstore.CreateNetplayRooms(t.Context(), database.SQL, `
-INSERT INTO netplay_rooms(
- id,host_profile_id,state,selected_game_id,selected_game_variant_id,netplay_profile_id,
- profile_digest,max_players,expires_at_ms,created_at_ms,updated_at_ms
-) VALUES(
- 'current-room','current-profile','WAITING','current-game-a','current-variant-a','current-profile-v1',
- 'dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd',2,100,1,1
-)`)
-	testassert.False(t, err != nil, err)
-	_, err = recordstore.CreateNetplaySessions(t.Context(), database.SQL, currentNetplaySessionInsertSQL, "foreign-session", "target-b")
-	testassert.Truef(t, err != nil && strings.Contains(err.Error(), "invalid netplay session snapshot"),
-		"foreign netplay session target error = %v", err)
-	_, err = recordstore.CreateNetplaySessions(t.Context(), database.SQL, currentNetplaySessionInsertSQL, "current-session", "target-a")
 	testassert.False(t, err != nil, err)
 }
 
@@ -138,16 +112,6 @@ INSERT INTO save_states(
  'Current save',1,1,1,1,'current-launch'
 )`
 
-const currentNetplaySessionInsertSQL = `
-INSERT INTO netplay_sessions(
- id,room_id,session_no,state,game_id,game_variant_id,provider_id,target_id,bundle_sha256,
- netplay_profile_id,profile_json,profile_digest,player_count,occupied_seat_mask,created_at_ms,updated_at_ms
-) VALUES(
- ?,'current-room',1,'PREPARING','current-game-a','current-variant-a','current-provider',?,
- 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa','current-profile-v1','{}',
- 'dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd',2,3,1,1
-)`
-
 func seedCurrentRuntimeGraph(t *testing.T, database *sql.DB) {
 	t.Helper()
 	seedSchemaProductDefinitions(t, database)
@@ -164,9 +128,9 @@ func seedCurrentRuntimeGraph(t *testing.T, database *sql.DB) {
 		`INSERT INTO runtime_targets(
  provider_id,target_id,display_name,target_options_schema_json,capabilities_json,checkpoint_json,manifest_fragment_json
 ) VALUES
- ('current-provider','target-a','Target A','{"type":"object"}','{"netplayPort":true}',
+ ('current-provider','target-a','Target A','{"type":"object"}','{}',
   '{"writeFormat":"state-v1","readFormats":["state-v1"],"maxBytes":1024}','{}'),
- ('current-provider','target-b','Target B','{"type":"object"}','{"netplayPort":true}',
+ ('current-provider','target-b','Target B','{"type":"object"}','{}',
   '{"writeFormat":"state-v1","readFormats":["state-v1"],"maxBytes":1024}','{}')`,
 		`INSERT INTO runtime_target_bindings(
  binding_id,core_id,provider_id,target_id,detector_profile,delivery_profile,launch_policy

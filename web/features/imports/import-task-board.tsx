@@ -183,7 +183,7 @@ function TaskPrimaryAction({ expanded, isMultiDisc, issueCount, item, onToggle }
   if (item.reviewPendingItemCount) {return <Link aria-label="查看待审核" className="button" href={`/admin/reviews?importJobId=${item.id}`}>审核 {item.reviewPendingItemCount} 个条目</Link>;}
   if (issueCount) {return null;}
   if (item.state === "COMPLETED" && item.alreadyImportedItemCount) {return <button className="button secondary" type="button" aria-expanded={expanded} onClick={onToggle}>{expanded ? "收起详情" : "查看已跳过"}</button>;}
-  if (item.state === "COMPLETED") {return <Link className="button secondary" href="/admin/reviews/history">查看结果</Link>;}
+  if (item.state === "COMPLETED") {return <button className="button secondary" type="button" aria-expanded={expanded} onClick={onToggle}>{expanded ? "收起详情" : "查看结果"}</button>;}
   if (!isMultiDisc) {return <button className="button secondary" type="button" aria-expanded={expanded} onClick={onToggle}>{expanded ? "收起详情" : "查看进度"}</button>;}
   return null;
 }

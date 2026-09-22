@@ -70,7 +70,6 @@ async function verifyPageLayouts(page: Page) {
   const routes = [
     ["/", ".home-page"], ["/library", ".page-layout-library"], ["/saves", ".page-layout-saves"],
     ["/favorites", ".favorite-page:not(.favorite-loading-shell)"], ["/recent", ".page-layout-recent"], ["/account", ".page-layout-detail"],
-    ["/netplay", '.netplay-page:not([role="status"])'],
   ] as const;
   let shared: HorizontalGaps | null = null;
   for (const [route, selector] of routes) {

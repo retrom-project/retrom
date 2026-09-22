@@ -147,7 +147,7 @@ test("ACC-MOB-001 exact phone and tablet shell baselines have no page overflow",
 test("ACC-MOB-002 user routes, filter sheet, active navigation and accessibility remain usable", async ({ page }) => {
   test.setTimeout(180_000);
   await page.setViewportSize({ width: 390, height: 844 });
-  const routes = ["/", "/library", "/me", "/saves", "/favorites", "/recent", "/netplay", "/account"];
+  const routes = ["/", "/library", "/me", "/saves", "/favorites", "/recent", "/account"];
   for (const route of routes) {
     await page.goto(route);
     await expect(page.locator("main").first()).toBeVisible();
@@ -302,7 +302,7 @@ test("ACC-MOB-004 phone administration links lead back to play without mounting 
   await page.setViewportSize({ width: 390, height: 844 });
   const routes = [
     "/admin/imports", "/admin/imports/new", "/admin/imports/server", "/admin/imports/tasks",
-    "/admin/reviews", "/admin/reviews/history", "/admin/games", "/admin/platform-instances",
+    "/admin/reviews", "/admin/games", "/admin/platform-instances",
     "/admin/users", "/admin/bios", "/admin/storage",
   ];
   for (const route of routes) {

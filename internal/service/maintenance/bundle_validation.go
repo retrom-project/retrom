@@ -64,7 +64,6 @@ func loadBundleManifest(root string, lineage Lineage) (Manifest, error) {
 type manifestInventory struct {
 	databaseCount int64
 	launchKeys    int64
-	netplayKeys   int64
 	blobs         int64
 	parts         int64
 }
@@ -81,7 +80,7 @@ func validateManifestFiles(manifest Manifest) (map[string]FileEntry, error) {
 		previous = entry.Path
 		expected[entry.Path] = entry
 	}
-	if inventory.databaseCount != 1 || inventory.launchKeys != 1 || inventory.netplayKeys != 1 ||
+	if inventory.databaseCount != 1 || inventory.launchKeys != 1 ||
 		inventory.blobs != manifest.Counts.BlobCount || inventory.parts != manifest.Counts.UploadPartCount {
 		return nil, ErrInvalidBundle
 	}
@@ -123,9 +122,6 @@ func validateManifestEntryKind(entry FileEntry, manifest Manifest, inventory *ma
 	case "LAUNCH_KEY":
 		inventory.launchKeys++
 		return validateSecretManifestEntry(entry, "secrets/launch-capability.key")
-	case "NETPLAY_KEY":
-		inventory.netplayKeys++
-		return validateSecretManifestEntry(entry, "secrets/netplay-capability.key")
 	case "DEPENDENCY_MANIFEST", "DEPENDENCY_SHA256SUMS":
 		return requireManifestEntry(strings.HasPrefix(entry.Path, "dependencies/emulatorjs/"))
 	default:

@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -24,61 +23,11 @@ import (
 
 	"retrom/internal/contentcapability"
 	"retrom/internal/libraryimport"
-	"retrom/internal/netplay"
 	"retrom/internal/platformcatalog"
 	libraryservice "retrom/internal/service/libraryimport"
 	"retrom/internal/testassert"
 	"retrom/internal/testsupport"
 )
-
-func TestAdminPlatformsProjectsManifestBoundNetplayCapability(t *testing.T) {
-	t.Parallel()
-	server := newTestServer(t)
-	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database)).Bootstrap(t.Context(), time.UnixMilli(1_786_000_000_000)); err != nil {
-		t.Fatal(err)
-	}
-	repositoryRoot, err := filepath.Abs(filepath.Join("..", ".."))
-	testassert.False(t, err != nil, err)
-	registry, err := netplay.LoadRegistry(filepath.Join(repositoryRoot, "data"), server.dependencies)
-	testassert.False(t, err != nil, err)
-	credentials, err := netplay.LoadOrCreateCredentials(server.config.DataDir)
-	testassert.False(t, err != nil, err)
-	server.WithNetplay(composition.NewNetplay(server.database, registry, credentials, netplay.Options{}, time.Now))
-
-	response := httptest.NewRecorder()
-	server.platforms(response, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/admin/platforms", nil))
-	testassert.Falsef(t, response.Code != http.StatusOK, "platform response = %d %s", response.Code, response.Body.String())
-	var body struct {
-		Items []struct {
-			ID    string `json:"id"`
-			Cores []struct {
-				ID               string `json:"id"`
-				NetplaySupported bool   `json:"netplaySupported"`
-			} `json:"cores"`
-		} `json:"items"`
-	}
-	if err := json.Unmarshal(response.Body.Bytes(), &body); err != nil {
-		t.Fatal(err)
-	}
-	support := make(map[string]bool)
-	for _, platform := range body.Items {
-		seen := make(map[string]struct{}, len(platform.Cores))
-		for _, core := range platform.Cores {
-			if _, exists := seen[core.ID]; exists {
-				t.Fatalf("platform %s projected duplicate core %s", platform.ID, core.ID)
-			}
-			seen[core.ID] = struct{}{}
-			support[platform.ID+"/"+core.ID] = core.NetplaySupported
-		}
-	}
-	for _, key := range []string{
-		"nes/fceumm", "nes/nestopia", "snes/snes9x", "arcade/fbneo", "arcade/mame2003",
-		"arcade/mame2003_plus", "arcade/fbalpha2012_cps1", "arcade/fbalpha2012_cps2",
-	} {
-		testassert.Truef(t, support[key], "%s should be marked netplay capable", key)
-	}
-	testassert.False(t, support["gba/mgba"], "mGBA should not be marked netplay capable")
-}
 
 func TestRecommendedPlatformDirectoryHTTPApplyIsAtomicAndIdempotent(t *testing.T) {
 	t.Parallel()

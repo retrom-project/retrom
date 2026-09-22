@@ -182,7 +182,7 @@ export function ImmersiveEntryDialog({ source = browserGamepadSource }: { source
       >
         <p className={styles.entryEyebrow}>检测到标准布局手柄</p>
         <h1 id="immersive-entry-title">进入沉浸模式？</h1>
-        <p id="immersive-entry-description">使用手柄按平台浏览并启动游戏。沉浸模式采用独立的大屏界面，不包含存档、联机和管理功能。</p>
+        <p id="immersive-entry-description">使用手柄按平台浏览并启动游戏。沉浸模式采用独立的大屏界面，不包含存档和管理功能。</p>
         <div className={styles.entryActions}>
           <button
             ref={cancelButtonRef}

@@ -22,7 +22,6 @@
 /web/.next-e2e/
 /web/.next-build/
 /web/.next-runtime-dev/
-/web/.next-netplay-*/
 /web/.next-acc-rpg-*/
 /web/.next-pfb-*/
 /web/out/
@@ -42,8 +41,6 @@
 /data/dat/**/__pycache__/
 !/data/auth/
 !/data/auth/**
-!/data/netplay/
-!/data/netplay/**
 !/data/runtime-target-bindings/
 !/data/runtime-target-bindings/**
 !/data/runtime-providers/

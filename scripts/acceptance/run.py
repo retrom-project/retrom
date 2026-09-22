@@ -109,7 +109,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     ),
     "ACC-DEV-001": (180, "scripts/acceptance/local-development.sh"),
     "ACC-NET-001": (180, "scripts/acceptance/network-boundary.sh"),
-    "ACC-DB-001": (120, "go test -tags=integration ./internal/store -run '^Test(Bootstrap|MigrationsCreateCurrent|Schema|Fresh|CurrentCrossDomain|CurrentSession|Application|ActiveNetplay|InvalidSession|BatchAdmin|Launch|SaveCreation|NativeLaunch)' -count=1"),
+    "ACC-DB-001": (120, "go test -tags=integration ./internal/store -run '^Test(Bootstrap|MigrationsCreateCurrent|Schema|Fresh|CurrentCrossDomain|CurrentSession|Application|InvalidSession|BatchAdmin|Launch|SaveCreation|NativeLaunch)' -count=1"),
     "ACC-DB-002": (120, "go test -tags=integration ./internal/store -run '^Test(CurrentMigration|MigrationPreflight|FailedMigration)' -count=1 && go test -tags=integration ./internal/service/maintenance ./internal/persistence/maintenance -run '^TestBackupRestoreRoundTripAndOnlineRefusal$' -count=1"),
     "ACC-STOR-002": (180, "go test ./internal/service/importdiscard ./internal/persistence/importdiscard ./internal/httpapi -run '^TestDiscard|^TestImportBatchDiscard' -count=1 && cd web && npm exec vitest run features/imports/import-batch-discard.test.tsx"),
     "ACC-CAS-001": (120, "go test ./internal/blobstore -run '^TestPutDeduplicatesConcurrentContent$' -count=1"),
@@ -412,33 +412,6 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
         180,
         "go test -tags=integration ./internal/service/saves ./internal/persistence/saves -run '^TestManualStateRequiresAtomicNonEmptyStateAndScreenshot$' -count=1 && make web-test",
     ),
-    "ACC-NP-010": (
-        120,
-        "go test ./internal/netplay ./internal/netplay/capability ./internal/httpapi "
-        "-run 'TestAcceptanceNP010|TestDecodeClientMessageRejectsUnknownDuplicateDeepAndOversizeInput|TestStateFrameBindsHeaderAndLength|TestStateFrameTreatsProviderCheckpointAsOpaqueBytes|TestCredentialIsPurposeBoundAndStoredOwnerOnly' -count=1",
-    ),
-    "ACC-NP-011": (
-        180,
-        "go test ./internal/netplay "
-        "-run 'TestAcceptanceNP011' -count=1 && go test ./internal/config ./internal/httpapi "
-        "-run 'TestParseNetplayCapacityAndFixedProtocolTimers|TestNetplayFeatureFlagHidesRoutesAndAuthProjection' -count=1 && "
-        ".cache/tools/node-v24.18.0-linux-x64/bin/npm --prefix web test -- --run components/app-shell.test.tsx",
-    ),
-    "ACC-NP-012": (
-        120,
-        "go test ./internal/netplay -run 'TestAcceptanceNP012|TestGamePageBoundsInitialCatalogWorkAndUsesStableCursor' -count=1 && "
-        ".cache/tools/node-v24.18.0-linux-x64/bin/npm --prefix web test -- --run features/netplay/room-lobby.test.tsx",
-    ),
-    "ACC-NP-013": (180, "scripts/acceptance/netplay-single-regression.sh"),
-    "ACC-NP-014": (240, "scripts/acceptance/ui-case.sh ACC-NP-014"),
-    "ACC-NP-015": (240, "scripts/acceptance/ui-case.sh ACC-NP-015"),
-    "ACC-NP-016": (240, "scripts/acceptance/ui-case.sh ACC-NP-016"),
-    "ACC-NP-017": (300, "scripts/acceptance/ui-case.sh ACC-NP-017"),
-    "ACC-NP-018": (300, "scripts/acceptance/ui-case.sh ACC-NP-018"),
-    "ACC-NP-019": (300, "scripts/acceptance/ui-case.sh ACC-NP-019"),
-    "ACC-NP-020": (300, "scripts/acceptance/ui-case.sh ACC-NP-020"),
-    "ACC-NP-021": (300, "scripts/acceptance/ui-case.sh ACC-NP-021"),
-    "ACC-NP-022": (300, "scripts/acceptance/ui-case.sh ACC-NP-022"),
     "ACC-PLAY-001": (120, "go test -tags=integration ./internal/launch -run 'TestConfig|TestRecordPlay|TestPlay|TestPublishedGameLaunchLocksContentAndCredential|TestResourceQueries|TestPreviewBundleReadsAuthority|TestPreviewProjectRepository|TestProduct|TestPreview|TestScreenshot' -count=1 && go test ./internal/service/launch ./internal/persistence/launch -count=1"),
     "ACC-MDISC-001": (
         600,

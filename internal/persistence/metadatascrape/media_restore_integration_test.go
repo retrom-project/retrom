@@ -122,7 +122,7 @@ func backupRestoreMedia(t *testing.T, path string) string {
 	if err := os.MkdirAll(filepath.Join(data, "secrets"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	for _, name := range []string{"launch-capability.key", "netplay-capability.key"} {
+	for _, name := range []string{"launch-capability.key"} {
 		if err := os.WriteFile(filepath.Join(data, "secrets", name), bytes.Repeat([]byte{0x37}, 32), 0o600); err != nil {
 			t.Fatal(err)
 		}

@@ -32,7 +32,6 @@ import (
 	"retrom/internal/blobstore"
 	"retrom/internal/config"
 	"retrom/internal/dependencies"
-	"retrom/internal/netplay"
 	tagpersistence "retrom/internal/persistence/tagging"
 	"retrom/internal/processlock"
 	retromruntime "retrom/internal/runtime"
@@ -201,9 +200,6 @@ func TestBackupRestoreRoundTripAndOnlineRefusal(t *testing.T) {
 	}
 	credentials, err := retromruntime.LoadOrCreateCredentials(dataDir)
 	testassert.False(t, err != nil, err)
-	if _, err := netplay.LoadOrCreateCredentials(dataDir); err != nil {
-		t.Fatal(err)
-	}
 	accountService, err := composition.NewAccounts(
 		ctx, database.SQL, credentials, config.ModeTest, authn.EmptyBlocklist{}, time.Now,
 	)

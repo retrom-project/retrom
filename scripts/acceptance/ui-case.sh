@@ -133,7 +133,7 @@ if [[ "$case_id" =~ ^ACC-RUN-0(08|09|10|11|12)$ ]]; then
     RETROM_ACCEPTANCE_ORIGIN="$web_origin" \
     RETROM_ACCEPTANCE_BACKEND="$backend_origin" \
     RETROM_ACCEPTANCE_RESULT_FILE="$core_expansion_result" \
-      scripts/acceptance/netplay-nes-flow.sh "$fixture_id"
+      scripts/acceptance/console-flow.sh "$fixture_id"
   else
     go run scripts/acceptance/seed-public-arcade-dat.go \
       --database "$temporary_root/data/retrom.db" --fixture "$fixture_id"
@@ -201,49 +201,6 @@ if [[ "$case_id" == "ACC-RUN-007" ]]; then
   python3 scripts/acceptance/seed-arcade-current-launch.py "$temporary_root/data/retrom.db" fbneo
 fi
 
-netplay_nes_result="$temporary_root/netplay-nes.json"
-netplay_fbneo_result="$temporary_root/netplay-fbneo.json"
-if [[ "$case_id" =~ ^ACC-NP-01[456]$ ]]; then
-  RETROM_ACCEPTANCE_ORIGIN="$web_origin" \
-  RETROM_ACCEPTANCE_BACKEND="$backend_origin" \
-  RETROM_ACCEPTANCE_RESULT_FILE="$netplay_nes_result" \
-    scripts/acceptance/netplay-nes-flow.sh
-  go run scripts/acceptance/seed-public-arcade-dat.go \
-    --database "$temporary_root/data/retrom.db" --fixture fbneo
-  RETROM_ACCEPTANCE_ORIGIN="$web_origin" \
-  RETROM_ACCEPTANCE_BACKEND="$backend_origin" \
-  RETROM_ACCEPTANCE_RESULT_FILE="$netplay_fbneo_result" \
-    scripts/acceptance/arcade-flow.sh fbneo
-fi
-
-netplay_expansion_result="$temporary_root/netplay-expansion.json"
-if [[ "$case_id" =~ ^ACC-NP-(01[789]|02[012])$ ]]; then
-  case "$case_id" in
-    ACC-NP-017) fixture_id="snes9x"; profile_id="snes9x-423-v1" ;;
-    ACC-NP-018) fixture_id="nestopia"; profile_id="nestopia-423-v1" ;;
-    ACC-NP-019) fixture_id="mame2003"; profile_id="mame2003-423-override-v1" ;;
-    ACC-NP-020) fixture_id="mame2003_plus"; profile_id="mame2003-plus-423-v1" ;;
-    ACC-NP-021) fixture_id="fbalpha2012_cps1"; profile_id="fbalpha2012-cps1-423-v1" ;;
-    ACC-NP-022) fixture_id="fbalpha2012_cps2"; profile_id="fbalpha2012-cps2-423-v1" ;;
-  esac
-  if [[ "$fixture_id" == "snes9x" || "$fixture_id" == "nestopia" ]]; then
-    RETROM_ACCEPTANCE_ORIGIN="$web_origin" \
-    RETROM_ACCEPTANCE_BACKEND="$backend_origin" \
-    RETROM_ACCEPTANCE_RESULT_FILE="$netplay_expansion_result.source" \
-      scripts/acceptance/netplay-nes-flow.sh "$fixture_id"
-  else
-    go run scripts/acceptance/seed-public-arcade-dat.go \
-      --database "$temporary_root/data/retrom.db" --fixture "$fixture_id"
-    RETROM_ACCEPTANCE_ORIGIN="$web_origin" \
-    RETROM_ACCEPTANCE_BACKEND="$backend_origin" \
-    RETROM_ACCEPTANCE_RESULT_FILE="$netplay_expansion_result.source" \
-      scripts/acceptance/arcade-flow.sh "$fixture_id"
-  fi
-  jq -c --arg caseId "$case_id" --arg profileId "$profile_id" \
-    '. + {caseId:$caseId,profileId:$profileId}' \
-    "$netplay_expansion_result.source" >"$netplay_expansion_result"
-fi
-
 if [[ "$case_id" == "ACC-BIOS-007" ]]; then
   python3 scripts/acceptance/seed-bios-catalog.py "$temporary_root/data/retrom.db" 286
 fi
@@ -283,9 +240,6 @@ fi
 if [[ "$case_id" =~ ^ACC-IMM-(009|010|011)$ ]]; then
   specification="e2e/immersive-library.spec.ts"
 fi
-if [[ "$case_id" =~ ^ACC-NP-(01[456789]|02[012])$ ]]; then
-  specification="e2e/netplay.spec.ts"
-fi
 if [[ "$case_id" =~ ^ACC-MOB-00[1-7]$ ]]; then
   specification="e2e/mobile.spec.ts"
 fi
@@ -314,10 +268,6 @@ core_expansion_results='[]'
 if [[ -f "$core_expansion_result" ]]; then
   core_expansion_results="$(jq -sc '.' "$core_expansion_result")"
 fi
-netplay_expansion_results='[]'
-if [[ -f "$netplay_expansion_result" ]]; then
-  netplay_expansion_results="$(jq -sc '.' "$netplay_expansion_result")"
-fi
 # Chrome's Unix SingletonSocket must fit sockaddr_un even when build/data
 # TMPDIR points into a deep PFB worktree. Only browser temporaries use /tmp;
 # the Case data root and server processes retain the caller's chosen TMPDIR.
@@ -326,14 +276,9 @@ fi
   RETROM_WEB_ORIGIN="$web_origin" \
   RETROM_E2E_SERVER_SOURCE="$temporary_root/source" \
   RETROM_E2E_DATABASE="$temporary_root/data/retrom.db" \
-  RETROM_NETPLAY_NES_GAME_ID="$(jq -r '.gameId // empty' "$netplay_nes_result" 2>/dev/null || true)" \
-  RETROM_NETPLAY_NES_FIXTURE_SHA256="$(jq -r '.fixtureSha256 // empty' "$netplay_nes_result" 2>/dev/null || true)" \
-  RETROM_NETPLAY_FBNEO_GAME_ID="$(jq -r '.gameId // empty' "$netplay_fbneo_result" 2>/dev/null || true)" \
-  RETROM_NETPLAY_FBNEO_FIXTURE_SHA256="$(jq -r '.fixtureSha256 // empty' "$netplay_fbneo_result" 2>/dev/null || true)" \
   RETROM_MAME2003_PLATFORM_INSTANCE_ID="$(jq -r '.platformInstanceId // empty' "$temporary_root/mame2003.json" 2>/dev/null || true)" \
   RETROM_FBNEO_PLATFORM_INSTANCE_ID="$(jq -r '.platformInstanceId // empty' "$temporary_root/fbneo.json" 2>/dev/null || true)" \
   RETROM_CORE_EXPANSION_RESULTS="$core_expansion_results" \
-  RETROM_NETPLAY_EXPANSION_RESULTS="$netplay_expansion_results" \
   RETROM_ACCEPTANCE_CASE_DIR="${RETROM_ACCEPTANCE_CASE_DIR:-}" \
   npm exec -- "${playwright_args[@]}")
 

@@ -403,7 +403,7 @@ ImportItem 进入 `PUBLISHED/DISCARDED/FAILED_FINAL/CANCELLED` 后异步释放�
 
 “运行游戏”同步打开子窗体并冲刷尚未保存的草稿；客户端与已读取快照相同时不发送无变化 PATCH。服务端校验并冻结当前审核来源、Target 与实际依赖，普通 Player 负责启动、输入、按需截图、checkpoint、恢复和退出，不创建 Game 或正式 PlaySession。STATIC 与 ARCADE dependency snapshot 均为 schemaVersion=1，按 `kind` 分支装配：Arcade Parent/BIOS 只来自冻结的 ValidationFiles，STATIC 按 BIOS snapshot 装配；非 RPG 最佳努力诊断可省略缺失依赖，RPG Maker 不以诊断或截图绕过依赖要求。
 
-截图由管理员点击普通工具栏的“保存审核截图”创建并通知原审核页刷新，不设固定时长或核心专用启动回调。对于非 RPG 的人工放行，发布事务必须证明截图、当前 Validation、来源快照、目录与 Provider Target 一致，并记录 `REVIEW_SCREENSHOT_OVERRIDE` 和截图 ID；普通单机沿用该最佳努力依赖集合，Netplay 不继承放行。输入发生实质变化时旧截图退出当前投影，需在当前 Preview 重新截图。截图保存失败、弹窗被阻止或核心启动失败必须明确显示错误。所有 Preview 都可按需重复保存会话级临时 checkpoint，并用已有 checkpoint 开启新的恢复 Preview；原 Preview 无需先结束，后续保存也不改变已创建恢复会话的 payload。临时 checkpoint 不进入 `/saves` 或持久用户存档升级门槛，到期或审核结束时释放。
+截图由管理员点击普通工具栏的“保存审核截图”创建并通知原审核页刷新，不设固定时长或核心专用启动回调。对于非 RPG 的人工放行，发布事务必须证明截图、当前 Validation、来源快照、目录与 Provider Target 一致，并记录 `REVIEW_SCREENSHOT_OVERRIDE` 和截图 ID；普通单机沿用该最佳努力依赖集合。输入发生实质变化时旧截图退出当前投影，需在当前 Preview 重新截图。截图保存失败、弹窗被阻止或核心启动失败必须明确显示错误。所有 Preview 都可按需重复保存会话级临时 checkpoint，并用已有 checkpoint 开启新的恢复 Preview；原 Preview 无需先结束，后续保存也不改变已创建恢复会话的 payload。临时 checkpoint 不进入 `/saves` 或持久用户存档升级门槛，到期或审核结束时释放。
 
 截图保存由 `internal/service/launch.ScreenshotSaver` 编排：先验证 Preview capability，再在数据库事务外有界读取和检查 PNG/JPEG，最后在写事务重验当前审核、保留的 payload、来源、启用的目录、最新 Validation、Provider Target 与会话有效期。最终权限判断和 `captured_at_ms` 使用同一时刻；数据库或读取失败保留原因，不能伪装成凭证错误。Blob 登记、清除旧 Validation 截图和替换当前截图原子提交；重复保存生成新 ID，保留首次创建时间，提交失败不返回成功结果。
 
@@ -564,4 +564,4 @@ OpenBOR 平台与核心均为 `openbor`，对应 `retrom-runtime/openbor`。导�
 单个匹配媒体的运输格式，不展开为游戏项目或多盘集合。Extension 只决定候选，真实可运行性由核心预览检查。
 Preview 和 Product Launch 均以 `ROM_BLOB` 交付冻结的媒体 URL、准确字节数与 SHA-256；运行时最大 16 MiB。
 本次固定为 MSX2+ 日本机器，不增加用户 BIOS 安装或新内容类型。存档与截图走现有公共产品路径。
-初始兼容性证据只覆盖所选卡带，磁盘/磁带软件的启动命令和兼容性须逐项验证；不声明多盘、turbo R 或联机。
+初始兼容性证据只覆盖所选卡带，磁盘/磁带软件的启动命令和兼容性须逐项验证；不声明多盘或 turbo R。

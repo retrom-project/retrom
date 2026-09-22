@@ -11,7 +11,7 @@ const anonymous: AuthContext = {
   idleExpiresAtMs: null,
   absoluteExpiresAtMs: null,
   testDefaultAccountActive: false,
-  netplayEnabled: false
+
 };
 
 const administrator: AuthContext = {

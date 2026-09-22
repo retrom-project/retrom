@@ -138,7 +138,6 @@ function fixtureRuntime() {
     getCheckpointAvailability: () => ({available: false, reason: "UNSUPPORTED"}),
     getDiscState: vi.fn(async () => {throw new Error("unused");}),
     getFrameCount: () => null, getState: () => "CREATED" as const,
-    getNetplayPort: vi.fn(async () => {throw new Error("unused");}),
     mount: vi.fn(async () => undefined), pause: vi.fn(async () => undefined),
     openNativeSettings: vi.fn(async () => {throw new Error("unused");}),
     resume: vi.fn(async () => undefined), screenshot: vi.fn(async () => new Blob()),
@@ -154,10 +153,10 @@ function fixtureRuntime() {
 function envelope(): LaunchEnvelopeV1 {
   const bundle = "b".repeat(64);
   return {
-    netplay: null, resources: [], restore: null, schemaVersion: 1,
+    resources: [], restore: null, schemaVersion: 1,
     runtime: {
       bundleSha256: bundle, capabilities: {checkpoint: false, frameCounter: false, frameMode: "NONE",
-        discSwitch: false, inputFilter: false, nativeSettings: false, netplayPort: false, pause: false,
+        discSwitch: false, inputFilter: false, nativeSettings: false, pause: false,
         requiresThreads: false, screenshot: false, standardGamepad: false,
         videoModes: [], volume: false}, checkpoint: null,
       moduleSha256: "a".repeat(64), moduleUrl: `/runtime/providers/fixture/${bundle}/client.mjs`,

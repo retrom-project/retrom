@@ -54,20 +54,19 @@ func validSessionStub() *sessionReaderStub {
 	return &sessionReaderStub{session: activeSession(), found: true}
 }
 
-func TestSaveAccessAllowsCreatedAndActiveSessionsOnly(t *testing.T) {
+func TestAuthorizeSaveAllowsCreatedAndActiveSessionsOnly(t *testing.T) {
 	t.Parallel()
 	for _, state := range []string{"CREATED", "ACTIVE", "FINISHED", "EXPIRED", "REVOKED", "unknown"} {
 		reader := validSessionStub()
 		reader.session.State = state
-		reader.session.SaveAccess = "NETPLAY_DISABLED"
 		service := NewSessionQueries(reader, nil, queryClock, matchTestCapability)
-		actual, err := service.SaveAccess(t.Context(), "launch", "valid")
+		err := service.AuthorizeSave(t.Context(), "launch", "valid")
 		if state == "CREATED" || state == "ACTIVE" {
-			if err != nil || actual != "NETPLAY_DISABLED" {
-				t.Fatalf("state=%s access=%s error=%v", state, actual, err)
+			if err != nil {
+				t.Fatalf("state=%s error=%v", state, err)
 			}
-		} else if !errors.Is(err, ErrCredential) || actual != "" {
-			t.Fatalf("state=%s access=%s error=%v", state, actual, err)
+		} else if !errors.Is(err, ErrCredential) {
+			t.Fatalf("state=%s error=%v", state, err)
 		}
 	}
 }
@@ -148,8 +147,8 @@ func TestSessionQueriesPreserveStorageCausesWithoutPartialResults(t *testing.T) 
 	reader.failure = context.Canceled
 	assets := &targetAssetsStub{found: true, paths: []string{"asset"}}
 	service := NewSessionQueries(reader, assets, queryClock, matchTestCapability)
-	if result, err := service.SaveAccess(t.Context(), "id", "valid"); result != "" || !errors.Is(err, context.Canceled) {
-		t.Fatalf("save=%s error=%v", result, err)
+	if err := service.AuthorizeSave(t.Context(), "id", "valid"); !errors.Is(err, context.Canceled) {
+		t.Fatalf("save error=%v", err)
 	}
 	if result, err := service.BundleFiles(t.Context(), SessionRef{ID: "id"}, "valid", "PARENT"); result != nil || !errors.Is(err, context.Canceled) {
 		t.Fatalf("bundle=%v error=%v", result, err)

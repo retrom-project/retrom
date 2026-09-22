@@ -215,15 +215,14 @@ func storeDeleteGameReplay(
 
 func deleteGameAuditImpact(impact DeleteGameImpact) map[string]any {
 	return map[string]any{
-		"registeredBytes":    impact.RegisteredBytes,
-		"exclusiveBytes":     impact.ExclusiveBytes,
-		"sharedBytes":        impact.SharedBytes,
-		"blobCount":          impact.BlobCount,
-		"saveStateCount":     impact.SaveStateCount,
-		"assetCount":         impact.AssetCount,
-		"contentFileCount":   impact.ContentFileCount,
-		"activeLaunchCount":  impact.ActiveLaunchCount,
-		"activeNetplayCount": impact.ActiveNetplayCount,
-		"sourceKinds":        impact.SourceKinds,
+		"registeredBytes":   impact.RegisteredBytes,
+		"exclusiveBytes":    impact.ExclusiveBytes,
+		"sharedBytes":       impact.SharedBytes,
+		"blobCount":         impact.BlobCount,
+		"saveStateCount":    impact.SaveStateCount,
+		"assetCount":        impact.AssetCount,
+		"contentFileCount":  impact.ContentFileCount,
+		"activeLaunchCount": impact.ActiveLaunchCount,
+		"sourceKinds":       impact.SourceKinds,
 	}
 }

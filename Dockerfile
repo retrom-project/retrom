@@ -8,14 +8,13 @@ COPY scripts/fbalpha2012_dat.py scripts/fbalpha2012_dat.py
 COPY scripts/fbalpha2012-dat-enumerator.cpp scripts/fbalpha2012-dat-enumerator.cpp
 COPY data/dat data/dat
 COPY data/auth data/auth
-COPY data/netplay data/netplay
 COPY data/runtime-target-bindings data/runtime-target-bindings
 RUN --mount=type=cache,target=/work/.cache/dependencies,sharing=locked \
   python3 scripts/dependencies.py prepare --versions "$RETROM_DEPENDENCY_VERSIONS" \
   && python3 scripts/dependencies.py image-export \
     --versions "$RETROM_DEPENDENCY_VERSIONS" \
     --output /work/image-dependencies \
-  && rm -rf /work/data/dat /work/data/auth /work/data/netplay /work/data/runtime-target-bindings
+  && rm -rf /work/data/dat /work/data/auth /work/data/runtime-target-bindings
 
 FROM python:3.13-alpine AS providers
 WORKDIR /work

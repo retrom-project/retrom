@@ -1,8 +1,6 @@
 package launch
 
 import (
-	"encoding/json"
-	"net/url"
 	"slices"
 
 	"retrom/internal/runtimebundle"
@@ -19,42 +17,4 @@ func providerRestore(id string, restore ConfigRestore, target runtimebundle.Targ
 		"url": "/runtime/launches/" + id + "/state", "format": restore.Format,
 		"sha256": restore.Digest, "sizeBytes": restore.Size,
 	}, true, nil
-}
-
-func providerNetplay(publicOrigin string, source ConfigSource) (any, string, error) {
-	if source.NetplayID == nil {
-		return nil, "SINGLE", nil
-	}
-	if source.NetplayRoom == nil || source.NetplayProfile == nil || source.NetplayPlayer == nil {
-		return nil, "", ErrCredential
-	}
-	var profile map[string]any
-	if err := json.Unmarshal([]byte(*source.NetplayProfile), &profile); err != nil {
-		return nil, "", ErrCredential
-	}
-	socket, err := netplaySocketURL(publicOrigin, *source.NetplayRoom)
-	if err != nil {
-		return nil, "", err
-	}
-	return map[string]any{
-		"roomId": *source.NetplayRoom, "sessionId": *source.NetplayID, "playerNo": *source.NetplayPlayer,
-		"socketUrl": socket, "profile": profile,
-	}, "NETPLAY", nil
-}
-
-func netplaySocketURL(publicOrigin, roomID string) (string, error) {
-	origin, err := url.Parse(publicOrigin)
-	if err != nil || origin.Host == "" || origin.RawQuery != "" || origin.Fragment != "" || origin.Path != "" {
-		return "", ErrCredential
-	}
-	switch origin.Scheme {
-	case "http":
-		origin.Scheme = "ws"
-	case "https":
-		origin.Scheme = "wss"
-	default:
-		return "", ErrCredential
-	}
-	origin.Path = "/runtime/netplay/rooms/" + roomID + "/socket"
-	return origin.String(), nil
 }

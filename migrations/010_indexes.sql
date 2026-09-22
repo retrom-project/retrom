@@ -123,30 +123,15 @@ CREATE INDEX jobs_claim ON jobs(state,available_at_ms);
 
 CREATE INDEX jobs_scope ON jobs(scope_type,scope_id);
 
-CREATE UNIQUE INDEX launch_sessions_one_netplay_participant
-ON launch_sessions(netplay_session_id,profile_id) WHERE netplay_session_id IS NOT NULL;
 
-CREATE INDEX netplay_events_room ON netplay_events(room_id,id);
 
-CREATE INDEX netplay_events_session ON netplay_events(netplay_session_id,id);
 
-CREATE UNIQUE INDEX netplay_room_members_active_seat
-ON netplay_room_members(room_id,player_no) WHERE left_at_ms IS NULL;
 
-CREATE INDEX netplay_room_members_profile ON netplay_room_members(profile_id,left_at_ms,room_id);
 
-CREATE INDEX netplay_rooms_expiry ON netplay_rooms(state,expires_at_ms,id);
 
-CREATE UNIQUE INDEX netplay_rooms_one_active_host
-ON netplay_rooms(host_profile_id) WHERE state IN ('DRAFT','WAITING','STARTING','RUNNING');
 
-CREATE INDEX netplay_session_participants_profile
-ON netplay_session_participants(profile_id,state,netplay_session_id);
 
-CREATE UNIQUE INDEX netplay_sessions_one_active_room
-ON netplay_sessions(room_id) WHERE state NOT IN ('FINISHED','FAILED');
 
-CREATE INDEX netplay_sessions_state ON netplay_sessions(state,updated_at_ms,id);
 
 CREATE INDEX source_collection_tags_tag ON source_collection_tags(tag_id,collection_id);
 

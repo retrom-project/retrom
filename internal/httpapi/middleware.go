@@ -188,8 +188,6 @@ var exactQueryAllowlists = map[string][]string{
 	"GET /api/v1/saves": {
 		"q", "gameId", "platformId", "platformInstanceId", "coreId", "availability", "sort", "cursor", "limit",
 	},
-	"GET /api/v1/netplay/games": {"cursor", "limit", "availability"},
-	"GET /api/v1/netplay/rooms": {"view", "cursor", "limit"},
 	"GET /api/v1/admin/imports": {"q", "state", "platformInstanceId", "sort", "cursor", "limit"},
 	"GET /api/v1/admin/reviews": {
 		"q", "tagId", "importJobId", "sourceImportId",

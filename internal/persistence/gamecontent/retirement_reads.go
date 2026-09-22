@@ -65,12 +65,10 @@ JOIN launch_sessions launch ON launch.id=file.launch_session_id WHERE launch.gam
 
 func (records retirementRecords) Owners(ctx context.Context, gameID string) ([]gamecontent.RetirementOwner, error) {
 	rows, err := records.executor.QueryContext(ctx, `
-SELECT 'NETPLAY',id,state,version,NULL,finished_at_ms FROM netplay_sessions WHERE game_id=?
-UNION ALL SELECT 'ROOM',id,state,version,NULL,ended_at_ms FROM netplay_rooms WHERE selected_game_id=?
-UNION ALL SELECT 'LAUNCH',id,state,version,save_state_id,finished_at_ms FROM launch_sessions WHERE game_id=?
+SELECT 'LAUNCH',id,state,version,save_state_id,finished_at_ms FROM launch_sessions WHERE game_id=?
 UNION ALL SELECT 'PLAY',id,state,version,NULL,ended_at_ms FROM play_sessions WHERE game_id=?
 UNION ALL SELECT 'VARIANT',id,status,version,NULL,NULL FROM game_variants WHERE game_id=?
-`, gameID, gameID, gameID, gameID, gameID)
+`, gameID, gameID, gameID)
 	if err != nil {
 		return nil, fmt.Errorf("query replacement runtime: %w", err)
 	}

@@ -1,8 +1,22 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { describe, expect, test } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 
 import nextConfig, { backendProxyLimits } from "./next.config";
+
+afterEach(() => {vi.unstubAllEnvs(); vi.resetModules();});
+
+test("keeps the development indicator out of acceptance interactions", async () => {
+  vi.stubEnv("NEXT_WEB_E2E", "true");
+  vi.resetModules();
+  expect((await import("./next.config")).default.devIndicators).toBe(false);
+});
+
+test("retains the development indicator during ordinary development", async () => {
+  vi.stubEnv("NEXT_WEB_E2E", "");
+  vi.resetModules();
+  expect((await import("./next.config")).default.devIndicators).toEqual({position: "bottom-right"});
+});
 
 describe("backend rewrite proxy limits", () => {
   test("does not statically bundle the runtime implementation package", () => {

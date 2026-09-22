@@ -23,7 +23,7 @@ import (
 	"retrom/internal/testsupport"
 )
 
-func TestOrdinaryReviewCheckpointHTTPUsesPreviewCookieThroughSaveAccess(t *testing.T) {
+func TestOrdinaryReviewCheckpointHTTPUsesPreviewCookieThroughAuthorizeSave(t *testing.T) {
 	t.Parallel()
 	server, itemID := newCheckpointReviewHTTPFixture(t)
 	preview, cookie := createCheckpointPreviewHTTP(t, server, itemID, nil)
