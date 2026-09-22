@@ -12,27 +12,24 @@ import (
 type ScopeType = application.ScopeType
 
 const (
-	ScopeImportItem                 = application.ScopeImportItem
-	ScopeImportJob                  = application.ScopeImportJob
-	ScopePegasusImportItem          = application.ScopePegasusImportItem
-	ScopeEmulationStationImportItem = application.ScopeEmulationStationImportItem
-	ScopeUploadConsumption          = application.ScopeUploadConsumption
-	ScopeGame                       = application.ScopeGame
-	ScopeBlob                       = application.ScopeBlob
+	ScopeImportItem        = application.ScopeImportItem
+	ScopeImportJob         = application.ScopeImportJob
+	ScopeSourceImportItem  = application.ScopeSourceImportItem
+	ScopeUploadConsumption = application.ScopeUploadConsumption
+	ScopeGame              = application.ScopeGame
+	ScopeBlob              = application.ScopeBlob
 )
 
 type Reason = application.Reason
 
 const (
-	ReasonImportPublished          = application.ReasonImportPublished
-	ReasonImportDiscarded          = application.ReasonImportDiscarded
-	ReasonImportFailed             = application.ReasonImportFailed
-	ReasonImportCancelled          = application.ReasonImportCancelled
-	ReasonImportTerminal           = application.ReasonImportTerminal
-	ReasonPegasusTerminal          = application.ReasonPegasusTerminal
-	ReasonEmulationStationTerminal = application.ReasonEmulationStationTerminal
-	ReasonUploadConsumed           = application.ReasonUploadConsumed
-	ReasonGameDeleted              = application.ReasonGameDeleted
+	ReasonImportPublished = application.ReasonImportPublished
+	ReasonImportDiscarded = application.ReasonImportDiscarded
+	ReasonImportFailed    = application.ReasonImportFailed
+	ReasonImportCancelled = application.ReasonImportCancelled
+	ReasonImportTerminal  = application.ReasonImportTerminal
+	ReasonSourceTerminal  = application.ReasonSourceTerminal
+	ReasonGameDeleted     = application.ReasonGameDeleted
 )
 
 var ErrScopeInvalid = application.ErrScopeInvalid

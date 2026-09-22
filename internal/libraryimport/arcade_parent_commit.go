@@ -24,10 +24,6 @@ func (service *Service) commitAcceptedParentAttachment(
 	diagnostics map[string]any,
 ) error {
 	diagnosticsJSON, _ := json.Marshal(diagnostics)
-	evidence := marshalReviewEventV2(map[string]any{
-		"attachmentKind": "ARCADE_PARENT", "machine": candidate.machine,
-		"validationStatus": validation.ValidationStatus, "state": "ACCEPTED",
-	})
 	now := service.now().UnixMilli()
 	repository := librarypersistence.NewArcadeParentCommitRepository(service.database)
 	err := repository.CommitAccepted(ctx, application.ArcadeParentAcceptedCommit{
@@ -46,8 +42,8 @@ func (service *Service) commitAcceptedParentAttachment(
 			DependencySnapshot: validation.DependencySnapshot,
 			Files:              arcadeParentValidationFiles(validation.ValidationFiles),
 		},
-		DiagnosticsJSON: string(diagnosticsJSON), EvidenceJSON: evidence,
-		Actor: reviewActor(ctx), NowMS: now,
+		DiagnosticsJSON: string(diagnosticsJSON),
+		Actor:           reviewActor(ctx), NowMS: now,
 	})
 	if err != nil {
 		return fmt.Errorf("commit accepted arcade parent attachment: %w", err)
@@ -97,14 +93,10 @@ func (service *Service) finishRejectedParentAttachment(
 		"schemaVersion": 1, "archiveCode": archiveCode, "missingEntries": missing,
 		"mismatchedEntries": mismatched,
 	})
-	evidence := marshalReviewEventV2(map[string]any{
-		"attachmentKind": "ARCADE_PARENT", "machine": candidate.machine,
-		"state": "REJECTED", "errorCode": code,
-	})
 	repository := librarypersistence.NewArcadeParentCommitRepository(service.database)
 	_ = repository.FinishRejected(ctx, application.ArcadeParentRejectedCommit{
 		AttachmentID: candidate.attachmentID, ItemID: candidate.itemID, JobID: jobID, WorkerID: workerID,
-		Code: code, DiagnosticsJSON: string(diagnostics), EvidenceJSON: evidence,
+		Code: code, DiagnosticsJSON: string(diagnostics),
 		BlobSize: candidate.blobSize, BlobSHA: candidate.blobSHA, Actor: reviewActor(ctx),
 		NowMS: service.now().UnixMilli(),
 	})

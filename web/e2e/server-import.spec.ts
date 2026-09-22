@@ -12,7 +12,7 @@ test.beforeEach(async ({ page }, testInfo) => {
     test.skip(true, "FULL_CATALOG 行为只消费一次共享 catalog；多尺寸由 ACC-BIOS-006 覆盖");
   }
   if (testInfo.title.startsWith("ACC-PEG-006") && testInfo.project.name !== "chrome-1280") {
-    test.skip(true, "真实 Pegasus 核心链路只执行一次；多尺寸布局由 ACC-PEG-005 覆盖");
+    test.skip(true, "真实 Source 核心链路只执行一次；多尺寸布局由 ACC-PEG-005 覆盖");
   }
   const origin = process.env.RETROM_WEB_ORIGIN ?? "http://localhost:4000";
   const response = await page.request.post("/api/v1/auth/login", {
@@ -120,7 +120,7 @@ test("ACC-BIOS-007 FULL_CATALOG traverses 100/100/86 and retries the same cursor
   await page.screenshot({ path: evidencePath(testInfo, "bios-full-catalog-286.png"), fullPage: true });
 });
 
-test("ACC-PEG-005 three-step Pegasus import recovers and remains bounded at desktop viewports", async ({ page }, testInfo) => {
+test("ACC-PEG-005 three-step Source import recovers and remains bounded at desktop viewports", async ({ page }, testInfo) => {
   test.setTimeout(120_000);
   const batchTagName = `飞行游戏-${testInfo.project.name}`;
   await page.goto("/admin/tags");
@@ -136,15 +136,15 @@ test("ACC-PEG-005 three-step Pegasus import recovers and remains bounded at desk
   await expectNoPageOverflow(page);
 
   const trigger = page
-    .locator(".pegasus-capability")
+    .locator(".source-capability")
     .getByRole("button", { name: /选择目录并扫描|继续扫描或映射/ });
   await trigger.click();
-  let drawer = page.getByRole("dialog", { name: "从 Pegasus 目录准备审核事项" });
+  let drawer = page.getByRole("dialog", { name: "从目录准备审核事项" });
   await expect(drawer).toBeVisible();
   await expect(drawer.getByRole("list", { name: "导入步骤" })).toContainText("选择目录");
   await selectServerSource(drawer, "Games");
   await expect(drawer).toContainText(`服务器文件系统 / ${serverSourcePath("Games")}`);
-  const scanResponse = page.waitForResponse((response) => new URL(response.url()).pathname === "/api/v1/admin/pegasus-imports" && response.request().method() === "POST");
+  const scanResponse = page.waitForResponse((response) => new URL(response.url()).pathname === "/api/v1/admin/source-imports" && response.request().method() === "POST");
   await drawer.getByRole("button", { name: "扫描此目录" }).click();
   const createdPlan = await (await scanResponse).json() as { id: string };
   const footerClose = drawer.locator("footer").getByRole("button", { name: "关闭", exact: true });
@@ -153,14 +153,14 @@ test("ACC-PEG-005 three-step Pegasus import recovers and remains bounded at desk
   await expect(drawer).toHaveCount(0);
 
   await expect.poll(async () => {
-    const response = await page.request.get(`/api/v1/admin/pegasus-imports/${createdPlan.id}`);
+    const response = await page.request.get(`/api/v1/admin/source-imports/${createdPlan.id}`);
     const payload = await response.json() as { state: string };
     return payload.state;
   }, { timeout: 30_000 }).toBe("AWAITING_MAPPING");
-  await page.goto(`/admin/imports/server/pegasus/${createdPlan.id}`);
+  await page.goto(`/admin/imports/server/source/${createdPlan.id}`);
   await expect(page.getByText("等待映射", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "继续映射" }).click();
-  drawer = page.getByRole("dialog", { name: "从 Pegasus 目录准备审核事项" });
+  drawer = page.getByRole("dialog", { name: "从目录准备审核事项" });
   const mapping = drawer.getByRole("combobox", { name: "NES 处理方式" });
   await expect(mapping).toBeVisible({ timeout: 30_000 });
   await expect(mapping).toHaveValue("");
@@ -188,10 +188,10 @@ test("ACC-PEG-005 three-step Pegasus import recovers and remains bounded at desk
   await expect(drawer).toContainText("1 个处理 · 0 个跳过");
   await expect(drawer).toContainText("1 个 Collection · 1 个游戏");
   await drawer.getByRole("button", { name: "开始准备审核事项" }).click();
-  await expect(page).toHaveURL(/\/admin\/imports\/server\/pegasus\/[0-9a-f-]+$/);
-  await expect(page.getByRole("region", { name: "Pegasus 导入摘要" })).toBeVisible();
+  await expect(page).toHaveURL(/\/admin\/imports\/server\/source\/[0-9a-f-]+$/);
+  await expect(page.getByRole("region", { name: "游戏导入摘要" })).toBeVisible();
   await expect(page.getByText(/^(审核事项已生成|部分失败)$/).first()).toBeVisible({ timeout: 60_000 });
-  const resultTable = page.getByRole("table", { name: "Pegasus 导入结果" });
+  const resultTable = page.getByRole("table", { name: "游戏导入结果" });
   await expect(resultTable).toContainText("Acceptance Game");
   await expect(resultTable).toContainText(batchTagName);
   await expect(resultTable).toContainText("待管理员审核");
@@ -201,16 +201,16 @@ test("ACC-PEG-005 three-step Pegasus import recovers and remains bounded at desk
   const adminGames = await adminGamesResponse.json() as { items: Array<{ title: string }> };
   expect(adminGames.items.some((item) => item.title === "Acceptance Game")).toBe(false);
   const reviewBatchLink = page.getByRole("link", { name: /逐项审核 \d+ 个游戏/ });
-  await expect(reviewBatchLink).toHaveAttribute("href", `/admin/reviews?pegasusImportId=${createdPlan.id}`);
+  await expect(reviewBatchLink).toHaveAttribute("href", `/admin/reviews?sourceImportId=${createdPlan.id}`);
   await reviewBatchLink.click();
-  await page.waitForURL(new RegExp(`/admin/reviews\\?pegasusImportId=${createdPlan.id}$`), { timeout: 30_000 });
-  await expect(page.getByRole("heading", { name: "审核这批 Pegasus 游戏" })).toBeVisible();
+  await page.waitForURL(new RegExp(`/admin/reviews\\?sourceImportId=${createdPlan.id}$`), { timeout: 30_000 });
+  await expect(page.getByRole("heading", { name: "审核这批来源游戏" })).toBeVisible();
   await expect(page.getByRole("heading", { name: /^Acceptance Game/ })).toBeVisible();
-  await page.goto(`/admin/imports/server/pegasus/${createdPlan.id}`);
+  await page.goto(`/admin/imports/server/source/${createdPlan.id}`);
   await page.getByRole("searchbox", { name: "搜索标题" }).fill("Acceptance");
   await page.getByRole("button", { name: "应用筛选" }).click();
   await expect(page).toHaveURL(/q=Acceptance/);
-  await page.route(`**/api/v1/admin/pegasus-imports/${createdPlan.id}/items?**`, async (route) => {
+  await page.route(`**/api/v1/admin/source-imports/${createdPlan.id}/items?**`, async (route) => {
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
       items: [{
         id: "77777777-7777-4777-8777-777777777777", title: "1944 循环的征服者",
@@ -234,12 +234,12 @@ test("ACC-PEG-005 three-step Pegasus import recovers and remains bounded at desk
         metadataRelativePath: "metadata.pegasus.txt", executionState: "COMMIT_FAILED", contentKind: "SINGLE_FILE",
         tags: [],
         media: { cover: "READY", video: "READY" }, warnings: [], discoveryCode: null,
-        errorCode: "PEGASUS_LIBRARY_IMPORT_FAILED", retryable: true, publishedGameId: null, existingGameId: null,
+        errorCode: "SOURCE_LIBRARY_IMPORT_FAILED", retryable: true, publishedGameId: null, existingGameId: null,
         existingMatches: [], updatedAtMs: Date.now(), runtimeCheck: null,
         failureDetails: {
           schemaVersion: 1, stage: "LIBRARY_IMPORT", operation: "CREATE_SERVER_SOURCE",
           causeCode: "SOURCE_FILE_LIMIT_EXCEEDED",
-          technicalDetail: "Pegasus assembled 109 source files for one Arcade item; library import accepts at most 64.",
+          technicalDetail: "Source assembled 109 source files for one Arcade item; library import accepts at most 64.",
           relativePath: "1944j.zip", observedFileCount: 109, allowedFileCount: 64,
           libraryImportJobId: null, libraryImportItemId: null,
         },
@@ -253,7 +253,7 @@ test("ACC-PEG-005 three-step Pegasus import recovers and remains bounded at desk
   await runtimeRow.getByText("查看具体原因与处理建议").click();
   await expect(runtimeRow).toContainText("LAUNCH_PARENT_MISSING");
   await expect(runtimeRow).toContainText("1944.zip");
-  await expect(runtimeRow).toContainText("把缺失的父 ROM ZIP 放入同一 Pegasus 来源");
+  await expect(runtimeRow).toContainText("把缺失的父 ROM ZIP 放入同一来源目录");
   const internalFailureRow = resultTable.getByRole("row").filter({ hasText: "1944 内部组装失败" });
   await expect(internalFailureRow).toContainText("Arcade companion 候选数量超过内部上限");
   await internalFailureRow.getByText("查看具体原因与处理建议").click();
@@ -263,10 +263,10 @@ test("ACC-PEG-005 three-step Pegasus import recovers and remains bounded at desk
   await expect(internalFailureRow).toContainText("1944j.zip");
   await expectNoPageOverflow(page);
   await expectNoSeriousAxeViolations(page);
-  await page.screenshot({ path: evidencePath(testInfo, "pegasus-import-detail.png"), fullPage: true });
+  await page.screenshot({ path: evidencePath(testInfo, "source-import-detail.png"), fullPage: true });
 });
 
-test("ACC-PEG-006 project-owned Pegasus GBA source publishes and advances real emulator frames", async ({ page }, testInfo) => {
+test("ACC-PEG-006 project-owned Source GBA source publishes and advances real emulator frames", async ({ page }, testInfo) => {
   test.setTimeout(180_000);
   await page.addInitScript(() => {
     Object.defineProperty(Element.prototype, "requestFullscreen", {
@@ -275,7 +275,7 @@ test("ACC-PEG-006 project-owned Pegasus GBA source publishes and advances real e
     });
   });
 
-  const title = "Pegasus GBA Smoke";
+  const title = "Source GBA Smoke";
   const beforeGamesResponse = await page.request.get(`/api/v1/admin/games?q=${encodeURIComponent(title)}&limit=100`);
   expect(beforeGamesResponse.ok()).toBe(true);
   const beforeGames = await beforeGamesResponse.json() as { items: Array<{ gameId: string; title: string }> };
@@ -283,18 +283,18 @@ test("ACC-PEG-006 project-owned Pegasus GBA source publishes and advances real e
 
   await page.goto("/admin/imports/server");
   await page
-    .locator(".pegasus-capability")
+    .locator(".source-capability")
     .getByRole("button", { name: /选择目录并扫描|继续扫描或映射/ })
     .click();
-  const drawer = page.getByRole("dialog", { name: "从 Pegasus 目录准备审核事项" });
+  const drawer = page.getByRole("dialog", { name: "从目录准备审核事项" });
   await selectServerSource(drawer, "Playable");
   await expect(drawer).toContainText(`服务器文件系统 / ${serverSourcePath("Playable")}`);
-  const scanResponse = page.waitForResponse((response) => new URL(response.url()).pathname === "/api/v1/admin/pegasus-imports" && response.request().method() === "POST");
+  const scanResponse = page.waitForResponse((response) => new URL(response.url()).pathname === "/api/v1/admin/source-imports" && response.request().method() === "POST");
   await drawer.getByRole("button", { name: "扫描此目录" }).click();
   const plan = await (await scanResponse).json() as { id: string };
 
   await expect.poll(async () => {
-    const response = await page.request.get(`/api/v1/admin/pegasus-imports/${plan.id}`);
+    const response = await page.request.get(`/api/v1/admin/source-imports/${plan.id}`);
     const payload = await response.json() as { state: string };
     return payload.state;
   }, { timeout: 30_000 }).toBe("AWAITING_MAPPING");
@@ -306,21 +306,21 @@ test("ACC-PEG-006 project-owned Pegasus GBA source publishes and advances real e
   await expect(drawer.getByText("可处理 / 源内容阻断").locator("..")).toContainText("1 / 0 个游戏");
   await drawer.getByRole("button", { name: "开始准备审核事项" }).click();
 
-  await expect(page).toHaveURL(new RegExp(`/admin/imports/server/pegasus/${plan.id}$`));
+  await expect(page).toHaveURL(new RegExp(`/admin/imports/server/source/${plan.id}$`));
   await expect(page.getByText("审核事项已生成", { exact: true })).toBeVisible({ timeout: 60_000 });
-  const resultTable = page.getByRole("table", { name: "Pegasus 导入结果" });
+  const resultTable = page.getByRole("table", { name: "游戏导入结果" });
   const resultRow = resultTable.getByRole("row").filter({ hasText: title });
   await expect(resultRow).toContainText("待管理员审核");
   const reviewLink = page.getByRole("link", { name: /逐项审核 1 个游戏/ });
-  await expect(reviewLink).toHaveAttribute("href", `/admin/reviews?pegasusImportId=${plan.id}`);
+  await expect(reviewLink).toHaveAttribute("href", `/admin/reviews?sourceImportId=${plan.id}`);
   await reviewLink.click();
 
   const reviewRow = page.locator(".review-workflow-row").filter({ hasText: title });
   await expect(reviewRow).toContainText("可以发布", { timeout: 30_000 });
-  await expect(reviewRow).toContainText("Pegasus · GBA Smoke");
+  await expect(reviewRow).toContainText("来源文件 · GBA Smoke");
   await reviewRow.getByRole("link", { name: "审核条目" }).click();
   await expect(page.getByRole("heading", { name: "审核条目" })).toBeVisible();
-  await expect(page.getByText("来源：Pegasus · GBA Smoke", { exact: true })).toBeVisible();
+  await expect(page.getByText("来源：来源文件 · GBA Smoke", { exact: true })).toBeVisible();
   const approve = page.getByRole("button", { name: "通过并发布" });
   await expect(approve).toBeEnabled();
   await approve.click();
@@ -345,7 +345,7 @@ test("ACC-PEG-006 project-owned Pegasus GBA source publishes and advances real e
     runtime: {providerId: "emulatorjs", providerApiVersion: 1, targetId: "mgba"},
   });
   expect(runtimeResourceURL(runtimeResource(configuration, "game"))).toMatch(
-    /\/runtime\/content\/game\/[0-9a-f]{64}\/pegasus-smoke\.gba$/,
+    /\/runtime\/content\/game\/[0-9a-f]{64}\/source-smoke\.gba$/,
   );
 
   const player = page.frameLocator("iframe.player-frame");
@@ -359,7 +359,7 @@ test("ACC-PEG-006 project-owned Pegasus GBA source publishes and advances real e
   ).toBeGreaterThan(initialFrame + 30);
   await page.mouse.move(20, 20);
   await expect(page.locator(".player-game-meta")).toContainText(title);
-  await page.screenshot({ path: evidencePath(testInfo, "pegasus-gba-player-running.png"), fullPage: true });
+  await page.screenshot({ path: evidencePath(testInfo, "source-gba-player-running.png"), fullPage: true });
 });
 
 test("ACC-MEDIA-001 video upload is explicit in admin and absent from library requests", async ({ page }, testInfo) => {

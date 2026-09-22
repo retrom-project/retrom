@@ -3,11 +3,11 @@ import type { ImportListItem } from "./import-workflow";
 import { importProviderLabels, importStateLabels, importTaskIssueCount, importTaskPhase } from "./import-workflow";
 
 export type ImportOverviewSummary = components["schemas"]["ImportOverviewSummary"];
-export type PegasusImportSummary = components["schemas"]["PegasusImportSummary"];
+export type SourceImportSummary = components["schemas"]["SourceImportSummary"];
 
 export type ImportOverviewActivity = {
   id: string;
-  kind: "BROWSER_IMPORT" | "PEGASUS_IMPORT";
+  kind: "BROWSER_IMPORT" | "SOURCE_IMPORT";
   title: string;
   sourceLabel: string;
   stateLabel: string;
@@ -21,7 +21,7 @@ export type ImportOverviewActivity = {
   actionLabel: string;
 };
 
-const pegasusStateLabels: Record<string, string> = {
+const sourceStateLabels: Record<string, string> = {
   SCANNING: "正在扫描",
   AWAITING_MAPPING: "等待映射",
   QUEUED: "等待开始",
@@ -34,7 +34,7 @@ const pegasusStateLabels: Record<string, string> = {
   EXPIRED: "计划已过期",
 };
 
-const pegasusPhaseLabels: Record<string, string> = {
+const sourcePhaseLabels: Record<string, string> = {
   DISCOVERING_METADATA: "发现元数据",
   PARSING_METADATA: "解析元数据",
   RESOLVING_SOURCES: "解析游戏来源",
@@ -43,7 +43,7 @@ const pegasusPhaseLabels: Record<string, string> = {
   PREPARING_REVIEWS: "准备审核事项",
 };
 
-function pegasusTone(state: string): ImportOverviewActivity["tone"] {
+function sourceTone(state: string): ImportOverviewActivity["tone"] {
   if (state === "COMPLETED") {return "good";}
   if (state === "PARTIAL_FAILURE" || state === "FAILED") {return "bad";}
   if (state === "CANCEL_REQUESTED" || state === "CANCELLED" || state === "EXPIRED") {return "warn";}
@@ -77,35 +77,35 @@ function ordinaryActivity(item: ImportListItem): ImportOverviewActivity {
   };
 }
 
-function pegasusActivity(item: PegasusImportSummary): ImportOverviewActivity {
+function sourceActivity(item: SourceImportSummary): ImportOverviewActivity {
   const issues = item.counts.blocked + item.counts.failed;
   const hasReviews = item.counts.reviewPending > 0;
   const terminalOutcome = `${item.counts.published} 个已发布 · ${item.counts.reviewDiscarded} 个已丢弃`;
   return {
     id: item.id,
-    kind: "PEGASUS_IMPORT",
+    kind: "SOURCE_IMPORT",
     title: `${item.root.label}${item.sourceRelativePath ? ` / ${item.sourceRelativePath}` : " / 根目录"}`,
-    sourceLabel: "Pegasus 目录",
-    stateLabel: pegasusStateLabels[item.state] ?? item.state,
-    tone: pegasusTone(item.state),
-    phase: item.phase ? pegasusPhaseLabels[item.phase] ?? item.phase : pegasusStateLabels[item.state] ?? item.state,
+    sourceLabel: "来源目录",
+    stateLabel: sourceStateLabels[item.state] ?? item.state,
+    tone: sourceTone(item.state),
+    phase: item.phase ? sourcePhaseLabels[item.phase] ?? item.phase : sourceStateLabels[item.state] ?? item.state,
     outcome: hasReviews ? `${item.counts.reviewPending} 个待审核` : issues ? `${issues} 个异常` : item.state === "COMPLETED" ? terminalOutcome : "后台处理中",
     totalItemCount: item.counts.games,
     createdAtMs: item.createdAtMs,
     updatedAtMs: item.updatedAtMs,
-    actionHref: hasReviews ? `/admin/reviews?pegasusImportId=${item.id}` : `/admin/imports/server/pegasus/${item.id}`,
+    actionHref: hasReviews ? `/admin/reviews?sourceImportId=${item.id}` : `/admin/imports/server/source/${item.id}`,
     actionLabel: hasReviews ? "审核" : "查看",
   };
 }
 
 export function recentImportActivities(
   imports: ImportListItem[],
-  pegasusImports: PegasusImportSummary[],
+  sourceImports: SourceImportSummary[],
   limit = 3,
 ): ImportOverviewActivity[] {
   return [
     ...imports.map(ordinaryActivity),
-    ...pegasusImports.map(pegasusActivity),
+    ...sourceImports.map(sourceActivity),
   ].sort((left, right) => {
     if (left.createdAtMs !== right.createdAtMs) {return right.createdAtMs - left.createdAtMs;}
     if (left.id === right.id) {return 0;}

@@ -42,7 +42,6 @@ func (service *Service) create(
 	}
 	var binding *ownedSourceCreation
 	if len(options) == 1 {
-		intent.ReviewHandoffKind = options[0].reviewHandoffKind
 		binding = options[0].sourceCreation
 		if binding != nil {
 			intent.Source = &application.OwnedImportCreation{Intent: binding.intent, Before: binding.before}

@@ -56,7 +56,7 @@ func assertDiscardOwnerAuthority(t *testing.T, mode application.ReviewDiscardMod
 	if err != nil {
 		t.Fatal(err)
 	}
-	fixture.execute(t, `UPDATE pegasus_import_items SET execution_state='CANCELLED',completed_at_ms=? WHERE id=?`, ownedSourceNow().UnixMilli(), request.Intent.ItemID)
+	fixture.execute(t, `UPDATE source_import_items SET execution_state='CANCELLED',completed_at_ms=? WHERE id=?`, ownedSourceNow().UnixMilli(), request.Intent.ItemID)
 	transaction, err := fixture.database.BeginTx(t.Context(), nil)
 	if err != nil {
 		t.Fatal(err)
@@ -78,7 +78,7 @@ func assertDiscardOwnerAuthority(t *testing.T, mode application.ReviewDiscardMod
 		t.Fatalf("single owner writer accepted unhanded state: %v", err)
 	}
 	var state string
-	if err := transaction.QueryRowContext(t.Context(), `SELECT execution_state FROM pegasus_import_items WHERE id=?`, request.Intent.ItemID).Scan(&state); err != nil {
+	if err := transaction.QueryRowContext(t.Context(), `SELECT execution_state FROM source_import_items WHERE id=?`, request.Intent.ItemID).Scan(&state); err != nil {
 		t.Fatal(err)
 	}
 	if state != "CANCELLED" {

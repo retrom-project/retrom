@@ -27,8 +27,8 @@ func TerminalSourceItem(state string, retryable bool) bool {
 
 func validScheduleScope(value ScopeType) bool {
 	switch value {
-	case ScopeImportItem, ScopeImportJob, ScopePegasusImportItem,
-		ScopeEmulationStationImportItem, ScopeUploadConsumption, ScopeGame:
+	case ScopeImportItem, ScopeImportJob, ScopeSourceImportItem,
+		ScopeUploadConsumption, ScopeGame:
 		return true
 	case ScopeBlob:
 		return false
@@ -40,7 +40,7 @@ func validScheduleScope(value ScopeType) bool {
 func validReason(value Reason) bool {
 	switch value {
 	case ReasonImportPublished, ReasonImportDiscarded, ReasonImportFailed, ReasonImportCancelled,
-		ReasonImportTerminal, ReasonPegasusTerminal, ReasonEmulationStationTerminal,
+		ReasonImportTerminal, ReasonSourceTerminal,
 		ReasonUploadConsumed, ReasonGameDeleted:
 		return true
 	default:

@@ -49,11 +49,10 @@ type AuditRecords interface {
 type OwnerKind string
 
 const (
-	OwnerGame                       OwnerKind = "GAME"
-	OwnerReviewDraft                OwnerKind = "REVIEW_DRAFT"
-	OwnerReviewItem                 OwnerKind = "REVIEW_ITEM"
-	OwnerPegasusCollection          OwnerKind = "PEGASUS_COLLECTION"
-	OwnerEmulationStationCollection OwnerKind = "EMULATIONSTATION_COLLECTION"
+	OwnerGame             OwnerKind = "GAME"
+	OwnerReviewDraft      OwnerKind = "REVIEW_DRAFT"
+	OwnerReviewItem       OwnerKind = "REVIEW_ITEM"
+	OwnerSourceCollection OwnerKind = "SOURCE_COLLECTION"
 )
 
 type Owner struct {

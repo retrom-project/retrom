@@ -37,7 +37,7 @@ func TestArcadeParentAttachmentsAdvanceImmutableSnapshotsUntilReadyAndPublish(t 
 	testArcadeParentAttachmentsAdvanceImmutableSnapshotsUntilReadyAndPublish(t, false)
 }
 
-func TestPegasusArcadeParentAttachmentPublishesTheEffectiveReviewSnapshot(t *testing.T) {
+func TestSourceArcadeParentAttachmentPublishesTheEffectiveReviewSnapshot(t *testing.T) {
 	t.Parallel()
 	testArcadeParentAttachmentsAdvanceImmutableSnapshotsUntilReadyAndPublish(t, true)
 }
@@ -116,7 +116,7 @@ WHERE bulk_approval_id=? AND import_item_id=? AND state='PUBLISHED'
 	}
 }
 
-func testArcadeParentAttachmentsAdvanceImmutableSnapshotsUntilReadyAndPublish(t *testing.T, pegasus bool) {
+func testArcadeParentAttachmentsAdvanceImmutableSnapshotsUntilReadyAndPublish(t *testing.T, source bool) {
 	t.Helper()
 	ctx := context.Background()
 	dataDir := t.TempDir()
@@ -146,8 +146,8 @@ func testArcadeParentAttachmentsAdvanceImmutableSnapshotsUntilReadyAndPublish(t 
 	})
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return created.ItemCount != 1 }), "child import = %#v, error=%v", created, err)
 	itemID, version, snapshotID, validationID := reviewAttachmentInputs(t, database.SQL, created.ImportJobID)
-	if pegasus {
-		linkReviewToPegasusOrigin(t, database.SQL, created.ImportJobID, itemID, snapshotID)
+	if source {
+		linkReviewToSourceOrigin(t, database.SQL, created.ImportJobID, itemID, snapshotID)
 	}
 	view, found, err := importer.ReviewArcadeDependencies(ctx, itemID)
 	testassert.False(t, err != nil, err)
@@ -226,16 +226,16 @@ SELECT diagnostics_json FROM review_arcade_parent_attachments WHERE id=?
 	testassert.Falsef(t, testassert.Any(func() bool { return preview.Counts.Matched != 1 }, func() bool { return preview.Counts.StrictReady != 1 }, func() bool { return preview.Counts.NotReadyOrStale != 0 }), "arcade parent bulk preview = %#v", preview.Counts)
 	approved, err := importer.Approve(ctx, itemID, version)
 	testassert.False(t, err != nil, err)
-	if pegasus {
+	if source {
 		var contentSource, pegasusState string
 		if err := database.SQL.QueryRowContext(ctx, `
 SELECT game.content_source_kind,item.execution_state
 FROM games game
-JOIN pegasus_import_items item ON item.published_game_id=game.id
+JOIN source_import_items item ON item.published_game_id=game.id
 WHERE game.id=?
 `, approved.GameID).Scan(&contentSource, &pegasusState); err != nil ||
-			contentSource != "SERVER_PEGASUS_IMPORT" || pegasusState != "PUBLISHED" {
-			t.Fatalf("Pegasus parent publication = %s/%s, error=%v", contentSource, pegasusState, err)
+			contentSource != "IMPORT_RECEIVE" || pegasusState != "PUBLISHED" {
+			t.Fatalf("Source parent publication = %s/%s, error=%v", contentSource, pegasusState, err)
 		}
 	}
 	contentNames := queryAttachmentStrings(t, database.SQL, `
@@ -281,7 +281,7 @@ WHERE variant.game_id=? ORDER BY dependency.kind,dependency.logical_archive
 	testassert.Falsef(t, fmt.Sprint(revalidatedDependencies) != "[PARENT:b.zip PARENT:c.zip]", "published dependencies = %v", revalidatedDependencies)
 }
 
-func linkReviewToPegasusOrigin(
+func linkReviewToSourceOrigin(
 	t *testing.T,
 	database *sql.DB,
 	importJobID, itemID, sourceSnapshotID string,
@@ -295,40 +295,40 @@ FROM import_item_source_snapshots WHERE id=?
 		t.Fatal(err)
 	}
 	const userID = "01980000-0000-7000-8000-000000000811"
-	const pegasusImportID = "01980000-0000-7000-8000-000000000812"
+	const sourceImportID = "01980000-0000-7000-8000-000000000812"
 	const pegasusScanJobID = "01980000-0000-7000-8000-000000000813"
 	const pegasusItemID = "01980000-0000-7000-8000-000000000814"
 	if _, err := database.ExecContext(context.Background(), `
 INSERT INTO users(id,profile_id,username,display_name,role,status,created_at_ms,updated_at_ms)
-VALUES(?,'local','pegasus-parent','Pegasus Parent','ADMIN','ENABLED',1,1)
+VALUES(?,'local','source-parent','Source Parent','ADMIN','ENABLED',1,1)
 `, userID); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := database.ExecContext(context.Background(), `
 INSERT INTO jobs(id,scope_type,scope_id,kind,dedupe_key,execution_no,payload_json,cancellable,state,
 attempt_count,max_attempts,version,available_at_ms,finished_at_ms,created_at_ms,updated_at_ms)
-VALUES(?,'PEGASUS_IMPORT',?,'SERVER_PEGASUS_SCAN',?,1,'{}',1,'SUCCEEDED',1,4,1,1,2,1,2)
-`, pegasusScanJobID, pegasusImportID, strings.Repeat("8", 64)); err != nil {
+VALUES(?,'SOURCE_IMPORT',?,'IMPORT_SCAN',?,1,'{}',1,'SUCCEEDED',1,4,1,1,2,1,2)
+`, pegasusScanJobID, sourceImportID, strings.Repeat("8", 64)); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := database.ExecContext(context.Background(), `
-INSERT INTO pegasus_imports(
+INSERT INTO source_imports(
   id,root_id,root_label_snapshot,source_relative_path,root_config_digest,state,scan_job_id,
   game_count,processable_item_count,review_pending_item_count,created_by_user_id,
   created_at_ms,updated_at_ms,completed_at_ms,expires_at_ms
 ) VALUES(?,'games','Games','Arcade',?,'COMPLETED',?,1,1,1,?,1,2,2,999999)
-`, pegasusImportID, strings.Repeat("9", 64), pegasusScanJobID, userID); err != nil {
+`, sourceImportID, strings.Repeat("9", 64), pegasusScanJobID, userID); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := database.ExecContext(context.Background(), `
-INSERT INTO pegasus_import_items(
+INSERT INTO source_import_items(
   id,import_id,metadata_relative_path,game_ordinal,source_key,title,discovery_state,execution_state,
   content_kind,metadata_json,source_manifest_json,source_manifest_digest,retryable,
   library_import_job_id,library_import_item_id,created_at_ms,updated_at_ms,completed_at_ms
-) VALUES(?,?,'Arcade/metadata.pegasus.txt',0,?,'Pegasus Parent','READY','REVIEW_PENDING',
+) VALUES(?,?,'Arcade/metadata.pegasus.txt',0,?,'Source Parent','READY','REVIEW_PENDING',
   ?,?, ?,?,0,?,?,1,2,2)
-`, pegasusItemID, pegasusImportID, strings.Repeat("a", 64), contentKind,
-		`{"title":"Pegasus Parent"}`, manifestJSON, manifestDigest, importJobID, itemID); err != nil {
+`, pegasusItemID, sourceImportID, strings.Repeat("a", 64), contentKind,
+		`{"title":"Source Parent"}`, manifestJSON, manifestDigest, importJobID, itemID); err != nil {
 		t.Fatal(err)
 	}
 }

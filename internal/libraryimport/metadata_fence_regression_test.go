@@ -82,7 +82,7 @@ func assertMetadataDraftCAS(t *testing.T, phase string) {
 		t.Fatalf("%s ignored: version=%d error=%v", phase, version, err)
 	}
 	var changed int
-	if err := fixture.database.QueryRowContext(fixture.ctx, `SELECT count(*) FROM review_events WHERE import_item_id=? AND event_type='DRAFT_SAVED'`, itemID).Scan(&changed); err != nil {
+	if err := fixture.database.QueryRowContext(fixture.ctx, `SELECT version-1 FROM review_drafts WHERE import_item_id=?`, itemID).Scan(&changed); err != nil {
 		t.Fatal(err)
 	}
 	if changed != 0 {

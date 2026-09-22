@@ -22,20 +22,11 @@ func ScheduleTerminalImportJob(ctx context.Context, transaction *sql.Tx, importI
 	return scheduledIdentity(scheduler.TerminalImport(ctx, scope, importID, now))
 }
 
-func ScheduleTerminalPegasusItem(ctx context.Context, transaction *sql.Tx, itemID string, now int64) (string, error) {
+func ScheduleTerminalSourceItem(ctx context.Context, transaction *sql.Tx, itemID string, now int64) (string, error) {
 	scope := persistence.BindScheduling(transaction)
 	scheduler := application.NewScheduler(nil)
 	return scheduledIdentity(scheduler.TerminalSource(ctx, scope,
-		application.Scope{Type: ScopePegasusImportItem, ID: itemID}, now))
-}
-
-func ScheduleTerminalEmulationStationItem(ctx context.Context, transaction *sql.Tx, itemID string,
-	now int64,
-) (string, error) {
-	scope := persistence.BindScheduling(transaction)
-	scheduler := application.NewScheduler(nil)
-	return scheduledIdentity(scheduler.TerminalSource(ctx, scope,
-		application.Scope{Type: ScopeEmulationStationImportItem, ID: itemID}, now))
+		application.Scope{Type: ScopeSourceImportItem, ID: itemID}, now))
 }
 
 func ScheduleConsumption(ctx context.Context, transaction *sql.Tx, consumptionID string, now int64) (string, error) {

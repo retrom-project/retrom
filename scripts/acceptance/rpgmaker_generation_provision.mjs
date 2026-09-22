@@ -126,7 +126,7 @@ try {
     writeFileSync(tracePath, `${JSON.stringify(trace, null, 2)}\n`, { flag: "wx", mode: 0o600 });
   }
   process.stdout.write(`${JSON.stringify({
-    schemaVersion: 1, caseId, importItemId: review.itemId,
+    schemaVersion: 1, caseId, importItemId: review.itemId, importJobId: review.importJobId,
     trialEvidence: trialPath, gameId: published.gameId,
     providerId: "retrom-runtime", targetId: config.targetId, xpTraceWritten: Boolean(tracePath),
   }, null, 2)}\n`);
@@ -297,7 +297,7 @@ async function trialAndPublish(context, client, review) {
   exact(runtime.providerId, "retrom-runtime", "RPG_PROVISION_PROVIDER_MISMATCH");
   exact(runtime.targetId, config.targetId, "RPG_PROVISION_TARGET_MISMATCH");
   const runtimeTrial = {
-    schemaVersion: 1, kind: "DEVELOPMENT_RUNTIME_TRIAL", caseId, importItemId: review.itemId,
+    schemaVersion: 1, kind: "DEVELOPMENT_RUNTIME_TRIAL", caseId, importItemId: review.itemId, importJobId: review.importJobId,
     launchId: created.previewId, restoreLaunchId: restored.previewId,
     routeEvidence: {
       providerId: runtime.providerId, targetId: runtime.targetId, bundleSha256: runtime.bundleSha256,

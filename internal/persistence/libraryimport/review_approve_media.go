@@ -61,12 +61,9 @@ func (records reviewApprovalRecords) Origin(
 	var origin application.ApprovalOrigin
 	err := records.transaction.QueryRowContext(ctx, `
 SELECT source_ref_id,source_kind FROM (
- SELECT id AS source_ref_id,'SERVER_PEGASUS_IMPORT' AS source_kind FROM pegasus_import_items
+ SELECT id AS source_ref_id,'IMPORT_RECEIVE' AS source_kind FROM source_import_items
  WHERE library_import_item_id=? AND execution_state='REVIEW_PENDING'
- UNION ALL
- SELECT id AS source_ref_id,'SERVER_EMULATIONSTATION_IMPORT' AS source_kind FROM emulationstation_import_items
- WHERE library_import_item_id=? AND execution_state='REVIEW_PENDING'
-) ORDER BY source_kind LIMIT 1`, itemID, itemID).Scan(&origin.RefID, &origin.Kind)
+) ORDER BY source_kind LIMIT 1`, itemID).Scan(&origin.RefID, &origin.Kind)
 	if errors.Is(err, sql.ErrNoRows) {
 		return application.ApprovalOrigin{}, false, nil
 	}
@@ -84,10 +81,7 @@ SELECT source_ref_id,source_kind FROM (
 func (records reviewApprovalRecords) originAssets(
 	ctx context.Context, origin application.ApprovalOrigin,
 ) ([]application.ApprovalExternalAsset, error) {
-	table := "pegasus_import_item_assets"
-	if origin.Kind == "SERVER_EMULATIONSTATION_IMPORT" {
-		table = "emulationstation_import_item_assets"
-	}
+	table := "source_import_item_assets"
 	rows, err := records.transaction.QueryContext(ctx, `
 SELECT kind,blob_id,media_type,width_px,height_px FROM `+table+`
 WHERE item_id=? AND state='COPIED' AND blob_id IS NOT NULL AND media_type IS NOT NULL

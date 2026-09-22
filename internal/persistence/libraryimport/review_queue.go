@@ -45,8 +45,7 @@ func reviewQueueStatement(query application.ReviewQueueQuery) (string, []any) {
 	args := make([]any, 0, 12)
 	for _, filter := range []struct{ value, condition string }{
 		{query.Filter.ImportJobID, " AND i.import_job_id=?"},
-		{query.Filter.PegasusImportID, " AND pegasus.import_id=?"},
-		{query.Filter.EmulationStationImportID, " AND emulationstation.import_id=?"},
+		{query.Filter.SourceImportID, " AND source.import_id=?"},
 		{query.Filter.PlatformInstanceID, " AND d.target_platform_instance_id=?"},
 	} {
 		if filter.value != "" {
@@ -85,25 +84,20 @@ func reviewQueueStatement(query application.ReviewQueueQuery) (string, []any) {
 
 func scanReviewQueueRecord(scanner dbexec.Scanner) (application.ReviewQueueRecord, error) {
 	var result application.ReviewQueueRecord
-	var pegasusID, pegasusImportID, pegasusLabel, esID, esImportID, esLabel *string
-	var pegasusCover, esCover bool
+	var pegasusID, sourceImportID, pegasusLabel *string
+	var pegasusCover bool
 	err := scanner.Scan(
 		&result.ItemID, &result.Version, &result.ImportJobID, &result.DraftTitle, &result.SourceName,
 		&result.Platform.ID, &result.Platform.Name, &result.ValidationStatus, &result.CompatibilityCode,
 		&result.UpdatedAtMS, &result.CandidateCount, &result.SourceTotalSizeBytes, &result.SourceMD5, &result.CoverAssetID,
-		&pegasusID, &pegasusImportID, &pegasusLabel, &pegasusCover, &esID, &esImportID, &esLabel, &esCover,
+		&pegasusID, &sourceImportID, &pegasusLabel, &pegasusCover,
 	)
 	if err != nil {
 		return application.ReviewQueueRecord{}, fmt.Errorf("scan review queue item: %w", err)
 	}
-	if pegasusID != nil && pegasusImportID != nil {
-		result.Pegasus = &application.ReviewQueueSource{
-			ItemID: *pegasusID, ImportID: *pegasusImportID, Label: pegasusLabel, HasCover: pegasusCover,
-		}
-	}
-	if esID != nil && esImportID != nil {
-		result.EmulationStation = &application.ReviewQueueSource{
-			ItemID: *esID, ImportID: *esImportID, Label: esLabel, HasCover: esCover,
+	if pegasusID != nil && sourceImportID != nil {
+		result.Source = &application.ReviewQueueSource{
+			ItemID: *pegasusID, ImportID: *sourceImportID, Label: pegasusLabel, HasCover: pegasusCover,
 		}
 	}
 	return result, nil

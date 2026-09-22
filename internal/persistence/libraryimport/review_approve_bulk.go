@@ -10,7 +10,7 @@ import (
 func (records reviewApprovalRecords) RecordPublished(ctx context.Context, change application.BulkPublication) error {
 	intent := change.Intent
 	result, err := recordstore.UpdateReviewBulkApprovalItems(ctx, records.transaction, recordstore.Update{
-		Set: `state='PUBLISHED',game_id=?,review_event_id=?,outcome_code='PUBLISHED',
+		Set: `state='PUBLISHED',game_id=?,outcome_code='PUBLISHED',
 outcome_details_json='{"schemaVersion":1,"code":"PUBLISHED"}',completed_at_ms=?`,
 		Scope: recordstore.Scope{
 			Where: `bulk_approval_id=? AND import_item_id=? AND state='RUNNING'
@@ -20,7 +20,7 @@ AND expected_review_version=? AND expected_validation_id=? AND expected_source_s
 				intent.SourceSnapshotID,
 			},
 		},
-		Values: []any{change.Result.GameID, change.Result.EventID, change.NowMS},
+		Values: []any{change.Result.GameID, change.NowMS},
 	})
 	if err := approvalMutation(result, err, "record bulk published item", true); err != nil {
 		return err

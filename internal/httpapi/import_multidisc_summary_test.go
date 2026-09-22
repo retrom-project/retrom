@@ -20,7 +20,7 @@ CREATE TABLE import_items(id TEXT,import_job_id TEXT,state TEXT);
 CREATE TABLE review_drafts(import_item_id TEXT,effective_source_snapshot_id TEXT);
 CREATE TABLE import_item_source_snapshots(id TEXT,import_item_id TEXT,created_by TEXT,content_kind TEXT);
 CREATE TABLE import_item_source_snapshot_files(source_snapshot_id TEXT,role TEXT,logical_name TEXT,upload_file_id TEXT);
-CREATE TABLE upload_files(id TEXT,relative_path TEXT);
+CREATE TABLE import_files(id TEXT,relative_path TEXT);
 CREATE TABLE import_item_multidisc_entries(source_snapshot_id TEXT,ordinal INTEGER,state TEXT);
 CREATE TABLE import_job_files(import_job_id TEXT,upload_file_id TEXT,disposition TEXT);
 INSERT INTO import_items VALUES('item','job','REVIEW_PENDING');
@@ -28,7 +28,7 @@ INSERT INTO import_item_source_snapshots VALUES
 ('initial','item','IDENTIFICATION','MULTI_DISC'),
 ('selected','item','MULTIDISC_ATTACHMENT','MULTI_DISC'),
 ('unselected','item','MULTIDISC_ATTACHMENT','MULTI_DISC');
-INSERT INTO upload_files VALUES('playlist','Game/list.m3u');
+INSERT INTO import_files VALUES('playlist','Game/list.m3u');
 INSERT INTO import_item_source_snapshot_files VALUES
 ('initial','PLAYLIST_SOURCE','list.m3u','playlist'),
 ('selected','PLAYLIST_SOURCE','list.m3u','playlist'),

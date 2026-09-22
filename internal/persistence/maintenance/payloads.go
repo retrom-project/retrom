@@ -27,10 +27,9 @@ func (records payloadRecords) RetainedSources(
 ) ([]string, error) {
 	var table string
 	switch query.Kind {
-	case payloadrelease.ScopePegasusImportItem:
-		table = "pegasus_import_items"
-	case payloadrelease.ScopeEmulationStationImportItem:
-		table = "emulationstation_import_items"
+	case payloadrelease.ScopeSourceImportItem:
+		table = "source_import_items"
+
 	case payloadrelease.ScopeImportItem, payloadrelease.ScopeImportJob, payloadrelease.ScopeUploadConsumption,
 		payloadrelease.ScopeGame, payloadrelease.ScopeBlob:
 		return nil, application.ErrInvalidBundle

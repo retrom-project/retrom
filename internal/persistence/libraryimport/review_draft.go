@@ -15,8 +15,6 @@ import (
 	tagpersistence "retrom/internal/persistence/tagging"
 	application "retrom/internal/service/libraryimport"
 	"retrom/internal/service/tagging"
-
-	"github.com/google/uuid"
 )
 
 type (
@@ -109,7 +107,6 @@ type draftPatchRun struct {
 	backgroundID        sql.NullString
 	dosEntry            sql.NullString
 	metadata            map[string]any
-	beforeTags          []tagging.Reference
 	targetOrDOSChanged  bool
 	isRPG               bool
 }
@@ -136,13 +133,6 @@ WHERE i.id=? AND i.state='REVIEW_PENDING'
 	if currentVersion != run.expectedVersion {
 		return application.ErrVersionConflict
 	}
-	beforeTags, err := run.repository.tags.ReviewDraftReferences(
-		run.ctx, tagpersistence.Bind(run.transaction), run.draftID,
-	)
-	if err != nil {
-		return fmt.Errorf("libraryimport/review: read draft tags: %w", err)
-	}
-	run.beforeTags = beforeTags
 	if err := json.Unmarshal([]byte(run.metadataJSON), &run.metadata); err != nil {
 		return fmt.Errorf("libraryimport/review: %w", err)
 	}
@@ -427,9 +417,6 @@ func (run *draftPatchRun) persist() (application.DraftResult, error) {
 	if err := run.updateDraft(encoded, searchParts, now); err != nil {
 		return application.DraftResult{}, err
 	}
-	if err := run.insertSavedEvent(actor.Kind, actor.UserID, actor.Label, afterTags, now); err != nil {
-		return application.DraftResult{}, err
-	}
 	if err := run.transaction.Commit(); err != nil {
 		return application.DraftResult{}, fmt.Errorf("libraryimport/review: %w", err)
 	}
@@ -444,7 +431,7 @@ func (run *draftPatchRun) searchParts() ([]string, error) {
 	rows, err := run.transaction.QueryContext(run.ctx, `
 SELECT u.relative_path
 FROM import_item_source_snapshot_files s
-JOIN upload_files u ON u.id=s.upload_file_id
+JOIN import_files u ON u.id=s.upload_file_id
 WHERE s.source_snapshot_id=?
 ORDER BY s.sort_order,s.role,s.logical_name
 `, run.itemID)
@@ -540,14 +527,6 @@ func nullableCandidate(value *string) sql.NullString {
 	return sql.NullString{String: *value, Valid: true}
 }
 
-func marshalReviewEventV2(fields map[string]any) string {
-	fields["schemaVersion"] = 2
-	encoded, _ := json.Marshal(fields)
-	return string(encoded)
-}
-
-const emptyReviewEventV2 = `{"schemaVersion":2}`
-
 func (repository *ReviewDraftPatches) validCandidateAsset(
 	ctx context.Context, transaction *sql.Tx, itemID, assetID string,
 ) bool {
@@ -563,31 +542,3 @@ func (repository *ReviewDraftPatches) validUploadedAsset(
 }
 
 var _ application.ReviewDraftPatchRepository = (*ReviewDraftPatches)(nil)
-
-func (run *draftPatchRun) insertSavedEvent(
-	actorKind string,
-	actorUserID any,
-	actorLabel any,
-	afterTags []tagging.Reference,
-	now int64,
-) error {
-	eventID, _ := uuid.NewV7()
-	beforeJSON, _ := json.Marshal(map[string]any{
-		"schemaVersion": 2, "metadata": json.RawMessage(run.metadataJSON), "tags": run.beforeTags,
-	})
-	afterJSON, _ := json.Marshal(map[string]any{
-		"schemaVersion": 2, "metadata": run.metadata, "tags": afterTags,
-	})
-	_, err := recordstore.CreateReviewEvents(run.ctx, run.transaction, `
-INSERT INTO review_events(
-  id,import_item_id,event_type,actor_kind,actor_user_id,actor_label,before_json,
-  after_json,diff_json,config_evidence_json,dat_evidence_json,provider_evidence_json,created_at_ms
-) VALUES(?,?,'DRAFT_SAVED',?,?,?,?,?,?,?,?,?,?)
-`, eventID.String(), run.itemID, actorKind, actorUserID, actorLabel,
-		string(beforeJSON), string(afterJSON), marshalReviewEventV2(map[string]any{"metadataOrTagsChanged": true}),
-		emptyReviewEventV2, emptyReviewEventV2, emptyReviewEventV2, now)
-	if err != nil {
-		return fmt.Errorf("libraryimport/review: %w", err)
-	}
-	return nil
-}

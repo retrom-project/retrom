@@ -13,7 +13,7 @@ import (
 
 func TestApplicationAtomicCancellationRollsBackContinuingTransaction(t *testing.T) {
 	t.Parallel()
-	fixture := openEmulationStationSchemaFixture(t)
+	fixture := openApplicationFixture(t)
 	db := fixture.database.SQL
 	tx := lifecycleTransaction(t, db)
 	ctx, cancel := context.WithCancel(t.Context())
@@ -63,7 +63,7 @@ func TestInvalidSessionCreationDoesNotLeakIntoContinuingTransaction(t *testing.T
 
 func TestBatchAdminDowngradeRollsBackEverySelectedUser(t *testing.T) {
 	t.Parallel()
-	fixture := openEmulationStationSchemaFixture(t)
+	fixture := openApplicationFixture(t)
 	db := fixture.database.SQL
 	if _, err := db.ExecContext(t.Context(), `
  INSERT INTO profiles(id,display_name,created_at_ms) VALUES('second-profile','Second',1);

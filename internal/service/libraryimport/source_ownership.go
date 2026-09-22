@@ -38,7 +38,7 @@ func validSourceExecution(current SourceCreationSnapshot, intent SourceCreationI
 	return sameSourceExecution(current, intent) &&
 		current.ImportState == "RUNNING" && current.JobState == "RUNNING" && current.SourceState == "COPYING" &&
 		current.MappingAction == "IMPORT" && current.LeaseUntilMS > now && current.DeadlineMS > now &&
-		validSourceVersions(current) && validSourceFrozen(current) &&
+		validSourceVersions(current) &&
 		current.LibraryJobID == "" && current.LibraryItemID == ""
 }
 
@@ -59,7 +59,7 @@ func (service *SourceOwnership) Revalidate(
 	if err != nil {
 		return SourceCreationSnapshot{}, err
 	}
-	if current.Frozen != before.Frozen || !slices.Equal(current.Files, before.Files) {
+	if !slices.Equal(current.Files, before.Files) {
 		return SourceCreationSnapshot{}, ErrVersionConflict
 	}
 	if current.SourceVersion != before.SourceVersion || current.TargetVersion != before.TargetVersion ||

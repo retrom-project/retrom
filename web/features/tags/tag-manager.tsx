@@ -13,7 +13,7 @@ import { useBrowserTimeZone } from "@/lib/use-browser-time-zone";
 
 export type TagAdminItem = {
   tagId: string; name: string; status: "ACTIVE" | "DELETED"; version: number;
-  usage: { publishedGameCount: number; deletedGameCount: number; reviewDraftCount: number; pegasusCollectionCount: number };
+  usage: { publishedGameCount: number; deletedGameCount: number; reviewDraftCount: number; sourceCollectionCount: number };
   createdAtMs: number; updatedAtMs: number; deletedAtMs: number | null;
 };
 
@@ -204,7 +204,7 @@ function TagItems({ filters, items, openEditor, setConfirmName, setDeleteItem, s
 function TagRow({ item, onDelete, onEdit }: { item: TagAdminItem; onDelete: () => void; onEdit: () => void }) {
   const timeZone = useBrowserTimeZone();
   const active = item.status === "ACTIVE";
-  return <tr><th scope="row"><strong title={item.name}>{item.name}</strong></th><td><StatusBadge tone={active ? "good" : "neutral"}>{active ? "活动" : "已删除"}</StatusBadge></td><td><Link href={`/admin/games?tagId=${encodeURIComponent(item.tagId)}&status=ALL`}>{item.usage.publishedGameCount} / {item.usage.deletedGameCount}</Link></td><td><Link href={`/admin/reviews?tagId=${encodeURIComponent(item.tagId)}`}>{item.usage.reviewDraftCount}</Link></td><td>{item.usage.pegasusCollectionCount}</td><td><time dateTime={new Date(item.updatedAtMs).toISOString()}>{formatTime(item.updatedAtMs, timeZone)}</time></td><td><div className="tag-row-actions"><button type="button" className="button secondary" disabled={!active} onClick={onEdit}>编辑</button><button type="button" className="button secondary tag-delete-button" disabled={!active} onClick={onDelete}>删除</button></div></td></tr>;
+  return <tr><th scope="row"><strong title={item.name}>{item.name}</strong></th><td><StatusBadge tone={active ? "good" : "neutral"}>{active ? "活动" : "已删除"}</StatusBadge></td><td><Link href={`/admin/games?tagId=${encodeURIComponent(item.tagId)}&status=ALL`}>{item.usage.publishedGameCount} / {item.usage.deletedGameCount}</Link></td><td><Link href={`/admin/reviews?tagId=${encodeURIComponent(item.tagId)}`}>{item.usage.reviewDraftCount}</Link></td><td>{item.usage.sourceCollectionCount}</td><td><time dateTime={new Date(item.updatedAtMs).toISOString()}>{formatTime(item.updatedAtMs, timeZone)}</time></td><td><div className="tag-row-actions"><button type="button" className="button secondary" disabled={!active} onClick={onEdit}>编辑</button><button type="button" className="button secondary tag-delete-button" disabled={!active} onClick={onDelete}>删除</button></div></td></tr>;
 }
 
 function TagEditorSheet({ busy, editor, error, name, nameRef, notice, save, setEditor, setError, setName, setNotice, triggerRef }: Pick<
@@ -224,6 +224,6 @@ function TagDeleteDialog({ busy, confirmName, deleteItem, error, remove, setConf
 >) {
   const close = () => {if (!busy) {setDeleteItem(null);}};
   return <ConfirmDialog open={Boolean(deleteItem)} title="删除标签" description="删除后不会恢复；已有关系保留为历史证据，但立即从游戏、搜索和活动选择器中隐藏。" tone="danger" confirmLabel="删除标签" busy={busy} confirmDisabled={!deleteItem || confirmName !== deleteItem.name} onCancel={close} onConfirm={() => void remove()}>
-    {deleteItem ? <div className="tag-delete-impact"><p>影响：{deleteItem.usage.publishedGameCount} 个已发布游戏、{deleteItem.usage.deletedGameCount} 个已删除游戏、{deleteItem.usage.reviewDraftCount} 个待审核草稿、{deleteItem.usage.pegasusCollectionCount} 个扫描映射。</p><label><span>输入完整名称“{deleteItem.name}”确认</span><input value={confirmName} onChange={(event) => setConfirmName(event.target.value)} /></label>{error ? <p role="alert">{error}</p> : null}</div> : null}
+    {deleteItem ? <div className="tag-delete-impact"><p>影响：{deleteItem.usage.publishedGameCount} 个已发布游戏、{deleteItem.usage.deletedGameCount} 个已删除游戏、{deleteItem.usage.reviewDraftCount} 个待审核草稿、{deleteItem.usage.sourceCollectionCount} 个扫描映射。</p><label><span>输入完整名称“{deleteItem.name}”确认</span><input value={confirmName} onChange={(event) => setConfirmName(event.target.value)} /></label>{error ? <p role="alert">{error}</p> : null}</div> : null}
   </ConfirmDialog>;
 }

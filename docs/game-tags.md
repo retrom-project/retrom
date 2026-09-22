@@ -36,7 +36,7 @@
 所有集合替换遵守同一过程：先验证数组长度、规范 UUIDv7、重复和全部 Tag 的活动状态；读取当前活动集合；完全相同则 no-op；否则删除不再选择的活动关系、插入新增关系，保留指向 DELETED tombstone 的历史行，推进 touched Tag 和 owner aggregate 的版本并记录领域事件或审计。应用存储方法在同一事务中保护活动状态、owner 状态和 20 个上限。
 
 - `PUT /admin/games/{gameId}/tags` 以 Game `If-Match` 原子替换 PUBLISHED 或 DELETED Game 的当前标签，推进 Game version 并写 `GAME_TAGS_REPLACED` 审计；它不创建 Game 当前元信息字段。
-- Review 标签属于 ReviewDraft version。PATCH 自动保存的 `tagIds` 与标题、媒体、Validation 等草稿选择共同提交；Approve 在原发布事务内重新验证活动 Tag，并将当前 ReviewDraftTag 原子复制到 GameTag。任何失败都回滚整个发布。Discard 保留关系与最终 ReviewEvent 的名称快照。
+- Review 标签属于 ReviewDraft version。PATCH 自动保存的 `tagIds` 与标题、媒体、Validation 等草稿选择共同提交；Approve 在原发布事务内重新验证活动 Tag，并将当前 ReviewDraftTag 原子复制到 GameTag。任何失败都回滚整个发布。Discard 保留当前草稿关系。
 - Pegasus Collection 标签属于 mapping version。每个 `IMPORT` Collection 的映射保存关系及稳定 `{tagId,name}` snapshot；`SKIP` 必须是空数组。start 后映射冻结，retry 复用该映射；handoff 只把仍活动的选择复制到所创建的 ReviewDraft，且崩溃恢复不得重复写入。
 
 Tag 删除与关系变化都在短数据库写事务内完成，不执行文件扫描、hash、归档读取或网络访问。Tag 删除使用 Tag ETag；Game/Review/Pegasus 写使用各自 owner ETag，因此删除和并发分配只有一种提交顺序能成功。
@@ -77,6 +77,6 @@ Pegasus 在 Collection 映射步骤逐项选择默认标签，可用批量辅助
 
 稳定领域错误为 `TAG_NAME_INVALID`、`TAG_NAME_CONFLICT`、`TAG_LIMIT_REACHED`、`TAG_NOT_FOUND`、`TAG_ALREADY_DELETED`、`TAG_REFERENCE_INVALID`、`TAG_ASSIGNMENT_LIMIT_EXCEEDED`、`TAG_DELETE_CONFIRMATION_MISMATCH` 与 `VERSION_CONFLICT`。状态码、header 和 envelope 由 HTTP 契约规定。
 
-Tag create/rename/delete 写 `TAG_CREATED/TAG_RENAMED/TAG_DELETED` AuditEvent；Game 集合替换写排序后的 before/after 和 added/removed。Review 沿用 `DRAFT_SAVED` 与最终 ReviewEvent，Pegasus 沿用 mapping snapshot。日志和错误只包含非秘密 ID、计数与稳定错误码。
+Tag create/rename/delete 写 `TAG_CREATED/TAG_RENAMED/TAG_DELETED` AuditEvent；Game 集合替换写排序后的 before/after 和 added/removed。Review 只更新当前草稿版本，统一来源沿用 mapping snapshot。日志和错误只包含非秘密 ID、计数与稳定错误码。
 
 统一验收入口是 [`project-acceptance.md`](./project-acceptance.md) 的 `ACC-TAG-001`–`ACC-TAG-005`。本能力不进入模拟器装载、内容交付、帧执行或存档协议，因此不触发 core smoke 或依赖/fixture 基线重验；若后续改动越过该边界，必须重新沿实际调用链判定。

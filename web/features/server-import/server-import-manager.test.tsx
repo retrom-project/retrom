@@ -13,13 +13,13 @@ import {
 const router = vi.hoisted(() => ({ push: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => router }));
 
-const availableRoot: ServerImportRoot = { id: "pegasus", label: "Pegasus BIOS", status: "AVAILABLE" };
+const availableRoot: ServerImportRoot = { id: "source", label: "Source BIOS", status: "AVAILABLE" };
 
 function summary(overrides: Partial<ServerImportSummary> = {}): ServerImportSummary {
   return {
     id: "10000000-0000-4000-8000-000000000001",
     kind: "BIOS_DIRECTORY",
-    root: { id: "pegasus", label: "Pegasus BIOS" },
+    root: { id: "source", label: "Source BIOS" },
     sourceRelativePath: "BIOS",
     replaceIfBetter: false,
     state: "COMPLETED",
@@ -81,13 +81,13 @@ afterEach(() => {
 });
 
 describe("ServerImportManager", () => {
-  it("presents EmulationStation as a third equal server import capability", () => {
+  it("presents one game import capability for both metadata formats", () => {
     render(<ServerImportManager initialRoots={[availableRoot]} initialImports={imports()} />);
 
     expect(screen.getByRole("heading", { name: "扫描并导入 BIOS" })).toBeVisible();
     expect(screen.getByRole("heading", { name: "扫描并准备审核事项" })).toBeVisible();
-    expect(screen.getByRole("heading", { name: "扫描 gamelist.xml 并准备审核" })).toBeVisible();
-    expect(screen.getByText(/不执行 command、emulator 或 core/)).toBeVisible();
+    expect(screen.getByText(/选择 Pegasus 或 gamelist.xml 格式/)).toBeVisible();
+
   });
 
   it("does not offer an import when the server filesystem is unavailable", () => {
@@ -99,8 +99,8 @@ describe("ServerImportManager", () => {
   it("paginates the server filesystem browser", async () => {
     const user = userEvent.setup();
     const fetchMock = vi.fn()
-      .mockResolvedValueOnce(jsonResponse({ rootId: "pegasus", path: "", items: [{ name: "BIOS", relativePath: "BIOS" }], nextCursor: "next-directories" }))
-      .mockResolvedValueOnce(jsonResponse({ rootId: "pegasus", path: "", items: [{ name: "More", relativePath: "More" }], nextCursor: null }));
+      .mockResolvedValueOnce(jsonResponse({ rootId: "source", path: "", items: [{ name: "BIOS", relativePath: "BIOS" }], nextCursor: "next-directories" }))
+      .mockResolvedValueOnce(jsonResponse({ rootId: "source", path: "", items: [{ name: "More", relativePath: "More" }], nextCursor: null }));
     vi.stubGlobal("fetch", fetchMock);
     render(<ServerImportManager initialRoots={[availableRoot]} initialImports={imports()} initialOpen />);
 
@@ -115,7 +115,7 @@ describe("ServerImportManager", () => {
     const user = userEvent.setup();
     const created = summary({ state: "QUEUED", phase: null, completedAtMs: null, replaceIfBetter: true, sourceRelativePath: "" });
     const fetchMock = vi.fn()
-      .mockResolvedValueOnce(jsonResponse({ rootId: "pegasus", path: "", items: [], nextCursor: null }))
+      .mockResolvedValueOnce(jsonResponse({ rootId: "source", path: "", items: [], nextCursor: null }))
       .mockResolvedValueOnce(jsonResponse(created, 202));
     vi.stubGlobal("fetch", fetchMock);
     render(<ServerImportManager initialRoots={[availableRoot]} initialImports={imports()} initialOpen />);
@@ -127,7 +127,7 @@ describe("ServerImportManager", () => {
     expect(router.push).toHaveBeenCalledWith(`/admin/imports/server/${created.id}`);
     const request = requestAt(fetchMock, 1);
     expect(request.method).toBe("POST");
-    expect(await request.clone().json()).toEqual({ kind: "BIOS_DIRECTORY", rootId: "pegasus", sourceRelativePath: "", replaceIfBetter: true });
+    expect(await request.clone().json()).toEqual({ kind: "BIOS_DIRECTORY", rootId: "source", sourceRelativePath: "", replaceIfBetter: true });
   });
 
   it("loads complete history on the same page with cursor deduplication", async () => {
@@ -139,8 +139,8 @@ describe("ServerImportManager", () => {
     render(<ServerImportManager initialRoots={[availableRoot]} initialImports={imports([first], "history-cursor")} />);
 
     await user.click(screen.getByRole("button", { name: "查看全部历史" }));
-    expect(await screen.findByText("Pegasus BIOS / Arcade")).toBeVisible();
-    expect(screen.getAllByText("Pegasus BIOS / BIOS")).toHaveLength(1);
+    expect(await screen.findByText("Source BIOS / Arcade")).toBeVisible();
+    expect(screen.getAllByText("Source BIOS / BIOS")).toHaveLength(1);
     expect(requestAt(fetchMock, 0).url).toContain("cursor=history-cursor");
     expect(requestAt(fetchMock, 0).url).toContain("limit=20");
   });

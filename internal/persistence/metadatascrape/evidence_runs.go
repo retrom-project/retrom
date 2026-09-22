@@ -58,7 +58,7 @@ LEFT JOIN outcome_counts o ON o.scrape_run_id=r.id
 WHERE r.import_item_id=?
 ORDER BY r.created_at_ms DESC,
 r.id DESC
-LIMIT 10
+LIMIT 1
 `, itemID)
 	if err != nil {
 		return nil, fmt.Errorf("query review runs: %w", err)

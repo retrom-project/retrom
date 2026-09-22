@@ -30,7 +30,7 @@ func (records effectRecords) Payload(ctx context.Context, scope application.Scop
 FROM upload_consumptions WHERE consumer_type='IMPORT_JOB' AND consumer_id=?`,
 			scope.ID,
 		)
-	case application.ScopePegasusImportItem, application.ScopeEmulationStationImportItem:
+	case application.ScopeSourceImportItem:
 		spec, specErr := effectSourceSpec(scope.Type)
 		if specErr != nil {
 			return payload, specErr

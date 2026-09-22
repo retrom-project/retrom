@@ -29,7 +29,7 @@ func TestServerImportHTTPUsesApplicationService(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if path == "retrom/internal/serverimport" || path == "retrom/internal/pegasusimport" {
+			if path == "retrom/internal/serverimport" || path == "retrom/internal/sourceimport" {
 				t.Errorf("%s still depends on legacy server import package", name)
 			}
 		}

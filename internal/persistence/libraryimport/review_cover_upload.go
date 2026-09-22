@@ -50,10 +50,10 @@ func (records reviewCoverRecords) Source(
 	var source application.ReviewCoverSource
 	err := records.executor.QueryRowContext(ctx, `
 SELECT f.id,f.upload_session_id,b.id,b.sha256,upload.purpose,b.size_bytes
-FROM upload_files f
-JOIN blobs b ON b.id=f.final_blob_id
+FROM import_files f
+JOIN blobs b ON b.id=f.blob_id
 JOIN upload_sessions upload ON upload.id=f.upload_session_id
-WHERE f.id=? AND f.state='COMPLETE'
+WHERE f.id=? AND f.released_at_ms IS NULL
 `, fileID).Scan(&source.FileID, &source.UploadID, &source.BlobID, &source.Digest, &source.Purpose, &source.SizeBytes)
 	if errors.Is(err, sql.ErrNoRows) {
 		return application.ReviewCoverSource{}, false, nil
@@ -69,15 +69,13 @@ func (records reviewCoverRecords) Draft(
 ) (application.ReviewCoverDraft, bool, error) {
 	var draft application.ReviewCoverDraft
 	err := records.executor.QueryRowContext(ctx, `
-SELECT d.version,i.state,i.review_handoff_kind,
-EXISTS(SELECT 1 FROM emulationstation_import_items source
+SELECT d.version,i.state,
+EXISTS(SELECT 1 FROM source_import_items source
  WHERE source.library_import_item_id=i.id AND source.execution_state='REVIEW_PENDING'),
-(EXISTS(SELECT 1 FROM pegasus_import_items source
- WHERE source.library_import_item_id=i.id AND source.execution_state<>'REVIEW_PENDING') OR
- EXISTS(SELECT 1 FROM emulationstation_import_items source
+(EXISTS(SELECT 1 FROM source_import_items source
  WHERE source.library_import_item_id=i.id AND source.execution_state<>'REVIEW_PENDING'))
 FROM review_drafts d JOIN import_items i ON i.id=d.import_item_id WHERE i.id=?
-`, itemID).Scan(&draft.Version, &draft.State, &draft.HandoffKind, &draft.EmulationStationReady, &draft.SourceBusy)
+`, itemID).Scan(&draft.Version, &draft.State, &draft.SourceReady, &draft.SourceBusy)
 	if errors.Is(err, sql.ErrNoRows) {
 		return application.ReviewCoverDraft{}, false, nil
 	}
@@ -94,7 +92,7 @@ func (records reviewCoverRecords) ExistingByUpload(
 	asset := &existing.Record
 	err := records.executor.QueryRowContext(ctx, `
 SELECT a.id,a.import_item_id,a.upload_file_id,a.blob_id,a.media_type,a.width_px,a.height_px,a.created_at_ms,
-EXISTS(SELECT 1 FROM upload_consumptions c JOIN upload_files f ON f.id=a.upload_file_id
+EXISTS(SELECT 1 FROM upload_consumptions c JOIN import_files f ON f.id=a.upload_file_id
  WHERE c.consumer_type='REVIEW_ASSET' AND c.consumer_id=a.id AND c.upload_file_id=a.upload_file_id
  AND c.upload_session_id=f.upload_session_id AND c.released_at_ms IS NULL)
 FROM review_uploaded_assets a WHERE a.upload_file_id=?

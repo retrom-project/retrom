@@ -30,7 +30,7 @@ export type AdminGame = {
   gameId: string; status: string; payloadState: "RETAINED" | "RELEASING" | "RELEASED" | "FAILED"; payloadReleaseJobId: string | null; payloadLastErrorCode?: string | null; title: string; description: string; developer: string; publisher: string; genre: string;
   players: number | null; releaseYear: number | null; platformId: string; platformInstance: { id: string; name: string };
   contentKind: string; files: GameFile[]; version: number; createdAtMs: number; updatedAtMs: number; generatedAtMs: number;
-  deleteImpact: { impactDigest: string; registeredBytes: string; exclusiveBytes: string; sharedBytes: string; blobCount: number; saveStateCount: number; assetCount: number; contentFileCount: number; activeLaunchCount: number; activeNetplayCount: number; reviewEventCount: number; sourceKinds: string[] };
+  deleteImpact: { impactDigest: string; registeredBytes: string; exclusiveBytes: string; sharedBytes: string; blobCount: number; saveStateCount: number; assetCount: number; contentFileCount: number; activeLaunchCount: number; activeNetplayCount: number; sourceKinds: string[] };
   assets: Asset[]; variants: Variant[];
   tags?: TagReference[];
 };

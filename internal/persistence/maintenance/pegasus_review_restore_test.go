@@ -9,9 +9,9 @@ import (
 	application "retrom/internal/service/maintenance"
 )
 
-func restoredPegasusReview(t *testing.T) (*sql.DB, string) {
+func restoredSourceReview(t *testing.T) (*sql.DB, string) {
 	t.Helper()
-	db, path := restoredPegasusScan(t, "RUNNING")
+	db, path := restoredSourceScan(t, "RUNNING")
 	digest := strings.Repeat("b", 64)
 	var instance, provider, target string
 	err := db.QueryRowContext(t.Context(), `SELECT p.id,t.provider_id,t.target_id FROM platform_instances p
@@ -25,9 +25,9 @@ func restoredPegasusReview(t *testing.T) (*sql.DB, string) {
 		`INSERT INTO jobs(id,scope_type,scope_id,kind,dedupe_key,execution_no,payload_json,cancellable,state,
  attempt_count,max_attempts,available_at_ms,worker_id,leased_until_ms,execution_started_at_ms,
  execution_deadline_at_ms,created_at_ms,updated_at_ms)
- VALUES('work','PEGASUS_IMPORT','import','SERVER_PEGASUS_IMPORT',
+ VALUES('work','SOURCE_IMPORT','import','IMPORT_RECEIVE',
  'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',1,'{}',1,'RUNNING',1,4,1,'old-worker',100,1,1000,1,1)`,
-		`UPDATE pegasus_imports SET state='RUNNING',import_job_id='work',game_count=1,processable_item_count=1 WHERE id='import'`,
+		`UPDATE source_imports SET state='RUNNING',import_job_id='work',game_count=1,processable_item_count=1 WHERE id='import'`,
 	} {
 		if _, err := db.ExecContext(t.Context(), statement); err != nil {
 			t.Fatal(err)
@@ -47,7 +47,7 @@ func restoredPegasusReview(t *testing.T) (*sql.DB, string) {
  VALUES('handoff-item','handoff-job',?,'REVIEW_PENDING','{}',?,'original',1,1)`, []any{digest, digest}},
 		{`INSERT INTO review_drafts(id,import_item_id,target_platform_instance_id,metadata_json,created_at_ms,updated_at_ms)
  VALUES('handoff-draft','handoff-item',?,'{"title":"Original"}',1,1)`, []any{instance}},
-		{`UPDATE pegasus_import_items SET execution_state='VALIDATING',library_import_job_id='handoff-job',
+		{`UPDATE source_import_items SET execution_state='VALIDATING',library_import_job_id='handoff-job',
  library_import_item_id='handoff-item',metadata_json='{"Title":"Restored title"}' WHERE id='item'`, nil},
 	}
 	for _, statement := range statements {
@@ -58,9 +58,9 @@ func restoredPegasusReview(t *testing.T) (*sql.DB, string) {
 	return db, path
 }
 
-func TestRestoreRetainsPegasusReviewCreatedBeforeSourceHandoff(t *testing.T) {
+func TestRestoreRetainsSourceReviewCreatedBeforeSourceHandoff(t *testing.T) {
 	t.Parallel()
-	db, path := restoredPegasusReview(t)
+	db, path := restoredSourceReview(t)
 	err := New().WithRestore(t.Context(), path, func(records application.RestoreRecords) error {
 		if err := application.CompleteRestoredReviews(t.Context(), records.Imports().Reviews, time.UnixMilli(10)); err != nil {
 			return err
@@ -75,8 +75,8 @@ func TestRestoreRetainsPegasusReviewCreatedBeforeSourceHandoff(t *testing.T) {
 	var pending, failed, events int64
 	err = db.QueryRowContext(t.Context(), `SELECT source.execution_state,plan.state,job.state,
  json_extract(draft.metadata_json,'$.title'),plan.review_pending_item_count,plan.failed_item_count,
- (SELECT count(*) FROM review_events WHERE import_item_id='handoff-item')
- FROM pegasus_import_items source JOIN pegasus_imports plan ON plan.id=source.import_id
+ (SELECT version-1 FROM review_drafts WHERE import_item_id='handoff-item')
+ FROM source_import_items source JOIN source_imports plan ON plan.id=source.import_id
  JOIN jobs job ON job.id=plan.import_job_id JOIN review_drafts draft ON draft.import_item_id=source.library_import_item_id
  WHERE source.id='item'`).Scan(&sourceState, &planState, &jobState, &title, &pending, &failed, &events)
 	if err != nil {

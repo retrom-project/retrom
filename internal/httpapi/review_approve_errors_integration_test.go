@@ -17,22 +17,21 @@ import (
 
 func TestReviewApproveSQLFailuresAreServerErrors(t *testing.T) {
 	t.Parallel()
-	for _, match := range []string{"JOIN review_drafts d", "INSERT INTO review_events"} {
+	for _, match := range []string{"JOIN review_drafts d", "UPDATE import_items SET state="} {
 		t.Run(match, func(t *testing.T) {
 			t.Parallel()
 			server := newTestServer(t)
 			itemID := createReviewSnapshotItem(t, server)
 			cause := errors.New("approval store unavailable")
 			hits := 0
-			database := testsupport.OpenSQLFaultDatabase(t, server.database, testsupport.SQLFaultHooks{
-				BeforeQuery: func(_ context.Context, query string, _ []driver.NamedValue) error {
-					if strings.Contains(query, match) {
-						hits++
-						return cause
-					}
-					return nil
-				},
-			})
+			fault := func(_ context.Context, query string, _ []driver.NamedValue) error {
+				if strings.Contains(query, match) {
+					hits++
+					return cause
+				}
+				return nil
+			}
+			database := testsupport.OpenSQLFaultDatabase(t, server.database, testsupport.SQLFaultHooks{BeforeQuery: fault, BeforeExec: fault})
 			server.reviewApprovals = composition.NewLibraryReviewApprovals(database, server.now)
 			response := requestReviewApprove(t, server, itemID, `"v1"`, `{}`)
 			if response.Code != http.StatusInternalServerError || hits != 1 {

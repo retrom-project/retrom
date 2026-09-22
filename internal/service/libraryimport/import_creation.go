@@ -269,12 +269,6 @@ func (run *creationCommit) schedulePayload(ctx context.Context, scope ImportCrea
 }
 
 func normalizeCreationOptions(plan PreparedImport, options ImportCreationOptions) (ImportCreationOptions, error) {
-	if options.ReviewHandoffKind == "" {
-		options.ReviewHandoffKind = "DIRECT"
-	}
-	if options.ReviewHandoffKind != "DIRECT" && options.ReviewHandoffKind != "EMULATIONSTATION" {
-		return ImportCreationOptions{}, ErrInvalid
-	}
 	if options.Queued != nil && (options.Source != nil || options.Reconfiguration != nil) {
 		return ImportCreationOptions{}, ErrInvalid
 	}

@@ -25,7 +25,7 @@ func TestMediaSnapshotsPreserveStorageAndCancellationCauses(t *testing.T) {
 			t.Error(err)
 		}
 	})
-	for _, source := range []string{"game_assets", "save_states", "scrape_candidate_assets", "pegasus_import_item_assets"} {
+	for _, source := range []string{"game_assets", "save_states", "scrape_candidate_assets", "source_import_item_assets"} {
 		t.Run(source, func(t *testing.T) {
 			cause := errors.New("media snapshot unavailable")
 			hits := 0

@@ -2,13 +2,12 @@ paths:
   /api/v1/admin/reviews:
     get:
       operationId: getAdminReviews
-      description: Pending review summaries including sourceTotalSizeBytes, sourceMd5, a nullable coverUrl, and STANDARD/PEGASUS/EMULATIONSTATION source identity for compact queue previews.
+      description: Pending review summaries including sourceTotalSizeBytes, sourceMd5, a nullable coverUrl, and STANDARD/SOURCE source identity for compact queue previews.
       parameters:
         - $ref: ../components/common.yaml#/components/parameters/Q
         - $ref: ../components/common.yaml#/components/parameters/TagIDQuery
         - $ref: '#/components/parameters/ImportJobIDQuery'
-        - $ref: '#/components/parameters/PegasusImportIDQuery'
-        - $ref: '#/components/parameters/EmulationStationImportIDQuery'
+        - $ref: '#/components/parameters/SourceImportIDQuery'
         - $ref: ../components/common.yaml#/components/parameters/PlatformInstanceIDQuery
         - $ref: '#/components/parameters/BlockerCode'
         - $ref: ../components/common.yaml#/components/parameters/Sort
@@ -44,8 +43,7 @@ paths:
         - $ref: ../components/common.yaml#/components/parameters/Q
         - $ref: ../components/common.yaml#/components/parameters/TagIDQuery
         - $ref: '#/components/parameters/ImportJobIDQuery'
-        - $ref: '#/components/parameters/PegasusImportIDQuery'
-        - $ref: '#/components/parameters/EmulationStationImportIDQuery'
+        - $ref: '#/components/parameters/SourceImportIDQuery'
         - $ref: ../components/common.yaml#/components/parameters/PlatformInstanceIDQuery
         - $ref: '#/components/parameters/BlockerCode'
       responses:
@@ -243,31 +241,6 @@ paths:
       responses:
         '200':
           $ref: ../components/common.yaml#/components/responses/JSONResponse
-  /api/v1/admin/review-history:
-    get:
-      operationId: getAdminReviewHistory
-      description: Review decision summaries; selecting a row can load the immutable metadata snapshot captured at decision time.
-      parameters:
-        - $ref: ../components/common.yaml#/components/parameters/Q
-        - $ref: '#/components/parameters/Decision'
-        - $ref: ../components/common.yaml#/components/parameters/PlatformInstanceIDQuery
-        - $ref: '#/components/parameters/FromAtMs'
-        - $ref: '#/components/parameters/ToAtMs'
-        - $ref: ../components/common.yaml#/components/parameters/Sort
-        - $ref: ../components/common.yaml#/components/parameters/Cursor
-        - $ref: ../components/common.yaml#/components/parameters/Limit
-      responses:
-        '200':
-          $ref: ../components/common.yaml#/components/responses/JSONResponse
-  /api/v1/admin/review-history/{reviewEventId}:
-    parameters:
-      - $ref: '#/components/parameters/ReviewEventID'
-    get:
-      operationId: getAdminReviewHistoryEvent
-      description: Immutable textual and structured metadata/evidence captured for an approved or discarded review decision. Terminal review history intentionally contains no replayable cover, video, Blob, URL, path, hash, dimensions, MIME type, or other CAS payload reference.
-      responses:
-        '200':
-          $ref: ../components/common.yaml#/components/responses/JSONResponse
 components:
   schemas:
     ApprovalReasonRequest:
@@ -301,8 +274,7 @@ components:
       type: string
       enum:
         - STANDARD
-        - PEGASUS
-        - EMULATIONSTATION
+        - SOURCE
     ReviewQueueItem:
       type: object
       additionalProperties: false
@@ -322,7 +294,7 @@ components:
         - coverUrl
         - sourceKind
         - sourceLabel
-        - pegasusImportId
+        - sourceImportId
         - emulationStationImportId
         - updatedAtMs
       properties:
@@ -387,7 +359,7 @@ components:
         sourceLabel:
           type: string
           nullable: true
-        pegasusImportId:
+        sourceImportId:
           type: string
           format: uuid
           nullable: true
@@ -427,7 +399,7 @@ components:
         importJobId:
           type: string
           format: uuid
-        pegasusImportId:
+        sourceImportId:
           type: string
           format: uuid
         emulationStationImportId:
@@ -680,14 +652,8 @@ components:
       schema:
         type: string
         format: uuid
-    PegasusImportIDQuery:
-      name: pegasusImportId
-      in: query
-      schema:
-        type: string
-        format: uuid
-    EmulationStationImportIDQuery:
-      name: emulationStationImportId
+    SourceImportIDQuery:
+      name: sourceImportId
       in: query
       schema:
         type: string
@@ -718,13 +684,6 @@ components:
         minimum: 0
     BulkApprovalID:
       name: bulkApprovalId
-      in: path
-      required: true
-      schema:
-        type: string
-        format: uuid
-    ReviewEventID:
-      name: reviewEventId
       in: path
       required: true
       schema:

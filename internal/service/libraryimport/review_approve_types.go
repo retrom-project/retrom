@@ -22,9 +22,8 @@ func (conflict *DuplicateConflict) Error() string { return ErrDuplicateContent.E
 func (conflict *DuplicateConflict) Unwrap() error { return ErrDuplicateContent }
 
 type ReviewApproved struct {
-	GameID  string `json:"gameId"`
-	EventID string `json:"reviewEventId"`
-	Status  string `json:"status"`
+	GameID string `json:"gameId"`
+	Status string `json:"status"`
 }
 
 type ReviewApprovalDecision struct {

@@ -9,7 +9,7 @@ import (
 func (service *Scheduler) TerminalSource(
 	ctx context.Context, scope SchedulingScope, ref Scope, now int64,
 ) (string, error) {
-	if ref.Type != ScopePegasusImportItem && ref.Type != ScopeEmulationStationImportItem {
+	if ref.Type != ScopeSourceImportItem {
 		return "", ErrScopeInvalid
 	}
 	owner, err := readSchedulingOwner(ctx, scope, ref)
@@ -25,10 +25,7 @@ func (service *Scheduler) TerminalSource(
 	if owner.PublicID != "" {
 		return service.linkSource(ctx, scope, owner, now)
 	}
-	reason := ReasonPegasusTerminal
-	if ref.Type == ScopeEmulationStationImportItem {
-		reason = ReasonEmulationStationTerminal
-	}
+	reason := ReasonSourceTerminal
 	return service.scheduleOwner(ctx, scope, owner, reason, now)
 }
 

@@ -8,27 +8,25 @@ import (
 type ScopeType string
 
 const (
-	ScopeImportItem                 ScopeType = "IMPORT_ITEM"
-	ScopeImportJob                  ScopeType = "IMPORT_JOB"
-	ScopePegasusImportItem          ScopeType = "PEGASUS_IMPORT_ITEM"
-	ScopeEmulationStationImportItem ScopeType = "EMULATIONSTATION_IMPORT_ITEM"
-	ScopeUploadConsumption          ScopeType = "UPLOAD_CONSUMPTION"
-	ScopeGame                       ScopeType = "GAME"
-	ScopeBlob                       ScopeType = "BLOB"
+	ScopeImportItem        ScopeType = "IMPORT_ITEM"
+	ScopeImportJob         ScopeType = "IMPORT_JOB"
+	ScopeSourceImportItem  ScopeType = "SOURCE_IMPORT_ITEM"
+	ScopeUploadConsumption ScopeType = "UPLOAD_CONSUMPTION"
+	ScopeGame              ScopeType = "GAME"
+	ScopeBlob              ScopeType = "BLOB"
 )
 
 type Reason string
 
 const (
-	ReasonImportPublished          Reason = "IMPORT_PUBLISHED"
-	ReasonImportDiscarded          Reason = "IMPORT_DISCARDED"
-	ReasonImportFailed             Reason = "IMPORT_FAILED_FINAL"
-	ReasonImportCancelled          Reason = "IMPORT_CANCELLED"
-	ReasonImportTerminal           Reason = "IMPORT_JOB_TERMINAL"
-	ReasonPegasusTerminal          Reason = "PEGASUS_TERMINAL"
-	ReasonEmulationStationTerminal Reason = "EMULATIONSTATION_TERMINAL"
-	ReasonUploadConsumed           Reason = "UPLOAD_CONSUMED"
-	ReasonGameDeleted              Reason = "GAME_DELETED"
+	ReasonImportPublished Reason = "IMPORT_PUBLISHED"
+	ReasonImportDiscarded Reason = "IMPORT_DISCARDED"
+	ReasonImportFailed    Reason = "IMPORT_FAILED_FINAL"
+	ReasonImportCancelled Reason = "IMPORT_CANCELLED"
+	ReasonImportTerminal  Reason = "IMPORT_JOB_TERMINAL"
+	ReasonSourceTerminal  Reason = "SOURCE_TERMINAL"
+	ReasonUploadConsumed  Reason = "UPLOAD_CONSUMED"
+	ReasonGameDeleted     Reason = "GAME_DELETED"
 )
 
 var (

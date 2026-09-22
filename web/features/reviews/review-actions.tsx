@@ -207,27 +207,18 @@ function ReviewStepper() {
   return <nav className="review-mobile-stepper" aria-label="审核步骤"><a href="#review-step-source"><span>1</span>来源与依赖</a><a href="#review-step-runtime"><span>2</span>运行检查</a><a href="#review-step-publish"><span>3</span>发布信息</a><a href="#review-step-decision"><span>4</span>审核决定</a></nav>;
 }
 
-function serverSourceName(model: ReviewViewModel) {
-  return model.review.sourceMedia?.sourceKind === "EMULATIONSTATION" ? "EmulationStation" : "Pegasus";
-}
+function serverSourceName() { return "来源文件"; }
 
 function reviewMetadataLabel(model: ReviewViewModel) {
   if (model.candidateId) {return "已找到游戏信息";}
-  if (model.review.sourceMedia?.sourceKind === "EMULATIONSTATION") {return "已读取 Gamelist 信息";}
-  if (model.review.sourceMedia) {return "已读取 Pegasus 信息";}
-  let latestRun = model.review.scrapeRuns?.[0];
-  for (const run of model.review.scrapeRuns ?? []) {
-    if (!latestRun || run.createdAtMs > latestRun.createdAtMs ||
-        run.createdAtMs === latestRun.createdAtMs && run.scrapeRunId > latestRun.scrapeRunId) {
-      latestRun = run;
-    }
-  }
+  if (model.review.sourceMedia) {return "已读取来源信息";}
+  const latestRun = model.review.scrapeRuns?.[0];
   if (latestRun) {return scrapeResult(latestRun);}
   return "未找到游戏信息";
 }
 
 function ReviewSummary({ model }: { model: ReviewViewModel }) {
-  const sourceName = serverSourceName(model);
+  const sourceName = serverSourceName();
   const source = model.review.sourceMedia ? `${sourceName} · ${model.review.sourceMedia.sourceLabel ?? model.sourceDisplayName}` : model.sourceDisplayName;
   const validationLabel = reviewValidationLabel(model);
   const metadataLabel = reviewMetadataLabel(model);
@@ -285,8 +276,8 @@ function MetadataFields({ model }: { model: ReviewViewModel }) {
 
 function CoverEditor({ model }: { model: ReviewViewModel }) {
   const upload = (file: File | undefined) => {if (file) {void model.commands.uploadCover(file, "current");}};
-  const sourceName = model.review.sourceMedia?.sourceKind === "EMULATIONSTATION" ? "EmulationStation" : "Pegasus";
-  return <aside className="review-cover-panel review-workflow-cover-side"><span className="field-label">当前封面</span><label className="review-cover-upload" title="点击上传替换封面"><AssetPreview asset={model.selectedCover} label="当前选择的游戏封面" /><span>点击图片上传替换</span><input type="file" accept="image/png,image/jpeg,image/webp" disabled={model.busy !== null} onChange={(event) => {upload(event.target.files?.[0]); event.currentTarget.value = "";}} /></label>{model.cover.candidateId || model.cover.uploadedId ? <button type="button" className="button secondary compact" onClick={() => model.setCover({ candidateId: null, uploadedId: null })}>{model.sourceCover ? `恢复 ${sourceName} 封面` : "移除封面"}</button> : null}{model.review.sourceMedia?.videoUrl ? <div className="review-source-video"><span className="field-label">{sourceName} 视频预览</span><video controls preload="metadata" src={model.review.sourceMedia.videoUrl}>浏览器无法播放这段视频。</video><small>通过审核后会随游戏一并发布。</small></div> : null}</aside>;
+  const sourceName = serverSourceName();
+  return <aside className="review-cover-panel review-workflow-cover-side"><SourceFlagNotice media={model.review.sourceMedia} /><span className="field-label">当前封面</span><label className="review-cover-upload" title="点击上传替换封面"><AssetPreview asset={model.selectedCover} label="当前选择的游戏封面" /><span>点击图片上传替换</span><input type="file" accept="image/png,image/jpeg,image/webp" disabled={model.busy !== null} onChange={(event) => {upload(event.target.files?.[0]); event.currentTarget.value = "";}} /></label>{model.cover.candidateId || model.cover.uploadedId ? <button type="button" className="button secondary compact" onClick={() => model.setCover({ candidateId: null, uploadedId: null })}>{model.sourceCover ? `恢复 ${sourceName} 封面` : "移除封面"}</button> : null}{model.review.sourceMedia?.videoUrl ? <div className="review-source-video"><span className="field-label">{sourceName} 视频预览</span><video controls preload="metadata" src={model.review.sourceMedia.videoUrl}>浏览器无法播放这段视频。</video><small>通过审核后会随游戏一并发布。</small></div> : null}</aside>;
 }
 
 function ComparisonDialog({ model }: { model: ReviewViewModel }) {
@@ -356,4 +347,11 @@ function MultiDiscActions({ value, latest, disabled, onRetry, onOpen }: { value:
   if (!value.missingDiscCount) {return null;}
   const retryable = latest?.state === "FAILED_RETRYABLE" && latest.canRetry;
   return <div className="review-multidisc-actions">{retryable ? <button className="button secondary" type="button" disabled={disabled} onClick={() => void onRetry(latest)}>重试校验</button> : null}<button className="button secondary" type="button" disabled={disabled || !value.canAttachMissingDiscs} onClick={onOpen}>{latest?.state === "REJECTED" ? "重新上传全部缺失光盘" : "上传全部缺失光盘"}</button></div>;
+}
+
+function SourceFlagNotice({ media }: { media: ReviewWorkspace["sourceMedia"] }) {
+ const flags = media?.sourceFlags;
+ if (!flags?.hidden && !flags?.adult && !flags?.kidGame) { return null; }
+ const labels = [flags.hidden ? "隐藏" : "", flags.adult ? "成人" : "", flags.kidGame ? "儿童" : ""].filter(Boolean);
+ return <p role="note">来源标记：{labels.join("、")}。请逐项核对。</p>;
 }

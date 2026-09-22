@@ -57,8 +57,8 @@ WHERE id=? AND version=? AND platform_id=? AND default_core_id=? AND enabled=1 A
 		result, err = records.transaction.ExecContext(
 			ctx,
 			`
-UPDATE upload_files SET state=state WHERE id=? AND upload_session_id=? AND state='COMPLETE'
-AND relative_path=? AND final_blob_id=? AND EXISTS(SELECT 1 FROM blobs WHERE id=? AND sha256=? AND
+UPDATE import_files SET id=id WHERE id=? AND upload_session_id=? AND released_at_ms IS NULL
+AND relative_path=? AND blob_id=? AND EXISTS(SELECT 1 FROM blobs WHERE id=? AND sha256=? AND
  size_bytes=?)`,
 			file.ID,
 			upload.ID,

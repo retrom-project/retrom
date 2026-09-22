@@ -32,17 +32,6 @@ type Progress struct {
 }
 type ReleaseFacts struct{ Releasing, Failed int64 }
 
-// EnvelopeFile preserves the canonical internal upload manifest field names.
-type EnvelopeFile struct {
-	RelativePath, BlobID string
-	SizeBytes            int64
-}
-type Envelope struct {
-	ImportID, Digest string
-	Files            []EnvelopeFile
-	Complete         bool
-}
-
 type Repository interface {
 	WithRead(context.Context, func(Reader) error) error
 	WithWrite(context.Context, func(WriteScope) error) error
@@ -55,9 +44,8 @@ type Reader interface {
 }
 type WriteScope struct {
 	Reader
-	Requests  RequestWriter
-	Sources   SourceWriter
-	Ownership Ownership
+	Requests RequestWriter
+	Sources  SourceWriter
 }
 type RequestWriter interface {
 	Request(context.Context, Request) error
@@ -68,13 +56,6 @@ type SourceWriter interface {
 	Complete(context.Context, Key, int64) error
 	UnusedUploads(context.Context, Key) ([]string, error)
 	DeleteUpload(context.Context, string) error
-}
-type Ownership interface {
-	Unlinked(context.Context, Key) ([]string, error)
-	ImportByUpload(context.Context, string) (string, error)
-	LegacyCandidates(context.Context, string) ([]Envelope, error)
-	OwnerCount(context.Context, string) (int64, error)
-	Link(context.Context, string, string, string) error
 }
 type ImportWorkflow interface {
 	CancelForDiscard(context.Context, string, int64) error

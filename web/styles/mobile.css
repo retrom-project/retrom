@@ -264,10 +264,8 @@
   .import-stage-actions > * { width: 100%; }
   .import-task-list,
   .review-workflow-list,
-  .review-history-list { overflow: visible; }
   .import-task-entry,
   .review-workflow-row,
-  .review-history-list > article { min-width: 0; }
   .import-task-card { min-height: 0; padding: 14px; grid-template-columns: minmax(0, 1fr); gap: 12px; }
   .import-task-card > .status { justify-self: start; }
   .import-task-main h3,
@@ -300,7 +298,6 @@
   .review-bulk-status-head .button { width: 100%; }
   .review-bulk-stats { grid-template-columns: 1fr 1fr; }
   .review-bulk-results a { align-items: flex-start; flex-direction: column; gap: 2px; }
-  .review-history-list > article { min-height: 0; padding: 14px; grid-template-columns: minmax(0, 1fr); gap: 9px; }
   .review-overview-card { height: auto; min-height: 220px; }
   .review-source-package > summary { grid-template-columns: auto minmax(0, 1fr); }
   .review-source-package > summary small { grid-column: 2; }

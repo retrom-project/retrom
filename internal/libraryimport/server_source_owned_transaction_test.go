@@ -57,7 +57,7 @@ func (connection *sourceFaultConnection) BeginTx(ctx context.Context, options dr
 }
 
 func (connection *sourceFaultConnection) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
-	binding := strings.HasPrefix(query, "UPDATE pegasus_import_items SET") && strings.Contains(query, "library_import_job_id=")
+	binding := strings.HasPrefix(query, "UPDATE source_import_items SET") && strings.Contains(query, "library_import_job_id=")
 	if binding {
 		connection.bound = true
 		switch connection.phase {
@@ -130,7 +130,7 @@ func assertOwnedCreationRolledBack(t *testing.T, fixture deduplicateFixture) {
 	var version, imports, items, drafts int
 	if err := fixture.database.QueryRowContext(fixture.ctx, `SELECT execution_state,COALESCE(library_import_job_id,''),COALESCE(library_import_item_id,''),version,
 (SELECT count(*) FROM import_jobs),(SELECT count(*) FROM import_items),(SELECT count(*) FROM review_drafts)
-FROM pegasus_import_items WHERE id='unlinked-source'`).Scan(&state, &jobID, &itemID, &version, &imports, &items, &drafts); err != nil {
+FROM source_import_items WHERE id='unlinked-source'`).Scan(&state, &jobID, &itemID, &version, &imports, &items, &drafts); err != nil {
 		t.Fatal(err)
 	}
 	if state != "COPYING" || jobID != "" || itemID != "" || version != 1 || imports != 0 || items != 0 || drafts != 0 {

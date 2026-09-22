@@ -37,7 +37,7 @@ func assertApprovalSelectionsPublished(t *testing.T, fixture deduplicateFixture,
 	err := fixture.database.QueryRowContext(t.Context(), `SELECT
  (SELECT count(*) FROM game_assets WHERE game_id=? AND kind='COVER'),
  (SELECT count(*) FROM game_tags WHERE game_id=?),
- (SELECT actor_user_id FROM review_events WHERE json_extract(after_json,'$.gameId')=?)`, gameID, gameID, gameID).
+ (SELECT assigned_by_user_id FROM game_tags WHERE game_id=? LIMIT 1)`, gameID, gameID, gameID).
 		Scan(&covers, &tags, &actor)
 	if err != nil {
 		t.Fatal(err)

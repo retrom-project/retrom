@@ -9,7 +9,7 @@ export interface paths {
             query?: never;
             header?: never;
             path: {
-                kind: "IMPORT" | "PEGASUS" | "EMULATIONSTATION";
+                kind: "IMPORT" | "SOURCE";
                 importId: string;
             };
             cookie?: never;
@@ -972,7 +972,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description User-visible import overview. Browser/reconfigure ImportJobs, Pegasus imports, and EmulationStation imports each count once; per-game ImportJobs created only for server-import review handoff are excluded. `reviewPending` is the exact count of `REVIEW_PENDING` import items. */
+        /** @description User-visible import overview. Browser/reconfigure ImportJobs, organized source imports each count once; per-game ImportJobs created only for server-import review handoff are excluded. `reviewPending` is the exact count of `REVIEW_PENDING` import items. */
         get: operations["getAdminImportsSummary"];
         put?: never;
         post?: never;
@@ -989,7 +989,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Cursor-paged browser/reconfigure ImportJobs. Per-game ImportJobs created internally by Pegasus or EmulationStation review handoff are excluded; aggregate server-import history is available from `/api/v1/admin/pegasus-imports` and `/api/v1/admin/emulationstation-imports`. */
+        /** @description Cursor-paged browser/reconfigure ImportJobs. Per-game ImportJobs created internally by organized source review handoff are excluded; aggregate server-import history is available from `/api/v1/admin/source-imports`. */
         get: operations["getAdminImports"];
         put?: never;
         /** @description Performs bounded admission, persists an immutable IMPORT_GROUP input, and returns 202 while archive inspection, project detection, hashing, CAS materialization, and grouping continue in the background. Admission reads and fences the upload, complete file set, target and tags in one transaction. Invalid or stale input returns 409; storage failures return 500. Content-dependent failures are reported by the ImportJob and JobEvent projections rather than holding this request open. */
@@ -1169,7 +1169,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Pending review summaries including sourceTotalSizeBytes, sourceMd5, a nullable coverUrl, and STANDARD/PEGASUS/EMULATIONSTATION source identity for compact queue previews. */
+        /** @description Pending review summaries including sourceTotalSizeBytes, sourceMd5, a nullable coverUrl, and STANDARD/SOURCE source identity for compact queue previews. */
         get: operations["getAdminReviews"];
         put?: never;
         post?: never;
@@ -1446,42 +1446,6 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["postAdminReviewDiscard"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/review-history": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** @description Review decision summaries; selecting a row can load the immutable metadata snapshot captured at decision time. */
-        get: operations["getAdminReviewHistory"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/review-history/{reviewEventId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                reviewEventId: components["parameters"]["ReviewEventID"];
-            };
-            cookie?: never;
-        };
-        /** @description Immutable textual and structured metadata/evidence captured for an approved or discarded review decision. Terminal review history intentionally contains no replayable cover, video, Blob, URL, path, hash, dimensions, MIME type, or other CAS payload reference. */
-        get: operations["getAdminReviewHistoryEvent"];
-        put?: never;
-        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2024,50 +1988,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/admin/pegasus-imports": {
+    "/api/v1/admin/source-imports": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get: operations["getAdminPegasusImports"];
+        get: operations["getAdminSourceImports"];
         put?: never;
-        post: operations["postAdminPegasusImport"];
+        post: operations["postAdminSourceImport"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/v1/admin/pegasus-imports/{pegasusImportId}": {
+    "/api/v1/admin/source-imports/{sourceImportId}": {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                pegasusImportId: components["parameters"]["PegasusImportID"];
+                sourceImportId: components["parameters"]["SourceImportID"];
             };
             cookie?: never;
         };
-        get: operations["getAdminPegasusImport"];
+        get: operations["getAdminSourceImport"];
         put?: never;
         post?: never;
-        delete: operations["deleteAdminPegasusImport"];
+        delete: operations["deleteAdminSourceImport"];
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/v1/admin/pegasus-imports/{pegasusImportId}/collections": {
+    "/api/v1/admin/source-imports/{sourceImportId}/collections": {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                pegasusImportId: components["parameters"]["PegasusImportID"];
+                sourceImportId: components["parameters"]["SourceImportID"];
             };
             cookie?: never;
         };
-        get: operations["getAdminPegasusImportCollections"];
+        get: operations["getAdminSourceImportCollections"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2076,17 +2040,17 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/admin/pegasus-imports/{pegasusImportId}/collection-mappings": {
+    "/api/v1/admin/source-imports/{sourceImportId}/collection-mappings": {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                pegasusImportId: components["parameters"]["PegasusImportID"];
+                sourceImportId: components["parameters"]["SourceImportID"];
             };
             cookie?: never;
         };
         get?: never;
-        put: operations["putAdminPegasusImportCollectionMappings"];
+        put: operations["putAdminSourceImportCollectionMappings"];
         post?: never;
         delete?: never;
         options?: never;
@@ -2094,122 +2058,34 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/admin/pegasus-imports/{pegasusImportId}/start": {
+    "/api/v1/admin/source-imports/{sourceImportId}/start": {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                pegasusImportId: components["parameters"]["PegasusImportID"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["postAdminPegasusImportStart"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/pegasus-imports/{pegasusImportId}/items": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                pegasusImportId: components["parameters"]["PegasusImportID"];
-            };
-            cookie?: never;
-        };
-        get: operations["getAdminPegasusImportItems"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/pegasus-imports/{pegasusImportId}/cancel": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                pegasusImportId: components["parameters"]["PegasusImportID"];
+                sourceImportId: components["parameters"]["SourceImportID"];
             };
             cookie?: never;
         };
         get?: never;
         put?: never;
-        post: operations["postAdminPegasusImportCancel"];
+        post: operations["postAdminSourceImportStart"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/v1/admin/pegasus-imports/{pegasusImportId}/retry": {
+    "/api/v1/admin/source-imports/{sourceImportId}/items": {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                pegasusImportId: components["parameters"]["PegasusImportID"];
+                sourceImportId: components["parameters"]["SourceImportID"];
             };
             cookie?: never;
         };
-        get?: never;
-        put?: never;
-        post: operations["postAdminPegasusImportRetry"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/emulationstation-imports": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["getAdminEmulationStationImports"];
-        put?: never;
-        post: operations["postAdminEmulationStationImport"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/emulationstation-imports/{emulationStationImportId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                emulationStationImportId: components["parameters"]["EmulationStationImportID"];
-            };
-            cookie?: never;
-        };
-        get: operations["getAdminEmulationStationImport"];
-        put?: never;
-        post?: never;
-        delete: operations["deleteAdminEmulationStationImport"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/emulationstation-imports/{emulationStationImportId}/gamelists": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                emulationStationImportId: components["parameters"]["EmulationStationImportID"];
-            };
-            cookie?: never;
-        };
-        get: operations["getAdminEmulationStationImportGamelists"];
+        get: operations["getAdminSourceImportItems"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2218,108 +2094,36 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/admin/emulationstation-imports/{emulationStationImportId}/collections": {
+    "/api/v1/admin/source-imports/{sourceImportId}/cancel": {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                emulationStationImportId: components["parameters"]["EmulationStationImportID"];
-            };
-            cookie?: never;
-        };
-        get: operations["getAdminEmulationStationImportCollections"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/emulationstation-imports/{emulationStationImportId}/collection-mappings": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                emulationStationImportId: components["parameters"]["EmulationStationImportID"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put: operations["putAdminEmulationStationImportCollectionMappings"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/emulationstation-imports/{emulationStationImportId}/start": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                emulationStationImportId: components["parameters"]["EmulationStationImportID"];
+                sourceImportId: components["parameters"]["SourceImportID"];
             };
             cookie?: never;
         };
         get?: never;
         put?: never;
-        post: operations["postAdminEmulationStationImportStart"];
+        post: operations["postAdminSourceImportCancel"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/v1/admin/emulationstation-imports/{emulationStationImportId}/items": {
+    "/api/v1/admin/source-imports/{sourceImportId}/retry": {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                emulationStationImportId: components["parameters"]["EmulationStationImportID"];
-            };
-            cookie?: never;
-        };
-        get: operations["getAdminEmulationStationImportItems"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/emulationstation-imports/{emulationStationImportId}/cancel": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                emulationStationImportId: components["parameters"]["EmulationStationImportID"];
+                sourceImportId: components["parameters"]["SourceImportID"];
             };
             cookie?: never;
         };
         get?: never;
         put?: never;
-        post: operations["postAdminEmulationStationImportCancel"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/emulationstation-imports/{emulationStationImportId}/retry": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                emulationStationImportId: components["parameters"]["EmulationStationImportID"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["postAdminEmulationStationImportRetry"];
+        post: operations["postAdminSourceImportRetry"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2759,7 +2563,7 @@ export interface components {
     schemas: {
         ImportBatchDiscard: {
             /** @enum {string} */
-            kind: "IMPORT" | "PEGASUS" | "EMULATIONSTATION";
+            kind: "IMPORT" | "SOURCE";
             /** Format: uuid */
             importId: string;
             /** @enum {string} */
@@ -2880,7 +2684,7 @@ export interface components {
         ImportOverviewSummary: {
             /**
              * Format: int64
-             * @description User-visible non-terminal batches, counting each browser/reconfigure ImportJob or Pegasus import once.
+             * @description User-visible non-terminal batches, counting each browser/reconfigure ImportJob or Source import once.
              */
             running: number;
             /**
@@ -2895,7 +2699,7 @@ export interface components {
             publishedItems: number;
             /**
              * Format: int64
-             * @description User-visible completed batches, counting each browser/reconfigure ImportJob or Pegasus import once.
+             * @description User-visible completed batches, counting each browser/reconfigure ImportJob or Source import once.
              */
             completed: number;
             /**
@@ -2910,14 +2714,9 @@ export interface components {
             ordinaryFailed: number;
             /**
              * Format: int64
-             * @description Pegasus imports included in failed.
+             * @description Source imports included in failed.
              */
-            pegasusFailed: number;
-            /**
-             * Format: int64
-             * @description EmulationStation imports included in failed.
-             */
-            emulationStationFailed: number;
+            sourceFailed: number;
             /**
              * Format: int64
              * @description Known game/item count in currently non-terminal user-visible batches.
@@ -3128,7 +2927,6 @@ export interface components {
             contentFileCount: number;
             activeLaunchCount: number;
             activeNetplayCount: number;
-            reviewEventCount: number;
             sourceKinds: string[];
         };
         AdminGameDetail: {
@@ -3789,7 +3587,7 @@ export interface components {
             acknowledgedGameIds?: string[];
         };
         /** @enum {string} */
-        ReviewSourceKind: "STANDARD" | "PEGASUS" | "EMULATIONSTATION";
+        ReviewSourceKind: "STANDARD" | "SOURCE";
         ReviewQueueItem: {
             /** Format: uuid */
             itemId: string;
@@ -3818,7 +3616,7 @@ export interface components {
             sourceKind: components["schemas"]["ReviewSourceKind"];
             sourceLabel: string | null;
             /** Format: uuid */
-            pegasusImportId: string | null;
+            sourceImportId: string | null;
             /** Format: uuid */
             emulationStationImportId: string | null;
             /** Format: int64 */
@@ -3835,7 +3633,7 @@ export interface components {
             /** Format: uuid */
             importJobId?: string;
             /** Format: uuid */
-            pegasusImportId?: string;
+            sourceImportId?: string;
             /** Format: uuid */
             emulationStationImportId?: string;
             /** Format: uuid */
@@ -4083,11 +3881,13 @@ export interface components {
             /** @default false */
             replaceIfBetter: boolean;
         };
-        CreatePegasusImportRequest: {
+        CreateSourceImportRequest: {
+            /** @enum {string} */
+            format: "PEGASUS" | "GAMELIST";
             rootId: string;
             sourceRelativePath: string;
         };
-        PegasusCollectionMapping: {
+        SourceCollectionMapping: {
             /** Format: uuid */
             collectionId: string;
             /** @enum {string} */
@@ -4096,30 +3896,10 @@ export interface components {
             platformInstanceId?: string;
             tagIds: string[];
         };
-        PegasusCollectionMappingsRequest: {
-            mappings: components["schemas"]["PegasusCollectionMapping"][];
+        SourceCollectionMappingsRequest: {
+            mappings: components["schemas"]["SourceCollectionMapping"][];
         };
-        PegasusImportStartRequest: {
-            /** Format: int64 */
-            version: number;
-        };
-        CreateEmulationStationImportRequest: {
-            rootId: string;
-            sourceRelativePath: string;
-        };
-        EmulationStationCollectionMapping: {
-            /** Format: uuid */
-            collectionId: string;
-            /** @enum {string} */
-            action: "IMPORT" | "SKIP";
-            /** Format: uuid */
-            platformInstanceId?: string;
-            tagIds: string[];
-        };
-        EmulationStationCollectionMappingsRequest: {
-            mappings: components["schemas"]["EmulationStationCollectionMapping"][];
-        };
-        EmulationStationImportStartRequest: {
+        SourceImportStartRequest: {
             /** Format: int64 */
             version: number;
         };
@@ -4262,7 +4042,7 @@ export interface components {
             items: components["schemas"]["ServerBIOSImportCandidate"][];
             nextCursor: string | null;
         };
-        PegasusImportCounts: {
+        SourceImportCounts: {
             /** Format: int64 */
             metadata: number;
             /** Format: int64 */
@@ -4300,7 +4080,9 @@ export interface components {
             /** Format: int64 */
             videos: number;
         };
-        PegasusImportSummary: {
+        SourceImportSummary: {
+            /** @enum {string} */
+            format: "PEGASUS" | "GAMELIST";
             /** Format: uuid */
             id: string;
             root: {
@@ -4316,7 +4098,7 @@ export interface components {
             scanJobId: string;
             /** Format: uuid */
             importJobId: string | null;
-            counts: components["schemas"]["PegasusImportCounts"];
+            counts: components["schemas"]["SourceImportCounts"];
             /** Format: int64 */
             mappingVersion: number;
             /** Format: int64 */
@@ -4337,11 +4119,11 @@ export interface components {
             /** Format: int64 */
             completedAtMs: number | null;
         };
-        PegasusImportList: {
-            items: components["schemas"]["PegasusImportSummary"][];
+        SourceImportList: {
+            items: components["schemas"]["SourceImportSummary"][];
             nextCursor: string | null;
         };
-        PegasusSourceCollection: {
+        SourceSourceCollection: {
             /** Format: uuid */
             id: string;
             metadataRelativePath: string;
@@ -4365,11 +4147,11 @@ export interface components {
             ignoredRules: string[];
             warningFields: string[];
         };
-        PegasusCollectionList: {
-            items: components["schemas"]["PegasusSourceCollection"][];
+        SourceCollectionList: {
+            items: components["schemas"]["SourceSourceCollection"][];
             nextCursor: string | null;
         };
-        PegasusItem: {
+        SourceItem: {
             /** Format: uuid */
             id: string;
             title: string;
@@ -4395,11 +4177,16 @@ export interface components {
                 /** @enum {string} */
                 video: "READY" | "MISSING" | "WARNING";
             };
-            warnings: components["schemas"]["PegasusWarningValue"][];
+            sourceFlags: {
+                hidden: boolean;
+                adult: boolean;
+                kidGame: boolean;
+            };
+            warnings: components["schemas"]["SourceWarningValue"][];
             discoveryCode: string | null;
             errorCode: string | null;
-            failureDetails: components["schemas"]["PegasusItemFailureDetails"] | null;
-            runtimeCheck: components["schemas"]["PegasusRuntimeCheck"] | null;
+            failureDetails: components["schemas"]["SourceItemFailureDetails"] | null;
+            runtimeCheck: components["schemas"]["SourceRuntimeCheck"] | null;
             retryable: boolean;
             /** Format: uuid */
             reviewItemId: string | null;
@@ -4414,11 +4201,11 @@ export interface components {
             /** Format: int64 */
             updatedAtMs: number;
         };
-        PegasusWarningValue: {
+        SourceWarningValue: {
             code: string;
             field?: string;
         };
-        PegasusItemFailureDetails: {
+        SourceItemFailureDetails: {
             /**
              * Format: int64
              * @enum {integer}
@@ -4439,7 +4226,7 @@ export interface components {
             /** Format: uuid */
             libraryImportItemId: string | null;
         };
-        PegasusRuntimeDependency: {
+        SourceRuntimeDependency: {
             /** @enum {string} */
             kind: "PARENT" | "BIOS_OR_BASE";
             machine: string;
@@ -4449,7 +4236,7 @@ export interface components {
             state: "SATISFIED_BY_CONTENT" | "SATISFIED_EXTERNAL" | "HASH_WARNING" | "MISSING" | "MISMATCH" | "UNSUPPORTED";
             requiredEntries: string[];
         };
-        PegasusRuntimeBIOS: {
+        SourceRuntimeBIOS: {
             logicalName: string;
             /** @enum {string} */
             requirementMode: "REQUIRED" | "OPTIONAL" | "CONDITIONAL";
@@ -4457,12 +4244,12 @@ export interface components {
             /** @enum {string|null} */
             installationStatus: "MATCHED" | "HASH_WARNING" | "MISSING_ENTRY" | "INVALID" | null;
         };
-        PegasusRuntimeMissingDisc: {
+        SourceRuntimeMissingDisc: {
             /** Format: int64 */
             ordinal: number;
             sourceReference: string;
         };
-        PegasusRuntimeCheck: {
+        SourceRuntimeCheck: {
             /** @enum {string} */
             status: "READY" | "BLOCKED" | "INCOMPATIBLE";
             code: string;
@@ -4471,218 +4258,12 @@ export interface components {
             machine: string | null;
             missingEntries: string[];
             mismatchedEntries: string[];
-            dependencies: components["schemas"]["PegasusRuntimeDependency"][];
-            bios: components["schemas"]["PegasusRuntimeBIOS"][];
-            missingDiscs: components["schemas"]["PegasusRuntimeMissingDisc"][];
+            dependencies: components["schemas"]["SourceRuntimeDependency"][];
+            bios: components["schemas"]["SourceRuntimeBIOS"][];
+            missingDiscs: components["schemas"]["SourceRuntimeMissingDisc"][];
         };
-        PegasusItemList: {
-            items: components["schemas"]["PegasusItem"][];
-            nextCursor: string | null;
-        };
-        EmulationStationImportCounts: {
-            /** Format: int64 */
-            gamelists: number;
-            /** Format: int64 */
-            invalidGamelists: number;
-            /** Format: int64 */
-            collections: number;
-            /** Format: int64 */
-            foldersIgnored: number;
-            /** Format: int64 */
-            games: number;
-            /** Format: int64 */
-            estimatedSourceBytes: number;
-            /** Format: int64 */
-            mappedCollections: number;
-            /** Format: int64 */
-            skippedCollections: number;
-            /** Format: int64 */
-            skippedMapping: number;
-            /** Format: int64 */
-            processable: number;
-            /** Format: int64 */
-            blocked: number;
-            /** Format: int64 */
-            reviewPending: number;
-            /** Format: int64 */
-            published: number;
-            /** Format: int64 */
-            reviewDiscarded: number;
-            /** Format: int64 */
-            existing: number;
-            /** Format: int64 */
-            failed: number;
-            /** Format: int64 */
-            cancelled: number;
-            /** Format: int64 */
-            mediaWarnings: number;
-            /** Format: int64 */
-            covers: number;
-            /** Format: int64 */
-            videos: number;
-        };
-        EmulationStationImportSummary: {
-            /** Format: uuid */
-            id: string;
-            root: {
-                id: string;
-                label: string;
-            };
-            sourceRelativePath: string;
-            /** @enum {string} */
-            state: "SCANNING" | "AWAITING_MAPPING" | "QUEUED" | "RUNNING" | "PARTIAL_FAILURE" | "COMPLETED" | "CANCEL_REQUESTED" | "CANCELLED" | "FAILED" | "EXPIRED";
-            /** @enum {string|null} */
-            phase: "DISCOVERING_GAMELISTS" | "PARSING_GAMELISTS" | "RESOLVING_SOURCES" | "COPYING_CONTENT" | "VALIDATING" | "PREPARING_REVIEWS" | null;
-            /** Format: uuid */
-            scanJobId: string;
-            /** Format: uuid */
-            importJobId: string | null;
-            counts: components["schemas"]["EmulationStationImportCounts"];
-            /** Format: int64 */
-            mappingVersion: number;
-            /** Format: int64 */
-            version: number;
-            createdBy: {
-                /** Format: uuid */
-                id: string;
-                displayName: string;
-            };
-            lastErrorCode: string | null;
-            retryable: boolean;
-            /** Format: int64 */
-            createdAtMs: number;
-            /** Format: int64 */
-            updatedAtMs: number;
-            /** Format: int64 */
-            expiresAtMs: number;
-            /** Format: int64 */
-            completedAtMs: number | null;
-        };
-        EmulationStationImportList: {
-            items: components["schemas"]["EmulationStationImportSummary"][];
-            nextCursor: string | null;
-        };
-        EmulationStationGamelist: {
-            relativePath: string;
-            /** @enum {string} */
-            parseState: "VALID" | "INVALID";
-            errorCode: string | null;
-            /** Format: int64 */
-            gameCount: number;
-            /** Format: int64 */
-            folderCount: number;
-            providerPresent: boolean;
-            ignoredFieldNames: string[];
-            /** Format: int64 */
-            ignoredFieldOtherCount: number;
-            /** Format: int64 */
-            createdAtMs: number;
-        };
-        EmulationStationGamelistList: {
-            items: components["schemas"]["EmulationStationGamelist"][];
-            nextCursor: string | null;
-        };
-        EmulationStationExtensionSummary: {
-            extension: string;
-            /** Format: int64 */
-            count: number;
-        };
-        EmulationStationSourceCollection: {
-            /** Format: uuid */
-            id: string;
-            gamelistRelativePath: string;
-            relativeDirectory: string;
-            displayName: string;
-            /** Format: int64 */
-            gameCount: number;
-            /** Format: int64 */
-            issueCount: number;
-            /** Format: int64 */
-            folderEntryCount: number;
-            /** Format: int64 */
-            hiddenGameCount: number;
-            /** Format: int64 */
-            adultGameCount: number;
-            extensionSummary: components["schemas"]["EmulationStationExtensionSummary"][];
-            /** Format: int64 */
-            extensionOtherCount: number;
-            /** @enum {string|null} */
-            mappingAction: "IMPORT" | "SKIP" | null;
-            /** Format: uuid */
-            targetPlatformInstanceId: string | null;
-            targetPlatformInstanceName: string | null;
-            targetDefaultCoreId: string | null;
-            targetDefaultCoreName: string | null;
-            tagSnapshot: components["schemas"]["TagReference"][];
-        };
-        EmulationStationCollectionList: {
-            items: components["schemas"]["EmulationStationSourceCollection"][];
-            nextCursor: string | null;
-        };
-        EmulationStationSourceFlags: {
-            hidden: boolean;
-            adult: boolean;
-            kidGame: boolean;
-        };
-        EmulationStationWarningValue: {
-            code: string;
-            field?: string;
-            pathKind?: string;
-            /** Format: int64 */
-            omittedCount?: number;
-            /** Format: int64 */
-            originalLength?: number;
-            /** Format: int64 */
-            retainedLength?: number;
-        };
-        EmulationStationItem: {
-            /** Format: uuid */
-            id: string;
-            title: string;
-            /** Format: uuid */
-            collectionId: string | null;
-            collectionName: string | null;
-            /** Format: uuid */
-            targetPlatformInstanceId: string | null;
-            targetPlatformInstanceName: string | null;
-            gamelistRelativePath: string;
-            sourceFlags: components["schemas"]["EmulationStationSourceFlags"];
-            /** @enum {string} */
-            executionState: "PENDING" | "COPYING" | "VALIDATING" | "REVIEW_PENDING" | "PUBLISHED" | "REVIEW_DISCARDED" | "SKIPPED_EXISTING" | "SKIPPED_MAPPING" | "BLOCKED_SOURCE" | "BLOCKED_CONTENT" | "SOURCE_CHANGED" | "READ_FAILED" | "COMMIT_FAILED" | "CANCELLED";
-            /** @enum {string} */
-            payloadState: "RETAINED" | "RELEASING" | "RELEASED" | "FAILED";
-            /** Format: uuid */
-            payloadReleaseJobId: string | null;
-            /** @enum {string|null} */
-            contentKind: "SINGLE_FILE" | "DOS_BUNDLE" | "MULTI_DISC" | null;
-            tags: components["schemas"]["TagReference"][];
-            media: {
-                /** @enum {string} */
-                cover: "READY" | "MISSING" | "WARNING";
-                /** @enum {string} */
-                video: "READY" | "MISSING" | "WARNING";
-            };
-            warnings: components["schemas"]["EmulationStationWarningValue"][];
-            discoveryCode: string | null;
-            errorCode: string | null;
-            failureDetails: components["schemas"]["PegasusItemFailureDetails"] | null;
-            runtimeCheck: components["schemas"]["PegasusRuntimeCheck"] | null;
-            retryable: boolean;
-            /** Format: uuid */
-            reviewItemId: string | null;
-            /** Format: uuid */
-            publishedGameId: string | null;
-            /** Format: uuid */
-            existingGameId: string | null;
-            existingMatches: {
-                /** Format: uuid */
-                gameId: string;
-            }[];
-            /** Format: int64 */
-            updatedAtMs: number;
-        };
-        EmulationStationItemList: {
-            items: components["schemas"]["EmulationStationItem"][];
+        SourceItemList: {
+            items: components["schemas"]["SourceItem"][];
             nextCursor: string | null;
         };
         BIOSInstallationSummary: {
@@ -5207,8 +4788,6 @@ export interface components {
             retryAfterMs?: unknown;
             retryable?: unknown;
             returnTo?: unknown;
-            reviewEventCount?: unknown;
-            reviewEventId?: unknown;
             reviewPending?: unknown;
             reviewPendingCount?: unknown;
             reviewPendingItemCount?: unknown;
@@ -5234,7 +4813,7 @@ export interface components {
             scopeType?: unknown;
             score?: unknown;
             scrapeRunId?: unknown;
-            scrapeRuns?: unknown;
+            scrapeRuns?: Record<string, never>[];
             outcomes?: unknown;
             evidenceCount?: unknown;
             completedAtMs?: unknown;
@@ -5641,87 +5220,41 @@ export interface components {
                 "application/json": components["schemas"]["ServerImportCandidateList"];
             };
         };
-        /** @description Pegasus scan/import aggregate */
-        PegasusImportResponse: {
+        /** @description Source scan/import aggregate */
+        SourceImportResponse: {
             headers: {
                 ETag?: string;
                 [name: string]: unknown;
             };
             content: {
-                "application/json": components["schemas"]["PegasusImportSummary"];
+                "application/json": components["schemas"]["SourceImportSummary"];
             };
         };
-        /** @description Pegasus scan/import history */
-        PegasusImportListResponse: {
+        /** @description Source scan/import history */
+        SourceImportListResponse: {
             headers: {
                 [name: string]: unknown;
             };
             content: {
-                "application/json": components["schemas"]["PegasusImportList"];
+                "application/json": components["schemas"]["SourceImportList"];
             };
         };
         /** @description Source collection mapping page */
-        PegasusCollectionListResponse: {
+        SourceCollectionListResponse: {
             headers: {
                 [name: string]: unknown;
             };
             content: {
-                "application/json": components["schemas"]["PegasusCollectionList"];
+                "application/json": components["schemas"]["SourceCollectionList"];
             };
         };
-        /** @description Pegasus item result page */
-        PegasusItemListResponse: {
+        /** @description Source item result page */
+        SourceItemListResponse: {
             headers: {
                 [name: string]: unknown;
             };
             content: {
-                "application/json": components["schemas"]["PegasusItemList"];
-            };
-        };
-        /** @description EmulationStation gamelist scan/import aggregate */
-        EmulationStationImportResponse: {
-            headers: {
-                ETag?: string;
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["EmulationStationImportSummary"];
-            };
-        };
-        /** @description EmulationStation gamelist scan/import history */
-        EmulationStationImportListResponse: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["EmulationStationImportList"];
-            };
-        };
-        /** @description Discovered EmulationStation gamelist page */
-        EmulationStationGamelistListResponse: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["EmulationStationGamelistList"];
-            };
-        };
-        /** @description EmulationStation source collection mapping page */
-        EmulationStationCollectionListResponse: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["EmulationStationCollectionList"];
-            };
-        };
-        /** @description EmulationStation item result page */
-        EmulationStationItemListResponse: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["EmulationStationItemList"];
+                "application/json": components["schemas"]["SourceItemList"];
             };
         };
         /** @description Process is live */
@@ -6001,8 +5534,7 @@ export interface components {
         ProviderIDQuery: string;
         TargetIDQuery: string;
         ImportJobIDQuery: string;
-        PegasusImportIDQuery: string;
-        EmulationStationImportIDQuery: string;
+        SourceImportIDQuery: string;
         Availability: string;
         State: string;
         Status: string;
@@ -6013,12 +5545,9 @@ export interface components {
         BIOSQuick: "ALL" | "ATTENTION" | "REQUIRED" | "OPTIONAL";
         Outcome: string;
         MatchMethod: string;
-        PegasusWarning: string;
+        SourceWarning: string;
         ReviewSourceMediaKind: "COVER" | "VIDEO";
-        PegasusCollectionIDQuery: string;
-        EmulationStationGamelistParseStateFilter: "VALID" | "INVALID";
-        EmulationStationWarning: string;
-        EmulationStationCollectionIDQuery: string;
+        SourceCollectionIDQuery: string;
         ServerImportKind: "BIOS_DIRECTORY";
         ServerRelativePath: string;
         FavoriteScope: "ALL" | "UNCATEGORIZED" | "FOLDER";
@@ -6056,14 +5585,12 @@ export interface components {
         ImportItemID: string;
         BulkApprovalID: string;
         JobID: string;
-        ReviewEventID: string;
         CandidateID: string;
         PlatformInstanceID: string;
         RequirementID: string;
         ServerImportRootID: string;
         ServerImportID: string;
-        PegasusImportID: string;
-        EmulationStationImportID: string;
+        SourceImportID: string;
         GameAssetKind: "VIDEO";
         AssetID: string;
         LaunchID: string;
@@ -6346,34 +5873,19 @@ export interface components {
                 "application/json": components["schemas"]["CreateServerImportRequest"];
             };
         };
-        CreatePegasusImport: {
+        CreateSourceImport: {
             content: {
-                "application/json": components["schemas"]["CreatePegasusImportRequest"];
+                "application/json": components["schemas"]["CreateSourceImportRequest"];
             };
         };
-        PegasusCollectionMappings: {
+        SourceCollectionMappings: {
             content: {
-                "application/json": components["schemas"]["PegasusCollectionMappingsRequest"];
+                "application/json": components["schemas"]["SourceCollectionMappingsRequest"];
             };
         };
-        PegasusImportStart: {
+        SourceImportStart: {
             content: {
-                "application/json": components["schemas"]["PegasusImportStartRequest"];
-            };
-        };
-        CreateEmulationStationImport: {
-            content: {
-                "application/json": components["schemas"]["CreateEmulationStationImportRequest"];
-            };
-        };
-        EmulationStationCollectionMappings: {
-            content: {
-                "application/json": components["schemas"]["EmulationStationCollectionMappingsRequest"];
-            };
-        };
-        EmulationStationImportStart: {
-            content: {
-                "application/json": components["schemas"]["EmulationStationImportStartRequest"];
+                "application/json": components["schemas"]["SourceImportStartRequest"];
             };
         };
         PlayEvent: {
@@ -6397,7 +5909,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                kind: "IMPORT" | "PEGASUS" | "EMULATIONSTATION";
+                kind: "IMPORT" | "SOURCE";
                 importId: string;
             };
             cookie?: never;
@@ -6422,7 +5934,7 @@ export interface operations {
                 "Idempotency-Key": components["parameters"]["IdempotencyKey"];
             };
             path: {
-                kind: "IMPORT" | "PEGASUS" | "EMULATIONSTATION";
+                kind: "IMPORT" | "SOURCE";
                 importId: string;
             };
             cookie?: never;
@@ -7784,8 +7296,7 @@ export interface operations {
                 q?: components["parameters"]["Q"];
                 tagId?: components["parameters"]["TagIDQuery"];
                 importJobId?: components["parameters"]["ImportJobIDQuery"];
-                pegasusImportId?: components["parameters"]["PegasusImportIDQuery"];
-                emulationStationImportId?: components["parameters"]["EmulationStationImportIDQuery"];
+                sourceImportId?: components["parameters"]["SourceImportIDQuery"];
                 platformInstanceId?: components["parameters"]["PlatformInstanceIDQuery"];
                 blockerCode?: components["parameters"]["BlockerCode"];
                 sort?: components["parameters"]["Sort"];
@@ -7833,8 +7344,7 @@ export interface operations {
                 q?: components["parameters"]["Q"];
                 tagId?: components["parameters"]["TagIDQuery"];
                 importJobId?: components["parameters"]["ImportJobIDQuery"];
-                pegasusImportId?: components["parameters"]["PegasusImportIDQuery"];
-                emulationStationImportId?: components["parameters"]["EmulationStationImportIDQuery"];
+                sourceImportId?: components["parameters"]["SourceImportIDQuery"];
                 platformInstanceId?: components["parameters"]["PlatformInstanceIDQuery"];
                 blockerCode?: components["parameters"]["BlockerCode"];
             };
@@ -8089,41 +7599,6 @@ export interface operations {
             cookie?: never;
         };
         requestBody: components["requestBodies"]["ApprovalReason"];
-        responses: {
-            200: components["responses"]["JSONResponse"];
-        };
-    };
-    getAdminReviewHistory: {
-        parameters: {
-            query?: {
-                q?: components["parameters"]["Q"];
-                decision?: components["parameters"]["Decision"];
-                platformInstanceId?: components["parameters"]["PlatformInstanceIDQuery"];
-                fromAtMs?: components["parameters"]["FromAtMs"];
-                toAtMs?: components["parameters"]["ToAtMs"];
-                sort?: components["parameters"]["Sort"];
-                cursor?: components["parameters"]["Cursor"];
-                limit?: components["parameters"]["Limit"];
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: components["responses"]["JSONResponse"];
-        };
-    };
-    getAdminReviewHistoryEvent: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                reviewEventId: components["parameters"]["ReviewEventID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
         responses: {
             200: components["responses"]["JSONResponse"];
         };
@@ -8796,7 +8271,7 @@ export interface operations {
             202: components["responses"]["ServerImportResponse"];
         };
     };
-    getAdminPegasusImports: {
+    getAdminSourceImports: {
         parameters: {
             query?: {
                 state?: components["parameters"]["State"];
@@ -8809,10 +8284,10 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            200: components["responses"]["PegasusImportListResponse"];
+            200: components["responses"]["SourceImportListResponse"];
         };
     };
-    postAdminPegasusImport: {
+    postAdminSourceImport: {
         parameters: {
             query?: never;
             header: {
@@ -8822,26 +8297,26 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody: components["requestBodies"]["CreatePegasusImport"];
+        requestBody: components["requestBodies"]["CreateSourceImport"];
         responses: {
-            202: components["responses"]["PegasusImportResponse"];
+            202: components["responses"]["SourceImportResponse"];
         };
     };
-    getAdminPegasusImport: {
+    getAdminSourceImport: {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                pegasusImportId: components["parameters"]["PegasusImportID"];
+                sourceImportId: components["parameters"]["SourceImportID"];
             };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            200: components["responses"]["PegasusImportResponse"];
+            200: components["responses"]["SourceImportResponse"];
         };
     };
-    deleteAdminPegasusImport: {
+    deleteAdminSourceImport: {
         parameters: {
             query?: never;
             header: {
@@ -8850,13 +8325,13 @@ export interface operations {
                 "X-Retrom-Csrf": components["parameters"]["CSRFToken"];
             };
             path: {
-                pegasusImportId: components["parameters"]["PegasusImportID"];
+                sourceImportId: components["parameters"]["SourceImportID"];
             };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description Unstarted Pegasus import plan deleted */
+            /** @description Unstarted Source import plan deleted */
             204: {
                 headers: {
                     [name: string]: unknown;
@@ -8865,7 +8340,7 @@ export interface operations {
             };
         };
     };
-    getAdminPegasusImportCollections: {
+    getAdminSourceImportCollections: {
         parameters: {
             query?: {
                 cursor?: components["parameters"]["Cursor"];
@@ -8873,16 +8348,16 @@ export interface operations {
             };
             header?: never;
             path: {
-                pegasusImportId: components["parameters"]["PegasusImportID"];
+                sourceImportId: components["parameters"]["SourceImportID"];
             };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            200: components["responses"]["PegasusCollectionListResponse"];
+            200: components["responses"]["SourceCollectionListResponse"];
         };
     };
-    putAdminPegasusImportCollectionMappings: {
+    putAdminSourceImportCollectionMappings: {
         parameters: {
             query?: never;
             header: {
@@ -8891,16 +8366,16 @@ export interface operations {
                 "X-Retrom-Csrf": components["parameters"]["CSRFToken"];
             };
             path: {
-                pegasusImportId: components["parameters"]["PegasusImportID"];
+                sourceImportId: components["parameters"]["SourceImportID"];
             };
             cookie?: never;
         };
-        requestBody: components["requestBodies"]["PegasusCollectionMappings"];
+        requestBody: components["requestBodies"]["SourceCollectionMappings"];
         responses: {
-            200: components["responses"]["PegasusImportResponse"];
+            200: components["responses"]["SourceImportResponse"];
         };
     };
-    postAdminPegasusImportStart: {
+    postAdminSourceImportStart: {
         parameters: {
             query?: never;
             header: {
@@ -8909,37 +8384,37 @@ export interface operations {
                 "X-Retrom-Csrf": components["parameters"]["CSRFToken"];
             };
             path: {
-                pegasusImportId: components["parameters"]["PegasusImportID"];
+                sourceImportId: components["parameters"]["SourceImportID"];
             };
             cookie?: never;
         };
-        requestBody: components["requestBodies"]["PegasusImportStart"];
+        requestBody: components["requestBodies"]["SourceImportStart"];
         responses: {
-            202: components["responses"]["PegasusImportResponse"];
+            202: components["responses"]["SourceImportResponse"];
         };
     };
-    getAdminPegasusImportItems: {
+    getAdminSourceImportItems: {
         parameters: {
             query?: {
                 q?: components["parameters"]["Q"];
                 outcome?: components["parameters"]["Outcome"];
-                warning?: components["parameters"]["PegasusWarning"];
-                collectionId?: components["parameters"]["PegasusCollectionIDQuery"];
+                warning?: components["parameters"]["SourceWarning"];
+                collectionId?: components["parameters"]["SourceCollectionIDQuery"];
                 cursor?: components["parameters"]["Cursor"];
                 limit?: components["parameters"]["Limit50"];
             };
             header?: never;
             path: {
-                pegasusImportId: components["parameters"]["PegasusImportID"];
+                sourceImportId: components["parameters"]["SourceImportID"];
             };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            200: components["responses"]["PegasusItemListResponse"];
+            200: components["responses"]["SourceItemListResponse"];
         };
     };
-    postAdminPegasusImportCancel: {
+    postAdminSourceImportCancel: {
         parameters: {
             query?: never;
             header: {
@@ -8948,17 +8423,17 @@ export interface operations {
                 "X-Retrom-Csrf": components["parameters"]["CSRFToken"];
             };
             path: {
-                pegasusImportId: components["parameters"]["PegasusImportID"];
+                sourceImportId: components["parameters"]["SourceImportID"];
             };
             cookie?: never;
         };
         requestBody: components["requestBodies"]["Reason"];
         responses: {
-            200: components["responses"]["PegasusImportResponse"];
-            202: components["responses"]["PegasusImportResponse"];
+            200: components["responses"]["SourceImportResponse"];
+            202: components["responses"]["SourceImportResponse"];
         };
     };
-    postAdminPegasusImportRetry: {
+    postAdminSourceImportRetry: {
         parameters: {
             query?: never;
             header: {
@@ -8967,211 +8442,13 @@ export interface operations {
                 "X-Retrom-Csrf": components["parameters"]["CSRFToken"];
             };
             path: {
-                pegasusImportId: components["parameters"]["PegasusImportID"];
+                sourceImportId: components["parameters"]["SourceImportID"];
             };
             cookie?: never;
         };
         requestBody: components["requestBodies"]["Empty"];
         responses: {
-            202: components["responses"]["PegasusImportResponse"];
-        };
-    };
-    getAdminEmulationStationImports: {
-        parameters: {
-            query?: {
-                state?: components["parameters"]["State"];
-                cursor?: components["parameters"]["Cursor"];
-                limit?: components["parameters"]["Limit20"];
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: components["responses"]["EmulationStationImportListResponse"];
-        };
-    };
-    postAdminEmulationStationImport: {
-        parameters: {
-            query?: never;
-            header: {
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-                "X-Retrom-Csrf": components["parameters"]["CSRFToken"];
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: components["requestBodies"]["CreateEmulationStationImport"];
-        responses: {
-            202: components["responses"]["EmulationStationImportResponse"];
-        };
-    };
-    getAdminEmulationStationImport: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                emulationStationImportId: components["parameters"]["EmulationStationImportID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: components["responses"]["EmulationStationImportResponse"];
-        };
-    };
-    deleteAdminEmulationStationImport: {
-        parameters: {
-            query?: never;
-            header: {
-                "If-Match": components["parameters"]["IfMatch"];
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-                "X-Retrom-Csrf": components["parameters"]["CSRFToken"];
-            };
-            path: {
-                emulationStationImportId: components["parameters"]["EmulationStationImportID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Unstarted EmulationStation import plan deleted */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    getAdminEmulationStationImportGamelists: {
-        parameters: {
-            query?: {
-                parseState?: components["parameters"]["EmulationStationGamelistParseStateFilter"];
-                cursor?: components["parameters"]["Cursor"];
-                limit?: components["parameters"]["Limit100"];
-            };
-            header?: never;
-            path: {
-                emulationStationImportId: components["parameters"]["EmulationStationImportID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: components["responses"]["EmulationStationGamelistListResponse"];
-        };
-    };
-    getAdminEmulationStationImportCollections: {
-        parameters: {
-            query?: {
-                cursor?: components["parameters"]["Cursor"];
-                limit?: components["parameters"]["Limit100"];
-            };
-            header?: never;
-            path: {
-                emulationStationImportId: components["parameters"]["EmulationStationImportID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: components["responses"]["EmulationStationCollectionListResponse"];
-        };
-    };
-    putAdminEmulationStationImportCollectionMappings: {
-        parameters: {
-            query?: never;
-            header: {
-                "If-Match": components["parameters"]["IfMatch"];
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-                "X-Retrom-Csrf": components["parameters"]["CSRFToken"];
-            };
-            path: {
-                emulationStationImportId: components["parameters"]["EmulationStationImportID"];
-            };
-            cookie?: never;
-        };
-        requestBody: components["requestBodies"]["EmulationStationCollectionMappings"];
-        responses: {
-            200: components["responses"]["EmulationStationImportResponse"];
-        };
-    };
-    postAdminEmulationStationImportStart: {
-        parameters: {
-            query?: never;
-            header: {
-                "If-Match": components["parameters"]["IfMatch"];
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-                "X-Retrom-Csrf": components["parameters"]["CSRFToken"];
-            };
-            path: {
-                emulationStationImportId: components["parameters"]["EmulationStationImportID"];
-            };
-            cookie?: never;
-        };
-        requestBody: components["requestBodies"]["EmulationStationImportStart"];
-        responses: {
-            202: components["responses"]["EmulationStationImportResponse"];
-        };
-    };
-    getAdminEmulationStationImportItems: {
-        parameters: {
-            query?: {
-                q?: components["parameters"]["Q"];
-                outcome?: components["parameters"]["Outcome"];
-                warning?: components["parameters"]["EmulationStationWarning"];
-                collectionId?: components["parameters"]["EmulationStationCollectionIDQuery"];
-                cursor?: components["parameters"]["Cursor"];
-                limit?: components["parameters"]["Limit50"];
-            };
-            header?: never;
-            path: {
-                emulationStationImportId: components["parameters"]["EmulationStationImportID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: components["responses"]["EmulationStationItemListResponse"];
-        };
-    };
-    postAdminEmulationStationImportCancel: {
-        parameters: {
-            query?: never;
-            header: {
-                "If-Match": components["parameters"]["IfMatch"];
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-                "X-Retrom-Csrf": components["parameters"]["CSRFToken"];
-            };
-            path: {
-                emulationStationImportId: components["parameters"]["EmulationStationImportID"];
-            };
-            cookie?: never;
-        };
-        requestBody: components["requestBodies"]["Reason"];
-        responses: {
-            200: components["responses"]["EmulationStationImportResponse"];
-            202: components["responses"]["EmulationStationImportResponse"];
-        };
-    };
-    postAdminEmulationStationImportRetry: {
-        parameters: {
-            query?: never;
-            header: {
-                "If-Match": components["parameters"]["IfMatch"];
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-                "X-Retrom-Csrf": components["parameters"]["CSRFToken"];
-            };
-            path: {
-                emulationStationImportId: components["parameters"]["EmulationStationImportID"];
-            };
-            cookie?: never;
-        };
-        requestBody: components["requestBodies"]["Empty"];
-        responses: {
-            202: components["responses"]["EmulationStationImportResponse"];
+            202: components["responses"]["SourceImportResponse"];
         };
     };
     postAdminBIOSInstallation: {

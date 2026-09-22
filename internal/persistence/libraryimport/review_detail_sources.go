@@ -15,17 +15,17 @@ func (records ReviewSources) Files(ctx context.Context, snapshotID string) ([]ap
 	rows, err := records.executor.QueryContext(ctx, `
 SELECT f.id,f.relative_path,b.size_bytes,b.sha256,b.md5,b.crc32,
 MAX(CASE WHEN s.source_archive_blob_id IS NOT NULL OR EXISTS(
-  SELECT 1 FROM archive_entries ae WHERE ae.archive_blob_id=f.final_blob_id
+  SELECT 1 FROM archive_entries ae WHERE ae.archive_blob_id=f.blob_id
 ) THEN 1 ELSE 0 END),
 COALESCE(
   MAX(s.source_archive_blob_id),
   MAX(CASE WHEN EXISTS(
-    SELECT 1 FROM archive_entries ae WHERE ae.archive_blob_id=f.final_blob_id
-  ) THEN f.final_blob_id END)
+    SELECT 1 FROM archive_entries ae WHERE ae.archive_blob_id=f.blob_id
+  ) THEN f.blob_id END)
 )
 FROM import_item_source_snapshot_files s
-JOIN upload_files f ON f.id=s.upload_file_id
-JOIN blobs b ON b.id=f.final_blob_id
+JOIN import_files f ON f.id=s.upload_file_id
+JOIN blobs b ON b.id=f.blob_id
 WHERE s.source_snapshot_id=?
 GROUP BY f.id,f.relative_path,b.size_bytes,b.sha256,b.md5,b.crc32
 ORDER BY min(s.sort_order),f.relative_path,f.id

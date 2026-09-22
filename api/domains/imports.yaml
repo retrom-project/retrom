@@ -6,7 +6,7 @@ paths:
         required: true
         schema:
           type: string
-          enum: [IMPORT, PEGASUS, EMULATIONSTATION]
+          enum: [IMPORT, SOURCE]
       - name: importId
         in: path
         required: true
@@ -118,14 +118,14 @@ paths:
   /api/v1/admin/imports/summary:
     get:
       operationId: getAdminImportsSummary
-      description: User-visible import overview. Browser/reconfigure ImportJobs, Pegasus imports, and EmulationStation imports each count once; per-game ImportJobs created only for server-import review handoff are excluded. `reviewPending` is the exact count of `REVIEW_PENDING` import items.
+      description: User-visible import overview. Browser/reconfigure ImportJobs, organized source imports each count once; per-game ImportJobs created only for server-import review handoff are excluded. `reviewPending` is the exact count of `REVIEW_PENDING` import items.
       responses:
         '200':
           $ref: '#/components/responses/ImportOverviewSummaryResponse'
   /api/v1/admin/imports:
     get:
       operationId: getAdminImports
-      description: Cursor-paged browser/reconfigure ImportJobs. Per-game ImportJobs created internally by Pegasus or EmulationStation review handoff are excluded; aggregate server-import history is available from `/api/v1/admin/pegasus-imports` and `/api/v1/admin/emulationstation-imports`.
+      description: Cursor-paged browser/reconfigure ImportJobs. Per-game ImportJobs created internally by organized source review handoff are excluded; aggregate server-import history is available from `/api/v1/admin/source-imports`.
       parameters:
         - $ref: ../components/common.yaml#/components/parameters/Q
         - $ref: ../components/common.yaml#/components/parameters/State
@@ -268,7 +268,7 @@ components:
       properties:
         kind:
           type: string
-          enum: [IMPORT, PEGASUS, EMULATIONSTATION]
+          enum: [IMPORT, SOURCE]
         importId:
           type: string
           format: uuid
@@ -288,8 +288,7 @@ components:
         - completed
         - failed
         - ordinaryFailed
-        - pegasusFailed
-        - emulationStationFailed
+        - sourceFailed
         - processingItems
         - issueItems
       properties:
@@ -297,7 +296,7 @@ components:
           type: integer
           format: int64
           minimum: 0
-          description: User-visible non-terminal batches, counting each browser/reconfigure ImportJob or Pegasus import once.
+          description: User-visible non-terminal batches, counting each browser/reconfigure ImportJob or Source import once.
         reviewPending:
           type: integer
           format: int64
@@ -312,7 +311,7 @@ components:
           type: integer
           format: int64
           minimum: 0
-          description: User-visible completed batches, counting each browser/reconfigure ImportJob or Pegasus import once.
+          description: User-visible completed batches, counting each browser/reconfigure ImportJob or Source import once.
         failed:
           type: integer
           format: int64
@@ -323,16 +322,11 @@ components:
           format: int64
           minimum: 0
           description: Browser/reconfigure ImportJobs included in failed.
-        pegasusFailed:
+        sourceFailed:
           type: integer
           format: int64
           minimum: 0
-          description: Pegasus imports included in failed.
-        emulationStationFailed:
-          type: integer
-          format: int64
-          minimum: 0
-          description: EmulationStation imports included in failed.
+          description: Source imports included in failed.
         processingItems:
           type: integer
           format: int64

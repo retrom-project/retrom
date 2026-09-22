@@ -42,12 +42,10 @@ FROM import_jobs WHERE id=?`, nil
 	case application.ScopeGame:
 		return `SELECT status,version,payload_state,COALESCE(payload_release_job_id,''),'',0
 FROM games WHERE id=?`, nil
-	case application.ScopePegasusImportItem:
+	case application.ScopeSourceImportItem:
 		return `SELECT execution_state,version,payload_state,COALESCE(payload_release_job_id,''),
-COALESCE(library_import_item_id,''),retryable FROM pegasus_import_items WHERE id=?`, nil
-	case application.ScopeEmulationStationImportItem:
-		return `SELECT execution_state,version,payload_state,COALESCE(payload_release_job_id,''),
-COALESCE(library_import_item_id,''),retryable FROM emulationstation_import_items WHERE id=?`, nil
+COALESCE(library_import_item_id,''),retryable FROM source_import_items WHERE id=?`, nil
+
 	case application.ScopeUploadConsumption, application.ScopeBlob:
 		return "", application.ErrScopeInvalid
 	default:

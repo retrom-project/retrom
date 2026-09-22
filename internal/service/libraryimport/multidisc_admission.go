@@ -41,7 +41,7 @@ func (service *MultiDiscAttachments) Create(
 		return MultiDiscAttachmentCreated{}, multiDiscAttachmentError(MultiDiscAttachmentErrorInvalid, ErrInvalid)
 	}
 	write := MultiDiscAttachmentWrite{RequestVersion: version}
-	for _, destination := range []*string{&write.Input.AttachmentID, &write.JobID, &write.AuditID} {
+	for _, destination := range []*string{&write.Input.AttachmentID, &write.JobID} {
 		id, err := service.newID()
 		if err != nil {
 			return MultiDiscAttachmentCreated{}, multiDiscAttachmentError(MultiDiscAttachmentErrorUnavailable, err)
@@ -137,7 +137,6 @@ func encodeMultiDiscAdmission(write *MultiDiscAttachmentWrite) error {
 	dedupe := sha256.Sum256([]byte(dedupeInput))
 	write.InputJSON, write.InputDigest, write.DedupeKey = string(encoded),
 		hex.EncodeToString(digest[:]), hex.EncodeToString(dedupe[:])
-	write.AuditJSON = `{"schemaVersion":2,"attachmentKind":"MULTI_DISC","state":"QUEUED"}`
 	return nil
 }
 
@@ -146,7 +145,7 @@ func persistMultiDiscAdmission(
 ) error {
 	for _, save := range []func(context.Context, MultiDiscAttachmentWrite) error{
 		scope.Queue.Job, scope.Queue.Input, scope.Review.Attachment,
-		scope.Queue.Event, scope.Review.Draft, scope.Review.Audit,
+		scope.Queue.Event, scope.Review.Draft,
 	} {
 		if err := save(ctx, write); err != nil {
 			return err

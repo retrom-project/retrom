@@ -142,13 +142,6 @@ func (run *reviewApprovalRun) publishDependencies() error {
 }
 
 func (run *reviewApprovalRun) publishDecision() error {
-	event, err := run.evidence()
-	if err != nil {
-		return err
-	}
-	if err := run.scope.Decisions.RecordEvent(run.ctx, event); err != nil {
-		return fmt.Errorf("record approved review: %w", err)
-	}
 	if err := run.scope.Decisions.PublishItem(run.ctx, run.publication); err != nil {
 		return fmt.Errorf("publish review and aggregate: %w", err)
 	}

@@ -66,8 +66,8 @@ func TestReviewCoverRechecksRealSourceAndDraftAfterCASPreparation(t *testing.T) 
 		expected    error
 	}{
 		{"draft edit", `UPDATE review_drafts SET version=version+1 WHERE import_item_id=?`, application.ErrReviewCoverVersion},
-		{"upload release", `UPDATE upload_files SET state='PURGED',final_blob_id=NULL,payload_released_at_ms=1 WHERE id=?`, application.ErrReviewCoverUploadInvalid},
-		{"new reservation", `UPDATE import_items SET review_handoff_kind='EMULATIONSTATION' WHERE id=?`, application.ErrReviewCoverVersion},
+		{"upload release", `UPDATE import_files SET blob_id=NULL,released_at_ms=1 WHERE id=?`, application.ErrReviewCoverUploadInvalid},
+		{"concurrent discard", `UPDATE import_items SET state='DISCARDED' WHERE id=?`, application.ErrReviewCoverVersion},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()

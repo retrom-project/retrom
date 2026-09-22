@@ -43,9 +43,8 @@ func (repository *Repository) WithWrite(ctx context.Context, work func(importdis
 			Reader: records{
 				tx,
 			},
-			Requests:  bound,
-			Sources:   bound,
-			Ownership: bound,
+			Requests: bound,
+			Sources:  bound,
 		},
 	); err != nil {
 		return err
@@ -60,10 +59,9 @@ func batchTable(kind string) (string, error) {
 	switch kind {
 	case "IMPORT":
 		return "import_jobs", nil
-	case "PEGASUS":
-		return "pegasus_imports", nil
-	case "EMULATIONSTATION":
-		return "emulationstation_imports", nil
+	case "SOURCE":
+		return "source_imports", nil
+
 	default:
 		return "", importdiscard.ErrInvalid
 	}

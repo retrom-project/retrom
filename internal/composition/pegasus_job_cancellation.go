@@ -7,21 +7,21 @@ import (
 
 	"retrom/internal/authn"
 	"retrom/internal/service/jobs"
-	pegasus "retrom/internal/service/pegasusimport"
+	source "retrom/internal/service/sourceimport"
 )
 
-type PegasusJobCanceller interface {
-	CancelJob(context.Context, pegasus.JobCancellationRequest) (pegasus.JobCancellationResult, bool, error)
+type SourceJobCanceller interface {
+	CancelJob(context.Context, source.JobCancellationRequest) (source.JobCancellationResult, bool, error)
 }
 
-func WithPegasusJobCancellation(service *jobs.Service, source PegasusJobCanceller) *jobs.Service {
+func WithSourceJobCancellation(service *jobs.Service, source SourceJobCanceller) *jobs.Service {
 	handler := pegasusCancellation{source: source}
 	return service.WithDomainCancellation(map[string]jobs.DomainCanceller{
-		"SERVER_PEGASUS_SCAN": handler, "SERVER_PEGASUS_IMPORT": handler,
+		"IMPORT_SCAN": handler, "IMPORT_RECEIVE": handler,
 	})
 }
 
-type pegasusCancellation struct{ source PegasusJobCanceller }
+type pegasusCancellation struct{ source SourceJobCanceller }
 
 func (handler pegasusCancellation) CancelJob(
 	ctx context.Context,
@@ -31,16 +31,16 @@ func (handler pegasusCancellation) CancelJob(
 	if !ok || principal.UserID == "" {
 		return jobs.Result{}, false, jobs.ErrConflict
 	}
-	result, pending, err := handler.source.CancelJob(ctx, pegasus.JobCancellationRequest{
+	result, pending, err := handler.source.CancelJob(ctx, source.JobCancellationRequest{
 		JobID: command.JobID, Kind: command.Kind, ScopeID: command.ScopeID, ExpectedVersion: command.ExpectedVersion,
 		Reason: command.Reason, ActorID: principal.UserID,
 	})
 	if err != nil {
-		if errors.Is(err, pegasus.ErrVersionConflict) || errors.Is(err, pegasus.ErrNotCancellable) ||
-			errors.Is(err, pegasus.ErrNotFound) {
+		if errors.Is(err, source.ErrVersionConflict) || errors.Is(err, source.ErrNotCancellable) ||
+			errors.Is(err, source.ErrNotFound) {
 			return jobs.Result{}, false, fmt.Errorf("%w: %w", jobs.ErrConflict, err)
 		}
-		return jobs.Result{}, false, fmt.Errorf("cancel Pegasus domain job: %w", err)
+		return jobs.Result{}, false, fmt.Errorf("cancel Source domain job: %w", err)
 	}
 	return jobs.Result{
 		JobID: result.JobID, State: result.State, ExecutionNo: result.ExecutionNo, Version: result.Version,

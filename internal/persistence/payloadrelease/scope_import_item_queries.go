@@ -37,18 +37,12 @@ UNION ALL SELECT evidence.archive_blob_id FROM content_hash_evidence evidence
 UNION ALL SELECT asset.blob_id FROM scrape_candidate_assets asset
  JOIN scrape_candidates candidate ON candidate.id=asset.scrape_candidate_id
  JOIN metadata_scrape_runs run ON run.id=candidate.scrape_run_id WHERE run.import_item_id=?
-UNION ALL SELECT file.blob_id FROM pegasus_import_item_files file
- JOIN pegasus_import_items item ON item.id=file.item_id WHERE item.library_import_item_id=?
-UNION ALL SELECT file.source_archive_blob_id FROM pegasus_import_item_files file
- JOIN pegasus_import_items item ON item.id=file.item_id WHERE item.library_import_item_id=?
-UNION ALL SELECT asset.blob_id FROM pegasus_import_item_assets asset
- JOIN pegasus_import_items item ON item.id=asset.item_id WHERE item.library_import_item_id=?
-UNION ALL SELECT file.blob_id FROM emulationstation_import_item_files file
- JOIN emulationstation_import_items item ON item.id=file.item_id WHERE item.library_import_item_id=?
-UNION ALL SELECT file.source_archive_blob_id FROM emulationstation_import_item_files file
- JOIN emulationstation_import_items item ON item.id=file.item_id WHERE item.library_import_item_id=?
-UNION ALL SELECT asset.blob_id FROM emulationstation_import_item_assets asset
- JOIN emulationstation_import_items item ON item.id=asset.item_id WHERE item.library_import_item_id=?
+UNION ALL SELECT file.blob_id FROM source_import_item_files file
+ JOIN source_import_items item ON item.id=file.item_id WHERE item.library_import_item_id=?
+UNION ALL SELECT file.source_archive_blob_id FROM source_import_item_files file
+ JOIN source_import_items item ON item.id=file.item_id WHERE item.library_import_item_id=?
+UNION ALL SELECT asset.blob_id FROM source_import_item_assets asset
+ JOIN source_import_items item ON item.id=asset.item_id WHERE item.library_import_item_id=?
 `, itemID, itemID, itemID, itemID, itemID, itemID, itemID, itemID, itemID, itemID, itemID,
-		itemID, itemID, itemID, itemID, itemID, itemID, itemID, itemID, itemID, itemID, itemID)
+		itemID, itemID, itemID, itemID, itemID, itemID, itemID, itemID)
 }

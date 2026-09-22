@@ -20,15 +20,8 @@ func (writes writes) Complete(ctx context.Context, key importdiscard.Key, now in
 	itemsTable := table[:len(table)-1] + "_items"
 	tx := writes.transaction
 	skipped := ""
-	if kind == "EMULATIONSTATION" {
-		skipped = "skipped_mapping_item_count=0,"
-	}
-	updateItems := recordstore.UpdatePegasusImportItems
-	updateBatch := recordstore.UpdatePegasusImports
-	if kind == "EMULATIONSTATION" {
-		updateItems = recordstore.UpdateEmulationstationImportItems
-		updateBatch = recordstore.UpdateEmulationstationImports
-	}
+	updateItems := recordstore.UpdateSourceImportItems
+	updateBatch := recordstore.UpdateSourceImports
 	if _, err := updateItems(ctx, tx, recordstore.Update{
 		Set: `execution_state='REVIEW_DISCARDED',retryable=0,
  completed_at_ms=COALESCE(completed_at_ms,?),updated_at_ms=?,version=version+1`, Values: []any{now, now},
@@ -63,18 +56,11 @@ SELECT id FROM `+itemsTable+` WHERE import_id=? AND payload_state='RETAINED'`, i
 
 func scheduleSourceRelease(ctx context.Context, tx *sql.Tx, kind, id string, now int64) error {
 	var err error
-	if kind == "PEGASUS" {
+	if kind == "SOURCE" {
 		_, err = payloadservice.NewScheduler(nil).TerminalSource(
 			ctx,
 			payloadpersistence.BindScheduling(tx),
-			payloadservice.Scope{Type: payloadservice.ScopePegasusImportItem, ID: id},
-			now,
-		)
-	} else {
-		_, err = payloadservice.NewScheduler(nil).TerminalSource(
-			ctx,
-			payloadpersistence.BindScheduling(tx),
-			payloadservice.Scope{Type: payloadservice.ScopeEmulationStationImportItem, ID: id},
+			payloadservice.Scope{Type: payloadservice.ScopeSourceImportItem, ID: id},
 			now,
 		)
 	}

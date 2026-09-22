@@ -43,9 +43,12 @@ func TestServerFilesystemImportWithoutConfiguration(t *testing.T) {
 	if directories.Code != http.StatusOK || !strings.Contains(directories.Body.String(), selectedPath+"/游戏目录") {
 		t.Fatalf("unconfigured directory cannot be browsed: %d %s", directories.Code, directories.Body.String())
 	}
-	for _, endpoint := range []string{"pegasus-imports", "emulationstation-imports", "server-imports"} {
+	for _, endpoint := range []string{"source-imports", "server-imports"} {
 		t.Run(endpoint, func(t *testing.T) {
 			body := map[string]any{"rootId": "filesystem", "sourceRelativePath": selectedPath}
+			if endpoint == "source-imports" {
+				body["format"] = "PEGASUS"
+			}
 			if endpoint == "server-imports" {
 				body["kind"] = "BIOS_DIRECTORY"
 				body["replaceIfBetter"] = false

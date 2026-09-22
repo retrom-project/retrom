@@ -19,24 +19,16 @@ type (
 
 func effectSourceSpec(kind application.ScopeType) (effectSourceTables, error) {
 	switch kind {
-	case application.ScopePegasusImportItem:
+	case application.ScopeSourceImportItem:
 		return effectSourceTables{
-			itemsTable:   "pegasus_import_items",
-			filesTable:   "pegasus_import_item_files",
-			assetsTable:  "pegasus_import_item_assets",
-			updateItem:   recordstore.UpdatePegasusImportItems,
-			updateFiles:  recordstore.UpdatePegasusImportItemFiles,
-			updateAssets: recordstore.UpdatePegasusImportItemAssets,
+			itemsTable:   "source_import_items",
+			filesTable:   "source_import_item_files",
+			assetsTable:  "source_import_item_assets",
+			updateItem:   recordstore.UpdateSourceImportItems,
+			updateFiles:  recordstore.UpdateSourceImportItemFiles,
+			updateAssets: recordstore.UpdateSourceImportItemAssets,
 		}, nil
-	case application.ScopeEmulationStationImportItem:
-		return effectSourceTables{
-			itemsTable:   "emulationstation_import_items",
-			filesTable:   "emulationstation_import_item_files",
-			assetsTable:  "emulationstation_import_item_assets",
-			updateItem:   recordstore.UpdateEmulationstationImportItems,
-			updateFiles:  recordstore.UpdateEmulationstationImportItemFiles,
-			updateAssets: recordstore.UpdateEmulationstationImportItemAssets,
-		}, nil
+
 	case application.ScopeImportItem, application.ScopeImportJob, application.ScopeUploadConsumption,
 		application.ScopeGame, application.ScopeBlob:
 		return effectSourceTables{}, application.ErrScopeInvalid

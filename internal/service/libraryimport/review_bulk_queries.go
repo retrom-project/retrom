@@ -24,14 +24,13 @@ func NormalizeReviewBulkScope(scope ReviewBulkScope) (ReviewBulkScope, error) {
 	scope.Q = strings.ToLower(strings.Join(strings.Fields(scope.Q), " "))
 	scope.TagID = strings.TrimSpace(scope.TagID)
 	scope.ImportJobID = strings.TrimSpace(scope.ImportJobID)
-	scope.PegasusImportID = strings.TrimSpace(scope.PegasusImportID)
-	scope.EmulationStationImportID = strings.TrimSpace(scope.EmulationStationImportID)
+	scope.SourceImportID = strings.TrimSpace(scope.SourceImportID)
 	scope.PlatformInstanceID = strings.TrimSpace(scope.PlatformInstanceID)
 	scope.BlockerCode = strings.TrimSpace(scope.BlockerCode)
 	if !utf8.ValidString(scope.Q) || len([]rune(scope.Q)) > 200 || len(scope.BlockerCode) > 120 {
 		return ReviewBulkScope{}, ErrReviewBulkQuery
 	}
-	sourceFilters := []string{scope.ImportJobID, scope.PegasusImportID, scope.EmulationStationImportID}
+	sourceFilters := []string{scope.ImportJobID, scope.SourceImportID}
 	count := 0
 	for _, value := range sourceFilters {
 		if value != "" {
@@ -42,8 +41,8 @@ func NormalizeReviewBulkScope(scope ReviewBulkScope) (ReviewBulkScope, error) {
 		return ReviewBulkScope{}, ErrReviewBulkQuery
 	}
 	for _, value := range []string{
-		scope.TagID, scope.ImportJobID, scope.PegasusImportID,
-		scope.EmulationStationImportID, scope.PlatformInstanceID,
+		scope.TagID, scope.ImportJobID, scope.SourceImportID,
+		scope.PlatformInstanceID,
 	} {
 		if value == "" {
 			continue

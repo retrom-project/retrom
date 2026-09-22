@@ -13,9 +13,9 @@ const ReviewQueuePageLimit = 20
 
 type (
 	ReviewQueueFilter struct {
-		Query, TagID, ImportJobID, PegasusImportID, EmulationStationImportID string
-		PlatformInstanceID, BlockerCode, Sort                                string
-		Limit                                                                int
+		Query, TagID, ImportJobID, SourceImportID string
+		PlatformInstanceID, BlockerCode, Sort     string
+		Limit                                     int
 	}
 	ReviewQueuePosition struct {
 		UpdatedAtMS int64
@@ -40,28 +40,27 @@ type (
 		Version, UpdatedAtMS, CandidateCount, SourceTotalSizeBytes   int64
 		Platform                                                     ReviewQueuePlatform
 		ValidationStatus, CompatibilityCode, SourceMD5, CoverAssetID *string
-		Pegasus, EmulationStation                                    *ReviewQueueSource
+		Source                                                       *ReviewQueueSource
 	}
 	ReviewQueueItem struct {
-		ItemID                   string              `json:"itemId"`
-		ReviewVersion            int64               `json:"reviewVersion"`
-		ImportJobID              string              `json:"importJobId"`
-		SourceDisplayName        string              `json:"sourceDisplayName"`
-		DraftTitle               string              `json:"draftTitle"`
-		PlatformInstance         ReviewQueuePlatform `json:"platformInstance"`
-		ValidationStatus         string              `json:"validationStatus"`
-		ValidationJobID          *string             `json:"validationJobId"`
-		BlockerCodes             []string            `json:"blockerCodes"`
-		CandidateCount           int64               `json:"candidateCount"`
-		SourceTotalSizeBytes     int64               `json:"sourceTotalSizeBytes"`
-		SourceMD5                *string             `json:"sourceMd5"`
-		CoverURL                 *string             `json:"coverUrl"`
-		SourceKind               string              `json:"sourceKind"`
-		SourceLabel              *string             `json:"sourceLabel"`
-		PegasusImportID          *string             `json:"pegasusImportId"`
-		EmulationStationImportID *string             `json:"emulationStationImportId"`
-		UpdatedAtMS              int64               `json:"updatedAtMs"`
-		Tags                     []tagging.Reference `json:"tags"`
+		ItemID               string              `json:"itemId"`
+		ReviewVersion        int64               `json:"reviewVersion"`
+		ImportJobID          string              `json:"importJobId"`
+		SourceDisplayName    string              `json:"sourceDisplayName"`
+		DraftTitle           string              `json:"draftTitle"`
+		PlatformInstance     ReviewQueuePlatform `json:"platformInstance"`
+		ValidationStatus     string              `json:"validationStatus"`
+		ValidationJobID      *string             `json:"validationJobId"`
+		BlockerCodes         []string            `json:"blockerCodes"`
+		CandidateCount       int64               `json:"candidateCount"`
+		SourceTotalSizeBytes int64               `json:"sourceTotalSizeBytes"`
+		SourceMD5            *string             `json:"sourceMd5"`
+		CoverURL             *string             `json:"coverUrl"`
+		SourceKind           string              `json:"sourceKind"`
+		SourceLabel          *string             `json:"sourceLabel"`
+		SourceImportID       *string             `json:"sourceImportId"`
+		UpdatedAtMS          int64               `json:"updatedAtMs"`
+		Tags                 []tagging.Reference `json:"tags"`
 	}
 	ReviewQueuePage struct {
 		Items []ReviewQueueItem

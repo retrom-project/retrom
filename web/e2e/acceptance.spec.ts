@@ -242,7 +242,7 @@ test("ACC-UI-006 admin pages remain reachable at desktop breakpoints", async ({ 
   await page.goto("/admin/imports/tasks");
   await expect(page.getByRole("heading", { name: "普通任务进度", exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: "本地扫描任务", exact: true })).toHaveAttribute("href", "/admin/imports/server");
-  await expect(page.getByText("查看浏览器上传或重新配置产生的导入批次；Pegasus 目录按顶层批次统一显示在本地扫描。", { exact: true })).toBeVisible();
+  await expect(page.getByText("查看浏览器上传或重新配置产生的导入批次；来源目录按顶层批次统一显示在本地扫描。", { exact: true })).toBeVisible();
   await expect(page.getByText("技术详情", { exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "查看多盘详情" })).toHaveCount(0);
   const taskGridColumns = await page.locator(".import-task-card").evaluateAll((cards) => cards.map((card) => getComputedStyle(card).gridTemplateColumns));

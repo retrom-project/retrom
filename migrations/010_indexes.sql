@@ -31,29 +31,16 @@ ON dat_versions(provider_id,target_id) WHERE is_active=1;
 CREATE UNIQUE INDEX dat_versions_bytes
 ON dat_versions(provider_id,target_id,sha256,parser_version);
 
-CREATE INDEX emulationstation_collection_tags_tag ON emulationstation_collection_tags(tag_id,collection_id);
 
-CREATE INDEX emulationstation_collections_mapping ON emulationstation_import_collections(import_id,mapping_action,id);
 
-CREATE INDEX emulationstation_collections_page ON emulationstation_import_collections(import_id,gamelist_relative_path,id);
 
-CREATE INDEX emulationstation_gamelists_page ON emulationstation_import_gamelists(import_id,relative_path);
 
-CREATE INDEX emulationstation_imports_history ON emulationstation_imports(created_at_ms DESC,id DESC);
 
-CREATE UNIQUE INDEX emulationstation_imports_one_active_execution ON emulationstation_imports((1))
-WHERE import_job_id IS NOT NULL AND state IN ('QUEUED','RUNNING','CANCEL_REQUESTED');
 
-CREATE INDEX emulationstation_imports_state ON emulationstation_imports(state,updated_at_ms DESC,id DESC);
 
-CREATE INDEX emulationstation_items_collection ON emulationstation_import_items(import_id,collection_id,title,id);
 
-CREATE UNIQUE INDEX emulationstation_items_library_review ON emulationstation_import_items(library_import_item_id)
-WHERE library_import_item_id IS NOT NULL;
 
-CREATE INDEX emulationstation_items_outcome ON emulationstation_import_items(import_id,execution_state,title,id);
 
-CREATE INDEX emulationstation_items_page ON emulationstation_import_items(import_id,title,id);
 
 CREATE INDEX favorite_folder_games_folder
 ON favorite_folder_games(profile_id,folder_id,created_at_ms,game_id);
@@ -161,29 +148,29 @@ ON netplay_sessions(room_id) WHERE state NOT IN ('FINISHED','FAILED');
 
 CREATE INDEX netplay_sessions_state ON netplay_sessions(state,updated_at_ms,id);
 
-CREATE INDEX pegasus_collection_tags_tag ON pegasus_collection_tags(tag_id,collection_id);
+CREATE INDEX source_collection_tags_tag ON source_collection_tags(tag_id,collection_id);
 
-CREATE INDEX pegasus_collections_mapping ON pegasus_import_collections(import_id,mapping_action,id);
+CREATE INDEX source_collections_mapping ON source_import_collections(import_id,mapping_action,id);
 
-CREATE INDEX pegasus_collections_page ON pegasus_import_collections(import_id,metadata_relative_path,segment_ordinal,id);
+CREATE INDEX source_collections_page ON source_import_collections(import_id,metadata_relative_path,segment_ordinal,id);
 
-CREATE INDEX pegasus_imports_history ON pegasus_imports(created_at_ms DESC,id DESC);
+CREATE INDEX source_imports_history ON source_imports(created_at_ms DESC,id DESC);
 
-CREATE UNIQUE INDEX pegasus_imports_one_active_execution ON pegasus_imports((1))
+CREATE UNIQUE INDEX source_imports_one_active_execution ON source_imports((1))
 WHERE import_job_id IS NOT NULL AND state IN ('QUEUED','RUNNING','CANCEL_REQUESTED');
 
-CREATE INDEX pegasus_imports_state ON pegasus_imports(state,updated_at_ms DESC,id DESC);
+CREATE INDEX source_imports_state ON source_imports(state,updated_at_ms DESC,id DESC);
 
-CREATE INDEX pegasus_items_collection ON pegasus_import_items(import_id,collection_id,title,id);
+CREATE INDEX source_items_collection ON source_import_items(import_id,collection_id,title,id);
 
-CREATE UNIQUE INDEX pegasus_items_library_review ON pegasus_import_items(library_import_item_id)
+CREATE UNIQUE INDEX source_items_library_review ON source_import_items(library_import_item_id)
 WHERE library_import_item_id IS NOT NULL;
 
-CREATE INDEX pegasus_items_outcome ON pegasus_import_items(import_id,execution_state,title,id);
+CREATE INDEX source_items_outcome ON source_import_items(import_id,execution_state,title,id);
 
-CREATE INDEX pegasus_items_page ON pegasus_import_items(import_id,title,id);
+CREATE INDEX source_items_page ON source_import_items(import_id,title,id);
 
-CREATE INDEX pegasus_metadata_page ON pegasus_import_metadata_files(import_id,relative_path);
+CREATE INDEX source_metadata_page ON source_import_metadata_files(import_id,relative_path);
 
 CREATE UNIQUE INDEX platform_instances_catalog_template_key_unique
 ON platform_instances(catalog_template_key)
@@ -205,9 +192,7 @@ WHERE state IN ('QUEUED','RUNNING','CANCEL_REQUESTED');
 
 CREATE INDEX review_draft_tags_tag ON review_draft_tags(tag_id,review_draft_id);
 
-CREATE INDEX review_events_actor ON review_events(actor_user_id,created_at_ms,id);
 
-CREATE INDEX review_events_history ON review_events(event_type,created_at_ms,id);
 
 CREATE UNIQUE INDEX review_multidisc_attachment_active
 ON review_multidisc_attachments(import_item_id) WHERE state IN ('QUEUED','RUNNING');

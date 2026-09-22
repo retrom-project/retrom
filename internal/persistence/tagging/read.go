@@ -22,8 +22,7 @@ SELECT tag.id,tag.name,tag.status,tag.version,tag.created_at_ms,tag.updated_at_m
    JOIN review_drafts draft ON draft.id=relation.review_draft_id
    JOIN import_items item ON item.id=draft.import_item_id
    WHERE relation.tag_id=tag.id AND (tag.status='DELETED' OR item.state='REVIEW_PENDING')),
-  (SELECT count(*) FROM pegasus_collection_tags relation WHERE relation.tag_id=tag.id),
-  (SELECT count(*) FROM emulationstation_collection_tags relation WHERE relation.tag_id=tag.id)
+  (SELECT count(*) FROM source_collection_tags relation WHERE relation.tag_id=tag.id)
 FROM tags tag`
 
 func scanAdminItem(row dbexec.Scanner) (tagging.AdminItem, error) {
@@ -33,8 +32,7 @@ func scanAdminItem(row dbexec.Scanner) (tagging.AdminItem, error) {
 		&result.TagID, &result.Name, &result.Status, &result.Version,
 		&result.CreatedAtMS, &result.UpdatedAtMS, &deletedAt,
 		&result.Usage.PublishedGameCount, &result.Usage.DeletedGameCount,
-		&result.Usage.ReviewDraftCount, &result.Usage.PegasusCollectionCount,
-		&result.Usage.EmulationStationCollectionCount,
+		&result.Usage.ReviewDraftCount, &result.Usage.SourceCollectionCount,
 	)
 	if deletedAt.Valid {
 		result.DeletedAtMS = &deletedAt.Int64

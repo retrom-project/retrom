@@ -44,6 +44,9 @@ func (repository *ScheduleRepository) WithWrite(
 }
 
 func (writes scheduleWrites) Create(ctx context.Context, plan metadatascrape.SchedulePlan) error {
+	if err := writes.replaceCurrent(ctx, plan); err != nil {
+		return err
+	}
 	_, err := writes.transaction.ExecContext(ctx, `INSERT INTO jobs(id,scope_type,scope_id,kind,dedupe_key,execution_no,
  payload_json,cancellable,state,attempt_count,max_attempts,available_at_ms,finished_at_ms,created_at_ms,updated_at_ms)
  VALUES(?,?,?,'METADATA_SCRAPE',?,1,?,1,?,0,4,?,?,?,?)`, plan.JobID, plan.Subject.Kind, plan.Subject.ID, plan.Dedupe,
@@ -129,28 +132,6 @@ func (writes scheduleWrites) Review(ctx context.Context, value metadatascrape.Re
 	})
 	if err := scheduleChanged(result, err, metadatascrape.ErrReviewVersionConflict); err != nil {
 		return err
-	}
-	_, err = recordstore.CreateReviewEvents(
-		ctx,
-		writes.transaction,
-		`INSERT INTO review_events
- (id,import_item_id,event_type,actor_kind,actor_user_id,actor_label,before_json,after_json,diff_json,
- config_evidence_json,dat_evidence_json,provider_evidence_json,created_at_ms)
- VALUES(?,?,'SCRAPE_REQUESTED',?,?,?,?,?,?,'{"schemaVersion":2}','{"schemaVersion":2}',?,?)`,
-
-		value.ID,
-		value.ItemID,
-		value.Actor.Kind,
-		value.Actor.UserID,
-		value.Actor.Label,
-		value.BeforeJSON,
-		value.AfterJSON,
-		value.AfterJSON,
-		value.AfterJSON,
-		value.Now,
-	)
-	if err != nil {
-		return fmt.Errorf("insert scrape review event: %w", err)
 	}
 	return nil
 }

@@ -55,9 +55,7 @@ SELECT d.id,i.state,i.import_job_id,p.platform_id,
   j.version,j.state,j.queued_item_count,j.running_item_count,j.review_pending_item_count,
   j.failed_item_count,j.cancelled_item_count,j.rejected_file_count,j.resolved_rejected_file_count,
   j.cancel_requested_at_ms,j.completed_at_ms,
-  (EXISTS(SELECT 1 FROM pegasus_import_items owner
-    WHERE owner.library_import_item_id=i.id AND owner.execution_state<>'REVIEW_PENDING') OR
-   EXISTS(SELECT 1 FROM emulationstation_import_items owner
+  (EXISTS(SELECT 1 FROM source_import_items owner
     WHERE owner.library_import_item_id=i.id AND owner.execution_state<>'REVIEW_PENDING'))
 FROM import_items i
 JOIN import_jobs j ON j.id=i.import_job_id
@@ -82,11 +80,6 @@ JOIN runtime_binding_platforms binding_platform ON binding_platform.binding_id=b
  AND binding_platform.platform_id=p.platform_id
 WHERE i.id=?
 AND NOT EXISTS(SELECT 1 FROM (` + storequery.DiscardedImportJobs + `) WHERE import_id=i.import_job_id)
-AND (i.review_handoff_kind='DIRECT' OR EXISTS(
-  SELECT 1 FROM emulationstation_import_items reserved_source
-  WHERE reserved_source.library_import_item_id=i.id
-  AND reserved_source.execution_state='REVIEW_PENDING'
-))
 AND (v.status='READY' OR EXISTS(
   SELECT 1 FROM review_runtime_screenshots screenshot
   WHERE screenshot.import_item_id=i.id AND screenshot.validation_id=v.id

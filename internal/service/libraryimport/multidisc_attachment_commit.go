@@ -2,7 +2,6 @@ package libraryimport
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"time"
 
@@ -38,7 +37,7 @@ func (service *MultiDiscAttachmentCommits) CommitAccepted(
 	}
 	write := MultiDiscAttachmentCommitWrite{MultiDiscAttachmentCommitRequest: request, NowMS: service.now().UnixMilli()}
 	for _, target := range []*string{
-		&write.SourceSnapshotID, &write.ValidationID, &write.ConsumptionID, &write.EventID,
+		&write.SourceSnapshotID, &write.ValidationID, &write.ConsumptionID,
 	} {
 		id, err := service.newID()
 		if err != nil {
@@ -107,10 +106,4 @@ func (service *MultiDiscAttachmentCommits) resolveValidation(
 		Status: status, CompatibilityCode: code,
 		DependencySnapshotJSON: string(encoded), Files: files,
 	}, nil
-}
-
-func multiDiscReviewEventJSON(fields map[string]any) string {
-	fields["schemaVersion"] = 2
-	encoded, _ := json.Marshal(fields)
-	return string(encoded)
 }

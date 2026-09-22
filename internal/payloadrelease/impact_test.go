@@ -13,9 +13,9 @@ import (
 	"retrom/internal/testsupport"
 )
 
-func TestImpactSourceKindsIncludeEmulationStationAndNeverReturnNull(t *testing.T) {
+func TestImpactSourceKindsIncludeSourceImportsAndNeverReturnNull(t *testing.T) {
 	t.Parallel()
-	for _, source := range []string{"SERVER_PEGASUS_IMPORT", "SERVER_EMULATIONSTATION_IMPORT"} {
+	for _, source := range []string{"IMPORT_RECEIVE", "IMPORT_RECEIVE"} {
 		normalized := application.NormalizeImpactSourceKinds([]string{source})
 		testassert.Truef(t, len(normalized) == 1 && normalized[0] == "SERVER_SCAN", "%s normalized to %q", source, normalized)
 	}
