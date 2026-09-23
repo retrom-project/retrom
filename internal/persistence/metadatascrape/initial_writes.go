@@ -9,9 +9,9 @@ import (
 )
 
 func (records initialRecords) Apply(ctx context.Context, change metadatascrape.InitialDraftChange) error {
-	_, err := recordstore.UpdateReviewDrafts(ctx, records.transaction, recordstore.Update{
+	_, err := recordstore.UpdateReviewItems(ctx, records.transaction, recordstore.Update{
 		Set: `selected_candidate_id=?,cover_candidate_asset_id=?,background_candidate_asset_id=?,
- metadata_json=?,updated_at_ms=?`,
+ metadata_json=?,review_updated_at_ms=?`,
 		Scope:  recordstore.Scope{Where: `id=?`, Args: []any{change.DraftID}},
 		Values: []any{change.CandidateID, change.CoverID, change.BackgroundID, change.MetadataJSON, change.Now},
 	})

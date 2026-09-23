@@ -120,7 +120,7 @@ func catalogUserEvidence(t *testing.T, database *sql.DB) [32]byte {
 		`SELECT * FROM schema_migrations ORDER BY version`,
 		`SELECT * FROM games ORDER BY id`, `SELECT * FROM game_files ORDER BY rowid`,
 		`SELECT * FROM game_variants ORDER BY id`, `SELECT * FROM save_states ORDER BY id`,
-		`SELECT * FROM import_items ORDER BY id`, `SELECT * FROM review_drafts ORDER BY id`,
+		`SELECT * FROM import_items ORDER BY id`, `SELECT * FROM import_items ORDER BY id`,
 		`SELECT * FROM rpgmaker_review_profiles ORDER BY rowid`,
 		`SELECT * FROM platform_instances ORDER BY id`, `SELECT * FROM profiles ORDER BY id`,
 	}

@@ -50,7 +50,7 @@ SELECT d.id,i.state,i.import_job_id,p.platform_id,
      AND screenshot.source_snapshot_id=d.effective_source_snapshot_id
      AND screenshot.provider_id=v.provider_id AND screenshot.target_id=v.target_id
    ORDER BY screenshot.captured_at_ms DESC,screenshot.id DESC LIMIT 1),
-  d.version,d.selected_candidate_id,d.cover_candidate_asset_id,d.cover_uploaded_asset_id,
+  d.review_version,d.selected_candidate_id,d.cover_candidate_asset_id,d.cover_uploaded_asset_id,
   d.background_candidate_asset_id,
   j.version,j.state,j.queued_item_count,j.running_item_count,j.review_pending_item_count,
   j.failed_item_count,j.cancelled_item_count,j.rejected_file_count,j.resolved_rejected_file_count,
@@ -59,7 +59,7 @@ SELECT d.id,i.state,i.import_job_id,p.platform_id,
     WHERE owner.library_import_item_id=i.id AND owner.execution_state<>'REVIEW_PENDING'))
 FROM import_items i
 JOIN import_jobs j ON j.id=i.import_job_id
-JOIN review_drafts d ON d.import_item_id=i.id
+JOIN import_items d ON d.id=i.id
 JOIN import_item_source_snapshots source_snapshot ON source_snapshot.id=d.effective_source_snapshot_id
 JOIN platform_instances p ON p.id=d.target_platform_instance_id
   AND p.enabled=1 AND p.deleted_at_ms IS NULL

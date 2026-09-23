@@ -22,7 +22,7 @@ import (
 func TestReviewCoverSQLFailuresRemainServerErrors(t *testing.T) {
 	t.Parallel()
 	for _, test := range []struct{ name, query string }{
-		{"source read", "FROM import_files"}, {"draft authority read", "FROM review_drafts"},
+		{"source read", "FROM import_files"}, {"draft authority read", "FROM import_items"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()

@@ -28,7 +28,7 @@ func TestRPGProductLaunchUsesCurrentBundleAfterProviderUpgrade(t *testing.T) {
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
 	seedLocalProfile(t, database.SQL)
 	fixture := seedRPGReviewFixture(t, database.SQL, now.UnixMilli())
-	mustRPGLaunchSQL(t, database.SQL, `UPDATE review_drafts SET metadata_json='{"title":"RPG upgrade"}' WHERE import_item_id=?`, fixture.itemID)
+	mustRPGLaunchSQL(t, database.SQL, `UPDATE import_items SET metadata_json='{"title":"RPG upgrade"}' WHERE id=?`, fixture.itemID)
 	credentials, err := retromruntime.LoadOrCreateCredentials(dataDir)
 	if err != nil {
 		t.Fatal(err)
@@ -77,7 +77,7 @@ func TestRPGProjectContentUsesOnlyUniqueASCIICaseFoldFallback(t *testing.T) {
 		t.Fatal(err)
 	}
 	service := newRPGReviewLaunchService(t, ctx, database.SQL, credentials, func() time.Time { return now })
-	mustRPGLaunchSQL(t, database.SQL, `UPDATE review_drafts SET metadata_json='{"title":"RPG content"}' WHERE import_item_id=?`, fixture.itemID)
+	mustRPGLaunchSQL(t, database.SQL, `UPDATE import_items SET metadata_json='{"title":"RPG content"}' WHERE id=?`, fixture.itemID)
 	published, err := libraryimport.New(database.SQL, func() time.Time { return now }).Approve(ctx, fixture.itemID, 2)
 	if err != nil {
 		t.Fatal(err)

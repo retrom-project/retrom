@@ -76,14 +76,14 @@ status='DELETED',version=version+1,updated_by_user_id=?,updated_at_ms=?,deleted_
 	}); err != nil {
 		return fmt.Errorf("tagging: advance games after delete: %w", err)
 	}
-	if _, err := recordstore.UpdateReviewDrafts(ctx, records.database, recordstore.Update{
-		Set: `version=version+1,updated_at_ms=?`,
+	if _, err := recordstore.UpdateReviewItems(ctx, records.database, recordstore.Update{
+		Set: `review_version=review_version+1,review_updated_at_ms=?`,
 		Scope: recordstore.Scope{
 			Where: `
 id IN (
   SELECT relation.review_draft_id FROM review_draft_tags relation
-  JOIN review_drafts draft ON draft.id=relation.review_draft_id
-  JOIN import_items item ON item.id=draft.import_item_id AND item.state='REVIEW_PENDING'
+  JOIN import_items draft ON draft.id=relation.review_draft_id
+  JOIN import_items item ON item.id=draft.id AND item.state='REVIEW_PENDING'
   WHERE relation.tag_id=?
 )
 `,

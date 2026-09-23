@@ -50,7 +50,7 @@ func (records ReviewMedia) RuntimeScreenshot(
 SELECT screenshot.id,screenshot.provider_id,screenshot.target_id,
 screenshot.width_px,screenshot.height_px,screenshot.captured_at_ms
 FROM review_runtime_screenshots screenshot
-JOIN review_drafts draft ON draft.import_item_id=screenshot.import_item_id
+JOIN import_items draft ON draft.id=screenshot.import_item_id
 WHERE screenshot.import_item_id=? AND screenshot.validation_id=?
 AND screenshot.source_snapshot_id=draft.effective_source_snapshot_id
 `, itemID, validationID).Scan(

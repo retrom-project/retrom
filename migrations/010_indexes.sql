@@ -158,12 +158,10 @@ WHERE state IN ('QUEUED','RUNNING');
 CREATE INDEX review_arcade_parent_history
 ON review_arcade_parent_attachments(import_item_id,created_at_ms,id);
 
-CREATE INDEX review_bulk_approval_items_state ON review_bulk_approval_items(bulk_approval_id,state,ordinal);
-
 CREATE INDEX review_bulk_approvals_history ON review_bulk_approvals(created_at_ms DESC,id DESC);
 
 CREATE UNIQUE INDEX review_bulk_approvals_one_active ON review_bulk_approvals((1))
-WHERE state IN ('QUEUED','RUNNING','CANCEL_REQUESTED');
+WHERE state IN ('QUEUED','RUNNING');
 
 CREATE INDEX review_draft_tags_tag ON review_draft_tags(tag_id,review_draft_id);
 
@@ -191,7 +189,7 @@ CREATE INDEX review_preview_sessions_target ON review_preview_sessions(target_pl
 
 CREATE INDEX review_preview_sessions_validation ON review_preview_sessions(validation_id);
 
-CREATE INDEX review_queue ON review_drafts(updated_at_ms, import_item_id);
+CREATE INDEX review_queue ON import_items(review_updated_at_ms, id) WHERE state='REVIEW_PENDING';
 
 CREATE INDEX review_runtime_screenshots_blob ON review_runtime_screenshots(blob_id);
 

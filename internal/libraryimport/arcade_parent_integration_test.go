@@ -87,32 +87,29 @@ SELECT status,dependency_snapshot_json FROM import_item_core_validations WHERE i
 		t.Fatal(err)
 	}
 	testassert.Falsef(t, testassert.Any(func() bool { return validationStatus != "READY" }, func() bool { return !strings.Contains(dependencySnapshot, `"kind":"ARCADE"`) }), "arcade validation = %s %s", validationStatus, dependencySnapshot)
-	preview, err := importer.PreviewReviewBulk(ctx, ReviewBulkScope{ImportJobID: created.ImportJobID})
-	testassert.False(t, err != nil, err)
-	testassert.Falsef(t, testassert.Any(func() bool { return preview.Counts.Matched != 1 }, func() bool { return preview.Counts.StrictReady != 1 }, func() bool { return preview.Counts.NotReadyOrStale != 0 }), "arcade bulk preview = %#v", preview.Counts)
-	bulk, err := importer.CreateReviewBulk(ctx, ReviewBulkCreateRequest{
-		Scope: preview.Scope, ScopeDigest: preview.ScopeDigest,
-		CandidateManifestDigest: preview.CandidateManifestDigest,
-	})
+	bulk, err := importer.CreateReviewBulk(ctx)
 	testassert.False(t, err != nil, err)
 	deadline := time.Now().Add(5 * time.Second)
 	var summary ReviewBulkSummary
 	for {
 		summary, err = importer.GetReviewBulk(ctx, bulk.BulkApprovalID)
 		testassert.False(t, err != nil, err)
-		if summary.State == "COMPLETED" || summary.State == "PARTIAL_FAILURE" || summary.State == "FAILED" {
+		if summary.State == "COMPLETED" || summary.State == "FAILED" {
 			break
 		}
 		testassert.Falsef(t, time.Now().After(deadline), "arcade bulk approval did not finish: %#v", summary)
 		time.Sleep(10 * time.Millisecond)
 	}
-	testassert.Falsef(t, testassert.Any(func() bool { return summary.State != "COMPLETED" }, func() bool { return summary.Progress.Published != 1 }, func() bool { return summary.Progress.Processed != 1 }), "arcade bulk result = %#v", summary)
+	testassert.Falsef(t, testassert.Any(func() bool { return summary.State != "COMPLETED" }, func() bool { return summary.PublishedCount != 1 }, func() bool { return summary.ScannedCount != 1 }), "arcade bulk result = %#v", summary)
 	var gameID string
 	if err := database.SQL.QueryRowContext(ctx, `
-SELECT game_id FROM review_bulk_approval_items
-WHERE bulk_approval_id=? AND import_item_id=? AND state='PUBLISHED'
-`, bulk.BulkApprovalID, itemID).Scan(&gameID); err != nil || gameID == "" {
+SELECT id FROM games LIMIT 1
+`).Scan(&gameID); err != nil || gameID == "" {
 		t.Fatalf("arcade bulk game = %q, error=%v", gameID, err)
+	}
+	var itemState string
+	if err := database.SQL.QueryRowContext(ctx, `SELECT state FROM import_items WHERE id=?`, itemID).Scan(&itemState); err != nil || itemState != "PUBLISHED" {
+		t.Fatalf("arcade item state = %q, error=%v", itemState, err)
 	}
 }
 
@@ -186,7 +183,7 @@ WHERE snapshot.id=? ORDER BY validation.created_at_ms DESC LIMIT 1
 	if err := database.SQL.QueryRowContext(ctx, `
 SELECT attachment.state,attachment.error_code,draft.effective_source_snapshot_id
 FROM review_arcade_parent_attachments attachment
-JOIN review_drafts draft ON draft.import_item_id=attachment.import_item_id
+JOIN import_items draft ON draft.id=attachment.import_item_id
 WHERE attachment.id=?
 `, rejectedC.AttachmentID).Scan(&attachmentState, &attachmentCode, &currentSnapshotID); err != nil {
 		t.Fatal(err)
@@ -221,9 +218,6 @@ SELECT diagnostics_json FROM review_arcade_parent_attachments WHERE id=?
 		!strings.Contains(acceptedDiagnostics, `"ignoredNestedEntryCount":1`) {
 		t.Fatalf("merged-style parent diagnostics = %q, error=%v", acceptedDiagnostics, err)
 	}
-	preview, err := importer.PreviewReviewBulk(ctx, ReviewBulkScope{ImportJobID: created.ImportJobID})
-	testassert.False(t, err != nil, err)
-	testassert.Falsef(t, testassert.Any(func() bool { return preview.Counts.Matched != 1 }, func() bool { return preview.Counts.StrictReady != 1 }, func() bool { return preview.Counts.NotReadyOrStale != 0 }), "arcade parent bulk preview = %#v", preview.Counts)
 	approved, err := importer.Approve(ctx, itemID, version)
 	testassert.False(t, err != nil, err)
 	if source {
@@ -440,8 +434,8 @@ func reviewAttachmentInputs(t *testing.T, database *sql.DB, importID string) (st
 	var itemID, snapshotID, validationID string
 	var version int64
 	if err := database.QueryRowContext(context.Background(), `
-SELECT item.id,draft.version,draft.effective_source_snapshot_id,validation.id
-FROM import_items item JOIN review_drafts draft ON draft.import_item_id=item.id
+SELECT item.id,draft.review_version,draft.effective_source_snapshot_id,validation.id
+FROM import_items item JOIN import_items draft ON draft.id=item.id
 JOIN import_item_core_validations validation ON validation.id=COALESCE(
 draft.selected_validation_id,(SELECT candidate.id FROM import_item_core_validations candidate
 WHERE candidate.import_item_id=item.id AND candidate.source_snapshot_id=draft.effective_source_snapshot_id

@@ -23,9 +23,9 @@ func (records *ReviewValidation) Inputs(
 	var datVersionID sql.NullString
 	if err := records.executor.QueryRowContext(ctx, `
 SELECT draft.id,snapshot.id,snapshot.source_manifest_digest,snapshot.content_kind
-FROM review_drafts draft
+FROM import_items draft
 JOIN import_item_source_snapshots snapshot ON snapshot.id=draft.effective_source_snapshot_id
-WHERE draft.import_item_id=?
+WHERE draft.id=?
 `, itemID).Scan(
 		&result.DraftID, &result.EffectiveSnapshotID, &result.EffectiveManifestDigest, &result.ContentKind,
 	); err != nil {
@@ -71,12 +71,12 @@ func (records *ReviewValidation) rpgInputs(
 SELECT 'rpgmaker',profile.provider_id,profile.target_id,
  (SELECT id FROM dat_versions WHERE provider_id=profile.provider_id AND target_id=profile.target_id AND is_active=1),
  `+contentquery.BindingPolicySQL+`
-FROM review_drafts draft
+FROM import_items draft
 JOIN rpgmaker_review_profiles profile ON profile.review_draft_id=draft.id
 JOIN runtime_targets target ON target.provider_id=profile.provider_id AND target.target_id=profile.target_id
 JOIN runtime_target_bindings binding ON binding.provider_id=target.provider_id AND binding.target_id=target.target_id
  AND binding.core_id='rpgmaker' AND binding.launch_policy<>'DISABLED'
-WHERE draft.import_item_id=? AND draft.target_platform_instance_id=?
+WHERE draft.id=? AND draft.target_platform_instance_id=?
 	`, itemID, targetID).Scan(
 		&result.CoreID, &result.ProviderID, &result.RuntimeTargetID,
 		&datVersionID, contentquery.ScanPolicy(&result.ContentPolicy),

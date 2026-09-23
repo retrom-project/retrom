@@ -34,7 +34,7 @@ snapshot.source_manifest_digest,snapshot.content_kind,platform.default_core_id,p
 `+contentquery.BindingPolicySQL+`,draft.id
 FROM import_item_core_validations validation
 JOIN import_items item ON item.id=validation.import_item_id AND item.state='REVIEW_PENDING'
-JOIN review_drafts draft ON draft.import_item_id=item.id
+JOIN import_items draft ON draft.id=item.id
 JOIN import_item_source_snapshots snapshot ON snapshot.id=draft.effective_source_snapshot_id
 JOIN platform_instances platform ON platform.id=draft.target_platform_instance_id
 AND platform.enabled=1 AND platform.deleted_at_ms IS NULL

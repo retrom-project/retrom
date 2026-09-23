@@ -20,10 +20,10 @@ func ValidateReviewArcadeParentAttachments(ctx context.Context, db dbexec.Execut
 const review_arcade_parent_attachmentsOwnership = `
 SELECT CASE
 WHEN (NOT EXISTS(
-  SELECT 1 FROM review_drafts draft
+  SELECT 1 FROM import_items draft
   JOIN import_item_source_snapshots snapshot ON snapshot.id=candidate.base_source_snapshot_id
   WHERE draft.id=candidate.review_draft_id
-  AND draft.import_item_id=candidate.import_item_id
+  AND draft.id=candidate.import_item_id
   AND snapshot.import_item_id=candidate.import_item_id
 )) THEN 'invalid attachment owner'
 ELSE '' END

@@ -50,7 +50,7 @@ func TestPreviewCreationRechecksPlatformEnabledAtCommit(t *testing.T) {
 	t.Parallel()
 	fixture := newReviewCheckpointFixture(t)
 	var instanceID string
-	if err := fixture.database.QueryRowContext(t.Context(), `SELECT target_platform_instance_id FROM review_drafts WHERE import_item_id=?`, fixture.itemID).Scan(&instanceID); err != nil {
+	if err := fixture.database.QueryRowContext(t.Context(), `SELECT target_platform_instance_id FROM import_items WHERE id=?`, fixture.itemID).Scan(&instanceID); err != nil {
 		t.Fatal(err)
 	}
 	originalClock := fixture.launcher.now
@@ -118,7 +118,7 @@ func TestPreviewCreationAllowsUnchangedDraftRevision(t *testing.T) {
 	fixture.launcher.now = func() time.Time {
 		if !changed {
 			changed = true
-			mustRPGLaunchSQL(t, fixture.database, `UPDATE review_drafts SET version=version+1 WHERE import_item_id=?`, fixture.itemID)
+			mustRPGLaunchSQL(t, fixture.database, `UPDATE import_items SET review_version=version+1 WHERE id=?`, fixture.itemID)
 		}
 		return clock()
 	}

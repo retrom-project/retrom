@@ -3,7 +3,6 @@ package libraryimport
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -114,7 +113,7 @@ func reviewBulkCandidateStatement(query application.ReviewBulkCandidateQuery) (s
 }
 
 const reviewBulkCandidateSelect = `
-SELECT item.id,draft.version,draft.effective_source_snapshot_id,
+SELECT item.id,draft.review_version,draft.effective_source_snapshot_id,
        json_extract(draft.metadata_json,'$.title'),instance.id,instance.name,instance.platform_id,instance.version,
        validation.provider_id,validation.target_id,
        CASE WHEN binding.binding_id IS NULL THEN NULL ELSE ` + contentquery.BindingPolicySQL + ` END,
@@ -137,7 +136,7 @@ SELECT item.id,draft.version,draft.effective_source_snapshot_id,
        COALESCE(json_extract(source_owner.source_flags_json,'$.hidden'),0)=1 OR
        COALESCE(json_extract(source_owner.source_flags_json,'$.adult'),0)=1
 FROM import_items item
-JOIN review_drafts draft ON draft.import_item_id=item.id
+JOIN import_items draft ON draft.id=item.id
 JOIN import_item_source_snapshots source ON source.id=draft.effective_source_snapshot_id
 JOIN platform_instances instance ON instance.id=draft.target_platform_instance_id
 LEFT JOIN rpgmaker_review_profiles rpg_profile ON rpg_profile.review_draft_id=draft.id
@@ -204,74 +203,25 @@ func nullableReviewBulkInt(value sql.NullInt64) *int64 {
 	return &result
 }
 
-func (repository *ReviewBulkQueries) Items(
-	ctx context.Context, query application.ReviewBulkItemQuery,
-) ([]application.ReviewBulkItemRecord, error) {
-	statement, arguments, err := reviewBulkItemStatement(query)
-	if err != nil {
-		return nil, err
-	}
-	rows, err := repository.executor.QueryContext(ctx, statement, arguments...)
-	if err != nil {
-		return nil, fmt.Errorf("query review bulk items: %w", err)
-	}
-	defer func() { cleanup.Error("close review bulk items", rows.Close()) }()
-	result := make([]application.ReviewBulkItemRecord, 0, query.Limit)
-	for rows.Next() {
-		var item application.ReviewBulkItemRecord
-		var gameID, code, details sql.NullString
-		var completed sql.NullInt64
-		if err := rows.Scan(&item.ImportItemID, &item.Title, &item.PlatformName, &item.State,
-			&gameID, &code, &details, &completed, &item.Ordinal); err != nil {
-			return nil, fmt.Errorf("scan review bulk item: %w", err)
-		}
-		item.GameID = nullableReviewBulkString(gameID)
-		item.OutcomeCode = nullableReviewBulkString(code)
-		item.CompletedAtMS = nullableReviewBulkInt(completed)
-		if details.Valid {
-			item.OutcomeDetails = json.RawMessage(details.String)
-		}
-		result = append(result, item)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate review bulk items: %w", err)
-	}
-	return result, nil
-}
-
-func reviewBulkItemStatement(query application.ReviewBulkItemQuery) (string, []any, error) {
-	if query.BulkApprovalID == "" || query.AfterOrdinal < -1 || query.Limit < 1 ||
-		query.Limit > application.ReviewBulkItemLimit+1 {
-		return "", nil, application.ErrReviewBulkQuery
-	}
-	statement := `SELECT import_item_id,title_snapshot,target_platform_name_snapshot,state,game_id,
-outcome_code,outcome_details_json,completed_at_ms,ordinal
-FROM review_bulk_approval_items WHERE bulk_approval_id=? AND ordinal>?`
-	arguments := []any{query.BulkApprovalID, query.AfterOrdinal}
-	if query.Outcome != "" {
-		statement += " AND state=?"
-		arguments = append(arguments, query.Outcome)
-	}
-	statement += " ORDER BY ordinal LIMIT ?"
-	return statement, append(arguments, query.Limit), nil
+func (repository *ReviewBulkQueries) CandidateByID(
+	ctx context.Context, itemID string,
+) (application.ReviewBulkCandidate, error) {
+	return scanReviewBulkCandidate(repository.executor.QueryRowContext(
+		ctx, reviewBulkCandidateSelect+" AND item.id=?", itemID,
+	))
 }
 
 const reviewBulkSummarySelect = `
-SELECT bulk.id,bulk.job_id,bulk.state,bulk.version,bulk.scope_json,
-       bulk.matched_count,bulk.candidate_count,bulk.screenshot_only_count,
-       bulk.duplicate_count,bulk.attachment_active_count,bulk.source_flagged_count,
-       bulk.not_ready_or_stale_count,
-       bulk.candidate_count,bulk.processed_count,bulk.published_count,
-       bulk.skipped_duplicate_count,bulk.skipped_changed_count,bulk.skipped_not_ready_count,
-       bulk.failed_count,bulk.cancelled_count,bulk.created_at_ms,bulk.started_at_ms,
-       bulk.updated_at_ms,bulk.completed_at_ms,bulk.last_error_code
-FROM review_bulk_approvals bulk`
+SELECT id,job_id,state,version,max_item_id,cursor_item_id,initial_pending_count,
+scanned_count,published_count,skipped_changed_count,skipped_duplicate_count,skipped_not_ready_count,
+created_at_ms,updated_at_ms,started_at_ms,completed_at_ms,last_error_code
+FROM review_bulk_approvals`
 
 func (repository *ReviewBulkQueries) Summary(
 	ctx context.Context, bulkID string,
 ) (application.ReviewBulkSummary, error) {
 	return scanReviewBulkSummary(repository.executor.QueryRowContext(
-		ctx, reviewBulkSummarySelect+" WHERE bulk.id=?", bulkID,
+		ctx, reviewBulkSummarySelect+" WHERE id=?", bulkID,
 	))
 }
 
@@ -279,41 +229,30 @@ func (repository *ReviewBulkQueries) ActiveSummary(
 	ctx context.Context,
 ) (application.ReviewBulkSummary, bool, error) {
 	result, err := scanReviewBulkSummary(repository.executor.QueryRowContext(
-		ctx, reviewBulkSummarySelect+" WHERE bulk.state IN ('QUEUED','RUNNING','CANCEL_REQUESTED') LIMIT 1",
+		ctx, reviewBulkSummarySelect+" WHERE state IN ('QUEUED','RUNNING') LIMIT 1",
 	))
 	if errors.Is(err, sql.ErrNoRows) {
 		return application.ReviewBulkSummary{}, false, nil
 	}
-	if err != nil {
-		return application.ReviewBulkSummary{}, false, err
-	}
-	return result, true, nil
+	return result, err == nil, err
 }
 
 func scanReviewBulkSummary(scanner dbexec.Scanner) (application.ReviewBulkSummary, error) {
 	var result application.ReviewBulkSummary
-	var scopeJSON string
-	var startedAt, completedAt sql.NullInt64
-	var lastError sql.NullString
+	var cursor, lastError sql.NullString
+	var started, completed sql.NullInt64
 	if err := scanner.Scan(
-		&result.BulkApprovalID, &result.JobID, &result.State, &result.Version, &scopeJSON,
-		&result.Counts.Matched, &result.Counts.StrictReady, &result.Counts.ScreenshotOnly,
-		&result.Counts.Duplicate, &result.Counts.AttachmentActive, &result.Counts.SourceFlagged,
-		&result.Counts.NotReadyOrStale,
-		&result.Progress.Candidate, &result.Progress.Processed, &result.Progress.Published,
-		&result.Progress.SkippedDuplicate, &result.Progress.SkippedChanged,
-		&result.Progress.SkippedNotReady, &result.Progress.Failed, &result.Progress.Cancelled,
-		&result.CreatedAtMS, &startedAt, &result.UpdatedAtMS, &completedAt, &lastError,
+		&result.BulkApprovalID, &result.JobID, &result.State, &result.Version,
+		&result.MaxItemID, &cursor, &result.InitialPendingCount, &result.ScannedCount,
+		&result.PublishedCount, &result.SkippedChangedCount, &result.SkippedDuplicateCount,
+		&result.SkippedNotReadyCount, &result.CreatedAtMS, &result.UpdatedAtMS,
+		&started, &completed, &lastError,
 	); err != nil {
 		return application.ReviewBulkSummary{}, fmt.Errorf("scan review bulk summary: %w", err)
 	}
-	if err := json.Unmarshal([]byte(scopeJSON), &result.Scope); err != nil {
-		return application.ReviewBulkSummary{}, fmt.Errorf("decode review bulk scope: %w", err)
-	}
-	result.StartedAtMS = nullableReviewBulkInt(startedAt)
-	result.CompletedAtMS = nullableReviewBulkInt(completedAt)
+	result.CursorItemID = nullableReviewBulkString(cursor)
+	result.StartedAtMS = nullableReviewBulkInt(started)
+	result.CompletedAtMS = nullableReviewBulkInt(completed)
 	result.LastErrorCode = nullableReviewBulkString(lastError)
 	return result, nil
 }
-
-var _ application.ReviewBulkRepository = (*ReviewBulkQueries)(nil)

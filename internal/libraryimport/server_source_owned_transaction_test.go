@@ -129,7 +129,7 @@ func assertOwnedCreationRolledBack(t *testing.T, fixture deduplicateFixture) {
 	var state, jobID, itemID string
 	var version, imports, items, drafts int
 	if err := fixture.database.QueryRowContext(fixture.ctx, `SELECT execution_state,COALESCE(library_import_job_id,''),COALESCE(library_import_item_id,''),version,
-(SELECT count(*) FROM import_jobs),(SELECT count(*) FROM import_items),(SELECT count(*) FROM review_drafts)
+(SELECT count(*) FROM import_jobs),(SELECT count(*) FROM import_items),(SELECT count(*) FROM import_items)
 FROM source_import_items WHERE id='unlinked-source'`).Scan(&state, &jobID, &itemID, &version, &imports, &items, &drafts); err != nil {
 		t.Fatal(err)
 	}

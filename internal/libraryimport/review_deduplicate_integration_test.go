@@ -167,7 +167,7 @@ func TestReviewDeduplicateSkipsActiveAttachmentsAndOtherPlatforms(t *testing.T) 
 	if _, err := fixture.service.Approve(fixture.ctx, original.Items[0].ItemID, 1); err != nil {
 		t.Fatal(err)
 	}
-	fixture.execute(t, `UPDATE review_drafts SET target_platform_instance_id=?,selected_validation_id=NULL,version=version+1 WHERE import_item_id=?`,
+	fixture.execute(t, `UPDATE import_items SET target_platform_instance_id=?,selected_validation_id=NULL,version=version+1 WHERE id=?`,
 		testsupport.MustPlatformInstanceID(t, fixture.database, "nes/fceumm"), otherPlatform.Items[0].ItemID)
 	insertArcadeParentCatalog(t, fixture.database)
 	itemID := attachment.Items[0].ItemID
@@ -178,9 +178,9 @@ func TestReviewDeduplicateSkipsActiveAttachmentsAndOtherPlatforms(t *testing.T) 
 	fixture.execute(t, `INSERT INTO review_arcade_parent_attachments(id,import_item_id,review_draft_id,
  base_source_snapshot_id,dependency_machine,expected_logical_name,required_by_machine,depth,
  provider_id,target_id,dat_version_id,original_filename,state,diagnostics_json,job_id,created_at_ms,updated_at_ms)
- SELECT 'deduplicate-attachment',draft.import_item_id,draft.id,draft.effective_source_snapshot_id,
+ SELECT 'deduplicate-attachment',draft.id,draft.id,draft.effective_source_snapshot_id,
  'b','b.zip','a',1,dat.provider_id,dat.target_id,dat.id,'b.zip','QUEUED','{}','deduplicate-attachment-job',1,1
- FROM review_drafts draft JOIN dat_versions dat ON dat.id='attachment-dat' WHERE draft.import_item_id=?`, itemID)
+ FROM import_items draft JOIN dat_versions dat ON dat.id='attachment-dat' WHERE draft.id=?`, itemID)
 	result, err := fixture.service.DeduplicateReviews(fixture.ctx, ReviewDeduplicateRequest{})
 	if err != nil || result.ScannedCount != 2 || result.AttachmentActiveCount != 1 || result.DiscardedCount != 0 {
 		t.Fatalf("skip attachment/other platform = %#v, %v", result, err)

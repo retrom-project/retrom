@@ -13,8 +13,8 @@ func (records ReviewDrafts) ScreenshotIDs(ctx context.Context, itemID string) ([
 	rows, err := records.executor.QueryContext(ctx, `
 SELECT s.candidate_asset_id
 FROM review_draft_screenshot_assets s
-JOIN review_drafts d ON d.id=s.review_draft_id
-WHERE d.import_item_id=?
+JOIN import_items d ON d.id=s.review_draft_id
+WHERE d.id=?
 ORDER BY s.ordinal
 `, itemID)
 	if err != nil {

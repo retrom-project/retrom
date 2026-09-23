@@ -117,10 +117,10 @@ func (run *draftPatchRun) load() error {
 SELECT d.id,d.target_platform_instance_id,COALESCE(d.selected_validation_id,''),
   d.effective_source_snapshot_id,d.selected_candidate_id,d.cover_candidate_asset_id,
   d.cover_uploaded_asset_id,d.background_candidate_asset_id,d.default_dos_entry,
-  d.metadata_json,d.version,
+  d.metadata_json,d.review_version,
   EXISTS(SELECT 1 FROM rpgmaker_review_profiles profile WHERE profile.review_draft_id=d.id)
 FROM import_items i
-JOIN review_drafts d ON d.import_item_id=i.id
+JOIN import_items d ON d.id=i.id
 WHERE i.id=? AND i.state='REVIEW_PENDING'
 `, run.itemID).Scan(
 		&run.draftID, &run.targetID, &run.validationID, &run.effectiveSnapshotID,
@@ -377,7 +377,7 @@ func (run *draftPatchRun) validateSelectedAssets(assets SelectedAssets) error {
 func (run *draftPatchRun) replaceScreenshots(assetIDs []string) error {
 	_, err := run.transaction.ExecContext(run.ctx, `
 DELETE FROM review_draft_screenshot_assets
-WHERE review_draft_id=(SELECT id FROM review_drafts WHERE import_item_id=?)
+WHERE review_draft_id=?
 `, run.itemID)
 	if err != nil {
 		return fmt.Errorf("libraryimport/review: %w", err)
@@ -387,7 +387,7 @@ WHERE review_draft_id=(SELECT id FROM review_drafts WHERE import_item_id=?)
 INSERT INTO review_draft_screenshot_assets(
   review_draft_id,ordinal,candidate_asset_id,created_at_ms
 )
-SELECT id,?,?,? FROM review_drafts WHERE import_item_id=?
+SELECT id,?,?,? FROM import_items WHERE id=?
 `, ordinal, assetID, run.repository.now().UnixMilli(), run.itemID)
 		if err != nil {
 			return fmt.Errorf("libraryimport/review: %w", err)
@@ -456,15 +456,15 @@ ORDER BY s.sort_order,s.role,s.logical_name
 }
 
 func (run *draftPatchRun) updateDraft(encoded []byte, searchParts []string, now int64) error {
-	result, err := recordstore.UpdateReviewDrafts(run.ctx, run.transaction, recordstore.Update{
+	result, err := recordstore.UpdateReviewItems(run.ctx, run.transaction, recordstore.Update{
 		Set: `
 target_platform_instance_id=?,selected_validation_id=NULLIF(?,''),
   selected_candidate_id=?,cover_candidate_asset_id=?,cover_uploaded_asset_id=?,
   background_candidate_asset_id=?,default_dos_entry=?,metadata_json=?,
-  version=version+1,updated_at_ms=?
+  review_version=review_version+1,review_updated_at_ms=?
 `,
 		Scope: recordstore.Scope{
-			Where: `import_item_id=? AND version=?`,
+			Where: `id=? AND review_version=?`,
 			Args:  []any{run.itemID, run.expectedVersion},
 		},
 		Values: []any{

@@ -75,8 +75,8 @@ func (scope multiDiscAttachmentCommitScope) CommitAccepted(
 	if write.Validation.Status == "READY" {
 		selectedValidation = write.ValidationID
 	}
-	result, err := recordstore.UpdateReviewDrafts(ctx, scope.transaction, recordstore.Update{
-		Set: `effective_source_snapshot_id=?,selected_validation_id=?,version=version+1,updated_at_ms=?`,
+	result, err := recordstore.UpdateReviewItems(ctx, scope.transaction, recordstore.Update{
+		Set: `effective_source_snapshot_id=?,selected_validation_id=?,review_version=review_version+1,review_updated_at_ms=?`,
 		Scope: recordstore.Scope{
 			Where: `id=? AND effective_source_snapshot_id=?`,
 			Args:  []any{write.Input.ReviewDraftID, write.Input.BaseSourceSnapshotID},
@@ -142,7 +142,7 @@ SELECT item.state,draft.effective_source_snapshot_id,platform.platform_id,platfo
 platform.version,platform.default_core_id,target.provider_id,target.target_id,
 `+contentquery.BindingPolicySQL+`
 FROM import_items item
-JOIN review_drafts draft ON draft.id=? AND draft.import_item_id=item.id
+JOIN import_items draft ON draft.id=? AND draft.id=item.id
 JOIN platform_instances platform ON platform.id=draft.target_platform_instance_id
 AND platform.enabled=1 AND platform.deleted_at_ms IS NULL
 JOIN runtime_target_bindings binding ON binding.core_id=platform.default_core_id

@@ -25,15 +25,15 @@ func assertRepeatedPreviewKeepsScreenshot(
 		var version int64
 		var count int
 		if err := database.QueryRowContext(ctx, `
-SELECT validation.id,COALESCE(screenshot.id,''),draft.version,
- (SELECT count(*) FROM import_item_core_validations WHERE import_item_id=draft.import_item_id)
-FROM review_drafts draft
+SELECT validation.id,COALESCE(screenshot.id,''),draft.review_version,
+ (SELECT count(*) FROM import_item_core_validations WHERE import_item_id=draft.id)
+FROM import_items draft
 JOIN import_item_core_validations validation ON validation.id=(
- SELECT id FROM import_item_core_validations WHERE import_item_id=draft.import_item_id
+ SELECT id FROM import_item_core_validations WHERE import_item_id=draft.id
  ORDER BY created_at_ms DESC,id DESC LIMIT 1)
-LEFT JOIN review_runtime_screenshots screenshot ON screenshot.import_item_id=draft.import_item_id
+LEFT JOIN review_runtime_screenshots screenshot ON screenshot.import_item_id=draft.id
  AND screenshot.validation_id=validation.id
-WHERE draft.import_item_id=?
+WHERE draft.id=?
 `, screenshot.ImportItemID).Scan(&validationID, &screenshotID, &version, &count); err != nil {
 			t.Fatal(err)
 		}

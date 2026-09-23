@@ -80,36 +80,20 @@ VALUES(?,?,?,?,?,?)`,
 }
 
 func (records creationRecords) Draft(ctx context.Context, change application.CreationDraft) error {
-	result, err := recordstore.UpdateImportItems(
-		ctx,
-		records.transaction,
-		recordstore.Update{
-			Set:    `search_text=?`,
-			Scope:  recordstore.Scope{Where: `id=? AND version=1`, Args: []any{change.ItemID}},
-			Values: []any{change.SearchText},
-		},
-	)
-	if err := creationMutation(result, err, "project creation search", 1); err != nil {
-		return err
+	if change.ID != change.ItemID {
+		return application.ErrInvalid
 	}
-	result, err = recordstore.CreateReviewDrafts(
-		ctx,
-		records.transaction,
-		`
-INSERT INTO review_drafts(id,import_item_id,target_platform_instance_id,selected_validation_id,
- effective_source_snapshot_id,
- default_dos_entry,metadata_json,version,created_at_ms,updated_at_ms) VALUES(?,?,?,?,?,?,?,1,?,?)`,
-		change.ID,
-		change.ItemID,
-		change.TargetID,
-		change.SelectedValidationID,
-		change.SnapshotID,
-		change.DefaultDOS,
-		change.MetadataJSON,
-		change.NowMS,
-		change.NowMS,
-	)
-	return creationMutation(result, err, "insert creation draft", 1)
+	result, err := recordstore.UpdateReviewItems(ctx, records.transaction, recordstore.Update{
+		Set: `search_text=?,target_platform_instance_id=?,selected_validation_id=?,
+effective_source_snapshot_id=?,default_dos_entry=?,metadata_json=?,review_version=1,
+review_created_at_ms=?,review_updated_at_ms=?`,
+		Scope: recordstore.Scope{Where: `id=? AND review_version=0`, Args: []any{change.ItemID}},
+		Values: []any{
+			change.SearchText, change.TargetID, change.SelectedValidationID,
+			change.SnapshotID, change.DefaultDOS, change.MetadataJSON, change.NowMS, change.NowMS,
+		},
+	})
+	return creationMutation(result, err, "initialize creation review", 1)
 }
 
 func (records creationRecords) RPG(ctx context.Context, change application.CreationRPGProfile) error {

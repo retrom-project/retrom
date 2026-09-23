@@ -65,7 +65,7 @@ func TestReviewCoverRechecksRealSourceAndDraftAfterCASPreparation(t *testing.T) 
 		name, query string
 		expected    error
 	}{
-		{"draft edit", `UPDATE review_drafts SET version=version+1 WHERE import_item_id=?`, application.ErrReviewCoverVersion},
+		{"draft edit", `UPDATE import_items SET review_version=version+1 WHERE id=?`, application.ErrReviewCoverVersion},
 		{"upload release", `UPDATE import_files SET blob_id=NULL,released_at_ms=1 WHERE id=?`, application.ErrReviewCoverUploadInvalid},
 		{"concurrent discard", `UPDATE import_items SET state='DISCARDED' WHERE id=?`, application.ErrReviewCoverVersion},
 	} {

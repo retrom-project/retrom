@@ -51,9 +51,9 @@ SELECT 1 FROM review_multidisc_attachments active WHERE active.import_item_id=?
 }
 
 func (records multidiscAdmissionRecords) Draft(ctx context.Context, value application.MultiDiscAttachmentWrite) error {
-	result, err := recordstore.UpdateReviewDrafts(ctx, records.executor, recordstore.Update{
-		Set: `version=version+1,updated_at_ms=?`, Values: []any{value.Now},
-		Scope: recordstore.Scope{Where: `id=? AND version=? AND import_item_id=? AND effective_source_snapshot_id=?
+	result, err := recordstore.UpdateReviewItems(ctx, records.executor, recordstore.Update{
+		Set: `review_version=review_version+1,review_updated_at_ms=?`, Values: []any{value.Now},
+		Scope: recordstore.Scope{Where: `id=? AND review_version=? AND id=? AND effective_source_snapshot_id=?
 AND target_platform_instance_id=?`, Args: []any{
 			value.Input.ReviewDraftID, value.RequestVersion, value.Input.ImportItemID,
 			value.Input.BaseSourceSnapshotID, value.Input.PlatformInstanceID,

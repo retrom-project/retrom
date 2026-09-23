@@ -20,10 +20,10 @@ func ValidateReviewMultidiscAttachments(ctx context.Context, db dbexec.Executor,
 const review_multidisc_attachmentsOwnership = `
 SELECT CASE
 WHEN (NOT EXISTS(
-  SELECT 1 FROM review_drafts draft
+  SELECT 1 FROM import_items draft
   JOIN import_item_source_snapshots snapshot ON snapshot.id=candidate.base_source_snapshot_id
   JOIN jobs job ON job.id=candidate.job_id
-  WHERE draft.id=candidate.review_draft_id AND draft.import_item_id=candidate.import_item_id
+  WHERE draft.id=candidate.review_draft_id AND draft.id=candidate.import_item_id
   AND draft.effective_source_snapshot_id=candidate.base_source_snapshot_id
   AND snapshot.import_item_id=candidate.import_item_id AND snapshot.content_kind='MULTI_DISC'
   AND job.scope_type='IMPORT_ITEM' AND job.scope_id=candidate.import_item_id

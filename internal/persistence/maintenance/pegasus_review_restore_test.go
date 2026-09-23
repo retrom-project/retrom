@@ -45,8 +45,7 @@ func restoredSourceReview(t *testing.T) (*sql.DB, string) {
  VALUES('handoff-job','handoff-upload',?,1,'gba','mgba',?,?,'NONE','{}',?,'REVIEW_PENDING',1,1,1,1)`, []any{instance, provider, target, digest}},
 		{`INSERT INTO import_items(id,import_job_id,group_key,state,source_manifest_json,source_manifest_digest,search_text,created_at_ms,updated_at_ms)
  VALUES('handoff-item','handoff-job',?,'REVIEW_PENDING','{}',?,'original',1,1)`, []any{digest, digest}},
-		{`INSERT INTO review_drafts(id,import_item_id,target_platform_instance_id,metadata_json,created_at_ms,updated_at_ms)
- VALUES('handoff-draft','handoff-item',?,'{"title":"Original"}',1,1)`, []any{instance}},
+		{`UPDATE import_items SET target_platform_instance_id=?,metadata_json='{"title":"Original"}',review_version=1,review_created_at_ms=1,review_updated_at_ms=1 WHERE id='handoff-item'`, []any{instance}},
 		{`UPDATE source_import_items SET execution_state='VALIDATING',library_import_job_id='handoff-job',
  library_import_item_id='handoff-item',metadata_json='{"Title":"Restored title"}' WHERE id='item'`, nil},
 	}
@@ -75,9 +74,9 @@ func TestRestoreRetainsSourceReviewCreatedBeforeSourceHandoff(t *testing.T) {
 	var pending, failed, events int64
 	err = db.QueryRowContext(t.Context(), `SELECT source.execution_state,plan.state,job.state,
  json_extract(draft.metadata_json,'$.title'),plan.review_pending_item_count,plan.failed_item_count,
- (SELECT version-1 FROM review_drafts WHERE import_item_id='handoff-item')
+ (SELECT review_version-1 FROM import_items WHERE id='handoff-item')
  FROM source_import_items source JOIN source_imports plan ON plan.id=source.import_id
- JOIN jobs job ON job.id=plan.import_job_id JOIN review_drafts draft ON draft.import_item_id=source.library_import_item_id
+ JOIN jobs job ON job.id=plan.import_job_id JOIN import_items draft ON draft.id=source.library_import_item_id
  WHERE source.id='item'`).Scan(&sourceState, &planState, &jobState, &title, &pending, &failed, &events)
 	if err != nil {
 		t.Fatal(err)

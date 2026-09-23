@@ -100,7 +100,7 @@ SELECT item.state,validation.compatibility_code,json_extract(draft.metadata_json
 FROM import_items item
 JOIN import_jobs job ON job.id=item.import_job_id
 JOIN import_item_core_validations validation ON validation.import_item_id=item.id
-JOIN review_drafts draft ON draft.import_item_id=item.id
+JOIN import_items draft ON draft.id=item.id
 WHERE item.import_job_id=?
 `, created.ImportJobID).Scan(&state, &code, &title, &metadataProvider); err != nil {
 		t.Fatal(err)
@@ -113,7 +113,7 @@ WHERE item.import_job_id=?
 	if err := database.SQL.QueryRowContext(ctx, `
 SELECT instance.default_core_id,profile.provider_id,profile.target_id,profile.generation
 FROM import_items item
-JOIN review_drafts draft ON draft.import_item_id=item.id
+JOIN import_items draft ON draft.id=item.id
 JOIN platform_instances instance ON instance.id=draft.target_platform_instance_id
 JOIN rpgmaker_review_profiles profile ON profile.review_draft_id=draft.id
 WHERE item.import_job_id=?
@@ -129,7 +129,7 @@ WHERE item.import_job_id=?
 	if err := database.SQL.QueryRowContext(ctx, `
 SELECT file.role,blob.sha256,file.blob_id,file.source_archive_entry_ordinal
 FROM import_items item
-JOIN review_drafts draft ON draft.import_item_id=item.id
+JOIN import_items draft ON draft.id=item.id
 JOIN import_item_source_snapshot_files file ON file.source_snapshot_id=draft.effective_source_snapshot_id
 JOIN blobs blob ON blob.id=file.blob_id
 WHERE item.import_job_id=? AND file.logical_name='audio/bgm/config'
@@ -155,11 +155,11 @@ WHERE item.import_job_id=? AND file.logical_name='audio/bgm/config'
 	var itemID, validationID string
 	var draftVersion int64
 	if err := database.SQL.QueryRowContext(ctx, `
-SELECT item.id,draft.version,profile.provider_id,profile.target_id,
+SELECT item.id,draft.review_version,profile.provider_id,profile.target_id,
  (SELECT validation.id FROM import_item_core_validations validation
   WHERE validation.import_item_id=item.id ORDER BY validation.created_at_ms DESC,validation.id DESC LIMIT 1)
 FROM import_items item
-JOIN review_drafts draft ON draft.import_item_id=item.id
+JOIN import_items draft ON draft.id=item.id
 JOIN rpgmaker_review_profiles profile ON profile.review_draft_id=draft.id
 WHERE item.import_job_id=?
 `, created.ImportJobID).Scan(&itemID, &draftVersion, &providerID, &targetID, &validationID); err != nil {
@@ -179,10 +179,10 @@ WHERE provider_id='retrom-runtime'
 	var reboundProvider, reboundTarget string
 	var reboundVersion int64
 	if err := database.SQL.QueryRowContext(ctx, `
-SELECT draft.version,profile.provider_id,profile.target_id
-FROM review_drafts draft
+SELECT draft.review_version,profile.provider_id,profile.target_id
+FROM import_items draft
 JOIN rpgmaker_review_profiles profile ON profile.review_draft_id=draft.id
-WHERE draft.import_item_id=?
+WHERE draft.id=?
 `, itemID).Scan(&reboundVersion, &reboundProvider, &reboundTarget); err != nil {
 		t.Fatal(err)
 	}

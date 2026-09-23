@@ -228,7 +228,7 @@ SQLite 队列表和 worker 必须实现 [数据模型第 7 节](./data-model.md#
 
 不要把长时间哈希、网络请求、DAT 解析或归档扫描放在持有数据库写锁的事务中。先执行可重入计算，再用短事务提交结果和状态转换。
 
-快速审批在创建时冻结最多 10,000 个严格 READY Item，Worker 顺序领取并逐项调用唯一 Approve 服务；整个批次不得持有一个长写事务。EmulationStation `hidden/adult` 来源项在预览中计入 `sourceFlagged` 并排除候选。每项成功的发布对象、普通与对应服务器来源聚合和批次结果共用同一事务及 state/worker fence。取消在 Item 边界检查，重启只把未提交 RUNNING Item 恢复为 PENDING；restore 不继续旧批次。只有 worker 基础设施故障允许快速审批领域 retry，业务 skip/final failure 不通过 retry 复活。
+快速审批在创建时为全局待审队列记录最多 10,000 个 Item 的最大 ID、创建时间和初始数量。Worker 按 ID 逐项检查当前状态和严格自动发布条件，创建后变更、重复、hidden/adult、活动补传或不就绪条目均留在待审队列；合格项复用唯一 Approve 服务。每项成功的发布对象、普通与对应服务器来源聚合、持久游标和计数共用同一事务及 worker fence。重启从游标继续；restore 将旧任务置为失败，不继续旧扫描。
 
 导入任务及审核语义见 [导入、刮削与审核](./import-and-review.md)。
 

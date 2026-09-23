@@ -41,9 +41,9 @@ func BindMetadata(executor dbexec.Executor) application.MetadataScope {
 func (records metadataRecords) CurrentMetadata(ctx context.Context, itemID string) (application.MetadataDraft, error) {
 	var result application.MetadataDraft
 	err := records.executor.QueryRowContext(ctx, `
-SELECT draft.metadata_json,draft.version FROM review_drafts draft
-JOIN import_items item ON item.id=draft.import_item_id
-WHERE draft.import_item_id=? AND item.state='REVIEW_PENDING'`, itemID).
+SELECT draft.metadata_json,draft.review_version FROM import_items draft
+JOIN import_items item ON item.id=draft.id
+WHERE draft.id=? AND item.state='REVIEW_PENDING'`, itemID).
 		Scan(&result.MetadataJSON, &result.Version)
 	if errors.Is(err, sql.ErrNoRows) {
 		return application.MetadataDraft{}, application.ErrInvalid
@@ -55,11 +55,11 @@ WHERE draft.import_item_id=? AND item.state='REVIEW_PENDING'`, itemID).
 }
 
 func (records metadataRecords) SaveMetadata(ctx context.Context, change application.MetadataChange) error {
-	result, err := recordstore.UpdateReviewDrafts(ctx, records.executor, recordstore.Update{
-		Set: `metadata_json=?,version=version+1,updated_at_ms=?`,
+	result, err := recordstore.UpdateReviewItems(ctx, records.executor, recordstore.Update{
+		Set: `metadata_json=?,review_version=review_version+1,review_updated_at_ms=?`,
 		Scope: recordstore.Scope{
-			Where: `import_item_id=? AND version=? AND metadata_json=? AND EXISTS(
-SELECT 1 FROM import_items item WHERE item.id=review_drafts.import_item_id AND item.state='REVIEW_PENDING')`,
+			Where: `id=? AND review_version=? AND metadata_json=? AND EXISTS(
+SELECT 1 FROM import_items item WHERE item.id=import_items.id AND item.state='REVIEW_PENDING')`,
 			Args: []any{change.ItemID, change.Before.Version, change.Before.MetadataJSON},
 		},
 		Values: []any{change.MetadataJSON, change.NowMS},

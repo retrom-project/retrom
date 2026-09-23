@@ -65,7 +65,7 @@ func selectReadyReviewMedia(t *testing.T, database *sql.DB, importer *libraryimp
 		t.Fatal(err)
 	}
 	var selected string
-	if err := database.QueryRowContext(t.Context(), `SELECT cover_candidate_asset_id FROM review_drafts WHERE import_item_id=?`, itemID).Scan(&selected); err != nil {
+	if err := database.QueryRowContext(t.Context(), `SELECT cover_candidate_asset_id FROM import_items WHERE id=?`, itemID).Scan(&selected); err != nil {
 		t.Fatal(err)
 	}
 	if selected != assetID {

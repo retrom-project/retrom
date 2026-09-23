@@ -39,7 +39,7 @@ WHERE id='import'`); err != nil {
 	}
 	var pending, failed, drafts, progress, games int
 	err := db.QueryRowContext(t.Context(), `SELECT review_pending_item_count,failed_item_count,
-(SELECT sum(version-1) FROM review_drafts),(SELECT count(*) FROM job_events WHERE event_type='PROGRESS'),
+(SELECT sum(review_version-1) FROM import_items),(SELECT count(*) FROM job_events WHERE event_type='PROGRESS'),
 (SELECT count(*) FROM games) FROM source_imports WHERE id='import'`).Scan(
 		&pending, &failed, &drafts, &progress, &games)
 	if err != nil || pending != 205 || failed != 0 || drafts != 205 || progress != 205 || games != 0 || pages.Load() != 4 {
@@ -69,12 +69,10 @@ review_pending_item_count,created_at_ms,updated_at_ms FROM import_jobs WHERE id=
 			[]any{id + "-job", id + "-upload"},
 		},
 		{`INSERT INTO import_items(id,import_job_id,group_key,state,source_manifest_json,source_manifest_digest,
-search_text,created_at_ms,updated_at_ms)
-SELECT ?,?,group_key,state,source_manifest_json,source_manifest_digest,search_text,created_at_ms,updated_at_ms
+search_text,created_at_ms,updated_at_ms,target_platform_instance_id,metadata_json,review_version,review_created_at_ms,review_updated_at_ms)
+SELECT ?,?,group_key,state,source_manifest_json,source_manifest_digest,search_text,created_at_ms,updated_at_ms,
+target_platform_instance_id,metadata_json,review_version,review_created_at_ms,review_updated_at_ms
 FROM import_items WHERE id='handoff-item'`, []any{id + "-review", id + "-job"}},
-		{`INSERT INTO review_drafts(id,import_item_id,target_platform_instance_id,metadata_json,created_at_ms,updated_at_ms)
-SELECT ?,?,target_platform_instance_id,metadata_json,created_at_ms,updated_at_ms
-FROM review_drafts WHERE id='handoff-draft'`, []any{id + "-draft", id + "-review"}},
 		{`INSERT INTO source_import_items(id,import_id,metadata_relative_path,game_ordinal,source_key,title,
 discovery_state,execution_state,metadata_json,source_manifest_json,source_manifest_digest,
 library_import_job_id,library_import_item_id,created_at_ms,updated_at_ms)

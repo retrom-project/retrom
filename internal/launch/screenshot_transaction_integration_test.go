@@ -108,7 +108,7 @@ func TestScreenshotRechecksCurrentReviewEvidenceAfterImageRead(t *testing.T) {
 		change func(*testing.T, reviewCheckpointFixture, ReviewPreviewCreated)
 	}{
 		{"source", func(t *testing.T, fixture reviewCheckpointFixture, _ ReviewPreviewCreated) {
-			mustRPGLaunchSQL(t, fixture.database, `UPDATE review_drafts SET effective_source_snapshot_id=NULL WHERE import_item_id=?`, fixture.itemID)
+			mustRPGLaunchSQL(t, fixture.database, `UPDATE import_items SET effective_source_snapshot_id=NULL WHERE id=?`, fixture.itemID)
 		}},
 		{"review state", func(t *testing.T, fixture reviewCheckpointFixture, _ ReviewPreviewCreated) {
 			mustRPGLaunchSQL(t, fixture.database, `UPDATE import_items SET state='DISCARDED' WHERE id=?`, fixture.itemID)

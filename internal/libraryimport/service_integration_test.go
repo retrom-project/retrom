@@ -262,7 +262,7 @@ AND f.logical_name='Discarded.gba'
 SELECT count(DISTINCT draft.id),job.config_snapshot_json
 FROM import_jobs job
 JOIN import_items item ON item.import_job_id=job.id
-JOIN review_drafts draft ON draft.import_item_id=item.id
+JOIN import_items draft ON draft.id=item.id
 JOIN review_draft_tags relation ON relation.review_draft_id=draft.id AND relation.tag_id=?
 WHERE job.id=?
 `, defaultTag.TagID, created.ImportJobID).Scan(&inheritedDrafts, &initialConfigSnapshot); err != nil ||
@@ -308,10 +308,10 @@ WHERE job.id=?
 	if err := database.SQL.QueryRowContext(ctx, `
 SELECT d.selected_validation_id,
 j.config_snapshot_json
-FROM review_drafts d
-JOIN import_items i ON i.id=d.import_item_id
+FROM import_items d
+JOIN import_items i ON i.id=d.id
 JOIN import_jobs j ON j.id=i.import_job_id
-WHERE d.import_item_id=?
+WHERE d.id=?
 `, itemID).Scan(&oldValidationID, &importConfigSnapshot); err != nil {
 		t.Fatal(err)
 	}
@@ -339,9 +339,9 @@ updated_at_ms=updated_at_ms+1
 	if err := database.SQL.QueryRowContext(ctx, `
 SELECT d.selected_validation_id,
 v.platform_instance_version
-FROM review_drafts d
+FROM import_items d
 JOIN import_item_core_validations v ON v.id=d.selected_validation_id
-WHERE d.import_item_id=?
+WHERE d.id=?
 	`, itemID).Scan(&refreshedValidationID, &refreshedPlatformVersion); err != nil ||
 		refreshedValidationID != oldValidationID || refreshedPlatformVersion != 1 ||
 		!strings.Contains(importConfigSnapshot, `"platformInstanceVersion":1`) {
@@ -384,11 +384,11 @@ VALUES(?,?,?,?,?,?,?,?,?,'HASH_WARNING','{}',1,1,?,?)
 	var biosValidationID, biosSnapshotJSON, validationBIOSBlobID string
 	if err := database.SQL.QueryRowContext(ctx, `
 SELECT d.selected_validation_id,v.dependency_snapshot_json,f.blob_id
-FROM review_drafts d
+FROM import_items d
 JOIN import_item_core_validations v ON v.id=d.selected_validation_id
 JOIN import_item_validation_files f ON f.import_item_core_validation_id=v.id
 AND f.role='BIOS_BUNDLE' AND f.logical_name='gba_bios.bin'
-WHERE d.import_item_id=?
+WHERE d.id=?
 `, itemID).Scan(&biosValidationID, &biosSnapshotJSON, &validationBIOSBlobID); err != nil {
 		t.Fatal(err)
 	}

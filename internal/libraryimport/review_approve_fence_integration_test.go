@@ -32,7 +32,7 @@ func (reader approvalMutatingReader) Head(ctx context.Context, itemID string) (a
 func TestApprovalFinalFenceRollsBackEarlierPublication(t *testing.T) {
 	t.Parallel()
 	for _, test := range []struct{ name, query string }{
-		{"draft version", `UPDATE review_drafts SET version=version+1 WHERE import_item_id IN(SELECT id FROM import_items WHERE import_job_id=?)`},
+		{"draft version", `UPDATE import_items SET review_version=review_version+1 WHERE id IN(SELECT id FROM import_items WHERE import_job_id=?)`},
 		{"parent version", `UPDATE import_jobs SET version=version+1 WHERE id=?`},
 		{"pending count", `UPDATE import_jobs SET review_pending_item_count=1,discarded_item_count=1 WHERE id=?`},
 	} {

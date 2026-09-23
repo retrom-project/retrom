@@ -128,9 +128,9 @@ func approvalDatabaseRows(t *testing.T, database *sql.DB) map[string]string {
 	result := make(map[string]string)
 	for _, table := range []string{
 		"games", "game_assets", "game_files", "game_variants", "variant_files", "variant_dependencies",
-		"dos_entries", "game_tags", "tags", "content_identity_claims", "review_drafts", "review_uploaded_assets", "review_draft_tags",
+		"dos_entries", "game_tags", "tags", "content_identity_claims", "review_uploaded_assets", "review_draft_tags",
 		"import_items", "import_jobs", "source_import_items", "source_imports", "jobs", "job_events", "job_input_snapshots",
-		"review_bulk_approvals", "review_bulk_approval_items", "blob_gc_candidates", "upload_files", "upload_sessions",
+		"review_bulk_approvals", "blob_gc_candidates", "upload_files", "upload_sessions",
 	} {
 		result[table] = approvalTableRows(t, database, table)
 	}
