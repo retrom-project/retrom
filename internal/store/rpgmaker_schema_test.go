@@ -8,8 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/persistence/recordstore"
-
 	"retrom/internal/cleanup"
 	"retrom/internal/testassert"
 )
@@ -43,36 +41,6 @@ INSERT INTO runtime_binding_platforms(binding_id,platform_id,core_id)
 VALUES('retrom-runtime-rpgmaker-2000','nes','rpgmaker')`)
 	testassert.Truef(t, err != nil && strings.Contains(err.Error(), "FOREIGN KEY constraint failed"),
 		"cross-core platform route error = %v", err)
-}
-
-func TestRuntimePackFilesAreStagedContiguouslyBeforeReady(t *testing.T) {
-	t.Parallel()
-	database := openRPGMakerSchemaDatabase(t)
-	defer func() { cleanup.Error("close", database.Close()) }()
-	insertSchemaIdentity(t, database)
-	mustExecRPGSchema(t, database, `INSERT INTO runtime_asset_pack_definitions(id,kind,generation,declared_name,normalized_declared_name,display_name,required_layout_version,origin,enabled,created_at_ms) VALUES('rpg2000_rtp','RPG2000_RTP','RPG2000','RPG2000_RTP','rpg2000_rtp','Historical RTP','easy-rtp-layout-v1','BUILTIN',1,0)`)
-	insertSchemaBlob(t, database, "pack-blob", "b", 10)
-	mustExecRPGSchema(t, database, `
-INSERT INTO runtime_asset_pack_installations(
- id,definition_id,files_digest,file_count,total_bytes,bundle_blob_id,bundle_sha256,status,
- diagnostic_json,created_by_user_id,created_at_ms
-) VALUES('pack','rpg2000_rtp',?1,1,10,'pack-blob',?2,'VALIDATING','{}','user',1)
-`, strings.Repeat("c", 64), strings.Repeat("b", 64))
-	_, err := recordstore.CreateRuntimeAssetPackFiles(context.Background(), database, `
-INSERT INTO runtime_asset_pack_files(installation_id,path,ordinal,blob_id,size_bytes,sha256)
-VALUES('pack','Music/a.wav',1,'pack-blob',10,?)`, strings.Repeat("b", 64))
-	testassert.Truef(t, err != nil && strings.Contains(err.Error(), "invalid runtime pack file"),
-		"non-contiguous staged pack ordinal error = %v", err)
-	mustExecRPGSchema(t, database, `
-INSERT INTO runtime_asset_pack_files(installation_id,path,ordinal,blob_id,size_bytes,sha256)
-VALUES('pack','Music/a.wav',0,'pack-blob',10,?1)`, strings.Repeat("b", 64))
-	mustExecRPGSchema(t, database, `
-	UPDATE runtime_asset_pack_installations SET status='READY',validated_at_ms=2,version=version+1 WHERE id='pack'`)
-	_, err = recordstore.CreateRuntimeAssetPackFiles(context.Background(), database, `
-INSERT INTO runtime_asset_pack_files(installation_id,path,ordinal,blob_id,size_bytes,sha256)
-VALUES('pack','Music/b.wav',1,'pack-blob',10,?)`, strings.Repeat("b", 64))
-	testassert.Truef(t, err != nil && strings.Contains(err.Error(), "invalid runtime pack file"),
-		"READY pack accepted new file: %v", err)
 }
 
 func TestLaunchTerminationAcceptsCapabilityAlreadyRevokedByRuntimeCleanup(t *testing.T) {
@@ -131,22 +99,6 @@ INSERT INTO runtime_targets(
 ) VALUES(?1,?2,'RPG Maker 2000','{"type":"object","additionalProperties":false,"properties":{},"required":[]}','{}',
  '{"writeFormat":"checkpoint-v1","readFormats":["checkpoint-v1"],"maxBytes":67108864}','{}')`,
 		rpgSchemaProvider, rpgSchemaTarget)
-}
-
-func insertSchemaIdentity(t *testing.T, database *sql.DB) {
-	t.Helper()
-	mustExecRPGSchema(t, database, `INSERT INTO profiles(id,display_name,created_at_ms) VALUES('profile','Admin',1)`)
-	mustExecRPGSchema(t, database, `
-INSERT INTO users(id,profile_id,username,display_name,role,status,created_at_ms,updated_at_ms)
-VALUES('user','profile','schema-admin','Schema Admin','ADMIN','ENABLED',1,1)`)
-}
-
-func insertSchemaBlob(t *testing.T, database *sql.DB, id, shaCharacter string, size int) {
-	t.Helper()
-	mustExecRPGSchema(t, database, `
-INSERT INTO blobs(id,sha256,size_bytes,md5,sha1,crc32,media_type,created_at_ms)
-VALUES(?,?,?,?,?,?,?,1)`, id, strings.Repeat(shaCharacter, 64), size, strings.Repeat("1", 32),
-		strings.Repeat("2", 40), strings.Repeat("3", 8), "application/octet-stream")
 }
 
 func mustExecRPGSchema(t *testing.T, database *sql.DB, query string, arguments ...any) {

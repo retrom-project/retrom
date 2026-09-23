@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -35,7 +36,15 @@ func TestMigrationsCreateCurrentSchemaWithoutProductSeeds(t *testing.T) {
 	for _, table := range tables {
 		assertIntegerTimeColumns(t, database.SQL, table)
 	}
-	testassert.Falsef(t, len(tables) != 116, "fresh schema table count = %d", len(tables))
+	testassert.Falsef(t, len(tables) != 111, "fresh schema table count = %d", len(tables))
+	for _, retired := range []string{
+		"runtime_asset_pack_definitions", "runtime_asset_pack_installations", "runtime_asset_pack_files",
+		"game_variant_runtime_packs", "review_draft_runtime_pack_selections",
+	} {
+		if slices.Contains(tables, retired) {
+			t.Errorf("retired runtime pack table remains: %s", retired)
+		}
+	}
 	assertColumns(t, database.SQL, "metadata_media_runs", "scrape_run_id", "order_frozen_at_ms", "charged_bytes", "version")
 	assertColumns(t, database.SQL, "scrape_candidate_assets", "media_fetch_job_id", "media_fetch_order",
 		"media_charged_bytes", "media_reserved_bytes")
@@ -69,7 +78,6 @@ func TestMigrationsCreateCurrentSchemaWithoutProductSeeds(t *testing.T) {
 		"payload_sha256", "payload_size_bytes", "source_launch_session_id")
 	assertColumns(t, database.SQL, "isolated_runtime_bootstrap_tickets", "launch_id", "preview_id")
 	assertColumns(t, database.SQL, "isolated_runtime_capabilities", "launch_id", "preview_id")
-	assertColumns(t, database.SQL, "runtime_asset_pack_installations", "status", "version", "validated_at_ms")
 	assertNotNullColumn(t, database.SQL, "games", "title_initial")
 	assertNotNullColumn(t, database.SQL, "save_states", "source_launch_session_id")
 	assertColumns(t, database.SQL, "dat_versions", "provider_id", "target_id",
@@ -174,7 +182,7 @@ func assertCurrentClosedEnums(t *testing.T, database *sql.DB) {
 	for table, current := range map[string]string{
 		"source_imports":      "phase TEXT CHECK(phase IS NULL OR phase IN ('DISCOVERING_METADATA','PARSING_METADATA','RESOLVING_SOURCES','COPYING_CONTENT','VALIDATING','PREPARING_REVIEWS'))",
 		"source_import_items": "execution_state TEXT NOT NULL CHECK(execution_state IN ('PENDING','COPYING','VALIDATING','REVIEW_PENDING','PUBLISHED','REVIEW_DISCARDED','SKIPPED_EXISTING','SKIPPED_MAPPING','BLOCKED_SOURCE','BLOCKED_CONTENT','SOURCE_CHANGED','READ_FAILED','COMMIT_FAILED','CANCELLED'))",
-		"upload_consumptions": "consumer_type TEXT NOT NULL CHECK(consumer_type IN ( 'IMPORT_JOB','GAME_CONTENT_REPLACE_JOB','GAME_ASSET','REVIEW_ASSET','REVIEW_ARCADE_PARENT', 'REVIEW_MULTI_DISC','BIOS_INSTALLATION','RUNTIME_ASSET_PACK_INSTALLATION' ))",
+		"upload_consumptions": "consumer_type TEXT NOT NULL CHECK(consumer_type IN ( 'IMPORT_JOB','GAME_CONTENT_REPLACE_JOB','GAME_ASSET','REVIEW_ASSET','REVIEW_ARCADE_PARENT', 'REVIEW_MULTI_DISC','BIOS_INSTALLATION' ))",
 	} {
 		var source string
 		if err := database.QueryRowContext(t.Context(), "SELECT sql FROM sqlite_master WHERE type='table' AND name=?", table).Scan(&source); err != nil {

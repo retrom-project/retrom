@@ -226,7 +226,7 @@ func projectionFixtureForTarget(targetID, version, digestByte string, readFormat
 	catalog.Definitions = runtimecatalog.Definitions{
 		Platforms:    []runtimecatalog.PlatformDefinition{{ID: "gbc", Name: "Game Boy / Color", SortOrder: 40, Enabled: true}},
 		Cores:        []runtimecatalog.CoreDefinition{{ID: "gambatte", Name: "Gambatte", Enabled: true}},
-		ContentKinds: []string{"SINGLE_FILE"}, AssetPacks: []runtimecatalog.AssetPackDefinition{},
+		ContentKinds: []string{"SINGLE_FILE"},
 	}
 	projection, err := service.NewProjection(active, map[string]runtimebundle.Manifest{"fixture": {
 		SchemaVersion: 1, ProviderID: "fixture", ProviderVersion: version, ProviderAPI: 1,

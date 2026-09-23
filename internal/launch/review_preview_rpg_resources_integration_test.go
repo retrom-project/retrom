@@ -3,49 +3,28 @@
 package launch
 
 import (
-	"encoding/json"
 	"strings"
 	"testing"
 
-	"retrom/internal/testsupport"
+	"retrom/internal/persistence/recordstore"
 )
 
-func TestRPGReviewPreviewDoesNotMountHistoricalRTPSelection(t *testing.T) {
+func TestRPGReviewPreviewRuntimeFileBelongsToSelectedValidation(t *testing.T) {
 	t.Parallel()
 	fixture := newReviewCheckpointFixture(t)
-	seedReviewRuntimePack(t, fixture)
-	preview := fixture.preview(t, "rtp-preview")
-	configuration, err := fixture.launcher.ReviewPreviewConfig(t.Context(), preview.PreviewID, preview.Capability)
-	if err != nil {
-		t.Fatal(err)
+	preview := fixture.preview(t, "runtime-files")
+	var count int
+	if err := fixture.database.QueryRowContext(t.Context(), `
+SELECT count(*) FROM review_preview_files
+WHERE preview_session_id=? AND role='RUNTIME_FILE' AND blob_id='rpg-index'`, preview.PreviewID).Scan(&count); err != nil || count != 1 {
+		t.Fatalf("selected validation runtime file count=%d error=%v", count, err)
 	}
-	envelope := testsupport.RuntimeEnvelope(t, configuration)
-	encoded, err := json.Marshal(envelope["resources"])
-	if err != nil || strings.Contains(string(encoded), "__retrom__/pack") {
-		t.Fatalf("RPG preview mounted a retired RTP selection: %s %v", encoded, err)
+	_, err := recordstore.CreateReviewPreviewFiles(t.Context(), fixture.database, `
+INSERT INTO review_preview_files(preview_session_id,role,logical_name,blob_id,sort_order,created_at_ms)
+VALUES(?,'RUNTIME_FILE','unrelated.bin','rpg-project-a',99,?)`, preview.PreviewID, fixture.now.UnixMilli())
+	if err == nil || !strings.Contains(err.Error(), "invalid review preview runtime file") {
+		t.Fatalf("unrelated Blob accepted as runtime file: %v", err)
 	}
-}
-
-func seedReviewRuntimePack(t *testing.T, fixture reviewCheckpointFixture) {
-	t.Helper()
-	mustRPGLaunchSQL(t, fixture.database, `INSERT INTO runtime_asset_pack_definitions(id,kind,generation,declared_name,normalized_declared_name,display_name,required_layout_version,origin,enabled,created_at_ms) VALUES('rpg2000_rtp','RPG2000_RTP','RPG2000','RPG2000_RTP','rpg2000_rtp','Historical RTP','easy-rtp-layout-v1','BUILTIN',1,0)`)
-	mustRPGLaunchSQL(t, fixture.database, `
-INSERT INTO runtime_asset_pack_installations(
- id,definition_id,files_digest,file_count,total_bytes,bundle_blob_id,bundle_sha256,status,
- diagnostic_json,created_by_user_id,created_at_ms)
-VALUES('01980000-0000-7000-8000-000000000921','rpg2000_rtp',?,1,10,'rpg-index',?,'VALIDATING','{}','reviewer',?)
-`, strings.Repeat("c", 64), strings.Repeat("3", 64), fixture.now.UnixMilli())
-	mustRPGLaunchSQL(t, fixture.database, `
-INSERT INTO runtime_asset_pack_files(installation_id,path,ordinal,blob_id,size_bytes,sha256)
-VALUES('01980000-0000-7000-8000-000000000921','Music/theme.wav',0,'rpg-project-a',10,?)`, strings.Repeat("1", 64))
-	mustRPGLaunchSQL(t, fixture.database, `
-UPDATE runtime_asset_pack_installations SET status='READY',validated_at_ms=?,version=version+1
-WHERE id='01980000-0000-7000-8000-000000000921'`, fixture.now.UnixMilli())
-	mustRPGLaunchSQL(t, fixture.database, `
-INSERT INTO review_draft_runtime_pack_selections(
- review_draft_id,slot,declared_name,normalized_declared_name,definition_id,installation_id,created_at_ms)
-VALUES('01980000-0000-7000-8000-000000000901',0,'RPG2000_RTP','rpg2000_rtp','rpg2000_rtp',
- '01980000-0000-7000-8000-000000000921',?)`, fixture.now.UnixMilli())
 }
 
 func TestRPGReviewPreviewKeepsUniqueASCIICaseFoldContentLookup(t *testing.T) {

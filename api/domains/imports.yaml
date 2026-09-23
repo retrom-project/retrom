@@ -480,12 +480,6 @@ components:
         application/json:
           schema:
             $ref: ../components/common.yaml#/components/schemas/RpgErrorEnvelope
-    RpgPreconditionFailedResponse:
-      description: RPG runtime-pack installation version changed (412)
-      content:
-        application/json:
-          schema:
-            $ref: ../components/common.yaml#/components/schemas/RpgErrorEnvelope
     ImportOverviewSummaryResponse:
       description: User-visible import batch and item totals
       content:

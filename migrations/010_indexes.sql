@@ -61,9 +61,6 @@ CREATE INDEX fk_archive_entries_materialized ON archive_entries(materialized_blo
 
 CREATE INDEX fk_bios_installations_blob ON bios_installations(blob_id);
 
-CREATE INDEX fk_game_variant_runtime_packs_installation
-ON game_variant_runtime_packs(installation_id,game_variant_id);
-
 CREATE INDEX fk_import_item_duplicate_matches_game
 ON import_item_duplicate_matches(existing_game_id);
 
@@ -86,13 +83,6 @@ CREATE INDEX fk_launch_external_files_blob ON launch_external_files(blob_id);
 CREATE INDEX fk_launch_game ON launch_sessions(game_id);
 
 CREATE INDEX fk_platform_instances_default_core ON platform_instances(default_core_id);
-
-CREATE INDEX fk_runtime_asset_pack_files_blob ON runtime_asset_pack_files(blob_id);
-
-CREATE INDEX fk_runtime_asset_pack_installations_bundle ON runtime_asset_pack_installations(bundle_blob_id);
-
-CREATE INDEX fk_runtime_asset_pack_installations_definition
-ON runtime_asset_pack_installations(definition_id,status,created_at_ms,id);
 
 CREATE INDEX fk_upload_files_session ON upload_files(upload_session_id);
 

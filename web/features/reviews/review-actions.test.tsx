@@ -97,7 +97,7 @@ describe("ReviewActions metadata", () => {
     expect(screen.getByRole("button", { name: "通过并发布" })).toBeEnabled();
   });
 
-  it("uses ordinary publish readiness for RPG and preserves runtime pack selections in autosave", async () => {
+  it("uses ordinary publish readiness for RPG and preserves self-contained confirmation in autosave", async () => {
     const rpgReview: ReviewWorkspace = {
       ...review,
       canApprove: true,

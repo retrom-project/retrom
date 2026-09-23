@@ -63,8 +63,6 @@ var ownershipRegistry = []OwnershipEdge{
 	{"review_preview_sessions", "restore_payload_blob_id", ImportItemOwned},
 	{"review_preview_files", "blob_id", ImportItemOwned},
 	{"review_runtime_screenshots", "blob_id", ImportItemOwned},
-	{"runtime_asset_pack_files", "blob_id", GlobalDurable},
-	{"runtime_asset_pack_installations", "bundle_blob_id", GlobalDurable},
 	{"save_states", "payload_blob_id", GameRuntimeOwned},
 	{"save_states", "screenshot_blob_id", GameRuntimeOwned},
 	{"scrape_candidate_assets", "blob_id", ScrapeRunOwned},

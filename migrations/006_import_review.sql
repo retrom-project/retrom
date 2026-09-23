@@ -153,19 +153,6 @@ CREATE TABLE import_item_multidisc_entries (
   )
 );
 
-CREATE TABLE review_draft_runtime_pack_selections (
-  review_draft_id TEXT NOT NULL REFERENCES review_drafts(id),
-  slot INTEGER NOT NULL CHECK(slot BETWEEN 0 AND 3),
-  declared_name TEXT NOT NULL CHECK(length(CAST(declared_name AS BLOB)) BETWEEN 1 AND 512),
-  normalized_declared_name TEXT NOT NULL CHECK(length(CAST(normalized_declared_name AS BLOB)) BETWEEN 1 AND 512),
-  definition_id TEXT NOT NULL REFERENCES runtime_asset_pack_definitions(id),
-  installation_id TEXT NOT NULL,
-  created_at_ms INTEGER NOT NULL CHECK(created_at_ms>=0),
-  PRIMARY KEY(review_draft_id,slot),
-  FOREIGN KEY(installation_id,definition_id)
-    REFERENCES runtime_asset_pack_installations(id,definition_id)
-);
-
 CREATE TABLE review_uploaded_assets (
   id TEXT PRIMARY KEY,
   import_item_id TEXT NOT NULL REFERENCES import_items(id),

@@ -4541,7 +4541,7 @@ export interface components {
                 "application/json": components["schemas"]["RpgErrorEnvelope"];
             };
         };
-        /** @description RPG runtime validation or runtime-pack installation was not found (404) */
+        /** @description RPG runtime validation was not found (404) */
         RpgNotFoundResponse: {
             headers: {
                 [name: string]: unknown;
@@ -4550,7 +4550,7 @@ export interface components {
                 "application/json": components["schemas"]["RpgErrorEnvelope"];
             };
         };
-        /** @description RPG_PROJECT_ROOT_AMBIGUOUS, RPG_GENERATION_AMBIGUOUS, runtime-pack/route/capability/state/protocol/content conflicts, or checkpoint unavailable/incompatible (409) */
+        /** @description RPG_PROJECT_ROOT_AMBIGUOUS, RPG_GENERATION_AMBIGUOUS, route/capability/state/protocol/content conflicts, or checkpoint unavailable/incompatible (409) */
         RpgConflictResponse: {
             headers: {
                 [name: string]: unknown;
@@ -4561,15 +4561,6 @@ export interface components {
         };
         /** @description RPG_RGSS_CONTENT_TOO_LARGE (413) */
         RpgPayloadTooLargeResponse: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["RpgErrorEnvelope"];
-            };
-        };
-        /** @description RPG runtime-pack installation version changed (412) */
-        RpgPreconditionFailedResponse: {
             headers: {
                 [name: string]: unknown;
             };

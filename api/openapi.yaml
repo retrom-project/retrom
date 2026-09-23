@@ -777,8 +777,6 @@ components:
       $ref: ./components/common.yaml#/components/responses/RpgConflictResponse
     RpgPayloadTooLargeResponse:
       $ref: ./domains/imports.yaml#/components/responses/RpgPayloadTooLargeResponse
-    RpgPreconditionFailedResponse:
-      $ref: ./domains/imports.yaml#/components/responses/RpgPreconditionFailedResponse
     RequestTooLargeResponse:
       $ref: ./domains/runtime.yaml#/components/responses/RequestTooLargeResponse
     RpgUnprocessableResponse:
