@@ -727,6 +727,21 @@
     #retrom-ui-review .rt-admin-tab { padding: 7px 10px; border: 1px solid var(--retrom-line); border-radius: var(--radius-panel); background: var(--retrom-panel); color: var(--retrom-muted); cursor: pointer; }
     #retrom-ui-review .rt-admin-tab.is-active { border-color: color-mix(in srgb, var(--retrom-purple) 52%, var(--retrom-line)); background: var(--retrom-purple-soft); color: var(--retrom-purple); }
     #retrom-ui-review .rt-import-layout { width: 100%; display: grid; gap: 12px; }
+    #retrom-ui-review .rt-import-config-preview { padding: 22px; margin-top: 12px; }
+    #retrom-ui-review .rt-import-config-preview h2 { margin: 0 0 5px; font-size: 18px; }
+    #retrom-ui-review .rt-import-config-preview p { margin: 0 0 18px; color: var(--retrom-muted); font-size: 12px; }
+    #retrom-ui-review .rt-target-selector { position: relative; width: min(540px, 100%); display: grid; gap: 7px; }
+    #retrom-ui-review .rt-target-selector > label { font-size: 12px; font-weight: 750; }
+    #retrom-ui-review .rt-target-trigger { min-height: 44px; padding: 10px 12px; display: flex; justify-content: space-between; border: 1px solid var(--retrom-line); border-radius: var(--radius-control); color: var(--retrom-text); background: var(--retrom-panel); text-align: left; cursor: pointer; }
+    #retrom-ui-review .rt-target-menu { position: absolute; z-index: 10; top: calc(100% + 6px); left: 0; width: 100%; max-height: 390px; padding: 10px; overflow: auto; border: 1px solid color-mix(in srgb, var(--retrom-purple) 28%, var(--retrom-line)); border-radius: var(--radius-panel); background: var(--retrom-panel); box-shadow: 0 18px 42px rgb(24 32 51 / 18%); }
+    #retrom-ui-review .rt-target-menu input { width: 100%; min-height: 40px; padding: 8px 10px; border: 1px solid var(--retrom-line); border-radius: var(--radius-control); background: var(--retrom-panel); color: var(--retrom-text); }
+    #retrom-ui-review .rt-target-menu h3 { margin: 13px 8px 4px; color: var(--retrom-muted); font-size: 11px; }
+    #retrom-ui-review .rt-target-menu button { width: 100%; min-height: 43px; padding: 8px 10px; border: 0; border-radius: var(--radius-control); color: var(--retrom-text); background: transparent; text-align: left; cursor: pointer; }
+    #retrom-ui-review .rt-target-menu button:hover { background: var(--retrom-purple-soft); }
+    #retrom-ui-review .rt-target-menu button small { display: block; margin-top: 3px; color: var(--retrom-muted); font-size: 11px; }
+    #retrom-ui-review .rt-target-category > button { border-top: 1px solid var(--retrom-line); font-weight: 800; }
+    #retrom-ui-review .rt-target-category > div { padding-left: 12px; }
+    #retrom-ui-review .rt-import-config-preview > .rt-button { margin-top: 24px; }
     #retrom-ui-review .rt-dropzone { display: grid; place-items: center; min-height: 310px; padding: 22px; border: 1px dashed color-mix(in srgb, var(--retrom-purple) 46%, var(--retrom-line)); border-radius: var(--radius-panel); background: color-mix(in srgb, var(--retrom-purple-soft) 38%, var(--retrom-panel)); text-align: center; }
     #retrom-ui-review .rt-drop-icon { display: grid; place-items: center; width: 44px; height: 44px; margin: 0 auto 12px; border-radius: var(--radius-panel); background: var(--retrom-purple-soft); color: var(--retrom-purple); }
     #retrom-ui-review .rt-drop-icon svg { width: 21px; height: 21px; }
@@ -3026,10 +3041,30 @@
           </aside>
         </section>
         <div class="rt-import-layout" data-rpg-general-import>
-          <div class="rt-dropzone"><div><div class="rt-drop-icon"><i data-lucide="upload-cloud" aria-hidden="true"></i></div><h2>将游戏文件或目录拖到这里</h2><p class="rt-drop-copy">支持普通 ROM、Arcade ZIP 与 DOS 内容目录；相对路径会完整保留。</p><div class="rt-drop-actions"><button type="button" class="rt-button rt-button-primary">选择文件</button><button type="button" class="rt-button" data-open-import-directory>选择目录</button></div><p class="rt-drop-copy">选择内容后进入配置步骤，目标游戏目录不会默认选中。</p></div></div>
+          <div class="rt-dropzone"><div><div class="rt-drop-icon"><i data-lucide="upload-cloud" aria-hidden="true"></i></div><h2>将游戏文件或目录拖到这里</h2><p class="rt-drop-copy">支持普通 ROM、Arcade ZIP 与 DOS 内容目录；相对路径会完整保留。</p><div class="rt-drop-actions"><button type="button" class="rt-button rt-button-primary">选择文件</button><button type="button" class="rt-button" data-open-import-directory>选择目录</button></div><p class="rt-drop-copy">选择内容后进入配置步骤，目标游戏目录不会默认选中。</p><button type="button" class="rt-button" data-open-import-config>预览步骤 2：选择目标目录</button></div></div>
           <section class="rt-panel rt-multidisc-mode"><div class="rt-multidisc-mode-head"><div class="rt-multidisc-mode-copy"><span class="rt-badge rt-badge-purple">Saturn · Yabause 支持</span><h2>多盘游戏（M3U + CHD）</h2><p>目录中检测到 M3U，已自动选择多盘模式。每个 M3U 的直接父目录形成一款游戏；提交时仍由服务端重新校验。</p></div><label class="rt-confirm-row"><input type="checkbox" checked><span>使用多盘模式</span></label></div><div class="rt-multidisc-summary"><div><span>发现多盘游戏</span><strong>2</strong></div><div><span>内容完整</span><strong>1</strong></div><div><span>待补齐</span><strong>1</strong></div><div><span>不可处理目录</span><strong>0</strong></div><div><span>未关联文件</span><strong>3</strong></div></div><div class="rt-disc-list"><div class="rt-disc-row"><strong>游戏 1</strong><span>Panzer Dragoon Saga / game.m3u</span><code>4 / 4 张</code><span class="rt-badge rt-badge-green">完整</span></div><div class="rt-disc-row"><strong>游戏 2</strong><span>NOeL 3 / NOeL 3.m3u</span><code>2 / 3 张</code><span class="rt-badge rt-badge-amber">缺光盘 3</span></div></div><div class="rt-dialog-actions"><button type="button" class="rt-button">返回重选目录</button><button type="button" class="rt-button rt-button-primary">继续上传 2 个多盘游戏</button></div></section>
           <section class="rt-panel rt-import-settings"><div class="rt-section-head"><div><h2>批次默认标签</h2><p class="rt-subtitle">只选择已经建立的活动标签；每个待审核游戏都可再单独调整。</p></div><span class="rt-badge rt-badge-purple">2 / 20</span></div><div class="rt-tag-picker"><div class="rt-tag-list"><span class="rt-tag-pill">掌机　×</span><span class="rt-tag-pill">剧情　×</span></div><input class="rt-input" placeholder="搜索并添加标签" aria-label="批次默认标签"><small>没有合适标签时，请先前往标签管理建立。</small></div></section>
         </div>
+        <section class="rt-panel rt-import-config-preview" data-import-config-preview hidden>
+          <h2>确认导入配置</h2><p>从启用的游戏目录中明确选择目标；可按平台类型浏览，或搜索目录、平台和核心。</p>
+          <div class="rt-target-selector">
+            <label for="rt-target-trigger">目标游戏目录</label>
+            <button id="rt-target-trigger" type="button" class="rt-target-trigger" data-target-menu-toggle aria-expanded="false">请选择目标游戏目录 <span aria-hidden="true">⌄</span></button>
+            <div class="rt-target-menu" data-target-menu hidden>
+              <input type="search" aria-label="搜索目录、平台或核心" placeholder="搜索目录、平台或核心…" data-target-menu-search>
+              <div data-target-browse>
+                <h3>最近使用</h3><button type="button" data-target-choice data-target-name="GBA 游戏">GBA 游戏<small>Game Boy Advance · mGBA</small></button>
+                <div class="rt-target-category"><button type="button" data-target-category-toggle aria-expanded="false">›　街机（4）</button><div hidden><button type="button" data-target-choice data-target-name="FBNeo 游戏">FBNeo 游戏<small>Arcade · FinalBurn Neo</small></button><button type="button" data-target-choice data-target-name="MAME 2003 Plus 游戏">MAME 2003 Plus 游戏<small>Arcade · MAME 2003 Plus</small></button><button type="button" data-target-choice data-target-name="FB Alpha 2012 CPS-1 游戏">FB Alpha 2012 CPS-1 游戏<small>Arcade · FB Alpha 2012 CPS-1</small></button><button type="button" data-target-choice data-target-name="FB Alpha 2012 CPS-2 游戏">FB Alpha 2012 CPS-2 游戏<small>Arcade · FB Alpha 2012 CPS-2</small></button></div></div>
+                <div class="rt-target-category"><button type="button" data-target-category-toggle aria-expanded="false">›　家用主机</button><div hidden><button type="button" data-target-choice data-target-name="NES 游戏">NES 游戏<small>NES / Famicom · FCEUmm</small></button></div></div>
+                <div class="rt-target-category"><button type="button" data-target-category-toggle aria-expanded="false">›　掌机</button><div hidden><button type="button" data-target-choice data-target-name="GBA 游戏">GBA 游戏<small>Game Boy Advance · mGBA</small></button></div></div>
+                <div class="rt-target-category"><button type="button" data-target-category-toggle aria-expanded="false">›　电脑</button><div hidden><button type="button" data-target-choice data-target-name="DOS 经典游戏">DOS 经典游戏<small>MS-DOS · DOSBox Pure</small></button></div></div>
+                <div class="rt-target-category"><button type="button" data-target-category-toggle aria-expanded="false">›　游戏引擎与运行环境</button><div hidden><button type="button" data-target-choice data-target-name="RPG Maker 游戏">RPG Maker 游戏<small>RPG Maker · RPG Maker</small></button></div></div>
+              </div>
+              <div data-target-search-results hidden><h3>搜索结果</h3><button type="button" data-target-choice data-target-name="GBA 游戏">GBA 游戏<small>Game Boy Advance · mGBA</small></button><button type="button" data-target-choice data-target-name="FBNeo 游戏">FBNeo 游戏<small>Arcade · FinalBurn Neo</small></button><button type="button" data-target-choice data-target-name="MAME 2003 Plus 游戏">MAME 2003 Plus 游戏<small>Arcade · MAME 2003 Plus</small></button><button type="button" data-target-choice data-target-name="RPG Maker 游戏">RPG Maker 游戏<small>RPG Maker · RPG Maker</small></button></div>
+            </div>
+          </div>
+          <button type="button" class="rt-button" data-close-import-config>返回选择内容</button>
+        </section>
         <div class="rt-dialog-backdrop" data-import-directory-dialog hidden><section class="rt-dialog rt-directory-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="rt-import-directory-title"><h2 id="rt-import-directory-title">选择游戏目录</h2><p class="rt-dialog-copy">先检查目录摘要，再把其中的游戏文件作为一个批次加入导入流程。</p><div class="rt-directory-confirm-drop"><strong>将目录拖到这里</strong><p>也可以点击“浏览本机目录”。Chrome / Edge 直接读取目录；Brave 回退到浏览器目录上传，并显示自身的安全确认。</p></div><div class="rt-dialog-actions"><button type="button" class="rt-button">浏览本机目录</button><button type="button" class="rt-button" data-close-import-directory>取消</button><button type="button" class="rt-button rt-button-primary" disabled>使用此目录</button></div></section></div>
       </section>
 
@@ -3694,6 +3729,28 @@
       root.querySelector('[data-open-import-directory]').addEventListener('click', () => { importDirectoryDialog.hidden = false; });
       root.querySelectorAll('[data-close-import-directory]').forEach((button) => button.addEventListener('click', () => { importDirectoryDialog.hidden = true; }));
       importDirectoryDialog.addEventListener('click', (event) => { if (event.target === importDirectoryDialog) importDirectoryDialog.hidden = true; });
+      const importConfigPreview = root.querySelector('[data-import-config-preview]');
+      const targetMenu = importConfigPreview.querySelector('[data-target-menu]');
+      const targetTrigger = importConfigPreview.querySelector('[data-target-menu-toggle]');
+      root.querySelector('[data-open-import-config]').addEventListener('click', () => { importConfigPreview.hidden = false; importConfigPreview.scrollIntoView({block: 'nearest'}); });
+      importConfigPreview.querySelector('[data-close-import-config]').addEventListener('click', () => { importConfigPreview.hidden = true; targetMenu.hidden = true; targetTrigger.setAttribute('aria-expanded', 'false'); });
+      targetTrigger.addEventListener('click', () => { targetMenu.hidden = !targetMenu.hidden; targetTrigger.setAttribute('aria-expanded', String(!targetMenu.hidden)); if (!targetMenu.hidden) targetMenu.querySelector('input').focus(); });
+      importConfigPreview.querySelectorAll('[data-target-category-toggle]').forEach((button) => button.addEventListener('click', () => {
+        const wasOpen = button.getAttribute('aria-expanded') === 'true';
+        importConfigPreview.querySelectorAll('[data-target-category-toggle]').forEach((other) => { other.setAttribute('aria-expanded', 'false'); other.nextElementSibling.hidden = true; });
+        button.setAttribute('aria-expanded', String(!wasOpen)); button.nextElementSibling.hidden = wasOpen;
+      }));
+      importConfigPreview.querySelector('[data-target-menu-search]').addEventListener('input', (event) => {
+        const query = event.target.value.trim().toLocaleLowerCase();
+        importConfigPreview.querySelector('[data-target-browse]').hidden = Boolean(query);
+        const results = importConfigPreview.querySelector('[data-target-search-results]');
+        results.hidden = !query;
+        results.querySelectorAll('[data-target-choice]').forEach((button) => { button.hidden = !button.textContent.toLocaleLowerCase().includes(query); });
+      });
+      importConfigPreview.querySelectorAll('[data-target-choice]').forEach((button) => button.addEventListener('click', () => {
+        targetTrigger.firstChild.textContent = button.dataset.targetName + ' ';
+        targetMenu.hidden = true; targetTrigger.setAttribute('aria-expanded', 'false'); targetTrigger.focus();
+      }));
       root.querySelector('[data-logout-scene]').addEventListener('click', () => { root.querySelector('.rt-account-menu').open = false; showAuthPage('login'); });
       const platformDrawer = root.querySelector('[data-platform-drawer]');
       const platformDrawerBackdrop = root.querySelector('[data-platform-drawer-backdrop]');
