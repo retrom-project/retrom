@@ -1,11 +1,10 @@
 # Retrom 生产部署示例，使用以下命令启动：
 #   docker compose -f docker/docker-compose.yml.example up -d
-# 启动前同步替换本文件和 nginx.conf.example 中的示例域名、证书路径、
-# 镜像 tag 与宿主数据路径。
+# 启动前替换本文件和 nginx.conf.example 中的示例域名、镜像 tag 与宿主数据路径。
+# nginx.conf.example 只展示 HTTP 路由；正式公开前须自行配置 HTTPS、证书和端口。
 # 两个镜像须来自同一发行版本，release-input label 应一致。
 # /srv/retrom/data 须是本地持久目录，并允许 UID/GID 1000:1000 写入。
-# 将应用域名和 *.rpg-runtime.games.example.com 指向本机，并分别提供
-# 应用域名证书及运行时通配证书。证书目录只读挂载，不进入 Git 或镜像。
+# 将应用域名和 *.rpg-runtime.games.example.com 指向本机，并配置各自的 TLS 证书。
 
 services:
   retrom:
@@ -59,13 +58,9 @@ services:
       - retrom
       - retrom-web
     volumes:
-      - ./nginx.conf.example:/etc/nginx/nginx.conf:ro
-      # 须提供 app/fullchain.pem、app/privkey.pem，以及
-      # runtime/fullchain.pem、runtime/privkey.pem；不得提交私钥。
-      - /srv/retrom/certs:/etc/nginx/certs:ro
+      - ./nginx.conf.example:/etc/nginx/conf.d/default.conf:ro
     ports:
       - "80:80"
-      - "443:443"
     networks:
       - retrom-network
 
