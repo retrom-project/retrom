@@ -4,22 +4,24 @@ import type { ImportDetail } from "@/features/imports/import-workflow";
 import { scalarSearchParams, type ListResponse } from "@/lib/backend";
 import { backendJSON } from "@/lib/server-backend";
 import { loadActiveTags } from "@/features/tags/tag-library";
+import { loadAuthContext } from "@/features/auth/server";
 
 export const metadata = { title: "导入游戏" };
 
 type Instance = {
-  id: string; name: string; platformName: string; defaultCoreName: string;
+  id: string; name: string; platformId: string; platformName: string; defaultCoreName: string;
   importCapabilities?: { contentModes?: string[]; multiDisc?: { maxDiscs: number; maxTotalBytes: number } | null };
 };
 
 export default async function NewImportPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const query = scalarSearchParams(await searchParams, ["fromImportJobId"]);
-  const [result, activeTags] = await Promise.all([
-    backendJSON<ListResponse<Instance>>("/api/v1/admin/platform-instances"),
+  const [result, activeTags, authContext] = await Promise.all([
+    backendJSON<ListResponse<Instance>>("/api/v1/admin/platform-instances?enabled=true"),
     loadActiveTags(),
+    loadAuthContext(),
   ]);
   const directories = result.items.map((item) => ({
-    id: item.id, name: item.name, platformName: item.platformName, coreName: item.defaultCoreName,
+    id: item.id, name: item.name, platformId: item.platformId, platformName: item.platformName, coreName: item.defaultCoreName,
     importCapabilities: {
       contentModes: item.importCapabilities?.contentModes ?? ["STANDARD"],
       multiDisc: item.importCapabilities?.multiDisc ?? null,
@@ -36,7 +38,7 @@ export default async function NewImportPage({ searchParams }: { searchParams: Pr
   return (
     <div className="import-workflow-page import-new-page">
       <PageHeader eyebrow="New import" title="导入游戏" description="通过三个明确阶段提交内容。导入任务创建后进入“任务进度”，不会直接跳到尚未准备好的审核队列。" actions={<ButtonLink href="/admin/imports" secondary>返回总览</ButtonLink>} />
-      <ImportSetup directories={directories} activeTags={activeTags} reconfigureSource={reconfigureSource} />
+      <ImportSetup directories={directories} activeTags={activeTags} reconfigureSource={reconfigureSource} userId={authContext.user?.userId} />
     </div>
   );
 }

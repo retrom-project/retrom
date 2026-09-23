@@ -51,10 +51,12 @@ describe("PlatformManager", () => {
 
   afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
-  it("places platform formats in dedicated columns", () => {
+  it("shows the shared platform category before directory details", () => {
     render(<PlatformManager instances={instances} platforms={platforms} createOpen={false} />);
     const headers = screen.getAllByRole("columnheader").map((header) => header.textContent?.trim());
-    expect(headers.slice(1, 7)).toEqual(["游戏目录", "游戏平台", "扩展名", "游戏数", expect.stringContaining("推荐运行方式"), "启用状态"]);
+    expect(headers.slice(1, 8)).toEqual(["平台类型", "游戏目录", "游戏平台", "扩展名", "游戏数", expect.stringContaining("推荐运行方式"), "启用状态"]);
+    const row = screen.getByText("掌机游戏").closest<HTMLElement>("[role='row']")!;
+    expect(within(row).getByRole("cell", { name: "掌机" })).toBeVisible();
     expect(screen.getByRole("cell", { name: "Game Boy Advance 支持的扩展名" })).toHaveTextContent(".gba");
     expect(screen.queryByText("不支持", { exact: true })).not.toBeInTheDocument();
   });

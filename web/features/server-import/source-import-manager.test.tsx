@@ -8,7 +8,7 @@ const router = vi.hoisted(() => ({ push: vi.fn(), refresh: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => router }));
 
 const root = { id: "games", label: "游戏资料库", status: "AVAILABLE" as const };
-const platform: SourcePlatformInstance = { id: "11111111-1111-4111-8111-111111111111", name: "NES 游戏", platformName: "Nintendo Entertainment System", defaultCoreId: "fceumm", defaultCoreName: "FCEUmm", enabled: true };
+const platform: SourcePlatformInstance = { id: "11111111-1111-4111-8111-111111111111", name: "NES 游戏", platformId: "nes", platformName: "Nintendo Entertainment System", defaultCoreId: "fceumm", defaultCoreName: "FCEUmm", enabled: true };
 const activeTag = { tagId: "77777777-7777-4777-8777-777777777770", name: "双人" };
 
 function summary(state: SourceImportSummary["state"], version: number, overrides: Partial<SourceImportSummary> = {}): SourceImportSummary {
@@ -59,13 +59,17 @@ describe("SourceImportDrawer", () => {
     await user.click(screen.getByRole("button", { name: "扫描此目录" }));
     expect(await screen.findByText("发现 metadata")).toBeVisible();
     await act(async () => { vi.advanceTimersByTime(2_000); });
-    expect(await screen.findByRole("combobox", { name: "FC 处理方式" })).toHaveValue("");
+    const mapping = await screen.findByRole("button", { name: "FC 处理方式" });
+    expect(mapping).toHaveTextContent("请选择，不会自动映射");
     expect(screen.getByRole("button", { name: "确认映射" })).toBeDisabled();
     await user.type(screen.getByRole("combobox", { name: "批次标签" }), "双");
     await user.keyboard("{Enter}");
     await user.click(screen.getByRole("button", { name: "应用到所有未跳过 Collection" }));
     expect(screen.getByRole("status")).toHaveTextContent("1 个未跳过 Collection，覆盖 3 个游戏");
-    await user.selectOptions(screen.getByRole("combobox", { name: "FC 处理方式" }), `IMPORT:${platform.id}`);
+    await user.click(mapping);
+    const choices = screen.getByRole("region", { name: "可选游戏目录" });
+    await user.click(within(choices).getByRole("button", { name: /家用主机/ }));
+    await user.click(within(choices).getByRole("button", { name: /NES 游戏/ }));
     expect(screen.getAllByRole("button", { name: `移除标签“${activeTag.name}”` })).toHaveLength(2);
     await user.click(screen.getByRole("button", { name: "确认映射" }));
     expect(await screen.findByText("1 个处理 · 0 个跳过")).toBeVisible();
@@ -105,7 +109,28 @@ describe("SourceImportDrawer", () => {
     expect(await screen.findByRole("heading", { name: "还没有游戏目录" })).toBeVisible();
     expect(screen.getByText(/一键创建推荐目录/)).toBeVisible();
     expect(screen.getByRole("link", { name: "前往游戏目录" })).toHaveAttribute("href", "/admin/platform-instances");
-    expect(screen.queryByRole("combobox", { name: "FC 处理方式" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "FC 处理方式" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "确认映射" })).toBeDisabled();
+  });
+
+  it("keeps skip and clearing an explicit mapping available in the grouped picker", async () => {
+    const awaiting = summary("AWAITING_MAPPING", 2);
+    const collection = { id: "66666666-6666-4666-8666-666666666666", metadataRelativePath: "metadata.pegasus.txt", segmentOrdinal: 0, name: "FC", shortName: "nes", description: "", gameCount: 3, issueCount: 1, mappingAction: null, targetPlatformInstanceId: null, targetPlatformInstanceName: null, targetDefaultCoreId: null, targetDefaultCoreName: null, tagSnapshot: [], ignoredRules: [], warningFields: [] };
+    vi.stubGlobal("fetch", vi.fn()
+      .mockResolvedValueOnce(json(awaiting))
+      .mockResolvedValueOnce(json({ items: [collection], nextCursor: null })));
+    const user = userEvent.setup();
+    render(<SourceImportDrawer open roots={[root]} platformInstances={[platform]} resumablePlan={awaiting} onClose={vi.fn()} onStarted={vi.fn()} />);
+
+    const mapping = await screen.findByRole("button", { name: "FC 处理方式" });
+    await user.click(mapping);
+    await user.click(within(screen.getByRole("region", { name: "可选游戏目录" })).getByRole("button", { name: "跳过此集合" }));
+    expect(mapping).toHaveTextContent("跳过此集合");
+    expect(screen.getByRole("button", { name: "确认映射" })).toBeEnabled();
+
+    await user.click(mapping);
+    await user.click(within(screen.getByRole("region", { name: "可选游戏目录" })).getByRole("button", { name: "清除处理方式" }));
+    expect(mapping).toHaveTextContent("请选择，不会自动映射");
     expect(screen.getByRole("button", { name: "确认映射" })).toBeDisabled();
   });
 
@@ -122,15 +147,17 @@ describe("SourceImportDrawer", () => {
     const onStarted = vi.fn();
     const view = render(<StrictMode><SourceImportDrawer open roots={[root]} platformInstances={[platform]} resumablePlan={awaiting} onClose={onClose} onStarted={onStarted} /></StrictMode>);
 
-    const mapping = await screen.findByRole("combobox", { name: "FC 处理方式" });
+    const mapping = await screen.findByRole("button", { name: "FC 处理方式" });
     expect(document.body.style.overflow).toBe("hidden");
-    await user.selectOptions(mapping, `IMPORT:${platform.id}`);
+    await user.click(mapping);
+    await user.click(within(screen.getByRole("region", { name: "可选游戏目录" })).getByRole("button", { name: /家用主机/ }));
+    await user.click(within(screen.getByRole("region", { name: "可选游戏目录" })).getByRole("button", { name: /NES 游戏/ }));
     mapping.focus();
     view.rerender(<StrictMode><SourceImportDrawer open roots={[root]} platformInstances={[platform]} resumablePlan={{ ...awaiting, version: 3, updatedAtMs: 3 }} onClose={onClose} onStarted={onStarted} /></StrictMode>);
 
     await act(async () => { await Promise.resolve(); });
     expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(mapping).toHaveValue(`IMPORT:${platform.id}`);
+    expect(mapping).toHaveTextContent("NES 游戏");
     expect(mapping).toHaveFocus();
 
     view.rerender(<StrictMode><SourceImportDrawer open={false} roots={[root]} platformInstances={[platform]} resumablePlan={{ ...awaiting, version: 3, updatedAtMs: 3 }} onClose={onClose} onStarted={onStarted} /></StrictMode>);
@@ -152,10 +179,12 @@ describe("SourceImportDetailManager", () => {
 
     expect(screen.queryByRole("link", { name: "新建 游戏导入" })).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "继续映射" }));
-    const mapping = await screen.findByRole("combobox", { name: "FC 处理方式" });
+    const mapping = await screen.findByRole("button", { name: "FC 处理方式" });
     expect(screen.queryByRole("button", { name: "扫描此目录" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "确认映射" })).toBeDisabled();
-    await user.selectOptions(mapping, `IMPORT:${platform.id}`);
+    await user.click(mapping);
+    await user.click(within(screen.getByRole("region", { name: "可选游戏目录" })).getByRole("button", { name: /家用主机/ }));
+    await user.click(within(screen.getByRole("region", { name: "可选游戏目录" })).getByRole("button", { name: /NES 游戏/ }));
     expect(screen.getByRole("button", { name: "确认映射" })).toBeEnabled();
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect((fetchMock.mock.calls[0]?.[0] as Request).url).toContain(`/api/v1/admin/source-imports/${awaiting.id}`);
