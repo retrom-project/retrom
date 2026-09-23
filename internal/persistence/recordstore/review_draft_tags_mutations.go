@@ -48,8 +48,8 @@ SELECT CASE
 -- review_draft_tags_validate_delete
 WHEN (EXISTS(SELECT 1 FROM tags WHERE id=previous.tag_id AND status='ACTIVE')
   AND NOT EXISTS(
-    SELECT 1 FROM review_drafts draft
-    JOIN import_items item ON item.id=draft.import_item_id
+    SELECT 1 FROM import_items draft
+    JOIN import_items item ON item.id=draft.id
     WHERE draft.id=previous.review_draft_id AND item.state='REVIEW_PENDING'
   )) THEN 'review tag mapping is frozen'
 ELSE '' END

@@ -51,7 +51,7 @@ func (records reviewDiscardRecords) Snapshot(
 ) (application.ReviewDiscardSnapshot, bool, error) {
 	var result application.ReviewDiscardSnapshot
 	err := records.executor.QueryRowContext(ctx, `
-SELECT d.id,i.import_job_id,d.metadata_json,d.version,i.state,
+SELECT d.id,i.import_job_id,d.metadata_json,d.review_version,i.state,
 d.selected_validation_id,v.dat_version_id,d.selected_candidate_id,
 (d.cover_candidate_asset_id IS NOT NULL OR d.cover_uploaded_asset_id IS NOT NULL),
 d.background_candidate_asset_id IS NOT NULL,
@@ -62,7 +62,7 @@ j.failed_item_count,j.cancelled_item_count,j.rejected_file_count,j.resolved_reje
 j.cancel_requested_at_ms,j.completed_at_ms
 FROM import_items i
 JOIN import_jobs j ON j.id=i.import_job_id
-JOIN review_drafts d ON d.import_item_id=i.id
+JOIN import_items d ON d.id=i.id
 LEFT JOIN import_item_core_validations v ON v.id=d.selected_validation_id
 WHERE i.id=?`, itemID).Scan(&result.DraftID, &result.ImportID, &result.MetadataJSON, &result.Version,
 		&result.State, &result.ValidationID, &result.DatID, &result.CandidateID,

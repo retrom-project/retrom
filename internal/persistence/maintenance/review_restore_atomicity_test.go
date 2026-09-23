@@ -67,7 +67,7 @@ func verifyRestoreReviewFailure(t *testing.T, kind, stage string) {
 	var audits, events, pending int
 	err = db.QueryRowContext(t.Context(), `SELECT
 (SELECT count(*) FROM audit_events WHERE id='restore-audit'),
-(SELECT version-1 FROM review_drafts WHERE import_item_id='handoff-item'),
+(SELECT review_version-1 FROM import_items WHERE id='handoff-item'),
 (SELECT count(*) FROM import_items WHERE id='handoff-item' AND state='REVIEW_PENDING')`).Scan(&audits, &events, &pending)
 	if err != nil || audits != 1 || events != 1 || pending != 1 {
 		t.Fatalf("retry duplicated or lost result: audits=%d events=%d pending=%d error=%v", audits, events, pending, err)
@@ -101,7 +101,7 @@ func reviewRestoreFaultHooks(
 			return nil
 		},
 		AfterExec: func(_ context.Context, query string, args []driver.NamedValue, result driver.Result) (driver.Result, error) {
-			if strings.HasPrefix(query, "UPDATE review_drafts SET metadata_json=") {
+			if strings.HasPrefix(query, "UPDATE import_items SET metadata_json=") {
 				drafts.Add(1)
 			}
 			if matchesReviewRestoreWrite(kind, "source", query, args) {
@@ -131,7 +131,7 @@ func matchesReviewRestoreWrite(kind, stage, query string, args []driver.NamedVal
 	statement, wanted := "", any(nil)
 	switch stage {
 	case "metadata":
-		statement, wanted = "UPDATE review_drafts SET metadata_json=", "handoff-item"
+		statement, wanted = "UPDATE import_items SET metadata_json=", "handoff-item"
 	case "source", "affected":
 		statement, wanted = "UPDATE "+prefix+"_import_items SET execution_state='REVIEW_PENDING'", id
 	case "progress":
@@ -187,7 +187,7 @@ func reviewRestoreSnapshot(t *testing.T, db *sql.DB) string {
 	snapshot := map[string][][]any{}
 	for _, table := range []string{
 		"auth_sessions", "account_links", "launch_sessions", "audit_events", "jobs",
-		"job_events", "job_input_snapshots", "import_jobs", "import_items", "review_drafts", "server_import_upload_owners",
+		"job_events", "job_input_snapshots", "import_jobs", "import_items", "import_items", "server_import_upload_owners",
 		"source_imports", "source_import_items",
 	} {
 		snapshot[table] = restoredTableRows(t, db, table)

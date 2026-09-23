@@ -57,7 +57,7 @@
     },
     {
       "path": "internal/persistence/libraryimport/review_bulk_queries.go",
-      "line": 37,
+      "line": 36,
       "symbol": "func (repository *ReviewBulkQueries) LatestReviewItemID(ctx context.Context) (*string, error)",
       "linter": "nilnil",
       "reason": "An empty review queue has no upper-bound cursor and is represented by a nil value.",

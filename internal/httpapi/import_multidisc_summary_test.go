@@ -16,14 +16,13 @@ func TestMultiDiscSummaryUsesSelectedSourceNotNewestEvidence(t *testing.T) {
 	defer func() { cleanup.Error("close summary database", database.Close()) }()
 	database.SetMaxOpenConns(1)
 	_, err = database.ExecContext(t.Context(), `
-CREATE TABLE import_items(id TEXT,import_job_id TEXT,state TEXT);
-CREATE TABLE review_drafts(import_item_id TEXT,effective_source_snapshot_id TEXT);
+CREATE TABLE import_items(id TEXT,import_job_id TEXT,state TEXT,effective_source_snapshot_id TEXT);
 CREATE TABLE import_item_source_snapshots(id TEXT,import_item_id TEXT,created_by TEXT,content_kind TEXT);
 CREATE TABLE import_item_source_snapshot_files(source_snapshot_id TEXT,role TEXT,logical_name TEXT,upload_file_id TEXT);
 CREATE TABLE import_files(id TEXT,relative_path TEXT);
 CREATE TABLE import_item_multidisc_entries(source_snapshot_id TEXT,ordinal INTEGER,state TEXT);
 CREATE TABLE import_job_files(import_job_id TEXT,upload_file_id TEXT,disposition TEXT);
-INSERT INTO import_items VALUES('item','job','REVIEW_PENDING');
+INSERT INTO import_items VALUES('item','job','REVIEW_PENDING',NULL);
 INSERT INTO import_item_source_snapshots VALUES
 ('initial','item','IDENTIFICATION','MULTI_DISC'),
 ('selected','item','MULTIDISC_ATTACHMENT','MULTI_DISC'),
@@ -48,7 +47,7 @@ INSERT INTO import_item_multidisc_entries VALUES
 	if initial[0].MissingDiscCount != 1 || initial[0].PresentDiscCount != 0 {
 		t.Fatalf("initial source not selected: %+v", initial[0])
 	}
-	if _, err := database.ExecContext(t.Context(), "INSERT INTO review_drafts VALUES('item','selected')"); err != nil {
+	if _, err := database.ExecContext(t.Context(), "UPDATE import_items SET effective_source_snapshot_id='selected' WHERE id='item'"); err != nil {
 		t.Fatal(err)
 	}
 	current, err := server.importMultiDiscItemSummaries(t.Context(), "job")

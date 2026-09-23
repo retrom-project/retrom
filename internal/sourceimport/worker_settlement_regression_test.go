@@ -127,7 +127,7 @@ WHERE plan.id='import'`).Scan(&actual.Parent, &actual.Job, &actual.Pending, &act
 		t.Fatalf("settlement=%#v want=%#v", actual, expected)
 	}
 	var title string
-	if err := service.database.QueryRowContext(t.Context(), `SELECT json_extract(metadata_json,'$.title') FROM review_drafts WHERE id='handoff-draft'`).Scan(
+	if err := service.database.QueryRowContext(t.Context(), `SELECT json_extract(metadata_json,'$.title') FROM import_items WHERE id='handoff-item'`).Scan(
 		&title,
 	); err != nil {
 		t.Fatal(

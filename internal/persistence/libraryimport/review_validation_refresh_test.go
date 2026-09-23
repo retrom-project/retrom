@@ -50,7 +50,7 @@ func assertRefreshInputs(
 	if err != nil {
 		t.Fatal(err)
 	}
-	if inputs.DraftID != "draft" || inputs.EffectiveSnapshotID != "snapshot" ||
+	if inputs.DraftID != "item" || inputs.EffectiveSnapshotID != "snapshot" ||
 		inputs.ContentKind != "SINGLE_FILE" || inputs.CoreID != coreID ||
 		inputs.ProviderID != providerID || inputs.RuntimeTargetID != targetID ||
 		inputs.DATVersionID != nil || !inputs.ContentPolicy.Supports("SINGLE_FILE") {

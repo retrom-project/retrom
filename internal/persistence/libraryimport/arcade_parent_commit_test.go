@@ -94,7 +94,7 @@ INSERT INTO review_arcade_parent_attachments(
 id,import_item_id,review_draft_id,base_source_snapshot_id,dependency_machine,expected_logical_name,
 required_by_machine,depth,provider_id,target_id,dat_version_id,original_filename,state,diagnostics_json,
 job_id,version,created_at_ms,updated_at_ms)
-SELECT 'attachment','item','draft','snapshot','parent','parent.zip','root',1,binding.provider_id,binding.target_id,
+SELECT 'attachment','item','item','snapshot','parent','parent.zip','root',1,binding.provider_id,binding.target_id,
 'parent-dat','parent.zip','RUNNING','{"schemaVersion":1}','parent-job',1,1,1
 FROM runtime_target_bindings binding
 WHERE binding.core_id=(SELECT default_core_id FROM platform_instances WHERE id=(SELECT target_platform_instance_id FROM import_jobs WHERE id='import'))

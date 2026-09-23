@@ -36,7 +36,7 @@ func TestMigrationsCreateCurrentSchemaWithoutProductSeeds(t *testing.T) {
 	for _, table := range tables {
 		assertIntegerTimeColumns(t, database.SQL, table)
 	}
-	testassert.Falsef(t, len(tables) != 111, "fresh schema table count = %d", len(tables))
+	testassert.Falsef(t, len(tables) != 109, "fresh schema table count = %d", len(tables))
 	for _, retired := range []string{
 		"runtime_asset_pack_definitions", "runtime_asset_pack_installations", "runtime_asset_pack_files",
 		"game_variant_runtime_packs", "review_draft_runtime_pack_selections",
@@ -82,7 +82,13 @@ func TestMigrationsCreateCurrentSchemaWithoutProductSeeds(t *testing.T) {
 	assertNotNullColumn(t, database.SQL, "save_states", "source_launch_session_id")
 	assertColumns(t, database.SQL, "dat_versions", "provider_id", "target_id",
 		"builtin_relative_path", "sha256", "parser_version", "parse_status")
-	assertColumns(t, database.SQL, "review_bulk_approvals", "source_flagged_count")
+	assertColumns(t, database.SQL, "import_items", "review_version", "review_updated_at_ms", "metadata_json")
+	assertColumns(t, database.SQL, "review_bulk_approvals", "max_item_id", "cursor_item_id", "scanned_count")
+	for _, retired := range []string{"review_drafts", "review_bulk_approval_items"} {
+		if slices.Contains(tables, retired) {
+			t.Errorf("retired review table remains: %s", retired)
+		}
+	}
 
 	var platformCount, coreCount, relationCount, directoryCount int
 	if err := database.SQL.QueryRowContext(ctx, `

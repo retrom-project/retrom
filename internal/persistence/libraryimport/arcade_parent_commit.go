@@ -87,10 +87,10 @@ VALUES(?,?,?,'REVIEW_ARCADE_PARENT',?,?)
 		request.Candidate.AttachmentID, request.NowMS); err != nil {
 		return arcadeParentCommitStoreError("consume parent upload", err)
 	}
-	result, err = recordstore.UpdateReviewDrafts(ctx, transaction, recordstore.Update{
+	result, err = recordstore.UpdateReviewItems(ctx, transaction, recordstore.Update{
 		Set: `
 effective_source_snapshot_id=?,selected_validation_id=?,
-version=version+1,updated_at_ms=?
+review_version=review_version+1,review_updated_at_ms=?
 `,
 		Scope: recordstore.Scope{
 			Where: `id=? AND effective_source_snapshot_id=?`,
@@ -427,7 +427,7 @@ target.provider_id,target.target_id,
 (SELECT dat.id FROM dat_versions dat WHERE dat.provider_id=target.provider_id
  AND dat.target_id=target.target_id AND dat.is_active=1)
 FROM import_items item
-JOIN review_drafts draft ON draft.id=? AND draft.import_item_id=item.id
+JOIN import_items draft ON draft.id=? AND draft.id=item.id
 JOIN import_item_source_snapshots source_snapshot ON source_snapshot.id=draft.effective_source_snapshot_id
 JOIN platform_instances platform ON platform.id=draft.target_platform_instance_id
 AND platform.enabled=1 AND platform.deleted_at_ms IS NULL

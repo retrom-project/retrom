@@ -35,31 +35,37 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ReviewDeduplicateResult'
-  /api/v1/admin/review-bulk-approval-preview:
-    get:
-      operationId: getAdminReviewBulkApprovalPreview
-      description: Recomputes the current filtered review scope and returns only strict READY candidates; screenshot-only overrides and duplicates are excluded.
-      parameters:
-        - $ref: ../components/common.yaml#/components/parameters/Q
-        - $ref: ../components/common.yaml#/components/parameters/TagIDQuery
-        - $ref: '#/components/parameters/ImportJobIDQuery'
-        - $ref: '#/components/parameters/SourceImportIDQuery'
-        - $ref: ../components/common.yaml#/components/parameters/PlatformInstanceIDQuery
-        - $ref: '#/components/parameters/BlockerCode'
-      responses:
-        '200':
-          $ref: ../components/common.yaml#/components/responses/JSONResponse
   /api/v1/admin/review-bulk-approvals:
     post:
       operationId: postAdminReviewBulkApproval
-      description: Freezes the previewed strict READY candidates and starts a resumable sequential publication job.
+      description: Starts one bounded, global pending-review scan. Each item is rechecked before publication.
       parameters:
         - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
       requestBody:
-        $ref: '#/components/requestBodies/ReviewBulkApproval'
+        $ref: ../components/common.yaml#/components/requestBodies/Empty
       responses:
         '202':
-          $ref: ../components/common.yaml#/components/responses/JSONResponse
+          description: Created background approval task.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewBulkApprovalSummary'
+  /api/v1/admin/review-bulk-approvals/active:
+    get:
+      operationId: getActiveAdminReviewBulkApproval
+      responses:
+        '200':
+          description: The globally active task, if any.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [activeBulkApproval]
+                properties:
+                  activeBulkApproval:
+                    allOf:
+                      - $ref: '#/components/schemas/ReviewBulkApprovalSummary'
+                    nullable: true
   /api/v1/admin/review-bulk-approvals/{bulkApprovalId}:
     parameters:
       - $ref: '#/components/parameters/BulkApprovalID'
@@ -67,55 +73,11 @@ paths:
       operationId: getAdminReviewBulkApproval
       responses:
         '200':
-          $ref: ../components/common.yaml#/components/responses/JSONResponse
-  /api/v1/admin/review-bulk-approvals/{bulkApprovalId}/items:
-    parameters:
-      - $ref: '#/components/parameters/BulkApprovalID'
-    get:
-      operationId: getAdminReviewBulkApprovalItems
-      parameters:
-        - name: outcome
-          in: query
-          schema:
-            type: string
-            enum:
-              - PUBLISHED
-              - SKIPPED_DUPLICATE
-              - SKIPPED_CHANGED
-              - SKIPPED_NOT_READY
-              - FAILED_FINAL
-              - CANCELLED
-        - $ref: ../components/common.yaml#/components/parameters/Cursor
-        - $ref: ../components/common.yaml#/components/parameters/Limit50
-      responses:
-        '200':
-          $ref: ../components/common.yaml#/components/responses/JSONResponse
-  /api/v1/admin/review-bulk-approvals/{bulkApprovalId}/cancel:
-    parameters:
-      - $ref: '#/components/parameters/BulkApprovalID'
-    post:
-      operationId: postAdminReviewBulkApprovalCancel
-      parameters:
-        - $ref: ../components/common.yaml#/components/parameters/IfMatch
-        - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
-      requestBody:
-        $ref: ../components/common.yaml#/components/requestBodies/Reason
-      responses:
-        '200':
-          $ref: ../components/common.yaml#/components/responses/JSONResponse
-  /api/v1/admin/review-bulk-approvals/{bulkApprovalId}/retry:
-    parameters:
-      - $ref: '#/components/parameters/BulkApprovalID'
-    post:
-      operationId: postAdminReviewBulkApprovalRetry
-      parameters:
-        - $ref: ../components/common.yaml#/components/parameters/IfMatch
-        - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
-      requestBody:
-        $ref: ../components/common.yaml#/components/requestBodies/Empty
-      responses:
-        '202':
-          $ref: ../components/common.yaml#/components/responses/JSONResponse
+          description: Current task state and aggregate progress.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewBulkApprovalSummary'
   /api/v1/admin/reviews/{importItemId}:
     parameters:
       - $ref: ../components/common.yaml#/components/parameters/ImportItemID
@@ -441,22 +403,64 @@ components:
           type: string
           format: uuid
           nullable: true
-    ReviewBulkApprovalRequest:
+    ReviewBulkApprovalSummary:
       type: object
       additionalProperties: false
-      required:
-        - scope
-        - scopeDigest
-        - candidateManifestDigest
+      required: [bulkApprovalId, jobId, state, version, maxItemId, cursorItemId,
+        initialPendingCount, scannedCount, publishedCount, skippedChangedCount,
+        skippedDuplicateCount, skippedNotReadyCount, createdAtMs, updatedAtMs,
+        startedAtMs, completedAtMs, lastErrorCode]
       properties:
-        scope:
-          $ref: '#/components/schemas/ReviewBulkApprovalScope'
-        scopeDigest:
+        bulkApprovalId:
           type: string
-          pattern: ^[0-9a-f]{64}$
-        candidateManifestDigest:
+          format: uuid
+        jobId:
           type: string
-          pattern: ^[0-9a-f]{64}$
+          format: uuid
+        state:
+          type: string
+          enum: [QUEUED, RUNNING, COMPLETED, FAILED]
+        version:
+          type: integer
+          minimum: 1
+        maxItemId:
+          type: string
+          format: uuid
+        cursorItemId:
+          type: string
+          format: uuid
+          nullable: true
+        initialPendingCount:
+          type: integer
+          minimum: 1
+        scannedCount:
+          type: integer
+          minimum: 0
+        publishedCount:
+          type: integer
+          minimum: 0
+        skippedChangedCount:
+          type: integer
+          minimum: 0
+        skippedDuplicateCount:
+          type: integer
+          minimum: 0
+        skippedNotReadyCount:
+          type: integer
+          minimum: 0
+        createdAtMs:
+          type: integer
+        updatedAtMs:
+          type: integer
+        startedAtMs:
+          type: integer
+          nullable: true
+        completedAtMs:
+          type: integer
+          nullable: true
+        lastErrorCode:
+          type: string
+          nullable: true
     ReviewSelectedAssetsRequest:
       type: object
       additionalProperties: false
@@ -594,12 +598,6 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/ApprovalRequest'
-    ReviewBulkApproval:
-      required: true
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ReviewBulkApprovalRequest'
     ReviewDraft:
       required: true
       content:

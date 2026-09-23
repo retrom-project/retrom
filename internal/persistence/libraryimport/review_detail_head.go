@@ -15,8 +15,8 @@ const reviewDetailQuery = `
 SELECT i.id,
 i.import_job_id,
 d.metadata_json,
-d.version,
-d.updated_at_ms,
+d.review_version,
+d.review_updated_at_ms,
 pi.id,
 pi.name,
 ` + contentquery.BindingPolicySQL + `,
@@ -34,7 +34,7 @@ d.cover_uploaded_asset_id,
 d.background_candidate_asset_id,
 d.default_dos_entry,d.id,pi.platform_id
 FROM import_items i
-JOIN review_drafts d ON d.import_item_id=i.id
+JOIN import_items d ON d.id=i.id
 JOIN import_item_source_snapshots source_snapshot ON source_snapshot.id=d.effective_source_snapshot_id
 JOIN platform_instances pi ON pi.id=d.target_platform_instance_id
 LEFT JOIN rpgmaker_review_profiles rpg_profile ON rpg_profile.review_draft_id=d.id

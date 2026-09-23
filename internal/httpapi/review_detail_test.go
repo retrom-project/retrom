@@ -86,7 +86,6 @@ func TestBlockedReviewDetailRemainsVisibleWithoutSelectedValidation(t *testing.T
 	importID := "01980000-0000-7000-8000-000000000122"
 	uploadID := "01980000-0000-7000-8000-000000000123"
 	validationID := "01980000-0000-7000-8000-000000000124"
-	draftID := "01980000-0000-7000-8000-000000000125"
 	scrapeJobID := "01980000-0000-7000-8000-000000000126"
 	scrapeRunID := "01980000-0000-7000-8000-000000000127"
 	providerResponseID := "01980000-0000-7000-8000-000000000128"
@@ -109,7 +108,7 @@ func TestBlockedReviewDetailRemainsVisibleWithoutSelectedValidation(t *testing.T
 	defer dbexec.Rollback(transaction)
 	manifest := `{"files":[{"logicalName":"blocked.gba","role":"CONTENT"}]}`
 	seedReviewSources(t, transaction, uploadID, digest, importID, target, itemID, sourceBlobID, coverBlobID, uploadFileID, coverUploadFileID, sourceSnapshotID, manifest, timestamp, coverMetadata)
-	seedReviewValidation(t, transaction, validationID, itemID, target, digest, sourceSnapshotID, draftID, scrapeJobID, timestamp)
+	seedReviewValidation(t, transaction, validationID, itemID, target, digest, sourceSnapshotID, scrapeJobID, timestamp)
 	seedReviewMetadataEvidence(t, transaction, scrapeRunID, itemID, scrapeJobID, providerResponseID, candidateID, candidateAssetID, readyCoverAssetID, coverBlobID, digest, timestamp)
 	recorder := httptest.NewRecorder()
 	request := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/admin/reviews/"+itemID, nil)
@@ -163,10 +162,10 @@ WHERE provider_id=?
 	testassert.Falsef(t, anyTrue(staleCover.Code != http.StatusConflict,
 		!strings.Contains(staleCover.Body.String(), `"code":"REVIEW_VERSION_CONFLICT"`)),
 		"stale review cover upload = %d %s", staleCover.Code, staleCover.Body.String())
-	if _, err := recordstore.UpdateReviewDrafts(context.Background(), server.database, recordstore.Update{
+	if _, err := recordstore.UpdateReviewItems(context.Background(), server.database, recordstore.Update{
 		Set: `cover_candidate_asset_id=?`,
 		Scope: recordstore.Scope{
-			Where: `import_item_id=?`,
+			Where: `id=?`,
 			Args:  []any{itemID},
 		},
 		Values: []any{readyCoverAssetID},
@@ -481,7 +480,7 @@ VALUES(?,'CONTENT','blocked.zip',?,?,NULL,NULL,0,?)
 func seedReviewValidation(
 	t *testing.T, transaction *sql.Tx,
 	validationID, itemID string, target testsupport.RuntimeTargetIdentity,
-	digest, sourceSnapshotID, draftID, scrapeJobID string,
+	digest, sourceSnapshotID, scrapeJobID string,
 	timestamp int64,
 ) {
 	mustExecHTTPTest(t, transaction, `
@@ -514,24 +513,11 @@ created_at_ms) VALUES(?,
 ?)
 `, validationID, itemID, target.ProviderID, target.TargetID, digest, sourceSnapshotID, digest, timestamp)
 	mustExecHTTPTest(t, transaction, `
-INSERT INTO review_drafts(id,
-import_item_id,
-target_platform_instance_id,
-selected_validation_id,
-effective_source_snapshot_id,
-metadata_json,
-version,
-created_at_ms,
-updated_at_ms) VALUES(?,
-?,
-(SELECT id FROM platform_instances WHERE catalog_template_key='gba/mgba'),
-NULL,
-?,
-'{"title":"Blocked","description":"","developer":"","publisher":"","genre":"","players":null,"releaseYear":null}',
-1,
-?,
-?)
-`, draftID, itemID, sourceSnapshotID, timestamp, timestamp)
+UPDATE import_items SET target_platform_instance_id=(SELECT id FROM platform_instances WHERE catalog_template_key='gba/mgba'),
+selected_validation_id=NULL,effective_source_snapshot_id=?,
+metadata_json='{"title":"Blocked","description":"","developer":"","publisher":"","genre":"","players":null,"releaseYear":null}',
+review_version=1,review_created_at_ms=?,review_updated_at_ms=? WHERE id=?
+`, sourceSnapshotID, timestamp, timestamp, itemID)
 	mustExecHTTPTest(t, transaction, `
 INSERT INTO jobs(id,
 scope_type,

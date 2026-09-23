@@ -16,7 +16,7 @@ import (
 func queueDatabase(t *testing.T) *sql.DB {
 	t.Helper()
 	db := metadataDatabase(t)
-	metadataExec(t, db, `UPDATE review_drafts SET updated_at_ms=10 WHERE import_item_id='item'`)
+	metadataExec(t, db, `UPDATE import_items SET review_updated_at_ms=10 WHERE id='item'`)
 	metadataExec(t, db, `UPDATE import_jobs SET total_item_count=3,review_pending_item_count=3 WHERE id='import'`)
 	instance := testsupport.MustPlatformInstanceID(t, db, "gba/mgba")
 	for _, entry := range []struct {
@@ -28,8 +28,7 @@ func queueDatabase(t *testing.T) *sql.DB {
 	} {
 		metadataExec(t, db, `INSERT INTO import_items(id,import_job_id,group_key,state,source_manifest_json,source_manifest_digest,search_text,created_at_ms,updated_at_ms)
 VALUES(?,'import',?,'REVIEW_PENDING','{"files":[{"logicalName":"game.gba"}]}',?,lower(?),1,1)`, entry.id, entry.digest, entry.digest, entry.title)
-		metadataExec(t, db, `INSERT INTO review_drafts(id,import_item_id,target_platform_instance_id,metadata_json,version,created_at_ms,updated_at_ms)
-VALUES(?,?,?,json_object('title',?),1,1,?)`, entry.id, entry.id, instance, entry.title, entry.updated)
+		metadataExec(t, db, `UPDATE import_items SET target_platform_instance_id=?,metadata_json=json_object('title',?),review_version=1,review_created_at_ms=1,review_updated_at_ms=? WHERE id=?`, instance, entry.title, entry.updated, entry.id)
 	}
 	return db
 }
@@ -105,7 +104,7 @@ func TestReviewQueueRepositoryIncludesActiveTagNamesInSearch(t *testing.T) {
 	const tag = "019b0000-0000-7000-8000-000000000021"
 	metadataExec(t, db, `INSERT INTO tags(id,name,name_key,search_text,status,created_by_user_id,updated_by_user_id,created_at_ms,updated_at_ms)
 VALUES(?,'Favorite Fixture','favorite fixture','favorite fixture','ACTIVE','actor','actor',1,1)`, tag)
-	metadataExec(t, db, `INSERT INTO review_draft_tags(review_draft_id,tag_id,assigned_by_user_id,created_at_ms) VALUES('draft',?,'actor',1)`, tag)
+	metadataExec(t, db, `INSERT INTO review_draft_tags(review_draft_id,tag_id,assigned_by_user_id,created_at_ms) VALUES('item',?,'actor',1)`, tag)
 	for _, filter := range []application.ReviewQueueFilter{{Query: "favorite"}, {TagID: tag}} {
 		rows, err := NewReviewQueue(db).List(t.Context(), application.ReviewQueueQuery{Filter: filter, Limit: 21})
 		if err != nil || len(rows) != 1 || rows[0].ItemID != "item" {
@@ -117,7 +116,7 @@ VALUES(?,'Favorite Fixture','favorite fixture','favorite fixture','ACTIVE','acto
 func TestReviewQueueRepositoryPreservesReadAndCancellationErrors(t *testing.T) {
 	t.Parallel()
 	db := queueDatabase(t)
-	metadataExec(t, db, `UPDATE review_drafts SET metadata_json='{' WHERE import_item_id='item'`)
+	metadataExec(t, db, `UPDATE import_items SET metadata_json='{' WHERE id='item'`)
 	rows, err := NewReviewQueue(db).List(t.Context(), application.ReviewQueueQuery{Limit: 21})
 	var cause *sqlite.Error
 	if !errors.As(err, &cause) || rows != nil {

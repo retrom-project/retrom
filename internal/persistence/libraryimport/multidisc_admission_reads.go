@@ -14,7 +14,7 @@ func (records multidiscAdmissionRecords) Admission(
 	ctx context.Context, itemID string,
 ) (application.MultiDiscAttachmentAdmission, bool, error) {
 	var admission application.MultiDiscAttachmentAdmission
-	err := records.executor.QueryRowContext(ctx, `SELECT draft.id,item.state,draft.version,
+	err := records.executor.QueryRowContext(ctx, `SELECT draft.id,item.state,draft.review_version,
 draft.effective_source_snapshot_id,
 platform.platform_id,platform.id,platform.version,platform.default_core_id,
 target.provider_id,target.target_id,
@@ -22,7 +22,7 @@ target.provider_id,target.target_id,
 validation.id,validation.status,validation.compatibility_code,
 validation.platform_instance_version,validation.core_id,validation.provider_id,validation.target_id
 FROM import_items item
-JOIN review_drafts draft ON draft.import_item_id=item.id
+JOIN import_items draft ON draft.id=item.id
 JOIN import_item_source_snapshots snapshot ON snapshot.id=draft.effective_source_snapshot_id
 AND snapshot.content_kind='MULTI_DISC'
 JOIN platform_instances platform ON platform.id=draft.target_platform_instance_id
@@ -62,7 +62,7 @@ func (records multidiscAdmissionRecords) Head(
 ) (application.MultiDiscAttachmentHead, bool, error) {
 	var head application.MultiDiscAttachmentHead
 	err := records.executor.QueryRowContext(ctx, `SELECT item.state,snapshot.content_kind
-FROM import_items item JOIN review_drafts draft ON draft.import_item_id=item.id
+FROM import_items item JOIN import_items draft ON draft.id=item.id
 JOIN import_item_source_snapshots snapshot ON snapshot.id=draft.effective_source_snapshot_id
 WHERE item.id=?`, itemID).Scan(&head.State, &head.ContentKind)
 	if errors.Is(err, sql.ErrNoRows) {

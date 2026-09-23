@@ -20,11 +20,12 @@ func (service *ImportCreations) prepareGroup(
 	archives []PreparedArchive,
 ) (creationGroup, error) {
 	record := creationGroup{group: cloneCreationGroup(group), kind: PreparedGroupContentKind(group)}
-	for _, destination := range []*string{&record.itemID, &record.snapshotID, &record.validationID, &record.draftID} {
+	for _, destination := range []*string{&record.itemID, &record.snapshotID, &record.validationID} {
 		if err := service.allocate(destination); err != nil {
 			return creationGroup{}, creationError("prepare group", err)
 		}
 	}
+	record.draftID = record.itemID
 	files := make([]contentmanifest.File, 0, len(group.Sources))
 	for _, source := range group.Sources {
 		digest, size, err := preparedSourceIdentity(source, archives)

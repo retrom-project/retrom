@@ -111,7 +111,7 @@ SELECT id FROM import_items WHERE import_job_id=?
 	var baseValidationID, sourceSnapshotID, datVersionID string
 	if err := database.SQL.QueryRowContext(ctx, `
 SELECT draft.selected_validation_id,draft.effective_source_snapshot_id,(SELECT id FROM dat_versions ORDER BY id LIMIT 1)
-FROM review_drafts draft WHERE draft.import_item_id=?
+FROM import_items draft WHERE draft.id=?
 `, readyItemID).Scan(&baseValidationID, &sourceSnapshotID, &datVersionID); err != nil {
 		t.Fatal(err)
 	}
@@ -136,8 +136,8 @@ VALUES(?,'PARENT','review-parent.zip',?,0,0)
 		t.Fatal(err)
 	}
 	if _, err := database.SQL.ExecContext(ctx, `
-UPDATE review_drafts SET selected_validation_id=?,version=version+1,updated_at_ms=updated_at_ms+1
-WHERE import_item_id=? AND effective_source_snapshot_id=?
+UPDATE import_items SET selected_validation_id=?,version=version+1,updated_at_ms=updated_at_ms+1
+WHERE id=? AND effective_source_snapshot_id=?
 `, arcadeValidationID, readyItemID, sourceSnapshotID); err != nil {
 		t.Fatal(err)
 	}

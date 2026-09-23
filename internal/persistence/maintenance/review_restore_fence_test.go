@@ -36,7 +36,7 @@ func TestRestoredReviewRechecksFrozenOwnershipBeforeHandoff(t *testing.T) {
 		{"plan", `UPDATE source_imports SET version=version+1 WHERE id='import'`},
 		{"source", `UPDATE source_import_items SET version=version+1 WHERE id='item'`},
 		{"job", `UPDATE jobs SET version=version+1 WHERE id='work'`},
-		{"ordinary", `UPDATE import_items SET version=version+1 WHERE id='handoff-item'`},
+		{"ordinary", `UPDATE import_items SET review_version=review_version+1 WHERE id='handoff-item'`},
 		{"owner", `INSERT INTO server_import_upload_owners(upload_session_id,kind,source_item_id) VALUES('handoff-upload','SOURCE','other')`},
 		{"root", `UPDATE source_imports SET root_id='replacement' WHERE id='import'`},
 	} {
@@ -65,9 +65,13 @@ func verifyRestoredReviewFence(t *testing.T, mutation string) {
 	var title string
 	var events int
 	err = tx.QueryRowContext(t.Context(), `SELECT json_extract(metadata_json,'$.title'),
-(SELECT version-1 FROM review_drafts WHERE import_item_id='handoff-item')
-FROM review_drafts WHERE import_item_id='handoff-item'`).Scan(&title, &events)
-	if err != nil || title != "Restored title" || events != 1 {
+(SELECT review_version-1 FROM import_items WHERE id='handoff-item')
+FROM import_items WHERE id='handoff-item'`).Scan(&title, &events)
+	wantEvents := 0
+	if mutation == `UPDATE import_items SET review_version=review_version+1 WHERE id='handoff-item'` {
+		wantEvents = 1
+	}
+	if err != nil || title != "Original" || events != wantEvents {
 		t.Fatalf("fence did not follow actual metadata writes: title=%q events=%d err=%v", title, events, err)
 	}
 	if err := tx.Rollback(); err != nil {

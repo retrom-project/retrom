@@ -76,7 +76,7 @@ func TestScreenshotPreservesCancelledContextBeforeReadingBody(t *testing.T) {
 func TestScreenshotPreservesFinalAuthoritySQLCause(t *testing.T) {
 	fixture, preview, contents := screenshotFixture(t)
 	beforeShots, beforeBlobs := screenshotCounts(t, fixture.database)
-	mustRPGLaunchSQL(t, fixture.database, `ALTER TABLE review_drafts RENAME TO unavailable_screenshot_drafts`)
+	mustRPGLaunchSQL(t, fixture.database, `ALTER TABLE import_items RENAME TO unavailable_screenshot_drafts`)
 	result, err := fixture.launcher.StoreReviewScreenshot(t.Context(), preview.PreviewID, preview.Capability, bytes.NewReader(contents))
 	var storage *sqlite.Error
 	if !errors.As(err, &storage) || result.ID != "" {

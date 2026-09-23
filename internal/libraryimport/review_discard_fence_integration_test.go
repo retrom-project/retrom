@@ -21,7 +21,7 @@ func TestDiscardWriterRequiresCurrentDraftVersion(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer dbexec.Rollback(transaction)
-	if _, err := transaction.ExecContext(t.Context(), `UPDATE review_drafts SET version=2 WHERE import_item_id=?`, itemID); err != nil {
+	if _, err := transaction.ExecContext(t.Context(), `UPDATE import_items SET review_version=2 WHERE id=?`, itemID); err != nil {
 		t.Fatal(err)
 	}
 	err = repository.BindReviewDiscard(transaction).Writer.DiscardItem(t.Context(), application.ReviewDiscardChange{

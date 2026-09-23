@@ -288,7 +288,7 @@ func (repository *ImportReads) MultiDiscItemSummaries(
 SELECT item.id,item.state,snapshot.content_kind,playlist.logical_name,upload.relative_path,
 count(entry.ordinal),coalesce(sum(entry.state='PRESENT'),0),coalesce(sum(entry.state='MISSING'),0)
 FROM import_items item
-LEFT JOIN review_drafts draft ON draft.import_item_id=item.id
+LEFT JOIN import_items draft ON draft.id=item.id
 JOIN import_item_source_snapshots snapshot ON snapshot.id=COALESCE(
   draft.effective_source_snapshot_id,
   (SELECT initial.id FROM import_item_source_snapshots initial

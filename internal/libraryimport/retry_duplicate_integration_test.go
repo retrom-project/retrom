@@ -254,7 +254,7 @@ FROM import_jobs WHERE id=?
 	}
 	if err := database.SQL.QueryRowContext(ctx, `
 SELECT state,
-(SELECT count(*) FROM review_drafts WHERE import_item_id=import_items.id),
+(SELECT count(*) FROM import_items candidate WHERE candidate.id=import_items.id AND candidate.review_version>0),
 (SELECT count(*) FROM import_item_duplicate_matches WHERE import_item_id=import_items.id)
 FROM import_items WHERE id=?
 `, thirdItemID).Scan(&itemState, &draftCount, &matchCount); err != nil {

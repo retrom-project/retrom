@@ -17,9 +17,9 @@ func assertPreviewRefreshesLegacyBIOS(t *testing.T, database *sql.DB, importer *
 	var validationID, snapshotJSON string
 	var version int64
 	if err := database.QueryRowContext(ctx, `
-SELECT draft.selected_validation_id,validation.dependency_snapshot_json,draft.version
-FROM review_drafts draft JOIN import_item_core_validations validation ON validation.id=draft.selected_validation_id
-WHERE draft.import_item_id=?
+SELECT draft.selected_validation_id,validation.dependency_snapshot_json,draft.review_version
+FROM import_items draft JOIN import_item_core_validations validation ON validation.id=draft.selected_validation_id
+WHERE draft.id=?
 `, itemID).Scan(&validationID, &snapshotJSON, &version); err != nil {
 		t.Fatal(err)
 	}
@@ -47,7 +47,7 @@ dat_version_id,default_dos_entry,source_manifest_digest,source_snapshot_id,prepu
 `, legacyID, string(legacyJSON), validationID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := database.ExecContext(ctx, `UPDATE review_drafts SET selected_validation_id=NULL,metadata_json=? WHERE import_item_id=?`, metadata, itemID); err != nil {
+	if _, err := database.ExecContext(ctx, `UPDATE import_items SET selected_validation_id=NULL,metadata_json=? WHERE id=?`, metadata, itemID); err != nil {
 		t.Fatal(err)
 	}
 	if err := importer.RefreshReviewPreviewValidation(ctx, itemID); err != nil {
@@ -56,10 +56,10 @@ dat_version_id,default_dos_entry,source_manifest_digest,source_snapshot_id,prepu
 	var selected, status, actualBlob, actualMetadata string
 	var nextVersion int64
 	if err := database.QueryRowContext(ctx, `
-SELECT draft.selected_validation_id,validation.status,file.blob_id,draft.metadata_json,draft.version
-FROM review_drafts draft JOIN import_item_core_validations validation ON validation.id=draft.selected_validation_id
+SELECT draft.selected_validation_id,validation.status,file.blob_id,draft.metadata_json,draft.review_version
+FROM import_items draft JOIN import_item_core_validations validation ON validation.id=draft.selected_validation_id
 JOIN import_item_validation_files file ON file.import_item_core_validation_id=validation.id AND file.role='BIOS_BUNDLE'
-WHERE draft.import_item_id=?
+WHERE draft.id=?
 `, itemID).Scan(&selected, &status, &actualBlob, &actualMetadata, &nextVersion); err != nil {
 		t.Fatal(err)
 	}
@@ -77,7 +77,7 @@ WHERE draft.import_item_id=?
 		t.Fatal(err)
 	}
 	var repeatedVersion int64
-	if err := database.QueryRowContext(ctx, `SELECT version FROM review_drafts WHERE import_item_id=?`, itemID).Scan(&repeatedVersion); err != nil {
+	if err := database.QueryRowContext(ctx, `SELECT review_version FROM import_items WHERE id=?`, itemID).Scan(&repeatedVersion); err != nil {
 		t.Fatal(err)
 	}
 	if repeatedVersion != nextVersion {

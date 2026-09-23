@@ -139,7 +139,6 @@ type Server struct {
 	reviewCoverUploads      *libraryservice.ReviewCoverUploads
 	reviewDiscards          *libraryservice.ReviewDiscards
 	reviewApprovals         *libraryservice.ReviewApprovals
-	reviewBulkQueries       *libraryservice.ReviewBulkQueries
 	importAdmissions        *libraryservice.ImportAdmissions
 	metadataEvidence        *metadatascrape.EvidenceQueries
 	serverImports           *serverimport.Service
@@ -288,7 +287,6 @@ func New(
 	server.reviewCoverUploads = composition.NewLibraryReviewCoverUploads(database, blobs, now)
 	server.reviewDiscards = composition.NewLibraryReviewDiscards(database, now)
 	server.reviewApprovals = composition.NewLibraryReviewApprovals(database, now)
-	server.reviewBulkQueries = librarycomposition.NewReviewBulkQueries(database)
 	server.importAdmissions = composition.NewLibraryImportAdmissions(
 		database, importer, libraryservice.ImportAdmissionOptions{
 			Now: now, MultiDiscEnabled: config.MultiDiscImportEnabled, MetadataScraperAvailable: true,
@@ -457,13 +455,10 @@ func (server *Server) registerAdminImportRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/admin/jobs/{jobId}/cancel", server.cancelJob)
 	mux.HandleFunc("POST /api/v1/admin/jobs/{jobId}/retry", server.retryJob)
 	mux.HandleFunc("GET /api/v1/admin/reviews", server.reviews)
-	mux.HandleFunc("GET /api/v1/admin/review-bulk-approval-preview", server.reviewBulkPreview)
 	mux.HandleFunc("POST /api/v1/admin/reviews/deduplicate", server.deduplicateReviews)
 	mux.HandleFunc("POST /api/v1/admin/review-bulk-approvals", server.createReviewBulk)
+	mux.HandleFunc("GET /api/v1/admin/review-bulk-approvals/active", server.activeReviewBulk)
 	mux.HandleFunc("GET /api/v1/admin/review-bulk-approvals/{bulkApprovalId}", server.reviewBulk)
-	mux.HandleFunc("GET /api/v1/admin/review-bulk-approvals/{bulkApprovalId}/items", server.reviewBulkItems)
-	mux.HandleFunc("POST /api/v1/admin/review-bulk-approvals/{bulkApprovalId}/cancel", server.cancelReviewBulk)
-	mux.HandleFunc("POST /api/v1/admin/review-bulk-approvals/{bulkApprovalId}/retry", server.retryReviewBulk)
 	mux.HandleFunc("GET /api/v1/admin/reviews/{importItemId}", server.review)
 	mux.HandleFunc("PATCH /api/v1/admin/reviews/{importItemId}", server.patchReview)
 	mux.HandleFunc("POST /api/v1/admin/reviews/{importItemId}/scrape-candidates", server.scrapeReview)

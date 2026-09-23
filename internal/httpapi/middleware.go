@@ -193,10 +193,7 @@ var exactQueryAllowlists = map[string][]string{
 		"q", "tagId", "importJobId", "sourceImportId",
 		"platformInstanceId", "blockerCode", "sort", "cursor", "limit",
 	},
-	"GET /api/v1/admin/review-bulk-approval-preview": {
-		"q", "tagId", "importJobId", "sourceImportId",
-		"platformInstanceId", "blockerCode",
-	},
+	"GET /api/v1/admin/review-bulk-approvals/active": {},
 	"GET /api/v1/admin/games": {
 		"q",
 		"tagId",
@@ -218,14 +215,6 @@ var exactQueryAllowlists = map[string][]string{
 	"GET /api/v1/admin/source-imports":      {"state", "cursor", "limit"},
 	"GET /api/v1/admin/users":               {"q", "role", "status", "sort", "cursor", "limit"},
 	"GET /api/v1/admin/invitations":         {"state", "cursor", "limit"},
-}
-
-func reviewBulkQueryParameterNames(method, path string) []string {
-	if method == http.MethodGet && strings.HasPrefix(path, "/api/v1/admin/review-bulk-approvals/") &&
-		strings.HasSuffix(path, "/items") {
-		return []string{"outcome", "cursor", "limit"}
-	}
-	return nil
 }
 
 // The lexical query parser handles independent escaping and separator states.
@@ -260,9 +249,6 @@ func resourceQueryParameterNames(method, path string) []string {
 	if method == http.MethodGet && strings.HasPrefix(path, "/api/v1/admin/users/") &&
 		strings.HasSuffix(path, "/password-reset-links") {
 		return []string{"state", "cursor", "limit"}
-	}
-	if names := reviewBulkQueryParameterNames(method, path); names != nil {
-		return names
 	}
 	if method == http.MethodGet && strings.HasPrefix(path, "/api/v1/admin/server-import-roots/") &&
 		strings.HasSuffix(path, "/directories") {

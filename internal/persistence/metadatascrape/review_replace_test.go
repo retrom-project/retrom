@@ -31,7 +31,7 @@ func TestReplacingReviewScrapeClearsOldSelectionsAndPreservesEditedText(t *testi
  (SELECT count(*) FROM scrape_candidates),
  (SELECT count(*) FROM review_draft_screenshot_assets),
  selected_candidate_id IS NOT NULL OR cover_candidate_asset_id IS NOT NULL OR background_candidate_asset_id IS NOT NULL,
- metadata_json FROM review_drafts WHERE import_item_id='item'`).Scan(&runs, &candidates, &screenshots, &selected, &metadata)
+ metadata_json FROM import_items WHERE id='item'`).Scan(&runs, &candidates, &screenshots, &selected, &metadata)
 	if err != nil || runs != 1 || candidates != 0 || screenshots != 0 || selected || metadata != `{"title":"Edited title"}` {
 		t.Fatalf("replacement lost current draft: runs=%d candidates=%d screenshots=%d selected=%v metadata=%s err=%v",
 			runs, candidates, screenshots, selected, metadata, err)
@@ -57,11 +57,13 @@ func seedReviewScrapeSelection(t *testing.T, fixture *mediaFixture) {
  (id,import_job_id,group_key,state,source_manifest_json,source_manifest_digest,search_text,created_at_ms,updated_at_ms)
  VALUES('item','import',?,'REVIEW_PENDING','{}',?,'Edited title',1,1)`, digest, digest)
 	recoveryExec(t, fixture.database, `UPDATE metadata_scrape_runs SET game_id=NULL,import_item_id='item' WHERE id='run'`)
-	recoveryExec(t, fixture.database, `INSERT INTO review_drafts
- (id,import_item_id,target_platform_instance_id,selected_candidate_id,cover_candidate_asset_id,
- background_candidate_asset_id,metadata_json,created_at_ms,updated_at_ms)
- SELECT 'draft','item',g.platform_instance_id,a.scrape_candidate_id,a.id,a.id,'{"title":"Edited title"}',1,1
- FROM games g CROSS JOIN scrape_candidate_assets a WHERE g.id='game' LIMIT 1`)
+	recoveryExec(t, fixture.database, `UPDATE import_items SET
+ target_platform_instance_id=(SELECT platform_instance_id FROM games WHERE id='game'),
+ selected_candidate_id=(SELECT scrape_candidate_id FROM scrape_candidate_assets LIMIT 1),
+ cover_candidate_asset_id=(SELECT id FROM scrape_candidate_assets LIMIT 1),
+ background_candidate_asset_id=(SELECT id FROM scrape_candidate_assets LIMIT 1),
+ metadata_json='{"title":"Edited title"}',review_version=1,review_created_at_ms=1,review_updated_at_ms=1
+ WHERE id='item'`)
 	recoveryExec(t, fixture.database, `INSERT INTO review_draft_screenshot_assets(review_draft_id,ordinal,candidate_asset_id,created_at_ms)
- SELECT 'draft',0,id,1 FROM scrape_candidate_assets LIMIT 1`)
+ SELECT 'item',0,id,1 FROM scrape_candidate_assets LIMIT 1`)
 }

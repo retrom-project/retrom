@@ -14,7 +14,7 @@ import (
 )
 
 func TestImportCreationRejectsMissingReturnedIdentity(t *testing.T) {
-	for _, table := range []string{"upload_consumptions", "review_drafts"} {
+	for _, table := range []string{"upload_consumptions"} {
 		t.Run(table, func(t *testing.T) {
 			service, plan := preparedCommitFixture(t)
 			inserted := 0

@@ -35,7 +35,7 @@ func TestReviewDetailUsesOneSnapshotAcrossDraftAndTags(t *testing.T) {
 	var beforeTitle string
 	var beforeVersion int64
 	if err := server.database.QueryRowContext(t.Context(), `
-SELECT json_extract(metadata_json,'$.title'),version FROM review_drafts WHERE import_item_id=?`, itemID).
+SELECT json_extract(metadata_json,'$.title'),version FROM import_items WHERE id=?`, itemID).
 		Scan(&beforeTitle, &beforeVersion); err != nil {
 		t.Fatal(err)
 	}

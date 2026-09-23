@@ -2,7 +2,7 @@ package libraryimport
 
 const reviewQueueSelect = `
 SELECT i.id,
-d.version,
+d.review_version,
 i.import_job_id,
 json_extract(d.metadata_json,
 '$.title'),
@@ -16,7 +16,7 @@ pi.id,
 pi.name,
 v.status,
 v.compatibility_code,
-d.updated_at_ms,
+d.review_updated_at_ms,
 (SELECT count(*)
 FROM scrape_candidates c
 JOIN metadata_scrape_runs r ON r.id=c.scrape_run_id
@@ -54,7 +54,7 @@ EXISTS(
  AND source_asset.state='COPIED' AND source_asset.blob_id IS NOT NULL
 )
 FROM import_items i
-JOIN review_drafts d ON d.import_item_id=i.id
+JOIN import_items d ON d.id=i.id
 JOIN platform_instances pi ON pi.id=d.target_platform_instance_id
 	LEFT JOIN source_import_items source ON source.library_import_item_id=i.id
 	LEFT JOIN source_import_collections source_collection ON source_collection.id=source.collection_id

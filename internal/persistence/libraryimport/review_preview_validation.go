@@ -68,7 +68,7 @@ func (records ReviewPreviewValidations) Draft(
 	var result ReviewPreviewValidationDraft
 	err := records.executor.QueryRowContext(ctx, `
 SELECT draft.target_platform_instance_id,COALESCE(draft.selected_validation_id,''),draft.default_dos_entry
-FROM review_drafts draft JOIN import_items item ON item.id=draft.import_item_id
+FROM import_items draft JOIN import_items item ON item.id=draft.id
 WHERE item.id=? AND item.state='REVIEW_PENDING'
 `, itemID).Scan(&result.TargetID, &result.Selected, &result.DOSEntry)
 	if err != nil {
@@ -80,9 +80,9 @@ WHERE item.id=? AND item.state='REVIEW_PENDING'
 func (records ReviewPreviewValidations) Select(
 	ctx context.Context, itemID, validationID string, now int64,
 ) error {
-	_, err := recordstore.UpdateReviewDrafts(ctx, records.executor, recordstore.Update{
-		Set:    `selected_validation_id=NULLIF(?,''),version=version+1,updated_at_ms=?`,
-		Scope:  recordstore.Scope{Where: `import_item_id=?`, Args: []any{itemID}},
+	_, err := recordstore.UpdateReviewItems(ctx, records.executor, recordstore.Update{
+		Set:    `selected_validation_id=NULLIF(?,''),review_version=review_version+1,review_updated_at_ms=?`,
+		Scope:  recordstore.Scope{Where: `id=?`, Args: []any{itemID}},
 		Values: []any{validationID, now},
 	})
 	if err != nil {

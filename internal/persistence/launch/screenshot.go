@@ -45,7 +45,7 @@ func (records screenshotRecords) Current(ctx context.Context, id string) (applic
 FROM review_preview_sessions preview
 JOIN import_items item ON item.id=preview.import_item_id
  AND item.state='REVIEW_PENDING' AND item.payload_state='RETAINED'
-JOIN review_drafts draft ON draft.import_item_id=item.id
+JOIN import_items draft ON draft.id=item.id
  AND draft.effective_source_snapshot_id=preview.source_snapshot_id
  AND draft.target_platform_instance_id=preview.target_platform_instance_id
 JOIN platform_instances instance ON instance.id=preview.target_platform_instance_id

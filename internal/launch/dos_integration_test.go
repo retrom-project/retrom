@@ -119,9 +119,9 @@ SELECT (SELECT count(*)
 FROM import_item_core_validations
 WHERE import_item_id=?),
 v.default_dos_entry
-FROM review_drafts d
+FROM import_items d
 JOIN import_item_core_validations v ON v.id=d.selected_validation_id
-WHERE d.import_item_id=?
+WHERE d.id=?
 `, itemID, itemID).Scan(&validationCount, &selectedDefault); err != nil ||
 		validationCount != 2 ||
 		selectedDefault.Valid {

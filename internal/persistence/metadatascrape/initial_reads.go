@@ -67,7 +67,7 @@ func (records initialRecords) Draft(ctx context.Context, id string) (metadatascr
 	var draft metadatascrape.InitialDraft
 	err := records.transaction.QueryRowContext(
 		ctx,
-		`SELECT id,metadata_json FROM review_drafts WHERE import_item_id=?`,
+		`SELECT id,metadata_json FROM import_items WHERE id=?`,
 		id,
 	).Scan(
 		&draft.ID,

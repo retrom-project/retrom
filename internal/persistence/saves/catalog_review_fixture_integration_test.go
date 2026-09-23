@@ -23,6 +23,7 @@ func (fixture *saveFixture) createPendingRPGReview(t *testing.T) {
 		"import": uuid.NewString(), "item": uuid.NewString(), "snapshot": uuid.NewString(),
 		"review": uuid.NewString(),
 	}
+	ids["review"] = ids["item"]
 	mustSaveSQL(t, fixture.database.SQL, `
 INSERT INTO users(id,profile_id,username,display_name,role,status,created_at_ms,updated_at_ms)
 VALUES(?,'local',?,'Save Admin','ADMIN','ENABLED',?,?)`, userID, "save-admin-"+userID[:8], now, now)
@@ -57,10 +58,9 @@ INSERT INTO import_item_source_snapshots(
 VALUES(?,?,'RPG_MAKER_PROJECT',?,?,'IDENTIFICATION',?)`, ids["snapshot"], ids["item"], manifest,
 		strings.Repeat("4", 64), now)
 	mustSaveSQL(t, fixture.database.SQL, `
-INSERT INTO review_drafts(
- id,import_item_id,target_platform_instance_id,metadata_json,version,
- created_at_ms,updated_at_ms,effective_source_snapshot_id)
-VALUES(?,?,?,'{}',1,?,?,?)`, ids["review"], ids["item"], ids["directory"], now, now, ids["snapshot"])
+UPDATE import_items SET target_platform_instance_id=?,metadata_json='{}',review_version=1,
+ review_created_at_ms=?,review_updated_at_ms=?,effective_source_snapshot_id=? WHERE id=?`,
+		ids["directory"], now, now, ids["snapshot"], ids["item"])
 	mustSaveSQL(t, fixture.database.SQL, `
 INSERT INTO rpgmaker_review_profiles(
  review_draft_id,generation,evidence_family,evidence_generation,evidence_confidence,

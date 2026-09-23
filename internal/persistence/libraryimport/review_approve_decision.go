@@ -19,8 +19,8 @@ func (records reviewApprovalRecords) PublishItem(ctx context.Context, change app
 		Set: `state='PUBLISHED',version=version+1,updated_at_ms=?,completed_at_ms=?`,
 		Scope: recordstore.Scope{
 			Where: `id=? AND state='REVIEW_PENDING'
-AND EXISTS(SELECT 1 FROM review_drafts d WHERE d.import_item_id=import_items.id
- AND d.version=? AND d.effective_source_snapshot_id=? AND d.target_platform_instance_id=?)`,
+AND EXISTS(SELECT 1 FROM import_items d WHERE d.id=import_items.id
+ AND d.review_version=? AND d.effective_source_snapshot_id=? AND d.target_platform_instance_id=?)`,
 			Args: []any{
 				change.ItemID, change.ExpectedDraftVersion, change.SnapshotID,
 				change.PlatformInstanceID,

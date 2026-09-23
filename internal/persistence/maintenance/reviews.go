@@ -72,7 +72,7 @@ func scanRestoredReview(scanner dbexec.Scanner) (application.RestoredReview, err
 		&value.ExecutionNo, &value.LibraryJobID, &value.LibraryItemID, &value.ReservedJobID,
 		&value.ReservedItemID, &value.UploadID, &value.OwnerUpload, &value.OwnerKind, &value.OwnerItemID,
 		&value.OrdinaryItemCount,
-		&value.OrdinaryVersion, &value.MetadataJSON, &value.WarningsJSON, &value.RootID,
+		&value.OrdinaryVersion, &value.OrdinaryReviewVersion, &value.MetadataJSON, &value.WarningsJSON, &value.RootID,
 		&value.RootDigest, &value.RelativePath, &value.CreatorID, &value.ReleaseYearMax, &value.Retryable)
 	if err != nil {
 		return application.RestoredReview{}, fmt.Errorf("read restored review handoff: %w", err)
@@ -98,7 +98,7 @@ source.version,plan.version,job.version,job.execution_no,
 COALESCE(source.library_import_job_id,''),COALESCE(source.library_import_item_id,''),
 ordinary.id,item.id,ordinary.upload_session_id,` + owner + `,
 COALESCE(owner.kind,''),COALESCE(owner.source_item_id,''),
-(SELECT count(*) FROM import_items sibling WHERE sibling.import_job_id=ordinary.id),item.version,
+(SELECT count(*) FROM import_items sibling WHERE sibling.import_job_id=ordinary.id),item.version,item.review_version,
 source.metadata_json,source.warnings_json,plan.root_id,plan.root_config_digest,plan.source_relative_path,
 plan.created_by_user_id,` + year + `,source.retryable
 FROM ` + prefix + `_import_items source JOIN ` + prefix + `_imports plan ON plan.id=source.import_id

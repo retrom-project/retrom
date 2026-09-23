@@ -15,7 +15,7 @@ import (
 func newProductPlayFixture(t *testing.T, activate bool) (reviewCheckpointFixture, Created) {
 	t.Helper()
 	fixture := newReviewCheckpointFixture(t)
-	mustRPGLaunchSQL(t, fixture.database, `UPDATE review_drafts SET metadata_json='{"title":"Play lifecycle"}' WHERE import_item_id=?`, fixture.itemID)
+	mustRPGLaunchSQL(t, fixture.database, `UPDATE import_items SET metadata_json='{"title":"Play lifecycle"}' WHERE id=?`, fixture.itemID)
 	importer := libraryimport.New(fixture.database, fixture.launcher.now)
 	published, err := importer.Approve(t.Context(), fixture.itemID, 2)
 	if err != nil {

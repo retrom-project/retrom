@@ -40,6 +40,25 @@ func (repository *ReviewApprovals) WithApproval(
 	return nil
 }
 
+// WithBulkApprovalStep keeps queue progress and ordinary publication in one transaction.
+func (repository *ReviewApprovals) WithBulkApprovalStep(
+	ctx context.Context,
+	work func(dbexec.Executor, application.ReviewApprovalScope) error,
+) error {
+	transaction, err := repository.database.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin bulk approval step: %w", err)
+	}
+	defer dbexec.Rollback(transaction)
+	if err := work(transaction, BindReviewApproval(transaction)); err != nil {
+		return err
+	}
+	if err := transaction.Commit(); err != nil {
+		return fmt.Errorf("commit bulk approval step: %w", err)
+	}
+	return nil
+}
+
 func BindReviewApproval(transaction *sql.Tx) application.ReviewApprovalScope {
 	records := reviewApprovalRecords{transaction: transaction}
 	return application.ReviewApprovalScope{
