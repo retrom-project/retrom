@@ -1,0 +1,64 @@
+# Retrom 生产部署示例，使用以下命令启动：
+#   docker compose -f docker/docker-compose.yml.example up -d
+# 启动前替换示例域名、代理 CIDR、镜像 tag 和宿主数据路径。
+# 两个镜像须来自同一发行版本，release-input label 应一致。
+# /srv/retrom/data 须是本地持久目录，并允许 UID/GID 1000:1000 写入。
+# 此例假设 HTTPS 反向代理运行在同一宿主机：页面转发至 127.0.0.1:3000；
+# /api/v1/*、/content/*、/runtime/* 直接转发至 127.0.0.1:8080；
+# /health/* 只供内部健康检查使用。为运行时子域配置通配 DNS/证书，
+# 只将其 /__retrom/* 转发至 127.0.0.1:8080，代理须保留 Host。
+# 若代理也在容器中，请将其加入此 Compose 网络，改用服务名连接，
+# 并重新设置 RETROM_TRUSTED_PROXIES。
+
+services:
+  retrom:
+    image: retrom:latest
+    user: "1000:1000"
+    restart: unless-stopped
+    environment:
+      RETROM_PUBLIC_ORIGIN: "https://games.example.com"
+      RETROM_RPG_RUNTIME_ORIGIN_TEMPLATE: "https://{launchId}.rpg-runtime.games.example.com"
+      # 按后端容器看到的代理来源 IP/CIDR 替换；宿主代理通常表现为 Docker 网桥网关。
+      RETROM_TRUSTED_PROXIES: "172.18.0.1/32"
+
+      # 可选的服务配置及示例值：
+      # RETROM_MULTI_DISC_IMPORT_ENABLED: "true" # 启用新建多盘导入；默认 false。
+      # RETROM_STARTUP_CHECK_TIMEOUT: "120s"    # 启动预检时限；默认 60s，允许 10s..5m。
+      # RETROM_LOG_LEVEL: "warn"                # 日志级别；默认 info，可选 debug/info/warn/error。
+      # RETROM_DB_PATH: "/var/lib/retrom/retrom.db" # 数据目录内的 SQLite 文件；此值为默认路径。
+
+      # 下列值已内置在镜像，通常不用覆盖。版本和路径必须匹配镜像内已验证的依赖字节。
+      # RETROM_HTTP_ADDR: "0.0.0.0:8080" # 内部监听；修改时同步修改端口映射。
+      # RETROM_DATA_DIR: "/var/lib/retrom" # 持久数据根；修改时同步修改 volume 挂载。
+      # RETROM_DEPENDENCY_ROOT: "/opt/retrom/dependencies" # 只读依赖层。
+      # RETROM_PROVIDER_ACTIVE_PATH: "/opt/retrom/providers/active.json" # 已验证的活动 Provider 身份。
+      # RETROM_PROVIDER_INSTALLED_ROOT: "/opt/retrom/providers/installed" # 已验证的 Provider 包。
+      # RETROM_DEPENDENCY_VERSIONS: "4.2.3,4.3.0-pre" # 必须匹配镜像打包的依赖版本。
+      # RETROM_ACTIVE_EMULATORJS_VERSION: "4.2.3" # 必须属于上面的已打包版本。
+    volumes:
+      - /srv/retrom/data:/var/lib/retrom
+      # 可选：只读挂载已授权的 BIOS/ROM 来源，供服务器目录导入使用。
+      # 管理员会在页面中选择容器文件系统内的路径。
+      # - /srv/roms:/server-data/roms:ro
+    ports:
+      - "127.0.0.1:8080:8080"
+
+  retrom-web:
+    image: retrom-web:latest
+    user: "1000:1000"
+    restart: unless-stopped
+    environment:
+      NEXT_BACKEND_ORIGIN: "http://retrom:8080"
+      # 必须与后端的运行时 origin 模板完全一致。
+      RETROM_RPG_RUNTIME_ORIGIN_TEMPLATE: "https://{launchId}.rpg-runtime.games.example.com"
+
+      # 可选的镜像默认值及示例：
+      # HOSTNAME: "0.0.0.0" # 内部监听地址，默认 0.0.0.0。
+      # PORT: "3000"        # 内部 HTTP 端口；修改时同步修改端口映射。
+    ports:
+      - "127.0.0.1:3000:3000"
+
+# 镜像入口默认使用 release 模式。生产不要设置 RETROM_MODE、RETROM_PFB_ID、
+# RETROM_PROVIDER_DEV_ROOT 或允许不安全公开 origin 的开关。
+# Web 镜像中的 Next.js rewrite 在构建时固定；反向代理必须把 API/内容/
+# 运行时请求直接交给 retrom，不能全部转发给 retrom-web。

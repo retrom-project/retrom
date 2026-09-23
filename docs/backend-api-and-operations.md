@@ -334,6 +334,8 @@ PFB 命令闭集为 `pfb-init/validate/build/up/use/restart/down/status/logs/ver
 
 NG 还必须为 `https://{launchId}.rpg-runtime.<configured-site-domain>` 配置 wildcard DNS/证书与精确 Host 转发，且只把该 Host 的 `/__retrom/*` 送到 `retrom:8080`；不匹配规范 UUID 最左 label、额外 label、Host/Forwarded Host 不一致或其他路径必须在 NG 或 Go 稳定拒绝，不得 fallback 到 Next.js/app API。Player 页面 CSP 的 `frame-src` 只加入本次 Launch 精确 origin，不使用 wildcard 或回显请求 Origin。该子域名不是普通部署别名，而是第 5.1 节定义的浏览器安全边界；缺少它时不得启用 MV/MZ native route。
 
+仓库的 [`docker/docker-compose.yml.example`](../docker/docker-compose.yml.example) 只示范两个应用容器、必需配置和持久数据挂载；外部 NG、DNS 与 TLS 仍由部署者提供。示例将两个应用端口仅发布到宿主回环地址，由同宿主 NG 按上表分流；容器化 NG 应改为加入同一容器网络。发布镜像中的 Next.js rewrite 在构建时固定为默认本机后端地址，运行时设置 `NEXT_BACKEND_ORIGIN` 只供前端服务端请求使用，不能替代 NG 对 API、内容和运行时路径的直接分流。
+
 前端只使用相对 URL，不把内部容器名、端口或环境域名编译进浏览器 bundle。若 Next.js server-side 代码确需访问后端，使用运行时内部 base URL，与浏览器公开 base URL 分离。
 
 TLS 终结外置不等于忽略代理安全：
