@@ -270,6 +270,16 @@ EmulatorJS `forks` 固定已发布的 `retrom-core-g8f671cc9d737-r1`、commit、
 日常生命周期不重建核心或 Provider。正式更新按 core → runtime → Retrom 顺序发布，
 Retrom 固定正式 runtime tag 后重跑 ACC-VECTREX-001。
 
+### Odyssey² / O2EM
+
+O2EM 源码和构建归 `retrom-project/libretro-o2em`，维护基线为
+`retrom/g679d6fec0496`，上游 `libretro/libretro-o2em@679d6fec04963f6e70a7ec217e3d0ebb1fe472fc`。
+`master` 保留上游镜像，Emscripten 镜像与 EmulatorJS RetroArch linker 在 fork 中固定。
+`pfb-core-build CORE=o2em` 生成核心、许可、完整源归档和逐文件候选描述符；
+runtime 的 `developmentForks` 仅登记此未发布候选，正式 Provider 构建拒绝未发布输入。
+完整 Provider 候选经 PFB 导入并通过 `ACC-O2EM-001` 后，按 core → runtime → Retrom 顺序发布并固定正式 tag。
+BIOS 与游戏由管理员或操作者提供，不进入 Git、核心归档或 Provider 包。
+
 ### NeoCD 核心
 
 Retrom workspace catalog 新增 `neocd`，维护仓库为
