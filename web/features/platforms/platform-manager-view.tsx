@@ -7,6 +7,7 @@ import { Toast, type ToastMessage } from "@/components/flash-toast";
 import { EmptyState, PageHeader } from "@/components/ui";
 import type { EditTarget, PendingAction } from "./platform-manager";
 import type { Platform, PlatformDirectoryFilters, PlatformInstance, PlatformRecommendations } from "./platform-directory-list";
+import { categoryLabelForPlatform } from "./platform-category";
 
 export type PlatformManagerViewProps = {
   busy: string | null;
@@ -97,6 +98,7 @@ function DirectoryRow({ index, instance, props }: { index: number; instance: Pla
   };
   return <div className={className} role="row" onDragOver={(event) => { if (props.reorderEnabled) {event.preventDefault();} }} onDrop={(event) => props.onDrop(event, instance.id)}>
     <div className="platform-directory-order" role="cell"><button className="platform-directory-handle" type="button" draggable={props.reorderEnabled && props.busy === null} disabled={!props.reorderEnabled || props.busy !== null} aria-label={`拖动“${instance.name}”调整顺序`} title={props.reorderEnabled ? "拖动排序；也可使用上下方向键" : "清除筛选并选择展示顺序后可排序"} onDragStart={(event) => props.onStartDrag(event, instance.id)} onDragEnd={props.onDragEnd} onKeyDown={keyDown}><AppIcon name="grip" /></button><span>{String(globalIndex + 1).padStart(2, "0")}</span></div>
+    <div className="platform-directory-category" role="cell"><span>{categoryLabelForPlatform(instance.platformId)}</span></div>
     <div className="platform-directory-copy" role="cell"><InlineField busy={props.busy} editing={props.editing} field="name" instance={instance} onEdit={props.onEdit} onSubmit={props.onSubmitInline} /><InlineField busy={props.busy} editing={props.editing} field="description" instance={instance} onEdit={props.onEdit} onSubmit={props.onSubmitInline} /></div>
     <div className="platform-directory-platform" role="cell"><strong>{instance.platformName}</strong><small>平台实例</small></div>
     <div className="platform-directory-extensions" role="cell" tabIndex={0} aria-label={`${instance.platformName} 支持的扩展名`}>{instance.supportedExtensions.map((extension) => <code key={extension}>{extension}</code>)}</div>
@@ -113,7 +115,7 @@ function DirectoryTable(props: PlatformManagerViewProps) {
     const actions = !hasRows ? <div className="platform-directory-empty-actions">{props.recommendationState && props.recommendationState.summary.missingCount > 0 ? <button className="button" type="button" disabled={props.busy !== null} onClick={props.onApplyRecommendations}>一键创建推荐目录 {props.recommendationState.summary.missingCount}</button> : null}<button className="button secondary" type="button" disabled={props.busy !== null} onClick={() => props.onDrawer(true)}>新建游戏目录</button></div> : undefined;
     return <EmptyState title={hasRows ? "没有匹配的游戏目录" : "还没有游戏目录"} description={hasRows ? "请调整搜索或筛选条件。" : "可以一次创建 Retrom 推荐目录，也可以只建立自己的主题目录。"} action={actions} />;
   }
-  return <section className="platform-directory-table-scroll" aria-label="游戏目录表格，可横向滚动" tabIndex={0}><div className="platform-directory-table" role="table" aria-label="游戏目录"><div role="rowgroup"><div className="platform-directory-table-head" role="row"><span role="columnheader">顺序</span><span role="columnheader">游戏目录</span><span role="columnheader">游戏平台</span><span role="columnheader">扩展名</span><span role="columnheader">游戏数</span><span className="platform-directory-core-head" role="columnheader">推荐运行方式 <span className="platform-directory-info" tabIndex={0}>i<span role="tooltip">更改推荐运行方式时，系统会先检查此目录中现有游戏的兼容性，并在应用前展示影响结果。</span></span></span><span role="columnheader">启用状态</span><span role="columnheader">操作</span></div></div><div role="rowgroup">{props.visibleRows.map((instance, index) => <DirectoryRow index={index} instance={instance} props={props} key={instance.id} />)}</div></div></section>;
+  return <section className="platform-directory-table-scroll" aria-label="游戏目录表格，可横向滚动" tabIndex={0}><div className="platform-directory-table" role="table" aria-label="游戏目录"><div role="rowgroup"><div className="platform-directory-table-head" role="row"><span role="columnheader">顺序</span><span role="columnheader">平台类型</span><span role="columnheader">游戏目录</span><span role="columnheader">游戏平台</span><span role="columnheader">扩展名</span><span role="columnheader">游戏数</span><span className="platform-directory-core-head" role="columnheader">推荐运行方式 <span className="platform-directory-info" tabIndex={0}>i<span role="tooltip">更改推荐运行方式时，系统会先检查此目录中现有游戏的兼容性，并在应用前展示影响结果。</span></span></span><span role="columnheader">启用状态</span><span role="columnheader">操作</span></div></div><div role="rowgroup">{props.visibleRows.map((instance, index) => <DirectoryRow index={index} instance={instance} props={props} key={instance.id} />)}</div></div></section>;
 }
 
 function CreateDrawer(props: PlatformManagerViewProps) {

@@ -15,8 +15,8 @@
 .platform-directory-search input { padding-left: 0; border: 0; background: transparent; }
 .platform-directory-table-scroll { max-width: 100%; overflow-x: auto; overflow-y: hidden; border: 1px solid var(--line); border-radius: var(--radius-panel); background: white; outline: 0; }
 .platform-directory-table-scroll:focus-visible { box-shadow: 0 0 0 3px rgb(98 80 210 / 14%); }
-.platform-directory-table { min-width: 1370px; }
-.platform-directory-table-head, .platform-directory-row { display: grid; grid-template-columns: 70px minmax(230px, 1.1fr) minmax(160px, .75fr) minmax(140px, .55fr) 90px minmax(210px, .9fr) 115px 60px; gap: 12px; align-items: center; }
+.platform-directory-table { min-width: 1500px; }
+.platform-directory-table-head, .platform-directory-row { display: grid; grid-template-columns: 70px minmax(130px, .5fr) minmax(230px, 1.1fr) minmax(160px, .75fr) minmax(140px, .55fr) 90px minmax(210px, .9fr) 115px 60px; gap: 12px; align-items: center; }
 .platform-directory-table-head { min-height: 42px; padding: 0 18px; color: #788294; border-bottom: 1px solid var(--line); border-radius: var(--radius-panel) var(--radius-panel) 0 0; background: #f8f9fb; font-size: 11px; font-weight: 800; }
 .platform-directory-table-head > span:last-child { text-align: right; }
 .platform-directory-core-head { display: inline-flex; align-items: center; gap: 5px; }
@@ -35,6 +35,8 @@
 .platform-directory-handle:active { cursor: grabbing; }
 .platform-directory-handle:disabled { color: #a5acb8; cursor: not-allowed; background: #f1f2f4; }
 .platform-directory-handle svg { width: 17px; height: 17px; }
+.platform-directory-category { min-width: 0; }
+.platform-directory-category span { display: inline-block; max-width: 100%; padding: 5px 8px; color: var(--purple-dark); border: 1px solid #e1dafc; border-radius: var(--radius-control); background: #f7f5ff; font-size: 11px; font-weight: 800; line-height: 1.35; }
 .platform-directory-copy { min-width: 0; }
 .platform-directory-copy h3 { margin: 0 0 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; }
 .platform-directory-copy p { margin: 0; overflow: hidden; color: var(--muted); text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
