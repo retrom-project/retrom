@@ -41,7 +41,8 @@
         "nxengine",
         "ppsspp",
         "uzem",
-        "gam4980"
+        "gam4980",
+        "o2em"
       ]
     },
     {
@@ -365,6 +366,15 @@
       "role": "core",
       "gitlink": "git@github.com:retrom-project/libretro-uzem.git",
       "defaultBranch": "retrom/gd991ee94547c",
+      "submodules": false,
+      "dependsOn": []
+    },
+    {
+      "id": "o2em",
+      "path": "project/retrom-core/libretro-o2em",
+      "role": "core",
+      "gitlink": "git@github.com:retrom-project/libretro-o2em.git",
+      "defaultBranch": "retrom/g679d6fec0496",
       "submodules": false,
       "dependsOn": []
     },
