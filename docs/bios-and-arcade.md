@@ -99,6 +99,7 @@ EmulatorJS 4.2.3 manifest 另声明下列 14 个静态 Requirement；精确 size
 | `freeintv` | `exec.bin`、`grom.bin` | `REQUIRED` | `BIOS_BUNDLE` |
 | `gearcoleco` | `colecovision.rom` | `REQUIRED` | `BIOS_BUNDLE` |
 | `prboom` | `prboom.wad` | `REQUIRED` | `BIOS_BUNDLE` |
+| `o2em` | `o2rom.bin` | `REQUIRED`，1024 bytes，MD5 `562d5ebf9e030a40d6fabfc2f33139fd` | `BIOS_BUNDLE` |
 
 MelonDS 三项必须全部存在才能得到 READY。它们不进入根 BIOS bundle：Variant dependency snapshot 锁定 installation/version/blob/delivery/path，Launch 创建事务复制到 `launch_external_files`，配置只生成三个受 capability 保护的同源 URL。同一 Requirement 切换 active installation 只影响后续启动；已有 Launch/Play 保留冻结的旧文件，存档保留。新 Launch（包括存档恢复）发现 BIOS 已变化时先按当前安装重验；替换与创建并发时，创建事务必须拒绝混合快照和文件。旧安装与过时 Variant BIOS 文件引用由后台分批释放，Launch 文件引用直到会话结束或过期后才释放，最后由常规 GC 回收无引用文件。外部文件不得在仍运行的 Launch 内静默漂移。
 

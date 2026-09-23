@@ -32,6 +32,11 @@ type staticBIOS struct {
 
 var staticBIOSCatalog = append(pc88BIOSCatalog(), []staticBIOS{
 	{
+		coreID: "o2em", logical: "o2rom.bin", mode: "REQUIRED", size: 1024,
+		md5: "562d5ebf9e030a40d6fabfc2f33139fd", sha256: "cb0c5d9ed64f7c1d8870333451832638885b9aa3d7013f0c05fd2a20a5e5bfef",
+		sourceURL: "https://docs.libretro.com/library/o2em/",
+	},
+	{
 		coreID: "gam4980", logical: "8.BIN", mode: "REQUIRED", size: 2097152,
 		md5: "ea26b08e67511a34460c103b8b669154", sha256: "7663735609c416025b2738c80cedaf11528ff8cb5a7c74c7c31c1f46e43e9caf",
 		sourceURL: "https://github.com/ThisBoringWorld/gam4980/tree/eeaa531b55e7127ab4b5e0bdc5ceba686df59c6a",
