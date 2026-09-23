@@ -214,7 +214,7 @@ ATmega1284、网络或多盘。核心 v1 即时状态包含 AVR 寄存器、SRAM
 默认采用 Odyssey² NTSC BIOS；其他地区机型、The Voice、专用键盘游戏及特殊外设需各自验证，当前浏览器构建不支持 The Voice。
 标准手柄对两位玩家分别映射方向与单一动作按钮；原生键盘输入保留。
 即时存档使用公共 `emulatorjs-state-v1-storage-v1`，必须在不同 Launch 恢复后继续接受输入。
-开发候选按 `ACC-O2EM-001` 执行，单个样本通过不代表全库兼容。
+正式版本按 `ACC-O2EM-001` 执行，单个样本通过不代表全库兼容。
 
 
 ## 独立 PSP / PPSSPP
