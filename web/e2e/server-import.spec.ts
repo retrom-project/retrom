@@ -166,6 +166,11 @@ test("ACC-PEG-005 three-step Source import recovers and remains bounded at deskt
   const mapping = drawer.getByRole("button", { name: "NES 处理方式" });
   await expect(mapping).toBeVisible({ timeout: 30_000 });
   await expect(mapping).toContainText("请选择，不会自动映射");
+  const triggerBounds = await mapping.boundingBox();
+  const chevronBounds = await mapping.locator(".import-directory-chevron").boundingBox();
+  expect(triggerBounds).not.toBeNull();
+  expect(chevronBounds).not.toBeNull();
+  expect(chevronBounds!.y + chevronBounds!.height / 2).toBeCloseTo(triggerBounds!.y + triggerBounds!.height / 2, 0);
   await expect(drawer.getByRole("button", { name: "确认映射" })).toBeDisabled();
   const batchTags = drawer.getByRole("combobox", { name: "批次标签" });
   await batchTags.fill(batchTagName);

@@ -207,7 +207,7 @@ export function DirectorySelector({ collectionName, directories, disabled = fals
       aria-controls={panelId}
       disabled={disabled}
       onClick={toggle}
-    >{selectedLabel}<span aria-hidden="true">⌄</span></button>
+    >{selectedLabel}<svg className="import-directory-chevron" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg></button>
     {!isCollectionMapping ? <small>{reconfiguring ? "可以保留原目录，也可以选择正确的平台目录后重新识别。" : "必须主动选择，避免将游戏导入到错误目录。"}</small> : null}
     {open ? <div className={`import-directory-panel${above ? " is-above" : ""}`} id={panelId} role="region" aria-label="可选游戏目录" style={isCollectionMapping ? floatingStyle(floatingPosition) : undefined}>
       <input

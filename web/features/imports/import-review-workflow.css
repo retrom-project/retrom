@@ -62,7 +62,6 @@
 .import-directory-field { position: relative; min-width: 0; }
 .import-directory-trigger { width: 100%; min-width: 0; min-height: 44px; padding: 10px 12px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border: 1px solid var(--line); border-radius: var(--radius-control); color: var(--muted); background: white; cursor: pointer; text-align: left; }
 .import-directory-trigger.has-selection { color: var(--ink); }
-.import-directory-trigger > span { color: var(--purple-dark); font-size: 18px; }
 .import-directory-trigger:focus-visible, .import-directory-panel button:focus-visible, .import-directory-panel input:focus-visible { outline: 3px solid rgb(96 69 217 / 35%); outline-offset: 2px; }
 .import-directory-panel { position: absolute; z-index: 30; top: calc(100% + 6px); left: 0; width: min(540px, calc(100vw - 44px)); max-height: min(430px, 60vh); padding: 10px; display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 8px; border: 1px solid #d8d1f6; border-radius: var(--radius-panel); background: white; box-shadow: 0 18px 42px rgb(24 32 51 / 18%); }
 .import-directory-panel.is-above { top: auto; bottom: calc(100% + 6px); }
