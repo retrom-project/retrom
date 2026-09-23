@@ -109,12 +109,10 @@ SELECT id,version FROM games WHERE id=?
 	var replacementContent, generation string
 	var replacementVersion int64
 	if err := database.SQL.QueryRowContext(ctx, `
-SELECT game.id,game.version,content.evidence_generation
+SELECT game.id,game.version,json_extract(game.content_profile_json,'$.data.evidenceGeneration')
 FROM games game
-JOIN rpgmaker_game_profiles content ON content.game_id=game.id
 JOIN game_variants variant ON variant.game_id=game.id
-JOIN rpgmaker_variant_profiles profile ON profile.game_variant_id=variant.id
-WHERE game.id=? AND variant.core_id='rpgmaker'
+WHERE game.id=? AND variant.core_id='rpgmaker' AND variant.runtime_profile_json IS NOT NULL
 `, published.GameID).Scan(
 		&replacementContent, &replacementVersion, &generation,
 	); err != nil {

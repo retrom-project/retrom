@@ -43,7 +43,6 @@ func (records catalogRecords) TargetReferenced(ctx context.Context, target servi
 		{"server_bios_import_items", "provider_id", "target_id"},
 		{"import_jobs", "provider_id", "target_id"},
 		{"import_item_core_validations", "provider_id", "target_id"},
-		{"rpgmaker_review_profiles", "provider_id", "target_id"},
 		{"review_preview_sessions", "provider_id", "target_id"},
 		{"review_runtime_screenshots", "provider_id", "target_id"},
 		{"game_variants", "provider_id", "target_id"},
@@ -60,6 +59,17 @@ func (records catalogRecords) TargetReferenced(ctx context.Context, target servi
 		if exists {
 			return true, nil
 		}
+	}
+	var reviewProfileReferenced bool
+	if err := transaction.QueryRowContext(ctx, `
+SELECT EXISTS(SELECT 1 FROM import_items
+ WHERE json_extract(review_profile_json,'$.data.providerId')=?
+ AND json_extract(review_profile_json,'$.data.targetId')=? LIMIT 1)`, providerID, targetID,
+	).Scan(&reviewProfileReferenced); err != nil {
+		return false, fmt.Errorf("reconcile runtime providers: inspect review profiles: %w", err)
+	}
+	if reviewProfileReferenced {
+		return true, nil
 	}
 	return false, nil
 }

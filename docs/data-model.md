@@ -42,7 +42,7 @@ RuntimeProvider
 
 `games` 是用户可见游戏及其当前 metadata/content 根：它直接保存 PlatformInstance、标题字段、metadata 来源、content kind/来源、规范 manifest、状态、payload 生命周期、搜索文本和 `version`。
 
-`game_assets` 与 `game_files` 直接归属 Game。`game_variants` 每个 `(game_id,core_id)` 一行，保存当前 Provider/Target、DAT、emulator game ID、兼容状态、依赖快照、DOS 入口和版本。`rpgmaker_game_profiles`、`rpgmaker_variant_profiles`、`variant_dependencies`、`variant_files` 都引用稳定 Game 或 Variant ID。
+`game_assets` 与 `game_files` 直接归属 Game。`game_variants` 每个 `(game_id,core_id)` 一行，保存当前 Provider/Target、DAT、emulator game ID、兼容状态、依赖快照、DOS 入口、版本和可选的 `runtime_profile_json`。`games.content_profile_json` 保存内容类型专属的一对一扩展；`variant_dependencies` 与 `variant_files` 仍按稳定 Variant ID 独立存储多行关系。
 
 metadata 编辑和媒体替换原位推进 Game；内容替换在后台准备完成后执行一次事务切换，删除旧文件、派生物、运行资源和存档，再写入新当前态。永久删除保留 Game tombstone 与审计，异步释放 payload。
 
@@ -70,7 +70,9 @@ Upload 的业务用途只区分 `GENERAL/PROJECT`，并独立记录文件/目录
 
 发布事务将审核 metadata、媒体、内容文件与默认 Variant 一次写入 Game current state。重新刮削以稳定 `game_id` 为 owner 创建候选；显式应用候选才更新当前 metadata/assets，不能因为旧内容版本表已经删除而丢失 Game 关联。
 
-RPG Maker profile 保存实际检测得到的项目 fingerprint、generation、Provider/Target 和依赖摘要，不保存运行 gate、位置证明或独立验证决定。所有审核通过 `review_preview_sessions` 试运行，来源文件与校验产物分开锁定；`RUNTIME_FILE` 只能引用该审核所选校验的产物，不能借试运行读取其他来源的 Blob。
+`import_items.review_profile_json` 保存审核阶段内容类型专属的一对一扩展。三个 profile 字段均为可空 JSON；数据库只校验 JSON 合法、`kind` 是字符串且 `data` 是对象，不把任何具体核心的字段结构写进 schema。当前 RPG Maker 使用 `{"kind":"RPG_MAKER_PROJECT","data":{...}}`；代码按 owner 与 `kind` 映射到对应的 model，并由对应核心校验业务字段。RPG Maker 审核 profile 保存检测代际、证据、项目文件统计与 fingerprint、要求摘要、分析结果、自包含确认、稳定 Provider/Target 和依赖摘要；发布时将内容证据复制到 Game 的 `content_profile_json`，将运行代际及依赖摘要写入 Variant 的 `runtime_profile_json`。`metadata_json` 与 `source_manifest_json` 继续承担各自通用职责；文件、Blob、校验和依赖等一对多实体保持独立。profile 不保存运行 gate、位置证明或独立验证决定。所有审核通过 `review_preview_sessions` 试运行，来源文件与校验产物分开锁定；`RUNTIME_FILE` 只能引用该审核所选校验的产物，不能借试运行读取其他来源的 Blob。
+
+当前 RPG Maker `data` 字段按 owner 分层：审核字段为 `generation`、`evidenceFamily`、`evidenceGeneration`、`evidenceConfidence`、`engineVersion`、`entryHtmlPath`、`fileCount`、`totalBytes`、`projectFingerprint`、`requirementsSha256`、`analysis`（JSON 对象）、`selfContainedOverride`（0/1）、`providerId`、`targetId` 与 `dependencySnapshotSha256`；Game 只保留证据、文件统计、要求摘要及分析；Variant 只保留 `generation` 与 `dependencySnapshotSha256`。没有适用扩展时整个字段为 SQL `NULL`，不写空对象。新增类型由对应代码定义和校验 `data`，无需新增一对一表或修改这三个字段的数据库约束。
 
 审核临时 checkpoint 使用会话级存储，一份 preview 保留当前临时 payload，格式及 Blob 关系明确。恢复 preview 冻结自己的恢复输入，不跟随原 preview 后续覆盖。已关闭会话的临时 checkpoint 可在审核未结束且未到期时用于恢复；过期或审核 payload 释放时清理。临时存档不是审批/升级门槛，不引入原会话、恢复会话或人工确认的附加状态机。
 

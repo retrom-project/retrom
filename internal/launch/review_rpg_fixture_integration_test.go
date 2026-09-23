@@ -138,14 +138,13 @@ WHERE id=?`, now, fixture.itemID)
 	projectFingerprint := strings.Repeat("c", 64)
 	dependency := fmt.Sprintf("%x", sha256.Sum256([]byte(`{"externalRTP":[{"slot":0,"declaredName":"RPG2000_RTP","normalizedName":""}],"policy":"PROJECT_RESOURCES_ONLY","schemaVersion":2,"selfContainedOverride":true}`)))
 	mustRPGLaunchSQL(t, database, `
-INSERT INTO rpgmaker_review_profiles(
- review_draft_id,generation,evidence_family,evidence_generation,evidence_confidence,
- file_count,total_bytes,project_fingerprint,requirements_sha256,analysis_json,self_contained_override,
- provider_id,target_id,dependency_snapshot_sha256,
- created_at_ms,updated_at_ms)
-VALUES(?,'RPG2000','RPG2K','RPG2000','MATCHED',2,20,?,?,'{}',1,
- ?,?,?,?,?)`, fixture.itemID, projectFingerprint, strings.Repeat("0", 64), target.ProviderID, target.TargetID,
-		dependency, now, now)
+UPDATE import_items SET review_profile_json=json_object('kind','RPG_MAKER_PROJECT','data',json_object(
+ 'generation','RPG2000','evidenceFamily','RPG2K','evidenceGeneration','RPG2000',
+ 'evidenceConfidence','MATCHED','engineVersion',NULL,'entryHtmlPath',NULL,
+ 'fileCount',2,'totalBytes',20,'projectFingerprint',?,'requirementsSha256',?,
+ 'analysis',json('{}'),'selfContainedOverride',1,'providerId',?,'targetId',?,
+ 'dependencySnapshotSha256',?)) WHERE id=?`, projectFingerprint, strings.Repeat("0", 64),
+		target.ProviderID, target.TargetID, dependency, fixture.itemID)
 
 	bindRPGFixtureValidation(t, database)
 	return fixture

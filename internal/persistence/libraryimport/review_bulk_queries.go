@@ -139,7 +139,6 @@ FROM import_items item
 JOIN import_items draft ON draft.id=item.id
 JOIN import_item_source_snapshots source ON source.id=draft.effective_source_snapshot_id
 JOIN platform_instances instance ON instance.id=draft.target_platform_instance_id
-LEFT JOIN rpgmaker_review_profiles rpg_profile ON rpg_profile.review_draft_id=draft.id
 LEFT JOIN import_item_core_validations validation ON validation.id=(
   SELECT candidate.id FROM import_item_core_validations candidate
   WHERE candidate.import_item_id=item.id

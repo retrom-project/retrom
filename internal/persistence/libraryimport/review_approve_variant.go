@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"retrom/internal/persistence/recordstore"
+	"retrom/internal/profilemodel"
 	application "retrom/internal/service/libraryimport"
 )
 
@@ -52,8 +53,13 @@ INSERT INTO variant_dependencies(
 func (records reviewApprovalRecords) CreateRPGVariant(
 	ctx context.Context, profile application.ApprovalRPGVariant,
 ) error {
+	encoded, err := profilemodel.Encode(profilemodel.Variant, profilemodel.RPGMakerProject,
+		&profilemodel.RPGVariant{Generation: profile.Generation, DependencySnapshotSHA256: profile.DependencyDigest})
+	if err != nil {
+		return fmt.Errorf("encode approved RPG variant profile: %w", err)
+	}
 	result, err := records.transaction.ExecContext(ctx, `
-INSERT INTO rpgmaker_variant_profiles(game_variant_id,generation,dependency_snapshot_sha256) VALUES(?,?,?)`,
-		profile.VariantID, profile.Generation, profile.DependencyDigest)
+UPDATE game_variants SET runtime_profile_json=?
+WHERE id=? AND core_id='rpgmaker' AND runtime_profile_json IS NULL`, encoded, profile.VariantID)
 	return approvalMutation(result, err, "insert approved RPG variant", true)
 }

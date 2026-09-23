@@ -37,15 +37,15 @@ FROM import_items i
 JOIN import_items d ON d.id=i.id
 JOIN import_item_source_snapshots source_snapshot ON source_snapshot.id=d.effective_source_snapshot_id
 JOIN platform_instances pi ON pi.id=d.target_platform_instance_id
-LEFT JOIN rpgmaker_review_profiles rpg_profile ON rpg_profile.review_draft_id=d.id
-JOIN runtime_targets current_target ON current_target.provider_id=COALESCE(rpg_profile.provider_id,(
+JOIN runtime_targets current_target ON current_target.provider_id=COALESCE(
+ json_extract(d.review_profile_json,'$.data.providerId'),(
  SELECT binding.provider_id FROM runtime_target_bindings binding
  JOIN runtime_binding_platforms binding_platform ON binding_platform.binding_id=binding.binding_id
   AND binding_platform.platform_id=pi.platform_id AND binding_platform.core_id=pi.default_core_id
  JOIN runtime_binding_content_kinds binding_kind ON binding_kind.binding_id=binding.binding_id
   AND binding_kind.content_kind=source_snapshot.content_kind
  WHERE binding.core_id=pi.default_core_id AND binding.launch_policy<>'DISABLED' LIMIT 1
-)) AND current_target.target_id=COALESCE(rpg_profile.target_id,(
+)) AND current_target.target_id=COALESCE(json_extract(d.review_profile_json,'$.data.targetId'),(
  SELECT binding.target_id FROM runtime_target_bindings binding
  JOIN runtime_binding_platforms binding_platform ON binding_platform.binding_id=binding.binding_id
   AND binding_platform.platform_id=pi.platform_id AND binding_platform.core_id=pi.default_core_id

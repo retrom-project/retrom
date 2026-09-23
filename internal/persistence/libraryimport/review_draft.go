@@ -118,7 +118,7 @@ SELECT d.id,d.target_platform_instance_id,COALESCE(d.selected_validation_id,''),
   d.effective_source_snapshot_id,d.selected_candidate_id,d.cover_candidate_asset_id,
   d.cover_uploaded_asset_id,d.background_candidate_asset_id,d.default_dos_entry,
   d.metadata_json,d.review_version,
-  EXISTS(SELECT 1 FROM rpgmaker_review_profiles profile WHERE profile.review_draft_id=d.id)
+  COALESCE(json_extract(d.review_profile_json,'$.kind')='RPG_MAKER_PROJECT',0)
 FROM import_items i
 JOIN import_items d ON d.id=i.id
 WHERE i.id=? AND i.state='REVIEW_PENDING'

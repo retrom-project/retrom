@@ -112,6 +112,7 @@ CREATE TABLE "game_variants" (
   status TEXT NOT NULL CHECK(status IN ('READY','BLOCKED','INCOMPATIBLE')),
   compatibility_code TEXT NOT NULL,
   dependency_snapshot_json TEXT NOT NULL,
+  runtime_profile_json TEXT CHECK(CASE WHEN runtime_profile_json IS NULL THEN 1 WHEN json_valid(runtime_profile_json) THEN COALESCE(json_type(runtime_profile_json,'$.kind')='text' AND json_type(runtime_profile_json,'$.data')='object',0) ELSE 0 END),
   default_dos_entry TEXT,
   version INTEGER NOT NULL DEFAULT 1 CHECK(version>=1),
   created_at_ms INTEGER NOT NULL CHECK(created_at_ms>=0),
@@ -145,6 +146,7 @@ CREATE TABLE "games" (
   content_source_ref_id TEXT NOT NULL,
   source_manifest_json TEXT NOT NULL,
   source_manifest_digest TEXT NOT NULL CHECK(length(source_manifest_digest)=64),
+  content_profile_json TEXT CHECK(CASE WHEN content_profile_json IS NULL THEN 1 WHEN json_valid(content_profile_json) THEN COALESCE(json_type(content_profile_json,'$.kind')='text' AND json_type(content_profile_json,'$.data')='object',0) ELSE 0 END),
   status TEXT NOT NULL CHECK(status IN ('PUBLISHED','DELETED')),
   payload_state TEXT NOT NULL DEFAULT 'RETAINED' CHECK(payload_state IN ('RETAINED','RELEASING','RELEASED','FAILED')),
   payload_release_job_id TEXT UNIQUE REFERENCES jobs(id),
@@ -165,16 +167,6 @@ CREATE TABLE "games" (
     payload_state='FAILED' AND payload_release_job_id IS NOT NULL AND payload_released_at_ms IS NULL AND payload_last_error_code IS NOT NULL
   ),
   CHECK((metadata_source_kind='ADMIN_EDIT')=(metadata_source_ref_id IS NULL))
-);
-
-CREATE TABLE "rpgmaker_variant_profiles" (
-  game_variant_id TEXT PRIMARY KEY REFERENCES game_variants(id),
-  generation TEXT NOT NULL CHECK(generation IN (
-    'RPG2000','RPG2003','RPGXP','RPGVX','RPGVXACE','RPGMV','RPGMZ'
-  )),
-  dependency_snapshot_sha256 TEXT NOT NULL CHECK(
-    length(dependency_snapshot_sha256)=64 AND dependency_snapshot_sha256=lower(dependency_snapshot_sha256)
-  )
 );
 
 CREATE TABLE "variant_dependencies" (
@@ -216,38 +208,6 @@ CREATE TABLE "game_files" (
   PRIMARY KEY(game_id,role,logical_name),
   FOREIGN KEY(source_archive_blob_id,source_archive_entry_ordinal) REFERENCES archive_entries(archive_blob_id,ordinal),
   CHECK((source_archive_blob_id IS NULL)=(source_archive_entry_ordinal IS NULL))
-);
-
-CREATE TABLE "rpgmaker_game_profiles" (
-  game_id TEXT PRIMARY KEY REFERENCES games(id),
-  evidence_family TEXT NOT NULL CHECK(evidence_family IN ('RPG2K','RGSS','MV','MZ')),
-  evidence_generation TEXT CHECK(evidence_generation IS NULL OR evidence_generation IN (
-    'RPG2000','RPG2003','RPGXP','RPGVX','RPGVXACE','RPGMV','RPGMZ'
-  )),
-  evidence_confidence TEXT NOT NULL CHECK(evidence_confidence IN ('MATCHED','FAMILY_ONLY')),
-  engine_version TEXT,
-  entry_html_path TEXT,
-  file_count INTEGER NOT NULL CHECK(file_count BETWEEN 1 AND 10000),
-  total_bytes INTEGER NOT NULL CHECK(total_bytes BETWEEN 0 AND 34359738368),
-  project_fingerprint TEXT NOT NULL CHECK(length(project_fingerprint)=64 AND project_fingerprint=lower(project_fingerprint)),
-  requirements_sha256 TEXT NOT NULL CHECK(length(requirements_sha256)=64 AND requirements_sha256=lower(requirements_sha256)),
-  analysis_json TEXT NOT NULL CHECK(json_valid(analysis_json) AND length(CAST(analysis_json AS BLOB))<=262144),
-  created_at_ms INTEGER NOT NULL CHECK(created_at_ms>=0),
-  updated_at_ms INTEGER NOT NULL CHECK(updated_at_ms>=created_at_ms),
-  CHECK(
-    evidence_confidence='FAMILY_ONLY' AND evidence_family='RPG2K' AND evidence_generation IS NULL
-    OR evidence_confidence='MATCHED' AND evidence_generation IS NOT NULL
-  ),
-  CHECK(
-    evidence_family='RPG2K' AND (evidence_generation IS NULL OR evidence_generation IN ('RPG2000','RPG2003'))
-    OR evidence_family='RGSS' AND evidence_generation IN ('RPGXP','RPGVX','RPGVXACE')
-    OR evidence_family='MV' AND evidence_generation='RPGMV'
-    OR evidence_family='MZ' AND evidence_generation='RPGMZ'
-  ),
-  CHECK(
-    evidence_family IN ('MV','MZ') AND entry_html_path='index.html'
-    OR evidence_family NOT IN ('MV','MZ') AND entry_html_path IS NULL
-  )
 );
 
 CREATE INDEX game_files_game ON game_files(game_id,sort_order,logical_name);
