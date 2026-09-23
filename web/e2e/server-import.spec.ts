@@ -172,8 +172,19 @@ test("ACC-PEG-005 three-step Source import recovers and remains bounded at deskt
   await page.keyboard.press("Enter");
   await drawer.getByRole("button", { name: "应用到所有未跳过 Collection" }).click();
   await expect(drawer.getByRole("status")).toContainText("覆盖 1 个游戏");
+  const collectionCard = mapping.locator("xpath=ancestor::article[1]");
+  const closedCard = await collectionCard.boundingBox();
+  expect(closedCard).not.toBeNull();
   await mapping.click();
   const directoryChoices = drawer.getByRole("region", { name: "可选游戏目录" });
+  await expect(directoryChoices).toBeVisible();
+  const openCard = await collectionCard.boundingBox();
+  expect(openCard).not.toBeNull();
+  expect(openCard!.height).toBeCloseTo(closedCard!.height, 0);
+  expect(openCard!.y).toBeCloseTo(closedCard!.y, 0);
+  if (testInfo.project.name === "chrome-1280") {
+    await page.screenshot({ path: evidencePath(testInfo, "source-mapping-menu-open.png"), fullPage: false });
+  }
   await directoryChoices.getByRole("button", { name: /家用主机/ }).click();
   await expect(directoryChoices.getByRole("button", { name: /^NES 游戏 / })).toBeVisible();
   await directoryChoices.getByRole("searchbox", { name: "搜索目录、平台或核心" }).fill("FCEUmm");
@@ -181,6 +192,13 @@ test("ACC-PEG-005 three-step Source import recovers and remains bounded at deskt
   await directoryChoices.getByRole("button", { name: /^NES 游戏 / }).click();
   await expect(drawer.getByRole("button", { name: `移除标签“${batchTagName}”` }).last()).toBeVisible();
   const collectionTags = drawer.getByRole("combobox", { name: "NES 的默认标签" });
+  const mappingBounds = await mapping.boundingBox();
+  const tagBounds = await collectionTags.boundingBox();
+  expect(mappingBounds).not.toBeNull();
+  expect(tagBounds).not.toBeNull();
+  expect(tagBounds!.x).toBeCloseTo(mappingBounds!.x, 0);
+  expect(tagBounds!.width).toBeCloseTo(mappingBounds!.width, 0);
+  expect(tagBounds!.height).toBeCloseTo(mappingBounds!.height, 0);
   await collectionTags.focus();
   const floatingTagList = page.getByRole("listbox");
   await expect(floatingTagList).toBeVisible();

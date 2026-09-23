@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState, type CSSProperties } from "react";
 import { userStorageKey } from "@/features/auth/storage";
 import { categoryForPlatform, directoryCategories, matchesDirectory, type DirectoryCategory, type DirectoryChoice } from "./directory-categories";
 
@@ -13,6 +13,36 @@ type DirectorySelectorProps = {
   selectedId: string;
   userId?: string;
 };
+
+type FloatingPosition = { above: boolean; left: number; maxHeight: number; top: number; width: number };
+
+function positionForTrigger(button: HTMLButtonElement): FloatingPosition {
+  const rect = button.getBoundingClientRect();
+  const viewportWidth = document.documentElement.clientWidth || window.innerWidth;
+  const viewportHeight = document.documentElement.clientHeight || window.innerHeight;
+  const margin = 8;
+  const gap = 6;
+  const preferredHeight = 320;
+  const below = viewportHeight - rect.bottom - gap - margin;
+  const above = rect.top - gap - margin;
+  const placeAbove = below < Math.min(220, preferredHeight) && above > below;
+  const width = Math.min(rect.width, viewportWidth - margin * 2);
+  return {
+    above: placeAbove,
+    left: Math.min(Math.max(rect.left, margin), viewportWidth - width - margin),
+    maxHeight: Math.max(80, Math.min(preferredHeight, placeAbove ? above : below)),
+    top: placeAbove ? rect.top - gap : rect.bottom + gap,
+    width,
+  };
+}
+
+function floatingStyle(position: FloatingPosition | null): CSSProperties {
+  if (!position) {return { visibility: "hidden" };}
+  return {
+    position: "fixed", left: position.left, top: position.top, width: position.width,
+    maxHeight: position.maxHeight, transform: position.above ? "translateY(-100%)" : undefined,
+  };
+}
 
 function readRecent(key: string | null): string[] {
   if (!key || typeof window === "undefined") {return [];}
@@ -94,6 +124,7 @@ export function DirectorySelector({ collectionName, directories, disabled = fals
   const searchRef = useRef<HTMLInputElement>(null);
   const [open, setOpen] = useState(false);
   const [above, setAbove] = useState(false);
+  const [floatingPosition, setFloatingPosition] = useState<FloatingPosition | null>(null);
   const [query, setQuery] = useState("");
   const [expanded, setExpanded] = useState<DirectoryCategory | null>(null);
   const [recentState, setRecentState] = useState(() => ({ key: storageKey, ids: readRecent(storageKey) }));
@@ -102,7 +133,26 @@ export function DirectorySelector({ collectionName, directories, disabled = fals
   const selectedLabel = selectedDirectoryLabel(selected, selectedId, isCollectionMapping);
   const recent = recentDirectories(directories, recentIds);
 
+  const updateFloatingPosition = useCallback(() => {
+    if (buttonRef.current) {setFloatingPosition(positionForTrigger(buttonRef.current));}
+  }, []);
+
   useEffect(() => {if (open) {searchRef.current?.focus();}}, [open]);
+  useEffect(() => {
+    if (!open || !isCollectionMapping) {return;}
+    const button = buttonRef.current;
+    const observer = button && typeof ResizeObserver !== "undefined" ? new ResizeObserver(updateFloatingPosition) : null;
+    if (button) {observer?.observe(button);}
+    window.addEventListener("resize", updateFloatingPosition);
+    window.addEventListener("scroll", updateFloatingPosition, true);
+    window.visualViewport?.addEventListener("resize", updateFloatingPosition);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener("resize", updateFloatingPosition);
+      window.removeEventListener("scroll", updateFloatingPosition, true);
+      window.visualViewport?.removeEventListener("resize", updateFloatingPosition);
+    };
+  }, [isCollectionMapping, open, updateFloatingPosition]);
   useEffect(() => {
     if (!open) {return;}
     function onPointerDown(event: PointerEvent) {
@@ -137,6 +187,7 @@ export function DirectorySelector({ collectionName, directories, disabled = fals
     if (open) {setOpen(false); return;}
     const bounds = rootRef.current?.getBoundingClientRect();
     if (bounds && !isCollectionMapping) {setAbove(window.innerHeight - bounds.bottom < 340 && bounds.top > window.innerHeight - bounds.bottom);}
+    if (isCollectionMapping) {updateFloatingPosition();}
     setQuery("");
     setOpen(true);
   }
@@ -158,7 +209,7 @@ export function DirectorySelector({ collectionName, directories, disabled = fals
       onClick={toggle}
     >{selectedLabel}<span aria-hidden="true">⌄</span></button>
     {!isCollectionMapping ? <small>{reconfiguring ? "可以保留原目录，也可以选择正确的平台目录后重新识别。" : "必须主动选择，避免将游戏导入到错误目录。"}</small> : null}
-    {open ? <div className={`import-directory-panel${above ? " is-above" : ""}`} id={panelId} role="region" aria-label="可选游戏目录">
+    {open ? <div className={`import-directory-panel${above ? " is-above" : ""}`} id={panelId} role="region" aria-label="可选游戏目录" style={isCollectionMapping ? floatingStyle(floatingPosition) : undefined}>
       <input
         ref={searchRef}
         type="search"
