@@ -261,7 +261,7 @@ SQLite 队列表和 worker 必须实现 [数据模型第 7 节](./data-model.md#
 - 启停本地开发进程；
 - 读取或打包用户 ROM、BIOS、SQLite、CAS、测试截图或 TLS 私钥。
 
-两个 Dockerfile 都使用多阶段构建，最终层不保留编译工具、源码缓存或开发依赖。两个镜像都不创建 Retrom 专用账号，也不声明固定 `USER`；运行身份由 Compose/Kubernetes 等部署编排显式决定，生产基线为 UID/GID `1000:1000`。后端持久数据目录必须挂载为该身份可写，镜像不得尝试 chown 未知宿主 UID。后端 builder 先校验 production lock 中两个 Provider 的 descriptor/archive/逐文件完整性、Target declaration、许可与 provenance，再把闭合 stage 复制进最终层；不能把下载缓存、source checkout、candidate、未声明文件或整个 `data/` 目录复制进镜像。DAT 等非运行时依赖仍由 `RETROM_DEPENDENCY_VERSIONS` 固定并离线物化。两个镜像必须携带完全相同的 release-input label；前端只携带 Provider-neutral dispatcher，不复制 Target registry。最终镜像中的只读依赖层必须对任意非 root 运行 UID 可遍历，不能继承 builder 的私有权限。
+两个 Dockerfile 都使用多阶段构建，最终层不保留编译工具、源码缓存或开发依赖。两个镜像都不创建 Retrom 专用账号，也不声明固定 `USER`；运行身份由 Compose/Kubernetes 等部署编排显式决定，生产基线为 UID/GID `1000:1000`。后端持久数据目录必须挂载为该身份可写，镜像不得尝试 chown 未知宿主 UID。后端 builder 先读取 `data/runtime-providers/release.json` 的唯一 tag，从固定 runtime 仓库的该 Release 解析 `provider-release.json`，校验两个 Provider 的 descriptor/archive/逐文件完整性、Target declaration、许可与 provenance，再把闭合 stage 复制进最终层；不能把下载缓存、source checkout、candidate、未声明文件或整个 `data/` 目录复制进镜像。DAT 等非运行时依赖仍由 `RETROM_DEPENDENCY_VERSIONS` 固定并离线物化。两个镜像必须携带完全相同的 release-input label；前端只携带 Provider-neutral dispatcher，不复制 Target registry。最终镜像中的只读依赖层必须对任意非 root 运行 UID 可遍历，不能继承 builder 的私有权限。
 
 `make build-images` 不自动属于普通 `make ci`，但修改任一 Dockerfile、依赖锁文件、构建脚本、DAT/runtime 打包逻辑或发布资产时必须在合并前同时验证二者。tag 发布流水线不重复 PR quality，只保留 `make build-images` 及后续发布门禁。
 
@@ -372,7 +372,7 @@ RETROM_DATA_DIR/
 | `RETROM_DATA_DIR` | 必须是已解析绝对路径；开发由 Makefile 设为仓库 `.dev-data/data`，生产为全新持久卷。它与只读 `RETROM_DEPENDENCY_ROOT` 及开发扫描目录严格分离；应用创建子目录但拒绝文件系统根、用户 home 和 symlink 数据根。 |
 | `RETROM_DB_PATH` | 未设置时派生为数据根下 `retrom.db`；若设置必须是数据根内的绝对普通文件路径。 |
 | `RETROM_DEPENDENCY_ROOT` | 必填绝对只读目录；保存 DAT、认证种子与 `runtime-target-bindings/v1/catalog.json`。开发固定为仓库 `data/` 的绝对路径，镜像内固定为只读依赖层；拒绝 root/home/symlink 逃逸。Provider Bundle 不从这里按路径猜测，而由下列 active/installed 配置定位。 |
-| `RETROM_PROVIDER_ACTIVE_PATH` | 必填绝对普通文件路径；内容是已通过完整性和只前进校验的 active Provider identity。PFB 指向 workspace 中的基座安装，production 指向 production lock 物化结果。 |
+| `RETROM_PROVIDER_ACTIVE_PATH` | 必填绝对普通文件路径；内容是已通过完整性和只前进校验的 active Provider identity。PFB 指向 workspace 中的基座安装，production 指向 production release tag 物化结果。 |
 | `RETROM_PROVIDER_DEV_ROOT` | 缺省为空。非空时必须是已存在绝对目录，且只能与 `RETROM_MODE=test`、合法匹配的 `RETROM_PFB_ID` 和本地 PFB origin 同时使用；release 或普通非 PFB 进程无条件拒绝。目录内只接受严格 `dev-provider.json` 及逐文件校验的基座路径 override。 |
 | `RETROM_PROVIDER_INSTALLED_ROOT` | 必填绝对只读目录；按 Provider identity 保存已验证的 descriptor、archive 解包文件与安装证据。服务不从网络下载，也不扫描目录推断 Target。 |
 | `RETROM_DEPENDENCY_VERSIONS` | 必填、无空白/重复且按 SemVer（含 prerelease）升序；当前为 `4.2.3,4.3.0-pre`。每项必须有完整 manifest/runtime/许可 payload，DAT 只在该 manifest 声明时必需。 |

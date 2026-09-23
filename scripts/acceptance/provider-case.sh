@@ -61,7 +61,8 @@ case "$CASE_ID" in
     python_test scripts/test_runtime_providers.py
     ;;
   ACC-PROVIDER-006)
-    python_test scripts/test_pfb.py scripts/test_release_input_digest.py scripts/test_makefile.py scripts/test_runtime_providers.py
+    python_test scripts/test_pfb.py scripts/test_release_input_digest.py scripts/test_makefile.py \
+      scripts/test_runtime_providers.py scripts/test_runtime_provider_release.py
     (cd "$ROOT" && "$GO" test ./internal/runtimebundle -run TestProductionProviderVersionsFollowReleaseTag -count=1)
     runtime_test tests/provider-build-metadata.test.ts tests/provider-source-boundary.test.ts \
       tests/provider-release-build.test.ts tests/release-version.test.ts \

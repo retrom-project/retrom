@@ -141,7 +141,7 @@ libretro/nxengine-libretro 的固定源码，由独立 fork 构建 Emscripten �
 存档语义为 `GAME_SAVE`：游戏内保存后，通过公共 gzip 边界提交原生 profile 文件；
 不同 Launch 在核心启动前导入明确指定的存档，用户在游戏菜单 Load 后继续。
 未选择存档的新 Launch 保持空保存目录。产品准入用例为 `ACC-NXENGINE-001`。
-正式 Provider lock 固定已发布的核心和聚合包；发布后复跑同一产品用例。
+正式 runtime tag 固定已发布的核心和聚合包；发布后复跑同一产品用例。
 
 ## 6. 升级验证
 
@@ -155,7 +155,7 @@ Provider 升级必须在同一数据库上顺序启动旧版与更高版本，�
 - 新普通 Launch 和新 Save 都绑定新 Bundle/Target declaration；
 - 不再从旧 Bundle 静态端点或旧模块 fallback。
 
-PFB只能证明当前worktree、基座Provider与当前开发模块组合的产品行为；正式Release授权后必须使用production lock重跑相同Case，才可成为发布证据。
+PFB只能证明当前worktree、基座Provider与当前开发模块组合的产品行为；正式Release授权后必须使用production release tag重跑相同Case，才可成为发布证据。
 
 ## 7. 必跑门禁
 
@@ -188,7 +188,7 @@ Provider 将 CHD 声明为 `SEEKABLE_BLOB`，通过 256 KiB Range 块按需读�
 一个按钮只对应一个原生输入。即时存档采用公共 `emulatorjs-state-v1-storage-v1`，
 按声明大小有界解压，并在新的 Launch 恢复后继续接收输入。
 
-产品证据见统一验收 `ACC-NEOCD-001`。正式 Provider lock 固定发布资产，开发候选
+产品证据见统一验收 `ACC-NEOCD-001`。正式 runtime tag 固定发布资产，开发候选
 只能用于显式 PFB 验证。通过样本不能推断整个游戏库或实体手柄兼容性。
 
 ### Pokémon Mini / GBE+
@@ -225,5 +225,5 @@ WebAssembly 构建与浏览器前端由 `retrom-project/ppsspp` 维护，宿主�
 中的历史 Target 身份仍保留，产品 PSP binding 仅选择新的独立核心。
 
 PFB 开发使用同一 PFB 中的核心候选、已声明的来源覆盖与完整候选 Provider，不能将候选
-路径、摘要或未发布版本写入 production lock。发布顺序为 core fork → retrom-runtime → Retrom
-正式 Provider lock，每一步在授权后进行。产品门禁见 `ACC-PSP-001` 与 `ACC-PSP-002`。
+路径、摘要或未发布版本写入 production release tag。发布顺序为 core fork → retrom-runtime → Retrom
+正式 runtime tag，每一步在授权后进行。产品门禁见 `ACC-PSP-001` 与 `ACC-PSP-002`。

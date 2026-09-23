@@ -116,13 +116,6 @@ def install_provider_bundle(archive: Path, lock_value: Any, installed_root: Path
             shutil.rmtree(staging)
 
 
-def load_provider_lock(path: Path) -> dict[str, Any]:
-    try:
-        return validate_provider_lock(json.loads(path.read_text(encoding="utf-8")))
-    except (OSError, UnicodeError, json.JSONDecodeError) as error:
-        raise ValueError("PROVIDER_LOCK_INVALID") from error
-
-
 def check_installed_provider(lock_value: Any, installed_root: Path) -> Path:
     lock = _validate_install_record(lock_value)
     destination = installed_root.resolve() / lock["providerId"] / lock["bundleSha256"]
