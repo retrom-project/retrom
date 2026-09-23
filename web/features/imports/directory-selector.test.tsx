@@ -21,6 +21,7 @@ describe("directory categories", () => {
     const source = readFileSync(resolve(process.cwd(), "../data/runtime-target-bindings/v1/catalog.json"), "utf8");
     const catalog = JSON.parse(source) as { definitions: { platforms: Array<{ id: string }> } };
     expect(catalog.definitions.platforms.map((platform) => platform.id).filter((id) => categoryForPlatform(id) === "other")).toEqual([]);
+    expect(categoryForPlatform("odyssey2")).toBe("console");
     expect(categoryForPlatform("future-platform")).toBe("other");
   });
 

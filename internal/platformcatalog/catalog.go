@@ -9,7 +9,7 @@ import (
 	"retrom/internal/contentprofile"
 )
 
-const Version = 29
+const Version = 30
 
 var ErrInvalid = errors.New("PLATFORM_CATALOG_INVALID")
 
@@ -189,6 +189,10 @@ var current = Catalog{Version: Version, Templates: []DirectoryTemplate{
 		Name: "Philips CD-i 游戏", CatalogOrder: 560,
 	},
 	{Key: "vectrex/vecx", PlatformID: "vectrex", DefaultCoreID: "vecx", Name: "Vectrex 游戏", CatalogOrder: 570},
+	{
+		Key: "odyssey2/o2em", PlatformID: "odyssey2", DefaultCoreID: "o2em",
+		Name: "Odyssey² / Videopac 游戏", CatalogOrder: 575,
+	},
 	{
 		Key: "intellivision/freeintv", PlatformID: "intellivision", DefaultCoreID: "freeintv",
 		Name: "Intellivision 游戏", CatalogOrder: 580,
