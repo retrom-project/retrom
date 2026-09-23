@@ -1,6 +1,7 @@
 """Offline validation of branch-owned development dependencies."""
 import copy
 import json
+import sys
 import unittest
 from pathlib import Path
 
@@ -8,6 +9,8 @@ from catalog import parse_manifest
 
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+from scripts.runtime_provider_release import REPOSITORY
 
 
 class CatalogTests(unittest.TestCase):
@@ -20,8 +23,7 @@ class CatalogTests(unittest.TestCase):
     def test_runtime_release_repository_is_covered(self):
         repositories = self.parse()
         runtime = next(repo for repo in repositories if repo["id"] == "retrom-runtime")
-        lock = json.loads((ROOT / "data/runtime-providers/retrom-runtime.lock.json").read_text())
-        self.assertEqual(runtime["gitlink"].replace("git@github.com:", "https://github.com/").removesuffix(".git"), lock["repository"])
+        self.assertEqual(runtime["gitlink"].replace("git@github.com:", "https://github.com/").removesuffix(".git"), REPOSITORY)
 
     def test_bootstrap_application_cannot_enter_dependency_catalog(self):
         self.data["repositories"][0]["role"] = "application"

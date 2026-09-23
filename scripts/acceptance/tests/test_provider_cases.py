@@ -86,7 +86,7 @@ class ProviderAcceptanceRegistrationTests(unittest.TestCase):
     def test_provider_release_gate_covers_tag_versions_and_pfb_injection(self):
         source = (ROOT / "scripts/acceptance/provider-case.sh").read_text(encoding="utf-8")
         release = source.split("  ACC-PROVIDER-006)", 1)[1].split(";;", 1)[0]
-        for name in ("test_runtime_providers.py", "TestProductionProviderVersionsFollowReleaseTag",
+        for name in ("test_runtime_providers.py", "test_runtime_provider_release.py", "TestProductionProviderVersionsFollowReleaseTag",
                      "release-version.test.ts", "provider-client-build.test.ts", "pfb-provider-dev.test.ts"):
             self.assertIn(name, release)
 
