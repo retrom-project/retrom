@@ -196,15 +196,17 @@ async function scanPublicSource(page: Page) {
     async () => (await readImport(page, plan.id)).state,
     { timeout: 30_000 },
   ).toBe("AWAITING_MAPPING");
-  const mapping = drawer.getByRole("combobox", { name: "根目录 处理方式" });
+  const mapping = drawer.getByRole("button", { name: "根目录 处理方式" });
   await expect(mapping).toBeVisible({ timeout: 30_000 });
   return { drawer, mapping, plan };
 }
 
 async function mapToGBA(drawer: Locator, mapping: Locator) {
-  await expect(mapping).toHaveValue("");
-  const option = mapping.getByRole("option", { name: /^导入到 GBA 游戏/ });
-  await mapping.selectOption(await option.getAttribute("value") ?? "");
+  await expect(mapping).toContainText("请选择，不会自动映射");
+  await activateWithKeyboard(mapping);
+  const choices = drawer.getByRole("region", { name: "可选游戏目录" });
+  await choices.getByRole("searchbox", { name: "搜索目录、平台或核心" }).fill("mGBA");
+  await activateWithKeyboard(choices.getByRole("button", { name: /GBA 游戏/ }));
   await activateWithKeyboard(
     drawer.getByRole("button", { name: "确认映射" }),
   );

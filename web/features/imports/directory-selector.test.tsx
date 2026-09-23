@@ -78,4 +78,25 @@ describe("DirectorySelector", () => {
     expect(trigger).toHaveFocus();
     expect(screen.queryByRole("region", { name: "可选游戏目录" })).not.toBeInTheDocument();
   });
+
+  it("offers grouped collection mapping, skip, and clearing without treating skip as recent", async () => {
+    const user = userEvent.setup();
+    const onSelect = vi.fn();
+    const view = render(<DirectorySelector collectionName="NES" directories={directories} selectedId="" onSelect={onSelect} />);
+    const trigger = screen.getByRole("button", { name: "NES 处理方式" });
+    expect(trigger).toHaveTextContent("请选择，不会自动映射");
+    await user.click(trigger);
+    const panel = screen.getByRole("region", { name: "可选游戏目录" });
+    await user.click(within(panel).getByRole("button", { name: /掌机/ }));
+    expect(within(panel).getByRole("button", { name: /GBA 游戏/ })).toBeVisible();
+    await user.click(within(panel).getByRole("button", { name: "跳过此集合" }));
+    expect(onSelect).toHaveBeenLastCalledWith("SKIP");
+
+    view.rerender(<DirectorySelector collectionName="NES" directories={directories} selectedId="SKIP" onSelect={onSelect} />);
+    expect(trigger).toHaveTextContent("跳过此集合");
+    await user.click(trigger);
+    expect(within(screen.getByRole("region", { name: "可选游戏目录" })).queryByText("最近使用")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "清除处理方式" }));
+    expect(onSelect).toHaveBeenLastCalledWith("");
+  });
 });
