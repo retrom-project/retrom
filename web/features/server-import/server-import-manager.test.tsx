@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
@@ -9,6 +9,7 @@ import {
   type ServerImportRoot,
   type ServerImportSummary,
 } from "./server-import-manager";
+import type { SourceImportSummary } from "./source-import-manager";
 
 const router = vi.hoisted(() => ({ push: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => router }));
@@ -76,6 +77,7 @@ function requestAt(mock: ReturnType<typeof vi.fn>, index: number) {
 afterEach(() => {
   cleanup();
   router.push.mockReset();
+  vi.useRealTimers();
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
@@ -94,6 +96,52 @@ describe("ServerImportManager", () => {
     render(<ServerImportManager initialRoots={[{ ...availableRoot, status: "UNAVAILABLE" }]} initialImports={imports()} />);
     expect(screen.getByRole("button", { name: "选择目录并开始" })).toBeDisabled();
     expect(screen.getByText("不可用")).toBeVisible();
+  });
+
+  it("returns to the styled directory picker after a failed scan and can scan again without a reload", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const scanning: SourceImportSummary = {
+      id: "22222222-2222-4222-8222-222222222222", format: "PEGASUS", root: { id: "source", label: "Source BIOS" },
+      sourceRelativePath: "Other", state: "SCANNING", phase: "DISCOVERING_METADATA",
+      scanJobId: "33333333-3333-4333-8333-333333333333", importJobId: null,
+      counts: { metadata: 0, invalidMetadata: 0, collections: 0, games: 0, estimatedSourceBytes: 0, mappedCollections: 0, skippedCollections: 0, processable: 0, blocked: 0, reviewPending: 0, published: 0, reviewDiscarded: 0, existing: 0, failed: 0, cancelled: 0, mediaWarnings: 0, covers: 0, videos: 0 },
+      mappingVersion: 1, version: 1, createdBy: { id: "55555555-5555-4555-8555-555555555555", displayName: "Admin" },
+      lastErrorCode: null, retryable: false, createdAtMs: 1, updatedAtMs: 2, expiresAtMs: 9999999999999, completedAtMs: null,
+    };
+    const failed: SourceImportSummary = { ...scanning, state: "FAILED", phase: null, lastErrorCode: "PEGASUS_METADATA_NOT_FOUND", completedAtMs: 3 };
+    const fetchMock = vi.fn(async (request: Request) => {
+      const url = new URL(request.url);
+      if (url.pathname.endsWith("/directories")) {
+        const path = url.searchParams.get("path") ?? "";
+        return jsonResponse({ rootId: "source", path, items: path ? [] : [{ name: "Other", relativePath: "Other" }], nextCursor: null });
+      }
+      if (url.pathname.endsWith("/source-imports") && request.method === "POST") {return jsonResponse(scanning, 202);}
+      if (url.pathname.endsWith("/source-imports")) {return jsonResponse({ items: [failed], nextCursor: null });}
+      if (url.pathname.endsWith(`/source-imports/${scanning.id}`)) {return jsonResponse(failed);}
+      throw new Error(`Unexpected request: ${request.method} ${url.pathname}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    render(<ServerImportManager initialRoots={[availableRoot]} initialImports={imports()} />);
+
+    await user.click(screen.getByRole("button", { name: "选择目录并扫描" }));
+    const format = screen.getByRole("combobox", { name: "文件组织格式" });
+    expect(format).toHaveClass("select");
+    await user.click(await screen.findByRole("button", { name: "Other" }));
+    await user.click(screen.getByRole("button", { name: "扫描此目录" }));
+    expect(await screen.findByText("发现 metadata")).toBeVisible();
+    await act(async () => { await vi.advanceTimersByTimeAsync(2_000); });
+    expect(await screen.findByRole("combobox", { name: "文件组织格式" })).toBeVisible();
+    expect(screen.getByText(/PEGASUS_METADATA_NOT_FOUND/)).toBeVisible();
+
+    await user.click(within(screen.getByRole("dialog").querySelector("footer")!).getByRole("button", { name: "关闭" }));
+    await user.click(screen.getByRole("button", { name: /选择目录并扫描|继续扫描或映射/ }));
+    const reopened = await screen.findByRole("combobox", { name: "文件组织格式" });
+    await user.selectOptions(reopened, "GAMELIST");
+    await user.click(screen.getByRole("button", { name: "扫描此目录" }));
+    const scans = fetchMock.mock.calls.map(([request]) => request as Request).filter((request) => request.method === "POST" && new URL(request.url).pathname.endsWith("/source-imports"));
+    expect(scans).toHaveLength(2);
+    expect(await scans[1].clone().json()).toMatchObject({ sourceRelativePath: "Other", format: "GAMELIST" });
   });
 
   it("paginates the server filesystem browser", async () => {

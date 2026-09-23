@@ -297,7 +297,7 @@ export function ServerImportManager({ initialRoots, initialImports, initialSourc
     <ImportRoots roots={roots} />
     <ImportHistory canLoadMore={Boolean(historyCursor || sourceHistoryCursor)} entries={mergedHistory} historyLoading={historyLoading} onLoadMore={() => void loadMoreHistory()} />
     <ServerDirectoryDrawer breadcrumbs={breadcrumbs} busy={busy} catalogSummary={catalogSummary} directories={directories} directoryLoading={directoryLoading} directoryNextCursor={directoryNextCursor} onClose={closeDrawer} onCreate={() => void createImport()} onLoadMore={() => void loadMoreDirectories()} onPath={setPath} onReplaceIfBetter={setReplaceIfBetter} onRoot={(id) => { setRootId(id); setPath(""); }} open={drawerOpen} path={path} replaceIfBetter={replaceIfBetter} rootId={rootId} roots={roots} selectedRoot={selectedRoot} />
-    <SourceImportDrawer open={sourceDrawerOpen} roots={roots} platformInstances={platformInstances} activeTags={activeTags} resumablePlan={resumableSource} onClose={() => setSourceDrawerOpen(false)} onStarted={(summary: SourceImportSummary) => setSourceImports((current) => [summary, ...current.filter((item) => item.id !== summary.id)])} />
+    {sourceDrawerOpen ? <SourceImportDrawer open roots={roots} platformInstances={platformInstances} activeTags={activeTags} resumablePlan={resumableSource} onClose={() => setSourceDrawerOpen(false)} onStarted={(summary: SourceImportSummary) => setSourceImports((current) => [summary, ...current.filter((item) => item.id !== summary.id)])} /> : null}
     <Toast toast={error ? { message: error, tone: "bad" } : null} onDismiss={() => setError("")} />
   </div>;
 }
