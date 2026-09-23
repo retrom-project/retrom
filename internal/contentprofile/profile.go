@@ -54,6 +54,17 @@ type Profile struct {
 
 var registry = map[string]Profile{
 	"gamegear":    single("gamegear", ".gg"),
+	"arduboy":     single("arduboy", ".hex"),
+	"atari800":    single("atari800", ".atr", ".atx", ".xex", ".car", ".rom", ".bin"),
+	"xegs":        single("xegs", ".atr", ".atx", ".xex", ".car", ".rom", ".bin"),
+	"atarist":     single("atarist", ".st", ".msa", ".stx", ".ipf"),
+	"bbc":         single("bbc", ".ssd", ".dsd", ".adf", ".hfe"),
+	"channelf":    single("channelf", ".bin", ".rom"),
+	"megaduck":    single("megaduck", ".bin", ".md"),
+	"samcoupe":    single("samcoupe", ".dsk", ".sad", ".sbt"),
+	"supervision": single("supervision", ".sv", ".bin"),
+	"thomson":     single("thomson", ".fd", ".sap", ".k7", ".m7", ".m5", ".rom"),
+	"model3":      raw("model3", ".zip"),
 	"sg1000":      single("sg1000", ".sg"),
 	"multivision": single("multivision", ".sg"),
 	"pico":        single("pico", ".md", ".bin"),

@@ -30,6 +30,48 @@
       "launchPolicy": "SUPPORTED"
     },
     {
+      "id": "emulatorjs-ardens",
+      "coreId": "ardens",
+      "providerId": "emulatorjs",
+      "targetId": "ardens",
+      "platformIds": [
+        "arduboy"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "EMULATORJS_SINGLE_FILE",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
+      "id": "emulatorjs-atari800",
+      "coreId": "atari800",
+      "providerId": "emulatorjs",
+      "targetId": "atari800",
+      "platformIds": [
+        "atari800"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "EMULATORJS_SINGLE_FILE",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
+      "id": "emulatorjs-atari800-xegs",
+      "coreId": "atari800-xegs",
+      "providerId": "emulatorjs",
+      "targetId": "atari800-xegs",
+      "platformIds": [
+        "xegs"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "EMULATORJS_SINGLE_FILE",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
       "id": "emulatorjs-azahar",
       "coreId": "azahar",
       "providerId": "emulatorjs",
@@ -214,6 +256,20 @@
       "launchPolicy": "SUPPORTED"
     },
     {
+      "id": "emulatorjs-freechaf",
+      "coreId": "freechaf",
+      "providerId": "emulatorjs",
+      "targetId": "freechaf",
+      "platformIds": [
+        "channelf"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "EMULATORJS_SINGLE_FILE",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
       "id": "emulatorjs-freeintv",
       "coreId": "freeintv",
       "providerId": "emulatorjs",
@@ -321,6 +377,20 @@
       "targetId": "handy",
       "platformIds": [
         "lynx"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "EMULATORJS_SINGLE_FILE",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
+      "id": "emulatorjs-hatarib",
+      "coreId": "hatarib",
+      "providerId": "emulatorjs",
+      "targetId": "hatarib",
+      "platformIds": [
+        "atarist"
       ],
       "acceptedContentKinds": [
         "SINGLE_FILE"
@@ -573,6 +643,20 @@
       "launchPolicy": "SUPPORTED"
     },
     {
+      "id": "emulatorjs-potator",
+      "coreId": "potator",
+      "providerId": "emulatorjs",
+      "targetId": "potator",
+      "platformIds": [
+        "supervision"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "EMULATORJS_SINGLE_FILE",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
       "id": "emulatorjs-prboom",
       "coreId": "prboom",
       "providerId": "emulatorjs",
@@ -643,6 +727,20 @@
       "launchPolicy": "SUPPORTED"
     },
     {
+      "id": "emulatorjs-sameduck",
+      "coreId": "sameduck",
+      "providerId": "emulatorjs",
+      "targetId": "sameduck",
+      "platformIds": [
+        "megaduck"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "EMULATORJS_SINGLE_FILE",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
       "id": "emulatorjs-smsplus",
       "coreId": "smsplus",
       "providerId": "emulatorjs",
@@ -677,6 +775,20 @@
       "targetId": "stella2014",
       "platformIds": [
         "atari2600"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "EMULATORJS_SINGLE_FILE",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
+      "id": "emulatorjs-theodore",
+      "coreId": "theodore",
+      "providerId": "emulatorjs",
+      "targetId": "theodore",
+      "platformIds": [
+        "thomson"
       ],
       "acceptedContentKinds": [
         "SINGLE_FILE"
@@ -823,6 +935,20 @@
         "SINGLE_FILE"
       ],
       "detectorProfile": "EMULATORJS_DISC_CONTENT",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
+      "id": "retrom-runtime-bbc-jsbeeb",
+      "coreId": "jsbeeb",
+      "providerId": "retrom-runtime",
+      "targetId": "bbc-jsbeeb",
+      "platformIds": [
+        "bbc"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "EMULATORJS_SINGLE_FILE",
       "launchPolicy": "SUPPORTED"
     },
     {
@@ -1203,6 +1329,12 @@
         "enabled": true
       },
       {
+        "id": "arduboy",
+        "name": "Arduboy",
+        "sortOrder": 680,
+        "enabled": true
+      },
+      {
         "id": "atari2600",
         "name": "Atari 2600",
         "sortOrder": 90,
@@ -1221,9 +1353,27 @@
         "enabled": true
       },
       {
+        "id": "atari800",
+        "name": "Atari 8-bit",
+        "sortOrder": 690,
+        "enabled": true
+      },
+      {
         "id": "atarijaguar",
         "name": "Atari Jaguar",
         "sortOrder": 320,
+        "enabled": true
+      },
+      {
+        "id": "atarist",
+        "name": "Atari ST",
+        "sortOrder": 705,
+        "enabled": true
+      },
+      {
+        "id": "bbc",
+        "name": "BBC Micro",
+        "sortOrder": 715,
         "enabled": true
       },
       {
@@ -1260,6 +1410,12 @@
         "id": "cdi",
         "name": "Philips CD-i",
         "sortOrder": 540,
+        "enabled": true
+      },
+      {
+        "id": "channelf",
+        "name": "Fairchild Channel F",
+        "sortOrder": 710,
         "enabled": true
       },
       {
@@ -1356,6 +1512,12 @@
         "id": "megadrive",
         "name": "Mega Drive / Genesis",
         "sortOrder": 130,
+        "enabled": true
+      },
+      {
+        "id": "megaduck",
+        "name": "Mega Duck",
+        "sortOrder": 720,
         "enabled": true
       },
       {
@@ -1545,6 +1707,18 @@
         "enabled": true
       },
       {
+        "id": "supervision",
+        "name": "Watara Supervision",
+        "sortOrder": 730,
+        "enabled": true
+      },
+      {
+        "id": "thomson",
+        "name": "Thomson",
+        "sortOrder": 740,
+        "enabled": true
+      },
+      {
         "id": "tic80",
         "name": "TIC-80",
         "sortOrder": 83,
@@ -1599,6 +1773,12 @@
         "enabled": true
       },
       {
+        "id": "xegs",
+        "name": "Atari XEGS",
+        "sortOrder": 700,
+        "enabled": true
+      },
+      {
         "id": "zx81",
         "name": "Sinclair ZX81",
         "sortOrder": 500,
@@ -1620,6 +1800,21 @@
       {
         "id": "a5200",
         "name": "Atari800 5200",
+        "enabled": true
+      },
+      {
+        "id": "ardens",
+        "name": "Ardens",
+        "enabled": true
+      },
+      {
+        "id": "atari800",
+        "name": "Atari800",
+        "enabled": true
+      },
+      {
+        "id": "atari800-xegs",
+        "name": "Atari800 XEGS",
         "enabled": true
       },
       {
@@ -1698,6 +1893,11 @@
         "enabled": true
       },
       {
+        "id": "freechaf",
+        "name": "FreeChaF",
+        "enabled": true
+      },
+      {
         "id": "freeintv",
         "name": "FreeIntv",
         "enabled": true
@@ -1743,8 +1943,18 @@
         "enabled": true
       },
       {
+        "id": "hatarib",
+        "name": "HatariB",
+        "enabled": true
+      },
+      {
         "id": "j2me",
         "name": "J2ME miniJVM",
+        "enabled": true
+      },
+      {
+        "id": "jsbeeb",
+        "name": "jsbeeb",
         "enabled": true
       },
       {
@@ -1863,6 +2073,11 @@
         "enabled": true
       },
       {
+        "id": "potator",
+        "name": "Potator",
+        "enabled": true
+      },
+      {
         "id": "ppsspp",
         "name": "PPSSPP",
         "enabled": true
@@ -1908,6 +2123,11 @@
         "enabled": true
       },
       {
+        "id": "sameduck",
+        "name": "SameDuck",
+        "enabled": true
+      },
+      {
         "id": "scummvm",
         "name": "ScummVM",
         "enabled": true
@@ -1925,6 +2145,11 @@
       {
         "id": "stella2014",
         "name": "Stella 2014",
+        "enabled": true
+      },
+      {
+        "id": "theodore",
+        "name": "Theodore",
         "enabled": true
       },
       {

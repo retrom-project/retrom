@@ -32,6 +32,39 @@ type staticBIOS struct {
 
 var staticBIOSCatalog = append(pc88BIOSCatalog(), []staticBIOS{
 	{
+		coreID: "jsbeeb", logical: "os.rom", mode: "REQUIRED", size: 16384,
+		md5: "0a59a5ba15fe8557b5f7fee32bbd393a", sha256: "2d9fea69017864f6962704481829f95fee08446c8c3a13826d5d4e44000ac9de",
+		sourceURL: "https://github.com/mattgodbolt/jsbeeb/blob/c4839b888af29777390a5534f69d8ef8189bbed9/public/roms/README",
+		delivery:  "EXTERNAL_FILE", emulatorPath: "/roms/os.rom",
+	},
+	{
+		coreID: "jsbeeb", logical: "BASIC.ROM", mode: "REQUIRED", size: 16384,
+		md5: "2cc67be4624df4dc66617742571a8e3d", sha256: "45bd55dc0f6f0f8f1fe9e2481de7def206565eec8f600ba3068b849ca4132079",
+		sourceURL: "https://github.com/mattgodbolt/jsbeeb/blob/c4839b888af29777390a5534f69d8ef8189bbed9/public/roms/README",
+		delivery:  "EXTERNAL_FILE", emulatorPath: "/roms/BASIC.ROM",
+	},
+	{
+		coreID: "jsbeeb", logical: "DFS-1.2.rom", mode: "REQUIRED", size: 16384,
+		md5: "5daed103918277e2065dd7e8d23e57a5", sha256: "e745e34895225a6650b712c1dd0656cb0b0b15f072a8ae6d9ea8d1ac257eb3d6",
+		sourceURL: "https://github.com/mattgodbolt/jsbeeb/blob/c4839b888af29777390a5534f69d8ef8189bbed9/public/roms/README",
+		delivery:  "EXTERNAL_FILE", emulatorPath: "/roms/b/DFS-1.2.rom",
+	},
+	{
+		coreID: "freechaf", logical: "sl31253.bin", mode: "REQUIRED", size: 1024,
+		md5: "ac9804d4c0e9d07e33472e3726ed15c3", sha256: "876a263d28d8f9e9f51785b91269393f06599debae9ba2ef1cba67a283504e2c",
+		sourceURL: "https://github.com/libretro/FreeChaF/blob/76c7a84f1f7e80f3e6f2bba96fe100cb24e99124/README.md",
+	},
+	{
+		coreID: "freechaf", logical: "sl31254.bin", mode: "REQUIRED", size: 1024,
+		md5: "da98f4bb3242ab80d76629021bb27585", sha256: "a8d2c0d958b8ea0ee2855b5416993c149a3050cb3c85b781404d3c2a233defc1",
+		sourceURL: "https://github.com/libretro/FreeChaF/blob/76c7a84f1f7e80f3e6f2bba96fe100cb24e99124/README.md",
+	},
+	{
+		coreID: "freechaf", logical: "sl90025.bin", mode: "OPTIONAL", size: 1024,
+		md5: "95d339631d867c8f1d15a5f2ec26069d", sha256: "bf3755d849438034f3ff92bde357310074c09088b22cf33e512ec06c65d4eaab",
+		sourceURL: "https://github.com/libretro/FreeChaF/blob/76c7a84f1f7e80f3e6f2bba96fe100cb24e99124/README.md",
+	},
+	{
 		coreID: "o2em", logical: "o2rom.bin", mode: "REQUIRED", size: 1024,
 		md5: "562d5ebf9e030a40d6fabfc2f33139fd", sha256: "cb0c5d9ed64f7c1d8870333451832638885b9aa3d7013f0c05fd2a20a5e5bfef",
 		sourceURL: "https://docs.libretro.com/library/o2em/",

@@ -65,3 +65,30 @@ func TestProductExternalBIOSRetainsOptionalAndCollisionPolicy(t *testing.T) {
 		})
 	}
 }
+
+func TestJsbeebProductIncludesExternalBIOS(t *testing.T) {
+	status, blob, virtual := "MATCHED", "bios-blob", "/roms/os.rom"
+	snapshotJSON, err := (corevalidation.Snapshot{
+		SchemaVersion: corevalidation.SnapshotSchemaVersion,
+		Kind:          corevalidation.SnapshotKindStatic,
+		BIOS: []corevalidation.BIOSDependency{{
+			BIOSCatalogEntry: corevalidation.BIOSCatalogEntry{
+				LogicalName: "os.rom", RequirementMode: "REQUIRED",
+				DeliveryKind: "EXTERNAL_FILE", EmulatorPath: &virtual,
+			},
+			BlobID: &blob, InstallationStatus: &status,
+		}},
+	}).JSON()
+	if err != nil {
+		t.Fatal(err)
+	}
+	content := ProductContent{Files: []ProductContentFile{{LogicalName: "Welcome.ssd"}}}
+	snapshot := ProductSnapshot{Source: ProductSource{
+		ProviderID: "retrom-runtime", TargetID: "bbc-jsbeeb", DeliveryProfile: "ROM_BLOB",
+		DependencySnapshot: string(snapshotJSON),
+	}}
+	files, err := productExternalFiles(snapshot, content)
+	if err != nil || len(files) != 1 || files[0].BlobID != blob || files[0].VirtualPath != virtual {
+		t.Fatalf("jsbeeb external files=%+v error=%v", files, err)
+	}
+}
