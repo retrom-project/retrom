@@ -330,11 +330,11 @@ PFB 命令闭集为 `pfb-init/validate/build/up/use/restart/down/status/logs/ver
 | `/_next/*` 及其余页面路由 | `retrom-web:3000` |
 | `/api/v1/*` | `retrom:8080` |
 | `/content/*`、`/runtime/*` | `retrom:8080` |
-| `/health/*` | `retrom:8080`，通常只开放给内部健康检查 |
+| `/health/*` | 不对公网开放；内部健康检查直接访问 `retrom:8080` |
 
 NG 还必须为 `https://{launchId}.rpg-runtime.<configured-site-domain>` 配置 wildcard DNS/证书与精确 Host 转发，且只把该 Host 的 `/__retrom/*` 送到 `retrom:8080`；不匹配规范 UUID 最左 label、额外 label、Host/Forwarded Host 不一致或其他路径必须在 NG 或 Go 稳定拒绝，不得 fallback 到 Next.js/app API。Player 页面 CSP 的 `frame-src` 只加入本次 Launch 精确 origin，不使用 wildcard 或回显请求 Origin。该子域名不是普通部署别名，而是第 5.1 节定义的浏览器安全边界；缺少它时不得启用 MV/MZ native route。
 
-仓库的 [`docker/docker-compose.yml.example`](../docker/docker-compose.yml.example) 只示范两个应用容器、必需配置和持久数据挂载；外部 NG、DNS 与 TLS 仍由部署者提供。示例将两个应用端口仅发布到宿主回环地址，由同宿主 NG 按上表分流；容器化 NG 应改为加入同一容器网络。发布镜像中的 Next.js rewrite 在构建时固定为默认本机后端地址，运行时设置 `NEXT_BACKEND_ORIGIN` 只供前端服务端请求使用，不能替代 NG 对 API、内容和运行时路径的直接分流。
+仓库的 [`docker/docker-compose.yml.example`](../docker/docker-compose.yml.example) 和 [`docker/nginx.conf.example`](../docker/nginx.conf.example) 展示两个应用容器加 Nginx 容器、必需配置、持久数据挂载及 HTTPS 分流。只有 Nginx 发布宿主端口；部署者需替换示例域名与证书，并提供应用域名及运行时子域名的 DNS。示例将 Nginx 固定在 Compose 网络的 `172.30.97.10`，与后端 `RETROM_TRUSTED_PROXIES=172.30.97.10/32` 对应；调整子网时须同步修改。发布镜像中的 Next.js rewrite 在构建时固定为默认本机后端地址，运行时设置 `NEXT_BACKEND_ORIGIN` 只供前端服务端请求使用，不能替代 Nginx 对 API、内容和运行时路径的直接分流。
 
 前端只使用相对 URL，不把内部容器名、端口或环境域名编译进浏览器 bundle。若 Next.js server-side 代码确需访问后端，使用运行时内部 base URL，与浏览器公开 base URL 分离。
 

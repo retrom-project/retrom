@@ -1,0 +1,126 @@
+# 与 docker-compose.yml.example 配套的生产 Nginx 配置。
+# 将 games.example.com、运行时子域名和证书路径一起替换；
+# DNS 需将应用域名和 *.rpg-runtime.games.example.com 指向此服务器。
+# /etc/nginx/certs 来自 Compose 中的只读证书目录。
+
+worker_processes auto;
+error_log /dev/stderr notice;
+pid /var/run/nginx.pid;
+
+events { worker_connections 1024; }
+
+http {
+  # URL 可能包含临时凭据，示例访问日志只记录地址、Host 和请求结果。
+  log_format retrom '$remote_addr $host $status $request_time';
+  access_log /dev/stdout retrom;
+
+  # Docker DNS 让应用容器重建后上游地址可以更新。
+  resolver 127.0.0.11 valid=10s ipv6=off;
+  resolver_timeout 2s;
+  upstream retrom_backend {
+    zone retrom_backend 64k;
+    server retrom:8080 resolve;
+  }
+  upstream retrom_frontend {
+    zone retrom_frontend 64k;
+    server retrom-web:3000 resolve;
+  }
+
+  client_max_body_size 270m;
+  client_body_timeout 300s;
+  proxy_connect_timeout 5s;
+  proxy_read_timeout 28800s;
+  proxy_send_timeout 300s;
+  proxy_request_buffering off;
+  proxy_buffering off;
+  proxy_http_version 1.1;
+
+  # 只把 Nginx 实际观察到的地址和 HTTPS scheme 传给应用。
+  proxy_set_header Host $host;
+  proxy_set_header X-Forwarded-Host $host;
+  proxy_set_header X-Forwarded-Proto https;
+  proxy_set_header X-Forwarded-For $remote_addr;
+  proxy_set_header X-Real-IP $remote_addr;
+  proxy_set_header Forwarded "";
+  proxy_set_header X-Forwarded-Port 443;
+  proxy_hide_header Cross-Origin-Opener-Policy;
+  proxy_hide_header Cross-Origin-Embedder-Policy;
+  proxy_hide_header Cross-Origin-Resource-Policy;
+  proxy_hide_header X-Content-Type-Options;
+  proxy_hide_header Strict-Transport-Security;
+
+  ssl_protocols TLSv1.2 TLSv1.3;
+
+  server {
+    listen 80 default_server;
+    server_name _;
+    return 444;
+  }
+
+  server {
+    listen 80;
+    server_name games.example.com;
+    if ($http_host !~ "^games\\.example\\.com(?::80)?$") { return 404; }
+    return 308 https://games.example.com$request_uri;
+  }
+
+  server {
+    listen 80;
+    server_name "~^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\\.rpg-runtime\\.games\\.example\\.com$";
+    if ($http_host !~ "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\\.rpg-runtime\\.games\\.example\\.com(?::80)?$") { return 404; }
+    return 308 https://$host$request_uri;
+  }
+
+  # 拒绝未知 SNI，不使用应用证书兜底响应未知域名。
+  server {
+    listen 443 ssl default_server;
+    ssl_reject_handshake on;
+  }
+
+  server {
+    listen 443 ssl;
+    http2 on;
+    server_name games.example.com;
+    ssl_certificate /etc/nginx/certs/app/fullchain.pem;
+    ssl_certificate_key /etc/nginx/certs/app/privkey.pem;
+    if ($http_host !~ "^games\\.example\\.com(?::443)?$") { return 421; }
+    if ($ssl_server_name != $host) { return 421; }
+
+    add_header Strict-Transport-Security "max-age=31536000" always;
+    add_header Cross-Origin-Opener-Policy same-origin always;
+    add_header Cross-Origin-Embedder-Policy require-corp always;
+    add_header Cross-Origin-Resource-Policy same-origin always;
+    add_header X-Content-Type-Options nosniff always;
+
+    location = /api/v1 { proxy_pass http://retrom_backend; }
+    location ^~ /api/v1/ { proxy_pass http://retrom_backend; }
+    location ^~ /api/ { return 404; }
+    location = /content { proxy_pass http://retrom_backend; }
+    location ^~ /content/ { proxy_pass http://retrom_backend; }
+    location = /runtime { proxy_pass http://retrom_backend; }
+    location ^~ /runtime/ { proxy_pass http://retrom_backend; }
+    # 内部健康检查通过 Compose 网络直接访问 retrom:8080。
+    location = /health { return 404; }
+    location ^~ /health/ { return 404; }
+    location / { proxy_pass http://retrom_frontend; }
+  }
+
+  server {
+    listen 443 ssl;
+    http2 on;
+    server_name "~^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\\.rpg-runtime\\.games\\.example\\.com$";
+    ssl_certificate /etc/nginx/certs/runtime/fullchain.pem;
+    ssl_certificate_key /etc/nginx/certs/runtime/privkey.pem;
+    if ($http_host !~ "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\\.rpg-runtime\\.games\\.example\\.com(?::443)?$") { return 421; }
+    if ($ssl_server_name != $host) { return 421; }
+
+    add_header Strict-Transport-Security "max-age=31536000" always;
+    add_header Cross-Origin-Opener-Policy same-origin always;
+    add_header Cross-Origin-Embedder-Policy require-corp always;
+    add_header Cross-Origin-Resource-Policy cross-origin always;
+    add_header X-Content-Type-Options nosniff always;
+
+    location ^~ /__retrom/ { proxy_pass http://retrom_backend; }
+    location / { return 404; }
+  }
+}
