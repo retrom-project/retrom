@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"retrom/internal/persistence/contentquery"
+	"retrom/internal/profilemodel"
 
 	"retrom/internal/dbexec"
 	"retrom/internal/service/gamecontent"
@@ -63,9 +64,10 @@ func loadRPGMakerReplacementBinding(
 	gameID string,
 	binding gamecontent.Binding,
 ) (gamecontent.Binding, error) {
+	var variantJSON, gameJSON string
 	err := database.QueryRowContext(ctx, `
 SELECT variant.core_id,variant.id,target.provider_id,target.target_id,`+contentquery.BindingPolicySQL+`,
-       profile.generation,profile.dependency_snapshot_sha256,content.requirements_sha256,
+       variant.runtime_profile_json,game.content_profile_json,
        variant.dependency_snapshot_json
 FROM game_variants variant
 JOIN runtime_targets target
@@ -73,18 +75,36 @@ JOIN runtime_targets target
 JOIN runtime_target_bindings binding
   ON binding.provider_id=target.provider_id AND binding.target_id=target.target_id
   AND binding.core_id=variant.core_id AND binding.launch_policy<>'DISABLED'
-JOIN rpgmaker_variant_profiles profile ON profile.game_variant_id=variant.id
-JOIN rpgmaker_game_profiles content ON content.game_id=variant.game_id
-WHERE variant.game_id=?
+JOIN games game ON game.id=variant.game_id
+WHERE variant.game_id=? AND variant.runtime_profile_json IS NOT NULL AND game.content_profile_json IS NOT NULL
 	`, gameID).Scan(
 		&binding.CoreID, &binding.VariantID, &binding.ProviderID, &binding.TargetID,
 		contentquery.ScanPolicy(&binding.ContentPolicy),
-		&binding.RPGGeneration, &binding.RPGDependencySHA256, &binding.RPGRequirementsSHA256,
+		&variantJSON, &gameJSON,
 		&binding.DependencySnapshotJSON,
 	)
 	if err != nil {
 		return gamecontent.Binding{}, fmt.Errorf("load RPG Maker replacement binding: %w", err)
 	}
+	variantValue, err := profilemodel.Decode(profilemodel.Variant, variantJSON)
+	if err != nil {
+		return gamecontent.Binding{}, fmt.Errorf("decode RPG Maker variant profile: %w", err)
+	}
+	variantProfile, ok := variantValue.(*profilemodel.RPGVariant)
+	if !ok {
+		return gamecontent.Binding{}, fmt.Errorf("%w: RPG Maker variant model %T", profilemodel.ErrInvalidModel, variantValue)
+	}
+	gameValue, err := profilemodel.Decode(profilemodel.Game, gameJSON)
+	if err != nil {
+		return gamecontent.Binding{}, fmt.Errorf("decode RPG Maker game profile: %w", err)
+	}
+	gameProfile, ok := gameValue.(*profilemodel.RPGGame)
+	if !ok {
+		return gamecontent.Binding{}, fmt.Errorf("%w: RPG Maker game model %T", profilemodel.ErrInvalidModel, gameValue)
+	}
+	binding.RPGGeneration = variantProfile.Generation
+	binding.RPGDependencySHA256 = variantProfile.DependencySnapshotSHA256
+	binding.RPGRequirementsSHA256 = gameProfile.RequirementsSHA256
 	return binding, nil
 }
 

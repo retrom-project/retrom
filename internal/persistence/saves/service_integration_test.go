@@ -426,9 +426,8 @@ func TestScreenshotOverrideCheckpointAllowsCompatibleProviderUpgrade(t *testing.
 func TestRPGCheckpointAllowsCompatibleProviderUpgrade(t *testing.T) {
 	fixture := newSaveFixture(t)
 	mustSaveSQL(t, fixture.database.SQL, `
-INSERT INTO rpgmaker_variant_profiles(
- game_variant_id,generation,dependency_snapshot_sha256)
-SELECT id,'RPGMV',? FROM game_variants WHERE game_id=?
+UPDATE game_variants SET runtime_profile_json=json_object('kind','RPG_MAKER_PROJECT','data',
+ json_object('generation','RPGMV','dependencySnapshotSha256',?)) WHERE game_id=?
 `, strings.Repeat("d", 64), fixture.gameID)
 	created := fixture.createLaunch(t)
 	upgradeCurrentProviderBundle(t, fixture)

@@ -2,8 +2,11 @@ package libraryimport
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 
 	"retrom/internal/persistence/recordstore"
+	"retrom/internal/profilemodel"
 	application "retrom/internal/service/libraryimport"
 )
 
@@ -97,35 +100,24 @@ review_created_at_ms=?,review_updated_at_ms=?`,
 }
 
 func (records creationRecords) RPG(ctx context.Context, change application.CreationRPGProfile) error {
-	result, err := recordstore.CreateRpgmakerReviewProfiles(
-		ctx,
-		records.transaction,
-		`
-INSERT INTO rpgmaker_review_profiles(review_draft_id,generation,evidence_family,evidence_generation,
- evidence_confidence,
-engine_version,entry_html_path,file_count,total_bytes,project_fingerprint,requirements_sha256,
- analysis_json,
- self_contained_override,provider_id,target_id,dependency_snapshot_sha256,created_at_ms,updated_at_ms)
-VALUES(?,?,?,?,?,?,?,?,?,?,?,?,0,?,?,?,?,?)`,
-		change.DraftID,
-		change.Generation,
-		change.EvidenceFamily,
-		change.EvidenceGeneration,
-		change.EvidenceConfidence,
-		change.EngineVersion,
-		change.EntryHTML,
-		change.FileCount,
-		change.TotalBytes,
-		change.FilesDigest,
-		change.RequirementsDigest,
-		change.AnalysisJSON,
-		change.ProviderID,
-		change.TargetID,
-		change.DependencyDigest,
-		change.NowMS,
-		change.NowMS,
-	)
-	return creationMutation(result, err, "insert creation RPG profile", 1)
+	profile, err := profilemodel.Encode(profilemodel.Review, profilemodel.RPGMakerProject, &profilemodel.RPGReview{
+		Generation: change.Generation, EvidenceFamily: change.EvidenceFamily,
+		EvidenceGeneration: change.EvidenceGeneration, EvidenceConfidence: change.EvidenceConfidence,
+		EngineVersion: change.EngineVersion, EntryHTMLPath: change.EntryHTML,
+		FileCount: change.FileCount, TotalBytes: change.TotalBytes,
+		ProjectFingerprint: change.FilesDigest, RequirementsSHA256: change.RequirementsDigest,
+		Analysis: json.RawMessage(change.AnalysisJSON), ProviderID: change.ProviderID, TargetID: change.TargetID,
+		DependencySnapshotSHA256: change.DependencyDigest,
+	})
+	if err != nil {
+		return fmt.Errorf("encode creation RPG profile: %w", err)
+	}
+	result, err := records.transaction.ExecContext(ctx, `
+UPDATE import_items SET review_profile_json=?
+WHERE id=? AND review_profile_json IS NULL AND EXISTS(
+ SELECT 1 FROM runtime_targets WHERE provider_id=? AND target_id=?)`,
+		profile, change.DraftID, change.ProviderID, change.TargetID)
+	return creationMutation(result, err, "write creation RPG profile", 1)
 }
 
 func (records creationRecords) Events(ctx context.Context, events []application.CreationEvent) error {

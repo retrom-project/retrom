@@ -38,8 +38,9 @@ func (run *draftPatchRun) applyRPGMakerBinding() error {
 		return application.ErrInvalid
 	}
 	_, err = run.transaction.ExecContext(run.ctx, `
-UPDATE rpgmaker_review_profiles SET self_contained_override=?,updated_at_ms=? WHERE review_draft_id=?
-`, boolIncrement(override), run.repository.now().UnixMilli(), run.draftID)
+UPDATE import_items SET review_profile_json=json_set(review_profile_json,'$.data.selfContainedOverride',?)
+WHERE id=? AND review_profile_json IS NOT NULL
+`, boolIncrement(override), run.draftID)
 	if err != nil {
 		return fmt.Errorf("libraryimport/review self-contained confirmation: %w", err)
 	}
@@ -49,17 +50,15 @@ UPDATE rpgmaker_review_profiles SET self_contained_override=?,updated_at_ms=? WH
 func loadRPGReviewBinding(
 	ctx context.Context, transaction *sql.Tx, draftID string,
 ) (rpgReviewBinding, error) {
-	var result rpgReviewBinding
-	var analysisJSON string
-	if err := transaction.QueryRowContext(ctx, `
-SELECT generation,self_contained_override,dependency_snapshot_sha256,analysis_json
-FROM rpgmaker_review_profiles WHERE review_draft_id=?
-`, draftID).Scan(
-		&result.generation, &result.override, &result.dependencySHA256, &analysisJSON,
-	); err != nil {
+	profile, err := readRPGReviewProfile(ctx, transaction, draftID)
+	if err != nil {
 		return rpgReviewBinding{}, application.ErrInvalid
 	}
-	if err := json.Unmarshal([]byte(analysisJSON), &result.analysis); err != nil {
+	result := rpgReviewBinding{
+		generation: profile.Generation, override: profile.SelfContainedOverride != 0,
+		dependencySHA256: profile.DependencySnapshotSHA256,
+	}
+	if err := json.Unmarshal(profile.Analysis, &result.analysis); err != nil {
 		return rpgReviewBinding{}, application.ErrInvalid
 	}
 	return result, nil

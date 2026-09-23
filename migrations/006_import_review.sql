@@ -54,6 +54,7 @@ CREATE TABLE import_items (
   effective_source_snapshot_id TEXT REFERENCES import_item_source_snapshots(id),
   default_dos_entry TEXT,
   metadata_json TEXT,
+  review_profile_json TEXT CHECK(CASE WHEN review_profile_json IS NULL THEN 1 WHEN json_valid(review_profile_json) THEN COALESCE(json_type(review_profile_json,'$.kind')='text' AND json_type(review_profile_json,'$.data')='object',0) ELSE 0 END),
   review_version INTEGER NOT NULL DEFAULT 0 CHECK(review_version>=0),
   review_created_at_ms INTEGER,
   review_updated_at_ms INTEGER,
@@ -482,48 +483,6 @@ CREATE TABLE "import_item_duplicate_matches" (
   detected_stage TEXT NOT NULL CHECK(detected_stage = 'IDENTIFICATION'),
   created_at_ms INTEGER NOT NULL,
   PRIMARY KEY(import_item_id, existing_game_id)
-);
-
-CREATE TABLE "rpgmaker_review_profiles" (
-  review_draft_id TEXT PRIMARY KEY REFERENCES import_items(id),
-  generation TEXT NOT NULL CHECK(generation IN (
-    'RPG2000','RPG2003','RPGXP','RPGVX','RPGVXACE','RPGMV','RPGMZ'
-  )),
-  evidence_family TEXT NOT NULL CHECK(evidence_family IN ('RPG2K','RGSS','MV','MZ')),
-  evidence_generation TEXT CHECK(evidence_generation IS NULL OR evidence_generation IN (
-    'RPG2000','RPG2003','RPGXP','RPGVX','RPGVXACE','RPGMV','RPGMZ'
-  )),
-  evidence_confidence TEXT NOT NULL CHECK(evidence_confidence IN ('MATCHED','FAMILY_ONLY')),
-  engine_version TEXT,
-  entry_html_path TEXT,
-  file_count INTEGER NOT NULL CHECK(file_count BETWEEN 1 AND 10000),
-  total_bytes INTEGER NOT NULL CHECK(total_bytes BETWEEN 0 AND 34359738368),
-  project_fingerprint TEXT NOT NULL CHECK(length(project_fingerprint)=64 AND project_fingerprint=lower(project_fingerprint)),
-  requirements_sha256 TEXT NOT NULL CHECK(length(requirements_sha256)=64 AND requirements_sha256=lower(requirements_sha256)),
-  analysis_json TEXT NOT NULL CHECK(json_valid(analysis_json) AND length(CAST(analysis_json AS BLOB))<=262144),
-  self_contained_override INTEGER NOT NULL DEFAULT 0 CHECK(self_contained_override IN (0,1)),
-  provider_id TEXT NOT NULL REFERENCES runtime_providers(provider_id),
-  target_id TEXT NOT NULL,
-  dependency_snapshot_sha256 TEXT NOT NULL CHECK(
-    length(dependency_snapshot_sha256)=64 AND dependency_snapshot_sha256=lower(dependency_snapshot_sha256)
-  ),
-  created_at_ms INTEGER NOT NULL CHECK(created_at_ms>=0),
-  updated_at_ms INTEGER NOT NULL CHECK(updated_at_ms>=created_at_ms),
-  FOREIGN KEY(provider_id,target_id) REFERENCES runtime_targets(provider_id,target_id),
-  CHECK(
-    evidence_confidence='FAMILY_ONLY' AND evidence_family='RPG2K' AND evidence_generation IS NULL
-    OR evidence_confidence='MATCHED' AND evidence_generation IS NOT NULL
-  ),
-  CHECK(
-    evidence_family='RPG2K' AND generation IN ('RPG2000','RPG2003')
-    OR evidence_family='RGSS' AND generation IN ('RPGXP','RPGVX','RPGVXACE')
-    OR evidence_family='MV' AND generation='RPGMV'
-    OR evidence_family='MZ' AND generation='RPGMZ'
-  ),
-  CHECK(
-    generation IN ('RPGMV','RPGMZ') AND entry_html_path='index.html'
-    OR generation NOT IN ('RPGMV','RPGMZ') AND entry_html_path IS NULL
-  )
 );
 
 CREATE TABLE "review_arcade_parent_attachments" (
