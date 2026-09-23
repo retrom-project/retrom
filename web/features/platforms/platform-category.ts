@@ -20,7 +20,7 @@ const platformCategory: Record<string, DirectoryCategory> = {
   intellivision: "console", j2me: "runtime", kirikiri: "runtime", lynx: "handheld",
   mastersystem: "console", megadrive: "console", msx: "computer", multivision: "console",
   n64: "console", nds: "handheld", neogeocd: "console", nes: "console",
-  ngpc: "handheld", nintendo3ds: "handheld", ons: "runtime", openbor: "runtime",
+  ngpc: "handheld", nintendo3ds: "handheld", odyssey2: "console", ons: "runtime", openbor: "runtime",
   pc88: "computer", pc98: "computer", pce: "console", pcecd: "console",
   pcfx: "console", pet: "computer", pico: "console", pico8: "runtime",
   plus4: "computer", pokemini: "handheld", ps2: "console", psp: "handheld",

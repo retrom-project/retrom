@@ -65,6 +65,7 @@ var registry = map[string]Profile{
 	"pokemini":      single("pokemini", ".min"),
 	"bbkrpg":        single("bbkrpg", ".gam"),
 	"uzebox":        single("uzebox", ".uze"),
+	"odyssey2":      single("odyssey2", ".bin"),
 	"vectrex":       single("vectrex", ".vec", ".bin"),
 	"intellivision": single("intellivision", ".int", ".rom", ".bin"),
 	"x68000":        single("x68000", ".dim", ".xdf", ".hdf"),

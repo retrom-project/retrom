@@ -47,10 +47,10 @@ Provider manifest 的 `providerApiVersion` 在结构层只要求正整数，使�
 `data/runtime-providers/release.json` 是 Retrom 唯一的正式 runtime 选择配置，只包含：
 
 ```json
-{"tag":"v0.47.0"}
+{"tag":"v0.48.0"}
 ```
 
-更新版本使用 `make runtime-provider-pin-release TAG=v0.47.0`，也可直接编辑此文件。pin 先验证发布描述，成功后原子写入 tag；无需本地下载两个完整归档。仓库地址固定为 `https://github.com/retrom-project/retrom-runtime`，准备工具从该 tag 的 GitHub Release 下载 `provider-release.json`，从中解析两个 Provider 的 commit、归档名、SHA-256、大小和文件数。不再维护或生成可提交的逐 Provider lock 文件；共享 `provider-lock.schema.json` 仅描述工具内部派生的安装输入。
+更新版本使用 `make runtime-provider-pin-release TAG=v0.48.0`，也可直接编辑此文件。pin 先验证发布描述，成功后原子写入 tag；无需本地下载两个完整归档。仓库地址固定为 `https://github.com/retrom-project/retrom-runtime`，准备工具从该 tag 的 GitHub Release 下载 `provider-release.json`，从中解析两个 Provider 的 commit、归档名、SHA-256、大小和文件数。不再维护或生成可提交的逐 Provider lock 文件；共享 `provider-lock.schema.json` 仅描述工具内部派生的安装输入。
 
 `make runtime-provider-prepare` 和后端镜像 builder 都使用该配置，必须同时解析出 `emulatorjs` 与 `retrom-runtime`，并验证 repository、tag、版本和闭合字段。描述缓存在 `.cache/runtime-providers/releases/<tag>/provider-release.json`；归档继续按内容摘要缓存。完整缓存支持断网重建，每次仍复核描述和归档、安装文件的完整性。错误发布描述、损坏下载或缓存不得更新 active；缺少 Release/asset 时失败，不回退到本地 candidate。tag 和发布资产必须不可变，更新使用新 tag。
 
@@ -269,6 +269,16 @@ EmulatorJS `forks` 固定已发布的 `retrom-core-g8f671cc9d737-r1`、commit、
 首次接入显式构建并验证完整 Provider 候选，再用 `pfb-provider-import` 导入为 PFB 基座。
 日常生命周期不重建核心或 Provider。正式更新按 core → runtime → Retrom 顺序发布，
 Retrom 固定正式 runtime tag 后重跑 ACC-VECTREX-001。
+
+### Odyssey² / O2EM
+
+O2EM 源码和构建归 `retrom-project/libretro-o2em`，维护基线为
+`retrom/g679d6fec0496`，上游 `libretro/libretro-o2em@679d6fec04963f6e70a7ec217e3d0ebb1fe472fc`。
+`master` 保留上游镜像，Emscripten 镜像与 EmulatorJS RetroArch linker 在 fork 中固定。
+`pfb-core-build CORE=o2em` 生成核心、许可、完整源归档和逐文件候选描述符；
+runtime 的 `developmentForks` 仅登记此未发布候选，正式 Provider 构建拒绝未发布输入。
+完整 Provider 候选经 PFB 导入并通过 `ACC-O2EM-001` 后，按 core → runtime → Retrom 顺序发布并固定正式 tag。
+BIOS 与游戏由管理员或操作者提供，不进入 Git、核心归档或 Provider 包。
 
 ### NeoCD 核心
 
