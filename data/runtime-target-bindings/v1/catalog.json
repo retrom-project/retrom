@@ -783,6 +783,20 @@
       "launchPolicy": "SUPPORTED"
     },
     {
+      "id": "emulatorjs-supermodel",
+      "coreId": "supermodel",
+      "providerId": "emulatorjs",
+      "targetId": "supermodel",
+      "platformIds": [
+        "model3"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "EMULATORJS_SINGLE_FILE",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
       "id": "emulatorjs-theodore",
       "coreId": "theodore",
       "providerId": "emulatorjs",
@@ -1521,6 +1535,12 @@
         "enabled": true
       },
       {
+        "id": "model3",
+        "name": "Sega Model 3",
+        "sortOrder": 725,
+        "enabled": true
+      },
+      {
         "id": "msx",
         "name": "MSX",
         "sortOrder": 87,
@@ -2145,6 +2165,11 @@
       {
         "id": "stella2014",
         "name": "Stella 2014",
+        "enabled": true
+      },
+      {
+        "id": "supermodel",
+        "name": "Supermodel",
         "enabled": true
       },
       {

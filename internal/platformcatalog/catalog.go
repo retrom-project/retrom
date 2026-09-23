@@ -9,7 +9,7 @@ import (
 	"retrom/internal/contentprofile"
 )
 
-const Version = 31
+const Version = 32
 
 var ErrInvalid = errors.New("PLATFORM_CATALOG_INVALID")
 
@@ -242,6 +242,7 @@ var current = Catalog{Version: Version, Templates: []DirectoryTemplate{
 	{Key: "bbc/jsbeeb", PlatformID: "bbc", DefaultCoreID: "jsbeeb", Name: "BBC Micro 游戏", CatalogOrder: 810},
 	{Key: "channelf/freechaf", PlatformID: "channelf", DefaultCoreID: "freechaf", Name: "Channel F 游戏", CatalogOrder: 820},
 	{Key: "megaduck/sameduck", PlatformID: "megaduck", DefaultCoreID: "sameduck", Name: "Mega Duck 游戏", CatalogOrder: 830},
+	{Key: "model3/supermodel", PlatformID: "model3", DefaultCoreID: "supermodel", Name: "Sega Model 3 游戏", CatalogOrder: 840},
 	{Key: "supervision/potator", PlatformID: "supervision", DefaultCoreID: "potator", Name: "Supervision 游戏", CatalogOrder: 850},
 	{Key: "thomson/theodore", PlatformID: "thomson", DefaultCoreID: "theodore", Name: "Thomson 游戏", CatalogOrder: 860},
 }}
