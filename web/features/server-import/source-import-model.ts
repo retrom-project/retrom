@@ -9,6 +9,7 @@ export type SourceDirectory = components["schemas"]["ServerImportDirectory"];
 export type SourcePlatformInstance = {
   id: string;
   name: string;
+  platformId: string;
   platformName: string;
   defaultCoreId: string;
   defaultCoreName: string;

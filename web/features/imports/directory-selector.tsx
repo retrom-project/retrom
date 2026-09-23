@@ -5,9 +5,11 @@ import { userStorageKey } from "@/features/auth/storage";
 import { categoryForPlatform, directoryCategories, matchesDirectory, type DirectoryCategory, type DirectoryChoice } from "./directory-categories";
 
 type DirectorySelectorProps = {
+  collectionName?: string;
   directories: DirectoryChoice[];
+  disabled?: boolean;
   onSelect: (id: string) => void;
-  reconfiguring: boolean;
+  reconfiguring?: boolean;
   selectedId: string;
   userId?: string;
 };
@@ -20,11 +22,12 @@ function readRecent(key: string | null): string[] {
   } catch {return [];}
 }
 
-function DirectoryRow({ directory, onChoose, selected }: { directory: DirectoryChoice; onChoose: (id: string) => void; selected: boolean }) {
+function DirectoryRow({ directory, disabled, onChoose, selected }: { directory: DirectoryChoice; disabled: boolean; onChoose: (id: string) => void; selected: boolean }) {
   return <button
     className="import-directory-option"
     type="button"
     aria-pressed={selected}
+    disabled={disabled}
     onClick={() => onChoose(directory.id)}
   >
     <strong>{directory.name}</strong>
@@ -32,7 +35,56 @@ function DirectoryRow({ directory, onChoose, selected }: { directory: DirectoryC
   </button>;
 }
 
-export function DirectorySelector({ directories, onSelect, reconfiguring, selectedId, userId }: DirectorySelectorProps) {
+function DirectoryCategorySection({ category, directories, disabled, expanded, onChoose, onExpand, panelId, selectedId }: {
+  category: (typeof directoryCategories)[number]; directories: DirectoryChoice[]; disabled: boolean; expanded: DirectoryCategory | null;
+  onChoose: (id: string) => void; onExpand: (category: DirectoryCategory | null) => void; panelId: string; selectedId: string;
+}) {
+  const items = directories.filter((directory) => categoryForPlatform(directory.platformId) === category.id);
+  if (!items.length) {return null;}
+  const groupId = `${panelId}-${category.id}`;
+  const isExpanded = expanded === category.id;
+  return <section className="import-directory-category">
+    <button type="button" aria-expanded={isExpanded} aria-controls={groupId} disabled={disabled} onClick={() => onExpand(isExpanded ? null : category.id)}>
+      <svg className="import-directory-chevron" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+      {category.label}<small>{items.length}</small>
+    </button>
+    {isExpanded ? <div id={groupId} role="group" aria-label={category.label}>{items.map((directory) => <DirectoryRow key={directory.id} directory={directory} disabled={disabled} selected={directory.id === selectedId} onChoose={onChoose} />)}</div> : null}
+  </section>;
+}
+
+function DirectoryResults({ directories, disabled, expanded, isCollectionMapping, onChoose, onExpand, panelId, query, recent, selectedId }: {
+  directories: DirectoryChoice[]; disabled: boolean; expanded: DirectoryCategory | null; isCollectionMapping: boolean;
+  onChoose: (id: string) => void; onExpand: (category: DirectoryCategory | null) => void; panelId: string;
+  query: string; recent: DirectoryChoice[]; selectedId: string;
+}) {
+  const filtered = directories.filter((directory) => matchesDirectory(directory, query));
+  return <div className="import-directory-results">
+    {isCollectionMapping ? <button className="import-directory-skip" type="button" aria-pressed={selectedId === "SKIP"} disabled={disabled} onClick={() => onChoose("SKIP")}>跳过此集合</button> : null}
+    {isCollectionMapping && selectedId ? <button className="import-directory-clear" type="button" disabled={disabled} onClick={() => onChoose("")}>清除处理方式</button> : null}
+    {query.trim() ? <>
+      <p className="import-directory-section-label" role="status">找到 {filtered.length} 个目录</p>
+      {filtered.map((directory) => <DirectoryRow key={directory.id} directory={directory} disabled={disabled} selected={directory.id === selectedId} onChoose={onChoose} />)}
+      {!filtered.length ? <p className="import-directory-empty">没有匹配的游戏目录。可尝试平台或核心名称。</p> : null}
+    </> : <>
+      {recent.length ? <section aria-label="最近使用"><p className="import-directory-section-label">最近使用</p>{recent.map((directory) => <DirectoryRow key={directory.id} directory={directory} disabled={disabled} selected={directory.id === selectedId} onChoose={onChoose} />)}</section> : null}
+      {directoryCategories.map((category) => <DirectoryCategorySection key={category.id} category={category} directories={directories} disabled={disabled} expanded={expanded} onChoose={onChoose} onExpand={onExpand} panelId={panelId} selectedId={selectedId} />)}
+    </>}
+  </div>;
+}
+
+function selectedDirectoryLabel(selected: DirectoryChoice | undefined, selectedId: string, isCollectionMapping: boolean): string {
+  if (selected) {return selected.name;}
+  if (isCollectionMapping && selectedId === "SKIP") {return "跳过此集合";}
+  return isCollectionMapping ? "请选择，不会自动映射" : "请选择目标游戏目录";
+}
+
+function recentDirectories(directories: DirectoryChoice[], ids: string[]): DirectoryChoice[] {
+  return ids.map((id) => directories.find((directory) => directory.id === id))
+    .filter((directory): directory is DirectoryChoice => Boolean(directory));
+}
+
+export function DirectorySelector({ collectionName, directories, disabled = false, onSelect, reconfiguring = false, selectedId, userId }: DirectorySelectorProps) {
+  const isCollectionMapping = collectionName !== undefined;
   const storageKey = userStorageKey(userId, "imports", "recent-directories");
   const labelId = useId();
   const buttonId = useId();
@@ -47,9 +99,8 @@ export function DirectorySelector({ directories, onSelect, reconfiguring, select
   const [recentState, setRecentState] = useState(() => ({ key: storageKey, ids: readRecent(storageKey) }));
   const recentIds = recentState.key === storageKey ? recentState.ids : readRecent(storageKey);
   const selected = directories.find((directory) => directory.id === selectedId);
-  const recent = recentIds.map((id) => directories.find((directory) => directory.id === id))
-    .filter((directory): directory is DirectoryChoice => Boolean(directory));
-  const filtered = directories.filter((directory) => matchesDirectory(directory, query));
+  const selectedLabel = selectedDirectoryLabel(selected, selectedId, isCollectionMapping);
+  const recent = recentDirectories(directories, recentIds);
 
   useEffect(() => {if (open) {searchRef.current?.focus();}}, [open]);
   useEffect(() => {
@@ -70,10 +121,12 @@ export function DirectorySelector({ directories, onSelect, reconfiguring, select
 
   function choose(id: string) {
     onSelect(id);
-    const next = [id, ...recentIds.filter((recentId) => recentId !== id)].slice(0, 3);
-    setRecentState({ key: storageKey, ids: next });
-    if (storageKey) {
-      try {window.localStorage.setItem(storageKey, JSON.stringify(next));} catch { /* Storage may be unavailable. */ }
+    if (id && id !== "SKIP") {
+      const next = [id, ...recentIds.filter((recentId) => recentId !== id)].slice(0, 3);
+      setRecentState({ key: storageKey, ids: next });
+      if (storageKey) {
+        try {window.localStorage.setItem(storageKey, JSON.stringify(next));} catch { /* Storage may be unavailable. */ }
+      }
     }
     setOpen(false);
     setQuery("");
@@ -83,26 +136,28 @@ export function DirectorySelector({ directories, onSelect, reconfiguring, select
   function toggle() {
     if (open) {setOpen(false); return;}
     const bounds = rootRef.current?.getBoundingClientRect();
-    if (bounds) {setAbove(window.innerHeight - bounds.bottom < 340 && bounds.top > window.innerHeight - bounds.bottom);}
+    if (bounds && !isCollectionMapping) {setAbove(window.innerHeight - bounds.bottom < 340 && bounds.top > window.innerHeight - bounds.bottom);}
     setQuery("");
     setOpen(true);
   }
 
-  return <div className="field import-directory-field" ref={rootRef} onBlurCapture={(event) => {
+  return <div className={`field import-directory-field${isCollectionMapping ? " is-collection-mapping" : ""}`} ref={rootRef} onBlurCapture={(event) => {
     if (!(event.relatedTarget instanceof Node && event.currentTarget.contains(event.relatedTarget))) {setOpen(false);}
   }}>
-    <span id={labelId} className="field-label">目标游戏目录</span>
+    <span id={labelId} className="field-label">{isCollectionMapping ? "处理方式" : "目标游戏目录"}</span>
     <button
       id={buttonId}
       ref={buttonRef}
-      className={`import-directory-trigger${selected ? " has-selection" : ""}`}
+      className={`import-directory-trigger${selected || selectedId === "SKIP" ? " has-selection" : ""}`}
       type="button"
-      aria-labelledby={`${labelId} ${buttonId}`}
+      aria-label={isCollectionMapping ? `${collectionName} 处理方式` : undefined}
+      aria-labelledby={isCollectionMapping ? undefined : `${labelId} ${buttonId}`}
       aria-expanded={open}
       aria-controls={panelId}
+      disabled={disabled}
       onClick={toggle}
-    >{selected?.name ?? "请选择目标游戏目录"}<span aria-hidden="true">⌄</span></button>
-    <small>{reconfiguring ? "可以保留原目录，也可以选择正确的平台目录后重新识别。" : "必须主动选择，避免将游戏导入到错误目录。"}</small>
+    >{selectedLabel}<span aria-hidden="true">⌄</span></button>
+    {!isCollectionMapping ? <small>{reconfiguring ? "可以保留原目录，也可以选择正确的平台目录后重新识别。" : "必须主动选择，避免将游戏导入到错误目录。"}</small> : null}
     {open ? <div className={`import-directory-panel${above ? " is-above" : ""}`} id={panelId} role="region" aria-label="可选游戏目录">
       <input
         ref={searchRef}
@@ -111,30 +166,10 @@ export function DirectorySelector({ directories, onSelect, reconfiguring, select
         autoComplete="off"
         placeholder="搜索目录、平台或核心…"
         value={query}
+        disabled={disabled}
         onChange={(event) => setQuery(event.target.value)}
       />
-      <div className="import-directory-results">
-        {query.trim() ? <>
-          <p className="import-directory-section-label" role="status">找到 {filtered.length} 个目录</p>
-          {filtered.map((directory) => <DirectoryRow key={directory.id} directory={directory} selected={directory.id === selectedId} onChoose={choose} />)}
-          {!filtered.length ? <p className="import-directory-empty">没有匹配的游戏目录。可尝试平台或核心名称。</p> : null}
-        </> : <>
-          {recent.length ? <section aria-label="最近使用"><p className="import-directory-section-label">最近使用</p>{recent.map((directory) => <DirectoryRow key={directory.id} directory={directory} selected={directory.id === selectedId} onChoose={choose} />)}</section> : null}
-          {directoryCategories.map((category) => {
-            const items = directories.filter((directory) => categoryForPlatform(directory.platformId) === category.id);
-            if (!items.length) {return null;}
-            const groupId = `${panelId}-${category.id}`;
-            const isExpanded = expanded === category.id;
-            return <section className="import-directory-category" key={category.id}>
-              <button type="button" aria-expanded={isExpanded} aria-controls={groupId} onClick={() => setExpanded(isExpanded ? null : category.id)}>
-                <svg className="import-directory-chevron" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
-                {category.label}<small>{items.length}</small>
-              </button>
-              {isExpanded ? <div id={groupId} role="group" aria-label={category.label}>{items.map((directory) => <DirectoryRow key={directory.id} directory={directory} selected={directory.id === selectedId} onChoose={choose} />)}</div> : null}
-            </section>;
-          })}
-        </>}
-      </div>
+      <DirectoryResults directories={directories} disabled={disabled} expanded={expanded} isCollectionMapping={isCollectionMapping} onChoose={choose} onExpand={setExpanded} panelId={panelId} query={query} recent={recent} selectedId={selectedId} />
     </div> : null}
   </div>;
 }

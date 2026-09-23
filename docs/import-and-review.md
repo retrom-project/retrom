@@ -447,7 +447,7 @@ Import create 的 `contentMode` 缺省等价于 `STANDARD`；新 Web 对两种�
 
 `internal/service/sourceimport.Scanner` 负责 metadata 解析、Collection/游戏投影、路径决策、媒体候选顺序及确定性快照。来源适配器只提供目录发现、metadata 读取和媒体检查，三种访问都使用共享 reader 预算并检查取消。先发现文件特征，再按路径顺序逐份读取 metadata，解析结果不跨文件保留；单份超过 8 MiB 时只登记 `INVALID/PEGASUS_METADATA_TOO_LARGE`、大小及 facts，不读取内容、不生成内容摘要，其他合法 metadata 仍可生成候选。启动时对此类记录只重验 no-follow 文件特征；正常 metadata 必须重验内容摘要。随机源失败终止扫描，已取消或被替换的执行不能继续发布投影。
 
-每个 Collection 必须由管理员明确 `IMPORT + enabled PlatformInstance` 或 `SKIP`，没有默认映射。映射 Service 先校验整个批次的数量、唯一 Collection、动作与显式 Tag 数组，再在一个写事务内读取计划版本、Collection 归属和当前可用的运行目标。Collection 选择、标签关系及其版本、冻结的目标/Tag 快照和计划映射版本原子更新；跳过会清空目标与标签。存储错误保留原因，不能误报为计划不存在或普通输入错误；并发版本冲突及任一步失败必须整体回滚。
+每个 Collection 必须由管理员明确 `IMPORT + enabled PlatformInstance` 或 `SKIP`，没有默认映射。Pegasus 与 gamelist 共用的映射界面只列启用目录，按基础平台类型折叠并提供跨类型目录/平台/核心搜索；跳过和清除选择保持独立，搜索结果不自动映射。映射 Service 先校验整个批次的数量、唯一 Collection、动作与显式 Tag 数组，再在一个写事务内读取计划版本、Collection 归属和当前可用的运行目标。Collection 选择、标签关系及其版本、冻结的目标/Tag 快照和计划映射版本原子更新；跳过会清空目标与标签。存储错误保留原因，不能误报为计划不存在或普通输入错误；并发版本冲突及任一步失败必须整体回滚。
 
 启动 Service 先在短读事务中取得冻结的 root/source 摘要与有界 metadata evidence，释放数据库连接后再通过 no-follow 文件描述符、共享读取并发预算和可取消的读取重验大小、facts 与 digest。当前 root 配置必须与扫描时一致；创建 execution 前的写事务再次检查版本、到期时间、冻结摘要、活动标签和全实例执行容量，不能让校验期间过期或被修改的计划进入队列。所有 job/execution/audit ID 生成成功后，Job、不可变输入、阻断/跳过投影、计划状态、事件、操作者审计和 payload 释放登记一起提交；失败全部回滚，成功后才唤醒 worker。重复启动已执行计划返回既有状态，不重复创建 execution。
 

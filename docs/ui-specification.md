@@ -604,7 +604,7 @@ Arcade DAT 不在 Web 后台暴露列表、上传、差异、启用或回滚入�
 
 统一准备任务条目操作列的“审核并决定”和“处理运行问题”占满同一操作列，保持等宽，按钮文字使用 14px 字号。
 
-“游戏入库”子菜单为“导入游戏、本地扫描、任务进度、待审核”。`/admin/imports/server` 并列显示 BIOS 和游戏文件两张能力卡。游戏文件卡统一准备审核事项，Drawer 第一步显式选择 Pegasus (`metadata.pegasus.txt`) 或 gamelist.xml 文件组织格式；后续目录浏览、Collection 映射、标签、计划确认和任务详情复用同一组件与通用接口。游戏不会自动发布，来源命令不会执行。格式只用于扫描入口和计划摘要；审核页显示“来源文件”和 Collection 名称。所有游戏扫描计划合并分页，格式不建立独立任务区。`?action=bios` 打开 BIOS Drawer，`?action=source` 打开游戏文件 Drawer。
+“游戏入库”子菜单为“导入游戏、本地扫描、任务进度、待审核”。`/admin/imports/server` 并列显示 BIOS 和游戏文件两张能力卡。游戏文件卡统一准备审核事项，Drawer 第一步显式选择 Pegasus (`metadata.pegasus.txt`) 或 gamelist.xml 文件组织格式；后续目录浏览、Collection 映射、标签、计划确认和任务详情复用同一组件与通用接口。Collection 映射与普通导入共用按平台类型折叠的目录选择器，可跨类型搜索目录、平台和核心；“跳过此集合”与清除选择为独立操作，不属于目录分类。游戏不会自动发布，来源命令不会执行。格式只用于扫描入口和计划摘要；审核页显示“来源文件”和 Collection 名称。所有游戏扫描计划合并分页，格式不建立独立任务区。`?action=bios` 打开 BIOS Drawer，`?action=source` 打开游戏文件 Drawer。
 
 创建 Drawer 使用 root radio、面包屑和直接子目录分页浏览，展示 `<root label> / <relative path>` 与完整 catalog 范围；“允许使用更优候选替换”默认关闭并说明同分/更差不会替换。pending 时锁定选择；Drawer 有 focus trap、Escape 和关闭后焦点恢复。
 
