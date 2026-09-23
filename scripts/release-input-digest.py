@@ -13,11 +13,10 @@ import sys
 from pathlib import Path, PurePosixPath
 
 from dependencies import CheckError, parse_versions
-from runtime_provider_bundle import validate_provider_lock
+from runtime_provider_release import REPOSITORY, load_release_config
 
 
 ROOT = Path(__file__).resolve().parent.parent
-PROVIDER_IDS = ("emulatorjs", "retrom-runtime")
 
 
 def canonical(value: object) -> bytes:
@@ -64,7 +63,7 @@ def source_entries() -> list[dict[str, object]]:
     return entries
 
 
-def provider_lock_entries() -> list[dict[str, object]]:
+def provider_release_input() -> dict[str, str]:
     root = ROOT / "data/runtime-providers"
     if any((ROOT / relative).exists() for relative in (
         "data/runtime-providers/active.json",
@@ -74,28 +73,10 @@ def provider_lock_entries() -> list[dict[str, object]]:
         "data/runtime-providers/archive",
     )):
         raise ValueError("RELEASE_INPUT_CANDIDATE_OR_MUTABLE_PROVIDER_FORBIDDEN")
-    paths = [root / f"{provider_id}.lock.json" for provider_id in PROVIDER_IDS]
-    if any(not path.is_file() or path.is_symlink() for path in paths):
-        raise ValueError("RELEASE_INPUT_PROVIDER_LOCKS_MISSING")
-    entries = []
-    release_identity: tuple[str, str, str] | None = None
-    for provider_id, path in zip(PROVIDER_IDS, paths, strict=True):
-        raw = path.read_bytes()
-        lock = validate_provider_lock(json.loads(raw))
-        if lock["providerId"] != provider_id:
-            raise ValueError("RELEASE_INPUT_PROVIDER_LOCK_INVALID")
-        identity = (lock["repository"], lock["tag"], lock["commit"])
-        if release_identity is None:
-            release_identity = identity
-        elif identity != release_identity:
-            raise ValueError("RELEASE_INPUT_PROVIDER_RELEASE_MISMATCH")
-        entries.append({
-            "bundleSha256": lock["bundleSha256"],
-            "lockSha256": sha256(raw),
-            "providerId": provider_id,
-            "providerVersion": lock["providerVersion"],
-        })
-    return entries
+    path = root / "release.json"
+    if not path.is_file() or path.is_symlink():
+        raise ValueError("RELEASE_INPUT_PROVIDER_RELEASE_MISSING")
+    return {"repository": REPOSITORY, **load_release_config(path)}
 
 
 def release_input_value(versions: list[str], active: str) -> dict[str, object]:
@@ -125,7 +106,7 @@ def release_input_value(versions: list[str], active: str) -> dict[str, object]:
         "runtimeTargetCatalogSha256": sha256(
             (ROOT / "data/runtime-target-bindings/v1/catalog.json").read_bytes()
         ),
-        "providerLocks": provider_lock_entries(),
+        "providerRelease": provider_release_input(),
     }
 
 

@@ -239,7 +239,7 @@ make acceptance-case CASE=<case-id>
 
 - 上限：900 秒。
 - 执行：`make acceptance-case CASE=ACC-PKG-002`。
-- 流程：runner 记录 `make release-input-digest`，调用 `make build-web-image` 并 inspect `retrom-web:latest`；确认 target 在编译生产代码前执行 `data-check`，检查两个 production Provider lock、Bundle/manifest/module digest 与 61 个 Target binding 闭包，再检查 standalone production 产物、镜像没有创建或声明固定运行用户以及内部 HTTP 入口。最后在临时工作树副本篡改一个 Target declaration digest，运行同一 `data-check` 并要求预期失败；不在主工作树留修改，也不对负向样本再构建镜像。
+- 流程：runner 记录 `make release-input-digest`，调用 `make build-web-image` 并 inspect `retrom-web:latest`；确认 target 在编译生产代码前执行 `data-check`，检查单一 runtime release tag 及其解析出的两个 Provider、Bundle/manifest/module digest 与 61 个 Target binding 闭包，再检查 standalone production 产物、镜像没有创建或声明固定运行用户以及内部 HTTP 入口。最后在临时工作树副本篡改一个 Target declaration digest，运行同一 `data-check` 并要求预期失败；不在主工作树留修改，也不对负向样本再构建镜像。
 - 通过标准：默认目标 tag 为 `retrom-web:latest`，image config 的 `User` 为空且 `/etc/passwd` 不含 Retrom 专用账号，运行身份完全由部署编排决定；`io.retrom.release-input-sha256` 等于本次 helper 值；镜像只包含 lock 指定的内容寻址 Provider Bundle，Web 不包含第二份 adapter/core/asset registry，未知 Target、manifest 漂移或无 Module 实现都使临时副本校验失败；镜像没有开发依赖/缓存、内置后端地址、TLS 私钥或用户数据，Cmd 不是 `next dev`。
 - 证据：build log、image inspect/digest 摘要与负向 `data-check` 错误；不启动容器。
 
@@ -329,7 +329,7 @@ make acceptance-case CASE=<case-id>
 
 - 上限：900 秒。
 - 执行：`make acceptance-case CASE=ACC-PFB-009`。
-- 通过标准：init/build/up/restart和文档/Go/Web/runtime adapter变化都不调用core builder；只有`pfb-core-build CORE=<known-id>`构建一个精确core。unknown core、缺wrapper/descriptor/ABI或跨PFB路径失败关闭；构建结果不能自动进入production lock或Release。
+- 通过标准：init/build/up/restart和文档/Go/Web/runtime adapter变化都不调用core builder；只有`pfb-core-build CORE=<known-id>`构建一个精确core。unknown core、缺wrapper/descriptor/ABI或跨PFB路径失败关闭；构建结果不能自动进入production release tag或Release。
 
 ### ACC-PFB-010：workspace 持久性、迁移与数据操作
 
@@ -797,7 +797,7 @@ Mega Drive 导入回归另用测试内生成的非游戏 payload，经服务器�
 - 上限：900 秒。
 - 条件：EmulatorJS Provider Bundle、任一 Target declaration 或预置 DAT 相比上一已接受版本发生变化；否则为 `NOT_APPLICABLE`。
 - 执行：`make acceptance-case CASE=ACC-DAT-006`。
-- 流程：检查新 Bundle descriptor/archive digest、core source 证据、Target declaration、DAT 同提交/生成证据、parser stats、binding 闭包和受影响产品集成；先用未知 Target、manifest 摘要漂移、同版本换字节和降级 fixture 证明安装/readiness 失败。再用旧 Bundle 创建真实 SaveState，只把 production lock 向更高 Provider 版本推进，重启同一数据库并分别普通启动、从旧存档启动。不得执行降级或切回旧 active。
+- 流程：检查新 Bundle descriptor/archive digest、core source 证据、Target declaration、DAT 同提交/生成证据、parser stats、binding 闭包和受影响产品集成；先用未知 Target、manifest 摘要漂移、同版本换字节和降级 fixture 证明安装/readiness 失败。再用旧 Bundle 创建真实 SaveState，只把 production release tag 向更高 Provider 版本推进，重启同一数据库并分别普通启动、从旧存档启动。不得执行降级或切回旧 active。
 - 通过标准：Provider declaration 是唯一 Target registry；静态路由只暴露 active Bundle closed allowlist，Launch 只返回 Envelope V1，浏览器只经共享 dispatcher。升级后普通 Launch 使用新 `bundleSha256/moduleSha256`；旧存档仅在新 Target `readFormats` 包含旧格式时恢复，否则保留为不可恢复并返回 `LAUNCH_SAVE_INCOMPATIBLE`。降级、同版本换 bytes、删除被引用 Target、改变稳定 Target、manifest/binding/DAT 漂移均 fail closed；不存在默认 Provider、旧模块或旧 Bundle fallback。
 - 证据：两版正式 descriptor/archive/source 身份、升级前后 Provider/Target/Bundle、受影响产品测试、旧存档兼容或明确不兼容结果，以及全部只前进负向记录。
 
@@ -1522,7 +1522,7 @@ ID。没有实体设备时自动化 Case 可以 PASS，但沉浸模式发布验�
 
 ## 22. Runtime Provider 架构
 
-以下八项是 Provider 架构的固定验收入口，统一执行 `make acceptance-case CASE=ACC-PROVIDER-NNN`。每项只调用列出的聚焦检查；PFB 产品验收另执行本节之后受影响的既有产品 Case。正式发布资产尚未获授权时，006 使用发布流程 fixture，不用PFB loose开发层伪造production lock。
+以下八项是 Provider 架构的固定验收入口，统一执行 `make acceptance-case CASE=ACC-PROVIDER-NNN`。每项只调用列出的聚焦检查；PFB 产品验收另执行本节之后受影响的既有产品 Case。正式发布资产尚未获授权时，006 使用发布流程 fixture，不用PFB loose开发层伪造production release tag。
 
 ### ACC-PROVIDER-001：Bundle 完整性与确定性
 
@@ -1547,7 +1547,9 @@ ID。没有实体设备时自动化 Case 可以 PASS，但沉浸模式发布验�
 
 ### ACC-PROVIDER-006：Candidate、镜像与发布边界
 
-- runtime `v0.46.0` 起，正式 release tag 是两个 Provider 版本的唯一来源；lock、manifest、客户端导出与归档名称必须使用 tag 去掉 `v` 的同一版本。安装回归须拒绝独立 Provider 版本、混合版本及与 tag 不匹配的 active descriptor；候选 `0.0.0-dev` 不得冒充正式发布，PFB 模块必须沿用基座版本。
+- pin/prepare 回归覆盖仅 tag 配置、两个 Provider 的统一解析、完整缓存离线安装、错误 tag/repository/版本/Provider 集合、下载失败、描述与归档缓存损坏；失败不改变原配置或发布 active。正式 release digest 只读 tag 配置，不读 `.pfb/` 或本机缓存；未打 tag candidate 与 loose module 的已有入口保持可用。
+
+- runtime `v0.46.0` 起，正式 release tag 是两个 Provider 版本的唯一来源；Retrom 配置只包含一个 tag，解析出的安装身份、manifest、客户端导出与归档名称必须使用 tag 去掉 `v` 的同一版本。安装回归须拒绝独立 Provider 版本、混合版本及与 tag 不匹配的 active descriptor；候选 `0.0.0-dev` 不得冒充正式发布，PFB 模块必须沿用基座版本。
 - 从旧 EmulatorJS `2.x` 开发数据切换到统一版本时，先验证新正式基座，停机后通过 exact-ID `pfb-data-reset SOURCE_ROOT=...` 归档数据库、上传和 active/dev 状态，再启动同一 PFB。证据记录归档路径、稳定 ID/URL、新版本及两类受影响游戏的产品 Case；保留 ACC-PROVIDER-005 的降级/同版换 bytes 拒绝断言，不提供旧数据迁移。
 
 - 上限：900 秒。证明 PFB loose/production 隔离、release input digest 和镜像 active identity 使用同一生产Provider输入，且正式流程不读取`.pfb/`。
@@ -1752,7 +1754,7 @@ Review 与普通预览会话。`negative-matrix/matrix.json` 必须精确声明 
 ### ACC-RPG-012：前向运行时升级与存档兼容
 
 - 当前状态：`BLOCKED`。只有在出现第二个已完成 12 Target 产品验证的更高稳定 `retrom-runtime` Provider Release 后才启用；当前执行必须在读取数据库或启动浏览器前返回 `RPG_SECOND_RUNTIME_RELEASE_REQUIRED`。不得伪造历史 Provider、篡改存档绑定或保留可被选择的旧 Bundle。
-- 上限：300 秒。启用后使用专用 DB/CAS，按真实部署顺序完成两阶段产品链：先用旧 Provider Bundle 启动 Retrom，经 Upload/Import/Review/Player 创建至少一个游戏和真实 SaveState；停止服务后只把 production lock 升级到更高 Provider 版本，运行正常 bootstrap/reconcile，再重启同一 DB。两阶段只能使用各自真实 Release descriptor/archive 和普通产品 API，不使用 acceptance-only seeder。
+- 上限：300 秒。启用后使用专用 DB/CAS，按真实部署顺序完成两阶段产品链：先用旧 Provider Bundle 启动 Retrom，经 Upload/Import/Review/Player 创建至少一个游戏和真实 SaveState；停止服务后只把 production release tag 升级到更高 Provider 版本，运行正常 bootstrap/reconcile，再重启同一 DB。两阶段只能使用各自真实 Release descriptor/archive 和普通产品 API，不使用 acceptance-only seeder。
 - 兼容升级：新 Bundle 保持相同 `providerId/targetId/checkpoint readFormats`，新 Target 的 `readFormats` 包含旧 `checkpointFormat`。升级后旧 Game 的普通 Launch 必须使用新 `bundleSha256/moduleSha256`；旧 SaveState 必须仍可由新 Bundle 创建不同 Launch、恢复到保存位置并继续输入；新 SaveState 必须记录新 Target declaration 和写格式。旧 Bundle 的静态端点不得再作为 fallback。
 - 不兼容 checkpoint：新 Bundle 仍保持相同 `checkpoint readFormats`，但 `readFormats` 不包含旧格式。升级后同一个 Game 的普通 Launch 仍必须使用新 Bundle 并正常运行；旧 SaveState 保留在 `availability=ALL`，状态为 `BLOCKED`、reason=`SAVE_RUNTIME_INCOMPATIBLE`，不得出现在默认可恢复列表。用该 save ID 创建 Launch 必须返回 `422 LAUNCH_SAVE_INCOMPATIBLE` 且不创建 Launch；从新 Provider 创建的新 SaveState 必须可恢复。
 - 只前进门禁：降级、同版本不同 `bundleSha256`、删除仍被引用 Target、改变既有 `checkpoint readFormats` 或让历史必需 checkpoint format 不可读时，bootstrap/readiness 必须 fail closed。Retrom 不提供运行时回滚 UI/API，也不加载旧 Bundle 兜底。

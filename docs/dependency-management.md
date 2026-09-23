@@ -3,8 +3,8 @@
 | 属性 | 内容 |
 | --- | --- |
 | 文档状态 | 已实施 / 一期权威基线 |
-| 版本 | 2.2 |
-| 日期 | 2026-09-08 |
+| 版本 | 2.3 |
+| 日期 | 2026-09-22 |
 
 ## 1. 依赖分层
 
@@ -40,11 +40,25 @@ Provider manifest 的 `providerApiVersion` 在结构层只要求正整数，使�
 
 `emulatorjs` Bundle 从独立 retrom-runtime 仓库中锁定的 EJS upstream 与 fork Release 输入生成，Target 集合以 Provider declaration 为准。它独占 EJS core、core options、启动动作与多盘的行为映射。
 
-`retrom-runtime` Bundle 从独立仓库生成，Target 集合以 Provider declaration 为准，生产可用集合以正式 lock 为准。`provider-sources.json` 只记录上游或本地 core 构建来源，不声明 Retrom 路由或产品 binding；Target registry 只存在于 Provider declaration。正式 package 校验声明的上游输入及其锁定 source/tag/asset，源码构建或缓存复用都必须得到声明的字节。
+`retrom-runtime` Bundle 从独立仓库生成，Target 集合以 Provider declaration 为准，生产可用集合以正式 runtime tag 为准。`provider-sources.json` 只记录上游或本地 core 构建来源，不声明 Retrom 路由或产品 binding；Target registry 只存在于 Provider declaration。正式 package 校验声明的上游输入及其锁定 source/tag/asset，源码构建或缓存复用都必须得到声明的字节。
+
+### 正式依赖只记录 tag
+
+`data/runtime-providers/release.json` 是 Retrom 唯一的正式 runtime 选择配置，只包含：
+
+```json
+{"tag":"v0.47.0"}
+```
+
+更新版本使用 `make runtime-provider-pin-release TAG=v0.47.0`，也可直接编辑此文件。pin 先验证发布描述，成功后原子写入 tag；无需本地下载两个完整归档。仓库地址固定为 `https://github.com/retrom-project/retrom-runtime`，准备工具从该 tag 的 GitHub Release 下载 `provider-release.json`，从中解析两个 Provider 的 commit、归档名、SHA-256、大小和文件数。不再维护或生成可提交的逐 Provider lock 文件；共享 `provider-lock.schema.json` 仅描述工具内部派生的安装输入。
+
+`make runtime-provider-prepare` 和后端镜像 builder 都使用该配置，必须同时解析出 `emulatorjs` 与 `retrom-runtime`，并验证 repository、tag、版本和闭合字段。描述缓存在 `.cache/runtime-providers/releases/<tag>/provider-release.json`；归档继续按内容摘要缓存。完整缓存支持断网重建，每次仍复核描述和归档、安装文件的完整性。错误发布描述、损坏下载或缓存不得更新 active；缺少 Release/asset 时失败，不回退到本地 candidate。tag 和发布资产必须不可变，更新使用新 tag。
+
+仅 tag 是人工维护输入；摘要、size、manifest/integrity 校验仍由发布产物与安装器负责。解析发生在依赖准备或镜像构建阶段，应用启动只读取已安装的 active identity，不访问 GitHub。
 
 ### 统一发布版本
 
-从 runtime `v0.46.0` 开始，GitHub 的不可移动 tag 是发布版本的唯一事实源。`retrom-runtime` 与 `emulatorjs` 两个 Provider 的 `providerVersion` 都等于 tag 去掉 `v` 的值；manifest、client 导出、archive 文件名和正式 lock 必须一致。Retrom 的 pin、prepare 与 active 校验拒绝版本与 tag 不匹配的正式包。源码中的 npm package、上游来源清单和 Provider catalog 不再独立维护发布版本。未打 tag 的 runtime 构建使用 `0.0.0-dev`；PFB loose module 只沿用已校验基座的版本。
+从 runtime `v0.46.0` 开始，GitHub 的不可移动 tag 是发布版本的唯一事实源。`retrom-runtime` 与 `emulatorjs` 两个 Provider 的 `providerVersion` 都等于 tag 去掉 `v` 的值；manifest、client 导出、archive 文件名和正式 runtime tag 必须一致。Retrom 的 pin、prepare 与 active 校验拒绝版本与 tag 不匹配的正式包。源码中的 npm package、上游来源清单和 Provider catalog 不再独立维护发布版本。未打 tag 的 runtime 构建使用 `0.0.0-dev`；PFB loose module 只沿用已校验基座的版本。
 
 这一规则不兼容原来的 EmulatorJS `2.x` 开发数据。未上线环境必须停止对应实例，归档旧数据库/上传及 Provider active/dev 状态，并用新的正式基座重建；PFB 使用 `pfb-data-reset SOURCE_ROOT=<已验证新基座> CONFIRM=<当前精确ID>`，保持原 PFB ID、URL、immutable installation 与构建缓存，命令返回的备份路径必须保留。不能把旧 `2.x` 记录改写成 `0.46.0`，也不能关闭同版本重建和降级检查。生产向前升级规则不变，此次不提供旧数据兼容迁移。
 
@@ -82,7 +96,7 @@ PFB 只消费同一命名 worktree 中的 Retrom 与 `retrom-runtime` 源码，�
 
 loose descriptor 只能覆盖同一 provider/base bundle 中已有的公开路径，不能注入 Target、改写 Retrom binding、伪造 Release 坐标或替换未知大体积 core。Go 启动逐文件验证 size/SHA-256/media type与内含字节，并只在合法test PFB中接受；release 和普通非 PFB 进程拒绝 `RETROM_PROVIDER_DEV_ROOT`。
 
-production lock 仍只接受已授权的正式 Provider archive、descriptor 和 SHA-256。正式 `provider:build/provider:check/release:build`、release input digest与双镜像不读取 `.pfb/`，也不能消费loose descriptor。PFB产品验证与正式归档/许可/确定性构建是两条互补门禁，PFB PASS不构成发布授权。
+production release tag 只选择已发布的正式 runtime；解析出的 Provider archive、descriptor 和 SHA-256 必须通过完整校验。正式 `provider:build/provider:check/release:build`、release input digest与双镜像不读取 `.pfb/`，也不能消费loose descriptor。PFB产品验证与正式归档/许可/确定性构建是两条互补门禁，PFB PASS不构成发布授权。
 
 ### ScummVM 核心资产
 
@@ -98,8 +112,8 @@ repository、tag、commit、ABI、上游基线与归档准确大小/SHA-256，�
 与闭合 layout、引擎映射和逐文件摘要一致。检测器与 Web 核心必须来自同一归档。
 
 PFB 的显式 core 覆盖仍只接受 fork 生成的 candidate 和逐文件摘要；尚未发布的来源通过
-`developmentInputs` 登记。普通构建、正式 release 与 production lock 不接受未发布输入，正式 release
-也拒绝任何本地 core 覆盖。发布依次完成 fork、runtime 固定输入和 Provider、Host 正式 lock，并对正式
+`developmentInputs` 登记。普通构建、正式 release 与 production release tag 不接受未发布输入，正式 release
+也拒绝任何本地 core 覆盖。发布依次完成 fork、runtime 固定输入和 Provider、Host 正式 runtime tag，并对正式
 归档复跑受影响的产品 Case。
 
 ## 7. 镜像与 release input digest
@@ -107,15 +121,15 @@ PFB 的显式 core 覆盖仍只接受 fork 生成的 candidate 和逐文件摘�
 Retrom 镜像构建输入必须包含：
 
 - Retrom source tree；
-- 两个 Provider 的精确 descriptor 与 archive；
+- 单一正式 runtime tag（准备阶段解析并校验该 Release 的两个 Provider descriptor 与 archive）；
 - Target binding catalog；
 - DAT/BIOS manifests；
 - OpenAPI 与 Launch Envelope schema；
 - Web build dependencies。
 
-`release-input-digest` 对上述输入做规范摘要。Docker build和后端启动日志必须报告同一生产Provider identity；PFB evidence另报告基座identity与开发模块摘要，不能冒充release digest。镜像内只复制已验证的Provider stage，不在build时从网络解析`latest`，也不允许运行容器从宿主源码目录补文件。
+`release-input-digest` 离线对上述源码配置输入做规范摘要，Provider 部分包含固定 repository 与 tag，不读取本机描述缓存、expanded lock 或 `.pfb/`。descriptor/归档内容的完整性由安装阶段验证，发布资产的不可变性由同一 tag 不重发的发布规则保证。Docker build和后端启动日志必须报告同一生产Provider identity；PFB evidence另报告基座identity与开发模块摘要，不能冒充release digest。镜像内只复制已验证的Provider stage，不在build时从网络解析`latest`，也不允许运行容器从宿主源码目录补文件。
 
-正式 release 可以因为尚未授权发布资产而暂不可执行；这不允许用PFB loose开发层冒充production。正式发布授权后生成production lock，并重跑归档完整性、确定性和受影响的相同产品链。
+正式 release 可以因为尚未授权发布资产而暂不可执行；这不允许用PFB loose开发层冒充production。正式发布授权后更新 runtime tag，并重跑归档完整性、确定性和受影响的相同产品链。
 
 ## 8. DAT 与 BIOS
 
@@ -172,7 +186,7 @@ Ruffle fork 为 `retrom-project/ruffle`，上游基线固定为
 fork 显式构建 `ruffle.js`、`core.ruffle.js`、`ruffle.wasm` 和原始许可，输出有界 candidate 文件清单和逐文件 SHA-256。
 runtime 固定消费 fork 的已发布 `retrom-core-ge46d1642fb67-r2` 资产，不编译核心；未发布的本地覆盖只允许用于显式 PFB 候选构建。
 PFB 将完整、已验证 Provider 候选作为不可变基座导入，后续 adapter 修改走 loose watcher；核心字节变化必须显式重建
-并通过更高的 Provider 候选版本重新导入。production lock 只引用正式 runtime Release，发布前仍需固定 fork Release 和完整门禁。
+并通过更高的 Provider 候选版本重新导入。production release tag 只引用正式 runtime Release，发布前仍需固定 fork Release 和完整门禁。
 
 ## 11. 追溯与日志
 
@@ -201,7 +215,7 @@ PFB 中显式 `pfb-core-build CORE=flycast`，再由 runtime
 
 Play! 的核心源码与构建归属为 `retrom-project/Play-`，维护基线为上游 `83700b2c31e593bc94e845b4b31b797be84dda59`，维护分支 `retrom/g83700b2c31e5`。Retrom workspace catalog 将其登记为 runtime 的 `play` 核心依赖。固定 Emscripten 工具链、ABI `play-host-v1`、闭合资产与许可由 fork 管理，annotated `retrom-core-g83700b2c31e5-rN` tag 的工作流发布正式资产。
 
-runtime 通过普通 `upstreamReleases` 固定 Play! tag、commit、metadata 与资产；Retrom 通过正常 Provider Release 锁文件消费它。PS2 核心保持启用，手动创建目录、导入与启动遵循普通核心流程，无实验开关或专用禁用状态；因运行不稳定，不提供推荐目录，具体行为见[游戏目录契约](./platform-instance.md#release-推荐目录-catalog)。候选与本机路径不进入 production lock；后续更新沿用 core → Provider → Host 的正常发布顺序。产品验证见 [ACC-PS2-001](./project-acceptance.md#acc-ps2-001play-ps2-按需光盘与即时状态)。
+runtime 通过普通 `upstreamReleases` 固定 Play! tag、commit、metadata 与资产；Retrom 通过正常 runtime Release tag消费它。PS2 核心保持启用，手动创建目录、导入与启动遵循普通核心流程，无实验开关或专用禁用状态；因运行不稳定，不提供推荐目录，具体行为见[游戏目录契约](./platform-instance.md#release-推荐目录-catalog)。候选与本机路径不进入 production release tag；后续更新沿用 core → Provider → Host 的正常发布顺序。产品验证见 [ACC-PS2-001](./project-acceptance.md#acc-ps2-001play-ps2-按需光盘与即时状态)。
 
 ### OpenBOR 浏览器核心
 
@@ -209,9 +223,9 @@ OpenBOR 的源码与 Emscripten 构建归属 `retrom-project/openbor`，上游�
 `DCurrent/openbor@9d81480f8481fbb9e76b0b5f2a5dfa408376761a`，维护分支
 `retrom/g9d81480f8481`。runtime 以 `openbor-host-v1` 消费 fork 输出的 ES module、WASM 和许可。
 runtime 通过 `upstreamReleases` 固定 `retrom-core-g9d81480f8481-r1` 的 commit、元数据、
-资产长度与 SHA-256；Retrom 通过正式 Provider Release 锁文件消费它。PFB 可显式覆盖已声明
+资产长度与 SHA-256；Retrom 通过正式 runtime Release tag消费它。PFB 可显式覆盖已声明
 来源的候选资产，验证闭合集合、长度与摘要；未发布候选不能进入正式 Provider Release 或
-production lock。core 源码、工具链和二进制始终由 fork 管理。
+production release tag。core 源码、工具链和二进制始终由 fork 管理。
 
 ### WebMSX 发布与开发候选
 
@@ -219,9 +233,9 @@ MSX 接入使用 `retrom-project/WebMSX`，上游基线 v6.0.8 固定为
 `4f4009e86d3e0bb9be7dcd7f0a582b0cd411d660`，维护分支 `retrom/6.0.8`，ABI `webmsx-host-v1`。
 runtime 通过普通 `upstreamReleases` 固定 `retrom-core-6.0.8-r1` 的 commit、ABI、
 `webmsx.js` 和 `UPSTREAM-NOTICE.txt` 的准确大小与 SHA-256，并核对发布元数据。
-Retrom 通过 production lock 消费正式 Provider；`msx-webmsx` Target 对应 `msx`/`webmsx` binding。
+Retrom 通过 production release tag 消费正式 Provider；`msx-webmsx` Target 对应 `msx`/`webmsx` binding。
 后续核心修改仍在同一 PFB 的 core worktree 显式执行 `pfb-core-build CORE=webmsx`，
-由 fork 输出封闭 candidate 清单；本地覆盖只允许用于 PFB，不能进入正式聚合与锁文件。
+由 fork 输出封闭 candidate 清单；本地覆盖只允许用于 PFB，不能进入正式聚合与 tag 配置。
 上游固定提交未提供源码头部所指的 `license.txt`，不能标注为 MIT 或 GPL。
 专用 notice 与核心发布元数据保留源码许可和嵌入系统 ROM 分发状态 `UNRESOLVED`；发布不构成授权声明。
 
@@ -235,7 +249,7 @@ PX68K 的维护源为 `retrom-project/px68k-libretro`，基线是
 
 runtime 固定维护分支的正式 `retrom-core-g561dcba6b11d-r1` Release，验证提交、ABI、
 ES module/Wasm/完整 `LICENSES.txt` 的文件大小与 SHA-256，再构建 Provider。
-PFB 的显式 core candidate 仍验证闭合文件集合与 candidate descriptor；开发覆盖不能进入正式归档或 production lock。
+PFB 的显式 core candidate 仍验证闭合文件集合与 candidate descriptor；开发覆盖不能进入正式归档或 production release tag。
 该核心同时保留 GPL 文本、WinX68k 非商业条款和 FMGen notice；adapter 的 MIT 许可不改变它们。
 
 BIOS 由产品 BIOS 安装链提供：`iplrom.dat`（131072 bytes）和 `cgrom.dat`（786432 bytes），
@@ -254,7 +268,7 @@ EmulatorJS `forks` 固定已发布的 `retrom-core-g8f671cc9d737-r1`、commit、
 `developmentInputs` / `developmentForks` 显式登记，普通正式构建拒绝该输入。
 首次接入显式构建并验证完整 Provider 候选，再用 `pfb-provider-import` 导入为 PFB 基座。
 日常生命周期不重建核心或 Provider。正式更新按 core → runtime → Retrom 顺序发布，
-Retrom 固定正式 Provider lock 后重跑 ACC-VECTREX-001。
+Retrom 固定正式 runtime tag 后重跑 ACC-VECTREX-001。
 
 ### NeoCD 核心
 
@@ -265,7 +279,7 @@ Retrom workspace catalog 新增 `neocd`，维护仓库为
 核心通过 PFB 显式 `pfb-core-build CORE=neocd` 构建，使用固定 Emscripten 镜像和
 EmulatorJS RetroArch commit。runtime 只验证并聚合锁定资产，不编译核心。
 正式来源固定为 `retrom-core-g3118c6901787-r1`；后续更新遵循 core → runtime → Retrom
-顺序，Retrom 固定正式 Provider lock 后重跑 ACC-NEOCD-001。
+顺序，Retrom 固定正式 runtime tag 后重跑 ACC-NEOCD-001。
 
 发布包包含完整 NeoCD 源码归档、组件许可和字节摘要；源码未发布时普通 release
 构建必须拒绝。顶层 LGPLv3 不覆盖所有组件：Z80 源码带有非商业限制，链接的
@@ -287,7 +301,7 @@ PokeMini 提供现成 libretro/Emscripten 路径，但文档记录部分游戏 E
 
 核心固定 `retrom-core-g05a05e931b39-r1`，正式 Provider 校验 release descriptor、
 完整资产清单与准确大小/SHA-256。未发布覆盖只允许显式 PFB candidate。
-发布按 core → runtime → Retrom 顺序，Retrom 固定正式 Provider lock 后重跑 `ACC-POKEMINI-001`。
+发布按 core → runtime → Retrom 顺序，Retrom 固定正式 runtime tag 后重跑 `ACC-POKEMINI-001`。
 
 Provider 安装校验保持完整 SHA-256 与大小检查；文件摘要使用有界的 1 MiB 读取缓冲，避免 Docker bind mount 上大量 32 KiB 读取消耗启动预检时限。该调整不跳过任何依赖字节。
 PFB 的测试模式使用既有配置允许的 5 分钟启动预检额度，为完整 Provider 校验留出 bind mount I/O 时间；生产服务的默认额度不变。
