@@ -122,7 +122,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     ),
     "ACC-SEC-003": (
         120,
-        "go test ./internal/httpapi -run 'TestHealthIsPublicAndProtectedWritesRequireAuthentication|TestProtectedWritesRejectInvalidOriginWithoutEnablingCORS|TestAuthHTTPTestLoginCookieCSRFAndLogout|TestAuthHTTPReleasePendingRequiresSetupAndExactOrigin' -count=1",
+        "go test ./internal/httpapi -run 'TestHealthIsPublicAndProtectedWritesRequireAuthentication|TestProtectedWritesRejectInvalidOriginWithoutEnablingCORS|TestAuthHTTPTestLoginCookieCSRFAndLogout|TestAuthHTTPReleaseInitializesWithoutCodeAndRequiresExactOrigin' -count=1",
     ),
     "ACC-SEC-004": (120, "go test ./internal/hasheous -run 'TestLookupNormalizesBoundedResponse|TestLookupClassifiesMissAndOversize|TestFetchAssetValidatesImageAndEveryRedirect' -count=1"),
     "ACC-API-001": (120, "go test ./internal/httpapi ./internal/cursor -count=1"),
@@ -310,7 +310,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     ),
     "ACC-PEG-003": (
         300,
-        "go test -tags=integration ./internal/sourceimport ./internal/libraryimport ./internal/service/sourceimport ./internal/persistence/sourceimport ./internal/service/libraryimport ./internal/persistence/libraryimport -run 'TestScanMapImportCreatesReviewBeforePublishingGameAndMedia|TestReviewPreparation|TestOwned|TestSourceOwnership|TestServerSource|TestServerImportResult|TestServerRPGArchive|TestLinkedDuplicate|TestMultiDiscDirectoryCreatesOrderedItemsAndPublishesCanonicalContent|TestArcadeGroupingBuildsCoreScopedParentAndBIOSClosure|TestReviewHandoff|TestServerMetadata|TestMetadata|TestReviewDiscard' -count=1",
+        "go test -tags=integration ./internal/sourceimport ./internal/libraryimport ./internal/service/sourceimport ./internal/persistence/sourceimport ./internal/service/libraryimport ./internal/persistence/libraryimport -run 'TestScanMapImportCreatesReviewBeforePublishingGameAndMedia|TestReviewPreparation|TestOwned|TestSourceOwnership|TestServerSource|TestServerImportResult|TestServerRPGArchive|TestOwnedDuplicateReplaysByBindingAfterPayloadCleanup|TestMultiDiscDirectoryCreatesOrderedItemsAndPublishesCanonicalContent|TestArcadeGroupingBuildsCoreScopedParentAndBIOSClosure|TestReviewHandoff|TestServerMetadata|TestMetadata|TestReviewDiscard' -count=1",
     ),
     "ACC-PEG-004": (
         300,
@@ -324,7 +324,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     ),
     "ACC-ES-002": (
         240,
-        "go test ./internal/importformat/gamelist ./internal/sourceimport ./internal/serversource ./internal/httpapi -run 'TestScan|TestWalkAndOpenStayWithinNoFollowDescriptors|TestSourceImportHTTP|TestCreation|TestMapping|TestStart|TestQuer|TestQueriesReject' -count=1 && go test ./internal/service/sourceimport ./internal/persistence/sourceimport -count=1",
+        "go test ./internal/importformat/gamelist ./internal/sourceimport ./internal/serversource ./internal/httpapi -run 'TestScan|TestWalkAndOpenStayWithinNoFollowDescriptors|TestSourceImportHTTP|TestCreate|TestMapping|TestStart|TestItems|TestCollections' -count=1 && go test ./internal/service/sourceimport ./internal/persistence/sourceimport -count=1",
     ),
     "ACC-ES-003": (
         300,
