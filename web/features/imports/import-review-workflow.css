@@ -54,11 +54,31 @@
 .import-selected-summary p { margin: 0; color: var(--muted); font-size: 12px; }
 .import-selected-summary > div:last-child { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
 .import-file-preview { max-height: 360px; overflow: auto; }
-.import-config-panel { overflow: hidden; }
+.import-config-panel { overflow: visible; }
 .import-config-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .import-config-grid .field { grid-template-rows: auto 44px; align-content: start; }
-.import-config-grid .field small { grid-row: 3; }
+.import-config-grid .field > small { grid-row: 3; }
 .import-config-grid small { color: var(--muted); font-size: 11px; }
+.import-directory-field { position: relative; min-width: 0; }
+.import-directory-trigger { width: 100%; min-width: 0; min-height: 44px; padding: 10px 12px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border: 1px solid var(--line); border-radius: var(--radius-control); color: var(--muted); background: white; cursor: pointer; text-align: left; }
+.import-directory-trigger.has-selection { color: var(--ink); }
+.import-directory-trigger > span { color: var(--purple-dark); font-size: 18px; }
+.import-directory-trigger:focus-visible, .import-directory-panel button:focus-visible, .import-directory-panel input:focus-visible { outline: 3px solid rgb(96 69 217 / 35%); outline-offset: 2px; }
+.import-directory-panel { position: absolute; z-index: 30; top: calc(100% + 6px); left: 0; width: min(540px, calc(100vw - 44px)); max-height: min(430px, 60vh); padding: 10px; display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 8px; border: 1px solid #d8d1f6; border-radius: var(--radius-panel); background: white; box-shadow: 0 18px 42px rgb(24 32 51 / 18%); }
+.import-directory-panel.is-above { top: auto; bottom: calc(100% + 6px); }
+.import-directory-panel input[type="search"] { min-height: 40px; }
+.import-directory-results { min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.import-directory-section-label { margin: 8px 10px 5px; color: var(--muted); font-size: 11px; font-weight: 800; }
+.import-directory-category > button { width: 100%; min-height: 42px; padding: 8px 10px; display: flex; align-items: center; gap: 9px; border: 0; border-top: 1px solid var(--line); color: var(--ink); background: white; cursor: pointer; text-align: left; font-size: 12px; font-weight: 800; }
+.import-directory-category > button > span { width: 13px; color: var(--purple-dark); font-size: 17px; }
+.import-directory-category > button small { margin-left: auto; color: var(--muted); }
+.import-directory-category > div { padding-left: 10px; }
+.import-directory-option { width: 100%; min-height: 52px; padding: 8px 10px; display: grid; gap: 2px; border: 0; border-radius: var(--radius-control); color: var(--ink); background: white; cursor: pointer; text-align: left; }
+.import-directory-option:hover, .import-directory-category > button:hover { background: var(--surface-subtle); }
+.import-directory-option[aria-pressed="true"] { background: #f2efff; }
+.import-directory-option strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+.import-directory-option small { overflow: hidden; color: var(--muted); text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
+.import-directory-empty { margin: 12px 10px; color: var(--muted); font-size: 12px; }
 .import-content-mode { margin: 18px 0 0; padding: 14px; display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; border: 1px solid var(--line); border-radius: var(--radius-panel); }
 .import-content-mode legend { padding: 0 5px; font-size: 12px; font-weight: 800; }
 .import-content-mode label { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 700; }

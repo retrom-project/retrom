@@ -13,13 +13,14 @@ import { TagChips, TagPicker, type TagReference } from "@/components/tag-picker"
 import { MultiDiscPreflight as MultiDiscPreflightView } from "./multidisc-preflight-view";
 import { MULTI_DISC_DEFAULT_LIMITS, preflightMultiDisc, type MultiDiscPreflight } from "./multidisc-preflight";
 import { DirectoryPickerDialog } from "./directory-picker-dialog";
+import { DirectorySelector } from "./directory-selector";
 import { directoryPickerAvailable, droppedDirectory, pickDirectory, type PickedDirectory, type PickedDirectoryFile } from "@/lib/directory-access";
 
 type ChosenFile = { id: string; file: File; name: string; size: number; path: string };
 type ContentMode = "STANDARD" | "MULTI_DISC" | "RPG_MAKER_PROJECT" | "ONS_PROJECT" |
   "KIRIKIRI_PROJECT" | "BUTTERSCOTCH_PROJECT" | "NXENGINE_PROJECT" | "TYRANOSCRIPT_PROJECT" | "SCUMMVM_PROJECT";
 type Directory = {
-  id: string; name: string; platformName: string; coreName: string;
+  id: string; name: string; platformId?: string; platformName: string; coreName: string;
   importCapabilities?: { contentModes: string[]; multiDisc: { maxDiscs: number; maxTotalBytes: number } | null };
 };
 
@@ -124,6 +125,7 @@ type ConfigStepProps = {
   target: string;
   totalBytes: number;
   visibleCapabilityNotice: string;
+  userId?: string;
 };
 
 function MultiDiscConfiguration(props: Pick<ConfigStepProps, "contentMode" | "multiDiscLimits" | "multiDiscSupported" | "onContentMode" | "preflight" | "reconfiguring" | "visibleCapabilityNotice"> & { sourceIsDirectory: boolean }) {
@@ -161,9 +163,9 @@ function ProjectConfiguration({ contentMode }: Pick<ConfigStepProps, "contentMod
   return null;
 }
 
-function ImportConfigurationFields(props: Pick<ConfigStepProps, "contentMode" | "directories" | "onProvider" | "onTarget" | "provider" | "reconfiguring" | "selectedDirectory" | "target">) {
+function ImportConfigurationFields(props: Pick<ConfigStepProps, "contentMode" | "directories" | "onProvider" | "onTarget" | "provider" | "reconfiguring" | "selectedDirectory" | "target" | "userId">) {
   return <div className="form-grid import-config-grid">
-    <div className="field"><label htmlFor="directory">目标游戏目录</label><select id="directory" value={props.target} onChange={(event) => props.onTarget(event.target.value)}><option value="" disabled>{props.directories.length ? "请选择目标游戏目录" : "暂无可用游戏目录"}</option>{props.directories.map((directory) => <option value={directory.id} key={directory.id}>{directory.name}</option>)}</select><small>{props.reconfiguring ? "可以保留原目录，也可以选择正确的平台目录后重新识别。" : "必须主动选择，避免将游戏导入到错误目录。"}</small></div>
+    <DirectorySelector directories={props.directories} selectedId={props.target} onSelect={props.onTarget} reconfiguring={props.reconfiguring} userId={props.userId} />
     <div className="field"><label htmlFor="provider">元信息来源</label>{isProjectContentMode(props.contentMode)
       ? <input id="provider" value={`不刮削（${contentModeLabel(props.contentMode)}）`} disabled />
       : <select id="provider" value={props.provider} onChange={(event) => props.onProvider(event.target.value)}><option value="HASHEOUS">Hasheous 哈希查询</option><option value="NONE">不刮削</option></select>}</div>
@@ -180,7 +182,7 @@ function ConfigStep(props: ConfigStepProps & { sourceIsDirectory: boolean }) {
   return <section className="panel import-config-panel">
     <div className="panel-head"><div><h2>确认导入配置</h2><p>目标目录决定基础平台和推荐运行方式；配置会冻结到本次任务快照。</p></div><span className="status info"><i />步骤 2 / 3</span></div>
     <div className="panel-body">
-      <ImportConfigurationFields contentMode={props.contentMode} directories={props.directories} onProvider={props.onProvider} onTarget={props.onTarget} provider={props.provider} reconfiguring={props.reconfiguring} selectedDirectory={props.selectedDirectory} target={props.target} />
+      <ImportConfigurationFields contentMode={props.contentMode} directories={props.directories} onProvider={props.onProvider} onTarget={props.onTarget} provider={props.provider} reconfiguring={props.reconfiguring} selectedDirectory={props.selectedDirectory} target={props.target} userId={props.userId} />
       <div className="import-tag-config"><TagPicker label="批次默认标签" options={props.activeTags} selected={props.tags} onChange={props.onTags} disabled={props.busy} description="这些标签会冻结到任务配置，并作为每个待审核游戏的初始选择；审核时仍可逐项调整。" /></div>
       <MultiDiscConfiguration contentMode={props.contentMode} multiDiscLimits={props.multiDiscLimits} multiDiscSupported={props.multiDiscSupported} onContentMode={props.onContentMode} preflight={props.preflight} reconfiguring={props.reconfiguring} sourceIsDirectory={props.sourceIsDirectory} visibleCapabilityNotice={props.visibleCapabilityNotice} />
       <ProjectConfiguration contentMode={props.contentMode} />
@@ -352,7 +354,7 @@ function sourceMetrics(reconfiguring: boolean, reusableFiles: ReusableFile[], fi
   return { count: files.length, totalBytes: files.reduce((total, file) => total + file.size, 0) };
 }
 
-export function UploadPicker({ directories, activeTags = [], reconfigureSource = null }: { directories: Directory[]; activeTags?: TagReference[]; reconfigureSource?: ImportDetail | null }) {
+export function UploadPicker({ directories, activeTags = [], reconfigureSource = null, userId }: { directories: Directory[]; activeTags?: TagReference[]; reconfigureSource?: ImportDetail | null; userId?: string }) {
   const fileInput = useRef<HTMLInputElement>(null);
   const directoryInput = useRef<HTMLInputElement>(null);
   const [files, setFiles] = useState<ChosenFile[]>([]);
@@ -525,7 +527,7 @@ export function UploadPicker({ directories, activeTags = [], reconfigureSource =
     <input ref={directoryInput} id="import-directory" aria-label="选择导入目录" hidden type="file" multiple onChange={(event) => receiveLegacyDirectory(event.target.files)} {...{ webkitdirectory: "" }} />
     {step === 1 ? <SourceStep contentMode={contentMode} files={files} onDrop={chooseDroppedFiles} onNext={() => setStep(2)} onPickDirectory={() => {setPendingDirectory(null); setDirectoryBrowseError(""); setDirectoryDialogOpen(true);}} onPickFiles={() => fileInput.current?.click()} onReset={resetFiles} onToggleFiles={() => setShowFiles((current) => !current)} preflight={preflight} preflighting={preflighting} reconfigureSource={reconfigureSource} reusableFiles={reusableFiles} showFiles={showFiles} totalBytes={totalBytes} /> : null}
     <DirectoryPickerDialog browsing={directoryBrowsing} directory={pendingDirectory} error={directoryBrowseError} open={directoryDialogOpen} onBrowse={() => void browseDirectory()} onCancel={closeDirectoryDialog} onConfirm={confirmDirectory} onDrop={(dropped) => {setDirectoryBrowseError(""); setPendingDirectory(droppedDirectory(Array.from(dropped)));}} />
-    {step === 2 ? <ConfigStep activeTags={activeTags} busy={busy} contentMode={contentMode} directories={directories} fileCount={fileCount} multiDiscInvalid={multiDiscInvalid} projectInvalid={projectInvalid} multiDiscLimits={multiDiscLimits} multiDiscSubmitLabel={submitLabel} multiDiscSupported={multiDiscSupported} onBack={() => setStep(1)} onContentMode={(selected) => { setContentMode(selected ? "MULTI_DISC" : "STANDARD"); multiDiscOptedOutRef.current = !selected; }} onProvider={setProvider} onSubmit={() => void submitImport()} onTags={setTags} onTarget={changeTarget} preflight={preflight} preflighting={preflighting} provider={provider} reconfiguring={Boolean(reconfigureSource)} selectedDirectory={selectedDirectory} sourceIsDirectory={sourceType === "DIRECTORY"} tags={tags} target={target} totalBytes={totalBytes} visibleCapabilityNotice={visibleCapabilityNotice} /> : null}
+    {step === 2 ? <ConfigStep activeTags={activeTags} busy={busy} contentMode={contentMode} directories={directories} fileCount={fileCount} multiDiscInvalid={multiDiscInvalid} projectInvalid={projectInvalid} multiDiscLimits={multiDiscLimits} multiDiscSubmitLabel={submitLabel} multiDiscSupported={multiDiscSupported} onBack={() => setStep(1)} onContentMode={(selected) => { setContentMode(selected ? "MULTI_DISC" : "STANDARD"); multiDiscOptedOutRef.current = !selected; }} onProvider={setProvider} onSubmit={() => void submitImport()} onTags={setTags} onTarget={changeTarget} preflight={preflight} preflighting={preflighting} provider={provider} reconfiguring={Boolean(reconfigureSource)} selectedDirectory={selectedDirectory} sourceIsDirectory={sourceType === "DIRECTORY"} tags={tags} target={target} totalBytes={totalBytes} visibleCapabilityNotice={visibleCapabilityNotice} userId={userId} /> : null}
     {step === 3 ? <ProgressStep busy={busy} completedJobId={completedJobId} error={error} onBack={() => setStep(2)} onComplete={() => { router.push("/admin/imports/tasks"); router.refresh(); }} progress={progress} reconfiguring={Boolean(reconfigureSource)} uploadPercent={uploadPercent} /> : null}
   </div>;
 }
