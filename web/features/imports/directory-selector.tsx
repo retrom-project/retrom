@@ -127,7 +127,8 @@ export function DirectorySelector({ directories, onSelect, reconfiguring, select
             const isExpanded = expanded === category.id;
             return <section className="import-directory-category" key={category.id}>
               <button type="button" aria-expanded={isExpanded} aria-controls={groupId} onClick={() => setExpanded(isExpanded ? null : category.id)}>
-                <span aria-hidden="true">{isExpanded ? "⌄" : "›"}</span>{category.label}<small>{items.length}</small>
+                <svg className="import-directory-chevron" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+                {category.label}<small>{items.length}</small>
               </button>
               {isExpanded ? <div id={groupId} role="group" aria-label={category.label}>{items.map((directory) => <DirectoryRow key={directory.id} directory={directory} selected={directory.id === selectedId} onChoose={choose} />)}</div> : null}
             </section>;

@@ -70,7 +70,8 @@
 .import-directory-results { min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
 .import-directory-section-label { margin: 8px 10px 5px; color: var(--muted); font-size: 11px; font-weight: 800; }
 .import-directory-category > button { width: 100%; min-height: 42px; padding: 8px 10px; display: flex; align-items: center; gap: 9px; border: 0; border-top: 1px solid var(--line); color: var(--ink); background: white; cursor: pointer; text-align: left; font-size: 12px; font-weight: 800; }
-.import-directory-category > button > span { width: 13px; color: var(--purple-dark); font-size: 17px; }
+.import-directory-chevron { width: 16px; height: 16px; flex: 0 0 16px; color: var(--purple-dark); stroke: currentColor; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+.import-directory-category > button[aria-expanded="false"] > .import-directory-chevron { transform: rotate(-90deg); }
 .import-directory-category > button small { margin-left: auto; color: var(--muted); }
 .import-directory-category > div { padding-left: 10px; }
 .import-directory-option { width: 100%; min-height: 52px; padding: 8px 10px; display: grid; gap: 2px; border: 0; border-radius: var(--radius-control); color: var(--ink); background: white; cursor: pointer; text-align: left; }
