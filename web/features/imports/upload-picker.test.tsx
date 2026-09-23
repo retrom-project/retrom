@@ -40,6 +40,12 @@ async function useDirectory(files: Array<{ file: File; relativePath: string }>, 
   await user.click(await screen.findByRole("button", { name: "使用此目录" }));
 }
 
+async function chooseTarget(user: ReturnType<typeof userEvent.setup>, name: string) {
+  await user.click(screen.getByRole("button", { name: /目标游戏目录/ }));
+  await user.type(screen.getByRole("searchbox", { name: "搜索目录、平台或核心" }), name);
+  await user.click(within(screen.getByRole("region", { name: "可选游戏目录" })).getByRole("button", { name: new RegExp(name) }));
+}
+
 describe("UploadPicker", () => {
   it("groups the file and directory actions in the centered dropzone control row", () => {
     render(<UploadPicker directories={[{ id: "arcade", name: "街机游戏", platformName: "Arcade", coreName: "FinalBurn Neo" }]} />);
@@ -95,12 +101,11 @@ describe("UploadPicker", () => {
     await user.upload(screen.getByLabelText("选择导入文件"), file);
     await user.click(screen.getByRole("button", { name: "下一步" }));
 
-    expect(screen.getByRole("combobox", { name: "目标游戏目录" })).toHaveValue("");
-    expect(screen.getByRole("option", { name: "请选择目标游戏目录" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "目标游戏目录 请选择目标游戏目录" })).toHaveAttribute("aria-expanded", "false");
     const submit = screen.getByRole("button", { name: "开始上传并验证" });
     expect(submit).toBeDisabled();
 
-    await user.selectOptions(screen.getByRole("combobox", { name: "目标游戏目录" }), "arcade");
+    await chooseTarget(user, "街机游戏");
     expect(submit).toBeEnabled();
   });
 
@@ -116,7 +121,7 @@ describe("UploadPicker", () => {
     const project = new File(["project"], "game.zip", { type: "application/zip" });
     await user.upload(screen.getByLabelText("选择导入文件"), project);
     await user.click(screen.getByRole("button", { name: "下一步" }));
-    await user.selectOptions(screen.getByRole("combobox", { name: "目标游戏目录" }), "rpg-mv");
+    await chooseTarget(user, "RPG Maker MV");
     expect(screen.getByText("RPG Maker 项目")).toBeVisible();
     expect(screen.getByText(/服务端会识别项目版本并选择底层核心/)).toBeVisible();
     expect(screen.getByLabelText("元信息来源")).toHaveValue("不刮削（RPG Maker 项目）");
@@ -147,7 +152,7 @@ describe("UploadPicker", () => {
     const project = new File(["project"], "game.7z", { type: "application/x-7z-compressed" });
     await user.upload(screen.getByLabelText("选择导入文件"), project);
     await user.click(screen.getByRole("button", { name: "下一步" }));
-    await user.selectOptions(screen.getByRole("combobox", { name: "目标游戏目录" }), "scummvm");
+    await chooseTarget(user, "ScummVM 游戏");
     expect(screen.getByText("ScummVM 项目")).toBeVisible();
     expect(screen.getByText(/多个识别结果需要在审核中选择/)).toBeVisible();
     expect(screen.getByLabelText("元信息来源")).toHaveValue("不刮削（ScummVM 项目）");
@@ -172,7 +177,7 @@ describe("UploadPicker", () => {
     const project = new File(["project"], "game.7z", { type: "application/x-7z-compressed" });
     await user.upload(screen.getByLabelText("选择导入文件"), project);
     await user.click(screen.getByRole("button", { name: "下一步" }));
-    await user.selectOptions(screen.getByRole("combobox", { name: "目标游戏目录" }), "ons");
+    await chooseTarget(user, "ONS 游戏");
     expect(screen.getByText("ONS 项目")).toBeVisible();
     expect(screen.getByText(/审核时需要先成功试运行一次/)).toBeVisible();
     expect(screen.getByLabelText("元信息来源")).toHaveValue("不刮削（ONS 项目）");
@@ -197,7 +202,7 @@ describe("UploadPicker", () => {
     const project = new File(["project"], "game.zip", { type: "application/zip" });
     await user.upload(screen.getByLabelText("选择导入文件"), project);
     await user.click(screen.getByRole("button", { name: "下一步" }));
-    await user.selectOptions(screen.getByRole("combobox", { name: "目标游戏目录" }), "kirikiri");
+    await chooseTarget(user, "KiriKiri 游戏");
     expect(screen.getByText("KiriKiri 项目")).toBeVisible();
     expect(screen.getByText(/审核时需要先成功试运行一次/)).toBeVisible();
     expect(screen.getByLabelText("元信息来源")).toHaveValue("不刮削（KiriKiri 项目）");
@@ -221,7 +226,7 @@ describe("UploadPicker", () => {
 
     await user.upload(screen.getByLabelText("选择导入文件"), new File(["FORM"], "game.zip"));
     await user.click(screen.getByRole("button", { name: "下一步" }));
-    await user.selectOptions(screen.getByRole("combobox", { name: "目标游戏目录" }), "butterscotch");
+    await chooseTarget(user, "GameMaker 游戏");
     expect(screen.getByText("GameMaker 项目")).toBeVisible();
     expect(screen.getByText(/当前原型支持带 data.win/)).toBeVisible();
     expect(screen.getByLabelText("元信息来源")).toHaveValue("不刮削（GameMaker 项目）");
@@ -247,7 +252,7 @@ describe("UploadPicker", () => {
 
     await user.upload(screen.getByLabelText("选择导入文件"), new File(["MZ"], "game.exe"));
     await user.click(screen.getByRole("button", {name: "下一步"}));
-    await user.selectOptions(screen.getByRole("combobox", {name: "目标游戏目录"}), "tyranoscript");
+    await chooseTarget(user, "TyranoScript 游戏");
     expect(screen.getByText("TyranoScript 项目")).toBeVisible();
     expect(screen.getByText(/NW\.js EXE/)).toBeVisible();
     expect(screen.getByText(/Electron ASAR/)).toBeVisible();
@@ -277,7 +282,7 @@ describe("UploadPicker", () => {
 
     await user.upload(screen.getByLabelText("选择导入文件"), new File(["project"], "game.zip"));
     await user.click(screen.getByRole("button", { name: "下一步" }));
-    await user.selectOptions(screen.getByRole("combobox", { name: "目标游戏目录" }), "ons");
+    await chooseTarget(user, "ONS 游戏");
     await user.click(screen.getByRole("button", { name: "上传并试运行 ONS 项目" }));
 
     expect(router.push).toHaveBeenCalledWith("/admin/imports/tasks");
@@ -300,11 +305,11 @@ describe("UploadPicker", () => {
     await user.click(screen.getByRole("button", { name: "下一步" }));
     expect(screen.queryByRole("checkbox", { name: /多盘游戏/ })).not.toBeInTheDocument();
 
-    await user.selectOptions(screen.getByRole("combobox", { name: "目标游戏目录" }), "gba");
+    await chooseTarget(user, "GBA 游戏");
     expect(screen.getByRole("alert")).toHaveTextContent("当前平台核心不支持多盘游戏");
     expect(screen.getByRole("button", { name: "开始上传并验证" })).toBeEnabled();
 
-    await user.selectOptions(screen.getByRole("combobox", { name: "目标游戏目录" }), "saturn");
+    await chooseTarget(user, "Saturn 游戏");
     expect(await screen.findByRole("checkbox", { name: /多盘游戏/ })).toBeChecked();
     expect(screen.getByRole("button", { name: "继续上传并在审核补齐" })).toBeEnabled();
 
@@ -360,7 +365,7 @@ describe("UploadPicker", () => {
     expect(screen.getByText(/不会再次上传文件内容/)).toBeVisible();
     await user.click(screen.getByRole("button", { name: "重新选择平台目录" }));
     expect(screen.getByRole("button", { name: "移除标签“掌机”" })).toBeVisible();
-    await user.selectOptions(screen.getByRole("combobox", { name: "目标游戏目录" }), "psp");
+    await chooseTarget(user, "PSP 游戏");
     await user.click(screen.getByRole("button", { name: "按新配置重新识别" }));
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -385,7 +390,7 @@ describe("UploadPicker NXEngine projects", () => {
 
     await user.upload(screen.getByLabelText("选择导入文件"), new File(["FORM"], "game.zip"));
     await user.click(screen.getByRole("button", { name: "下一步" }));
-    await user.selectOptions(screen.getByRole("combobox", { name: "目标游戏目录" }), "cavestory");
+    await chooseTarget(user, "洞窟物语 游戏");
     expect(screen.getByText("洞窟物语项目")).toBeVisible();
     expect(screen.getByText(/上传包含 Doukutsu.exe/)).toBeVisible();
     expect(screen.getByLabelText("元信息来源")).toHaveValue("不刮削（洞窟物语项目）");

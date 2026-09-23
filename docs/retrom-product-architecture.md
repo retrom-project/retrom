@@ -303,6 +303,7 @@ erDiagram
 | SuperGrafx (`supergrafx`) | `mednafen_pce` | SuperGrafx 游戏 → `mednafen_pce` | `.pce/.sgx`；使用包含 SGX 的锁定 EmulatorJS 构建 |
 | GX4000 (`gx4000`) | `cap32` | GX4000 游戏 → `cap32` | 单卡带 `.cpr`；Provider 选择 Plus 机型 |
 | Uzebox (`uzebox`) | `uzem` | Uzebox 游戏 → `uzem` | ATmega644 单卡带 `.uze`；玩家一，不支持 SD 或鼠标卡带 |
+| Magnavox Odyssey² / Philips Videopac (`odyssey2`) | `o2em` | Odyssey² 游戏 → `o2em` | 单卡带 `.bin`；需要 `o2rom.bin`；浏览器构建不支持 The Voice |
 | Mega Drive / Genesis (`megadrive`) | `genesis_plus_gx`、`picodrive`、`genesis_plus_gx_wide` | Mega Drive 游戏 → `genesis_plus_gx` | `.md`、`.smd`、`.bin`；Wide 为可选核心，不另建目录 |
 | PC Engine (`pce`) | `mednafen_pce` | PC Engine 游戏 → `mednafen_pce` | `.pce` |
 | PC Engine CD (`pcecd`) | `mednafen_pce` | PC Engine CD 游戏 → `mednafen_pce` | 单文件 CHD；需要 `syscard3.pce`，卡带不受此条件影响 |

@@ -26,7 +26,7 @@ class RuntimeTargetBindingsTest(unittest.TestCase):
             ROOT / "data/runtime-target-bindings/v1/catalog.json"
         )
         self.assertNotIn("catalogVersion", catalog)
-        self.assertEqual(len(catalog["bindings"]), 82)
+        self.assertEqual(len(catalog["bindings"]), 83)
         self.assertEqual(
             {item["providerId"] for item in catalog["bindings"]},
             {"emulatorjs", "retrom-runtime"},
@@ -51,6 +51,7 @@ class RuntimeTargetBindingsTest(unittest.TestCase):
         expected_single_file_targets = {
             "gam4980": ("gam4980", ["bbkrpg"]),
             "uzem": ("uzem", ["uzebox"]),
+            "o2em": ("o2em", ["odyssey2"]),
             "vecx": ("vecx", ["vectrex"]),
             "neocd": ("neocd", ["neogeocd"]),
             "81": ("81", ["zx81"]),

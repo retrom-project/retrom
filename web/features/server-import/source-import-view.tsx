@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { ImportBatchDiscard } from "@/features/imports/import-batch-discard";
+import { DirectorySelector } from "@/features/imports/directory-selector";
 import { useEffect, useRef, type KeyboardEvent, type ReactNode } from "react";
 import { AppIcon } from "@/components/app-icon";
 import { ConfirmDialog } from "@/components/confirm-dialog";
@@ -105,13 +106,13 @@ function SelectionStep({ roots, rootId, path, breadcrumbs, directories, cursor, 
 }
 
 function CollectionMapping({ collection, draft, instances, tags, busy, onChange }: { collection: SourceCollection; draft: MappingDraft; instances: SourcePlatformInstance[]; tags: TagReference[]; busy: boolean; onChange: (draft: MappingDraft) => void }) {
-  const value = draft.action === "SKIP" ? "SKIP" : draft.platformInstanceId ? `IMPORT:${draft.platformInstanceId}` : "";
+  const value = draft.action === "SKIP" ? "SKIP" : draft.platformInstanceId;
   function select(next: string) {
     if (next === "SKIP") {onChange({ action: "SKIP", platformInstanceId: "", tags: [] }); return;}
-    if (next.startsWith("IMPORT:")) {onChange({ action: "IMPORT", platformInstanceId: next.slice(7), tags: draft.tags }); return;}
+    if (next) {onChange({ action: "IMPORT", platformInstanceId: next, tags: draft.tags }); return;}
     onChange({ action: "", platformInstanceId: "", tags: [] });
   }
-  return <article><div><h3>{collection.name}</h3><p>{collection.metadataRelativePath} · segment {collection.segmentOrdinal + 1}</p><small>{collection.shortName ? `shortname: ${collection.shortName} · ` : ""}{collection.gameCount} 个游戏 · {collection.issueCount} 个阻断/问题</small></div><label><span>处理方式</span><select aria-label={`${collection.name} 处理方式`} value={value} onChange={(event) => select(event.target.value)}><option value="">请选择，不会自动映射</option><option value="SKIP">跳过此集合</option>{instances.map((instance) => <option value={`IMPORT:${instance.id}`} key={instance.id}>导入到 {instance.name} · {instance.defaultCoreName}</option>)}</select></label>{draft.action === "IMPORT" ? <div className="source-collection-tags"><TagPicker label={`${collection.name} 的默认标签`} options={tags} selected={draft.tags} disabled={busy} onChange={(selected) => onChange({ ...draft, tags: selected })} description="此集合生成的每个待审核游戏都会继承这些标签。" /></div> : null}</article>;
+  return <article><div><h3>{collection.name}</h3><p>{collection.metadataRelativePath} · segment {collection.segmentOrdinal + 1}</p><small>{collection.shortName ? `shortname: ${collection.shortName} · ` : ""}{collection.gameCount} 个游戏 · {collection.issueCount} 个阻断/问题</small></div><DirectorySelector collectionName={collection.name} directories={instances.map((instance) => ({ id: instance.id, name: instance.name, platformId: instance.platformId, platformName: instance.platformName, coreName: instance.defaultCoreName }))} selectedId={value} disabled={busy} onSelect={select} />{draft.action === "IMPORT" ? <div className="source-collection-tags"><TagPicker label={`${collection.name} 的默认标签`} options={tags} selected={draft.tags} disabled={busy} onChange={(selected) => onChange({ ...draft, tags: selected })} description="此集合生成的每个待审核游戏都会继承这些标签。" /></div> : null}</article>;
 }
 
 function MappingStep({ plan, collections, mappings, instances, activeTags, batchTags, batchStatus, busy, onBatchTags, onApplyBatch, onMapping }: { plan: SourceImportSummary | null; collections: SourceCollection[]; mappings: Record<string, MappingDraft>; instances: SourcePlatformInstance[]; activeTags: TagReference[]; batchTags: TagReference[]; batchStatus: string; busy: boolean; onBatchTags: (tags: TagReference[]) => void; onApplyBatch: () => void; onMapping: (id: string, draft: MappingDraft) => void }) {
