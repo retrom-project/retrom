@@ -21,7 +21,7 @@ func TestDiscardPreservesEvidenceReadFailure(t *testing.T) {
 	hits := 0
 	fixture.service.database = testsupport.OpenSQLFaultDatabase(t, fixture.database, testsupport.SQLFaultHooks{
 		BeforeQuery: func(_ context.Context, query string, _ []driver.NamedValue) error {
-			if strings.Contains(query, "FROM import_items i") && strings.Contains(query, "JOIN review_drafts d") {
+			if strings.Contains(query, "FROM import_items i") && strings.Contains(query, "JOIN import_items d") {
 				hits++
 				return cause
 			}
@@ -67,7 +67,7 @@ func TestDiscardMalformedMetadataCanBeReleasedWithoutHistory(t *testing.T) {
 	fixture := newDeduplicateFixture(t)
 	created := fixture.create(t, "Discard malformed metadata", "Retrom owned malformed metadata", 1)
 	itemID := created.Items[0].ItemID
-	fixture.execute(t, `UPDATE review_drafts SET metadata_json='{' WHERE import_item_id=?`, itemID)
+	fixture.execute(t, `UPDATE import_items SET metadata_json='{' WHERE id=?`, itemID)
 	result, err := fixture.service.Discard(t.Context(), itemID, 1, "")
 	if err != nil || result.Status != "DISCARDED" {
 		t.Fatalf("malformed draft cannot be discarded: %+v %v", result, err)

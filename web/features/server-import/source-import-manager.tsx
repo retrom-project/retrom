@@ -104,6 +104,12 @@ export function SourceImportDrawer({ open, roots, platformInstances, activeTags 
     const promise = (async () => {
       const { data, response } = await api.GET("/api/v1/admin/source-imports/{sourceImportId}", { params: { path: { sourceImportId: planId } } });
       if (!data) {throw new Error(await message(response, "来源计划读取失败"));}
+      if (data.state === "FAILED") {
+        setPlan(null);
+        setStep(1);
+        setError(`扫描未完成：${data.lastErrorCode ?? "扫描任务失败"}。请选择目录或文件组织格式后重新扫描。`);
+        return data;
+      }
       setPlan(data);
       if (data.state === "AWAITING_MAPPING") {
         const loaded = await loadCollections(data.id);

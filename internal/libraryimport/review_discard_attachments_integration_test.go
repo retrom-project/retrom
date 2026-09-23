@@ -84,16 +84,16 @@ func seedDiscardAttachment(t *testing.T, fixture deduplicateFixture, itemID stri
 		fixture.execute(t, `INSERT INTO review_arcade_parent_attachments(id,import_item_id,review_draft_id,
  base_source_snapshot_id,dependency_machine,expected_logical_name,required_by_machine,depth,
  provider_id,target_id,dat_version_id,original_filename,state,diagnostics_json,job_id,created_at_ms,updated_at_ms)
- SELECT 'discard-attachment',draft.import_item_id,draft.id,draft.effective_source_snapshot_id,
+ SELECT 'discard-attachment',draft.id,draft.id,draft.effective_source_snapshot_id,
  'b','b.zip','a',1,dat.provider_id,dat.target_id,dat.id,'b.zip',?,'{}','discard-attachment-job',1,1
- FROM review_drafts draft JOIN dat_versions dat ON dat.id='attachment-dat' WHERE draft.import_item_id=?`, test.state, itemID)
+ FROM import_items draft JOIN dat_versions dat ON dat.id='attachment-dat' WHERE draft.id=?`, test.state, itemID)
 		return
 	}
 	fixture.execute(t, `INSERT INTO review_multidisc_attachments(id,import_item_id,review_draft_id,requested_by_user_id,
  base_source_snapshot_id,upload_session_id,expected_set_digest,state,error_code,diagnostics_json,job_id,finished_at_ms,created_at_ms,updated_at_ms)
  SELECT 'discard-attachment',i.id,d.id,'owner-actor',d.effective_source_snapshot_id,j.upload_session_id,
  'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',?,?,'{}','discard-attachment-job',?,1,1
- FROM review_drafts d JOIN import_items i ON i.id=d.import_item_id JOIN import_jobs j ON j.id=i.import_job_id WHERE i.id=?`, test.state, errorCode, finished, itemID)
+ FROM import_items d JOIN import_items i ON i.id=d.id JOIN import_jobs j ON j.id=i.import_job_id WHERE i.id=?`, test.state, errorCode, finished, itemID)
 }
 
 func readDiscardAttachment(t *testing.T, fixture deduplicateFixture, kind string) discardAttachmentSnapshot {

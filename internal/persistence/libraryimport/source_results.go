@@ -42,7 +42,7 @@ COALESCE((SELECT json_group_array(relative_path) FROM (
 )),'[]')
 FROM import_items item
 JOIN import_item_source_snapshots snapshot ON snapshot.import_item_id=item.id AND snapshot.created_by='IDENTIFICATION'
-LEFT JOIN review_drafts draft ON draft.import_item_id=item.id
+LEFT JOIN import_items draft ON draft.id=item.id
 LEFT JOIN import_item_core_validations validation ON validation.id=COALESCE(
  draft.selected_validation_id,
  (SELECT candidate.id FROM import_item_core_validations candidate

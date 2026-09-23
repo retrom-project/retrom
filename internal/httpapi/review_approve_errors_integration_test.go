@@ -17,7 +17,7 @@ import (
 
 func TestReviewApproveSQLFailuresAreServerErrors(t *testing.T) {
 	t.Parallel()
-	for _, match := range []string{"JOIN review_drafts d", "UPDATE import_items SET state="} {
+	for _, match := range []string{"JOIN import_items d", "UPDATE import_items SET state="} {
 		t.Run(match, func(t *testing.T) {
 			t.Parallel()
 			server := newTestServer(t)

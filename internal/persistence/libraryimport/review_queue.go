@@ -74,10 +74,11 @@ func reviewQueueStatement(query application.ReviewQueueQuery) (string, []any) {
 		comparison, direction = "<", "DESC"
 	}
 	if query.After != nil {
-		statement += " AND (d.updated_at_ms" + comparison + "? OR (d.updated_at_ms=? AND i.id" + comparison + "?))"
+		statement += " AND (d.review_updated_at_ms" + comparison +
+			"? OR (d.review_updated_at_ms=? AND i.id" + comparison + "?))"
 		args = append(args, query.After.UpdatedAtMS, query.After.UpdatedAtMS, query.After.ItemID)
 	}
-	statement += " ORDER BY d.updated_at_ms " + direction + ",i.id " + direction + " LIMIT ?"
+	statement += " ORDER BY d.review_updated_at_ms " + direction + ",i.id " + direction + " LIMIT ?"
 	args = append(args, query.Limit)
 	return statement, args
 }

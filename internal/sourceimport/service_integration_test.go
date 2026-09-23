@@ -172,10 +172,10 @@ SELECT
 	var reviewVersion int64
 	var reviewTitle, reviewDescription, reviewDeveloper, reviewWarnings string
 	mustScanSourceTest(t, database.SQL.QueryRowContext(context.Background(), `
-SELECT item.library_import_item_id,draft.version,json_extract(draft.metadata_json,'$.title'),
+SELECT item.library_import_item_id,draft.review_version,json_extract(draft.metadata_json,'$.title'),
 json_extract(draft.metadata_json,'$.description'),json_extract(draft.metadata_json,'$.developer'),item.warnings_json
 FROM source_import_items item
-JOIN review_drafts draft ON draft.import_item_id=item.library_import_item_id
+JOIN import_items draft ON draft.id=item.library_import_item_id
 WHERE item.import_id=? AND item.execution_state='REVIEW_PENDING' AND item.title='Published Fixture'
 `, created.ID),
 		&reviewItemID, &reviewVersion, &reviewTitle, &reviewDescription, &reviewDeveloper, &reviewWarnings,
@@ -190,9 +190,9 @@ WHERE item.import_id=? AND item.execution_state='REVIEW_PENDING' AND item.title=
 	var discardedItemID string
 	var discardedVersion int64
 	mustScanSourceTest(t, database.SQL.QueryRowContext(context.Background(), `
-SELECT item.library_import_item_id,draft.version
+SELECT item.library_import_item_id,draft.review_version
 FROM source_import_items item
-JOIN review_drafts draft ON draft.import_item_id=item.library_import_item_id
+JOIN import_items draft ON draft.id=item.library_import_item_id
 WHERE item.import_id=? AND item.execution_state='REVIEW_PENDING' AND item.title='Discarded Fixture'
 `, created.ID), &discardedItemID, &discardedVersion)
 	_, err = importer.Discard(ctx, discardedItemID, discardedVersion, "not suitable")
@@ -326,7 +326,7 @@ func assertResumedSourceReview(
 	mustScanSourceTest(t, database.SQL.QueryRowContext(ctx, `
 SELECT item.id,item.library_import_job_id,item.library_import_item_id,
  (SELECT count(*) FROM import_jobs),
- (SELECT version FROM review_drafts WHERE import_item_id=item.library_import_item_id)
+ (SELECT version FROM import_items WHERE id=item.library_import_item_id)
 FROM source_import_items item
 WHERE item.import_id=? AND item.title='Discarded Fixture'
 `, importID),
@@ -368,7 +368,7 @@ WHERE id=?`, claimedWork.JobID)
 	mustScanSourceTest(t, database.SQL.QueryRowContext(ctx, `
 SELECT item.execution_state,
  (SELECT count(*) FROM import_jobs),
- (SELECT version FROM review_drafts WHERE import_item_id=item.library_import_item_id)
+ (SELECT version FROM import_items WHERE id=item.library_import_item_id)
 FROM source_import_items item WHERE item.id=?
 `, resumedSourceItemID), &resumedState, &resumedImportJobCount, &resumedDraftVersion)
 	testassert.Falsef(t, testassert.Any(func() bool { return resumedState != "REVIEW_PENDING" }, func() bool { return resumedImportJobCount != importJobCount }, func() bool { return resumedDraftVersion != draftVersion }), "resumed review = state:%s imports:%d/%d draft versions:%d/%d", resumedState, resumedImportJobCount, importJobCount, resumedDraftVersion, draftVersion)

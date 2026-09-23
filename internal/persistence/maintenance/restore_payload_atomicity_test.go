@@ -104,7 +104,7 @@ func (fault *restorePayloadFault) beforeExec(_ context.Context, query string, ar
 }
 
 func (fault *restorePayloadFault) afterExec(_ context.Context, query string, args []driver.NamedValue, result driver.Result) (driver.Result, error) {
-	if strings.HasPrefix(query, "UPDATE review_drafts SET metadata_json=") {
+	if strings.HasPrefix(query, "UPDATE import_items SET metadata_json=") {
 		fault.drafts.Add(1)
 	}
 	if matchesRestoredPayloadWrite("job", query, args, "") {

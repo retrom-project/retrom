@@ -33,7 +33,7 @@ type metadataFaultConnection struct {
 }
 
 func (connection metadataFaultConnection) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
-	if strings.HasPrefix(query, "UPDATE review_drafts SET") {
+	if strings.HasPrefix(query, "UPDATE import_items SET") {
 		return metadataFaultResult{cause: connection.countError}, nil
 	}
 	executor, ok := connection.Conn.(driver.ExecerContext)
@@ -82,7 +82,7 @@ func assertMetadataDraftCAS(t *testing.T, phase string) {
 		t.Fatalf("%s ignored: version=%d error=%v", phase, version, err)
 	}
 	var changed int
-	if err := fixture.database.QueryRowContext(fixture.ctx, `SELECT version-1 FROM review_drafts WHERE import_item_id=?`, itemID).Scan(&changed); err != nil {
+	if err := fixture.database.QueryRowContext(fixture.ctx, `SELECT version-1 FROM import_items WHERE id=?`, itemID).Scan(&changed); err != nil {
 		t.Fatal(err)
 	}
 	if changed != 0 {

@@ -153,78 +153,6 @@ CREATE TABLE server_bios_import_candidates (
   FOREIGN KEY(server_import_id,requirement_id) REFERENCES server_bios_import_items(server_import_id,requirement_id)
 );
 
-CREATE TABLE runtime_asset_pack_definitions (
-  id TEXT PRIMARY KEY,
-  kind TEXT NOT NULL CHECK(length(kind) BETWEEN 2 AND 64 AND kind NOT GLOB '*[^A-Za-z0-9_]*'),
-  generation TEXT NOT NULL CHECK(
-    length(generation) BETWEEN 2 AND 64 AND generation=upper(generation)
-    AND generation NOT GLOB '*[^A-Z0-9_]*'
-  ),
-  declared_name TEXT NOT NULL CHECK(
-    length(CAST(declared_name AS BLOB)) BETWEEN 1 AND 512 AND instr(declared_name,char(0))=0
-  ),
-  normalized_declared_name TEXT NOT NULL CHECK(
-    length(CAST(normalized_declared_name AS BLOB)) BETWEEN 1 AND 512
-    AND instr(normalized_declared_name,char(0))=0
-  ),
-  display_name TEXT NOT NULL CHECK(length(display_name) BETWEEN 1 AND 200),
-  required_layout_version TEXT NOT NULL CHECK(length(required_layout_version) BETWEEN 1 AND 160),
-  origin TEXT NOT NULL CHECK(origin IN ('BUILTIN','CUSTOM')),
-  enabled INTEGER NOT NULL CHECK(enabled IN (0,1)),
-  created_by_user_id TEXT REFERENCES users(id),
-  created_at_ms INTEGER NOT NULL CHECK(created_at_ms>=0),
-  UNIQUE(generation,normalized_declared_name),
-  UNIQUE(id,generation),
-  CHECK((origin='BUILTIN' AND created_by_user_id IS NULL) OR (origin='CUSTOM' AND created_by_user_id IS NOT NULL))
-);
-
-CREATE TABLE runtime_asset_pack_installations (
-  id TEXT PRIMARY KEY,
-  definition_id TEXT NOT NULL REFERENCES runtime_asset_pack_definitions(id),
-  files_digest TEXT NOT NULL CHECK(length(files_digest)=64 AND files_digest=lower(files_digest)),
-  file_count INTEGER NOT NULL CHECK(file_count BETWEEN 1 AND 10000),
-  total_bytes INTEGER NOT NULL CHECK(total_bytes BETWEEN 0 AND 536870912),
-  bundle_blob_id TEXT REFERENCES blobs(id),
-  bundle_sha256 TEXT CHECK(bundle_sha256 IS NULL OR length(bundle_sha256)=64 AND bundle_sha256=lower(bundle_sha256)),
-  status TEXT NOT NULL CHECK(status IN ('VALIDATING','READY','FAILED','DELETE_PENDING','DELETED')),
-  diagnostic_json TEXT NOT NULL CHECK(json_valid(diagnostic_json)),
-  source_note TEXT CHECK(
-    source_note IS NULL OR length(source_note)<=500 AND length(CAST(source_note AS BLOB))<=2000
-    AND instr(source_note,char(0))=0
-  ),
-  version INTEGER NOT NULL DEFAULT 1 CHECK(version>=1),
-  created_by_user_id TEXT NOT NULL REFERENCES users(id),
-  created_at_ms INTEGER NOT NULL CHECK(created_at_ms>=0),
-  validated_at_ms INTEGER CHECK(validated_at_ms IS NULL OR validated_at_ms>=created_at_ms),
-  deleted_at_ms INTEGER CHECK(deleted_at_ms IS NULL OR deleted_at_ms>=created_at_ms),
-  UNIQUE(id,definition_id),
-  UNIQUE(definition_id,files_digest),
-  CHECK((bundle_blob_id IS NULL)=(bundle_sha256 IS NULL)),
-  CHECK(
-    status='VALIDATING' AND validated_at_ms IS NULL AND deleted_at_ms IS NULL
-    OR status='READY' AND validated_at_ms IS NOT NULL AND deleted_at_ms IS NULL AND bundle_blob_id IS NOT NULL
-    OR status='FAILED' AND validated_at_ms IS NOT NULL AND deleted_at_ms IS NULL
-    OR status='DELETE_PENDING' AND validated_at_ms IS NOT NULL AND deleted_at_ms IS NULL
-    OR status='DELETED' AND validated_at_ms IS NOT NULL AND deleted_at_ms IS NOT NULL AND bundle_blob_id IS NULL
-  )
-);
-
-CREATE TABLE runtime_asset_pack_files (
-  installation_id TEXT NOT NULL REFERENCES runtime_asset_pack_installations(id),
-  path TEXT NOT NULL CHECK(
-    length(CAST(path AS BLOB)) BETWEEN 1 AND 4096 AND path NOT LIKE '/%' AND path NOT LIKE '%\%'
-    AND instr(path,char(0))=0 AND path NOT LIKE '%//%' AND path NOT LIKE './%'
-    AND path NOT LIKE '../%' AND path NOT LIKE '%/./%' AND path NOT LIKE '%/../%'
-    AND path NOT LIKE '%/.' AND path NOT LIKE '%/..'
-  ),
-  ordinal INTEGER NOT NULL CHECK(ordinal BETWEEN 0 AND 9999),
-  blob_id TEXT NOT NULL REFERENCES blobs(id),
-  size_bytes INTEGER NOT NULL CHECK(size_bytes BETWEEN 0 AND 536870912),
-  sha256 TEXT NOT NULL CHECK(length(sha256)=64 AND sha256=lower(sha256)),
-  PRIMARY KEY(installation_id,path),
-  UNIQUE(installation_id,ordinal)
-);
-
 CREATE TABLE "bios_requirements" (
   id TEXT PRIMARY KEY,
   core_id TEXT NOT NULL REFERENCES cores(id),
@@ -330,16 +258,4 @@ CREATE TABLE "server_bios_import_items" (
         (source_kind='DAT_MACHINE' AND dat_version_id IS NOT NULL AND dat_machine_name IS NOT NULL)),
   CHECK((state IN ('PENDING','EVALUATING'))=(completed_at_ms IS NULL)),
   FOREIGN KEY(provider_id,target_id) REFERENCES runtime_targets(provider_id,target_id)
-);
-
-CREATE TABLE "game_variant_runtime_packs" (
-  game_variant_id TEXT NOT NULL REFERENCES game_variants(id),
-  slot INTEGER NOT NULL CHECK(slot BETWEEN 0 AND 3),
-  declared_name TEXT NOT NULL CHECK(length(CAST(declared_name AS BLOB)) BETWEEN 1 AND 512),
-  normalized_declared_name TEXT NOT NULL CHECK(length(CAST(normalized_declared_name AS BLOB)) BETWEEN 1 AND 512),
-  definition_id TEXT NOT NULL REFERENCES runtime_asset_pack_definitions(id),
-  installation_id TEXT NOT NULL,
-  PRIMARY KEY(game_variant_id,slot),
-  FOREIGN KEY(installation_id,definition_id)
-    REFERENCES runtime_asset_pack_installations(id,definition_id)
 );

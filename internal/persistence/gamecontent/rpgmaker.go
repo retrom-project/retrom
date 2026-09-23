@@ -2,23 +2,18 @@ package gamecontent
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"retrom/internal/persistence/blobcatalog"
 	"retrom/internal/persistence/recordstore"
+	"retrom/internal/profilemodel"
 	"retrom/internal/rpgmaker/detector"
 	"retrom/internal/service/gamecontent"
 )
 
 func (writes writes) rpgProfile(ctx context.Context, value gamecontent.Publication) error {
 	gameID, profile := value.Snapshot.GameID, value.Prepared.RPGMaker
-	if _, err := writes.transaction.ExecContext(
-		ctx,
-		`DELETE FROM rpgmaker_game_profiles WHERE game_id=?`,
-		gameID,
-	); err != nil {
-		return fmt.Errorf("replace RPG content profile: %w", err)
-	}
 	var generation, engine, entryHTML *string
 	if profile.Profile.EvidenceGeneration != nil {
 		value := string(*profile.Profile.EvidenceGeneration)
@@ -31,12 +26,23 @@ func (writes writes) rpgProfile(ctx context.Context, value gamecontent.Publicati
 		value := "index.html"
 		entryHTML = &value
 	}
-	_, err := recordstore.CreateRpgmakerGameProfiles(ctx, writes.transaction, `INSERT INTO rpgmaker_game_profiles(
- game_id,evidence_family,evidence_generation,evidence_confidence,engine_version,entry_html_path,file_count,total_bytes,
- project_fingerprint,requirements_sha256,analysis_json,created_at_ms,updated_at_ms) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-		gameID, profile.Profile.EvidenceFamily, generation, profile.Profile.EvidenceConfidence, engine, entryHTML,
-		profile.FileCount, profile.TotalBytes,
-		profile.ProjectFingerprint, profile.RequirementsSHA256, string(profile.AnalysisJSON), value.Now, value.Now)
+	encoded, err := profilemodel.Encode(profilemodel.Game, profilemodel.RPGMakerProject, &profilemodel.RPGGame{
+		EvidenceFamily: profile.Profile.EvidenceFamily, EvidenceGeneration: generation,
+		EvidenceConfidence: string(profile.Profile.EvidenceConfidence), EngineVersion: engine,
+		EntryHTMLPath: entryHTML, FileCount: profile.FileCount, TotalBytes: profile.TotalBytes,
+		ProjectFingerprint: profile.ProjectFingerprint, RequirementsSHA256: profile.RequirementsSHA256,
+		Analysis: json.RawMessage(profile.AnalysisJSON),
+	})
+	if err != nil {
+		return fmt.Errorf("encode replacement RPG profile: %w", err)
+	}
+	err = requireChanged(writes.transaction.ExecContext(ctx, `UPDATE games SET content_profile_json=?
+WHERE id=? AND content_kind='RPG_MAKER_PROJECT'
+ AND json_extract(source_manifest_json,'$.fileCount')=?
+ AND json_extract(source_manifest_json,'$.totalBytes')=?
+ AND json_extract(source_manifest_json,'$.filesDigest')=?`,
+		encoded, gameID,
+		profile.FileCount, profile.TotalBytes, profile.ProjectFingerprint))
 	if err != nil {
 		return fmt.Errorf("write replacement RPG profile: %w", err)
 	}
@@ -45,14 +51,18 @@ func (writes writes) rpgProfile(ctx context.Context, value gamecontent.Publicati
 
 func (writes writes) rpgVariant(ctx context.Context, value gamecontent.Publication) error {
 	snapshot := value.Snapshot
-	err := requireChanged(
+	encoded, err := profilemodel.Encode(profilemodel.Variant, profilemodel.RPGMakerProject,
+		&profilemodel.RPGVariant{
+			Generation: snapshot.RPGGeneration, DependencySnapshotSHA256: snapshot.RPGDependencySHA256,
+		})
+	if err != nil {
+		return fmt.Errorf("encode replacement RPG variant profile: %w", err)
+	}
+	err = requireChanged(
 		writes.transaction.ExecContext(
 			ctx,
-			`UPDATE rpgmaker_variant_profiles
- SET generation=?,dependency_snapshot_sha256=? WHERE game_variant_id=?`,
-			snapshot.RPGGeneration,
-			snapshot.RPGDependencySHA256,
-			snapshot.VariantID,
+			`UPDATE game_variants SET runtime_profile_json=? WHERE id=? AND runtime_profile_json IS NOT NULL`,
+			encoded, snapshot.VariantID,
 		),
 	)
 	if err != nil {

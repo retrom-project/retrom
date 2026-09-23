@@ -23,6 +23,7 @@ func (fixture *saveFixture) createPendingRPGReview(t *testing.T) {
 		"import": uuid.NewString(), "item": uuid.NewString(), "snapshot": uuid.NewString(),
 		"review": uuid.NewString(),
 	}
+	ids["review"] = ids["item"]
 	mustSaveSQL(t, fixture.database.SQL, `
 INSERT INTO users(id,profile_id,username,display_name,role,status,created_at_ms,updated_at_ms)
 VALUES(?,'local',?,'Save Admin','ADMIN','ENABLED',?,?)`, userID, "save-admin-"+userID[:8], now, now)
@@ -57,17 +58,15 @@ INSERT INTO import_item_source_snapshots(
 VALUES(?,?,'RPG_MAKER_PROJECT',?,?,'IDENTIFICATION',?)`, ids["snapshot"], ids["item"], manifest,
 		strings.Repeat("4", 64), now)
 	mustSaveSQL(t, fixture.database.SQL, `
-INSERT INTO review_drafts(
- id,import_item_id,target_platform_instance_id,metadata_json,version,
- created_at_ms,updated_at_ms,effective_source_snapshot_id)
-VALUES(?,?,?,'{}',1,?,?,?)`, ids["review"], ids["item"], ids["directory"], now, now, ids["snapshot"])
+UPDATE import_items SET target_platform_instance_id=?,metadata_json='{}',review_version=1,
+ review_created_at_ms=?,review_updated_at_ms=?,effective_source_snapshot_id=? WHERE id=?`,
+		ids["directory"], now, now, ids["snapshot"], ids["item"])
 	mustSaveSQL(t, fixture.database.SQL, `
-INSERT INTO rpgmaker_review_profiles(
- review_draft_id,generation,evidence_family,evidence_generation,evidence_confidence,
- file_count,total_bytes,project_fingerprint,requirements_sha256,analysis_json,self_contained_override,
- provider_id,target_id,dependency_snapshot_sha256,
- created_at_ms,updated_at_ms)
-VALUES(?,'RPG2000','RPG2K','RPG2000','MATCHED',1,10,?,?,'{}',1,
- ?,?,?,?,?)`, ids["review"], strings.Repeat("5", 64), strings.Repeat("6", 64),
-		target.ProviderID, target.TargetID, strings.Repeat("7", 64), now, now)
+UPDATE import_items SET review_profile_json=json_object('kind','RPG_MAKER_PROJECT','data',json_object(
+ 'generation','RPG2000','evidenceFamily','RPG2K','evidenceGeneration','RPG2000',
+ 'evidenceConfidence','MATCHED','engineVersion',NULL,'entryHtmlPath',NULL,
+ 'fileCount',1,'totalBytes',10,'projectFingerprint',?,'requirementsSha256',?,
+ 'analysis',json('{}'),'selfContainedOverride',1,'providerId',?,'targetId',?,
+ 'dependencySnapshotSha256',?)) WHERE id=?`, strings.Repeat("5", 64), strings.Repeat("6", 64),
+		target.ProviderID, target.TargetID, strings.Repeat("7", 64), ids["review"])
 }

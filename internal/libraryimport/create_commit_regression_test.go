@@ -109,7 +109,7 @@ func creationEffectCounts(t *testing.T, database *sql.DB) map[string]int64 {
 	result := make(map[string]int64)
 	for _, table := range []string{
 		"jobs", "job_events", "import_jobs", "import_job_files", "upload_consumptions", "archive_entries",
-		"import_items", "review_drafts", "import_item_source_files", "import_item_source_snapshots",
+		"import_items", "import_item_source_files", "import_item_source_snapshots",
 		"import_item_source_snapshot_files", "import_item_core_validations", "import_item_validation_files",
 		"import_item_dos_entries", "import_item_multidisc_entries", "import_item_duplicate_matches",
 	} {

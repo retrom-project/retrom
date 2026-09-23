@@ -2,8 +2,10 @@ package libraryimport
 
 import (
 	"context"
+	"fmt"
 
 	"retrom/internal/persistence/recordstore"
+	"retrom/internal/profilemodel"
 	application "retrom/internal/service/libraryimport"
 )
 
@@ -34,15 +36,30 @@ FROM import_item_source_snapshot_files WHERE source_snapshot_id=? ORDER BY sort_
 }
 
 func (records reviewApprovalRecords) CopyRPGProfile(ctx context.Context, source application.ApprovalContentCopy) error {
-	result, err := recordstore.CreateRpgmakerGameProfiles(ctx, records.transaction, `
-INSERT INTO rpgmaker_game_profiles(
- game_id,evidence_family,evidence_generation,evidence_confidence,engine_version,
- entry_html_path,file_count,total_bytes,project_fingerprint,requirements_sha256,analysis_json,
- created_at_ms,updated_at_ms
-)
-SELECT ?,evidence_family,evidence_generation,evidence_confidence,engine_version,entry_html_path,
- file_count,total_bytes,project_fingerprint,requirements_sha256,analysis_json,?,?
-FROM rpgmaker_review_profiles WHERE review_draft_id=?`, source.GameID, source.NowMS, source.NowMS, source.DraftID)
+	var raw string
+	if err := records.transaction.QueryRowContext(ctx, `
+SELECT review_profile_json FROM import_items WHERE id=? AND review_profile_json IS NOT NULL`, source.DraftID,
+	).Scan(&raw); err != nil {
+		return fmt.Errorf("read approved RPG profile: %w", err)
+	}
+	decoded, err := profilemodel.Decode(profilemodel.Review, raw)
+	if err != nil {
+		return fmt.Errorf("decode approved RPG profile: %w", err)
+	}
+	review, ok := decoded.(*profilemodel.RPGReview)
+	if !ok {
+		return fmt.Errorf("%w: approved review model %T", profilemodel.ErrInvalidModel, decoded)
+	}
+	profile, err := profilemodel.Encode(profilemodel.Game, profilemodel.RPGMakerProject, review.Game())
+	if err != nil {
+		return fmt.Errorf("encode approved RPG profile: %w", err)
+	}
+	result, err := records.transaction.ExecContext(ctx, `
+UPDATE games SET content_profile_json=? WHERE id=? AND content_kind='RPG_MAKER_PROJECT'
+ AND json_extract(source_manifest_json,'$.fileCount')=?
+ AND json_extract(source_manifest_json,'$.totalBytes')=?
+ AND json_extract(source_manifest_json,'$.filesDigest')=?`,
+		profile, source.GameID, review.FileCount, review.TotalBytes, review.ProjectFingerprint)
 	return approvalMutation(result, err, "copy approved RPG profile", true)
 }
 

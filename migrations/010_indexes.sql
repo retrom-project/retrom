@@ -61,9 +61,6 @@ CREATE INDEX fk_archive_entries_materialized ON archive_entries(materialized_blo
 
 CREATE INDEX fk_bios_installations_blob ON bios_installations(blob_id);
 
-CREATE INDEX fk_game_variant_runtime_packs_installation
-ON game_variant_runtime_packs(installation_id,game_variant_id);
-
 CREATE INDEX fk_import_item_duplicate_matches_game
 ON import_item_duplicate_matches(existing_game_id);
 
@@ -86,13 +83,6 @@ CREATE INDEX fk_launch_external_files_blob ON launch_external_files(blob_id);
 CREATE INDEX fk_launch_game ON launch_sessions(game_id);
 
 CREATE INDEX fk_platform_instances_default_core ON platform_instances(default_core_id);
-
-CREATE INDEX fk_runtime_asset_pack_files_blob ON runtime_asset_pack_files(blob_id);
-
-CREATE INDEX fk_runtime_asset_pack_installations_bundle ON runtime_asset_pack_installations(bundle_blob_id);
-
-CREATE INDEX fk_runtime_asset_pack_installations_definition
-ON runtime_asset_pack_installations(definition_id,status,created_at_ms,id);
 
 CREATE INDEX fk_upload_files_session ON upload_files(upload_session_id);
 
@@ -168,12 +158,10 @@ WHERE state IN ('QUEUED','RUNNING');
 CREATE INDEX review_arcade_parent_history
 ON review_arcade_parent_attachments(import_item_id,created_at_ms,id);
 
-CREATE INDEX review_bulk_approval_items_state ON review_bulk_approval_items(bulk_approval_id,state,ordinal);
-
 CREATE INDEX review_bulk_approvals_history ON review_bulk_approvals(created_at_ms DESC,id DESC);
 
 CREATE UNIQUE INDEX review_bulk_approvals_one_active ON review_bulk_approvals((1))
-WHERE state IN ('QUEUED','RUNNING','CANCEL_REQUESTED');
+WHERE state IN ('QUEUED','RUNNING');
 
 CREATE INDEX review_draft_tags_tag ON review_draft_tags(tag_id,review_draft_id);
 
@@ -201,7 +189,7 @@ CREATE INDEX review_preview_sessions_target ON review_preview_sessions(target_pl
 
 CREATE INDEX review_preview_sessions_validation ON review_preview_sessions(validation_id);
 
-CREATE INDEX review_queue ON review_drafts(updated_at_ms, import_item_id);
+CREATE INDEX review_queue ON import_items(review_updated_at_ms, id) WHERE state='REVIEW_PENDING';
 
 CREATE INDEX review_runtime_screenshots_blob ON review_runtime_screenshots(blob_id);
 

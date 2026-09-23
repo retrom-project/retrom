@@ -17,7 +17,6 @@ export RETROM_ALLOW_INSECURE_PUBLIC_ORIGIN=true
 export RETROM_PFB_ID="$PFB_ID"
 export RETROM_RPG_RUNTIME_ORIGIN_TEMPLATE="http://{launchId}.rpg.${PFB_ID}.localhost:3000"
 export RETROM_HTTP_ADDR=0.0.0.0:8080
-export RETROM_TRUSTED_PROXIES="${PFB_GATEWAY_IP}/32"
 export RETROM_DEV_STATE_DIR=/pfb-workspace/dev-state
 export RETROM_DATA_DIR=/pfb-workspace/data
 export RETROM_DEPENDENCY_ROOT=/workspace/retrom/data
@@ -35,8 +34,6 @@ export NEXT_DEV_PORT=3000
 export NEXT_BACKEND_ORIGIN=http://127.0.0.1:8080
 export NEXT_DIST_DIR=".next-pfb-${PFB_ID}"
 export NODE_HOME=/usr/local
-
-unset PFB_GATEWAY_IP
 
 node /workspace/runtime/scripts/pfb-provider-watch.mjs --once
 node /workspace/runtime/scripts/pfb-provider-watch.mjs &

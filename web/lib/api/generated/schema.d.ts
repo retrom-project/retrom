@@ -924,23 +924,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/admin/review-bulk-approval-preview": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** @description Recomputes the current filtered review scope and returns only strict READY candidates; screenshot-only overrides and duplicates are excluded. */
-        get: operations["getAdminReviewBulkApprovalPreview"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/admin/review-bulk-approvals": {
         parameters: {
             query?: never;
@@ -950,8 +933,24 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Freezes the previewed strict READY candidates and starts a resumable sequential publication job. */
+        /** @description Starts one bounded, global pending-review scan. Each item is rechecked before publication. */
         post: operations["postAdminReviewBulkApproval"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/review-bulk-approvals/active": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getActiveAdminReviewBulkApproval"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -970,60 +969,6 @@ export interface paths {
         get: operations["getAdminReviewBulkApproval"];
         put?: never;
         post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/review-bulk-approvals/{bulkApprovalId}/items": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                bulkApprovalId: components["parameters"]["BulkApprovalID"];
-            };
-            cookie?: never;
-        };
-        get: operations["getAdminReviewBulkApprovalItems"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/review-bulk-approvals/{bulkApprovalId}/cancel": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                bulkApprovalId: components["parameters"]["BulkApprovalID"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["postAdminReviewBulkApprovalCancel"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/review-bulk-approvals/{bulkApprovalId}/retry": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                bulkApprovalId: components["parameters"]["BulkApprovalID"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["postAdminReviewBulkApprovalRetry"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3202,6 +3147,30 @@ export interface components {
             platformInstanceId?: string;
             blockerCode?: string;
         };
+        ReviewBulkApprovalSummary: {
+            /** Format: uuid */
+            bulkApprovalId: string;
+            /** Format: uuid */
+            jobId: string;
+            /** @enum {string} */
+            state: "QUEUED" | "RUNNING" | "COMPLETED" | "FAILED";
+            version: number;
+            /** Format: uuid */
+            maxItemId: string;
+            /** Format: uuid */
+            cursorItemId: string | null;
+            initialPendingCount: number;
+            scannedCount: number;
+            publishedCount: number;
+            skippedChangedCount: number;
+            skippedDuplicateCount: number;
+            skippedNotReadyCount: number;
+            createdAtMs: number;
+            updatedAtMs: number;
+            startedAtMs: number | null;
+            completedAtMs: number | null;
+            lastErrorCode: string | null;
+        };
         ReviewDeduplicateRequest: {
             scope: components["schemas"]["ReviewBulkApprovalScope"];
             /** Format: uuid */
@@ -3217,11 +3186,6 @@ export interface components {
             nextAfterItemId: string | null;
             /** Format: uuid */
             throughItemId: string | null;
-        };
-        ReviewBulkApprovalRequest: {
-            scope: components["schemas"]["ReviewBulkApprovalScope"];
-            scopeDigest: string;
-            candidateManifestDigest: string;
         };
         MetadataFields: {
             title?: string;
@@ -4541,7 +4505,7 @@ export interface components {
                 "application/json": components["schemas"]["RpgErrorEnvelope"];
             };
         };
-        /** @description RPG runtime validation or runtime-pack installation was not found (404) */
+        /** @description RPG runtime validation was not found (404) */
         RpgNotFoundResponse: {
             headers: {
                 [name: string]: unknown;
@@ -4550,7 +4514,7 @@ export interface components {
                 "application/json": components["schemas"]["RpgErrorEnvelope"];
             };
         };
-        /** @description RPG_PROJECT_ROOT_AMBIGUOUS, RPG_GENERATION_AMBIGUOUS, runtime-pack/route/capability/state/protocol/content conflicts, or checkpoint unavailable/incompatible (409) */
+        /** @description RPG_PROJECT_ROOT_AMBIGUOUS, RPG_GENERATION_AMBIGUOUS, route/capability/state/protocol/content conflicts, or checkpoint unavailable/incompatible (409) */
         RpgConflictResponse: {
             headers: {
                 [name: string]: unknown;
@@ -4561,15 +4525,6 @@ export interface components {
         };
         /** @description RPG_RGSS_CONTENT_TOO_LARGE (413) */
         RpgPayloadTooLargeResponse: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["RpgErrorEnvelope"];
-            };
-        };
-        /** @description RPG runtime-pack installation version changed (412) */
-        RpgPreconditionFailedResponse: {
             headers: {
                 [name: string]: unknown;
             };
@@ -5210,11 +5165,6 @@ export interface components {
         Approval: {
             content: {
                 "application/json": components["schemas"]["ApprovalRequest"];
-            };
-        };
-        ReviewBulkApproval: {
-            content: {
-                "application/json": components["schemas"]["ReviewBulkApprovalRequest"];
             };
         };
         Empty: {
@@ -6504,25 +6454,6 @@ export interface operations {
             };
         };
     };
-    getAdminReviewBulkApprovalPreview: {
-        parameters: {
-            query?: {
-                q?: components["parameters"]["Q"];
-                tagId?: components["parameters"]["TagIDQuery"];
-                importJobId?: components["parameters"]["ImportJobIDQuery"];
-                sourceImportId?: components["parameters"]["SourceImportIDQuery"];
-                platformInstanceId?: components["parameters"]["PlatformInstanceIDQuery"];
-                blockerCode?: components["parameters"]["BlockerCode"];
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: components["responses"]["JSONResponse"];
-        };
-    };
     postAdminReviewBulkApproval: {
         parameters: {
             query?: never;
@@ -6532,9 +6463,39 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody: components["requestBodies"]["ReviewBulkApproval"];
+        requestBody: components["requestBodies"]["Empty"];
         responses: {
-            202: components["responses"]["JSONResponse"];
+            /** @description Created background approval task. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewBulkApprovalSummary"];
+                };
+            };
+        };
+    };
+    getActiveAdminReviewBulkApproval: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The globally active task, if any. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        activeBulkApproval: components["schemas"]["ReviewBulkApprovalSummary"] | null;
+                    };
+                };
+            };
         };
     };
     getAdminReviewBulkApproval: {
@@ -6548,59 +6509,15 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            200: components["responses"]["JSONResponse"];
-        };
-    };
-    getAdminReviewBulkApprovalItems: {
-        parameters: {
-            query?: {
-                outcome?: "PUBLISHED" | "SKIPPED_DUPLICATE" | "SKIPPED_CHANGED" | "SKIPPED_NOT_READY" | "FAILED_FINAL" | "CANCELLED";
-                cursor?: components["parameters"]["Cursor"];
-                limit?: components["parameters"]["Limit50"];
+            /** @description Current task state and aggregate progress. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewBulkApprovalSummary"];
+                };
             };
-            header?: never;
-            path: {
-                bulkApprovalId: components["parameters"]["BulkApprovalID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: components["responses"]["JSONResponse"];
-        };
-    };
-    postAdminReviewBulkApprovalCancel: {
-        parameters: {
-            query?: never;
-            header: {
-                "If-Match": components["parameters"]["IfMatch"];
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-            };
-            path: {
-                bulkApprovalId: components["parameters"]["BulkApprovalID"];
-            };
-            cookie?: never;
-        };
-        requestBody: components["requestBodies"]["Reason"];
-        responses: {
-            200: components["responses"]["JSONResponse"];
-        };
-    };
-    postAdminReviewBulkApprovalRetry: {
-        parameters: {
-            query?: never;
-            header: {
-                "If-Match": components["parameters"]["IfMatch"];
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-            };
-            path: {
-                bulkApprovalId: components["parameters"]["BulkApprovalID"];
-            };
-            cookie?: never;
-        };
-        requestBody: components["requestBodies"]["Empty"];
-        responses: {
-            202: components["responses"]["JSONResponse"];
         };
     };
     getAdminReview: {

@@ -21,12 +21,12 @@ func prepareApprovalSelections(t *testing.T, fixture deduplicateFixture, itemID 
 		t.Fatal(err)
 	}
 	fixture.execute(t, `INSERT INTO review_draft_tags(review_draft_id,tag_id,assigned_by_user_id,created_at_ms)
- SELECT id,?,?,? FROM review_drafts WHERE import_item_id=?`, tag.TagID, approvalActorID, fixture.service.now().UnixMilli(), itemID)
+ SELECT id,?,?,? FROM import_items WHERE id=?`, tag.TagID, approvalActorID, fixture.service.now().UnixMilli(), itemID)
 	fixture.execute(t, `INSERT INTO review_uploaded_assets(id,import_item_id,upload_file_id,blob_id,kind,width_px,height_px,media_type,created_at_ms)
  SELECT 'approval-selected-cover',?,file.id,file.final_blob_id,'COVER',1,1,'image/png',?
  FROM upload_files file JOIN import_jobs parent ON parent.upload_session_id=file.upload_session_id
  JOIN import_items item ON item.import_job_id=parent.id WHERE item.id=? LIMIT 1`, itemID, fixture.service.now().UnixMilli(), itemID)
-	fixture.execute(t, `UPDATE review_drafts SET cover_uploaded_asset_id='approval-selected-cover' WHERE import_item_id=?`, itemID)
+	fixture.execute(t, `UPDATE import_items SET cover_uploaded_asset_id='approval-selected-cover' WHERE id=?`, itemID)
 	return authn.WithPrincipal(t.Context(), authn.Principal{UserID: approvalActorID})
 }
 

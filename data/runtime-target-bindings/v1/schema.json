@@ -93,8 +93,7 @@
       "required": [
         "platforms",
         "cores",
-        "contentKinds",
-        "assetPacks"
+        "contentKinds"
       ],
       "properties": {
         "platforms": {
@@ -118,13 +117,6 @@
           "items": {
             "type": "string",
             "pattern": "^[A-Z][A-Z0-9_]{1,63}$"
-          }
-        },
-        "assetPacks": {
-          "type": "array",
-          "minItems": 0,
-          "items": {
-            "$ref": "#/$defs/assetPack"
           }
         }
       }
@@ -174,56 +166,6 @@
           "type": "string",
           "minLength": 1,
           "maxLength": 200
-        },
-        "enabled": {
-          "type": "boolean"
-        }
-      }
-    },
-    "assetPack": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "id",
-        "kind",
-        "generation",
-        "declaredName",
-        "normalizedDeclaredName",
-        "displayName",
-        "requiredLayoutVersion",
-        "enabled"
-      ],
-      "properties": {
-        "id": {
-          "type": "string",
-          "pattern": "^[a-z0-9]+(?:[_-][a-z0-9]+)*$"
-        },
-        "kind": {
-          "type": "string",
-          "pattern": "^[A-Za-z0-9_]{2,64}$"
-        },
-        "generation": {
-          "type": "string",
-          "pattern": "^[A-Z][A-Z0-9_]{1,63}$"
-        },
-        "declaredName": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 512
-        },
-        "normalizedDeclaredName": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 512
-        },
-        "displayName": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 200
-        },
-        "requiredLayoutVersion": {
-          "type": "string",
-          "pattern": "^[a-z0-9]+(?:[_-][a-z0-9]+)*$"
         },
         "enabled": {
           "type": "boolean"

@@ -30,7 +30,7 @@ func TestMultiDiscAdmissionRejectsUnconfirmedRecords(t *testing.T) {
 		{"job zero", "INSERT INTO jobs", "REVIEW_MULTI_DISC_VALIDATE", true},
 		{"input zero", "INSERT INTO job_input_snapshots", "VALUES", true},
 		{"queue event zero", "INSERT INTO job_events", "QUEUED", true},
-		{"draft count cause", "UPDATE review_drafts SET", "version=version+1", false},
+		{"draft count cause", "UPDATE import_items SET", "review_version=review_version+1", false},
 	} {
 		t.Run(point.name, func(t *testing.T) {
 			t.Parallel()
@@ -68,11 +68,11 @@ func TestMultiDiscAdmissionRejectsUnconfirmedRecords(t *testing.T) {
 				t.Fatalf("unconfirmed admission: hits=%d err=%v", hits.Load(), err)
 			}
 			var version, jobs, attachments, events int
-			readErr := db.SQL.QueryRowContext(ctx, `SELECT draft.version,
-(SELECT count(*) FROM jobs WHERE kind='REVIEW_MULTI_DISC_VALIDATE' AND scope_id=draft.import_item_id),
-(SELECT count(*) FROM review_multidisc_attachments WHERE import_item_id=draft.import_item_id),
-(SELECT version-1 FROM review_drafts WHERE id=draft.id)
-FROM review_drafts draft WHERE import_item_id=?`, itemID).Scan(&version, &jobs, &attachments, &events)
+			readErr := db.SQL.QueryRowContext(ctx, `SELECT draft.review_version,
+(SELECT count(*) FROM jobs WHERE kind='REVIEW_MULTI_DISC_VALIDATE' AND scope_id=draft.id),
+(SELECT count(*) FROM review_multidisc_attachments WHERE import_item_id=draft.id),
+(SELECT review_version-1 FROM import_items WHERE id=draft.id)
+FROM import_items draft WHERE id=?`, itemID).Scan(&version, &jobs, &attachments, &events)
 			if readErr != nil || version != 1 || jobs != 0 || attachments != 0 || events != 0 {
 				t.Fatalf("admission partially committed: version=%d jobs=%d attachments=%d events=%d err=%v", version, jobs, attachments, events, readErr)
 			}

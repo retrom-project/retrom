@@ -36,8 +36,7 @@ FROM platform_instances instance JOIN runtime_target_bindings binding ON binding
 		ids = append(ids, id)
 		mustExecHTTPTest(t, server.database, `INSERT INTO import_items(id,import_job_id,group_key,state,source_manifest_json,source_manifest_digest,search_text,created_at_ms,updated_at_ms)
 VALUES(?,'queue-import',?,'REVIEW_PENDING','{"files":[{"logicalName":"queue.gba"}]}',?,'queue',1,1)`, id, fmt.Sprintf("%064d", index+1), digest)
-		mustExecHTTPTest(t, server.database, `INSERT INTO review_drafts(id,import_item_id,target_platform_instance_id,metadata_json,version,created_at_ms,updated_at_ms)
-VALUES(?,?,?,'{"title":"Queue"}',1,1,?)`, id, id, instance, updated)
+		mustExecHTTPTest(t, server.database, `UPDATE import_items SET target_platform_instance_id=?,metadata_json='{"title":"Queue"}',review_version=1,review_created_at_ms=1,review_updated_at_ms=? WHERE id=?`, instance, updated, id)
 	}
 	return ids
 }

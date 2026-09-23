@@ -26,7 +26,7 @@ func (records *ReviewDependencies) Head(
 	err := records.executor.QueryRowContext(ctx, `
 SELECT draft.effective_source_snapshot_id,snapshot.content_kind,platform.platform_id,
 validation.status,validation.compatibility_code,validation.dependency_snapshot_json
-FROM import_items item JOIN review_drafts draft ON draft.import_item_id=item.id
+FROM import_items item JOIN import_items draft ON draft.id=item.id
 JOIN import_item_source_snapshots snapshot ON snapshot.id=draft.effective_source_snapshot_id
 JOIN platform_instances platform ON platform.id=draft.target_platform_instance_id
 LEFT JOIN import_item_core_validations validation ON validation.id=COALESCE(draft.selected_validation_id,

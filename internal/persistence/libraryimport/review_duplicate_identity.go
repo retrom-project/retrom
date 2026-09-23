@@ -21,7 +21,7 @@ func (records *ContentDuplicates) Snapshot(ctx context.Context, itemID string) (
 	err := records.executor.QueryRowContext(ctx, `
 SELECT snapshot.id,snapshot.content_kind FROM import_item_source_snapshots snapshot
 WHERE snapshot.id=COALESCE(
- (SELECT draft.effective_source_snapshot_id FROM review_drafts draft WHERE draft.import_item_id=?),
+ (SELECT draft.effective_source_snapshot_id FROM import_items draft WHERE draft.id=?),
  (SELECT initial.id FROM import_item_source_snapshots initial
  WHERE initial.import_item_id=? AND initial.created_by='IDENTIFICATION')
 )`, itemID, itemID).Scan(&result.ID, &result.Kind)
@@ -35,7 +35,7 @@ func (records *ContentDuplicates) ReviewPlatform(ctx context.Context, itemID str
 	var result string
 	err := records.executor.QueryRowContext(ctx, `
 SELECT instance.platform_id FROM import_items item
-JOIN review_drafts draft ON draft.import_item_id=item.id
+JOIN import_items draft ON draft.id=item.id
 JOIN platform_instances instance ON instance.id=draft.target_platform_instance_id
 WHERE item.id=? AND item.state='REVIEW_PENDING'`, itemID).Scan(&result)
 	if err != nil {

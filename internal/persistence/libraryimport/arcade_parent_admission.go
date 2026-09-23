@@ -51,14 +51,14 @@ func (records arcadeParentAttachmentAdmissionRecords) Draft(
 	var result application.ArcadeParentAttachmentDraft
 	var datID sql.NullString
 	err := records.executor.QueryRowContext(ctx, `
-SELECT draft.id,item.state,draft.version,draft.target_platform_instance_id,
+SELECT draft.id,item.state,draft.review_version,draft.target_platform_instance_id,
   draft.effective_source_snapshot_id,platform.platform_id,platform.version,
   platform.default_core_id,target.provider_id,target.target_id,
   `+contentquery.BindingPolicySQL+`,
   (SELECT dat.id FROM dat_versions dat
    WHERE dat.provider_id=target.provider_id AND dat.target_id=target.target_id AND dat.is_active=1)
 FROM import_items item
-JOIN review_drafts draft ON draft.import_item_id=item.id
+JOIN import_items draft ON draft.id=item.id
 JOIN platform_instances platform ON platform.id=draft.target_platform_instance_id
   AND platform.enabled=1 AND platform.deleted_at_ms IS NULL
 JOIN runtime_target_bindings binding ON binding.core_id=platform.default_core_id
@@ -193,9 +193,9 @@ VALUES(?,'IMPORT_ITEM',?,'QUEUED','{}',?)
 `, write.JobID, write.ItemID, write.NowMS); err != nil {
 		return fmt.Errorf("record arcade parent queue event: %w", err)
 	}
-	result, err := recordstore.UpdateReviewDrafts(ctx, records.executor, recordstore.Update{
-		Set:    `version=version+1,updated_at_ms=?`,
-		Scope:  recordstore.Scope{Where: `id=? AND version=?`, Args: []any{write.DraftID, write.ExpectedDraftVersion}},
+	result, err := recordstore.UpdateReviewItems(ctx, records.executor, recordstore.Update{
+		Set:    `review_version=review_version+1,review_updated_at_ms=?`,
+		Scope:  recordstore.Scope{Where: `id=? AND review_version=?`, Args: []any{write.DraftID, write.ExpectedDraftVersion}},
 		Values: []any{write.NowMS},
 	})
 	if err != nil {

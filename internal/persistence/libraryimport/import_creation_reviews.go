@@ -2,8 +2,11 @@ package libraryimport
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 
 	"retrom/internal/persistence/recordstore"
+	"retrom/internal/profilemodel"
 	application "retrom/internal/service/libraryimport"
 )
 
@@ -80,68 +83,41 @@ VALUES(?,?,?,?,?,?)`,
 }
 
 func (records creationRecords) Draft(ctx context.Context, change application.CreationDraft) error {
-	result, err := recordstore.UpdateImportItems(
-		ctx,
-		records.transaction,
-		recordstore.Update{
-			Set:    `search_text=?`,
-			Scope:  recordstore.Scope{Where: `id=? AND version=1`, Args: []any{change.ItemID}},
-			Values: []any{change.SearchText},
-		},
-	)
-	if err := creationMutation(result, err, "project creation search", 1); err != nil {
-		return err
+	if change.ID != change.ItemID {
+		return application.ErrInvalid
 	}
-	result, err = recordstore.CreateReviewDrafts(
-		ctx,
-		records.transaction,
-		`
-INSERT INTO review_drafts(id,import_item_id,target_platform_instance_id,selected_validation_id,
- effective_source_snapshot_id,
- default_dos_entry,metadata_json,version,created_at_ms,updated_at_ms) VALUES(?,?,?,?,?,?,?,1,?,?)`,
-		change.ID,
-		change.ItemID,
-		change.TargetID,
-		change.SelectedValidationID,
-		change.SnapshotID,
-		change.DefaultDOS,
-		change.MetadataJSON,
-		change.NowMS,
-		change.NowMS,
-	)
-	return creationMutation(result, err, "insert creation draft", 1)
+	result, err := recordstore.UpdateReviewItems(ctx, records.transaction, recordstore.Update{
+		Set: `search_text=?,target_platform_instance_id=?,selected_validation_id=?,
+effective_source_snapshot_id=?,default_dos_entry=?,metadata_json=?,review_version=1,
+review_created_at_ms=?,review_updated_at_ms=?`,
+		Scope: recordstore.Scope{Where: `id=? AND review_version=0`, Args: []any{change.ItemID}},
+		Values: []any{
+			change.SearchText, change.TargetID, change.SelectedValidationID,
+			change.SnapshotID, change.DefaultDOS, change.MetadataJSON, change.NowMS, change.NowMS,
+		},
+	})
+	return creationMutation(result, err, "initialize creation review", 1)
 }
 
 func (records creationRecords) RPG(ctx context.Context, change application.CreationRPGProfile) error {
-	result, err := recordstore.CreateRpgmakerReviewProfiles(
-		ctx,
-		records.transaction,
-		`
-INSERT INTO rpgmaker_review_profiles(review_draft_id,generation,evidence_family,evidence_generation,
- evidence_confidence,
-engine_version,entry_html_path,file_count,total_bytes,project_fingerprint,requirements_sha256,
- analysis_json,
- self_contained_override,provider_id,target_id,dependency_snapshot_sha256,created_at_ms,updated_at_ms)
-VALUES(?,?,?,?,?,?,?,?,?,?,?,?,0,?,?,?,?,?)`,
-		change.DraftID,
-		change.Generation,
-		change.EvidenceFamily,
-		change.EvidenceGeneration,
-		change.EvidenceConfidence,
-		change.EngineVersion,
-		change.EntryHTML,
-		change.FileCount,
-		change.TotalBytes,
-		change.FilesDigest,
-		change.RequirementsDigest,
-		change.AnalysisJSON,
-		change.ProviderID,
-		change.TargetID,
-		change.DependencyDigest,
-		change.NowMS,
-		change.NowMS,
-	)
-	return creationMutation(result, err, "insert creation RPG profile", 1)
+	profile, err := profilemodel.Encode(profilemodel.Review, profilemodel.RPGMakerProject, &profilemodel.RPGReview{
+		Generation: change.Generation, EvidenceFamily: change.EvidenceFamily,
+		EvidenceGeneration: change.EvidenceGeneration, EvidenceConfidence: change.EvidenceConfidence,
+		EngineVersion: change.EngineVersion, EntryHTMLPath: change.EntryHTML,
+		FileCount: change.FileCount, TotalBytes: change.TotalBytes,
+		ProjectFingerprint: change.FilesDigest, RequirementsSHA256: change.RequirementsDigest,
+		Analysis: json.RawMessage(change.AnalysisJSON), ProviderID: change.ProviderID, TargetID: change.TargetID,
+		DependencySnapshotSHA256: change.DependencyDigest,
+	})
+	if err != nil {
+		return fmt.Errorf("encode creation RPG profile: %w", err)
+	}
+	result, err := records.transaction.ExecContext(ctx, `
+UPDATE import_items SET review_profile_json=?
+WHERE id=? AND review_profile_json IS NULL AND EXISTS(
+ SELECT 1 FROM runtime_targets WHERE provider_id=? AND target_id=?)`,
+		profile, change.DraftID, change.ProviderID, change.TargetID)
+	return creationMutation(result, err, "write creation RPG profile", 1)
 }
 
 func (records creationRecords) Events(ctx context.Context, events []application.CreationEvent) error {

@@ -126,9 +126,9 @@ func (writes scheduleWrites) Game(ctx context.Context, id string, version, now i
 }
 
 func (writes scheduleWrites) Review(ctx context.Context, value metadatascrape.ReviewChange) error {
-	result, err := recordstore.UpdateReviewDrafts(ctx, writes.transaction, recordstore.Update{
-		Set: `version=version+1,updated_at_ms=?`, Values: []any{value.Now},
-		Scope: recordstore.Scope{Where: `import_item_id=? AND version=?`, Args: []any{value.ItemID, value.Version}},
+	result, err := recordstore.UpdateReviewItems(ctx, writes.transaction, recordstore.Update{
+		Set: `review_version=review_version+1,review_updated_at_ms=?`, Values: []any{value.Now},
+		Scope: recordstore.Scope{Where: `id=? AND review_version=?`, Args: []any{value.ItemID, value.Version}},
 	})
 	if err := scheduleChanged(result, err, metadatascrape.ErrReviewVersionConflict); err != nil {
 		return err

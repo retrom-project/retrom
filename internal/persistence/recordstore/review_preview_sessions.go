@@ -38,8 +38,8 @@ WHEN (NOT EXISTS(
 )
 OR NOT EXISTS(
   SELECT 1 FROM import_item_core_validations validation
-  JOIN review_drafts draft ON draft.import_item_id=validation.import_item_id
-  JOIN import_items item ON item.id=draft.import_item_id
+  JOIN import_items draft ON draft.id=validation.import_item_id
+  JOIN import_items item ON item.id=draft.id
   WHERE validation.id=candidate.validation_id AND validation.import_item_id=candidate.import_item_id
     AND validation.source_snapshot_id=candidate.source_snapshot_id
     AND validation.provider_id=candidate.provider_id AND validation.target_id=candidate.target_id

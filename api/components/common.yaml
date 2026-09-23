@@ -894,13 +894,13 @@ components:
           schema:
             $ref: '#/components/schemas/RpgErrorEnvelope'
     RpgNotFoundResponse:
-      description: RPG runtime validation or runtime-pack installation was not found (404)
+      description: RPG runtime validation was not found (404)
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/RpgErrorEnvelope'
     RpgConflictResponse:
-      description: RPG_PROJECT_ROOT_AMBIGUOUS, RPG_GENERATION_AMBIGUOUS, runtime-pack/route/capability/state/protocol/content conflicts, or checkpoint unavailable/incompatible (409)
+      description: RPG_PROJECT_ROOT_AMBIGUOUS, RPG_GENERATION_AMBIGUOUS, route/capability/state/protocol/content conflicts, or checkpoint unavailable/incompatible (409)
       content:
         application/json:
           schema:

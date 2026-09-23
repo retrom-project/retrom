@@ -295,7 +295,7 @@ VALUES('01990000-0000-7000-8000-000000000203',?,?,?, ?,?,?,?,1,?,'{}',1,1,?,?)
 SELECT draft.selected_validation_id,validation.status,validation.compatibility_code,
 validation.dependency_snapshot_json
 FROM import_items item
-JOIN review_drafts draft ON draft.import_item_id=item.id
+JOIN import_items draft ON draft.id=item.id
 JOIN import_item_core_validations validation ON validation.id=draft.selected_validation_id
 WHERE item.import_job_id=?
 `, created.ImportJobID).Scan(&validationID, &status, &code, &snapshotJSON); err != nil {
@@ -318,9 +318,9 @@ WHERE import_item_core_validation_id=? AND role='BIOS_BUNDLE' AND logical_name='
 	var itemID string
 	var draftVersion int64
 	if err := database.SQL.QueryRowContext(ctx, `
-SELECT item.id,draft.version
+SELECT item.id,draft.review_version
 FROM import_items item
-JOIN review_drafts draft ON draft.import_item_id=item.id
+JOIN import_items draft ON draft.id=item.id
 WHERE item.import_job_id=?
 	`, created.ImportJobID).Scan(&itemID, &draftVersion); err != nil {
 		t.Fatal(err)

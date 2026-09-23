@@ -33,8 +33,7 @@ func handoffFixture(t *testing.T) (*Service, work, executionItem) {
  VALUES('handoff-job','handoff-upload',?,1,'gba','mgba',?,?,'NONE','{}',?,'REVIEW_PENDING',1,1,1,1)`, instance, provider, target, fixedHandoffDigest)
 	mustExecSourceTest(t.Context(), t, db, `INSERT INTO import_items(id,import_job_id,group_key,state,source_manifest_json,source_manifest_digest,search_text,created_at_ms,updated_at_ms)
  VALUES('handoff-item','handoff-job',?,'REVIEW_PENDING','{}',?,'original',1,1)`, fixedHandoffDigest, fixedHandoffDigest)
-	mustExecSourceTest(t.Context(), t, db, `INSERT INTO review_drafts(id,import_item_id,target_platform_instance_id,metadata_json,created_at_ms,updated_at_ms)
- VALUES('handoff-draft','handoff-item',?,'{"title":"Original"}',1,1)`, instance)
+	mustExecSourceTest(t.Context(), t, db, `UPDATE import_items SET target_platform_instance_id=?,metadata_json='{"title":"Original"}',review_version=1,review_created_at_ms=1,review_updated_at_ms=1 WHERE id='handoff-item'`, instance)
 	mustExecSourceTest(t.Context(), t, db, `UPDATE jobs SET state='RUNNING',finished_at_ms=NULL,worker_id='source-import-worker',
  leased_until_ms=100,execution_deadline_at_ms=1000 WHERE id='work';
  UPDATE source_imports SET state='RUNNING',import_job_id='work',completed_at_ms=NULL;
@@ -97,7 +96,7 @@ func assertHandoffDraftUntouched(t *testing.T, service *Service) {
 	t.Helper()
 	var title, search string
 	var version int64
-	if err := service.database.QueryRowContext(t.Context(), `SELECT json_extract(d.metadata_json,'$.title'),d.version,i.search_text FROM review_drafts d JOIN import_items i ON i.id=d.import_item_id
+	if err := service.database.QueryRowContext(t.Context(), `SELECT json_extract(d.metadata_json,'$.title'),d.review_version,i.search_text FROM import_items d JOIN import_items i ON i.id=d.id
  WHERE i.id='handoff-item'`).Scan(&title, &version, &search); err != nil {
 		t.Fatal(err)
 	}

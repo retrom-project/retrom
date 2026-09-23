@@ -71,7 +71,7 @@ func assertReviewCoverCounts(t *testing.T, server *Server, itemID string, want i
 	if err := server.database.QueryRowContext(t.Context(), `
 SELECT (SELECT COUNT(*) FROM review_uploaded_assets WHERE import_item_id=?),
 (SELECT COUNT(*) FROM upload_consumptions WHERE consumer_type='REVIEW_ASSET'),
-d.version,d.cover_uploaded_asset_id IS NOT NULL FROM review_drafts d WHERE d.import_item_id=?`, itemID, itemID).
+d.review_version,d.cover_uploaded_asset_id IS NOT NULL FROM import_items d WHERE d.id=?`, itemID, itemID).
 		Scan(&assets, &consumptions, &version, &selected); err != nil {
 		t.Fatal(err)
 	}
@@ -99,7 +99,7 @@ func TestReviewCoverUploadCannotMoveBetweenReviews(t *testing.T) {
 	}
 	assertReviewCoverCounts(t, server, firstItemID, 1)
 	var count int
-	if err := server.database.QueryRowContext(t.Context(), `SELECT COUNT(*) FROM review_uploaded_assets WHERE import_item_id=?`, secondItemID).Scan(&count); err != nil {
+	if err := server.database.QueryRowContext(t.Context(), `SELECT COUNT(*) FROM review_uploaded_assets WHERE id=?`, secondItemID).Scan(&count); err != nil {
 		t.Fatal(err)
 	}
 	if count != 0 {

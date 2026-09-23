@@ -21,8 +21,8 @@ const review_draft_tagsOwnership = `
 SELECT CASE
 WHEN (NOT EXISTS(SELECT 1 FROM tags WHERE id=candidate.tag_id AND status='ACTIVE')
   OR NOT EXISTS(
-    SELECT 1 FROM review_drafts draft
-    JOIN import_items item ON item.id=draft.import_item_id
+    SELECT 1 FROM import_items draft
+    JOIN import_items item ON item.id=draft.id
     WHERE draft.id=candidate.review_draft_id AND item.state='REVIEW_PENDING'
   )
   OR (SELECT count(*) FROM review_draft_tags relation

@@ -221,7 +221,7 @@ WHERE job_id=? AND scope_type='IMPORT_GROUP' AND event_type='SUCCEEDED'
 	items := queryAttachmentStrings(t, database.SQL, `
 SELECT item.id||':'||snapshot.content_kind||':'||validation.status
 FROM import_items item
-JOIN review_drafts draft ON draft.import_item_id=item.id
+JOIN import_items draft ON draft.id=item.id
 JOIN import_item_source_snapshots snapshot ON snapshot.id=draft.effective_source_snapshot_id
 JOIN import_item_core_validations validation ON validation.id=draft.selected_validation_id
 WHERE item.import_job_id=? ORDER BY item.group_key
@@ -231,7 +231,7 @@ WHERE item.import_job_id=? ORDER BY item.group_key
 	if err := database.SQL.QueryRowContext(context.Background(), `
 SELECT item.id,snapshot.id
 FROM import_items item
-JOIN review_drafts draft ON draft.import_item_id=item.id
+JOIN import_items draft ON draft.id=item.id
 JOIN import_item_source_snapshots snapshot ON snapshot.id=draft.effective_source_snapshot_id
 WHERE item.import_job_id=?
 AND EXISTS(
@@ -357,7 +357,7 @@ func TestMultiDiscMissingDiscIsBlockedWithoutPlaceholderBlob(t *testing.T) {
 SELECT item.id,validation.status,validation.compatibility_code,draft.selected_validation_id,
 entry.blob_id,entry.upload_file_id
 FROM import_items item
-JOIN review_drafts draft ON draft.import_item_id=item.id
+JOIN import_items draft ON draft.id=item.id
 JOIN import_item_source_snapshots snapshot ON snapshot.id=draft.effective_source_snapshot_id
 JOIN import_item_core_validations validation ON validation.source_snapshot_id=snapshot.id
 JOIN import_item_multidisc_entries entry ON entry.source_snapshot_id=snapshot.id AND entry.state='MISSING'
@@ -373,7 +373,7 @@ WHERE item.import_job_id=?
 	}
 	baseSnapshotID := ""
 	if err := database.SQL.QueryRowContext(context.Background(), `
-SELECT effective_source_snapshot_id FROM review_drafts WHERE import_item_id=?
+SELECT effective_source_snapshot_id FROM import_items WHERE id=?
 	`, itemID).Scan(&baseSnapshotID); err != nil {
 		t.Fatal(err)
 	}
@@ -404,8 +404,8 @@ ORDER BY id DESC LIMIT 1
 	var resultSnapshotID, selectedID string
 	var version int64
 	if err := database.SQL.QueryRowContext(context.Background(), `
-SELECT effective_source_snapshot_id,selected_validation_id,version
-FROM review_drafts WHERE import_item_id=?
+SELECT effective_source_snapshot_id,selected_validation_id,review_version
+FROM import_items WHERE id=?
 `, itemID).Scan(&resultSnapshotID, &selectedID, &version); err != nil {
 		t.Fatal(err)
 	}
@@ -451,7 +451,7 @@ func TestMultiDiscAttachmentRejectsNonExactSetWithoutAdvancingDraft(t *testing.T
 	var itemID, baseSnapshotID string
 	if err := database.SQL.QueryRowContext(context.Background(), `
 SELECT item.id,draft.effective_source_snapshot_id
-FROM import_items item JOIN review_drafts draft ON draft.import_item_id=item.id
+FROM import_items item JOIN import_items draft ON draft.id=item.id
 WHERE item.import_job_id=?
 `, created.ImportJobID).Scan(&itemID, &baseSnapshotID); err != nil {
 		t.Fatal(err)
@@ -471,7 +471,7 @@ WHERE item.import_job_id=?
 	if err := database.SQL.QueryRowContext(context.Background(), `
 SELECT attachment.state,attachment.error_code,draft.effective_source_snapshot_id,draft.selected_validation_id
 FROM review_multidisc_attachments attachment
-JOIN review_drafts draft ON draft.id=attachment.review_draft_id
+JOIN import_items draft ON draft.id=attachment.review_draft_id
 WHERE attachment.id=?
 `, attachment.AttachmentID).Scan(&state, &errorCode, &currentSnapshotID, &selectedID); err != nil {
 		t.Fatal(err)

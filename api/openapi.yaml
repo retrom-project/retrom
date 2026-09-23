@@ -114,18 +114,12 @@ paths:
     $ref: ./domains/reviews.yaml#/paths/~1api~1v1~1admin~1reviews
   /api/v1/admin/reviews/deduplicate:
     $ref: ./domains/reviews.yaml#/paths/~1api~1v1~1admin~1reviews~1deduplicate
-  /api/v1/admin/review-bulk-approval-preview:
-    $ref: ./domains/reviews.yaml#/paths/~1api~1v1~1admin~1review-bulk-approval-preview
   /api/v1/admin/review-bulk-approvals:
     $ref: ./domains/reviews.yaml#/paths/~1api~1v1~1admin~1review-bulk-approvals
+  /api/v1/admin/review-bulk-approvals/active:
+    $ref: ./domains/reviews.yaml#/paths/~1api~1v1~1admin~1review-bulk-approvals~1active
   /api/v1/admin/review-bulk-approvals/{bulkApprovalId}:
     $ref: ./domains/reviews.yaml#/paths/~1api~1v1~1admin~1review-bulk-approvals~1{bulkApprovalId}
-  /api/v1/admin/review-bulk-approvals/{bulkApprovalId}/items:
-    $ref: ./domains/reviews.yaml#/paths/~1api~1v1~1admin~1review-bulk-approvals~1{bulkApprovalId}~1items
-  /api/v1/admin/review-bulk-approvals/{bulkApprovalId}/cancel:
-    $ref: ./domains/reviews.yaml#/paths/~1api~1v1~1admin~1review-bulk-approvals~1{bulkApprovalId}~1cancel
-  /api/v1/admin/review-bulk-approvals/{bulkApprovalId}/retry:
-    $ref: ./domains/reviews.yaml#/paths/~1api~1v1~1admin~1review-bulk-approvals~1{bulkApprovalId}~1retry
   /api/v1/admin/reviews/{importItemId}:
     $ref: ./domains/reviews.yaml#/paths/~1api~1v1~1admin~1reviews~1{importItemId}
   /api/v1/admin/reviews/{importItemId}/scrape-candidates:
@@ -473,12 +467,12 @@ components:
       $ref: ./domains/reviews.yaml#/components/schemas/ReviewQueueList
     ReviewBulkApprovalScope:
       $ref: ./domains/reviews.yaml#/components/schemas/ReviewBulkApprovalScope
+    ReviewBulkApprovalSummary:
+      $ref: ./domains/reviews.yaml#/components/schemas/ReviewBulkApprovalSummary
     ReviewDeduplicateRequest:
       $ref: ./domains/reviews.yaml#/components/schemas/ReviewDeduplicateRequest
     ReviewDeduplicateResult:
       $ref: ./domains/reviews.yaml#/components/schemas/ReviewDeduplicateResult
-    ReviewBulkApprovalRequest:
-      $ref: ./domains/reviews.yaml#/components/schemas/ReviewBulkApprovalRequest
     MetadataFields:
       $ref: ./components/common.yaml#/components/schemas/MetadataFields
     SelectedAssetsRequest:
@@ -682,8 +676,6 @@ components:
       $ref: ./domains/reviews.yaml#/components/requestBodies/ApprovalReason
     Approval:
       $ref: ./domains/reviews.yaml#/components/requestBodies/Approval
-    ReviewBulkApproval:
-      $ref: ./domains/reviews.yaml#/components/requestBodies/ReviewBulkApproval
     Empty:
       $ref: ./components/common.yaml#/components/requestBodies/Empty
     ReplaceFavoriteFolders:
@@ -777,8 +769,6 @@ components:
       $ref: ./components/common.yaml#/components/responses/RpgConflictResponse
     RpgPayloadTooLargeResponse:
       $ref: ./domains/imports.yaml#/components/responses/RpgPayloadTooLargeResponse
-    RpgPreconditionFailedResponse:
-      $ref: ./domains/imports.yaml#/components/responses/RpgPreconditionFailedResponse
     RequestTooLargeResponse:
       $ref: ./domains/runtime.yaml#/components/responses/RequestTooLargeResponse
     RpgUnprocessableResponse:

@@ -337,20 +337,6 @@ func parseArcadeDraftSnapshot(raw string) (arcadeDraftSnapshot, bool) {
 	return application.ParseArcadeDraftSnapshot(raw)
 }
 
-func nullableStringPointer(value sql.NullString) *string {
-	if !value.Valid {
-		return nil
-	}
-	return &value.String
-}
-
-func nullableInt64Pointer(value sql.NullInt64) *int64 {
-	if !value.Valid {
-		return nil
-	}
-	return &value.Int64
-}
-
 func isStaticBIOSSnapshot(raw string) bool {
 	_, err := corevalidation.ParseSnapshot(raw)
 	return err == nil

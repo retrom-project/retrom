@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import re
-import unicodedata
 from pathlib import Path
 from typing import Any
 
@@ -66,7 +65,7 @@ def validate_runtime_target_bindings(value: Any) -> None:
 
 
 def _validate_definitions(value: Any, bindings: list[dict[str, Any]]) -> None:
-    if not isinstance(value, dict) or set(value) != {"platforms", "cores", "contentKinds", "assetPacks"}:
+    if not isinstance(value, dict) or set(value) != {"platforms", "cores", "contentKinds"}:
         _invalid()
     platforms = _definition_rows(value["platforms"], {"id", "name", "sortOrder", "enabled"})
     cores = _definition_rows(value["cores"], {"id", "name", "enabled"})
@@ -76,30 +75,6 @@ def _validate_definitions(value: Any, bindings: list[dict[str, Any]]) -> None:
             _invalid()
         if not set(binding["acceptedContentKinds"]).issubset(kinds):
             _invalid()
-    packs = value["assetPacks"]
-    if not isinstance(packs, list):
-        _invalid()
-    keys = {"id", "kind", "generation", "declaredName", "normalizedDeclaredName", "displayName", "requiredLayoutVersion", "enabled"}
-    previous = ""
-    identities = set()
-    for pack in packs:
-        if not isinstance(pack, dict) or set(pack) != keys:
-            _invalid()
-        pack_id = _matched(pack["id"], IDENTIFIER)
-        _matched(pack["generation"], PROFILE)
-        _matched(pack["requiredLayoutVersion"], IDENTIFIER)
-        if not isinstance(pack["kind"], str) or not re.fullmatch(r"[A-Za-z0-9_]{2,64}", pack["kind"]):
-            _invalid()
-        if not _name(pack["displayName"], 200) or not _name(pack["declaredName"], 512):
-            _invalid()
-        normalized = unicodedata.normalize("NFKC", pack["declaredName"].strip()).casefold()
-        if pack["normalizedDeclaredName"] != normalized or type(pack["enabled"]) is not bool:
-            _invalid()
-        identity = (pack["generation"], pack["normalizedDeclaredName"])
-        if pack_id <= previous or identity in identities:
-            _invalid()
-        identities.add(identity)
-        previous = pack_id
 
 
 def _definition_rows(value: Any, keys: set[str]) -> set[str]:

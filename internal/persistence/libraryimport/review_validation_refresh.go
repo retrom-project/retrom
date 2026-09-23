@@ -23,9 +23,9 @@ func (records *ReviewValidation) Inputs(
 	var datVersionID sql.NullString
 	if err := records.executor.QueryRowContext(ctx, `
 SELECT draft.id,snapshot.id,snapshot.source_manifest_digest,snapshot.content_kind
-FROM review_drafts draft
+FROM import_items draft
 JOIN import_item_source_snapshots snapshot ON snapshot.id=draft.effective_source_snapshot_id
-WHERE draft.import_item_id=?
+WHERE draft.id=?
 `, itemID).Scan(
 		&result.DraftID, &result.EffectiveSnapshotID, &result.EffectiveManifestDigest, &result.ContentKind,
 	); err != nil {
@@ -66,18 +66,22 @@ func (records *ReviewValidation) rpgInputs(
 	itemID, targetID string,
 	result application.ReviewValidationRefreshInputs,
 ) (application.ReviewValidationRefreshInputs, error) {
+	profile, err := readRPGReviewProfile(ctx, records.executor, itemID)
+	if err != nil {
+		return application.ReviewValidationRefreshInputs{}, application.ErrInvalid
+	}
 	var datVersionID sql.NullString
 	if err := records.executor.QueryRowContext(ctx, `
-SELECT 'rpgmaker',profile.provider_id,profile.target_id,
- (SELECT id FROM dat_versions WHERE provider_id=profile.provider_id AND target_id=profile.target_id AND is_active=1),
+SELECT 'rpgmaker',target.provider_id,target.target_id,
+ (SELECT id FROM dat_versions WHERE provider_id=target.provider_id
+ AND target_id=target.target_id AND is_active=1),
  `+contentquery.BindingPolicySQL+`
-FROM review_drafts draft
-JOIN rpgmaker_review_profiles profile ON profile.review_draft_id=draft.id
-JOIN runtime_targets target ON target.provider_id=profile.provider_id AND target.target_id=profile.target_id
+FROM import_items draft
+JOIN runtime_targets target ON target.provider_id=? AND target.target_id=?
 JOIN runtime_target_bindings binding ON binding.provider_id=target.provider_id AND binding.target_id=target.target_id
  AND binding.core_id='rpgmaker' AND binding.launch_policy<>'DISABLED'
-WHERE draft.import_item_id=? AND draft.target_platform_instance_id=?
-	`, itemID, targetID).Scan(
+WHERE draft.id=? AND draft.target_platform_instance_id=?
+	`, profile.ProviderID, profile.TargetID, itemID, targetID).Scan(
 		&result.CoreID, &result.ProviderID, &result.RuntimeTargetID,
 		&datVersionID, contentquery.ScanPolicy(&result.ContentPolicy),
 	); err != nil {
@@ -242,16 +246,13 @@ LIMIT 1
 func (records *ReviewValidation) RPGProfile(
 	ctx context.Context, draftID string,
 ) (application.RPGReviewProfile, error) {
-	var result application.RPGReviewProfile
-	err := records.executor.QueryRowContext(ctx, `
-SELECT generation,self_contained_override,dependency_snapshot_sha256,analysis_json
-FROM rpgmaker_review_profiles WHERE review_draft_id=?
-`, draftID).Scan(
-		&result.Generation, &result.SelfContainedOverride,
-		&result.DependencySHA256, &result.AnalysisJSON,
-	)
+	profile, err := readRPGReviewProfile(ctx, records.executor, draftID)
 	if err != nil {
 		return application.RPGReviewProfile{}, application.ErrInvalid
+	}
+	result := application.RPGReviewProfile{
+		Generation: profile.Generation, SelfContainedOverride: profile.SelfContainedOverride != 0,
+		DependencySHA256: profile.DependencySnapshotSHA256, AnalysisJSON: string(profile.Analysis),
 	}
 	var analysis application.RPGReviewAnalysis
 	if err := json.Unmarshal([]byte(result.AnalysisJSON), &analysis); err != nil {
@@ -264,7 +265,9 @@ func (records *ReviewValidation) UpdateRPGDependencyDigest(
 	ctx context.Context, draftID, digest string, nowMS int64,
 ) error {
 	if _, err := records.executor.ExecContext(ctx, `
-UPDATE rpgmaker_review_profiles SET dependency_snapshot_sha256=?,updated_at_ms=? WHERE review_draft_id=?
+UPDATE import_items SET review_profile_json=json_set(review_profile_json,'$.data.dependencySnapshotSha256',?),
+ updated_at_ms=MAX(updated_at_ms,?)
+WHERE id=? AND review_profile_json IS NOT NULL
 `, digest, nowMS, draftID); err != nil {
 		return fmt.Errorf("update RPG dependency digest: %w", err)
 	}

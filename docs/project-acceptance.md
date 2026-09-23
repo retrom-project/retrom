@@ -6,7 +6,7 @@
 | 版本 | 2.1 |
 | 日期 | 2026-08-25 |
 | 执行者 | AI Agent，必要时由人工复核当前运行生成的画面证据 |
-| 范围 | 工程质量、镜像、本地开发、账户认证与隔离、游戏目录、普通/Pegasus/EmulationStation/RPG Maker/ONS/KiriKiri/GameMaker 导入审核、BIOS/DAT/RPG 资源包、存储、安全、EmulatorJS/retrom-runtime、44 个 EmulatorJS 核与独立 Web runtime 核、PSP ISO/CSO、320px 起的响应式 UI 和 4K UI |
+| 范围 | 工程质量、镜像、本地开发、账户认证与隔离、游戏目录、普通/Pegasus/EmulationStation/RPG Maker/ONS/KiriKiri/GameMaker 导入审核、BIOS/DAT/RPG 项目资源、存储、安全、EmulatorJS/retrom-runtime、44 个 EmulatorJS 核与独立 Web runtime 核、PSP ISO/CSO、320px 起的响应式 UI 和 4K UI |
 
 ## 1. 文档职责
 
@@ -192,7 +192,7 @@ Required Case 出现 `BLOCKED`、缺失结果或超时都不能通过项目验�
 7. `ACC-MDISC-*`：多盘导入、协议、adapter、回归与隔离；
 9. `ACC-UI-*`：信息架构、桌面/4K 和无障碍；
 10. `ACC-MOB-*`：手机游玩、管理访问边界、方向门禁和横屏 Player；
-11. `ACC-RPG-001`–`012`：七世代核心、项目导入、绑定、资源包、独立运行源、checkpoint、跨 Launch 精确恢复和恢复后输入；
+11. `ACC-RPG-001`–`012`：七世代核心、项目导入、绑定、项目资源、独立运行源、checkpoint、跨 Launch 精确恢复和恢复后输入；
 12. 缺陷回归审计与最终报告。
 
 除明确写明直接命令的 Case 外，执行命令统一为：
@@ -265,7 +265,7 @@ make acceptance-case CASE=<case-id>
 - 上限：180 秒。
 - 执行：`make acceptance-case CASE=ACC-NET-001`。
 - 流程：以正常 `make dev` 的 `http://localhost:4000` 同源入口运行 Chrome，先登录，再连续两次完整 navigation 并采集页面、`/_next`、`/api/v1/home`、`/runtime/emulatorjs/4.2.3/data/loader.js` 和一个 seed Asset；同时执行既有 nonce、监听、可信/不可信转发头、production CSP 与 TLS 能力扫描。
-- 通过标准：localhost 单一 origin 下 `window.isSecureContext === true`、`window.crossOriginIsolated === true`、`SharedArrayBuffer` 可用；每次 HTML response 的 nonce 均非空且彼此不同，CSP、转发 request nonce 和 Next framework script nonce 一致；开发 CSP 只额外允许 `unsafe-eval`，production CSP 不含它并只开放文档锁定的 self/blob/wasm 能力；页面没有共享静态 HTML/ISR/PPR，控制台没有 CSP 回退/CDN 请求；COOP/COEP/CORP/`nosniff` 覆盖页面、iframe 和 runtime。应用只提供内部明文 HTTP 且没有 TLS 管理能力；非受信转发头无效，受信代理值只在精确 allowlist/公开 origin 校验后生效；内部地址未进入 browser bundle。
+- 通过标准：localhost 单一 origin 下 `window.isSecureContext === true`、`window.crossOriginIsolated === true`、`SharedArrayBuffer` 可用；每次 HTML response 的 nonce 均非空且彼此不同，CSP、转发 request nonce 和 Next framework script nonce 一致；开发 CSP 只额外允许 `unsafe-eval`，production CSP 不含它并只开放文档锁定的 self/blob/wasm 能力；页面没有共享静态 HTML/ISR/PPR，控制台没有 CSP 回退/CDN 请求；COOP/COEP/CORP/`nosniff` 覆盖页面、iframe 和 runtime。应用只提供内部明文 HTTP 且没有 TLS 管理能力；部署 Nginx 覆写客户端转发头，后端使用单个合法 `X-Forwarded-For` 进行 IP 限流并校验公开 origin；内部地址未进入 browser bundle。
 - 证据：network trace、CSP/隔离头、浏览器断言、监听 socket、代理请求矩阵和应用配置摘要。
 
 ### ACC-NET-002：已部署 NG 的 HTTPS 责任边界（条件 Case）
@@ -677,13 +677,13 @@ Mega Drive 导入回归另用测试内生成的非游戏 payload，经服务器�
 - 通过标准：已发布 Item 不回滚，REVIEW_PENDING Item 在取消事务转 CANCELLED；RUNNING cancel 返回 202，ImportJob 在停止前保持 CANCEL_REQUESTED，最后一个 Worker 确认后才为 CANCELLED，且绝不因已有发布/取消混合计数聚合成 COMPLETED/PARTIAL_FAILURE。取消检查不超过规定 reader/token 边界并且不会发布；旧 worker 在取消/lease 转移后提交被 state+lease token 拒绝；取消中 lease 恢复不继续领域计算。IDENTIFYING retry 复用 pipeline Job并增加 execution，SCRAPING retry 新建 Run/Job且旧证据不变；两者都由 persisted failedStage 分派、保留原 Import 配置，不重复创建 Blob/候选。重新配置不上传或复制 bytes，新 UploadFile 与旧文件引用相同 SHA-256 Blob，replacement 生成 raw ISO Item并回指 source；source 原 REJECTED reason 保留、resolution 指向 replacement、未解决计数归零并收口，陈旧 ETag/重复接管整体拒绝。JobEvent 仍按每次真实转换追加；普通过期任务被重新领取并完成；确定性错误直接 FAILED_FINAL，attempt 用尽才从 FAILED_RETRYABLE 进入 FAILED_FINAL；没有长事务或真实等待，任务/审核时刻均为 INTEGER。
 - 证据：完整状态转换、引用计数、lease/attempt 和事务时长摘要。
 
-### ACC-IMP-009：严格 READY 快速审批、逐项原子性与恢复
+### ACC-IMP-009：全局快速审批、逐项原子性与恢复
 
 - 上限：240 秒。
 - 执行：`make acceptance-case CASE=ACC-IMP-009`。
-- 流程：创建跨两个 ImportJob 的 READY、阻断截图 override、重复内容、active Parent/多盘 Attachment、过期 Validation 和非法标题 Item；另创建一个使用 Arcade dependency snapshot schemaVersion=1、kind=ARCADE、当前 DAT closure 与冻结 Parent/BIOS ValidationFile 完整的 READY Item。以 `q/tagId/importJobId/sourceImportId/platformInstanceId/blockerCode` 的固定组合预览完整范围。预览后分别修改一个草稿、发布一个重复来源并并发创建两个 batch，验证 stale/active；重新预览后启动。处理期间在发布事务和批次结果之间故障注入、请求取消并模拟进程退出/重启；另在 worker 基础设施失败后领域 retry，最后对一份含非终态批次的 backup 执行 restore。
-- 通过标准：预览计数互斥覆盖 matched，candidate 只含当前输入严格 READY、当前来源/目录/Provider Target/DAT/BIOS/DOS/dependency、合法标题、无重复和 active Attachment 的 Item；截图 override 永远排除。Arcade `kind=ARCADE/schemaVersion=1` READY 必须按当前 active DAT 重投影 closure、逐 machine 核对 required entries，并确认外部依赖各有唯一冻结 ValidationFile 后进入 candidate 与成功发布；STATIC/Arcade 使用各自明确类型与同一内容策略，不经通用 JSON 拆装或按 schema 代际猜测。范围枚举不受列表 limit/cursor/已加载 DOM 影响，scope/candidate digest 漂移返回 `REVIEW_BULK_PREVIEW_STALE`，零项/10,001/第二个 active batch 使用稳定错误且不创建半个 Job。每个 PUBLISHED 的 Game/GameFiles/GameVariant、普通与对应服务器来源聚合和 batch item/counter 同事务提交，故障时全部回滚；事件含 `QUICK_STRICT_READY/bulkApprovalId`。处理前 duplicate/changed/not-ready 分别 skip，意外项 final failure 不阻断后续项；取消只收口未提交项，已发布不回滚。重启只恢复未提交项且不重复 Game/GameFiles/GameVariant/Event，通用 Job retry 被拒绝、worker-only 领域 retry 增加 execution；restore 把遗留 Item 取消、aggregate/Job 置 `FAILED/RESTORE_INTERRUPTED` 并保留已发布项。fresh schema 的 foreign key/integrity 检查无结果。
-- 证据：preview/create HTTP 摘要、当前 schema/store 约束、故障注入事务行、JobEvent、取消/重启/retry/restore 状态序列及最终 Game 数。
+- 流程：创建跨两个 ImportJob 的 READY、阻断截图 override、重复内容、活动 Attachment、过期 Validation、非法标题和 hidden/adult Item。并发创建两个全局任务；运行中修改待审 Item，在发布事务、游标及计数提交处故障注入，模拟进程退出/重启和备份恢复。
+- 通过标准：全局任务只保留最大 Item ID、创建时间、游标、状态和汇总计数，最多 10,000 个待审 Item；第二个活动任务、空队列和超限返回稳定错误。Worker 对每个 Item 重新检查当前待审状态与全部严格自动发布条件；修改过的、不合格的和重复内容留在待审队列。每个成功项的 Game/GameFiles/GameVariant、普通与服务器来源聚合、游标和计数在同一事务提交，失败全回滚。重启从游标继续且不重复发布；restore 中断旧任务。`review_version` 与 Item `version` 独立，子实体外键指向 Item ID，fresh schema 无 `review_drafts` 或逐项批次表。
+- 证据：并发创建、运行中编辑、跳过、故障回滚、恢复及最终 Game 数的自动化测试和数据库完整性检查。
 
 ### ACC-IMP-010：快速去重丢弃已发布重复内容
 
@@ -881,8 +881,8 @@ Mega Drive 导入回归另用测试内生成的非游戏 payload，经服务器�
 
 - 上限：300 秒。
 - 执行：`make acceptance-case CASE=ACC-ES-003`。
-- 流程：在一个计划中准备单 ROM、hidden/adult 单 ROM、同目录 2–8 CHD 的 M3U、Arcade primary ZIP 与同 execution/target/冻结 DAT 的 companion，以及缺失/损坏 cover/video。完成显式映射并执行；检查审核前 Game，再按 `sourceImportId` 读取队列和详情，预览快速审批分类，逐项 Approve/Discard；对 Arcade blocker 补传 Parent 后以有效后继快照发布。再次从相同与另一清单导入相同内容，并在 review handoff 中点模拟进程退出。
-- 通过标准：Worker 复用普通格式、内容身份、CoreValidation/DAT/BIOS/Review，完成后所有新候选只到普通 `REVIEW_PENDING` 且自动创建 Game 数为零。M3U 盘序准确，Arcade 只装配显式闭包，媒体缺失/坏格式只写 warning；来源 cover/video、清单/Collection 与 flags 通过封闭 source media 投影。hidden/adult 只计入 `sourceFlagged` 并排除快速审批，仍可逐项批准。Approve/Discard 与 Parent 后继快照分别原子创建/不创建 `IMPORT_RECEIVE` Game/GameFiles/GameVariant 并推进两组计数；重复内容列出全部 match，不创建第二审核项/Game/Blob。崩溃恢复复用同一个内部 ImportItem且不覆盖人工草稿，未完成交接项不可见。
+- 流程：在一个计划中准备单 ROM、hidden/adult 单 ROM、同目录 2–8 CHD 的 M3U、Arcade primary ZIP 与同 execution/target/冻结 DAT 的 companion，以及缺失/损坏 cover/video。完成显式映射并执行；检查审核前 Game，再按 `sourceImportId` 读取队列和详情，启动全局快速审批并检查汇总进度，逐项 Approve/Discard；对 Arcade blocker 补传 Parent 后以有效后继快照发布。再次从相同与另一清单导入相同内容，并在 review handoff 中点模拟进程退出。
+- 通过标准：Worker 复用普通格式、内容身份、CoreValidation/DAT/BIOS/Review，完成后所有新候选只到普通 `REVIEW_PENDING` 且自动创建 Game 数为零。M3U 盘序准确，Arcade 只装配显式闭包，媒体缺失/坏格式只写 warning；来源 cover/video、清单/Collection 与 flags 通过封闭 source media 投影。hidden/adult 排除自动发布并保留逐项审核，仍可逐项批准。Approve/Discard 与 Parent 后继快照分别原子创建/不创建 `IMPORT_RECEIVE` Game/GameFiles/GameVariant 并推进两组计数；重复内容列出全部 match，不创建第二审核项/Game/Blob。崩溃恢复复用同一个内部 ImportItem且不覆盖人工草稿，未完成交接项不可见。
 - 证据：store/service/HTTP 集成输出、审核前后 Game/Item/GameFiles/GameVariant/aggregate 行数、source media/flag、M3U/Arcade snapshot、重复与崩溃恢复摘要。
 
 ### ACC-ES-004：取消、重试、恢复、删除释放与共享 GC
@@ -897,7 +897,7 @@ Mega Drive 导入回归另用测试内生成的非游戏 payload，经服务器�
 
 - 上限：240 秒。
 - 执行：`make acceptance-case CASE=ACC-ES-005`。
-- 流程：先在 390×844 验证后台提示页不挂载表单与 Drawer，再切到 768×1024、1280×800、2560×1440 与物理 4K 150% scale 打开服务器导入页，只用键盘从 EmulationStation 卡选择 Case A 父目录、扫描、关闭 Drawer、从计划详情恢复第二步，为每份有效清单通过分类与搜索逐项 IMPORT/SKIP 与映射并批量/逐项编辑 Tag，再确认启动。完成后从详情进入 `sourceImportId` 限定审核队列，检查 READY、blocker 与 hidden/adult 项、来源媒体和快速审批预览；注入无 root/无 PlatformInstance、invalid Gamelist、library failure、SSE 断线、cancel/retry/delete、loading/empty/error/payload released 状态。
+- 流程：先在 390×844 验证后台提示页不挂载表单与 Drawer，再切到 768×1024、1280×800、2560×1440 与物理 4K 150% scale 打开服务器导入页，只用键盘从 EmulationStation 卡选择 Case A 父目录、扫描、关闭 Drawer、从计划详情恢复第二步，为每份有效清单通过分类与搜索逐项 IMPORT/SKIP 与映射并批量/逐项编辑 Tag，再确认启动。完成后从详情进入 `sourceImportId` 限定审核队列，检查 READY、blocker 与 hidden/adult 项、来源媒体和全局快速审批进度；注入无 root/无 PlatformInstance、invalid Gamelist、library failure、SSE 断线、cancel/retry/delete、loading/empty/error/payload released 状态。
 - 通过标准：BIOS 与游戏来源两张能力卡，游戏 Drawer 显式选择 gamelist.xml 格式，文案明确不执行命令、不自动发布。760px Drawer 三步、背景锁定、焦点/滚动/未保存选择行为正确；每份有效 Gamelist 归一为 Collection，显示清单路径、游戏数与问题数且无默认 mapping；映射菜单按平台类型折叠、跨类型搜索且单独提供跳过；条目保留来源 flag，第三步说明全量审核边界。详情计数分组、过滤/分页、继续映射、逐行审核/已有 Game/诊断/释放状态可操作；固定审核筛选不可被“清除全部”移除，sourceFlagged 排除解释清楚。手机提示页及四个管理尺寸 document 零横向溢出，target 至少 44px，键盘顺序、Escape、焦点返回、aria-live、reduced-motion 正确，axe 无 serious/critical。
 - 证据：手机提示页及四个管理尺寸当次截图、Playwright DOM/布局/URL/network、键盘/focus/axe trace、状态与诊断文本断言。
 
@@ -1203,13 +1203,13 @@ restart；必须停止 main loop、卸载文件系统并执行延迟清理，最
 - 通过标准：路由和表单符合 `ACC-AUTH-*`；secret 只在一次性对话框出现并从 fragment/状态及时清除；表格无页面级横向溢出，身份/操作列 sticky，Drawer/对话框焦点受控且关闭后返回触发器。危险确认包含用户名和影响，自身/最后管理员控件禁用并解释原因，错误/空/loading 不泄露旧数据或改变布局；测试模式有文本警告，密码/secret 不被辅助技术意外回读。
 - 证据：三 viewport 当前截图、route/network/storage trace、axe/键盘结果与后端生命周期摘要。
 
-### ACC-UI-010：快速审批预览、进度恢复与结果
+### ACC-UI-010：全局快速审批进度恢复
 
 - 上限：180 秒。
 - 执行：`make acceptance-case CASE=ACC-UI-010`。
-- 流程：在 `390×844`、`1280×800` 与物理 4K 150% 场景打开含 READY、截图 override、重复、active Attachment 和 stale Item 的审核队列，设置 `q/tagId/importJobId/sourceImportId/platformInstanceId/blockerCode` 后仅加载第一页。只用键盘打开快速审批预览，先制造 preview stale 再确认；刷新带 `bulkApprovalId` 的运行页，取消一次并另建批次运行到含 skip/failure 的终态；注入 worker-only failure 后重试。覆盖零 candidate、已有 active batch 和网络错误。
-- 通过标准：页首按钮与历史入口可达；预览来自服务端完整筛选而非当前 DOM，突出自动发布数并以非颜色文本逐类解释排除，截图 override 明确要求人工处理。stale 保留 Dialog、刷新数字并要求再次确认；零项禁用主操作，active batch 恢复其状态。运行卡在刷新/返回后按 URL 恢复，显示状态、processed/candidate、发布/跳过/失败/取消计数和稳定进度，不导致筛选/列表跳动；取消与 retry 只在合法状态出现并带确认/ETag。终态清除当前用户全部 `reviews:` sessionStorage 队列快照、刷新列表，最多首屏 50 条结果都有 Review/Game 链接和可读结果。三个 viewport 无页面级横向溢出；Dialog/status/results 的焦点、Escape、触发器返回、44px target、aria-live、reduced-motion 和 axe serious/critical 全部符合通用契约。
-- 证据：三个 viewport 当前截图、URL/sessionStorage/network 序列、键盘/focus/axe trace 和最终结果 DOM。
+- 流程：在 `390×844`、`1280×800` 与物理 4K 150% 场景打开待审队列，设置筛选后只加载第一页。用键盘启动全局快速审批，刷新运行页，并在另一个窗口进入审核页；覆盖空队列、已有活动任务和网络错误。
+- 通过标准：页首按钮明确作用于全局队列，进入页面即发现活动任务，运行中禁用再次创建；刷新后恢复轮询。状态卡以可读文本展示创建时待审约数、实际扫描、发布和继续待审的近似进度，不承诺逐项结果；终态清除当前用户 `reviews:` 队列快照并刷新列表。三个 viewport 无页面级横向溢出，焦点、44px target、aria-live、reduced-motion 和 axe serious/critical 符合通用契约。
+- 证据：三个 viewport 截图、URL/sessionStorage/network 序列、键盘/focus/axe trace 和最终状态 DOM。
 
 ## 16. 多盘系统
 
@@ -1543,7 +1543,7 @@ ID。没有实体设备时自动化 Case 可以 PASS，但沉浸模式发布验�
 ### ACC-PROVIDER-005：只前进激活
 
 - 上限：900 秒。证明 Provider 只向前激活：升级后所有普通 Launch 使用当前 Bundle；已有 `REVIEW_SCREENSHOT_OVERRIDE` GameVariant 和已发布 RPG Profile 继续按稳定 Provider/Target 启动。未删除的持久用户存档必须可被当前 Target 的 readFormats 读取；审核临时 checkpoint 不参与升级门槛，按预览期限及审核 payload 生命周期释放。降级、同版换 bytes、删除被引用 Target、破坏上述有效 checkpoint 或非法 manifest/策略均拒绝启动；不选择旧 Bundle 兜底。
-- Host catalog 按当前内容摘要原子、幂等同步，不使用独立 catalogVersion。已初始化数据库允许声明新增 Core/Target、复用现有接入策略、复用已有布局新增资源包；schema/migration 指纹和用户目录名称、默认核心、设置、游戏、审核、存档 ID/内容保持不变。已安装资源包身份/布局变更或被引用定义删除必须整笔回滚，展示信息更新及相同声明重复同步应成功。最终 PFB 数据重建后，扩展证明不得再次清库；公开机制 fixture 与真实核心产品证据分开记录。
+- Host catalog 按当前内容摘要原子、幂等同步，不使用独立 catalogVersion。已初始化数据库允许声明新增 Core/Target、复用现有接入策略；schema/migration 指纹和用户目录名称、默认核心、设置、游戏、审核、存档 ID/内容保持不变。被引用定义删除必须整笔回滚，展示信息更新及相同声明重复同步应成功。最终 PFB 数据重建后，扩展证明不得再次清库；公开机制 fixture 与真实核心产品证据分开记录。
 
 ### ACC-PROVIDER-006：Candidate、镜像与发布边界
 
@@ -1884,7 +1884,7 @@ AI Agent 的最终交付摘要必须列出：总结果、失败/阻塞 Case ID�
 | 收藏与收藏夹 | `ACC-FAV-001`–`004` |
 | 游戏标签 | `ACC-TAG-001`–`005` |
 | 沉浸模式独立 UI、资料库/收藏/存档导航、声音与系统菜单、真实单机 Player、内容身份缓存和输入隔离 | `ACC-IMM-001`–`012`，以及实体 standard 手柄 smoke |
-| RPG Maker 七世代核心、项目导入、Provider/Target、资源包、运行验证、原生 Web 隔离、跨 Launch checkpoint 精确恢复与恢复后输入 | `ACC-RPG-001`–`012` |
+| RPG Maker 七世代核心、项目导入、Provider/Target、项目资源、运行验证、原生 Web 隔离、跨 Launch checkpoint 精确恢复与恢复后输入 | `ACC-RPG-001`–`012` |
 | ONS 项目导入、审核试玩、发布、基本控制、存档与不同 Launch 恢复 | `ACC-ONS-001` |
 | KiriKiri2 KAG 项目导入、审核试玩、发布、基本控制、书签存档与不同 Launch 恢复 | `ACC-KIRIKIRI-001` |
 | GameMaker 项目导入、审核试玩、发布、标准手柄控制、即时存档、不同 Launch 恢复与项目缓存复用 | `ACC-BUTTERSCOTCH-001` |

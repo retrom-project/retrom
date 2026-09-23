@@ -22,7 +22,7 @@ func TestApprovePreservesEvidenceReadFailure(t *testing.T) {
 	hits := 0
 	fixture.service.database = testsupport.OpenSQLFaultDatabase(t, fixture.database, testsupport.SQLFaultHooks{
 		BeforeQuery: func(_ context.Context, query string, _ []driver.NamedValue) error {
-			if strings.Contains(query, "FROM import_items i") && strings.Contains(query, "JOIN review_drafts d") {
+			if strings.Contains(query, "FROM import_items i") && strings.Contains(query, "JOIN import_items d") {
 				hits++
 				return cause
 			}
@@ -41,7 +41,7 @@ func TestApproveMalformedMetadataPreservesJSONFailure(t *testing.T) {
 	fixture := newDeduplicateFixture(t)
 	created := fixture.create(t, "Approve invalid evidence", "Retrom owned approval JSON regression", 1)
 	itemID := created.Items[0].ItemID
-	fixture.execute(t, `UPDATE review_drafts SET metadata_json='{' WHERE import_item_id=?`, itemID)
+	fixture.execute(t, `UPDATE import_items SET metadata_json='{' WHERE id=?`, itemID)
 	before := captureDeduplicatePage(t, fixture, created.Created.ImportJobID)
 	result, err := fixture.service.Approve(t.Context(), itemID, 1)
 	var syntax *json.SyntaxError

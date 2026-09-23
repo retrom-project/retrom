@@ -32,11 +32,12 @@ version=version+1,updated_at_ms=?`,
 		Scope: recordstore.Scope{
 			Where: `id=? AND import_id=? AND version=? AND execution_state='VALIDATING'
 AND metadata_json=? AND warnings_json=? AND library_import_job_id IS ? AND library_import_item_id IS ?
-AND EXISTS(SELECT 1 FROM import_items WHERE id=? AND import_job_id=? AND state='REVIEW_PENDING' AND version=?)`,
+AND EXISTS(SELECT 1 FROM import_items WHERE id=? AND import_job_id=?
+AND state='REVIEW_PENDING' AND version=? AND review_version=?)`,
 			Args: []any{
 				before.ItemID, before.ImportID, before.Version, before.MetadataJSON, before.WarningsJSON,
 				nullableReviewID(before.LibraryJobID), nullableReviewID(before.LibraryItemID),
-				before.ReservedItemID, before.ReservedJobID, before.OrdinaryVersion,
+				before.ReservedItemID, before.ReservedJobID, before.OrdinaryVersion, before.OrdinaryReviewVersion,
 			},
 		},
 	})
@@ -44,6 +45,10 @@ AND EXISTS(SELECT 1 FROM import_items WHERE id=? AND import_job_id=? AND state='
 		return err
 	}
 	return records.progress(ctx, before, change.NowMS)
+}
+
+func (records reviewRecords) Verify(ctx context.Context, before application.RestoredReview) error {
+	return records.fence(ctx, before)
 }
 
 func (records reviewRecords) fence(ctx context.Context, before application.RestoredReview) error {

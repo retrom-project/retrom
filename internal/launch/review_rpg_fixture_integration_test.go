@@ -56,7 +56,7 @@ func seedRPGReviewFixture(
 		t.Fatal(err)
 	}
 	fixture := rpgReviewFixture{
-		itemID: "rpg-item", projectBlobID: "rpg-project-a",
+		itemID: "01980000-0000-7000-8000-000000000901", projectBlobID: "rpg-project-a",
 		projectSHA: strings.Repeat("1", 64), indexBlobID: "rpg-index",
 	}
 	for _, blob := range []struct{ id, sha string }{
@@ -117,9 +117,8 @@ INSERT INTO import_item_source_snapshot_files(source_snapshot_id,role,logical_na
 VALUES('rpg-snapshot','PROJECT_FILE',?,?,?, ?,?)`, file.logical, file.upload, file.blob, index, now)
 	}
 	mustRPGLaunchSQL(t, database, `
-INSERT INTO review_drafts(id,import_item_id,target_platform_instance_id,metadata_json,
- version,created_at_ms,updated_at_ms,effective_source_snapshot_id)
-VALUES('01980000-0000-7000-8000-000000000901',?,'rpg-platform','{}',1,?,?,'rpg-snapshot')`, fixture.itemID, now, now)
+UPDATE import_items SET target_platform_instance_id='rpg-platform',metadata_json='{}',
+ review_version=1,review_created_at_ms=?,review_updated_at_ms=?,effective_source_snapshot_id='rpg-snapshot' WHERE id=?`, now, now, fixture.itemID)
 	mustRPGLaunchSQL(t, database, `
 INSERT INTO import_item_core_validations(id,import_item_id,target_platform_instance_id,
  platform_instance_version,core_id,provider_id,target_id,
@@ -134,19 +133,18 @@ INSERT INTO import_item_validation_files(import_item_core_validation_id,role,log
  sort_order,created_at_ms)
 VALUES('rpg-core-validation','RPG_EASYRPG_INDEX','index.json',?,0,?)`, fixture.indexBlobID, now)
 	mustRPGLaunchSQL(t, database, `
-UPDATE review_drafts SET version=version+1,updated_at_ms=?
-WHERE id='01980000-0000-7000-8000-000000000901'`, now)
+UPDATE import_items SET review_version=review_version+1,review_updated_at_ms=?
+WHERE id=?`, now, fixture.itemID)
 	projectFingerprint := strings.Repeat("c", 64)
 	dependency := fmt.Sprintf("%x", sha256.Sum256([]byte(`{"externalRTP":[{"slot":0,"declaredName":"RPG2000_RTP","normalizedName":""}],"policy":"PROJECT_RESOURCES_ONLY","schemaVersion":2,"selfContainedOverride":true}`)))
 	mustRPGLaunchSQL(t, database, `
-INSERT INTO rpgmaker_review_profiles(
- review_draft_id,generation,evidence_family,evidence_generation,evidence_confidence,
- file_count,total_bytes,project_fingerprint,requirements_sha256,analysis_json,self_contained_override,
- provider_id,target_id,dependency_snapshot_sha256,
- created_at_ms,updated_at_ms)
-VALUES('01980000-0000-7000-8000-000000000901','RPG2000','RPG2K','RPG2000','MATCHED',2,20,?,?,'{}',1,
- ?,?,?,?,?)`, projectFingerprint, strings.Repeat("0", 64), target.ProviderID, target.TargetID,
-		dependency, now, now)
+UPDATE import_items SET review_profile_json=json_object('kind','RPG_MAKER_PROJECT','data',json_object(
+ 'generation','RPG2000','evidenceFamily','RPG2K','evidenceGeneration','RPG2000',
+ 'evidenceConfidence','MATCHED','engineVersion',NULL,'entryHtmlPath',NULL,
+ 'fileCount',2,'totalBytes',20,'projectFingerprint',?,'requirementsSha256',?,
+ 'analysis',json('{}'),'selfContainedOverride',1,'providerId',?,'targetId',?,
+ 'dependencySnapshotSha256',?)) WHERE id=?`, projectFingerprint, strings.Repeat("0", 64),
+		target.ProviderID, target.TargetID, dependency, fixture.itemID)
 
 	bindRPGFixtureValidation(t, database)
 	return fixture

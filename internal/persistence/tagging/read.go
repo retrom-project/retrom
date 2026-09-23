@@ -19,8 +19,8 @@ SELECT tag.id,tag.name,tag.status,tag.version,tag.created_at_ms,tag.updated_at_m
   (SELECT count(*) FROM game_tags relation JOIN games game ON game.id=relation.game_id
    WHERE relation.tag_id=tag.id AND game.status='DELETED'),
   (SELECT count(*) FROM review_draft_tags relation
-   JOIN review_drafts draft ON draft.id=relation.review_draft_id
-   JOIN import_items item ON item.id=draft.import_item_id
+   JOIN import_items draft ON draft.id=relation.review_draft_id
+   JOIN import_items item ON item.id=draft.id
    WHERE relation.tag_id=tag.id AND (tag.status='DELETED' OR item.state='REVIEW_PENDING')),
   (SELECT count(*) FROM source_collection_tags relation WHERE relation.tag_id=tag.id)
 FROM tags tag`
@@ -118,8 +118,8 @@ SELECT
    JOIN tags tag ON tag.id=relation.tag_id AND tag.status='ACTIVE'),
   (SELECT count(DISTINCT relation.review_draft_id) FROM review_draft_tags relation
    JOIN tags tag ON tag.id=relation.tag_id AND tag.status='ACTIVE'
-   JOIN review_drafts draft ON draft.id=relation.review_draft_id
-   JOIN import_items item ON item.id=draft.import_item_id AND item.state='REVIEW_PENDING')
+   JOIN import_items draft ON draft.id=relation.review_draft_id
+   JOIN import_items item ON item.id=draft.id AND item.state='REVIEW_PENDING')
 `).Scan(&result.ActiveTagCount, &result.TaggedGameCount, &result.PendingReviewCount)
 	if err != nil {
 		return tagging.Summary{}, fmt.Errorf("tagging: summarize tags: %w", err)

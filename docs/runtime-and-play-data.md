@@ -15,13 +15,13 @@
 
 ### 1.1 产品目录与数据库解耦
 
-复用 `data/runtime-target-bindings/v1/catalog.json` 与 `internal/runtimecatalog`，将平台、核心、平台/核心关系、可接收内容分类、内置资源包定义及产品 binding 汇入同一 Host 声明目录。Provider manifest 仍独占 Target 能力、私有 options schema、当前 checkpoint 格式与实现资产；推荐目录模板只负责用户目录的创建建议，不另立核心接入注册中心。
+复用 `data/runtime-target-bindings/v1/catalog.json` 与 `internal/runtimecatalog`，将平台、核心、平台/核心关系、可接收内容分类及产品 binding 汇入同一 Host 声明目录。Provider manifest 仍独占 Target 能力、私有 options schema、当前 checkpoint 格式与实现资产；推荐目录模板只负责用户目录的创建建议，不另立核心接入注册中心。
 
-目录只保留当前 `schemaVersion` 和内容摘要，不设独立 `catalogVersion`、revision 或算法代际。新增现有平台的核心/Target、采用已注册存储/检测/交付策略的接入、采用现有布局策略的资源包，只修改声明及对应 Provider 产物，不修改 SQL 或清库。新增真正的持久化业务结构才需要 migration。
+目录只保留当前 `schemaVersion` 和内容摘要，不设独立 `catalogVersion`、revision 或算法代际。新增现有平台的核心/Target，或采用已注册存储/检测/交付策略接入时，只修改声明及对应 Provider 产物，不修改 SQL 或清库。新增真正的持久化业务结构才需要 migration。
 
-启动必须先完成全部声明、Provider 字节、引用闭包以及 detector/delivery/review/pack-layout 策略注册验证；未知策略直接拒绝。之后在同一事务内按依赖顺序同步产品定义 → Provider/Target → binding/资源包关联 → 当前目录摘要和审计，事务提交后才提供 HTTP。不得在失败后留下部分目录，也不得用宽泛异常捕获尝试旧 manifest。
+启动必须先完成全部声明、Provider 字节、引用闭包以及 detector/delivery/review 策略注册验证；未知策略直接拒绝。之后在同一事务内按依赖顺序同步产品定义 → Provider/Target → binding → 当前目录摘要和审计，事务提交后才提供 HTTP。不得在失败后留下部分目录，也不得用宽泛异常捕获尝试旧 manifest。
 
-声明式同步只更新系统拥有的定义，用户目录名称、排序、默认核心、启用选择和已安装资源包不被 seed 覆盖。稳定 ID 不随实现发布而变化；移除被引用定义必须明确拒绝，不能级联删除用户游戏或从旧证据恢复历史运行选项。完全未被引用的移除由同一事务完成。
+声明式同步只更新系统拥有的定义，用户目录名称、排序、默认核心、启用选择不被 seed 覆盖。稳定 ID 不随实现发布而变化；移除被引用定义必须明确拒绝，不能级联删除用户游戏或从旧证据恢复历史运行选项。完全未被引用的移除由同一事务完成。
 
 ### 1.2 最终模型与接入策略
 

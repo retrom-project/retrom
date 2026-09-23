@@ -41,8 +41,7 @@ FROM platform_instances instance JOIN runtime_target_bindings binding ON binding
 VALUES('item','import',?,'REVIEW_PENDING','{}',?,'before',1,1)`, digest, digest)
 	metadataExec(t, db, `INSERT INTO import_item_source_snapshots(id,import_item_id,source_manifest_json,source_manifest_digest,created_by,created_at_ms)
 VALUES('snapshot','item','{}',?,'IDENTIFICATION',1)`, digest)
-	metadataExec(t, db, `INSERT INTO review_drafts(id,import_item_id,target_platform_instance_id,metadata_json,version,created_at_ms,updated_at_ms,effective_source_snapshot_id)
-VALUES('draft','item',?,'{"title":"Before"}',7,1,1,'snapshot')`, instance)
+	metadataExec(t, db, `UPDATE import_items SET target_platform_instance_id=?,metadata_json='{"title":"Before"}',review_version=7,review_created_at_ms=1,review_updated_at_ms=1,effective_source_snapshot_id='snapshot' WHERE id='item'`, instance)
 	return db
 }
 
@@ -63,9 +62,7 @@ type metadataState struct {
 func readMetadataState(t *testing.T, db *sql.DB) metadataState {
 	t.Helper()
 	var result metadataState
-	err := db.QueryRowContext(t.Context(), `SELECT draft.metadata_json,item.search_text,item.state,draft.version,draft.updated_at_ms,
-(SELECT version-7 FROM review_drafts WHERE import_item_id='item') FROM review_drafts draft
-JOIN import_items item ON item.id=draft.import_item_id WHERE item.id='item'`).Scan(&result.JSON, &result.Search, &result.State, &result.Version, &result.Updated, &result.Changes)
+	err := db.QueryRowContext(t.Context(), `SELECT metadata_json,search_text,state,review_version,review_updated_at_ms,review_version-7 FROM import_items WHERE id='item'`).Scan(&result.JSON, &result.Search, &result.State, &result.Version, &result.Updated, &result.Changes)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -138,8 +135,8 @@ func (scope metadataDrift) CurrentMetadata(ctx context.Context, id string) (appl
 func TestMetadataTransactionFencesVersionMetadataAndReviewState(t *testing.T) {
 	t.Parallel()
 	for _, tc := range []struct{ name, statement string }{
-		{"version", `UPDATE review_drafts SET version=version+1 WHERE import_item_id='item'`},
-		{"metadata", `UPDATE review_drafts SET metadata_json='{"title":"Other"}' WHERE import_item_id='item'`},
+		{"version", `UPDATE import_items SET review_version=version+1 WHERE id='item'`},
+		{"metadata", `UPDATE import_items SET metadata_json='{"title":"Other"}' WHERE id='item'`},
 		{"state", `UPDATE import_items SET state='DISCARDED' WHERE id='item'`},
 	} {
 		t.Run(tc.name, func(t *testing.T) { t.Parallel(); assertMetadataFence(t, tc.statement) })

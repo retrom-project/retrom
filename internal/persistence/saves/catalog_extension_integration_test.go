@@ -76,17 +76,12 @@ func extensionDeclarations(t *testing.T) runtimecatalog.Catalog {
 		t.Fatal(err)
 	}
 	catalog.Definitions.Cores = append(catalog.Definitions.Cores, runtimecatalog.CoreDefinition{ID: "extension-core", Name: "Mechanism fixture", Enabled: true})
-	catalog.Definitions.AssetPacks = append(catalog.Definitions.AssetPacks, runtimecatalog.AssetPackDefinition{
-		ID: "extension-assets", Kind: "EXTRA_ASSETS", Generation: "RPGXP", DeclaredName: "Extra Assets",
-		NormalizedDeclaredName: "extra assets", DisplayName: "Extra assets", RequiredLayoutVersion: "mkxpz-v1", Enabled: true,
-	})
 	catalog.Bindings = append(catalog.Bindings, runtimecatalog.Binding{
 		ID: "extension-core", CoreID: "extension-core", ProviderID: "emulatorjs", TargetID: "extension-target",
 		PlatformIDs: []string{"gba"}, AcceptedContentKinds: []string{"SINGLE_FILE"},
 		DetectorProfile: "EMULATORJS_SINGLE_FILE", LaunchPolicy: "SUPPORTED",
 	})
 	slices.SortFunc(catalog.Definitions.Cores, func(a, b runtimecatalog.CoreDefinition) int { return strings.Compare(a.ID, b.ID) })
-	slices.SortFunc(catalog.Definitions.AssetPacks, func(a, b runtimecatalog.AssetPackDefinition) int { return strings.Compare(a.ID, b.ID) })
 	slices.SortFunc(catalog.Bindings, func(a, b runtimecatalog.Binding) int {
 		return strings.Compare(a.ProviderID+"/"+a.TargetID, b.ProviderID+"/"+b.TargetID)
 	})
@@ -125,8 +120,7 @@ func catalogUserEvidence(t *testing.T, database *sql.DB) [32]byte {
 		`SELECT * FROM schema_migrations ORDER BY version`,
 		`SELECT * FROM games ORDER BY id`, `SELECT * FROM game_files ORDER BY rowid`,
 		`SELECT * FROM game_variants ORDER BY id`, `SELECT * FROM save_states ORDER BY id`,
-		`SELECT * FROM import_items ORDER BY id`, `SELECT * FROM review_drafts ORDER BY id`,
-		`SELECT * FROM rpgmaker_review_profiles ORDER BY rowid`,
+		`SELECT * FROM import_items ORDER BY id`, `SELECT * FROM import_items ORDER BY id`,
 		`SELECT * FROM platform_instances ORDER BY id`, `SELECT * FROM profiles ORDER BY id`,
 	}
 	var evidence [][]any

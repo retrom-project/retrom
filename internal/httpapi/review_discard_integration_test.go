@@ -19,7 +19,7 @@ import (
 func TestReviewDiscardSQLFailuresAreServerErrors(t *testing.T) {
 	t.Parallel()
 	for _, test := range []struct{ name, query string }{
-		{"evidence read", "JOIN review_drafts d"}, {"item transition", "UPDATE import_items SET state="},
+		{"evidence read", "JOIN import_items d"}, {"item transition", "UPDATE import_items SET state="},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()

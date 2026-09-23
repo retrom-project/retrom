@@ -41,7 +41,7 @@ EXISTS(
 FROM source_import_items item
 LEFT JOIN source_import_collections collection ON collection.id=item.collection_id
 LEFT JOIN platform_instances platform ON platform.id=collection.target_platform_instance_id
-LEFT JOIN review_drafts draft ON draft.import_item_id=item.library_import_item_id
+LEFT JOIN import_items draft ON draft.id=item.library_import_item_id
 LEFT JOIN import_item_core_validations validation ON validation.id=COALESCE(
  draft.selected_validation_id,
  (SELECT candidate.id FROM import_item_core_validations candidate

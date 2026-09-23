@@ -45,10 +45,10 @@ func (repository *Repository) References(
 ) (map[string][]tagging.Reference, error) {
 	if kind == tagging.OwnerReviewItem {
 		return batchReferences(ctx, repository.database, `
-SELECT draft.import_item_id,tag.id,tag.name FROM review_draft_tags relation
-JOIN review_drafts draft ON draft.id=relation.review_draft_id
+SELECT draft.id,tag.id,tag.name FROM review_draft_tags relation
+JOIN import_items draft ON draft.id=relation.review_draft_id
 JOIN tags tag ON tag.id=relation.tag_id AND tag.status='ACTIVE'
-WHERE draft.import_item_id IN (SELECT value FROM json_each(?)) ORDER BY draft.import_item_id,tag.name_key,tag.id
+WHERE draft.id IN (SELECT value FROM json_each(?)) ORDER BY draft.id,tag.name_key,tag.id
 `, ownerIDs)
 	}
 	table, column, err := ownerTable(kind)

@@ -2,116 +2,128 @@ package libraryimport
 
 import (
 	"database/sql"
-	"strings"
+	"errors"
+	"sync"
 	"testing"
 
+	"retrom/internal/dbexec"
 	application "retrom/internal/service/libraryimport"
-	"retrom/internal/testsupport"
 )
 
-func insertReviewBulkQueryFixture(t *testing.T, db *sql.DB) (string, string) {
-	t.Helper()
-	instance := testsupport.MustPlatformInstanceID(t, db, "gba/mgba")
-	var coreID, providerID, targetID string
-	if err := db.QueryRowContext(t.Context(), `
-SELECT instance.default_core_id,binding.provider_id,binding.target_id
-FROM platform_instances instance
-JOIN runtime_target_bindings binding ON binding.core_id=instance.default_core_id
-WHERE instance.id=? LIMIT 1`, instance).Scan(&coreID, &providerID, &targetID); err != nil {
-		t.Fatal(err)
-	}
-	const validationID = "validation"
-	digest := strings.Repeat("a", 64)
-	if _, err := db.ExecContext(t.Context(), `
-INSERT INTO import_item_core_validations(
-id,import_item_id,target_platform_instance_id,platform_instance_version,core_id,provider_id,target_id,
-source_manifest_digest,prepublish_input_digest,status,compatibility_code,dependency_snapshot_json,created_at_ms,source_snapshot_id
-)
-VALUES(?,?,?,?,?,?,?,? ,?,'READY','READY','{}',1,?)`, validationID, "item", instance, 1, coreID, providerID, targetID,
-		digest, digest, "snapshot"); err != nil {
-		t.Fatal(err)
-	}
-	bulkID := "019b0000-0000-7000-8000-000000000010"
-	jobID := "019b0000-0000-7000-8000-000000000011"
-	if _, err := db.ExecContext(t.Context(), `
-INSERT INTO jobs(id,scope_type,scope_id,kind,dedupe_key,execution_no,payload_json,cancellable,state,
-attempt_count,max_attempts,version,available_at_ms,created_at_ms,updated_at_ms)
-VALUES(?,'REVIEW_BULK_APPROVAL',?,'REVIEW_BULK_APPROVE',?,1,'{}',1,'QUEUED',0,4,1,1,1,1)`, jobID, bulkID, strings.Repeat("b", 64)); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := db.ExecContext(t.Context(), `
-INSERT INTO review_bulk_approvals(id,job_id,state,scope_json,scope_digest,candidate_manifest_digest,
-matched_count,candidate_count,screenshot_only_count,duplicate_count,attachment_active_count,
-source_flagged_count,not_ready_or_stale_count,created_by_user_id,version,created_at_ms,updated_at_ms)
-VALUES(?,?, 'QUEUED','{}',?,?,1,1,0,0,0,0,0,'actor',1,1,1)`, bulkID, jobID, digest, strings.Repeat("c", 64)); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := db.ExecContext(t.Context(), `
-INSERT INTO review_bulk_approval_items(bulk_approval_id,import_item_id,ordinal,expected_review_version,
-expected_validation_id,expected_source_snapshot_id,title_snapshot,target_platform_instance_id,
-target_platform_name_snapshot,state,created_at_ms)
-VALUES(?,?,0,7,?,?,?,? ,?,'PENDING',1)`, bulkID, "item", validationID, "snapshot", "Before", instance, "Game Boy Advance"); err != nil {
-		t.Fatal(err)
-	}
-	return bulkID, instance
-}
-
-func TestReviewBulkQueriesRepositoryReadsTypedCandidateRecords(t *testing.T) {
+func TestReviewBulkConcurrentCreationCommitsOnlyOneJob(t *testing.T) {
 	t.Parallel()
 	db := metadataDatabase(t)
-	_, instance := insertReviewBulkQueryFixture(t, db)
-	repository := NewReviewBulkQueries(db)
-	candidates, err := repository.Candidates(t.Context(), application.ReviewBulkCandidateQuery{
-		Scope: application.ReviewBulkScope{PlatformInstanceID: instance}, Limit: 2,
-	})
-	if err != nil || len(candidates) != 1 {
-		t.Fatalf("candidates=%#v err=%v", candidates, err)
+	db.SetMaxOpenConns(1)
+	ids := [][2]string{
+		{"019b0000-0000-7000-8000-000000000030", "019b0000-0000-7000-8000-000000000031"},
+		{"019b0000-0000-7000-8000-000000000032", "019b0000-0000-7000-8000-000000000033"},
 	}
-	if candidates[0].ItemID != "item" || candidates[0].Title != "Before" || candidates[0].ValidationID == nil ||
-		*candidates[0].ValidationID != "validation" || candidates[0].ValidationStatus == nil ||
-		*candidates[0].ValidationStatus != "READY" {
-		t.Fatalf("candidate=%#v", candidates[0])
+	var wait sync.WaitGroup
+	results := make(chan error, len(ids))
+	for _, pair := range ids {
+		wait.Add(1)
+		go func() {
+			defer wait.Done()
+			results <- NewTransactions(db).Write(t.Context(), func(executor dbexec.Executor) error {
+				_, err := BindReviewBulkWrites(executor).CreateGlobal(t.Context(), pair[0], pair[1], "actor", 10)
+				return err
+			})
+		}()
+	}
+	wait.Wait()
+	close(results)
+	successes := 0
+	for err := range results {
+		if err == nil {
+			successes++
+		}
+	}
+	var tasks, jobs int
+	if err := db.QueryRowContext(t.Context(), `SELECT (SELECT count(*) FROM review_bulk_approvals),
+(SELECT count(*) FROM jobs WHERE kind='REVIEW_BULK_APPROVE')`).Scan(&tasks, &jobs); err != nil {
+		t.Fatal(err)
+	}
+	if successes != 1 || tasks != 1 || jobs != 1 {
+		t.Fatalf("successful creates=%d tasks=%d jobs=%d", successes, tasks, jobs)
 	}
 }
 
-func TestReviewBulkQueriesRepositoryReadsTypedItemsAndSummaries(t *testing.T) {
+func TestReviewBulkCreateBoundAndActiveSummary(t *testing.T) {
 	t.Parallel()
 	db := metadataDatabase(t)
-	bulkID, _ := insertReviewBulkQueryFixture(t, db)
-	repository := NewReviewBulkQueries(db)
-	items, err := repository.Items(t.Context(), application.ReviewBulkItemQuery{
-		BulkApprovalID: bulkID, AfterOrdinal: -1, Limit: 2,
-	})
-	if err != nil || len(items) != 1 || items[0].ImportItemID != "item" || items[0].Ordinal != 0 {
-		t.Fatalf("items=%#v err=%v", items, err)
+	const bulkID = "019b0000-0000-7000-8000-000000000010"
+	const jobID = "019b0000-0000-7000-8000-000000000011"
+	writes := BindReviewBulkWrites(db)
+	created, err := writes.CreateGlobal(t.Context(), bulkID, jobID, "actor", 10)
+	if err != nil || created.InitialPendingCount != 1 || created.MaxItemID != "item" {
+		t.Fatalf("created=%#v err=%v", created, err)
 	}
-	summary, err := repository.Summary(t.Context(), bulkID)
-	if err != nil || summary.BulkApprovalID != bulkID || summary.State != "QUEUED" || summary.Counts.Matched != 1 {
+	_, err = writes.CreateGlobal(t.Context(), "019b0000-0000-7000-8000-000000000012", "019b0000-0000-7000-8000-000000000013", "actor", 11)
+	if err == nil {
+		t.Fatal("second active task was accepted")
+	}
+	queries := BindReviewBulkQueries(db)
+	active, found, err := queries.ActiveSummary(t.Context())
+	if err != nil || !found || active.BulkApprovalID != bulkID {
+		t.Fatalf("active=%#v found=%v err=%v", active, found, err)
+	}
+	summary, err := queries.Summary(t.Context(), bulkID)
+	if err != nil || summary.InitialPendingCount != 1 || summary.ScannedCount != 0 {
 		t.Fatalf("summary=%#v err=%v", summary, err)
 	}
-	active, found, err := repository.ActiveSummary(t.Context())
-	if err != nil || !found || active.BulkApprovalID != bulkID {
-		t.Fatalf("active=%#v err=%v", active, err)
-	}
 }
 
-func TestReviewBulkQueriesRepositoryReturnsNoActiveSummary(t *testing.T) {
+func TestReviewBulkWorkerPersistsCursorAndResumes(t *testing.T) {
 	t.Parallel()
 	db := metadataDatabase(t)
-	active, found, err := NewReviewBulkQueries(db).ActiveSummary(t.Context())
+	const bulkID = "019b0000-0000-7000-8000-000000000020"
+	const jobID = "019b0000-0000-7000-8000-000000000021"
+	if _, err := BindReviewBulkWrites(db).CreateGlobal(t.Context(), bulkID, jobID, "actor", 10); err != nil {
+		t.Fatal(err)
+	}
+	worker := BindReviewBulkWorker(db)
+	gotJob, user, err := worker.Claim(t.Context(), bulkID, "worker-1", 11)
+	if err != nil || gotJob != jobID || user != "actor" {
+		t.Fatalf("claim=%s %s %v", gotJob, user, err)
+	}
+	item, found, err := worker.Next(t.Context(), bulkID, "worker-1")
+	if err != nil || !found || item.ID != "item" {
+		t.Fatalf("item=%#v found=%v err=%v", item, found, err)
+	}
+	if err := worker.Skip(t.Context(), bulkID, jobID, "worker-1", item.ID, "CHANGED", 12); err != nil {
+		t.Fatal(err)
+	}
+	assertReviewBulkResume(t, db, worker, bulkID, jobID)
+}
+
+func assertReviewBulkResume(t *testing.T, db *sql.DB, worker *ReviewBulkWorker, bulkID, jobID string) {
+	t.Helper()
+	ids, err := worker.Resume(t.Context(), 13)
+	if err != nil || len(ids) != 1 || ids[0] != bulkID {
+		t.Fatalf("resume=%v err=%v", ids, err)
+	}
+	if _, _, err := worker.Claim(t.Context(), bulkID, "worker-2", 14); err != nil {
+		t.Fatal(err)
+	}
+	_, found, err := worker.Next(t.Context(), bulkID, "worker-2")
 	if err != nil || found {
-		t.Fatalf("active=%#v err=%v", active, err)
+		t.Fatalf("repeated item: found=%v err=%v", found, err)
+	}
+	if err := worker.Finish(t.Context(), bulkID, jobID, "worker-2", 15); err != nil {
+		t.Fatal(err)
+	}
+	summary, err := BindReviewBulkQueries(db).Summary(t.Context(), bulkID)
+	if err != nil || summary.State != "COMPLETED" || summary.ScannedCount != 1 || summary.SkippedChangedCount != 1 {
+		t.Fatalf("summary=%#v err=%v", summary, err)
+	}
+	if _, _, err := worker.Claim(t.Context(), bulkID, "worker-3", 16); !errors.Is(err, ErrReviewBulkNotRunnable) {
+		t.Fatalf("reclaim=%v", err)
 	}
 }
 
-func TestReviewBulkCandidateStatementAddsBoundedCursor(t *testing.T) {
-	t.Parallel()
-	query, args, err := reviewBulkCandidateStatement(application.ReviewBulkCandidateQuery{
-		AfterItemID:   "019b0000-0000-7000-8000-000000000001",
-		ThroughItemID: "019b0000-0000-7000-8000-000000000002",
-		Limit:         2,
-	})
-	if err != nil || !strings.Contains(query, "item.id>?") || !strings.Contains(query, "item.id<=?") || len(args) != 3 {
-		t.Fatalf("query=%s args=%#v err=%v", query, args, err)
+func TestReviewBulkCandidateQueryRequiresLimit(t *testing.T) {
+	_, _, err := reviewBulkCandidateStatement(application.ReviewBulkCandidateQuery{})
+	if !errors.Is(err, application.ErrReviewBulkQuery) {
+		t.Fatalf("err=%v", err)
 	}
 }

@@ -28,8 +28,8 @@ func (reads scheduleReads) Review(ctx context.Context, id string) (metadatascrap
 	var item metadatascrape.ReviewSubject
 	err := reads.database.QueryRowContext(
 		ctx,
-		`SELECT d.version,d.metadata_json FROM review_drafts d
- JOIN import_items i ON i.id=d.import_item_id WHERE i.id=? AND i.state='REVIEW_PENDING'`,
+		`SELECT d.review_version,d.metadata_json FROM import_items d
+ JOIN import_items i ON i.id=d.id WHERE i.id=? AND i.state='REVIEW_PENDING'`,
 		id,
 	).Scan(
 		&item.Version,

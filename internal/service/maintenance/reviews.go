@@ -12,17 +12,17 @@ import (
 )
 
 type RestoredReview struct {
-	Kind, ItemID, ImportID, JobID                        string
-	State, ImportState, JobState                         string
-	Version, ImportVersion, JobVersion, ExecutionNo      int64
-	LibraryJobID, LibraryItemID                          string
-	ReservedJobID, ReservedItemID, UploadID, OwnerUpload string
-	OwnerKind, OwnerItemID                               string
-	OrdinaryItemCount, OrdinaryVersion                   int64
-	MetadataJSON, WarningsJSON                           string
-	RootID, RootDigest, RelativePath, CreatorID          string
-	ReleaseYearMax                                       int
-	Retryable                                            bool
+	Kind, ItemID, ImportID, JobID                             string
+	State, ImportState, JobState                              string
+	Version, ImportVersion, JobVersion, ExecutionNo           int64
+	LibraryJobID, LibraryItemID                               string
+	ReservedJobID, ReservedItemID, UploadID, OwnerUpload      string
+	OwnerKind, OwnerItemID                                    string
+	OrdinaryItemCount, OrdinaryVersion, OrdinaryReviewVersion int64
+	MetadataJSON, WarningsJSON                                string
+	RootID, RootDigest, RelativePath, CreatorID               string
+	ReleaseYearMax                                            int
+	Retryable                                                 bool
 }
 
 type RestoredReviewQuery struct {
@@ -39,6 +39,7 @@ type RestoredReviewChange struct {
 
 type RestoredReviewRecords interface {
 	Pending(context.Context, RestoredReviewQuery) ([]RestoredReview, error)
+	Verify(context.Context, RestoredReview) error
 	Complete(context.Context, RestoredReviewChange) error
 }
 
@@ -96,7 +97,10 @@ func completeRestoredReview(
 	if review.Kind == "SOURCE" {
 		maximumYear = now.UTC().Year() + 1
 	}
-	_, additions, err := library.NewMetadataSeeder(nil, func() time.Time { return now }).SeedInScope(
+	if err := scope.Records.Verify(ctx, review); err != nil {
+		return fmt.Errorf("verify restored review version: %w", err)
+	}
+	seededVersion, additions, err := library.NewMetadataSeeder(nil, func() time.Time { return now }).SeedInScope(
 		ctx, scope.Metadata, review.ReservedItemID, metadata, maximumYear)
 	if err != nil {
 		return fmt.Errorf("seed restored review metadata: %w", err)
@@ -105,6 +109,7 @@ func completeRestoredReview(
 	if err != nil {
 		return err
 	}
+	review.OrdinaryReviewVersion = seededVersion
 	err = scope.Records.Complete(ctx, RestoredReviewChange{
 		Before: review, Preparation: preparation, WarningsJSON: warnings, NowMS: now.UnixMilli(),
 	})
@@ -137,7 +142,7 @@ func validRestoredReviewIdentity(review RestoredReview) bool {
 	}
 	for _, version := range []int64{
 		review.Version, review.ImportVersion, review.JobVersion,
-		review.ExecutionNo, review.OrdinaryVersion,
+		review.ExecutionNo, review.OrdinaryVersion, review.OrdinaryReviewVersion,
 	} {
 		if version < 1 || version == math.MaxInt64 {
 			return false

@@ -231,7 +231,7 @@ func TestPublishingReviewReleasesAllTemporaryPreviewOwners(t *testing.T) {
 		t.Fatal(err)
 	}
 	mustRPGLaunchSQL(t, fixture.database,
-		`UPDATE review_drafts SET metadata_json='{"title":"Published trial"}' WHERE import_item_id=?`, fixture.itemID)
+		`UPDATE import_items SET metadata_json='{"title":"Published trial"}' WHERE id=?`, fixture.itemID)
 	approved, err := libraryimport.New(fixture.database, func() time.Time { return *fixture.now }).
 		Approve(t.Context(), fixture.itemID, 2)
 	if err != nil || approved.GameID == "" {
@@ -249,7 +249,7 @@ func TestPublishingReviewReleasesAllTemporaryPreviewOwners(t *testing.T) {
 	var previews, productSaves int
 	var payloadState string
 	if err := fixture.database.QueryRowContext(t.Context(), `
-SELECT (SELECT count(*) FROM review_preview_sessions WHERE import_item_id=?),
+SELECT (SELECT count(*) FROM review_preview_sessions WHERE id=?),
  (SELECT count(*) FROM save_states),payload_state FROM import_items WHERE id=?`,
 		fixture.itemID, fixture.itemID).Scan(&previews, &productSaves, &payloadState); err != nil {
 		t.Fatal(err)

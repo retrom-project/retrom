@@ -22,8 +22,8 @@ func (repository *ReviewBatchDiscards) Pending(
 	ctx context.Context, importID string, limit int,
 ) ([]application.ReviewBatchItem, error) {
 	rows, err := repository.database.QueryContext(ctx, `
-SELECT i.id,d.version
-FROM import_items i JOIN review_drafts d ON d.import_item_id=i.id
+SELECT i.id,d.review_version
+FROM import_items i JOIN import_items d ON d.id=i.id
 WHERE i.import_job_id=? AND i.state='REVIEW_PENDING'
 ORDER BY i.id LIMIT ?`, importID, limit)
 	if err != nil {

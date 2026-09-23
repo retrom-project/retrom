@@ -258,7 +258,7 @@ func writeInstallationFixture(t *testing.T, root string) installationFixture {
 		"definitions": runtimecatalog.Definitions{
 			Platforms:    []runtimecatalog.PlatformDefinition{{ID: "fixture", Name: "Fixture", Enabled: true}},
 			Cores:        []runtimecatalog.CoreDefinition{{ID: "fixture", Name: "Fixture", Enabled: true}},
-			ContentKinds: []string{"SINGLE_FILE"}, AssetPacks: []runtimecatalog.AssetPackDefinition{},
+			ContentKinds: []string{"SINGLE_FILE"},
 		},
 		"bindings": []map[string]any{{
 			"id": "fixture", "coreId": "fixture", "providerId": "fixture", "targetId": "fixture",

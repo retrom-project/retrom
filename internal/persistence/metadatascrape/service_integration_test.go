@@ -258,7 +258,7 @@ COALESCE(d.cover_candidate_asset_id,''),
 d.metadata_json
 FROM import_items i
 JOIN import_jobs j ON j.id=i.import_job_id
-JOIN review_drafts d ON d.import_item_id=i.id
+JOIN import_items d ON d.id=i.id
 WHERE i.id=?
 `, firstItemID).Scan(
 		&finalItemState,

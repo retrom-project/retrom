@@ -153,10 +153,10 @@ PlatformInstance 的复合外键、游戏唯一归属和迁移规则见 [游戏�
 | --- | --- |
 | `blobs` | CAS 文件、大小及多种内容哈希 |
 | `archive_entries` | 经安全扫描的 archive entry 路径、大小、内容 hash 与可选物化 Blob |
-| `games` | 用户可见游戏及当前 metadata/content 来源；`platform_instance_id` 必填，不保存 `platform_id` |
+| `games` | 用户可见游戏及当前 metadata/content 来源；可选 `content_profile_json` 保存内容类型专属一对一扩展；`platform_instance_id` 必填，不保存 `platform_id` |
 | `game_assets` | 封面、背景、截图等 |
 | `game_files` | Game 当前 CONTENT/DOS_SOURCE/COMPANION/PROJECT_FILE 等 Blob 与逻辑路径 |
-| `game_variants` | Game + Core 唯一的稳定当前验证/运行状态，含 Provider/Target、DAT 与依赖快照 |
+| `game_variants` | Game + Core 唯一的稳定当前验证/运行状态，含 Provider/Target、DAT、依赖快照和可选 `runtime_profile_json` |
 | `dos_entries` | GameFiles中经过安全扫描的可执行程序候选 |
 | `variant_files` | parent、BIOS bundle、DOS launch bundle 等 core-specific/派生文件 |
 | `tags` / `game_tags` | 实例级 Tag tombstone 与 Game 多对多关系；不含 Blob 或宿主路径 |
@@ -191,7 +191,7 @@ PlatformInstance 的复合外键、游戏唯一归属和迁移规则见 [游戏�
 | `source_import_metadata_files` / `source_import_item_files` / `source_import_item_assets` | 有界扫描证据、待接收来源及独立媒体 |
 | `import_jobs` | 一次导入任务及目标游戏目录快照 |
 | `import_job_files` | UploadSession 每个文件的 SOURCE/IGNORED/REJECTED 分类与原因 |
-| `import_items` | 单个游戏候选 |
+| `import_items` | 单个游戏候选，含可选的内容类型专属 `review_profile_json` |
 | `import_item_source_files` | 候选的 CONTENT/DOS_SOURCE/COMPANION 发布前文件映射 |
 | `import_item_dos_entries` | 发布前 DOS 程序候选 |
 | `import_item_core_validations` / `import_item_validation_files` | 审核可选择的默认核心验证证据与派生文件 |
@@ -207,7 +207,7 @@ PlatformInstance 的复合外键、游戏唯一归属和迁移规则见 [游戏�
 | `review_uploaded_assets` | 审核期间人工上传的不可变封面资源及 Blob 归属 |
 | `metadata_provider_cache` | provider + request digest 的可变缓存指针与过期时间 |
 | `metadata_provider_responses` | 每次查询的不可变状态、原始响应 Blob 与有效期 |
-| `review_drafts` | 待审核条目的可编辑草稿与 version |
+| `import_items` | 导入 Item 与当前审核字段共用一行；`review_version` 独立于 Item `version`，用于审核乐观并发，不保存编辑历史 |
 | `review_draft_screenshot_assets` | 草稿截图选择的规范顺序与外键 |
 | `review_preview_sessions` / `review_preview_files` | 审核子窗体的短时不可变运行快照与实际可交付依赖 |
 | `review_runtime_screenshots` | 当前 READY 或阻断 Validation 在普通 Player 中按需生成的审核截图与人工放行证据 |

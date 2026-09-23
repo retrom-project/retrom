@@ -11,7 +11,7 @@
 
 浏览器单文件、目录和服务器组织格式共用一条导入链路。UploadSession/UploadFile 只负责传输；接收成功时在同一事务写入独立的 `import_files`，保存会话、规范相对路径、Blob、大小和接收时间，不保存 Pegasus/gamelist 格式。分组、校验、审核、重配置都从此表读取，未完成上传不能进入该表。
 
-Pegasus 与 gamelist.xml 只负责把文件组织、文字元数据和媒体引用解析为统一的扫描投影。它们共享 `source_imports` 计划、`source_import_items` 和通用 `jobs` 中的 `IMPORT_SCAN/IMPORT_RECEIVE`，使用同一 Worker、映射、复制、取消、重试与恢复。文件接收后复用 `ImportPreparation/ImportCreations`，生成同一 `import_jobs/import_items/review_drafts`；下游不按格式选择上传或审核流。
+Pegasus 与 gamelist.xml 只负责把文件组织、文字元数据和媒体引用解析为统一的扫描投影。它们共享 `source_imports` 计划、`source_import_items` 和通用 `jobs` 中的 `IMPORT_SCAN/IMPORT_RECEIVE`，使用同一 Worker、映射、复制、取消、重试与恢复。文件接收后复用 `ImportPreparation/ImportCreations`，生成同一 `import_jobs/import_items`；下游不按格式选择上传或审核流。
 
 导入链路将文件接收、运行依赖识别、展示元信息刮削和人工审核分开：
 
@@ -457,7 +457,7 @@ Import create 的 `contentMode` 缺省等价于 `STANDARD`；新 Web 对两种�
 
 普通 ImportJob/Item 的创建与 来源 来源关联在同一短事务提交。Service 先校验当前 worker、execution、attempt、租约、截止时刻及冻结目标；创建事务重验来源版本、声明路径与已复制文件的 Blob、大小、状态和 facts。一个来源只允许一个匹配全部声明主文件的 group，Arcade companion 必须留在该 group 的依赖中；零个或多个独立 group 在创建前作为内容阻塞拒绝。`PROJECT_FILE` 的原始项目归档参与主文件身份。恢复先按永久关联读取唯一结果，再决定重复收口或审核交接，不访问已释放的宿主/CAS 来源重新选取结果。
 
-内容管线产出的普通 ImportItem 无论 CoreValidation 为 READY 还是 BLOCKED/INCOMPATIBLE，都会带冻结的 来源 metadata、COVER/VIDEO 来源和一一关联关系进入统一 `REVIEW_PENDING` 队列；Worker 在此停止，不创建 Game。来源 原始 metadata 仍作为不可变来源证据，交接到普通 ReviewDraft 前必须按通用审核字段契约归一化：description 在 code point 边界截断到 10,000，developer/publisher/genre 截断到 200，不在 `1950..当前 UTC 年+1` 的 releaseYear 置空；每个调整以 `{code:"FIELD_TRUNCATED"|"FIELD_VALUE_INVALID",field}` 追加到 来源 Item warning，不得把超出 Review PATCH 契约的值直接写入草稿。生成初始 Validation 时，Arcade `BIOS_OR_BASE` 必须先按冻结 Provider Target 精确合并当前 active 的匹配 DAT BIOS，并把 Blob 写入 `BIOS_BUNDLE` ValidationFile；不能把导入前已经安装的 BIOS 推迟到后续审核写操作才纳入校验。队列可按 `sourceImportId` 精确收窄，来源 来源 metadata 不计作“未找到信息”，详情显示来源 Collection、封面和不自动播放的等比居中 VIDEO。管理员逐项处理运行依赖、编辑草稿和 Discard；严格 READY 的无重复条目也可通过同一筛选范围的快速审批发布。Approve 才在普通审核事务内形成 `IMPORT_RECEIVE` Game 当前元信息字段/GameFiles 并复制来源媒体，人工候选/上传封面优先于 来源 COVER；Discard 把来源 Item 收口为 `REVIEW_DISCARDED`。审核前必须为零 Game，逐项或快速审批的每次成功决策都同时更新普通 ImportJob 与 来源 聚合。
+内容管线产出的普通 ImportItem 无论 CoreValidation 为 READY 还是 BLOCKED/INCOMPATIBLE，都会带冻结的 来源 metadata、COVER/VIDEO 来源和一一关联关系进入统一 `REVIEW_PENDING` 队列；Worker 在此停止，不创建 Game。来源 原始 metadata 仍作为不可变来源证据，交接到普通 ReviewDraft 前必须按通用审核字段契约归一化：description 在 code point 边界截断到 10,000，developer/publisher/genre 截断到 200，不在 `1950..当前 UTC 年+1` 的 releaseYear 置空；每个调整以 `{code:"FIELD_TRUNCATED"|"FIELD_VALUE_INVALID",field}` 追加到 来源 Item warning，不得把超出 Review PATCH 契约的值直接写入草稿。生成初始 Validation 时，Arcade `BIOS_OR_BASE` 必须先按冻结 Provider Target 精确合并当前 active 的匹配 DAT BIOS，并把 Blob 写入 `BIOS_BUNDLE` ValidationFile；不能把导入前已经安装的 BIOS 推迟到后续审核写操作才纳入校验。队列可按 `sourceImportId` 精确收窄，来源 来源 metadata 不计作“未找到信息”，详情显示来源 Collection、封面和不自动播放的等比居中 VIDEO。管理员逐项处理运行依赖、编辑草稿和 Discard；严格 READY 的无重复条目也可通过全局待审队列的快速审批发布。Approve 才在普通审核事务内形成 `IMPORT_RECEIVE` Game 当前元信息字段/GameFiles 并复制来源媒体，人工候选/上传封面优先于 来源 COVER；Discard 把来源 Item 收口为 `REVIEW_DISCARDED`。审核前必须为零 Game，逐项或快速审批的每次成功决策都同时更新普通 ImportJob 与 来源 聚合。
 
 审核交接由 来源 Service 通过类型化事务端口编排，共用元数据 Service 的 scoped 写入。冻结 metadata 的归一化、ReviewDraft 版本更新、搜索字段、来源条目的 `REVIEW_PENDING`、告警去重、聚合计数与进度事件在同一事务提交；任一步失败全部回滚。写入重验来源与内部条目的关联、条目和计划版本、当前 execution/attempt、活动状态、租约与 deadline，旧执行不能覆盖当前结果。重放已交接条目不再次覆盖人工草稿；取消检查点前已创建的审核可完成交接并保留。共享元数据 Service 以调用方传入的年份上界归一化，存储、随机源和受影响行数读取失败保留原始原因，不得伪装成输入错误或成功。
 

@@ -13,7 +13,7 @@ import (
 	"retrom/internal/testassert"
 )
 
-func TestCurrentCrossDomainInvariantsContainNoLegacyCompatibilityIndexes(t *testing.T) {
+func TestCurrentCrossDomainInvariantsContainNoLegacyCompatibilityIndex(t *testing.T) {
 	t.Parallel()
 	database, err := Open(t.Context(), filepath.Join(t.TempDir(), "retrom.db"), time.Now)
 	testassert.False(t, err != nil, err)
@@ -21,10 +21,9 @@ func TestCurrentCrossDomainInvariantsContainNoLegacyCompatibilityIndexes(t *test
 
 	names := queryStrings(t, database.SQL, `
 SELECT name FROM sqlite_schema
-WHERE name IN ('runtime_targets_game_compatibility',
-               'game_variant_runtime_packs_immutable_update','game_variant_runtime_packs_immutable_delete')
+WHERE name='runtime_targets_game_compatibility'
 ORDER BY name`)
-	testassert.Truef(t, len(names) == 0, "legacy compatibility/current-state immutability objects remain: %v", names)
+	testassert.Truef(t, len(names) == 0, "legacy compatibility index remains: %v", names)
 }
 
 func TestCurrentGameCanMoveBetweenPlatformInstances(t *testing.T) {

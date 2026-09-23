@@ -223,10 +223,10 @@ OpenAPI、后端、集成、前端、结构、公开 fixture、data/dependency�
 ### M19 当前态简化收口（2026-09-05 已确认，实施中）
 
 1. 删除旧 manifest reader、归一化 fallback、revision 目录和审核算法代际；只保留当前公开 schema、内容摘要、真实业务版本及会话冻结证据。
-2. 将平台、核心、内容分类与资源包定义从 migrations 移入现有 Host catalog；启动先验证全部声明和受限策略，再用一个事务同步产品定义、Provider/Target、关联、摘要与审计。禁止覆盖用户目录配置或级联删除被引用产品定义。
+2. 将平台、核心与内容分类从 migrations 移入现有 Host catalog；启动先验证全部声明和受限策略，再用一个事务同步产品定义、Provider/Target、关联、摘要与审计。禁止覆盖用户目录配置或级联删除被引用产品定义。
 3. 上传目的采用 `GENERAL/PROJECT`，文件/目录/压缩包统一归一化；RPG Maker 资源随游戏上传，不提供独立 RTP 安装。
 4. 审核有效性只比较来源、Core/Target、DAT、依赖和相关规则；普通展示编辑及无关 Provider 变化不失效。静态/Arcade 依赖使用明确类型，Launch options 使用有界策略；审核临时 checkpoint 按会话期限或 payload 生命周期释放，不参与升级门槛，升级只保护持久用户存档。
-5. 红—绿测试先证明上述旧行为，再实现；最终 schema 确定后只重建指定 PFB 的数据根。随后在同一份已含游戏、审核、配置和存档的数据库上验证核心/Target、接入及资源包扩展，记录 schema/migration 指纹、原 ID/数据与外键检查，不再通过清库绕过失败。
+5. 红—绿测试先证明上述旧行为，再实现；最终 schema 确定后只重建指定 PFB 的数据根。随后在同一份已含游戏、审核、配置和存档的数据库上验证核心/Target 与接入扩展，记录 schema/migration 指纹、原 ID/数据与外键检查，不再通过清库绕过失败。
 6. 执行真实 ZIP/目录、Pegasus/gamelist 导入及各核心生命周期回归，明确区分用户样本、公开 fixture 与未覆盖项。工程检查通过后可保留功能/修复开发提交，使真实验收绑定精确源码；完整自验后再推送功能分支，保持最终 PFB 运行供二次验收；不提前创建 PR、合入 master 或打 tag。
 7. Provider Module 是唯一公开运行入口，直接组织核心私有参数和 adapter；删除原 RuntimeConfig/GameRuntime API、通用转换/工厂和内层 controller。只保留一套核心生命周期状态、操作队列、事件和退出清理；Host 的页面、iframe、会话职责保持独立。通过启动取消、暂停恢复、存档中退出、核心主动退出和失败清理证明行为，而非只检索命名。
 8. Provider 创建入口验证外部 Envelope/Host，内部使用明确类型，不反复验证同一对象，不新增可信标记协议；移除无实际用途的独立预检入口并同步唯一 ABI 的真实消费者。下载文件、归档、跨 origin 消息等信任边界继续校验。

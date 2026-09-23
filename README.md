@@ -66,7 +66,7 @@ make build-images
 | `retrom:latest` | API、后台任务、数据存储与游戏运行资源 | `8080` |
 | `retrom-web:latest` | Web 界面与 Player | `3000` |
 
-该命令只构建镜像。当前需自行提供 Compose、Kubernetes 或其他部署编排，并配置 HTTPS 反向代理及可写的持久数据目录 `RETROM_DATA_DIR`。RPG Maker MV/MZ 等隔离运行入口还需要配置运行时子域名与证书。
+该命令只构建镜像。仓库提供 [`docker/docker-compose.yml.example`](docker/docker-compose.yml.example) 与 [`docker/nginx.conf.example`](docker/nginx.conf.example)，展示两个应用容器和一个 Nginx 容器的最小路由配置。示例 Nginx 只监听 HTTP；正式公开前需自行配置 HTTPS、证书与端口，并替换示例域名、镜像 tag、持久数据目录及运行时子域名的 wildcard DNS。
 
 全新生产实例通过网页 `/setup` 填写管理员用户名、显示名称和确认后的密码，直接创建首位管理员并登录。完整配置、路由及初始化步骤见[后端与部署说明](docs/backend-api-and-operations.md)；长期运行前请按[存储、备份与恢复](docs/storage-and-database.md)准备备份。
 

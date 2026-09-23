@@ -45,11 +45,26 @@ CREATE TABLE import_items (
   payload_released_at_ms INTEGER,
   payload_last_error_code TEXT,
   version INTEGER NOT NULL DEFAULT 1,
+  target_platform_instance_id TEXT REFERENCES platform_instances(id),
+  selected_validation_id TEXT REFERENCES import_item_core_validations(id),
+  selected_candidate_id TEXT REFERENCES scrape_candidates(id) ON DELETE SET NULL,
+  cover_candidate_asset_id TEXT REFERENCES scrape_candidate_assets(id) ON DELETE SET NULL,
+  background_candidate_asset_id TEXT REFERENCES scrape_candidate_assets(id) ON DELETE SET NULL,
+  cover_uploaded_asset_id TEXT REFERENCES review_uploaded_assets(id),
+  effective_source_snapshot_id TEXT REFERENCES import_item_source_snapshots(id),
+  default_dos_entry TEXT,
+  metadata_json TEXT,
+  review_profile_json TEXT CHECK(CASE WHEN review_profile_json IS NULL THEN 1 WHEN json_valid(review_profile_json) THEN COALESCE(json_type(review_profile_json,'$.kind')='text' AND json_type(review_profile_json,'$.data')='object',0) ELSE 0 END),
+  review_version INTEGER NOT NULL DEFAULT 0 CHECK(review_version>=0),
+  review_created_at_ms INTEGER,
+  review_updated_at_ms INTEGER,
   created_at_ms INTEGER NOT NULL,
   updated_at_ms INTEGER NOT NULL,
   completed_at_ms INTEGER,
   UNIQUE(import_job_id, group_key),
   CHECK((state IN ('FAILED_RETRYABLE','FAILED_FINAL')) = (failed_stage IS NOT NULL AND last_error_code IS NOT NULL)),
+  CHECK((review_version=0 AND review_created_at_ms IS NULL AND review_updated_at_ms IS NULL)
+    OR (review_version>0 AND review_created_at_ms IS NOT NULL AND review_updated_at_ms IS NOT NULL)),
   CHECK(
     payload_state='RETAINED' AND payload_release_job_id IS NULL AND payload_released_at_ms IS NULL AND payload_last_error_code IS NULL OR
     payload_state='RELEASING' AND payload_release_job_id IS NOT NULL AND payload_released_at_ms IS NULL AND payload_last_error_code IS NULL OR
@@ -153,19 +168,6 @@ CREATE TABLE import_item_multidisc_entries (
   )
 );
 
-CREATE TABLE review_draft_runtime_pack_selections (
-  review_draft_id TEXT NOT NULL REFERENCES review_drafts(id),
-  slot INTEGER NOT NULL CHECK(slot BETWEEN 0 AND 3),
-  declared_name TEXT NOT NULL CHECK(length(CAST(declared_name AS BLOB)) BETWEEN 1 AND 512),
-  normalized_declared_name TEXT NOT NULL CHECK(length(CAST(normalized_declared_name AS BLOB)) BETWEEN 1 AND 512),
-  definition_id TEXT NOT NULL REFERENCES runtime_asset_pack_definitions(id),
-  installation_id TEXT NOT NULL,
-  created_at_ms INTEGER NOT NULL CHECK(created_at_ms>=0),
-  PRIMARY KEY(review_draft_id,slot),
-  FOREIGN KEY(installation_id,definition_id)
-    REFERENCES runtime_asset_pack_installations(id,definition_id)
-);
-
 CREATE TABLE review_uploaded_assets (
   id TEXT PRIMARY KEY,
   import_item_id TEXT NOT NULL REFERENCES import_items(id),
@@ -181,7 +183,7 @@ CREATE TABLE review_uploaded_assets (
 CREATE TABLE review_multidisc_attachments (
   id TEXT PRIMARY KEY,
   import_item_id TEXT NOT NULL REFERENCES import_items(id),
-  review_draft_id TEXT NOT NULL REFERENCES review_drafts(id),
+  review_draft_id TEXT NOT NULL REFERENCES import_items(id),
   requested_by_user_id TEXT NOT NULL REFERENCES users(id),
   base_source_snapshot_id TEXT NOT NULL REFERENCES import_item_source_snapshots(id),
   result_source_snapshot_id TEXT REFERENCES import_item_source_snapshots(id),
@@ -233,7 +235,7 @@ CREATE TABLE review_preview_files (
 );
 
 CREATE TABLE review_draft_screenshot_assets (
-  review_draft_id TEXT NOT NULL REFERENCES review_drafts(id),
+  review_draft_id TEXT NOT NULL REFERENCES import_items(id),
   ordinal INTEGER NOT NULL CHECK(ordinal BETWEEN 0 AND 31),
   candidate_asset_id TEXT NOT NULL REFERENCES scrape_candidate_assets(id) ON DELETE CASCADE,
   created_at_ms INTEGER NOT NULL,
@@ -244,74 +246,30 @@ CREATE TABLE review_draft_screenshot_assets (
 CREATE TABLE review_bulk_approvals (
   id TEXT PRIMARY KEY,
   job_id TEXT NOT NULL UNIQUE REFERENCES jobs(id),
-  state TEXT NOT NULL CHECK(state IN (
-    'QUEUED','RUNNING','CANCEL_REQUESTED','COMPLETED','PARTIAL_FAILURE','CANCELLED','FAILED'
-  )),
-  scope_json TEXT NOT NULL CHECK(json_valid(scope_json)),
-  scope_digest TEXT NOT NULL CHECK(length(scope_digest)=64 AND scope_digest=lower(scope_digest)),
-  candidate_manifest_digest TEXT NOT NULL CHECK(
-    length(candidate_manifest_digest)=64 AND candidate_manifest_digest=lower(candidate_manifest_digest)
-  ),
-  matched_count INTEGER NOT NULL CHECK(matched_count>=0),
-  candidate_count INTEGER NOT NULL CHECK(candidate_count BETWEEN 1 AND 10000),
-  screenshot_only_count INTEGER NOT NULL CHECK(screenshot_only_count>=0),
-  duplicate_count INTEGER NOT NULL CHECK(duplicate_count>=0),
-  attachment_active_count INTEGER NOT NULL CHECK(attachment_active_count>=0),
-  source_flagged_count INTEGER NOT NULL CHECK(source_flagged_count>=0),
-  not_ready_or_stale_count INTEGER NOT NULL CHECK(not_ready_or_stale_count>=0),
-  processed_count INTEGER NOT NULL DEFAULT 0 CHECK(processed_count>=0 AND processed_count<=candidate_count),
+  state TEXT NOT NULL CHECK(state IN ('QUEUED','RUNNING','COMPLETED','FAILED')),
+  max_item_id TEXT NOT NULL REFERENCES import_items(id),
+  cursor_item_id TEXT,
+  initial_pending_count INTEGER NOT NULL CHECK(initial_pending_count BETWEEN 1 AND 10000),
+  scanned_count INTEGER NOT NULL DEFAULT 0 CHECK(scanned_count>=0),
   published_count INTEGER NOT NULL DEFAULT 0 CHECK(published_count>=0),
   skipped_duplicate_count INTEGER NOT NULL DEFAULT 0 CHECK(skipped_duplicate_count>=0),
   skipped_changed_count INTEGER NOT NULL DEFAULT 0 CHECK(skipped_changed_count>=0),
   skipped_not_ready_count INTEGER NOT NULL DEFAULT 0 CHECK(skipped_not_ready_count>=0),
-  failed_count INTEGER NOT NULL DEFAULT 0 CHECK(failed_count>=0),
-  cancelled_count INTEGER NOT NULL DEFAULT 0 CHECK(cancelled_count>=0),
   created_by_user_id TEXT NOT NULL REFERENCES users(id),
   version INTEGER NOT NULL DEFAULT 1 CHECK(version>=1),
   last_error_code TEXT,
-  cancel_reason TEXT,
   created_at_ms INTEGER NOT NULL CHECK(created_at_ms>=0),
   started_at_ms INTEGER,
   updated_at_ms INTEGER NOT NULL CHECK(updated_at_ms>=created_at_ms),
   completed_at_ms INTEGER,
-  cancel_requested_at_ms INTEGER,
-  CHECK((state IN ('COMPLETED','PARTIAL_FAILURE','CANCELLED','FAILED'))=(completed_at_ms IS NOT NULL)),
-  CHECK((state IN ('CANCEL_REQUESTED','CANCELLED'))=(cancel_requested_at_ms IS NOT NULL)),
-  CHECK(state NOT IN ('COMPLETED','PARTIAL_FAILURE','CANCELLED') OR processed_count=candidate_count),
-  CHECK(processed_count=published_count+skipped_duplicate_count+skipped_changed_count+
-    skipped_not_ready_count+failed_count+cancelled_count)
-);
-
-CREATE TABLE review_bulk_approval_items (
-  bulk_approval_id TEXT NOT NULL REFERENCES review_bulk_approvals(id),
-  import_item_id TEXT NOT NULL REFERENCES import_items(id),
-  ordinal INTEGER NOT NULL CHECK(ordinal>=0),
-  expected_review_version INTEGER NOT NULL CHECK(expected_review_version>=1),
-  expected_validation_id TEXT NOT NULL REFERENCES import_item_core_validations(id),
-  expected_source_snapshot_id TEXT NOT NULL REFERENCES import_item_source_snapshots(id),
-  title_snapshot TEXT NOT NULL CHECK(length(title_snapshot) BETWEEN 1 AND 200),
-  target_platform_instance_id TEXT NOT NULL REFERENCES platform_instances(id),
-  target_platform_name_snapshot TEXT NOT NULL CHECK(length(target_platform_name_snapshot) BETWEEN 1 AND 120),
-  state TEXT NOT NULL CHECK(state IN (
-    'PENDING','RUNNING','PUBLISHED','SKIPPED_DUPLICATE','SKIPPED_CHANGED','SKIPPED_NOT_READY',
-    'FAILED_FINAL','CANCELLED'
-  )),
-  game_id TEXT REFERENCES games(id),
-  outcome_code TEXT,
-  outcome_details_json TEXT CHECK(
-    outcome_details_json IS NULL OR (json_valid(outcome_details_json) AND length(CAST(outcome_details_json AS BLOB))<=8192)
-  ),
-  created_at_ms INTEGER NOT NULL CHECK(created_at_ms>=0),
-  started_at_ms INTEGER,
-  completed_at_ms INTEGER,
-  PRIMARY KEY(bulk_approval_id,import_item_id),
-  UNIQUE(bulk_approval_id,ordinal),
-  CHECK((state IN ('PENDING','RUNNING'))=(completed_at_ms IS NULL)),
-  CHECK((state='PUBLISHED')=(game_id IS NOT NULL))
+  CHECK((state IN ('COMPLETED','FAILED'))=(completed_at_ms IS NOT NULL)),
+  CHECK(cursor_item_id IS NULL OR cursor_item_id<=max_item_id),
+  CHECK(scanned_count=published_count+skipped_duplicate_count+skipped_changed_count+
+    skipped_not_ready_count)
 );
 
 CREATE TABLE review_draft_tags (
-  review_draft_id TEXT NOT NULL REFERENCES review_drafts(id),
+  review_draft_id TEXT NOT NULL REFERENCES import_items(id),
   tag_id TEXT NOT NULL REFERENCES tags(id),
   assigned_by_user_id TEXT NOT NULL REFERENCES users(id),
   created_at_ms INTEGER NOT NULL CHECK(created_at_ms>=0),
@@ -527,67 +485,10 @@ CREATE TABLE "import_item_duplicate_matches" (
   PRIMARY KEY(import_item_id, existing_game_id)
 );
 
-CREATE TABLE "review_drafts" (
-  id TEXT PRIMARY KEY,
-  import_item_id TEXT NOT NULL UNIQUE REFERENCES import_items(id),
-  target_platform_instance_id TEXT NOT NULL REFERENCES platform_instances(id),
-  selected_validation_id TEXT REFERENCES import_item_core_validations(id),
-  selected_candidate_id TEXT REFERENCES scrape_candidates(id) ON DELETE SET NULL,
-  cover_candidate_asset_id TEXT REFERENCES scrape_candidate_assets(id) ON DELETE SET NULL,
-  background_candidate_asset_id TEXT REFERENCES scrape_candidate_assets(id) ON DELETE SET NULL,
-  default_dos_entry TEXT,
-  metadata_json TEXT NOT NULL,
-  version INTEGER NOT NULL DEFAULT 1,
-  created_at_ms INTEGER NOT NULL,
-  updated_at_ms INTEGER NOT NULL
-, cover_uploaded_asset_id TEXT REFERENCES review_uploaded_assets(id), effective_source_snapshot_id TEXT REFERENCES import_item_source_snapshots(id));
-
-CREATE TABLE "rpgmaker_review_profiles" (
-  review_draft_id TEXT PRIMARY KEY REFERENCES review_drafts(id),
-  generation TEXT NOT NULL CHECK(generation IN (
-    'RPG2000','RPG2003','RPGXP','RPGVX','RPGVXACE','RPGMV','RPGMZ'
-  )),
-  evidence_family TEXT NOT NULL CHECK(evidence_family IN ('RPG2K','RGSS','MV','MZ')),
-  evidence_generation TEXT CHECK(evidence_generation IS NULL OR evidence_generation IN (
-    'RPG2000','RPG2003','RPGXP','RPGVX','RPGVXACE','RPGMV','RPGMZ'
-  )),
-  evidence_confidence TEXT NOT NULL CHECK(evidence_confidence IN ('MATCHED','FAMILY_ONLY')),
-  engine_version TEXT,
-  entry_html_path TEXT,
-  file_count INTEGER NOT NULL CHECK(file_count BETWEEN 1 AND 10000),
-  total_bytes INTEGER NOT NULL CHECK(total_bytes BETWEEN 0 AND 34359738368),
-  project_fingerprint TEXT NOT NULL CHECK(length(project_fingerprint)=64 AND project_fingerprint=lower(project_fingerprint)),
-  requirements_sha256 TEXT NOT NULL CHECK(length(requirements_sha256)=64 AND requirements_sha256=lower(requirements_sha256)),
-  analysis_json TEXT NOT NULL CHECK(json_valid(analysis_json) AND length(CAST(analysis_json AS BLOB))<=262144),
-  self_contained_override INTEGER NOT NULL DEFAULT 0 CHECK(self_contained_override IN (0,1)),
-  provider_id TEXT NOT NULL REFERENCES runtime_providers(provider_id),
-  target_id TEXT NOT NULL,
-  dependency_snapshot_sha256 TEXT NOT NULL CHECK(
-    length(dependency_snapshot_sha256)=64 AND dependency_snapshot_sha256=lower(dependency_snapshot_sha256)
-  ),
-  created_at_ms INTEGER NOT NULL CHECK(created_at_ms>=0),
-  updated_at_ms INTEGER NOT NULL CHECK(updated_at_ms>=created_at_ms),
-  FOREIGN KEY(provider_id,target_id) REFERENCES runtime_targets(provider_id,target_id),
-  CHECK(
-    evidence_confidence='FAMILY_ONLY' AND evidence_family='RPG2K' AND evidence_generation IS NULL
-    OR evidence_confidence='MATCHED' AND evidence_generation IS NOT NULL
-  ),
-  CHECK(
-    evidence_family='RPG2K' AND generation IN ('RPG2000','RPG2003')
-    OR evidence_family='RGSS' AND generation IN ('RPGXP','RPGVX','RPGVXACE')
-    OR evidence_family='MV' AND generation='RPGMV'
-    OR evidence_family='MZ' AND generation='RPGMZ'
-  ),
-  CHECK(
-    generation IN ('RPGMV','RPGMZ') AND entry_html_path='index.html'
-    OR generation NOT IN ('RPGMV','RPGMZ') AND entry_html_path IS NULL
-  )
-);
-
 CREATE TABLE "review_arcade_parent_attachments" (
   id TEXT PRIMARY KEY,
   import_item_id TEXT NOT NULL REFERENCES import_items(id),
-  review_draft_id TEXT NOT NULL REFERENCES review_drafts(id),
+  review_draft_id TEXT NOT NULL REFERENCES import_items(id),
   base_source_snapshot_id TEXT NOT NULL REFERENCES import_item_source_snapshots(id),
   result_source_snapshot_id TEXT REFERENCES import_item_source_snapshots(id),
   dependency_machine TEXT NOT NULL CHECK(length(CAST(dependency_machine AS BLOB)) BETWEEN 1 AND 255),

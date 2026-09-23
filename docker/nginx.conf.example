@@ -1,0 +1,39 @@
+# 路由示例：放在 Nginx 的 conf.d 中；域名、HTTPS 和证书由部署者配置。
+server {
+  listen 80;
+  server_name games.example.com;
+  if ($host != games.example.com) { return 404; }
+
+  client_max_body_size 270m;
+  client_body_timeout 300s;
+  proxy_read_timeout 28800s;
+  proxy_send_timeout 300s;
+  proxy_request_buffering off;
+  proxy_buffering off;
+  proxy_http_version 1.1;
+  proxy_set_header Host $host;
+  proxy_set_header X-Forwarded-Host $host;
+  proxy_set_header X-Forwarded-Proto $scheme;
+  proxy_set_header X-Forwarded-For $remote_addr;
+  proxy_set_header Forwarded "";
+
+  location ~ ^/(?:api/v1|content|runtime)(?:/|$) {
+    proxy_pass http://retrom:8080;
+  }
+  location ~ ^/health(?:/|$) { return 404; }
+  location / { proxy_pass http://retrom-web:3000; }
+}
+
+server {
+  listen 80;
+  server_name *.rpg-runtime.games.example.com;
+  proxy_set_header Host $host;
+  proxy_set_header X-Forwarded-Host $host;
+  proxy_set_header X-Forwarded-Proto $scheme;
+  proxy_set_header X-Forwarded-For $remote_addr;
+  proxy_set_header Forwarded "";
+
+  # Go 仍校验最左侧 label 是否为规范 launchId。
+  location /__retrom/ { proxy_pass http://retrom:8080; }
+  location / { return 404; }
+}

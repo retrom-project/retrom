@@ -182,18 +182,6 @@
       "class": "PROTECTIVE"
     },
     {
-      "table": "runtime_asset_pack_files",
-      "column": "blob_id",
-      "target": "BLOBS",
-      "class": "PROTECTIVE"
-    },
-    {
-      "table": "runtime_asset_pack_installations",
-      "column": "bundle_blob_id",
-      "target": "BLOBS",
-      "class": "PROTECTIVE"
-    },
-    {
       "table": "save_states",
       "column": "payload_blob_id",
       "target": "BLOBS",
