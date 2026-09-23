@@ -16,7 +16,6 @@ from runtime_provider_bundle import (
 )
 from runtime_providers import (
     check_active_providers,
-    pin_provider_release,
     prepare_candidate_providers,
     prepare_production_providers,
     verify_provider_upgrade,
@@ -91,20 +90,6 @@ class RuntimeProviderInstallerTest(unittest.TestCase):
             lock["tag"] = "v0.12.0"
             with self.assertRaisesRegex(ValueError, "PROVIDER_LOCK_INVALID"):
                 validate_provider_lock(lock)
-
-    def test_rejects_release_metadata_with_a_different_provider_version(self):
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            archive, lock = fixture_bundle(root)
-            target = root / "release/providers/fixture" / archive.name
-            target.parent.mkdir(parents=True)
-            target.write_bytes(archive.read_bytes())
-            metadata = formal_release_metadata(lock)
-            metadata["release"]["tag"] = "v0.46.0"
-            (root / "release/providers/provider-release.json").write_text(json.dumps(metadata), encoding="utf-8")
-            with self.assertRaisesRegex(ValueError, "PROVIDER_RELEASE_METADATA_INVALID"):
-                pin_provider_release(root / "release", root / "locks")
-            self.assertFalse((root / "locks").exists())
 
     def test_rejects_a_manifest_whose_asset_closure_differs_from_the_bundle(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -201,49 +186,6 @@ class RuntimeProviderInstallerTest(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "PROVIDER_INTEGRITY_INVALID"):
                 check_active_providers(active_path, installed_root, "candidate")
 
-    def test_pins_release_then_prepares_from_a_verified_offline_cache(self):
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            archive, lock = fixture_bundle(root)
-            release_root = root / "release"
-            archive_target = release_root / "providers/fixture" / archive.name
-            archive_target.parent.mkdir(parents=True)
-            archive_target.write_bytes(archive.read_bytes())
-            metadata = formal_release_metadata(lock)
-            (release_root / "providers/provider-release.json").write_text(json.dumps(metadata), encoding="utf-8")
-            lock_root = root / "locks"
-            locks = pin_provider_release(release_root, lock_root)
-            self.assertEqual([item["providerId"] for item in locks], ["fixture"])
-
-            fetch_count = 0
-
-            def fetch(_url, _maximum):
-                nonlocal fetch_count
-                fetch_count += 1
-                return archive.read_bytes()
-
-            active_path = root / "active/active.json"
-            active = prepare_production_providers(
-                lock_root, root / "cache", root / "installed-a", active_path, fetch,
-            )
-            self.assertEqual(fetch_count, 1)
-            self.assertEqual(active["source"], "production")
-            self.assertEqual(active["release"], metadata["release"])
-            check_active_providers(active_path, root / "installed-a", "production")
-            changed = json.loads(active_path.read_text(encoding="utf-8"))
-            changed["release"]["tag"] = "v0.46.0"
-            active_path.write_text(json.dumps(changed), encoding="utf-8")
-            with self.assertRaisesRegex(ValueError, "RUNTIME_PROVIDER_ACTIVE_INVALID"):
-                check_active_providers(active_path, root / "installed-a", "production")
-            active_path.write_text(json.dumps(active), encoding="utf-8")
-
-            def offline(_url, _maximum):
-                raise AssertionError("verified cache hit must not access the network")
-
-            prepare_production_providers(
-                lock_root, root / "cache", root / "installed-b", root / "active-b.json", offline,
-            )
-
     def test_production_prepare_rejects_candidate_active_descriptor(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -258,7 +200,7 @@ class RuntimeProviderInstallerTest(unittest.TestCase):
                 )
 
 
-def fixture_bundle(root: Path, manifest_asset="assets/core.wasm", provider_api=1, *, legacy=False):
+def fixture_bundle(root: Path, manifest_asset="assets/core.wasm", provider_api=1, *, legacy=False, provider_id="fixture"):
     target = {
         **({
             "gameCompatibilityLine": "fixture-v1",
@@ -283,14 +225,14 @@ def fixture_bundle(root: Path, manifest_asset="assets/core.wasm", provider_api=1
     manifest = json_bytes({
         "clientModulePath": "client.mjs",
         "providerApiVersion": provider_api,
-        "providerId": "fixture",
+        "providerId": provider_id,
         "providerVersion": "1.0.0",
         "schemaVersion": 1,
         "targets": [target],
     })
     files = {
         "assets/core.wasm": b"\x00asm\x01\x00\x00\x00",
-        "client.mjs": b"export const providerId='fixture';\n",
+        "client.mjs": f"export const providerId='{provider_id}';\n".encode(),
         "provider.json": manifest,
         "provenance.json": json_bytes({"schemaVersion": 1}),
         "licenses/fixture/LICENSE": b"fixture license\n",
@@ -303,7 +245,7 @@ def fixture_bundle(root: Path, manifest_asset="assets/core.wasm", provider_api=1
         "schemaVersion": 1,
     })
     files["integrity.json"] = integrity
-    archive = root / "fixture-provider-1.0.0.tar.gz"
+    archive = root / f"{provider_id}-provider-1.0.0.tar.gz"
     with tarfile.open(archive, "w:gz", format=tarfile.USTAR_FORMAT) as output:
         for path, contents in sorted(files.items()):
             info = tarfile.TarInfo(path)
@@ -313,11 +255,11 @@ def fixture_bundle(root: Path, manifest_asset="assets/core.wasm", provider_api=1
     lock = {
         "bundleSha256": digest(archive.read_bytes()),
         "bundleSizeBytes": archive.stat().st_size,
-        "bundleUrl": "https://example.invalid/fixture-provider-1.0.0.tar.gz",
+        "bundleUrl": f"https://example.invalid/{provider_id}-provider-1.0.0.tar.gz",
         "commit": "a" * 40,
         "fileCount": len(files),
         "manifestSha256": digest(manifest),
-        "providerId": "fixture",
+        "providerId": provider_id,
         "providerVersion": "1.0.0",
         "repository": "https://example.invalid/fixture",
         "schemaVersion": 1,
@@ -418,28 +360,6 @@ def active_fixture(*, version, bundle, read_formats):
         "schemaVersion": 1,
         "source": "candidate",
         "sourceTreeSha256": "f" * 64,
-    }
-
-
-def formal_release_metadata(lock):
-    return {
-        "providers": [{
-            "archive": "fixture/fixture-provider-1.0.0.tar.gz",
-            "bundleDirectory": "fixture/fixture-1.0.0",
-            "bundleSha256": lock["bundleSha256"],
-            "bundleSizeBytes": lock["bundleSizeBytes"],
-            "fileCount": lock["fileCount"],
-            "manifestSha256": lock["manifestSha256"],
-            "providerId": "fixture",
-            "providerVersion": "1.0.0",
-            "unpackedSizeBytes": lock["unpackedSizeBytes"],
-        }],
-        "release": {
-            "commit": "a" * 40,
-            "repository": "https://github.com/retrom-project/retrom-runtime",
-            "tag": "v1.0.0",
-        },
-        "schemaVersion": 1,
     }
 
 

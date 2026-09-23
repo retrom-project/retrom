@@ -21,10 +21,12 @@ WORKDIR /work
 COPY scripts/runtime_provider_contract.py scripts/runtime_provider_contract.py
 COPY scripts/runtime_provider_bundle.py scripts/runtime_provider_bundle.py
 COPY scripts/runtime_providers.py scripts/runtime_providers.py
-COPY data/runtime-providers/*.lock.json locks/
+COPY scripts/runtime_provider_io.py scripts/runtime_provider_io.py
+COPY scripts/runtime_provider_release.py scripts/runtime_provider_release.py
+COPY data/runtime-providers/release.json runtime-release.json
 RUN --mount=type=cache,target=/work/cache,sharing=locked \
   python3 scripts/runtime_providers.py prepare \
-    --lock-root /work/locks \
+    --release-path /work/runtime-release.json \
     --cache-root /work/cache \
     --installed-root /work/image-providers/installed \
     --active-path /work/image-providers/active.json \

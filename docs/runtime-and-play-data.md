@@ -132,7 +132,7 @@ Provider 报告真实 ready/start 后，Host 才创建 PlaySession。heartbeat �
 
 实现变更必须覆盖：Provider manifest/完整性/升级门禁、当前 catalog 的 Target binding 闭包、Go 与 TypeScript envelope fixtures、dispatcher 装载与 cleanup、current-state 数据不变量、存档跨 Bundle 读取、内容与 BIOS 替换、普通/沉浸 Player、RPG validation、多盘、Pegasus 与 EmulationStation/gamelist 导入。
 
-标准门禁是 `make api-check`、`make backend-check`、`make web-check`、`make integration-test`、`make data-check` 和 `make pfb-verify`。PFB 使用隔离 worktree、持久 workspace 与稳定 URL；开发期 loose module 只叠加到已验证基座 Bundle，不进入 production lock 或正式镜像。真实样本验收必须走产品上传、审核、发布、启动、存档与退出链路，不能绕过 API 直接写结果。
+标准门禁是 `make api-check`、`make backend-check`、`make web-check`、`make integration-test`、`make data-check` 和 `make pfb-verify`。PFB 使用隔离 worktree、持久 workspace 与稳定 URL；开发期 loose module 只叠加到已验证基座 Bundle，不进入 production release tag 或正式镜像。真实样本验收必须走产品上传、审核、发布、启动、存档与退出链路，不能绕过 API 直接写结果。
 
 ## Java ME 产品接入
 
@@ -278,7 +278,7 @@ Provider 校验准确长度及 SHA-256，按内容摘要复用浏览器持久缓
 并绑定游戏摘要。恢复在新机器启动前读取显式快照；不选存档启动不读取 WebMSX 的历史 localStorage。
 暂停、截图、创建存档、退出继续使用共享 Player 和 Provider dispatcher。核心在 iframe 内自行保持 4:3 物理画面，
 响应横竖屏尺寸变化；公共 Provider 不暴露帧计数、音量或多盘能力。固定机器为 MSX2PJ。
-真实产品证据与适用范围见 `ACC-MSX-001`；本地候选不修改正式生产 lock。
+真实产品证据与适用范围见 `ACC-MSX-001`；本地候选不修改正式 runtime tag。
 
 ## PX68K 单磁盘运行
 

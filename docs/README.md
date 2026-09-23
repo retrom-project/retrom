@@ -40,7 +40,7 @@ HTTP、运行时、依赖及统一验收专题维护。
 
 ## 从这里开始
 
-全新 checkout 先执行 `make install-deps`，再用 `make prepare-deps && make deps-check` 物化并离线校验生产 Provider lock、DAT 与许可输入。普通开发执行 `make dev` 并访问 `http://localhost:4000`；并行跨仓联调使用命名 PFB，每个 PFB 拥有 worktree 本地 `.pfb/workspace`、单份原子发布的开发 provider 和稳定 `.localhost` origin，共享网关只绑定 `127.0.0.1:3000`。PFB 直接 bind mount Go/Next/runtime 源码，日常 up/restart 不构建镜像、Provider archive或core。正式镜像只接收 production active descriptor；PFB开发层不能进入production lock、release input或正式镜像。Provider基座的manifest/module/assets仍逐字节校验，loose override只在合法test PFB中按路径/size/hash失败关闭。
+全新 checkout 先执行 `make install-deps`，再用 `make prepare-deps && make deps-check` 物化并离线校验 DAT 与许可输入；正式 Provider 由 `make runtime-provider-prepare` 按 `data/runtime-providers/release.json` 的唯一 tag 解析和安装。普通开发执行 `make dev` 并访问 `http://localhost:4000`；并行跨仓联调使用命名 PFB，每个 PFB 拥有 worktree 本地 `.pfb/workspace`、单份原子发布的开发 provider 和稳定 `.localhost` origin，共享网关只绑定 `127.0.0.1:3000`。PFB 直接 bind mount Go/Next/runtime 源码，日常 up/restart 不构建镜像、Provider archive或core。正式镜像只接收 production active descriptor；PFB开发层不能进入production release tag、release input或正式镜像。Provider基座的manifest/module/assets仍逐字节校验，loose override只在合法test PFB中按路径/size/hash失败关闭。
 
 - [`../AGENTS.md`](../AGENTS.md)：项目级 Agent 实施铁律；任何代码、测试、迁移或正式文档变更都必须先遵守。
 - [`retrom-product-architecture.md`](./retrom-product-architecture.md)：一期范围、关键决策、系统关系、业务流程和阶段计划。

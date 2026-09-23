@@ -89,7 +89,7 @@
 - 默认镜像名固定为后端 `retrom`、前端 `retrom-web`。改变默认名称属于构建契约变更，必须同步正式文档。
 - 两个应用进程只监听明文 HTTP。TLS 证书、TLS 握手、HTTP 到 HTTPS 跳转和 HSTS 由前置 NG/反向代理负责；不得在 Go 或 Next.js 应用内加入 TLS 终结能力。
 - `retrom-runtime` 与 core fork 的开发联调必须使用同一命名 PFB worktree。Retrom、`retrom-runtime` 和涉及的 core 都放在同一 `.worktree/<pfb>/project/` 下；`RUNTIME_ROOT` 和 `CORE_ROOTS` 只能指向该 PFB 树。PFB 是轻量开发容器，不是 release-candidate builder：日常 `up/restart` 不构建镜像、Provider archive 或 core，也不因源码 digest 变化切换数据。
-- PFB 中的正式安装 Provider 只作为 manifest、Target contract 和大体积静态资源基座；`RETROM_PROVIDER_DEV_ROOT` 仅在 `RETROM_MODE=test`、合法且匹配的 `RETROM_PFB_ID` 下叠加开发 `client.mjs`/本地 adapter 资源。release 必须拒绝该变量。开发层不得进入 production lock、release input、正式镜像或 archive。
+- PFB 中的正式安装 Provider 只作为 manifest、Target contract 和大体积静态资源基座；`RETROM_PROVIDER_DEV_ROOT` 仅在 `RETROM_MODE=test`、合法且匹配的 `RETROM_PFB_ID` 下叠加开发 `client.mjs`/本地 adapter 资源。release 必须拒绝该变量。开发层不得进入 production release tag、release input、正式镜像或 archive。
 - `pfb-build` 只准备缺失/变化的工具链与 package 依赖；core 只允许显式 `pfb-core-build CORE=<id>`。本地 Provider 仍必须经过受影响的真实 Retrom 导入、审核预览、Launch、共享 dispatcher、输入、checkpoint/恢复产品链后，才允许进入正式 tag/release 流程；PFB PASS 不是 Release 或外部分发授权。
 
 ## 5. 质量底线

@@ -15,7 +15,7 @@ RETROM_DEV_CONFIG ?= $(abspath .dev-data/dev.mk)
 
 RETROM_PROVIDER_CANDIDATE_AUTO_ROOT ?= $(abspath .pfb/candidates/runtime)
 RETROM_PROVIDER_CANDIDATE_ROOT ?= $(if $(wildcard $(RETROM_PROVIDER_CANDIDATE_AUTO_ROOT)/providers/provider-build.json),$(RETROM_PROVIDER_CANDIDATE_AUTO_ROOT),)
-RETROM_PROVIDER_LOCK_ROOT ?= $(abspath data/runtime-providers)
+RETROM_PROVIDER_RELEASE_PATH ?= $(abspath data/runtime-providers/release.json)
 RETROM_PROVIDER_CACHE_ROOT ?= $(abspath .cache/runtime-providers)
 RETROM_PROVIDER_INSTALLED_ROOT ?= $(abspath $(RETROM_DEV_STATE_DIR)/runtime-providers/installed)
 RETROM_PROVIDER_ACTIVE_PATH ?= $(abspath $(RETROM_DEV_STATE_DIR)/runtime-providers/active.json)
@@ -200,12 +200,13 @@ data-check:
 	@python3 scripts/test_fbalpha2012_dat.py
 	@python3 scripts/test_runtime_provider_contract.py
 	@python3 scripts/test_runtime_providers.py
+	@python3 scripts/test_runtime_provider_release.py
 	@python3 scripts/test_release_input_digest.py
 	@python3 scripts/test_runtime_target_bindings.py
 	@python3 scripts/dependencies.py data-check --versions "$(RETROM_DEPENDENCY_VERSIONS)"
 
 runtime-provider-prepare:
-	@python3 scripts/runtime_providers.py prepare --lock-root "$(RETROM_PROVIDER_LOCK_ROOT)" --cache-root "$(RETROM_PROVIDER_CACHE_ROOT)" --installed-root "$(RETROM_PROVIDER_INSTALLED_ROOT)" --active-path "$(RETROM_PROVIDER_ACTIVE_PATH)"
+	@python3 scripts/runtime_providers.py prepare --release-path "$(RETROM_PROVIDER_RELEASE_PATH)" --cache-root "$(RETROM_PROVIDER_CACHE_ROOT)" --installed-root "$(RETROM_PROVIDER_INSTALLED_ROOT)" --active-path "$(RETROM_PROVIDER_ACTIVE_PATH)"
 
 runtime-provider-prepare-candidate:
 	@test -n "$(RETROM_PROVIDER_CANDIDATE_ROOT)" || { echo 'RETROM_PROVIDER_CANDIDATE_ROOT is required' >&2; exit 2; }
@@ -223,8 +224,8 @@ runtime-provider-check:
 	@python3 scripts/runtime_providers.py check --active-path "$(RETROM_PROVIDER_ACTIVE_PATH)" --installed-root "$(RETROM_PROVIDER_INSTALLED_ROOT)" --source "$(RETROM_PROVIDER_SOURCE)"
 
 runtime-provider-pin-release:
-	@test -n "$(RETROM_PROVIDER_RELEASE_ROOT)" || { echo 'RETROM_PROVIDER_RELEASE_ROOT is required' >&2; exit 2; }
-	@python3 scripts/runtime_providers.py pin-release --release-root "$(RETROM_PROVIDER_RELEASE_ROOT)" --lock-root "$(RETROM_PROVIDER_LOCK_ROOT)"
+	@test -n "$(TAG)" || { echo 'TAG is required (for example v0.47.0)' >&2; exit 2; }
+	@python3 scripts/runtime_providers.py pin-release --tag "$(TAG)" --release-path "$(RETROM_PROVIDER_RELEASE_PATH)" --cache-root "$(RETROM_PROVIDER_CACHE_ROOT)"
 
 runtime-provider-verify-upgrade:
 	@test -n "$(RETROM_PROVIDER_CURRENT)" -a -n "$(RETROM_PROVIDER_CANDIDATE)" -a -n "$(RETROM_PROVIDER_CHECKPOINT_REFERENCES)" || { echo 'RETROM_PROVIDER_CURRENT, RETROM_PROVIDER_CANDIDATE and RETROM_PROVIDER_CHECKPOINT_REFERENCES are required' >&2; exit 2; }
@@ -271,7 +272,7 @@ dev: require-local-user prepare-go api-generate-go web-install runtime-provider-
 	 PATH="$(NODE_HOME)/bin:$$PATH" env \
 	 -u RETROM_DEV_CONFIG \
 	 -u RETROM_PROVIDER_CANDIDATE_ROOT \
-	 -u RETROM_PROVIDER_LOCK_ROOT \
+	 -u RETROM_PROVIDER_RELEASE_PATH \
 	 -u RETROM_PROVIDER_CACHE_ROOT \
 	 -u RETROM_PROVIDER_SOURCE \
 	 scripts/dev.sh
