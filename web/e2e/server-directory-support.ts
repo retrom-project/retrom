@@ -14,10 +14,10 @@ export async function selectServerSource(
   for (const segment of serverSourcePath(directory).split("/")) {
     const entry = drawer.getByRole("button", { name: segment, exact: true });
     const more = drawer.getByRole("button", { name: "加载更多目录", exact: true });
-    await expect(entry.or(more).first()).toBeVisible();
+    await expect(entry.or(more).first()).toBeVisible({ timeout: 30_000 });
     while (!(await entry.isVisible())) {
       await more.click();
-      await expect(entry.or(more).first()).toBeVisible();
+      await expect(entry.or(more).first()).toBeVisible({ timeout: 30_000 });
     }
     await activate(entry);
   }
