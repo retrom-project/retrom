@@ -14,7 +14,7 @@ func TestCurrentCatalogIsValidAndReturnsDeepCopy(t *testing.T) {
 	if err := Validate(catalog); err != nil {
 		t.Fatalf("Validate() error = %v", err)
 	}
-	testassert.Falsef(t, testassert.Any(func() bool { return catalog.Version != 29 }, func() bool { return len(catalog.Templates) != 72 }), "catalog = version:%d templates:%d", catalog.Version, len(catalog.Templates))
+	testassert.Falsef(t, testassert.Any(func() bool { return catalog.Version != 30 }, func() bool { return len(catalog.Templates) != 73 }), "catalog = version:%d templates:%d", catalog.Version, len(catalog.Templates))
 	catalog.Templates[0].Name = "changed"
 	testassert.False(t, Current().Templates[0].Name != "NES 游戏", "Current returned mutable catalog storage")
 }
@@ -24,6 +24,7 @@ func TestCatalogContainsNewEmulatorJSSingleFileDirectories(t *testing.T) {
 	want := map[string]string{
 		"bbkrpg/gam4980":            "步步高 RPG 游戏",
 		"uzebox/uzem":               "Uzebox 游戏",
+		"odyssey2/o2em":             "Odyssey² / Videopac 游戏",
 		"vectrex/vecx":              "Vectrex 游戏",
 		"intellivision/freeintv":    "Intellivision 游戏",
 		"neogeocd/neocd":            "Neo Geo CD 游戏",

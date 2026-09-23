@@ -207,6 +207,15 @@ ATmega1284、网络或多盘。核心 v1 即时状态包含 AVR 寄存器、SRAM
 接入必须通过 [ACC-UZEBOX-001](./project-acceptance.md#acc-uzebox-001uzebox-单卡带产品验证)，
 且不同 Launch 恢复后继续接受输入。已验证游戏不代表全库兼容。
 
+### Odyssey² / O2EM
+
+`emulatorjs/o2em` 使用固定 `retrom-project/libretro-o2em` fork，首期接受单文件 `.bin` 卡带及 ZIP/7z 单主文件导入。
+管理员必须安装 1024 bytes 的 `o2rom.bin`；启动时按 BIOS catalog 校验，以 `BIOS_BUNDLE` 交付到 libretro system 目录。
+默认采用 Odyssey² NTSC BIOS；其他地区机型、The Voice、专用键盘游戏及特殊外设需各自验证，当前浏览器构建不支持 The Voice。
+标准手柄对两位玩家分别映射方向与单一动作按钮；原生键盘输入保留。
+即时存档使用公共 `emulatorjs-state-v1-storage-v1`，必须在不同 Launch 恢复后继续接受输入。
+正式版本按 `ACC-O2EM-001` 执行，单个样本通过不代表全库兼容。
+
 
 ## 独立 PSP / PPSSPP
 
