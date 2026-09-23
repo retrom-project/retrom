@@ -19,11 +19,15 @@ the PFB catalog at `workspace/manifest.yaml` records the fork dependencies.
 
 The ten Provider targets cover eleven requested platforms: Atari800 and XEGS
 share one core. Their Provider-only development bundle passed package verification.
-The PFB imported candidate Provider version `0.48.1-dev.1` over its previous
+The PFB imported candidate Provider version `0.48.1-dev.2` over its previous
 v0.48.0 base and passed readiness and `pfb-verify`. This is a development
 candidate, not an immutable release. Product upload, review, launch, and
 checkpoint cases still need authenticated execution; browser-only smoke tests
 do not establish product acceptance.
+The active candidate bundles are EmulatorJS
+`facaa3c7da4064a6b83922fdb74d40fd0cc656b7f2717b4ac707c47d4d63de80`
+and retrom-runtime
+`8695b7f13ce6acac24f8d4d486697370dffb09f0ef4dba8e20482b4f9d77115d`.
 
 Model 3 core-only evidence is in `.pfb/evidence/model3-probe/`. The visual smoke
 uses an operator-supplied `daytona2.zip` from `/data/game`; its screenshot is
