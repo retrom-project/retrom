@@ -88,13 +88,14 @@
 .source-batch-tags > header > span { flex: 0 0 auto; padding: 4px 8px; color: var(--purple-dark); border-radius: 999px; background: var(--purple-soft); font-size: 9px; font-weight: 800; }
 .source-batch-tag-actions { display: flex; align-items: center; gap: 10px; }
 .source-batch-tag-actions p { margin: 0; color: #316858; font-size: 10px; line-height: 1.45; }
-.source-collection-list { max-height: min(430px, 48dvh); margin-top: 9px; overflow: auto; display: grid; gap: 6px; }
+.source-collection-list { max-height: min(430px, 48dvh); margin-top: 9px; overflow: auto; scrollbar-gutter: stable; display: grid; gap: 6px; }
 .source-collection-list article { min-width: 0; padding: 11px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(270px, .75fr); align-items: center; gap: 15px; border: 1px solid var(--line); border-radius: var(--radius-panel); background: white; }
-.source-collection-list article:has(.import-directory-panel) { align-items: start; }
+.source-collection-tags { min-width: 0; grid-column: 2; }
 .source-collection-list .is-collection-mapping { min-width: 0; display: grid; gap: 5px; }
-.source-collection-list .is-collection-mapping .field-label { color: var(--muted); font-size: 9px; font-weight: 750; }
-.source-collection-list .is-collection-mapping .import-directory-trigger { min-height: 36px; height: 36px; padding: 0 8px; font-size: 10px; }
-.source-collection-list .is-collection-mapping .import-directory-panel { position: static; width: 100%; max-height: min(320px, 40dvh); margin-top: 2px; padding: 8px; box-shadow: none; }
+.source-collection-list .is-collection-mapping .field-label { color: var(--ink); font-size: 12px; font-weight: 800; }
+.source-collection-list .is-collection-mapping .import-directory-trigger { box-sizing: border-box; height: 44px; min-height: 44px; padding: 0 12px; font-size: 12px; }
+.source-collection-tags .tag-picker-combobox input { box-sizing: border-box; height: 44px; min-height: 44px; padding: 0 12px; }
+.source-collection-list .is-collection-mapping .import-directory-panel { z-index: 150; padding: 8px; }
 .source-collection-list .is-collection-mapping .import-directory-option { min-height: 44px; }
 .source-collection-list .import-directory-skip, .source-collection-list .import-directory-clear { width: 100%; min-height: 36px; padding: 7px 9px; border: 0; border-radius: var(--radius-control); color: var(--purple-dark); background: var(--purple-soft); cursor: pointer; text-align: left; font-size: 10px; font-weight: 750; }
 .source-collection-list .import-directory-clear { color: var(--muted); background: transparent; }
@@ -209,6 +210,7 @@
   .server-import-capabilities { grid-template-columns: minmax(0, 1fr); }
   .server-import-result-filters.source-result-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .source-collection-list article { grid-template-columns: minmax(0, 1fr); }
+  .source-collection-tags { grid-column: 1; }
 }
 
 @media (max-width: 720px) {
