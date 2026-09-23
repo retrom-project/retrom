@@ -154,7 +154,7 @@ func TestRejectUnknownVariablesAllowsToolPrefixesOnly(t *testing.T) {
 	if err := rejectUnknownVariables([]string{"RETROM_ACCEPTANCE_BASE_URL=https://example.invalid", "RETROM_HTTP_ADDR=x", "RETROM_ALLOW_INSECURE_PUBLIC_ORIGIN=true", "RETROM_MULTI_DISC_IMPORT_ENABLED=false"}); err != nil {
 		t.Fatalf("known variables rejected: %v", err)
 	}
-	for _, variable := range []string{"RETROM_DATA_DI=typo", "RETROM_EXAMPLE_ROOT=removed"} {
+	for _, variable := range []string{"RETROM_DATA_DI=typo", "RETROM_EXAMPLE_ROOT=removed", "RETROM_TRUSTED_PROXIES=10.0.0.0/8"} {
 		if err := rejectUnknownVariables([]string{variable}); err == nil {
 			t.Fatalf("unknown RETROM variable %q was accepted", variable)
 		}
@@ -193,19 +193,6 @@ func TestParseModeIsClosed(t *testing.T) {
 	for _, value := range []string{"", "Test", "development"} {
 		if _, err := ParseMode(value); err == nil {
 			t.Fatalf("ParseMode(%q) succeeded", value)
-		}
-	}
-}
-
-func TestParseTrustedProxiesRequiresCanonicalCIDRs(t *testing.T) {
-	t.Parallel()
-	valid, err := parseTrustedProxies("10.0.0.0/8,2001:db8::/32")
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return len(valid) != 2 }), "valid trusted proxies = %#v, %v", valid, err)
-	for _, value := range []string{
-		"0.0.0.0/0", "10.0.0.1/8", "10.0.0.0/8, 192.0.2.0/24", "not-a-prefix",
-	} {
-		if _, err := parseTrustedProxies(value); err == nil {
-			t.Fatalf("non-canonical trusted proxy %q accepted", value)
 		}
 	}
 }

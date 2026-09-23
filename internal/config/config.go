@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"net/netip"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -24,8 +23,8 @@ var knownVariables = map[string]struct{}{
 	"RETROM_ALLOW_INSECURE_PUBLIC_ORIGIN": {},
 	"RETROM_RPG_RUNTIME_ORIGIN_TEMPLATE":  {},
 	"RETROM_DB_PATH":                      {}, "RETROM_DEPENDENCY_ROOT": {}, "RETROM_DEPENDENCY_VERSIONS": {},
-	"RETROM_ACTIVE_EMULATORJS_VERSION": {}, "RETROM_TRUSTED_PROXIES": {},
-	"RETROM_PROVIDER_ACTIVE_PATH": {}, "RETROM_PROVIDER_INSTALLED_ROOT": {},
+	"RETROM_ACTIVE_EMULATORJS_VERSION": {},
+	"RETROM_PROVIDER_ACTIVE_PATH":      {}, "RETROM_PROVIDER_INSTALLED_ROOT": {},
 	"RETROM_PROVIDER_DEV_ROOT":     {},
 	"RETROM_STARTUP_CHECK_TIMEOUT": {}, "RETROM_LOG_LEVEL": {},
 	"RETROM_MULTI_DISC_IMPORT_ENABLED": {},
@@ -50,7 +49,6 @@ type Config struct {
 	ProviderInstalledRoot    string
 	ProviderDevRoot          string
 	RuntimeTargetCatalogPath string
-	TrustedProxies           []netip.Prefix
 	StartupCheckTimeout      time.Duration
 	LogLevel                 string
 	MultiDiscImportEnabled   bool
@@ -170,8 +168,8 @@ func Load(mode Mode) (Config, error) {
 		ProviderActivePath: providerActivePath, ProviderInstalledRoot: providerInstalledRoot,
 		ProviderDevRoot:          providerDevRoot,
 		RuntimeTargetCatalogPath: filepath.Join(base.dependencyRoot, "runtime-target-bindings", "v1", "catalog.json"),
-		TrustedProxies:           network.proxies, StartupCheckTimeout: runtimeOptions.startupTimeout,
-		LogLevel: runtimeOptions.logLevel, MultiDiscImportEnabled: runtimeOptions.multiDiscImportEnabled,
+		StartupCheckTimeout:      runtimeOptions.startupTimeout,
+		LogLevel:                 runtimeOptions.logLevel, MultiDiscImportEnabled: runtimeOptions.multiDiscImportEnabled,
 		PFBID: pfbID,
 	}, nil
 }
@@ -242,7 +240,6 @@ type networkConfig struct {
 	publicOrigin             *url.URL
 	rpgRuntimeOriginTemplate string
 	httpAddr                 string
-	proxies                  []netip.Prefix
 }
 
 func loadNetworkConfig(mode Mode) (networkConfig, error) {
@@ -270,13 +267,9 @@ func loadNetworkConfig(mode Mode) (networkConfig, error) {
 	if _, _, err := net.SplitHostPort(httpAddr); err != nil {
 		return networkConfig{}, fmt.Errorf("%w: RETROM_HTTP_ADDR", errInvalidConfig)
 	}
-	proxies, err := parseTrustedProxies(os.Getenv("RETROM_TRUSTED_PROXIES"))
-	if err != nil {
-		return networkConfig{}, err
-	}
 	return networkConfig{
 		publicOrigin: publicOrigin, rpgRuntimeOriginTemplate: rpgRuntimeOriginTemplate,
-		httpAddr: httpAddr, proxies: proxies,
+		httpAddr: httpAddr,
 	}, nil
 }
 
@@ -625,22 +618,6 @@ func validLocalhostLabel(label string, maximumLength int) bool {
 		}
 	}
 	return true
-}
-
-func parseTrustedProxies(raw string) ([]netip.Prefix, error) {
-	if raw == "" {
-		return nil, nil
-	}
-	values := strings.Split(raw, ",")
-	result := make([]netip.Prefix, 0, len(values))
-	for _, value := range values {
-		prefix, err := netip.ParsePrefix(value)
-		if err != nil || prefix.Bits() == 0 || value != strings.TrimSpace(value) || value != prefix.Masked().String() {
-			return nil, fmt.Errorf("%w: RETROM_TRUSTED_PROXIES", errInvalidConfig)
-		}
-		result = append(result, prefix.Masked())
-	}
-	return result, nil
 }
 
 func pathWithin(parent, child string) bool {
