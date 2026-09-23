@@ -36,7 +36,7 @@ VALUES('custom','gbc','gambatte','My custom folder','custom','Keep my settings',
 "definitions":{
  "platforms":[{"id":"gbc","name":"Game Boy / Color","sortOrder":40,"enabled":true}],
  "cores":[{"id":"gambatte","name":"Gambatte","enabled":true},{"id":"new-core","name":"New Core","enabled":true}],
- "contentKinds":["SINGLE_FILE"],"assetPacks":[]
+ "contentKinds":["SINGLE_FILE"]
 },
 "bindings":[{"id":"fixture-extra","coreId":"new-core","providerId":"fixture","targetId":"extra",
 "platformIds":["gbc"],"acceptedContentKinds":["SINGLE_FILE"],"detectorProfile":"EMULATORJS_SINGLE_FILE",

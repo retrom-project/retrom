@@ -6,7 +6,7 @@
 | 版本 | 2.1 |
 | 日期 | 2026-08-25 |
 | 执行者 | AI Agent，必要时由人工复核当前运行生成的画面证据 |
-| 范围 | 工程质量、镜像、本地开发、账户认证与隔离、游戏目录、普通/Pegasus/EmulationStation/RPG Maker/ONS/KiriKiri/GameMaker 导入审核、BIOS/DAT/RPG 资源包、存储、安全、EmulatorJS/retrom-runtime、44 个 EmulatorJS 核与独立 Web runtime 核、PSP ISO/CSO、320px 起的响应式 UI 和 4K UI |
+| 范围 | 工程质量、镜像、本地开发、账户认证与隔离、游戏目录、普通/Pegasus/EmulationStation/RPG Maker/ONS/KiriKiri/GameMaker 导入审核、BIOS/DAT/RPG 项目资源、存储、安全、EmulatorJS/retrom-runtime、44 个 EmulatorJS 核与独立 Web runtime 核、PSP ISO/CSO、320px 起的响应式 UI 和 4K UI |
 
 ## 1. 文档职责
 
@@ -192,7 +192,7 @@ Required Case 出现 `BLOCKED`、缺失结果或超时都不能通过项目验�
 7. `ACC-MDISC-*`：多盘导入、协议、adapter、回归与隔离；
 9. `ACC-UI-*`：信息架构、桌面/4K 和无障碍；
 10. `ACC-MOB-*`：手机游玩、管理访问边界、方向门禁和横屏 Player；
-11. `ACC-RPG-001`–`012`：七世代核心、项目导入、绑定、资源包、独立运行源、checkpoint、跨 Launch 精确恢复和恢复后输入；
+11. `ACC-RPG-001`–`012`：七世代核心、项目导入、绑定、项目资源、独立运行源、checkpoint、跨 Launch 精确恢复和恢复后输入；
 12. 缺陷回归审计与最终报告。
 
 除明确写明直接命令的 Case 外，执行命令统一为：
@@ -1543,7 +1543,7 @@ ID。没有实体设备时自动化 Case 可以 PASS，但沉浸模式发布验�
 ### ACC-PROVIDER-005：只前进激活
 
 - 上限：900 秒。证明 Provider 只向前激活：升级后所有普通 Launch 使用当前 Bundle；已有 `REVIEW_SCREENSHOT_OVERRIDE` GameVariant 和已发布 RPG Profile 继续按稳定 Provider/Target 启动。未删除的持久用户存档必须可被当前 Target 的 readFormats 读取；审核临时 checkpoint 不参与升级门槛，按预览期限及审核 payload 生命周期释放。降级、同版换 bytes、删除被引用 Target、破坏上述有效 checkpoint 或非法 manifest/策略均拒绝启动；不选择旧 Bundle 兜底。
-- Host catalog 按当前内容摘要原子、幂等同步，不使用独立 catalogVersion。已初始化数据库允许声明新增 Core/Target、复用现有接入策略、复用已有布局新增资源包；schema/migration 指纹和用户目录名称、默认核心、设置、游戏、审核、存档 ID/内容保持不变。已安装资源包身份/布局变更或被引用定义删除必须整笔回滚，展示信息更新及相同声明重复同步应成功。最终 PFB 数据重建后，扩展证明不得再次清库；公开机制 fixture 与真实核心产品证据分开记录。
+- Host catalog 按当前内容摘要原子、幂等同步，不使用独立 catalogVersion。已初始化数据库允许声明新增 Core/Target、复用现有接入策略；schema/migration 指纹和用户目录名称、默认核心、设置、游戏、审核、存档 ID/内容保持不变。被引用定义删除必须整笔回滚，展示信息更新及相同声明重复同步应成功。最终 PFB 数据重建后，扩展证明不得再次清库；公开机制 fixture 与真实核心产品证据分开记录。
 
 ### ACC-PROVIDER-006：Candidate、镜像与发布边界
 
@@ -1884,7 +1884,7 @@ AI Agent 的最终交付摘要必须列出：总结果、失败/阻塞 Case ID�
 | 收藏与收藏夹 | `ACC-FAV-001`–`004` |
 | 游戏标签 | `ACC-TAG-001`–`005` |
 | 沉浸模式独立 UI、资料库/收藏/存档导航、声音与系统菜单、真实单机 Player、内容身份缓存和输入隔离 | `ACC-IMM-001`–`012`，以及实体 standard 手柄 smoke |
-| RPG Maker 七世代核心、项目导入、Provider/Target、资源包、运行验证、原生 Web 隔离、跨 Launch checkpoint 精确恢复与恢复后输入 | `ACC-RPG-001`–`012` |
+| RPG Maker 七世代核心、项目导入、Provider/Target、项目资源、运行验证、原生 Web 隔离、跨 Launch checkpoint 精确恢复与恢复后输入 | `ACC-RPG-001`–`012` |
 | ONS 项目导入、审核试玩、发布、基本控制、存档与不同 Launch 恢复 | `ACC-ONS-001` |
 | KiriKiri2 KAG 项目导入、审核试玩、发布、基本控制、书签存档与不同 Launch 恢复 | `ACC-KIRIKIRI-001` |
 | GameMaker 项目导入、审核试玩、发布、标准手柄控制、即时存档、不同 Launch 恢复与项目缓存复用 | `ACC-BUTTERSCOTCH-001` |

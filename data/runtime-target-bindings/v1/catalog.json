@@ -1984,58 +1984,6 @@
       "SCUMMVM_PROJECT",
       "SINGLE_FILE",
       "TYRANOSCRIPT_PROJECT"
-    ],
-    "assetPacks": [
-      {
-        "id": "rgss1_standard",
-        "kind": "RGSS1_RTP_STANDARD",
-        "generation": "RPGXP",
-        "declaredName": "Standard",
-        "normalizedDeclaredName": "standard",
-        "displayName": "RPG Maker XP RTP",
-        "requiredLayoutVersion": "mkxpz-v1",
-        "enabled": true
-      },
-      {
-        "id": "rgss2_rpgvx",
-        "kind": "RGSS2_RTP_RPGVX",
-        "generation": "RPGVX",
-        "declaredName": "RPGVX",
-        "normalizedDeclaredName": "rpgvx",
-        "displayName": "RPG Maker VX RTP",
-        "requiredLayoutVersion": "mkxpz-v1",
-        "enabled": true
-      },
-      {
-        "id": "rgss3_rpgvxace",
-        "kind": "RGSS3_RTP_RPGVXAce",
-        "generation": "RPGVXACE",
-        "declaredName": "RPGVXAce",
-        "normalizedDeclaredName": "rpgvxace",
-        "displayName": "RPG Maker VX Ace RTP",
-        "requiredLayoutVersion": "mkxpz-v1",
-        "enabled": true
-      },
-      {
-        "id": "rpg2000_rtp",
-        "kind": "RPG2000_RTP",
-        "generation": "RPG2000",
-        "declaredName": "RPG2000_RTP",
-        "normalizedDeclaredName": "rpg2000_rtp",
-        "displayName": "RPG Maker 2000 RTP",
-        "requiredLayoutVersion": "easy-rtp-layout-v1",
-        "enabled": true
-      },
-      {
-        "id": "rpg2003_rtp",
-        "kind": "RPG2003_RTP",
-        "generation": "RPG2003",
-        "declaredName": "RPG2003_RTP",
-        "normalizedDeclaredName": "rpg2003_rtp",
-        "displayName": "RPG Maker 2003 RTP",
-        "requiredLayoutVersion": "easy-rtp-layout-v1",
-        "enabled": true
-      }
     ]
   }
 }

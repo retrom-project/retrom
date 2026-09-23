@@ -67,17 +67,6 @@ func validStrategy(binding Binding) bool {
 	return true
 }
 
-func ValidPackLayout(layout, generation string) bool {
-	switch layout {
-	case "easy-rtp-layout-v1":
-		return generation == "RPG2000" || generation == "RPG2003"
-	case "mkxpz-v1":
-		return generation == "RPGXP" || generation == "RPGVX" || generation == "RPGVXACE"
-	default:
-		return false
-	}
-}
-
 func rpgStrategy(delivery string) HostStrategy {
 	return HostStrategy{
 		Delivery: delivery,

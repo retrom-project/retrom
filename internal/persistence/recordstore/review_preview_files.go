@@ -30,16 +30,9 @@ WHEN (candidate.role='PROJECT_FILE' AND NOT EXISTS (
 )) THEN 'invalid review preview project file'
 WHEN (candidate.role='RUNTIME_FILE' AND NOT EXISTS (
   SELECT 1 FROM review_preview_sessions preview
-  WHERE preview.id=candidate.preview_session_id AND (
-    EXISTS(SELECT 1 FROM import_item_validation_files file
-      WHERE file.import_item_core_validation_id=preview.validation_id AND file.blob_id=candidate.blob_id)
-    OR EXISTS(SELECT 1 FROM review_drafts draft
-      JOIN review_draft_runtime_pack_selections selection ON selection.review_draft_id=draft.id
-      JOIN runtime_asset_pack_installations installation ON installation.id=selection.installation_id
-      WHERE draft.import_item_id=preview.import_item_id
-        AND draft.effective_source_snapshot_id=preview.source_snapshot_id
-        AND installation.status='READY' AND installation.bundle_blob_id=candidate.blob_id)
-  )
+  JOIN import_item_validation_files file
+    ON file.import_item_core_validation_id=preview.validation_id
+  WHERE preview.id=candidate.preview_session_id AND file.blob_id=candidate.blob_id
 )) THEN 'invalid review preview runtime file'
 ELSE '' END
 FROM review_preview_files candidate

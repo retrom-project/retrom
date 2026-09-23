@@ -170,7 +170,6 @@ func TestCreateEnforcesProjectUploadPurposeShape(t *testing.T) {
 		{Purpose: "PROJECT", SourceType: "FILES", Files: []uploadservice.FileDeclaration{{ClientFileID: "project", RelativePath: "game.dat", SizeBytes: 1}}},
 		{Purpose: "RUNTIME_ASSET_PACK", SourceType: "FILES", Files: []uploadservice.FileDeclaration{
 			{ClientFileID: "a", RelativePath: "a.zip", SizeBytes: 1},
-			{ClientFileID: "b", RelativePath: "b.zip", SizeBytes: 1},
 		}},
 	}
 	for _, request := range invalidRequests {

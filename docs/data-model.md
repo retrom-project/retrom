@@ -36,13 +36,13 @@ RuntimeProvider
 
 `runtime_target_bindings` 把产品 `core_id` 绑定到一个稳定 Target，并通过 platform/content-kind 关系收紧适用范围。数据库不保存 adapter、引擎 core、入口或资产映射。
 
-平台、核心、内容分类和内置资源包的产品数据来自 `data/runtime-target-bindings/v1/catalog.json`，而非 migration seed。当前目录只有内容摘要；`schemaVersion` 描述序列化格式，不另设目录递增计数器。系统同步复用 `internal/runtimecatalog`，与 Provider/Target 和 binding 在同一事务发布；新增使用已有存储/交付/布局策略的产品不修改 schema。稳定定义被用户引用时不可删除，目录名称、默认核心及已安装资源的用户选择不被声明同步覆盖。
+平台、核心和内容分类的产品数据来自 `data/runtime-target-bindings/v1/catalog.json`，而非 migration seed。当前目录只有内容摘要；`schemaVersion` 描述序列化格式，不另设目录递增计数器。系统同步复用 `internal/runtimecatalog`，与 Provider/Target 和 binding 在同一事务发布；新增使用已有存储/交付策略的产品不修改 schema。稳定定义被用户引用时不可删除，目录名称、默认核心等用户选择不被声明同步覆盖。
 
 ## 3. Game current state
 
 `games` 是用户可见游戏及其当前 metadata/content 根：它直接保存 PlatformInstance、标题字段、metadata 来源、content kind/来源、规范 manifest、状态、payload 生命周期、搜索文本和 `version`。
 
-`game_assets` 与 `game_files` 直接归属 Game。`game_variants` 每个 `(game_id,core_id)` 一行，保存当前 Provider/Target、DAT、emulator game ID、兼容状态、依赖快照、DOS 入口和版本。`rpgmaker_game_profiles`、`rpgmaker_variant_profiles`、`variant_dependencies`、`variant_files` 和 runtime pack selection 都引用稳定 Game 或 Variant ID。
+`game_assets` 与 `game_files` 直接归属 Game。`game_variants` 每个 `(game_id,core_id)` 一行，保存当前 Provider/Target、DAT、emulator game ID、兼容状态、依赖快照、DOS 入口和版本。`rpgmaker_game_profiles`、`rpgmaker_variant_profiles`、`variant_dependencies`、`variant_files` 都引用稳定 Game 或 Variant ID。
 
 metadata 编辑和媒体替换原位推进 Game；内容替换在后台准备完成后执行一次事务切换，删除旧文件、派生物、运行资源和存档，再写入新当前态。永久删除保留 Game tombstone 与审计，异步释放 payload。
 
@@ -52,7 +52,7 @@ metadata 编辑和媒体替换原位推进 Game；内容替换在后台准备完
 
 `bios_requirements`、`dat_versions` 和服务器 BIOS 导入项引用稳定 Provider/Target。当前 active DAT 可以前移；已创建 Launch 只消费其冻结的依赖文件。BIOS 安装替换只切换当前安装，已有运行保持冻结的旧文件，新的启动按需重校验；Game 存档保留。
 
-依赖 snapshot 是规范 JSON，包含所选 BIOS、parent/base、多盘或 runtime pack 的实际闭包。Variant 保存当前 snapshot，Launch 创建时复制 snapshot 并锁定实际 Blob 边。
+依赖 snapshot 是规范 JSON，包含所选 BIOS、parent/base 和多盘的实际闭包。Variant 保存当前 snapshot，Launch 创建时复制 snapshot 并锁定实际 Blob 边。
 
 静态 BIOS/多盘和 Arcade 依赖均采用当前 `schemaVersion:1`，分别以 `kind:STATIC/ARCADE` 区分实际类型，不根据历史版本号选择解析器。
 
@@ -66,11 +66,11 @@ Upload 的业务用途只区分 `GENERAL/PROJECT`，并独立记录文件/目录
 
 检查摘要不设跨历史记录的唯一约束：依赖从缺失变为可用、再变回缺失，是新的检查结果，即使输入摘要与较早记录相同也必须能正常保存。未变化的重复检查复用当前结果，不新增记录。RPG 的导入、重新检查和发布共用项目资源策略；外部 RTP 声明默认阻断，管理员的显式自包含确认与声明一起写入依赖快照并参与摘要，发布事务重新核对，不以是否打开过 Player 作为就绪条件。
 
-运行包安装、选包与运行挂载已退出产品。当前建库基线仍保留相关表和 Blob 引用保护，但应用不再创建新的安装或绑定；这些保留结构不表示支持旧开发库升级，数据库兼容范围遵循本次新建库基线。
+运行包安装、选包与运行挂载已退出产品。当前建库基线不再创建 `runtime_asset_pack_definitions`、`runtime_asset_pack_installations`、`runtime_asset_pack_files`、`game_variant_runtime_packs` 和 `review_draft_runtime_pack_selections`，也不接受对应的上传用途、消费类型或后台任务类型。外部 RTP 声明继续由项目校验阻断，管理员只能按自包含确认规则继续发布。
 
 发布事务将审核 metadata、媒体、内容文件与默认 Variant 一次写入 Game current state。重新刮削以稳定 `game_id` 为 owner 创建候选；显式应用候选才更新当前 metadata/assets，不能因为旧内容版本表已经删除而丢失 Game 关联。
 
-RPG Maker profile 保存实际检测得到的项目 fingerprint、generation、Provider/Target 和依赖摘要，不保存运行 gate、位置证明或独立验证决定。所有审核通过 `review_preview_sessions` 试运行，来源文件与校验产物分开锁定；`RUNTIME_FILE` 只能引用该审核所选校验的产物或已选运行资源包，不能借试运行读取其他来源的 Blob。
+RPG Maker profile 保存实际检测得到的项目 fingerprint、generation、Provider/Target 和依赖摘要，不保存运行 gate、位置证明或独立验证决定。所有审核通过 `review_preview_sessions` 试运行，来源文件与校验产物分开锁定；`RUNTIME_FILE` 只能引用该审核所选校验的产物，不能借试运行读取其他来源的 Blob。
 
 审核临时 checkpoint 使用会话级存储，一份 preview 保留当前临时 payload，格式及 Blob 关系明确。恢复 preview 冻结自己的恢复输入，不跟随原 preview 后续覆盖。已关闭会话的临时 checkpoint 可在审核未结束且未到期时用于恢复；过期或审核 payload 释放时清理。临时存档不是审批/升级门槛，不引入原会话、恢复会话或人工确认的附加状态机。
 

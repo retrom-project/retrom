@@ -42,8 +42,6 @@ var referenceUsage = map[string]storageanalysis.Usage{
 	"review_preview_sessions.restore_payload_blob_id":          storageanalysis.UsageWorkflow,
 	"review_preview_files.blob_id":                             storageanalysis.UsageWorkflow,
 	"review_runtime_screenshots.blob_id":                       storageanalysis.UsageWorkflow,
-	"runtime_asset_pack_files.blob_id":                         storageanalysis.UsageBIOS,
-	"runtime_asset_pack_installations.bundle_blob_id":          storageanalysis.UsageBIOS,
 	"save_states.payload_blob_id":                              storageanalysis.UsageSaves,
 	"save_states.screenshot_blob_id":                           storageanalysis.UsageSaves,
 	"scrape_candidate_assets.blob_id":                          storageanalysis.UsageWorkflow,

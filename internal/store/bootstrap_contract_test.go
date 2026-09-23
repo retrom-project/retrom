@@ -18,7 +18,7 @@ func TestBootstrapCreatesFinalSchemaWithoutLegacyConversion(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	forbidden := regexp.MustCompile(`(?im)\b(DROP|ALTER)\s+(TABLE|TRIGGER|VIEW|INDEX)\b|CREATE\s+(TRIGGER|VIEW)\b|__new_|revision_no|retrom:foreign-keys-off|game_(content|metadata|variant)_revisions|INSERT\s+INTO\s+(platforms|cores|platform_cores|content_kinds|runtime_asset_pack_definitions|game_save_versions|launch_game_save_bindings|launch_payload_retirements)\b`)
+	forbidden := regexp.MustCompile(`(?im)\b(DROP|ALTER)\s+(TABLE|TRIGGER|VIEW|INDEX)\b|CREATE\s+(TRIGGER|VIEW)\b|__new_|revision_no|retrom:foreign-keys-off|game_(content|metadata|variant)_revisions|INSERT\s+INTO\s+(platforms|cores|platform_cores|content_kinds|game_save_versions|launch_game_save_bindings|launch_payload_retirements)\b`)
 	for _, source := range sources {
 		if match := forbidden.Find(source.contents); match != nil {
 			t.Errorf("bootstrap %s contains legacy conversion or implicit business logic %q", source.name, match)
