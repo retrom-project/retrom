@@ -334,7 +334,7 @@ PFB 命令闭集为 `pfb-init/validate/build/up/use/restart/down/status/logs/ver
 
 NG 还必须为 `https://{launchId}.rpg-runtime.<configured-site-domain>` 配置 wildcard DNS/证书与精确 Host 转发，且只把该 Host 的 `/__retrom/*` 送到 `retrom:8080`；不匹配规范 UUID 最左 label、额外 label、Host/Forwarded Host 不一致或其他路径必须在 NG 或 Go 稳定拒绝，不得 fallback 到 Next.js/app API。Player 页面 CSP 的 `frame-src` 只加入本次 Launch 精确 origin，不使用 wildcard 或回显请求 Origin。该子域名不是普通部署别名，而是第 5.1 节定义的浏览器安全边界；缺少它时不得启用 MV/MZ native route。
 
-仓库的 [`docker/docker-compose.yml.example`](../docker/docker-compose.yml.example) 和 [`docker/nginx.conf.example`](../docker/nginx.conf.example) 展示两个应用容器加 Nginx 容器、必需配置、持久数据挂载及 HTTPS 分流。只有 Nginx 发布宿主端口；部署者需替换示例域名与证书，并提供应用域名及运行时子域名的 DNS。示例将 Nginx 固定在 Compose 网络的 `172.30.97.10`，与后端 `RETROM_TRUSTED_PROXIES=172.30.97.10/32` 对应；调整子网时须同步修改。发布镜像中的 Next.js rewrite 在构建时固定为默认本机后端地址，运行时设置 `NEXT_BACKEND_ORIGIN` 只供前端服务端请求使用，不能替代 Nginx 对 API、内容和运行时路径的直接分流。
+仓库的 [`docker/docker-compose.yml.example`](../docker/docker-compose.yml.example) 和 [`docker/nginx.conf.example`](../docker/nginx.conf.example) 展示两个应用容器加 Nginx 容器、必需配置、持久数据挂载及 HTTPS 分流。只有 Nginx 发布宿主端口；部署者需替换示例域名与证书，并提供应用域名及运行时子域名的 DNS。后端只能在内部 Compose 网络接受请求，Nginx 负责覆写单个 `X-Forwarded-For` 客户端地址；不可直接公开后端端口。发布镜像中的 Next.js rewrite 在构建时固定为默认本机后端地址，运行时设置 `NEXT_BACKEND_ORIGIN` 只供前端服务端请求使用，不能替代 Nginx 对 API、内容和运行时路径的直接分流。
 
 前端只使用相对 URL，不把内部容器名、端口或环境域名编译进浏览器 bundle。若 Next.js server-side 代码确需访问后端，使用运行时内部 base URL，与浏览器公开 base URL 分离。
 
@@ -343,7 +343,7 @@ TLS 终结外置不等于忽略代理安全：
 - NG 必须为页面与运行时资源保留/设置一致的 COOP、COEP、CORP 和 `nosniff` 头，保证 `window.crossOriginIsolated`；这些头不是 TLS 功能。
 - NG 的上传大小、buffering 和 timeout 必须允许大 ROM 流式上传；后端仍独立执行大小、归档和路径安全校验。
 - 开发共享网关、部署 NG 与 Next.js 全局 rewrite 代理层将传输天花板固定为 `283115520` bytes（270 MiB），read/send/backend timeout 不低于 300 秒；不得为 `/api/v1/admin/imports` 或 save-state 再建特殊 NG `location`。这只防止大 checkpoint 被代理截断，不改变任何其他 endpoint 的应用层 body 上限、授权或超时契约；Go 只对 `POST /runtime/launches/{launchId}/save-states` 接受该 multipart 总上限并保留 300 秒 route deadline，超限请求必须在读完 body 前失败。
-- 应用只信任显式配置的代理地址和转发头；客户端不能通过伪造 `X-Forwarded-*` 绕过 origin、日志或限流逻辑。
+- Nginx 必须覆写客户端提交的 `X-Forwarded-*`，后端只接受 Nginx 所在内网的请求；后端不校验代理来源地址，直接使用单个合法 `X-Forwarded-For` 进行 IP 限流。
 - 对外公开基址应显式配置为 NG 的 HTTPS origin，应用不根据内部明文连接猜测外部 scheme。
 - 本机开发可以使用浏览器认可的 `http://localhost` 安全上下文，但仍要通过 dev rewrite/响应头满足跨源隔离。
 
@@ -381,7 +381,6 @@ RETROM_DATA_DIR/
 | `RETROM_ACTIVE_EMULATORJS_VERSION` | 必填且必须属于上列；当前为 `4.2.3`。该变量只选择 DAT 等非 Provider 依赖基线；运行 Target 选择来自 active Provider 与 binding catalog。 |
 | `RETROM_RPG_RUNTIME_ORIGIN_TEMPLATE` | Go 与 Next 两个进程都必填且值相同，只含一个 `{launchId}`，无 userinfo/path/query/fragment/trailing slash。release 形式固定为 `https://{launchId}.<configured-runtime-domain>`；普通 test 形式为 `http://{launchId}.rpg.localhost:<backend-port>`；PFB test 形式为 `http://{launchId}.rpg.<pfb-id>.localhost:3000`。PFB 形状只在 test、insecure opt-in 和匹配 PFB ID 同时成立时接受。`launchId` 是规范小写 UUID且独占完整最左 Host label，静态 suffix/端口不得从请求推导或覆盖。Next 从模板生成唯一受控 family `frame-src`，实际 iframe、Go Host、ticket 与 capability 仍逐 Launch 精确校验。 |
 | `RETROM_MULTI_DISC_IMPORT_ENABLED` | 严格 `true|false`；服务配置缺省为 `false`，仓库 `make dev` 的测试服务器基线显式传入 `true`；控制新建多盘 Import、capability 投影和多盘内容替换。非法值启动失败，生产启用必须显式设为 `true`。 |
-| `RETROM_TRUSTED_PROXIES` | 逗号分隔 CIDR；默认空。生产必须精确列出 NG 网段，不能使用 `0.0.0.0/0` 或 `::/0`。 |
 | `RETROM_STARTUP_CHECK_TIMEOUT` | 默认 `60s`，范围 `10s..5m`；只约束配置、依赖字节、数据库/migration 与 bootstrap Job 登记等同步预检，不包含后台 `DAT_PARSE` execution。 |
 | `RETROM_LOG_LEVEL` | `debug/info/warn/error`，默认 `info`；生产禁止记录内容秘密。 |
 

@@ -240,10 +240,12 @@ def build_toolchain(root: Path, spec: dict[str, Any]) -> dict[str, Any]:
 
 
 def app_up(root: Path, spec: dict[str, Any]) -> None:
-    contract = gateway_contract(root)
+    if spec["runtime"]["mode"] != "branch":
+        raise PFBError("PFB_SPEC_INVALID", "runtime-worktree-required")
+    _server_data_root(root).mkdir(parents=True, exist_ok=True)
     _require_toolchain(root, spec)
     _compose(root / "scripts/pfb/compose.yaml", ["up", "-d", "--no-build", "--remove-orphans"],
-             _app_environment(root, spec, contract["gatewayIp"]), project=compose_project(spec["id"]))
+             _minimal_app_environment(root, spec), project=compose_project(spec["id"]))
 
 
 def app_restart(root: Path, spec: dict[str, Any]) -> None:
@@ -352,15 +354,6 @@ def _compose_service_container(project: str) -> str | None:
     return identifiers[0] if len(identifiers) == 1 else None
 
 
-def _app_environment(root: Path, spec: dict[str, Any], gateway_ip: str) -> dict[str, str]:
-    if spec["runtime"]["mode"] != "branch":
-        raise PFBError("PFB_SPEC_INVALID", "runtime-worktree-required")
-    generated = _prepare_generated_files(root)
-    _server_data_root(root).mkdir(parents=True, exist_ok=True)
-    return {**_minimal_app_environment(root, spec), "PFB_NEXT_ENV_FILE": str(generated / "next-env.d.ts"),
-            "PFB_TSCONFIG_FILE": str(generated / "tsconfig.json"), "PFB_GATEWAY_IP": gateway_ip}
-
-
 def _minimal_app_environment(root: Path, spec: dict[str, Any]) -> dict[str, str]:
     generated = _prepare_generated_files(root)
     runtime_root = Path(spec["runtime"].get("root", root / ".pfb/formal-runtime"))
@@ -373,7 +366,7 @@ def _minimal_app_environment(root: Path, spec: dict[str, Any]) -> dict[str, str]
         "PFB_RUNTIME_ROOT": str(runtime_root), "PFB_RUNTIME_GIT_COMMON_DIR": str(runtime_git),
         "PFB_NEXT_ENV_FILE": str(generated / "next-env.d.ts"), "PFB_TSCONFIG_FILE": str(generated / "tsconfig.json"),
         "PFB_WORKSPACE_ROOT": str(workspace_paths(root)["root"]), "PFB_ID": spec["id"],
-        "PFB_GATEWAY_IP": "172.29.240.2", "PFB_UID": str(os.getuid()), "PFB_GID": str(os.getgid()),
+        "PFB_UID": str(os.getuid()), "PFB_GID": str(os.getgid()),
         "PFB_TOOLCHAIN_DIGEST": _toolchain_digest(root),
     }
 

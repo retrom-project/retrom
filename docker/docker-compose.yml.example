@@ -1,7 +1,7 @@
 # Retrom 生产部署示例，使用以下命令启动：
 #   docker compose -f docker/docker-compose.yml.example up -d
 # 启动前同步替换本文件和 nginx.conf.example 中的示例域名、证书路径、
-# 镜像 tag、宿主数据路径，以及可能与本机冲突的 Compose 子网。
+# 镜像 tag 与宿主数据路径。
 # 两个镜像须来自同一发行版本，release-input label 应一致。
 # /srv/retrom/data 须是本地持久目录，并允许 UID/GID 1000:1000 写入。
 # 将应用域名和 *.rpg-runtime.games.example.com 指向本机，并分别提供
@@ -15,9 +15,6 @@ services:
     environment:
       RETROM_PUBLIC_ORIGIN: "https://games.example.com"
       RETROM_RPG_RUNTIME_ORIGIN_TEMPLATE: "https://{launchId}.rpg-runtime.games.example.com"
-      # 必须与下方 nginx 的固定容器地址一致；修改子网时同步修改。
-      RETROM_TRUSTED_PROXIES: "172.30.97.10/32"
-
       # 可选的服务配置及示例值：
       # RETROM_MULTI_DISC_IMPORT_ENABLED: "true" # 启用新建多盘导入；默认 false。
       # RETROM_STARTUP_CHECK_TIMEOUT: "120s"    # 启动预检时限；默认 60s，允许 10s..5m。
@@ -70,14 +67,10 @@ services:
       - "80:80"
       - "443:443"
     networks:
-      retrom-network:
-        ipv4_address: 172.30.97.10
+      - retrom-network
 
 networks:
   retrom-network:
-    ipam:
-      config:
-        - subnet: 172.30.97.0/24
 
 # 镜像入口默认使用 release 模式。生产不要设置 RETROM_MODE、RETROM_PFB_ID、
 # RETROM_PROVIDER_DEV_ROOT 或允许不安全公开 origin 的开关。
