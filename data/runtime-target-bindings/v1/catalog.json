@@ -501,6 +501,20 @@
       "launchPolicy": "SUPPORTED"
     },
     {
+      "id": "emulatorjs-o2em",
+      "coreId": "o2em",
+      "providerId": "emulatorjs",
+      "targetId": "o2em",
+      "platformIds": [
+        "odyssey2"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "EMULATORJS_SINGLE_FILE",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
       "id": "emulatorjs-opera",
       "coreId": "opera",
       "providerId": "emulatorjs",
@@ -1393,6 +1407,12 @@
         "enabled": true
       },
       {
+        "id": "odyssey2",
+        "name": "Magnavox Odyssey² / Philips Videopac",
+        "sortOrder": 575,
+        "enabled": true
+      },
+      {
         "id": "ons",
         "name": "ONScripter",
         "sortOrder": 76,
@@ -1800,6 +1820,11 @@
       {
         "id": "nxengine",
         "name": "NXEngine",
+        "enabled": true
+      },
+      {
+        "id": "o2em",
+        "name": "O2EM",
         "enabled": true
       },
       {

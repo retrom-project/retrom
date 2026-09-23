@@ -2418,6 +2418,25 @@ BIOS 通过正式 BIOS 管理安装 `8.BIN` 与 `E.BIN`；二者必须匹配登�
 各阶段截图和存档大小进入 `uzebox-product.json`。浏览器异常、空存档、错误画面或
 恢复后输入失败均不得 PASS。虚拟标准手柄不替代实体手柄验收；结果只覆盖该样本。
 
+### ACC-O2EM-001：Odyssey² 单卡带产品验证
+
+运行 `make acceptance-case CASE=ACC-O2EM-001`，硬超时 600 秒。
+显式提供 `RETROM_ACCEPTANCE_BASE_URL`、`RETROM_ACCEPTANCE_USERNAME/PASSWORD`、
+`RETROM_CHROME_EXECUTABLE`、`RETROM_O2EM_ROM`（单个 `.bin`）、`RETROM_O2EM_BIOS`
+（1024 bytes 的 `o2rom.bin`）及 `RETROM_O2EM_CORE_SHA256`。
+驱动不读取默认私人目录，不下载或提交游戏与 BIOS；缺少输入报告 BLOCKED。
+
+通过正式 BIOS 安装、普通上传/导入、审核 Preview、批准和 Product Launch 验证
+O2EM Target、BIOS bundle、卡带摘要、核心 bytes、两玩家标准手柄映射和非空实际画面。
+游戏开始键由独立键盘输入；方向与动作使用标准手柄。在可操作场景建立非空存档，
+继续输入后关闭原 Launch，在新的 Launch 恢复，核对公共 gzip 与原生状态标记、
+传输大小和 SHA-256，并确认恢复后继续响应输入；另开不带存档的 Launch 确认重新启动。
+驱动输出 `o2em-product.json` 与逐阶段 PNG，并检查恢复场景与保存前的画面相似度、
+新游戏与存档场景的差异。交付前仍须逐图检查游戏开始、输入效果、保存位置、恢复和
+恢复后操作；只有结构化检查与逐图检查都通过，才可将结论记为 PASS。
+浏览器异常、空存档、错误画面或恢复后输入失败均不得 PASS。虚拟手柄不代表实体手柄；
+The Voice 与地区 BIOS 未在本次浏览器候选中验证。
+
 
 ### ACC-PSP-001：独立 PPSSPP 的产品启动与即时存档
 
