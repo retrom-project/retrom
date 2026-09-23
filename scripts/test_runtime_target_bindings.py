@@ -26,7 +26,7 @@ class RuntimeTargetBindingsTest(unittest.TestCase):
             ROOT / "data/runtime-target-bindings/v1/catalog.json"
         )
         self.assertNotIn("catalogVersion", catalog)
-        self.assertEqual(len(catalog["bindings"]), 93)
+        self.assertEqual(len(catalog["bindings"]), 94)
         self.assertEqual(
             {item["providerId"] for item in catalog["bindings"]},
             {"emulatorjs", "retrom-runtime"},
@@ -40,6 +40,8 @@ class RuntimeTargetBindingsTest(unittest.TestCase):
                 },
             )
         by_target = {(item["providerId"], item["targetId"]): item for item in catalog["bindings"]}
+        for target_id in ["bbc-jsbeeb", "samcoupe"]:
+            self.assertEqual(by_target[("retrom-runtime", target_id)]["detectorProfile"], "RUNTIME_SINGLE_FILE")
         openbor = by_target[("retrom-runtime", "openbor")]
         self.assertEqual(openbor["platformIds"], ["openbor"])
         self.assertEqual(openbor["detectorProfile"], "OPENBOR_PAK")

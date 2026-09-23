@@ -962,7 +962,7 @@
       "acceptedContentKinds": [
         "SINGLE_FILE"
       ],
-      "detectorProfile": "EMULATORJS_SINGLE_FILE",
+      "detectorProfile": "RUNTIME_SINGLE_FILE",
       "launchPolicy": "SUPPORTED"
     },
     {
@@ -1257,6 +1257,20 @@
         "RPG_MAKER_PROJECT"
       ],
       "detectorProfile": "RPGXP",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
+      "id": "retrom-runtime-samcoupe",
+      "coreId": "samcoupeweb",
+      "providerId": "retrom-runtime",
+      "targetId": "samcoupe",
+      "platformIds": [
+        "samcoupe"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "RUNTIME_SINGLE_FILE",
       "launchPolicy": "SUPPORTED"
     },
     {
@@ -1688,6 +1702,12 @@
         "id": "rpgmaker",
         "name": "RPG Maker",
         "sortOrder": 75,
+        "enabled": true
+      },
+      {
+        "id": "samcoupe",
+        "name": "SAM Coupé",
+        "sortOrder": 725,
         "enabled": true
       },
       {
@@ -2135,6 +2155,11 @@
       {
         "id": "ruffle",
         "name": "Ruffle",
+        "enabled": true
+      },
+      {
+        "id": "samcoupeweb",
+        "name": "SamCoupeWeb",
         "enabled": true
       },
       {

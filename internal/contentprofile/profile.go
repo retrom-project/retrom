@@ -61,7 +61,7 @@ var registry = map[string]Profile{
 	"bbc":         single("bbc", ".ssd", ".dsd", ".adf", ".hfe"),
 	"channelf":    single("channelf", ".bin", ".rom"),
 	"megaduck":    single("megaduck", ".bin", ".md"),
-	"samcoupe":    single("samcoupe", ".dsk", ".sad", ".sbt"),
+	"samcoupe":    single("samcoupe", ".dsk", ".mgt", ".sad", ".sbt"),
 	"supervision": single("supervision", ".sv", ".bin"),
 	"thomson":     single("thomson", ".fd", ".sap", ".k7", ".m7", ".m5", ".rom"),
 	"model3":      raw("model3", ".zip"),

@@ -50,6 +50,12 @@ var staticBIOSCatalog = append(pc88BIOSCatalog(), []staticBIOS{
 		delivery:  "EXTERNAL_FILE", emulatorPath: "/roms/b/DFS-1.2.rom",
 	},
 	{
+		coreID: "samcoupeweb", logical: "samcoupe.rom", mode: "REQUIRED", size: 32768,
+		md5: "ad08ed47b07b0d7047fd3d0b5e7d90b3", sha256: "e7ec9cd06fb2d479a807cf1739e75f3ef4975c12869be3d3a991232c57d1688d",
+		sourceURL: "https://github.com/anomixer/SamCoupeWeb/blob/6593bda819830c07bd48e0dffd32d3b3ef525fb0/Resource/samcoupe.rom",
+		delivery:  "EXTERNAL_FILE", emulatorPath: "/Resource/samcoupe.rom",
+	},
+	{
 		coreID: "freechaf", logical: "sl31253.bin", mode: "REQUIRED", size: 1024,
 		md5: "ac9804d4c0e9d07e33472e3726ed15c3", sha256: "876a263d28d8f9e9f51785b91269393f06599debae9ba2ef1cba67a283504e2c",
 		sourceURL: "https://github.com/libretro/FreeChaF/blob/76c7a84f1f7e80f3e6f2bba96fe100cb24e99124/README.md",
