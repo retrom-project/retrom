@@ -17,51 +17,34 @@ workspace bootstrap and baseline checkouts are unchanged.
 | Mega Duck | `retrom-project/SameBoy` / SameDuck | EmulatorJS `sameduck` | SameBoy lineage with Mega Duck support and native state API; `MaxPirate.bin` boot, input, save, and restore passed. |
 | SAM Coupé | `retrom-project/SamCoupeWeb` | retrom-runtime `samcoupe` | Browser-capable SimCoupe lineage; the alternate libretro port documents incomplete input and sound. `SafariSam.dsk` and a SAMDOS disk boot and accept input. A BASIC file write, exit-time disk checkpoint, and new Launch disk restore passed. This is a game-data save, not an instant state snapshot. |
 | Supervision | `retrom-project/potator` | EmulatorJS `potator` | Libretro state API; `Balloon Fight` boot, input, save, and restore passed. |
-| Thomson | `retrom-project/theodore` | EmulatorJS `theodore` | Thomson family support and native state API; MO5 tape boots, accepts input, saves, and restores. A long tape load and gameplay beyond the boot screen have not been established. |
-| Sega Model 3 | `retrom-project/Libretro-Supermodel` | EmulatorJS `supermodel` | Supermodel lineage with native serialization; `daytona2.zip` reaches a rendered boot frame, accepts gamepad events, saves, and restores in a new Launch. Full gameplay and performance need separate visual review. |
+| Thomson | `retrom-project/theodore` | EmulatorJS `theodore` | Thomson family support and native state API; MO5 tape and `Bomb Jacques` gameplay respond to input, save, and restore. |
+| Sega Model 3 | `retrom-project/Libretro-Supermodel` | EmulatorJS `supermodel` | Supermodel lineage with native serialization; `daytona2.zip` reaches course selection, responds to steering, saves, and restores in a new Launch. Sustained racing performance is not characterized. |
 
-## Development candidate
+## Published source and product validation
 
-PFB ID: `platform-co-29b3e5616fcb`.
-URL: `http://platform-co-29b3e5616fcb.localhost:3000`.
-The imported Provider candidate is `0.48.1-dev.15`. The EmulatorJS archive SHA-256
-is `59358c452fd50e95c9ebde5a16cec6f660a770ed2b74347f52a1a139839668ee`;
-the retrom-runtime archive SHA-256 is
-`cd282c7907fc14dec1af5942191a41c6a708a186c99918281227f69542885300`.
-`make pfb-verify PFB=platform-cores` passed; its read-only evidence is under
-`.pfb/evidence/20260924T045330Z/` in this Retrom worktree. This is a development
-candidate, not a published release.
+Each fork's `retrom/<baseline>` maintenance branch owns its build and fixed
+`retrom-core-<baseline>-r1` Release. The runtime's `provider-sources.json` and
+EmulatorJS source catalog pin the release commit, asset names, sizes, hashes,
+and adapter ABI. Retrom pins the resulting runtime Provider release in
+`data/runtime-providers/release.json`. Neither runtime nor Retrom compiles a
+core during Provider installation.
 
-The authenticated product run uploads a ROM, creates an import review, opens
-review preview, approves the game, launches it, sends virtual standard gamepad
-input, captures a checkpoint, and restores it in a distinct Launch. The JSON
-receipts and screenshots are under `.pfb/evidence/platform-core-product/<case>/`.
-Use `arduboy-golf`, `atari800`, `xegs`, `atarist-1943`, `bbc`, `channelf`,
-`megaduck`, `samcoupe-basic`, `supervision`, `thomson-mo5`, and `model3` for passing cases.
-The test runner is `.pfb/evidence/platform-core-product-runner.mjs` and uses the
-PFB's `test` account via environment variables. These automated passes prove the
-API path and rendered nonblank frames; screenshots still require visual review
-before release. Model 3's receipt has no browser errors or failed requests.
+The `platform-cores` PFB exercised all eleven entries through authenticated
+import review, preview, product Launch, direction and confirmation input,
+checkpoint, a distinct Launch restore, and input after restore. Browser input
+tests checked rendered responses as well as delivery events. In particular,
+the BBC Micro BASIC test visibly moved `POSITION` from 10 to 16 and back to 10
+with keyboard and gamepad input; Model 3 course selection responded to steering;
+and the Xbox 360 gamepad started and moved Mega Duck gameplay while another
+connected pad occupied browser index 0. Product receipts and screenshots are
+kept in the PFB's ignored `.pfb/evidence/` directory, separate from source
+control. Game and BIOS bytes remain under `/data/game`, outside Git.
 
-SAM Coupé's `SafariSam.dsk` source is the
-[author's public download](https://www.martinfitzpatrick.com/safari-sam/). The
-SAMDOS test disk comes from the [Outwrite author's page](https://www.intensity.org.uk/samcoupe/download.php);
-its test copy changes the `AUTOWRITE!` autorun name to `ZUTOWRITE!` so BASIC is
-available after boot. That one-byte derivative and its source metadata live only
-in `/data/game/testgame/retrom-runtime/samcoupe/`. The `samcoupe-basic` product
-case records a BASIC `SAVE CHR$ 82` write. Its disk fingerprint changed from
-`854a23ac` to `98a2599`; the native-save flow staged the content in the browser,
-uploaded a 215,221-byte checkpoint on exit, and a new Launch restored the same
-`98a2599` fingerprint. SimCoupe clears its dirty flag when the motor stops and
-flushes the disk, so the adapter also compares durable disk bytes and reports
-their content revision. The normal toolbar's instant-save button remains
-disabled because SAM requires an in-game write followed by **存档并退出**. The
-earlier `samcoupe` and `samcoupe-outwrite` runs did not write a disk; their
-disabled native-save controls were expected.
-The SAM canvas now preserves its WebGL frame for Provider screenshots. The
-unmodified browser probe at `.pfb/evidence/samcoupe-capture-raw.png` reads BASIC
-text directly from the canvas instead of a black frame.
-
-Game and BIOS bytes used in these runs remain under `/data/game`, outside Git.
-Formal publication still requires review of the evidence, especially keyboard
-computer workflows, Model 3 gameplay, and Thomson tape loading.
+SAM Coupé exposes a native game-data save rather than an instant state. A game
+must write its disk before **存档并退出** can export the modified disk; a new
+Launch imports that disk before boot, and an in-game load resumes play. The
+normal instant-save action remains unavailable for this Target. The adapter
+compares durable disk bytes after SimCoupe flushes them and preserves the WebGL
+canvas for Provider screenshots. On Provider `v0.48.2`, a new Launch loaded the
+saved disk with `LOAD CHR$ 82`; `LIST` displayed `10 PRINT 1`, and `RUN` printed
+`1`.
