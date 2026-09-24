@@ -1,49 +1,67 @@
 # Platform core integration (PFB `platform-cores`)
 
-This worktree is an integration candidate. Game & Watch is excluded by request.
-Core source, Provider targets, and product bindings are owned by separate repositories;
-the PFB catalog at `workspace/manifest.yaml` records the fork dependencies.
+Game & Watch is excluded by request. This PFB contains ten forked cores for eleven
+platform entries; Atari 8-bit and XEGS share the Atari800 implementation. Core
+sources live under `retrom-project`, Provider adapters and archives under
+`retrom-runtime`, and platform bindings in Retrom's PFB catalog. The root
+workspace bootstrap and baseline checkouts are unchanged.
 
-| Platform | Fork / core | Provider plan | Selection and acceptance status |
+| Platform | Fork / implementation | Provider target | Selection and browser result |
 | --- | --- | --- | --- |
-| Arduboy | `retrom-project/Ardens` / Ardens | EmulatorJS | Active emulator with native save states; browser candidate built, product launch pending. |
-| Atari 8-bit, XEGS | `retrom-project/libretro-atari800` / Atari800 | EmulatorJS | One maintained core covers both machines; separate targets set the model and bundled AltirraOS. Browser candidate built, both machine modes need product validation. |
-| Atari ST | `retrom-project/hatariB` / HatariB | EmulatorJS | Hatari-based libretro fork has native state API and built-in EmuTOS. Browser candidate built; product launch pending. |
-| BBC Micro | `retrom-project/jsbeeb` / jsbeeb | retrom-runtime | Reproducible browser archive and Provider adapter built. A Chrome core smoke test booted `Welcome.ssd` with three user-supplied ROMs and restored a checkpoint in a new iframe. Retrom review and product launch remain pending. |
-| Channel F | `retrom-project/FreeChaF` / FreeChaF | EmulatorJS | Libretro core with state API; browser candidate built. Two 1 KiB BIOS files are required; the Channel F II BIOS is optional. |
-| Mega Duck | `retrom-project/SameBoy` / SameDuck | EmulatorJS | SameBoy branch with Mega Duck support and state API; browser candidate built. |
-| SAM Coupé | `retrom-project/SamCoupeWeb` / SamCoupeWeb | retrom-runtime | Reproducible browser candidate excludes machine and speech ROMs. The sanitized core and runtime adapter booted the author's `SafariSam.dsk` with user-supplied BIOS in Chrome; a simulated standard gamepad's confirm button entered gameplay. The adapter restores full disk bytes and captures modified disk content as a game save; snapshot-style instant resume is unavailable. Product launch and a real disk-write restore remain unverified. The alternative libretro-simcoupe port describes itself as buggy, with incomplete input and no sound. |
-| Supervision | `retrom-project/potator` / Potator | EmulatorJS | Libretro core with state API; browser candidate built. |
-| Thomson | `retrom-project/theodore` / Theodore | EmulatorJS | Libretro core supports Thomson family media and states; browser candidate built. |
-| Sega Model 3 | `retrom-project/Libretro-Supermodel` / Supermodel | EmulatorJS 4.3.0-pre | Reproducible browser candidate built. A Chrome core-only smoke test rendered Daytona USA 2 and native serialization produced a 30,961,248-byte state that the same instance loaded. Provider archive preservation, state reading, and a native load completion barrier are implemented; product import, gamepad, new Launch restore, and performance remain unverified. |
+| Arduboy | `retrom-project/Ardens` | EmulatorJS `ardens` | Native state support; Arduboy Golf uploads, previews, launches, accepts input, saves, and restores in a new Launch. |
+| Atari 8-bit | `retrom-project/libretro-atari800` | EmulatorJS `atari800` | Maintained Atari800 core; ATR boot, input, save, and new Launch restore passed. |
+| XEGS | `retrom-project/libretro-atari800` | EmulatorJS `atari800-xegs` | Reuses Atari800 with a separate XEGS model and bundled AltirraOS; cartridge boot, input, save, and restore passed. |
+| Atari ST | `retrom-project/hatariB` | EmulatorJS `hatarib` | Hatari-based core with native state support and built-in EmuTOS; `1943` boot, input, save, and restore passed. |
+| BBC Micro | `retrom-project/jsbeeb` | retrom-runtime `bbc-jsbeeb` | Mature browser emulator; `Welcome.ssd` with three supplied ROMs boots, accepts input, saves, and restores. Fork archive avoids Google Analytics and remote font requests. |
+| Channel F | `retrom-project/FreeChaF` | EmulatorJS `freechaf` | Libretro state API; `lights.bin` with two supplied BIOS files boots, accepts input, saves, and restores. |
+| Mega Duck | `retrom-project/SameBoy` / SameDuck | EmulatorJS `sameduck` | SameBoy lineage with Mega Duck support and native state API; `MaxPirate.bin` boot, input, save, and restore passed. |
+| SAM Coupé | `retrom-project/SamCoupeWeb` | retrom-runtime `samcoupe` | Browser-capable SimCoupe lineage; the alternate libretro port documents incomplete input and sound. `SafariSam.dsk` and a SAMDOS disk boot and accept input. A BASIC file write, exit-time disk checkpoint, and new Launch disk restore passed. This is a game-data save, not an instant state snapshot. |
+| Supervision | `retrom-project/potator` | EmulatorJS `potator` | Libretro state API; `Balloon Fight` boot, input, save, and restore passed. |
+| Thomson | `retrom-project/theodore` | EmulatorJS `theodore` | Thomson family support and native state API; MO5 tape boots, accepts input, saves, and restores. A long tape load and gameplay beyond the boot screen have not been established. |
+| Sega Model 3 | `retrom-project/Libretro-Supermodel` | EmulatorJS `supermodel` | Supermodel lineage with native serialization; `daytona2.zip` reaches a rendered boot frame, accepts gamepad events, saves, and restores in a new Launch. Full gameplay and performance need separate visual review. |
 
-The ten Provider targets cover eleven requested platforms: Atari800 and XEGS
-share one core. Their Provider-only development bundle passed package verification.
-The PFB imported candidate Provider version `0.48.1-dev.2` over its previous
-v0.48.0 base and passed readiness and `pfb-verify`. This is a development
-candidate, not an immutable release. Product upload, review, launch, and
-checkpoint cases still need authenticated execution; browser-only smoke tests
-do not establish product acceptance.
-The active candidate bundles are EmulatorJS
-`facaa3c7da4064a6b83922fdb74d40fd0cc656b7f2717b4ac707c47d4d63de80`
-and retrom-runtime
-`8695b7f13ce6acac24f8d4d486697370dffb09f0ef4dba8e20482b4f9d77115d`.
+## Development candidate
 
-Model 3 core-only evidence is in `.pfb/evidence/model3-probe/`. The visual smoke
-uses an operator-supplied `daytona2.zip` from `/data/game`; its screenshot is
-`retest.png`. The serializer smoke is `state-probe.json` and `state-probe.png`.
-Both tests run the core outside Retrom; the Provider and product paths remain gated.
+PFB ID: `platform-co-29b3e5616fcb`.
+URL: `http://platform-co-29b3e5616fcb.localhost:3000`.
+The imported Provider candidate is `0.48.1-dev.15`. The EmulatorJS archive SHA-256
+is `59358c452fd50e95c9ebde5a16cec6f660a770ed2b74347f52a1a139839668ee`;
+the retrom-runtime archive SHA-256 is
+`cd282c7907fc14dec1af5942191a41c6a708a186c99918281227f69542885300`.
+`make pfb-verify PFB=platform-cores` passed; its read-only evidence is under
+`.pfb/evidence/20260924T045330Z/` in this Retrom worktree. This is a development
+candidate, not a published release.
 
-SAM Coupé core-only and adapter smoke: `/data/game/testgame/retrom-runtime/samcoupe/SafariSam.dsk`
-(SHA-256 `874c06473ea3c64598c2f1c7d725eb6203fb0dc37a02d9027cb626fe84b177ca`),
-downloaded from the [author's public page](https://www.martinfitzpatrick.com/safari-sam/). The PFB screenshot is
-`.pfb/evidence/samcoupe-probe/smoke.png`; it shows the game's menu in the
-ROM-free core. The adapter smoke and screenshot are in
-`.pfb/evidence/samcoupe-probe/retrom-adapter.json`, `retrom-adapter.png`
-(menu), and `retrom-adapter-gamepad.png` (gameplay after confirm).
+The authenticated product run uploads a ROM, creates an import review, opens
+review preview, approves the game, launches it, sends virtual standard gamepad
+input, captures a checkpoint, and restores it in a distinct Launch. The JSON
+receipts and screenshots are under `.pfb/evidence/platform-core-product/<case>/`.
+Use `arduboy-golf`, `atari800`, `xegs`, `atarist-1943`, `bbc`, `channelf`,
+`megaduck`, `samcoupe-basic`, `supervision`, `thomson-mo5`, and `model3` for passing cases.
+The test runner is `.pfb/evidence/platform-core-product-runner.mjs` and uses the
+PFB's `test` account via environment variables. These automated passes prove the
+API path and rendered nonblank frames; screenshots still require visual review
+before release. Model 3's receipt has no browser errors or failed requests.
 
-For every platform, the release gate requires a reproducible full core archive,
-Provider candidate with fixed source identity, and a real Retrom import, preview,
-launch, gamepad, checkpoint, new-instance restore, and screenshot run in Chrome.
-Only assets that pass this gate should be pinned as formal releases. Game and BIOS
-files used for testing stay in `/data/game` and outside Git.
+SAM Coupé's `SafariSam.dsk` source is the
+[author's public download](https://www.martinfitzpatrick.com/safari-sam/). The
+SAMDOS test disk comes from the [Outwrite author's page](https://www.intensity.org.uk/samcoupe/download.php);
+its test copy changes the `AUTOWRITE!` autorun name to `ZUTOWRITE!` so BASIC is
+available after boot. That one-byte derivative and its source metadata live only
+in `/data/game/testgame/retrom-runtime/samcoupe/`. The `samcoupe-basic` product
+case records a BASIC `SAVE CHR$ 82` write. Its disk fingerprint changed from
+`854a23ac` to `98a2599`; the native-save flow staged the content in the browser,
+uploaded a 215,221-byte checkpoint on exit, and a new Launch restored the same
+`98a2599` fingerprint. SimCoupe clears its dirty flag when the motor stops and
+flushes the disk, so the adapter also compares durable disk bytes and reports
+their content revision. The normal toolbar's instant-save button remains
+disabled because SAM requires an in-game write followed by **存档并退出**. The
+earlier `samcoupe` and `samcoupe-outwrite` runs did not write a disk; their
+disabled native-save controls were expected.
+The SAM canvas now preserves its WebGL frame for Provider screenshots. The
+unmodified browser probe at `.pfb/evidence/samcoupe-capture-raw.png` reads BASIC
+text directly from the canvas instead of a black frame.
+
+Game and BIOS bytes used in these runs remain under `/data/game`, outside Git.
+Formal publication still requires review of the evidence, especially keyboard
+computer workflows, Model 3 gameplay, and Thomson tape loading.
