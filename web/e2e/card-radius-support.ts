@@ -29,6 +29,7 @@ export async function expectCardRadii(page: Page) {
     await expect(panel).toHaveCSS("border-radius", "8px");
   }
   for (const cover of await page.locator(".library-game-cover").all()) {
-    await expect(cover).toHaveCSS("border-radius", "3px 3px 0px 0px");
+    const standalone = await cover.evaluate((element) => Boolean(element.closest(".phone-app-frame")));
+    await expect(cover).toHaveCSS("border-radius", standalone ? "4px" : "3px 3px 0px 0px");
   }
 }
