@@ -32,7 +32,7 @@ Provider Bundle 是 Target 行为的唯一事实源。Retrom 的 binding catalog
 
 归档必须确定性生成：规范路径、顺序、mode、mtime、owner、压缩参数和 JSON 编码完全固定。同一输入连续构建两次必须得到相同 archive digest。绝对路径、`..`、链接逃逸、重复路径、大小溢出、未声明文件、摘要漂移或不完整许可都会使构建/安装失败。
 
-Provider 的 HTML 静态页仅允许 `retrom-runtime` 的 `assets/jsbeeb/site/index.html`，其完整性条目必须声明 `text/html; charset=utf-8`。安装器拒绝其他 Provider 或路径的 HTML；该闭合例外让 BBC 核心页面可在 iframe 中导航，其他未知扩展仍按二进制资源处理。
+Provider 的 HTML 静态页仅允许 `retrom-runtime` 的 `assets/jsbeeb/site/index.html`，新归档的完整性条目必须声明 `text/html; charset=utf-8`。安装器读取已安装的旧归档时仍接受该路径原有的 `application/octet-stream`，以便校验并升级旧基座；新构建不再输出旧类型。安装器拒绝其他 Provider 或路径的 HTML；该闭合例外让 BBC 核心页面可在 iframe 中导航，其他未知扩展仍按二进制资源处理。
 
 每个 Target 必须内联一个闭合 `targetOptionsSchema`。Retrom 权威 schema 只定义这套受限方言，Provider declaration 定义具体属性；Host 不维护 `optionsKind`、Target→选项映射或默认值。Go 在签发 envelope 前精确验证，Provider Module 在 mount 前以同一声明复核，Web dispatcher 只做通用 JSON 安全和资源上限。
 

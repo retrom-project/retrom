@@ -12,6 +12,7 @@ from runtime_provider_contract import canonical_json_bytes
 from runtime_provider_bundle import (
     MEDIA_TYPES,
     _media_type,
+    _installed_media_type_matches,
     check_installed_provider,
     install_provider_bundle,
     validate_provider_lock,
@@ -29,6 +30,9 @@ class RuntimeProviderInstallerTest(unittest.TestCase):
         self.assertIn("text/html; charset=utf-8", MEDIA_TYPES)
         self.assertEqual(_media_type("assets/jsbeeb/site/index.html"), "text/html; charset=utf-8")
         self.assertEqual(_media_type("assets/other/index.html"), "application/octet-stream")
+        self.assertTrue(_installed_media_type_matches("assets/jsbeeb/site/index.html", "application/octet-stream"))
+        self.assertTrue(_installed_media_type_matches("assets/jsbeeb/site/index.html", "text/html; charset=utf-8"))
+        self.assertFalse(_installed_media_type_matches("assets/other/index.html", "text/html; charset=utf-8"))
 
     def test_bundle_module_is_importable_by_the_pfb_package_entrypoint(self):
         root = Path(__file__).resolve().parent.parent

@@ -213,7 +213,7 @@ def _verify_extracted(
             _integrity_invalid()
         if not _match(LOWER_DIGEST, entry["sha256"]) or entry["sha256"] != _digest(contents):
             _integrity_invalid()
-        if entry["mediaType"] not in MEDIA_TYPES or entry["mediaType"] != _media_type(path):
+        if entry["mediaType"] not in MEDIA_TYPES or not _installed_media_type_matches(path, entry["mediaType"]):
             _integrity_invalid()
         expected_paths.append(path)
     if expected_paths != sorted(expected_paths, key=lambda item: item.encode()) or len(set(expected_paths)) != len(expected_paths):
@@ -331,6 +331,12 @@ def _media_type(path: str) -> str:
     if path.endswith((".md", ".rb", ".txt")) or PurePosixPath(path).name in {"LICENSE", "COPYING"}:
         return "text/plain; charset=utf-8"
     return "application/octet-stream"
+
+
+def _installed_media_type_matches(path: str, media_type: str) -> bool:
+    return media_type == _media_type(path) or (
+        path == "assets/jsbeeb/site/index.html" and media_type == "application/octet-stream"
+    )
 
 
 def _safe_path(value: Any) -> bool:
