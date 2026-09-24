@@ -14,11 +14,11 @@ export async function expectNaturalHomeFlow(page: Page) {
     expect(cards).toHaveLength(2);
     expect(Math.abs(cards[0]!.top - cards[1]!.top)).toBeLessThanOrEqual(1);
     expect(Math.abs(cards[0]!.bottom - cards[1]!.bottom)).toBeLessThanOrEqual(1);
-    if (original.width >= 1800 && await page.locator(".home-featured-cover").count()) {
+    if (await page.locator(".home-featured-cover").count()) {
       const alignment = await page.locator(".home-featured-cover").evaluate((cover) => {
         const box = cover.getBoundingClientRect(), media = cover.parentElement!, mediaBox = media.getBoundingClientRect();
         const actions = media.querySelector(".home-featured-actions")!.getBoundingClientRect(), style = getComputedStyle(media);
-        return { bottom: box.bottom - actions.bottom, height: box.height - mediaBox.height + parseFloat(style.paddingTop) + parseFloat(style.paddingBottom), ratio: box.width / box.height };
+        return { bottom: box.bottom - actions.bottom, height: box.height - mediaBox.height + (innerWidth < 1800 ? 46 : parseFloat(style.paddingTop) + parseFloat(style.paddingBottom)), ratio: box.width / box.height };
       });
       expect(Math.abs(alignment.bottom)).toBeLessThanOrEqual(1);
       expect(Math.abs(alignment.height)).toBeLessThanOrEqual(1);

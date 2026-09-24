@@ -2402,7 +2402,6 @@
 #retrom-ui-review .rt-home-featured-actions { flex: 0 0 auto; margin-top: auto; }
 #retrom-ui-review .rt-detail-description.is-scrolling { scrollbar-color: #aeb5c2 transparent; }
 
-}
 /* Wider screens add room within the featured card; page height follows content. */
 @media (min-width: 1800px) {
   #retrom-ui-review .rt-home-first { grid-template-columns: minmax(0, 1fr) 380px; gap: var(--space-4); align-items: stretch; }
@@ -2413,7 +2412,13 @@
   #retrom-ui-review .rt-home-featured-save-preview { grid-column: 3; grid-row: 1; position: relative; inset: auto; width: 100%; transform: none; }
 }
 
+@media (min-width: 1280px) and (max-width: 1799px) {
+  #retrom-ui-review .rt-home-featured-media { min-height: 270px; container-type: size; }
+  #retrom-ui-review .rt-home-featured-cover { width: auto; height: calc(100cqh - 46px); aspect-ratio: 5 / 7; }
+  #retrom-ui-review .rt-home-featured-copy { left: calc((100cqh - 46px) * 5 / 7 + 52px); }
+}
 #retrom-ui-review .rt-home-layer + .rt-home-layer { margin-top: var(--space-6); }
+}
 </style>
 
 

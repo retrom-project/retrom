@@ -7,3 +7,10 @@
   .home-featured-copy, .home-featured-media.has-session-save .home-featured-copy { grid-column: 2; grid-row: 1; position: relative; inset: auto; min-height: 224px; align-self: stretch; transform: none; }
   .home-featured-save-preview { grid-column: 3; grid-row: 1; position: relative; inset: auto; width: 100%; transform: none; }
 }
+
+@media (min-width: 1280px) and (max-width: 1799px) {
+  .home-featured-media { min-height: 270px; container-type: size; }
+  .home-featured-cover { width: auto; height: calc(100cqh - 46px); aspect-ratio: 5 / 7; }
+  .home-featured-copy { left: calc((100cqh - 46px) * 5 / 7 + 52px); }
+  .home-launch-note { min-width: 0; }
+}
