@@ -281,13 +281,17 @@ export function ImportTaskBoard({ initial, initialQuery = "", initialState = "" 
         if (!disposed) {
           const byId = new Map(results.filter((detail): detail is ImportDetail => detail !== null).map((detail) => [detail.importJobId, detail]));
           setItems((current) => current.map((item) => byId.has(item.id) ? refreshListItem(item, byId.get(item.id)!) : item));
+          if (pollingIds.every((id) => {
+            const detail = byId.get(id);
+            return detail && !activeImportStates.has(detail.state);
+          })) {window.clearInterval(timer);}
         }
       } finally {
         polling = false;
       }
     };
-    void poll();
     const timer = window.setInterval(() => void poll(), 1_000);
+    void poll();
     return () => { disposed = true; window.clearInterval(timer); };
   }, [pollingKey]);
 
