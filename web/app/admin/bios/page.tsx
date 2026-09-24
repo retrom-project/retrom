@@ -17,7 +17,7 @@ export default async function BIOSPage({ searchParams }: { searchParams: Promise
     backendJSON<RuntimeTargetList>("/api/v1/admin/runtime-targets"),
   ]);
   return <div className="page-layout page-layout-admin runtime-dependency-shell">
-    <PageHeader eyebrow="管理后台" title="运行依赖" description="管理模拟器所需的 BIOS 文件与归档，查看缺失状态并安装。" actions={<ButtonLink href="/admin/imports/server?action=bios" secondary>服务器批量导入 BIOS</ButtonLink>} />
+    <PageHeader title="运行依赖" description="管理模拟器所需的 BIOS 文件与归档，查看缺失状态并安装。" actions={<ButtonLink href="/admin/imports/server?action=bios" secondary>服务器批量导入 BIOS</ButtonLink>} />
     <BIOSManager initialResponse={initialResponse} initialScope={scope} initialFilters={{ query: values.q ?? "", coreId: values.coreId ?? "", status: values.status ?? "", quick }} />
     <details><summary>RPG Maker 核心诊断</summary><RuntimeTargetDiagnostics catalog={runtimeTargets} /></details>
   </div>;

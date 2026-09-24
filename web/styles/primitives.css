@@ -3,7 +3,6 @@
 .page-header { min-height: 88px; display: flex; gap: 28px; justify-content: space-between; align-items: flex-start; margin-bottom: var(--space-5); }
 .page-header h1 { margin: 0; font-size: var(--text-page); line-height: 1.2; letter-spacing: -.025em; font-weight: var(--weight-semibold); }
 .page-header p { max-width: 760px; margin: 8px 0 0; color: var(--muted); font-size: var(--text-body); }
-.page-header .eyebrow { margin: 0 0 6px; color: var(--purple); font-size: var(--text-caption); text-transform: uppercase; letter-spacing: .06em; font-weight: var(--weight-medium); }
 .header-actions { display: flex; align-items: center; gap: 10px; padding-top: 6px; }
 .button { cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
 .button:disabled { cursor: not-allowed; }

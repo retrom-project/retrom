@@ -4,7 +4,7 @@ export default function FavoritesLoading() {
   return (
     <div className="page-layout favorite-page favorite-loading-shell" role="status" aria-label="正在加载收藏" aria-live="polite">
       <span className="sr-only">正在加载收藏</span>
-      <PageHeader title="我的收藏" description="" />
+      <PageHeader title="我的收藏" description="整理喜欢的游戏，按收藏夹分类，随时找到下一款想玩的游戏。" />
       <div className="favorite-head-summary favorite-skeleton-line" aria-hidden="true" />
       <div className="favorite-layout" aria-hidden="true">
         <section className="favorite-content">

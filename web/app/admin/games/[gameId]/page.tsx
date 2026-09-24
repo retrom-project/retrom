@@ -12,10 +12,8 @@ export default async function AdminGameDetail({ params }: { params: Promise<{ ga
     backendJSON<{ items: ScrapeCandidate[] }>(`/api/v1/admin/games/${gameId}/scrape-candidates`),
     loadActiveTags(),
   ]);
-  const platformName = instances.items.find((item) => item.id === game.platformInstance.id)?.platformName ?? game.platformId;
   return <>
     <PageHeader
-      eyebrow={`游戏管理 / ${platformName}`}
       title={game.title}
       description="维护当前发布信息、媒体、游戏内容与运行环境；替换内容时保留现有存档。"
       actions={<ButtonLink href="/admin/games" secondary>← 返回游戏管理</ButtonLink>}

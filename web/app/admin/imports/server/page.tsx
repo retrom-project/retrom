@@ -20,7 +20,7 @@ export default async function ServerImportsPage({ searchParams }: { searchParams
     loadActiveTags(),
   ]);
   return <div className="page-layout page-layout-admin">
-    <PageHeader eyebrow="服务器导入" title="从服务器目录导入" description="浏览服务器可读取的目录，支持 BIOS 和 Pegasus / gamelist.xml 游戏目录导入。" actions={<ButtonLink href="/admin/bios" secondary>BIOS 文件</ButtonLink>} />
+    <PageHeader title="从服务器目录导入" description="浏览服务器可读取的目录，支持 BIOS 和 Pegasus / gamelist.xml 游戏目录导入。" actions={<ButtonLink href="/admin/bios" secondary>BIOS 文件</ButtonLink>} />
     <ServerImportManager initialRoots={roots.items} initialImports={imports} initialSourceImports={sourceImports} platformInstances={platformInstances.items} activeTags={activeTags} initialOpen={values.action === "bios"} initialSourceOpen={values.action === "source"} initialCatalogSummary={{ totalCount: bios.summary.totalCount, attentionCount: bios.summary.attentionCount }} />
   </div>;
 }

@@ -2,10 +2,10 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import type { StatusTone } from "@/lib/status";
 
-export function PageHeader({ eyebrow, title, description, actions }: { eyebrow?: string; title: string; description: string; actions?: ReactNode }) {
+export function PageHeader({ title, description, actions }: { title: string; description: string; actions?: ReactNode }) {
   return (
     <header className="page-header">
-      <div>{eyebrow ? <p className="eyebrow">{eyebrow}</p> : null}<h1>{title}</h1><p>{description}</p></div>
+      <div><h1>{title}</h1><p>{description}</p></div>
       {actions ? <div className="header-actions">{actions}</div> : null}
     </header>
   );

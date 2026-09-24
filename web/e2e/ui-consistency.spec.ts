@@ -1,4 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
+import { expectHomeStates } from "./home-state-support";
+import { expectNaturalHomeFlow } from "./home-layout-support";
 import { evidencePath, noPageOverflow } from "./acceptance-support";
 
 async function expectControlStyles(page: Page, mobile: boolean) {
@@ -49,14 +51,25 @@ async function expectMobileFavorites(page: Page) {
   await expect(navigation.getByRole("button", { name: /全部收藏/ })).toBeHidden();
 }
 
+async function expectHomeFooter(page: Page) {
+  const empty = page.locator(".home-featured-empty");
+  if (await empty.count()) {
+    await expect(empty).toBeVisible();
+    await expect(page.locator(".home-featured-bottom")).toHaveCount(0);
+    return;
+  }
+  const alignment = await page.locator(".home-featured-bottom").evaluate((footer) => {
+    const box = footer.getBoundingClientRect(), panel = footer.closest(".home-featured-panel")!.getBoundingClientRect();
+    return [...footer.children].map((child) => { const rect = child.getBoundingClientRect(); return Math.abs(rect.y + rect.height / 2 - (box.top + panel.bottom - 1) / 2); });
+  });
+  for (const offset of alignment) { expect(offset).toBeLessThanOrEqual(1); }
+}
+
 async function expectRouteComposition(page: Page, route: string, width: number) {
-  await expect(page.locator(".page-header .eyebrow").filter({ hasText: /^(我的游戏|你的游戏)$/ })).toHaveCount(0);
+  await expect(page.locator(".page-header .eyebrow")).toHaveCount(0);
   if (width! >= 1440 && route === "/") {
-    const alignment = await page.locator(".home-featured-bottom").evaluate((footer) => {
-      const box = footer.getBoundingClientRect();
-      return [...footer.children].map((child) => { const rect = child.getBoundingClientRect(); return Math.abs(rect.y + rect.height / 2 - box.y - box.height / 2); });
-    });
-    for (const offset of alignment) { expect(offset).toBeLessThanOrEqual(1); }
+    await expectHomeFooter(page);
+    await expectNaturalHomeFlow(page);
   }
   if (width! >= 1440 && route.startsWith("/games/")) {
     await expect(page.locator(".launch-panel-head .status")).toHaveCount(0);
@@ -119,8 +132,10 @@ test("ACC-UI-011 shared typography, controls and responsive composition", async 
   const response = await page.request.get("/api/v1/games?limit=1");
   expect(response.ok()).toBe(true);
   const gameId: string = (await response.json()).items[0].gameId;
+  await page.setViewportSize({ width: testInfo.project.name === "chrome-4k-150" ? 2560 : 1440, height: 1440 });
+  await expectHomeStates(page, testInfo);
   const userRoutes = ["/", "/library", `/games/${gameId}`, "/saves", "/favorites", "/recent", "/account"];
-  const adminRoutes = ["/admin/games", `/admin/games/${gameId}`, "/admin/platform-instances", "/admin/imports/new", "/admin/imports/tasks", "/admin/imports/server", "/admin/reviews", "/admin/tags", "/admin/users", "/admin/bios", "/admin/storage"];
+  const adminRoutes = ["/admin/imports", "/admin/games", `/admin/games/${gameId}`, "/admin/platform-instances", "/admin/imports/new", "/admin/imports/tasks", "/admin/imports/server", "/admin/reviews", "/admin/tags", "/admin/users", "/admin/bios", "/admin/storage"];
   await page.goto("/admin/imports/server");
   const sourceLink = page.locator('a[href^="/admin/imports/server/source/"]').first();
   if (await sourceLink.count()) { adminRoutes.push((await sourceLink.getAttribute("href"))!); }
