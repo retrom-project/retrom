@@ -90,7 +90,7 @@ async function verifyPageLayouts(page: Page) {
 
 async function verifyHomeLayout(page: Page, testInfo: TestInfo) {
   await page.goto("/");
-  await expect(page.locator("[data-home-layer]")).toHaveCount(5);
+  await expect(page.locator("[data-home-layer]")).toHaveCount(4);
   await expectHomeCoverRatios(page);
   await expect(page.getByText("我的资料库", { exact: true })).toBeVisible();
   if (testInfo.project.name === "chrome-1280") {await page.screenshot({ path: evidencePath(testInfo, "home-layout.png"), fullPage: true });}

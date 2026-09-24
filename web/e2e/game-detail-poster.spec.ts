@@ -101,7 +101,7 @@ async function expectDetailActions(page: Page) {
   if (layout.savedHeight !== undefined) {
     expect(layout.savedHeight).toBeGreaterThanOrEqual(136);
     expect(layout.screenshotWidth).toBe(112);
-    await expect(page.locator(".launch-quick-save")).toHaveCSS("border-radius", "12px");
+    await expect(page.locator(".launch-quick-save")).toHaveCSS("border-radius", "8px");
     await expect(page.locator(".launch-quick-save")).toHaveCSS("border-top-width", "1px");
     expect(layout.screenshotRatio).toBeCloseTo(16 / 9, 2);
   }

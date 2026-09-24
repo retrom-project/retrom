@@ -48,7 +48,7 @@
 .favorite-platforms .favorite-result-count { margin-left: auto; color: #626b7b; white-space: nowrap; }
 .favorite-platforms .favorite-result-count strong { color: var(--ink); }
 .favorite-platforms .favorite-organize-uncategorized { padding-inline: 0; color: var(--purple-dark); border: 0; background: transparent; font-weight: var(--weight-semibold); }
-.favorite-game-grid { display: grid; align-items: start; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: var(--space-5); }
+.favorite-game-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 280px)); gap: 14px; align-items: start; }
 .favorite-game-card { position: relative; min-width: 0; overflow: hidden; border: 1px solid var(--line); border-radius: var(--radius-cover); background: white; transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease; }
 .favorite-game-card:hover, .favorite-game-card:focus-within { z-index: 3; border-color: #d8d2ee; box-shadow: var(--shadow); transform: translateY(-2px); }
 .favorite-game-cover { position: relative; overflow: hidden; aspect-ratio: 3 / 4; display: grid; place-items: center; background: #171d30; }
@@ -60,7 +60,7 @@
 .favorite-poster small { color: #adb8cb; font-size: var(--text-caption); line-height: 1.2; font-family: var(--font-mono); letter-spacing: .12em; font-weight: var(--weight-medium); }
 .favorite-poster strong { min-height: 0; max-height: 100%; margin: 0; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow-wrap: anywhere; overflow: hidden; text-overflow: ellipsis; color: white; font-size: var(--text-poster); line-height: 1.1; font-family: var(--font-sans); font-weight: var(--weight-semibold); letter-spacing: -.02em; text-shadow: none; }
 .favorite-poster > span { padding: 5px 9px; overflow: hidden; color: #c9d2e2; border: 1px solid rgb(255 255 255 / 14%); border-radius: 999px; background: rgb(255 255 255 / 6%); font-weight: var(--weight-semibold); font-size: var(--text-caption); line-height: 1; font-family: var(--font-mono); letter-spacing: .08em; text-overflow: ellipsis; white-space: nowrap; }
-.favorite-game-body { min-height: 64px; padding: var(--space-4); }
+.favorite-game-body { min-height: 64px; padding: 12px 12px 13px; }
 .favorite-game-body h3 { margin: 0 0 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--text-lead); }
 .favorite-game-body p { margin: 0; display: flex; justify-content: space-between; gap: 10px; color: #596477; font-size: var(--text-caption); }
 .favorite-actions-card { position: absolute; z-index: 6; top: 9px; right: 9px; display: flex; gap: 5px; }

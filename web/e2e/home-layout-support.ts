@@ -2,6 +2,7 @@ import { expect, type Page } from "@playwright/test";
 
 export async function expectNaturalHomeFlow(page: Page) {
   const original = page.viewportSize()!;
+  await expect(page.getByRole("heading", { name: "最新添加", exact: true })).toHaveCount(0);
   await expect(page.getByText("正在读取收藏…", { exact: true })).toBeHidden();
   const heights: number[] = [];
   for (const height of [900, 1440, 2160]) {

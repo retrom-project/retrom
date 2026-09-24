@@ -22,8 +22,8 @@ export function checkStyles(css, file, tokens) {
   });
   tree.walkDecls((node) => {
     if (tokenSource) { return; }
-    if (/^--(?:text-|weight-|control-|font-)/.test(node.prop)) {
-      report(node, "Typography and control tokens must be defined in styles/tokens.css");
+    if (/^--(?:text-|weight-|control-|font-|radius-)/.test(node.prop)) {
+      report(node, "Typography, radius and control tokens must be defined in styles/tokens.css");
     }
     if (["font-size", "font-weight", "font-family"].includes(node.prop)) {
       const match = /^var\((--[\w-]+)\)$/.exec(node.value);

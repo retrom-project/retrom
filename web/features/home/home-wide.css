@@ -1,5 +1,7 @@
 /* Wider screens add room within the featured card; page height follows content. */
 @media (min-width: 1800px) {
+  /* Preserve the reference horizontal card proportions without viewport-height tracks. */
+  .home-recent-card { height: auto; aspect-ratio: 2 / 1; }
   .home-first-layer { grid-template-columns: minmax(0, 1fr) 380px; gap: var(--space-4); align-items: stretch; }
   .home-featured-media { height: auto; min-height: 272px; container-type: size; padding: var(--space-5); display: grid; grid-template-columns: auto minmax(0, 1fr) minmax(240px, min(34%, 560px)); gap: var(--space-5); align-items: center; }
   .home-featured-media:not(.has-session-save) { grid-template-columns: auto minmax(0, 1fr); }

@@ -89,22 +89,12 @@ export default async function HomePage() {
       </HorizontalRail>}
     </section>
 
-    <section className="home-layer home-latest-section" data-home-layer="3">
-      <div className="home-section-head"><div><h2>最新添加</h2></div><Link href="/library?sort=ADDED_DESC">查看游戏库</Link></div>
-      {home.latestGames.length === 0 ? <div className="home-inline-empty">新发布的游戏会出现在这里。</div> : <HorizontalRail className="home-recent-rail" label="最新添加的游戏">
-        {home.latestGames.map((game) => <Link className="home-recent-card" href={`/games/${game.gameId}`} key={game.gameId}>
-          <span className="home-recent-cover">{game.coverUrl ? <Image src={game.coverUrl} alt={`${game.title} 封面`} fill sizes="160px" unoptimized /> : <span role="img" aria-label={`${game.title} 暂无封面`}>RETROM</span>}</span>
-          <div className="home-recent-copy"><strong>{game.title}</strong><small>{Array.from(new Set([game.platform.name.trim(), game.platformInstance.name.trim()])).filter(Boolean).join(" · ")}<br />新加入资料库</small><div className="home-recent-bottom"><TagChips tags={game.tags ?? []} limit={2} /><div className="home-recent-meta"><small>添加时间</small><b>{formatTime(game.createdAtMs)}</b></div></div></div>
-        </Link>)}
-      </HorizontalRail>}
-    </section>
-
-    <section className="home-layer home-platform-section" data-home-layer="4">
+    <section className="home-layer home-platform-section" data-home-layer="3">
       <div className="home-section-head"><div><h2>换个平台逛逛</h2></div><Link href="/library">进入游戏库</Link></div>
       <PlatformRail platforms={home.platforms} />
     </section>
 
-    <section className="home-layer home-summary" data-home-layer="5" aria-label="我的资料库">
+    <section className="home-layer home-summary" data-home-layer="4" aria-label="我的资料库">
       <strong>我的资料库</strong><span><b>{home.library.gameCount}</b> 款游戏</span><span><b>{home.library.saveStateCount}</b> 份存档</span><span><b>{duration(home.play.activeDurationMs)}</b> 累计游玩</span>
     </section>
   </div></PhoneLayout></>;

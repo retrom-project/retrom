@@ -1,4 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
+import { expectSearchComposition } from "./search-control-support";
+import { expectCardRadii } from "./card-radius-support";
 import { expectHomeStates } from "./home-state-support";
 import { expectNaturalHomeFlow } from "./home-layout-support";
 import { evidencePath, noPageOverflow } from "./acceptance-support";
@@ -18,7 +20,7 @@ async function expectControlStyles(page: Page, mobile: boolean) {
     // Search inputs live inside a 44px bordered wrapper.
     expect(field.height, field.name).toBeGreaterThanOrEqual(42);
     if (field.tag === "SELECT") {
-      expect(field.radius, field.name).toBe("8px");
+      expect(field.radius, field.name).toBe("6px");
       expect(field.appearance, field.name).toBe("none");
     }
   }
@@ -32,7 +34,7 @@ async function expectControlStyles(page: Page, mobile: boolean) {
   for (const button of buttons) {
     expect(button.font, button.text ?? "button").toBe("14px");
     expect(button.height).toBeGreaterThanOrEqual(44);
-    expect(button.radius).toBe("8px");
+    expect(button.radius).toBe("6px");
     expect(button.scrollWidth).toBeLessThanOrEqual(button.clientWidth + 1);
   }
   await noPageOverflow(page);
@@ -127,6 +129,8 @@ async function expectImmersiveHeader(page: Page, width: number) {
 test("ACC-UI-011 shared typography, controls and responsive composition", async ({ page }, testInfo) => {
   test.setTimeout(180_000);
   page.setDefaultTimeout(12_000);
+  await page.goto("/login");
+  await expectSearchComposition(page);
   const origin = process.env.RETROM_WEB_ORIGIN ?? "http://localhost:4000";
   expect((await page.request.post("/api/v1/auth/login", { headers: { Origin: origin }, data: { username: "test", password: "test" } })).ok()).toBe(true);
   const response = await page.request.get("/api/v1/games?limit=1");
@@ -153,6 +157,8 @@ test("ACC-UI-011 shared typography, controls and responsive composition", async 
       await expect(page.locator("main")).toBeVisible();
       await expect(page.locator(".loading-grid, .favorite-loading-shell")).toHaveCount(0);
       await expectControlStyles(page, width! < 768);
+      await expectCardRadii(page);
+      await expectSearchComposition(page);
       await expectRouteComposition(page, route, width!);
       if (route === "/favorites" && width! < 768) { await expectMobileFavorites(page); }
       await page.screenshot({ path: evidencePath(testInfo, `ui-consistency-${width}-${route.replaceAll("/", "-") || "home"}.png`), fullPage: true });

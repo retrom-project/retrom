@@ -8,7 +8,7 @@ test("rejects the audited small bold controls, including responsive overrides", 
   assert.ok(checkStyles(css, "features/editor.css", tokens).length >= 6);
 });
 test("rejects token shadowing, important, shorthand and undeclared tokens", () => {
-  for (const css of [".page{--text-body:10px}", ".page{font-size:var(--text-body)!important}", ".page{font:800 10px serif}", ".page{font-size:var(--invented)}"]) {
+  for (const css of [".page{--text-body:10px}", ".page{--radius-cover:16px}", ".page{font-size:var(--text-body)!important}", ".page{font:800 10px serif}", ".page{font-size:var(--invented)}"]) {
     assert.ok(checkStyles(css, "features/page.css", tokens).length > 0);
   }
 });
