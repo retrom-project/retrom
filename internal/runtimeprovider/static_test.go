@@ -117,6 +117,48 @@ func TestStaticHandlerRequiresActiveClientModuleIdentity(t *testing.T) {
 	}
 }
 
+func TestStaticHandlerServesOnlyJsbeebProviderHTML(t *testing.T) {
+	root := t.TempDir()
+	bundle := strings.Repeat("a", 64)
+	module := []byte("export{}")
+	page := []byte("<!doctype html><title>BBC</title>")
+	for _, providerID := range []string{"retrom-runtime", "fixture"} {
+		for _, path := range []string{"assets/jsbeeb/site/index.html", "assets/other/index.html"} {
+			directory := filepath.Join(root, providerID, bundle)
+			if err := os.MkdirAll(filepath.Join(directory, filepath.Dir(path)), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(directory, "client.mjs"), module, 0o644); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(directory, filepath.FromSlash(path)), page, 0o644); err != nil {
+				t.Fatal(err)
+			}
+			active := fixtureActive(bundle)
+			active.Providers[0].ProviderID = providerID
+			active.Providers[0].InstallationPath = providerID + "/" + bundle
+			files := []runtimebundle.IntegrityFile{
+				{Path: "client.mjs", SizeBytes: int64(len(module)), SHA256: digestBytes(module), MediaType: "text/javascript; charset=utf-8"},
+				{Path: path, SizeBytes: int64(len(page)), SHA256: digestBytes(page), MediaType: "text/html; charset=utf-8"},
+			}
+			handler, err := NewStaticHandler(root, active, map[string][]runtimebundle.IntegrityFile{providerID: files})
+			if providerID != "retrom-runtime" || path != "assets/jsbeeb/site/index.html" {
+				if !errors.Is(err, ErrInstallationInvalid) {
+					t.Fatalf("%s %s accepted: %v", providerID, path, err)
+				}
+				continue
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			response := request(t, handler, http.MethodGet, "/runtime/providers/"+providerID+"/"+bundle+"/"+path, "")
+			if response.Code != http.StatusOK || response.Body.String() != string(page) || response.Header().Get("Content-Type") != "text/html; charset=utf-8" {
+				t.Fatalf("html response = %d %v %q", response.Code, response.Header(), response.Body.String())
+			}
+		}
+	}
+}
+
 func fixtureStaticHandler(t *testing.T) http.Handler {
 	t.Helper()
 	root := t.TempDir()

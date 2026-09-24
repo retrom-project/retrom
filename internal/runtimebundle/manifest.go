@@ -115,6 +115,7 @@ type integrityFileWire struct {
 }
 
 var integrityMediaTypes = map[string]bool{
+	"text/html; charset=utf-8":       true,
 	"text/javascript; charset=utf-8": true, "text/css; charset=utf-8": true,
 	"text/plain; charset=utf-8": true, "application/json; charset=utf-8": true,
 	"application/wasm": true, "application/octet-stream": true, "application/zip": true,

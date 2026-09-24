@@ -28,6 +28,7 @@ BUILD_RECORD_KEYS = {
 INTEGRITY_KEYS = {"schemaVersion", "files"}
 INTEGRITY_FILE_KEYS = {"path", "sizeBytes", "sha256", "mediaType"}
 MEDIA_TYPES = {
+    "text/html; charset=utf-8",
     "text/javascript; charset=utf-8", "text/css; charset=utf-8",
     "text/plain; charset=utf-8", "application/json; charset=utf-8",
     "application/wasm", "application/octet-stream", "application/zip",
@@ -291,6 +292,8 @@ def _installation_proof(lock: dict[str, Any]) -> dict[str, Any]:
 
 
 def _media_type(path: str) -> str:
+    if path == "assets/jsbeeb/site/index.html":
+        return "text/html; charset=utf-8"
     if path.endswith((".js", ".mjs")):
         return "text/javascript; charset=utf-8"
     if path.endswith(".css"):
