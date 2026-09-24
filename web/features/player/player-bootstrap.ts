@@ -117,6 +117,9 @@ async function bootstrapPlayer(params: PlayerBootstrapParams, resources: Bootstr
   resources.e2eDiagnosticsCleanup = installRuntimeE2EDiagnostics(mounted.runtime);
   resources.surfaceControlsCleanup = installRuntimeSurfaceControls(mounted.runtime, {
     experience: params.experience,
+    keyboardPauseShortcut: !new Set([
+      "atari800", "atari800-xegs", "hatarib", "bbc-jsbeeb", "samcoupe", "theodore",
+    ]).has(envelope.runtime.targetId),
     onKeyboardPause: params.onKeyboardPause,
     onImmersiveMenuShortcut: params.onImmersiveMenuShortcut,
     onRevealControls: params.onRevealControls,

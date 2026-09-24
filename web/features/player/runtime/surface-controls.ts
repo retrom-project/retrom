@@ -3,6 +3,7 @@ import type {PlayerRuntimeV1} from "./contract";
 
 type RuntimeSurfaceControlOptions = {
   experience: "standard" | "immersive";
+  keyboardPauseShortcut?: boolean;
   onKeyboardPause: () => void;
   onImmersiveMenuShortcut: () => void;
   onRevealControls: (clientY: number) => void;
@@ -25,7 +26,7 @@ export function installRuntimeSurfaceControls(
       return;
     }
     if (shouldRevealPlayerControlsForKey(event.key)) {options.onShowControls();}
-    if (!isPauseShortcut(event)) {return;}
+    if (options.keyboardPauseShortcut === false || !isPauseShortcut(event)) {return;}
     event.preventDefault();
     event.stopImmediatePropagation();
     options.onKeyboardPause();
