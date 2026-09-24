@@ -42,6 +42,12 @@ def seed(database_path: Path, state: str) -> None:
         module.seed_play(database, profile, game["id"], game, INDEX, timestamp)
         if state == "played":
             return
+        checkpoint_format = database.execute(
+            "SELECT json_extract(checkpoint_json,'$.readFormats[0]') FROM runtime_targets WHERE provider_id=? AND target_id=?",
+            (game["provider_id"], game["target_id"]),
+        ).fetchone()[0]
+        if not checkpoint_format:
+            raise ValueError("UI fixture target must support checkpoints")
         screenshot = (ROOT / "testdata/public-roms/gba-smoke/emulationstation-smoke-cover.png").read_bytes()
         digest = hashlib.sha256(screenshot).hexdigest()
         target = database_path.parent / "blobs/sha256" / digest[:2] / digest[2:4] / digest
@@ -57,8 +63,8 @@ def seed(database_path: Path, state: str) -> None:
         database.execute(
             "INSERT INTO save_states(id,profile_id,game_id,checkpoint_format,payload_blob_id,payload_sha256,"
             "payload_size_bytes,screenshot_blob_id,source_launch_session_id,name,active_duration_ms,version,created_at_ms,updated_at_ms) "
-            "VALUES(?,?,?,'ui-layout-fixture-v1',?,?,?,?,?,'UI layout fixture',1000,1,?,?)",
-            (SAVE_ID, profile, game["id"], blob_id, digest, len(screenshot), blob_id, launch_id, timestamp, timestamp),
+            "VALUES(?,?,?,?,?,?,?,?,?,'UI layout fixture',1000,1,?,?)",
+            (SAVE_ID, profile, game["id"], checkpoint_format, blob_id, digest, len(screenshot), blob_id, launch_id, timestamp, timestamp),
         )
 
 
