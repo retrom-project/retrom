@@ -72,7 +72,7 @@ export default async function HomePage() {
   const home = await backendJSON<Home>("/api/v1/home");
   return <><ImmersiveEntryDialog /><PhoneLayout phone={<MobileHome home={home} />}><div className="page-layout page-layout-home home-page">
     <section className="home-layer home-hero-layer" data-home-layer="1" aria-label="今天玩什么">
-      <PageHeader eyebrow="我的游戏" title="今天想玩什么？" description="继续上次的冒险，发现下一款心头好。" actions={<ImmersiveHomeEntry />} />
+      <PageHeader title="今天想玩什么？" description="继续上次的冒险，发现下一款心头好。" actions={<ImmersiveHomeEntry />} />
       <div className="home-first-layer" aria-label="最近游玩与快速开始">
         <FeaturedGamePanel game={home.featuredGame} />
         <QuickStart home={home} />

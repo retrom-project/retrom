@@ -65,7 +65,8 @@ Provider 的 checkpoint 压缩依赖由 `retrom-runtime` 自己固定和审计�
 | `make lint-go` | 按需生成被 Git 忽略的 Go API 文件，再使用仓库固定版本的 golangci-lint v2 扫描源码和测试 | 会写被忽略的 Go 生成物 |
 | `make backend-check` | `fmt-check + build + test + lint-go` | 否 |
 | `make web-install` | 在 `web/` 执行 `npm ci`，只接受 `package-lock.json` | 会重建依赖目录 |
-| `make web-lint` | ESLint 扫描全部受控 TS/TSX/JS，warning 视为失败 | 否 |
+| `make web-ui-check` | 检查器自身回归 + 全部产品 CSS/组件的排版 token、控件外观所有权与层级检查；无历史豁免 | 否 |
+| `make web-lint` | 先执行 `web-ui-check`，再以 ESLint 扫描全部受控 TS/TSX/JS，warning 视为失败 | 否 |
 | `make web-typecheck` | `tsc --noEmit` | 否 |
 | `make web-test` | `vitest run` | 否 |
 | `make web-build` | 干净执行 Next.js production build；运行中的本地开发服务需要保留 `.next/` 时可显式设置 `NEXT_DIST_DIR=.next-build` | 只允许重建 `.next/` 或被忽略的 `.next-build/` |
@@ -99,6 +100,7 @@ Provider 的 checkpoint 压缩依赖由 `retrom-runtime` 自己固定和审计�
 
 补充规则：
 
+- UI 变更必须通过 `make web-ui-check` 与 `make acceptance-case CASE=ACC-UI-011`；后者在 PR CI 的 quality job 中独立必跑，覆盖真实页面、桌面/手机/物理 4K 150% 与当前截图。失败不能通过删除断言、缩小 viewport 矩阵或添加历史豁免绕过。设计变更必须更新唯一设计源并人工复核，自动化不代替审美判断。
 - `make ci` 包含全部可复现的仓库内单元、集成与数据检查；没有合法公开 fixture 的核心启动兼容性不在自动化测试中冒充已覆盖。
 - 全新 checkout 的统一初始化入口是 `make install-deps`。它允许在测试或服务启动前联网下载锁定依赖；正确缓存后 `prepare-go`、`prepare-node`、`prepare-deps` 与 `prepare-e2e-browser` 均幂等复用。Go/Node 工具链、浏览器缓存和运行时 payload 不进入 Git 或镜像；固定版本的宿主 Go 可由 `auto` 模式直接复用，PFB 镜像中的固定工具链使用 `system` 模式。
 - 自动化测试不得读取操作者私有 ROM/BIOS。可提交 ROM/项目必须由项目所有或有明确再分发许可、保留可审查的唯一生成源，并由 `data-check`、`public-fixtures-check` 和实际产品消费者共同逐字节校验；当前实例是 `testdata/public-roms/gba-smoke/`、`testdata/public-roms/nes-smoke/`、`testdata/public-roms/snes-smoke/`、`testdata/public-roms/arcade-smoke/` 与 `testdata/public-roms/rpgmaker-smoke/`。RPG Maker 目录只含 Retrom 自有生成内容和清单锁定的 MIT MV CoreScript；ignored MZ 官方样例不属于可提交 fixture。

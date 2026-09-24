@@ -57,3 +57,17 @@ jobs:
         run: make prepare-deps
       - name: Run the repository quality gate
         run: make ci
+      - name: Verify UI consistency in the product browser
+        run: |
+          make prepare-e2e-browser
+          make acceptance-prepare
+          make acceptance-case CASE=ACC-UI-011
+      - name: Upload UI review evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-consistency-evidence
+          path: .artifacts/acceptance/*/cases/acc-ui-011/
+          include-hidden-files: true
+          if-no-files-found: ignore
+          retention-days: 14

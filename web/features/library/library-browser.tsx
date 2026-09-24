@@ -190,7 +190,7 @@ export function LibraryBrowser({ initialPage, initialFilters }: { initialPage: G
   }, [loadMore, nextCursor]);
 
   return <div className="page-layout page-layout-library">
-    <PageHeader eyebrow="我的游戏" title="游戏库" description="找到想玩的经典游戏，打开详情后即可使用推荐配置开始游玩。" />
+    <PageHeader title="游戏库" description="找到想玩的经典游戏，打开详情后即可使用推荐配置开始游玩。" />
 
     <section className="library-toolbar" aria-label="游戏筛选">
       <div className="library-tool-row">

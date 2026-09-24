@@ -19,7 +19,7 @@ export default async function ServerImportDetailPage({ params, searchParams }: {
     throw error;
   }
   return <div className="page-layout page-layout-admin">
-    <PageHeader eyebrow="服务器导入" title="BIOS 导入详情" description="实时进度、逐项结果和候选排序证据会在刷新或重新进入后恢复。" actions={<ButtonLink href="/admin/imports/server" secondary>← 返回导入历史</ButtonLink>} />
+    <PageHeader eyebrow="服务器导入" title="BIOS 导入详情" description="实时进度、逐项结果和候选排序证据会在刷新或重新进入后恢复。" actions={<ButtonLink href="/admin/imports/server" secondary>返回导入历史</ButtonLink>} />
     <ServerImportDetailManager initialDetail={detail} initialFilters={{ query: filters.q ?? "", outcome: filters.outcome ?? "", matchMethod: filters.matchMethod ?? "" }} />
   </div>;
 }

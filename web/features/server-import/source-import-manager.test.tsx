@@ -216,11 +216,16 @@ describe("SourceImportDetailManager", () => {
 
     expect(screen.queryByRole("button", { name: "重试失败条目" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "删除计划" })).not.toBeInTheDocument();
-    expect(screen.getAllByText("缺少父 ROM")[0]).toBeVisible();
-    await user.click(screen.getByText("查看具体原因与处理建议"));
+    expect(screen.queryByText("缺少父 ROM")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "查看具体原因与处理建议" }));
+    expect(screen.getByText("缺少父 ROM")).toBeVisible();
     expect(screen.getByText("LAUNCH_PARENT_MISSING")).toBeVisible();
     expect(screen.getAllByText("1944.zip")[0]).toBeVisible();
     expect(screen.getByText(/把缺失的父 ROM ZIP 放入同一来源目录/)).toBeVisible();
+    expect(screen.getByRole("dialog", { name: "原因与处理建议" })).toBeVisible();
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("dialog", { name: "原因与处理建议" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "查看具体原因与处理建议" })).toHaveFocus();
   });
 
   it("shows structured internal failure context instead of only the aggregate error code", async () => {
@@ -249,8 +254,9 @@ describe("SourceImportDetailManager", () => {
 
     render(<SourceImportDetailManager initialSummary={result} initialItems={{ items: [failed], nextCursor: null }} collections={[]} roots={[root]} platformInstances={[platform]} initialFilters={{ query: "", outcome: "", warning: "", collectionId: "" }} />);
 
-    expect(screen.getAllByText("Arcade companion 候选数量超过内部上限")[0]).toBeVisible();
-    await user.click(screen.getByText("查看具体原因与处理建议"));
+    expect(screen.queryByText("Arcade companion 候选数量超过内部上限")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "查看具体原因与处理建议" }));
+    expect(screen.getByText("Arcade companion 候选数量超过内部上限")).toBeVisible();
     expect(screen.getByText("SOURCE_FILE_LIMIT_EXCEEDED")).toBeVisible();
     expect(screen.getByText("CREATE_SERVER_SOURCE")).toBeVisible();
     expect(screen.getByText("109 / 上限 64")).toBeVisible();
@@ -274,12 +280,21 @@ describe("SourceImportDetailManager", () => {
     };
     const result = summary("COMPLETED", 5, { completedAtMs: 3, counts: { ...summary("COMPLETED", 5).counts, reviewPending: 1 } });
 
-    render(<SourceImportDetailManager initialSummary={result} initialItems={{ items: [reviewItem], nextCursor: null }} collections={[]} roots={[root]} platformInstances={[platform]} initialFilters={{ query: "", outcome: "", warning: "", collectionId: "" }} />);
+    const publishedItem: SourceItem = { ...reviewItem, id: "published", title: "Published Fixture", executionState: "PUBLISHED", publishedGameId: "published-game", payloadState: "RELEASED" };
+    render(<SourceImportDetailManager initialSummary={result} initialItems={{ items: [reviewItem, publishedItem], nextCursor: null }} collections={[]} roots={[root]} platformInstances={[platform]} initialFilters={{ query: "", outcome: "", warning: "", collectionId: "" }} />);
 
     expect(screen.getByRole("link", { name: "逐项审核 1 个游戏" })).toHaveAttribute("href", `/admin/reviews?sourceImportId=${result.id}`);
     expect(screen.getByRole("link", { name: "审核并决定" })).toHaveAttribute("href", expect.stringContaining(`/admin/reviews/${reviewItem.reviewItemId}`));
     expect(screen.queryByRole("button", { name: /批量/ })).not.toBeInTheDocument();
     expect(screen.getByText("内容已准备好，但尚未进入游戏库")).toBeVisible();
+    expect(screen.getByRole("link", { name: "查看游戏" })).toHaveClass("button", "secondary");
+    expect(screen.getByRole("link", { name: "审核并决定" })).toHaveClass("button");
+    const publishedRow = screen.getByText("Published Fixture").closest("article")!;
+    expect(within(publishedRow).getAllByRole("cell")[2]).toHaveTextContent(/^已发布$/);
+    expect(within(publishedRow).getAllByRole("cell")).toHaveLength(4);
+    expect(screen.getByText("Review Fixture").closest("article")!.querySelector(".source-runtime-diagnostic-cell")).toBeNull();
+    expect(screen.queryByText("等待管理员作出审核决定")).not.toBeInTheDocument();
+    expect(screen.queryByText("处理被阻断")).not.toBeInTheDocument();
   });
 });
 

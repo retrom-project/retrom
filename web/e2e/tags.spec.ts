@@ -111,7 +111,7 @@ test("ACC-TAG-005 tag administration, assignment, search, projection, responsive
     borderWidth: 1,
   });
   expect(pickerControlStyle.height).toBeGreaterThanOrEqual(44);
-  expect(pickerControlStyle.borderRadius).toBe(6);
+  expect(pickerControlStyle.borderRadius).toBe(8);
   expect(pickerControlStyle.paddingLeft).toBeGreaterThanOrEqual(12);
   await picker.focus();
   await picker.fill(tagName);

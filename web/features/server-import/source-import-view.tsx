@@ -3,9 +3,10 @@
 import Link from "next/link";
 import { ImportBatchDiscard } from "@/features/imports/import-batch-discard";
 import { DirectorySelector } from "@/features/imports/directory-selector";
-import { useEffect, useRef, type KeyboardEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { AppIcon } from "@/components/app-icon";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import { ResponsiveSheet } from "@/components/responsive-sheet";
 import { Toast } from "@/components/flash-toast";
 import { TagChips, TagPicker, type TagReference } from "@/components/tag-picker";
 import { StatusBadge } from "@/components/ui";
@@ -86,9 +87,11 @@ function RuntimeEvidence({ item }: { item: SourceItem }) {
 }
 
 function RuntimeCheckDetails({ item }: { item: SourceItem }) {
+  const [open, setOpen] = useState(false);
+  const trigger = useRef<HTMLButtonElement>(null);
   const reason = runtimeReason(item);
   if (!reason || item.executionState === "PUBLISHED" || item.executionState === "SKIPPED_EXISTING") {return null;}
-  return <details className="source-runtime-diagnostic"><summary>查看具体原因与处理建议</summary><div className="source-runtime-diagnostic-body"><header><div><strong>{reason.title}</strong><p>{reason.explanation}</p></div><code>{reason.code}</code></header><FailureDetails item={item} /><RuntimeEvidence item={item} /><p className="source-runtime-action"><strong>处理建议</strong>{reason.action}{reason.code === "LAUNCH_BIOS_MISSING" ? <Link href="/admin/bios">打开 BIOS 管理</Link> : null}</p></div></details>;
+  return <><button ref={trigger} type="button" className="button secondary" aria-label="查看具体原因与处理建议" aria-haspopup="dialog" onClick={() => setOpen(true)}>查看原因</button><ResponsiveSheet open={open} title="原因与处理建议" description={item.title} placement="right" className="source-runtime-sheet" returnFocusRef={trigger} onClose={() => setOpen(false)}><div className="source-runtime-diagnostic-body"><header><div><strong>{reason.title}</strong><p>{reason.explanation}</p></div><code>{reason.code}</code></header><FailureDetails item={item} /><RuntimeEvidence item={item} /><p className="source-runtime-action"><strong>处理建议</strong>{reason.action}{reason.code === "LAUNCH_BIOS_MISSING" ? <Link href="/admin/bios">打开 BIOS 管理</Link> : null}</p></div></ResponsiveSheet></>;
 }
 
 function trapFocus(drawer: HTMLElement | null, event: KeyboardEvent<HTMLElement>, busy: boolean, onClose: () => void) {
@@ -178,19 +181,17 @@ function outcomeTone(item: SourceItem): "good" | "warn" | "bad" | "info" {
 
 function ItemAction({ item, reviewURL }: { item: SourceItem; reviewURL: string }) {
   const reviewHref = item.reviewItemId ? `/admin/reviews/${item.reviewItemId}?returnTo=${encodeURIComponent(reviewURL)}` : null;
-  if (reviewHref && item.executionState === "REVIEW_PENDING") {return <Link className="button compact source-review-action" href={reviewHref}>{item.runtimeCheck?.status === "READY" ? "审核并决定" : "处理运行问题"}</Link>;}
-  if (item.publishedGameId) {return <Link href={`/games/${item.publishedGameId}`}>查看游戏</Link>;}
-  if (item.existingGameId) {return <Link href={`/games/${item.existingGameId}`}>已有游戏</Link>;}
+  if (reviewHref && item.executionState === "REVIEW_PENDING") {return <Link className="button source-review-action" href={reviewHref}>{item.runtimeCheck?.status === "READY" ? "审核并决定" : "处理运行问题"}</Link>;}
+  if (item.publishedGameId) {return <Link className="button secondary source-review-action" href={`/games/${item.publishedGameId}`}>查看游戏</Link>;}
+  if (item.existingGameId) {return <Link className="button secondary source-review-action" href={`/games/${item.existingGameId}`}>已有游戏</Link>;}
   if (item.executionState === "REVIEW_DISCARDED") {return <small>管理员已丢弃</small>;}
   if (item.discoveryCode === "PEGASUS_MULTIPLE_LAUNCH_FILES_UNSUPPORTED") {return <small>来源声明了多个可选启动文件；请整理为单文件或受支持的 Saturn M3U。</small>;}
   return <span>—</span>;
 }
 
 function ResultRow({ item, reviewURL }: { item: SourceItem; reviewURL: string }) {
-  const reason = runtimeReason(item);
-  const result = reason?.title ?? item.errorCode ?? item.discoveryCode ?? (item.warnings.map((warning) => warning.code).join("、") || (item.executionState === "REVIEW_PENDING" ? "等待管理员作出审核决定" : "无附加结果码"));
   const mediaTone = (state: string) => state === "READY" ? "good" as const : state === "WARNING" ? "warn" as const : "info" as const;
-  return <article role="row"><div role="cell"><h3>{item.title}</h3><SourceFlags flags={item.sourceFlags} /><TagChips tags={item.tags} limit={2} ariaLabel={`${item.title} 的标签`} /><p>{item.collectionName ?? "无有效 Collection"} → {item.targetPlatformInstanceName ?? "未映射"}</p><small>{item.metadataRelativePath} · {item.contentKind ?? "内容类型待定"}</small></div><div role="cell" className="source-result-media">{item.payloadState === "RELEASED" ? <StatusBadge tone="good">源文件已清理</StatusBadge> : <><StatusBadge tone={mediaTone(item.media.cover)}>封面 {item.media.cover}</StatusBadge><StatusBadge tone={mediaTone(item.media.video)}>视频 {item.media.video}</StatusBadge></>}</div><div role="cell"><StatusBadge tone={outcomeTone(item)}>{sourceOutcomeLabels[item.executionState]}</StatusBadge><small>{result}</small></div><div role="cell"><ItemAction item={item} reviewURL={reviewURL} /></div><div role="cell" className="source-runtime-diagnostic-cell"><RuntimeCheckDetails item={item} /></div></article>;
+  return <article role="row"><div role="cell"><h3>{item.title}</h3><SourceFlags flags={item.sourceFlags} /><TagChips tags={item.tags} limit={2} ariaLabel={`${item.title} 的标签`} /><p>{item.collectionName ?? "无有效 Collection"} → {item.targetPlatformInstanceName ?? "未映射"}</p><small>{item.metadataRelativePath} · {item.contentKind ?? "内容类型待定"}</small></div><div role="cell" className="source-result-media">{item.payloadState === "RELEASED" ? <StatusBadge tone="good">源文件已清理</StatusBadge> : <><StatusBadge tone={mediaTone(item.media.cover)}>封面 {item.media.cover}</StatusBadge><StatusBadge tone={mediaTone(item.media.video)}>视频 {item.media.video}</StatusBadge></>}</div><div role="cell" className="source-result-state"><StatusBadge tone={outcomeTone(item)}>{sourceOutcomeLabels[item.executionState]}</StatusBadge><RuntimeCheckDetails item={item} /></div><div role="cell"><ItemAction item={item} reviewURL={reviewURL} /></div></article>;
 }
 
 type DetailViewProps = { onDiscarded?: () => void; summary: SourceImportSummary; items: SourceItem[]; nextCursor: string | null; draft: DetailFilters; collections: SourceCollection[]; busy: boolean; error: string; cancelOpen: boolean; mappingOpen: boolean; mappingDrawer: ReactNode; onDraft: (draft: DetailFilters) => void; onApplyFilters: () => void; onCancelOpen: (open: boolean) => void; onCancel: () => void; onRetry: () => void; onMappingOpen: (open: boolean) => void; onLoadMore: () => void; onDismissError: () => void };

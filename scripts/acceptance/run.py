@@ -453,6 +453,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     "ACC-UI-006": (180, "scripts/acceptance/ui-case.sh ACC-UI-006"),
     "ACC-UI-007": (180, "scripts/acceptance/ui-case.sh ACC-UI-007"),
     "ACC-UI-008": (180, "scripts/acceptance/ui-case.sh ACC-UI-008"),
+    "ACC-UI-011": (300, "scripts/acceptance/ui-case.sh ACC-UI-011"),
     "ACC-UI-009": (180, "scripts/acceptance/ui-case.sh ACC-UI-009"),
     "ACC-UI-010": (180, "scripts/acceptance/ui-case.sh ACC-UI-010"),
     "ACC-STOR-001": (

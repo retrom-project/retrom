@@ -42,7 +42,7 @@ function waitForValidation(jobId: string) {
   });
 }
 
-export function LaunchButton({ gameId, coreId = null, saveStateId = null, dosEntry = null, returnTo = `/games/${gameId}`, requiresThreads = false, disabled = false, label = "开始游戏", onLaunchCreated }: { gameId: string; coreId?: string | null; saveStateId?: string | null; dosEntry?: string | null; returnTo?: string; requiresThreads?: boolean; disabled?: boolean; label?: string; onLaunchCreated?: () => void }) {
+export function LaunchButton({ gameId, coreId = null, saveStateId = null, dosEntry = null, returnTo = `/games/${gameId}`, requiresThreads = false, disabled = false, label = "开始游戏", onLaunchCreated, secondary = false }: { gameId: string; coreId?: string | null; saveStateId?: string | null; dosEntry?: string | null; returnTo?: string; requiresThreads?: boolean; disabled?: boolean; label?: string; onLaunchCreated?: () => void; secondary?: boolean }) {
   const router = useRouter();
   const [state, setState] = useState<"idle" | "starting" | "blocked">("idle");
   const [message, setMessage] = useState("");
@@ -103,5 +103,5 @@ export function LaunchButton({ gameId, coreId = null, saveStateId = null, dosEnt
   }
 
   const biosBlocked = /BIOS|固件/.test(message);
-  return <><button className="button" disabled={disabled || state === "starting"} onClick={() => void launch()}>{state === "starting" ? "正在准备运行环境…" : label}</button>{state === "blocked" ? <p role="alert" className="status bad">{message}{biosBlocked ? <> <Link href="/admin/bios?scope=REQUIRED_BY_LIBRARY">前往 BIOS 管理</Link></> : null}</p> : null}</>;
+  return <><button className={secondary ? "button secondary" : "button"} disabled={disabled || state === "starting"} onClick={() => void launch()}>{state === "starting" ? "正在准备运行环境…" : label}</button>{state === "blocked" ? <p role="alert" className="status bad">{message}{biosBlocked ? <> <Link href="/admin/bios?scope=REQUIRED_BY_LIBRARY">前往 BIOS 管理</Link></> : null}</p> : null}</>;
 }

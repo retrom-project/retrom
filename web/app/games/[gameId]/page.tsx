@@ -1,3 +1,4 @@
+import { AppIcon } from "@/components/app-icon";
 import { PhoneDisclosure } from "@/features/mobile/phone-layout";
 import { notFound } from "next/navigation";
 import Link from "next/link";
@@ -55,13 +56,13 @@ export default async function GamePage({ params }: { params: Promise<{ gameId: s
   const latestSave = latestAvailableSave(saves.items);
   return (
     <div className="page-layout page-layout-detail game-detail-page">
-      <nav className="game-detail-breadcrumb" aria-label="返回导航"><Link href="/library">← 游戏库</Link></nav>
+      <nav className="game-detail-breadcrumb" aria-label="返回导航"><Link href="/library"><AppIcon name="arrow-left" />返回游戏库</Link></nav>
       <section className="game-detail-hero">
         <div className="game-detail-poster-shell">
           <GameDetailMedia title={game.title} coverUrl={game.coverUrl} videoUrl={game.videoUrl} />
         </div>
         <div className="game-detail-main">
-          <p className="game-detail-eyebrow">{game.platform.name} · {game.platformInstance.name}</p>
+          <p className="game-detail-eyebrow">{Array.from(new Set([game.platform.name.trim(), game.platformInstance.name.trim()])).filter(Boolean).join(" · ")}</p>
           <div className="game-detail-title-row">
             <FavoriteActions gameId={game.gameId} title={game.title} initialFavorite={game.favorite} variant="detail" showManageButton={false} />
             <h1>{game.title}</h1>
