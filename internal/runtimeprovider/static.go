@@ -22,6 +22,7 @@ var (
 	providerIDPattern = regexp.MustCompile(`^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$`)
 	digestPattern     = regexp.MustCompile(`^[0-9a-f]{64}$`)
 	publicMediaTypes  = map[string]bool{
+		"text/html; charset=utf-8":        true,
 		"text/javascript; charset=utf-8":  true,
 		"text/css; charset=utf-8":         true,
 		"text/plain; charset=utf-8":       true,
@@ -166,7 +167,9 @@ func loadStaticFile(
 	file runtimebundle.IntegrityFile,
 ) (*staticFile, bool, error) {
 	if !safeBundlePath(file.Path) || file.SizeBytes < 0 ||
-		!digestPattern.MatchString(file.SHA256) || !publicMediaTypes[file.MediaType] {
+		!digestPattern.MatchString(file.SHA256) || !publicMediaTypes[file.MediaType] ||
+		file.MediaType == "text/html; charset=utf-8" &&
+			(provider.ProviderID != "retrom-runtime" || file.Path != "assets/jsbeeb/site/index.html") {
 		return nil, false, ErrInstallationInvalid
 	}
 	fullPath := filepath.Join(

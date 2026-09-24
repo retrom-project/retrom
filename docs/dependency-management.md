@@ -3,8 +3,8 @@
 | 属性 | 内容 |
 | --- | --- |
 | 文档状态 | 已实施 / 一期权威基线 |
-| 版本 | 2.3 |
-| 日期 | 2026-09-22 |
+| 版本 | 2.4 |
+| 日期 | 2026-09-24 |
 
 ## 1. 依赖分层
 
@@ -32,6 +32,8 @@ Provider Bundle 是 Target 行为的唯一事实源。Retrom 的 binding catalog
 
 归档必须确定性生成：规范路径、顺序、mode、mtime、owner、压缩参数和 JSON 编码完全固定。同一输入连续构建两次必须得到相同 archive digest。绝对路径、`..`、链接逃逸、重复路径、大小溢出、未声明文件、摘要漂移或不完整许可都会使构建/安装失败。
 
+Provider 的 HTML 静态页仅允许 `retrom-runtime` 的 `assets/jsbeeb/site/index.html`，新归档的完整性条目必须声明 `text/html; charset=utf-8`。安装器读取已安装的旧归档时仍接受该路径原有的 `application/octet-stream`，以便校验并升级旧基座；新构建不再输出旧类型。安装器拒绝其他 Provider 或路径的 HTML；该闭合例外让 BBC 核心页面可在 iframe 中导航，其他未知扩展仍按二进制资源处理。
+
 每个 Target 必须内联一个闭合 `targetOptionsSchema`。Retrom 权威 schema 只定义这套受限方言，Provider declaration 定义具体属性；Host 不维护 `optionsKind`、Target→选项映射或默认值。Go 在签发 envelope 前精确验证，Provider Module 在 mount 前以同一声明复核，Web dispatcher 只做通用 JSON 安全和资源上限。
 
 Provider manifest 的 `providerApiVersion` 在结构层只要求正整数，使未来文档仍能被安全识别和持久化；当前 active loader 与安装器只接受 Provider API 1。结构可解析不等于实现可执行，未知 API 必须在激活前失败关闭。
@@ -47,10 +49,10 @@ Provider manifest 的 `providerApiVersion` 在结构层只要求正整数，使�
 `data/runtime-providers/release.json` 是 Retrom 唯一的正式 runtime 选择配置，只包含：
 
 ```json
-{"tag":"v0.48.0"}
+{"tag":"v0.48.2"}
 ```
 
-更新版本使用 `make runtime-provider-pin-release TAG=v0.48.0`，也可直接编辑此文件。pin 先验证发布描述，成功后原子写入 tag；无需本地下载两个完整归档。仓库地址固定为 `https://github.com/retrom-project/retrom-runtime`，准备工具从该 tag 的 GitHub Release 下载 `provider-release.json`，从中解析两个 Provider 的 commit、归档名、SHA-256、大小和文件数。不再维护或生成可提交的逐 Provider lock 文件；共享 `provider-lock.schema.json` 仅描述工具内部派生的安装输入。
+更新版本使用 `make runtime-provider-pin-release TAG=v0.48.2`，也可直接编辑此文件。pin 先验证发布描述，成功后原子写入 tag；无需本地下载两个完整归档。仓库地址固定为 `https://github.com/retrom-project/retrom-runtime`，准备工具从该 tag 的 GitHub Release 下载 `provider-release.json`，从中解析两个 Provider 的 commit、归档名、SHA-256、大小和文件数。不再维护或生成可提交的逐 Provider lock 文件；共享 `provider-lock.schema.json` 仅描述工具内部派生的安装输入。
 
 `make runtime-provider-prepare` 和后端镜像 builder 都使用该配置，必须同时解析出 `emulatorjs` 与 `retrom-runtime`，并验证 repository、tag、版本和闭合字段。描述缓存在 `.cache/runtime-providers/releases/<tag>/provider-release.json`；归档继续按内容摘要缓存。完整缓存支持断网重建，每次仍复核描述和归档、安装文件的完整性。错误发布描述、损坏下载或缓存不得更新 active；缺少 Release/asset 时失败，不回退到本地 candidate。tag 和发布资产必须不可变，更新使用新 tag。
 
