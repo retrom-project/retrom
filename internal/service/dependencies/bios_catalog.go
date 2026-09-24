@@ -52,8 +52,9 @@ var staticBIOSCatalog = append(pc88BIOSCatalog(), []staticBIOS{
 	{
 		coreID: "samcoupeweb", logical: "samcoupe.rom", mode: "REQUIRED", size: 32768,
 		md5: "ad08ed47b07b0d7047fd3d0b5e7d90b3", sha256: "e7ec9cd06fb2d479a807cf1739e75f3ef4975c12869be3d3a991232c57d1688d",
-		sourceURL: "https://github.com/anomixer/SamCoupeWeb/blob/6593bda819830c07bd48e0dffd32d3b3ef525fb0/Resource/samcoupe.rom",
-		delivery:  "EXTERNAL_FILE", emulatorPath: "/Resource/samcoupe.rom",
+		sourceURL: "https://github.com/anomixer/SamCoupeWeb/blob/" +
+			"6593bda819830c07bd48e0dffd32d3b3ef525fb0/Resource/samcoupe.rom",
+		delivery: "EXTERNAL_FILE", emulatorPath: "/Resource/samcoupe.rom",
 	},
 	{
 		coreID: "freechaf", logical: "sl31253.bin", mode: "REQUIRED", size: 1024,
