@@ -80,9 +80,8 @@ Dreamcast 通过 `emulatorjs/flycast` Target 接入 nasomers/flycast-wasm 的 WA
 BIOS 使用安装快照中的 `/dc/dc_boot.bin` 与 `/dc/dc_flash.bin`，关闭 HLE BIOS。
 标准手柄的 A/B/X/Y 按 Dreamcast 物理位置绑定，方向、摇杆及 L/R 扳机由标准输入表传递。
 
-Provider 在 OPFS 按完整 SHA-256 缓存 CHD，每次命中重新流式校验长度和摘要；不支持 OPFS
-或写入配额不足时回退到经过同样校验的内存 Blob。缓存只保存游戏字节，不保存 Launch URL
-或授权信息。新 Launch 仍须取得当前 envelope grant；清除站点存储会重新下载。
+Flycast 的 CHD 通过 `SEEKABLE_BLOB` 和 Content I/O Range reader 向原生 CHD hunk 读取提供最多 256 KiB 的块；
+启动前不物化整个镜像。每个 Launch 仍须取得当前 envelope grant，Range reader 负责块缓存、身份校验和取消。
 即时存档由公共 Provider 边界统一压缩一次，写入 `flycast-state-v1-storage-v1`；恢复时按声明格式有界解压，
 压缩前后均遵守 Provider 的大小上限，并继续读取旧 `flycast-state-v1` 和 `flycast-state-gzip-v1` 存档。恢复等待核心启动完成。
 Flycast 的 iframe 在创建 WebGL 上下文时保留绘图缓冲区，避免浏览器呈现后清空缓冲区，
@@ -92,6 +91,8 @@ Flycast 的 iframe 在创建 WebGL 上下文时保留绘图缓冲区，避免浏
 NAOMI、NAOMI 2 与 Atomiswave 通过各自的 Platform/Core 绑定使用同一 Flycast 核心字节，
 分别对应 `emulatorjs/flycast-naomi`、`flycast-naomi2`、`flycast-atomiswave` Target。
 首期内容为单个街机卡带 ROM ZIP；保留机器短名作为 Flycast 的游戏识别名，浏览器不解压。
+卡带 ZIP 也使用同一 Flycast Range 桥接；原生 ZIP 解析按 seek 请求最多 256 KiB 的块，不预先下载整个归档。
+卡带初始化仍可能读取多数或全部 ROM entry，实际总传输量由核心的读取行为决定。
 三者分别要求安装 `/dc/naomi.zip`、`/dc/naomi2.zip`、`/dc/awbios.zip`。
 GD-ROM 游戏所需的 ZIP + CHD 配对，以及 clone/parent ROM 集合，尚未进入该内容契约。
 

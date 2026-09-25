@@ -12,10 +12,11 @@ import {waitForPreviewReady, revealPreviewToolbar} from "./rpgmaker_preview_acti
 const env = process.env, base = env.RETROM_ACCEPTANCE_BASE_URL;
 const directory = resolve(env.RETROM_ACCEPTANCE_CASE_DIR ?? ".artifacts/flycast-storage");
 mkdirSync(directory, {recursive: true});
-const evidence = {caseId: "ACC-FLYCAST-001", status: "FAIL", stages: [], errors: [], runtimes: [], diskRequests: 0, biosWarnings: []};
+const evidence = {caseId: "ACC-FLYCAST-001", status: "FAIL", stages: [], errors: [], runtimes: [], rangeResponses: 0, biosWarnings: []};
 const hash = bytes => createHash("sha256").update(bytes).digest("hex");
 let browser, proxy;
 const requests = [];
+const gameUrls = new Set();
 async function prepare(client) {
   const file = join(directory, "product-input.json");
   const progress = existsSync(file) ? JSON.parse(readFileSync(file)) : {};
@@ -54,9 +55,8 @@ async function prepare(client) {
   return progress;
 }
 async function open(launch) {
-  const requestStart = requests.length;
   const page = await browser.contexts()[0].newPage();
-  page.on("pageerror", error => evidence.errors.push(error.message.slice(0, 200)));
+  page.on("pageerror", error => evidence.errors.push((error.stack ?? error.message).slice(0, 1200)));
   await page.goto(base + launch.playUrl, {waitUntil: "domcontentloaded"});
   await waitForPreviewReady(page);
   let frame;
@@ -67,9 +67,10 @@ async function open(launch) {
   await frame.locator("canvas").first().click();
   const config = await page.evaluate(async id => (await fetch(`/runtime/launches/${id}/config`)).json(), launch.launchId ?? launch.previewId);
   assert.equal(config.runtime.targetId, "flycast");
-  const disk = config.resources.find(resource => resource.kind === "ROM_BLOB");
+  const disk = config.resources.find(resource => resource.kind === "SEEKABLE_BLOB" && resource.role === "game");
+  assert.equal(disk.rangeRequired, true);
   assert.equal(disk.sha256, hash(readFileSync(env.RETROM_FLYCAST_CHD)));
-  evidence.diskRequests += requests.slice(requestStart).filter(url => url === new URL(disk.url, base).href).length;
+  gameUrls.add(new URL(disk.url, base).href);
   evidence.runtimes.push({providerVersion: config.runtime.providerVersion, bundleSha256: config.runtime.bundleSha256,
     moduleSha256: config.runtime.moduleSha256});
   return {page, frame, config, canvas: frame.locator("canvas").first()};
@@ -113,7 +114,8 @@ try {
   browser = await chromium.launch({executablePath: env.RETROM_CHROME_EXECUTABLE, headless: true,
     args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--autoplay-policy=no-user-gesture-required"]});
   const context = await browser.newContext({viewport: {width: 1280, height: 900}, ...proxy.contextOptions});
-  context.on("request", request => requests.push(request.url()));
+  context.on("response", response => requests.push({url: response.url(), status: response.status(),
+    method: response.request().method(), range: response.request().headers().range}));
   context.setDefaultTimeout(30000); await installVirtualStandardGamepad(context);
   const client = await fantasyClient(context, base), progress = await prepare(client);
   evidence.gameId = progress.gameId; evidence.gameSha256 = progress.digest;
@@ -146,10 +148,14 @@ try {
   assert.equal(fresh.config.restore, null); await fresh.canvas.screenshot({path: join(directory, "fresh.png")}); await fresh.page.close();
   evidence.checkpoint = {storedBytes: bytes.length, rawBytes: raw.length, rawSha256: hash(raw), storedSha256: hash(bytes)};
   evidence.launches = {original: original.launchId, restored: restored.launchId};
-  assert.equal(evidence.diskRequests, 1, "FLYCAST_DISC_CACHE_MISS");
+  const gameRequests = requests.filter(request => gameUrls.has(request.url) && request.method === "GET");
+  evidence.rangeResponses = gameRequests.filter(request => request.status === 206 && request.range).length;
+  assert.ok(evidence.rangeResponses > 0, "FLYCAST_RANGE_NOT_USED");
+  assert.ok(gameRequests.every(request => request.status === 206 && request.range), "FLYCAST_FULL_GAME_DOWNLOAD");
   assert.deepEqual(evidence.errors, []); evidence.status = "AWAITING_VISUAL_REVIEW";
 } catch (error) {evidence.error = error.message.slice(0, 500); process.exitCode = 1;}
 finally {
+  evidence.observedRanges = requests.filter(request => request.status === 206 && request.range).length;
   await browser?.close(); await proxy?.close();
   writeFileSync(join(directory, "flycast-storage-product.json"), JSON.stringify(evidence, null, 2));
   console.log(JSON.stringify(evidence));

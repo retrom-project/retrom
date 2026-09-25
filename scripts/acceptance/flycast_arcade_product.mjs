@@ -20,12 +20,13 @@ const cases = {
 const platform = env.RETROM_FLYCAST_ARCADE_PLATFORM;
 const scenario = cases[platform];
 const directory = resolve(env.RETROM_ACCEPTANCE_CASE_DIR ?? `.artifacts/flycast-${platform}`);
-const evidence = {caseId: `ACC-FLYCAST-ARCADE-${platform}`, status: "FAIL", stages: [], errors: []};
+const evidence = {caseId: `ACC-FLYCAST-ARCADE-${platform}`, status: "FAIL", stages: [], errors: [], consoleErrors: [], rangeResponses: 0};
 let browser, proxy;
+const requests = [], gameUrls = new Set();
 
 async function openPlayer(context, playUrl, launchId, expectedTarget) {
   const page = await context.newPage();
-  page.on("pageerror", error => evidence.errors.push(error.message.slice(0, 300)));
+  page.on("pageerror", error => evidence.errors.push((error.stack ?? error.message).slice(0, 1200)));
   await page.goto(env.RETROM_ACCEPTANCE_BASE_URL + playUrl, {waitUntil: "domcontentloaded"});
   await waitForPreviewReady(page);
   let frame;
@@ -39,6 +40,10 @@ async function openPlayer(context, playUrl, launchId, expectedTarget) {
   assert.equal(await frame.evaluate(() => window.EJS_emulator?.fileName), gameName);
   const config = await page.evaluate(async id => (await fetch(`/runtime/launches/${id}/config`)).json(), launchId);
   assert.equal(config.runtime.targetId, expectedTarget);
+  const game = config.resources.find(resource => resource.role === "game");
+  assert.equal(game?.kind, "SEEKABLE_BLOB");
+  assert.equal(game.rangeRequired, true);
+  gameUrls.add(new URL(game.url, env.RETROM_ACCEPTANCE_BASE_URL).href);
   const bios = config.resources.find(resource => resource.role === "external")?.files ?? [];
   assert.ok(bios.some(file => file.virtualPath === `dc/${scenario.bios}`), "FLYCAST_ARCADE_BIOS_NOT_MOUNTED");
   const mountedBiosBytes = await frame.evaluate(name => window.EJS_emulator.gameManager.FS.stat(`/dc/${name}`).size,
@@ -83,6 +88,10 @@ try {
   browser = await chromium.launch({executablePath: env.RETROM_CHROME_EXECUTABLE, headless: true,
     args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--autoplay-policy=no-user-gesture-required"]});
   const context = await browser.newContext({viewport: {width: 1280, height: 900}, ...proxy.contextOptions});
+  context.on("response", response => requests.push({url: response.url(), status: response.status(),
+    method: response.request().method(), range: response.request().headers().range}));
+  context.on("console", message => {if (message.type() === "error" && evidence.consoleErrors.length < 20)
+    evidence.consoleErrors.push(message.text().slice(0, 500));});
   context.setDefaultTimeout(30_000);
   await installVirtualStandardGamepad(context);
   const client = await fantasyClient(context, env.RETROM_ACCEPTANCE_BASE_URL);
@@ -150,12 +159,17 @@ try {
   await gamepad(third.page, 0, 250);
   await third.page.close();
   evidence.stages.push("restore-input");
+  const gameRequests = requests.filter(request => gameUrls.has(request.url) && request.method === "GET");
+  evidence.rangeResponses = gameRequests.filter(request => request.status === 206 && request.range).length;
+  assert.ok(evidence.rangeResponses > 0, "FLYCAST_ARCADE_RANGE_NOT_USED");
+  assert.ok(gameRequests.every(request => request.status === 206 && request.range), "FLYCAST_ARCADE_FULL_ROM_DOWNLOAD");
   assert.deepEqual(evidence.errors, []);
   evidence.status = "AWAITING_VISUAL_REVIEW";
 } catch (error) {
   evidence.error = error.stack?.slice(0, 1000) ?? String(error);
   process.exitCode = 1;
 } finally {
+  evidence.observedRanges = requests.filter(request => request.status === 206 && request.range).length;
   await browser?.close();
   await proxy?.close();
   if (scenario) {

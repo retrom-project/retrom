@@ -2137,8 +2137,8 @@ ShowFrame-at-EOF 输入先补显式 End。帧头、可执行标签和资源
   创建普通 Product Launch，在可辨认场景创建非空 `flycast-state-v1-storage-v1` 即时存档，记录大小/摘要。
   退出后创建不同 Launch，显式指定该 SaveState；核对恢复到保存场景且方向、确认仍可操作。
   再创建不指定存档的 Launch，确认正常启动而非隐式恢复。
-- 缓存：同一浏览器上下文第二次启动应命中按内容摘要命名的 OPFS CHD，长度正确，
-  不再请求游戏内容端点；单元测试另覆盖损坏、短读、超限和无 OPFS 的回退。
+- 内容：CHD 声明为 `SEEKABLE_BLOB`；在预览、Product Launch 和恢复时记录游戏资源的 HTTP 206 Range 请求，
+  不得出现整包 HTTP 200 下载。覆盖跨实例的块复用、内容身份变化、短读、超限与缓存不可用时的网络读取。
 - 证据：本次预览、保存、恢复、恢复后输入截图，非秘密 Launch/Save ID、内容/存档摘要、
   精确 Bundle/Target 和浏览器/GPU。私有游戏、BIOS、授权 URL 与 cookie 不进入 Git 或结构化证据。
 - 通过标准：所有上述步骤完成；只报告所用样本和浏览器。软件 GPU 的帧数只证明运行，不推断实体显卡性能。
@@ -2168,7 +2168,7 @@ ShowFrame-at-EOF 输入先补显式 End。帧头、可执行标签和资源
 - 类型：操作者授权语料的真实 PFB 产品验收；每个平台使用对应的单文件机器名 ZIP 和 BIOS ZIP，私有字节不进入仓库。
 - 输入：普通 `RETROM_ACCEPTANCE_BASE_URL/USERNAME/PASSWORD`、`RETROM_CHROME_EXECUTABLE`、`RETROM_ACCEPTANCE_CASE_DIR`，以及 `RETROM_FLYCAST_ARCADE_PLATFORM`（`naomi`、`naomi2`、`atomiswave`）、`RETROM_FLYCAST_ARCADE_ROM`、`RETROM_FLYCAST_ARCADE_BIOS_DIR`。默认等待可见画面的上限为 180 秒，可用 `RETROM_FLYCAST_ARCADE_VISIBLE_TIMEOUT_MS` 调整。
 - 执行：硬超时 900 秒，运行 `timeout 900 node scripts/acceptance/flycast_arcade_product.mjs`；每个平台在独立 PFB 中或同一未污染 PFB 中各运行一次。脚本安装对应 BIOS、应用推荐目录、导入审核、启动 Review Preview 和 Product Launch，通过标准 Gamepad API 送方向/确认，创建即时存档并在另一 Launch 恢复。
-- 证据：每个平台的 `evidence.json` 与预览、输入、产品、恢复截图；核对实际游戏画面和输入影响后才从 `AWAITING_VISUAL_REVIEW` 标记为 PASS。验证 Target、原机器 ZIP 文件名、`dc/<bios>.zip` 外部挂载和 `flycast-state-v1-storage-v1` 格式。单一样本结果不能外推为完整街机兼容性；GD-ROM ZIP+CHD 与 clone/parent ROM 不属于当前单卡带内容契约。
+- 证据：每个平台的 `evidence.json` 与预览、输入、产品、恢复截图；核对实际游戏画面和输入影响后才从 `AWAITING_VISUAL_REVIEW` 标记为 PASS。验证 Target、原机器 ZIP 文件名、`SEEKABLE_BLOB` 与游戏资源的 HTTP 206 Range 请求（不得有整包 200）、`dc/<bios>.zip` 外部挂载和 `flycast-state-v1-storage-v1` 格式。单一样本结果不能外推为完整街机兼容性；GD-ROM ZIP+CHD 与 clone/parent ROM 不属于当前单卡带内容契约。
 
 ### ACC-PS2-001：Play! PS2 按需光盘与即时状态
 
