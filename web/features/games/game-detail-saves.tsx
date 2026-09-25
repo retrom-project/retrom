@@ -26,35 +26,24 @@ export function GameDetailSaves({ gameId, gameTitle, saves, nowMs, threadCoreIds
   const formatTime = useSaveTimeFormatter();
   const recentSaves = saves.slice(0, 3);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [previewSave, setPreviewSave] = useState<SaveItem | null>(null);
   const drawerRef = useRef<HTMLElement>(null);
   const drawerTriggerRef = useRef<HTMLButtonElement>(null);
-  const previewCloseRef = useRef<HTMLButtonElement>(null);
-  const previewTriggerRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
-    if (!drawerOpen && !previewSave) {return;}
+    if (!drawerOpen) {return;}
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     function onKeyDown(event: KeyboardEvent) {
       if (event.key !== "Escape") {return;}
-      if (previewSave) {setPreviewSave(null);}
-      else {
-        setDrawerOpen(false);
-        window.setTimeout(() => drawerTriggerRef.current?.focus(), 0);
-      }
+      setDrawerOpen(false);
+      window.setTimeout(() => drawerTriggerRef.current?.focus(), 0);
     }
     document.addEventListener("keydown", onKeyDown);
     return () => {
       document.body.style.overflow = previousOverflow;
       document.removeEventListener("keydown", onKeyDown);
     };
-  }, [drawerOpen, previewSave]);
-
-  useEffect(() => {
-    if (previewSave) {previewCloseRef.current?.focus();}
-    else {previewTriggerRef.current?.focus();}
-  }, [previewSave]);
+  }, [drawerOpen]);
 
   useEffect(() => {
     if (drawerOpen) {drawerRef.current?.querySelector<HTMLElement>("button, a[href]")?.focus();}
@@ -63,11 +52,6 @@ export function GameDetailSaves({ gameId, gameTitle, saves, nowMs, threadCoreIds
   function closeDrawer() {
     setDrawerOpen(false);
     window.setTimeout(() => drawerTriggerRef.current?.focus(), 0);
-  }
-
-  function openPreview(save: SaveItem) {
-    previewTriggerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    setPreviewSave(save);
   }
 
   return <>
@@ -83,16 +67,15 @@ export function GameDetailSaves({ gameId, gameTitle, saves, nowMs, threadCoreIds
         </div>
       </header>
       {recentSaves.length ? <div className="game-detail-save-grid">
-        {recentSaves.map((save, index) => <article className="game-detail-save-card" key={save.saveStateId}>
-          <button className="game-detail-save-media" type="button" aria-label={save.screenshotUrl ? `预览 ${formatTime(saveDisplayTime(save), nowMs)} 的存档截图` : `${formatTime(saveDisplayTime(save), nowMs)} 的存档没有截图`} disabled={!save.screenshotUrl} onClick={() => openPreview(save)}>
+        {recentSaves.map((save) => <article className="game-detail-save-card" key={save.saveStateId}>
+          <div className="game-detail-save-media">
             {!saveAvailable(save) ? <span className="game-detail-save-blocked">当前不可用</span> : null}
             <SaveScreenshot screenshotUrl={save.screenshotUrl} alt="存档截图" sizes="(min-width: 1600px) 220px, (min-width: 768px) 30vw, 120px" />
             <SaveSizeLabel sizeBytes={save.sizeBytes} />
-          </button>
+          </div>
           <div className="game-detail-save-body">
             <div className="game-detail-save-title-line">
               <div><strong><time dateTime={new Date(saveDisplayTime(save)).toISOString()}>{formatTime(saveDisplayTime(save), nowMs)}</time></strong><small>{save.name || "手动存档"}</small></div>
-              <span className={index === 0 ? "is-latest" : undefined}>{index === 0 ? "最近存档" : save.lastSyncedAtMs ? "游戏内存档" : "手动"}</span>
             </div>
             <div className="game-detail-save-fact-row">
               <span><small>保存位置</small><b>{save.discLabel ?? (save.discIndex ? `光盘 ${save.discIndex}` : "主内容")}</b></span>
@@ -112,8 +95,8 @@ export function GameDetailSaves({ gameId, gameTitle, saves, nowMs, threadCoreIds
       role="dialog"
       aria-modal="true"
       aria-labelledby="game-detail-save-drawer-title"
-      aria-hidden={!drawerOpen || Boolean(previewSave)}
-      inert={!drawerOpen || Boolean(previewSave)}
+      aria-hidden={!drawerOpen}
+      inert={!drawerOpen}
       onKeyDown={(event) => {
         if (event.key !== "Tab") {return;}
         const focusable = Array.from(drawerRef.current?.querySelectorAll<HTMLElement>("button:not(:disabled), a[href], [tabindex]:not([tabindex='-1'])") ?? []);
@@ -129,24 +112,16 @@ export function GameDetailSaves({ gameId, gameTitle, saves, nowMs, threadCoreIds
         <button className="game-detail-drawer-close" type="button" aria-label="关闭全部存档" onClick={closeDrawer}><AppIcon name="x" /></button>
       </header>
       <div className="game-detail-drawer-body">
-        {saves.map((save, index) => <article className="game-detail-drawer-row" key={save.saveStateId}>
-          <button className="game-detail-drawer-shot" type="button" aria-label={save.screenshotUrl ? `预览 ${formatTime(saveDisplayTime(save), nowMs)} 的存档截图` : `${formatTime(saveDisplayTime(save), nowMs)} 的存档没有截图`} disabled={!save.screenshotUrl} onClick={() => openPreview(save)}>
+        {saves.map((save) => <article className="game-detail-drawer-row" key={save.saveStateId}>
+          <div className="game-detail-drawer-shot">
             <SaveScreenshot screenshotUrl={save.screenshotUrl} alt="存档截图" sizes="192px" />
             <SaveSizeLabel sizeBytes={save.sizeBytes} />
-          </button>
-          <div><time dateTime={new Date(saveDisplayTime(save)).toISOString()}>{formatTime(saveDisplayTime(save), nowMs)}</time><small>{save.core.name}{save.discLabel ? ` · ${save.discLabel}` : ""}{index === 0 ? " · 最近" : ""}</small></div>
+          </div>
+          <div><time dateTime={new Date(saveDisplayTime(save)).toISOString()}>{formatTime(saveDisplayTime(save), nowMs)}</time><small>{save.core.name}{save.discLabel ? ` · ${save.discLabel}` : ""}</small></div>
           <SaveResume gameId={gameId} save={save} requiresThreads={threadCoreIds.includes(save.core.id)} label="从存档继续" />
         </article>)}
       </div>
     </aside>
 
-    {previewSave ? <div className="game-detail-preview" onMouseDown={(event) => { if (event.target === event.currentTarget) {setPreviewSave(null);} }}>
-      <section role="dialog" aria-modal="true" aria-label="存档截图预览" onKeyDown={(event) => {
-        if (event.key === "Tab") { event.preventDefault(); previewCloseRef.current?.focus(); }
-      }}>
-        <div className="game-detail-preview-image"><SaveScreenshot screenshotUrl={previewSave.screenshotUrl} alt={`${gameTitle} 存档截图完整预览`} width={1920} height={1080} /><SaveSizeLabel sizeBytes={previewSave.sizeBytes} /></div>
-        <footer><span>完整截图 · 保持原始画面比例</span><button ref={previewCloseRef} type="button" onClick={() => setPreviewSave(null)}>关闭</button></footer>
-      </section>
-    </div> : null}
   </>;
 }

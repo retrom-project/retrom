@@ -80,7 +80,7 @@ export default async function GamePage({ params }: { params: Promise<{ gameId: s
               nowMs={saves.generatedAtMs}
             />
           </div>
-          {latestSave || game.videoUrl ? <GameDetailPreview title={game.title} coverUrl={game.coverUrl} videoUrl={game.videoUrl} save={latestSave} nowMs={saves.generatedAtMs} /> : null}
+          {latestSave || game.videoUrl ? <GameDetailPreview title={game.title} coverUrl={game.coverUrl} videoUrl={game.videoUrl} save={latestSave} /> : null}
         </section>
         <div className="game-detail-overview">
           <section className="game-detail-about" aria-labelledby="game-detail-about-title"><h2 id="game-detail-about-title">关于游戏</h2><GameDetailDescription description={game.description} /></section>

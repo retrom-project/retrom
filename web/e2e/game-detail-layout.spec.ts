@@ -17,8 +17,9 @@ test("ACC-UI-003 detail populated, missing screenshot and expanded states", asyn
       await page.goto(`/games/${gameId}`);
       await expect(page.locator(".game-detail-save-card")).toHaveCount(3);
       await expect(page.locator(".game-detail-saves-actions")).toContainText("共 4 份");
-      await expect(page.locator(".game-detail-save-media:disabled")).toHaveCount(1);
-      await expect(page.locator(".game-detail-save-media:disabled .save-library-size")).toBeVisible();
+      const missingShot = page.locator(".game-detail-save-media").filter({ has: page.getByRole("img", { name: "存档截图无预览图" }) });
+      await expect(missingShot).toHaveCount(1);
+      await expect(missingShot.locator(".save-library-size")).toBeVisible();
       await noPageOverflow(page);
       const image = await page.screenshot({ path: evidencePath(testInfo, `detail-populated-${width}.png`) });
       expect(pngDimensions(image)).toEqual({ width: width * dpr, height: height * dpr });
@@ -35,16 +36,28 @@ test("ACC-UI-003 detail populated, missing screenshot and expanded states", asyn
       await expect(page.locator(".game-detail-description")).toHaveCSS("overflow-y", "visible");
       expect(await page.locator(".game-detail-hero").evaluate((element) => element.getBoundingClientRect().height)).toBe(hero);
       await page.getByRole("button", { name: "收起简介" }).click();
-      const preview = page.getByRole("button", { name: "查看最近存档大图" });
-      await preview.click();
-      await expect(page.getByRole("dialog", { name: "存档截图预览" })).toBeVisible();
-      await expect(page.getByRole("dialog").getByRole("button", { name: "关闭存档截图预览" })).toBeFocused();
-      await page.keyboard.press("Escape");
-      await expect(preview).toBeFocused();
+      const previewLayout = () => page.evaluate(() => [".game-detail-feature-preview", ".game-detail-hero", ".game-detail-overview"].map((selector) => {
+        const rect = document.querySelector(selector)!.getBoundingClientRect();
+        return { top: rect.top + window.scrollY, height: rect.height };
+      }));
+      const saveLayout = await previewLayout();
+      const toggleWidth = (await page.getByRole("button", { name: "查看视频", exact: true }).boundingBox())!.width;
+      await page.getByRole("button", { name: "查看视频", exact: true }).click();
+      await expect(page.locator(".game-detail-video-stage")).toBeVisible();
+      expect(await previewLayout()).toEqual(saveLayout);
+      expect((await page.getByRole("button", { name: "查看最近存档", exact: true }).boundingBox())!.width).toBe(toggleWidth);
+      await page.getByRole("button", { name: "查看最近存档", exact: true }).click();
+      expect(await previewLayout()).toEqual(saveLayout);
+      await page.locator(".game-detail-feature-shot").click();
+      await expect(page.getByRole("dialog")).toHaveCount(0);
+      await page.locator(".game-detail-save-media").first().click();
+      await expect(page.getByRole("dialog")).toHaveCount(0);
       const all = page.getByRole("button", { name: "查看全部存档" });
       await all.click();
       const drawer = page.getByRole("dialog", { name: "全部存档" });
       await expect(drawer.getByRole("article")).toHaveCount(4);
+      await drawer.locator(".game-detail-drawer-shot").first().click();
+      await expect(page.getByRole("dialog")).toHaveCount(1);
       await expect(drawer.getByRole("button", { name: "关闭全部存档" })).toBeInViewport();
       if (width === 390) {
         const layers = await page.evaluate(() => [".game-detail-save-drawer", ".game-detail-drawer-backdrop", ".mobile-launch-dock"].map((selector) => Number(getComputedStyle(document.querySelector(selector)!).zIndex)));
