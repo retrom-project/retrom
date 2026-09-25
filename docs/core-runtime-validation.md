@@ -143,6 +143,26 @@ libretro/nxengine-libretro 的固定源码，由独立 fork 构建 Emscripten �
 未选择存档的新 Launch 保持空保存目录。产品准入用例为 `ACC-NXENGINE-001`。
 正式 runtime tag 固定已发布的核心和聚合包；发布后复跑同一产品用例。
 
+### Lutro
+
+`lutro` 推荐目录只接收原始 `.lutro` 卡带。它是由核心自己读取的 ZIP 容器，
+EmulatorJS 4.2.3 不得在传给核心之前解开为 `main.lua`。Provider Target 的存档语义为
+`GAME_SAVE`，格式为 `lutro-native-v1-storage-v1`，只导出游戏通过
+`lutro.filesystem.write` 写下的原生文件。选择存档启动时，Provider 在核心启动前导入
+文件；不选择存档时清空该游戏的原生保存目录。Provider 按文件内容摘要报告变更，
+Host 上传成功后才确认该版本已经持久化。最多 256 个文件、16 MiB，公共存储层只压缩一次。
+
+声明的 `dataKind` 是 `STORAGE`：Lutro 游戏可能只写设置或分数，也可能写进度；
+不把任意游戏的当前运行位置说成即时快照。`ACC-LUTRO-001` 用项目自有、确实写入关卡位置的
+卡带验证新 Launch 恢复。其他 `.lutro` 游戏的兼容性须单独验证，当前结论只覆盖固定样本。
+未写原生文件的卡带不能创建可恢复存档，该样本不得算通过本 Target 的存档准入。
+
+### Daphne 当前准入状态
+
+Daphne fork 的 `retro_serialize_size()` 返回零，保存与恢复接口均返回失败；已有的
+NVRAM/分数文件不能重建正在游玩的场景。Daphne 暂不声明可创建存档的 Provider Target，
+需要完整的 CPU、游戏状态与视频位置恢复能力及跨 Launch 产品证据后再接入。
+
 ## 6. 升级验证
 
 Provider 升级必须在同一数据库上顺序启动旧版与更高版本，证明：

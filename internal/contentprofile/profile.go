@@ -60,6 +60,7 @@ var registry = map[string]Profile{
 	"atarist":     single("atarist", ".st", ".msa", ".stx", ".ipf"),
 	"bbc":         single("bbc", ".ssd", ".dsd", ".adf", ".hfe"),
 	"apple2":      single("apple2", ".2mg", ".d13", ".do", ".dsk", ".po", ".nib", ".woz"),
+	"lutro":       raw("lutro", ".lutro"),
 	"channelf":    single("channelf", ".bin", ".rom"),
 	"megaduck":    single("megaduck", ".bin", ".md"),
 	"samcoupe":    single("samcoupe", ".dsk", ".mgt", ".sad", ".sbt"),

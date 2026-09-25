@@ -20,7 +20,7 @@ func TestParseCatalogAndRejectImplementationFacts(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if catalog.SchemaVersion != 1 || len(catalog.Bindings) != 96 {
+	if catalog.SchemaVersion != 1 || len(catalog.Bindings) != 97 {
 		t.Fatalf("catalog = %#v", catalog)
 	}
 	for _, binding := range catalog.Bindings {
@@ -81,6 +81,7 @@ func TestPlatformDefaultsSelectBindingsOnlyByProductCore(t *testing.T) {
 	}
 	for _, expected := range []struct{ platform, core, target string }{
 		{platform: "apple2", core: "apple2js", target: "apple2-apple2js"},
+		{platform: "lutro", core: "lutro", target: "lutro"},
 		{platform: "bbkrpg", core: "gam4980", target: "gam4980"},
 		{platform: "snes", core: "bsnes", target: "bsnes"},
 		{platform: "gbc", core: "gambatte", target: "gambatte"},

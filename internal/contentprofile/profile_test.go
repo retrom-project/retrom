@@ -14,6 +14,7 @@ func TestProfilesAcceptExactCaseInsensitiveExtensions(t *testing.T) {
 		"intellivision": {".int", ".rom", ".bin"},
 		"nes":           {"game.nes", "game.UNIF", "disk.FDS"}, "fds": {"disk.fds"}, "snes": {"game.sfc"},
 		"gbc": {"game.gb", "game.GBC"}, "gba": {"game.gba"}, "nds": {"game.nds"},
+		"lutro":     {"game.lutro", "game.LUTRO"},
 		"atari5200": {"game.a52"}, "psx": {"game.chd"}, "lynx": {"game.lnx"},
 		"saturn": {"game.chd"}, "megadrive": {"game.md", "game.smd", "game.SMD", "game.bin", "game.BIN"}, "n64": {"game.z64"},
 		"3do": {"game.chd"}, "atari7800": {"game.a78"}, "atari2600": {"game.a26"},

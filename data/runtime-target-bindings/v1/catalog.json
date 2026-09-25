@@ -413,6 +413,20 @@
       "launchPolicy": "SUPPORTED"
     },
     {
+      "id": "emulatorjs-lutro",
+      "coreId": "lutro",
+      "providerId": "emulatorjs",
+      "targetId": "lutro",
+      "platformIds": [
+        "lutro"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "EMULATORJS_SINGLE_FILE",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
       "id": "emulatorjs-mame2003",
       "coreId": "mame2003",
       "providerId": "emulatorjs",
@@ -1559,6 +1573,12 @@
         "enabled": true
       },
       {
+        "id": "lutro",
+        "name": "Lutro",
+        "sortOrder": 714,
+        "enabled": true
+      },
+      {
         "id": "lynx",
         "name": "Atari Lynx",
         "sortOrder": 120,
@@ -2050,6 +2070,11 @@
       {
         "id": "kirikiri2",
         "name": "KiriKiri2",
+        "enabled": true
+      },
+      {
+        "id": "lutro",
+        "name": "Lutro",
         "enabled": true
       },
       {

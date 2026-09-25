@@ -2588,3 +2588,21 @@ Worker 的 L2、持久存储、同步 SAB 和物化计数；一旦收到 Host �
 方向＋确认状态断言通过后分别标记首帧与输入就绪，再单独计量实际退出。
 它拒绝未完成、多个 Session、只有传输观测、失败 CLOSE、缺失真实峰值或最终字段的样本。
 进程内存和 Wasm heap 由实际 Case 提供；不能把观测器单元测试或空白浏览器测试算作游戏性能。
+
+### ACC-LUTRO-001：Lutro 原生存档与新 Launch 恢复
+
+- 输入：`testdata/public-roms/lutro-smoke/lutro-smoke.lutro` 是项目自有 MIT 卡带，
+  `build.py` 可重现固定 SHA-256。本 Case 的通过结论只覆盖该卡带；其他游戏须
+  经操作者授权单独验证，私有游戏的字节与路径不进入仓库。
+- 入口：在该 PFB 的 Retrom worktree 运行 `scripts/acceptance/lutro_product.mjs`，显式传入
+  `RETROM_ACCEPTANCE_BASE_URL`、`RETROM_ACCEPTANCE_USERNAME/PASSWORD`、
+  `RETROM_CHROME_EXECUTABLE` 和独立的 `RETROM_ACCEPTANCE_CASE_DIR`。凭据仅通过进程环境传入，
+  不写入证据。输出 `product.json`、预览/保存/恢复截图及当前 Provider/Target 身份。
+- 验证：经上传、导入、审核预览、发布和产品 Launch 产生真实帧；标准手柄方向改变方块位置，
+  底部确认键让游戏写入 `progress.txt`。Host 在浏览器本地暂存原生文件；用户显式选择
+  “存档并退出”后，服务器回传 `lutro-native-v1-storage-v1`。检查完整字节摘要、单层 gzip、
+  卡带身份和保存位置。不同 Launch 选择该存档后恢复方块位置并继续响应方向输入；
+  不选存档的新 Launch 从初始位置开始。产品检查必须证明游戏实际读入原生文件，
+  单靠序列化单测、静止画面或保存接口成功不足以通过。
+- 限制：`GAME_SAVE` 只保留游戏自己写出的数据。没有原生保存行为的卡带不能创建存档；
+  设置/分数文件不能外推为该游戏能恢复关卡进度。正式发布后需固定来源并重跑同一 Case。
