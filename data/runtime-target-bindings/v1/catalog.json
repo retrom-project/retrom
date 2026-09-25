@@ -357,6 +357,16 @@
       "launchPolicy": "SUPPORTED"
     },
     {
+      "id": "emulatorjs-genesis-plus-gx-cd",
+      "coreId": "genesis_plus_gx",
+      "providerId": "emulatorjs",
+      "targetId": "genesis-plus-gx-cd",
+      "platformIds": ["segacd"],
+      "acceptedContentKinds": ["SINGLE_FILE"],
+      "detectorProfile": "EMULATORJS_SINGLE_FILE",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
       "id": "emulatorjs-genesis-plus-gx-wide",
       "coreId": "genesis_plus_gx_wide",
       "providerId": "emulatorjs",
@@ -690,7 +700,8 @@
       "providerId": "emulatorjs",
       "targetId": "puae",
       "platformIds": [
-        "amiga"
+        "amiga",
+        "amigacd32"
       ],
       "acceptedContentKinds": [
         "SINGLE_FILE"
@@ -760,6 +771,7 @@
       "providerId": "emulatorjs",
       "targetId": "snes9x",
       "platformIds": [
+        "satellaview",
         "snes"
       ],
       "acceptedContentKinds": [
@@ -1345,6 +1357,12 @@
         "enabled": true
       },
       {
+        "id": "amigacd32",
+        "name": "Amiga CD32",
+        "sortOrder": 265,
+        "enabled": true
+      },
+      {
         "id": "amstradcpc",
         "name": "Amstrad CPC",
         "sortOrder": 510,
@@ -1711,6 +1729,12 @@
         "enabled": true
       },
       {
+        "id": "satellaview",
+        "name": "Satellaview / BS-X",
+        "sortOrder": 35,
+        "enabled": true
+      },
+      {
         "id": "saturn",
         "name": "Sega Saturn",
         "sortOrder": 180,
@@ -1726,6 +1750,12 @@
         "id": "sega32x",
         "name": "Sega 32X",
         "sortOrder": 640,
+        "enabled": true
+      },
+      {
+        "id": "segacd",
+        "name": "Sega CD / Mega-CD",
+        "sortOrder": 135,
         "enabled": true
       },
       {

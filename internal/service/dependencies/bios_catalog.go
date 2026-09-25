@@ -32,6 +32,29 @@ type staticBIOS struct {
 
 var staticBIOSCatalog = append(pc88BIOSCatalog(), []staticBIOS{
 	{
+		coreID: "genesis_plus_gx", logical: "bios_CD_E.bin", mode: "CONDITIONAL", condition: "SEGA_CD_CONTENT", size: 131072,
+		md5: "e66fa1dc5820d254611fdcdba0662372", sourceURL: "https://emulatorjs.org/docs/systems/sega-cd/",
+		providerID: "emulatorjs", targetID: "genesis-plus-gx-cd",
+	},
+	{
+		coreID: "genesis_plus_gx", logical: "bios_CD_U.bin", mode: "CONDITIONAL", condition: "SEGA_CD_CONTENT", size: 131072,
+		md5: "2efd74e3232ff260e371b99f84024f7f", sourceURL: "https://emulatorjs.org/docs/systems/sega-cd/",
+		providerID: "emulatorjs", targetID: "genesis-plus-gx-cd",
+	},
+	{
+		coreID: "genesis_plus_gx", logical: "bios_CD_J.bin", mode: "CONDITIONAL", condition: "SEGA_CD_CONTENT", size: 131072,
+		md5: "278a9397d192149e84e820ac621a8edd", sourceURL: "https://emulatorjs.org/docs/systems/sega-cd/",
+		providerID: "emulatorjs", targetID: "genesis-plus-gx-cd",
+	},
+	{
+		coreID: "puae", logical: "kick40060.CD32", mode: "CONDITIONAL", condition: "AMIGA_CD32_CONTENT", size: 524288,
+		md5: "5f8924d013dd57a89cf349f4cdedc6b1", sourceURL: "https://docs.libretro.com/library/puae/",
+	},
+	{
+		coreID: "puae", logical: "kick40060.CD32.ext", mode: "CONDITIONAL", condition: "AMIGA_CD32_CONTENT", size: 524288,
+		md5: "bb72565701b1b6faece07d68ea5da639", sourceURL: "https://docs.libretro.com/library/puae/",
+	},
+	{
 		coreID: "jsbeeb", logical: "os.rom", mode: "REQUIRED", size: 16384,
 		md5: "0a59a5ba15fe8557b5f7fee32bbd393a", sha256: "2d9fea69017864f6962704481829f95fee08446c8c3a13826d5d4e44000ac9de",
 		sourceURL: "https://github.com/mattgodbolt/jsbeeb/blob/c4839b888af29777390a5534f69d8ef8189bbed9/public/roms/README",

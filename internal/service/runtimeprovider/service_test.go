@@ -28,7 +28,7 @@ func TestRejectedVersionDoesNotWriteProjection(t *testing.T) {
 	}
 }
 
-func TestUnchangedProjectionDoesNotWrite(t *testing.T) {
+func TestUnchangedProjectionDoesNotRepublish(t *testing.T) {
 	candidate := businessCandidate("1.0.0", "a")
 	repo := &reconciliationRepository{current: CurrentState{Providers: map[string]CurrentProvider{
 		"provider": {Version: "1.0.0", BundleSHA256: strings.Repeat("a", 64)},

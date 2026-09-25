@@ -307,6 +307,10 @@ func BIOSApplies(condition, contentName string) bool {
 	switch condition {
 	case "PCE_CD_CONTENT":
 		return extension == ".chd"
+	case "SEGA_CD_CONTENT":
+		return extension == ".chd"
+	case "AMIGA_CD32_CONTENT":
+		return extension == ".chd" || extension == ".iso" || extension == ".nrg"
 	case "FDS_CONTENT":
 		return extension == ".fds"
 	case "GB_CONTENT":

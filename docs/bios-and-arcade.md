@@ -58,6 +58,18 @@ MD5/CRC 只用于身份识别，不作为安全机制。
 
 来源：[Libretro Snes9x](https://docs.libretro.com/library/snes9x/)。
 
+### 3.2.1 Sega CD 与 Amiga CD32
+
+| Core | 文件 | 条件 | 大小 | MD5 |
+| --- | --- | --- | ---: | --- |
+| `genesis_plus_gx` | `bios_CD_E.bin` | 单文件 CHD；必需 | 131072 | `e66fa1dc5820d254611fdcdba0662372` |
+| `genesis_plus_gx` | `bios_CD_U.bin` | 单文件 CHD；必需 | 131072 | `2efd74e3232ff260e371b99f84024f7f` |
+| `genesis_plus_gx` | `bios_CD_J.bin` | 单文件 CHD；必需 | 131072 | `278a9397d192149e84e820ac621a8edd` |
+| `puae` | `kick40060.CD32` | CD 镜像 CHD/ISO/NRG；必需 | 524288 | `5f8924d013dd57a89cf349f4cdedc6b1` |
+| `puae` | `kick40060.CD32.ext` | CD 镜像 CHD/ISO/NRG；必需 | 524288 | `bb72565701b1b6faece07d68ea5da639` |
+
+Sega CD 的三地区文件按 [EmulatorJS Sega CD](https://emulatorjs.org/docs/systems/sega-cd/) 登记；CD32 两份 ROM 按 [Libretro PUAE](https://docs.libretro.com/library/puae/) 登记。它们通过各自 Core 的现有 BIOS bundle 交付，条件判断只使用已物化内容的最终后缀。现有 Amiga 平台也允许 CHD/ISO/NRG，因此其 CD 内容同样适用 CD32 条件；软盘、硬盘和 WHDLoad 内容不适用。
+
 ### 3.3 gambatte
 
 | 文件 | 条件 | MD5 |

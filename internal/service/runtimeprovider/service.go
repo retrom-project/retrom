@@ -26,10 +26,12 @@ func (service *Service) Reconcile(ctx context.Context, candidate Projection, now
 		if err != nil {
 			return err
 		}
-		if len(changed) == 0 && current.CatalogSHA256 == candidate.CatalogSHA256 {
-			return nil
+		if len(changed) != 0 || current.CatalogSHA256 != candidate.CatalogSHA256 {
+			if err := applyChangedProjection(ctx, scope.Projection, change, changed); err != nil {
+				return err
+			}
 		}
-		return applyChangedProjection(ctx, scope.Projection, change, changed)
+		return nil
 	})
 	if err != nil {
 		return fmt.Errorf("reconcile runtime providers: %w", err)

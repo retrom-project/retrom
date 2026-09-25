@@ -87,6 +87,23 @@ func targetForCore(catalog runtimecatalog.Catalog, coreID string) (RuntimeTarget
 	return RuntimeTarget{ProviderID: selected.ProviderID, TargetID: selected.TargetID}, nil
 }
 
+func targetForCoreBinding(
+	catalog runtimecatalog.Catalog, coreID string, requested RuntimeTarget,
+) (RuntimeTarget, error) {
+	if requested == (RuntimeTarget{}) {
+		return targetForCore(catalog, coreID)
+	}
+	if requested.ProviderID == "" || requested.TargetID == "" {
+		return RuntimeTarget{}, fmt.Errorf("%w: incomplete runtime target for core %s", dependencies.ErrInvalid, coreID)
+	}
+	for _, binding := range catalog.Bindings {
+		if binding.CoreID == coreID && binding.ProviderID == requested.ProviderID && binding.TargetID == requested.TargetID {
+			return requested, nil
+		}
+	}
+	return RuntimeTarget{}, fmt.Errorf("%w: runtime target missing for core %s", dependencies.ErrInvalid, coreID)
+}
+
 func (service *Service) staticBIOSTargets(
 	ctx context.Context,
 	records TargetRecords,
@@ -100,7 +117,8 @@ func (service *Service) staticBIOSTargets(
 		if _, exists := result[requirement.coreID]; exists {
 			continue
 		}
-		target, err := service.seedTarget(ctx, records, requirement.coreID)
+		target, err := service.seedTarget(ctx, records, requirement.coreID,
+			RuntimeTarget{ProviderID: requirement.providerID, TargetID: requirement.targetID})
 		if err != nil {
 			return nil, err
 		}
@@ -109,8 +127,10 @@ func (service *Service) staticBIOSTargets(
 	return result, nil
 }
 
-func (service *Service) seedTarget(ctx context.Context, records TargetRecords, coreID string) (RuntimeTarget, error) {
-	target, err := targetForCore(service.set.RuntimeCatalog, coreID)
+func (service *Service) seedTarget(
+	ctx context.Context, records TargetRecords, coreID string, requested RuntimeTarget,
+) (RuntimeTarget, error) {
+	target, err := targetForCoreBinding(service.set.RuntimeCatalog, coreID, requested)
 	if err != nil {
 		return RuntimeTarget{}, err
 	}
@@ -135,7 +155,7 @@ func (service *Service) bootstrapVersionDATs(
 		target, exists := targets[core.CoreID]
 		if !exists {
 			var err error
-			target, err = service.seedTarget(ctx, scope.Targets, core.CoreID)
+			target, err = service.seedTarget(ctx, scope.Targets, core.CoreID, RuntimeTarget{})
 			if err != nil {
 				return err
 			}

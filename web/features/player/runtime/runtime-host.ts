@@ -14,6 +14,7 @@ export type RuntimeHostOptions = {
 };
 
 const sandboxTokens = ["allow-downloads", "allow-pointer-lock", "allow-same-origin", "allow-scripts"];
+const frameViewportLimit = {width: 1920, height: 1080};
 
 export function createRuntimeHost(
   envelope: LaunchEnvelopeV1,
@@ -22,10 +23,13 @@ export function createRuntimeHost(
 ): RuntimeHostV1 {
   const fetcher = options.fetcher ?? fetch;
   const frames = new Set<HTMLIFrameElement>();
+  const frameObservers = new Set<ResizeObserver>();
   const cleanups = new Set<string>();
   let cleanupPromise: Promise<void> | null = null;
   const cleanup = () => {
     if (cleanupPromise) {return cleanupPromise;}
+    for (const observer of frameObservers) {observer.disconnect();}
+    frameObservers.clear();
     for (const frame of frames) {frame.remove();}
     frames.clear();
     const cleanupUrls = [...cleanups];
@@ -49,11 +53,16 @@ export function createRuntimeHost(
       frame.referrerPolicy = "no-referrer";
       frame.allow = "autoplay; fullscreen; gamepad";
       frame.setAttribute("sandbox", sandboxTokens.join(" "));
+      const refreshViewport = () => fitFrameViewport(frame, target);
+      refreshViewport();
+      const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(refreshViewport);
+      observer?.observe(target);
       frame.src = source.url;
       target.append(frame);
       const contentWindow = frame.contentWindow;
-      if (!contentWindow) {frame.remove(); frameError();}
+      if (!contentWindow) {observer?.disconnect(); frame.remove(); frameError();}
       frames.add(frame);
+      if (observer) {frameObservers.add(observer);}
       if (source.cleanupUrl) {cleanups.add(source.cleanupUrl);}
       return {contentWindow, element: frame, origin: source.origin} satisfies RuntimeFrameV1;
     },
@@ -81,6 +90,23 @@ export function createRuntimeHost(
       window.dispatchEvent(new CustomEvent("retrom:runtime-diagnostic", {detail: input}));
     },
   };
+}
+
+function fitFrameViewport(frame: HTMLIFrameElement, target: HTMLElement) {
+  const {clientWidth: width, clientHeight: height} = target;
+  if (width < 1 || height < 1) {return;}
+  const reduction = Math.max(1, width / frameViewportLimit.width, height / frameViewportLimit.height);
+  const properties = ["--runtime-frame-width", "--runtime-frame-height", "--runtime-frame-transform"] as const;
+  if (reduction === 1) {
+    for (const property of properties) {frame.style.removeProperty(property);}
+    return;
+  }
+  const outputWidth = Math.max(1, Math.floor(width / reduction));
+  const outputHeight = Math.max(1, Math.floor(height / reduction));
+  const scale = Math.min(width / outputWidth, height / outputHeight);
+  frame.style.setProperty(properties[0], `${outputWidth}px`);
+  frame.style.setProperty(properties[1], `${outputHeight}px`);
+  frame.style.setProperty(properties[2], `scale(${scale})`);
 }
 
 function frameSource(envelope: LaunchEnvelopeV1, resourceRole: string | null) {
