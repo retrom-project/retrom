@@ -76,7 +76,7 @@ Provider 私有的 PSP 存档读取必须等待原生异步序列化结束，期
 
 Dreamcast 通过 `emulatorjs/flycast` Target 接入 nasomers/flycast-wasm 的 WASM JIT，由
 `retrom-project/flycast-wasm` 固定源码构建。首期只接受单文件 `.chd`，使用 WebGL2、
-640×480、无 pthreads；Windows CE/MMU、NAOMI、Atomiswave 与多盘不在支持范围。
+640×480、无 pthreads；Windows CE/MMU 与多盘不在该 Target 的支持范围。
 BIOS 使用安装快照中的 `/dc/dc_boot.bin` 与 `/dc/dc_flash.bin`，关闭 HLE BIOS。
 标准手柄的 A/B/X/Y 按 Dreamcast 物理位置绑定，方向、摇杆及 L/R 扳机由标准输入表传递。
 
@@ -88,6 +88,12 @@ Provider 在 OPFS 按完整 SHA-256 缓存 CHD，每次命中重新流式校验�
 Flycast 的 iframe 在创建 WebGL 上下文时保留绘图缓冲区，避免浏览器呈现后清空缓冲区，
 使暂停后的 Canvas 截图仍可读取最后画面；退出时恢复该 iframe 的上下文创建方法。
 操作者语料的验收规则见 `ACC-FLYCAST-001`；单个样本结果不能外推为 Dreamcast 全库兼容。
+
+NAOMI、NAOMI 2 与 Atomiswave 通过各自的 Platform/Core 绑定使用同一 Flycast 核心字节，
+分别对应 `emulatorjs/flycast-naomi`、`flycast-naomi2`、`flycast-atomiswave` Target。
+首期内容为单个街机卡带 ROM ZIP；保留机器短名作为 Flycast 的游戏识别名，浏览器不解压。
+三者分别要求安装 `/dc/naomi.zip`、`/dc/naomi2.zip`、`/dc/awbios.zip`。
+GD-ROM 游戏所需的 ZIP + CHD 配对，以及 clone/parent ROM 集合，尚未进入该内容契约。
 
 Intellivision 使用 EmulatorJS 4.3.0-pre 的 `freeintv`，仅声明单卡带、标准手柄与即时存档，
 不开放多盘。ECS 扩展不在支持范围。通过 `ACC-INTV-001` 对操作者提供的样本验证；

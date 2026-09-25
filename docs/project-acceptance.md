@@ -2163,6 +2163,13 @@ ShowFrame-at-EOF 输入先补显式 End。帧头、可执行标签和资源
 - 单元回归覆盖上下文保留属性与清理、旧格式读取、无损往返、gzip 损坏/截断及解压大小上限。
 - 证据按 ACC-FLYCAST-001 保存，仅保留本次非秘密身份、摘要与截图；不覆盖用户原存档。
 
+### ACC-FLYCAST-ARCADE：NAOMI、NAOMI 2、Atomiswave 卡带
+
+- 类型：操作者授权语料的真实 PFB 产品验收；每个平台使用对应的单文件机器名 ZIP 和 BIOS ZIP，私有字节不进入仓库。
+- 输入：普通 `RETROM_ACCEPTANCE_BASE_URL/USERNAME/PASSWORD`、`RETROM_CHROME_EXECUTABLE`、`RETROM_ACCEPTANCE_CASE_DIR`，以及 `RETROM_FLYCAST_ARCADE_PLATFORM`（`naomi`、`naomi2`、`atomiswave`）、`RETROM_FLYCAST_ARCADE_ROM`、`RETROM_FLYCAST_ARCADE_BIOS_DIR`。默认等待可见画面的上限为 180 秒，可用 `RETROM_FLYCAST_ARCADE_VISIBLE_TIMEOUT_MS` 调整。
+- 执行：硬超时 900 秒，运行 `timeout 900 node scripts/acceptance/flycast_arcade_product.mjs`；每个平台在独立 PFB 中或同一未污染 PFB 中各运行一次。脚本安装对应 BIOS、应用推荐目录、导入审核、启动 Review Preview 和 Product Launch，通过标准 Gamepad API 送方向/确认，创建即时存档并在另一 Launch 恢复。
+- 证据：每个平台的 `evidence.json` 与预览、输入、产品、恢复截图；核对实际游戏画面和输入影响后才从 `AWAITING_VISUAL_REVIEW` 标记为 PASS。验证 Target、原机器 ZIP 文件名、`dc/<bios>.zip` 外部挂载和 `flycast-state-v1-storage-v1` 格式。单一样本结果不能外推为完整街机兼容性；GD-ROM ZIP+CHD 与 clone/parent ROM 不属于当前单卡带内容契约。
+
 ### ACC-PS2-001：Play! PS2 按需光盘与即时状态
 
 硬超时 600 秒。执行 `make acceptance-case CASE=ACC-PS2-001`，或等价的 `timeout 600 env -u DISPLAY -u WAYLAND_DISPLAY .cache/tools/node-v24.18.0-linux-x64/bin/node scripts/acceptance/play_product.mjs`。

@@ -26,7 +26,7 @@ class RuntimeTargetBindingsTest(unittest.TestCase):
             ROOT / "data/runtime-target-bindings/v1/catalog.json"
         )
         self.assertNotIn("catalogVersion", catalog)
-        self.assertEqual(len(catalog["bindings"]), 94)
+        self.assertEqual(len(catalog["bindings"]), 97)
         self.assertEqual(
             {item["providerId"] for item in catalog["bindings"]},
             {"emulatorjs", "retrom-runtime"},
@@ -48,6 +48,10 @@ class RuntimeTargetBindingsTest(unittest.TestCase):
         self.assertEqual(openbor["acceptedContentKinds"], ["SINGLE_FILE"])
         self.assertEqual(by_target[("emulatorjs", "flycast")]["platformIds"], ["dreamcast"])
         self.assertEqual(by_target[("emulatorjs", "flycast")]["acceptedContentKinds"], ["SINGLE_FILE"])
+        for platform in ("naomi", "naomi2", "atomiswave"):
+            target = by_target[("emulatorjs", "flycast-" + platform)]
+            self.assertEqual(target["coreId"], "flycast-" + platform)
+            self.assertEqual(target["platformIds"], [platform])
         self.assertEqual(by_target[("emulatorjs", "gambatte")]["coreId"], "gambatte")
         self.assertEqual(by_target[("emulatorjs", "desmume2015")]["coreId"], "desmume2015")
         expected_single_file_targets = {
