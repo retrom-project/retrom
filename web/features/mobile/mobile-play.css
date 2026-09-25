@@ -8,7 +8,8 @@
 .phone-back { font-size: var(--text-body); font-weight: var(--weight-semibold); }
 .phone-back svg { width: 22px; height: 22px; }
 .phone-avatar { min-width: 44px; min-height: 44px; display: grid; place-items: center; }
-.phone-avatar span { width: 32px; height: 32px; display: grid; place-items: center; border-radius: 50%; color: var(--purple-dark); background: var(--purple-soft); font-weight: var(--weight-semibold); }
+.phone-avatar > span { width: 32px; height: 32px; display: grid; place-items: center; border-radius: 50%; color: var(--purple-dark); background: var(--purple-soft); font-weight: var(--weight-semibold); }
+.phone-avatar-initial { display: block; line-height: 1; text-align: center; text-box: trim-both cap alphabetic; }
 .phone-content { min-width: 0; padding: 12px max(16px, env(safe-area-inset-right)) calc(88px + env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); }
 .phone-content > .page-layout { width: 100%; max-width: none; margin: 0; }
 .phone-bottom-nav { position: fixed; z-index: 85; inset: auto 0 0; min-height: calc(64px + env(safe-area-inset-bottom)); padding: 4px max(12px, env(safe-area-inset-right)) env(safe-area-inset-bottom) max(12px, env(safe-area-inset-left)); display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 1px solid var(--line); background: var(--surface); }
