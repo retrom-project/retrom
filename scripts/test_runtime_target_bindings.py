@@ -26,7 +26,7 @@ class RuntimeTargetBindingsTest(unittest.TestCase):
             ROOT / "data/runtime-target-bindings/v1/catalog.json"
         )
         self.assertNotIn("catalogVersion", catalog)
-        self.assertEqual(len(catalog["bindings"]), 97)
+        self.assertEqual(len(catalog["bindings"]), 98)
         self.assertEqual(
             {item["providerId"] for item in catalog["bindings"]},
             {"emulatorjs", "retrom-runtime"},
@@ -48,10 +48,6 @@ class RuntimeTargetBindingsTest(unittest.TestCase):
         self.assertEqual(openbor["acceptedContentKinds"], ["SINGLE_FILE"])
         self.assertEqual(by_target[("emulatorjs", "flycast")]["platformIds"], ["dreamcast"])
         self.assertEqual(by_target[("emulatorjs", "flycast")]["acceptedContentKinds"], ["SINGLE_FILE"])
-        for platform in ("naomi", "naomi2", "atomiswave"):
-            target = by_target[("emulatorjs", "flycast-" + platform)]
-            self.assertEqual(target["coreId"], "flycast-" + platform)
-            self.assertEqual(target["platformIds"], [platform])
         self.assertEqual(by_target[("emulatorjs", "gambatte")]["coreId"], "gambatte")
         self.assertEqual(by_target[("emulatorjs", "desmume2015")]["coreId"], "desmume2015")
         expected_single_file_targets = {
@@ -68,7 +64,7 @@ class RuntimeTargetBindingsTest(unittest.TestCase):
             "freeintv": ("freeintv", ["intellivision"]),
             "mednafen-pce": ("mednafen_pce", ["pce", "pcecd", "supergrafx"]),
             "prboom": ("prboom", ["doom"]),
-            "puae": ("puae", ["amiga"]),
+            "puae": ("puae", ["amiga", "amigacd32"]),
             "quasi88": ("quasi88", ["pc88"]),
             "same-cdi": ("same_cdi", ["cdi"]),
             "vice-x128": ("vice_x128", ["c128"]),
@@ -87,6 +83,11 @@ class RuntimeTargetBindingsTest(unittest.TestCase):
             self.assertEqual(binding["acceptedContentKinds"], ["SINGLE_FILE"])
             self.assertEqual(binding["detectorProfile"], "EMULATORJS_SINGLE_FILE")
             self.assertEqual(binding["launchPolicy"], "SUPPORTED")
+        self.assertEqual(by_target[("emulatorjs", "genesis-plus-gx")]["platformIds"],
+                         ["gamegear", "megadrive", "multivision", "sg1000"])
+        self.assertEqual(by_target[("emulatorjs", "genesis-plus-gx-cd")]["platformIds"], ["segacd"])
+        self.assertEqual(by_target[("emulatorjs", "snes9x")]["platformIds"],
+                         ["satellaview", "snes"])
         self.assertEqual(by_target[("retrom-runtime", "j2me")]["detectorProfile"], "J2ME_JAR")
         self.assertEqual(by_target[("retrom-runtime", "scummvm")]["detectorProfile"], "SCUMMVM_PROJECT")
         self.assertEqual(by_target[("retrom-runtime", "scummvm")]["acceptedContentKinds"], ["SCUMMVM_PROJECT"])

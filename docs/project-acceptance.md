@@ -1060,11 +1060,23 @@ restart；必须停止 main loop、卸载文件系统并执行延迟清理，最
 - 显式输入：`RETROM_ACCEPTANCE_BASE_URL`、`RETROM_ACCEPTANCE_USERNAME/PASSWORD`、`RETROM_CHROME_EXECUTABLE`、`RETROM_EXPANSION_ROM`；Neo Geo 另需 `RETROM_EXPANSION_BIOS`。只读取操作者明确提供的单个文件，不自动发现或下载私有游戏。
 - 先通过 Upload/Import 获取审核项，以真实 Review Preview 生成画面并保存审核截图，再通过 Approve 发布、创建新的 Product Launch。保留 ROM 摘要、实际 Provider/Target/module 与内容摘要。
 - 使用标准映射虚拟手柄验证方向与确认的按下/释放、实际屏幕结果、暂停后帧停止、非空即时存档、不同 Launch 的原生恢复完成回执和恢复后方向输入。`RETROM_EXPANSION_START_BUTTONS` 可显式给出游戏启动按键数组，`RETROM_EXPANSION_START_GAP_FRAMES` 指定按键间的核心帧间隔，`RETROM_EXPANSION_CONFIRM_BUTTON` 指定确认按钮，`RETROM_EXPANSION_BOOT_FRAMES` / `RETROM_EXPANSION_POST_START_FRAMES` 指定启动按键前后等待的真实核心帧数（单次最多等待 90 秒）（仍受总超时限制）；不会改变生产映射。
+- 浏览器默认使用 `1280×900` CSS 视口；大屏验证可显式设置 `RETROM_EXPANSION_VIEWPORT_WIDTH/HEIGHT`，并在证据中记录实际视口。若恢复点位于只响应 Start 的标题画面，可用 `RETROM_EXPANSION_RESTORE_BUTTON=9`，仍须同时核对输入事件、恢复前后有效画面及游戏状态变化。
 - 自动输出 `AUTOMATED_PASS_REQUIRES_VISUAL_REVIEW` 仅表示链路断言通过；必须逐项审阅 `review-preview/before-input/direction/confirm/saved/restored/restored-input.png`，确认画面有效、输入改变游戏状态且恢复至所存场景，才能记录最终 PASS。动画造成的图片摘要变化本身不能证明方向或确认有效。实体标准手柄另做人工 smoke；虚拟注入不能冒充硬件兼容证据。
 - 赛车等需要持续油门的样本可用 `RETROM_EXPANSION_HOLD_BUTTON` 指定独立按住的标准手柄按钮，在方向测试前推进 120 核心帧，并于截图后释放；恢复后同样验证。每个按钮仍只发送一个目标输入。输出 `recipe` 与每次启动按键的 `start-N.png` 以复核菜单时序。
 - 证据由 `RETROM_ACCEPTANCE_CASE_DIR` 指定，默认写 `.artifacts/platform-expansion/<platform>/product.json` 和 PNG。失败保留阶段与错误，不写凭据或本机来源路径。
 - `RETROM_EXPANSION_REVIEW_ID` / `RETROM_EXPANSION_GAME_ID` 仅用于恢复同一样本的失败验证，记录 reused；必须与首次导入/预览/发布证据一起评审，不算重新覆盖前置流程。
 - 一个样本不能代表全库；Pico 必须区分基本方向/确认与笔、翻页外设覆盖，Neo Geo 必须使用与目标 DAT 匹配的游戏/BIOS。缺样本或必需能力不通过时保留 FAIL/BLOCKED，不以相邻平台代替。
+
+### ACC-RUN-018：Sega CD、Amiga CD32 与 Satellaview/BS-X 产品验证
+
+- 每个平台硬超时 600 秒。入口：`timeout 600 node scripts/acceptance/platform_expansion_product.mjs <segacd|amigacd32|satellaview>`；PUAE 普通 Amiga 内容回归使用同一入口的 `amiga` 参数；无头模式无法推进帧时按 ACC-RUN-017 的 headed/Xvfb 方式重试。
+- 输入沿用 ACC-RUN-017 的 PFB URL、账号、Chrome、单个 ROM 与证据目录变量，并显式设置 `RETROM_EXPANSION_BIOS_DIR` 为该平台所需 BIOS 文件所在目录。脚本只读取明确指定的样本和已知逻辑 BIOS 文件名，不扫描、下载或提交操作者内容。
+- 标准手柄按钮 `12/13/14/15` 依次是上/下/左/右。初次方向默认向右（`15`），纵向菜单可用 `RETROM_EXPANSION_DIRECTION=13` 向下。恢复后默认向左（`14`），处于左边界时可用 `RETROM_EXPANSION_RESTORE_DIRECTION=15` 向右。必须保留截图中真实的角色或菜单位置变化，不得仅靠映射事件通过。
+- 确认键会进入长时间读盘画面的样本，可用 `RETROM_EXPANSION_POST_CONFIRM_FRAMES` 等待明确的后续场景再截图、存档；仍须逐图确认输入导致的实际状态变化。
+- Sega CD 只选单文件 CHD，检查 `genesis_plus_gx` 三地区 BIOS 未安装时阻断，安装后 Review Preview 和 Product Launch 使用 `emulatorjs/genesis-plus-gx-cd`；同一核心的普通 Mega Drive 卡带仍不要求 CD BIOS。
+- Amiga CD32 选单文件 CHD 或 ISO，检查 `puae` 的 Kickstart 与 extended ROM 未安装时阻断，安装后 Review Preview 和 Product Launch 使用 `emulatorjs/puae`；同一核心的普通软盘内容不要求 CD32 BIOS。两种平台均使用 PUAE 的 Content I/O 虚拟文件系统；CD32 完整文件在独立 Launch 间复用，恢复启动不得再次完整下载游戏。普通 Amiga 的 ADF/LHA 等格式须保留扩展名并单独做启动回归；测试需要 Kickstart 的样本时安装可选 A500/A1200 BIOS，并逐图确认实际启动。
+- Satellaview 选 BS/SFC/SMC 单文件，安装 `BS-X.bin` 后检查 Review Preview 和 Product Launch 使用 `emulatorjs/snes9x`。保留其既有可选 BIOS 语义；需要固件的样本应实际读取该 bundle，不以安装状态代替画面验证。
+- 三个平台分别完成导入、审核预览截图、发布、启动画面 A、方向后的 B、确认后的 C、显式存档、不同 Launch 恢复 B、恢复后方向输入与退出。浏览器注入标准手柄的映射事件和截图都需检查；`AUTOMATED_PASS_REQUIRES_VISUAL_REVIEW` 只有逐图确认后才能记 PASS。实体手柄需单独人工验证。记录 Provider、Target、Bundle、内容摘要与 BIOS bundle 的身份摘要、成员数；不能把帧数、HTTP 200、静止截图或一个游戏样本外推为平台全库兼容。
 
 ### ACC-SAVE-001：手动状态存档与截图
 

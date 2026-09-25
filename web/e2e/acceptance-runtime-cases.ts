@@ -76,6 +76,32 @@ function registerRun002(): void {
     await expect.poll(() => playerCanvas.evaluate((element) =>
       element.ownerDocument.defaultView?.getComputedStyle(element).imageRendering)).toBe("pixelated");
     await expect.poll(() => currentEmulatorBrightRatio(page), { timeout: 15_000, intervals: [500] }).toBeGreaterThan(0.02);
+    const mountedFrame = page.locator("iframe.player-frame");
+    const frameDimensions = () => mountedFrame.evaluate((element) => {
+      const frame = element as HTMLIFrameElement;
+      const rect = frame.getBoundingClientRect();
+      return {viewportWidth: frame.contentWindow?.innerWidth, viewportHeight: frame.contentWindow?.innerHeight,
+        displayWidth: rect.width, displayHeight: rect.height};
+    });
+    await page.setViewportSize({width: 3840, height: 2160});
+    await expect.poll(frameDimensions).toEqual({viewportWidth: 1920, viewportHeight: 1080,
+      displayWidth: 3840, displayHeight: 2160});
+    const canvasDimensions = () => playerCanvas.evaluate((element) => {
+      const canvas = element as HTMLCanvasElement;
+      const rect = canvas.getBoundingClientRect();
+      return {bufferWidth: canvas.width, bufferHeight: canvas.height, displayWidth: rect.width,
+        displayHeight: rect.height, viewportWidth: canvas.ownerDocument.defaultView?.innerWidth,
+        viewportHeight: canvas.ownerDocument.defaultView?.innerHeight};
+    });
+    await page.setViewportSize({width: 2840, height: 2160});
+    await expect.poll(canvasDimensions).toEqual({bufferWidth: 1420, bufferHeight: 1080,
+      displayWidth: 1420, displayHeight: 1080, viewportWidth: 1420, viewportHeight: 1080});
+    await page.setViewportSize({width: 3840, height: 2160});
+    await expect.poll(canvasDimensions).toEqual({bufferWidth: 1920, bufferHeight: 1080,
+      displayWidth: 1920, displayHeight: 1080, viewportWidth: 1920, viewportHeight: 1080});
+    await page.setViewportSize({width: 1280, height: 800});
+    await expect.poll(frameDimensions).toEqual({viewportWidth: 1280, viewportHeight: 800,
+      displayWidth: 1280, displayHeight: 800});
     const playerFrame = page.frames().find((frame) => frame !== page.mainFrame());
     expect(playerFrame).toBeTruthy();
     const frameBeforePause = await runtimeFrameCount(page);

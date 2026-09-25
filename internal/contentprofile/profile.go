@@ -73,6 +73,9 @@ var registry = map[string]Profile{
 	"gx4000":      single("gx4000", ".cpr"),
 
 	"neogeocd":      raw("neogeocd", ".chd"),
+	"segacd":        raw("segacd", ".chd"),
+	"amigacd32":     raw("amigacd32", ".chd", ".iso"),
+	"satellaview":   raw("satellaview", ".bs", ".sfc", ".smc"),
 	"pokemini":      single("pokemini", ".min"),
 	"bbkrpg":        single("bbkrpg", ".gam"),
 	"uzebox":        single("uzebox", ".uze"),

@@ -148,6 +148,8 @@ EmulatorJS DAT 的 binding 使用稳定 `(providerId,targetId)`。`data-check` �
 
 BIOS Requirement 同样从 Target binding 和 DAT 生成，不从前端或 Provider 私有 registry 推断。安装内容按逻辑名、大小与摘要校验；游戏 Launch 冻结实际 installation/dependency snapshot。
 
+Sega CD 与 Genesis 卡带共用原生核心，但 Sega CD 使用独立的 `genesis-plus-gx-cd` Target。此接入直接采用新绑定和 BIOS 要求，不迁移旧 `genesis-plus-gx` Target 下的游戏 Variant 或 BIOS 安装；旧开发实例需要按新契约重新导入游戏与 BIOS。
+
 ## 9. Runtime asset pack
 
 RPG RTP 等 pack 由管理员上传，经过安全归档扫描、路径规范化、文件数/总大小上限和逐文件摘要后安装。Pack definition 与 installation 分离；Target 只声明所需 slot/type，Retrom 冻结具体 installation。

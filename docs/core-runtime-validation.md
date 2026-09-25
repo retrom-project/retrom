@@ -38,6 +38,7 @@
 - Go 和 TypeScript 必须对同一 Launch Envelope fixtures 得出相同接受/拒绝结果。
 - Provider Module 的 URL、SHA-256、Provider 身份、API 版本与 Bundle 必须一致。
 - `runtime.capabilities` 必须与返回的 `PlayerRuntimeV1` 行为闭合；声明支持却缺方法、未声明却暴露行为均失败。
+- 所有通过 RuntimeHost 挂载的核心 iframe 共用 `1920×1080` CSS 运行视口上限；大屏幕由宿主等比放大到 Player 区域，窗口尺寸变化后重新计算，小于上限时保持原尺寸。Provider 可在此基础上声明更低的画布上限；4K 帧率证据必须同时记录 iframe 视口、核心画布尺寸和 GPU renderer。
 - checkpoint 只按 format/size/hash 处理，Host 不解析字节；恢复必须由 Target `readFormats` 明确允许。
 - content、BIOS、parent、多盘、pack、unique-origin 资源必须全部来自 envelope grant。
 - 所有测试必须证明退出/失败/卸载会清理 Provider、撤销 Launch 并停止输入与帧回调。
@@ -61,6 +62,10 @@ Asyncify 和协程重建能力、异步保存回调及原生内存所有权，�
 [ACC-RUN-016](./project-acceptance.md#acc-run-016bsnes-备用核心产品验证)。
 
 Mega Drive 的 Genesis Plus GX、GX Wide 与 PicoDrive 由 Provider 在输入表建立前明确选择 Mega Drive 手柄布局，保留 Start、方向与 A/B/C/X/Y/Z；不能采用多平台核心自动推断出的 Master System 布局。键盘与标准手柄使用同一控制表，原始 `.md`/`.smd` 与归档内成员行为一致。固定 EmulatorJS 4.2.3 的六键布局使用等价的 `segaCD` 输入别名，4.3.0-pre 使用 `segaMD`；这只选择输入布局，不切换运行核心或内容类型。
+
+Sega CD、Amiga CD32 与 Satellaview / BS-X 作为独立平台分别绑定 `genesis_plus_gx` 核心的 `genesis-plus-gx-cd` Target、`puae` Target、`snes9x` Target。首期 Sega CD 只接收单文件 CHD；CD32 接收单文件 CHD/ISO；Satellaview 接收单文件 BS/SFC/SMC。PUAE 的普通 Amiga 与 CD32 内容均由同一个 `puae` Target 通过 runtime Content I/O 持久化完整文件，再从 EmulatorJS 公共虚拟 FS 交给线程核心；文件扩展名取自内容 URL，保留 ADF/LHA/CHD/ISO 等核心识别路径。三者均不声明多盘、CUE/BIN 目录、换盘或 Satellaview 多卡带。Sega CD 的欧、美、日三份 BIOS 和 CD32 Kickstart/extended ROM 在相应 CD 内容验证时才必需，不得让普通 Mega Drive 卡带或 Amiga 软盘承担这些依赖。CD32 的 PUAE 资产必须是声明线程能力的 `puae-thread-wasm.data`：无线程资产在创建 CD 音频解包线程失败后会卡在等待循环，原始线程资产则因 pthread 入口函数签名不符而在浏览器执行时崩溃；核心 fork 须正确适配线程入口并在建线程失败时返回错误。Snes9x 的 `BS-X.bin` 维持现有可选固件槽，操作者运行需要固件的 BS-X 内容前应安装它；不能从 `.sfc/.smc` 后缀推断是否需要 BS-X BIOS。真实游戏的准入按 [ACC-RUN-018](./project-acceptance.md#acc-run-018sega-cdamiga-cd32-与-satellaviewbs-x-产品验证) 逐平台验证；单个样本不能外推全部游戏兼容。
+
+普通 Amiga 的 A500/A1200 Kickstart 作为可选 BIOS，仅匹配电脑内容，不影响 CD32 固件条件；需要 Kickstart 的真实 ADF/LHA 样本必须安装对应文件并完成画面验证。
 
 Game Gear 与 SG-1000/Multivision 使用 Genesis Plus GX 的内容扩展选择 `segaGG` / `segaMS` 控制布局，不能套用 Mega Drive 六键布局。URL 的查询参数不参与扩展识别。GX4000 的 `.cpr` 在 Cap32 启动前选择 `6128+ (experimental)` 与所需的 `cap32_gfx_colors=24bit`；普通 CPC 磁盘保留原默认值。七个新平台与现有 Arcade/FBNeo 的 Neo Geo 样本按 `ACC-RUN-017` 验证；Pico 的方向/确认结果不能证明笔、翻页等未测操作，也不能外推为全库兼容。
 

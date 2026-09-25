@@ -78,6 +78,9 @@ export async function advanceFixture(page, keys) {
 }
 
 export async function revealPreviewToolbar(page) {
+  await Promise.all(page.frames().map(frame => frame.evaluate(() => {
+    if (document.pointerLockElement) {return document.exitPointerLock();}
+  }).catch(() => undefined)));
   // Always refresh the top-edge interaction, even while the toolbar is still
   // visible: its idle deadline may expire before the next pointer action.
   await page.locator(".player-hud-handle").hover();
