@@ -38,7 +38,6 @@ const retirementDeadline = `CASE
 WHEN state IN ('FINISHED','EXPIRED','REVOKED') THEN finished_at_ms
 WHEN state='CREATED' THEN CASE WHEN bootstrap_expires_at_ms<hard_expires_at_ms
 THEN bootstrap_expires_at_ms ELSE hard_expires_at_ms END
-WHEN idle_expires_at_ms<hard_expires_at_ms THEN idle_expires_at_ms
 ELSE hard_expires_at_ms END`
 
 func updateLaunchRelations(ctx context.Context, tx dbexec.Executor, id string) error {

@@ -23,6 +23,13 @@ type PlayResult struct {
 	AcceptedDuration int64  `json:"acceptedDurationMs"`
 	State            string `json:"state"`
 }
+type PlaySnapshot struct {
+	ActiveDurationMS int64 `json:"activeDurationMs"`
+}
+type PlaySnapshotResult struct {
+	PlaySessionID    string `json:"playSessionId"`
+	ActiveDurationMS int64  `json:"activeDurationMs"`
+}
 
 type PlaySource struct {
 	Ref               SessionRef
@@ -41,21 +48,28 @@ type StoredPlayEvent struct {
 	Interval                               Interval
 }
 type PlayStart struct {
-	Source                 PlaySource
-	PlayID                 string
-	Event                  PlayEvent
-	NowMS, IdleExpiresAtMS int64
+	Source PlaySource
+	PlayID string
+	Event  PlayEvent
+	NowMS  int64
 }
 type PlayProgress struct {
-	Source                                     PlaySource
-	Current                                    PlayRecord
-	Event                                      PlayEvent
-	Kind                                       string
-	AcceptedDurationMS, NowMS, IdleExpiresAtMS int64
+	Source                    PlaySource
+	Current                   PlayRecord
+	Event                     PlayEvent
+	Kind                      string
+	AcceptedDurationMS, NowMS int64
 }
 type PlayFinish struct {
 	Source PlaySource
 	NowMS  int64
+}
+type PlaySnapshotPlan struct {
+	Source           PlaySource
+	Current          *PlayRecord
+	PlayID           string
+	ActiveDurationMS int64
+	NowMS            int64
 }
 type PlayReader interface {
 	Source(context.Context, string) (PlaySource, bool, error)
@@ -66,6 +80,7 @@ type PlayWriter interface {
 	Start(context.Context, PlayStart) error
 	Progress(context.Context, PlayProgress) error
 	Finish(context.Context, PlayFinish) error
+	Snapshot(context.Context, PlaySnapshotPlan) error
 }
 type PlayScope struct {
 	Read  PlayReader

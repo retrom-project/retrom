@@ -88,6 +88,18 @@ function registerRun002(): void {
     await playerFrame!.locator("body").press("p");
     await expect(page.locator(".player-shell")).not.toHaveClass(/is-paused/);
     await expect.poll(() => runtimeFrameCount(page), { timeout: 10_000 }).toBeGreaterThan(frameBeforePause + 5);
+    let lostProgressReports = 0;
+    await page.route("**/runtime/launches/*/progress", async (route) => {
+      lostProgressReports++;
+      await route.abort("failed");
+    });
+    await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+    await expect.poll(() => lostProgressReports).toBeGreaterThan(0);
+    const frameBeforeLostProgress = await runtimeFrameCount(page);
+    await expect.poll(() => runtimeFrameCount(page), { timeout: 10_000 })
+      .toBeGreaterThan(frameBeforeLostProgress + 5);
+    await expect(page.locator(".player-shell")).toBeVisible();
+    await page.unroute("**/runtime/launches/*/progress");
     await page.mouse.move(20, 20);
     const debugButton = page.getByRole("button", { name: "调试信息" });
     await expect(debugButton).toBeVisible();
@@ -137,6 +149,7 @@ function registerRun002(): void {
     expect(launchIndex).toBeGreaterThan(fullscreenIndex);
     expect(requests.some((url) => url.endsWith(configuration.runtime.moduleUrl))).toBe(true);
     expect(requests.some((url) => url.endsWith(gameURL!))).toBe(true);
+    expect(requests.some((url) => /\/runtime\/launches\/[^/]+\/(?:start|heartbeat|finish)$/.test(url))).toBe(false);
     expect(requests.some((url) => /\/localization\/zh-CN\.json$/.test(url))).toBe(true);
     const applicationHost = new URL(page.url()).host;
     expect(requests.some((url) => {

@@ -200,7 +200,7 @@ func validRetirement(before LaunchRetirement, now int64) bool {
 	case "CREATED":
 		return min(before.BootstrapMS, before.HardMS) == before.DueMS
 	case "ACTIVE":
-		return before.Idle.Set && min(before.Idle.Value, before.HardMS) == before.DueMS
+		return before.HardMS == before.DueMS
 	case "FINISHED", "EXPIRED", "REVOKED":
 		return before.Finished.Set && before.Finished.Value == before.DueMS
 	default:

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { uploadWithProgress } from "./upload-with-progress";
+import { uploadWithProgress, uploadWithRestartRetry } from "./upload-with-progress";
 
 class EventTargetStub {
   private readonly listeners = new Map<string, Array<(event: ProgressEvent) => void>>();
@@ -69,5 +69,30 @@ describe("uploadWithProgress", () => {
     expect(timedOut.timeout).toBe(300_000);
     timedOut.emit("timeout");
     await expect(timeout).rejects.toThrow("SAVE_UPLOAD_TIMEOUT");
+  });
+});
+
+describe("uploadWithRestartRetry", () => {
+  const request = () => ({
+    method: "POST" as const, url: "/save", body: new FormData(),
+    headers: {"Idempotency-Key": "stable-key"}, onProgress: vi.fn(),
+  });
+
+  it("retries a network loss and temporary response with the same idempotency key", async () => {
+    const send = vi.fn().mockRejectedValueOnce(new Error("server restarted"))
+      .mockResolvedValueOnce({ok: false, status: 503, body: ""})
+      .mockResolvedValueOnce({ok: true, status: 201, body: "{}"});
+    const wait = vi.fn().mockResolvedValue(undefined);
+    const input = request();
+    await expect(uploadWithRestartRetry(input, send, wait)).resolves.toMatchObject({status: 201});
+    expect(send).toHaveBeenCalledTimes(3);
+    expect(send.mock.calls.every(([actual]) => actual === input)).toBe(true);
+    expect(wait.mock.calls).toEqual([[1000], [2000]]);
+  });
+
+  it("does not retry a conflict or invalid upload", async () => {
+    const send = vi.fn().mockResolvedValue({ok: false, status: 409, body: "conflict"});
+    await expect(uploadWithRestartRetry(request(), send, vi.fn())).resolves.toMatchObject({status: 409});
+    expect(send).toHaveBeenCalledTimes(1);
   });
 });

@@ -122,7 +122,7 @@ Provider 激活前按来源 Launch 的 Core 关联其当前 Variant/Target，保
 
 ## 8. Play 与隔离
 
-`play_sessions` 与事件使用连续 client sequence 计算有效游玩时长。`isolated_runtime_bootstrap_tickets` 和 `isolated_runtime_capabilities` 为每个 Launch/Preview 提供一次性、exact-origin 授权。
+PRODUCT 的 `play_sessions` 保存客户端可见、未暂停运行时间的累计最大值；首次成功上报才创建记录，不要求 `play_session_events`。旧连续事件表供既有客户端使用。统计写入不改变 Launch 授权或内容回收时间。`isolated_runtime_bootstrap_tickets` 和 `isolated_runtime_capabilities` 为每个 Launch/Preview 提供一次性、exact-origin 授权。
 
 
 ## 9. Blob ownership 与释放
@@ -135,7 +135,7 @@ Game 内容替换会立即移除旧 Game-owned 与 Game-runtime-owned 边；BIOS
 
 `013_bios_session_retirement.sql` 为未释放的非活动 BIOS 安装、按 Blob 定位的 `BIOS_BUNDLE` VariantFile 和当前活动 BIOS Blob 建立索引。替换由 firmware Service 在安装事务内组织，Repository 按原安装 ID、Requirement、Blob、版本和活动状态切换当前安装，并确认恰好更新一行。旧上传消费的释放排期复用 payloadrelease Service，与安装切换一起提交；读取、写入或排期失败均回滚。替换事务不遍历依赖 JSON，也不更新 GameVariant、Launch、Play 或 SaveState。旧安装仍持有 Blob，后台每个事务最多移除 200 条旧 Variant BIOS 边；同一 Blob 仍被其他活动安装采用时保留这些边。释放安装的 Blob 引用后仍保留名称/hash/来源审计。
 
-`launch_payload_retirements` 是 Launch 的回收排期，包含 `launch_session_id`、`due_at_ms`、`released_at_ms`。`sessionstore.CreateLaunch` 创建排期，`sessionstore.ChangeLaunch` 在状态/心跳更新的同一事务维护截止时间：CREATED 取 bootstrap/hard 最早值，ACTIVE 取 idle/hard 最早值，终态取 finished 时间；已释放行不重新入队。后台按未释放截止时间的部分索引逐会话处理，每个短事务分别最多释放 200 条内容文件和 200 条外部文件引用。超时会话标为 EXPIRED，并按 Launch ID 结束对应 Play；大项目跨批次继续，全部文件引用释放后才记录释放时间。存档和会话来源记录保留，物理文件仍受其他 owner 与 GC 宽限期保护。普通启动与每小时 GC 对账重试未完成工作；单次替换无需等待对账，服务重启可续做。
+`launch_payload_retirements` 是 Launch 的回收排期，包含 `launch_session_id`、`due_at_ms`、`released_at_ms`。`sessionstore.CreateLaunch` 创建排期，`sessionstore.ChangeLaunch` 在状态变化的同一事务维护截止时间：CREATED 取 bootstrap/hard 最早值，ACTIVE 取 hard 值，终态取 finished 时间；已释放行不重新入队。后台按未释放截止时间的部分索引逐会话处理，每个短事务分别最多释放 200 条内容文件和 200 条外部文件引用。超时会话标为 EXPIRED，并按 Launch ID 结束对应 Play；大项目跨批次继续，全部文件引用释放后才记录释放时间。存档和会话来源记录保留，物理文件仍受其他 owner 与 GC 宽限期保护。普通启动与每小时 GC 对账重试未完成工作；单次替换无需等待对账，服务重启可续做。
 
 两类延迟释放由 `service/payloadrelease.Retirements` 决定到期、共享 BIOS 保护、会话终止和分批完成；Repository 读取安装、会话、Play 与精确文件键，并在写入前重验原版本、Blob、共享活动安装和实际期限。重新启用的 BIOS、续期会话或变化的文件不能按旧快照释放。每次更新、删除和完成排期都确认受影响行数；任一步失败回滚该批次，不能提前记录释放成功。
 

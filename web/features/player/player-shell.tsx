@@ -12,6 +12,7 @@ import {applyVideoRenderingMode, readVideoRenderingMode, subscribeVideoRendering
 import {initialPlayerOrientationState, type PlayerOrientationState} from "./orientation";
 import {usePlayerBootstrap} from "./player-bootstrap";
 import {usePlayerSession} from "./player-session";
+import {PlayProgressClock} from "./play-progress-clock";
 import {NativeSaveToast} from "./checkpoint-help";
 import {useNativeExitDecision} from "./native-exit-dialog";
 import {useGameSaveSync} from "./use-game-save-sync";
@@ -89,12 +90,11 @@ export function PlayerShell({launchId, experience = "standard"}: {launchId: stri
   const [debugMetrics, setDebugMetrics] = useState<PlayerDebugMetrics | null>(null);
   const [debugRuntime, setDebugRuntime] = useState<PlayerDebugRuntime>(initialDebugRuntime);
   const returnTo = useRef("/library");
-  const sequence = useRef(0);
+  const progressClock = useRef(new PlayProgressClock());
   const started = useRef(false);
   const finishing = useRef(false);
   const cancelBootstrap = useRef<(() => Promise<void>) | null>(null);
   const heartbeat = useRef<number | null>(null);
-  const playEventQueue = useRef(Promise.resolve());
   const saveUploadQueue = useRef(Promise.resolve());
   const manualSaveAvailableRef = useRef(true);
   const dosProgramMenuRef = useRef(false);
@@ -190,11 +190,11 @@ export function PlayerShell({launchId, experience = "standard"}: {launchId: stri
   }, [showControls, showToast]);
   const handleGameSurfaceInteraction = useCallback(() => resumeFromSurface("runtime"), [resumeFromSurface]);
   const sessionParams = useMemo(() => ({
-    launchId, runtime, envelope, sequence, started, finishing, heartbeat, playEventQueue, saveUploadQueue,
+    launchId, runtime, envelope, progressClock, started, finishing, heartbeat, saveUploadQueue,
     orientationStateRef, returnTo, setOrientationState, setSaveUploadProgress,
     setSyncText, setSyncTone, showToast, replaceImmersiveRoute,
   }), [launchId, replaceImmersiveRoute, showToast]);
-  const {sendEvent, uploadManualState, captureReviewScreenshot, exit, exitStrict, exitImmersiveAfterRuntimeExit} = usePlayerSession(sessionParams);
+  const {reportProgress, uploadManualState, captureReviewScreenshot, exit, exitStrict, exitImmersiveAfterRuntimeExit} = usePlayerSession(sessionParams);
 
   const {nativeSave, nativeRetryAvailable, presentGameSave} = useNativeSavePresentation(
     manualSaveAvailableRef, setManualSaveAvailable, setSyncText, setSyncTone);
@@ -224,16 +224,16 @@ export function PlayerShell({launchId, experience = "standard"}: {launchId: stri
   const bootstrapParams = useMemo(() => ({
     launchId, experience, immersiveGamepadFilter: immersive.filter, stage, runtime, runtimeController, envelope,
     returnTo, manualSaveAvailableRef, dosProgramMenuRef, orientationStateRef, videoRenderingModeRef,
-    pausedRef, started, finishing, heartbeat, toastTimer,
+    pausedRef, started, finishing, heartbeat, progressClock, toastTimer,
     setMessage, setLoadProgress, setState, setManualSaveAvailable, setDosProgramMenu,
     setWarnings, setGameTitle, setCheckpointSemantics, setCoreName, setPlatformName, setDebugRuntime, setDiscState, setOrientationState,
     setSyncText, setSyncTone, setEmulatorVolume, setEmulatorMuted, setPaused,
     setPlayerReturnTo, setReviewScreenshotAvailable, reportPlayerEvent,
     onKeyboardPause: () => keyboardPauseAction.current(), onImmersiveMenuShortcut: immersive.requestMenu,
     onRevealControls: revealControlsAtTopEdge, onShowControls: showControls, onGameSurface: handleGameSurfaceInteraction,
-    onExitRequested: handleRuntimeExitRequested, sendEvent,
+    onExitRequested: handleRuntimeExitRequested, reportProgress,
   }), [experience, handleGameSurfaceInteraction, handleRuntimeExitRequested, immersive.filter,
-    immersive.requestMenu, launchId, reportPlayerEvent, revealControlsAtTopEdge, sendEvent, showControls]);
+    immersive.requestMenu, launchId, reportPlayerEvent, reportProgress, revealControlsAtTopEdge, showControls]);
   usePlayerBootstrap(bootstrapParams, cancelBootstrap);
   const runtimeEffectParams = useMemo(() => ({
     state, debugOpen, orientationBlocked: orientationState.phase === "orientation-blocked", runtime,

@@ -4,12 +4,13 @@ import { useCallback, useEffect, type Dispatch, type SetStateAction } from "reac
 import { newUuid } from "@/lib/crypto";
 import type {LaunchEnvelopeV1, PlayerRuntimeV1} from "./runtime/contract";
 import type {RuntimeSavePayload} from "./runtime/runtime-actions";
-import { uploadWithProgress, type SaveUploadProgress } from "./upload-with-progress";
+import { uploadWithRestartRetry, type SaveUploadProgress } from "./upload-with-progress";
 import { maximumManualSaveScreenshotBytes, prepareManualSaveScreenshot } from "./manual-save-screenshot";
 import { reducePlayerOrientation, unlockLandscape, type PlayerOrientationState } from "./orientation";
 import {saveReviewScreenshot} from "./review-preview-screenshot";
 import {GameSaveConflict, isGameSaveConflict} from "./game-save-upload-error";
 import {notifyReviewCheckpoint} from "./review-preview-receipt";
+import type {PlayProgressClock} from "./play-progress-clock";
 
 const SAVE_UPLOAD_PRESENTATION_MS = 400;
 const SAVE_UPLOAD_TIMEOUT_MS = 300_000;
@@ -18,8 +19,8 @@ type SyncTone = "synced" | "busy" | "warning";
 
 export type PlayerSessionParams = {
   launchId: string; runtime: Mutable<PlayerRuntimeV1 | null>; envelope: Mutable<LaunchEnvelopeV1 | null>;
-  sequence: Mutable<number>; started: Mutable<boolean>; finishing: Mutable<boolean>;
-  heartbeat: Mutable<number | null>; playEventQueue: Mutable<Promise<void>>; saveUploadQueue: Mutable<Promise<void>>;
+  progressClock: Mutable<PlayProgressClock>; started: Mutable<boolean>; finishing: Mutable<boolean>;
+  heartbeat: Mutable<number | null>; saveUploadQueue: Mutable<Promise<void>>;
   orientationStateRef: Mutable<PlayerOrientationState>; returnTo: Mutable<string>;
   replaceImmersiveRoute: (url: string) => void;
   setOrientationState: Dispatch<SetStateAction<PlayerOrientationState>>; setSaveUploadProgress: Dispatch<SetStateAction<number | null>>;
@@ -28,28 +29,29 @@ export type PlayerSessionParams = {
 };
 
 export function usePlayerSession(params: PlayerSessionParams) {
-  const sendEvent = useCallback((kind: "start" | "heartbeat" | "finish") => queuePlayerEvent(kind, params), [params]);
+  const reportProgress = useCallback(() => sendPlayProgress(params), [params]);
 
-  const reportProgress = useCallback((progress: SaveUploadProgress) => {
+  const reportSaveUploadProgress = useCallback((progress: SaveUploadProgress) => {
     params.setSaveUploadProgress(progress.percent);
     params.setSyncText(`正在上传存档 ${progress.percent}%`);
     params.setSyncTone("busy");
   }, [params]);
 
-  const uploadManualState = useCallback(async (payload: RuntimeSavePayload) => Boolean(await queueStateUpload(payload, params, reportProgress)), [params, reportProgress]);
+  const uploadManualState = useCallback(async (payload: RuntimeSavePayload) => Boolean(await queueStateUpload(payload, params, reportSaveUploadProgress)), [params, reportSaveUploadProgress]);
 
   const captureReviewScreenshot = useCallback(() => queueReviewScreenshot(params), [params]);
 
-  const exit = useCallback(() => exitPlayer(params, sendEvent), [params, sendEvent]);
-  const exitStrict = useCallback(() => exitImmersivePlayer(params, sendEvent), [params, sendEvent]);
+  const exit = useCallback(() => exitPlayer(params, reportProgress), [params, reportProgress]);
+  const exitStrict = useCallback(() => exitImmersivePlayer(params, reportProgress), [params, reportProgress]);
   const exitImmersiveAfterRuntimeExit = useCallback(
-    () => exitImmersivePlayer(params, sendEvent, false),
-    [params, sendEvent],
+    () => exitImmersivePlayer(params, reportProgress),
+    [params, reportProgress],
   );
 
   usePageHideFinish(params);
   usePageExitProtection(params);
-  return { sendEvent, uploadManualState, captureReviewScreenshot, exit, exitStrict, exitImmersiveAfterRuntimeExit };
+  useProgressVisibility(params);
+  return { reportProgress, uploadManualState, captureReviewScreenshot, exit, exitStrict, exitImmersiveAfterRuntimeExit };
 }
 
 async function queueReviewScreenshot(params: PlayerSessionParams) {
@@ -63,30 +65,21 @@ async function queueReviewScreenshot(params: PlayerSessionParams) {
     await params.saveUploadQueue.current;
 }
 
-function queuePlayerEvent(kind: "start" | "heartbeat" | "finish", params: PlayerSessionParams) {
-  if (kind === "heartbeat" && params.finishing.current) {return Promise.resolve();}
-  if (kind === "finish") {beginPlayerFinish(params);}
-  const result = params.playEventQueue.current.then(() => {
-    if (kind === "heartbeat" && params.finishing.current) {return;}
-    return sendPlayerEvent(kind, params);
-  });
-  params.playEventQueue.current = result.catch(() => undefined);
-  return result;
-}
-
-async function sendPlayerEvent(kind: "start" | "heartbeat" | "finish", params: PlayerSessionParams) {
-  if (kind === "heartbeat" && !params.started.current) {throw new Error("PLAY_SESSION_NOT_STARTED");}
-  const firstOrUnstartedFinish = kind === "start" || kind === "finish" && !params.started.current;
-  const next = firstOrUnstartedFinish ? 0 : params.sequence.current + 1;
-  const response = await fetch(`/runtime/launches/${params.launchId}/${kind}`, { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ clientSequence: next, clientObservedAtMs: Date.now(), previousInterval: firstOrUnstartedFinish ? null : { running: true, visible: document.visibilityState === "visible", paused: params.runtime.current?.getState() === "PAUSED" } }) });
-  if (!response.ok) {throw new Error("PLAY_SESSION_EVENT_FAILED");}
-  params.sequence.current = next;
-  if (kind === "start") {params.started.current = true;}
-  if (kind === "finish") {params.finishing.current = true;}
+async function sendPlayProgress(params: PlayerSessionParams, keepalive = false): Promise<void> {
+  if (!params.started.current || params.envelope.current?.session.purpose !== "PRODUCT") {return;}
+  try {
+    await fetch(`/runtime/launches/${params.launchId}/progress`, {
+      method: "POST", credentials: "same-origin", keepalive,
+      signal: keepalive ? undefined : AbortSignal.timeout(5_000),
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({activeDurationMs: params.progressClock.current.snapshot(performance.now())}),
+    });
+  } catch { /* Telemetry never controls the runtime or navigation. */ }
 }
 
 function beginPlayerFinish(params: PlayerSessionParams) {
   params.finishing.current = true;
+  params.progressClock.current.stop(performance.now());
   if (params.heartbeat.current !== null) {
     window.clearInterval(params.heartbeat.current);
     params.heartbeat.current = null;
@@ -105,17 +98,16 @@ function queueStateUpload(payload: RuntimeSavePayload, params: PlayerSessionPara
   });
 }
 
-async function exitPlayer(params: PlayerSessionParams, sendEvent: (kind: "start" | "heartbeat" | "finish") => Promise<void>) {
+async function exitPlayer(params: PlayerSessionParams, reportProgress: () => Promise<void>) {
   if (params.finishing.current) {return;}
   beginPlayerFinish(params);
   const exiting = reducePlayerOrientation(params.orientationStateRef.current, { type: "exit" });
   params.orientationStateRef.current = exiting.state;
   params.setOrientationState(exiting.state);
   if (exiting.effects.includes("unlock")) {unlockLandscape();}
-  try {
-    await params.saveUploadQueue.current;
-    await sendEvent("finish");
-  } catch { /* expiry is already a terminal server state */ }
+  await params.saveUploadQueue.current;
+  void reportProgress();
+  finishPreview(params);
   if (document.fullscreenElement) {await document.exitFullscreen().catch(() => undefined);}
   if (params.envelope.current?.session.purpose === "REVIEW_PREVIEW" && window.opener) {
     window.close();
@@ -126,19 +118,16 @@ async function exitPlayer(params: PlayerSessionParams, sendEvent: (kind: "start"
 
 async function exitImmersivePlayer(
   params: PlayerSessionParams,
-  sendEvent: (kind: "start" | "heartbeat" | "finish") => Promise<void>,
-  strict = true,
+  reportProgress: () => Promise<void>,
 ) {
   if (params.finishing.current) {return;}
   const exiting = reducePlayerOrientation(params.orientationStateRef.current, { type: "exit" });
   params.orientationStateRef.current = exiting.state;
   params.setOrientationState(exiting.state);
   if (exiting.effects.includes("unlock")) {unlockLandscape();}
-  try {
-    await sendEvent("finish");
-  } catch (error) {
-    if (strict) {throw error;}
-  }
+  beginPlayerFinish(params);
+  void reportProgress();
+  finishPreview(params);
   params.replaceImmersiveRoute(params.returnTo.current);
 }
 
@@ -158,9 +147,9 @@ async function uploadState(payload: RuntimeSavePayload, params: PlayerSessionPar
   const startedAt = performance.now();
   params.setSaveUploadProgress(0);
   await waitForSaveUploadPresentationTurn();
-  let response: Awaited<ReturnType<typeof uploadWithProgress>>;
+  let response: Awaited<ReturnType<typeof uploadWithRestartRetry>>;
   try {
-    response = await uploadWithProgress({
+    response = await uploadWithRestartRetry({
       url: `/runtime/launches/${params.launchId}/save-states`, method: "POST",
       headers: { "Idempotency-Key": payload.requestId ?? newUuid() }, body: form,
       totalBytes: payload.checkpoint.bytes.byteLength + uploadPayload.screenshot.size,
@@ -174,7 +163,7 @@ async function uploadState(payload: RuntimeSavePayload, params: PlayerSessionPar
 }
 
 function finishStateUpload(
-  response: Awaited<ReturnType<typeof uploadWithProgress>>,
+  response: Awaited<ReturnType<typeof uploadWithRestartRetry>>,
   payload: RuntimeSavePayload,
   screenshotSize: number,
   params: PlayerSessionParams,
@@ -241,6 +230,18 @@ function usePageHideFinish(params: PlayerSessionParams) {
   }, [params]);
 }
 
+function useProgressVisibility(params: PlayerSessionParams) {
+  useEffect(() => {
+    const update = () => {
+      const visible = document.visibilityState === "visible";
+      params.progressClock.current.setVisible(performance.now(), visible);
+      if (visible) {void sendPlayProgress(params);}
+    };
+    document.addEventListener("visibilitychange", update);
+    return () => document.removeEventListener("visibilitychange", update);
+  }, [params]);
+}
+
 function usePageExitProtection(params: PlayerSessionParams) {
   useEffect(() => {
     const protect = (event: BeforeUnloadEvent) => {
@@ -255,9 +256,18 @@ function usePageExitProtection(params: PlayerSessionParams) {
 
 function finishOnPageHide(params: PlayerSessionParams) {
   if (params.finishing.current) {return;}
-  const wasStarted = params.started.current;
   beginPlayerFinish(params);
-  void fetch(`/runtime/launches/${params.launchId}/finish`, { method: "POST", credentials: "same-origin", keepalive: true, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ clientSequence: wasStarted ? params.sequence.current + 1 : 0, clientObservedAtMs: Date.now(), previousInterval: wasStarted ? { running: true, visible: document.visibilityState === "visible", paused: params.runtime.current?.getState() === "PAUSED" } : null }) });
+  void sendPlayProgress(params, true);
+  finishPreview(params);
+}
+
+function finishPreview(params: PlayerSessionParams) {
+  if (params.envelope.current?.session.purpose !== "REVIEW_PREVIEW") {return;}
+  void fetch(`/runtime/launches/${params.launchId}/finish`, {
+    method: "POST", credentials: "same-origin", keepalive: true,
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({clientSequence: 0, clientObservedAtMs: Date.now(), previousInterval: null}),
+  }).catch(() => undefined);
 }
 
 function screenshotExtension(screenshot: Blob) {
