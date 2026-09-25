@@ -20,7 +20,8 @@ const cases = {
 const platform = env.RETROM_FLYCAST_ARCADE_PLATFORM;
 const scenario = cases[platform];
 const directory = resolve(env.RETROM_ACCEPTANCE_CASE_DIR ?? `.artifacts/flycast-${platform}`);
-const evidence = {caseId: `ACC-FLYCAST-ARCADE-${platform}`, status: "FAIL", stages: [], errors: [], consoleErrors: [], rangeResponses: 0};
+const evidence = {caseId: `ACC-FLYCAST-ARCADE-${platform}`, status: "FAIL", stages: [], errors: [], consoleErrors: [],
+  invalidWebglCapabilities: 0, rangeResponses: 0};
 let browser, proxy;
 const requests = [], gameUrls = new Set();
 
@@ -97,8 +98,11 @@ try {
   const context = await browser.newContext({viewport: {width: 1280, height: 900}, ...proxy.contextOptions});
   context.on("response", response => requests.push({url: response.url(), status: response.status(),
     method: response.request().method(), range: response.request().headers().range}));
-  context.on("console", message => {if (message.type() === "error" && evidence.consoleErrors.length < 20)
-    evidence.consoleErrors.push(message.text().slice(0, 500));});
+  context.on("console", message => {
+    const line = message.text();
+    if (/WebGL: INVALID_ENUM: (?:en|dis)able: invalid capability/iu.test(line)) {evidence.invalidWebglCapabilities++;}
+    if (message.type() === "error" && evidence.consoleErrors.length < 20) {evidence.consoleErrors.push(line.slice(0, 500));}
+  });
   context.setDefaultTimeout(30_000);
   await installVirtualStandardGamepad(context);
   const client = await fantasyClient(context, env.RETROM_ACCEPTANCE_BASE_URL);
@@ -182,6 +186,7 @@ try {
   evidence.rangeResponses = gameRequests.filter(request => request.status === 206 && request.range).length;
   assert.ok(evidence.rangeResponses > 0, "FLYCAST_ARCADE_RANGE_NOT_USED");
   assert.ok(gameRequests.every(request => request.status === 206 && request.range), "FLYCAST_ARCADE_FULL_ROM_DOWNLOAD");
+  assert.equal(evidence.invalidWebglCapabilities, 0, "FLYCAST_ARCADE_INVALID_WEBGL_CAPABILITY");
   assert.deepEqual(evidence.errors, []);
   evidence.status = "AWAITING_VISUAL_REVIEW";
 } catch (error) {

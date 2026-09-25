@@ -12,7 +12,8 @@ import {waitForPreviewReady, revealPreviewToolbar} from "./rpgmaker_preview_acti
 const env = process.env, base = env.RETROM_ACCEPTANCE_BASE_URL;
 const directory = resolve(env.RETROM_ACCEPTANCE_CASE_DIR ?? ".artifacts/flycast-storage");
 mkdirSync(directory, {recursive: true});
-const evidence = {caseId: "ACC-FLYCAST-001", status: "FAIL", stages: [], errors: [], runtimes: [], rangeResponses: 0, biosWarnings: []};
+const evidence = {caseId: "ACC-FLYCAST-001", status: "FAIL", stages: [], errors: [], runtimes: [], rangeResponses: 0,
+  biosWarnings: [], invalidWebglCapabilities: 0};
 const hash = bytes => createHash("sha256").update(bytes).digest("hex");
 let browser, proxy;
 const requests = [];
@@ -116,6 +117,9 @@ try {
   const context = await browser.newContext({viewport: {width: 1280, height: 900}, ...proxy.contextOptions});
   context.on("response", response => requests.push({url: response.url(), status: response.status(),
     method: response.request().method(), range: response.request().headers().range}));
+  context.on("console", message => {
+    if (/WebGL: INVALID_ENUM: (?:en|dis)able: invalid capability/iu.test(message.text())) {evidence.invalidWebglCapabilities++;}
+  });
   context.setDefaultTimeout(30000); await installVirtualStandardGamepad(context);
   const client = await fantasyClient(context, base), progress = await prepare(client);
   evidence.gameId = progress.gameId; evidence.gameSha256 = progress.digest;
@@ -152,6 +156,7 @@ try {
   evidence.rangeResponses = gameRequests.filter(request => request.status === 206 && request.range).length;
   assert.ok(evidence.rangeResponses > 0, "FLYCAST_RANGE_NOT_USED");
   assert.ok(gameRequests.every(request => request.status === 206 && request.range), "FLYCAST_FULL_GAME_DOWNLOAD");
+  assert.equal(evidence.invalidWebglCapabilities, 0, "FLYCAST_INVALID_WEBGL_CAPABILITY");
   assert.deepEqual(evidence.errors, []); evidence.status = "AWAITING_VISUAL_REVIEW";
 } catch (error) {evidence.error = error.message.slice(0, 500); process.exitCode = 1;}
 finally {
