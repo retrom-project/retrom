@@ -15,7 +15,7 @@ async function navigateUIPage(page: Page, route: string) {
       link.click(),
     ]);
   } else {
-    await page.goto(route, { waitUntil: "domcontentloaded" });
+    await page.goto(route);
   }
 }
 
@@ -118,7 +118,7 @@ async function expectRouteComposition(page: Page, route: string, width: number) 
 }
 
 async function expectImmersiveHeader(page: Page, width: number) {
-  await page.goto("/immersive", { waitUntil: "domcontentloaded" });
+  await page.goto("/immersive");
   await expect.poll(async () => {
     await page.keyboard.press("ArrowRight");
     return page.locator('[data-immersive-shell="true"]').getAttribute("data-controller-state");
@@ -143,7 +143,7 @@ async function expectImmersiveHeader(page: Page, width: number) {
 test("ACC-UI-011 shared typography, controls and responsive composition", async ({ page }, testInfo) => {
   test.setTimeout(180_000);
   page.setDefaultTimeout(12_000);
-  await page.goto("/login", { waitUntil: "domcontentloaded" });
+  await page.goto("/login");
   await expectSearchComposition(page);
   await expectPaletteContrast(page);
   const origin = process.env.RETROM_WEB_ORIGIN ?? "http://localhost:4000";
@@ -155,7 +155,7 @@ test("ACC-UI-011 shared typography, controls and responsive composition", async 
   await expectHomeStates(page, testInfo);
   const userRoutes = ["/", "/library", `/games/${gameId}`, "/saves", "/favorites", "/recent", "/account"];
   const adminRoutes = ["/admin/imports", "/admin/games", `/admin/games/${gameId}`, "/admin/platform-instances", "/admin/imports/new", "/admin/imports/tasks", "/admin/imports/server", "/admin/reviews", "/admin/tags", "/admin/users", "/admin/bios", "/admin/storage"];
-  await page.goto("/admin/imports/server", { waitUntil: "domcontentloaded" });
+  await page.goto("/admin/imports/server");
   const sourceLink = page.locator('a[href^="/admin/imports/server/source/"]').first();
   if (await sourceLink.count()) { adminRoutes.push((await sourceLink.getAttribute("href"))!); }
   const sizes = testInfo.project.name === "chrome-4k-150" ? [[2560, 1440]] : [[1440, 1000], [390, 844], [320, 740]];
@@ -185,14 +185,14 @@ test("ACC-UI-011 shared typography, controls and responsive composition", async 
     }
   }
   await page.setViewportSize({ width: 1440, height: 1000 });
-  await page.goto("/admin/platform-instances", { waitUntil: "domcontentloaded" });
+  await page.goto("/admin/platform-instances");
   await page.getByRole("button", { name: "新建游戏目录", exact: true }).click();
   await expect(page.getByRole("dialog")).toBeVisible();
   await expectControlStyles(page, false);
   await expectPaletteContrast(page);
   await page.screenshot({ path: evidencePath(testInfo, "ui-consistency-directory-drawer.png"), fullPage: true });
   await page.keyboard.press("Escape");
-  await page.goto("/library", { waitUntil: "domcontentloaded" });
+  await page.goto("/library");
   await page.getByRole("combobox").first().focus();
   await expect(page.getByRole("combobox").first()).toBeFocused();
   expect(await page.getByRole("combobox").first().evaluate((element) => getComputedStyle(element).outlineStyle)).not.toBe("none");
