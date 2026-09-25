@@ -94,7 +94,8 @@ async function expectHomeLaunchPlacement(page: Page) {
     expect(title).not.toBeNull();
     expect(action).not.toBeNull();
     expect(Math.abs(action!.x + action!.width - bounds!.x - bounds!.width)).toBeLessThan(1);
-    expect(action!.height).toBeGreaterThanOrEqual(48);
+    // Ordinary launch controls use the shared 44px minimum (UI specification §3).
+    expect(action!.height).toBeGreaterThanOrEqual(44);
     if (width >= 480) {
       expect(action!.x).toBeGreaterThanOrEqual(title!.x + title!.width + 12);
       expect(Math.abs(action!.y + action!.height / 2 - bounds!.y - bounds!.height / 2)).toBeLessThan(1);
