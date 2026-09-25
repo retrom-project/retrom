@@ -66,7 +66,6 @@ func TestPlayProgressRejectsGapsExpiryAndOverflow(t *testing.T) {
 	t.Parallel()
 	cases := map[string]func(*playMemory, *PlayEvent){
 		"gap":               func(_ *playMemory, event *PlayEvent) { event.ClientSequence = 2 },
-		"idle boundary":     func(memory *playMemory, _ *PlayEvent) { now := int64(100_000); memory.source.IdleExpiresAtMS = &now },
 		"hard boundary":     func(memory *playMemory, _ *PlayEvent) { memory.source.Session.HardExpiresAtMS = 100_000 },
 		"inactive play":     func(memory *playMemory, _ *PlayEvent) { memory.current.State = "FINISHED" },
 		"source version":    func(memory *playMemory, _ *PlayEvent) { memory.source.Version = math.MaxInt64 },
@@ -87,6 +86,16 @@ func TestPlayProgressRejectsGapsExpiryAndOverflow(t *testing.T) {
 				t.Fatalf("result=%#v writes=%d error=%v", result, memory.writes, err)
 			}
 		})
+	}
+}
+
+func TestPlayProgressIgnoresExpiredIdleLease(t *testing.T) {
+	memory := activePlayMemory()
+	deadline := int64(99_999)
+	memory.source.IdleExpiresAtMS = &deadline
+	result, err := newPlayController(memory).RecordPlay(t.Context(), "launch", "valid", "heartbeat", heartbeatEvent())
+	if err != nil || result.PlaySessionID != "play" || memory.writes != 1 {
+		t.Fatalf("result=%#v writes=%d error=%v", result, memory.writes, err)
 	}
 }
 

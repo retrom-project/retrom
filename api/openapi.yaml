@@ -238,6 +238,8 @@ paths:
     $ref: ./domains/runtime.yaml#/paths/~1runtime~1launches~1{launchId}~1start
   /runtime/launches/{launchId}/heartbeat:
     $ref: ./domains/runtime.yaml#/paths/~1runtime~1launches~1{launchId}~1heartbeat
+  /runtime/launches/{launchId}/progress:
+    $ref: ./domains/runtime.yaml#/paths/~1runtime~1launches~1{launchId}~1progress
   /runtime/launches/{launchId}/finish:
     $ref: ./domains/runtime.yaml#/paths/~1runtime~1launches~1{launchId}~1finish
   /runtime/launches/{launchId}/player-events:
@@ -597,6 +599,8 @@ components:
       $ref: ./domains/catalog.yaml#/components/schemas/BIOSListResponseBody
     PlayEventRequest:
       $ref: ./domains/runtime.yaml#/components/schemas/PlayEventRequest
+    PlayProgressRequest:
+      $ref: ./domains/runtime.yaml#/components/schemas/PlayProgressRequest
     MultiDiscPlayerEventRequest:
       $ref: ./domains/runtime.yaml#/components/schemas/MultiDiscPlayerEventRequest
     HealthLive:
@@ -746,6 +750,8 @@ components:
       $ref: ./domains/source-imports.yaml#/components/requestBodies/SourceImportStart
     PlayEvent:
       $ref: ./domains/runtime.yaml#/components/requestBodies/PlayEvent
+    PlayProgress:
+      $ref: ./domains/runtime.yaml#/components/requestBodies/PlayProgress
     MultiDiscPlayerEvent:
       $ref: ./domains/runtime.yaml#/components/requestBodies/MultiDiscPlayerEvent
   responses:

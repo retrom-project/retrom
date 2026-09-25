@@ -79,6 +79,9 @@ func TestRetirementUsesActualLaunchDeadlineAndPreservesTerminalState(t *testing.
 				Found: true, ID: "launch", State: state, Version: 1,
 				DueMS: 10, BootstrapMS: 10, Idle: WorkTime{Set: true, Value: 10}, HardMS: 20, Finished: WorkTime{Set: true, Value: 10},
 			}}
+			if state == "ACTIVE" {
+				memory.launch.HardMS = 10
+			}
 			service := NewRetirements(memory, func() time.Time { return time.UnixMilli(10) })
 			count, err := service.LaunchBatch(t.Context())
 			if err != nil || count != 1 || !memory.removedLaunch || !memory.releasedLaunch {

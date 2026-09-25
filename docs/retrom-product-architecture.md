@@ -420,9 +420,9 @@ flowchart LR
 
 所有入口共用启动编排器。正常点击后立即进入全屏 Player Shell、显示加载状态并自动运行；详情页显式选择的核心由当前浏览器按游戏保留。DOS 详情多一个启动程序选择框，入口或程序菜单只在 Launch 成功签发后记住，失败不写；存档入口不重新询问、不采用或改写这些偏好，而是恢复存档绑定的运行环境。
 
-手动状态存档必须包含非空可恢复 payload；截图是同次创建中的可选最佳努力输入，缺失时仍保存并在 API/UI 明确表示无预览。有效游玩时长通过 PlaySession 心跳累计；页面后台、模拟器暂停和长时间失联不计入有效时长。
+手动状态存档必须包含非空可恢复 payload；截图是同次创建中的可选最佳努力输入，缺失时仍保存并在 API/UI 明确表示无预览。PRODUCT Player 按间隔尽力上报可见、未暂停运行时间的累计值；丢失样本不会影响游玩或授权，页面后台与模拟器暂停时间不计入。
 
-所有项目类型（包括 RPG Maker）共用审核 Preview 与普通 Player：点击“运行游戏”同步打开子窗口，服务端校验当前来源、目标、文件、依赖及浏览器能力后签发会话；Player 使用普通 config/start/heartbeat/finish、Provider dispatcher 和退出清理，不创建假 Game，也没有专用机器证明、额外验证决定或人工重检流程。管理员可按需保存运行截图、重复创建会话级临时 checkpoint，并从已有 checkpoint 创建新的 Preview 恢复，不要求先结束原 Preview。临时内容在会话到期或审核结束时释放；正式发布仍由当前来源与实际依赖检查决定。 跨会话精确恢复保留在研发验收中：通过普通 Player 记录真实可见初始状态 A，实际输入到 B 并创建普通 checkpoint，再继续到不同状态 C；使用同一 checkpoint 创建不同会话，读取真实运行状态，逐字段证明 mapId/playerX/playerY/fixtureState 恢复为 B 且不是 A/C，再真实输入并证明状态继续变化。验收同时检查连续帧、实际音频、截图 marker、文件完整性、checkpoint 格式/大小与授权边界；只有 HTTP 成功、Blob/hash 一致、同会话回读或截图相似都不足以 PASS。这些观测与断言属于开发 harness/自有公开 fixture，不进入生产 API、数据表、Provider 契约或审核 UI。
+所有项目类型（包括 RPG Maker）共用审核 Preview 与普通 Player：点击“运行游戏”同步打开子窗口，服务端校验当前来源、目标、文件、依赖及浏览器能力后签发会话；Player 使用普通 config、Provider dispatcher 和退出清理，审核 Preview 退出时尽力发送 finish，不创建假 Game，也没有专用机器证明、额外验证决定或人工重检流程。管理员可按需保存运行截图、重复创建会话级临时 checkpoint，并从已有 checkpoint 创建新的 Preview 恢复，不要求先结束原 Preview。临时内容在会话到期或审核结束时释放；正式发布仍由当前来源与实际依赖检查决定。 跨会话精确恢复保留在研发验收中：通过普通 Player 记录真实可见初始状态 A，实际输入到 B 并创建普通 checkpoint，再继续到不同状态 C；使用同一 checkpoint 创建不同会话，读取真实运行状态，逐字段证明 mapId/playerX/playerY/fixtureState 恢复为 B 且不是 A/C，再真实输入并证明状态继续变化。验收同时检查连续帧、实际音频、截图 marker、文件完整性、checkpoint 格式/大小与授权边界；只有 HTTP 成功、Blob/hash 一致、同会话回读或截图相似都不足以 PASS。这些观测与断言属于开发 harness/自有公开 fixture，不进入生产 API、数据表、Provider 契约或审核 UI。
 
 ## 9. 数据与版本基线
 
@@ -440,7 +440,7 @@ flowchart LR
 ### Phase 0：兼容性闸门
 
 - 锁定 EmulatorJS Provider 的 44 个 Target（包含基础 4.2.3 与定向 4.3.0-pre 实现），每个产品 Core 经其唯一 binding 启动至少一个用户合法提供的测试游戏；固定兼容基线、线程产物、辅助资产与格式矩阵见[核心运行时验证基线](./core-runtime-validation.md)。
-- 验证直接启动、默认全屏、仅用户显式状态存档/截图、指定存档恢复与有效时长心跳。
+- 验证直接启动、默认全屏、仅用户显式状态存档/截图、指定存档恢复与累计时长快照。
 - 验证 FBNeo/MAME/FBA2012 Split 与 Full Non-Merged 的 parent/BIOS 加载，及五个独立 DAT。
 - 已确认 Hasheous 的 `POST /api/v1/Lookup/ByHash` 无凭证契约；自动测试使用 fake，上线前只做一次有界 smoke，不能依赖实时命中内容或把限流阈值写死。
 - 核心运行兼容只能由经过 Retrom 导入、Launch、内容端点和 Player 的产品 E2E 证明；历史独立 EmulatorJS 页面结果不是产品启动编排的证据。当前已覆盖核心与缺口以核心运行时专题为准。DOSBox Pure 的 4.3 whole-archive、虚拟 ZIP 引导、程序菜单、原 bundle 不复制及不安全路径阻断执行 `ACC-RUN-005`。

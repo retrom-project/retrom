@@ -57,6 +57,10 @@ jobs:
         run: make prepare-deps
       - name: Run the repository quality gate
         run: make ci
+      - name: Prepare fixed Latin and CJK fonts for browser checks
+        run: |
+          scripts/prepare-e2e-fonts.sh
+          echo "FONTCONFIG_FILE=$PWD/.cache/tools/e2e-fonts/fonts.conf" >> "$GITHUB_ENV"
       - name: Verify UI consistency in the product browser
         run: |
           make prepare-e2e-browser

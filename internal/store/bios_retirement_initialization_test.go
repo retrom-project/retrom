@@ -39,7 +39,7 @@ state='ACTIVE',activated_at_ms=2,idle_expires_at_ms=15,updated_at_ms=2,version=v
 	testassert.False(t, err != nil, err)
 	err = current.SQL.QueryRowContext(t.Context(), `SELECT due_at_ms FROM launch_payload_retirements WHERE launch_session_id='current-launch'`).Scan(&due)
 	testassert.False(t, err != nil, err)
-	testassert.True(t, due == 15, "heartbeat did not move retirement deadline")
+	testassert.True(t, due == 20, "active launch did not use hard retirement deadline")
 	for _, query := range []struct{ sql, index string }{
 		{`SELECT launch_session_id FROM launch_payload_retirements WHERE released_at_ms IS NULL AND due_at_ms<=100 ORDER BY due_at_ms,launch_session_id LIMIT 200`, "launch_payload_retirement"},
 		{`SELECT id,blob_id FROM bios_installations WHERE is_active=0 AND blob_id IS NOT NULL ORDER BY updated_at_ms,id LIMIT 1`, "bios_installations_retirement"},

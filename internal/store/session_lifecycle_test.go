@@ -61,8 +61,53 @@ WHERE launch_session_id='current-launch'`).Scan(&due); err != nil || due != 10 {
 		t.Fatal(err)
 	}
 	if err := tx.QueryRowContext(t.Context(), `SELECT due_at_ms FROM launch_payload_retirements
-WHERE launch_session_id='current-launch'`).Scan(&due); err != nil || due != 15 {
+WHERE launch_session_id='current-launch'`).Scan(&due); err != nil || due != 20 {
 		t.Fatalf("active retirement deadline = %d, error = %v", due, err)
+	}
+}
+
+func TestPlayResilienceMigrationClearsActiveIdleRetirement(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "retrom.db")
+	db := openMigrationTestDatabase(t, path)
+	defer func() { _ = db.Close() }()
+	sources, err := migrationSources()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, source := range sources[:len(sources)-1] {
+		if err := runMigration(t.Context(), db, source, time.Now); err != nil {
+			t.Fatal(err)
+		}
+	}
+	seedCurrentRuntimeGraph(t, db)
+	tx := lifecycleTransaction(t, db)
+	if _, err := sessionstore.CreateLaunch(t.Context(), tx, currentLaunchInsertSQL,
+		"current-launch", "current-game-a", "target-a"); err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.Commit(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(t.Context(), `UPDATE launch_sessions SET state='ACTIVE',activated_at_ms=2,idle_expires_at_ms=15
+WHERE id='current-launch'`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(t.Context(), `UPDATE launch_payload_retirements SET due_at_ms=15
+WHERE launch_session_id='current-launch'`); err != nil {
+		t.Fatal(err)
+	}
+	if err := runMigration(t.Context(), db, sources[len(sources)-1], time.Now); err != nil {
+		t.Fatal(err)
+	}
+	var idle sql.NullInt64
+	var due, hard int64
+	if err := db.QueryRowContext(t.Context(), `SELECT launch.idle_expires_at_ms,retirement.due_at_ms,launch.hard_expires_at_ms
+FROM launch_sessions launch JOIN launch_payload_retirements retirement ON retirement.launch_session_id=launch.id
+WHERE launch.id='current-launch'`).Scan(&idle, &due, &hard); err != nil {
+		t.Fatal(err)
+	}
+	if idle.Valid || due != hard {
+		t.Fatalf("idle=%v due=%d hard=%d", idle, due, hard)
 	}
 }
 

@@ -30,7 +30,7 @@ func TestBIOSLaunchRetirementDeadlines(t *testing.T) {
 		expire                bool
 	}{
 		{"live", "ACTIVE", 1000, 2000, 1000, false},
-		{"idle expired", "ACTIVE", 0, 2000, 1000, true},
+		{"idle expired", "ACTIVE", 0, 2000, 1000, false},
 		{"hard expired", "ACTIVE", 1000, 0, 0, true},
 		{"unused bootstrap expired", "CREATED", 1000, 2000, 0, true},
 		{"bootstrap still usable", "CREATED", 1000, 2000, 1000, false},

@@ -245,6 +245,16 @@ func (service *Service) RecordPlay(
 	return result, nil
 }
 
+func (service *Service) RecordPlaySnapshot(
+	ctx context.Context, launchID, capability string, sample PlaySnapshot,
+) (PlaySnapshotResult, error) {
+	result, err := service.dependencies.Play.RecordSnapshot(ctx, launchID, capability, sample)
+	if err != nil {
+		return PlaySnapshotResult{}, fmt.Errorf("launch play snapshot: %w", err)
+	}
+	return result, nil
+}
+
 func (service *Service) ProviderAssetAuthorized(
 	ctx context.Context,
 	sessionID string,

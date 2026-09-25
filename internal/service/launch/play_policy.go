@@ -20,9 +20,9 @@ func validPlayEvent(kind string, event PlayEvent) bool {
 		kind == "finish" && event.ClientSequence == 0 && event.PreviousInterval == nil
 }
 func playVersionWritable(version int64) bool { return version >= 1 && version < math.MaxInt64 }
-func validPlayProgress(source PlaySource, current PlayRecord, event PlayEvent, now int64) bool {
+func validPlayProgress(source PlaySource, current PlayRecord, event PlayEvent) bool {
 	return source.Session.State == "ACTIVE" && current.State == "ACTIVE" &&
-		(source.IdleExpiresAtMS == nil || *source.IdleExpiresAtMS > now) && event.PreviousInterval != nil &&
+		event.PreviousInterval != nil &&
 		current.LastSequence < math.MaxInt64 && event.ClientSequence == current.LastSequence+1
 }
 

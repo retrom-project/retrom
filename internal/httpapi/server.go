@@ -534,6 +534,7 @@ func (server *Server) registerRuntimeRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("HEAD /runtime/content/parent/{contentIdentity}/bundle.zip", server.launchParentBundle)
 	mux.HandleFunc("POST /runtime/launches/{launchId}/start", server.launchStart)
 	mux.HandleFunc("POST /runtime/launches/{launchId}/heartbeat", server.launchHeartbeat)
+	mux.HandleFunc("POST /runtime/launches/{launchId}/progress", server.launchProgress)
 	mux.HandleFunc("POST /runtime/launches/{launchId}/finish", server.launchFinish)
 	mux.HandleFunc("POST /runtime/launches/{launchId}/player-events", server.multiDiscPlayerEvent)
 	mux.HandleFunc("POST /runtime/launches/{launchId}/save-states", server.createSaveState)

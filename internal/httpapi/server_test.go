@@ -61,6 +61,20 @@ func TestHealthIsPublicAndProtectedWritesRequireAuthentication(t *testing.T) {
 	testassert.Falsef(t, created.Code != http.StatusCreated, "authenticated write status = %d %s", created.Code, created.Body.String())
 }
 
+func TestPlayProgressRouteRequiresLaunchCredential(t *testing.T) {
+	server := newTestServer(t)
+	request := httptest.NewRequestWithContext(t.Context(), http.MethodPost,
+		"/runtime/launches/01980000-0000-7000-8000-000000000091/progress",
+		strings.NewReader(`{"activeDurationMs":30000}`))
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Origin", "http://localhost:3000")
+	response := httptest.NewRecorder()
+	server.Handler().ServeHTTP(response, request)
+	if response.Code != http.StatusUnauthorized || !strings.Contains(response.Body.String(), "LAUNCH_CREDENTIAL_INVALID") {
+		t.Fatalf("progress route status=%d body=%s", response.Code, response.Body.String())
+	}
+}
+
 func TestAuthenticationMiddlewareClearsCookieOnlyForDefinitiveRevocation(t *testing.T) {
 	t.Parallel()
 	server := newTestServer(t)
@@ -308,7 +322,7 @@ func TestDiagnosticsUsesClosedSnapshotSchemaAndRequiredHeaders(t *testing.T) {
 	if err := decoder.Decode(&response); err != nil {
 		t.Fatalf("diagnostics schema: %v: %s", err, recorder.Body.String())
 	}
-	testassert.Falsef(t, testassert.Any(func() bool { return response.SchemaVersion != 2 }, func() bool { return response.GeneratedAtMS != fixed.UnixMilli() }, func() bool { return response.DatabaseSchemaVersion != 14 }, func() bool { return len(response.RuntimeProviders) != 2 }, func() bool { return response.RuntimeProviders[0].ProviderID != "emulatorjs" }, func() bool { return response.RuntimeProviders[1].ProviderID != "retrom-runtime" }), "diagnostics values = %#v", response)
+	testassert.Falsef(t, testassert.Any(func() bool { return response.SchemaVersion != 2 }, func() bool { return response.GeneratedAtMS != fixed.UnixMilli() }, func() bool { return response.DatabaseSchemaVersion != 15 }, func() bool { return len(response.RuntimeProviders) != 2 }, func() bool { return response.RuntimeProviders[0].ProviderID != "emulatorjs" }, func() bool { return response.RuntimeProviders[1].ProviderID != "retrom-runtime" }), "diagnostics values = %#v", response)
 }
 
 func TestImportProjectionsIncludeRejectedFileProblems(t *testing.T) {

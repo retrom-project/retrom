@@ -425,8 +425,9 @@ RPG Maker fixture 必须遵守同一再分发规则：生成源、许可、固�
 
 1. `.github/workflows/ci.yml` 在所有 pull request 上设置 Go、Node/npm、仓库固定 Node 工具链及物化 runtime 缓存；随后先执行幂等且逐字节校验的 `make prepare-deps`，再运行 `make ci`。固定 golangci-lint 由 Makefile 依赖自动安装，同一 PR 的旧运行由 concurrency 取消。
 2. CI 使用锁文件和固定 manifest 安装依赖；runtime/core/DAT/许可 payload 可以由 `prepare-deps` 从锁定来源物化并按 hash 校验，测试阶段不下载第三方 ROM/BIOS、不访问真实 Hasheous，也不依赖开发机浏览器；仓库自有公开测试 ROM 直接从 checkout 读取并验证生成一致性。
-3. 建立 `web/e2e/` 的 Chrome 配置和关键路径；按改动范围或发布流程运行 `make web-e2e`。
-4. 真实核心覆盖只能加入 Retrom 产品 E2E；不得建立绕过导入、Launch、内容端点或 Player 的独立示例门禁。
+3. Linux CI 在浏览器验收前运行 `scripts/prepare-e2e-fonts.sh`，并将 `FONTCONFIG_FILE` 指向 checkout 内的 `.cache/tools/e2e-fonts/fonts.conf`；本地可使用相同命令复现。脚本从 Ubuntu 官方归档下载固定版本的 Droid Sans Fallback 和 DejaVu Sans 包，校验包与字体 SHA-256，保留各自许可说明，只在忽略的缓存中解包，不安装系统软件、不提交或分发字体二进制。Fontconfig 固定 Linux 默认无衬线字体及中文后备字体，避免宿主字体指标变化影响像素级回归；这只作用于测试环境，不改变产品字体栈。浏览器环境必须能区分渲染不同汉字；缺字方框不能作为布局、对比度或文字居中的有效证据。
+4. 建立 `web/e2e/` 的 Chrome 配置和关键路径；按改动范围或发布流程运行 `make web-e2e`。
+5. 真实核心覆盖只能加入 Retrom 产品 E2E；不得建立绕过导入、Launch、内容端点或 Player 的独立示例门禁。
 
 ### Phase Q3：镜像构建门禁
 
