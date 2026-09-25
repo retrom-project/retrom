@@ -42,7 +42,17 @@
         "ppsspp",
         "uzem",
         "gam4980",
-        "o2em"
+        "o2em",
+        "ardens",
+        "atari800",
+        "hatarib",
+        "jsbeeb",
+        "freechaf",
+        "sameduck",
+        "samcoupeweb",
+        "potator",
+        "theodore",
+        "supermodel"
       ]
     },
     {
@@ -384,6 +394,96 @@
       "role": "core",
       "gitlink": "git@github.com:retrom-project/gam4980.git",
       "defaultBranch": "retrom/geeaa531b55e7",
+      "submodules": false,
+      "dependsOn": []
+    },
+    {
+      "id": "ardens",
+      "path": "project/retrom-core/Ardens",
+      "role": "core",
+      "gitlink": "git@github.com:retrom-project/Ardens.git",
+      "defaultBranch": "retrom/g661a7dd4febc",
+      "submodules": true,
+      "dependsOn": []
+    },
+    {
+      "id": "atari800",
+      "path": "project/retrom-core/libretro-atari800",
+      "role": "core",
+      "gitlink": "git@github.com:retrom-project/libretro-atari800.git",
+      "defaultBranch": "retrom/g4e7fbc73765c",
+      "submodules": false,
+      "dependsOn": []
+    },
+    {
+      "id": "hatarib",
+      "path": "project/retrom-core/hatariB",
+      "role": "core",
+      "gitlink": "git@github.com:retrom-project/hatariB.git",
+      "defaultBranch": "retrom/gcceb40a9c054",
+      "submodules": true,
+      "dependsOn": []
+    },
+    {
+      "id": "jsbeeb",
+      "path": "project/retrom-core/jsbeeb",
+      "role": "core",
+      "gitlink": "git@github.com:retrom-project/jsbeeb.git",
+      "defaultBranch": "retrom/gc4839b888af2",
+      "submodules": true,
+      "dependsOn": []
+    },
+    {
+      "id": "freechaf",
+      "path": "project/retrom-core/FreeChaF",
+      "role": "core",
+      "gitlink": "git@github.com:retrom-project/FreeChaF.git",
+      "defaultBranch": "retrom/g76c7a84f1f7e",
+      "submodules": true,
+      "dependsOn": []
+    },
+    {
+      "id": "sameduck",
+      "path": "project/retrom-core/SameBoy",
+      "role": "core",
+      "gitlink": "git@github.com:retrom-project/SameBoy.git",
+      "defaultBranch": "retrom/g5619abdb01ce",
+      "submodules": false,
+      "dependsOn": []
+    },
+    {
+      "id": "samcoupeweb",
+      "path": "project/retrom-core/SamCoupeWeb",
+      "role": "core",
+      "gitlink": "git@github.com:retrom-project/SamCoupeWeb.git",
+      "defaultBranch": "retrom/g6593bda81983",
+      "submodules": false,
+      "dependsOn": []
+    },
+    {
+      "id": "potator",
+      "path": "project/retrom-core/potator",
+      "role": "core",
+      "gitlink": "git@github.com:retrom-project/potator.git",
+      "defaultBranch": "retrom/g227c5f6f3ce7",
+      "submodules": false,
+      "dependsOn": []
+    },
+    {
+      "id": "theodore",
+      "path": "project/retrom-core/theodore",
+      "role": "core",
+      "gitlink": "git@github.com:retrom-project/theodore.git",
+      "defaultBranch": "retrom/g4d469ce0f71e",
+      "submodules": true,
+      "dependsOn": []
+    },
+    {
+      "id": "supermodel",
+      "path": "project/retrom-core/Libretro-Supermodel",
+      "role": "core",
+      "gitlink": "git@github.com:retrom-project/Libretro-Supermodel.git",
+      "defaultBranch": "retrom/g84bc106b45b2",
       "submodules": false,
       "dependsOn": []
     }

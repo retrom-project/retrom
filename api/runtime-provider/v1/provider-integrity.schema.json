@@ -31,6 +31,7 @@
         "mediaType": {
           "enum": [
             "text/javascript; charset=utf-8",
+            "text/html; charset=utf-8",
             "text/css; charset=utf-8",
             "text/plain; charset=utf-8",
             "application/json; charset=utf-8",

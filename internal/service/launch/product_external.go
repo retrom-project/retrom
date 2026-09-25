@@ -16,7 +16,9 @@ func productExternalFiles(snapshot ProductSnapshot, content ProductContent) ([]P
 			ProductExternalFile{Kind: "DISC", BlobID: disc.BlobID, LogicalName: disc.LogicalName, VirtualPath: disc.VirtualPath},
 		)
 	}
-	if snapshot.Source.DeliveryProfile == "EMULATORJS_CONTENT" {
+	if snapshot.Source.DeliveryProfile == "EMULATORJS_CONTENT" ||
+		snapshot.Source.ProviderID == "retrom-runtime" &&
+			(snapshot.Source.TargetID == "bbc-jsbeeb" || snapshot.Source.TargetID == "samcoupe") {
 		dependencies, err := corevalidation.ParseRuntimeBIOSDependencies(snapshot.Source.DependencySnapshot)
 		if err != nil {
 			return nil, ErrBlocked

@@ -26,7 +26,7 @@ class RuntimeTargetBindingsTest(unittest.TestCase):
             ROOT / "data/runtime-target-bindings/v1/catalog.json"
         )
         self.assertNotIn("catalogVersion", catalog)
-        self.assertEqual(len(catalog["bindings"]), 83)
+        self.assertEqual(len(catalog["bindings"]), 94)
         self.assertEqual(
             {item["providerId"] for item in catalog["bindings"]},
             {"emulatorjs", "retrom-runtime"},
@@ -40,6 +40,8 @@ class RuntimeTargetBindingsTest(unittest.TestCase):
                 },
             )
         by_target = {(item["providerId"], item["targetId"]): item for item in catalog["bindings"]}
+        for target_id in ["bbc-jsbeeb", "samcoupe"]:
+            self.assertEqual(by_target[("retrom-runtime", target_id)]["detectorProfile"], "RUNTIME_SINGLE_FILE")
         openbor = by_target[("retrom-runtime", "openbor")]
         self.assertEqual(openbor["platformIds"], ["openbor"])
         self.assertEqual(openbor["detectorProfile"], "OPENBOR_PAK")
@@ -72,6 +74,7 @@ class RuntimeTargetBindingsTest(unittest.TestCase):
             "vice-xplus4": ("vice_xplus4", ["plus4"]),
             "vice-xvic": ("vice_xvic", ["vic20"]),
             "virtualjaguar": ("virtualjaguar", ["atarijaguar"]),
+            "supermodel": ("supermodel", ["model3"]),
         }
         for target_id, (core_id, platform_ids) in expected_single_file_targets.items():
             binding = by_target[("emulatorjs", target_id)]

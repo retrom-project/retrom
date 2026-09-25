@@ -106,6 +106,10 @@ func TestParseIntegrityClosesMediaAndOrdering(t *testing.T) {
 	if err != nil || len(integrity.Files) != 3 || integrity.Files[0].MediaType != "application/wasm" {
 		t.Fatalf("integrity = %#v, %v", integrity, err)
 	}
+	html := strings.Replace(valid, `"mediaType":"application/wasm"`, `"mediaType":"text/html; charset=utf-8"`, 1)
+	if _, err := ParseIntegrity([]byte(html)); err != nil {
+		t.Fatalf("html integrity rejected: %v", err)
+	}
 	for _, invalid := range []string{
 		strings.Replace(valid, "application/wasm", "video/mp4", 1),
 		strings.Replace(valid, `"path":"client.mjs"`, `"path":"../client.mjs"`, 1),
