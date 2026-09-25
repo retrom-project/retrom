@@ -157,11 +157,20 @@ Host 上传成功后才确认该版本已经持久化。最多 256 个文件、1
 卡带验证新 Launch 恢复。其他 `.lutro` 游戏的兼容性须单独验证，当前结论只覆盖固定样本。
 未写原生文件的卡带不能创建可恢复存档，该样本不得算通过本 Target 的存档准入。
 
+### Apple II / Apple2JS
+
+`apple2-apple2js` 的标准手柄方向映射到 Apple II 摇杆轴，A/B 映射到摇杆按钮 0/1。
+Start 单独发送键盘 `1`，用于已验证的《Donkey Kong》单人开始；Select 单独发送 Escape。
+真实键盘仍可独立操作，其他游戏的菜单按键需要逐样本验证。输入诊断观察 Apple2JS
+实际读取手柄的内层 iframe，显示按钮按下与松开；观测记录不代表核心已执行该动作。
+
 ### Daphne 当前准入状态
 
 Daphne fork 的 `retro_serialize_size()` 返回零，保存与恢复接口均返回失败；已有的
-NVRAM/分数文件不能重建正在游玩的场景。Daphne 暂不声明可创建存档的 Provider Target，
-需要完整的 CPU、游戏状态与视频位置恢复能力及跨 Launch 产品证据后再接入。
+NVRAM/分数文件不能重建正在游玩的场景。用户已明确允许 Daphne 使用 `NO_SAVE`，
+runtime 因此只为 Daphne 暂存 `checkpoint: null` 和 `capabilities.checkpoint: false` 的 adapter。
+大体量激光影碟视频和音频还需要接入公共 Content I/O 的有界 Range 读取；完成内容、输入、
+Review Preview 与 Product Launch 验收前，不注册公开 Provider Target，也不导入可玩的 Daphne 游戏。
 
 ## 6. 升级验证
 
