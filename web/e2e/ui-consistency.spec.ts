@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { expectPaletteContrast } from "./palette-contrast-support";
 import { expectSearchComposition } from "./search-control-support";
 import { expectCardRadii } from "./card-radius-support";
 import { expectHomeStates } from "./home-state-support";
@@ -131,6 +132,7 @@ test("ACC-UI-011 shared typography, controls and responsive composition", async 
   page.setDefaultTimeout(12_000);
   await page.goto("/login");
   await expectSearchComposition(page);
+  await expectPaletteContrast(page);
   const origin = process.env.RETROM_WEB_ORIGIN ?? "http://localhost:4000";
   expect((await page.request.post("/api/v1/auth/login", { headers: { Origin: origin }, data: { username: "test", password: "test" } })).ok()).toBe(true);
   const response = await page.request.get("/api/v1/games?limit=1");
@@ -158,6 +160,7 @@ test("ACC-UI-011 shared typography, controls and responsive composition", async 
       await expect(page.locator(".loading-grid, .favorite-loading-shell")).toHaveCount(0);
       await expectControlStyles(page, width! < 768);
       await expectCardRadii(page);
+      await expectPaletteContrast(page);
       await expectSearchComposition(page);
       await expectRouteComposition(page, route, width!);
       if (route === "/favorites" && width! < 768) { await expectMobileFavorites(page); }
@@ -173,6 +176,7 @@ test("ACC-UI-011 shared typography, controls and responsive composition", async 
   await page.getByRole("button", { name: "新建游戏目录", exact: true }).click();
   await expect(page.getByRole("dialog")).toBeVisible();
   await expectControlStyles(page, false);
+  await expectPaletteContrast(page);
   await page.screenshot({ path: evidencePath(testInfo, "ui-consistency-directory-drawer.png"), fullPage: true });
   await page.keyboard.press("Escape");
   await page.goto("/library");
