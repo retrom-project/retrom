@@ -26,3 +26,20 @@ func TestDiscPlatformsDeclareRegionAndMachineFirmware(t *testing.T) {
 		t.Errorf("missing %s BIOS requirement", key)
 	}
 }
+
+func TestAmigaComputerFirmwareDoesNotRequireCD32(t *testing.T) {
+	t.Parallel()
+	want := map[string]bool{"kick34005.A500": true, "kick40068.A1200": true}
+	for _, requirement := range staticBIOSCatalog {
+		if requirement.coreID != "puae" || !want[requirement.logical] {
+			continue
+		}
+		if requirement.mode != "OPTIONAL" || requirement.condition != "AMIGA_COMPUTER_CONTENT" || requirement.md5 == "" {
+			t.Errorf("%s firmware = %#v", requirement.logical, requirement)
+		}
+		delete(want, requirement.logical)
+	}
+	for logical := range want {
+		t.Errorf("missing %s firmware", logical)
+	}
+}

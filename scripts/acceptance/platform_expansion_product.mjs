@@ -13,8 +13,9 @@ import {observeExpansion, openExpansion, pictureExpansion, pressExpansion, holdE
 const env = process.env, platform = process.argv[2], base = env.RETROM_ACCEPTANCE_BASE_URL;
 const cores = {gamegear: "genesis_plus_gx", sg1000: "genesis_plus_gx", multivision: "genesis_plus_gx",
   pico: "picodrive", sega32x: "picodrive", supergrafx: "mednafen_pce", gx4000: "cap32", neogeo: "fbneo",
-  segacd: "genesis_plus_gx", amigacd32: "puae", satellaview: "snes9x"};
+  segacd: "genesis_plus_gx", amiga: "puae", amigacd32: "puae", satellaview: "snes9x"};
 const biosFiles = {segacd: ["bios_CD_E.bin", "bios_CD_U.bin", "bios_CD_J.bin"],
+  amiga: ["kick34005.A500", "kick40068.A1200"],
   amigacd32: ["kick40060.CD32", "kick40060.CD32.ext"], satellaview: ["BS-X.bin"]};
 const directory = resolve(env.RETROM_ACCEPTANCE_CASE_DIR ?? `.artifacts/platform-expansion/${platform}`);
 const evidence = {caseId: biosFiles[platform] ? "ACC-RUN-018" : "ACC-RUN-017",
@@ -125,7 +126,7 @@ try {
   const context = await browser.newContext({viewport, ...proxy.contextOptions});
   evidence.coreResponses = [];
   context.on("response", response => {
-    const coreAsset = platform === "amigacd32" ? "puae-thread-wasm.data" : `${cores[platform]}-wasm.data`;
+    const coreAsset = ["amiga", "amigacd32"].includes(platform) ? "puae-thread-wasm.data" : `${cores[platform]}-wasm.data`;
     if (!new URL(response.url()).pathname.endsWith(`/${coreAsset}`)) {return;}
     coreReads.push((async () => {
       const bytes = await response.body();
@@ -193,6 +194,14 @@ try {
       cachedRanges.set(key, response.launchId);
     }
     stage("seekable-cache-reuse");
+  }
+  if (["amiga", "amigacd32"].includes(platform)) {
+    const reads = evidence.contentResponses.filter(response => response.path.includes("/content/game/"));
+    assert.ok(reads.length > 0, "EAGER_CONTENT_DOWNLOAD_EVIDENCE_MISSING");
+    assert.ok(reads.every(response => response.status === 200 && response.range === null), "EAGER_CONTENT_TRANSPORT_INVALID");
+    assert.ok(reads.filter(response => response.launchId === launch.launchId).length <= 1, "EAGER_CONTENT_DUPLICATE_DOWNLOAD");
+    assert.ok(!reads.some(response => response.launchId === restored.launchId), "EAGER_CONTENT_REDOWNLOADED");
+    stage("eager-cache-reuse");
   }
   await Promise.all(coreReads);
   if (env.RETROM_EXPANSION_CORE_SHA256) {

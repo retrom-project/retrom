@@ -47,6 +47,14 @@ var staticBIOSCatalog = append(pc88BIOSCatalog(), []staticBIOS{
 		providerID: "emulatorjs", targetID: "genesis-plus-gx-cd",
 	},
 	{
+		coreID: "puae", logical: "kick34005.A500", mode: "OPTIONAL", condition: "AMIGA_COMPUTER_CONTENT", size: 262144,
+		md5: "82a21c1890cae844b3df741f2762d48d", sourceURL: "https://docs.libretro.com/library/puae/",
+	},
+	{
+		coreID: "puae", logical: "kick40068.A1200", mode: "OPTIONAL", condition: "AMIGA_COMPUTER_CONTENT", size: 524288,
+		md5: "646773759326fbac3b2311fd8c8793ee", sourceURL: "https://docs.libretro.com/library/puae/",
+	},
+	{
 		coreID: "puae", logical: "kick40060.CD32", mode: "CONDITIONAL", condition: "AMIGA_CD32_CONTENT", size: 524288,
 		md5: "5f8924d013dd57a89cf349f4cdedc6b1", sourceURL: "https://docs.libretro.com/library/puae/",
 	},
