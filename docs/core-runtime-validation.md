@@ -160,7 +160,8 @@ Host 上传成功后才确认该版本已经持久化。最多 256 个文件、1
 ### Apple II / Apple2JS
 
 `apple2-apple2js` 的标准手柄方向映射到 Apple II 摇杆轴，A/B 映射到摇杆按钮 0/1。
-Start 单独发送键盘 `1`，用于已验证的《Donkey Kong》单人开始；Select 单独发送 Escape。
+Start 单独发送键盘 `1`；已验证的《Donkey Kong》从标题动画按一次 Start 进入人数选择，
+再按一次 Start 选择单人并进入关卡。Select 单独发送 Escape。
 真实键盘仍可独立操作，其他游戏的菜单按键需要逐样本验证。输入诊断观察 Apple2JS
 实际读取手柄的内层 iframe，显示按钮按下与松开；观测记录不代表核心已执行该动作。
 
