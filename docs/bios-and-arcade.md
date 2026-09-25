@@ -170,6 +170,16 @@ primary content 指 GameFiles 中唯一 `CONTENT` 文件；host-console 原 ZIP 
 
 适用的 REQUIRED/CONDITIONAL 项缺失时阻断；适用 OPTIONAL 缺失时仅 Warning 且不加 activation option。存在 `MATCHED`、`HASH_WARNING` 或 `MISSING_ENTRY` active installation 时按逻辑名装入 BIOS bundle并合并其 activation options；对 DAT_MACHINE，全部必需 entry 名存在但 size/hash 有差异也属于 `HASH_WARNING`。单文件与 DAT archive 的错误 hash 和内部缺项遵循“提示但允许”的产品要求；不可读的 `INVALID` 不装入。每次 EmulatorJS 实例都是新配置，所以无需发送反向的 `disabled/OFF`，也不能让浏览器上一次设置成为事实源。上游依据分别是 [Gambatte BIOS/core option](https://docs.libretro.com/library/gambatte/) 与 [mGBA BIOS/core option](https://docs.libretro.com/library/mgba/)。
 
+### 3.10 Flycast 街机 BIOS
+
+| 平台 / Core | 必需逻辑文件 | Flycast 路径 |
+| --- | --- | --- |
+| NAOMI / `flycast-naomi` | `naomi.zip` | `/dc/naomi.zip` |
+| NAOMI 2 / `flycast-naomi2` | `naomi2.zip` | `/dc/naomi2.zip` |
+| Atomiswave / `flycast-atomiswave` | `awbios.zip` | `/dc/awbios.zip` |
+
+这三项是独立的 `EXTERNAL_FILE` Requirement，由游戏的 Target 选择、安装快照和 Launch 冻结到对应路径。BIOS ZIP 保持原样；当前静态目录不为不同 MAME ROM set 版本固定单一哈希。卡带游戏 ZIP 也保持原样并以机器短名加载；此路径不使用 FBNeo/MAME 2003 Plus 的 Arcade DAT 导入契约。GD-ROM ZIP+CHD 和 clone/parent ROM 仍需多文件契约。
+
 ## 4. BIOS 状态
 
 | 条件 | 状态 | 可启动 |

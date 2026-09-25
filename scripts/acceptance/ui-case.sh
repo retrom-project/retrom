@@ -68,7 +68,7 @@ printf '\000\000\000\030ftypisom\000\000\000\000isommp42' >"$temporary_root/sour
 "$repository_root/scripts/acceptance/prepare-pegasus-gba-source.sh" "$temporary_root/source/Playable"
 "$repository_root/scripts/acceptance/prepare-emulationstation-gba-source.sh" "$temporary_root/source/EmulationStationPlayable"
 cd "$repository_root"
-setsid make dev \
+NEXT_WEB_E2E=true setsid make dev \
   RETROM_MODE="test" \
   RETROM_DEV_STATE_DIR="$dev_state" \
   RETROM_DATA_DIR="$temporary_root/data" \
@@ -215,6 +215,10 @@ if [[ "$case_id" == "ACC-FAV-003" ]]; then
   scripts/acceptance/seed-favorites-user-flow.sh "$temporary_root/data/retrom.db"
 fi
 
+if [[ "$case_id" == "ACC-UI-005" ]]; then
+  python3 scripts/acceptance/seed-ui-home.py "$temporary_root/data/retrom.db" played
+fi
+
 specification="e2e/acceptance.spec.ts"
 if [[ "$case_id" == "ACC-UI-011" ]]; then
   specification="e2e/ui-consistency.spec.ts"
@@ -252,6 +256,9 @@ if [[ "$case_id" == "ACC-UI-010" ]]; then
   playwright_grep="ACC-UI-008|ACC-UI-010"
 fi
 specifications=("$specification")
+if [[ "$case_id" == "ACC-UI-003" ]]; then
+  specifications+=("e2e/game-detail-layout.spec.ts")
+fi
 if [[ "$case_id" == "ACC-UI-001" ]]; then
   specifications+=("e2e/navigation-errors.spec.ts")
 fi

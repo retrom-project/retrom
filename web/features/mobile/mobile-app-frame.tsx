@@ -28,7 +28,7 @@ export function MobileAppFrame({ children, pathname }: { children: ReactNode; pa
       {detail || secondary || administrator
         ? <Link href={backTo} className="phone-back"><AppIcon name="arrow-left" />{backTo === "/library" ? "游戏库" : "我的"}</Link>
         : <Link href="/" className="phone-brand" aria-label="Retrom 首页"><span className="brand-mark" aria-hidden="true">R</span><strong>Retrom</strong></Link>}
-      <Link href="/me" className="phone-avatar" aria-label="打开我的"><span aria-hidden="true">{context.user?.displayName.slice(0, 1).toUpperCase()}</span></Link>
+      <Link href="/me" className="phone-avatar" aria-label="打开我的"><span aria-hidden="true"><span className="phone-avatar-initial">{context.user?.displayName.slice(0, 1).toUpperCase()}</span></span></Link>
     </header>
     <main className="phone-content">
       {administrator ? <section className="phone-admin-notice">

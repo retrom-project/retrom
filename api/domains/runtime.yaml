@@ -145,6 +145,20 @@ paths:
       responses:
         '200':
           $ref: ../components/common.yaml#/components/responses/JSONResponse
+  /runtime/launches/{launchId}/progress:
+    parameters:
+      - $ref: '#/components/parameters/LaunchID'
+    post:
+      security: []
+      operationId: postRuntimeLaunchProgress
+      description: Best-effort cumulative play duration. Missing, duplicate, or reordered samples never affect launch access.
+      requestBody:
+        $ref: '#/components/requestBodies/PlayProgress'
+      responses:
+        '200':
+          $ref: ../components/common.yaml#/components/responses/JSONResponse
+        '401':
+          $ref: ../components/common.yaml#/components/responses/JSONResponse
   /runtime/launches/{launchId}/finish:
     parameters:
       - $ref: '#/components/parameters/LaunchID'
@@ -582,6 +596,17 @@ components:
                   type: boolean
                 paused:
                   type: boolean
+    PlayProgressRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - activeDurationMs
+      properties:
+        activeDurationMs:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 2592000000
     MultiDiscPlayerEventRequest:
       type: object
       additionalProperties: false
@@ -620,6 +645,12 @@ components:
           maximum: 64
           nullable: true
   requestBodies:
+    PlayProgress:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/PlayProgressRequest'
     PlayEvent:
       required: true
       content:

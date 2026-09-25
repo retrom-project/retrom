@@ -680,7 +680,7 @@
     #retrom-ui-review .rt-detail-saves-actions .rt-text-link { min-height: 32px; padding: 0 11px; color: var(--retrom-text); border: 1px solid var(--retrom-line); border-radius: var(--radius-panel); background: var(--retrom-panel); font-size: var(--text-caption); font-weight: var(--weight-semibold); }
     #retrom-ui-review .rt-detail-save-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); padding: 24px; gap: 16px; }
     #retrom-ui-review .rt-detail-save-card { min-width: 0; min-height: 116px; overflow: hidden; display: grid; border: 1px solid var(--retrom-line); border-radius: var(--radius-cover); background: var(--retrom-panel); grid-template-columns: minmax(0, 1fr); }
-    #retrom-ui-review .rt-detail-save-media { position: relative; min-width: 0; aspect-ratio: 16 / 9; padding: 0; overflow: hidden; border: 0; background: #05060a; cursor: zoom-in; }
+    #retrom-ui-review .rt-detail-save-media { position: relative; min-width: 0; aspect-ratio: 16 / 9; padding: 0; overflow: hidden; border: 0; background: #05060a; }
     #retrom-ui-review .rt-detail-save-size { position: absolute; z-index: 3; right: 8px; bottom: 8px; height: 22px; padding: 1px 7px 0; display: inline-flex; align-items: center; justify-content: center; color: white; border-radius: 5px; background: #4435a7; box-shadow: 0 2px 8px rgb(18 15 49 / 24%); pointer-events: none; font-size: var(--text-caption); font-variant-numeric: tabular-nums; font-weight: var(--weight-semibold); line-height: 1; }
     #retrom-ui-review .rt-detail-save-screen { position: absolute; inset: 0; background: linear-gradient(145deg, #06182f, #088ab5 58%, #d6a235 59%); }
     #retrom-ui-review .rt-detail-save-screen.is-alt { background: radial-gradient(circle at 62% 58%, #ff9f25 0 5%, #e34b25 6% 10%, transparent 11%), linear-gradient(145deg, #0d315f, #098db5 55%, var(--cyan-soft) 56%); }
@@ -693,8 +693,6 @@
     #retrom-ui-review .rt-detail-save-title-line small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     #retrom-ui-review .rt-detail-save-title-line strong { font-size: var(--text-small); font-weight: var(--weight-semibold); }
     #retrom-ui-review .rt-detail-save-title-line small { margin-top: 2px; color: var(--retrom-muted); font-size: var(--text-caption); }
-    #retrom-ui-review .rt-detail-save-kind { flex: 0 0 auto; padding: 3px 7px; color: var(--retrom-muted); border-radius: 999px; background: var(--retrom-panel-raised); font-size: var(--text-caption); font-weight: var(--weight-semibold); }
-    #retrom-ui-review .rt-detail-save-kind.is-latest { color: var(--purple-dark); background: var(--retrom-purple-soft); }
     #retrom-ui-review .rt-detail-save-facts { display: none; min-width: 0; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
     #retrom-ui-review .rt-detail-save-facts > span { min-width: 0; padding: 7px 8px; border-radius: var(--radius-panel); background: var(--retrom-bg); }
     #retrom-ui-review .rt-detail-save-facts small,
@@ -718,9 +716,6 @@
     #retrom-ui-review .rt-detail-drawer-row small { margin-top: 3px; color: var(--retrom-muted); font-size: var(--text-caption); }
     #retrom-ui-review .rt-detail-runtime-dialog .rt-field { margin-top: 14px; }
     #retrom-ui-review .rt-detail-runtime-dialog .rt-core-origin { margin-top: 8px; color: var(--retrom-muted); font-size: var(--text-caption); }
-    #retrom-ui-review .rt-detail-preview-dialog { width: min(920px, 90vw); padding: 14px; color: #b8c0cd; border-color: #343b49; background: #0a0d14; }
-    #retrom-ui-review .rt-detail-preview-screen { position: relative; aspect-ratio: 16 / 9; background: linear-gradient(145deg, #06182f, #088ab5 58%, #d6a235 59%); }
-    #retrom-ui-review .rt-detail-preview-dialog footer { margin-top: 10px; display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: var(--text-caption); }
 
     #retrom-ui-review .rt-admin-tabs { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 17px; }
     #retrom-ui-review .rt-admin-tab { padding: 7px 10px; border: 1px solid var(--retrom-line); border-radius: var(--radius-panel); background: var(--retrom-panel); color: var(--retrom-muted); cursor: pointer; }
@@ -2243,7 +2238,9 @@
       #retrom-ui-review .rt-sidebar, #retrom-ui-review .rt-mobile-appbar { display: none; }
       #retrom-ui-review .rt-phone-appbar { min-height: 56px; padding: 0 16px; display: flex; align-items: center; justify-content: space-between; }
       #retrom-ui-review .rt-phone-appbar button { min-height: 44px; min-width: 44px; border: 0; color: var(--retrom-text); background: transparent; font-size: var(--text-title); font-weight: var(--weight-semibold); }
-      #retrom-ui-review .rt-phone-appbar button:last-child { border-radius: 50%; color: var(--purple-dark); background: var(--purple-soft); font-size: var(--text-lead); }
+      #retrom-ui-review .rt-phone-appbar button:last-child { display: grid; place-items: center; padding: 0; font-size: var(--text-body); }
+      #retrom-ui-review .rt-phone-avatar { width: 32px; height: 32px; display: grid; place-items: center; border-radius: 50%; color: var(--purple-dark); background: var(--purple-soft); }
+      #retrom-ui-review .rt-phone-avatar > span { display: block; line-height: 1; text-align: center; text-box: trim-both cap alphabetic; }
       #retrom-ui-review .rt-main { min-height: 0; padding: 0 0 calc(88px + env(safe-area-inset-bottom)); }
       #retrom-ui-review .rt-page { padding: 12px 16px; }
       #retrom-ui-review .rt-mobile-bottom-nav, #retrom-ui-review .rt-app[data-mode="admin"] .rt-mobile-bottom-nav { display: grid; position: fixed; z-index: 39; inset: auto 0 0; min-height: calc(64px + env(safe-area-inset-bottom)); padding: 4px 12px env(safe-area-inset-bottom); grid-template-columns: repeat(3,minmax(0,1fr)); background: var(--surface); border-top: 1px solid var(--retrom-line); box-shadow: none; }
@@ -2288,8 +2285,8 @@
       #retrom-ui-review .rt-phone-platform-scrollbar { display: block; position: absolute; bottom: 0; left: 0; right: 0; height: 3px; opacity: 0; pointer-events: none; }
       #retrom-ui-review .rt-phone-platform-scrollbar[data-visible="true"] { opacity: 1; }
       #retrom-ui-review .rt-phone-platform-scrollbar > span { position: absolute; height: 100%; border-radius: 3px; background: var(--purple-soft); }
-      #retrom-ui-review .rt-library-search { flex: 1; min-width: 0; height: 48px; background: var(--surface); border-radius: var(--radius-control); }
-      #retrom-ui-review .rt-phone-filter { display: inline-flex; flex: 0 0 48px; width: 48px; height: 48px; min-height: 48px; min-width: 48px; padding: 0; gap: 0; align-items: center; justify-content: center; border-radius: var(--radius-panel); background: var(--surface); }
+      #retrom-ui-review .rt-library-search { flex: 1; min-width: 0; height: 44px; background: var(--surface); border-radius: var(--radius-control); }
+      #retrom-ui-review .rt-phone-filter { display: inline-flex; flex: 0 0 44px; width: 44px; height: 44px; min-height: 44px; min-width: 44px; padding: 0; gap: 0; align-items: center; justify-content: center; border-radius: var(--radius-panel); background: var(--surface); }
       #retrom-ui-review .rt-phone-filter svg { width: 20px; height: 20px; }
       #retrom-ui-review .rt-library-platforms { overflow-x: auto; flex-wrap: nowrap; border: 0; }
       #retrom-ui-review .rt-library-chip { min-height: 44px; flex-shrink: 0; }
@@ -2315,7 +2312,7 @@
       #retrom-ui-review .rt-phone-disclosure .rt-detail-info-strip { grid-template-columns: repeat(2,minmax(0,1fr)); }
       #retrom-ui-review .rt-detail-saves { border: 0; margin-top: 24px; background: transparent; }
       #retrom-ui-review .rt-detail-saves-head { padding: 0; }
-      #retrom-ui-review .rt-detail-saves-head p, #retrom-ui-review .rt-detail-save-facts, #retrom-ui-review .rt-detail-save-kind { display: none; }
+      #retrom-ui-review .rt-detail-saves-head p, #retrom-ui-review .rt-detail-save-facts { display: none; }
       #retrom-ui-review .rt-detail-save-grid { grid-template-columns: 1fr; padding: 24px; gap: 16px; }
       #retrom-ui-review .rt-detail-save-card { display: grid; align-items: center; grid-template-columns: minmax(0, 1fr); }
       #retrom-ui-review [data-page="detail"] { padding-bottom: 96px; }
@@ -2417,6 +2414,129 @@
   #retrom-ui-review .rt-home-featured-copy { left: calc((100cqh - 46px) * 5 / 7 + 52px); }
 }
 #retrom-ui-review .rt-home-layer + .rt-home-layer { margin-top: var(--space-6); }
+}
+@layer app {
+/* Approved detail composition: static cover, inline launch, separate preview and reading. */
+#retrom-ui-review [data-page="detail"] .rt-detail-content { max-width: 1800px; margin-inline: auto; }
+#retrom-ui-review [data-page="detail"] .rt-detail-breadcrumb { margin-bottom: var(--space-4); }
+#retrom-ui-review [data-page="detail"] .rt-detail-breadcrumb a { min-height: 44px; display: inline-flex; align-items: center; gap: var(--space-2); color: var(--muted); font-size: var(--text-body); font-weight: var(--weight-medium); }
+#retrom-ui-review [data-page="detail"] .rt-detail-breadcrumb svg { width: 18px; height: 18px; }
+#retrom-ui-review [data-page="detail"] .rt-detail-hero { min-width: 0; display: grid; grid-template-columns: 260px minmax(0, 1fr); align-items: center; gap: var(--space-6); padding: var(--space-6); border: 1px solid var(--line); border-radius: var(--radius-panel); background: var(--surface); }
+#retrom-ui-review [data-page="detail"] .rt-detail-hero.has-preview { grid-template-columns: 260px minmax(280px, 1fr) minmax(280px, 520px); }
+#retrom-ui-review [data-page="detail"] .rt-detail-poster-shell { width: 100%; min-width: 0; align-self: start; }
+#retrom-ui-review [data-page="detail"] .rt-detail-copy { min-width: 0; }
+#retrom-ui-review [data-page="detail"] .rt-detail-kicker { margin: 0 0 var(--space-3); color: var(--muted); font-size: var(--text-small); }
+#retrom-ui-review [data-page="detail"] .rt-detail-title-row { display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-4); }
+#retrom-ui-review [data-page="detail"] .rt-detail-title-row .rt-detail-title { min-width: 0; margin: 0; font-size: var(--text-display); font-weight: var(--weight-semibold); line-height: var(--leading-heading); overflow-wrap: anywhere; }
+#retrom-ui-review [data-page="detail"] .rt-detail-title-row .favorite-actions { flex: 0 0 auto; }
+#retrom-ui-review [data-page="detail"] .rt-detail-meta { display: flex; flex-wrap: wrap; gap: var(--space-3); margin-top: var(--space-3); color: var(--muted); font-size: var(--text-small); }
+#retrom-ui-review [data-page="detail"] .rt-detail-playtime { display: flex; align-items: center; gap: var(--space-2); margin-top: var(--space-5); color: var(--muted); font-size: var(--text-body); }
+#retrom-ui-review [data-page="detail"] .rt-detail-playtime strong { font-weight: var(--weight-regular); }
+#retrom-ui-review [data-page="detail"] .rt-detail-playtime span { color: var(--ink); }
+#retrom-ui-review [data-page="detail"] .rt-launch-panel { min-width: 0; margin-top: var(--space-5); }
+#retrom-ui-review [data-page="detail"] .rt-launch-panel > .field { margin-bottom: var(--space-3); }
+#retrom-ui-review [data-page="detail"] .rt-launch-actions { display: flex; flex-wrap: wrap; gap: var(--space-3); }
+#retrom-ui-review [data-page="detail"] .rt-launch-actions > .rt-button { min-width: 148px; }
+#retrom-ui-review [data-page="detail"] .rt-launch-actions > .status { flex-basis: 100%; white-space: normal; }
+#retrom-ui-review [data-page="detail"] .rt-launch-hint { margin: var(--space-3) 0 0; font-size: var(--text-small); color: var(--muted); overflow-wrap: anywhere; }
+#retrom-ui-review [data-page="detail"] .rt-detail-runtime-row { border-top: 1px solid var(--line); margin-top: var(--space-4); padding-top: var(--space-2); }
+#retrom-ui-review [data-page="detail"] .rt-launch-runtime-choice, #retrom-ui-review [data-page="detail"] .rt-launch-runtime-choice > div { display: flex; align-items: center; gap: var(--space-3); min-width: 0; }
+#retrom-ui-review [data-page="detail"] .rt-launch-runtime-choice { flex-wrap: wrap; }
+#retrom-ui-review [data-page="detail"] .rt-launch-runtime-choice small { color: var(--muted); font-size: var(--text-small); }
+#retrom-ui-review [data-page="detail"] .rt-launch-runtime-choice strong { font-size: var(--text-small); font-weight: var(--weight-medium); overflow-wrap: anywhere; }
+#retrom-ui-review [data-page="detail"] .rt-launch-runtime-choice button { min-height: 44px; }
+#retrom-ui-review [data-page="detail"] .rt-detail-feature-preview { min-width: 0; }
+#retrom-ui-review [data-page="detail"] .rt-detail-preview-heading { min-height: 44px; margin-bottom: var(--space-2); display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
+#retrom-ui-review [data-page="detail"] .rt-detail-preview-heading strong { font-size: var(--text-body); font-weight: var(--weight-bold); }
+#retrom-ui-review [data-page="detail"] .rt-detail-preview-heading > button { width: 128px; flex: none; }
+#retrom-ui-review [data-page="detail"] .rt-detail-feature-shot, #retrom-ui-review [data-page="detail"] .rt-detail-video-stage { position: relative; display: block; width: 100%; aspect-ratio: 16 / 9; overflow: hidden; border: 0; border-radius: var(--radius-cover); padding: 0; background: var(--canvas); }
+#retrom-ui-review [data-page="detail"] .rt-detail-feature-shot img, #retrom-ui-review [data-page="detail"] .rt-detail-video-stage img { object-fit: contain; }
+#retrom-ui-review [data-page="detail"] .rt-detail-video-stage:hover .rt-detail-media-controls { opacity: 1; }
+#retrom-ui-review [data-page="detail"] .rt-detail-overview { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: var(--space-7); margin-block: var(--space-6); }
+#retrom-ui-review [data-page="detail"] .rt-detail-overview h2, #retrom-ui-review [data-page="detail"] .rt-detail-saves-head h2 { margin: 0 0 var(--space-4); font-size: var(--text-section); font-weight: var(--weight-semibold); }
+#retrom-ui-review [data-page="detail"] .rt-detail-about, #retrom-ui-review [data-page="detail"] .rt-detail-facts { min-width: 0; }
+#retrom-ui-review [data-page="detail"] .rt-detail-description-wrap { color: var(--muted); font-size: var(--text-body); line-height: 1.8; overflow-wrap: anywhere; }
+#retrom-ui-review [data-page="detail"] .rt-detail-description-wrap p { margin: 0; white-space: pre-wrap; }
+#retrom-ui-review [data-page="detail"] .rt-detail-description-wrap > button { margin-top: var(--space-4); }
+#retrom-ui-review [data-page="detail"] .rt-detail-facts { border-left: 1px solid var(--line); padding-left: var(--space-6); }
+#retrom-ui-review [data-page="detail"] .rt-detail-info-strip { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4) var(--space-5); }
+#retrom-ui-review [data-page="detail"] .rt-detail-fact { min-width: 0; }
+#retrom-ui-review [data-page="detail"] .rt-detail-fact span, #retrom-ui-review [data-page="detail"] .rt-detail-fact strong { display: block; overflow-wrap: anywhere; }
+#retrom-ui-review [data-page="detail"] .rt-detail-fact span { color: var(--muted); font-size: var(--text-caption); }
+#retrom-ui-review [data-page="detail"] .rt-detail-fact strong { margin-top: var(--space-1); font-size: var(--text-body); font-weight: var(--weight-medium); }
+#retrom-ui-review [data-page="detail"] .rt-detail-fact strong.is-missing { color: var(--muted); }
+#retrom-ui-review [data-page="detail"] .rt-detail-saves { border-top: 1px solid var(--line); padding-top: var(--space-5); }
+#retrom-ui-review [data-page="detail"] .rt-detail-saves-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); }
+#retrom-ui-review [data-page="detail"] .rt-detail-saves-head h2 { margin-bottom: var(--space-2); }
+#retrom-ui-review [data-page="detail"] .rt-detail-saves-head p { margin: 0; color: var(--muted); font-size: var(--text-caption); }
+#retrom-ui-review [data-page="detail"] .rt-detail-saves-actions { display: flex; align-items: center; gap: var(--space-3); }
+#retrom-ui-review [data-page="detail"] .rt-detail-saves-actions > span { white-space: nowrap; color: var(--muted); font-size: var(--text-small); }
+#retrom-ui-review [data-page="detail"] .rt-detail-save-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-4); margin-top: var(--space-5); }
+#retrom-ui-review [data-page="detail"] .rt-detail-save-card { min-width: 0; display: grid; grid-template-columns: minmax(0, 42%) minmax(0, 1fr); align-items: center; border: 1px solid var(--line); border-radius: var(--radius-panel); overflow: hidden; background: var(--surface); }
+#retrom-ui-review [data-page="detail"] .rt-detail-save-media { position: relative; min-width: 0; width: 100%; aspect-ratio: 16 / 9; padding: 0; overflow: hidden; border: 0; background: var(--canvas); }
+#retrom-ui-review [data-page="detail"] .rt-detail-save-media img { object-fit: contain; }
+#retrom-ui-review [data-page="detail"] .rt-detail-save-blocked { position: absolute; z-index: 2; top: var(--space-1); left: var(--space-1); padding: var(--space-1); border-radius: var(--radius-cover); color: var(--danger); background: var(--danger-soft); font-size: var(--text-caption); }
+#retrom-ui-review [data-page="detail"] .rt-detail-save-body { min-width: 0; padding: var(--space-4); display: flex; flex-direction: column; gap: var(--space-3); }
+#retrom-ui-review [data-page="detail"] .rt-detail-save-title-line { min-width: 0; display: flex; flex-wrap: wrap; gap: var(--space-2); }
+#retrom-ui-review [data-page="detail"] .rt-detail-save-title-line > div { min-width: 0; }
+#retrom-ui-review [data-page="detail"] .rt-detail-save-title-line strong, #retrom-ui-review [data-page="detail"] .rt-detail-save-title-line small { display: block; overflow-wrap: anywhere; }
+#retrom-ui-review [data-page="detail"] .rt-detail-save-title-line strong { font-size: var(--text-small); font-weight: var(--weight-semibold); }
+#retrom-ui-review [data-page="detail"] .rt-detail-save-title-line small, #retrom-ui-review [data-page="detail"] .rt-detail-save-title-line > span { font-size: var(--text-caption); color: var(--muted); }
+#retrom-ui-review [data-page="detail"] .rt-detail-save-title-line > .is-latest { color: var(--purple-dark); }
+#retrom-ui-review [data-page="detail"] .rt-detail-save-facts { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-2); }
+#retrom-ui-review [data-page="detail"] .rt-detail-save-facts span { min-width: 0; display: flex; flex-wrap: wrap; gap: var(--space-1); }
+#retrom-ui-review [data-page="detail"] .rt-detail-save-facts small, #retrom-ui-review [data-page="detail"] .rt-detail-save-facts b { font-size: var(--text-caption); font-weight: var(--weight-regular); color: var(--muted); overflow-wrap: anywhere; }
+#retrom-ui-review [data-page="detail"] .rt-detail-save-body .rt-button { align-self: start; max-width: 100%; }
+#retrom-ui-review [data-page="detail"] .rt-detail-save-body .status { white-space: normal; }
+#retrom-ui-review [data-page="detail"] .rt-detail-saves-empty { margin-top: var(--space-4); padding: var(--space-5); display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-4); border: 1px dashed var(--line); border-radius: var(--radius-panel); color: var(--muted); font-size: var(--text-body); }
+#retrom-ui-review [data-page="detail"] .rt-detail-saves-empty strong { font-weight: var(--weight-medium); color: var(--ink); }
+@media (max-width: 1599px) {
+  #retrom-ui-review [data-page="detail"] .rt-detail-hero, #retrom-ui-review [data-page="detail"] .rt-detail-hero.has-preview { grid-template-columns: 200px minmax(0, 1fr); gap: var(--space-5); padding: var(--space-5); }
+  #retrom-ui-review [data-page="detail"] .rt-detail-feature-preview { grid-column: 1 / -1; width: 100%; max-width: 640px; justify-self: center; }
+  #retrom-ui-review [data-page="detail"] .rt-detail-title-row .rt-detail-title { font-size: var(--text-page); }
+  #retrom-ui-review [data-page="detail"] .rt-detail-save-card { grid-template-columns: minmax(0, 1fr); align-content: start; }
+}
+@media (max-width: 1023px) {
+  #retrom-ui-review [data-page="detail"] .rt-detail-overview { grid-template-columns: minmax(0, 1fr); gap: var(--space-5); }
+  #retrom-ui-review [data-page="detail"] .rt-detail-facts { border-left: 0; border-top: 1px solid var(--line); padding: var(--space-5) 0 0; }
+}
+@media (max-width: 767px), (pointer: coarse) and (max-width: 1023px) and (max-height: 767px) {
+  #retrom-ui-review [data-page="detail"] .rt-detail-page { padding-bottom: 100px; }
+  #retrom-ui-review [data-page="detail"] .rt-detail-breadcrumb { display: none; }
+  #retrom-ui-review [data-page="detail"] .rt-detail-hero, #retrom-ui-review [data-page="detail"] .rt-detail-hero.has-preview { grid-template-columns: 108px minmax(0, 1fr); padding: 0; gap: var(--space-4); border: 0; background: transparent; }
+  #retrom-ui-review [data-page="detail"] .rt-detail-title-row { flex-wrap: wrap; gap: var(--space-2); }
+  #retrom-ui-review [data-page="detail"] .rt-detail-title-row .rt-detail-title { font-size: var(--text-heading); }
+  #retrom-ui-review [data-page="detail"] .rt-detail-kicker { font-size: var(--text-caption); }
+  #retrom-ui-review [data-page="detail"] .rt-detail-playtime { flex-wrap: wrap; margin-top: var(--space-3); font-size: var(--text-caption); }
+  #retrom-ui-review [data-page="detail"] .rt-detail-copy > .tag-chips, #retrom-ui-review [data-page="detail"] .rt-detail-meta { display: none; }
+  #retrom-ui-review [data-page="detail"] .rt-detail-overview { margin-block: var(--space-5); }
+  #retrom-ui-review [data-page="detail"] .rt-detail-save-grid { grid-template-columns: minmax(0, 1fr); }
+  #retrom-ui-review [data-page="detail"] .rt-detail-save-card { grid-template-columns: minmax(0, 35%) minmax(0, 1fr); }
+  #retrom-ui-review [data-page="detail"] .rt-detail-save-body { padding: var(--space-3); }
+  #retrom-ui-review [data-page="detail"] .rt-detail-saves-head { align-items: start; }
+  #retrom-ui-review [data-page="detail"] .rt-detail-saves-actions { flex-direction: column; gap: var(--space-1); align-items: end; }
+  #retrom-ui-review [data-page="detail"] .rt-detail-drawer-backdrop { z-index: 205; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #retrom-ui-review [data-page="detail"] .rt-detail-media-cover, #retrom-ui-review [data-page="detail"] .rt-detail-media-video, #retrom-ui-review [data-page="detail"] .rt-detail-media-controls { transition: none; }
+}
+
+#retrom-ui-review [data-page="detail"] .rt-detail-copy { align-self: center; display: block; }
+#retrom-ui-review [data-page="detail"] .rt-detail-cover { width: 100%; height: auto; aspect-ratio: 3 / 4; }
+#retrom-ui-review [data-page="detail"] .rt-launch-panel { display: block; padding: 0; background: transparent; grid-column: auto; }
+#retrom-ui-review [data-page="detail"] .rt-detail-description { contain: none; max-height: none; max-width: none; margin: 0; overflow: visible; }
+#retrom-ui-review [data-page="detail"] .rt-detail-info-strip { margin: 0; padding: 0; border: 0; background: transparent; }
+#retrom-ui-review [data-page="detail"] .rt-detail-fact { padding: 0; border: 0; }
+#retrom-ui-review [data-page="detail"] .rt-detail-fact strong { white-space: normal; }
+#retrom-ui-review [data-page="detail"] .rt-detail-saves { margin: 0; border: 0; border-top: 1px solid var(--line); background: transparent; }
+#retrom-ui-review [data-page="detail"] .rt-detail-saves-head { padding: 0; border: 0; }
+#retrom-ui-review [data-page="detail"] .rt-detail-save-grid { padding: 0; }
+#retrom-ui-review [data-page="detail"] .rt-detail-save-card { grid-template-rows: auto; }
+#retrom-ui-review [data-page="detail"] .rt-detail-runtime-row { display: block; }
+#retrom-ui-review [data-page="detail"] .rt-launch-runtime-choice { justify-content: start; }
+#retrom-ui-review [data-page="detail"] .rt-launch-actions .rt-button { width: auto; margin: 0; }
+@media (max-width: 767px) { #retrom-ui-review [data-page="detail"] .rt-launch-panel { display: none; } #retrom-ui-review [data-page="detail"] .rt-detail-playtime { display: flex; } }
+
 }
 </style>
 
@@ -2577,7 +2697,7 @@
   </section>
 
   <div class="rt-app" data-mode="user">
-    <header class="rt-phone-appbar"><button type="button" data-page-link="home">R　Retrom</button><button type="button" data-page-link="me" aria-label="打开我的">T</button></header>
+    <header class="rt-phone-appbar"><button type="button" data-page-link="home">R　Retrom</button><button type="button" data-page-link="me" aria-label="打开我的"><span class="rt-phone-avatar"><span>T</span></span></button></header>
     <header class="rt-mobile-appbar">
       <div class="rt-mobile-brand"><span class="rt-brand-mark" aria-hidden="true"><span></span><span></span><span></span><span></span></span><span>RETROM</span></div>
       <span class="rt-mobile-title" data-mobile-title>首页</span>
@@ -2772,39 +2892,38 @@
       </section>
 
       <section class="rt-page" data-page="detail">
-        <div class="rt-phone-launch"><button type="button" data-phone-options><i data-lucide="settings"></i><span>启动选项</span></button><button type="button" class="rt-button rt-button-primary" data-start-current-save>从存档继续</button></div>
-        <dialog class="rt-phone-option-dialog" data-phone-option-dialog aria-label="启动选项"><h2>启动选项</h2><label>运行方式<select class="rt-select" data-phone-core><option>FBNeo · 推荐</option><option>MAME 2003 Plus · 可选</option><option>MAME 2003 · 开始时检查</option></select></label><p>从头开始不会删除已有存档。</p><div class="rt-dialog-actions"><button type="button" class="rt-button" data-phone-close-options>关闭</button><button type="button" class="rt-button rt-button-primary" data-start-game>从头开始</button></div></dialog>
-        <button type="button" class="rt-detail-breadcrumb" data-page-link="library">返回游戏库</button>
-        <div class="rt-detail-hero">
+        <div class="rt-phone-launch"><button type="button" data-phone-options=""><i data-lucide="settings"></i><span>启动选项</span></button><button type="button" class="rt-button rt-button-primary" data-start-current-save="">从存档继续</button></div>
+        <dialog class="rt-phone-option-dialog" data-phone-option-dialog="" aria-label="启动选项"><h2>启动选项</h2><label>运行方式<select class="rt-select" data-phone-core=""><option>FBNeo · 推荐</option><option>MAME 2003 Plus · 可选</option><option>MAME 2003 · 开始时检查</option></select></label><p>从头开始不会删除已有存档。</p><div class="rt-dialog-actions"><button type="button" class="rt-button" data-phone-close-options="">关闭</button><button type="button" class="rt-button rt-button-primary" data-start-game="">从头开始</button></div></dialog>
+        <div class="rt-detail-content"><button type="button" class="rt-detail-breadcrumb" data-page-link="library">返回游戏库</button><div class="rt-detail-hero has-preview">
           <div class="rt-detail-poster-shell"><div class="rt-cover rt-cover-b rt-detail-cover" id="rt-detail-cover"><span class="rt-cover-title" id="rt-detail-cover-title">METAL SLUG</span></div></div>
           <div class="rt-detail-copy">
             <div class="rt-detail-kicker" id="rt-detail-platform">Arcade · FBNeo 游戏列表</div>
-            <div class="rt-detail-title-row"><button type="button" class="rt-detail-heart" data-detail-favorite aria-pressed="true" aria-label="取消收藏 Metal Slug"><i data-lucide="heart" aria-hidden="true"></i></button><div class="rt-detail-title" id="rt-detail-title">Metal Slug</div></div>
+            <div class="rt-detail-title-row"><div class="rt-detail-title" id="rt-detail-title">Metal Slug</div><button type="button" class="rt-detail-heart" data-detail-favorite="" aria-pressed="true" aria-label="取消收藏 Metal Slug"><i data-lucide="heart" aria-hidden="true"></i></button></div>
             <div class="rt-tag-list" aria-label="游戏标签"><span class="rt-tag-pill">双人</span><span class="rt-tag-pill">清版动作</span><span class="rt-tag-pill">适合聚会</span></div>
             <div class="rt-detail-meta" id="rt-detail-meta"><span>1996</span><span>SNK</span><span>动作 / 射击</span></div>
-            <p class="rt-detail-description" id="rt-detail-description">驾驶载具、营救俘虏并一路突破敌军防线。你也可以在开始前选择其他可用核心。</p>
+
             <div class="rt-detail-playtime"><strong>累计游玩</strong><span id="rt-detail-hours">2 小时 24 分钟</span></div>
-          </div>
           <aside class="rt-launch-panel" aria-label="启动游戏">
-            <div class="rt-launch-panel-head"><h3 class="rt-launch-title">继续游戏</h3></div>
-            <label class="rt-field" id="rt-dos-field" hidden><span class="rt-label">启动程序</span><select class="rt-select"><option>DOOM.EXE · 默认</option><option>SETUP.EXE</option><option>DEICE.EXE</option></select></label>
-            <span id="rt-launch-check" hidden><span id="rt-launch-check-text">系统已选好适合这个目录的运行方式</span></span>
-            <div class="rt-detail-quick-save"><div class="rt-detail-quick-shot"><span class="rt-detail-save-size" aria-label="存档大小 1.23MB">1.23MB</span></div><div class="rt-detail-quick-copy"><strong>最近存档</strong><small>今天 22:14</small><small>FBNeo</small><button type="button" class="rt-button rt-button-primary" data-start-current-save>从存档继续</button></div></div>
-            <div class="rt-launch-empty-save" hidden><i data-lucide="gamepad-2" aria-hidden="true"></i><strong>还没有可继续的存档</strong><p>本次将从游戏开头启动。可用存档会显示在这里，方便下次继续。</p></div>
-            <button type="button" class="rt-button rt-detail-restart" data-start-game>重新开始游戏</button>
-            <div class="rt-detail-runtime-row"><div class="rt-launch-runtime-choice"><div><small>运行方式</small><span class="rt-launch-core-name"><strong id="rt-detail-runtime-name">FBNeo</strong><span class="rt-core-override" id="rt-core-override" role="img" aria-label="未采用默认核心" title="未采用默认核心" tabindex="0" hidden><i data-lucide="triangle-alert" aria-hidden="true"></i></span></span></div><button type="button" class="rt-text-link" data-open-detail-runtime>更换</button></div></div>
-            <div class="rt-launch-note" id="rt-launch-note" hidden>开始前会自动检查游戏文件和所需系统文件</div>
-          </aside>
-        </div>
-        <div class="rt-detail-info-strip"><div class="rt-detail-fact"><span>游戏平台</span><strong>Arcade</strong></div><div class="rt-detail-fact"><span>游戏目录</span><strong id="rt-info-directory">FBNeo 游戏列表</strong></div><div class="rt-detail-fact"><span>发行年份</span><strong>1996</strong></div><div class="rt-detail-fact"><span>开发商</span><strong>SNK</strong></div><div class="rt-detail-fact"><span>发行商</span><strong id="rt-info-publisher">SNK</strong></div><div class="rt-detail-fact"><span>类型</span><strong>动作 / 射击</strong></div><div class="rt-detail-fact"><span>玩家数</span><strong>1–2 人</strong></div></div>
-        <section class="rt-detail-saves"><div class="rt-detail-saves-head"><div><h3>游戏存档</h3><p>最近 3 份可直接恢复；截图保持完整比例。</p></div><div class="rt-detail-saves-actions"><span class="rt-detail-save-count">共 12 份</span><button type="button" class="rt-text-link" data-open-detail-saves>查看全部存档</button></div></div><div class="rt-detail-save-grid">
-          <article class="rt-detail-save-card"><button type="button" class="rt-detail-save-media" data-open-detail-preview aria-label="预览最近存档截图"><span class="rt-detail-save-screen"></span><span class="rt-detail-save-size" aria-label="存档大小 1.23MB">1.23MB</span></button><div class="rt-detail-save-body"><div class="rt-detail-save-title-line"><div><strong>今天 22:14</strong><small>手动存档 12</small></div><span class="rt-detail-save-kind is-latest">最近存档</span></div><div class="rt-detail-save-facts"><span><small>保存位置</small><b>主内容</b></span><span><small>运行核心</small><b>FBNeo</b></span><span><small>当时已游玩</small><b>2 小时 24 分</b></span></div><button type="button" class="rt-button" data-start-current-save>从存档继续</button></div></article>
-          <article class="rt-detail-save-card"><button type="button" class="rt-detail-save-media" data-open-detail-preview aria-label="预览存档截图"><span class="rt-detail-save-screen is-alt"></span><span class="rt-detail-save-size" aria-label="存档大小 1.23MB">1.23MB</span></button><div class="rt-detail-save-body"><div class="rt-detail-save-title-line"><div><strong>昨天 23:46</strong><small>手动存档 11</small></div><span class="rt-detail-save-kind">手动</span></div><div class="rt-detail-save-facts"><span><small>保存位置</small><b>主内容</b></span><span><small>运行核心</small><b>FBNeo</b></span><span><small>当时已游玩</small><b>2 小时 16 分</b></span></div><button type="button" class="rt-button" data-start-current-save>从存档继续</button></div></article>
-          <article class="rt-detail-save-card"><button type="button" class="rt-detail-save-media" data-open-detail-preview aria-label="预览存档截图"><span class="rt-detail-save-screen is-third"></span><span class="rt-detail-save-size" aria-label="存档大小 1.23MB">1.23MB</span></button><div class="rt-detail-save-body"><div class="rt-detail-save-title-line"><div><strong>8 月 6 日 21:14</strong><small>手动存档 10</small></div><span class="rt-detail-save-kind">手动</span></div><div class="rt-detail-save-facts"><span><small>保存位置</small><b>主内容</b></span><span><small>运行核心</small><b>FBNeo</b></span><span><small>当时已游玩</small><b>1 小时 52 分</b></span></div><button type="button" class="rt-button" data-start-current-save>从存档继续</button></div></article>
-        </div></section>
-        <div class="rt-detail-save-drawer-backdrop" data-detail-saves-backdrop hidden></div><aside class="rt-detail-save-drawer" data-detail-saves-drawer hidden><header><div><h2>全部存档</h2><p>Metal Slug · 共 12 份</p></div><button type="button" class="rt-button" data-close-detail-saves aria-label="关闭全部存档"><i data-lucide="x" aria-hidden="true"></i></button></header><div class="rt-detail-drawer-body"><article class="rt-detail-drawer-row"><div class="rt-detail-drawer-shot"><span class="rt-detail-save-screen"></span><span class="rt-detail-save-size" aria-label="存档大小 1.23MB">1.23MB</span></div><div><strong>今天 22:14</strong><small>FBNeo · 最近</small></div><button type="button" class="rt-button">▶ 继续</button></article><article class="rt-detail-drawer-row"><div class="rt-detail-drawer-shot"><span class="rt-detail-save-screen is-alt"></span><span class="rt-detail-save-size" aria-label="存档大小 1.23MB">1.23MB</span></div><div><strong>昨天 23:46</strong><small>FBNeo</small></div><button type="button" class="rt-button">▶ 继续</button></article><article class="rt-detail-drawer-row"><div class="rt-detail-drawer-shot"><span class="rt-detail-save-screen is-third"></span><span class="rt-detail-save-size" aria-label="存档大小 1.23MB">1.23MB</span></div><div><strong>8 月 6 日 21:14</strong><small>FBNeo</small></div><button type="button" class="rt-button">▶ 继续</button></article><article class="rt-detail-drawer-row"><div class="rt-detail-drawer-shot"><span class="rt-detail-save-screen is-fourth"></span><span class="rt-detail-save-size" aria-label="存档大小 1.23MB">1.23MB</span></div><div><strong>8 月 5 日 18:32</strong><small>MAME 2003 Plus</small></div><button type="button" class="rt-button">▶ 继续</button></article></div></aside>
-        <div class="rt-dialog-backdrop" data-detail-runtime-dialog hidden><section class="rt-dialog rt-detail-runtime-dialog" role="alertdialog" aria-modal="true" aria-labelledby="rt-detail-runtime-title"><div><h2 id="rt-detail-runtime-title">更换运行方式</h2><p class="rt-dialog-copy">重新开始时使用此运行方式；恢复某份存档时，仍采用该存档保存时的 Core。</p></div><label class="rt-field"><span class="rt-label">运行引擎</span><select class="rt-select" id="rt-core-select"><option>FBNeo · 推荐</option><option>MAME 2003 Plus · 可选</option><option>MAME 2003 · 开始时检查</option></select></label><div class="rt-core-origin" id="rt-core-origin">只有遇到兼容问题或需要特定存档时才建议更改。</div><div class="rt-dialog-actions"><button type="button" class="rt-button" data-cancel-detail-runtime>取消</button><button type="button" class="rt-button rt-button-primary" data-apply-detail-runtime>应用</button></div></section></div>
-        <div class="rt-dialog-backdrop" data-detail-preview-dialog hidden><section class="rt-dialog rt-detail-preview-dialog" role="dialog" aria-modal="true" aria-labelledby="rt-detail-preview-title"><div class="rt-detail-preview-screen"><span class="rt-detail-save-size" aria-label="存档大小 1.23MB">1.23MB</span></div><footer><span id="rt-detail-preview-title">完整截图 · 保持原始画面比例</span><button type="button" class="rt-button" data-close-detail-preview>关闭</button></footer></section></div>
+
+            <label class="rt-field" id="rt-dos-field" hidden=""><span class="rt-label">启动程序</span><select class="rt-select"><option>DOOM.EXE · 默认</option><option>SETUP.EXE</option><option>DEICE.EXE</option></select></label>
+            <span id="rt-launch-check" hidden=""><span id="rt-launch-check-text">系统已选好适合这个目录的运行方式</span></span>
+            <div class="rt-launch-actions"><button type="button" class="rt-button rt-button-primary" data-start-current-save="">从存档继续</button><button type="button" class="rt-button rt-detail-restart" data-start-game="">重新开始游戏</button></div>
+            <p class="rt-launch-hint">恢复最近存档 · 使用保存时的 FBNeo</p>
+
+            <div class="rt-detail-runtime-row"><div class="rt-launch-runtime-choice"><div><small>运行方式</small><span class="rt-launch-core-name"><strong id="rt-detail-runtime-name">FBNeo</strong><span class="rt-core-override" id="rt-core-override" role="img" aria-label="未采用默认核心" title="未采用默认核心" tabindex="0" hidden=""><i data-lucide="triangle-alert" aria-hidden="true"></i></span></span></div><button type="button" class="rt-text-link" data-open-detail-runtime="">更换</button></div></div>
+            <div class="rt-launch-note" id="rt-launch-note" hidden="">开始前会自动检查游戏文件和所需系统文件</div>
+          </aside></div>
+
+        <aside class="rt-detail-feature-preview"><header class="rt-detail-preview-heading"><strong>将从这里继续</strong><button type="button" class="rt-button" data-toggle-detail-media="">查看视频</button></header><div class="rt-detail-feature-shot"><span class="rt-detail-save-screen"></span><span class="rt-detail-save-size" aria-label="存档大小 1.23MB">1.23MB</span></div></aside></div><div class="rt-detail-overview"><section class="rt-detail-about"><h2>关于游戏</h2><div class="rt-detail-description-wrap"><p class="rt-detail-description" id="rt-detail-description">驾驶载具、营救俘虏并一路突破敌军防线。你也可以在开始前选择其他可用核心。</p><button class="rt-button" data-expand-detail-description="" aria-expanded="false" aria-controls="rt-detail-description" hidden="">展开完整简介</button></div></section><section class="rt-detail-facts"><h2>游戏资料</h2><div class="rt-detail-info-strip"><div class="rt-detail-fact"><span>发行年份</span><strong>1996</strong></div><div class="rt-detail-fact"><span>玩家数</span><strong>1–2 人</strong></div><div class="rt-detail-fact"><span>开发商</span><strong>SNK</strong></div><div class="rt-detail-fact"><span>发行商</span><strong id="rt-info-publisher">SNK</strong></div><div class="rt-detail-fact"><span>类型</span><strong>动作 / 射击</strong></div><div class="rt-detail-fact"><span>游戏平台</span><strong>Arcade</strong></div><div class="rt-detail-fact"><span>游戏目录</span><strong id="rt-info-directory">FBNeo 游戏列表</strong></div></div></section></div><section class="rt-detail-saves"><div class="rt-detail-saves-head"><div><h3>游戏存档</h3><p>最近 3 份可直接恢复；截图保持完整比例。</p></div><div class="rt-detail-saves-actions"><span class="rt-detail-save-count">共 12 份</span><button type="button" class="rt-text-link" data-open-detail-saves="">查看全部存档</button></div></div><div class="rt-detail-save-grid">
+          <article class="rt-detail-save-card"><div class="rt-detail-save-media"><span class="rt-detail-save-screen"></span><span class="rt-detail-save-size" aria-label="存档大小 1.23MB">1.23MB</span></div><div class="rt-detail-save-body"><div class="rt-detail-save-title-line"><div><strong>今天 22:14</strong><small>手动存档 12</small></div></div><div class="rt-detail-save-facts"><span><small>保存位置</small><b>主内容</b></span><span><small>运行核心</small><b>FBNeo</b></span><span><small>当时已游玩</small><b>2 小时 24 分</b></span></div><button type="button" class="rt-button" data-start-current-save="">从存档继续</button></div></article>
+          <article class="rt-detail-save-card"><div class="rt-detail-save-media"><span class="rt-detail-save-screen is-alt"></span><span class="rt-detail-save-size" aria-label="存档大小 1.23MB">1.23MB</span></div><div class="rt-detail-save-body"><div class="rt-detail-save-title-line"><div><strong>昨天 23:46</strong><small>手动存档 11</small></div></div><div class="rt-detail-save-facts"><span><small>保存位置</small><b>主内容</b></span><span><small>运行核心</small><b>FBNeo</b></span><span><small>当时已游玩</small><b>2 小时 16 分</b></span></div><button type="button" class="rt-button" data-start-current-save="">从存档继续</button></div></article>
+          <article class="rt-detail-save-card"><div class="rt-detail-save-media"><span class="rt-detail-save-screen is-third"></span><span class="rt-detail-save-size" aria-label="存档大小 1.23MB">1.23MB</span></div><div class="rt-detail-save-body"><div class="rt-detail-save-title-line"><div><strong>8 月 6 日 21:14</strong><small>手动存档 10</small></div></div><div class="rt-detail-save-facts"><span><small>保存位置</small><b>主内容</b></span><span><small>运行核心</small><b>FBNeo</b></span><span><small>当时已游玩</small><b>1 小时 52 分</b></span></div><button type="button" class="rt-button" data-start-current-save="">从存档继续</button></div></article>
+        </div></section><div class="rt-detail-saves-empty" hidden=""><strong>还没有存档</strong><span>游玩时创建存档后，可以从这里快速恢复。</span></div></div>
+
+
+
+        <div class="rt-detail-save-drawer-backdrop" data-detail-saves-backdrop="" hidden=""></div><aside class="rt-detail-save-drawer" data-detail-saves-drawer="" hidden=""><header><div><h2>全部存档</h2><p>Metal Slug · 共 12 份</p></div><button type="button" class="rt-button" data-close-detail-saves="" aria-label="关闭全部存档"><i data-lucide="x" aria-hidden="true"></i></button></header><div class="rt-detail-drawer-body"><article class="rt-detail-drawer-row"><div class="rt-detail-drawer-shot"><span class="rt-detail-save-screen"></span><span class="rt-detail-save-size" aria-label="存档大小 1.23MB">1.23MB</span></div><div><strong>今天 22:14</strong><small>FBNeo</small></div><button type="button" class="rt-button">▶ 继续</button></article><article class="rt-detail-drawer-row"><div class="rt-detail-drawer-shot"><span class="rt-detail-save-screen is-alt"></span><span class="rt-detail-save-size" aria-label="存档大小 1.23MB">1.23MB</span></div><div><strong>昨天 23:46</strong><small>FBNeo</small></div><button type="button" class="rt-button">▶ 继续</button></article><article class="rt-detail-drawer-row"><div class="rt-detail-drawer-shot"><span class="rt-detail-save-screen is-third"></span><span class="rt-detail-save-size" aria-label="存档大小 1.23MB">1.23MB</span></div><div><strong>8 月 6 日 21:14</strong><small>FBNeo</small></div><button type="button" class="rt-button">▶ 继续</button></article><article class="rt-detail-drawer-row"><div class="rt-detail-drawer-shot"><span class="rt-detail-save-screen is-fourth"></span><span class="rt-detail-save-size" aria-label="存档大小 1.23MB">1.23MB</span></div><div><strong>8 月 5 日 18:32</strong><small>MAME 2003 Plus</small></div><button type="button" class="rt-button">▶ 继续</button></article></div></aside>
+        <div class="rt-dialog-backdrop" data-detail-runtime-dialog="" hidden=""><section class="rt-dialog rt-detail-runtime-dialog" role="alertdialog" aria-modal="true" aria-labelledby="rt-detail-runtime-title"><div><h2 id="rt-detail-runtime-title">更换运行方式</h2><p class="rt-dialog-copy">重新开始时使用此运行方式；恢复某份存档时，仍采用该存档保存时的 Core。</p></div><label class="rt-field"><span class="rt-label">运行引擎</span><select class="rt-select" id="rt-core-select"><option>FBNeo · 推荐</option><option>MAME 2003 Plus · 可选</option><option>MAME 2003 · 开始时检查</option></select></label><div class="rt-core-origin" id="rt-core-origin">只有遇到兼容问题或需要特定存档时才建议更改。</div><div class="rt-dialog-actions"><button type="button" class="rt-button" data-cancel-detail-runtime="">取消</button><button type="button" class="rt-button rt-button-primary" data-apply-detail-runtime="">应用</button></div></section></div>
       </section>
 
       <section class="rt-page" data-page="play">
@@ -3422,17 +3541,6 @@
         toggle.textContent = collapsed ? '+' : '−';
       }
       phoneQuery.addEventListener('change', projectFavoriteNavigation); projectFavoriteNavigation();
-      const disclosed = [['.rt-detail-description', '游戏简介'], ['.rt-detail-info-strip', '游戏信息']].map(([selector, title]) => {
-        const node = root.querySelector(selector); const marker = document.createComment(title); node.before(marker);
-        const disclosure = document.createElement('details'); disclosure.className = 'rt-phone-disclosure';
-        const summary = document.createElement('summary'); summary.textContent = title; disclosure.append(summary);
-        return { node, marker, disclosure };
-      });
-      const projectPhoneInformation = () => disclosed.forEach(({node, marker, disclosure}) => {
-        if (phoneQuery.matches) { marker.after(disclosure); disclosure.append(node); }
-        else { marker.after(node); disclosure.remove(); }
-      });
-      phoneQuery.addEventListener('change', projectPhoneInformation); projectPhoneInformation();
       root.querySelector('[data-phone-search]').addEventListener('submit', (event) => {
         event.preventDefault(); showPage('library'); const search = root.querySelector('[data-library-search]');
         search.value = event.currentTarget.querySelector('input').value; search.dispatchEvent(new Event('input', {bubbles:true}));
@@ -3695,14 +3803,17 @@
         showPage(mode === 'user' ? 'home' : 'admin-import');
       }
 
-      root.querySelectorAll('.rt-detail-description').forEach((description) => {
-        let hideTimer;
-        description.addEventListener('scroll', () => {
-          description.classList.add('is-scrolling');
-          clearTimeout(hideTimer);
-          hideTimer = setTimeout(() => description.classList.remove('is-scrolling'), 700);
-        });
-      });
+      function updateDetailDescription(expanded = false) {
+        const node = root.querySelector('#rt-detail-description');
+        const full = gameDetails[currentGame].description;
+        const chars = Array.from(full.trim());
+        node.textContent = !expanded && chars.length > 320 ? chars.slice(0, 320).join('') + '…' : full;
+        const toggle = root.querySelector('[data-expand-detail-description]');
+        toggle.hidden = chars.length <= 320;
+        toggle.setAttribute('aria-expanded', String(expanded));
+        toggle.textContent = expanded ? '收起简介' : '展开完整简介';
+      }
+      root.querySelector('[data-expand-detail-description]').addEventListener('click', (event) => updateDetailDescription(event.currentTarget.getAttribute('aria-expanded') !== 'true'));
       modeButton.addEventListener('click', () => setMode(mode === 'user' ? 'admin' : 'user'));
       root.querySelectorAll('[data-review-scene]').forEach((button) => button.addEventListener('click', () => {
         const scene = button.dataset.reviewScene;
@@ -3718,9 +3829,15 @@
         else if (scene === 'detail' || scene === 'detail-empty') {
           setMode('user'); showPage('detail');
           const saved = scene === 'detail';
-          root.querySelector('.rt-detail-quick-save').hidden = !saved;
-          root.querySelector('.rt-launch-empty-save').hidden = saved;
-          root.querySelector('.rt-launch-title').textContent = saved ? '继续游戏' : '开始游戏';
+          root.querySelector('.rt-detail-feature-preview').hidden = !saved;
+          root.querySelector('.rt-detail-hero').classList.toggle('has-preview', saved);
+          root.querySelector('.rt-launch-actions [data-start-current-save]').hidden = !saved;
+          root.querySelector('.rt-launch-hint').textContent = saved ? '恢复最近存档 · 使用保存时的 FBNeo' : '本次将从游戏开头启动。';
+          root.querySelector('.rt-detail-restart').classList.toggle('rt-button-primary', !saved);
+          root.querySelector('.rt-detail-save-grid').hidden = !saved;
+          root.querySelector('.rt-detail-save-count').textContent = saved ? '共 12 份' : '共 0 份';
+          root.querySelector('[data-open-detail-saves]').hidden = !saved;
+          root.querySelector('.rt-detail-saves-empty').hidden = saved;
           root.querySelector('.rt-detail-restart').textContent = saved ? '重新开始游戏' : '开始游戏';
           selectReviewScene(scene);
         }
@@ -3796,7 +3913,7 @@
         root.querySelector('#rt-detail-platform').textContent = [...new Set(game.platform.split(' · ').map(value => value.trim()))].join(' · ');
         root.querySelector('#rt-detail-title').textContent = game.title;
         root.querySelector('#rt-detail-meta').innerHTML = game.meta.map((item) => `<span>${item}</span>`).join('');
-        root.querySelector('#rt-detail-description').textContent = game.description;
+        updateDetailDescription();
         root.querySelector('#rt-detail-hours').textContent = game.hours;
         root.querySelector('#rt-info-directory').textContent = game.directory;
         root.querySelector('#rt-info-publisher').textContent = game.publisher;
@@ -4024,14 +4141,15 @@
       root.querySelector('[data-close-detail-saves]').addEventListener('click', closeDetailSaves);
       detailSavesBackdrop.addEventListener('click', closeDetailSaves);
 
-      const detailPreviewDialog = root.querySelector('[data-detail-preview-dialog]');
-      root.querySelectorAll('[data-open-detail-preview]').forEach((button) => button.addEventListener('click', () => { detailPreviewDialog.hidden = false; }));
-      root.querySelector('[data-close-detail-preview]').addEventListener('click', () => { detailPreviewDialog.hidden = true; });
-      detailPreviewDialog.addEventListener('click', (event) => { if (event.target === detailPreviewDialog) detailPreviewDialog.hidden = true; });
+      const detailMediaToggle = root.querySelector('[data-toggle-detail-media]');
+      detailMediaToggle.addEventListener('click', () => {
+        const video = detailMediaToggle.textContent === '查看视频';
+        detailMediaToggle.textContent = video ? '查看最近存档' : '查看视频';
+        root.querySelector('.rt-detail-preview-heading strong').textContent = video ? '视频预览' : '将从这里继续';
+      });
       document.addEventListener('keydown', (event) => {
         if (event.key !== 'Escape') return;
-        if (!detailPreviewDialog.hidden) detailPreviewDialog.hidden = true;
-        else if (!detailRuntimeDialog.hidden) closeDetailRuntime(false);
+        if (!detailRuntimeDialog.hidden) closeDetailRuntime(false);
         else closeDetailSaves();
       });
 

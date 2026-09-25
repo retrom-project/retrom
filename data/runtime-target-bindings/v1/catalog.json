@@ -256,6 +256,48 @@
       "launchPolicy": "SUPPORTED"
     },
     {
+      "id": "emulatorjs-flycast-atomiswave",
+      "coreId": "flycast-atomiswave",
+      "providerId": "emulatorjs",
+      "targetId": "flycast-atomiswave",
+      "platformIds": [
+        "atomiswave"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "EMULATORJS_SINGLE_FILE",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
+      "id": "emulatorjs-flycast-naomi",
+      "coreId": "flycast-naomi",
+      "providerId": "emulatorjs",
+      "targetId": "flycast-naomi",
+      "platformIds": [
+        "naomi"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "EMULATORJS_SINGLE_FILE",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
+      "id": "emulatorjs-flycast-naomi2",
+      "coreId": "flycast-naomi2",
+      "providerId": "emulatorjs",
+      "targetId": "flycast-naomi2",
+      "platformIds": [
+        "naomi2"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "EMULATORJS_SINGLE_FILE",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
       "id": "emulatorjs-freechaf",
       "coreId": "freechaf",
       "providerId": "emulatorjs",
@@ -1417,6 +1459,12 @@
         "enabled": true
       },
       {
+        "id": "atomiswave",
+        "name": "Sammy Atomiswave",
+        "sortOrder": 188,
+        "enabled": true
+      },
+      {
         "id": "bbc",
         "name": "BBC Micro",
         "sortOrder": 715,
@@ -1588,6 +1636,18 @@
         "id": "n64",
         "name": "Nintendo 64",
         "sortOrder": 160,
+        "enabled": true
+      },
+      {
+        "id": "naomi",
+        "name": "Sega NAOMI",
+        "sortOrder": 186,
+        "enabled": true
+      },
+      {
+        "id": "naomi2",
+        "name": "Sega NAOMI 2",
+        "sortOrder": 187,
         "enabled": true
       },
       {
@@ -1960,6 +2020,21 @@
       {
         "id": "flycast",
         "name": "Flycast",
+        "enabled": true
+      },
+      {
+        "id": "flycast-atomiswave",
+        "name": "Flycast Atomiswave",
+        "enabled": true
+      },
+      {
+        "id": "flycast-naomi",
+        "name": "Flycast NAOMI",
+        "enabled": true
+      },
+      {
+        "id": "flycast-naomi2",
+        "name": "Flycast NAOMI 2",
         "enabled": true
       },
       {

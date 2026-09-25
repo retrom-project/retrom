@@ -162,8 +162,7 @@ describe("LaunchControls", () => {
 
   it("explains the fresh start when no resumable save is available", () => {
     render(<LaunchControls gameId="no-save" coreOptions={cores.slice(0, 1)} dosEntries={[]} defaultDosEntry={null} />);
-    expect(screen.getByText("还没有可继续的存档")).toBeVisible();
-    expect(screen.getByText("本次将从游戏开头启动。可用存档会显示在这里，方便下次继续。")).toBeVisible();
+    expect(screen.getByText("本次将从游戏开头启动。")).toBeVisible();
     expect(screen.queryByRole("button", { name: "从存档继续" })).not.toBeInTheDocument();
     expect(desktopLaunchButton()).toBeEnabled();
   });
@@ -185,7 +184,7 @@ describe("LaunchControls", () => {
     />);
 
     expect(screen.queryByText("还没有可继续的存档")).not.toBeInTheDocument();
-    expect(screen.getByRole("img", { name: "最近存档无预览图" })).toBeInTheDocument();
+    expect(screen.getByText("恢复最近存档 · 使用保存时的 mGBA")).toBeVisible();
     expect(screen.getAllByRole("button", { name: "从存档继续" })).toHaveLength(1);
     expect(screen.queryByAltText("最近存档")).not.toBeInTheDocument();
   });

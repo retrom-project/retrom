@@ -519,7 +519,7 @@ MV 根 marker 恰为两个公共文件 `index.html`/`data/System.json` 和八个
 
 RPG Maker 游戏只使用随项目上传的资源，不安装或挂载外部 RTP。2000/2003 的 `FullPackageFlag=1` 表示作者声明完整打包；未声明时标记 `BLOCKED/RPG_EXTERNAL_RTP_REQUIRED`。XP/VX/VX Ace 检查 `Game.ini` 的 `RTP/RTP1/RTP2/RTP3`，存在非空声明时同样阻断；无外部声明的项目及 MV/MZ 按原有内容检测继续处理。这是声明检查，不能证明动态脚本的所有素材引用都存在，不能仅凭目录存在认定资源完整。
 
-所有项目类型（包括 RPG Maker）共用审核 Preview 与普通 Player：点击“运行游戏”同步打开子窗口，服务端校验当前来源、目标、文件、依赖及浏览器能力后签发会话；Player 使用普通 config/start/heartbeat/finish、Provider dispatcher 和退出清理，不创建假 Game，也没有专用机器证明、额外验证决定或人工重检流程。管理员可按需保存运行截图、重复创建会话级临时 checkpoint，并从已有 checkpoint 创建新的 Preview 恢复，不要求先结束原 Preview。临时内容在会话到期或审核结束时释放；正式发布仍由当前来源与实际依赖检查决定。
+所有项目类型（包括 RPG Maker）共用审核 Preview 与普通 Player：点击“运行游戏”同步打开子窗口，服务端校验当前来源、目标、文件、依赖及浏览器能力后签发会话；Player 使用普通 config、Provider dispatcher 和退出清理，审核 Preview 退出时尽力发送 finish，不创建假 Game，也没有专用机器证明、额外验证决定或人工重检流程。管理员可按需保存运行截图、重复创建会话级临时 checkpoint，并从已有 checkpoint 创建新的 Preview 恢复，不要求先结束原 Preview。临时内容在会话到期或审核结束时释放；正式发布仍由当前来源与实际依赖检查决定。
 
 Approve 在短事务内重新核对当前 effective source、精确文件、Core、Provider/Target 声明、资源声明与显式自包含确认。未确认的外部 RTP 依赖阻断发布；管理员可勾选“确认项目自包含 RTP”强制放行，取消确认后恢复阻断。确认只改变审核决策，不补充素材、不绕过文件安全或引擎识别，也不保证游戏运行成功。确认值写入依赖快照并参与摘要，发布时再次核对；截图或试玩本身不解除依赖阻断。普通试运行、截图、checkpoint、发布与存档恢复保留。
 
