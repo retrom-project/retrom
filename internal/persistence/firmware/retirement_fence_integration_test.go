@@ -63,7 +63,7 @@ func TestRetirementRejectsRenewedLaunchAndIncompleteFileDrain(t *testing.T) {
 			}
 			if renew {
 				_, err = updateFirmwareLaunch(t, db, recordstore.Update{
-					Set:   `idle_expires_at_ms=?,updated_at_ms=?,version=version+1`,
+					Set:   `hard_expires_at_ms=?,updated_at_ms=?,version=version+1`,
 					Scope: recordstore.Scope{Where: `id='firmware-launch'`}, Values: []any{now + 1000, now},
 				})
 			} else {

@@ -9,7 +9,7 @@ import (
 	"github.com/google/uuid"
 )
 
-const playIdleLeaseMS int64 = 120_000
+const maxPlaySnapshotDurationMS int64 = 30 * 24 * 60 * 60 * 1000
 
 type PlayController struct {
 	repository PlayRepository
@@ -60,6 +60,61 @@ func (service *PlayController) RecordPlay(
 	return result, nil
 }
 
+// RecordSnapshot records a cumulative best-effort observation. It does not
+// renew or finish the launch, so missing telemetry cannot revoke game access.
+func (service *PlayController) RecordSnapshot(
+	ctx context.Context, id, capability string, sample PlaySnapshot,
+) (PlaySnapshotResult, error) {
+	if sample.ActiveDurationMS < 0 || sample.ActiveDurationMS > maxPlaySnapshotDurationMS {
+		return PlaySnapshotResult{}, ErrBlocked
+	}
+	var result PlaySnapshotResult
+	err := service.repository.WithPlay(ctx, func(scope PlayScope) error {
+		source, found, err := scope.Read.Source(ctx, id)
+		if err != nil {
+			return fmt.Errorf("read snapshot authority: %w", err)
+		}
+		now := service.policy.now().UnixMilli()
+		if !found || !service.snapshotAuthorized(source, capability, now) {
+			return ErrCredential
+		}
+		current, hasCurrent, err := scope.Read.Current(ctx, id)
+		if err != nil {
+			return fmt.Errorf("read snapshot play: %w", err)
+		}
+		plan := PlaySnapshotPlan{Source: source, NowMS: now, ActiveDurationMS: sample.ActiveDurationMS}
+		if hasCurrent {
+			if current.State != "ACTIVE" || !playVersionWritable(current.Version) {
+				return ErrBlocked
+			}
+			plan.Current = &current
+			plan.PlayID = current.ID
+			plan.ActiveDurationMS = max(current.ActiveDurationMS, sample.ActiveDurationMS)
+		} else {
+			plan.PlayID, err = service.newID()
+			if err != nil {
+				return fmt.Errorf("create snapshot play identity: %w", err)
+			}
+		}
+		if err := scope.Write.Snapshot(ctx, plan); err != nil {
+			return fmt.Errorf("persist play snapshot: %w", err)
+		}
+		result = PlaySnapshotResult{PlaySessionID: plan.PlayID, ActiveDurationMS: plan.ActiveDurationMS}
+		return nil
+	})
+	if err != nil {
+		return PlaySnapshotResult{}, fmt.Errorf("record play snapshot: %w", err)
+	}
+	return result, nil
+}
+
+func (service *PlayController) snapshotAuthorized(source PlaySource, capability string, now int64) bool {
+	return !source.Ref.Preview && source.Session.State == "ACTIVE" &&
+		source.Session.HardExpiresAtMS > now && service.policy.matches != nil &&
+		service.policy.matches(capability, source.Session.CredentialHash) &&
+		source.ProfileID != "" && source.GameID != ""
+}
+
 func (service *PlayController) authorized(source PlaySource, capability string, now int64) bool {
 	state := source.Session.State
 	return (state == "CREATED" || state == "ACTIVE" || state == "FINISHED") && source.Session.HardExpiresAtMS > now &&
@@ -90,7 +145,7 @@ func (service *PlayController) recordProductPlay(
 	if kind == "start" {
 		return service.startPlay(ctx, scope.Write, source, event, now)
 	}
-	if !found || !validPlayProgress(source, current, event, now) {
+	if !found || !validPlayProgress(source, current, event) {
 		return PlayResult{}, ErrBlocked
 	}
 	return recordPlayProgress(ctx, scope.Write, source, current, kind, event, now)
@@ -101,13 +156,12 @@ func recordPlayProgress(ctx context.Context, writer PlayWriter, source PlaySourc
 ) (PlayResult, error) {
 	accepted := acceptedPlayDuration(*event.PreviousInterval, current.LastHeartbeatAtMS, now)
 	if !playVersionWritable(source.Version) || !playVersionWritable(current.Version) ||
-		current.ActiveDurationMS < 0 || current.ActiveDurationMS > math.MaxInt64-accepted ||
-		now > math.MaxInt64-playIdleLeaseMS {
+		current.ActiveDurationMS < 0 || current.ActiveDurationMS > math.MaxInt64-accepted {
 		return PlayResult{}, ErrBlocked
 	}
 	plan := PlayProgress{
 		Source: source, Current: current, Event: event, Kind: kind,
-		AcceptedDurationMS: accepted, NowMS: now, IdleExpiresAtMS: now + playIdleLeaseMS,
+		AcceptedDurationMS: accepted, NowMS: now,
 	}
 	if err := writer.Progress(ctx, plan); err != nil {
 		return PlayResult{}, fmt.Errorf("persist play progress: %w", err)
@@ -131,7 +185,7 @@ func (service *PlayController) startPlay(
 	event PlayEvent,
 	now int64,
 ) (PlayResult, error) {
-	if source.Session.State != "ACTIVE" || !playVersionWritable(source.Version) || now > math.MaxInt64-playIdleLeaseMS {
+	if source.Session.State != "ACTIVE" || !playVersionWritable(source.Version) {
 		return PlayResult{}, ErrBlocked
 	}
 	id, err := service.newID()
@@ -140,7 +194,7 @@ func (service *PlayController) startPlay(
 	}
 	if err := writer.Start(
 		ctx,
-		PlayStart{Source: source, PlayID: id, Event: event, NowMS: now, IdleExpiresAtMS: now + playIdleLeaseMS},
+		PlayStart{Source: source, PlayID: id, Event: event, NowMS: now},
 	); err != nil {
 		return PlayResult{}, fmt.Errorf("persist play start: %w", err)
 	}

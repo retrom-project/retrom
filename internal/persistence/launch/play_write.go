@@ -10,7 +10,7 @@ import (
 )
 
 func (records playRecords) Start(ctx context.Context, plan application.PlayStart) error {
-	if err := records.advanceLaunch(ctx, plan.Source, plan.NowMS, plan.IdleExpiresAtMS, false); err != nil {
+	if err := records.advanceLaunch(ctx, plan.Source, plan.NowMS, false); err != nil {
 		return err
 	}
 	if err := requirePlayChange(records.transaction.ExecContext(ctx, `
@@ -21,6 +21,21 @@ VALUES(?,?,?,?,?,?,0,0,'ACTIVE',1,?,?)`, plan.PlayID, plan.Source.Ref.ID, plan.S
 		return err
 	}
 	return records.insertEvent(ctx, plan.PlayID, "START", plan.Event, 0, plan.NowMS)
+}
+
+func (records playRecords) Snapshot(ctx context.Context, plan application.PlaySnapshotPlan) error {
+	if plan.Current == nil {
+		return requirePlayChange(records.transaction.ExecContext(ctx, `
+INSERT INTO play_sessions(id,launch_session_id,profile_id,game_id,started_at_ms,last_heartbeat_at_ms,
+active_duration_ms,last_client_sequence,state,version,created_at_ms,updated_at_ms)
+VALUES(?,?,?,?,?,?,?,0,'ACTIVE',1,?,?)`, plan.PlayID, plan.Source.Ref.ID, plan.Source.ProfileID,
+			plan.Source.GameID, plan.NowMS, plan.NowMS, plan.ActiveDurationMS, plan.NowMS, plan.NowMS))
+	}
+	return requirePlayChange(records.transaction.ExecContext(ctx, `
+UPDATE play_sessions SET last_heartbeat_at_ms=?,active_duration_ms=?,version=version+1,updated_at_ms=?
+WHERE id=? AND launch_session_id=? AND version=? AND state='ACTIVE' AND active_duration_ms<=?`,
+		plan.NowMS, plan.ActiveDurationMS, plan.NowMS, plan.PlayID, plan.Source.Ref.ID,
+		plan.Current.Version, plan.ActiveDurationMS))
 }
 
 func (records playRecords) Progress(ctx context.Context, plan application.PlayProgress) error {
@@ -49,7 +64,7 @@ WHERE id=? AND launch_session_id=? AND version=? AND last_client_sequence=? AND 
 	); err != nil {
 		return err
 	}
-	return records.advanceLaunch(ctx, plan.Source, plan.NowMS, plan.IdleExpiresAtMS, plan.Kind == "finish")
+	return records.advanceLaunch(ctx, plan.Source, plan.NowMS, plan.Kind == "finish")
 }
 
 func (records playRecords) insertEvent(
@@ -72,17 +87,17 @@ VALUES(?,?,?,?,?,?,?,?,?,?)`, id, event.ClientSequence, kind, event.ClientObserv
 func (records playRecords) advanceLaunch(
 	ctx context.Context,
 	source application.PlaySource,
-	now, idleEnd int64,
+	now int64,
 	finish bool,
 ) error {
 	if source.Ref.Preview {
 		return application.ErrBlocked
 	}
 	change := recordstore.Update{
-		Set: `idle_expires_at_ms=?,updated_at_ms=?,version=version+1`, Values: []any{idleEnd, now},
+		Set: `updated_at_ms=?,version=version+1`, Values: []any{now},
 		Scope: recordstore.Scope{
-			Where: `id=? AND version=? AND state='ACTIVE' AND hard_expires_at_ms>?
- AND (idle_expires_at_ms IS NULL OR idle_expires_at_ms>?)`, Args: []any{source.Ref.ID, source.Version, now, now},
+			Where: `id=? AND version=? AND state='ACTIVE' AND hard_expires_at_ms>?`,
+			Args:  []any{source.Ref.ID, source.Version, now},
 		},
 	}
 	if finish {

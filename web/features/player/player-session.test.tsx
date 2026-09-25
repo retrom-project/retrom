@@ -1,6 +1,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { initialPlayerOrientationState } from "./orientation";
+import {PlayProgressClock} from "./play-progress-clock";
 import type {LaunchEnvelopeV1} from "./runtime/contract";
 import {
   createSaveForm,
@@ -50,40 +51,33 @@ describe("Player page exit protection", () => {
     expect(dispatchBeforeUnload()).toBe(true);
   });
 
-  it("does not send heartbeats after session finishing has begun", async () => {
+  it("does not report progress before the game starts", async () => {
     const fetchEvent = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("{}", {status: 200}));
     const params = sessionParams();
-    params.started.current = true;
-    params.finishing.current = true;
     const { result } = renderHook(() => usePlayerSession(params));
 
-    await act(() => result.current.sendEvent("heartbeat"));
+    await act(() => result.current.reportProgress());
 
     expect(fetchEvent).not.toHaveBeenCalled();
   });
 
-  it("serializes an in-flight heartbeat before the terminal finish event", async () => {
-    let resolveHeartbeat: ((response: Response) => void) | undefined;
-    const fetchEvent = vi.spyOn(globalThis, "fetch")
-      .mockImplementationOnce(() => new Promise<Response>((resolve) => {resolveHeartbeat = resolve;}))
+  it("sends cumulative progress independently of a failed prior request", async () => {
+    const fetchEvent = vi.spyOn(globalThis, "fetch").mockRejectedValueOnce(new Error("service restart"))
       .mockResolvedValueOnce(new Response("{}", {status: 200}));
     const params = sessionParams();
     params.started.current = true;
+    params.envelope.current = {session: {purpose: "PRODUCT"}} as LaunchEnvelopeV1;
+    params.progressClock.current.start(0, true);
     const { result } = renderHook(() => usePlayerSession(params));
 
-    const heartbeat = result.current.sendEvent("heartbeat");
-    await Promise.resolve();
-    const finish = result.current.sendEvent("finish");
-
-    expect(fetchEvent).toHaveBeenCalledTimes(1);
-    resolveHeartbeat?.(new Response("{}", {status: 200}));
-    await act(async () => {await Promise.all([heartbeat, finish]);});
+    await act(() => result.current.reportProgress());
+    await act(() => result.current.reportProgress());
     expect(fetchEvent).toHaveBeenCalledTimes(2);
-    expect(JSON.parse(String(fetchEvent.mock.calls[0]?.[1]?.body))).toMatchObject({clientSequence: 1});
-    expect(JSON.parse(String(fetchEvent.mock.calls[1]?.[1]?.body))).toMatchObject({clientSequence: 2});
+    expect(fetchEvent.mock.calls[0]?.[0]).toBe("/runtime/launches/launch-1/progress");
+    expect(JSON.parse(String(fetchEvent.mock.calls[1]?.[1]?.body))).toHaveProperty("activeDurationMs");
   });
 
-  it("clears the heartbeat timer when finish begins", async () => {
+  it("clears the progress timer when exit begins", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("{}", {status: 200}));
     const clearHeartbeat = vi.spyOn(window, "clearInterval");
     const params = sessionParams();
@@ -91,7 +85,7 @@ describe("Player page exit protection", () => {
     params.heartbeat.current = 42;
     const { result } = renderHook(() => usePlayerSession(params));
 
-    await act(() => result.current.sendEvent("finish"));
+    await act(() => result.current.exitStrict());
 
     expect(clearHeartbeat).toHaveBeenCalledWith(42);
     expect(params.heartbeat.current).toBeNull();
@@ -108,15 +102,15 @@ describe("Player page exit protection", () => {
     expect(params.replaceImmersiveRoute).toHaveBeenCalledWith("/library");
   });
 
-  it("keeps a manual immersive exit strict when finish reporting fails", async () => {
+  it("navigates on manual immersive exit when progress reporting fails", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("{}", {status: 409}));
     const params = sessionParams();
     params.started.current = true;
     const { result } = renderHook(() => usePlayerSession(params));
 
-    await expect(act(() => result.current.exitStrict())).rejects.toThrow("PLAY_SESSION_EVENT_FAILED");
+    await act(() => result.current.exitStrict());
 
-    expect(params.replaceImmersiveRoute).not.toHaveBeenCalled();
+    expect(params.replaceImmersiveRoute).toHaveBeenCalledWith("/library");
   });
 });
 
@@ -152,11 +146,10 @@ function sessionParams(): PlayerSessionParams {
     launchId: "launch-1",
     runtime: {current: null},
     envelope: {current: null},
-    sequence: { current: 0 },
+    progressClock: {current: new PlayProgressClock()},
     started: { current: false },
     finishing: { current: false },
     heartbeat: { current: null },
-    playEventQueue: { current: Promise.resolve() },
     saveUploadQueue: { current: Promise.resolve() },
     orientationStateRef: { current: initialPlayerOrientationState },
     returnTo: { current: "/library" },

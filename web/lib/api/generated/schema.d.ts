@@ -2041,6 +2041,25 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/runtime/launches/{launchId}/progress": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                launchId: components["parameters"]["LaunchID"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Best-effort cumulative play duration. Missing, duplicate, or reordered samples never affect launch access. */
+        post: operations["postRuntimeLaunchProgress"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/runtime/launches/{launchId}/finish": {
         parameters: {
             query?: never;
@@ -3867,6 +3886,10 @@ export interface components {
                 paused: boolean;
             } | null;
         };
+        PlayProgressRequest: {
+            /** Format: int64 */
+            activeDurationMs: number;
+        };
         MultiDiscPlayerEventRequest: {
             /** @enum {string} */
             eventType: "START" | "DISK_COUNT_MISMATCH" | "SWITCH_SUCCESS" | "SWITCH_FAILURE" | "SAVE_RESTORE_SUCCESS" | "SAVE_RESTORE_FAILURE";
@@ -5340,6 +5363,11 @@ export interface components {
         PlayEvent: {
             content: {
                 "application/json": components["schemas"]["PlayEventRequest"];
+            };
+        };
+        PlayProgress: {
+            content: {
+                "application/json": components["schemas"]["PlayProgressRequest"];
             };
         };
         MultiDiscPlayerEvent: {
@@ -7803,6 +7831,21 @@ export interface operations {
         requestBody: components["requestBodies"]["PlayEvent"];
         responses: {
             200: components["responses"]["JSONResponse"];
+        };
+    };
+    postRuntimeLaunchProgress: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                launchId: components["parameters"]["LaunchID"];
+            };
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["PlayProgress"];
+        responses: {
+            200: components["responses"]["JSONResponse"];
+            401: components["responses"]["JSONResponse"];
         };
     };
     postRuntimeLaunchFinish: {

@@ -95,7 +95,7 @@ func validConfigLifetime(source ConfigSource, now int64) bool {
 	if source.State == "CREATED" {
 		return source.BootstrapEnd > now
 	}
-	return source.State == "ACTIVE" && (source.IdleEnd == nil || *source.IdleEnd > now)
+	return source.State == "ACTIVE"
 }
 
 func validConfigRevision(before, after ConfigSource) bool {

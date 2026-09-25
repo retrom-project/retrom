@@ -237,6 +237,29 @@ func (server *Server) launchHeartbeat(writer http.ResponseWriter, request *http.
 	server.recordPlay(writer, request, "heartbeat")
 }
 
+func (server *Server) launchProgress(writer http.ResponseWriter, request *http.Request) {
+	var body launch.PlaySnapshot
+	if err := decodeJSON(writer, request, &body, 64<<10); err != nil {
+		writeError(writer, request, http.StatusBadRequest, "INVALID_REQUEST", "游玩进度无效", map[string]any{})
+		return
+	}
+	result, err := server.launcher.RecordPlaySnapshot(request.Context(), request.PathValue("launchId"),
+		server.launchCapability(request), body)
+	if err != nil {
+		if errors.Is(err, launch.ErrCredential) {
+			writeError(writer, request, http.StatusUnauthorized, "LAUNCH_CREDENTIAL_INVALID", "启动会话不可用", map[string]any{})
+			return
+		}
+		if errors.Is(err, launch.ErrBlocked) {
+			writeError(writer, request, http.StatusBadRequest, "INVALID_REQUEST", "游玩进度无效", map[string]any{})
+			return
+		}
+		server.databaseError(writer, request, err)
+		return
+	}
+	writeJSON(writer, http.StatusOK, result)
+}
+
 func (server *Server) launchFinish(writer http.ResponseWriter, request *http.Request) {
 	server.recordPlay(writer, request, "finish")
 }

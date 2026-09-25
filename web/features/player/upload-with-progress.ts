@@ -4,7 +4,7 @@ export type SaveUploadProgress = {
   percent: number;
 };
 
-type UploadRequest = {
+export type UploadRequest = {
   url: string;
   method: "POST" | "PUT";
   headers?: Record<string, string>;
@@ -63,4 +63,25 @@ export function uploadWithProgress(request: UploadRequest): Promise<UploadRespon
     xhr.addEventListener("timeout", () => fail("SAVE_UPLOAD_TIMEOUT"));
     xhr.send(request.body);
   });
+}
+
+/** Replays an idempotent save after a short backend restart using the same key and bytes. */
+export async function uploadWithRestartRetry(
+  request: UploadRequest & {headers: Record<string, string>},
+  send: (request: UploadRequest) => Promise<UploadResponse> = uploadWithProgress,
+  wait: (ms: number) => Promise<void> = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+): Promise<UploadResponse> {
+  if (!request.headers["Idempotency-Key"]) {throw new Error("SAVE_UPLOAD_IDEMPOTENCY_REQUIRED");}
+  for (let attempt = 0; attempt < 4; attempt++) {
+    try {
+      const response = await send(request);
+      if (response.ok || ![408, 429, 500, 502, 503, 504].includes(response.status) || attempt === 3) {
+        return response;
+      }
+    } catch (error) {
+      if (attempt === 3) {throw error;}
+    }
+    await wait(1_000 * 2 ** attempt);
+  }
+  throw new Error("SAVE_UPLOAD_RETRY_EXHAUSTED");
 }

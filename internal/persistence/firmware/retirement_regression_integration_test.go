@@ -99,8 +99,8 @@ func TestLaunchRetirementRollsBackUnconfirmedWrites(t *testing.T) {
 func seedExpiringFirmwarePlay(t *testing.T, db *sql.DB, now int64) {
 	t.Helper()
 	_, err := updateFirmwareLaunch(t, db, recordstore.Update{
-		Set:   `idle_expires_at_ms=?,updated_at_ms=?,version=version+1`,
-		Scope: recordstore.Scope{Where: `id='firmware-launch'`}, Values: []any{now, now},
+		Set:   `hard_expires_at_ms=?,bootstrap_expires_at_ms=?,updated_at_ms=?,version=version+1`,
+		Scope: recordstore.Scope{Where: `id='firmware-launch'`}, Values: []any{now, now, now},
 	})
 	if err != nil {
 		t.Fatal(err)
