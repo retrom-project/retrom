@@ -12,7 +12,7 @@
 .server-import-hero p { margin: 8px 0 0; color: var(--muted); font-size: var(--text-caption); line-height: 1.7; }
 .server-import-hero > .button { flex: 0 0 auto; }
 .server-import-capability-stats { margin: 13px 0 0; display: flex; flex-wrap: wrap; gap: 7px; }
-.server-import-capability-stats div { min-width: 105px; padding: 7px 9px; border: 1px solid var(--purple-line); border-radius: var(--radius-panel); background: rgba(255, 255, 255, .72); }
+.server-import-capability-stats div { min-width: 105px; padding: 7px 9px; border: 1px solid var(--line); border-radius: var(--radius-panel); background: var(--surface-subtle); }
 .server-import-capability-stats dt { color: var(--muted); font-size: var(--text-caption); }
 .server-import-capability-stats dd { margin: 2px 0 0; font-size: var(--text-caption); font-weight: var(--weight-semibold); }
 .server-import-roots { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 11px; }

@@ -25,3 +25,16 @@ export async function expectPaletteContrast(page: Page) {
   });
   expect(violations, `text contrast on ${new URL(page.url()).pathname}`).toEqual([]);
 }
+
+/** Opaque statistic surfaces keep text contrast independent of the hero gradient. */
+export async function expectServerImportStatsContrast(page: Page) {
+  const groups = page.locator(".server-import-capability-stats");
+  await expect(groups).toHaveCount(2);
+  for (const group of await groups.all()) {
+    await expect(group).toBeVisible();
+    for (const surface of await group.locator(":scope > div").all()) {
+      await expect(surface).toHaveCSS("background-color", /^rgb\(/);
+    }
+  }
+  await expectPaletteContrast(page);
+}
