@@ -1,4 +1,5 @@
 import { expect, type Page, type TestInfo } from "@playwright/test";
+import { expectNaturalHomeFlow } from "./home-layout-support";
 import { evidencePath, expectHomeCoverRatios, expectNoTextArrowsInInteractiveControls, noPageOverflow, pageCanvasGaps, pngDimensions, type HorizontalGaps } from "./acceptance-support";
 
 export async function verifyUserDesktopLayouts(page: Page, testInfo: TestInfo) {
@@ -26,8 +27,6 @@ export async function verifyCompactFeaturedHome(page: Page, testInfo: TestInfo) 
       cover: { top: cover.top, bottom: cover.bottom },
       copy: { top: copy.top, bottom: copy.bottom },
       actionsBottom: actions.bottom,
-      documentHeight: document.documentElement.scrollHeight,
-      viewportHeight: document.documentElement.clientHeight,
     };
   });
   expect(layout).not.toBeNull();
@@ -38,7 +37,7 @@ export async function verifyCompactFeaturedHome(page: Page, testInfo: TestInfo) 
   expect(layout.copy.top).toBeGreaterThanOrEqual(layout.media.top - 1);
   expect(layout.copy.bottom).toBeLessThanOrEqual(layout.media.bottom + 1);
   expect(layout.actionsBottom).toBeLessThanOrEqual(layout.media.bottom + 1);
-  expect(layout.documentHeight).toBeLessThanOrEqual(layout.viewportHeight);
+  await expectNaturalHomeFlow(page);
   await page.screenshot({ path: evidencePath(testInfo, "home-2086x920-css-equivalent.png"), fullPage: true });
 }
 
@@ -91,89 +90,23 @@ async function verifyPageLayouts(page: Page) {
 
 async function verifyHomeLayout(page: Page, testInfo: TestInfo) {
   await page.goto("/");
-  await expect(page.locator("[data-home-layer]")).toHaveCount(5);
+  await expect(page.locator("[data-home-layer]")).toHaveCount(4);
   await expectHomeCoverRatios(page);
   await expect(page.getByText("我的资料库", { exact: true })).toBeVisible();
   if (testInfo.project.name === "chrome-1280") {await page.screenshot({ path: evidencePath(testInfo, "home-layout.png"), fullPage: true });}
   if (testInfo.project.name === "chrome-4k-150") {await verifyPhysical4KHome(page, testInfo);}
 }
 
-async function measureHomeLayout(page: Page) {
-  return page.evaluate(() => {
-    const rect = (selector: string) => document.querySelector<HTMLElement>(selector)?.getBoundingClientRect() ?? null;
-    const width = (value: DOMRect | null, fallback: number) => value ? value.width : fallback;
-    const height = (value: DOMRect | null) => value ? value.height : 0;
-    const ratio = (value: number, total: number) => total ? value / total : 0;
-    const topOffset = (parent: DOMRect | null, child: DOMRect | null) => parent && child ? child.top - parent.top : Number.POSITIVE_INFINITY;
-    const bottomOffset = (parent: DOMRect | null, child: DOMRect | null) => parent && child ? parent.bottom - child.bottom : Number.POSITIVE_INFINITY;
-    const horizontalGap = (left: DOMRect | null, right: DOMRect | null) => left && right ? right.left - left.right : Number.POSITIVE_INFINITY;
-    const platform = rect('[data-home-layer="4"]');
-    const platformTitle = document.querySelector<HTMLElement>('[data-home-layer="4"] h2')?.getBoundingClientRect() ?? null;
-    const homePage = rect(".home-page");
-    const appBody = rect(".app-body");
-    const featuredMedia = rect(".home-featured-media");
-    const featuredCover = rect(".home-featured-cover");
-    const featuredCopy = rect(".home-featured-copy");
-    const featuredSave = rect(".home-featured-save-preview");
-    const featuredActions = rect(".home-featured-actions");
-    return {
-      fifthLayerBottom: rect('[data-home-layer="5"]')?.bottom ?? Number.POSITIVE_INFINITY,
-      viewportHeight: document.documentElement.clientHeight, documentHeight: document.documentElement.scrollHeight,
-      homeWidth: width(homePage, 0), appBodyWidth: width(appBody, Number.POSITIVE_INFINITY),
-      platformTitleOffset: topOffset(platform, platformTitle),
-      featuredCoverHeightRatio: ratio(height(featuredCover), height(featuredMedia)),
-      featuredCoverHeight: featuredCover?.height ?? 0, featuredHasSave: Boolean(featuredSave),
-      featuredSaveWidthRatio: ratio(width(featuredSave, 0), width(featuredMedia, 0)), featuredSaveWidth: width(featuredSave, 0),
-      featuredActionsBottomGap: bottomOffset(featuredMedia, featuredActions),
-      featuredCoverActionsBottomDelta: bottomOffset(featuredCover, featuredActions),
-      featuredCopyCoverGap: horizontalGap(featuredCover, featuredCopy),
-      featuredActionsCoverGap: horizontalGap(featuredCover, featuredActions),
-    };
-  });
-}
-
 async function verifyPhysical4KHome(page: Page, testInfo: TestInfo) {
-  const layout = await measureHomeLayout(page);
   expect(await page.evaluate(() => ({ viewport: { width: innerWidth, height: innerHeight }, screen: { width: window.screen.width, height: window.screen.height }, devicePixelRatio: window.devicePixelRatio }))).toEqual({ viewport: { width: 2560, height: 1440 }, screen: { width: 2560, height: 1440 }, devicePixelRatio: 1.5 });
   const screenshot = await page.screenshot({ path: evidencePath(testInfo, "physical-4k-150-home.png") });
   expect(pngDimensions(screenshot)).toEqual({ width: 3840, height: 2160 });
-  expect(layout.fifthLayerBottom).toBeLessThanOrEqual(layout.viewportHeight);
-  expect(layout.fifthLayerBottom).toBeGreaterThanOrEqual(layout.viewportHeight - 48);
-  expect(layout.documentHeight).toBeLessThanOrEqual(layout.viewportHeight);
-  expect(layout.homeWidth / layout.appBodyWidth).toBeGreaterThanOrEqual(0.65);
-  expect(layout.platformTitleOffset).toBeLessThanOrEqual(20);
-  expect(layout.featuredCoverHeightRatio).toBeGreaterThanOrEqual(0.75);
-  if (layout.featuredHasSave) {expect(layout.featuredSaveWidthRatio).toBeGreaterThanOrEqual(0.24);}
-  expect(layout.featuredActionsBottomGap).toBeLessThanOrEqual(50);
-  expect(Math.abs(layout.featuredCoverActionsBottomDelta)).toBeLessThanOrEqual(1);
-  expect(layout.featuredCopyCoverGap).toBeGreaterThanOrEqual(23);
-  expect(layout.featuredCopyCoverGap).toBeLessThanOrEqual(33);
-  expect(Math.abs(layout.featuredActionsCoverGap - layout.featuredCopyCoverGap)).toBeLessThanOrEqual(1);
-  await verifyFluidHomeLayout(page, layout.featuredHasSave);
-}
-
-async function verifyFluidHomeLayout(page: Page, hasSave: boolean) {
-  const measurements: Array<{ coverHeight: number; saveWidth: number; copyGap: number }> = [];
+  await expectNaturalHomeFlow(page);
   for (const width of [1900, 2200, 2500, 2800, 3100]) {
     await page.setViewportSize({ width, height: 1250 });
-    const layout = await measureHomeLayout(page);
-    measurements.push({ coverHeight: layout.featuredCoverHeight, saveWidth: layout.featuredSaveWidth, copyGap: layout.featuredCopyCoverGap });
-    expect(Math.abs(layout.featuredCoverActionsBottomDelta)).toBeLessThanOrEqual(1);
-    expect(layout.featuredCopyCoverGap).toBeGreaterThanOrEqual(23);
-    expect(layout.featuredCopyCoverGap).toBeLessThanOrEqual(33);
+    await expectHomeCoverRatios(page);
+    await noPageOverflow(page);
   }
-  const copyGaps = measurements.map((value) => value.copyGap);
-  expect(Math.max(...copyGaps) - Math.min(...copyGaps)).toBeLessThanOrEqual(9);
-  for (let index = 1; index < measurements.length; index += 1) {
-    expect(measurements[index].coverHeight).toBeGreaterThanOrEqual(measurements[index - 1].coverHeight - 1);
-    expect(measurements[index].saveWidth).toBeGreaterThanOrEqual(measurements[index - 1].saveWidth - 1);
-  }
-  if (hasSave) {expect(measurements.at(-1)?.saveWidth ?? 0).toBeGreaterThan(measurements[0].saveWidth);}
-  await page.setViewportSize({ width: 1920, height: 950 });
-  const scaled = await measureHomeLayout(page);
-  expect(scaled.fifthLayerBottom).toBeLessThanOrEqual(scaled.viewportHeight);
-  expect(scaled.documentHeight).toBeLessThanOrEqual(scaled.viewportHeight);
-  expect(scaled.platformTitleOffset).toBeLessThanOrEqual(16);
   await page.setViewportSize({ width: 2560, height: 1440 });
 }
 

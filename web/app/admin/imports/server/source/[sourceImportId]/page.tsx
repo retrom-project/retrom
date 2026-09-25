@@ -48,5 +48,5 @@ export default async function SourceImportDetailPage({ params, searchParams }: {
     throw error;
   }
   const [summary, items, collections, roots, platformInstances, activeTags] = loaded;
-  return <div className="page-layout page-layout-admin"><PageHeader eyebrow="服务器导入 / 游戏文件" title="来源准备任务" description="查看来源准备、运行检查与审核进度。后台不会自动发布游戏，所有候选都由管理员逐项决定。" actions={<ButtonLink href="/admin/imports/server" secondary>← 返回导入历史</ButtonLink>} /><SourceImportDetailManager initialSummary={summary} initialItems={items} collections={collections} roots={roots.items} platformInstances={platformInstances.items} activeTags={activeTags} initialFilters={{ query: filters.q ?? "", outcome: filters.outcome ?? "", warning: filters.warning ?? "", collectionId: filters.collectionId ?? "" }} /></div>;
+  return <div className="page-layout page-layout-admin"><PageHeader title="来源准备任务" description="查看来源准备、运行检查与审核进度。后台不会自动发布游戏，所有候选都由管理员逐项决定。" actions={<ButtonLink href="/admin/imports/server" secondary>返回导入历史</ButtonLink>} /><SourceImportDetailManager initialSummary={summary} initialItems={items} collections={collections} roots={roots.items} platformInstances={platformInstances.items} activeTags={activeTags} initialFilters={{ query: filters.q ?? "", outcome: filters.outcome ?? "", warning: filters.warning ?? "", collectionId: filters.collectionId ?? "" }} /></div>;
 }

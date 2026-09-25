@@ -51,8 +51,9 @@ describe("LaunchControls", () => {
     await user.click(screen.getByRole("button", { name: /更换/ }));
     await user.selectOptions(screen.getByLabelText("运行引擎"), "gambatte");
     await user.click(screen.getByRole("button", { name: "应用" }));
-    expect(screen.getByText("开始时会自动检查")).toBeInTheDocument();
-    expect(screen.getByText("（未采用默认核心）")).toBeInTheDocument();
+    expect(screen.queryByText("开始时会自动检查")).not.toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "未采用默认核心" })).toHaveAttribute("title", "未采用默认核心");
+    expect(screen.getByRole("img", { name: "未采用默认核心" })).toHaveTextContent("");
     expect(window.localStorage.getItem(`${storagePrefix}preferred-core:game-1`)).toBe("gambatte");
     await user.click(desktopLaunchButton());
 
@@ -73,13 +74,13 @@ describe("LaunchControls", () => {
 
     first.unmount();
     render(<LaunchControls gameId="remembered-game" coreOptions={cores} dosEntries={[]} defaultDosEntry={null} />);
-    await waitFor(() => expect(screen.getByText("（未采用默认核心）")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole("img", { name: "未采用默认核心" })).toBeInTheDocument());
     await user.click(screen.getByRole("button", { name: /更换/ }));
     expect(screen.getByLabelText("运行引擎")).toHaveValue("gambatte");
     await user.selectOptions(screen.getByLabelText("运行引擎"), "mgba");
     await user.click(screen.getByRole("button", { name: "应用" }));
     expect(window.localStorage.getItem(`${storagePrefix}preferred-core:remembered-game`)).toBeNull();
-    expect(screen.queryByText("（未采用默认核心）")).not.toBeInTheDocument();
+    expect(screen.queryByRole("img", { name: "未采用默认核心" })).not.toBeInTheDocument();
   });
 
   it("closes the core picker with Escape or the cancel button without applying changes", async () => {

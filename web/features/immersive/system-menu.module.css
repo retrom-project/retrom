@@ -24,14 +24,14 @@
 .menu header p {
   margin: 0 0 4px;
   color: #50d6ca;
-  font-size: 14px;
-  font-weight: 900;
+  font-size: var(--text-body);
+  font-weight: var(--weight-semibold);
   letter-spacing: 0.22em;
 }
 
 .menu header h2 {
   margin: 0;
-  font-size: clamp(36px, 4vw, 56px);
+  font-size: var(--text-immersive-title);
   letter-spacing: -0.04em;
 }
 
@@ -39,7 +39,7 @@
   display: block;
   margin-top: 8px;
   color: #aeb7ca;
-  font-size: clamp(16px, 1.2vw, 21px);
+  font-size: var(--text-immersive-body);
 }
 
 .options {
@@ -73,8 +73,8 @@
   padding: 0;
   color: inherit;
   font: inherit;
-  font-size: clamp(17px, 1.2vw, 22px);
-  font-weight: 850;
+  font-size: var(--text-immersive-body);
+  font-weight: var(--weight-semibold);
   text-align: left;
   background: transparent;
   border: 0;
@@ -84,7 +84,7 @@
 
 .option > span {
   justify-self: end;
-  font-weight: 750;
+  font-weight: var(--weight-semibold);
 }
 
 .volumeControl {
@@ -99,7 +99,7 @@
   height: 44px;
   color: #f7f5f0;
   font: inherit;
-  font-size: 25px;
+  font-size: var(--text-heading);
   background: rgb(255 255 255 / 0.08);
   border: 1px solid rgb(255 255 255 / 0.16);
   border-radius: 50%;
@@ -156,7 +156,7 @@
   justify-content: center;
   margin-top: 18px;
   color: #aeb7ca;
-  font-size: 14px;
+  font-size: var(--text-body);
 }
 
 .menu footer button {
@@ -164,7 +164,7 @@
   padding: 0 14px;
   color: #f7f5f0;
   font: inherit;
-  font-weight: 800;
+  font-weight: var(--weight-semibold);
   background: rgb(255 255 255 / 0.08);
   border: 1px solid rgb(255 255 255 / 0.18);
   border-radius: var(--radius-control);
@@ -192,7 +192,7 @@
   padding: 0 12px;
   color: #101522;
   font: inherit;
-  font-weight: 850;
+  font-weight: var(--weight-semibold);
   background: #f7cb73;
   border: 0;
   border-radius: var(--radius-control);

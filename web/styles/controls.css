@@ -1,0 +1,86 @@
+/* Controls own their appearance; feature styles only arrange them. */
+.button {
+  min-height: var(--control-height);
+  padding: 10px 18px;
+  gap: var(--space-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  background: var(--purple);
+  color: white;
+  box-shadow: none;
+  font-family: var(--font-sans);
+  font-size: var(--control-font-size);
+  font-weight: var(--weight-semibold);
+  line-height: 1.4;
+  white-space: nowrap;
+  transition: background .15s ease, border-color .15s ease;
+}
+.button:hover { background: var(--purple-dark); color: white; }
+.button.secondary { background: var(--surface); border-color: var(--control-line); color: var(--ink); }
+.button.secondary:hover { background: var(--surface-subtle); border-color: var(--purple); color: var(--purple-dark); }
+.button.danger { background: var(--danger); color: white; }
+.button:disabled { background: #e8eaf0; border-color: transparent; color: #697386; cursor: not-allowed; }
+.button svg { width: 18px; height: 18px; flex-shrink: 0; }
+
+/* Native semantics, keyboard interaction and option selection are retained. */
+select, .import-directory-trigger {
+  appearance: none;
+  min-height: var(--control-height);
+  height: auto;
+  padding: 10px 38px 10px 12px;
+  border: 1px solid var(--control-line);
+  border-radius: var(--radius-control);
+  color: var(--control-ink);
+  background: var(--control-surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%236250d2' stroke-width='1.6' viewBox='0 0 16 16'%3E%3Cpath d='m4 6 4 4 4-4'/%3E%3C/svg%3E") no-repeat right 12px center;
+  font-family: var(--font-sans);
+  font-size: var(--control-font-size);
+  font-weight: var(--weight-regular);
+  line-height: 1.5;
+  cursor: pointer;
+}
+input:not([type='checkbox'], [type='radio'], [type='range'], [type='file'], [type='hidden']), textarea {
+  min-height: var(--control-height);
+  padding: 10px 12px;
+  border: 1px solid var(--control-line);
+  border-radius: var(--radius-control);
+  background: var(--control-surface);
+  color: var(--control-ink);
+  font-family: var(--font-sans);
+  font-size: var(--control-font-size);
+  font-weight: var(--weight-regular);
+  line-height: 1.5;
+}
+textarea { min-height: 112px; resize: vertical; }
+input[type='checkbox'], input[type='radio'], input[type='range'] { accent-color: var(--purple); }
+input::placeholder, textarea::placeholder { color: #737e91; opacity: 1; }
+select:focus-visible, input:focus-visible, textarea:focus-visible, .import-directory-trigger:focus-visible {
+  border-color: var(--purple);
+  outline: 2px solid var(--purple);
+  outline-offset: 2px;
+  box-shadow: var(--focus-ring);
+}
+select:disabled, input:disabled, textarea:disabled { cursor: not-allowed; opacity: .65; }
+:is(.search, .library-search, .favorite-search, .admin-game-search > span:last-child, .save-library-search > span:last-child, .import-workflow-search > span:last-child, .platform-directory-search > span:last-child, .phone-home-search, .recent-input-shell, .password-control) input {
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+:is(.search, .library-search, .favorite-search, .admin-game-search > span:last-child, .save-library-search > span:last-child, .import-workflow-search > span:last-child, .platform-directory-search > span:last-child, .phone-home-search, .recent-input-shell, .password-control) input:focus-visible { outline: 0; }
+:where(.search, .library-search, .favorite-search, .admin-game-search > span:last-child, .save-library-search > span:last-child, .import-workflow-search > span:last-child, .platform-directory-search > span:last-child, .phone-home-search, .recent-input-shell, .password-control) { height: var(--control-height); border-color: var(--control-line); background: var(--surface); }
+:where(.search, .library-search, .favorite-search, .admin-game-search > span:last-child, .save-library-search > span:last-child, .import-workflow-search > span:last-child, .platform-directory-search > span:last-child, .phone-home-search, .recent-input-shell, .password-control):focus-within { border-color: var(--purple); outline: 2px solid var(--purple); outline-offset: 2px; box-shadow: var(--focus-ring); }
+.password-control input { padding-inline: 12px; }
+.import-directory-trigger { position: relative; background-image: none; }
+.import-directory-trigger > svg { position: absolute; right: 12px; top: 50%; width: 16px; height: 16px; transform: translateY(-50%); color: var(--purple-dark); stroke-width: 1.6; }
+
+@media (max-width: 767px), (pointer: coarse) and (max-width: 1023px) and (max-height: 767px) {
+  select, input:not([type='checkbox'], [type='radio'], [type='range'], [type='file'], [type='hidden']), textarea, .import-directory-trigger {
+    font-size: var(--text-lead);
+  }
+}
+@media (prefers-reduced-motion: reduce) { .button { transition: none; } }
+@media (forced-colors: active) { select { appearance: auto; background-image: none; } }

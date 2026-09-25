@@ -19,7 +19,7 @@ export default async function AdminGamesPage({ searchParams }: { searchParams: P
     sort: values.sort === "TITLE_ASC" || values.sort === "ADDED_DESC" ? values.sort : "UPDATED_DESC",
   };
   return <>
-    <PageHeader eyebrow="管理后台" title="游戏管理" description="维护已发布游戏的信息、媒体和运行配置，快速定位需要处理的内容。" />
+    <PageHeader title="游戏管理" description="维护已发布游戏的信息、媒体和运行配置，快速定位需要处理的内容。" />
     <AdminGameBrowser games={result.items} nowMs={result.generatedAtMs} initialFilters={initialFilters} />
   </>;
 }

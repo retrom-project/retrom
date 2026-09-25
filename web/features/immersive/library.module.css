@@ -14,7 +14,7 @@
   color: #7ce9d8;
   background: linear-gradient(145deg, #202940, #111625);
   box-shadow: 0 28px 70px rgb(0 0 0 / 32%);
-  font-size: clamp(72px, 10vw, 150px);
+  font-size: var(--text-immersive-mark);
 }
 
 .saveDetails {
@@ -41,12 +41,12 @@
 .saveHeading span {
   margin: 0;
   color: #aeb7ca;
-  font-size: clamp(14px, 0.9vw, 19px);
+  font-size: var(--text-immersive-body);
 }
 
 .saveHeading p {
   color: #50d6ca;
-  font-weight: 800;
+  font-weight: var(--weight-semibold);
   letter-spacing: 0.06em;
 }
 
@@ -129,8 +129,8 @@
   height: 22px;
   padding: 1px 7px 0;
   color: #fff;
-  font-size: 11px;
-  font-weight: 750;
+  font-size: var(--text-caption);
+  font-weight: var(--weight-semibold);
   font-variant-numeric: tabular-nums;
   line-height: 1;
   white-space: nowrap;
@@ -141,7 +141,7 @@
 .saveCard time {
   justify-self: end;
   padding-right: 4px;
-  font-size: clamp(11px, 0.78vw, 16px);
+  font-size: var(--text-immersive-caption);
   font-variant-numeric: tabular-nums;
   line-height: 1.2;
   white-space: nowrap;
@@ -161,7 +161,7 @@
 @media (height <= 700px) {
   .saveDetails {padding-block: 4px;}
   .saveHeading p,
-  .saveHeading span {font-size: 12px;}
+  .saveHeading span {font-size: var(--text-caption);}
   .saveRail {padding-block: 4px;}
 }
 

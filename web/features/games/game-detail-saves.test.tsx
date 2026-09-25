@@ -42,13 +42,13 @@ describe("GameDetailSaves", () => {
     expect(within(recentCard!).getByText("保存位置")).toBeInTheDocument();
     expect(within(recentCard!).getByText("运行核心")).toBeInTheDocument();
     expect(within(recentCard!).getByText("当时已游玩")).toBeInTheDocument();
-    expect(within(recentCard!).getByRole("button", { name: "▶ 从这里继续" })).toBeInTheDocument();
+    expect(within(recentCard!).getByRole("button", { name: "从存档继续" })).toBeInTheDocument();
     const drawerTrigger = screen.getByRole("button", { name: "查看全部存档" });
     await user.click(drawerTrigger);
 
     const drawer = screen.getByRole("dialog", { name: "全部存档" });
     expect(within(drawer).getAllByRole("article")).toHaveLength(6);
-    expect(within(drawer).getAllByRole("button", { name: "▶ 继续" })).toHaveLength(6);
+    expect(within(drawer).getAllByRole("button", { name: "从存档继续" })).toHaveLength(6);
     expect(within(drawer).getByText("1943: The Battle of Midway · 共 6 份")).toBeInTheDocument();
     await user.keyboard("{Escape}");
     expect(screen.queryByRole("dialog", { name: "全部存档" })).not.toBeInTheDocument();
@@ -73,6 +73,6 @@ describe("GameDetailSaves", () => {
 
     expect(screen.getByRole("button", { name: /的存档没有截图/ })).toBeDisabled();
     expect(screen.getByRole("img", { name: "存档截图无预览图" })).toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: /从这里继续|恢复此存档/ })).toHaveLength(2);
+    expect(screen.getAllByRole("button", { name: /从存档继续/ })).toHaveLength(2);
   });
 });

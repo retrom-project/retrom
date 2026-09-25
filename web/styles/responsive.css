@@ -10,12 +10,12 @@
   .app-frame { grid-template-columns: 280px minmax(0, 1fr); }
   .sidebar { padding-inline: 20px; }
   .content { max-width: calc(var(--content-canvas-max) + 88px); padding: 42px 44px 80px; }
-  .page-header p { font-size: 16px; }
-  .panel-head h2 { font-size: 18px; }
-  .panel-head p, .game-meta, .filter-label, .filter-hint, .filter-result, .technical-details, .field small { font-size: 13px; }
-  .status, th { font-size: 12px; }
+  .page-header p { font-size: var(--text-lead); }
+  .panel-head h2 { font-size: var(--text-title); }
+  .panel-head p, .game-meta, .filter-label, .filter-hint, .filter-result, .technical-details, .field small { font-size: var(--text-small); }
+  .status, th { font-size: var(--text-caption); }
   th, td { padding: 16px 18px; }
-  td { font-size: 14px; }
+  td { font-size: var(--text-body); }
   .admin-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 24px; }
   .save-card-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 24px; }
   .kpi-grid { gap: 22px; }

@@ -71,9 +71,7 @@ function SaveCard({
       <SaveScreenshot screenshotUrl={save.screenshotUrl} alt={`${save.gameTitle} 存档画面`} sizes="(min-width: 1600px) 280px, 220px" />
       {!available ? <span className="save-library-blocked">当前不可用</span> : null}
       <span className="save-library-size" aria-label={`存档大小 ${formatSaveSize(save.sizeBytes)}`} title={`${save.sizeBytes.toLocaleString("zh-CN")} bytes`}>{formatSaveSize(save.sizeBytes)}</span>
-      <div className="save-library-resume">{available
-        ? <LaunchButton gameId={save.gameId} saveStateId={save.saveStateId} returnTo="/saves" label="从这里继续" />
-        : <button className="button" type="button" disabled>当前不可继续</button>}</div>
+
     </div>
     <div className="save-library-card-body">
       {editing ? <form className="save-library-editor" onSubmit={onRename}>
@@ -91,6 +89,9 @@ function SaveCard({
       </div>}
       <div className="save-library-card-meta"><span>当时已游玩 {formatSaveDuration(save.activeDurationMs)}</span>{save.discLabel ? <span className="save-disc-badge">{save.discLabel}</span> : null}<span>{formatTime(saveDisplayTime(save), nowMs, false).split(" ")[0]}</span></div>
       {customName ? <p className="save-library-custom-name" title={customName}>{customName}</p> : null}
+      <div className="save-library-resume">{available
+        ? <LaunchButton gameId={save.gameId} saveStateId={save.saveStateId} returnTo="/saves" label="从这里继续" />
+        : <button className="button" type="button" disabled>当前不可继续</button>}</div>
       {!available ? <p className="save-library-reason" role="alert">{availabilityMessage(save)}</p> : null}
     </div>
   </article>;
@@ -236,7 +237,7 @@ export function SaveManager({ saves, nowMs, initialFilters }: { saves: SaveItem[
   }
 
   return <div className="page-layout page-layout-saves">
-    <PageHeader eyebrow="我的游戏" title="我的存档" description="查看保存画面，找到想恢复的游戏状态，并随时从这里继续。" actions={<div className="save-head-summary"><div><span>存档</span><strong>{stats.saveCount} 份</strong></div><div><span>涉及游戏</span><strong>{stats.gameCount} 款</strong></div></div>} />
+    <PageHeader title="我的存档" description="查看保存画面，找到想恢复的游戏状态，并随时从这里继续。" actions={<div className="save-head-summary"><div><span>存档</span><strong>{stats.saveCount} 份</strong></div><div><span>涉及游戏</span><strong>{stats.gameCount} 款</strong></div></div>} />
 
     <SaveLatestSection hasItems={items.length > 0} latest={latest} nowMs={nowMs} />
 

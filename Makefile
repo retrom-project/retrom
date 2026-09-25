@@ -142,7 +142,11 @@ web-install: prepare-node
 prepare-e2e-browser: web-install
 	@PATH="$(NODE_HOME)/bin:$$PATH" PLAYWRIGHT_BROWSERS_PATH="$(PLAYWRIGHT_BROWSERS_PATH)" scripts/prepare-e2e-browser.sh
 
-web-lint: prepare-node
+web-ui-check: prepare-node
+	@cd web && "$(NODE_HOME)/bin/node" --test scripts/ui-style-rules.test.mjs
+	@cd web && "$(NODE_HOME)/bin/node" scripts/check-ui-styles.mjs
+
+web-lint: prepare-node web-ui-check
 	@cd web && $(NPM) run lint
 
 web-typecheck: prepare-node
@@ -355,3 +359,5 @@ content-io-evidence-check:
 content-io-product-check:
 	@test -n "$(IO_ENV)" || { echo 'IO_ENV is required' >&2; exit 2; }
 	@python3 -m scripts.acceptance.content_io_product_check --env "$(IO_ENV)"
+
+.PHONY: web-ui-check

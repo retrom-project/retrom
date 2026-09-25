@@ -136,7 +136,7 @@ function PendingDialog({ busy, onClose, onConfirm, pending }: { busy: string | n
 export function PlatformManagerView(props: PlatformManagerViewProps) {
   const announcement = props.busy === "recommendations" ? "正在创建推荐目录" : props.recommendationState?.summary.missingCount === 0 ? "推荐目录已创建" : "";
   return <div className="platform-directory-manager">
-    <PageHeader eyebrow="管理后台" title="游戏目录" description="维护游戏集合及其推荐运行方式。一键创建只会补充缺失项，不会修改已有目录。" actions={<><button className="button secondary" type="button" disabled={props.busy !== null} onClick={() => props.onSortHelp(true)}>排序说明</button><RecommendationButton busy={props.busy} onApply={props.onApplyRecommendations} recommendations={props.recommendationState} /><button className="button" type="button" disabled={props.busy !== null} onClick={() => props.onDrawer(true)}><AppIcon name="plus" />新建游戏目录</button></>} />
+    <PageHeader title="游戏目录" description="维护游戏集合及其推荐运行方式。一键创建只会补充缺失项，不会修改已有目录。" actions={<><button className="button secondary" type="button" disabled={props.busy !== null} onClick={() => props.onSortHelp(true)}>排序说明</button><RecommendationButton busy={props.busy} onApply={props.onApplyRecommendations} recommendations={props.recommendationState} /><button className="button" type="button" disabled={props.busy !== null} onClick={() => props.onDrawer(true)}><AppIcon name="plus" />新建游戏目录</button></>} />
     <Toast toast={props.toast} onDismiss={props.onToastDismiss} /><p className="sr-only" role="status" aria-live="polite">{announcement}</p>
     <DirectoryToolbar filters={props.filters} onFilters={props.onFilters} platforms={props.platforms} />
     <DirectoryTable {...props} />

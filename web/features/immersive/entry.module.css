@@ -17,7 +17,7 @@
     radial-gradient(circle at 26% 30%, rgb(80 214 202 / 0.18), transparent 34%),
     radial-gradient(circle at 72% 64%, rgb(117 96 255 / 0.23), transparent 38%),
     linear-gradient(145deg, #080b14, #151b2c 70%, #090c15);
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: var(--font-sans);
 }
 
 .entryTakeover::before {
@@ -50,8 +50,11 @@
 }
 
 .entryHeader > div:first-child {
-  gap: 13px;
-  letter-spacing: 0.12em;
+  gap: var(--space-3);
+  font-size: var(--text-immersive-body);
+  font-weight: var(--weight-medium);
+  line-height: 1.5;
+  letter-spacing: normal;
 }
 
 .entryHeader > div:first-child > span {
@@ -60,16 +63,16 @@
   height: 48px;
   place-items: center;
   color: white;
-  font-size: 23px;
-  font-weight: 900;
+  font-size: var(--text-section);
+  font-weight: var(--weight-semibold);
   background: linear-gradient(145deg, #806dff, #5339ce);
   border-radius: var(--radius-panel);
   box-shadow: 0 10px 30px rgb(77 55 197 / 0.42);
 }
 
-.entryHeader strong {font-size: clamp(18px, 1.3vw, 26px);}
-.entryHeader small {color: var(--entry-muted);font-size: clamp(14px, 0.9vw, 18px);}
-.entryControls {gap: 24px;color: var(--entry-muted);font-weight: 750;}
+.entryHeader strong, .entryHeader small {font: inherit;}
+.entryHeader small {color: var(--entry-muted);}
+.entryControls {gap: 24px;color: var(--entry-muted);font-weight: var(--weight-semibold);}
 .entryControls > span {gap: 9px;}
 
 .entryControls kbd {
@@ -82,7 +85,7 @@
   place-items: center;
   color: var(--entry-text);
   font: inherit;
-  font-weight: 850;
+  font-weight: var(--weight-semibold);
   background: rgb(255 255 255 / 0.1);
   border: 1px solid rgb(255 255 255 / 0.2);
   border-radius: 50%;
@@ -114,14 +117,14 @@
 .entryEyebrow {
   margin: 0 0 14px;
   color: #50d6ca;
-  font-size: clamp(13px, 0.9vw, 18px);
-  font-weight: 850;
+  font-size: var(--text-immersive-caption);
+  font-weight: var(--weight-semibold);
   letter-spacing: 0.14em;
 }
 
 .entryDialog h1 {
   margin: 0;
-  font-size: clamp(38px, 3.2vw, 62px);
+  font-size: var(--text-immersive-title);
   line-height: 1.08;
   letter-spacing: -0.035em;
 }
@@ -130,7 +133,7 @@
   max-width: 580px;
   margin: 18px auto 34px;
   color: var(--entry-muted);
-  font-size: clamp(16px, 1.15vw, 22px);
+  font-size: var(--text-immersive-body);
   line-height: 1.65;
 }
 
@@ -145,8 +148,8 @@
   padding: 12px 18px;
   color: var(--entry-text);
   font: inherit;
-  font-size: clamp(17px, 1.1vw, 22px);
-  font-weight: 850;
+  font-size: var(--text-immersive-body);
+  font-weight: var(--weight-semibold);
   background: rgb(255 255 255 / 0.06);
   border: 2px solid rgb(255 255 255 / 0.16);
   border-radius: var(--radius-control);
@@ -169,9 +172,9 @@
   min-height: 24px;
   margin: 26px 0 0;
   color: var(--entry-muted);
-  font-size: clamp(14px, 0.9vw, 18px);
+  font-size: var(--text-immersive-body);
   text-align: center;
-  font-weight: 800;
+  font-weight: var(--weight-semibold);
 }
 
 .homeGamepadNotice {

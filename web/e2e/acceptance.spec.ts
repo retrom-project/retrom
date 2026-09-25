@@ -75,7 +75,7 @@ test("ACC-UI-002 import parent and child routes preserve browser history", async
 
 test("ACC-UI-003 library filters and game detail use URL state", async ({ page }, testInfo) => {
   await page.goto("/");
-  await expect(page.locator("[data-home-layer]")).toHaveCount(5);
+  await expect(page.locator("[data-home-layer]")).toHaveCount(4);
   await expect(page.getByText("我的资料库", { exact: true })).toBeVisible();
   const latestLayer = page.locator('[data-home-layer="3"]');
   await expect(latestLayer.getByRole("heading", { name: "最新添加" })).toBeVisible();

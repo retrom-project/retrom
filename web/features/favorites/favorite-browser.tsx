@@ -146,7 +146,7 @@ type FavoriteBrowserViewProps = {
 
 function FavoriteBrowserView(props: FavoriteBrowserViewProps) {
   return <>
-    <PageHeader eyebrow="你的游戏" title="我的收藏" description="" actions={<div className="favorite-head-summary"><strong>{props.page?.summary.favoriteCount ?? 0}</strong> 款收藏 · <strong>{props.page?.summary.folderCount ?? 0}</strong> 个收藏夹</div>} />
+    <PageHeader title="我的收藏" description="整理喜欢的游戏，按收藏夹分类，随时找到下一款想玩的游戏。" actions={<div className="favorite-head-summary"><strong>{props.page?.summary.favoriteCount ?? 0}</strong> 款收藏 · <strong>{props.page?.summary.folderCount ?? 0}</strong> 个收藏夹</div>} />
     <div className="favorite-layout">
       <section className="favorite-content" aria-label="收藏游戏">
         <FavoriteToolbar currentCount={props.currentCount} onOrganizeUncategorized={props.onOrganizeUncategorized} onSearch={props.onSearch} onToggleSelecting={props.onToggleSelecting} onUpdateQuery={props.onUpdateQuery} page={props.page} query={props.query} search={props.search} selecting={props.selecting} />

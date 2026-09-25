@@ -42,7 +42,7 @@ function FeaturedGamePanel({ game }: { game: FeaturedGame | null }) {
         {game.coverUrl ? <><Image className="home-featured-backdrop" src={game.coverUrl} alt="" fill sizes="(min-width: 1280px) 900px, 70vw" aria-hidden="true" unoptimized /><span className="home-featured-cover"><Image src={game.coverUrl} alt={`${game.title} 封面`} fill sizes="190px" unoptimized /></span></> : <><span className="home-featured-backdrop home-cover-placeholder" aria-hidden="true" /><span className="home-featured-cover home-cover-placeholder" role="img" aria-label={`${game.title} 暂无封面`}>RETROM</span></>}
         {sessionSave ? <div className="home-featured-save-preview"><SaveScreenshot screenshotUrl={sessionSave.screenshotUrl} alt={`${game.title} 上次存档截图`} sizes="310px" /><span>将从{sessionSave.discLabel ?? "这里"}继续</span></div> : null}
         <div className="home-featured-copy">
-          <div className="home-featured-details"><p className="home-featured-overline">{game.platform.name} · {game.platformInstance.name}</p><h2>{game.title}</h2><TagChips tags={game.tags ?? []} limit={2} /><div className="home-featured-facts"><span>上次游玩 <strong>{formatTime(game.lastPlayedAtMs)}</strong></span><span>累计游玩 <strong>{duration(game.activeDurationMs)}</strong></span><span>游玩 <strong>{game.sessionCount} 次</strong></span></div></div>
+          <div className="home-featured-details"><p className="home-featured-overline">{Array.from(new Set([game.platform.name.trim(), game.platformInstance.name.trim()])).filter(Boolean).join(" · ")}</p><h2>{game.title}</h2><TagChips tags={game.tags ?? []} limit={2} /><div className="home-featured-facts"><span>上次游玩 <strong>{formatTime(game.lastPlayedAtMs)}</strong></span><span>累计游玩 <strong>{duration(game.activeDurationMs)}</strong></span><span>游玩 <strong>{game.sessionCount} 次</strong></span></div></div>
           <GameDescription description={game.description} className="home-featured-description" />
           <div className="home-featured-actions">
             <LaunchButton gameId={game.gameId} saveStateId={sessionSave?.saveStateId ?? null} returnTo="/" label={sessionSave ? "继续游玩" : "再玩一次"} />
@@ -72,7 +72,7 @@ export default async function HomePage() {
   const home = await backendJSON<Home>("/api/v1/home");
   return <><ImmersiveEntryDialog /><PhoneLayout phone={<MobileHome home={home} />}><div className="page-layout page-layout-home home-page">
     <section className="home-layer home-hero-layer" data-home-layer="1" aria-label="今天玩什么">
-      <PageHeader eyebrow="我的游戏" title="今天想玩什么？" description="继续上次的冒险，发现下一款心头好。" actions={<ImmersiveHomeEntry />} />
+      <PageHeader title="今天想玩什么？" description="继续上次的冒险，发现下一款心头好。" actions={<ImmersiveHomeEntry />} />
       <div className="home-first-layer" aria-label="最近游玩与快速开始">
         <FeaturedGamePanel game={home.featuredGame} />
         <QuickStart home={home} />
@@ -84,27 +84,17 @@ export default async function HomePage() {
       {home.recentGames.length === 0 ? <div className="home-inline-empty">游玩过的游戏会出现在这里。</div> : <HorizontalRail className="home-recent-rail" label="最近游玩的游戏">
         {home.recentGames.map((game) => <Link className="home-recent-card" href={`/games/${game.gameId}`} key={game.gameId}>
           <span className="home-recent-cover">{game.coverUrl ? <Image src={game.coverUrl} alt={`${game.title} 封面`} fill sizes="160px" unoptimized /> : <span role="img" aria-label={`${game.title} 暂无封面`}>RETROM</span>}</span>
-          <div className="home-recent-copy"><strong>{game.title}</strong><small>{game.platform.name} · {game.platformInstance.name}<br />{formatTime(game.lastPlayedAtMs)} 玩过</small><div className="home-recent-bottom"><TagChips tags={game.tags ?? []} limit={2} /><div className="home-recent-meta"><small>累计游玩</small><b>{duration(game.activeDurationMs)}</b></div></div></div>
+          <div className="home-recent-copy"><strong>{game.title}</strong><small>{Array.from(new Set([game.platform.name.trim(), game.platformInstance.name.trim()])).filter(Boolean).join(" · ")}<br />{formatTime(game.lastPlayedAtMs)} 玩过</small><div className="home-recent-bottom"><TagChips tags={game.tags ?? []} limit={2} /><div className="home-recent-meta"><small>累计游玩</small><b>{duration(game.activeDurationMs)}</b></div></div></div>
         </Link>)}
       </HorizontalRail>}
     </section>
 
-    <section className="home-layer home-latest-section" data-home-layer="3">
-      <div className="home-section-head"><div><h2>最新添加</h2></div><Link href="/library?sort=ADDED_DESC">查看游戏库</Link></div>
-      {home.latestGames.length === 0 ? <div className="home-inline-empty">新发布的游戏会出现在这里。</div> : <HorizontalRail className="home-recent-rail" label="最新添加的游戏">
-        {home.latestGames.map((game) => <Link className="home-recent-card" href={`/games/${game.gameId}`} key={game.gameId}>
-          <span className="home-recent-cover">{game.coverUrl ? <Image src={game.coverUrl} alt={`${game.title} 封面`} fill sizes="160px" unoptimized /> : <span role="img" aria-label={`${game.title} 暂无封面`}>RETROM</span>}</span>
-          <div className="home-recent-copy"><strong>{game.title}</strong><small>{game.platform.name} · {game.platformInstance.name}<br />新加入资料库</small><div className="home-recent-bottom"><TagChips tags={game.tags ?? []} limit={2} /><div className="home-recent-meta"><small>添加时间</small><b>{formatTime(game.createdAtMs)}</b></div></div></div>
-        </Link>)}
-      </HorizontalRail>}
-    </section>
-
-    <section className="home-layer home-platform-section" data-home-layer="4">
+    <section className="home-layer home-platform-section" data-home-layer="3">
       <div className="home-section-head"><div><h2>换个平台逛逛</h2></div><Link href="/library">进入游戏库</Link></div>
       <PlatformRail platforms={home.platforms} />
     </section>
 
-    <section className="home-layer home-summary" data-home-layer="5" aria-label="我的资料库">
+    <section className="home-layer home-summary" data-home-layer="4" aria-label="我的资料库">
       <strong>我的资料库</strong><span><b>{home.library.gameCount}</b> 款游戏</span><span><b>{home.library.saveStateCount}</b> 份存档</span><span><b>{duration(home.play.activeDurationMs)}</b> 累计游玩</span>
     </section>
   </div></PhoneLayout></>;

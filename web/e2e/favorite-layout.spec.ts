@@ -51,14 +51,23 @@ test("ACC-FAV-001 floating navigation and compact card controls remain usable", 
   await expect(card.locator(".favorite-heart")).toBeVisible();
   for (const width of [testInfo.project.use.viewport?.width ?? 1280, 390]) {
     await page.setViewportSize({ width, height: 844 });
-    await expect(drag).toBeVisible();
-    await page.getByRole("button", { name: "折叠收藏导航" }).click();
-    await expect(navigation.getByRole("button", { name: /全部收藏/ })).toHaveCount(0);
-    await page.getByRole("button", { name: "展开收藏导航" }).click();
-    await expect.poll(() => navigation.evaluate((element) => {
-      const box = element.getBoundingClientRect();
-      return box.x >= 8 && box.y >= 8 && box.right <= innerWidth - 7 && box.bottom <= innerHeight - 7;
-    })).toBe(true);
+    if (width === 390) {
+      await expect(drag).toBeHidden();
+      await expect(navigation).toHaveCSS("position", "static");
+      await page.getByRole("button", { name: "展开收藏导航" }).click();
+      const navBox = (await navigation.boundingBox())!;
+      const gridBox = (await page.locator(".favorite-game-grid").boundingBox())!;
+      expect(navBox.y + navBox.height).toBeLessThanOrEqual(gridBox.y);
+    } else {
+      await expect(drag).toBeVisible();
+      await page.getByRole("button", { name: "折叠收藏导航" }).click();
+      await expect(navigation.getByRole("button", { name: /全部收藏/ })).toHaveCount(0);
+      await page.getByRole("button", { name: "展开收藏导航" }).click();
+      await expect.poll(() => navigation.evaluate((element) => {
+        const box = element.getBoundingClientRect();
+        return box.x >= 8 && box.y >= 8 && box.right <= innerWidth - 7 && box.bottom <= innerHeight - 7;
+      })).toBe(true);
+    }
     const poster = card.locator(".favorite-poster");
     const beforeTitle = await poster.locator("small, :scope > span").evaluateAll((elements) => elements.map((element) => element.getBoundingClientRect().y));
     await poster.locator("strong").evaluate((element) => {element.textContent = "过长标题验证固定排版".repeat(40);});

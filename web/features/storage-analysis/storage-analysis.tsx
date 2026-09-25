@@ -226,7 +226,6 @@ function StorageHeader({ state }: { state: StorageViewState }) {
   const busy = state.loading || state.refreshing || state.cleaning;
   const canCleanup = Boolean(state.snapshot && state.snapshot.totals.unreferencedBytes !== "0");
   return <PageHeader
-    eyebrow="系统存储"
     title="容量分析"
     description="查看 Retrom 已登记 CAS 数据的业务用途，定位长期数据、流程数据与等待回收内容。"
     actions={<div className="storage-header-actions">

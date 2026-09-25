@@ -99,7 +99,7 @@ export function GameDetailSaves({ gameId, gameTitle, saves, nowMs, threadCoreIds
               <span><small>运行核心</small><b>{save.core.name}</b></span>
               <span><small>当时已游玩</small><b>{formatSaveDuration(save.activeDurationMs)}</b></span>
             </div>
-            <SaveResume gameId={gameId} save={save} requiresThreads={threadCoreIds.includes(save.core.id)} label={index === 0 ? "▶ 从这里继续" : "恢复此存档"} />
+            <SaveResume gameId={gameId} save={save} requiresThreads={threadCoreIds.includes(save.core.id)} label="从存档继续" />
           </div>
         </article>)}
       </div> : <div className="game-detail-saves-empty"><strong>还没有手动存档</strong><span>游玩时创建存档后，可以从这里快速恢复。</span></div>}
@@ -135,7 +135,7 @@ export function GameDetailSaves({ gameId, gameTitle, saves, nowMs, threadCoreIds
             <SaveSizeLabel sizeBytes={save.sizeBytes} />
           </button>
           <div><time dateTime={new Date(saveDisplayTime(save)).toISOString()}>{formatTime(saveDisplayTime(save), nowMs)}</time><small>{save.core.name}{save.discLabel ? ` · ${save.discLabel}` : ""}{index === 0 ? " · 最近" : ""}</small></div>
-          <SaveResume gameId={gameId} save={save} requiresThreads={threadCoreIds.includes(save.core.id)} label="▶ 继续" />
+          <SaveResume gameId={gameId} save={save} requiresThreads={threadCoreIds.includes(save.core.id)} label="从存档继续" />
         </article>)}
       </div>
     </aside>

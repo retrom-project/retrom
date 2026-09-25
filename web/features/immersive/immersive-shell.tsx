@@ -185,7 +185,7 @@ function ImmersiveShellContent({ children, help, inputEpoch, onAction, source = 
     data-immersive-shell="true"
   >
     <header className={styles.shellHeader}>
-      <div><strong>RETROM</strong><span>/</span><span>沉浸模式</span></div>
+      <div><strong>RETROM</strong><span aria-hidden="true">/</span><span>沉浸模式</span></div>
       {clock ? <time dateTime={clock.toISOString()}>{formatClock(clock)}</time> : <time aria-label="正在读取当前时间">--:--</time>}
     </header>
     <div className={styles.shellContent}>{children}</div>

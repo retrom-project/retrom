@@ -121,33 +121,33 @@
 .platformCode {
   margin: 0 0 auto;
   color: rgb(247 245 240 / 0.18);
-  font-size: clamp(50px, 7vw, 140px);
-  font-weight: 900;
+  font-size: var(--text-immersive-mark);
+  font-weight: var(--weight-semibold);
   letter-spacing: -0.07em;
 }
 
 .platformCard p {
   margin: 0 0 10px;
   color: var(--immersive-cyan);
-  font-size: clamp(14px, 0.9vw, 20px);
-  font-weight: 800;
+  font-size: var(--text-immersive-body);
+  font-weight: var(--weight-semibold);
 }
 
 .platformCard h2 {
   margin: 0 0 16px;
   overflow-wrap: anywhere;
-  font-size: clamp(27px, 2.5vw, 54px);
+  font-size: var(--text-immersive-title);
   line-height: 1.03;
 }
 
 .platformCard strong {
   margin-bottom: 8px;
-  font-size: clamp(19px, 1.3vw, 28px);
+  font-size: var(--text-immersive-heading);
 }
 
 .platformCard small {
   color: var(--immersive-muted);
-  font-size: clamp(15px, 1vw, 21px);
+  font-size: var(--text-immersive-body);
 }
 
 .coverStack {
@@ -212,8 +212,8 @@
 .coverFallback span {
   margin-bottom: auto;
   color: var(--immersive-cyan);
-  font-size: clamp(9px, 0.65vw, 13px);
-  font-weight: 900;
+  font-size: var(--text-immersive-caption);
+  font-weight: var(--weight-semibold);
   letter-spacing: 0.2em;
 }
 
@@ -221,7 +221,7 @@
   margin: 0;
   overflow-wrap: anywhere;
   color: var(--immersive-text);
-  font-size: clamp(15px, 1.25vw, 26px);
+  font-size: var(--text-immersive-body);
   line-height: 1.08;
 }
 
@@ -233,9 +233,9 @@
   justify-content: center;
   padding-bottom: clamp(8px, 1.5dvh, 20px);
   color: rgb(247 245 240 / 0.58);
-  font-size: clamp(12px, 0.8vw, 16px);
+  font-size: var(--text-immersive-caption);
   font-variant-numeric: tabular-nums;
-  font-weight: 850;
+  font-weight: var(--weight-semibold);
   letter-spacing: 0.12em;
 }
 
