@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { expectPaletteContrast, expectServerImportStatsContrast } from "./palette-contrast-support";
+import { expectStatusTextCentered } from "./status-alignment-support";
 import { expectSearchComposition } from "./search-control-support";
 import { expectCardRadii } from "./card-radius-support";
 import { expectHomeStates } from "./home-state-support";
@@ -209,4 +210,16 @@ test("ACC-UI-011 server import statistics stay readable over hero gradients", as
   expect(response.ok()).toBe(true);
   await page.goto("/admin/imports/server");
   await expectServerImportStatsContrast(page);
+});
+
+
+test("ACC-UI-011 status glyphs are centered without resizing the capsule", async ({ page }) => {
+  const origin = process.env.RETROM_WEB_ORIGIN ?? "http://localhost:4000";
+  const response = await page.request.post("/api/v1/auth/login", {
+    headers: { Origin: origin }, data: { username: "test", password: "test" },
+  });
+  expect(response.ok()).toBe(true);
+  await page.goto("/admin/games");
+  await expect(page.locator(".admin-game-table .status").first()).toBeVisible();
+  await expectStatusTextCentered(page);
 });

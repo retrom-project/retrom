@@ -425,7 +425,7 @@
 .launch-panel h2 { font-weight: var(--weight-semibold); margin: 0 0 12px; font-size: var(--text-section); }
 .launch-kicker { color: var(--purple-dark); font-size: var(--text-caption); font-weight: var(--weight-semibold); letter-spacing: .1em; text-transform: uppercase; }
 .launch-runtime-status { position: absolute; top: 12px; right: 12px; }
-.launch-runtime-status .status { min-height: 26px; padding: 1px 8px; font-size: var(--text-caption); font-weight: var(--weight-medium); }
+.launch-runtime-status .status { min-height: 26px; padding: calc(1px + var(--status-text-offset)) 8px calc(1px - var(--status-text-offset)); font-size: var(--text-caption); font-weight: var(--weight-medium); }
 .launch-panel > .field { margin: 0 0 8px; }
 .launch-panel > .field label { font-size: var(--text-caption); font-weight: var(--weight-semibold); }
 .launch-quick-save { min-height: 136px; display: grid; align-items: center; border-radius: var(--radius-panel); grid-template-columns: 112px minmax(0, 1fr); gap: var(--space-3); padding: var(--space-3); border: 1px solid var(--control-line); background: var(--surface); margin-bottom: var(--space-3); }

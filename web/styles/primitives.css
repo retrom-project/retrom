@@ -6,7 +6,8 @@
 .header-actions { display: flex; align-items: center; gap: 10px; padding-top: 6px; }
 .button { cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
 .button:disabled { cursor: not-allowed; }
-.status { width: fit-content; min-height: 25px; padding: 2px 9px; display: inline-flex; align-items: center; gap: 6px; border-radius: 999px; color: var(--muted); background: var(--surface-subtle); font-size: var(--text-caption); white-space: nowrap; font-weight: var(--weight-medium); }
+/* Balance glyph ink around the center without changing capsule geometry. */
+.status { width: fit-content; min-height: 25px; padding: calc(2px + var(--status-text-offset)) 9px calc(2px - var(--status-text-offset)); display: inline-flex; align-items: center; gap: 6px; border-radius: 999px; color: var(--muted); background: var(--surface-subtle); font-size: var(--text-caption); white-space: nowrap; font-weight: var(--weight-medium); }
 .status i { display: none; }
 .status.good { color: var(--cyan); background: var(--cyan-soft); }
 .status.warn { color: var(--amber); background: var(--amber-soft); }

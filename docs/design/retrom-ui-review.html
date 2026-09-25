@@ -77,6 +77,7 @@
   --weight-medium: 500;
   --weight-semibold: 600;
   --weight-bold: 700;
+  --status-text-offset: .5px;
   --leading-body: 1.6;
   --leading-heading: 1.25;
   --control-height: 44px;
@@ -745,7 +746,7 @@ select:disabled, input:disabled, textarea:disabled { cursor: not-allowed; opacit
       align-items: center;
       gap: 5px;
       width: fit-content;
-      padding: 4px 7px;
+      padding: calc(4px + var(--status-text-offset)) 7px calc(4px - var(--status-text-offset));
       border-radius: 999px;
       background: var(--retrom-purple-soft);
       color: var(--purple-dark);
@@ -2568,7 +2569,7 @@ select:disabled, input:disabled, textarea:disabled { cursor: not-allowed; opacit
 }
 #retrom-ui-review .rt-launch-runtime-choice { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 #retrom-ui-review .rt-launch-runtime-choice strong { min-width: 0; }
-#retrom-ui-review .rt-launch-panel-head .rt-badge { min-height: 26px; padding: 1px 8px; font-size: var(--text-caption); font-weight: var(--weight-medium); }
+#retrom-ui-review .rt-launch-panel-head .rt-badge { min-height: 26px; padding: calc(1px + var(--status-text-offset)) 8px calc(1px - var(--status-text-offset)); font-size: var(--text-caption); font-weight: var(--weight-medium); }
 #retrom-ui-review .rt-launch-empty-save { min-height: 136px; margin-bottom: 7px; padding: 18px 16px; display: flex; flex-direction: column; justify-content: center; align-items: flex-start; gap: 8px; border: 1px solid var(--retrom-line); border-radius: var(--radius-panel); background: rgb(255 255 255 / 70%); }
 #retrom-ui-review .rt-launch-empty-save &gt; svg { width: 32px; height: 32px; color: var(--purple-dark); }
 #retrom-ui-review .rt-launch-empty-save strong { font-size: var(--text-body); font-weight: var(--weight-semibold); }

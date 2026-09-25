@@ -58,6 +58,7 @@
   --weight-medium: 500;
   --weight-semibold: 600;
   --weight-bold: 700;
+  --status-text-offset: .5px;
   --leading-body: 1.6;
   --leading-heading: 1.25;
   --control-height: 44px;
