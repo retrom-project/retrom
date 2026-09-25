@@ -36,6 +36,7 @@ const (
 	ContentKindButterscotchProject ContentKind = "BUTTERSCOTCH_PROJECT"
 	ContentKindTyranoScriptProject ContentKind = "TYRANOSCRIPT_PROJECT"
 	ContentKindScummVMProject      ContentKind = "SCUMMVM_PROJECT"
+	ContentKindDaphneProject       ContentKind = "DAPHNE_PROJECT"
 )
 
 var (
@@ -143,6 +144,7 @@ var registry = map[string]Profile{
 
 	"cavestory":    project("cavestory", ContentKindNXEngineProject),
 	"scummvm":      project("scummvm", ContentKindScummVMProject),
+	"daphne":       project("daphne", ContentKindDaphneProject),
 	"rpgmaker":     project("rpgmaker", ContentKindRPGMakerProject),
 	"ons":          project("ons", ContentKindONSProject),
 	"kirikiri":     project("kirikiri", ContentKindKiriKiriProject),

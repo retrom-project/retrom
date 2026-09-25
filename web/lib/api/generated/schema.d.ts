@@ -3095,7 +3095,7 @@ export interface components {
              * @description Omitted requests use STANDARD. For import creation only, STANDARD targeting rpgmaker with one ZIP/7z or a complete directory is normalized to RPG_MAKER_PROJECT before the immutable job snapshot is created.
              * @enum {string}
              */
-            contentMode?: "STANDARD" | "MULTI_DISC" | "RPG_MAKER_PROJECT" | "ONS_PROJECT" | "KIRIKIRI_PROJECT" | "BUTTERSCOTCH_PROJECT" | "NXENGINE_PROJECT" | "TYRANOSCRIPT_PROJECT" | "SCUMMVM_PROJECT";
+            contentMode?: "STANDARD" | "MULTI_DISC" | "RPG_MAKER_PROJECT" | "ONS_PROJECT" | "KIRIKIRI_PROJECT" | "BUTTERSCOTCH_PROJECT" | "NXENGINE_PROJECT" | "TYRANOSCRIPT_PROJECT" | "SCUMMVM_PROJECT" | "DAPHNE_PROJECT";
         };
         ReconfigureImportRequest: {
             /** Format: uuid */
@@ -3298,7 +3298,7 @@ export interface components {
              * @default STANDARD
              * @enum {string}
              */
-            contentMode: "STANDARD" | "MULTI_DISC" | "RPG_MAKER_PROJECT" | "ONS_PROJECT" | "KIRIKIRI_PROJECT" | "BUTTERSCOTCH_PROJECT" | "NXENGINE_PROJECT" | "TYRANOSCRIPT_PROJECT";
+            contentMode: "STANDARD" | "MULTI_DISC" | "RPG_MAKER_PROJECT" | "ONS_PROJECT" | "KIRIKIRI_PROJECT" | "BUTTERSCOTCH_PROJECT" | "NXENGINE_PROJECT" | "TYRANOSCRIPT_PROJECT" | "DAPHNE_PROJECT";
         };
         ApplyCandidateRequest: {
             fields: ("title" | "description" | "developer" | "publisher" | "genre" | "players" | "releaseYear")[];

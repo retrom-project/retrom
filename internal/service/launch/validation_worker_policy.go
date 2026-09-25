@@ -10,6 +10,7 @@ import (
 	"retrom/internal/arcadedat"
 	"retrom/internal/contentprofile"
 	"retrom/internal/corevalidation"
+	daphne "retrom/internal/daphne/detector"
 	"retrom/internal/scummvm"
 )
 
@@ -38,6 +39,15 @@ func EvaluateValidation(inputs ValidationInputs, facts ValidationFacts) (Validat
 	}
 	if source.ContentKind == "SCUMMVM_PROJECT" && source.ProviderID == "retrom-runtime" && source.TargetID == "scummvm" {
 		return validationScummVMOutcome(inputs, facts, bios)
+	}
+	if source.ContentKind == "DAPHNE_PROJECT" && source.ProviderID == "emulatorjs" && source.TargetID == "daphne" {
+		if _, err := daphne.ParseSnapshot(source.DependencySnapshot); err != nil {
+			return ValidationOutcome{}, err
+		}
+		if status == "READY" {
+			status, code = validationContentStatus(facts)
+		}
+		return ValidationOutcome{Status: status, Code: code, DependencyJSON: source.DependencySnapshot, BIOS: evidence}, nil
 	}
 
 	encoded, err := evidence.JSON()

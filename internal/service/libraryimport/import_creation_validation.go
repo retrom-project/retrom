@@ -91,7 +91,7 @@ func PrepareCreationStaticBIOS(
 
 func skipsCreationStaticBIOS(platform string) bool {
 	switch platform {
-	case "cavestory", "arcade", "rpgmaker", "ons", "kirikiri", "butterscotch", "tyranoscript", "scummvm":
+	case "cavestory", "arcade", "rpgmaker", "ons", "kirikiri", "butterscotch", "tyranoscript", "scummvm", "daphne":
 		return true
 	default:
 		return false

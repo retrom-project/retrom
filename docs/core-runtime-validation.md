@@ -177,13 +177,23 @@ Host 上传成功后才确认该版本已经持久化。最多 256 个文件、1
 真实键盘仍可独立操作，其他游戏的菜单按键需要逐样本验证。输入诊断观察 Apple2JS
 实际读取手柄的内层 iframe，显示按钮按下与松开；观测记录不代表核心已执行该动作。
 
-### Daphne 当前准入状态
+### Daphne 候选接入
 
 Daphne fork 的 `retro_serialize_size()` 返回零，保存与恢复接口均返回失败；已有的
 NVRAM/分数文件不能重建正在游玩的场景。用户已明确允许 Daphne 使用 `NO_SAVE`，
-runtime 因此只为 Daphne 暂存 `checkpoint: null` 和 `capabilities.checkpoint: false` 的 adapter。
-大体量激光影碟视频和音频还需要接入公共 Content I/O 的有界 Range 读取；完成内容、输入、
-Review Preview 与 Product Launch 验收前，不注册公开 Provider Target，也不导入可玩的 Daphne 游戏。
+因此仅 Daphne 的 Target 声明 `checkpoint: null` 和 `capabilities.checkpoint: false`，
+宿主不提供创建或恢复存档。其他平台的存档要求保持不变。
+
+候选 Target `emulatorjs/daphne` 使用 `DAPHNE_PROJECT` 和 `FILE_TREE`。项目检测当前接受
+根目录中 3–16 个文件：一个 ZIP ROM、同名 TXT framefile、一个被 framefile 引用的 M2V，
+以及可选的 DAT/OGG 等小文件。ZIP、TXT、DAT、OGG 经公共 Content I/O 完整读取；
+M2V 通过公共 Range reader 按需读取。核心的 MPEG 解码运行在 pthread；线程的同步
+`fd_read` 必须等待主线程的 Content I/O Promise 完成，不能让 Asyncify 提前返回零字节。
+
+在命名 PFB 中使用 `interstellar.daphne` 验证了目录上传、Review Preview、批准和
+Product Launch；手柄 Select 投币、Start 开始后出现动态视频，M2V 请求为有界 206 Range，
+未整包下载。该验证只覆盖单视频 framefile 的这个样本；多视频项目、无 ZIP 项目和
+其他 Daphne 游戏尚未获得准入。候选 Provider/核心仍需按依赖顺序发布和正式包复验。
 
 ## 6. 升级验证
 

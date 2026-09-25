@@ -7,6 +7,7 @@ import (
 const (
 	ModeNXEngineProject     = string(contentprofile.ContentKindNXEngineProject)
 	ModeScummVMProject      = string(contentprofile.ContentKindScummVMProject)
+	ModeDaphneProject       = string(contentprofile.ContentKindDaphneProject)
 	ModeStandard            = "STANDARD"
 	ModeMultiDisc           = string(contentprofile.ContentKindMultiDisc)
 	ModeRPGMakerProject     = string(contentprofile.ContentKindRPGMakerProject)

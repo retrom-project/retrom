@@ -9,7 +9,7 @@ import (
 	"retrom/internal/contentprofile"
 )
 
-const Version = 37
+const Version = 38
 
 var ErrInvalid = errors.New("PLATFORM_CATALOG_INVALID")
 
@@ -267,6 +267,7 @@ var current = Catalog{Version: Version, Templates: []DirectoryTemplate{
 	{Key: "bbc/jsbeeb", PlatformID: "bbc", DefaultCoreID: "jsbeeb", Name: "BBC Micro 游戏", CatalogOrder: 810},
 	{Key: "apple2/apple2js", PlatformID: "apple2", DefaultCoreID: "apple2js", Name: "Apple II 游戏", CatalogOrder: 815},
 	{Key: "lutro/lutro", PlatformID: "lutro", DefaultCoreID: "lutro", Name: "Lutro 游戏", CatalogOrder: 817},
+	{Key: "daphne/daphne", PlatformID: "daphne", DefaultCoreID: "daphne", Name: "Daphne 游戏", CatalogOrder: 818},
 	{Key: "channelf/freechaf", PlatformID: "channelf", DefaultCoreID: "freechaf", Name: "Channel F 游戏", CatalogOrder: 820},
 	{Key: "megaduck/sameduck", PlatformID: "megaduck", DefaultCoreID: "sameduck", Name: "Mega Duck 游戏", CatalogOrder: 830},
 	{

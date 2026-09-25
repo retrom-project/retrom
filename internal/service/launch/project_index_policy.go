@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	butterscotch "retrom/internal/butterscotch/detector"
+	daphne "retrom/internal/daphne/detector"
 	kirikiri "retrom/internal/kirikiri/detector"
 	nxengine "retrom/internal/nxengine/detector"
 	ons "retrom/internal/ons/detector"
@@ -37,6 +38,10 @@ func projectIndexPolicyFor(format, raw string) (projectIndexPolicy, error) {
 		var profile nxengine.Profile
 		profile, err = nxengine.ParseSnapshot(raw)
 		policy.marker, policy.maximum = profile.MarkerPath, 4096
+	case "DAPHNE_PROJECT":
+		var profile daphne.Profile
+		profile, err = daphne.ParseSnapshot(raw)
+		policy.marker, policy.maximum = profile.MarkerPath, 16
 	case "SCUMMVM_PROJECT":
 		err = validateScummVMIndex(raw)
 		policy.allowEmpty, policy.firstIsMarker = true, true

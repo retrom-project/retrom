@@ -70,6 +70,31 @@ func NormalizeProjectWithMarkers(input []SourceFile, markers []string) (Project,
 	})
 }
 
+// NormalizeProjectWithMarkerSuffixes admits projects whose root marker has a
+// game-specific basename, such as Daphne's ROM ZIP.
+func NormalizeProjectWithMarkerSuffixes(input []SourceFile, suffixes []string) (Project, error) {
+	if len(suffixes) == 0 {
+		return Project{}, &ProjectError{Code: CodeProjectNotFound}
+	}
+	return normalizeProject(input, func(files []SourceFile, prefix string) bool {
+		for _, file := range files {
+			if !strings.HasPrefix(file.Path, prefix) {
+				continue
+			}
+			name := strings.TrimPrefix(file.Path, prefix)
+			if strings.Contains(name, "/") {
+				continue
+			}
+			for _, suffix := range suffixes {
+				if strings.HasSuffix(strings.ToLower(name), strings.ToLower(suffix)) {
+					return true
+				}
+			}
+		}
+		return false
+	})
+}
+
 func normalizeProject(input []SourceFile, hasMarker func([]SourceFile, string) bool) (Project, error) {
 	files, noise, err := normalizeInputPaths(input)
 	if err != nil {

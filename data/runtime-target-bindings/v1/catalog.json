@@ -143,6 +143,20 @@
       "launchPolicy": "SUPPORTED"
     },
     {
+      "id": "emulatorjs-daphne",
+      "coreId": "daphne",
+      "providerId": "emulatorjs",
+      "targetId": "daphne",
+      "platformIds": [
+        "daphne"
+      ],
+      "acceptedContentKinds": [
+        "DAPHNE_PROJECT"
+      ],
+      "detectorProfile": "DAPHNE_PROJECT",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
       "id": "emulatorjs-desmume",
       "coreId": "desmume",
       "providerId": "emulatorjs",
@@ -1567,6 +1581,12 @@
         "enabled": true
       },
       {
+        "id": "daphne",
+        "name": "Daphne",
+        "sortOrder": 714,
+        "enabled": true
+      },
+      {
         "id": "doom",
         "name": "Doom",
         "sortOrder": 330,
@@ -2043,6 +2063,11 @@
         "enabled": true
       },
       {
+        "id": "daphne",
+        "name": "Daphne",
+        "enabled": true
+      },
+      {
         "id": "desmume",
         "name": "DeSmuME",
         "enabled": true
@@ -2455,6 +2480,7 @@
     ],
     "contentKinds": [
       "BUTTERSCOTCH_PROJECT",
+      "DAPHNE_PROJECT",
       "DOS_BUNDLE",
       "KIRIKIRI_PROJECT",
       "MULTI_DISC",
