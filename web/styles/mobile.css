@@ -498,10 +498,10 @@
   /* Library */
   .library-toolbar { margin-bottom: 20px; padding: 12px; }
   .library-tool-row { grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
-  .library-search { min-width: 0; height: 48px; }
+  .library-search { min-width: 0; height: var(--control-height); }
   .library-search input { font-size: var(--text-lead); }
   .library-desktop-filter { display: none; }
-  .library-mobile-filter-trigger { min-width: 48px; min-height: 48px; padding-inline: 12px; display: inline-flex; box-shadow: none; font-size: var(--text-icon-only); }
+  .library-mobile-filter-trigger { min-width: var(--control-height); min-height: var(--control-height); padding-inline: 12px; display: inline-flex; box-shadow: none; font-size: var(--text-icon-only); }
   .library-mobile-filter-trigger svg { width: 20px; height: 20px; }
   .library-platform-row { margin-top: 10px; padding-top: 10px; scroll-snap-type: x proximity; }
   .library-platform-row button { min-height: 44px; scroll-snap-align: start; }

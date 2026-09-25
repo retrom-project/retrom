@@ -53,9 +53,9 @@
 /* Search remains visible; metadata stays in the game detail. */
 .phone-app-frame .library-toolbar { position: relative; padding: 0; overflow: visible; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
 .phone-app-frame .library-tool-row { display: flex; flex-wrap: nowrap; gap: 8px; }
-.phone-app-frame .library-search { flex: 1; min-width: 0; height: 48px; background: var(--surface); border-radius: var(--radius-control); }
+.phone-app-frame .library-search { flex: 1; min-width: 0; height: var(--control-height); background: var(--surface); border-radius: var(--radius-control); }
 .phone-app-frame .library-desktop-filter { display: none; }
-.phone-app-frame .library-mobile-filter-trigger { display: inline-flex; flex: 0 0 48px; width: 48px; height: 48px; min-width: 48px; padding: 0; gap: 0; align-items: center; justify-content: center; border-radius: var(--radius-control); box-shadow: none; }
+.phone-app-frame .library-mobile-filter-trigger { display: inline-flex; flex: 0 0 var(--control-height); width: var(--control-height); height: var(--control-height); min-width: var(--control-height); padding: 0; gap: 0; align-items: center; justify-content: center; border-radius: var(--radius-control); box-shadow: none; }
 .phone-app-frame .library-mobile-filter-trigger svg { width: 20px; height: 20px; }
 .phone-app-frame .library-platform-row { margin-top: 12px; padding: 0 0 6px; flex-wrap: nowrap; overflow-x: auto; border: 0; scrollbar-width: none; }
 .phone-platform-scrollbar { display: none; }
