@@ -243,8 +243,7 @@ test("ACC-MOB-003 search, favorite, launch, save and home continue use the real 
   await card.getByRole("link").first().click();
   await expect(page).toHaveURL(/\/games\/[0-9a-f-]+$/);
   const detailURL = page.url();
-  await expect(page.locator(".phone-disclosure").first()).not.toHaveAttribute("open", "");
-  await page.getByText("游戏简介", { exact: true }).click();
+  await expect(page.getByRole("heading", { name: "关于游戏" })).toBeVisible();
   await expect(page.locator(".game-detail-description")).toBeVisible();
   await page.evaluate(axe.source);
   const detailViolations = await page.evaluate(async () => {

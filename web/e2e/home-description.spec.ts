@@ -39,35 +39,30 @@ test("ACC-UI-005 home description stays between aligned information and launch c
   }
 });
 
-test("ACC-UI-005 full detail description scrolls without growing the hero", async ({ page }, testInfo) => {
-  test.setTimeout(60_000);
+test("ACC-UI-005 detail description uses natural page flow below a stable hero", async ({ page }, testInfo) => {
   await login(page);
   const games = await (await page.request.get("/api/v1/games?limit=1")).json();
   const gameId = process.env.RETROM_REVIEW_GAME_ID ?? games.items[0].gameId;
   const game = await (await page.request.get(`/api/v1/games/${gameId}`)).json();
   await page.goto(`/games/${gameId}`);
-  const description = page.getByRole("region", { name: "游戏简介", exact: true });
+  const description = page.locator(".game-detail-description");
   await expect(description).toBeVisible();
-  expect(await description.textContent()).toBe(game.description.trim() ? game.description : "尚未填写游戏简介。");
+  const expand = description.getByRole("button", { name: "展开完整简介" });
   const before = await page.locator(".game-detail-hero").boundingBox();
-  await description.locator("p").evaluate((element) => {element.textContent = "完整的游戏简介，不截断文字。\n\n".repeat(1000);});
+  if (Array.from(game.description.trim()).length > 320) {
+    await expect(expand).toHaveAttribute("aria-expanded", "false");
+    await expand.click();
+    await expect(description.getByRole("button", { name: "收起简介" })).toHaveAttribute("aria-expanded", "true");
+  }
+  await expect(description.locator("p")).toHaveText(game.description.trim() ? game.description : "尚未填写游戏简介。");
+  await expect(description).toHaveCSS("overflow-y", "visible");
+  await description.locator("p").evaluate((element) => {element.textContent = "完整的游戏简介，不截断文字。\n\n".repeat(100);});
+  const flow = await description.evaluate((element) => ({ height: element.clientHeight, scroll: element.scrollHeight, bottom: element.getBoundingClientRect().bottom, savesTop: document.querySelector(".game-detail-saves")!.getBoundingClientRect().top }));
+  expect(flow.scroll).toBeLessThanOrEqual(flow.height + 1);
+  expect(flow.savesTop).toBeGreaterThan(flow.bottom);
   expect(await page.locator(".game-detail-hero").boundingBox()).toEqual(before);
-  await expect(description).toHaveCSS("scrollbar-width", "thin");
-  await expect(description).toHaveCSS("scrollbar-color", "rgba(0, 0, 0, 0) rgba(0, 0, 0, 0)");
-  await description.hover();
-  await page.mouse.wheel(0, 140);
-  await expect(description).toHaveClass(/is-scrolling/);
-  await expect(description).toHaveCSS("scrollbar-color", "rgb(174, 181, 194) rgba(0, 0, 0, 0)");
-  await expect.poll(() => description.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
-  await expect(description).not.toHaveClass(/is-scrolling/);
-  await description.focus();
-  await page.keyboard.press("Control+End");
-  await expect.poll(() => description.evaluate((element) => Math.abs(element.scrollHeight - element.clientHeight - element.scrollTop))).toBeLessThanOrEqual(1);
-  expect(await page.locator(".game-detail-hero").boundingBox()).toEqual(before);
-  await description.locator("p").evaluate((element, text) => {element.textContent = text;}, game.description || "尚未填写游戏简介。");
-  await description.evaluate((element) => {element.scrollTop = 0; element.blur();});
-  await expect(description).not.toHaveClass(/is-scrolling/);
-  await page.locator(".game-detail-hero").screenshot({ path: testInfo.outputPath("detail-description.png"), scale: "css" });
+  await page.reload();
+  await page.screenshot({ path: testInfo.outputPath("detail-description.png") });
 });
 
 async function login(page: Page) {

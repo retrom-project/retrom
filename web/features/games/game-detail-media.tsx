@@ -21,7 +21,7 @@ function mediaStatus(videoUrl: string | null, state: MediaState, reducedMotion: 
     ?? (reducedMotion ? "已减少动态效果，可手动播放视频预览" : "正在展示封面 · 可见满 2 秒后播放视频");
 }
 
-export function GameDetailMedia({ title, coverUrl, videoUrl }: { title: string; coverUrl: string | null; videoUrl: string | null }) {
+export function GameDetailMedia({ title, coverUrl, videoUrl, landscape = false }: { title: string; coverUrl: string | null; videoUrl: string | null; landscape?: boolean }) {
   const stageRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const timerRef = useRef<number | null>(null);
@@ -162,8 +162,8 @@ export function GameDetailMedia({ title, coverUrl, videoUrl }: { title: string; 
   const status = mediaStatus(videoUrl, state, reducedMotion);
 
   return <div className="game-detail-media">
-    <div className="game-detail-poster" ref={stageRef}>
-      {coverUrl ? <Image className="game-detail-media-cover" src={coverUrl} alt={`${title} 封面`} fill sizes="240px" priority unoptimized /> : <div className="game-detail-media-placeholder" role="img" aria-label={`${title} 暂无封面`}><span>{title}</span></div>}
+    <div className={landscape ? "game-detail-video-stage" : "game-detail-poster"} ref={stageRef}>
+      {coverUrl ? <Image className="game-detail-media-cover" src={coverUrl} alt={`${title} 封面`} fill sizes={landscape ? "(min-width: 1600px) 520px, 60vw" : "260px"} priority unoptimized /> : <div className="game-detail-media-placeholder" role="img" aria-label={`${title} 暂无封面`}><span>{title}</span></div>}
       {videoUrl ? <video
         ref={videoRef}
         className={`game-detail-media-video${state === "video" ? " is-playing" : ""}`}

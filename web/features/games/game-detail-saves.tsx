@@ -10,10 +10,10 @@ import { SaveScreenshot } from "@/features/saves/save-screenshot";
 import { SaveSizeLabel } from "@/features/saves/save-size-label";
 import { useSaveTimeFormatter } from "@/features/saves/use-save-time";
 
-function SaveResume({ gameId, save, label, requiresThreads }: { gameId: string; save: SaveItem; label: string; requiresThreads: boolean }) {
+function SaveResume({ gameId, save, label, requiresThreads, secondary = false }: { gameId: string; save: SaveItem; label: string; requiresThreads: boolean; secondary?: boolean }) {
   return saveAvailable(save)
-    ? <LaunchButton gameId={gameId} saveStateId={save.saveStateId} returnTo={`/games/${gameId}`} requiresThreads={requiresThreads} label={label} />
-    : <button className="button" type="button" disabled>当前不可继续</button>;
+    ? <LaunchButton secondary={secondary} gameId={gameId} saveStateId={save.saveStateId} returnTo={`/games/${gameId}`} requiresThreads={requiresThreads} label={label} />
+    : <button className={secondary ? "button secondary" : "button"} type="button" disabled>当前不可继续</button>;
 }
 
 export function GameDetailSaves({ gameId, gameTitle, saves, nowMs, threadCoreIds = [] }: {
@@ -86,7 +86,7 @@ export function GameDetailSaves({ gameId, gameTitle, saves, nowMs, threadCoreIds
         {recentSaves.map((save, index) => <article className="game-detail-save-card" key={save.saveStateId}>
           <button className="game-detail-save-media" type="button" aria-label={save.screenshotUrl ? `预览 ${formatTime(saveDisplayTime(save), nowMs)} 的存档截图` : `${formatTime(saveDisplayTime(save), nowMs)} 的存档没有截图`} disabled={!save.screenshotUrl} onClick={() => openPreview(save)}>
             {!saveAvailable(save) ? <span className="game-detail-save-blocked">当前不可用</span> : null}
-            <SaveScreenshot screenshotUrl={save.screenshotUrl} alt="存档截图" sizes="(min-width: 1800px) 32vw, (min-width: 1600px) 290px, 220px" />
+            <SaveScreenshot screenshotUrl={save.screenshotUrl} alt="存档截图" sizes="(min-width: 1600px) 220px, (min-width: 768px) 30vw, 120px" />
             <SaveSizeLabel sizeBytes={save.sizeBytes} />
           </button>
           <div className="game-detail-save-body">
@@ -99,10 +99,10 @@ export function GameDetailSaves({ gameId, gameTitle, saves, nowMs, threadCoreIds
               <span><small>运行核心</small><b>{save.core.name}</b></span>
               <span><small>当时已游玩</small><b>{formatSaveDuration(save.activeDurationMs)}</b></span>
             </div>
-            <SaveResume gameId={gameId} save={save} requiresThreads={threadCoreIds.includes(save.core.id)} label="从存档继续" />
+            <SaveResume secondary gameId={gameId} save={save} requiresThreads={threadCoreIds.includes(save.core.id)} label="从存档继续" />
           </div>
         </article>)}
-      </div> : <div className="game-detail-saves-empty"><strong>还没有手动存档</strong><span>游玩时创建存档后，可以从这里快速恢复。</span></div>}
+      </div> : <div className="game-detail-saves-empty"><strong>还没有存档</strong><span>游玩时创建存档后，可以从这里快速恢复。</span></div>}
     </section>
 
     <div className={`game-detail-drawer-backdrop${drawerOpen ? " is-open" : ""}`} aria-hidden="true" onMouseDown={(event) => { if (event.target === event.currentTarget) {closeDrawer();} }} />

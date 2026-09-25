@@ -43,7 +43,14 @@ test("ACC-UI-003 detail populated, missing screenshot and expanded states", asyn
       await expect(preview).toBeFocused();
       const all = page.getByRole("button", { name: "查看全部存档" });
       await all.click();
-      await expect(page.getByRole("dialog", { name: "全部存档" }).getByRole("article")).toHaveCount(4);
+      const drawer = page.getByRole("dialog", { name: "全部存档" });
+      await expect(drawer.getByRole("article")).toHaveCount(4);
+      await expect(drawer.getByRole("button", { name: "关闭全部存档" })).toBeInViewport();
+      if (width === 390) {
+        const layers = await page.evaluate(() => [".game-detail-save-drawer", ".game-detail-drawer-backdrop", ".mobile-launch-dock"].map((selector) => Number(getComputedStyle(document.querySelector(selector)!).zIndex)));
+        expect(layers[0]).toBeGreaterThan(layers[1]);
+        expect(layers[1]).toBeGreaterThan(layers[2]);
+      }
       await page.keyboard.press("Escape");
       await expect(all).toBeFocused();
       await page.locator(".game-detail-title-row h1").evaluate((element) => {element.textContent = "很长的游戏名称 🎮 ".repeat(15);});

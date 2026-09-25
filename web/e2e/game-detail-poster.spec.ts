@@ -1,137 +1,72 @@
 import { expect, test, type Page } from "@playwright/test";
 
-// Uses an accessible published game from the product fixture, without changing it.
-test("ACC-UI-005 detail poster fills its column without footer descriptions", async ({ page }, testInfo) => {
-  test.setTimeout(90_000);
+async function login(page: Page) {
   const origin = process.env.RETROM_WEB_ORIGIN ?? "http://localhost:4000";
-  const login = await page.request.post("/api/v1/auth/login", { headers: { Origin: origin }, data: { username: "test", password: "test" } });
-  expect(login.ok()).toBe(true);
-  const games = await page.request.get("/api/v1/games?limit=1");
-  expect(games.ok()).toBe(true);
-  const gameId: string = (await games.json()).items[0].gameId;
+  expect((await page.request.post("/api/v1/auth/login", { headers: { Origin: origin }, data: { username: "test", password: "test" } })).ok()).toBe(true);
+}
+
+test("ACC-UI-005 detail separates static cover, launch, preview and reading areas", async ({ page }, testInfo) => {
+  test.setTimeout(90_000);
+  await login(page);
+  const games = await (await page.request.get("/api/v1/games?limit=1")).json();
   const sizes = testInfo.project.name === "chrome-1280" ? [[1280, 800], [1920, 950], [390, 844]] : [[2560, 1360], [2560, 1440], [3840, 2160]];
   for (const [width, height] of sizes) {
-    await page.setViewportSize({ width: width!, height: height! });
-    await page.goto("/");
-    const homeLink = page.locator(".home-section-head > a").first();
-    if (width! >= 1280) {await expect(homeLink).toBeVisible();}
-    await page.goto(`/games/${gameId}`);
+    await page.setViewportSize({ width, height });
+    await page.goto(`/games/${games.items[0].gameId}`);
     await expect(page.locator(".game-detail-poster")).toBeVisible();
+    await expect(page.locator(".game-detail-poster video")).toHaveCount(0);
     const labels = (await page.locator(".game-detail-eyebrow").innerText()).split(" · ");
     expect(new Set(labels).size).toBe(labels.length);
-    await expect(page.locator(".game-detail-poster-caption")).toHaveCount(0);
-    await expect(page.locator(".game-detail-media [aria-live]")).toHaveClass("sr-only");
-    const layout = await page.locator(".game-detail-poster").evaluate((poster) => {
-      const cover = poster.getBoundingClientRect();
-      const shell = poster.closest(".game-detail-poster-shell")!.getBoundingClientRect();
-      return { topGap: cover.top - shell.top, bottomGap: shell.bottom - cover.bottom, width: document.documentElement.scrollWidth, viewportWidth: innerWidth };
+    const layout = await page.evaluate(() => {
+      const rect = (selector: string) => document.querySelector(selector)!.getBoundingClientRect();
+      const cover = rect(".game-detail-poster"), hero = rect(".game-detail-hero"), about = rect(".game-detail-overview");
+      const title = rect(".game-detail-title-row h1"), heart = rect(".favorite-heart");
+      return { ratio: cover.width / cover.height, contentWidth: rect(".game-detail-content").width, heroBottom: hero.bottom, aboutTop: about.top, heartAfterTitle: heart.left >= title.right, heartWidth: heart.width, overflow: document.documentElement.scrollWidth > innerWidth };
     });
-    expect(Math.abs(layout.topGap)).toBeLessThanOrEqual(1);
-    expect(Math.abs(layout.bottomGap)).toBeLessThanOrEqual(1);
-    expect(layout.width).toBeLessThanOrEqual(layout.viewportWidth);
-    if (width! >= 1280) {
-      await expectDetailAlignment(page);
-      await expectDetailActions(page);
-      await expect(page.locator(".game-detail-breadcrumb a")).toHaveCSS("font-size", "14px");
-      await expect(page.locator(".launch-panel-head h2")).toHaveCSS("font-size", "20px");
-      await expect(page.locator(".launch-runtime-row button")).toHaveCSS("font-size", "14px");
-      if (width === sizes[0]![0] && height === sizes[0]![1]) {
-        const initialHeight = await page.locator(".game-detail-hero").evaluate((element) => element.getBoundingClientRect().height);
-        await page.locator(".game-detail-description").evaluate((description) => {
-          description.querySelector("p")!.textContent = Array.from({ length: 12 }, (_, index) => `第 ${index + 1} 段：这是一段用于验证超长简介滚动的游戏简介，包含玩法、故事背景与操作说明。`).join("\n\n");
-        });
-        await expectDetailAlignment(page);
-        const finalHeight = await page.locator(".game-detail-hero").evaluate((element) => element.getBoundingClientRect().height);
-        expect(Math.abs(finalHeight - initialHeight)).toBeLessThanOrEqual(1);
-      }
+    expect(layout.ratio).toBeCloseTo(.75, 2);
+    expect(layout.contentWidth).toBeLessThanOrEqual(1800);
+    expect(layout.aboutTop).toBeGreaterThan(layout.heroBottom);
+    expect(layout.overflow).toBe(false);
+    expect(layout.heartWidth).toBe(38);
+    await expect(page.locator(".game-detail-description")).toHaveCSS("overflow-y", "visible");
+    if (width >= 1280) {
+      expect(layout.heartAfterTitle).toBe(true);
+      await expect(page.locator(".game-detail-main .launch-actions .button").first()).toBeVisible();
+      const actionLayout = await page.evaluate(() => {
+        const title = document.querySelector(".game-detail-title-row")!.getBoundingClientRect();
+        const actions = document.querySelector(".launch-actions")!.getBoundingClientRect();
+        const runtime = document.querySelector(".launch-runtime-row")!.getBoundingClientRect();
+        return { titleBottom: title.bottom, actionsTop: actions.top, actionsBottom: actions.bottom, runtimeTop: runtime.top };
+      });
+      expect(actionLayout.actionsTop).toBeGreaterThan(actionLayout.titleBottom);
+      expect(actionLayout.runtimeTop).toBeGreaterThan(actionLayout.actionsBottom);
+    } else {
+      await expect(page.getByRole("button", { name: "启动选项" })).toBeVisible();
+      await expect(page.locator(".mobile-launch-dock .button")).toBeVisible();
     }
+    if (width === 2560 || width === 390) {await page.screenshot({ path: testInfo.outputPath(`detail-${width}x${height}.png`), fullPage: true });}
   }
 });
 
-async function expectDetailAlignment(page: Page) {
-  const layout = await page.evaluate(() => {
-    const bounds = (selector: string) => document.querySelector(selector)!.getBoundingClientRect();
-    const cover = bounds(".game-detail-poster");
-    const hero = bounds(".game-detail-hero");
-    const panel = bounds(".launch-panel");
-    const eyebrow = bounds(".game-detail-eyebrow");
-    const title = bounds(".game-detail-main h1");
-    const description = bounds(".game-detail-description");
-    const playtime = bounds(".game-detail-playtime");
-    return { coverRatio: cover.width / cover.height, heroHeight: hero.height, titleTop: eyebrow.top - panel.top, titleBeforeDescription: title.bottom <= description.top, footerBottom: playtime.bottom - panel.bottom, descriptionBottom: playtime.top - description.bottom };
-  });
-  for (const delta of [layout.titleTop, layout.footerBottom]) {
-    expect(Math.abs(delta)).toBeLessThanOrEqual(1);
-  }
-  expect(layout.coverRatio).toBeCloseTo(3 / 4, 2);
-  expect(layout.heroHeight).toBeLessThanOrEqual(440);
-  expect(layout.titleBeforeDescription).toBe(true);
-  expect(layout.descriptionBottom).toBeGreaterThanOrEqual(14);
-  expect(layout.descriptionBottom).toBeLessThanOrEqual(18);
-}
-
-async function expectDetailActions(page: Page) {
-  await expect(page.locator(".launch-panel-head .status, .launch-runtime-status")).toHaveCount(0);
-  const title = page.locator(".game-detail-title-row");
-  const heart = title.locator(".favorite-heart");
-  await expect(heart).toBeVisible();
-  await expect(heart).toHaveText("");
-  await expect(page.locator(".game-detail-main .favorite-manage")).toHaveCount(0);
-  const layout = await page.evaluate(() => {
-    const rect = (selector: string) => document.querySelector(selector)!.getBoundingClientRect();
-    const heart = rect(".game-detail-title-row .favorite-heart");
-    const title = rect(".game-detail-main h1");
-    const panel = document.querySelector(".launch-panel")!;
-    const action = panel.querySelector(":scope > .button")!.getBoundingClientRect();
-    const bounds = panel.getBoundingClientRect();
-    const saved = panel.querySelector(".launch-quick-save")?.getBoundingClientRect();
-    const screenshot = panel.querySelector(".launch-quick-save > div:first-child")?.getBoundingClientRect();
-    const runtime = panel.querySelector(".launch-runtime-row")!.getBoundingClientRect();
-    const core = rect(".launch-runtime-choice > div");
-    const change = rect(".launch-runtime-row button");
-    return { heartWidth: heart.width, heartHeight: heart.height, beforeTitle: heart.right <= title.left, radius: getComputedStyle(document.querySelector(".game-detail-title-row .favorite-heart")!).borderRadius, coreCenter: core.y + core.height / 2, changeCenter: change.y + change.height / 2, actionToDivider: runtime.top - action.bottom, runtimeBottom: bounds.bottom - runtime.bottom, screenshotWidth: screenshot?.width, screenshotRatio: screenshot ? screenshot.width / screenshot.height : undefined, padding: parseFloat(getComputedStyle(panel).paddingBottom), savedHeight: saved?.height };
-  });
-  expect(Math.abs(layout.coreCenter - layout.changeCenter)).toBeLessThanOrEqual(1);
-  expect(layout.heartWidth).toBe(38);
-  expect(layout.heartHeight).toBe(38);
-  expect(layout.radius).toBe("50%");
-  expect(layout.beforeTitle).toBe(true);
-  expect(layout.actionToDivider).toBeCloseTo(12, 0);
-  expect(Math.abs(layout.runtimeBottom - layout.padding)).toBeLessThanOrEqual(1);
-  if (layout.savedHeight !== undefined) {
-    expect(layout.savedHeight).toBeGreaterThanOrEqual(136);
-    expect(layout.screenshotWidth).toBe(112);
-    await expect(page.locator(".launch-quick-save")).toHaveCSS("border-radius", "8px");
-    await expect(page.locator(".launch-quick-save")).toHaveCSS("border-top-width", "1px");
-    expect(layout.screenshotRatio).toBeCloseTo(16 / 9, 2);
-  }
-}
-
-test("ACC-UI-005 launch panel explains an empty save history", async ({ page }) => {
-  test.setTimeout(60_000);
-  const origin = process.env.RETROM_WEB_ORIGIN ?? "http://localhost:4000";
-  const login = await page.request.post("/api/v1/auth/login", { headers: { Origin: origin }, data: { username: "test", password: "test" } });
-  expect(login.ok()).toBe(true);
-  const response = await page.request.get("/api/v1/games?limit=10");
-  expect(response.ok()).toBe(true);
-  const games: { items: { gameId: string }[] } = await response.json();
+test("ACC-UI-005 empty history has a compact start hint and preserves core selection", async ({ page }) => {
+  await login(page);
+  const games = await (await page.request.get("/api/v1/games?limit=100")).json();
   let gameId = "";
   for (const game of games.items) {
-    const saves = await page.request.get(`/api/v1/saves?gameId=${game.gameId}&limit=1`);
-    expect(saves.ok()).toBe(true);
-    if ((await saves.json()).items.length === 0) {gameId = game.gameId; break;}
+    const saves = await (await page.request.get(`/api/v1/saves?gameId=${game.gameId}&limit=1`)).json();
+    if (!saves.items.length) {gameId = game.gameId; break;}
   }
-  expect(gameId, "Product fixture needs a published game without saves").not.toBe("");
+  expect(gameId, "fixture includes a published game without saves").not.toBe("");
   await page.goto(`/games/${gameId}`);
   const panel = page.getByRole("complementary", { name: "启动游戏" });
-  await expect(panel.getByText("还没有可继续的存档")).toBeVisible();
+  await expect(panel.locator(".launch-hint")).toHaveText("本次将从游戏开头启动。");
   await expect(panel.getByRole("button", { name: "开始游戏", exact: true })).toBeEnabled();
   await expect(panel.getByRole("button", { name: "从存档继续" })).toHaveCount(0);
-  const gap = await panel.evaluate((element) => element.querySelector(":scope > .button")!.getBoundingClientRect().top - element.querySelector(".launch-empty-save")!.getBoundingClientRect().bottom);
-  expect(gap).toBeGreaterThanOrEqual(7);
-  await expectDetailAlignment(page);
-  await expectDetailActions(page);
+  await expect(page.locator(".game-detail-saves-empty")).toContainText("还没有存档");
+  const before = await page.locator(".game-detail-hero").boundingBox();
   await panel.getByRole("button", { name: "更换", exact: true }).click();
   await expect(page.getByRole("alertdialog", { name: "更换运行方式" })).toBeVisible();
+  expect(await page.locator(".game-detail-hero").boundingBox()).toEqual(before);
   await page.getByRole("button", { name: "取消", exact: true }).click();
+  await expect(panel.getByRole("button", { name: "更换", exact: true })).toBeFocused();
 });
