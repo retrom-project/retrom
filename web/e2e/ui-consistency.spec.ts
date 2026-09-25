@@ -6,6 +6,19 @@ import { expectHomeStates } from "./home-state-support";
 import { expectNaturalHomeFlow } from "./home-layout-support";
 import { evidencePath, noPageOverflow } from "./acceptance-support";
 
+async function navigateUIPage(page: Page, route: string) {
+  const link = page.locator(`a[href="${route}"]:visible`).first();
+  if (await link.count()) {
+    // Exercise the app's own navigation and avoid reloading the dev runtime for every route.
+    await Promise.all([
+      page.waitForURL(new URL(route, page.url()).href),
+      link.click(),
+    ]);
+  } else {
+    await page.goto(route, { waitUntil: "domcontentloaded" });
+  }
+}
+
 async function expectControlStyles(page: Page, mobile: boolean) {
   const fields = await page.locator("select, input:not([type=checkbox], [type=radio], [type=file], [type=hidden], [type=range]), textarea").evaluateAll((elements) => elements
     .filter((element) => element.checkVisibility() && element.getBoundingClientRect().width > 1)
@@ -155,7 +168,7 @@ test("ACC-UI-011 shared typography, controls and responsive composition", async 
       expect(png.readUInt32BE(20)).toBe(2160);
     }
     for (const route of [...userRoutes, ...(width! >= 1440 ? adminRoutes : [])]) {
-      await page.goto(route, { waitUntil: "domcontentloaded" });
+      await navigateUIPage(page, route);
       await expect(page.locator("main")).toBeVisible();
       await expect(page.locator(".loading-grid, .favorite-loading-shell")).toHaveCount(0);
       await expectControlStyles(page, width! < 768);
