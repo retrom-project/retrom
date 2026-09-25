@@ -215,6 +215,10 @@ if [[ "$case_id" == "ACC-FAV-003" ]]; then
   scripts/acceptance/seed-favorites-user-flow.sh "$temporary_root/data/retrom.db"
 fi
 
+if [[ "$case_id" == "ACC-UI-005" ]]; then
+  python3 scripts/acceptance/seed-ui-home.py "$temporary_root/data/retrom.db" played
+fi
+
 specification="e2e/acceptance.spec.ts"
 if [[ "$case_id" == "ACC-UI-011" ]]; then
   specification="e2e/ui-consistency.spec.ts"
@@ -252,6 +256,9 @@ if [[ "$case_id" == "ACC-UI-010" ]]; then
   playwright_grep="ACC-UI-008|ACC-UI-010"
 fi
 specifications=("$specification")
+if [[ "$case_id" == "ACC-UI-003" ]]; then
+  specifications+=("e2e/game-detail-layout.spec.ts")
+fi
 if [[ "$case_id" == "ACC-UI-001" ]]; then
   specifications+=("e2e/navigation-errors.spec.ts")
 fi
