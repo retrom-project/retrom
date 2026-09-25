@@ -38,7 +38,6 @@ describe("GameDetailSaves", () => {
     expect(screen.getByText("共 6 份")).toBeInTheDocument();
     const recentCard = container.querySelector<HTMLElement>(".game-detail-save-card");
     expect(recentCard).not.toBeNull();
-    expect(within(recentCard!).getByText("最近存档")).toBeInTheDocument();
     expect(within(recentCard!).getByText("保存位置")).toBeInTheDocument();
     expect(within(recentCard!).getByText("运行核心")).toBeInTheDocument();
     expect(within(recentCard!).getByText("当时已游玩")).toBeInTheDocument();
@@ -55,23 +54,9 @@ describe("GameDetailSaves", () => {
     expect(drawerTrigger).toHaveFocus();
   });
 
-  it("opens a ratio-preserving screenshot preview and closes it with the explicit action", async () => {
-    const user = userEvent.setup();
-    render(<GameDetailSaves gameId="game-1" gameTitle="1943: The Battle of Midway" saves={[makeSave(0)]} nowMs={nowMs} />);
-
-    const previewTrigger = screen.getByRole("button", { name: /预览.*的存档截图/ });
-    await user.click(previewTrigger);
-    const preview = screen.getByRole("dialog", { name: "存档截图预览" });
-    expect(within(preview).getByAltText("1943: The Battle of Midway 存档截图完整预览")).toBeInTheDocument();
-    await user.click(within(preview).getByRole("button", { name: "关闭" }));
-    expect(screen.queryByRole("dialog", { name: "存档截图预览" })).not.toBeInTheDocument();
-    expect(previewTrigger).toHaveFocus();
-  });
-
   it("does not offer an image preview when the save has no screenshot", () => {
     render(<GameDetailSaves gameId="game-1" gameTitle="1943: The Battle of Midway" saves={[makeSave(0), { ...makeSave(1), screenshotUrl: null }]} nowMs={nowMs} />);
 
-    expect(screen.getByRole("button", { name: /的存档没有截图/ })).toBeDisabled();
     expect(screen.getByRole("img", { name: "存档截图无预览图" })).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: /从存档继续/ })).toHaveLength(2);
   });

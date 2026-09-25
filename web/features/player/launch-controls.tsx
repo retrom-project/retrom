@@ -6,9 +6,6 @@ import { ResponsiveSheet } from "@/components/responsive-sheet";
 import { usePhoneLayout } from "@/features/mobile/phone-layout";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { StatusBadge } from "@/components/ui";
-import { SaveScreenshot } from "@/features/saves/save-screenshot";
-import { SaveSizeLabel } from "@/features/saves/save-size-label";
-import { useSaveTimeFormatter } from "@/features/saves/use-save-time";
 import { useAuth } from "@/features/auth/auth-provider";
 import { readPreferredCore, subscribePreferredCores, writePreferredCore } from "./core-preference";
 import { decodePreferredDOSEntry, readPreferredDOSEntry, subscribePreferredDOSEntries, writePreferredDOSEntry } from "./dos-entry-preference";
@@ -85,14 +82,6 @@ function DOSProgramPicker({ defaultDosEntry, dosEntries, onChange, value }: {
   </div>;
 }
 
-function LatestSaveCard({ gameId, latestSave, nowMs, requiresThreads }: { gameId: string; latestSave: LatestSave; nowMs: number | undefined; requiresThreads: boolean }) {
-  const formatTime = useSaveTimeFormatter();
-  return <div className="launch-quick-save">
-    <div><SaveScreenshot screenshotUrl={latestSave.screenshotUrl} alt="最近存档" sizes="112px" /><SaveSizeLabel sizeBytes={latestSave.sizeBytes} /></div>
-    <div><strong>最近存档</strong><time dateTime={new Date(latestSave.createdAtMs).toISOString()}>{formatTime(latestSave.createdAtMs, nowMs ?? latestSave.createdAtMs)}</time><small>{latestSave.coreName}{latestSave.discLabel ? ` · ${latestSave.discLabel}` : ""}</small><LaunchButton gameId={gameId} saveStateId={latestSave.saveStateId} requiresThreads={requiresThreads} label="从存档继续" /></div>
-  </div>;
-}
-
 type LaunchViewProps = {
   advancedOpen: boolean;
   blocked: boolean;
@@ -120,16 +109,13 @@ type LaunchViewProps = {
 
 function DesktopLaunchPanel(props: LaunchViewProps) {
   return <aside className="launch-panel" aria-label="启动游戏">
-    <div className="launch-panel-head">
-      <h2>{props.latestSave ? "继续游戏" : "开始游戏"}</h2>
-    </div>
     {props.isDOS ? <DOSProgramPicker defaultDosEntry={props.defaultDosEntry} dosEntries={props.dosEntries} onChange={props.onDOSChange} value={props.dosEntry} /> : null}
-    {props.latestSave ? <LatestSaveCard gameId={props.gameId} latestSave={props.latestSave} nowMs={props.nowMs} requiresThreads={props.latestSaveRequiresThreads} /> : <div className="launch-empty-save">
-      <AppIcon name="gamepad" />
-      <strong>还没有可继续的存档</strong>
-      <p>本次将从游戏开头启动。可用存档会显示在这里，方便下次继续。</p>
-    </div>}
-    <LaunchButton secondary={Boolean(props.latestSave)} gameId={props.gameId} coreId={props.coreId || null} dosEntry={props.isDOS ? props.dosEntry : null} requiresThreads={props.selectedCore?.requiresThreads} disabled={props.blocked} label={props.latestSave ? "重新开始游戏" : undefined} onLaunchCreated={props.onLaunchCreated} />
+    <div className="launch-actions">
+      {props.latestSave ? <LaunchButton gameId={props.gameId} saveStateId={props.latestSave.saveStateId} requiresThreads={props.latestSaveRequiresThreads} label="从存档继续" /> : null}
+      <LaunchButton secondary={Boolean(props.latestSave)} gameId={props.gameId} coreId={props.coreId || null} dosEntry={props.isDOS ? props.dosEntry : null} requiresThreads={props.selectedCore?.requiresThreads} disabled={props.blocked} label={props.latestSave ? "重新开始游戏" : undefined} onLaunchCreated={props.onLaunchCreated} />
+    </div>
+    <p className="launch-hint">{props.latestSave ? `恢复最近存档 · 使用保存时的 ${props.latestSave.coreName}` : "本次将从游戏开头启动。"}</p>
+    {props.blocked ? <RuntimeStatus blocked selectedCore={props.selectedCore} /> : null}
     <div className="launch-runtime-row">
       <div className="launch-runtime-choice"><div><small>运行方式</small><span className="launch-core-name"><strong>{props.selectedCore?.name ?? "尚未配置"}</strong>{props.usesOverride ? <span className="launch-core-override" role="img" aria-label="未采用默认核心" title="未采用默认核心" tabIndex={0}><AppIcon name="warning" /></span> : null}</span></div><button type="button" onClick={props.onAdvancedOpen}>更换</button></div>
     </div>

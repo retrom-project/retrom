@@ -26,6 +26,7 @@
 @import "../features/home/home-wide.css" layer(app);
 @import "../styles/mobile.css" layer(app);
 @import "../features/mobile/mobile-play.css" layer(app);
+@import "../features/games/game-detail.css" layer(app);
 @import "../styles/controls.css" layer(controls);
 
 .local-game-save-notice { position: fixed; z-index: 120; bottom: 16px; right: 16px; max-width: min(420px, calc(100vw - 32px)); padding: 16px; border: 1px solid #566179; border-radius: var(--radius-panel); background: #18202e; color: #eef2fa; box-shadow: 0 6px 24px #0006; }
