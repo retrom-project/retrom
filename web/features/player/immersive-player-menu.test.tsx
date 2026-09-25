@@ -3,6 +3,14 @@ import { describe, expect, it, vi } from "vitest";
 import { ImmersivePlayerMenu } from "./immersive-player-menu";
 
 describe("ImmersivePlayerMenu", () => {
+  it("shows NO_SAVE in the controller menu and disables save", () => {
+    const view = render(<ImmersivePlayerMenu checkpointSemantics="NO_SAVE" saveAvailable={false}
+      overlay={{kind: "menu", error: "", notice: "", pending: false, selected: 0}}
+      onCancel={vi.fn()} onConfirm={vi.fn()} onSelect={vi.fn()} />);
+    const menu = within(view.container);
+    expect(menu.getByRole("button", {name: "创建存档"})).toBeDisabled();
+    expect(menu.getByRole("dialog")).toHaveTextContent("退出后无法恢复本次进度");
+  });
   it("offers native capture as the controller's save action when the game supports it", () => {
     const onConfirm = vi.fn();
     const view = render(<ImmersivePlayerMenu checkpointSemantics="GAME_SAVE" saveAvailable
