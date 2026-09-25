@@ -2594,6 +2594,10 @@ Worker 的 L2、持久存储、同步 SAB 和物化计数；一旦收到 Host �
 - 输入：`testdata/public-roms/lutro-smoke/lutro-smoke.lutro` 是项目自有 MIT 卡带，
   `build.py` 可重现固定 SHA-256。本 Case 的通过结论只覆盖该卡带；其他游戏须
   经操作者授权单独验证，私有游戏的字节与路径不进入仓库。
+- 在同一持久 PFB 复跑完整导入审核时，用 fixture 的 `build.py --marker` 生成
+  带无行为 Lua 注释的独立卡带，保持文件名 `lutro-smoke.lutro`，将输出放在忽略的
+  验收目录并记录 SHA-256。复用已发布游戏的复测必须把跳过的导入、预览阶段标为复用，
+  不得冒充本次候选的完整链路。
 - 入口：在该 PFB 的 Retrom worktree 运行 `scripts/acceptance/lutro_product.mjs`，显式传入
   `RETROM_ACCEPTANCE_BASE_URL`、`RETROM_ACCEPTANCE_USERNAME/PASSWORD`、
   `RETROM_CHROME_EXECUTABLE` 和独立的 `RETROM_ACCEPTANCE_CASE_DIR`。凭据仅通过进程环境传入，

@@ -47,8 +47,10 @@ try {
     });
     itemId = (await reviewForImport(client, imported.importJobId)).itemId;
     writeFileSync(progressPath, JSON.stringify({digest, itemId}));
+    evidence.stages.push("upload-import-review");
+  } else {
+    evidence.stages.push("reuse-existing-import-review");
   }
-  evidence.stages.push("upload-import-review");
   if (!gameId) {
     const preview = await open(context, await previewCart(client, itemId), "preview");
     evidence.preview = await canvasDigest(preview.canvas);
@@ -57,8 +59,10 @@ try {
     await preview.page.close();
     gameId = (await approveCart(client, itemId)).gameId;
     writeFileSync(progressPath, JSON.stringify({digest, itemId, gameId}));
+    evidence.stages.push("preview-publish");
+  } else {
+    evidence.stages.push("reuse-existing-preview-publish");
   }
-  evidence.stages.push("preview-publish");
   const launch = await launchCart(client, gameId);
   const initial = await open(context, launch, "initial");
   evidence.runtime = initial.config.runtime;
