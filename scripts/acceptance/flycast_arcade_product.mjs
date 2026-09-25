@@ -74,6 +74,13 @@ async function assertVisibleFrame(page, canvas, path) {
   assert.fail("FLYCAST_ARCADE_BLACK_FRAME");
 }
 
+async function assertGameFrame(canvas, path) {
+  const png = await canvas.screenshot({path});
+  const stats = await sharp(png).greyscale().stats();
+  const {mean, stdev} = stats.channels[0];
+  assert.ok(mean > 20 && stdev > 20, `FLYCAST_ARCADE_GAME_FRAME_MISSING:${mean}:${stdev}`);
+}
+
 try {
   assert.ok(scenario && [env.RETROM_ACCEPTANCE_BASE_URL, env.RETROM_ACCEPTANCE_USERNAME,
     env.RETROM_ACCEPTANCE_PASSWORD, env.RETROM_CHROME_EXECUTABLE, env.RETROM_FLYCAST_ARCADE_ROM,
@@ -140,6 +147,11 @@ try {
   const launch = await launchCart(client, progress.gameId);
   const second = await openPlayer(context, launch.playUrl, launch.launchId, scenario.core);
   await assertVisibleFrame(second.page, second.canvas, join(directory, "product.png"));
+  if (env.RETROM_FLYCAST_ARCADE_GAMEPLAY_WAIT_MS) {
+    await second.page.waitForTimeout(Number(env.RETROM_FLYCAST_ARCADE_GAMEPLAY_WAIT_MS));
+    await assertGameFrame(second.canvas, join(directory, "gameplay.png"));
+    evidence.stages.push("game-frame");
+  }
   await revealPreviewToolbar(second.page);
   const savedResponse = second.page.waitForResponse(response => response.request().method() === "POST" &&
     new URL(response.url()).pathname === `/runtime/launches/${launch.launchId}/save-states`, {timeout: 60_000});
@@ -156,7 +168,14 @@ try {
   const third = await openPlayer(context, restored.playUrl, restored.launchId, scenario.core);
   assert.equal(third.config.restore?.format, "flycast-state-v1-storage-v1");
   await assertVisibleFrame(third.page, third.canvas, join(directory, "restored.png"));
+  if (env.RETROM_FLYCAST_ARCADE_GAMEPLAY_WAIT_MS) {
+    await assertGameFrame(third.canvas, join(directory, "restored-gameplay.png"));
+  }
   await gamepad(third.page, 0, 250);
+  if (env.RETROM_FLYCAST_ARCADE_GAMEPLAY_WAIT_MS) {
+    await third.page.waitForTimeout(1000);
+    await assertGameFrame(third.canvas, join(directory, "restored-input.png"));
+  }
   await third.page.close();
   evidence.stages.push("restore-input");
   const gameRequests = requests.filter(request => gameUrls.has(request.url) && request.method === "GET");
