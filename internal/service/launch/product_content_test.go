@@ -70,6 +70,7 @@ func TestComputerProductsIncludeExternalBIOS(t *testing.T) {
 	for _, test := range []struct{ target, game, bios, virtual string }{
 		{"bbc-jsbeeb", "Welcome.ssd", "os.rom", "/roms/os.rom"},
 		{"samcoupe", "SafariSam.dsk", "samcoupe.rom", "/Resource/samcoupe.rom"},
+		{"apple2-apple2js", "Donkey Kong.dsk", "AppleIIe.rom", "/roms/AppleIIe.rom"},
 	} {
 		t.Run(test.target, func(t *testing.T) {
 			status, blob := "MATCHED", "bios-blob"

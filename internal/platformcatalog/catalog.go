@@ -9,7 +9,7 @@ import (
 	"retrom/internal/contentprofile"
 )
 
-const Version = 33
+const Version = 35
 
 var ErrInvalid = errors.New("PLATFORM_CATALOG_INVALID")
 
@@ -31,6 +31,7 @@ var current = Catalog{Version: Version, Templates: []DirectoryTemplate{
 	{Key: "nes/fceumm", PlatformID: "nes", DefaultCoreID: "fceumm", Name: "NES 游戏", CatalogOrder: 10},
 	{Key: "snes/snes9x", PlatformID: "snes", DefaultCoreID: "snes9x", Name: "SNES 游戏", CatalogOrder: 20},
 	{Key: "gbc/gambatte", PlatformID: "gbc", DefaultCoreID: "gambatte", Name: "Game Boy 游戏", CatalogOrder: 30},
+	{Key: "sgb/gearboy", PlatformID: "sgb", DefaultCoreID: "gearboy", Name: "Super Game Boy 游戏", CatalogOrder: 35},
 	{Key: "gba/mgba", PlatformID: "gba", DefaultCoreID: "mgba", Name: "GBA 游戏", CatalogOrder: 40},
 	{Key: "arcade/fbneo", PlatformID: "arcade", DefaultCoreID: "fbneo", Name: "FBNeo 游戏", CatalogOrder: 50},
 	{
@@ -246,6 +247,7 @@ var current = Catalog{Version: Version, Templates: []DirectoryTemplate{
 	},
 	{Key: "atarist/hatarib", PlatformID: "atarist", DefaultCoreID: "hatarib", Name: "Atari ST 游戏", CatalogOrder: 800},
 	{Key: "bbc/jsbeeb", PlatformID: "bbc", DefaultCoreID: "jsbeeb", Name: "BBC Micro 游戏", CatalogOrder: 810},
+	{Key: "apple2/apple2js", PlatformID: "apple2", DefaultCoreID: "apple2js", Name: "Apple II 游戏", CatalogOrder: 815},
 	{Key: "channelf/freechaf", PlatformID: "channelf", DefaultCoreID: "freechaf", Name: "Channel F 游戏", CatalogOrder: 820},
 	{Key: "megaduck/sameduck", PlatformID: "megaduck", DefaultCoreID: "sameduck", Name: "Mega Duck 游戏", CatalogOrder: 830},
 	{

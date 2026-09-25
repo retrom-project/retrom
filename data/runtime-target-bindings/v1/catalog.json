@@ -326,6 +326,20 @@
       "launchPolicy": "SUPPORTED"
     },
     {
+      "id": "emulatorjs-gearboy",
+      "coreId": "gearboy",
+      "providerId": "emulatorjs",
+      "targetId": "gearboy",
+      "platformIds": [
+        "sgb"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "EMULATORJS_SINGLE_FILE",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
       "id": "emulatorjs-gearcoleco",
       "coreId": "gearcoleco",
       "providerId": "emulatorjs",
@@ -952,6 +966,20 @@
       "launchPolicy": "SUPPORTED"
     },
     {
+      "id": "retrom-runtime-apple2-apple2js",
+      "coreId": "apple2js",
+      "providerId": "retrom-runtime",
+      "targetId": "apple2-apple2js",
+      "platformIds": [
+        "apple2"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "RUNTIME_SINGLE_FILE",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
       "id": "retrom-runtime-bbc-jsbeeb",
       "coreId": "jsbeeb",
       "providerId": "retrom-runtime",
@@ -1351,6 +1379,12 @@
         "enabled": true
       },
       {
+        "id": "apple2",
+        "name": "Apple II",
+        "sortOrder": 712,
+        "enabled": true
+      },
+      {
         "id": "arcade",
         "name": "Arcade",
         "sortOrder": 60,
@@ -1735,6 +1769,12 @@
         "enabled": true
       },
       {
+        "id": "sgb",
+        "name": "Super Game Boy",
+        "sortOrder": 45,
+        "enabled": true
+      },
+      {
         "id": "snes",
         "name": "SNES",
         "sortOrder": 30,
@@ -1840,6 +1880,11 @@
       {
         "id": "a5200",
         "name": "Atari800 5200",
+        "enabled": true
+      },
+      {
+        "id": "apple2js",
+        "name": "Apple2JS",
         "enabled": true
       },
       {
@@ -1960,6 +2005,11 @@
       {
         "id": "gbe_plus",
         "name": "GBE+ (Pokémon Mini)",
+        "enabled": true
+      },
+      {
+        "id": "gearboy",
+        "name": "Gearboy (Super Game Boy)",
         "enabled": true
       },
       {

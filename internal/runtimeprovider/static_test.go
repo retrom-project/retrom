@@ -117,9 +117,9 @@ func TestStaticHandlerRequiresActiveClientModuleIdentity(t *testing.T) {
 	}
 }
 
-func TestStaticHandlerServesOnlyJsbeebProviderHTML(t *testing.T) {
+func TestStaticHandlerServesOnlyApprovedProviderHTML(t *testing.T) {
 	for _, providerID := range []string{"retrom-runtime", "fixture"} {
-		for _, path := range []string{"assets/jsbeeb/site/index.html", "assets/other/index.html"} {
+		for _, path := range []string{"assets/jsbeeb/site/index.html", "assets/apple2js/site/index.html", "assets/other/index.html"} {
 			t.Run(providerID+"/"+path, func(t *testing.T) {
 				testStaticHandlerJsbeebHTMLCase(t, providerID, path)
 			})
@@ -151,7 +151,8 @@ func testStaticHandlerJsbeebHTMLCase(t *testing.T, providerID, path string) {
 		{Path: path, SizeBytes: int64(len(page)), SHA256: digestBytes(page), MediaType: "text/html; charset=utf-8"},
 	}
 	handler, err := NewStaticHandler(root, active, map[string][]runtimebundle.IntegrityFile{providerID: files})
-	if providerID != "retrom-runtime" || path != "assets/jsbeeb/site/index.html" {
+	if providerID != "retrom-runtime" ||
+		path != "assets/jsbeeb/site/index.html" && path != "assets/apple2js/site/index.html" {
 		if !errors.Is(err, ErrInstallationInvalid) {
 			t.Fatalf("%s %s accepted: %v", providerID, path, err)
 		}

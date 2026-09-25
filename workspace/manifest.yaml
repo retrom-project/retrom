@@ -52,7 +52,11 @@
         "samcoupeweb",
         "potator",
         "theodore",
-        "supermodel"
+        "supermodel",
+        "apple2js",
+        "lutro",
+        "daphne",
+        "gearboy"
       ]
     },
     {
@@ -484,6 +488,42 @@
       "role": "core",
       "gitlink": "git@github.com:retrom-project/Libretro-Supermodel.git",
       "defaultBranch": "retrom/g84bc106b45b2",
+      "submodules": false,
+      "dependsOn": []
+    },
+    {
+      "id": "apple2js",
+      "path": "project/retrom-core/apple2js",
+      "role": "core",
+      "gitlink": "git@github.com:retrom-project/apple2js.git",
+      "defaultBranch": "retrom/gee0aed25f73c",
+      "submodules": true,
+      "dependsOn": []
+    },
+    {
+      "id": "lutro",
+      "path": "project/retrom-core/libretro-lutro",
+      "role": "core",
+      "gitlink": "git@github.com:retrom-project/libretro-lutro.git",
+      "defaultBranch": "retrom/g6224157a615b",
+      "submodules": false,
+      "dependsOn": []
+    },
+    {
+      "id": "daphne",
+      "path": "project/retrom-core/daphne",
+      "role": "core",
+      "gitlink": "git@github.com:retrom-project/daphne.git",
+      "defaultBranch": "retrom/g6f1695dd1f37",
+      "submodules": false,
+      "dependsOn": []
+    },
+    {
+      "id": "gearboy",
+      "path": "project/retrom-core/Gearboy",
+      "role": "core",
+      "gitlink": "git@github.com:retrom-project/Gearboy.git",
+      "defaultBranch": "retrom/g340ebe3c2588",
       "submodules": false,
       "dependsOn": []
     }

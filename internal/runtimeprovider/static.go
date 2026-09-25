@@ -169,7 +169,8 @@ func loadStaticFile(
 	if !safeBundlePath(file.Path) || file.SizeBytes < 0 ||
 		!digestPattern.MatchString(file.SHA256) || !publicMediaTypes[file.MediaType] ||
 		file.MediaType == "text/html; charset=utf-8" &&
-			(provider.ProviderID != "retrom-runtime" || file.Path != "assets/jsbeeb/site/index.html") {
+			(provider.ProviderID != "retrom-runtime" ||
+				file.Path != "assets/jsbeeb/site/index.html" && file.Path != "assets/apple2js/site/index.html") {
 		return nil, false, ErrInstallationInvalid
 	}
 	fullPath := filepath.Join(
