@@ -6,6 +6,9 @@ import { expectHomeStates } from "./home-state-support";
 import { expectNaturalHomeFlow } from "./home-layout-support";
 import { evidencePath, noPageOverflow } from "./acceptance-support";
 
+// Explicit page PNGs are the visual evidence; retain DOM/source traces without a duplicate 4K filmstrip.
+test.use({ trace: { mode: "retain-on-failure", screenshots: false, snapshots: true, sources: true } });
+
 async function navigateUIPage(page: Page, route: string) {
   const link = page.locator(`a[href="${route}"]:visible`).first();
   if (await link.count()) {
