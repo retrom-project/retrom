@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { expectPaletteContrast, expectServerImportStatsContrast } from "./palette-contrast-support";
-import { expectStatusTextCentered } from "./status-alignment-support";
+import { expectChineseGlyphs, expectStatusTextCentered } from "./status-alignment-support";
 import { expectSearchComposition } from "./search-control-support";
 import { expectCardRadii } from "./card-radius-support";
 import { expectHomeStates } from "./home-state-support";
@@ -148,6 +148,7 @@ test("ACC-UI-011 shared typography, controls and responsive composition", async 
   test.setTimeout(180_000);
   page.setDefaultTimeout(12_000);
   await page.goto("/login");
+  await expectChineseGlyphs(page);
   await expectSearchComposition(page);
   await expectPaletteContrast(page);
   const origin = process.env.RETROM_WEB_ORIGIN ?? "http://localhost:4000";
