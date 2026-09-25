@@ -23,7 +23,7 @@ export async function observeOwnedFixture(page) {
 export async function waitForPreviewReady(page) {
   const fatalError = page.__retromFatalError ?? new Promise(() => {});
   const runtimeFailure = page.getByRole("alert").filter({hasText: /\b(?:RPG|RUNTIME)_[A-Z0-9_]+\b/u}).first();
-  const statusFailure = page.getByRole("status").filter({hasText: /\b(?:RPG|RUNTIME|PLAYER)_[A-Z0-9_]+\b/u}).first();
+  const statusFailure = page.getByRole("status").filter({hasText: /\b(?:RPG|RUNTIME|PLAYER|RANGE)_[A-Z0-9_]+\b/u}).first();
   try {
     await Promise.race([
       page.getByRole("status").filter({hasText: "可创建存档"}).waitFor({state: "attached", timeout: 300_000}),

@@ -136,6 +136,21 @@ var staticBIOSCatalog = append(pc88BIOSCatalog(), []staticBIOS{
 		delivery:  "EXTERNAL_FILE", emulatorPath: "/dc/dc_flash.bin",
 	},
 	{
+		coreID: "flycast-naomi", logical: "naomi.zip", mode: "REQUIRED",
+		sourceURL: "https://docs.libretro.com/library/flycast/",
+		delivery:  "EXTERNAL_FILE", emulatorPath: "/dc/naomi.zip",
+	},
+	{
+		coreID: "flycast-naomi2", logical: "naomi2.zip", mode: "REQUIRED",
+		sourceURL: "https://docs.libretro.com/library/flycast/",
+		delivery:  "EXTERNAL_FILE", emulatorPath: "/dc/naomi2.zip",
+	},
+	{
+		coreID: "flycast-atomiswave", logical: "awbios.zip", mode: "REQUIRED",
+		sourceURL: "https://docs.libretro.com/library/flycast/",
+		delivery:  "EXTERNAL_FILE", emulatorPath: "/dc/awbios.zip",
+	},
+	{
 		coreID: "mednafen_pce", logical: "syscard3.pce", mode: "CONDITIONAL", condition: "PCE_CD_CONTENT", size: 262144,
 		md5: "38179df8f4ac870017db21ebcbf53114", sha256: "e11527b3b96ce112a037138988ca72fd117a6b0779c2480d9e03eaebece3d9ce",
 		sourceURL: "https://docs.libretro.com/library/beetle_pce_fast/",
