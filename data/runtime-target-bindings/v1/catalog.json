@@ -256,6 +256,48 @@
       "launchPolicy": "SUPPORTED"
     },
     {
+      "id": "emulatorjs-flycast-atomiswave",
+      "coreId": "flycast-atomiswave",
+      "providerId": "emulatorjs",
+      "targetId": "flycast-atomiswave",
+      "platformIds": [
+        "atomiswave"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "EMULATORJS_SINGLE_FILE",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
+      "id": "emulatorjs-flycast-naomi",
+      "coreId": "flycast-naomi",
+      "providerId": "emulatorjs",
+      "targetId": "flycast-naomi",
+      "platformIds": [
+        "naomi"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "EMULATORJS_SINGLE_FILE",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
+      "id": "emulatorjs-flycast-naomi2",
+      "coreId": "flycast-naomi2",
+      "providerId": "emulatorjs",
+      "targetId": "flycast-naomi2",
+      "platformIds": [
+        "naomi2"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "EMULATORJS_SINGLE_FILE",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
       "id": "emulatorjs-freechaf",
       "coreId": "freechaf",
       "providerId": "emulatorjs",
@@ -367,6 +409,16 @@
       "acceptedContentKinds": [
         "SINGLE_FILE"
       ],
+      "detectorProfile": "EMULATORJS_SINGLE_FILE",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
+      "id": "emulatorjs-genesis-plus-gx-cd",
+      "coreId": "genesis_plus_gx",
+      "providerId": "emulatorjs",
+      "targetId": "genesis-plus-gx-cd",
+      "platformIds": ["segacd"],
+      "acceptedContentKinds": ["SINGLE_FILE"],
       "detectorProfile": "EMULATORJS_SINGLE_FILE",
       "launchPolicy": "SUPPORTED"
     },
@@ -718,7 +770,8 @@
       "providerId": "emulatorjs",
       "targetId": "puae",
       "platformIds": [
-        "amiga"
+        "amiga",
+        "amigacd32"
       ],
       "acceptedContentKinds": [
         "SINGLE_FILE"
@@ -788,6 +841,7 @@
       "providerId": "emulatorjs",
       "targetId": "snes9x",
       "platformIds": [
+        "satellaview",
         "snes"
       ],
       "acceptedContentKinds": [
@@ -1387,6 +1441,12 @@
         "enabled": true
       },
       {
+        "id": "amigacd32",
+        "name": "Amiga CD32",
+        "sortOrder": 265,
+        "enabled": true
+      },
+      {
         "id": "amstradcpc",
         "name": "Amstrad CPC",
         "sortOrder": 510,
@@ -1444,6 +1504,12 @@
         "id": "atarist",
         "name": "Atari ST",
         "sortOrder": 705,
+        "enabled": true
+      },
+      {
+        "id": "atomiswave",
+        "name": "Sammy Atomiswave",
+        "sortOrder": 188,
         "enabled": true
       },
       {
@@ -1627,6 +1693,18 @@
         "enabled": true
       },
       {
+        "id": "naomi",
+        "name": "Sega NAOMI",
+        "sortOrder": 186,
+        "enabled": true
+      },
+      {
+        "id": "naomi2",
+        "name": "Sega NAOMI 2",
+        "sortOrder": 187,
+        "enabled": true
+      },
+      {
         "id": "nds",
         "name": "Nintendo DS",
         "sortOrder": 80,
@@ -1765,6 +1843,12 @@
         "enabled": true
       },
       {
+        "id": "satellaview",
+        "name": "Satellaview / BS-X",
+        "sortOrder": 35,
+        "enabled": true
+      },
+      {
         "id": "saturn",
         "name": "Sega Saturn",
         "sortOrder": 180,
@@ -1780,6 +1864,12 @@
         "id": "sega32x",
         "name": "Sega 32X",
         "sortOrder": 640,
+        "enabled": true
+      },
+      {
+        "id": "segacd",
+        "name": "Sega CD / Mega-CD",
+        "sortOrder": 135,
         "enabled": true
       },
       {
@@ -1995,6 +2085,21 @@
       {
         "id": "flycast",
         "name": "Flycast",
+        "enabled": true
+      },
+      {
+        "id": "flycast-atomiswave",
+        "name": "Flycast Atomiswave",
+        "enabled": true
+      },
+      {
+        "id": "flycast-naomi",
+        "name": "Flycast NAOMI",
+        "enabled": true
+      },
+      {
+        "id": "flycast-naomi2",
+        "name": "Flycast NAOMI 2",
         "enabled": true
       },
       {

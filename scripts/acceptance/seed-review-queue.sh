@@ -135,15 +135,17 @@ SELECT printf('40000000-0000-7000-80%02d-%012d',CASE WHEN i.import_job_id LIKE '
 FROM import_items i
 CROSS JOIN import_item_core_validations v
 WHERE v.import_item_id=(SELECT item_id FROM acceptance_base)
-AND v.id=(SELECT selected_validation_id FROM review_drafts WHERE import_item_id=(SELECT item_id FROM acceptance_base))
+AND v.id=(SELECT selected_validation_id FROM import_items WHERE id=(SELECT item_id FROM acceptance_base))
 AND i.id LIKE '30000000-%';
 
-INSERT INTO review_drafts(id,import_item_id,target_platform_instance_id,effective_source_snapshot_id,selected_validation_id,selected_candidate_id,cover_candidate_asset_id,background_candidate_asset_id,default_dos_entry,metadata_json,version,created_at_ms,updated_at_ms)
-SELECT printf('50000000-0000-7000-80%02d-%012d',CASE WHEN i.import_job_id LIKE '%1' THEN 1 ELSE 2 END,CAST(substr(i.id,-12) AS INTEGER)),i.id,v.target_platform_instance_id,v.source_snapshot_id,v.id,NULL,NULL,NULL,v.default_dos_entry,
-       json_object('title',printf('Batch %d Game %02d',CASE WHEN i.import_job_id LIKE '%1' THEN 1 ELSE 2 END,CAST(substr(i.id,-12) AS INTEGER)),'description','','developer','','publisher','','genre','','players',NULL,'releaseYear',NULL),1,i.created_at_ms,i.updated_at_ms
-FROM import_items i
-JOIN import_item_core_validations v ON v.import_item_id=i.id
-WHERE i.id LIKE '30000000-%';
+UPDATE import_items
+SET target_platform_instance_id=(SELECT v.target_platform_instance_id FROM import_item_core_validations v WHERE v.import_item_id=import_items.id),
+    effective_source_snapshot_id=(SELECT v.source_snapshot_id FROM import_item_core_validations v WHERE v.import_item_id=import_items.id),
+    selected_validation_id=(SELECT v.id FROM import_item_core_validations v WHERE v.import_item_id=import_items.id),
+    default_dos_entry=(SELECT v.default_dos_entry FROM import_item_core_validations v WHERE v.import_item_id=import_items.id),
+    metadata_json=json_object('title',printf('Batch %d Game %02d',CASE WHEN import_job_id LIKE '%1' THEN 1 ELSE 2 END,CAST(substr(id,-12) AS INTEGER)),'description','','developer','','publisher','','genre','','players',NULL,'releaseYear',NULL),
+    review_version=1,review_created_at_ms=created_at_ms,review_updated_at_ms=updated_at_ms
+WHERE id LIKE '30000000-%';
 
 DROP TABLE acceptance_base;
 COMMIT;

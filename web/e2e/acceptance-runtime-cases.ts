@@ -76,6 +76,32 @@ function registerRun002(): void {
     await expect.poll(() => playerCanvas.evaluate((element) =>
       element.ownerDocument.defaultView?.getComputedStyle(element).imageRendering)).toBe("pixelated");
     await expect.poll(() => currentEmulatorBrightRatio(page), { timeout: 15_000, intervals: [500] }).toBeGreaterThan(0.02);
+    const mountedFrame = page.locator("iframe.player-frame");
+    const frameDimensions = () => mountedFrame.evaluate((element) => {
+      const frame = element as HTMLIFrameElement;
+      const rect = frame.getBoundingClientRect();
+      return {viewportWidth: frame.contentWindow?.innerWidth, viewportHeight: frame.contentWindow?.innerHeight,
+        displayWidth: rect.width, displayHeight: rect.height};
+    });
+    await page.setViewportSize({width: 3840, height: 2160});
+    await expect.poll(frameDimensions).toEqual({viewportWidth: 1920, viewportHeight: 1080,
+      displayWidth: 3840, displayHeight: 2160});
+    const canvasDimensions = () => playerCanvas.evaluate((element) => {
+      const canvas = element as HTMLCanvasElement;
+      const rect = canvas.getBoundingClientRect();
+      return {bufferWidth: canvas.width, bufferHeight: canvas.height, displayWidth: rect.width,
+        displayHeight: rect.height, viewportWidth: canvas.ownerDocument.defaultView?.innerWidth,
+        viewportHeight: canvas.ownerDocument.defaultView?.innerHeight};
+    });
+    await page.setViewportSize({width: 2840, height: 2160});
+    await expect.poll(canvasDimensions).toEqual({bufferWidth: 1420, bufferHeight: 1080,
+      displayWidth: 1420, displayHeight: 1080, viewportWidth: 1420, viewportHeight: 1080});
+    await page.setViewportSize({width: 3840, height: 2160});
+    await expect.poll(canvasDimensions).toEqual({bufferWidth: 1920, bufferHeight: 1080,
+      displayWidth: 1920, displayHeight: 1080, viewportWidth: 1920, viewportHeight: 1080});
+    await page.setViewportSize({width: 1280, height: 800});
+    await expect.poll(frameDimensions).toEqual({viewportWidth: 1280, viewportHeight: 800,
+      displayWidth: 1280, displayHeight: 800});
     const playerFrame = page.frames().find((frame) => frame !== page.mainFrame());
     expect(playerFrame).toBeTruthy();
     const frameBeforePause = await runtimeFrameCount(page);
@@ -88,6 +114,18 @@ function registerRun002(): void {
     await playerFrame!.locator("body").press("p");
     await expect(page.locator(".player-shell")).not.toHaveClass(/is-paused/);
     await expect.poll(() => runtimeFrameCount(page), { timeout: 10_000 }).toBeGreaterThan(frameBeforePause + 5);
+    let lostProgressReports = 0;
+    await page.route("**/runtime/launches/*/progress", async (route) => {
+      lostProgressReports++;
+      await route.abort("failed");
+    });
+    await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+    await expect.poll(() => lostProgressReports).toBeGreaterThan(0);
+    const frameBeforeLostProgress = await runtimeFrameCount(page);
+    await expect.poll(() => runtimeFrameCount(page), { timeout: 10_000 })
+      .toBeGreaterThan(frameBeforeLostProgress + 5);
+    await expect(page.locator(".player-shell")).toBeVisible();
+    await page.unroute("**/runtime/launches/*/progress");
     await page.mouse.move(20, 20);
     const debugButton = page.getByRole("button", { name: "调试信息" });
     await expect(debugButton).toBeVisible();
@@ -137,6 +175,7 @@ function registerRun002(): void {
     expect(launchIndex).toBeGreaterThan(fullscreenIndex);
     expect(requests.some((url) => url.endsWith(configuration.runtime.moduleUrl))).toBe(true);
     expect(requests.some((url) => url.endsWith(gameURL!))).toBe(true);
+    expect(requests.some((url) => /\/runtime\/launches\/[^/]+\/(?:start|heartbeat|finish)$/.test(url))).toBe(false);
     expect(requests.some((url) => /\/localization\/zh-CN\.json$/.test(url))).toBe(true);
     const applicationHost = new URL(page.url()).host;
     expect(requests.some((url) => {

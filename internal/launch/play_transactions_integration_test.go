@@ -137,7 +137,7 @@ func TestPlayTransactionRollsBackEveryLifecycleWrite(t *testing.T) {
 
 func TestPlayProgressRollsBackWhenFinalSourceFenceIsStale(t *testing.T) {
 	t.Parallel()
-	for _, stale := range []string{"source-version", "play-version", "sequence", "hard-expiry", "idle-expiry"} {
+	for _, stale := range []string{"source-version", "play-version", "sequence", "hard-expiry"} {
 		t.Run(stale, func(t *testing.T) {
 			fixture, created := newProductPlayFixture(t, true)
 			productPlayStart(t, fixture, created)
@@ -161,13 +161,11 @@ func TestPlayProgressRollsBackWhenFinalSourceFenceIsStale(t *testing.T) {
 					current.LastSequence++
 				case "hard-expiry":
 					now = source.Session.HardExpiresAtMS
-				case "idle-expiry":
-					now = *source.IdleExpiresAtMS
 				}
 				return scope.Write.Progress(t.Context(), application.PlayProgress{
 					Source: source, Current: current, Kind: "heartbeat",
 					Event: application.PlayEvent{ClientSequence: 1, ClientObservedAtMS: now, PreviousInterval: &application.Interval{Running: true, Visible: true}},
-					NowMS: now, IdleExpiresAtMS: now + 120_000, AcceptedDurationMS: 20,
+					NowMS: now, AcceptedDurationMS: 20,
 				})
 			})
 			if !errors.Is(err, application.ErrBlocked) {

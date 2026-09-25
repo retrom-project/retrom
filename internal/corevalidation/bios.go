@@ -302,11 +302,22 @@ func validSHA256(value string) bool {
 	return err == nil
 }
 
+var amigaComputerContentExtensions = map[string]bool{
+	".adf": true, ".adz": true, ".dms": true, ".fdi": true, ".ipf": true,
+	".raw": true, ".hdf": true, ".hdz": true, ".lha": true,
+}
+
 func BIOSApplies(condition, contentName string) bool {
 	extension := strings.ToLower(path.Ext(contentName))
 	switch condition {
 	case "PCE_CD_CONTENT":
 		return extension == ".chd"
+	case "SEGA_CD_CONTENT":
+		return extension == ".chd"
+	case "AMIGA_CD32_CONTENT":
+		return extension == ".chd" || extension == ".iso" || extension == ".nrg"
+	case "AMIGA_COMPUTER_CONTENT":
+		return amigaComputerContentExtensions[extension]
 	case "FDS_CONTENT":
 		return extension == ".fds"
 	case "GB_CONTENT":

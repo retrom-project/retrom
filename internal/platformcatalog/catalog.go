@@ -9,7 +9,7 @@ import (
 	"retrom/internal/contentprofile"
 )
 
-const Version = 36
+const Version = 37
 
 var ErrInvalid = errors.New("PLATFORM_CATALOG_INVALID")
 
@@ -30,6 +30,10 @@ type Catalog struct {
 var current = Catalog{Version: Version, Templates: []DirectoryTemplate{
 	{Key: "nes/fceumm", PlatformID: "nes", DefaultCoreID: "fceumm", Name: "NES 游戏", CatalogOrder: 10},
 	{Key: "snes/snes9x", PlatformID: "snes", DefaultCoreID: "snes9x", Name: "SNES 游戏", CatalogOrder: 20},
+	{
+		Key: "satellaview/snes9x", PlatformID: "satellaview", DefaultCoreID: "snes9x",
+		Name: "Satellaview / BS-X 游戏", CatalogOrder: 25,
+	},
 	{Key: "gbc/gambatte", PlatformID: "gbc", DefaultCoreID: "gambatte", Name: "Game Boy 游戏", CatalogOrder: 30},
 	{Key: "sgb/gearboy", PlatformID: "sgb", DefaultCoreID: "gearboy", Name: "Super Game Boy 游戏", CatalogOrder: 35},
 	{Key: "gba/mgba", PlatformID: "gba", DefaultCoreID: "mgba", Name: "GBA 游戏", CatalogOrder: 40},
@@ -62,6 +66,10 @@ var current = Catalog{Version: Version, Templates: []DirectoryTemplate{
 		Key: "megadrive/genesis_plus_gx", PlatformID: "megadrive", DefaultCoreID: "genesis_plus_gx",
 		Name: "Mega Drive 游戏", CatalogOrder: 150,
 	},
+	{
+		Key: "segacd/genesis_plus_gx", PlatformID: "segacd", DefaultCoreID: "genesis_plus_gx",
+		Name: "Sega CD / Mega-CD 游戏", CatalogOrder: 155,
+	},
 	{Key: "pce/mednafen_pce", PlatformID: "pce", DefaultCoreID: "mednafen_pce", Name: "PC Engine 游戏", CatalogOrder: 160},
 	{
 		Key: "ngpc/mednafen_ngp", PlatformID: "ngpc", DefaultCoreID: "mednafen_ngp",
@@ -74,6 +82,15 @@ var current = Catalog{Version: Version, Templates: []DirectoryTemplate{
 	{Key: "psx/pcsx_rearmed", PlatformID: "psx", DefaultCoreID: "pcsx_rearmed", Name: "PlayStation 游戏", CatalogOrder: 190},
 	{Key: "saturn/yabause", PlatformID: "saturn", DefaultCoreID: "yabause", Name: "Sega Saturn 游戏", CatalogOrder: 200},
 	{Key: "dreamcast/flycast", PlatformID: "dreamcast", DefaultCoreID: "flycast", Name: "Dreamcast 游戏", CatalogOrder: 205},
+	{Key: "naomi/flycast-naomi", PlatformID: "naomi", DefaultCoreID: "flycast-naomi", Name: "NAOMI 游戏", CatalogOrder: 206},
+	{
+		Key: "naomi2/flycast-naomi2", PlatformID: "naomi2", DefaultCoreID: "flycast-naomi2",
+		Name: "NAOMI 2 游戏", CatalogOrder: 207,
+	},
+	{
+		Key: "atomiswave/flycast-atomiswave", PlatformID: "atomiswave", DefaultCoreID: "flycast-atomiswave",
+		Name: "Atomiswave 游戏", CatalogOrder: 208,
+	},
 	{Key: "pcfx/mednafen_pcfx", PlatformID: "pcfx", DefaultCoreID: "mednafen_pcfx", Name: "PC-FX 游戏", CatalogOrder: 210},
 	{Key: "3do/opera", PlatformID: "3do", DefaultCoreID: "opera", Name: "3DO 游戏", CatalogOrder: 220},
 	{Key: "psp/ppsspp", PlatformID: "psp", DefaultCoreID: "ppsspp", Name: "PSP 游戏", CatalogOrder: 230},
@@ -160,6 +177,7 @@ var current = Catalog{Version: Version, Templates: []DirectoryTemplate{
 		Key: "amiga/puae", PlatformID: "amiga", DefaultCoreID: "puae",
 		Name: "Commodore Amiga 游戏", CatalogOrder: 450,
 	},
+	{Key: "amigacd32/puae", PlatformID: "amigacd32", DefaultCoreID: "puae", Name: "Amiga CD32 游戏", CatalogOrder: 455},
 	{Key: "flash/ruffle", PlatformID: "flash", DefaultCoreID: "ruffle", Name: "Flash 游戏", CatalogOrder: 460},
 	{Key: "msx/webmsx", PlatformID: "msx", DefaultCoreID: "webmsx", Name: "MSX 游戏", CatalogOrder: 470},
 	{Key: "x68000/px68k", PlatformID: "x68000", DefaultCoreID: "px68k", Name: "Sharp X68000 游戏", CatalogOrder: 480},

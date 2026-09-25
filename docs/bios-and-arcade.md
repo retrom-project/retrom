@@ -58,6 +58,18 @@ MD5/CRC 只用于身份识别，不作为安全机制。
 
 来源：[Libretro Snes9x](https://docs.libretro.com/library/snes9x/)。
 
+### 3.2.1 Sega CD 与 Amiga CD32
+
+| Core | 文件 | 条件 | 大小 | MD5 |
+| --- | --- | --- | ---: | --- |
+| `genesis_plus_gx` | `bios_CD_E.bin` | 单文件 CHD；必需 | 131072 | `e66fa1dc5820d254611fdcdba0662372` |
+| `genesis_plus_gx` | `bios_CD_U.bin` | 单文件 CHD；必需 | 131072 | `2efd74e3232ff260e371b99f84024f7f` |
+| `genesis_plus_gx` | `bios_CD_J.bin` | 单文件 CHD；必需 | 131072 | `278a9397d192149e84e820ac621a8edd` |
+| `puae` | `kick40060.CD32` | CD 镜像 CHD/ISO/NRG；必需 | 524288 | `5f8924d013dd57a89cf349f4cdedc6b1` |
+| `puae` | `kick40060.CD32.ext` | CD 镜像 CHD/ISO/NRG；必需 | 524288 | `bb72565701b1b6faece07d68ea5da639` |
+
+Sega CD 的三地区文件按 [EmulatorJS Sega CD](https://emulatorjs.org/docs/systems/sega-cd/) 登记；CD32 两份 ROM 按 [Libretro PUAE](https://docs.libretro.com/library/puae/) 登记。它们通过各自 Core 的现有 BIOS bundle 交付，条件判断只使用已物化内容的最终后缀。现有 Amiga 平台也允许 CHD/ISO/NRG，因此其 CD 内容同样适用 CD32 条件；软盘、硬盘和 WHDLoad 内容不适用。
+
 ### 3.3 gambatte
 
 | 文件 | 条件 | MD5 |
@@ -157,6 +169,16 @@ Requirement 对应用户交付给核心的文件。`source_kind` 只表示来源
 primary content 指 GameFiles 中唯一 `CONTENT` 文件；host-console 原 ZIP 已在验证阶段物化成保留真实后缀的唯一可运行 member，因此不能用上传 archive 的 `.zip` 后缀判断。逻辑名按 ASCII lower-case 比较最后一个后缀，不读标题或刮削平台猜类型。FDS/GB/GBC/GBA 按表中后缀判定；一期对 BS-X/Sufami 没有足够可靠的独立 classifier，所以这两项“已安装则对全部 Snes9x Variant 装入并进入 digest、未安装则只在完整目录显示且不产生逐游戏 Warning”，由 core 决定是否实际读取。`GAME_GENIE_ADDON_MODE/MGBA_SGB_MODEL` 一期恒不适用。其余 STATIC requirement 的适用集合与 active installation/status/options 一并进入 `validation_input_digest/dependency_snapshot_json`；不适用项不装入本次 bundle，也不触发本游戏重校验。
 
 适用的 REQUIRED/CONDITIONAL 项缺失时阻断；适用 OPTIONAL 缺失时仅 Warning 且不加 activation option。存在 `MATCHED`、`HASH_WARNING` 或 `MISSING_ENTRY` active installation 时按逻辑名装入 BIOS bundle并合并其 activation options；对 DAT_MACHINE，全部必需 entry 名存在但 size/hash 有差异也属于 `HASH_WARNING`。单文件与 DAT archive 的错误 hash 和内部缺项遵循“提示但允许”的产品要求；不可读的 `INVALID` 不装入。每次 EmulatorJS 实例都是新配置，所以无需发送反向的 `disabled/OFF`，也不能让浏览器上一次设置成为事实源。上游依据分别是 [Gambatte BIOS/core option](https://docs.libretro.com/library/gambatte/) 与 [mGBA BIOS/core option](https://docs.libretro.com/library/mgba/)。
+
+### 3.10 Flycast 街机 BIOS
+
+| 平台 / Core | 必需逻辑文件 | Flycast 路径 |
+| --- | --- | --- |
+| NAOMI / `flycast-naomi` | `naomi.zip` | `/dc/naomi.zip` |
+| NAOMI 2 / `flycast-naomi2` | `naomi2.zip` | `/dc/naomi2.zip` |
+| Atomiswave / `flycast-atomiswave` | `awbios.zip` | `/dc/awbios.zip` |
+
+这三项是独立的 `EXTERNAL_FILE` Requirement，由游戏的 Target 选择、安装快照和 Launch 冻结到对应路径。BIOS ZIP 保持原样；当前静态目录不为不同 MAME ROM set 版本固定单一哈希。卡带游戏 ZIP 也保持原样并以机器短名加载；此路径不使用 FBNeo/MAME 2003 Plus 的 Arcade DAT 导入契约。GD-ROM ZIP+CHD 和 clone/parent ROM 仍需多文件契约。
 
 ## 4. BIOS 状态
 

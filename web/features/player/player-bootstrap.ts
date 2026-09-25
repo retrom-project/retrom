@@ -9,6 +9,7 @@ import type {MultiDiscPlayerEvent} from "./multi-disc-telemetry";
 import {mobilePlayerQuery, portraitPlayerQuery, reducePlayerOrientation, waitForStableLandscape, type PlayerOrientationState} from "./orientation";
 import {useSerializedPlayerBootstrap} from "./player-bootstrap-lifecycle";
 import {productCheckpointPresentation} from "./player-checkpoint-availability";
+import type {PlayProgressClock} from "./play-progress-clock";
 import type {PlayerDebugRuntime} from "./player-chrome";
 import type {PlayerLoadProgress} from "./player-loading";
 import type {LaunchEnvelopeV1, PlayerRuntimeV1, RuntimeDiscStateV1, RuntimeEventV1, RuntimeFinalSnapshotV1, RuntimeVideoModeV1} from "./runtime/contract";
@@ -38,6 +39,7 @@ export type PlayerBootstrapParams = {
   started: Mutable<boolean>;
   finishing: Mutable<boolean>;
   heartbeat: Mutable<number | null>;
+  progressClock: Mutable<PlayProgressClock>;
   toastTimer: Mutable<number | null>;
   setMessage: Dispatch<SetStateAction<string>>;
   setLoadProgress: Dispatch<SetStateAction<PlayerLoadProgress | null>>;
@@ -66,7 +68,7 @@ export type PlayerBootstrapParams = {
   onShowControls: () => void;
   onGameSurface: () => void;
   onExitRequested: (snapshot?: RuntimeFinalSnapshotV1) => void;
-  sendEvent: (kind: "start" | "heartbeat" | "finish") => Promise<void>;
+  reportProgress: () => Promise<void>;
 };
 
 type BootstrapResources = {
@@ -197,12 +199,14 @@ async function completeSingleStart(params: PlayerBootstrapParams) {
   params.pausedRef.current = false;
   params.setPaused(false);
   applyStartedOrientation(params);
-  await params.sendEvent("start");
+  params.progressClock.current.start(performance.now(), document.visibilityState === "visible");
+  params.started.current = true;
   params.setState("running");
   const availability = params.runtime.current?.getCheckpointAvailability() ?? {available: false, reason: "UNSUPPORTED"};
   const canSave = availability.available;
   updateCheckpointAvailability(params, canSave);
-  params.heartbeat.current = window.setInterval(() => {void params.sendEvent("heartbeat");}, 30_000);
+  void params.reportProgress();
+  params.heartbeat.current = window.setInterval(() => {void params.reportProgress();}, 30_000);
 }
 
 function handleRuntimeEvent(event: RuntimeEventV1, params: PlayerBootstrapParams) {
@@ -219,6 +223,7 @@ function handleRuntimeEvent(event: RuntimeEventV1, params: PlayerBootstrapParams
   if (event.type === "DISC_CHANGED") {params.setDiscState(event.state); return;}
   if (event.type === "STATE_CHANGED") {
     const paused = event.state === "PAUSED";
+    params.progressClock.current.setPaused(performance.now(), paused);
     params.pausedRef.current = paused;
     params.setPaused(paused);
   }
@@ -282,6 +287,8 @@ async function cleanupBootstrap(params: PlayerBootstrapParams, resources: Bootst
   resources.inputSubscription?.();
   resources.e2eDiagnosticsCleanup?.();
   if (params.heartbeat.current !== null) {window.clearInterval(params.heartbeat.current); params.heartbeat.current = null;}
+  params.progressClock.current.stop(performance.now());
+  params.started.current = false;
   if (params.toastTimer.current !== null) {window.clearTimeout(params.toastTimer.current); params.toastTimer.current = null;}
   await resources.controller?.exit().catch(() => undefined);
   if (params.runtimeController.current === resources.controller) {params.runtimeController.current = null;}

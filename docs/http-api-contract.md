@@ -354,9 +354,11 @@ Idempotency-Key: <uuid>
 
 已有验证结果的预检阻断返回 `422 LAUNCH_BLOCKED`，`details.blockers` 和 `details.warnings` 使用稳定 code/level/message/details，不创建 credential。常用 code 统一加 `LAUNCH_` 前缀，例如 `LAUNCH_BIOS_MISSING`、`LAUNCH_PARENT_MISSING`、`LAUNCH_SAVE_INCOMPATIBLE`、`LAUNCH_DOS_ENTRY_MISSING`、`LAUNCH_DOS_ENTRY_UNSAFE`、`LAUNCH_CORE_VALIDATION_UNAVAILABLE`、`LAUNCH_CORE_VALIDATION_TIMEOUT`、`LAUNCH_THREADS_UNAVAILABLE`；全屏拒绝是浏览器侧 Warning，不是假装后端错误。
 
-凭据创建后 5 分钟内没有请求 bootstrap 即过期；首次正确 config 请求转为 `ACTIVE`。在 ROM/core 下载和 `EJS_onGameStart` 之间没有 PlaySession，因此只受创建后 24 小时 hard expiry，不能用 2 分钟 idle 把较大内容加载到一半的合法启动误杀；真实 start 成功后设置 idle expiry 为服务端接收时刻 + 2 分钟，此后每个连续 heartbeat/finish 更新或终结它。hard/idle 任一到期即撤销；无 PlaySession 的显式退出或 `pagehide` 也必须调用下面定义的 pre-start finish 尽力撤销。管理员删除游戏同样撤销。复制 `/play/<launchId>` 到没有 cookie 的浏览器只能显示“启动会话不可用”，不能取得内容。
+凭据创建后 5 分钟内没有请求 bootstrap 即过期；首次正确 config 请求转为 `ACTIVE`。PRODUCT 的内容读取与存档权限持续到创建后 24 小时 hard expiry，或明确撤销、游戏删除；游玩统计请求失败或缺失不缩短权限。升级时清除旧 ACTIVE Launch 的 idle 截止时间，并把未释放内容的回收时间移到 hard expiry。复制 `/play/<launchId>` 到没有 cookie 的浏览器只能显示“启动会话不可用”，不能取得内容。
 
-PlaySession 事件 API 位于 launch cookie 的限定 Path 内，同时要求正确 launch cookie 和连续序号；不能只凭公开的 launchId 更新游玩记录，也不能把 cookie Path 放宽到 `/`：
+PRODUCT Player 在核心真正开始后按 30 秒间隔发送 `POST /runtime/launches/{launchId}/progress`，body 为 `{ "activeDurationMs": int64 }`。该数值是本次 Player 中可见、未暂停、正在运行时间的累计毫秒数，范围为 `0..2592000000`。服务端按 Launch 唯一 PlaySession 保存目前最大值；重复、乱序和丢失的样本不改变权限，也不要求先发送 start 或退出时发送 finish。首次成功上报创建 PlaySession；完全没有成功样本则不产生统计。上报失败不会阻断启动、运行、存档或退出。服务端仍验证限定 Path 的 launch cookie、PRODUCT ACTIVE 状态和 hard expiry。
+
+以下连续事件端点保留供旧客户端及审核 Preview 使用；新 PRODUCT Player 不调用它们。它们同样不能只凭公开的 launchId 更新游玩记录，也不能把 cookie Path 放宽到 `/`：
 
 - `POST /runtime/launches/{launchId}/start` body 为 `{ "clientSequence": 0, "clientObservedAtMs": int64 }`，只在真实 `EJS_onGameStart` 后调用；重复相同 body 返回原 PlaySession。
 - `POST /runtime/launches/{launchId}/heartbeat` body 为 `{ "clientSequence": n, "clientObservedAtMs": int64, "previousInterval": { "running": bool, "visible": bool, "paused": bool } }`，`n` 从 1 连续递增。
@@ -364,7 +366,7 @@ PlaySession 事件 API 位于 launch cookie 的限定 Path 内，同时要求正
 
 多盘 Player 另使用 `POST /runtime/launches/{launchId}/player-events` 上报封闭的低基数运行结果。它同样要求正确的 launch cookie 和 Origin，只接受 `eventType=START/DISK_COUNT_MISMATCH/SWITCH_SUCCESS/SWITCH_FAILURE/SAVE_RESTORE_SUCCESS/SAVE_RESTORE_FAILURE`、稳定 `resultCode`、锁定的 `discCount` 与可空 `observedDiscCount`；服务端必须重新读取 Launch 锁定的 platform/core/Provider Target/disc count 并拒绝盘数不一致的 body。成功返回 `204`，失败不改变 Launch、PlaySession、存档或换盘结果。body、日志与指标都不得包含标题、basename、路径、hash 或 capability；该 best-effort 观测请求失败不能阻断 Player 主链路。
 
-服务端以接收时刻计算 interval，单次最多 45 秒；client time 只审计且必须是 `0..253402300799999` 的 JSON integer，绝不能参与授权、顺序或计时。重复序号返回原 accepted delta，跳号为 `409 PLAY_SEQUENCE_GAP`。未 start、`running=false`、`visible=false`、`paused=true` 或超出上限的部分计 0。
+旧事件端点以接收时刻计算 interval，单次最多 45 秒；client time 只审计且必须是 `0..253402300799999` 的 JSON integer，绝不能参与授权、顺序或计时。重复序号返回原 accepted delta，跳号为 `409 PLAY_SEQUENCE_GAP`。这些事件也不再建立 idle 门槛。
 
 ## 8. 内容端点与缓存
 
@@ -396,6 +398,8 @@ PlaySession 事件 API 位于 launch cookie 的限定 Path 内，同时要求正
 运行中写入要求正确 launch cookie：
 
 - `POST /runtime/launches/{launchId}/save-states` 使用 `multipart/form-data`，携带 UUID `Idempotency-Key`，只允许 `metadata`、`payload` 与可选 `screenshot`。metadata 是严格 `{checkpointFormat,name?,discIndex?}`，普通手动存档 name trim 后为 1–120 Unicode code point；discIndex 只对多盘必填。格式必须等于当前 Target 的写格式，大小不能超过上限；Host 校验 format/size/hash，将 payload 作为不透明字节保存。PRODUCT 返回正式 SaveState；REVIEW_PREVIEW 替换当前会话的临时 checkpoint，返回 `{resourceKind:"REVIEW_PREVIEW_CHECKPOINT",previewId,checkpointFormat,createdAtMs}`，不会出现在 `/saves`。幂等重放必须绑定同一操作者、会话与请求内容，返回相同收据；跨会话复用幂等键拒绝。
+
+Player 对短暂网络错误和 408/429/500/502/503/504 保存响应最多重试三次，复用同一份 multipart 内容与 `Idempotency-Key`；冲突、权限或格式错误直接返回。重试结束后仍失败则提示保存失败，游戏保持运行，用户可以再次创建存档。
 - 本机 PFB 网关、部署 NG 与 Next.js 全局 rewrite 代理层使用 `283115520` bytes（270 MiB）传输天花板和 300 秒 read/send/backend timeout，不对 `/api/v1/admin/imports` 或 save-state 增加独立 NG location。Go 层仅 `POST /runtime/launches/{launchId}/save-states` 的 multipart 总上限同样为 `283115520` bytes 且 route deadline 为 300 秒；其他 endpoint 仍执行自己更小的应用层 body 上限和 deadline。超过存档 route 上限必须在读取完整 body 前返回通用 413，不能由代理层截断为 500。
 
 运行时写端点在验证 launch cookie 后才读取 body；有 `Content-Length` 时先校验上限，没有时允许 HTTP/2/chunked 并在流式读取超过上限的第一个 byte 立即终止为 `413`。NG 必须关闭请求 buffering 或使用足够的临时空间，且自身限制不得低于应用上限；应用仍独立流式计数、校验 digest 并清理临时文件。`pagehide` 不发送 save body；显式退出只等待用户已经发起的 `/save-states` 上传完成，不生成退出存档。
@@ -461,7 +465,8 @@ Upload manifest/part/complete、Import 创建、Launch、PlaySession 与 runtime
 | `GET /api/v1/games`、`GET /api/v1/games/{gameId}` | 已发布游戏列表/详情；两者的可空 `coverUrl` 只投影当前 Game 当前元信息字段 中按 ordinal/ID 排序的首个 `COVER`，值为 `/content/assets/{assetId}` 逻辑 URL，不暴露 Blob ID。列表项同时包含基础平台、游戏目录、推荐 Core、`createdAtMs` 与可空 `lastPlayedAtMs`；列表按 `RECENT_DESC/ADDED_DESC/TITLE_ASC` 的服务端稳定 cursor 分页，每页默认 50。无 cursor 的首分页额外返回 `filteredCount` 与 `facets={totalCount,platforms,platformInstances,tags}`；facet 覆盖完整可见游戏库并带真实 count，续页不重复返回。响应级 `generatedAtMs` 作为相对时间的统一时钟。 |
 | `GET /api/v1/saves`、`PATCH /api/v1/saves/{saveStateId}`、`DELETE /api/v1/saves/{saveStateId}` | 手动存档列表、重命名和软删除。`gameId` 为精确游戏筛选并进入 cursor filter digest；`availability=AVAILABLE` 只返回当前可恢复存档，`ALL` 还保留 RPG Maker/ONS 的 `SAVE_RUNTIME_INCOMPATIBLE` 与 EmulatorJS 的 `SAVE_CORE_UNAVAILABLE` 阻断项。列表项包含基础平台、游戏目录、锁定 Core、payload `sizeBytes`、可空 `screenshotUrl`（存在时为 `/content/save-states/{saveStateId}/screenshot`）与累计有效游玩 `activeDurationMs`，不暴露 payload/screenshot Blob ID。响应级 `generatedAtMs` 为分组页面的“今天/昨天”和分页聚合提供统一时钟。 |
 | `POST /api/v1/launches` | READY 时预检并创建 LaunchSession/cookie；缺少当前 Variant 结果时返回 202 的可观察验证 Job，不先签发 credential。 |
-| `POST /runtime/launches/{launchId}/start`、`POST /runtime/launches/{launchId}/heartbeat`、`POST /runtime/launches/{launchId}/finish` | 第 7 节 PlaySession 连续事件、时长和撤销；使用限定 Path 的 launch cookie。 |
+| `POST /runtime/launches/{launchId}/progress` | 第 7 节 PRODUCT 最佳努力累计游玩时长上报；使用限定 Path 的 launch cookie，失败不影响运行权限。 |
+| `POST /runtime/launches/{launchId}/start`、`POST /runtime/launches/{launchId}/heartbeat`、`POST /runtime/launches/{launchId}/finish` | 旧连续事件契约与审核 Preview 的退出；新 PRODUCT Player 不调用。 |
 | `GET /runtime/launches/{launchId}/config` 及第 8 节内容路径 | 受 capability 保护的配置、内容与显式状态。 |
 | `POST /runtime/launches/{launchId}/save-states` | 用户显式触发的运行中状态保存；payload 必需，截图可选。 |
 | `POST /runtime/launches/{launchId}/review-screenshot` | 所有审核 Preview 按需保存当前 PNG/JPEG；来源、目标与当前校验必须一致，PRODUCT Launch 禁止。 |

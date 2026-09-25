@@ -23,7 +23,7 @@ export async function observeOwnedFixture(page) {
 export async function waitForPreviewReady(page) {
   const fatalError = page.__retromFatalError ?? new Promise(() => {});
   const runtimeFailure = page.getByRole("alert").filter({hasText: /\b(?:RPG|RUNTIME)_[A-Z0-9_]+\b/u}).first();
-  const statusFailure = page.getByRole("status").filter({hasText: /\b(?:RPG|RUNTIME|PLAYER)_[A-Z0-9_]+\b/u}).first();
+  const statusFailure = page.getByRole("status").filter({hasText: /\b(?:RPG|RUNTIME|PLAYER|RANGE)_[A-Z0-9_]+\b/u}).first();
   try {
     await Promise.race([
       page.getByRole("status").filter({hasText: "可创建存档"}).waitFor({state: "attached", timeout: 300_000}),
@@ -78,6 +78,9 @@ export async function advanceFixture(page, keys) {
 }
 
 export async function revealPreviewToolbar(page) {
+  await Promise.all(page.frames().map(frame => frame.evaluate(() => {
+    if (document.pointerLockElement) {return document.exitPointerLock();}
+  }).catch(() => undefined)));
   // Always refresh the top-edge interaction, even while the toolbar is still
   // visible: its idle deadline may expire before the next pointer action.
   await page.locator(".player-hud-handle").hover();

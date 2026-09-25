@@ -13,9 +13,13 @@ import {observeExpansion, openExpansion, pictureExpansion, pressExpansion, holdE
 const env = process.env, platform = process.argv[2], base = env.RETROM_ACCEPTANCE_BASE_URL;
 const cores = {gamegear: "genesis_plus_gx", sg1000: "genesis_plus_gx", multivision: "genesis_plus_gx",
   pico: "picodrive", sega32x: "picodrive", supergrafx: "mednafen_pce", gx4000: "cap32", neogeo: "fbneo",
-  sgb: "gearboy"};
+  sgb: "gearboy", segacd: "genesis_plus_gx", amiga: "puae", amigacd32: "puae", satellaview: "snes9x"};
+const biosFiles = {segacd: ["bios_CD_E.bin", "bios_CD_U.bin", "bios_CD_J.bin"],
+  amiga: ["kick34005.A500", "kick40068.A1200"],
+  amigacd32: ["kick40060.CD32", "kick40060.CD32.ext"], satellaview: ["BS-X.bin"]};
 const directory = resolve(env.RETROM_ACCEPTANCE_CASE_DIR ?? `.artifacts/platform-expansion/${platform}`);
-const evidence = {caseId: "ACC-RUN-017", platform, status: "FAIL", stages: [], errors: [], runtimes: []};
+const evidence = {caseId: biosFiles[platform] ? "ACC-RUN-018" : "ACC-RUN-017",
+  platform, status: "FAIL", stages: [], errors: [], runtimes: []};
 mkdirSync(directory, {recursive: true});
 let browser, proxy;
 const coreReads = [];
@@ -23,18 +27,24 @@ const stage = name => {evidence.stages.push(name); console.log(`${platform}: ${n
 function flush() {writeFileSync(join(directory, "product.json"), JSON.stringify(evidence, null, 2) + "\n");}
 
 async function installBIOS(client) {
-  if (platform !== "neogeo") {return;}
-  assert.ok(env.RETROM_EXPANSION_BIOS, "NEOGEO_BIOS_REQUIRED");
-  const catalog = await client.json("GET", "/api/v1/admin/bios?scope=FULL_CATALOG&coreId=fbneo&limit=100");
-  const item = catalog.items.find(entry => entry.logicalName === "neogeo.zip");
-  assert.ok(item, "NEOGEO_BIOS_REQUIREMENT_MISSING");
-  if (item.activeInstallation) {return;}
-  const uploadId = await client.upload(singleFile(env.RETROM_EXPANSION_BIOS), "FILES", "GENERAL");
-  const upload = await client.json("GET", `/api/v1/admin/uploads/${uploadId}`);
-  await client.json("POST", `/api/v1/admin/bios/${item.id}/installations`, {
-    headers: {...client.writeHeaders(), "If-Match": `"v${item.version}"`}, expected: 201,
-    data: {uploadFileId: upload.files[0].fileId},
-  });
+  const names = platform === "neogeo" ? ["neogeo.zip"] : biosFiles[platform] ?? [];
+  if (!names.length) {return;}
+  const sourceDir = env.RETROM_EXPANSION_BIOS_DIR;
+  assert.ok(platform === "neogeo" ? env.RETROM_EXPANSION_BIOS : sourceDir, "PLATFORM_BIOS_SOURCE_REQUIRED");
+  const catalog = await client.json("GET", `/api/v1/admin/bios?scope=FULL_CATALOG&coreId=${cores[platform]}&limit=100`);
+  for (const name of names) {
+    const item = catalog.items.find(entry => entry.logicalName === name && entry.enabled &&
+      (platform !== "segacd" || entry.targetId === "genesis-plus-gx-cd"));
+    assert.ok(item, `BIOS_REQUIREMENT_MISSING:${name}`);
+    if (item.activeInstallation) {continue;}
+    const path = platform === "neogeo" ? env.RETROM_EXPANSION_BIOS : join(sourceDir, name);
+    const uploadId = await client.upload(singleFile(path), "FILES", "GENERAL");
+    const upload = await client.json("GET", `/api/v1/admin/uploads/${uploadId}`);
+    await client.json("POST", `/api/v1/admin/bios/${item.id}/installations`, {
+      headers: {...client.writeHeaders(), "If-Match": `"v${item.version}"`}, expected: 201,
+      data: {uploadFileId: upload.files[0].fileId},
+    });
+  }
 }
 
 async function importGame(client) {
@@ -64,6 +74,8 @@ async function exercise(opened) {
   evidence.recipe = {buttons, bootFrames: Number(env.RETROM_EXPANSION_BOOT_FRAMES ?? 600),
     gapFrames: Number(env.RETROM_EXPANSION_START_GAP_FRAMES ?? 0),
     postStartFrames: Number(env.RETROM_EXPANSION_POST_START_FRAMES ?? 180),
+    postConfirmFrames: Number(env.RETROM_EXPANSION_POST_CONFIRM_FRAMES ?? 0),
+    direction: Number(env.RETROM_EXPANSION_DIRECTION ?? 15),
     holdButton: env.RETROM_EXPANSION_HOLD_BUTTON ?? null,
     confirmButton: Number(env.RETROM_EXPANSION_CONFIRM_BUTTON ?? (["sg1000", "multivision"].includes(platform) ? 1 : 0))};
   flush();
@@ -78,15 +90,21 @@ async function exercise(opened) {
   await holdExpansion(opened, env.RETROM_EXPANSION_HOLD_BUTTON, true);
   if (env.RETROM_EXPANSION_HOLD_BUTTON !== undefined) {await waitExpansionFrames(opened, 120);}
   const before = await pictureExpansion(opened, directory, "before-input");
-  await pressExpansion(opened, 15, 600);
+  const direction = Number(env.RETROM_EXPANSION_DIRECTION ?? 15);
+  assert.ok([12, 13, 14, 15].includes(direction), "DIRECTION_INVALID");
+  await pressExpansion(opened, direction, 600);
   const moved = await pictureExpansion(opened, directory, "direction");
   const confirmButton = Number(env.RETROM_EXPANSION_CONFIRM_BUTTON ?? (["sg1000", "multivision"].includes(platform) ? 1 : 0));
   await pressExpansion(opened, confirmButton, 250);
+  if (Number(env.RETROM_EXPANSION_POST_CONFIRM_FRAMES ?? 0) > 0) {
+    evidence.confirmFrames = await waitExpansionFrames(opened, Number(env.RETROM_EXPANSION_POST_CONFIRM_FRAMES));
+  }
   const confirmed = await pictureExpansion(opened, directory, "confirm");
   await holdExpansion(opened, env.RETROM_EXPANSION_HOLD_BUTTON, false);
   const inputs = await opened.frame.evaluate(() => window.__expansion.inputs);
   evidence.input = {before, moved, confirmed, events: inputs};
-  assert.ok(inputs.some(([player, control, value]) => player === 0 && control === 7 && value === 1), "DIRECTION_NOT_DELIVERED");
+  assert.ok(inputs.some(([player, control, value]) => player === 0 && control === direction - 8 && value === 1),
+    "DIRECTION_NOT_DELIVERED");
   assert.ok(inputs.some(([, control, value]) => [0, 1, 8].includes(control) && value === 1), "CONFIRM_NOT_DELIVERED");
   assert.notEqual(before, moved, "DIRECTION_SCREEN_UNCHANGED");
 }
@@ -100,10 +118,16 @@ try {
     args: ["--autoplay-policy=no-user-gesture-required", "--use-angle=swiftshader", "--enable-unsafe-swiftshader"]});
   evidence.chromeVersion = browser.version();
   evidence.browserMode = env.RETROM_SMOKE_HEADED === "1" ? "headed-xvfb" : "headless";
-  const context = await browser.newContext({viewport: {width: 1280, height: 900}, ...proxy.contextOptions});
+  const viewport = {width: Number(env.RETROM_EXPANSION_VIEWPORT_WIDTH ?? 1280),
+    height: Number(env.RETROM_EXPANSION_VIEWPORT_HEIGHT ?? 900)};
+  assert.ok(Number.isInteger(viewport.width) && viewport.width > 0 &&
+    Number.isInteger(viewport.height) && viewport.height > 0, "PLATFORM_VIEWPORT_INVALID");
+  evidence.viewport = viewport;
+  const context = await browser.newContext({viewport, ...proxy.contextOptions});
   evidence.coreResponses = [];
   context.on("response", response => {
-    if (!new URL(response.url()).pathname.endsWith(`/${cores[platform]}-wasm.data`)) {return;}
+    const coreAsset = ["amiga", "amigacd32"].includes(platform) ? "puae-thread-wasm.data" : `${cores[platform]}-wasm.data`;
+    if (!new URL(response.url()).pathname.endsWith(`/${coreAsset}`)) {return;}
     coreReads.push((async () => {
       const bytes = await response.body();
       assert.equal(response.status(), 200, "CORE_DOWNLOAD_FAILED");
@@ -145,14 +169,40 @@ try {
   const restoreBefore = await pictureExpansion(resumed, directory, "restored");
   await holdExpansion(resumed, env.RETROM_EXPANSION_HOLD_BUTTON, true);
   if (env.RETROM_EXPANSION_HOLD_BUTTON !== undefined) {await waitExpansionFrames(resumed, 120);}
-  await pressExpansion(resumed, 14, 600);
+  const restoreButton = Number(env.RETROM_EXPANSION_RESTORE_BUTTON ?? env.RETROM_EXPANSION_RESTORE_DIRECTION ?? 14);
+  assert.ok([9, 12, 13, 14, 15].includes(restoreButton), "RESTORE_BUTTON_INVALID");
+  await pressExpansion(resumed, restoreButton, 600);
+  if (platform === "satellaview") {await pressExpansion(resumed, 0, 250);}
   const restoreAfter = await pictureExpansion(resumed, directory, "restored-input");
   evidence.restoredInput = {before: restoreBefore, after: restoreAfter};
-  assert.notEqual(restoreBefore, restoreAfter, "RESTORED_DIRECTION_SCREEN_UNCHANGED");
+  assert.notEqual(restoreBefore, restoreAfter, "RESTORED_INPUT_SCREEN_UNCHANGED");
   await holdExpansion(resumed, env.RETROM_EXPANSION_HOLD_BUTTON, false);
   const inputs = await resumed.frame.evaluate(() => window.__expansion.inputs);
-  assert.ok(inputs.some(([, control, value]) => control === 6 && value === 1), "RESTORED_INPUT_NOT_DELIVERED");
+  assert.ok(inputs.some(([, control, value]) => control === (restoreButton === 9 ? 3 : restoreButton - 8) && value === 1),
+    "RESTORED_INPUT_NOT_DELIVERED");
   await resumed.page.close(); stage("different-launch-restore-input");
+  if (platform === "segacd") {
+    const reads = evidence.contentResponses.filter(response => response.path.includes("/content/game/"));
+    assert.ok(reads.length > 0, "SEEKABLE_RANGE_EVIDENCE_MISSING");
+    assert.ok(reads.every(response => response.status === 206 && /^bytes=\d+-\d+$/u.test(response.range ?? "") &&
+      response.contentLength > 0 && response.contentLength <= 524288), "SEEKABLE_RANGE_INVALID");
+    const cachedRanges = new Map();
+    for (const response of reads) {
+      const key = `${response.path}|${response.range}`;
+      const firstLaunch = cachedRanges.get(key);
+      assert.ok(!firstLaunch || firstLaunch === response.launchId, "SEEKABLE_CACHED_RANGE_REDOWNLOADED");
+      cachedRanges.set(key, response.launchId);
+    }
+    stage("seekable-cache-reuse");
+  }
+  if (["amiga", "amigacd32"].includes(platform)) {
+    const reads = evidence.contentResponses.filter(response => response.path.includes("/content/game/"));
+    assert.ok(reads.length > 0, "EAGER_CONTENT_DOWNLOAD_EVIDENCE_MISSING");
+    assert.ok(reads.every(response => response.status === 200 && response.range === null), "EAGER_CONTENT_TRANSPORT_INVALID");
+    assert.ok(reads.filter(response => response.launchId === launch.launchId).length <= 1, "EAGER_CONTENT_DUPLICATE_DOWNLOAD");
+    assert.ok(!reads.some(response => response.launchId === restored.launchId), "EAGER_CONTENT_REDOWNLOADED");
+    stage("eager-cache-reuse");
+  }
   await Promise.all(coreReads);
   if (env.RETROM_EXPANSION_CORE_SHA256) {
     assert.ok(evidence.coreResponses.length > 0, "CORE_DOWNLOAD_EVIDENCE_MISSING");

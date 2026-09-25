@@ -37,6 +37,8 @@
         "quasi88",
         "bsnes",
         "neocd",
+        "puae",
+        "genesis-plus-gx",
         "gbe-plus",
         "nxengine",
         "ppsspp",
@@ -344,6 +346,24 @@
       "role": "core",
       "gitlink": "git@github.com:retrom-project/neocd_libretro.git",
       "defaultBranch": "retrom/g3118c6901787",
+      "submodules": false,
+      "dependsOn": []
+    },
+    {
+      "id": "puae",
+      "path": "project/retrom-core/libretro-uae",
+      "role": "core",
+      "gitlink": "git@github.com:retrom-project/libretro-uae.git",
+      "defaultBranch": "retrom/g2245d3443cc1",
+      "submodules": false,
+      "dependsOn": []
+    },
+    {
+      "id": "genesis-plus-gx",
+      "path": "project/retrom-core/Genesis-Plus-GX",
+      "role": "core",
+      "gitlink": "git@github.com:retrom-project/Genesis-Plus-GX.git",
+      "defaultBranch": "retrom/g63f0c6870601",
       "submodules": false,
       "dependsOn": []
     },

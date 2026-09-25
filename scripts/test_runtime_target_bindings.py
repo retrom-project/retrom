@@ -26,7 +26,7 @@ class RuntimeTargetBindingsTest(unittest.TestCase):
             ROOT / "data/runtime-target-bindings/v1/catalog.json"
         )
         self.assertNotIn("catalogVersion", catalog)
-        self.assertEqual(len(catalog["bindings"]), 97)
+        self.assertEqual(len(catalog["bindings"]), 101)
         self.assertEqual(
             {item["providerId"] for item in catalog["bindings"]},
             {"emulatorjs", "retrom-runtime"},
@@ -64,7 +64,7 @@ class RuntimeTargetBindingsTest(unittest.TestCase):
             "freeintv": ("freeintv", ["intellivision"]),
             "mednafen-pce": ("mednafen_pce", ["pce", "pcecd", "supergrafx"]),
             "prboom": ("prboom", ["doom"]),
-            "puae": ("puae", ["amiga"]),
+            "puae": ("puae", ["amiga", "amigacd32"]),
             "quasi88": ("quasi88", ["pc88"]),
             "same-cdi": ("same_cdi", ["cdi"]),
             "vice-x128": ("vice_x128", ["c128"]),
@@ -85,6 +85,11 @@ class RuntimeTargetBindingsTest(unittest.TestCase):
             self.assertEqual(binding["acceptedContentKinds"], ["SINGLE_FILE"])
             self.assertEqual(binding["detectorProfile"], "EMULATORJS_SINGLE_FILE")
             self.assertEqual(binding["launchPolicy"], "SUPPORTED")
+        self.assertEqual(by_target[("emulatorjs", "genesis-plus-gx")]["platformIds"],
+                         ["gamegear", "megadrive", "multivision", "sg1000"])
+        self.assertEqual(by_target[("emulatorjs", "genesis-plus-gx-cd")]["platformIds"], ["segacd"])
+        self.assertEqual(by_target[("emulatorjs", "snes9x")]["platformIds"],
+                         ["satellaview", "snes"])
         self.assertEqual(by_target[("retrom-runtime", "j2me")]["detectorProfile"], "J2ME_JAR")
         self.assertEqual(by_target[("retrom-runtime", "apple2-apple2js")]["platformIds"], ["apple2"])
         self.assertEqual(by_target[("retrom-runtime", "scummvm")]["detectorProfile"], "SCUMMVM_PROJECT")

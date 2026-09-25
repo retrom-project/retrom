@@ -43,13 +43,34 @@ export async function observeExpansion(context) {
 export async function openExpansion(context, base, launch, evidence) {
   const page = await context.newPage();
   page.on("pageerror", error => evidence.errors.push(error.message.split("\n")[0].slice(0, 180)));
+  page.on("console", message => {
+    if (!["error", "warning"].includes(message.type())) {return;}
+    evidence.console ??= [];
+    evidence.console.push({type: message.type(),
+      text: message.text().split("\n")[0].replace(/https?:\/\/[^\s"']+/gu, "<url>").slice(0, 240)});
+  });
+  evidence.navigation ??= [];
+  page.on("framenavigated", frame => {if (frame === page.mainFrame()) {evidence.navigation.push(frame.url());}});
+  evidence.contentResponses ??= [];
+  page.on("response", response => {
+    const request = response.request(), pathname = new URL(response.url()).pathname;
+    if (request.method() !== "GET" || !pathname.includes("/content/")) {return;}
+    evidence.contentResponses.push({launchId: launch.launchId ?? launch.previewId, path: pathname,
+      range: request.headers().range ?? null, status: response.status(),
+      contentRange: response.headers()["content-range"] ?? null,
+      contentLength: Number(response.headers()["content-length"] ?? 0)});
+  });
   console.log(`${evidence.platform}: navigate`);
   await page.goto(base + launch.playUrl, {waitUntil: "domcontentloaded", timeout: 90000});
   console.log(`${evidence.platform}: document-loaded`);
   const deadline = Date.now() + 90000;
   while (Date.now() < deadline) {
-    const errors = await bounded(page.locator("[role=alert]").allTextContents(), "ALERT_OBSERVATION_TIMEOUT", deadline - Date.now());
-    const error = errors.join(" ").match(/\b(?:PLAYER|PROVIDER|RUNTIME)_[A-Z0-9_]+\b/u)?.[0];
+    if (new URL(page.url()).pathname !== new URL(launch.playUrl, base).pathname) {throw Error("PLAYER_NAVIGATED_AWAY");}
+    const errors = await bounded(page.locator("[role=alert]").allTextContents(), "ALERT_OBSERVATION_TIMEOUT", deadline - Date.now())
+      .catch(error => {if (/Execution context was destroyed/u.test(error.message)) {return [];} throw error;});
+    const body = await bounded(page.locator("body").innerText(), "PLAYER_OBSERVATION_TIMEOUT", deadline - Date.now())
+      .catch(error => {if (/Execution context was destroyed/u.test(error.message)) {return "";} throw error;});
+    const error = (errors.join(" ") + " " + body).match(/\b(?:PLAYER|PROVIDER|RUNTIME)_[A-Z0-9_]+\b/u)?.[0];
     if (error) {throw Error(error);}
     for (const frame of page.frames()) {
       if (await bounded(frame.evaluate(() => !!window.EJS_emulator?.gameManager && window.EJS_emulator.started).catch(() => false), "FRAME_OBSERVATION_TIMEOUT", deadline - Date.now())) {
@@ -58,7 +79,12 @@ export async function openExpansion(context, base, launch, evidence) {
         const config = await page.evaluate(async value => (await fetch(`/runtime/launches/${value}/config`)).json(), id);
         evidence.runtimes.push({launchId: id, purpose: config.session.purpose, targetId: config.runtime.targetId,
           bundleSha256: config.runtime.bundleSha256, moduleSha256: config.runtime.moduleSha256,
-          content: config.resources.filter(resource => resource.kind === "ROM_BLOB").map(({sha256, sizeBytes}) => ({sha256, sizeBytes})),
+          content: config.resources.filter(resource => ["ROM_BLOB", "SEEKABLE_BLOB"].includes(resource.kind))
+            .map(({sha256, sizeBytes}) => ({sha256, sizeBytes})),
+          bios: config.resources.filter(resource => resource.kind === "BIOS_BUNDLE")
+            .flatMap(resource => resource.files.map(({sha256, sizeBytes, logicalName}) => ({
+              identitySha256: sha256, memberCount: sizeBytes, logicalName,
+            }))),
           restore: config.restore ? {format: config.restore.format, sha256: config.restore.sha256} : null});
         const canvas = frame.locator("canvas").first();
         await page.bringToFront(); await resumePreview(page); await canvas.click();

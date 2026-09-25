@@ -16,6 +16,7 @@ type playMemory struct {
 	start                                 PlayStart
 	progress                              PlayProgress
 	finish                                PlayFinish
+	snapshot                              PlaySnapshotPlan
 	failure, commitFailure                error
 }
 
@@ -59,6 +60,12 @@ func (memory *playMemory) Finish(_ context.Context, plan PlayFinish) error {
 	return memory.failure
 }
 
+func (memory *playMemory) Snapshot(_ context.Context, plan PlaySnapshotPlan) error {
+	memory.writes++
+	memory.snapshot = plan
+	return memory.failure
+}
+
 func newPlayMemory() *playMemory {
 	return &playMemory{sourceFound: true, source: PlaySource{Ref: SessionRef{ID: "launch"}, Session: SessionRecord{
 		State: "ACTIVE", CredentialHash: []byte("hash"), HardExpiresAtMS: 1_000_000,
@@ -78,7 +85,7 @@ func TestPlayControllerStartsOnlyAfterRuntimeActivation(t *testing.T) {
 		memory.source.Session.State = state
 		result, err := newPlayController(memory).RecordPlay(t.Context(), "launch", "valid", "start", PlayEvent{ClientObservedAtMS: 1})
 		if state == "ACTIVE" {
-			if err != nil || result.PlaySessionID != "play" || memory.writes != 1 || memory.start.IdleExpiresAtMS != 220_000 {
+			if err != nil || result.PlaySessionID != "play" || memory.writes != 1 || memory.start.NowMS != 100_000 {
 				t.Fatalf("state=%s result=%#v start=%#v error=%v", state, result, memory.start, err)
 			}
 		} else if err == nil || result.PlaySessionID != nil || memory.writes != 0 {

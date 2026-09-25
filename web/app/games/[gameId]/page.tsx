@@ -1,11 +1,11 @@
 import { AppIcon } from "@/components/app-icon";
-import { PhoneDisclosure } from "@/features/mobile/phone-layout";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { FavoriteActions } from "@/features/favorites/favorite-actions";
 import type { FavoriteReference } from "@/features/favorites/favorite-api";
 import { GameDetailSaves } from "@/features/games/game-detail-saves";
-import { ScrollableGameDescription } from "@/features/games/scrollable-game-description";
+import { GameDetailDescription } from "@/features/games/game-detail-description";
+import { GameDetailPreview } from "@/features/games/game-detail-preview";
 import { GameDetailMedia } from "@/features/games/game-detail-media";
 import { LaunchControls, type CoreOption, type DOSEntry } from "@/features/player/launch-controls";
 import { collectSavePages, latestAvailableSave, type SavePage } from "@/features/saves/save-library";
@@ -56,41 +56,46 @@ export default async function GamePage({ params }: { params: Promise<{ gameId: s
   const latestSave = latestAvailableSave(saves.items);
   return (
     <div className="page-layout page-layout-detail game-detail-page">
-      <nav className="game-detail-breadcrumb" aria-label="返回导航"><Link href="/library"><AppIcon name="arrow-left" />返回游戏库</Link></nav>
-      <section className="game-detail-hero">
-        <div className="game-detail-poster-shell">
-          <GameDetailMedia title={game.title} coverUrl={game.coverUrl} videoUrl={game.videoUrl} />
-        </div>
-        <div className="game-detail-main">
-          <p className="game-detail-eyebrow">{Array.from(new Set([game.platform.name.trim(), game.platformInstance.name.trim()])).filter(Boolean).join(" · ")}</p>
-          <div className="game-detail-title-row">
-            <FavoriteActions gameId={game.gameId} title={game.title} initialFavorite={game.favorite} variant="detail" showManageButton={false} />
-            <h1>{game.title}</h1>
+      <div className="game-detail-content">
+        <nav className="game-detail-breadcrumb" aria-label="返回导航"><Link href="/library"><AppIcon name="arrow-left" />返回游戏库</Link></nav>
+        <section className={`game-detail-hero${latestSave || game.videoUrl ? " has-preview" : ""}`}>
+          <div className="game-detail-poster-shell">
+            <GameDetailMedia title={game.title} coverUrl={game.coverUrl} videoUrl={null} />
           </div>
-          <TagChips tags={game.tags ?? []} linked />
-          <div className="game-detail-meta">{game.releaseYear ? <span>{game.releaseYear}</span> : null}{game.publisher ? <span>{game.publisher}</span> : null}{game.genre ? <span>{game.genre}</span> : null}</div>
-          <PhoneDisclosure title="游戏简介"><ScrollableGameDescription description={game.description} /></PhoneDisclosure>
-          <div className="game-detail-playtime"><strong>累计游玩</strong><span>{formatPlayTime(game.activeDurationMs)}</span></div>
+          <div className="game-detail-main">
+            <p className="game-detail-eyebrow">{Array.from(new Set([game.platform.name.trim(), game.platformInstance.name.trim()])).filter(Boolean).join(" · ")}</p>
+            <div className="game-detail-title-row">
+              <h1>{game.title}</h1>
+              <FavoriteActions gameId={game.gameId} title={game.title} initialFavorite={game.favorite} variant="detail" showManageButton={false} />
+            </div>
+            <TagChips tags={game.tags ?? []} linked />
+            <div className="game-detail-meta">{game.releaseYear ? <span>{game.releaseYear}</span> : null}{game.publisher ? <span>{game.publisher}</span> : null}{game.genre ? <span>{game.genre}</span> : null}</div>
+            <div className="game-detail-playtime"><strong>累计游玩</strong><span>{formatPlayTime(game.activeDurationMs)}</span></div>
+            <LaunchControls
+              gameId={game.gameId}
+              coreOptions={game.coreOptions}
+              dosEntries={game.dosEntries}
+              defaultDosEntry={game.defaultDosEntry}
+              latestSave={latestSave ? { saveStateId: latestSave.saveStateId, sizeBytes: latestSave.sizeBytes, screenshotUrl: latestSave.screenshotUrl, createdAtMs: latestSave.createdAtMs, coreId: latestSave.core.id, coreName: latestSave.core.name, discIndex: latestSave.discIndex, discLabel: latestSave.discLabel } : null}
+              nowMs={saves.generatedAtMs}
+            />
+          </div>
+          {latestSave || game.videoUrl ? <GameDetailPreview title={game.title} coverUrl={game.coverUrl} videoUrl={game.videoUrl} save={latestSave} /> : null}
+        </section>
+        <div className="game-detail-overview">
+          <section className="game-detail-about" aria-labelledby="game-detail-about-title"><h2 id="game-detail-about-title">关于游戏</h2><GameDetailDescription description={game.description} /></section>
+          <section className="game-detail-facts" aria-label="游戏信息"><h2>游戏资料</h2><div className="game-detail-info-strip">
+            {fact("发行年份", game.releaseYear)}
+            {fact("玩家数", game.players)}
+            {fact("开发商", game.developer)}
+            {fact("发行商", game.publisher)}
+            {fact("类型", game.genre)}
+            {fact("游戏平台", game.platform.name)}
+            {fact("游戏目录", game.platformInstance.name)}
+          </div></section>
         </div>
-        <LaunchControls
-          gameId={game.gameId}
-          coreOptions={game.coreOptions}
-          dosEntries={game.dosEntries}
-          defaultDosEntry={game.defaultDosEntry}
-          latestSave={latestSave ? { saveStateId: latestSave.saveStateId, sizeBytes: latestSave.sizeBytes, screenshotUrl: latestSave.screenshotUrl, createdAtMs: latestSave.createdAtMs, coreId: latestSave.core.id, coreName: latestSave.core.name, discIndex: latestSave.discIndex, discLabel: latestSave.discLabel } : null}
-          nowMs={saves.generatedAtMs}
-        />
-      </section>
-      <PhoneDisclosure title="游戏信息"><section className="game-detail-info-strip" aria-label="游戏信息">
-        {fact("游戏平台", game.platform.name)}
-        {fact("游戏目录", game.platformInstance.name)}
-        {fact("发行年份", game.releaseYear)}
-        {fact("开发商", game.developer)}
-        {fact("发行商", game.publisher)}
-        {fact("类型", game.genre)}
-        {fact("玩家数", game.players)}
-      </section></PhoneDisclosure>
-      <GameDetailSaves gameId={game.gameId} gameTitle={game.title} saves={saves.items} nowMs={saves.generatedAtMs} threadCoreIds={game.coreOptions.filter((core) => core.requiresThreads).map((core) => core.coreId)} />
+        <GameDetailSaves gameId={game.gameId} gameTitle={game.title} saves={saves.items} nowMs={saves.generatedAtMs} threadCoreIds={game.coreOptions.filter((core) => core.requiresThreads).map((core) => core.coreId)} />
+      </div>
     </div>
   );
 }

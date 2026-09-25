@@ -31,6 +31,23 @@ func TestTargetRequiresUniqueProviderBinding(t *testing.T) {
 	}
 }
 
+func TestExplicitBIOSBindingSelectsDiscTargetForSharedCore(t *testing.T) {
+	catalog := runtimecatalog.Catalog{Bindings: []runtimecatalog.Binding{
+		{CoreID: "genesis_plus_gx", ProviderID: "emulatorjs", TargetID: "genesis-plus-gx"},
+		{CoreID: "genesis_plus_gx", ProviderID: "emulatorjs", TargetID: "genesis-plus-gx-cd"},
+	}}
+	if _, err := targetForCore(catalog, "genesis_plus_gx"); !errors.Is(err, dependencies.ErrInvalid) {
+		t.Fatalf("ambiguous implicit target accepted: %v", err)
+	}
+	disc := RuntimeTarget{ProviderID: "emulatorjs", TargetID: "genesis-plus-gx-cd"}
+	if selected, err := targetForCoreBinding(catalog, "genesis_plus_gx", disc); err != nil || selected != disc {
+		t.Fatalf("disc binding = %+v, %v", selected, err)
+	}
+	if _, err := targetForCoreBinding(catalog, "genesis_plus_gx", RuntimeTarget{ProviderID: "other", TargetID: disc.TargetID}); !errors.Is(err, dependencies.ErrInvalid) {
+		t.Fatalf("foreign target accepted: %v", err)
+	}
+}
+
 func TestClaimWritesStateThroughOneScope(t *testing.T) {
 	repository := &workflowRepository{}
 	err := claimBuiltInDATJob(t.Context(), repository, "dat", "job", time.UnixMilli(1000))

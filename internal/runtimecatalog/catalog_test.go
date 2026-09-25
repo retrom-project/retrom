@@ -20,7 +20,7 @@ func TestParseCatalogAndRejectImplementationFacts(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if catalog.SchemaVersion != 1 || len(catalog.Bindings) != 97 {
+	if catalog.SchemaVersion != 1 || len(catalog.Bindings) != 101 {
 		t.Fatalf("catalog = %#v", catalog)
 	}
 	for _, binding := range catalog.Bindings {

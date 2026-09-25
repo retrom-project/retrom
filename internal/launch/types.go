@@ -24,9 +24,10 @@ type (
 )
 
 type (
-	Interval   = application.Interval
-	PlayEvent  = application.PlayEvent
-	PlayResult = application.PlayResult
+	Interval     = application.Interval
+	PlayEvent    = application.PlayEvent
+	PlayResult   = application.PlayResult
+	PlaySnapshot = application.PlaySnapshot
 )
 
 type (

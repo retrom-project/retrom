@@ -77,13 +77,12 @@ test("ACC-UI-003 library filters and game detail use URL state", async ({ page }
   await page.goto("/");
   await expect(page.locator("[data-home-layer]")).toHaveCount(4);
   await expect(page.getByText("我的资料库", { exact: true })).toBeVisible();
-  const latestLayer = page.locator('[data-home-layer="3"]');
-  await expect(latestLayer.getByRole("heading", { name: "最新添加" })).toBeVisible();
-  const latestCardCount = await latestLayer.locator(".home-recent-card").count();
-  expect(latestCardCount).toBeGreaterThan(0);
-  expect(latestCardCount).toBeLessThanOrEqual(10);
-  await latestLayer.getByRole("link", { name: "查看游戏库", exact: true }).click();
-  await expect(page).toHaveURL(/\/library\?sort=ADDED_DESC$/);
+  const platformLayer = page.locator('[data-home-layer="3"]');
+  await expect(platformLayer.getByRole("heading", { name: "换个平台逛逛" })).toBeVisible();
+  await platformLayer.getByRole("link", { name: "进入游戏库", exact: true }).click();
+  await expect(page).toHaveURL(/\/library$/);
+  await page.getByRole("combobox", { name: "排列顺序" }).selectOption("ADDED_DESC");
+  await expect(page).toHaveURL(/sort=ADDED_DESC/);
   await expect(page.getByRole("combobox", { name: "排列顺序" })).toHaveValue("ADDED_DESC");
   await page.goto("/library");
   await expect(page.locator(".library-toolbar")).toBeVisible();
@@ -120,7 +119,7 @@ test("ACC-UI-003 library filters and game detail use URL state", async ({ page }
   await game.getByRole("link").first().click();
   await expect(page).toHaveURL(/\/games\/[0-9a-f-]+$/);
   await expect(page.getByRole("button", { name: "开始游戏" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "从游戏开头开始" })).toBeVisible();
+  await expect(page.locator(".launch-hint")).toHaveText("本次将从游戏开头启动。");
   await page.setViewportSize({ width: 2560, height: 1440 });
   const descriptionLayout = await page.locator(".game-detail-description").evaluate((element) => {
     const box = element.getBoundingClientRect();
@@ -190,10 +189,10 @@ test("ACC-UI-005 user desktop layouts scale at all required viewports", async ({
 test("ACC-UI-005 regression: sparse home rails keep game cards within desktop width caps", async ({ page }) => {
   await page.goto("/");
   await expect(page.locator('[data-home-layer="2"] h2')).toHaveText("最近游玩");
-  await expect(page.locator('[data-home-layer="3"] h2')).toHaveText("最新添加");
+  await expect(page.locator('[data-home-layer="3"] h2')).toHaveText("换个平台逛逛");
   const rails = page.locator(".home-recent-rail");
   expect(await rails.count()).toBeGreaterThan(0);
-  expect(await rails.count()).toBeLessThanOrEqual(2);
+  expect(await rails.count()).toBe(1);
   if (await page.locator('[data-home-layer="2"] .home-recent-card').count() === 0) {
     await expect(page.locator('[data-home-layer="2"] .home-inline-empty')).toBeVisible();
   }

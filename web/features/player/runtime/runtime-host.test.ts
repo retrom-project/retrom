@@ -3,7 +3,7 @@ import {afterEach, describe, expect, it, vi} from "vitest";
 import type {LaunchEnvelopeV1} from "./contract";
 import {createRuntimeHost} from "./runtime-host";
 
-afterEach(() => {document.body.replaceChildren();});
+afterEach(() => {document.body.replaceChildren(); vi.unstubAllGlobals();});
 
 describe("RuntimeHostV1", () => {
   it("mounts the exact host-owned frame mode and removes it on abort", async () => {
@@ -21,9 +21,51 @@ describe("RuntimeHostV1", () => {
     expect(mounted.element.getAttribute("sandbox"))
       .toBe("allow-downloads allow-pointer-lock allow-same-origin allow-scripts");
     expect(mounted.element.allow).toBe("autoplay; fullscreen; gamepad");
+    expect(mounted.element.style.width).toBe("");
     expect(target.contains(mounted.element)).toBe(true);
     controller.abort();
     expect(target.children).toHaveLength(0);
+  });
+
+  it.each(["emulatorjs", "fixture"])("caps the %s core viewport while filling a 4K stage", async (providerId) => {
+    const input = envelope();
+    input.runtime.providerId = providerId;
+    const controller = new AbortController();
+    const target = document.createElement("div");
+    let size = {width: 3840, height: 2160};
+    Object.defineProperties(target, {
+      clientWidth: {configurable: true, get: () => size.width},
+      clientHeight: {configurable: true, get: () => size.height},
+    });
+    document.body.append(target);
+    const resize = {notify: () => {}};
+    const disconnect = vi.fn();
+    vi.stubGlobal("ResizeObserver", class {
+      constructor(callback: ResizeObserverCallback) {resize.notify = () => callback([], this as ResizeObserver);}
+      observe() {}
+      unobserve() {}
+      disconnect = disconnect;
+    });
+
+    const mounted = await createRuntimeHost(input, controller.signal).mountFrame(target, {resourceRole: null});
+    const frame = mounted.element;
+    expect(frame.style.getPropertyValue("--runtime-frame-width")).toBe("1920px");
+    expect(frame.style.getPropertyValue("--runtime-frame-height")).toBe("1080px");
+    expect(frame.style.getPropertyValue("--runtime-frame-transform")).toBe("scale(2)");
+
+    size = {width: 3840, height: 2700};
+    resize.notify();
+    expect(frame.style.getPropertyValue("--runtime-frame-width")).toBe("1536px");
+    expect(frame.style.getPropertyValue("--runtime-frame-height")).toBe("1080px");
+    expect(frame.style.getPropertyValue("--runtime-frame-transform")).toBe("scale(2.5)");
+
+    size = {width: 1280, height: 900};
+    resize.notify();
+    expect(frame.style.getPropertyValue("--runtime-frame-width")).toBe("");
+    expect(frame.style.getPropertyValue("--runtime-frame-height")).toBe("");
+    expect(frame.style.getPropertyValue("--runtime-frame-transform")).toBe("");
+    controller.abort();
+    expect(disconnect).toHaveBeenCalledOnce();
   });
 
   it("mounts only ordinal-zero web resources matching the declared frame mode", async () => {
@@ -38,12 +80,17 @@ describe("RuntimeHostV1", () => {
     const fetcher = vi.fn(async () => new Response(null, {status: 204}));
     const host = createRuntimeHost(input, controller.signal, {fetcher});
     const target = document.createElement("div");
+    Object.defineProperties(target, {
+      clientWidth: {configurable: true, value: 3840},
+      clientHeight: {configurable: true, value: 2160},
+    });
     document.body.append(target);
 
     const mounted = await host.mountFrame(target, {resourceRole: "game"});
 
     expect(mounted.element.src).toBe("https://runtime.example.test/entry");
     expect(mounted.origin).toBe("https://runtime.example.test");
+    expect(mounted.element.style.getPropertyValue("--runtime-frame-width")).toBe("1920px");
     controller.abort();
     expect(fetcher).toHaveBeenCalledWith("https://runtime.example.test/cleanup", {
       credentials: "include", keepalive: true, method: "POST",

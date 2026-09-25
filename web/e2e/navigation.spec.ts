@@ -306,11 +306,12 @@ test("game detail keeps its one-screen hierarchy and opens saves without navigat
     })(),
   }));
   expect(layout.overflow).toBe(false);
-  if (testInfo.project.name === "chrome-1280") {expect(layout.savesTop).toBeLessThan(layout.viewportHeight);}
+  if (testInfo.project.name === "chrome-1280") {expect(layout.savesTop).toBeGreaterThan(layout.heroHeight);}
   else {
     expect(layout.savesBottom).toBeLessThanOrEqual(layout.viewportHeight);
-    expect(layout.heroHeight).toBeLessThanOrEqual(415);
-    expect(Math.max(layout.launchTopGap, layout.launchBottomGap)).toBeLessThanOrEqual(65);
+    expect(layout.heroHeight).toBeLessThanOrEqual(480);
+    expect(layout.launchTopGap).toBeGreaterThan(100);
+    expect(layout.launchBottomGap).toBeGreaterThanOrEqual(32);
     const typography = await page.evaluate(() => {
       const read = (selector: string) => {
         const element = document.querySelector(selector);
@@ -320,22 +321,22 @@ test("game detail keeps its one-screen hierarchy and opens saves without navigat
       return { title: read(".game-detail-main h1"), description: read(".game-detail-description") };
     });
     expect(typography.title.size).toBeGreaterThanOrEqual(36);
-    expect(typography.title.weight).toBeGreaterThanOrEqual(700);
-    expect(typography.description.size).toBeGreaterThanOrEqual(15);
+    expect(typography.title.weight).toBe(600);
+    expect(typography.description.size).toBe(14);
   }
   const saveCards = await page.locator(".game-detail-save-card").evaluateAll((cards) => cards.map((card) => {
     const cardBox = card.getBoundingClientRect();
     const mediaBox = card.querySelector(".game-detail-save-media")?.getBoundingClientRect();
     const bodyBox = card.querySelector(".game-detail-save-body")?.getBoundingClientRect();
-    return { x: cardBox.x, y: cardBox.y, width: cardBox.width, mediaWidth: mediaBox?.width ?? 0, mediaBottom: mediaBox?.bottom ?? 0, bodyTop: bodyBox?.top ?? 0 };
+    return { x: cardBox.x, y: cardBox.y, width: cardBox.width, mediaWidth: mediaBox?.width ?? 0, mediaRight: mediaBox?.right ?? 0, bodyLeft: bodyBox?.left ?? 0 };
   }));
   if (testInfo.project.name !== "chrome-1280" && saveCards.length === 3) {
     expect(Math.max(...saveCards.map((card) => card.y)) - Math.min(...saveCards.map((card) => card.y))).toBeLessThanOrEqual(1);
     expect(saveCards[0].x).toBeLessThan(saveCards[1].x);
     expect(saveCards[1].x).toBeLessThan(saveCards[2].x);
     for (const card of saveCards) {
-      expect(card.mediaWidth / card.width).toBeGreaterThanOrEqual(.98);
-      expect(card.bodyTop).toBeGreaterThanOrEqual(card.mediaBottom - 1);
+      expect(card.mediaWidth / card.width).toBeCloseTo(.42, 1);
+      expect(card.bodyLeft).toBeGreaterThanOrEqual(card.mediaRight - 1);
     }
     const firstSaveCard = page.locator(".game-detail-save-card").first();
     await expect(firstSaveCard.getByText("最近存档", { exact: true })).toBeVisible();
@@ -358,13 +359,14 @@ test("game detail keeps its one-screen hierarchy and opens saves without navigat
         actionWeight: Number.parseInt(actionStyle.fontWeight, 10),
       };
     });
-    expect(cardAndAction.actionWidth / cardAndAction.bodyWidth).toBeGreaterThanOrEqual(.94);
-    expect(cardAndAction.titleSize).toBeGreaterThanOrEqual(14);
-    expect(cardAndAction.titleWeight).toBeGreaterThanOrEqual(700);
+    expect(cardAndAction.actionWidth).toBeGreaterThanOrEqual(100);
+    expect(cardAndAction.actionWidth).toBeLessThanOrEqual(cardAndAction.bodyWidth);
+    expect(cardAndAction.titleSize).toBe(13);
+    expect(cardAndAction.titleWeight).toBe(600);
     expect(cardAndAction.factSize).toBeGreaterThanOrEqual(12);
-    expect(cardAndAction.factWeight).toBeGreaterThanOrEqual(700);
+    expect(cardAndAction.factWeight).toBe(400);
     expect(cardAndAction.actionSize).toBeGreaterThanOrEqual(11);
-    expect(cardAndAction.actionWeight).toBeGreaterThanOrEqual(700);
+    expect(cardAndAction.actionWeight).toBe(600);
   }
 
   const runtimeButton = page.getByRole("button", { name: /更换/ });

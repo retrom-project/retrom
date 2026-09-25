@@ -725,7 +725,7 @@ Mega Drive 导入回归另用测试内生成的非游戏 payload，经服务器�
 - 上限：180 秒。
 - 执行：`make acceptance-case CASE=ACC-BIOS-002`。
 - 流程：移除 FDS 必需 BIOS 做预检；分别以 `.gb/.gbc/.gba` 小型真实 fixture 检查 Gambatte/mGBA 可选 BIOS 不存在、仅安装另一内容类型 BIOS，以及安装匹配内容类型的正确/`HASH_WARNING` BIOS；读取 Launch config/bundle。为 MelonDS 安装 `bios7.bin/bios9.bin/firmware.bin` 后创建 Launch 和存档，切换其中一个 active installation，再检查旧运行终止/载荷释放并创建使用新依赖的 Launch。最后以 entry 名齐全但 hash 不同的 Arcade BIOS/base archive 启动，并检查包含自身依赖的 Full Non-Merged Arcade fixture。
-- 通过标准：适用必需文件/entry 完全缺失阻断；不适用 requirement 不进入 digest/bundle，可选文件缺失只提示且不增加 activation option。匹配内容类型的 active `MATCHED/HASH_WARNING` BIOS 以 Requirement 逻辑名装入，Gambatte config 精确增加 `gambatte_gb_bootloader=enabled`、mGBA 增加 `mgba_use_bios=ON`；MelonDS 的三个 BIOS 不进入根 bundle，而是精确映射到三个固定虚拟路径。同一 Requirement 替换 BIOS 后旧 Launch、内容 URL、Play 和存档保持可用；新启动与从存档继续按需重校验并锁定新 BIOS，旧 Launch 不漂移。创建事务拒绝并发替换导致的混合输入。覆盖相同 bytes、重复替换、共享 Blob、失败回滚、服务重启、正常退出、bootstrap/idle/hard 到期、超过一批的待释放引用，以及旧 Blob 提前 GC 的保护。后台回收仅处理截止的 Launch，释放文件引用后其旧 capability 不可访问，存档与无关会话保留。Arcade entry 名齐全但 size/hash 不同也形成 `HASH_WARNING` 依赖、进入 bundle 并允许启动。另一内容类型 BIOS 不误启用，冲突 option seed 被校验拒绝，浏览器不按 core 名补写。Full Non-Merged 已内含依赖时不要求重复上传；页面按平台/core 聚合而不按游戏目录复制，`gamegenie.nes/sgb_bios.bin` 按一期条件明确标“未使用”而非缺失。
+- 通过标准：适用必需文件/entry 完全缺失阻断；不适用 requirement 不进入 digest/bundle，可选文件缺失只提示且不增加 activation option。匹配内容类型的 active `MATCHED/HASH_WARNING` BIOS 以 Requirement 逻辑名装入，Gambatte config 精确增加 `gambatte_gb_bootloader=enabled`、mGBA 增加 `mgba_use_bios=ON`；MelonDS 的三个 BIOS 不进入根 bundle，而是精确映射到三个固定虚拟路径。同一 Requirement 替换 BIOS 后旧 Launch、内容 URL、Play 和存档保持可用；新启动与从存档继续按需重校验并锁定新 BIOS，旧 Launch 不漂移。创建事务拒绝并发替换导致的混合输入。覆盖相同 bytes、重复替换、共享 Blob、失败回滚、服务重启、正常退出、bootstrap/hard 到期与旧 idle 失效、超过一批的待释放引用，以及旧 Blob 提前 GC 的保护。后台回收仅处理截止的 Launch，释放文件引用后其旧 capability 不可访问，存档与无关会话保留。Arcade entry 名齐全但 size/hash 不同也形成 `HASH_WARNING` 依赖、进入 bundle 并允许启动。另一内容类型 BIOS 不误启用，冲突 option seed 被校验拒绝，浏览器不按 core 名补写。Full Non-Merged 已内含依赖时不要求重复上传；页面按平台/core 聚合而不按游戏目录复制，`gamegenie.nes/sgb_bios.bin` 按一期条件明确标“未使用”而非缺失。
 - 证据：预检/digest、两份 Launch config、BIOS bundle/external file 清单、跨 Launch 负向响应和 BIOS 页面截图。
 
 ### ACC-BIOS-003：服务器 root、目录浏览与授权边界
@@ -924,8 +924,8 @@ Mega Drive 导入回归另用测试内生成的非游戏 payload，经服务器�
 - 暂停回归：保持只读调试面板打开，点击顶部暂停，分别点击暂停画面空白、中央提示与键盘激活“继续游戏”，每次均恢复运行且调试面板/工具栏保持可见；设置、退出确认保护由对应组件/策略测试覆盖。
 - 上限：180 秒。
 - 执行：`make acceptance-case CASE=ACC-RUN-002`。
-- 流程：先用 `testdata/public-roms/gba-smoke/gba-smoke.gba` 经过真实上传、导入、审核和发布建立 mGBA 游戏；在详情点击一次“开始游戏”，记录原始点击、Fullscreen 调用、launch/config 请求、iframe 配置、EmulatorJS network 和 start 事件；运行后读取实际 controls，按 `P` 暂停并再次按 `P` 继续；打开右侧“调试信息”面板并等待两次采样；打开模拟器设置，依次切换画面模式以及 Core/显示面板；再用 `mame2003` override 执行一次短流程。`make web-e2e` 另在物理 4K 150% 项目重复真实 mGBA Player 链路并校验截图像素尺寸。
-- 通过标准：对始终存在的 `document.documentElement` 的 Fullscreen 请求仍在用户激活链且发生于第一个 await 前；同一 Player Shell 显示加载并自动开始；没有 Retrom 第二个 Start 或 EmulatorJS `Play Now`；进入有效帧画面。实际 controls 只含运行时专题规定的键盘绑定，所有未列键盘 control 为未绑定；共享投币键 `5` 只命中 P1 control 2，P2 control 2 未绑定，确保一次物理按键只注入一路 coin；P1 的全部 gamepad `value2` 与上游默认逐项相同且 P2/P3/P4 gamepad 默认不变；`P` 不成为游戏 control，能停止并恢复核心帧推进，同时正确投影 Player/heartbeat 的暂停状态。默认“锐利像素”使用无滤波、颜色直通的 `retrom-passthrough` shader 且 canvas 计算样式为 `image-rendering: pixelated`；“清晰增强”启用 `retrom-sharp-bilinear`，增强锐化、原始画面与返回默认模式即时更新当前 EJS shader/CSS，原始画面使用同一颜色直通 shader 并恢复浏览器默认缩放；核心启动或读档切换原生分辨率后不得出现纯色或裁切。顶部栏保留唯一常驻“创建存档”，更多菜单不重复该动作；Core 设置切到显示设置后 Graphics Settings 与 shader 入口可见。`make web-e2e` 的物理 4K 150% Player 截图必须为 3840×2160。点击“调试信息”不暂停 main loop，右侧面板显示从核心帧计数按相邻单调时钟采样计算的一位小数 FPS、累计帧数、真实 canvas 分辨率、Core/EmulatorJS/adapter、输入模式、隔离能力、viewport/DPR 和非秘密 Bundle digest，蒙层背景半透明且无关闭按钮，再次点击顶部调试按钮收起，更多菜单不含重复调试入口或仅介绍 Esc 的快捷键项；关闭后不残留可聚焦控件。支持输入诊断的 Provider 显示短按的按下/松开与投递位置，开启前后核心继续推进且无重复输入，关闭恢复原观察函数；未支持时明确未接入。进入游玩页与退出返回均替换当前浏览器历史项，退出后浏览器后退不得重新进入 Player Shell。config 严格符合 HTTP 契约且不含 secret/Blob/宿主路径；`emulatorGameId` 为 `1..9007199254740991` 的 JSON number、`gameName` 为其稳定十进制派生，Arcade `gameUrl` basename 精确为 DAT machine 的 `<machine>.zip`。iframe 先设置 `player/pathtodata/gameName/gameID/paths/defaultControls` 及 Target 明确要求的输入布局再加载固定 loader；Mega Drive 必须保留 Start 与六键映射，启动前已连接的手柄应自动分配空闲玩家且不覆盖既有分配，`typeof EJS_gameID === "number"`。EJS 配置固定 `language=zh-CN`、`disableAutoLang=false`（按 v4.2.3 的反向 sentinel 语义），网络只请求 manifest 中的 `zh-CN.json`，不得按系统 locale 或 CDN fallback；普通 core artifact 来自 config 的 basename 映射，`mame2003-wasm.data` 精确请求固定 4.2.1 override，未请求 4.2.3 同名 artifact 或外部 CDN。
+- 流程：先用 `testdata/public-roms/gba-smoke/gba-smoke.gba` 经过真实上传、导入、审核和发布建立 mGBA 游戏；在详情点击一次“开始游戏”，记录原始点击、Fullscreen 调用、launch/config 请求、iframe 配置、EmulatorJS network 和 runtime 启动事件；运行后读取实际 controls，按 `P` 暂停并再次按 `P` 继续；中断一次游玩时长上报并检查核心帧继续推进；打开右侧“调试信息”面板并等待两次采样；打开模拟器设置，依次切换画面模式以及 Core/显示面板；再用 `mame2003` override 执行一次短流程。`make web-e2e` 另在物理 4K 150% 项目重复真实 mGBA Player 链路并校验截图像素尺寸。
+- 通过标准：对始终存在的 `document.documentElement` 的 Fullscreen 请求仍在用户激活链且发生于第一个 await 前；同一 Player Shell 显示加载并自动开始；没有 Retrom 第二个 Start 或 EmulatorJS `Play Now`；进入有效帧画面。实际 controls 只含运行时专题规定的键盘绑定，所有未列键盘 control 为未绑定；共享投币键 `5` 只命中 P1 control 2，P2 control 2 未绑定，确保一次物理按键只注入一路 coin；P1 的全部 gamepad `value2` 与上游默认逐项相同且 P2/P3/P4 gamepad 默认不变；`P` 不成为游戏 control，能停止并恢复核心帧推进，同时正确投影 Player/游玩时长统计的暂停状态；游玩时长请求中断后核心帧仍继续推进，产品 Player 不发送 start、heartbeat 或 finish 请求。默认“锐利像素”使用无滤波、颜色直通的 `retrom-passthrough` shader 且 canvas 计算样式为 `image-rendering: pixelated`；“清晰增强”启用 `retrom-sharp-bilinear`，增强锐化、原始画面与返回默认模式即时更新当前 EJS shader/CSS，原始画面使用同一颜色直通 shader 并恢复浏览器默认缩放；核心启动或读档切换原生分辨率后不得出现纯色或裁切。顶部栏保留唯一常驻“创建存档”，更多菜单不重复该动作；Core 设置切到显示设置后 Graphics Settings 与 shader 入口可见。`make web-e2e` 的物理 4K 150% Player 截图必须为 3840×2160。点击“调试信息”不暂停 main loop，右侧面板显示从核心帧计数按相邻单调时钟采样计算的一位小数 FPS、累计帧数、真实 canvas 分辨率、Core/EmulatorJS/adapter、输入模式、隔离能力、viewport/DPR 和非秘密 Bundle digest，蒙层背景半透明且无关闭按钮，再次点击顶部调试按钮收起，更多菜单不含重复调试入口或仅介绍 Esc 的快捷键项；关闭后不残留可聚焦控件。支持输入诊断的 Provider 显示短按的按下/松开与投递位置，开启前后核心继续推进且无重复输入，关闭恢复原观察函数；未支持时明确未接入。进入游玩页与退出返回均替换当前浏览器历史项，退出后浏览器后退不得重新进入 Player Shell。config 严格符合 HTTP 契约且不含 secret/Blob/宿主路径；`emulatorGameId` 为 `1..9007199254740991` 的 JSON number、`gameName` 为其稳定十进制派生，Arcade `gameUrl` basename 精确为 DAT machine 的 `<machine>.zip`。iframe 先设置 `player/pathtodata/gameName/gameID/paths/defaultControls` 及 Target 明确要求的输入布局再加载固定 loader；Mega Drive 必须保留 Start 与六键映射，启动前已连接的手柄应自动分配空闲玩家且不覆盖既有分配，`typeof EJS_gameID === "number"`。EJS 配置固定 `language=zh-CN`、`disableAutoLang=false`（按 v4.2.3 的反向 sentinel 语义），网络只请求 manifest 中的 `zh-CN.json`，不得按系统 locale 或 CDN fallback；普通 core artifact 来自 config 的 basename 映射，`mame2003-wasm.data` 精确请求固定 4.2.1 override，未请求 4.2.3 同名 artifact 或外部 CDN。
 - 证据：Playwright trace、两份 config/network 摘要、事件顺序、Player/调试信息截图和按钮断言。
 
 ### ACC-RUN-014：输入诊断旁路与透明蒙层
@@ -1060,11 +1060,23 @@ restart；必须停止 main loop、卸载文件系统并执行延迟清理，最
 - 显式输入：`RETROM_ACCEPTANCE_BASE_URL`、`RETROM_ACCEPTANCE_USERNAME/PASSWORD`、`RETROM_CHROME_EXECUTABLE`、`RETROM_EXPANSION_ROM`；Neo Geo 另需 `RETROM_EXPANSION_BIOS`。只读取操作者明确提供的单个文件，不自动发现或下载私有游戏。
 - 先通过 Upload/Import 获取审核项，以真实 Review Preview 生成画面并保存审核截图，再通过 Approve 发布、创建新的 Product Launch。保留 ROM 摘要、实际 Provider/Target/module 与内容摘要。
 - 使用标准映射虚拟手柄验证方向与确认的按下/释放、实际屏幕结果、暂停后帧停止、非空即时存档、不同 Launch 的原生恢复完成回执和恢复后方向输入。`RETROM_EXPANSION_START_BUTTONS` 可显式给出游戏启动按键数组，`RETROM_EXPANSION_START_GAP_FRAMES` 指定按键间的核心帧间隔，`RETROM_EXPANSION_CONFIRM_BUTTON` 指定确认按钮，`RETROM_EXPANSION_BOOT_FRAMES` / `RETROM_EXPANSION_POST_START_FRAMES` 指定启动按键前后等待的真实核心帧数（单次最多等待 90 秒）（仍受总超时限制）；不会改变生产映射。
+- 浏览器默认使用 `1280×900` CSS 视口；大屏验证可显式设置 `RETROM_EXPANSION_VIEWPORT_WIDTH/HEIGHT`，并在证据中记录实际视口。若恢复点位于只响应 Start 的标题画面，可用 `RETROM_EXPANSION_RESTORE_BUTTON=9`，仍须同时核对输入事件、恢复前后有效画面及游戏状态变化。
 - 自动输出 `AUTOMATED_PASS_REQUIRES_VISUAL_REVIEW` 仅表示链路断言通过；必须逐项审阅 `review-preview/before-input/direction/confirm/saved/restored/restored-input.png`，确认画面有效、输入改变游戏状态且恢复至所存场景，才能记录最终 PASS。动画造成的图片摘要变化本身不能证明方向或确认有效。实体标准手柄另做人工 smoke；虚拟注入不能冒充硬件兼容证据。
 - 赛车等需要持续油门的样本可用 `RETROM_EXPANSION_HOLD_BUTTON` 指定独立按住的标准手柄按钮，在方向测试前推进 120 核心帧，并于截图后释放；恢复后同样验证。每个按钮仍只发送一个目标输入。输出 `recipe` 与每次启动按键的 `start-N.png` 以复核菜单时序。
 - 证据由 `RETROM_ACCEPTANCE_CASE_DIR` 指定，默认写 `.artifacts/platform-expansion/<platform>/product.json` 和 PNG。失败保留阶段与错误，不写凭据或本机来源路径。
 - `RETROM_EXPANSION_REVIEW_ID` / `RETROM_EXPANSION_GAME_ID` 仅用于恢复同一样本的失败验证，记录 reused；必须与首次导入/预览/发布证据一起评审，不算重新覆盖前置流程。
 - 一个样本不能代表全库；Pico 必须区分基本方向/确认与笔、翻页外设覆盖，Neo Geo 必须使用与目标 DAT 匹配的游戏/BIOS。缺样本或必需能力不通过时保留 FAIL/BLOCKED，不以相邻平台代替。
+
+### ACC-RUN-018：Sega CD、Amiga CD32 与 Satellaview/BS-X 产品验证
+
+- 每个平台硬超时 600 秒。入口：`timeout 600 node scripts/acceptance/platform_expansion_product.mjs <segacd|amigacd32|satellaview>`；PUAE 普通 Amiga 内容回归使用同一入口的 `amiga` 参数；无头模式无法推进帧时按 ACC-RUN-017 的 headed/Xvfb 方式重试。
+- 输入沿用 ACC-RUN-017 的 PFB URL、账号、Chrome、单个 ROM 与证据目录变量，并显式设置 `RETROM_EXPANSION_BIOS_DIR` 为该平台所需 BIOS 文件所在目录。脚本只读取明确指定的样本和已知逻辑 BIOS 文件名，不扫描、下载或提交操作者内容。
+- 标准手柄按钮 `12/13/14/15` 依次是上/下/左/右。初次方向默认向右（`15`），纵向菜单可用 `RETROM_EXPANSION_DIRECTION=13` 向下。恢复后默认向左（`14`），处于左边界时可用 `RETROM_EXPANSION_RESTORE_DIRECTION=15` 向右。必须保留截图中真实的角色或菜单位置变化，不得仅靠映射事件通过。
+- 确认键会进入长时间读盘画面的样本，可用 `RETROM_EXPANSION_POST_CONFIRM_FRAMES` 等待明确的后续场景再截图、存档；仍须逐图确认输入导致的实际状态变化。
+- Sega CD 只选单文件 CHD，检查 `genesis_plus_gx` 三地区 BIOS 未安装时阻断，安装后 Review Preview 和 Product Launch 使用 `emulatorjs/genesis-plus-gx-cd`；同一核心的普通 Mega Drive 卡带仍不要求 CD BIOS。
+- Amiga CD32 选单文件 CHD 或 ISO，检查 `puae` 的 Kickstart 与 extended ROM 未安装时阻断，安装后 Review Preview 和 Product Launch 使用 `emulatorjs/puae`；同一核心的普通软盘内容不要求 CD32 BIOS。两种平台均使用 PUAE 的 Content I/O 虚拟文件系统；CD32 完整文件在独立 Launch 间复用，恢复启动不得再次完整下载游戏。普通 Amiga 的 ADF/LHA 等格式须保留扩展名并单独做启动回归；测试需要 Kickstart 的样本时安装可选 A500/A1200 BIOS，并逐图确认实际启动。
+- Satellaview 选 BS/SFC/SMC 单文件，安装 `BS-X.bin` 后检查 Review Preview 和 Product Launch 使用 `emulatorjs/snes9x`。保留其既有可选 BIOS 语义；需要固件的样本应实际读取该 bundle，不以安装状态代替画面验证。
+- 三个平台分别完成导入、审核预览截图、发布、启动画面 A、方向后的 B、确认后的 C、显式存档、不同 Launch 恢复 B、恢复后方向输入与退出。浏览器注入标准手柄的映射事件和截图都需检查；`AUTOMATED_PASS_REQUIRES_VISUAL_REVIEW` 只有逐图确认后才能记 PASS。实体手柄需单独人工验证。记录 Provider、Target、Bundle、内容摘要与 BIOS bundle 的身份摘要、成员数；不能把帧数、HTTP 200、静止截图或一个游戏样本外推为平台全库兼容。
 
 ### ACC-SAVE-001：手动状态存档与截图
 
@@ -1094,9 +1106,9 @@ restart；必须停止 main loop、卸载文件系统并执行延迟清理，最
 
 - 上限：120 秒。
 - 执行：`make acceptance-case CASE=ACC-PLAY-001`。
-- 流程：使用 fake clock 先驱动一次 config 后/start 前超过 2 分钟的加载和 pre-start finish，再用新 Launch 驱动 start、两次 heartbeat、页面隐藏、暂停、失联和重复 finish；另提交越界 `clientObservedAtMs`。
-- 通过标准：加载阶段没有 PlaySession/idle 误过期，pre-start finish 撤销且不创建游玩记录；真实 start 后才启用 2 分钟 idle。三个事件端点都位于 `/runtime/launches/{launchId}/` 且校验 launch cookie，只有公开 launchId 没有 cookie 时为 401。只累计实际运行区间；隐藏/暂停/超出失联上限不累计；heartbeat/finish 幂等、跳号冲突，client time 只审计且越界拒绝；数据库全为整数毫秒，首页/详情汇总一致。
-- 证据：事件时间线、期望/实际 duration 和 API 汇总。
+- 流程：后端集成测试使用过期旧 idle 的 ACTIVE Launch，模拟统计请求丢失、重复和乱序，验证 config、内容读取、存档授权与累计时长；migration 测试验证旧 idle 和回收期限修正。前端单元测试模拟统计请求失败，并验证运行、隐藏、暂停、退出时的时长与导航。真实 Player 启动链路另由 `ACC-RUN-002` 的 Chrome 用例覆盖。
+- 通过标准：加载和运行都不因 idle 或统计失败而撤销，首次成功快照创建 PlaySession，重复或更小快照不回退时长；隐藏/暂停不增加客户端快照。统计请求不阻断启动、存档或退出；持久 launch credential 在服务重新加载后继续有效。没有 cookie 返回 401，hard expiry 和明确撤销仍阻断私有操作；数据库全为整数毫秒，首页/详情汇总一致。
+- 证据：后端集成与 migration 测试、客户端时钟和会话单元测试的结果；服务运行中断期间的真实浏览器帧连续性需另行验证。
 
 ## 14. 核心产品链路覆盖
 
@@ -1129,8 +1141,8 @@ restart；必须停止 main loop、卸载文件系统并执行延迟清理，最
 
 - 上限：180 秒。
 - 执行：`make acceptance-case CASE=ACC-UI-003`。
-- 流程：检查首页时长、最近游玩和按添加时间倒序的最新 10 款游戏；在游戏库搜索并按平台/目录筛选；从卡片进入详情；查看封面、元信息、时长、最近 3 份存档、全量存档 Drawer、截图预览、核心和 DOS 程序；从存档次要入口进入详情。
-- 通过标准：首页五层顺序为最近玩的游戏/快速开始、最近游玩、最新添加、平台、资料库摘要；最新添加只含启用目录中的已发布游戏，最多 10 款且以创建时间和 Game ID 稳定倒序，入口进入游戏详情，“查看游戏库”恢复最近加入排序。游戏库首屏和每个续页只请求 50 条，滚动到末尾才按 cursor 读取下一页；同一次哨兵停留不并发或连续重复请求，跨页无重复/漏项，首分页 facet 仍提供全部平台、目录、活动标签和真实计数，搜索/筛选/排序改动取消旧请求并从首分页重载。筛选进入 URL 且刷新可恢复；卡片只显示已发布游戏；详情信息完整，默认核心状态准确；详情简介保留全文，超长时在固定区域内滚动；在 2560px CSS viewport 中简介占满 Hero 中栏可用宽度而不留固定空白；详情只内联最近 3 份存档，顶部继续游戏缩略图、卡片、全量 Drawer 缩略图和截图预览右下角以小圆角矩形居中展示实际存档大小（1024 进位、最多两位小数），无截图占位也显示大小；每张卡按保存时间/名称与状态、保存位置/锁定 Core/保存时累计时长、整行恢复操作三层展示，Drawer 包含当前游戏全部存档，其桌面行高约为原紧凑行的 1.5 倍，主色白字“▶ 继续”位于右下角且关键文字使用明确粗体层级；取消运行方式对话框不修改偏好，应用后才生效；存档主操作直接启动、标题/次要操作才进详情。
+- 流程：检查首页时长、最近游玩和按添加时间倒序的最新 10 款游戏；在游戏库搜索并按平台/目录筛选；从卡片进入详情；查看封面、元信息、时长、最近 3 份存档、全量存档 Drawer、静态截图、核心和 DOS 程序；从存档次要入口进入详情。
+- 通过标准：首页四层为最近玩的游戏/快速开始、最近游玩、平台和资料库摘要；平台区“进入游戏库”链接可达，游戏库可选择最近加入排序并写入 URL。游戏库首屏和每个续页只请求 50 条，滚动到末尾才按 cursor 读取下一页；同一次哨兵停留不并发或连续重复请求，跨页无重复/漏项，首分页 facet 仍提供全部平台、目录、活动标签和真实计数，搜索/筛选/排序改动取消旧请求并从首分页重载。筛选进入 URL 且刷新可恢复；卡片只显示已发布游戏；详情信息完整，默认核心状态准确；详情简介超过 320 个 Unicode 字符时可展开全文，使用页面自然滚动且不撑高 Hero；2560px CSS viewport 下简介与双列资料在 Hero 下方分栏；详情只内联最近 3 份存档，顶部继续游戏缩略图、卡片、全量 Drawer 缩略图右下角以小圆角矩形居中展示实际存档大小（1024 进位、最多两位小数），无截图占位也显示大小；卡片与 Drawer 截图均不可点击放大，不显示最近/手动/游戏内存档等重复状态标签；每张卡按保存时间/名称、保存位置/锁定 Core/保存时累计时长、次要恢复操作三层展示，Drawer 包含当前游戏全部存档，其桌面行高约为原紧凑行的 1.5 倍，主色白字“▶ 继续”位于右下角且关键文字使用明确粗体层级；取消运行方式对话框不修改偏好，应用后才生效；存档主操作直接启动、标题/次要操作才进详情。
 - 证据：URL/query、可访问 DOM 断言和关键截图。
 
 ### ACC-UI-004：加载、空、错误、Warning 与 Blocker 状态
@@ -1146,11 +1158,11 @@ restart；必须停止 main loop、卸载文件系统并执行延迟清理，最
 - 上限：180 秒。
 - 执行：`make acceptance-case CASE=ACC-UI-005`。
 - 流程：在 `1280×800`、`2560×1440` CSS viewport，以及物理 3840×2160、150% scale（`2560×1440` CSS viewport、DPR 1.5）的 `chrome-4k-150` 项目分别打开首页、游戏库、详情、存档、收藏、最近游玩、账户和 Player Shell；首页另在浏览器工具栏占用后的代表性 `1920×950` CSS viewport 复测，并以 `3840×2160` CSS viewport 做不生成标准 4K 截图的补充 ultra-wide 检查。
-- 通过标准：无页面级横向溢出、遮挡、过小控件或跨屏长文本；所有被本 Case 打开的用户页面中，可见按钮和链接的操作文案均不追加字面量箭头字符 `→`。同一 CSS viewport 下首页、游戏库、详情、存档、收藏、最近游玩与账户页的主容器相对应用内容区的左、右间距分别一致，测量误差均不超过 1px。首页右侧收藏按收藏时间倒序展示最多 3 款可访问游戏，覆盖空收藏、1/2/3 款与超过 3 款、已删除墓碑跳过、加载错误重试及用户切换取消旧请求；卡片与查看全部进入正确路由，紧凑宽屏三行均不溢出。另覆盖 DPR 1.5 的 `2560×1360`、`2560×1300`、`2560×1200`、`2560×1100` CSS viewport：收藏行无重叠，末行距卡片底部不超过 24px，1300px 及以上高度的收藏封面至少 49px。首页主卡中游戏标题不重复，空历史可进入游戏库，有旧存档但无本次会话存档时仍为“再玩一次”，有本次存档时继续操作绑定精确 SaveState；状态提示不显示装饰圆点，首页分区导航入口与收藏区“查看全部”的颜色、字号、字重一致；平台 📌 图钉位于卡片右上角，未置顶时悬停或键盘聚焦后显示，置顶后移开鼠标、失焦或刷新仍常显，取消置顶后恢复隐藏，可用键盘完成置顶及取消置顶。首页“最近玩的游戏”、最近游玩的全部封面容器在桌面与手机 viewport 均为 5:7，宽高比误差不超过 0.01；此次比例调整保持各布局原有高度，只收窄宽度。这些真实封面图片均保持原比例、居中裁切并填满容器，不显示黑边。首页最近游玩在稀疏数据下从左侧自然排列，常规桌面单卡宽度不超过 480px，不得拉伸填满轨道。物理 4K 150% 与 `1920×950` 首页内容自然流动，允许纵向滚动；同宽度下改变窗口高度，各区块高度和间距保持稳定，不能按视口压缩或拉伸页面内容；物理 4K 页面截图的 CSS viewport/DPR 必须为 `2560×1440/1.5`，PNG 必须为 `3840×2160` 像素。游戏库按270–280px 的原有固定范围卡片自适应列数，共享页面有效内容宽度不超过 2320px。详情页封面下不显示重复的平台、年份和媒体状态描述，封面保持 3:4 比例并垂直居中，视频预览控制与读屏状态保留；顶部返回入口为 14px，启动卡标题为 20px；桌面详情平台和游戏名靠上、累计游玩靠下，中间描述全文保留并在剩余高度内滚动，封面不随启动卡拉伸，常规内容 Hero 高度不超过 440px，超长描述可通过滚动完整阅读，不能撑高 Hero 或覆盖累计游玩。详情收藏入口为游戏名左侧的 38px 圆形红心，不显示文字和管理收藏夹按钮，取消收藏确认仍可用；最近存档框高度至少 136px、8px 圆角、1px 边框，截图宽 112px、16:9。启动区标题右侧无状态标签；运行方式名称与“更换”垂直居中；重启按钮与运行方式分隔线保持 12px 间距。无可用存档时展示新的游玩提示，且提示区域位于主按钮上方，不显示恢复按钮或暗示自动保存。游戏库卡片不显示标签，标签筛选仍可用；所有卡片等高，封面保持 3:4，最近游玩行底边对齐。无封面占位中的顶部标识和底部核心名位置固定，标题最多三行（手机两行）且长标题不推动这两项。详情页在 `2560×1440`（同时代表物理 4K 150% 的 CSS 布局）下 Hero、信息条和最近 3 份存档均完整落在首屏；存档为三列纵向大截图卡片，截图保持比例，Drawer/对话框不推动页面布局；`1280×800` 下关键启动操作和存档区仍在首屏可达。Player stage 为无边距的 100vw×100dvh；进入运行态后 58px toolbar 立即自动移出画面，只有指针进入顶部 32px、`Tab` 导航或工具栏获焦才恢复，画面中央 pointermove 和方向键/WASD/动作键/投币/开始等普通游戏输入均不改变可见性；显式按 `P` 暂停后按暂停态保持工具栏可见。标题/Core/平台和同步状态不挤压主操作。点击顶部 toolbar 的标题空白或任一操作都先暂停且保持暂停，只有点击游戏画面恢复；点击模拟器设置控件不能误恢复。EmulatorJS 原生底部工具栏启动后及靠近底边时始终隐藏；Retrom 的“模拟器设置”首次点击直接显示包含控制、显示、Core 设置、音量、静音和收起的自绘工具栏，桥接出来的原生设置面板与自绘栏均不存在 EmulatorJS 退出按钮。canvas rect 完全在 viewport 内，CSS/drawing-buffer 宽高比误差 ≤0.01，宽或高至少一边与 viewport 对应边误差 ≤2px，另一边按 contain 公式在水平和垂直方向居中，未被裁切或拉伸。
+- 通过标准：无页面级横向溢出、遮挡、过小控件或跨屏长文本；所有被本 Case 打开的用户页面中，可见按钮和链接的操作文案均不追加字面量箭头字符 `→`。同一 CSS viewport 下首页、游戏库、详情、存档、收藏、最近游玩与账户页的主容器相对应用内容区的左、右间距分别一致，测量误差均不超过 1px。首页右侧收藏按收藏时间倒序展示最多 3 款可访问游戏，覆盖空收藏、1/2/3 款与超过 3 款、已删除墓碑跳过、加载错误重试及用户切换取消旧请求；卡片与查看全部进入正确路由，紧凑宽屏三行均不溢出。另覆盖 DPR 1.5 的 `2560×1360`、`2560×1300`、`2560×1200`、`2560×1100` CSS viewport：收藏行无重叠，末行距卡片底部不超过 24px，1300px 及以上高度的收藏封面至少 49px。首页主卡中游戏标题不重复，空历史可进入游戏库，有旧存档但无本次会话存档时仍为“再玩一次”，有本次存档时继续操作绑定精确 SaveState；状态提示不显示装饰圆点，首页分区导航入口与收藏区“查看全部”的颜色、字号、字重一致；平台 📌 图钉位于卡片右上角，未置顶时悬停或键盘聚焦后显示，置顶后移开鼠标、失焦或刷新仍常显，取消置顶后恢复隐藏，可用键盘完成置顶及取消置顶。首页“最近玩的游戏”、最近游玩的全部封面容器在桌面与手机 viewport 均为 5:7，宽高比误差不超过 0.01；此次比例调整保持各布局原有高度，只收窄宽度。这些真实封面图片均保持原比例、居中裁切并填满容器，不显示黑边。首页最近游玩在稀疏数据下从左侧自然排列，常规桌面单卡宽度不超过 480px，不得拉伸填满轨道。物理 4K 150% 与 `1920×950` 首页内容自然流动，允许纵向滚动；同宽度下改变窗口高度，各区块高度和间距保持稳定，不能按视口压缩或拉伸页面内容；物理 4K 页面截图的 CSS viewport/DPR 必须为 `2560×1440/1.5`，PNG 必须为 `3840×2160` 像素。游戏库按270–280px 的原有固定范围卡片自适应列数，共享页面有效内容宽度不超过 2320px。详情内层居中且最大 1800px；静态封面 3:4，不随相邻内容拉伸，视频在独立 16:9 区域完整适配，播放控制与读屏状态保留。顶部返回入口为 14px；游戏标题后为 38px 圆形收藏按钮，取消收藏确认仍可用。标题下依次为游玩信息、继续/重新开始操作、锁定存档核心提示与普通启动运行方式；运行方式名称与“更换”垂直居中。无可用存档时仅保留开始游戏与紧凑提示，不显示恢复按钮或暗示自动保存。最近可用存档预览优先于视频，可手动切换，切换前后预览、Hero 和下方资料区域位置及高度一致；预览标题加粗且两种切换文案按钮均为 128px 宽；顶部存档预览不显示下方时间/Core/查看大图文字，截图为静态图片且点击不打开弹窗；无存档和视频时不留空预览列。简介与资料在下方分栏，长简介展开后自然滚动且不改变 Hero 高度；长标题和元数据换行不溢出。游戏库卡片不显示标签，标签筛选仍可用；所有卡片等高，封面保持 3:4，最近游玩行底边对齐。无封面占位中的顶部标识和底部核心名位置固定，标题最多三行（手机两行）且长标题不推动这两项。详情页在 `2560×1440`（同时代表物理 4K 150% 的 CSS 布局）下常规内容的 Hero、关于游戏/资料和最近三份存档完整落在首屏；存档三列横向紧凑排列，截图约占 42% 且保持 16:9 完整比例。较窄桌面预览移到下一行，存档改为纵向卡片，页面自然滚动；Drawer/对话框不推动页面布局；`1280×800` 下关键启动操作首屏可达。Player stage 为无边距的 100vw×100dvh；进入运行态后 58px toolbar 立即自动移出画面，只有指针进入顶部 32px、`Tab` 导航或工具栏获焦才恢复，画面中央 pointermove 和方向键/WASD/动作键/投币/开始等普通游戏输入均不改变可见性；显式按 `P` 暂停后按暂停态保持工具栏可见。标题/Core/平台和同步状态不挤压主操作。点击顶部 toolbar 的标题空白或任一操作都先暂停且保持暂停，只有点击游戏画面恢复；点击模拟器设置控件不能误恢复。EmulatorJS 原生底部工具栏启动后及靠近底边时始终隐藏；Retrom 的“模拟器设置”首次点击直接显示包含控制、显示、Core 设置、音量、静音和收起的自绘工具栏，桥接出来的原生设置面板与自绘栏均不存在 EmulatorJS 退出按钮。canvas rect 完全在 viewport 内，CSS/drawing-buffer 宽高比误差 ≤0.01，宽或高至少一边与 viewport 对应边误差 ≤2px，另一边按 contain 公式在水平和垂直方向居中，未被裁切或拉伸。
 - 收藏与侧栏布局回归：`web/e2e/favorite-layout.spec.ts` 覆盖悬浮导航默认位置、拖动、方向键移动、折叠/展开、缩窗边界与手机可操作性，卡片无外显标签、爱心/菜单同高且位于左右上角、批量选择不重叠；桌面用户入口只显示昵称，用户信息与管理入口和主导航同高，头像为 26px。`save-manager.test.tsx` 覆盖存档分组不外显标签。
 - 连续标签操作回归：`web/e2e/tag-continuous.spec.ts` 检查管理列表不外显标签、详情连续选择两个标签后下拉仍展开且点击外部关闭、新建标签连续两次成功后抽屉仍打开、输入清空并恢复焦点、输入框非悬停态边框可见、成功、同名冲突和其他错误提示均位于保存按钮下方的固定区域且表单位置不变、点击遮罩关闭。创建响应使用拦截数据，不写入操作者的实例；组件用例另覆盖同名失败时保留输入。
 - 标签布局回归：`web/e2e/home-tags.spec.ts` 检查主卡标题与标签间距为 12px，轨道标签位于平台/目录信息下方、底部时间行上方，不重叠或溢出卡片；`library-card-height.spec.ts` 检查无标签卡片与无封面占位的固定布局。
-- 简介回归：`web/e2e/home-description.spec.ts` 检查首页信息与封面顶边、启动按钮与封面底边误差不超过 1px；长简介不推动卡片，首页最多四行；详情保留全文，thin 滚动条默认透明、滚动时显示、停止 700ms 后隐藏，鼠标和键盘均可滚至末尾；`game-description.test.tsx` 覆盖 160 字符边界、emoji、空白及空简介。
+- 简介回归：`web/e2e/home-description.spec.ts` 检查首页信息与封面顶边、启动按钮与封面底边误差不超过 1px；长简介不推动卡片，首页最多四行；详情简介使用自然页面流，320 字符以上可展开全文并收起，保留段落且不切断 Unicode 字符；`game-detail-description.test.tsx` 覆盖完整展开、关联状态及空简介；`game-description.test.tsx` 覆盖 160 字符边界、emoji、空白及空简介。
 - 补充回归：`web/e2e/home-favorites.spec.ts` 对收藏 0、1、2、3 款分别断言快速入口位置与高度、收藏区高度误差不超过 1px；无收藏引导居中且可进入游戏库；账户菜单两项图标同尺寸、文字左边缘对齐，账户设置可通过键盘打开。
 - 证据：三个 viewport 的布局测量、overflow 断言和页面截图。
 
@@ -2139,8 +2151,9 @@ ShowFrame-at-EOF 输入先补显式 End。帧头、可执行标签和资源
   创建普通 Product Launch，在可辨认场景创建非空 `flycast-state-v1-storage-v1` 即时存档，记录大小/摘要。
   退出后创建不同 Launch，显式指定该 SaveState；核对恢复到保存场景且方向、确认仍可操作。
   再创建不指定存档的 Launch，确认正常启动而非隐式恢复。
-- 缓存：同一浏览器上下文第二次启动应命中按内容摘要命名的 OPFS CHD，长度正确，
-  不再请求游戏内容端点；单元测试另覆盖损坏、短读、超限和无 OPFS 的回退。
+- 内容：CHD 声明为 `SEEKABLE_BLOB`；在预览、Product Launch 和恢复时记录游戏资源的 HTTP 206 Range 请求，
+  不得出现整包 HTTP 200 下载。浏览器控制台不得出现 `WebGL: INVALID_ENUM: enable/disable: invalid capability`。
+  覆盖跨实例的块复用、内容身份变化、短读、超限与缓存不可用时的网络读取。
 - 证据：本次预览、保存、恢复、恢复后输入截图，非秘密 Launch/Save ID、内容/存档摘要、
   精确 Bundle/Target 和浏览器/GPU。私有游戏、BIOS、授权 URL 与 cookie 不进入 Git 或结构化证据。
 - 通过标准：所有上述步骤完成；只报告所用样本和浏览器。软件 GPU 的帧数只证明运行，不推断实体显卡性能。
@@ -2164,6 +2177,14 @@ ShowFrame-at-EOF 输入先补显式 End。帧头、可执行标签和资源
 - 选择一份新压缩存档创建不同 Launch，验证恢复场景及恢复后输入；旧存档仍可恢复。
 - 单元回归覆盖上下文保留属性与清理、旧格式读取、无损往返、gzip 损坏/截断及解压大小上限。
 - 证据按 ACC-FLYCAST-001 保存，仅保留本次非秘密身份、摘要与截图；不覆盖用户原存档。
+
+### ACC-FLYCAST-ARCADE：NAOMI、NAOMI 2、Atomiswave 卡带
+
+- 类型：操作者授权语料的真实 PFB 产品验收；每个平台使用对应的单文件机器名 ZIP 和 BIOS ZIP，私有字节不进入仓库。
+- 输入：普通 `RETROM_ACCEPTANCE_BASE_URL/USERNAME/PASSWORD`、`RETROM_CHROME_EXECUTABLE`、`RETROM_ACCEPTANCE_CASE_DIR`，以及 `RETROM_FLYCAST_ARCADE_PLATFORM`（`naomi`、`naomi2`、`atomiswave`）、`RETROM_FLYCAST_ARCADE_ROM`、`RETROM_FLYCAST_ARCADE_BIOS_DIR`。默认等待可见画面的上限为 180 秒，可用 `RETROM_FLYCAST_ARCADE_VISIBLE_TIMEOUT_MS` 调整。
+- 执行：硬超时 900 秒，运行 `timeout 900 node scripts/acceptance/flycast_arcade_product.mjs`；每个平台在独立 PFB 中或同一未污染 PFB 中各运行一次。脚本安装对应 BIOS、应用推荐目录、导入审核、启动 Review Preview 和 Product Launch，通过标准 Gamepad API 送方向/确认，创建即时存档并在另一 Launch 恢复。
+- 证据：每个平台的 `evidence.json` 与预览、输入、产品、恢复截图；核对实际游戏画面和输入影响后才从 `AWAITING_VISUAL_REVIEW` 标记为 PASS。验证 Target、原机器 ZIP 文件名、`SEEKABLE_BLOB` 与游戏资源的 HTTP 206 Range 请求（不得有整包 200）、`dc/<bios>.zip` 外部挂载和 `flycast-state-v1-storage-v1` 格式。单一样本结果不能外推为完整街机兼容性；GD-ROM ZIP+CHD 与 clone/parent ROM 不属于当前单卡带内容契约。
+  浏览器控制台不得出现 `WebGL: INVALID_ENUM: enable/disable: invalid capability`。
 
 ### ACC-PS2-001：Play! PS2 按需光盘与即时状态
 

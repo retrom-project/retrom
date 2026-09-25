@@ -16,7 +16,6 @@ func TestProjectIndexesPreservesAuthorityAndPreviewIsolation(t *testing.T) {
 		{name: "bootstrap", change: func(s *ProjectIndexSnapshot) { s.Source.State = "CREATED" }},
 		{name: "finished", change: func(s *ProjectIndexSnapshot) { s.Source.State = "FINISHED" }},
 		{name: "hard expiry", change: func(s *ProjectIndexSnapshot) { s.Source.HardEnd = 1000 }},
-		{name: "idle expiry", change: func(s *ProjectIndexSnapshot) { end := int64(1000); s.Source.IdleEnd = &end }},
 		{name: "unknown purpose", change: func(s *ProjectIndexSnapshot) { s.Source.Purpose = "unknown" }},
 		{name: "non project delivery", change: func(s *ProjectIndexSnapshot) { s.Source.Delivery = "ROM_BLOB" }},
 		{name: "preview requires preview", ref: ProjectIndexReference{PreviewOnly: true}, change: func(*ProjectIndexSnapshot) {}},
@@ -35,6 +34,16 @@ func TestProjectIndexesPreservesAuthorityAndPreviewIsolation(t *testing.T) {
 				t.Fatalf("unauthorized result: %v", err)
 			}
 		})
+	}
+}
+
+func TestProjectIndexesIgnoreExpiredIdleLease(t *testing.T) {
+	memory := indexMemoryFixture()
+	deadline := int64(999)
+	memory.snapshot.Source.IdleEnd = &deadline
+	result, err := projectIndexService(memory, func() time.Time { return time.UnixMilli(1000) }).Index(t.Context(), ProjectIndexReference{}, "valid")
+	if err != nil || len(result.Contents) == 0 {
+		t.Fatalf("expired idle lease blocked content: %v", err)
 	}
 }
 

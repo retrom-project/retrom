@@ -49,10 +49,10 @@ Provider manifest 的 `providerApiVersion` 在结构层只要求正整数，使�
 `data/runtime-providers/release.json` 是 Retrom 唯一的正式 runtime 选择配置，只包含：
 
 ```json
-{"tag":"v0.48.2"}
+{"tag":"v0.48.3"}
 ```
 
-更新版本使用 `make runtime-provider-pin-release TAG=v0.48.2`，也可直接编辑此文件。pin 先验证发布描述，成功后原子写入 tag；无需本地下载两个完整归档。仓库地址固定为 `https://github.com/retrom-project/retrom-runtime`，准备工具从该 tag 的 GitHub Release 下载 `provider-release.json`，从中解析两个 Provider 的 commit、归档名、SHA-256、大小和文件数。不再维护或生成可提交的逐 Provider lock 文件；共享 `provider-lock.schema.json` 仅描述工具内部派生的安装输入。
+更新版本使用 `make runtime-provider-pin-release TAG=v0.48.3`，也可直接编辑此文件。pin 先验证发布描述，成功后原子写入 tag；无需本地下载两个完整归档。仓库地址固定为 `https://github.com/retrom-project/retrom-runtime`，准备工具从该 tag 的 GitHub Release 下载 `provider-release.json`，从中解析两个 Provider 的 commit、归档名、SHA-256、大小和文件数。不再维护或生成可提交的逐 Provider lock 文件；共享 `provider-lock.schema.json` 仅描述工具内部派生的安装输入。
 
 `make runtime-provider-prepare` 和后端镜像 builder 都使用该配置，必须同时解析出 `emulatorjs` 与 `retrom-runtime`，并验证 repository、tag、版本和闭合字段。描述缓存在 `.cache/runtime-providers/releases/<tag>/provider-release.json`；归档继续按内容摘要缓存。完整缓存支持断网重建，每次仍复核描述和归档、安装文件的完整性。错误发布描述、损坏下载或缓存不得更新 active；缺少 Release/asset 时失败，不回退到本地 candidate。tag 和发布资产必须不可变，更新使用新 tag。
 
@@ -148,6 +148,8 @@ EmulatorJS DAT 的 binding 使用稳定 `(providerId,targetId)`。`data-check` �
 
 BIOS Requirement 同样从 Target binding 和 DAT 生成，不从前端或 Provider 私有 registry 推断。安装内容按逻辑名、大小与摘要校验；游戏 Launch 冻结实际 installation/dependency snapshot。
 
+Sega CD 与 Genesis 卡带共用原生核心，但 Sega CD 使用独立的 `genesis-plus-gx-cd` Target。此接入直接采用新绑定和 BIOS 要求，不迁移旧 `genesis-plus-gx` Target 下的游戏 Variant 或 BIOS 安装；旧开发实例需要按新契约重新导入游戏与 BIOS。
+
 ## 9. Runtime asset pack
 
 RPG RTP 等 pack 由管理员上传，经过安全归档扫描、路径规范化、文件数/总大小上限和逐文件摘要后安装。Pack definition 与 installation 分离；Target 只声明所需 slot/type，Retrom 冻结具体 installation。
@@ -199,7 +201,7 @@ Launch 与 Preview 必须用 `bundleSha256` 追溯到精确 Provider 字节；Va
 ### Flycast 核心与开发候选
 
 Flycast 的 workspace 依赖由 Retrom catalog 指向 `retrom-project/flycast-wasm` 的
-`retrom/1.0` 维护分支。正式输入固定 `retrom-core-1.0-r1` Release，其 commit、
+`retrom/1.0` 维护分支。正式输入固定 `retrom-core-1.0-r2` Release，其 commit、
 资产摘要、大小和 ABI 由 runtime 的 `src/providers/emulatorjs/source-catalog.ts` 声明。
 PFB 中显式 `pfb-core-build CORE=flycast`，再由 runtime
 `candidate:build` 消费同一 PFB 的闭合 candidate descriptor。Provider 校验仓库、ABI、

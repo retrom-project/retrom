@@ -94,7 +94,8 @@ async function expectHomeLaunchPlacement(page: Page) {
     expect(title).not.toBeNull();
     expect(action).not.toBeNull();
     expect(Math.abs(action!.x + action!.width - bounds!.x - bounds!.width)).toBeLessThan(1);
-    expect(action!.height).toBeGreaterThanOrEqual(48);
+    // Ordinary launch controls use the shared 44px minimum (UI specification §3).
+    expect(action!.height).toBeGreaterThanOrEqual(44);
     if (width >= 480) {
       expect(action!.x).toBeGreaterThanOrEqual(title!.x + title!.width + 12);
       expect(Math.abs(action!.y + action!.height / 2 - bounds!.y - bounds!.height / 2)).toBeLessThan(1);
@@ -243,8 +244,7 @@ test("ACC-MOB-003 search, favorite, launch, save and home continue use the real 
   await card.getByRole("link").first().click();
   await expect(page).toHaveURL(/\/games\/[0-9a-f-]+$/);
   const detailURL = page.url();
-  await expect(page.locator(".phone-disclosure").first()).not.toHaveAttribute("open", "");
-  await page.getByText("游戏简介", { exact: true }).click();
+  await expect(page.getByRole("heading", { name: "关于游戏" })).toBeVisible();
   await expect(page.locator(".game-detail-description")).toBeVisible();
   await page.evaluate(axe.source);
   const detailViolations = await page.evaluate(async () => {
