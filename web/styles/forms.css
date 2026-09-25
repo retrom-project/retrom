@@ -5,18 +5,18 @@
 .metric-line strong { font-size: var(--text-section); }
 .pipeline { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0; padding: 28px 20px; }
 .pipeline-step { position: relative; text-align: center; }
-.pipeline-step:not(:last-child)::after { content: ""; position: absolute; left: 58%; right: -42%; top: 18px; border-top: 2px solid #e3dff8; }
-.pipeline-step i { position: relative; z-index: 1; width: 36px; height: 36px; margin: 0 auto 10px; border-radius: 50%; display: grid; place-items: center; font-style: normal; color: var(--purple); background: var(--purple-soft); font-weight: var(--weight-semibold); }
+.pipeline-step:not(:last-child)::after { content: ""; position: absolute; left: 58%; right: -42%; top: 18px; border-top: 2px solid var(--purple-line); }
+.pipeline-step i { position: relative; z-index: 1; width: 36px; height: 36px; margin: 0 auto 10px; border-radius: 50%; display: grid; place-items: center; font-style: normal; color: var(--purple-dark); background: var(--purple-soft); font-weight: var(--weight-semibold); }
 .pipeline-step strong, .pipeline-step span { display: block; }
 .pipeline-step strong { font-size: var(--text-small); }
 .pipeline-step span { color: var(--muted); font-size: var(--text-caption); }
 .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
 .field { display: grid; gap: 7px; }
 .field.full { grid-column: 1 / -1; }
-.field label { color: #4d586c; font-size: var(--text-small); font-weight: var(--weight-medium); }
-.field-label { color: #4d586c; font-size: var(--text-small); font-weight: var(--weight-medium); }
+.field label { color: var(--muted); font-size: var(--text-small); font-weight: var(--weight-medium); }
+.field-label { color: var(--muted); font-size: var(--text-small); font-weight: var(--weight-medium); }
 .field select { width: 100%; }
-.field input, .field textarea { width: 100%; min-height: 44px; border: 1px solid var(--line); border-radius: var(--radius-control); padding: 10px 12px; color: var(--ink); background: white; }
+.field input, .field textarea { width: 100%; min-height: 44px; border: 1px solid var(--line); border-radius: var(--radius-control); padding: 10px 12px; color: var(--ink); background: var(--surface); }
 .field textarea { min-height: 104px; resize: vertical; }
 .field small { color: var(--muted); font-size: var(--text-caption); }
 .advanced-form-options { padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--radius-panel); background: var(--surface-subtle); }
@@ -26,7 +26,7 @@
 summary { cursor: pointer; }
 .panel > summary.panel-head { list-style: none; }
 .panel > summary.panel-head::-webkit-details-marker { display: none; }
-.inline-editor { width: min(520px, 70vw); margin-top: 12px; padding: 18px; display: grid; gap: 12px; border: 1px solid var(--line); border-radius: var(--radius-panel); background: #faf9f6; }
+.inline-editor { width: min(520px, 70vw); margin-top: 12px; padding: 18px; display: grid; gap: 12px; border: 1px solid var(--line); border-radius: var(--radius-panel); background: var(--surface-subtle); }
 .inline-editor label { display: grid; gap: 5px; color: var(--muted); font-size: var(--text-caption); }
 .inline-editor select { width: 100%; }
-.inline-editor input:not([type="checkbox"]), .inline-editor textarea { width: 100%; min-height: 42px; padding: 8px; border: 1px solid var(--line); border-radius: var(--radius-control); background: white; }
+.inline-editor input:not([type="checkbox"]), .inline-editor textarea { width: 100%; min-height: 42px; padding: 8px; border: 1px solid var(--line); border-radius: var(--radius-control); background: var(--surface); }

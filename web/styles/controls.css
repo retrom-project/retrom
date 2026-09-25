@@ -15,11 +15,11 @@
   white-space: nowrap;
   transition: background .15s ease, border-color .15s ease;
 }
-.button:hover { background: var(--purple-dark); color: white; }
+.button:hover { background: var(--purple-hover); color: white; }
 .button.secondary { background: var(--surface); border-color: var(--control-line); color: var(--ink); }
 .button.secondary:hover { background: var(--surface-subtle); border-color: var(--purple); color: var(--purple-dark); }
-.button.danger { background: var(--danger); color: white; }
-.button:disabled { background: #e8eaf0; border-color: transparent; color: #697386; cursor: not-allowed; }
+.button.danger { background: var(--danger-fill); color: white; }
+.button:disabled { background: var(--surface-subtle); border-color: transparent; color: var(--muted); cursor: not-allowed; }
 .button svg { width: 18px; height: 18px; flex-shrink: 0; }
 
 /* Native semantics, keyboard interaction and option selection are retained. */
@@ -31,7 +31,7 @@ select, .import-directory-trigger {
   border: 1px solid var(--control-line);
   border-radius: var(--radius-control);
   color: var(--control-ink);
-  background: var(--control-surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%236250d2' stroke-width='1.6' viewBox='0 0 16 16'%3E%3Cpath d='m4 6 4 4 4-4'/%3E%3C/svg%3E") no-repeat right 12px center;
+  background: var(--control-surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%23c0afff' stroke-width='1.6' viewBox='0 0 16 16'%3E%3Cpath d='m4 6 4 4 4-4'/%3E%3C/svg%3E") no-repeat right 12px center;
   font-family: var(--font-sans);
   font-size: var(--control-font-size);
   font-weight: var(--weight-regular);
@@ -52,7 +52,7 @@ input:not([type='checkbox'], [type='radio'], [type='range'], [type='file'], [typ
 }
 textarea { min-height: 112px; resize: vertical; }
 input[type='checkbox'], input[type='radio'], input[type='range'] { accent-color: var(--purple); }
-input::placeholder, textarea::placeholder { color: #737e91; opacity: 1; }
+input::placeholder, textarea::placeholder { color: var(--muted); opacity: 1; }
 select:focus-visible, input:focus-visible, textarea:focus-visible, .import-directory-trigger:focus-visible {
   border-color: var(--purple);
   outline: 2px solid var(--purple);
