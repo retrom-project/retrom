@@ -12,7 +12,7 @@ test("ACC-UI-001 admin to home soft navigation preserves the document without ap
   const errors: string[] = [];
   page.on("pageerror", error => errors.push(error.stack ?? error.message));
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "今天想玩什么？" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "今天，玩点什么？" })).toBeVisible();
   const timeOrigin = await page.evaluate(() => performance.timeOrigin);
 
   await page.getByRole("link", { name: "管理后台" }).click();
@@ -20,12 +20,12 @@ test("ACC-UI-001 admin to home soft navigation preserves the document without ap
   await expect(page.getByRole("heading", { name: "游戏入库" })).toBeVisible();
   await page.getByRole("link", { name: "返回用户侧" }).click();
   await expect(page).toHaveURL(/\/$/);
-  await expect(page.getByRole("heading", { name: "今天想玩什么？" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "今天，玩点什么？" })).toBeVisible();
   await page.goBack();
   await expect(page).toHaveURL(/\/admin\/imports$/);
   await page.goForward();
   await expect(page).toHaveURL(/\/$/);
-  await expect(page.getByRole("heading", { name: "今天想玩什么？" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "今天，玩点什么？" })).toBeVisible();
   await page.evaluate(() => new Promise<void>(resolve => {
     requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
   }));

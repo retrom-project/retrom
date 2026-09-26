@@ -16,7 +16,7 @@ function favorite(index: number): FavoriteGame {
 
 // Deterministic list-response layout regression. Real favorite writes and
 // navigation use the product acceptance flow; this case changes no user data.
-test("ACC-UI-005 home favorites fit the sidebar with stable space for zero to three games", async ({ page }, testInfo) => {
+test("ACC-UI-005 home favorites form an independent row with stable space for zero to three games", async ({ page }, testInfo) => {
   test.setTimeout(90_000);
   const origin = process.env.RETROM_WEB_ORIGIN ?? "http://localhost:4000";
   const login = await page.request.post("/api/v1/auth/login", { headers: { Origin: origin }, data: { username: "test", password: "test" } });
@@ -41,9 +41,9 @@ test("ACC-UI-005 home favorites fit the sidebar with stable space for zero to th
   for (const [width, height] of sizes) {
     await page.setViewportSize({ width: width!, height: height! });
     const layout = await section.evaluate((element) => {
-      const panel = element.closest(".home-quick-panel")!.getBoundingClientRect();
+      const panel = element.getBoundingClientRect();
       const rows = [...element.querySelectorAll(".home-favorite-game")].map((game) => game.getBoundingClientRect());
-      return { sectionContained: element.getBoundingClientRect().bottom <= panel.bottom, contained: rows.every((row) => row.top >= panel.top && row.bottom <= panel.bottom && row.right <= panel.right), overlap: rows.some((row, index) => index > 0 && row.top < rows[index - 1]!.bottom), pageWidth: document.documentElement.scrollWidth, viewport: innerWidth, height: element.getBoundingClientRect().height, bottomGap: panel.bottom - rows.at(-1)!.bottom, coverHeight: element.querySelector(".home-favorite-cover")!.getBoundingClientRect().height };
+      return { sectionContained: element.getBoundingClientRect().bottom <= panel.bottom, contained: rows.every((row) => row.top >= panel.top && row.bottom <= panel.bottom && row.right <= panel.right), overlap: rows.some((row, index) => index > 0 && row.left < rows[index - 1]!.right), pageWidth: document.documentElement.scrollWidth, viewport: innerWidth, height: element.getBoundingClientRect().height, bottomGap: panel.bottom - rows.at(-1)!.bottom, coverHeight: element.querySelector(".home-favorite-cover")!.getBoundingClientRect().height };
     });
     await expectHomeLinkStyles(page);
     expect(layout.contained).toBe(true);
@@ -52,16 +52,16 @@ test("ACC-UI-005 home favorites fit the sidebar with stable space for zero to th
     expect(layout.pageWidth).toBeLessThanOrEqual(layout.viewport);
     if (width! >= 1800) {expect(layout.bottomGap).toBeLessThanOrEqual(24);}
     if (width === 2560 && height! >= 1300) {expect(layout.coverHeight).toBeGreaterThanOrEqual(49);}
-    const fullLayout = await quickLayout(page);
+    const fullLayout = await homeLayout(page);
     for (const count of [0, 1, 2]) {
       items = [favorite(1), favorite(2), favorite(3)].slice(0, count);
       await page.reload();
       if (count === 0) {await expect(section.getByRole("link", { name: "浏览游戏库" })).toBeVisible();}
       else {await expect(section.locator(".home-favorite-game")).toHaveCount(count);}
       if (width === 2560 && height === 1360 && count < 2) {
-        await page.locator(".home-quick-panel").screenshot({ path: testInfo.outputPath(`quick-${count}.png`), scale: "css" });
+        await page.locator(".home-favorites").screenshot({ path: testInfo.outputPath(`quick-${count}.png`), scale: "css" });
       }
-      const sparseLayout = await quickLayout(page);
+      const sparseLayout = await homeLayout(page);
       for (let i = 0; i < fullLayout.length; i++) {
         expect(Math.abs(sparseLayout[i]! - fullLayout[i]!)).toBeLessThanOrEqual(1);
       }
@@ -79,14 +79,14 @@ async function expectHomeLinkStyles(page: Page) {
     const style = getComputedStyle(link);
     return { color: style.color, size: style.fontSize, weight: style.fontWeight };
   }));
-  expect(styles).toHaveLength(4);
+  expect(styles).toHaveLength(3);
   for (const style of styles) {expect(style).toEqual(styles[0]);}
 }
 
 async function expectPlatformPin(page: Page) {
   const card = page.locator(".home-platform-card").first();
   const pin = card.getByRole("button");
-  const header = page.locator(".home-quick-panel .home-panel-head");
+  const header = page.locator(".page-header h1");
   await header.click();
   await expect(pin).toHaveCSS("opacity", "0");
   await card.hover();
@@ -115,8 +115,8 @@ async function expectPlatformPin(page: Page) {
   await expect(pin).toHaveCSS("opacity", "0");
 }
 
-async function quickLayout(page: Page) {
-  return page.locator(".home-quick-link, .home-favorites").evaluateAll((elements) => elements.flatMap((element) => {
+async function homeLayout(page: Page) {
+  return page.locator(".home-featured-panel, .home-recent-rail, .home-favorites, .home-platform-rail").evaluateAll((elements) => elements.flatMap((element) => {
     const rect = element.getBoundingClientRect();
     return [rect.y, rect.height];
   }));
@@ -140,5 +140,5 @@ async function expectAccountMenu(page: Page) {
   await expect(page).toHaveURL(/\/account$/);
   await expect(page.getByRole("heading", { name: "账户设置" })).toBeVisible();
   await page.goto("/");
-  await expect(page.locator(".home-quick-panel")).toBeVisible();
+  await expect(page.locator(".home-favorites")).toBeVisible();
 }

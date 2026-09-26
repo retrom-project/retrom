@@ -48,9 +48,8 @@ export async function expectNoTextArrowsInInteractiveControls(page: Page) {
 
 export async function expectHomeCoverRatios(page: Page) {
   const groups = [
-    ["最近玩的游戏", '.home-featured-cover'],
-    ["最近游玩", '[data-home-layer="2"] .home-recent-cover'],
-    ["最新添加", '[data-home-layer="3"] .home-recent-cover'],
+    ["最近游玩", '.home-recent-cover'],
+    ["收藏的游戏", '.home-favorite-cover'],
   ] as const;
   let measuredCoverCount = 0;
   for (const [label, selector] of groups) {

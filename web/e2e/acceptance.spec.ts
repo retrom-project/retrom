@@ -189,17 +189,18 @@ test("ACC-UI-005 user desktop layouts scale at all required viewports", async ({
 test("ACC-UI-005 regression: sparse home rails keep game cards within desktop width caps", async ({ page }) => {
   await page.goto("/");
   await expect(page.locator('[data-home-layer="2"] h2')).toHaveText("最近游玩");
-  await expect(page.locator('[data-home-layer="3"] h2')).toHaveText("换个平台逛逛");
+  await expect(page.locator('[data-home-layer="4"] h2')).toHaveText("换个平台逛逛");
   const rails = page.locator(".home-recent-rail");
   expect(await rails.count()).toBeGreaterThan(0);
   expect(await rails.count()).toBe(1);
-  if (await page.locator('[data-home-layer="2"] .home-recent-card').count() === 0) {
-    await expect(page.locator('[data-home-layer="2"] .home-inline-empty')).toBeVisible();
-  }
+  const featuredHref = await page.locator(".home-detail-link").getAttribute("href");
+  const recentLinks = await rails.locator(".home-recent-card").evaluateAll((cards) => cards.map((card) => card.getAttribute("href")));
+  expect(recentLinks).toHaveLength(1);
+  expect(recentLinks).not.toContain(featuredHref);
   const layout = await rails.evaluateAll((railElements) => ({
     cardWidths: railElements.flatMap((rail) =>
       [...rail.querySelectorAll<HTMLElement>(".home-recent-card")].map((card) => card.getBoundingClientRect().width)),
-    widthCap: window.matchMedia("(min-width: 2600px) and (min-height: 1600px)").matches ? 560 : 480,
+    widthCap: 240,
   }));
   expect(layout.cardWidths.length).toBeGreaterThan(0);
   expect(Math.max(...layout.cardWidths)).toBeLessThanOrEqual(layout.widthCap + 1);

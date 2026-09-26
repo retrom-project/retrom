@@ -1,41 +1,26 @@
 import { expect, test, type Page } from "@playwright/test";
 
-test("ACC-UI-005 home description stays between aligned information and launch controls", async ({ page }, testInfo) => {
-  test.setTimeout(60_000);
+test("ACC-UI-005 home keeps long titles and launch controls within its hero", async ({ page }, testInfo) => {
   await login(page);
-  const response = await page.request.get("/api/v1/home");
-  expect(response.ok()).toBe(true);
-  const home = await response.json();
-  expect(typeof home.featuredGame.description).toBe("string");
   const sizes = testInfo.project.name === "chrome-1280" ? [[1280, 800], [1920, 950], [2086, 920]] : [[2560, 1360], [2560, 1440], [3840, 2160]];
   for (const [width, height] of sizes) {
     await page.setViewportSize({ width: width!, height: height! });
     await page.goto("/");
     await expect(page.locator(".home-featured-copy")).toBeVisible();
-    const summary = page.locator(".home-featured-description");
-    if (home.featuredGame.description.trim()) {
-      expect(Array.from(await summary.innerText()).length).toBeLessThanOrEqual(160);
-    }
-    const original = await homeBounds(page);
-    await page.locator(".home-featured-copy").evaluate((copy) => {
-      let description = copy.querySelector(".home-featured-description");
-      if (!description) {
-        description = document.createElement("div");
-        description.className = "home-featured-description";
-        copy.insertBefore(description, copy.querySelector(".home-featured-actions"));
-      }
-      const text = document.createElement("p");
-      text.textContent = "这是很长的游戏简介，用于检查布局。".repeat(1000);
-      description.replaceChildren(text);
+    await expect(page.locator(".home-featured-description")).toHaveCount(0);
+    await page.locator(".home-featured-details h2").evaluate((heading) => {
+      heading.textContent = "一个很长的游戏标题 The Legend of a Long Adventure";
     });
-    const updated = await homeBounds(page);
-    expect(updated).toEqual(original);
-    expect(Math.abs(updated.detailsTop - updated.coverTop)).toBeLessThanOrEqual(1);
-    expect(Math.abs(updated.actionsBottom - updated.coverBottom)).toBeLessThanOrEqual(1);
-    const lineLimit = await summary.locator("p").evaluate((element) => Number(getComputedStyle(element).webkitLineClamp));
-    expect(lineLimit).toBeGreaterThanOrEqual(1);
-    expect(lineLimit).toBeLessThanOrEqual(4);
-    if (width === 2560 && height === 1360) {await page.locator(".home-featured-panel").screenshot({ path: testInfo.outputPath("home-description.png"), scale: "css" });}
+    const geometry = await page.locator(".home-featured-panel").evaluate((element) => {
+      const panel = element.getBoundingClientRect();
+      const title = element.querySelector("h2")!.getBoundingClientRect();
+      const actions = element.querySelector(".home-featured-actions")!.getBoundingClientRect();
+      return { titleFits: title.left >= panel.left && title.right <= panel.right, actionsFit: actions.bottom <= panel.bottom && actions.right <= panel.right, gap: actions.top - title.bottom };
+    });
+    expect(geometry.titleFits).toBe(true);
+    expect(geometry.actionsFit).toBe(true);
+    expect(geometry.gap).toBeGreaterThan(0);
+    if (width === 2560 && height === 1360) {await page.locator(".home-featured-panel").screenshot({ path: testInfo.outputPath("home-long-title.png"), scale: "css" });}
   }
 });
 
@@ -69,11 +54,4 @@ async function login(page: Page) {
   const origin = process.env.RETROM_WEB_ORIGIN ?? "http://localhost:4000";
   const response = await page.request.post("/api/v1/auth/login", { headers: { Origin: origin }, data: { username: "test", password: "test" } });
   expect(response.ok()).toBe(true);
-}
-
-async function homeBounds(page: Page) {
-  return page.evaluate(() => {
-    const rect = (selector: string) => document.querySelector(selector)!.getBoundingClientRect();
-    return { height: rect(".home-featured-media").height, coverTop: rect(".home-featured-cover").top, coverBottom: rect(".home-featured-cover").bottom, detailsTop: rect(".home-featured-details").top, actionsBottom: rect(".home-featured-actions").bottom };
-  });
 }

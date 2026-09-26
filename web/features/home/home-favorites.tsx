@@ -46,10 +46,10 @@ export function HomeFavorites() {
 
   if (!userId) {return null;}
   const current = result?.userId === userId ? result : null;
-  return <section className="home-favorites" aria-label="收藏的游戏">
-    <div className="home-favorites-head"><h3>收藏的游戏</h3>{current && !current.error && current.games.length > 0 ? <Link href="/favorites">查看全部</Link> : null}</div>
+  return <section className="home-layer home-favorites" data-home-layer="3" aria-label="收藏的游戏">
+    <div className="home-favorites-head"><h2>一直喜欢的</h2>{current && !current.error && current.games.length > 0 ? <Link href="/favorites">查看全部</Link> : null}</div>
     <div className="home-favorites-body">{!current ? <p className="home-favorites-message" role="status">正在读取收藏…</p> : current.error ? <div className="home-favorites-empty"><p role="alert">暂时无法读取收藏</p><button className="button secondary" type="button" onClick={() => {setResult(null); setAttempt((value) => value + 1);}}>重新加载</button></div> : current.games.length === 0 ? <div className="home-favorites-empty"><AppIcon name="heart" /><div><strong>把喜欢的游戏留在这里</strong><p>在游戏卡片上点亮爱心，下次从这里出发。</p><Link href="/library">浏览游戏库</Link></div></div> : <div className="home-favorites-list">{current.games.map((game) => <Link className="home-favorite-game" aria-label={`${game.title} · ${game.platform.name}`} href={`/games/${game.gameId}`} key={game.gameId}>
-      <span className="home-favorite-cover">{game.coverUrl ? <Image src={game.coverUrl} alt="" fill sizes="50px" unoptimized /> : <span aria-hidden="true">R</span>}</span>
+      <span className="home-favorite-cover">{game.coverUrl ? <Image src={game.coverUrl} alt="" fill sizes="80px" unoptimized /> : <span aria-hidden="true">R</span>}</span>
       <span className="home-favorite-copy"><strong>{game.title}</strong><small>{game.platform.name}</small></span>
     </Link>)}</div>}</div>
   </section>;

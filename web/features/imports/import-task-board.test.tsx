@@ -7,7 +7,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { ImportTaskBoard } from "./import-task-board";
 
 describe("ImportTaskBoard", () => {
-  afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+  afterEach(() => { cleanup(); vi.useRealTimers(); vi.unstubAllGlobals(); });
 
   it("opens the current completed batch details without an audit-history route", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({fileOutcomes: []}), {status: 200})));
@@ -202,13 +202,21 @@ describe("ImportTaskBoard", () => {
   });
 
   it("polls every loaded non-terminal task and stops after their terminal updates", async () => {
+    vi.useFakeTimers();
+    let completed = false;
+    const detailRequests: string[] = [];
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
-      const id = String(input).split("/").at(-1) ?? "";
-      return new Response(JSON.stringify({
-        importJobId: id, state: "COMPLETED", metadataProvider: "NONE", targetPlatformInstance: { id: `platform-${id}`, name: `${id} 游戏` },
+      const pathname = new URL(input instanceof Request ? input.url : String(input), window.location.origin).pathname;
+      if (pathname.startsWith("/api/v1/admin/import-batches/")) {
+        return Response.json({ state: "UNAVAILABLE", errorCode: null });
+      }
+      detailRequests.push(pathname);
+      const id = pathname.split("/").at(-1) ?? "";
+      return Response.json({
+        importJobId: id, state: completed ? "COMPLETED" : "RUNNING", metadataProvider: "NONE", targetPlatformInstance: { id: `platform-${id}`, name: `${id} 游戏` },
         counts: { total: 1, reviewPending: 0, failed: 0, rejectedFiles: 0, unresolvedRejectedFiles: 0, alreadyImportedItems: 0, alreadyImportedFiles: 0 },
-        fileOutcomes: [], version: 2, createdAtMs: 1, updatedAtMs: 3,
-      }), { status: 200, headers: { "Content-Type": "application/json" } });
+        fileOutcomes: [], version: completed ? 2 : 1, createdAtMs: 1, updatedAtMs: 3,
+      });
     });
     vi.stubGlobal("fetch", fetchMock);
     render(<ImportTaskBoard initial={{ items: ["running-1", "running-2"].map((id) => ({
@@ -216,12 +224,18 @@ describe("ImportTaskBoard", () => {
       reviewPendingItemCount: 0, failedItemCount: 0, rejectedFileCount: 0, version: 1, createdAtMs: 1, updatedAtMs: 2,
     })), nextCursor: null }} />);
 
-    await waitFor(() => expect(screen.getAllByText("已完成", { selector: ".status" })).toHaveLength(2));
-    expect(fetchMock).toHaveBeenCalledWith("/api/v1/admin/imports/running-1", expect.objectContaining({ cache: "no-store" }));
-    expect(fetchMock).toHaveBeenCalledWith("/api/v1/admin/imports/running-2", expect.objectContaining({ cache: "no-store" }));
-    const completedCalls = fetchMock.mock.calls.length;
-    await new Promise((resolve) => window.setTimeout(resolve, 1_100));
-    expect(fetchMock).toHaveBeenCalledTimes(completedCalls);
+    const taskPaths = ["/api/v1/admin/imports/running-1", "/api/v1/admin/imports/running-2"];
+    await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+    expect(detailRequests).toEqual(taskPaths);
+    completed = true;
+    await act(async () => { await vi.advanceTimersByTimeAsync(1_000); });
+    expect(screen.getAllByText("已完成", { selector: ".status" })).toHaveLength(2);
+    expect(detailRequests).toEqual([...taskPaths, ...taskPaths]);
+    expect(fetchMock).toHaveBeenCalledWith(taskPaths[0], expect.objectContaining({ cache: "no-store" }));
+    expect(fetchMock).toHaveBeenCalledWith(taskPaths[1], expect.objectContaining({ cache: "no-store" }));
+    // Version updates also refresh discard availability; only task-detail requests are polling.
+    await act(async () => { await vi.advanceTimersByTimeAsync(5_000); });
+    expect(detailRequests).toEqual([...taskPaths, ...taskPaths]);
   });
 
   it("shows a background preparation failure without offering rejected-file reuse", async () => {

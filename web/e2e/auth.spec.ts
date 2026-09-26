@@ -149,7 +149,7 @@ test("ACC-UI-009 an administrator can invite a user without retaining the capabi
   await userPage.getByLabel("密码", { exact: true }).fill(userPassword);
   await userPage.getByLabel("确认密码", { exact: true }).fill(userPassword);
   await userPage.getByRole("button", { name: "创建账号并进入 Retrom" }).click();
-  await expect(userPage.getByRole("heading", { name: "今天想玩什么？" })).toBeVisible();
+  await expect(userPage.getByRole("heading", { name: "今天，玩点什么？" })).toBeVisible();
   await expect(userPage.getByRole("link", { name: "管理后台" })).toHaveCount(0);
   const denied = await userContext.request.get("/api/v1/admin/users");
   expect(denied.status()).toBe(403);
@@ -172,7 +172,7 @@ test("ACC-UI-009 an administrator can invite a user without retaining the capabi
   await userPage.getByLabel("用户名").fill("invited-user");
   await userPage.getByLabel("密码").fill(changedPassword);
   await userPage.getByRole("button", { name: "登录" }).click();
-  await expect(userPage.getByRole("heading", { name: "今天想玩什么？" })).toBeVisible();
+  await expect(userPage.getByRole("heading", { name: "今天，玩点什么？" })).toBeVisible();
 
   const reusedContext = await browser.newContext({ baseURL: origin });
   const reusedPage = await reusedContext.newPage();
@@ -248,7 +248,7 @@ test("ACC-UI-009 password reset revokes old sessions and does not enable a disab
   const resetPage = await resetContext.newPage();
   const changedPassword = "B2@y3w";
   await completeReset(resetPage, enabledReset.url, changedPassword);
-  await expect(resetPage.getByRole("heading", { name: "今天想玩什么？" })).toBeVisible();
+  await expect(resetPage.getByRole("heading", { name: "今天，玩点什么？" })).toBeVisible();
   expect((await firstUserContext.request.get("/api/v1/home")).status()).toBe(401);
   expect((await secondUserContext.request.get("/api/v1/home")).status()).toBe(401);
 
