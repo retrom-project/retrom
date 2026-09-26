@@ -1,14 +1,17 @@
 package runtimeprovider
 
 import (
+	"bytes"
 	"encoding/base64"
 	"encoding/json"
 	"io"
 	"path/filepath"
-	"strings"
 
 	"retrom/internal/runtimebundle"
 )
+
+// A dev descriptor embeds base64 core assets as well as metadata.
+const devDescriptorLimit = 128 << 20
 
 type devProvider struct {
 	providerID string
@@ -37,7 +40,7 @@ func loadDevProvider(rawRoot string, active runtimebundle.ActiveDescriptor) (*de
 	if err != nil || root != filepath.Clean(rawRoot) {
 		return nil, ErrInstallationInvalid
 	}
-	contents, err := readMetadata(filepath.Join(root, "dev-provider.json"))
+	contents, err := readBoundedProviderFile(filepath.Join(root, "dev-provider.json"), devDescriptorLimit)
 	if err != nil {
 		return nil, installationInvalid(err)
 	}
@@ -64,7 +67,7 @@ func loadDevProvider(rawRoot string, active runtimebundle.ActiveDescriptor) (*de
 
 func parseDevDescriptor(contents []byte) (devDescriptor, error) {
 	var descriptor devDescriptor
-	decoder := json.NewDecoder(strings.NewReader(string(contents)))
+	decoder := json.NewDecoder(bytes.NewReader(contents))
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(&descriptor); err != nil {
 		return devDescriptor{}, installationInvalid(err)
