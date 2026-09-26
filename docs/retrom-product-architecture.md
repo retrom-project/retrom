@@ -173,7 +173,8 @@ Game 当前字段和媒体、内容授权、LaunchSession 与 Player Core stage�
 排序，最近范围按本 Profile 最近游玩倒序。浏览 Shell 循环播放站内 BGM，Select 打开背景音乐/游戏音量、
 静音、全屏和退出系统菜单；这些声音偏好只保存在浏览器 localStorage。
 
-游戏中由活动导航手柄双击 Select+Start 打开“取消、创建存档、退出游戏”菜单；Player Shell 必须逐帧读取
+游戏中由活动导航手柄双击 Select+Start 打开“取消、创建存档、退出游戏”菜单；支持公共手柄光标的运行实例在取消后增加光标开关。
+光标由 runtime 统一实现，普通 Player 的更多操作与沉浸菜单共用实例能力和按用户、游戏保存的本地偏好。Player Shell 必须逐帧读取
 活动手柄来识别该组合，不能依赖 Core 是否主动轮询手柄；输入过滤器同时安装到 EmulatorJS、ONS 与 RPG Maker
 的实际 runtime Window，负责在识别期间屏蔽保留按键。创建存档显式复用普通手动
 SaveState 链路，取消与退出都不会自动存档。其余输入仍交给 Core。普通 Player 不识别该组合，
@@ -443,7 +444,7 @@ flowchart LR
 - 验证直接启动、默认全屏、仅用户显式状态存档/截图、指定存档恢复与累计时长快照。
 - 验证 FBNeo/MAME/FBA2012 Split 与 Full Non-Merged 的 parent/BIOS 加载，及五个独立 DAT。
 - 已确认 Hasheous 的 `POST /api/v1/Lookup/ByHash` 无凭证契约；自动测试使用 fake，上线前只做一次有界 smoke，不能依赖实时命中内容或把限流阈值写死。
-- 核心运行兼容只能由经过 Retrom 导入、Launch、内容端点和 Player 的产品 E2E 证明；历史独立 EmulatorJS 页面结果不是产品启动编排的证据。当前已覆盖核心与缺口以核心运行时专题为准。DOSBox Pure 的 4.3 whole-archive、虚拟 ZIP 引导、程序菜单、原 bundle 不复制及不安全路径阻断执行 `ACC-RUN-005`。
+- 核心运行兼容只能由经过 Retrom 导入、Launch、内容端点和 Player 的产品 E2E 证明；历史独立 EmulatorJS 页面结果不是产品启动编排的证据。当前已覆盖核心与缺口以核心运行时专题为准。DOSBox Pure 的虚拟 ZIP 引导、Content I/O Range 读取、程序菜单、原 bundle 不复制及不安全路径阻断执行 `ACC-RUN-005`。
 
 Phase 0 未通过时，不进入大规模业务实现。
 

@@ -8,6 +8,8 @@ import { writeHeaders } from "@/lib/api/client";
 import { replaceWithPlayerDocument } from "@/lib/player-document-navigation";
 import { requestFullscreenAndLandscape, unlockLandscape } from "./orientation";
 
+import {rememberPlayerGame} from "./gamepad-cursor-preference";
+
 type LaunchResponse = { launchId: string; playUrl: string };
 type PendingResponse = { status: "VALIDATION_PENDING"; jobId: string; retryAfterMs: number };
 type ClientCapabilities = { secureContext: boolean; crossOriginIsolated: boolean; sharedArrayBuffer: boolean };
@@ -89,6 +91,7 @@ export function LaunchButton({ gameId, coreId = null, saveStateId = null, dosEnt
           continue;
         }
         const result = await response.json() as LaunchResponse;
+        rememberPlayerGame(result.launchId, gameId);
         onLaunchCreated?.();
         replaceWithPlayerDocument(result.playUrl, router.replace);
         return;

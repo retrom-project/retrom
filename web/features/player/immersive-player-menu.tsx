@@ -1,8 +1,10 @@
+import {gamepadCursorInstructions, type PlayerGamepadCursorControl} from "./use-gamepad-cursor";
 import {nativeSaveInstructions, noSaveInstructions, type NativeSaveCapabilities, type CheckpointSemantics} from "./checkpoint-semantics";
 import type { ImmersivePlayerOverlay } from "./use-immersive-player";
 import type { ImmersiveMenuSelection } from "./immersive-player-menu-model";
 
 type Props = {
+  gamepadCursor?: PlayerGamepadCursorControl | null;
   checkpointSemantics?: CheckpointSemantics;
   nativeSave?: NativeSaveCapabilities;
   nativeRetryAvailable?: boolean;
@@ -15,7 +17,7 @@ type Props = {
   onConfirm: () => void;
 };
 
-export function ImmersivePlayerMenu({ checkpointSemantics, nativeSave, nativeRetryAvailable, overlay, saveAvailable, editorAvailable, saveStatus, onCancel, onSelect, onConfirm }: Props) {
+export function ImmersivePlayerMenu({ gamepadCursor, checkpointSemantics, nativeSave, nativeRetryAvailable, overlay, saveAvailable, editorAvailable, saveStatus, onCancel, onSelect, onConfirm }: Props) {
   if (overlay.kind === "closed" || overlay.kind === "editor") {return null;}
   if (overlay.kind === "reconnect") {
     return <section className="immersive-player-overlay" role="alertdialog" aria-modal="true" aria-labelledby="immersive-reconnect-title">
@@ -30,26 +32,28 @@ export function ImmersivePlayerMenu({ checkpointSemantics, nativeSave, nativeRet
     return <section className="immersive-player-overlay" aria-live="polite"><div className="immersive-player-panel"><p>请松开手柄按键…</p></div></section>;
   }
   return <section className="immersive-player-overlay" role="dialog" aria-modal="true" aria-labelledby="immersive-player-menu-title">
-    <div className="immersive-player-panel">
+    <div className={`immersive-player-panel${gamepadCursor ? " has-gamepad-cursor" : ""}`}>
       <p className="immersive-player-eyebrow">游戏已暂停</p>
       <h1 id="immersive-player-menu-title">游戏菜单</h1>
       <p>{checkpointSemantics === "NO_SAVE" ? noSaveInstructions : checkpointSemantics === "GAME_SAVE" ? nativeSaveInstructions(nativeSave) : "可以在这里创建存档；退出游戏不会自动保存当前进度。"}</p>
       {overlay.notice ? <p className="immersive-player-notice" role="status">{overlay.notice}</p> : null}
       {overlay.error ? <p className="immersive-player-error" role="alert">{overlay.error}</p> : null}
-      <MenuActions nativeSave={nativeSave} nativeRetryAvailable={nativeRetryAvailable} checkpointSemantics={checkpointSemantics} overlay={overlay} saveAvailable={saveAvailable} editorAvailable={editorAvailable}
+      <MenuActions gamepadCursor={gamepadCursor} nativeSave={nativeSave} nativeRetryAvailable={nativeRetryAvailable} checkpointSemantics={checkpointSemantics} overlay={overlay} saveAvailable={saveAvailable} editorAvailable={editorAvailable}
         onCancel={onCancel} onSelect={onSelect} onConfirm={onConfirm} />
       {checkpointSemantics === "NO_SAVE" || checkpointSemantics === "GAME_SAVE" || !saveAvailable ? <p id="immersive-save-unavailable" className="immersive-player-unavailable">{unavailableSaveText(checkpointSemantics, saveStatus)}</p> : null}
+      {gamepadCursor?.enabled ? <p>{gamepadCursorInstructions}</p> : null}
       <small>A 确认 · B 取消</small>
     </div>
   </section>;
 }
 
-function MenuActions({checkpointSemantics, nativeSave, nativeRetryAvailable, overlay, saveAvailable, editorAvailable, onCancel, onSelect, onConfirm}:
+function MenuActions({gamepadCursor, checkpointSemantics, nativeSave, nativeRetryAvailable, overlay, saveAvailable, editorAvailable, onCancel, onSelect, onConfirm}:
   Omit<Props, "overlay"> & {overlay: Extract<ImmersivePlayerOverlay, {kind: "menu"}>}) {
   const retryOnly = nativeRetryOnly(checkpointSemantics, nativeSave, nativeRetryAvailable);
   return (
       <div className="immersive-player-actions">
         <button type="button" disabled={overlay.pending} className={overlay.selected === 0 ? "is-selected" : ""} aria-current={overlay.selected === 0} onFocus={() => onSelect(0)} onClick={onCancel}>取消</button>
+        <CursorMenuAction control={gamepadCursor} overlay={overlay} onSelect={onSelect} onConfirm={onConfirm} />
         <button type="button" disabled={checkpointSemantics === "NO_SAVE" || retryOnly || overlay.pending || !saveAvailable} className={!retryOnly && overlay.selected === 1 ? "is-selected" : ""} aria-current={!retryOnly && overlay.selected === 1} aria-describedby={checkpointSemantics === "NO_SAVE" || retryOnly || !saveAvailable ? "immersive-save-unavailable" : undefined} onFocus={() => onSelect(1)} onClick={() => confirmMenuItem(1, onSelect, onConfirm)}>创建存档</button>
         {retryOnly && saveAvailable ? <button type="button" disabled={overlay.pending} className={overlay.selected === 1 ? "is-selected" : ""} aria-current={overlay.selected === 1} onFocus={() => onSelect(1)} onClick={() => confirmMenuItem(1, onSelect, onConfirm)}>重试暂存</button> : null}
         <EditorMenuAction available={editorAvailable} pending={overlay.pending} selected={overlay.selected} onSelect={onSelect} onConfirm={onConfirm} />
@@ -63,7 +67,17 @@ function EditorMenuAction({available, pending, selected, onSelect, onConfirm}: {
   onSelect: Props["onSelect"]; onConfirm: Props["onConfirm"];
 }) {
   if (!available) {return null;}
-  return <button type="button" disabled={pending} className={selected === 3 ? "is-selected" : ""} aria-current={selected === 3} onFocus={() => onSelect(3)} onClick={() => confirmMenuItem(3, onSelect, onConfirm)}>游戏修改</button>;
+  return <button type="button" disabled={pending} className={selected === 4 ? "is-selected" : ""} aria-current={selected === 4} onFocus={() => onSelect(4)} onClick={() => confirmMenuItem(4, onSelect, onConfirm)}>游戏修改</button>;
+}
+
+function CursorMenuAction({control, overlay, onSelect, onConfirm}: {
+  control: Props["gamepadCursor"]; overlay: Extract<ImmersivePlayerOverlay, {kind: "menu"}>;
+  onSelect: Props["onSelect"]; onConfirm: Props["onConfirm"];
+}) {
+  if (!control) {return null;}
+  return <button type="button" disabled={overlay.pending} className={overlay.selected === 3 ? "is-selected" : ""}
+    aria-current={overlay.selected === 3} aria-pressed={control.enabled} onFocus={() => onSelect(3)}
+    onClick={() => confirmMenuItem(3, onSelect, onConfirm)}>手柄光标：{control.enabled ? "开" : "关"}</button>;
 }
 
 function nativeRetryOnly(semantics: CheckpointSemantics | undefined, save: NativeSaveCapabilities, retry: boolean | undefined) {

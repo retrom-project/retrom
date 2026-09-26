@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Home, RecentGame } from "@/features/home/home-data";
 import { MobileHome } from "./mobile-home";
 
-vi.mock("@/features/player/launch-button", () => ({ LaunchButton: ({ gameId, saveStateId, label }: { gameId: string; saveStateId?: string | null; label: string }) => <button data-game={gameId} data-save={saveStateId}>{label}</button> }));
+vi.mock("@/features/player/launch-button", () => ({ LaunchButton: ({ gameId, saveStateId, dosEntry, label }: { gameId: string; saveStateId?: string | null; dosEntry?: string | null; label: string }) => <button data-game={gameId} data-save={saveStateId} data-dos-entry={dosEntry}>{label}</button> }));
 vi.mock("@/features/home/immersive-home-entry", () => ({ ImmersiveHomeEntry: () => <button>沉浸模式</button> }));
 afterEach(cleanup);
 
@@ -13,7 +13,7 @@ function recentGame(index: number): RecentGame {
 
 function home(): Home {
   return { library: { gameCount: 10, saveStateCount: 1 }, play: { activeDurationMs: 100 }, platforms: [], quickPlatforms: [], latestGames: [],
-    featuredGame: { ...recentGame(0), description: "", hasSaveStates: false, lastSessionSave: null },
+    featuredGame: { ...recentGame(0), description: "", hasSaveStates: false, defaultDosEntry: null, lastSessionSave: null },
     recentGames: Array.from({ length: 10 }, (_, index) => recentGame(index)),
   };
 }
@@ -37,13 +37,23 @@ describe("phone home", () => {
 
   it("continues the associated save instead of inferring progress from history", () => {
     const data = home();
-    data.featuredGame = { ...recentGame(0), description: "", hasSaveStates: true, lastSessionSave: {
+    data.featuredGame = { ...recentGame(0), description: "", hasSaveStates: true, defaultDosEntry: "PAL/PLAY.BAT", lastSessionSave: {
       saveStateId: "saved-progress", createdAtMs: 1000, activeDurationMs: 100,
       screenshotUrl: null, discIndex: null, discLabel: null,
     } };
     render(<MobileHome home={data} />);
     expect(screen.getByRole("button", { name: "从存档继续" })).toHaveAttribute("data-save", "saved-progress");
+    expect(screen.getByRole("button", { name: "从存档继续" })).not.toHaveAttribute("data-dos-entry");
     expect(screen.queryByRole("button", { name: "开始游戏" })).not.toBeInTheDocument();
+  });
+
+  it("starts the reviewed DOS program when the last session has no save", () => {
+    const data = home();
+    data.featuredGame = { ...recentGame(0), platform: { id: "dos", name: "MS-DOS" }, description: "", hasSaveStates: false, defaultDosEntry: "PAL/PLAY.BAT", lastSessionSave: null };
+    render(<MobileHome home={data} />);
+    const launch = screen.getByRole("button", { name: "开始游戏" });
+    expect(launch).toHaveAttribute("data-dos-entry", "PAL/PLAY.BAT");
+    expect(launch).not.toHaveAttribute("data-save");
   });
 
   it("offers other library games when the featured game is the only history", () => {
@@ -81,4 +91,16 @@ describe("phone home", () => {
     expect(container.querySelectorAll(".phone-game-card")).toHaveLength(6);
     expect(screen.queryByRole("button", { name: "开始游戏" })).not.toBeInTheDocument();
   });
+});
+
+it("never mounts a cover, screenshot, or platform illustration in the phone continue card", () => {
+  const data = home();
+  data.featuredGame = { ...recentGame(0), description: "", hasSaveStates: true, defaultDosEntry: null, coverUrl: "/portrait.jpg", lastSessionSave: { saveStateId: "progress", screenshotUrl: "/landscape.jpg", createdAtMs: 1000, activeDurationMs: 100, discIndex: null, discLabel: null } };
+  const { container } = render(<MobileHome home={data} />);
+  const card = container.querySelector(".phone-continue-card")!;
+  expect(card.querySelector("img")).toBeNull();
+  expect(card.querySelector(".home-featured-media")).toBeNull();
+  expect(screen.getByRole("button", { name: "从存档继续" })).toHaveAttribute("data-save", "progress");
+  expect(screen.getByRole("link", { name: "查看游戏详情" })).toHaveAttribute("href", "/games/game-0");
+  expect(screen.getByRole("link", { name: "查看存档" })).toHaveAttribute("href", "/saves?gameId=game-0");
 });

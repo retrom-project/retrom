@@ -480,6 +480,9 @@ test("ACC-MEDIA-001 video upload is explicit in admin and absent from library re
 
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto(`/games/${gameId}`);
+  // A previous product case may have created a save; the detail preview then defaults to that save.
+  const videoTab = page.getByRole("button", { name: "查看视频", exact: true });
+  if (await videoTab.count()) {await videoTab.click();}
   const detailVideo = page.getByLabel(/视频预览/);
   await expect(detailVideo).toHaveJSProperty("muted", true);
   await expect(detailVideo).toHaveAttribute("playsinline", "");

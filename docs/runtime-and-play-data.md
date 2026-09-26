@@ -86,7 +86,7 @@ Host 区分运行时内部普通点击与暂停遮罩上的明确恢复：前者
 
 内容与会话读取由 `internal/service/launch` 判断 capability、状态、硬到期、资源类型及项目路径；`internal/persistence/launch` 只读取冻结会话、内容成员和授权事实。普通与预览 Bundle 的授权和成员必须来自同一数据库快照，包括合法空集合。RPG Maker 原生 Web 项目资源的请求路径先经过安全校验，再规范化为导入时使用的 NFC 文件名；项目仅在精确路径不存在时尝试唯一的大小写匹配。项目资源可在浏览器私有缓存保存，但每次使用前需以 ETag 重新验证会话授权，命中时返回无正文的 304，存档恢复数据仍不可缓存。存储失败或取消必须保留原因，不能触发路径回退或误报凭据无效。Provider 资源仍按冻结的 Provider/Target/Bundle 和唯一 manifest 路径选择，不重新解释核心或内容配置。
 
-Provider 静态文件只从 `/runtime/providers/{providerId}/{bundleSha256}/{runtimePath}` 提供，并同时受 closed allowlist、大小和 SHA-256 约束。游戏、BIOS、parent、多盘、项目文件和 cart 不属于 Provider Bundle，通过 envelope resources 授权；Provider 不得根据扩展名、标题或 Core 名称猜测输入。
+Provider 静态文件只从 `/runtime/providers/{providerId}/{bundleSha256}/{runtimePath}` 提供，并同时受 closed allowlist、大小和 SHA-256 约束。静态响应包含 `Cache-Control: no-transform`，防止代理压缩使 Content I/O 的原始字节与长度校验失败；PFB 开发文件同样禁止变换。游戏、BIOS、parent、多盘、项目文件和 cart 不属于 Provider Bundle，通过 envelope resources 授权；Provider 不得根据扩展名、标题或 Core 名称猜测输入。
 
 `retrom-runtime` 的 Target 覆盖 EasyRPG、mkxp、MV/MZ、ONS、KiriKiri、Butterscotch、TyranoScript、Java ME 与 WASM-4。项目可使用 file tree、seekable blob、native web 或 isolated web 资源。MV/MZ bridge 保留 Canvas2D 对非法 `textAlign` 赋值“忽略并保持原值”的浏览器语义；Butterscotch 保留真实 `640×480` backing buffer，但显示尺寸始终按容器等比放大；KiriKiri 在 core `postRun` 后进入可玩状态，checkpoint availability 独立等待书签 API 就绪，其精确的脚本退出 Wasm trap 会转换为一次 `EXIT_REQUESTED`；非匹配 trap 不会被吞掉。`EXIT_REQUESTED` 是可选生命周期事件，不构成 Provider/Target 准入条件；能够可靠观察游戏自身退出的 Provider 可以发出该事件，使 Player 页面同步关闭，其他会话由 Host 调用 `exit()` 结束。
 
@@ -126,9 +126,9 @@ Provider 可在存档边界无损压缩完整原生 checkpoint，格式仍由 Ta
 
 ## 9. PlaySession 生命周期
 
-游玩事件由 `internal/service/launch.PlayController` 判断权限、事件形状、连续序号、精确重放和服务端计时，`internal/persistence/launch` 在同一事务更新会话、事件、时长及 capability 撤销。加载期间 finish 直接关闭 CREATED Launch，不创建 PlaySession；预览保持不计入产品统计的语义。未知事件和已撤销会话不能借重放绕过校验，查询或提交失败保留原因。写入重验来源/游玩版本、状态、序号与硬/空闲截止时刻，失败时不能部分累计时长或部分撤销。
+PRODUCT Player 在核心真正开始后累计可见、未暂停的运行时间，每 30 秒向 `progress` 上报累计毫秒数；首次成功上报才创建 PlaySession，重复或乱序样本只保留最大值。统计失败不阻断运行、存档或退出，也不撤销 Launch 权限。退出时停止时钟并尽力提交最后一份累计值；加载中退出先取消 Provider 加载，不产生统计请求。PRODUCT 内容授权与回收独立遵循 hard expiry、明确撤销和游戏删除，具体协议见 HTTP 与数据模型契约。
 
-Provider 报告真实 ready/start 后，Host 才创建 PlaySession。heartbeat 以连续序号报告上一时段的 running/visible/paused，服务端按接收时间计费；页面隐藏、暂停、失联、重放或跳号不能伪造时长。用户菜单退出、游戏自身退出和异常退出最终都幂等 finish Launch；卸载失败由 hard expiry 收口。
+`start/heartbeat/finish` 连续事件仅为旧客户端及审核 Preview 保留，新 PRODUCT Player 不调用它们。旧事件由 `internal/service/launch.PlayController` 校验权限、连续序号与精确重放，在同一事务更新会话、事件及权限状态。审核 Preview 不计入产品统计，退出和加载取消仍通过 `finish` 关闭授权；重复 finish 幂等。未知事件和已撤销会话不能借重放绕过校验。
 
 ## 10. 验证与发布门禁
 
@@ -315,3 +315,23 @@ Provider 在同源空白 iframe 中运行 GBE+ Pokémon Mini，支持标准手�
 `gbe-pokemini-state-v1-storage-v1`，上限 1 MiB。不同 Launch 恢复必须通过
 `ACC-POKEMINI-001`，不得以启动新游戏替代恢复成功。ROM 与 BIOS 按不可变 URL 持久缓存，
 再次 Launch 不重复下载；首次完整下载有公共进度。
+
+## 公共手柄光标
+
+`PlayerRuntimeV1.getGamepadCursor()` 是挂载后可选的公共能力入口，未提供或返回 null 表示不支持。
+返回的 `RuntimeGamepadCursorV1` 通过 `getState()` 提供当前开关及默认值，通过 `setEnabled(boolean)` 同步切换。
+该能力由当前实例报告，不改变 Launch Envelope、Provider manifest 或存档格式；Host 不按核心名称推断能力。
+Retrom 只负责菜单与本地偏好，启动入口将 Launch 与 Game 的偏好上下文写入当前标签页 sessionStorage；该上下文不参与授权。
+缺少上下文或浏览器存储不可用时仍可切换，仅不跨 Launch 记忆。
+
+retrom-runtime 的公共光标模块统一负责采样、绘制、死区、移动、拖动和输入生命周期。Kirikiri 与 Ruffle 共用该模块，
+核心适配只选择实际输入表面与 MouseEvent／PointerEvent 协议；Kirikiri 原独立光标循环已移除。
+方向键、左摇杆、A/B 与 LB 在光标开启时从交给核心的手柄快照中屏蔽，其他按钮和手柄保留原映射；Select/Start 保留宿主菜单识别。
+光标读取原始手柄快照，不额外调用有状态的宿主组合键过滤器，避免消费 Select/Start 单击脉冲。
+有宿主认领时只使用指定 Gamepad.index；普通模式选择一个已连接标准手柄。A/B 分别对应左右鼠标键，LB 将移动速度降至 20%。
+拖动的 move/up 必须携带准确 buttons，拖动超过 4 CSS px 后释放不另发 click。关闭、暂停、存档、失焦、断连和退出只释放，不合成点击。
+开启、恢复和切换认领后须等待受管控输入中立；关闭后也消费尚未松开的输入，避免泄漏给原生映射。
+真实键盘和鼠标继续使用原有路径。该能力不声明支持相对鼠标／Pointer Lock，也不代替纯键盘游戏的按键映射。
+
+产品验证见 [ACC-KIRIKIRI-001](./project-acceptance.md#acc-kirikiri-001kirikiri2-kag-最小产品闭环) 与
+[ACC-FLASH-001](./project-acceptance.md#acc-flash-001ruffle-单文件与-sharedobject-产品闭环)。

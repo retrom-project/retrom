@@ -67,6 +67,7 @@ export type PlayerBootstrapParams = {
   onRevealControls: (clientY: number) => void;
   onShowControls: () => void;
   onGameSurface: () => void;
+  onGamepadCursorReady?: (runtime: PlayerRuntimeV1) => void;
   onExitRequested: (snapshot?: RuntimeFinalSnapshotV1) => void;
   reportProgress: () => Promise<void>;
 };
@@ -128,6 +129,7 @@ async function bootstrapPlayer(params: PlayerBootstrapParams, resources: Bootstr
     onShowControls: params.onShowControls,
     onSurface: params.onGameSurface,
   });
+  params.onGamepadCursorReady?.(mounted.runtime);
   await configureMountedRuntime(params, resources, mounted.runtime);
 }
 

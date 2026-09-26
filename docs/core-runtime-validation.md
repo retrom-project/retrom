@@ -47,6 +47,8 @@
 
 EmulatorJS Provider declaration 是 56 个 Target 的唯一行为 registry。`mame2003` 的 4.2.1 core 覆盖、DOSBox Pure 的 state 修复、线程 core、shader、启动动作与多盘都封装在该 Provider 中。Retrom 只看 Target declaration 与标准能力，不按 core 名在 Go 或前端复制规则。
 
+DOSBox Pure 的游戏输入声明为 `FILE_TREE`，索引中的 `game.zip` 是 Retrom 在授权内容端点投影的虚拟 ZIP。索引记录虚拟 ZIP 长度，runtime 以 Content I/O Range Reader 和强 ETag 绑定读取，并将有界读取接到 EmulatorJS 文件系统；宿主保留原始 DOS 来源 Blob 与选定程序的身份绑定。是否真正未整包下载由 [ACC-RUN-005](./project-acceptance.md#acc-run-005dos-启动程序) 的网络和浏览器证据判定。
+
 原始画面与锐利像素使用显式颜色直通、无滤波的 `retrom-passthrough` shader，避开 4.2.3 关闭 shader 后在原生分辨率切换时出现纯色/裁切的 GL fallback。浏览器画面必须与核心截图保持完整内容，启动和跨 Launch 恢复均需覆盖；不能用切换画面模式的人工操作替代默认模式验收。
 
 
@@ -121,6 +123,21 @@ Flash 使用独立 `flash-ruffle` Target。只接收原始单 SWF，SharedObject
 RPG 世代检测只选择 `retrom-runtime` Provider 内的 Target；用户仍只看到一个 RPG Maker Core。EasyRPG、mkxp、Native Web、ONS、KiriKiri、Butterscotch、TyranoScript 和 WASM-4 的文件策略、bridge、OPFS/Range、输入和 checkpoint codec 都属于 Provider 私有实现。
 
 Native Web 必须使用每 Launch unique origin，拒绝应用 cookie、普通 API、跨 Launch 项目和 ticket 重放。审核试运行复用普通 Preview/Player 与同一 Provider Module，不包含专用证明协议或发布前置。严格的帧、输入、音频、A/B/C、checkpoint、跨会话恢复与截图断言只由研发验收驱动普通产品操作并从自有 fixture/普通存档读取，规则见项目验收专题。
+
+### KiriKiri 存档卡住的定向回归
+
+对已导入的合法 KAG 项目，可运行 `node scripts/acceptance/kirikiri_freeze_replay.mjs`。
+除公共的 `RETROM_ACCEPTANCE_BASE_URL/USERNAME/PASSWORD`、`RETROM_CHROME_EXECUTABLE`
+和 `RETROM_ACCEPTANCE_CASE_DIR` 外，显式提供 `RETROM_KIRIKIRI_REPLAY_GAME_ID` 与
+`RETROM_KIRIKIRI_REPLAY_SAVE_ID`。存档应恢复到横向居中的选项；目标纵坐标由
+`RETROM_KIRIKIRI_REPLAY_CHOICE_Y` 指定，默认相对 canvas 为 `0.33`。
+脚本在 180 秒内用方向键和 A 选择、发送 400 次快速 A、检查实际鼠标按下/释放、
+打开控制栏创建新存档，再从不同 Launch 恢复并继续输入。首次画布边缘点击只负责
+激活新浏览器页面的音频，游戏操作使用标准手柄。脚本保留原始存档，新增回归存档。
+
+输出包含 Wasm 摘要、输入计数、非秘密 Launch/Save ID 和逐阶段截图；需人工核对
+截图中的剧情确实推进，不能把动画像素变化当成进度证明。该检查用于复现与回归，
+不替代 `ACC-KIRIKIRI-001` 的完整导入/审核/发布门禁，也不替代 Win10 实体手柄验证。
 
 ### PC-98 / NP2kai
 

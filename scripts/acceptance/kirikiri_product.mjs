@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import {gamepadCursorDirection} from "./gamepad_cursor_position.mjs";
 import {observeContentStoreEvents} from "./content_store_events.mjs";
 import {contentStoreSnapshot} from "./content_store_snapshot.mjs";
 import {withProjectRunArchive} from "./project_run_archive.mjs";
@@ -237,7 +238,7 @@ async function openImmersiveExitMenu(page, canvas) {
   await dialog.waitFor({ state: "visible", timeout: 5_000 });
   await setVirtualGamepadButton(canvas, 8, false);
   await setVirtualGamepadButton(canvas, 9, false);
-  const actions = ["取消", "创建存档", "退出游戏"];
+  const actions = ["取消", "手柄光标：开", "创建存档", "退出游戏"];
   for (const action of actions) {await dialog.getByRole("button", { name: action, exact: true }).waitFor();}
   const screenshot = "screenshots/immersive-exit-menu.png";
   await page.screenshot({ path: join(caseDirectory, screenshot), fullPage: true });
@@ -323,7 +324,15 @@ async function runtimeCanvas(page) {
       if (!await canvas.isVisible().catch(() => false)) {continue;}
       await focusRuntimeCanvas(canvas);
       const layout = await canvasLayoutEvidence(canvas).catch(() => null);
-      if (validCanvasLayout(layout)) {return canvas;}
+      if (validCanvasLayout(layout)) {
+        // API-created Launches have no trusted gesture from the launch button.
+        // Activate audio after its listeners exist, outside all menu targets.
+        await frame.waitForFunction(() => typeof AL !== "undefined" &&
+          Object.values(AL.contexts ?? {}).some(value => value.audioCtx), null, {timeout: 30_000});
+        const box = await canvas.boundingBox();
+        await page.mouse.click(box.x + 8, box.y + 100);
+        return canvas;
+      }
     }
     await page.waitForTimeout(100);
   }
@@ -379,8 +388,7 @@ async function moveVirtualGamepadCursor(canvas, targetX, targetY) {
       await setVirtualGamepadAxis(canvas, 0, 0);
       return;
     }
-    const x = position ? Math.sign(targetX - position.x) : 1;
-    const y = position ? Math.sign(targetY - position.y) : -1;
+    const {x, y} = gamepadCursorDirection(position, targetX, targetY);
     await setVirtualGamepadAxis(canvas, x, y);
     await canvas.page().waitForTimeout(25);
   }
@@ -390,7 +398,7 @@ async function moveVirtualGamepadCursor(canvas, targetX, targetY) {
 
 async function virtualGamepadCursorPosition(canvas) {
   return canvas.evaluate((element) => {
-    const cursor = element.ownerDocument.querySelector("[data-kirikiri-gamepad-cursor]");
+    const cursor = element.ownerDocument.querySelector("[data-gamepad-cursor]");
     const surface = element.closest("[data-kirikiri-runtime-surface]");
     if (!(cursor instanceof HTMLElement) || !(surface instanceof HTMLElement) || cursor.hidden) {return null;}
     const cursorRect = cursor.getBoundingClientRect();

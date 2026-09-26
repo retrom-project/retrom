@@ -212,12 +212,15 @@ async function pressMenuChord(page: Page, releaseMs: number) {
 }
 
 async function exitFromPlayerMenu(page: Page) {
+  const progress = page.waitForResponse((response) =>
+    /\/runtime\/launches\/[^/]+\/progress$/.test(response.url()) && response.request().method() === "POST");
   const exit = page.getByRole("dialog", { name: "游戏菜单" }).getByRole("button", { name: "退出游戏" });
   for (let attempt = 0; attempt < 2 && await exit.getAttribute("aria-current") !== "true"; attempt += 1) {
     await pressGamepad(page, standardButton.right);
   }
   await expect(exit).toHaveAttribute("aria-current", "true");
   await pressGamepad(page, standardButton.a);
+  expect((await progress).ok()).toBe(true);
   await expect(page).toHaveURL(/\/immersive\/platforms\/[a-z0-9-]+\?gameId=[0-9a-f-]+$/);
   await expect(page.locator(".player-shell")).toHaveCount(0);
   await expect(page.locator("iframe.player-frame")).toHaveCount(0);

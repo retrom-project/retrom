@@ -55,7 +55,7 @@ func TestGeneratedProjectIndexPreservesJSONHeadersAndHEAD(t *testing.T) {
 		if !server.writeGeneratedProjectIndex(writer, request, index, nil) {
 			t.Fatal("generated index fell back")
 		}
-		if writer.Code != 200 || writer.Header().Get("ETag") != `"sha256-`+index.SHA256+`"` || writer.Header().Get("Cache-Control") != immutablePrivateContent {
+		if writer.Code != 200 || writer.Header().Get("ETag") != `"sha256-`+index.SHA256+`"` || writer.Header().Get("Cache-Control") != "private, max-age=31536000, immutable, no-transform" {
 			t.Fatalf("response=%d headers=%v", writer.Code, writer.Header())
 		}
 		if method == http.MethodHead && writer.Body.Len() != 0 {

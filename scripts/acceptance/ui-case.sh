@@ -216,7 +216,7 @@ if [[ "$case_id" == "ACC-FAV-003" ]]; then
 fi
 
 if [[ "$case_id" == "ACC-UI-005" ]]; then
-  python3 scripts/acceptance/seed-ui-home.py "$temporary_root/data/retrom.db" played
+  python3 scripts/acceptance/seed-ui-home.py "$temporary_root/data/retrom.db" populated
 fi
 
 specification="e2e/acceptance.spec.ts"

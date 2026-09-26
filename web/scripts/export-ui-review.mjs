@@ -5,8 +5,10 @@ import path from "node:path";
 const webRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const designRoot = path.resolve(webRoot, "..", "docs", "design");
 const tokens = await readFile(path.join(webRoot, "styles", "tokens.css"), "utf8");
+const icon = await readFile(path.join(webRoot, "app", "icon.svg"));
+const iconHref = `data:image/svg+xml;base64,${icon.toString("base64")}`;
 const controls = await readFile(path.join(webRoot, "styles", "controls.css"), "utf8");
-const reviewControls = controls.replaceAll(".button.secondary", ".rt-button:not(.rt-button-primary)").replaceAll(".button.danger", ".rt-button-danger").replaceAll(".button", ".rt-button");
+const reviewControls = controls.replaceAll(".home-search", ".rt-home-search").replaceAll(".phone-home-search", ".rt-phone-search").replaceAll(".button.secondary", ".rt-button:not(.rt-button-primary)").replaceAll(".button.danger", ".rt-button-danger").replaceAll(".button", ".rt-button");
 const fragment = await readFile(path.join(designRoot, "retrom-ui-review.fragment.html"), "utf8");
 
 function escapeAttribute(value) {
@@ -21,6 +23,7 @@ const frameDocument = `<!doctype html>
 <meta name="referrer" content="no-referrer">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' https://unpkg.com; style-src 'unsafe-inline'; img-src data:; font-src data:; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <title>Retrom UI 交互评审稿</title>
+<link rel="icon" type="image/svg+xml" href="${iconHref}">
 <style>@layer app, controls; ${tokens} @layer controls { ${reviewControls} } html,body{margin:0;min-height:100%;background:var(--canvas);color:var(--ink);color-scheme:dark}body{padding:0}button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid rgb(96 69 217 / .45);outline-offset:2px}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}svg.lucide{display:block;width:16px!important;height:16px!important;flex:none;stroke-width:1.6}</style>
 <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
 </head>
@@ -38,6 +41,7 @@ const document = `<!doctype html>
 <meta name="referrer" content="no-referrer">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' https://unpkg.com; style-src 'unsafe-inline'; img-src data:; font-src data:; frame-src 'self'; object-src 'none'; base-uri 'none'">
 <title>Retrom UI 交互评审稿</title>
+<link rel="icon" type="image/svg+xml" href="${iconHref}">
 <style>:root{color-scheme:dark;background:#101521}html,body{margin:0}body{padding:1rem}iframe{display:block;width:100%;height:calc(100vh - 2rem);margin:0;border:0}</style>
 </head>
 <body>

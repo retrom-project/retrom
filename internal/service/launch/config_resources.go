@@ -80,6 +80,9 @@ func providerGameResource(
 	}
 	switch kind {
 	case "FILE_TREE":
+		if source.ContentKind == "DOS_BUNDLE" {
+			return providerDOSIndexResource(source, files)
+		}
 		identity, err := ProjectIdentity(files)
 		if err != nil {
 			return nil, err

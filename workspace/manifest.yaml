@@ -58,8 +58,18 @@
         "apple2js",
         "lutro",
         "daphne",
-        "gearboy"
+        "gearboy",
+        "dosbox-pure"
       ]
+    },
+    {
+      "id": "dosbox-pure",
+      "path": "project/retrom-core/dosbox-pure",
+      "role": "core",
+      "gitlink": "git@github.com:retrom-project/dosbox-pure.git",
+      "defaultBranch": "retrom/g3a5222c97456",
+      "submodules": false,
+      "dependsOn": []
     },
     {
       "id": "ruffle",
@@ -104,7 +114,7 @@
       "path": "project/retrom-core/kirikiroid2-web",
       "role": "core",
       "gitlink": "git@github.com:retrom-project/kirikiroid2-web.git",
-      "defaultBranch": "retrom/g338d2029f169",
+      "defaultBranch": "retrom/g13dda190f837",
       "submodules": true,
       "dependsOn": []
     },

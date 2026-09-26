@@ -136,7 +136,7 @@ export function ReviewBulkApproval({ restoreBulkApprovalId }: { restoreBulkAppro
       setSummary(created);
       const url = new URL(window.location.href);
       url.searchParams.set("bulkApprovalId", created.bulkApprovalId);
-      window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
+      window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "无法开始快速审批");
     } finally {

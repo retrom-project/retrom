@@ -66,6 +66,7 @@ type FeaturedGame struct {
 	LastPlayedAtMS, ActiveDurationMS     int64
 	SessionCount, SaveCount              int64
 	CoverAssetID                         *string
+	DefaultDOSEntry                      *string
 	LastSessionSave                      *FeaturedSave
 	Tags                                 []Tag
 }

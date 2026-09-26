@@ -49,7 +49,7 @@ function assertIds(value) {
 
 function assertImmersiveMenu(value) {
   if (!exactRecord(value, ["actions", "screenshot"]) ||
-      JSON.stringify(value.actions) !== JSON.stringify(["取消", "创建存档", "退出游戏"]) ||
+      JSON.stringify(value.actions) !== JSON.stringify(["取消", "手柄光标：开", "创建存档", "退出游戏"]) ||
       value.screenshot !== "screenshots/immersive-exit-menu.png") {
     throw new Error("KIRIKIRI_ACCEPTANCE_EVIDENCE_INVALID");
   }

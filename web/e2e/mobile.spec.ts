@@ -93,15 +93,13 @@ async function expectHomeLaunchPlacement(page: Page) {
     expect(bounds).not.toBeNull();
     expect(title).not.toBeNull();
     expect(action).not.toBeNull();
-    expect(Math.abs(action!.x + action!.width - bounds!.x - bounds!.width)).toBeLessThan(1);
-    // Ordinary launch controls use the shared 44px minimum (UI specification §3).
+    await expect(card.locator("img, .home-featured-media")).toHaveCount(0);
+    await expect(card.locator(".home-featured-panel")).toHaveCSS("border-radius", "8px");
+    expect(action!.x).toBeGreaterThanOrEqual(bounds!.x);
+    expect(action!.x + action!.width).toBeLessThanOrEqual(bounds!.x + bounds!.width);
     expect(action!.height).toBeGreaterThanOrEqual(44);
-    if (width >= 480) {
-      expect(action!.x).toBeGreaterThanOrEqual(title!.x + title!.width + 12);
-      expect(Math.abs(action!.y + action!.height / 2 - bounds!.y - bounds!.height / 2)).toBeLessThan(1);
-    } else {
-      expect(action!.y).toBeGreaterThan(title!.y + title!.height);
-    }
+    expect(action!.y).toBeGreaterThan(title!.y + title!.height);
+    expect(action!.y + action!.height).toBeLessThanOrEqual(bounds!.y + bounds!.height);
     await expectNoDocumentOverflow(page);
   }
   await page.setViewportSize({ width: 390, height: 844 });
@@ -281,7 +279,7 @@ test("ACC-MOB-003 search, favorite, launch, save and home continue use the real 
   await expect(page).toHaveURL(detailURL);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.getByRole("navigation", { name: "手机主导航" }).getByRole("link", { name: "首页" }).click();
-  await expect(page.getByRole("heading", { name: "继续游玩", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "今天，玩点什么？", exact: true })).toBeVisible();
   await expectHomeLaunchPlacement(page);
   await page.screenshot({ path: evidencePath(testInfo, "phone-home-continue.png"), fullPage: true });
   const resume = page.waitForRequest((request) => request.method() === "POST" && /\/api\/v1\/launches$/.test(request.url()));

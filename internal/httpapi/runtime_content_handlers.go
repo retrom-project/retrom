@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -62,6 +63,25 @@ func (server *Server) launchGame(writer http.ResponseWriter, request *http.Reque
 	body, etag, err := launchGameBody(file, stat.Size(), content)
 	if err != nil {
 		writeError(writer, request, http.StatusServiceUnavailable, "CAS_UNAVAILABLE", "游戏内容不可用", map[string]any{})
+		return
+	}
+	if request.PathValue("logicalName") == "index.json" {
+		if content.Format != "RETROM_DOS_DIRECT_ZIP_V1" {
+			writeError(writer, request, http.StatusUnauthorized, "LAUNCH_CREDENTIAL_INVALID", "启动内容不可用", map[string]any{})
+			return
+		}
+		size, sizeErr := body.Seek(0, io.SeekEnd)
+		index, indexErr := dosGameIndex(content, size)
+		if sizeErr != nil || indexErr != nil {
+			writeError(writer, request, http.StatusServiceUnavailable, "CAS_UNAVAILABLE", "游戏内容不可用", map[string]any{})
+			return
+		}
+		digest := sha256.Sum256(index)
+		writer.Header().Set("Content-Type", "application/json; charset=utf-8")
+		writer.Header().Set("Cache-Control", immutablePrivateContent)
+		writer.Header().Set("ETag", `"sha256-`+hex.EncodeToString(digest[:])+`"`)
+		writer.Header().Set("Cross-Origin-Resource-Policy", "same-origin")
+		http.ServeContent(writer, request, "index.json", time.Unix(0, 0), bytes.NewReader(index))
 		return
 	}
 	writer.Header().Set("Content-Type", mediaType)
@@ -201,6 +221,9 @@ func (server *Server) recordMultiDiscContentResponse(
 
 func (server *Server) runtimeContent(request *http.Request) (launch.ContentView, string, error) {
 	logicalName := request.PathValue("logicalName")
+	if logicalName == "index.json" {
+		logicalName = "game.zip"
+	}
 	requestedIdentity := request.PathValue("contentIdentity")
 	grants, valid := runtimeContentGrants(request)
 	if !valid {
@@ -219,6 +242,36 @@ func (server *Server) runtimeContent(request *http.Request) (launch.ContentView,
 		}
 	}
 	return launch.ContentView{}, "", launch.ErrCredential
+}
+
+func dosGameIndex(content launch.ContentView, size int64) ([]byte, error) {
+	if content.Format != "RETROM_DOS_DIRECT_ZIP_V1" || content.CoreID != "dosbox_pure" || size < 1 {
+		return nil, dosbundle.ErrInvalid
+	}
+	identity, err := launch.ContentIdentity(content)
+	if err != nil {
+		return nil, fmt.Errorf("derive DOS content identity: %w", err)
+	}
+	url, err := launch.RuntimeContentURL("game", identity, "game.zip")
+	if err != nil {
+		return nil, fmt.Errorf("build DOS game URL: %w", err)
+	}
+	data, err := json.Marshal(struct {
+		SchemaVersion int `json:"schemaVersion"`
+		Files         []struct {
+			Path      string `json:"path"`
+			URL       string `json:"url"`
+			SizeBytes int64  `json:"sizeBytes"`
+		} `json:"files"`
+	}{SchemaVersion: 1, Files: []struct {
+		Path      string `json:"path"`
+		URL       string `json:"url"`
+		SizeBytes int64  `json:"sizeBytes"`
+	}{{Path: "game.zip", URL: url, SizeBytes: size}}})
+	if err != nil {
+		return nil, fmt.Errorf("marshal DOS game index: %w", err)
+	}
+	return data, nil
 }
 
 func launchGameBody(file io.ReadSeeker, size int64, content launch.ContentView) (io.ReadSeeker, string, error) {

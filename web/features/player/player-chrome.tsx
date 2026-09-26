@@ -13,6 +13,8 @@ import type { PlayerDebugMetrics } from "./player-debug";
 import { videoRenderingModeOptions, type VideoRenderingMode } from "./video-rendering";
 import {GameEditorPanel} from "./game-editor-panel";
 
+import type {PlayerGamepadCursorControl} from "./use-gamepad-cursor";
+
 type SyncTone = "synced" | "busy" | "warning";
 type ExitSaveState = "idle" | "saving" | "saved" | "error";
 
@@ -27,6 +29,7 @@ export type PlayerDebugRuntime = {
 export type PlayerDiscSet = {count: number; entries: Array<{index: number; label: string}>};
 
 export type PlayerChromeProps = {
+  gamepadCursor?: PlayerGamepadCursorControl | null;
   inputRuntime?: RefObject<PlayerRuntimeV1 | null>;
   checkpointSemantics?: CheckpointSemantics;
   nativeSave?: NativeSaveCapabilities;
@@ -88,6 +91,7 @@ function PauseOverlay({ paused, settingsOpen, onGameSurface }: {
 }
 
 export function PlayerChrome({
+  gamepadCursor,
   checkpointSemantics = "INSTANT", nativeSave, nativeRetryAvailable = false, onRetrySync,
   controlsVisible,
   running,
@@ -267,7 +271,7 @@ export function PlayerChrome({
   return <>
     <SaveUploadProgress value={saveUploadProgress} />
     <button className="player-hud-handle" type="button" aria-label={controlsVisible ? "隐藏 Player 控制栏" : "显示 Player 控制栏"} aria-pressed={controlsVisible} onPointerEnter={(event) => {if (event.pointerType !== "touch" && !controlsVisible) {onToggleControls();}}} onClick={onToggleControls}><span aria-hidden="true" /></button>
-    <PlayerToolbar nativeSave={nativeSave} checkpointSemantics={checkpointSemantics} controlsVisible={controlsVisible} paused={paused} running={running} fullscreen={fullscreen} gameTitle={gameTitle} coreName={coreName} platformName={platformName} syncText={checkpointSyncText(checkpointSemantics, syncTone, syncText)} syncTone={syncTone} warnings={warnings} warningCopy={warningCopy} saveAvailable={saveAvailable} dosProgramMenu={dosProgramMenu} actionLayout={actionLayout} debugOpen={debugOpen} discSet={discSet} discState={discState} discBusy={discBusy} discMenuOpen={discMenuOpen} menuOpen={menuOpen} gameEditorAvailable={Boolean(gameEditor)} blockingOverlay={exitOpen || editorOpen || emulatorToolbarOpen || debugOpen} onPause={onPauseForToolbarInteraction} onHold={onHoldControls} onRelease={onReleaseControls} onHover={(hovered) => {toolbarHovered.current = hovered;}} onFocus={(focused) => {toolbarFocused.current = focused;}} onExit={requestExit} onWarning={setLocalToast} onDebug={onToggleDebug} onSave={() => void onSave()} onScreenshot={onScreenshot} onToggleFullscreen={onToggleFullscreen} onChooseDisc={(index) => void chooseDisc(index)} onDiscMenu={setDiscMenuOpen} onDiscKey={moveDiscMenuFocus} onMenu={setMenuOpen} onEmulatorSettings={onOpenEmulatorSettings} onGameEditor={() => {setMenuOpen(false); onPauseForToolbarInteraction(); setEditorOpen(true);}} />
+    <PlayerToolbar gamepadCursor={gamepadCursor} nativeSave={nativeSave} checkpointSemantics={checkpointSemantics} controlsVisible={controlsVisible} paused={paused} running={running} fullscreen={fullscreen} gameTitle={gameTitle} coreName={coreName} platformName={platformName} syncText={checkpointSyncText(checkpointSemantics, syncTone, syncText)} syncTone={syncTone} warnings={warnings} warningCopy={warningCopy} saveAvailable={saveAvailable} dosProgramMenu={dosProgramMenu} actionLayout={actionLayout} debugOpen={debugOpen} discSet={discSet} discState={discState} discBusy={discBusy} discMenuOpen={discMenuOpen} menuOpen={menuOpen} gameEditorAvailable={Boolean(gameEditor)} blockingOverlay={exitOpen || editorOpen || emulatorToolbarOpen || debugOpen} onPause={onPauseForToolbarInteraction} onHold={onHoldControls} onRelease={onReleaseControls} onHover={(hovered) => {toolbarHovered.current = hovered;}} onFocus={(focused) => {toolbarFocused.current = focused;}} onExit={requestExit} onWarning={setLocalToast} onDebug={onToggleDebug} onSave={() => void onSave()} onScreenshot={onScreenshot} onToggleFullscreen={onToggleFullscreen} onChooseDisc={(index) => void chooseDisc(index)} onDiscMenu={setDiscMenuOpen} onDiscKey={moveDiscMenuFocus} onMenu={setMenuOpen} onEmulatorSettings={onOpenEmulatorSettings} onGameEditor={() => {setMenuOpen(false); onPauseForToolbarInteraction(); setEditorOpen(true);}} />
 
     <PlayerDebugPanel open={debugOpen} metrics={debugMetrics} runtime={debugRuntime} runtimeState={runtimeState} paused={paused} coreName={coreName} discSet={discSet} discState={discState} inputRuntime={inputRuntime} />
 
@@ -295,6 +299,7 @@ function SaveUploadProgress({ value }: { value: number | null }) {
 }
 
 type ToolbarProps = {
+  gamepadCursor?: PlayerGamepadCursorControl | null;
   checkpointSemantics: CheckpointSemantics; nativeSave?: NativeSaveCapabilities;
   controlsVisible: boolean; paused: boolean; running: boolean; fullscreen: boolean; gameTitle: string; coreName: string; platformName: string;
   syncText: string; syncTone: SyncTone; warnings: string[]; warningCopy: string;
@@ -313,7 +318,7 @@ function DiscControl({ props }: { props: ToolbarProps }) {
 }
 
 function MoreActions({ props }: { props: ToolbarProps }) {
-  return <div id="player-more-menu" className="player-menu-wrap"><button id="player-more-button" className="player-control is-icon" type="button" aria-label="更多操作" title="更多操作" aria-expanded={props.menuOpen} aria-haspopup="menu" onClick={() => props.onMenu((open) => !open)}><AppIcon name="more" /></button>{props.menuOpen ? <><button className="player-menu-backdrop" type="button" tabIndex={-1} aria-label="关闭更多操作" onClick={() => props.onMenu(false)} /><div className="player-menu" role="menu" aria-label="Player 更多操作"><header className="player-menu-head"><div><small>Retrom Player</small><strong>更多操作</strong></div><button type="button" aria-label="关闭更多操作" onClick={() => {props.onMenu(false); document.getElementById("player-more-button")?.focus();}}><AppIcon name="x" /></button></header><div className={`player-menu-runtime is-${props.syncTone}`} role="status"><i aria-hidden="true" /><span><strong>{props.syncText}</strong><small>{props.paused ? "当前已暂停" : "游戏运行中"}</small></span></div>{props.discSet && props.discState ? <button type="button" role="menuitem" aria-label="在更多操作中选择光盘" disabled={!props.running || props.discBusy} onClick={() => {props.onMenu(false); props.onDiscMenu(true);}}><AppIcon name="database" /><span><strong>光盘 {props.discState.currentIndex + 1} / {props.discSet.count}</strong><small>选择当前运行光盘</small></span></button> : null}{props.gameEditorAvailable ? <button type="button" role="menuitem" onClick={props.onGameEditor}><AppIcon name="settings" />游戏修改</button> : null}<button type="button" role="menuitem" onClick={() => {props.onMenu(false); props.onEmulatorSettings();}}><AppIcon name="settings" />模拟器设置</button><button type="button" role="menuitem" aria-label={props.fullscreen ? "在更多操作中退出全屏" : "在更多操作中进入全屏"} onClick={() => {props.onMenu(false); props.onToggleFullscreen();}}><AppIcon name={props.fullscreen ? "minimize" : "maximize"} />{props.fullscreen ? "退出全屏" : "进入全屏"}</button>{props.warnings.length ? <button type="button" role="menuitem" onClick={() => {props.onMenu(false); props.onWarning(props.warningCopy);}}><AppIcon name="warning" />查看运行提醒</button> : null}<hr /><button className="is-danger" type="button" role="menuitem" onClick={props.onExit}><AppIcon name="log-out" />退出游戏</button></div></> : null}</div>;
+  return <div id="player-more-menu" className="player-menu-wrap"><button id="player-more-button" className="player-control is-icon" type="button" aria-label="更多操作" title="更多操作" aria-expanded={props.menuOpen} aria-haspopup="menu" onClick={() => props.onMenu((open) => !open)}><AppIcon name="more" /></button>{props.menuOpen ? <><button className="player-menu-backdrop" type="button" tabIndex={-1} aria-label="关闭更多操作" onClick={() => props.onMenu(false)} /><div className="player-menu" role="menu" aria-label="Player 更多操作"><header className="player-menu-head"><div><small>Retrom Player</small><strong>更多操作</strong></div><button type="button" aria-label="关闭更多操作" onClick={() => {props.onMenu(false); document.getElementById("player-more-button")?.focus();}}><AppIcon name="x" /></button></header><div className={`player-menu-runtime is-${props.syncTone}`} role="status"><i aria-hidden="true" /><span><strong>{props.syncText}</strong><small>{props.paused ? "当前已暂停" : "游戏运行中"}</small></span></div>{props.discSet && props.discState ? <button type="button" role="menuitem" aria-label="在更多操作中选择光盘" disabled={!props.running || props.discBusy} onClick={() => {props.onMenu(false); props.onDiscMenu(true);}}><AppIcon name="database" /><span><strong>光盘 {props.discState.currentIndex + 1} / {props.discSet.count}</strong><small>选择当前运行光盘</small></span></button> : null}{props.gamepadCursor ? <button type="button" role="menuitemcheckbox" aria-checked={props.gamepadCursor.enabled} onClick={props.gamepadCursor.toggle}><AppIcon name="gamepad" /><span>手柄光标：{props.gamepadCursor.enabled ? "开" : "关"}</span></button> : null}{props.gameEditorAvailable ? <button type="button" role="menuitem" onClick={props.onGameEditor}><AppIcon name="settings" />游戏修改</button> : null}<button type="button" role="menuitem" onClick={() => {props.onMenu(false); props.onEmulatorSettings();}}><AppIcon name="settings" />模拟器设置</button><button type="button" role="menuitem" aria-label={props.fullscreen ? "在更多操作中退出全屏" : "在更多操作中进入全屏"} onClick={() => {props.onMenu(false); props.onToggleFullscreen();}}><AppIcon name={props.fullscreen ? "minimize" : "maximize"} />{props.fullscreen ? "退出全屏" : "进入全屏"}</button>{props.warnings.length ? <button type="button" role="menuitem" onClick={() => {props.onMenu(false); props.onWarning(props.warningCopy);}}><AppIcon name="warning" />查看运行提醒</button> : null}<hr /><button className="is-danger" type="button" role="menuitem" onClick={props.onExit}><AppIcon name="log-out" />退出游戏</button></div></> : null}</div>;
 }
 
 function ToolbarActions({ props }: { props: ToolbarProps }) {

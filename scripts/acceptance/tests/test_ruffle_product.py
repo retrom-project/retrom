@@ -12,6 +12,14 @@ ROOT = Path(__file__).resolve().parents[3]
 
 
 class RuffleAcceptanceTests(unittest.TestCase):
+    def test_repeated_imports_keep_original_movie_actions(self):
+        result = subprocess.run(
+            [ROOT / ".cache/tools/node-v24.18.0-linux-x64/bin/node", "--test",
+             ROOT / "scripts/acceptance/ruffle_product_client.test.mjs"],
+            cwd=ROOT, capture_output=True, text=True, check=False, timeout=15,
+        )
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+
     def test_registered_product_has_bounded_timeout(self):
         spec = importlib.util.spec_from_file_location("ruffle_acceptance", ROOT / "scripts/acceptance/run.py")
         module = importlib.util.module_from_spec(spec)

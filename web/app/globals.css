@@ -8,6 +8,7 @@
 @import "../features/users/users.css" layer(app);
 @import "../styles/primitives.css" layer(app);
 @import "../features/home/home.css" layer(app);
+@import "../features/home/home-favorites.css" layer(app);
 @import "../styles/data-views.css" layer(app);
 @import "../features/library/library.css" layer(app);
 @import "../features/recent/recent.css" layer(app);

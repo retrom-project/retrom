@@ -75,11 +75,12 @@ export async function exitRuntimePlayer(page: Page) {
   await page.getByRole("button", {name: "返回并退出游戏"}).click();
   const dialog = page.getByRole("alertdialog", {name: "退出游戏？"});
   await expect(dialog).toBeVisible();
-  const finished = page.waitForResponse((response) =>
+  // PRODUCT exits report their final progress; /finish belongs to REVIEW_PREVIEW.
+  const progress = page.waitForResponse((response) =>
     response.request().method() === "POST"
-      && /\/runtime\/launches\/[^/]+\/finish$/.test(response.url()));
+      && /\/runtime\/launches\/[^/]+\/progress$/.test(response.url()));
   await dialog.getByRole("button", {name: "退出游戏", exact: true}).click();
-  expect((await finished).ok()).toBe(true);
+  expect((await progress).ok()).toBe(true);
   await expect(page).not.toHaveURL(/\/play\/[0-9a-f-]+$/);
   await expect(page.locator(".player-shell")).toHaveCount(0);
 }

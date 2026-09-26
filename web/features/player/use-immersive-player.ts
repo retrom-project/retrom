@@ -24,7 +24,10 @@ export type ImmersivePlayerOverlay =
   | { kind: "editor" }
   | { kind: "reconnect"; ready: boolean };
 
+import type {PlayerGamepadCursorControl} from "./use-gamepad-cursor";
+
 type Params = {
+  gamepadCursor?: PlayerGamepadCursorControl | null;
   enabled: boolean;
   runtime: MutableRefObject<PlayerRuntimeV1 | null>;
   pausedRef: MutableRefObject<boolean>;
@@ -43,7 +46,7 @@ const MISSING_GAMEPAD_GRACE_MS = 250;
 
 export function useImmersivePlayer(params: Params) {
   const {
-    enabled, runtime, pausedRef, running, setPaused, exitStrict, saveAvailable, saveGame, beforeMenuPause, onFatalError,
+    enabled, runtime, pausedRef, running, setPaused, exitStrict, saveAvailable, saveGame, beforeMenuPause, onFatalError, gamepadCursor,
   } = params;
   const [overlay, setOverlay] = useState<ImmersivePlayerOverlay>({ kind: "closed" });
   const editorAvailable = running && Boolean(runtime.current?.getGameEditor?.());
@@ -127,8 +130,9 @@ export function useImmersivePlayer(params: Params) {
     const current = overlayRef.current;
     if (current.kind !== "menu" || current.pending) {return;}
     if (current.selected === 0) {beginClose("menu"); return;}
+    if (current.selected === 3 && gamepadCursor) {gamepadCursor.toggle(); return;}
     if (current.selected === 1) {saveFromMenu(current); return;}
-    if (current.selected === 3 && editorAvailable) {updateOverlay({kind: "editor"}); return;}
+    if (current.selected === 4 && editorAvailable) {updateOverlay({kind: "editor"}); return;}
     updateOverlay({ ...current, error: "", notice: "正在退出游戏…", pending: true });
     void exitStrictRef.current().then((exited) => {
       if (exited === false) {beginClose("menu");}
@@ -138,25 +142,25 @@ export function useImmersivePlayer(params: Params) {
         updateOverlay({ ...failed, error: "退出失败。按 A 重试，或按 B 继续游戏。", notice: "", pending: false });
       }
     });
-  }, [beginClose, editorAvailable, saveFromMenu, updateOverlay]);
+  }, [beginClose, editorAvailable, gamepadCursor, saveFromMenu, updateOverlay]);
 
   const menuCancel = useCallback(() => {
     const current = overlayRef.current;
-    if (current.kind === "editor") {menuReader.current.reset(); updateOverlay({kind: "menu", error: "", notice: "", pending: false, selected: 3});}
+    if (current.kind === "editor") {menuReader.current.reset(); updateOverlay({kind: "menu", error: "", notice: "", pending: false, selected: 4});}
     else if (current.kind === "menu" && !current.pending) {beginClose("menu");}
   }, [beginClose, updateOverlay]);
   const menuSelect = useCallback((selected: ImmersiveMenuSelection) => {
     const current = overlayRef.current;
-    if (current.kind === "menu" && !current.pending && selectableImmersiveMenuItem(selected, saveAvailable, editorAvailable)) {
+    if (current.kind === "menu" && !current.pending && selectableImmersiveMenuItem(selected, saveAvailable, Boolean(gamepadCursor), editorAvailable)) {
       updateOverlay({ ...current, selected });
     }
-  }, [editorAvailable, saveAvailable, updateOverlay]);
+  }, [editorAvailable, gamepadCursor, saveAvailable, updateOverlay]);
   const menuMove = useCallback((direction: "left" | "right") => {
     const current = overlayRef.current;
     if (current.kind === "menu" && !current.pending) {
-      updateOverlay({ ...current, selected: moveImmersiveMenuSelection(current.selected, direction, saveAvailable, editorAvailable) });
+      updateOverlay({ ...current, selected: moveImmersiveMenuSelection(current.selected, direction, saveAvailable, Boolean(gamepadCursor), editorAvailable) });
     }
-  }, [editorAvailable, saveAvailable, updateOverlay]);
+  }, [editorAvailable, gamepadCursor, saveAvailable, updateOverlay]);
 
   useEffect(() => {
     if (!enabled) {return;}

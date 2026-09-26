@@ -199,7 +199,10 @@ async function createSaveFromMenu(page: Page, menu: Locator) {
 
 async function exitPlayer(page: Page, menu: Locator) {
   await selectPlayerMenuItem(page, menu, "退出游戏");
+  const progress = page.waitForResponse((response) =>
+    response.request().method() === "POST" && /\/runtime\/launches\/[^/]+\/progress$/.test(response.url()));
   await pressGamepad(page, standardButton.a);
+  expect((await progress).ok()).toBe(true);
   await expect(page).toHaveURL(/\/immersive\/(?:library|platforms)\//);
   await expect(page.locator(".player-shell")).toHaveCount(0);
   await expect(page.locator("iframe.player-frame")).toHaveCount(0);
