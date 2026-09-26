@@ -52,11 +52,16 @@ function writeEvidence(status) {
 async function replay(context, client) {
   const original = await openBookmark(context, client, saveId);
   evidence.originalLaunchId = original.launch.launchId;
-  evidence.core = await original.frame.evaluate(async () => ({
-    wasmSize: Module.wasmBinary.byteLength,
-    wasmSha256: [...new Uint8Array(await crypto.subtle.digest("SHA-256", Module.wasmBinary))]
-      .map(value => value.toString(16).padStart(2, "0")).join(""),
-  }));
+  evidence.core = await original.frame.evaluate(async () => {
+    const wasmUrl = Module.locateFile("index.wasm");
+    if (!wasmUrl.startsWith("blob:")) { throw new Error("REPLAY_UNVERIFIED_WASM_URL"); }
+    const bytes = await (await fetch(wasmUrl)).arrayBuffer();
+    return {
+      wasmSize: bytes.byteLength,
+      wasmSha256: [...new Uint8Array(await crypto.subtle.digest("SHA-256", bytes))]
+        .map(value => value.toString(16).padStart(2, "0")).join(""),
+    };
+  });
   const before = await capture(original.page, "choice.png");
   await moveToChoice(original.page, original.frame);
   await pressA(original.page, 1, 100);
