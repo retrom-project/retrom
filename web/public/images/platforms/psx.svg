@@ -4,5 +4,5 @@
       <circle cx="21" cy="32" r="5" fill="#a2acb7"/><circle cx="79" cy="32" r="5" fill="#a2acb7"/>
       <path stroke="#ed655d" stroke-width="4" d="M50 20v10"/><path stroke="#66949a" stroke-width="3" d="m45 28 13-3"/>
       <rect x="20" y="45" width="19" height="5" rx="2" fill="#46505e"/><rect x="59" y="45" width="19" height="5" rx="2" fill="#46505e"/>
-    
+
 </svg>
