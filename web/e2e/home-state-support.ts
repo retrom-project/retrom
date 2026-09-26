@@ -1,14 +1,20 @@
-import { execFileSync } from "node:child_process";
-import path from "node:path";
 import { expect, type Page, type TestInfo } from "@playwright/test";
 import { evidencePath } from "./acceptance-support";
 import { expectNaturalHomeFlow } from "./home-layout-support";
+import {seedHomeState, uiLayoutState} from "./ui-layout-state";
 
 export async function expectHomeStates(page: Page, testInfo: TestInfo) {
   const database = process.env.RETROM_E2E_DATABASE;
   if (!database) { return; } // Live PFB review remains read-only.
-  for (const state of ["empty", "played", "saved"]) {
-    execFileSync("python3", [path.resolve("../scripts/acceptance/seed-ui-home.py"), database, state]);
+  uiLayoutState("isolate");
+  try {
+    await verifyHomeStates(page, testInfo);
+  } finally {uiLayoutState("restore");}
+}
+
+async function verifyHomeStates(page: Page, testInfo: TestInfo) {
+  for (const state of ["empty", "played", "saved"] as const) {
+    seedHomeState(state);
     await page.goto("/");
     await expect(page.locator(".home-featured-empty")).toHaveCount(state === "empty" ? 1 : 0);
     if (state !== "empty") {
@@ -39,7 +45,9 @@ async function expectLandscapeAndEmptyMedia(page: Page, testInfo: TestInfo) {
   await page.reload();
   await expect(page.locator(".home-featured-media")).toHaveAttribute("data-kind", "empty");
   await expect(page.locator(".home-platform-card img")).toHaveCount(0);
-  await expect(page.locator(".home-platform-card .home-platform-art")).toBeVisible();
+  const platformArt = page.locator(".home-platform-card .home-platform-art");
+  expect(await platformArt.count()).toBeGreaterThan(0);
+  for (const art of await platformArt.all()) {await expect(art).toBeVisible();}
   expect(await heroGeometry(page)).toEqual(before);
   await page.screenshot({ path: evidencePath(testInfo, "ui-home-no-media.png"), fullPage: true });
   await page.unroute(screenshot);

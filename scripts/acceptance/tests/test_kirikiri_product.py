@@ -4,6 +4,7 @@ import importlib.util
 import unittest
 from pathlib import Path
 import sys
+import subprocess
 
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -12,6 +13,13 @@ RUNNER_PATH = ROOT / "scripts/acceptance/run.py"
 
 
 class KiriKiriProductAcceptanceTests(unittest.TestCase):
+    def test_cursor_targeting_reaches_the_target_without_oscillating_settled_axes(self) -> None:
+        result = subprocess.run(
+            ["node", "--test", str(ROOT / "scripts/acceptance/gamepad_cursor_position.test.mjs")],
+            capture_output=True, text=True, check=False, timeout=15,
+        )
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+
     def test_formal_case_is_registered(self) -> None:
         spec = importlib.util.spec_from_file_location("acceptance_run_kirikiri", RUNNER_PATH)
         assert spec and spec.loader
@@ -38,6 +46,16 @@ class KiriKiriProductAcceptanceTests(unittest.TestCase):
             'if (!await saveButton.isEnabled()) {throw new Error("KIRIKIRI_ACCEPTANCE_SAVE_UNAVAILABLE");}',
             contents,
         )
+
+    def test_api_created_launch_activates_audio_after_listeners_exist(self) -> None:
+        contents = DRIVER_PATH.read_text(encoding="utf-8")
+        start = contents.index("async function runtimeCanvas(page)")
+        end = contents.index("async function advanceKag(canvas)", start)
+        setup = contents[start:end]
+        self.assertIn('typeof AL !== "undefined"', setup)
+        self.assertLess(setup.index("await frame.waitForFunction"), setup.index("await page.mouse.click"))
+        self.assertIn("box.x + 8, box.y + 100", setup)
+        self.assertLess(setup.index("await page.mouse.click"), setup.index("return canvas"))
 
     def test_import_wait_accepts_the_terminal_completed_state(self) -> None:
         contents = DRIVER_PATH.read_text(encoding="utf-8")
@@ -135,7 +153,7 @@ class KiriKiriProductAcceptanceTests(unittest.TestCase):
         self.assertIn("get pressed()", gamepad)
         self.assertIn("canvas.page().frames().map", contents)
         self.assertIn("globalThis.__retromTestGamepad", contents)
-        self.assertIn('[data-kirikiri-gamepad-cursor]', contents)
+        self.assertIn('[data-gamepad-cursor]', contents)
         self.assertIn("await setVirtualGamepadButton(canvas, 0, true);", contents)
         self.assertIn("await setVirtualGamepadButton(canvas, 1, true);", contents)
         self.assertIn('"standard-gamepad-control"', contract)
@@ -155,7 +173,7 @@ class KiriKiriProductAcceptanceTests(unittest.TestCase):
         self.assertEqual(contents.count("await setVirtualGamepadButton(canvas, 9, true);"), 2)
         self.assertIn('page.getByRole("dialog", { name: "游戏菜单", exact: true })', contents)
         self.assertNotIn('name: /kirikiri|KAG fixture/iu', contents)
-        self.assertIn('["取消", "创建存档", "退出游戏"]', contents)
+        self.assertIn('["取消", "手柄光标：开", "创建存档", "退出游戏"]', contents)
         self.assertIn('"immersive-exit-menu"', contract)
         self.assertIn('"immersiveLaunchId"', contract)
 

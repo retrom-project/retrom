@@ -171,8 +171,12 @@ func installedProviderMatches(
 }
 
 func readMetadata(path string) ([]byte, error) {
+	return readBoundedProviderFile(path, metadataLimit)
+}
+
+func readBoundedProviderFile(path string, maximum int64) ([]byte, error) {
 	metadata, err := os.Lstat(path)
-	if err != nil || !metadata.Mode().IsRegular() || metadata.Size() < 2 || metadata.Size() > metadataLimit {
+	if err != nil || !metadata.Mode().IsRegular() || metadata.Size() < 2 || metadata.Size() > maximum {
 		if err == nil {
 			err = errMetadataFile
 		}

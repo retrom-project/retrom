@@ -12,6 +12,7 @@ import sqlite3
 import sys
 import zlib
 from pathlib import Path
+from ui_layout_state import validate_database
 
 ROOT = Path(__file__).resolve().parents[2]
 INDEX = 900
@@ -22,8 +23,7 @@ BLOB_ID = "0198ff00-9000-7000-8000-000000000002"
 def seed(database_path: Path, state: str) -> None:
     if state not in {"empty", "played", "saved", "populated"}:
         raise ValueError("unknown UI home state")
-    if not database_path.resolve().parent.parent.name.startswith("retrom-ui-acceptance."):
-        raise ValueError("UI seed requires the disposable acceptance database")
+    validate_database(database_path)
     spec = importlib.util.spec_from_file_location("home_seed_support", Path(__file__).with_name("seed-immersive-library.py"))
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
@@ -32,10 +32,11 @@ def seed(database_path: Path, state: str) -> None:
         database.execute("PRAGMA foreign_keys=ON")
         profile = database.execute("SELECT profile_id FROM users WHERE username='test'").fetchone()[0]
         game = module.base_game(database)
-        launch_id = module.identifier(4, INDEX)
         database.execute("DELETE FROM save_states WHERE id=?", (SAVE_ID,))
-        database.execute("DELETE FROM play_sessions WHERE id=?", (module.identifier(5, INDEX),))
-        database.execute("DELETE FROM launch_sessions WHERE id=?", (launch_id,))
+        for index in (INDEX, INDEX + 1):
+            database.execute("DELETE FROM play_sessions WHERE id=?", (module.identifier(5, index),))
+            database.execute("DELETE FROM launch_sessions WHERE id=?", (module.identifier(4, index),))
+        launch_id = module.identifier(4, INDEX)
         if state == "empty":
             return
         timestamp = 1787600000000
@@ -74,6 +75,20 @@ def seed(database_path: Path, state: str) -> None:
 def seed_recent_poster(database, module, profile, game, timestamp):
     """A second public-fixture game keeps a measurable poster after hero deduplication."""
     index = INDEX + 1
+    existing = database.execute(
+        "SELECT g.*,v.core_id,v.provider_id,v.target_id,v.dependency_snapshot_json,v.compatibility_code,p.bundle_sha256 "
+        "FROM games g JOIN game_variants v ON v.game_id=g.id AND v.status='READY' "
+        "JOIN runtime_providers p ON p.provider_id=v.provider_id "
+        "WHERE g.status='PUBLISHED' AND g.source_manifest_digest<>? ORDER BY g.id LIMIT 1",
+        (game["source_manifest_digest"],),
+    ).fetchone()
+    if existing is not None:
+        module.seed_play(database, profile, existing["id"], existing, index, timestamp - 2000)
+        return
+    recent_id = module.identifier(1, index)
+    if database.execute("SELECT 1 FROM games WHERE id=?", (recent_id,)).fetchone():
+        module.seed_play(database, profile, recent_id, game, index, timestamp - 2000)
+        return
     recent_id, _ = module.seed_game(
         database, game, index, "Homepage poster acceptance", "H", timestamp - 2000, index,
     )

@@ -5,6 +5,7 @@ import { registerRuntimeAcceptanceTests } from "./acceptance-runtime-cases";
 import { registerCoreExpansionAcceptanceTests } from "./acceptance-core-expansion-cases";
 import { verifyUserDesktopLayouts } from "./acceptance-user-layout";
 import { verifyBIOSOnlyDependencies } from "./bios-only-dependencies";
+import {seedHomeState, uiLayoutState} from "./ui-layout-state";
 
 test.beforeEach(async ({ page }, testInfo) => {
   const multiViewport = /^ACC-UI-00[56]\b/.test(testInfo.title);
@@ -12,6 +13,14 @@ test.beforeEach(async ({ page }, testInfo) => {
   const origin = process.env.RETROM_WEB_ORIGIN ?? "http://localhost:4000";
   const response = await retryOnceOnConnectionReset(() => page.request.post("/api/v1/auth/login", { data: { username: "test", password: "test" }, headers: { Origin: origin } }));
   expect(response.ok()).toBe(true);
+  if (testInfo.title.includes("sparse home rails")) {
+    uiLayoutState("isolate");
+    seedHomeState("populated");
+  }
+});
+
+test.afterEach(async ({}, testInfo) => {
+  if (testInfo.title.includes("sparse home rails")) {uiLayoutState("restore");}
 });
 
 test("ACC-UI-001 authenticated navigation exposes the administrator entry", async ({ page }, testInfo) => {
@@ -75,9 +84,9 @@ test("ACC-UI-002 import parent and child routes preserve browser history", async
 
 test("ACC-UI-003 library filters and game detail use URL state", async ({ page }, testInfo) => {
   await page.goto("/");
-  await expect(page.locator("[data-home-layer]")).toHaveCount(4);
+  await expect(page.locator("[data-home-layer]")).toHaveCount(5);
   await expect(page.getByText("我的资料库", { exact: true })).toBeVisible();
-  const platformLayer = page.locator('[data-home-layer="3"]');
+  const platformLayer = page.locator('[data-home-layer="4"]');
   await expect(platformLayer.getByRole("heading", { name: "换个平台逛逛" })).toBeVisible();
   await platformLayer.getByRole("link", { name: "进入游戏库", exact: true }).click();
   await expect(page).toHaveURL(/\/library$/);
@@ -319,6 +328,8 @@ test("ACC-UI-006 admin pages remain reachable at desktop breakpoints", async ({ 
     await expect(descriptionRow.getByRole("textbox", { name: "给用户看的说明" })).toHaveAttribute("rows", "1");
     const after = await descriptionRow.evaluate((element) => element.getBoundingClientRect().height);
     expect(Math.abs(after - before)).toBeLessThanOrEqual(4);
+    // Capturing only the edited row avoids Chromium resizing the viewport for a tall full-page image.
+    await descriptionRow.screenshot({path: evidencePath(testInfo, "directory-inline-description.png")});
     await descriptionRow.getByRole("button", { name: "取消修改说明" }).click();
   }
   await page.getByRole("button", { name: "新建游戏目录" }).click();
@@ -580,25 +591,37 @@ test("ACC-UI-008 large review queue preserves filters, pagination, draft safety,
   expect(remaining.some((item) => item.itemId === itemId(3) || item.itemId === itemId(58))).toBe(false);
 });
 
-test("ACC-UI-010 strict READY quick approval previews and publishes the complete filtered scope", async ({ page }, testInfo) => {
+test("ACC-UI-010 global quick approval preserves filters and restores its completed summary", async ({ page }, testInfo) => {
   const primaryJob = "20000000-0000-7000-8000-000000000001";
   await page.goto(`/admin/reviews?importJobId=${primaryJob}`);
-
-  await page.getByRole("button", { name: "快速审批" }).click();
-  const previewDialog = page.getByRole("alertdialog", { name: "快速审批可直接发布的游戏" });
-  await expect(previewDialog).toBeVisible();
-  await expect(previewDialog.getByText("可自动发布").locator("..")).toContainText("1");
-  await expect(previewDialog.getByText("匹配待审核").locator("..")).toContainText("58");
-  await previewDialog.getByRole("button", { name: "确认快速发布 1 个游戏" }).click();
-
-  await expect(page).toHaveURL(/bulkApprovalId=[0-9a-f-]+/);
+  const created = page.waitForResponse((response) =>
+    response.request().method() === "POST" && new URL(response.url()).pathname === "/api/v1/admin/review-bulk-approvals");
+  const start = page.getByRole("button", {name: "快速审批全部待审"});
+  await expect(start).toBeEnabled();
+  await start.focus();
+  await page.keyboard.press("Enter");
+  const response = await created;
+  expect(response.status()).toBe(202);
+  expect(response.request().postDataJSON()).toEqual({});
+  const task = await response.json() as {bulkApprovalId: string; initialPendingCount: number};
+  // The filtered batch has 58 pending items; the other batch contributes three.
+  expect(task.initialPendingCount).toBe(61);
+  await expect(page).toHaveURL(new RegExp(`importJobId=${primaryJob}&bulkApprovalId=${task.bulkApprovalId}`));
   const result = page.locator(".review-bulk-status");
-  await expect(result.getByRole("heading", { name: "快速审批结果" })).toBeVisible({ timeout: 10_000 });
-  await expect(result).toContainText("已处理 1 / 1");
-  await expect(result.getByText("已发布").locator("..")).toContainText("1");
-  const published = result.getByRole("link", { name: /实时保存的标题.*PUBLISHED/ });
-  await expect(published).toHaveAttribute("href", /\/admin\/games\/[0-9a-f-]+/);
-  await page.screenshot({ path: evidencePath(testInfo, "review-bulk-approval-result.png"), fullPage: true });
+  await expect(result.getByRole("heading", {name: "快速审批已完成"})).toBeVisible({timeout: 10_000});
+  await expect(result.getByText("已发布", {exact: true}).locator("..")).toHaveText("已发布1");
+  await expect(result.getByText("继续待审", {exact: true}).locator("..")).toHaveText("继续待审60");
+  await expect(result.getByText("已扫描", {exact: true}).locator("..")).toHaveText("已扫描61");
+  const published = await page.request.get("/api/v1/games?q=" + encodeURIComponent("实时保存的标题"));
+  expect(published.ok()).toBe(true);
+  const games = await published.json() as {items: Array<{title: string}>};
+  expect(games.items.map((game) => game.title)).toEqual(["实时保存的标题"]);
+  await expect(page).toHaveURL(new RegExp(`bulkApprovalId=${task.bulkApprovalId}`));
+  await page.reload();
+  await expect(result.getByRole("heading", {name: "快速审批已完成"})).toBeVisible();
+  await expect(page.getByRole("textbox", {name: "导入批次", exact: true})).toHaveValue(primaryJob);
+  await expect(start).toBeEnabled();
+  await page.screenshot({path: evidencePath(testInfo, "review-bulk-approval-result.png"), fullPage: true});
 });
 
 registerRuntimeAcceptanceTests();

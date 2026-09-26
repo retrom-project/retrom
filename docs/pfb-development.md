@@ -74,15 +74,23 @@ worktree，再读取该 PFB 的清单准备选中源码；`REPOS` 精确选择�
 
 PFB 启动前，`retrom-runtime/scripts/pfb-provider-watch.mjs --once` 从当前基座 active descriptor 与 integrity 文件读取 asset index/Target declaration，使用 esbuild 只生成自包含 `client.mjs`，并读取 `provider-sources.json` 声明的本地 adapter 资源。所有开发文件的路径、大小、摘要、MIME 与 base64 字节组成一份 `dev-provider.json`；构建完成后原子替换此文件，不保留历史目录。失败构建不改变已发布文件。Go 启动时一次加载并校验完整文件到内存，旧进程继续使用启动时的字节，新进程重启后读取新文件，因此 watcher 与 restart 之间不会出现 module SHA/ETag/响应字节错配。常驻 watcher 监听 `src/`、`assets/`、package 与 provider source 声明。
 
-Go 在启动时验证：descriptor 严格字段、provider/base bundle 身份、路径闭合、排序、size/SHA-256/media type 和内含字节 和所有 override 都属于基座公开文件。开发文件沿原 `/runtime/providers/<provider>/<base-bundle>/...` 路径返回，使用 `Cache-Control: no-store` 与开发 ETag；Launch Envelope 保留基座 bundle/Target declaration，但 `moduleSha256` 使用开发模块摘要。当前阶段 watcher 更新后执行一次 `pfb-restart`，让 Go 重新加载开发文件；无需 `pfb-build`。
+Go 在启动时验证：descriptor 严格字段、provider/base bundle 身份、路径闭合、排序、size/SHA-256/media type 和内含字节 和所有 override 都属于基座公开文件。开发文件沿原 `/runtime/providers/<provider>/<base-bundle>/...` 路径返回，使用 `Cache-Control: no-store, no-transform` 与开发 ETag；Launch Envelope 保留基座 bundle/Target declaration，但 `moduleSha256` 使用开发模块摘要。当前阶段 watcher 更新后执行一次 `pfb-restart`，让 Go 重新加载开发文件；无需 `pfb-build`。
 
-显式构建已声明的 EmulatorJS fork 后，可在 `.pfb/workspace/providers/dev/core-inputs.json` 选择候选目录，然后执行 `pfb-up PFB_SELECT=false` 或 `pfb-restart`：
+显式构建已声明的 EmulatorJS fork，或符合平面资产候选契约的 retrom-runtime 核心（如 `kirikiri2`）后，可在 `.pfb/workspace/providers/dev/core-inputs.json` 选择候选目录，然后执行 `pfb-up PFB_SELECT=false` 或 `pfb-restart`。选择的核心必须属于当前开发 Provider：
 
 ```json
 {"schemaVersion":1,"cores":[{"id":"cap32","directory":"/pfb-workspace/core-builds/cap32/current"}]}
 ```
 
-该路径使用容器内的持久 workspace 挂载点，候选必须来自本 PFB 的 `pfb-core-build`。watcher 不编译核心；它复用 runtime 的候选校验，检查来源已在 EmulatorJS source catalog 中声明、基座已有核心资源、完整候选文件集、commit/source tree/ABI 元数据及各文件大小和 SHA。验证后将核心、来源说明、许可与源码一并加入 loose descriptor，同步更新 asset index 与所选核心的编译期 implementation 身份，再编译 client（公开 Target 声明不变）；失败不会替换现有 descriptor。此入口目前支持 `emulatorjs-development-forks.mjs` 中维护的 fork，其他核心仍使用对应的显式候选聚合流程。新增或移除选择、重新构建核心后必须 restart 并核对实际资源摘要；删除选择文件可恢复基座资源。选择不更改 Target、生产来源清单或 release tag 配置。禁止在活动浏览器验收期间构建或替换。
+默认的 `retrom-runtime` Provider 可选择 Kirikiri 候选：
+
+```json
+{"schemaVersion":1,"cores":[{"id":"kirikiri2","directory":"/pfb-workspace/core-builds/kirikiri2/current"}]}
+```
+
+retrom-runtime 核心复用完整候选聚合的校验器，按 `provider-sources.json` 校验来源、ABI、完整文件集、大小和 SHA；运行资产和许可都必须已在基座中公开。生成的客户端 asset index 与覆写字节保持一致，Wasm/ZIP 等媒体类型与正式 Bundle 共用定义。内嵌核心 bytes 的开发描述文件独立限制为 128 MiB；普通 Provider 元数据仍限制为 16 MiB。
+
+该路径使用容器内的持久 workspace 挂载点，候选必须来自本 PFB 的 `pfb-core-build`。watcher 不编译核心；EmulatorJS fork 继续使用 `emulatorjs-development-forks.mjs` 的校验与 implementation 身份更新。其他不符合上述候选契约的核心仍使用对应的显式候选聚合流程。失败不会替换现有 descriptor。新增或移除选择、重新构建核心后必须 restart 并核对实际资源摘要；删除选择文件可恢复基座资源。选择不更改 Target、生产来源清单或 release tag 配置。禁止在活动浏览器验收期间构建或替换。
 
 `RETROM_PROVIDER_DEV_ROOT` 是失败关闭边界：只有 `RETROM_MODE=test`、非空合法 `RETROM_PFB_ID` 与匹配的本地 PFB origin 同时成立时才接受；普通 `make dev` 两者都不设置，release 模式对任何 loose root 无条件拒绝。生产 active descriptor、Provider archive、release digest、双镜像和 CI 不读取 `.pfb/`。
 

@@ -23,7 +23,10 @@ export type ImmersivePlayerOverlay =
   | { kind: "menu"; error: string; notice: string; pending: boolean; selected: ImmersiveMenuSelection }
   | { kind: "reconnect"; ready: boolean };
 
+import type {PlayerGamepadCursorControl} from "./use-gamepad-cursor";
+
 type Params = {
+  gamepadCursor?: PlayerGamepadCursorControl | null;
   enabled: boolean;
   runtime: MutableRefObject<PlayerRuntimeV1 | null>;
   pausedRef: MutableRefObject<boolean>;
@@ -42,7 +45,7 @@ const MISSING_GAMEPAD_GRACE_MS = 250;
 
 export function useImmersivePlayer(params: Params) {
   const {
-    enabled, runtime, pausedRef, running, setPaused, exitStrict, saveAvailable, saveGame, beforeMenuPause, onFatalError,
+    enabled, runtime, pausedRef, running, setPaused, exitStrict, saveAvailable, saveGame, beforeMenuPause, onFatalError, gamepadCursor,
   } = params;
   const [overlay, setOverlay] = useState<ImmersivePlayerOverlay>({ kind: "closed" });
   const overlayRef = useRef(overlay);
@@ -125,6 +128,7 @@ export function useImmersivePlayer(params: Params) {
     const current = overlayRef.current;
     if (current.kind !== "menu" || current.pending) {return;}
     if (current.selected === 0) {beginClose("menu"); return;}
+    if (current.selected === 3) {gamepadCursor?.toggle(); return;}
     if (current.selected === 1) {saveFromMenu(current); return;}
     updateOverlay({ ...current, error: "", notice: "正在退出游戏…", pending: true });
     void exitStrictRef.current().then((exited) => {
@@ -135,7 +139,7 @@ export function useImmersivePlayer(params: Params) {
         updateOverlay({ ...failed, error: "退出失败。按 A 重试，或按 B 继续游戏。", notice: "", pending: false });
       }
     });
-  }, [beginClose, saveFromMenu, updateOverlay]);
+  }, [beginClose, gamepadCursor, saveFromMenu, updateOverlay]);
 
   const menuCancel = useCallback(() => {
     const current = overlayRef.current;
@@ -143,16 +147,16 @@ export function useImmersivePlayer(params: Params) {
   }, [beginClose]);
   const menuSelect = useCallback((selected: ImmersiveMenuSelection) => {
     const current = overlayRef.current;
-    if (current.kind === "menu" && !current.pending && selectableImmersiveMenuItem(selected, saveAvailable)) {
+    if (current.kind === "menu" && !current.pending && selectableImmersiveMenuItem(selected, saveAvailable, Boolean(gamepadCursor))) {
       updateOverlay({ ...current, selected });
     }
-  }, [saveAvailable, updateOverlay]);
+  }, [gamepadCursor, saveAvailable, updateOverlay]);
   const menuMove = useCallback((direction: "left" | "right") => {
     const current = overlayRef.current;
     if (current.kind === "menu" && !current.pending) {
-      updateOverlay({ ...current, selected: moveImmersiveMenuSelection(current.selected, direction, saveAvailable) });
+      updateOverlay({ ...current, selected: moveImmersiveMenuSelection(current.selected, direction, saveAvailable, Boolean(gamepadCursor)) });
     }
-  }, [saveAvailable, updateOverlay]);
+  }, [gamepadCursor, saveAvailable, updateOverlay]);
 
   useEffect(() => {
     if (!enabled) {return;}

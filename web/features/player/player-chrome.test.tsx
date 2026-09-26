@@ -5,6 +5,19 @@ import { PlayerChrome } from "./player-chrome";
 
 afterEach(cleanup);
 
+it("offers a checked cursor switch in more actions only when supported", () => {
+  const toggle = vi.fn();
+  const view = render(<PlayerChrome {...props({gamepadCursor: {enabled: true, toggle}})} />);
+  fireEvent.click(screen.getByRole("button", {name: "更多操作"}));
+  const control = screen.getByRole("menuitemcheckbox", {name: "手柄光标：开"});
+  expect(control).toHaveAttribute("aria-checked", "true");
+  fireEvent.click(control);
+  expect(toggle).toHaveBeenCalledOnce();
+  expect(screen.getByRole("menu", {name: "Player 更多操作"})).toBeVisible();
+  view.rerender(<PlayerChrome {...props()} />);
+  expect(screen.queryByRole("menuitemcheckbox")).toBeNull();
+});
+
 function props(overrides: Partial<Parameters<typeof PlayerChrome>[0]> = {}): Parameters<typeof PlayerChrome>[0] {
   return {
     controlsVisible: true,

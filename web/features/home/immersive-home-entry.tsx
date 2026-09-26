@@ -25,5 +25,5 @@ export function ImmersiveHomeEntry() {
     className="button secondary home-immersive-entry"
     aria-label="进入沉浸模式"
     onClick={enter}
-  ><AppIcon name="gamepad" />沉浸模式</button>;
+  ><AppIcon name="expand" />沉浸模式</button>;
 }

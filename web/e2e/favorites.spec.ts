@@ -82,7 +82,7 @@ test("ACC-FAV-003 user flow remains consistent across library, detail, folders, 
   await expect(filledHeart).toHaveAttribute("aria-pressed", "true");
   const filledHeartVisual = await favoriteHeartVisual(filledHeart);
   expect(emptyHeartVisual).toMatchObject({ fill: "none" });
-  expect(filledHeartVisual).toMatchObject({ color: "rgb(220, 66, 87)", fill: "rgb(220, 66, 87)" });
+  expect(filledHeartVisual).toMatchObject({ color: "rgb(255, 154, 168)", fill: "rgb(255, 154, 168)" });
   for (const visual of [emptyHeartVisual, filledHeartVisual]) {
     expect(visual.buttonWidth).toBeCloseTo(38, 3);
     expect(visual.buttonHeight).toBeCloseTo(38, 3);
@@ -260,13 +260,13 @@ test("ACC-FAV-004 favorite states, keyboard semantics and bounded layout hold at
   expect({ width: layout.heartIconWidth, height: layout.heartIconHeight }).toEqual({ width: 18, height: 18 });
   expect(Math.abs(layout.heartCenterOffsetX)).toBeLessThanOrEqual(0.5);
   expect(Math.abs(layout.heartCenterOffsetY)).toBeLessThanOrEqual(0.5);
-  expect(layout.heartColor).toBe("rgb(220, 66, 87)");
-  expect(layout.heartFill).toBe("rgb(220, 66, 87)");
+  expect(layout.heartColor).toBe("rgb(255, 154, 168)");
+  expect(layout.heartFill).toBe("rgb(255, 154, 168)");
   expect(layout.heartRadius).toBe("50%");
   expect(layout.manageText).toBe("•••");
   expect(layout.manageCoverRightGap).toBeCloseTo(9, 0);
   expect(layout.manageCoverTopGap).toBeCloseTo(9, 0);
-  expect(layout.toolbarBackground).toBe("rgb(255, 255, 255)");
+  expect(layout.toolbarBackground).toBe("rgb(25, 31, 46)");
   expect(layout.summaryBackground).toBe("rgba(0, 0, 0, 0)");
   await expect(page.getByRole("button", { name: "新建收藏夹", exact: true })).toBeVisible();
   if (testInfo.project.name === "chrome-4k-150") {

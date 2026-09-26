@@ -114,7 +114,7 @@
       "path": "project/retrom-core/kirikiroid2-web",
       "role": "core",
       "gitlink": "git@github.com:retrom-project/kirikiroid2-web.git",
-      "defaultBranch": "retrom/g338d2029f169",
+      "defaultBranch": "retrom/g13dda190f837",
       "submodules": true,
       "dependsOn": []
     },

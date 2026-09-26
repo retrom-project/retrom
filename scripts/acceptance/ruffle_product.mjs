@@ -1,3 +1,4 @@
+import {verifyGamepadCursor} from "./gamepad_cursor_product.mjs";
 import {rufflePosition as position} from "./ruffle_product_surface.mjs";
 import assert from "node:assert/strict";
 import {mkdirSync, writeFileSync} from "node:fs";
@@ -125,6 +126,8 @@ async function open(context, launch, label) {
 async function verifySave(context, client, gameId) {
   const original = await launchCart(client, gameId);
   const first = await open(context, original, "owned-start");
+  evidence.cursor = await verifyGamepadCursor(first.page, first.canvas, {defaultEnabled: false, directory, protocol: "pointer"});
+  await gamepad(first.page, 1);
   const initial = await position(first.canvas); assert.ok(Math.abs(initial - 20) < 2, "RUFFLE_INITIAL_POSITION");
   await gamepad(first.page, 15);
   const moved = await position(first.canvas); assert.ok(moved > initial + 10, "RUFFLE_DIRECTION_FAILED");

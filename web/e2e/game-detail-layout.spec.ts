@@ -2,6 +2,10 @@ import { execFileSync } from "node:child_process";
 import path from "node:path";
 import { expect, test } from "@playwright/test";
 import { evidencePath, noPageOverflow, pngDimensions } from "./acceptance-support";
+import {uiLayoutState} from "./ui-layout-state";
+
+test.beforeEach(() => uiLayoutState("isolate"));
+test.afterEach(() => uiLayoutState("restore"));
 
 test("ACC-UI-003 detail populated, missing screenshot and expanded states", async ({ browser }, testInfo) => {
   test.setTimeout(90_000);

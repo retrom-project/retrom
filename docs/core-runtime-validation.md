@@ -124,6 +124,21 @@ RPG 世代检测只选择 `retrom-runtime` Provider 内的 Target；用户仍只
 
 Native Web 必须使用每 Launch unique origin，拒绝应用 cookie、普通 API、跨 Launch 项目和 ticket 重放。审核试运行复用普通 Preview/Player 与同一 Provider Module，不包含专用证明协议或发布前置。严格的帧、输入、音频、A/B/C、checkpoint、跨会话恢复与截图断言只由研发验收驱动普通产品操作并从自有 fixture/普通存档读取，规则见项目验收专题。
 
+### KiriKiri 存档卡住的定向回归
+
+对已导入的合法 KAG 项目，可运行 `node scripts/acceptance/kirikiri_freeze_replay.mjs`。
+除公共的 `RETROM_ACCEPTANCE_BASE_URL/USERNAME/PASSWORD`、`RETROM_CHROME_EXECUTABLE`
+和 `RETROM_ACCEPTANCE_CASE_DIR` 外，显式提供 `RETROM_KIRIKIRI_REPLAY_GAME_ID` 与
+`RETROM_KIRIKIRI_REPLAY_SAVE_ID`。存档应恢复到横向居中的选项；目标纵坐标由
+`RETROM_KIRIKIRI_REPLAY_CHOICE_Y` 指定，默认相对 canvas 为 `0.33`。
+脚本在 180 秒内用方向键和 A 选择、发送 400 次快速 A、检查实际鼠标按下/释放、
+打开控制栏创建新存档，再从不同 Launch 恢复并继续输入。首次画布边缘点击只负责
+激活新浏览器页面的音频，游戏操作使用标准手柄。脚本保留原始存档，新增回归存档。
+
+输出包含 Wasm 摘要、输入计数、非秘密 Launch/Save ID 和逐阶段截图；需人工核对
+截图中的剧情确实推进，不能把动画像素变化当成进度证明。该检查用于复现与回归，
+不替代 `ACC-KIRIKIRI-001` 的完整导入/审核/发布门禁，也不替代 Win10 实体手柄验证。
+
 ### PC-98 / NP2kai
 
 `np2kai-pc98` 使用 ROM_BLOB 单文件 HDI/D88，最多 512 MiB；首批游戏验证使用作者公开下载的
