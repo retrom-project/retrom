@@ -590,25 +590,36 @@ test("ACC-UI-008 large review queue preserves filters, pagination, draft safety,
   expect(remaining.some((item) => item.itemId === itemId(3) || item.itemId === itemId(58))).toBe(false);
 });
 
-test("ACC-UI-010 strict READY quick approval previews and publishes the complete filtered scope", async ({ page }, testInfo) => {
+test("ACC-UI-010 global quick approval preserves filters and restores its completed summary", async ({ page }, testInfo) => {
   const primaryJob = "20000000-0000-7000-8000-000000000001";
   await page.goto(`/admin/reviews?importJobId=${primaryJob}`);
-
-  await page.getByRole("button", { name: "快速审批" }).click();
-  const previewDialog = page.getByRole("alertdialog", { name: "快速审批可直接发布的游戏" });
-  await expect(previewDialog).toBeVisible();
-  await expect(previewDialog.getByText("可自动发布").locator("..")).toContainText("1");
-  await expect(previewDialog.getByText("匹配待审核").locator("..")).toContainText("58");
-  await previewDialog.getByRole("button", { name: "确认快速发布 1 个游戏" }).click();
-
-  await expect(page).toHaveURL(/bulkApprovalId=[0-9a-f-]+/);
+  const created = page.waitForResponse((response) =>
+    response.request().method() === "POST" && new URL(response.url()).pathname === "/api/v1/admin/review-bulk-approvals");
+  const start = page.getByRole("button", {name: "快速审批全部待审"});
+  await expect(start).toBeEnabled();
+  await start.focus();
+  await page.keyboard.press("Enter");
+  const response = await created;
+  expect(response.status()).toBe(202);
+  expect(response.request().postDataJSON()).toEqual({});
+  const task = await response.json() as {bulkApprovalId: string; initialPendingCount: number};
+  // The filtered batch has 58 pending items; the other batch contributes three.
+  expect(task.initialPendingCount).toBe(61);
+  await expect(page).toHaveURL(new RegExp(`importJobId=${primaryJob}&bulkApprovalId=${task.bulkApprovalId}`));
   const result = page.locator(".review-bulk-status");
-  await expect(result.getByRole("heading", { name: "快速审批结果" })).toBeVisible({ timeout: 10_000 });
-  await expect(result).toContainText("已处理 1 / 1");
-  await expect(result.getByText("已发布").locator("..")).toContainText("1");
-  const published = result.getByRole("link", { name: /实时保存的标题.*PUBLISHED/ });
-  await expect(published).toHaveAttribute("href", /\/admin\/games\/[0-9a-f-]+/);
-  await page.screenshot({ path: evidencePath(testInfo, "review-bulk-approval-result.png"), fullPage: true });
+  await expect(result.getByRole("heading", {name: "快速审批已完成"})).toBeVisible({timeout: 10_000});
+  await expect(result.getByText("已发布", {exact: true}).locator("..")).toHaveText("已发布1");
+  await expect(result.getByText("继续待审", {exact: true}).locator("..")).toHaveText("继续待审60");
+  await expect(result.getByText("已扫描", {exact: true}).locator("..")).toHaveText("已扫描61");
+  const published = await page.request.get("/api/v1/games?q=" + encodeURIComponent("实时保存的标题"));
+  expect(published.ok()).toBe(true);
+  const games = await published.json() as {items: Array<{title: string}>};
+  expect(games.items.map((game) => game.title)).toEqual(["实时保存的标题"]);
+  await page.reload();
+  await expect(result.getByRole("heading", {name: "快速审批已完成"})).toBeVisible();
+  await expect(page.getByRole("textbox", {name: "导入批次", exact: true})).toHaveValue(primaryJob);
+  await expect(start).toBeEnabled();
+  await page.screenshot({path: evidencePath(testInfo, "review-bulk-approval-result.png"), fullPage: true});
 });
 
 registerRuntimeAcceptanceTests();
