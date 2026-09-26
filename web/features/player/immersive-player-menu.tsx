@@ -41,10 +41,14 @@ export function ImmersivePlayerMenu({ gamepadCursor, checkpointSemantics, native
       <MenuActions gamepadCursor={gamepadCursor} nativeSave={nativeSave} nativeRetryAvailable={nativeRetryAvailable} checkpointSemantics={checkpointSemantics} overlay={overlay} saveAvailable={saveAvailable} editorAvailable={editorAvailable}
         onCancel={onCancel} onSelect={onSelect} onConfirm={onConfirm} />
       {checkpointSemantics === "NO_SAVE" || checkpointSemantics === "GAME_SAVE" || !saveAvailable ? <p id="immersive-save-unavailable" className="immersive-player-unavailable">{unavailableSaveText(checkpointSemantics, saveStatus)}</p> : null}
-      {gamepadCursor?.enabled ? <p>{gamepadCursorInstructions}</p> : null}
+      <GamepadCursorInstructions control={gamepadCursor} />
       <small>A 确认 · B 取消</small>
     </div>
   </section>;
+}
+
+function GamepadCursorInstructions({control}: {control: Props["gamepadCursor"]}) {
+  return control?.enabled ? <p>{gamepadCursorInstructions}</p> : null;
 }
 
 function MenuActions({gamepadCursor, checkpointSemantics, nativeSave, nativeRetryAvailable, overlay, saveAvailable, editorAvailable, onCancel, onSelect, onConfirm}:
