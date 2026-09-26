@@ -1,6 +1,6 @@
 import type { ReactNode, SVGProps } from "react";
 
-export type AppIconName = "user" | "home" | "library" | "heart" | "save" | "download" | "plus" | "clock" | "check" | "history" | "list" | "menu" | "chip" | "database" | "storage" | "folder" | "settings" | "filter" | "arrow-left" | "search" | "pencil" | "x" | "grip" | "pause" | "play" | "eye-off" | "pin" | "gamepad" | "maximize" | "minimize" | "more" | "log-out" | "keyboard" | "warning";
+export type AppIconName = "user" | "home" | "library" | "heart" | "save" | "download" | "plus" | "clock" | "check" | "history" | "list" | "menu" | "chip" | "database" | "storage" | "folder" | "settings" | "filter" | "arrow-left" | "search" | "pencil" | "x" | "grip" | "pause" | "play" | "eye-off" | "pin" | "gamepad" | "expand" | "maximize" | "minimize" | "more" | "log-out" | "keyboard" | "warning";
 
 const paths: Record<AppIconName, ReactNode> = {
   user: <><circle cx="12" cy="8" r="4" /><path d="M4 21v-2a8 8 0 0 1 16 0v2" /></>,
@@ -31,6 +31,8 @@ const paths: Record<AppIconName, ReactNode> = {
   "eye-off": <><path d="m3 3 18 18" /><path d="M10.6 10.6a2 2 0 0 0 2.8 2.8M9.9 4.2A10.8 10.8 0 0 1 12 4c5 0 9 5.2 9 8a8.5 8.5 0 0 1-2 3.6M6.6 6.6C4.3 8.1 3 10.4 3 12c0 2.8 4 8 9 8 1.2 0 2.4-.3 3.4-.8" /></>,
   pin: <><path d="m9 3 6 6" /><path d="m10 8-4.5 4.5 6 1 1 6L17 15" /><path d="m13 5 6 6" /><path d="M5 19 19 5" /></>,
   gamepad: <><path d="M8 8h8l4 4v5a3 3 0 0 1-5 2l-1-1h-4l-1 1a3 3 0 0 1-5-2v-5Z" /><path d="M8 13h4M10 11v4M16 12h.01M18 14h.01" /></>,
+  // Lucide maximize (Feather-derived); license: /licenses/lucide-icons.txt.
+  expand: <><path d="M8 3H5a2 2 0 0 0-2 2v3" /><path d="M21 8V5a2 2 0 0 0-2-2h-3" /><path d="M3 16v3a2 2 0 0 0 2 2h3" /><path d="M16 21h3a2 2 0 0 0 2-2v-3" /></>,
   maximize: <><path d="M8 3H3v5M16 3h5v5M21 16v5h-5M3 16v5h5" /><path d="m3 8 5-5m8 0 5 5m0 8-5 5M8 21l-5-5" /></>,
   minimize: <><path d="M8 8H3M8 8V3M16 8h5M16 8V3M16 16h5M16 16v5M8 16H3M8 16v5" /><path d="m3 8 5-5m8 0 5 5m0 8-5 5M8 21l-5-5" /></>,
   more: <><circle cx="5" cy="12" r="1.2" fill="currentColor" stroke="none" /><circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none" /><circle cx="19" cy="12" r="1.2" fill="currentColor" stroke="none" /></>,
