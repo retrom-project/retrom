@@ -2,6 +2,7 @@
 import json
 import sqlite3
 import sys
+import uuid
 from pathlib import Path
 
 
@@ -30,13 +31,14 @@ def isolate(path: Path) -> None:
         db.execute("PRAGMA foreign_keys=ON")
         db.execute("BEGIN IMMEDIATE")
         profile = db.execute("SELECT profile_id FROM users WHERE username='test'").fetchone()[0]
-        rows = {table: [dict(row) for row in db.execute(f"SELECT * FROM {table} WHERE profile_id=?", (profile,))]
-                for table in ("play_sessions", "save_states")}
-        rows["play_session_events"] = [dict(row) for row in db.execute(
-            "SELECT * FROM play_session_events WHERE play_session_id IN (SELECT id FROM play_sessions WHERE profile_id=?)", (profile,))]
+        parked = str(uuid.uuid4())
         descriptions = dict(db.execute("SELECT id,description FROM games"))
-        snapshot.write_text(json.dumps({"profile": profile, "rows": rows, "descriptions": descriptions}))
-        clear_history(db, profile)
+        # Retain original IDs and foreign references from restored Launches and
+        # native-save revisions while keeping them out of the layout user's UI.
+        db.execute("INSERT INTO profiles(id,display_name,created_at_ms) VALUES(?,'UI history holding profile',0)", (parked,))
+        for table in ("play_sessions", "save_states"):
+            db.execute(f"UPDATE {table} SET profile_id=? WHERE profile_id=?", (parked, profile))
+        snapshot.write_text(json.dumps({"profile": profile, "parkedProfile": parked, "descriptions": descriptions}))
 
 
 def restore(path: Path) -> None:
@@ -48,13 +50,12 @@ def restore(path: Path) -> None:
     with sqlite3.connect(path) as db:
         db.execute("PRAGMA foreign_keys=ON")
         db.execute("BEGIN IMMEDIATE")
-        clear_history(db, saved["profile"])
-        for table in ("play_sessions", "play_session_events", "save_states"):
-            for row in saved["rows"][table]:
-                columns = ",".join(row)
-                placeholders = ",".join("?" for _ in row)
-                db.execute(f"INSERT INTO {table}({columns}) VALUES({placeholders})", list(row.values()))
-        db.executemany("UPDATE games SET description=? WHERE id=?", [(value, key) for key, value in saved["descriptions"].items()])
+        if db.execute("SELECT 1 FROM profiles WHERE id=?", (saved["parkedProfile"],)).fetchone():
+            clear_history(db, saved["profile"])
+            for table in ("play_sessions", "save_states"):
+                db.execute(f"UPDATE {table} SET profile_id=? WHERE profile_id=?", (saved["profile"], saved["parkedProfile"]))
+            db.execute("DELETE FROM profiles WHERE id=?", (saved["parkedProfile"],))
+            db.executemany("UPDATE games SET description=? WHERE id=?", [(value, key) for key, value in saved["descriptions"].items()])
     snapshot.unlink()
 
 
