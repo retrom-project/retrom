@@ -34,6 +34,37 @@ describe("GameEditorPanel", () => {
     act(() => notify?.([], {} as ResizeObserver));
     expect(view.container.querySelector(".game-editor-category-scrollbar")).toBeNull();
   });
+  it("lists map events directly and toggles each event's own A-D switches", async () => {
+    const maps = [{id: 1, label: "村庄"}, {id: 2, label: "森林"}];
+    const switches = new Map<string, boolean>();
+    const events = vi.fn(async (mapId: number) => ({events: [{id: mapId, label: mapId === 1 ? "宝箱" : "大门",
+      x: 4, y: 5, switches: Object.fromEntries(["A", "B", "C", "D"].map((key) =>
+        [key, switches.get(`${mapId}:${key}`) ?? false])) as Record<"A" | "B" | "C" | "D", boolean>}], nextOffset: null}));
+    const setSwitch = vi.fn(async (mapId: number, _eventId: number, key: "A" | "B" | "C" | "D", value: boolean) => {
+      switches.set(`${mapId}:${key}`, value);
+      return (await events(mapId)).events[0];
+    });
+    const editor: RuntimeGameEditorV1 = {
+      categories: async () => [{id: "gold", label: "金币"}, {id: "self_switches", label: "事件独立开关"}],
+      entries: async () => ({entries: [], nextOffset: null}), set: vi.fn(),
+      selfSwitches: {maps: async (query) => ({currentMapId: 1, currentMapName: "村庄",
+        maps: maps.filter((map) => map.label.includes(query)), nextOffset: null}), events, set: setSwitch},
+    };
+    const view = render(<GameEditorPanel editor={editor} onClose={vi.fn()} />);
+    const panel = within(view.container);
+    fireEvent.click(await panel.findByRole("button", {name: "事件独立开关"}));
+    const chest = await panel.findByRole("button", {name: /宝箱 独立开关 A，当前关闭/u});
+    expect(panel.getByText("事件 #1 · 坐标 4, 5")).toBeVisible();
+    fireEvent.click(chest);
+    await waitFor(() => expect(setSwitch).toHaveBeenCalledWith(1, 1, "A", true));
+    await panel.findByRole("button", {name: /宝箱 独立开关 A，当前开启/u});
+    fireEvent.click(panel.getByRole("button", {name: /村庄 · 当前地图/u}));
+    fireEvent.change(panel.getByRole("searchbox", {name: "查找地图"}), {target: {value: "森林"}});
+    fireEvent.click(await panel.findByRole("button", {name: "森林 · 地图 #2"}));
+    await panel.findByRole("button", {name: /大门 独立开关 D，当前关闭/u});
+    expect(events).toHaveBeenCalledWith(2, "", 0, 40);
+    expect(panel.queryByText("宝箱")).toBeNull();
+  });
   it("lists named values directly and writes them without a search or an ID", async () => {
     const set = vi.fn(async (_category: string, id: string, value: number | string | boolean) =>
       ({id, label: "金币", value, valueType: "number" as const, min: 0, max: 100}));

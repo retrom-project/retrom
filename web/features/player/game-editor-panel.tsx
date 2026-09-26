@@ -3,6 +3,7 @@
 import {useCallback, useEffect, useRef, useState, type FormEvent, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent, type ReactNode, type Ref} from "react";
 import type {RuntimeGameEditCategoryV1, RuntimeGameEditEntryV1, RuntimeGameEditorV1} from "./runtime/contract";
 import {getActiveImmersiveGamepadIndex} from "@/features/immersive/active-gamepad";
+import {GameEditorSelfSwitches} from "./game-editor-self-switches";
 
 const PAGE_SIZE = 40;
 
@@ -77,7 +78,7 @@ export function GameEditorPanel({editor, immersive, onClose}: {
 
   useEffect(() => {
     let active = true;
-    if (activeCategory) {queueMicrotask(() => {if (active) {void load(activeCategory, search, 0);}});}
+    if (activeCategory && category !== "self_switches") {queueMicrotask(() => {if (active) {void load(activeCategory, search, 0);}});}
     else if (category) {queueMicrotask(() => {if (active) {setLoading(false);}});}
     return () => {active = false;};
   }, [activeCategory, category, search, load]);
@@ -189,11 +190,10 @@ export function GameEditorPanel({editor, immersive, onClose}: {
       <header className="game-editor-head"><div><small>当前游戏</small><h1 id="game-editor-title">游戏修改</h1></div><button ref={closeRef} className="button secondary" type="button" onClick={onClose}>返回游戏</button></header>
       <div className="game-editor-feedback"><p className="game-editor-help" aria-hidden={Boolean(notice)}>修改立即生效。离开前请创建存档，以保留修改后的进度。</p>{notice ? <p className="game-editor-notice" role="status">{notice.text}</p> : null}</div>
       <GameEditorCategories categories={categories} active={category} onChoose={chooseCategory} />
+      {category === "self_switches" ? <GameEditorSelfSwitchSection editor={editor} onNotice={() => setNotice({text: "已应用修改。离开前请创建存档。"})} /> : <>
       {category ? <GameEditorToolbar label={categoryLabel} searchOpen={searchOpen} onSearch={toggleSearch} onRefresh={() => {if (activeCategory) {void load(activeCategory, search, 0);}}} /> : null}
       {groups ? <GameEditorActorTabs groups={groups} activeCategory={activeCategory} onChoose={chooseGroup} /> : null}
-      {category === "skills" ? <p className="game-editor-category-help">这里显示角色主动学习的技能；职业或装备附加的技能仍可能可用。</p> : null}
-      {category === "states" ? <p className="game-editor-category-help">战斗不能由生命值控制；免疫状态可能无法添加。</p> : null}
-      {category === "classes" ? <p className="game-editor-category-help">转职可能改变等级与可穿戴装备，按游戏规则立即生效。</p> : null}
+      <GameEditorCategoryHelp category={category} />
       {searchOpen ? <GameEditorSearch query={query} hasFilter={Boolean(search)} onQuery={setQuery} onSubmit={submitSearch} onClear={() => {setQuery(""); changeSearch("");}} /> : null}
       {error ? <p className="game-editor-error" role="alert">{error}</p> : null}
       <GameEditorList listRef={listRef} grouped={Boolean(groups)} noGroup={Boolean(groups && !groups.length)} category={category} categoryLabel={categoryLabel} entries={entries} loading={loading} showLoading={showLoading} loadingMore={loadingMore} filtered={Boolean(search)} onSave={save}>
@@ -203,12 +203,27 @@ export function GameEditorPanel({editor, immersive, onClose}: {
           void load(activeCategory, search, nextOffset);
         }} />
       </GameEditorList>
+      </>}
     </div>
   </section>;
 }
 
 function resolveActiveCategory(category: string, groups: RuntimeGameEditCategoryV1["groups"], selectedGroup: string) {
   return groups ? selectedGroup || groups[0]?.id || "" : category;
+}
+
+function GameEditorSelfSwitchSection({editor, onNotice}: {editor: RuntimeGameEditorV1; onNotice: () => void}) {
+  return editor.selfSwitches ? <GameEditorSelfSwitches api={editor.selfSwitches} onNotice={onNotice} />
+    : <p className="game-editor-error" role="alert">当前游戏无法读取事件独立开关。</p>;
+}
+
+function GameEditorCategoryHelp({category}: {category: string}) {
+  const help: Record<string, string> = {
+    skills: "这里显示角色主动学习的技能；职业或装备附加的技能仍可能可用。",
+    states: "战斗不能由生命值控制；免疫状态可能无法添加。",
+    classes: "转职可能改变等级与可穿戴装备，按游戏规则立即生效。",
+  };
+  return help[category] ? <p className="game-editor-category-help">{help[category]}</p> : null;
 }
 
 function GameEditorCategories({categories, active, onChoose}: {
@@ -223,13 +238,22 @@ function GameEditorCategories({categories, active, onChoose}: {
     const nav = navRef.current;
     if (!nav) {return;}
     const measure = () => setScroll({viewport: nav.clientWidth, content: nav.scrollWidth, left: nav.scrollLeft});
-    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(measure);
+    const resize = () => {
+      const selected = nav.querySelector<HTMLButtonElement>('button[aria-pressed="true"]');
+      if (selected) {
+        const bounds = nav.getBoundingClientRect(), button = selected.getBoundingClientRect();
+        if (button.right > bounds.right) {nav.scrollLeft += button.right - bounds.right;}
+        else if (button.left < bounds.left) {nav.scrollLeft -= bounds.left - button.left;}
+      }
+      measure();
+    };
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(resize);
     observer?.observe(nav);
     nav.addEventListener("scroll", measure, {passive: true});
-    window.addEventListener("resize", measure);
-    measure();
-    return () => {observer?.disconnect(); nav.removeEventListener("scroll", measure); window.removeEventListener("resize", measure);};
-  }, [categories]);
+    window.addEventListener("resize", resize);
+    resize();
+    return () => {observer?.disconnect(); nav.removeEventListener("scroll", measure); window.removeEventListener("resize", resize);};
+  }, [categories, active]);
 
   const thumbWidth = scroll.content ? Math.max(24, scroll.viewport * scroll.viewport / scroll.content) : 0;
   const thumbLeft = scroll.content > scroll.viewport

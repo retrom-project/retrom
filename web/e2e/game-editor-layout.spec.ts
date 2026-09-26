@@ -2,7 +2,7 @@ import {readFileSync} from "node:fs";
 import {expect, test} from "@playwright/test";
 
 const editorStyles = readFileSync(new URL("../features/player/game-editor.css", import.meta.url), "utf8");
-const categories = ["金币", "道具", "武器", "护甲", "变量", "开关", "角色", "技能", "状态", "职业", "队伍成员"];
+const categories = ["金币", "道具", "武器", "护甲", "变量", "开关", "角色", "技能", "状态", "职业", "队伍成员", "事件独立开关"];
 
 test("expanded game editor categories scroll horizontally without wrapping", async ({page}) => {
   await page.setViewportSize({width: 844, height: 800});
