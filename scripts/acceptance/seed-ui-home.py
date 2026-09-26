@@ -20,7 +20,7 @@ BLOB_ID = "0198ff00-9000-7000-8000-000000000002"
 
 
 def seed(database_path: Path, state: str) -> None:
-    if state not in {"empty", "played", "saved"}:
+    if state not in {"empty", "played", "saved", "populated"}:
         raise ValueError("unknown UI home state")
     if not database_path.resolve().parent.parent.name.startswith("retrom-ui-acceptance."):
         raise ValueError("UI seed requires the disposable acceptance database")
@@ -40,6 +40,9 @@ def seed(database_path: Path, state: str) -> None:
             return
         timestamp = 1787600000000
         module.seed_play(database, profile, game["id"], game, INDEX, timestamp)
+        if state == "populated":
+            seed_recent_poster(database, module, profile, game, timestamp)
+            return
         if state == "played":
             return
         checkpoint_format = database.execute(
@@ -66,6 +69,21 @@ def seed(database_path: Path, state: str) -> None:
             "VALUES(?,?,?,?,?,?,?,?,?,'UI layout fixture',1000,1,?,?)",
             (SAVE_ID, profile, game["id"], checkpoint_format, blob_id, digest, len(screenshot), blob_id, launch_id, timestamp, timestamp),
         )
+
+
+def seed_recent_poster(database, module, profile, game, timestamp):
+    """A second public-fixture game keeps a measurable poster after hero deduplication."""
+    index = INDEX + 1
+    recent_id, _ = module.seed_game(
+        database, game, index, "Homepage poster acceptance", "H", timestamp - 2000, index,
+    )
+    database.execute(
+        "INSERT INTO game_assets(id,game_id,blob_id,kind,ordinal,width_px,height_px,media_type,created_at_ms) "
+        "SELECT ?,?,blob_id,kind,ordinal,width_px,height_px,media_type,created_at_ms "
+        "FROM game_assets WHERE game_id=? AND kind='COVER' AND ordinal=0",
+        (module.identifier(7, index), recent_id, game["id"]),
+    )
+    module.seed_play(database, profile, recent_id, game, index, timestamp - 2000)
 
 
 if __name__ == "__main__":
