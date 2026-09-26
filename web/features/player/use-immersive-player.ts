@@ -21,6 +21,7 @@ export type ImmersivePlayerOverlay =
   | { kind: "closed" }
   | { kind: "closing" }
   | { kind: "menu"; error: string; notice: string; pending: boolean; selected: ImmersiveMenuSelection }
+  | { kind: "editor" }
   | { kind: "reconnect"; ready: boolean };
 
 type Params = {
@@ -45,6 +46,7 @@ export function useImmersivePlayer(params: Params) {
     enabled, runtime, pausedRef, running, setPaused, exitStrict, saveAvailable, saveGame, beforeMenuPause, onFatalError,
   } = params;
   const [overlay, setOverlay] = useState<ImmersivePlayerOverlay>({ kind: "closed" });
+  const editorAvailable = running && Boolean(runtime.current?.getGameEditor?.());
   const overlayRef = useRef(overlay);
   const runningRef = useRef(running);
   const exitStrictRef = useRef(exitStrict);
@@ -126,6 +128,7 @@ export function useImmersivePlayer(params: Params) {
     if (current.kind !== "menu" || current.pending) {return;}
     if (current.selected === 0) {beginClose("menu"); return;}
     if (current.selected === 1) {saveFromMenu(current); return;}
+    if (current.selected === 3 && editorAvailable) {updateOverlay({kind: "editor"}); return;}
     updateOverlay({ ...current, error: "", notice: "正在退出游戏…", pending: true });
     void exitStrictRef.current().then((exited) => {
       if (exited === false) {beginClose("menu");}
@@ -135,24 +138,25 @@ export function useImmersivePlayer(params: Params) {
         updateOverlay({ ...failed, error: "退出失败。按 A 重试，或按 B 继续游戏。", notice: "", pending: false });
       }
     });
-  }, [beginClose, saveFromMenu, updateOverlay]);
+  }, [beginClose, editorAvailable, saveFromMenu, updateOverlay]);
 
   const menuCancel = useCallback(() => {
     const current = overlayRef.current;
-    if (current.kind === "menu" && !current.pending) {beginClose("menu");}
-  }, [beginClose]);
+    if (current.kind === "editor") {menuReader.current.reset(); updateOverlay({kind: "menu", error: "", notice: "", pending: false, selected: 3});}
+    else if (current.kind === "menu" && !current.pending) {beginClose("menu");}
+  }, [beginClose, updateOverlay]);
   const menuSelect = useCallback((selected: ImmersiveMenuSelection) => {
     const current = overlayRef.current;
-    if (current.kind === "menu" && !current.pending && selectableImmersiveMenuItem(selected, saveAvailable)) {
+    if (current.kind === "menu" && !current.pending && selectableImmersiveMenuItem(selected, saveAvailable, editorAvailable)) {
       updateOverlay({ ...current, selected });
     }
-  }, [saveAvailable, updateOverlay]);
+  }, [editorAvailable, saveAvailable, updateOverlay]);
   const menuMove = useCallback((direction: "left" | "right") => {
     const current = overlayRef.current;
     if (current.kind === "menu" && !current.pending) {
-      updateOverlay({ ...current, selected: moveImmersiveMenuSelection(current.selected, direction, saveAvailable) });
+      updateOverlay({ ...current, selected: moveImmersiveMenuSelection(current.selected, direction, saveAvailable, editorAvailable) });
     }
-  }, [saveAvailable, updateOverlay]);
+  }, [editorAvailable, saveAvailable, updateOverlay]);
 
   useEffect(() => {
     if (!enabled) {return;}
@@ -160,6 +164,7 @@ export function useImmersivePlayer(params: Params) {
       if (overlayRef.current.kind === "closed" && event.key.toLowerCase() === "m") {
         event.preventDefault(); requestMenu(); return;
       }
+      if (overlayRef.current.kind === "editor" && event.key === "Escape") {event.preventDefault(); menuCancel(); return;}
       if (overlayRef.current.kind !== "menu") {return;}
       if (event.key === "Escape") {event.preventDefault(); menuCancel(); return;}
       if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
@@ -206,7 +211,7 @@ export function useImmersivePlayer(params: Params) {
     };
   }, [enabled, filter]);
 
-  return { filter, menuCancel, menuSelect, overlay, requestMenu, runSelectedMenuAction, saveAvailable };
+  return { filter, menuCancel, menuSelect, overlay, requestMenu, runSelectedMenuAction, saveAvailable, editorAvailable };
 }
 
 type PollParams = {
@@ -259,12 +264,21 @@ function pollImmersiveState(params: PollParams, gamepads: (Gamepad | null)[], no
       return;
     }
     if (nowMs - params.missingSinceMs.current < MISSING_GAMEPAD_GRACE_MS) {return;}
-    enterReconnect(params, overlay.kind === "menu" ? "menu" : "game");
+    enterReconnect(params, reconnectTargetForOverlay(overlay));
     return;
   }
   params.missingSinceMs.current = null;
   if (overlay.kind === "closed") {params.filter.observe(gamepads, nowMs);}
+  pollVisibleOverlay(params, overlay, gamepads, nowMs);
+}
+
+function reconnectTargetForOverlay(overlay: ImmersivePlayerOverlay): "game" | "menu" {
+  return overlay.kind === "menu" || overlay.kind === "editor" ? "menu" : "game";
+}
+
+function pollVisibleOverlay(params: PollParams, overlay: ImmersivePlayerOverlay, gamepads: (Gamepad | null)[], nowMs: number) {
   if (overlay.kind === "menu") {pollMenu(params, gamepads, nowMs);}
+  if (overlay.kind === "editor") {pollEditor(params, gamepads, nowMs);}
   if (overlay.kind === "closing") {pollClosing(params, gamepads, nowMs);}
   if (overlay.kind === "reconnect") {pollReconnect(params, gamepads, nowMs);}
 }
@@ -288,6 +302,10 @@ function pollMenu(params: PollParams, gamepads: (Gamepad | null)[], nowMs: numbe
   if (action === "cancel") {params.menuCancel(); return;}
   if (action === "confirm") {params.runSelectedMenuAction(); return;}
   if (action === "left" || action === "right") {params.menuMove(action);}
+}
+
+function pollEditor(params: PollParams, gamepads: (Gamepad | null)[], nowMs: number) {
+  if (params.menuReader.current.update(gamepads, params.activeIndex.current, nowMs) === "cancel") {params.menuCancel();}
 }
 
 function pollClosing(params: PollParams, gamepads: (Gamepad | null)[], nowMs: number) {

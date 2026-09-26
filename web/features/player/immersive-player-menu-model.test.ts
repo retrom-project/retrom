@@ -15,4 +15,11 @@ describe("immersive player menu selection", () => {
     expect(moveImmersiveMenuSelection(0, "left", false)).toBe(2);
     expect(selectableImmersiveMenuItem(1, false)).toBe(false);
   });
+  it("includes game editing only when the runtime offers it", () => {
+    expect(moveImmersiveMenuSelection(1, "right", true, true)).toBe(3);
+    expect(moveImmersiveMenuSelection(3, "right", true, true)).toBe(2);
+    expect(moveImmersiveMenuSelection(0, "right", false, true)).toBe(3);
+    expect(selectableImmersiveMenuItem(3, true, false)).toBe(false);
+    expect(selectableImmersiveMenuItem(3, true, true)).toBe(true);
+  });
 });

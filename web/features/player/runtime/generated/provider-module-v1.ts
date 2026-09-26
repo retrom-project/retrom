@@ -88,6 +88,23 @@ export interface RuntimeInputDiagnosticsV1 {
   stop(): void;
 }
 
+/** Optional, session-local editor for values exposed by a running game. */
+export type RuntimeGameEditValueV1 = number | string | boolean | null;
+export type RuntimeGameEditEntryV1 = {
+  id: string;
+  label: string;
+  value: RuntimeGameEditValueV1;
+  valueType: "number" | "text" | "boolean" | "unsupported";
+  min?: number;
+  max?: number;
+};
+export type RuntimeGameEditPageV1 = {entries: RuntimeGameEditEntryV1[]; nextOffset: number | null};
+export interface RuntimeGameEditorV1 {
+  categories(): Promise<Array<{id: string; label: string}>>;
+  entries(category: string, query: string, offset: number, limit: number): Promise<RuntimeGameEditPageV1>;
+  set(category: string, id: string, value: Exclude<RuntimeGameEditValueV1, null>): Promise<RuntimeGameEditEntryV1>;
+}
+
 export type RuntimeEventV1 =
   | { type: "STATE_CHANGED"; previous: RuntimeStateV1; state: RuntimeStateV1 }
   | { type: "LOAD_PROGRESS"; loadedBytes: number; totalBytes: number | null }
@@ -122,6 +139,8 @@ export interface PlayerRuntimeV1 {
   getFrameCount(): number | null;
   /** Absent on older Providers. Observation only; never pauses or resumes the game. */
   startInputDiagnostics?(): RuntimeInputDiagnosticsV1;
+  /** Absent when the current runtime does not expose editable game values. */
+  getGameEditor?(): RuntimeGameEditorV1 | null;
   subscribe(listener: RuntimeEventListenerV1): () => void;
   exit(): Promise<void>;
 }

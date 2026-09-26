@@ -23,6 +23,7 @@ import {usePlayerOrientationRuntime} from "./player-orientation-runtime";
 import {usePlayerRuntimeEffects} from "./player-runtime-effects";
 import {useRuntimeExitHandler} from "./player-runtime-exit";
 import {ImmersivePlayerMenu} from "./immersive-player-menu";
+import {GameEditorPanel} from "./game-editor-panel";
 import {useImmersivePlayer} from "./use-immersive-player";
 import {usePlayerKeyboardPause} from "./use-player-keyboard-pause";
 import {PlayerLoading, type PlayerLoadProgress} from "./player-loading";
@@ -312,11 +313,21 @@ function PlayerShellView({nativeExitDialog, experience, immersive, paused, orien
       returnTo={returnTo} immersive={isImmersive} onSurface={isImmersive ? () => undefined : onSurface} />
     <NativeSaveToast visible={!blocked && isImmersive} semantics={chromeProps.checkpointSemantics}
       toast={chromeProps.toast} text={chromeProps.syncText} tone={chromeProps.syncTone} />
-    {!blocked && isImmersive ? <ImmersivePlayerMenu nativeSave={chromeProps.nativeSave} nativeRetryAvailable={chromeProps.nativeRetryAvailable} checkpointSemantics={chromeProps.checkpointSemantics} saveStatus={chromeProps.syncText} overlay={immersive.overlay} saveAvailable={immersive.saveAvailable}
+    {!blocked && isImmersive ? <ImmersivePlayerMenu nativeSave={chromeProps.nativeSave} nativeRetryAvailable={chromeProps.nativeRetryAvailable} checkpointSemantics={chromeProps.checkpointSemantics} saveStatus={chromeProps.syncText} overlay={immersive.overlay} saveAvailable={immersive.saveAvailable} editorAvailable={immersive.editorAvailable}
       onCancel={immersive.menuCancel} onSelect={immersive.menuSelect} onConfirm={immersive.runSelectedMenuAction} /> : null}
+    <ImmersiveGameEditorLayer blocked={blocked} immersive={isImmersive} overlay={immersive.overlay} runtime={chromeProps.inputRuntime} onClose={immersive.menuCancel} />
     {blocked ? <OrientationGate state={orientationState} gameTitle={gameTitle} help={orientationHelp}
       buttonRef={orientationButtonRef} onRetry={onRetryLandscape} /> : null}
   </main>;
+}
+
+function ImmersiveGameEditorLayer({blocked, immersive, overlay, runtime, onClose}: {
+  blocked: boolean; immersive: boolean; overlay: ImmersiveController["overlay"];
+  runtime: PlayerChromeProps["inputRuntime"]; onClose: () => void;
+}) {
+  if (blocked || !immersive || overlay.kind !== "editor") {return null;}
+  const editor = runtime?.current?.getGameEditor?.();
+  return editor ? <GameEditorPanel editor={editor} immersive onClose={onClose} /> : null;
 }
 
 export function PlayerStage({blocked, stage, state, message, loadProgress, returnTo, immersive, onSurface}: {
