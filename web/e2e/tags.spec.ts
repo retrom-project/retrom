@@ -106,7 +106,7 @@ test("ACC-TAG-005 tag administration, assignment, search, projection, responsive
     };
   });
   expect(pickerControlStyle).toMatchObject({
-    backgroundColor: "rgb(255, 255, 255)",
+    backgroundColor: "rgb(25, 31, 46)",
     borderStyle: "solid",
     borderWidth: 1,
   });

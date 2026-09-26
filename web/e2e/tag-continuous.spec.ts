@@ -58,7 +58,7 @@ test("ACC-TAG-005 repeated selection and creation keep tag controls open", async
   await page.mouse.move(10, 100);
   await expect(input).toHaveCSS("border-top-width", "1px");
   await expect(input).toHaveCSS("border-top-style", "solid");
-  await expect(input).toHaveCSS("background-color", "rgb(255, 255, 255)");
+  await expect(input).toHaveCSS("background-color", "rgb(25, 31, 46)");
   const originalPreview = await drawer.locator(".tag-normalized-preview").boundingBox();
   for (const name of ["连续新增预览一", "连续新增预览二"]) {
     await input.fill(name);

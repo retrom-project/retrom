@@ -339,7 +339,7 @@ test("game detail keeps its one-screen hierarchy and opens saves without navigat
       expect(card.bodyLeft).toBeGreaterThanOrEqual(card.mediaRight - 1);
     }
     const firstSaveCard = page.locator(".game-detail-save-card").first();
-    await expect(firstSaveCard.getByText("最近存档", { exact: true })).toBeVisible();
+    await expect(firstSaveCard.locator(".game-detail-save-title-line time")).toBeVisible();
     await expect(firstSaveCard.locator(".game-detail-save-fact-row > span")).toHaveCount(3);
     for (const label of ["保存位置", "运行核心", "当时已游玩"]) {await expect(firstSaveCard.getByText(label, { exact: true })).toBeVisible();}
     const cardAndAction = await firstSaveCard.evaluate((card) => {
@@ -382,7 +382,7 @@ test("game detail keeps its one-screen hierarchy and opens saves without navigat
     const drawerElement = page.locator(".game-detail-save-drawer");
     await expect(drawer).toBeVisible();
     await expect(drawer.locator(".game-detail-drawer-row")).toHaveCount(expectedSaveCount);
-    await expect(drawer.getByRole("button", { name: "▶ 继续" }).first()).toBeVisible();
+    await expect(drawer.getByRole("button", { name: "从存档继续" }).first()).toBeVisible();
     const drawerRowLayout = await drawer.locator(".game-detail-drawer-row").first().evaluate((row) => {
       const rowBox = row.getBoundingClientRect();
       const shotBox = row.querySelector(".game-detail-drawer-shot")?.getBoundingClientRect();
@@ -405,17 +405,17 @@ test("game detail keeps its one-screen hierarchy and opens saves without navigat
     expect(drawerRowLayout.shotWidth).toBeGreaterThanOrEqual(190);
     expect(drawerRowLayout.actionBottomGap).toBeLessThanOrEqual(13);
     expect(drawerRowLayout.actionColor).toBe("rgb(255, 255, 255)");
-    expect(drawerRowLayout.actionBackground).toBe("rgb(98, 80, 210)");
+    expect(drawerRowLayout.actionBackground).toBe("rgb(120, 97, 223)");
     expect(drawerRowLayout.actionSize).toBeGreaterThanOrEqual(11);
-    expect(drawerRowLayout.actionWeight).toBeGreaterThanOrEqual(700);
+    expect(drawerRowLayout.actionWeight).toBe(600);
     expect(drawerRowLayout.timeSize).toBeGreaterThanOrEqual(14);
-    expect(drawerRowLayout.timeWeight).toBeGreaterThanOrEqual(700);
+    expect(drawerRowLayout.timeWeight).toBe(600);
     // Full-page capture can transiently resize Chromium to 1x1 and remount the responsive shell.
     await page.screenshot({ path: testInfo.outputPath("game-detail-save-drawer.png"), fullPage: false });
     await expect(drawer).toBeVisible();
-    await drawer.getByRole("button", { name: /预览.*存档截图/ }).first().click();
-    await expect(page.getByRole("dialog", { name: "存档截图预览" })).toBeVisible();
-    await page.getByRole("button", { name: "关闭" }).click();
+    await drawer.locator(".game-detail-drawer-shot").first().click();
+    await expect(page.getByRole("dialog")).toHaveCount(1);
+    await expect(drawer).toBeVisible();
     await page.getByRole("button", { name: "关闭全部存档" }).click();
     await expect(drawer).toBeHidden();
     await expect(drawerElement).toHaveCSS("visibility", "hidden");

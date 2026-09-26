@@ -328,7 +328,8 @@ test("ACC-UI-006 admin pages remain reachable at desktop breakpoints", async ({ 
     await expect(descriptionRow.getByRole("textbox", { name: "给用户看的说明" })).toHaveAttribute("rows", "1");
     const after = await descriptionRow.evaluate((element) => element.getBoundingClientRect().height);
     expect(Math.abs(after - before)).toBeLessThanOrEqual(4);
-    await page.screenshot({path: evidencePath(testInfo, "directory-inline-description.png"), fullPage: true});
+    // Capturing only the edited row avoids Chromium resizing the viewport for a tall full-page image.
+    await descriptionRow.screenshot({path: evidencePath(testInfo, "directory-inline-description.png")});
     await descriptionRow.getByRole("button", { name: "取消修改说明" }).click();
   }
   await page.getByRole("button", { name: "新建游戏目录" }).click();

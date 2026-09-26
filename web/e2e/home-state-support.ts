@@ -45,7 +45,9 @@ async function expectLandscapeAndEmptyMedia(page: Page, testInfo: TestInfo) {
   await page.reload();
   await expect(page.locator(".home-featured-media")).toHaveAttribute("data-kind", "empty");
   await expect(page.locator(".home-platform-card img")).toHaveCount(0);
-  await expect(page.locator(".home-platform-card .home-platform-art")).toBeVisible();
+  const platformArt = page.locator(".home-platform-card .home-platform-art");
+  expect(await platformArt.count()).toBeGreaterThan(0);
+  for (const art of await platformArt.all()) {await expect(art).toBeVisible();}
   expect(await heroGeometry(page)).toEqual(before);
   await page.screenshot({ path: evidencePath(testInfo, "ui-home-no-media.png"), fullPage: true });
   await page.unroute(screenshot);
