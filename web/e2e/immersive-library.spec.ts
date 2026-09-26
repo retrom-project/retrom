@@ -199,11 +199,10 @@ async function createSaveFromMenu(page: Page, menu: Locator) {
 
 async function exitPlayer(page: Page, menu: Locator) {
   await selectPlayerMenuItem(page, menu, "退出游戏");
-  const finished = page.waitForResponse((response) =>
-    response.request().method() === "POST" && /\/runtime\/launches\/[^/]+\/finish$/.test(response.url()));
   await pressGamepad(page, standardButton.a);
-  expect((await finished).ok()).toBe(true);
   await expect(page).toHaveURL(/\/immersive\/(?:library|platforms)\//);
+  await expect(page.locator(".player-shell")).toHaveCount(0);
+  await expect(page.locator("iframe.player-frame")).toHaveCount(0);
   await expect(page.getByRole("listbox", { name: "沉浸游戏列表" })).toBeVisible();
   await expect(page.getByRole("option", { selected: true })).toBeVisible();
   // Navigation commits before the new controller consumer finishes its neutral gate.

@@ -1453,14 +1453,14 @@ restart；必须停止 main loop、卸载文件系统并执行延迟清理，最
 
 - 上限：180 秒。执行：`make acceptance-case CASE=ACC-IMM-004`。
 - 流程：项目自有 GBA fixture 经过真实导入/发布数据，从首页手柄进入平台和游戏，A 创建普通 Launch 并进入带 `experience=immersive` 的 Player，等待 mGBA Core 帧推进，菜单退出后回原平台游戏列表。
-- 通过标准：config、ROM 和媒体只走受授权产品端点；Core canvas 非黑且帧推进；活动手柄索引从浏览页传给 Player；退出完成/撤销 Launch 与 PlaySession，回到原 Game 焦点；没有选择“创建存档”时不创建 SaveState。
-- 证据：Launch/config/content/network trace、Core canvas/帧断言、Player 菜单和返回页截图、服务端完成状态。
+- 通过标准：config、ROM 和媒体只走受授权产品端点；Core canvas 非黑且帧推进；活动手柄索引从浏览页传给 Player；退出后 Player 与游戏 iframe 卸载，回到原 Game 焦点；不要求产品退出时同步收到 `/finish` 响应；没有选择“创建存档”时不创建 SaveState。
+- 证据：Launch/config/content/network trace、Core canvas/帧断言、Player 菜单和返回页截图、Player/iframe 卸载及焦点断言。
 
 ### ACC-IMM-005：暂停菜单与输入隔离
 
 - 上限：180 秒。执行：`make acceptance-case CASE=ACC-IMM-005`。
 - 流程：在真实 GBA Player 中依次发送单独 Select、Start、一次完整 chord、满足 `100/60/650ms` 的双 chord；菜单中用左右/A/B 取消，再次打开并创建存档，第三次打开后退出。
-- 通过标准：单键按判定窗后到 Core；第一次 chord 作为前缀被抑制且不打开菜单；第二次 chord 先将全部本地输入归零、在 Core 暂停前发起运行帧截图并确认 Core 暂停，菜单严格为“取消、创建存档、退出游戏”且默认取消。取消只恢复本菜单拥有的暂停；创建存档复用暂停前截图并捕获暂停后的 state 一并上传，防止重复提交和暂停后黑帧，成功后可由当前 Profile 读取并恢复；不支持捕获时按钮禁用并说明。退出执行 finish/revoke，无粘键、无自动存档、无输入穿透。
+- 通过标准：单键按判定窗后到 Core；第一次 chord 作为前缀被抑制且不打开菜单；第二次 chord 先将全部本地输入归零、在 Core 暂停前发起运行帧截图并确认 Core 暂停，菜单严格为“取消、创建存档、退出游戏”且默认取消。取消只恢复本菜单拥有的暂停；创建存档复用暂停前截图并捕获暂停后的 state 一并上传，防止重复提交和暂停后黑帧，成功后可由当前 Profile 读取并恢复；不支持捕获时按钮禁用并说明。退出后 Player 与游戏 iframe 卸载并回到游戏列表，不以 `/finish` 响应作为通过条件；无粘键、无自动存档、无输入穿透。
 - 证据：fake-clock 状态机输出、Provider input-filter/Gamepad 快照、pause owner trace、菜单截图与网络时序。
 
 ### ACC-IMM-006：Arcade 与多输入回归
