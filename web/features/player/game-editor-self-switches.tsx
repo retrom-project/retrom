@@ -35,6 +35,8 @@ export function GameEditorSelfSwitches({api, onNotice}: {
   const selectedMap = useRef(0);
   const listRef = useRef<HTMLDivElement>(null);
 
+  useEffect(() => () => {mapSequence.current++; eventSequence.current++;}, []);
+
   const loadMaps = useCallback(async (filter: string, offset: number) => {
     if (offset && pendingMapPage.current === offset) {return;}
     const sequence = offset ? mapSequence.current : ++mapSequence.current;
@@ -120,10 +122,10 @@ export function GameEditorSelfSwitches({api, onNotice}: {
   return <>
     <div className="game-editor-list-head"><h2>事件独立开关</h2><div><button className="button secondary" type="button" onClick={() => {setSearchOpen((open) => !open); if (searchOpen) {setQuery(""); setSearch("");}}}>{searchOpen ? "收起查找" : "查找"}</button><button className="button secondary" type="button" onClick={() => {if (mapId) {void loadEvents(mapId, search, 0);}}}>刷新</button></div></div>
     <GameEditorMapPicker mapName={mapName} mapId={mapId} currentMapId={currentMapId} open={mapOpen} setOpen={setMapOpen} query={mapQuery} setQuery={setMapQuery} maps={maps} busy={mapBusy} error={mapError} onScroll={mapScroll} onSelect={chooseMap} onRetry={() => void loadMaps(mapQuery, mapNext ?? 0)} />
-    <p className="game-editor-category-help">每个事件分别拥有 A–D 四个开关；切换可能改变事件页面。</p>
+    <p className="game-editor-category-help">仅列出事件页条件引用的开关。开启后该条件成立；实际页面还受其他条件和页序影响。</p>
     {searchOpen ? <form className="game-editor-self-switch-search" onSubmit={submitSearch}><input type="search" aria-label="按事件名称或编号查找" placeholder="按事件名称或编号查找" maxLength={80} value={query} onChange={(event) => setQuery(event.target.value)} /><button className="button secondary" type="submit">查找事件</button>{search ? <button className="button secondary" type="button" onClick={() => {setQuery(""); setSearch("");}}>清除</button> : null}</form> : null}
     {saveError ? <p className="game-editor-error" role="alert">{saveError}</p> : null}
-    <div ref={listRef} className="game-editor-list game-editor-self-switch-list" aria-busy={eventBusy} onScroll={eventScroll}>{events.map((event) => <GameEditorSelfSwitchEvent key={event.id} event={event} onToggle={toggle} />)}{eventBusy && !events.length ? <p>正在读取事件…</p> : eventError ? <p role="alert">事件读取失败。<button className="button secondary" type="button" onClick={() => void loadEvents(mapId, search, events.length)}>重试</button></p> : !events.length ? <p>{search ? "没有找到匹配的事件。" : "这张地图没有事件。"}</p> : null}{eventBusy && events.length ? <p>正在加载后续事件…</p> : null}</div>
+    <div ref={listRef} className="game-editor-list game-editor-self-switch-list" aria-busy={eventBusy} onScroll={eventScroll}>{events.map((event) => <GameEditorSelfSwitchEvent key={event.id} event={event} onToggle={toggle} />)}{eventBusy && !events.length ? <p>正在读取事件…</p> : eventError ? <p role="alert">事件读取失败。<button className="button secondary" type="button" onClick={() => void loadEvents(mapId, search, events.length)}>重试</button></p> : !events.length ? <p>{search ? "没有找到匹配的关联事件。" : "这张地图没有用独立开关控制事件页的事件。"}</p> : null}{eventBusy && events.length ? <p>正在加载后续事件…</p> : null}</div>
   </>;
 }
 
@@ -145,5 +147,6 @@ function GameEditorSelfSwitchEvent({event, onToggle}: {
   onToggle: (event: RuntimeGameEditEventV1, key: RuntimeGameEditSelfSwitchKeyV1) => Promise<void>;
 }) {
   const [pending, setPending] = useState<RuntimeGameEditSelfSwitchKeyV1 | null>(null);
-  return <article className="game-editor-self-switch-event"><div><strong>{event.label}</strong><small>事件 #{event.id} · 坐标 {event.x}, {event.y}</small></div><div className="game-editor-self-switch-actions">{KEYS.map((key) => <button key={key} className={`button secondary${event.switches[key] ? " is-active" : ""}`} type="button" disabled={pending !== null} aria-label={`${event.label} 独立开关 ${key}，当前${event.switches[key] ? "开启" : "关闭"}，点击${event.switches[key] ? "关闭" : "开启"}`} onClick={() => {setPending(key); void onToggle(event, key).finally(() => setPending(null));}}>{key} · {event.switches[key] ? "开" : "关"}</button>)}</div></article>;
+  const usedKeys = KEYS.filter((key) => event.pageUses.some((use) => use.key === key));
+  return <article className="game-editor-self-switch-event"><div><strong>{event.label}</strong><small>事件 #{event.id} · 坐标 {event.x}, {event.y}</small></div><div className="game-editor-self-switch-uses">{usedKeys.map((key) => <div className="game-editor-self-switch-use" key={key}><div>{event.pageUses.filter((use) => use.key === key).map((use) => <small key={use.page}>第 {use.page} 页 · 此开关条件{event.switches[key] ? "已满足" : "未满足"} · {use.summary}</small>)}</div><button className={`button secondary${event.switches[key] ? " is-active" : ""}`} type="button" disabled={pending !== null} aria-label={`${event.label} 独立开关 ${key}，当前${event.switches[key] ? "开启" : "关闭"}，点击${event.switches[key] ? "关闭" : "开启"}`} onClick={() => {setPending(key); void onToggle(event, key).finally(() => setPending(null));}}>{key} · {event.switches[key] ? "开" : "关"}</button></div>)}</div></article>;
 }

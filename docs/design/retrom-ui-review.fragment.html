@@ -2190,10 +2190,12 @@
     #retrom-ui-review .rt-game-editor-map-options { position:absolute;z-index:2;top:100%;left:0;display:grid;gap:6px;width:min(350px,100%);max-height:220px;overflow:auto;padding:12px;border:1px solid #526078;border-radius:var(--radius-panel);background:#202b3e;box-shadow:0 14px 36px #0009 }
     #retrom-ui-review .rt-game-editor-map-options button { display:flex;justify-content:space-between;gap:8px;text-align:left }
     #retrom-ui-review .rt-game-editor-map-options button small { color:#b5c0d0 }
-    #retrom-ui-review .rt-game-editor-self-switch-event { align-items:center }
-    #retrom-ui-review .rt-game-editor-self-switch-event>div:last-child { display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px }
+    #retrom-ui-review .rt-game-editor-design article.rt-game-editor-self-switch-event { display:grid;gap:8px }
+    #retrom-ui-review .rt-game-editor-self-switch-uses { display:grid;gap:6px }
+    #retrom-ui-review .rt-game-editor-self-switch-use { display:flex;align-items:center;justify-content:space-between;gap:12px }
+    #retrom-ui-review .rt-game-editor-self-switch-use div { display:grid;gap:2px }
+    #retrom-ui-review .rt-game-editor-self-switch-use small { color:#b5c0d0 }
     #retrom-ui-review .rt-game-editor-self-switch-event button.is-active { border-color:#8dbaf3;background:#31527d }
-    @media(max-width:600px){#retrom-ui-review .rt-game-editor-self-switch-event{align-items:stretch;flex-direction:column}#retrom-ui-review .rt-game-editor-self-switch-event>div:last-child{grid-template-columns:repeat(2,minmax(0,1fr))}}
     #retrom-ui-review .rt-game-editor-design nav button.is-active { border-color:#8dbaf3;background:#31527d }
     #retrom-ui-review .rt-game-editor-design article>div:first-child { display:grid;gap:4px }
     #retrom-ui-review .rt-game-editor-design article small { color:#b5c0d0 }
@@ -3011,8 +3013,8 @@
               <div data-editor-rows="classes:0" hidden><article><div><strong>战士</strong><small>当前：当前职业</small></div><div><button type="button" data-editor-class-choice disabled>已选</button></div></article><article><div><strong>法师</strong><small>当前：可转职</small></div><div><button type="button" data-editor-class-choice>转职</button></div></article></div>
               <div data-editor-rows="classes:1" hidden><article><div><strong>战士</strong><small>当前：可转职</small></div><div><button type="button" data-editor-class-choice>转职</button></div></article><article><div><strong>法师</strong><small>当前：当前职业</small></div><div><button type="button" data-editor-class-choice disabled>已选</button></div></article></div>
               <div data-editor-rows="party" hidden><article data-editor-party-id="0"><div><strong>艾琳</strong><small>当前：队伍第 1 位</small></div><div data-editor-party-controls></div></article><article data-editor-party-id="1"><div><strong>哈罗德</strong><small>当前：队伍第 2 位</small></div><div data-editor-party-controls></div></article><article data-editor-party-id="2"><div><strong>莉娜</strong><small>当前：未入队</small></div><div data-editor-party-controls></div></article></div>
-              <div data-editor-rows="self_switches:0" hidden><article class="rt-game-editor-self-switch-event"><div><strong>宝箱</strong><small>事件 #12 · 坐标 8, 6</small></div><div><button type="button" data-editor-self-switch>A · 关</button><button type="button" data-editor-self-switch>B · 关</button><button type="button" data-editor-self-switch>C · 关</button><button type="button" data-editor-self-switch>D · 关</button></div></article><article class="rt-game-editor-self-switch-event"><div><strong>村口告示牌</strong><small>事件 #13 · 坐标 12, 4</small></div><div><button type="button" data-editor-self-switch>A · 关</button><button type="button" data-editor-self-switch>B · 关</button><button type="button" data-editor-self-switch>C · 关</button><button type="button" data-editor-self-switch>D · 关</button></div></article></div>
-              <div data-editor-rows="self_switches:1" hidden><article class="rt-game-editor-self-switch-event"><div><strong>森林大门</strong><small>事件 #3 · 坐标 4, 9</small></div><div><button type="button" data-editor-self-switch>A · 关</button><button type="button" data-editor-self-switch>B · 关</button><button type="button" data-editor-self-switch>C · 关</button><button type="button" data-editor-self-switch>D · 关</button></div></article></div>
+              <div data-editor-rows="self_switches:0" hidden><article class="rt-game-editor-self-switch-event"><div><strong>宝箱</strong><small>事件 #12 · 坐标 8, 6</small></div><div class="rt-game-editor-self-switch-uses"><div class="rt-game-editor-self-switch-use"><div><small>第 2 页 · 此开关条件未满足 · 无图像、无事件指令</small></div><button type="button" data-editor-self-switch>A · 关</button></div></div></article><article class="rt-game-editor-self-switch-event"><div><strong>村口告示牌</strong><small>事件 #13 · 坐标 12, 4</small></div><div class="rt-game-editor-self-switch-uses"><div class="rt-game-editor-self-switch-use"><div><small>第 2 页 · 此开关条件未满足 · 首句：欢迎来到村庄。</small></div><button type="button" data-editor-self-switch>A · 关</button></div><div class="rt-game-editor-self-switch-use"><div><small>第 3 页 · 此开关条件未满足 · 有图像和事件指令</small></div><button type="button" data-editor-self-switch>B · 关</button></div></div></article></div>
+              <div data-editor-rows="self_switches:1" hidden><article class="rt-game-editor-self-switch-event"><div><strong>森林大门</strong><small>事件 #3 · 坐标 4, 9</small></div><div class="rt-game-editor-self-switch-uses"><div class="rt-game-editor-self-switch-use"><div><small>第 2 页 · 此开关条件未满足 · 无图像、无事件指令</small></div><button type="button" data-editor-self-switch>D · 关</button></div></div></article></div>
               <p class="rt-game-editor-loading" role="status" hidden>正在加载后续项目…</p>
             </div>
           </div></section>
@@ -3697,7 +3699,7 @@
       function showEditorDesignRows() {
         editorDesign.querySelector('[data-editor-heading]').textContent = ({actors:'角色',skills:'技能',states:'状态',classes:'职业',party:'队伍成员',self_switches:'事件独立开关'})[editorKind];
         const editorHelp = editorDesign.querySelector('[data-editor-help]');
-        editorHelp.textContent = ({skills:'这里显示角色主动学习的技能；职业或装备附加的技能仍可能可用。',states:'战斗不能由生命值控制；免疫状态可能无法添加。',classes:'转职可能改变等级与可穿戴装备，按游戏规则立即生效。',self_switches:'每个事件分别拥有 A–D 四个开关；切换可能改变事件页面。'})[editorKind] || '';
+        editorHelp.textContent = ({skills:'这里显示角色主动学习的技能；职业或装备附加的技能仍可能可用。',states:'战斗不能由生命值控制；免疫状态可能无法添加。',classes:'转职可能改变等级与可穿戴装备，按游戏规则立即生效。',self_switches:'仅列出事件页条件引用的开关。开启后该条件成立；实际页面还受其他条件和页序影响。'})[editorKind] || '';
         editorHelp.hidden = !editorHelp.textContent;
         editorDesign.querySelector('[data-editor-person-tabs]').hidden = editorKind === 'party' || editorKind === 'self_switches';
         editorDesign.querySelector('[data-editor-map-picker]').hidden = editorKind !== 'self_switches';
@@ -3733,6 +3735,9 @@
         const enabled = button.textContent.endsWith('关');
         button.textContent = `${button.textContent[0]} · ${enabled ? '开' : '关'}`;
         button.classList.toggle('is-active', enabled);
+        button.closest('.rt-game-editor-self-switch-use').querySelectorAll('small').forEach((summary) => {
+          summary.textContent = summary.textContent.replace(enabled ? '未满足' : '已满足', enabled ? '已满足' : '未满足');
+        });
       }));
       editorDesign.querySelectorAll('[data-editor-state-toggle]').forEach((button) => button.addEventListener('click', () => {
         const added = button.textContent === '添加';

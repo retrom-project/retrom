@@ -113,12 +113,19 @@ export type RuntimeGameEditMapPageV1 = {
   nextOffset: number | null;
 };
 export type RuntimeGameEditSelfSwitchKeyV1 = "A" | "B" | "C" | "D";
+export type RuntimeGameEditSelfSwitchPageUseV1 = {
+  key: RuntimeGameEditSelfSwitchKeyV1;
+  page: number;
+  summary: string;
+};
 export type RuntimeGameEditEventV1 = {
   id: number;
   label: string;
   x: number;
   y: number;
   switches: Record<RuntimeGameEditSelfSwitchKeyV1, boolean>;
+  /** Only switches used as event-page appearance conditions are listed. */
+  pageUses: RuntimeGameEditSelfSwitchPageUseV1[];
 };
 export type RuntimeGameEditEventPageV1 = {events: RuntimeGameEditEventV1[]; nextOffset: number | null};
 export interface RuntimeGameEditorV1 {

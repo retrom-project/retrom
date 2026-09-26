@@ -39,7 +39,9 @@ describe("GameEditorPanel", () => {
     const switches = new Map<string, boolean>();
     const events = vi.fn(async (mapId: number) => ({events: [{id: mapId, label: mapId === 1 ? "宝箱" : "大门",
       x: 4, y: 5, switches: Object.fromEntries(["A", "B", "C", "D"].map((key) =>
-        [key, switches.get(`${mapId}:${key}`) ?? false])) as Record<"A" | "B" | "C" | "D", boolean>}], nextOffset: null}));
+        [key, switches.get(`${mapId}:${key}`) ?? false])) as Record<"A" | "B" | "C" | "D", boolean>,
+      pageUses: [{key: mapId === 1 ? "A" as const : "D" as const, page: 2,
+        summary: "无图像、无事件指令"}]}], nextOffset: null}));
     const setSwitch = vi.fn(async (mapId: number, _eventId: number, key: "A" | "B" | "C" | "D", value: boolean) => {
       switches.set(`${mapId}:${key}`, value);
       return (await events(mapId)).events[0];
@@ -55,9 +57,12 @@ describe("GameEditorPanel", () => {
     fireEvent.click(await panel.findByRole("button", {name: "事件独立开关"}));
     const chest = await panel.findByRole("button", {name: /宝箱 独立开关 A，当前关闭/u});
     expect(panel.getByText("事件 #1 · 坐标 4, 5")).toBeVisible();
+    expect(panel.getByText("第 2 页 · 此开关条件未满足 · 无图像、无事件指令")).toBeVisible();
+    expect(panel.queryByRole("button", {name: /宝箱 独立开关 B/u})).toBeNull();
     fireEvent.click(chest);
     await waitFor(() => expect(setSwitch).toHaveBeenCalledWith(1, 1, "A", true));
     await panel.findByRole("button", {name: /宝箱 独立开关 A，当前开启/u});
+    expect(panel.getByText("第 2 页 · 此开关条件已满足 · 无图像、无事件指令")).toBeVisible();
     fireEvent.click(panel.getByRole("button", {name: /村庄 · 当前地图/u}));
     fireEvent.change(panel.getByRole("searchbox", {name: "查找地图"}), {target: {value: "森林"}});
     fireEvent.click(await panel.findByRole("button", {name: "森林 · 地图 #2"}));
