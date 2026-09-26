@@ -195,7 +195,10 @@ Product Launch。该街机游戏须先按手柄 Select 投币，再按 Start 开
 Game Over 开局。修复后的核心将 Select、Start、方向键和两个动作键交给游戏驱动；
 产品验收从 Game Over 画面按 Select、Start 后确认 Game Over 消失、生命图标出现，
 再按方向键确认玩家飞船移动。M2V 请求为有界 206 Range，未整包下载。该验证只覆盖
-单视频 framefile 的这个样本；多视频项目、无 ZIP 项目和其他 Daphne 游戏尚未获得准入。
+单视频 framefile 的这个样本。Daphne 核心每帧从原生混音器取得 735 帧、44.1 kHz
+双声道 PCM，并通过 libretro 音频回调交给浏览器；验收必须在实际 Product Launch
+中观察到非静音音频缓冲，不能仅凭 OGG 文件存在认定声音可用。多视频项目、无 ZIP
+项目和其他 Daphne 游戏尚未获得准入。
 候选 Provider/核心仍需按依赖顺序发布和正式包复验。
 
 ## 6. 升级验证

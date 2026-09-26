@@ -120,6 +120,15 @@ async function verifyGamepadDirection(page, canvas) {
   evidence.directionInput = {before, after};
   assert.ok(after !== null && after > before + 100, "DAPHNE_DPAD_DID_NOT_MOVE_SHIP");
 }
+async function verifyGameAudio(page, frame) {
+  for (let attempt = 0; attempt < 15; attempt++) {
+    await page.waitForTimeout(1000);
+    const audio = await frame.evaluate(() => window.__retromDaphneAudio);
+    evidence.gameAudio = audio;
+    if (audio?.nonSilentBuffers > 0) {return;}
+  }
+  throw Error(`DAPHNE_AUDIO_SILENT:${JSON.stringify(evidence.gameAudio)}`);
+}
 let browser, proxy;
 
 async function open(context, launch, stage) {
@@ -200,7 +209,7 @@ async function open(context, launch, stage) {
       assert.equal(config.runtime.capabilities.checkpoint, false);
       assert.equal(config.resources.find(item => item.role === "game")?.kind, "FILE_TREE");
       await canvas.screenshot({path: join(output, `${stage}.png`)});
-      return {page, canvas, config};
+      return {page, frame, canvas, config};
     }
     await page.waitForTimeout(250);
   }
@@ -215,6 +224,27 @@ try {
   browser = await chromium.launch({executablePath: env.RETROM_CHROME_EXECUTABLE, headless: true,
     args: ["--autoplay-policy=no-user-gesture-required", "--use-angle=swiftshader", "--enable-unsafe-swiftshader"]});
   const context = await browser.newContext({viewport: {width: 1280, height: 900}, ...proxy.contextOptions});
+  await context.addInitScript(() => {
+    window.__retromDaphneAudio = {startedBuffers: 0, nonSilentBuffers: 0, peak: 0};
+    const originalStart = AudioBufferSourceNode.prototype.start;
+    AudioBufferSourceNode.prototype.start = function (...args) {
+      const result = originalStart.apply(this, args);
+      const audio = window.__retromDaphneAudio;
+      audio.startedBuffers++;
+      if (this.buffer) {
+        let bufferPeak = 0;
+        for (let channel = 0; channel < this.buffer.numberOfChannels; channel++) {
+          const samples = this.buffer.getChannelData(channel);
+          for (let index = 0; index < samples.length; index += Math.max(1, Math.floor(samples.length / 1024))) {
+            bufferPeak = Math.max(bufferPeak, Math.abs(samples[index]));
+          }
+        }
+        audio.peak = Math.max(audio.peak, bufferPeak);
+        if (bufferPeak > 0.001) {audio.nonSilentBuffers++;}
+      }
+      return result;
+    };
+  });
   if (env.RETROM_DAPHNE_DEBUG === "1") {
     await context.addInitScript(() => Object.defineProperty(window, "EJS_DEBUG_XX", {
       get: () => true, set: () => undefined, configurable: true,
@@ -272,6 +302,7 @@ try {
   const launch = await open(context, await launchCart(client, gameId), "product");
   await startGameFromGameOver(launch.page, launch.canvas, "product");
   await verifyGamepadDirection(launch.page, launch.canvas);
+  await verifyGameAudio(launch.page, launch.frame);
   assertNoFatalBrowserErrors("product");
   await revealPreviewToolbar(launch.page);
   const noSaveStatus = await launch.page.getByText("不支持存档", {exact: true}).count();
