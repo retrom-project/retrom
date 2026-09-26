@@ -689,7 +689,7 @@ components:
           schema:
             $ref: '#/components/schemas/LaunchConfig'
     BinaryResponse:
-      description: Binary content
+      description: Binary content. Content-addressed runtime responses include Cache-Control no-transform to preserve representation identity and exact byte ranges.
       headers:
         ETag:
           schema:

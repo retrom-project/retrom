@@ -5007,7 +5007,7 @@ export interface components {
                 "text/event-stream": string;
             };
         };
-        /** @description Binary content */
+        /** @description Binary content. Content-addressed runtime responses include Cache-Control no-transform to preserve representation identity and exact byte ranges. */
         BinaryResponse: {
             headers: {
                 ETag?: string;

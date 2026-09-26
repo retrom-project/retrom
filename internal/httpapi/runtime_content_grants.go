@@ -12,7 +12,7 @@ import (
 const (
 	runtimeContentGrantPrefix = "retrom_launch_content_"
 	maxRuntimeContentGrants   = 32
-	immutablePrivateContent   = "private, max-age=31536000, immutable"
+	immutablePrivateContent   = "private, max-age=31536000, immutable, no-transform"
 )
 
 type runtimeContentGrant struct {
