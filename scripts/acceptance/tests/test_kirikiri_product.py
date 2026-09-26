@@ -4,6 +4,7 @@ import importlib.util
 import unittest
 from pathlib import Path
 import sys
+import subprocess
 
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -12,6 +13,13 @@ RUNNER_PATH = ROOT / "scripts/acceptance/run.py"
 
 
 class KiriKiriProductAcceptanceTests(unittest.TestCase):
+    def test_cursor_targeting_reaches_the_target_without_oscillating_settled_axes(self) -> None:
+        result = subprocess.run(
+            ["node", "--test", str(ROOT / "scripts/acceptance/gamepad_cursor_position.test.mjs")],
+            capture_output=True, text=True, check=False, timeout=15,
+        )
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+
     def test_formal_case_is_registered(self) -> None:
         spec = importlib.util.spec_from_file_location("acceptance_run_kirikiri", RUNNER_PATH)
         assert spec and spec.loader

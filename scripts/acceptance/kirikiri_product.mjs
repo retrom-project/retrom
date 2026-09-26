@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import {gamepadCursorDirection} from "./gamepad_cursor_position.mjs";
 import {observeContentStoreEvents} from "./content_store_events.mjs";
 import {contentStoreSnapshot} from "./content_store_snapshot.mjs";
 import {withProjectRunArchive} from "./project_run_archive.mjs";
@@ -387,8 +388,7 @@ async function moveVirtualGamepadCursor(canvas, targetX, targetY) {
       await setVirtualGamepadAxis(canvas, 0, 0);
       return;
     }
-    const x = position ? Math.sign(targetX - position.x) : 1;
-    const y = position ? Math.sign(targetY - position.y) : -1;
+    const {x, y} = gamepadCursorDirection(position, targetX, targetY);
     await setVirtualGamepadAxis(canvas, x, y);
     await canvas.page().waitForTimeout(25);
   }
