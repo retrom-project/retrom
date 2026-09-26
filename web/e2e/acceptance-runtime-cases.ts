@@ -133,6 +133,9 @@ function registerRun002(): void {
     const debugPanel = page.getByRole("complementary", { name: "运行调试信息" });
     await expect(debugPanel).toBeVisible();
     await expect(debugPanel.getByText(/^\d+\.\d FPS$/)).toBeVisible({ timeout: 5_000 });
+    expect(await page.evaluate(() => (window as Window & { __retromDocumentIdentity?: string }).__retromDocumentIdentity),
+      "FPS evidence must come from the original launched document, without a development reload")
+      .toBe(sourceDocumentIdentity);
     await debugPanel.getByText("运行环境与显示", {exact: true}).click();
     await expect(debugPanel.getByText("emulatorjs", { exact: true })).toBeVisible();
     await expect(debugPanel.getByText(configuration.runtime.providerVersion, { exact: true })).toBeVisible();
