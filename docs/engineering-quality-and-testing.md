@@ -104,7 +104,7 @@ Provider 的 checkpoint 压缩依赖由 `retrom-runtime` 自己固定和审计�
 - `make ci` 包含全部可复现的仓库内单元、集成与数据检查；没有合法公开 fixture 的核心启动兼容性不在自动化测试中冒充已覆盖。
 - 全新 checkout 的统一初始化入口是 `make install-deps`。它允许在测试或服务启动前联网下载锁定依赖；正确缓存后 `prepare-go`、`prepare-node`、`prepare-deps` 与 `prepare-e2e-browser` 均幂等复用。Go/Node 工具链、浏览器缓存和运行时 payload 不进入 Git 或镜像；固定版本的宿主 Go 可由 `auto` 模式直接复用，PFB 镜像中的固定工具链使用 `system` 模式。
 - 自动化测试不得读取操作者私有 ROM/BIOS。可提交 ROM/项目必须由项目所有或有明确再分发许可、保留可审查的唯一生成源，并由 `data-check`、`public-fixtures-check` 和实际产品消费者共同逐字节校验；当前实例是 `testdata/public-roms/gba-smoke/`、`testdata/public-roms/nes-smoke/`、`testdata/public-roms/snes-smoke/`、`testdata/public-roms/arcade-smoke/` 与 `testdata/public-roms/rpgmaker-smoke/`。RPG Maker 目录只含 Retrom 自有生成内容和清单锁定的 MIT MV CoreScript；ignored MZ 官方样例不属于可提交 fixture。
-- `make ci` 默认不构建容器镜像；Dockerfile、镜像内容或发布资产变化时，在 PR 验证中额外执行 `make build-images`。tag 发布流水线不重复运行 PR 的 quality job，只执行自身的双镜像构建、输入校验和推送。
+- `make ci` 默认不构建容器镜像；PR 的 `branch-image/build` 在 GitHub runner 上执行 `make build-images`，验证同一 digest 的两个分支测试镜像。同仓库 PR 通过后才推送到 GHCR 的独立分支镜像仓库；fork PR 只构建验证。合并前必须核对该检查通过，开发机不为此重复构建镜像。tag 发布流水线独立重建生产镜像，不重复运行 PR 的 quality job。
 - Go package 列表应显式覆盖 `./cmd/...`、`./internal/...` 和 `./migrations/...`，避免未来 `web/node_modules` 或本地数据目录中的意外 Go 文件污染 `./...`。根 `migrations` 是可导入的 Go embed package，SQL 与 `embed.go` 同目录，不能依赖运行容器中另有源码目录。
 - OpenAPI 固定为以 `api/openapi.yaml` 为入口的领域文件集（项目协议基线为 OpenAPI 3.0.3；锁定的 `oapi-codegen v2.8.0` 虽支持 3.1，但不得在普通实现任务中变更规范方言）。`scripts/openapi-bundle` 只允许解析 `api/` 内的本地相对引用，保留入口声明顺序和内部 component identity，并生成被忽略的 `.cache/generated/openapi.bundle.yaml`；两端生成器和内嵌运行时规范必须消费该同一文件。Go 侧由该版本分别生成同一个 `generated` package 下的 `models.gen.go`、`server.gen.go` 与 `spec.gen.go`，分别承载 DTO、strict stdlib server/router 和内嵌规范；三者均被 Git 忽略且不得提交，由标准后端 build/test/lint/integration/dev target 和后端镜像构建在编译前按需生成。生成配置放在 `api/codegen/`。请求验证固定 `nethttp-middleware v1.2.0`，另加 HTTP 专题的重复 JSON key/未知 query lexical guard。前端 `web/package.json#scripts.api:generate` 固定从上述 bundle 生成单一 `lib/api/generated/schema.d.ts`，并用 `openapi-fetch 0.17.0` 封装同源 client；该 TypeScript schema 必须提交并由漂移检查逐字节比较。生成文件都不得手改；改用 OpenAPI 3.1 必须单独完成两端生成、validator 与 contract test 的契约迁移。
 - `api-generate` 与 `api-check` 必须直接依赖 `web-install`，保证全新 checkout 在调用 `npx --no-install` 前已通过 `package-lock.json` 物化精确版本；不得依赖开发机残留的 `web/node_modules`，也不得允许 npx 临时下载缺失包。`api-check` 必须在临时目录生成 Go 文件，不能依赖或改写工作树中的被忽略副本；同时检查该路径仍被 ignore 且不在 Git index。`data-check` 的 Makefile 回归用例必须锁定这些依赖与跟踪边界。
@@ -435,8 +435,8 @@ RPG Maker fixture 必须遵守同一再分发规则：生成源、许可、固�
 2. 新增 `web/Dockerfile`，用多阶段构建生成前端镜像 `retrom-web`；采用 Next.js production/standalone 产物，最终镜像不包含开发依赖和构建缓存。
 3. 新增 `.dockerignore` 与 `web/.dockerignore`，排除 `.git`、缓存、`node_modules`、`.next`、coverage、E2E 报告、公开测试 ROM、本地 runtime 结果和运行数据；构建阶段只通过版本化脚本下载并校验允许进入镜像的固定 runtime artifact。
 4. 在 Makefile 实现三个 image targets 和共用 `release-input-digest` helper；两镜像都写入 `io.retrom.release-input-sha256`，组合 target 以 inspect 确认一致。构建完成后立即返回，不创建容器、不建立网络、不挂载卷、不 push registry。
-5. PR 的 required quality check 统一执行 `make ci`；涉及 Dockerfile、依赖锁文件、静态/runtime 资产或发布脚本时还必须在合并前验证 `make build-images`。tag 发布不重复执行 quality check。
-6. `.github/workflows/docker-image.yml` 在 tag push 时直接执行 `make build-images`；该命令通过镜像内的确定性依赖物化、`data-check`、release-input digest 和双镜像 label 复核完成发布输入校验。两个镜像校验完成后才允许登录 Docker Hub 并推送，流程不等待 Environment 人工批准，也不能用 Action 重新拼装或绕过 Makefile 的发布输入校验。
+5. PR 的 quality check 统一执行 `make ci`；独立的 `branch-image/build` 在 GitHub runner 上执行 `make build-images` 并发布同仓库 PR 的分支测试镜像。涉及 Dockerfile、依赖锁文件、静态/runtime 资产或发布脚本时必须在合并前确认该检查通过，不要求开发机执行生产镜像构建。分支镜像不能被提升或标记为生产镜像。
+6. `.github/workflows/docker-image.yml` 在 Retrom tag push 时独立执行 `make build-images`；该命令通过镜像内的确定性依赖物化、`data-check`、release-input digest 和双镜像 label 复核完成发布输入校验。两个镜像校验完成后才允许登录 Docker Hub 并推送生产镜像，流程不等待 Environment 人工批准，也不能用 Action 重新拼装或绕过 Makefile 的发布输入校验。
 
 ### 10.1 预期文件
 
@@ -451,6 +451,7 @@ RPG Maker fixture 必须遵守同一再分发规则：生成源、许可、固�
 | `/quality/go-suppressions.json`、`/scripts/quality_structure.py` | 非结构性 Go suppression 中央清单与全仓源码结构门禁 |
 | `/Makefile` | 本地与 CI 的统一命令入口 |
 | `/.github/workflows/ci.yml` | 调用 `make ci` 的 required check |
+| `/.github/workflows/branch-image.yml` | PR 的双镜像构建与 GHCR 分支测试镜像；不发布生产镜像 |
 | `/.github/workflows/docker-image.yml` | tag 的双镜像构建校验与 Docker Hub 发布门禁；不重复 PR quality job |
 | `/web/eslint.config.mjs` | Next.js/TypeScript lint 基线 |
 | `/web/next.config.ts` | standalone 输出、本地后端 rewrite 与固定 COOP/COEP/CORP/`nosniff` 头 |
@@ -576,11 +577,13 @@ make prepare-deps
 make deps-check
 make public-fixtures-check
 make web-e2e
-make build-images
+# 镜像构建由 PR 的 branch-image/build 检查在 GitHub runner 上完成
 make ci
 make acceptance-case CASE=ACC-RPG-001
 # 继续逐项执行 ACC-RPG-002 至 ACC-RPG-012，不得合并、省略或用 web-e2e 替代
 ```
+
+本切片的双镜像构建结果以对应 PR 的 `branch-image/build` 与正式 Retrom tag 的 `docker-image/build-and-push` 工作流结果为准；GHCR 分支测试镜像不构成生产镜像证据。
 
 `ACC-RPG-008` 还要求 `RPG_MZ_SMOKE_ROOT=<licensed-web-deployment-directory>`。缺少合法物料时必须报告该 Case 未满足，不能把其余测试绿色写成七世代完成。
 

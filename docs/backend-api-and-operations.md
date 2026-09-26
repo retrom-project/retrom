@@ -263,11 +263,13 @@ SQLite 队列表和 worker 必须实现 [数据模型第 7 节](./data-model.md#
 
 两个 Dockerfile 都使用多阶段构建，最终层不保留编译工具、源码缓存或开发依赖。两个镜像都不创建 Retrom 专用账号，也不声明固定 `USER`；运行身份由 Compose/Kubernetes 等部署编排显式决定，生产基线为 UID/GID `1000:1000`。后端持久数据目录必须挂载为该身份可写，镜像不得尝试 chown 未知宿主 UID。后端 builder 先读取 `data/runtime-providers/release.json` 的唯一 tag，从固定 runtime 仓库的该 Release 解析 `provider-release.json`，校验两个 Provider 的 descriptor/archive/逐文件完整性、Target declaration、许可与 provenance，再把闭合 stage 复制进最终层；不能把下载缓存、source checkout、candidate、未声明文件或整个 `data/` 目录复制进镜像。DAT 等非运行时依赖仍由 `RETROM_DEPENDENCY_VERSIONS` 固定并离线物化。两个镜像必须携带完全相同的 release-input label；前端只携带 Provider-neutral dispatcher，不复制 Target registry。最终镜像中的只读依赖层必须对任意非 root 运行 UID 可遍历，不能继承 builder 的私有权限。
 
-`make build-images` 不自动属于普通 `make ci`，但修改任一 Dockerfile、依赖锁文件、构建脚本、DAT/runtime 打包逻辑或发布资产时必须在合并前同时验证二者。tag 发布流水线不重复 PR quality，只保留 `make build-images` 及后续发布门禁。
+`make build-images` 不自动属于普通 `make ci`。PR 的独立 `branch-image/build` 在 GitHub runner 上执行此命令；修改任一 Dockerfile、依赖锁文件、构建脚本、DAT/runtime 打包逻辑或发布资产时，合并前必须确认 quality 与该镜像检查均通过。开发机仍可用 `make runtime-provider-prepare` 下载、安装并复验正式 Provider，不再为发布门禁重复构建生产镜像。tag 发布流水线不重复 PR quality，会重新构建并发布生产镜像。
 
-### 7.2 GitHub Actions 与 Docker Hub 发布
+### 7.2 GitHub Actions 与镜像发布
 
 `.github/workflows/ci.yml` 在所有 pull request 上运行唯一高层质量入口 `make ci`。CI 使用 `go.mod`、`.node-version`、`web/package-lock.json` 与依赖 manifest 的固定版本和缓存；全新 runner 在测试前先执行幂等 `make prepare-deps`，缓存命中也必须重新逐字节校验 runtime/core/DAT/许可 payload。它不另行拼装测试子集，不依赖用户 ROM/BIOS、真实 Hasheous 或开发机浏览器；仓库自有公开 GBA、NES、SNES 与 Arcade 测试程序作为普通 checkout 输入由 `data-check` 验证，但不进入发布镜像。
+
+`.github/workflows/branch-image.yml` 在面向 `master` 的 PR 上，以实际被 checkout 的 PR merge commit 运行 `make build-images`。镜像 tag 为 `pr-<PR号>-<merge commit短SHA>`，构建并复核两个相同的 release-input label。同仓库 PR 构建成功后，将 `ghcr.io/<owner>/retrom-branch` 与 `retrom-web-branch` 推送为分支测试镜像；fork PR 只执行构建检查。该工作流不登录 Docker Hub、不使用生产 tag、不更新 `latest`，分支镜像不能作为生产发布证据。`branch-image/build` 是合并前的镜像构建检查；GitHub runner 的网络下载不发生在开发机。
 
 `.github/workflows/docker-image.yml` 在任意 Git tag push 时触发。tag 发布直接构建并校验双镜像，不重复执行 PR 的 `make ci`，也不等待 GitHub Environment 人工批准，并按下列顺序执行：
 
@@ -276,7 +278,7 @@ SQLite 队列表和 worker 必须实现 [数据模型第 7 节](./data-model.md#
 3. 仅在两个镜像都成功后，使用 `DOCKER_USER` 与 `DOCKER_PASSWORD` GitHub secret 登录 Docker Hub，其中 `DOCKER_PASSWORD` 必须保存具备目标仓库 push 权限的访问令牌而不是账户明文密码；
 4. 推送 `xxxsen/retrom:<git-tag>` 与 `xxxsen/retrom-web:<git-tag>`；不含 `-` 的稳定 tag 同时更新两个 `latest`，预发布 tag 不移动 `latest`。
 
-Action 负责 registry 登录和 push，不改变 Make target 的本地构建边界。GitHub 仓库只需配置 `DOCKER_USER` 与 `DOCKER_PASSWORD` repository secrets；凭据不得写入 workflow、镜像或日志。创建并推送发布 tag 即授权流水线自动发布，维护者必须在创建 tag 前自行确认[依赖管理第 6 节](./dependency-management.md#6-升级与许可门禁)的第三方分发义务已经满足。
+正式 tag Action 负责 Docker Hub 登录和 push，不改变 Make target 的构建边界。该生产流程需要 `DOCKER_USER` 与 `DOCKER_PASSWORD` repository secrets；PR 的 GHCR 测试镜像使用工作流的 `GITHUB_TOKEN`，不读取生产凭据。凭据不得写入 workflow、镜像或日志。创建并推送发布 tag 即授权流水线自动发布，维护者必须在创建 tag 前自行确认[依赖管理第 6 节](./dependency-management.md#6-升级与许可门禁)的第三方分发义务已经满足。
 
 ### 7.3 `make dev` 只运行本地进程
 

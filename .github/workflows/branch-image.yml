@@ -1,0 +1,60 @@
+name: branch-image
+
+on:
+  pull_request:
+    branches: [master]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: branch-image-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: read
+      packages: write
+    env:
+      BACKEND_IMAGE: ghcr.io/${{ github.repository_owner }}/retrom-branch
+      WEB_IMAGE: ghcr.io/${{ github.repository_owner }}/retrom-web-branch
+    steps:
+      - name: Check out the pull request merge commit
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .node-version
+          package-manager-cache: false
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - name: Name the branch images
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          BUILD_SHA: ${{ github.sha }}
+        run: echo "IMAGE_TAG=pr-${PR_NUMBER}-${BUILD_SHA:0:12}" >> "$GITHUB_ENV"
+      - name: Build and verify both branch images
+        run: make build-images BACKEND_IMAGE="$BACKEND_IMAGE" WEB_IMAGE="$WEB_IMAGE" IMAGE_TAG="$IMAGE_TAG"
+      - name: Publish branch images to GHCR
+        if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+        env:
+          GHCR_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          docker push "$BACKEND_IMAGE:$IMAGE_TAG"
+          docker push "$WEB_IMAGE:$IMAGE_TAG"
+          docker logout ghcr.io
+      - name: Report branch image identities
+        if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+        run: |
+          echo "Branch test images for PR #${{ github.event.pull_request.number }} (merge commit $GITHUB_SHA):" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $BACKEND_IMAGE:$IMAGE_TAG" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $WEB_IMAGE:$IMAGE_TAG" >> "$GITHUB_STEP_SUMMARY"

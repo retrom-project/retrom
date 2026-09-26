@@ -1883,7 +1883,7 @@ red/green/root cause/fix/result/rerun 映射、green command 非零或超时的�
 - `ACC-ONS-001` 为当次 PASS，且必须包含真实导入、可见画面、基本输入、存档、不同 Launch 恢复与恢复后输入；
 - `ACC-KIRIKIRI-001`、`ACC-BUTTERSCOTCH-001` 与 `ACC-TYRANOSCRIPT-001` 均为当次 PASS，且必须包含真实导入、可见画面、标准手柄输入、存档、不同 Launch 恢复与恢复后输入；
 - 本次发现的每个 bug 均有回归测试和 red/green 证据；
-- `make ci` 和两个镜像 build target 通过，且镜像构建没有启动服务；
+- `make ci` 和两个镜像 build target 通过，且镜像构建没有启动服务；发布场景记录 PR `branch-image/build` 与正式 Retrom tag `docker-image/build-and-push` 的 CI 证据，不要求开发机重复构建生产镜像；
 - 最终报告记录 commit/dirty 状态、环境、Case 结果、缺陷、未执行项和残余风险；
 - 报告不包含 ROM/BIOS、游戏截图内容以外的专有二进制、TLS 私钥、launch capability/cookie 或完整宿主路径；非秘密 launchId 只能用于关联 Case。
 
