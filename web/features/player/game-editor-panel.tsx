@@ -229,6 +229,7 @@ function GameEditorCategoryHelp({category}: {category: string}) {
 function GameEditorCategories({categories, active, onChoose}: {
   categories: RuntimeGameEditCategoryV1[]; active: string; onChoose: (id: string) => void;
 }) {
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
   const navRef = useRef<HTMLElement>(null);
   const railRef = useRef<HTMLDivElement>(null);
   const dragOffset = useRef<number | null>(null);
@@ -236,7 +237,8 @@ function GameEditorCategories({categories, active, onChoose}: {
 
   useEffect(() => {
     const nav = navRef.current;
-    if (!nav) {return;}
+    const scrollArea = scrollAreaRef.current;
+    if (!nav || !scrollArea) {return;}
     const measure = () => setScroll({viewport: nav.clientWidth, content: nav.scrollWidth, left: nav.scrollLeft});
     const resize = () => {
       const selected = nav.querySelector<HTMLButtonElement>('button[aria-pressed="true"]');
@@ -251,8 +253,9 @@ function GameEditorCategories({categories, active, onChoose}: {
     observer?.observe(nav);
     nav.addEventListener("scroll", measure, {passive: true});
     window.addEventListener("resize", resize);
+    const stopWheel = scrollHorizontallyOnWheel(scrollArea, nav);
     resize();
-    return () => {observer?.disconnect(); nav.removeEventListener("scroll", measure); window.removeEventListener("resize", resize);};
+    return () => {observer?.disconnect(); nav.removeEventListener("scroll", measure); window.removeEventListener("resize", resize); stopWheel();};
   }, [categories, active]);
 
   const thumbWidth = scroll.content ? Math.max(24, scroll.viewport * scroll.viewport / scroll.content) : 0;
@@ -275,7 +278,7 @@ function GameEditorCategories({categories, active, onChoose}: {
     moveTo(event, dragOffset.current);
   }
 
-  return <div className="game-editor-category-scroll">
+  return <div ref={scrollAreaRef} className="game-editor-category-scroll">
     <nav ref={navRef} className="game-editor-categories" aria-label="修改类别">{categories.map((item) => <button key={item.id} type="button" className={`button secondary${item.id === active ? " is-active" : ""}`} aria-pressed={item.id === active} onClick={() => onChoose(item.id)}>{item.label}</button>)}</nav>
     {scroll.content > scroll.viewport ? <div ref={railRef} className="game-editor-category-scrollbar" aria-hidden="true" onPointerDown={startDrag} onPointerMove={(event) => {if (dragOffset.current !== null) {moveTo(event, dragOffset.current);}}} onPointerUp={() => {dragOffset.current = null;}} onLostPointerCapture={() => {dragOffset.current = null;}}><span style={{width: thumbWidth, transform: `translateX(${thumbLeft}px)`}} /></div> : null}
   </div>;
@@ -287,6 +290,10 @@ function GameEditorActorTabs({groups, activeCategory, onChoose}: {
   onChoose: (id: string) => void;
 }) {
   const tabsRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const tabs = tabsRef.current;
+    return tabs ? scrollHorizontallyOnWheel(tabs, tabs) : undefined;
+  }, []);
   return <div ref={tabsRef} className="game-editor-actor-tabs" role="tablist" aria-label="选择人物">{groups.map((group, index) => <button key={group.id} className="button secondary" type="button" role="tab" aria-selected={group.id === activeCategory} aria-controls="game-editor-group-list" tabIndex={group.id === activeCategory ? 0 : -1} onClick={() => onChoose(group.id)} onKeyDown={(event) => {
     const direction = event.key === "ArrowRight" ? 1 : event.key === "ArrowLeft" ? -1 : 0;
     const next = event.key === "Home" ? 0 : event.key === "End" ? groups.length - 1
@@ -295,6 +302,21 @@ function GameEditorActorTabs({groups, activeCategory, onChoose}: {
     event.preventDefault(); onChoose(groups[next].id);
     tabsRef.current?.querySelectorAll<HTMLButtonElement>("button")[next]?.focus();
   }}>{group.label}</button>)}</div>;
+}
+
+function scrollHorizontallyOnWheel(area: HTMLElement, scroller: HTMLElement) {
+  const onWheel = (event: WheelEvent) => {
+    const max = scroller.scrollWidth - scroller.clientWidth;
+    if (event.ctrlKey || max <= 0) {return;}
+    const delta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
+    const scale = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? scroller.clientWidth : 1;
+    const next = Math.max(0, Math.min(max, scroller.scrollLeft + delta * scale));
+    if (next === scroller.scrollLeft) {return;}
+    scroller.scrollLeft = next;
+    event.preventDefault();
+  };
+  area.addEventListener("wheel", onWheel, {passive: false});
+  return () => area.removeEventListener("wheel", onWheel);
 }
 
 function GameEditorToolbar({label, searchOpen, onSearch, onRefresh}: {

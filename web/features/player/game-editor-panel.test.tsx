@@ -30,6 +30,11 @@ describe("GameEditorPanel", () => {
     rail.setPointerCapture = vi.fn();
     fireEvent.pointerDown(rail, {button: 0, pointerId: 1, clientX: 275});
     expect(nav.scrollLeft).toBeGreaterThan(0);
+    nav.scrollLeft = 0;
+    fireEvent.wheel(rail, {deltaY: 120});
+    expect(nav.scrollLeft).toBe(120);
+    fireEvent.wheel(nav, {deltaY: 500});
+    expect(nav.scrollLeft).toBe(500);
     Object.defineProperty(nav, "clientWidth", {configurable: true, value: 800});
     act(() => notify?.([], {} as ResizeObserver));
     expect(view.container.querySelector(".game-editor-category-scrollbar")).toBeNull();
