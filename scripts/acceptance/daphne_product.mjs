@@ -44,6 +44,82 @@ async function captureVideoFrame(page, canvas, path) {
   }
   throw Error(`DAPHNE_VIDEO_FRAME_BLANK:${evidence.videoFrameBrightFraction}:${evidence.videoFrameEntropy}`);
 }
+async function interstellarOverlay(canvas, path) {
+  const screenshot = await canvas.screenshot({path});
+  const {data, info} = await sharp(screenshot).removeAlpha().raw().toBuffer({resolveWithObject: true});
+  assert.equal(info.width, 1280, "DAPHNE_GAMEPLAY_VIEWPORT_CHANGED");
+  assert.equal(info.height, 900, "DAPHNE_GAMEPLAY_VIEWPORT_CHANGED");
+  let gameOverPixels = 0;
+  // Interstellar draws GAME OVER in a fixed opaque blue overlay above the video.
+  for (let y = 380; y < 430; y++) {
+    for (let x = 480; x < 850; x++) {
+      const offset = (y * info.width + x) * 3;
+      if (Math.abs(data[offset] - 99) <= 2 && Math.abs(data[offset + 1] - 158) <= 2 &&
+        Math.abs(data[offset + 2] - 173) <= 2) {gameOverPixels++;}
+    }
+  }
+  let lifeIconPixels = 0;
+  // Three small red ships appear in the lower-left HUD only after gameplay starts.
+  for (let y = 800; y < 850; y++) {
+    for (let x = 40; x < 150; x++) {
+      const offset = (y * info.width + x) * 3;
+      if (data[offset] > 150 && data[offset] > data[offset + 1] * 1.5 &&
+        data[offset] > data[offset + 2] * 1.4) {lifeIconPixels++;}
+    }
+  }
+  return {gameOverPixels, lifeIconPixels};
+}
+async function waitForGameOver(page, canvas, stage) {
+  for (let attempt = 0; attempt < 45; attempt++) {
+    const overlay = await interstellarOverlay(canvas, join(output, `${stage}-game-over.png`));
+    if (overlay.gameOverPixels > 3000) {return overlay;}
+    await page.waitForTimeout(1000);
+  }
+  throw Error(`DAPHNE_${stage.toUpperCase()}_GAME_OVER_NOT_OBSERVED`);
+}
+async function startGameFromGameOver(page, canvas, stage) {
+  const before = await waitForGameOver(page, canvas, stage);
+  await gamepad(page, 8, 300); // Select inserts a coin.
+  await gamepad(page, 9, 300); // Start begins a credited game.
+  let after = before;
+  for (let attempt = 0; attempt < 15; attempt++) {
+    await page.waitForTimeout(1000);
+    after = await interstellarOverlay(canvas, join(output, `${stage}-after-start.png`));
+    if (after.gameOverPixels < 1500 && after.lifeIconPixels > 100) {break;}
+  }
+  evidence[`${stage}Input`] = {before, after};
+  assert.ok(after.gameOverPixels < 1500 && after.lifeIconPixels > 100,
+    `DAPHNE_${stage.toUpperCase()}_START_STILL_GAME_OVER`);
+}
+async function playerShipX(canvas, path) {
+  const screenshot = await canvas.screenshot({path});
+  const {data, info} = await sharp(screenshot).removeAlpha().raw().toBuffer({resolveWithObject: true});
+  let pixels = 0;
+  let sumX = 0;
+  for (let y = 700; y < 800; y++) {
+    for (let x = 300; x < 1200; x++) {
+      const offset = (y * info.width + x) * 3;
+      if (data[offset] === 222 && data[offset + 1] === 0 && data[offset + 2] === 0) {
+        pixels++;
+        sumX += x;
+      }
+    }
+  }
+  return pixels > 700 ? sumX / pixels : null;
+}
+async function verifyGamepadDirection(page, canvas) {
+  let before = null;
+  for (let attempt = 0; attempt < 20 && before === null; attempt++) {
+    await page.waitForTimeout(1000);
+    before = await playerShipX(canvas, join(output, "product-ship-before.png"));
+  }
+  assert.ok(before !== null, "DAPHNE_PLAYER_SHIP_NOT_VISIBLE");
+  await gamepad(page, 15, 700); // Standard gamepad D-pad right.
+  await page.waitForTimeout(1000);
+  const after = await playerShipX(canvas, join(output, "product-ship-after.png"));
+  evidence.directionInput = {before, after};
+  assert.ok(after !== null && after > before + 100, "DAPHNE_DPAD_DID_NOT_MOVE_SHIP");
+}
 let browser, proxy;
 
 async function open(context, launch, stage) {
@@ -168,8 +244,8 @@ try {
     writeFileSync(progressPath, JSON.stringify({itemId, gameId}));
   }
   evidence.itemId = itemId;
-  evidence.stages.push("review");
   if (!gameId) {
+    evidence.stages.push("review");
     const snapshot = await client.raw("GET", `/api/v1/admin/reviews/${itemId}`);
     assert.equal(snapshot.status(), 200);
     const review = await snapshot.json();
@@ -181,24 +257,21 @@ try {
     }
     const created = await previewCart(client, itemId);
     const preview = await open(context, created, "preview");
-    await gamepad(preview.page, 8, 150);
-    await gamepad(preview.page, 9, 150);
-    await preview.page.waitForTimeout(5000);
+    await startGameFromGameOver(preview.page, preview.canvas, "preview");
     await captureVideoFrame(preview.page, preview.canvas, join(output, "preview-after-5s.png"));
     assertNoFatalBrowserErrors("preview");
     await captureOptionalReviewScreenshot(preview.page, created.previewId);
     await preview.page.close();
     gameId = (await approveCart(client, itemId)).gameId;
     writeFileSync(progressPath, JSON.stringify({itemId, gameId}));
+    evidence.stages.push("preview-and-approval");
+  } else {
+    evidence.stages.push("reused-published-game");
   }
   evidence.gameId = gameId;
-  evidence.stages.push("preview-and-approval");
   const launch = await open(context, await launchCart(client, gameId), "product");
-  await launch.page.waitForTimeout(5000);
-  await gamepad(launch.page, 8, 150);
-  await gamepad(launch.page, 9, 150);
-  await launch.page.waitForTimeout(3000);
-  await launch.canvas.screenshot({path: join(output, "product-after-start.png")});
+  await startGameFromGameOver(launch.page, launch.canvas, "product");
+  await verifyGamepadDirection(launch.page, launch.canvas);
   assertNoFatalBrowserErrors("product");
   await revealPreviewToolbar(launch.page);
   const noSaveStatus = await launch.page.getByText("不支持存档", {exact: true}).count();

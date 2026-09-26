@@ -191,9 +191,12 @@ M2V 通过公共 Range reader 按需读取。核心的 MPEG 解码运行在 pthr
 `fd_read` 必须等待主线程的 Content I/O Promise 完成，不能让 Asyncify 提前返回零字节。
 
 在命名 PFB 中使用 `interstellar.daphne` 验证了目录上传、Review Preview、批准和
-Product Launch；手柄 Select 投币、Start 开始后出现动态视频，M2V 请求为有界 206 Range，
-未整包下载。该验证只覆盖单视频 framefile 的这个样本；多视频项目、无 ZIP 项目和
-其他 Daphne 游戏尚未获得准入。候选 Provider/核心仍需按依赖顺序发布和正式包复验。
+Product Launch。该街机游戏须先按手柄 Select 投币，再按 Start 开始；仅按 Start 无法从
+Game Over 开局。修复后的核心将 Select、Start、方向键和两个动作键交给游戏驱动；
+产品验收从 Game Over 画面按 Select、Start 后确认 Game Over 消失、生命图标出现，
+再按方向键确认玩家飞船移动。M2V 请求为有界 206 Range，未整包下载。该验证只覆盖
+单视频 framefile 的这个样本；多视频项目、无 ZIP 项目和其他 Daphne 游戏尚未获得准入。
+候选 Provider/核心仍需按依赖顺序发布和正式包复验。
 
 ## 6. 升级验证
 
