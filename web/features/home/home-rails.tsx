@@ -53,11 +53,6 @@ function subscribeToPinnedPlatforms(onChange: () => void) {
   };
 }
 
-function platformCode(id: string) {
-  if (id === "arcade") {return "ARC";}
-  return id.replaceAll(/[^a-z0-9]/gi, "").slice(0, 4).toUpperCase();
-}
-
 export function PlatformRail({ platforms }: { platforms: HomePlatform[] }) {
   const { context } = useAuth();
   const pinnedPlatformsKey = userStorageKey(context.user?.userId, "home", "pinned-platforms");
@@ -106,7 +101,6 @@ export function PlatformRail({ platforms }: { platforms: HomePlatform[] }) {
 function PlatformIllustration({ platformId }: { platformId: string }) {
   const [failed, setFailed] = useState(false);
   const source = platformArt(platformId);
-  if (!source) {return <code>{platformCode(platformId)}</code>;}
-  if (failed) {return <div className="home-platform-art" aria-hidden="true" />;}
+  if (!source || failed) {return <div className="home-platform-art" aria-hidden="true" />;}
   return <Image className="home-platform-art" src={source} alt="" width={80} height={56} unoptimized onError={() => setFailed(true)} />;
 }

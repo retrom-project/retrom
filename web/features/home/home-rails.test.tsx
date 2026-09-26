@@ -15,6 +15,13 @@ describe("home rails", () => {
   beforeEach(() => localStorage.clear());
   afterEach(cleanup);
 
+  it("keeps an unknown platform's illustration slot without an ID abbreviation", () => {
+    const { container } = render(<PlatformRail platforms={[{ id: "future-system", name: "Future system", gameCount: 1, playCount: 0 }]} />);
+    expect(container.querySelector(".home-platform-art")).toBeInTheDocument();
+    expect(container.querySelector("img, code")).toBeNull();
+    expect(screen.getByRole("link")).toHaveAttribute("href", "/library?platformId=future-system");
+  });
+
   it("leaves the platform illustration slot empty when the local asset fails", () => {
     const { container } = render(<PlatformRail platforms={[platforms[1]!]} />);
     const image = container.querySelector("img")!;

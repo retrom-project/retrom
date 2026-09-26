@@ -56,7 +56,6 @@
 .home-platform-card strong, .home-platform-card small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .home-platform-card strong { font-size: var(--text-small); font-weight: var(--weight-medium); }
 .home-platform-card small { margin-top: var(--space-1); color: var(--muted); font-size: var(--text-caption); }
-.home-platform-card code { flex-shrink: 0; color: var(--purple-dark); font-size: var(--text-small); }
 .home-platform-art { order: -1; width: 64px; height: 52px; flex-shrink: 0; object-fit: contain; }
 .home-platform-pin { position: absolute; right: 2px; top: 2px; width: 30px; height: 30px; padding: 0; display: grid; place-items: center; border: 0; border-radius: var(--radius-control); background: transparent; cursor: pointer; font-size: var(--text-lead); opacity: 0; }
 .home-platform-card:hover .home-platform-pin, .home-platform-card:focus-within .home-platform-pin, .home-platform-card.is-pinned .home-platform-pin { opacity: 1; }
