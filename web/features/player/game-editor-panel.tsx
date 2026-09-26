@@ -1,6 +1,6 @@
 "use client";
 
-import {useCallback, useEffect, useRef, useState, type FormEvent, type KeyboardEvent as ReactKeyboardEvent} from "react";
+import {useCallback, useEffect, useRef, useState, type FormEvent, type KeyboardEvent as ReactKeyboardEvent, type ReactNode, type Ref} from "react";
 import type {RuntimeGameEditEntryV1, RuntimeGameEditorV1} from "./runtime/contract";
 import {getActiveImmersiveGamepadIndex} from "@/features/immersive/active-gamepad";
 
@@ -19,11 +19,14 @@ export function GameEditorPanel({editor, immersive, onClose}: {
   const [nextOffset, setNextOffset] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [pageError, setPageError] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState<{text: string} | null>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  const moreRef = useRef<HTMLDivElement>(null);
   const requestSequence = useRef(0);
+  const requestedPage = useRef<string | null>(null);
 
   useEffect(() => {closeRef.current?.focus();}, []);
   useEffect(() => {
@@ -44,7 +47,8 @@ export function GameEditorPanel({editor, immersive, onClose}: {
 
   const load = useCallback(async (selected: string, filter: string, page: number) => {
     const sequence = ++requestSequence.current;
-    if (page === 0) {setLoading(true);} else {setLoadingMore(true);}
+    if (page === 0) {requestedPage.current = null; setLoading(true);} else {setLoadingMore(true);}
+    setPageError(false);
     setError("");
     try {
       const result = await editor.entries(selected, filter, page, PAGE_SIZE);
@@ -53,8 +57,10 @@ export function GameEditorPanel({editor, immersive, onClose}: {
       setNextOffset(result.nextOffset);
     } catch {
       if (sequence !== requestSequence.current) {return;}
-      if (page === 0) {setEntries([]); setNextOffset(null);}
-      setError("读取失败。请确认游戏已开始，再重试。");
+      if (page === 0) {
+        setEntries([]); setNextOffset(null);
+        setError("读取失败。请确认游戏已开始，再重试。");
+      } else {setPageError(true);}
     } finally {if (sequence === requestSequence.current) {setLoading(false); setLoadingMore(false);}}
   }, [editor]);
 
@@ -63,6 +69,21 @@ export function GameEditorPanel({editor, immersive, onClose}: {
     if (category) {queueMicrotask(() => {if (active) {void load(category, search, 0);}});}
     return () => {active = false;};
   }, [category, search, load]);
+  useEffect(() => {
+    const marker = moreRef.current;
+    const list = marker?.parentElement;
+    if (!marker || !list || !category || nextOffset === null || loading || loadingMore || pageError) {return;}
+    const observedSequence = requestSequence.current;
+    const observer = new IntersectionObserver(([entry]) => {
+      if (!entry?.isIntersecting || observedSequence !== requestSequence.current) {return;}
+      const key = JSON.stringify([category, search, nextOffset]);
+      if (requestedPage.current === key) {return;}
+      requestedPage.current = key;
+      void load(category, search, nextOffset);
+    }, {root: list, rootMargin: "0px 0px 96px 0px"});
+    observer.observe(marker);
+    return () => observer.disconnect();
+  }, [category, search, nextOffset, loading, loadingMore, pageError, load]);
   useEffect(() => {
     if (immersive) {return;}
     const escape = (event: KeyboardEvent) => {if (event.key === "Escape") {event.preventDefault(); onClose();}};
@@ -107,12 +128,17 @@ export function GameEditorPanel({editor, immersive, onClose}: {
     } catch {setNotice(null); setError(`${entry.label} 修改失败；该值可能超出游戏允许的范围。`);}
   }
   const categoryLabel = categories.find((item) => item.id === category)?.label ?? "可修改";
+  function changeSearch(value: string) {
+    requestSequence.current += 1;
+    requestedPage.current = null;
+    setEntries([]); setNextOffset(null); setLoading(true); setSearch(value);
+  }
   function submitSearch() {
     const value = query.trim();
-    if (search === value) {void load(category, search, 0);} else {setSearch(value);}
+    if (search === value) {void load(category, search, 0);} else {changeSearch(value);}
   }
   function toggleSearch() {
-    if (searchOpen && search) {setQuery(""); setSearch("");}
+    if (searchOpen && search) {setQuery(""); changeSearch("");}
     setSearchOpen((open) => !open);
   }
   function trapFocus(event: ReactKeyboardEvent<HTMLElement>) {
@@ -130,10 +156,15 @@ export function GameEditorPanel({editor, immersive, onClose}: {
       <div className="game-editor-feedback"><p className="game-editor-help" aria-hidden={Boolean(notice)}>修改立即生效。离开前请创建存档，以保留修改后的进度。</p>{notice ? <p className="game-editor-notice" role="status">{notice.text}</p> : null}</div>
       <nav className="game-editor-categories" aria-label="修改类别">{categories.map((item) => <button key={item.id} type="button" className={`button secondary${item.id === category ? " is-active" : ""}`} aria-pressed={item.id === category} onClick={() => chooseCategory(item.id)}>{item.label}</button>)}</nav>
       {category ? <GameEditorToolbar label={categoryLabel} searchOpen={searchOpen} onSearch={toggleSearch} onRefresh={() => void load(category, search, 0)} /> : null}
-      {searchOpen ? <GameEditorSearch query={query} hasFilter={Boolean(search)} onQuery={setQuery} onSubmit={submitSearch} onClear={() => {setQuery(""); setSearch("");}} /> : null}
+      {searchOpen ? <GameEditorSearch query={query} hasFilter={Boolean(search)} onQuery={setQuery} onSubmit={submitSearch} onClear={() => {setQuery(""); changeSearch("");}} /> : null}
       {error ? <p className="game-editor-error" role="alert">{error}</p> : null}
-      <GameEditorList category={category} categoryLabel={categoryLabel} entries={entries} loading={loading} filtered={Boolean(search)} onSave={save} />
-      <GameEditorMore nextOffset={nextOffset} loading={loading || loadingMore} onMore={(page) => void load(category, search, page)} />
+      <GameEditorList category={category} categoryLabel={categoryLabel} entries={entries} loading={loading} loadingMore={loadingMore} filtered={Boolean(search)} onSave={save}>
+        <GameEditorMore markerRef={moreRef} nextOffset={loading ? null : nextOffset} loading={loadingMore} error={pageError} onRetry={() => {
+          if (nextOffset === null) {return;}
+          requestedPage.current = null;
+          void load(category, search, nextOffset);
+        }} />
+      </GameEditorList>
     </div>
   </section>;
 }
@@ -150,17 +181,23 @@ function GameEditorSearch({query, hasFilter, onQuery, onSubmit, onClear}: {
   return <form id="game-editor-search" className="game-editor-search" onSubmit={(event: FormEvent<HTMLFormElement>) => {event.preventDefault(); onSubmit();}}><label htmlFor="game-editor-query">按名称查找</label><input id="game-editor-query" type="search" value={query} maxLength={80} onChange={(event) => onQuery(event.target.value)} /><button className="button secondary" type="submit">查找</button>{hasFilter ? <button className="button secondary" type="button" onClick={onClear}>清除</button> : null}</form>;
 }
 
-function GameEditorList({category, categoryLabel, entries, loading, filtered, onSave}: {
-  category: string; categoryLabel: string; entries: RuntimeGameEditEntryV1[]; loading: boolean; filtered: boolean;
+function GameEditorList({category, categoryLabel, entries, loading, loadingMore, filtered, onSave, children}: {
+  category: string; categoryLabel: string; entries: RuntimeGameEditEntryV1[]; loading: boolean; loadingMore: boolean; filtered: boolean;
   onSave: (entry: RuntimeGameEditEntryV1, value: number | string | boolean) => Promise<void>;
+  children: ReactNode;
 }) {
-  return <div className="game-editor-list" aria-busy={loading}>{loading ? <p>正在读取…</p> : entries.length
+  return <div className="game-editor-list" aria-busy={loading || loadingMore}>{loading ? <p>正在读取…</p> : entries.length
     ? entries.map((entry) => <GameEditorRow key={`${category}:${entry.id}:${String(entry.value)}`} entry={entry} onSave={(value) => onSave(entry, value)} />)
-    : <p>{filtered ? "没有找到匹配的条目。" : `当前游戏没有${categoryLabel}条目。`}</p>}</div>;
+    : <p>{filtered ? "没有找到匹配的条目。" : `当前游戏没有${categoryLabel}条目。`}</p>}{children}</div>;
 }
 
-function GameEditorMore({nextOffset, loading, onMore}: {nextOffset: number | null; loading: boolean; onMore: (page: number) => void}) {
-  return nextOffset === null ? null : <footer className="game-editor-pagination"><button className="button secondary" type="button" disabled={loading} onClick={() => onMore(nextOffset)}>{loading ? "正在加载…" : "显示更多"}</button></footer>;
+function GameEditorMore({markerRef, nextOffset, loading, error, onRetry}: {
+  markerRef: Ref<HTMLDivElement>; nextOffset: number | null; loading: boolean; error: boolean; onRetry: () => void;
+}) {
+  return nextOffset === null ? null : <div ref={markerRef} className="game-editor-more">
+    {loading ? <span role="status">正在加载后续项目…</span> : error
+      ? <span role="alert">后续项目读取失败。<button className="button secondary" type="button" onClick={onRetry}>重试</button></span> : null}
+  </div>;
 }
 
 function GameEditorRow({entry, onSave}: {entry: RuntimeGameEditEntryV1; onSave: (value: number | string | boolean) => Promise<void>}) {
