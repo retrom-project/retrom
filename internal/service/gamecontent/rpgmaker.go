@@ -13,11 +13,11 @@ import (
 	"sort"
 
 	"retrom/internal/blobstore"
-	"retrom/internal/contentmanifest"
-	"retrom/internal/contentprofile"
-	"retrom/internal/rpgmaker/detector"
-	"retrom/internal/rpgmaker/fileset"
-	"retrom/internal/rpgmaker/materializer"
+	contentmanifest "retrom/internal/content/manifest"
+	contentprofile "retrom/internal/content/profile"
+	"retrom/internal/core/rpgmaker/detector"
+	"retrom/internal/core/rpgmaker/fileset"
+	"retrom/internal/core/rpgmaker/materializer"
 )
 
 type PreparedRPGMakerReplacement struct {

@@ -25,7 +25,7 @@ func TestPublicMaliciousShapeFixturesRemainDetectableWithoutExecutingNativePaylo
 	t.Parallel()
 	_, filename, _, _ := runtime.Caller(0)
 	root := filepath.Clean(filepath.Join(
-		filepath.Dir(filename), "..", "..", "..", "testdata", "public-roms", "rpgmaker-smoke",
+		filepath.Dir(filename), "..", "..", "..", "..", "testdata", "public-roms", "rpgmaker-smoke",
 	))
 	for _, test := range []struct {
 		directory, core string
@@ -52,7 +52,7 @@ func TestPublicWrongCoreMatrixHasFortyTwoMismatches(t *testing.T) {
 	t.Parallel()
 	_, filename, _, _ := runtime.Caller(0)
 	root := filepath.Clean(filepath.Join(
-		filepath.Dir(filename), "..", "..", "..", "testdata", "public-roms", "rpgmaker-smoke",
+		filepath.Dir(filename), "..", "..", "..", "..", "testdata", "public-roms", "rpgmaker-smoke",
 	))
 	var plan struct {
 		WrongCore []struct {
@@ -94,7 +94,7 @@ func TestPublicNativeDependencyFixturesReachTheNativeDependencyGate(t *testing.T
 	t.Parallel()
 	_, filename, _, _ := runtime.Caller(0)
 	root := filepath.Clean(filepath.Join(
-		filepath.Dir(filename), "..", "..", "..", "testdata", "public-roms", "rpgmaker-smoke",
+		filepath.Dir(filename), "..", "..", "..", "..", "testdata", "public-roms", "rpgmaker-smoke",
 	))
 	for _, directory := range []string{"external", "referenced-native"} {
 		t.Run(directory, func(t *testing.T) {

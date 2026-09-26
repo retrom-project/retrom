@@ -6,7 +6,7 @@ import (
 	"errors"
 	"testing"
 
-	"retrom/internal/emulationstationmeta"
+	emulationstationmeta "retrom/internal/importformat/emulationstation/meta"
 )
 
 type scannerMemory struct {

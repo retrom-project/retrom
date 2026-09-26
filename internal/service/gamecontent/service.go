@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"retrom/internal/blobstore"
-	"retrom/internal/contentcapability"
+	contentcapability "retrom/internal/content/capability"
 	"retrom/internal/service/payloadrelease"
 )
 

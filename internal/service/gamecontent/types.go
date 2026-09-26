@@ -2,7 +2,7 @@ package gamecontent
 
 import (
 	"retrom/internal/blobstore"
-	"retrom/internal/contentcapability"
+	contentcapability "retrom/internal/content/capability"
 )
 
 type JobSnapshot struct {

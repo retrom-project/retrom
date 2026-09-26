@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"retrom/internal/contentcapability"
+	contentcapability "retrom/internal/content/capability"
 )
 
 // ValidationInputs is the immutable VARIANT_VALIDATE input shared with the worker.

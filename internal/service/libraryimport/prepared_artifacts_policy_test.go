@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"retrom/internal/blobstore"
-	"retrom/internal/rpgmaker/detector"
+	"retrom/internal/core/rpgmaker/detector"
 )
 
 func TestPreparedArtifactsUseGenerationSpecificValidationRole(t *testing.T) {

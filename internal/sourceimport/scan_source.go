@@ -7,7 +7,7 @@ import (
 	"io"
 
 	"retrom/internal/cleanup"
-	"retrom/internal/pegasusmeta"
+	pegasusmeta "retrom/internal/importformat/pegasus/meta"
 	"retrom/internal/serversource"
 	application "retrom/internal/service/sourceimport"
 )

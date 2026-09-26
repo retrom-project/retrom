@@ -18,7 +18,7 @@ import (
 
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
-	"retrom/internal/firmwaremanifest"
+	firmwaremanifest "retrom/internal/firmware/manifest"
 	"retrom/internal/legacychecksum"
 	retromruntime "retrom/internal/runtime"
 	"retrom/internal/serversource"

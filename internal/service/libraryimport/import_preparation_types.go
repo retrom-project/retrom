@@ -3,7 +3,7 @@ package libraryimport
 import (
 	"context"
 
-	"retrom/internal/scummvm"
+	"retrom/internal/core/scummvm"
 )
 
 type ImportPreparationOptions struct {

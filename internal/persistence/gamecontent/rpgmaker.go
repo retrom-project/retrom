@@ -5,10 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"retrom/internal/core/rpgmaker/detector"
 	"retrom/internal/persistence/blobcatalog"
 	"retrom/internal/persistence/recordstore"
 	"retrom/internal/profilemodel"
-	"retrom/internal/rpgmaker/detector"
 	"retrom/internal/service/gamecontent"
 )
 

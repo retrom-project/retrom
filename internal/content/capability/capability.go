@@ -1,7 +1,7 @@
 package contentcapability
 
 import (
-	"retrom/internal/contentprofile"
+	contentprofile "retrom/internal/content/profile"
 )
 
 const (

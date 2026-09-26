@@ -12,7 +12,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"retrom/internal/contentmanifest"
+	contentmanifest "retrom/internal/content/manifest"
 	"retrom/internal/importing"
 )
 

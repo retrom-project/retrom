@@ -14,8 +14,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/core/rpgmaker/materializer"
 	uploadpersistence "retrom/internal/persistence/uploads"
-	"retrom/internal/rpgmaker/materializer"
 	"retrom/internal/service/uploads"
 	"retrom/internal/testsupport"
 )

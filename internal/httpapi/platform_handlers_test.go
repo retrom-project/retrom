@@ -21,7 +21,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"retrom/internal/contentcapability"
+	contentcapability "retrom/internal/content/capability"
 	"retrom/internal/libraryimport"
 	"retrom/internal/platformcatalog"
 	libraryservice "retrom/internal/service/libraryimport"

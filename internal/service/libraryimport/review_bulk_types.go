@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	"retrom/internal/contentcapability"
+	contentcapability "retrom/internal/content/capability"
 )
 
 const ReviewBulkQueryLimit = 10_001

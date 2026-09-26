@@ -6,7 +6,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"retrom/internal/contentprofile"
+	contentprofile "retrom/internal/content/profile"
 )
 
 const Version = 38

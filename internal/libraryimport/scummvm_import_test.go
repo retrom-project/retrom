@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"retrom/internal/blobstore"
-	"retrom/internal/scummvm"
+	"retrom/internal/core/scummvm"
 )
 
 func TestScummVMDirectoryUsesUpstreamDetectorAndImmutableCompleteTree(t *testing.T) {

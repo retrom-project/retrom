@@ -3,7 +3,7 @@ package libraryimport
 import (
 	"context"
 
-	"retrom/internal/contentcapability"
+	contentcapability "retrom/internal/content/capability"
 	"retrom/internal/corevalidation"
 )
 

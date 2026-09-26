@@ -9,7 +9,7 @@ import (
 	"path"
 	"strings"
 
-	"retrom/internal/contentcapability"
+	contentcapability "retrom/internal/content/capability"
 )
 
 const SnapshotSchemaVersion = 1

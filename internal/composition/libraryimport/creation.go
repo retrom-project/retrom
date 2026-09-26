@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"retrom/internal/blobstore"
+	"retrom/internal/core/scummvm"
 	repository "retrom/internal/persistence/libraryimport"
-	"retrom/internal/scummvm"
 	application "retrom/internal/service/libraryimport"
 	"retrom/internal/service/metadatascrape"
 	"retrom/internal/service/tagging"

@@ -3,7 +3,7 @@ package libraryimport
 import (
 	"testing"
 
-	"retrom/internal/rpgmaker/detector"
+	"retrom/internal/core/rpgmaker/detector"
 )
 
 func TestRPGProjectResourcesPolicyPreservesExplicitConfirmation(t *testing.T) {

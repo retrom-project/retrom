@@ -14,7 +14,7 @@ import (
 
 	"retrom/internal/authn"
 	"retrom/internal/blobstore"
-	"retrom/internal/scummvm"
+	"retrom/internal/core/scummvm"
 	libraryservice "retrom/internal/service/libraryimport"
 	"retrom/internal/service/metadatascrape"
 	"retrom/internal/service/tagging"

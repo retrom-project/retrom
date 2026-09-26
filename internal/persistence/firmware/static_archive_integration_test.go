@@ -21,7 +21,7 @@ import (
 
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
-	"retrom/internal/firmwaremanifest"
+	firmwaremanifest "retrom/internal/firmware/manifest"
 	"retrom/internal/legacychecksum"
 	"retrom/internal/service/uploads"
 	"retrom/internal/testsupport"

@@ -1,7 +1,7 @@
 package libraryimport
 
 import (
-	"retrom/internal/scummvm"
+	"retrom/internal/core/scummvm"
 )
 
 func (service *Service) WithScummVMDetector(detector *scummvm.Detector) *Service {

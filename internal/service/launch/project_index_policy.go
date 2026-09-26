@@ -3,12 +3,12 @@ package launch
 import (
 	"fmt"
 
-	butterscotch "retrom/internal/butterscotch/detector"
-	daphne "retrom/internal/daphne/detector"
-	kirikiri "retrom/internal/kirikiri/detector"
-	nxengine "retrom/internal/nxengine/detector"
-	ons "retrom/internal/ons/detector"
-	"retrom/internal/scummvm"
+	butterscotch "retrom/internal/core/butterscotch/detector"
+	daphne "retrom/internal/core/daphne/detector"
+	kirikiri "retrom/internal/core/kirikiri/detector"
+	nxengine "retrom/internal/core/nxengine/detector"
+	ons "retrom/internal/core/ons/detector"
+	"retrom/internal/core/scummvm"
 )
 
 type projectIndexPolicy struct {

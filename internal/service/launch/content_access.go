@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"retrom/internal/contentprofile"
+	contentprofile "retrom/internal/content/profile"
 	"retrom/internal/importing"
 )
 

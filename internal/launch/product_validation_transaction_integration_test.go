@@ -12,7 +12,7 @@ import (
 
 	"modernc.org/sqlite"
 
-	"retrom/internal/contentcapability"
+	contentcapability "retrom/internal/content/capability"
 	"retrom/internal/dbexec"
 	persistence "retrom/internal/persistence/launch"
 	application "retrom/internal/service/launch"

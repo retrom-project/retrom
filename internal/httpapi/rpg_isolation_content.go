@@ -18,8 +18,8 @@ import (
 	"golang.org/x/text/unicode/norm"
 
 	"retrom/internal/cleanup"
+	"retrom/internal/core/rpgmaker/nativeweb"
 	"retrom/internal/launch"
-	"retrom/internal/rpgmaker/nativeweb"
 	"retrom/internal/service/isolation"
 	"retrom/internal/service/saves"
 )

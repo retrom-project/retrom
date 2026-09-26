@@ -11,7 +11,7 @@ import (
 	"strconv"
 	"strings"
 
-	"retrom/internal/emulationstationmeta"
+	emulationstationmeta "retrom/internal/importformat/emulationstation/meta"
 	"retrom/internal/multidisc"
 	"retrom/internal/serversource"
 )

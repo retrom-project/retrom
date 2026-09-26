@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"slices"
 
-	"retrom/internal/contentcapability"
+	contentcapability "retrom/internal/content/capability"
 	validation "retrom/internal/service/corevalidation"
 	"retrom/internal/service/importprogress"
 	"retrom/internal/service/payloadrelease"

@@ -12,7 +12,7 @@ import (
 	librarypersistence "retrom/internal/persistence/libraryimport"
 	application "retrom/internal/service/libraryimport"
 
-	"retrom/internal/contentcapability"
+	contentcapability "retrom/internal/content/capability"
 	"retrom/internal/corevalidation"
 	"retrom/internal/multidisc"
 )

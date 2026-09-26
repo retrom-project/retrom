@@ -216,7 +216,7 @@ SQLite 无法仅靠上述外键验证 `platform_cores.enabled = 1` 或“GameVar
 
 ### Release 推荐目录 catalog
 
-推荐模板的唯一机器事实源是 `internal/platformcatalog`，每项只定义稳定 `templateKey=<platform_id>/<default_core_id>`、平台、默认核心、名称、说明和 catalog 顺序。模板不定义 slug 或扩展名：slug 仍由创建服务生成，支持的 payload 扩展名只从 `internal/contentprofile` 按基础平台读取，数据库、模板与前端不得复制该集合。
+推荐模板的唯一机器事实源是 `internal/platformcatalog`，每项只定义稳定 `templateKey=<platform_id>/<default_core_id>`、平台、默认核心、名称、说明和 catalog 顺序。模板不定义 slug 或扩展名：slug 仍由创建服务生成，支持的 payload 扩展名只从 `internal/content/profile` 按基础平台读取，数据库、模板与前端不得复制该集合。
 
 每次读取推荐状态时，服务按全部未硬删除目录投影：
 

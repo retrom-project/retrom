@@ -4,7 +4,7 @@ import (
 	"slices"
 	"testing"
 
-	"retrom/internal/contentprofile"
+	contentprofile "retrom/internal/content/profile"
 	"retrom/internal/testassert"
 )
 

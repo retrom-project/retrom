@@ -24,10 +24,10 @@ import (
 
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
+	"retrom/internal/core/scummvm"
 	"retrom/internal/dependencies"
 	"retrom/internal/libraryimport"
 	retromruntime "retrom/internal/runtime"
-	"retrom/internal/scummvm"
 	"retrom/internal/service/uploads"
 	"retrom/internal/testsupport"
 )

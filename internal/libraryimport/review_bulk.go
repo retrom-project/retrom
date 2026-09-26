@@ -11,7 +11,7 @@ import (
 	"github.com/google/uuid"
 
 	"retrom/internal/authn"
-	"retrom/internal/contentcapability"
+	contentcapability "retrom/internal/content/capability"
 	"retrom/internal/dbexec"
 	librarypersistence "retrom/internal/persistence/libraryimport"
 	libraryservice "retrom/internal/service/libraryimport"

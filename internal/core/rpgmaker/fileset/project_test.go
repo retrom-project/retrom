@@ -4,8 +4,8 @@ import (
 	"errors"
 	"testing"
 
+	"retrom/internal/core/rpgmaker/detector"
 	"retrom/internal/importing"
-	"retrom/internal/rpgmaker/detector"
 	"retrom/internal/testassert"
 )
 

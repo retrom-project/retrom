@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 
-	"retrom/internal/contentprofile"
+	contentprofile "retrom/internal/content/profile"
+	"retrom/internal/core/kirikiri/detector"
+	"retrom/internal/core/rpgmaker/fileset"
 	"retrom/internal/importing"
-	"retrom/internal/kirikiri/detector"
-	"retrom/internal/rpgmaker/fileset"
 )
 
 type kirikiriProjectIndex struct{ files []detector.File }

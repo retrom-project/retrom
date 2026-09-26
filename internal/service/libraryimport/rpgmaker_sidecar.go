@@ -9,7 +9,7 @@ import (
 
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
-	"retrom/internal/contentprofile"
+	contentprofile "retrom/internal/content/profile"
 	"retrom/internal/importing"
 )
 

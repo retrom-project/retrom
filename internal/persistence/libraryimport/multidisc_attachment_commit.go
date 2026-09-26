@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"retrom/internal/contentcapability"
+	contentcapability "retrom/internal/content/capability"
 	"retrom/internal/dbexec"
 	"retrom/internal/multidisc"
 	"retrom/internal/persistence/blobcatalog"

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"math"
 
-	"retrom/internal/contentcapability"
+	contentcapability "retrom/internal/content/capability"
 	"retrom/internal/corevalidation"
 	"retrom/internal/multidisc"
 	validation "retrom/internal/service/corevalidation"

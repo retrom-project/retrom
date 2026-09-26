@@ -6,7 +6,7 @@ import (
 	"errors"
 	"io"
 
-	"retrom/internal/contentmanifest"
+	contentmanifest "retrom/internal/content/manifest"
 	"retrom/internal/multidisc"
 )
 

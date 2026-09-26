@@ -12,8 +12,8 @@ import (
 
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
-	"retrom/internal/contentcapability"
-	"retrom/internal/contentprofile"
+	contentcapability "retrom/internal/content/capability"
+	contentprofile "retrom/internal/content/profile"
 	"retrom/internal/corevalidation"
 	"retrom/internal/importing"
 	"retrom/internal/multidisc"

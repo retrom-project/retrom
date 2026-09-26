@@ -10,8 +10,8 @@ import (
 	"golang.org/x/text/cases"
 	"golang.org/x/text/unicode/norm"
 
+	"retrom/internal/core/rpgmaker/detector"
 	"retrom/internal/importing"
-	"retrom/internal/rpgmaker/detector"
 )
 
 const MaxProjectFiles = 10_000

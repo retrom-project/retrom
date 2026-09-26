@@ -6,11 +6,11 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/kirikiri/detector"
-	onsdetection "retrom/internal/ons/detector"
+	"retrom/internal/core/kirikiri/detector"
+	onsdetection "retrom/internal/core/ons/detector"
+	"retrom/internal/core/scummvm"
 	"retrom/internal/runtimebundle"
 	"retrom/internal/runtimecatalog"
-	"retrom/internal/scummvm"
 )
 
 var (

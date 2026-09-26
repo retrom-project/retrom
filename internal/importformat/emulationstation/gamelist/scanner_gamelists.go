@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"path"
 
-	"retrom/internal/emulationstationmeta"
+	emulationstationmeta "retrom/internal/importformat/emulationstation/meta"
 )
 
 func (service *Scanner) projectGamelist(

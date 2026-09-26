@@ -14,7 +14,7 @@ import (
 	"retrom/internal/dbexec"
 
 	"retrom/internal/cleanup"
-	"retrom/internal/contentcapability"
+	contentcapability "retrom/internal/content/capability"
 	"retrom/internal/testsupport"
 )
 

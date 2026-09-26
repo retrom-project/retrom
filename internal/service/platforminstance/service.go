@@ -7,7 +7,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"retrom/internal/contentprofile"
+	contentprofile "retrom/internal/content/profile"
 	"retrom/internal/platformcatalog"
 )
 

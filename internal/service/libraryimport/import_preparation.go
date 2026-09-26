@@ -6,9 +6,9 @@ import (
 	"io"
 
 	"retrom/internal/blobstore"
-	"retrom/internal/contentcapability"
-	"retrom/internal/rpgmaker/detector"
-	"retrom/internal/scummvm"
+	contentcapability "retrom/internal/content/capability"
+	"retrom/internal/core/rpgmaker/detector"
+	"retrom/internal/core/scummvm"
 )
 
 type ImportPreparation struct {

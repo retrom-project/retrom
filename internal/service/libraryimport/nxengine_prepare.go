@@ -3,9 +3,9 @@ package libraryimport
 import (
 	"context"
 
-	"retrom/internal/contentprofile"
-	nxenginedetector "retrom/internal/nxengine/detector"
-	"retrom/internal/rpgmaker/fileset"
+	contentprofile "retrom/internal/content/profile"
+	nxenginedetector "retrom/internal/core/nxengine/detector"
+	"retrom/internal/core/rpgmaker/fileset"
 )
 
 var nxengineMarkerProject = markerProjectDefinition{

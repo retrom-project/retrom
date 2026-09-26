@@ -17,12 +17,12 @@ import (
 	"strings"
 	"time"
 
-	"retrom/internal/contentprofile"
+	contentprofile "retrom/internal/content/profile"
 
 	"retrom/internal/cleanup"
+	"retrom/internal/core/rpgmaker/materializer"
 	"retrom/internal/dosbundle"
 	"retrom/internal/launch"
-	"retrom/internal/rpgmaker/materializer"
 )
 
 func (server *Server) launchGame(writer http.ResponseWriter, request *http.Request) {

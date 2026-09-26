@@ -10,8 +10,8 @@ import (
 	"testing"
 
 	"retrom/internal/blobstore"
+	"retrom/internal/core/rpgmaker/detector"
 	"retrom/internal/importing"
-	"retrom/internal/rpgmaker/detector"
 )
 
 func TestPrepareRPGMakerDirectoryKeepsOneNormalizedProject(t *testing.T) {

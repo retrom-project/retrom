@@ -7,8 +7,8 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/contentprofile"
-	"retrom/internal/rpgmaker/fileset"
+	contentprofile "retrom/internal/content/profile"
+	"retrom/internal/core/rpgmaker/fileset"
 )
 
 var ErrInvalid = errors.New("CONTENT_MANIFEST_INVALID")

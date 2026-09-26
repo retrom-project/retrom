@@ -10,7 +10,7 @@ import (
 	"slices"
 	"strings"
 
-	"retrom/internal/contentmanifest"
+	contentmanifest "retrom/internal/content/manifest"
 	"retrom/internal/multidisc"
 	"retrom/internal/service/payloadrelease"
 )

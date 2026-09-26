@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"testing"
 
-	"retrom/internal/contentcapability"
+	contentcapability "retrom/internal/content/capability"
 )
 
 func TestContentPolicyDoesNotImplementSQLMapping(t *testing.T) {

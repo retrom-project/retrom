@@ -3,7 +3,7 @@ package firmware
 import (
 	"fmt"
 
-	"retrom/internal/firmwaremanifest"
+	firmwaremanifest "retrom/internal/firmware/manifest"
 )
 
 func StaticArchiveExpectations(value string) ([]ExpectedDATEntry, error) {

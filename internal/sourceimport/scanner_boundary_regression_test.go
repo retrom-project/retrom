@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"retrom/internal/pegasusmeta"
+	pegasusmeta "retrom/internal/importformat/pegasus/meta"
 
 	"github.com/google/uuid"
 )

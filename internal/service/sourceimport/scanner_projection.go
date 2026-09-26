@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"unicode/utf8"
 
-	"retrom/internal/pegasusmeta"
+	pegasusmeta "retrom/internal/importformat/pegasus/meta"
 )
 
 func (service *Scanner) scanGameAssets(ctx context.Context,

@@ -12,9 +12,9 @@ import (
 
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
-	"retrom/internal/contentcapability"
-	"retrom/internal/contentmanifest"
-	"retrom/internal/contentprofile"
+	contentcapability "retrom/internal/content/capability"
+	contentmanifest "retrom/internal/content/manifest"
+	contentprofile "retrom/internal/content/profile"
 	"retrom/internal/multidisc"
 )
 

@@ -10,11 +10,11 @@ import (
 
 	"retrom/internal/authn"
 	librarycomposition "retrom/internal/composition/libraryimport"
+	"retrom/internal/core/rpgmaker/detector"
+	"retrom/internal/core/rpgmaker/fileset"
 	"retrom/internal/cursor"
 	"retrom/internal/importing"
 	"retrom/internal/libraryimport"
-	"retrom/internal/rpgmaker/detector"
-	"retrom/internal/rpgmaker/fileset"
 	libraryservice "retrom/internal/service/libraryimport"
 	"retrom/internal/service/tagging"
 )

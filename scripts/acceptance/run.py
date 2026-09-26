@@ -216,7 +216,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     ),
     "ACC-PLAT-006": (
         180,
-        "go test ./internal/platformcatalog ./internal/contentprofile ./internal/service/platforminstance ./internal/persistence/platforminstance -count=1 && go test ./internal/httpapi -run '^TestRecommendedPlatformDirectoryHTTPApplyIsAtomicAndIdempotent$' -count=1",
+        "go test ./internal/platformcatalog ./internal/content/profile ./internal/service/platforminstance ./internal/persistence/platforminstance -count=1 && go test ./internal/httpapi -run '^TestRecommendedPlatformDirectoryHTTPApplyIsAtomicAndIdempotent$' -count=1",
     ),
     "ACC-GAME-002": (180, "go test -tags=integration ./internal/service/gamecontent ./internal/persistence/gamecontent -run '^TestReplacementPublishesAtomicallyAndFailureKeepsCurrent$' -count=1"),
     "ACC-GAME-001": (
@@ -303,7 +303,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     ),
     "ACC-PEG-001": (
         180,
-        "go test ./internal/pegasusmeta ./internal/sourceimport ./internal/service/sourceimport -run 'TestParse|TestScan' -count=1",
+        "go test ./internal/importformat/pegasus/meta ./internal/sourceimport ./internal/service/sourceimport -run 'TestParse|TestScan' -count=1",
     ),
     "ACC-PEG-002": (
         180,
@@ -321,19 +321,19 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     "ACC-PEG-006": (300, "scripts/acceptance/ui-case.sh ACC-PEG-006"),
     "ACC-ES-001": (
         180,
-        "go test ./internal/emulationstationmeta -run 'TestParse|TestNormalizeDeclaredPath|TestSourceFlags' -count=1",
+        "go test ./internal/importformat/emulationstation/meta -run 'TestParse|TestNormalizeDeclaredPath|TestSourceFlags' -count=1",
     ),
     "ACC-ES-002": (
         240,
-        "go test ./internal/importformat/gamelist ./internal/sourceimport ./internal/serversource ./internal/httpapi -run 'TestScan|TestWalkAndOpenStayWithinNoFollowDescriptors|TestSourceImportHTTP|TestCreate|TestMapping|TestStart|TestItems|TestCollections' -count=1 && go test ./internal/service/sourceimport ./internal/persistence/sourceimport -count=1",
+        "go test ./internal/importformat/emulationstation/gamelist ./internal/sourceimport ./internal/serversource ./internal/httpapi -run 'TestScan|TestWalkAndOpenStayWithinNoFollowDescriptors|TestSourceImportHTTP|TestCreate|TestMapping|TestStart|TestItems|TestCollections' -count=1 && go test ./internal/service/sourceimport ./internal/persistence/sourceimport -count=1",
     ),
     "ACC-ES-003": (
         300,
-        "go test ./internal/importformat/gamelist ./internal/sourceimport ./internal/libraryimport -count=1",
+        "go test ./internal/importformat/emulationstation/gamelist ./internal/sourceimport ./internal/libraryimport -count=1",
     ),
     "ACC-ES-004": (
         300,
-        "go test ./internal/importformat/gamelist ./internal/sourceimport ./internal/service/sourceimport ./internal/persistence/sourceimport ./internal/payloadrelease ./internal/persistence/blobgc -count=1 && go test -tags=integration ./internal/httpapi -run 'TestGamePermanentDeleteIsIdempotentReleasesPayloadAndPreservesTombstone|TestJobHTTPScanCancellationChangesSourcePlanInSameCommit|TestJobCancellationRetainsOriginalETagAfterGenericRead' -count=1 && go test -tags=integration ./internal/persistence/maintenance -run 'TestRestore.*Source|TestRestoredSource' -count=1",
+        "go test ./internal/importformat/emulationstation/gamelist ./internal/sourceimport ./internal/service/sourceimport ./internal/persistence/sourceimport ./internal/payloadrelease ./internal/persistence/blobgc -count=1 && go test -tags=integration ./internal/httpapi -run 'TestGamePermanentDeleteIsIdempotentReleasesPayloadAndPreservesTombstone|TestJobHTTPScanCancellationChangesSourcePlanInSameCommit|TestJobCancellationRetainsOriginalETagAfterGenericRead' -count=1 && go test -tags=integration ./internal/persistence/maintenance -run 'TestRestore.*Source|TestRestoredSource' -count=1",
     ),
     "ACC-ES-005": (300, "scripts/acceptance/ui-case.sh ACC-ES-005"),
     "ACC-ES-006": (

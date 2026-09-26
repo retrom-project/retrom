@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/emulationstationmeta"
+	emulationstationmeta "retrom/internal/importformat/emulationstation/meta"
 	"retrom/internal/mediaasset"
 )
 

@@ -6,10 +6,10 @@ import (
 	"fmt"
 
 	"retrom/internal/blobstore"
-	"retrom/internal/contentprofile"
+	contentprofile "retrom/internal/content/profile"
+	"retrom/internal/core/rpgmaker/fileset"
+	"retrom/internal/core/scummvm"
 	"retrom/internal/importing"
-	"retrom/internal/rpgmaker/fileset"
-	"retrom/internal/scummvm"
 )
 
 func (service *ImportPreparation) PrepareScummVMProject(

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	contentcapability "retrom/internal/content/capability"
 	"retrom/internal/dbexec"
 	repository "retrom/internal/persistence/libraryimport"
 
@@ -13,8 +14,6 @@ import (
 
 	validationpersistence "retrom/internal/persistence/corevalidation"
 	validationservice "retrom/internal/service/corevalidation"
-
-	"retrom/internal/contentcapability"
 
 	"retrom/internal/corevalidation"
 

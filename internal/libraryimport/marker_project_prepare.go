@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"retrom/internal/blobstore"
-	"retrom/internal/rpgmaker/fileset"
+	"retrom/internal/core/rpgmaker/fileset"
 	application "retrom/internal/service/libraryimport"
 )
 

@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"retrom/internal/cleanup"
-	"retrom/internal/contentcapability"
+	contentcapability "retrom/internal/content/capability"
 	"retrom/internal/persistence/contentquery"
 	application "retrom/internal/service/catalog"
 )

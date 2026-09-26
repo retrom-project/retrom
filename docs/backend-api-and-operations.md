@@ -40,15 +40,20 @@ cmd/retrom/               进程入口、配置和优雅关闭
 internal/httpapi/         路由、中间件、DTO、错误映射
 internal/catalog/         Platform、PlatformInstance、Game、GameVariant
 internal/importing/       导入任务、分组、刮削与审核编排
-internal/importformat/gamelist/ 严格 XML 文件组织扫描与统一结果适配
+internal/importformat/emulationstation/meta/ 严格 EmulationStation XML 解析与规范化
+internal/importformat/emulationstation/gamelist/ 有界 XML 文件组织扫描与统一结果适配
+internal/importformat/pegasus/meta/ Pegasus metadata 解析与规范化
 internal/persistence/importfiles/ 所有来源共享的接收文件表
 internal/sourceimport/   服务器目录、metadata/媒体读取、CAS 写入及路径脱敏适配器
 internal/service/sourceimport/ 应用入口、扫描/导入编排、计划/映射/启动、worker 生命周期与结果恢复
 internal/persistence/sourceimport/ 计划与执行快照、扫描/物化/交接/收口事务及归属校验
-internal/emulationstationmeta/ 严格 EmulationStation XML 解析与规范化；不读环境/数据库/CAS
 internal/metadata/        Hasheous 适配器与缓存
 internal/arcadedat/       DAT 安装、解析、依赖图与诊断
+internal/content/capability/ 内容能力与准入策略
+internal/content/manifest/ 内容清单生成与校验
+internal/content/profile/ 平台内容格式与项目类型定义
 internal/firmware/        BIOS 文件与归档匹配、候选质量比较
+internal/firmware/manifest/ 带来源记录的固件清单、生成资源与校验
 internal/service/firmware/ BIOS 安装、替换决策与归档检查
 internal/persistence/firmware/ BIOS 事实查询及安装、消费、替换与进度记录事务
 internal/runtimeprovider/ Provider Bundle 安装、激活、静态文件与只前进升级校验
@@ -64,8 +69,8 @@ internal/runtimelaunch/   Provider-neutral Launch Envelope 投影
 internal/launch/          Provider、凭据/隔离签名、内容与截图文件适配器
 internal/service/launch/ 启动应用入口、内容授权、Preview/Product、截图、游玩与校验 worker 生命周期
 internal/persistence/launch/ 授权与内容快照、会话/响应收据/截图/游玩事务与校验任务调度
-internal/rpgmaker/        RPG 项目识别、Target binding、派生 fileset、pack 匹配、运行验证、隔离与 checkpoint 领域逻辑
-internal/rpgmaker/runtimevalidation/ RPG 运行验证 gate、状态投影与恢复协议
+internal/core/<core>/   核心专用的项目识别、内容文件集与物化逻辑；按产品 Core 分目录
+internal/core/rpgmaker/ RPG Maker 的 detector、fileset、materializer 与 nativeweb
 internal/service/isolation/ unique-origin Host、票据及 capability 授权规则
 internal/persistence/isolation/ 票据、会话与 capability 读取及原子签发
 internal/service/saves/   存档授权、格式兼容、幂等和 GAME_SAVE 版本决策

@@ -487,7 +487,7 @@ XML 必须是严格 UTF-8，可带 UTF-8 BOM，根元素必须是无 namespace �
 
 游戏和媒体路径都以所属 `gamelist.xml` 的目录为基准。`./foo`、普通相对路径与 Windows 分隔符在验证后规范化；空值、控制/空白路径、`..`、绝对路径、`~`、盘符、UNC、URI、过长路径、符号链接逃逸和类型漂移必须阻断。扫描只读取有界 XML、目录 facts、M3U 与媒体头，并且只打开 M3U 实际引用的 CHD 读取固定头；同目录未引用 CHD 不得因候选枚举被打开。XML parser 至少每消费 256 个 token 检查一次取消；目录发现、清单、媒体和 CHD 读取都进入共享 reader semaphore。扫描不读取完整 ROM，不创建业务 Blob、内部 ImportJob、ReviewDraft 或 Game。扫描发现后的索引、XML 投影、容量规则和身份生成由应用 Scanner 统一管理，来源适配器提供有界目录、文件、光盘头及媒体读取。最终投影也必须检查取消，取消或读取失败不能伪装为成功条目；执行路由与失败清理由 Service 编排，保留原始原因及执行期限，清理失败同时返回其原因。每次计划冻结 root/source facts、XML digest、确定性 source key、Collection/game 顺序、媒体候选、warning、来源 manifest 和预计读取量；重新扫描同一不变输入必须得到相同业务快照。扫描结果由 Service 按头信息、每批至多 500 个游戏及最终发布划分短事务；Repository 在每个事务检查当前扫描 Job 与计划的关联、版本、worker、execution/attempt、租约、截止时刻及冻结 root/path/year。清理暂存与写入拒绝诊断也执行相同检查，旧执行不能覆盖新执行；最终计数、来源摘要、等待映射状态、成功 Job 与事件原子提交。Collection 和游戏身份生成失败必须保留随机源原因，不留下零身份记录。
 
-Gamelist parser 与有界 scanner 位于 `internal/emulationstationmeta` 和 `internal/importformat/gamelist`。适配器将扫描结果转为共享 ScanResult；XML 专属错误只用于解释输入问题，格式不进入接收文件表、普通导入、审核或发布规则。`hidden/adult/kidGame` 作为统一来源标记保存；hidden/adult 排除快速审批，仍可逐项审核。清单最多 500 份、每份 8 MiB、总 XML 64 MiB，游戏最多 100,000，每游戏最多 64 个源文件。执行、容量、到期、取消与恢复统一遵循第 14 节，不保留独立 EmulationStation 任务表或 Worker。
+Gamelist parser 与有界 scanner 位于 `internal/importformat/emulationstation/meta` 和 `internal/importformat/emulationstation/gamelist`。适配器将扫描结果转为共享 ScanResult；XML 专属错误只用于解释输入问题，格式不进入接收文件表、普通导入、审核或发布规则。`hidden/adult/kidGame` 作为统一来源标记保存；hidden/adult 排除快速审批，仍可逐项审核。清单最多 500 份、每份 8 MiB、总 XML 64 MiB，游戏最多 100,000，每游戏最多 64 个源文件。执行、容量、到期、取消与恢复统一遵循第 14 节，不保留独立 EmulationStation 任务表或 Worker。
 
 统一验收保留按输入格式命名的 `ACC-PEG-*` 与 `ACC-ES-*` Case，两者验证同一导入和审核链路。
 

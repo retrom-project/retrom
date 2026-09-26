@@ -164,7 +164,7 @@ class RuntimeProviderAuthorityTests(unittest.TestCase):
         paths = [
             ROOT / "api/domains/catalog.yaml", ROOT / "api/domains/imports.yaml",
             ROOT / "api/domains/runtime.yaml", ROOT / "data/runtime-target-bindings/v1/catalog.json",
-            ROOT / "internal/contentcapability", ROOT / "internal/contentmanifest", ROOT / "internal/contentprofile",
+            ROOT / "internal/content/capability", ROOT / "internal/content/manifest", ROOT / "internal/content/profile",
             ROOT / "internal/launch", ROOT / "internal/runtimecatalog", ROOT / "migrations",
             ROOT / "web/features/imports", ROOT / "web/features/player", ROOT / "web/features/reviews",
         ]

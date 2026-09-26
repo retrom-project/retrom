@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"retrom/internal/contentcapability"
+	contentcapability "retrom/internal/content/capability"
 	"retrom/internal/testassert"
 )
 

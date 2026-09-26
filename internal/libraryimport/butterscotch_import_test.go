@@ -10,8 +10,8 @@ import (
 	"testing"
 
 	"retrom/internal/blobstore"
+	"retrom/internal/core/rpgmaker/fileset"
 	"retrom/internal/importing"
-	"retrom/internal/rpgmaker/fileset"
 )
 
 func TestPrepareButterscotchDirectoryNormalizesWrapperAndRequiresRuntimeTrial(t *testing.T) {

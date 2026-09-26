@@ -11,10 +11,9 @@ import (
 	"path/filepath"
 	"strings"
 
+	contentcapability "retrom/internal/content/capability"
 	librarypersistence "retrom/internal/persistence/libraryimport"
 	application "retrom/internal/service/libraryimport"
-
-	"retrom/internal/contentcapability"
 
 	"github.com/google/uuid"
 )

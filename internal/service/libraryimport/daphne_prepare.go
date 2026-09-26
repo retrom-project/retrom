@@ -3,9 +3,9 @@ package libraryimport
 import (
 	"context"
 
-	"retrom/internal/contentprofile"
-	daphnedetector "retrom/internal/daphne/detector"
-	"retrom/internal/rpgmaker/fileset"
+	contentprofile "retrom/internal/content/profile"
+	daphnedetector "retrom/internal/core/daphne/detector"
+	"retrom/internal/core/rpgmaker/fileset"
 )
 
 var daphneMarkerProject = markerProjectDefinition{

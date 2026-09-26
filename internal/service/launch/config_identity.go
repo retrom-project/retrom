@@ -7,7 +7,7 @@ import (
 	"slices"
 	"strings"
 
-	"retrom/internal/contentprofile"
+	contentprofile "retrom/internal/content/profile"
 	"retrom/internal/importing"
 )
 

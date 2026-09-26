@@ -6,8 +6,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"retrom/internal/contentcapability"
-	"retrom/internal/contentprofile"
+	contentcapability "retrom/internal/content/capability"
+	contentprofile "retrom/internal/content/profile"
 )
 
 type PlatformInstancePatch struct {

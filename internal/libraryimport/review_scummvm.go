@@ -5,8 +5,8 @@ import (
 	"database/sql"
 	"encoding/json"
 
+	"retrom/internal/core/scummvm"
 	"retrom/internal/dbexec"
-	"retrom/internal/scummvm"
 )
 
 func (service *Service) selectScummVMCandidate(

@@ -4,9 +4,9 @@ import (
 	"context"
 	"errors"
 
+	contentcapability "retrom/internal/content/capability"
 	"retrom/internal/service/payloadrelease"
 
-	"retrom/internal/contentcapability"
 	"retrom/internal/service/importprogress"
 	"retrom/internal/service/tagging"
 )

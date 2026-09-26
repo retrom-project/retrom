@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/contentcapability"
+	contentcapability "retrom/internal/content/capability"
 )
 
 type validationTestRepository struct {

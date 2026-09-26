@@ -8,7 +8,7 @@ import (
 	"path"
 	"strings"
 
-	"retrom/internal/rpgmaker/nativeweb"
+	"retrom/internal/core/rpgmaker/nativeweb"
 )
 
 var errInvalidWebReference = errors.New("invalid web project reference")
