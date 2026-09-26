@@ -1,6 +1,6 @@
 "use client";
 
-import {useCallback, useEffect, useRef, useState, type FormEvent, type KeyboardEvent as ReactKeyboardEvent, type ReactNode, type Ref} from "react";
+import {useCallback, useEffect, useRef, useState, type FormEvent, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent, type ReactNode, type Ref} from "react";
 import type {RuntimeGameEditCategoryV1, RuntimeGameEditEntryV1, RuntimeGameEditorV1} from "./runtime/contract";
 import {getActiveImmersiveGamepadIndex} from "@/features/immersive/active-gamepad";
 
@@ -188,7 +188,7 @@ export function GameEditorPanel({editor, immersive, onClose}: {
     <div ref={panelRef} className="game-editor-panel">
       <header className="game-editor-head"><div><small>当前游戏</small><h1 id="game-editor-title">游戏修改</h1></div><button ref={closeRef} className="button secondary" type="button" onClick={onClose}>返回游戏</button></header>
       <div className="game-editor-feedback"><p className="game-editor-help" aria-hidden={Boolean(notice)}>修改立即生效。离开前请创建存档，以保留修改后的进度。</p>{notice ? <p className="game-editor-notice" role="status">{notice.text}</p> : null}</div>
-      <nav className="game-editor-categories" aria-label="修改类别">{categories.map((item) => <button key={item.id} type="button" className={`button secondary${item.id === category ? " is-active" : ""}`} aria-pressed={item.id === category} onClick={() => chooseCategory(item.id)}>{item.label}</button>)}</nav>
+      <GameEditorCategories categories={categories} active={category} onChoose={chooseCategory} />
       {category ? <GameEditorToolbar label={categoryLabel} searchOpen={searchOpen} onSearch={toggleSearch} onRefresh={() => {if (activeCategory) {void load(activeCategory, search, 0);}}} /> : null}
       {groups ? <GameEditorActorTabs groups={groups} activeCategory={activeCategory} onChoose={chooseGroup} /> : null}
       {category === "skills" ? <p className="game-editor-category-help">这里显示角色主动学习的技能；职业或装备附加的技能仍可能可用。</p> : null}
@@ -209,6 +209,52 @@ export function GameEditorPanel({editor, immersive, onClose}: {
 
 function resolveActiveCategory(category: string, groups: RuntimeGameEditCategoryV1["groups"], selectedGroup: string) {
   return groups ? selectedGroup || groups[0]?.id || "" : category;
+}
+
+function GameEditorCategories({categories, active, onChoose}: {
+  categories: RuntimeGameEditCategoryV1[]; active: string; onChoose: (id: string) => void;
+}) {
+  const navRef = useRef<HTMLElement>(null);
+  const railRef = useRef<HTMLDivElement>(null);
+  const dragOffset = useRef<number | null>(null);
+  const [scroll, setScroll] = useState({viewport: 0, content: 0, left: 0});
+
+  useEffect(() => {
+    const nav = navRef.current;
+    if (!nav) {return;}
+    const measure = () => setScroll({viewport: nav.clientWidth, content: nav.scrollWidth, left: nav.scrollLeft});
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(measure);
+    observer?.observe(nav);
+    nav.addEventListener("scroll", measure, {passive: true});
+    window.addEventListener("resize", measure);
+    measure();
+    return () => {observer?.disconnect(); nav.removeEventListener("scroll", measure); window.removeEventListener("resize", measure);};
+  }, [categories]);
+
+  const thumbWidth = scroll.content ? Math.max(24, scroll.viewport * scroll.viewport / scroll.content) : 0;
+  const thumbLeft = scroll.content > scroll.viewport
+    ? scroll.left / (scroll.content - scroll.viewport) * (scroll.viewport - thumbWidth) : 0;
+  function moveTo(event: ReactPointerEvent<HTMLDivElement>, offset: number) {
+    const nav = navRef.current, rail = railRef.current;
+    if (!nav || !rail) {return;}
+    const travel = rail.clientWidth - thumbWidth;
+    if (travel <= 0) {return;}
+    const position = Math.max(0, Math.min(travel, event.clientX - rail.getBoundingClientRect().left - offset));
+    nav.scrollLeft = position / travel * (nav.scrollWidth - nav.clientWidth);
+  }
+  function startDrag(event: ReactPointerEvent<HTMLDivElement>) {
+    if (event.button !== 0 || !railRef.current?.firstElementChild) {return;}
+    const thumb = railRef.current.firstElementChild;
+    dragOffset.current = event.target === thumb
+      ? event.clientX - thumb.getBoundingClientRect().left : thumbWidth / 2;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    moveTo(event, dragOffset.current);
+  }
+
+  return <div className="game-editor-category-scroll">
+    <nav ref={navRef} className="game-editor-categories" aria-label="修改类别">{categories.map((item) => <button key={item.id} type="button" className={`button secondary${item.id === active ? " is-active" : ""}`} aria-pressed={item.id === active} onClick={() => onChoose(item.id)}>{item.label}</button>)}</nav>
+    {scroll.content > scroll.viewport ? <div ref={railRef} className="game-editor-category-scrollbar" aria-hidden="true" onPointerDown={startDrag} onPointerMove={(event) => {if (dragOffset.current !== null) {moveTo(event, dragOffset.current);}}} onPointerUp={() => {dragOffset.current = null;}} onLostPointerCapture={() => {dragOffset.current = null;}}><span style={{width: thumbWidth, transform: `translateX(${thumbLeft}px)`}} /></div> : null}
+  </div>;
 }
 
 function GameEditorActorTabs({groups, activeCategory, onChoose}: {

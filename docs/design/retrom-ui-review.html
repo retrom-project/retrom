@@ -2371,14 +2371,19 @@ select:disabled, input:disabled, textarea:disabled { cursor: not-allowed; opacit
     #retrom-ui-review .rt-game-editor-loading[hidden] { display:none }
     #retrom-ui-review .rt-game-editor-category-help { color:#b5c0d0 }
     #retrom-ui-review .rt-game-editor-actor-tabs { display:flex;gap:8px;overflow-x:auto }
-    #retrom-ui-review .rt-game-editor-design nav { display:flex;min-width:0;flex-wrap:wrap;gap:8px }
+    #retrom-ui-review .rt-game-editor-category-scroll { display:grid;grid-template-columns:minmax(0,1fr);min-width:0;gap:4px }
+    #retrom-ui-review .rt-game-editor-design nav[aria-label=&quot;修改类别&quot;] { display:flex;min-width:0;flex-wrap:nowrap;gap:8px;overflow-x:auto;scrollbar-width:none }
+    #retrom-ui-review .rt-game-editor-design nav[aria-label=&quot;修改类别&quot;] button { flex-shrink:0 }
+    #retrom-ui-review .rt-game-editor-design nav[aria-label=&quot;修改类别&quot;]::-webkit-scrollbar { display:none }
+    #retrom-ui-review .rt-game-editor-category-scrollbar { height:8px;border-radius:8px;background:#263247 }
+    #retrom-ui-review .rt-game-editor-category-scrollbar span { display:block;width:75%;height:100%;border-radius:8px;background:#899bb4 }
     #retrom-ui-review .rt-game-editor-design nav button.is-active { border-color:#8dbaf3;background:#31527d }
     #retrom-ui-review .rt-game-editor-design article&gt;div:first-child { display:grid;gap:4px }
     #retrom-ui-review .rt-game-editor-design article small { color:#b5c0d0 }
     #retrom-ui-review .rt-game-editor-design article&gt;div:last-child { display:flex;align-items:center;gap:8px }
     #retrom-ui-review .rt-game-editor-design button,#retrom-ui-review .rt-game-editor-design input { padding:9px;border:1px solid #67758a;border-radius:8px;background:#263247;color:#fff }
     #retrom-ui-review .rt-game-editor-design input { width:110px }
-    @media (max-height:500px) { #retrom-ui-review .rt-game-editor-design&gt;div { height:calc(100% - 16px);padding:12px 16px;gap:8px } #retrom-ui-review .rt-game-editor-design nav[aria-label=&quot;修改类别&quot;] { flex-wrap:nowrap;overflow-x:auto } #retrom-ui-review .rt-game-editor-design nav[aria-label=&quot;修改类别&quot;] button { flex-shrink:0 } }
+    @media (max-height:500px) { #retrom-ui-review .rt-game-editor-design&gt;div { height:calc(100% - 16px);padding:12px 16px;gap:8px } }
     #retrom-ui-review .rt-im-menu { width:min(660px,76vw);padding:42px;border:1px solid rgba(255,255,255,.15);border-radius: var(--radius-panel);background:#171a27;box-shadow:0 35px 100px #000;text-align:center }
     #retrom-ui-review .rt-im-menu h1 { margin:0 0 9px;font-size:var(--text-page) }
     #retrom-ui-review .rt-im-menu p { margin:0 0 30px;color:var(--muted) }
@@ -3174,7 +3179,7 @@ select:disabled, input:disabled, textarea:disabled { cursor: not-allowed; opacit
           &lt;section class=&quot;rt-game-editor-design&quot; data-rpg-editor-design data-load-on-scroll hidden aria-label=&quot;游戏修改&quot;&gt;&lt;div&gt;
             &lt;header&gt;&lt;h2&gt;游戏修改&lt;/h2&gt;&lt;button type=&quot;button&quot;&gt;返回游戏&lt;/button&gt;&lt;/header&gt;
             &lt;div class=&quot;rt-game-editor-feedback&quot;&gt;&lt;p&gt;修改立即生效。离开前请创建存档。&lt;/p&gt;&lt;p class=&quot;rt-game-editor-success&quot; role=&quot;status&quot; hidden&gt;已应用修改。离开前请创建存档。&lt;/p&gt;&lt;/div&gt;
-            &lt;nav aria-label=&quot;修改类别&quot;&gt;&lt;button type=&quot;button&quot;&gt;金币&lt;/button&gt;&lt;button type=&quot;button&quot;&gt;道具&lt;/button&gt;&lt;button type=&quot;button&quot;&gt;武器&lt;/button&gt;&lt;button type=&quot;button&quot;&gt;护甲&lt;/button&gt;&lt;button type=&quot;button&quot;&gt;变量&lt;/button&gt;&lt;button type=&quot;button&quot;&gt;开关&lt;/button&gt;&lt;button type=&quot;button&quot; data-editor-kind=&quot;actors&quot; class=&quot;is-active&quot;&gt;角色&lt;/button&gt;&lt;button type=&quot;button&quot; data-editor-kind=&quot;skills&quot;&gt;技能&lt;/button&gt;&lt;button type=&quot;button&quot; data-editor-kind=&quot;states&quot;&gt;状态&lt;/button&gt;&lt;button type=&quot;button&quot; data-editor-kind=&quot;classes&quot;&gt;职业&lt;/button&gt;&lt;button type=&quot;button&quot; data-editor-kind=&quot;party&quot;&gt;队伍成员&lt;/button&gt;&lt;/nav&gt;
+            &lt;div class=&quot;rt-game-editor-category-scroll&quot;&gt;&lt;nav aria-label=&quot;修改类别&quot;&gt;&lt;button type=&quot;button&quot;&gt;金币&lt;/button&gt;&lt;button type=&quot;button&quot;&gt;道具&lt;/button&gt;&lt;button type=&quot;button&quot;&gt;武器&lt;/button&gt;&lt;button type=&quot;button&quot;&gt;护甲&lt;/button&gt;&lt;button type=&quot;button&quot;&gt;变量&lt;/button&gt;&lt;button type=&quot;button&quot;&gt;开关&lt;/button&gt;&lt;button type=&quot;button&quot; data-editor-kind=&quot;actors&quot; class=&quot;is-active&quot;&gt;角色&lt;/button&gt;&lt;button type=&quot;button&quot; data-editor-kind=&quot;skills&quot;&gt;技能&lt;/button&gt;&lt;button type=&quot;button&quot; data-editor-kind=&quot;states&quot;&gt;状态&lt;/button&gt;&lt;button type=&quot;button&quot; data-editor-kind=&quot;classes&quot;&gt;职业&lt;/button&gt;&lt;button type=&quot;button&quot; data-editor-kind=&quot;party&quot;&gt;队伍成员&lt;/button&gt;&lt;/nav&gt;&lt;div class=&quot;rt-game-editor-category-scrollbar&quot; aria-hidden=&quot;true&quot;&gt;&lt;span&gt;&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;
             &lt;header&gt;&lt;h3 data-editor-heading&gt;角色&lt;/h3&gt;&lt;button type=&quot;button&quot;&gt;查找&lt;/button&gt;&lt;/header&gt;
             &lt;nav class=&quot;rt-game-editor-actor-tabs&quot; role=&quot;tablist&quot; aria-label=&quot;选择人物&quot; data-editor-person-tabs&gt;&lt;button type=&quot;button&quot; role=&quot;tab&quot; aria-selected=&quot;true&quot; data-editor-person=&quot;0&quot; class=&quot;is-active&quot;&gt;艾琳&lt;/button&gt;&lt;button type=&quot;button&quot; role=&quot;tab&quot; aria-selected=&quot;false&quot; data-editor-person=&quot;1&quot;&gt;哈罗德&lt;/button&gt;&lt;/nav&gt;
             &lt;p class=&quot;rt-game-editor-category-help&quot; data-editor-help hidden&gt;&lt;/p&gt;

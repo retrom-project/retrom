@@ -1,10 +1,39 @@
-import {fireEvent, render, waitFor, within} from "@testing-library/react";
+import {act, fireEvent, render, waitFor, within} from "@testing-library/react";
 import {afterEach, describe, expect, it, vi} from "vitest";
 import type {RuntimeGameEditEntryV1, RuntimeGameEditorV1} from "./runtime/contract";
 import {GameEditorPanel} from "./game-editor-panel";
 
 describe("GameEditorPanel", () => {
   afterEach(() => vi.unstubAllGlobals());
+  it("shows a draggable category scrollbar only when the category row overflows", async () => {
+    let notify: ResizeObserverCallback | undefined;
+    vi.stubGlobal("ResizeObserver", class {
+      constructor(callback: ResizeObserverCallback) {notify = callback;}
+      observe() {}
+      disconnect() {}
+    });
+    const editor: RuntimeGameEditorV1 = {
+      categories: async () => [{id: "gold", label: "金币"}, {id: "items", label: "道具"}],
+      entries: async () => ({entries: [], nextOffset: null}), set: vi.fn(),
+    };
+    const view = render(<GameEditorPanel editor={editor} onClose={vi.fn()} />);
+    await waitFor(() => expect(within(view.container).getByRole("button", {name: "道具"})).toBeVisible());
+    const nav = view.container.querySelector<HTMLElement>(".game-editor-categories")!;
+    expect(view.container.querySelector(".game-editor-category-scrollbar")).toBeNull();
+    Object.defineProperty(nav, "clientWidth", {configurable: true, value: 300});
+    Object.defineProperty(nav, "scrollWidth", {configurable: true, value: 800});
+    act(() => notify?.([], {} as ResizeObserver));
+    const rail = view.container.querySelector<HTMLDivElement>(".game-editor-category-scrollbar")!;
+    expect(rail).toBeInTheDocument();
+    Object.defineProperty(rail, "clientWidth", {value: 300});
+    vi.spyOn(rail, "getBoundingClientRect").mockReturnValue({left: 0} as DOMRect);
+    rail.setPointerCapture = vi.fn();
+    fireEvent.pointerDown(rail, {button: 0, pointerId: 1, clientX: 275});
+    expect(nav.scrollLeft).toBeGreaterThan(0);
+    Object.defineProperty(nav, "clientWidth", {configurable: true, value: 800});
+    act(() => notify?.([], {} as ResizeObserver));
+    expect(view.container.querySelector(".game-editor-category-scrollbar")).toBeNull();
+  });
   it("lists named values directly and writes them without a search or an ID", async () => {
     const set = vi.fn(async (_category: string, id: string, value: number | string | boolean) =>
       ({id, label: "金币", value, valueType: "number" as const, min: 0, max: 100}));
