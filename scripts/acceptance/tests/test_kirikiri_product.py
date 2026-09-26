@@ -135,7 +135,7 @@ class KiriKiriProductAcceptanceTests(unittest.TestCase):
         self.assertIn("get pressed()", gamepad)
         self.assertIn("canvas.page().frames().map", contents)
         self.assertIn("globalThis.__retromTestGamepad", contents)
-        self.assertIn('[data-kirikiri-gamepad-cursor]', contents)
+        self.assertIn('[data-gamepad-cursor]', contents)
         self.assertIn("await setVirtualGamepadButton(canvas, 0, true);", contents)
         self.assertIn("await setVirtualGamepadButton(canvas, 1, true);", contents)
         self.assertIn('"standard-gamepad-control"', contract)
@@ -155,7 +155,7 @@ class KiriKiriProductAcceptanceTests(unittest.TestCase):
         self.assertEqual(contents.count("await setVirtualGamepadButton(canvas, 9, true);"), 2)
         self.assertIn('page.getByRole("dialog", { name: "游戏菜单", exact: true })', contents)
         self.assertNotIn('name: /kirikiri|KAG fixture/iu', contents)
-        self.assertIn('["取消", "创建存档", "退出游戏"]', contents)
+        self.assertIn('["取消", "手柄光标：开", "创建存档", "退出游戏"]', contents)
         self.assertIn('"immersive-exit-menu"', contract)
         self.assertIn('"immersiveLaunchId"', contract)
 

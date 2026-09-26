@@ -1481,7 +1481,7 @@ restart；必须停止 main loop、卸载文件系统并执行延迟清理，最
 
 - 上限：240 秒。执行：`make acceptance-case CASE=ACC-IMM-008`。
 - 流程：校验 EmulatorJS Provider declaration/Bundle/OpenAPI/Host binding 对 44 个 Target 的身份与 manifest digest 完全闭合；运行无重复 registry 扫描、44 Target 配置回归、普通桌面/移动 Player 产品用例。Provider 私有 adapter 版本不得进入 Retrom schema、API 或 Web。
-- 通过标准：未知或版本不匹配 adapter fail closed；新普通 adapter 在非沉浸分支与前代行为等价且不安装过滤。既有普通启动、存档、多盘与移动 HUD 不回退。
+- 通过标准：未知或版本不匹配 adapter fail closed；普通 adapter 不启用沉浸组合键策略，公共输入包装器在无策略时透传。手柄光标开启时仅消费其映射的控制。既有普通启动、存档、多盘与移动 HUD 不回退。
 - 证据：`data-check/deps-check`、adapter 单测、OpenAPI/schema 检查和既有产品 E2E 结果。
 
 ### ACC-IMM-009：资料库、标题首字符与默认收藏
@@ -1795,7 +1795,8 @@ Review 与普通预览会话。`negative-matrix/matrix.json` 必须精确声明 
 ### ACC-KIRIKIRI-001：KiriKiri2 KAG 最小产品闭环
 
 - 上限：300 秒。执行：`RETROM_KIRIKIRI_SMOKE_ARCHIVE=<absolute-licensed-kag-archive> make acceptance-case CASE=ACC-KIRIKIRI-001`；同时需要公共的 `RETROM_ACCEPTANCE_BASE_URL/USERNAME/PASSWORD` 与 `RETROM_CHROME_EXECUTABLE`，基础地址必须为 HTTPS origin或 loopback 验收 origin。
-- 流程：经正式 Upload 创建 `KIRIKIRI_PROJECT` Import，等待唯一 Review；打开 Review Preview，注入浏览器标准手柄，先证明 B 键产生取消语义，再用左摇杆驱动运行时可见虚拟指针到归一化坐标 `(0.5,0.34)`，以 A 键触发 smoke 固定的第一个 KAG 选项，等待离开并重新进入可保存标签及按需截图；审核发布后先创建独立沉浸模式 PRODUCT Launch，以两次 Select+Start 组合键打开 Retrom 退出菜单并核对三个动作，并在启动后制造一次不足 250ms 的空手柄采样，证明不会误入重连；再创建普通 PRODUCT Launch，分别记录 core `postRun` 后 Player 进入运行态和稍后 KAG 书签可存档的时刻，以同一手柄输入在第一个 KAG 可保存标签上从 A 到 B并创建 `KIRIKIRI_SAVE_BUNDLE_V1` checkpoint，再输入到 C；关闭原页面，以该存档创建 ID 不同的 PRODUCT Launch，等待服务端 state、KAG 标签就绪和书签恢复完成，确认回到 B后继续用手柄输入。另以样本固定游戏菜单触发脚本退出，必须离开整个 Player 并幂等 finish。两个普通 Product Launch 都在首个有效 canvas 出现时冻结项目索引、XP3 响应和 runtime asset Resource Timing 摘要。
+- 光标回归：普通更多菜单与沉浸菜单均能切换；关闭后不移动、不点击，重新开启须松开按键。暂停、断连和持键切换释放鼠标键且不产生额外 click；只有一枚公共光标。保留方向、A 点击、B 右键与不同 Launch 恢复后输入证据。
+- 流程：经正式 Upload 创建 `KIRIKIRI_PROJECT` Import，等待唯一 Review；打开 Review Preview，注入浏览器标准手柄，先证明 B 键产生取消语义，再用左摇杆驱动运行时可见虚拟指针到归一化坐标 `(0.5,0.34)`，以 A 键触发 smoke 固定的第一个 KAG 选项，等待离开并重新进入可保存标签及按需截图；审核发布后先创建独立沉浸模式 PRODUCT Launch，以两次 Select+Start 组合键打开 Retrom 游戏菜单并核对取消、手柄光标、创建存档、退出游戏四个动作，并在启动后制造一次不足 250ms 的空手柄采样，证明不会误入重连；再创建普通 PRODUCT Launch，分别记录 core `postRun` 后 Player 进入运行态和稍后 KAG 书签可存档的时刻，以同一手柄输入在第一个 KAG 可保存标签上从 A 到 B并创建 `KIRIKIRI_SAVE_BUNDLE_V1` checkpoint，再输入到 C；关闭原页面，以该存档创建 ID 不同的 PRODUCT Launch，等待服务端 state、KAG 标签就绪和书签恢复完成，确认回到 B后继续用手柄输入。另以样本固定游戏菜单触发脚本退出，必须离开整个 Player 并幂等 finish。两个普通 Product Launch 都在首个有效 canvas 出现时冻结项目索引、XP3 响应和 runtime asset Resource Timing 摘要。
 - 通过标准：预览、沉浸模式 Launch 和各普通 PRODUCT Launch 都运行锁定 KiriKiri2 core；标准手柄左摇杆/方向、A 确认和 B 取消通过 adapter 的可见虚拟指针生效，不能以 Playwright 直接鼠标点击或键盘输入替代；沉浸模式同一活动手柄的两次 Select+Start 必须打开包含“取消、创建存档、退出游戏”的 Retrom 菜单，单个不足 250ms 的缺失采样不显示“请重新连接手柄”。无恢复数据的 Player 必须在 core `postRun` 后进入运行态，此时 KAG 尚不稳定则仅禁用创建存档，不能继续显示全局 loading；恢复 Launch 仍须等待书签完成。游戏菜单退出产生、同时匹配当前 `index.wasm` stack 与四个已登记间接调用 trap 之一的同步异常或 JSPI rejection，只能上报一次 `EXIT_REQUESTED`；页面返回 `returnTo` 且 Launch/PlaySession 正常结束，不留下 page error，其他 wasm trap 必须传播。canvas backing buffer不是浏览器默认 `300×150`，backing/display 宽高比误差不超过 `0.01`，相对 `data-kirikiri-runtime-surface` 横纵居中偏差各不超过 1 px且持有焦点。预览、A、B、C、恢复 B和恢复后输入截图均为非黑有效画面；A/B/C 与恢复后画面按输入发生变化，三个存档链 PRODUCT Launch ID 互不相同。恢复判定只使用 B 与 C 之间发生变化的降采样像素，要求恢复帧到 B 的平均 RGB 距离严格小于到 C 距离的一半且至少有 100 个判别像素；不得因不属于存档状态的瞬时 UI 动画或重绘时序要求全画面 SHA 逐字相同。checkpoint 大小为 `1..64 MiB`，payload kind固定为 `KIRIKIRI_SAVE_BUNDLE_V1`。XP3 必须不小于 4 MiB且只产生 `206 Range`，首屏收到的 project bytes 严格小于索引声明的总大小，不能出现整份大型项目 archive 的 `200`；其他不超过当次阈值的小文件可整取，但须验证完整大小与身份，冷预览及两个 Launch 必须各自读取当前配置与索引，确认相同 project content identity 和核心资产身份。loading schemaVersion=4（逐阶段记录实际 BOOT 获取配置、来源大小与范围）的冷预览必须观测到实际有界 206 及四个固定核心资产请求；普通 Product 与恢复首屏不得重复下载已观测的同一内容块，四个核心资产 HTTP 请求必须为零。按需读取的音频等内容可能因场景与时间不同访问新块，必须逐块证明此前未读，不能把新块计为缓存失败，也不能把重复块隐藏在总量中。三个阶段的范围清单必须与请求数和字节数精确闭合；每个请求符合配置窗口及缺失区间，首屏仍须严格小于整个项目。全部观测覆盖 browser context 内的 Worker；结构化证据保存路径的 SHA-256、范围和计数/byte，不保留原项目路径。浏览器无 page error、console error或意外 dialog。
 - 能力边界：即时存档是 KAG `saveBookMark/loadBookMark` 的语义存档，保存 `/save` 与 `/savedata` 的确定性文件集合，不是任意 KiriKiri/TJS 游戏的 Wasm 内存快照。无法找到 KAG API、首个可保存标签或唯一启动 XP3 时必须 fail closed，不能生成看似成功但不可恢复的存档。加密来源归档无法在不接收密码的情况下进入安全扫描，服务端以 `ARCHIVE_ENCRYPTED_UNSUPPORTED` 拒绝，验收将该操作者输入记为 `BLOCKED`，不能误记为 core 运行失败；操作者可在仓库外解密后提供新的合法归档。
 - 证据：当次 `result.json`、`kirikiri-product.json`、六张 canvas PNG 与一张沉浸退出菜单 PNG。结构化证据只含非秘密产品 ID、菜单动作、payload kind/size、canvas 尺寸/居中/焦点、非黑像素、RGBA digest、按需加载计数/byte与错误计数，不含归档路径、文件名、游戏 bytes、账号、CSRF、cookie或 Launch capability。本地 `retrom-runtime` 候选 PASS 只允许进入 runtime Release 流程；Release 完成后 Retrom 必须解除本地链接、固定 tag/commit/assets并重跑本 Case。
@@ -2084,6 +2085,9 @@ Chrome 身份，生成九项场景报告和 `content-io-product.json`，再运�
 - 证据：`fantasy-product.json`、项目自有卡带和各阶段截图。自动化使用标准映射虚拟手柄，并观察真实 Web Audio 调度缓冲中存在非零音频；不替换音频播放或核心导出。实体手柄、听觉质量与未编译输入设备不在本 Case 证据范围内。
 
 ### ACC-FLASH-001：Ruffle 单文件与 SharedObject 产品闭环
+
+- 手柄光标扩展：默认关闭；普通与沉浸菜单开启后方向/左摇杆和 A/B 只产生鼠标操作，不再产生对应键盘动作。记录点击位置、拖动 buttons、关闭恢复键盘映射与同用户同游戏跨 Launch 偏好；不同用户/游戏及审核预览相互隔离。支持 MouseEvent 的 Kirikiri 与 PointerEvent 的 Ruffle 必须使用同一公共光标逻辑。
+
 
 
 Content I/O 独立性能子项为 `timeout 300 node scripts/acceptance/ruffle_performance.mjs`，使用

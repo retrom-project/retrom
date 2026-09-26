@@ -1,3 +1,4 @@
+import {rememberPlayerGame} from "@/features/player/gamepad-cursor-preference";
 import type { components } from "@/lib/api/generated/schema";
 import { api, writeHeaders } from "@/lib/api/client";
 import { newUuid } from "@/lib/crypto";
@@ -145,7 +146,10 @@ export async function launchImmersiveGame(gameId: string, returnTo: string, save
       await waitForValidation(jobId);
       continue;
     }
-    return readPlayUrl(result);
+    const playUrl = readPlayUrl(result);
+    const launchId = property(result, "launchId");
+    if (typeof launchId === "string") {rememberPlayerGame(launchId, gameId);}
+    return playUrl;
   }
   throw new Error("核心验证完成后仍无法启动");
 }

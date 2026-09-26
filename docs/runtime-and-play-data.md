@@ -313,3 +313,23 @@ Provider 在同源空白 iframe 中运行 GBE+ Pokémon Mini，支持标准手�
 `gbe-pokemini-state-v1-storage-v1`，上限 1 MiB。不同 Launch 恢复必须通过
 `ACC-POKEMINI-001`，不得以启动新游戏替代恢复成功。ROM 与 BIOS 按不可变 URL 持久缓存，
 再次 Launch 不重复下载；首次完整下载有公共进度。
+
+## 公共手柄光标
+
+`PlayerRuntimeV1.getGamepadCursor()` 是挂载后可选的公共能力入口，未提供或返回 null 表示不支持。
+返回的 `RuntimeGamepadCursorV1` 通过 `getState()` 提供当前开关及默认值，通过 `setEnabled(boolean)` 同步切换。
+该能力由当前实例报告，不改变 Launch Envelope、Provider manifest 或存档格式；Host 不按核心名称推断能力。
+Retrom 只负责菜单与本地偏好，启动入口将 Launch 与 Game 的偏好上下文写入当前标签页 sessionStorage；该上下文不参与授权。
+缺少上下文或浏览器存储不可用时仍可切换，仅不跨 Launch 记忆。
+
+retrom-runtime 的公共光标模块统一负责采样、绘制、死区、移动、拖动和输入生命周期。Kirikiri 与 Ruffle 共用该模块，
+核心适配只选择实际输入表面与 MouseEvent／PointerEvent 协议；Kirikiri 原独立光标循环已移除。
+方向键、左摇杆、A/B 与 LB 在光标开启时从交给核心的手柄快照中屏蔽，其他按钮和手柄保留原映射；Select/Start 保留宿主菜单识别。
+光标读取原始手柄快照，不额外调用有状态的宿主组合键过滤器，避免消费 Select/Start 单击脉冲。
+有宿主认领时只使用指定 Gamepad.index；普通模式选择一个已连接标准手柄。A/B 分别对应左右鼠标键，LB 将移动速度降至 20%。
+拖动的 move/up 必须携带准确 buttons，拖动超过 4 CSS px 后释放不另发 click。关闭、暂停、存档、失焦、断连和退出只释放，不合成点击。
+开启、恢复和切换认领后须等待受管控输入中立；关闭后也消费尚未松开的输入，避免泄漏给原生映射。
+真实键盘和鼠标继续使用原有路径。该能力不声明支持相对鼠标／Pointer Lock，也不代替纯键盘游戏的按键映射。
+
+产品验证见 [ACC-KIRIKIRI-001](./project-acceptance.md#acc-kirikiri-001kirikiri2-kag-最小产品闭环) 与
+[ACC-FLASH-001](./project-acceptance.md#acc-flash-001ruffle-单文件与-sharedobject-产品闭环)。

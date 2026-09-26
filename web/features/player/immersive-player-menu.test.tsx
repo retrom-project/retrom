@@ -3,6 +3,21 @@ import { describe, expect, it, vi } from "vitest";
 import { ImmersivePlayerMenu } from "./immersive-player-menu";
 
 describe("ImmersivePlayerMenu", () => {
+  it("puts the cursor switch between cancel and save without invoking exit", () => {
+    const onSelect = vi.fn(); const onConfirm = vi.fn();
+    const view = render(<ImmersivePlayerMenu gamepadCursor={{enabled: true, toggle: vi.fn()}} saveAvailable
+      overlay={{kind: "menu", error: "", notice: "", pending: false, selected: 3}}
+      onCancel={vi.fn()} onSelect={onSelect} onConfirm={onConfirm} />);
+    const content = within(view.container);
+    expect(content.getAllByRole("button").map(button => button.textContent)).toEqual([
+      "取消", "手柄光标：开", "创建存档", "退出游戏",
+    ]);
+    const control = content.getByRole("button", {name: "手柄光标：开"});
+    expect(control).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(control);
+    expect(onSelect).toHaveBeenCalledWith(3);
+    expect(onConfirm).toHaveBeenCalledOnce();
+  });
   it("shows NO_SAVE in the controller menu and disables save", () => {
     const view = render(<ImmersivePlayerMenu checkpointSemantics="NO_SAVE" saveAvailable={false}
       overlay={{kind: "menu", error: "", notice: "", pending: false, selected: 0}}

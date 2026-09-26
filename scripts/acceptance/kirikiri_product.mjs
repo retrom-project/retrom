@@ -237,7 +237,7 @@ async function openImmersiveExitMenu(page, canvas) {
   await dialog.waitFor({ state: "visible", timeout: 5_000 });
   await setVirtualGamepadButton(canvas, 8, false);
   await setVirtualGamepadButton(canvas, 9, false);
-  const actions = ["取消", "创建存档", "退出游戏"];
+  const actions = ["取消", "手柄光标：开", "创建存档", "退出游戏"];
   for (const action of actions) {await dialog.getByRole("button", { name: action, exact: true }).waitFor();}
   const screenshot = "screenshots/immersive-exit-menu.png";
   await page.screenshot({ path: join(caseDirectory, screenshot), fullPage: true });
@@ -390,7 +390,7 @@ async function moveVirtualGamepadCursor(canvas, targetX, targetY) {
 
 async function virtualGamepadCursorPosition(canvas) {
   return canvas.evaluate((element) => {
-    const cursor = element.ownerDocument.querySelector("[data-kirikiri-gamepad-cursor]");
+    const cursor = element.ownerDocument.querySelector("[data-gamepad-cursor]");
     const surface = element.closest("[data-kirikiri-runtime-surface]");
     if (!(cursor instanceof HTMLElement) || !(surface instanceof HTMLElement) || cursor.hidden) {return null;}
     const cursorRect = cursor.getBoundingClientRect();
