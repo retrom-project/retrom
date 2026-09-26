@@ -2,6 +2,26 @@ package launch
 
 import "strings"
 
+func providerDOSIndexResource(source ConfigSource, files []ConfigFile) (map[string]any, error) {
+	if source.CoreID != "dosbox_pure" || len(files) != 1 || files[0].LogicalName != "game.zip" ||
+		files[0].Format != "RETROM_DOS_DIRECT_ZIP_V1" || files[0].Size < 1 {
+		return nil, ErrCredential
+	}
+	identity, err := ContentIdentity(ContentView{
+		Digest: files[0].Digest, Format: files[0].Format, CoreID: source.CoreID,
+		ProviderID: source.ProviderID, TargetID: source.TargetID,
+		BundleSHA256: source.BundleDigest, DOSEntry: source.DOSEntry,
+	})
+	if err != nil {
+		return nil, err
+	}
+	url, err := RuntimeContentURL("game", identity, "index.json")
+	if err != nil {
+		return nil, err
+	}
+	return map[string]any{"kind": "FILE_TREE", "indexUrl": url, "contentDigest": identity}, nil
+}
+
 func providerBlobResource(
 	source ConfigSource,
 	kind string,

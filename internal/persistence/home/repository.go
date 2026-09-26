@@ -169,21 +169,25 @@ func (repository *Repository) FeaturedGame(
 	ctx context.Context, profileID string,
 ) (application.FeaturedGame, bool, error) {
 	var item application.FeaturedGame
-	var cover sql.NullString
+	var cover, defaultDOSEntry sql.NullString
 	err := repository.database.QueryRowContext(ctx, `
 SELECT ps.launch_session_id,g.id,m.title,m.description,p.id,p.name,pi.id,pi.name,ps.started_at_ms,
 (SELECT COALESCE(sum(all_sessions.active_duration_ms),0)
  FROM play_sessions all_sessions
  WHERE all_sessions.game_id=g.id AND all_sessions.profile_id=?),
 (SELECT count(*) FROM play_sessions all_sessions WHERE all_sessions.game_id=g.id AND all_sessions.profile_id=?),
-(SELECT a.id FROM game_assets a WHERE a.game_id=g.id AND a.kind='COVER' ORDER BY a.ordinal,a.id LIMIT 1)
+(SELECT a.id FROM game_assets a WHERE a.game_id=g.id AND a.kind='COVER' ORDER BY a.ordinal,a.id LIMIT 1),
+(SELECT variant.default_dos_entry FROM game_variants variant
+ WHERE variant.game_id=g.id AND variant.core_id='dosbox_pure'
+ AND EXISTS (SELECT 1 FROM dos_entries entry WHERE entry.game_id=g.id
+  AND entry.normalized_path=variant.default_dos_entry AND entry.enabled=1 AND entry.direct_launch_safe=1))
 FROM play_sessions ps JOIN games g ON g.id=ps.game_id JOIN games m ON m.id=g.id
 JOIN platform_instances pi ON pi.id=g.platform_instance_id JOIN platforms p ON p.id=pi.platform_id
 WHERE g.status='PUBLISHED' AND pi.enabled=1 AND ps.profile_id=?
 ORDER BY ps.started_at_ms DESC,ps.id DESC LIMIT 1`, profileID, profileID, profileID).Scan(
 		&item.LaunchID, &item.GameID, &item.Title, &item.Description, &item.Platform.ID,
 		&item.Platform.Name, &item.PlatformInstance.ID, &item.PlatformInstance.Name,
-		&item.LastPlayedAtMS, &item.ActiveDurationMS, &item.SessionCount, &cover)
+		&item.LastPlayedAtMS, &item.ActiveDurationMS, &item.SessionCount, &cover, &defaultDOSEntry)
 	if errors.Is(err, sql.ErrNoRows) {
 		return application.FeaturedGame{}, false, nil
 	}
@@ -191,6 +195,7 @@ ORDER BY ps.started_at_ms DESC,ps.id DESC LIMIT 1`, profileID, profileID, profil
 		return application.FeaturedGame{}, false, fmt.Errorf("query featured game: %w", err)
 	}
 	item.CoverAssetID = stringPointer(cover)
+	item.DefaultDOSEntry = stringPointer(defaultDOSEntry)
 	if err := repository.database.QueryRowContext(
 		ctx, `
 SELECT count(*) FROM save_states save JOIN (`+storequery.SaveRuntimeCompatibility+`) compatibility

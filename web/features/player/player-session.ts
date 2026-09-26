@@ -68,12 +68,14 @@ async function queueReviewScreenshot(params: PlayerSessionParams) {
 async function sendPlayProgress(params: PlayerSessionParams, keepalive = false): Promise<void> {
   if (!params.started.current || params.envelope.current?.session.purpose !== "PRODUCT") {return;}
   try {
-    await fetch(`/runtime/launches/${params.launchId}/progress`, {
+    const response = await fetch(`/runtime/launches/${params.launchId}/progress`, {
       method: "POST", credentials: "same-origin", keepalive,
       signal: keepalive ? undefined : AbortSignal.timeout(5_000),
       headers: {"Content-Type": "application/json"},
       body: JSON.stringify({activeDurationMs: params.progressClock.current.snapshot(performance.now())}),
     });
+    // Fetch resolves on headers; drain the small response before its timeout fires.
+    await response.text();
   } catch { /* Telemetry never controls the runtime or navigation. */ }
 }
 

@@ -207,9 +207,10 @@ func assertGameHomeAndActivity(
 	testassert.Falsef(t, testassert.Any(func() bool { return home.Code != http.StatusOK }, func() bool { return !strings.Contains(home.Body.String(), `"recentSaves":[{"activeDurationMs":60000`) }), "home recent save duration = %d: %s", home.Code, home.Body.String())
 	var homeResponse struct {
 		FeaturedGame *struct {
-			GameID          string `json:"gameId"`
-			Description     string `json:"description"`
-			HasSaveStates   bool   `json:"hasSaveStates"`
+			GameID          string  `json:"gameId"`
+			Description     string  `json:"description"`
+			HasSaveStates   bool    `json:"hasSaveStates"`
+			DefaultDOSEntry *string `json:"defaultDosEntry"`
 			LastSessionSave *struct {
 				SaveStateID string `json:"saveStateId"`
 			} `json:"lastSessionSave"`
@@ -230,6 +231,26 @@ func assertGameHomeAndActivity(
 		t.Fatal("home must include the current game description")
 	}
 	testassert.Falsef(t, testassert.Any(func() bool { return homeResponse.FeaturedGame == nil }, func() bool { return homeResponse.FeaturedGame.GameID != gameID }, func() bool { return !homeResponse.FeaturedGame.HasSaveStates }, func() bool { return homeResponse.FeaturedGame.LastSessionSave != nil }, func() bool { return len(homeResponse.RecentGames) != 1 }, func() bool { return homeResponse.RecentGames[0].SessionCount != 2 }, func() bool { return len(homeResponse.LatestGames) != 1 }, func() bool { return homeResponse.LatestGames[0].GameID != gameID }, func() bool { return homeResponse.LatestGames[0].CreatedAtMS != now }, func() bool { return len(homeResponse.QuickPlatforms) != 4 }, func() bool { return homeResponse.QuickPlatforms[0].ID != "dos" }, func() bool { return homeResponse.QuickPlatforms[0].PlayCount != 2 }), "home projection = %#v", homeResponse)
+	if homeResponse.FeaturedGame.DefaultDOSEntry != nil {
+		t.Fatalf("unexpected DOS default before review: %q", *homeResponse.FeaturedGame.DefaultDOSEntry)
+	}
+	mustExecHTTPTest(t, server.database, "UPDATE game_variants SET default_dos_entry='GAMES/DOOM.EXE' WHERE game_id=?", gameID)
+	homeWithDefault := httptest.NewRecorder()
+	server.Handler().ServeHTTP(homeWithDefault, httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/home", nil))
+	testassert.Falsef(t, homeWithDefault.Code != http.StatusOK, "home with DOS default = %d: %s", homeWithDefault.Code, homeWithDefault.Body.String())
+	mustDecodeHTTPTest(t, homeWithDefault.Body.Bytes(), &homeResponse)
+	if homeResponse.FeaturedGame == nil || homeResponse.FeaturedGame.DefaultDOSEntry == nil || *homeResponse.FeaturedGame.DefaultDOSEntry != "GAMES/DOOM.EXE" {
+		t.Fatalf("home DOS default = %#v", homeResponse.FeaturedGame)
+	}
+	mustExecHTTPTest(t, server.database, "UPDATE game_variants SET default_dos_entry='SETUP%.BAT' WHERE game_id=?", gameID)
+	homeWithUnsafeDefault := httptest.NewRecorder()
+	server.Handler().ServeHTTP(homeWithUnsafeDefault, httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/home", nil))
+	testassert.Falsef(t, homeWithUnsafeDefault.Code != http.StatusOK, "home with unsafe DOS default = %d: %s", homeWithUnsafeDefault.Code, homeWithUnsafeDefault.Body.String())
+	mustDecodeHTTPTest(t, homeWithUnsafeDefault.Body.Bytes(), &homeResponse)
+	if homeResponse.FeaturedGame == nil || homeResponse.FeaturedGame.DefaultDOSEntry != nil {
+		t.Fatalf("home must omit unsafe DOS default: %#v", homeResponse.FeaturedGame)
+	}
+	mustExecHTTPTest(t, server.database, "UPDATE game_variants SET default_dos_entry=NULL WHERE game_id=?", gameID)
 	sessionSaveID := uuid.NewString()
 	payloadDigest := sha256.Sum256(screenshot)
 	mustExecHTTPTest(t, server.database, `

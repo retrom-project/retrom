@@ -388,7 +388,7 @@ PRODUCT Player 在核心真正开始后按 30 秒间隔发送 `POST /runtime/lau
 
 `runtime` 身份必须逐字段匹配已激活 Bundle 与 Target declaration；`moduleUrl` 必须位于同一 `providerId/bundleSha256` 静态根且响应字节命中 `moduleSha256`。`session`、`runtime`、`resources[]`、`restore` 由共享 JSON Schema 与语义校验器闭合验证；`targetOptions` 先通过共享 JSON-safe/深度/大小边界，再由已激活 Target 的内联 `targetOptionsSchema` 精确校验，Provider Module mount 前以自身同一声明复核。Provider 私有的核心选择、引擎设置、启动动作、文件映射和兼容补丁只能位于该 Provider 的 `targetOptions` 或 Bundle 内部；Host、页面和数据库不得维护 `optionsKind`、第二份字段映射或按 `targetId` 补默认值。所有 URL 必须是契约允许的站内路径，响应不得含 capability、Blob ID、宿主路径或客户端可改写 URL。
 
-二进制端点支持 `GET`、`HEAD` 和单 Range；多 Range 返回 `416`。所有响应设置正确 MIME、`X-Content-Type-Options: nosniff`、`Accept-Ranges: bytes` 和强 ETag。DOS 的 `game.zip` 是从锁定基础 Blob与 entry 确定性派生的 seekable 虚拟 ZIP，HEAD/Range/完整 GET 必须同 size/ETag 且不落盘。受限 URL 不包含 Blob ID/hash，不设置 `public`，错误响应也不得泄露资源是否属于其他游戏。
+二进制端点支持 `GET`、`HEAD` 和单 Range；多 Range 返回 `416`。所有响应设置正确 MIME、`X-Content-Type-Options: nosniff`、`Accept-Ranges: bytes` 和强 ETag。DOS `FILE_TREE` 的 `index.json` 只在同一 Launch grant 和 content identity 下返回一个 `game.zip` 条目及虚拟 ZIP 的准确字节数；条目 URL 与索引同源且同 identity。DOS 的 `game.zip` 是从锁定基础 Blob 与 entry 确定性派生的 seekable 虚拟 ZIP，HEAD/Range/完整 GET 必须同 size/ETag 且不落盘。浏览器通过 Content I/O 的强 ETag Range Reader 按需读取此 URL。受限 URL 不包含 Blob ID/hash，不设置 `public`，错误响应也不得泄露资源是否属于其他游戏。
 
 运行内容的 `private immutable` 响应只允许同一浏览器缓存复用，不进入共享缓存；不同 Launch 锁定相同输入时
 生成相同 URL，因此可以直接命中已有私有缓存。任何真正到达服务器的请求仍逐次验证 content grant、Launch/

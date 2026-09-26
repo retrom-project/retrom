@@ -2,7 +2,7 @@ import Link from "next/link";
 import { AppIcon } from "@/components/app-icon";
 import { LaunchButton } from "@/features/player/launch-button";
 import { formatTime } from "@/lib/backend";
-import type { FeaturedGame } from "./home-data";
+import { featuredLaunchDOSEntry, type FeaturedGame } from "./home-data";
 import { HomeFeaturedMedia } from "./home-featured-media";
 
 function EmptyFeatured({ gameCount }: { gameCount: number }) {
@@ -26,7 +26,7 @@ export function HomeFeatured({ game, gameCount = 0, phone = false }: { game: Fea
       <div className="home-featured-details"><h2>{game.title}</h2></div>
       <FeaturedMetadata game={game} />
       <div className="home-featured-actions">
-        <div className="home-launch-control"><LaunchButton gameId={game.gameId} saveStateId={save?.saveStateId ?? null} returnTo="/" label={save ? "从存档继续" : phone ? "开始游戏" : "再玩一次"} /></div>
+        <div className="home-launch-control"><LaunchButton gameId={game.gameId} saveStateId={save?.saveStateId ?? null} dosEntry={featuredLaunchDOSEntry(game)} returnTo="/" label={save ? "从存档继续" : phone ? "开始游戏" : "再玩一次"} /></div>
         <Link className="home-detail-link" href={`/games/${game.gameId}`}>查看游戏详情</Link>
       </div>
       <p className="home-launch-note">本次将从{save ? "存档位置" : "游戏开头"}启动</p>

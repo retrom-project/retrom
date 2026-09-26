@@ -62,8 +62,9 @@ describe("Player page exit protection", () => {
   });
 
   it("sends cumulative progress independently of a failed prior request", async () => {
+    const response = new Response("{}", {status: 200});
     const fetchEvent = vi.spyOn(globalThis, "fetch").mockRejectedValueOnce(new Error("service restart"))
-      .mockResolvedValueOnce(new Response("{}", {status: 200}));
+      .mockResolvedValueOnce(response);
     const params = sessionParams();
     params.started.current = true;
     params.envelope.current = {session: {purpose: "PRODUCT"}} as LaunchEnvelopeV1;
@@ -75,6 +76,7 @@ describe("Player page exit protection", () => {
     expect(fetchEvent).toHaveBeenCalledTimes(2);
     expect(fetchEvent.mock.calls[0]?.[0]).toBe("/runtime/launches/launch-1/progress");
     expect(JSON.parse(String(fetchEvent.mock.calls[1]?.[1]?.body))).toHaveProperty("activeDurationMs");
+    expect(response.bodyUsed).toBe(true);
   });
 
   it("clears the progress timer when exit begins", async () => {
