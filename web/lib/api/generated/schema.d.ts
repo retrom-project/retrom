@@ -1957,7 +1957,7 @@ export interface paths {
             };
             cookie?: never;
         };
-        /** @description Serves only a manifest/integrity allowlisted file from the active content-addressed Provider Bundle. */
+        /** @description Serves only a manifest/integrity allowlisted file from the active content-addressed Provider Bundle. Cache-Control includes no-transform so proxies preserve the declared representation, byte length and strong ETag. */
         get: operations["getRuntimeProviderResource"];
         put?: never;
         post?: never;

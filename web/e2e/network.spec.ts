@@ -53,8 +53,11 @@ test("same-origin proxy applies fresh nonce and isolation headers", async ({ pag
     expect(response.headers()["x-content-type-options"]).toBe("nosniff");
     expect(response.headers()["referrer-policy"]).toBe("no-referrer");
   }
-  const runtime = await request.get(providerModule);
+  const runtime = await request.get(providerModule, {headers: {"Accept-Encoding": "gzip, deflate, br"}});
   expect(runtime.headers()["cross-origin-resource-policy"]).toBe("same-origin");
+  expect(runtime.headers()["cache-control"]).toContain("no-transform");
+  expect(runtime.headers()["content-encoding"]).toBeUndefined();
+  expect(Number(runtime.headers()["content-length"])).toBe((await runtime.body()).length);
 
   const internalOrigin = process.env.RETROM_E2E_INTERNAL_ORIGIN;
   if (internalOrigin) {

@@ -372,7 +372,7 @@ PRODUCT Player 在核心真正开始后按 30 秒间隔发送 `POST /runtime/lau
 
 | 路径 | 授权与缓存 |
 | --- | --- |
-| `/runtime/providers/{providerId}/{bundleSha256}/{runtimePath}` | Provider Bundle 的唯一静态入口。`providerId + bundleSha256` 必须命中已激活且通过完整性验证的 Bundle，`runtimePath` 必须命中该 Bundle 的 closed file allowlist；响应按声明 MIME 返回 `public, max-age=31536000, immutable` 与强 ETag。HTML 仅允许 `retrom-runtime/assets/jsbeeb/site/index.html`，且 MIME 必须为 `text/html; charset=utf-8`；其他 Provider、摘要、路径、查询或本机字节漂移均 fail closed。 |
+| `/runtime/providers/{providerId}/{bundleSha256}/{runtimePath}` | Provider Bundle 的唯一静态入口。`providerId + bundleSha256` 必须命中已激活且通过完整性验证的 Bundle，`runtimePath` 必须命中该 Bundle 的 closed file allowlist；响应按声明 MIME 返回 `public, max-age=31536000, immutable, no-transform` 与强 ETag；代理不得改变 representation、字节长度或强 ETag。HTML 仅允许 `retrom-runtime/assets/jsbeeb/site/index.html`，且 MIME 必须为 `text/html; charset=utf-8`；其他 Provider、摘要、路径、查询或本机字节漂移均 fail closed。 |
 | `/content/assets/{assetId}` | 只用于已发布封面/截图等站内可见媒体；服务端解析逻辑 asset ID。每个 Asset ID 在存续期内 bytes 不变，替换 COVER/VIDEO 等媒体必须创建新 Asset ID 与新 URL，current 切换后旧 URL 立即失效；`public, max-age=31536000, immutable`。浏览器必须携带当前 session 直接请求该逻辑 URL；前端不得把受保护媒体交给不会转发 session cookie 的 Next.js 图片优化器。 |
 | `/content/save-states/{saveStateId}/screenshot` | 只用于确有截图、未删除且所属游戏仍已发布的手动存档；服务端解析逻辑 SaveState ID，不向浏览器暴露 Blob ID。没有截图、存档删除或游戏下架均返回 404；成功响应固定为 `private, no-store`。 |
 | `/api/v1/admin/review-assets/{assetId}` | 用于仍待审核 Item、候选媒体、人工上传审核媒体、来源媒体或审核运行截图；服务器来源 `assetId` 为统一 Source Item ID 并带 `kind=COVER|VIDEO`（默认 COVER），必须恰好命中一个来源。响应为 `private, no-store`，不得把上游 URL 或 Blob ID 暴露给浏览器；终态工作流异步释放媒体。 |

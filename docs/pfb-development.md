@@ -74,7 +74,7 @@ worktree，再读取该 PFB 的清单准备选中源码；`REPOS` 精确选择�
 
 PFB 启动前，`retrom-runtime/scripts/pfb-provider-watch.mjs --once` 从当前基座 active descriptor 与 integrity 文件读取 asset index/Target declaration，使用 esbuild 只生成自包含 `client.mjs`，并读取 `provider-sources.json` 声明的本地 adapter 资源。所有开发文件的路径、大小、摘要、MIME 与 base64 字节组成一份 `dev-provider.json`；构建完成后原子替换此文件，不保留历史目录。失败构建不改变已发布文件。Go 启动时一次加载并校验完整文件到内存，旧进程继续使用启动时的字节，新进程重启后读取新文件，因此 watcher 与 restart 之间不会出现 module SHA/ETag/响应字节错配。常驻 watcher 监听 `src/`、`assets/`、package 与 provider source 声明。
 
-Go 在启动时验证：descriptor 严格字段、provider/base bundle 身份、路径闭合、排序、size/SHA-256/media type 和内含字节 和所有 override 都属于基座公开文件。开发文件沿原 `/runtime/providers/<provider>/<base-bundle>/...` 路径返回，使用 `Cache-Control: no-store` 与开发 ETag；Launch Envelope 保留基座 bundle/Target declaration，但 `moduleSha256` 使用开发模块摘要。当前阶段 watcher 更新后执行一次 `pfb-restart`，让 Go 重新加载开发文件；无需 `pfb-build`。
+Go 在启动时验证：descriptor 严格字段、provider/base bundle 身份、路径闭合、排序、size/SHA-256/media type 和内含字节 和所有 override 都属于基座公开文件。开发文件沿原 `/runtime/providers/<provider>/<base-bundle>/...` 路径返回，使用 `Cache-Control: no-store, no-transform` 与开发 ETag；Launch Envelope 保留基座 bundle/Target declaration，但 `moduleSha256` 使用开发模块摘要。当前阶段 watcher 更新后执行一次 `pfb-restart`，让 Go 重新加载开发文件；无需 `pfb-build`。
 
 显式构建已声明的 EmulatorJS fork，或符合平面资产候选契约的 retrom-runtime 核心（如 `kirikiri2`）后，可在 `.pfb/workspace/providers/dev/core-inputs.json` 选择候选目录，然后执行 `pfb-up PFB_SELECT=false` 或 `pfb-restart`。选择的核心必须属于当前开发 Provider：
 
