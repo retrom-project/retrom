@@ -5,6 +5,7 @@ import { registerRuntimeAcceptanceTests } from "./acceptance-runtime-cases";
 import { registerCoreExpansionAcceptanceTests } from "./acceptance-core-expansion-cases";
 import { verifyUserDesktopLayouts } from "./acceptance-user-layout";
 import { verifyBIOSOnlyDependencies } from "./bios-only-dependencies";
+import {seedHomeState, uiLayoutState} from "./ui-layout-state";
 
 test.beforeEach(async ({ page }, testInfo) => {
   const multiViewport = /^ACC-UI-00[56]\b/.test(testInfo.title);
@@ -12,6 +13,14 @@ test.beforeEach(async ({ page }, testInfo) => {
   const origin = process.env.RETROM_WEB_ORIGIN ?? "http://localhost:4000";
   const response = await retryOnceOnConnectionReset(() => page.request.post("/api/v1/auth/login", { data: { username: "test", password: "test" }, headers: { Origin: origin } }));
   expect(response.ok()).toBe(true);
+  if (testInfo.title.includes("sparse home rails")) {
+    uiLayoutState("isolate");
+    seedHomeState("populated");
+  }
+});
+
+test.afterEach(async ({}, testInfo) => {
+  if (testInfo.title.includes("sparse home rails")) {uiLayoutState("restore");}
 });
 
 test("ACC-UI-001 authenticated navigation exposes the administrator entry", async ({ page }, testInfo) => {
@@ -75,9 +84,9 @@ test("ACC-UI-002 import parent and child routes preserve browser history", async
 
 test("ACC-UI-003 library filters and game detail use URL state", async ({ page }, testInfo) => {
   await page.goto("/");
-  await expect(page.locator("[data-home-layer]")).toHaveCount(4);
+  await expect(page.locator("[data-home-layer]")).toHaveCount(5);
   await expect(page.getByText("我的资料库", { exact: true })).toBeVisible();
-  const platformLayer = page.locator('[data-home-layer="3"]');
+  const platformLayer = page.locator('[data-home-layer="4"]');
   await expect(platformLayer.getByRole("heading", { name: "换个平台逛逛" })).toBeVisible();
   await platformLayer.getByRole("link", { name: "进入游戏库", exact: true }).click();
   await expect(page).toHaveURL(/\/library$/);
@@ -319,6 +328,7 @@ test("ACC-UI-006 admin pages remain reachable at desktop breakpoints", async ({ 
     await expect(descriptionRow.getByRole("textbox", { name: "给用户看的说明" })).toHaveAttribute("rows", "1");
     const after = await descriptionRow.evaluate((element) => element.getBoundingClientRect().height);
     expect(Math.abs(after - before)).toBeLessThanOrEqual(4);
+    await page.screenshot({path: evidencePath(testInfo, "directory-inline-description.png"), fullPage: true});
     await descriptionRow.getByRole("button", { name: "取消修改说明" }).click();
   }
   await page.getByRole("button", { name: "新建游戏目录" }).click();

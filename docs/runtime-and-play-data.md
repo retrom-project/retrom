@@ -124,9 +124,9 @@ Provider 可在存档边界无损压缩完整原生 checkpoint，格式仍由 Ta
 
 ## 9. PlaySession 生命周期
 
-游玩事件由 `internal/service/launch.PlayController` 判断权限、事件形状、连续序号、精确重放和服务端计时，`internal/persistence/launch` 在同一事务更新会话、事件、时长及 capability 撤销。加载期间 finish 直接关闭 CREATED Launch，不创建 PlaySession；预览保持不计入产品统计的语义。未知事件和已撤销会话不能借重放绕过校验，查询或提交失败保留原因。写入重验来源/游玩版本、状态、序号与硬/空闲截止时刻，失败时不能部分累计时长或部分撤销。
+PRODUCT Player 在核心真正开始后累计可见、未暂停的运行时间，每 30 秒向 `progress` 上报累计毫秒数；首次成功上报才创建 PlaySession，重复或乱序样本只保留最大值。统计失败不阻断运行、存档或退出，也不撤销 Launch 权限。退出时停止时钟并尽力提交最后一份累计值；加载中退出先取消 Provider 加载，不产生统计请求。PRODUCT 内容授权与回收独立遵循 hard expiry、明确撤销和游戏删除，具体协议见 HTTP 与数据模型契约。
 
-Provider 报告真实 ready/start 后，Host 才创建 PlaySession。heartbeat 以连续序号报告上一时段的 running/visible/paused，服务端按接收时间计费；页面隐藏、暂停、失联、重放或跳号不能伪造时长。用户菜单退出、游戏自身退出和异常退出最终都幂等 finish Launch；卸载失败由 hard expiry 收口。
+`start/heartbeat/finish` 连续事件仅为旧客户端及审核 Preview 保留，新 PRODUCT Player 不调用它们。旧事件由 `internal/service/launch.PlayController` 校验权限、连续序号与精确重放，在同一事务更新会话、事件及权限状态。审核 Preview 不计入产品统计，退出和加载取消仍通过 `finish` 关闭授权；重复 finish 幂等。未知事件和已撤销会话不能借重放绕过校验。
 
 ## 10. 验证与发布门禁
 

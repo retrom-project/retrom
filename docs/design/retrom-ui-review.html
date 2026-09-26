@@ -150,6 +150,7 @@ input:not([type='checkbox'], [type='radio'], [type='range'], [type='file'], [typ
   line-height: 1.5;
 }
 textarea { min-height: 112px; resize: vertical; }
+textarea[rows='1'] { min-height: var(--control-height); height: var(--control-height); resize: none; }
 input[type='checkbox'], input[type='radio'], input[type='range'] { accent-color: var(--purple); }
 input::placeholder, textarea::placeholder { color: var(--muted); opacity: 1; }
 select:focus-visible, input:focus-visible, textarea:focus-visible, .import-directory-trigger:focus-visible {

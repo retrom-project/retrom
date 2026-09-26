@@ -582,10 +582,13 @@ function registerLanUpload(): void {
     });
     await expect(page.getByRole("heading", { name: /^1 个文件/ })).toBeVisible();
     await page.getByRole("button", { name: "下一步" }).click();
-    await expect(page.locator("#directory")).toHaveValue("");
-    const targetDirectory = await page.locator("#directory option:not([disabled])").first().getAttribute("value");
-    expect(targetDirectory).toBeTruthy();
-    await page.locator("#directory").selectOption(targetDirectory!);
+    const targetTrigger = page.getByRole("button", {name: "目标游戏目录 请选择目标游戏目录"});
+    await expect(targetTrigger).toHaveAttribute("aria-expanded", "false");
+    await targetTrigger.click();
+    const targetChoices = page.getByRole("region", {name: "可选游戏目录"});
+    await targetChoices.getByRole("searchbox", {name: "搜索目录、平台或核心"}).fill("NES 游戏");
+    await targetChoices.getByRole("button", {name: /^NES 游戏 /}).click();
+    await expect(page.getByRole("button", {name: "目标游戏目录 NES 游戏"})).toBeVisible();
     await page.locator("#provider").selectOption("NONE");
     await page.getByRole("button", { name: "开始上传并验证" }).click();
     await expect(page.getByRole("heading", { name: "导入任务已创建" })).toBeVisible({ timeout: 30_000 });
