@@ -26,6 +26,9 @@ describe("GameEditorPanel", () => {
     fireEvent.change(panel.getByRole("spinbutton", {name: "修改金币"}), {target: {value: "50"}});
     fireEvent.click(panel.getByRole("button", {name: "应用"}));
     await waitFor(() => expect(set).toHaveBeenCalledWith("gold", "gold", 50));
+    const notice = await panel.findByRole("status");
+    expect(notice).toHaveTextContent("已应用修改");
+    expect(notice.parentElement).toContainElement(view.container.querySelector(".game-editor-help"));
     fireEvent.click(panel.getByRole("button", {name: "道具"}));
     await waitFor(() => expect(panel.getByText("魔法药")).toBeVisible());
     expect(panel.getByText("当前：0", {exact: false})).toBeVisible();

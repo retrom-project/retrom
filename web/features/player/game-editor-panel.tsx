@@ -20,12 +20,17 @@ export function GameEditorPanel({editor, immersive, onClose}: {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
+  const [notice, setNotice] = useState<{text: string} | null>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const requestSequence = useRef(0);
 
   useEffect(() => {closeRef.current?.focus();}, []);
+  useEffect(() => {
+    if (!notice) {return;}
+    const timer = window.setTimeout(() => setNotice(null), 3200);
+    return () => window.clearTimeout(timer);
+  }, [notice]);
   useEffect(() => {
     let active = true;
     void editor.categories().then((result) => {
@@ -89,7 +94,7 @@ export function GameEditorPanel({editor, immersive, onClose}: {
   function chooseCategory(value: string) {
     requestSequence.current += 1;
     setCategory(value); setEntries([]); setLoading(true); setNextOffset(null);
-    setQuery(""); setSearch(""); setSearchOpen(false); setNotice("");
+    setQuery(""); setSearch(""); setSearchOpen(false); setNotice(null);
   }
 
   async function save(entry: RuntimeGameEditEntryV1, value: number | string | boolean) {
@@ -97,9 +102,9 @@ export function GameEditorPanel({editor, immersive, onClose}: {
       const updated = await editor.set(category, entry.id, value);
       setEntries((current) => current.map((item) => item.id === updated.id ? updated : item));
       setError("");
-      setNotice(`${entry.label} 已修改。`);
+      setNotice({text: "已应用修改。离开前请创建存档。"});
       if (category === "actors") {void load(category, search, 0);}
-    } catch {setError(`${entry.label} 修改失败；该值可能超出游戏允许的范围。`);}
+    } catch {setNotice(null); setError(`${entry.label} 修改失败；该值可能超出游戏允许的范围。`);}
   }
   const categoryLabel = categories.find((item) => item.id === category)?.label ?? "可修改";
   function submitSearch() {
@@ -122,12 +127,11 @@ export function GameEditorPanel({editor, immersive, onClose}: {
   return <section className={`game-editor-overlay${immersive ? " is-immersive" : ""}`} role="dialog" aria-modal="true" aria-labelledby="game-editor-title" onKeyDown={trapFocus}>
     <div ref={panelRef} className="game-editor-panel">
       <header className="game-editor-head"><div><small>当前游戏</small><h1 id="game-editor-title">游戏修改</h1></div><button ref={closeRef} className="button secondary" type="button" onClick={onClose}>返回游戏</button></header>
-      <p className="game-editor-help">修改立即生效。离开前请创建存档，以保留修改后的进度。</p>
+      <div className="game-editor-feedback"><p className="game-editor-help" aria-hidden={Boolean(notice)}>修改立即生效。离开前请创建存档，以保留修改后的进度。</p>{notice ? <p className="game-editor-notice" role="status">{notice.text}</p> : null}</div>
       <nav className="game-editor-categories" aria-label="修改类别">{categories.map((item) => <button key={item.id} type="button" className={`button secondary${item.id === category ? " is-active" : ""}`} aria-pressed={item.id === category} onClick={() => chooseCategory(item.id)}>{item.label}</button>)}</nav>
       {category ? <GameEditorToolbar label={categoryLabel} searchOpen={searchOpen} onSearch={toggleSearch} onRefresh={() => void load(category, search, 0)} /> : null}
       {searchOpen ? <GameEditorSearch query={query} hasFilter={Boolean(search)} onQuery={setQuery} onSubmit={submitSearch} onClear={() => {setQuery(""); setSearch("");}} /> : null}
       {error ? <p className="game-editor-error" role="alert">{error}</p> : null}
-      {notice ? <p className="game-editor-notice" role="status">{notice}</p> : null}
       <GameEditorList category={category} categoryLabel={categoryLabel} entries={entries} loading={loading} filtered={Boolean(search)} onSave={save} />
       <GameEditorMore nextOffset={nextOffset} loading={loading || loadingMore} onMore={(page) => void load(category, search, page)} />
     </div>
