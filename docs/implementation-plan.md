@@ -53,7 +53,7 @@ flowchart LR
 
 ## 3. Clean migration 落地顺序
 
-下面 001–014 是此次重建的未发布基线。旧开发库停机归档后重建，不提供历史数据转换或双写。迁移只保留表、声明式约束与索引，跨表校验、状态转换及关联写入进入应用存储层；不创建 trigger/view。校验和检查与当前前缀续跑保持严格，正式发布后的兼容扩展另行追加并验证升级路径。
+下面 001–016 是此次重建的未发布基线。旧开发库停机归档后重建，不提供历史数据转换或双写。迁移保留表、声明式约束、索引与 Blob 引用计数 trigger；其他跨表校验、状态转换及关联写入进入应用存储层，不创建 view。校验和检查与当前前缀续跑保持严格，正式发布后的兼容扩展另行追加并验证升级路径。
 
 1. `001_identity.sql`：账号、凭据、session、account link 与实例状态；
 2. `002_catalog.sql`：Platform/Core、RuntimeProvider/RuntimeTarget、Core binding 与零实例目录的 PlatformInstance；
@@ -67,9 +67,11 @@ flowchart LR
 10. `010_indexes.sql`：在 owner table 存在后建立的 Provider/Target/profile/pack/checkpoint/Launch 索引。
 11. `011_import_batch_discard.sql`：批次当前处置、内部上传归属与停止后发布/重试围栏；数据释放复用现有 PayloadRelease/GC。
 
-12. `012_game_save_sync.sql`：原生游戏数据的可覆盖存档、会话绑定、数据版本、最近同步时间与冻结恢复输入；初始化及冻结输入由会话存储方法维护。
+12. `012_game_save_sync.sql`：原生游戏数据的可覆盖存档、会话绑定、数据版本、最近同步时间；初始化及存档版本绑定由会话存储方法维护。
 13. `013_bios_session_retirement.sql`：BIOS 延迟回收索引与 Launch 回收排期表；会话创建、状态与心跳在代码中维护排期。
 14. `014_metadata_media_queue.sql`：独立 MEDIA_FETCH 的资产任务绑定、冻结顺序与持久 Run 预算；复用通用 Job 执行记录。
+15. `015_play_resilience.sql`：游玩会话与断线恢复的当前状态约束。
+16. `016_blob_reference_counts.sql`：为每条保护性 Blob 边维护同事务引用计数，归档已物化成员随根引用计数变化。
 
 循环 current state 使用数据模型规定的 deferred FK；所有 migration 始终保持 `foreign_keys=ON`，建库后执行 `foreign_key_check` 与 schema introspection。每条 migration 都在事务中应用并记录 name/checksum；运行时代码不按 migration 数字分支，不在业务请求中关闭外键、回填数据或动态修补 schema。
 
@@ -175,15 +177,15 @@ flowchart LR
 
 ### M16：Payload 生命周期与 Game 永久删除
 
-范围：在 001–014 最终基线中同步更新 OpenAPI 与对应领域建表文件，建立 Blob/ownership registry 双向门禁 v2 和各领域 payload state；随后实现持久 PayloadRelease/Provider TTL/BLOB_GC dispatcher，并把普通上传、Pegasus、文件/媒体替换的全部终态入口接通。最后实现 Game 影响摘要、墓碑式永久删除、共享引用保护、公共内容阻断、最近/收藏历史墓碑和管理端进度/重试。
+范围：在 001–016 最终基线中同步更新 OpenAPI 与对应领域建表文件，建立 Blob/ownership registry 双向门禁 v2 和各领域 payload state；随后实现持久 PayloadRelease/Provider TTL/BLOB_GC dispatcher，并把普通上传、Pegasus、文件/媒体替换的全部终态入口接通。最后实现 Game 影响摘要、墓碑式永久删除、共享引用保护、公共内容阻断、最近/收藏历史墓碑和管理端进度/重试。
 
-退出门禁：完整执行 `ACC-GAME-003`、`ACC-IMP-007/008`、`ACC-PEG-004`、`ACC-CAS-002`、`ACC-STOR-001`、`ACC-UI-008`，并运行 API、后端、集成、前端、`make web-e2e` 与 `make ci` 全门禁。全新数据库和开发实例必须重建；普通上传与 Pegasus 发布/丢弃、共享 Blob、进程中断、provider TTL、Game 删除和 GC 宽限均需确定性证据。正式文档与统一 UI 源/导出 HTML 闭环后删除临时方案目录。
+退出门禁：完整执行 `ACC-GAME-003`、`ACC-IMP-007/008`、`ACC-PEG-004`、`ACC-CAS-002`、`ACC-STOR-001`、`ACC-UI-008`，并运行 API、后端、集成、前端、`make web-e2e` 与 `make ci` 全门禁。全新数据库和开发实例必须重建；普通上传与 Pegasus 发布/丢弃、共享 Blob、进程中断、provider TTL、Game 删除和即时 GC均需确定性证据。正式文档与统一 UI 源/导出 HTML 闭环后删除临时方案目录。
 
 ### M17：EmulationStation 服务器目录导入垂直切片
 
 范围：先同步导入、数据、HTTP、UI、质量、验收契约与 OpenAPI，再在 clean `001`–`013` lineage 内完成严格 EmulationStation XML parser、受信 root 下精确小写 `gamelist.xml` 的递归 no-follow 扫描、每份有效清单一个 Collection 的显式 `IMPORT|SKIP` 映射、来源/目标快照与漂移检查、异步复制和普通 library import/review handoff。扫描期只读取有界 XML、目录 facts、M3U 和媒体/CHD 头，不读取完整游戏内容、不写业务 Blob；执行期复用普通去重、CoreValidation、DAT、BIOS、M3U/Arcade 依赖、审核、严格 READY 快速审批与 payload release。Worker 在 `REVIEW_PENDING` 停止，只有普通 Approve 或现有快速审批事务创建 Game。前端把服务器导入页扩展为 BIOS、Pegasus、EmulationStation 三张等权卡，接通 EmulationStation 三步 Drawer、可恢复详情和来源限定审核入口。
 
-退出门禁：完整执行 `ACC-ES-001`–`006`，并回归 `ACC-PEG-001`–`006`、`ACC-IMP-001/003/007/008/009`、`ACC-MDISC-001/004`、`ACC-BIOS-003/006`、`ACC-CAS-002`、`ACC-BKP-001`、`ACC-GAME-001/003`。必须运行 `make quality-structure-check`、`make fmt-check`、`make build`、`make test`、`make lint-go`、`make integration-test`、`make web-install`、`make web-lint`、`make web-typecheck`、`make web-test`、`make web-build`、`make api-generate`、`make api-check`、`make public-fixtures-check`、`make web-e2e` 与 `make ci`。验收必须分别证明“一个所选目录含多个子目录且每个子目录各有 `gamelist.xml`”与“一个无子目录的目录内只有一份 `gamelist.xml` 和多份游戏文件”均正确扫描、逐 Collection 映射并交接审核；项目自有 GBA EmulationStation fixture 必须从真实扫描、审核、发布走到 mGBA 核心帧，发布后 Game 删除还须证明流程 payload、Game payload 与共享 Blob 引用按宽限期安全释放。授权本地 Batocera 目录只可用于隔离开发实例人工验证，不进入自动测试、证据正文或仓库。正式 UI 源、导出 HTML 和 390/1280/2560/物理 4K 150% 当次视觉与无障碍复核全部闭环后才可删除临时设计目录，本地图片不得提交。
+退出门禁：完整执行 `ACC-ES-001`–`006`，并回归 `ACC-PEG-001`–`006`、`ACC-IMP-001/003/007/008/009`、`ACC-MDISC-001/004`、`ACC-BIOS-003/006`、`ACC-CAS-002`、`ACC-BKP-001`、`ACC-GAME-001/003`。必须运行 `make quality-structure-check`、`make fmt-check`、`make build`、`make test`、`make lint-go`、`make integration-test`、`make web-install`、`make web-lint`、`make web-typecheck`、`make web-test`、`make web-build`、`make api-generate`、`make api-check`、`make public-fixtures-check`、`make web-e2e` 与 `make ci`。验收必须分别证明“一个所选目录含多个子目录且每个子目录各有 `gamelist.xml`”与“一个无子目录的目录内只有一份 `gamelist.xml` 和多份游戏文件”均正确扫描、逐 Collection 映射并交接审核；项目自有 GBA EmulationStation fixture 必须从真实扫描、审核、发布走到 mGBA 核心帧，发布后 Game 删除还须证明流程 payload、Game payload 与共享 Blob 引用在引用归零后安全释放。授权本地 Batocera 目录只可用于隔离开发实例人工验证，不进入自动测试、证据正文或仓库。正式 UI 源、导出 HTML 和 390/1280/2560/物理 4K 150% 当次视觉与无障碍复核全部闭环后才可删除临时设计目录，本地图片不得提交。
 
 ### M18：标准手柄沉浸模式垂直切片
 
@@ -212,7 +214,7 @@ OpenAPI、后端、集成、前端、结构、公开 fixture、data/dependency�
 
 1. 冻结 Provider contract、canonical JSON、Bundle layout、Target declarations 和 Product Core bindings；EmulatorJS 44 个 Target 与 retrom-runtime 17 个 Target 只有各 Provider declaration 一份映射事实源。
 2. 建立确定性 candidate/release Bundle、安装器、active descriptor 与只向前升级验证；candidate 与 production 目录、锁和镜像输入完全分离。
-3. 将最终 Provider/Target current-state schema 直接整合到 001–014，并同步 OpenAPI、Go catalog/launch/save 和全部领域引用；旧开发数据归档重建，不实现转换、降级、回滚或双读路径。
+3. 将最终 Provider/Target current-state schema 直接整合到 001–016，并同步 OpenAPI、Go catalog/launch/save 和全部领域引用；旧开发数据归档重建，不实现转换、降级、回滚或双读路径。
 4. 所有运行入口只返回 Launch Envelope V1；Web 只经共享 dispatcher 加载 Provider module 并操作 `PlayerRuntimeV1`，不保留第二个 registry 或 family factory。
 5. 将 EmulatorJS、RPG Maker、ONS、KiriKiri、Butterscotch、TyranoScript、WASM-4、单机、多盘、沉浸、Validation  行为全部迁移到 Provider 生命周期。
 6. 更新生产/PFB边界：PFB改为bind-mount轻量开发容器，loose provider只在合法test PFB中使用并按路径、大小和字节摘要校验；release input digest、生产镜像与正式active identity不读取`.pfb/`。

@@ -142,7 +142,7 @@ func TestGarbageCancelledCandidateCannotBypassNewRetention(t *testing.T) {
 	err = dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT count(*) FROM blobs WHERE id='manual-gc-blob'`).Scan(&blobs)
 	_, physicalErr := os.Stat(fixture.blobs.Path(job.Input.Inputs.SHA256))
 	if err != nil || blobs != 1 || physicalErr != nil {
-		t.Fatalf("cancelled candidate bypassed retention: blobs=%d read=%v physical=%v", blobs, err, physicalErr)
+		t.Fatalf("cancelled candidate deleted a registered Blob: blobs=%d read=%v physical=%v", blobs, err, physicalErr)
 	}
 }
 

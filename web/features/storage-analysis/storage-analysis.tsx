@@ -118,7 +118,7 @@ function Details({ snapshot }: { snapshot: StorageSnapshot }) {
     <article className="panel">
       <div><span>清理候选视图</span><strong>{cleanup.blobCount} 个 Blob</strong></div>
       <ByteValue className="storage-detail-total" bytes={cleanup.bytes} label="清理候选引用量" />
-      <p>替换或移除后，失去最后引用的数据会先进入这里；已登记总量在默认 7 天宽限期后才会下降。ROM 与同一安装槽的 BIOS 替换会同步清理绑定的旧存档。</p>
+      <p>替换或移除后，失去最后引用的数据会进入清理队列；后台删除 Blob 后，已登记总量才会下降。ROM 替换会清理绑定旧内容的存档；BIOS 替换会撤销使用旧 BIOS 的启动，存档仍可使用。</p>
     </article>
   </section>;
 }
@@ -260,7 +260,7 @@ function StorageCleanupDialog({ state }: { state: StorageViewState }) {
   return <ConfirmDialog
     open={state.cleanupOpen}
     title="立即清理未引用数据？"
-    description="这会跳过默认保留期并立即安排回收，操作不可撤销；每个 Blob 删除前仍会重新检查是否已被引用。"
+    description="这会补齐未引用数据的清理任务并重试失败任务；每个 Blob 删除前仍会重新检查引用计数。"
     confirmLabel="立即清理"
     tone="danger"
     busy={state.cleaning}

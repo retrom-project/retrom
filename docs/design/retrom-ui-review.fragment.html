@@ -3375,7 +3375,7 @@
   </div>
 
   <div class="rt-dialog-backdrop" data-batch-discard-dialog hidden><section class="rt-dialog" role="alertdialog" aria-modal="true" aria-labelledby="rt-batch-discard-title"><div class="rt-dialog-head"><span class="rt-dialog-mark" aria-hidden="true">!</span><div><h2 id="rt-batch-discard-title">丢弃本批次未发布内容？</h2><p class="rt-dialog-copy">本批次所有待审核和导入失败的内容都会丢弃，无法继续审核或重试导入。已发布游戏和服务器原始文件保留；无引用文件按现有 GC 保留期回收。</p></div></div><div class="rt-dialog-actions"><button type="button" class="rt-button" data-close-batch-discard>取消</button><button type="button" class="rt-button rt-button-danger" data-confirm-batch-discard>确认丢弃</button></div></section></div>
-  <div class="rt-dialog-backdrop" data-storage-cleanup-dialog hidden><section class="rt-dialog" role="alertdialog" aria-modal="true" aria-labelledby="rt-storage-cleanup-title"><div class="rt-dialog-head"><span class="rt-dialog-mark" aria-hidden="true">!</span><div><h2 id="rt-storage-cleanup-title">立即清理未引用数据？</h2><p class="rt-dialog-copy">这会跳过默认保留期并立即安排回收，操作不可撤销；每个 Blob 删除前仍会重新检查是否已被引用。</p></div></div><div class="rt-dialog-impact">当前快照中有 <strong>53 个 Blob</strong>、<strong>1.3 GiB</strong> 未被引用。实际回收量以后台复核结果为准。</div><div class="rt-dialog-actions"><button type="button" class="rt-button" data-close-storage-cleanup>取消</button><button type="button" class="rt-button rt-button-danger" data-close-storage-cleanup>立即清理</button></div></section></div>
+  <div class="rt-dialog-backdrop" data-storage-cleanup-dialog hidden><section class="rt-dialog" role="alertdialog" aria-modal="true" aria-labelledby="rt-storage-cleanup-title"><div class="rt-dialog-head"><span class="rt-dialog-mark" aria-hidden="true">!</span><div><h2 id="rt-storage-cleanup-title">立即清理未引用数据？</h2><p class="rt-dialog-copy">这会补齐未引用数据的清理任务并重试失败任务；每个 Blob 删除前仍会重新检查引用计数。</p></div></div><div class="rt-dialog-impact">当前快照中有 <strong>53 个 Blob</strong>、<strong>1.3 GiB</strong> 未被引用。实际回收量以后台复核结果为准。</div><div class="rt-dialog-actions"><button type="button" class="rt-button" data-close-storage-cleanup>取消</button><button type="button" class="rt-button rt-button-danger" data-close-storage-cleanup>立即清理</button></div></section></div>
 
   <div class="rt-dialog-backdrop rt-player-exit-backdrop" data-player-exit-dialog hidden><section class="rt-dialog rt-player-exit-dialog" role="alertdialog" aria-modal="true" aria-labelledby="rt-player-exit-title"><div class="rt-dialog-head"><span class="rt-dialog-mark" aria-hidden="true">!</span><div><h2 id="rt-player-exit-title">退出游戏？</h2><p class="rt-dialog-copy" data-player-exit-copy>直接退出不会创建存档；如需保留当前位置，请先创建存档。</p></div></div><div class="rt-dialog-impact">只有点击“创建存档”才会保存当前位置；直接退出只结束本次游玩记录并返回启动前的页面。</div><div class="rt-dialog-actions"><button type="button" class="rt-button rt-player-exit-save" data-save-before-player-exit><i data-lucide="save" aria-hidden="true"></i>创建存档</button><button type="button" class="rt-button" data-cancel-player-exit>取消</button><button type="button" class="rt-button rt-button-danger" data-confirm-player-exit>退出游戏</button></div></section></div>
 
@@ -3440,7 +3440,7 @@
       const biosHint = document.createElement('span');
       biosHint.className = 'rt-bios-replacement-hint';
       biosHint.setAttribute('role', 'tooltip');
-      biosHint.textContent = '新 BIOS 将在下次启动游戏时生效，当前运行与已有存档保留';
+      biosHint.textContent = '新 BIOS 将在下次启动游戏时生效，使用旧 BIOS 的运行会结束，已有存档保留';
       const hideBIOSHint = () => biosHint.remove();
       root.querySelectorAll('[data-bios-replacement-hint]').forEach(button => {
         const show = () => {

@@ -1243,7 +1243,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Replaces the selected current media slot and stages newly unreferenced payload for retention-aware GC. */
+        /** @description Replaces the selected current media slot and queues newly unreferenced payload for asynchronous GC. */
         post: operations["postAdminGameAsset"];
         delete?: never;
         options?: never;
@@ -1264,7 +1264,7 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** @description Removes the selected media kind from the game's current media set and stages newly unreferenced payload for retention-aware GC. */
+        /** @description Removes the selected media kind from the game's current media set and queues newly unreferenced payload for asynchronous GC. */
         delete: operations["deleteAdminGameAsset"];
         options?: never;
         head?: never;
@@ -1883,7 +1883,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Skips the retention delay for all registered CAS payload that is still unreferenced when scheduled. Every Blob is rechecked against the protection registry before deletion. */
+        /** @description Reconciles unreferenced registered CAS payload and retries failed cleanup jobs. Every Blob's reference count is rechecked before deletion. */
         post: operations["postAdminStorageCleanup"];
         delete?: never;
         options?: never;
@@ -4591,7 +4591,7 @@ export interface components {
                 "application/json": components["schemas"]["StorageAnalysis"];
             };
         };
-        /** @description Registered CAS payload accepted for immediate retention-aware garbage collection */
+        /** @description Registered CAS payload accepted for cleanup or retry */
         StorageCleanupResponse: {
             headers: {
                 [name: string]: unknown;

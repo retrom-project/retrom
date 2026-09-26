@@ -3,7 +3,7 @@
 import {useEffect, useId, useRef, useState} from "react";
 import {createPortal} from "react-dom";
 
-const replacementHint = "新 BIOS 将在下次启动游戏时生效，当前运行与已有存档保留";
+const replacementHint = "新 BIOS 将在下次启动游戏时生效，使用旧 BIOS 的运行会结束，已有存档保留";
 
 export function BIOSFileButton({installed, attention, busy, disabled, onClick}: {
   installed: boolean; attention: boolean; busy: boolean; disabled: boolean; onClick: () => void;

@@ -74,7 +74,7 @@ describe("StorageAnalysis", () => {
       expect(within(breakdown).getByRole("heading", { name: label })).toBeInTheDocument();
     }
     expect(screen.getByText("仅计算已登记 CAS payload")).toBeInTheDocument();
-    expect(screen.getByText(/已登记总量在默认 7 天宽限期后才会下降/)).toBeInTheDocument();
+    expect(screen.getByText(/后台删除 Blob 后，已登记总量才会下降/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "立即清理" })).toBeDisabled();
     await user.click(screen.getByRole("button", { name: "刷新分析" }));
     expect(await screen.findByLabelText("已登记 CAS，精确值 2048 bytes")).toHaveTextContent("2 KiB");

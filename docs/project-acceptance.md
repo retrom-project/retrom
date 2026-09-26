@@ -379,8 +379,8 @@ make acceptance-case CASE=<case-id>
 
 - 上限：120 秒。
 - 执行：`make acceptance-case CASE=ACC-CAS-002`。
-- 流程：按生产所有权 registry 构造 durable、workflow、runtime、共享和无引用 Blob，并让本地上传 Import、Pegasus Import、EmulationStation Import 与游戏永久删除分别进入终态；另建两份小型 archive 并物化各自一个 entry，一份仍有业务根，一份已释放。运行 PayloadRelease、在宽限期内运行一轮 GC，重启 worker 后以 fake clock 推进超过配置宽限期再运行，并在删除前故障注入一个并发新引用。输入不超过 16 个 Blob。
-- 通过标准：registry 的每条生产保护边都有测试，当前 GameFiles/VariantFiles 与 Launch 物化资源、非终态工作流、未到期软删除 SaveState 和有业务根的 archive 闭包均受保护；已终态 Import/SourceImport 不构成保护根。PayloadRelease 幂等移除 workflow 边并登记候选；GC 每批不超过 200，宽限期必须处于 24 小时至 30 天，`blob_gc_candidates` 自身不阻止回收；无根 archive 及 entry 成组清理，共享 Blob 直到最后一个所有者释放后才可候选。重启可恢复 RUNNING 的释放/GC Job，删除前新增引用会重新保护目标且不会误删。
+- 流程：按生产所有权 registry 构造 durable、workflow、runtime、共享和无引用 Blob，并让本地上传 Import、Pegasus Import、EmulationStation Import 与游戏永久删除分别进入终态；另建两份小型 archive 并物化各自一个 entry，一份仍有业务根，一份已释放。运行 PayloadRelease、立即运行 GC，重启 worker 后重试未完成的任务，并在删除前故障注入一个并发新引用。输入不超过 16 个 Blob。
+- 通过标准：registry 的每条生产保护边都有测试，当前 GameFiles/VariantFiles、非终态工作流、未到期软删除 SaveState 和有业务根的 archive 闭包均受保护；已终态 Import/SourceImport 不构成保护根。PayloadRelease 幂等移除 workflow 边并登记候选；GC 每批不超过 200，引用计数归零后立即排队，`blob_gc_candidates` 自身不阻止回收；无根 archive 及 entry 成组清理，共享 Blob 直到最后一个所有者释放后才可候选。重启可恢复 RUNNING 的释放/GC Job，删除前新增引用会重新保护目标且不会误删。
 - 证据：三轮前后按 registry 边分类的引用闭包、PayloadRelease/GC Job 与事件、ArchiveEntry/文件清单、fake clock 推进值和 GC 决策日志。
 
 ### ACC-STOR-001：已登记 CAS 容量分析
@@ -388,7 +388,7 @@ make acceptance-case CASE=<case-id>
 - 上限：240 秒。
 - 执行：`make acceptance-case CASE=ACC-STOR-001`。
 - 流程：在隔离空库通过标准导入流写入项目自有 fixture，再加入 durable、非终态 workflow、终态待释放 workflow、runtime、跨长期用途共享、受保护 archive/member、无业务根 archive/member、软删除存档和 GC 候选的确定性小型组合；执行 PayloadRelease 前后分别调用容量 API，再从 ADMIN 打开 `/admin/storage`，确认一次立即清理并等待 worker 收口。以同一幂等 key 重放，再以缺 key、USER/匿名和未知 query 重试，并覆盖既有 viewport、刷新、失败刷新和确认框矩阵。
-- 通过标准：API 只使用 `REGISTERED_CAS_PAYLOAD_V1`，带 `private, no-store`，byte 为无符号十进制字符串；九类按固定顺序含零值，分类 byte/count 之和等于顶层，`protectedBytes + unreferencedBytes = registeredBytes`，同大小不同 Blob 分别计数。保护集合与 GC 使用同一 registry；终态释放前 payload 仍计 workflow，释放后只在没有其他边时进入未引用，独占/共享字节和游戏删除影响摘要逐 Blob 去重且完全一致。封面替换/视频移除后旧 Asset URL 立即 404；ROM/多盘成功替换按内容替换规则清理旧运行/存档与旧 durable 边；同 Requirement BIOS 替换保留当前运行与存档，旧 BIOS 边在后台按安装与会话生命周期释放；各自失去最后引用的 Blob 从原分类转入 UNREFERENCED/候选，正常情况下 registered 总量只在宽限期后下降；ADMIN 确认立即清理后，POST 只跳过保留期并返回已调度量，worker 仍逐 Blob 复核保护集合，真正无引用数据收口后 registered/unreferenced/candidate 同步下降，页面每 2 秒自动读取并更新候选数量和容量直到归零，无需手动刷新；处理中不提前清零，失败或 60 秒跟踪超时保留最后快照并提供刷新入口，离开页面取消读取，恢复引用的数据不删除。相同 key 只产生一条 `STORAGE_CLEANUP_REQUESTED` 审计并重放原响应，缺 key/CSRF、USER/匿名均失败。完全相同 ROM、多盘或失败替换不得释放 current；不同 Requirement/Provider Target 的 BIOS 继续受保护。受保护 archive 的用途单向传播到 member，无业务根 archive 不反向保护；一个长期用途压过 workflow/runtime，两个长期用途归共享。存档状态/截图和清理候选是去重引用视图，不与分类相加；溢出、registry 新增/删除保护边未同步容量语义、读库失败都 fail closed。手机尺寸按统一 App Shell 契约显示电脑管理提示，不挂载清理操作；平板和桌面保持完整容量交互。其余鉴权、脱敏、交互和无障碍标准不变。
+- 通过标准：API 只使用 `REGISTERED_CAS_PAYLOAD_V1`，带 `private, no-store`，byte 为无符号十进制字符串；九类按固定顺序含零值，分类 byte/count 之和等于顶层，`protectedBytes + unreferencedBytes = registeredBytes`，同大小不同 Blob 分别计数。保护集合与 GC 使用同一 Blob 引用计数；终态释放前 payload 仍计 workflow，释放后只在没有其他边时进入未引用，独占/共享字节和游戏删除影响摘要逐 Blob 去重且完全一致。封面替换/视频移除后旧 Asset URL 立即 404；ROM/多盘成功替换按内容替换规则清理旧运行/存档与旧 durable 边；同 Requirement BIOS 替换撤销依赖旧 BIOS 的 Launch/Play 并保留存档，旧 BIOS 边在后台按安装与 Variant 生命周期释放；各自失去最后引用的 Blob 从原分类转入 UNREFERENCED/候选，registered 总量在异步 GC 完成后下降；ADMIN 确认立即清理后，POST 补齐候选并重试失败任务，返回已调度量，worker 仍逐 Blob 复核保护集合，真正无引用数据收口后 registered/unreferenced/candidate 同步下降，页面每 2 秒自动读取并更新候选数量和容量直到归零，无需手动刷新；处理中不提前清零，失败或 60 秒跟踪超时保留最后快照并提供刷新入口，离开页面取消读取，恢复引用的数据不删除。相同 key 只产生一条 `STORAGE_CLEANUP_REQUESTED` 审计并重放原响应，缺 key/CSRF、USER/匿名均失败。完全相同 ROM、多盘或失败替换不得释放 current；不同 Requirement/Provider Target 的 BIOS 继续受保护。受保护 archive 的用途单向传播到 member，无业务根 archive 不反向保护；一个长期用途压过 workflow/runtime，两个长期用途归共享。存档状态/截图和清理候选是去重引用视图，不与分类相加；溢出、registry 新增/删除保护边未同步容量语义、读库失败都 fail closed。手机尺寸按统一 App Shell 契约显示电脑管理提示，不挂载清理操作；平板和桌面保持完整容量交互。其余鉴权、脱敏、交互和无障碍标准不变。
 - 证据：API JSON 与直接 `SUM(blobs.size_bytes)`/行数对比、registry/分类单元与 SQLite 组合测试输出、鉴权/脱敏矩阵、viewport DOM/axe 断言和当前截图。
 
 ### ACC-STOR-002：批次丢弃与引用释放
@@ -403,7 +403,7 @@ make acceptance-case CASE=<case-id>
 
 - 上限：300 秒。
 - 执行：`make acceptance-case CASE=ACC-BKP-001`。
-- 流程：在验收库写入三个 User/Profile、游戏、Blob、当前 release DatVersion、私有存档、一条未完成 UploadPart、ACTIVE AuthSession/AccountLink/LaunchSession，以及各一条 RUNNING 的 BIOS、Pegasus 与 EmulationStation server-import Job/aggregate；另建 GC 宽限期 Blob、crash orphan 和受保护 archive。保持服务运行调用一次 `retrom backup` 验证拒绝，再正常停止服务，备份到不存在的临时输出路径。完成既有 manifest/依赖/lineage 负向矩阵后恢复到第二个不存在的数据根，启动恢复服务，分别用旧认证 cookie、账号链接与 launch capability 访问，再用原密码重新登录并核对三个 Profile 的私有数据。
+- 流程：在验收库写入三个 User/Profile、游戏、Blob、当前 release DatVersion、私有存档、一条未完成 UploadPart、ACTIVE AuthSession/AccountLink/LaunchSession，以及各一条 RUNNING 的 BIOS、Pegasus 与 EmulationStation server-import Job/aggregate；另建已排队但尚未回收的 Blob、crash orphan 和受保护 archive。保持服务运行调用一次 `retrom backup` 验证拒绝，再正常停止服务，备份到不存在的临时输出路径。完成既有 manifest/依赖/lineage 负向矩阵后恢复到第二个不存在的数据根，启动恢复服务，分别用旧认证 cookie、账号链接与 launch capability 访问，再用原密码重新登录并核对三个 Profile 的私有数据。
 - 通过标准：既有 bundle 结构、mode/hash、CAS/registry、依赖和负向恢复约束全部满足；外部 source bytes/root/XML/metadata 不进入 bundle。User/Profile/credential 与私有数据的非围栏行数和摘要一致。restore 在开放 HTTP 前用单事务撤销全部非终态 AuthSession、未使用 AccountLink 和非终态 LaunchSession，并把三类外部 source Job/aggregate 置为不可重试 `FAILED/SERVER_IMPORT_SOURCE_NOT_RESTORED`，写一条不含 ID/secret 的 `RESTORE_SECURITY_FENCE` 审计；旧 cookie/link/capability 全部失败，启用用户可用原密码重新登录并只能看到自己的原数据。清单/日志不含密码 hash、session/link/capability/key 明文、BIOS 内容或完整宿主路径。
 - 证据：脱敏 canonical `backup.json`、bundle tree/mode、负向错误矩阵、恢复检查、key equality boolean、cookie 请求结果和前后摘要 hash。
 
@@ -601,8 +601,8 @@ make acceptance-case CASE=<case-id>
 
 - 上限：180 秒。
 - 执行：`make acceptance-case CASE=ACC-GAME-003`。
-- 流程：分别用浏览器上传导入和 Pegasus 导入创建带 GameVariant/GameVariant、媒体、存档、活动 Launch 的游戏，读取 `deleteImpact`；先使用旧 version/digest，再用当前 version 但错误标题，最后用当前 version、精确标题、精确 digest 和新 Idempotency-Key 永久删除。以同 key 重放，再用不同 key 重删；执行 PayloadRelease、宽限期内外各一轮 GC，并查询可执行列表与最近游玩、收藏、Play/Launch、审核和审计关系投影。
-- 通过标准：影响摘要精确覆盖内容、媒体、存档、运行时、Import/Pegasus 来源和独占/共享 Blob；影响变化导致 digest/version 409，错误标题返回 `422 GAME_DELETE_CONFIRMATION_MISMATCH` 且均无副作用。成功请求原子设置 `status=DELETED`、`payloadState=RELEASING`、递增 version、撤销活动运行、写审计并调度 GAME PayloadRelease，返回 202；同 key稳定重放原响应，不同 key 在墓碑已存在时返回 200。释放完成后 `payloadState=RELEASED`，内容、媒体、存档和运行 payload 的保护边被移除，Game 及文字 Metadata/Content/Variant/Review/Audit/Play/Launch/Favorite/Tag 行保留。可执行游戏库、搜索、推荐和启动过滤该游戏；最近游玩、收藏及历史投影返回 `{gameId,title,status:'DELETED',coverUrl:null,availability:'DELETED'}`，收藏只允许移除。共享 Blob 保留，独占 Blob 进入候选并仅在宽限期后由 GC 删除；删除和释放重试均幂等。
+- 流程：分别用浏览器上传导入和 Pegasus 导入创建带 GameVariant/GameVariant、媒体、存档、活动 Launch 的游戏，读取 `deleteImpact`；先使用旧 version/digest，再用当前 version 但错误标题，最后用当前 version、精确标题、精确 digest 和新 Idempotency-Key 永久删除。以同 key 重放，再用不同 key 重删；执行 PayloadRelease 与即时排队的 GC，并查询可执行列表与最近游玩、收藏、Play/Launch、审核和审计关系投影。
+- 通过标准：影响摘要精确覆盖内容、媒体、存档、运行时、Import/Pegasus 来源和独占/共享 Blob；影响变化导致 digest/version 409，错误标题返回 `422 GAME_DELETE_CONFIRMATION_MISMATCH` 且均无副作用。成功请求原子设置 `status=DELETED`、`payloadState=RELEASING`、递增 version、撤销活动运行、写审计并调度 GAME PayloadRelease，返回 202；同 key稳定重放原响应，不同 key 在墓碑已存在时返回 200。释放完成后 `payloadState=RELEASED`，内容、媒体、存档和运行 payload 的保护边被移除，Game 及文字 Metadata/Content/Variant/Review/Audit/Play/Launch/Favorite/Tag 行保留。可执行游戏库、搜索、推荐和启动过滤该游戏；最近游玩、收藏及历史投影返回 `{gameId,title,status:'DELETED',coverUrl:null,availability:'DELETED'}`，收藏只允许移除。共享 Blob 保留，独占 Blob 在计数归零后立即进入候选，由异步 GC 删除；删除和释放重试均幂等。
 - 证据：两种来源的影响摘要/digest、四类 DELETE 响应与幂等记录、PayloadRelease/GC Job 和审计、运行撤销、各可执行/关系入口 DTO、容量前后对比及当前 UI 截图。
 
 ## 10. 导入、刮削与审核
@@ -717,7 +717,7 @@ Mega Drive 导入回归另用测试内生成的非游戏 payload，经服务器�
 - 上限：120 秒。
 - 执行：`make acceptance-case CASE=ACC-BIOS-001`。
 - 流程：用确定性 catalog/hash 测试向量上传匹配的 `disksys.rom`，再上传临时生成的错误内容 `gba_bios.bin`，最后用匹配测试向量替换当前安装。对一个固定 Arcade Requirement 再分别上传“必需 entry 名齐全但一项 bytes/hash 不同”和“完全缺少一个必需 entry”的两个小型 ZIP，再为 ZIP 添加一个 DAT 未要求的文件。每次安装后点击 Arcade BIOS 文件名打开条目对比。
-- 通过标准：正确文件显示 installed/matched；错误 hash 文件允许保存并明确显示期望/实际 hash Warning，不伪装成 matched，也不因 hash 不同强制拒绝上传；正确替换后活动安装变为 matched，旧 Installation 保留文字/hash/来源审计，替换不改变已有运行快照与存档；后台分批释放旧安装与过时 Variant BIOS 引用，仍在运行的会话保护旧 Blob，最后引用释放后才进入候选。Arcade entry 名齐全但 size/hash 不同的 installation 为 active/HASH_WARNING，可装入 Launch bundle且不阻断；内部缺必需 entry 的 installation 保留为 active/MISSING_ENTRY 警告，审核预览和 Launch 仍接收已上传的 BIOS；损坏/不安全 ZIP 为 INVALID 且不能 active。弹窗仅使用左右两栏面板，两侧各自为文件列表；列表顶部横向表头精确为 `name`、`size`、`crc`，每个文件在下方占一个仅略高于字体行高的紧凑行并包含同序三个值，字段名不在文件行左侧重复。行内没有状态徽标或状态文案，内容别名、不匹配、缺失和额外文件由不同背景色表达，鼠标悬停 tooltip 和辅助技术提供完整状态说明。各值和安装时校验一致，不把非默认 BIOS set 误列为必需项。
+- 通过标准：正确文件显示 installed/matched；错误 hash 文件允许保存并明确显示期望/实际 hash Warning，不伪装成 matched，也不因 hash 不同强制拒绝上传；正确替换后活动安装变为 matched，旧 Installation 保留文字/hash/来源审计，替换会撤销依赖旧 BIOS 的 Launch/Play，保留存档；后台分批释放旧安装与过时 Variant BIOS 引用，最后引用释放后立即进入候选。Arcade entry 名齐全但 size/hash 不同的 installation 为 active/HASH_WARNING，可装入 Launch bundle且不阻断；内部缺必需 entry 的 installation 保留为 active/MISSING_ENTRY 警告，审核预览和 Launch 仍接收已上传的 BIOS；损坏/不安全 ZIP 为 INVALID 且不能 active。弹窗仅使用左右两栏面板，两侧各自为文件列表；列表顶部横向表头精确为 `name`、`size`、`crc`，每个文件在下方占一个仅略高于字体行高的紧凑行并包含同序三个值，字段名不在文件行左侧重复。行内没有状态徽标或状态文案，内容别名、不匹配、缺失和额外文件由不同背景色表达，鼠标悬停 tooltip 和辅助技术提供完整状态说明。各值和安装时校验一致，不把非默认 BIOS set 误列为必需项。
 - 证据：三次上传响应、实际/期望 hash、Installation 当前态、BIOS 状态与 UI 截图。
 
 ### ACC-BIOS-002：必需、可选与 Full Non-Merged
@@ -725,7 +725,7 @@ Mega Drive 导入回归另用测试内生成的非游戏 payload，经服务器�
 - 上限：180 秒。
 - 执行：`make acceptance-case CASE=ACC-BIOS-002`。
 - 流程：移除 FDS 必需 BIOS 做预检；分别以 `.gb/.gbc/.gba` 小型真实 fixture 检查 Gambatte/mGBA 可选 BIOS 不存在、仅安装另一内容类型 BIOS，以及安装匹配内容类型的正确/`HASH_WARNING` BIOS；读取 Launch config/bundle。为 MelonDS 安装 `bios7.bin/bios9.bin/firmware.bin` 后创建 Launch 和存档，切换其中一个 active installation，再检查旧运行终止/载荷释放并创建使用新依赖的 Launch。最后以 entry 名齐全但 hash 不同的 Arcade BIOS/base archive 启动，并检查包含自身依赖的 Full Non-Merged Arcade fixture。
-- 通过标准：适用必需文件/entry 完全缺失阻断；不适用 requirement 不进入 digest/bundle，可选文件缺失只提示且不增加 activation option。匹配内容类型的 active `MATCHED/HASH_WARNING` BIOS 以 Requirement 逻辑名装入，Gambatte config 精确增加 `gambatte_gb_bootloader=enabled`、mGBA 增加 `mgba_use_bios=ON`；MelonDS 的三个 BIOS 不进入根 bundle，而是精确映射到三个固定虚拟路径。同一 Requirement 替换 BIOS 后旧 Launch、内容 URL、Play 和存档保持可用；新启动与从存档继续按需重校验并锁定新 BIOS，旧 Launch 不漂移。创建事务拒绝并发替换导致的混合输入。覆盖相同 bytes、重复替换、共享 Blob、失败回滚、服务重启、正常退出、bootstrap/hard 到期与旧 idle 失效、超过一批的待释放引用，以及旧 Blob 提前 GC 的保护。后台回收仅处理截止的 Launch，释放文件引用后其旧 capability 不可访问，存档与无关会话保留。Arcade entry 名齐全但 size/hash 不同也形成 `HASH_WARNING` 依赖、进入 bundle 并允许启动。另一内容类型 BIOS 不误启用，冲突 option seed 被校验拒绝，浏览器不按 core 名补写。Full Non-Merged 已内含依赖时不要求重复上传；页面按平台/core 聚合而不按游戏目录复制，`gamegenie.nes/sgb_bios.bin` 按一期条件明确标“未使用”而非缺失。
+- 通过标准：适用必需文件/entry 完全缺失阻断；不适用 requirement 不进入 digest/bundle，可选文件缺失只提示且不增加 activation option。匹配内容类型的 active `MATCHED/HASH_WARNING` BIOS 以 Requirement 逻辑名装入，Gambatte config 精确增加 `gambatte_gb_bootloader=enabled`、mGBA 增加 `mgba_use_bios=ON`；MelonDS 的三个 BIOS 不进入根 bundle，而是精确映射到三个固定虚拟路径。同一 Requirement 替换 BIOS 后依赖旧 BIOS 的 Launch、内容 URL 和 Play 立即失效，存档保持可用；新启动与从存档继续按需重校验并锁定新 BIOS，旧 Launch 不漂移。创建事务拒绝并发替换导致的混合输入。覆盖相同 bytes、重复替换、共享 Blob、失败回滚、服务重启、正常退出、bootstrap/hard 到期与旧 idle 失效、超过一批的待释放引用，以及旧 Blob 计数归零后的即时 GC。后台回收仅处理截止的 Launch，释放文件引用后其旧 capability 不可访问，存档与无关会话保留。Arcade entry 名齐全但 size/hash 不同也形成 `HASH_WARNING` 依赖、进入 bundle 并允许启动。另一内容类型 BIOS 不误启用，冲突 option seed 被校验拒绝，浏览器不按 core 名补写。Full Non-Merged 已内含依赖时不要求重复上传；页面按平台/core 聚合而不按游戏目录复制，`gamegenie.nes/sgb_bios.bin` 按一期条件明确标“未使用”而非缺失。
 - 证据：预检/digest、两份 Launch config、BIOS bundle/external file 清单、跨 Launch 负向响应和 BIOS 页面截图。
 
 ### ACC-BIOS-003：服务器 root、目录浏览与授权边界
@@ -749,7 +749,7 @@ Mega Drive 导入回归另用测试内生成的非游戏 payload，经服务器�
 - 上限：180 秒。
 - 执行：`make acceptance-case CASE=ACC-BIOS-005`。
 - 流程：依次覆盖 overwrite 关闭/开启、已有 MATCHED、相同 bytes、同分、较差候选、Requirement 版本变化、catalog/source 漂移和崩溃点恢复；与单文件安装并发竞争同一 Requirement。
-- 通过标准：关闭时不替换，开启也只接受严格更优；同 bytes/同 Requirement 保持当前 Installation，Requirement 变化时重新验证并原子替换当前态，任何降级都保留旧 active。真正替换时当前安装原子切换，旧会话继续使用冻结文件，旧 payload 后台延迟释放，Game 级存档保留；未替换分支无副作用。最终 source 或 catalog 变化以条目错误收口；Installation、Item 终态、聚合计数和 PROGRESS 事件同事务，崩溃恢复不重复替换。
+- 通过标准：关闭时不替换，开启也只接受严格更优；同 bytes/同 Requirement 保持当前 Installation，Requirement 变化时重新验证并原子替换当前态，任何降级都保留旧 active。真正替换时当前安装原子切换，依赖旧 BIOS 的会话被撤销，旧 payload 在 owner 释放后立即排队回收，Game 级存档保留；未替换分支无副作用。最终 source 或 catalog 变化以条目错误收口；Installation、Item 终态、聚合计数和 PROGRESS 事件同事务，崩溃恢复不重复替换。
 - 证据：前后 active ID/status/version、Installation 行数、存档保留与兼容投影、竞态结果、JobEvent 和恢复查询。
 
 ### ACC-BIOS-006：异步恢复、取消、详情与多尺寸访问
@@ -889,8 +889,8 @@ Mega Drive 导入回归另用测试内生成的非游戏 payload，经服务器�
 
 - 上限：300 秒。
 - 执行：`make acceptance-case CASE=ACC-ES-004`。
-- 流程：在扫描与执行阶段分别取消；注入 retryable failure、过期 lease、deadline/attempt 耗尽与进程重启；覆盖发布、丢弃、已存在、确定性阻断、取消、不可重试失败、待审和可重试状态的 PayloadRelease。发布一款 EmulationStation 游戏并建立一份共享 Blob 引用，完成一次实际 Launch/Player 链路后从管理员详情永久删除该 Game；以 fake clock 推进 GC 宽限，在最终删除前分别移除/新增共享引用。最后对含来源历史、待审 CAS 与 active 外部 source Job 的数据根执行离线 backup/restore。
-- 通过标准：cancel/retry/recovery 不删除已交接审核事项、不回滚已发布 Game、不重复 ImportItem/Game；共享 reader 不超过 2，任务按 lease/heartbeat/attempt/deadline 稳定收口。只有规定终态释放来源 payload，`REVIEW_PENDING`/retryable failure 保留；release 重启/重放幂等。Game 删除转墓碑、立即不可 Launch/读内容，异步释放 Game 内容/媒体/存档/运行与已终态 EmulationStation 来源链；共享 Blob 在最后 durable owner 消失前始终受保护，新引用撤销 GC candidate，最后无引用且宽限到期才删除 bytes/Blob 行。backup 不含外部 root/XML，restore 保留待审/已发布 CAS 与历史，并在 HTTP 前以 `SERVER_IMPORT_SOURCE_NOT_RESTORED` 收口所有外部 source Job。
+- 流程：在扫描与执行阶段分别取消；注入 retryable failure、过期 lease、deadline/attempt 耗尽与进程重启；覆盖发布、丢弃、已存在、确定性阻断、取消、不可重试失败、待审和可重试状态的 PayloadRelease。发布一款 EmulationStation 游戏并建立一份共享 Blob 引用，完成一次实际 Launch/Player 链路后从管理员详情永久删除该 Game；运行即时排队的 GC，在最终删除前分别移除/新增共享引用。最后对含来源历史、待审 CAS 与 active 外部 source Job 的数据根执行离线 backup/restore。
+- 通过标准：cancel/retry/recovery 不删除已交接审核事项、不回滚已发布 Game、不重复 ImportItem/Game；共享 reader 不超过 2，任务按 lease/heartbeat/attempt/deadline 稳定收口。只有规定终态释放来源 payload，`REVIEW_PENDING`/retryable failure 保留；release 重启/重放幂等。Game 删除转墓碑、立即不可 Launch/读内容，异步释放 Game 内容/媒体/存档/运行与已终态 EmulationStation 来源链；共享 Blob 在最后 durable owner 消失前始终受保护，新引用撤销 GC candidate，最后无引用即排队删除 bytes/Blob 行。backup 不含外部 root/XML，restore 保留待审/已发布 CAS 与历史，并在 HTTP 前以 `SERVER_IMPORT_SOURCE_NOT_RESTORED` 收口所有外部 source Job。
 - 证据：worker/release/GC JobEvent、payload/ownership registry 分类、删除 impact/墓碑、删除前后 CAS/Blob/共享引用、fake clock、backup manifest 与 restore 前后 canonical 摘要。
 
 ### ACC-ES-005：gamelist.xml 通用 Drawer、详情审核与多尺寸无障碍
@@ -906,7 +906,7 @@ Mega Drive 导入回归另用测试内生成的非游戏 payload，经服务器�
 - 上限：300 秒。
 - 执行：`make acceptance-case CASE=ACC-ES-006`。
 - 流程：运行 `make public-fixtures-check`，把 `testdata/public-roms/gba-smoke/emulationstation-smoke.gba` 与最小严格 `gamelist.xml` 复制到隔离只读 server root。Chrome 从 EmulationStation 卡选择目录，等待真实 scanner 到 `AWAITING_MAPPING`，把唯一 Collection 显式映射到 GBA/mGBA 并启动。任务完成后进入限定审核队列逐项 Approve，从新 Game 详情一次点击创建 Launch，读取 config/内容并等待核心帧；退出后通过管理员 Game 详情取得删除 impact 并永久删除，等待 release 到可验证终态。
-- 通过标准：ROM、gamelist、项目自有封面和项目自有视频的 size/SHA-256/完整 bytes 与唯一确定性生成源一致，且 ROM 与普通/Pegasus 两个 GBA 身份不同；gamelist 只能引用同目录这三个项目自有 payload。扫描、映射、复制、验证、审核、发布、Launch、内容端点与 Player 全部经过真实产品代码，无 route mock/直接写库。Worker 结束时 Game 为零，审核页的 EmulationStation 封面和视频可见且受保护端点返回锁定 bytes；Approve 后恰有一个新 Game，用户详情投影并可读取同一封面与视频。Launch Envelope 锁定 `providerId=emulatorjs`、`targetId=mgba`、当前 Bundle identity 与仅本 Launch 可读的 `emulationstation-smoke.gba` resource，真实 canvas 可见且标准 frame counter 至少继续推进 30 帧。永久删除后 public detail、Envelope、ROM、封面、视频和再次 Launch 均不可用，Game 为不可恢复墓碑；流程与 Game payload 最终释放，ROM/COVER/VIDEO 三个独占 Blob 均从受保护分类转入 `UNREFERENCED` 与 GC candidate，不能泄漏。共享引用保护继续由 `ACC-ES-004` 证明。
+- 通过标准：ROM、gamelist、项目自有封面和项目自有视频的 size/SHA-256/完整 bytes 与唯一确定性生成源一致，且 ROM 与普通/Pegasus 两个 GBA 身份不同；gamelist 只能引用同目录这三个项目自有 payload。扫描、映射、复制、验证、审核、发布、Launch、内容端点与 Player 全部经过真实产品代码，无 route mock/直接写库。Worker 结束时 Game 为零，审核页的 EmulationStation 封面和视频可见且受保护端点返回锁定 bytes；Approve 后恰有一个新 Game，用户详情投影并可读取同一封面与视频。Launch Envelope 锁定 `providerId=emulatorjs`、`targetId=mgba`、当前 Bundle identity 与仅本 Launch 可读的 `emulationstation-smoke.gba` resource，真实 canvas 可见且标准 frame counter 至少继续推进 30 帧。永久删除后 public detail、Envelope、ROM、封面、视频和再次 Launch 均不可用，Game 为不可恢复墓碑；流程与 Game payload 最终释放，ROM/COVER/VIDEO 三个独占 Blob 计数归零后排队并被 GC 删除，不能泄漏。共享引用保护继续由 `ACC-ES-004` 证明。
 - 证据：fixture identity、计划/审核/Game/Launch ID、DOM/API/config/content/帧数、运行中 Player 截图、删除 impact/payload 状态与最终独占引用摘要。
 
 ## 13. 启动、存档与游玩数据

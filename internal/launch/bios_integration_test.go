@@ -35,7 +35,7 @@ import (
 	"retrom/internal/testsupport"
 )
 
-func TestMelonDSExternalBIOSIsLockedPerLaunch(t *testing.T) {
+func TestMelonDSExternalBIOSSwitchRevokesOldLaunch(t *testing.T) {
 	t.Parallel()
 	exerciseMelonDSBIOSSwitch(t, false)
 }
@@ -161,7 +161,19 @@ VALUES(?,?,'melonds',?,?,NULL,8100,'READY','READY',?,1,?,?)`, []any{variantID, g
 		testassert.False(t, tx.Commit() != nil, "commit BIOS switch")
 		requirements[index].newDigest = install(&requirements[index], "new", 1)
 	}
-	assertMelonDSLaunch(t, ctx, service, oldLaunch, requirements, false)
+	var oldState string
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `SELECT state FROM launch_sessions WHERE id=?`, oldLaunch.LaunchID).Scan(&oldState); err != nil {
+		t.Fatal(err)
+	}
+	if oldState != "REVOKED" {
+		t.Fatalf("old Launch state after BIOS switch = %s", oldState)
+	}
+	if _, err := service.Config(ctx, oldLaunch.LaunchID, oldLaunch.Capability); !errors.Is(err, ErrCredential) {
+		t.Fatalf("old Launch config after BIOS switch: %v", err)
+	}
+	if _, err := service.ExternalBlob(ctx, oldLaunch.LaunchID, oldLaunch.Capability, requirements[0].logicalName); !errors.Is(err, ErrCredential) {
+		t.Fatalf("old Launch BIOS after switch: %v", err)
+	}
 	if manualOverride {
 		assertApprovedBIOSResume(t, service, database.SQL, gameID, variantID, savedID, requirements, capabilities)
 		return

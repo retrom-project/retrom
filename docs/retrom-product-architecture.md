@@ -124,7 +124,7 @@ flowchart LR
 
 - 上传内容流式计算 SHA-256，写入本地内容寻址存储；相同内容只保存一个 Blob。
 - Blob 发布后不原地修改。替换游戏文件只在规范化内容确实变化且默认核心验证 READY 后，原子更新 Game、`game_files` 和默认 GameVariant 当前态；完全相同的单 ROM 或盘序/Disc hash 相同的多盘输入被拒绝。
-- 目录默认 Core 或 DAT 的变化不改写存档。所有存档只记录 Game 和 Provider 中立的 checkpoint format；恢复使用当前 READY Target，且只有其 `readFormats` 明确包含该格式时才允许恢复。不兼容旧存档保留为不可恢复记录，用户仍可启动游戏并创建新存档；系统不保留旧 Bundle 作为恢复旁路，也不提供 Provider 降级。管理员显式成功替换 ROM/多盘内容仍是破坏性边界，会删除旧内容绑定存档及运行 payload，再把失去最后引用的旧 Blob 交给宽限期 GC。替换失败不触碰 current 或存档。
+- 目录默认 Core 或 DAT 的变化不改写存档。所有存档只记录 Game 和 Provider 中立的 checkpoint format；恢复使用当前 READY Target，且只有其 `readFormats` 明确包含该格式时才允许恢复。不兼容旧存档保留为不可恢复记录，用户仍可启动游戏并创建新存档；系统不保留旧 Bundle 作为恢复旁路，也不提供 Provider 降级。管理员显式成功替换 ROM/多盘内容仍是破坏性边界，会删除旧内容绑定存档及运行 payload，再把失去最后引用的旧 Blob 交给即时排队的 GC。替换失败不触碰 current 或存档。
 - 数据库保存逻辑关系、哈希、大小、MIME 和引用，不保存宿主机任意路径供浏览器使用。
 
 ### 3.6 模块化后端、双镜像与单一数据目录
@@ -157,7 +157,7 @@ Tag 必须先由管理员建立，再以稳定 ID 关联 Game、导入 ReviewDra
 
 ### 3.12 流程 payload 短期保留，Game 删除保留墓碑
 
-统一导入、审核流程只在可重试/待决期间保留 ROM、媒体、运行预览、provider raw response 等 CAS payload。发布、丢弃、最终失败或取消进入真终态后，持久 PayloadRelease Job 解除流程引用；审核只保留当前决定，不保存历史版本。Game 永久删除保留原标题、内容摘要、审核/操作/游玩/收藏关系作为墓碑，同时异步释放 Game 内容、媒体、存档和运行 payload。Blob 物理删除统一经过共享引用保护和宽限期 GC，单文件、目录、Pegasus 与 gamelist.xml 经统一 `import_files` 进入同一验证/审核流程，并遵循同一 ownership registry。
+统一导入、审核流程只在可重试/待决期间保留 ROM、媒体、运行预览、provider raw response 等 CAS payload。发布、丢弃、最终失败或取消进入真终态后，持久 PayloadRelease Job 解除流程引用；审核只保留当前决定，不保存历史版本。Game 永久删除保留原标题、内容摘要、审核/操作/游玩/收藏关系作为墓碑，同时异步释放 Game 内容、媒体、存档和运行 payload。Blob 物理删除统一在 owner 计数归零后经异步 GC，单文件、目录、Pegasus 与 gamelist.xml 经统一 `import_files` 进入同一验证/审核流程，并遵循同一 ownership registry。
 
 ### 3.13 沉浸模式是独立电视交互面
 
@@ -487,7 +487,7 @@ Phase 0 未通过时，不进入大规模业务实现。
 
 ### Phase 8：Runtime Provider 原子切换
 
-- 以 001–014 无 trigger/view 的直接建库 schema、Provider Bundle/Target catalog、Launch Envelope V1 和共享 dispatcher 同时替换 Host 的旧运行选择路径。
+- 以 001–016 仅含 Blob 引用计数 trigger、无 view 的直接建库 schema、Provider Bundle/Target catalog、Launch Envelope V1 和共享 dispatcher 同时替换 Host 的旧运行选择路径。
 - EmulatorJS 44 个 Target 与 retrom-runtime 17 个 Target 共享 `PlayerRuntimeV1` 生命周期；RPG MV/MZ 等需要隔离的 Target 仍由 Provider resource 声明 unique origin。
 - 以 `ACC-PROVIDER-001`–`008`、全部直接受影响产品 Case、全量代码/依赖/镜像门禁为退出条件；MZ 合法商业样本继续作为条件性外部产品证据。
 

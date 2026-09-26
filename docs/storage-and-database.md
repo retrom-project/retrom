@@ -117,7 +117,7 @@ PRAGMA busy_timeout = 5000;
 
 ### 3.1 clean migration lineage
 
-当前未发布建库基线包含 `001_identity.sql` 至 `014_metadata_media_queue.sql`；`010_indexes.sql` 集中建立已存在 owner 表的索引。基线直接创建 current-state 表、PK/UNIQUE/CHECK/FK 和索引，不包含 trigger、view、旧数据回填或外键关闭窗口。每条 migration 与 checksum 记录在同一事务提交。
+当前未发布建库基线包含 `001_identity.sql` 至 `016_blob_reference_counts.sql`；`010_indexes.sql` 集中建立已存在 owner 表的索引。基线直接创建 current-state 表、PK/UNIQUE/CHECK/FK 和索引，只包含 Blob owner 计数 trigger，不包含 view、旧数据回填或外键关闭窗口。每条 migration 与 checksum 记录在同一事务提交。
 
 `store.Open` 在任何 schema 写入前只读检查 `schema_migrations`，只接受不存在/真正空的数据库、当前文件逐项同名同 checksum 的有序前缀，以及完整当前 lineage。此次改写与旧开发基线不兼容，旧 checksum 不会被覆盖；当前前缀只用于中断初始化的续跑，不能解释为支持旧开发库升级。
 
@@ -312,7 +312,7 @@ data/
 - ZIP central directory 的每个 name 都先执行该算法。显式目录 entry 必须且只能以单个 `/` 结尾：分类为 directory 后先去掉这个终止符，再对剩余非空 path 执行 `SAFE_LOGICAL_PATH_V1`，通过后忽略该 entry；不能把“目录例外”用于接受 `//`、根目录、`.`/`..` 或反斜杠。任何 symlink、hardlink/device/FIFO/socket、加密 entry 或路径不安全都会阻断整个 archive。无 Unix mode 的非目录 entry 可按 regular file 处理；存在 mode 时只接受 regular file/directory。只支持 ZIP method 0（Store）和 8（Deflate）；ZIP64 只有在同一大小门禁内才允许，不注册额外 decompressor。
 - `archive_entries.original_relative_path` 保留安全原名，`normalized_path` 保留其大小写，另保存 `ascii_casefold_path`（只把 ASCII `A..Z` 映射为 `a..z`）。同一 archive 对 normalized path 和 ASCII-casefold path 都唯一；因此 `ROM.BIN/rom.bin` 稳定阻断而不会在 Arcade/DOS 虚拟文件系统中互相覆盖。DAT entry lookup、BIOS 重验证和依赖预览查询该已索引 key，不重读 archive。
 - 安全扫描在同一次有界解压流中计算每个 regular entry 的 size/CRC32/MD5/SHA-1/SHA-256，并在完整 archive 通过所有门禁后才原子提交 ArchiveEntry 集；不因 central-directory 声明值相同而跳过实际 bytes。只有主机唯一 ROM member、DOS_SOURCE 或其他明确领域引用需要独立 bytes 时才物化到 CAS；Arcade ROMset 验证可使用已保存 hash，不默认复制全部内层 entry。同一 Archive Blob 后续在另一合法领域流程需要 member 时，允许经数据模型规定的一次性校验提升填写 `materialized_blob_id`；不得为规避不可变字段而重复造 ArchiveEntry 或盲目重读所有 entry。
-- ArchiveEntry 是所属 archive Blob 的不可变派生索引，不是让 owning Blob 永久免于 GC 的业务引用。普通 repository 不提供删除 entry 的方法；只有当 owning Blob 无业务保护引用、所有 entry 无 GameFile/ImportItemSourceFile/ContentHashEvidence 等复合外键引用时，GC 才能在删除 owning Blob 的同一短事务先按 `archive_blob_id` 成组删除 entry。若 entry 物化的内层 Blob 不再有其他引用，它在后续 GC 轮次独立进入保留期；不在同一事务级联删物理文件。
+- ArchiveEntry 是所属 archive Blob 的不可变派生索引，不是让 owning Blob 永久免于 GC 的业务引用。普通 repository 不提供删除 entry 的方法；只有当 owning Blob 无业务保护引用、所有 entry 无 GameFile/ImportItemSourceFile/ContentHashEvidence 等复合外键引用时，GC 才能在删除 owning Blob 的同一短事务先按 `archive_blob_id` 成组删除 entry。若 entry 物化的内层 Blob 不再有其他引用，它在后续 GC 轮次独立成为可执行候选；不在同一事务级联删物理文件。
 - 限制 entry 数、单 entry 展开大小、总展开大小和压缩比；压缩大小为 0 而展开大小非 0 直接视为超限。路径/entry 门禁先于物化。默认情况下，任一 regular-file entry 的规范扩展名或文件魔数只要表明它仍是 ZIP/7z/RAR/TAR/gzip 等归档，就以 `NESTED_ARCHIVE_UNSUPPORTED` 阻断整个外层 archive；一期不递归展开，也不能靠改扩展名绕过魔数检查。只有 DOS 与 RPG Maker 可请求扫描器“标记但不展开”：二者都将项目根内层 archive 自身的原始 bytes 物化到不可变源快照，绝不打开内层目录、使用内层 marker 或执行内层内容。某次 Launch 是否锁定、打包或提供该不透明文件，继续由所选运行适配器的固定运行投影决定；源快照保留不等于 Native Web 子域可以读取任意后缀。普通 ROM、Arcade、BIOS 与其他消费者继续使用默认拒绝策略。
 - XML DAT 解析只允许 BIOS/DAT 专题定义的一个有界 DOCTYPE 声明并在 token stream 前安全移除；绝不解释 DTD/实体，也不允许外部实体或网络访问。不能把这条简写实现成“拒绝所有真实 DAT 的 DOCTYPE”。
 - 不信任扩展名、ZIP 声明 MIME 或 archive 内路径。
@@ -323,23 +323,23 @@ data/
 
 游戏内容替换由 `service/gamecontent` 决定运行终止、旧存档清理与备用 Variant 阻断；Repository 读取当前事实，按原 ID、版本、状态及精确文件键执行写入。引用每批最多读取 200 条，不能用不确定或零受影响行数表示成功。替换与发布、GC 排期、上传消费释放及 Job 完成处于同一事务；GC 和释放排期复用 payloadrelease Service，Repository 不回调旧业务包。
 
-- GC、备份完整性检查和存储审计共用一份机器可读 `blob reference registry`，每个 schema 中的 Blob FK/JSON Blob 引用必须恰好登记为以下一类：`PROTECTIVE`（业务根引用）、`ARCHIVE_OWNERSHIP`（`archive_entries.archive_blob_id/materialized_blob_id` 的派生所有权边）或 `BOOKKEEPING`（`blob_gc_candidates.blob_id` 等不阻止删除的记账边）。未登记、重复登记或分类错误都使 CI 失败；不把可变 `ref_count` 作为事实源。
+- GC、备份完整性检查和存储审计共用一份机器可读 `blob reference registry`，每个 schema 中的 Blob FK/JSON Blob 引用必须恰好登记为以下一类：`PROTECTIVE`（业务根引用）、`ARCHIVE_OWNERSHIP`（`archive_entries.archive_blob_id/materialized_blob_id` 的派生所有权边）或 `BOOKKEEPING`（`blob_gc_candidates.blob_id` 等不阻止删除的记账边）。未登记、重复登记或分类错误都使 CI 失败；以事务维护的 `blobs.ref_count` 作为 GC 事实源。Launch 文件标识没有 Blob 外键，也不登记为 owner。
 - 业务释放同时使用代码内 `payload ownership registry`，其边集必须与 Blob registry 双向完全一致，并把每条边唯一归入 Game、运行时、ImportItem、SourceImportItem、ScrapeRun、Upload、全局 TTL、全局耐久、Archive 或记账生命周期。PayloadRelease 只解除其 scope 被授权的边；BIOS 等全局耐久引用不受 Game/Import 清理影响。
 - 释放调度由 `service/payloadrelease.Scheduler` 判断终态、重放与来源共享关系；`persistence/payloadrelease` 参与调用者的终态事务，原子登记 Job、不可变输入、排队事件与 owner 的 `RELEASING` 转换。更新必须核对读取到的版本、状态、可重试标记和普通审核绑定；受影响行数读取失败保留原始原因，未更新唯一 owner 时整体回滚。已绑定普通 ImportItem 的来源复用该 Item 的释放 Job，不创建第二份释放任务。
-- GC 保护集先取所有 `PROTECTIVE` Blob，再对其中的 archive Blob 加入该 ArchiveEntry 已物化的 entry Blob；一期从不递归展开嵌套 archive，DOS 与 RPG Maker 都只保留内层 archive 文件本身的一层原始 entry bytes，因此一层闭包即完整。`ARCHIVE_OWNERSHIP` 不会反向把一个无业务根的 owning archive 变成永久受保护；`BOOKKEEPING` 从不进入保护集。备份不能直接采用这个 GC 保护集：它逐字节复制未裁剪的 SQLite 快照，所以必须复制快照中每一条 `blobs` 行对应的物理文件，包括尚在 GC 宽限期的无业务引用行；registry 用于证明所有引用边都命中这些 Blob 行。只有“物理文件存在但数据库没有 Blob 行”的 crash orphan 才不进入备份。
+- `PROTECTIVE` 边的 INSERT/UPDATE/DELETE trigger 在同一事务增减 Blob 计数；被保护 archive 的已物化 member 也计入有效计数。`ARCHIVE_OWNERSHIP` 不会反向把一个无业务根的 owning archive 变成永久受保护；`BOOKKEEPING` 从不进入保护集。备份不能只采用这个 GC 保护集：它逐字节复制未裁剪的 SQLite 快照，所以必须复制快照中每一条 `blobs` 行对应的物理文件，包括已排队但尚未完成 GC 的无业务引用行；registry 用于证明所有引用边都命中这些 Blob 行。只有“物理文件存在但数据库没有 Blob 行”的 crash orphan 才不进入备份。
 - Game/GameFiles、ImportItem/Upload/Job、Review snapshot、SaveState、媒体、旧 GameVariant 和 DAT 均可能引用 Blob。
 - 游戏删除影响由 `service/payloadrelease.ImpactQueries` 计算，Repository 在一次只读快照中读取 Game 及来源的 Blob 集合、共享保护引用和运行/审核计数；删除事务内重算时复用同一类型化读取接口。Service 按 Blob ID 去重并受检累加已登记、独占与共享容量，规范化来源类型并生成稳定摘要；读取失败、事实冲突或整数溢出均使整次计算失败，不能返回部分统计或可用摘要。
 - Pegasus 与 EmulationStation 扫描阶段都不写 Blob；执行阶段复制出的 item file、source archive 与 COVER/VIDEO 分别在统一 source_import_item_files/source_import_item_assets 表中形成 protective 边。发布后的 Game/Asset 继续独立保护相同 CAS bytes，计划历史与 Game 生命周期互不代替。
 - Import publish/discard/final-fail/cancel、Pegasus/EmulationStation 终态、替换文件/媒体消费完成会异步解除流程 payload；Game 永久删除会解除 Game/运行时及其已终态来源链的 payload。游戏媒体当前态切换还会在同一事务删除旧 GameAsset 叶子引用并登记 GC 候选，避免文字 metadata 历史长期保护旧封面/视频。领域事务不直接删除 Blob 或 CAS 文件。
-- GC 候选选择、保留期、恢复引用和立即回收策略由应用 `GCScheduler` 统一编排；Repository 批量读取同一事务中的 Blob、保护引用、候选及任务输入事实，取得写入权限后重验快照。任务、不可变输入、事件和候选原子保存，任何写入、受影响行数或提交失败都不能返回成功；立即回收的审计也在同一事务，提交后才唤醒 worker。
-- 失去最后保护引用后先进入默认 7 天回收保留期，配置只允许 24 小时至 30 天；每个候选关联唯一 BLOB_GC Job。宽限到期时再次计算完整保护集，有新引用就撤销候选，不得误删共享内容。ADMIN 可通过容量页显式确认立即回收；该操作先补齐全部未引用候选，再把仍未引用候选的 `available_at_ms/scheduled_at_ms` 推进到当前时刻，失败 Job 创建新 execution 和新的输入身份、清空旧租约与执行预算后重排队，并写 `STORAGE_CLEANUP_REQUESTED` AuditEvent。它只跳过保留时间，不绕过 worker、保护集合复核、物理删除重试或共享引用保护。
-- 过期的无消费 Upload archive 在失去最后 `PROTECTIVE` 边后可正常进入 GC，不能被自身 ArchiveEntry 永久保活。删除事务再次计算保护集并检查所有 entry 复合外键；有新引用即撤销 candidate。无引用 archive 先成组删索引再删 Blob 行，事务提交后才删除物理文件；物理删除失败保留底层原因，由同一 Job 输入幂等重试。每次重试重新检查摘要的当前登记归属；同摘要已被另一个 Blob 登记时，旧任务保留其文件。现存 Blob 只有仍由当前 Job 的候选授权才能删除，已取消候选不能跳过重新失去引用后的保留期；新的候选身份不依赖毫秒时钟唯一性。目录记录与候选删除的受影响行数必须确认，失败时保留原记录与物理文件。UploadFile 最后一个 consumption 释放且没有领域叶子后转 `PURGED` 并清空 final Blob，但保留相对路径、声明/接收大小与结果。
+- GC 候选选择、恢复引用和手动重试策略由应用 `GCScheduler` 统一编排；Repository 批量读取同一事务中的 Blob 引用计数、候选及任务输入事实，取得写入权限后重验快照。任务、不可变输入、事件和候选原子保存，任何写入、受影响行数或提交失败都不能返回成功；手动补排队与重试的审计也在同一事务，提交后才唤醒 worker。
+- 引用计数归零后立即登记可执行的 BLOB_GC Job。执行前在同一事务重查计数，有新 owner 就撤销候选；数据库提交后删除物理文件，失败由 Job 重试。ADMIN 容量页可补齐候选并重试失败任务，写入 `STORAGE_CLEANUP_REQUESTED` AuditEvent；手动入口仍使用同一 worker、计数复核和物理删除重试。
+- 过期的无消费 Upload archive 在失去最后 `PROTECTIVE` 边后可正常进入 GC，不能被自身 ArchiveEntry 永久保活。删除事务再次核对引用计数并检查所有 entry 复合外键；有新引用即撤销 candidate。无引用 archive 先成组删索引再删 Blob 行，事务提交后才删除物理文件；物理删除失败保留底层原因，由同一 Job 输入幂等重试。每次重试重新检查摘要的当前登记归属；同摘要已被另一个 Blob 登记时，旧任务保留其文件。现存 Blob 只有仍由当前 Job 的候选授权才能删除，已取消候选只能在再次失去引用后重新排队；新的候选身份不依赖毫秒时钟唯一性。目录记录与候选删除的受影响行数必须确认，失败时保留原记录与物理文件。UploadFile 最后一个 consumption 释放且没有领域叶子后转 `PURGED` 并清空 final Blob，但保留相对路径、声明/接收大小与结果。
 - Hasheous raw response 是独立 TTL owner：每小时按到期时间和 ID 每批最多 200 个处理；仍被 RUNNING ScrapeRun 使用时保留，安全到期后删除 cache pointer、清空 raw Blob、转 `RELEASED` 并进入相同候选流程。
 - Provider 与审核 Preview 过期策略由 `service/payloadrelease.Expirations` 统一编排。Repository 读取有界事实并按原状态、版本、期限及 Blob 身份更新；Provider 同时重验不存在运行中的刮削引用。缓存删除、引用释放及 GC 排期共用事务，更新行数无法确认或任一步失败时全部回滚。Preview 保留原结束时刻，已撤销会话保持 `REVOKED`，只清空临时 checkpoint/restore 引用并撤销能力，内容来源仍由审核 owner 保护。
 
 ### 7.1 已登记 CAS 容量分析
 
-容量分析的唯一口径为 `REGISTERED_CAS_PAYLOAD_V1`：只计算 `blobs` 表中已登记 payload 的 `size_bytes`，按 Blob ID 去重，不读取文件系统目录大小，也不把相同 size 误当成相同内容。`internal/persistence/storageanalysis` 在独立只读连接池上的一个 read-only transaction 中读取完整统计输入，`internal/service/storageanalysis` 在该一致快照上完成分类和汇总；保护集合与 GC 共用 `blob reference registry` 计算出的保护集合及“受保护 archive 单向保护已物化 member”闭包；不得在容量模块复制第二套保护规则。所有加法在 Go 中使用受检 `int64`，溢出使整次读取失败；HTTP 以十进制字符串返回 byte 数，避免 JavaScript `Number` 精度损失。
+容量分析的唯一口径为 `REGISTERED_CAS_PAYLOAD_V1`：只计算 `blobs` 表中已登记 payload 的 `size_bytes`，按 Blob ID 去重，不读取文件系统目录大小，也不把相同 size 误当成相同内容。`internal/persistence/storageanalysis` 在独立只读连接池上的一个 read-only transaction 中读取完整统计输入，`internal/service/storageanalysis` 在该一致快照上完成分类和汇总；保护集合与 GC 共用事务维护的 `blobs.ref_count`；容量模块只从 registry 读取用途分类，不复制第二套保护规则。所有加法在 Go 中使用受检 `int64`，溢出使整次读取失败；HTTP 以十进制字符串返回 byte 数，避免 JavaScript `Number` 精度损失。
 
 每个已登记 Blob 必须且只能进入下列固定顺序的一类，零值类也保留：
 
@@ -350,22 +350,22 @@ data/
 | `SAVES` | 存档 | `save_states.payload_blob_id/screenshot_blob_id`。 |
 | `MEDIA` | 游戏媒体 | `game_assets.blob_id`。 |
 | `WORKFLOW` | 导入与审核工作区 | Upload、Import、Pegasus、EmulationStation、metadata/scrape 与 Review 的 protective 边。 |
-| `RUNTIME_SNAPSHOT` | 运行快照 | `launch_content_files/launch_external_files`。 |
+| `RUNTIME_SNAPSHOT` | 运行快照 | 当前无保护性 Launch 引用；该分类保留零值以维持响应结构。 |
 | `SHARED_DURABLE` | 跨领域共享 | 同一 Blob 同时被至少两个 `GAME_CONTENT/BIOS/SAVES/MEDIA` 长期领域引用。 |
-| `OTHER_REFERENCED` | 其他受保护数据 | 在 registry 保护集合中，但没有命中已登记用途语义；出现非零值时只记录 code/count/bytes 的低基数告警。 |
-| `UNREFERENCED` | 未引用、等待回收 | 已登记但不在当前 GC 保护集合；是否已进入 `blob_gc_candidates` 不改变此分类。 |
+| `OTHER_REFERENCED` | 其他受保护数据 | 在引用计数大于零的集合中，但没有命中已登记用途语义；出现非零值时只记录 code/count/bytes 的低基数告警。 |
+| `UNREFERENCED` | 未引用、等待回收 | 已登记但引用计数为零；是否已进入 `blob_gc_candidates` 不改变此分类。 |
 
-一个长期用途即使还被 Workflow 或 Runtime 引用，仍归长期用途；多个长期用途才归 `SHARED_DURABLE`。受保护 archive 的用途向已物化 member 单向传播，并与 member 自身用途取并集；无业务根 archive 的 ownership 不能反向保护自身或 member。容量语义表必须覆盖 registry 的每条 `PROTECTIVE` 边且不能留下已删除边，覆盖不一致使测试失败。
+一个长期用途即使还被 Workflow 引用，仍归长期用途；多个长期用途才归 `SHARED_DURABLE`。受保护 archive 的用途向已物化 member 单向传播，并与 member 自身用途取并集；无业务根 archive 的 ownership 不能反向保护自身或 member。容量语义表必须覆盖 registry 的每条 `PROTECTIVE` 边且不能留下已删除边，覆盖不一致使测试失败。
 
 顶层恒等式固定为 `registeredBytes = protectedBytes + unreferencedBytes = sum(categories[].bytes)`，`blobCount = sum(categories[].blobCount)`。存档详情另给有效/软删除行数、去重后的状态文件引用量和截图引用量；GC 候选详情给候选 Blob 数与引用量。这些详情是可能相互重叠的引用视图，不与九类容量相加。
 
-替换封面或移除视频后，失去最后引用的旧媒体会立即从 `MEDIA/protectedBytes` 转入 `UNREFERENCED/unreferencedBytes` 并登记候选；`registeredBytes` 与物理 CAS 文件在默认 7 天宽限期结束前保持不变。ROM 或多盘内容成功替换是显式破坏性边界：事务切换 current 后删除旧 ContentFile/VariantFile、旧运行快照与其绑定存档，失去最后引用的 Blob 同样立即转 `UNREFERENCED` 并登记候选；与 current 完全相同或验证失败的输入不得触发这些删除。同一 Requirement 的 BIOS 替换仅切换活动安装，已有会话和存档保留。后台分批释放旧安装与过时 `BIOS_BUNDLE` VariantFile 引用；Launch 文件在结束或过期后释放，最后引用消失才登记 GC 候选；不同 Provider Target Requirement 的安装及共享文件仍受保护。这与上传工作流引用是否已经释放是两个独立不变量。
+替换封面或移除视频后，失去最后引用的旧媒体会立即从 `MEDIA/protectedBytes` 转入 `UNREFERENCED/unreferencedBytes` 并登记候选；GC worker 完成前仍计入 `registeredBytes`，完成后 Blob 行与物理文件被清除。ROM 或多盘内容成功替换是显式破坏性边界：事务切换 current 后删除旧 ContentFile/VariantFile、旧运行快照与其绑定存档，失去最后引用的 Blob 同样立即转 `UNREFERENCED` 并登记候选；与 current 完全相同或验证失败的输入不得触发这些删除。同一 Requirement 的 BIOS 替换会撤销使用旧 BIOS 的 Launch/Play，存档保留。后台分批释放旧安装与过时 `BIOS_BUNDLE` VariantFile 引用；Launch 文件标识不持有 Blob，最后一个领域 owner 消失即登记 GC 候选；不同 Provider Target Requirement 的安装及共享文件仍受保护。这与上传工作流引用是否已经释放是两个独立不变量。
 
-`POST /api/v1/admin/storage-cleanups` 是唯一在线手动回收入口：ADMIN-only，要求 CSRF 与 UUID `Idempotency-Key`，无 body/query，返回本次已推进的 `scheduledBlobCount/scheduledBytes/acceptedAtMs`，不返回 Blob/Job 标识。相同 key 重放原结果；提交成功为 202，后台逐 Blob 执行最终保护复核。明确不在本口径内的项目为 `DATABASE_FILES`、`UPLOAD_PARTS`、`JOB_SCRATCH`、`DEPENDENCY_ROOT`、`FILESYSTEM_OVERHEAD`、`UNREGISTERED_ORPHANS`、`VOLUME_FREE_SPACE`。因此该分析不能回答卷总量、剩余空间或完整磁盘占用，立即清理也不处理这些范围。统一验证为 [`ACC-STOR-001`](./project-acceptance.md#acc-stor-001已登记-cas-容量分析)。
+`POST /api/v1/admin/storage-cleanups` 是在线手动补排队与重试入口：ADMIN-only，要求 CSRF 与 UUID `Idempotency-Key`，无 body/query，返回本次已推进的 `scheduledBlobCount/scheduledBytes/acceptedAtMs`，不返回 Blob/Job 标识。相同 key 重放原结果；提交成功为 202，后台逐 Blob 执行最终保护复核。明确不在本口径内的项目为 `DATABASE_FILES`、`UPLOAD_PARTS`、`JOB_SCRATCH`、`DEPENDENCY_ROOT`、`FILESYSTEM_OVERHEAD`、`UNREGISTERED_ORPHANS`、`VOLUME_FREE_SPACE`。因此该分析不能回答卷总量、剩余空间或完整磁盘占用，手动重试也不处理这些范围。统一验证为 [`ACC-STOR-001`](./project-acceptance.md#acc-stor-001已登记-cas-容量分析)。
 
-批次丢弃只解除指定导入批次的流程引用，按[导入与审核](./import-and-review.md)收口正在执行和未发布的条目，再投递既有 PAYLOAD_RELEASE。内部上传尚无 ImportJob/consumer 的孤立信封可在该批次停止后删除，CAS bytes 仍由来源引用保护到 release。发布 Game、其他批次及活跃 Launch 的共享引用继续参与保护检查；服务器外部来源文件不删除。完成丢弃不等于磁盘立即腾空，无引用 Blob 沿用默认 7 天 GC 宽限；release 失败仍通过任务中心重试。验证见 [`ACC-STOR-002`](./project-acceptance.md#acc-stor-002批次丢弃与引用释放)。
+批次丢弃只解除指定导入批次的流程引用，按[导入与审核](./import-and-review.md)收口正在执行和未发布的条目，再投递既有 PAYLOAD_RELEASE。内部上传尚无 ImportJob/consumer 的孤立信封可在该批次停止后删除，CAS bytes 仍由来源引用保护到 release。发布 Game 与其他批次的共享 owner 继续参与引用计数；服务器外部来源文件不删除。完成丢弃不等于磁盘立即腾空，无引用 Blob 立即进入 GC 队列；release 失败仍通过任务中心重试。验证见 [`ACC-STOR-002`](./project-acceptance.md#acc-stor-002批次丢弃与引用释放)。
 
-`PAYLOAD_RELEASE` 与 `BLOB_GC` 的领取、执行监测、恢复及结果策略由 `internal/service/payloadrelease.Worker` 负责，Repository 在短事务中保存任务、事件、审计及必要的 owner 失败状态。每次领取使用独立 worker 身份、60 秒租约和 15 秒续期，自动重试与过期恢复保留最初的 30 分钟 execution 期限；恢复不接管未过期租约，每轮最多处理 100 条。达到最大 attempt 或原期限时失败收口；损坏的输入在领取后不可重试地失败，不能永远堵在队首。手动重试创建新 execution 并清空旧执行预算，包括立即 GC 入口。
+`PAYLOAD_RELEASE` 与 `BLOB_GC` 的领取、执行监测、恢复及结果策略由 `internal/service/payloadrelease.Worker` 负责，Repository 在短事务中保存任务、事件、审计及必要的 owner 失败状态。每次领取使用独立 worker 身份、60 秒租约和 15 秒续期，自动重试与过期恢复保留最初的 30 分钟 execution 期限；恢复不接管未过期租约，每轮最多处理 100 条。达到最大 attempt 或原期限时失败收口；损坏的输入在领取后不可重试地失败，不能永远堵在队首。手动重试创建新 execution 并清空旧执行预算，包括手动 GC 重试入口。
 
 每个释放事务在开始及提交前校验最初的 execution、worker、输入快照、租约和期限；结果收口也比较相同身份与当前版本。被替换或过期的 worker 不得释放引用、改写新执行或追加终态证据。任务、事件或审计写入失败，包括受影响记录数无法确认，必须回滚本次事务；已经释放的 owner 不因后续恢复错误退回未释放状态。
 
@@ -407,7 +407,7 @@ retrom restore --input /backup-volume/retrom-20260806 \
 ```
 
 - `retrom.db` 是持锁后以普通 SQLite PRAGMA 完成一致性检查和 WAL checkpoint、关闭全部数据库 handle 后逐字节复制的单文件快照；不依赖 driver 私有 Backup API，也不依赖源 WAL/SHM。
-- `blobs/sha256/...` 精确复制 staging 数据库快照中每一条 `blobs` 行对应的 CAS 文件，包括审核/provider 证据、游戏、媒体、存档，以及仍在 GC 宽限期但暂时没有业务保护边的 Blob。因为 `retrom.db` 是未裁剪的原样快照，少复制其中任一 Blob 行都会制造不可恢复数据库；反之，只有物理 CAS 文件存在而数据库没有 Blob 行的 crash orphan 不复制。
+- `blobs/sha256/...` 精确复制 staging 数据库快照中每一条 `blobs` 行对应的 CAS 文件，包括审核/provider 证据、游戏、媒体、存档，以及已排队但尚未完成 GC 且暂时没有业务保护边的 Blob。因为 `retrom.db` 是未裁剪的原样快照，少复制其中任一 Blob 行都会制造不可恢复数据库；反之，只有物理 CAS 文件存在而数据库没有 Blob 行的 crash orphan 不复制。
 - `tmp/uploads/...` 只复制快照中 `upload_parts.storage_key` 仍引用的未完成分块，并逐项验证 size/SHA-256；完成上传的 part 已按清理契约不存在。`storage_key` 是相对于 `RETROM_DATA_DIR/tmp/uploads/` 的 `SAFE_LOGICAL_PATH_V1` 路径，本身不得再带 `tmp/uploads/` 前缀；备份路径只拼接一次该前缀。key 必须数据库唯一并在复制前重新校验，不能借备份复制任意宿主文件。
 - `secrets/launch-capability.key` 是原始 32 bytes；manifest 可记录其 SHA-256 用于完整性，但日志/报告只能给出校验布尔值。
 - 每个配置版本只复制小型 dependency manifest 和对应 `SHA256SUMS` 作为恢复证据。内置 runtime/DAT/许可大 payload 不进入 bundle，由部署方按固定 manifest 预先物化到只读依赖根。不存在另一个含糊的“运行配置快照”文件，active 与版本列表只在 `backup.json` 表达。
@@ -473,7 +473,7 @@ retrom restore --input /backup-volume/retrom-20260806 \
 
 当前 clean schema 直接创建 `import_item_multidisc_entries` 与 `review_multidisc_attachments`，并在 source/content/variant/launch/save 表中建立数据模型专题规定的受约束 enum 与列，并由应用存储方法验证跨表归属和状态转换；不执行重建或回填。User/Profile owner、USER/SYSTEM actor 和 principal-scoped idempotency 由当前 schema 原生约束，完成后 `foreign_key_check` 为零。
 
-GC 把初始和 effective SourceSnapshot、accepted/retryable Attachment、GameContent DISC/playlist、Variant canonical playlist、Launch 锁定 DISC、SaveState 锁定 Variant 视为 Blob 引用根。缺盘 entry 没有 Blob，拒绝补传不推进 effective snapshot；未引用上传文件只受既有 Upload/Job 保留期保护，不能因 entry 占位永久保活。统一执行 `ACC-DB-001`–`002`、`ACC-CAS-001`–`002` 与 `ACC-MDISC-002`–`004`。
+GC 把初始和 effective SourceSnapshot、accepted/retryable Attachment、GameContent DISC/playlist、Variant canonical playlist、SaveState 视为 Blob 引用根；Launch 锁定 DISC 仅是文件标识，不持有 Blob。缺盘 entry 没有 Blob，拒绝补传不推进 effective snapshot；未引用上传文件只受既有 Upload/Job 保留期保护，不能因 entry 占位永久保活。统一执行 `ACC-DB-001`–`002`、`ACC-CAS-001`–`002` 与 `ACC-MDISC-002`–`004`。
 
 ## 10. 收藏数据与恢复
 
