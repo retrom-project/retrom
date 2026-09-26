@@ -6,7 +6,7 @@ const webRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..")
 const designRoot = path.resolve(webRoot, "..", "docs", "design");
 const tokens = await readFile(path.join(webRoot, "styles", "tokens.css"), "utf8");
 const controls = await readFile(path.join(webRoot, "styles", "controls.css"), "utf8");
-const reviewControls = controls.replaceAll(".button.secondary", ".rt-button:not(.rt-button-primary)").replaceAll(".button.danger", ".rt-button-danger").replaceAll(".button", ".rt-button");
+const reviewControls = controls.replaceAll(".home-search", ".rt-home-search").replaceAll(".phone-home-search", ".rt-phone-search").replaceAll(".button.secondary", ".rt-button:not(.rt-button-primary)").replaceAll(".button.danger", ".rt-button-danger").replaceAll(".button", ".rt-button");
 const fragment = await readFile(path.join(designRoot, "retrom-ui-review.fragment.html"), "utf8");
 
 function escapeAttribute(value) {

@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useSyncExternalStore, type ReactNode } from "react";
+import Image from "next/image";
+import { platformArt } from "./platform-art";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { useAuth } from "@/features/auth/auth-provider";
 import { userStorageKey } from "@/features/auth/storage";
 
@@ -51,11 +53,6 @@ function subscribeToPinnedPlatforms(onChange: () => void) {
   };
 }
 
-function platformCode(id: string) {
-  if (id === "arcade") {return "ARC";}
-  return id.replaceAll(/[^a-z0-9]/gi, "").slice(0, 4).toUpperCase();
-}
-
 export function PlatformRail({ platforms }: { platforms: HomePlatform[] }) {
   const { context } = useAuth();
   const pinnedPlatformsKey = userStorageKey(context.user?.userId, "home", "pinned-platforms");
@@ -93,10 +90,17 @@ export function PlatformRail({ platforms }: { platforms: HomePlatform[] }) {
       return <article className={`home-platform-card${isPinned ? " is-pinned" : ""}`} key={platform.id}>
         <Link href={`/library?platformId=${encodeURIComponent(platform.id)}`}>
           <span><strong>{platform.name}</strong><small>{platform.gameCount} 款游戏</small></span>
-          <code>{platformCode(platform.id)}</code>
+          <PlatformIllustration platformId={platform.id} />
         </Link>
         <button type="button" className="home-platform-pin" aria-label={`${isPinned ? "取消置顶" : "置顶"}“${platform.name}”`} aria-pressed={isPinned} title={isPinned ? "取消置顶" : "置顶平台"} onClick={() => togglePinned(platform.id)}><span aria-hidden="true">📌</span></button>
       </article>;
     })}
   </HorizontalRail>;
+}
+
+function PlatformIllustration({ platformId }: { platformId: string }) {
+  const [failed, setFailed] = useState(false);
+  const source = platformArt(platformId);
+  if (!source || failed) {return <div className="home-platform-art" aria-hidden="true" />;}
+  return <Image className="home-platform-art" src={source} alt="" width={80} height={56} unoptimized onError={() => setFailed(true)} />;
 }

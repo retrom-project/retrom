@@ -60,7 +60,7 @@ select:focus-visible, input:focus-visible, textarea:focus-visible, .import-direc
   box-shadow: var(--focus-ring);
 }
 select:disabled, input:disabled, textarea:disabled { cursor: not-allowed; opacity: .65; }
-:is(.search, .library-search, .favorite-search, .admin-game-search > span:last-child, .save-library-search > span:last-child, .import-workflow-search > span:last-child, .platform-directory-search > span:last-child, .phone-home-search, .recent-input-shell, .password-control) input {
+:is(.search, .home-search, .library-search, .favorite-search, .admin-game-search > span:last-child, .save-library-search > span:last-child, .import-workflow-search > span:last-child, .platform-directory-search > span:last-child, .phone-home-search, .recent-input-shell, .password-control) input {
   min-width: 0;
   min-height: 0;
   height: 100%;
@@ -70,9 +70,9 @@ select:disabled, input:disabled, textarea:disabled { cursor: not-allowed; opacit
   background: transparent;
   box-shadow: none;
 }
-:is(.search, .library-search, .favorite-search, .admin-game-search > span:last-child, .save-library-search > span:last-child, .import-workflow-search > span:last-child, .platform-directory-search > span:last-child, .phone-home-search, .recent-input-shell, .password-control) input:focus-visible { outline: 0; }
-:where(.search, .library-search, .favorite-search, .admin-game-search > span:last-child, .save-library-search > span:last-child, .import-workflow-search > span:last-child, .platform-directory-search > span:last-child, .phone-home-search, .recent-input-shell, .password-control) { height: var(--control-height); border-color: var(--control-line); background: var(--surface); }
-:where(.search, .library-search, .favorite-search, .admin-game-search > span:last-child, .save-library-search > span:last-child, .import-workflow-search > span:last-child, .platform-directory-search > span:last-child, .phone-home-search, .recent-input-shell, .password-control):focus-within { border-color: var(--purple); outline: 2px solid var(--purple); outline-offset: 2px; box-shadow: var(--focus-ring); }
+:is(.search, .home-search, .library-search, .favorite-search, .admin-game-search > span:last-child, .save-library-search > span:last-child, .import-workflow-search > span:last-child, .platform-directory-search > span:last-child, .phone-home-search, .recent-input-shell, .password-control) input:focus-visible { outline: 0; }
+:where(.search, .home-search, .library-search, .favorite-search, .admin-game-search > span:last-child, .save-library-search > span:last-child, .import-workflow-search > span:last-child, .platform-directory-search > span:last-child, .phone-home-search, .recent-input-shell, .password-control) { height: var(--control-height); border-color: var(--control-line); background: var(--surface); }
+:where(.search, .home-search, .library-search, .favorite-search, .admin-game-search > span:last-child, .save-library-search > span:last-child, .import-workflow-search > span:last-child, .platform-directory-search > span:last-child, .phone-home-search, .recent-input-shell, .password-control):focus-within { border-color: var(--purple); outline: 2px solid var(--purple); outline-offset: 2px; box-shadow: var(--focus-ring); }
 .password-control input { padding-inline: 12px; }
 .import-directory-trigger { position: relative; background-image: none; }
 .import-directory-trigger > svg { position: absolute; right: 12px; top: 50%; width: 16px; height: 16px; transform: translateY(-50%); color: var(--purple-dark); stroke-width: 1.6; }
@@ -84,3 +84,5 @@ select:disabled, input:disabled, textarea:disabled { cursor: not-allowed; opacit
 }
 @media (prefers-reduced-motion: reduce) { .button { transition: none; } }
 @media (forced-colors: active) { select { appearance: auto; background-image: none; } }
+
+.home-search { border: 1px solid var(--control-line); border-radius: var(--radius-control); }

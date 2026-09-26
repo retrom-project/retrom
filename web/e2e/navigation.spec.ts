@@ -44,7 +44,7 @@ test.beforeEach(async ({ page }) => {
 test("user and admin navigation remain usable without page overflow", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("link", { name: "Retrom 首页" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "今天想玩什么？" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "今天，玩点什么？" })).toBeVisible();
   await page.getByRole("link", { name: "管理后台" }).click();
   await expect(page).toHaveURL(/\/admin\/imports$/);
   await expect(page.getByRole("heading", { name: "游戏入库" })).toBeVisible();
@@ -59,7 +59,7 @@ test("account menu closes after clicking elsewhere on the page", async ({ page }
   await accountMenu.locator("summary").click();
   await expect(accountMenu).toHaveAttribute("open", "");
 
-  await page.getByRole("heading", { name: "今天想玩什么？" }).click();
+  await page.getByRole("heading", { name: "今天，玩点什么？" }).click();
   await expect(accountMenu).not.toHaveAttribute("open", "");
 });
 

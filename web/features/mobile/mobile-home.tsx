@@ -1,9 +1,8 @@
 import Image from "next/image";
 import Link from "next/link";
 import { AppIcon } from "@/components/app-icon";
+import { HomeFeatured } from "@/features/home/home-featured";
 import type { FeaturedGame, Home } from "@/features/home/home-data";
-import { LaunchButton } from "@/features/player/launch-button";
-import { formatTime } from "@/lib/backend";
 
 function Poster({ title, coverUrl }: { title: string; coverUrl: string | null }) {
   return <span className="phone-game-poster">
@@ -12,20 +11,9 @@ function Poster({ title, coverUrl }: { title: string; coverUrl: string | null })
 }
 
 function ContinueGame({ game }: { game: FeaturedGame }) {
-  const save = game.lastSessionSave;
   return <section className="phone-continue" aria-labelledby="phone-continue-title">
-    <h1 id="phone-continue-title">{save ? "继续游玩" : "再玩一局"}</h1>
-    <div className="phone-continue-card">
-      <Link href={`/games/${game.gameId}`} aria-label={`查看${game.title}游戏详情`}><Poster title={game.title} coverUrl={game.coverUrl} /></Link>
-      <div className="phone-continue-copy">
-        <div className="phone-continue-info">
-          <Link href={`/games/${game.gameId}`}><h2>{game.title}</h2></Link>
-          <p>{game.platform.name}</p>
-          <small>{save ? `存档 · ${formatTime(save.createdAtMs)}` : "本次从游戏开头开始"}</small>
-        </div>
-        <div className="phone-continue-actions"><LaunchButton gameId={game.gameId} saveStateId={save?.saveStateId ?? null} returnTo="/" label={save ? "从存档继续" : "开始游戏"} /></div>
-      </div>
-    </div>
+    <h1 id="phone-continue-title">今天，玩点什么？</h1>
+    <div className="phone-continue-card"><HomeFeatured game={game} phone /></div>
   </section>;
 }
 

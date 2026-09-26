@@ -82,3 +82,15 @@ describe("phone home", () => {
     expect(screen.queryByRole("button", { name: "开始游戏" })).not.toBeInTheDocument();
   });
 });
+
+it("never mounts a cover, screenshot, or platform illustration in the phone continue card", () => {
+  const data = home();
+  data.featuredGame = { ...recentGame(0), description: "", hasSaveStates: true, coverUrl: "/portrait.jpg", lastSessionSave: { saveStateId: "progress", screenshotUrl: "/landscape.jpg", createdAtMs: 1000, activeDurationMs: 100, discIndex: null, discLabel: null } };
+  const { container } = render(<MobileHome home={data} />);
+  const card = container.querySelector(".phone-continue-card")!;
+  expect(card.querySelector("img")).toBeNull();
+  expect(card.querySelector(".home-featured-media")).toBeNull();
+  expect(screen.getByRole("button", { name: "从存档继续" })).toHaveAttribute("data-save", "progress");
+  expect(screen.getByRole("link", { name: "查看游戏详情" })).toHaveAttribute("href", "/games/game-0");
+  expect(screen.getByRole("link", { name: "查看存档" })).toHaveAttribute("href", "/saves?gameId=game-0");
+});

@@ -4,7 +4,7 @@ import { expectChineseGlyphs, expectStatusTextCentered } from "./status-alignmen
 import { expectSearchComposition } from "./search-control-support";
 import { expectCardRadii } from "./card-radius-support";
 import { expectHomeStates } from "./home-state-support";
-import { expectNaturalHomeFlow } from "./home-layout-support";
+import { expectHomeHero, expectNaturalHomeFlow } from "./home-layout-support";
 import { evidencePath, noPageOverflow } from "./acceptance-support";
 
 // Explicit page PNGs are the visual evidence; retain DOM/source traces without a duplicate 4K filmstrip.
@@ -71,24 +71,10 @@ async function expectMobileFavorites(page: Page) {
   await expect(navigation.getByRole("button", { name: /全部收藏/ })).toBeHidden();
 }
 
-async function expectHomeFooter(page: Page) {
-  const empty = page.locator(".home-featured-empty");
-  if (await empty.count()) {
-    await expect(empty).toBeVisible();
-    await expect(page.locator(".home-featured-bottom")).toHaveCount(0);
-    return;
-  }
-  const alignment = await page.locator(".home-featured-bottom").evaluate((footer) => {
-    const box = footer.getBoundingClientRect(), panel = footer.closest(".home-featured-panel")!.getBoundingClientRect();
-    return [...footer.children].map((child) => { const rect = child.getBoundingClientRect(); return Math.abs(rect.y + rect.height / 2 - (box.top + panel.bottom - 1) / 2); });
-  });
-  for (const offset of alignment) { expect(offset).toBeLessThanOrEqual(1); }
-}
-
 async function expectRouteComposition(page: Page, route: string, width: number) {
   await expect(page.locator(".page-header .eyebrow")).toHaveCount(0);
   if (width! >= 1440 && route === "/") {
-    await expectHomeFooter(page);
+    await expectHomeHero(page);
     await expectNaturalHomeFlow(page);
   }
   if (width! >= 1440 && route.startsWith("/games/")) {
