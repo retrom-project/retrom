@@ -105,7 +105,7 @@ func TestLoadInstallationOverlaysPFBDevModuleWithoutChangingBaseBundle(t *testin
 	installation.Handler.ServeHTTP(response, httptest.NewRequestWithContext(t.Context(), http.MethodGet,
 		"/runtime/providers/fixture/"+paths.bundleSHA256+"/client.mjs", nil))
 	if response.Code != http.StatusOK || response.Body.String() != string(module) ||
-		response.Header().Get("Cache-Control") != "no-store" {
+		response.Header().Get("Cache-Control") != "no-store, no-transform" {
 		t.Fatalf("dev module response = %d headers=%v body=%q", response.Code, response.Header(), response.Body.String())
 	}
 	envelope, err := installation.Builder.Build(runtimelaunch.Input{

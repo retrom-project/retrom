@@ -55,7 +55,7 @@ function evidence() {
       restoreLaunchId: "01a0452f-bc94-7cc2-8403-4819f3c381e2",
       saveStateId: "01a0452f-bc6d-7d0a-b975-891ece6a0cc9",
     },
-    immersiveMenu: { actions: ["取消", "创建存档", "退出游戏"], screenshot: "screenshots/immersive-exit-menu.png" },
+    immersiveMenu: { actions: ["取消", "手柄光标：开", "创建存档", "退出游戏"], screenshot: "screenshots/immersive-exit-menu.png" },
     checkpoint: { format: "kirikiri-save-bundle-v1-storage-v1", sizeBytes: 128_000 },
     restoreComparison: {
       discriminativePixelCount: 160, matched: true,

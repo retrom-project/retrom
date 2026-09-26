@@ -211,7 +211,7 @@ MV/MZ 的游戏包会携带项目自己的 HTML、JavaScript、插件和资源�
 
 固定 EmulatorJS 与发布媒体可公开 immutable 缓存；媒体替换必须分配新 Asset URL。ROM、parent、BIOS 与
 多盘外部文件以带领域分隔的派生内容身份形成新 `/runtime/content/` URL，在有效 Launch content grant 下使用
-`private, max-age=31536000, immutable`，替换任一输入都必须改变 URL。状态存档、存档截图和 Launch config
+`private, max-age=31536000, immutable, no-transform`，替换任一输入都必须改变 URL。状态存档、存档截图和 Launch config
 继续 `private, no-store`，不得进入共享或 immutable cache。允许路径、cookie scope/过期、单 Range、ETag、
 MIME 和错误隐藏的唯一契约见 [HTTP API 第 7–8 节](./http-api-contract.md#7-launch-创建与凭据)。Go 静态
 handler 只能发布依赖 manifest allowlist，不能把物理目录直接挂为文件服务器。

@@ -377,7 +377,7 @@
 .review-workflow-publish-layout { min-height: 100%; display: grid; grid-template-columns: minmax(0, 1fr) clamp(360px, 40%, 400px); align-items: stretch; gap: 20px; }
 .review-workflow-metadata-fields { height: 100%; min-height: 0; grid-template-columns: repeat(6, minmax(0, 1fr)); grid-template-rows: auto minmax(140px, 1fr) auto auto; align-content: stretch; }
 .review-workflow-metadata-fields .field.full { grid-column: 1 / -1; }
-.review-workflow-metadata-fields .field:has(textarea) { min-height: 0; grid-template-rows: auto minmax(120px, 1fr); row-gap: 5px; }
+.review-workflow-metadata-fields .field:has(textarea) { min-height: 0; grid-template-rows: auto minmax(120px, 1fr); row-gap: var(--space-1); }
 .review-workflow-metadata-fields textarea { height: 100%; min-height: 120px; resize: none; }
 .review-workflow-query-actions { min-width: 0; display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
 .review-workflow-query-actions .scrape-live { min-width: 0; max-width: min(420px, 34vw); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

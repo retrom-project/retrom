@@ -7,11 +7,11 @@ import importlib.util
 import sqlite3
 import sys
 from pathlib import Path
+from ui_layout_state import validate_database
 
 
 def seed(path: Path) -> str:
-    if not path.resolve().parent.parent.name.startswith("retrom-ui-acceptance."):
-        raise ValueError("detail seed requires the disposable acceptance database")
+    validate_database(path)
     spec = importlib.util.spec_from_file_location("ui_home_seed", Path(__file__).with_name("seed-ui-home.py"))
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)

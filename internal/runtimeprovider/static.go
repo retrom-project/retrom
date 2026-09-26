@@ -225,9 +225,9 @@ func (handler *staticHandler) ServeHTTP(writer http.ResponseWriter, request *htt
 		return
 	}
 	if development {
-		writer.Header().Set("Cache-Control", "no-store")
+		writer.Header().Set("Cache-Control", "no-store, no-transform")
 	} else {
-		writer.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+		writer.Header().Set("Cache-Control", "public, max-age=31536000, immutable, no-transform")
 	}
 	writer.Header().Set("Content-Type", file.mediaType)
 	writer.Header().Set("ETag", `"`+file.sha256+`"`)

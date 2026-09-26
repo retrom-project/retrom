@@ -168,7 +168,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     ),
     "ACC-AUTH-003": (
         120,
-        "make data-check && make deps-check && go test ./internal/composition ./internal/httpapi -run 'TestReleaseInitializationLoginExpiryAndPasswordRotation|TestLoginRateLimitIsAtomicHashedAndExpiresWithInjectedClock|TestSetupAndLinkRateLimitsUseIndependentIPBuckets|TestAuthHTTPTestLoginCookieCSRFAndLogout|TestAuthHTTPLoginRateLimitReturnsRetryAfter|TestCanonicalClientIPTrustsOnlyConfiguredProxyChain' -count=1",
+        "make data-check && make deps-check && go test ./internal/composition ./internal/httpapi -run 'TestReleaseInitializationLoginExpiryAndPasswordRotation|TestLoginRateLimitIsAtomicHashedAndExpiresWithInjectedClock|TestSetupAndLinkRateLimitsUseIndependentIPBuckets|TestAuthHTTPTestLoginCookieCSRFAndLogout|TestAuthHTTPLoginRateLimitReturnsRetryAfter|TestCanonicalClientIPUsesSingleProxyForwardedAddress' -count=1",
     ),
     "ACC-AUTH-004": (
         120,

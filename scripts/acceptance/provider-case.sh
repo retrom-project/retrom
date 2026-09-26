@@ -3,12 +3,18 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 RUNTIME_ROOT="${RETROM_RUNTIME_ROOT:-$(cd "$ROOT/../retrom-runtime" && pwd)}"
-NPM="$ROOT/.cache/tools/node-v24.18.0-linux-x64/bin/npm"
-GO="$ROOT/.cache/tools/go1.26.5-linux-amd64/bin/go"
+NPM="${NODE_HOME:-$ROOT/.cache/tools/node-v24.18.0-linux-x64}/bin/npm"
+# make prepare-go can select the exact system toolchain without a local cache.
+GO="$(command -v go || true)"
+GO_VERSION="$(awk '$1 == "go" {print $2; exit}' "$ROOT/go.mod")"
 CASE_ID="${1:-}"
 
 if [[ ! -x "$NPM" || ! -x "$GO" || ! -f "$RUNTIME_ROOT/package.json" ]]; then
   echo "PROVIDER_ACCEPTANCE_TOOLCHAIN_MISSING" >&2
+  exit 2
+fi
+if [[ "$("$GO" env GOVERSION)" != "go$GO_VERSION" ]]; then
+  echo "PROVIDER_ACCEPTANCE_GO_VERSION_MISMATCH" >&2
   exit 2
 fi
 

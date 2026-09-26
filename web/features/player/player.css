@@ -105,6 +105,8 @@
 .player-loading-progress small { color: #b7c0ce; font-size: var(--text-caption); font-variant-numeric: tabular-nums; }
 .immersive-player-overlay { position: absolute; z-index: 90; inset: 0; padding: 32px; display: grid; place-items: center; background: rgb(0 0 0 / 68%); }
 .immersive-player-panel { width: min(620px, calc(100vw - 48px)); padding: 40px; display: grid; justify-items: center; gap: 14px; border: 1px solid rgb(255 255 255 / 15%); border-radius: var(--radius-dialog); background: rgb(14 18 27 / 96%); box-shadow: 0 28px 90px rgb(0 0 0 / 62%); text-align: center; }
+.immersive-player-panel.has-gamepad-cursor { width: min(760px, calc(100vw - 48px)); }
+.immersive-player-panel.has-gamepad-cursor .immersive-player-actions { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .immersive-player-panel h1, .immersive-player-panel p { margin: 0; }
 .immersive-player-panel h1 { color: #fff; font-size: var(--text-page); }
 .immersive-player-panel > p:not(.immersive-player-eyebrow, .immersive-player-error, .immersive-player-notice, .immersive-player-unavailable) { color: #b9c1cf; font-size: var(--text-lead); }

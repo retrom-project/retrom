@@ -27,6 +27,7 @@ export async function verifyExitDuringProviderLoading(page: Page) {
       }
       if (/\/runtime\/launches\/[^/]+\/finish$/.test(url)) {record("finish");}
       if (/\/runtime\/launches\/[^/]+\/start$/.test(url)) {record("start");}
+      if (/\/runtime\/launches\/[^/]+\/progress$/.test(url)) {record("progress");}
       return original(input, init);
     };
   });
@@ -40,8 +41,10 @@ export async function verifyExitDuringProviderLoading(page: Page) {
     await page.getByRole("alertdialog", {name: "退出游戏？"}).getByRole("button", {name: "退出游戏", exact: true}).click();
     await expect(page).toHaveURL(/\/games\/[0-9a-f-]+$/);
     await expect(page.locator(".player-shell")).toHaveCount(0);
+    // An unstarted PRODUCT launch cancels loading without emitting telemetry or
+    // the legacy start/finish protocol. Navigation must follow that cancellation.
     expect(await page.evaluate(() => JSON.parse(sessionStorage.getItem("retrom:loading-exit-events") ?? "[]")))
-      .toEqual(["module-aborted", "finish"]);
+      .toEqual(["module-aborted"]);
     await page.goBack();
     await expect(page).toHaveURL(/\/library$/);
   } finally {

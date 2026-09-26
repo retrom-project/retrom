@@ -199,10 +199,10 @@ async function createSaveFromMenu(page: Page, menu: Locator) {
 
 async function exitPlayer(page: Page, menu: Locator) {
   await selectPlayerMenuItem(page, menu, "退出游戏");
-  const finished = page.waitForResponse((response) =>
-    response.request().method() === "POST" && /\/runtime\/launches\/[^/]+\/finish$/.test(response.url()));
+  const progress = page.waitForResponse((response) =>
+    response.request().method() === "POST" && /\/runtime\/launches\/[^/]+\/progress$/.test(response.url()));
   await pressGamepad(page, standardButton.a);
-  expect((await finished).ok()).toBe(true);
+  expect((await progress).ok()).toBe(true);
   await expect(page).toHaveURL(/\/immersive\/(?:library|platforms)\//);
   await expect(page.getByRole("listbox", { name: "沉浸游戏列表" })).toBeVisible();
   await expect(page.getByRole("option", { selected: true })).toBeVisible();
