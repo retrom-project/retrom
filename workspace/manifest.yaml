@@ -58,8 +58,18 @@
         "apple2js",
         "lutro",
         "daphne",
-        "gearboy"
+        "gearboy",
+        "dosbox-pure"
       ]
+    },
+    {
+      "id": "dosbox-pure",
+      "path": "project/retrom-core/dosbox-pure",
+      "role": "core",
+      "gitlink": "git@github.com:retrom-project/dosbox-pure.git",
+      "defaultBranch": "retrom/g3a5222c97456",
+      "submodules": false,
+      "dependsOn": []
     },
     {
       "id": "ruffle",

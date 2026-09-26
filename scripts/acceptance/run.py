@@ -402,7 +402,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     "ACC-RUN-012": (300, "scripts/acceptance/ui-case.sh ACC-RUN-012"),
     "ACC-RUN-005": (
         180,
-        "go test -tags=integration ./internal/launch ./internal/libraryimport -run 'TestDOSLaunchLocksMenuOrSelectedDeterministicBundle|TestDOSDirectoryGroupingProducesDeterministicBundleAndSafePrograms|TestDOSRanking|TestPrepareDOSFilesInspectsLauncherBatch' -count=1 && make web-test",
+        "go test -tags=integration ./internal/launch ./internal/libraryimport -run 'TestDOSLaunchLocksMenuOrSelectedDeterministicBundle|TestDOSDirectoryGroupingProducesDeterministicBundleAndSafePrograms|TestDOSRanking|TestPrepareDOSFilesInspectsLauncherBatch' -count=1 && go test ./internal/httpapi ./internal/service/launch -run 'TestDOSIndexDescribesVirtualZIP|TestDOSGameUsesProjectedIndexResource' -count=1 && make web-test",
     ),
     "ACC-SAVE-001": (
         180,

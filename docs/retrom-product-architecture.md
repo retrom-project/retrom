@@ -443,7 +443,7 @@ flowchart LR
 - 验证直接启动、默认全屏、仅用户显式状态存档/截图、指定存档恢复与累计时长快照。
 - 验证 FBNeo/MAME/FBA2012 Split 与 Full Non-Merged 的 parent/BIOS 加载，及五个独立 DAT。
 - 已确认 Hasheous 的 `POST /api/v1/Lookup/ByHash` 无凭证契约；自动测试使用 fake，上线前只做一次有界 smoke，不能依赖实时命中内容或把限流阈值写死。
-- 核心运行兼容只能由经过 Retrom 导入、Launch、内容端点和 Player 的产品 E2E 证明；历史独立 EmulatorJS 页面结果不是产品启动编排的证据。当前已覆盖核心与缺口以核心运行时专题为准。DOSBox Pure 的 4.3 whole-archive、虚拟 ZIP 引导、程序菜单、原 bundle 不复制及不安全路径阻断执行 `ACC-RUN-005`。
+- 核心运行兼容只能由经过 Retrom 导入、Launch、内容端点和 Player 的产品 E2E 证明；历史独立 EmulatorJS 页面结果不是产品启动编排的证据。当前已覆盖核心与缺口以核心运行时专题为准。DOSBox Pure 的虚拟 ZIP 引导、Content I/O Range 读取、程序菜单、原 bundle 不复制及不安全路径阻断执行 `ACC-RUN-005`。
 
 Phase 0 未通过时，不进入大规模业务实现。
 

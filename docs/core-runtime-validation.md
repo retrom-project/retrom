@@ -47,6 +47,8 @@
 
 EmulatorJS Provider declaration 是 56 个 Target 的唯一行为 registry。`mame2003` 的 4.2.1 core 覆盖、DOSBox Pure 的 state 修复、线程 core、shader、启动动作与多盘都封装在该 Provider 中。Retrom 只看 Target declaration 与标准能力，不按 core 名在 Go 或前端复制规则。
 
+DOSBox Pure 的游戏输入声明为 `FILE_TREE`，索引中的 `game.zip` 是 Retrom 在授权内容端点投影的虚拟 ZIP。索引记录虚拟 ZIP 长度，runtime 以 Content I/O Range Reader 和强 ETag 绑定读取，并将有界读取接到 EmulatorJS 文件系统；宿主保留原始 DOS 来源 Blob 与选定程序的身份绑定。是否真正未整包下载由 [ACC-RUN-005](./project-acceptance.md#acc-run-005dos-启动程序) 的网络和浏览器证据判定。
+
 原始画面与锐利像素使用显式颜色直通、无滤波的 `retrom-passthrough` shader，避开 4.2.3 关闭 shader 后在原生分辨率切换时出现纯色/裁切的 GL fallback。浏览器画面必须与核心截图保持完整内容，启动和跨 Launch 恢复均需覆盖；不能用切换画面模式的人工操作替代默认模式验收。
 
 
