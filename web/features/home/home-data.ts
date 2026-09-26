@@ -16,6 +16,7 @@ export type RecentGame = {
 export type FeaturedGame = RecentGame & {
   description: string;
   hasSaveStates: boolean;
+  defaultDosEntry: string | null;
   lastSessionSave: null | {
     saveStateId: string;
     createdAtMs: number;
@@ -25,6 +26,10 @@ export type FeaturedGame = RecentGame & {
     discLabel: string | null;
   };
 };
+
+export function featuredLaunchDOSEntry(game: FeaturedGame): string | null {
+  return game.lastSessionSave ? null : game.defaultDosEntry;
+}
 
 export type LatestGame = {
   gameId: string;

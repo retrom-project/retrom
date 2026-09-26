@@ -1,7 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { AppIcon } from "@/components/app-icon";
-import type { FeaturedGame, Home } from "@/features/home/home-data";
+import { featuredLaunchDOSEntry, type FeaturedGame, type Home } from "@/features/home/home-data";
 import { LaunchButton } from "@/features/player/launch-button";
 import { formatTime } from "@/lib/backend";
 
@@ -23,7 +23,7 @@ function ContinueGame({ game }: { game: FeaturedGame }) {
           <p>{game.platform.name}</p>
           <small>{save ? `存档 · ${formatTime(save.createdAtMs)}` : "本次从游戏开头开始"}</small>
         </div>
-        <div className="phone-continue-actions"><LaunchButton gameId={game.gameId} saveStateId={save?.saveStateId ?? null} returnTo="/" label={save ? "从存档继续" : "开始游戏"} /></div>
+        <div className="phone-continue-actions"><LaunchButton gameId={game.gameId} saveStateId={save?.saveStateId ?? null} dosEntry={featuredLaunchDOSEntry(game)} returnTo="/" label={save ? "从存档继续" : "开始游戏"} /></div>
       </div>
     </div>
   </section>;

@@ -104,8 +104,16 @@ func projectHomeFeaturedGame(item *homeservice.FeaturedGame) map[string]any {
 		"platformInstance": map[string]any{"id": item.PlatformInstance.ID, "name": item.PlatformInstance.Name},
 		"lastPlayedAtMs":   item.LastPlayedAtMS, "activeDurationMs": item.ActiveDurationMS,
 		"sessionCount": item.SessionCount, "coverUrl": homeAssetURL(item.CoverAssetID),
-		"hasSaveStates": item.SaveCount > 0, "lastSessionSave": lastSessionSave, "tags": item.Tags,
+		"hasSaveStates": item.SaveCount > 0, "lastSessionSave": lastSessionSave,
+		"defaultDosEntry": homeNullableString(item.DefaultDOSEntry), "tags": item.Tags,
 	}
+}
+
+func homeNullableString(value *string) any {
+	if value == nil {
+		return nil
+	}
+	return *value
 }
 
 func homeNullableInteger(value *int64) any {

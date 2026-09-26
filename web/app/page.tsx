@@ -1,6 +1,6 @@
 import { PhoneLayout } from "@/features/mobile/phone-layout";
 import { MobileHome } from "@/features/mobile/mobile-home";
-import type { FeaturedGame, Home } from "@/features/home/home-data";
+import { featuredLaunchDOSEntry, type FeaturedGame, type Home } from "@/features/home/home-data";
 import Image from "next/image";
 import Link from "next/link";
 import { AppIcon } from "@/components/app-icon";
@@ -45,7 +45,7 @@ function FeaturedGamePanel({ game }: { game: FeaturedGame | null }) {
           <div className="home-featured-details"><p className="home-featured-overline">{Array.from(new Set([game.platform.name.trim(), game.platformInstance.name.trim()])).filter(Boolean).join(" · ")}</p><h2>{game.title}</h2><TagChips tags={game.tags ?? []} limit={2} /><div className="home-featured-facts"><span>上次游玩 <strong>{formatTime(game.lastPlayedAtMs)}</strong></span><span>累计游玩 <strong>{duration(game.activeDurationMs)}</strong></span><span>游玩 <strong>{game.sessionCount} 次</strong></span></div></div>
           <GameDescription description={game.description} className="home-featured-description" />
           <div className="home-featured-actions">
-            <LaunchButton gameId={game.gameId} saveStateId={sessionSave?.saveStateId ?? null} returnTo="/" label={sessionSave ? "继续游玩" : "再玩一次"} />
+            <LaunchButton gameId={game.gameId} saveStateId={sessionSave?.saveStateId ?? null} dosEntry={featuredLaunchDOSEntry(game)} returnTo="/" label={sessionSave ? "继续游玩" : "再玩一次"} />
             <span className="home-launch-note">本次将从{sessionSave ? "存档位置" : "游戏开头"}启动</span>
           </div>
         </div>
