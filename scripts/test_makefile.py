@@ -375,6 +375,19 @@ class MakefileDependencyTests(unittest.TestCase):
         self.assertTrue(0 <= structure_position < api_position, output)
         self.assertNotIn("quality_structure.py || true", output)
 
+    def test_pr_contracts_target_keeps_every_non_application_gate(self) -> None:
+        output = self.dry_run("ci-contracts")
+        for command in (
+            "python3 workspace/catalog.py",
+            "python3 scripts/quality_structure.py",
+            "scripts/api-check.sh",
+            "python3 scripts/test_workflows.py",
+            "python3 scripts/dependencies.py data-check",
+        ):
+            self.assertIn(command, output)
+        self.assertLess(output.index("scripts/quality_structure.py"),
+                        output.index("scripts/api-check.sh"))
+
     def test_backend_and_web_checks_run_the_same_structure_gate(self) -> None:
         for target in ("backend-check", "web-check"):
             output = self.dry_run(target)

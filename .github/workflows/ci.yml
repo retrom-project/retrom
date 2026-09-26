@@ -12,7 +12,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  quality:
+  contracts:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -39,6 +39,25 @@ jobs:
         with:
           path: .cache/tools/node-v24.18.0-linux-x64
           key: retrom-node-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.node-version', 'scripts/prepare-node.sh') }}
+      - name: Check workspace, structure, API and data contracts
+        run: make ci-contracts
+
+  backend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v6
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+          cache-dependency-path: go.sum
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
       - name: Cache materialized runtime dependencies
         uses: actions/cache@v5
         with:
@@ -51,12 +70,110 @@ jobs:
             data/dat/emulatorjs/*/fbalpha2012_cps2
             data/auth/password-blocklists/*/payload
           key: retrom-dependencies-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('data/dat/**', 'data/auth/**', 'scripts/dependencies.py', 'scripts/fbalpha2012_dat.py', 'scripts/fbalpha2012-dat-enumerator.cpp') }}
-      - name: Run the fast source structure gate
-        run: make quality-structure-check
       - name: Prepare pinned runtime dependencies
         run: make prepare-deps
-      - name: Run the repository quality gate
-        run: make ci
+      - name: Check Go formatting, build, tests and lint
+        run: make backend-check
+
+  integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v6
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+          cache-dependency-path: go.sum
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - name: Restore materialized runtime dependencies
+        uses: actions/cache/restore@v5
+        with:
+          path: |
+            data/runtime
+            data/dat/emulatorjs/*/fbneo
+            data/dat/emulatorjs/*/mame2003
+            data/dat/emulatorjs/*/mame2003_plus
+            data/dat/emulatorjs/*/fbalpha2012_cps1
+            data/dat/emulatorjs/*/fbalpha2012_cps2
+            data/auth/password-blocklists/*/payload
+          key: retrom-dependencies-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('data/dat/**', 'data/auth/**', 'scripts/dependencies.py', 'scripts/fbalpha2012_dat.py', 'scripts/fbalpha2012-dat-enumerator.cpp') }}
+      - name: Prepare pinned runtime dependencies
+        run: make prepare-deps
+      - name: Run Go integration tests
+        run: make integration-test
+
+  web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v6
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .node-version
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - name: Restore the repository Node.js toolchain
+        uses: actions/cache/restore@v5
+        with:
+          path: .cache/tools/node-v24.18.0-linux-x64
+          key: retrom-node-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.node-version', 'scripts/prepare-node.sh') }}
+      - name: Check Web styles, lint, types, tests and build
+        run: make web-check
+
+  browser_ui:
+    name: browser-ui
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v6
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+          cache-dependency-path: go.sum
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .node-version
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - name: Restore the repository Node.js toolchain
+        uses: actions/cache/restore@v5
+        with:
+          path: .cache/tools/node-v24.18.0-linux-x64
+          key: retrom-node-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.node-version', 'scripts/prepare-node.sh') }}
+      - name: Restore materialized runtime dependencies
+        uses: actions/cache/restore@v5
+        with:
+          path: |
+            data/runtime
+            data/dat/emulatorjs/*/fbneo
+            data/dat/emulatorjs/*/mame2003
+            data/dat/emulatorjs/*/mame2003_plus
+            data/dat/emulatorjs/*/fbalpha2012_cps1
+            data/dat/emulatorjs/*/fbalpha2012_cps2
+            data/auth/password-blocklists/*/payload
+          key: retrom-dependencies-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('data/dat/**', 'data/auth/**', 'scripts/dependencies.py', 'scripts/fbalpha2012_dat.py', 'scripts/fbalpha2012-dat-enumerator.cpp') }}
+      - name: Prepare pinned runtime dependencies
+        run: make prepare-deps
       - name: Prepare fixed Latin and CJK fonts for browser checks
         run: |
           scripts/prepare-e2e-fonts.sh
@@ -75,3 +192,23 @@ jobs:
           include-hidden-files: true
           if-no-files-found: ignore
           retention-days: 14
+
+  quality:
+    runs-on: ubuntu-latest
+    needs: [contracts, backend, integration, web, browser_ui]
+    if: ${{ always() }}
+    steps:
+      - name: Require every quality check to pass
+        env:
+          CONTRACTS_RESULT: ${{ needs.contracts.result }}
+          BACKEND_RESULT: ${{ needs.backend.result }}
+          INTEGRATION_RESULT: ${{ needs.integration.result }}
+          WEB_RESULT: ${{ needs.web.result }}
+          BROWSER_UI_RESULT: ${{ needs.browser_ui.result }}
+        run: |
+          for result in "$CONTRACTS_RESULT" "$BACKEND_RESULT" "$INTEGRATION_RESULT" "$WEB_RESULT" "$BROWSER_UI_RESULT"; do
+            if [[ "$result" != success ]]; then
+              echo "Quality check did not pass: $result" >&2
+              exit 1
+            fi
+          done
