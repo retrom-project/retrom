@@ -7,7 +7,6 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
-	"time"
 
 	dbapi "retrom/internal/database"
 	"retrom/internal/testsupport"
@@ -45,7 +44,7 @@ func TestProviderExpirationRollsBackUnconfirmedRelease(t *testing.T) {
 			return result, nil
 		},
 	})
-	service, err := New(fault, fixture.blobs, fixture.service.now, 24*time.Hour)
+	service, err := New(fault, fixture.blobs, fixture.service.now)
 	if err != nil {
 		t.Fatal(err)
 	}

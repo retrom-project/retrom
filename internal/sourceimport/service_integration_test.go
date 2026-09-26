@@ -216,7 +216,7 @@ func assertSourcePayloadReleased(
 ) {
 	t.Helper()
 	ctx := t.Context()
-	releases, err := payloadrelease.New(database, blobs, time.Now, 7*24*time.Hour)
+	releases, err := payloadrelease.New(database, blobs, time.Now)
 	if err != nil {
 		t.Fatal(err)
 	}

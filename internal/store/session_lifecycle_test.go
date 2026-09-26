@@ -75,7 +75,7 @@ func TestPlayResilienceMigrationClearsActiveIdleRetirement(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, source := range sources[:len(sources)-1] {
+	for _, source := range sources[:len(sources)-2] {
 		if err := runMigration(t.Context(), db, source, time.Now); err != nil {
 			t.Fatal(err)
 		}
@@ -97,7 +97,7 @@ WHERE id='current-launch'`); err != nil {
 WHERE launch_session_id='current-launch'`); err != nil {
 		t.Fatal(err)
 	}
-	if err := runMigration(t.Context(), db, sources[len(sources)-1], time.Now); err != nil {
+	if err := runMigration(t.Context(), db, sources[len(sources)-2], time.Now); err != nil {
 		t.Fatal(err)
 	}
 	var idle sql.NullInt64
@@ -131,7 +131,7 @@ WHERE save_state_id='current-save'`).Scan(&version); err != nil || version != 1 
 	}
 }
 
-func TestNativeLaunchFreezesAndReleasesRestoreInputWithoutTriggers(t *testing.T) {
+func TestNativeLaunchBindsSaveVersionWithoutFreezingPayload(t *testing.T) {
 	t.Parallel()
 	db := lifecycleDatabase(t)
 	tx := lifecycleTransaction(t, db)
@@ -158,11 +158,11 @@ FROM launch_sessions WHERE id='current-launch'`
 	if _, err := sessionstore.CreateLaunch(t.Context(), tx, query); err != nil {
 		t.Fatal(err)
 	}
-	var blob string
+	var saveID string
 	var version int64
-	if err := dbapi.QueryRowContext(t.Context(), tx, `SELECT restore_payload_blob_id,expected_data_version
-FROM launch_game_save_bindings WHERE launch_session_id='restoring-launch'`).Scan(&blob, &version); err != nil || blob != "current-save-payload" || version != 1 {
-		t.Fatalf("frozen restore = %q/%d, error = %v", blob, version, err)
+	if err := dbapi.QueryRowContext(t.Context(), tx, `SELECT save_state_id,expected_data_version
+FROM launch_game_save_bindings WHERE launch_session_id='restoring-launch'`).Scan(&saveID, &version); err != nil || saveID != "current-save" || version != 1 {
+		t.Fatalf("save binding = %q/%d, error = %v", saveID, version, err)
 	}
 	if _, err := sessionstore.ChangeLaunch(t.Context(), tx, recordstore.Update{
 		Set: `state='FINISHED',finished_at_ms=2,updated_at_ms=2`,
@@ -174,8 +174,8 @@ FROM launch_game_save_bindings WHERE launch_session_id='restoring-launch'`).Scan
 	}
 	var released int
 	if err := dbapi.QueryRowContext(t.Context(), tx, `SELECT count(*) FROM launch_game_save_bindings
-WHERE launch_session_id='restoring-launch' AND restore_payload_blob_id IS NULL
-AND restore_checkpoint_format IS NULL`).Scan(&released); err != nil || released != 1 {
-		t.Fatalf("released restore count = %d, error = %v", released, err)
+WHERE launch_session_id='restoring-launch' AND save_state_id='current-save'
+AND expected_data_version=1`).Scan(&released); err != nil || released != 1 {
+		t.Fatalf("preserved save binding count = %d, error = %v", released, err)
 	}
 }

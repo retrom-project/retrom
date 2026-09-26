@@ -43,7 +43,7 @@ func faultRetirementService(t *testing.T, db dbapi.DB, now int64, prefix, fragme
 	if err != nil {
 		t.Fatal(err)
 	}
-	service, err := payloadrelease.New(fault, blobs, func() time.Time { return time.UnixMilli(now) }, 24*time.Hour)
+	service, err := payloadrelease.New(fault, blobs, func() time.Time { return time.UnixMilli(now) })
 	if err != nil {
 		t.Fatal(err)
 	}

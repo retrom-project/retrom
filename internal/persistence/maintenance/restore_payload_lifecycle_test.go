@@ -14,7 +14,7 @@ func TestRestoredSourceFailureSatisfiesStartupPayloadLifecycle(t *testing.T) {
 	if err := runReviewRestoreTransaction(t.Context(), db); err != nil {
 		t.Fatal(err)
 	}
-	service, err := payloadrelease.New(db, nil, func() time.Time { return time.UnixMilli(10) }, 7*24*time.Hour)
+	service, err := payloadrelease.New(db, nil, func() time.Time { return time.UnixMilli(10) })
 	if err != nil {
 		t.Fatalf("restored source prevents application startup: %v", err)
 	}

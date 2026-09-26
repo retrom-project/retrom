@@ -114,7 +114,7 @@ WHERE f.id=?
 `, upload.Files[0].ID).Scan(&md5Value, &sha1Value, &sha256Value); err != nil {
 		t.Fatal(err)
 	}
-	releases, err := payloadrelease.New(database.SQL, blobs, time.Now, 7*24*time.Hour)
+	releases, err := payloadrelease.New(database.SQL, blobs, time.Now)
 	testassert.False(t, err != nil, err)
 	service := firmwareservice.New(New(database.SQL), time.Now).WithBlobStore(blobs).WithPayloadRelease(releases)
 	result, err := service.Install(ctx, requirementID, version, firmwareservice.InstallRequest{UploadFileID: upload.Files[0].ID})
@@ -286,7 +286,7 @@ SELECT
 		Scan(&variantFiles, &saves, &launchState, &launchFiles); err != nil {
 		t.Fatal(err)
 	}
-	if variantFiles != 1 || saves != 1 || launchState != "ACTIVE" || launchFiles != 1 {
+	if variantFiles != 1 || saves != 1 || launchState != "REVOKED" || launchFiles != 0 {
 		t.Fatalf(
 			"BIOS replacement lifecycle = variant files %d, saves %d, launch %s, launch files %d",
 			variantFiles, saves, launchState, launchFiles,

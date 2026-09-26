@@ -17,10 +17,8 @@ SELECT id,`+retirementDeadline+` FROM launch_sessions WHERE id=?`, id); err != n
 		return fmt.Errorf("schedule launch retirement: %w", err)
 	}
 	if _, err := tx.ExecContext(ctx, `INSERT INTO launch_game_save_bindings(
-launch_session_id,save_state_id,expected_data_version,restore_payload_blob_id,
-restore_checkpoint_format,initial_active_duration_ms)
-SELECT launch.id,save.id,COALESCE(native.data_version,0),save.payload_blob_id,
-save.checkpoint_format,COALESCE(save.active_duration_ms,0)
+launch_session_id,save_state_id,expected_data_version,initial_active_duration_ms)
+SELECT launch.id,save.id,COALESCE(native.data_version,0),COALESCE(save.active_duration_ms,0)
 FROM launch_sessions launch
 JOIN runtime_targets target ON target.provider_id=launch.provider_id AND target.target_id=launch.target_id
 LEFT JOIN save_states save ON save.id=launch.save_state_id AND save.profile_id=launch.profile_id
@@ -28,7 +26,7 @@ AND save.game_id=launch.game_id AND save.deleted_at_ms IS NULL
 LEFT JOIN game_save_versions native ON native.save_state_id=save.id
 WHERE launch.id=? AND launch.game_id IS NOT NULL
 AND json_extract(target.checkpoint_json,'$.semantics')='GAME_SAVE'`, id); err != nil {
-		return fmt.Errorf("freeze launch restore input: %w", err)
+		return fmt.Errorf("bind launch save version: %w", err)
 	}
 	return nil
 }
@@ -61,12 +59,6 @@ AND launch.state IN ('FINISHED','EXPIRED','REVOKED'))
 		},
 		Values: []any{id},
 	}); err != nil {
-		return fmt.Errorf("update launch lifecycle relation: %w", err)
-	}
-	if _, err := tx.ExecContext(ctx, `
-UPDATE launch_game_save_bindings SET restore_payload_blob_id=NULL,restore_checkpoint_format=NULL
-WHERE launch_session_id=? AND EXISTS(SELECT 1 FROM launch_sessions WHERE id=?
-AND state NOT IN ('CREATED','ACTIVE'))`, id, id); err != nil {
 		return fmt.Errorf("update launch lifecycle relation: %w", err)
 	}
 	return nil

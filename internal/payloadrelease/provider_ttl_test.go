@@ -42,7 +42,7 @@ VALUES(?,?,?,?,?,?,?,?)
 	instanceID := testsupport.MustPlatformInstanceID(t, database.SQL, "gba/mgba")
 	seedProviderRunningScrape(t, database.SQL, instanceID, free, busy, now)
 
-	service, err := New(database.SQL, blobs, func() time.Time { return now }, 7*24*time.Hour)
+	service, err := New(database.SQL, blobs, func() time.Time { return now })
 	testassert.False(t, err != nil, err)
 	testassert.False(t, service.ReconcileGC(ctx) != nil)
 	assertProviderPayloadState(t, database.SQL, "response-free", "RELEASED")

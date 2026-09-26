@@ -6,9 +6,11 @@ import (
 	"errors"
 	"fmt"
 
+	"retrom/internal/cleanup"
 	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/payloadrelease"
 	"retrom/internal/persistence/recordstore"
+	"retrom/internal/persistence/sessionstore"
 	"retrom/internal/service/firmware"
 )
 
@@ -51,11 +53,64 @@ WHERE consumer_type='BIOS_INSTALLATION' AND consumer_id=? AND released_at_ms IS 
 func (records supersessionRecords) Deactivate(
 	ctx context.Context, before firmware.SupersededInstallation, now int64,
 ) error {
-	return changed(recordstore.UpdateBiosInstallations(ctx, records.executor, recordstore.Update{
+	if err := changed(recordstore.UpdateBiosInstallations(ctx, records.executor, recordstore.Update{
 		Set: `is_active=0,version=version+1,updated_at_ms=?`, Values: []any{now},
 		Scope: recordstore.Scope{
 			Where: `id=? AND requirement_id=? AND blob_id=? AND version=? AND is_active=1`,
 			Args:  []any{before.ID, before.RequirementID, before.BlobID, before.Version},
 		},
-	}))
+	})); err != nil {
+		return err
+	}
+	return records.revokeBIOSLaunches(ctx, before.BlobID, now)
+}
+
+func (records supersessionRecords) revokeBIOSLaunches(ctx context.Context, blobID string, now int64) error {
+	rows, err := records.executor.QueryContext(ctx, `
+SELECT DISTINCT launch.id FROM launch_sessions launch
+JOIN launch_external_files file ON file.launch_session_id=launch.id
+WHERE file.blob_id=? AND file.kind='BIOS_BUNDLE'`, blobID)
+	if err != nil {
+		return fmt.Errorf("find launches using superseded BIOS: %w", err)
+	}
+	defer func() { cleanup.Error("close launches using superseded BIOS", rows.Close()) }()
+	var ids []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return fmt.Errorf("read launch using superseded BIOS: %w", err)
+		}
+		ids = append(ids, id)
+	}
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("iterate launches using superseded BIOS: %w", err)
+	}
+	if err := rows.Close(); err != nil {
+		return fmt.Errorf("close launches using superseded BIOS: %w", err)
+	}
+	for _, id := range ids {
+		if _, err := sessionstore.ChangeLaunch(ctx, records.executor, recordstore.Update{
+			Set:    `state='REVOKED',finished_at_ms=COALESCE(finished_at_ms,?),updated_at_ms=?,version=version+1`,
+			Values: []any{now, now},
+			Scope:  recordstore.Scope{Where: `id=? AND state IN ('CREATED','ACTIVE')`, Args: []any{id}},
+		}); err != nil {
+			return fmt.Errorf("revoke launch using superseded BIOS: %w", err)
+		}
+		if _, err := records.executor.ExecContext(ctx, `
+UPDATE play_sessions SET state='ABANDONED',ended_at_ms=?,updated_at_ms=?,version=version+1
+WHERE launch_session_id=? AND state='ACTIVE'`, now, now, id); err != nil {
+			return fmt.Errorf("abandon play using superseded BIOS: %w", err)
+		}
+		if _, err := recordstore.DeleteLaunchExternalFiles(ctx, records.executor, recordstore.Scope{
+			Where: `launch_session_id=?`, Args: []any{id},
+		}); err != nil {
+			return fmt.Errorf("remove superseded launch externals: %w", err)
+		}
+		if _, err := recordstore.DeleteLaunchContentFiles(ctx, records.executor, recordstore.Scope{
+			Where: `launch_session_id=?`, Args: []any{id},
+		}); err != nil {
+			return fmt.Errorf("remove superseded launch content: %w", err)
+		}
+	}
+	return nil
 }

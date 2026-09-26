@@ -6,7 +6,6 @@ import (
 	"errors"
 	"reflect"
 	"testing"
-	"time"
 
 	payloadcomposition "retrom/internal/composition/payloadrelease"
 
@@ -118,7 +117,7 @@ func TestOwnedDuplicateReplaysByBindingAfterPayloadCleanup(t *testing.T) {
 
 func releaseOwnedSourceFixture(t *testing.T, fixture deduplicateFixture) {
 	t.Helper()
-	releases, err := payloadcomposition.New(fixture.ctx, fixture.database, fixture.blobs, ownedSourceNow, 24*time.Hour)
+	releases, err := payloadcomposition.New(fixture.ctx, fixture.database, fixture.blobs, ownedSourceNow)
 	if err != nil {
 		t.Fatal(err)
 	}

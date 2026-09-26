@@ -3,7 +3,6 @@ package payloadrelease
 import (
 	"errors"
 	"testing"
-	"time"
 )
 
 func TestPayloadInitializationRejectsUnrelatedReleaseJob(t *testing.T) {
@@ -19,7 +18,7 @@ func TestPayloadInitializationRejectsUnrelatedReleaseJob(t *testing.T) {
 			if _, err := fixture.database.ExecContext(t.Context(), change.query, fixture.jobID); err != nil {
 				t.Fatal(err)
 			}
-			service, err := New(fixture.database, nil, fixture.service.now, 7*24*time.Hour)
+			service, err := New(fixture.database, nil, fixture.service.now)
 			if service != nil {
 				service.Close()
 			}

@@ -50,7 +50,7 @@ func TestAnalyzeClassifiesRegisteredCASAndReferenceViews(t *testing.T) {
 	if snapshot.Scope != storageanalysis.Scope || snapshot.GeneratedAtMS != fixed.UnixMilli() {
 		t.Fatalf("snapshot identity = %q/%d", snapshot.Scope, snapshot.GeneratedAtMS)
 	}
-	wantTotals := storageanalysis.Totals{RegisteredBytes: 6125, ProtectedBytes: 4325, UnreferencedBytes: 1800, BlobCount: 12}
+	wantTotals := storageanalysis.Totals{RegisteredBytes: 6125, ProtectedBytes: 3725, UnreferencedBytes: 2400, BlobCount: 12}
 	if snapshot.Totals != wantTotals {
 		t.Fatalf("totals = %#v, want %#v", snapshot.Totals, wantTotals)
 	}
@@ -60,10 +60,10 @@ func TestAnalyzeClassifiesRegisteredCASAndReferenceViews(t *testing.T) {
 		{Code: storageanalysis.CategorySaves, Bytes: 650, BlobCount: 2},
 		{Code: storageanalysis.CategoryMedia, Bytes: 400, BlobCount: 1},
 		{Code: storageanalysis.CategoryWorkflow, Bytes: 500, BlobCount: 1},
-		{Code: storageanalysis.CategoryRuntimeSnapshot, Bytes: 600, BlobCount: 1},
+		{Code: storageanalysis.CategoryRuntimeSnapshot, Bytes: 0, BlobCount: 0},
 		{Code: storageanalysis.CategorySharedDurable, Bytes: 375, BlobCount: 1},
 		{Code: storageanalysis.CategoryOtherReferenced, Bytes: 0, BlobCount: 0},
-		{Code: storageanalysis.CategoryUnreferenced, Bytes: 1800, BlobCount: 2},
+		{Code: storageanalysis.CategoryUnreferenced, Bytes: 2400, BlobCount: 3},
 	}
 	if !reflect.DeepEqual(snapshot.Categories, wantCategories) {
 		t.Fatalf("categories = %#v, want %#v", snapshot.Categories, wantCategories)

@@ -2,12 +2,11 @@ package payloadrelease
 
 import (
 	"testing"
-	"time"
 
 	dbapi "retrom/internal/database"
 )
 
-func TestGCRestoredReferenceCanRestartRetentionAtTheSameClock(t *testing.T) {
+func TestGCRestoredReferenceCanRequeueAtTheSameClock(t *testing.T) {
 	t.Parallel()
 	fixture := newGCSchedulingFixture(t)
 	before := stageGCTestCandidate(t, fixture)
@@ -32,8 +31,8 @@ func TestGCRestoredReferenceCanRestartRetentionAtTheSameClock(t *testing.T) {
  (SELECT count(*) FROM blob_gc_candidates WHERE blob_id='manual-gc-blob')
  FROM jobs job JOIN blob_gc_candidates candidate ON candidate.gc_job_id=job.id WHERE candidate.blob_id='manual-gc-blob'`).
 		Scan(&id, &available, &count)
-	if err != nil || id == before || available != 10+(24*time.Hour).Milliseconds() || count != 1 {
-		t.Fatalf("invalid renewed retention: id=%s old=%s available=%d count=%d error=%v", id, before, available, count, err)
+	if err != nil || id == before || available != 10 || count != 1 {
+		t.Fatalf("invalid renewed candidate: id=%s old=%s available=%d count=%d error=%v", id, before, available, count, err)
 	}
 	if err := fixture.service.stageAllUnreferenced(t.Context()); err != nil {
 		t.Fatal(err)

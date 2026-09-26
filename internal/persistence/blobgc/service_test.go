@@ -17,7 +17,7 @@ import (
 	"retrom/internal/testassert"
 )
 
-func TestRunOnceHonorsGraceAndConcurrentReference(t *testing.T) {
+func TestRunOnceCollectsUnreferencedBlobAndRespectsNewOwner(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	dataDir := t.TempDir()
@@ -85,11 +85,11 @@ expires_at_ms) VALUES('response',
 `, protected.SHA256, now.UnixMilli(), now.Add(time.Hour).UnixMilli()); err != nil {
 		t.Fatal(err)
 	}
-	release, err := payloadrelease.New(database.SQL, blobs, func() time.Time { return now }, 7*24*time.Hour)
+	release, err := payloadrelease.New(database.SQL, blobs, func() time.Time { return now })
 	testassert.False(t, err != nil, err)
 	service := blobgc.New(New(database.SQL), release)
 	first, err := service.RunOnce(ctx)
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return first.Scheduled != 2 }, func() bool { return first.Deleted != 0 }), "first GC = %#v, error=%v", first, err)
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return first.Deleted != 1 }), "first GC = %#v, error=%v", first, err)
 	if _, err := database.SQL.ExecContext(context.Background(), `
 INSERT INTO metadata_provider_responses(id,
 provider,
@@ -111,9 +111,8 @@ expires_at_ms) VALUES('rescuer',
 `, rescued.SHA256, now.UnixMilli(), now.Add(time.Hour).UnixMilli()); err != nil {
 		t.Fatal(err)
 	}
-	now = now.Add(7*24*time.Hour + time.Millisecond)
 	second, err := service.RunOnce(ctx)
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return second.Deleted != 1 }), "second GC = %#v, error=%v", second, err)
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return second.Deleted != 0 }), "second GC = %#v, error=%v", second, err)
 	if _, err := os.Stat(orphan.Path); !os.IsNotExist(err) {
 		t.Fatalf("orphan still present: %v", err)
 	}

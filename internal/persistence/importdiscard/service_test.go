@@ -67,7 +67,7 @@ INSERT INTO users(id,profile_id,username,display_name,role,status,created_at_ms,
 VALUES(?,'discard-profile','discard-admin','Discard','ADMIN','ENABLED',0,0)`, adminID)
 	f.importer = libraryimport.New(f.db, now).WithBlobStore(blobs)
 	f.service = composition.NewImportDiscard(f.db, libraryimport.NewDiscardWorkflow(f.importer), nil, now)
-	f.releases, err = payloadrelease.New(f.db, blobs, now, 7*24*time.Hour)
+	f.releases, err = payloadrelease.New(f.db, blobs, now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -162,8 +162,9 @@ func TestDiscardRejectedOnlyBatchReleasesUploadAndIsIdempotent(t *testing.T) {
 	if n := f.count(t, `SELECT count(*) FROM import_job_files WHERE import_job_id=? AND disposition='REJECTED' AND reason_code='UNSUPPORTED_CONTENT_FORMAT'`, result.Created.ImportJobID); n != 1 {
 		t.Fatal("rejection evidence was lost")
 	}
-	if n := f.count(t, `SELECT count(*) FROM blob_gc_candidates WHERE blob_id=?`, file.BlobID); n != 1 {
-		t.Fatal("released bytes were not scheduled for GC")
+	if n := f.count(t, `SELECT count(*) FROM blobs blob WHERE blob.id=? AND blob.ref_count=0
+AND NOT EXISTS(SELECT 1 FROM blob_gc_candidates candidate WHERE candidate.blob_id=blob.id)`, file.BlobID); n != 0 {
+		t.Fatal("released bytes are neither queued nor collected")
 	}
 	if _, err := f.service.Request(f.ctx, "IMPORT", result.Created.ImportJobID, adminID); err != nil {
 		t.Fatal(err)

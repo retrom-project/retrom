@@ -11,7 +11,7 @@ import (
 	"retrom/internal/persistence/blobregistry"
 )
 
-func TestGameSaveFrozenRestoreProtectsOldPayloadUntilLaunchFinishes(t *testing.T) {
+func TestGameSaveUpdatedPayloadReleasesOldBlobWhileLaunchExists(t *testing.T) {
 	f := newGameSaveFixture(t)
 	a := syncGameData(t, f, f.createLaunch(t), "first")
 	restoring := f.createLaunchFromSave(t, &a.SaveStateID)
@@ -20,7 +20,7 @@ func TestGameSaveFrozenRestoreProtectsOldPayloadUntilLaunchFinishes(t *testing.T
 		t.Fatal(err)
 	}
 	syncGameData(t, f, restoring, "second")
-	assertGameSaveProtection(t, f, oldPayload, true)
+	assertGameSaveProtection(t, f, oldPayload, false)
 	mustUpdateLaunch(t, f.database.SQL, recordstore.Update{Set: `state='FINISHED',finished_at_ms=?,updated_at_ms=?`, Scope: recordstore.Scope{Where: `id=?`, Args: []any{restoring.LaunchID}}, Values: []any{f.now.UnixMilli(), f.now.UnixMilli()}})
 	assertGameSaveProtection(t, f, oldPayload, false)
 }

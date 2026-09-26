@@ -8,7 +8,6 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
-	"time"
 
 	dbapi "retrom/internal/database"
 	repository "retrom/internal/persistence/payloadrelease"
@@ -26,7 +25,7 @@ func TestProviderExpirationFailuresRollbackCacheResponseAndGC(t *testing.T) {
 			cause := errors.New(point + " failure")
 			var hits atomic.Int64
 			fault := testsupport.OpenSQLFaultDatabase(t, fixture.database, expirationFault(point, cause, &hits))
-			service, err := New(fault, fixture.blobs, fixture.service.now, 24*time.Hour)
+			service, err := New(fault, fixture.blobs, fixture.service.now)
 			if err != nil {
 				t.Fatal(err)
 			}

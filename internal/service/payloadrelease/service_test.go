@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"testing"
-	"time"
 )
 
 type initializationFixture struct {
@@ -48,7 +47,7 @@ func TestPayloadServiceInitializationPreservesSnapshotFailure(t *testing.T) {
 			} else {
 				fixture.commitErr = cause
 			}
-			service, err := New(t.Context(), Dependencies{Lifecycle: fixture}, Options{Retention: 24 * time.Hour})
+			service, err := New(t.Context(), Dependencies{Lifecycle: fixture}, Options{})
 			if service != nil || !errors.Is(err, cause) || fixture.pages != 1 {
 				t.Fatalf("failed initialization exposed service: %t %v pages=%d", service != nil, err, fixture.pages)
 			}
@@ -58,7 +57,7 @@ func TestPayloadServiceInitializationPreservesSnapshotFailure(t *testing.T) {
 
 func TestPayloadServiceCloseBeforeStartPreventsWork(t *testing.T) {
 	t.Parallel()
-	service, err := New(t.Context(), Dependencies{Lifecycle: &initializationFixture{}}, Options{Retention: 24 * time.Hour})
+	service, err := New(t.Context(), Dependencies{Lifecycle: &initializationFixture{}}, Options{})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"testing"
-	"time"
 
 	dbapi "retrom/internal/database"
 	"retrom/internal/hasheous"
@@ -37,7 +36,7 @@ func TestGameDeletionCancelsMediaBeforeActualPayloadRelease(t *testing.T) {
 	if snapshot.Job.State != "CANCELLED" || snapshot.Asset.Status != "CANCELLED" {
 		t.Fatalf("deleted media=%+v", snapshot)
 	}
-	release, err := payloadrelease.New(fixture.database, fixture.blobs, fixture.clock, 24*time.Hour)
+	release, err := payloadrelease.New(fixture.database, fixture.blobs, fixture.clock)
 	if err != nil {
 		t.Fatal(err)
 	}

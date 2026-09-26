@@ -65,7 +65,7 @@ func TestGameSaveUpdatesOneSlotAndKeepsUserName(t *testing.T) {
 	}
 }
 
-func TestGameSaveRestoreUpdatesSelectedSlotAndFreezesInput(t *testing.T) {
+func TestGameSaveRestoreUsesCurrentSelectedSlot(t *testing.T) {
 	f := newGameSaveFixture(t)
 	a := syncGameData(t, f, f.createLaunch(t), "first")
 	session := f.createLaunchFromSave(t, &a.SaveStateID)
@@ -74,9 +74,9 @@ func TestGameSaveRestoreUpdatesSelectedSlotAndFreezesInput(t *testing.T) {
 		t.Fatal("restore did not update selected slot")
 	}
 	digest, err := f.saves.StateDigest(f.ctx, session.LaunchID, session.Capability)
-	expected := sha256.Sum256([]byte("first"))
+	expected := sha256.Sum256([]byte("second"))
 	if err != nil || digest != hex.EncodeToString(expected[:]) {
-		t.Fatalf("restore input drifted: %s %v", digest, err)
+		t.Fatalf("restore did not use current slot: %s %v", digest, err)
 	}
 	next := f.createLaunchFromSave(t, &a.SaveStateID)
 	digest, err = f.saves.StateDigest(f.ctx, next.LaunchID, next.Capability)
@@ -92,6 +92,9 @@ func TestGameSaveRejectsStaleWriterAndDeletedSlot(t *testing.T) {
 	stale := f.createLaunchFromSave(t, &a.SaveStateID)
 	active := f.createLaunchFromSave(t, &a.SaveStateID)
 	syncGameData(t, f, active, "newer")
+	if _, err := f.saves.StateDigest(f.ctx, stale.LaunchID, stale.Capability); !errors.Is(err, saveservice.ErrCheckpointIncompatible) {
+		t.Fatalf("stale launch restored a changed save: %v", err)
+	}
 	_, _, err := f.saves.CreateManual(f.ctx, stale.LaunchID, stale.Capability, uuid.NewString(), manualRequest(t, "stale", []byte("older"), screenshotPNG(t)))
 	if !errors.Is(err, saveservice.ErrSyncConflict) {
 		t.Fatal("stale writer replaced newer data")

@@ -206,7 +206,7 @@ func New(
 	now func() time.Time,
 	scummVMDetector ...*scummvm.Detector,
 ) *Server {
-	payloadReleaseService, err := payloadcomposition.New(context.Background(), database, blobs, now, 7*24*time.Hour)
+	payloadReleaseService, err := payloadcomposition.New(context.Background(), database, blobs, now)
 	if err != nil {
 		panic(err)
 	}

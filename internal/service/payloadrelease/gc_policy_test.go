@@ -34,14 +34,14 @@ func TestGCImmediateChecksAllCapacityBeforeWriting(t *testing.T) {
 	}
 }
 
-func TestGCStageRejectsOverflowingRetentionWithoutQueueing(t *testing.T) {
+func TestGCStageRejectsNegativeClockWithoutQueueing(t *testing.T) {
 	t.Parallel()
 	records := &gcRepositoryFixture{facts: []GCBlob{{ID: "new", Digest: strings.Repeat("a", 64)}}}
 	service := newPolicyGC(t, records, nil)
-	service.now = func() time.Time { return time.UnixMilli(math.MaxInt64) }
+	service.now = func() time.Time { return time.UnixMilli(-1) }
 	err := service.StageInScope(t.Context(), GCScope{Read: records, Write: records}, []string{"new"})
-	if !errors.Is(err, ErrGCRetentionInvalid) || len(records.queued) != 0 {
-		t.Fatalf("overflowing retention produced work: %+v/%v", records.queued, err)
+	if !errors.Is(err, ErrInputInvalid) || len(records.queued) != 0 {
+		t.Fatalf("invalid clock produced work: %+v/%v", records.queued, err)
 	}
 }
 

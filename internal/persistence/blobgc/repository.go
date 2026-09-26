@@ -5,19 +5,19 @@ import (
 	"fmt"
 
 	dbapi "retrom/internal/database"
-
-	"retrom/internal/persistence/blobregistry"
 )
 
 type Repository struct{ database dbapi.DB }
 
 func New(database dbapi.DB) *Repository { return &Repository{database: database} }
 func (repository *Repository) Protected(ctx context.Context) (int, error) {
-	protected, err := blobregistry.ProtectiveSet(ctx, repository.database)
-	if err != nil {
+	var protected int
+	if err := dbapi.QueryRowContext(
+		ctx, repository.database, `SELECT count(*) FROM blobs WHERE ref_count>0`,
+	).Scan(&protected); err != nil {
 		return 0, fmt.Errorf("blobgc/read protection: %w", err)
 	}
-	return len(protected), nil
+	return protected, nil
 }
 
 func (repository *Repository) Counts(ctx context.Context) (int, int, error) {

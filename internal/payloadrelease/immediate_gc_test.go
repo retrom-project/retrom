@@ -15,7 +15,7 @@ import (
 	"retrom/internal/testsupport"
 )
 
-func TestImmediateGCSkipsRetentionAndUsesTheExistingWorker(t *testing.T) {
+func TestImmediateGCUsesTheExistingWorker(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	now := time.UnixMilli(1_800_000_000_000)
@@ -39,7 +39,7 @@ VALUES('immediate-blob',?,?,?,?,?,?,?)
 `, metadata.SHA256, metadata.Size, metadata.MD5, metadata.SHA1, metadata.CRC32,
 		"application/octet-stream", now.UnixMilli())
 	testassert.False(t, err != nil, err)
-	service, err := New(database.SQL, blobs, func() time.Time { return now }, 7*24*time.Hour)
+	service, err := New(database.SQL, blobs, func() time.Time { return now })
 	testassert.False(t, err != nil, err)
 	testassert.False(t, service.ReconcileGC(ctx) != nil)
 
@@ -49,8 +49,8 @@ SELECT job.available_at_ms FROM jobs job
 JOIN blob_gc_candidates candidate ON candidate.gc_job_id=job.id
 WHERE candidate.blob_id='immediate-blob'
 `).Scan(&retainedUntil) != nil)
-	testassert.Falsef(t, retainedUntil != now.Add(7*24*time.Hour).UnixMilli(),
-		"retained until = %d", retainedUntil)
+	testassert.Falsef(t, retainedUntil != now.UnixMilli(),
+		"candidate availability = %d", retainedUntil)
 
 	result, err := service.ScheduleImmediateGC(ctx, "gc-user")
 	testassert.False(t, err != nil, err)

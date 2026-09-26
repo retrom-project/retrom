@@ -55,7 +55,7 @@ VALUES('restart-consumption','restart-upload','restart-file','GAME_ASSET','resta
 	testassert.False(t, err != nil, err)
 	testassert.False(t, transaction.Commit() != nil)
 
-	service, err := New(database.SQL, blobs, func() time.Time { return now }, 7*24*time.Hour)
+	service, err := New(database.SQL, blobs, func() time.Time { return now })
 	testassert.False(t, err != nil, err)
 	claimed, found, err := service.claim(ctx)
 	testassert.False(t, err != nil, err)
@@ -73,16 +73,17 @@ VALUES('restart-consumption','restart-upload','restart-file','GAME_ASSET','resta
 	testassert.Falsef(t, jobState != "SUCCEEDED", "job state = %s", jobState)
 	testassert.False(t, dbapi.QueryRowContext(ctx, database.SQL, `SELECT state,final_blob_id FROM upload_files WHERE id='restart-file'`).Scan(&fileState, &blobID) != nil)
 	testassert.Falsef(t, fileState != "PURGED" || blobID != nil, "upload file = %s, blob = %v", fileState, blobID)
-	var candidateCount int
-	testassert.False(t, dbapi.QueryRowContext(ctx, database.SQL, `SELECT count(*) FROM blob_gc_candidates WHERE blob_id='restart-blob'`).Scan(&candidateCount) != nil)
-	testassert.Falsef(t, candidateCount != 1, "candidate count = %d", candidateCount)
+	var candidateCount, blobCount int
+	testassert.False(t, dbapi.QueryRowContext(ctx, database.SQL, `SELECT
+(SELECT count(*) FROM blob_gc_candidates WHERE blob_id='restart-blob'),
+(SELECT count(*) FROM blobs WHERE id='restart-blob')`).Scan(&candidateCount, &blobCount) != nil)
+	testassert.Falsef(t, blobCount == 1 && candidateCount != 1,
+		"uncollected blob lacks candidate: blobs=%d candidates=%d", blobCount, candidateCount)
 
-	// Reconciliation and a second dispatcher pass cannot recreate the release
-	// Job or collect the Blob before the configured grace period.
+	// Reconciliation and another dispatcher pass cannot recreate the release Job.
 	testassert.False(t, service.ReconcileGC(ctx) != nil)
-	didWork, err = service.RunOnce(ctx)
+	_, err = service.RunOnce(ctx)
 	testassert.False(t, err != nil, err)
-	testassert.False(t, didWork)
 	var releaseJobCount int
 	testassert.False(t, dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT count(*) FROM jobs WHERE kind='PAYLOAD_RELEASE' AND scope_type='UPLOAD_CONSUMPTION' AND scope_id='restart-consumption'

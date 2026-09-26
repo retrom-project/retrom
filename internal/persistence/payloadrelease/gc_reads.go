@@ -6,13 +6,12 @@ import (
 	"strings"
 
 	"retrom/internal/cleanup"
-	"retrom/internal/persistence/blobregistry"
 	application "retrom/internal/service/payloadrelease"
 )
 
 const gcSQL = `SELECT blob.id,blob.sha256,blob.size_bytes,candidate.blob_id IS NOT NULL,
  COALESCE(candidate.first_unreferenced_at_ms,0),COALESCE(candidate.scheduled_at_ms,0),
- COALESCE(candidate.attempt_count,0),` + workColumns + ` FROM blobs blob
+ COALESCE(candidate.attempt_count,0),blob.ref_count>0,` + workColumns + ` FROM blobs blob
  LEFT JOIN blob_gc_candidates candidate ON candidate.blob_id=blob.id
  LEFT JOIN jobs job ON job.id=candidate.gc_job_id
  LEFT JOIN job_input_snapshots input ON input.job_id=job.id AND input.execution_no=job.execution_no `
@@ -55,16 +54,6 @@ func (records gcRecords) read(ctx context.Context, query string, args ...any) ([
 	if err := rows.Close(); err != nil {
 		return nil, fmt.Errorf("close GC facts: %w", err)
 	}
-	if len(facts) == 0 {
-		return facts, nil
-	}
-	protected, err := blobregistry.ProtectiveSet(ctx, records.executor)
-	if err != nil {
-		return nil, fmt.Errorf("read GC protection: %w", err)
-	}
-	for index := range facts {
-		_, facts[index].Protected = protected[facts[index].ID]
-	}
 	return facts, nil
 }
 
@@ -75,9 +64,10 @@ type gcScanner struct {
 
 func (scanner gcScanner) Scan(destinations ...any) error {
 	blob := scanner.blob
-	args := append(make([]any, 0, 7+len(destinations)),
+	args := append(make([]any, 0, 8+len(destinations)),
 		&blob.ID, &blob.Digest, &blob.SizeBytes, &blob.HasCandidate,
 		&blob.Candidate.FirstUnreferencedMS, &blob.Candidate.ScheduledMS, &blob.Candidate.Attempt,
+		&blob.Protected,
 	)
 	if err := scanner.row.Scan(append(args, destinations...)...); err != nil {
 		return fmt.Errorf("scan GC facts: %w", err)

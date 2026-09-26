@@ -42,7 +42,7 @@ func newGCSchedulingFixture(t *testing.T) gcSchedulingFixture {
 		t.Fatal(err)
 	}
 	seedManualGC(t, db, metadata)
-	service, err := New(db, blobs, func() time.Time { return time.UnixMilli(10) }, 24*time.Hour)
+	service, err := New(db, blobs, func() time.Time { return time.UnixMilli(10) })
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -68,7 +68,7 @@ func TestGCSchedulingRollsBackWhenJobRowCountCannotBeConfirmed(t *testing.T) {
 			return result, nil
 		},
 	})
-	service, err := New(fault, fixture.blobs, fixture.service.now, 24*time.Hour)
+	service, err := New(fault, fixture.blobs, fixture.service.now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -105,7 +105,7 @@ func TestImmediateGCRollsBackWhenAdvanceRowCountCannotBeConfirmed(t *testing.T) 
 			return result, nil
 		},
 	})
-	service, err := New(fault, fixture.blobs, fixture.service.now, 24*time.Hour)
+	service, err := New(fault, fixture.blobs, fixture.service.now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -116,7 +116,7 @@ func TestImmediateGCRollsBackWhenAdvanceRowCountCannotBeConfirmed(t *testing.T) 
  (SELECT count(*) FROM audit_events WHERE action='STORAGE_CLEANUP_REQUESTED')
  FROM blob_gc_candidates candidate JOIN jobs job ON job.id=candidate.gc_job_id
  WHERE candidate.blob_id='manual-gc-blob'`).Scan(&scheduled, &available, &audits)
-	expected := int64(10) + (24 * time.Hour).Milliseconds()
+	expected := int64(10)
 	if !errors.Is(err, cause) || hits.Load() != 1 || result != (ImmediateGCResult{}) || readErr != nil ||
 		scheduled != expected || available != expected || audits != 0 {
 		t.Fatalf("GC advance retained partial success: result=%+v scheduled=%d available=%d audits=%d hits=%d error=%v read=%v",

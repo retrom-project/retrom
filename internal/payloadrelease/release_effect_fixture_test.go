@@ -38,7 +38,7 @@ VALUES('effect-consumption','effect-upload','GAME_ASSET','effect-asset',1,10)`, 
 	}
 	clock := &atomic.Int64{}
 	clock.Store(10)
-	service, err := New(database, nil, func() time.Time { return time.UnixMilli(clock.Load()) }, 7*24*time.Hour)
+	service, err := New(database, nil, func() time.Time { return time.UnixMilli(clock.Load()) })
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -58,7 +58,7 @@ func claimEffect(t *testing.T, fixture releaseWorkerFixture) claimedJob {
 func effectFaultService(t *testing.T, fixture releaseWorkerFixture, hooks testsupport.SQLFaultHooks) *Service {
 	t.Helper()
 	pool := testsupport.OpenSQLFaultDatabase(t, fixture.database, hooks)
-	service, err := New(pool, nil, fixture.service.now, 7*24*time.Hour)
+	service, err := New(pool, nil, fixture.service.now)
 	if err != nil {
 		t.Fatal(err)
 	}

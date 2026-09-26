@@ -104,18 +104,19 @@ VALUES(?,?,'replacement.png',?,?,?,'COMPLETE',?,?)
 	), "replacement cover response = %d headers=%v body=%s", newAsset.Code, newAsset.Header(), response.Body.String())
 	assertRetiredGameAssetUnavailable(t, server, coverAssetID)
 
-	var retiredAssets, candidateCount int64
+	var retiredAssets, candidateCount, blobCount int64
 	mustScanHTTPTest(t, dbapi.QueryRowContext(t.Context(), server.database, `
 SELECT
  (SELECT count(*) FROM game_assets asset JOIN games game ON game.id=asset.game_id
   WHERE game.id=? AND asset.game_id<>game.id),
- (SELECT count(*) FROM blob_gc_candidates WHERE blob_id=?)
-`, gameID, coverBlobID), &retiredAssets, &candidateCount)
-	testassert.Falsef(t, retiredAssets != 0 || candidateCount != 1,
-		"cover retirement = retired assets:%d GC candidates:%d", retiredAssets, candidateCount)
+	(SELECT count(*) FROM blob_gc_candidates WHERE blob_id=?),
+	(SELECT count(*) FROM blobs WHERE id=?)
+`, gameID, coverBlobID, coverBlobID), &retiredAssets, &candidateCount, &blobCount)
+	testassert.Falsef(t, retiredAssets != 0 || blobCount == 1 && candidateCount != 1,
+		"cover retirement = retired assets:%d GC candidates:%d blobs:%d", retiredAssets, candidateCount, blobCount)
 	snapshot, err := storageanalysis.New(storagepersistence.New(server.database), time.Now).Analyze(t.Context())
 	testassert.False(t, err != nil, err)
-	testassert.Falsef(t, snapshot.Totals.UnreferencedBytes < 4,
+	testassert.Falsef(t, blobCount == 1 && snapshot.Totals.UnreferencedBytes < 4,
 		"unreferenced bytes = %d, wanted retired cover bytes", snapshot.Totals.UnreferencedBytes)
 }
 

@@ -77,7 +77,7 @@ func assertProductCreationRollback(t *testing.T, service *Service, command appli
 	}
 	repository.after = nil
 	repository.change = func(plan *application.ProductCreatePlan) {
-		plan.External = append(plan.External, application.ProductExternalFile{Kind: "BIOS", LogicalName: "late-failure.bin", VirtualPath: "/late-failure.bin", BlobID: "absent"})
+		plan.External = append(plan.External, application.ProductExternalFile{Kind: "BIOS", LogicalName: "late-failure.bin", VirtualPath: "/late?failure.bin", BlobID: "absent"})
 	}
 	result, err = service.productCreator(repository).Create(t.Context(), command)
 	var storage *sqlite.Error

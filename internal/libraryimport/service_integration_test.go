@@ -455,7 +455,7 @@ WHERE job.id=? AND item.id=?
 		t.Fatal(err)
 	}
 	testassert.Falsef(t, testassert.Any(func() bool { return discardedJobState != "COMPLETED" }, func() bool { return discardedJobPending != 0 }, func() bool { return discardedJobPublished != 1 }, func() bool { return discardedJobDiscarded != 1 }, func() bool { return discardedItemState != "DISCARDED" }), "discard aggregate = job:%s pending:%d published:%d discarded:%d item:%s", discardedJobState, discardedJobPending, discardedJobPublished, discardedJobDiscarded, discardedItemState)
-	releases, err := payloadcomposition.New(ctx, database.SQL, blobs, time.Now, 7*24*time.Hour)
+	releases, err := payloadcomposition.New(ctx, database.SQL, blobs, time.Now)
 	if err != nil {
 		t.Fatal(err)
 	}

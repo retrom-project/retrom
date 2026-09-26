@@ -27,7 +27,6 @@ func New(
 	database dbapi.DB,
 	blobs *blobstore.Store,
 	now func() time.Time,
-	retention time.Duration,
 ) (*Service, error) {
 	files := payloadfiles.New(blobs)
 	service, err := application.New(ctx, application.Dependencies{
@@ -37,7 +36,7 @@ func New(
 		Retirement: repository.NewRetirement(database), Impact: repository.NewImpactQueries(database),
 		Files: files, Waiter: files,
 	}, application.Options{
-		Now: now, Retention: retention,
+		Now:    now,
 		Report: func(err error) { cleanup.Error("payload worker", err) },
 	})
 	if err != nil {

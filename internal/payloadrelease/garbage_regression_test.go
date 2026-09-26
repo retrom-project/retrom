@@ -161,7 +161,7 @@ func TestGarbageRollsBackWhenOriginalLeaseExpiresAfterCatalogDelete(t *testing.T
 			return result, nil
 		},
 	})
-	service, err := New(fault, fixture.blobs, func() time.Time { return time.UnixMilli(now.Load()) }, 24*time.Hour)
+	service, err := New(fault, fixture.blobs, func() time.Time { return time.UnixMilli(now.Load()) })
 	if err != nil {
 		t.Fatal(err)
 	}

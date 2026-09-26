@@ -56,7 +56,7 @@ VALUES('reviewer','local','reviewer','Reviewer','ADMIN','ENABLED',0,0)`)
 	if err != nil {
 		t.Fatal(err)
 	}
-	releaser, err := payloadrelease.New(database.SQL, blobs, clock, 7*24*time.Hour)
+	releaser, err := payloadrelease.New(database.SQL, blobs, clock)
 	if err != nil {
 		t.Fatal(err)
 	}

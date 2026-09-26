@@ -78,7 +78,7 @@ func retirementFixture(t *testing.T) (dbapi.DB, *payloadrelease.Service, int64) 
 	bios := ensureFirmwareBlob(t, ctx, database.SQL, blobs, []byte("retirement BIOS"))
 	seedFirmwareReplacementLifecycle(t, ctx, database.SQL, blobs, identity, "retirement-installation", bios)
 	now := time.Now().Add(time.Second)
-	releases, err := payloadrelease.New(database.SQL, blobs, func() time.Time { return now }, 24*time.Hour)
+	releases, err := payloadrelease.New(database.SQL, blobs, func() time.Time { return now })
 	testassert.False(t, err != nil, err)
 	return database.SQL, releases, now.UnixMilli()
 }

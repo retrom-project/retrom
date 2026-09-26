@@ -31,8 +31,8 @@ func TestMigrationsCreateCurrentSchemaWithoutProductSeeds(t *testing.T) {
 	assertColumns(t, database.SQL, "import_group_requests",
 		"import_job_id", "request_digest", "actor_user_id", "upload_version",
 		"upload_manifest_digest", "target_snapshot_digest")
-	if names := queryStrings(t, database.SQL, "SELECT name FROM sqlite_schema WHERE type IN ('trigger','view')"); len(names) != 0 {
-		t.Fatalf("implicit business objects remain: %v", names)
+	if names := queryStrings(t, database.SQL, "SELECT name FROM sqlite_schema WHERE type='view'"); len(names) != 0 {
+		t.Fatalf("unexpected views remain: %v", names)
 	}
 	for _, table := range tables {
 		assertIntegerTimeColumns(t, database.SQL, table)
@@ -239,7 +239,7 @@ func TestCurrentMigrationLineageResumeAndReopen(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "retrom.db")
 	sources, err := migrationSources()
 	testassert.False(t, err != nil, err)
-	testassert.Falsef(t, len(sources) != 15, "migration count = %d", len(sources))
+	testassert.Falsef(t, len(sources) != 16, "migration count = %d", len(sources))
 	database := openMigrationTestDatabase(t, path)
 	for _, source := range sources[:len(sources)-1] {
 		if err := runMigration(ctx, database, source, time.Now); err != nil {

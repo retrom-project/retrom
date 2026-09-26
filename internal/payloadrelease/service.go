@@ -36,10 +36,10 @@ type claimedJob struct {
 	Work        application.Work
 }
 
-func New(database dbapi.DB, blobs *blobstore.Store, now func() time.Time, retention time.Duration) (*Service, error) {
+func New(database dbapi.DB, blobs *blobstore.Store, now func() time.Time) (*Service, error) {
 	service := &Service{database: database, blobs: blobs, now: now, waitFor: waitForContext}
 	gc, err := application.NewGCScheduler(repository.NewGC(database), application.GCOptions{
-		Now: now, Retention: retention, Wake: service.Signal,
+		Now: now, Wake: service.Signal,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("initialize GC scheduling: %w", err)

@@ -59,7 +59,7 @@ FROM review_preview_sessions WHERE id=?`, preview.PreviewID).Scan(&beforeState, 
 	if err != nil {
 		t.Fatal(err)
 	}
-	releaser, err := payloadrelease.New(fault, blobs, func() time.Time { return *fixture.now }, 24*time.Hour)
+	releaser, err := payloadrelease.New(fault, blobs, func() time.Time { return *fixture.now })
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -7,7 +7,6 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
-	"time"
 
 	dbapi "retrom/internal/database"
 	application "retrom/internal/service/payloadrelease"
@@ -46,7 +45,7 @@ func TestPayloadSettlementRollsBackEveryPriorWriteOnEvidenceFailure(t *testing.T
 			cause := errors.New("terminal evidence unavailable")
 			var hits atomic.Int64
 			fault := testsupport.OpenSQLFaultDatabase(t, fixture.database, terminalEvidenceFault(stage, claim.ID, cause, &hits))
-			service, err := New(fault, nil, fixture.service.now, 7*24*time.Hour)
+			service, err := New(fault, nil, fixture.service.now)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -89,7 +88,7 @@ func TestPayloadEffectRollsBackWhenLeaseExpiresDuringWrites(t *testing.T) {
 			return result, nil
 		},
 	})
-	service, err := New(fault, nil, fixture.service.now, 7*24*time.Hour)
+	service, err := New(fault, nil, fixture.service.now)
 	if err != nil {
 		t.Fatal(err)
 	}

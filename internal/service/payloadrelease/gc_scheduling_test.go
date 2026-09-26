@@ -59,8 +59,8 @@ func (r *gcRepositoryFixture) Audit(_ context.Context, value GCAudit) error {
 func newPolicyGC(t *testing.T, records *gcRepositoryFixture, wake func()) *GCScheduler {
 	t.Helper()
 	service, err := NewGCScheduler(records, GCOptions{
-		Now:       func() time.Time { return time.UnixMilli(10) },
-		Retention: 24 * time.Hour, Wake: wake,
+		Now:  func() time.Time { return time.UnixMilli(10) },
+		Wake: wake,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -81,7 +81,7 @@ func TestGCStageSelectsOnlyNewUnprotectedCandidates(t *testing.T) {
 		t.Fatalf("candidate classification: %+v/%v", records.queued, err)
 	}
 	queued := records.queued[0]
-	if queued.Before.ID != "new" || queued.AvailableMS != 10+(24*time.Hour).Milliseconds() || queued.Job.ID == "" || queued.Job.InputDigest == "" {
+	if queued.Before.ID != "new" || queued.AvailableMS != 10 || queued.Job.ID == "" || queued.Job.InputDigest == "" {
 		t.Fatalf("invalid durable candidate: %+v", queued)
 	}
 }

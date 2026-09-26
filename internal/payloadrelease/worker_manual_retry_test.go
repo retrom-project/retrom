@@ -23,7 +23,7 @@ func TestImmediateGCManualRetryStartsANewExecutionBudget(t *testing.T) {
 	}
 	seedManualGC(t, database, metadata)
 	now := time.UnixMilli(10)
-	service, err := New(database, blobs, func() time.Time { return now }, 24*time.Hour)
+	service, err := New(database, blobs, func() time.Time { return now })
 	if err != nil {
 		t.Fatal(err)
 	}

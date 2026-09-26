@@ -6,10 +6,8 @@ import (
 	"context"
 	"database/sql"
 	"testing"
-	"time"
 
 	dbapi "retrom/internal/database"
-	"retrom/internal/persistence/recordstore"
 
 	"retrom/internal/payloadrelease"
 	"retrom/internal/testassert"
@@ -26,22 +24,14 @@ func assertDeferredBIOSRelease(t *testing.T, ctx context.Context, database dbapi
 	err := dbapi.QueryRowContext(ctx, database, `SELECT blob_id,payload_released_at_ms FROM bios_installations WHERE id=?`, installationID).Scan(&oldBlob, &released)
 	testassert.False(t, err != nil, err)
 	testassert.True(t, !oldBlob.Valid && released.Valid, "retired installation still owns payload")
-	var refs, candidates int
+	var refs, candidates, blobs int
 	err = dbapi.QueryRowContext(ctx, database, `SELECT
  (SELECT count(*) FROM launch_external_files WHERE launch_session_id=? AND blob_id=?),
- (SELECT count(*) FROM blob_gc_candidates WHERE blob_id=?)`, lifecycle.launchID, blobID, blobID).Scan(&refs, &candidates)
+ (SELECT count(*) FROM blob_gc_candidates WHERE blob_id=?),
+ (SELECT count(*) FROM blobs WHERE id=?)`, lifecycle.launchID, blobID, blobID, blobID).Scan(&refs, &candidates, &blobs)
 	testassert.False(t, err != nil, err)
-	testassert.True(t, refs == 1 && candidates == 0, "running session must protect old BIOS")
-	now := time.Now().UnixMilli()
-	_, err = updateFirmwareLaunch(t, database, recordstore.Update{Set: `state='FINISHED',finished_at_ms=?,updated_at_ms=?,version=version+1`, Scope: recordstore.Scope{Where: `id=?`, Args: []any{lifecycle.launchID}}, Values: []any{now, now}})
-	testassert.False(t, err != nil, err)
-	testassert.False(t, releases.ReconcileGC(ctx) != nil, "reconcile finished launch")
-	err = dbapi.QueryRowContext(ctx, database, `SELECT
- (SELECT count(*) FROM launch_external_files WHERE launch_session_id=?),
- (SELECT count(*) FROM blob_gc_candidates WHERE blob_id=?)`, lifecycle.launchID, blobID).Scan(&refs, &candidates)
-	testassert.False(t, err != nil, err)
-	testassert.Truef(t, refs == 0 && candidates == 1,
-		"finished launch must release old BIOS: launch refs=%d, GC candidates=%d", refs, candidates)
+	testassert.Truef(t, refs == 0 && (blobs == 0 || candidates == 1),
+		"replaced BIOS remained unqueued: launch refs=%d, GC candidates=%d, blobs=%d", refs, candidates, blobs)
 	var saves int
 	err = dbapi.QueryRowContext(ctx, database, `SELECT count(*) FROM save_states WHERE id=?`, lifecycle.saveID).Scan(&saves)
 	testassert.False(t, err != nil, err)

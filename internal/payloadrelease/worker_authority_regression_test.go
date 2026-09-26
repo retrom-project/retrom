@@ -39,7 +39,7 @@ func queuedReleaseWorker(t *testing.T) releaseWorkerFixture {
 	}
 	clock := &atomic.Int64{}
 	clock.Store(10)
-	service, err := New(db, nil, func() time.Time { return time.UnixMilli(clock.Load()) }, 7*24*time.Hour)
+	service, err := New(db, nil, func() time.Time { return time.UnixMilli(clock.Load()) })
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -155,7 +155,7 @@ func TestPayloadClaimPreservesAffectedRowFailure(t *testing.T) {
 			return result, nil
 		},
 	})
-	service, err := New(db, nil, fixture.service.now, 7*24*time.Hour)
+	service, err := New(db, nil, fixture.service.now)
 	if err != nil {
 		t.Fatal(err)
 	}

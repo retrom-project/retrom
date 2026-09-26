@@ -66,10 +66,11 @@ JOIN runtime_targets target ON target.provider_id=launch.provider_id AND target.
 JOIN save_states save ON save.id=launch.save_state_id AND save.deleted_at_ms IS NULL
  AND save.profile_id=launch.profile_id AND save.game_id=launch.game_id
 LEFT JOIN launch_game_save_bindings binding ON binding.launch_session_id=launch.id
-JOIN blobs blob ON blob.id=COALESCE(binding.restore_payload_blob_id,save.payload_blob_id)
- AND (binding.restore_payload_blob_id IS NOT NULL OR
- (blob.sha256=save.payload_sha256 AND blob.size_bytes=save.payload_size_bytes))
-WHERE launch.id=?
+LEFT JOIN game_save_versions native ON native.save_state_id=save.id
+JOIN blobs blob ON blob.id=save.payload_blob_id
+ AND blob.sha256=save.payload_sha256 AND blob.size_bytes=save.payload_size_bytes
+WHERE launch.id=? AND (binding.launch_session_id IS NULL OR
+ (binding.save_state_id=save.id AND binding.expected_data_version=native.data_version))
 UNION ALL
 SELECT target.checkpoint_json,blob.sha256,blob.size_bytes,preview.restore_checkpoint_format
 FROM review_preview_sessions preview

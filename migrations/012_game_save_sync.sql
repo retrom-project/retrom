@@ -10,9 +10,6 @@ CREATE TABLE launch_game_save_bindings (
   launch_session_id TEXT PRIMARY KEY REFERENCES launch_sessions(id) ON DELETE CASCADE,
   save_state_id TEXT REFERENCES save_states(id) ON DELETE SET NULL,
   initial_active_duration_ms INTEGER NOT NULL DEFAULT 0 CHECK(initial_active_duration_ms>=0),
-  expected_data_version INTEGER NOT NULL DEFAULT 0 CHECK(expected_data_version>=0),
-  restore_payload_blob_id TEXT REFERENCES blobs(id),
-  restore_checkpoint_format TEXT,
-  CHECK((restore_payload_blob_id IS NULL)=(restore_checkpoint_format IS NULL))
+  expected_data_version INTEGER NOT NULL DEFAULT 0 CHECK(expected_data_version>=0)
 );
 CREATE INDEX launch_game_save_target ON launch_game_save_bindings(save_state_id);

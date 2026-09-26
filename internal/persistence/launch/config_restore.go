@@ -28,8 +28,11 @@ func configRestore(
 SELECT save.checkpoint_format,blob.sha256,blob.size_bytes
 FROM save_states save
 LEFT JOIN launch_game_save_bindings binding ON binding.launch_session_id=?
-JOIN blobs blob ON blob.id=COALESCE(binding.restore_payload_blob_id,save.payload_blob_id)
-WHERE save.id=? AND save.deleted_at_ms IS NULL`, ref.ID, *source.SaveID).
+LEFT JOIN game_save_versions native ON native.save_state_id=save.id
+JOIN blobs blob ON blob.id=save.payload_blob_id
+WHERE save.id=? AND save.deleted_at_ms IS NULL
+AND (binding.launch_session_id IS NULL OR
+ (binding.save_state_id=save.id AND binding.expected_data_version=native.data_version))`, ref.ID, *source.SaveID).
 		Scan(&result.Format, &result.Digest, &result.Size)
 	if errors.Is(err, sql.ErrNoRows) {
 		return result, nil

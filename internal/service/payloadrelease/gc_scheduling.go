@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"math"
 )
 
 const gcPageSize = 200
@@ -56,8 +55,8 @@ func (service *GCScheduler) Reconcile(ctx context.Context) error {
 
 func (service *GCScheduler) stage(ctx context.Context, scope GCScope, facts []GCBlob) error {
 	now := service.now().UnixMilli()
-	if now < 0 || now > math.MaxInt64-service.retention.Milliseconds() {
-		return ErrGCRetentionInvalid
+	if now < 0 {
+		return ErrInputInvalid
 	}
 	var pending []GCQueue
 	var selected []GCBlob
@@ -71,7 +70,7 @@ func (service *GCScheduler) stage(ctx context.Context, scope GCScope, facts []GC
 		}
 		selected = append(selected, blob)
 		pending = append(pending, GCQueue{
-			Before: blob, Job: job, AvailableMS: now + service.retention.Milliseconds(),
+			Before: blob, Job: job, AvailableMS: now,
 			EventJSON: `{"schemaVersion":1,"executionNo":1,"attempt":0}`,
 		})
 	}

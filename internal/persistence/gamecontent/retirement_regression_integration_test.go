@@ -70,7 +70,7 @@ func contentRetirementFixture(t *testing.T) retirementFixture {
 		t.Fatal(err)
 	}
 	saveID, launchID, _ := seedReplacementSave(t, t.Context(), database.SQL, blobs, published.GameID)
-	releases, err := payloadrelease.New(database.SQL, blobs, time.Now, 24*time.Hour)
+	releases, err := payloadrelease.New(database.SQL, blobs, time.Now)
 	if err != nil {
 		t.Fatal(err)
 	}

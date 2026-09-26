@@ -20,10 +20,9 @@ type Dependencies struct {
 }
 
 type Options struct {
-	Now       func() time.Time
-	NewID     func() (string, error)
-	Retention time.Duration
-	Report    func(error)
+	Now    func() time.Time
+	NewID  func() (string, error)
+	Report func(error)
 }
 
 type Service struct {
@@ -42,7 +41,7 @@ func New(ctx context.Context, dependencies Dependencies, options Options) (*Serv
 	}
 	service := &Service{}
 	gc, err := NewGCScheduler(dependencies.GC, GCOptions{
-		Now: options.Now, Retention: options.Retention, NewID: options.NewID, Wake: service.Signal,
+		Now: options.Now, NewID: options.NewID, Wake: service.Signal,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("initialize payload GC: %w", err)

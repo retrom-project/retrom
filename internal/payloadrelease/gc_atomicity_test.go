@@ -7,7 +7,6 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
-	"time"
 
 	dbapi "retrom/internal/database"
 	repository "retrom/internal/persistence/payloadrelease"
@@ -43,7 +42,7 @@ func TestGCScheduleAtomicallyPersistsAllDurableEvidence(t *testing.T) {
 
 func gcFaultService(t *testing.T, fixture gcSchedulingFixture, database dbapi.DB) *Service {
 	t.Helper()
-	service, err := New(database, fixture.blobs, fixture.service.now, 24*time.Hour)
+	service, err := New(database, fixture.blobs, fixture.service.now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -148,7 +147,7 @@ func assertGCImmediateRollback(t *testing.T, database dbapi.DB, id string) {
  (SELECT count(*) FROM job_events WHERE job_id=? AND event_type='MANUAL_RETRY'),
  (SELECT count(*) FROM audit_events WHERE action='STORAGE_CLEANUP_REQUESTED')
  FROM blob_gc_candidates candidate WHERE candidate.gc_job_id=?`, id, id, id).Scan(&due, &inputs, &events, &audits)
-	if err != nil || due != 10+(24*time.Hour).Milliseconds() || inputs != 1 || events != 0 || audits != 0 {
+	if err != nil || due != 10 || inputs != 1 || events != 0 || audits != 0 {
 		t.Fatalf("partial GC advance: due=%d inputs=%d events=%d audit=%d err=%v", due, inputs, events, audits, err)
 	}
 }

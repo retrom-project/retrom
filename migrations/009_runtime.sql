@@ -3,7 +3,7 @@
 CREATE TABLE "launch_content_files" (
   launch_session_id TEXT NOT NULL REFERENCES launch_sessions(id),
   logical_name TEXT NOT NULL CHECK(length(logical_name) BETWEEN 1 AND 512),
-  blob_id TEXT NOT NULL REFERENCES blobs(id),
+  blob_id TEXT NOT NULL,
   format_version TEXT NOT NULL CHECK(
     length(format_version) BETWEEN 2 AND 64 AND format_version=upper(format_version)
     AND format_version NOT GLOB '*[^A-Z0-9_]*'
@@ -90,7 +90,7 @@ CREATE TABLE "launch_external_files" (
   launch_session_id TEXT NOT NULL REFERENCES launch_sessions(id),
   virtual_path TEXT NOT NULL CHECK(length(virtual_path) BETWEEN 1 AND 512),
   logical_name TEXT NOT NULL CHECK(length(logical_name) BETWEEN 1 AND 255),
-  blob_id TEXT NOT NULL REFERENCES blobs(id),
+  blob_id TEXT NOT NULL,
   created_at_ms INTEGER NOT NULL CHECK(created_at_ms >= 0), kind TEXT NOT NULL DEFAULT 'BIOS' CHECK(kind IN ('BIOS','BIOS_BUNDLE','PARENT','DISC')),
   PRIMARY KEY(launch_session_id, virtual_path),
   UNIQUE(launch_session_id, logical_name),

@@ -76,7 +76,7 @@ SELECT id,version FROM games WHERE id=?
 `, published.GameID).Scan(&originalContent, &gameVersion); err != nil {
 		t.Fatal(err)
 	}
-	releases, err := payloadrelease.New(database.SQL, blobs, time.Now, 7*24*time.Hour)
+	releases, err := payloadrelease.New(database.SQL, blobs, time.Now)
 	testassert.False(t, err != nil, err)
 	t.Cleanup(releases.Close)
 	service := gamecontent.New(New(database.SQL), time.Now).WithBlobStore(blobs).WithPayloadRelease(releases).WithGCStager(releases)
@@ -307,7 +307,7 @@ WHERE game.id=? ORDER BY file.sort_order LIMIT 1
 		t.Fatal(err)
 	}
 
-	releaseService, err := payloadrelease.New(database.SQL, blobs, time.Now, 7*24*time.Hour)
+	releaseService, err := payloadrelease.New(database.SQL, blobs, time.Now)
 	testassert.False(t, err != nil, err)
 	t.Cleanup(releaseService.Close)
 	service := gamecontent.New(New(database.SQL), time.Now).WithBlobStore(blobs).WithPayloadRelease(releaseService).WithGCStager(releaseService)
@@ -469,7 +469,7 @@ WHERE game.id=? ORDER BY file.sort_order LIMIT 1
 		"replacement/two.chd":    fakeReplacementCHD("two"),
 		"replacement/readme.txt": []byte("ignored"),
 	})
-	releaseService, err := payloadrelease.New(database.SQL, blobs, time.Now, 7*24*time.Hour)
+	releaseService, err := payloadrelease.New(database.SQL, blobs, time.Now)
 	testassert.False(t, err != nil, err)
 	t.Cleanup(releaseService.Close)
 	service := gamecontent.New(New(database.SQL), time.Now).WithBlobStore(blobs).
