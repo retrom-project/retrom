@@ -46,6 +46,26 @@ class GitHubWorkflowDependencyTests(unittest.TestCase):
         self.assertNotIn("run: make ci", workflow)
         self.assertNotIn("run: make prepare-deps", workflow)
 
+    def test_pull_request_images_are_verified_and_separate_from_production(self) -> None:
+        workflow = (REPOSITORY_ROOT / ".github/workflows/branch-image.yml").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("  pull_request:\n    branches: [master]", workflow)
+        self.assertIn("BUILD_SHA: ${{ github.sha }}", workflow)
+        self.assertIn("persist-credentials: false", workflow)
+        self.assertIn("pr-${PR_NUMBER}-${BUILD_SHA:0:12}", workflow)
+        self.assertIn("run: make build-images BACKEND_IMAGE=", workflow)
+        self.assertLess(workflow.index("- name: Build and verify both branch images"),
+                        workflow.index("- name: Publish branch images to GHCR"))
+        self.assertIn("ghcr.io/${{ github.repository_owner }}/retrom-branch", workflow)
+        self.assertIn("ghcr.io/${{ github.repository_owner }}/retrom-web-branch", workflow)
+        self.assertIn(
+            "if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}",
+            workflow,
+        )
+        self.assertNotIn("DOCKER_PASSWORD", workflow)
+        self.assertNotIn("xxxsen/retrom", workflow)
+
 
 if __name__ == "__main__":
     unittest.main()

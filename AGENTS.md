@@ -195,13 +195,9 @@ make ci
 
 新增/修改 HTTP route、DTO、错误码或 client 调用时，必须先改 `api/openapi.yaml` 并运行 `make api-generate`。Go 生成物 `internal/httpapi/generated/api.gen.go` 由后端 build/test/lint/integration/dev 与镜像构建按需生成，必须被 Git 忽略且不得提交；TypeScript 生成物 `web/lib/api/generated/schema.d.ts` 必须提交。随后运行不会写工作树的 `make api-check`；禁止手改 generated 文件。
 
-修改 Dockerfile、镜像内容、构建参数或发布资产时还必须运行：
+修改 Dockerfile、镜像内容、构建参数或发布资产时，合并前必须等待 PR 的 `branch-image/build` 检查通过。该检查在 GitHub runner 上运行 `make build-images`，并用同一 release-input digest 校验两个分支测试镜像；不要为这项发布门禁在开发机重复构建、下载完整 Provider 包。`make runtime-provider-prepare` 仍负责本地正式 Provider 安装与产品复验。
 
-```bash
-make build-images
-```
-
-该命令成功只证明两个镜像可以构建，不得在验证过程中启动容器来改变服务状态，除非任务另有明确授权。
+分支测试镜像只发布到 GHCR 的 `retrom-branch`、`retrom-web-branch`，不能当作生产镜像或替代 Retrom tag 发布检查。只有 `.github/workflows/docker-image.yml` 在 Retrom tag push 后构建、验证并推送的 Docker Hub 镜像属于生产发布。手动运行 `make build-images` 仅用于明确需要本地镜像的诊断、部署或镜像验收；该命令本身不得启动服务、登录 registry 或 push。
 
 质量基础设施尚未落地时，引入首批业务代码的任务必须先补齐对应命令和 CI，不能以“命令不存在”作为跳过理由。纯文档改动不要求运行代码门禁，但必须检查链接、结构、事实源一致性和 diff。
 
