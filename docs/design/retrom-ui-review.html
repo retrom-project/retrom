@@ -2359,7 +2359,7 @@ select:disabled, input:disabled, textarea:disabled { cursor: not-allowed; opacit
     #retrom-ui-review .rt-im-pause { position:absolute;inset:0;display:grid;place-items:center;background:rgba(4,5,10,.76);backdrop-filter:blur(8px) }
     #retrom-ui-review .rt-game-editor-design { position:absolute;z-index:30;inset:0;display:grid;place-items:center;background:rgba(0,0,0,.7) }
     #retrom-ui-review .rt-game-editor-design[hidden] { display:none }
-    #retrom-ui-review .rt-game-editor-design&gt;div { width:min(800px,92vw);height:min(820px,calc(100% - 48px));padding:30px;border:1px solid #526078;border-radius:12px;background:#171e2c;display:flex;flex-direction:column;gap:16px }
+    #retrom-ui-review .rt-game-editor-design&gt;div { width:min(800px,92vw);min-width:0;height:min(820px,calc(100% - 48px));padding:30px;border:1px solid #526078;border-radius:12px;background:#171e2c;display:flex;flex-direction:column;gap:16px }
     #retrom-ui-review .rt-game-editor-design [hidden] { display:none }
     #retrom-ui-review .rt-game-editor-list { flex:1;min-height:0;overflow:auto;border-block:1px solid #465267 }
     #retrom-ui-review .rt-game-editor-design header,#retrom-ui-review .rt-game-editor-design article { display:flex;align-items:center;justify-content:space-between;gap:12px }
@@ -2369,15 +2369,16 @@ select:disabled, input:disabled, textarea:disabled { cursor: not-allowed; opacit
     #retrom-ui-review .rt-game-editor-feedback .rt-game-editor-success[hidden] { display:none }
     #retrom-ui-review .rt-game-editor-loading { color:#b5c0d0;text-align:center }
     #retrom-ui-review .rt-game-editor-loading[hidden] { display:none }
-    #retrom-ui-review .rt-game-editor-skill-help { color:#b5c0d0 }
+    #retrom-ui-review .rt-game-editor-category-help { color:#b5c0d0 }
     #retrom-ui-review .rt-game-editor-actor-tabs { display:flex;gap:8px;overflow-x:auto }
-    #retrom-ui-review .rt-game-editor-design nav { display:flex;flex-wrap:wrap;gap:8px }
+    #retrom-ui-review .rt-game-editor-design nav { display:flex;min-width:0;flex-wrap:wrap;gap:8px }
     #retrom-ui-review .rt-game-editor-design nav button.is-active { border-color:#8dbaf3;background:#31527d }
     #retrom-ui-review .rt-game-editor-design article&gt;div:first-child { display:grid;gap:4px }
     #retrom-ui-review .rt-game-editor-design article small { color:#b5c0d0 }
     #retrom-ui-review .rt-game-editor-design article&gt;div:last-child { display:flex;align-items:center;gap:8px }
     #retrom-ui-review .rt-game-editor-design button,#retrom-ui-review .rt-game-editor-design input { padding:9px;border:1px solid #67758a;border-radius:8px;background:#263247;color:#fff }
     #retrom-ui-review .rt-game-editor-design input { width:110px }
+    @media (max-height:500px) { #retrom-ui-review .rt-game-editor-design&gt;div { height:calc(100% - 16px);padding:12px 16px;gap:8px } #retrom-ui-review .rt-game-editor-design nav[aria-label=&quot;修改类别&quot;] { flex-wrap:nowrap;overflow-x:auto } #retrom-ui-review .rt-game-editor-design nav[aria-label=&quot;修改类别&quot;] button { flex-shrink:0 } }
     #retrom-ui-review .rt-im-menu { width:min(660px,76vw);padding:42px;border:1px solid rgba(255,255,255,.15);border-radius: var(--radius-panel);background:#171a27;box-shadow:0 35px 100px #000;text-align:center }
     #retrom-ui-review .rt-im-menu h1 { margin:0 0 9px;font-size:var(--text-page) }
     #retrom-ui-review .rt-im-menu p { margin:0 0 30px;color:var(--muted) }
@@ -3173,15 +3174,20 @@ select:disabled, input:disabled, textarea:disabled { cursor: not-allowed; opacit
           &lt;section class=&quot;rt-game-editor-design&quot; data-rpg-editor-design data-load-on-scroll hidden aria-label=&quot;游戏修改&quot;&gt;&lt;div&gt;
             &lt;header&gt;&lt;h2&gt;游戏修改&lt;/h2&gt;&lt;button type=&quot;button&quot;&gt;返回游戏&lt;/button&gt;&lt;/header&gt;
             &lt;div class=&quot;rt-game-editor-feedback&quot;&gt;&lt;p&gt;修改立即生效。离开前请创建存档。&lt;/p&gt;&lt;p class=&quot;rt-game-editor-success&quot; role=&quot;status&quot; hidden&gt;已应用修改。离开前请创建存档。&lt;/p&gt;&lt;/div&gt;
-            &lt;nav aria-label=&quot;修改类别&quot;&gt;&lt;button type=&quot;button&quot;&gt;金币&lt;/button&gt;&lt;button type=&quot;button&quot;&gt;道具&lt;/button&gt;&lt;button type=&quot;button&quot;&gt;武器&lt;/button&gt;&lt;button type=&quot;button&quot;&gt;护甲&lt;/button&gt;&lt;button type=&quot;button&quot;&gt;变量&lt;/button&gt;&lt;button type=&quot;button&quot;&gt;开关&lt;/button&gt;&lt;button type=&quot;button&quot; data-editor-kind=&quot;actors&quot; class=&quot;is-active&quot;&gt;角色&lt;/button&gt;&lt;button type=&quot;button&quot; data-editor-kind=&quot;skills&quot;&gt;技能&lt;/button&gt;&lt;/nav&gt;
+            &lt;nav aria-label=&quot;修改类别&quot;&gt;&lt;button type=&quot;button&quot;&gt;金币&lt;/button&gt;&lt;button type=&quot;button&quot;&gt;道具&lt;/button&gt;&lt;button type=&quot;button&quot;&gt;武器&lt;/button&gt;&lt;button type=&quot;button&quot;&gt;护甲&lt;/button&gt;&lt;button type=&quot;button&quot;&gt;变量&lt;/button&gt;&lt;button type=&quot;button&quot;&gt;开关&lt;/button&gt;&lt;button type=&quot;button&quot; data-editor-kind=&quot;actors&quot; class=&quot;is-active&quot;&gt;角色&lt;/button&gt;&lt;button type=&quot;button&quot; data-editor-kind=&quot;skills&quot;&gt;技能&lt;/button&gt;&lt;button type=&quot;button&quot; data-editor-kind=&quot;states&quot;&gt;状态&lt;/button&gt;&lt;button type=&quot;button&quot; data-editor-kind=&quot;classes&quot;&gt;职业&lt;/button&gt;&lt;button type=&quot;button&quot; data-editor-kind=&quot;party&quot;&gt;队伍成员&lt;/button&gt;&lt;/nav&gt;
             &lt;header&gt;&lt;h3 data-editor-heading&gt;角色&lt;/h3&gt;&lt;button type=&quot;button&quot;&gt;查找&lt;/button&gt;&lt;/header&gt;
-            &lt;nav class=&quot;rt-game-editor-actor-tabs&quot; role=&quot;tablist&quot; aria-label=&quot;选择人物&quot;&gt;&lt;button type=&quot;button&quot; role=&quot;tab&quot; aria-selected=&quot;true&quot; data-editor-person=&quot;0&quot; class=&quot;is-active&quot;&gt;艾琳&lt;/button&gt;&lt;button type=&quot;button&quot; role=&quot;tab&quot; aria-selected=&quot;false&quot; data-editor-person=&quot;1&quot;&gt;哈罗德&lt;/button&gt;&lt;/nav&gt;
-            &lt;p class=&quot;rt-game-editor-skill-help&quot; data-editor-skill-help hidden&gt;这里显示角色主动学习的技能；职业或装备附加的技能仍可能可用。&lt;/p&gt;
+            &lt;nav class=&quot;rt-game-editor-actor-tabs&quot; role=&quot;tablist&quot; aria-label=&quot;选择人物&quot; data-editor-person-tabs&gt;&lt;button type=&quot;button&quot; role=&quot;tab&quot; aria-selected=&quot;true&quot; data-editor-person=&quot;0&quot; class=&quot;is-active&quot;&gt;艾琳&lt;/button&gt;&lt;button type=&quot;button&quot; role=&quot;tab&quot; aria-selected=&quot;false&quot; data-editor-person=&quot;1&quot;&gt;哈罗德&lt;/button&gt;&lt;/nav&gt;
+            &lt;p class=&quot;rt-game-editor-category-help&quot; data-editor-help hidden&gt;&lt;/p&gt;
             &lt;div class=&quot;rt-game-editor-list&quot;&gt;
               &lt;div data-editor-rows=&quot;actors:0&quot;&gt;&lt;article&gt;&lt;div&gt;&lt;strong&gt;生命&lt;/strong&gt;&lt;small&gt;当前：120&lt;/small&gt;&lt;/div&gt;&lt;div&gt;&lt;button type=&quot;button&quot;&gt;−&lt;/button&gt;&lt;input aria-label=&quot;修改生命&quot; type=&quot;number&quot; value=&quot;120&quot;&gt;&lt;button type=&quot;button&quot;&gt;+&lt;/button&gt;&lt;button type=&quot;button&quot;&gt;应用&lt;/button&gt;&lt;/div&gt;&lt;/article&gt;&lt;article&gt;&lt;div&gt;&lt;strong&gt;魔法&lt;/strong&gt;&lt;small&gt;当前：70&lt;/small&gt;&lt;/div&gt;&lt;div&gt;&lt;button type=&quot;button&quot;&gt;−&lt;/button&gt;&lt;input aria-label=&quot;修改魔法&quot; type=&quot;number&quot; value=&quot;70&quot;&gt;&lt;button type=&quot;button&quot;&gt;+&lt;/button&gt;&lt;button type=&quot;button&quot;&gt;应用&lt;/button&gt;&lt;/div&gt;&lt;/article&gt;&lt;/div&gt;
               &lt;div data-editor-rows=&quot;actors:1&quot; hidden&gt;&lt;article&gt;&lt;div&gt;&lt;strong&gt;生命&lt;/strong&gt;&lt;small&gt;当前：85&lt;/small&gt;&lt;/div&gt;&lt;div&gt;&lt;button type=&quot;button&quot;&gt;−&lt;/button&gt;&lt;input aria-label=&quot;修改生命&quot; type=&quot;number&quot; value=&quot;85&quot;&gt;&lt;button type=&quot;button&quot;&gt;+&lt;/button&gt;&lt;button type=&quot;button&quot;&gt;应用&lt;/button&gt;&lt;/div&gt;&lt;/article&gt;&lt;article&gt;&lt;div&gt;&lt;strong&gt;魔法&lt;/strong&gt;&lt;small&gt;当前：40&lt;/small&gt;&lt;/div&gt;&lt;div&gt;&lt;button type=&quot;button&quot;&gt;−&lt;/button&gt;&lt;input aria-label=&quot;修改魔法&quot; type=&quot;number&quot; value=&quot;40&quot;&gt;&lt;button type=&quot;button&quot;&gt;+&lt;/button&gt;&lt;button type=&quot;button&quot;&gt;应用&lt;/button&gt;&lt;/div&gt;&lt;/article&gt;&lt;/div&gt;
               &lt;div data-editor-rows=&quot;skills:0&quot; hidden&gt;&lt;article&gt;&lt;div&gt;&lt;strong&gt;火球&lt;/strong&gt;&lt;small&gt;当前：未学会&lt;/small&gt;&lt;/div&gt;&lt;div&gt;&lt;button type=&quot;button&quot;&gt;学习&lt;/button&gt;&lt;/div&gt;&lt;/article&gt;&lt;article&gt;&lt;div&gt;&lt;strong&gt;治疗&lt;/strong&gt;&lt;small&gt;当前：已学会&lt;/small&gt;&lt;/div&gt;&lt;div&gt;&lt;button type=&quot;button&quot;&gt;遗忘&lt;/button&gt;&lt;/div&gt;&lt;/article&gt;&lt;/div&gt;
               &lt;div data-editor-rows=&quot;skills:1&quot; hidden&gt;&lt;article&gt;&lt;div&gt;&lt;strong&gt;斩击&lt;/strong&gt;&lt;small&gt;当前：已学会&lt;/small&gt;&lt;/div&gt;&lt;div&gt;&lt;button type=&quot;button&quot;&gt;遗忘&lt;/button&gt;&lt;/div&gt;&lt;/article&gt;&lt;article&gt;&lt;div&gt;&lt;strong&gt;守护&lt;/strong&gt;&lt;small&gt;当前：未学会&lt;/small&gt;&lt;/div&gt;&lt;div&gt;&lt;button type=&quot;button&quot;&gt;学习&lt;/button&gt;&lt;/div&gt;&lt;/article&gt;&lt;/div&gt;
+              &lt;div data-editor-rows=&quot;states:0&quot; hidden&gt;&lt;article&gt;&lt;div&gt;&lt;strong&gt;中毒&lt;/strong&gt;&lt;small&gt;当前：未生效&lt;/small&gt;&lt;/div&gt;&lt;div&gt;&lt;button type=&quot;button&quot; data-editor-state-toggle&gt;添加&lt;/button&gt;&lt;/div&gt;&lt;/article&gt;&lt;article&gt;&lt;div&gt;&lt;strong&gt;防护&lt;/strong&gt;&lt;small&gt;当前：生效中&lt;/small&gt;&lt;/div&gt;&lt;div&gt;&lt;button type=&quot;button&quot; data-editor-state-toggle&gt;移除&lt;/button&gt;&lt;/div&gt;&lt;/article&gt;&lt;/div&gt;
+              &lt;div data-editor-rows=&quot;states:1&quot; hidden&gt;&lt;article&gt;&lt;div&gt;&lt;strong&gt;中毒&lt;/strong&gt;&lt;small&gt;当前：生效中&lt;/small&gt;&lt;/div&gt;&lt;div&gt;&lt;button type=&quot;button&quot; data-editor-state-toggle&gt;移除&lt;/button&gt;&lt;/div&gt;&lt;/article&gt;&lt;article&gt;&lt;div&gt;&lt;strong&gt;防护&lt;/strong&gt;&lt;small&gt;当前：未生效&lt;/small&gt;&lt;/div&gt;&lt;div&gt;&lt;button type=&quot;button&quot; data-editor-state-toggle&gt;添加&lt;/button&gt;&lt;/div&gt;&lt;/article&gt;&lt;/div&gt;
+              &lt;div data-editor-rows=&quot;classes:0&quot; hidden&gt;&lt;article&gt;&lt;div&gt;&lt;strong&gt;战士&lt;/strong&gt;&lt;small&gt;当前：当前职业&lt;/small&gt;&lt;/div&gt;&lt;div&gt;&lt;button type=&quot;button&quot; data-editor-class-choice disabled&gt;已选&lt;/button&gt;&lt;/div&gt;&lt;/article&gt;&lt;article&gt;&lt;div&gt;&lt;strong&gt;法师&lt;/strong&gt;&lt;small&gt;当前：可转职&lt;/small&gt;&lt;/div&gt;&lt;div&gt;&lt;button type=&quot;button&quot; data-editor-class-choice&gt;转职&lt;/button&gt;&lt;/div&gt;&lt;/article&gt;&lt;/div&gt;
+              &lt;div data-editor-rows=&quot;classes:1&quot; hidden&gt;&lt;article&gt;&lt;div&gt;&lt;strong&gt;战士&lt;/strong&gt;&lt;small&gt;当前：可转职&lt;/small&gt;&lt;/div&gt;&lt;div&gt;&lt;button type=&quot;button&quot; data-editor-class-choice&gt;转职&lt;/button&gt;&lt;/div&gt;&lt;/article&gt;&lt;article&gt;&lt;div&gt;&lt;strong&gt;法师&lt;/strong&gt;&lt;small&gt;当前：当前职业&lt;/small&gt;&lt;/div&gt;&lt;div&gt;&lt;button type=&quot;button&quot; data-editor-class-choice disabled&gt;已选&lt;/button&gt;&lt;/div&gt;&lt;/article&gt;&lt;/div&gt;
+              &lt;div data-editor-rows=&quot;party&quot; hidden&gt;&lt;article data-editor-party-id=&quot;0&quot;&gt;&lt;div&gt;&lt;strong&gt;艾琳&lt;/strong&gt;&lt;small&gt;当前：队伍第 1 位&lt;/small&gt;&lt;/div&gt;&lt;div data-editor-party-controls&gt;&lt;/div&gt;&lt;/article&gt;&lt;article data-editor-party-id=&quot;1&quot;&gt;&lt;div&gt;&lt;strong&gt;哈罗德&lt;/strong&gt;&lt;small&gt;当前：队伍第 2 位&lt;/small&gt;&lt;/div&gt;&lt;div data-editor-party-controls&gt;&lt;/div&gt;&lt;/article&gt;&lt;article data-editor-party-id=&quot;2&quot;&gt;&lt;div&gt;&lt;strong&gt;莉娜&lt;/strong&gt;&lt;small&gt;当前：未入队&lt;/small&gt;&lt;/div&gt;&lt;div data-editor-party-controls&gt;&lt;/div&gt;&lt;/article&gt;&lt;/div&gt;
               &lt;p class=&quot;rt-game-editor-loading&quot; role=&quot;status&quot; hidden&gt;正在加载后续项目…&lt;/p&gt;
             &lt;/div&gt;
           &lt;/div&gt;&lt;/section&gt;
@@ -3842,16 +3848,39 @@ select:disabled, input:disabled, textarea:disabled { cursor: not-allowed; opacit
       const editorDesign = root.querySelector('[data-rpg-editor-design]');
       let editorKind = 'actors';
       let editorPerson = '0';
+      let editorParty = [0, 1];
+      function renderEditorParty() {
+        const partyRows = [...editorDesign.querySelectorAll('[data-editor-party-id]')];
+        partyRows.sort((left, right) =&gt; {
+          const leftIndex = editorParty.indexOf(Number(left.dataset.editorPartyId));
+          const rightIndex = editorParty.indexOf(Number(right.dataset.editorPartyId));
+          return (leftIndex &lt; 0 ? 99 : leftIndex) - (rightIndex &lt; 0 ? 99 : rightIndex);
+        }).forEach((row) =&gt; {
+          editorDesign.querySelector('[data-editor-rows=&quot;party&quot;]').append(row);
+          const index = editorParty.indexOf(Number(row.dataset.editorPartyId));
+          row.querySelector('small').textContent = index &lt; 0 ? '当前：未入队' : `当前：队伍第 ${index + 1} 位`;
+          const controls = row.querySelector('[data-editor-party-controls]');
+          controls.replaceChildren();
+          (index &lt; 0 ? [['加入', false]] : [['上移', index === 0], ['下移', index === editorParty.length - 1], ['移出', editorParty.length === 1]])
+            .forEach(([label, disabled]) =&gt; {
+              const button = document.createElement('button'); button.type = 'button';
+              button.textContent = label; button.disabled = disabled; controls.append(button);
+            });
+        });
+      }
       function showEditorDesignRows() {
-        editorDesign.querySelector('[data-editor-heading]').textContent = editorKind === 'actors' ? '角色' : '技能';
-        editorDesign.querySelector('[data-editor-skill-help]').hidden = editorKind !== 'skills';
+        editorDesign.querySelector('[data-editor-heading]').textContent = ({actors:'角色',skills:'技能',states:'状态',classes:'职业',party:'队伍成员'})[editorKind];
+        const editorHelp = editorDesign.querySelector('[data-editor-help]');
+        editorHelp.textContent = ({skills:'这里显示角色主动学习的技能；职业或装备附加的技能仍可能可用。',states:'战斗不能由生命值控制；免疫状态可能无法添加。',classes:'转职可能改变等级与可穿戴装备，按游戏规则立即生效。'})[editorKind] || '';
+        editorHelp.hidden = !editorHelp.textContent;
+        editorDesign.querySelector('[data-editor-person-tabs]').hidden = editorKind === 'party';
         editorDesign.querySelectorAll('[data-editor-kind]').forEach((button) =&gt; button.classList.toggle('is-active', button.dataset.editorKind === editorKind));
         editorDesign.querySelectorAll('[data-editor-person]').forEach((button) =&gt; {
           const selected = button.dataset.editorPerson === editorPerson;
           button.classList.toggle('is-active', selected);
           button.setAttribute('aria-selected', String(selected));
         });
-        editorDesign.querySelectorAll('[data-editor-rows]').forEach((rows) =&gt; { rows.hidden = rows.dataset.editorRows !== `${editorKind}:${editorPerson}`; });
+        editorDesign.querySelectorAll('[data-editor-rows]').forEach((rows) =&gt; { rows.hidden = rows.dataset.editorRows !== (editorKind === 'party' ? 'party' : `${editorKind}:${editorPerson}`); });
         editorDesign.querySelector('.rt-game-editor-list').scrollTop = 0;
       }
       editorDesign.querySelectorAll('[data-editor-kind]').forEach((button) =&gt; button.addEventListener('click', () =&gt; {
@@ -3860,6 +3889,29 @@ select:disabled, input:disabled, textarea:disabled { cursor: not-allowed; opacit
       editorDesign.querySelectorAll('[data-editor-person]').forEach((button) =&gt; button.addEventListener('click', () =&gt; {
         editorPerson = button.dataset.editorPerson; showEditorDesignRows();
       }));
+      editorDesign.querySelectorAll('[data-editor-state-toggle]').forEach((button) =&gt; button.addEventListener('click', () =&gt; {
+        const added = button.textContent === '添加';
+        button.textContent = added ? '移除' : '添加';
+        button.closest('article').querySelector('small').textContent = added ? '当前：生效中' : '当前：未生效';
+      }));
+      editorDesign.querySelectorAll('[data-editor-class-choice]').forEach((button) =&gt; button.addEventListener('click', () =&gt; {
+        button.closest('[data-editor-rows]').querySelectorAll('[data-editor-class-choice]').forEach((choice) =&gt; {
+          const selected = choice === button;
+          choice.disabled = selected; choice.textContent = selected ? '已选' : '转职';
+          choice.closest('article').querySelector('small').textContent = selected ? '当前：当前职业' : '当前：可转职';
+        });
+      }));
+      editorDesign.querySelector('[data-editor-rows=&quot;party&quot;]').addEventListener('click', (event) =&gt; {
+        const button = event.target.closest('button');
+        const row = button?.closest('[data-editor-party-id]');
+        if (!row || button.disabled) return;
+        const id = Number(row.dataset.editorPartyId), index = editorParty.indexOf(id);
+        if (button.textContent === '加入') editorParty.push(id);
+        if (button.textContent === '移出') editorParty.splice(index, 1);
+        if (button.textContent === '上移' &amp;&amp; index &gt; 0) [editorParty[index - 1], editorParty[index]] = [editorParty[index], editorParty[index - 1]];
+        if (button.textContent === '下移' &amp;&amp; index &lt; editorParty.length - 1) [editorParty[index], editorParty[index + 1]] = [editorParty[index + 1], editorParty[index]];
+        renderEditorParty();
+      });
       function resetRpgDesign() {
         delete app.dataset.rpgScene;
         root.querySelectorAll('[data-rpg-import-design],[data-rpg-review-design],[data-rpg-player-design],[data-rpg-editor-design],[data-rpg-save-design]').forEach((element) =&gt; { element.hidden = true; });
@@ -3899,7 +3951,7 @@ select:disabled, input:disabled, textarea:disabled { cursor: not-allowed; opacit
           root.querySelector('[data-page=&quot;play&quot;] .rt-player-top').classList.add('is-visible');
         }
         if (scene === 'rpg-editor') {
-          editorKind = 'actors'; editorPerson = '0'; showEditorDesignRows();
+          editorKind = 'actors'; editorPerson = '0'; editorParty = [0, 1]; renderEditorParty(); showEditorDesignRows();
           root.querySelector('[data-rpg-editor-design]').hidden = false;
         }
         if (scene === 'rpg-saves') root.querySelector('[data-rpg-save-design]').hidden = false;

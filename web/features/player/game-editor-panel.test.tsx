@@ -186,4 +186,72 @@ describe("GameEditorPanel", () => {
     resolveItems?.({entries: [{id: "2", label: "药水", value: 1, valueType: "number", min: 0, max: 99}], nextOffset: null});
     await waitFor(() => expect(panel.getByText("药水")).toBeVisible());
   });
+
+  it("edits states and chooses one class within a person's tabs", async () => {
+    let poisoned = false;
+    let classId = 1;
+    const entries = vi.fn(async (category: string) => ({entries: category === "states:1"
+      ? [{id: "1:2", label: "中毒", value: poisoned, valueType: "boolean" as const}]
+      : category === "states:2"
+        ? [{id: "2:2", label: "中毒", value: false, valueType: "boolean" as const}]
+        : [{id: "1:1", label: "战士", value: classId === 1, valueType: "boolean" as const},
+          {id: "1:2", label: "法师", value: classId === 2, valueType: "boolean" as const}], nextOffset: null}));
+    const set = vi.fn(async (category: string, id: string, value: number | string | boolean) => {
+      if (category === "states:1") {poisoned = Boolean(value);}
+      else {classId = Number(id.split(":")[1]);}
+      return {id, label: category === "states:1" ? "中毒" : "法师", value,
+        valueType: "boolean" as const};
+    });
+    const editor: RuntimeGameEditorV1 = {categories: async () => [
+      {id: "states", label: "状态", groups: [{id: "states:1", label: "Hero"}, {id: "states:2", label: "Mage"}]},
+      {id: "classes", label: "职业", groups: [{id: "classes:1", label: "Hero"}]},
+    ], entries, set};
+    const view = render(<GameEditorPanel editor={editor} onClose={vi.fn()} />);
+    const panel = within(view.container);
+    await waitFor(() => expect(panel.getByText("当前：未生效")).toBeVisible());
+    fireEvent.click(panel.getByRole("button", {name: /中毒.*点击添加/u}));
+    await waitFor(() => expect(set).toHaveBeenCalledWith("states:1", "1:2", true));
+    expect(panel.getByText("当前：生效中")).toBeVisible();
+    fireEvent.click(panel.getByRole("tab", {name: "Mage"}));
+    await waitFor(() => expect(entries).toHaveBeenCalledWith("states:2", "", 0, 40));
+    fireEvent.click(panel.getByRole("button", {name: "职业"}));
+    await waitFor(() => expect(panel.getByText("当前：当前职业")).toBeVisible());
+    expect(panel.getByRole("button", {name: /战士.*当前职业/u})).toBeDisabled();
+    fireEvent.click(panel.getByRole("button", {name: /法师.*点击转职/u}));
+    await waitFor(() => expect(set).toHaveBeenCalledWith("classes:1", "1:2", true));
+    await waitFor(() => expect(panel.getByText("当前：当前职业")).toBeVisible());
+    expect(panel.getByRole("button", {name: /法师.*当前职业/u})).toBeDisabled();
+  });
+
+  it("adds, reorders, and removes party members with direct actions", async () => {
+    let party = [1, 2];
+    const names = ["Hero", "Mage", "Reserve"];
+    const categories = vi.fn(async () => [{id: "party", label: "队伍成员"},
+      {id: "actors", label: "角色", groups: party.map((id) => ({id: `actors:${id}`, label: names[id - 1]}))}]);
+    const entries = vi.fn(async () => ({entries: names.map((label, index) => ({
+      id: String(index + 1), label, value: party.indexOf(index + 1) + 1,
+      valueType: "number" as const, min: 0, max: party.includes(index + 1) ? party.length : party.length + 1,
+    })), nextOffset: null}));
+    const set = vi.fn(async (_category: string, id: string, value: number | string | boolean) => {
+      const actorId = Number(id), position = party.indexOf(actorId);
+      if (position < 0) {party.push(actorId);}
+      else if (value === 0) {party = party.filter((candidate) => candidate !== actorId);}
+      else {[party[position], party[Number(value) - 1]] = [party[Number(value) - 1], party[position]];}
+      return {id, label: names[actorId - 1], value, valueType: "number" as const, min: 0, max: party.length};
+    });
+    const editor: RuntimeGameEditorV1 = {categories, entries, set};
+    const view = render(<GameEditorPanel editor={editor} onClose={vi.fn()} />);
+    const panel = within(view.container);
+    await waitFor(() => expect(panel.getByText("当前：未入队")).toBeVisible());
+    expect(panel.queryByRole("spinbutton")).toBeNull();
+    fireEvent.click(panel.getByRole("button", {name: "Reserve加入队伍"}));
+    await waitFor(() => expect(set).toHaveBeenCalledWith("party", "3", 3));
+    await waitFor(() => expect(panel.getByText("当前：队伍第 3 位")).toBeVisible());
+    fireEvent.click(panel.getByRole("button", {name: "Reserve上移"}));
+    await waitFor(() => expect(set).toHaveBeenCalledWith("party", "3", 2));
+    await waitFor(() => expect(panel.getByText("当前：队伍第 2 位")).toBeVisible());
+    fireEvent.click(panel.getByRole("button", {name: "Reserve移出队伍"}));
+    await waitFor(() => expect(set).toHaveBeenCalledWith("party", "3", 0));
+    expect(categories).toHaveBeenCalledTimes(4);
+  });
 });

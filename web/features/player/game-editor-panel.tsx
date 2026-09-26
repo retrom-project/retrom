@@ -141,12 +141,25 @@ export function GameEditorPanel({editor, immersive, onClose}: {
 
   async function save(entry: RuntimeGameEditEntryV1, value: number | string | boolean) {
     try {
+      const sequence = requestSequence.current;
       const updated = await editor.set(activeCategory, entry.id, value);
-      setEntries((current) => current.map((item) => item.id === updated.id ? updated : item));
+      if (sequence !== requestSequence.current) {return;}
       setError("");
       setNotice({text: "已应用修改。离开前请创建存档。"});
+      if (category === "classes") {
+        setEntries((current) => current.map((item) => ({...item, value: item.id === updated.id})));
+      } else if (category === "party") {
+        try {
+          const [page, refreshedCategories] = await Promise.all([
+            editor.entries(activeCategory, search, 0, PAGE_SIZE), editor.categories(),
+          ]);
+          if (sequence === requestSequence.current) {
+            setEntries(page.entries); setNextOffset(page.nextOffset); setCategories(refreshedCategories);
+          }
+        } catch {setError("修改已生效，但列表刷新失败。请点击刷新。");}
+      } else {setEntries((current) => current.map((item) => item.id === updated.id ? updated : item));}
       if (category === "actors") {void load(activeCategory, search, 0);}
-    } catch {setNotice(null); setError(`${entry.label} 修改失败；该值可能超出游戏允许的范围。`);}
+    } catch {setNotice(null); setError(`${entry.label} 修改失败；请检查游戏当前规则或允许的范围。`);}
   }
   const categoryLabel = selectedCategory?.label ?? "可修改";
   function changeSearch(value: string) {
@@ -178,7 +191,9 @@ export function GameEditorPanel({editor, immersive, onClose}: {
       <nav className="game-editor-categories" aria-label="修改类别">{categories.map((item) => <button key={item.id} type="button" className={`button secondary${item.id === category ? " is-active" : ""}`} aria-pressed={item.id === category} onClick={() => chooseCategory(item.id)}>{item.label}</button>)}</nav>
       {category ? <GameEditorToolbar label={categoryLabel} searchOpen={searchOpen} onSearch={toggleSearch} onRefresh={() => {if (activeCategory) {void load(activeCategory, search, 0);}}} /> : null}
       {groups ? <GameEditorActorTabs groups={groups} activeCategory={activeCategory} onChoose={chooseGroup} /> : null}
-      {category === "skills" ? <p className="game-editor-skill-help">这里显示角色主动学习的技能；职业或装备附加的技能仍可能可用。</p> : null}
+      {category === "skills" ? <p className="game-editor-category-help">这里显示角色主动学习的技能；职业或装备附加的技能仍可能可用。</p> : null}
+      {category === "states" ? <p className="game-editor-category-help">战斗不能由生命值控制；免疫状态可能无法添加。</p> : null}
+      {category === "classes" ? <p className="game-editor-category-help">转职可能改变等级与可穿戴装备，按游戏规则立即生效。</p> : null}
       {searchOpen ? <GameEditorSearch query={query} hasFilter={Boolean(search)} onQuery={setQuery} onSubmit={submitSearch} onClear={() => {setQuery(""); changeSearch("");}} /> : null}
       {error ? <p className="game-editor-error" role="alert">{error}</p> : null}
       <GameEditorList listRef={listRef} grouped={Boolean(groups)} noGroup={Boolean(groups && !groups.length)} category={category} categoryLabel={categoryLabel} entries={entries} loading={loading} showLoading={showLoading} loadingMore={loadingMore} filtered={Boolean(search)} onSave={save}>
@@ -243,10 +258,45 @@ function GameEditorMore({markerRef, nextOffset, loading, error, onRetry}: {
   </div>;
 }
 
-function GameEditorRow({category, entry, onSave}: {
+type GameEditorRowProps = {
   category: string; entry: RuntimeGameEditEntryV1;
   onSave: (value: number | string | boolean) => Promise<void>;
-}) {
+};
+
+function GameEditorRow(props: GameEditorRowProps) {
+  if (props.category === "party" && props.entry.valueType === "number") {return <GameEditorPartyRow {...props} />;}
+  if (props.entry.valueType === "boolean") {return <GameEditorBooleanRow {...props} />;}
+  return <GameEditorScalarRow {...props} />;
+}
+
+function GameEditorRowLabel({category, entry}: Pick<GameEditorRowProps, "category" | "entry">) {
+  return <div className="game-editor-row-label"><strong>{entry.label}</strong><small>当前：{displayEntryValue(entry, category)}</small></div>;
+}
+
+function GameEditorPartyRow({category, entry, onSave}: GameEditorRowProps) {
+  const [pending, setPending] = useState(false);
+  const position = Number(entry.value);
+  function act(value: number) {setPending(true); void onSave(value).finally(() => setPending(false));}
+  return <div className="game-editor-row"><GameEditorRowLabel category={category} entry={entry} />
+    <div className="game-editor-party-actions">{position === 0
+      ? <button className="button secondary" type="button" disabled={pending} aria-label={`${entry.label}加入队伍`} onClick={() => act(entry.max ?? 1)}>加入</button>
+      : <><button className="button secondary" type="button" disabled={pending || position <= 1} aria-label={`${entry.label}上移`} onClick={() => act(position - 1)}>上移</button><button className="button secondary" type="button" disabled={pending || position >= (entry.max ?? 1)} aria-label={`${entry.label}下移`} onClick={() => act(position + 1)}>下移</button><button className="button secondary" type="button" disabled={pending || (entry.max ?? 1) <= 1} aria-label={`${entry.label}移出队伍`} onClick={() => act(0)}>移出</button></>}
+    </div>
+  </div>;
+}
+
+function GameEditorBooleanRow({category, entry, onSave}: GameEditorRowProps) {
+  const [pending, setPending] = useState(false);
+  const text = booleanControlText(category, Boolean(entry.value));
+  const selectedClass = category === "classes" && entry.value === true;
+  return <div className="game-editor-row"><GameEditorRowLabel category={category} entry={entry} />
+    <button className="button secondary" type="button" disabled={pending || selectedClass}
+      aria-label={`${entry.label}，当前${text.state}${selectedClass ? "" : `，点击${text.verb}`}`}
+      onClick={() => {setPending(true); void onSave(category === "classes" ? true : !entry.value).finally(() => setPending(false));}}>{text.action}</button>
+  </div>;
+}
+
+function GameEditorScalarRow({category, entry, onSave}: GameEditorRowProps) {
   const [draft, setDraft] = useState(String(entry.value));
   const [pending, setPending] = useState(false);
   const [invalid, setInvalid] = useState("");
@@ -260,11 +310,9 @@ function GameEditorRow({category, entry, onSave}: {
     setInvalid(""); setPending(true);
     try {await onSave(value);} finally {setPending(false);}
   }
-  const booleanText = booleanControlText(category, Boolean(entry.value));
-  return <div className="game-editor-row"><div className="game-editor-row-label"><strong>{entry.label}</strong><small>当前：{displayEntryValue(entry, category)}</small></div>
-    {entry.valueType === "boolean" ? <button className="button secondary" type="button" disabled={pending} aria-label={`${entry.label}，当前${booleanText.state}，点击${booleanText.verb}`} onClick={() => {setPending(true); void onSave(!entry.value).finally(() => setPending(false));}}>{booleanText.action}</button>
-      : entry.valueType === "unsupported" ? <span className="game-editor-unsupported">此值类型暂不支持</span>
-        : <form className="game-editor-row-form" onSubmit={(event) => void submit(event)}>{entry.valueType === "number" ? <button className="button secondary" type="button" aria-label={`${entry.label}减一`} disabled={pending} onClick={() => setDraft(String(Math.max(entry.min ?? -999999999, Number(draft || 0) - 1)))}>−</button> : null}<input aria-label={`修改${entry.label}`} type={entry.valueType === "number" ? "number" : "text"} inputMode={entry.valueType === "number" ? "numeric" : undefined} step={entry.valueType === "number" ? 1 : undefined} min={entry.min} max={entry.max} maxLength={entry.valueType === "text" ? 500 : undefined} value={draft} onChange={(event) => setDraft(event.target.value)} />{entry.valueType === "number" ? <button className="button secondary" type="button" aria-label={`${entry.label}加一`} disabled={pending} onClick={() => setDraft(String(Math.min(entry.max ?? 999999999, Number(draft || 0) + 1)))}>+</button> : null}<button className="button secondary" type="submit" disabled={pending || draft === String(entry.value)}>{pending ? "保存中" : "应用"}</button>{invalid ? <small role="alert">{invalid}</small> : null}</form>}
+  return <div className="game-editor-row"><GameEditorRowLabel category={category} entry={entry} />
+    {entry.valueType === "unsupported" ? <span className="game-editor-unsupported">此值类型暂不支持</span>
+      : <form className="game-editor-row-form" onSubmit={(event) => void submit(event)}>{entry.valueType === "number" ? <button className="button secondary" type="button" aria-label={`${entry.label}减一`} disabled={pending} onClick={() => setDraft(String(Math.max(entry.min ?? -999999999, Number(draft || 0) - 1)))}>−</button> : null}<input aria-label={`修改${entry.label}`} type={entry.valueType === "number" ? "number" : "text"} inputMode={entry.valueType === "number" ? "numeric" : undefined} step={entry.valueType === "number" ? 1 : undefined} min={entry.min} max={entry.max} maxLength={entry.valueType === "text" ? 500 : undefined} value={draft} onChange={(event) => setDraft(event.target.value)} />{entry.valueType === "number" ? <button className="button secondary" type="button" aria-label={`${entry.label}加一`} disabled={pending} onClick={() => setDraft(String(Math.min(entry.max ?? 999999999, Number(draft || 0) + 1)))}>+</button> : null}<button className="button secondary" type="submit" disabled={pending || draft === String(entry.value)}>{pending ? "保存中" : "应用"}</button>{invalid ? <small role="alert">{invalid}</small> : null}</form>}
   </div>;
 }
 
@@ -276,8 +324,11 @@ function validNumericDraft(entry: RuntimeGameEditEntryV1, draft: string) {
 
 function displayEntryValue(entry: RuntimeGameEditEntryV1, category: string) {
   if (entry.value === null) {return "不支持";}
+  if (category === "party" && typeof entry.value === "number") {
+    return entry.value ? `队伍第 ${entry.value} 位` : "未入队";
+  }
   if (typeof entry.value === "boolean") {
-    return category === "skills" ? entry.value ? "已学会" : "未学会" : entry.value ? "开启" : "关闭";
+    return booleanControlText(category, entry.value).state;
   }
   return String(entry.value);
 }
@@ -285,6 +336,12 @@ function displayEntryValue(entry: RuntimeGameEditEntryV1, category: string) {
 function booleanControlText(category: string, value: boolean) {
   if (category === "skills") {
     return {state: value ? "已学会" : "未学会", action: value ? "遗忘" : "学习", verb: value ? "遗忘" : "学习"};
+  }
+  if (category === "states") {
+    return {state: value ? "生效中" : "未生效", action: value ? "移除" : "添加", verb: value ? "移除" : "添加"};
+  }
+  if (category === "classes") {
+    return {state: value ? "当前职业" : "可转职", action: value ? "已选" : "转职", verb: "转职"};
   }
   return {state: value ? "开启" : "关闭", action: value ? "关闭" : "开启", verb: "切换"};
 }
