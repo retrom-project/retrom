@@ -405,10 +405,17 @@ func normalizeArchiveProject(
 }
 
 func normalizeMarkerProject(input []fileset.SourceFile, definition markerProjectDefinition) (fileset.Project, error) {
+	var project fileset.Project
+	var err error
 	if len(definition.markerSuffixes) > 0 {
-		return fileset.NormalizeProjectWithMarkerSuffixes(input, definition.markerSuffixes)
+		project, err = fileset.NormalizeProjectWithMarkerSuffixes(input, definition.markerSuffixes)
+	} else {
+		project, err = fileset.NormalizeProjectWithMarkers(input, definition.markers)
 	}
-	return fileset.NormalizeProjectWithMarkers(input, definition.markers)
+	if err != nil {
+		return fileset.Project{}, fmt.Errorf("normalize %s project: %w", definition.name, err)
+	}
+	return project, nil
 }
 
 func archiveProjectEntries(

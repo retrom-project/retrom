@@ -2,6 +2,7 @@ package detector
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"testing"
 )
@@ -40,7 +41,7 @@ func TestDetectDaphneProjectAndRejectUnrelatedFramefile(t *testing.T) {
 		t.Fatalf("ParseSnapshot() = %#v, %v", parsed, err)
 	}
 	files["interstellar.txt"] = []byte(".\n1 unrelated.m2v\n")
-	if _, err := Detect(files); err != ErrProjectInvalid {
+	if _, err := Detect(files); !errors.Is(err, ErrProjectInvalid) {
 		t.Fatalf("invalid framefile error = %v", err)
 	}
 }

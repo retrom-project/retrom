@@ -177,14 +177,14 @@ Host 上传成功后才确认该版本已经持久化。最多 256 个文件、1
 真实键盘仍可独立操作，其他游戏的菜单按键需要逐样本验证。输入诊断观察 Apple2JS
 实际读取手柄的内层 iframe，显示按钮按下与松开；观测记录不代表核心已执行该动作。
 
-### Daphne 候选接入
+### Daphne 接入
 
 Daphne fork 的 `retro_serialize_size()` 返回零，保存与恢复接口均返回失败；已有的
 NVRAM/分数文件不能重建正在游玩的场景。用户已明确允许 Daphne 使用 `NO_SAVE`，
 因此仅 Daphne 的 Target 声明 `checkpoint: null` 和 `capabilities.checkpoint: false`，
 宿主不提供创建或恢复存档。其他平台的存档要求保持不变。
 
-候选 Target `emulatorjs/daphne` 使用 `DAPHNE_PROJECT` 和 `FILE_TREE`。项目检测当前接受
+Target `emulatorjs/daphne` 使用 `DAPHNE_PROJECT` 和 `FILE_TREE`。项目检测当前接受
 根目录中 3–16 个文件：一个 ZIP ROM、同名 TXT framefile、一个被 framefile 引用的 M2V，
 以及可选的 DAT/OGG 等小文件。ZIP、TXT、DAT、OGG 经公共 Content I/O 完整读取；
 M2V 通过公共 Range reader 按需读取。核心的 MPEG 解码运行在 pthread；线程的同步
@@ -199,7 +199,9 @@ Game Over 开局。修复后的核心将 Select、Start、方向键和两个动�
 双声道 PCM，并通过 libretro 音频回调交给浏览器；验收必须在实际 Product Launch
 中观察到非静音音频缓冲，不能仅凭 OGG 文件存在认定声音可用。多视频项目、无 ZIP
 项目和其他 Daphne 游戏尚未获得准入。
-候选 Provider/核心仍需按依赖顺序发布和正式包复验。
+Apple2JS、Lutro、Daphne 和 Gearboy 的正式核心资产由 retrom-runtime 的
+`v0.49.0` Release 固定；Retrom 的 `data/runtime-providers/release.json` 固定该
+Provider 版本。发布验收须用正式包重跑各平台的审核预览、产品启动、输入与适用的存档链路。
 
 ## 6. 升级验证
 

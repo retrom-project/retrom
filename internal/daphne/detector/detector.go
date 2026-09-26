@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"strings"
 )
@@ -36,38 +37,9 @@ func Detect(index Index) (Profile, error) {
 	if len(files) < 3 || len(files) > 16 {
 		return Profile{}, ErrProjectInvalid
 	}
-	seen := make(map[string]File, len(files))
-	var rom, video File
-	var total int64
-	for _, file := range files {
-		name := strings.ToLower(file.Path)
-		if !validName(file.Path) || file.Size < 1 || file.Size > 2_147_483_647 {
-			return Profile{}, ErrProjectInvalid
-		}
-		if _, duplicate := seen[name]; duplicate {
-			return Profile{}, ErrProjectInvalid
-		}
-		seen[name] = file
-		total += file.Size
-		if total > 2_147_483_647 {
-			return Profile{}, ErrProjectInvalid
-		}
-		if strings.HasSuffix(name, ".zip") {
-			if rom.Path != "" || file.Size > 64<<20 {
-				return Profile{}, ErrProjectInvalid
-			}
-			rom = file
-		} else if strings.HasSuffix(name, ".m2v") {
-			if video.Path != "" {
-				return Profile{}, ErrProjectInvalid
-			}
-			video = file
-		} else if file.Size > 64<<20 {
-			return Profile{}, ErrProjectInvalid
-		}
-	}
-	if rom.Path == "" || video.Path == "" {
-		return Profile{}, ErrProjectInvalid
+	seen, rom, video, err := collectFiles(files)
+	if err != nil {
+		return Profile{}, err
 	}
 	frame, ok := seen[strings.ToLower(rom.Path[:len(rom.Path)-4]+".txt")]
 	if !ok || frame.Size > 64<<10 || !zipHeader(index, rom.Path) || !framefileReferences(index, frame.Path, video.Path) {
@@ -76,16 +48,52 @@ func Detect(index Index) (Profile, error) {
 	return Profile{MarkerPath: rom.Path, FramefilePath: frame.Path, VideoPath: video.Path}, nil
 }
 
+func collectFiles(files []File) (map[string]File, File, File, error) {
+	seen := make(map[string]File, len(files))
+	var rom, video File
+	var total int64
+	for _, file := range files {
+		name := strings.ToLower(file.Path)
+		if !validName(file.Path) || file.Size < 1 || file.Size > 2_147_483_647 {
+			return nil, File{}, File{}, ErrProjectInvalid
+		}
+		if _, duplicate := seen[name]; duplicate {
+			return nil, File{}, File{}, ErrProjectInvalid
+		}
+		seen[name] = file
+		total += file.Size
+		if total > 2_147_483_647 {
+			return nil, File{}, File{}, ErrProjectInvalid
+		}
+		switch {
+		case strings.HasSuffix(name, ".zip"):
+			if rom.Path != "" || file.Size > 64<<20 {
+				return nil, File{}, File{}, ErrProjectInvalid
+			}
+			rom = file
+		case strings.HasSuffix(name, ".m2v"):
+			if video.Path != "" {
+				return nil, File{}, File{}, ErrProjectInvalid
+			}
+			video = file
+		case file.Size > 64<<20:
+			return nil, File{}, File{}, ErrProjectInvalid
+		}
+	}
+	if rom.Path == "" || video.Path == "" {
+		return nil, File{}, File{}, ErrProjectInvalid
+	}
+	return seen, rom, video, nil
+}
+
 func validName(name string) bool {
 	if name == "" || len(name) > 128 || strings.Contains(name, "..") || strings.ContainsAny(name, "/\\:") {
 		return false
 	}
 	for _, char := range name {
-		if char >= 'a' && char <= 'z' || char >= 'A' && char <= 'Z' ||
-			char >= '0' && char <= '9' || char == '.' || char == '_' || char == '-' {
-			continue
+		if !validNameCharacter(char) {
+			return false
 		}
-		return false
 	}
 	for _, suffix := range []string{".zip", ".txt", ".m2v", ".dat", ".ogg"} {
 		if strings.HasSuffix(strings.ToLower(name), suffix) {
@@ -93,6 +101,11 @@ func validName(name string) bool {
 		}
 	}
 	return false
+}
+
+func validNameCharacter(char rune) bool {
+	return char >= 'a' && char <= 'z' || char >= 'A' && char <= 'Z' ||
+		char >= '0' && char <= '9' || char == '.' || char == '_' || char == '-'
 }
 
 func zipHeader(index Index, name string) bool {
@@ -140,7 +153,11 @@ func MarshalSnapshot(profile Profile) ([]byte, error) {
 	if !validProfile(profile) {
 		return nil, ErrProjectInvalid
 	}
-	return json.Marshal(snapshot{SchemaVersion: 1, Daphne: profile})
+	encoded, err := json.Marshal(snapshot{SchemaVersion: 1, Daphne: profile})
+	if err != nil {
+		return nil, fmt.Errorf("marshal Daphne snapshot: %w", err)
+	}
+	return encoded, nil
 }
 
 func ParseSnapshot(raw string) (Profile, error) {
