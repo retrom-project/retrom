@@ -1,6 +1,6 @@
 import {fireEvent, render, waitFor, within} from "@testing-library/react";
 import {afterEach, describe, expect, it, vi} from "vitest";
-import type {RuntimeGameEditorV1} from "./runtime/contract";
+import type {RuntimeGameEditEntryV1, RuntimeGameEditorV1} from "./runtime/contract";
 import {GameEditorPanel} from "./game-editor-panel";
 
 describe("GameEditorPanel", () => {
@@ -142,5 +142,48 @@ describe("GameEditorPanel", () => {
     expect(list.scrollTop).toBe(0);
     expect(entries).toHaveBeenCalledWith("skills:2", "", 0, 40);
     expect(panel.getByRole("tab", {name: "Mage"})).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("shows actor attributes under the selected person's tab", async () => {
+    let mageHp = 8;
+    const entries = vi.fn(async (category: string) => ({entries: category === "actors:1"
+      ? [{id: "1:hp", label: "生命", value: 10, valueType: "number" as const, min: 0, max: 20}]
+      : [{id: "2:hp", label: "生命", value: mageHp, valueType: "number" as const, min: 0, max: 20}], nextOffset: null}));
+    const set = vi.fn(async (_category: string, id: string, value: number | string | boolean) => {
+      mageHp = Number(value);
+      return {id, label: "生命", value: mageHp, valueType: "number" as const, min: 0, max: 20};
+    });
+    const editor: RuntimeGameEditorV1 = {categories: async () => [{id: "actors", label: "角色",
+      groups: [{id: "actors:1", label: "Hero"}, {id: "actors:2", label: "Mage"}]}], entries, set};
+    const view = render(<GameEditorPanel editor={editor} onClose={vi.fn()} />);
+    const panel = within(view.container);
+    await waitFor(() => expect(panel.getByText("当前：10")).toBeVisible());
+    expect(entries).toHaveBeenCalledWith("actors:1", "", 0, 40);
+    fireEvent.click(panel.getByRole("tab", {name: "Mage"}));
+    await waitFor(() => expect(panel.getByText("当前：8")).toBeVisible());
+    expect(panel.queryByText("当前：10")).toBeNull();
+    expect(entries).toHaveBeenCalledWith("actors:2", "", 0, 40);
+    fireEvent.change(panel.getByRole("spinbutton", {name: "修改生命"}), {target: {value: "12"}});
+    fireEvent.click(panel.getByRole("button", {name: "应用"}));
+    await waitFor(() => expect(set).toHaveBeenCalledWith("actors:2", "2:hp", 12));
+  });
+
+  it("keeps the list quiet during a quick category transition", async () => {
+    let resolveItems: ((value: {entries: RuntimeGameEditEntryV1[]; nextOffset: null}) => void) | undefined;
+    const entries = vi.fn(async (category: string) => category === "gold"
+      ? {entries: [{id: "gold", label: "金币", value: 10, valueType: "number" as const, min: 0, max: 100}], nextOffset: null}
+      : new Promise<{entries: RuntimeGameEditEntryV1[]; nextOffset: null}>((resolve) => {resolveItems = resolve;}));
+    const editor: RuntimeGameEditorV1 = {categories: async () => [{id: "gold", label: "金币"}, {id: "items", label: "道具"}],
+      entries, set: vi.fn()};
+    const view = render(<GameEditorPanel editor={editor} onClose={vi.fn()} />);
+    const panel = within(view.container);
+    await waitFor(() => expect(panel.getByText("当前：10")).toBeVisible());
+    fireEvent.click(panel.getByRole("button", {name: "道具"}));
+    expect(panel.queryByText("正在读取…")).toBeNull();
+    expect(panel.queryByText("当前：10")).toBeNull();
+    expect(view.container.querySelector(".game-editor-list")).toHaveAttribute("aria-busy", "true");
+    await waitFor(() => expect(entries).toHaveBeenCalledWith("items", "", 0, 40));
+    resolveItems?.({entries: [{id: "2", label: "药水", value: 1, valueType: "number", min: 0, max: 99}], nextOffset: null});
+    await waitFor(() => expect(panel.getByText("药水")).toBeVisible());
   });
 });

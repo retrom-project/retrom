@@ -18,6 +18,7 @@ export function GameEditorPanel({editor, immersive, onClose}: {
   const [entries, setEntries] = useState<RuntimeGameEditEntryV1[]>([]);
   const [nextOffset, setNextOffset] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showLoading, setShowLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [pageError, setPageError] = useState(false);
   const [error, setError] = useState("");
@@ -51,7 +52,10 @@ export function GameEditorPanel({editor, immersive, onClose}: {
 
   const load = useCallback(async (selected: string, filter: string, page: number) => {
     const sequence = ++requestSequence.current;
-    if (page === 0) {requestedPage.current = null; setLoading(true);} else {setLoadingMore(true);}
+    const loadingTimer = page === 0 ? window.setTimeout(() => {
+      if (sequence === requestSequence.current) {setShowLoading(true);}
+    }, 180) : null;
+    if (page === 0) {requestedPage.current = null; setLoading(true); setShowLoading(false);} else {setLoadingMore(true);}
     setPageError(false);
     setError("");
     try {
@@ -65,7 +69,10 @@ export function GameEditorPanel({editor, immersive, onClose}: {
         setEntries([]); setNextOffset(null);
         setError("读取失败。请确认游戏已开始，再重试。");
       } else {setPageError(true);}
-    } finally {if (sequence === requestSequence.current) {setLoading(false); setLoadingMore(false);}}
+    } finally {
+      if (loadingTimer !== null) {window.clearTimeout(loadingTimer);}
+      if (sequence === requestSequence.current) {setLoading(false); setShowLoading(false); setLoadingMore(false);}
+    }
   }, [editor]);
 
   useEffect(() => {
@@ -119,7 +126,7 @@ export function GameEditorPanel({editor, immersive, onClose}: {
 
   function chooseCategory(value: string) {
     requestSequence.current += 1;
-    setCategory(value); setSelectedGroup(""); setEntries([]); setLoading(true); setNextOffset(null);
+    setCategory(value); setSelectedGroup(""); setEntries([]); setLoading(true); setShowLoading(false); setNextOffset(null);
     requestedPage.current = null; if (listRef.current) {listRef.current.scrollTop = 0;}
     setQuery(""); setSearch(""); setSearchOpen(false); setNotice(null);
   }
@@ -127,7 +134,7 @@ export function GameEditorPanel({editor, immersive, onClose}: {
     if (value === activeCategory) {return;}
     requestSequence.current += 1;
     requestedPage.current = null;
-    setSelectedGroup(value); setEntries([]); setNextOffset(null); setLoading(true);
+    setSelectedGroup(value); setEntries([]); setNextOffset(null); setLoading(true); setShowLoading(false);
     setQuery(""); setSearch(""); setSearchOpen(false); setNotice(null);
     if (listRef.current) {listRef.current.scrollTop = 0;}
   }
@@ -145,7 +152,7 @@ export function GameEditorPanel({editor, immersive, onClose}: {
   function changeSearch(value: string) {
     requestSequence.current += 1;
     requestedPage.current = null;
-    setEntries([]); setNextOffset(null); setLoading(true); setSearch(value);
+    setEntries([]); setNextOffset(null); setLoading(true); setShowLoading(false); setSearch(value);
   }
   function submitSearch() {
     const value = query.trim();
@@ -174,7 +181,7 @@ export function GameEditorPanel({editor, immersive, onClose}: {
       {category === "skills" ? <p className="game-editor-skill-help">这里显示角色主动学习的技能；职业或装备附加的技能仍可能可用。</p> : null}
       {searchOpen ? <GameEditorSearch query={query} hasFilter={Boolean(search)} onQuery={setQuery} onSubmit={submitSearch} onClear={() => {setQuery(""); changeSearch("");}} /> : null}
       {error ? <p className="game-editor-error" role="alert">{error}</p> : null}
-      <GameEditorList listRef={listRef} grouped={Boolean(groups)} noGroup={Boolean(groups && !groups.length)} category={category} categoryLabel={categoryLabel} entries={entries} loading={loading} loadingMore={loadingMore} filtered={Boolean(search)} onSave={save}>
+      <GameEditorList listRef={listRef} grouped={Boolean(groups)} noGroup={Boolean(groups && !groups.length)} category={category} categoryLabel={categoryLabel} entries={entries} loading={loading} showLoading={showLoading} loadingMore={loadingMore} filtered={Boolean(search)} onSave={save}>
         <GameEditorMore markerRef={moreRef} nextOffset={loading ? null : nextOffset} loading={loadingMore} error={pageError} onRetry={() => {
           if (nextOffset === null) {return;}
           requestedPage.current = null;
@@ -195,7 +202,7 @@ function GameEditorActorTabs({groups, activeCategory, onChoose}: {
   onChoose: (id: string) => void;
 }) {
   const tabsRef = useRef<HTMLDivElement>(null);
-  return <div ref={tabsRef} className="game-editor-actor-tabs" role="tablist" aria-label="选择人物">{groups.map((group, index) => <button key={group.id} className="button secondary" type="button" role="tab" aria-selected={group.id === activeCategory} aria-controls="game-editor-skill-list" tabIndex={group.id === activeCategory ? 0 : -1} onClick={() => onChoose(group.id)} onKeyDown={(event) => {
+  return <div ref={tabsRef} className="game-editor-actor-tabs" role="tablist" aria-label="选择人物">{groups.map((group, index) => <button key={group.id} className="button secondary" type="button" role="tab" aria-selected={group.id === activeCategory} aria-controls="game-editor-group-list" tabIndex={group.id === activeCategory ? 0 : -1} onClick={() => onChoose(group.id)} onKeyDown={(event) => {
     const direction = event.key === "ArrowRight" ? 1 : event.key === "ArrowLeft" ? -1 : 0;
     const next = event.key === "Home" ? 0 : event.key === "End" ? groups.length - 1
       : direction ? (index + direction + groups.length) % groups.length : -1;
@@ -217,12 +224,12 @@ function GameEditorSearch({query, hasFilter, onQuery, onSubmit, onClear}: {
   return <form id="game-editor-search" className="game-editor-search" onSubmit={(event: FormEvent<HTMLFormElement>) => {event.preventDefault(); onSubmit();}}><label htmlFor="game-editor-query">按名称查找</label><input id="game-editor-query" type="search" value={query} maxLength={80} onChange={(event) => onQuery(event.target.value)} /><button className="button secondary" type="submit">查找</button>{hasFilter ? <button className="button secondary" type="button" onClick={onClear}>清除</button> : null}</form>;
 }
 
-function GameEditorList({listRef, grouped, noGroup, category, categoryLabel, entries, loading, loadingMore, filtered, onSave, children}: {
-  listRef: Ref<HTMLDivElement>; grouped: boolean; noGroup: boolean; category: string; categoryLabel: string; entries: RuntimeGameEditEntryV1[]; loading: boolean; loadingMore: boolean; filtered: boolean;
+function GameEditorList({listRef, grouped, noGroup, category, categoryLabel, entries, loading, showLoading, loadingMore, filtered, onSave, children}: {
+  listRef: Ref<HTMLDivElement>; grouped: boolean; noGroup: boolean; category: string; categoryLabel: string; entries: RuntimeGameEditEntryV1[]; loading: boolean; showLoading: boolean; loadingMore: boolean; filtered: boolean;
   onSave: (entry: RuntimeGameEditEntryV1, value: number | string | boolean) => Promise<void>;
   children: ReactNode;
 }) {
-  return <div ref={listRef} id={grouped ? "game-editor-skill-list" : undefined} role={grouped ? "tabpanel" : undefined} className="game-editor-list" aria-busy={loading || loadingMore}>{loading ? <p>正在读取…</p> : noGroup ? <p>当前队伍没有可修改技能的角色。</p> : entries.length
+  return <div ref={listRef} id={grouped ? "game-editor-group-list" : undefined} role={grouped ? "tabpanel" : undefined} className="game-editor-list" aria-busy={loading || loadingMore}>{loading ? showLoading ? <p>正在读取…</p> : null : noGroup ? <p>当前队伍没有可修改的角色。</p> : entries.length
     ? entries.map((entry) => <GameEditorRow key={`${category}:${entry.id}:${String(entry.value)}`} category={category} entry={entry} onSave={(value) => onSave(entry, value)} />)
     : <p>{filtered ? "没有找到匹配的条目。" : `当前游戏没有${categoryLabel}条目。`}</p>}{children}</div>;
 }
