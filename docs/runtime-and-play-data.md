@@ -84,7 +84,7 @@ Host 区分运行时内部普通点击与暂停遮罩上的明确恢复：前者
 
 ## 5. 资源与项目运行时
 
-内容与会话读取由 `internal/service/launch` 判断 capability、状态、硬到期、资源类型及项目路径；`internal/persistence/launch` 只读取冻结会话、内容成员和授权事实。普通与预览 Bundle 的授权和成员必须来自同一数据库快照，包括合法空集合。RPG 项目仅在精确路径不存在时尝试唯一的大小写匹配；存储失败或取消必须保留原因，不能触发路径回退或误报凭据无效。Provider 资源仍按冻结的 Provider/Target/Bundle 和唯一 manifest 路径选择，不重新解释核心或内容配置。
+内容与会话读取由 `internal/service/launch` 判断 capability、状态、硬到期、资源类型及项目路径；`internal/persistence/launch` 只读取冻结会话、内容成员和授权事实。普通与预览 Bundle 的授权和成员必须来自同一数据库快照，包括合法空集合。RPG Maker 原生 Web 项目资源的请求路径先经过安全校验，再规范化为导入时使用的 NFC 文件名；项目仅在精确路径不存在时尝试唯一的大小写匹配。项目资源可在浏览器私有缓存保存，但每次使用前需以 ETag 重新验证会话授权，命中时返回无正文的 304，存档恢复数据仍不可缓存。存储失败或取消必须保留原因，不能触发路径回退或误报凭据无效。Provider 资源仍按冻结的 Provider/Target/Bundle 和唯一 manifest 路径选择，不重新解释核心或内容配置。
 
 Provider 静态文件只从 `/runtime/providers/{providerId}/{bundleSha256}/{runtimePath}` 提供，并同时受 closed allowlist、大小和 SHA-256 约束。游戏、BIOS、parent、多盘、项目文件和 cart 不属于 Provider Bundle，通过 envelope resources 授权；Provider 不得根据扩展名、标题或 Core 名称猜测输入。
 

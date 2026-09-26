@@ -31,14 +31,41 @@ func TestNativeReviewIsolationServesFrozenMVAndMZResources(t *testing.T) {
 			server, itemID := newNativeReviewIsolationFixture(t, engine)
 			preview, cookie := createCheckpointPreviewHTTP(t, server, itemID, nil)
 			origin, isolatedCookie := bootstrapNativeReviewHTTP(t, server, preview.PreviewID, cookie)
-			paths := []string{"/__retrom/entry", "/__retrom/bridge.js", "/__retrom/project/js/main.js", "/__retrom/project/data/system.JSON"}
+			paths := []string{"/__retrom/entry", "/__retrom/bridge.js", "/__retrom/project/js/main.js", "/__retrom/project/data/system.JSON", "/__retrom/project/audio/bgs/se_き\u3099.rpgmvo"}
 			for _, path := range paths {
 				t.Run(path, func(t *testing.T) { assertNativeReviewResourceMethods(t, server, origin+path, path, isolatedCookie) })
 			}
+			assertNativeReviewResourceRevalidation(t, server, origin, isolatedCookie)
 			otherCookie := assertNativeReviewFrozenRestore(t, server, itemID, preview.PreviewID, cookie)
 			assertNativeReviewIsolationDenied(t, server, origin, paths, isolatedCookie, otherCookie)
 			assertNativeReviewIsolationRevoked(t, server, origin, paths, isolatedCookie)
 		})
+	}
+}
+
+func assertNativeReviewResourceRevalidation(t *testing.T, server *Server, origin string, cookie *http.Cookie) {
+	t.Helper()
+	target := origin + "/__retrom/project/audio/bgs/se_き\u3099.rpgmvo"
+	first := requestReviewArchiveHTTP(t, server, target, http.MethodGet, cookie, "")
+	etag := first.Header().Get("ETag")
+	if first.Code != http.StatusOK || first.Body.String() != "encrypted audio" || etag == "" ||
+		first.Header().Get("Cache-Control") != "private, no-cache" || first.Header().Get("Vary") != "Cookie" {
+		t.Fatalf("native project cache headers = %d %v", first.Code, first.Header())
+	}
+	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, target, nil)
+	request.AddCookie(cookie)
+	request.Header.Set("If-None-Match", etag)
+	response := httptest.NewRecorder()
+	server.Handler().ServeHTTP(response, request)
+	if response.Code != http.StatusNotModified || response.Body.Len() != 0 {
+		t.Fatalf("native project revalidation = %d body=%q", response.Code, response.Body.String())
+	}
+	request = httptest.NewRequestWithContext(t.Context(), http.MethodGet, target, nil)
+	request.Header.Set("If-None-Match", etag)
+	response = httptest.NewRecorder()
+	server.Handler().ServeHTTP(response, request)
+	if response.Code != http.StatusNotFound {
+		t.Fatalf("unauthorized native project revalidation = %d", response.Code)
 	}
 }
 
@@ -82,7 +109,8 @@ func assertNativeReviewFrozenRestore(t *testing.T, server *Server, itemID, previ
 	restoreOrigin, restoreIsolatedCookie := bootstrapNativeReviewHTTP(t, server, restored.PreviewID, restoreCookie)
 	save("later-C")
 	state := requestReviewArchiveHTTP(t, server, restoreOrigin+"/__retrom/restore-payload", "GET", restoreIsolatedCookie, "")
-	if state.Code != 200 || state.Body.String() != "frozen-B" {
+	if state.Code != 200 || state.Body.String() != "frozen-B" ||
+		state.Header().Get("Cache-Control") != "private, no-store" {
 		t.Fatalf("isolated frozen restore = %d %s", state.Code, state.Body.String())
 	}
 	return restoreIsolatedCookie
@@ -148,8 +176,9 @@ func newNativeReviewIsolationFixture(t *testing.T, engine string) (*Server, stri
 	if engine == "mz" {
 		scripts = append(scripts, "js/libs/localforage.min.js")
 	}
-	files := make([]rpgMakerHTTPFixtureFile, 0, len(scripts)+2)
+	files := make([]rpgMakerHTTPFixtureFile, 0, len(scripts)+3)
 	files = append(files, rpgMakerHTTPFixtureFile{path: "project/data/System.json", contents: []byte(`{"gameTitle":"Native HTTP fixture"}`)})
+	files = append(files, rpgMakerHTTPFixtureFile{path: "project/audio/bgs/se_ぎ.rpgmvo", contents: []byte("encrypted audio")})
 	entry := "<!doctype html><html><head>"
 	for index, script := range scripts {
 		content := "// native HTTP fixture"

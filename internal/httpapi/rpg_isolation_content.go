@@ -15,6 +15,8 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"golang.org/x/text/unicode/norm"
+
 	"retrom/internal/cleanup"
 	"retrom/internal/launch"
 	"retrom/internal/rpgmaker/nativeweb"
@@ -239,6 +241,7 @@ func (server *Server) rpgRuntimeProject(
 		http.NotFound(writer, request)
 		return
 	}
+	logicalName = norm.NFC.String(logicalName)
 	mediaType, allowed := nativeProjectMIME(logicalName)
 	if !allowed {
 		http.NotFound(writer, request)
@@ -251,7 +254,7 @@ func (server *Server) rpgRuntimeProject(
 		http.NotFound(writer, request)
 		return
 	}
-	server.serveRPGBlob(writer, request, content.Digest, mediaType)
+	server.serveRPGBlob(writer, request, content.Digest, mediaType, "private, no-cache")
 }
 
 func isRPGServiceWorkerRequest(request *http.Request) bool {
@@ -278,7 +281,7 @@ func (server *Server) rpgRuntimeRestorePayload(
 		writeError(writer, request, status, code, "RPG Maker 恢复数据不可用", map[string]any{})
 		return
 	}
-	server.serveRPGBlob(writer, request, digest, "application/octet-stream")
+	server.serveRPGBlob(writer, request, digest, "application/octet-stream", "private, no-store")
 }
 
 func (server *Server) readRPGContent(content launch.ContentView, maximum int64) ([]byte, error) {
@@ -301,7 +304,7 @@ func (server *Server) readRPGContent(content launch.ContentView, maximum int64) 
 func (server *Server) serveRPGBlob(
 	writer http.ResponseWriter,
 	request *http.Request,
-	digest, mediaType string,
+	digest, mediaType, cacheControl string,
 ) {
 	if rejectMultipleRanges(writer, request) {
 		return
@@ -313,7 +316,7 @@ func (server *Server) serveRPGBlob(
 	}
 	defer func() { cleanup.Error("close", file.Close()) }()
 	writer.Header().Set("Content-Type", mediaType)
-	writer.Header().Set("Cache-Control", "private, no-store")
+	writer.Header().Set("Cache-Control", cacheControl)
 	writer.Header().Set("Vary", "Cookie")
 	writer.Header().Set("ETag", `"sha256-`+digest+`"`)
 	writer.Header().Set("Accept-Ranges", "bytes")
