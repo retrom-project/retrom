@@ -94,6 +94,59 @@ export interface RuntimeInputDiagnosticsV1 {
   stop(): void;
 }
 
+/** Optional, session-local editor for values exposed by a running game. */
+export type RuntimeGameEditValueV1 = number | string | boolean | null;
+export type RuntimeGameEditEntryV1 = {
+  id: string;
+  label: string;
+  value: RuntimeGameEditValueV1;
+  valueType: "number" | "text" | "boolean" | "unsupported";
+  min?: number;
+  max?: number;
+};
+export type RuntimeGameEditPageV1 = {entries: RuntimeGameEditEntryV1[]; nextOffset: number | null};
+export type RuntimeGameEditCategoryV1 = {
+  id: string;
+  label: string;
+  /** Optional named scopes; pass a scope ID to entries/set. */
+  groups?: Array<{id: string; label: string}>;
+};
+export type RuntimeGameEditMapV1 = {id: number; label: string};
+export type RuntimeGameEditMapPageV1 = {
+  currentMapId: number;
+  currentMapName: string;
+  maps: RuntimeGameEditMapV1[];
+  nextOffset: number | null;
+};
+export type RuntimeGameEditSelfSwitchKeyV1 = "A" | "B" | "C" | "D";
+export type RuntimeGameEditSelfSwitchPageUseV1 = {
+  key: RuntimeGameEditSelfSwitchKeyV1;
+  page: number;
+  summary: string;
+};
+export type RuntimeGameEditEventV1 = {
+  id: number;
+  label: string;
+  x: number;
+  y: number;
+  switches: Record<RuntimeGameEditSelfSwitchKeyV1, boolean>;
+  /** Only switches used as event-page appearance conditions are listed. */
+  pageUses: RuntimeGameEditSelfSwitchPageUseV1[];
+};
+export type RuntimeGameEditEventPageV1 = {events: RuntimeGameEditEventV1[]; nextOffset: number | null};
+export interface RuntimeGameEditorV1 {
+  categories(): Promise<RuntimeGameEditCategoryV1[]>;
+  entries(category: string, query: string, offset: number, limit: number): Promise<RuntimeGameEditPageV1>;
+  set(category: string, id: string, value: Exclude<RuntimeGameEditValueV1, null>): Promise<RuntimeGameEditEntryV1>;
+  /** Present for RPG Maker map events; map and event lists are paged independently. */
+  selfSwitches?: {
+    maps(query: string, offset: number, limit: number): Promise<RuntimeGameEditMapPageV1>;
+    events(mapId: number, query: string, offset: number, limit: number): Promise<RuntimeGameEditEventPageV1>;
+    set(mapId: number, eventId: number, key: RuntimeGameEditSelfSwitchKeyV1,
+      value: boolean): Promise<RuntimeGameEditEventV1>;
+  };
+}
+
 export type RuntimeEventV1 =
   | { type: "STATE_CHANGED"; previous: RuntimeStateV1; state: RuntimeStateV1 }
   | { type: "LOAD_PROGRESS"; loadedBytes: number; totalBytes: number | null }
@@ -129,6 +182,8 @@ export interface PlayerRuntimeV1 {
   getFrameCount(): number | null;
   /** Absent on older Providers. Observation only; never pauses or resumes the game. */
   startInputDiagnostics?(): RuntimeInputDiagnosticsV1;
+  /** Absent when the current runtime does not expose editable game values. */
+  getGameEditor?(): RuntimeGameEditorV1 | null;
   subscribe(listener: RuntimeEventListenerV1): () => void;
   exit(): Promise<void>;
 }

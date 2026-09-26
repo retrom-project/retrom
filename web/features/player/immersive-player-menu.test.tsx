@@ -61,6 +61,18 @@ describe("ImmersivePlayerMenu", () => {
     expect(onConfirm).toHaveBeenCalledTimes(2);
   });
 
+  it("shows game editing when the runtime offers it", () => {
+    const onConfirm = vi.fn();
+    const onSelect = vi.fn();
+    const view = render(<ImmersivePlayerMenu overlay={{kind: "menu", error: "", notice: "", pending: false, selected: 4}}
+      saveAvailable editorAvailable onCancel={vi.fn()} onConfirm={onConfirm} onSelect={onSelect} />);
+    const edit = within(view.container).getByRole("button", {name: "游戏修改"});
+    expect(edit).toHaveAttribute("aria-current", "true");
+    fireEvent.click(edit);
+    expect(onSelect).toHaveBeenCalledWith(4);
+    expect(onConfirm).toHaveBeenCalledOnce();
+  });
+
   it("disables save with an explicit reason when the runtime is incompatible", () => {
     const callbacks = { onCancel: vi.fn(), onConfirm: vi.fn(), onSelect: vi.fn() };
     const view = render(<ImmersivePlayerMenu

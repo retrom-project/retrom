@@ -23,4 +23,18 @@ describe("immersive player menu selection", () => {
     expect(moveImmersiveMenuSelection(0, "left", false)).toBe(2);
     expect(selectableImmersiveMenuItem(1, false)).toBe(false);
   });
+  it("includes game editing only when the runtime offers it", () => {
+    expect(moveImmersiveMenuSelection(1, "right", true, false, true)).toBe(4);
+    expect(moveImmersiveMenuSelection(4, "right", true, false, true)).toBe(2);
+    expect(moveImmersiveMenuSelection(0, "right", false, false, true)).toBe(4);
+    expect(selectableImmersiveMenuItem(4, true, false, false)).toBe(false);
+    expect(selectableImmersiveMenuItem(4, true, false, true)).toBe(true);
+  });
+  it("keeps cursor and game editing as separate actions", () => {
+    expect(moveImmersiveMenuSelection(0, "right", true, true, true)).toBe(3);
+    expect(moveImmersiveMenuSelection(1, "right", true, true, true)).toBe(4);
+    expect(moveImmersiveMenuSelection(4, "right", true, true, true)).toBe(2);
+    expect(selectableImmersiveMenuItem(3, true, true, true)).toBe(true);
+    expect(selectableImmersiveMenuItem(4, true, true, true)).toBe(true);
+  });
 });

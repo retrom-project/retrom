@@ -120,6 +120,10 @@
 .rt-button-danger { background: var(--danger-fill); color: white; }
 .rt-button:disabled { background: var(--surface-subtle); border-color: transparent; color: var(--muted); cursor: not-allowed; }
 .rt-button svg { width: 18px; height: 18px; flex-shrink: 0; }
+.game-editor-categories .rt-button:not(.rt-button-primary) { border-radius: 999px; background: var(--surface-subtle); }
+.game-editor-categories .rt-button:not(.rt-button-primary).is-active { border-color: var(--purple); background: var(--purple-soft); color: var(--ink); }
+.game-editor-actor-tabs .rt-button:not(.rt-button-primary) { border-radius: 999px; background: var(--surface-subtle); }
+.game-editor-actor-tabs .rt-button:not(.rt-button-primary)[aria-selected=&quot;true&quot;] { border-color: var(--purple); background: var(--purple-soft); color: var(--ink); }
 
 /* Native semantics, keyboard interaction and option selection are retained. */
 select, .import-directory-trigger {
@@ -2231,6 +2235,43 @@ select:disabled, input:disabled, textarea:disabled { cursor: not-allowed; opacit
     #retrom-ui-review .rt-im-player { display:grid;place-items:center;background:#020305 }
     #retrom-ui-review .rt-im-game-frame { width:min(1180px,84vw);aspect-ratio:4/3;border:1px solid #303443;background:radial-gradient(circle at 50% 35%,#463a51,#171a27 38%,#050609 70%);box-shadow:0 0 100px rgba(97,76,180,.2) }
     #retrom-ui-review .rt-im-pause { position:absolute;inset:0;display:grid;place-items:center;background:rgba(4,5,10,.76);backdrop-filter:blur(8px) }
+    #retrom-ui-review .rt-game-editor-design { position:absolute;z-index:30;inset:0;display:grid;place-items:center;background:rgba(0,0,0,.7) }
+    #retrom-ui-review .rt-game-editor-design[hidden] { display:none }
+    #retrom-ui-review .rt-game-editor-design&gt;div { width:min(800px,92vw);min-width:0;height:min(820px,calc(100% - 48px));padding:30px;border:1px solid #526078;border-radius:12px;background:#171e2c;display:flex;flex-direction:column;gap:16px }
+    #retrom-ui-review .rt-game-editor-design [hidden] { display:none }
+    #retrom-ui-review .rt-game-editor-list { flex:1;min-height:0;overflow:auto;border-block:1px solid #465267 }
+    #retrom-ui-review .rt-game-editor-design header,#retrom-ui-review .rt-game-editor-design article { display:flex;align-items:center;justify-content:space-between;gap:12px }
+    #retrom-ui-review .rt-game-editor-design p { margin:0 }
+    #retrom-ui-review .rt-game-editor-feedback { position:relative }
+    #retrom-ui-review .rt-game-editor-feedback .rt-game-editor-success { position:absolute;inset:0;display:flex;align-items:center;color:#8ce4c3;background:#171e2c }
+    #retrom-ui-review .rt-game-editor-feedback .rt-game-editor-success[hidden] { display:none }
+    #retrom-ui-review .rt-game-editor-loading { color:#b5c0d0;text-align:center }
+    #retrom-ui-review .rt-game-editor-loading[hidden] { display:none }
+    #retrom-ui-review .rt-game-editor-category-help { color:#b5c0d0 }
+    #retrom-ui-review .rt-game-editor-actor-tabs { display:flex;gap:8px;overflow-x:auto }
+    #retrom-ui-review .rt-game-editor-category-scroll { display:grid;grid-template-columns:minmax(0,1fr);min-width:0;gap:4px }
+    #retrom-ui-review .rt-game-editor-design nav[aria-label=&quot;修改类别&quot;] { display:flex;min-width:0;flex-wrap:nowrap;gap:8px;overflow-x:auto;scrollbar-width:none }
+    #retrom-ui-review .rt-game-editor-design nav[aria-label=&quot;修改类别&quot;] button { flex-shrink:0 }
+    #retrom-ui-review .rt-game-editor-design nav[aria-label=&quot;修改类别&quot;]::-webkit-scrollbar { display:none }
+    #retrom-ui-review .rt-game-editor-category-scrollbar { height:8px;border-radius:8px;background:#263247 }
+    #retrom-ui-review .rt-game-editor-category-scrollbar span { display:block;width:75%;height:100%;border-radius:8px;background:#899bb4 }
+    #retrom-ui-review .rt-game-editor-map-picker { position:relative;display:flex;align-items:center;gap:8px }
+    #retrom-ui-review .rt-game-editor-map-options { position:absolute;z-index:2;top:100%;left:0;display:grid;gap:6px;width:min(350px,100%);max-height:220px;overflow:auto;padding:12px;border:1px solid #526078;border-radius:var(--radius-panel);background:#202b3e;box-shadow:0 14px 36px #0009 }
+    #retrom-ui-review .rt-game-editor-map-options button { display:flex;justify-content:space-between;gap:8px;text-align:left }
+    #retrom-ui-review .rt-game-editor-map-options button small { color:#b5c0d0 }
+    #retrom-ui-review .rt-game-editor-design article.rt-game-editor-self-switch-event { display:grid;gap:8px }
+    #retrom-ui-review .rt-game-editor-self-switch-uses { display:grid;gap:6px }
+    #retrom-ui-review .rt-game-editor-self-switch-use { display:flex;align-items:center;justify-content:space-between;gap:12px }
+    #retrom-ui-review .rt-game-editor-self-switch-use div { display:grid;gap:2px }
+    #retrom-ui-review .rt-game-editor-self-switch-use small { color:#b5c0d0 }
+    #retrom-ui-review .rt-game-editor-self-switch-event button.is-active { border-color:#8dbaf3;background:#31527d }
+    #retrom-ui-review .rt-game-editor-design nav button.is-active { border-color:#8dbaf3;background:#31527d }
+    #retrom-ui-review .rt-game-editor-design article&gt;div:first-child { display:grid;gap:4px }
+    #retrom-ui-review .rt-game-editor-design article small { color:#b5c0d0 }
+    #retrom-ui-review .rt-game-editor-design article&gt;div:last-child { display:flex;align-items:center;gap:8px }
+    #retrom-ui-review .rt-game-editor-design button,#retrom-ui-review .rt-game-editor-design input { padding:9px;border:1px solid #67758a;border-radius:8px;background:#263247;color:#fff }
+    #retrom-ui-review .rt-game-editor-design input { width:110px }
+    @media (max-height:500px) { #retrom-ui-review .rt-game-editor-design&gt;div { height:calc(100% - 16px);padding:12px 16px;gap:8px } }
     #retrom-ui-review .rt-im-menu { width:min(660px,76vw);padding:42px;border:1px solid rgba(255,255,255,.15);border-radius: var(--radius-panel);background:#171a27;box-shadow:0 35px 100px #000;text-align:center }
     #retrom-ui-review .rt-im-menu h1 { margin:0 0 9px;font-size:var(--text-page) }
     #retrom-ui-review .rt-im-menu p { margin:0 0 30px;color:var(--muted) }
@@ -2703,6 +2744,7 @@ select:disabled, input:disabled, textarea:disabled { cursor: not-allowed; opacit
       &lt;button type=&quot;button&quot; data-review-scene=&quot;rpg-import&quot;&gt;RPG 导入&lt;/button&gt;
       &lt;button type=&quot;button&quot; data-review-scene=&quot;rpg-review&quot;&gt;RPG 审核&lt;/button&gt;
       &lt;button type=&quot;button&quot; data-review-scene=&quot;rpg-player&quot;&gt;RPG Player&lt;/button&gt;
+      &lt;button type=&quot;button&quot; data-review-scene=&quot;rpg-editor&quot;&gt;RPG 游戏修改&lt;/button&gt;
       &lt;button type=&quot;button&quot; data-review-scene=&quot;rpg-saves&quot;&gt;RPG 存档&lt;/button&gt;
     &lt;/div&gt;
   &lt;/details&gt;
@@ -3061,13 +3103,36 @@ select:disabled, input:disabled, textarea:disabled { cursor: not-allowed; opacit
             &lt;button type=&quot;button&quot; class=&quot;rt-player-back&quot; id=&quot;rt-exit-player&quot; data-player-exit aria-label=&quot;返回并退出游戏&quot;&gt;&lt;i data-lucide=&quot;arrow-left&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;&lt;/button&gt;
             &lt;div class=&quot;rt-player-title&quot;&gt;&lt;strong id=&quot;rt-player-game&quot;&gt;NOeL 3&lt;/strong&gt;&lt;div class=&quot;rt-player-meta&quot; id=&quot;rt-player-core&quot;&gt;Yabause · Saturn&lt;/div&gt;&lt;/div&gt;
             &lt;div class=&quot;rt-player-launch-state&quot; id=&quot;rt-player-launch-state&quot; role=&quot;status&quot; aria-live=&quot;polite&quot;&gt;可创建存档&lt;/div&gt;
-            &lt;div class=&quot;rt-player-actions&quot;&gt;&lt;button type=&quot;button&quot; class=&quot;rt-player-control&quot; data-rpg-player-design hidden&gt;&lt;i data-lucide=&quot;camera&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;保存审核截图&lt;/button&gt;&lt;button type=&quot;button&quot; class=&quot;rt-player-control rt-player-debug-toggle&quot; id=&quot;rt-player-debug&quot; aria-controls=&quot;rt-player-debug-panel&quot; aria-expanded=&quot;false&quot; aria-pressed=&quot;false&quot;&gt;&lt;i data-lucide=&quot;cpu&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;调试信息&lt;/button&gt;&lt;div class=&quot;rt-player-menu-wrap&quot;&gt;&lt;button type=&quot;button&quot; class=&quot;rt-player-control&quot; id=&quot;rt-player-disc&quot; aria-haspopup=&quot;menu&quot; aria-expanded=&quot;false&quot; aria-label=&quot;光盘 2 / 3&quot;&gt;&lt;i data-lucide=&quot;disc-3&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;光盘 2 / 3&lt;/button&gt;&lt;div class=&quot;rt-player-menu rt-player-disc-menu&quot; id=&quot;rt-player-disc-menu&quot; role=&quot;menu&quot;&gt;&lt;button type=&quot;button&quot; role=&quot;menuitemradio&quot; aria-checked=&quot;false&quot; data-disc-number=&quot;1&quot;&gt;&lt;span&gt;光盘 1&lt;/span&gt;&lt;small&gt;disc-001.chd&lt;/small&gt;&lt;/button&gt;&lt;button type=&quot;button&quot; role=&quot;menuitemradio&quot; aria-checked=&quot;true&quot; data-disc-number=&quot;2&quot;&gt;&lt;span&gt;光盘 2&lt;/span&gt;&lt;small&gt;当前&lt;/small&gt;&lt;/button&gt;&lt;button type=&quot;button&quot; role=&quot;menuitemradio&quot; aria-checked=&quot;false&quot; data-disc-number=&quot;3&quot;&gt;&lt;span&gt;光盘 3&lt;/span&gt;&lt;small&gt;disc-003.chd&lt;/small&gt;&lt;/button&gt;&lt;/div&gt;&lt;/div&gt;&lt;button type=&quot;button&quot; class=&quot;rt-player-control&quot; data-player-save-action&gt;&lt;i data-lucide=&quot;save&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;创建存档&lt;/button&gt;&lt;button type=&quot;button&quot; class=&quot;rt-player-control is-icon&quot; aria-label=&quot;暂停&quot;&gt;&lt;i data-lucide=&quot;pause&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;&lt;/button&gt;&lt;button type=&quot;button&quot; class=&quot;rt-player-control is-icon&quot; id=&quot;rt-enter-fullscreen&quot; aria-label=&quot;全屏&quot;&gt;&lt;i data-lucide=&quot;maximize&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;&lt;/button&gt;&lt;div class=&quot;rt-player-menu-wrap&quot;&gt;&lt;button type=&quot;button&quot; class=&quot;rt-player-control is-icon&quot; id=&quot;rt-player-more&quot; aria-label=&quot;更多操作&quot;&gt;&lt;i data-lucide=&quot;ellipsis&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;&lt;/button&gt;&lt;div class=&quot;rt-player-menu&quot; id=&quot;rt-player-menu&quot;&gt;&lt;button type=&quot;button&quot; role=&quot;menuitemcheckbox&quot; aria-checked=&quot;false&quot; data-gamepad-cursor-toggle&gt;手柄光标：关&lt;/button&gt;&lt;button type=&quot;button&quot; data-open-emulator-controls&gt;模拟器设置&lt;/button&gt;&lt;button type=&quot;button&quot;&gt;查看运行提醒&lt;/button&gt;&lt;hr&gt;&lt;button type=&quot;button&quot; class=&quot;is-danger&quot; data-player-exit&gt;退出游戏&lt;/button&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;
+            &lt;div class=&quot;rt-player-actions&quot;&gt;&lt;button type=&quot;button&quot; class=&quot;rt-player-control&quot; data-rpg-player-design hidden&gt;&lt;i data-lucide=&quot;camera&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;保存审核截图&lt;/button&gt;&lt;button type=&quot;button&quot; class=&quot;rt-player-control rt-player-debug-toggle&quot; id=&quot;rt-player-debug&quot; aria-controls=&quot;rt-player-debug-panel&quot; aria-expanded=&quot;false&quot; aria-pressed=&quot;false&quot;&gt;&lt;i data-lucide=&quot;cpu&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;调试信息&lt;/button&gt;&lt;div class=&quot;rt-player-menu-wrap&quot;&gt;&lt;button type=&quot;button&quot; class=&quot;rt-player-control&quot; id=&quot;rt-player-disc&quot; aria-haspopup=&quot;menu&quot; aria-expanded=&quot;false&quot; aria-label=&quot;光盘 2 / 3&quot;&gt;&lt;i data-lucide=&quot;disc-3&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;光盘 2 / 3&lt;/button&gt;&lt;div class=&quot;rt-player-menu rt-player-disc-menu&quot; id=&quot;rt-player-disc-menu&quot; role=&quot;menu&quot;&gt;&lt;button type=&quot;button&quot; role=&quot;menuitemradio&quot; aria-checked=&quot;false&quot; data-disc-number=&quot;1&quot;&gt;&lt;span&gt;光盘 1&lt;/span&gt;&lt;small&gt;disc-001.chd&lt;/small&gt;&lt;/button&gt;&lt;button type=&quot;button&quot; role=&quot;menuitemradio&quot; aria-checked=&quot;true&quot; data-disc-number=&quot;2&quot;&gt;&lt;span&gt;光盘 2&lt;/span&gt;&lt;small&gt;当前&lt;/small&gt;&lt;/button&gt;&lt;button type=&quot;button&quot; role=&quot;menuitemradio&quot; aria-checked=&quot;false&quot; data-disc-number=&quot;3&quot;&gt;&lt;span&gt;光盘 3&lt;/span&gt;&lt;small&gt;disc-003.chd&lt;/small&gt;&lt;/button&gt;&lt;/div&gt;&lt;/div&gt;&lt;button type=&quot;button&quot; class=&quot;rt-player-control&quot; data-player-save-action&gt;&lt;i data-lucide=&quot;save&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;创建存档&lt;/button&gt;&lt;button type=&quot;button&quot; class=&quot;rt-player-control is-icon&quot; aria-label=&quot;暂停&quot;&gt;&lt;i data-lucide=&quot;pause&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;&lt;/button&gt;&lt;button type=&quot;button&quot; class=&quot;rt-player-control is-icon&quot; id=&quot;rt-enter-fullscreen&quot; aria-label=&quot;全屏&quot;&gt;&lt;i data-lucide=&quot;maximize&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;&lt;/button&gt;&lt;div class=&quot;rt-player-menu-wrap&quot;&gt;&lt;button type=&quot;button&quot; class=&quot;rt-player-control is-icon&quot; id=&quot;rt-player-more&quot; aria-label=&quot;更多操作&quot;&gt;&lt;i data-lucide=&quot;ellipsis&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;&lt;/button&gt;&lt;div class=&quot;rt-player-menu&quot; id=&quot;rt-player-menu&quot;&gt;&lt;button type=&quot;button&quot; role=&quot;menuitemcheckbox&quot; aria-checked=&quot;false&quot; data-gamepad-cursor-toggle&gt;手柄光标：关&lt;/button&gt;&lt;button type=&quot;button&quot; data-rpg-player-design hidden&gt;游戏修改&lt;/button&gt;&lt;button type=&quot;button&quot; data-open-emulator-controls&gt;模拟器设置&lt;/button&gt;&lt;button type=&quot;button&quot;&gt;查看运行提醒&lt;/button&gt;&lt;hr&gt;&lt;button type=&quot;button&quot; class=&quot;is-danger&quot; data-player-exit&gt;退出游戏&lt;/button&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;
           &lt;/div&gt;
           &lt;aside class=&quot;rt-player-debug&quot; id=&quot;rt-player-debug-panel&quot; aria-label=&quot;运行调试信息&quot; aria-hidden=&quot;true&quot;&gt;&lt;header&gt;&lt;div&gt;&lt;span&gt;实时运行诊断&lt;/span&gt;&lt;h2&gt;调试信息&lt;/h2&gt;&lt;/div&gt;&lt;/header&gt;&lt;section&gt;&lt;h3&gt;输入诊断&lt;/h3&gt;&lt;dl&gt;&lt;div&gt;&lt;dt&gt;键盘焦点&lt;/dt&gt;&lt;dd&gt;游戏画布&lt;/dd&gt;&lt;/div&gt;&lt;div&gt;&lt;dt&gt;按键观测&lt;/dt&gt;&lt;dd&gt;已开启&lt;/dd&gt;&lt;/div&gt;&lt;div&gt;&lt;dt&gt;手柄取样观测&lt;/dt&gt;&lt;dd&gt;已开启&lt;/dd&gt;&lt;/div&gt;&lt;div&gt;&lt;dt&gt;核心读取回执&lt;/dt&gt;&lt;dd&gt;未接入&lt;/dd&gt;&lt;/div&gt;&lt;/dl&gt;&lt;p style=&quot;font-size:12px;color:#c7f5de&quot;&gt;手柄 0 · Button 0 按下&lt;/p&gt;&lt;p style=&quot;font-size:12px&quot;&gt;手柄 · Button 0 松开 → MouseLeft · 已投递 · 126 ms&lt;/p&gt;&lt;p style=&quot;font-size:11px;line-height:1.6&quot;&gt;已投递仅确认画布事件或输入接口调用，不代表游戏执行了动作。手柄仅观察运行时已有的取样；未显示不等于按键未按下。&lt;/p&gt;&lt;div style=&quot;display:flex;gap:8px&quot;&gt;&lt;button type=&quot;button&quot; style=&quot;pointer-events:auto&quot; data-design-copy-input&gt;复制记录&lt;/button&gt;&lt;button type=&quot;button&quot; style=&quot;pointer-events:auto&quot; data-design-clear-input&gt;清空记录&lt;/button&gt;&lt;/div&gt;&lt;/section&gt;&lt;section&gt;&lt;h3&gt;实时&lt;/h3&gt;&lt;dl&gt;&lt;div&gt;&lt;dt&gt;画面呈现率&lt;/dt&gt;&lt;dd&gt;59.9 FPS&lt;/dd&gt;&lt;/div&gt;&lt;div&gt;&lt;dt&gt;核心帧计数&lt;/dt&gt;&lt;dd&gt;4,210&lt;/dd&gt;&lt;/div&gt;&lt;div&gt;&lt;dt&gt;运行状态&lt;/dt&gt;&lt;dd&gt;运行中&lt;/dd&gt;&lt;/div&gt;&lt;div&gt;&lt;dt&gt;游戏分辨率&lt;/dt&gt;&lt;dd&gt;704 × 480&lt;/dd&gt;&lt;/div&gt;&lt;/dl&gt;&lt;p style=&quot;margin:10px 0 0;color:#929cad;font-size:11px;line-height:1.6&quot;&gt;按核心提交的画面计算；静止或按需重绘时数值可能较低，不代表游戏运行速度。&lt;/p&gt;&lt;/section&gt;&lt;details style=&quot;padding:0 14px 12px&quot;&gt;&lt;summary style=&quot;pointer-events:auto;padding:8px 0;font-size:11px&quot;&gt;运行环境与显示&lt;/summary&gt;&lt;section&gt;&lt;h3&gt;运行环境&lt;/h3&gt;&lt;dl&gt;&lt;div&gt;&lt;dt&gt;Core&lt;/dt&gt;&lt;dd&gt;Yabause&lt;/dd&gt;&lt;/div&gt;&lt;div&gt;&lt;dt&gt;Provider&lt;/dt&gt;&lt;dd&gt;emulatorjs 1.0.0&lt;/dd&gt;&lt;/div&gt;&lt;div&gt;&lt;dt&gt;Target&lt;/dt&gt;&lt;dd&gt;yabause&lt;/dd&gt;&lt;/div&gt;&lt;div&gt;&lt;dt&gt;输入模式&lt;/dt&gt;&lt;dd&gt;STANDARD&lt;/dd&gt;&lt;/div&gt;&lt;div&gt;&lt;dt&gt;隔离能力&lt;/dt&gt;&lt;dd&gt;COOP/COEP + SAB&lt;/dd&gt;&lt;/div&gt;&lt;div&gt;&lt;dt&gt;Player 模式&lt;/dt&gt;&lt;dd&gt;单机&lt;/dd&gt;&lt;/div&gt;&lt;/dl&gt;&lt;/section&gt;&lt;section&gt;&lt;h3&gt;显示&lt;/h3&gt;&lt;dl&gt;&lt;div&gt;&lt;dt&gt;视口&lt;/dt&gt;&lt;dd&gt;2560 × 1440&lt;/dd&gt;&lt;/div&gt;&lt;div&gt;&lt;dt&gt;像素比&lt;/dt&gt;&lt;dd&gt;1.00&lt;/dd&gt;&lt;/div&gt;&lt;div&gt;&lt;dt&gt;光盘&lt;/dt&gt;&lt;dd&gt;2 / 3&lt;/dd&gt;&lt;/div&gt;&lt;/dl&gt;&lt;/section&gt;&lt;/details&gt;&lt;/aside&gt;
           &lt;div class=&quot;rt-player-pause-overlay&quot; id=&quot;rt-player-pause-overlay&quot; aria-hidden=&quot;true&quot;&gt;&lt;div class=&quot;rt-player-pause-pill&quot;&gt;&lt;i data-lucide=&quot;pause&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;&lt;strong&gt;已暂停&lt;/strong&gt;&lt;small&gt;点击游戏画面继续&lt;/small&gt;&lt;/div&gt;&lt;/div&gt;
           &lt;div class=&quot;rt-player-emulator-controls&quot; id=&quot;rt-player-emulator-controls&quot; aria-hidden=&quot;true&quot;&gt;&lt;div class=&quot;rt-player-emulator-group&quot;&gt;&lt;span class=&quot;rt-player-emulator-label&quot;&gt;模拟器&lt;/span&gt;&lt;button type=&quot;button&quot;&gt;&lt;i data-lucide=&quot;gamepad-2&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;控制&lt;/button&gt;&lt;button type=&quot;button&quot;&gt;▤ 显示&lt;/button&gt;&lt;button type=&quot;button&quot;&gt;⚙ Core 设置&lt;/button&gt;&lt;/div&gt;&lt;label class=&quot;rt-player-emulator-rendering&quot;&gt;&lt;span class=&quot;rt-player-emulator-label&quot;&gt;画面&lt;/span&gt;&lt;select aria-label=&quot;画面模式&quot;&gt;&lt;option&gt;清晰增强&lt;/option&gt;&lt;option selected&gt;锐利像素&lt;/option&gt;&lt;option&gt;增强锐化&lt;/option&gt;&lt;option&gt;平滑增强&lt;/option&gt;&lt;option&gt;原始画面&lt;/option&gt;&lt;/select&gt;&lt;/label&gt;&lt;div class=&quot;rt-player-emulator-group&quot;&gt;&lt;label class=&quot;rt-player-emulator-volume&quot;&gt;&lt;span class=&quot;rt-player-emulator-label&quot;&gt;音量&lt;/span&gt;&lt;input type=&quot;range&quot; min=&quot;0&quot; max=&quot;100&quot; value=&quot;72&quot; aria-label=&quot;模拟器音量&quot;&gt;&lt;/label&gt;&lt;button type=&quot;button&quot; aria-label=&quot;静音&quot;&gt;🔊&lt;/button&gt;&lt;button type=&quot;button&quot; data-close-emulator-controls&gt;收起&lt;/button&gt;&lt;/div&gt;&lt;/div&gt;
           &lt;div class=&quot;rt-player-hint&quot;&gt;移到屏幕顶部显示 Retrom 控制&lt;/div&gt;
           &lt;span class=&quot;rt-player-stage-state&quot; id=&quot;rt-player-stage-state&quot;&gt;一次点击后已自动运行&lt;/span&gt;
+          &lt;section class=&quot;rt-game-editor-design&quot; data-rpg-editor-design data-load-on-scroll hidden aria-label=&quot;游戏修改&quot;&gt;&lt;div&gt;
+            &lt;header&gt;&lt;h2&gt;游戏修改&lt;/h2&gt;&lt;button type=&quot;button&quot;&gt;返回游戏&lt;/button&gt;&lt;/header&gt;
+            &lt;div class=&quot;rt-game-editor-feedback&quot;&gt;&lt;p&gt;修改立即生效。离开前请创建存档。&lt;/p&gt;&lt;p class=&quot;rt-game-editor-success&quot; role=&quot;status&quot; hidden&gt;已应用修改。离开前请创建存档。&lt;/p&gt;&lt;/div&gt;
+            &lt;div class=&quot;rt-game-editor-category-scroll&quot;&gt;&lt;nav aria-label=&quot;修改类别&quot;&gt;&lt;button type=&quot;button&quot;&gt;金币&lt;/button&gt;&lt;button type=&quot;button&quot;&gt;道具&lt;/button&gt;&lt;button type=&quot;button&quot;&gt;武器&lt;/button&gt;&lt;button type=&quot;button&quot;&gt;护甲&lt;/button&gt;&lt;button type=&quot;button&quot;&gt;变量&lt;/button&gt;&lt;button type=&quot;button&quot;&gt;开关&lt;/button&gt;&lt;button type=&quot;button&quot; data-editor-kind=&quot;actors&quot; class=&quot;is-active&quot;&gt;角色&lt;/button&gt;&lt;button type=&quot;button&quot; data-editor-kind=&quot;skills&quot;&gt;技能&lt;/button&gt;&lt;button type=&quot;button&quot; data-editor-kind=&quot;states&quot;&gt;状态&lt;/button&gt;&lt;button type=&quot;button&quot; data-editor-kind=&quot;classes&quot;&gt;职业&lt;/button&gt;&lt;button type=&quot;button&quot; data-editor-kind=&quot;party&quot;&gt;队伍成员&lt;/button&gt;&lt;button type=&quot;button&quot; data-editor-kind=&quot;self_switches&quot;&gt;事件独立开关&lt;/button&gt;&lt;/nav&gt;&lt;div class=&quot;rt-game-editor-category-scrollbar&quot; aria-hidden=&quot;true&quot;&gt;&lt;span&gt;&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;
+            &lt;header&gt;&lt;h3 data-editor-heading&gt;角色&lt;/h3&gt;&lt;button type=&quot;button&quot;&gt;查找&lt;/button&gt;&lt;/header&gt;
+            &lt;div class=&quot;rt-game-editor-map-picker&quot; data-editor-map-picker hidden&gt;地图 &lt;button type=&quot;button&quot; data-editor-map-trigger&gt;村庄 · 当前地图 ▾&lt;/button&gt;&lt;div class=&quot;rt-game-editor-map-options&quot; data-editor-map-options hidden&gt;&lt;input type=&quot;search&quot; aria-label=&quot;查找地图&quot; placeholder=&quot;按地图名称或编号查找&quot;&gt;&lt;button type=&quot;button&quot; data-editor-map=&quot;0&quot;&gt;&lt;span&gt;村庄&lt;/span&gt;&lt;small&gt;地图 #1 · 当前&lt;/small&gt;&lt;/button&gt;&lt;button type=&quot;button&quot; data-editor-map=&quot;1&quot;&gt;&lt;span&gt;森林&lt;/span&gt;&lt;small&gt;地图 #2&lt;/small&gt;&lt;/button&gt;&lt;/div&gt;&lt;/div&gt;
+            &lt;nav class=&quot;rt-game-editor-actor-tabs&quot; role=&quot;tablist&quot; aria-label=&quot;选择人物&quot; data-editor-person-tabs&gt;&lt;button type=&quot;button&quot; role=&quot;tab&quot; aria-selected=&quot;true&quot; data-editor-person=&quot;0&quot; class=&quot;is-active&quot;&gt;艾琳&lt;/button&gt;&lt;button type=&quot;button&quot; role=&quot;tab&quot; aria-selected=&quot;false&quot; data-editor-person=&quot;1&quot;&gt;哈罗德&lt;/button&gt;&lt;/nav&gt;
+            &lt;p class=&quot;rt-game-editor-category-help&quot; data-editor-help hidden&gt;&lt;/p&gt;
+            &lt;div class=&quot;rt-game-editor-list&quot;&gt;
+              &lt;div data-editor-rows=&quot;actors:0&quot;&gt;&lt;article&gt;&lt;div&gt;&lt;strong&gt;生命&lt;/strong&gt;&lt;small&gt;当前：120&lt;/small&gt;&lt;/div&gt;&lt;div&gt;&lt;button type=&quot;button&quot;&gt;−&lt;/button&gt;&lt;input aria-label=&quot;修改生命&quot; type=&quot;number&quot; value=&quot;120&quot;&gt;&lt;button type=&quot;button&quot;&gt;+&lt;/button&gt;&lt;button type=&quot;button&quot;&gt;应用&lt;/button&gt;&lt;/div&gt;&lt;/article&gt;&lt;article&gt;&lt;div&gt;&lt;strong&gt;魔法&lt;/strong&gt;&lt;small&gt;当前：70&lt;/small&gt;&lt;/div&gt;&lt;div&gt;&lt;button type=&quot;button&quot;&gt;−&lt;/button&gt;&lt;input aria-label=&quot;修改魔法&quot; type=&quot;number&quot; value=&quot;70&quot;&gt;&lt;button type=&quot;button&quot;&gt;+&lt;/button&gt;&lt;button type=&quot;button&quot;&gt;应用&lt;/button&gt;&lt;/div&gt;&lt;/article&gt;&lt;/div&gt;
+              &lt;div data-editor-rows=&quot;actors:1&quot; hidden&gt;&lt;article&gt;&lt;div&gt;&lt;strong&gt;生命&lt;/strong&gt;&lt;small&gt;当前：85&lt;/small&gt;&lt;/div&gt;&lt;div&gt;&lt;button type=&quot;button&quot;&gt;−&lt;/button&gt;&lt;input aria-label=&quot;修改生命&quot; type=&quot;number&quot; value=&quot;85&quot;&gt;&lt;button type=&quot;button&quot;&gt;+&lt;/button&gt;&lt;button type=&quot;button&quot;&gt;应用&lt;/button&gt;&lt;/div&gt;&lt;/article&gt;&lt;article&gt;&lt;div&gt;&lt;strong&gt;魔法&lt;/strong&gt;&lt;small&gt;当前：40&lt;/small&gt;&lt;/div&gt;&lt;div&gt;&lt;button type=&quot;button&quot;&gt;−&lt;/button&gt;&lt;input aria-label=&quot;修改魔法&quot; type=&quot;number&quot; value=&quot;40&quot;&gt;&lt;button type=&quot;button&quot;&gt;+&lt;/button&gt;&lt;button type=&quot;button&quot;&gt;应用&lt;/button&gt;&lt;/div&gt;&lt;/article&gt;&lt;/div&gt;
+              &lt;div data-editor-rows=&quot;skills:0&quot; hidden&gt;&lt;article&gt;&lt;div&gt;&lt;strong&gt;火球&lt;/strong&gt;&lt;small&gt;当前：未学会&lt;/small&gt;&lt;/div&gt;&lt;div&gt;&lt;button type=&quot;button&quot;&gt;学习&lt;/button&gt;&lt;/div&gt;&lt;/article&gt;&lt;article&gt;&lt;div&gt;&lt;strong&gt;治疗&lt;/strong&gt;&lt;small&gt;当前：已学会&lt;/small&gt;&lt;/div&gt;&lt;div&gt;&lt;button type=&quot;button&quot;&gt;遗忘&lt;/button&gt;&lt;/div&gt;&lt;/article&gt;&lt;/div&gt;
+              &lt;div data-editor-rows=&quot;skills:1&quot; hidden&gt;&lt;article&gt;&lt;div&gt;&lt;strong&gt;斩击&lt;/strong&gt;&lt;small&gt;当前：已学会&lt;/small&gt;&lt;/div&gt;&lt;div&gt;&lt;button type=&quot;button&quot;&gt;遗忘&lt;/button&gt;&lt;/div&gt;&lt;/article&gt;&lt;article&gt;&lt;div&gt;&lt;strong&gt;守护&lt;/strong&gt;&lt;small&gt;当前：未学会&lt;/small&gt;&lt;/div&gt;&lt;div&gt;&lt;button type=&quot;button&quot;&gt;学习&lt;/button&gt;&lt;/div&gt;&lt;/article&gt;&lt;/div&gt;
+              &lt;div data-editor-rows=&quot;states:0&quot; hidden&gt;&lt;article&gt;&lt;div&gt;&lt;strong&gt;中毒&lt;/strong&gt;&lt;small&gt;当前：未生效&lt;/small&gt;&lt;/div&gt;&lt;div&gt;&lt;button type=&quot;button&quot; data-editor-state-toggle&gt;添加&lt;/button&gt;&lt;/div&gt;&lt;/article&gt;&lt;article&gt;&lt;div&gt;&lt;strong&gt;防护&lt;/strong&gt;&lt;small&gt;当前：生效中&lt;/small&gt;&lt;/div&gt;&lt;div&gt;&lt;button type=&quot;button&quot; data-editor-state-toggle&gt;移除&lt;/button&gt;&lt;/div&gt;&lt;/article&gt;&lt;/div&gt;
+              &lt;div data-editor-rows=&quot;states:1&quot; hidden&gt;&lt;article&gt;&lt;div&gt;&lt;strong&gt;中毒&lt;/strong&gt;&lt;small&gt;当前：生效中&lt;/small&gt;&lt;/div&gt;&lt;div&gt;&lt;button type=&quot;button&quot; data-editor-state-toggle&gt;移除&lt;/button&gt;&lt;/div&gt;&lt;/article&gt;&lt;article&gt;&lt;div&gt;&lt;strong&gt;防护&lt;/strong&gt;&lt;small&gt;当前：未生效&lt;/small&gt;&lt;/div&gt;&lt;div&gt;&lt;button type=&quot;button&quot; data-editor-state-toggle&gt;添加&lt;/button&gt;&lt;/div&gt;&lt;/article&gt;&lt;/div&gt;
+              &lt;div data-editor-rows=&quot;classes:0&quot; hidden&gt;&lt;article&gt;&lt;div&gt;&lt;strong&gt;战士&lt;/strong&gt;&lt;small&gt;当前：当前职业&lt;/small&gt;&lt;/div&gt;&lt;div&gt;&lt;button type=&quot;button&quot; data-editor-class-choice disabled&gt;已选&lt;/button&gt;&lt;/div&gt;&lt;/article&gt;&lt;article&gt;&lt;div&gt;&lt;strong&gt;法师&lt;/strong&gt;&lt;small&gt;当前：可转职&lt;/small&gt;&lt;/div&gt;&lt;div&gt;&lt;button type=&quot;button&quot; data-editor-class-choice&gt;转职&lt;/button&gt;&lt;/div&gt;&lt;/article&gt;&lt;/div&gt;
+              &lt;div data-editor-rows=&quot;classes:1&quot; hidden&gt;&lt;article&gt;&lt;div&gt;&lt;strong&gt;战士&lt;/strong&gt;&lt;small&gt;当前：可转职&lt;/small&gt;&lt;/div&gt;&lt;div&gt;&lt;button type=&quot;button&quot; data-editor-class-choice&gt;转职&lt;/button&gt;&lt;/div&gt;&lt;/article&gt;&lt;article&gt;&lt;div&gt;&lt;strong&gt;法师&lt;/strong&gt;&lt;small&gt;当前：当前职业&lt;/small&gt;&lt;/div&gt;&lt;div&gt;&lt;button type=&quot;button&quot; data-editor-class-choice disabled&gt;已选&lt;/button&gt;&lt;/div&gt;&lt;/article&gt;&lt;/div&gt;
+              &lt;div data-editor-rows=&quot;party&quot; hidden&gt;&lt;article data-editor-party-id=&quot;0&quot;&gt;&lt;div&gt;&lt;strong&gt;艾琳&lt;/strong&gt;&lt;small&gt;当前：队伍第 1 位&lt;/small&gt;&lt;/div&gt;&lt;div data-editor-party-controls&gt;&lt;/div&gt;&lt;/article&gt;&lt;article data-editor-party-id=&quot;1&quot;&gt;&lt;div&gt;&lt;strong&gt;哈罗德&lt;/strong&gt;&lt;small&gt;当前：队伍第 2 位&lt;/small&gt;&lt;/div&gt;&lt;div data-editor-party-controls&gt;&lt;/div&gt;&lt;/article&gt;&lt;article data-editor-party-id=&quot;2&quot;&gt;&lt;div&gt;&lt;strong&gt;莉娜&lt;/strong&gt;&lt;small&gt;当前：未入队&lt;/small&gt;&lt;/div&gt;&lt;div data-editor-party-controls&gt;&lt;/div&gt;&lt;/article&gt;&lt;/div&gt;
+              &lt;div data-editor-rows=&quot;self_switches:0&quot; hidden&gt;&lt;article class=&quot;rt-game-editor-self-switch-event&quot;&gt;&lt;div&gt;&lt;strong&gt;宝箱&lt;/strong&gt;&lt;small&gt;事件 #12 · 坐标 8, 6&lt;/small&gt;&lt;/div&gt;&lt;div class=&quot;rt-game-editor-self-switch-uses&quot;&gt;&lt;div class=&quot;rt-game-editor-self-switch-use&quot;&gt;&lt;div&gt;&lt;small&gt;第 2 页 · 此开关条件未满足 · 无图像、无事件指令&lt;/small&gt;&lt;/div&gt;&lt;button type=&quot;button&quot; data-editor-self-switch&gt;A · 关&lt;/button&gt;&lt;/div&gt;&lt;/div&gt;&lt;/article&gt;&lt;article class=&quot;rt-game-editor-self-switch-event&quot;&gt;&lt;div&gt;&lt;strong&gt;村口告示牌&lt;/strong&gt;&lt;small&gt;事件 #13 · 坐标 12, 4&lt;/small&gt;&lt;/div&gt;&lt;div class=&quot;rt-game-editor-self-switch-uses&quot;&gt;&lt;div class=&quot;rt-game-editor-self-switch-use&quot;&gt;&lt;div&gt;&lt;small&gt;第 2 页 · 此开关条件未满足 · 首句：欢迎来到村庄。&lt;/small&gt;&lt;/div&gt;&lt;button type=&quot;button&quot; data-editor-self-switch&gt;A · 关&lt;/button&gt;&lt;/div&gt;&lt;div class=&quot;rt-game-editor-self-switch-use&quot;&gt;&lt;div&gt;&lt;small&gt;第 3 页 · 此开关条件未满足 · 有图像和事件指令&lt;/small&gt;&lt;/div&gt;&lt;button type=&quot;button&quot; data-editor-self-switch&gt;B · 关&lt;/button&gt;&lt;/div&gt;&lt;/div&gt;&lt;/article&gt;&lt;/div&gt;
+              &lt;div data-editor-rows=&quot;self_switches:1&quot; hidden&gt;&lt;article class=&quot;rt-game-editor-self-switch-event&quot;&gt;&lt;div&gt;&lt;strong&gt;森林大门&lt;/strong&gt;&lt;small&gt;事件 #3 · 坐标 4, 9&lt;/small&gt;&lt;/div&gt;&lt;div class=&quot;rt-game-editor-self-switch-uses&quot;&gt;&lt;div class=&quot;rt-game-editor-self-switch-use&quot;&gt;&lt;div&gt;&lt;small&gt;第 2 页 · 此开关条件未满足 · 无图像、无事件指令&lt;/small&gt;&lt;/div&gt;&lt;button type=&quot;button&quot; data-editor-self-switch&gt;D · 关&lt;/button&gt;&lt;/div&gt;&lt;/div&gt;&lt;/article&gt;&lt;/div&gt;
+              &lt;p class=&quot;rt-game-editor-loading&quot; role=&quot;status&quot; hidden&gt;正在加载后续项目…&lt;/p&gt;
+            &lt;/div&gt;
+          &lt;/div&gt;&lt;/section&gt;
         &lt;/div&gt;
       &lt;/section&gt;
 
@@ -3721,9 +3786,99 @@ select:disabled, input:disabled, textarea:disabled { cursor: not-allowed; opacit
         root.querySelector('[data-review-bulk-scope]').textContent = '全局待审队列 · 创建时约 42 项 · 已扫描 11 项';
         root.querySelectorAll('[data-review-item]').forEach((item) =&gt; { item.hidden = false; });
       }
+      const editorDesign = root.querySelector('[data-rpg-editor-design]');
+      let editorKind = 'actors';
+      let editorPerson = '0';
+      let editorMap = '0';
+      let editorParty = [0, 1];
+      function renderEditorParty() {
+        const partyRows = [...editorDesign.querySelectorAll('[data-editor-party-id]')];
+        partyRows.sort((left, right) =&gt; {
+          const leftIndex = editorParty.indexOf(Number(left.dataset.editorPartyId));
+          const rightIndex = editorParty.indexOf(Number(right.dataset.editorPartyId));
+          return (leftIndex &lt; 0 ? 99 : leftIndex) - (rightIndex &lt; 0 ? 99 : rightIndex);
+        }).forEach((row) =&gt; {
+          editorDesign.querySelector('[data-editor-rows=&quot;party&quot;]').append(row);
+          const index = editorParty.indexOf(Number(row.dataset.editorPartyId));
+          row.querySelector('small').textContent = index &lt; 0 ? '当前：未入队' : `当前：队伍第 ${index + 1} 位`;
+          const controls = row.querySelector('[data-editor-party-controls]');
+          controls.replaceChildren();
+          (index &lt; 0 ? [['加入', false]] : [['上移', index === 0], ['下移', index === editorParty.length - 1], ['移出', editorParty.length === 1]])
+            .forEach(([label, disabled]) =&gt; {
+              const button = document.createElement('button'); button.type = 'button';
+              button.textContent = label; button.disabled = disabled; controls.append(button);
+            });
+        });
+      }
+      function showEditorDesignRows() {
+        editorDesign.querySelector('[data-editor-heading]').textContent = ({actors:'角色',skills:'技能',states:'状态',classes:'职业',party:'队伍成员',self_switches:'事件独立开关'})[editorKind];
+        const editorHelp = editorDesign.querySelector('[data-editor-help]');
+        editorHelp.textContent = ({skills:'这里显示角色主动学习的技能；职业或装备附加的技能仍可能可用。',states:'战斗不能由生命值控制；免疫状态可能无法添加。',classes:'转职可能改变等级与可穿戴装备，按游戏规则立即生效。',self_switches:'仅列出事件页条件引用的开关。开启后该条件成立；实际页面还受其他条件和页序影响。'})[editorKind] || '';
+        editorHelp.hidden = !editorHelp.textContent;
+        editorDesign.querySelector('[data-editor-person-tabs]').hidden = editorKind === 'party' || editorKind === 'self_switches';
+        editorDesign.querySelector('[data-editor-map-picker]').hidden = editorKind !== 'self_switches';
+        editorDesign.querySelectorAll('[data-editor-kind]').forEach((button) =&gt; button.classList.toggle('is-active', button.dataset.editorKind === editorKind));
+        editorDesign.querySelectorAll('[data-editor-person]').forEach((button) =&gt; {
+          const selected = button.dataset.editorPerson === editorPerson;
+          button.classList.toggle('is-active', selected);
+          button.setAttribute('aria-selected', String(selected));
+        });
+        editorDesign.querySelectorAll('[data-editor-rows]').forEach((rows) =&gt; { rows.hidden = rows.dataset.editorRows !== (editorKind === 'party' ? 'party' : editorKind === 'self_switches' ? `self_switches:${editorMap}` : `${editorKind}:${editorPerson}`); });
+        editorDesign.querySelector('.rt-game-editor-list').scrollTop = 0;
+      }
+      editorDesign.querySelectorAll('[data-editor-kind]').forEach((button) =&gt; button.addEventListener('click', () =&gt; {
+        editorKind = button.dataset.editorKind; editorPerson = '0'; showEditorDesignRows();
+      }));
+      editorDesign.querySelectorAll('[data-editor-person]').forEach((button) =&gt; button.addEventListener('click', () =&gt; {
+        editorPerson = button.dataset.editorPerson; showEditorDesignRows();
+      }));
+      editorDesign.querySelector('[data-editor-map-trigger]').addEventListener('click', () =&gt; {
+        const options = editorDesign.querySelector('[data-editor-map-options]'); options.hidden = !options.hidden;
+      });
+      editorDesign.querySelector('[data-editor-map-options] input').addEventListener('input', (event) =&gt; {
+        const query = event.target.value.trim().toLowerCase();
+        editorDesign.querySelectorAll('[data-editor-map]').forEach((button) =&gt; { button.hidden = !button.textContent.toLowerCase().includes(query); });
+      });
+      editorDesign.querySelectorAll('[data-editor-map]').forEach((button) =&gt; button.addEventListener('click', () =&gt; {
+        editorMap = button.dataset.editorMap;
+        editorDesign.querySelector('[data-editor-map-trigger]').textContent = `${button.querySelector('span').textContent}${editorMap === '0' ? ' · 当前地图' : ''} ▾`;
+        editorDesign.querySelector('[data-editor-map-options]').hidden = true;
+        showEditorDesignRows();
+      }));
+      editorDesign.querySelectorAll('[data-editor-self-switch]').forEach((button) =&gt; button.addEventListener('click', () =&gt; {
+        const enabled = button.textContent.endsWith('关');
+        button.textContent = `${button.textContent[0]} · ${enabled ? '开' : '关'}`;
+        button.classList.toggle('is-active', enabled);
+        button.closest('.rt-game-editor-self-switch-use').querySelectorAll('small').forEach((summary) =&gt; {
+          summary.textContent = summary.textContent.replace(enabled ? '未满足' : '已满足', enabled ? '已满足' : '未满足');
+        });
+      }));
+      editorDesign.querySelectorAll('[data-editor-state-toggle]').forEach((button) =&gt; button.addEventListener('click', () =&gt; {
+        const added = button.textContent === '添加';
+        button.textContent = added ? '移除' : '添加';
+        button.closest('article').querySelector('small').textContent = added ? '当前：生效中' : '当前：未生效';
+      }));
+      editorDesign.querySelectorAll('[data-editor-class-choice]').forEach((button) =&gt; button.addEventListener('click', () =&gt; {
+        button.closest('[data-editor-rows]').querySelectorAll('[data-editor-class-choice]').forEach((choice) =&gt; {
+          const selected = choice === button;
+          choice.disabled = selected; choice.textContent = selected ? '已选' : '转职';
+          choice.closest('article').querySelector('small').textContent = selected ? '当前：当前职业' : '当前：可转职';
+        });
+      }));
+      editorDesign.querySelector('[data-editor-rows=&quot;party&quot;]').addEventListener('click', (event) =&gt; {
+        const button = event.target.closest('button');
+        const row = button?.closest('[data-editor-party-id]');
+        if (!row || button.disabled) return;
+        const id = Number(row.dataset.editorPartyId), index = editorParty.indexOf(id);
+        if (button.textContent === '加入') editorParty.push(id);
+        if (button.textContent === '移出') editorParty.splice(index, 1);
+        if (button.textContent === '上移' &amp;&amp; index &gt; 0) [editorParty[index - 1], editorParty[index]] = [editorParty[index], editorParty[index - 1]];
+        if (button.textContent === '下移' &amp;&amp; index &lt; editorParty.length - 1) [editorParty[index], editorParty[index + 1]] = [editorParty[index + 1], editorParty[index]];
+        renderEditorParty();
+      });
       function resetRpgDesign() {
         delete app.dataset.rpgScene;
-        root.querySelectorAll('[data-rpg-import-design],[data-rpg-review-design],[data-rpg-player-design],[data-rpg-save-design]').forEach((element) =&gt; { element.hidden = true; });
+        root.querySelectorAll('[data-rpg-import-design],[data-rpg-review-design],[data-rpg-player-design],[data-rpg-editor-design],[data-rpg-save-design]').forEach((element) =&gt; { element.hidden = true; });
         root.querySelector('[data-review-page-title]').textContent = '待审核';
         root.querySelector('#rt-player-game').textContent = 'NOeL 3';
         root.querySelector('#rt-player-core').textContent = 'Yabause · Saturn';
@@ -3737,9 +3892,9 @@ select:disabled, input:disabled, textarea:disabled { cursor: not-allowed; opacit
         root.querySelector('[data-page=&quot;play&quot;] .rt-player-screen').setAttribute('aria-label', 'EmulatorJS 游戏画面占位');
       }
       function showRpgScene(scene) {
-        if (scene === 'rpg-player' || scene === 'rpg-saves') setMode('user');
+        if (scene === 'rpg-player' || scene === 'rpg-editor' || scene === 'rpg-saves') setMode('user');
         else setMode('admin');
-        const page = scene === 'rpg-import' ? 'admin-import-new' : scene === 'rpg-review' ? 'admin-review' : scene === 'rpg-player' ? 'play' : 'saves';
+        const page = scene === 'rpg-import' ? 'admin-import-new' : scene === 'rpg-review' ? 'admin-review' : scene === 'rpg-player' || scene === 'rpg-editor' ? 'play' : 'saves';
         showPage(page);
         app.dataset.rpgScene = scene.replace('rpg-', '');
         if (scene === 'rpg-import') root.querySelector('[data-rpg-import-design]').hidden = false;
@@ -3748,7 +3903,7 @@ select:disabled, input:disabled, textarea:disabled { cursor: not-allowed; opacit
           root.querySelector('[data-review-page-title]').textContent = 'RPG Maker 审核';
           root.querySelector('[data-review-position]').textContent = '当前条目 · RPG Maker 2000';
         }
-        if (scene === 'rpg-player') {
+        if (scene === 'rpg-player' || scene === 'rpg-editor') {
           root.querySelectorAll('[data-rpg-player-design]').forEach((element) =&gt; { element.hidden = false; });
           root.querySelector('#rt-player-game').textContent = '魔法少女露娜的劫难';
           root.querySelector('#rt-player-core').textContent = 'RPG Maker MZ';
@@ -3758,6 +3913,10 @@ select:disabled, input:disabled, textarea:disabled { cursor: not-allowed; opacit
           root.querySelector('#rt-player-launch-state').textContent = '可创建存档';
           root.querySelector('#rt-player-stage-state').textContent = '审核试运行 · 使用普通 Player 操作';
           root.querySelector('[data-page=&quot;play&quot;] .rt-player-top').classList.add('is-visible');
+        }
+        if (scene === 'rpg-editor') {
+          editorKind = 'actors'; editorPerson = '0'; editorParty = [0, 1]; renderEditorParty(); showEditorDesignRows();
+          root.querySelector('[data-rpg-editor-design]').hidden = false;
         }
         if (scene === 'rpg-saves') root.querySelector('[data-rpg-save-design]').hidden = false;
         selectReviewScene(scene);

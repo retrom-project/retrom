@@ -1,0 +1,58 @@
+.game-editor-overlay { position: absolute; z-index: 95; inset: 0; display: grid; place-items: center; padding: 24px; background: rgb(0 0 0 / 72%); color: #eef2fa; }
+.game-editor-panel { width: min(880px, 100%); min-width: 0; height: min(820px, calc(100dvh - 48px)); display: flex; flex-direction: column; gap: 16px; padding: 28px; border: 1px solid #526078; border-radius: var(--radius-dialog); background: #171e2c; box-shadow: 0 28px 90px #000a; }
+.game-editor-head { display: flex; align-items: start; justify-content: space-between; gap: 16px; }
+.game-editor-head small { color: #aeb9cb; }
+.game-editor-head h1 { margin: 4px 0 0; color: #fff; font-size: var(--text-page); }
+.game-editor-feedback { position: relative; }
+.game-editor-help { margin: 0; color: #c4cedd; line-height: 1.5; }
+.game-editor-notice { position: absolute; inset: 0; display: flex; align-items: center; margin: 0; color: #8ce4c3; background: #171e2c; pointer-events: none; }
+.game-editor-category-scroll { display: grid; grid-template-columns: minmax(0, 1fr); min-width: 0; flex-shrink: 0; gap: 4px; }
+.game-editor-categories { display: flex; min-width: 0; flex-wrap: nowrap; gap: 8px; overflow-x: auto; scrollbar-width: none; }
+.game-editor-categories .button { flex-shrink: 0; }
+.game-editor-categories::-webkit-scrollbar { display: none; }
+.game-editor-category-scrollbar { height: 8px; border-radius: 8px; background: #263247; touch-action: none; cursor: pointer; }
+.game-editor-category-scrollbar span { display: block; height: 100%; border-radius: 8px; background: #899bb4; }
+.game-editor-actor-tabs { display: flex; flex-shrink: 0; gap: 8px; overflow-x: auto; padding-bottom: 4px; }
+.game-editor-actor-tabs .button { flex-shrink: 0; }
+.game-editor-list-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.game-editor-list-head h2 { margin: 0; font-size: var(--text-section); }
+.game-editor-list-head > div { display: flex; gap: 8px; }
+.game-editor-category-help { margin: 0; color: #b5c0d0; }
+.game-editor-search { display: flex; align-items: center; gap: 8px; }
+.game-editor-search label { white-space: nowrap; }
+.game-editor-search input, .game-editor-row-form input { min-width: 0; }
+.game-editor-search input { flex: 1; }
+.game-editor-error { margin: 0; padding: 8px 12px; border-radius: 8px; background: #5b2430; color: #fff; }
+.game-editor-list { flex: 1; min-height: 80px; overflow: auto; border-top: 1px solid #465267; border-bottom: 1px solid #465267; }
+.game-editor-list > p { margin: 16px 0; color: #c4cedd; }
+.game-editor-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 4px; border-bottom: 1px solid #354254; }
+.game-editor-row:last-child { border-bottom: 0; }
+.game-editor-row-label { min-width: 0; display: grid; gap: 3px; overflow-wrap: anywhere; }
+.game-editor-row-label small, .game-editor-unsupported { color: #b5c0d0; }
+.game-editor-row-form { display: flex; flex-wrap: wrap; align-items: center; justify-content: end; gap: 8px; }
+.game-editor-party-actions { display: flex; flex-wrap: wrap; justify-content: end; gap: 8px; }
+.game-editor-map-picker { position: relative; display: flex; align-items: center; gap: 8px; min-width: 0; flex-shrink: 0; }
+.game-editor-map-picker > button { min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.game-editor-map-options { position: absolute; z-index: 2; top: calc(100% + 4px); left: 0; display: grid; gap: 8px; width: min(360px, 100%); padding: 12px; border: 1px solid #526078; border-radius: var(--radius-panel); background: #202b3e; box-shadow: 0 14px 36px #0009; }
+.game-editor-map-options input { min-width: 0; }
+.game-editor-map-results { display: grid; gap: 4px; max-height: 220px; overflow-y: auto; }
+.game-editor-map-results button { display: flex; align-items: center; justify-content: space-between; gap: 8px; text-align: left; }
+.game-editor-map-results button span { min-width: 0; overflow-wrap: anywhere; }
+.game-editor-map-results button small { flex-shrink: 0; color: #b5c0d0; }
+.game-editor-map-results p { margin: 8px 0; color: #c4cedd; }
+.game-editor-self-switch-search { display: flex; gap: 8px; flex-shrink: 0; }
+.game-editor-self-switch-search input { min-width: 0; flex: 1; }
+.game-editor-self-switch-event { display: grid; gap: 8px; padding: 12px 4px; border-bottom: 1px solid #354254; }
+.game-editor-self-switch-event > div:first-child { display: grid; min-width: 0; gap: 3px; overflow-wrap: anywhere; }
+.game-editor-self-switch-event small { color: #b5c0d0; }
+.game-editor-self-switch-uses { display: grid; gap: 6px; }
+.game-editor-self-switch-use { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-width: 0; }
+.game-editor-self-switch-use > div { display: grid; min-width: 0; gap: 2px; overflow-wrap: anywhere; }
+.game-editor-self-switch-use button { flex-shrink: 0; }
+.game-editor-self-switch-use .is-active { border-color: #8dbaf3; background: #31527d; }
+.game-editor-row-form input { width: 140px; }
+.game-editor-row-form small { flex-basis: 100%; text-align: right; color: #ffd2da; }
+.game-editor-more { min-height: 1px; text-align: center; color: #b5c0d0; }
+.game-editor-more > span { display: inline-flex; align-items: center; gap: 12px; padding: 12px 4px; }
+@media (max-width: 600px) { .game-editor-overlay { padding: 8px; } .game-editor-panel { height: calc(100dvh - 16px); padding: 16px; gap: 12px; } .game-editor-list-head { align-items: start; flex-direction: column; } .game-editor-search { flex-wrap: wrap; } .game-editor-search label { flex-basis: 100%; } .game-editor-row { align-items: start; flex-direction: column; } .game-editor-row-form, .game-editor-party-actions { width: 100%; justify-content: start; } .game-editor-row-form input { flex: 1; } }
+@media (max-height: 500px) { .game-editor-overlay { padding: 8px; } .game-editor-panel { height: calc(100dvh - 16px); padding: 12px 16px; gap: 8px; } .game-editor-head small { display: none; } .game-editor-head h1 { margin: 0; font-size: var(--text-section); } .game-editor-help { font-size: var(--text-small); } .game-editor-list { min-height: 0; } .game-editor-row { padding-block: 8px; } }

@@ -413,7 +413,7 @@ async function verifyFullProductLifecycle(page: Page, testInfo: TestInfo) {
   expect(publicDetail.videoUrl).toBeTruthy();
   await expectLockedPayload(page, publicDetail.coverUrl!, coverFixture);
   await expectLockedPayload(page, publicDetail.videoUrl!, videoFixture);
-  const gameCover = page.getByRole("img", { name: `${title} 封面` });
+  const gameCover = page.getByRole("complementary", {name: "游戏预览"}).getByRole("img", {name: `${title} 封面`});
   await expect(gameCover).toBeVisible();
   await expect(gameCover).toHaveAttribute("src", publicDetail.coverUrl!);
   const gameVideo = page.getByLabel(`${title} 视频预览`);

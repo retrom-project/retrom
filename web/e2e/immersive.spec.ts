@@ -222,6 +222,8 @@ async function exitFromPlayerMenu(page: Page) {
   await pressGamepad(page, standardButton.a);
   expect((await progress).ok()).toBe(true);
   await expect(page).toHaveURL(/\/immersive\/platforms\/[a-z0-9-]+\?gameId=[0-9a-f-]+$/);
+  await expect(page.locator(".player-shell")).toHaveCount(0);
+  await expect(page.locator("iframe.player-frame")).toHaveCount(0);
 }
 
 test("ACC-IMM-001 home gamepad entry defaults to cancel and stays isolated", async ({ page }, testInfo) => {

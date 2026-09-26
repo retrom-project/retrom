@@ -72,6 +72,8 @@ Provider 是核心生命周期的唯一所有者，不包装第二个 controller
 
 Player Host 只消费 `PlayerRuntimeV1` 的标准能力和事件，不按 Provider、Target 或游戏类型分支。暂停、音量、输入过滤、视频模式、换盘、截图、帧计数、checkpoint 和退出由 Provider 实现。退出、异常与 React 卸载共用 exactly-once cleanup；Host 先等待 Provider `exit()`，再撤销 frame、MessagePort、observer 和请求 signal。加载期间退出也必须取消当前 bootstrap 并等待其终止，再完成会话与导航；尚未返回 runtime controller 不表示没有启动任务。取消后晚到的 runtime 只执行清理，不得 mount 或重新开始游戏。
 
+运行时可选提供 `getGameEditor()`，Host 据此显示“游戏修改”入口。RPG Maker MV/MZ 的实现通过隔离 iframe 的现有 MessageChannel 调用引擎公开数据 API；不将游戏数据搬入 Host，也不向 Host 暴露 iframe 的全局对象。接口只读类别与分页条目，并对当前游戏状态执行逐项写入；范围限制在金币、道具/武器/护甲数量、变量、开关、队伍角色常规属性、主动学习技能、状态、职业、队伍成员和事件独立开关。角色、技能、状态与职业类别带有当前队伍的人物分组；Host 以人物名标签切换，并将选中分组的 ID 传给 `entries` 和 `set`，每页只返回该人物的条目。技能状态读取 `isLearnedSkill`，写入调用 `learnSkill`/`forgetSkill`；职业或装备通过特性附加的技能不计入主动学习状态，技能能否在游戏内使用仍受技能类型等游戏规则约束。状态读取 `isStateAffected`，使用 `addState`/`removeState` 修改；战斗不能状态由生命值控制，不作为独立开关，免疫或受限制的状态写入若未生效则返回错误。职业读取 `currentClass` 并以 `changeClass(classId, true)` 切换，保留当前经验值，但等级和装备仍可能按游戏规则变化。队伍成员从游戏角色目录直接列出，使用 `addActor`、`removeActor` 与相邻位置的 `swapOrder`，至少保留一名成员；成功后刷新人物分组。事件独立开关通过可选的 `selfSwitches` 接口提供分页地图列表、分页事件列表和单项写入：默认使用 `$gameMap.mapId()` 所在地图，当前地图读 `$dataMap`，其他地图按已验证的 `$dataMapInfos` ID 按需读取 `data/MapNNN.json`，且只使用游戏自身的同源项目内容。只列出将独立开关作为事件页出现条件的事件，返回对应 A–D 状态、关联页码和内容摘要；Host 只显示被引用的开关。写入通过 `$gameSelfSwitches.setValue([mapId, eventId, key], value)`，必须先确认地图、事件以及开关确实属于项目中的对应事件页条件，写入后复读实际值。地图与事件的分页和搜索互不干扰，其他地图的事件数据有界缓存。上述条目只编辑当前运行中的游戏状态，不改写游戏项目数据库。
+
 除独立 origin 的 Web 项目外，会挂载 DOM/canvas 的运行时都在 Provider 创建的同源空白 frame 内执行。Provider 负责满尺寸 surface、原始宽高比最大内接、居中和 resize observer；Host 不给单个核心补 CSS。该边界同时防止核心全局变量、异常和样式污染 Next.js document，并保证普通与沉浸 Player 一致。
 
 从 Host 控制栏或暂停遮罩恢复运行后，Provider 在核心确认恢复且会话仍有效时，把键盘焦点交还游戏 canvas；不暴露 canvas 的隔离项目聚焦其运行窗口。暂停、恢复失败或被退出抢占时不得抢回 Host 焦点。这个行为由两个 Provider 的公共入口实现，不由单个核心或验收脚本补焦点。
@@ -82,7 +84,7 @@ Host 区分运行时内部普通点击与暂停遮罩上的明确恢复：前者
 
 ## 5. 资源与项目运行时
 
-内容与会话读取由 `internal/service/launch` 判断 capability、状态、硬到期、资源类型及项目路径；`internal/persistence/launch` 只读取冻结会话、内容成员和授权事实。普通与预览 Bundle 的授权和成员必须来自同一数据库快照，包括合法空集合。RPG 项目仅在精确路径不存在时尝试唯一的大小写匹配；存储失败或取消必须保留原因，不能触发路径回退或误报凭据无效。Provider 资源仍按冻结的 Provider/Target/Bundle 和唯一 manifest 路径选择，不重新解释核心或内容配置。
+内容与会话读取由 `internal/service/launch` 判断 capability、状态、硬到期、资源类型及项目路径；`internal/persistence/launch` 只读取冻结会话、内容成员和授权事实。普通与预览 Bundle 的授权和成员必须来自同一数据库快照，包括合法空集合。RPG Maker 原生 Web 项目资源的请求路径先经过安全校验，再规范化为导入时使用的 NFC 文件名；项目仅在精确路径不存在时尝试唯一的大小写匹配。项目资源可在浏览器私有缓存保存，但每次使用前需以 ETag 重新验证会话授权，命中时返回无正文的 304，存档恢复数据仍不可缓存。存储失败或取消必须保留原因，不能触发路径回退或误报凭据无效。Provider 资源仍按冻结的 Provider/Target/Bundle 和唯一 manifest 路径选择，不重新解释核心或内容配置。
 
 Provider 静态文件只从 `/runtime/providers/{providerId}/{bundleSha256}/{runtimePath}` 提供，并同时受 closed allowlist、大小和 SHA-256 约束。静态响应包含 `Cache-Control: no-transform`，防止代理压缩使 Content I/O 的原始字节与长度校验失败；PFB 开发文件同样禁止变换。游戏、BIOS、parent、多盘、项目文件和 cart 不属于 Provider Bundle，通过 envelope resources 授权；Provider 不得根据扩展名、标题或 Core 名称猜测输入。
 
