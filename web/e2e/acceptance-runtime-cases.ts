@@ -499,7 +499,7 @@ function registerSave002(): void {
     await page.goto(detailURL);
     const detailResumeConfigResponse = page.waitForResponse((response) =>
       /\/runtime\/launches\/[^/]+\/config$/.test(response.url()) && response.status() === 200);
-    await page.getByRole("button", { name: "从存档继续" }).click();
+    await page.getByRole("complementary", { name: "启动游戏", exact: true }).getByRole("button", { name: "从存档继续", exact: true }).click();
     await expect(page).toHaveURL(/\/play\/[0-9a-f-]+$/);
     const detailResumeConfig = await (await detailResumeConfigResponse).json() as RuntimeEnvelope;
     expect(detailResumeConfig.restore?.url).toMatch(/\/runtime\/launches\/[^/]+\/state$/);
