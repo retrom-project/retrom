@@ -615,6 +615,7 @@ test("ACC-UI-010 global quick approval preserves filters and restores its comple
   expect(published.ok()).toBe(true);
   const games = await published.json() as {items: Array<{title: string}>};
   expect(games.items.map((game) => game.title)).toEqual(["实时保存的标题"]);
+  await expect(page).toHaveURL(new RegExp(`bulkApprovalId=${task.bulkApprovalId}`));
   await page.reload();
   await expect(result.getByRole("heading", {name: "快速审批已完成"})).toBeVisible();
   await expect(page.getByRole("textbox", {name: "导入批次", exact: true})).toHaveValue(primaryJob);
