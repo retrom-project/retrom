@@ -14,7 +14,7 @@ import (
 	"retrom/internal/cleanup"
 	contentcapability "retrom/internal/content/capability"
 	contentprofile "retrom/internal/content/profile"
-	"retrom/internal/corevalidation"
+	corevalidation "retrom/internal/core/validation"
 	"retrom/internal/importing"
 	"retrom/internal/multidisc"
 )

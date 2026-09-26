@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
 	dependencypersistence "retrom/internal/persistence/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 
@@ -53,7 +54,7 @@ func TestOrdinaryReviewCheckpointHTTPUsesPreviewCookieThroughAuthorizeSave(t *te
 	}
 	assertReviewCheckpointHTTPAuthorization(t, server, preview, cookie, restoreCookie)
 	var products int
-	if err := server.database.QueryRowContext(t.Context(), `
+	if err := dbapi.QueryRowContext(t.Context(), server.database, `
 SELECT (SELECT count(*) FROM games)+(SELECT count(*) FROM launch_sessions)+
  (SELECT count(*) FROM play_sessions)+(SELECT count(*) FROM save_states)`).Scan(&products); err != nil || products != 0 {
 		t.Fatalf("ordinary preview created product records: %d %v", products, err)
@@ -77,7 +78,7 @@ func newCheckpointReviewHTTPFixture(t *testing.T) (*Server, string) {
 		t.Fatal(err)
 	}
 	var itemID string
-	if err := server.database.QueryRowContext(t.Context(), `SELECT id FROM import_items WHERE import_job_id=?`,
+	if err := dbapi.QueryRowContext(t.Context(), server.database, `SELECT id FROM import_items WHERE import_job_id=?`,
 		created.ImportJobID).Scan(&itemID); err != nil {
 		t.Fatal(err)
 	}

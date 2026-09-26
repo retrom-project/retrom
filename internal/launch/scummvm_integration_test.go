@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/libraryimport"
 	"retrom/internal/testsupport"
 )
@@ -100,7 +101,7 @@ func TestScummVMRevalidationPreservesSelectedNativeGame(t *testing.T) {
 		t.Fatal(err)
 	}
 	var before string
-	if err := fixture.database.QueryRowContext(ctx, `SELECT dependency_snapshot_json FROM game_variants WHERE game_id=?`, approved.GameID).Scan(&before); err != nil {
+	if err := dbapi.QueryRowContext(ctx, fixture.database, `SELECT dependency_snapshot_json FROM game_variants WHERE game_id=?`, approved.GameID).Scan(&before); err != nil {
 		t.Fatal(err)
 	}
 	request := CreateRequest{GameID: approved.GameID, ReturnTo: "/games/" + approved.GameID, ClientCapabilities: Capabilities{SecureContext: true}}
@@ -110,7 +111,7 @@ func TestScummVMRevalidationPreservesSelectedNativeGame(t *testing.T) {
 	}
 	fixture.service.ResumeValidationJob(ctx, pending.JobID)
 	var after, status string
-	if err := fixture.database.QueryRowContext(ctx, `SELECT dependency_snapshot_json,status FROM game_variants WHERE game_id=?`, approved.GameID).Scan(&after, &status); err != nil {
+	if err := dbapi.QueryRowContext(ctx, fixture.database, `SELECT dependency_snapshot_json,status FROM game_variants WHERE game_id=?`, approved.GameID).Scan(&after, &status); err != nil {
 		t.Fatal(err)
 	}
 	if before != after || status != "READY" {

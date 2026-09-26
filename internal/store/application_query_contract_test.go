@@ -1,7 +1,6 @@
 package store
 
 import (
-	"database/sql"
 	"go/ast"
 	"go/parser"
 	"go/token"
@@ -9,6 +8,8 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+
+	dbapi "retrom/internal/database"
 )
 
 func TestApplicationWriteQueriesReferenceCurrentSchema(t *testing.T) {
@@ -47,7 +48,7 @@ func TestApplicationWriteQueriesReferenceCurrentSchema(t *testing.T) {
 	}
 }
 
-func checkApplicationWriteQuery(t *testing.T, db *sql.DB, path, query string) {
+func checkApplicationWriteQuery(t *testing.T, db dbapi.DB, path, query string) {
 	t.Helper()
 	args := make([]any, strings.Count(query, "?"))
 	rows, err := db.QueryContext(t.Context(), query, args...)

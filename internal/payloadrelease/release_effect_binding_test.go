@@ -4,6 +4,8 @@ import (
 	"errors"
 	"sync/atomic"
 	"testing"
+
+	dbapi "retrom/internal/database"
 )
 
 func TestReleaseOrdinaryBindingWritesRollBackSourcePayload(t *testing.T) {
@@ -42,7 +44,7 @@ func assertBoundEffectRetained(t *testing.T, fixture releaseWorkerFixture) {
 	assertEffectGameGraphRetained(t, fixture)
 	var ordinary, source string
 	var refs int
-	err := fixture.database.QueryRowContext(t.Context(), `SELECT
+	err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT
  (SELECT payload_state FROM import_items WHERE id='effect-item'),payload_state,
  (SELECT count(*) FROM import_item_source_files WHERE import_item_id='effect-item')+
  (SELECT count(*) FROM source_import_item_files WHERE item_id='effect-source' AND blob_id='effect-blob')

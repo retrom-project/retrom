@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/service/immersive"
 )
 
@@ -137,7 +138,7 @@ func (records platformRecords) Platform(
 ) (immersive.Platform, error) {
 	var platform immersive.Platform
 	var lastPlayedAtMS sql.NullInt64
-	err := records.database.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, records.database, `
 SELECT platform.id,
        platform.name,
        count(*),

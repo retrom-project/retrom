@@ -6,15 +6,15 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/payloadrelease"
 	"retrom/internal/persistence/recordstore"
 	"retrom/internal/service/firmware"
 )
 
-type supersessionRecords struct{ executor dbexec.Executor }
+type supersessionRecords struct{ executor dbapi.Executor }
 
-func BindSupersession(executor dbexec.Executor) firmware.SupersessionScope {
+func BindSupersession(executor dbapi.Executor) firmware.SupersessionScope {
 	records := supersessionRecords{executor: executor}
 	return firmware.SupersessionScope{Read: records, Write: records, Payload: payloadrelease.BindScheduling(executor)}
 }
@@ -23,7 +23,7 @@ func (records supersessionRecords) Current(
 	ctx context.Context, requirementID string,
 ) (firmware.SupersededInstallation, bool, error) {
 	var result firmware.SupersededInstallation
-	err := records.executor.QueryRowContext(ctx, `SELECT id,requirement_id,blob_id,version
+	err := dbapi.QueryRowContext(ctx, records.executor, `SELECT id,requirement_id,blob_id,version
 FROM bios_installations WHERE requirement_id=? AND is_active=1`, requirementID).
 		Scan(&result.ID, &result.RequirementID, &result.BlobID, &result.Version)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -37,7 +37,7 @@ FROM bios_installations WHERE requirement_id=? AND is_active=1`, requirementID).
 
 func (records supersessionRecords) Consumption(ctx context.Context, installationID string) (string, error) {
 	var id string
-	err := records.executor.QueryRowContext(ctx, `SELECT id FROM upload_consumptions
+	err := dbapi.QueryRowContext(ctx, records.executor, `SELECT id FROM upload_consumptions
 WHERE consumer_type='BIOS_INSTALLATION' AND consumer_id=? AND released_at_ms IS NULL`, installationID).Scan(&id)
 	if errors.Is(err, sql.ErrNoRows) {
 		return "", nil

@@ -8,7 +8,7 @@ import (
 	"net/url"
 	"testing"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 
 	"retrom/internal/authn"
 	"retrom/internal/testassert"
@@ -57,7 +57,7 @@ func seedImmersiveFavoriteAndSave(
 	t.Helper()
 	transaction, err := server.database.BeginTx(context.Background(), nil)
 	testassert.False(t, err != nil, err)
-	defer dbexec.Rollback(transaction)
+	defer dbapi.Rollback(transaction)
 	mustExecHTTPTest(t, transaction, `
 INSERT INTO favorite_games(profile_id,game_id,created_at_ms) VALUES(?,?,7000)
 `, profileID, favoriteGameID)
@@ -73,7 +73,7 @@ VALUES(?,?,?,7000)
 	stateBlobID := seedImmersiveBlob(t, server, transaction, string(statePayload), "application/octet-stream", 7000)
 	screenshotBlobID := seedImmersiveBlob(t, server, transaction, "screenshot", "image/png", 7000)
 	var launchID string
-	err = transaction.QueryRowContext(t.Context(), `
+	err = dbapi.QueryRowContext(t.Context(), transaction, `
 SELECT launch.id
 FROM launch_sessions launch
 WHERE launch.game_id=?

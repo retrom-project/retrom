@@ -3,6 +3,7 @@ package platforminstance_test
 import (
 	"testing"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/service/platforminstance"
 )
 
@@ -22,7 +23,7 @@ func TestPlayDirectoriesRequireManualCreation(t *testing.T) {
 		t.Fatal(err)
 	}
 	var count int
-	if err := database.QueryRowContext(t.Context(), `SELECT count(*) FROM platform_instances WHERE default_core_id='play'`).Scan(&count); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), database, `SELECT count(*) FROM platform_instances WHERE default_core_id='play'`).Scan(&count); err != nil {
 		t.Fatal(err)
 	}
 	if count != 0 {
@@ -40,7 +41,7 @@ func TestPlayDirectoriesRequireManualCreation(t *testing.T) {
 	if _, err := service.Apply(t.Context(), actor(), testUserID, "88888888-8888-4888-8888-888888888888"); err != nil {
 		t.Fatal(err)
 	}
-	if err := database.QueryRowContext(t.Context(), `
+	if err := dbapi.QueryRowContext(t.Context(), database, `
 SELECT count(*) FROM platform_instances
 WHERE id=? AND name=? AND default_core_id='play' AND enabled=1
   AND deleted_at_ms IS NULL AND catalog_template_key IS NULL`, manual.ID, manual.Name).Scan(&count); err != nil {

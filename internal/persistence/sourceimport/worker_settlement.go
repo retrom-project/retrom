@@ -2,19 +2,18 @@ package sourceimport
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 
 	payload "retrom/internal/persistence/payloadrelease"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	library "retrom/internal/persistence/libraryimport"
 	application "retrom/internal/service/sourceimport"
 )
 
-type WorkerSettlement struct{ database *sql.DB }
+type WorkerSettlement struct{ database dbapi.DB }
 
-func NewWorkerSettlement(database *sql.DB) *WorkerSettlement {
+func NewWorkerSettlement(database dbapi.DB) *WorkerSettlement {
 	return &WorkerSettlement{database: database}
 }
 
@@ -26,7 +25,7 @@ func (repository *WorkerSettlement) WithSettlement(
 	if err != nil {
 		return fmt.Errorf("begin Source settlement: %w", err)
 	}
-	defer dbexec.Rollback(tx)
+	defer dbapi.Rollback(tx)
 	records := workerSettlementRecords{tx: tx}
 	scope := application.WorkerSettlementScope{
 		Payload: payload.BindReleases(tx), Read: records, Write: records,
@@ -41,7 +40,7 @@ func (repository *WorkerSettlement) WithSettlement(
 	return nil
 }
 
-type workerSettlementRecords struct{ tx *sql.Tx }
+type workerSettlementRecords struct{ tx dbapi.Tx }
 
 func (records workerSettlementRecords) Current(ctx context.Context, id string) (application.ExecutionSnapshot, error) {
 	return leaseRecords(records).Current(ctx, id)

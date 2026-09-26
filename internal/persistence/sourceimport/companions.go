@@ -2,22 +2,21 @@ package sourceimport
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/sourceimport"
 )
 
-type Companions struct{ database *sql.DB }
+type Companions struct{ database dbapi.DB }
 
-func NewCompanions(database *sql.DB) *Companions { return &Companions{database: database} }
+func NewCompanions(database dbapi.DB) *Companions { return &Companions{database: database} }
 func (repository *Companions) WithCompanions(ctx context.Context, work func(application.CompanionScope) error) error {
 	tx, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin Source companion transaction: %w", err)
 	}
-	defer dbexec.Rollback(tx)
+	defer dbapi.Rollback(tx)
 	records := companionRecords{tx: tx}
 	if err := work(application.CompanionScope{Read: records, Write: records}); err != nil {
 		return err
@@ -28,14 +27,15 @@ func (repository *Companions) WithCompanions(ctx context.Context, work func(appl
 	return nil
 }
 
-type companionRecords struct{ tx *sql.Tx }
+type companionRecords struct{ tx dbapi.Tx }
 
 func (records companionRecords) Owner(ctx context.Context, itemID string) (application.OwnedItem, error) {
 	before, err := itemWorkRecords(records).Current(ctx, itemID)
 	if err != nil {
 		return application.OwnedItem{}, err
 	}
-	if err := records.tx.QueryRowContext(ctx, `SELECT collection.target_platform_instance_id,collection.target_platform_id,
+	if err := dbapi.QueryRowContext(
+		ctx, records.tx, `SELECT collection.target_platform_instance_id,collection.target_platform_id,
 COALESCE(collection.target_dat_version_id,'') FROM source_import_items item
 JOIN source_import_collections collection ON collection.id=item.collection_id
 WHERE item.id=? AND collection.mapping_action='IMPORT'`, itemID).Scan(
@@ -55,7 +55,7 @@ func (records companionRecords) Register(
 ) (string, error) {
 	// Fence the worker and selected source immediately before catalog insertion; no host IO runs in this scope.
 	var valid bool
-	if err := records.tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM source_import_items item WHERE
+	if err := dbapi.QueryRowContext(ctx, records.tx, `SELECT EXISTS(SELECT 1 FROM source_import_items item WHERE
  item.id=? AND item.import_id=? AND item.version=? AND item.execution_state=? AND item.execution_state='COPYING'`+
 		itemExecutionFence+`)`, itemFenceArgs(change.Before, change.NowMS)...).Scan(&valid); err != nil {
 		return "", fmt.Errorf("check Source companion owner: %w", err)

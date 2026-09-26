@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
 	persistence "retrom/internal/persistence/launch"
 	application "retrom/internal/service/launch"
 )
@@ -63,7 +64,7 @@ func TestProductCreatorReadyValidationReentersThePublicEntry(t *testing.T) {
 	}
 	var launches, jobs int
 	var state string
-	err = fixture.database.QueryRowContext(t.Context(), `SELECT (SELECT count(*) FROM launch_sessions WHERE game_id=?),(SELECT count(*) FROM jobs WHERE kind='VARIANT_VALIDATE'),(SELECT state FROM jobs WHERE id=?)`, approved.GameID, jobID).Scan(&launches, &jobs, &state)
+	err = dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT (SELECT count(*) FROM launch_sessions WHERE game_id=?),(SELECT count(*) FROM jobs WHERE kind='VARIANT_VALIDATE'),(SELECT state FROM jobs WHERE id=?)`, approved.GameID, jobID).Scan(&launches, &jobs, &state)
 	if err != nil || launches != 1 || jobs != 1 || state != "SUCCEEDED" {
 		t.Fatalf("reentry launches=%d jobs=%d state=%s error=%v", launches, jobs, state, err)
 	}

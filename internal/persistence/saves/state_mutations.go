@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/recordstore"
 	application "retrom/internal/service/saves"
 )
@@ -59,7 +60,7 @@ func (repository *Repository) checkMutationResult(
 		return nil
 	}
 	var exists int
-	err = repository.database.QueryRowContext(ctx,
+	err = dbapi.QueryRowContext(ctx, repository.database,
 		`SELECT 1 FROM save_states WHERE id=? AND profile_id=? AND deleted_at_ms IS NULL`,
 		id, profileID,
 	).Scan(&exists)

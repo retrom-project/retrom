@@ -5,28 +5,28 @@ import (
 	"database/sql"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	service "retrom/internal/service/uploads"
 )
 
 type (
-	Repository          struct{ database *sql.DB }
-	sessionRecords      struct{ executor dbexec.Executor }
-	fileRecords         struct{ executor dbexec.Executor }
-	partRecords         struct{ executor dbexec.Executor }
-	jobRecords          struct{ executor dbexec.Executor }
-	blobRecords         struct{ executor dbexec.Executor }
-	finalizationRecords struct{ executor dbexec.Executor }
-	leaseRecords        struct{ executor dbexec.Executor }
+	Repository          struct{ database dbapi.DB }
+	sessionRecords      struct{ executor dbapi.Executor }
+	fileRecords         struct{ executor dbapi.Executor }
+	partRecords         struct{ executor dbapi.Executor }
+	jobRecords          struct{ executor dbapi.Executor }
+	blobRecords         struct{ executor dbapi.Executor }
+	finalizationRecords struct{ executor dbapi.Executor }
+	leaseRecords        struct{ executor dbapi.Executor }
 )
 
-func New(database *sql.DB) *Repository { return &Repository{database: database} }
+func New(database dbapi.DB) *Repository { return &Repository{database: database} }
 func (repository *Repository) WithWrite(ctx context.Context, work func(service.WriteScope) error) error {
 	tx, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("uploads/begin write: %w", err)
 	}
-	defer dbexec.Rollback(tx)
+	defer dbapi.Rollback(tx)
 	scope := service.WriteScope{
 		Finalize: finalizationRecords{tx}, Leases: leaseRecords{tx},
 		Sessions: sessionRecords{

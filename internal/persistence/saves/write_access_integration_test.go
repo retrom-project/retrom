@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
 	saveservice "retrom/internal/service/saves"
 )
 
@@ -24,7 +25,7 @@ func TestCheckpointRechecksExpiryAfterReadingBody(t *testing.T) {
 		t.Fatalf("expired launch wrote checkpoint after body receive: %v", err)
 	}
 	var saves, replays int
-	if err := fixture.database.SQL.QueryRowContext(fixture.ctx, `
+	if err := dbapi.QueryRowContext(fixture.ctx, fixture.database.SQL, `
 SELECT (SELECT count(*) FROM save_states),(SELECT count(*) FROM idempotency_records
 WHERE operation_id='postRuntimeSaveState')`).Scan(&saves, &replays); err != nil || saves != 0 || replays != 0 {
 		t.Fatalf("expired write left save=%d replay=%d error=%v", saves, replays, err)

@@ -18,6 +18,7 @@ import (
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
 	dependencypersistence "retrom/internal/persistence/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 
@@ -35,7 +36,7 @@ func TestRPGMakerReviewDetailUsesDetectedCoreBehindVirtualPlatform(t *testing.T)
 	}
 	uploadID := completeRPGMakerHTTPUpload(t, ctx, server, rpgMakerHTTPFixture(t, "rpg2000"))
 	var platformInstanceID string
-	if err := server.database.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, server.database, `
 SELECT id FROM platform_instances WHERE catalog_template_key='rpgmaker/rpgmaker'
 `).Scan(&platformInstanceID); err != nil {
 		t.Fatal(err)
@@ -49,7 +50,7 @@ SELECT id FROM platform_instances WHERE catalog_template_key='rpgmaker/rpgmaker'
 	)
 	testassert.False(t, err != nil, err)
 	var itemID string
-	if err := server.database.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, server.database, `
 SELECT id FROM import_items WHERE import_job_id=?
 `, created.ImportJobID).Scan(&itemID); err != nil {
 		t.Fatal(err)

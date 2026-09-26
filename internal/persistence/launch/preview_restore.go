@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/launch"
 )
 
@@ -16,7 +17,7 @@ func (records previewCreationRecords) Restore(
 ) (application.PreviewRestore, bool, error) {
 	var restore application.PreviewRestore
 	var formats string
-	err := records.executor.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, records.executor, `
 SELECT preview.actor_user_id,preview.import_item_id,preview.source_snapshot_id,preview.provider_id,
  preview.target_id,preview.state,preview.hard_expires_at_ms,preview.content_blob_id,
  preview.content_logical_name,preview.content_format,preview.dependency_snapshot_json,

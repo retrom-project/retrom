@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/recordstore"
 )
 
@@ -14,7 +15,7 @@ func TestRPGReviewPreviewRuntimeFileBelongsToSelectedValidation(t *testing.T) {
 	fixture := newReviewCheckpointFixture(t)
 	preview := fixture.preview(t, "runtime-files")
 	var count int
-	if err := fixture.database.QueryRowContext(t.Context(), `
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `
 SELECT count(*) FROM review_preview_files
 WHERE preview_session_id=? AND role='RUNTIME_FILE' AND blob_id='rpg-index'`, preview.PreviewID).Scan(&count); err != nil || count != 1 {
 		t.Fatalf("selected validation runtime file count=%d error=%v", count, err)

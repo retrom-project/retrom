@@ -2,18 +2,18 @@ package metadatascrape
 
 import (
 	"context"
-	"database/sql"
 	"strings"
 	"testing"
 	"time"
 
 	"retrom/internal/blobstore"
+	dbapi "retrom/internal/database"
 	"retrom/internal/hasheous"
 	"retrom/internal/service/metadatascrape"
 )
 
 type mediaFixture struct {
-	database *sql.DB
+	database dbapi.DB
 	blobs    *blobstore.Store
 	now      time.Time
 	jobID    string
@@ -33,7 +33,7 @@ func newMediaFixture(t *testing.T, assets ...hasheous.AssetRef) *mediaFixture {
 	if err := fixture.record(t.Context(), NewRecorder(fixture.database)); err != nil {
 		t.Fatal(err)
 	}
-	if err := fixture.database.QueryRowContext(t.Context(), `SELECT media_fetch_job_id FROM scrape_candidate_assets ORDER BY ordinal LIMIT 1`).Scan(&fixture.jobID); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT media_fetch_job_id FROM scrape_candidate_assets ORDER BY ordinal LIMIT 1`).Scan(&fixture.jobID); err != nil {
 		t.Fatal(err)
 	}
 	return fixture

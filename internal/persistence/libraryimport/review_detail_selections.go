@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"retrom/internal/cleanup"
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/libraryimport"
 )
 
@@ -65,7 +65,7 @@ ORDER BY rank,normalized_path
 	return result, nil
 }
 
-func scanReviewDOSEntry(scanner dbexec.Scanner, row *application.ReviewDOSEntry) error {
+func scanReviewDOSEntry(scanner dbapi.Scanner, row *application.ReviewDOSEntry) error {
 	if err := scanner.Scan(
 		&row.Path, &row.OriginalPath, &row.Kind, &row.Rank, &row.Enabled, &row.DirectLaunchSafe,
 	); err != nil {

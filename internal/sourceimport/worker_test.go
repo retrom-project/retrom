@@ -2,7 +2,6 @@ package sourceimport
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -14,6 +13,7 @@ import (
 
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
+	dbsqlite "retrom/internal/database/sqlite"
 	"retrom/internal/libraryimport"
 	repository "retrom/internal/persistence/sourceimport"
 	"retrom/internal/serversource"
@@ -25,7 +25,7 @@ func arcadeCompanionFixture(t *testing.T) (*Service, work, Root, executionItem) 
 	t.Helper()
 	setupContext := context.Background()
 	dataDir := t.TempDir()
-	database, err := sql.Open("sqlite", filepath.Join(dataDir, "companion.db"))
+	database, err := dbsqlite.Open(filepath.Join(dataDir, "companion.db"), dbsqlite.Options{})
 	testassert.False(t, err != nil, err)
 	database.SetMaxOpenConns(1)
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
@@ -183,7 +183,7 @@ func TestItemFailureKeepsInternalIdentityAndRedactsHostPath(t *testing.T) {
 
 func TestItemFailureClassifiesSQLiteConstraintByDriverCode(t *testing.T) {
 	t.Parallel()
-	database, err := sql.Open("sqlite", ":memory:")
+	database, err := dbsqlite.Open(":memory:", dbsqlite.Options{})
 	testassert.False(t, err != nil, err)
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
 	if _, err := database.ExecContext(

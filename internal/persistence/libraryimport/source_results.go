@@ -6,13 +6,13 @@ import (
 	"fmt"
 
 	"retrom/internal/cleanup"
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/libraryimport"
 )
 
-type SourceResults struct{ executor dbexec.Executor }
+type SourceResults struct{ executor dbapi.Executor }
 
-func BindSourceResults(executor dbexec.Executor) *SourceResults {
+func BindSourceResults(executor dbapi.Executor) *SourceResults {
 	return &SourceResults{executor: executor}
 }
 

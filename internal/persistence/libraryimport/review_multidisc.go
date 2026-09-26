@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"retrom/internal/cleanup"
+	dbapi "retrom/internal/database"
 	"retrom/internal/multidisc"
 	application "retrom/internal/service/libraryimport"
 )
@@ -14,7 +15,7 @@ func (records *ReviewDependencies) MultiDiscSource(
 	snapshotID string,
 ) (application.MultiDiscSource, error) {
 	var result application.MultiDiscSource
-	err := records.executor.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, records.executor, `
 SELECT file.logical_name,blob.size_bytes,blob.sha256,
 coalesce(json_extract(job.config_snapshot_json,'$.multiDisc.maxDiscs'),?),
 coalesce(json_extract(job.config_snapshot_json,'$.multiDisc.maxTotalBytes'),?)

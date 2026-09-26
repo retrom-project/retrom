@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
+
 	"github.com/google/uuid"
 )
 
@@ -33,7 +35,7 @@ func TestCreatePropagatesEntropyFailureWithoutPersistingPlan(t *testing.T) {
 		t.Errorf("entropy failure: %#v, %v", value, err)
 	}
 	var plans int
-	if err := db.QueryRowContext(t.Context(), `SELECT count(*) FROM source_imports`).Scan(&plans); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), db, `SELECT count(*) FROM source_imports`).Scan(&plans); err != nil {
 		t.Fatal(err)
 	}
 	if plans != 1 {

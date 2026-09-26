@@ -5,22 +5,22 @@ import (
 	"database/sql"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/recordstore"
 	"retrom/internal/service/metadatascrape"
 )
 
 type (
-	ScheduleRepository struct{ database *sql.DB }
-	scheduleReads      struct{ database dbexec.Executor }
-	scheduleWrites     struct{ transaction *sql.Tx }
+	ScheduleRepository struct{ database dbapi.DB }
+	scheduleReads      struct{ database dbapi.Executor }
+	scheduleWrites     struct{ transaction dbapi.Tx }
 )
 
-func NewScheduler(database *sql.DB) *ScheduleRepository {
+func NewScheduler(database dbapi.DB) *ScheduleRepository {
 	return &ScheduleRepository{database: database}
 }
 
-func BindSchedule(transaction *sql.Tx) metadatascrape.ScheduleScope {
+func BindSchedule(transaction dbapi.Tx) metadatascrape.ScheduleScope {
 	reader := scheduleReads{transaction}
 	return metadatascrape.ScheduleScope{Subjects: reader, Sources: reader, Writes: scheduleWrites{transaction}}
 }
@@ -33,7 +33,7 @@ func (repository *ScheduleRepository) WithWrite(
 	if err != nil {
 		return fmt.Errorf("begin scrape scheduling: %w", err)
 	}
-	defer dbexec.Rollback(transaction)
+	defer dbapi.Rollback(transaction)
 	if err := work(BindSchedule(transaction)); err != nil {
 		return err
 	}

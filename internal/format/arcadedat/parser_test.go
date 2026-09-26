@@ -66,7 +66,7 @@ func TestParseRejectsRootFromAnotherDATFamily(t *testing.T) {
 func TestPublicMAME2003SmokeDATMaterializesExecutableDependencyContract(t *testing.T) {
 	t.Parallel()
 	_, filename, _, _ := runtime.Caller(0)
-	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
+	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", "..", ".."))
 	source, err := os.Open(filepath.Join(
 		repositoryRoot,
 		"testdata",
@@ -94,7 +94,7 @@ func TestPublicMAME2003SmokeDATMaterializesExecutableDependencyContract(t *testi
 func TestPublicFBNeoSmokeDATMaterializesExecutableDependencyContract(t *testing.T) {
 	t.Parallel()
 	_, filename, _, _ := runtime.Caller(0)
-	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
+	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", "..", ".."))
 	source, err := os.Open(filepath.Join(
 		repositoryRoot,
 		"testdata",

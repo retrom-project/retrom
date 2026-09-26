@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"testing"
 
+	dbapi "retrom/internal/database"
 	repository "retrom/internal/persistence/sourceimport"
 	application "retrom/internal/service/sourceimport"
 )
@@ -23,7 +24,7 @@ func TestArcadeCompanionsRejectReplacedOwnerBeforeRegisteringCAS(t *testing.T) {
 		t.Fatalf("old worker got companions=%#v err=%v", result, err)
 	}
 	var count int
-	if err := service.database.QueryRowContext(t.Context(), `SELECT count(*) FROM blobs`).Scan(&count); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), service.database, `SELECT count(*) FROM blobs`).Scan(&count); err != nil {
 		t.Fatal(err)
 	}
 	if count != 0 {
@@ -62,7 +63,7 @@ func TestArcadeCompanionRechecksOwnerAndCandidateAfterPhysicalCopy(t *testing.T)
 				t.Fatalf("changed %s accepted blob=%s err=%v", change.name, blobID, err)
 			}
 			var count int
-			if err := service.database.QueryRowContext(t.Context(), `SELECT count(*) FROM blobs`).Scan(&count); err != nil {
+			if err := dbapi.QueryRowContext(t.Context(), service.database, `SELECT count(*) FROM blobs`).Scan(&count); err != nil {
 				t.Fatal(err)
 			}
 			if count != 0 {

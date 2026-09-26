@@ -4,11 +4,11 @@ import (
 	"context"
 	"database/sql"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 )
 
 func UpdateIsolatedRuntimeBootstrapTickets(
-	ctx context.Context, db dbexec.Executor, change Update,
+	ctx context.Context, db dbapi.Executor, change Update,
 ) (sql.Result, error) {
 	return updateRecords(
 		ctx,
@@ -44,7 +44,7 @@ FROM isolated_runtime_bootstrap_tickets candidate CROSS JOIN previous
 WHERE candidate.ticket_sha256=previous.ticket_sha256`
 
 func DeleteIsolatedRuntimeBootstrapTickets(
-	ctx context.Context, db dbexec.Executor, scope Scope,
+	ctx context.Context, db dbapi.Executor, scope Scope,
 ) (sql.Result, error) {
 	return deleteRecords(
 		ctx,

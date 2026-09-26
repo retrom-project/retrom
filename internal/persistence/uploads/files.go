@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	"retrom/internal/blobstore"
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/blobcatalog"
 	"retrom/internal/persistence/importfiles"
 	service "retrom/internal/service/uploads"
@@ -20,8 +20,9 @@ func (repository *Repository) Target(ctx context.Context, key service.FileKey) (
 func (records fileRecords) Target(ctx context.Context, key service.FileKey) (service.PartTarget, error) {
 	result := service.PartTarget{FileKey: key}
 	var code sql.NullString
-	err := records.executor.QueryRowContext(
-		ctx,
+	err := dbapi.QueryRowContext(
+		ctx, records.executor,
+
 		`
 SELECT file.declared_size_bytes,file.state,session.state,session.version,session.expires_at_ms,file.last_error_code
 FROM upload_files file JOIN upload_sessions session ON session.id=file.upload_session_id
@@ -43,7 +44,7 @@ WHERE file.id=? AND session.id=?
 	if err != nil {
 		return service.PartTarget{}, fmt.Errorf("uploads/read part target: %w", err)
 	}
-	result.LastErrorCode = dbexec.StringPointer(code)
+	result.LastErrorCode = dbapi.StringPointer(code)
 	return result, nil
 }
 

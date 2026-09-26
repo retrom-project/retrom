@@ -4,12 +4,12 @@ import (
 	"context"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 )
 
-func gameReferenceCount(ctx context.Context, transaction dbexec.Executor, gameID, blobID string) (int64, error) {
+func gameReferenceCount(ctx context.Context, transaction dbapi.Executor, gameID, blobID string) (int64, error) {
 	var count int64
-	err := transaction.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, transaction, `
 WITH game_import_items(id) AS (
  SELECT metadata_source_ref_id FROM games
  WHERE id=?1 AND metadata_source_kind='IMPORT_REVIEW'

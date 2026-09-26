@@ -7,18 +7,18 @@ import (
 	"fmt"
 
 	"retrom/internal/cleanup"
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/contentquery"
 	application "retrom/internal/service/libraryimport"
 )
 
-type ReviewBulkQueries struct{ executor dbexec.Executor }
+type ReviewBulkQueries struct{ executor dbapi.Executor }
 
-func NewReviewBulkQueries(database *sql.DB) *ReviewBulkQueries {
+func NewReviewBulkQueries(database dbapi.DB) *ReviewBulkQueries {
 	return &ReviewBulkQueries{executor: database}
 }
 
-func BindReviewBulkQueries(executor dbexec.Executor) *ReviewBulkQueries {
+func BindReviewBulkQueries(executor dbapi.Executor) *ReviewBulkQueries {
 	return &ReviewBulkQueries{executor: executor}
 }
 
@@ -27,7 +27,7 @@ func BindReviewBulkQueries(executor dbexec.Executor) *ReviewBulkQueries {
 // from reaching into the database for cursor fencing.
 func (repository *ReviewBulkQueries) LatestReviewItemID(ctx context.Context) (*string, error) {
 	var value sql.NullString
-	if err := repository.executor.QueryRowContext(ctx,
+	if err := dbapi.QueryRowContext(ctx, repository.executor,
 		`SELECT max(id) FROM import_items WHERE state='REVIEW_PENDING'`,
 	).Scan(&value); err != nil {
 		return nil, fmt.Errorf("query review item upper bound: %w", err)
@@ -156,7 +156,7 @@ LEFT JOIN source_import_items source_owner ON source_owner.library_import_item_i
 WHERE item.state='REVIEW_PENDING'
 AND (source_owner.id IS NULL OR source_owner.execution_state='REVIEW_PENDING')`
 
-func scanReviewBulkCandidate(scanner dbexec.Scanner) (application.ReviewBulkCandidate, error) {
+func scanReviewBulkCandidate(scanner dbapi.Scanner) (application.ReviewBulkCandidate, error) {
 	var candidate application.ReviewBulkCandidate
 	var title, providerID, targetID, validationID, validationStatus sql.NullString
 	var validationPlatformVersion sql.NullInt64
@@ -205,8 +205,9 @@ func nullableReviewBulkInt(value sql.NullInt64) *int64 {
 func (repository *ReviewBulkQueries) CandidateByID(
 	ctx context.Context, itemID string,
 ) (application.ReviewBulkCandidate, error) {
-	return scanReviewBulkCandidate(repository.executor.QueryRowContext(
-		ctx, reviewBulkCandidateSelect+" AND item.id=?", itemID,
+	return scanReviewBulkCandidate(dbapi.QueryRowContext(
+		ctx, repository.executor,
+		reviewBulkCandidateSelect+" AND item.id=?", itemID,
 	))
 }
 
@@ -219,16 +220,18 @@ FROM review_bulk_approvals`
 func (repository *ReviewBulkQueries) Summary(
 	ctx context.Context, bulkID string,
 ) (application.ReviewBulkSummary, error) {
-	return scanReviewBulkSummary(repository.executor.QueryRowContext(
-		ctx, reviewBulkSummarySelect+" WHERE id=?", bulkID,
+	return scanReviewBulkSummary(dbapi.QueryRowContext(
+		ctx, repository.executor,
+		reviewBulkSummarySelect+" WHERE id=?", bulkID,
 	))
 }
 
 func (repository *ReviewBulkQueries) ActiveSummary(
 	ctx context.Context,
 ) (application.ReviewBulkSummary, bool, error) {
-	result, err := scanReviewBulkSummary(repository.executor.QueryRowContext(
-		ctx, reviewBulkSummarySelect+" WHERE state IN ('QUEUED','RUNNING') LIMIT 1",
+	result, err := scanReviewBulkSummary(dbapi.QueryRowContext(
+		ctx, repository.executor,
+		reviewBulkSummarySelect+" WHERE state IN ('QUEUED','RUNNING') LIMIT 1",
 	))
 	if errors.Is(err, sql.ErrNoRows) {
 		return application.ReviewBulkSummary{}, false, nil
@@ -236,7 +239,7 @@ func (repository *ReviewBulkQueries) ActiveSummary(
 	return result, err == nil, err
 }
 
-func scanReviewBulkSummary(scanner dbexec.Scanner) (application.ReviewBulkSummary, error) {
+func scanReviewBulkSummary(scanner dbapi.Scanner) (application.ReviewBulkSummary, error) {
 	var result application.ReviewBulkSummary
 	var cursor, lastError sql.NullString
 	var started, completed sql.NullInt64

@@ -3,7 +3,6 @@ package gamecontent
 import (
 	"context"
 	"crypto/sha256"
-	"database/sql"
 	"encoding/hex"
 	"errors"
 	"path/filepath"
@@ -11,11 +10,12 @@ import (
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/service/gamecontent"
 	"retrom/internal/testsupport"
 )
 
-func executionFixture(t *testing.T, state string) (*sql.DB, gamecontent.Claim) {
+func executionFixture(t *testing.T, state string) (dbapi.DB, gamecontent.Claim) {
 	t.Helper()
 	database, err := testsupport.OpenDatabase(t.Context(), filepath.Join(t.TempDir(), "retrom.db"), func() time.Time { return time.UnixMilli(100) })
 	if err != nil {
@@ -88,7 +88,7 @@ func TestReplacementClaimAndStartedEventRollbackTogether(t *testing.T) {
 	}
 	var state string
 	var attempt, version int
-	if err := database.QueryRowContext(t.Context(), `SELECT state,attempt_count,version FROM jobs WHERE id='replacement'`).Scan(&state, &attempt, &version); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), database, `SELECT state,attempt_count,version FROM jobs WHERE id='replacement'`).Scan(&state, &attempt, &version); err != nil {
 		t.Fatal(err)
 	}
 	if state != "QUEUED" || attempt != 0 || version != 2 {
@@ -149,11 +149,11 @@ func TestReplacementFailureEventCannotPartiallyCommit(t *testing.T) {
 	assertExecutionState(t, database, "RUNNING", 2, 0)
 }
 
-func assertExecutionState(t *testing.T, database *sql.DB, wanted string, wantedVersion, wantedEvents int) {
+func assertExecutionState(t *testing.T, database dbapi.DB, wanted string, wantedVersion, wantedEvents int) {
 	t.Helper()
 	var state string
 	var version, events int
-	err := database.QueryRowContext(t.Context(), `SELECT state,version,(SELECT count(*) FROM job_events)
+	err := dbapi.QueryRowContext(t.Context(), database, `SELECT state,version,(SELECT count(*) FROM job_events)
  FROM jobs WHERE id='replacement'`).Scan(&state, &version, &events)
 	if err != nil {
 		t.Fatal(err)

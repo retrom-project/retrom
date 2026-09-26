@@ -5,6 +5,7 @@ package saves
 import (
 	"testing"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/recordstore"
 
 	"retrom/internal/persistence/blobregistry"
@@ -15,7 +16,7 @@ func TestGameSaveFrozenRestoreProtectsOldPayloadUntilLaunchFinishes(t *testing.T
 	a := syncGameData(t, f, f.createLaunch(t), "first")
 	restoring := f.createLaunchFromSave(t, &a.SaveStateID)
 	var oldPayload string
-	if err := f.database.SQL.QueryRowContext(t.Context(), `SELECT payload_blob_id FROM save_states WHERE id=?`, a.SaveStateID).Scan(&oldPayload); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), f.database.SQL, `SELECT payload_blob_id FROM save_states WHERE id=?`, a.SaveStateID).Scan(&oldPayload); err != nil {
 		t.Fatal(err)
 	}
 	syncGameData(t, f, restoring, "second")

@@ -5,6 +5,7 @@ package libraryimport
 import (
 	"testing"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/service/importprogress"
 )
 
@@ -69,7 +70,7 @@ func assertDiscardUnfinishedAggregate(
 	var state, payloadState string
 	var completed *int64
 	var gotQueued, gotRunning, gotPending, gotFailed, discarded int64
-	if err := fixture.database.QueryRowContext(t.Context(), `SELECT state,completed_at_ms,queued_item_count,running_item_count,
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT state,completed_at_ms,queued_item_count,running_item_count,
  review_pending_item_count,failed_item_count,discarded_item_count,payload_state FROM import_jobs WHERE id=?`, importID).
 		Scan(&state, &completed, &gotQueued, &gotRunning, &gotPending, &gotFailed, &discarded, &payloadState); err != nil {
 		t.Fatal(err)

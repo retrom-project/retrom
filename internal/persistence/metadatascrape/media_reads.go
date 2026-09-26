@@ -6,13 +6,14 @@ import (
 	"errors"
 	"fmt"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/service/metadatascrape"
 )
 
 func (records mediaRecords) Snapshot(ctx context.Context, id string) (metadatascrape.MediaSnapshot, error) {
 	var snapshot metadatascrape.MediaSnapshot
 	job := &snapshot.Job
-	err := records.executor.QueryRowContext(ctx, `SELECT j.id,j.state,COALESCE(j.worker_id,''),
+	err := dbapi.QueryRowContext(ctx, records.executor, `SELECT j.id,j.state,COALESCE(j.worker_id,''),
  j.scope_type,j.scope_id,j.execution_no,j.attempt_count,j.max_attempts,j.version,
  COALESCE(j.execution_deadline_at_ms,0),COALESCE(j.leased_until_ms,0),j.available_at_ms,
  COALESCE(i.input_json,''),COALESCE(i.input_digest,'') FROM jobs j LEFT JOIN job_input_snapshots i
@@ -23,7 +24,7 @@ func (records mediaRecords) Snapshot(ctx context.Context, id string) (metadatasc
 		return snapshot, fmt.Errorf("query media job: %w", err)
 	}
 	asset := &snapshot.Asset
-	err = records.executor.QueryRowContext(ctx, `SELECT a.id,a.scrape_candidate_id,a.provider_response_id,
+	err = dbapi.QueryRowContext(ctx, records.executor, `SELECT a.id,a.scrape_candidate_id,a.provider_response_id,
  a.provider_asset_id,a.source_path,a.kind_hint,a.ordinal,a.media_fetch_job_id,a.status,a.version,
  COALESCE(a.media_fetch_order,-1),a.media_charged_bytes,a.media_reserved_bytes,c.scrape_run_id,
  CASE WHEN r.import_item_id IS NOT NULL THEN 'IMPORT_ITEM' ELSE 'GAME' END,
@@ -54,7 +55,7 @@ func (records mediaRecords) Snapshot(ctx context.Context, id string) (metadatasc
 
 func (records mediaRecords) Running(ctx context.Context, now int64) (int, error) {
 	var count int
-	err := records.executor.QueryRowContext(ctx, `SELECT count(*) FROM jobs WHERE kind='MEDIA_FETCH'
+	err := dbapi.QueryRowContext(ctx, records.executor, `SELECT count(*) FROM jobs WHERE kind='MEDIA_FETCH'
  AND state IN ('RUNNING','CANCEL_REQUESTED')
  AND leased_until_ms>? AND execution_deadline_at_ms>?`, now, now).Scan(&count)
 	if err != nil {
@@ -65,7 +66,7 @@ func (records mediaRecords) Running(ctx context.Context, now int64) (int, error)
 
 func (records mediaRecords) RunExecuting(ctx context.Context, id string, now int64) (bool, error) {
 	var active bool
-	err := records.executor.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM jobs j
+	err := dbapi.QueryRowContext(ctx, records.executor, `SELECT EXISTS(SELECT 1 FROM jobs j
  JOIN scrape_candidate_assets a ON a.media_fetch_job_id=j.id
  JOIN scrape_candidates c ON c.id=a.scrape_candidate_id WHERE c.scrape_run_id=?
  AND j.state IN ('RUNNING','CANCEL_REQUESTED') AND j.leased_until_ms>? AND j.execution_deadline_at_ms>?)`,

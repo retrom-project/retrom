@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	repository "retrom/internal/persistence/libraryimport"
 	application "retrom/internal/service/libraryimport"
 )
@@ -17,7 +17,7 @@ type DuplicateConflict = application.DuplicateConflict
 
 func findDuplicateGames(
 	ctx context.Context,
-	executor dbexec.Executor,
+	executor dbapi.Executor,
 	itemID, platformID string,
 ) ([]DuplicateGame, error) {
 	duplicates := application.NewContentDuplicates(repository.BindContentDuplicates(executor))

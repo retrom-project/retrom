@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/contentquery"
 	application "retrom/internal/service/libraryimport"
 )
@@ -97,7 +98,7 @@ AND `+contentquery.BindingPolicySQL+`=?`,
 		return err
 	}
 	var active string
-	err = records.transaction.QueryRowContext(ctx, `
+	err = dbapi.QueryRowContext(ctx, records.transaction, `
 SELECT COALESCE((SELECT id FROM dat_versions WHERE provider_id=? AND target_id=? AND is_active=1),'')`,
 		target.ProviderID, target.TargetID).Scan(&active)
 	if err != nil {

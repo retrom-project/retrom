@@ -6,27 +6,27 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/datindex"
 	service "retrom/internal/service/dependencies"
 )
 
 type (
-	Repository     struct{ database *sql.DB }
-	targetRecords  struct{ executor dbexec.Executor }
-	biosRecords    struct{ executor dbexec.Executor }
-	datRecords     struct{ executor dbexec.Executor }
-	catalogRecords struct{ transaction *sql.Tx }
-	jobRecords     struct{ executor dbexec.Executor }
+	Repository     struct{ database dbapi.DB }
+	targetRecords  struct{ executor dbapi.Executor }
+	biosRecords    struct{ executor dbapi.Executor }
+	datRecords     struct{ executor dbapi.Executor }
+	catalogRecords struct{ transaction dbapi.Tx }
+	jobRecords     struct{ executor dbapi.Executor }
 )
 
-func New(database *sql.DB) *Repository { return &Repository{database: database} }
+func New(database dbapi.DB) *Repository { return &Repository{database: database} }
 func (repository *Repository) WithWrite(ctx context.Context, work func(service.WriteScope) error) error {
 	tx, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("dependencies/begin: %w", err)
 	}
-	defer dbexec.Rollback(tx)
+	defer dbapi.Rollback(tx)
 	scope := service.WriteScope{
 		Targets: targetRecords{executor: tx}, BIOS: biosRecords{executor: tx},
 		DAT: datRecords{
@@ -54,8 +54,9 @@ func (repository *Repository) TargetExists(ctx context.Context, target service.R
 
 func (records targetRecords) Exists(ctx context.Context, target service.RuntimeTarget) (bool, error) {
 	var found int
-	err := records.executor.QueryRowContext(
-		ctx,
+	err := dbapi.QueryRowContext(
+		ctx, records.executor,
+
 		`SELECT 1 FROM runtime_targets WHERE provider_id=? AND target_id=?`,
 		target.ProviderID,
 		target.TargetID,
@@ -73,7 +74,7 @@ func (records targetRecords) Exists(ctx context.Context, target service.RuntimeT
 
 func (repository *Repository) FindDAT(ctx context.Context, lookup service.DATLookup) (service.DATState, error) {
 	var state service.DATState
-	err := repository.database.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, repository.database, `
 SELECT d.id,
 d.parse_status,
 (SELECT count(*)

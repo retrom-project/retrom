@@ -2,8 +2,9 @@ package tagging
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
+
+	dbapi "retrom/internal/database"
 
 	"retrom/internal/cleanup"
 	"retrom/internal/service/tagging"
@@ -11,7 +12,7 @@ import (
 
 func batchReferences(
 	ctx context.Context,
-	database *sql.DB,
+	database dbapi.DB,
 	query string,
 	ownerIDs []string,
 ) (map[string][]tagging.Reference, error) {

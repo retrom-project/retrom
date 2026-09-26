@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/contentquery"
 	application "retrom/internal/service/libraryimport"
 )
@@ -72,11 +72,11 @@ AND NOT EXISTS(
 )
 `
 
-type ReviewDrafts struct{ executor dbexec.Executor }
+type ReviewDrafts struct{ executor dbapi.Executor }
 
 func (records ReviewDrafts) Head(ctx context.Context, itemID string) (application.ReviewHead, error) {
 	var result application.ReviewHead
-	err := records.executor.QueryRowContext(ctx, reviewDetailQuery, itemID).Scan(
+	err := dbapi.QueryRowContext(ctx, records.executor, reviewDetailQuery, itemID).Scan(
 		&result.ItemID, &result.ImportJobID, &result.MetadataJSON, &result.Version, &result.UpdatedAtMS,
 		&result.PlatformInstance.ID, &result.PlatformInstance.Name, contentquery.ScanPolicy(&result.Policy),
 		&result.ValidationID, &result.ValidationStatus, &result.CompatibilityCode, &result.DependencyJSON,

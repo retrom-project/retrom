@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	repository "retrom/internal/persistence/payloadrelease"
 	application "retrom/internal/service/payloadrelease"
 	"retrom/internal/testsupport"
@@ -79,7 +79,7 @@ func assertProviderExpirationUnchanged(t *testing.T, fixture gcSchedulingFixture
 	t.Helper()
 	var state, blobID string
 	var caches, candidates, jobs int
-	err := fixture.database.QueryRowContext(t.Context(), `SELECT raw_payload_state,raw_response_blob_id,
+	err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT raw_payload_state,raw_response_blob_id,
 (SELECT count(*) FROM metadata_provider_cache WHERE current_response_id='expiry-response'),
 (SELECT count(*) FROM blob_gc_candidates WHERE blob_id='manual-gc-blob'),
 (SELECT count(*) FROM jobs WHERE scope_type='BLOB' AND scope_id='manual-gc-blob')
@@ -131,7 +131,7 @@ func TestProviderExpirationDrainsBoundedBatches(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer dbexec.Rollback(tx)
+	defer dbapi.Rollback(tx)
 	for index := range 200 {
 		_, err := tx.ExecContext(t.Context(), `INSERT INTO metadata_provider_responses(
 id,provider,request_digest,http_status,outcome,raw_response_blob_id,raw_payload_state,fetched_at_ms,expires_at_ms)
@@ -151,7 +151,7 @@ VALUES(?,'HASHEOUS',?,200,'HIT','manual-gc-blob','RETAINED',0,1)`, fmt.Sprintf("
 		t.Fatal(err)
 	}
 	var remaining, candidates int
-	err = fixture.database.QueryRowContext(t.Context(), `SELECT
+	err = dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT
 (SELECT count(*) FROM metadata_provider_responses WHERE raw_payload_state='RETAINED'),
 (SELECT count(*) FROM blob_gc_candidates WHERE blob_id='manual-gc-blob')`).Scan(&remaining, &candidates)
 	if err != nil || remaining != 0 || candidates != 1 {

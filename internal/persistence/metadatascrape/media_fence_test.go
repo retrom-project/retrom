@@ -3,12 +3,12 @@ package metadatascrape
 import (
 	"context"
 	"crypto/sha256"
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"testing"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/hasheous"
 	"retrom/internal/service/metadatascrape"
 )
@@ -38,7 +38,7 @@ func TestMediaFinalOwnerChangeCannotPublish(t *testing.T) {
 				t.Fatalf("changed %s published media", change)
 			}
 			var count int
-			if err := fixture.database.QueryRowContext(t.Context(), `SELECT count(*) FROM blobs`).Scan(&count); err != nil {
+			if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT count(*) FROM blobs`).Scan(&count); err != nil {
 				t.Fatal(err)
 			}
 			if count != 0 {
@@ -70,7 +70,7 @@ func TestMediaMalformedSnapshotFailsWithOriginalCause(t *testing.T) {
 	}
 }
 
-func mediaFenceSQL(ctx context.Context, t *testing.T, database *sql.DB, query string, args ...any) {
+func mediaFenceSQL(ctx context.Context, t *testing.T, database dbapi.DB, query string, args ...any) {
 	t.Helper()
 	if _, err := database.ExecContext(ctx, query, args...); err != nil {
 		t.Fatal(err)

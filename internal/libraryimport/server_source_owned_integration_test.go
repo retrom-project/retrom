@@ -10,7 +10,7 @@ import (
 
 	payloadcomposition "retrom/internal/composition/payloadrelease"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	payloadpersistence "retrom/internal/persistence/payloadrelease"
 	application "retrom/internal/service/libraryimport"
 	payloadservice "retrom/internal/service/payloadrelease"
@@ -44,7 +44,7 @@ func assertOwnedSourceBinding(t *testing.T, fixture deduplicateFixture, result S
 	t.Helper()
 	var state, jobID, itemID string
 	var version int64
-	if err := fixture.database.QueryRowContext(fixture.ctx, `SELECT execution_state,library_import_job_id,library_import_item_id,version FROM source_import_items WHERE id='unlinked-source'`).Scan(&state, &jobID, &itemID, &version); err != nil {
+	if err := dbapi.QueryRowContext(fixture.ctx, fixture.database, `SELECT execution_state,library_import_job_id,library_import_item_id,version FROM source_import_items WHERE id='unlinked-source'`).Scan(&state, &jobID, &itemID, &version); err != nil {
 		t.Fatal(err)
 	}
 	if state != "VALIDATING" || jobID != result.Created.ImportJobID || itemID != result.Items[0].ItemID || version != 2 {
@@ -55,7 +55,7 @@ func assertOwnedSourceBinding(t *testing.T, fixture deduplicateFixture, result S
 func ownedImportCount(t *testing.T, fixture deduplicateFixture) int {
 	t.Helper()
 	var count int
-	if err := fixture.database.QueryRowContext(fixture.ctx, `SELECT count(*) FROM import_jobs imported JOIN server_import_upload_owners owner ON owner.upload_session_id=imported.upload_session_id WHERE owner.kind='SOURCE' AND owner.source_item_id='unlinked-source'`).Scan(&count); err != nil {
+	if err := dbapi.QueryRowContext(fixture.ctx, fixture.database, `SELECT count(*) FROM import_jobs imported JOIN server_import_upload_owners owner ON owner.upload_session_id=imported.upload_session_id WHERE owner.kind='SOURCE' AND owner.source_item_id='unlinked-source'`).Scan(&count); err != nil {
 		t.Fatal(err)
 	}
 	return count
@@ -154,7 +154,7 @@ func finishOwnedDuplicateFixture(t *testing.T, fixture deduplicateFixture, gameI
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer dbexec.Rollback(tx)
+	defer dbapi.Rollback(tx)
 	if _, err := tx.ExecContext(fixture.ctx, `UPDATE source_import_items SET execution_state='SKIPPED_EXISTING',existing_game_id=?,completed_at_ms=?,version=version+1 WHERE id='unlinked-source'`, gameID, ownedSourceNow().UnixMilli()); err != nil {
 		t.Fatal(err)
 	}

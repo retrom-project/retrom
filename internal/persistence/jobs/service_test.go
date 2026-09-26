@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/service/jobs"
 
 	"retrom/internal/cleanup"
@@ -109,7 +110,7 @@ func TestCancelAndRetryEnforceVersionedState(t *testing.T) {
 	retried, err := service.Retry(ctx, "retry-job", 1)
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return retried.State != "QUEUED" }, func() bool { return retried.ExecutionNo != 2 }, func() bool { return retried.Version != 2 }), "retry = %#v, error=%v", retried, err)
 	var snapshots int
-	if err := database.SQL.QueryRowContext(context.Background(), `
+	if err := dbapi.QueryRowContext(context.Background(), database.SQL, `
 SELECT count(*)
 FROM job_input_snapshots
 WHERE job_id='retry-job'
@@ -118,7 +119,7 @@ WHERE job_id='retry-job'
 		t.Fatalf("input snapshots = %d, error=%v", snapshots, err)
 	}
 	var firstExecutionID, retriedExecutionID, retriedResourceID, payload string
-	if err := database.SQL.QueryRowContext(context.Background(), `
+	if err := dbapi.QueryRowContext(context.Background(), database.SQL, `
 SELECT json_extract(first.input_json,'$.executionId'),
  json_extract(second.input_json,'$.executionId'),
  json_extract(second.input_json,'$.inputs.resourceId'),job.payload_json

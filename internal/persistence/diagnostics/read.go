@@ -4,12 +4,13 @@ import (
 	"context"
 	"fmt"
 
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/diagnostics"
 )
 
 func (reader records) SchemaVersion(ctx context.Context) (int64, error) {
 	var version int64
-	if err := reader.executor.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, reader.executor, `
 SELECT COALESCE(MAX(version),0)
 FROM schema_migrations
 `).Scan(&version); err != nil {
@@ -20,7 +21,7 @@ FROM schema_migrations
 
 func (reader records) Counts(ctx context.Context) (application.Counts, error) {
 	var counts application.Counts
-	err := reader.executor.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, reader.executor, `
 SELECT
 (SELECT count(*) FROM games WHERE status='PUBLISHED'),
 (SELECT count(*) FROM games WHERE status='DELETED'),

@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/payloadrelease"
 )
 
@@ -19,7 +20,7 @@ func TestRestoredSourceFailureSatisfiesStartupPayloadLifecycle(t *testing.T) {
 	}
 	service.Close()
 	var sourceState, payloadState, kind, scopeType, scopeID string
-	err = db.QueryRowContext(t.Context(), `SELECT source.execution_state,source.payload_state,
+	err = dbapi.QueryRowContext(t.Context(), db, `SELECT source.execution_state,source.payload_state,
 COALESCE(job.kind,''),COALESCE(job.scope_type,''),COALESCE(job.scope_id,'')
 FROM source_import_items source LEFT JOIN jobs job ON job.id=source.payload_release_job_id WHERE source.id='failed-source'`).Scan(
 		&sourceState, &payloadState, &kind, &scopeType, &scopeID)

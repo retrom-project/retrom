@@ -5,20 +5,20 @@ import (
 	"database/sql"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/libraryimport"
 )
 
 type (
-	MultiDiscAttachments      struct{ database *sql.DB }
-	multidiscAdmissionRecords struct{ executor dbexec.Executor }
+	MultiDiscAttachments      struct{ database dbapi.DB }
+	multidiscAdmissionRecords struct{ executor dbapi.Executor }
 )
 
-func NewMultiDiscAttachments(database *sql.DB) *MultiDiscAttachments {
+func NewMultiDiscAttachments(database dbapi.DB) *MultiDiscAttachments {
 	return &MultiDiscAttachments{database}
 }
 
-func BindMultiDiscAdmission(executor dbexec.Executor) application.MultiDiscAttachmentReader {
+func BindMultiDiscAdmission(executor dbapi.Executor) application.MultiDiscAttachmentReader {
 	return multidiscAdmissionRecords{executor}
 }
 
@@ -30,7 +30,7 @@ func (repository *MultiDiscAttachments) WithAttachmentAdmission(
 	if err != nil {
 		return fmt.Errorf("begin multi-disc attachment admission: %w", err)
 	}
-	defer dbexec.Rollback(tx)
+	defer dbapi.Rollback(tx)
 	records := multidiscAdmissionRecords{tx}
 	if err := run(application.MultiDiscAttachmentScope{Read: records, Queue: records, Review: records}); err != nil {
 		return err

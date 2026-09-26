@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	biopersistence "retrom/internal/persistence/corevalidation"
 	metadatapersistence "retrom/internal/persistence/metadatascrape"
 	payloadpersistence "retrom/internal/persistence/payloadrelease"
@@ -14,11 +14,11 @@ import (
 )
 
 type (
-	ImportCreations struct{ database *sql.DB }
-	creationRecords struct{ transaction *sql.Tx }
+	ImportCreations struct{ database dbapi.DB }
+	creationRecords struct{ transaction dbapi.Tx }
 )
 
-func NewImportCreations(database *sql.DB) *ImportCreations {
+func NewImportCreations(database dbapi.DB) *ImportCreations {
 	return &ImportCreations{database: database}
 }
 
@@ -26,11 +26,11 @@ func (repository *ImportCreations) WithCreation(
 	ctx context.Context,
 	work func(application.ImportCreationScope) error,
 ) error {
-	tx, err := repository.database.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable})
+	tx, err := repository.database.BeginTx(ctx, &dbapi.TxOptions{Isolation: dbapi.LevelSerializable})
 	if err != nil {
 		return fmt.Errorf("begin import creation: %w", err)
 	}
-	defer dbexec.Rollback(tx)
+	defer dbapi.Rollback(tx)
 	if err := work(BindImportCreation(tx)); err != nil {
 		return err
 	}
@@ -40,7 +40,7 @@ func (repository *ImportCreations) WithCreation(
 	return nil
 }
 
-func BindImportCreation(tx *sql.Tx) application.ImportCreationScope {
+func BindImportCreation(tx dbapi.Tx) application.ImportCreationScope {
 	records := creationRecords{transaction: tx}
 	return application.ImportCreationScope{
 		Facts:      BindImportFacts(tx),

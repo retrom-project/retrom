@@ -9,6 +9,7 @@ import (
 
 	"retrom/internal/authn"
 	"retrom/internal/config"
+	dbapi "retrom/internal/database"
 
 	accountpersistence "retrom/internal/persistence/accounts"
 
@@ -46,7 +47,7 @@ func TestInvitationConsumptionLateFailureRollsBackIdentityAndAudit(t *testing.T)
 		t.Fatal(err)
 	}
 	var beforeSessions int
-	if err := fixture.database.SQL.QueryRowContext(t.Context(), `SELECT count(*) FROM auth_sessions`).Scan(&beforeSessions); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database.SQL, `SELECT count(*) FROM auth_sessions`).Scan(&beforeSessions); err != nil {
 		t.Fatal(err)
 	}
 	result, err := failingConsumptionService(fixture).AcceptInvitation(t.Context(), accountservice.AcceptInvitationRequest{Token: link.CapabilityToken, Username: "alice", DisplayName: "Alice", Password: compliantTestPassword, PasswordConfirmation: compliantTestPassword})
@@ -54,7 +55,7 @@ func TestInvitationConsumptionLateFailureRollsBackIdentityAndAudit(t *testing.T)
 		t.Fatalf("late invitation: %+v %v", result, err)
 	}
 	var users, profiles, sessions, audits int
-	if err := fixture.database.SQL.QueryRowContext(t.Context(), `SELECT (SELECT count(*) FROM users),(SELECT count(*) FROM profiles),(SELECT count(*) FROM auth_sessions),(SELECT count(*) FROM audit_events WHERE action='INVITATION_ACCEPTED')`).Scan(&users, &profiles, &sessions, &audits); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database.SQL, `SELECT (SELECT count(*) FROM users),(SELECT count(*) FROM profiles),(SELECT count(*) FROM auth_sessions),(SELECT count(*) FROM audit_events WHERE action='INVITATION_ACCEPTED')`).Scan(&users, &profiles, &sessions, &audits); err != nil {
 		t.Fatal(err)
 	}
 	if users != 1 || profiles != 1 || sessions != beforeSessions || audits != 0 {
@@ -87,7 +88,7 @@ func TestPasswordResetConsumptionLateFailureRollsBackCredentialAndAudit(t *testi
 	}
 	var version, audits int
 	var defaultActive bool
-	if err := fixture.database.SQL.QueryRowContext(t.Context(), `SELECT version,(SELECT count(*) FROM audit_events WHERE action='PASSWORD_RESET_COMPLETED'),(SELECT test_default_password_active FROM instance_state) FROM users WHERE id=?`, admin.User.UserID).Scan(&version, &audits, &defaultActive); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database.SQL, `SELECT version,(SELECT count(*) FROM audit_events WHERE action='PASSWORD_RESET_COMPLETED'),(SELECT test_default_password_active FROM instance_state) FROM users WHERE id=?`, admin.User.UserID).Scan(&version, &audits, &defaultActive); err != nil {
 		t.Fatal(err)
 	}
 	if version != 2 || audits != 0 || !defaultActive {

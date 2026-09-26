@@ -2,18 +2,18 @@ package firmware
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"testing"
 	"time"
 
+	dbsqlite "retrom/internal/database/sqlite"
 	firmwareservice "retrom/internal/service/firmware"
 
 	_ "modernc.org/sqlite"
 )
 
 func TestBIOSPreparationPreservesCancelledRead(t *testing.T) {
-	database, err := sql.Open("sqlite", ":memory:")
+	database, err := dbsqlite.Open(":memory:", dbsqlite.Options{})
 	if err != nil {
 		t.Fatal(err)
 	}

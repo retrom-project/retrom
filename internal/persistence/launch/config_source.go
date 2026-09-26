@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/launch"
 )
 
@@ -45,17 +45,17 @@ WHERE preview.id=?
 
 func configSource(
 	ctx context.Context,
-	executor dbexec.Executor,
+	executor dbapi.Executor,
 	ref application.SessionRef,
 ) (application.ConfigSource, bool, error) {
 	query := productConfigSQL
 	if ref.Preview {
 		query = previewConfigSQL
 	}
-	return scanConfigSource(executor.QueryRowContext(ctx, query, ref.ID))
+	return scanConfigSource(dbapi.QueryRowContext(ctx, executor, query, ref.ID))
 }
 
-func scanConfigSource(row dbexec.Scanner) (application.ConfigSource, bool, error) {
+func scanConfigSource(row dbapi.Scanner) (application.ConfigSource, bool, error) {
 	var source application.ConfigSource
 	err := row.Scan(
 		&source.CredentialHash, &source.State, &source.Version, &source.ProviderID, &source.TargetID,

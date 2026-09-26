@@ -2,14 +2,15 @@ package payloadrelease
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
+
+	dbapi "retrom/internal/database"
 
 	persistence "retrom/internal/persistence/payloadrelease"
 	application "retrom/internal/service/payloadrelease"
 )
 
-func collectIDs(ctx context.Context, transaction *sql.Tx, query string, args ...any) ([]string, error) {
+func collectIDs(ctx context.Context, transaction dbapi.Tx, query string, args ...any) ([]string, error) {
 	ids, err := persistence.CollectScopeIDs(ctx, transaction, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("read payload scope identities: %w", err)
@@ -17,7 +18,7 @@ func collectIDs(ctx context.Context, transaction *sql.Tx, query string, args ...
 	return ids, nil
 }
 
-func CollectScopeIDs(ctx context.Context, transaction *sql.Tx, query string, args ...any) ([]string, error) {
+func CollectScopeIDs(ctx context.Context, transaction dbapi.Tx, query string, args ...any) ([]string, error) {
 	return collectIDs(ctx, transaction, query, args...)
 }
 

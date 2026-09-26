@@ -2,7 +2,6 @@ package sourceimport
 
 import (
 	"context"
-	"database/sql"
 	"encoding/base64"
 	"errors"
 	"os"
@@ -18,7 +17,7 @@ import (
 	"retrom/internal/authn"
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/dependencies"
 	"retrom/internal/libraryimport"
 	"retrom/internal/payloadrelease"
@@ -34,7 +33,7 @@ import (
 func mustExecSourceTest(
 	ctx context.Context,
 	t *testing.T,
-	execer dbexec.Executor,
+	execer dbapi.Executor,
 	query string,
 	arguments ...any,
 ) {
@@ -43,7 +42,7 @@ func mustExecSourceTest(
 	testassert.False(t, err != nil, err)
 }
 
-func mustScanSourceTest(t *testing.T, scanner dbexec.Scanner, destinations ...any) {
+func mustScanSourceTest(t *testing.T, scanner dbapi.Scanner, destinations ...any) {
 	t.Helper()
 	testassert.False(t, scanner.Scan(destinations...) != nil, "scan Source fixture")
 }
@@ -51,7 +50,7 @@ func mustScanSourceTest(t *testing.T, scanner dbexec.Scanner, destinations ...an
 func assertNoSourceGames(ctx context.Context, t *testing.T, database *store.DB) {
 	t.Helper()
 	var gameCount int
-	mustScanSourceTest(t, database.SQL.QueryRowContext(ctx, `SELECT count(*) FROM games`), &gameCount)
+	mustScanSourceTest(t, dbapi.QueryRowContext(ctx, database.SQL, `SELECT count(*) FROM games`), &gameCount)
 	testassert.Falsef(t, gameCount != 0, "games before review = %d", gameCount)
 }
 
@@ -118,9 +117,8 @@ VALUES('01980000-0000-7000-8000-000000000800','source-profile','source-test','So
 	collections, err := service.Collections(ctx, created.ID, "", 0, "", 10)
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return len(collections) != 1 }), "collections = %#v, error=%v", collections, err)
 	var targetID string
-	mustScanSourceTest(t, database.SQL.QueryRowContext(context.Background(),
-		`SELECT id FROM platform_instances WHERE platform_id='nes' AND enabled=1 ORDER BY sort_order,id LIMIT 1`),
-		&targetID)
+	mustScanSourceTest(t, dbapi.QueryRowContext(context.Background(), database.SQL,
+		`SELECT id FROM platform_instances WHERE platform_id='nes' AND enabled=1 ORDER BY sort_order,id LIMIT 1`), &targetID)
 	mapped, err := service.UpdateMappings(
 		ctx,
 		created.ID,
@@ -160,7 +158,7 @@ VALUES('01980000-0000-7000-8000-000000000800','source-profile','source-test','So
 		testassert.Falsef(t, testassert.Any(func() bool { return len(item.Tags) != 1 }, func() bool { return item.Tags[0].TagID != mappedTag.TagID }), "projected item tags = %#v", item.Tags)
 	}
 	var mappedDrafts, externalDrafts int
-	if err := database.SQL.QueryRowContext(context.Background(), `
+	if err := dbapi.QueryRowContext(context.Background(), database.SQL, `
 SELECT
   (SELECT count(*) FROM review_draft_tags WHERE tag_id=?),
   (SELECT count(*) FROM review_draft_tags WHERE tag_id=?)
@@ -171,14 +169,13 @@ SELECT
 	var reviewItemID string
 	var reviewVersion int64
 	var reviewTitle, reviewDescription, reviewDeveloper, reviewWarnings string
-	mustScanSourceTest(t, database.SQL.QueryRowContext(context.Background(), `
+	mustScanSourceTest(t, dbapi.QueryRowContext(context.Background(), database.SQL, `
 SELECT item.library_import_item_id,draft.review_version,json_extract(draft.metadata_json,'$.title'),
 json_extract(draft.metadata_json,'$.description'),json_extract(draft.metadata_json,'$.developer'),item.warnings_json
 FROM source_import_items item
 JOIN import_items draft ON draft.id=item.library_import_item_id
 WHERE item.import_id=? AND item.execution_state='REVIEW_PENDING' AND item.title='Published Fixture'
-`, created.ID),
-		&reviewItemID, &reviewVersion, &reviewTitle, &reviewDescription, &reviewDeveloper, &reviewWarnings,
+`, created.ID), &reviewItemID, &reviewVersion, &reviewTitle, &reviewDescription, &reviewDeveloper, &reviewWarnings,
 	)
 	testassert.Falsef(t, testassert.Any(func() bool { return reviewTitle != "Published Fixture" }, func() bool { return len([]rune(reviewDescription)) != 10_000 }, func() bool { return len([]rune(reviewDeveloper)) != 200 }, func() bool {
 		return !strings.Contains(reviewWarnings, `"code":"FIELD_TRUNCATED","field":"description"`)
@@ -189,7 +186,7 @@ WHERE item.import_id=? AND item.execution_state='REVIEW_PENDING' AND item.title=
 	testassert.False(t, err != nil, err)
 	var discardedItemID string
 	var discardedVersion int64
-	mustScanSourceTest(t, database.SQL.QueryRowContext(context.Background(), `
+	mustScanSourceTest(t, dbapi.QueryRowContext(context.Background(), database.SQL, `
 SELECT item.library_import_item_id,draft.review_version
 FROM source_import_items item
 JOIN import_items draft ON draft.id=item.library_import_item_id
@@ -199,13 +196,12 @@ WHERE item.import_id=? AND item.execution_state='REVIEW_PENDING' AND item.title=
 	testassert.False(t, err != nil, err)
 	var gameID, title string
 	var assetCount, gameMappedTags, gameExternalTags int
-	mustScanSourceTest(t, database.SQL.QueryRowContext(context.Background(), `SELECT game.id,game.title,
+	mustScanSourceTest(t, dbapi.QueryRowContext(context.Background(), database.SQL, `SELECT game.id,game.title,
   (SELECT count(*) FROM game_assets asset WHERE asset.game_id=game.id),
   (SELECT count(*) FROM game_tags relation WHERE relation.game_id=game.id AND relation.tag_id=?),
   (SELECT count(*) FROM game_tags relation WHERE relation.game_id=game.id AND relation.tag_id=?)
 FROM games game
-WHERE game.metadata_source_kind='IMPORT_RECEIVE'`, mappedTag.TagID, externalTag.TagID),
-		&gameID, &title, &assetCount, &gameMappedTags, &gameExternalTags)
+WHERE game.metadata_source_kind='IMPORT_RECEIVE'`, mappedTag.TagID, externalTag.TagID), &gameID, &title, &assetCount, &gameMappedTags, &gameExternalTags)
 	testassert.Falsef(t, testassert.Any(func() bool { return gameID == "" }, func() bool { return title != "Published Fixture" }, func() bool { return assetCount != 2 }, func() bool { return gameMappedTags != 1 }, func() bool { return gameExternalTags != 0 }), "published game = %q/%q assets=%d tags=%d/%d", gameID, title, assetCount, gameMappedTags, gameExternalTags)
 	decided, err := service.Get(ctx, created.ID)
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return decided.Counts.ReviewPending != 0 }, func() bool { return decided.Counts.Published != 1 }, func() bool { return decided.Counts.ReviewDiscarded != 1 }), "review decisions = %#v, error=%v", decided, err)
@@ -214,7 +210,7 @@ WHERE game.metadata_source_kind='IMPORT_RECEIVE'`, mappedTag.TagID, externalTag.
 
 func assertSourcePayloadReleased(
 	t *testing.T,
-	database *sql.DB,
+	database dbapi.DB,
 	blobs *blobstore.Store,
 	importID, gameID string,
 ) {
@@ -234,7 +230,7 @@ func assertSourcePayloadReleased(
 		}
 	}
 	var releasedSource, releasedImports, pegasusBlobRefs, gamePayloadRows int64
-	mustScanSourceTest(t, database.QueryRowContext(ctx, `
+	mustScanSourceTest(t, dbapi.QueryRowContext(ctx, database, `
 SELECT
  (SELECT count(*) FROM source_import_items WHERE import_id=? AND payload_state='RELEASED'),
  (SELECT count(*) FROM import_items WHERE id IN (SELECT library_import_item_id FROM source_import_items WHERE import_id=?) AND payload_state='RELEASED'),
@@ -242,8 +238,7 @@ SELECT
  (SELECT count(*) FROM source_import_item_assets asset JOIN source_import_items item ON item.id=asset.item_id WHERE item.import_id=? AND asset.blob_id IS NOT NULL),
  (SELECT count(*) FROM game_files file WHERE file.game_id=?)+
  (SELECT count(*) FROM game_assets WHERE game_id=?)
-`, importID, importID, importID, importID, gameID, gameID),
-		&releasedSource, &releasedImports, &pegasusBlobRefs, &gamePayloadRows)
+`, importID, importID, importID, importID, gameID, gameID), &releasedSource, &releasedImports, &pegasusBlobRefs, &gamePayloadRows)
 	testassert.Falsef(t, testassert.Any(
 		func() bool { return releasedSource != 2 }, func() bool { return releasedImports != 2 },
 		func() bool { return pegasusBlobRefs != 0 }, func() bool { return gamePayloadRows != 3 },
@@ -311,7 +306,7 @@ VALUES(?,'games','Games','',?,'RUNNING','COPYING_CONTENT',?,?,?,1,1,?)
 	}
 	var aggregateState, jobState, aggregateCode, jobCode string
 	var completedAt int64
-	if err := database.SQL.QueryRowContext(context.Background(), `SELECT import.state,job.state,import.last_error_code,job.error_code,import.completed_at_ms FROM source_imports import JOIN jobs job ON job.id=import.import_job_id WHERE import.id=?`, importID).Scan(&aggregateState, &jobState, &aggregateCode, &jobCode, &completedAt); err != nil {
+	if err := dbapi.QueryRowContext(context.Background(), database.SQL, `SELECT import.state,job.state,import.last_error_code,job.error_code,import.completed_at_ms FROM source_imports import JOIN jobs job ON job.id=import.import_job_id WHERE import.id=?`, importID).Scan(&aggregateState, &jobState, &aggregateCode, &jobCode, &completedAt); err != nil {
 		t.Fatal(err)
 	}
 	testassert.Falsef(t, testassert.Any(func() bool { return aggregateState != "FAILED" }, func() bool { return jobState != "FAILED" }, func() bool { return aggregateCode != "SOURCE_WORKER_ATTEMPTS_EXHAUSTED" }, func() bool { return jobCode != aggregateCode }, func() bool { return completedAt != now.UnixMilli() }), "recovered state = aggregate:%s job:%s codes:%s/%s completed:%d", aggregateState, jobState, aggregateCode, jobCode, completedAt)
@@ -323,14 +318,13 @@ func assertResumedSourceReview(
 ) {
 	var resumedSourceItemID, resumedImportJobID, resumedReviewItemID string
 	var importJobCount, draftVersion int
-	mustScanSourceTest(t, database.SQL.QueryRowContext(ctx, `
+	mustScanSourceTest(t, dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT item.id,item.library_import_job_id,item.library_import_item_id,
  (SELECT count(*) FROM import_jobs),
  (SELECT version FROM import_items WHERE id=item.library_import_item_id)
 FROM source_import_items item
 WHERE item.import_id=? AND item.title='Discarded Fixture'
-`, importID),
-		&resumedSourceItemID,
+`, importID), &resumedSourceItemID,
 		&resumedImportJobID,
 		&resumedReviewItemID,
 		&importJobCount,
@@ -365,14 +359,14 @@ WHERE id=?`, claimedWork.JobID)
 	testassert.False(t, err != nil, err)
 	var resumedState string
 	var resumedImportJobCount, resumedDraftVersion int
-	mustScanSourceTest(t, database.SQL.QueryRowContext(ctx, `
+	mustScanSourceTest(t, dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT item.execution_state,
  (SELECT count(*) FROM import_jobs),
  (SELECT version FROM import_items WHERE id=item.library_import_item_id)
 FROM source_import_items item WHERE item.id=?
 `, resumedSourceItemID), &resumedState, &resumedImportJobCount, &resumedDraftVersion)
 	testassert.Falsef(t, testassert.Any(func() bool { return resumedState != "REVIEW_PENDING" }, func() bool { return resumedImportJobCount != importJobCount }, func() bool { return resumedDraftVersion != draftVersion }), "resumed review = state:%s imports:%d/%d draft versions:%d/%d", resumedState, resumedImportJobCount, importJobCount, resumedDraftVersion, draftVersion)
-	if err := database.SQL.QueryRowContext(ctx, `SELECT count(*) FROM review_draft_tags WHERE tag_id=?`, tagID).
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `SELECT count(*) FROM review_draft_tags WHERE tag_id=?`, tagID).
 		Scan(&mappedDrafts); err != nil || mappedDrafts != 2 {
 		t.Fatalf("resumed tag inheritance = %d, %v", mappedDrafts, err)
 	}

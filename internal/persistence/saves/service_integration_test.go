@@ -6,7 +6,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
-	"database/sql"
 	"encoding/hex"
 	"errors"
 	"image"
@@ -29,7 +28,7 @@ import (
 	validationpersistence "retrom/internal/persistence/corevalidation"
 	validationservice "retrom/internal/service/corevalidation"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/blobcatalog"
 
 	"retrom/internal/persistence/recordstore"
@@ -102,7 +101,7 @@ func newSaveFixture(t *testing.T) *saveFixture {
 	testassert.False(t, err != nil, err)
 	transaction, err := database.SQL.BeginTx(ctx, nil)
 	testassert.False(t, err != nil, err)
-	defer dbexec.Rollback(transaction)
+	defer dbapi.Rollback(transaction)
 	if _, err := transaction.ExecContext(ctx, `
 PRAGMA defer_foreign_keys=ON
 `); err != nil {
@@ -245,7 +244,7 @@ func (fixture *saveFixture) createLaunchFromSave(t *testing.T, saveStateID *stri
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer dbexec.Rollback(tx)
+	defer dbapi.Rollback(tx)
 	now := fixture.now.UnixMilli()
 	_, err = sessionstore.CreateLaunch(fixture.ctx, tx, `
 INSERT INTO launch_sessions(
@@ -366,7 +365,7 @@ func TestManualStateRequiresAtomicNonEmptyStateAndScreenshot(t *testing.T) {
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return replayed }, func() bool { return result.SaveStateID == "" }), "manual state = %#v, replayed=%v, error=%v", result, replayed, err)
 	var sourceLaunchID string
 	var stateSize, screenshotSize int64
-	if err := fixture.database.SQL.QueryRowContext(fixture.ctx, `
+	if err := dbapi.QueryRowContext(fixture.ctx, fixture.database.SQL, `
 SELECT s.source_launch_session_id,
 state_blob.size_bytes,
 screenshot_blob.size_bytes
@@ -395,7 +394,7 @@ WHERE s.id=?
 		t.Fatalf("empty state error = %v", err)
 	}
 	var count int
-	if err := fixture.database.SQL.QueryRowContext(fixture.ctx, `
+	if err := dbapi.QueryRowContext(fixture.ctx, fixture.database.SQL, `
 SELECT count(*)
 FROM save_states
 `).Scan(&count); err != nil ||
@@ -527,20 +526,20 @@ func TestCheckpointRejectsDuplicateMetadataKeys(t *testing.T) {
 	}
 }
 
-func mustSaveSQL(t *testing.T, database *sql.DB, query string, arguments ...any) {
+func mustSaveSQL(t *testing.T, database dbapi.DB, query string, arguments ...any) {
 	t.Helper()
-	if _, err := database.Exec(query, arguments...); err != nil {
+	if _, err := database.ExecContext(t.Context(), query, arguments...); err != nil {
 		t.Fatalf("save fixture SQL: %v\n%s", err, query)
 	}
 }
 
-func mustUpdateLaunch(t *testing.T, database *sql.DB, change recordstore.Update) {
+func mustUpdateLaunch(t *testing.T, database dbapi.DB, change recordstore.Update) {
 	t.Helper()
 	tx, err := database.BeginTx(t.Context(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer dbexec.Rollback(tx)
+	defer dbapi.Rollback(tx)
 	if _, err := sessionstore.ChangeLaunch(t.Context(), tx, change); err != nil {
 		t.Fatal(err)
 	}

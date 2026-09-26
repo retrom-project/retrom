@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/importfiles"
 
 	"retrom/internal/composition"
@@ -91,7 +92,7 @@ func TestRecommendedPlatformDirectoryHTTPApplyIsAtomicAndIdempotent(t *testing.T
 	testassert.Falsef(t, testassert.Any(func() bool { return invalid.Code != http.StatusBadRequest }, func() bool { return !strings.Contains(invalid.Body.String(), `"code":"INVALID_REQUEST"`) }), "invalid apply = %d %s", invalid.Code, invalid.Body.String())
 
 	var directoryCount, auditCount int
-	if err := server.database.QueryRowContext(context.Background(), `
+	if err := dbapi.QueryRowContext(context.Background(), server.database, `
 SELECT
   (SELECT count(*) FROM platform_instances WHERE deleted_at_ms IS NULL),
   (SELECT count(*) FROM audit_events WHERE action='PLATFORM_INSTANCE_RECOMMENDED_CREATED')
@@ -144,7 +145,7 @@ func waitForImportState(
 	deadline := time.Now().Add(3 * time.Second)
 	for {
 		var state, code string
-		if err := server.database.QueryRowContext(t.Context(), `
+		if err := dbapi.QueryRowContext(t.Context(), server.database, `
 SELECT state,coalesce(last_error_code,'') FROM import_jobs WHERE id=?
 `, importID).Scan(&state, &code); err != nil {
 			t.Fatal(err)
@@ -239,7 +240,7 @@ VALUES(?,?,'game.chd',?,?,?,'COMPLETE',?,?)
 		return state == "FAILED"
 	})
 	var canonicalMode string
-	if err := server.database.QueryRowContext(context.Background(), `
+	if err := dbapi.QueryRowContext(context.Background(), server.database, `
 SELECT json_extract(request_json,'$.request.contentMode')
 FROM import_group_requests WHERE import_job_id=?
 `, projectCreated.ImportJobID).Scan(&canonicalMode); err != nil {
@@ -256,11 +257,11 @@ FROM import_group_requests WHERE import_job_id=?
 		})
 	}
 	var omittedConfig, explicitConfig, omittedDigest, explicitDigest string
-	if err := server.database.QueryRowContext(context.Background(), `SELECT config_snapshot_json,config_snapshot_digest FROM import_jobs WHERE upload_session_id=?`, thirdUpload).
+	if err := dbapi.QueryRowContext(context.Background(), server.database, `SELECT config_snapshot_json,config_snapshot_digest FROM import_jobs WHERE upload_session_id=?`, thirdUpload).
 		Scan(&omittedConfig, &omittedDigest); err != nil {
 		t.Fatal(err)
 	}
-	if err := server.database.QueryRowContext(context.Background(), `SELECT config_snapshot_json,config_snapshot_digest FROM import_jobs WHERE upload_session_id=?`, fourthUpload).
+	if err := dbapi.QueryRowContext(context.Background(), server.database, `SELECT config_snapshot_json,config_snapshot_digest FROM import_jobs WHERE upload_session_id=?`, fourthUpload).
 		Scan(&explicitConfig, &explicitDigest); err != nil {
 		t.Fatal(err)
 	}

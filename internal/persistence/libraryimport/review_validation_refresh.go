@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/contentquery"
 	"retrom/internal/persistence/recordstore"
 	application "retrom/internal/service/libraryimport"
@@ -21,7 +22,7 @@ func (records *ReviewValidation) Inputs(
 	var result application.ReviewValidationRefreshInputs
 	var platformID, defaultCoreID string
 	var datVersionID sql.NullString
-	if err := records.executor.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, records.executor, `
 SELECT draft.id,snapshot.id,snapshot.source_manifest_digest,snapshot.content_kind
 FROM import_items draft
 JOIN import_item_source_snapshots snapshot ON snapshot.id=draft.effective_source_snapshot_id
@@ -31,7 +32,7 @@ WHERE draft.id=?
 	); err != nil {
 		return application.ReviewValidationRefreshInputs{}, application.ErrInvalid
 	}
-	if err := records.executor.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, records.executor, `
 SELECT version,platform_id,default_core_id
 FROM platform_instances
 WHERE id=? AND enabled=1 AND deleted_at_ms IS NULL
@@ -42,7 +43,7 @@ WHERE id=? AND enabled=1 AND deleted_at_ms IS NULL
 		return records.rpgInputs(ctx, itemID, targetID, result)
 	}
 	result.CoreID = defaultCoreID
-	if err := records.executor.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, records.executor, `
 SELECT binding.provider_id,binding.target_id,
   (SELECT id FROM dat_versions WHERE provider_id=binding.provider_id AND target_id=binding.target_id AND is_active=1),
   `+contentquery.BindingPolicySQL+`
@@ -71,7 +72,7 @@ func (records *ReviewValidation) rpgInputs(
 		return application.ReviewValidationRefreshInputs{}, application.ErrInvalid
 	}
 	var datVersionID sql.NullString
-	if err := records.executor.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, records.executor, `
 SELECT 'rpgmaker',target.provider_id,target.target_id,
  (SELECT id FROM dat_versions WHERE provider_id=target.provider_id
  AND target_id=target.target_id AND is_active=1),
@@ -103,7 +104,7 @@ func (records *ReviewValidation) Exact(
 	ctx context.Context, lookup application.ReviewValidationRefreshLookup,
 ) (application.ReviewValidationRefreshRecord, bool, error) {
 	var result application.ReviewValidationRefreshRecord
-	err := records.executor.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, records.executor, `
 SELECT id,source_manifest_digest,prepublish_input_digest,status,
   compatibility_code,dependency_snapshot_json
 FROM import_item_core_validations
@@ -130,7 +131,7 @@ func (records *ReviewValidation) Fallback(
 	ctx context.Context, lookup application.ReviewValidationRefreshLookup,
 ) (application.ReviewValidationRefreshRecord, bool, error) {
 	var result application.ReviewValidationRefreshRecord
-	err := records.executor.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, records.executor, `
 SELECT validation.id,validation.source_manifest_digest,validation.prepublish_input_digest,
   validation.status,validation.compatibility_code,validation.dependency_snapshot_json
 FROM import_item_core_validations validation
@@ -190,7 +191,7 @@ WHERE import_item_core_validation_id=? AND (?=0 OR role<>'BIOS_BUNDLE')
 		return nil
 	}
 	var sortOrder int
-	if err := records.executor.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, records.executor, `
 SELECT COALESCE(MAX(sort_order),-1)+1
 FROM import_item_validation_files
 WHERE import_item_core_validation_id=?
@@ -229,7 +230,7 @@ func reviewValidationArgument(value *string) any {
 
 func (records *ReviewValidation) ContentLogicalName(ctx context.Context, snapshotID string) (string, error) {
 	var logicalName string
-	err := records.executor.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, records.executor, `
 SELECT logical_name
 FROM import_item_source_snapshot_files
 WHERE source_snapshot_id=? AND role IN ('CONTENT','DISC','DOS_SOURCE')

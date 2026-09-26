@@ -7,20 +7,20 @@ import (
 	"fmt"
 
 	"retrom/internal/cleanup"
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/payloadrelease"
 )
 
-type Retirement struct{ database *sql.DB }
+type Retirement struct{ database dbapi.DB }
 
-func NewRetirement(database *sql.DB) *Retirement { return &Retirement{database: database} }
+func NewRetirement(database dbapi.DB) *Retirement { return &Retirement{database: database} }
 
 func (repository *Retirement) WithRetirement(ctx context.Context, run func(application.RetirementScope) error) error {
 	tx, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin retirement transaction: %w", err)
 	}
-	defer dbexec.Rollback(tx)
+	defer dbapi.Rollback(tx)
 	records := retirementRecords{executor: tx}
 	if err := run(application.RetirementScope{Read: records, BIOS: records, Launch: records}); err != nil {
 		return err
@@ -31,11 +31,11 @@ func (repository *Retirement) WithRetirement(ctx context.Context, run func(appli
 	return nil
 }
 
-type retirementRecords struct{ executor dbexec.Executor }
+type retirementRecords struct{ executor dbapi.Executor }
 
 func (records retirementRecords) BIOS(ctx context.Context, limit int) (application.BIOSRetirement, error) {
 	var facts application.BIOSRetirement
-	err := records.executor.QueryRowContext(ctx, `SELECT id,blob_id,version,
+	err := dbapi.QueryRowContext(ctx, records.executor, `SELECT id,blob_id,version,
 EXISTS(SELECT 1 FROM bios_installations active WHERE active.blob_id=retired.blob_id AND active.is_active=1)
 FROM bios_installations retired WHERE is_active=0 AND blob_id IS NOT NULL ORDER BY updated_at_ms,id LIMIT 1`).
 		Scan(&facts.ID, &facts.BlobID, &facts.Version, &facts.SharedActive)
@@ -61,7 +61,7 @@ func (records retirementRecords) Launch(
 ) (application.LaunchRetirement, error) {
 	var facts application.LaunchRetirement
 	var idle, finished sql.NullInt64
-	err := records.executor.QueryRowContext(ctx, `SELECT launch.id,launch.state,launch.version,retirement.due_at_ms,
+	err := dbapi.QueryRowContext(ctx, records.executor, `SELECT launch.id,launch.state,launch.version,retirement.due_at_ms,
 launch.bootstrap_expires_at_ms,launch.hard_expires_at_ms,launch.idle_expires_at_ms,launch.finished_at_ms
 FROM launch_payload_retirements retirement JOIN launch_sessions launch ON launch.id=retirement.launch_session_id
 WHERE retirement.released_at_ms IS NULL AND retirement.due_at_ms<=?
@@ -117,7 +117,7 @@ func (records retirementRecords) files(
 
 func (records retirementRecords) plays(ctx context.Context, id string) ([]application.RetirementPlay, error) {
 	var play application.RetirementPlay
-	err := records.executor.QueryRowContext(ctx, `SELECT id,version FROM play_sessions
+	err := dbapi.QueryRowContext(ctx, records.executor, `SELECT id,version FROM play_sessions
 WHERE launch_session_id=? AND state='ACTIVE'`, id).Scan(&play.ID, &play.Version)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil

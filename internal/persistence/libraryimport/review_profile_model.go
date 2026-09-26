@@ -4,15 +4,15 @@ import (
 	"context"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/profilemodel"
 )
 
 func readRPGReviewProfile(
-	ctx context.Context, executor dbexec.Executor, itemID string,
+	ctx context.Context, executor dbapi.Executor, itemID string,
 ) (*profilemodel.RPGReview, error) {
 	var raw string
-	if err := executor.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, executor, `
 SELECT review_profile_json FROM import_items WHERE id=? AND review_profile_json IS NOT NULL`, itemID,
 	).Scan(&raw); err != nil {
 		return nil, fmt.Errorf("read review profile: %w", err)

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/launch"
 )
 
@@ -51,7 +52,7 @@ WHERE preview.id=? AND file.logical_name=?
 	}
 	var result application.ExternalRecord
 	session, content := &result.Session, &result.Content
-	err := repository.executor.QueryRowContext(ctx, query, ref.ID, logicalName).Scan(
+	err := dbapi.QueryRowContext(ctx, repository.executor, query, ref.ID, logicalName).Scan(
 		&session.CredentialHash, &session.State, &session.HardExpiresAtMS,
 		&content.Digest, &content.Kind, &content.PlatformKey, &content.CoreKey,
 		&content.ProviderID, &content.TargetID, &content.BundleSHA256, &content.DiscCount)

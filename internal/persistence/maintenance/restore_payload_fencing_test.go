@@ -2,18 +2,17 @@ package maintenance
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"testing"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	persistence "retrom/internal/persistence/payloadrelease"
 	release "retrom/internal/service/payloadrelease"
 )
 
 type changedPayloadOwner struct {
 	release.SchedulingScope
-	transaction *sql.Tx
+	transaction dbapi.Tx
 	mutation    string
 	changed     bool
 }
@@ -51,7 +50,7 @@ SET execution_state='COMMIT_FAILED',retryable=0,completed_at_ms=10 WHERE id='fai
 			if err != nil {
 				t.Fatal(err)
 			}
-			defer dbexec.Rollback(tx)
+			defer dbapi.Rollback(tx)
 			scope := &changedPayloadOwner{
 				SchedulingScope: persistence.BindScheduling(tx), transaction: tx,
 				mutation: "UPDATE source_import_items SET " + change.mutation + " WHERE id='failed-source'",
@@ -62,7 +61,7 @@ SET execution_state='COMMIT_FAILED',retryable=0,completed_at_ms=10 WHERE id='fai
 				t.Fatalf("payload scheduler ignored stale owner: %q/%v changed=%t", id, err, scope.changed)
 			}
 			var jobs int
-			if err := tx.QueryRowContext(t.Context(), `SELECT count(*) FROM jobs
+			if err := dbapi.QueryRowContext(t.Context(), tx, `SELECT count(*) FROM jobs
 WHERE kind='PAYLOAD_RELEASE' AND scope_type='SOURCE_IMPORT_ITEM' AND scope_id='failed-source'`).Scan(&jobs); err != nil || jobs != 1 {
 				t.Fatalf("owner fence did not follow actual job writes: %d/%v", jobs, err)
 			}

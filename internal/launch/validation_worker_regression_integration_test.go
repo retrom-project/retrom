@@ -15,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/testsupport"
 
 	persistence "retrom/internal/persistence/launch"
@@ -23,12 +24,12 @@ import (
 
 type validationWorkerFixture struct {
 	service  *Service
-	database *sql.DB
+	database dbapi.DB
 	gameID   string
 	now      func() time.Time
 }
 
-func validationWorkerSQL(t *testing.T, database *sql.DB, statement string, args ...any) {
+func validationWorkerSQL(t *testing.T, database dbapi.DB, statement string, args ...any) {
 	t.Helper()
 	if _, err := database.ExecContext(t.Context(), statement, args...); err != nil {
 		t.Fatal(err)
@@ -56,10 +57,10 @@ func queuedValidationWorker(t *testing.T) (validationWorkerFixture, string) {
 	return validationWorkerFixture{service: source.service, database: source.database, gameID: approved.GameID, now: now}, pending.JobID
 }
 
-func readValidationWorkerJob(t *testing.T, database *sql.DB, id string) validationWorkerJob {
+func readValidationWorkerJob(t *testing.T, database dbapi.DB, id string) validationWorkerJob {
 	t.Helper()
 	var job validationWorkerJob
-	err := database.QueryRowContext(t.Context(), `SELECT state,COALESCE(error_code,''),COALESCE(worker_id,''),version,
+	err := dbapi.QueryRowContext(t.Context(), database, `SELECT state,COALESCE(error_code,''),COALESCE(worker_id,''),version,
 attempt_count,execution_no,(SELECT count(*) FROM job_events WHERE job_id=jobs.id),execution_started_at_ms,
 execution_deadline_at_ms,leased_until_ms,cancel_requested_at_ms FROM jobs WHERE id=?`, id).Scan(
 		&job.State, &job.ErrorCode, &job.WorkerID, &job.Version, &job.Attempt, &job.Execution, &job.Events,
@@ -92,7 +93,7 @@ func TestValidationWorkerGameChangeClosesWithCancellationMetadata(t *testing.T) 
 		t.Fatalf("changed game did not settle cancellation: %+v", job)
 	}
 	var events int
-	if err := fixture.database.QueryRowContext(t.Context(), `SELECT count(*) FROM job_events WHERE job_id=? AND event_type='CANCELLED'`, id).Scan(&events); err != nil || events != 1 {
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT count(*) FROM job_events WHERE job_id=? AND event_type='CANCELLED'`, id).Scan(&events); err != nil || events != 1 {
 		t.Fatalf("cancel events=%d error=%v", events, err)
 	}
 }
@@ -168,7 +169,7 @@ func TestValidationWorkerFailureEventIsAtomic(t *testing.T) {
 	}
 }
 
-func assertValidationRejectsRetiredBIOS(t *testing.T, ctx context.Context, database *sql.DB, selected application.ProductSnapshot, variantID string) {
+func assertValidationRejectsRetiredBIOS(t *testing.T, ctx context.Context, database dbapi.DB, selected application.ProductSnapshot, variantID string) {
 	t.Helper()
 	inputs, err := application.ProductValidationInputs(selected, variantID)
 	if err != nil {
@@ -276,7 +277,7 @@ func TestValidationWorkerTerminalEventRetainsPublicContract(t *testing.T) {
 	fixture, id := queuedValidationWorker(t)
 	fixture.service.ResumeValidationJob(t.Context(), id)
 	var raw, scopeID string
-	if err := fixture.database.QueryRowContext(t.Context(), `SELECT data_json,scope_id FROM job_events WHERE job_id=? AND event_type='SUCCEEDED'`, id).Scan(&raw, &scopeID); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT data_json,scope_id FROM job_events WHERE job_id=? AND event_type='SUCCEEDED'`, id).Scan(&raw, &scopeID); err != nil {
 		t.Fatal(err)
 	}
 	var payload map[string]string
@@ -287,7 +288,7 @@ func TestValidationWorkerTerminalEventRetainsPublicContract(t *testing.T) {
 		t.Fatalf("success event changed: %s", raw)
 	}
 	var errorCode sql.NullString
-	if err := fixture.database.QueryRowContext(t.Context(), `SELECT error_code FROM jobs WHERE id=?`, id).Scan(&errorCode); err != nil || errorCode.Valid {
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT error_code FROM jobs WHERE id=?`, id).Scan(&errorCode); err != nil || errorCode.Valid {
 		t.Fatalf("success error: %+v %v", errorCode, err)
 	}
 }
@@ -307,7 +308,7 @@ func TestValidationWorkerCorruptSnapshotPreservesJSONCause(t *testing.T) {
 			}
 			var retryable bool
 			var event string
-			if err := fixture.database.QueryRowContext(t.Context(), `SELECT error_retryable,(SELECT data_json FROM job_events WHERE job_id=jobs.id AND event_type='FAILED') FROM jobs WHERE id=?`, id).Scan(&retryable, &event); err != nil {
+			if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT error_retryable,(SELECT data_json FROM job_events WHERE job_id=jobs.id AND event_type='FAILED') FROM jobs WHERE id=?`, id).Scan(&retryable, &event); err != nil {
 				t.Fatal(err)
 			}
 			if retryable || event != `{"code":"LAUNCH_CORE_VALIDATION_UNAVAILABLE"}` {
@@ -334,7 +335,7 @@ func TestValidationWorkerCorruptSnapshotFailureIsAtomic(t *testing.T) {
 func corruptValidationWorkerSnapshot(t *testing.T, fixture validationWorkerFixture, id, kind string) {
 	t.Helper()
 	var raw string
-	if err := fixture.database.QueryRowContext(t.Context(), `SELECT input_json FROM job_input_snapshots WHERE job_id=? AND execution_no=1`, id).Scan(&raw); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT input_json FROM job_input_snapshots WHERE job_id=? AND execution_no=1`, id).Scan(&raw); err != nil {
 		t.Fatal(err)
 	}
 	if kind == "syntax" {
@@ -366,7 +367,7 @@ type validationVariantState struct {
 func validationWorkerVariantState(t *testing.T, fixture validationWorkerFixture) validationVariantState {
 	t.Helper()
 	var state validationVariantState
-	err := fixture.database.QueryRowContext(t.Context(), `SELECT version,status,compatibility_code,dependency_snapshot_json,(SELECT count(*) FROM variant_files WHERE game_variant_id=game_variants.id) FROM game_variants WHERE game_id=?`, fixture.gameID).Scan(&state.Version, &state.Status, &state.Code, &state.Dependency, &state.Files)
+	err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT version,status,compatibility_code,dependency_snapshot_json,(SELECT count(*) FROM variant_files WHERE game_variant_id=game_variants.id) FROM game_variants WHERE game_id=?`, fixture.gameID).Scan(&state.Version, &state.Status, &state.Code, &state.Dependency, &state.Files)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
-	"database/sql"
 	"encoding/base64"
 	"fmt"
 	"os"
@@ -16,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
 	uploadpersistence "retrom/internal/persistence/uploads"
 
 	dependencypersistence "retrom/internal/persistence/dependencies"
@@ -126,8 +126,9 @@ VALUES(?,'wasm4-profile','wasm4-admin','WASM-4 Admin','ADMIN','ENABLED',0,0);
 		t.Fatal(err)
 	}
 	var itemID string
-	if err := database.SQL.QueryRowContext(
-		ctx, `SELECT id FROM import_items WHERE import_job_id=?`, createdImport.ImportJobID,
+	if err := dbapi.QueryRowContext(
+		ctx, database.SQL,
+		`SELECT id FROM import_items WHERE import_job_id=?`, createdImport.ImportJobID,
 	).Scan(&itemID); err != nil {
 		t.Fatal(err)
 	}
@@ -209,11 +210,11 @@ VALUES(?,'wasm4-profile','wasm4-admin','WASM-4 Admin','ADMIN','ENABLED',0,0);
 	}
 }
 
-func waitForWASM4Job(t *testing.T, database *sql.DB, jobID string) {
+func waitForWASM4Job(t *testing.T, database dbapi.DB, jobID string) {
 	t.Helper()
 	for deadline := time.Now().Add(3 * time.Second); ; {
 		var state string
-		if err := database.QueryRowContext(context.Background(), `SELECT state FROM jobs WHERE id=?`, jobID).
+		if err := dbapi.QueryRowContext(context.Background(), database, `SELECT state FROM jobs WHERE id=?`, jobID).
 			Scan(&state); err != nil {
 			t.Fatal(err)
 		}

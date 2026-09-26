@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"retrom/internal/blobstore"
+	dbapi "retrom/internal/database"
 	"retrom/internal/payloadrelease"
 	"retrom/internal/testsupport"
 )
@@ -33,7 +34,7 @@ func TestPreviewExpirationRollsBackUnconfirmedRelease(t *testing.T) {
 	}
 	var beforeState, checkpointID string
 	var beforeVersion int64
-	if err := fixture.database.QueryRowContext(t.Context(), `SELECT state,version,checkpoint_payload_blob_id
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT state,version,checkpoint_payload_blob_id
 FROM review_preview_sessions WHERE id=?`, preview.PreviewID).Scan(&beforeState, &beforeVersion, &checkpointID); err != nil {
 		t.Fatal(err)
 	}
@@ -67,7 +68,7 @@ FROM review_preview_sessions WHERE id=?`, preview.PreviewID).Scan(&beforeState, 
 	var state string
 	var version int64
 	var retained, candidates int
-	readErr := fixture.database.QueryRowContext(t.Context(), `SELECT state,version,checkpoint_payload_blob_id IS NOT NULL,
+	readErr := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT state,version,checkpoint_payload_blob_id IS NOT NULL,
 (SELECT count(*) FROM blob_gc_candidates WHERE blob_id=?)
 FROM review_preview_sessions WHERE id=?`, checkpointID, preview.PreviewID).Scan(&state, &version, &retained, &candidates)
 	if !errors.Is(err, cause) || hits.Load() != 1 || readErr != nil || state != beforeState || version != beforeVersion ||

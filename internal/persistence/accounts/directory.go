@@ -7,13 +7,13 @@ import (
 	"fmt"
 
 	"retrom/internal/cleanup"
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/service/accounts"
 )
 
-type DirectoryRepository struct{ database *sql.DB }
+type DirectoryRepository struct{ database dbapi.DB }
 
-func NewDirectory(database *sql.DB) *DirectoryRepository { return &DirectoryRepository{database} }
+func NewDirectory(database dbapi.DB) *DirectoryRepository { return &DirectoryRepository{database} }
 
 const adminUserProjection = `SELECT u.id,u.username,u.display_name,u.role,u.status,u.version,
  u.created_at_ms,u.last_login_at_ms,
@@ -26,7 +26,8 @@ func (repository *DirectoryRepository) Get(
 	id string,
 	now int64,
 ) (accounts.AdminUser, bool, error) {
-	user, err := scanAdminUser(repository.database.QueryRowContext(ctx, adminUserProjection+` WHERE u.id=?`, now, now, id))
+	user, err := scanAdminUser(dbapi.QueryRowContext(
+		ctx, repository.database, adminUserProjection+` WHERE u.id=?`, now, now, id))
 	if errors.Is(err, sql.ErrNoRows) {
 		return user, false, nil
 	}
@@ -69,7 +70,7 @@ func (repository *DirectoryRepository) List(
 	return users, nil
 }
 
-func scanAdminUser(scanner dbexec.Scanner) (accounts.AdminUser, error) {
+func scanAdminUser(scanner dbapi.Scanner) (accounts.AdminUser, error) {
 	var user accounts.AdminUser
 	err := scanner.Scan(
 		&user.UserID,

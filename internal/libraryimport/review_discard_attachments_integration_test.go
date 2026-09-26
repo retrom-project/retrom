@@ -6,6 +6,8 @@ import (
 	"errors"
 	"reflect"
 	"testing"
+
+	dbapi "retrom/internal/database"
 )
 
 type (
@@ -103,7 +105,7 @@ func readDiscardAttachment(t *testing.T, fixture deduplicateFixture, kind string
 		table = "review_multidisc_attachments"
 	}
 	var result discardAttachmentSnapshot
-	if err := fixture.database.QueryRowContext(t.Context(), `
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `
 SELECT a.state,a.version,a.finished_at_ms,a.error_code,j.state,j.version,j.finished_at_ms,j.cancel_requested_at_ms,j.cancel_reason
 FROM `+table+` a JOIN jobs j ON j.id=a.job_id WHERE a.id='discard-attachment'`).Scan(&result.State, &result.Version, &result.FinishedAt, &result.ErrorCode,
 		&result.JobState, &result.JobVersion, &result.JobFinishedAt, &result.CancelRequestedAt, &result.JobReason); err != nil {

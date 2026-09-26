@@ -25,7 +25,7 @@ import (
 	dependencypersistence "retrom/internal/persistence/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/blobcatalog"
 
 	"github.com/google/uuid"
@@ -79,7 +79,7 @@ func TestPublishedGameLaunchLocksContentAndCredential(t *testing.T) {
 	testassert.False(t, err != nil, err)
 	for deadline := time.Now().Add(3 * time.Second); ; {
 		var state string
-		_ = database.SQL.QueryRowContext(ctx, "SELECT state FROM jobs WHERE id=?", jobID).Scan(&state)
+		_ = dbapi.QueryRowContext(ctx, database.SQL, "SELECT state FROM jobs WHERE id=?", jobID).Scan(&state)
 		if state == "SUCCEEDED" {
 			break
 		}
@@ -98,7 +98,7 @@ func TestPublishedGameLaunchLocksContentAndCredential(t *testing.T) {
 	)
 	testassert.False(t, err != nil, err)
 	var itemID string
-	if err := database.SQL.QueryRowContext(ctx, "SELECT id FROM import_items WHERE import_job_id=?", createdImport.ImportJobID).Scan(
+	if err := dbapi.QueryRowContext(ctx, database.SQL, "SELECT id FROM import_items WHERE import_job_id=?", createdImport.ImportJobID).Scan(
 		&itemID,
 	); err != nil {
 		t.Fatal(err)
@@ -117,7 +117,7 @@ func TestPublishedGameLaunchLocksContentAndCredential(t *testing.T) {
 	testassert.False(t, err != nil, err)
 	var requirementID string
 	var requirementVersion int64
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT id,
 version
 FROM bios_requirements
@@ -203,7 +203,7 @@ updated_at_ms) VALUES(?,
 		for deadline := time.Now().Add(3 * time.Second); ; {
 			var state string
 			var errorCode sql.NullString
-			if queryErr := database.SQL.QueryRowContext(ctx, `
+			if queryErr := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT state,error_code FROM jobs WHERE id=?
 `, createdLaunch.JobID).Scan(&state, &errorCode); queryErr != nil {
 				t.Fatal(queryErr)
@@ -347,7 +347,7 @@ WHERE launch_session_id=?
 	), "locked save envelope = %#v", quickEnvelope)
 	contentTx, err := database.SQL.BeginTx(ctx, nil)
 	testassert.False(t, err != nil, err)
-	defer dbexec.Rollback(contentTx)
+	defer dbapi.Rollback(contentTx)
 	if _, err := contentTx.ExecContext(ctx, `
 	UPDATE game_files SET logical_name='Launch.gb' WHERE game_id=? AND role='CONTENT'
 `, approved.GameID); err != nil {
@@ -379,7 +379,7 @@ WHERE id=?
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return pending.Status != "VALIDATION_PENDING" }, func() bool { return pending.JobID == "" }), "pending validation = %#v, error=%v", pending, err)
 	var cancellable int
 	var dedupeKey, payloadJSON, inputJSON string
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT j.cancellable,
 j.dedupe_key,
 j.payload_json,
@@ -396,7 +396,7 @@ WHERE j.id=?
 	testassert.Falsef(t, testassert.Any(func() bool { return json.Unmarshal([]byte(payloadJSON), &payload) != nil }, func() bool { return json.Unmarshal([]byte(inputJSON), &snapshot) != nil }, func() bool { return cancellable != 0 }, func() bool { return len(dedupeKey) != 64 }, func() bool { return dedupeKey == snapshot.Inputs.ValidationInputDigest }, func() bool { return payload["inputExecutionNo"] != float64(1) }, func() bool { return snapshot.Inputs.GameVariantID == "" }), "validation job contract = cancellable:%d dedupe:%s payload:%s snapshot:%s", cancellable, dedupeKey, payloadJSON, inputJSON)
 	for deadline := time.Now().Add(3 * time.Second); ; {
 		var state string
-		if err := database.SQL.QueryRowContext(ctx, `
+		if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT state
 FROM jobs
 WHERE id=?
@@ -408,14 +408,14 @@ WHERE id=?
 		}
 		if state == "FAILED" || time.Now().After(deadline) {
 			var errorCode sql.NullString
-			_ = database.SQL.QueryRowContext(ctx, "SELECT error_code FROM jobs WHERE id=?", pending.JobID).
+			_ = dbapi.QueryRowContext(ctx, database.SQL, "SELECT error_code FROM jobs WHERE id=?", pending.JobID).
 				Scan(&errorCode)
 			t.Fatalf("variant validation = %s/%s", state, errorCode.String)
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
 	var startedAt, deadlineAt int64
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT execution_started_at_ms,
 execution_deadline_at_ms
 FROM jobs
@@ -436,12 +436,12 @@ WHERE id=?
 	)
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return validatedLaunch.LaunchID == "" }, func() bool { return validatedLaunch.Status != "" }), "validated launch = %#v, error=%v", validatedLaunch, err)
 	var currentVariantID, contentBlobID string
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT id FROM game_variants WHERE game_id=? AND core_id='gambatte'
 `, approved.GameID).Scan(&currentVariantID); err != nil {
 		t.Fatal(err)
 	}
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT blob_id
 FROM game_files
 WHERE game_id=(SELECT id
@@ -478,7 +478,7 @@ sort_order) VALUES(?,
 func assertMissingFDSValidationFinishes(
 	t *testing.T,
 	ctx context.Context,
-	database *sql.DB,
+	database dbapi.DB,
 	service *Service,
 	sourceGameID string,
 ) {
@@ -486,7 +486,7 @@ func assertMissingFDSValidationFinishes(
 	const gameID = "60000000-0000-7000-8000-000000000001"
 	transaction, err := database.BeginTx(ctx, nil)
 	testassert.False(t, err != nil, err)
-	defer dbexec.Rollback(transaction)
+	defer dbapi.Rollback(transaction)
 	if _, err := transaction.ExecContext(ctx, `PRAGMA defer_foreign_keys=ON`); err != nil {
 		t.Fatal(err)
 	}
@@ -530,7 +530,7 @@ FROM game_files WHERE game_id=?`, []any{gameID, sourceGameID}},
 	for deadline := time.Now().Add(3 * time.Second); ; {
 		var state string
 		var errorCode sql.NullString
-		if err := database.QueryRowContext(ctx, `SELECT state,error_code FROM jobs WHERE id=?`, pending.JobID).
+		if err := dbapi.QueryRowContext(ctx, database, `SELECT state,error_code FROM jobs WHERE id=?`, pending.JobID).
 			Scan(&state, &errorCode); err != nil {
 			t.Fatal(err)
 		}

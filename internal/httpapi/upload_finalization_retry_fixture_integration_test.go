@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"retrom/internal/blobstore"
+	dbapi "retrom/internal/database"
 	"retrom/internal/libraryimport"
 	jobpersistence "retrom/internal/persistence/jobs"
 	uploadpersistence "retrom/internal/persistence/uploads"
@@ -92,7 +93,7 @@ func newUploadRetryFixture(t *testing.T) uploadRetryFixture {
 	if state != "FAILED" {
 		t.Fatalf("initial upload=%s", state)
 	}
-	if err := database.SQL.QueryRowContext(t.Context(), `SELECT version FROM jobs WHERE id=?`, id).Scan(&fixture.version); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), database.SQL, `SELECT version FROM jobs WHERE id=?`, id).Scan(&fixture.version); err != nil {
 		t.Fatal(err)
 	}
 	return fixture

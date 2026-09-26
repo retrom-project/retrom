@@ -6,13 +6,14 @@ import (
 	"errors"
 	"fmt"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/recordstore"
 	"retrom/internal/service/tagging"
 )
 
 func (records gameRecords) Version(ctx context.Context, gameID string) (int64, error) {
 	var version int64
-	err := records.database.QueryRowContext(ctx, `SELECT version FROM games WHERE id=?`, gameID).Scan(&version)
+	err := dbapi.QueryRowContext(ctx, records.database, `SELECT version FROM games WHERE id=?`, gameID).Scan(&version)
 	if errors.Is(err, sql.ErrNoRows) {
 		return 0, tagging.ErrGameNotFound
 	}

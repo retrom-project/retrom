@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/recordstore"
 	application "retrom/internal/service/payloadrelease"
 )
@@ -97,7 +97,7 @@ func (records effectRecords) execUpdate(
 
 type effectDeletionBatch struct {
 	table, where string
-	remove       func(context.Context, dbexec.Executor, recordstore.Scope) (sql.Result, error)
+	remove       func(context.Context, dbapi.Executor, recordstore.Scope) (sql.Result, error)
 }
 
 func (records effectRecords) removeBatches(ctx context.Context, batches []effectDeletionBatch, id string) error {

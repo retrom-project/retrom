@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"retrom/internal/cleanup"
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/launch"
 )
 
@@ -41,7 +41,7 @@ ORDER BY role,CASE WHEN role='EXTERNAL_FILE' THEN virtual_path ELSE '' END,logic
 
 func configFiles(
 	ctx context.Context,
-	executor dbexec.Executor,
+	executor dbapi.Executor,
 	ref application.SessionRef,
 	projectOnly bool,
 ) ([]application.ConfigFile, error) {

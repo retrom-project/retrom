@@ -2,6 +2,8 @@ package maintenance
 
 import (
 	"testing"
+
+	dbapi "retrom/internal/database"
 )
 
 func TestRestoreCompletesEveryReservedReviewPreparationState(t *testing.T) {
@@ -28,7 +30,7 @@ SET execution_state=?,retryable=?,error_code=?,completed_at_ms=? WHERE id='item'
 				t.Fatal(err)
 			}
 			var state string
-			if err := db.QueryRowContext(t.Context(), "SELECT execution_state FROM source_import_items WHERE id='item'").Scan(&state); err != nil || state != "REVIEW_PENDING" {
+			if err := dbapi.QueryRowContext(t.Context(), db, "SELECT execution_state FROM source_import_items WHERE id='item'").Scan(&state); err != nil || state != "REVIEW_PENDING" {
 				t.Fatalf("restored state=%s err=%v", state, err)
 			}
 		})
@@ -55,7 +57,7 @@ library_import_job_id='handoff-job',library_import_item_id='handoff-item' WHERE 
 			}
 			var title string
 			var events, payloads int
-			err = db.QueryRowContext(t.Context(), `SELECT json_extract(metadata_json,'$.title'),
+			err = dbapi.QueryRowContext(t.Context(), db, `SELECT json_extract(metadata_json,'$.title'),
 (SELECT review_version-1 FROM import_items WHERE id='handoff-item'),
 (SELECT count(*) FROM jobs WHERE kind='PAYLOAD_RELEASE' AND scope_id IN ('handoff-item','handoff-job',?))
 FROM import_items WHERE id='handoff-item'`, id).Scan(&title, &events, &payloads)

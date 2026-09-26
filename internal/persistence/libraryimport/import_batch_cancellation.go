@@ -5,16 +5,16 @@ import (
 	"database/sql"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	payloadpersistence "retrom/internal/persistence/payloadrelease"
 	"retrom/internal/persistence/recordstore"
 	application "retrom/internal/service/libraryimport"
 	payloadservice "retrom/internal/service/payloadrelease"
 )
 
-type ImportBatchCancellations struct{ database *sql.DB }
+type ImportBatchCancellations struct{ database dbapi.DB }
 
-func NewImportBatchCancellations(database *sql.DB) *ImportBatchCancellations {
+func NewImportBatchCancellations(database dbapi.DB) *ImportBatchCancellations {
 	return &ImportBatchCancellations{database: database}
 }
 
@@ -31,7 +31,7 @@ func (repository *ImportBatchCancellations) Cancel(
 	if err != nil {
 		return application.ImportBatchCancellationResult{}, fmt.Errorf("begin import cancellation: %w", err)
 	}
-	defer dbexec.Rollback(tx)
+	defer dbapi.Rollback(tx)
 	evidence, err := loadImportCancellationEvidence(ctx, tx, request.ImportID, request.ExpectedVersion)
 	if err != nil {
 		return application.ImportBatchCancellationResult{}, err
@@ -79,10 +79,10 @@ WHERE id=?
 }
 
 func loadImportCancellationEvidence(
-	ctx context.Context, tx *sql.Tx, importID string, expectedVersion int64,
+	ctx context.Context, tx dbapi.Tx, importID string, expectedVersion int64,
 ) (importCancellationEvidence, error) {
 	var evidence importCancellationEvidence
-	err := tx.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, tx, `
 SELECT state,version,running_item_count,
 (SELECT count(*) FROM import_items WHERE import_job_id=import_jobs.id AND state='QUEUED'),
 (SELECT count(*) FROM import_items WHERE import_job_id=import_jobs.id AND state='REVIEW_PENDING'),
@@ -102,7 +102,7 @@ FROM import_jobs WHERE id=?
 }
 
 func transitionImportGroupCancellation(
-	ctx context.Context, tx *sql.Tx, evidence importCancellationEvidence, reason string, now int64,
+	ctx context.Context, tx dbapi.Tx, evidence importCancellationEvidence, reason string, now int64,
 ) error {
 	if evidence.groupState.String == "QUEUED" || evidence.groupState.String == "FAILED" {
 		if _, err := tx.ExecContext(ctx, `
@@ -139,7 +139,7 @@ SELECT id,scope_type,scope_id,'CANCEL_REQUESTED',json_object('schemaVersion',1,'
 	return nil
 }
 
-func scheduleCancelledImportPayloads(ctx context.Context, tx *sql.Tx, importID string, now int64) error {
+func scheduleCancelledImportPayloads(ctx context.Context, tx dbapi.Tx, importID string, now int64) error {
 	ids, err := payloadpersistence.CollectScopeIDs(ctx, tx, `
 SELECT id FROM import_items WHERE import_job_id=? AND state='CANCELLED' AND payload_state='RETAINED'
 ORDER BY id`, importID)

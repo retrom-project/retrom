@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -16,6 +15,8 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	dbapi "retrom/internal/database"
 
 	"retrom/internal/composition"
 
@@ -440,7 +441,7 @@ func startCatalogBootstrap(resources serverResources) context.CancelFunc {
 	return cancel
 }
 
-func bootstrapCatalogs(ctx context.Context, dependencySet *dependencies.Set, database *sql.DB) {
+func bootstrapCatalogs(ctx context.Context, dependencySet *dependencies.Set, database dbapi.DB) {
 	dependencies := dependencyservice.New(dependencySet, dependencypersistence.New(database))
 	if err := dependencies.BootstrapCatalogs(ctx, time.Now()); err != nil {
 		slog.Error("background DAT indexing failed", "error", err)

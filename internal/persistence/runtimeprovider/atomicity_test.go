@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
 	service "retrom/internal/service/runtimeprovider"
 )
 
@@ -35,7 +36,7 @@ func assertProviderActivationTransaction(t *testing.T, failAudit bool) {
 		t.Fatalf("audit failure=%v error=%v", failAudit, err)
 	}
 	var provider, digest string
-	if err := database.SQL.QueryRowContext(t.Context(), `
+	if err := dbapi.QueryRowContext(t.Context(), database.SQL, `
 SELECT (SELECT provider_version FROM runtime_providers WHERE provider_id='fixture'),
  (SELECT bundle_sha256 FROM runtime_providers WHERE provider_id='fixture')
 `).Scan(&provider, &digest); err != nil {

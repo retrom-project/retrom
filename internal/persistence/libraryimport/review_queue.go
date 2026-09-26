@@ -2,17 +2,16 @@ package libraryimport
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 
 	"retrom/internal/cleanup"
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/libraryimport"
 )
 
-type ReviewQueue struct{ database *sql.DB }
+type ReviewQueue struct{ database dbapi.DB }
 
-func NewReviewQueue(database *sql.DB) *ReviewQueue { return &ReviewQueue{database: database} }
+func NewReviewQueue(database dbapi.DB) *ReviewQueue { return &ReviewQueue{database: database} }
 
 func (repository *ReviewQueue) List(
 	ctx context.Context, query application.ReviewQueueQuery,
@@ -83,7 +82,7 @@ func reviewQueueStatement(query application.ReviewQueueQuery) (string, []any) {
 	return statement, args
 }
 
-func scanReviewQueueRecord(scanner dbexec.Scanner) (application.ReviewQueueRecord, error) {
+func scanReviewQueueRecord(scanner dbapi.Scanner) (application.ReviewQueueRecord, error) {
 	var result application.ReviewQueueRecord
 	var sourceID, sourceImportID, sourceLabel *string
 	var sourceCover bool

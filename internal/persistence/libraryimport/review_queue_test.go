@@ -2,10 +2,11 @@ package libraryimport
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"reflect"
 	"testing"
+
+	dbapi "retrom/internal/database"
 
 	application "retrom/internal/service/libraryimport"
 	"retrom/internal/testsupport"
@@ -13,7 +14,7 @@ import (
 	"modernc.org/sqlite"
 )
 
-func queueDatabase(t *testing.T) *sql.DB {
+func queueDatabase(t *testing.T) dbapi.DB {
 	t.Helper()
 	db := metadataDatabase(t)
 	metadataExec(t, db, `UPDATE import_items SET review_updated_at_ms=10 WHERE id='item'`)

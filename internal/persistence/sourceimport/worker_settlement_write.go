@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/recordstore"
 	application "retrom/internal/service/sourceimport"
 )
@@ -75,7 +76,7 @@ AND bound.import_job_id=source_import_items.library_import_job_id AND bound.stat
 		return fmt.Errorf("close unfinished Source items: %w", err)
 	}
 	var unfinished int
-	if err := records.tx.QueryRowContext(ctx, `SELECT count(*) FROM source_import_items
+	if err := dbapi.QueryRowContext(ctx, records.tx, `SELECT count(*) FROM source_import_items
 WHERE import_id=? AND execution_state IN ('PENDING','COPYING','VALIDATING')`, change.Before.ImportID).Scan(
 		&unfinished,
 	); err != nil {

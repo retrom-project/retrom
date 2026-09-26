@@ -3,6 +3,8 @@ package payloadrelease
 import (
 	"testing"
 	"time"
+
+	dbapi "retrom/internal/database"
 )
 
 func TestGCRestoredReferenceCanRestartRetentionAtTheSameClock(t *testing.T) {
@@ -26,7 +28,7 @@ func TestGCRestoredReferenceCanRestartRetentionAtTheSameClock(t *testing.T) {
 	}
 	var id string
 	var available, count int64
-	err = fixture.database.QueryRowContext(t.Context(), `SELECT job.id,job.available_at_ms,
+	err = dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT job.id,job.available_at_ms,
  (SELECT count(*) FROM blob_gc_candidates WHERE blob_id='manual-gc-blob')
  FROM jobs job JOIN blob_gc_candidates candidate ON candidate.gc_job_id=job.id WHERE candidate.blob_id='manual-gc-blob'`).
 		Scan(&id, &available, &count)
@@ -37,7 +39,7 @@ func TestGCRestoredReferenceCanRestartRetentionAtTheSameClock(t *testing.T) {
 		t.Fatal(err)
 	}
 	var jobs int
-	if err := fixture.database.QueryRowContext(t.Context(), `SELECT count(*) FROM jobs WHERE kind='BLOB_GC'`).Scan(&jobs); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT count(*) FROM jobs WHERE kind='BLOB_GC'`).Scan(&jobs); err != nil {
 		t.Fatal(err)
 	}
 	if jobs != 2 {

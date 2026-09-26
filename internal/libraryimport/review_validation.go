@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	contentcapability "retrom/internal/content/capability"
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	repository "retrom/internal/persistence/libraryimport"
 
 	application "retrom/internal/service/libraryimport"
@@ -15,7 +15,7 @@ import (
 	validationpersistence "retrom/internal/persistence/corevalidation"
 	validationservice "retrom/internal/service/corevalidation"
 
-	"retrom/internal/corevalidation"
+	corevalidation "retrom/internal/core/validation"
 
 	"github.com/google/uuid"
 )
@@ -23,7 +23,7 @@ import (
 // Keep immutable validation refresh branches together for auditability.
 func (service *Service) ensureCompatibleDraftValidation(
 	ctx context.Context,
-	transaction dbexec.Executor,
+	transaction dbapi.Executor,
 	itemID, targetID string,
 	dosEntry sql.NullString,
 ) (string, error) {
@@ -53,7 +53,7 @@ func (service *Service) ensureCompatibleDraftValidation(
 type draftValidationRefresh struct {
 	service                 *Service
 	ctx                     context.Context
-	transaction             dbexec.Executor
+	transaction             dbapi.Executor
 	itemID                  string
 	targetID                string
 	draftID                 string
@@ -257,7 +257,7 @@ type draftDependencyState struct {
 
 func resolveDraftBIOSState(
 	ctx context.Context,
-	transaction dbexec.Executor,
+	transaction dbapi.Executor,
 	sourceSnapshotID, providerID, targetID, previousSnapshot, previousStatus, previousCode string,
 ) (draftDependencyState, error) {
 	if !isStaticBIOSSnapshot(previousSnapshot) {
@@ -301,7 +301,7 @@ func resolveDraftBIOSState(
 // row, so their first deterministic DOS_SOURCE is the bundle identity.
 func snapshotContentLogicalName(
 	ctx context.Context,
-	transaction dbexec.Executor,
+	transaction dbapi.Executor,
 	sourceSnapshotID string,
 ) (string, error) {
 	logicalName, err := repository.BindReviewValidation(transaction).ContentLogicalName(ctx, sourceSnapshotID)
@@ -318,7 +318,7 @@ type (
 
 func resolveArcadeDraftBIOSState(
 	ctx context.Context,
-	transaction dbexec.Executor,
+	transaction dbapi.Executor,
 	providerID, targetID, previousSnapshot, previousStatus, previousCode string,
 ) (draftDependencyState, error) {
 	resolved, err := application.ResolveCreationArcade(ctx, repository.BindCreationArcade(transaction),

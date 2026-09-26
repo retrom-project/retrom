@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
 	persistence "retrom/internal/persistence/launch"
 	application "retrom/internal/service/launch"
 )
@@ -20,7 +21,7 @@ func TestConfigConcurrentActivationThenPlayKeepsValidIssuance(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			fixture, created := newPlaySourceFixture(t, false, false)
 			var beforeVersion, currentVersion int64
-			if err := fixture.database.QueryRowContext(t.Context(),
+			if err := dbapi.QueryRowContext(t.Context(), fixture.database,
 				`SELECT version FROM launch_sessions WHERE id=?`, created.LaunchID).Scan(&beforeVersion); err != nil {
 				t.Fatal(err)
 			}
@@ -46,7 +47,7 @@ func TestConfigConcurrentActivationThenPlayKeepsValidIssuance(t *testing.T) {
 				if err := fixture.launcher.AuthorizeSave(t.Context(), created.LaunchID, created.Capability); err != nil {
 					t.Fatalf("current capability unexpectedly invalid: %v", err)
 				}
-				if err := fixture.database.QueryRowContext(t.Context(),
+				if err := dbapi.QueryRowContext(t.Context(), fixture.database,
 					`SELECT version FROM launch_sessions WHERE id=?`, created.LaunchID).Scan(&currentVersion); err != nil {
 					t.Fatal(err)
 				}

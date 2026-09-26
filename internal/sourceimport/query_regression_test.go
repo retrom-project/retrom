@@ -1,9 +1,10 @@
 package sourceimport
 
 import (
-	"database/sql"
 	"testing"
 	"time"
+
+	dbapi "retrom/internal/database"
 
 	tagrepository "retrom/internal/persistence/tagging"
 	"retrom/internal/service/tagging"
@@ -28,7 +29,7 @@ func TestItemsRejectCorruptStoredWarnings(t *testing.T) {
 	}
 }
 
-func seedQueryCollection(t *testing.T, db *sql.DB) {
+func seedQueryCollection(t *testing.T, db dbapi.DB) {
 	t.Helper()
 	if _, err := db.ExecContext(t.Context(), `INSERT INTO source_import_collections(id,import_id,metadata_relative_path,segment_ordinal,name,game_count,created_at_ms,updated_at_ms) VALUES('collection','import','metadata.pegasus.txt',0,'Collection',1,1,1)`); err != nil {
 		t.Fatal(err)

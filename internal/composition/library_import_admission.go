@@ -1,7 +1,7 @@
 package composition
 
 import (
-	"database/sql"
+	dbapi "retrom/internal/database"
 
 	repository "retrom/internal/persistence/libraryimport"
 	tagpersistence "retrom/internal/persistence/tagging"
@@ -10,7 +10,7 @@ import (
 )
 
 func NewLibraryImportAdmissions(
-	database *sql.DB, notifier application.ImportGroupNotifier, options application.ImportAdmissionOptions,
+	database dbapi.DB, notifier application.ImportGroupNotifier, options application.ImportAdmissionOptions,
 ) *application.ImportAdmissions {
 	return application.NewImportAdmissions(repository.NewImportAdmissions(database), notifier,
 		tagging.New(tagpersistence.New(database), options.Now), options)

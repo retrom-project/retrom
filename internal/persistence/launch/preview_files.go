@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"retrom/internal/cleanup"
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/launch"
 )
 
@@ -21,7 +21,7 @@ ORDER BY role,sort_order,logical_name`
 
 func previewInputFiles(
 	ctx context.Context,
-	executor dbexec.Executor,
+	executor dbapi.Executor,
 	id string,
 	validation bool,
 ) ([]application.PreviewFile, error) {
@@ -34,7 +34,7 @@ func previewInputFiles(
 
 func previewCreationFiles(
 	ctx context.Context,
-	executor dbexec.Executor,
+	executor dbapi.Executor,
 	query, id string,
 ) ([]application.PreviewFile, error) {
 	rows, err := executor.QueryContext(ctx, query, id)
@@ -56,7 +56,7 @@ func previewCreationFiles(
 	return files, nil
 }
 
-func scanPreviewCreationFile(row dbexec.Scanner) (application.PreviewFile, error) {
+func scanPreviewCreationFile(row dbapi.Scanner) (application.PreviewFile, error) {
 	var file application.PreviewFile
 	if err := row.Scan(&file.Role, &file.LogicalName, &file.BlobID, &file.VirtualPath, &file.SortOrder); err != nil {
 		return application.PreviewFile{}, fmt.Errorf("scan preview file: %w", err)

@@ -4,12 +4,13 @@ import (
 	"context"
 	"fmt"
 
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/payloadrelease"
 )
 
 func (records impactRecords) counts(ctx context.Context, gameID string) (application.ImpactCounts, error) {
 	var result application.ImpactCounts
-	err := records.executor.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, records.executor, `
 SELECT
  (SELECT count(*) FROM save_states WHERE game_id=?),
  (SELECT count(*) FROM game_assets WHERE game_id=?),

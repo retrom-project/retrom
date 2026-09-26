@@ -8,7 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"retrom/internal/arcadedat"
+	dbapi "retrom/internal/database"
+	"retrom/internal/format/arcadedat"
 	"retrom/internal/persistence/contentquery"
 	application "retrom/internal/service/launch"
 )
@@ -19,7 +20,7 @@ func (records validationWorkerRecords) Facts(
 ) (application.ValidationFacts, error) {
 	var facts application.ValidationFacts
 	source := &facts.Content.Source
-	err := records.executor.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, records.executor, `
  SELECT game.id,game.version,game.source_manifest_digest,game.content_kind,
  instance.platform_id,variant.id,variant.core_id,variant.provider_id,variant.target_id,variant.dat_version_id,
  variant.dependency_snapshot_json,variant.version,
@@ -69,7 +70,7 @@ func (records validationWorkerRecords) Facts(
 	}
 	if arcadedat.SupportsCore(source.CoreID) && inputs.DATVersionID != nil {
 		machine := strings.TrimSuffix(filepath.Base(source.ValidationLogicalName), filepath.Ext(source.ValidationLogicalName))
-		err := records.executor.QueryRowContext(ctx, `SELECT classification FROM dat_machines
+		err := dbapi.QueryRowContext(ctx, records.executor, `SELECT classification FROM dat_machines
  WHERE dat_version_id=? AND lower(machine_name)=lower(?)`, *inputs.DATVersionID, machine).Scan(&facts.Classification)
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return application.ValidationFacts{}, fmt.Errorf("read validation DAT machine: %w", err)

@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"retrom/internal/cleanup"
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/service/tagging"
 )
 
@@ -25,7 +25,7 @@ SELECT tag.id,tag.name,tag.status,tag.version,tag.created_at_ms,tag.updated_at_m
   (SELECT count(*) FROM source_collection_tags relation WHERE relation.tag_id=tag.id)
 FROM tags tag`
 
-func scanAdminItem(row dbexec.Scanner) (tagging.AdminItem, error) {
+func scanAdminItem(row dbapi.Scanner) (tagging.AdminItem, error) {
 	var result tagging.AdminItem
 	var deletedAt sql.NullInt64
 	err := row.Scan(
@@ -44,7 +44,7 @@ func scanAdminItem(row dbexec.Scanner) (tagging.AdminItem, error) {
 }
 
 func (records tagRecords) Get(ctx context.Context, tagID string) (tagging.AdminItem, error) {
-	result, err := scanAdminItem(records.database.QueryRowContext(ctx, adminItemQuery+` WHERE tag.id=?`, tagID))
+	result, err := scanAdminItem(dbapi.QueryRowContext(ctx, records.database, adminItemQuery+` WHERE tag.id=?`, tagID))
 	if errors.Is(err, sql.ErrNoRows) {
 		return tagging.AdminItem{}, tagging.ErrNotFound
 	}
@@ -111,7 +111,7 @@ func (repository *Repository) List(ctx context.Context, filter tagging.ListQuery
 
 func (repository *Repository) Summary(ctx context.Context) (tagging.Summary, error) {
 	var result tagging.Summary
-	err := repository.database.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, repository.database, `
 SELECT
   (SELECT count(*) FROM tags WHERE status='ACTIVE'),
   (SELECT count(DISTINCT relation.game_id) FROM game_tags relation

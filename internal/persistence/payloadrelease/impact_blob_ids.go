@@ -3,10 +3,10 @@ package payloadrelease
 import (
 	"context"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 )
 
-func gameImpactBlobIDs(ctx context.Context, transaction dbexec.Executor, gameID string) ([]string, error) {
+func gameImpactBlobIDs(ctx context.Context, transaction dbapi.Executor, gameID string) ([]string, error) {
 	ids, err := GameBlobIDs(ctx, transaction, gameID)
 	if err != nil {
 		return nil, err

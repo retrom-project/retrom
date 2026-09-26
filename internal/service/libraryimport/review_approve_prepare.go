@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"retrom/internal/core/scummvm"
-	"retrom/internal/corevalidation"
+	corevalidation "retrom/internal/core/validation"
 	"retrom/internal/service/importprogress"
 	"retrom/internal/service/tagging"
 )

@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	"retrom/internal/blobstore"
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 
 	"github.com/google/uuid"
 )
@@ -16,10 +16,10 @@ import (
 // The physical write happens before this call so callers can include the reference
 // and their domain mutation in one short transaction.
 func EnsureRecord(
-	ctx context.Context, executor dbexec.Executor, metadata blobstore.Metadata, mediaType string, createdAtMS int64,
+	ctx context.Context, executor dbapi.Executor, metadata blobstore.Metadata, mediaType string, createdAtMS int64,
 ) (string, error) {
 	var blobID string
-	err := executor.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, executor, `
 SELECT id
 FROM blobs
 WHERE sha256=?
@@ -57,7 +57,7 @@ VALUES(?,
 	if err != nil {
 		return "", fmt.Errorf("register blob: %w", err)
 	}
-	if err := executor.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, executor, `
 SELECT id
 FROM blobs
 WHERE sha256=?

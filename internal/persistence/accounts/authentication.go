@@ -2,19 +2,18 @@ package accounts
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/service/accounts"
 )
 
 type (
-	Authentication struct{ database *sql.DB }
-	authRecords    struct{ executor dbexec.Executor }
+	Authentication struct{ database dbapi.DB }
+	authRecords    struct{ executor dbapi.Executor }
 )
 
-func NewAuthentication(database *sql.DB) *Authentication { return &Authentication{database} }
+func NewAuthentication(database dbapi.DB) *Authentication { return &Authentication{database} }
 func (repository *Authentication) Credential(
 	ctx context.Context,
 	username string,
@@ -31,7 +30,7 @@ func (repository *Authentication) WithWrite(ctx context.Context, work func(accou
 	if err != nil {
 		return fmt.Errorf("begin authentication: %w", err)
 	}
-	defer dbexec.Rollback(tx)
+	defer dbapi.Rollback(tx)
 	records := authRecords{tx}
 	if err := work(accounts.AuthScope{Read: records, Write: records}); err != nil {
 		return err

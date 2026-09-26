@@ -4,16 +4,16 @@ import (
 	"context"
 	"database/sql"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 )
 
 func CreateImportItemMultidiscEntries(
-	ctx context.Context, db dbexec.Executor, query string, args ...any,
+	ctx context.Context, db dbapi.Executor, query string, args ...any,
 ) (sql.Result, error) {
 	return create(ctx, db, query, args, "source_snapshot_id,ordinal", ValidateImportItemMultidiscEntries)
 }
 
-func ValidateImportItemMultidiscEntries(ctx context.Context, db dbexec.Executor, keys ...any) error {
+func ValidateImportItemMultidiscEntries(ctx context.Context, db dbapi.Executor, keys ...any) error {
 	return validate(ctx, db, import_item_multidisc_entriesOwnership, keys)
 }
 

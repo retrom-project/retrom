@@ -10,6 +10,7 @@ import (
 	"time"
 
 	contentcapability "retrom/internal/content/capability"
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/blobcatalog"
 
 	"retrom/internal/testsupport"
@@ -57,7 +58,7 @@ func TestMegaDriveROMImportPreservesPayloadAndReachesReview(t *testing.T) {
 				t.Fatalf("Mega Drive review = %#v", item)
 			}
 			var name, digest string
-			if err := database.SQL.QueryRowContext(ctx, `
+			if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT source.logical_name,blob.sha256
 FROM import_item_source_files source JOIN blobs blob ON blob.id=source.blob_id
 WHERE source.import_item_id=? AND source.role='CONTENT'

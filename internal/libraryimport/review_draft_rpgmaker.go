@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	repository "retrom/internal/persistence/libraryimport"
 	application "retrom/internal/service/libraryimport"
 )
@@ -23,7 +23,7 @@ type rpgReviewBinding struct {
 }
 
 func loadRPGReviewBinding(
-	ctx context.Context, transaction dbexec.Executor, draftID string,
+	ctx context.Context, transaction dbapi.Executor, draftID string,
 ) (rpgReviewBinding, error) {
 	profile, err := repository.BindReviewValidation(transaction).RPGProfile(ctx, draftID)
 	if err != nil {

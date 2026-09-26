@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"retrom/internal/config"
+	dbapi "retrom/internal/database"
 	accountpersistence "retrom/internal/persistence/accounts"
 	accountservice "retrom/internal/service/accounts"
 )
@@ -34,7 +35,7 @@ func TestOfflineRecoveryLateFailureKeepsCredentialAndSession(t *testing.T) {
 		t.Fatalf("failed recovery changed credential: %v", err)
 	}
 	var active, audits int
-	if err := fixture.database.SQL.QueryRowContext(t.Context(), `SELECT test_default_password_active,(SELECT count(*) FROM audit_events WHERE id='rollback-audit') FROM instance_state WHERE id=1`).Scan(&active, &audits); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database.SQL, `SELECT test_default_password_active,(SELECT count(*) FROM audit_events WHERE id='rollback-audit') FROM instance_state WHERE id=1`).Scan(&active, &audits); err != nil {
 		t.Fatal(err)
 	}
 	if active != 1 || audits != 0 {

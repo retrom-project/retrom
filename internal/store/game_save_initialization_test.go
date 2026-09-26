@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/recordstore"
 	"retrom/internal/persistence/sessionstore"
 
@@ -39,21 +40,21 @@ func TestFreshGameSavePreservesDataAndBindsRunningLaunches(t *testing.T) {
 	testassert.False(t, database.IntegrityCheck(t.Context()) != nil, "fresh integrity")
 }
 
-func assertInitializedGameSave(t *testing.T, database *sql.DB) {
+func assertInitializedGameSave(t *testing.T, database dbapi.DB) {
 	t.Helper()
 	var name, payload, format string
 	var created, version, dataVersion int64
 	var synced sql.NullInt64
-	err := database.QueryRowContext(t.Context(), `SELECT name,payload_blob_id,checkpoint_format,created_at_ms,version,data_version,last_synced_at_ms FROM save_states save JOIN game_save_versions native ON native.save_state_id=save.id WHERE save.id='current-save'`).Scan(&name, &payload, &format, &created, &version, &dataVersion, &synced)
+	err := dbapi.QueryRowContext(t.Context(), database, `SELECT name,payload_blob_id,checkpoint_format,created_at_ms,version,data_version,last_synced_at_ms FROM save_states save JOIN game_save_versions native ON native.save_state_id=save.id WHERE save.id='current-save'`).Scan(&name, &payload, &format, &created, &version, &dataVersion, &synced)
 	testassert.False(t, err != nil, err)
 	testassert.True(t, name == "Current save" && payload == "current-save-payload" && format == "state-v1" && created == 1 && version == 1 && dataVersion == 1 && !synced.Valid, "save creation changed persisted data")
 	var target, frozen string
 	var expected int64
-	err = database.QueryRowContext(t.Context(), `SELECT save_state_id,restore_payload_blob_id,expected_data_version FROM launch_game_save_bindings WHERE launch_session_id='restoring-launch'`).Scan(&target, &frozen, &expected)
+	err = dbapi.QueryRowContext(t.Context(), database, `SELECT save_state_id,restore_payload_blob_id,expected_data_version FROM launch_game_save_bindings WHERE launch_session_id='restoring-launch'`).Scan(&target, &frozen, &expected)
 	testassert.False(t, err != nil, err)
 	testassert.True(t, target == "current-save" && frozen == payload && expected == 1, "running restore was not frozen")
 	var unbound int
-	err = database.QueryRowContext(t.Context(), `SELECT count(*) FROM launch_game_save_bindings WHERE launch_session_id='current-launch' AND save_state_id IS NULL AND expected_data_version=0`).Scan(&unbound)
+	err = dbapi.QueryRowContext(t.Context(), database, `SELECT count(*) FROM launch_game_save_bindings WHERE launch_session_id='current-launch' AND save_state_id IS NULL AND expected_data_version=0`).Scan(&unbound)
 	testassert.False(t, err != nil, err)
 	testassert.True(t, unbound == 1, "fresh launch incorrectly adopted a save")
 	_, err = sessionstore.ChangeLaunch(t.Context(), database, recordstore.Update{
@@ -63,7 +64,7 @@ func assertInitializedGameSave(t *testing.T, database *sql.DB) {
 		},
 	})
 	testassert.False(t, err != nil, err)
-	err = database.QueryRowContext(t.Context(), `SELECT count(*) FROM launch_game_save_bindings WHERE launch_session_id='restoring-launch' AND restore_payload_blob_id IS NULL AND restore_checkpoint_format IS NULL`).Scan(&unbound)
+	err = dbapi.QueryRowContext(t.Context(), database, `SELECT count(*) FROM launch_game_save_bindings WHERE launch_session_id='restoring-launch' AND restore_payload_blob_id IS NULL AND restore_checkpoint_format IS NULL`).Scan(&unbound)
 	testassert.False(t, err != nil, err)
 	testassert.True(t, unbound == 1, "finished launch retained frozen restore payload")
 }

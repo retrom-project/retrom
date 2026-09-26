@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 
+	dbapi "retrom/internal/database"
 	platformpersistence "retrom/internal/persistence/platforminstance"
 	"retrom/internal/service/platforminstance"
 )
@@ -31,7 +32,7 @@ func TestCanceledCommitRollsBackAndReleasesConnection(t *testing.T) {
 		t.Fatalf("canceled commit: %v", err)
 	}
 	var count int
-	if err := database.QueryRowContext(t.Context(), `SELECT count(*) FROM platform_instances WHERE id=?`, directory.ID).Scan(&count); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), database, `SELECT count(*) FROM platform_instances WHERE id=?`, directory.ID).Scan(&count); err != nil {
 		t.Fatal(err)
 	}
 	if count != 0 {

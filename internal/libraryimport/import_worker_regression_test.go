@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	dbapi "retrom/internal/database"
 	repository "retrom/internal/persistence/libraryimport"
 	application "retrom/internal/service/libraryimport"
 	"retrom/internal/testsupport"
@@ -46,8 +47,9 @@ func TestImportWorkerProgressRejectsStaleExecution(t *testing.T) {
 				}
 				err := service.recordImportGroupProgress(t.Context(), work, "PERSISTING", 1)
 				var count int
-				if queryErr := service.database.QueryRowContext(
-					t.Context(),
+				if queryErr := dbapi.QueryRowContext(
+					t.Context(), service.database,
+
 					`SELECT count(*) FROM job_events WHERE job_id=? AND event_type='PROGRESS'`,
 					work.jobID,
 				).Scan(
@@ -71,8 +73,9 @@ func TestImportWorkerRecoveryPreservesOtherLiveOwner(t *testing.T) {
 	}
 	var state, owner string
 	var attempt int
-	if err := service.database.QueryRowContext(
-		t.Context(),
+	if err := dbapi.QueryRowContext(
+		t.Context(), service.database,
+
 		`SELECT state,COALESCE(worker_id,''),attempt_count FROM jobs WHERE id=?`,
 		work.jobID,
 	).Scan(
@@ -124,7 +127,7 @@ func TestImportWorkerClaimPreservesRowsAffectedCause(t *testing.T) {
 					t.Fatalf("claim %s cause lost: work=%+v written=%d error=%v", table, work, written, err)
 				}
 				var state string
-				if err := service.database.QueryRowContext(t.Context(), `SELECT state FROM jobs WHERE id=?`, created.JobID).Scan(&state); err != nil {
+				if err := dbapi.QueryRowContext(t.Context(), service.database, `SELECT state FROM jobs WHERE id=?`, created.JobID).Scan(&state); err != nil {
 					t.Fatal(err)
 				}
 				if state != "QUEUED" {
@@ -189,8 +192,9 @@ func TestImportWorkerFailureAndReleaseSchedulingAreAtomic(t *testing.T) {
 		t.Fatalf("release failure cause lost: %v", err)
 	}
 	var jobState, parentState, payloadState string
-	if err := service.database.QueryRowContext(
-		t.Context(),
+	if err := dbapi.QueryRowContext(
+		t.Context(), service.database,
+
 		`SELECT job.state,parent.state,parent.payload_state FROM jobs job JOIN import_jobs parent ON
  parent.id=job.scope_id WHERE job.id=?`,
 		work.jobID,

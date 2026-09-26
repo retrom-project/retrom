@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/payloadrelease"
 	"retrom/internal/testsupport"
 )
@@ -25,7 +26,7 @@ func TestPayloadEffectRejectsReplacedWorkerBeforeAnyRelease(t *testing.T) {
 	}
 	err = fixture.service.execute(t.Context(), claim)
 	var payload string
-	queryErr := fixture.database.QueryRowContext(t.Context(), `SELECT payload_state FROM games WHERE id='schedule-game'`).Scan(&payload)
+	queryErr := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT payload_state FROM games WHERE id='schedule-game'`).Scan(&payload)
 	if !errors.Is(err, application.ErrExecutionLost) || queryErr != nil || payload != "RELEASING" {
 		t.Fatalf("stale worker changed payload: %s/%v/%v", payload, err, queryErr)
 	}
@@ -55,7 +56,7 @@ func TestPayloadSettlementRollsBackEveryPriorWriteOnEvidenceFailure(t *testing.T
 				t.Fatalf("failed settlement escaped: error=%v hits=%d", err, hits.Load())
 			}
 			var events, audits int
-			err = fixture.database.QueryRowContext(t.Context(), `SELECT
+			err = dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT
    (SELECT count(*) FROM job_events WHERE job_id=? AND event_type='SUCCEEDED'),
    (SELECT count(*) FROM audit_events WHERE resource_id='schedule-game')`, claim.ID).Scan(&events, &audits)
 			if err != nil || events != 0 || audits != 0 {
@@ -95,7 +96,7 @@ func TestPayloadEffectRollsBackWhenLeaseExpiresDuringWrites(t *testing.T) {
 	defer service.Close()
 	err = service.execute(t.Context(), claim)
 	var payload string
-	queryErr := fixture.database.QueryRowContext(t.Context(), `SELECT payload_state FROM games WHERE id='schedule-game'`).Scan(&payload)
+	queryErr := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT payload_state FROM games WHERE id='schedule-game'`).Scan(&payload)
 	if !errors.Is(err, application.ErrExecutionLost) || queryErr != nil || payload != "RELEASING" || hits.Load() != 1 {
 		t.Fatalf("expired effect escaped its transaction: payload=%s hits=%d error=%v query=%v", payload, hits.Load(), err, queryErr)
 	}

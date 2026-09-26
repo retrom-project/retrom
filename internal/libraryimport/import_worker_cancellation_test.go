@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	composition "retrom/internal/composition/libraryimport"
+	dbapi "retrom/internal/database"
 	jobpersistence "retrom/internal/persistence/jobs"
 	repository "retrom/internal/persistence/libraryimport"
 	"retrom/internal/service/jobs"
@@ -98,7 +99,7 @@ func TestImportWorkerDomainCancelKeepsOwnerUntilExecutionStops(t *testing.T) {
 	}
 	assertImportCancellationState(t, service, created, "CANCEL_REQUESTED", "CANCEL_REQUESTED", "RETAINED", 3)
 	var owner string
-	if err := service.database.QueryRowContext(t.Context(), `SELECT worker_id FROM jobs WHERE id=?`, created.JobID).Scan(
+	if err := dbapi.QueryRowContext(t.Context(), service.database, `SELECT worker_id FROM jobs WHERE id=?`, created.JobID).Scan(
 		&owner,
 	); err != nil {
 		t.Fatal(err)
@@ -122,8 +123,9 @@ func assertImportCancellationState(
 	t.Helper()
 	var actualJob, actualParent, actualPayload string
 	var actualVersion int64
-	if err := service.database.QueryRowContext(
-		t.Context(),
+	if err := dbapi.QueryRowContext(
+		t.Context(), service.database,
+
 		`
 SELECT job.state,parent.state,parent.payload_state,job.version FROM jobs job JOIN import_jobs parent
  ON parent.id=job.scope_id WHERE job.id=?`,
@@ -161,8 +163,9 @@ func TestImportWorkerQueuedCancellationPreservesAbsentExecutionTimes(t *testing.
 		t.Fatal(err)
 	}
 	var absent bool
-	if err := service.database.QueryRowContext(
-		t.Context(),
+	if err := dbapi.QueryRowContext(
+		t.Context(), service.database,
+
 		`SELECT execution_started_at_ms IS NULL AND execution_deadline_at_ms IS NULL FROM jobs WHERE id=?`,
 		created.JobID,
 	).Scan(

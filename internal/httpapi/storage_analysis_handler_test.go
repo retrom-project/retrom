@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 
 	"retrom/internal/authn"
+	dbapi "retrom/internal/database"
 	"retrom/internal/service/accounts"
 	"retrom/internal/testassert"
 )
@@ -91,7 +92,7 @@ VALUES('storage-test','000000000000000000000000000000000000000000000000000000000
 		func() bool { return replay.Body.String() != cleanupResponse.Body.String() },
 	), "storage cleanup replay = %d %v %s", replay.Code, replay.Header(), replay.Body.String())
 	var cleanupAuditCount int64
-	if err := server.database.QueryRowContext(context.Background(), `
+	if err := dbapi.QueryRowContext(context.Background(), server.database, `
 SELECT count(*) FROM audit_events WHERE action='STORAGE_CLEANUP_REQUESTED'
 `).Scan(&cleanupAuditCount); err != nil {
 		t.Fatal(err)

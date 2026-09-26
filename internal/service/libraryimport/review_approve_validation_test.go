@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	contentcapability "retrom/internal/content/capability"
-	"retrom/internal/corevalidation"
+	corevalidation "retrom/internal/core/validation"
 )
 
 type approvalValidationStub struct {

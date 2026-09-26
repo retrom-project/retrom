@@ -1,10 +1,11 @@
 package composition
 
 import (
-	"database/sql"
 	"fmt"
 	"io"
 	"time"
+
+	dbapi "retrom/internal/database"
 
 	"retrom/internal/blobstore"
 	repository "retrom/internal/persistence/libraryimport"
@@ -12,7 +13,7 @@ import (
 )
 
 func NewLibraryReviewCoverUploads(
-	database *sql.DB, blobs *blobstore.Store, now func() time.Time,
+	database dbapi.DB, blobs *blobstore.Store, now func() time.Time,
 ) *application.ReviewCoverUploads {
 	return application.NewReviewCoverUploads(repository.NewReviewCoverUploads(database), reviewCoverBlobs{blobs}, now)
 }

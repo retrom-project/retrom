@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	dbapi "retrom/internal/database"
 	repository "retrom/internal/persistence/sourceimport"
 	library "retrom/internal/service/libraryimport"
 	application "retrom/internal/service/sourceimport"
@@ -58,7 +59,7 @@ type handoffStoredState struct {
 func readHandoffState(t *testing.T, service *Service) handoffStoredState {
 	t.Helper()
 	var result handoffStoredState
-	if err := service.database.QueryRowContext(t.Context(), `SELECT d.metadata_json,d.review_version,i.search_text,p.execution_state,p.warnings_json,p.version,
+	if err := dbapi.QueryRowContext(t.Context(), service.database, `SELECT d.metadata_json,d.review_version,i.search_text,p.execution_state,p.warnings_json,p.version,
  parent.version,parent.review_pending_item_count,(SELECT count(*) FROM job_events)
  FROM import_items d JOIN import_items i ON i.id=d.id
  JOIN source_import_items p ON p.library_import_item_id=i.id JOIN source_imports parent ON parent.id=p.import_id

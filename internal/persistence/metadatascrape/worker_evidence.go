@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"retrom/internal/cleanup"
+	dbapi "retrom/internal/database"
 	"retrom/internal/service/metadatascrape"
 )
 
@@ -44,7 +45,7 @@ SELECT e.id,e.crc32,e.md5,e.sha1,e.sha256,COALESCE(a.attempt_no,0),COALESCE(p.ou
 		return metadatascrape.EvidenceProgress{}, fmt.Errorf("close evidence progress: %w", err)
 	}
 	progress := metadatascrape.EvidenceProgress{Items: evidenceList}
-	err = repository.database.QueryRowContext(ctx,
+	err = dbapi.QueryRowContext(ctx, repository.database,
 		`SELECT count(*) FROM scrape_candidates WHERE scrape_run_id=?`, runID).Scan(&progress.CandidateCount)
 	if err != nil {
 		return progress, fmt.Errorf("count persisted metadata candidates: %w", err)

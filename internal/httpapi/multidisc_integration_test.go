@@ -18,7 +18,7 @@ import (
 	dependencypersistence "retrom/internal/persistence/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/blobcatalog"
 
 	"github.com/google/uuid"
@@ -80,7 +80,7 @@ func seedMultiDiscHTTPBIOS(t *testing.T, server *Server) {
 	testassert.False(t, err != nil, err)
 	var requirementID string
 	var requirementVersion int64
-	if err := server.database.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, server.database, `
 SELECT id,version FROM bios_requirements
 WHERE core_id='yabause' AND logical_name='saturn_bios.bin' AND enabled=1
 `).Scan(&requirementID, &requirementVersion); err != nil {
@@ -123,8 +123,9 @@ func createMultiDiscHTTPLaunch(t *testing.T, server *Server) (launch.Created, st
 	})
 	testassert.False(t, err != nil, err)
 	var itemID string
-	if err := server.database.QueryRowContext(
-		ctx, `SELECT id FROM import_items WHERE import_job_id=?`, createdImport.ImportJobID,
+	if err := dbapi.QueryRowContext(
+		ctx, server.database,
+		`SELECT id FROM import_items WHERE import_job_id=?`, createdImport.ImportJobID,
 	).Scan(&itemID); err != nil {
 		t.Fatal(err)
 	}
@@ -149,7 +150,7 @@ func addParentBundleToLaunch(t *testing.T, server *Server, created launch.Create
 	)
 	testassert.False(t, err != nil, err)
 	var variantID string
-	if err := server.database.QueryRowContext(t.Context(), `
+	if err := dbapi.QueryRowContext(t.Context(), server.database, `
 SELECT variant.id
 FROM launch_sessions launch
 JOIN game_variants variant ON variant.game_id=launch.game_id AND variant.core_id=launch.core_id
@@ -158,7 +159,7 @@ WHERE launch.id=?`, created.LaunchID).Scan(&variantID); err != nil {
 	}
 	transaction, err := server.database.BeginTx(t.Context(), nil)
 	testassert.False(t, err != nil, err)
-	defer dbexec.Rollback(transaction)
+	defer dbapi.Rollback(transaction)
 	if _, err := transaction.ExecContext(t.Context(), `
 INSERT INTO variant_files(game_variant_id,role,logical_name,blob_id,sort_order)
 VALUES(?,'PARENT','parent.zip',?,0)
@@ -363,8 +364,9 @@ func TestMultiDiscAttachmentHTTPContractAndProviderUpgradeProjection(t *testing.
 	})
 	testassert.False(t, err != nil, err)
 	var itemID string
-	if err := server.database.QueryRowContext(
-		ctx, `SELECT id FROM import_items WHERE import_job_id=?`, createdImport.ImportJobID,
+	if err := dbapi.QueryRowContext(
+		ctx, server.database,
+		`SELECT id FROM import_items WHERE import_job_id=?`, createdImport.ImportJobID,
 	).Scan(&itemID); err != nil {
 		t.Fatal(err)
 	}
@@ -476,8 +478,9 @@ func TestMultiDiscPlayerEventHTTPContract(t *testing.T) {
 	})
 	testassert.False(t, err != nil, err)
 	var itemID string
-	if err := server.database.QueryRowContext(
-		ctx, `SELECT id FROM import_items WHERE import_job_id=?`, createdImport.ImportJobID,
+	if err := dbapi.QueryRowContext(
+		ctx, server.database,
+		`SELECT id FROM import_items WHERE import_job_id=?`, createdImport.ImportJobID,
 	).Scan(&itemID); err != nil {
 		t.Fatal(err)
 	}

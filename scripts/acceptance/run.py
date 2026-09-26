@@ -116,7 +116,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     "ACC-CAS-001": (120, "go test ./internal/blobstore -run '^TestPutDeduplicatesConcurrentContent$' -count=1"),
     "ACC-CAS-002": (120, "go test ./internal/persistence/blobgc -run '^TestRunOnceHonorsGraceAndConcurrentReference$' -count=1"),
     "ACC-BKP-001": (300, "go test -tags=integration ./internal/service/maintenance ./internal/persistence/maintenance -run '^TestBackupRestoreRoundTripAndOnlineRefusal$' -count=1"),
-    "ACC-SEC-001": (120, "go test -tags=integration ./internal/arcadedat ./internal/importing -run 'TestParserAllowsSafeDoctypeWithoutResolvingIt|TestParserRejectsEntityDirective|TestValidateLogicalPath' -count=1"),
+    "ACC-SEC-001": (120, "go test -tags=integration ./internal/format/arcadedat ./internal/importing -run 'TestParserAllowsSafeDoctypeWithoutResolvingIt|TestParserRejectsEntityDirective|TestValidateLogicalPath' -count=1"),
     "ACC-SEC-002": (
         120,
         "go test ./internal/runtime ./internal/httpapi -run 'TestCredentialsConcurrentCreationConverges|TestCredentialsRejectSymlink|TestRestrictedBinaryEndpointsRejectMultipleRanges' -count=1 && go test -tags=integration ./internal/launch -run 'TestPublishedGameLaunchLocksContentAndCredential|TestResourceQueries|TestPreviewBundleReadsAuthority|TestPreviewProjectRepository' -count=1 && go test ./internal/service/launch ./internal/persistence/launch -count=1",
@@ -264,7 +264,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
         "go test -tags=integration ./internal/libraryimport ./internal/httpapi -run '^TestReviewDeduplicate' -count=1 -timeout=120s && "
         "cd web && npm run test -- features/reviews/review-deduplicate.test.tsx",
     ),
-    "ACC-DAT-001": (300, "go test -tags=integration ./internal/arcadedat ./internal/dependencies ./internal/service/dependencies ./internal/persistence/dependencies -run 'TestRealDATStatisticsMatchManifest|TestBootstrapCatalogsMaterializesPinnedDATsIdempotently' -count=1"),
+    "ACC-DAT-001": (300, "go test -tags=integration ./internal/format/arcadedat ./internal/dependencies ./internal/service/dependencies ./internal/persistence/dependencies -run 'TestRealDATStatisticsMatchManifest|TestBootstrapCatalogsMaterializesPinnedDATsIdempotently' -count=1"),
     "ACC-DAT-002": (
         300,
         "go test -tags=integration ./internal/libraryimport -run '^TestArcadeGroupingBuildsCoreScopedParentAndBIOSClosure$' -count=1",
@@ -274,7 +274,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
         180,
         "go test -tags=integration ./internal/dependencies ./internal/service/dependencies ./internal/persistence/dependencies -run '^TestBootstrapCatalogsMaterializesPinnedDATsIdempotently$' -count=1",
     ),
-    "ACC-DAT-005": (120, "go test ./internal/arcadedat -run 'TestParserAllowsSafeDoctypeWithoutResolvingIt|TestParserRejectsEntityDirective' -count=1"),
+    "ACC-DAT-005": (120, "go test ./internal/format/arcadedat -run 'TestParserAllowsSafeDoctypeWithoutResolvingIt|TestParserRejectsEntityDirective' -count=1"),
     "ACC-DAT-006": (900, "scripts/acceptance/dependency-upgrade.sh"),
     "ACC-BIOS-001": (120, "go test -tags=integration ./internal/firmware ./internal/service/firmware ./internal/persistence/firmware -run '^TestStaticBIOSHashMismatchIsInstalledAsWarning$' -count=1"),
     "ACC-BIOS-002": (
@@ -303,7 +303,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     ),
     "ACC-PEG-001": (
         180,
-        "go test ./internal/importformat/pegasus/meta ./internal/sourceimport ./internal/service/sourceimport -run 'TestParse|TestScan' -count=1",
+        "go test ./internal/format/pegasus/meta ./internal/sourceimport ./internal/service/sourceimport -run 'TestParse|TestScan' -count=1",
     ),
     "ACC-PEG-002": (
         180,
@@ -321,19 +321,19 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     "ACC-PEG-006": (300, "scripts/acceptance/ui-case.sh ACC-PEG-006"),
     "ACC-ES-001": (
         180,
-        "go test ./internal/importformat/emulationstation/meta -run 'TestParse|TestNormalizeDeclaredPath|TestSourceFlags' -count=1",
+        "go test ./internal/format/emulationstation/meta -run 'TestParse|TestNormalizeDeclaredPath|TestSourceFlags' -count=1",
     ),
     "ACC-ES-002": (
         240,
-        "go test ./internal/importformat/emulationstation/gamelist ./internal/sourceimport ./internal/serversource ./internal/httpapi -run 'TestScan|TestWalkAndOpenStayWithinNoFollowDescriptors|TestSourceImportHTTP|TestCreate|TestMapping|TestStart|TestItems|TestCollections' -count=1 && go test ./internal/service/sourceimport ./internal/persistence/sourceimport -count=1",
+        "go test ./internal/format/emulationstation/gamelist ./internal/sourceimport ./internal/serversource ./internal/httpapi -run 'TestScan|TestWalkAndOpenStayWithinNoFollowDescriptors|TestSourceImportHTTP|TestCreate|TestMapping|TestStart|TestItems|TestCollections' -count=1 && go test ./internal/service/sourceimport ./internal/persistence/sourceimport -count=1",
     ),
     "ACC-ES-003": (
         300,
-        "go test ./internal/importformat/emulationstation/gamelist ./internal/sourceimport ./internal/libraryimport -count=1",
+        "go test ./internal/format/emulationstation/gamelist ./internal/sourceimport ./internal/libraryimport -count=1",
     ),
     "ACC-ES-004": (
         300,
-        "go test ./internal/importformat/emulationstation/gamelist ./internal/sourceimport ./internal/service/sourceimport ./internal/persistence/sourceimport ./internal/payloadrelease ./internal/persistence/blobgc -count=1 && go test -tags=integration ./internal/httpapi -run 'TestGamePermanentDeleteIsIdempotentReleasesPayloadAndPreservesTombstone|TestJobHTTPScanCancellationChangesSourcePlanInSameCommit|TestJobCancellationRetainsOriginalETagAfterGenericRead' -count=1 && go test -tags=integration ./internal/persistence/maintenance -run 'TestRestore.*Source|TestRestoredSource' -count=1",
+        "go test ./internal/format/emulationstation/gamelist ./internal/sourceimport ./internal/service/sourceimport ./internal/persistence/sourceimport ./internal/payloadrelease ./internal/persistence/blobgc -count=1 && go test -tags=integration ./internal/httpapi -run 'TestGamePermanentDeleteIsIdempotentReleasesPayloadAndPreservesTombstone|TestJobHTTPScanCancellationChangesSourcePlanInSameCommit|TestJobCancellationRetainsOriginalETagAfterGenericRead' -count=1 && go test -tags=integration ./internal/persistence/maintenance -run 'TestRestore.*Source|TestRestoredSource' -count=1",
     ),
     "ACC-ES-005": (300, "scripts/acceptance/ui-case.sh ACC-ES-005"),
     "ACC-ES-006": (

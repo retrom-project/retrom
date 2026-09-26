@@ -8,17 +8,17 @@ import (
 
 	payloadpersistence "retrom/internal/persistence/payloadrelease"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	tagpersistence "retrom/internal/persistence/tagging"
 	application "retrom/internal/service/libraryimport"
 )
 
 type (
-	ReviewDiscards       struct{ database *sql.DB }
-	reviewDiscardRecords struct{ executor dbexec.Executor }
+	ReviewDiscards       struct{ database dbapi.DB }
+	reviewDiscardRecords struct{ executor dbapi.Executor }
 )
 
-func NewReviewDiscards(database *sql.DB) *ReviewDiscards { return &ReviewDiscards{database: database} }
+func NewReviewDiscards(database dbapi.DB) *ReviewDiscards { return &ReviewDiscards{database: database} }
 
 func (repository *ReviewDiscards) WithDiscard(
 	ctx context.Context, work func(application.ReviewDiscardScope) error,
@@ -27,7 +27,7 @@ func (repository *ReviewDiscards) WithDiscard(
 	if err != nil {
 		return fmt.Errorf("begin review discard: %w", err)
 	}
-	defer dbexec.Rollback(transaction)
+	defer dbapi.Rollback(transaction)
 	if err := work(BindReviewDiscard(transaction)); err != nil {
 		return err
 	}
@@ -38,7 +38,7 @@ func (repository *ReviewDiscards) WithDiscard(
 }
 
 // BindReviewDiscard joins an existing transaction without committing it.
-func BindReviewDiscard(executor dbexec.Executor) application.ReviewDiscardScope {
+func BindReviewDiscard(executor dbapi.Executor) application.ReviewDiscardScope {
 	records := reviewDiscardRecords{executor: executor}
 	return application.ReviewDiscardScope{
 		Payload: payloadpersistence.BindReleases(executor),
@@ -50,7 +50,7 @@ func (records reviewDiscardRecords) Snapshot(
 	ctx context.Context, itemID string,
 ) (application.ReviewDiscardSnapshot, bool, error) {
 	var result application.ReviewDiscardSnapshot
-	err := records.executor.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, records.executor, `
 SELECT d.id,i.import_job_id,d.metadata_json,d.review_version,i.state,
 d.selected_validation_id,v.dat_version_id,d.selected_candidate_id,
 (d.cover_candidate_asset_id IS NOT NULL OR d.cover_uploaded_asset_id IS NOT NULL),

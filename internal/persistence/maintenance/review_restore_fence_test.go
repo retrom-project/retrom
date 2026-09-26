@@ -2,18 +2,17 @@ package maintenance
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"testing"
 	"time"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/maintenance"
 )
 
 type changedRestoreReview struct {
 	application.RestoredReviewRecords
-	transaction *sql.Tx
+	transaction dbapi.Tx
 	mutation    string
 	changed     bool
 }
@@ -55,7 +54,7 @@ func verifyRestoredReviewFence(t *testing.T, mutation string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer dbexec.Rollback(tx)
+	defer dbapi.Rollback(tx)
 	scope := (writes{tx}).Reviews()
 	scope.Records = &changedRestoreReview{RestoredReviewRecords: scope.Records, transaction: tx, mutation: mutation}
 	err = application.CompleteRestoredReviews(t.Context(), scope, time.UnixMilli(10))
@@ -64,7 +63,7 @@ func verifyRestoredReviewFence(t *testing.T, mutation string) {
 	}
 	var title string
 	var events int
-	err = tx.QueryRowContext(t.Context(), `SELECT json_extract(metadata_json,'$.title'),
+	err = dbapi.QueryRowContext(t.Context(), tx, `SELECT json_extract(metadata_json,'$.title'),
 (SELECT review_version-1 FROM import_items WHERE id='handoff-item')
 FROM import_items WHERE id='handoff-item'`).Scan(&title, &events)
 	wantEvents := 0

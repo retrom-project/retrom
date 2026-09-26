@@ -6,14 +6,14 @@ import (
 	"fmt"
 
 	"retrom/internal/cleanup"
-	"retrom/internal/corevalidation"
-	"retrom/internal/dbexec"
+	corevalidation "retrom/internal/core/validation"
+	dbapi "retrom/internal/database"
 	service "retrom/internal/service/corevalidation"
 )
 
-type Repository struct{ executor dbexec.Executor }
+type Repository struct{ executor dbapi.Executor }
 
-func New(executor dbexec.Executor) *Repository { return &Repository{executor: executor} }
+func New(executor dbapi.Executor) *Repository { return &Repository{executor: executor} }
 func (repository *Repository) Catalog(
 	ctx context.Context,
 	providerID, targetID string,
@@ -83,7 +83,7 @@ ORDER BY q.logical_name,q.id
 	return records, nil
 }
 
-func scanBIOSDependency(rows dbexec.Scanner) (service.BIOSRecord, error) {
+func scanBIOSDependency(rows dbapi.Scanner) (service.BIOSRecord, error) {
 	var dependency corevalidation.BIOSDependency
 	var condition, emulatorPath, optionsJSON sql.NullString
 	var installationID, blobID, installationStatus sql.NullString

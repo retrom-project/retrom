@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/service/metadatascrape"
 )
 
@@ -36,7 +37,7 @@ func TestMetadataStartupDispatchesDurableJobAndCloseJoinsWork(t *testing.T) {
 		t.Fatalf("worker cancellation=%v", err)
 	}
 	var state, run string
-	if err := database.QueryRowContext(t.Context(), `SELECT j.state,r.state FROM jobs j JOIN metadata_scrape_runs r ON r.job_id=j.id WHERE j.id='job'`).Scan(&state, &run); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), database, `SELECT j.state,r.state FROM jobs j JOIN metadata_scrape_runs r ON r.job_id=j.id WHERE j.id='job'`).Scan(&state, &run); err != nil {
 		t.Fatal(err)
 	}
 	if state != "FAILED" || run != "FAILED" {

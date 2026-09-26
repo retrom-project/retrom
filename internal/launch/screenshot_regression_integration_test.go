@@ -5,7 +5,6 @@ package launch
 import (
 	"bytes"
 	"context"
-	"database/sql"
 	"errors"
 	"image"
 	"image/png"
@@ -16,6 +15,7 @@ import (
 	"modernc.org/sqlite"
 
 	"retrom/internal/blobstore"
+	dbapi "retrom/internal/database"
 )
 
 func screenshotFixture(t *testing.T) (reviewCheckpointFixture, ReviewPreviewCreated, []byte) {
@@ -34,10 +34,10 @@ func screenshotFixture(t *testing.T) (reviewCheckpointFixture, ReviewPreviewCrea
 	return fixture, preview, imageBytes.Bytes()
 }
 
-func screenshotCounts(t *testing.T, database *sql.DB) (int, int) {
+func screenshotCounts(t *testing.T, database dbapi.DB) (int, int) {
 	t.Helper()
 	var screenshots, blobs int
-	if err := database.QueryRowContext(t.Context(), `SELECT (SELECT count(*) FROM review_runtime_screenshots),(SELECT count(*) FROM blobs)`).Scan(&screenshots, &blobs); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), database, `SELECT (SELECT count(*) FROM review_runtime_screenshots),(SELECT count(*) FROM blobs)`).Scan(&screenshots, &blobs); err != nil {
 		t.Fatal(err)
 	}
 	return screenshots, blobs
@@ -116,7 +116,7 @@ func TestScreenshotRechecksDirectoryAfterImageRead(t *testing.T) {
 func TestScreenshotCaptureTimestampCannotExceedAuthorizedLifetime(t *testing.T) {
 	fixture, preview, contents := screenshotFixture(t)
 	var hardEnd int64
-	if err := fixture.database.QueryRowContext(t.Context(), `SELECT hard_expires_at_ms FROM review_preview_sessions WHERE id=?`, preview.PreviewID).Scan(&hardEnd); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT hard_expires_at_ms FROM review_preview_sessions WHERE id=?`, preview.PreviewID).Scan(&hardEnd); err != nil {
 		t.Fatal(err)
 	}
 	calls := 0

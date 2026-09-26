@@ -12,6 +12,7 @@ import (
 	"sync"
 	"testing"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/testsupport"
 )
 
@@ -99,7 +100,7 @@ type deduplicateItemSnapshot struct {
 func captureDeduplicatePage(t *testing.T, fixture deduplicateFixture, importID string) deduplicatePageSnapshot {
 	t.Helper()
 	var result deduplicatePageSnapshot
-	if err := fixture.database.QueryRowContext(fixture.ctx, `
+	if err := dbapi.QueryRowContext(fixture.ctx, fixture.database, `
 SELECT review_pending_item_count,discarded_item_count,version,updated_at_ms,state,payload_state,payload_release_job_id
 FROM import_jobs WHERE id=?`, importID).Scan(&result.Pending, &result.Discarded, &result.Version, &result.UpdatedAt,
 		&result.State, &result.PayloadState, &result.PayloadJob); err != nil {
@@ -129,7 +130,7 @@ FROM import_items WHERE import_job_id=? ORDER BY id`, importID)
 	if err := rows.Close(); err != nil {
 		t.Fatal(err)
 	}
-	if err := fixture.database.QueryRowContext(fixture.ctx, `
+	if err := dbapi.QueryRowContext(fixture.ctx, fixture.database, `
 SELECT count(*),(SELECT count(*) FROM job_input_snapshots input JOIN jobs child ON child.id=input.job_id
  WHERE child.scope_id=? OR child.scope_id IN (SELECT id FROM import_items WHERE import_job_id=?))
 FROM jobs WHERE scope_id=? OR scope_id IN (SELECT id FROM import_items WHERE import_job_id=?)`, importID, importID, importID, importID).
@@ -158,13 +159,13 @@ func assertDeduplicateRetry(t *testing.T, fixture deduplicateFixture, copies Ser
 	if after.Pending != 0 || after.Discarded != 2 {
 		t.Fatalf("retry aggregate = %+v", after)
 	}
-	if err := fixture.database.QueryRowContext(fixture.ctx, "SELECT count(*) FROM import_items WHERE state='DISCARDED'").Scan(&count); err != nil {
+	if err := dbapi.QueryRowContext(fixture.ctx, fixture.database, "SELECT count(*) FROM import_items WHERE state='DISCARDED'").Scan(&count); err != nil {
 		t.Fatal(err)
 	}
 	if count != 2 {
 		t.Fatalf("retry discard events=%d", count)
 	}
-	if err := fixture.database.QueryRowContext(fixture.ctx, "SELECT count(*) FROM games WHERE status='PUBLISHED'").Scan(&count); err != nil {
+	if err := dbapi.QueryRowContext(fixture.ctx, fixture.database, "SELECT count(*) FROM games WHERE status='PUBLISHED'").Scan(&count); err != nil {
 		t.Fatal(err)
 	}
 	if count != 1 {

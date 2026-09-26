@@ -7,19 +7,19 @@ import (
 
 	payloadpersistence "retrom/internal/persistence/payloadrelease"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	biopersistence "retrom/internal/persistence/corevalidation"
 	tagpersistence "retrom/internal/persistence/tagging"
 	application "retrom/internal/service/libraryimport"
 )
 
 type (
-	ReviewApprovals           struct{ database *sql.DB }
-	reviewApprovalRecords     struct{ transaction *sql.Tx }
-	approvalDependencyRecords struct{ executor dbexec.Executor }
+	ReviewApprovals           struct{ database dbapi.DB }
+	reviewApprovalRecords     struct{ transaction dbapi.Tx }
+	approvalDependencyRecords struct{ executor dbapi.Executor }
 )
 
-func NewReviewApprovals(database *sql.DB) *ReviewApprovals {
+func NewReviewApprovals(database dbapi.DB) *ReviewApprovals {
 	return &ReviewApprovals{database: database}
 }
 
@@ -30,7 +30,7 @@ func (repository *ReviewApprovals) WithApproval(
 	if err != nil {
 		return fmt.Errorf("begin review approval: %w", err)
 	}
-	defer dbexec.Rollback(transaction)
+	defer dbapi.Rollback(transaction)
 	if err := work(BindReviewApproval(transaction)); err != nil {
 		return err
 	}
@@ -43,13 +43,13 @@ func (repository *ReviewApprovals) WithApproval(
 // WithBulkApprovalStep keeps queue progress and ordinary publication in one transaction.
 func (repository *ReviewApprovals) WithBulkApprovalStep(
 	ctx context.Context,
-	work func(dbexec.Executor, application.ReviewApprovalScope) error,
+	work func(dbapi.Executor, application.ReviewApprovalScope) error,
 ) error {
 	transaction, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin bulk approval step: %w", err)
 	}
-	defer dbexec.Rollback(transaction)
+	defer dbapi.Rollback(transaction)
 	if err := work(transaction, BindReviewApproval(transaction)); err != nil {
 		return err
 	}
@@ -59,7 +59,7 @@ func (repository *ReviewApprovals) WithBulkApprovalStep(
 	return nil
 }
 
-func BindReviewApproval(transaction *sql.Tx) application.ReviewApprovalScope {
+func BindReviewApproval(transaction dbapi.Tx) application.ReviewApprovalScope {
 	records := reviewApprovalRecords{transaction: transaction}
 	return application.ReviewApprovalScope{
 		Payload: payloadpersistence.BindReleases(transaction),
@@ -70,7 +70,7 @@ func BindReviewApproval(transaction *sql.Tx) application.ReviewApprovalScope {
 	}
 }
 
-func BindApprovalDependencies(executor dbexec.Executor) application.ApprovalDependencyScope {
+func BindApprovalDependencies(executor dbapi.Executor) application.ApprovalDependencyScope {
 	return application.ApprovalDependencyScope{
 		Reader: approvalDependencyRecords{executor: executor}, BIOS: biopersistence.New(executor),
 		Arcade: BindArcadeRelations(executor),

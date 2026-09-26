@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"sort"
 
-	emulationstationmeta "retrom/internal/importformat/emulationstation/meta"
+	emulationstationmeta "retrom/internal/format/emulationstation/meta"
 	"retrom/internal/multidisc"
 
 	"github.com/google/uuid"

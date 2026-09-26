@@ -1,11 +1,12 @@
 package store
 
 import (
-	"database/sql"
 	"os"
 	"path/filepath"
 	"regexp"
 	"testing"
+
+	dbapi "retrom/internal/database"
 
 	runtimecatalogpersistence "retrom/internal/persistence/runtimecatalog"
 
@@ -26,7 +27,7 @@ func TestBootstrapCreatesFinalSchemaWithoutLegacyConversion(t *testing.T) {
 	}
 }
 
-func seedSchemaProductDefinitions(t *testing.T, database *sql.DB) {
+func seedSchemaProductDefinitions(t *testing.T, database dbapi.DB) {
 	t.Helper()
 	contents, err := os.ReadFile(filepath.Join("..", "..", "data", "runtime-target-bindings", "v1", "catalog.json"))
 	if err != nil {

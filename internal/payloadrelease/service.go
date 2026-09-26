@@ -2,9 +2,10 @@ package payloadrelease
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"time"
+
+	dbapi "retrom/internal/database"
 
 	"retrom/internal/cleanup"
 	"retrom/internal/payloadfiles"
@@ -15,7 +16,7 @@ import (
 )
 
 type Service struct {
-	database    *sql.DB
+	database    dbapi.DB
 	blobs       *blobstore.Store
 	now         func() time.Time
 	waitFor     func(context.Context, time.Duration) error
@@ -35,7 +36,7 @@ type claimedJob struct {
 	Work        application.Work
 }
 
-func New(database *sql.DB, blobs *blobstore.Store, now func() time.Time, retention time.Duration) (*Service, error) {
+func New(database dbapi.DB, blobs *blobstore.Store, now func() time.Time, retention time.Duration) (*Service, error) {
 	service := &Service{database: database, blobs: blobs, now: now, waitFor: waitForContext}
 	gc, err := application.NewGCScheduler(repository.NewGC(database), application.GCOptions{
 		Now: now, Retention: retention, Wake: service.Signal,

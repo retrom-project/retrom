@@ -24,7 +24,7 @@ import (
 	dependencypersistence "retrom/internal/persistence/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/blobcatalog"
 
 	"retrom/internal/persistence/recordstore"
@@ -78,7 +78,7 @@ func TestStaticBIOSHashMismatchIsInstalledAsWarning(t *testing.T) {
 	deadline := time.Now().Add(3 * time.Second)
 	for {
 		var state string
-		_ = database.SQL.QueryRowContext(ctx, `
+		_ = dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT state
 FROM jobs
 WHERE id=?
@@ -91,7 +91,7 @@ WHERE id=?
 	}
 	var requirementID string
 	var version int64
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT id,
 version
 FROM bios_requirements
@@ -104,7 +104,7 @@ AND enabled=1
 	runtimeIdentity, err := testsupport.LookupRuntimeTarget(ctx, database.SQL, "mgba")
 	testassert.False(t, err != nil, err)
 	var md5Value, sha1Value, sha256Value string
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT b.md5,
 b.sha1,
 b.sha256
@@ -121,7 +121,7 @@ WHERE f.id=?
 	testassert.False(t, err != nil, err)
 	testassert.Falsef(t, testassert.Any(func() bool { return result.Status != "HASH_WARNING" }, func() bool { return !result.Active }), "installation = %#v", result)
 	var oldBlobID string
-	if err := database.SQL.QueryRowContext(ctx, `SELECT blob_id FROM bios_installations WHERE id=?`,
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `SELECT blob_id FROM bios_installations WHERE id=?`,
 		result.InstallationID).Scan(&oldBlobID); err != nil {
 		t.Fatal(err)
 	}
@@ -150,7 +150,7 @@ type firmwareReplacementLifecycle struct {
 func seedFirmwareReplacementLifecycle(
 	t *testing.T,
 	ctx context.Context,
-	database *sql.DB,
+	database dbapi.DB,
 	blobs *blobstore.Store,
 	runtimeIdentity testsupport.RuntimeTargetIdentity, installationID, biosBlobID string,
 ) firmwareReplacementLifecycle {
@@ -169,7 +169,7 @@ func seedFirmwareReplacementLifecycle(
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer dbexec.Rollback(transaction)
+	defer dbapi.Rollback(transaction)
 	if _, err := transaction.ExecContext(ctx, `PRAGMA defer_foreign_keys=ON`); err != nil {
 		t.Fatal(err)
 	}
@@ -242,7 +242,7 @@ VALUES('firmware-save','firmware-profile','firmware-game','test-checkpoint-v1',?
 func ensureFirmwareBlob(
 	t *testing.T,
 	ctx context.Context,
-	database *sql.DB,
+	database dbapi.DB,
 	blobs *blobstore.Store,
 	contents []byte,
 ) string {
@@ -261,12 +261,12 @@ func ensureFirmwareBlob(
 func assertFirmwareReplacementLifecycle(
 	t *testing.T,
 	ctx context.Context,
-	database *sql.DB,
+	database dbapi.DB,
 	lifecycle firmwareReplacementLifecycle,
 ) {
 	t.Helper()
 	var variantStatus, compatibilityCode string
-	if err := database.QueryRowContext(ctx,
+	if err := dbapi.QueryRowContext(ctx, database,
 		`SELECT status,compatibility_code FROM game_variants WHERE id=?`, lifecycle.variantID,
 	).Scan(&variantStatus, &compatibilityCode); err != nil {
 		t.Fatal(err)
@@ -276,7 +276,7 @@ func assertFirmwareReplacementLifecycle(
 	}
 	var variantFiles, saves, launchFiles int
 	var launchState string
-	if err := database.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database, `
 SELECT
  (SELECT count(*) FROM variant_files WHERE game_variant_id=?),
  (SELECT count(*) FROM save_states WHERE id=?),
@@ -294,8 +294,9 @@ SELECT
 	}
 	for _, blobID := range lifecycle.payloadBlobIDs {
 		var candidates int
-		if err := database.QueryRowContext(
-			ctx, `SELECT count(*) FROM blob_gc_candidates WHERE blob_id=?`, blobID,
+		if err := dbapi.QueryRowContext(
+			ctx, database,
+			`SELECT count(*) FROM blob_gc_candidates WHERE blob_id=?`, blobID,
 		).Scan(&candidates); err != nil || candidates != 0 {
 			t.Fatalf("BIOS replacement payload %s candidates = %d, error=%v", blobID, candidates, err)
 		}
@@ -305,7 +306,7 @@ SELECT
 func completeFirmwareUpload(
 	t *testing.T,
 	ctx context.Context,
-	database *sql.DB,
+	database dbapi.DB,
 	service *uploads.Service,
 	name string,
 	contents []byte,
@@ -337,7 +338,7 @@ func completeFirmwareUpload(
 	deadline := time.Now().Add(3 * time.Second)
 	for {
 		var state string
-		if err := database.QueryRowContext(ctx, `SELECT state FROM jobs WHERE id=?`, jobID).Scan(&state); err != nil {
+		if err := dbapi.QueryRowContext(ctx, database, `SELECT state FROM jobs WHERE id=?`, jobID).Scan(&state); err != nil {
 			t.Fatal(err)
 		}
 		if state == "SUCCEEDED" {
@@ -442,7 +443,7 @@ VALUES('requirement-test','mame2003_plus',?,?,'DAT_MACHINE','stvbios','stvbios.z
 	deadline := time.Now().Add(3 * time.Second)
 	for {
 		var state string
-		_ = database.SQL.QueryRowContext(ctx, `SELECT state FROM jobs WHERE id=?`, jobID).Scan(&state)
+		_ = dbapi.QueryRowContext(ctx, database.SQL, `SELECT state FROM jobs WHERE id=?`, jobID).Scan(&state)
 		if state == "SUCCEEDED" {
 			break
 		}
@@ -470,18 +471,18 @@ VALUES('requirement-test','mame2003_plus',?,?,'DAT_MACHINE','stvbios','stvbios.z
 		t.Fatalf("extra entry comparison = %#v", comparison)
 	}
 	var indexed int64
-	if err := database.SQL.QueryRowContext(ctx, `SELECT count(*) FROM archive_entries`).Scan(&indexed); err != nil || indexed != 2 {
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `SELECT count(*) FROM archive_entries`).Scan(&indexed); err != nil || indexed != 2 {
 		t.Fatalf("archive entries = %d, error=%v", indexed, err)
 	}
 }
 
-func updateFirmwareLaunch(t *testing.T, db *sql.DB, change recordstore.Update) (sql.Result, error) {
+func updateFirmwareLaunch(t *testing.T, db dbapi.DB, change recordstore.Update) (sql.Result, error) {
 	t.Helper()
 	tx, err := db.BeginTx(t.Context(), nil)
 	if err != nil {
 		return nil, err
 	}
-	defer dbexec.Rollback(tx)
+	defer dbapi.Rollback(tx)
 	result, err := sessionstore.ChangeLaunch(t.Context(), tx, change)
 	if err != nil {
 		return nil, err

@@ -6,7 +6,7 @@ import (
 	"errors"
 	"testing"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	repository "retrom/internal/persistence/libraryimport"
 	"retrom/internal/service/importprogress"
 	application "retrom/internal/service/libraryimport"
@@ -34,7 +34,7 @@ func verifyDiscardParentFence(t *testing.T, mutation string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer dbexec.Rollback(transaction)
+	defer dbapi.Rollback(transaction)
 	scope := repository.BindReviewDiscard(transaction)
 	snapshot, found, err := scope.Reader.Snapshot(t.Context(), created.Items[0].ItemID)
 	if err != nil || !found {
@@ -54,7 +54,7 @@ func verifyDiscardParentFence(t *testing.T, mutation string) {
 		t.Fatalf("discard ignored parent fence: %v", err)
 	}
 	var state string
-	if err := transaction.QueryRowContext(t.Context(), "SELECT state FROM import_items WHERE id=?", created.Items[0].ItemID).Scan(&state); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), transaction, "SELECT state FROM import_items WHERE id=?", created.Items[0].ItemID).Scan(&state); err != nil {
 		t.Fatal(err)
 	}
 	if state != "DISCARDED" {

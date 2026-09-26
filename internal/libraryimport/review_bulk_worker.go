@@ -9,7 +9,7 @@ import (
 	"github.com/google/uuid"
 
 	"retrom/internal/authn"
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	librarypersistence "retrom/internal/persistence/libraryimport"
 	application "retrom/internal/service/libraryimport"
 )
@@ -22,7 +22,7 @@ func (service *Service) claimReviewBulk(ctx context.Context, bulkID string) (rev
 		return reviewBulkWork{}, fmt.Errorf("allocate review bulk worker: %w", err)
 	}
 	var jobID, userID string
-	err = librarypersistence.NewTransactions(service.database).Write(ctx, func(executor dbexec.Executor) error {
+	err = librarypersistence.NewTransactions(service.database).Write(ctx, func(executor dbapi.Executor) error {
 		var claimErr error
 		jobID, userID, claimErr = librarypersistence.BindReviewBulkWorker(executor).Claim(
 			ctx, bulkID, workerID.String(), service.now().UnixMilli())
@@ -62,7 +62,7 @@ func (service *Service) processNextReviewBulkItem(ctx context.Context, work revi
 	var completed bool
 	var failedItemID string
 	err := librarypersistence.NewReviewApprovals(service.database).WithBulkApprovalStep(
-		ctx, func(executor dbexec.Executor, approval application.ReviewApprovalScope) error {
+		ctx, func(executor dbapi.Executor, approval application.ReviewApprovalScope) error {
 			worker := librarypersistence.BindReviewBulkWorker(executor)
 			item, found, readErr := worker.Next(ctx, work.bulkID, work.workerID)
 			if readErr != nil {
@@ -132,7 +132,7 @@ func reviewBulkSkipOutcome(counts ReviewBulkCounts) string {
 func (service *Service) skipFailedReviewBulkApproval(
 	ctx context.Context, work reviewBulkWork, itemID, outcome string,
 ) error {
-	err := librarypersistence.NewTransactions(service.database).Write(ctx, func(executor dbexec.Executor) error {
+	err := librarypersistence.NewTransactions(service.database).Write(ctx, func(executor dbapi.Executor) error {
 		return librarypersistence.BindReviewBulkWorker(executor).Skip(
 			ctx, work.bulkID, work.jobID, work.workerID, itemID, outcome, service.now().UnixMilli())
 	})
@@ -144,7 +144,7 @@ func (service *Service) skipFailedReviewBulkApproval(
 
 func (service *Service) failReviewBulk(ctx context.Context, work reviewBulkWork) {
 	background := context.WithoutCancel(ctx)
-	_ = librarypersistence.NewTransactions(service.database).Write(background, func(executor dbexec.Executor) error {
+	_ = librarypersistence.NewTransactions(service.database).Write(background, func(executor dbapi.Executor) error {
 		return librarypersistence.BindReviewBulkWorker(executor).Fail(background,
 			work.bulkID, work.jobID, work.workerID, service.now().UnixMilli())
 	})
@@ -152,7 +152,7 @@ func (service *Service) failReviewBulk(ctx context.Context, work reviewBulkWork)
 
 func (service *Service) ResumeReviewBulkJobs(ctx context.Context) {
 	var ids []string
-	err := librarypersistence.NewTransactions(service.database).Write(ctx, func(executor dbexec.Executor) error {
+	err := librarypersistence.NewTransactions(service.database).Write(ctx, func(executor dbapi.Executor) error {
 		var resumeErr error
 		ids, resumeErr = librarypersistence.BindReviewBulkWorker(executor).Resume(ctx, service.now().UnixMilli())
 		if resumeErr != nil {

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"testing"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/recordstore"
 
 	firmwareservice "retrom/internal/service/firmware"
@@ -21,17 +22,17 @@ func TestBIOSRetirementPreservesReinstalledSharedBytes(t *testing.T) {
 	testassert.False(t, releases.ReconcileGC(t.Context()) != nil, "reconcile shared BIOS")
 	assertBIOSReferenceCounts(t, database, 1, 1)
 	var active int
-	err := database.QueryRowContext(t.Context(), `SELECT count(*) FROM bios_installations WHERE id='new-install' AND is_active=1 AND blob_id IS NOT NULL`).Scan(&active)
+	err := dbapi.QueryRowContext(t.Context(), database, `SELECT count(*) FROM bios_installations WHERE id='new-install' AND is_active=1 AND blob_id IS NOT NULL`).Scan(&active)
 	testassert.False(t, err != nil, err)
 	testassert.True(t, active == 1, "shared active BIOS released")
 	tx, err := database.BeginTx(t.Context(), nil)
 	testassert.False(t, err != nil, err)
 	var requirement string
-	err = tx.QueryRowContext(t.Context(), `SELECT requirement_id FROM bios_installations WHERE id='new-install'`).Scan(&requirement)
+	err = dbapi.QueryRowContext(t.Context(), tx, `SELECT requirement_id FROM bios_installations WHERE id='new-install'`).Scan(&requirement)
 	testassert.False(t, err != nil, err)
 	testassert.False(t, firmwareservice.SupersedeInScope(t.Context(), BindSupersession(tx), requirement, now) != nil, "supersede")
 	testassert.False(t, tx.Rollback() != nil, "rollback failed replacement")
-	err = database.QueryRowContext(t.Context(), `SELECT is_active FROM bios_installations WHERE id='new-install'`).Scan(&active)
+	err = dbapi.QueryRowContext(t.Context(), database, `SELECT is_active FROM bios_installations WHERE id='new-install'`).Scan(&active)
 	testassert.False(t, err != nil, err)
 	testassert.True(t, active == 1, "rollback lost active installation")
 }
@@ -49,12 +50,12 @@ SELECT game_variant_id,role,?,blob_id,? FROM variant_files WHERE logical_name='g
 	testassert.False(t, releases.ReconcileGC(t.Context()) != nil, "idempotent retirement")
 	assertBIOSReferenceCounts(t, database, 0, 1)
 	var pending int
-	err := database.QueryRowContext(t.Context(), `SELECT count(*) FROM bios_installations WHERE is_active=0 AND blob_id IS NOT NULL`).Scan(&pending)
+	err := dbapi.QueryRowContext(t.Context(), database, `SELECT count(*) FROM bios_installations WHERE is_active=0 AND blob_id IS NOT NULL`).Scan(&pending)
 	testassert.False(t, err != nil, err)
 	testassert.True(t, pending == 0, "pending retirement stranded after batch boundary")
 }
 
-func seedRetiringInstallation(t *testing.T, database *sql.DB, id string, active int, now int64) {
+func seedRetiringInstallation(t *testing.T, database dbapi.DB, id string, active int, now int64) {
 	t.Helper()
 	_, err := database.ExecContext(t.Context(), `INSERT INTO bios_installations(
 id,requirement_id,blob_id,original_filename,size_bytes,md5,sha1,sha256,validated_requirement_version,
@@ -66,10 +67,10 @@ JOIN blobs blob ON blob.id=file.blob_id WHERE requirement.core_id='mgba' AND req
 	testassert.False(t, err != nil, err)
 }
 
-func assertBIOSReferenceCounts(t *testing.T, database *sql.DB, variants, launches int) {
+func assertBIOSReferenceCounts(t *testing.T, database dbapi.DB, variants, launches int) {
 	t.Helper()
 	var actualVariants, actualLaunches int
-	err := database.QueryRowContext(t.Context(), `SELECT (SELECT count(*) FROM variant_files WHERE game_variant_id='firmware-variant'),
+	err := dbapi.QueryRowContext(t.Context(), database, `SELECT (SELECT count(*) FROM variant_files WHERE game_variant_id='firmware-variant'),
 (SELECT count(*) FROM launch_external_files WHERE launch_session_id='firmware-launch')`).Scan(&actualVariants, &actualLaunches)
 	testassert.False(t, err != nil, err)
 	testassert.True(t, actualVariants == variants && actualLaunches == launches, "shared or active BIOS references changed unexpectedly")
@@ -89,7 +90,7 @@ WHERE launch_session_id='firmware-launch' AND logical_name='gba_bios.bin'`, fmt.
 	testassert.False(t, releases.ReconcileGC(t.Context()) != nil, "drain large launch")
 	assertBIOSReferenceCounts(t, database, 1, 0)
 	var released sql.NullInt64
-	err = database.QueryRowContext(t.Context(), `SELECT released_at_ms FROM launch_payload_retirements WHERE launch_session_id='firmware-launch'`).Scan(&released)
+	err = dbapi.QueryRowContext(t.Context(), database, `SELECT released_at_ms FROM launch_payload_retirements WHERE launch_session_id='firmware-launch'`).Scan(&released)
 	testassert.False(t, err != nil, err)
 	testassert.True(t, released.Valid, "large launch left pending after complete drain")
 }

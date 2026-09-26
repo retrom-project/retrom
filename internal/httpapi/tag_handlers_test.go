@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 
 	"retrom/internal/config"
+	dbapi "retrom/internal/database"
 	"retrom/internal/service/tagging"
 	"retrom/internal/testassert"
 )
@@ -86,7 +87,7 @@ func TestTagDefaultsHTTPIsAtomicAndIdempotent(t *testing.T) {
 	), "invalid defaults = %d %s", invalid.Code, invalid.Body.String())
 
 	var activeCount, auditCount int
-	if err := server.database.QueryRowContext(context.Background(), `
+	if err := dbapi.QueryRowContext(context.Background(), server.database, `
 SELECT
   (SELECT count(*) FROM tags WHERE status='ACTIVE'),
   (SELECT count(*) FROM audit_events WHERE action='TAG_CREATED')
@@ -173,7 +174,7 @@ func TestTagHTTPCRUDGameAssignmentSearchAndDeleteInvalidation(t *testing.T) {
 	testassert.Falsef(t, testassert.Any(func() bool { return recreated.Code != http.StatusCreated }, func() bool { return strings.Contains(recreated.Body.String(), tag.TagID) }), "name reuse = %d %s", recreated.Code, recreated.Body.String())
 
 	var audits int
-	if err := server.database.QueryRowContext(context.Background(), `
+	if err := dbapi.QueryRowContext(context.Background(), server.database, `
 SELECT count(*) FROM audit_events WHERE action IN ('TAG_CREATED','TAG_RENAMED','TAG_DELETED','GAME_TAGS_REPLACED')
 `).Scan(&audits); err != nil || audits != 5 {
 		t.Fatalf("audit count = %d, %v", audits, err)

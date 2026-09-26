@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
 	dependencypersistence "retrom/internal/persistence/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 
@@ -50,7 +51,7 @@ idle_expires_at_ms=?,hard_expires_at_ms=?,bootstrap_expires_at_ms=?,updated_at_m
 			testassert.False(t, releases.ReconcileGC(t.Context()) != nil, "reconcile twice")
 			var files, saves int
 			var released sql.NullInt64
-			err = database.QueryRowContext(t.Context(), `SELECT
+			err = dbapi.QueryRowContext(t.Context(), database, `SELECT
 (SELECT count(*) FROM launch_external_files WHERE launch_session_id='firmware-launch'),
 (SELECT count(*) FROM save_states WHERE id='firmware-save'),released_at_ms
 FROM launch_payload_retirements WHERE launch_session_id='firmware-launch'`).Scan(&files, &saves, &released)
@@ -60,7 +61,7 @@ FROM launch_payload_retirements WHERE launch_session_id='firmware-launch'`).Scan
 	}
 }
 
-func retirementFixture(t *testing.T) (*sql.DB, *payloadrelease.Service, int64) {
+func retirementFixture(t *testing.T) (dbapi.DB, *payloadrelease.Service, int64) {
 	t.Helper()
 	ctx := context.Background()
 	dir := t.TempDir()

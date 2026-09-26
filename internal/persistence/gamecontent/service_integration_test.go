@@ -6,7 +6,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
-	"database/sql"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -25,7 +24,7 @@ import (
 	dependencypersistence "retrom/internal/persistence/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/blobcatalog"
 
 	"github.com/google/uuid"
@@ -72,7 +71,7 @@ func TestRPGMakerReplacementKeepsPublishedGeneration(t *testing.T) {
 	testassert.False(t, err != nil, err)
 	var originalContent string
 	var gameVersion int64
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT id,version FROM games WHERE id=?
 `, published.GameID).Scan(&originalContent, &gameVersion); err != nil {
 		t.Fatal(err)
@@ -100,7 +99,7 @@ SELECT id,version FROM games WHERE id=?
 	if validationErr := validateUploadFixture(ctx, uploadValidationTx, sameGenerationUpload, "RPG_MAKER_PROJECT", "rpgmaker"); validationErr != nil {
 		t.Fatalf("validate RPG replacement upload: %v", validationErr)
 	}
-	dbexec.Rollback(uploadValidationTx)
+	dbapi.Rollback(uploadValidationTx)
 	sameGeneration, err := service.ScheduleMode(
 		ctx, published.GameID, sameGenerationUpload, "RPG_MAKER_PROJECT", gameVersion,
 	)
@@ -108,7 +107,7 @@ SELECT id,version FROM games WHERE id=?
 	waitForJob(t, ctx, database.SQL, sameGeneration.JobID, "SUCCEEDED")
 	var replacementContent, generation string
 	var replacementVersion int64
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT game.id,game.version,json_extract(game.content_profile_json,'$.data.evidenceGeneration')
 FROM games game
 JOIN game_variants variant ON variant.game_id=game.id
@@ -139,13 +138,13 @@ WHERE game.id=? AND variant.core_id='rpgmaker' AND variant.runtime_profile_json 
 	)
 }
 
-func installRPGMakerRuntimeUpgrade(t *testing.T, ctx context.Context, database *sql.DB) {
+func installRPGMakerRuntimeUpgrade(t *testing.T, ctx context.Context, database dbapi.DB) {
 	t.Helper()
 	transaction, err := database.BeginTx(ctx, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer dbexec.Rollback(transaction)
+	defer dbapi.Rollback(transaction)
 	now := time.Now().UnixMilli()
 	bundle := sha256.Sum256([]byte("RPG Maker replacement forward Provider Bundle fixture"))
 	if _, err := transaction.ExecContext(ctx, `
@@ -185,9 +184,7 @@ func rpgMakerFixtureFiles(t *testing.T, root string) map[string][]byte {
 func completeRPGMakerDirectoryUpload(
 	t *testing.T,
 	ctx context.Context,
-	database interface {
-		QueryRowContext(context.Context, string, ...any) *sql.Row
-	},
+	database dbapi.Queryer,
 	service *uploads.Service,
 	contents map[string][]byte,
 ) string {
@@ -227,10 +224,10 @@ func completeRPGMakerDirectoryUpload(
 	return session.ID
 }
 
-func importItemID(t *testing.T, ctx context.Context, database *sql.DB, jobID string) string {
+func importItemID(t *testing.T, ctx context.Context, database dbapi.DB, jobID string) string {
 	t.Helper()
 	var itemID string
-	if err := database.QueryRowContext(ctx, `SELECT id FROM import_items WHERE import_job_id=?`, jobID).
+	if err := dbapi.QueryRowContext(ctx, database, `SELECT id FROM import_items WHERE import_job_id=?`, jobID).
 		Scan(&itemID); err != nil {
 		t.Fatal(err)
 	}
@@ -240,7 +237,7 @@ func importItemID(t *testing.T, ctx context.Context, database *sql.DB, jobID str
 func installSaturnBIOS(
 	t *testing.T,
 	ctx context.Context,
-	database *sql.DB,
+	database dbapi.DB,
 	blobs *blobstore.Store,
 ) {
 	t.Helper()
@@ -250,7 +247,7 @@ func installSaturnBIOS(
 	testassert.False(t, err != nil, err)
 	var requirementID string
 	var requirementVersion int64
-	if err := database.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database, `
 SELECT id,version FROM bios_requirements
 WHERE core_id='yabause' AND logical_name='saturn_bios.bin' AND enabled=1
 `).Scan(&requirementID, &requirementVersion); err != nil {
@@ -291,7 +288,7 @@ func TestReplacementPublishesAtomicallyAndFailureKeepsCurrent(t *testing.T) {
 		Create(ctx, libraryimport.CreateRequest{UploadID: initialUpload, TargetPlatformInstanceID: gbaID, MetadataProvider: "NONE"})
 	testassert.False(t, err != nil, err)
 	var itemID string
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT id
 FROM import_items
 WHERE import_job_id=?
@@ -302,7 +299,7 @@ WHERE import_job_id=?
 	testassert.False(t, err != nil, err)
 	var originalContent, originalBlobID string
 	var initialVersion int64
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT game.id,game.version,file.blob_id
 FROM games game JOIN game_files file ON file.game_id=game.id
 WHERE game.id=? ORDER BY file.sort_order LIMIT 1
@@ -359,7 +356,7 @@ WHERE game.id=? ORDER BY file.sort_order LIMIT 1
 	waitForJob(t, ctx, database.SQL, scheduled.JobID, "SUCCEEDED")
 	var replacementContent string
 	var replacedVersion int64
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT id,
 version
 FROM games
@@ -369,7 +366,7 @@ WHERE id=?
 	}
 	testassert.Falsef(t, testassert.Any(func() bool { return replacementContent != originalContent }, func() bool { return replacedVersion != initialVersion+1 }), "content/version = %s/%d, wanted stable/%d", replacementContent, replacedVersion, initialVersion+1)
 	var sourceKind, sourceRef, variantContent string
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT c.content_source_kind,
 c.content_source_ref_id,
 v.game_id
@@ -400,7 +397,7 @@ WHERE id=?
 	testassert.False(t, err != nil, err)
 	waitForJob(t, ctx, database.SQL, failed.JobID, "FAILED")
 	var afterFailure string
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT id
 FROM games
 WHERE id=?
@@ -409,13 +406,14 @@ WHERE id=?
 	}
 	testassert.Falsef(t, afterFailure != replacementContent, "failed replacement changed current content: %s != %s", afterFailure, replacementContent)
 	var retainedSaveCount int
-	if err := database.SQL.QueryRowContext(
-		ctx, `SELECT count(*) FROM save_states WHERE id=?`, retainedSaveID,
+	if err := dbapi.QueryRowContext(
+		ctx, database.SQL,
+		`SELECT count(*) FROM save_states WHERE id=?`, retainedSaveID,
 	).Scan(&retainedSaveCount); err != nil || retainedSaveCount != 1 {
 		t.Fatalf("failed replacement retained save count = %d, error=%v", retainedSaveCount, err)
 	}
 	var failedReplacementCount int
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT count(*) FROM games WHERE content_source_ref_id=?
 `, failed.JobID).Scan(&failedReplacementCount); err != nil ||
 		failedReplacementCount != 0 {
@@ -450,7 +448,7 @@ func TestMultiDiscReplacementPublishesCompleteContentAndRejectsMissingDisc(t *te
 	})
 	testassert.False(t, err != nil, err)
 	var itemID string
-	if err := database.SQL.QueryRowContext(ctx, `SELECT id FROM import_items WHERE import_job_id=?`,
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `SELECT id FROM import_items WHERE import_job_id=?`,
 		createdImport.ImportJobID).Scan(&itemID); err != nil {
 		t.Fatal(err)
 	}
@@ -458,7 +456,7 @@ func TestMultiDiscReplacementPublishesCompleteContentAndRejectsMissingDisc(t *te
 	testassert.False(t, err != nil, err)
 	var originalContentID, originalBlobID string
 	var gameVersion int64
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT game.id,game.version,file.blob_id
 FROM games game JOIN game_files file ON file.game_id=game.id
 WHERE game.id=? ORDER BY file.sort_order LIMIT 1
@@ -483,7 +481,7 @@ WHERE game.id=? ORDER BY file.sort_order LIMIT 1
 	waitForJob(t, ctx, database.SQL, scheduled.JobID, "SUCCEEDED")
 	var currentContentID, contentKind string
 	var replacedVersion int64
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT game.id,game.version,content.content_kind
 FROM games game JOIN games content ON content.id=game.id
 WHERE game.id=?
@@ -493,7 +491,7 @@ WHERE game.id=?
 	testassert.Falsef(t, testassert.Any(func() bool { return currentContentID != originalContentID }, func() bool { return replacedVersion != gameVersion+1 }, func() bool { return contentKind != "MULTI_DISC" }), "replacement = %s/%d/%s", currentContentID, replacedVersion, contentKind)
 	assertBlobReferenceState(t, ctx, database.SQL, originalBlobID, false)
 	var discCount, playlistCount int
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT (SELECT count(*) FROM game_files WHERE game_id=? AND role='DISC'),
        (SELECT count(*) FROM game_variants variant
         JOIN variant_files file ON file.game_variant_id=variant.id
@@ -512,11 +510,11 @@ SELECT (SELECT count(*) FROM game_files WHERE game_id=? AND role='DISC'),
 	testassert.False(t, err != nil, err)
 	waitForJob(t, ctx, database.SQL, failed.JobID, "FAILED")
 	var errorCode, afterFailure string
-	if err := database.SQL.QueryRowContext(ctx, `SELECT error_code FROM jobs WHERE id=?`, failed.JobID).
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `SELECT error_code FROM jobs WHERE id=?`, failed.JobID).
 		Scan(&errorCode); err != nil {
 		t.Fatal(err)
 	}
-	if err := database.SQL.QueryRowContext(ctx, `SELECT id FROM games WHERE id=?`,
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `SELECT id FROM games WHERE id=?`,
 		published.GameID).Scan(&afterFailure); err != nil {
 		t.Fatal(err)
 	}
@@ -538,7 +536,7 @@ SELECT (SELECT count(*) FROM game_files WHERE game_id=? AND role='DISC'),
 	)
 
 	var sharedDiscBlobID, retiredDiscBlobID string
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT
  (SELECT blob_id FROM game_files WHERE game_id=? AND role='DISC'
   ORDER BY sort_order LIMIT 1),
@@ -558,7 +556,7 @@ SELECT
 	testassert.False(t, err != nil, err)
 	waitForJob(t, ctx, database.SQL, changed.JobID, "SUCCEEDED")
 	var latestContentID string
-	if err := database.SQL.QueryRowContext(ctx, `SELECT id FROM games WHERE id=?`,
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `SELECT id FROM games WHERE id=?`,
 		published.GameID).Scan(&latestContentID); err != nil {
 		t.Fatal(err)
 	}
@@ -574,9 +572,7 @@ func fakeReplacementCHD(payload string) []byte {
 func completeDirectoryUpload(
 	t *testing.T,
 	ctx context.Context,
-	database interface {
-		QueryRowContext(context.Context, string, ...any) *sql.Row
-	},
+	database dbapi.Queryer,
 	service *uploads.Service,
 	contents map[string][]byte,
 ) string {
@@ -614,9 +610,7 @@ func completeDirectoryUpload(
 	return session.ID
 }
 
-func completeUpload(t *testing.T, ctx context.Context, database interface {
-	QueryRowContext(context.Context, string, ...any) *sql.Row
-}, service *uploads.Service, name string, contents []byte,
+func completeUpload(t *testing.T, ctx context.Context, database dbapi.Queryer, service *uploads.Service, name string, contents []byte,
 ) string {
 	t.Helper()
 	session, err := service.Create(
@@ -648,14 +642,12 @@ func completeUpload(t *testing.T, ctx context.Context, database interface {
 	return session.ID
 }
 
-func waitForJob(t *testing.T, ctx context.Context, database interface {
-	QueryRowContext(context.Context, string, ...any) *sql.Row
-}, jobID, expected string,
+func waitForJob(t *testing.T, ctx context.Context, database dbapi.Queryer, jobID, expected string,
 ) {
 	t.Helper()
 	for deadline := time.Now().Add(3 * time.Second); ; {
 		var state, errorCode string
-		if err := database.QueryRowContext(ctx, `
+		if err := dbapi.QueryRowContext(ctx, database, `
 SELECT state,COALESCE(error_code,'')
 FROM jobs
 WHERE id=?

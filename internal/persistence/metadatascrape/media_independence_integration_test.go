@@ -8,6 +8,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	dbapi "retrom/internal/database"
 )
 
 func TestPendingMediaDoesNotBlockInitialReviewOrMetadataCompletion(t *testing.T) {
@@ -30,7 +32,7 @@ func TestPendingMediaDoesNotBlockInitialReviewOrMetadataCompletion(t *testing.T)
 		t.Fatal("media download was not dispatched")
 	}
 	var itemState, jobState, runState string
-	err := database.SQL.QueryRowContext(t.Context(), `SELECT i.state,j.state,r.state FROM import_items i
+	err := dbapi.QueryRowContext(t.Context(), database.SQL, `SELECT i.state,j.state,r.state FROM import_items i
  JOIN metadata_scrape_runs r ON r.import_item_id=i.id JOIN jobs j ON j.id=r.job_id
  WHERE i.import_job_id=?`, importID).Scan(&itemState, &jobState, &runState)
 	if err != nil {
@@ -40,7 +42,7 @@ func TestPendingMediaDoesNotBlockInitialReviewOrMetadataCompletion(t *testing.T)
 		t.Fatalf("pending media blocked review: item=%s job=%s run=%s", itemState, jobState, runState)
 	}
 	var jobs int
-	if err := database.SQL.QueryRowContext(t.Context(), `SELECT count(*) FROM jobs j JOIN import_items i ON i.id=j.scope_id WHERE i.import_job_id=? AND j.kind='MEDIA_FETCH'`, importID).Scan(&jobs); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), database.SQL, `SELECT count(*) FROM jobs j JOIN import_items i ON i.id=j.scope_id WHERE i.import_job_id=? AND j.kind='MEDIA_FETCH'`, importID).Scan(&jobs); err != nil {
 		t.Fatal(err)
 	}
 	if jobs != 1 {

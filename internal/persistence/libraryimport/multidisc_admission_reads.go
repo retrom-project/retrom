@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/contentquery"
 	application "retrom/internal/service/libraryimport"
 )
@@ -14,7 +15,7 @@ func (records multidiscAdmissionRecords) Admission(
 	ctx context.Context, itemID string,
 ) (application.MultiDiscAttachmentAdmission, bool, error) {
 	var admission application.MultiDiscAttachmentAdmission
-	err := records.executor.QueryRowContext(ctx, `SELECT draft.id,item.state,draft.review_version,
+	err := dbapi.QueryRowContext(ctx, records.executor, `SELECT draft.id,item.state,draft.review_version,
 draft.effective_source_snapshot_id,
 platform.platform_id,platform.id,platform.version,platform.default_core_id,
 target.provider_id,target.target_id,
@@ -61,7 +62,7 @@ func (records multidiscAdmissionRecords) Head(
 	ctx context.Context, itemID string,
 ) (application.MultiDiscAttachmentHead, bool, error) {
 	var head application.MultiDiscAttachmentHead
-	err := records.executor.QueryRowContext(ctx, `SELECT item.state,snapshot.content_kind
+	err := dbapi.QueryRowContext(ctx, records.executor, `SELECT item.state,snapshot.content_kind
 FROM import_items item JOIN import_items draft ON draft.id=item.id
 JOIN import_item_source_snapshots snapshot ON snapshot.id=draft.effective_source_snapshot_id
 WHERE item.id=?`, itemID).Scan(&head.State, &head.ContentKind)
@@ -78,7 +79,7 @@ func (records multidiscAdmissionRecords) Upload(
 	ctx context.Context, id string,
 ) (application.MultiDiscAttachmentUpload, bool, error) {
 	var upload application.MultiDiscAttachmentUpload
-	err := records.executor.QueryRowContext(ctx, `SELECT session.state,session.source_type,EXISTS(
+	err := dbapi.QueryRowContext(ctx, records.executor, `SELECT session.state,session.source_type,EXISTS(
 SELECT 1 FROM upload_consumptions consumption WHERE consumption.upload_session_id=session.id
 AND consumption.upload_file_id IS NULL) FROM upload_sessions session WHERE session.id=?`, id).
 		Scan(&upload.State, &upload.SourceType, &upload.Consumed)
@@ -95,7 +96,7 @@ func (records multidiscAdmissionRecords) Activity(
 	ctx context.Context, id string,
 ) (application.MultiDiscAttachmentActivity, error) {
 	var result application.MultiDiscAttachmentActivity
-	err := records.executor.QueryRowContext(ctx, `SELECT
+	err := dbapi.QueryRowContext(ctx, records.executor, `SELECT
 COALESCE(sum(CASE WHEN state IN ('QUEUED','RUNNING') THEN 1 ELSE 0 END),0),
 COALESCE(sum(CASE WHEN state='FAILED_RETRYABLE' THEN 1 ELSE 0 END),0)
 FROM review_multidisc_attachments WHERE import_item_id=?`, id).Scan(&result.Active, &result.Retryable)

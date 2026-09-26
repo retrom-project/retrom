@@ -4,11 +4,11 @@ import (
 	"context"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/recordstore"
 )
 
-func createLaunchRelations(ctx context.Context, tx dbexec.Executor, id string) error {
+func createLaunchRelations(ctx context.Context, tx dbapi.Executor, id string) error {
 	if err := recordstore.ValidateLaunchSessions(ctx, tx, id); err != nil {
 		return fmt.Errorf("validate session record: %w", err)
 	}
@@ -40,7 +40,7 @@ WHEN state='CREATED' THEN CASE WHEN bootstrap_expires_at_ms<hard_expires_at_ms
 THEN bootstrap_expires_at_ms ELSE hard_expires_at_ms END
 ELSE hard_expires_at_ms END`
 
-func updateLaunchRelations(ctx context.Context, tx dbexec.Executor, id string) error {
+func updateLaunchRelations(ctx context.Context, tx dbapi.Executor, id string) error {
 	if _, err := tx.ExecContext(ctx, `
 UPDATE launch_payload_retirements SET due_at_ms=(SELECT `+retirementDeadline+`
 FROM launch_sessions WHERE id=?) WHERE launch_session_id=? AND released_at_ms IS NULL`, id, id); err != nil {
@@ -72,7 +72,7 @@ AND state NOT IN ('CREATED','ACTIVE'))`, id, id); err != nil {
 	return nil
 }
 
-func createSaveVersion(ctx context.Context, tx dbexec.Executor, id string) error {
+func createSaveVersion(ctx context.Context, tx dbapi.Executor, id string) error {
 	if err := recordstore.ValidateSaveStates(ctx, tx, id); err != nil {
 		return fmt.Errorf("validate session record: %w", err)
 	}
@@ -82,7 +82,7 @@ func createSaveVersion(ctx context.Context, tx dbexec.Executor, id string) error
 	return nil
 }
 
-func revokePreviewCapability(ctx context.Context, tx dbexec.Executor, id string) error {
+func revokePreviewCapability(ctx context.Context, tx dbapi.Executor, id string) error {
 	if _, err := recordstore.UpdateIsolatedRuntimeCapabilities(ctx, tx, recordstore.Update{
 		Set: `
 revoked_at_ms=(

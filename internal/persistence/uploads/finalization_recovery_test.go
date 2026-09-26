@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
 	uploadservice "retrom/internal/service/uploads"
 	"retrom/internal/testsupport"
 )
@@ -34,14 +35,14 @@ worker_id='old-worker',execution_started_at_ms=?,execution_deadline_at_ms=?,leas
 	}
 	var stored int64
 	var state string
-	if err := fixture.database.QueryRowContext(t.Context(), `SELECT state,execution_deadline_at_ms FROM jobs WHERE id=?`, job).Scan(&state, &stored); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT state,execution_deadline_at_ms FROM jobs WHERE id=?`, job).Scan(&state, &stored); err != nil {
 		t.Fatal(err)
 	}
 	if state != "QUEUED" || stored != deadline {
 		t.Fatalf("recovery reset deadline: %s %d", state, stored)
 	}
 	var events int
-	if err := fixture.database.QueryRowContext(t.Context(), `SELECT count(*) FROM job_events WHERE job_id=? AND event_type='RETRY_SCHEDULED'`, job).Scan(&events); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT count(*) FROM job_events WHERE job_id=? AND event_type='RETRY_SCHEDULED'`, job).Scan(&events); err != nil {
 		t.Fatal(err)
 	}
 	if events != 1 {
@@ -52,7 +53,7 @@ worker_id='old-worker',execution_started_at_ms=?,execution_deadline_at_ms=?,leas
 		t.Fatal(err)
 	}
 	var attempt int64
-	if err := fixture.database.QueryRowContext(t.Context(), `SELECT attempt_count,execution_deadline_at_ms FROM jobs WHERE id=?`, job).Scan(&attempt, &stored); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT attempt_count,execution_deadline_at_ms FROM jobs WHERE id=?`, job).Scan(&attempt, &stored); err != nil {
 		t.Fatal(err)
 	}
 	if attempt != 2 || stored != deadline {
@@ -78,7 +79,7 @@ func TestFinalizationDeadlinePrecedesFutureAvailability(t *testing.T) {
 	}
 	awaitFinalizeState(t, fixture.database, job, "FAILED")
 	var code string
-	if err := fixture.database.QueryRowContext(t.Context(), `SELECT error_code FROM jobs WHERE id=?`, job).Scan(&code); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT error_code FROM jobs WHERE id=?`, job).Scan(&code); err != nil {
 		t.Fatal(err)
 	}
 	if code != "UPLOAD_FINALIZE_TIMEOUT" {
@@ -111,7 +112,7 @@ worker_id='old-worker',execution_started_at_ms=?,execution_deadline_at_ms=?,leas
 		t.Fatalf("recovery cause/hits: %v %d", err, hits)
 	}
 	var state, owner string
-	if err := fixture.database.QueryRowContext(t.Context(), `SELECT state,worker_id FROM jobs WHERE id=?`, job).Scan(&state, &owner); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT state,worker_id FROM jobs WHERE id=?`, job).Scan(&state, &owner); err != nil {
 		t.Fatal(err)
 	}
 	if state != "RUNNING" || owner != "old-worker" {

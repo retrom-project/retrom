@@ -2,7 +2,6 @@ package payloadrelease
 
 import (
 	"context"
-	"database/sql"
 	"database/sql/driver"
 	"errors"
 	"path/filepath"
@@ -11,11 +10,11 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/testsupport"
 )
 
-func schedulingGame(t *testing.T) *sql.DB {
+func schedulingGame(t *testing.T) dbapi.DB {
 	t.Helper()
 	database, err := testsupport.OpenDatabase(t.Context(), filepath.Join(t.TempDir(), "retrom.db"), func() time.Time {
 		return time.UnixMilli(10)
@@ -69,14 +68,14 @@ func TestGameReleaseSchedulingPreservesAffectedRowFailure(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer dbexec.Rollback(tx)
+	defer dbapi.Rollback(tx)
 	id, err := ScheduleGameDeletion(t.Context(), tx, "schedule-game", 1, 10)
 	if !errors.Is(err, cause) || id != "" || hits.Load() != 1 {
 		t.Fatalf("scheduling lost storage failure: job=%q error=%v hits=%d", id, err, hits.Load())
 	}
 	var jobs int
 	var state string
-	err = tx.QueryRowContext(t.Context(), `SELECT status,(SELECT count(*) FROM jobs WHERE scope_id='schedule-game')
+	err = dbapi.QueryRowContext(t.Context(), tx, `SELECT status,(SELECT count(*) FROM jobs WHERE scope_id='schedule-game')
 FROM games WHERE id='schedule-game'`).Scan(&state, &jobs)
 	if err != nil || state != "DELETED" || jobs != 1 {
 		t.Fatalf("fault preceded actual atomic writes: state=%s jobs=%d err=%v", state, jobs, err)
@@ -84,7 +83,7 @@ FROM games WHERE id='schedule-game'`).Scan(&state, &jobs)
 	if err := tx.Rollback(); err != nil {
 		t.Fatal(err)
 	}
-	err = db.QueryRowContext(t.Context(), `SELECT status,(SELECT count(*) FROM jobs WHERE scope_id='schedule-game')
+	err = dbapi.QueryRowContext(t.Context(), db, `SELECT status,(SELECT count(*) FROM jobs WHERE scope_id='schedule-game')
 FROM games WHERE id='schedule-game'`).Scan(&state, &jobs)
 	if err != nil || state != "PUBLISHED" || jobs != 0 {
 		t.Fatalf("schedule failure retained writes: state=%s jobs=%d err=%v", state, jobs, err)

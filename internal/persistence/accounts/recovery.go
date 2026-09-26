@@ -6,26 +6,26 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/service/accounts"
 )
 
 type (
-	RecoveryRepository struct{ database *sql.DB }
-	recoveryRecords    struct{ executor dbexec.Executor }
+	RecoveryRepository struct{ database dbapi.DB }
+	recoveryRecords    struct{ executor dbapi.Executor }
 )
 
-func NewRecovery(database *sql.DB) *RecoveryRepository { return &RecoveryRepository{database} }
+func NewRecovery(database dbapi.DB) *RecoveryRepository { return &RecoveryRepository{database} }
 func (repository *RecoveryRepository) ByUsername(
 	ctx context.Context,
 	username string,
 ) (accounts.RecoveryTarget, bool, error) {
-	return scanRecovery(
-		repository.database.QueryRowContext(
-			ctx,
-			`SELECT id,username,display_name,role,status,version FROM users WHERE username=?`,
-			username,
-		),
+	return scanRecovery(dbapi.QueryRowContext(
+		ctx, repository.database,
+
+		`SELECT id,username,display_name,role,status,version FROM users WHERE username=?`,
+		username,
+	),
 	)
 }
 
@@ -34,7 +34,7 @@ func (repository *RecoveryRepository) WithWrite(ctx context.Context, work func(a
 	if err != nil {
 		return fmt.Errorf("begin offline recovery: %w", err)
 	}
-	defer dbexec.Rollback(tx)
+	defer dbapi.Rollback(tx)
 	records := recoveryRecords{tx}
 	if err := work(accounts.RecoveryScope{Read: records, Write: records}); err != nil {
 		return err
@@ -46,16 +46,16 @@ func (repository *RecoveryRepository) WithWrite(ctx context.Context, work func(a
 }
 
 func (records recoveryRecords) Current(ctx context.Context, id string) (accounts.RecoveryTarget, bool, error) {
-	return scanRecovery(
-		records.executor.QueryRowContext(
-			ctx,
-			`SELECT id,username,display_name,role,status,version FROM users WHERE id=?`,
-			id,
-		),
+	return scanRecovery(dbapi.QueryRowContext(
+		ctx, records.executor,
+
+		`SELECT id,username,display_name,role,status,version FROM users WHERE id=?`,
+		id,
+	),
 	)
 }
 
-func scanRecovery(scanner dbexec.Scanner) (accounts.RecoveryTarget, bool, error) {
+func scanRecovery(scanner dbapi.Scanner) (accounts.RecoveryTarget, bool, error) {
 	var target accounts.RecoveryTarget
 	err := scanner.Scan(
 		&target.UserID,

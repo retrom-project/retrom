@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/recordstore"
 	"retrom/internal/service/metadatascrape"
 )
@@ -27,8 +28,9 @@ func (records resultRecords) Candidate(
 	if candidate.Created {
 		return candidate, nil
 	}
-	err = records.transaction.QueryRowContext(
-		ctx,
+	err = dbapi.QueryRowContext(
+		ctx, records.transaction,
+
 		`SELECT id FROM scrape_candidates WHERE scrape_run_id=? AND provider_game_id=?`,
 		value.RunID,
 		value.ProviderGameID,

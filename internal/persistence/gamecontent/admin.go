@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"strings"
 
+	dbapi "retrom/internal/database"
+
 	"retrom/internal/cleanup"
 	"retrom/internal/gametitle"
 	"retrom/internal/persistence/recordstore"
@@ -20,7 +22,7 @@ func (records records) AdminGame(ctx context.Context, gameID string) (applicatio
 	var result application.AdminGameDetail
 	var payloadReleaseJobID, payloadLastErrorCode sql.NullString
 	var players, releaseYear, deletedAtMS sql.NullInt64
-	err := records.executor.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, records.executor, `
 SELECT g.title,
 g.description,
 g.developer,
@@ -190,7 +192,7 @@ func (writes writes) LoadPatchState(
 ) (application.AdminGamePatchState, error) {
 	var state application.AdminGamePatchState
 	var players, releaseYear sql.NullInt64
-	err := writes.transaction.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, writes.transaction, `
 SELECT g.status,
 g.version,
 g.title,
@@ -268,7 +270,7 @@ AND version=?
 	return true, nil
 }
 
-func recordAdminGameAudit(ctx context.Context, transaction *sql.Tx, update application.AdminGamePatchUpdate) error {
+func recordAdminGameAudit(ctx context.Context, transaction dbapi.Tx, update application.AdminGamePatchUpdate) error {
 	id, err := uuid.NewV7()
 	if err != nil {
 		return fmt.Errorf("create admin game audit identity: %w", err)

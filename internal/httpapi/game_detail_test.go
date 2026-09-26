@@ -16,7 +16,7 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/blobcatalog"
 
 	"retrom/internal/persistence/recordstore"
@@ -38,12 +38,7 @@ func anyTrue(values ...bool) bool {
 	return false
 }
 
-type httpTestSQLExecer interface {
-	ExecContext(context.Context, string, ...any) (sql.Result, error)
-	QueryRowContext(context.Context, string, ...any) *sql.Row
-}
-
-func mustExecHTTPTest(t *testing.T, execer httpTestSQLExecer, query string, arguments ...any) {
+func mustExecHTTPTest(t *testing.T, execer dbapi.Executor, query string, arguments ...any) {
 	t.Helper()
 	_, err := execer.ExecContext(context.Background(), query, arguments...)
 	testassert.False(t, err != nil, err)
@@ -51,7 +46,7 @@ func mustExecHTTPTest(t *testing.T, execer httpTestSQLExecer, query string, argu
 
 func requireHTTPTestRuntimeTarget(
 	t *testing.T,
-	execer httpTestSQLExecer,
+	execer dbapi.Executor,
 	coreID string,
 ) {
 	t.Helper()
@@ -65,16 +60,12 @@ func mustDecodeHTTPTest(t *testing.T, contents []byte, destination any) {
 	testassert.False(t, json.Unmarshal(contents, destination) != nil, "decode HTTP test response")
 }
 
-func mustCommitHTTPTest(t *testing.T, transaction *sql.Tx) {
+func mustCommitHTTPTest(t *testing.T, transaction dbapi.Tx) {
 	t.Helper()
 	testassert.False(t, transaction.Commit() != nil, "commit HTTP test fixture")
 }
 
-type httpTestScanner interface {
-	Scan(...any) error
-}
-
-func mustScanHTTPTest(t *testing.T, scanner httpTestScanner, destinations ...any) {
+func mustScanHTTPTest(t *testing.T, scanner dbapi.Scanner, destinations ...any) {
 	t.Helper()
 	testassert.False(t, scanner.Scan(destinations...) != nil, "scan HTTP test fixture")
 }
@@ -92,7 +83,7 @@ func TestGameDetailReturnsCoreValidationChoicesAndDOSPrograms(t *testing.T) {
 	saveStateID := "01980000-0000-7000-8000-000000000108"
 	transaction, err := server.database.BeginTx(context.Background(), nil)
 	testassert.False(t, err != nil, err)
-	defer dbexec.Rollback(transaction)
+	defer dbapi.Rollback(transaction)
 	now := time.Now().UnixMilli()
 	fixture := gameDetailSeed{now: now}
 	seedGameDetailMedia(t, server, transaction, gameID, metadataID, contentID, coverBlobID, coverAssetID, videoAssetID, &fixture)
@@ -261,8 +252,9 @@ INSERT INTO save_states(
 `, sessionSaveID, gameID, screenshotBlobID, hex.EncodeToString(payloadDigest[:]), len(screenshot),
 		screenshotBlobID, latestLaunchID, now+20, now+20)
 	var alternateLaunchID string
-	if err := server.database.QueryRowContext(
-		context.Background(),
+	if err := dbapi.QueryRowContext(
+		context.Background(), server.database,
+
 		`SELECT id FROM launch_sessions WHERE game_id=? AND id<>? ORDER BY id LIMIT 1`,
 		gameID,
 		latestLaunchID,
@@ -386,7 +378,7 @@ func assertGameProfileIsolation(t *testing.T, server *Server, gameID, saveStateI
 	testassert.Falsef(t, testassert.Any(func() bool { return foreignDelete.Code != http.StatusNotFound }, func() bool { return !strings.Contains(foreignDelete.Body.String(), `"code":"SAVE_STATE_NOT_FOUND"`) }), "foreign save delete = %d: %s", foreignDelete.Code, foreignDelete.Body.String())
 	var preservedName string
 	var preservedDeletedAt sql.NullInt64
-	if err := server.database.QueryRowContext(context.Background(),
+	if err := dbapi.QueryRowContext(context.Background(), server.database,
 		`SELECT name,deleted_at_ms FROM save_states WHERE id=?`,
 		saveStateID,
 	).Scan(&preservedName, &preservedDeletedAt); err != nil || preservedName != "入口存档" || preservedDeletedAt.Valid {
@@ -409,7 +401,7 @@ func assertGameAdminMutations(
 	videoPayload []byte, videoMetadata blobstore.Metadata, videoBlobID string,
 ) {
 	var originalCoverAssetID, originalVideoAssetID string
-	mustScanHTTPTest(t, server.database.QueryRowContext(context.Background(), `
+	mustScanHTTPTest(t, dbapi.QueryRowContext(context.Background(), server.database, `
 SELECT
  (SELECT id FROM game_assets WHERE game_id=? AND kind='COVER' ORDER BY created_at_ms,id LIMIT 1),
  (SELECT id FROM game_assets WHERE game_id=? AND kind='VIDEO' ORDER BY created_at_ms,id LIMIT 1)
@@ -439,7 +431,7 @@ SELECT
 	testassert.Falsef(t, apply.Code != http.StatusOK, "apply game scrape candidate = %d: %s", apply.Code, apply.Body.String())
 	var appliedTitle, appliedTitleInitial string
 	var preservedAssets int64
-	mustScanHTTPTest(t, server.database.QueryRowContext(context.Background(), `
+	mustScanHTTPTest(t, dbapi.QueryRowContext(context.Background(), server.database, `
 SELECT m.title,m.title_initial,count(a.id)
 FROM games g
 JOIN games m ON m.id=g.id
@@ -453,7 +445,7 @@ GROUP BY m.title,m.title_initial
 		func() bool { return preservedAssets != 2 },
 	), "applied title/initial/assets = %q/%s/%d", appliedTitle, appliedTitleInitial, preservedAssets)
 	var preservedCoverID, preservedVideoID string
-	mustScanHTTPTest(t, server.database.QueryRowContext(context.Background(), `
+	mustScanHTTPTest(t, dbapi.QueryRowContext(context.Background(), server.database, `
 SELECT
  (SELECT id FROM game_assets WHERE game_id=? AND kind='COVER'),
  (SELECT id FROM game_assets WHERE game_id=? AND kind='VIDEO')
@@ -485,7 +477,7 @@ VALUES(?,?,'preview.mp4',?,?,?,'COMPLETE',?,?)
 	testassert.Falsef(t, testassert.Any(func() bool { return removeVideo.Code != http.StatusNoContent }, func() bool { return removeVideo.Header().Get("ETag") != `"v4"` }), "remove video = %d headers=%v: %s", removeVideo.Code, removeVideo.Header(), removeVideo.Body.String())
 	var currentVideos, retiredAssets int
 	var currentTitleInitial string
-	if err := server.database.QueryRowContext(context.Background(), `
+	if err := dbapi.QueryRowContext(context.Background(), server.database, `
 SELECT
 (SELECT count(*) FROM game_assets asset JOIN games game ON game.id=asset.game_id WHERE game.id=? AND asset.kind='VIDEO'),
 (SELECT count(*) FROM game_assets asset JOIN games game ON game.id=asset.game_id
@@ -508,7 +500,7 @@ func TestGameListUsesFilteredCursorPagesAndReturnsFacetsOnlyOnFirstPage(t *testi
 	server := newTestServer(t)
 	transaction, err := server.database.BeginTx(context.Background(), nil)
 	testassert.False(t, err != nil, err)
-	defer dbexec.Rollback(transaction)
+	defer dbapi.Rollback(transaction)
 	mustExecHTTPTest(t, transaction, `PRAGMA defer_foreign_keys=ON`)
 	const baseTime = int64(1_786_000_000_000)
 	gameIDs := []string{
@@ -570,7 +562,7 @@ INSERT INTO games(
 
 func seedCompletedGameScrape(
 	t *testing.T,
-	database *sql.DB,
+	database dbapi.DB,
 	gameID, _ string, coverBlobID string,
 	now int64,
 ) (string, string) {
@@ -615,13 +607,13 @@ VALUES(?,?,?,'cover','COVER',0,'/cover','READY',?,600,800,'image/png',NULL,?,1,?
 	return candidateID, candidateAssetID
 }
 
-func seedRecentGameHistory(t *testing.T, database *sql.DB, now int64, count int) {
+func seedRecentGameHistory(t *testing.T, database dbapi.DB, now int64, count int) {
 	t.Helper()
 	target, err := testsupport.LookupRuntimeTarget(t.Context(), database, "dosbox_pure")
 	testassert.False(t, err != nil, err)
 	transaction, err := database.BeginTx(context.Background(), nil)
 	testassert.False(t, err != nil, err)
-	defer dbexec.Rollback(transaction)
+	defer dbapi.Rollback(transaction)
 	mustExecHTTPTest(t, transaction, "PRAGMA defer_foreign_keys=ON")
 	for index := 0; index < count; index++ {
 		gameID := uuid.NewString()
@@ -669,7 +661,7 @@ type gameDetailSeed struct {
 }
 
 func seedGameDetailMedia(
-	t *testing.T, server *Server, transaction *sql.Tx,
+	t *testing.T, server *Server, transaction dbapi.Tx,
 	gameID, _, _, coverBlobID, coverAssetID, videoAssetID string,
 	fixture *gameDetailSeed,
 ) {
@@ -738,7 +730,7 @@ VALUES(?,?,?,'VIDEO',0,NULL,NULL,'video/mp4',?)
 }
 
 func seedGameDetailRuntime(
-	t *testing.T, server *Server, transaction *sql.Tx,
+	t *testing.T, server *Server, transaction dbapi.Tx,
 	gameID, variantID, saveStateID string,
 	fixture *gameDetailSeed,
 ) {

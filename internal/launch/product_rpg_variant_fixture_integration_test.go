@@ -6,7 +6,6 @@ import (
 	"archive/zip"
 	"bytes"
 	"crypto/sha256"
-	"database/sql"
 	"encoding/base64"
 	"fmt"
 	"io/fs"
@@ -17,6 +16,7 @@ import (
 
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
+	dbapi "retrom/internal/database"
 	"retrom/internal/dependencies"
 	"retrom/internal/libraryimport"
 	dependencypersistence "retrom/internal/persistence/dependencies"
@@ -31,7 +31,7 @@ import (
 
 type productRPGFixture struct {
 	service  *Service
-	database *sql.DB
+	database dbapi.DB
 	blobs    *blobstore.Store
 	gameID   string
 	now      func() time.Time
@@ -70,7 +70,7 @@ func newProductRPGFixture(t *testing.T, generation string) productRPGFixture {
 		t.Fatalf("import RPG fixture: %v", err)
 	}
 	var itemID string
-	if err := database.SQL.QueryRowContext(ctx, `SELECT id FROM import_items WHERE import_job_id=?`, created.ImportJobID).Scan(&itemID); err != nil {
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `SELECT id FROM import_items WHERE import_job_id=?`, created.ImportJobID).Scan(&itemID); err != nil {
 		t.Fatal(err)
 	}
 	title := "RPG variant " + generation
@@ -96,7 +96,7 @@ func newProductRPGFixture(t *testing.T, generation string) productRPGFixture {
 	return productRPGFixture{service: service, database: database.SQL, blobs: blobs, gameID: approved.GameID, now: now}
 }
 
-func uploadProductRPGFixture(t *testing.T, database *sql.DB, blobs *blobstore.Store, dataDir, generation string, now func() time.Time) string {
+func uploadProductRPGFixture(t *testing.T, database dbapi.DB, blobs *blobstore.Store, dataDir, generation string, now func() time.Time) string {
 	t.Helper()
 	ctx := t.Context()
 	archive := productRPGArchive(t, generation)

@@ -12,7 +12,7 @@ import (
 
 	"retrom/internal/authn"
 	contentcapability "retrom/internal/content/capability"
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	librarypersistence "retrom/internal/persistence/libraryimport"
 	libraryservice "retrom/internal/service/libraryimport"
 )
@@ -147,7 +147,7 @@ func quickApprovalValidationCurrent(candidate reviewBulkCandidate) bool {
 
 func (service *Service) classifyReviewBulkCandidates(
 	ctx context.Context,
-	transaction dbexec.Executor,
+	transaction dbapi.Executor,
 	matched []reviewBulkCandidate,
 ) ([]reviewBulkCandidate, ReviewBulkCounts, error) {
 	counts := ReviewBulkCounts{Matched: len(matched)}
@@ -210,7 +210,7 @@ func (service *Service) CreateReviewBulk(ctx context.Context) (ReviewBulkSummary
 	}
 	now := service.now().UnixMilli()
 	var created ReviewBulkSummary
-	err = librarypersistence.NewTransactions(service.database).Write(ctx, func(executor dbexec.Executor) error {
+	err = librarypersistence.NewTransactions(service.database).Write(ctx, func(executor dbapi.Executor) error {
 		repository := librarypersistence.BindReviewBulkWrites(executor)
 		var createErr error
 		created, createErr = repository.CreateGlobal(ctx, bulkID.String(), jobID.String(), principal.UserID, now)

@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"retrom/internal/composition"
+	dbapi "retrom/internal/database"
 	"retrom/internal/testsupport"
 )
 
@@ -68,7 +69,7 @@ func assertReviewCoverCounts(t *testing.T, server *Server, itemID string, want i
 	var assets, consumptions int
 	var version int64
 	var selected bool
-	if err := server.database.QueryRowContext(t.Context(), `
+	if err := dbapi.QueryRowContext(t.Context(), server.database, `
 SELECT (SELECT COUNT(*) FROM review_uploaded_assets WHERE import_item_id=?),
 (SELECT COUNT(*) FROM upload_consumptions WHERE consumer_type='REVIEW_ASSET'),
 d.review_version,d.cover_uploaded_asset_id IS NOT NULL FROM import_items d WHERE d.id=?`, itemID, itemID).
@@ -99,7 +100,7 @@ func TestReviewCoverUploadCannotMoveBetweenReviews(t *testing.T) {
 	}
 	assertReviewCoverCounts(t, server, firstItemID, 1)
 	var count int
-	if err := server.database.QueryRowContext(t.Context(), `SELECT COUNT(*) FROM review_uploaded_assets WHERE id=?`, secondItemID).Scan(&count); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), server.database, `SELECT COUNT(*) FROM review_uploaded_assets WHERE id=?`, secondItemID).Scan(&count); err != nil {
 		t.Fatal(err)
 	}
 	if count != 0 {

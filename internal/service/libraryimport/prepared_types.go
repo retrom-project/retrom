@@ -3,7 +3,7 @@ package libraryimport
 import (
 	"retrom/internal/blobstore"
 	"retrom/internal/core/rpgmaker/detector"
-	"retrom/internal/corevalidation"
+	corevalidation "retrom/internal/core/validation"
 	"retrom/internal/importing"
 )
 

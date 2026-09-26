@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
 	dependencypersistence "retrom/internal/persistence/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 
@@ -25,7 +26,7 @@ import (
 
 const testUserID = "01980000-0000-7000-8000-000000009901"
 
-func newService(t *testing.T) (*platforminstance.Service, *sql.DB) {
+func newService(t *testing.T) (*platforminstance.Service, dbapi.DB) {
 	t.Helper()
 	database, err := store.Open(t.Context(), filepath.Join(t.TempDir(), "retrom.db"), func() time.Time {
 		return time.UnixMilli(1_786_000_000_000)
@@ -88,7 +89,7 @@ func TestApplyCreatesCatalogAtomicallyAndReplays(t *testing.T) {
 	testassert.False(t, err != nil, err)
 	testassert.False(t, testassert.Any(func() bool { return !replay.Replayed }, func() bool { return string(replay.Body) != string(response.Body) }), "idempotent replay did not return the stored response")
 	var directories, catalogKeys, audits int
-	if err := database.QueryRowContext(context.Background(), `
+	if err := dbapi.QueryRowContext(context.Background(), database, `
 SELECT (SELECT count(*) FROM platform_instances WHERE deleted_at_ms IS NULL),
        (SELECT count(*) FROM platform_instances WHERE catalog_template_key IS NOT NULL),
        (SELECT count(*) FROM audit_events WHERE action='PLATFORM_INSTANCE_RECOMMENDED_CREATED')
@@ -139,7 +140,7 @@ WHERE catalog_template_key='arcade/fbneo';
 	}
 	testassert.Falsef(t, testassert.Any(func() bool { return result.Summary.CreatedCount != 0 }, func() bool { return result.Summary.SuppressedCount != 2 }), "second apply = %#v", result.Summary)
 	var manualKey sql.NullString
-	if err := database.QueryRowContext(context.Background(), `SELECT catalog_template_key FROM platform_instances WHERE id=?`, manual.ID).Scan(&manualKey); err != nil {
+	if err := dbapi.QueryRowContext(context.Background(), database, `SELECT catalog_template_key FROM platform_instances WHERE id=?`, manual.ID).Scan(&manualKey); err != nil {
 		t.Fatal(err)
 	}
 	testassert.Falsef(t, manualKey.Valid, "manual catalog key = %q", manualKey.String)
@@ -156,7 +157,7 @@ func TestApplyRollsBackWhenAuditFails(t *testing.T) {
 		t.Fatal("Apply succeeded with an invalid audit actor")
 	}
 	var directories, records int
-	if err := database.QueryRowContext(context.Background(), `
+	if err := dbapi.QueryRowContext(context.Background(), database, `
 SELECT (SELECT count(*) FROM platform_instances),(SELECT count(*) FROM idempotency_records)
 `).Scan(&directories, &records); err != nil {
 		t.Fatal(err)
@@ -181,7 +182,7 @@ func TestConcurrentApplyCreatesOneDirectoryPerTemplate(t *testing.T) {
 		testassert.False(t, err != nil, err)
 	}
 	var directories, distinctKeys int
-	if err := database.QueryRowContext(context.Background(), `
+	if err := dbapi.QueryRowContext(context.Background(), database, `
 SELECT count(*),count(DISTINCT catalog_template_key) FROM platform_instances
 `).Scan(&directories, &distinctKeys); err != nil {
 		t.Fatal(err)

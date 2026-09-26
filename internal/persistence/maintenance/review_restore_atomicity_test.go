@@ -2,7 +2,6 @@ package maintenance
 
 import (
 	"context"
-	"database/sql"
 	"database/sql/driver"
 	"encoding/json"
 	"errors"
@@ -11,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/maintenance"
 	"retrom/internal/testsupport"
 )
@@ -28,7 +27,7 @@ func TestRestoredReviewFailureRollsBackSecurityAndHandoff(t *testing.T) {
 	}
 }
 
-func restoreReviewFixture(t *testing.T) *sql.DB {
+func restoreReviewFixture(t *testing.T) dbapi.DB {
 	t.Helper()
 	db, _ := restoredSourceReview(t)
 	_, err := db.ExecContext(t.Context(), `INSERT INTO auth_sessions(id,user_id,token_sha256,user_session_version,
@@ -65,7 +64,7 @@ func verifyRestoreReviewFailure(t *testing.T, kind, stage string) {
 		t.Fatal(err)
 	}
 	var audits, events, pending int
-	err = db.QueryRowContext(t.Context(), `SELECT
+	err = dbapi.QueryRowContext(t.Context(), db, `SELECT
 (SELECT count(*) FROM audit_events WHERE id='restore-audit'),
 (SELECT review_version-1 FROM import_items WHERE id='handoff-item'),
 (SELECT count(*) FROM import_items WHERE id='handoff-item' AND state='REVIEW_PENDING')`).Scan(&audits, &events, &pending)
@@ -154,12 +153,12 @@ func matchesReviewRestoreWrite(kind, stage, query string, args []driver.NamedVal
 	return false
 }
 
-func runReviewRestoreTransaction(ctx context.Context, db *sql.DB) error {
+func runReviewRestoreTransaction(ctx context.Context, db dbapi.DB) error {
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
-	defer dbexec.Rollback(tx)
+	defer dbapi.Rollback(tx)
 	records := writes{tx}
 	if _, err := records.RevokeAccess(ctx, 10); err != nil {
 		return err
@@ -182,7 +181,7 @@ func runReviewRestoreTransaction(ctx context.Context, db *sql.DB) error {
 	return tx.Commit()
 }
 
-func reviewRestoreSnapshot(t *testing.T, db *sql.DB) string {
+func reviewRestoreSnapshot(t *testing.T, db dbapi.DB) string {
 	t.Helper()
 	snapshot := map[string][][]any{}
 	for _, table := range []string{
@@ -199,7 +198,7 @@ func reviewRestoreSnapshot(t *testing.T, db *sql.DB) string {
 	return string(data)
 }
 
-func restoredTableRows(t *testing.T, db *sql.DB, table string) [][]any {
+func restoredTableRows(t *testing.T, db dbapi.DB, table string) [][]any {
 	t.Helper()
 	rows, err := db.QueryContext(t.Context(), "SELECT * FROM "+table+" ORDER BY rowid")
 	if err != nil {

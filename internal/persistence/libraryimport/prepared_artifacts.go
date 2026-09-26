@@ -5,14 +5,14 @@ import (
 	"fmt"
 
 	"retrom/internal/blobstore"
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/blobcatalog"
 	application "retrom/internal/service/libraryimport"
 )
 
-type preparedArtifacts struct{ executor dbexec.Executor }
+type preparedArtifacts struct{ executor dbapi.Executor }
 
-func BindPreparedArtifacts(executor dbexec.Executor) application.ImportArtifactWriter {
+func BindPreparedArtifacts(executor dbapi.Executor) application.ImportArtifactWriter {
 	return preparedArtifacts{executor: executor}
 }
 

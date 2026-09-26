@@ -4,17 +4,17 @@ package launch
 
 import (
 	"bytes"
-	"database/sql"
 	"fmt"
 	"testing"
 
 	"github.com/google/uuid"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/libraryimport"
 )
 
 func assertRepeatedPreviewKeepsScreenshot(
-	t *testing.T, database *sql.DB, service *Service, importer *libraryimport.Service,
+	t *testing.T, database dbapi.DB, service *Service, importer *libraryimport.Service,
 	actorID string, screenshot ReviewScreenshot, image []byte,
 ) {
 	t.Helper()
@@ -24,7 +24,7 @@ func assertRepeatedPreviewKeepsScreenshot(
 		var validationID, screenshotID string
 		var version int64
 		var count int
-		if err := database.QueryRowContext(ctx, `
+		if err := dbapi.QueryRowContext(ctx, database, `
 SELECT validation.id,COALESCE(screenshot.id,''),draft.review_version,
  (SELECT count(*) FROM import_item_core_validations WHERE import_item_id=draft.id)
 FROM import_items draft
@@ -79,7 +79,7 @@ WHERE draft.id=?
 		t.Fatal("a new capture did not replace the screenshot for the same validation")
 	}
 	var retained int
-	if err := database.QueryRowContext(ctx, `SELECT count(*) FROM review_runtime_screenshots WHERE import_item_id=?`, screenshot.ImportItemID).Scan(&retained); err != nil {
+	if err := dbapi.QueryRowContext(ctx, database, `SELECT count(*) FROM review_runtime_screenshots WHERE import_item_id=?`, screenshot.ImportItemID).Scan(&retained); err != nil {
 		t.Fatal(err)
 	}
 	if retained != 1 {
@@ -87,7 +87,7 @@ WHERE draft.id=?
 	}
 }
 
-func seedOlderReviewScreenshot(t *testing.T, database *sql.DB, screenshot ReviewScreenshot) {
+func seedOlderReviewScreenshot(t *testing.T, database dbapi.DB, screenshot ReviewScreenshot) {
 	t.Helper()
 	ctx := t.Context()
 	validationID, screenshotID := uuid.NewString(), uuid.NewString()

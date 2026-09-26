@@ -2,19 +2,18 @@ package libraryimport
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 
 	"retrom/internal/cleanup"
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	payloadpersistence "retrom/internal/persistence/payloadrelease"
 	application "retrom/internal/service/libraryimport"
 	payloadservice "retrom/internal/service/payloadrelease"
 )
 
-type ReviewBatchDiscards struct{ database *sql.DB }
+type ReviewBatchDiscards struct{ database dbapi.DB }
 
-func NewReviewBatchDiscards(database *sql.DB) *ReviewBatchDiscards {
+func NewReviewBatchDiscards(database dbapi.DB) *ReviewBatchDiscards {
 	return &ReviewBatchDiscards{database: database}
 }
 
@@ -49,9 +48,9 @@ func (repository *ReviewBatchDiscards) Release(ctx context.Context, importID str
 	if err != nil {
 		return fmt.Errorf("begin discarded batch release: %w", err)
 	}
-	defer dbexec.Rollback(tx)
+	defer dbapi.Rollback(tx)
 	var pending int
-	if err := tx.QueryRowContext(ctx, `SELECT count(*) FROM import_items WHERE import_job_id=?
+	if err := dbapi.QueryRowContext(ctx, tx, `SELECT count(*) FROM import_items WHERE import_job_id=?
 AND state NOT IN ('PUBLISHED','DISCARDED','FAILED_FINAL','CANCELLED')`, importID).Scan(&pending); err != nil {
 		return fmt.Errorf("check discarded batch: %w", err)
 	}

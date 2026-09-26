@@ -4,12 +4,13 @@ import (
 	"context"
 	"fmt"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/service/metadatascrape"
 )
 
 func (records resultRecords) Subject(ctx context.Context, runID string) (metadatascrape.Subject, error) {
 	var scope metadatascrape.Subject
-	err := records.transaction.QueryRowContext(ctx, `SELECT j.scope_type,j.scope_id FROM metadata_scrape_runs r
+	err := dbapi.QueryRowContext(ctx, records.transaction, `SELECT j.scope_type,j.scope_id FROM metadata_scrape_runs r
  JOIN jobs j ON j.id=r.job_id WHERE r.id=? AND
  ((j.scope_type='GAME' AND j.scope_id=r.game_id) OR
  (j.scope_type='IMPORT_ITEM' AND j.scope_id=r.import_item_id))`, runID).Scan(&scope.Kind, &scope.ID)

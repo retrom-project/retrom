@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
+
 	"github.com/google/uuid"
 )
 
@@ -34,7 +36,7 @@ func TestRetryPropagatesEntropyFailureWithoutResettingItems(t *testing.T) {
 		t.Errorf("retry ignored entropy failure: %#v, %v", value, err)
 	}
 	var state string
-	if err := db.QueryRowContext(t.Context(), `SELECT execution_state FROM source_import_items WHERE id='item'`).Scan(&state); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), db, `SELECT execution_state FROM source_import_items WHERE id='item'`).Scan(&state); err != nil {
 		t.Fatal(err)
 	}
 	if state != "COMMIT_FAILED" {
@@ -59,7 +61,7 @@ UPDATE source_import_items SET execution_state='PENDING',completed_at_ms=NULL,er
 		t.Fatalf("claimed job closed early: %#v, pending=%v", value, pending)
 	}
 	var state string
-	if err := db.QueryRowContext(t.Context(), `SELECT execution_state FROM source_import_items WHERE id='item'`).Scan(&state); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), db, `SELECT execution_state FROM source_import_items WHERE id='item'`).Scan(&state); err != nil {
 		t.Fatal(err)
 	}
 	if state != "PENDING" {
@@ -89,7 +91,7 @@ VALUES('other','games','Games','Other',
 		t.Fatalf("busy retry: %#v, %v", value, err)
 	}
 	var state string
-	if err := db.QueryRowContext(t.Context(), `SELECT execution_state FROM source_import_items WHERE id='item'`).Scan(&state); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), db, `SELECT execution_state FROM source_import_items WHERE id='item'`).Scan(&state); err != nil {
 		t.Fatal(err)
 	}
 	if state != "COMMIT_FAILED" {
@@ -116,7 +118,7 @@ UPDATE source_import_items SET execution_state='PENDING',completed_at_ms=NULL,re
 		t.Errorf("cancellation ignored entropy error: %#v %v pending=%v", value, err, pending)
 	}
 	var state string
-	if err := db.QueryRowContext(t.Context(), `SELECT state FROM source_imports WHERE id='import'`).Scan(&state); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), db, `SELECT state FROM source_imports WHERE id='import'`).Scan(&state); err != nil {
 		t.Fatal(err)
 	}
 	if state != "QUEUED" {

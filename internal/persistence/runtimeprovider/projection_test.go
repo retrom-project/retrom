@@ -2,13 +2,14 @@ package runtimeprovider
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
+	dbsqlite "retrom/internal/database/sqlite"
 	service "retrom/internal/service/runtimeprovider"
 
 	runtimebundle "retrom/internal/runtime/bundle"
@@ -28,7 +29,7 @@ func TestReconcileProjectsProviderTargetsAndCatalogAtomically(t *testing.T) {
 	}
 
 	var providerVersion, bundleDigest string
-	if err := database.SQL.QueryRowContext(t.Context(), `
+	if err := dbapi.QueryRowContext(t.Context(), database.SQL, `
 SELECT provider_version,bundle_sha256 FROM runtime_providers WHERE provider_id='fixture'
 `).Scan(&providerVersion, &bundleDigest); err != nil {
 		t.Fatal(err)
@@ -38,7 +39,7 @@ SELECT provider_version,bundle_sha256 FROM runtime_providers WHERE provider_id='
 	}
 	assertProjectionCounts(t, database.SQL)
 	var delivery, launch string
-	if err := database.SQL.QueryRowContext(t.Context(), `
+	if err := dbapi.QueryRowContext(t.Context(), database.SQL, `
 SELECT delivery_profile,launch_policy FROM runtime_target_bindings WHERE binding_id='fixture-target'
 `).Scan(&delivery, &launch); err != nil {
 		t.Fatal(err)
@@ -48,26 +49,26 @@ SELECT delivery_profile,launch_policy FROM runtime_target_bindings WHERE binding
 	}
 }
 
-func assertProjectionCounts(t *testing.T, database *sql.DB) {
+func assertProjectionCounts(t *testing.T, database dbapi.DB) {
 	t.Helper()
 	var targetCount, catalogCount, auditCount int
-	if err := database.QueryRowContext(t.Context(), `SELECT count(*) FROM runtime_targets`).Scan(&targetCount); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), database, `SELECT count(*) FROM runtime_targets`).Scan(&targetCount); err != nil {
 		t.Fatal(err)
 	}
 	var bindingCount, platformCount, contentKindCount int
-	if err := database.QueryRowContext(t.Context(), `SELECT count(*) FROM runtime_target_bindings`).Scan(&bindingCount); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), database, `SELECT count(*) FROM runtime_target_bindings`).Scan(&bindingCount); err != nil {
 		t.Fatal(err)
 	}
-	if err := database.QueryRowContext(t.Context(), `SELECT count(*) FROM runtime_binding_platforms`).Scan(&platformCount); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), database, `SELECT count(*) FROM runtime_binding_platforms`).Scan(&platformCount); err != nil {
 		t.Fatal(err)
 	}
-	if err := database.QueryRowContext(t.Context(), `SELECT count(*) FROM runtime_binding_content_kinds`).Scan(&contentKindCount); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), database, `SELECT count(*) FROM runtime_binding_content_kinds`).Scan(&contentKindCount); err != nil {
 		t.Fatal(err)
 	}
-	if err := database.QueryRowContext(t.Context(), `SELECT count(*) FROM runtime_catalog_state WHERE singleton=1`).Scan(&catalogCount); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), database, `SELECT count(*) FROM runtime_catalog_state WHERE singleton=1`).Scan(&catalogCount); err != nil {
 		t.Fatal(err)
 	}
-	if err := database.QueryRowContext(t.Context(), `
+	if err := dbapi.QueryRowContext(t.Context(), database, `
 SELECT count(*) FROM audit_events WHERE action='RUNTIME_PROVIDER_RECONCILED'
 `).Scan(&auditCount); err != nil {
 		t.Fatal(err)
@@ -109,7 +110,7 @@ func TestReconcileAllowsOnlyForwardCompatibleProviderUpgrade(t *testing.T) {
 		t.Fatal(err)
 	}
 	var version, checkpointJSON string
-	if err := database.SQL.QueryRowContext(t.Context(), `
+	if err := dbapi.QueryRowContext(t.Context(), database.SQL, `
 SELECT provider.provider_version,target.checkpoint_json
 FROM runtime_providers provider JOIN runtime_targets target ON target.provider_id=provider.provider_id
 `).Scan(&version, &checkpointJSON); err != nil {
@@ -155,7 +156,7 @@ INSERT INTO bios_requirements(
 }
 
 func TestReconcileRejectsUnreadableStoredCheckpointFormat(t *testing.T) {
-	database, err := sql.Open("sqlite", ":memory:")
+	database, err := dbsqlite.Open(":memory:", dbsqlite.Options{})
 	if err != nil {
 		t.Fatal(err)
 	}

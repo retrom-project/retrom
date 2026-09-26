@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"retrom/internal/authn"
+	dbapi "retrom/internal/database"
 )
 
 const approvalActorID = "01980000-0000-7000-8000-000000009611"
@@ -34,7 +35,7 @@ func assertApprovalSelectionsPublished(t *testing.T, fixture deduplicateFixture,
 	t.Helper()
 	var covers, tags int
 	var actor string
-	err := fixture.database.QueryRowContext(t.Context(), `SELECT
+	err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT
  (SELECT count(*) FROM game_assets WHERE game_id=? AND kind='COVER'),
  (SELECT count(*) FROM game_tags WHERE game_id=?),
  (SELECT assigned_by_user_id FROM game_tags WHERE game_id=? LIMIT 1)`, gameID, gameID, gameID).

@@ -10,6 +10,7 @@ import (
 
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
+	dbapi "retrom/internal/database"
 	"retrom/internal/testassert"
 	"retrom/internal/testsupport"
 )
@@ -43,7 +44,7 @@ VALUES('immediate-blob',?,?,?,?,?,?,?)
 	testassert.False(t, service.ReconcileGC(ctx) != nil)
 
 	var retainedUntil int64
-	testassert.False(t, database.SQL.QueryRowContext(ctx, `
+	testassert.False(t, dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT job.available_at_ms FROM jobs job
 JOIN blob_gc_candidates candidate ON candidate.gc_job_id=job.id
 WHERE candidate.blob_id='immediate-blob'
@@ -56,7 +57,7 @@ WHERE candidate.blob_id='immediate-blob'
 	testassert.Falsef(t, result.BlobCount != 1 || result.Bytes != metadata.Size || result.AcceptedAtMS != now.UnixMilli(),
 		"immediate result = %#v", result)
 	var availableAt, auditCount int64
-	testassert.False(t, database.SQL.QueryRowContext(ctx, `
+	testassert.False(t, dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT job.available_at_ms,
   (SELECT count(*) FROM audit_events WHERE action='STORAGE_CLEANUP_REQUESTED' AND actor_user_id='gc-user')
 FROM jobs job JOIN blob_gc_candidates candidate ON candidate.gc_job_id=job.id
@@ -69,7 +70,7 @@ WHERE candidate.blob_id='immediate-blob'
 	testassert.False(t, err != nil, err)
 	testassert.True(t, didWork)
 	var blobCount int64
-	testassert.False(t, database.SQL.QueryRowContext(ctx, `SELECT count(*) FROM blobs WHERE id='immediate-blob'`).Scan(&blobCount) != nil)
+	testassert.False(t, dbapi.QueryRowContext(ctx, database.SQL, `SELECT count(*) FROM blobs WHERE id='immediate-blob'`).Scan(&blobCount) != nil)
 	testassert.Falsef(t, blobCount != 0, "remaining Blob rows = %d", blobCount)
 	_, statErr := os.Stat(blobs.Path(metadata.SHA256))
 	testassert.True(t, os.IsNotExist(statErr))

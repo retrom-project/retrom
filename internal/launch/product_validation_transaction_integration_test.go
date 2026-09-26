@@ -13,7 +13,7 @@ import (
 	"modernc.org/sqlite"
 
 	contentcapability "retrom/internal/content/capability"
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	persistence "retrom/internal/persistence/launch"
 	application "retrom/internal/service/launch"
 )
@@ -21,7 +21,7 @@ import (
 func productValidationInput(t *testing.T, fixture reviewCheckpointFixture, request CreateRequest) application.ValidationInputs {
 	t.Helper()
 	var input application.ValidationInputs
-	err := fixture.database.QueryRowContext(t.Context(), `SELECT variant.id,variant.provider_id,variant.target_id,game.version,game.source_manifest_digest
+	err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT variant.id,variant.provider_id,variant.target_id,game.version,game.source_manifest_digest
 FROM game_variants variant JOIN games game ON game.id=variant.game_id WHERE game.id=?`, request.GameID).Scan(&input.GameVariantID, &input.ProviderID, &input.TargetID, &input.GameVersion, &input.SourceManifestDigest)
 	if err != nil {
 		t.Fatal(err)
@@ -62,7 +62,7 @@ func productValidationRows(t *testing.T, fixture reviewCheckpointFixture) map[st
 			t.Fatal(err)
 		}
 		query += `) AS row_json FROM ` + table + ` ORDER BY rowid)`
-		if err := fixture.database.QueryRowContext(t.Context(), query).Scan(&value); err != nil {
+		if err := dbapi.QueryRowContext(t.Context(), fixture.database, query).Scan(&value); err != nil {
 			t.Fatal(err)
 		}
 		result[table] = value
@@ -83,10 +83,10 @@ func TestProductValidationQueueRollsBackAllWritesAfterEventFailure(t *testing.T)
 	result, err := scheduler.Queue(t.Context(), input)
 	var storage *sqlite.Error
 	if !errors.As(err, &storage) || result.JobID != "" {
-		dbexec.Rollback(tx)
+		dbapi.Rollback(tx)
 		t.Fatalf("result=%+v error=%v", result, err)
 	}
-	dbexec.Rollback(tx)
+	dbapi.Rollback(tx)
 	if actual := productValidationRows(t, fixture); !reflect.DeepEqual(before, actual) {
 		t.Fatal("failed event left job/input/variant writes")
 	}
@@ -118,7 +118,7 @@ func TestProductValidationConcurrentSameDigestUsesOneJob(t *testing.T) {
 		t.Fatalf("first=%+v second=%+v", first, second)
 	}
 	var counts string
-	if err := fixture.database.QueryRowContext(t.Context(), `SELECT json_array((SELECT count(*) FROM jobs WHERE id=?),(SELECT count(*) FROM job_input_snapshots WHERE job_id=?),(SELECT count(*) FROM job_events WHERE job_id=?))`, first.result.JobID, first.result.JobID, first.result.JobID).Scan(&counts); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT json_array((SELECT count(*) FROM jobs WHERE id=?),(SELECT count(*) FROM job_input_snapshots WHERE job_id=?),(SELECT count(*) FROM job_events WHERE job_id=?))`, first.result.JobID, first.result.JobID, first.result.JobID).Scan(&counts); err != nil {
 		t.Fatal(err)
 	}
 	var values []int
@@ -135,7 +135,7 @@ func queueProductValidation(ctx context.Context, fixture reviewCheckpointFixture
 	if err != nil {
 		return application.ValidationQueued{}, err
 	}
-	defer dbexec.Rollback(tx)
+	defer dbapi.Rollback(tx)
 	result, err := application.NewValidationScheduler(persistence.NewValidationJobs(tx), application.ValidationEnvironment{Now: fixture.launcher.now}).Queue(ctx, input)
 	if err != nil {
 		return application.ValidationQueued{}, err

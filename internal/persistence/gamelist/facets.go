@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/gamelist"
 )
 
@@ -18,8 +19,9 @@ JOIN platform_instances pi ON pi.id=g.platform_instance_id
 JOIN platforms p ON p.id=pi.platform_id
 `
 	var filteredCount int64
-	if err := repository.database.QueryRowContext(
-		ctx,
+	if err := dbapi.QueryRowContext(
+		ctx, repository.database,
+
 		withConditions("SELECT count(*) "+baseFrom, filteredConditions, ""),
 		filteredArguments...,
 	).Scan(&filteredCount); err != nil {

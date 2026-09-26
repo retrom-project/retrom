@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/payloadrelease"
 )
 
@@ -33,7 +34,7 @@ WHERE item_id=? AND (blob_id IS NOT NULL OR source_archive_blob_id IS NOT NULL))
 
 func (records effectRecords) readCount(ctx context.Context, query string, args ...any) (int64, error) {
 	var count int64
-	if err := records.executor.QueryRowContext(ctx, query, args...).Scan(&count); err != nil {
+	if err := dbapi.QueryRowContext(ctx, records.executor, query, args...).Scan(&count); err != nil {
 		return 0, fmt.Errorf("read release reference count: %w", err)
 	}
 	return count, nil

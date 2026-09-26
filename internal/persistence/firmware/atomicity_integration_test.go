@@ -5,6 +5,7 @@ package firmware
 import (
 	"testing"
 
+	dbapi "retrom/internal/database"
 	firmwareservice "retrom/internal/service/firmware"
 )
 
@@ -12,7 +13,7 @@ func TestFailedUploadConsumptionRestoresActiveBIOS(t *testing.T) {
 	database, _, now := retirementFixture(t)
 	seedRetiringInstallation(t, database, "previous", 1, now)
 	var requirementID string
-	if err := database.QueryRowContext(t.Context(), `SELECT requirement_id FROM bios_installations WHERE id='previous'`).
+	if err := dbapi.QueryRowContext(t.Context(), database, `SELECT requirement_id FROM bios_installations WHERE id='previous'`).
 		Scan(&requirementID); err != nil {
 		t.Fatal(err)
 	}
@@ -42,7 +43,7 @@ func TestFailedUploadConsumptionRestoresActiveBIOS(t *testing.T) {
 		t.Fatalf("failure was not injected after replacement: created=%v error=%v", created, err)
 	}
 	var active, version, replacements int
-	if err := database.QueryRowContext(t.Context(), `SELECT is_active,version,
+	if err := dbapi.QueryRowContext(t.Context(), database, `SELECT is_active,version,
 (SELECT count(*) FROM bios_installations WHERE id='replacement') FROM bios_installations WHERE id='previous'`).
 		Scan(&active, &version, &replacements); err != nil || active != 1 || version != 1 || replacements != 0 {
 		t.Fatalf("replacement partially committed: active=%d version=%d replacements=%d error=%v", active, version, replacements, err)

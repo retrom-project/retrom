@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/payloadrelease"
 )
 
@@ -32,7 +33,7 @@ func (records effectRecords) ownerRelations(ctx context.Context, facts *applicat
 	scope := facts.Owner.Scope
 	switch scope.Type {
 	case application.ScopeGame:
-		err = records.executor.QueryRowContext(ctx, `SELECT
+		err = dbapi.QueryRowContext(ctx, records.executor, `SELECT
 metadata_source_kind,COALESCE(metadata_source_ref_id,''),content_source_kind,COALESCE(content_source_ref_id,'')
 FROM games WHERE id=?`, scope.ID).Scan(
 			&facts.MetadataSource.Kind,
@@ -41,7 +42,8 @@ FROM games WHERE id=?`, scope.ID).Scan(
 			&facts.ContentSource.ID,
 		)
 	case application.ScopeImportItem:
-		err = records.executor.QueryRowContext(ctx, `SELECT import_job_id FROM import_items WHERE id=?`, scope.ID).Scan(
+		err = dbapi.QueryRowContext(
+			ctx, records.executor, `SELECT import_job_id FROM import_items WHERE id=?`, scope.ID).Scan(
 			&facts.ParentID,
 		)
 	case application.ScopeSourceImportItem:
@@ -54,7 +56,7 @@ SELECT 1 FROM import_items item JOIN import_item_duplicate_matches duplicate ON 
 WHERE item.id=source.library_import_item_id AND item.state='DISCARDED' AND
 duplicate.existing_game_id=source.existing_game_id)
 FROM ` + spec.itemsTable + ` source WHERE source.id=?`
-		err = records.executor.QueryRowContext(ctx, query, scope.ID).Scan(
+		err = dbapi.QueryRowContext(ctx, records.executor, query, scope.ID).Scan(
 			&facts.ParentID,
 			&facts.ExistingGameID,
 			&facts.DuplicateMatch,
@@ -80,7 +82,8 @@ func (records effectRecords) consumptionOwner(
 	facts.Owner.Scope = scope
 	facts.Consumption.ID = scope.ID
 	var released sql.NullInt64
-	err := records.executor.QueryRowContext(ctx, `SELECT version,released_at_ms,upload_session_id FROM upload_consumptions
+	err := dbapi.QueryRowContext(
+		ctx, records.executor, `SELECT version,released_at_ms,upload_session_id FROM upload_consumptions
 WHERE id=?`, scope.ID).Scan(
 
 		&facts.Consumption.Version,
@@ -95,7 +98,7 @@ WHERE id=?`, scope.ID).Scan(
 	if err != nil {
 		return application.EffectOwner{}, fmt.Errorf("read effect consumption: %w", err)
 	}
-	if err := records.executor.QueryRowContext(ctx, `SELECT COALESCE(upload_file_id,''),consumer_type,consumer_id
+	if err := dbapi.QueryRowContext(ctx, records.executor, `SELECT COALESCE(upload_file_id,''),consumer_type,consumer_id
 FROM upload_consumptions
 WHERE id=?`, scope.ID).Scan(
 

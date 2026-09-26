@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"retrom/internal/cleanup"
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/sourceimport"
 )
 
@@ -26,11 +26,11 @@ import.retryable,
 import.created_at_ms,import.updated_at_ms,import.expires_at_ms,import.completed_at_ms
 FROM source_imports import JOIN users user ON user.id=import.created_by_user_id`
 
-type Queries struct{ database dbexec.Executor }
+type Queries struct{ database dbapi.Executor }
 
-func NewQueries(database *sql.DB) *Queries { return &Queries{database: database} }
+func NewQueries(database dbapi.DB) *Queries { return &Queries{database: database} }
 
-func scanSummary(row dbexec.Scanner) (application.Summary, error) {
+func scanSummary(row dbapi.Scanner) (application.Summary, error) {
 	var result application.Summary
 	var importJobID, phase, errorCode sql.NullString
 	var retryable int
@@ -55,7 +55,7 @@ func scanSummary(row dbexec.Scanner) (application.Summary, error) {
 }
 
 func (service *Queries) Get(ctx context.Context, importID string) (application.Summary, error) {
-	result, err := scanSummary(service.database.QueryRowContext(ctx, summaryQuery+` WHERE import.id=?`, importID))
+	result, err := scanSummary(dbapi.QueryRowContext(ctx, service.database, summaryQuery+` WHERE import.id=?`, importID))
 	if errors.Is(err, sql.ErrNoRows) {
 		return application.Summary{}, application.ErrNotFound
 	}

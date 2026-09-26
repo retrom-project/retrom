@@ -1,21 +1,20 @@
 package payloadrelease
 
 import (
-	"database/sql"
 	"errors"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/payloadrelease"
 	"retrom/internal/testsupport"
 
 	"modernc.org/sqlite"
 )
 
-func effectRepositoryDatabase(t *testing.T) *sql.DB {
+func effectRepositoryDatabase(t *testing.T) dbapi.DB {
 	t.Helper()
 	db, err := testsupport.OpenDatabase(t.Context(), filepath.Join(t.TempDir(), "effect.db"), func() time.Time { return time.UnixMilli(10) })
 	if err != nil {
@@ -39,7 +38,7 @@ func effectRepositoryDatabase(t *testing.T) *sql.DB {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer dbexec.Rollback(tx)
+	defer dbapi.Rollback(tx)
 	if _, err := application.NewScheduler(nil).DeleteGame(t.Context(), BindScheduling(tx), "effect-game", 1, 10); err != nil {
 		t.Fatal(err)
 	}
@@ -57,7 +56,7 @@ func TestEffectOwnerCASFencesLateVersionAndSourceDrift(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			defer dbexec.Rollback(tx)
+			defer dbapi.Rollback(tx)
 			scope := BindEffects(tx)
 			before, err := scope.Read.Owner(t.Context(), application.Scope{Type: application.ScopeGame, ID: "effect-game"})
 			if err != nil {
@@ -107,7 +106,7 @@ VALUES('deferred-effect','effect-game','missing-deferred-blob','COVER',0,1,1,'im
 	}
 	var state string
 	var assets int
-	if err := db.QueryRowContext(t.Context(), `SELECT payload_state,(SELECT count(*) FROM game_assets WHERE id='deferred-effect') FROM games WHERE id='effect-game'`).Scan(&state, &assets); err != nil || state != "RELEASING" || assets != 0 {
+	if err := dbapi.QueryRowContext(t.Context(), db, `SELECT payload_state,(SELECT count(*) FROM game_assets WHERE id='deferred-effect') FROM games WHERE id='effect-game'`).Scan(&state, &assets); err != nil || state != "RELEASING" || assets != 0 {
 		t.Fatalf("partial commit state=%s assets=%d error=%v", state, assets, err)
 	}
 }

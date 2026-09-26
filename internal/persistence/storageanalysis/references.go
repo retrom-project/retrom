@@ -2,10 +2,11 @@ package storageanalysis
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"strings"
+
+	dbapi "retrom/internal/database"
 
 	"retrom/internal/cleanup"
 	"retrom/internal/persistence/blobregistry"
@@ -71,7 +72,7 @@ func validateReferenceCoverage(edges []blobregistry.Edge) error {
 
 func loadUsage(
 	ctx context.Context,
-	transaction *sql.Tx,
+	transaction dbapi.Tx,
 	edges []blobregistry.Edge,
 ) (map[string]storageanalysis.Usage, error) {
 	result := map[string]storageanalysis.Usage{}
@@ -95,7 +96,7 @@ func loadUsage(
 	return result, nil
 }
 
-func loadVariantUsage(ctx context.Context, transaction *sql.Tx, result map[string]storageanalysis.Usage) error {
+func loadVariantUsage(ctx context.Context, transaction dbapi.Tx, result map[string]storageanalysis.Usage) error {
 	rows, err := transaction.QueryContext(ctx, `SELECT DISTINCT blob_id, role FROM variant_files`)
 	if err != nil {
 		return fmt.Errorf("storageanalysis/references: %w", err)
@@ -120,7 +121,7 @@ func loadVariantUsage(ctx context.Context, transaction *sql.Tx, result map[strin
 
 func collectUsage(
 	ctx context.Context,
-	transaction *sql.Tx,
+	transaction dbapi.Tx,
 	query string,
 	flag storageanalysis.Usage,
 	result map[string]storageanalysis.Usage,

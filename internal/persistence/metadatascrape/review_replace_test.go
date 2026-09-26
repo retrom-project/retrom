@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/metadatascrape"
 	"retrom/internal/testsupport"
 )
@@ -26,7 +27,7 @@ func TestReplacingReviewScrapeClearsOldSelectionsAndPreservesEditedText(t *testi
 	var runs, candidates, screenshots int
 	var selected bool
 	var metadata string
-	err := fixture.database.QueryRowContext(t.Context(), `SELECT
+	err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT
  (SELECT count(*) FROM metadata_scrape_runs WHERE import_item_id='item'),
  (SELECT count(*) FROM scrape_candidates),
  (SELECT count(*) FROM review_draft_screenshot_assets),

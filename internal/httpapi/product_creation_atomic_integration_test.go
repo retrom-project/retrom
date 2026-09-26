@@ -16,6 +16,7 @@ import (
 
 	"retrom/internal/authn"
 	launchcomposition "retrom/internal/composition/launch"
+	dbapi "retrom/internal/database"
 	"retrom/internal/launch"
 	"retrom/internal/testsupport"
 )
@@ -42,7 +43,7 @@ func TestProductCreateHTTPPendingReceiptRollsBackValidation(t *testing.T) {
 	server := newReadyHTTPServer(t)
 	gameID, _ := seedMovableGame(t, server)
 	var beforeInputs, beforeEvents int
-	if err := server.database.QueryRowContext(t.Context(), `SELECT (SELECT count(*) FROM job_input_snapshots),(SELECT count(*) FROM job_events)`).Scan(&beforeInputs, &beforeEvents); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), server.database, `SELECT (SELECT count(*) FROM job_input_snapshots),(SELECT count(*) FROM job_events)`).Scan(&beforeInputs, &beforeEvents); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := server.database.ExecContext(t.Context(), `UPDATE game_variants SET status='BLOCKED',compatibility_code='VALIDATION_PENDING',emulator_game_id=NULL WHERE game_id=?`, gameID); err != nil {
@@ -53,7 +54,7 @@ func TestProductCreateHTTPPendingReceiptRollsBackValidation(t *testing.T) {
 	}
 	response := productCreateHTTP(t, server, gameID)
 	var jobs, inputs, events int
-	err := server.database.QueryRowContext(t.Context(), `SELECT (SELECT count(*) FROM jobs WHERE kind='VARIANT_VALIDATE'),(SELECT count(*) FROM job_input_snapshots),(SELECT count(*) FROM job_events)`).Scan(&jobs, &inputs, &events)
+	err := dbapi.QueryRowContext(t.Context(), server.database, `SELECT (SELECT count(*) FROM jobs WHERE kind='VARIANT_VALIDATE'),(SELECT count(*) FROM job_input_snapshots),(SELECT count(*) FROM job_events)`).Scan(&jobs, &inputs, &events)
 	launches, receipts := productCreateHTTPCounts(t, server)
 	if err != nil || response.Code != http.StatusInternalServerError || launches != 0 || receipts != 0 || jobs != 0 || inputs != beforeInputs || events != beforeEvents || len(response.Result().Cookies()) != 0 {
 		t.Fatalf("pending failure status=%d launches=%d receipts=%d jobs=%d inputs=%d events=%d cookies=%d error=%v", response.Code, launches, receipts, jobs, inputs, events, len(response.Result().Cookies()), err)
@@ -93,7 +94,7 @@ func TestProductCreateHTTPReplaysPendingBytesAfterReady(t *testing.T) {
 func productCreateHTTPCounts(t *testing.T, server *Server) (int, int) {
 	t.Helper()
 	var launches, receipts int
-	if err := server.database.QueryRowContext(t.Context(), `SELECT (SELECT count(*) FROM launch_sessions),(SELECT count(*) FROM idempotency_records WHERE operation_id='postLaunch')`).Scan(&launches, &receipts); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), server.database, `SELECT (SELECT count(*) FROM launch_sessions),(SELECT count(*) FROM idempotency_records WHERE operation_id='postLaunch')`).Scan(&launches, &receipts); err != nil {
 		t.Fatal(err)
 	}
 	return launches, receipts

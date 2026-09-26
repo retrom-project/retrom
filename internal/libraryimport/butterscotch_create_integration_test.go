@@ -15,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
 	uploadpersistence "retrom/internal/persistence/uploads"
 
 	dependencypersistence "retrom/internal/persistence/dependencies"
@@ -90,7 +91,7 @@ func TestCreateButterscotchArchiveReachesTrialRequiredReview(t *testing.T) {
 	}
 	var state, code, contentKind, metadataProvider, providerID, targetID string
 	var selectedValidation any
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT item.state,validation.compatibility_code,snapshot.content_kind,job.metadata_provider,
 	   validation.provider_id,validation.target_id,draft.selected_validation_id
 FROM import_items item

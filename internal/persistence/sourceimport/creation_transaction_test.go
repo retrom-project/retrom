@@ -1,7 +1,6 @@
 package sourceimport
 
 import (
-	"database/sql"
 	"errors"
 	"fmt"
 	"path/filepath"
@@ -9,13 +8,14 @@ import (
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/sourceimport"
 	"retrom/internal/store"
 )
 
 var errCreationWrite = errors.New("creation write failed")
 
-func creationDatabase(t *testing.T) *sql.DB {
+func creationDatabase(t *testing.T) dbapi.DB {
 	t.Helper()
 	owner, err := store.Open(t.Context(), filepath.Join(t.TempDir(), "creation.db"), time.Now)
 	if err != nil {
@@ -91,11 +91,11 @@ func assertCreationRollback(t *testing.T, phase string) {
 	assertCreationCounts(t, db, 1)
 }
 
-func assertCreationCounts(t *testing.T, db *sql.DB, want int) {
+func assertCreationCounts(t *testing.T, db dbapi.DB, want int) {
 	t.Helper()
 	for _, query := range []string{`SELECT count(*) FROM source_imports`, `SELECT count(*) FROM jobs WHERE scope_type='SOURCE_IMPORT'`, `SELECT count(*) FROM job_input_snapshots`, `SELECT count(*) FROM job_events WHERE scope_type='SOURCE_IMPORT'`, `SELECT count(*) FROM audit_events WHERE action='SOURCE_IMPORT_CREATED'`} {
 		var got int
-		if err := db.QueryRowContext(t.Context(), query).Scan(&got); err != nil {
+		if err := dbapi.QueryRowContext(t.Context(), db, query).Scan(&got); err != nil {
 			t.Fatal(err)
 		}
 		if got != want {

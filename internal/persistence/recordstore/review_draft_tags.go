@@ -4,16 +4,16 @@ import (
 	"context"
 	"database/sql"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 )
 
 func CreateReviewDraftTags(
-	ctx context.Context, db dbexec.Executor, query string, args ...any,
+	ctx context.Context, db dbapi.Executor, query string, args ...any,
 ) (sql.Result, error) {
 	return create(ctx, db, query, args, "review_draft_id,tag_id", ValidateReviewDraftTags)
 }
 
-func ValidateReviewDraftTags(ctx context.Context, db dbexec.Executor, keys ...any) error {
+func ValidateReviewDraftTags(ctx context.Context, db dbapi.Executor, keys ...any) error {
 	return validate(ctx, db, review_draft_tagsOwnership, keys)
 }
 

@@ -7,15 +7,16 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	library "retrom/internal/persistence/libraryimport"
 	"retrom/internal/persistence/recordstore"
 	application "retrom/internal/service/sourceimport"
 )
 
-type ReviewHandoff struct{ database *sql.DB }
+type ReviewHandoff struct{ database dbapi.DB }
 
-func NewReviewHandoff(database *sql.DB) *ReviewHandoff { return &ReviewHandoff{database: database} }
+func NewReviewHandoff(database dbapi.DB) *ReviewHandoff { return &ReviewHandoff{database: database} }
+
 func (repository *ReviewHandoff) WithReviewHandoff(
 	ctx context.Context,
 	work func(application.ReviewHandoffScope) error,
@@ -24,7 +25,7 @@ func (repository *ReviewHandoff) WithReviewHandoff(
 	if err != nil {
 		return fmt.Errorf("begin Source review handoff: %w", err)
 	}
-	defer dbexec.Rollback(tx)
+	defer dbapi.Rollback(tx)
 	if err := work(
 		application.ReviewHandoffScope{Records: reviewHandoffRecords{tx}, Metadata: library.BindMetadata(tx)},
 	); err != nil {
@@ -36,7 +37,7 @@ func (repository *ReviewHandoff) WithReviewHandoff(
 	return nil
 }
 
-type reviewHandoffRecords struct{ executor dbexec.Executor }
+type reviewHandoffRecords struct{ executor dbapi.Executor }
 
 func (records reviewHandoffRecords) CurrentReviewHandoff(
 	ctx context.Context,
@@ -44,7 +45,7 @@ func (records reviewHandoffRecords) CurrentReviewHandoff(
 ) (application.ReviewHandoffSnapshot, error) {
 	var result application.ReviewHandoffSnapshot
 	var metadata, warnings string
-	err := records.executor.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, records.executor, `
  SELECT item.id,item.import_id,import.import_job_id,COALESCE(item.library_import_job_id,''),
  COALESCE(item.library_import_item_id,''),job.execution_no,job.attempt_count,COALESCE(job.worker_id,''),
  item.execution_state,import.state,job.state,item.version,import.version,

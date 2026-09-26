@@ -2,10 +2,9 @@ package accounts
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/service/accounts"
 )
 
@@ -17,7 +16,7 @@ func (repository *LinkRepository) WithConsumptionWrite(
 	if err != nil {
 		return fmt.Errorf("begin account link consumption: %w", err)
 	}
-	defer dbexec.Rollback(tx)
+	defer dbapi.Rollback(tx)
 	records := linkRecords{accountOperations{tx}}
 	if err := work(accounts.LinkConsumptionScope{Read: records, Write: records}); err != nil {
 		return err
@@ -29,11 +28,11 @@ func (repository *LinkRepository) WithConsumptionWrite(
 }
 
 func (repository *LinkRepository) ResetState(ctx context.Context, id string) (accounts.ResetState, bool, error) {
-	tx, err := repository.database.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+	tx, err := repository.database.BeginTx(ctx, &dbapi.TxOptions{ReadOnly: true})
 	if err != nil {
 		return accounts.ResetState{}, false, fmt.Errorf("begin reset capability snapshot: %w", err)
 	}
-	defer dbexec.Rollback(tx)
+	defer dbapi.Rollback(tx)
 	records := linkRecords{accountOperations{tx}}
 	link, found, err := records.Current(ctx, id)
 	if err != nil {
@@ -54,8 +53,9 @@ func (repository *LinkRepository) ResetState(ctx context.Context, id string) (ac
 
 func (records linkRecords) UsernameExists(ctx context.Context, username string) (bool, error) {
 	var exists bool
-	err := records.executor.QueryRowContext(
-		ctx,
+	err := dbapi.QueryRowContext(
+		ctx, records.executor,
+
 		`SELECT EXISTS(SELECT 1 FROM users WHERE username=?)`,
 		username,
 	).Scan(

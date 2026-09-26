@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"retrom/internal/cleanup"
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/libraryimport"
 )
 
@@ -66,8 +67,9 @@ func (records creationRecords) Reconfiguration(
 	result := application.CreationReconfigurationHead{ImportID: id}
 	result.Progress.Started = true
 	counts := &result.Progress.Counts
-	err := records.transaction.QueryRowContext(
-		ctx,
+	err := dbapi.QueryRowContext(
+		ctx, records.transaction,
+
 		`
 SELECT version,state,queued_item_count,running_item_count,review_pending_item_count,failed_item_count,
  cancelled_item_count,

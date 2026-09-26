@@ -2,12 +2,13 @@ package storageanalysis
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"path/filepath"
 	"reflect"
 	"testing"
 	"time"
+
+	dbapi "retrom/internal/database"
 
 	"retrom/internal/service/storageanalysis"
 
@@ -100,7 +101,7 @@ type testBlob struct {
 	size int64
 }
 
-func seedBlobs(t *testing.T, database *sql.DB, blobs []testBlob) {
+func seedBlobs(t *testing.T, database dbapi.DB, blobs []testBlob) {
 	t.Helper()
 	for index, item := range blobs {
 		value := index + 1
@@ -114,7 +115,7 @@ VALUES(?,?,?,?,?,?,?,0)`, item.id, fmt.Sprintf("%064x", value), item.size,
 	}
 }
 
-func seedReferences(t *testing.T, database *sql.DB) {
+func seedReferences(t *testing.T, database dbapi.DB) {
 	t.Helper()
 	statements := []string{
 		`INSERT INTO game_files(game_id,role,logical_name,blob_id,source_archive_blob_id,source_archive_entry_ordinal,sort_order)

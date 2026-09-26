@@ -7,14 +7,14 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/contentquery"
 	application "retrom/internal/service/launch"
 )
 
 func productCreationSource(
 	ctx context.Context,
-	executor dbexec.Executor,
+	executor dbapi.Executor,
 	command application.ProductCreateCommand,
 	save *application.ProductSave,
 ) (application.ProductSource, bool, error) {
@@ -26,7 +26,8 @@ func productCreationSource(
 	}
 	var source application.ProductSource
 	var checkpoint *string
-	err := executor.QueryRowContext(ctx, `SELECT game.id,instance.id,instance.platform_id,core.id,binding.binding_id,
+	err := dbapi.QueryRowContext(
+		ctx, executor, `SELECT game.id,instance.id,instance.platform_id,core.id,binding.binding_id,
  target.provider_id,target.target_id,provider.bundle_sha256,binding.delivery_profile,
  game.content_kind,game.source_manifest_digest,game.version,`+contentquery.BindingPolicySQL+`,
  COALESCE(variant.id,''),COALESCE(variant.status,''),COALESCE(variant.dependency_snapshot_json,''),
@@ -76,14 +77,14 @@ LIMIT 1`, command.Request.GameID, coreID, coreID).Scan(
 
 func productCreationOwner(
 	ctx context.Context,
-	executor dbexec.Executor,
+	executor dbapi.Executor,
 	command application.ProductCreateCommand,
 ) (bool, error) {
 	if command.ActorID == "" {
 		return true, nil
 	}
 	var valid bool
-	err := executor.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, executor, `
 SELECT EXISTS(SELECT 1 FROM users WHERE id=? AND profile_id=? AND status='ENABLED')`,
 		command.ActorID, command.ProfileID,
 	).Scan(

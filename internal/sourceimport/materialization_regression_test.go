@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"retrom/internal/blobstore"
+	dbapi "retrom/internal/database"
 )
 
 func materialFixture(t *testing.T) (*Service, work, executionFile, executionAsset, blobstore.Metadata) {
@@ -62,7 +63,7 @@ func TestMaterializationRejectsReplacedOwner(t *testing.T) {
 				_ = service.closeAssetWarning(t.Context(), unit, "item", asset, "PEGASUS_IMAGE_INVALID")
 			}
 			var changed int
-			err := service.database.QueryRowContext(t.Context(), `SELECT (SELECT count(*) FROM blobs WHERE sha256=?) +
+			err := dbapi.QueryRowContext(t.Context(), service.database, `SELECT (SELECT count(*) FROM blobs WHERE sha256=?) +
 (SELECT count(*) FROM source_import_item_assets WHERE item_id='item' AND state<>'DISCOVERED')+
 (SELECT count(*) FROM source_imports WHERE phase='VALIDATING')`, metadata.SHA256).Scan(&changed)
 			if err != nil {
@@ -92,7 +93,7 @@ func TestMaterializationWarningIsIdempotent(t *testing.T) {
 		_ = service.closeAssetWarning(t.Context(), unit, "item", asset, "PEGASUS_IMAGE_INVALID")
 	}
 	var count int
-	if err := service.database.QueryRowContext(t.Context(), `SELECT json_array_length(warnings_json) FROM source_import_items WHERE id='item'`).Scan(
+	if err := dbapi.QueryRowContext(t.Context(), service.database, `SELECT json_array_length(warnings_json) FROM source_import_items WHERE id='item'`).Scan(
 
 		&count,
 	); err != nil {

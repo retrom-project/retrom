@@ -8,16 +8,18 @@ import (
 	"strconv"
 	"strings"
 
+	dbapi "retrom/internal/database"
+
 	"retrom/internal/cleanup"
 	"retrom/internal/persistence/storequery"
 	application "retrom/internal/service/gamelist"
 )
 
 type Repository struct {
-	database *sql.DB
+	database dbapi.DB
 }
 
-func New(database *sql.DB) *Repository {
+func New(database dbapi.DB) *Repository {
 	return &Repository{database: database}
 }
 
@@ -27,7 +29,7 @@ func (repository *Repository) Detail(
 	var detail application.Detail
 	var players, releaseYear sql.NullInt64
 	var coverAssetID, videoAssetID sql.NullString
-	err := repository.database.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, repository.database, `
 SELECT g.id,
 g.title,
 g.description,
@@ -167,7 +169,7 @@ func (repository *Repository) defaultDOSEntry(
 	ctx context.Context, gameID string,
 ) (*string, error) {
 	var entry sql.NullString
-	err := repository.database.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, repository.database, `
 SELECT variant.default_dos_entry
 FROM game_variants variant
 WHERE variant.game_id=? AND variant.core_id='dosbox_pure'
@@ -185,7 +187,7 @@ func (repository *Repository) saveStateCount(
 	ctx context.Context, gameID, profileID string,
 ) (int64, error) {
 	var count int64
-	if err := repository.database.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, repository.database, `
 SELECT count(*)
 FROM save_states save
 LEFT JOIN game_save_versions native ON native.save_state_id=save.id

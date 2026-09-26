@@ -9,10 +9,11 @@ import (
 	"sync/atomic"
 	"testing"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/testsupport"
 )
 
-func setGCTestState(t *testing.T, database *sql.DB, id, state string) {
+func setGCTestState(t *testing.T, database dbapi.DB, id, state string) {
 	t.Helper()
 	var finished any
 	if state == "FAILED" {
@@ -50,7 +51,7 @@ func TestGCReferenceRestorationCancelsOnlyQueuedExecution(t *testing.T) {
 				t.Fatalf("restored reference changed owned or failed job: %+v/%+v", before, after)
 			}
 			var candidates, blobs, events int
-			err = fixture.database.QueryRowContext(t.Context(), `SELECT
+			err = dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT
  (SELECT count(*) FROM blob_gc_candidates WHERE blob_id='manual-gc-blob'),
  (SELECT count(*) FROM blobs WHERE id='manual-gc-blob'),
  (SELECT count(*) FROM job_events WHERE job_id=? AND event_type='SUCCEEDED')`, id).Scan(&candidates, &blobs, &events)

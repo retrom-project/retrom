@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
 	providerpersistence "retrom/internal/persistence/runtimeprovider"
 	providerservice "retrom/internal/service/runtimeprovider"
 
@@ -50,10 +51,10 @@ INSERT INTO platform_cores(platform_id,core_id,enabled) VALUES('fixture','fixtur
 		t.Fatal(err)
 	}
 	var providerCount, targetCount int
-	if err := database.SQL.QueryRowContext(ctx, `SELECT COUNT(*) FROM runtime_providers`).Scan(&providerCount); err != nil {
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `SELECT COUNT(*) FROM runtime_providers`).Scan(&providerCount); err != nil {
 		t.Fatal(err)
 	}
-	if err := database.SQL.QueryRowContext(ctx, `SELECT COUNT(*) FROM runtime_targets`).Scan(&targetCount); err != nil {
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `SELECT COUNT(*) FROM runtime_targets`).Scan(&targetCount); err != nil {
 		t.Fatal(err)
 	}
 	if providerCount != 1 || targetCount != 1 {

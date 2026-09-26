@@ -8,6 +8,7 @@ import (
 	"sync/atomic"
 	"testing"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/testsupport"
 )
 
@@ -26,7 +27,7 @@ func TestReleaseGameFollowsBoundSourceToOrdinaryPayload(t *testing.T) {
 	assertEffectGameGraphReleased(t, fixture)
 	var ordinary, source, releaseJob string
 	var refs int
-	err := fixture.database.QueryRowContext(t.Context(), `SELECT
+	err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT
  (SELECT payload_state FROM import_items WHERE id='effect-item'),payload_state,payload_release_job_id,
  (SELECT count(*) FROM import_item_source_files WHERE import_item_id='effect-item')+
  (SELECT count(*) FROM source_import_item_files WHERE item_id='effect-source' AND blob_id IS NOT NULL)

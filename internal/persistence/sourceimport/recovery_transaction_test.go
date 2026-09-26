@@ -2,16 +2,16 @@ package sourceimport
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"reflect"
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/sourceimport"
 )
 
-func recoveryDatabase(t *testing.T) *sql.DB {
+func recoveryDatabase(t *testing.T) dbapi.DB {
 	t.Helper()
 	db := workflowDatabase(t)
 	if _, err := db.ExecContext(t.Context(), `UPDATE jobs SET state='RUNNING',finished_at_ms=NULL,attempt_count=1,
@@ -34,7 +34,7 @@ func TestRecoveryTransactionPreservesExecutionInputAndCompletedItems(t *testing.
 	}
 	var state, worker, payload, itemState string
 	var execution, attempt, started, deadline, itemVersion int64
-	if err := db.QueryRowContext(t.Context(), `SELECT j.state,COALESCE(j.worker_id,''),j.payload_json,j.execution_no,j.attempt_count,
+	if err := dbapi.QueryRowContext(t.Context(), db, `SELECT j.state,COALESCE(j.worker_id,''),j.payload_json,j.execution_no,j.attempt_count,
  j.execution_started_at_ms,j.execution_deadline_at_ms,i.execution_state,i.version FROM jobs j JOIN source_import_items i ON i.import_id=j.scope_id
  WHERE j.id='work' AND i.id='item-0'`).Scan(&state, &worker, &payload, &execution, &attempt, &started, &deadline, &itemState, &itemVersion); err != nil {
 		t.Fatal(err)
@@ -56,7 +56,7 @@ func TestRecoveryTransactionPreservesExecutionInputAndCompletedItems(t *testing.
 	}
 	for id, want := range map[string]string{"item-1": "COMMIT_FAILED", "item-2": "REVIEW_PENDING", "item-3": "SKIPPED_MAPPING"} {
 		var got string
-		if err := db.QueryRowContext(t.Context(), `SELECT execution_state FROM source_import_items WHERE id=?`, id).Scan(&got); err != nil {
+		if err := dbapi.QueryRowContext(t.Context(), db, `SELECT execution_state FROM source_import_items WHERE id=?`, id).Scan(&got); err != nil {
 			t.Fatal(err)
 		}
 		if got != want {

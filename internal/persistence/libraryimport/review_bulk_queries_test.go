@@ -1,12 +1,11 @@
 package libraryimport
 
 import (
-	"database/sql"
 	"errors"
 	"sync"
 	"testing"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/libraryimport"
 )
 
@@ -24,7 +23,7 @@ func TestReviewBulkConcurrentCreationCommitsOnlyOneJob(t *testing.T) {
 		wait.Add(1)
 		go func() {
 			defer wait.Done()
-			results <- NewTransactions(db).Write(t.Context(), func(executor dbexec.Executor) error {
+			results <- NewTransactions(db).Write(t.Context(), func(executor dbapi.Executor) error {
 				_, err := BindReviewBulkWrites(executor).CreateGlobal(t.Context(), pair[0], pair[1], "actor", 10)
 				return err
 			})
@@ -39,7 +38,7 @@ func TestReviewBulkConcurrentCreationCommitsOnlyOneJob(t *testing.T) {
 		}
 	}
 	var tasks, jobs int
-	if err := db.QueryRowContext(t.Context(), `SELECT (SELECT count(*) FROM review_bulk_approvals),
+	if err := dbapi.QueryRowContext(t.Context(), db, `SELECT (SELECT count(*) FROM review_bulk_approvals),
 (SELECT count(*) FROM jobs WHERE kind='REVIEW_BULK_APPROVE')`).Scan(&tasks, &jobs); err != nil {
 		t.Fatal(err)
 	}
@@ -96,7 +95,7 @@ func TestReviewBulkWorkerPersistsCursorAndResumes(t *testing.T) {
 	assertReviewBulkResume(t, db, worker, bulkID, jobID)
 }
 
-func assertReviewBulkResume(t *testing.T, db *sql.DB, worker *ReviewBulkWorker, bulkID, jobID string) {
+func assertReviewBulkResume(t *testing.T, db dbapi.DB, worker *ReviewBulkWorker, bulkID, jobID string) {
 	t.Helper()
 	ids, err := worker.Resume(t.Context(), 13)
 	if err != nil || len(ids) != 1 || ids[0] != bulkID {

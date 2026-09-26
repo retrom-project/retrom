@@ -5,18 +5,18 @@ import (
 	"fmt"
 
 	"retrom/internal/cleanup"
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/libraryimport"
 )
 
 // ReviewArcadeParentJobs reads the queue used to resume arcade parent
 // attachment validation after process startup. Keeping this query in the
 // persistence layer leaves the worker lifecycle in the application package.
-type ReviewArcadeParentJobs struct{ executor dbexec.Executor }
+type ReviewArcadeParentJobs struct{ executor dbapi.Executor }
 
 var _ application.ArcadeParentJobQueue = (*ReviewArcadeParentJobs)(nil)
 
-func NewReviewArcadeParentJobs(executor dbexec.Executor) *ReviewArcadeParentJobs {
+func NewReviewArcadeParentJobs(executor dbapi.Executor) *ReviewArcadeParentJobs {
 	return &ReviewArcadeParentJobs{executor: executor}
 }
 

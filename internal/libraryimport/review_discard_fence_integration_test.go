@@ -6,7 +6,7 @@ import (
 	"errors"
 	"testing"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	repository "retrom/internal/persistence/libraryimport"
 	application "retrom/internal/service/libraryimport"
 )
@@ -20,7 +20,7 @@ func TestDiscardWriterRequiresCurrentDraftVersion(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer dbexec.Rollback(transaction)
+	defer dbapi.Rollback(transaction)
 	if _, err := transaction.ExecContext(t.Context(), `UPDATE import_items SET review_version=2 WHERE id=?`, itemID); err != nil {
 		t.Fatal(err)
 	}
@@ -31,7 +31,7 @@ func TestDiscardWriterRequiresCurrentDraftVersion(t *testing.T) {
 		t.Fatalf("writer ignored current draft version: %v", err)
 	}
 	var state string
-	if err := transaction.QueryRowContext(t.Context(), `SELECT state FROM import_items WHERE id=?`, itemID).Scan(&state); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), transaction, `SELECT state FROM import_items WHERE id=?`, itemID).Scan(&state); err != nil {
 		t.Fatal(err)
 	}
 	if state != "REVIEW_PENDING" {
@@ -61,7 +61,7 @@ func assertDiscardOwnerAuthority(t *testing.T, mode application.ReviewDiscardMod
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer dbexec.Rollback(transaction)
+	defer dbapi.Rollback(transaction)
 	if _, err := transaction.ExecContext(t.Context(), `UPDATE import_items SET state='DISCARDED',completed_at_ms=? WHERE id=?`, ownedSourceNow().UnixMilli(), created.Items[0].ItemID); err != nil {
 		t.Fatal(err)
 	}
@@ -78,7 +78,7 @@ func assertDiscardOwnerAuthority(t *testing.T, mode application.ReviewDiscardMod
 		t.Fatalf("single owner writer accepted unhanded state: %v", err)
 	}
 	var state string
-	if err := transaction.QueryRowContext(t.Context(), `SELECT execution_state FROM source_import_items WHERE id=?`, request.Intent.ItemID).Scan(&state); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), transaction, `SELECT execution_state FROM source_import_items WHERE id=?`, request.Intent.ItemID).Scan(&state); err != nil {
 		t.Fatal(err)
 	}
 	if state != "CANCELLED" {

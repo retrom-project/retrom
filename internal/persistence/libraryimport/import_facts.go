@@ -7,18 +7,18 @@ import (
 	"fmt"
 
 	"retrom/internal/cleanup"
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/contentquery"
 	application "retrom/internal/service/libraryimport"
 )
 
-type ImportFacts struct{ executor dbexec.Executor }
+type ImportFacts struct{ executor dbapi.Executor }
 
-func BindImportFacts(executor dbexec.Executor) ImportFacts { return ImportFacts{executor: executor} }
+func BindImportFacts(executor dbapi.Executor) ImportFacts { return ImportFacts{executor: executor} }
 
 func (records ImportFacts) Upload(ctx context.Context, id string) (application.ImportUpload, bool, error) {
 	var result application.ImportUpload
-	err := records.executor.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, records.executor, `
 SELECT id,purpose,source_type,state,version,manifest_digest,total_files
 FROM upload_sessions WHERE id=?`, id).Scan(&result.ID, &result.Purpose, &result.SourceType,
 		&result.State, &result.Version, &result.ManifestDigest, &result.FileCount)
@@ -33,7 +33,7 @@ FROM upload_sessions WHERE id=?`, id).Scan(&result.ID, &result.Purpose, &result.
 
 func (records ImportFacts) Target(ctx context.Context, id string) (application.ImportTarget, bool, error) {
 	var result application.ImportTarget
-	err := records.executor.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, records.executor, `
 SELECT pi.id,pi.platform_id,pi.default_core_id,pi.version
 FROM platform_instances pi WHERE pi.id=? AND pi.enabled=1 AND pi.deleted_at_ms IS NULL`, id).
 		Scan(&result.ID, &result.PlatformID, &result.DefaultCoreID, &result.Version)

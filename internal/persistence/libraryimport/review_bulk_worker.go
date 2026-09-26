@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/recordstore"
 )
 
@@ -20,15 +20,15 @@ type ReviewBulkScanItem struct {
 	CreatedAtMS       int64
 }
 
-type ReviewBulkWorker struct{ executor dbexec.Executor }
+type ReviewBulkWorker struct{ executor dbapi.Executor }
 
-func BindReviewBulkWorker(executor dbexec.Executor) *ReviewBulkWorker {
+func BindReviewBulkWorker(executor dbapi.Executor) *ReviewBulkWorker {
 	return &ReviewBulkWorker{executor: executor}
 }
 
 func (worker *ReviewBulkWorker) Claim(ctx context.Context, bulkID, workerID string, now int64) (string, string, error) {
 	var jobID, userID string
-	err := worker.executor.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, worker.executor, `
 SELECT bulk.job_id,bulk.created_by_user_id FROM review_bulk_approvals bulk
 JOIN jobs job ON job.id=bulk.job_id
 WHERE bulk.id=? AND bulk.state='QUEUED' AND job.state='QUEUED'`, bulkID).Scan(&jobID, &userID)
@@ -59,7 +59,7 @@ version=version+1,updated_at_ms=? WHERE id=? AND state='QUEUED'
 
 func (worker *ReviewBulkWorker) Next(ctx context.Context, bulkID, workerID string) (ReviewBulkScanItem, bool, error) {
 	var item ReviewBulkScanItem
-	err := worker.executor.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, worker.executor, `
 SELECT item.id,item.review_version,item.review_updated_at_ms,item.updated_at_ms,bulk.created_at_ms
 FROM review_bulk_approvals bulk
 JOIN jobs job ON job.id=bulk.job_id

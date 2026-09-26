@@ -1,12 +1,13 @@
 package payloadrelease
 
 import (
-	"database/sql"
 	"fmt"
 	"math"
 	"reflect"
 	"strings"
 	"testing"
+
+	dbapi "retrom/internal/database"
 )
 
 func TestGameDeleteImpactRejectsRegisteredByteOverflow(t *testing.T) {
@@ -18,7 +19,7 @@ func TestGameDeleteImpactRejectsRegisteredByteOverflow(t *testing.T) {
 	}
 }
 
-func impactGame(t *testing.T, sizes ...int64) *sql.DB {
+func impactGame(t *testing.T, sizes ...int64) dbapi.DB {
 	t.Helper()
 	db := schedulingGame(t)
 	for i, size := range sizes {

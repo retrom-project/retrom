@@ -6,23 +6,23 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/service/jobs"
 )
 
 type (
-	Repository struct{ database *sql.DB }
-	records    struct{ executor dbexec.Executor }
+	Repository struct{ database dbapi.DB }
+	records    struct{ executor dbapi.Executor }
 )
 
-func New(database *sql.DB) *Repository { return &Repository{database: database} }
+func New(database dbapi.DB) *Repository { return &Repository{database: database} }
 
 func (repository *Repository) WithWrite(ctx context.Context, work func(jobs.Records) error) error {
 	transaction, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("jobs/begin: %w", err)
 	}
-	defer dbexec.Rollback(transaction)
+	defer dbapi.Rollback(transaction)
 	if err := work(records{executor: transaction}); err != nil {
 		return err
 	}
@@ -36,8 +36,9 @@ func (store records) Get(ctx context.Context, id string) (jobs.Job, error) {
 	var job jobs.Job
 	var cancellable int64
 	var retryable sql.NullInt64
-	err := store.executor.QueryRowContext(
-		ctx,
+	err := dbapi.QueryRowContext(
+		ctx, store.executor,
+
 		`
 SELECT kind,scope_type,scope_id,state,cancellable,error_retryable,execution_no,version FROM jobs WHERE id=?
 `,
@@ -64,7 +65,7 @@ SELECT kind,scope_type,scope_id,state,cancellable,error_retryable,execution_no,v
 
 func (store records) Input(ctx context.Context, id string, executionNo int64) ([]byte, error) {
 	var input []byte
-	err := store.executor.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, store.executor, `
 SELECT input_json FROM job_input_snapshots WHERE job_id=? AND execution_no=?
 `, id, executionNo).Scan(&input)
 	if errors.Is(err, sql.ErrNoRows) {

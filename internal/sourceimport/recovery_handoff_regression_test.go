@@ -2,6 +2,8 @@ package sourceimport
 
 import (
 	"testing"
+
+	dbapi "retrom/internal/database"
 )
 
 func TestRecoveryPreservesCreatedReviewAcrossExpiredExecution(t *testing.T) {
@@ -30,7 +32,7 @@ func TestRecoveryPreservesCreatedReviewAcrossExpiredExecution(t *testing.T) {
 				t.Fatalf("%s hid created review: %#v", mode, after)
 			}
 			var parent, job string
-			if err := service.database.QueryRowContext(t.Context(), `SELECT p.state,j.state FROM source_imports p JOIN jobs j ON j.id=p.import_job_id WHERE p.id='import'`).Scan(&parent, &job); err != nil {
+			if err := dbapi.QueryRowContext(t.Context(), service.database, `SELECT p.state,j.state FROM source_imports p JOIN jobs j ON j.id=p.import_job_id WHERE p.id='import'`).Scan(&parent, &job); err != nil {
 				t.Fatal(err)
 			}
 			if parent != expected || job != expected {

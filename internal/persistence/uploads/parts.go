@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 
+	dbapi "retrom/internal/database"
 	service "retrom/internal/service/uploads"
 )
 
@@ -29,7 +30,7 @@ func (records partRecords) Get(ctx context.Context, id string, number int) (serv
 	var result service.PartRecord
 	result.FileID = id
 	result.Part.Number = number
-	err := records.executor.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, records.executor, `
 SELECT offset_bytes,size_bytes,sha256,storage_key,created_at_ms FROM upload_parts WHERE upload_file_id=? AND
 part_no=?
 `, id, number).Scan(&result.Part.Offset, &result.Part.Size, &result.Part.SHA256, &result.Part.Path, &result.AtMS)

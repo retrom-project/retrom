@@ -11,12 +11,12 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/testsupport"
 )
 
 type releaseWorkerFixture struct {
-	database *sql.DB
+	database dbapi.DB
 	service  *Service
 	jobID    string
 	now      *atomic.Int64
@@ -29,7 +29,7 @@ func queuedReleaseWorker(t *testing.T) releaseWorkerFixture {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer dbexec.Rollback(tx)
+	defer dbapi.Rollback(tx)
 	id, err := ScheduleGameDeletion(t.Context(), tx, "schedule-game", 1, 10)
 	if err != nil {
 		t.Fatal(err)
@@ -70,10 +70,10 @@ type jobAuthority struct {
 	Started, Deadline, Lease sql.NullInt64
 }
 
-func releaseJobAuthority(t *testing.T, db *sql.DB, id string) jobAuthority {
+func releaseJobAuthority(t *testing.T, db dbapi.DB, id string) jobAuthority {
 	t.Helper()
 	var result jobAuthority
-	err := db.QueryRowContext(t.Context(), `SELECT state,COALESCE(worker_id,''),version,attempt_count,
+	err := dbapi.QueryRowContext(t.Context(), db, `SELECT state,COALESCE(worker_id,''),version,attempt_count,
 execution_started_at_ms,execution_deadline_at_ms,leased_until_ms FROM jobs WHERE id=?`, id).
 		Scan(&result.State, &result.Worker, &result.Version, &result.Attempt, &result.Started, &result.Deadline, &result.Lease)
 	if err != nil {
@@ -129,7 +129,7 @@ SET worker_id='replacement-worker',version=version+1 WHERE id=?`, claim.ID); err
 			releaseJobAuthority(t, fixture.database, claim.ID))
 	}
 	var events, audits int
-	err = fixture.database.QueryRowContext(t.Context(), `SELECT
+	err = dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT
 (SELECT count(*) FROM job_events WHERE job_id=? AND event_type='SUCCEEDED'),
 (SELECT count(*) FROM audit_events WHERE resource_id='schedule-game')`, claim.ID).Scan(&events, &audits)
 	if err != nil || events != 0 || audits != 0 {
@@ -183,7 +183,7 @@ func TestPayloadWorkerSettlesMalformedInputWithoutReclaimLoop(t *testing.T) {
 	}
 	var state string
 	var retryable bool
-	err = fixture.database.QueryRowContext(t.Context(), `SELECT state,error_retryable FROM jobs WHERE id=?`, fixture.jobID).
+	err = dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT state,error_retryable FROM jobs WHERE id=?`, fixture.jobID).
 		Scan(&state, &retryable)
 	if err != nil || state != "FAILED" || retryable {
 		t.Fatalf("malformed job can be reclaimed forever: %s/%t/%v", state, retryable, err)

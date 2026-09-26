@@ -3,7 +3,6 @@ package httpapi
 import (
 	"bytes"
 	"context"
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -13,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/blobcatalog"
 
 	"github.com/getkin/kin-openapi/openapi3"
@@ -167,7 +166,7 @@ func TestImmersiveOpenAPIContractIsTypedAndBounded(t *testing.T) {
 func seedImmersiveBlob(
 	t *testing.T,
 	server *Server,
-	transaction *sql.Tx,
+	transaction dbapi.Tx,
 	payload, mediaType string,
 	now int64,
 ) string {
@@ -182,7 +181,7 @@ func seedImmersiveBlob(
 func seedImmersiveAssets(
 	t *testing.T,
 	server *Server,
-	transaction *sql.Tx,
+	transaction dbapi.Tx,
 	seed immersiveGameSeed,
 	coverPayload, videoPayload string,
 	now int64,
@@ -208,7 +207,7 @@ func seedImmersiveGame(t *testing.T, server *Server, seed immersiveGameSeed, now
 	t.Helper()
 	transaction, err := server.database.BeginTx(context.Background(), nil)
 	testassert.False(t, err != nil, err)
-	defer dbexec.Rollback(transaction)
+	defer dbapi.Rollback(transaction)
 	mustExecHTTPTest(t, transaction, "PRAGMA defer_foreign_keys=ON")
 	mustExecHTTPTest(t, transaction, `
 INSERT INTO games(
@@ -233,7 +232,7 @@ func seedImmersivePlay(
 	t.Helper()
 	transaction, err := server.database.BeginTx(context.Background(), nil)
 	testassert.False(t, err != nil, err)
-	defer dbexec.Rollback(transaction)
+	defer dbapi.Rollback(transaction)
 	requireHTTPTestRuntimeTarget(t, transaction, "mgba")
 	target, err := testsupport.LookupRuntimeTarget(t.Context(), transaction, "mgba")
 	testassert.False(t, err != nil, err)
@@ -406,7 +405,7 @@ func replaceImmersiveMetadata(t *testing.T, server *Server, game immersiveGameSe
 	t.Helper()
 	transaction, err := server.database.BeginTx(context.Background(), nil)
 	testassert.False(t, err != nil, err)
-	defer dbexec.Rollback(transaction)
+	defer dbapi.Rollback(transaction)
 	mustExecHTTPTest(t, transaction, "DELETE FROM game_assets WHERE game_id=?", game.GameID)
 	seedImmersiveAssets(t, server, transaction, replacement, "replacement-cover", "replacement-video", 2000)
 	mustExecHTTPTest(t, transaction, `

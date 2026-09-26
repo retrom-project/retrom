@@ -6,21 +6,21 @@ import (
 	"fmt"
 
 	"retrom/internal/blobstore"
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/blobcatalog"
 	"retrom/internal/service/saves"
 )
 
 type (
-	Repository struct{ database *sql.DB }
-	records    struct{ executor dbexec.Executor }
+	Repository struct{ database dbapi.DB }
+	records    struct{ executor dbapi.Executor }
 	writes     struct {
 		records
-		transaction *sql.Tx
+		transaction dbapi.Tx
 	}
 )
 
-func New(database *sql.DB) *Repository { return &Repository{database: database} }
+func New(database dbapi.DB) *Repository { return &Repository{database: database} }
 func (repository *Repository) LoadLaunch(ctx context.Context, id string) (saves.Launch, error) {
 	return (records{executor: repository.database}).LoadLaunch(ctx, id)
 }
@@ -34,7 +34,7 @@ func (repository *Repository) WithWrite(ctx context.Context, work func(saves.Wri
 	if err != nil {
 		return fmt.Errorf("begin checkpoint transaction: %w", err)
 	}
-	defer dbexec.Rollback(transaction)
+	defer dbapi.Rollback(transaction)
 	bound := writes{records: records{executor: transaction}, transaction: transaction}
 	if err := work(saves.WriteScope{
 		Launches: bound, Idempotency: bound, Blobs: bound,

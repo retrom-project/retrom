@@ -6,22 +6,22 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/launch"
 )
 
-type Screenshots struct{ database *sql.DB }
+type Screenshots struct{ database dbapi.DB }
 
-func NewScreenshots(database *sql.DB) *Screenshots { return &Screenshots{database: database} }
+func NewScreenshots(database dbapi.DB) *Screenshots { return &Screenshots{database: database} }
 
-type screenshotRecords struct{ executor dbexec.Executor }
+type screenshotRecords struct{ executor dbapi.Executor }
 
 const screenshotColumns = `preview.id,preview.import_item_id,preview.source_snapshot_id,
 preview.target_platform_instance_id,preview.validation_id,preview.provider_id,preview.target_id,
 preview.credential_sha256,preview.state,preview.hard_expires_at_ms`
 
 func (repository *Screenshots) Preview(ctx context.Context, id string) (application.ScreenshotSource, bool, error) {
-	return readScreenshotSource(repository.database.QueryRowContext(ctx, `SELECT `+screenshotColumns+`
+	return readScreenshotSource(dbapi.QueryRowContext(ctx, repository.database, `SELECT `+screenshotColumns+`
 FROM review_preview_sessions preview WHERE preview.id=?`, id))
 }
 
@@ -30,7 +30,7 @@ func (repository *Screenshots) WithScreenshot(ctx context.Context, work func(app
 	if err != nil {
 		return fmt.Errorf("begin review screenshot: %w", err)
 	}
-	defer dbexec.Rollback(tx)
+	defer dbapi.Rollback(tx)
 	if err := work(screenshotRecords{executor: tx}); err != nil {
 		return err
 	}
@@ -41,7 +41,7 @@ func (repository *Screenshots) WithScreenshot(ctx context.Context, work func(app
 }
 
 func (records screenshotRecords) Current(ctx context.Context, id string) (application.ScreenshotSource, bool, error) {
-	return readScreenshotSource(records.executor.QueryRowContext(ctx, `SELECT `+screenshotColumns+`
+	return readScreenshotSource(dbapi.QueryRowContext(ctx, records.executor, `SELECT `+screenshotColumns+`
 FROM review_preview_sessions preview
 JOIN import_items item ON item.id=preview.import_item_id
  AND item.state='REVIEW_PENDING' AND item.payload_state='RETAINED'
@@ -66,7 +66,7 @@ JOIN import_item_core_validations validation ON validation.id=preview.validation
 WHERE preview.id=?`, id))
 }
 
-func readScreenshotSource(row dbexec.Scanner) (application.ScreenshotSource, bool, error) {
+func readScreenshotSource(row dbapi.Scanner) (application.ScreenshotSource, bool, error) {
 	var source application.ScreenshotSource
 	err := row.Scan(
 		&source.PreviewID,

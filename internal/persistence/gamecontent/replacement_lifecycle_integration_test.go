@@ -6,11 +6,11 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
-	"database/sql"
 	"fmt"
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/blobcatalog"
 
 	"github.com/google/uuid"
@@ -21,14 +21,14 @@ import (
 func seedReplacementSave(
 	t *testing.T,
 	ctx context.Context,
-	database *sql.DB,
+	database dbapi.DB,
 	blobs *blobstore.Store,
 	gameID string,
 ) (string, string, []string) {
 	t.Helper()
 	var variantID, providerID, targetID, coreID, compatibilityCode, contentKind string
 	var bundleSHA256, checkpointFormat, dependencySnapshot, logicalName, contentBlobID string
-	if err := database.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database, `
 SELECT variant.id,variant.provider_id,variant.target_id,variant.core_id,
        variant.compatibility_code,game.content_kind,
        provider.bundle_sha256,json_extract(target.checkpoint_json,'$.writeFormat'),
@@ -89,7 +89,7 @@ VALUES(?,?,?,?,?,?,?,?,'Before replacement',1000,?,?,?)
 func ensureReplacementBlob(
 	t *testing.T,
 	ctx context.Context,
-	database *sql.DB,
+	database dbapi.DB,
 	blobs *blobstore.Store,
 	contents []byte,
 ) string {
@@ -110,17 +110,17 @@ func ensureReplacementBlob(
 func assertReplacementFailure(
 	t *testing.T,
 	ctx context.Context,
-	database *sql.DB,
+	database dbapi.DB,
 	jobID, wantedCode, gameID, wantedContentID, retainedSaveID string,
 ) {
 	t.Helper()
 	var code, contentID string
 	var retryable bool
-	if err := database.QueryRowContext(ctx, `SELECT error_code,error_retryable FROM jobs WHERE id=?`,
+	if err := dbapi.QueryRowContext(ctx, database, `SELECT error_code,error_retryable FROM jobs WHERE id=?`,
 		jobID).Scan(&code, &retryable); err != nil {
 		t.Fatal(err)
 	}
-	if err := database.QueryRowContext(ctx, `SELECT id FROM games WHERE id=?`,
+	if err := dbapi.QueryRowContext(ctx, database, `SELECT id FROM games WHERE id=?`,
 		gameID).Scan(&contentID); err != nil {
 		t.Fatal(err)
 	}
@@ -132,7 +132,7 @@ func assertReplacementFailure(
 		return
 	}
 	var count int
-	if err := database.QueryRowContext(ctx, `SELECT count(*) FROM save_states WHERE id=?`,
+	if err := dbapi.QueryRowContext(ctx, database, `SELECT count(*) FROM save_states WHERE id=?`,
 		retainedSaveID).Scan(&count); err != nil || count != 1 {
 		t.Fatalf("unchanged replacement save count = %d, error=%v", count, err)
 	}
@@ -141,7 +141,7 @@ func assertReplacementFailure(
 func assertSupersededContentReleased(
 	t *testing.T,
 	ctx context.Context,
-	database *sql.DB,
+	database dbapi.DB,
 	gameID, oldContentID, saveID, launchID string,
 	savePayloads []string,
 ) {
@@ -151,7 +151,7 @@ func assertSupersededContentReleased(
 	}
 	var saves, launchFiles int
 	var launchState string
-	if err := database.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database, `
 SELECT
  (SELECT count(*) FROM save_states WHERE id=?),
  (SELECT state FROM launch_sessions WHERE id=?),
@@ -164,8 +164,9 @@ SELECT
 	}
 	for _, blobID := range savePayloads {
 		var candidates int
-		if err := database.QueryRowContext(
-			ctx, `SELECT count(*) FROM blob_gc_candidates WHERE blob_id=?`, blobID,
+		if err := dbapi.QueryRowContext(
+			ctx, database,
+			`SELECT count(*) FROM blob_gc_candidates WHERE blob_id=?`, blobID,
 		).Scan(&candidates); err != nil || candidates != 1 {
 			t.Fatalf("save payload %s GC candidates = %d, error=%v", blobID, candidates, err)
 		}
@@ -175,14 +176,15 @@ SELECT
 func assertContentPayloadCount(
 	t *testing.T,
 	ctx context.Context,
-	database *sql.DB,
+	database dbapi.DB,
 	contentID string,
 	wanted int,
 ) {
 	t.Helper()
 	var count int
-	if err := database.QueryRowContext(
-		ctx, `SELECT count(*) FROM game_files WHERE game_id=?`, contentID,
+	if err := dbapi.QueryRowContext(
+		ctx, database,
+		`SELECT count(*) FROM game_files WHERE game_id=?`, contentID,
 	).Scan(&count); err != nil || count != wanted {
 		t.Fatalf("content %s payload count = %d, want %d, error=%v", contentID, count, wanted, err)
 	}
@@ -191,13 +193,13 @@ func assertContentPayloadCount(
 func assertBlobReferenceState(
 	t *testing.T,
 	ctx context.Context,
-	database *sql.DB,
+	database dbapi.DB,
 	blobID string,
 	wantedCurrent bool,
 ) {
 	t.Helper()
 	var currentReferences int
-	if err := database.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database, `
 SELECT count(*) FROM game_files WHERE blob_id=?
 `, blobID).Scan(&currentReferences); err != nil {
 		t.Fatal(err)

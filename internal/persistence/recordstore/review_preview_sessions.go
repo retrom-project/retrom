@@ -4,16 +4,16 @@ import (
 	"context"
 	"database/sql"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 )
 
 func CreateReviewPreviewSessions(
-	ctx context.Context, db dbexec.Executor, query string, args ...any,
+	ctx context.Context, db dbapi.Executor, query string, args ...any,
 ) (sql.Result, error) {
 	return create(ctx, db, query, args, "id", ValidateReviewPreviewSessions)
 }
 
-func ValidateReviewPreviewSessions(ctx context.Context, db dbexec.Executor, keys ...any) error {
+func ValidateReviewPreviewSessions(ctx context.Context, db dbapi.Executor, keys ...any) error {
 	return validate(ctx, db, review_preview_sessionsOwnership, keys)
 }
 

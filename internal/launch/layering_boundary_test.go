@@ -28,7 +28,7 @@ func TestLaunchSourceHasNoSQLExecution(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if name == "database/sql" || name == "retrom/internal/dbexec" || strings.HasPrefix(name, "retrom/internal/persistence/") {
+			if name == "database/sql" || name == "retrom/internal/database" || strings.HasPrefix(name, "retrom/internal/persistence/") {
 				t.Errorf("production Launch source %s imports storage %s", entry.Name(), name)
 			}
 		}

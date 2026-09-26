@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/service/gamecontent"
 	"retrom/internal/testsupport"
 )
@@ -39,7 +40,7 @@ WHERE launch_session_id=? ORDER BY logical_name LIMIT 1`, fmt.Sprintf("companion
 	}
 	var files, saves int
 	var state, variant string
-	err = fixture.db.QueryRowContext(t.Context(), `SELECT
+	err = dbapi.QueryRowContext(t.Context(), fixture.db, `SELECT
 (SELECT count(*) FROM launch_content_files WHERE launch_session_id=?),
 (SELECT count(*) FROM save_states WHERE id=?),
 (SELECT state FROM launch_sessions WHERE id=?),

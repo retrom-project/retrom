@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
-	"database/sql"
 	"encoding/base64"
 	"io"
 	"net/http"
@@ -13,6 +12,9 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	dbapi "retrom/internal/database"
+	dbsqlite "retrom/internal/database/sqlite"
 
 	isolationpersistence "retrom/internal/persistence/isolation"
 
@@ -343,9 +345,9 @@ func bootstrapPageRequest(
 
 func newBootstrapReloadFixture(
 	t *testing.T,
-) (*sql.DB, *isolation.Service, *int64, string, string, string) {
+) (dbapi.DB, *isolation.Service, *int64, string, string, string) {
 	t.Helper()
-	database, err := sql.Open("sqlite", ":memory:")
+	database, err := dbsqlite.Open(":memory:", dbsqlite.Options{})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -5,13 +5,13 @@ import (
 	"fmt"
 
 	"retrom/internal/cleanup"
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	release "retrom/internal/persistence/payloadrelease"
 	application "retrom/internal/service/maintenance"
 	"retrom/internal/service/payloadrelease"
 )
 
-type payloadRecords struct{ executor dbexec.Executor }
+type payloadRecords struct{ executor dbapi.Executor }
 
 func (writes writes) Imports() application.RestoredImportScope {
 	return application.RestoredImportScope{

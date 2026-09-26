@@ -3,6 +3,8 @@ package serverimport_test
 import (
 	"errors"
 	"testing"
+
+	dbapi "retrom/internal/database"
 )
 
 func TestServerImportRetryRejectsAnotherActiveImport(t *testing.T) {
@@ -15,7 +17,7 @@ func TestServerImportRetryRejectsAnotherActiveImport(t *testing.T) {
 		t.Fatalf("active import did not produce retry conflict: %v", err)
 	}
 	var state string
-	if err := database.QueryRowContext(t.Context(), `SELECT state FROM server_imports WHERE id=?`, active.ID).Scan(&state); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), database, `SELECT state FROM server_imports WHERE id=?`, active.ID).Scan(&state); err != nil {
 		t.Fatal(err)
 	}
 	if state != "QUEUED" {

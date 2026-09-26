@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/service/metadatascrape"
 )
 
@@ -33,7 +34,7 @@ func TestMetadataRecoveryFinalizesExpiredOrExhaustedQueuedExecution(t *testing.T
 			}
 			var state, run, code string
 			var attempts, events int
-			err = database.QueryRowContext(t.Context(), `SELECT j.state,r.state,j.error_code,j.attempt_count,
+			err = dbapi.QueryRowContext(t.Context(), database, `SELECT j.state,r.state,j.error_code,j.attempt_count,
  (SELECT count(*) FROM job_events WHERE job_id=j.id AND event_type='FAILED')
  FROM jobs j JOIN metadata_scrape_runs r ON r.job_id=j.id WHERE j.id='job'`).Scan(&state, &run, &code, &attempts, &events)
 			if err != nil {
@@ -58,7 +59,7 @@ func TestMetadataRecoveryCancelsExpiredRequestedExecution(t *testing.T) {
 	})
 	_ = metadatascrape.NewWorker(NewWorker(database), processor, recoveryNow).Run(t.Context(), "run")
 	var state, run string
-	if err := database.QueryRowContext(t.Context(), `SELECT j.state,r.state FROM jobs j JOIN metadata_scrape_runs r ON r.job_id=j.id WHERE j.id='job'`).Scan(&state, &run); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), database, `SELECT j.state,r.state FROM jobs j JOIN metadata_scrape_runs r ON r.job_id=j.id WHERE j.id='job'`).Scan(&state, &run); err != nil {
 		t.Fatal(err)
 	}
 	if state != "CANCELLED" || run != "CANCELLED" {

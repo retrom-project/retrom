@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"retrom/internal/config"
+	dbapi "retrom/internal/database"
 )
 
 func TestUserDeletionRollsBackWhenDefaultCredentialFlagFails(t *testing.T) {
@@ -21,7 +22,7 @@ func TestUserDeletionRollsBackWhenDefaultCredentialFlagFails(t *testing.T) {
 		t.Fatalf("failed deletion revoked user session: %v", err)
 	}
 	var status string
-	if err := fixture.database.SQL.QueryRowContext(t.Context(), `SELECT status FROM users WHERE id=?`, initial.User.UserID).Scan(&status); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database.SQL, `SELECT status FROM users WHERE id=?`, initial.User.UserID).Scan(&status); err != nil {
 		t.Fatal(err)
 	}
 	if status != "ENABLED" {

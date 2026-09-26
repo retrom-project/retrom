@@ -4,16 +4,16 @@ import (
 	"context"
 	"database/sql"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 )
 
 func CreateImportItemCoreValidations(
-	ctx context.Context, db dbexec.Executor, query string, args ...any,
+	ctx context.Context, db dbapi.Executor, query string, args ...any,
 ) (sql.Result, error) {
 	return create(ctx, db, query, args, "id", ValidateImportItemCoreValidations)
 }
 
-func ValidateImportItemCoreValidations(ctx context.Context, db dbexec.Executor, keys ...any) error {
+func ValidateImportItemCoreValidations(ctx context.Context, db dbapi.Executor, keys ...any) error {
 	return validate(ctx, db, import_item_core_validationsOwnership, keys)
 }
 

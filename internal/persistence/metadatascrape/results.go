@@ -2,28 +2,27 @@ package metadatascrape
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/blobcatalog"
 	"retrom/internal/persistence/recordstore"
 	"retrom/internal/service/metadatascrape"
 )
 
 type (
-	ResultRepository struct{ database *sql.DB }
-	resultRecords    struct{ transaction *sql.Tx }
+	ResultRepository struct{ database dbapi.DB }
+	resultRecords    struct{ transaction dbapi.Tx }
 )
 
-func NewRecorder(database *sql.DB) *ResultRepository { return &ResultRepository{database: database} }
+func NewRecorder(database dbapi.DB) *ResultRepository { return &ResultRepository{database: database} }
 
 func (repository *ResultRepository) WithWrite(ctx context.Context, work func(metadatascrape.ResultScope) error) error {
 	transaction, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin scrape result: %w", err)
 	}
-	defer dbexec.Rollback(transaction)
+	defer dbapi.Rollback(transaction)
 	records := resultRecords{transaction}
 	if err := work(metadatascrape.ResultScope{Read: records, Write: records, Media: records}); err != nil {
 		return err
@@ -36,8 +35,9 @@ func (repository *ResultRepository) WithWrite(ctx context.Context, work func(met
 
 func (records resultRecords) Writable(ctx context.Context, claim metadatascrape.WorkerClaim) (bool, error) {
 	var allowed bool
-	err := records.transaction.QueryRowContext(
-		ctx,
+	err := dbapi.QueryRowContext(
+		ctx, records.transaction,
+
 		`SELECT EXISTS(SELECT 1 FROM metadata_scrape_runs r
  JOIN jobs j ON j.id=r.job_id LEFT JOIN games g ON g.id=r.game_id WHERE r.id=? AND j.id=? AND j.execution_no=?
  AND j.worker_id=? AND j.state='RUNNING' AND r.state='RUNNING' AND j.leased_until_ms>? AND j.execution_deadline_at_ms>?
@@ -59,8 +59,9 @@ func (records resultRecords) Writable(ctx context.Context, claim metadatascrape.
 
 func (records resultRecords) Hashes(ctx context.Context, id string) (metadatascrape.Hashes, error) {
 	var hashes metadatascrape.Hashes
-	err := records.transaction.QueryRowContext(
-		ctx,
+	err := dbapi.QueryRowContext(
+		ctx, records.transaction,
+
 		`SELECT crc32,md5,sha1,sha256 FROM content_hash_evidence WHERE id=?`,
 		id,
 	).

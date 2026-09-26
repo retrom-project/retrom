@@ -9,6 +9,7 @@ import (
 	"time"
 
 	contentcapability "retrom/internal/content/capability"
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/blobcatalog"
 	"retrom/internal/testsupport"
 )
@@ -19,7 +20,7 @@ func TestServerSourceProjectResultRetainsDeclaredArchivePath(t *testing.T) {
 	archive := rpgMakerMVArchiveWithMToolSidecar(t)
 	uploadID := completeProjectUpload(t, ctx, database.SQL, blobs, dataDir, "GENERAL", archive)
 	var file ServerSourceFile
-	if err := database.SQL.QueryRowContext(ctx, `SELECT file.relative_path,file.final_blob_id,blob.size_bytes
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `SELECT file.relative_path,file.final_blob_id,blob.size_bytes
 FROM upload_files file JOIN blobs blob ON blob.id=file.final_blob_id WHERE file.upload_session_id=?`, uploadID).Scan(&file.RelativePath, &file.BlobID, &file.SizeBytes); err != nil {
 		t.Fatal(err)
 	}

@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/payloadrelease"
 	"retrom/internal/testsupport"
 )
@@ -46,7 +47,7 @@ func TestGarbagePreservesCatalogAndBytesWhenDeleteCountFails(t *testing.T) {
 	})
 	err := gcFaultService(t, fixture, fault).execute(t.Context(), job)
 	var blobs, candidates int
-	readErr := fixture.database.QueryRowContext(t.Context(), `SELECT
+	readErr := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT
  (SELECT count(*) FROM blobs WHERE id='manual-gc-blob'),
  (SELECT count(*) FROM blob_gc_candidates WHERE blob_id='manual-gc-blob')`).Scan(&blobs, &candidates)
 	_, physicalErr := os.Stat(fixture.blobs.Path(job.Input.Inputs.SHA256))
@@ -138,7 +139,7 @@ func TestGarbageCancelledCandidateCannotBypassNewRetention(t *testing.T) {
 		t.Fatal(err)
 	}
 	var blobs int
-	err = fixture.database.QueryRowContext(t.Context(), `SELECT count(*) FROM blobs WHERE id='manual-gc-blob'`).Scan(&blobs)
+	err = dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT count(*) FROM blobs WHERE id='manual-gc-blob'`).Scan(&blobs)
 	_, physicalErr := os.Stat(fixture.blobs.Path(job.Input.Inputs.SHA256))
 	if err != nil || blobs != 1 || physicalErr != nil {
 		t.Fatalf("cancelled candidate bypassed retention: blobs=%d read=%v physical=%v", blobs, err, physicalErr)
@@ -167,7 +168,7 @@ func TestGarbageRollsBackWhenOriginalLeaseExpiresAfterCatalogDelete(t *testing.T
 	defer service.Close()
 	err = service.execute(t.Context(), job)
 	var blobs, candidates int
-	readErr := fixture.database.QueryRowContext(t.Context(), `SELECT
+	readErr := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT
  (SELECT count(*) FROM blobs WHERE id='manual-gc-blob'),
  (SELECT count(*) FROM blob_gc_candidates WHERE blob_id='manual-gc-blob')`).Scan(&blobs, &candidates)
 	_, physicalErr := os.Stat(fixture.blobs.Path(job.Input.Inputs.SHA256))

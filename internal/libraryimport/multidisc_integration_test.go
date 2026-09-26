@@ -21,6 +21,7 @@ import (
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
 	savepersistence "retrom/internal/persistence/saves"
 
 	uploadpersistence "retrom/internal/persistence/uploads"
@@ -136,7 +137,7 @@ VALUES('01980000-0000-7000-8000-000000009991','multi-disc-profile','multi-disc-a
 	testassert.False(t, err != nil, err)
 	var requirementID string
 	var requirementVersion int64
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT id,version FROM bios_requirements
 WHERE core_id='yabause' AND logical_name='saturn_bios.bin' AND enabled=1
 `).Scan(&requirementID, &requirementVersion); err != nil {
@@ -210,7 +211,7 @@ func TestMultiDiscDirectoryCreatesOrderedItemsAndPublishesCanonicalContent(t *te
 	})
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return created.ItemCount != 2 }), "Create() = %#v, error=%v", created, err)
 	var importEventData string
-	if err := database.SQL.QueryRowContext(context.Background(), `
+	if err := dbapi.QueryRowContext(context.Background(), database.SQL, `
 SELECT data_json FROM job_events
 WHERE job_id=? AND scope_type='IMPORT_GROUP' AND event_type='SUCCEEDED'
 `, created.JobID).Scan(&importEventData); err != nil ||
@@ -228,7 +229,7 @@ WHERE item.import_job_id=? ORDER BY item.group_key
 `, created.ImportJobID)
 	testassert.Falsef(t, len(items) != 2, "items = %#v", items)
 	var firstItemID, firstSnapshotID string
-	if err := database.SQL.QueryRowContext(context.Background(), `
+	if err := dbapi.QueryRowContext(context.Background(), database.SQL, `
 SELECT item.id,snapshot.id
 FROM import_items item
 JOIN import_items draft ON draft.id=item.id
@@ -249,7 +250,7 @@ FROM import_item_multidisc_entries WHERE source_snapshot_id=? ORDER BY ordinal
 `, firstSnapshotID)
 	testassert.Falsef(t, fmt.Sprint(entries) != "[0:PRESENT:disc one.chd:disc-001.chd 1:PRESENT:disc two.chd:disc-002.chd]", "entries = %v", entries)
 	var playlistSHA string
-	if err := database.SQL.QueryRowContext(context.Background(), `
+	if err := dbapi.QueryRowContext(context.Background(), database.SQL, `
 SELECT blob.sha256
 FROM import_item_core_validations validation
 JOIN import_item_validation_files file ON file.import_item_core_validation_id=validation.id
@@ -264,7 +265,7 @@ WHERE validation.source_snapshot_id=? AND file.role='MULTI_DISC_PLAYLIST'
 	cleanup.Error("close", reader.Close())
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return string(canonical) != "disc-001.chd\ndisc-002.chd\n" }), "canonical playlist = %q, error=%v", canonical, err)
 	var ignored int
-	if err := database.SQL.QueryRowContext(context.Background(), `
+	if err := dbapi.QueryRowContext(context.Background(), database.SQL, `
 SELECT count(*) FROM import_job_files WHERE import_job_id=?
 AND disposition='IGNORED' AND reason_code='NOT_REFERENCED_BY_PLAYLIST'
 	`, created.ImportJobID).Scan(&ignored); err != nil || ignored != 2 {
@@ -353,7 +354,7 @@ func TestMultiDiscMissingDiscIsBlockedWithoutPlaceholderBlob(t *testing.T) {
 	var itemID, validationStatus, compatibilityCode string
 	var selectedValidationID *string
 	var missingBlobID, missingUploadID *string
-	if err := database.SQL.QueryRowContext(context.Background(), `
+	if err := dbapi.QueryRowContext(context.Background(), database.SQL, `
 SELECT item.id,validation.status,validation.compatibility_code,draft.selected_validation_id,
 entry.blob_id,entry.upload_file_id
 FROM import_items item
@@ -372,7 +373,7 @@ WHERE item.import_job_id=?
 		t.Fatalf("blocked approve error = %v", err)
 	}
 	baseSnapshotID := ""
-	if err := database.SQL.QueryRowContext(context.Background(), `
+	if err := dbapi.QueryRowContext(context.Background(), database.SQL, `
 SELECT effective_source_snapshot_id FROM import_items WHERE id=?
 	`, itemID).Scan(&baseSnapshotID); err != nil {
 		t.Fatal(err)
@@ -392,7 +393,7 @@ SELECT effective_source_snapshot_id FROM import_items WHERE id=?
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return attachment.State != "QUEUED" }, func() bool { return attachment.ReviewVersion != 2 }), "CreateMultiDiscAttachment() = %#v, error=%v", attachment, err)
 	waitParentJob(t, database.SQL, attachment.JobID, "SUCCEEDED")
 	var terminalEventData string
-	if err := database.SQL.QueryRowContext(context.Background(), `
+	if err := dbapi.QueryRowContext(context.Background(), database.SQL, `
 SELECT data_json FROM job_events WHERE job_id=? AND event_type='SUCCEEDED'
 ORDER BY id DESC LIMIT 1
 `, attachment.JobID).Scan(&terminalEventData); err != nil ||
@@ -403,7 +404,7 @@ ORDER BY id DESC LIMIT 1
 	}
 	var resultSnapshotID, selectedID string
 	var version int64
-	if err := database.SQL.QueryRowContext(context.Background(), `
+	if err := dbapi.QueryRowContext(context.Background(), database.SQL, `
 SELECT effective_source_snapshot_id,selected_validation_id,review_version
 FROM import_items WHERE id=?
 `, itemID).Scan(&resultSnapshotID, &selectedID, &version); err != nil {
@@ -418,7 +419,7 @@ SELECT state FROM import_item_multidisc_entries WHERE source_snapshot_id=? ORDER
 `, resultSnapshotID)
 	testassert.Falsef(t, testassert.Any(func() bool { return fmt.Sprint(oldEntries) != "[PRESENT PRESENT MISSING]" }, func() bool { return fmt.Sprint(newEntries) != "[PRESENT PRESENT PRESENT]" }), "old/new entries = %v / %v", oldEntries, newEntries)
 	var requestedBy, attachmentState string
-	if err := database.SQL.QueryRowContext(context.Background(), `
+	if err := dbapi.QueryRowContext(context.Background(), database.SQL, `
 SELECT attachment.requested_by_user_id,attachment.state
 FROM review_multidisc_attachments attachment
 WHERE attachment.id=?
@@ -449,7 +450,7 @@ func TestMultiDiscAttachmentRejectsNonExactSetWithoutAdvancingDraft(t *testing.T
 	})
 	testassert.False(t, err != nil, err)
 	var itemID, baseSnapshotID string
-	if err := database.SQL.QueryRowContext(context.Background(), `
+	if err := dbapi.QueryRowContext(context.Background(), database.SQL, `
 SELECT item.id,draft.effective_source_snapshot_id
 FROM import_items item JOIN import_items draft ON draft.id=item.id
 WHERE item.import_job_id=?
@@ -468,7 +469,7 @@ WHERE item.import_job_id=?
 	waitParentJob(t, database.SQL, attachment.JobID, "FAILED")
 	var state, errorCode, currentSnapshotID string
 	var selectedID sql.NullString
-	if err := database.SQL.QueryRowContext(context.Background(), `
+	if err := dbapi.QueryRowContext(context.Background(), database.SQL, `
 SELECT attachment.state,attachment.error_code,draft.effective_source_snapshot_id,draft.selected_validation_id
 FROM review_multidisc_attachments attachment
 JOIN import_items draft ON draft.id=attachment.review_draft_id
@@ -478,7 +479,7 @@ WHERE attachment.id=?
 	}
 	testassert.Falsef(t, testassert.Any(func() bool { return state != "REJECTED" }, func() bool { return errorCode != MultiDiscAttachmentErrorSetMismatch }, func() bool { return currentSnapshotID != baseSnapshotID }, func() bool { return selectedID.Valid }), "rejected attachment = %s/%s snapshot=%s selected=%v", state, errorCode, currentSnapshotID, selectedID)
 	var consumptions int
-	if err := database.SQL.QueryRowContext(context.Background(), `
+	if err := dbapi.QueryRowContext(context.Background(), database.SQL, `
 SELECT count(*) FROM upload_consumptions WHERE upload_session_id=?
 `, attachmentUploadID).Scan(&consumptions); err != nil || consumptions != 0 {
 		t.Fatalf("rejected upload consumptions = %d, error=%v", consumptions, err)
@@ -491,7 +492,7 @@ SELECT count(*) FROM upload_consumptions WHERE upload_session_id=?
 	bad, err := importer.CreateMultiDiscAttachment(ctx, itemID, 2, MultiDiscAttachmentRequest{UploadID: badUploadID})
 	testassert.False(t, err != nil, err)
 	waitParentJob(t, database.SQL, bad.JobID, "FAILED")
-	if err := database.SQL.QueryRowContext(context.Background(), `
+	if err := dbapi.QueryRowContext(context.Background(), database.SQL, `
 SELECT state,error_code FROM review_multidisc_attachments WHERE id=?
 `, bad.AttachmentID).Scan(&state, &errorCode); err != nil ||
 		state != "REJECTED" || errorCode != MultiDiscAttachmentErrorContentInvalid {
@@ -518,7 +519,7 @@ func TestMultiDiscAdmissionRejectsMissingPlaylistAndUnsupportedTargetWithoutCons
 		t.Fatalf("unsupported target error = %v", err)
 	}
 	var imports, consumptions int
-	if err := database.SQL.QueryRowContext(context.Background(), `
+	if err := dbapi.QueryRowContext(context.Background(), database.SQL, `
 SELECT (SELECT count(*) FROM import_jobs WHERE upload_session_id=?),
        (SELECT count(*) FROM upload_consumptions WHERE upload_session_id=?)
 `, uploadID, uploadID).Scan(&imports, &consumptions); err != nil || imports != 0 || consumptions != 0 {

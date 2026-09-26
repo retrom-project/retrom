@@ -6,7 +6,7 @@ import (
 
 	"retrom/internal/authn"
 	"retrom/internal/blobstore"
-	"retrom/internal/corevalidation"
+	corevalidation "retrom/internal/core/validation"
 	validation "retrom/internal/service/corevalidation"
 	"retrom/internal/service/importprogress"
 	"retrom/internal/service/metadatascrape"

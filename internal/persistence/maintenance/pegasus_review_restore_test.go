@@ -1,20 +1,20 @@
 package maintenance
 
 import (
-	"database/sql"
 	"strings"
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/maintenance"
 )
 
-func restoredSourceReview(t *testing.T) (*sql.DB, string) {
+func restoredSourceReview(t *testing.T) (dbapi.DB, string) {
 	t.Helper()
 	db, path := restoredSourceScan(t, "RUNNING")
 	digest := strings.Repeat("b", 64)
 	var instance, provider, target string
-	err := db.QueryRowContext(t.Context(), `SELECT p.id,t.provider_id,t.target_id FROM platform_instances p
+	err := dbapi.QueryRowContext(t.Context(), db, `SELECT p.id,t.provider_id,t.target_id FROM platform_instances p
  JOIN runtime_target_bindings t ON t.core_id=p.default_core_id
  WHERE p.platform_id='gba' AND p.enabled=1 ORDER BY p.sort_order,p.id LIMIT 1`).Scan(&instance, &provider, &target)
 	if err != nil {
@@ -72,7 +72,7 @@ func TestRestoreRetainsSourceReviewCreatedBeforeSourceHandoff(t *testing.T) {
 	}
 	var sourceState, planState, jobState, title string
 	var pending, failed, events int64
-	err = db.QueryRowContext(t.Context(), `SELECT source.execution_state,plan.state,job.state,
+	err = dbapi.QueryRowContext(t.Context(), db, `SELECT source.execution_state,plan.state,job.state,
  json_extract(draft.metadata_json,'$.title'),plan.review_pending_item_count,plan.failed_item_count,
  (SELECT review_version-1 FROM import_items WHERE id='handoff-item')
  FROM source_import_items source JOIN source_imports plan ON plan.id=source.import_id

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"retrom/internal/blobstore"
+	dbapi "retrom/internal/database"
 	jobpersistence "retrom/internal/persistence/jobs"
 	jobservice "retrom/internal/service/jobs"
 	uploadservice "retrom/internal/service/uploads"
@@ -32,13 +33,13 @@ func TestFinalizationManualRetryKeepsRoundAndCompletedFiles(t *testing.T) {
 		t.Fatalf("expected original CAS failure, got %v", err)
 	}
 	var completedID, completedBlob string
-	if err := fixture.database.QueryRowContext(t.Context(), `
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `
 SELECT id,final_blob_id FROM upload_files WHERE upload_session_id=? AND state='COMPLETE'`, session.ID).
 		Scan(&completedID, &completedBlob); err != nil {
 		t.Fatal(err)
 	}
 	var version int64
-	if err := fixture.database.QueryRowContext(t.Context(), `SELECT version FROM jobs WHERE id=?`, job).Scan(&version); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT version FROM jobs WHERE id=?`, job).Scan(&version); err != nil {
 		t.Fatal(err)
 	}
 	result, err := jobservice.New(jobpersistence.New(fixture.database), finalizationNow).Retry(t.Context(), job, version)
@@ -59,7 +60,7 @@ SELECT id,final_blob_id FROM upload_files WHERE upload_session_id=? AND state='C
 		t.Fatalf("retry round/calls: %+v %d", current, calls.Load())
 	}
 	var preserved int
-	if err := fixture.database.QueryRowContext(t.Context(), `
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `
 SELECT count(*) FROM upload_files WHERE id=? AND final_blob_id=? AND state='COMPLETE'`, completedID, completedBlob).
 		Scan(&preserved); err != nil || preserved != 1 {
 		t.Fatalf("completed file changed: %d %v", preserved, err)

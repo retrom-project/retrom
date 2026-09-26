@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/metadatascrape"
 )
 
@@ -18,7 +19,7 @@ func TestReplacingScrapeRemovesCandidatesAndFencesOldMedia(t *testing.T) {
 		t.Fatal(err)
 	}
 	var runs, candidates, assets, evidence, attempts, media int
-	err := fixture.database.QueryRowContext(t.Context(), `SELECT
+	err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT
  (SELECT count(*) FROM metadata_scrape_runs WHERE game_id='game'),
  (SELECT count(*) FROM scrape_candidates),(SELECT count(*) FROM scrape_candidate_assets),
  (SELECT count(*) FROM content_hash_evidence),(SELECT count(*) FROM metadata_scrape_query_attempts),
@@ -27,7 +28,7 @@ func TestReplacingScrapeRemovesCandidatesAndFencesOldMedia(t *testing.T) {
 		t.Fatalf("replacement: runs=%d candidates=%d assets=%d evidence=%d attempts=%d media=%d err=%v", runs, candidates, assets, evidence, attempts, media, err)
 	}
 	var state, reason string
-	if err := fixture.database.QueryRowContext(t.Context(), "SELECT state,cancel_reason FROM jobs WHERE id=?", oldJob).Scan(&state, &reason); err != nil || state != "CANCELLED" || reason != "SCRAPE_REPLACED" {
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database, "SELECT state,cancel_reason FROM jobs WHERE id=?", oldJob).Scan(&state, &reason); err != nil || state != "CANCELLED" || reason != "SCRAPE_REPLACED" {
 		t.Fatalf("old media: %s %s %v", state, reason, err)
 	}
 	// The database enforces one current result even for callers bypassing scheduling.
@@ -55,7 +56,7 @@ func TestReplacingScrapeRollsBackCandidatesAndJobsOnFailure(t *testing.T) {
 	}
 	var runs, assets int
 	var state string
-	err = fixture.database.QueryRowContext(t.Context(), `SELECT
+	err = dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT
  (SELECT count(*) FROM metadata_scrape_runs WHERE id='run'),
  (SELECT count(*) FROM scrape_candidate_assets),state FROM jobs WHERE id=?`, fixture.jobID).Scan(&runs, &assets, &state)
 	if err != nil || runs != 1 || assets != 1 || state != "QUEUED" {

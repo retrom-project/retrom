@@ -8,7 +8,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
-	"database/sql"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -21,13 +20,13 @@ import (
 
 	datservice "retrom/internal/service/datindex"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
+	"retrom/internal/database/sqlite"
 
 	"github.com/google/uuid"
-	_ "modernc.org/sqlite"
 
-	"retrom/internal/arcadedat"
 	"retrom/internal/cleanup"
+	"retrom/internal/format/arcadedat"
 	"retrom/internal/persistence/datindex"
 )
 
@@ -178,12 +177,11 @@ func findRepositoryRoot() (string, error) {
 	}
 }
 
-func openSmokeDatabase(ctx context.Context, databasePath string) (*sql.DB, error) {
-	database, err := sql.Open("sqlite", databasePath)
+func openSmokeDatabase(ctx context.Context, databasePath string) (dbapi.DB, error) {
+	database, err := sqlite.Open(databasePath, sqlite.Options{MaxOpenConns: 1})
 	if err != nil {
 		return nil, fmt.Errorf("open database: %w", err)
 	}
-	database.SetMaxOpenConns(1)
 	if _, err := database.ExecContext(ctx, "PRAGMA foreign_keys=ON"); err != nil {
 		cleanup.Error("close acceptance database", database.Close())
 		return nil, fmt.Errorf("enable foreign keys: %w", err)
@@ -198,12 +196,12 @@ func openSmokeDatabase(ctx context.Context, databasePath string) (*sql.DB, error
 
 func installSmokeDAT(
 	ctx context.Context,
-	database *sql.DB,
+	database dbapi.DB,
 	coreID, datPath, digestHex string,
 	catalog arcadedat.Catalog,
 ) (string, string, string, error) {
 	var providerID, targetID string
-	if err := database.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database, `
 SELECT binding.provider_id,binding.target_id
 FROM runtime_target_bindings binding
 WHERE binding.core_id=? AND binding.launch_policy!='DISABLED'
@@ -214,7 +212,7 @@ WHERE binding.core_id=? AND binding.launch_policy!='DISABLED'
 	if err != nil {
 		return "", "", "", fmt.Errorf("begin transaction: %w", err)
 	}
-	defer dbexec.Rollback(transaction)
+	defer dbapi.Rollback(transaction)
 	datID := uuid.NewSHA1(uuid.NameSpaceURL, []byte("retrom:acceptance:arcade-dat:"+providerID+":"+targetID+":"+digestHex)).String()
 	nowMS := time.Now().UTC().UnixMilli()
 	stats := catalog.Stats

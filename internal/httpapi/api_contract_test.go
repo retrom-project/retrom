@@ -10,6 +10,7 @@ import (
 	"sync"
 	"testing"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/httpapi/generated"
 	"retrom/internal/testassert"
 )
@@ -150,7 +151,7 @@ func TestGenericIdempotencySerializesConcurrentCreates(t *testing.T) {
 	wait.Wait()
 	testassert.Falsef(t, testassert.Any(func() bool { return responses[0].Code != http.StatusCreated }, func() bool { return responses[1].Code != http.StatusCreated }, func() bool { return responses[0].Body.String() != responses[1].Body.String() }), "idempotent responses = %d/%d %q/%q", responses[0].Code, responses[1].Code, responses[0].Body.String(), responses[1].Body.String())
 	var count int
-	if err := server.database.QueryRowContext(context.Background(), `
+	if err := dbapi.QueryRowContext(context.Background(), server.database, `
 SELECT count(*)
 FROM platform_instances
 WHERE slug='concurrent-directory'

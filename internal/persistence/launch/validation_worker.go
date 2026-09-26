@@ -7,16 +7,16 @@ import (
 	"fmt"
 
 	"retrom/internal/cleanup"
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/launch"
 )
 
 type (
-	ValidationWorker        struct{ database *sql.DB }
-	validationWorkerRecords struct{ executor dbexec.Executor }
+	ValidationWorker        struct{ database dbapi.DB }
+	validationWorkerRecords struct{ executor dbapi.Executor }
 )
 
-func NewValidationWorker(database *sql.DB) *ValidationWorker {
+func NewValidationWorker(database dbapi.DB) *ValidationWorker {
 	return &ValidationWorker{database: database}
 }
 
@@ -28,7 +28,7 @@ func (repository *ValidationWorker) WithWorker(
 	if err != nil {
 		return fmt.Errorf("begin validation worker: %w", err)
 	}
-	defer dbexec.Rollback(tx)
+	defer dbapi.Rollback(tx)
 	records := validationWorkerRecords{executor: tx}
 	if err := work(application.ValidationWorkerScope{Jobs: records, Facts: records, Variants: records}); err != nil {
 		return err
@@ -43,11 +43,11 @@ func (repository *ValidationWorker) Facts(
 	ctx context.Context,
 	inputs application.ValidationInputs,
 ) (application.ValidationFacts, error) {
-	tx, err := repository.database.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+	tx, err := repository.database.BeginTx(ctx, &dbapi.TxOptions{ReadOnly: true})
 	if err != nil {
 		return application.ValidationFacts{}, fmt.Errorf("begin validation facts: %w", err)
 	}
-	defer dbexec.Rollback(tx)
+	defer dbapi.Rollback(tx)
 	facts, err := (validationWorkerRecords{executor: tx}).Facts(ctx, inputs)
 	if err != nil {
 		return application.ValidationFacts{}, err
@@ -82,7 +82,7 @@ func (repository *ValidationWorker) Candidates(ctx context.Context, now int64) (
 
 func (records validationWorkerRecords) Read(ctx context.Context, id string) (application.ValidationWork, bool, error) {
 	var work application.ValidationWork
-	err := records.executor.QueryRowContext(ctx, `SELECT job.id,job.kind,job.scope_type,job.scope_id,job.state,
+	err := dbapi.QueryRowContext(ctx, records.executor, `SELECT job.id,job.kind,job.scope_type,job.scope_id,job.state,
  COALESCE(job.worker_id,''),COALESCE(snapshot.input_json,''),COALESCE(snapshot.input_digest,''),job.version,
  job.execution_no,job.attempt_count,job.max_attempts,job.available_at_ms,
  job.execution_started_at_ms,job.execution_deadline_at_ms,job.leased_until_ms

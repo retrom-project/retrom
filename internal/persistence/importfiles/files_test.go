@@ -1,12 +1,12 @@
 package importfiles
 
 import (
-	"database/sql"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/store"
 )
 
@@ -22,7 +22,7 @@ func TestReceiveIsImmutableAndTransactional(t *testing.T) {
 	var count int
 	var path, blob string
 	var size int64
-	err = db.QueryRowContext(t.Context(), `SELECT (SELECT count(*) FROM import_files),relative_path,blob_id,size_bytes FROM import_files WHERE id='ready'`).Scan(&count, &path, &blob, &size)
+	err = dbapi.QueryRowContext(t.Context(), db, `SELECT (SELECT count(*) FROM import_files),relative_path,blob_id,size_bytes FROM import_files WHERE id='ready'`).Scan(&count, &path, &blob, &size)
 	if err != nil || count != 1 || path != "games/ready.nes" || blob != "blob" || size != 3 {
 		t.Fatalf("received files: %d %s %s %d %v", count, path, blob, size, err)
 	}
@@ -42,12 +42,12 @@ func TestReceiveIsImmutableAndTransactional(t *testing.T) {
 	if err := tx.Rollback(); err != nil {
 		t.Fatal(err)
 	}
-	if err := db.QueryRowContext(t.Context(), "SELECT count(*) FROM import_files").Scan(&count); err != nil || count != 1 {
+	if err := dbapi.QueryRowContext(t.Context(), db, "SELECT count(*) FROM import_files").Scan(&count); err != nil || count != 1 {
 		t.Fatalf("failed reception leaked files: %d %v", count, err)
 	}
 }
 
-func receiveFixture(t *testing.T) *sql.DB {
+func receiveFixture(t *testing.T) dbapi.DB {
 	t.Helper()
 	database, err := store.Open(t.Context(), filepath.Join(t.TempDir(), "files.db"), time.Now)
 	if err != nil {
@@ -76,7 +76,7 @@ func TestRetiredFormatAndReviewHistoryTablesAreAbsent(t *testing.T) {
 	t.Parallel()
 	db := receiveFixture(t)
 	var retiredTables int
-	if err := db.QueryRowContext(t.Context(), `SELECT count(*) FROM sqlite_schema WHERE type='table' AND name IN ('review_events','pegasus_imports','emulationstation_imports')`).Scan(&retiredTables); err != nil || retiredTables != 0 {
+	if err := dbapi.QueryRowContext(t.Context(), db, `SELECT count(*) FROM sqlite_schema WHERE type='table' AND name IN ('review_events','pegasus_imports','emulationstation_imports')`).Scan(&retiredTables); err != nil || retiredTables != 0 {
 		t.Fatalf("retired workflows remain: %d %v", retiredTables, err)
 	}
 }
@@ -95,7 +95,7 @@ final_blob_id='blob',received_size_bytes=3 WHERE id='pending'`); err != nil {
 	}
 	var count int
 	var id string
-	err := db.QueryRowContext(t.Context(), "SELECT (SELECT count(*) FROM import_files),id FROM import_files").Scan(&count, &id)
+	err := dbapi.QueryRowContext(t.Context(), db, "SELECT (SELECT count(*) FROM import_files),id FROM import_files").Scan(&count, &id)
 	if err != nil || count != 1 || id != "ready" {
 		t.Fatalf("unexpected received files: count=%d id=%s err=%v", count, id, err)
 	}

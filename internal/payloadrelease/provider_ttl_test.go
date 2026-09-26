@@ -3,12 +3,11 @@ package payloadrelease
 import (
 	"bytes"
 	"context"
-	"database/sql"
 	"path/filepath"
 	"testing"
 	"time"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
@@ -49,7 +48,7 @@ VALUES(?,?,?,?,?,?,?,?)
 	assertProviderPayloadState(t, database.SQL, "response-free", "RELEASED")
 	assertProviderPayloadState(t, database.SQL, "response-busy", "RETAINED")
 	var candidates int
-	testassert.False(t, database.SQL.QueryRowContext(ctx, `SELECT count(*) FROM blob_gc_candidates WHERE blob_id='provider-free'`).Scan(&candidates) != nil)
+	testassert.False(t, dbapi.QueryRowContext(ctx, database.SQL, `SELECT count(*) FROM blob_gc_candidates WHERE blob_id='provider-free'`).Scan(&candidates) != nil)
 	testassert.Falsef(t, candidates != 1, "candidate count = %d", candidates)
 
 	_, err = database.SQL.ExecContext(ctx, `
@@ -61,13 +60,13 @@ WHERE id='provider-run'
 	assertProviderPayloadState(t, database.SQL, "response-busy", "RELEASED")
 	// The hash evidence remains a protective reference, so releasing the raw
 	// provider response must not schedule the shared Blob for collection.
-	testassert.False(t, database.SQL.QueryRowContext(ctx, `SELECT count(*) FROM blob_gc_candidates WHERE blob_id='provider-busy'`).Scan(&candidates) != nil)
+	testassert.False(t, dbapi.QueryRowContext(ctx, database.SQL, `SELECT count(*) FROM blob_gc_candidates WHERE blob_id='provider-busy'`).Scan(&candidates) != nil)
 	testassert.Falsef(t, candidates != 0, "candidate count = %d", candidates)
 }
 
 func seedProviderRunningScrape(
 	t *testing.T,
-	database *sql.DB,
+	database dbapi.DB,
 	instanceID string,
 	free, busy blobstore.Metadata,
 	now time.Time,
@@ -75,7 +74,7 @@ func seedProviderRunningScrape(
 	t.Helper()
 	transaction, err := database.BeginTx(t.Context(), nil)
 	testassert.False(t, err != nil, err)
-	defer dbexec.Rollback(transaction)
+	defer dbapi.Rollback(transaction)
 	statements := []struct {
 		query string
 		args  []any
@@ -107,11 +106,11 @@ VALUES('provider-attempt','provider-run','provider-evidence','response-busy',1,'
 	testassert.False(t, transaction.Commit() != nil)
 }
 
-func assertProviderPayloadState(t *testing.T, database *sql.DB, responseID, want string) {
+func assertProviderPayloadState(t *testing.T, database dbapi.DB, responseID, want string) {
 	t.Helper()
 	var state string
 	var blobID *string
-	testassert.False(t, database.QueryRowContext(t.Context(), `
+	testassert.False(t, dbapi.QueryRowContext(t.Context(), database, `
 SELECT raw_payload_state,raw_response_blob_id FROM metadata_provider_responses WHERE id=?
 `, responseID).Scan(&state, &blobID) != nil)
 	testassert.Falsef(t, state != want, "payload state = %s, want %s", state, want)

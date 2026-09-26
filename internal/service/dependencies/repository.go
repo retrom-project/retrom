@@ -3,8 +3,8 @@ package dependencies
 import (
 	"context"
 
-	"retrom/internal/arcadedat"
 	"retrom/internal/authn"
+	"retrom/internal/format/arcadedat"
 	"retrom/internal/service/datindex"
 )
 

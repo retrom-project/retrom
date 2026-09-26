@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	contentcapability "retrom/internal/content/capability"
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/multidisc"
 	"retrom/internal/persistence/blobcatalog"
 	"retrom/internal/persistence/contentquery"
@@ -17,15 +17,15 @@ import (
 	application "retrom/internal/service/libraryimport"
 )
 
-type MultiDiscAttachmentFinalization struct{ database *sql.DB }
+type MultiDiscAttachmentFinalization struct{ database dbapi.DB }
 
 var _ application.MultiDiscAttachmentCommitRepository = (*MultiDiscAttachmentFinalization)(nil)
 
-func NewMultiDiscAttachmentFinalization(database *sql.DB) *MultiDiscAttachmentFinalization {
+func NewMultiDiscAttachmentFinalization(database dbapi.DB) *MultiDiscAttachmentFinalization {
 	return &MultiDiscAttachmentFinalization{database: database}
 }
 
-type multiDiscAttachmentCommitScope struct{ transaction *sql.Tx }
+type multiDiscAttachmentCommitScope struct{ transaction dbapi.Tx }
 
 var _ application.MultiDiscAttachmentCommitScope = multiDiscAttachmentCommitScope{}
 
@@ -36,7 +36,7 @@ func (repository *MultiDiscAttachmentFinalization) WithCommit(
 	if err != nil {
 		return fmt.Errorf("begin multi-disc attachment commit: %w", err)
 	}
-	defer dbexec.Rollback(transaction)
+	defer dbapi.Rollback(transaction)
 	if err := work(multiDiscAttachmentCommitScope{transaction: transaction}); err != nil {
 		return err
 	}
@@ -137,7 +137,7 @@ func (scope multiDiscAttachmentCommitScope) validateCurrentInput(
 	var providerID, targetID string
 	var platformVersion int64
 	var policy contentcapability.Policy
-	err := scope.transaction.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, scope.transaction, `
 SELECT item.state,draft.effective_source_snapshot_id,platform.platform_id,platform.id,
 platform.version,platform.default_core_id,target.provider_id,target.target_id,
 `+contentquery.BindingPolicySQL+`
@@ -178,13 +178,13 @@ func (scope multiDiscAttachmentCommitScope) validateOwnership(
 	ctx context.Context, write application.MultiDiscAttachmentCommitWrite,
 ) error {
 	var state, workerID string
-	if err := scope.transaction.QueryRowContext(ctx,
+	if err := dbapi.QueryRowContext(ctx, scope.transaction,
 		`SELECT state,worker_id FROM jobs WHERE id=?`, write.JobID).Scan(&state, &workerID); err != nil ||
 		state != "RUNNING" || workerID != write.WorkerID {
 		return application.ErrInvalid
 	}
 	var consumed int
-	if err := scope.transaction.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, scope.transaction, `
 SELECT EXISTS(
   SELECT 1 FROM upload_consumptions
   WHERE upload_session_id=? AND upload_file_id IS NULL

@@ -7,12 +7,13 @@ import (
 	"fmt"
 
 	"retrom/internal/cleanup"
+	dbapi "retrom/internal/database"
 	service "retrom/internal/service/mediaaccess"
 )
 
 func (reader reader) Game(ctx context.Context, id string) (service.GameAsset, bool, error) {
 	var asset service.GameAsset
-	err := reader.executor.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, reader.executor, `
 SELECT blob.sha256,asset.media_type,game.status
 FROM game_assets asset JOIN blobs blob ON blob.id=asset.blob_id JOIN games game ON game.id=asset.game_id
 WHERE asset.id=?`, id).Scan(&asset.Digest, &asset.MediaType, &asset.GameState)
@@ -27,7 +28,7 @@ WHERE asset.id=?`, id).Scan(&asset.Digest, &asset.MediaType, &asset.GameState)
 
 func (reader reader) Save(ctx context.Context, id string) (service.SaveScreenshot, bool, error) {
 	var screenshot service.SaveScreenshot
-	err := reader.executor.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, reader.executor, `
 SELECT blob.sha256,blob.media_type,save.profile_id,save.deleted_at_ms IS NOT NULL,game.status
 FROM save_states save JOIN blobs blob ON blob.id=save.screenshot_blob_id JOIN games game ON game.id=save.game_id
 WHERE save.id=?`, id).Scan(&screenshot.Digest, &screenshot.MediaType,

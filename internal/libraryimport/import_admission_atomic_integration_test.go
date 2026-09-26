@@ -4,13 +4,13 @@ package libraryimport
 
 import (
 	"context"
-	"database/sql"
 	"database/sql/driver"
 	"errors"
 	"reflect"
 	"strings"
 	"testing"
 
+	dbapi "retrom/internal/database"
 	repository "retrom/internal/persistence/libraryimport"
 	application "retrom/internal/service/libraryimport"
 	"retrom/internal/testsupport"
@@ -67,7 +67,7 @@ func TestImportAdmissionLateEventFailureRollsBackAllRecords(t *testing.T) {
 	assertAdmittedImportRecords(t, service.database, result)
 }
 
-func admissionDatabaseRows(t *testing.T, database *sql.DB) map[string]string {
+func admissionDatabaseRows(t *testing.T, database dbapi.DB) map[string]string {
 	t.Helper()
 	result := map[string]string{}
 	for _, table := range []string{"jobs", "job_events", "job_input_snapshots", "import_jobs", "import_items", "import_group_requests", "import_job_files", "upload_consumptions", "upload_sessions", "upload_files", "blobs", "blob_gc_candidates"} {
@@ -76,10 +76,10 @@ func admissionDatabaseRows(t *testing.T, database *sql.DB) map[string]string {
 	return result
 }
 
-func assertAdmittedImportRecords(t *testing.T, database *sql.DB, result Created) {
+func assertAdmittedImportRecords(t *testing.T, database dbapi.DB, result Created) {
 	t.Helper()
 	var jobs, imports, inputs, requests, files, consumptions, events, items int
-	err := database.QueryRowContext(t.Context(), `SELECT
+	err := dbapi.QueryRowContext(t.Context(), database, `SELECT
  (SELECT count(*) FROM jobs WHERE kind='IMPORT_GROUP'),(SELECT count(*) FROM import_jobs),
  (SELECT count(*) FROM job_input_snapshots WHERE job_id=?),(SELECT count(*) FROM import_group_requests),
  (SELECT count(*) FROM import_job_files),(SELECT count(*) FROM upload_consumptions),

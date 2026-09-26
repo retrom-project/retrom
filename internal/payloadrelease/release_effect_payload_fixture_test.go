@@ -1,12 +1,13 @@
 package payloadrelease
 
 import (
-	"database/sql"
 	"strings"
 	"testing"
+
+	dbapi "retrom/internal/database"
 )
 
-func seedEffectGamePayload(t *testing.T, database *sql.DB) {
+func seedEffectGamePayload(t *testing.T, database dbapi.DB) {
 	t.Helper()
 	_, err := database.ExecContext(
 		t.Context(),
@@ -38,7 +39,7 @@ func assertEffectGameGraphRetained(t *testing.T, fixture releaseWorkerFixture) {
 	assertEffectRetained(t, fixture, ScopeUploadConsumption)
 	var assets int
 	var state, blob string
-	err := fixture.database.QueryRowContext(t.Context(), `SELECT
+	err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT
  (SELECT count(*) FROM game_assets WHERE game_id='schedule-game' AND blob_id='effect-blob'),
  state,COALESCE(final_blob_id,'') FROM upload_files WHERE id='effect-file'`).Scan(&assets, &state, &blob)
 	if err != nil || assets != 1 || state != "COMPLETE" || blob != "effect-blob" {
@@ -57,7 +58,7 @@ func assertEffectGameGraphReleased(t *testing.T, fixture releaseWorkerFixture) {
 	t.Helper()
 	var payload, file string
 	var assets, consumptions, candidates int
-	err := fixture.database.QueryRowContext(t.Context(), `SELECT
+	err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT
  (SELECT payload_state FROM games WHERE id='schedule-game'),
  (SELECT state FROM upload_files WHERE id='effect-file'),
  (SELECT count(*) FROM game_assets WHERE game_id='schedule-game'),

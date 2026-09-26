@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
@@ -35,7 +35,7 @@ VALUES('restart-blob',?,?,?,?,?,?,?)
 	testassert.False(t, err != nil, err)
 	transaction, err := database.SQL.BeginTx(ctx, nil)
 	testassert.False(t, err != nil, err)
-	defer dbexec.Rollback(transaction)
+	defer dbapi.Rollback(transaction)
 	_, err = transaction.ExecContext(ctx, `
 INSERT INTO upload_sessions(id,state,source_type,total_files,total_bytes,manifest_digest,version,expires_at_ms,created_at_ms,updated_at_ms)
 VALUES('restart-upload','COMPLETE','FILES',1,?, ?,1,?,?,?)
@@ -69,12 +69,12 @@ VALUES('restart-consumption','restart-upload','restart-file','GAME_ASSET','resta
 	testassert.True(t, didWork)
 	var jobState, fileState string
 	var blobID *string
-	testassert.False(t, database.SQL.QueryRowContext(ctx, `SELECT state FROM jobs WHERE id=?`, jobID).Scan(&jobState) != nil)
+	testassert.False(t, dbapi.QueryRowContext(ctx, database.SQL, `SELECT state FROM jobs WHERE id=?`, jobID).Scan(&jobState) != nil)
 	testassert.Falsef(t, jobState != "SUCCEEDED", "job state = %s", jobState)
-	testassert.False(t, database.SQL.QueryRowContext(ctx, `SELECT state,final_blob_id FROM upload_files WHERE id='restart-file'`).Scan(&fileState, &blobID) != nil)
+	testassert.False(t, dbapi.QueryRowContext(ctx, database.SQL, `SELECT state,final_blob_id FROM upload_files WHERE id='restart-file'`).Scan(&fileState, &blobID) != nil)
 	testassert.Falsef(t, fileState != "PURGED" || blobID != nil, "upload file = %s, blob = %v", fileState, blobID)
 	var candidateCount int
-	testassert.False(t, database.SQL.QueryRowContext(ctx, `SELECT count(*) FROM blob_gc_candidates WHERE blob_id='restart-blob'`).Scan(&candidateCount) != nil)
+	testassert.False(t, dbapi.QueryRowContext(ctx, database.SQL, `SELECT count(*) FROM blob_gc_candidates WHERE blob_id='restart-blob'`).Scan(&candidateCount) != nil)
 	testassert.Falsef(t, candidateCount != 1, "candidate count = %d", candidateCount)
 
 	// Reconciliation and a second dispatcher pass cannot recreate the release
@@ -84,7 +84,7 @@ VALUES('restart-consumption','restart-upload','restart-file','GAME_ASSET','resta
 	testassert.False(t, err != nil, err)
 	testassert.False(t, didWork)
 	var releaseJobCount int
-	testassert.False(t, database.SQL.QueryRowContext(ctx, `
+	testassert.False(t, dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT count(*) FROM jobs WHERE kind='PAYLOAD_RELEASE' AND scope_type='UPLOAD_CONSUMPTION' AND scope_id='restart-consumption'
 `).Scan(&releaseJobCount) != nil)
 	testassert.Falsef(t, releaseJobCount != 1, "release Job count = %d", releaseJobCount)

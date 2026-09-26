@@ -2,10 +2,9 @@ package storageanalysis
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 
 	"retrom/internal/service/storageanalysis"
 
@@ -14,21 +13,21 @@ import (
 )
 
 type (
-	Repository struct{ database *sql.DB }
+	Repository struct{ database dbapi.DB }
 	blob       struct {
 		id   string
 		size int64
 	}
 )
 
-func New(database *sql.DB) *Repository { return &Repository{database: database} }
+func New(database dbapi.DB) *Repository { return &Repository{database: database} }
 
 func (repository *Repository) Read(ctx context.Context) (storageanalysis.ReadModel, error) {
-	transaction, err := repository.database.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+	transaction, err := repository.database.BeginTx(ctx, &dbapi.TxOptions{ReadOnly: true})
 	if err != nil {
 		return storageanalysis.ReadModel{}, fmt.Errorf("storageanalysis: begin snapshot: %w", err)
 	}
-	defer dbexec.Rollback(transaction)
+	defer dbapi.Rollback(transaction)
 	edges, err := blobregistry.Load()
 	if err != nil {
 		return storageanalysis.ReadModel{}, fmt.Errorf("storageanalysis: load references: %w", err)
@@ -67,7 +66,7 @@ func (repository *Repository) Read(ctx context.Context) (storageanalysis.ReadMod
 	return source, nil
 }
 
-func loadBlobs(ctx context.Context, transaction *sql.Tx) (map[string]int64, error) {
+func loadBlobs(ctx context.Context, transaction dbapi.Tx) (map[string]int64, error) {
 	rows, err := transaction.QueryContext(ctx, `SELECT id, size_bytes FROM blobs ORDER BY id`)
 	if err != nil {
 		return nil, fmt.Errorf("storageanalysis/service: %w", err)
@@ -87,9 +86,9 @@ func loadBlobs(ctx context.Context, transaction *sql.Tx) (map[string]int64, erro
 	return result, nil
 }
 
-func loadSaveReferences(ctx context.Context, transaction *sql.Tx) (storageanalysis.SaveReferences, error) {
+func loadSaveReferences(ctx context.Context, transaction dbapi.Tx) (storageanalysis.SaveReferences, error) {
 	var result storageanalysis.SaveReferences
-	if err := transaction.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, transaction, `
 SELECT COUNT(*) FILTER (WHERE deleted_at_ms IS NULL),COUNT(*) FILTER (WHERE deleted_at_ms IS NOT NULL) FROM save_states
 `).Scan(&result.ActiveCount, &result.DeletedCount); err != nil {
 		return result, fmt.Errorf("storageanalysis: save counts: %w", err)
@@ -107,7 +106,7 @@ SELECT COUNT(*) FILTER (WHERE deleted_at_ms IS NULL),COUNT(*) FILTER (WHERE dele
 	return result, err
 }
 
-func referenceIDs(ctx context.Context, transaction *sql.Tx, query string) ([]string, error) {
+func referenceIDs(ctx context.Context, transaction dbapi.Tx, query string) ([]string, error) {
 	rows, err := transaction.QueryContext(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("storageanalysis: query reference IDs: %w", err)
@@ -127,7 +126,7 @@ func referenceIDs(ctx context.Context, transaction *sql.Tx, query string) ([]str
 	return result, nil
 }
 
-func loadArchiveMembers(ctx context.Context, transaction *sql.Tx) ([]storageanalysis.ArchiveMember, error) {
+func loadArchiveMembers(ctx context.Context, transaction dbapi.Tx) ([]storageanalysis.ArchiveMember, error) {
 	rows, err := transaction.QueryContext(
 		ctx,
 		`SELECT archive_blob_id,materialized_blob_id FROM archive_entries WHERE materialized_blob_id IS NOT NULL`,

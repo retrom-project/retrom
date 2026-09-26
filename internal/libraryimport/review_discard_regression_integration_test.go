@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/testsupport"
 )
 
@@ -45,7 +46,7 @@ func TestDiscardRejectsSourceReviewBeforeHandoff(t *testing.T) {
 	itemID := created.Items[0].ItemID
 	before := captureDeduplicatePage(t, fixture, created.Created.ImportJobID)
 	var beforeState string
-	if err := fixture.database.QueryRowContext(t.Context(), `SELECT execution_state FROM source_import_items WHERE id=?`, request.Intent.ItemID).Scan(&beforeState); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT execution_state FROM source_import_items WHERE id=?`, request.Intent.ItemID).Scan(&beforeState); err != nil {
 		t.Fatal(err)
 	}
 	result, err := fixture.service.Discard(t.Context(), itemID, 1, "")
@@ -54,7 +55,7 @@ func TestDiscardRejectsSourceReviewBeforeHandoff(t *testing.T) {
 	}
 	assertDeduplicatePageUnchanged(t, fixture, created.Created.ImportJobID, before)
 	var state string
-	if err := fixture.database.QueryRowContext(t.Context(), `SELECT execution_state FROM source_import_items WHERE id=?`, request.Intent.ItemID).Scan(&state); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT execution_state FROM source_import_items WHERE id=?`, request.Intent.ItemID).Scan(&state); err != nil {
 		t.Fatal(err)
 	}
 	if state != beforeState {

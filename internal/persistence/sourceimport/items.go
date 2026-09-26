@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	"retrom/internal/cleanup"
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/sourceimport"
 )
 
@@ -89,7 +89,7 @@ LIMIT ?`,
 	return result, nil
 }
 
-func scanItem(row dbexec.Scanner) (application.Item, error) {
+func scanItem(row dbapi.Scanner) (application.Item, error) {
 	var value application.Item
 	var collection, collectionName, target, targetName, kind sql.NullString
 	var discovery, itemError, failureDetails, reviewItem, published, existing, payloadReleaseJob sql.NullString

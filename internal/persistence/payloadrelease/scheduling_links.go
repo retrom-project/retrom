@@ -5,13 +5,13 @@ import (
 	"fmt"
 
 	"retrom/internal/cleanup"
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/payloadrelease"
 )
 
-type sourceReleaseReader struct{ executor dbexec.Executor }
+type sourceReleaseReader struct{ executor dbapi.Executor }
 
-func BindReleases(executor dbexec.Executor) application.ReleaseScope {
+func BindReleases(executor dbapi.Executor) application.ReleaseScope {
 	return application.ReleaseScope{Scheduling: BindScheduling(executor), Links: sourceReleaseReader{executor}}
 }
 

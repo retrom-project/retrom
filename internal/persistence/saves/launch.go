@@ -7,13 +7,14 @@ import (
 	"errors"
 	"fmt"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/service/saves"
 )
 
 func (store records) LoadLaunch(ctx context.Context, id string) (saves.Launch, error) {
 	var result saves.Launch
 	var checkpoint []byte
-	err := store.executor.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, store.executor, `
 SELECT COALESCE(user.id,launch.profile_id),launch.profile_id,'PRODUCT',launch.game_id,
  launch.provider_id,launch.target_id,launch.dos_entry_path,launch.credential_sha256,launch.state,
  launch.hard_expires_at_ms,target.checkpoint_json,
@@ -58,7 +59,7 @@ WHERE preview.id=?`, id, id).Scan(&result.PrincipalID, &result.ProfileID, &resul
 func (store records) Restore(ctx context.Context, id string) (saves.Restore, error) {
 	var result saves.Restore
 	var checkpoint []byte
-	err := store.executor.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, store.executor, `
 SELECT target.checkpoint_json,blob.sha256,blob.size_bytes,save.checkpoint_format
 FROM launch_sessions launch
 JOIN runtime_targets target ON target.provider_id=launch.provider_id AND target.target_id=launch.target_id

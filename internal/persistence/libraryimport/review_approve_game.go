@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/recordstore"
 	"retrom/internal/profilemodel"
 	application "retrom/internal/service/libraryimport"
@@ -37,7 +38,7 @@ FROM import_item_source_snapshot_files WHERE source_snapshot_id=? ORDER BY sort_
 
 func (records reviewApprovalRecords) CopyRPGProfile(ctx context.Context, source application.ApprovalContentCopy) error {
 	var raw string
-	if err := records.transaction.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, records.transaction, `
 SELECT review_profile_json FROM import_items WHERE id=? AND review_profile_json IS NOT NULL`, source.DraftID,
 	).Scan(&raw); err != nil {
 		return fmt.Errorf("read approved RPG profile: %w", err)

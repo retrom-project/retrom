@@ -7,12 +7,12 @@ import (
 	"fmt"
 
 	"retrom/internal/cleanup"
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	library "retrom/internal/persistence/libraryimport"
 	application "retrom/internal/service/maintenance"
 )
 
-type reviewRecords struct{ executor dbexec.Executor }
+type reviewRecords struct{ executor dbapi.Executor }
 
 func (writes writes) Reviews() application.RestoredReviewScope {
 	return application.RestoredReviewScope{
@@ -58,14 +58,14 @@ func (records reviewRecords) current(
 	if err != nil {
 		return application.RestoredReview{}, err
 	}
-	value, err := scanRestoredReview(records.executor.QueryRowContext(ctx, statement+` AND source.id=?`, id))
+	value, err := scanRestoredReview(dbapi.QueryRowContext(ctx, records.executor, statement+` AND source.id=?`, id))
 	if errors.Is(err, sql.ErrNoRows) {
 		return application.RestoredReview{}, errors.Join(application.ErrInvalidBundle, err)
 	}
 	return value, err
 }
 
-func scanRestoredReview(scanner dbexec.Scanner) (application.RestoredReview, error) {
+func scanRestoredReview(scanner dbapi.Scanner) (application.RestoredReview, error) {
 	var value application.RestoredReview
 	err := scanner.Scan(&value.Kind, &value.ItemID, &value.ImportID, &value.JobID, &value.State,
 		&value.ImportState, &value.JobState, &value.Version, &value.ImportVersion, &value.JobVersion,

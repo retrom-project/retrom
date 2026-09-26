@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
+
 	"github.com/google/uuid"
 	"modernc.org/sqlite"
 )
@@ -17,7 +19,7 @@ func productCreationFixture(t *testing.T) (reviewCheckpointFixture, CreateReques
 	t.Helper()
 	fixture, created := newProductPlayFixture(t, false)
 	var gameID string
-	if err := fixture.database.QueryRowContext(t.Context(), `SELECT game_id FROM launch_sessions WHERE id=?`, created.LaunchID).Scan(&gameID); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT game_id FROM launch_sessions WHERE id=?`, created.LaunchID).Scan(&gameID); err != nil {
 		t.Fatal(err)
 	}
 	return fixture, CreateRequest{GameID: gameID, ReturnTo: "/games/" + gameID}

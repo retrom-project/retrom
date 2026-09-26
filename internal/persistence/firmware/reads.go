@@ -6,12 +6,13 @@ import (
 	"errors"
 	"fmt"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/service/firmware"
 )
 
 func (store requirementRecords) Get(ctx context.Context, id string) (firmware.Requirement, bool, error) {
 	var value firmware.Requirement
-	err := store.executor.QueryRowContext(ctx, `SELECT q.id,q.source_kind,q.file_kind,q.logical_name,q.size_bytes,
+	err := dbapi.QueryRowContext(ctx, store.executor, `SELECT q.id,q.source_kind,q.file_kind,q.logical_name,q.size_bytes,
  q.md5,q.sha1,q.sha256,q.version,q.enabled,q.provider_id,q.target_id,q.source_version,
 q.catalog_digest,q.archive_members_json
 FROM bios_requirements q JOIN runtime_targets target ON target.provider_id=q.provider_id
@@ -24,7 +25,7 @@ WHERE q.id=?`, id).Scan(&value.ID, &value.SourceKind, &value.FileKind, &value.Lo
 
 func (store uploadRecords) Get(ctx context.Context, id string) (firmware.Upload, bool, error) {
 	var value firmware.Upload
-	err := store.executor.QueryRowContext(ctx, `SELECT f.id,f.upload_session_id,f.relative_path,f.state,
+	err := dbapi.QueryRowContext(ctx, store.executor, `SELECT f.id,f.upload_session_id,f.relative_path,f.state,
  b.id,b.size_bytes,b.md5,b.sha1,b.sha256 FROM upload_files f JOIN blobs b ON b.id=f.final_blob_id WHERE f.id=?`, id).
 		Scan(
 			&value.ID,
@@ -42,7 +43,7 @@ func (store uploadRecords) Get(ctx context.Context, id string) (firmware.Upload,
 
 func (store installationRecords) Active(ctx context.Context, id string) (firmware.ActiveInstallation, bool, error) {
 	var value firmware.ActiveInstallation
-	err := store.executor.QueryRowContext(ctx, `SELECT id,blob_id,original_filename,size_bytes,md5,sha1,sha256,
+	err := dbapi.QueryRowContext(ctx, store.executor, `SELECT id,blob_id,original_filename,size_bytes,md5,sha1,sha256,
  status,validated_requirement_version FROM bios_installations WHERE requirement_id=? AND is_active=1`, id).
 		Scan(
 			&value.ID,

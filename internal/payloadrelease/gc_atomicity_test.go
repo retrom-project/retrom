@@ -2,7 +2,6 @@ package payloadrelease
 
 import (
 	"context"
-	"database/sql"
 	"database/sql/driver"
 	"errors"
 	"strings"
@@ -10,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	repository "retrom/internal/persistence/payloadrelease"
 	application "retrom/internal/service/payloadrelease"
 	"retrom/internal/testsupport"
@@ -42,7 +41,7 @@ func TestGCScheduleAtomicallyPersistsAllDurableEvidence(t *testing.T) {
 	}
 }
 
-func gcFaultService(t *testing.T, fixture gcSchedulingFixture, database *sql.DB) *Service {
+func gcFaultService(t *testing.T, fixture gcSchedulingFixture, database dbapi.DB) *Service {
 	t.Helper()
 	service, err := New(database, fixture.blobs, fixture.service.now, 24*time.Hour)
 	if err != nil {
@@ -90,10 +89,10 @@ func gcEvidenceIdentity(prefix string, args []driver.NamedValue) bool {
 	return false
 }
 
-func assertNoGCSchedule(t *testing.T, database *sql.DB) {
+func assertNoGCSchedule(t *testing.T, database dbapi.DB) {
 	t.Helper()
 	var jobs, inputs, events, candidates int
-	err := database.QueryRowContext(t.Context(), `SELECT
+	err := dbapi.QueryRowContext(t.Context(), database, `SELECT
  (SELECT count(*) FROM jobs WHERE kind='BLOB_GC'),
  (SELECT count(*) FROM job_input_snapshots input JOIN jobs job ON job.id=input.job_id WHERE job.kind='BLOB_GC'),
  (SELECT count(*) FROM job_events WHERE scope_type='BLOB'),
@@ -134,17 +133,17 @@ func stageGCTestCandidate(t *testing.T, fixture gcSchedulingFixture) string {
 		t.Fatal(err)
 	}
 	var id string
-	if err := fixture.database.QueryRowContext(t.Context(),
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database,
 		`SELECT gc_job_id FROM blob_gc_candidates WHERE blob_id='manual-gc-blob'`).Scan(&id); err != nil {
 		t.Fatal(err)
 	}
 	return id
 }
 
-func assertGCImmediateRollback(t *testing.T, database *sql.DB, id string) {
+func assertGCImmediateRollback(t *testing.T, database dbapi.DB, id string) {
 	t.Helper()
 	var due, inputs, events, audits int64
-	err := database.QueryRowContext(t.Context(), `SELECT candidate.scheduled_at_ms,
+	err := dbapi.QueryRowContext(t.Context(), database, `SELECT candidate.scheduled_at_ms,
  (SELECT count(*) FROM job_input_snapshots WHERE job_id=?),
  (SELECT count(*) FROM job_events WHERE job_id=? AND event_type='MANUAL_RETRY'),
  (SELECT count(*) FROM audit_events WHERE action='STORAGE_CLEANUP_REQUESTED')
@@ -165,7 +164,7 @@ func TestGCFenceRejectsChangedBlobOrProtectionBeforeQueueing(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			defer dbexec.Rollback(tx)
+			defer dbapi.Rollback(tx)
 			scope := repository.BindGC(tx)
 			facts, err := scope.Read.Selected(t.Context(), []string{"manual-gc-blob"})
 			if err != nil || len(facts) != 1 {
@@ -184,7 +183,7 @@ func TestGCFenceRejectsChangedBlobOrProtectionBeforeQueueing(t *testing.T) {
 	}
 }
 
-func mutateGCFacts(t *testing.T, tx *sql.Tx, change, jobID string) {
+func mutateGCFacts(t *testing.T, tx dbapi.Tx, change, jobID string) {
 	t.Helper()
 	queries := map[string]string{
 		"blob": `UPDATE blobs SET size_bytes=size_bytes+1 WHERE id='manual-gc-blob'`,

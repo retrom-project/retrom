@@ -2,26 +2,25 @@ package importdiscard
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/service/importdiscard"
 )
 
 type (
-	Repository struct{ database *sql.DB }
-	records    struct{ executor dbexec.Executor }
-	writes     struct{ transaction *sql.Tx }
+	Repository struct{ database dbapi.DB }
+	records    struct{ executor dbapi.Executor }
+	writes     struct{ transaction dbapi.Tx }
 )
 
-func New(database *sql.DB) *Repository { return &Repository{database} }
+func New(database dbapi.DB) *Repository { return &Repository{database} }
 func (repository *Repository) WithRead(ctx context.Context, work func(importdiscard.Reader) error) error {
-	tx, err := repository.database.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+	tx, err := repository.database.BeginTx(ctx, &dbapi.TxOptions{ReadOnly: true})
 	if err != nil {
 		return fmt.Errorf("begin discard read: %w", err)
 	}
-	defer dbexec.Rollback(tx)
+	defer dbapi.Rollback(tx)
 	if err := work(records{tx}); err != nil {
 		return err
 	}
@@ -36,7 +35,7 @@ func (repository *Repository) WithWrite(ctx context.Context, work func(importdis
 	if err != nil {
 		return fmt.Errorf("begin discard write: %w", err)
 	}
-	defer dbexec.Rollback(tx)
+	defer dbapi.Rollback(tx)
 	bound := writes{tx}
 	if err := work(
 		importdiscard.WriteScope{

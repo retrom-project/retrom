@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/recordstore"
 	"retrom/internal/persistence/sessionstore"
 	application "retrom/internal/service/payloadrelease"
@@ -74,7 +74,7 @@ AND NOT EXISTS(SELECT 1 FROM launch_external_files WHERE launch_session_id=?)`,
 	return nil
 }
 
-type retirementDelete func(context.Context, dbexec.Executor, recordstore.Scope) (sql.Result, error)
+type retirementDelete func(context.Context, dbapi.Executor, recordstore.Scope) (sql.Result, error)
 
 func (records retirementRecords) deleteFiles(ctx context.Context, remove retirementDelete,
 	columns string, files []application.RetirementFile,

@@ -5,7 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 
-	"retrom/internal/corevalidation"
+	corevalidation "retrom/internal/core/validation"
 	"retrom/internal/multidisc"
 )
 

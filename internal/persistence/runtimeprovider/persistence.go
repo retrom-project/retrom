@@ -2,26 +2,25 @@ package runtimeprovider
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	service "retrom/internal/service/runtimeprovider"
 )
 
 type (
-	Repository        struct{ database *sql.DB }
-	catalogRecords    struct{ executor dbexec.Executor }
-	projectionRecords struct{ transaction *sql.Tx }
+	Repository        struct{ database dbapi.DB }
+	catalogRecords    struct{ executor dbapi.Executor }
+	projectionRecords struct{ transaction dbapi.Tx }
 )
 
-func New(database *sql.DB) *Repository { return &Repository{database: database} }
+func New(database dbapi.DB) *Repository { return &Repository{database: database} }
 func (repository *Repository) WithWrite(ctx context.Context, work func(service.WriteScope) error) error {
 	tx, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("runtimeprovider/begin: %w", err)
 	}
-	defer dbexec.Rollback(tx)
+	defer dbapi.Rollback(tx)
 	if err := work(
 		service.WriteScope{
 			Catalog: catalogRecords{
@@ -72,7 +71,7 @@ INSERT INTO audit_events(
 	return nil
 }
 
-func writeProvidersAndTargets(ctx context.Context, tx *sql.Tx, candidate service.Projection, now int64) error {
+func writeProvidersAndTargets(ctx context.Context, tx dbapi.Tx, candidate service.Projection, now int64) error {
 	for _, provider := range candidate.Providers {
 		if err := writeProvider(ctx, tx, provider, now); err != nil {
 			return err
@@ -88,7 +87,7 @@ func writeProvidersAndTargets(ctx context.Context, tx *sql.Tx, candidate service
 
 func removeStaleProjection(
 	ctx context.Context,
-	tx *sql.Tx,
+	tx dbapi.Tx,
 	providers []string,
 	targets []service.TargetIdentity,
 ) error {

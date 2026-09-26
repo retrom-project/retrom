@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/recordstore"
 	service "retrom/internal/service/dependencies"
 
@@ -89,8 +90,9 @@ updated_at_ms=excluded.updated_at_ms
 
 func (records datRecords) Register(ctx context.Context, input service.DATRegistration) (service.RegisteredDAT, error) {
 	var id string
-	err := records.executor.QueryRowContext(
-		ctx,
+	err := dbapi.QueryRowContext(
+		ctx, records.executor,
+
 		`SELECT id FROM dat_versions
 WHERE provider_id=? AND target_id=? AND sha256=? AND parser_version='retrom-dat-v1'`,
 		input.Target.ProviderID,
@@ -181,7 +183,7 @@ func (records datRecords) registered(ctx context.Context, id string) (service.Re
 	result := service.RegisteredDAT{ID: id}
 	var active int
 	stats := &result.Stats
-	err := records.executor.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, records.executor, `
 SELECT d.parse_status,
 d.is_active,
 COALESCE(d.machine_count,

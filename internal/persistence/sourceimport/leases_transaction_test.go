@@ -2,16 +2,16 @@ package sourceimport
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"reflect"
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/sourceimport"
 )
 
-func queuedLeaseDatabase(t *testing.T) *sql.DB {
+func queuedLeaseDatabase(t *testing.T) dbapi.DB {
 	t.Helper()
 	db := recoveryDatabase(t)
 	if _, err := db.ExecContext(t.Context(), `UPDATE jobs SET state='QUEUED',leased_until_ms=NULL,worker_id=NULL,heartbeat_at_ms=NULL WHERE id='work';
@@ -63,7 +63,7 @@ func TestLeaseClaimPreservesBudgetAndRenewsCurrentOwner(t *testing.T) {
 	}
 	var worker, state string
 	var deadline, started, lease, events int64
-	if err := db.QueryRowContext(t.Context(), `SELECT worker_id,state,execution_deadline_at_ms,execution_started_at_ms,leased_until_ms,
+	if err := dbapi.QueryRowContext(t.Context(), db, `SELECT worker_id,state,execution_deadline_at_ms,execution_started_at_ms,leased_until_ms,
 (SELECT count(*) FROM job_events WHERE job_id='work' AND event_type='STARTED') FROM jobs WHERE id='work'`).Scan(&worker, &state, &deadline, &started, &lease, &events); err != nil {
 		t.Fatal(err)
 	}
@@ -134,7 +134,7 @@ func TestQueuedRecoveryClosesBudgetWithoutAnotherClaim(t *testing.T) {
 	}
 }
 
-func setQueuedRecoveryBudget(t *testing.T, db *sql.DB, scenario string) {
+func setQueuedRecoveryBudget(t *testing.T, db dbapi.DB, scenario string) {
 	t.Helper()
 	var query string
 	switch scenario {
@@ -150,14 +150,14 @@ func setQueuedRecoveryBudget(t *testing.T, db *sql.DB, scenario string) {
 	}
 }
 
-func assertQueuedRecoveryBudget(t *testing.T, db *sql.DB, scenario string) {
+func assertQueuedRecoveryBudget(t *testing.T, db dbapi.DB, scenario string) {
 	t.Helper()
 	var state, code, itemCode string
 	var attempts, started, deadline int64
-	if err := db.QueryRowContext(t.Context(), `SELECT state,error_code,attempt_count,execution_started_at_ms,execution_deadline_at_ms FROM jobs WHERE id='work'`).Scan(&state, &code, &attempts, &started, &deadline); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), db, `SELECT state,error_code,attempt_count,execution_started_at_ms,execution_deadline_at_ms FROM jobs WHERE id='work'`).Scan(&state, &code, &attempts, &started, &deadline); err != nil {
 		t.Fatal(err)
 	}
-	if err := db.QueryRowContext(t.Context(), `SELECT error_code FROM source_import_items WHERE id='item-0'`).Scan(&itemCode); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), db, `SELECT error_code FROM source_import_items WHERE id='item-0'`).Scan(&itemCode); err != nil {
 		t.Fatal(err)
 	}
 	wantCode, wantAttempts, wantDeadline := "SOURCE_EXECUTION_TIMEOUT", int64(1), int64(10)
@@ -174,10 +174,10 @@ type queuedInputSnapshot struct {
 	Execution, Created int64
 }
 
-func queuedExecutionInput(t *testing.T, db *sql.DB) queuedInputSnapshot {
+func queuedExecutionInput(t *testing.T, db dbapi.DB) queuedInputSnapshot {
 	t.Helper()
 	var result queuedInputSnapshot
-	if err := db.QueryRowContext(t.Context(), `SELECT input_json,input_digest,execution_no,created_at_ms FROM job_input_snapshots WHERE job_id='work'`).Scan(&result.JSON, &result.Digest, &result.Execution, &result.Created); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), db, `SELECT input_json,input_digest,execution_no,created_at_ms FROM job_input_snapshots WHERE job_id='work'`).Scan(&result.JSON, &result.Digest, &result.Execution, &result.Created); err != nil {
 		t.Fatal(err)
 	}
 	return result

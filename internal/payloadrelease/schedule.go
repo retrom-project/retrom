@@ -2,8 +2,9 @@ package payloadrelease
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
+
+	dbapi "retrom/internal/database"
 
 	persistence "retrom/internal/persistence/payloadrelease"
 	application "retrom/internal/service/payloadrelease"
@@ -36,7 +37,7 @@ var ErrScopeInvalid = application.ErrScopeInvalid
 
 type scheduleInput = application.Input
 
-func Schedule(ctx context.Context, transaction *sql.Tx, scopeType ScopeType, scopeID string,
+func Schedule(ctx context.Context, transaction dbapi.Tx, scopeType ScopeType, scopeID string,
 	scopeVersion int64, reason Reason, now int64,
 ) (string, error) {
 	scope := persistence.BindScheduling(transaction)

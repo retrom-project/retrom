@@ -6,14 +6,14 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/corevalidation"
-	"retrom/internal/dbexec"
+	corevalidation "retrom/internal/core/validation"
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/libraryimport"
 )
 
-type creationArcadeRecords struct{ executor dbexec.Executor }
+type creationArcadeRecords struct{ executor dbapi.Executor }
 
-func BindCreationArcade(executor dbexec.Executor) application.CreationArcadeReader {
+func BindCreationArcade(executor dbapi.Executor) application.CreationArcadeReader {
 	return creationArcadeRecords{executor: executor}
 }
 
@@ -24,7 +24,7 @@ func (records creationArcadeRecords) BIOS(
 	var resolved corevalidation.BIOSDependency
 	var condition, emulatorPath, installationID, blobID, installationStatus sql.NullString
 	var installationVersion sql.NullInt64
-	err := records.executor.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, records.executor, `
 SELECT q.id,
 q.version,
 q.catalog_digest,
@@ -66,14 +66,14 @@ AND q.logical_name=?
 	if err != nil {
 		return corevalidation.BIOSDependency{}, false, fmt.Errorf("libraryimport/review: resolve arcade BIOS: %w", err)
 	}
-	resolved.ConditionCode = dbexec.StringPointer(condition)
-	resolved.EmulatorPath = dbexec.StringPointer(emulatorPath)
+	resolved.ConditionCode = dbapi.StringPointer(condition)
+	resolved.EmulatorPath = dbapi.StringPointer(emulatorPath)
 	resolved.ActivationOptions = map[string]string{}
-	resolved.InstallationID = dbexec.StringPointer(installationID)
+	resolved.InstallationID = dbapi.StringPointer(installationID)
 	if installationVersion.Valid {
 		resolved.InstallationVersion = &installationVersion.Int64
 	}
-	resolved.BlobID = dbexec.StringPointer(blobID)
-	resolved.InstallationStatus = dbexec.StringPointer(installationStatus)
+	resolved.BlobID = dbapi.StringPointer(blobID)
+	resolved.InstallationStatus = dbapi.StringPointer(installationStatus)
 	return resolved, true, nil
 }

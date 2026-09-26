@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/sourceimport"
 )
 
@@ -40,7 +41,7 @@ func TestPlanDeletionRollsBackTagVersionAndMutableProjectionOnAuditFailure(t *te
 	}
 	assertCreationCounts(t, db, 1)
 	var version, relations, collections int
-	if err := db.QueryRowContext(t.Context(), `SELECT (SELECT version FROM tags),(SELECT count(*) FROM source_collection_tags),(SELECT count(*) FROM source_import_collections)`).Scan(&version, &relations, &collections); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), db, `SELECT (SELECT version FROM tags),(SELECT count(*) FROM source_collection_tags),(SELECT count(*) FROM source_import_collections)`).Scan(&version, &relations, &collections); err != nil {
 		t.Fatal(err)
 	}
 	if version != 1 || relations != 1 || collections != 1 {

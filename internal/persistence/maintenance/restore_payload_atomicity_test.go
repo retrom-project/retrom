@@ -8,6 +8,7 @@ import (
 	"sync/atomic"
 	"testing"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/testsupport"
 )
 
@@ -44,7 +45,7 @@ func verifyRestorePayloadFailure(t *testing.T, stage string) {
 		t.Fatal(err)
 	}
 	var jobs, inputs, events int
-	err = db.QueryRowContext(t.Context(), `SELECT count(*),
+	err = dbapi.QueryRowContext(t.Context(), db, `SELECT count(*),
 (SELECT count(*) FROM job_input_snapshots input JOIN jobs job ON input.job_id=job.id
  WHERE job.kind='PAYLOAD_RELEASE' AND job.scope_id='failed-source'),
 (SELECT count(*) FROM job_events event JOIN jobs job ON event.job_id=job.id

@@ -1,4 +1,4 @@
-package dbexec
+package database
 
 import "database/sql"
 

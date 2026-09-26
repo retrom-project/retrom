@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
 	firmwarepersistence "retrom/internal/persistence/firmware"
 	firmwareservice "retrom/internal/service/firmware"
 
@@ -80,7 +81,7 @@ VALUES('fixture-requirement','mgba',?,?,'STATIC',NULL,'bios.bin','REQUIRED',NULL
 	service.ExecuteForTest(ctx, unit)
 	var itemState, selectionDetails string
 	var outcome sql.NullString
-	if queryErr := database.SQL.QueryRowContext(context.Background(), `
+	if queryErr := dbapi.QueryRowContext(context.Background(), database.SQL, `
 SELECT state,outcome_code,coalesce(selection_details_json,'')
 FROM server_bios_import_items WHERE server_import_id=?
 `, created.ID).Scan(&itemState, &outcome, &selectionDetails); queryErr != nil {
@@ -99,7 +100,7 @@ FROM server_bios_import_items WHERE server_import_id=?
 	}
 	testassert.Falsef(t, testassert.Any(func() bool { return created.State != "COMPLETED" }, func() bool { return created.Counts.Matched != 1 }), "import = %#v", created)
 	var installationID, sourceKind, candidateID, status string
-	if err := database.SQL.QueryRowContext(context.Background(), `SELECT id,source_kind,server_import_candidate_id,status FROM bios_installations WHERE is_active=1`).Scan(&installationID, &sourceKind, &candidateID, &status); err != nil {
+	if err := dbapi.QueryRowContext(context.Background(), database.SQL, `SELECT id,source_kind,server_import_candidate_id,status FROM bios_installations WHERE is_active=1`).Scan(&installationID, &sourceKind, &candidateID, &status); err != nil {
 		t.Fatal(err)
 	}
 	testassert.Falsef(t, testassert.Any(func() bool { return sourceKind != "SERVER_DIRECTORY" }, func() bool { return candidateID == "" }, func() bool { return status != "MATCHED" }), "installation = %s/%s/%s", sourceKind, candidateID, status)
@@ -113,14 +114,14 @@ func verifyServerImportRecovery(
 	ctx context.Context,
 	t *testing.T,
 	service *Service,
-	database *sql.DB,
+	database dbapi.DB,
 	created Summary,
 	releases *payloadrelease.Service,
 ) string {
 	t.Helper()
 	reclaimCompletedImport(ctx, t, service, database, created)
 	var installationCount int
-	if err := database.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database, `
 SELECT count(*) FROM bios_installations WHERE requirement_id='fixture-requirement'
 `).Scan(&installationCount); err != nil || installationCount != 1 {
 		t.Fatalf("recovered installation count = %d, %v", installationCount, err)
@@ -137,13 +138,13 @@ SELECT count(*) FROM bios_installations WHERE requirement_id='fixture-requiremen
 		"same-bytes claim = %#v/%t/%v", sameUnit, ok, err)
 	service.ExecuteForTest(ctx, sameUnit)
 	var sameState string
-	if err := database.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database, `
 SELECT state FROM server_bios_import_items WHERE server_import_id=?
 `, sameBytes.ID).Scan(&sameState); err != nil {
 		t.Fatal(err)
 	}
 	testassert.Falsef(t, sameState != "ALREADY_SAME_BYTES", "same bytes state = %s", sameState)
-	if err := database.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database, `
 SELECT count(*) FROM bios_installations WHERE requirement_id='fixture-requirement'
 `).Scan(&installationCount); err != nil || installationCount != 1 {
 		t.Fatalf("same bytes installation count = %d, %v", installationCount, err)
@@ -161,14 +162,14 @@ UPDATE bios_requirements SET version=2,catalog_digest=?,updated_at_ms=2 WHERE id
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return !ok }),
 		"stale-version claim = %#v/%t/%v", staleUnit, ok, err)
 	service.ExecuteForTest(ctx, staleUnit)
-	if err := database.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database, `
 SELECT count(*) FROM bios_installations WHERE requirement_id='fixture-requirement'
 `).Scan(&installationCount); err != nil || installationCount != 2 {
 		t.Fatalf("stale version installation count = %d, %v", installationCount, err)
 	}
 	assertRetiredServerBIOSPayload(ctx, t, database, releases)
 	var installationID string
-	if err := database.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database, `
 SELECT id FROM bios_installations WHERE requirement_id='fixture-requirement' AND is_active=1
 `).Scan(&installationID); err != nil {
 		t.Fatal(err)
@@ -176,15 +177,15 @@ SELECT id FROM bios_installations WHERE requirement_id='fixture-requirement' AND
 	return installationID
 }
 
-func assertRetiredServerBIOSPayload(ctx context.Context, t *testing.T, database *sql.DB, releases *payloadrelease.Service) {
+func assertRetiredServerBIOSPayload(ctx context.Context, t *testing.T, database dbapi.DB, releases *payloadrelease.Service) {
 	var pending int
-	err := database.QueryRowContext(ctx, `SELECT count(*) FROM bios_installations WHERE requirement_id='fixture-requirement' AND is_active=0 AND blob_id IS NOT NULL AND payload_released_at_ms IS NULL`).Scan(&pending)
+	err := dbapi.QueryRowContext(ctx, database, `SELECT count(*) FROM bios_installations WHERE requirement_id='fixture-requirement' AND is_active=0 AND blob_id IS NOT NULL AND payload_released_at_ms IS NULL`).Scan(&pending)
 	testassert.False(t, err != nil, err)
 	testassert.True(t, pending == 1, "server import must defer retirement")
 	testassert.False(t, releases.ReconcileGC(ctx) != nil, "reconcile server BIOS")
 	t.Helper()
 	var retiredPayloads int
-	if err := database.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database, `
 SELECT count(*) FROM bios_installations
 WHERE requirement_id='fixture-requirement' AND is_active=0
   AND blob_id IS NULL AND payload_released_at_ms IS NOT NULL
@@ -197,7 +198,7 @@ func verifyServerImportFallbacks(
 	ctx context.Context,
 	t *testing.T,
 	service *Service,
-	database *sql.DB,
+	database dbapi.DB,
 	rootDir string,
 	contents []byte,
 	installationID string,
@@ -216,11 +217,11 @@ func verifyServerImportFallbacks(
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return !ok }), "downgrade claim = %#v/%t/%v", downgradeUnit, ok, err)
 	service.ExecuteForTest(ctx, downgradeUnit)
 	var downgradeState string
-	if err := database.QueryRowContext(ctx, `SELECT state FROM server_bios_import_items WHERE server_import_id=?`, downgrade.ID).Scan(&downgradeState); err != nil {
+	if err := dbapi.QueryRowContext(ctx, database, `SELECT state FROM server_bios_import_items WHERE server_import_id=?`, downgrade.ID).Scan(&downgradeState); err != nil {
 		t.Fatal(err)
 	}
 	var activeID string
-	if err := database.QueryRowContext(ctx, `SELECT id FROM bios_installations WHERE requirement_id='fixture-requirement' AND is_active=1`).Scan(&activeID); err != nil {
+	if err := dbapi.QueryRowContext(ctx, database, `SELECT id FROM bios_installations WHERE requirement_id='fixture-requirement' AND is_active=1`).Scan(&activeID); err != nil {
 		t.Fatal(err)
 	}
 	testassert.Falsef(t, testassert.Any(func() bool { return downgradeState != "SKIPPED_NOT_BETTER" }, func() bool { return activeID != installationID }), "downgrade result = %s, active %s (want %s)", downgradeState, activeID, installationID)
@@ -242,7 +243,7 @@ func verifyServerImportFallbacks(
 	testassert.False(t, err != nil, err)
 	testassert.Falsef(t, testassert.Any(func() bool { return limitedSummary.State != "FAILED" }, func() bool { return limitedSummary.LastErrorCode == nil }, func() bool { return *limitedSummary.LastErrorCode != "SERVER_IMPORT_SCAN_LIMIT_EXCEEDED" }), "scan-limit import = %#v", limitedSummary)
 	var installationCount int
-	if err := database.QueryRowContext(ctx, `SELECT count(*) FROM bios_installations WHERE requirement_id='fixture-requirement'`).Scan(&installationCount); err != nil || installationCount != 2 {
+	if err := dbapi.QueryRowContext(ctx, database, `SELECT count(*) FROM bios_installations WHERE requirement_id='fixture-requirement'`).Scan(&installationCount); err != nil || installationCount != 2 {
 		t.Fatalf("scan-limit installation count = %d, %v", installationCount, err)
 	}
 	service.ResetScanLimitsForTest()
@@ -261,14 +262,14 @@ func verifyServerImportFallbacks(
 	service.ExecuteForTest(ctx, retryUnit)
 	var jobState, importState string
 	var attempt int
-	if err := database.QueryRowContext(ctx, `SELECT state,attempt_count FROM jobs WHERE id=?`, retrying.JobID).Scan(&jobState, &attempt); err != nil {
+	if err := dbapi.QueryRowContext(ctx, database, `SELECT state,attempt_count FROM jobs WHERE id=?`, retrying.JobID).Scan(&jobState, &attempt); err != nil {
 		t.Fatal(err)
 	}
-	if err := database.QueryRowContext(ctx, `SELECT state FROM server_imports WHERE id=?`, retrying.ID).Scan(&importState); err != nil {
+	if err := dbapi.QueryRowContext(ctx, database, `SELECT state FROM server_imports WHERE id=?`, retrying.ID).Scan(&importState); err != nil {
 		t.Fatal(err)
 	}
 	var retryEvents int
-	if err := database.QueryRowContext(ctx, `SELECT count(*) FROM job_events WHERE job_id=? AND event_type='RETRY_SCHEDULED'`, retrying.JobID).Scan(&retryEvents); err != nil {
+	if err := dbapi.QueryRowContext(ctx, database, `SELECT count(*) FROM job_events WHERE job_id=? AND event_type='RETRY_SCHEDULED'`, retrying.JobID).Scan(&retryEvents); err != nil {
 		t.Fatal(err)
 	}
 	testassert.Falsef(t, testassert.Any(func() bool { return jobState != "QUEUED" }, func() bool { return importState != "QUEUED" }, func() bool { return attempt != 1 }, func() bool { return retryEvents != 1 }), "automatic retry = job %s/import %s/attempt %d/events %d", jobState, importState, attempt, retryEvents)
@@ -316,7 +317,7 @@ func TestWalkFilesReadsMetadataFromAuthorizedDirectoryDescriptor(t *testing.T) {
 	testassert.Falsef(t, testassert.Any(func() bool { return visited[0].RelativePath != "bios.bin" }, func() bool { return visited[0].SizeBytes != int64(len(contents)) }), "visited file = %#v", visited[0])
 }
 
-func reclaimCompletedImport(ctx context.Context, t *testing.T, service *Service, database *sql.DB, created Summary) {
+func reclaimCompletedImport(ctx context.Context, t *testing.T, service *Service, database dbapi.DB, created Summary) {
 	t.Helper()
 	now := time.Now().UnixMilli()
 	if _, err := database.ExecContext(ctx, `UPDATE server_imports SET state='RUNNING',phase='INSTALLING',completed_at_ms=NULL,updated_at_ms=? WHERE id=?`, now, created.ID); err != nil {

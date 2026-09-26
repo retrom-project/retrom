@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/hasheous"
 	"retrom/internal/service/metadatascrape"
 	"retrom/internal/testsupport"
@@ -37,7 +38,7 @@ func TestMediaFinalEventFailureRollsBackBlobAndReadyAsset(t *testing.T) {
 		t.Fatalf("partial publication or lost bytes: %+v", snapshot)
 	}
 	var count int
-	if err := fixture.database.QueryRowContext(t.Context(), `SELECT count(*) FROM blobs`).Scan(&count); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT count(*) FROM blobs`).Scan(&count); err != nil {
 		t.Fatal(err)
 	}
 	if count != 0 {

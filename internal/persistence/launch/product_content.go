@@ -2,16 +2,15 @@ package launch
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/launch"
 )
 
 func ProductContentSnapshot(
 	ctx context.Context,
-	executor dbexec.Executor,
+	executor dbapi.Executor,
 	source application.ProductSource,
 ) (application.ProductSnapshot, error) {
 	game, err := productCreationFiles(ctx, executor, source.GameID, false)
@@ -29,11 +28,11 @@ func (repository *ProductCreation) Content(
 	ctx context.Context,
 	source application.ProductSource,
 ) (application.ProductSnapshot, error) {
-	tx, err := repository.database.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+	tx, err := repository.database.BeginTx(ctx, &dbapi.TxOptions{ReadOnly: true})
 	if err != nil {
 		return application.ProductSnapshot{}, fmt.Errorf("begin product content snapshot: %w", err)
 	}
-	defer dbexec.Rollback(tx)
+	defer dbapi.Rollback(tx)
 	snapshot, err := ProductContentSnapshot(ctx, tx, source)
 	if err != nil {
 		return application.ProductSnapshot{}, err

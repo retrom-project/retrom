@@ -40,15 +40,15 @@ cmd/retrom/               进程入口、配置和优雅关闭
 internal/httpapi/         路由、中间件、DTO、错误映射
 internal/catalog/         Platform、PlatformInstance、Game、GameVariant
 internal/importing/       导入任务、分组、刮削与审核编排
-internal/importformat/emulationstation/meta/ 严格 EmulationStation XML 解析与规范化
-internal/importformat/emulationstation/gamelist/ 有界 XML 文件组织扫描与统一结果适配
-internal/importformat/pegasus/meta/ Pegasus metadata 解析与规范化
+internal/format/emulationstation/meta/ 严格 EmulationStation XML 解析与规范化
+internal/format/emulationstation/gamelist/ 有界 XML 文件组织扫描与统一结果适配
+internal/format/pegasus/meta/ Pegasus metadata 解析与规范化
 internal/persistence/importfiles/ 所有来源共享的接收文件表
 internal/sourceimport/   服务器目录、metadata/媒体读取、CAS 写入及路径脱敏适配器
 internal/service/sourceimport/ 应用入口、扫描/导入编排、计划/映射/启动、worker 生命周期与结果恢复
 internal/persistence/sourceimport/ 计划与执行快照、扫描/物化/交接/收口事务及归属校验
 internal/metadata/        Hasheous 适配器与缓存
-internal/arcadedat/       DAT 安装、解析、依赖图与诊断
+internal/format/arcadedat/ DAT 解析、依赖图与诊断
 internal/content/capability/ 内容能力与准入策略
 internal/content/manifest/ 内容清单生成与校验
 internal/content/profile/ 平台内容格式与项目类型定义
@@ -63,7 +63,7 @@ internal/runtime/launch/  Provider-neutral Launch Envelope 投影
 internal/runtime/options/ Target 选项解析与校验
 internal/runtime/provider/ Provider Bundle 安装、激活、静态文件与只前进升级校验
 internal/persistence/runtimecatalog/ 已验证目录定义的事务投影
-internal/corevalidation/  BIOS/多盘快照、格式校验与确定性摘要
+internal/core/validation/  BIOS/多盘快照、格式校验与确定性摘要
 internal/service/corevalidation/ 静态 BIOS 适用性、可用性与阻断判定
 internal/persistence/corevalidation/ BIOS 目录及安装事实查询
 internal/service/datindex/ DAT BIOS 需求身份、摘要与同步编排
@@ -100,7 +100,9 @@ internal/composition/     Repository 注入和跨模块端口适配
 internal/persistence/jobs/ 任务状态、快照和事件的事务读写
 internal/service/blobgc/  确定性 GC 维护入口与计数结果
 internal/persistence/blobgc/ Blob 计数与保护引用读取
-internal/store/           SQLite 连接、迁移和事务辅助
+internal/database/        SQL 查询、执行、事务接口及单行查询辅助
+internal/database/sqlite/ SQLite 连接池与事务适配器
+internal/store/           SQLite 初始化、迁移与 lineage 校验
 internal/observability/   结构化日志、健康检查和诊断导出
 internal/httpapi/generated/ OpenAPI 编译期生成的 strict server types；禁止手改且不提交 Git
 migrations/               Go package：embed.go 与有序 SQL migration，编译进后端
@@ -135,9 +137,9 @@ web/components/           无业务状态的通用组件
 
 Handler 负责协议解析、身份提取和结果映射，通过 Service 执行业务；Service 不导入数据库驱动或持久化实现，也不接收 SQL、表名、SET/WHERE、连接或事务对象。组装代码创建 Repository 并注入 Service。接口返回业务结果与可识别错误，不把 `sql.Rows`、`sql.Result`、`sql.Null*` 传播到上层。
 
-数据访问层共享 `internal/dbexec.Executor`，统一数据库连接、事务及独占连接的 SQL 执行接口；各 Repository 不重复定义相同接口。该接口只属于 SQL 基础设施，Service 仍依赖业务 Repository 接口。
+数据访问层共享 `internal/database` 的查询、执行、连接池与事务接口；`QueryRowContext` 是基于 `QueryContext` 的包级单行扫描辅助，不在执行接口中重复定义。SQLite 适配器在 `internal/database/sqlite` 内持有 `sql.DB`、`sql.Tx` 和独占连接，提供普通、只读及 `BEGIN IMMEDIATE` 事务；Repository 和组装代码只传递接口。Service 仍依赖业务 Repository 接口。
 
-公共 SQL 组件也归入 `internal/persistence/`：`recordstore` 执行关系校验，`sessionstore` 维护会话联动，`storequery` 提供共享查询，`blobregistry` 管理保护引用，`blobcatalog` 登记已校验的 CAS 对象。它们由各模块 Repository 复用；`blobstore` 只处理物理文件，通用资源清理不依赖数据库，事务回滚辅助集中在 `dbexec`。
+公共 SQL 组件也归入 `internal/persistence/`：`recordstore` 执行关系校验，`sessionstore` 维护会话联动，`storequery` 提供共享查询，`blobregistry` 管理保护引用，`blobcatalog` 登记已校验的 CAS 对象。它们由各模块 Repository 复用；`blobstore` 只处理物理文件，通用资源清理不依赖数据库，事务回滚辅助集中在 `internal/database`。
 
 Service 决定事务范围；Repository 的事务回调只提供绑定到同一事务的业务能力。跨表校验、乐观条件、幂等响应和联动写入保持原子，失败与取消必须回滚。数据访问实现负责隔离级别、锁、保存点及数据库专用设置，不让每个子操作单独提交。列表、详情与聚合使用专门的查询结果和批量 SQL，避免为了统一 CRUD 而制造逐行查询。
 

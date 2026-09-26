@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/testsupport"
 )
 
@@ -35,7 +36,7 @@ func TestMediaRetryDispatchesAfterReceiptAndReplayKeepsExecution(t *testing.T) {
 		t.Fatal("replay created another media execution")
 	}
 	var assets int
-	if err := fixture.server.database.QueryRowContext(t.Context(), `SELECT count(*) FROM scrape_candidate_assets WHERE media_fetch_job_id=? AND status='READY'`, fixture.jobID).Scan(&assets); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), fixture.server.database, `SELECT count(*) FROM scrape_candidate_assets WHERE media_fetch_job_id=? AND status='READY'`, fixture.jobID).Scan(&assets); err != nil {
 		t.Fatal(err)
 	}
 	if assets != 1 {
@@ -63,7 +64,7 @@ func TestMediaRetryReceiptFailureDoesNotInvokeCurrentDispatch(t *testing.T) {
 	}
 	var state string
 	var attempt int64
-	if err := fixture.server.database.QueryRowContext(t.Context(), `SELECT state,attempt_count FROM jobs WHERE id=?`, fixture.jobID).Scan(&state, &attempt); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), fixture.server.database, `SELECT state,attempt_count FROM jobs WHERE id=?`, fixture.jobID).Scan(&state, &attempt); err != nil {
 		t.Fatal(err)
 	}
 	if state != "QUEUED" || attempt != 0 {

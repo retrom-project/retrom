@@ -5,7 +5,6 @@ package launch
 import (
 	"bytes"
 	"context"
-	"database/sql"
 	"errors"
 	"image"
 	"image/png"
@@ -17,6 +16,7 @@ import (
 	"modernc.org/sqlite"
 
 	"retrom/internal/cleanup"
+	dbapi "retrom/internal/database"
 )
 
 type screenshotStored struct {
@@ -24,7 +24,7 @@ type screenshotStored struct {
 	Width, Height, Captured, Created, Updated int64
 }
 
-func screenshotRecords(t *testing.T, database *sql.DB) []screenshotStored {
+func screenshotRecords(t *testing.T, database dbapi.DB) []screenshotStored {
 	t.Helper()
 	rows, err := database.QueryContext(t.Context(), `SELECT id,preview_session_id,validation_id,blob_id,
 width_px,height_px,captured_at_ms,created_at_ms,updated_at_ms FROM review_runtime_screenshots ORDER BY id`)
@@ -124,7 +124,7 @@ func TestScreenshotRechecksCurrentReviewEvidenceAfterImageRead(t *testing.T) {
 		}},
 		{"expired", func(t *testing.T, fixture reviewCheckpointFixture, preview ReviewPreviewCreated) {
 			var expiry int64
-			if err := fixture.database.QueryRowContext(t.Context(), `SELECT hard_expires_at_ms FROM review_preview_sessions WHERE id=?`, preview.PreviewID).Scan(&expiry); err != nil {
+			if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT hard_expires_at_ms FROM review_preview_sessions WHERE id=?`, preview.PreviewID).Scan(&expiry); err != nil {
 				t.Fatal(err)
 			}
 			*fixture.now = time.UnixMilli(expiry)

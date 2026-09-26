@@ -3,13 +3,13 @@ package libraryimport
 import (
 	"context"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/libraryimport"
 )
 
 // TransitionReviewOwners updates the source and its aggregate in the caller's transaction.
 func TransitionReviewOwners(
-	ctx context.Context, executor dbexec.Executor, change application.ReviewOwnerTransition,
+	ctx context.Context, executor dbapi.Executor, change application.ReviewOwnerTransition,
 ) error {
 	if change.State != application.ReviewOwnerPublished && change.State != application.ReviewOwnerDiscarded {
 		return application.ErrInvalid

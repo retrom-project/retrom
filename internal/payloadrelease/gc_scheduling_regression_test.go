@@ -3,7 +3,6 @@ package payloadrelease
 import (
 	"bytes"
 	"context"
-	"database/sql"
 	"database/sql/driver"
 	"errors"
 	"strings"
@@ -12,11 +11,12 @@ import (
 	"time"
 
 	"retrom/internal/blobstore"
+	dbapi "retrom/internal/database"
 	"retrom/internal/testsupport"
 )
 
 type gcSchedulingFixture struct {
-	database *sql.DB
+	database dbapi.DB
 	blobs    *blobstore.Store
 	service  *Service
 }
@@ -75,7 +75,7 @@ func TestGCSchedulingRollsBackWhenJobRowCountCannotBeConfirmed(t *testing.T) {
 	defer service.Close()
 	err = service.stageAllUnreferenced(t.Context())
 	var jobs, candidates int
-	readErr := fixture.database.QueryRowContext(t.Context(), `SELECT
+	readErr := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT
  (SELECT count(*) FROM jobs WHERE scope_type='BLOB' AND scope_id='manual-gc-blob'),
  (SELECT count(*) FROM blob_gc_candidates WHERE blob_id='manual-gc-blob')`).Scan(&jobs, &candidates)
 	if !errors.Is(err, cause) || hits.Load() != 1 || readErr != nil || jobs != 0 || candidates != 0 {
@@ -91,7 +91,7 @@ func TestImmediateGCRollsBackWhenAdvanceRowCountCannotBeConfirmed(t *testing.T) 
 		t.Fatal(err)
 	}
 	var jobID string
-	if err := fixture.database.QueryRowContext(t.Context(), `SELECT gc_job_id FROM blob_gc_candidates WHERE blob_id='manual-gc-blob'`).Scan(&jobID); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT gc_job_id FROM blob_gc_candidates WHERE blob_id='manual-gc-blob'`).Scan(&jobID); err != nil {
 		t.Fatal(err)
 	}
 	cause := errors.New("GC advance affected-row failure")
@@ -112,7 +112,7 @@ func TestImmediateGCRollsBackWhenAdvanceRowCountCannotBeConfirmed(t *testing.T) 
 	defer service.Close()
 	result, err := service.ScheduleImmediateGC(t.Context(), "manual-gc-user")
 	var scheduled, available, audits int64
-	readErr := fixture.database.QueryRowContext(t.Context(), `SELECT candidate.scheduled_at_ms,job.available_at_ms,
+	readErr := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT candidate.scheduled_at_ms,job.available_at_ms,
  (SELECT count(*) FROM audit_events WHERE action='STORAGE_CLEANUP_REQUESTED')
  FROM blob_gc_candidates candidate JOIN jobs job ON job.id=candidate.gc_job_id
  WHERE candidate.blob_id='manual-gc-blob'`).Scan(&scheduled, &available, &audits)

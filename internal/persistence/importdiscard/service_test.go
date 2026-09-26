@@ -3,7 +3,6 @@ package importdiscard_test
 import (
 	"bytes"
 	"context"
-	"database/sql"
 	"errors"
 	"path/filepath"
 	"runtime"
@@ -11,6 +10,7 @@ import (
 	"time"
 
 	"retrom/internal/composition"
+	dbapi "retrom/internal/database"
 	"retrom/internal/service/importdiscard"
 
 	dependencypersistence "retrom/internal/persistence/dependencies"
@@ -31,7 +31,7 @@ const adminID = "01980000-0000-7000-8000-000000009992"
 
 type fixture struct {
 	ctx      context.Context
-	db       *sql.DB
+	db       dbapi.DB
 	blobs    *blobstore.Store
 	importer *libraryimport.Service
 	service  *importdiscard.Service
@@ -84,7 +84,7 @@ func (f *fixture) exec(t *testing.T, query string, args ...any) {
 func (f *fixture) count(t *testing.T, query string, args ...any) int {
 	t.Helper()
 	var n int
-	if err := f.db.QueryRowContext(f.ctx, query, args...).Scan(&n); err != nil {
+	if err := dbapi.QueryRowContext(f.ctx, f.db, query, args...).Scan(&n); err != nil {
 		t.Fatal(err)
 	}
 	return n

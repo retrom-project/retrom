@@ -1,4 +1,4 @@
-package corevalidation
+package validation
 
 import (
 	"strings"

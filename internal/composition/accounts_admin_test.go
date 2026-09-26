@@ -9,6 +9,7 @@ import (
 
 	"retrom/internal/authn"
 	"retrom/internal/config"
+	dbapi "retrom/internal/database"
 	accountservice "retrom/internal/service/accounts"
 	"retrom/internal/testassert"
 
@@ -119,14 +120,14 @@ func TestInvitationAndPasswordResetCapabilitiesAreSingleUseAndSecretless(t *test
 	}
 
 	var tokenColumns int
-	if err := fixture.database.SQL.QueryRowContext(context.Background(), `
+	if err := dbapi.QueryRowContext(context.Background(), fixture.database.SQL, `
 SELECT count(*) FROM pragma_table_info('account_links')
 WHERE lower(name) LIKE '%token%' OR lower(name) LIKE '%secret%' OR lower(name) LIKE '%hash%'
 `).Scan(&tokenColumns); err != nil || tokenColumns != 0 {
 		t.Fatalf("account link secret columns = %d, error=%v", tokenColumns, err)
 	}
 	var storedBody string
-	if err := fixture.database.SQL.QueryRowContext(context.Background(), `
+	if err := dbapi.QueryRowContext(context.Background(), fixture.database.SQL, `
 SELECT CAST(response_body AS TEXT) FROM idempotency_records
 WHERE principal_id=? AND operation_id='postAdminInvitation' AND key=?
 `, admin.Principal.UserID, key).Scan(&storedBody); err != nil ||
@@ -244,7 +245,7 @@ func TestInvitationConcurrentConsumptionAndUserLifecycleRevocations(t *testing.T
 	)
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return replayed }), "delete user = replay=%v error=%v", replayed, err)
 	var credentials int
-	if err := fixture.database.SQL.QueryRowContext(context.Background(),
+	if err := dbapi.QueryRowContext(context.Background(), fixture.database.SQL,
 		`SELECT count(*) FROM user_credentials WHERE user_id=?`, winner.User.UserID,
 	).Scan(&credentials); err != nil || credentials != 0 {
 		t.Fatalf("deleted credential count = %d, error=%v", credentials, err)
@@ -324,14 +325,14 @@ func TestAccountSecurityAuditUsesClosedActions(t *testing.T) {
 		"USER_ROLE_CHANGED", "USER_ENABLED", "USER_DISABLED", "USER_DELETED",
 	} {
 		var count int
-		if err := fixture.database.SQL.QueryRowContext(context.Background(),
+		if err := dbapi.QueryRowContext(context.Background(), fixture.database.SQL,
 			`SELECT count(*) FROM audit_events WHERE action=?`, action,
 		).Scan(&count); err != nil || count == 0 {
 			t.Fatalf("audit action %s count = %d, error=%v", action, count, err)
 		}
 	}
 	var legacy int
-	if err := fixture.database.SQL.QueryRowContext(context.Background(), `
+	if err := dbapi.QueryRowContext(context.Background(), fixture.database.SQL, `
 SELECT count(*) FROM audit_events
 WHERE action IN ('USER_UPDATED','USER_REGISTERED','PASSWORD_RESET_LINK_CREATED','ACCOUNT_LINK_REVOKED')
 `).Scan(&legacy); err != nil || legacy != 0 {

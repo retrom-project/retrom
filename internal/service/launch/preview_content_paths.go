@@ -4,7 +4,7 @@ import (
 	"path"
 	"strings"
 
-	"retrom/internal/corevalidation"
+	corevalidation "retrom/internal/core/validation"
 	"retrom/internal/importing"
 )
 

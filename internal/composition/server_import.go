@@ -1,9 +1,10 @@
 package composition
 
 import (
-	"database/sql"
 	"encoding/hex"
 	"time"
+
+	dbapi "retrom/internal/database"
 
 	"retrom/internal/blobstore"
 	importpersistence "retrom/internal/persistence/serverimport"
@@ -14,7 +15,7 @@ import (
 )
 
 func NewServerImports(
-	database *sql.DB,
+	database dbapi.DB,
 	blobs *blobstore.Store,
 	installer *firmware.Service,
 	credentials *runtime.Credentials,

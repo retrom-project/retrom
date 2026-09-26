@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/testsupport"
 )
 
@@ -44,7 +45,7 @@ func TestMultiDiscAdmissionRejectsUnconfirmedRecords(t *testing.T) {
 				t.Fatal(err)
 			}
 			var itemID string
-			if err := db.SQL.QueryRowContext(ctx, `SELECT id FROM import_items WHERE import_job_id=?`, created.ImportJobID).Scan(&itemID); err != nil {
+			if err := dbapi.QueryRowContext(ctx, db.SQL, `SELECT id FROM import_items WHERE import_job_id=?`, created.ImportJobID).Scan(&itemID); err != nil {
 				t.Fatal(err)
 			}
 			missing := completeMultiDiscUpload(t, ctx, db, blobs, dir, "FILES", []multiDiscUploadFile{{path: "two.chd", contents: fakeCHD("two")}})
@@ -68,7 +69,7 @@ func TestMultiDiscAdmissionRejectsUnconfirmedRecords(t *testing.T) {
 				t.Fatalf("unconfirmed admission: hits=%d err=%v", hits.Load(), err)
 			}
 			var version, jobs, attachments, events int
-			readErr := db.SQL.QueryRowContext(ctx, `SELECT draft.review_version,
+			readErr := dbapi.QueryRowContext(ctx, db.SQL, `SELECT draft.review_version,
 (SELECT count(*) FROM jobs WHERE kind='REVIEW_MULTI_DISC_VALIDATE' AND scope_id=draft.id),
 (SELECT count(*) FROM review_multidisc_attachments WHERE import_item_id=draft.id),
 (SELECT review_version-1 FROM import_items WHERE id=draft.id)

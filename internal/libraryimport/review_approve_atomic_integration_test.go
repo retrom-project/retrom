@@ -4,7 +4,6 @@ package libraryimport
 
 import (
 	"context"
-	"database/sql"
 	"database/sql/driver"
 	"errors"
 	"reflect"
@@ -12,6 +11,7 @@ import (
 	"testing"
 
 	"retrom/internal/cleanup"
+	dbapi "retrom/internal/database"
 	"retrom/internal/testsupport"
 )
 
@@ -110,7 +110,7 @@ func assertApprovalSourcePublishedOnce(t *testing.T, fixture deduplicateFixture,
 	}
 	var actualGame, sourceKind string
 	var games, events, variants int
-	err := fixture.database.QueryRowContext(t.Context(), `SELECT source.published_game_id,game.content_source_kind,
+	err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT source.published_game_id,game.content_source_kind,
  (SELECT count(*) FROM games),(SELECT count(*) FROM import_items WHERE id=? AND state='PUBLISHED'),
  (SELECT count(*) FROM game_variants WHERE game_id=game.id)
  FROM source_import_items source JOIN games game ON game.id=source.published_game_id WHERE source.id=?`, itemID, sourceID).
@@ -123,7 +123,7 @@ func assertApprovalSourcePublishedOnce(t *testing.T, fixture deduplicateFixture,
 	}
 }
 
-func approvalDatabaseRows(t *testing.T, database *sql.DB) map[string]string {
+func approvalDatabaseRows(t *testing.T, database dbapi.DB) map[string]string {
 	t.Helper()
 	result := make(map[string]string)
 	for _, table := range []string{
@@ -137,7 +137,7 @@ func approvalDatabaseRows(t *testing.T, database *sql.DB) map[string]string {
 	return result
 }
 
-func approvalTableRows(t *testing.T, database *sql.DB, table string) string {
+func approvalTableRows(t *testing.T, database dbapi.DB, table string) string {
 	t.Helper()
 	rows, err := database.QueryContext(t.Context(), `SELECT name FROM pragma_table_info(?) ORDER BY cid`, table)
 	if err != nil {
@@ -163,13 +163,13 @@ func approvalTableRows(t *testing.T, database *sql.DB, table string) string {
 	}
 	var result string
 	query := `SELECT COALESCE(json_group_array(row),'[]') FROM (SELECT json_array(` + strings.Join(columns, ",") + `) row FROM "` + table + `" ORDER BY 1)`
-	if err := database.QueryRowContext(t.Context(), query).Scan(&result); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), database, query).Scan(&result); err != nil {
 		t.Fatal(err)
 	}
 	return result
 }
 
-func assertApprovalRowsUnchanged(t *testing.T, database *sql.DB, before map[string]string) {
+func assertApprovalRowsUnchanged(t *testing.T, database dbapi.DB, before map[string]string) {
 	t.Helper()
 	after := approvalDatabaseRows(t, database)
 	if !reflect.DeepEqual(before, after) {

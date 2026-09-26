@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 
 	"retrom/internal/cleanup"
+	dbapi "retrom/internal/database"
 	"retrom/internal/platformcatalog"
 	"retrom/internal/testassert"
 )
@@ -114,7 +115,7 @@ func TestPlatformLifecycleUsesImpactDigestVersioningAndAudit(t *testing.T) {
 	testassert.Falsef(t, testassert.Any(func() bool { return reusedSlug.Code != http.StatusCreated }, func() bool { return !strings.Contains(reusedSlug.Body.String(), `"slug":"handheld-zone-3"`) }), "deleted platform slug was reused = %d %s", reusedSlug.Code, reusedSlug.Body.String())
 	var actions, distinctActors int
 	var actorKind string
-	if err := server.database.QueryRowContext(context.Background(), `
+	if err := dbapi.QueryRowContext(context.Background(), server.database, `
 SELECT count(*),count(DISTINCT actor_user_id),min(actor_kind)
 FROM audit_events
 WHERE resource_type='PLATFORM_INSTANCE'
@@ -193,10 +194,10 @@ func TestPlatformInstanceOrderIsAtomicVersionedAndExact(t *testing.T) {
 	reordered := sendOrder(string(orderBody))
 	testassert.Falsef(t, testassert.Any(func() bool { return reordered.Code != http.StatusOK }, func() bool { return !strings.Contains(reordered.Body.String(), `"sortOrder":100`) }, func() bool { return !strings.Contains(reordered.Body.String(), `"version":2`) }), "platform reorder = %d %s", reordered.Code, reordered.Body.String())
 	var firstSort, firstVersion, secondSort, secondVersion int64
-	if err := server.database.QueryRowContext(context.Background(), "SELECT sort_order,version FROM platform_instances WHERE id=?", firstID).Scan(&firstSort, &firstVersion); err != nil {
+	if err := dbapi.QueryRowContext(context.Background(), server.database, "SELECT sort_order,version FROM platform_instances WHERE id=?", firstID).Scan(&firstSort, &firstVersion); err != nil {
 		t.Fatal(err)
 	}
-	if err := server.database.QueryRowContext(context.Background(), "SELECT sort_order,version FROM platform_instances WHERE id=?", secondID).Scan(&secondSort, &secondVersion); err != nil {
+	if err := dbapi.QueryRowContext(context.Background(), server.database, "SELECT sort_order,version FROM platform_instances WHERE id=?", secondID).Scan(&secondSort, &secondVersion); err != nil {
 		t.Fatal(err)
 	}
 	testassert.Falsef(t, testassert.Any(func() bool { return secondSort != 100 }, func() bool { return firstSort != 200 }, func() bool { return firstVersion != 2 }, func() bool { return secondVersion != 2 }), "stored reorder first=%d/v%d second=%d/v%d", firstSort, firstVersion, secondSort, secondVersion)

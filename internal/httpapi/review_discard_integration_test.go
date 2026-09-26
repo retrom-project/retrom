@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"retrom/internal/composition"
+	dbapi "retrom/internal/database"
 	"retrom/internal/testsupport"
 )
 
@@ -78,7 +79,7 @@ func TestReviewDiscardSuccessAndVersionConflict(t *testing.T) {
 		t.Fatalf("terminal review accepted second decision: status=%d body=%s", repeated.Code, repeated.Body.String())
 	}
 	var count int
-	if err := server.database.QueryRowContext(t.Context(), `SELECT COUNT(*) FROM import_items WHERE id=? AND state='DISCARDED'`, itemID).Scan(&count); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), server.database, `SELECT COUNT(*) FROM import_items WHERE id=? AND state='DISCARDED'`, itemID).Scan(&count); err != nil {
 		t.Fatal(err)
 	}
 	if count != 1 {

@@ -3,7 +3,6 @@ package sourceimport
 import (
 	"context"
 	"crypto/sha256"
-	"database/sql"
 	"encoding/hex"
 	"errors"
 	"os"
@@ -13,6 +12,7 @@ import (
 	"testing/synctest"
 	"time"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/dependencies"
 	tagrepository "retrom/internal/persistence/tagging"
 	"retrom/internal/serversource"
@@ -56,7 +56,7 @@ error_details_json=NULL,retryable=0,collection_id='019b0000-0000-7000-8000-00000
 		t.Fatal(err)
 	}
 	var target string
-	if err := db.QueryRowContext(t.Context(), `SELECT id FROM platform_instances WHERE platform_id='gba' AND enabled=1 ORDER BY sort_order,id LIMIT 1`).Scan(&target); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), db, `SELECT id FROM platform_instances WHERE platform_id='gba' AND enabled=1 ORDER BY sort_order,id LIMIT 1`).Scan(&target); err != nil {
 		t.Fatal(err)
 	}
 	service := &Service{database: db, roots: map[string]Root{"games": root}, now: func() time.Time { return time.UnixMilli(10) }, tags: tagging.New(tagrepository.New(db), time.Now)}
@@ -67,7 +67,7 @@ error_details_json=NULL,retryable=0,collection_id='019b0000-0000-7000-8000-00000
 	return service, mapped
 }
 
-func startMetadataSource(t *testing.T, db *sql.DB) Root {
+func startMetadataSource(t *testing.T, db dbapi.DB) Root {
 	t.Helper()
 	root := Root{ID: "games", Label: "Games", path: t.TempDir(), digest: strings.Repeat("a", 64)}
 	if err := os.Mkdir(filepath.Join(root.path, "Roms"), 0o700); err != nil {

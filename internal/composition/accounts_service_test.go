@@ -11,6 +11,7 @@ import (
 	"retrom/internal/authn"
 	"retrom/internal/cleanup"
 	"retrom/internal/config"
+	dbapi "retrom/internal/database"
 	accountservice "retrom/internal/service/accounts"
 
 	retromruntime "retrom/internal/runtime"
@@ -53,7 +54,7 @@ func TestTestModeBootstrapsExactlyOnceAndReleaseRejectsDefaultCredential(t *test
 	var users, profiles, credentials int
 	var kind string
 	var active int
-	if err := fixture.database.SQL.QueryRowContext(context.Background(), `
+	if err := dbapi.QueryRowContext(context.Background(), fixture.database.SQL, `
 SELECT (SELECT count(*) FROM users),(SELECT count(*) FROM profiles),
 (SELECT count(*) FROM user_credentials),bootstrap_kind,test_default_password_active
 FROM instance_state WHERE id=1
@@ -63,7 +64,7 @@ FROM instance_state WHERE id=1
 	testassert.Falsef(t, testassert.Any(func() bool { return users != 1 }, func() bool { return profiles != 1 }, func() bool { return credentials != 1 }, func() bool { return kind != "TEST_DEFAULT" }, func() bool { return active != 1 }), "bootstrap = %d/%d/%d %s/%d", users, profiles, credentials, kind, active)
 	var actorKind, actorLabel string
 	var actorUserID any
-	if err := fixture.database.SQL.QueryRowContext(context.Background(), `
+	if err := dbapi.QueryRowContext(context.Background(), fixture.database.SQL, `
 SELECT actor_kind,actor_user_id,actor_label FROM audit_events WHERE action='INSTANCE_INITIALIZED'
 `).Scan(&actorKind, &actorUserID, &actorLabel); err != nil || actorKind != "SYSTEM" || actorUserID != nil ||
 		actorLabel != "startup-test-bootstrap" {
@@ -94,7 +95,7 @@ func TestReleaseInitializationLoginExpiryAndPasswordRotation(t *testing.T) {
 		t.Fatalf("invalid setup = %v", err)
 	}
 	var users int
-	if err := fixture.database.SQL.QueryRowContext(context.Background(), "SELECT count(*) FROM users").Scan(&users); err != nil || users != 0 {
+	if err := dbapi.QueryRowContext(context.Background(), fixture.database.SQL, "SELECT count(*) FROM users").Scan(&users); err != nil || users != 0 {
 		t.Fatalf("users after invalid setup = %d, %v", users, err)
 	}
 	initialized, err := fixture.service.Initialize(context.Background(), accountservice.InitializeRequest{

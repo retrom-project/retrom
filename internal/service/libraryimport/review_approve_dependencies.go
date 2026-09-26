@@ -6,7 +6,7 @@ import (
 	"math"
 
 	contentcapability "retrom/internal/content/capability"
-	"retrom/internal/corevalidation"
+	corevalidation "retrom/internal/core/validation"
 	"retrom/internal/multidisc"
 	validation "retrom/internal/service/corevalidation"
 )

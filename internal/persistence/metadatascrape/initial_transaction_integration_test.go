@@ -4,11 +4,10 @@ package metadatascrape_test
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"testing"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	initialpersistence "retrom/internal/persistence/metadatascrape"
 	initialservice "retrom/internal/service/metadatascrape"
 )
@@ -22,14 +21,14 @@ func (writer failingInitialWriter) Advance(ctx context.Context, change initialse
 	return context.DeadlineExceeded
 }
 
-func assertInitialProgressRollback(t *testing.T, database *sql.DB, runID, itemID string) {
+func assertInitialProgressRollback(t *testing.T, database dbapi.DB, runID, itemID string) {
 	t.Helper()
 	before := readInitialProgress(t, database, itemID)
 	transaction, err := database.BeginTx(t.Context(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer dbexec.Rollback(transaction)
+	defer dbapi.Rollback(transaction)
 	scope := initialpersistence.BindInitialReview(transaction)
 	scope.Write = failingInitialWriter{scope.Write}
 	err = initialservice.NewInitialReview(scope).Complete(t.Context(), runID, 100)
@@ -49,10 +48,10 @@ type initialProgress struct {
 	values              [5]int64
 }
 
-func readInitialProgress(t *testing.T, database *sql.DB, itemID string) initialProgress {
+func readInitialProgress(t *testing.T, database dbapi.DB, itemID string) initialProgress {
 	t.Helper()
 	var value initialProgress
-	err := database.QueryRowContext(t.Context(), `SELECT i.state,j.state,i.version,j.version,j.running_item_count,
+	err := dbapi.QueryRowContext(t.Context(), database, `SELECT i.state,j.state,i.version,j.version,j.running_item_count,
  j.failed_item_count,j.review_pending_item_count FROM import_items i JOIN import_jobs j ON j.id=i.import_job_id WHERE i.id=?`, itemID).
 		Scan(&value.itemState, &value.jobState, &value.values[0], &value.values[1], &value.values[2], &value.values[3], &value.values[4])
 	if err != nil {

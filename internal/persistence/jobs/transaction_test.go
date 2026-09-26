@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"retrom/internal/cleanup"
+	dbapi "retrom/internal/database"
 	jobservice "retrom/internal/service/jobs"
 	"retrom/internal/store"
 )
@@ -36,7 +37,7 @@ func TestCancellationEventRollsBackWithOuterFailure(t *testing.T) {
 	}
 	var state string
 	var version, events int
-	err = database.SQL.QueryRowContext(t.Context(), `SELECT state,version,(SELECT count(*) FROM job_events WHERE job_id='job') FROM jobs WHERE id='job'`).Scan(&state, &version, &events)
+	err = dbapi.QueryRowContext(t.Context(), database.SQL, `SELECT state,version,(SELECT count(*) FROM job_events WHERE job_id='job') FROM jobs WHERE id='job'`).Scan(&state, &version, &events)
 	if err != nil || state != "QUEUED" || version != 1 || events != 0 {
 		t.Fatalf("state=%s version=%d events=%d error=%v", state, version, events, err)
 	}
@@ -62,7 +63,7 @@ func TestRetrySnapshotRollsBackOnVersionConflict(t *testing.T) {
 		t.Fatal(err)
 	}
 	var snapshots, version int
-	err = database.SQL.QueryRowContext(context.Background(), `SELECT version,(SELECT count(*) FROM job_input_snapshots WHERE job_id='job') FROM jobs WHERE id='job'`).Scan(&version, &snapshots)
+	err = dbapi.QueryRowContext(context.Background(), database.SQL, `SELECT version,(SELECT count(*) FROM job_input_snapshots WHERE job_id='job') FROM jobs WHERE id='job'`).Scan(&version, &snapshots)
 	if err != nil || version != 1 || snapshots != 1 {
 		t.Fatalf("version=%d snapshots=%d error=%v", version, snapshots, err)
 	}

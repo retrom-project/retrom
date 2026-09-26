@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/dependencies"
 	service "retrom/internal/service/dependencies"
 )
@@ -11,7 +12,7 @@ import (
 func (records datRecords) Activation(ctx context.Context, id string) (service.ActivationState, error) {
 	var state service.ActivationState
 	var active int
-	err := records.executor.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, records.executor, `
 SELECT d.provider_id,d.target_id,d.parse_status,d.is_active
 FROM dat_versions d
 JOIN runtime_targets target ON target.provider_id=d.provider_id AND target.target_id=d.target_id

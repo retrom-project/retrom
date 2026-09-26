@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"testing"
 	"time"
+
+	dbapi "retrom/internal/database"
 )
 
 func recoveryFixture(t *testing.T) *Service {
@@ -33,7 +35,7 @@ UPDATE source_imports SET state='CANCEL_REQUESTED',cancel_reason='Stop';
 		t.Fatal(err)
 	}
 	var jobState, planState, itemState string
-	if err := service.database.QueryRowContext(t.Context(), `SELECT job.state,plan.state,item.execution_state
+	if err := dbapi.QueryRowContext(t.Context(), service.database, `SELECT job.state,plan.state,item.execution_state
 FROM source_imports plan JOIN jobs job ON job.id=plan.import_job_id
 JOIN source_import_items item ON item.import_id=plan.id WHERE plan.id='import'`).Scan(&jobState, &planState, &itemState); err != nil {
 		t.Fatal(err)
@@ -53,7 +55,7 @@ func TestRecoveryPreservesTimeoutReasonOnUnfinishedItems(t *testing.T) {
 		t.Fatal(err)
 	}
 	var jobCode, itemCode string
-	if err := service.database.QueryRowContext(t.Context(), `SELECT job.error_code,item.error_code FROM jobs job
+	if err := dbapi.QueryRowContext(t.Context(), service.database, `SELECT job.error_code,item.error_code FROM jobs job
 JOIN source_import_items item ON item.import_id=job.scope_id WHERE job.id='work'`).Scan(&jobCode, &itemCode); err != nil {
 		t.Fatal(err)
 	}
@@ -77,7 +79,7 @@ UPDATE source_import_items SET execution_state='PENDING';
 	var state string
 	var code sql.NullString
 	var failed int
-	if err := service.database.QueryRowContext(t.Context(), `SELECT item.execution_state,item.error_code,plan.failed_item_count
+	if err := dbapi.QueryRowContext(t.Context(), service.database, `SELECT item.execution_state,item.error_code,plan.failed_item_count
 FROM source_import_items item JOIN source_imports plan ON plan.id=item.import_id WHERE item.id='item'`).Scan(&state, &code, &failed); err != nil {
 		t.Fatal(err)
 	}

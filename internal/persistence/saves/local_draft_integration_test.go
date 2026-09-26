@@ -6,6 +6,7 @@ import (
 	"errors"
 	"testing"
 
+	dbapi "retrom/internal/database"
 	saveservice "retrom/internal/service/saves"
 
 	"retrom/internal/persistence/recordstore"
@@ -72,7 +73,7 @@ func TestLocalDraftRetainsSourceVersionAndFreshLaunchHasNoRestore(t *testing.T) 
 	}
 	fresh := f.createLaunch(t)
 	var empty int
-	err = f.database.SQL.QueryRowContext(t.Context(), `SELECT count(*) FROM launch_game_save_bindings binding JOIN launch_sessions session ON session.id=binding.launch_session_id
+	err = dbapi.QueryRowContext(t.Context(), f.database.SQL, `SELECT count(*) FROM launch_game_save_bindings binding JOIN launch_sessions session ON session.id=binding.launch_session_id
  WHERE session.id=? AND session.save_state_id IS NULL AND binding.save_state_id IS NULL AND binding.restore_payload_blob_id IS NULL`, fresh.LaunchID).Scan(&empty)
 	if err != nil || empty != 1 {
 		t.Fatalf("fresh launch inherited old data: %d %v", empty, err)

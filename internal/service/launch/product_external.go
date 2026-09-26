@@ -5,7 +5,7 @@ import (
 	"path"
 	"strings"
 
-	"retrom/internal/corevalidation"
+	corevalidation "retrom/internal/core/validation"
 )
 
 func productExternalFiles(snapshot ProductSnapshot, content ProductContent) ([]ProductExternalFile, error) {

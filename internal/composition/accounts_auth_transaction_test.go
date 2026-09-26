@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"retrom/internal/config"
+	dbapi "retrom/internal/database"
 	accountpersistence "retrom/internal/persistence/accounts"
 	accountservice "retrom/internal/service/accounts"
 )
@@ -14,7 +15,7 @@ func TestLoginSessionAndUserActivityRollbackTogether(t *testing.T) {
 	fixture := newAccountFixture(t, config.ModeTest)
 	session := authenticatedTestAdmin(t, fixture)
 	var before int64
-	if err := fixture.database.SQL.QueryRowContext(t.Context(), `SELECT last_login_at_ms FROM users WHERE id=?`, session.User.UserID).Scan(&before); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database.SQL, `SELECT last_login_at_ms FROM users WHERE id=?`, session.User.UserID).Scan(&before); err != nil {
 		t.Fatal(err)
 	}
 	repository := accountpersistence.NewAuthentication(fixture.database.SQL)
@@ -34,7 +35,7 @@ func TestLoginSessionAndUserActivityRollbackTogether(t *testing.T) {
 	}
 	var after int64
 	var sessions int
-	if err := fixture.database.SQL.QueryRowContext(t.Context(), `SELECT last_login_at_ms,(SELECT count(*) FROM auth_sessions WHERE id='rollback-session') FROM users WHERE id=?`, session.User.UserID).Scan(&after, &sessions); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database.SQL, `SELECT last_login_at_ms,(SELECT count(*) FROM auth_sessions WHERE id='rollback-session') FROM users WHERE id=?`, session.User.UserID).Scan(&after, &sessions); err != nil {
 		t.Fatal(err)
 	}
 	if after != before || sessions != 0 {

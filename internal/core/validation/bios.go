@@ -1,4 +1,4 @@
-package corevalidation
+package validation
 
 import (
 	"crypto/sha256"
@@ -88,7 +88,7 @@ func (snapshot Snapshot) JSON() ([]byte, error) {
 	}
 	encoded, err := json.Marshal(snapshot)
 	if err != nil {
-		return nil, fmt.Errorf("corevalidation/snapshot: %w", err)
+		return nil, fmt.Errorf("core/validation/snapshot: %w", err)
 	}
 	return encoded, nil
 }
@@ -200,7 +200,7 @@ func ProviderValidationInputDigest(
 ) (string, error) {
 	snapshotJSON, err := snapshot.JSON()
 	if err != nil {
-		return "", fmt.Errorf("corevalidation/digest: %w", err)
+		return "", fmt.Errorf("core/validation/digest: %w", err)
 	}
 	biosDigest := sha256.Sum256(snapshotJSON)
 	input, err := json.Marshal(map[string]any{
@@ -212,7 +212,7 @@ func ProviderValidationInputDigest(
 		"schemaVersion":        1,
 	})
 	if err != nil {
-		return "", fmt.Errorf("corevalidation/digest input: %w", err)
+		return "", fmt.Errorf("core/validation/digest input: %w", err)
 	}
 	digest := sha256.Sum256(input)
 	return hex.EncodeToString(digest[:]), nil
@@ -238,7 +238,7 @@ func BIOSDependencyDigest(snapshot Snapshot) (string, error) {
 		SchemaVersion: SnapshotSchemaVersion, Kind: SnapshotKindStatic, BIOS: snapshot.BIOS,
 	})
 	if err != nil {
-		return "", fmt.Errorf("corevalidation/bios digest: %w", err)
+		return "", fmt.Errorf("core/validation/bios digest: %w", err)
 	}
 	digest := sha256.Sum256(encoded)
 	return hex.EncodeToString(digest[:]), nil
@@ -246,7 +246,7 @@ func BIOSDependencyDigest(snapshot Snapshot) (string, error) {
 
 func MultiDiscValidationInputDigest(input MultiDiscValidationInput) (string, error) {
 	if !validMultiDiscValidationInput(input) {
-		return "", fmt.Errorf("corevalidation/multi-disc digest: %w", ErrInvalidSnapshot)
+		return "", fmt.Errorf("core/validation/multi-disc digest: %w", ErrInvalidSnapshot)
 	}
 	ordered := make([]string, len(input.OrderedDiscSHA256))
 	copy(ordered, input.OrderedDiscSHA256)
@@ -273,7 +273,7 @@ func MultiDiscValidationInputDigest(input MultiDiscValidationInput) (string, err
 		CanonicalPlaylistSHA256: input.CanonicalPlaylistSHA256,
 	})
 	if err != nil {
-		return "", fmt.Errorf("corevalidation/multi-disc digest input: %w", err)
+		return "", fmt.Errorf("core/validation/multi-disc digest input: %w", err)
 	}
 	digest := sha256.Sum256(canonical)
 	return hex.EncodeToString(digest[:]), nil

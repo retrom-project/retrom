@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	dbapi "retrom/internal/database"
 	repository "retrom/internal/persistence/libraryimport"
 	application "retrom/internal/service/libraryimport"
 	"retrom/internal/testsupport"
@@ -55,7 +56,7 @@ func TestTypedImportWorkerRejectsExpiredProgressAndRenew(t *testing.T) {
 					t.Fatal(err)
 				}
 				var beforeLease, afterLease int64
-				if err := service.database.QueryRowContext(t.Context(), `SELECT leased_until_ms FROM jobs WHERE id=?`, work.jobID).Scan(
+				if err := dbapi.QueryRowContext(t.Context(), service.database, `SELECT leased_until_ms FROM jobs WHERE id=?`, work.jobID).Scan(
 					&beforeLease,
 				); err != nil {
 					t.Fatal(err)
@@ -67,7 +68,7 @@ func TestTypedImportWorkerRejectsExpiredProgressAndRenew(t *testing.T) {
 				if cancelled, err := current.Renew(t.Context(), *work.creationIntent()); cancelled || !errors.Is(err, ErrVersionConflict) {
 					t.Fatalf("renew stale cancelled=%t error=%v", cancelled, err)
 				}
-				if err := service.database.QueryRowContext(t.Context(), `SELECT leased_until_ms FROM jobs WHERE id=?`, work.jobID).Scan(
+				if err := dbapi.QueryRowContext(t.Context(), service.database, `SELECT leased_until_ms FROM jobs WHERE id=?`, work.jobID).Scan(
 					&afterLease,
 				); err != nil {
 					t.Fatal(err)
@@ -76,8 +77,9 @@ func TestTypedImportWorkerRejectsExpiredProgressAndRenew(t *testing.T) {
 					t.Fatalf("stale renew changed lease: before=%d after=%d", beforeLease, afterLease)
 				}
 				var count int
-				if err := service.database.QueryRowContext(
-					t.Context(),
+				if err := dbapi.QueryRowContext(
+					t.Context(), service.database,
+
 					`SELECT count(*) FROM job_events WHERE job_id=? AND event_type='PROGRESS'`,
 					work.jobID,
 				).Scan(
@@ -100,7 +102,7 @@ func TestTypedImportWorkerRecoveryPreservesBudgetAndLiveOwner(t *testing.T) {
 		t.Fatal(err)
 	}
 	var state, owner string
-	if err := service.database.QueryRowContext(t.Context(), `SELECT state,worker_id FROM jobs WHERE id=?`, work.jobID).Scan(
+	if err := dbapi.QueryRowContext(t.Context(), service.database, `SELECT state,worker_id FROM jobs WHERE id=?`, work.jobID).Scan(
 		&state,
 		&owner,
 	); err != nil {
@@ -159,8 +161,9 @@ func TestTypedImportWorkerFailureAndPayloadShareTransaction(t *testing.T) {
 		t.Fatalf("atomic failure: writes=%d release=%d err=%v", writes, release, err)
 	}
 	var state, parent, payload string
-	if err := source.QueryRowContext(
-		t.Context(),
+	if err := dbapi.QueryRowContext(
+		t.Context(), source,
+
 		`SELECT job.state,parent.state,parent.payload_state FROM jobs job JOIN import_jobs parent ON
  parent.id=job.scope_id WHERE job.id=?`,
 		work.jobID,
@@ -179,8 +182,9 @@ func TestTypedImportWorkerFailureAndPayloadShareTransaction(t *testing.T) {
 		t.Fatal(err)
 	}
 	var count int
-	if err := source.QueryRowContext(
-		t.Context(),
+	if err := dbapi.QueryRowContext(
+		t.Context(), source,
+
 		`SELECT count(*) FROM jobs WHERE kind='PAYLOAD_RELEASE' AND scope_id=?`,
 		work.importID,
 	).Scan(

@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/launch"
 )
 
@@ -38,11 +38,11 @@ WHERE item.id=? AND item.state='REVIEW_PENDING' AND item.payload_state='RETAINED
 
 func previewCreationSource(
 	ctx context.Context,
-	executor dbexec.Executor,
+	executor dbapi.Executor,
 	itemID string,
 ) (application.PreviewSource, bool, error) {
 	var value application.PreviewSource
-	err := executor.QueryRowContext(ctx, previewCreationSourceSQL, itemID).Scan(
+	err := dbapi.QueryRowContext(ctx, executor, previewCreationSourceSQL, itemID).Scan(
 		&value.SourceSnapshotID, &value.PlatformInstanceID, &value.PlatformName, &value.PlatformKey,
 		&value.ProviderID, &value.TargetID, &value.BundleSHA256, &value.CoreID, &value.DeliveryProfile,
 		&value.Title, &value.ContentKind, &value.ValidationID, &value.ValidationStatus, &value.DependencySnapshot,
@@ -66,7 +66,7 @@ func (records previewCreationRecords) Current(
 		return application.PreviewSource{}, "", found, err
 	}
 	var profile string
-	err = records.executor.QueryRowContext(ctx, `SELECT profile_id FROM users WHERE id=?`, request.ActorUserID).
+	err = dbapi.QueryRowContext(ctx, records.executor, `SELECT profile_id FROM users WHERE id=?`, request.ActorUserID).
 		Scan(&profile)
 	if errors.Is(err, sql.ErrNoRows) {
 		return source, "", true, nil

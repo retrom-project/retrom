@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/recordstore"
 	application "retrom/internal/service/libraryimport"
 )
@@ -20,7 +20,7 @@ func (repository *MultiDiscAttachmentFinalization) Reject(
 	if err != nil {
 		return fmt.Errorf("begin multi-disc rejection: %w", err)
 	}
-	defer dbexec.Rollback(transaction)
+	defer dbapi.Rollback(transaction)
 	result, err := recordstore.UpdateReviewMultidiscAttachments(ctx, transaction, recordstore.Update{
 		Set: `state='REJECTED',error_code=?,diagnostics_json=?,finished_at_ms=?,version=version+1,updated_at_ms=?`,
 		Scope: recordstore.Scope{
@@ -61,9 +61,9 @@ func (repository *MultiDiscAttachmentFinalization) TryRetry(
 	if err != nil {
 		return application.MultiDiscAttachmentRetryResult{}, fmt.Errorf("begin multi-disc retry: %w", err)
 	}
-	defer dbexec.Rollback(transaction)
+	defer dbapi.Rollback(transaction)
 	var attemptCount, maxAttempts, deadline int64
-	if err := transaction.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, transaction, `
 SELECT attempt_count,max_attempts,execution_deadline_at_ms
 FROM jobs WHERE id=? AND state='RUNNING' AND worker_id=?
 `, write.Target.JobID, write.Target.WorkerID).Scan(&attemptCount, &maxAttempts, &deadline); err != nil {
@@ -114,7 +114,7 @@ func (repository *MultiDiscAttachmentFinalization) FailRetryable(
 	if err != nil {
 		return fmt.Errorf("begin multi-disc retry failure: %w", err)
 	}
-	defer dbexec.Rollback(transaction)
+	defer dbapi.Rollback(transaction)
 	result, err := recordstore.UpdateReviewMultidiscAttachments(ctx, transaction, recordstore.Update{
 		Set:    `state='FAILED_RETRYABLE',error_code=?,diagnostics_json=?,finished_at_ms=?,version=version+1,updated_at_ms=?`,
 		Scope:  recordstore.Scope{Where: `id=? AND state='RUNNING'`, Args: []any{write.Target.AttachmentID}},
@@ -164,7 +164,7 @@ func (repository *MultiDiscAttachmentFinalization) FinishCancellation(
 	ctx context.Context, write application.MultiDiscAttachmentCancellationWrite,
 ) (bool, error) {
 	var state string
-	if err := repository.database.QueryRowContext(ctx,
+	if err := dbapi.QueryRowContext(ctx, repository.database,
 		`SELECT state FROM jobs WHERE id=? AND worker_id=?`, write.Target.JobID, write.Target.WorkerID,
 	).Scan(&state); err != nil {
 		return false, fmt.Errorf("read multi-disc cancellation state: %w", err)
@@ -176,7 +176,7 @@ func (repository *MultiDiscAttachmentFinalization) FinishCancellation(
 	if err != nil {
 		return false, fmt.Errorf("begin multi-disc cancellation: %w", err)
 	}
-	defer dbexec.Rollback(transaction)
+	defer dbapi.Rollback(transaction)
 	result, err := recordstore.UpdateReviewMultidiscAttachments(ctx, transaction, recordstore.Update{
 		Set: `state='CANCELLED',error_code='CANCELLED',
 diagnostics_json='{"errorCode":"CANCELLED","schemaVersion":1}',finished_at_ms=?,

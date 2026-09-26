@@ -2,21 +2,20 @@ package sourceimport
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"fmt"
 
 	payload "retrom/internal/persistence/payloadrelease"
 	payloadService "retrom/internal/service/payloadrelease"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/recordstore"
 	application "retrom/internal/service/sourceimport"
 )
 
-type Completion struct{ database *sql.DB }
+type Completion struct{ database dbapi.DB }
 
-func NewCompletion(database *sql.DB) *Completion { return &Completion{database: database} }
+func NewCompletion(database dbapi.DB) *Completion { return &Completion{database: database} }
 func (repository *Completion) WithCompletion(
 	ctx context.Context,
 	work func(application.CompletionRecords) error,
@@ -25,7 +24,7 @@ func (repository *Completion) WithCompletion(
 	if err != nil {
 		return fmt.Errorf("begin Source completion: %w", err)
 	}
-	defer dbexec.Rollback(tx)
+	defer dbapi.Rollback(tx)
 	if err := work(completionRecords{tx}); err != nil {
 		return err
 	}
@@ -35,7 +34,7 @@ func (repository *Completion) WithCompletion(
 	return nil
 }
 
-type completionRecords struct{ tx *sql.Tx }
+type completionRecords struct{ tx dbapi.Tx }
 
 func (records completionRecords) Current(ctx context.Context, id string) (application.ExecutionSnapshot, error) {
 	return leaseRecords(records).Current(ctx, id)
@@ -43,7 +42,7 @@ func (records completionRecords) Current(ctx context.Context, id string) (applic
 
 func (records completionRecords) Counts(ctx context.Context, id string) (application.CompletionCounts, error) {
 	var result application.CompletionCounts
-	err := records.tx.QueryRowContext(ctx, `SELECT
+	err := dbapi.QueryRowContext(ctx, records.tx, `SELECT
 count(*) FILTER(WHERE execution_state IN ('BLOCKED_SOURCE','BLOCKED_CONTENT')),
 count(*) FILTER(WHERE execution_state IN ('SOURCE_CHANGED','READ_FAILED','COMMIT_FAILED')),
 count(*) FILTER(WHERE execution_state='REVIEW_PENDING'),count(*) FILTER(WHERE execution_state='PUBLISHED'),

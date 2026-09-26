@@ -3,9 +3,10 @@ package composition
 import (
 	"context"
 	"crypto/rand"
-	"database/sql"
 	"fmt"
 	"time"
+
+	dbapi "retrom/internal/database"
 
 	"retrom/internal/authn"
 	"retrom/internal/config"
@@ -16,7 +17,7 @@ import (
 
 func NewAccounts(
 	ctx context.Context,
-	database *sql.DB,
+	database dbapi.DB,
 	credentials *runtime.Credentials,
 	mode config.Mode,
 	blocklist authn.Blocklist,

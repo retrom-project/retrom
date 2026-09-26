@@ -4,18 +4,17 @@ package libraryimport
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"testing"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	repository "retrom/internal/persistence/libraryimport"
 	application "retrom/internal/service/libraryimport"
 )
 
 type approvalMutatingReader struct {
 	application.ReviewApprovalReader
-	transaction *sql.Tx
+	transaction dbapi.Tx
 	mutation    string
 	importID    string
 }
@@ -49,7 +48,7 @@ func verifyApprovalFence(t *testing.T, stage, mutation string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer dbexec.Rollback(transaction)
+	defer dbapi.Rollback(transaction)
 	scope := repository.BindReviewApproval(transaction)
 	scope.Reader = approvalMutatingReader{ReviewApprovalReader: scope.Reader, transaction: transaction, mutation: mutation, importID: created.Created.ImportJobID}
 	result, err := fixture.service.reviewApprovals().ApproveInScope(t.Context(), scope, application.ReviewApprovalRequest{ItemID: created.Items[0].ItemID, ExpectedVersion: 1})
@@ -57,7 +56,7 @@ func verifyApprovalFence(t *testing.T, stage, mutation string) {
 		t.Fatalf("result=%+v err=%v", result, err)
 	}
 	var games, variants, published int
-	if err := transaction.QueryRowContext(t.Context(), `SELECT (SELECT count(*) FROM games),(SELECT count(*) FROM game_variants),(SELECT count(*) FROM import_items WHERE state='PUBLISHED')`).Scan(&games, &variants, &published); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), transaction, `SELECT (SELECT count(*) FROM games),(SELECT count(*) FROM game_variants),(SELECT count(*) FROM import_items WHERE state='PUBLISHED')`).Scan(&games, &variants, &published); err != nil {
 		t.Fatal(err)
 	}
 	expectedPublished := 1

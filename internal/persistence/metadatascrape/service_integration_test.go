@@ -34,7 +34,7 @@ import (
 	dependencypersistence "retrom/internal/persistence/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
@@ -94,7 +94,7 @@ func TestImportPersistsHasheousEvidenceCandidateAndAsset(t *testing.T) {
 	current, _ := uploadService.Get(ctx, upload.ID)
 	jobID, _, err := uploadService.Complete(ctx, upload.ID, current.Version)
 	testassert.False(t, err != nil, err)
-	waitForState(t, database.SQL.QueryRowContext, `
+	waitForState(t, database.SQL, `
 SELECT state
 FROM jobs
 WHERE id=?
@@ -143,7 +143,7 @@ WHERE id=?
 	testassert.Falsef(t, created.State != "RUNNING", "initial import state = %s", created.State)
 	var initialItemState, initialJobState string
 	var initialRunning, initialReviewPending int
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT i.state,
 j.state,
 j.running_item_count,
@@ -169,7 +169,7 @@ WHERE j.id=?
 	}
 	close(lookupGate)
 	var scrapeJobID string
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT job_id
 FROM metadata_scrape_runs r
 JOIN import_items i ON i.id=r.import_item_id
@@ -177,13 +177,13 @@ WHERE i.import_job_id=?
 `, created.ImportJobID).Scan(&scrapeJobID); err != nil {
 		t.Fatal(err)
 	}
-	waitForState(t, database.SQL.QueryRowContext, `
+	waitForState(t, database.SQL, `
 SELECT state
 FROM jobs
 WHERE id=?
 `, scrapeJobID, "SUCCEEDED")
 	var rawProfile, rawCRC32, rawMD5, rawSHA1, rawSHA256 string
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT profile,
 crc32,
 md5,
@@ -202,7 +202,7 @@ WHERE r.job_id=?
 	}
 	waitMetadataMedia(t, database.SQL, scrapeJobID)
 	var candidates, attempts, readyAssets, rawResponses int
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT (SELECT count(*)
 FROM scrape_candidates c
 JOIN metadata_scrape_runs r ON r.id=c.scrape_run_id
@@ -233,7 +233,7 @@ AND p.raw_response_blob_id IS NOT NULL)
 	}
 	testassert.Falsef(t, testassert.Any(func() bool { return lookupCount.Load() != 2 }, func() bool { return candidates != 1 }, func() bool { return attempts != 2 }, func() bool { return readyAssets != 1 }, func() bool { return rawResponses != 2 }), "lookup/candidates/attempts/assets/raw = %d/%d/%d/%d/%d", lookupCount.Load(), candidates, attempts, readyAssets, rawResponses)
 	var firstItemID, candidateID, candidateAssetID string
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT i.id,
 c.id,
 a.id
@@ -248,7 +248,7 @@ AND a.status='READY'
 	}
 	var finalItemState, finalJobState, selectedCandidateID, selectedCoverID, metadataJSON string
 	var finalRunning, finalReviewPending int
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT i.state,
 j.state,
 j.running_item_count,
@@ -304,7 +304,7 @@ WHERE i.id=?
 	secondCurrent, _ := uploadService.Get(ctx, secondUpload.ID)
 	secondFinalizeJob, _, err := uploadService.Complete(ctx, secondUpload.ID, secondCurrent.Version)
 	testassert.False(t, err != nil, err)
-	waitForState(t, database.SQL.QueryRowContext, `
+	waitForState(t, database.SQL, `
 SELECT state
 FROM jobs
 WHERE id=?
@@ -319,7 +319,7 @@ WHERE id=?
 	)
 	testassert.False(t, err != nil, err)
 	var secondScrapeJobID string
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT job_id
 FROM metadata_scrape_runs r
 JOIN import_items i ON i.id=r.import_item_id
@@ -327,7 +327,7 @@ WHERE i.import_job_id=?
 `, secondImport.ImportJobID).Scan(&secondScrapeJobID); err != nil {
 		t.Fatal(err)
 	}
-	waitForState(t, database.SQL.QueryRowContext, `
+	waitForState(t, database.SQL, `
 SELECT state
 FROM jobs
 WHERE id=?
@@ -335,7 +335,7 @@ WHERE id=?
 	var memberProfile string
 	var memberArchiveID sql.NullString
 	var memberOrdinal sql.NullInt64
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT e.profile,
 e.archive_blob_id,
 e.archive_entry_ordinal
@@ -347,7 +347,7 @@ WHERE r.job_id=?
 		t.Fatalf("archive member evidence = %s/%#v/%#v, error=%v", memberProfile, memberArchiveID, memberOrdinal, err)
 	}
 	var networkAttempts, cacheAttempts, providerResponses int64
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT
 (SELECT count(*)
 FROM metadata_scrape_query_attempts
@@ -366,7 +366,7 @@ WHERE provider='HASHEOUS')
 	approved, err := importer.ApproveWithReason(ctx, firstItemID, draftVersion, &reason)
 	testassert.False(t, err != nil, err)
 	var publishedAssets int
-	if err := database.SQL.QueryRowContext(ctx, "SELECT count(*) FROM game_assets WHERE game_id=? AND kind='COVER'", approved.GameID).Scan(&publishedAssets); err != nil || publishedAssets != 1 {
+	if err := dbapi.QueryRowContext(ctx, database.SQL, "SELECT count(*) FROM game_assets WHERE game_id=? AND kind='COVER'", approved.GameID).Scan(&publishedAssets); err != nil || publishedAssets != 1 {
 		t.Fatalf("published cover=%d err=%v", publishedAssets, err)
 	}
 
@@ -397,7 +397,7 @@ WHERE provider='HASHEOUS')
 	failureCurrent, _ := uploadService.Get(ctx, failureUpload.ID)
 	failureFinalizeJob, _, err := uploadService.Complete(ctx, failureUpload.ID, failureCurrent.Version)
 	testassert.False(t, err != nil, err)
-	waitForState(t, database.SQL.QueryRowContext, `
+	waitForState(t, database.SQL, `
 SELECT state
 FROM jobs
 WHERE id=?
@@ -412,7 +412,7 @@ WHERE id=?
 	)
 	testassert.False(t, err != nil, err)
 	var failureItemID string
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT id
 FROM import_items
 WHERE import_job_id=?
@@ -421,7 +421,7 @@ WHERE import_job_id=?
 	}
 	failureTransaction, err := database.SQL.BeginTx(ctx, nil)
 	testassert.False(t, err != nil, err)
-	defer dbexec.Rollback(failureTransaction)
+	defer dbapi.Rollback(failureTransaction)
 	if _, err := failureTransaction.ExecContext(ctx, `
 UPDATE import_items
 SET state='SCRAPING'
@@ -456,14 +456,14 @@ WHERE id=?
 	if err := scraper.Run(ctx, failureScrape.RunID); err == nil {
 		t.Fatal("invalid metadata task payload should fail")
 	}
-	waitForState(t, database.SQL.QueryRowContext, `
+	waitForState(t, database.SQL, `
 SELECT state
 FROM jobs
 WHERE id=?
 `, failureScrape.JobID, "FAILED")
 	var failedItemState, failedImportState, failedCode string
 	var failedRunning, failedItems, failedReviewPending int
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT i.state,
 j.state,
 j.running_item_count,
@@ -643,7 +643,7 @@ status) VALUES(?,
 	current, _ := uploadService.Get(ctx, upload.ID)
 	finalizeJob, _, err := uploadService.Complete(ctx, upload.ID, current.Version)
 	testassert.False(t, err != nil, err)
-	waitForState(t, database.SQL.QueryRowContext, `
+	waitForState(t, database.SQL, `
 SELECT state
 FROM jobs
 WHERE id=?
@@ -693,7 +693,7 @@ WHERE id=?
 	)
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return created.ItemCount != 1 }), "create arcade import = %#v, error=%v", created, err)
 	var itemID string
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT id
 FROM import_items
 WHERE import_job_id=?
@@ -702,13 +702,13 @@ WHERE import_job_id=?
 	}
 	scheduled, _, err := scraper.ScheduleReview(ctx, itemID, 1, "HASHEOUS")
 	testassert.False(t, err != nil, err)
-	waitForState(t, database.SQL.QueryRowContext, `
+	waitForState(t, database.SQL, `
 SELECT state
 FROM jobs
 WHERE id=?
 `, scheduled.JobID, "SUCCEEDED")
 	var evidenceCount, arcadeProfileCount, leakedHashCount int
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT count(*),
 sum(profile='ARCADE_DAT_ENTRIES'),
 sum(md5 IS NOT NULL
@@ -731,7 +731,7 @@ WHERE scrape_run_id=?
 	}
 	waitMetadataMedia(t, database.SQL, scheduled.JobID)
 	var candidateCount, hitCount, readyAssetCount int
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT (SELECT count(*) FROM scrape_candidates WHERE scrape_run_id=?),
 (SELECT count(*)
 FROM scrape_candidate_hits h
@@ -813,14 +813,12 @@ func makeDeterministicZIP(t *testing.T, files map[string][]byte) []byte {
 	return output.Bytes()
 }
 
-type queryRow func(context.Context, string, ...any) *sql.Row
-
-func waitForState(t *testing.T, query queryRow, statement string, id string, expected string) {
+func waitForState(t *testing.T, query dbapi.Queryer, statement string, id string, expected string) {
 	t.Helper()
 	deadline := time.Now().Add(3 * time.Second)
 	for {
 		var state string
-		if err := query(context.Background(), statement, id).Scan(&state); err == nil && state == expected {
+		if err := dbapi.QueryRowContext(t.Context(), query, statement, id).Scan(&state); err == nil && state == expected {
 			return
 		}
 		testassert.Falsef(t, time.Now().After(deadline), "state did not become %s", expected)

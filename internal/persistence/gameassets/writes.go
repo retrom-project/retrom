@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	"retrom/internal/cleanup"
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/recordstore"
 	application "retrom/internal/service/gameassets"
 )
@@ -15,13 +15,13 @@ import (
 var errReleaseSchedulerUnavailable = errors.New("game asset payload release scheduler unavailable")
 
 type writeScope struct {
-	executor dbexec.Executor
+	executor dbapi.Executor
 	releases ReleaseScheduler
 }
 
 func (scope writeScope) GameVersion(ctx context.Context, gameID string) (int64, error) {
 	var version int64
-	err := scope.executor.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, scope.executor, `
 SELECT g.version
 FROM games g
 WHERE g.id=?
@@ -34,7 +34,7 @@ AND g.status='PUBLISHED'`, gameID).Scan(&version)
 
 func (scope writeScope) AssetExists(ctx context.Context, gameID, kind string) (bool, error) {
 	var exists int
-	err := scope.executor.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, scope.executor, `
 SELECT 1
 FROM game_assets
 WHERE game_id=?

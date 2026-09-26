@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 
+	dbapi "retrom/internal/database"
 	importpersistence "retrom/internal/persistence/serverimport"
 	importservice "retrom/internal/service/serverimport"
 )
@@ -36,7 +37,7 @@ func TestDiscoveryWritesRollbackAfterLateFailure(t *testing.T) {
 	}
 	var candidates int64
 	var state string
-	if err := database.QueryRowContext(t.Context(), `SELECT state,(SELECT count(*) FROM server_bios_import_candidates WHERE server_import_id=?) FROM server_bios_import_items WHERE server_import_id=?`, unit.ImportID, unit.ImportID).Scan(&state, &candidates); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), database, `SELECT state,(SELECT count(*) FROM server_bios_import_candidates WHERE server_import_id=?) FROM server_bios_import_items WHERE server_import_id=?`, unit.ImportID, unit.ImportID).Scan(&state, &candidates); err != nil {
 		t.Fatal(err)
 	}
 	if state != "PENDING" || candidates != 0 {
@@ -48,7 +49,7 @@ func TestDiscoveryWritesRollbackAfterLateFailure(t *testing.T) {
 	if err := service.Reset(t.Context(), unit); !errors.Is(err, context.Canceled) {
 		t.Fatalf("reset late failure: %v", err)
 	}
-	if err := database.QueryRowContext(t.Context(), `SELECT state,(SELECT count(*) FROM server_bios_import_candidates WHERE server_import_id=?) FROM server_bios_import_items WHERE server_import_id=?`, unit.ImportID, unit.ImportID).Scan(&state, &candidates); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), database, `SELECT state,(SELECT count(*) FROM server_bios_import_candidates WHERE server_import_id=?) FROM server_bios_import_items WHERE server_import_id=?`, unit.ImportID, unit.ImportID).Scan(&state, &candidates); err != nil {
 		t.Fatal(err)
 	}
 	if state != "EVALUATING" || candidates != 1 {

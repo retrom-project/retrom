@@ -6,6 +6,7 @@ import (
 	"errors"
 	"testing"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/libraryimport"
 
 	"github.com/google/uuid"
@@ -43,10 +44,10 @@ func TestRecordPlayFinishDuringLoadingClosesCreatedLaunch(t *testing.T) {
 	}
 	var state string
 	var playCount int
-	if err := fixture.database.QueryRowContext(t.Context(), `SELECT state FROM launch_sessions WHERE id=?`, created.LaunchID).Scan(&state); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT state FROM launch_sessions WHERE id=?`, created.LaunchID).Scan(&state); err != nil {
 		t.Fatal(err)
 	}
-	if err := fixture.database.QueryRowContext(t.Context(), `SELECT count(*) FROM play_sessions WHERE launch_session_id=?`, created.LaunchID).Scan(&playCount); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT count(*) FROM play_sessions WHERE launch_session_id=?`, created.LaunchID).Scan(&playCount); err != nil {
 		t.Fatal(err)
 	}
 	if state != "FINISHED" || playCount != 0 {
@@ -73,7 +74,7 @@ func TestRecordPlayStartRejectsIdentityFailureAtomically(t *testing.T) {
 		t.Fatalf("entropy failure started play: %#v %v", result, err)
 	}
 	var count int
-	if err := fixture.database.QueryRowContext(t.Context(), `SELECT count(*) FROM play_sessions WHERE launch_session_id=?`, created.LaunchID).Scan(&count); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT count(*) FROM play_sessions WHERE launch_session_id=?`, created.LaunchID).Scan(&count); err != nil {
 		t.Fatal(err)
 	}
 	if count != 0 {

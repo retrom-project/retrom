@@ -2,14 +2,15 @@ package maintenance
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
+
+	dbapi "retrom/internal/database"
 
 	"retrom/internal/cleanup"
 	"retrom/internal/service/maintenance"
 )
 
-func backupBlobs(ctx context.Context, database *sql.DB) ([]maintenance.Blob, error) {
+func backupBlobs(ctx context.Context, database dbapi.DB) ([]maintenance.Blob, error) {
 	rows, err := database.QueryContext(ctx, `SELECT sha256,size_bytes FROM blobs ORDER BY sha256`)
 	if err != nil {
 		return nil, fmt.Errorf("list backup blobs: %w", err)
@@ -29,7 +30,7 @@ func backupBlobs(ctx context.Context, database *sql.DB) ([]maintenance.Blob, err
 	return result, nil
 }
 
-func backupParts(ctx context.Context, database *sql.DB) ([]maintenance.UploadPart, error) {
+func backupParts(ctx context.Context, database dbapi.DB) ([]maintenance.UploadPart, error) {
 	rows, err := database.QueryContext(ctx, `SELECT p.storage_key,p.size_bytes,p.sha256 FROM upload_parts p
  JOIN upload_files f ON f.id=p.upload_file_id JOIN upload_sessions u ON u.id=f.upload_session_id
  WHERE u.state!='COMPLETE' ORDER BY p.storage_key`)

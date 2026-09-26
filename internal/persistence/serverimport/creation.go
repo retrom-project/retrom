@@ -2,23 +2,22 @@ package serverimport
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/recordstore"
 	"retrom/internal/service/serverimport"
 )
 
-type Creation struct{ database *sql.DB }
+type Creation struct{ database dbapi.DB }
 
-func NewCreation(database *sql.DB) *Creation { return &Creation{database: database} }
+func NewCreation(database dbapi.DB) *Creation { return &Creation{database: database} }
 func (repository *Creation) WithCreate(ctx context.Context, work func(serverimport.CreationWriter) error) error {
 	tx, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin import creation: %w", err)
 	}
-	defer dbexec.Rollback(tx)
+	defer dbapi.Rollback(tx)
 	if err := work(creationRecords{tx}); err != nil {
 		return err
 	}
@@ -28,11 +27,11 @@ func (repository *Creation) WithCreate(ctx context.Context, work func(serverimpo
 	return nil
 }
 
-type creationRecords struct{ executor dbexec.Executor }
+type creationRecords struct{ executor dbapi.Executor }
 
 func (records creationRecords) Active(ctx context.Context, kind string) (bool, error) {
 	var active bool
-	err := records.executor.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, records.executor, `
 SELECT EXISTS(SELECT 1 FROM server_imports WHERE kind=? AND state IN ('QUEUED','RUNNING','CANCEL_REQUESTED'))
 `, kind).Scan(&active)
 	if err != nil {

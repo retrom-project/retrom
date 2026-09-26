@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/service/maintenance"
 	"retrom/internal/testsupport"
 )
@@ -55,7 +56,7 @@ func TestRestoreSecurityFailureRollsBackRevocationsAndAudit(t *testing.T) {
 		t.Fatalf("restore failure: %v", err)
 	}
 	var sessions, links, audits int
-	err = database.SQL.QueryRowContext(t.Context(), `SELECT
+	err = dbapi.QueryRowContext(t.Context(), database.SQL, `SELECT
  (SELECT count(*) FROM auth_sessions WHERE revoked_at_ms IS NULL),
  (SELECT count(*) FROM account_links WHERE revoked_at_ms IS NULL AND version=1),
  (SELECT count(*) FROM audit_events WHERE id='audit')`).Scan(&sessions, &links, &audits)

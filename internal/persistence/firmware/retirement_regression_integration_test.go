@@ -4,7 +4,6 @@ package firmware
 
 import (
 	"context"
-	"database/sql"
 	"database/sql/driver"
 	"errors"
 	"strings"
@@ -13,6 +12,7 @@ import (
 	"time"
 
 	"retrom/internal/blobstore"
+	dbapi "retrom/internal/database"
 	"retrom/internal/payloadrelease"
 	"retrom/internal/persistence/recordstore"
 	"retrom/internal/testsupport"
@@ -25,7 +25,7 @@ type retirementFailedCount struct {
 
 func (result retirementFailedCount) RowsAffected() (int64, error) { return 0, result.cause }
 
-func faultRetirementService(t *testing.T, db *sql.DB, now int64, prefix, fragment string,
+func faultRetirementService(t *testing.T, db dbapi.DB, now int64, prefix, fragment string,
 	cause error, hits *atomic.Int64,
 ) *payloadrelease.Service {
 	t.Helper()
@@ -61,7 +61,7 @@ func TestBIOSRetirementRollsBackUnconfirmedInstallationRelease(t *testing.T) {
 	service := faultRetirementService(t, db, now, "UPDATE bios_installations SET", "blob_id=NULL", cause, &hits)
 	err := service.ReconcileGC(t.Context())
 	var retained, variants int
-	readErr := db.QueryRowContext(t.Context(), `SELECT blob_id IS NOT NULL,
+	readErr := dbapi.QueryRowContext(t.Context(), db, `SELECT blob_id IS NOT NULL,
 (SELECT count(*) FROM variant_files WHERE game_variant_id='firmware-variant')
 FROM bios_installations WHERE id='expiry-installation'`).Scan(&retained, &variants)
 	if !errors.Is(err, cause) || hits.Load() != 1 || readErr != nil || retained != 1 || variants != 1 {
@@ -96,7 +96,7 @@ func TestLaunchRetirementRollsBackUnconfirmedWrites(t *testing.T) {
 	}
 }
 
-func seedExpiringFirmwarePlay(t *testing.T, db *sql.DB, now int64) {
+func seedExpiringFirmwarePlay(t *testing.T, db dbapi.DB, now int64) {
 	t.Helper()
 	_, err := updateFirmwareLaunch(t, db, recordstore.Update{
 		Set:   `hard_expires_at_ms=?,bootstrap_expires_at_ms=?,updated_at_ms=?,version=version+1`,
@@ -113,11 +113,11 @@ VALUES('expiry-play','firmware-launch','firmware-profile','firmware-game',?,?,'A
 	}
 }
 
-func assertFirmwareRetirementUnchanged(t *testing.T, db *sql.DB) {
+func assertFirmwareRetirementUnchanged(t *testing.T, db dbapi.DB) {
 	t.Helper()
 	var launch, play string
 	var content, external, released, saves int
-	err := db.QueryRowContext(t.Context(), `SELECT
+	err := dbapi.QueryRowContext(t.Context(), db, `SELECT
 (SELECT state FROM launch_sessions WHERE id='firmware-launch'),
 (SELECT state FROM play_sessions WHERE id='expiry-play'),
 (SELECT count(*) FROM launch_content_files WHERE launch_session_id='firmware-launch'),

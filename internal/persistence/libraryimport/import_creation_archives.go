@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"sort"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/importing"
 	"retrom/internal/persistence/blobcatalog"
 	"retrom/internal/persistence/recordstore"
@@ -66,7 +67,7 @@ func (records creationRecords) archiveEntry(
 ) error {
 	var current importing.ArchiveEntry
 	var currentBlob *string
-	err := records.transaction.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, records.transaction, `
 SELECT original_relative_path,normalized_path,ascii_casefold_path,archive_format,compression_profile,
  uncompressed_size_bytes,crc32,md5,sha1,sha256,materialized_blob_id
 FROM archive_entries WHERE archive_blob_id=? AND ordinal=?`, id, entry.Ordinal).Scan(

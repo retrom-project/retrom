@@ -7,12 +7,13 @@ import (
 	"fmt"
 
 	"retrom/internal/cleanup"
+	dbapi "retrom/internal/database"
 	"retrom/internal/service/gamecontent"
 )
 
 func (records records) Upload(ctx context.Context, id string) (gamecontent.Upload, error) {
 	var result gamecontent.Upload
-	err := records.executor.QueryRowContext(ctx, `SELECT state,source_type,
+	err := dbapi.QueryRowContext(ctx, records.executor, `SELECT state,source_type,
  (SELECT count(*) FROM upload_files WHERE upload_session_id=upload_sessions.id AND state='COMPLETE'),
  (SELECT count(*) FROM upload_consumptions WHERE upload_session_id=upload_sessions.id)
  FROM upload_sessions WHERE id=?`, id).Scan(&result.State, &result.SourceType, &result.FileCount, &result.Consumptions)
@@ -27,8 +28,9 @@ func (records records) Upload(ctx context.Context, id string) (gamecontent.Uploa
 
 func (records records) Input(ctx context.Context, id string, execution int64) (gamecontent.StoredInput, error) {
 	var result gamecontent.StoredInput
-	err := records.executor.QueryRowContext(
-		ctx,
+	err := dbapi.QueryRowContext(
+		ctx, records.executor,
+
 		`SELECT input.input_json,input.input_digest FROM job_input_snapshots input
  JOIN jobs job ON job.id=input.job_id
  WHERE input.job_id=? AND input.execution_no=? AND job.kind='GAME_CONTENT_REPLACE'`,

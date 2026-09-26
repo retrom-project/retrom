@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"retrom/internal/cleanup"
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/launch"
 )
 
@@ -28,7 +28,7 @@ SELECT logical_name,format,digest,size_bytes,role,sort_order,is_primary FROM (
 
 func projectIndexFiles(
 	ctx context.Context,
-	executor dbexec.Executor,
+	executor dbapi.Executor,
 	ref application.SessionRef,
 ) ([]application.ProjectIndexRecord, error) {
 	query := productProjectIndexFiles

@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	"retrom/internal/cleanup"
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/importfiles"
 	"retrom/internal/persistence/storequery"
 	application "retrom/internal/service/libraryimport"
@@ -15,9 +15,9 @@ import (
 	"github.com/google/uuid"
 )
 
-type Reconfigurations struct{ database *sql.DB }
+type Reconfigurations struct{ database dbapi.DB }
 
-func NewReconfigurations(database *sql.DB) *Reconfigurations {
+func NewReconfigurations(database dbapi.DB) *Reconfigurations {
 	return &Reconfigurations{database: database}
 }
 
@@ -29,7 +29,7 @@ func (repository *Reconfigurations) Source(
 	var source application.ReconfigurationSource
 	var state string
 	var version int64
-	err := repository.database.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, repository.database, `
 SELECT upload.source_type,import_job.state,import_job.version
 FROM import_jobs import_job
 JOIN upload_sessions upload ON upload.id=import_job.upload_session_id
@@ -81,10 +81,10 @@ func (repository *Reconfigurations) Clone(
 	if err != nil {
 		return fmt.Errorf("begin reconfiguration clone: %w", err)
 	}
-	defer dbexec.Rollback(transaction)
+	defer dbapi.Rollback(transaction)
 	var state string
 	var version int64
-	err = transaction.QueryRowContext(ctx, `
+	err = dbapi.QueryRowContext(ctx, transaction, `
 SELECT state,version FROM import_jobs WHERE id=?
 `, clone.SourceImportJobID).Scan(&state, &version)
 	if errors.Is(err, sql.ErrNoRows) || state != "PARTIAL_FAILURE" || version != clone.ExpectedVersion {
@@ -105,7 +105,7 @@ SELECT state,version FROM import_jobs WHERE id=?
 
 func InsertClonedUpload(
 	ctx context.Context,
-	executor dbexec.Executor,
+	executor dbapi.Executor,
 	uploadID, sourceType string,
 	files []application.PreparedReusableUploadFile,
 	manifestDigest string,
@@ -151,9 +151,9 @@ func (repository *Reconfigurations) RemoveUnused(ctx context.Context, uploadID s
 	if err != nil {
 		return fmt.Errorf("begin remove cloned upload: %w", err)
 	}
-	defer dbexec.Rollback(transaction)
+	defer dbapi.Rollback(transaction)
 	var consumptionCount int
-	if err := transaction.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, transaction, `
 SELECT count(*) FROM upload_consumptions WHERE upload_session_id=?
 `, uploadID).Scan(&consumptionCount); err != nil {
 		return fmt.Errorf("check cloned upload use: %w", err)

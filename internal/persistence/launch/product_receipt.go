@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/launch"
 )
 
@@ -17,7 +18,7 @@ func (records productCreationRecords) Replay(
 		return application.ProductReceipt{}, false, nil
 	}
 	var receipt application.ProductReceipt
-	err := records.executor.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, records.executor, `
 SELECT request_digest,http_status,response_body,created_at_ms,expires_at_ms
 FROM idempotency_records WHERE operation_id='postLaunch' AND principal_id=? AND key=?`,
 		command.ActorID, command.Key,

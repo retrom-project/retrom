@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/recordstore"
 	application "retrom/internal/service/libraryimport"
 )
@@ -16,18 +16,18 @@ type ReviewPreviewValidationDraft struct {
 	DOSEntry sql.NullString
 }
 
-type ReviewPreviewValidations struct{ executor dbexec.Executor }
+type ReviewPreviewValidations struct{ executor dbapi.Executor }
 
 // ReviewPreviewValidationRepository owns the transaction around preview
 // validation refreshes. The validation resolver remains a typed callback until
 // the legacy validation workflow is migrated into the application package.
 type ReviewPreviewValidationRepository struct {
-	database *sql.DB
+	database dbapi.DB
 	refresh  DraftValidationRefresher
 }
 
 func NewReviewPreviewValidationRepository(
-	database *sql.DB,
+	database dbapi.DB,
 	refresh DraftValidationRefresher,
 ) *ReviewPreviewValidationRepository {
 	return &ReviewPreviewValidationRepository{database: database, refresh: refresh}
@@ -39,7 +39,7 @@ func (repository *ReviewPreviewValidationRepository) Refresh(
 	if repository == nil || repository.refresh == nil {
 		return application.ErrInvalid
 	}
-	return NewTransactions(repository.database).Write(ctx, func(executor dbexec.Executor) error {
+	return NewTransactions(repository.database).Write(ctx, func(executor dbapi.Executor) error {
 		draft, err := BindReviewPreviewValidations(executor).Draft(ctx, itemID)
 		if err != nil {
 			return fmt.Errorf("read review preview draft: %w", err)
@@ -58,7 +58,7 @@ func (repository *ReviewPreviewValidationRepository) Refresh(
 	})
 }
 
-func BindReviewPreviewValidations(executor dbexec.Executor) ReviewPreviewValidations {
+func BindReviewPreviewValidations(executor dbapi.Executor) ReviewPreviewValidations {
 	return ReviewPreviewValidations{executor: executor}
 }
 
@@ -66,7 +66,7 @@ func (records ReviewPreviewValidations) Draft(
 	ctx context.Context, itemID string,
 ) (ReviewPreviewValidationDraft, error) {
 	var result ReviewPreviewValidationDraft
-	err := records.executor.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, records.executor, `
 SELECT draft.target_platform_instance_id,COALESCE(draft.selected_validation_id,''),draft.default_dos_entry
 FROM import_items draft JOIN import_items item ON item.id=draft.id
 WHERE item.id=? AND item.state='REVIEW_PENDING'

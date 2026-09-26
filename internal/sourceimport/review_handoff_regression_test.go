@@ -8,6 +8,7 @@ import (
 	"sync/atomic"
 	"testing"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/libraryimport"
 	repository "retrom/internal/persistence/sourceimport"
 	libraryservice "retrom/internal/service/libraryimport"
@@ -20,7 +21,7 @@ func handoffFixture(t *testing.T) (*Service, work, executionItem) {
 	service, _ := startFixture(t)
 	db := service.database
 	var instance, provider, target string
-	if err := db.QueryRowContext(t.Context(), `SELECT p.id,t.provider_id,t.target_id FROM platform_instances p
+	if err := dbapi.QueryRowContext(t.Context(), db, `SELECT p.id,t.provider_id,t.target_id FROM platform_instances p
  JOIN runtime_target_bindings t ON t.core_id=p.default_core_id
  WHERE p.platform_id='gba' AND p.enabled=1 ORDER BY p.sort_order,p.id LIMIT 1`).Scan(&instance, &provider, &target); err != nil {
 		t.Fatal(err)
@@ -84,7 +85,7 @@ func TestReviewHandoffRejectsPreviousExecution(t *testing.T) {
 	}
 	assertHandoffDraftUntouched(t, service)
 	var state string
-	if err := service.database.QueryRowContext(t.Context(), `SELECT execution_state FROM source_import_items WHERE id='item'`).Scan(&state); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), service.database, `SELECT execution_state FROM source_import_items WHERE id='item'`).Scan(&state); err != nil {
 		t.Fatal(err)
 	}
 	if state != "VALIDATING" {
@@ -96,7 +97,7 @@ func assertHandoffDraftUntouched(t *testing.T, service *Service) {
 	t.Helper()
 	var title, search string
 	var version int64
-	if err := service.database.QueryRowContext(t.Context(), `SELECT json_extract(d.metadata_json,'$.title'),d.review_version,i.search_text FROM import_items d JOIN import_items i ON i.id=d.id
+	if err := dbapi.QueryRowContext(t.Context(), service.database, `SELECT json_extract(d.metadata_json,'$.title'),d.review_version,i.search_text FROM import_items d JOIN import_items i ON i.id=d.id
  WHERE i.id='handoff-item'`).Scan(&title, &version, &search); err != nil {
 		t.Fatal(err)
 	}

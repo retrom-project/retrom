@@ -3,10 +3,10 @@ package payloadrelease
 import (
 	"context"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 )
 
-func GameBlobIDs(ctx context.Context, transaction dbexec.Executor, gameID string) ([]string, error) {
+func GameBlobIDs(ctx context.Context, transaction dbapi.Executor, gameID string) ([]string, error) {
 	return collectIDs(ctx, transaction, `
 SELECT blob_id FROM game_assets WHERE game_id=?
 UNION ALL SELECT file.blob_id FROM game_files file

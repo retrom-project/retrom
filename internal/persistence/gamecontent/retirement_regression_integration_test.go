@@ -4,7 +4,6 @@ package gamecontent
 
 import (
 	"context"
-	"database/sql"
 	"database/sql/driver"
 	"errors"
 	"path/filepath"
@@ -15,7 +14,7 @@ import (
 	"time"
 
 	"retrom/internal/blobstore"
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/dependencies"
 	"retrom/internal/libraryimport"
 	"retrom/internal/payloadrelease"
@@ -28,7 +27,7 @@ import (
 )
 
 type retirementFixture struct {
-	db                                  *sql.DB
+	db                                  dbapi.DB
 	releases                            *payloadrelease.Service
 	gameID, variantID, saveID, launchID string
 }
@@ -77,7 +76,7 @@ func contentRetirementFixture(t *testing.T) retirementFixture {
 	}
 	t.Cleanup(releases.Close)
 	var variantID string
-	if err := database.SQL.QueryRowContext(t.Context(), `SELECT id FROM game_variants WHERE game_id=?`, published.GameID).Scan(&variantID); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), database.SQL, `SELECT id FROM game_variants WHERE game_id=?`, published.GameID).Scan(&variantID); err != nil {
 		t.Fatal(err)
 	}
 	return retirementFixture{database.SQL, releases, published.GameID, variantID, saveID, launchID}
@@ -126,7 +125,7 @@ func TestContentRetirementRejectsUnconfirmedMutation(t *testing.T) {
 			if err == nil {
 				err = tx.Commit()
 			} else {
-				dbexec.Rollback(tx)
+				dbapi.Rollback(tx)
 			}
 			if err == nil || cause != nil && !errors.Is(err, cause) || hits.Load() != 1 {
 				t.Fatalf("unconfirmed retirement committed: hits=%d err=%v", hits.Load(), err)
@@ -140,7 +139,7 @@ func (fixture retirementFixture) assertUnchanged(t *testing.T) {
 	t.Helper()
 	var saves, files int
 	var state string
-	err := fixture.db.QueryRowContext(t.Context(), `SELECT
+	err := dbapi.QueryRowContext(t.Context(), fixture.db, `SELECT
  (SELECT count(*) FROM save_states WHERE id=?),
  (SELECT count(*) FROM launch_content_files WHERE launch_session_id=?),
  (SELECT state FROM launch_sessions WHERE id=?)`, fixture.saveID, fixture.launchID, fixture.launchID).Scan(&saves, &files, &state)

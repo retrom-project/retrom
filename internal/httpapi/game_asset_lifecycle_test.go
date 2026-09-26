@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/blobcatalog"
 
 	storagepersistence "retrom/internal/persistence/storageanalysis"
@@ -28,7 +28,7 @@ func TestGameCoverReplacementRetiresOldPayloadAndStagesCapacity(t *testing.T) {
 	coverBlobID, coverAssetID, videoAssetID := uuid.NewString(), uuid.NewString(), uuid.NewString()
 	transaction, err := server.database.BeginTx(t.Context(), nil)
 	testassert.False(t, err != nil, err)
-	defer dbexec.Rollback(transaction)
+	defer dbapi.Rollback(transaction)
 	fixture := gameDetailSeed{now: time.Now().UnixMilli()}
 	seedGameDetailMedia(
 		t, server, transaction, gameID, metadataID, contentID, coverBlobID, coverAssetID, videoAssetID, &fixture,
@@ -105,7 +105,7 @@ VALUES(?,?,'replacement.png',?,?,?,'COMPLETE',?,?)
 	assertRetiredGameAssetUnavailable(t, server, coverAssetID)
 
 	var retiredAssets, candidateCount int64
-	mustScanHTTPTest(t, server.database.QueryRowContext(t.Context(), `
+	mustScanHTTPTest(t, dbapi.QueryRowContext(t.Context(), server.database, `
 SELECT
  (SELECT count(*) FROM game_assets asset JOIN games game ON game.id=asset.game_id
   WHERE game.id=? AND asset.game_id<>game.id),

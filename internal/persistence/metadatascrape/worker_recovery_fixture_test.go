@@ -2,11 +2,12 @@ package metadatascrape
 
 import (
 	"context"
-	"database/sql"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
+
+	dbapi "retrom/internal/database"
 
 	"retrom/internal/service/metadatascrape"
 	"retrom/internal/testsupport"
@@ -16,7 +17,7 @@ var recoveryTime = time.Date(2028, 4, 5, 6, 7, 8, 0, time.UTC)
 
 func recoveryNow() time.Time { return recoveryTime }
 
-func recoveryDatabase(t *testing.T) *sql.DB {
+func recoveryDatabase(t *testing.T) dbapi.DB {
 	t.Helper()
 	database, err := testsupport.OpenDatabase(t.Context(), filepath.Join(t.TempDir(), "retrom.db"), recoveryNow)
 	if err != nil {
@@ -55,7 +56,7 @@ func (process recoveryProcess) Process(ctx context.Context, claim metadatascrape
 	return process(ctx, claim, payload)
 }
 
-func recoveryExec(t *testing.T, database *sql.DB, query string, args ...any) {
+func recoveryExec(t *testing.T, database dbapi.DB, query string, args ...any) {
 	t.Helper()
 	if _, err := database.ExecContext(t.Context(), query, args...); err != nil {
 		t.Fatal(err)

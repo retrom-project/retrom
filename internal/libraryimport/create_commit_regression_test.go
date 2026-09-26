@@ -4,13 +4,13 @@ package libraryimport
 
 import (
 	"context"
-	"database/sql"
 	"database/sql/driver"
 	"errors"
 	"strings"
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
 	repository "retrom/internal/persistence/libraryimport"
 	application "retrom/internal/service/libraryimport"
 	"retrom/internal/testsupport"
@@ -70,7 +70,7 @@ func TestImportCreationRejectsStaleQueuedExecution(t *testing.T) {
 			}
 			assertCreationEffectsUnchanged(t, service.database, before)
 			var state string
-			if err := service.database.QueryRowContext(t.Context(), `SELECT state FROM jobs WHERE id=?`, work.jobID).
+			if err := dbapi.QueryRowContext(t.Context(), service.database, `SELECT state FROM jobs WHERE id=?`, work.jobID).
 				Scan(&state); err != nil {
 				t.Fatal(err)
 			}
@@ -104,7 +104,7 @@ func commitPreparedFixture(
 	return result.Created, err
 }
 
-func creationEffectCounts(t *testing.T, database *sql.DB) map[string]int64 {
+func creationEffectCounts(t *testing.T, database dbapi.DB) map[string]int64 {
 	t.Helper()
 	result := make(map[string]int64)
 	for _, table := range []string{
@@ -114,7 +114,7 @@ func creationEffectCounts(t *testing.T, database *sql.DB) map[string]int64 {
 		"import_item_dos_entries", "import_item_multidisc_entries", "import_item_duplicate_matches",
 	} {
 		var count int64
-		if err := database.QueryRowContext(t.Context(), `SELECT count(*) FROM `+table).Scan(&count); err != nil {
+		if err := dbapi.QueryRowContext(t.Context(), database, `SELECT count(*) FROM `+table).Scan(&count); err != nil {
 			t.Fatal(err)
 		}
 		result[table] = count
@@ -122,7 +122,7 @@ func creationEffectCounts(t *testing.T, database *sql.DB) map[string]int64 {
 	return result
 }
 
-func assertCreationEffectsUnchanged(t *testing.T, database *sql.DB, before map[string]int64) {
+func assertCreationEffectsUnchanged(t *testing.T, database dbapi.DB, before map[string]int64) {
 	t.Helper()
 	for table, count := range creationEffectCounts(t, database) {
 		if count != before[table] {

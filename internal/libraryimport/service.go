@@ -2,10 +2,11 @@ package libraryimport
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"sync"
 	"time"
+
+	dbapi "retrom/internal/database"
 
 	composition "retrom/internal/composition/libraryimport"
 
@@ -22,7 +23,7 @@ import (
 
 type Service struct {
 	scummVMDetector        *scummvm.Detector
-	database               *sql.DB
+	database               dbapi.DB
 	blobs                  *blobstore.Store
 	now                    func() time.Time
 	scraper                *metadatascrape.Service
@@ -48,7 +49,7 @@ func (service *Service) WithBlobStore(blobs *blobstore.Store) *Service {
 	return service
 }
 
-func New(database *sql.DB, now func() time.Time, scraper ...*metadatascrape.Service) *Service {
+func New(database dbapi.DB, now func() time.Time, scraper ...*metadatascrape.Service) *Service {
 	service := &Service{
 		database: database, now: now, tags: tagging.New(tagpersistence.New(database), now),
 	}

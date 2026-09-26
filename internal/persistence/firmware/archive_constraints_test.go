@@ -1,15 +1,15 @@
 package firmware
 
 import (
-	"database/sql"
 	"testing"
 
+	dbsqlite "retrom/internal/database/sqlite"
 	"retrom/internal/importing"
 	firmwareservice "retrom/internal/service/firmware"
 )
 
 func TestInvalidArchiveFactsAreNotSilentlyIgnored(t *testing.T) {
-	database, err := sql.Open("sqlite", ":memory:")
+	database, err := dbsqlite.Open(":memory:", dbsqlite.Options{})
 	if err != nil {
 		t.Fatal(err)
 	}

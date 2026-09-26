@@ -1,14 +1,13 @@
 package payloadrelease
 
 import (
-	"database/sql"
 	"strings"
 	"testing"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 )
 
-func seedEffectOrdinarySource(t *testing.T, database *sql.DB) string {
+func seedEffectOrdinarySource(t *testing.T, database dbapi.DB) string {
 	t.Helper()
 	_, err := database.ExecContext(t.Context(), `
 INSERT INTO import_jobs(id,upload_session_id,target_platform_instance_id,platform_instance_version,platform_id,
@@ -30,7 +29,7 @@ VALUES('effect-item','CONTENT','fixture.gba','effect-file','effect-blob',0,10)`,
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer dbexec.Rollback(tx)
+	defer dbapi.Rollback(tx)
 	id, err := ScheduleTerminalImportItem(t.Context(), tx, "effect-item", ReasonImportPublished, 10)
 	if err != nil {
 		t.Fatal(err)
@@ -44,7 +43,7 @@ VALUES('effect-item','CONTENT','fixture.gba','effect-file','effect-blob',0,10)`,
 	return id
 }
 
-func seedEffectBoundSource(t *testing.T, database *sql.DB) {
+func seedEffectBoundSource(t *testing.T, database dbapi.DB) {
 	t.Helper()
 	_, err := database.ExecContext(t.Context(), `
 INSERT INTO profiles(id,display_name,created_at_ms) VALUES('effect-profile','Effect',10);
@@ -71,7 +70,7 @@ UPDATE games SET content_source_kind='IMPORT_RECEIVE',content_source_ref_id='eff
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer dbexec.Rollback(tx)
+	defer dbapi.Rollback(tx)
 	if _, err := ScheduleTerminalSourceItem(t.Context(), tx, "effect-source", 10); err != nil {
 		t.Fatal(err)
 	}

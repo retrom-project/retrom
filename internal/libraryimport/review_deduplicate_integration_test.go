@@ -5,13 +5,13 @@ package libraryimport
 import (
 	"bytes"
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"reflect"
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/blobcatalog"
 
 	"retrom/internal/blobstore"
@@ -20,7 +20,7 @@ import (
 
 type deduplicateFixture struct {
 	ctx      context.Context
-	database *sql.DB
+	database dbapi.DB
 	service  *Service
 	blobs    *blobstore.Store
 	platform string
@@ -98,7 +98,7 @@ func TestReviewDeduplicateDiscardsOnlyPublishedContentAcrossPages(t *testing.T) 
 		}
 	}
 	var games, events, discarded, pending int
-	if err := fixture.database.QueryRowContext(fixture.ctx, `
+	if err := dbapi.QueryRowContext(fixture.ctx, fixture.database, `
 SELECT (SELECT count(*) FROM games WHERE status='PUBLISHED'),
  (SELECT count(*) FROM import_items WHERE state='DISCARDED'),
  discarded_item_count,review_pending_item_count FROM import_jobs WHERE id=?`, copies.Created.ImportJobID).
@@ -117,7 +117,7 @@ SELECT (SELECT count(*) FROM games WHERE status='PUBLISHED'),
 func assertDeduplicateItemState(t *testing.T, fixture deduplicateFixture, itemID, expected string) {
 	t.Helper()
 	var actual string
-	if err := fixture.database.QueryRowContext(fixture.ctx, "SELECT state FROM import_items WHERE id=?", itemID).Scan(&actual); err != nil {
+	if err := dbapi.QueryRowContext(fixture.ctx, fixture.database, "SELECT state FROM import_items WHERE id=?", itemID).Scan(&actual); err != nil {
 		t.Fatal(err)
 	}
 	if actual != expected {
@@ -145,7 +145,7 @@ func TestReviewDeduplicateRollsBackPageOnDiscardFailure(t *testing.T) {
 		assertDeduplicateItemState(t, fixture, item.ItemID, "REVIEW_PENDING")
 	}
 	var count int
-	if err := fixture.database.QueryRowContext(fixture.ctx, "SELECT count(*) FROM import_items WHERE state='DISCARDED'").Scan(&count); err != nil {
+	if err := dbapi.QueryRowContext(fixture.ctx, fixture.database, "SELECT count(*) FROM import_items WHERE state='DISCARDED'").Scan(&count); err != nil {
 		t.Fatal(err)
 	}
 	if count != 0 {
@@ -188,7 +188,7 @@ func TestReviewDeduplicateSkipsActiveAttachmentsAndOtherPlatforms(t *testing.T) 
 	assertDeduplicateItemState(t, fixture, itemID, "REVIEW_PENDING")
 	assertDeduplicateItemState(t, fixture, otherPlatform.Items[0].ItemID, "REVIEW_PENDING")
 	var state string
-	if err := fixture.database.QueryRowContext(fixture.ctx, "SELECT state FROM review_arcade_parent_attachments WHERE id='deduplicate-attachment'").Scan(&state); err != nil {
+	if err := dbapi.QueryRowContext(fixture.ctx, fixture.database, "SELECT state FROM review_arcade_parent_attachments WHERE id='deduplicate-attachment'").Scan(&state); err != nil {
 		t.Fatal(err)
 	}
 	if state != "QUEUED" {

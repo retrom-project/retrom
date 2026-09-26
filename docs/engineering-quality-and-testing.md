@@ -155,7 +155,7 @@ Provider 的 checkpoint 压缩依赖由 `retrom-runtime` 自己固定和审计�
 - `nestif.min-complexity = 4`；
 - `misspell.locale = US`。
 
-这些阈值不是鼓励把逻辑拆成无意义的小函数。`funlen`、`gocyclo`、`gocognit`、`nestif`、`dupl` 和用于掩盖业务表达过长的 `lll` 属于结构性规则，任何生产或测试源码都不得用 inline suppression 规避；事务原子性通过命名步骤共享同一 `*sql.Tx` 保持，编排顺序和状态机边界通过短函数与显式阶段结果表达。
+这些阈值不是鼓励把逻辑拆成无意义的小函数。`funlen`、`gocyclo`、`gocognit`、`nestif`、`dupl` 和用于掩盖业务表达过长的 `lll` 属于结构性规则，任何生产或测试源码都不得用 inline suppression 规避；事务原子性通过命名步骤共享同一 `database.Tx` 保持，编排顺序和状态机边界通过短函数与显式阶段结果表达。
 
 ### 4.2 必须显式配置的规则
 
@@ -173,7 +173,7 @@ Provider 的 checkpoint 压缩依赖由 `retrom-runtime` 自己固定和审计�
 
 1. `internal/**` 不得导入 `cmd/**`；
 2. `internal/store/**` 与 `internal/blobstore/**` 不得导入 `httpapi`、`jobs` 或上层功能模块；
-3. `internal/arcadedat/**` 是解析与依赖图底层，不得导入 `httpapi`、`jobs`、`metadata`、`bios` 或 `catalog`；
+3. `internal/format/arcadedat/**` 是解析与依赖图底层，不得导入 `httpapi`、`jobs`、`metadata`、`bios` 或 `catalog`；
 4. `internal/httpapi/**` 可以调用应用模块，但 handler 不得绕过模块直接依赖具体 SQL 实现；
 5. `internal/service/jobs/**` 管理通用取消与重试；领域 Service 不得反向依赖该管理用例，领域 Worker 仍维护自身领取和执行协议。
 

@@ -2,12 +2,13 @@ package blobregistry
 
 import (
 	"context"
-	"database/sql"
 	_ "embed"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"sort"
+
+	dbapi "retrom/internal/database"
 
 	"retrom/internal/cleanup"
 )
@@ -54,7 +55,7 @@ func Load() ([]Edge, error) {
 }
 
 // Every branch validates a distinct generated registry/schema invariant in one audit pass.
-func ValidateSchema(ctx context.Context, database *sql.DB) error {
+func ValidateSchema(ctx context.Context, database dbapi.DB) error {
 	edges, err := Load()
 	if err != nil {
 		return err
@@ -75,7 +76,7 @@ func ValidateSchema(ctx context.Context, database *sql.DB) error {
 	return nil
 }
 
-func schemaBlobReferences(ctx context.Context, database *sql.DB) (map[string]string, error) {
+func schemaBlobReferences(ctx context.Context, database dbapi.DB) (map[string]string, error) {
 	rows, err := database.QueryContext(ctx, `
 SELECT name FROM sqlite_schema
 WHERE type='table' AND name NOT LIKE 'sqlite_%'
@@ -132,7 +133,7 @@ func compareBlobReferences(expected map[string]Edge, actual map[string]string) [
 	return problems
 }
 
-func foreignKeyTargets(ctx context.Context, database *sql.DB, table string) (map[string]string, error) {
+func foreignKeyTargets(ctx context.Context, database dbapi.DB, table string) (map[string]string, error) {
 	rows, err := database.QueryContext(ctx, `
 PRAGMA foreign_key_list(
 `+quoteIdentifier(table)+`)`)

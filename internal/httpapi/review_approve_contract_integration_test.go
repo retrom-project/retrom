@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/libraryimport"
 )
 
@@ -46,7 +47,7 @@ func TestReviewApprovalHTTPKeepsSuccessConflictAndDuplicateContracts(t *testing.
 		t.Fatalf("repeat=%d %s", repeat.Code, repeat.Body.String())
 	}
 	var count int
-	if err := server.database.QueryRowContext(t.Context(), `SELECT count(*) FROM games`).Scan(&count); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), server.database, `SELECT count(*) FROM games`).Scan(&count); err != nil {
 		t.Fatal(err)
 	}
 	if count != 2 {

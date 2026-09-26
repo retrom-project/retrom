@@ -106,6 +106,6 @@ func uploadMediaContent(t *testing.T, database *store.DB, blobs *blobstore.Store
 	if err != nil {
 		t.Fatal(err)
 	}
-	waitForState(t, database.SQL.QueryRowContext, `SELECT state FROM jobs WHERE id=?`, jobID, "SUCCEEDED")
+	waitForState(t, database.SQL, `SELECT state FROM jobs WHERE id=?`, jobID, "SUCCEEDED")
 	return upload.ID
 }

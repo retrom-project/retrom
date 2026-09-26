@@ -2,9 +2,10 @@ package payloadrelease
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"time"
+
+	dbapi "retrom/internal/database"
 
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
@@ -18,12 +19,12 @@ import (
 // transaction-bound adapters needed by HTTP/composition callers.
 type Service struct {
 	*application.Service
-	database *sql.DB
+	database dbapi.DB
 }
 
 func New(
 	ctx context.Context,
-	database *sql.DB,
+	database dbapi.DB,
 	blobs *blobstore.Store,
 	now func() time.Time,
 	retention time.Duration,
@@ -48,7 +49,7 @@ func New(
 // StageCandidates keeps a caller-owned transaction and the GC application
 // policy together.  It is intentionally a composition concern: the SQL
 // transaction is never exposed to the application service.
-func (service *Service) StageCandidates(ctx context.Context, transaction *sql.Tx, ids []string) error {
+func (service *Service) StageCandidates(ctx context.Context, transaction dbapi.Tx, ids []string) error {
 	if err := service.StageInScope(ctx, repository.BindGC(transaction), ids); err != nil {
 		return fmt.Errorf("stage payload release candidates: %w", err)
 	}
@@ -59,7 +60,7 @@ func (service *Service) StageCandidates(ctx context.Context, transaction *sql.Tx
 // transaction. The application scheduler is deliberately bound here so HTTP
 // adapters do not import persistence or the legacy payload package.
 func (service *Service) ScheduleConsumption(
-	ctx context.Context, transaction *sql.Tx, consumptionID string, now int64,
+	ctx context.Context, transaction dbapi.Tx, consumptionID string, now int64,
 ) (string, error) {
 	jobID, err := application.NewScheduler(nil).Consumption(
 		ctx, repository.BindScheduling(transaction), consumptionID, now,
@@ -73,7 +74,7 @@ func (service *Service) ScheduleConsumption(
 // ScheduleGameDeletion queues release of a game's payload in a caller-owned
 // transaction while keeping the transaction boundary in composition.
 func (service *Service) ScheduleGameDeletion(
-	ctx context.Context, transaction *sql.Tx, gameID string, version, now int64,
+	ctx context.Context, transaction dbapi.Tx, gameID string, version, now int64,
 ) (string, error) {
 	jobID, err := application.NewScheduler(nil).DeleteGame(
 		ctx, repository.BindScheduling(transaction), gameID, version, now,
@@ -86,7 +87,7 @@ func (service *Service) ScheduleGameDeletion(
 
 // GameDeleteImpactTx reads the deletion impact from a caller-owned transaction.
 func (service *Service) GameDeleteImpactTx(
-	ctx context.Context, transaction *sql.Tx, gameID string,
+	ctx context.Context, transaction dbapi.Tx, gameID string,
 ) (application.GameImpact, error) {
 	impact, err := application.NewImpactQueries(repository.BindImpact(transaction)).Game(ctx, gameID)
 	if err != nil {

@@ -3,7 +3,6 @@ package httpapi
 import (
 	"bytes"
 	"context"
-	"database/sql"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -17,7 +16,7 @@ import (
 	dependencypersistence "retrom/internal/persistence/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 
 	"retrom/internal/persistence/recordstore"
 
@@ -105,7 +104,7 @@ func TestBlockedReviewDetailRemainsVisibleWithoutSelectedValidation(t *testing.T
 	testassert.False(t, err != nil, err)
 	transaction, err := server.database.BeginTx(context.Background(), nil)
 	testassert.False(t, err != nil, err)
-	defer dbexec.Rollback(transaction)
+	defer dbapi.Rollback(transaction)
 	manifest := `{"files":[{"logicalName":"blocked.gba","role":"CONTENT"}]}`
 	seedReviewSources(t, transaction, uploadID, digest, importID, target, itemID, sourceBlobID, coverBlobID, uploadFileID, coverUploadFileID, sourceSnapshotID, manifest, timestamp, coverMetadata)
 	seedReviewValidation(t, transaction, validationID, itemID, target, digest, sourceSnapshotID, scrapeJobID, timestamp)
@@ -198,7 +197,7 @@ func assertRuntimeValidationCurrent(
 ) {
 	t.Helper()
 	var validationID, status string
-	if err := server.database.QueryRowContext(context.Background(), `
+	if err := dbapi.QueryRowContext(context.Background(), server.database, `
 SELECT id,status FROM import_item_core_validations
 WHERE import_item_id=? AND provider_id=? AND target_id=?
 ORDER BY created_at_ms DESC,id DESC LIMIT 1
@@ -360,7 +359,7 @@ WHERE id=?
 }
 
 func seedReviewSources(
-	t *testing.T, transaction *sql.Tx,
+	t *testing.T, transaction dbapi.Tx,
 	uploadID, digest, importID string, target testsupport.RuntimeTargetIdentity,
 	itemID, sourceBlobID, coverBlobID string,
 	uploadFileID, coverUploadFileID, sourceSnapshotID, manifest string,
@@ -478,7 +477,7 @@ VALUES(?,'CONTENT','blocked.zip',?,?,NULL,NULL,0,?)
 }
 
 func seedReviewValidation(
-	t *testing.T, transaction *sql.Tx,
+	t *testing.T, transaction dbapi.Tx,
 	validationID, itemID string, target testsupport.RuntimeTargetIdentity,
 	digest, sourceSnapshotID, scrapeJobID string,
 	timestamp int64,
@@ -554,7 +553,7 @@ updated_at_ms) VALUES(?,
 }
 
 func seedReviewMetadataEvidence(
-	t *testing.T, transaction *sql.Tx,
+	t *testing.T, transaction dbapi.Tx,
 	scrapeRunID, itemID, scrapeJobID, providerResponseID, candidateID, candidateAssetID string,
 	readyCoverAssetID, coverBlobID, digest string, timestamp int64,
 ) {

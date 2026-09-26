@@ -1,8 +1,9 @@
 package launch
 
 import (
-	"database/sql"
 	"time"
+
+	dbapi "retrom/internal/database"
 
 	"retrom/internal/cleanup"
 	"retrom/internal/launch"
@@ -12,7 +13,7 @@ import (
 )
 
 // New assembles the complete Launch application with one shared validation lifetime.
-func New(database *sql.DB, source *launch.Sources, publicOrigin string, now func() time.Time) *application.Service {
+func New(database dbapi.DB, source *launch.Sources, publicOrigin string, now func() time.Time) *application.Service {
 	worker := application.NewValidationWorker(
 		repository.NewValidationWorker(database),
 		application.ValidationWorkerEnvironment{Now: now},

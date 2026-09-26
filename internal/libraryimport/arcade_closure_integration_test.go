@@ -15,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
 	dependencypersistence "retrom/internal/persistence/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 
@@ -385,7 +386,7 @@ func waitForJob(t *testing.T, database *store.DB, jobID string) {
 	deadline := time.Now().Add(3 * time.Second)
 	for {
 		var state string
-		if err := database.SQL.QueryRowContext(context.Background(), `
+		if err := dbapi.QueryRowContext(context.Background(), database.SQL, `
 SELECT state
 FROM jobs
 WHERE id=?

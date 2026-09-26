@@ -4,11 +4,13 @@ package libraryimport
 
 import (
 	"context"
-	"database/sql"
 	"database/sql/driver"
 	"errors"
 	"strings"
 	"testing"
+
+	dbapi "retrom/internal/database"
+	dbsqlite "retrom/internal/database/sqlite"
 
 	"modernc.org/sqlite"
 )
@@ -100,10 +102,10 @@ func TestOwnedSourceRollsBackImportAndBindingOnTransactionFailure(t *testing.T) 
 			cause := errors.New("injected source " + phase + " failure")
 			var ordinal int
 			var name, path string
-			if err := fixture.database.QueryRowContext(fixture.ctx, `PRAGMA database_list`).Scan(&ordinal, &name, &path); err != nil {
+			if err := dbapi.QueryRowContext(fixture.ctx, fixture.database, `PRAGMA database_list`).Scan(&ordinal, &name, &path); err != nil {
 				t.Fatal(err)
 			}
-			intercepted := sql.OpenDB(sourceFaultConnector{path: path, phase: phase, cause: cause})
+			intercepted := dbsqlite.OpenConnector(sourceFaultConnector{path: path, phase: phase, cause: cause}, dbsqlite.Options{})
 			intercepted.SetMaxOpenConns(1)
 			t.Cleanup(func() {
 				if err := intercepted.Close(); err != nil {
@@ -128,7 +130,7 @@ func assertOwnedCreationRolledBack(t *testing.T, fixture deduplicateFixture) {
 	t.Helper()
 	var state, jobID, itemID string
 	var version, imports, items, drafts int
-	if err := fixture.database.QueryRowContext(fixture.ctx, `SELECT execution_state,COALESCE(library_import_job_id,''),COALESCE(library_import_item_id,''),version,
+	if err := dbapi.QueryRowContext(fixture.ctx, fixture.database, `SELECT execution_state,COALESCE(library_import_job_id,''),COALESCE(library_import_item_id,''),version,
 (SELECT count(*) FROM import_jobs),(SELECT count(*) FROM import_items),(SELECT count(*) FROM import_items)
 FROM source_import_items WHERE id='unlinked-source'`).Scan(&state, &jobID, &itemID, &version, &imports, &items, &drafts); err != nil {
 		t.Fatal(err)

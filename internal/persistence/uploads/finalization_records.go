@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"retrom/internal/cleanup"
+	dbapi "retrom/internal/database"
 	service "retrom/internal/service/uploads"
 )
 
@@ -36,7 +37,7 @@ WHERE id=? AND received_size_bytes>=?`, part.Part.Size, now, part.FileID, part.P
 
 func (records finalizationRecords) Count(ctx context.Context, id string) (int, error) {
 	var count int
-	err := records.executor.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, records.executor, `
 SELECT session.total_files-(SELECT count(*) FROM upload_files
 WHERE upload_session_id=session.id AND state='COMPLETE')
 FROM upload_sessions session WHERE session.id=?`, id).Scan(&count)
@@ -48,7 +49,7 @@ FROM upload_sessions session WHERE session.id=?`, id).Scan(&count)
 
 func (records finalizationRecords) Repair(ctx context.Context, key service.FileKey, number int) (bool, error) {
 	var allowed bool
-	err := records.executor.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, records.executor, `
 SELECT EXISTS(SELECT 1 FROM upload_sessions session JOIN jobs job ON job.id=session.finalize_job_id
 JOIN job_events event ON event.job_id=job.id AND event.event_type='FAILED'
 WHERE session.id=? AND job.state='FAILED' AND json_extract(event.data_json,'$.executionNo')=job.execution_no

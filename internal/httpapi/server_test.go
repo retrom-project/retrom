@@ -16,7 +16,7 @@ import (
 	dependencypersistence "retrom/internal/persistence/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 
 	"github.com/google/uuid"
 
@@ -161,7 +161,7 @@ func TestIdempotencyRecordsAreScopedToAuthenticatedUser(t *testing.T) {
 	replayA := send(userA)
 	testassert.Falsef(t, testassert.Any(func() bool { return firstA.Code != http.StatusCreated }, func() bool { return firstB.Code != http.StatusCreated }, func() bool { return replayA.Code != http.StatusCreated }, func() bool { return !strings.Contains(firstA.Body.String(), userA) }, func() bool { return !strings.Contains(firstB.Body.String(), userB) }, func() bool { return replayA.Header().Get("X-Retrom-Idempotent-Replay") != "true" }, func() bool { return calls != 2 }), "principal idempotency responses: A=%d %s B=%d %s replay=%d %s calls=%d", firstA.Code, firstA.Body.String(), firstB.Code, firstB.Body.String(), replayA.Code, replayA.Body.String(), calls)
 	var records int
-	if err := server.database.QueryRowContext(context.Background(),
+	if err := dbapi.QueryRowContext(context.Background(), server.database,
 		`SELECT count(*) FROM idempotency_records WHERE operation_id='postPrincipalScopeFixture' AND key=?`,
 		key,
 	).Scan(&records); err != nil || records != 2 {
@@ -204,7 +204,7 @@ func TestBIOSArchiveEntriesProjectLockedDATAndPersistedZIPFacts(t *testing.T) {
 	const now = int64(1_786_269_147_906)
 	transaction, err := server.database.BeginTx(context.Background(), nil)
 	testassert.False(t, err != nil, err)
-	defer dbexec.Rollback(transaction)
+	defer dbapi.Rollback(transaction)
 	requireHTTPTestRuntimeTarget(t, transaction, "mame2003_plus")
 	target, err := testsupport.LookupRuntimeTarget(t.Context(), transaction, "mame2003_plus")
 	testassert.False(t, err != nil, err)
@@ -346,7 +346,7 @@ func TestImportProjectionsIncludeRejectedFileProblems(t *testing.T) {
 	timestamp := now.UnixMilli()
 	transaction, err := server.database.BeginTx(context.Background(), nil)
 	testassert.False(t, err != nil, err)
-	defer dbexec.Rollback(transaction)
+	defer dbapi.Rollback(transaction)
 	mustExecHTTPTest(t, transaction, `PRAGMA defer_foreign_keys=ON`)
 	mustExecHTTPTest(t, transaction, `
 INSERT INTO blobs(id,sha256,size_bytes,md5,sha1,crc32,media_type,created_at_ms)
@@ -498,7 +498,7 @@ search_text,version,created_at_ms,updated_at_ms,completed_at_ms)
 VALUES(?,?,?,'DISCARDED','{"files":[]}',?,'discarded.gba',2,?,?,?)
 `, itemID, importID, digest, digest, timestamp, timestamp, timestamp)
 	var userID string
-	if err := server.database.QueryRowContext(context.Background(), `SELECT id FROM users WHERE status='ENABLED' ORDER BY id LIMIT 1`).Scan(&userID); err != nil {
+	if err := dbapi.QueryRowContext(context.Background(), server.database, `SELECT id FROM users WHERE status='ENABLED' ORDER BY id LIMIT 1`).Scan(&userID); err != nil {
 		t.Fatal(err)
 	}
 	mustExecHTTPTest(t, server.database, `

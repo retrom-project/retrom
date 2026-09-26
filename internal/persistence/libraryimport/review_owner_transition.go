@@ -4,13 +4,13 @@ import (
 	"context"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/recordstore"
 	application "retrom/internal/service/libraryimport"
 )
 
 func transitionServerReviewOwner(
-	ctx context.Context, transaction dbexec.Executor, table string, change application.ReviewOwnerTransition,
+	ctx context.Context, transaction dbapi.Executor, table string, change application.ReviewOwnerTransition,
 ) (int64, error) {
 	importItemID, state, gameID, now := change.ItemID, string(change.State), change.GameID, change.NowMS
 
@@ -35,8 +35,9 @@ func transitionServerReviewOwner(
 	}
 	if affected == 0 {
 		var linked int
-		if err := transaction.QueryRowContext(
-			ctx, `SELECT count(*) FROM `+table+` WHERE library_import_item_id=?`, importItemID,
+		if err := dbapi.QueryRowContext(
+			ctx, transaction,
+			`SELECT count(*) FROM `+table+` WHERE library_import_item_id=?`, importItemID,
 		).Scan(&linked); err != nil {
 			return 0, fmt.Errorf("libraryimport/server review link: %w", err)
 		}
@@ -49,7 +50,7 @@ func transitionServerReviewOwner(
 }
 
 func refreshSourceReviewCounts(
-	ctx context.Context, transaction dbexec.Executor, importItemID string, now int64,
+	ctx context.Context, transaction dbapi.Executor, importItemID string, now int64,
 ) error {
 	if _, err := recordstore.UpdateSourceImports(ctx, transaction, recordstore.Update{
 		Set: `

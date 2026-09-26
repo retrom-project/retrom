@@ -1,10 +1,11 @@
 package serverimport_test
 
 import (
-	"database/sql"
 	"fmt"
 	"os"
 	"time"
+
+	dbapi "retrom/internal/database"
 
 	"retrom/internal/blobstore"
 	"retrom/internal/composition"
@@ -35,7 +36,7 @@ var (
 	rankCandidates       = importservice.RankCandidates
 )
 
-func New(database *sql.DB, blobs *blobstore.Store, installer *firmware.Service, credentials *runtime.Credentials, configured []serversource.Root, now func() time.Time) *Service {
+func New(database dbapi.DB, blobs *blobstore.Store, installer *firmware.Service, credentials *runtime.Credentials, configured []serversource.Root, now func() time.Time) *Service {
 	return composition.NewServerImports(database, blobs, installer, credentials, configured, now)
 }
 

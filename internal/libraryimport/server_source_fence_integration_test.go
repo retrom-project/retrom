@@ -3,9 +3,11 @@
 package libraryimport
 
 import (
-	"database/sql"
 	"errors"
 	"testing"
+
+	dbapi "retrom/internal/database"
+	dbsqlite "retrom/internal/database/sqlite"
 )
 
 func TestOwnedSourceRechecksPreparedInputsAndExecutionBeforeWriting(t *testing.T) {
@@ -22,10 +24,10 @@ func TestOwnedSourceRechecksPreparedInputsAndExecutionBeforeWriting(t *testing.T
 			fixture, request := ownedSourceFixture(t)
 			var ordinal int
 			var schema, path string
-			if err := fixture.database.QueryRowContext(fixture.ctx, `PRAGMA database_list`).Scan(&ordinal, &schema, &path); err != nil {
+			if err := dbapi.QueryRowContext(fixture.ctx, fixture.database, `PRAGMA database_list`).Scan(&ordinal, &schema, &path); err != nil {
 				t.Fatal(err)
 			}
-			intercepted := sql.OpenDB(sourceFaultConnector{path: path, beforeCreation: func() error { _, err := fixture.database.ExecContext(fixture.ctx, statement); return err }})
+			intercepted := dbsqlite.OpenConnector(sourceFaultConnector{path: path, beforeCreation: func() error { _, err := fixture.database.ExecContext(fixture.ctx, statement); return err }}, dbsqlite.Options{})
 			intercepted.SetMaxOpenConns(1)
 			t.Cleanup(func() {
 				if err := intercepted.Close(); err != nil {
@@ -38,7 +40,7 @@ func TestOwnedSourceRechecksPreparedInputsAndExecutionBeforeWriting(t *testing.T
 				t.Fatalf("%s changed during prepare: %#v %v", name, result, err)
 			}
 			var imports, linked int
-			if err := fixture.database.QueryRowContext(fixture.ctx, `SELECT (SELECT count(*) FROM import_jobs),(SELECT count(*) FROM source_import_items WHERE library_import_item_id IS NOT NULL)`).Scan(&imports, &linked); err != nil {
+			if err := dbapi.QueryRowContext(fixture.ctx, fixture.database, `SELECT (SELECT count(*) FROM import_jobs),(SELECT count(*) FROM source_import_items WHERE library_import_item_id IS NOT NULL)`).Scan(&imports, &linked); err != nil {
 				t.Fatal(err)
 			}
 			if imports != 0 || linked != 0 {

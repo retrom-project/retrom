@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/recordstore"
 	"retrom/internal/persistence/sessionstore"
 	"retrom/internal/service/saves"
@@ -11,7 +12,7 @@ import (
 
 func (store records) Duration(ctx context.Context, id string) (saves.Duration, error) {
 	var duration saves.Duration
-	err := store.executor.QueryRowContext(ctx, `SELECT
+	err := dbapi.QueryRowContext(ctx, store.executor, `SELECT
  COALESCE((SELECT active_duration_ms FROM play_sessions WHERE launch_session_id=?),0),
  COALESCE((SELECT initial_active_duration_ms FROM launch_game_save_bindings WHERE launch_session_id=?),0)`, id, id).
 		Scan(&duration.ActiveMS, &duration.InitialMS)

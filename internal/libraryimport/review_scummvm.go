@@ -6,12 +6,12 @@ import (
 	"encoding/json"
 
 	"retrom/internal/core/scummvm"
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 )
 
 func (service *Service) selectScummVMCandidate(
 	ctx context.Context,
-	transaction dbexec.Executor,
+	transaction dbapi.Executor,
 	itemID, targetID string,
 	dosEntry sql.NullString,
 	candidateID string,

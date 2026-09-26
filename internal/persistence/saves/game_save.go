@@ -6,13 +6,14 @@ import (
 	"errors"
 	"fmt"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/recordstore"
 	"retrom/internal/service/saves"
 )
 
 func (store records) Binding(ctx context.Context, id string) (saves.GameSaveBinding, bool, error) {
 	var binding saves.GameSaveBinding
-	err := store.executor.QueryRowContext(ctx, `SELECT save_state_id,expected_data_version
+	err := dbapi.QueryRowContext(ctx, store.executor, `SELECT save_state_id,expected_data_version
 FROM launch_game_save_bindings WHERE launch_session_id=?`, id).Scan(&binding.ID, &binding.ExpectedVersion)
 	if errors.Is(err, sql.ErrNoRows) {
 		return saves.GameSaveBinding{}, false, nil
@@ -25,7 +26,7 @@ FROM launch_game_save_bindings WHERE launch_session_id=?`, id).Scan(&binding.ID,
 
 func (store records) Saved(ctx context.Context, id string) (saves.StoredSave, bool, error) {
 	var saved saves.StoredSave
-	err := store.executor.QueryRowContext(ctx, `SELECT save.id,save.name,save.created_at_ms,save.version,
+	err := dbapi.QueryRowContext(ctx, store.executor, `SELECT save.id,save.name,save.created_at_ms,save.version,
  save.active_duration_ms,save.payload_sha256,native.data_version,save.screenshot_blob_id,
  save.profile_id,save.game_id,save.checkpoint_format,save.deleted_at_ms
 FROM save_states save JOIN game_save_versions native ON native.save_state_id=save.id WHERE save.id=?`, id).

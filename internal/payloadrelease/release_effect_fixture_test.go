@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/testsupport"
 )
 
@@ -28,7 +28,7 @@ VALUES('effect-consumption','effect-upload','GAME_ASSET','effect-asset',1,10)`, 
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer dbexec.Rollback(tx)
+	defer dbapi.Rollback(tx)
 	id, err := ScheduleConsumption(t.Context(), tx, "effect-consumption", 10)
 	if err != nil {
 		t.Fatal(err)
@@ -79,7 +79,7 @@ func assertEffectRetained(t *testing.T, fixture releaseWorkerFixture, scope Scop
 	t.Helper()
 	if scope == ScopeGame {
 		var state string
-		if err := fixture.database.QueryRowContext(t.Context(), `SELECT payload_state FROM games WHERE id='schedule-game'`).Scan(
+		if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT payload_state FROM games WHERE id='schedule-game'`).Scan(
 
 			&state,
 		); err != nil || state != "RELEASING" {
@@ -89,7 +89,7 @@ func assertEffectRetained(t *testing.T, fixture releaseWorkerFixture, scope Scop
 	}
 	var released sql.NullInt64
 	var version int64
-	if err := fixture.database.QueryRowContext(t.Context(), `SELECT released_at_ms,version FROM upload_consumptions WHERE id='effect-consumption'`).Scan(
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT released_at_ms,version FROM upload_consumptions WHERE id='effect-consumption'`).Scan(
 
 		&released,
 

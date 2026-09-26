@@ -6,7 +6,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
-	"database/sql"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -18,6 +17,7 @@ import (
 	"time"
 
 	"retrom/internal/composition"
+	dbapi "retrom/internal/database"
 
 	"retrom/internal/service/maintenance"
 
@@ -43,7 +43,7 @@ import (
 
 const backupGameID = "01980000-0000-7000-8000-00000000f501"
 
-func seedBackupFavorites(t *testing.T, database *sql.DB, profileID string) {
+func seedBackupFavorites(t *testing.T, database dbapi.DB, profileID string) {
 	t.Helper()
 	const (
 		folderID = "01980000-0000-7000-8000-00000000c501"
@@ -86,7 +86,7 @@ VALUES(?,?,'备份收藏夹','备份收藏夹',1,2000,2000)
 	}
 }
 
-func favoriteBackupSnapshot(t *testing.T, database *sql.DB) (string, int) {
+func favoriteBackupSnapshot(t *testing.T, database dbapi.DB) (string, int) {
 	t.Helper()
 	rows, err := database.QueryContext(context.Background(), `
 SELECT value FROM (
@@ -115,7 +115,7 @@ SELECT value FROM (
 	return hex.EncodeToString(hash.Sum(nil)), count
 }
 
-func seedBackupTags(t *testing.T, ctx context.Context, database *sql.DB, userID string) {
+func seedBackupTags(t *testing.T, ctx context.Context, database dbapi.DB, userID string) {
 	t.Helper()
 	service := tagging.New(tagpersistence.New(database), func() time.Time { return time.UnixMilli(3_000) })
 	active, err := service.Create(ctx, userID, "合作")
@@ -134,7 +134,7 @@ func seedBackupTags(t *testing.T, ctx context.Context, database *sql.DB, userID 
 	}
 }
 
-func tagBackupSnapshot(t *testing.T, database *sql.DB) (string, int) {
+func tagBackupSnapshot(t *testing.T, database dbapi.DB) (string, int) {
 	t.Helper()
 	rows, err := database.QueryContext(context.Background(), `
 SELECT value FROM (
@@ -313,7 +313,7 @@ VALUES(?,'backup-root','Backup root','emulationstation',?,'GAMELIST','SCANNING',
 	testassert.Falsef(t, testassert.Any(func() bool { return restoredTagRows != tagRows }, func() bool { return restoredTagHash != tagHash }), "tag backup snapshot changed: before=%d/%s after=%d/%s", tagRows, tagHash, restoredTagRows, restoredTagHash)
 	var fencedSessions, fencedLinks, fenceAudits, fencedServerImports, fencedSourceImports int
 	var fencedEmulationStationImports int
-	if err := restoredDatabase.QueryRowContext(context.Background(), `
+	if err := dbapi.QueryRowContext(context.Background(), restoredDatabase, `
 SELECT
   (SELECT count(*) FROM auth_sessions WHERE revoked_reason='RESTORE' AND revoked_at_ms IS NOT NULL),
   (SELECT count(*) FROM account_links WHERE revoked_by_kind='SYSTEM' AND revoked_at_ms IS NOT NULL),
@@ -381,10 +381,10 @@ SELECT
 	}
 }
 
-func assertRestoredUploadPart(t *testing.T, database *sql.DB, root, fileID string) {
+func assertRestoredUploadPart(t *testing.T, database dbapi.DB, root, fileID string) {
 	t.Helper()
 	var key string
-	if err := database.QueryRowContext(t.Context(), "SELECT storage_key FROM upload_parts WHERE upload_file_id=? AND part_no=0", fileID).Scan(&key); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), database, "SELECT storage_key FROM upload_parts WHERE upload_file_id=? AND part_no=0", fileID).Scan(&key); err != nil {
 		t.Fatal(err)
 	}
 	contents, err := os.ReadFile(filepath.Join(root, "tmp", "uploads", filepath.FromSlash(key)))

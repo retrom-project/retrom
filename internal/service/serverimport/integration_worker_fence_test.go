@@ -1,8 +1,9 @@
 package serverimport_test
 
 import (
-	"database/sql"
 	"testing"
+
+	dbapi "retrom/internal/database"
 )
 
 func TestWorkerCannotCompleteImportWithUnfinishedItems(t *testing.T) {
@@ -21,7 +22,7 @@ func TestWorkerCannotCompleteImportWithUnfinishedItems(t *testing.T) {
 		t.Fatal(err)
 	}
 	var state string
-	if err := database.QueryRowContext(t.Context(), `SELECT state FROM jobs WHERE id=?`, created.JobID).Scan(&state); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), database, `SELECT state FROM jobs WHERE id=?`, created.JobID).Scan(&state); err != nil {
 		t.Fatal(err)
 	}
 	if current.State != "RUNNING" || state != "RUNNING" {
@@ -39,7 +40,7 @@ func TestExpiredWorkerCannotWriteProgressIntoNewExecution(t *testing.T) {
 	}
 }
 
-func replacementWorkerFixture(t *testing.T) (*Service, *sql.DB, work, work) {
+func replacementWorkerFixture(t *testing.T) (*Service, dbapi.DB, work, work) {
 	t.Helper()
 	service, database, _ := archiveImportFixture(t)
 	created, err := service.Create(t.Context(), CreateRequest{Kind: "BIOS_DIRECTORY", RootID: "bios-root"}, controlActorID)
@@ -68,10 +69,10 @@ func replacementWorkerFixture(t *testing.T) (*Service, *sql.DB, work, work) {
 	return service, database, oldUnit, newUnit
 }
 
-func workerVersions(t *testing.T, database *sql.DB, unit work) (int64, int64) {
+func workerVersions(t *testing.T, database dbapi.DB, unit work) (int64, int64) {
 	t.Helper()
 	var importVersion, jobVersion int64
-	if err := database.QueryRowContext(t.Context(), `SELECT import.version,job.version FROM server_imports import JOIN jobs job ON job.id=import.job_id WHERE import.id=?`, unit.ImportID).Scan(&importVersion, &jobVersion); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), database, `SELECT import.version,job.version FROM server_imports import JOIN jobs job ON job.id=import.job_id WHERE import.id=?`, unit.ImportID).Scan(&importVersion, &jobVersion); err != nil {
 		t.Fatal(err)
 	}
 	return importVersion, jobVersion
@@ -90,7 +91,7 @@ func TestReclaimedWorkerCannotInstallPersistedCandidate(t *testing.T) {
 	beforeImport, beforeJob := workerVersions(t, database, newUnit)
 	service.CommitCandidateForTest(t.Context(), oldUnit, selected.Item, selected)
 	var installed int64
-	if err := database.QueryRowContext(t.Context(), `SELECT count(*) FROM bios_installations`).Scan(&installed); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), database, `SELECT count(*) FROM bios_installations`).Scan(&installed); err != nil {
 		t.Fatal(err)
 	}
 	afterImport, afterJob := workerVersions(t, database, newUnit)
@@ -98,7 +99,7 @@ func TestReclaimedWorkerCannotInstallPersistedCandidate(t *testing.T) {
 		t.Fatalf("reclaimed worker installed BIOS: count=%d import=%d/%d job=%d/%d", installed, beforeImport, afterImport, beforeJob, afterJob)
 	}
 	var state string
-	if err := database.QueryRowContext(t.Context(), `SELECT state FROM server_bios_import_items WHERE server_import_id=?`, created.ID).Scan(&state); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), database, `SELECT state FROM server_bios_import_items WHERE server_import_id=?`, created.ID).Scan(&state); err != nil {
 		t.Fatal(err)
 	}
 	if state != "EVALUATING" {
@@ -108,7 +109,7 @@ func TestReclaimedWorkerCannotInstallPersistedCandidate(t *testing.T) {
 
 type workerCandidateFixture struct {
 	service  *Service
-	database *sql.DB
+	database dbapi.DB
 	created  Summary
 	unit     work
 	selected *evaluatedCandidate

@@ -1,7 +1,6 @@
 package sourceimport
 
 import (
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"reflect"
@@ -9,10 +8,12 @@ import (
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
+
 	application "retrom/internal/service/sourceimport"
 )
 
-func materialDatabase(t *testing.T) (*sql.DB, application.MaterialKey, application.VerifiedBlob) {
+func materialDatabase(t *testing.T) (dbapi.DB, application.MaterialKey, application.VerifiedBlob) {
 	t.Helper()
 	db := itemWorkDatabase(t)
 	if _, err := db.ExecContext(
@@ -36,7 +37,7 @@ VALUES('item-0','COVER','EXPLICIT_GAME','cover.png',4,'aaaaaaaaaaaaaaaaaaaaaaaaa
 		}
 }
 
-func materialRows(t *testing.T, db *sql.DB) map[string]string {
+func materialRows(t *testing.T, db dbapi.DB) map[string]string {
 	t.Helper()
 	result := workflowRows(t, db)
 	for _, table := range []string{"blobs", "source_import_item_files", "source_import_item_assets"} {

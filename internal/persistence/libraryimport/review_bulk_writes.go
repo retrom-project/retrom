@@ -7,7 +7,7 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/recordstore"
 	application "retrom/internal/service/libraryimport"
 )
@@ -17,9 +17,9 @@ var (
 	ErrReviewBulkTooLarge = errors.New("review bulk queue exceeds limit")
 )
 
-type ReviewBulkWrites struct{ executor dbexec.Executor }
+type ReviewBulkWrites struct{ executor dbapi.Executor }
 
-func BindReviewBulkWrites(executor dbexec.Executor) *ReviewBulkWrites {
+func BindReviewBulkWrites(executor dbapi.Executor) *ReviewBulkWrites {
 	return &ReviewBulkWrites{executor: executor}
 }
 
@@ -28,7 +28,7 @@ func (repository *ReviewBulkWrites) CreateGlobal(
 ) (application.ReviewBulkSummary, error) {
 	var count int
 	var maxID *string
-	err := repository.executor.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, repository.executor, `
 SELECT count(*),max(id) FROM (
  SELECT id FROM import_items WHERE state='REVIEW_PENDING' AND review_version>0
  ORDER BY id LIMIT 10001

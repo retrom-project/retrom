@@ -6,10 +6,10 @@ import (
 	"fmt"
 
 	"retrom/internal/cleanup"
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 )
 
-func collectIDs(ctx context.Context, transaction dbexec.Executor, query string, args ...any) ([]string, error) {
+func collectIDs(ctx context.Context, transaction dbapi.Executor, query string, args ...any) ([]string, error) {
 	rows, err := transaction.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("payloadrelease/collect ids: %w", err)
@@ -37,7 +37,7 @@ func collectIDs(ctx context.Context, transaction dbexec.Executor, query string, 
 // CollectScopeIDs gives terminal transition owners the same disciplined rows
 // lifecycle used by the release worker without duplicating SQL iteration.
 
-func CollectScopeIDs(ctx context.Context, executor dbexec.Executor, query string, args ...any) ([]string, error) {
+func CollectScopeIDs(ctx context.Context, executor dbapi.Executor, query string, args ...any) ([]string, error) {
 	return collectIDs(ctx, executor, query, args...)
 }
 

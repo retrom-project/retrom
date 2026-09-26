@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"retrom/internal/config"
+	dbapi "retrom/internal/database"
 	accountservice "retrom/internal/service/accounts"
 	"retrom/internal/testassert"
 
@@ -41,7 +42,7 @@ func TestOfflineAdminResetRotatesCredentialAndSecurityState(t *testing.T) {
 		t.Fatalf("offline recovery login = %v", err)
 	}
 	var defaultActive, audits int
-	if err := fixture.database.SQL.QueryRowContext(context.Background(), `
+	if err := dbapi.QueryRowContext(context.Background(), fixture.database.SQL, `
 SELECT test_default_password_active,
 (SELECT count(*) FROM audit_events
  WHERE actor_kind='SYSTEM' AND actor_label='offline-recovery' AND action='ADMIN_OFFLINE_RECOVERED')

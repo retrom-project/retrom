@@ -4,19 +4,19 @@ import (
 	"context"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/recordstore"
 	"retrom/internal/service/favorites"
 )
 
 type (
-	gameRecords        struct{ database dbexec.Executor }
-	membershipRecords  struct{ database dbexec.Executor }
-	folderRecords      struct{ database dbexec.Executor }
-	idempotencyRecords struct{ database dbexec.Executor }
+	gameRecords        struct{ database dbapi.Executor }
+	membershipRecords  struct{ database dbapi.Executor }
+	folderRecords      struct{ database dbapi.Executor }
+	idempotencyRecords struct{ database dbapi.Executor }
 )
 
-func writeScope(database dbexec.Executor) favorites.WriteScope {
+func writeScope(database dbapi.Executor) favorites.WriteScope {
 	return favorites.WriteScope{
 		Games: gameRecords{database}, Memberships: membershipRecords{database},
 		Folders: folderRecords{database}, FolderWrites: folderRecords{database},
@@ -38,8 +38,9 @@ func (records gameRecords) Remove(ctx context.Context, profileID, gameID string)
 
 func (records folderRecords) Count(ctx context.Context, profileID string) (int, error) {
 	var count int
-	err := records.database.QueryRowContext(
-		ctx, "SELECT count(*) FROM favorite_folders WHERE profile_id=?", profileID,
+	err := dbapi.QueryRowContext(
+		ctx, records.database,
+		"SELECT count(*) FROM favorite_folders WHERE profile_id=?", profileID,
 	).Scan(&count)
 	if err != nil {
 		return 0, fmt.Errorf("count favorite folders: %w", err)

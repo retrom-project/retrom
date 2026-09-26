@@ -2,15 +2,16 @@ package libraryimport
 
 import (
 	"context"
-	"database/sql"
 	"time"
+
+	dbapi "retrom/internal/database"
 
 	repository "retrom/internal/persistence/libraryimport"
 	application "retrom/internal/service/libraryimport"
 )
 
 func NewReconfigurations(
-	database *sql.DB,
+	database dbapi.DB,
 	now func() time.Time,
 	options CreationOptions,
 ) *application.Reconfigurations {

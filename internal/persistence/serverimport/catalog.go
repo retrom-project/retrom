@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	"retrom/internal/cleanup"
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/recordstore"
 	"retrom/internal/service/serverimport"
 )
@@ -69,7 +69,7 @@ ORDER BY requirement.id COLLATE BINARY
 
 func insertCatalogItem(
 	ctx context.Context,
-	transaction dbexec.Executor,
+	transaction dbapi.Executor,
 	importID string,
 	item serverimport.CatalogItem,
 	now int64,

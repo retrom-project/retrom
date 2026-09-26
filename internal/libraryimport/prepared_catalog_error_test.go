@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/testsupport"
 )
 
@@ -30,7 +31,7 @@ func TestPreparedCreationPreservesActiveDATReadFailure(t *testing.T) {
 		t.Fatalf("DAT failure became successful import: result=%+v reads=%d err=%v", result, reads, err)
 	}
 	var items int
-	if err := fixture.database.QueryRowContext(fixture.ctx, `SELECT count(*) FROM import_items`).Scan(&items); err != nil {
+	if err := dbapi.QueryRowContext(fixture.ctx, fixture.database, `SELECT count(*) FROM import_items`).Scan(&items); err != nil {
 		t.Fatal(err)
 	}
 	if items != 0 {

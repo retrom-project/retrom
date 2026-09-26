@@ -7,14 +7,14 @@ import (
 	"fmt"
 
 	"retrom/internal/cleanup"
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/recordstore"
 	application "retrom/internal/service/libraryimport"
 )
 
-type sourceOwnership struct{ executor dbexec.Executor }
+type sourceOwnership struct{ executor dbapi.Executor }
 
-func BindSourceOwnership(executor dbexec.Executor) application.SourceOwnershipRecords {
+func BindSourceOwnership(executor dbapi.Executor) application.SourceOwnershipRecords {
 	return sourceOwnership{executor: executor}
 }
 
@@ -27,7 +27,8 @@ func (records sourceOwnership) ReadSource(
 	}
 	var value application.SourceCreationSnapshot
 	value.Kind = intent.Kind
-	err := records.executor.QueryRowContext(ctx, `SELECT source.id,source.import_id,job.id,COALESCE(job.worker_id,''),
+	err := dbapi.QueryRowContext(
+		ctx, records.executor, `SELECT source.id,source.import_id,job.id,COALESCE(job.worker_id,''),
 source.execution_state,plan.state,job.state,COALESCE(collection.mapping_action,''),
 source.version,plan.version,job.version,job.execution_no,job.attempt_count,
 COALESCE(job.leased_until_ms,0),COALESCE(job.execution_deadline_at_ms,0),

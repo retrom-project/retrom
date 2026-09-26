@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/testsupport"
 )
 
@@ -87,8 +88,9 @@ func TestImportAdmissionRejectsTargetDisabledBeforeQueueWrite(t *testing.T) {
 		t.Fatalf("disabled target queued stale authority: result=%+v err=%v hits=%d", result, err, hits)
 	}
 	var enabled int
-	if err := sourceDB.QueryRowContext(
-		t.Context(),
+	if err := dbapi.QueryRowContext(
+		t.Context(), sourceDB,
+
 		`SELECT enabled FROM platform_instances WHERE id=?`,
 		request.TargetPlatformInstanceID,
 	).Scan(
@@ -100,7 +102,7 @@ func TestImportAdmissionRejectsTargetDisabledBeforeQueueWrite(t *testing.T) {
 		t.Fatal("target race never committed its competing change")
 	}
 	var count int
-	if err := sourceDB.QueryRowContext(t.Context(), `SELECT count(*) FROM jobs WHERE kind='IMPORT_GROUP'`).Scan(&count); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), sourceDB, `SELECT count(*) FROM jobs WHERE kind='IMPORT_GROUP'`).Scan(&count); err != nil {
 		t.Fatal(err)
 	}
 	if count != 0 {

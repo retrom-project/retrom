@@ -5,6 +5,7 @@ package libraryimport
 import (
 	"testing"
 
+	dbapi "retrom/internal/database"
 	repository "retrom/internal/persistence/libraryimport"
 	application "retrom/internal/service/libraryimport"
 )
@@ -28,7 +29,7 @@ func TestImportCreationFailureCannotMutateReplacementExecution(t *testing.T) {
 			}
 			service.finishImportGroupFailure(t.Context(), work, ErrInvalid)
 			var jobState, importState string
-			if err := service.database.QueryRowContext(t.Context(), `
+			if err := dbapi.QueryRowContext(t.Context(), service.database, `
 SELECT job.state,parent.state FROM jobs job JOIN import_jobs parent ON parent.id=job.scope_id WHERE job.id=?`, created.JobID).
 				Scan(&jobState, &importState); err != nil {
 				t.Fatal(err)

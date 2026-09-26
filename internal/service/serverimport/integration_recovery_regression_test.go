@@ -2,10 +2,11 @@ package serverimport_test
 
 import (
 	"context"
-	"database/sql"
 	"strings"
 	"testing"
 	"time"
+
+	dbapi "retrom/internal/database"
 )
 
 func TestCandidateRecoveryRejectsBrokenEvaluationEvidence(t *testing.T) {
@@ -49,7 +50,7 @@ func TestCandidateRecoveryReleasesRowsBeforeLoadingDAT(t *testing.T) {
 	}
 }
 
-func seedRecoveryCandidate(t *testing.T, database *sql.DB, importID, details string) {
+func seedRecoveryCandidate(t *testing.T, database dbapi.DB, importID, details string) {
 	t.Helper()
 	_, err := database.ExecContext(t.Context(), `INSERT INTO server_bios_import_candidates(
  id,server_import_id,requirement_id,relative_path,basename,association_kind,size_bytes,state,
@@ -62,7 +63,7 @@ func seedRecoveryCandidate(t *testing.T, database *sql.DB, importID, details str
 	}
 }
 
-func seedRecoveryDAT(t *testing.T, database *sql.DB) {
+func seedRecoveryDAT(t *testing.T, database dbapi.DB) {
 	t.Helper()
 	_, err := database.ExecContext(t.Context(), `INSERT INTO dat_versions(id,core_id,provider_id,target_id,
  builtin_relative_path,sha256,parser_version,parse_status,is_active,version,created_at_ms,updated_at_ms,parsed_at_ms)

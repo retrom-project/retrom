@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"retrom/internal/importformat/emulationstation/gamelist"
+	"retrom/internal/format/emulationstation/gamelist"
 )
 
 // ScanOrganized is the only format dispatch. Everything after this projection

@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"retrom/internal/cleanup"
+	dbapi "retrom/internal/database"
 	service "retrom/internal/service/uploads"
 )
 
@@ -13,7 +14,7 @@ func (records jobRecords) Get(ctx context.Context, id string) (service.Job, erro
 	var result service.Job
 	var worker, input, digest sql.NullString
 	var deadline, lease sql.NullInt64
-	err := records.executor.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, records.executor, `
 SELECT job.id,job.state,job.kind,job.scope_type,job.scope_id,job.worker_id,job.execution_no,job.version,
 job.attempt_count,job.max_attempts,job.execution_deadline_at_ms,job.leased_until_ms,job.available_at_ms,
 snapshot.input_json,snapshot.input_digest FROM jobs job LEFT JOIN job_input_snapshots snapshot

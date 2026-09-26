@@ -10,7 +10,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	firmwareservice "retrom/internal/service/firmware"
 	"retrom/internal/testsupport"
 )
@@ -24,7 +24,7 @@ func TestBIOSSupersessionRejectsUnconfirmedDeactivate(t *testing.T) {
 			t.Cleanup(releases.Close)
 			seedRetiringInstallation(t, db, "superseded-installation", 1, now)
 			var requirement string
-			if err := db.QueryRowContext(t.Context(), `SELECT requirement_id FROM bios_installations
+			if err := dbapi.QueryRowContext(t.Context(), db, `SELECT requirement_id FROM bios_installations
 WHERE id='superseded-installation'`).Scan(&requirement); err != nil {
 				t.Fatal(err)
 			}
@@ -55,10 +55,10 @@ WHERE id='superseded-installation'`).Scan(&requirement); err != nil {
 			if err == nil {
 				err = tx.Commit()
 			} else {
-				dbexec.Rollback(tx)
+				dbapi.Rollback(tx)
 			}
 			var active, version int
-			readErr := db.QueryRowContext(t.Context(), `SELECT is_active,version FROM bios_installations
+			readErr := dbapi.QueryRowContext(t.Context(), db, `SELECT is_active,version FROM bios_installations
 WHERE id='superseded-installation'`).Scan(&active, &version)
 			if err == nil || cause != nil && !errors.Is(err, cause) || hits.Load() != 1 || readErr != nil || active != 1 || version != 1 {
 				t.Fatalf("unconfirmed supersession committed: active=%d version=%d hits=%d err=%v read=%v",
@@ -78,7 +78,7 @@ func TestBIOSSupersessionReadFailuresRollBackCurrentInstallation(t *testing.T) {
 			t.Cleanup(releases.Close)
 			seedRetiringInstallation(t, db, "read-failure-installation", 1, now)
 			var requirement string
-			if err := db.QueryRowContext(t.Context(), `SELECT requirement_id FROM bios_installations WHERE id='read-failure-installation'`).Scan(&requirement); err != nil {
+			if err := dbapi.QueryRowContext(t.Context(), db, `SELECT requirement_id FROM bios_installations WHERE id='read-failure-installation'`).Scan(&requirement); err != nil {
 				t.Fatal(err)
 			}
 			cause := errors.New("supersession read failure")
@@ -96,7 +96,7 @@ func TestBIOSSupersessionReadFailuresRollBackCurrentInstallation(t *testing.T) {
 				return firmwareservice.SupersedeInScope(t.Context(), scope.Retirements, requirement, now)
 			})
 			var active, version int
-			readErr := db.QueryRowContext(t.Context(), `SELECT is_active,version FROM bios_installations WHERE id='read-failure-installation'`).Scan(&active, &version)
+			readErr := dbapi.QueryRowContext(t.Context(), db, `SELECT is_active,version FROM bios_installations WHERE id='read-failure-installation'`).Scan(&active, &version)
 			if !errors.Is(err, cause) || hits.Load() != 1 || readErr != nil || active != 1 || version != 1 {
 				t.Fatalf("supersession read committed: active=%d version=%d hits=%d err=%v read=%v", active, version, hits.Load(), err, readErr)
 			}

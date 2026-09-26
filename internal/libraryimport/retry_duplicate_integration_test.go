@@ -17,6 +17,7 @@ import (
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
 	uploadpersistence "retrom/internal/persistence/uploads"
 
 	dependencypersistence "retrom/internal/persistence/dependencies"
@@ -85,7 +86,7 @@ VALUES(?,?,?,'FAILED_RETRYABLE','{}',?,'retry.gba','SCRAPING','PROVIDER_TIMEOUT'
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return retried.State != "QUEUED" }, func() bool { return retried.Version != 2 }), "retry = %#v, error=%v", retried, err)
 	var retryJobState, retryItemState string
 	var retryQueued, retryFailed, retryJobVersion, retryEventCount int64
-	if err := database.SQL.QueryRowContext(context.Background(), `
+	if err := dbapi.QueryRowContext(context.Background(), database.SQL, `
 SELECT job.state,job.queued_item_count,job.failed_item_count,job.version,item.state,
 (SELECT count(*) FROM job_events WHERE job_id=? AND event_type='MANUAL_RETRY')
 FROM import_jobs job
@@ -138,7 +139,7 @@ VALUES(?,?,?,?,'{}',?,'cancel.gba',?,?,1,1000,1000)
 	var cancelState string
 	var cancelQueued, cancelReviewPending, cancelFailed, cancelCount, cancelCompletedAt int64
 	var cancelledItems, failedFinalItems int64
-	if err := database.SQL.QueryRowContext(context.Background(), `
+	if err := dbapi.QueryRowContext(context.Background(), database.SQL, `
 SELECT state,queued_item_count,review_pending_item_count,failed_item_count,cancelled_item_count,completed_at_ms,
 (SELECT count(*) FROM import_items WHERE import_job_id=import_jobs.id AND state='CANCELLED'),
 (SELECT count(*) FROM import_items WHERE import_job_id=import_jobs.id AND state='FAILED_FINAL')
@@ -210,7 +211,7 @@ func TestDuplicateContentIsSkippedDuringIdentificationAndConfirmedDuringReview(t
 		})
 		testassert.False(t, importErr != nil, importErr)
 		var itemID string
-		if queryErr := database.SQL.QueryRowContext(ctx, `
+		if queryErr := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT id FROM import_items WHERE import_job_id=?
 `, created.ImportJobID).Scan(&itemID); queryErr != nil {
 			t.Fatal(queryErr)
@@ -243,7 +244,7 @@ SELECT id FROM import_items WHERE import_job_id=?
 	testassert.Falsef(t, thirdImport.State != "COMPLETED", "identification duplicate state = %s", thirdImport.State)
 	var jobState, itemState string
 	var alreadyItems, alreadyFiles, discarded, pending, draftCount, matchCount, gameCount int64
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT state,already_imported_item_count,already_imported_file_count,
 discarded_item_count,review_pending_item_count
 FROM import_jobs WHERE id=?
@@ -252,7 +253,7 @@ FROM import_jobs WHERE id=?
 	); err != nil {
 		t.Fatal(err)
 	}
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT state,
 (SELECT count(*) FROM import_items candidate WHERE candidate.id=import_items.id AND candidate.review_version>0),
 (SELECT count(*) FROM import_item_duplicate_matches WHERE import_item_id=import_items.id)
@@ -260,7 +261,7 @@ FROM import_items WHERE id=?
 `, thirdItemID).Scan(&itemState, &draftCount, &matchCount); err != nil {
 		t.Fatal(err)
 	}
-	if err := database.SQL.QueryRowContext(ctx, `SELECT count(*) FROM games WHERE status='PUBLISHED'`).Scan(&gameCount); err != nil {
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `SELECT count(*) FROM games WHERE status='PUBLISHED'`).Scan(&gameCount); err != nil {
 		t.Fatal(err)
 	}
 	testassert.Falsef(t, testassert.Any(func() bool { return jobState != "COMPLETED" }, func() bool { return itemState != "DISCARDED" }, func() bool { return alreadyItems != 1 }, func() bool { return alreadyFiles != 1 }, func() bool { return discarded != 1 }, func() bool { return pending != 0 }, func() bool { return draftCount != 0 }, func() bool { return matchCount != 2 }, func() bool { return gameCount != 2 }), "identification projection = job:%s item:%s already:%d/%d discarded:%d pending:%d drafts:%d matches:%d games:%d", jobState, itemState, alreadyItems, alreadyFiles, discarded, pending, draftCount, matchCount, gameCount)
@@ -333,7 +334,7 @@ func TestImportGroupsSingleArchiveMemberAndReportsEveryFile(t *testing.T) {
 	)
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return created.State != "PARTIAL_FAILURE" }, func() bool { return created.ItemCount != 1 }), "archive import = %#v, error=%v", created, err)
 	var source, ignored, rejected, itemCount int
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT
 (SELECT count(*)
 FROM import_job_files
@@ -362,7 +363,7 @@ WHERE import_job_id=?)
 	}
 	var itemID, logicalName, contentSHA, archiveSHA string
 	var archiveOrdinal int
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT i.id,
 s.logical_name,
 b.sha256,
@@ -383,7 +384,7 @@ WHERE i.import_job_id=?
 	testassert.False(t, err != nil, err)
 	var publishedLogical, publishedSHA string
 	var sourceArchive string
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT f.logical_name,
 b.sha256,
 f.source_archive_blob_id
@@ -399,7 +400,7 @@ WHERE g.id=?
 	}
 	var finalState string
 	var completedAt sql.NullInt64
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT state,
 completed_at_ms
 FROM import_jobs
@@ -410,7 +411,7 @@ WHERE id=?
 		t.Fatalf("import with rejected evidence finalized as %s/%v, error=%v", finalState, completedAt, err)
 	}
 	var sourceVersion int64
-	if err := database.SQL.QueryRowContext(ctx, `SELECT version FROM import_jobs WHERE id=?`, created.ImportJobID).Scan(&sourceVersion); err != nil {
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `SELECT version FROM import_jobs WHERE id=?`, created.ImportJobID).Scan(&sourceVersion); err != nil {
 		t.Fatal(err)
 	}
 	reconfigured, err := importer.Reconfigure(ctx, created.ImportJobID, sourceVersion, ReconfigureRequest{
@@ -420,7 +421,7 @@ WHERE id=?
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return reconfigured.State != "REVIEW_PENDING" }, func() bool { return reconfigured.ItemCount != 1 }), "reconfigured import = %#v, error=%v", reconfigured, err)
 	var sourceState, replacementSource, replacementLogicalName, sourceBlobSHA, replacementBlobSHA string
 	var resolvedRejected int
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT source.state,
 source.resolved_rejected_file_count,
 replacement.reconfigured_from_import_job_id,

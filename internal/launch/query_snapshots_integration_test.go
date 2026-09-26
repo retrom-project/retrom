@@ -9,24 +9,19 @@ import (
 	"reflect"
 	"testing"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	persistence "retrom/internal/persistence/launch"
 	application "retrom/internal/service/launch"
 )
 
 type launchQueryCounter struct {
-	dbexec.Executor
+	dbapi.Executor
 	statements int
 }
 
 func (counter *launchQueryCounter) QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error) {
 	counter.statements++
 	return counter.Executor.QueryContext(ctx, query, args...)
-}
-
-func (counter *launchQueryCounter) QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row {
-	counter.statements++
-	return counter.Executor.QueryRowContext(ctx, query, args...)
 }
 
 func TestPreviewBundleReadsAuthorityAndFrozenMembersInOneStatement(t *testing.T) {

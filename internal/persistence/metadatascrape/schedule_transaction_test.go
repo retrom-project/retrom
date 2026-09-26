@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/service/metadatascrape"
 	"retrom/internal/testsupport"
 )
@@ -31,7 +32,7 @@ func TestMissingScrapeSubjectRollsBackCreatedJob(t *testing.T) {
 		t.Fatal("scheduled nonexistent import item")
 	}
 	var jobs int
-	if err := database.SQL.QueryRowContext(t.Context(), `SELECT count(*) FROM jobs`).Scan(&jobs); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), database.SQL, `SELECT count(*) FROM jobs`).Scan(&jobs); err != nil {
 		t.Fatal(err)
 	}
 	if jobs != 0 {

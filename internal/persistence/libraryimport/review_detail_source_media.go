@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/libraryimport"
 )
 
@@ -14,7 +15,7 @@ func (records ReviewMedia) SourceMedia(
 	itemID string,
 ) (application.ReviewSourceMedia, bool, error) {
 	var result application.ReviewSourceMedia
-	err := records.executor.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, records.executor, `
 SELECT source.id,source.import_id,'SOURCE',COALESCE(collection.name,''),
 COALESCE(json_extract(source.source_flags_json,'$.hidden'),0),
 COALESCE(json_extract(source.source_flags_json,'$.adult'),0),

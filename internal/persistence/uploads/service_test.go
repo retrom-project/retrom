@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
 	uploadservice "retrom/internal/service/uploads"
 
 	"retrom/internal/blobstore"
@@ -63,7 +64,7 @@ func testUploadReception(t *testing.T, source string) {
 	deadline := time.Now().Add(3 * time.Second)
 	for {
 		var state string
-		if err := database.SQL.QueryRowContext(ctx, "SELECT state FROM jobs WHERE id=?", jobID).Scan(&state); err != nil {
+		if err := dbapi.QueryRowContext(ctx, database.SQL, "SELECT state FROM jobs WHERE id=?", jobID).Scan(&state); err != nil {
 			t.Fatalf("read job: %v", err)
 		}
 		if state == "SUCCEEDED" {
@@ -75,18 +76,18 @@ func testUploadReception(t *testing.T, source string) {
 	final, err := service.Get(ctx, session.ID)
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return final.State != "COMPLETE" }, func() bool { return final.Files[0].State != "COMPLETE" }), "final upload = %s/%s, error = %v", final.State, final.Files[0].State, err)
 	var count int
-	if err := database.SQL.QueryRowContext(ctx, "SELECT count(*) FROM blobs WHERE size_bytes=?", len(contents)).Scan(
+	if err := dbapi.QueryRowContext(ctx, database.SQL, "SELECT count(*) FROM blobs WHERE size_bytes=?", len(contents)).Scan(
 		&count,
 	); err != nil ||
 		count != 1 {
 		t.Fatalf("blob count = %d, error = %v", count, err)
 	}
 	var received int
-	if err := database.SQL.QueryRowContext(ctx, `SELECT count(*) FROM import_files WHERE upload_session_id=? AND relative_path='game.gba' AND size_bytes=5 AND blob_id IS NOT NULL`, session.ID).Scan(&received); err != nil || received != 1 {
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `SELECT count(*) FROM import_files WHERE upload_session_id=? AND relative_path='game.gba' AND size_bytes=5 AND blob_id IS NOT NULL`, session.ID).Scan(&received); err != nil || received != 1 {
 		t.Fatalf("finalization did not publish normalized files: %d %v", received, err)
 	}
 	var started, inputs int
-	if err := database.SQL.QueryRowContext(ctx, `SELECT
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `SELECT
  (SELECT count(*) FROM job_events WHERE job_id=? AND event_type='STARTED'),
  (SELECT count(*) FROM job_input_snapshots WHERE job_id=? AND length(input_digest)=64)
  `, jobID, jobID).Scan(&started, &inputs); err != nil {

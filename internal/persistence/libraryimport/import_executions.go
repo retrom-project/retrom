@@ -2,21 +2,20 @@ package libraryimport
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 
 	"retrom/internal/cleanup"
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	payload "retrom/internal/persistence/payloadrelease"
 	application "retrom/internal/service/libraryimport"
 )
 
 type (
-	ImportExecutions       struct{ database *sql.DB }
-	importExecutionRecords struct{ executor dbexec.Executor }
+	ImportExecutions       struct{ database dbapi.DB }
+	importExecutionRecords struct{ executor dbapi.Executor }
 )
 
-func NewImportExecutions(database *sql.DB) *ImportExecutions {
+func NewImportExecutions(database dbapi.DB) *ImportExecutions {
 	return &ImportExecutions{database: database}
 }
 
@@ -24,11 +23,11 @@ func (repository *ImportExecutions) WithExecution(
 	ctx context.Context,
 	work func(application.ImportExecutionScope) error,
 ) error {
-	tx, err := repository.database.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable})
+	tx, err := repository.database.BeginTx(ctx, &dbapi.TxOptions{Isolation: dbapi.LevelSerializable})
 	if err != nil {
 		return fmt.Errorf("begin import execution: %w", err)
 	}
-	defer dbexec.Rollback(tx)
+	defer dbapi.Rollback(tx)
 	scope := application.ImportExecutionScope{
 		Records: importExecutionRecords{executor: tx},
 		Facts:   BindImportFacts(tx),

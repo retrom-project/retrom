@@ -4,13 +4,14 @@ import (
 	"context"
 	"fmt"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/datindex"
 	service "retrom/internal/service/dependencies"
 )
 
 func (records catalogRecords) Version(ctx context.Context, id string) (int64, error) {
 	var version int64
-	if err := records.transaction.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, records.transaction, `
 SELECT version
 FROM dat_versions
 WHERE id=?

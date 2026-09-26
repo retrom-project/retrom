@@ -10,7 +10,7 @@ import (
 
 	"retrom/internal/authn"
 	"retrom/internal/cleanup"
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/recordstore"
 	tagpersistence "retrom/internal/persistence/tagging"
 	application "retrom/internal/service/libraryimport"
@@ -29,11 +29,11 @@ type (
 // only the common executor contract, so this repository still owns the
 // transaction and all draft writes.
 type DraftValidationRefresher func(
-	context.Context, dbexec.Executor, string, string, sql.NullString,
+	context.Context, dbapi.Executor, string, string, sql.NullString,
 ) (string, error)
 
 type ScummVMSelector func(
-	context.Context, dbexec.Executor, string, string, sql.NullString, string,
+	context.Context, dbapi.Executor, string, string, sql.NullString, string,
 ) (string, error)
 
 type ReviewDraftPatchOptions struct {
@@ -44,14 +44,14 @@ type ReviewDraftPatchOptions struct {
 }
 
 type ReviewDraftPatches struct {
-	database          *sql.DB
+	database          dbapi.DB
 	tags              *tagging.Service
 	now               func() time.Time
 	refreshValidation DraftValidationRefresher
 	selectScummVM     ScummVMSelector
 }
 
-func NewReviewDraftPatches(database *sql.DB, options ReviewDraftPatchOptions) *ReviewDraftPatches {
+func NewReviewDraftPatches(database dbapi.DB, options ReviewDraftPatchOptions) *ReviewDraftPatches {
 	now := options.Now
 	if now == nil {
 		now = time.Now
@@ -73,7 +73,7 @@ func (repository *ReviewDraftPatches) Patch(
 	if err != nil {
 		return application.DraftResult{}, fmt.Errorf("begin review draft patch: %w", err)
 	}
-	defer dbexec.Rollback(transaction)
+	defer dbapi.Rollback(transaction)
 	run := draftPatchRun{
 		repository: repository, ctx: ctx, transaction: transaction,
 		itemID: request.ItemID, expectedVersion: request.ExpectedVersion, patch: request.Patch,
@@ -91,7 +91,7 @@ func (repository *ReviewDraftPatches) Patch(
 type draftPatchRun struct {
 	repository          *ReviewDraftPatches
 	ctx                 context.Context
-	transaction         *sql.Tx
+	transaction         dbapi.Tx
 	itemID              string
 	expectedVersion     int64
 	patch               application.DraftPatch
@@ -113,7 +113,7 @@ type draftPatchRun struct {
 
 func (run *draftPatchRun) load() error {
 	var currentVersion int64
-	err := run.transaction.QueryRowContext(run.ctx, `
+	err := dbapi.QueryRowContext(run.ctx, run.transaction, `
 SELECT d.id,d.target_platform_instance_id,COALESCE(d.selected_validation_id,''),
   d.effective_source_snapshot_id,d.selected_candidate_id,d.cover_candidate_asset_id,
   d.cover_uploaded_asset_id,d.background_candidate_asset_id,d.default_dos_entry,
@@ -230,12 +230,12 @@ func (run *draftPatchRun) applyTarget() error {
 		return nil
 	}
 	var currentPlatform, targetPlatform string
-	if err := run.transaction.QueryRowContext(run.ctx, `
+	if err := dbapi.QueryRowContext(run.ctx, run.transaction, `
 SELECT platform_id FROM platform_instances WHERE id=?
 `, run.targetID).Scan(&currentPlatform); err != nil {
 		return application.ErrInvalid
 	}
-	if err := run.transaction.QueryRowContext(run.ctx, `
+	if err := dbapi.QueryRowContext(run.ctx, run.transaction, `
 SELECT platform_id FROM platform_instances
 WHERE id=? AND enabled=1 AND deleted_at_ms IS NULL
 `, *run.patch.TargetPlatformInstanceID).Scan(&targetPlatform); err != nil {
@@ -257,7 +257,7 @@ func (run *draftPatchRun) applySelectedValidation() error {
 		return application.ErrInvalid
 	}
 	var targetID, snapshotID, status string
-	err := run.transaction.QueryRowContext(run.ctx, `
+	err := dbapi.QueryRowContext(run.ctx, run.transaction, `
 SELECT target_platform_instance_id,source_snapshot_id,status
 FROM import_item_core_validations
 WHERE id=? AND import_item_id=?
@@ -279,7 +279,7 @@ func (run *draftPatchRun) applySelectedCandidate() error {
 		return nil
 	}
 	var count int
-	err := run.transaction.QueryRowContext(run.ctx, `
+	err := dbapi.QueryRowContext(run.ctx, run.transaction, `
 SELECT count(*)
 FROM scrape_candidates c
 JOIN metadata_scrape_runs r ON r.id=c.scrape_run_id
@@ -302,7 +302,7 @@ func (run *draftPatchRun) applyDefaultDOSEntry() error {
 		run.dosEntry = sql.NullString{}
 	} else {
 		var count int
-		err := run.transaction.QueryRowContext(run.ctx, `
+		err := dbapi.QueryRowContext(run.ctx, run.transaction, `
 SELECT count(*) FROM import_item_dos_entries
 WHERE import_item_id=? AND normalized_path=? AND enabled=1
 	`, run.itemID, *defaultEntry).Scan(&count)
@@ -528,14 +528,14 @@ func nullableCandidate(value *string) sql.NullString {
 }
 
 func (repository *ReviewDraftPatches) validCandidateAsset(
-	ctx context.Context, transaction *sql.Tx, itemID, assetID string,
+	ctx context.Context, transaction dbapi.Tx, itemID, assetID string,
 ) bool {
 	valid, err := BindReviewDraftAssets(transaction).ValidCandidate(ctx, itemID, assetID)
 	return err == nil && valid
 }
 
 func (repository *ReviewDraftPatches) validUploadedAsset(
-	ctx context.Context, transaction *sql.Tx, itemID, assetID string,
+	ctx context.Context, transaction dbapi.Tx, itemID, assetID string,
 ) bool {
 	valid, err := BindReviewDraftAssets(transaction).ValidUploaded(ctx, itemID, assetID)
 	return err == nil && valid

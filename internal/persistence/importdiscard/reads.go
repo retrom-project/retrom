@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"retrom/internal/cleanup"
+	dbapi "retrom/internal/database"
 	"retrom/internal/service/importdiscard"
 )
 
@@ -20,7 +21,8 @@ func (records records) Batch(ctx context.Context, key importdiscard.Key) (import
 		fields = "1,rejected_file_count,resolved_rejected_file_count,payload_state"
 	}
 	var batch importdiscard.Batch
-	err = records.executor.QueryRowContext(ctx, `SELECT state,version,`+fields+` FROM `+table+` WHERE id=?`, key.ID).
+	err = dbapi.QueryRowContext(
+		ctx, records.executor, `SELECT state,version,`+fields+` FROM `+table+` WHERE id=?`, key.ID).
 		Scan(&batch.State, &batch.Version, &batch.Started, &batch.Rejected, &batch.ResolvedRejected, &batch.PayloadState)
 	if errors.Is(err, sql.ErrNoRows) {
 		return batch, importdiscard.ErrNotFound
@@ -66,8 +68,9 @@ func (records records) Disposition(
 	key importdiscard.Key,
 ) (importdiscard.Disposition, bool, error) {
 	var result importdiscard.Disposition
-	err := records.executor.QueryRowContext(
-		ctx,
+	err := dbapi.QueryRowContext(
+		ctx, records.executor,
+
 		`SELECT state,error_code FROM import_batch_discards WHERE kind=? AND import_id=?`,
 		key.Kind,
 		key.ID,
@@ -84,7 +87,8 @@ func (records records) Disposition(
 
 func (records records) Pending(ctx context.Context) (importdiscard.Request, bool, error) {
 	var result importdiscard.Request
-	err := records.executor.QueryRowContext(ctx, `SELECT kind,import_id,requested_by_user_id FROM import_batch_discards
+	err := dbapi.QueryRowContext(
+		ctx, records.executor, `SELECT kind,import_id,requested_by_user_id FROM import_batch_discards
 WHERE state='REQUESTED' ORDER BY updated_at_ms,kind,import_id LIMIT 1`).Scan(&result.Kind, &result.ID, &result.UserID)
 	if errors.Is(err, sql.ErrNoRows) {
 		return result, false, nil

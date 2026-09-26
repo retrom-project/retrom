@@ -4,14 +4,14 @@ import (
 	"context"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/recordstore"
 	application "retrom/internal/service/launch"
 )
 
 type productValidationRecords struct {
 	*ValidationJobs
-	executor dbexec.Executor
+	executor dbapi.Executor
 }
 
 func (records productValidationRecords) CreateVariant(ctx context.Context, plan application.ProductVariantWrite) error {

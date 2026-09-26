@@ -1,9 +1,10 @@
 package composition
 
 import (
-	"database/sql"
 	"log/slog"
 	"time"
+
+	dbapi "retrom/internal/database"
 
 	"retrom/internal/blobstore"
 	"retrom/internal/persistence/dberrors"
@@ -17,7 +18,7 @@ import (
 	"retrom/internal/sourceimport"
 )
 
-func NewSourceImport(database *sql.DB, blobs *blobstore.Store, importer application.ReviewSourceCreator,
+func NewSourceImport(database dbapi.DB, blobs *blobstore.Store, importer application.ReviewSourceCreator,
 	credentials *retromruntime.Credentials, roots []serversource.Root, now func() time.Time,
 ) *application.Service {
 	source := sourceimport.NewSources(blobs, credentials, roots)

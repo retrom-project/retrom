@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"retrom/internal/cleanup"
+	dbapi "retrom/internal/database"
 	retromruntime "retrom/internal/runtime"
 	"retrom/internal/testsupport"
 )
@@ -39,7 +40,7 @@ VALUES('rpg-reviewer','local','rpg-reviewer','Reviewer','ADMIN','ENABLED',0,0)`)
 		t.Fatalf("RPG Maker cannot use the ordinary review trial: %+v, %v", created, err)
 	}
 	var games, previews int
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT (SELECT count(*) FROM games),(SELECT count(*) FROM review_preview_sessions WHERE id=?)`,
 		created.PreviewID).Scan(&games, &previews); err != nil {
 		t.Fatal(err)

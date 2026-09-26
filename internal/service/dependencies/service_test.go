@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/arcadedat"
 	"retrom/internal/dependencies"
+	"retrom/internal/format/arcadedat"
 	runtimecatalog "retrom/internal/runtime/catalog"
 )
 

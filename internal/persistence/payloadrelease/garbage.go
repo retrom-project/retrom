@@ -2,23 +2,22 @@ package payloadrelease
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/payloadrelease"
 )
 
-type Garbage struct{ database *sql.DB }
+type Garbage struct{ database dbapi.DB }
 
-func NewGarbage(database *sql.DB) *Garbage { return &Garbage{database: database} }
+func NewGarbage(database dbapi.DB) *Garbage { return &Garbage{database: database} }
 
 func (repository *Garbage) WithGarbage(ctx context.Context, run func(application.GarbageScope) error) error {
 	tx, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin garbage transaction: %w", err)
 	}
-	defer dbexec.Rollback(tx)
+	defer dbapi.Rollback(tx)
 	records := garbageRecords{executor: tx}
 	if err := run(application.GarbageScope{Read: records, Write: records, Worker: BindWorker(tx)}); err != nil {
 		return err
@@ -29,7 +28,7 @@ func (repository *Garbage) WithGarbage(ctx context.Context, run func(application
 	return nil
 }
 
-type garbageRecords struct{ executor dbexec.Executor }
+type garbageRecords struct{ executor dbapi.Executor }
 
 func (records garbageRecords) Facts(ctx context.Context, id, digest string) (application.GarbageFacts, error) {
 	var facts application.GarbageFacts
@@ -40,12 +39,14 @@ func (records garbageRecords) Facts(ctx context.Context, id, digest string) (app
 	if len(blobs) == 1 {
 		facts.Found = true
 		facts.Blob = blobs[0]
-		if err := records.executor.QueryRowContext(ctx, `SELECT count(*) FROM archive_entries WHERE archive_blob_id=?`, id).
+		if err := dbapi.QueryRowContext(
+			ctx, records.executor, `SELECT count(*) FROM archive_entries WHERE archive_blob_id=?`, id).
 			Scan(&facts.ArchiveEntries); err != nil {
 			return application.GarbageFacts{}, fmt.Errorf("read garbage archive size: %w", err)
 		}
 	}
-	err = records.executor.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM blobs WHERE sha256=? AND id<>?)`, digest, id).
+	err = dbapi.QueryRowContext(
+		ctx, records.executor, `SELECT EXISTS(SELECT 1 FROM blobs WHERE sha256=? AND id<>?)`, digest, id).
 		Scan(&facts.OtherDigestOwner)
 	if err != nil {
 		return application.GarbageFacts{}, fmt.Errorf("read replacement garbage digest owner: %w", err)

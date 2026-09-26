@@ -7,6 +7,8 @@ import (
 	"io"
 	"testing"
 
+	dbapi "retrom/internal/database"
+
 	"github.com/google/uuid"
 )
 
@@ -29,7 +31,8 @@ func TestServerSourcePreservesBlobReadFailure(t *testing.T) {
 		t.Fatal(err)
 	}
 	var ignored int64
-	expected := fixture.database.QueryRowContext(fixture.ctx, `SELECT size_bytes FROM blobs WHERE id=?`, request.Files[0].BlobID).Scan(&ignored)
+	expected := errors.Unwrap(dbapi.QueryRowContext(
+		fixture.ctx, fixture.database, `SELECT size_bytes FROM blobs WHERE id=?`, request.Files[0].BlobID).Scan(&ignored))
 	_, _, _, err := fixture.service.validateServerFiles(fixture.ctx, request.Files)
 	if expected == nil || !errors.Is(err, expected) {
 		t.Fatalf("blob read cause lost: got=%v expected=%v", err, expected)

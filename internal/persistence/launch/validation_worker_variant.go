@@ -6,7 +6,8 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/corevalidation"
+	corevalidation "retrom/internal/core/validation"
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/recordstore"
 	application "retrom/internal/service/launch"
 )
@@ -44,7 +45,7 @@ func (records validationWorkerRecords) validationDefaults(
 	variantID, gameID, status string,
 ) (sql.NullString, any, error) {
 	var defaultDOSEntry sql.NullString
-	if err := records.executor.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, records.executor, `
 SELECT COALESCE(
  (SELECT default_dos_entry FROM game_variants WHERE id=? AND game_id=?),
  (SELECT original_relative_path FROM dos_entries
@@ -57,7 +58,7 @@ SELECT COALESCE(
 		return defaultDOSEntry, nil, nil
 	}
 	var existing sql.NullInt64
-	if err := records.executor.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, records.executor, `
 SELECT emulator_game_id FROM game_variants WHERE id=?
 `, variantID).Scan(&existing); err != nil {
 		return sql.NullString{}, nil, fmt.Errorf("load emulator game ID: %w", err)
@@ -66,7 +67,7 @@ SELECT emulator_game_id FROM game_variants WHERE id=?
 		return defaultDOSEntry, existing.Int64, nil
 	}
 	var emulatorGameID int64
-	if err := records.executor.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, records.executor, `
 SELECT COALESCE(MAX(emulator_game_id),1000)+1 FROM game_variants
 `).Scan(&emulatorGameID); err != nil {
 		return sql.NullString{}, nil, fmt.Errorf("allocate emulator game ID: %w", err)

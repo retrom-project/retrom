@@ -4,7 +4,6 @@ package httpapi
 
 import (
 	"context"
-	"database/sql"
 	"database/sql/driver"
 	"errors"
 	"fmt"
@@ -18,6 +17,7 @@ import (
 
 	"retrom/internal/cleanup"
 	launchcomposition "retrom/internal/composition/launch"
+	dbapi "retrom/internal/database"
 	"retrom/internal/dependencies"
 	"retrom/internal/launch"
 	"retrom/internal/libraryimport"
@@ -101,7 +101,7 @@ func seedValidationRetry(t *testing.T, fixture validationRetryFixture) string {
 	return queued.JobID
 }
 
-func validationRetrySQL(t *testing.T, database *sql.DB, statement string, args ...any) {
+func validationRetrySQL(t *testing.T, database dbapi.DB, statement string, args ...any) {
 	t.Helper()
 	if _, err := database.ExecContext(t.Context(), statement, args...); err != nil {
 		t.Fatal(err)
@@ -127,7 +127,7 @@ func waitValidationRetry(t *testing.T, fixture validationRetryFixture) (string, 
 	for {
 		var state string
 		var execution, attempt int64
-		if err := fixture.server.database.QueryRowContext(t.Context(), `SELECT state,execution_no,attempt_count FROM jobs WHERE id=?`, fixture.jobID).Scan(&state, &execution, &attempt); err != nil {
+		if err := dbapi.QueryRowContext(t.Context(), fixture.server.database, `SELECT state,execution_no,attempt_count FROM jobs WHERE id=?`, fixture.jobID).Scan(&state, &execution, &attempt); err != nil {
 			t.Fatal(err)
 		}
 		if state == "SUCCEEDED" || state == "FAILED" {
@@ -184,7 +184,7 @@ func TestValidationRetryReceiptFailureDoesNotDispatch(t *testing.T) {
 	}
 	var state string
 	var attempt int64
-	if err := fixture.server.database.QueryRowContext(t.Context(), `SELECT state,attempt_count FROM jobs WHERE id=?`, fixture.jobID).Scan(&state, &attempt); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), fixture.server.database, `SELECT state,attempt_count FROM jobs WHERE id=?`, fixture.jobID).Scan(&state, &attempt); err != nil {
 		t.Fatal(err)
 	}
 	if state != "QUEUED" || attempt != 0 {

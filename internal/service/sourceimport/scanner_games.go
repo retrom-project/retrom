@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"path"
 
-	pegasusmeta "retrom/internal/importformat/pegasus/meta"
+	pegasusmeta "retrom/internal/format/pegasus/meta"
 	"retrom/internal/serversource"
 )
 

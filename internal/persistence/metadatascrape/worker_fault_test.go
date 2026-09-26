@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/service/metadatascrape"
 	"retrom/internal/testsupport"
 )
@@ -35,7 +36,7 @@ func TestMetadataRecoveredLeaseAndRetryEventRollbackTogether(t *testing.T) {
 	}
 	var state, worker string
 	var attempts int
-	if err := database.QueryRowContext(t.Context(), `SELECT state,worker_id,attempt_count FROM jobs WHERE id='job'`).Scan(&state, &worker, &attempts); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), database, `SELECT state,worker_id,attempt_count FROM jobs WHERE id='job'`).Scan(&state, &worker, &attempts); err != nil {
 		t.Fatal(err)
 	}
 	if state != "RUNNING" || worker != "old-worker" || attempts != 1 {

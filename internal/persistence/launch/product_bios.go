@@ -5,14 +5,14 @@ import (
 	"fmt"
 
 	"retrom/internal/cleanup"
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	validation "retrom/internal/persistence/corevalidation"
 	application "retrom/internal/service/launch"
 )
 
 func ProductBIOSFacts(
 	ctx context.Context,
-	executor dbexec.Executor,
+	executor dbapi.Executor,
 	source application.ProductSource,
 	datID *string,
 ) (application.ProductBIOSFacts, error) {
@@ -63,7 +63,7 @@ ORDER BY dependency.logical_archive`,
 	return facts, nil
 }
 
-func scanProductArcadeBIOS(scanner dbexec.Scanner) (application.ProductArcadeBIOS, error) {
+func scanProductArcadeBIOS(scanner dbapi.Scanner) (application.ProductArcadeBIOS, error) {
 	var record application.ProductArcadeBIOS
 	var requirement, catalog, mode, delivery *string
 	var version *int64

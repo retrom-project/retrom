@@ -2,20 +2,16 @@ package blobregistry
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 
 	"retrom/internal/cleanup"
+	dbapi "retrom/internal/database"
 )
-
-type Queryer interface {
-	QueryContext(context.Context, string, ...any) (*sql.Rows, error)
-}
 
 // ProtectiveSet returns the exact Blob set retained by the GC registry. A
 // protected archive also protects its materialized members, but ownership is
 // intentionally one-way.
-func ProtectiveSet(ctx context.Context, database Queryer) (map[string]struct{}, error) {
+func ProtectiveSet(ctx context.Context, database dbapi.Queryer) (map[string]struct{}, error) {
 	edges, err := Load()
 	if err != nil {
 		return nil, fmt.Errorf("blobregistry/protection: %w", err)
@@ -44,7 +40,7 @@ WHERE ` + quoteIdentifier(edge.Column) + ` IS NOT NULL`
 
 func collectMaterializedMembers(
 	ctx context.Context,
-	database Queryer,
+	database dbapi.Queryer,
 	protected map[string]struct{},
 ) error {
 	rows, err := database.QueryContext(ctx, `
@@ -72,7 +68,7 @@ WHERE materialized_blob_id IS NOT NULL`)
 
 func collectProtected(
 	ctx context.Context,
-	database Queryer,
+	database dbapi.Queryer,
 	query string,
 	values []any,
 	protected map[string]struct{},

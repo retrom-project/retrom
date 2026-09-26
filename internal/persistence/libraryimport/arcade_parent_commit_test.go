@@ -1,10 +1,10 @@
 package libraryimport
 
 import (
-	"database/sql"
 	"strings"
 	"testing"
 
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/libraryimport"
 )
 
@@ -24,7 +24,7 @@ func TestArcadeParentCommitFinishesRetryableAttachmentAtomically(t *testing.T) {
 	}
 
 	var attachmentState, attachmentCode, jobState, jobCode string
-	if err := database.QueryRowContext(t.Context(), `
+	if err := dbapi.QueryRowContext(t.Context(), database, `
 SELECT attachment.state,attachment.error_code,job.state,job.error_code
 FROM review_arcade_parent_attachments attachment JOIN jobs job ON job.id=attachment.job_id
 WHERE attachment.id='attachment'
@@ -36,7 +36,7 @@ WHERE attachment.id='attachment'
 		t.Fatalf("terminal states attachment=%s/%s job=%s/%s", attachmentState, attachmentCode, jobState, jobCode)
 	}
 	var eventCount int
-	if err := database.QueryRowContext(t.Context(), `
+	if err := dbapi.QueryRowContext(t.Context(), database, `
 SELECT count(*) FROM job_events WHERE job_id='parent-job' AND event_type='FAILED'
 `).Scan(&eventCount); err != nil {
 		t.Fatal(err)
@@ -60,7 +60,7 @@ func TestArcadeParentCommitFinishesCancellationWithCompareAndSet(t *testing.T) {
 	}
 
 	var attachmentState, jobState string
-	if err := database.QueryRowContext(t.Context(), `
+	if err := dbapi.QueryRowContext(t.Context(), database, `
 SELECT attachment.state,job.state
 FROM review_arcade_parent_attachments attachment JOIN jobs job ON job.id=attachment.job_id
 WHERE attachment.id='attachment'
@@ -73,7 +73,7 @@ WHERE attachment.id='attachment'
 }
 
 func insertArcadeParentCommitTerminalFixture(
-	t *testing.T, database *sql.DB, kind, jobState string,
+	t *testing.T, database dbapi.DB, kind, jobState string,
 ) {
 	t.Helper()
 	metadataExec(t, database, `

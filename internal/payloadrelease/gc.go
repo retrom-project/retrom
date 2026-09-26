@@ -2,8 +2,9 @@ package payloadrelease
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
+
+	dbapi "retrom/internal/database"
 
 	repository "retrom/internal/persistence/payloadrelease"
 	application "retrom/internal/service/payloadrelease"
@@ -26,7 +27,7 @@ func (service *Service) stageAllUnreferenced(ctx context.Context) error {
 	return nil
 }
 
-func (service *Service) stageCandidates(ctx context.Context, tx *sql.Tx, ids []string) error {
+func (service *Service) stageCandidates(ctx context.Context, tx dbapi.Tx, ids []string) error {
 	if err := service.gc.StageInScope(ctx, repository.BindGC(tx), ids); err != nil {
 		return fmt.Errorf("stage GC candidates: %w", err)
 	}
@@ -34,7 +35,7 @@ func (service *Service) stageCandidates(ctx context.Context, tx *sql.Tx, ids []s
 }
 
 // StageCandidates keeps reference removal and the GC handoff in the caller's transaction.
-func (service *Service) StageCandidates(ctx context.Context, tx *sql.Tx, ids []string) error {
+func (service *Service) StageCandidates(ctx context.Context, tx dbapi.Tx, ids []string) error {
 	return service.stageCandidates(ctx, tx, ids)
 }
 

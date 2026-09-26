@@ -2,14 +2,15 @@ package maintenance
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
+
+	dbapi "retrom/internal/database"
 
 	"retrom/internal/cleanup"
 	source "retrom/internal/persistence/sourceimport"
 )
 
-func clearRestoredSourceScans(ctx context.Context, tx *sql.Tx) error {
+func clearRestoredSourceScans(ctx context.Context, tx dbapi.Tx) error {
 	ids, err := restoredSourceScanIDs(ctx, tx)
 	if err != nil {
 		return err
@@ -22,7 +23,7 @@ func clearRestoredSourceScans(ctx context.Context, tx *sql.Tx) error {
 	return nil
 }
 
-func restoredSourceScanIDs(ctx context.Context, tx *sql.Tx) ([]string, error) {
+func restoredSourceScanIDs(ctx context.Context, tx dbapi.Tx) ([]string, error) {
 	rows, err := tx.QueryContext(ctx, `SELECT id FROM source_imports
 WHERE state IN ('SCANNING','CANCEL_REQUESTED') AND import_job_id IS NULL AND scan_completed_at_ms IS NULL ORDER BY id`)
 	if err != nil {

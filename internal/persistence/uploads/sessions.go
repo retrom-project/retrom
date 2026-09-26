@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	service "retrom/internal/service/uploads"
 )
 
@@ -34,7 +34,7 @@ VALUES(?,?,?,?,'PENDING',?,?)
 func (records sessionRecords) Current(ctx context.Context, id string) (service.SessionState, error) {
 	var current service.SessionState
 	var job sql.NullString
-	err := records.executor.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, records.executor, `
 SELECT id,state,version,finalization_no,finalize_job_id,
  EXISTS(SELECT 1 FROM upload_consumptions WHERE upload_session_id=upload_sessions.id)
 FROM upload_sessions WHERE id=?
@@ -45,7 +45,7 @@ FROM upload_sessions WHERE id=?
 	if err != nil {
 		return service.SessionState{}, fmt.Errorf("uploads/read session state: %w", err)
 	}
-	current.FinalizeJobID = dbexec.StringPointer(job)
+	current.FinalizeJobID = dbapi.StringPointer(job)
 	return current, nil
 }
 

@@ -3,10 +3,10 @@ package payloadrelease
 import (
 	"context"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 )
 
-func ImportItemBlobIDs(ctx context.Context, transaction dbexec.Executor, itemID string) ([]string, error) {
+func ImportItemBlobIDs(ctx context.Context, transaction dbapi.Executor, itemID string) ([]string, error) {
 	return collectIDs(ctx, transaction, `
 SELECT blob_id FROM import_item_source_files WHERE import_item_id=?
 UNION ALL SELECT source_archive_blob_id FROM import_item_source_files WHERE import_item_id=?

@@ -6,7 +6,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
-	"database/sql"
 	"encoding/base64"
 	"fmt"
 	"os"
@@ -17,6 +16,7 @@ import (
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	composition "retrom/internal/composition/launch"
+	dbapi "retrom/internal/database"
 	"retrom/internal/dependencies"
 	"retrom/internal/launch"
 	"retrom/internal/libraryimport"
@@ -35,7 +35,7 @@ const (
 )
 
 type assemblyFixture struct {
-	database *sql.DB
+	database dbapi.DB
 	source   *launch.Sources
 	service  *application.Service
 	importer *libraryimport.Service
@@ -90,7 +90,7 @@ VALUES(?,?,'assembly','Assembly','ADMIN','ENABLED',?,?)`,
 	return assemblyFixture{database.SQL, source, service, importer, itemID, now}
 }
 
-func uploadAssemblyROM(t *testing.T, database *sql.DB, blobs *blobstore.Store, dir string, importer *libraryimport.Service, now func() time.Time) string {
+func uploadAssemblyROM(t *testing.T, database dbapi.DB, blobs *blobstore.Store, dir string, importer *libraryimport.Service, now func() time.Time) string {
 	t.Helper()
 	contents, err := os.ReadFile(filepath.Join("..", "..", "..", "testdata", "public-roms", "nes-smoke", "nes-smoke.nes"))
 	if err != nil {
@@ -119,13 +119,13 @@ func uploadAssemblyROM(t *testing.T, database *sql.DB, blobs *blobstore.Store, d
 		t.Fatal(err)
 	}
 	var item string
-	if err := database.QueryRowContext(t.Context(), `SELECT id FROM import_items WHERE import_job_id=?`, imported.ImportJobID).Scan(&item); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), database, `SELECT id FROM import_items WHERE import_job_id=?`, imported.ImportJobID).Scan(&item); err != nil {
 		t.Fatal(err)
 	}
 	return item
 }
 
-func waitAssemblyUpload(t *testing.T, database *sql.DB, id string) {
+func waitAssemblyUpload(t *testing.T, database dbapi.DB, id string) {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(t.Context(), 3*time.Second)
 	defer cancel()
@@ -133,7 +133,7 @@ func waitAssemblyUpload(t *testing.T, database *sql.DB, id string) {
 	defer ticker.Stop()
 	for {
 		var state string
-		if err := database.QueryRowContext(ctx, `SELECT state FROM jobs WHERE id=?`, id).Scan(&state); err != nil {
+		if err := dbapi.QueryRowContext(ctx, database, `SELECT state FROM jobs WHERE id=?`, id).Scan(&state); err != nil {
 			t.Fatal(err)
 		}
 		if state == "SUCCEEDED" {

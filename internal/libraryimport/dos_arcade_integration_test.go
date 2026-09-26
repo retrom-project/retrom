@@ -21,7 +21,7 @@ import (
 	dependencypersistence "retrom/internal/persistence/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/blobcatalog"
 
 	"retrom/internal/blobstore"
@@ -135,7 +135,7 @@ VALUES('01990000-0000-7000-8000-000000000102',?,?,?, ?,?,?,?,1,'MATCHED','{}',1,
 	previous := `{"schemaVersion":1,"kind":"ARCADE","machine":"child","datVersionId":"dat-test","closure":["child","bios"],"dependencies":[{"kind":"BIOS_OR_BASE","machine":"bios","state":"MISSING","requiredEntries":["b.bin"]}],"missingEntries":["bios.zip"],"mismatchedEntries":[],"warnings":[]}`
 	transaction, err := database.SQL.BeginTx(ctx, nil)
 	testassert.False(t, err != nil, err)
-	t.Cleanup(func() { dbexec.Rollback(transaction) })
+	t.Cleanup(func() { dbapi.Rollback(transaction) })
 	resolved, err := resolveArcadeDraftBIOSState(
 		ctx, transaction, target.ProviderID, target.TargetID, previous, "BLOCKED", "LAUNCH_BIOS_MISSING",
 	)
@@ -274,7 +274,7 @@ VALUES('01990000-0000-7000-8000-000000000203',?,?,?, ?,?,?,?,1,?,'{}',1,1,?,?)
 	deadline := time.Now().Add(3 * time.Second)
 	for {
 		var state string
-		if err := database.SQL.QueryRowContext(ctx, "SELECT state FROM jobs WHERE id=?", jobID).Scan(&state); err != nil {
+		if err := dbapi.QueryRowContext(ctx, database.SQL, "SELECT state FROM jobs WHERE id=?", jobID).Scan(&state); err != nil {
 			t.Fatal(err)
 		}
 		if state == "SUCCEEDED" {
@@ -291,7 +291,7 @@ VALUES('01990000-0000-7000-8000-000000000203',?,?,?, ?,?,?,?,1,?,'{}',1,1,?,?)
 	})
 	testassert.False(t, err != nil, err)
 	var validationID, status, code, snapshotJSON string
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT draft.selected_validation_id,validation.status,validation.compatibility_code,
 validation.dependency_snapshot_json
 FROM import_items item
@@ -308,7 +308,7 @@ WHERE item.import_job_id=?
 		t.Fatalf("initial snapshot = %#v, error=%v", snapshot, err)
 	}
 	var validationBlobID string
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT blob_id FROM import_item_validation_files
 WHERE import_item_core_validation_id=? AND role='BIOS_BUNDLE' AND logical_name='codexbios.zip'
 `, validationID).Scan(&validationBlobID); err != nil {
@@ -317,7 +317,7 @@ WHERE import_item_core_validation_id=? AND role='BIOS_BUNDLE' AND logical_name='
 	testassert.Falsef(t, validationBlobID != biosBlobID, "initial BIOS blob = %s, want %s", validationBlobID, biosBlobID)
 	var itemID string
 	var draftVersion int64
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT item.id,draft.review_version
 FROM import_items item
 JOIN import_items draft ON draft.id=item.id
@@ -375,7 +375,7 @@ INSERT INTO profiles(id,display_name,created_at_ms) VALUES('local','Arcade BIOS 
 	for {
 		var state string
 		var errorCode sql.NullString
-		if err := database.SQL.QueryRowContext(ctx, `SELECT state,error_code FROM jobs WHERE id=?`, pending.JobID).
+		if err := dbapi.QueryRowContext(ctx, database.SQL, `SELECT state,error_code FROM jobs WHERE id=?`, pending.JobID).
 			Scan(&state, &errorCode); err != nil {
 			t.Fatal(err)
 		}
@@ -386,7 +386,7 @@ INSERT INTO profiles(id,display_name,created_at_ms) VALUES('local','Arcade BIOS 
 		time.Sleep(10 * time.Millisecond)
 	}
 	var refreshedSnapshot string
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT variant.dependency_snapshot_json
 FROM game_variants variant
 WHERE variant.game_id=? AND variant.core_id='fbneo'

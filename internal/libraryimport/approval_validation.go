@@ -7,19 +7,19 @@ import (
 	"encoding/hex"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	validationpersistence "retrom/internal/persistence/corevalidation"
 	librarypersistence "retrom/internal/persistence/libraryimport"
 	application "retrom/internal/service/libraryimport"
 
 	contentcapability "retrom/internal/content/capability"
-	"retrom/internal/corevalidation"
+	corevalidation "retrom/internal/core/validation"
 	"retrom/internal/multidisc"
 )
 
 func prepareStaticBIOSDependencies(
 	ctx context.Context,
-	transaction *sql.Tx,
+	transaction dbapi.Tx,
 	providerID, targetID, platformID string,
 	groups []preparedGroup,
 ) error {
@@ -37,7 +37,7 @@ type (
 )
 
 func (service *Service) validateCurrentApprovalDependencySnapshot(
-	ctx context.Context, transaction dbexec.Executor, sourceSnapshotID, validationID, platformID, providerID,
+	ctx context.Context, transaction dbapi.Executor, sourceSnapshotID, validationID, platformID, providerID,
 	targetID string,
 	policy contentcapability.Policy, contentKind, frozenJSON string,
 ) error {
@@ -75,7 +75,7 @@ func approvalValidationInputDigest(input approvalValidationDigestInput) (string,
 	}
 	if input.ContentKind != multidisc.ContentKind {
 		digest, err := corevalidation.ProviderValidationInputDigest(
-			input.ProviderID, input.TargetID, input.ContentID, dbexec.StringPointer(input.DATID),
+			input.ProviderID, input.TargetID, input.ContentID, dbapi.StringPointer(input.DATID),
 			input.Snapshot,
 		)
 		if err != nil {
@@ -94,7 +94,7 @@ func approvalValidationInputDigest(input approvalValidationDigestInput) (string,
 		GameVariantID: input.VariantID, GameID: input.ContentID,
 		ContentKind: input.ContentKind, ProviderID: input.ProviderID, TargetID: input.TargetID,
 		ContentPolicySHA256: input.ContentPolicy.Digest(),
-		DATVersionID:        dbexec.StringPointer(input.DATID), BIOSDependencySHA256: biosDigest,
+		DATVersionID:        dbapi.StringPointer(input.DATID), BIOSDependencySHA256: biosDigest,
 		OrderedDiscSHA256:       input.Snapshot.MultiDisc.OrderedDiscSHA256,
 		CanonicalPlaylistSHA256: input.Snapshot.MultiDisc.CanonicalPlaylistSHA256,
 	})

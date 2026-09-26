@@ -6,19 +6,19 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/launch"
 )
 
-type Play struct{ database *sql.DB }
+type Play struct{ database dbapi.DB }
 
-func NewPlay(database *sql.DB) *Play { return &Play{database: database} }
+func NewPlay(database dbapi.DB) *Play { return &Play{database: database} }
 func (repository *Play) WithPlay(ctx context.Context, work func(application.PlayScope) error) error {
 	tx, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin play transaction: %w", err)
 	}
-	defer dbexec.Rollback(tx)
+	defer dbapi.Rollback(tx)
 	records := playRecords{transaction: tx}
 	if err := work(application.PlayScope{Read: records, Write: records}); err != nil {
 		return err
@@ -29,12 +29,12 @@ func (repository *Play) WithPlay(ctx context.Context, work func(application.Play
 	return nil
 }
 
-type playRecords struct{ transaction *sql.Tx }
+type playRecords struct{ transaction dbapi.Tx }
 
 func (records playRecords) Source(ctx context.Context, id string) (application.PlaySource, bool, error) {
 	var source application.PlaySource
 	var idle sql.NullInt64
-	err := records.transaction.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, records.transaction, `
 SELECT id,0,credential_sha256,state,profile_id,game_id,hard_expires_at_ms,idle_expires_at_ms,version
 FROM launch_sessions WHERE id=?
 UNION ALL
@@ -56,7 +56,7 @@ FROM review_preview_sessions WHERE id=?`, id, id).Scan(
 
 func (records playRecords) Current(ctx context.Context, id string) (application.PlayRecord, bool, error) {
 	var result application.PlayRecord
-	err := records.transaction.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, records.transaction, `
 SELECT id,state,version,last_client_sequence,last_heartbeat_at_ms,active_duration_ms
 FROM play_sessions WHERE launch_session_id=?`, id).Scan(&result.ID, &result.State, &result.Version,
 		&result.LastSequence, &result.LastHeartbeatAtMS, &result.ActiveDurationMS)
@@ -75,7 +75,7 @@ func (records playRecords) Event(
 	sequence int64,
 ) (application.StoredPlayEvent, bool, error) {
 	var result application.StoredPlayEvent
-	err := records.transaction.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, records.transaction, `
 SELECT event_kind,client_observed_at_ms,accepted_duration_ms,running,visible,paused
 FROM play_session_events WHERE play_session_id=? AND client_sequence=?`, id, sequence).
 		Scan(&result.Kind, &result.ClientObservedAtMS, &result.AcceptedDurationMS,

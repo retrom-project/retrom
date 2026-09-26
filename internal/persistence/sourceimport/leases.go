@@ -7,20 +7,20 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/recordstore"
 	application "retrom/internal/service/sourceimport"
 )
 
-type Leases struct{ database *sql.DB }
+type Leases struct{ database dbapi.DB }
 
-func NewLeases(database *sql.DB) *Leases { return &Leases{database: database} }
+func NewLeases(database dbapi.DB) *Leases { return &Leases{database: database} }
 func (repository *Leases) WithLease(ctx context.Context, work func(application.LeaseRecords) error) error {
 	tx, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin Source lease: %w", err)
 	}
-	defer dbexec.Rollback(tx)
+	defer dbapi.Rollback(tx)
 	if err := work(leaseRecords{tx}); err != nil {
 		return err
 	}
@@ -30,11 +30,11 @@ func (repository *Leases) WithLease(ctx context.Context, work func(application.L
 	return nil
 }
 
-type leaseRecords struct{ tx *sql.Tx }
+type leaseRecords struct{ tx dbapi.Tx }
 
 func (records leaseRecords) Next(ctx context.Context, now int64) (application.LeaseCandidate, bool, error) {
 	var result application.LeaseCandidate
-	err := records.tx.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, records.tx, `
 SELECT plan.format,job.id,plan.id,job.kind,plan.root_id,plan.root_config_digest,
 plan.source_relative_path,plan.created_by_user_id,job.execution_no,job.attempt_count,job.version,plan.version,
 plan.state,job.max_attempts,job.execution_started_at_ms,job.execution_deadline_at_ms
@@ -127,7 +127,7 @@ VALUES(?,'SOURCE_IMPORT',?,'STARTED',?,?)`,
 }
 
 func (records leaseRecords) Current(ctx context.Context, id string) (application.ExecutionSnapshot, error) {
-	return scanRecovery(records.tx.QueryRowContext(ctx, recoverySnapshotSQL+` AND job.id=?`, id))
+	return scanRecovery(dbapi.QueryRowContext(ctx, records.tx, recoverySnapshotSQL+` AND job.id=?`, id))
 }
 
 func (records leaseRecords) Renew(ctx context.Context, change application.LeaseRenewal) error {

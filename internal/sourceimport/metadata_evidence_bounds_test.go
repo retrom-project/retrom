@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	pegasusmeta "retrom/internal/importformat/pegasus/meta"
+	pegasusmeta "retrom/internal/format/pegasus/meta"
 	"retrom/internal/serversource"
 	application "retrom/internal/service/sourceimport"
 )

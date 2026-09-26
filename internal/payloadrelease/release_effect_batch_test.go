@@ -8,7 +8,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/testsupport"
 )
 
@@ -37,7 +37,7 @@ func TestReleaseGameRemovesEveryFileAcrossBatchBoundary(t *testing.T) {
 	}
 	assertEffectGameGraphReleased(t, fixture)
 	var remaining int
-	if err := fixture.database.QueryRowContext(t.Context(), `SELECT count(*) FROM game_files WHERE game_id='schedule-game'`).Scan(&remaining); err != nil || remaining != 0 {
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT count(*) FROM game_files WHERE game_id='schedule-game'`).Scan(&remaining); err != nil || remaining != 0 {
 		t.Fatalf("remaining files=%d error=%v", remaining, err)
 	}
 }
@@ -48,7 +48,7 @@ func seedEffectFileBatch(t *testing.T, fixture releaseWorkerFixture) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer dbexec.Rollback(tx)
+	defer dbapi.Rollback(tx)
 	for index := range 201 {
 		_, err := tx.ExecContext(t.Context(), `INSERT INTO game_files(game_id,role,logical_name,blob_id,sort_order)
 VALUES('schedule-game','COMPANION',?,'effect-blob',?)`, fmt.Sprintf("effect-companion-%03d", index), index)

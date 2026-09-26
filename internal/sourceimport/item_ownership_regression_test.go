@@ -4,6 +4,7 @@ import (
 	"errors"
 	"testing"
 
+	dbapi "retrom/internal/database"
 	repository "retrom/internal/persistence/sourceimport"
 	application "retrom/internal/service/sourceimport"
 )
@@ -30,7 +31,7 @@ func TestItemCompletionRejectsReplacedWorker(t *testing.T) {
 		t.Fatalf("replaced worker outcome error=%v", err)
 	}
 	var state string
-	if err := service.database.QueryRowContext(t.Context(), `SELECT execution_state FROM source_import_items WHERE id='item'`).Scan(&state); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), service.database, `SELECT execution_state FROM source_import_items WHERE id='item'`).Scan(&state); err != nil {
 		t.Fatal(err)
 	}
 	if state != "VALIDATING" {

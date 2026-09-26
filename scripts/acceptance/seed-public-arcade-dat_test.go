@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+
+	dbapi "retrom/internal/database"
 )
 
 func TestSmokeDatabaseWaitsForBoundedAcceptanceWriterContention(t *testing.T) {
@@ -21,7 +23,7 @@ func TestSmokeDatabaseWaitsForBoundedAcceptanceWriterContention(t *testing.T) {
 		}
 	})
 	var timeoutMS int
-	if err := database.QueryRowContext(ctx, "PRAGMA busy_timeout").Scan(&timeoutMS); err != nil {
+	if err := dbapi.QueryRowContext(ctx, database, "PRAGMA busy_timeout").Scan(&timeoutMS); err != nil {
 		t.Fatalf("read busy timeout: %v", err)
 	}
 	if timeoutMS != acceptanceSQLiteBusyTimeoutMS {
@@ -39,26 +41,18 @@ func TestSmokeDatabaseWaitsForBoundedAcceptanceWriterContention(t *testing.T) {
 			t.Errorf("close blocking database: %v", closeErr)
 		}
 	})
-	connection, err := blocker.Conn(ctx)
+	transaction, err := blocker.BeginImmediate(ctx)
 	if err != nil {
-		t.Fatalf("acquire blocking connection: %v", err)
-	}
-	t.Cleanup(func() {
-		if closeErr := connection.Close(); closeErr != nil {
-			t.Errorf("close blocking connection: %v", closeErr)
-		}
-	})
-	if _, err := connection.ExecContext(ctx, "BEGIN IMMEDIATE"); err != nil {
 		t.Fatalf("begin blocking write: %v", err)
 	}
-	if _, err := connection.ExecContext(ctx, "INSERT INTO contention(value) VALUES(1)"); err != nil {
+	t.Cleanup(func() { dbapi.Rollback(transaction) })
+	if _, err := transaction.ExecContext(ctx, "INSERT INTO contention(value) VALUES(1)"); err != nil {
 		t.Fatalf("hold blocking write: %v", err)
 	}
 	released := make(chan error, 1)
 	go func() {
 		time.Sleep(100 * time.Millisecond)
-		_, commitErr := connection.ExecContext(ctx, "COMMIT")
-		released <- commitErr
+		released <- transaction.Commit()
 	}()
 	started := time.Now()
 	if _, err := database.ExecContext(ctx, "INSERT INTO contention(value) VALUES(2)"); err != nil {

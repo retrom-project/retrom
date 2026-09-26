@@ -2,28 +2,27 @@ package payloadrelease
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 
 	"retrom/internal/cleanup"
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/blobregistry"
 	application "retrom/internal/service/payloadrelease"
 )
 
 type (
-	Lifecycle       struct{ database *sql.DB }
-	lifecycleReader struct{ executor dbexec.Executor }
+	Lifecycle       struct{ database dbapi.DB }
+	lifecycleReader struct{ executor dbapi.Executor }
 )
 
-func NewLifecycle(database *sql.DB) *Lifecycle { return &Lifecycle{database: database} }
+func NewLifecycle(database dbapi.DB) *Lifecycle { return &Lifecycle{database: database} }
 
 func (repository *Lifecycle) WithLifecycle(ctx context.Context, run func(application.LifecycleReader) error) error {
-	tx, err := repository.database.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+	tx, err := repository.database.BeginTx(ctx, &dbapi.TxOptions{ReadOnly: true})
 	if err != nil {
 		return fmt.Errorf("begin lifecycle snapshot: %w", err)
 	}
-	defer dbexec.Rollback(tx)
+	defer dbapi.Rollback(tx)
 	if err := run(lifecycleReader{tx}); err != nil {
 		return err
 	}

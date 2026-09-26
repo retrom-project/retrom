@@ -2,24 +2,23 @@ package payloadrelease
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 
 	"retrom/internal/cleanup"
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/payloadrelease"
 )
 
-type Expiration struct{ database *sql.DB }
+type Expiration struct{ database dbapi.DB }
 
-func NewExpiration(database *sql.DB) *Expiration { return &Expiration{database: database} }
+func NewExpiration(database dbapi.DB) *Expiration { return &Expiration{database: database} }
 
 func (repository *Expiration) WithExpiration(ctx context.Context, run func(application.ExpirationScope) error) error {
 	tx, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin payload expiration: %w", err)
 	}
-	defer dbexec.Rollback(tx)
+	defer dbapi.Rollback(tx)
 	records := expirationRecords{executor: tx}
 	if err := run(application.ExpirationScope{Read: records, Write: records, GC: BindGC(tx)}); err != nil {
 		return err
@@ -30,7 +29,7 @@ func (repository *Expiration) WithExpiration(ctx context.Context, run func(appli
 	return nil
 }
 
-type expirationRecords struct{ executor dbexec.Executor }
+type expirationRecords struct{ executor dbapi.Executor }
 
 const providerNoRunning = `NOT EXISTS(
 SELECT 1 FROM metadata_scrape_query_attempts attempt

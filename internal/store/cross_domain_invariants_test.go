@@ -1,12 +1,12 @@
 package store
 
 import (
-	"database/sql"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/recordstore"
 
 	"retrom/internal/cleanup"
@@ -63,7 +63,7 @@ func TestCurrentGameCanMoveBetweenPlatformInstances(t *testing.T) {
 	testassert.Falsef(t, err != nil, "current game platform move was rejected: %v", err)
 
 	var platformID string
-	err = database.SQL.QueryRowContext(t.Context(), `SELECT platform_instance_id FROM games WHERE id='current-game'`).Scan(&platformID)
+	err = dbapi.QueryRowContext(t.Context(), database.SQL, `SELECT platform_instance_id FROM games WHERE id='current-game'`).Scan(&platformID)
 	testassert.False(t, err != nil, err)
 	testassert.Truef(t, platformID == "current-snes", "current game platform = %s", platformID)
 }
@@ -111,7 +111,7 @@ INSERT INTO save_states(
  'Current save',1,1,1,1,'current-launch'
 )`
 
-func seedCurrentRuntimeGraph(t *testing.T, database *sql.DB) {
+func seedCurrentRuntimeGraph(t *testing.T, database dbapi.DB) {
 	t.Helper()
 	seedSchemaProductDefinitions(t, database)
 	statements := []string{

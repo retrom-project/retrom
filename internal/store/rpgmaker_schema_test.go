@@ -2,13 +2,13 @@ package store
 
 import (
 	"context"
-	"database/sql"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
 	"retrom/internal/cleanup"
+	dbapi "retrom/internal/database"
 	"retrom/internal/testassert"
 )
 
@@ -65,7 +65,7 @@ UPDATE launch_sessions SET state='REVOKED',finished_at_ms=3,updated_at_ms=3 WHER
 
 	var launchState string
 	var revokedAt int64
-	err := database.QueryRowContext(t.Context(), `
+	err := dbapi.QueryRowContext(t.Context(), database, `
 SELECT launch.state,capability.revoked_at_ms
 FROM launch_sessions launch
 JOIN isolated_runtime_capabilities capability ON capability.launch_id=launch.id
@@ -75,7 +75,7 @@ WHERE launch.id=?1`, rpgSchemaOriginal).Scan(&launchState, &revokedAt)
 	testassert.Truef(t, revokedAt == 2, "capability revoked_at_ms = %d", revokedAt)
 }
 
-func openRPGMakerSchemaDatabase(t *testing.T) *sql.DB {
+func openRPGMakerSchemaDatabase(t *testing.T) dbapi.DB {
 	t.Helper()
 	database, err := Open(t.Context(), filepath.Join(t.TempDir(), "retrom.db"), time.Now)
 	testassert.Falsef(t, err != nil, "Open() error = %v", err)
@@ -84,7 +84,7 @@ func openRPGMakerSchemaDatabase(t *testing.T) *sql.DB {
 	return database.SQL
 }
 
-func insertRPGMakerProviderProjection(t *testing.T, database *sql.DB) {
+func insertRPGMakerProviderProjection(t *testing.T, database dbapi.DB) {
 	t.Helper()
 	mustExecRPGSchema(t, database, `
 INSERT INTO runtime_providers(
@@ -101,7 +101,7 @@ INSERT INTO runtime_targets(
 		rpgSchemaProvider, rpgSchemaTarget)
 }
 
-func mustExecRPGSchema(t *testing.T, database *sql.DB, query string, arguments ...any) {
+func mustExecRPGSchema(t *testing.T, database dbapi.DB, query string, arguments ...any) {
 	t.Helper()
 	_, err := database.ExecContext(context.Background(), query, arguments...)
 	testassert.Falsef(t, err != nil, "schema fixture SQL failed: %v\n%s", err, query)

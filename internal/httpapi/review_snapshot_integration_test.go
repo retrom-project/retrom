@@ -18,6 +18,7 @@ import (
 
 	"retrom/internal/authn"
 	"retrom/internal/composition"
+	dbapi "retrom/internal/database"
 	"retrom/internal/libraryimport"
 	"retrom/internal/persistence/blobcatalog"
 	libraryservice "retrom/internal/service/libraryimport"
@@ -34,7 +35,7 @@ func TestReviewDetailUsesOneSnapshotAcrossDraftAndTags(t *testing.T) {
 	}
 	var beforeTitle string
 	var beforeVersion int64
-	if err := server.database.QueryRowContext(t.Context(), `
+	if err := dbapi.QueryRowContext(t.Context(), server.database, `
 SELECT json_extract(metadata_json,'$.title'),version FROM import_items WHERE id=?`, itemID).
 		Scan(&beforeTitle, &beforeVersion); err != nil {
 		t.Fatal(err)

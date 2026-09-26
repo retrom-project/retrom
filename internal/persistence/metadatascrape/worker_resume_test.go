@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/hasheous"
 	"retrom/internal/service/metadatascrape"
 )
@@ -48,7 +49,7 @@ func TestMetadataExpiredLeaseResumesPersistedExecution(t *testing.T) {
 	}
 	var state string
 	var available, deadline int64
-	if err := database.QueryRowContext(t.Context(), `SELECT state,available_at_ms,execution_deadline_at_ms FROM jobs WHERE id='job'`).Scan(&state, &available, &deadline); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), database, `SELECT state,available_at_ms,execution_deadline_at_ms FROM jobs WHERE id='job'`).Scan(&state, &available, &deadline); err != nil {
 		t.Fatal(err)
 	}
 	if state != "QUEUED" || available != now+1000 || deadline != now+10000 || processed {
@@ -114,7 +115,7 @@ func TestMetadataResumedCacheHitKeepsNextAttemptNumber(t *testing.T) {
 		t.Fatal(err)
 	}
 	var count, maximum int
-	if err := database.QueryRowContext(t.Context(), `SELECT count(*),max(attempt_no) FROM metadata_scrape_query_attempts WHERE content_hash_evidence_id='evidence'`).Scan(&count, &maximum); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), database, `SELECT count(*),max(attempt_no) FROM metadata_scrape_query_attempts WHERE content_hash_evidence_id='evidence'`).Scan(&count, &maximum); err != nil {
 		t.Fatal(err)
 	}
 	if count != 2 || maximum != 2 {

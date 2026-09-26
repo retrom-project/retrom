@@ -4,13 +4,13 @@ import (
 	"context"
 	"database/sql"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/recordstore"
 	application "retrom/internal/service/payloadrelease"
 )
 
 type (
-	effectRecordUpdate func(context.Context, dbexec.Executor, recordstore.Update) (sql.Result, error)
+	effectRecordUpdate func(context.Context, dbapi.Executor, recordstore.Update) (sql.Result, error)
 	effectSourceTables struct {
 		itemsTable, filesTable, assetsTable   string
 		updateItem, updateFiles, updateAssets effectRecordUpdate

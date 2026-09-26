@@ -4,16 +4,16 @@ import (
 	"context"
 	"database/sql"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 )
 
 func CreateSourceCollectionTags(
-	ctx context.Context, db dbexec.Executor, query string, args ...any,
+	ctx context.Context, db dbapi.Executor, query string, args ...any,
 ) (sql.Result, error) {
 	return create(ctx, db, query, args, "collection_id,tag_id", ValidateSourceCollectionTags)
 }
 
-func ValidateSourceCollectionTags(ctx context.Context, db dbexec.Executor, keys ...any) error {
+func ValidateSourceCollectionTags(ctx context.Context, db dbapi.Executor, keys ...any) error {
 	return validate(ctx, db, source_collection_tagsOwnership, keys)
 }
 

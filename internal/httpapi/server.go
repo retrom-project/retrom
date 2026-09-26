@@ -2,12 +2,13 @@ package httpapi
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"net/http"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	dbapi "retrom/internal/database"
 
 	gamecontentpersistence "retrom/internal/persistence/gamecontent"
 
@@ -104,8 +105,8 @@ const requestIDKey contextKey = "request-id"
 
 type Server struct {
 	config                  config.Config
-	database                *sql.DB
-	readinessDatabase       *sql.DB
+	database                dbapi.DB
+	readinessDatabase       dbapi.DB
 	readinessService        *readinessservice.Service
 	startupReadinessMu      sync.Mutex
 	startupReady            atomic.Bool
@@ -174,7 +175,7 @@ func (server *Server) WithRuntimeProvider(
 	return server.WithRuntimeProviderHandler(handler)
 }
 
-func (server *Server) WithReadinessDatabase(database *sql.DB) *Server {
+func (server *Server) WithReadinessDatabase(database dbapi.DB) *Server {
 	if database != nil {
 		server.readinessDatabase = database
 		server.readinessService = composition.NewReadiness(database)
@@ -196,7 +197,7 @@ type Authenticator interface {
 
 func New(
 	config config.Config,
-	database *sql.DB,
+	database dbapi.DB,
 	dependencySet *dependencies.Set,
 	blobs *blobstore.Store,
 	credentials *retromruntime.Credentials,

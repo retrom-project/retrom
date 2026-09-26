@@ -4,11 +4,11 @@ package gamecontent
 
 import (
 	"context"
-	"database/sql"
 	"testing"
 	"time"
 
 	"retrom/internal/blobstore"
+	dbapi "retrom/internal/database"
 	"retrom/internal/payloadrelease"
 	"retrom/internal/service/gamecontent"
 	"retrom/internal/service/uploads"
@@ -32,7 +32,7 @@ func (writer failingPublicationWriter) Publish(ctx context.Context, value gameco
 	return context.DeadlineExceeded
 }
 
-func assertLatePublicationRollback(t *testing.T, database *sql.DB, blobs *blobstore.Store, uploadService *uploads.Service,
+func assertLatePublicationRollback(t *testing.T, database dbapi.DB, blobs *blobstore.Store, uploadService *uploads.Service,
 	releases *payloadrelease.Service, gameID string, version int64, blobID, saveID string,
 ) {
 	t.Helper()
@@ -47,7 +47,7 @@ func assertLatePublicationRollback(t *testing.T, database *sql.DB, blobs *blobst
 	var currentVersion int64
 	var currentBlob string
 	var saves, successes int
-	err = database.QueryRowContext(t.Context(), `SELECT g.version,f.blob_id,
+	err = dbapi.QueryRowContext(t.Context(), database, `SELECT g.version,f.blob_id,
  (SELECT count(*) FROM save_states WHERE id=?),
  (SELECT count(*) FROM job_events WHERE job_id=? AND event_type='SUCCEEDED')
  FROM games g JOIN game_files f ON f.game_id=g.id WHERE g.id=? ORDER BY f.sort_order LIMIT 1`,

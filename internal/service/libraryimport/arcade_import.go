@@ -9,7 +9,7 @@ import (
 	"sort"
 	"strings"
 
-	"retrom/internal/corevalidation"
+	corevalidation "retrom/internal/core/validation"
 	"retrom/internal/importing"
 )
 

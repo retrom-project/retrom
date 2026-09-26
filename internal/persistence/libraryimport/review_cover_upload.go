@@ -6,17 +6,17 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/recordstore"
 	application "retrom/internal/service/libraryimport"
 )
 
 type (
-	ReviewCoverUploads struct{ database *sql.DB }
-	reviewCoverRecords struct{ executor dbexec.Executor }
+	ReviewCoverUploads struct{ database dbapi.DB }
+	reviewCoverRecords struct{ executor dbapi.Executor }
 )
 
-func NewReviewCoverUploads(database *sql.DB) *ReviewCoverUploads {
+func NewReviewCoverUploads(database dbapi.DB) *ReviewCoverUploads {
 	return &ReviewCoverUploads{database: database}
 }
 
@@ -33,7 +33,7 @@ func (repository *ReviewCoverUploads) WithWrite(
 	if err != nil {
 		return fmt.Errorf("begin review cover transaction: %w", err)
 	}
-	defer dbexec.Rollback(transaction)
+	defer dbapi.Rollback(transaction)
 	records := reviewCoverRecords{transaction}
 	if err := work(application.ReviewCoverScope{Reader: records, Writer: records}); err != nil {
 		return err
@@ -48,7 +48,7 @@ func (records reviewCoverRecords) Source(
 	ctx context.Context, fileID string,
 ) (application.ReviewCoverSource, bool, error) {
 	var source application.ReviewCoverSource
-	err := records.executor.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, records.executor, `
 SELECT f.id,f.upload_session_id,b.id,b.sha256,upload.purpose,b.size_bytes
 FROM import_files f
 JOIN blobs b ON b.id=f.blob_id
@@ -68,7 +68,7 @@ func (records reviewCoverRecords) Draft(
 	ctx context.Context, itemID string,
 ) (application.ReviewCoverDraft, bool, error) {
 	var draft application.ReviewCoverDraft
-	err := records.executor.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, records.executor, `
 SELECT d.review_version,i.state,
 (EXISTS(SELECT 1 FROM source_import_items source
  WHERE source.library_import_item_id=i.id AND source.execution_state<>'REVIEW_PENDING'))
@@ -88,7 +88,7 @@ func (records reviewCoverRecords) ExistingByUpload(
 ) (application.ReviewCoverExisting, bool, error) {
 	var existing application.ReviewCoverExisting
 	asset := &existing.Record
-	err := records.executor.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, records.executor, `
 SELECT a.id,a.import_item_id,a.upload_file_id,a.blob_id,a.media_type,a.width_px,a.height_px,a.created_at_ms,
 EXISTS(SELECT 1 FROM upload_consumptions c JOIN import_files f ON f.id=a.upload_file_id
  WHERE c.consumer_type='REVIEW_ASSET' AND c.consumer_id=a.id AND c.upload_file_id=a.upload_file_id

@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 
@@ -38,7 +39,7 @@ func TestBootstrapCatalogsMaterializesPinnedDATsIdempotently(t *testing.T) {
 		t.Fatal(err)
 	}
 	var machines int64
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT count(*)
 FROM dat_machines
 `).Scan(&machines); err != nil {
@@ -46,7 +47,7 @@ FROM dat_machines
 	}
 	testassert.Falsef(t, machines != 7_980+4_727+5_257+227+284, "machine rows = %d", machines)
 	var activeDATs, succeededJobs, nonCancellableJobs, snapshots int64
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT
 (SELECT count(*)
 FROM dat_versions
@@ -69,7 +70,7 @@ WHERE j.kind='DAT_PARSE')
 	}
 	testassert.Falsef(t, testassert.Any(func() bool { return activeDATs != 5 }, func() bool { return succeededJobs != 5 }, func() bool { return nonCancellableJobs != 5 }, func() bool { return snapshots != 5 }), "published DAT/job/snapshot contract = %d/%d/%d/%d", activeDATs, succeededJobs, nonCancellableJobs, snapshots)
 	var requirements int64
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT count(*)
 FROM bios_requirements
 WHERE source_kind='DAT_MACHINE'
@@ -79,7 +80,7 @@ AND enabled=1
 		t.Fatalf("active DAT requirements = %d, error=%v", requirements, err)
 	}
 	var expansionRequirements int64
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT count(*) FROM bios_requirements
 WHERE source_kind='DAT_MACHINE' AND enabled=1
 AND core_id IN ('fbalpha2012_cps1','fbalpha2012_cps2')
@@ -90,7 +91,7 @@ AND core_id IN ('fbalpha2012_cps1','fbalpha2012_cps2')
 		t.Fatalf("idempotent bootstrap: %v", err)
 	}
 	var providerID, targetID, selectedDATID string
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT d.provider_id,d.target_id,d.id
 FROM dat_versions d
 WHERE d.core_id='fbneo' AND d.is_active=1
@@ -116,7 +117,7 @@ VALUES(?,'fbneo',?,?,'legacy/fbneo.dat',?,'legacy-parser','READY',1,
 		t.Fatal(err)
 	}
 	var activeAfterSelection, supersededActive int
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT (SELECT count(*) FROM dat_versions WHERE provider_id=? AND target_id=? AND is_active=1),
        (SELECT is_active FROM dat_versions WHERE id=?)
 `, providerID, targetID, supersededID).Scan(&activeAfterSelection, &supersededActive); err != nil {
@@ -127,7 +128,7 @@ SELECT (SELECT count(*) FROM dat_versions WHERE provider_id=? AND target_id=? AN
 		t.Fatal(err)
 	}
 	var selectedActive, selectedRequirements int
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT (SELECT is_active FROM dat_versions WHERE id=?),
        (SELECT count(*) FROM bios_requirements WHERE provider_id=? AND target_id=? AND source_kind='DAT_MACHINE' AND enabled=1 AND source_version=?)
 `, selectedDATID, providerID, targetID, selectedDATID).Scan(&selectedActive, &selectedRequirements); err != nil {

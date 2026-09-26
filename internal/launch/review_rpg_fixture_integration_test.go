@@ -5,11 +5,12 @@ package launch
 import (
 	"context"
 	"crypto/sha256"
-	"database/sql"
 	"fmt"
 	"strings"
 	"testing"
 	"time"
+
+	dbapi "retrom/internal/database"
 
 	reviewpersistence "retrom/internal/persistence/libraryimport"
 	retromruntime "retrom/internal/runtime"
@@ -28,7 +29,7 @@ func rpgReviewRuntimeCatalog() runtimecatalog.Catalog {
 }
 
 func newRPGReviewLaunchService(
-	t *testing.T, ctx context.Context, database *sql.DB, credentials *retromruntime.Credentials, now func() time.Time,
+	t *testing.T, ctx context.Context, database dbapi.DB, credentials *retromruntime.Credentials, now func() time.Time,
 ) *Service {
 	t.Helper()
 	builder, err := testsupport.NewRuntimeBuilder(ctx, database)
@@ -44,7 +45,7 @@ type rpgReviewFixture struct {
 
 func seedRPGReviewFixture(
 	t *testing.T,
-	database *sql.DB,
+	database dbapi.DB,
 	now int64,
 ) rpgReviewFixture {
 	t.Helper()
@@ -150,14 +151,14 @@ UPDATE import_items SET review_profile_json=json_object('kind','RPG_MAKER_PROJEC
 	return fixture
 }
 
-func mustRPGLaunchSQL(t *testing.T, database *sql.DB, query string, arguments ...any) {
+func mustRPGLaunchSQL(t *testing.T, database dbapi.DB, query string, arguments ...any) {
 	t.Helper()
-	if _, err := database.Exec(query, arguments...); err != nil {
+	if _, err := database.ExecContext(t.Context(), query, arguments...); err != nil {
 		t.Fatalf("RPG launch fixture SQL: %v\n%s", err, query)
 	}
 }
 
-func bindRPGFixtureValidation(t *testing.T, database *sql.DB) {
+func bindRPGFixtureValidation(t *testing.T, database dbapi.DB) {
 	t.Helper()
 	reader := reviewpersistence.BindReviewValidation(database)
 	evidence, err := reader.Evidence(t.Context(), "rpg-core-validation")

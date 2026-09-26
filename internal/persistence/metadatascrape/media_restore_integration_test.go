@@ -5,7 +5,6 @@ package metadatascrape_test
 import (
 	"bytes"
 	"context"
-	"database/sql"
 	"errors"
 	"net/http"
 	"os"
@@ -15,6 +14,7 @@ import (
 
 	"retrom/internal/blobstore"
 	"retrom/internal/config"
+	dbapi "retrom/internal/database"
 	"retrom/internal/hasheous"
 	maintenancepersistence "retrom/internal/persistence/maintenance"
 	mediatapersistence "retrom/internal/persistence/metadatascrape"
@@ -32,12 +32,12 @@ func TestMediaBackupRestorePreservesBudgetAndOriginalExecution(t *testing.T) {
 		return httpResponse(http.StatusOK, "image/png", "invalid image"), nil
 	}))
 	var id string
-	waitForState(t, fixture.database.SQL.QueryRowContext, `SELECT state FROM import_jobs WHERE id=?`, fixture.importID, "REVIEW_PENDING")
-	if err := fixture.database.SQL.QueryRowContext(t.Context(), `SELECT j.id FROM jobs j JOIN import_items i ON i.id=j.scope_id
+	waitForState(t, fixture.database.SQL, `SELECT state FROM import_jobs WHERE id=?`, fixture.importID, "REVIEW_PENDING")
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database.SQL, `SELECT j.id FROM jobs j JOIN import_items i ON i.id=j.scope_id
  WHERE i.import_job_id=? AND j.kind='MEDIA_FETCH'`, fixture.importID).Scan(&id); err != nil {
 		t.Fatal(err)
 	}
-	waitForState(t, fixture.database.SQL.QueryRowContext, `SELECT state FROM jobs WHERE id=?`, id, "FAILED")
+	waitForState(t, fixture.database.SQL, `SELECT state FROM jobs WHERE id=?`, id, "FAILED")
 	fixture.scraper.Close()
 	now := mediaFixtureNow().UnixMilli()
 	mediaRestoreSQL(t, fixture.database.SQL, `UPDATE jobs SET state='RUNNING',finished_at_ms=NULL,error_code=NULL,error_retryable=NULL,
@@ -48,7 +48,7 @@ func TestMediaBackupRestorePreservesBudgetAndOriginalExecution(t *testing.T) {
  media_charged_bytes=123,media_reserved_bytes=123`)
 	var number int
 	var name, path string
-	if err := fixture.database.SQL.QueryRowContext(t.Context(), `PRAGMA database_list`).Scan(&number, &name, &path); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database.SQL, `PRAGMA database_list`).Scan(&number, &name, &path); err != nil {
 		t.Fatal(err)
 	}
 	if err := fixture.database.Close(); err != nil {
@@ -94,14 +94,14 @@ func (restoredMediaSource) FetchAssetBounded(context.Context, hasheous.AssetRef,
 	return hasheous.AssetData{ReceivedBytes: 7}, hasheous.ErrAssetDecodeFailed
 }
 
-func mediaRestoreSQL(t *testing.T, database *sql.DB, query string, args ...any) {
+func mediaRestoreSQL(t *testing.T, database dbapi.DB, query string, args ...any) {
 	t.Helper()
 	if _, err := database.ExecContext(t.Context(), query, args...); err != nil {
 		t.Fatal(err)
 	}
 }
 
-func restoredMediaSnapshot(t *testing.T, database *sql.DB, id string) metadatascrape.MediaSnapshot {
+func restoredMediaSnapshot(t *testing.T, database dbapi.DB, id string) metadatascrape.MediaSnapshot {
 	t.Helper()
 	var snapshot metadatascrape.MediaSnapshot
 	err := mediatapersistence.NewMedia(database).WithWrite(t.Context(), func(scope metadatascrape.MediaScope) error {

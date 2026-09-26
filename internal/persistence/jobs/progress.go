@@ -7,16 +7,16 @@ import (
 	"fmt"
 
 	"retrom/internal/cleanup"
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/service/jobs"
 )
 
 func (repository *Repository) WithRead(ctx context.Context, work func(jobs.ReadRecords) error) error {
-	transaction, err := repository.database.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+	transaction, err := repository.database.BeginTx(ctx, &dbapi.TxOptions{ReadOnly: true})
 	if err != nil {
 		return fmt.Errorf("begin job read snapshot: %w", err)
 	}
-	defer dbexec.Rollback(transaction)
+	defer dbapi.Rollback(transaction)
 	if err := work(records{executor: transaction}); err != nil {
 		return err
 	}
@@ -30,7 +30,7 @@ func (store records) Detail(ctx context.Context, id string) (jobs.Snapshot, erro
 	var snapshot jobs.Snapshot
 	var errorCode sql.NullString
 	var retryable sql.NullInt64
-	err := store.executor.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, store.executor, `
 SELECT id,scope_type,scope_id,kind,state,version,attempt_count,max_attempts,error_code,error_retryable,updated_at_ms
 FROM jobs WHERE id=?`, id).Scan(&snapshot.JobID, &snapshot.ScopeType, &snapshot.ScopeID, &snapshot.Kind,
 		&snapshot.State, &snapshot.Version, &snapshot.AttemptCount, &snapshot.MaxAttempts,
@@ -41,14 +41,14 @@ FROM jobs WHERE id=?`, id).Scan(&snapshot.JobID, &snapshot.ScopeType, &snapshot.
 	if err != nil {
 		return jobs.Snapshot{}, fmt.Errorf("query job detail: %w", err)
 	}
-	snapshot.ErrorCode = dbexec.StringPointer(errorCode)
+	snapshot.ErrorCode = dbapi.StringPointer(errorCode)
 	snapshot.Retryable = retryable.Valid && retryable.Int64 == 1
 	return snapshot, nil
 }
 
 func (store records) ImportProgress(ctx context.Context, id string) (jobs.ImportProgress, error) {
 	snapshot := jobs.ImportProgress{ImportJobID: id}
-	err := store.executor.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, store.executor, `
 SELECT state,version,total_item_count,queued_item_count,running_item_count,review_pending_item_count,failed_item_count
 FROM import_jobs WHERE id=?`, id).Scan(&snapshot.State, &snapshot.Version, &snapshot.TotalItemCount,
 		&snapshot.QueuedItemCount, &snapshot.RunningItemCount, &snapshot.ReviewPendingItemCount, &snapshot.FailedItemCount)
@@ -63,7 +63,7 @@ FROM import_jobs WHERE id=?`, id).Scan(&snapshot.State, &snapshot.Version, &snap
 
 func (store records) EventMaximum(ctx context.Context) (int64, error) {
 	var maximum int64
-	if err := store.executor.QueryRowContext(ctx, `SELECT COALESCE(MAX(id),0) FROM job_events`).
+	if err := dbapi.QueryRowContext(ctx, store.executor, `SELECT COALESCE(MAX(id),0) FROM job_events`).
 		Scan(&maximum); err != nil {
 		return 0, fmt.Errorf("query event high water mark: %w", err)
 	}

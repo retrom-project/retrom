@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/recordstore"
 	"retrom/internal/service/accounts"
 )
@@ -16,7 +16,7 @@ func (repository *LinkRepository) WithIssueWrite(ctx context.Context, work func(
 	if err != nil {
 		return fmt.Errorf("begin account link issuance: %w", err)
 	}
-	defer dbexec.Rollback(tx)
+	defer dbapi.Rollback(tx)
 	records := linkRecords{accountOperations{tx}}
 	if err := work(accounts.LinkIssueScope{Read: records, Write: records}); err != nil {
 		return err
@@ -29,8 +29,9 @@ func (repository *LinkRepository) WithIssueWrite(ctx context.Context, work func(
 
 func (records linkRecords) Target(ctx context.Context, id string) (accounts.LinkTarget, bool, error) {
 	var target accounts.LinkTarget
-	err := records.executor.QueryRowContext(
-		ctx,
+	err := dbapi.QueryRowContext(
+		ctx, records.executor,
+
 		`SELECT id,username,display_name,role,profile_id,status,version,session_version
 FROM users WHERE id=?`,
 		id,

@@ -8,6 +8,7 @@ import (
 	"sync/atomic"
 	"testing"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/testsupport"
 )
 
@@ -58,7 +59,7 @@ VALUES('second',0,'FILE','second.gba',4,
 		t.Errorf("outcome failure writes=%d later claims=%d; execution must stop before its next item", failedWrites.Load(), laterClaims.Load())
 	}
 	var job, first, second string
-	err := database.QueryRowContext(t.Context(), `SELECT jobs.state,first.execution_state,second.execution_state
+	err := dbapi.QueryRowContext(t.Context(), database, `SELECT jobs.state,first.execution_state,second.execution_state
 FROM jobs JOIN source_import_items first ON first.id='item'
 JOIN source_import_items second ON second.id='second' WHERE jobs.id='work'`).Scan(&job, &first, &second)
 	if err != nil || job != "FAILED" || first != "COMMIT_FAILED" || second != "COMMIT_FAILED" {

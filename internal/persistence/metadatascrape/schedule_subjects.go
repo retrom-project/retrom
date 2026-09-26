@@ -6,13 +6,15 @@ import (
 	"errors"
 	"fmt"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/service/metadatascrape"
 )
 
 func (reads scheduleReads) Import(ctx context.Context, id string) (metadatascrape.ImportSubject, error) {
 	var item metadatascrape.ImportSubject
-	err := reads.database.QueryRowContext(
-		ctx,
+	err := dbapi.QueryRowContext(
+		ctx, reads.database,
+
 		`SELECT j.platform_id FROM import_items i JOIN import_jobs j ON j.id=i.import_job_id WHERE i.id=?`,
 		id,
 	).Scan(
@@ -26,8 +28,9 @@ func (reads scheduleReads) Import(ctx context.Context, id string) (metadatascrap
 
 func (reads scheduleReads) Review(ctx context.Context, id string) (metadatascrape.ReviewSubject, bool, error) {
 	var item metadatascrape.ReviewSubject
-	err := reads.database.QueryRowContext(
-		ctx,
+	err := dbapi.QueryRowContext(
+		ctx, reads.database,
+
 		`SELECT d.review_version,d.metadata_json FROM import_items d
  JOIN import_items i ON i.id=d.id WHERE i.id=? AND i.state='REVIEW_PENDING'`,
 		id,
@@ -46,7 +49,7 @@ func (reads scheduleReads) Review(ctx context.Context, id string) (metadatascrap
 
 func (reads scheduleReads) Game(ctx context.Context, id string) (metadatascrape.GameSubject, bool, error) {
 	var item metadatascrape.GameSubject
-	err := reads.database.QueryRowContext(ctx, `SELECT g.source_manifest_digest,g.version,p.platform_id FROM games g
+	err := dbapi.QueryRowContext(ctx, reads.database, `SELECT g.source_manifest_digest,g.version,p.platform_id FROM games g
  JOIN platform_instances p ON p.id=g.platform_instance_id WHERE g.id=? AND g.status='PUBLISHED'`, id).
 		Scan(&item.ManifestDigest, &item.Version, &item.PlatformID)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -70,7 +73,7 @@ func (reads scheduleReads) DAT(
  AND v.core_id=p.default_core_id WHERE g.id=? AND v.dat_version_id IS NOT NULL`
 	}
 	var binding metadatascrape.DATBinding
-	err := reads.database.QueryRowContext(ctx, query, subject.ID).Scan(&binding.ID, &binding.SnapshotJSON)
+	err := dbapi.QueryRowContext(ctx, reads.database, query, subject.ID).Scan(&binding.ID, &binding.SnapshotJSON)
 	if errors.Is(err, sql.ErrNoRows) {
 		return binding, false, nil
 	}

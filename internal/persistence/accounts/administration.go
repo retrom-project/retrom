@@ -6,16 +6,16 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/service/accounts"
 )
 
 type (
-	AdministrationRepository struct{ database *sql.DB }
+	AdministrationRepository struct{ database dbapi.DB }
 	administrationRecords    struct{ accountOperations }
 )
 
-func NewAdministration(database *sql.DB) *AdministrationRepository {
+func NewAdministration(database dbapi.DB) *AdministrationRepository {
 	return &AdministrationRepository{database}
 }
 
@@ -27,7 +27,7 @@ func (repository *AdministrationRepository) WithWrite(
 	if err != nil {
 		return fmt.Errorf("begin account administration: %w", err)
 	}
-	defer dbexec.Rollback(tx)
+	defer dbapi.Rollback(tx)
 	records := administrationRecords{accountOperations{tx}}
 	if err := work(accounts.AdministrationScope{Read: records, Write: records}); err != nil {
 		return err
@@ -43,7 +43,8 @@ func (records administrationRecords) Current(
 	id string,
 	now int64,
 ) (accounts.ManagedUser, bool, error) {
-	user, err := scanAdminUser(records.executor.QueryRowContext(ctx, adminUserProjection+` WHERE u.id=?`, now, now, id))
+	user, err := scanAdminUser(dbapi.QueryRowContext(
+		ctx, records.executor, adminUserProjection+` WHERE u.id=?`, now, now, id))
 	if errors.Is(err, sql.ErrNoRows) {
 		return accounts.ManagedUser{}, false, nil
 	}
@@ -51,8 +52,9 @@ func (records administrationRecords) Current(
 		return accounts.ManagedUser{}, false, err
 	}
 	result := accounts.ManagedUser{User: user}
-	if err := records.executor.QueryRowContext(
-		ctx,
+	if err := dbapi.QueryRowContext(
+		ctx, records.executor,
+
 		`SELECT profile_id FROM users WHERE id=?`,
 		id,
 	).Scan(
@@ -65,8 +67,9 @@ func (records administrationRecords) Current(
 
 func (records administrationRecords) AnotherEnabledAdmin(ctx context.Context, id string) (bool, error) {
 	var exists bool
-	err := records.executor.QueryRowContext(
-		ctx,
+	err := dbapi.QueryRowContext(
+		ctx, records.executor,
+
 		`SELECT EXISTS(SELECT 1 FROM users WHERE id!=? AND role='ADMIN' AND status='ENABLED')`,
 		id,
 	).Scan(

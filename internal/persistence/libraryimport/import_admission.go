@@ -5,28 +5,28 @@ import (
 	"database/sql"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	tagpersistence "retrom/internal/persistence/tagging"
 	application "retrom/internal/service/libraryimport"
 )
 
 type (
-	ImportAdmissions struct{ database *sql.DB }
-	admissionRecords struct{ transaction *sql.Tx }
+	ImportAdmissions struct{ database dbapi.DB }
+	admissionRecords struct{ transaction dbapi.Tx }
 )
 
-func NewImportAdmissions(database *sql.DB) *ImportAdmissions {
+func NewImportAdmissions(database dbapi.DB) *ImportAdmissions {
 	return &ImportAdmissions{database: database}
 }
 
 func (repository *ImportAdmissions) WithAdmission(
 	ctx context.Context, work func(application.ImportAdmissionScope) error,
 ) error {
-	transaction, err := repository.database.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable})
+	transaction, err := repository.database.BeginTx(ctx, &dbapi.TxOptions{Isolation: dbapi.LevelSerializable})
 	if err != nil {
 		return fmt.Errorf("begin import admission: %w", err)
 	}
-	defer dbexec.Rollback(transaction)
+	defer dbapi.Rollback(transaction)
 	scope := application.ImportAdmissionScope{
 		Facts: BindImportFacts(transaction), Tags: tagpersistence.Bind(transaction), Writer: admissionRecords{transaction},
 	}

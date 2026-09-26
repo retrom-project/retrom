@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/hasheous"
 	"retrom/internal/payloadrelease"
 	"retrom/internal/service/metadatascrape"
@@ -46,7 +47,7 @@ func TestGameDeletionCancelsMediaBeforeActualPayloadRelease(t *testing.T) {
 	}
 	var state string
 	var assets int
-	if err := fixture.database.QueryRowContext(t.Context(), `SELECT payload_state,(SELECT count(*) FROM scrape_candidate_assets)
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT payload_state,(SELECT count(*) FROM scrape_candidate_assets)
  FROM games WHERE id='game'`).Scan(&state, &assets); err != nil {
 		t.Fatal(err)
 	}

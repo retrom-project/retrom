@@ -5,13 +5,13 @@ import (
 	"fmt"
 
 	"retrom/internal/cleanup"
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/launch"
 )
 
 func productCreationFiles(
 	ctx context.Context,
-	executor dbexec.Executor,
+	executor dbapi.Executor,
 	owner string,
 	variant bool,
 ) ([]application.ProductFile, error) {

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"retrom/internal/blobstore"
+	dbapi "retrom/internal/database"
 	uploadservice "retrom/internal/service/uploads"
 )
 
@@ -32,7 +33,7 @@ func TestFinalizationClaimFreezesWorkerLeaseAndDeadline(t *testing.T) {
 	}
 	var worker sql.NullString
 	var lease, deadline sql.NullInt64
-	err := fixture.database.QueryRowContext(t.Context(), `SELECT worker_id,leased_until_ms,execution_deadline_at_ms FROM jobs WHERE id=?`, job).
+	err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT worker_id,leased_until_ms,execution_deadline_at_ms FROM jobs WHERE id=?`, job).
 		Scan(&worker, &lease, &deadline)
 	close(release)
 	awaitFinalizeState(t, fixture.database, job, "SUCCEEDED")
@@ -54,7 +55,7 @@ func TestFinalizationIOFailureAllowsSameJobRetry(t *testing.T) {
 	job := fixture.complete(t, fixture.upload(t, []byte("bytes")))
 	awaitFinalizeState(t, fixture.database, job, "FAILED")
 	var retryable bool
-	if err := fixture.database.QueryRowContext(t.Context(), `SELECT error_retryable FROM jobs WHERE id=?`, job).Scan(&retryable); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT error_retryable FROM jobs WHERE id=?`, job).Scan(&retryable); err != nil {
 		t.Fatal(err)
 	}
 	if !retryable {
@@ -67,7 +68,7 @@ func TestFinalizationCorruptionRemovesOnlyFailedPart(t *testing.T) {
 	data := append(bytes.Repeat([]byte{'x'}, int(uploadservice.PartSize)), []byte("bytes")...)
 	session := fixture.upload(t, data)
 	var key string
-	if err := fixture.database.QueryRowContext(t.Context(), `SELECT storage_key FROM upload_parts WHERE upload_file_id=? AND part_no=1`, session.Files[0].ID).
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT storage_key FROM upload_parts WHERE upload_file_id=? AND part_no=1`, session.Files[0].ID).
 		Scan(&key); err != nil {
 		t.Fatal(err)
 	}

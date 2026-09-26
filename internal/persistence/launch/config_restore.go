@@ -7,13 +7,13 @@ import (
 	"fmt"
 
 	"retrom/internal/cleanup"
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/launch"
 )
 
 func configRestore(
 	ctx context.Context,
-	executor dbexec.Executor,
+	executor dbapi.Executor,
 	ref application.SessionRef,
 	source application.ConfigSource,
 ) (application.ConfigRestore, error) {
@@ -24,7 +24,7 @@ func configRestore(
 		return application.ConfigRestore{}, nil
 	}
 	result := application.ConfigRestore{Required: true}
-	err := executor.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, executor, `
 SELECT save.checkpoint_format,blob.sha256,blob.size_bytes
 FROM save_states save
 LEFT JOIN launch_game_save_bindings binding ON binding.launch_session_id=?
@@ -41,10 +41,10 @@ WHERE save.id=? AND save.deleted_at_ms IS NULL`, ref.ID, *source.SaveID).
 	return result, nil
 }
 
-func configPreviewRestore(ctx context.Context, executor dbexec.Executor, id string) (application.ConfigRestore, error) {
+func configPreviewRestore(ctx context.Context, executor dbapi.Executor, id string) (application.ConfigRestore, error) {
 	var payload, format, digest sql.NullString
 	var size sql.NullInt64
-	err := executor.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, executor, `
 SELECT preview.restore_payload_blob_id,preview.restore_checkpoint_format,blob.sha256,blob.size_bytes
 FROM review_preview_sessions preview LEFT JOIN blobs blob ON blob.id=preview.restore_payload_blob_id
 WHERE preview.id=?`, id).Scan(&payload, &format, &digest, &size)
@@ -59,7 +59,7 @@ WHERE preview.id=?`, id).Scan(&payload, &format, &digest, &size)
 
 func configIsolation(
 	ctx context.Context,
-	executor dbexec.Executor,
+	executor dbapi.Executor,
 	ref application.SessionRef,
 ) ([]application.IsolationGrant, error) {
 	column := "launch_id"

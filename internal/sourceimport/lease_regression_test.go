@@ -3,6 +3,8 @@ package sourceimport
 import (
 	"testing"
 
+	dbapi "retrom/internal/database"
+
 	"github.com/google/uuid"
 )
 
@@ -25,7 +27,7 @@ func TestClaimPreservesOriginalExecutionDeadline(t *testing.T) {
 		t.Fatal("claim failed")
 	}
 	var deadline int64
-	if err := service.database.QueryRowContext(t.Context(), `SELECT execution_deadline_at_ms FROM jobs WHERE id='work'`).Scan(&deadline); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), service.database, `SELECT execution_deadline_at_ms FROM jobs WHERE id='work'`).Scan(&deadline); err != nil {
 		t.Fatal(err)
 	}
 	if unit.DeadlineAtMS != deadline || deadline != 100 {
@@ -57,7 +59,7 @@ func TestFinishImportRejectsPreviousExecution(t *testing.T) {
 	mustExecSourceTest(t.Context(), t, service.database, `UPDATE jobs SET execution_no=2,attempt_count=2,leased_until_ms=100 WHERE id='work'`)
 	err := service.finishImport(t.Context(), work{JobID: "work", ImportID: "import", ExecutionNo: 1, Attempt: 1})
 	var state string
-	if scanErr := service.database.QueryRowContext(t.Context(), `SELECT state FROM jobs WHERE id='work'`).Scan(&state); scanErr != nil {
+	if scanErr := dbapi.QueryRowContext(t.Context(), service.database, `SELECT state FROM jobs WHERE id='work'`).Scan(&state); scanErr != nil {
 		t.Fatal(scanErr)
 	}
 	if err == nil || state != "RUNNING" {

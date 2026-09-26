@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
-	"database/sql"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -20,6 +19,7 @@ import (
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
 	savepersistence "retrom/internal/persistence/saves"
 
 	uploadpersistence "retrom/internal/persistence/uploads"
@@ -154,7 +154,7 @@ VALUES(?,'ons-preview-profile','ons-preview-admin','ONS Admin','ADMIN','ENABLED'
 		t.Fatalf("Approve(ONS) error = %v", err)
 	}
 	var contentKind, compatibilityCode string
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT game.content_kind,variant.compatibility_code
 FROM games game
 JOIN game_variants variant ON variant.game_id=game.id
@@ -172,7 +172,7 @@ func assertONSProductRoundTrip(
 	t *testing.T,
 	ctx context.Context,
 	service *Service,
-	database *sql.DB,
+	database dbapi.DB,
 	blobs *blobstore.Store,
 	gameID string,
 	screenshot []byte,
@@ -216,7 +216,7 @@ func assertONSProductRoundTrip(
 		t.Fatalf("CreateManual(ONS) = %#v, replayed=%v, err=%v", result, replayed, err)
 	}
 	var providerID, targetID, checkpointFormat string
-	if err := database.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database, `
 SELECT launch.provider_id,launch.target_id,save.checkpoint_format
 FROM launch_sessions launch
 JOIN save_states save ON save.source_launch_session_id=launch.id
@@ -263,7 +263,7 @@ WHERE provider_id=? AND target_id=?
 		t.Fatalf("Create(ONS after incompatible save upgrade) error = %v", err)
 	}
 	var launchCount int
-	if err := database.QueryRowContext(ctx, `SELECT count(*) FROM launch_sessions`).Scan(&launchCount); err != nil {
+	if err := dbapi.QueryRowContext(ctx, database, `SELECT count(*) FROM launch_sessions`).Scan(&launchCount); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := service.Create(ctx, "ons-preview-profile", CreateRequest{
@@ -274,10 +274,10 @@ WHERE provider_id=? AND target_id=?
 	}
 	var launchCountAfter int
 	var compatibilityStatus string
-	if err := database.QueryRowContext(ctx, `SELECT count(*) FROM launch_sessions`).Scan(&launchCountAfter); err != nil {
+	if err := dbapi.QueryRowContext(ctx, database, `SELECT count(*) FROM launch_sessions`).Scan(&launchCountAfter); err != nil {
 		t.Fatal(err)
 	}
-	if err := database.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database, `
 SELECT status FROM (`+storequery.SaveRuntimeCompatibility+`) WHERE save_state_id=?
 `, result.SaveStateID).Scan(&compatibilityStatus); err != nil || launchCountAfter != launchCount ||
 		compatibilityStatus != "INCOMPATIBLE_RUNTIME" {
@@ -325,7 +325,7 @@ func onsManualRequest(t *testing.T, checkpoint, screenshot []byte) retromsaves.M
 func createONSReviewItem(
 	t *testing.T,
 	ctx context.Context,
-	database *sql.DB,
+	database dbapi.DB,
 	blobs *blobstore.Store,
 	dataDir string,
 ) (string, *libraryimport.Service) {
@@ -367,18 +367,18 @@ func createONSReviewItem(
 		t.Fatal(err)
 	}
 	var itemID string
-	if err := database.QueryRowContext(ctx, `SELECT id FROM import_items WHERE import_job_id=?`, created.ImportJobID).
+	if err := dbapi.QueryRowContext(ctx, database, `SELECT id FROM import_items WHERE import_job_id=?`, created.ImportJobID).
 		Scan(&itemID); err != nil {
 		t.Fatal(err)
 	}
 	return itemID, importService
 }
 
-func waitForONSReviewJob(t *testing.T, ctx context.Context, database *sql.DB, jobID string) {
+func waitForONSReviewJob(t *testing.T, ctx context.Context, database dbapi.DB, jobID string) {
 	t.Helper()
 	for deadline := time.Now().Add(3 * time.Second); ; {
 		var state string
-		if err := database.QueryRowContext(ctx, `SELECT state FROM jobs WHERE id=?`, jobID).Scan(&state); err != nil {
+		if err := dbapi.QueryRowContext(ctx, database, `SELECT state FROM jobs WHERE id=?`, jobID).Scan(&state); err != nil {
 			t.Fatal(err)
 		}
 		if state == "SUCCEEDED" {

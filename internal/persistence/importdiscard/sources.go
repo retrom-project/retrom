@@ -2,8 +2,9 @@ package importdiscard
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
+
+	dbapi "retrom/internal/database"
 
 	payloadpersistence "retrom/internal/persistence/payloadrelease"
 	"retrom/internal/persistence/recordstore"
@@ -54,7 +55,7 @@ SELECT id FROM `+itemsTable+` WHERE import_id=? AND payload_state='RETAINED'`, i
 	return nil
 }
 
-func scheduleSourceRelease(ctx context.Context, tx *sql.Tx, kind, id string, now int64) error {
+func scheduleSourceRelease(ctx context.Context, tx dbapi.Tx, kind, id string, now int64) error {
 	var err error
 	if kind == "SOURCE" {
 		_, err = payloadservice.NewScheduler(nil).TerminalSource(

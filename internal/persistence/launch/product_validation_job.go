@@ -6,14 +6,14 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/launch"
 )
 
 // ValidationJobs shares the enclosing Product, move or DAT transaction.
-type ValidationJobs struct{ executor dbexec.Executor }
+type ValidationJobs struct{ executor dbapi.Executor }
 
-func NewValidationJobs(executor dbexec.Executor) *ValidationJobs {
+func NewValidationJobs(executor dbapi.Executor) *ValidationJobs {
 	return &ValidationJobs{executor: executor}
 }
 
@@ -21,7 +21,7 @@ func (repository *ValidationJobs) Find(ctx context.Context, dedupe string) (appl
 	var job application.ValidationJob
 	var retryable *int64
 	var snapshot *string
-	err := repository.executor.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, repository.executor, `
 SELECT job.id,job.state,job.error_retryable,job.execution_no,job.version,
  (SELECT input_json FROM job_input_snapshots WHERE job_id=job.id AND execution_no=job.execution_no)
 FROM jobs job WHERE job.kind='VARIANT_VALIDATE' AND job.dedupe_key=?`, dedupe).Scan(

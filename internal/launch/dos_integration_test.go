@@ -24,7 +24,7 @@ import (
 	dependencypersistence "retrom/internal/persistence/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
@@ -76,7 +76,7 @@ func TestDOSLaunchLocksMenuOrSelectedDeterministicBundle(t *testing.T) {
 	testassert.False(t, err != nil, err)
 	for deadline := time.Now().Add(3 * time.Second); ; {
 		var state string
-		_ = database.SQL.QueryRowContext(ctx, `
+		_ = dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT state
 FROM jobs
 WHERE id=?
@@ -99,7 +99,7 @@ WHERE id=?
 	)
 	testassert.False(t, err != nil, err)
 	var itemID string
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT id
 FROM import_items
 WHERE import_job_id=?
@@ -114,7 +114,7 @@ WHERE import_job_id=?
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return patched.Version != 2 }), "clear default DOS entry = %#v, error=%v", patched, err)
 	var validationCount int
 	var selectedDefault sql.NullString
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT (SELECT count(*)
 FROM import_item_core_validations
 WHERE import_item_id=?),
@@ -138,7 +138,7 @@ WHERE d.id=?
 	selected := "DOOM/DOOM.EXE"
 	capabilities := Capabilities{SecureContext: true, CrossOriginIsolated: true, SharedArrayBuffer: true}
 	var blobCountBefore int
-	if err := database.SQL.QueryRowContext(ctx, `SELECT count(*) FROM blobs`).Scan(&blobCountBefore); err != nil {
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `SELECT count(*) FROM blobs`).Scan(&blobCountBefore); err != nil {
 		t.Fatal(err)
 	}
 	direct, err := service.Create(
@@ -166,7 +166,7 @@ WHERE d.id=?
 	), "DOS direct envelope = %#v", directEnvelope)
 	var directFormat, directLogicalName, directBlobID string
 	var blobCountAfter int
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT format_version,
 logical_name,
 blob_id
@@ -176,7 +176,7 @@ WHERE launch_session_id=?
 		directFormat != "RETROM_DOS_DIRECT_ZIP_V1" || directLogicalName != "game.zip" {
 		t.Fatalf("DOS direct lock = %s/%s/%s, error=%v", directFormat, directLogicalName, directBlobID, err)
 	}
-	if err := database.SQL.QueryRowContext(ctx, `SELECT count(*) FROM blobs`).Scan(&blobCountAfter); err != nil ||
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `SELECT count(*) FROM blobs`).Scan(&blobCountAfter); err != nil ||
 		blobCountAfter != blobCountBefore {
 		t.Fatalf("DOS direct launch materialized blobs = %d -> %d, error=%v", blobCountBefore, blobCountAfter, err)
 	}
@@ -215,7 +215,7 @@ WHERE launch_session_id=?
 	}
 	var variantID, providerID, targetID string
 	var gameVersion int64
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT variant.id,variant.provider_id,variant.target_id,game.version
 FROM game_variants variant JOIN games game ON game.id=variant.game_id
 WHERE variant.game_id=?
@@ -243,13 +243,13 @@ WHERE variant.game_id=?
 	service.ResumeValidationJob(ctx, invalidJobID)
 	var failedState string
 	var retryable int
-	if err := database.SQL.QueryRowContext(ctx, `SELECT state,error_retryable FROM jobs WHERE id=?`, invalidJobID).
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `SELECT state,error_retryable FROM jobs WHERE id=?`, invalidJobID).
 		Scan(&failedState, &retryable); err != nil || failedState != "FAILED" || retryable != 1 {
 		t.Fatalf("failed validation terminal state = %s/%d, error=%v", failedState, retryable, err)
 	}
 	retryTx, err := database.SQL.BeginTx(ctx, nil)
 	testassert.False(t, err != nil, err)
-	defer dbexec.Rollback(retryTx)
+	defer dbapi.Rollback(retryTx)
 	retried, err := application.NewValidationScheduler(persistence.NewValidationJobs(retryTx),
 		application.ValidationEnvironment{Now: service.now}).Queue(ctx, inputs)
 	retriedJobID, queued := retried.JobID, retried.Queued
@@ -258,7 +258,7 @@ WHERE variant.game_id=?
 		t.Fatal(err)
 	}
 	var executionNo, retryEvents int
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT execution_no,(SELECT count(*) FROM job_events WHERE job_id=jobs.id AND event_type='RETRY_SCHEDULED'
   AND json_extract(data_json,'$.trigger')='LAUNCH')
 FROM jobs WHERE id=? AND state='QUEUED'
@@ -277,20 +277,20 @@ WHERE id=?
 	service.ResumeValidationJob(ctx, invalidJobID)
 	var duplicateState string
 	var duplicateAttempts int
-	if err := database.SQL.QueryRowContext(ctx, `SELECT state,attempt_count FROM jobs WHERE id=?`, invalidJobID).
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `SELECT state,attempt_count FROM jobs WHERE id=?`, invalidJobID).
 		Scan(&duplicateState, &duplicateAttempts); err != nil || duplicateState != "RUNNING" || duplicateAttempts != 1 {
 		t.Fatalf("duplicate validation resume = %s/%d, error=%v", duplicateState, duplicateAttempts, err)
 	}
 	if _, err := service.validationWorker().Recover(ctx); err != nil {
 		t.Fatal(err)
 	}
-	if err := database.SQL.QueryRowContext(ctx, `SELECT state FROM jobs WHERE id=?`, invalidJobID).
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `SELECT state FROM jobs WHERE id=?`, invalidJobID).
 		Scan(&failedState); err != nil || failedState != "QUEUED" {
 		t.Fatalf("stale validation recovery = %s, error=%v", failedState, err)
 	}
 }
 
-func seedLocalProfile(t *testing.T, database *sql.DB) {
+func seedLocalProfile(t *testing.T, database dbapi.DB) {
 	t.Helper()
 	if _, err := database.ExecContext(context.Background(), `INSERT INTO profiles(id,display_name,created_at_ms) VALUES('local','Fixture',0)`); err != nil {
 		t.Fatal(err)

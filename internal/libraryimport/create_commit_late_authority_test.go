@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
 	repository "retrom/internal/persistence/libraryimport"
 	application "retrom/internal/service/libraryimport"
 	"retrom/internal/testsupport"
@@ -51,7 +52,7 @@ func TestImportCreationRollsBackWhenLeaseExpiresAfterSourceWrite(t *testing.T) {
 	}
 	assertCreationEffectsUnchanged(t, service.database, before)
 	var state string
-	if err := service.database.QueryRowContext(t.Context(), `SELECT state FROM jobs WHERE id=?`, created.JobID).Scan(&state); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), service.database, `SELECT state FROM jobs WHERE id=?`, created.JobID).Scan(&state); err != nil {
 		t.Fatal(err)
 	}
 	if state != "RUNNING" {

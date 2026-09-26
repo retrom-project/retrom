@@ -19,6 +19,7 @@ import (
 	"time"
 
 	payloadcomposition "retrom/internal/composition/payloadrelease"
+	dbapi "retrom/internal/database"
 
 	uploadpersistence "retrom/internal/persistence/uploads"
 
@@ -31,7 +32,7 @@ import (
 	"retrom/internal/authn"
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
-	"retrom/internal/corevalidation"
+	corevalidation "retrom/internal/core/validation"
 	"retrom/internal/dependencies"
 	"retrom/internal/importing"
 	"retrom/internal/service/tagging"
@@ -97,7 +98,7 @@ func TestSevenZipImportMaterializesSingleROMAndPreservesEvidence(t *testing.T) {
 	testassert.False(t, err != nil, err)
 	for deadline := time.Now().Add(3 * time.Second); ; {
 		var state string
-		if err := database.SQL.QueryRowContext(ctx, "SELECT state FROM jobs WHERE id=?", jobID).Scan(&state); err != nil {
+		if err := dbapi.QueryRowContext(ctx, database.SQL, "SELECT state FROM jobs WHERE id=?", jobID).Scan(&state); err != nil {
 			t.Fatal(err)
 		}
 		if state == "SUCCEEDED" {
@@ -114,7 +115,7 @@ func TestSevenZipImportMaterializesSingleROMAndPreservesEvidence(t *testing.T) {
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return created.ItemCount != 1 }), "Create() = %#v, error=%v", created, err)
 	var itemID, sourceArchiveBlobID, contentBlobID, logicalName, archiveFormat, compressionProfile, contentSHA string
 	var sourceOrdinal int
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT i.id,
        source.source_archive_blob_id,
        source.source_archive_entry_ordinal,
@@ -147,7 +148,7 @@ WHERE i.import_job_id=?
 	testassert.False(t, err != nil, err)
 	var publishedBlobID, publishedArchiveID string
 	var publishedOrdinal int
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT file.blob_id,file.source_archive_blob_id,file.source_archive_entry_ordinal
 FROM games game
 JOIN game_files file ON file.game_id=game.id
@@ -222,7 +223,7 @@ VALUES(?,?,'import.tag.admin','Import Tag Admin','ADMIN','ENABLED',1,1)
 	deadline := time.Now().Add(3 * time.Second)
 	for {
 		var state string
-		_ = database.SQL.QueryRowContext(ctx, "SELECT state FROM jobs WHERE id=?", jobID).Scan(&state)
+		_ = dbapi.QueryRowContext(ctx, database.SQL, "SELECT state FROM jobs WHERE id=?", jobID).Scan(&state)
 		if state == "SUCCEEDED" {
 			break
 		}
@@ -236,7 +237,7 @@ VALUES(?,?,'import.tag.admin','Import Tag Admin','ADMIN','ENABLED',1,1)
 		Create(ctx, CreateRequest{UploadID: upload.ID, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(t, database.SQL, "gba/mgba"), MetadataProvider: "NONE", TagIDs: []string{defaultTag.TagID}})
 	testassert.Falsef(t, err != nil, "create import: %v", err)
 	var itemID string
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT i.id
 FROM import_items i
 JOIN import_item_source_files f ON f.import_item_id=i.id
@@ -246,7 +247,7 @@ AND f.logical_name='Sudoku.gba'
 		t.Fatal(err)
 	}
 	var discardItemID, discardBlobID string
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT i.id,
 f.blob_id
 FROM import_items i
@@ -258,7 +259,7 @@ AND f.logical_name='Discarded.gba'
 	}
 	var inheritedDrafts int
 	var initialConfigSnapshot string
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT count(DISTINCT draft.id),job.config_snapshot_json
 FROM import_jobs job
 JOIN import_items item ON item.import_job_id=job.id
@@ -305,7 +306,7 @@ WHERE job.id=?
 	_, err = importer.PatchDraft(ctx, itemID, 3, DraftPatch{TargetPlatformInstanceID: &crossPlatform, TagIDs: []string{}})
 	testassert.Truef(t, errors.Is(err, ErrReimportRequiredPlatformChange), "cross-platform draft change error = %v", err)
 	var oldValidationID, importConfigSnapshot string
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT d.selected_validation_id,
 j.config_snapshot_json
 FROM import_items d
@@ -336,7 +337,7 @@ updated_at_ms=updated_at_ms+1
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return refreshed.Version != 4 }), "refresh config validation = %#v, error=%v", refreshed, err)
 	var refreshedValidationID string
 	var refreshedPlatformVersion int64
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT d.selected_validation_id,
 v.platform_instance_version
 FROM import_items d
@@ -348,19 +349,19 @@ WHERE d.id=?
 		t.Fatalf("old/new validation snapshot = %s/%s v%d config=%s error=%v", oldValidationID, refreshedValidationID, refreshedPlatformVersion, importConfigSnapshot, err)
 	}
 	var sourceBlobID string
-	if err := database.SQL.QueryRowContext(ctx, "SELECT final_blob_id FROM upload_files WHERE id=?", upload.Files[0].ID).Scan(&sourceBlobID); err != nil {
+	if err := dbapi.QueryRowContext(ctx, database.SQL, "SELECT final_blob_id FROM upload_files WHERE id=?", upload.Files[0].ID).Scan(&sourceBlobID); err != nil {
 		t.Fatal(err)
 	}
 	var requirementID, md5Value, sha1Value, sha256Value string
 	var requirementVersion, sourceSize int64
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT id,version
 FROM bios_requirements
 WHERE core_id='mgba' AND logical_name='gba_bios.bin' AND enabled=1
 `).Scan(&requirementID, &requirementVersion); err != nil {
 		t.Fatal(err)
 	}
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT size_bytes,md5,sha1,sha256
 FROM blobs
 WHERE id=?
@@ -382,7 +383,7 @@ VALUES(?,?,?,?,?,?,?,?,?,'HASH_WARNING','{}',1,1,?,?)
 	biosRefreshed, err := importer.PatchDraft(ctx, itemID, 4, metadataPatch)
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return biosRefreshed.Version != 5 }), "refresh BIOS validation = %#v, error=%v", biosRefreshed, err)
 	var biosValidationID, biosSnapshotJSON, validationBIOSBlobID string
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT d.selected_validation_id,v.dependency_snapshot_json,f.blob_id
 FROM import_items d
 JOIN import_item_core_validations v ON v.id=d.selected_validation_id
@@ -408,7 +409,7 @@ VALUES(?,?,?,?,'COVER',600,900,'image/png',?)
 	approved, err := importer.Approve(ctx, itemID, 6)
 	testassert.Falsef(t, err != nil, "approve: %v", err)
 	var title, titleInitial, variantStatus, publishedCoverBlobID string
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT g.title,
 g.title_initial,
 v.status,
@@ -426,7 +427,7 @@ WHERE g.id=?
 		func() bool { return publishedCoverBlobID != sourceBlobID },
 	), "published title/initial/status/cover = %s/%s/%s/%s", title, titleInitial, variantStatus, publishedCoverBlobID)
 	var publishedTags int
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT count(*) FROM game_tags WHERE game_id=? AND tag_id=?
 `, approved.GameID, defaultTag.TagID).Scan(&publishedTags); err != nil || publishedTags != 1 {
 		t.Fatalf("published game tag = %d, %v", publishedTags, err)
@@ -435,7 +436,7 @@ SELECT count(*) FROM game_tags WHERE game_id=? AND tag_id=?
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return discarded.Status != "DISCARDED" }), "discard review = %#v, error=%v", discarded, err)
 	var discardedJobState, discardedItemState string
 	var discardedJobPending, discardedJobPublished, discardedJobDiscarded int64
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT job.state,
 job.review_pending_item_count,
 job.published_item_count,
@@ -469,7 +470,7 @@ WHERE job.id=? AND item.id=?
 		}
 	}
 	var releasedItems, releasedJobs, purgedFiles, sourceRows, uploadedAssetRows, publishedPayloadRows int64
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT
  (SELECT count(*) FROM import_items WHERE import_job_id=? AND payload_state='RELEASED'),
  (SELECT count(*) FROM import_jobs WHERE id=? AND payload_state='RELEASED'),
@@ -491,7 +492,7 @@ SELECT
 	), "released import = items:%d job:%d files:%d source:%d assets:%d published:%d",
 		releasedItems, releasedJobs, purgedFiles, sourceRows, uploadedAssetRows, publishedPayloadRows)
 	var publishedDiscard, retainedBlob int
-	if err := database.SQL.QueryRowContext(ctx, `SELECT (SELECT count(*) FROM games WHERE title='Discarded'),(SELECT count(*) FROM blobs WHERE id=?)`, discardBlobID).Scan(&publishedDiscard, &retainedBlob); err != nil || publishedDiscard != 0 || retainedBlob != 1 {
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `SELECT (SELECT count(*) FROM games WHERE title='Discarded'),(SELECT count(*) FROM blobs WHERE id=?)`, discardBlobID).Scan(&publishedDiscard, &retainedBlob); err != nil || publishedDiscard != 0 || retainedBlob != 1 {
 		t.Fatalf("discard payload: %d %d %v", publishedDiscard, retainedBlob, err)
 	}
 }

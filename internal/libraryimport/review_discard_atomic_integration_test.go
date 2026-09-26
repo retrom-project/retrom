@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"retrom/internal/authn"
+	dbapi "retrom/internal/database"
 )
 
 type discardOwnerSnapshot struct {
@@ -19,7 +20,7 @@ type discardOwnerSnapshot struct {
 func captureDiscardOwner(t *testing.T, fixture deduplicateFixture, sourceID string) discardOwnerSnapshot {
 	t.Helper()
 	var result discardOwnerSnapshot
-	if err := fixture.database.QueryRowContext(t.Context(), `
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `
 SELECT i.execution_state,i.payload_state,i.version,i.updated_at_ms,i.payload_release_job_id,
 p.state,p.version,p.review_pending_item_count,p.review_discarded_item_count,p.published_item_count
 FROM source_import_items i JOIN source_imports p ON p.id=i.import_id WHERE i.id=?`, sourceID).
@@ -76,7 +77,7 @@ func assertDiscardOwnerRetry(t *testing.T, fixture deduplicateFixture, itemID, s
 		t.Fatalf("discard owner was not finalized once: %+v", owner)
 	}
 	var state string
-	if err := fixture.database.QueryRowContext(t.Context(), "SELECT state FROM import_items WHERE id=?", itemID).Scan(&state); err != nil || state != "DISCARDED" {
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database, "SELECT state FROM import_items WHERE id=?", itemID).Scan(&state); err != nil || state != "DISCARDED" {
 		t.Fatalf("discard state=%s err=%v", state, err)
 	}
 }
@@ -100,7 +101,7 @@ func TestDiscardBatchKeepsPerItemTransactions(t *testing.T) {
 	}
 	assertDeduplicateItemState(t, fixture, fault.lastID, "DISCARDED")
 	var count int
-	if err := fixture.database.QueryRowContext(t.Context(), `SELECT COUNT(*) FROM import_items WHERE state='DISCARDED'`).Scan(&count); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT COUNT(*) FROM import_items WHERE state='DISCARDED'`).Scan(&count); err != nil {
 		t.Fatal(err)
 	}
 	if count != 2 {
@@ -115,7 +116,7 @@ func assertDiscardRollback(t *testing.T, fixture deduplicateFixture, importID, i
 		t.Fatalf("owner changed on rollback: before=%+v after=%+v", ownerBefore, after)
 	}
 	var events int
-	if err := fixture.database.QueryRowContext(t.Context(), `SELECT COUNT(*) FROM import_items WHERE id=? AND state='DISCARDED'`, itemID).Scan(&events); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT COUNT(*) FROM import_items WHERE id=? AND state='DISCARDED'`, itemID).Scan(&events); err != nil {
 		t.Fatal(err)
 	}
 	if events != 0 {

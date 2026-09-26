@@ -3,6 +3,8 @@ package serverimport_test
 import (
 	"errors"
 	"testing"
+
+	dbapi "retrom/internal/database"
 )
 
 func TestServerImportControlPreservesDatabaseFailures(t *testing.T) {
@@ -39,7 +41,7 @@ func TestQueuedServerImportCancellationKeepsCompletedItems(t *testing.T) {
 		t.Fatalf("cancel overwrote completed work: %+v pending=%v error=%v", result, pending, err)
 	}
 	var state string
-	if err := database.QueryRowContext(t.Context(), `SELECT state FROM server_bios_import_items WHERE server_import_id=?`, created.ID).Scan(&state); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), database, `SELECT state FROM server_bios_import_items WHERE server_import_id=?`, created.ID).Scan(&state); err != nil {
 		t.Fatal(err)
 	}
 	if state != "NOT_FOUND" {

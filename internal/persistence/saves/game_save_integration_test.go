@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
 	saveservice "retrom/internal/service/saves"
 
 	"github.com/google/uuid"
@@ -46,13 +47,13 @@ func TestGameSaveUpdatesOneSlotAndKeepsUserName(t *testing.T) {
 	var count int
 	var name string
 	var created, updated int64
-	if err := f.database.SQL.QueryRowContext(t.Context(), `SELECT name,created_at_ms,updated_at_ms FROM save_states WHERE id=?`, a.SaveStateID).Scan(&name, &created, &updated); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), f.database.SQL, `SELECT name,created_at_ms,updated_at_ms FROM save_states WHERE id=?`, a.SaveStateID).Scan(&name, &created, &updated); err != nil {
 		t.Fatal(err)
 	}
 	if name != "我的周目" || updated <= created {
 		t.Fatalf("name/time changed incorrectly: %s %d %d", name, created, updated)
 	}
-	if err := f.database.SQL.QueryRowContext(t.Context(), `SELECT count(*) FROM save_states WHERE game_id=?`, f.gameID).Scan(&count); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), f.database.SQL, `SELECT count(*) FROM save_states WHERE game_id=?`, f.gameID).Scan(&count); err != nil {
 		t.Fatal(err)
 	}
 	if count != 1 {
@@ -111,12 +112,12 @@ func TestGameSaveRequiresScreenshotAndDeduplicatesPayload(t *testing.T) {
 	}
 	a := syncGameData(t, f, session, "first")
 	var before, after int64
-	if err = f.database.SQL.QueryRowContext(t.Context(), `SELECT version FROM save_states WHERE id=?`, a.SaveStateID).Scan(&before); err != nil {
+	if err = dbapi.QueryRowContext(t.Context(), f.database.SQL, `SELECT version FROM save_states WHERE id=?`, a.SaveStateID).Scan(&before); err != nil {
 		t.Fatal(err)
 	}
 	*f.now = f.now.Add(time.Second)
 	b := syncGameData(t, f, session, "first")
-	if err = f.database.SQL.QueryRowContext(t.Context(), `SELECT version FROM save_states WHERE id=?`, a.SaveStateID).Scan(&after); err != nil {
+	if err = dbapi.QueryRowContext(t.Context(), f.database.SQL, `SELECT version FROM save_states WHERE id=?`, a.SaveStateID).Scan(&after); err != nil {
 		t.Fatal(err)
 	}
 	if a.SaveStateID != b.SaveStateID || before != after {

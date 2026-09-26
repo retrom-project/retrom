@@ -2,13 +2,13 @@ package sourceimport
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"path/filepath"
 	"reflect"
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/dependencies"
 	tagrepository "retrom/internal/persistence/tagging"
 	application "retrom/internal/service/sourceimport"
@@ -22,7 +22,7 @@ const (
 	mappingTag        = "019b0000-0000-7000-8000-000000000003"
 )
 
-func mappingDatabase(t *testing.T) *sql.DB {
+func mappingDatabase(t *testing.T) dbapi.DB {
 	t.Helper()
 	db := creationDatabase(t)
 	if _, err := db.ExecContext(t.Context(), `INSERT INTO profiles(id,display_name,created_at_ms) VALUES('mapping-profile','Mapping',1)`); err != nil {
@@ -55,7 +55,7 @@ VALUES(?,?,?,1)`, mappingCollection, mappingTag, mappingActor); err != nil {
 	return db
 }
 
-func mappingRows(t *testing.T, db *sql.DB) map[string]string {
+func mappingRows(t *testing.T, db dbapi.DB) map[string]string {
 	t.Helper()
 	result := map[string]string{}
 	for _, table := range []string{"source_imports", "source_import_collections", "source_collection_tags", "tags", "audit_events"} {
@@ -143,7 +143,7 @@ func TestMappingsPersistSelectionThenClearItWhenSkipped(t *testing.T) {
 	}
 	var cleared bool
 	var tags, tagVersion int
-	if err := db.QueryRowContext(t.Context(), `SELECT mapping_action='SKIP' AND tag_snapshot_json='[]' AND target_platform_instance_id IS NULL
+	if err := dbapi.QueryRowContext(t.Context(), db, `SELECT mapping_action='SKIP' AND tag_snapshot_json='[]' AND target_platform_instance_id IS NULL
 AND target_platform_instance_version IS NULL AND target_platform_id IS NULL AND target_default_core_id IS NULL
 AND target_provider_id IS NULL AND target_id IS NULL AND target_dat_version_id IS NULL,
 (SELECT count(*) FROM source_collection_tags),(SELECT version FROM tags)
@@ -155,7 +155,7 @@ FROM source_import_collections WHERE id=?`, mappingCollection).Scan(&cleared, &t
 	}
 }
 
-func seedMappingTarget(t *testing.T, db *sql.DB) string {
+func seedMappingTarget(t *testing.T, db dbapi.DB) string {
 	t.Helper()
 	deps, err := dependencies.Load(filepath.Join("..", "..", "..", "data"), []string{"4.2.3"}, "4.2.3")
 	if err != nil {
@@ -168,17 +168,17 @@ func seedMappingTarget(t *testing.T, db *sql.DB) string {
 		t.Fatal(err)
 	}
 	var id string
-	if err := db.QueryRowContext(t.Context(), `SELECT id FROM platform_instances WHERE platform_id='gba' AND enabled=1 ORDER BY sort_order,id LIMIT 1`).Scan(&id); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), db, `SELECT id FROM platform_instances WHERE platform_id='gba' AND enabled=1 ORDER BY sort_order,id LIMIT 1`).Scan(&id); err != nil {
 		t.Fatal(err)
 	}
 	return id
 }
 
-func assertStoredMappingTarget(t *testing.T, db *sql.DB, instance string) {
+func assertStoredMappingTarget(t *testing.T, db dbapi.DB, instance string) {
 	t.Helper()
 	var exact bool
 	var tagID string
-	if err := db.QueryRowContext(t.Context(), `SELECT collection.target_platform_instance_id=instance.id
+	if err := dbapi.QueryRowContext(t.Context(), db, `SELECT collection.target_platform_instance_id=instance.id
 AND collection.target_platform_instance_version=instance.version AND collection.target_platform_id=instance.platform_id
 AND collection.target_default_core_id=instance.default_core_id
 AND EXISTS(SELECT 1 FROM runtime_target_bindings binding WHERE binding.core_id=instance.default_core_id

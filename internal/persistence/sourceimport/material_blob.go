@@ -5,14 +5,14 @@ import (
 	"fmt"
 
 	"retrom/internal/blobstore"
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/blobcatalog"
 	application "retrom/internal/service/sourceimport"
 )
 
 func registerVerifiedMaterial(
 	ctx context.Context,
-	db dbexec.Executor,
+	db dbapi.Executor,
 	blob application.VerifiedBlob,
 	mediaType string,
 	now int64,
@@ -23,7 +23,7 @@ func registerVerifiedMaterial(
 		return "", fmt.Errorf("register Source material blob: %w", err)
 	}
 	var actual application.VerifiedBlob
-	if err := db.QueryRowContext(ctx, `SELECT sha256,md5,sha1,crc32,size_bytes FROM blobs WHERE id=?`, blobID).Scan(
+	if err := dbapi.QueryRowContext(ctx, db, `SELECT sha256,md5,sha1,crc32,size_bytes FROM blobs WHERE id=?`, blobID).Scan(
 		&actual.SHA256, &actual.MD5, &actual.SHA1, &actual.CRC32, &actual.Size); err != nil {
 		return "", fmt.Errorf("verify Source catalog facts: %w", err)
 	}

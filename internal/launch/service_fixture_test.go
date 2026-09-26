@@ -2,9 +2,10 @@ package launch
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"time"
+
+	dbapi "retrom/internal/database"
 
 	"retrom/internal/cleanup"
 	runtimecatalog "retrom/internal/runtime/catalog"
@@ -19,7 +20,7 @@ import (
 
 type Service struct {
 	validationRuns           *application.ValidationSupervisor
-	database                 *sql.DB
+	database                 dbapi.DB
 	dependencies             *dependencies.Set
 	credentials              *retromruntime.Credentials
 	blobs                    *blobstore.Store
@@ -40,7 +41,7 @@ func (service *Service) WithRuntimeProvider(
 }
 
 func New(
-	database *sql.DB,
+	database dbapi.DB,
 	dependencySet *dependencies.Set,
 	credentials *retromruntime.Credentials,
 	now func() time.Time,

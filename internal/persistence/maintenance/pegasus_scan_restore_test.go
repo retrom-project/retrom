@@ -1,17 +1,17 @@
 package maintenance
 
 import (
-	"database/sql"
 	"errors"
 	"path/filepath"
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/maintenance"
 	"retrom/internal/testsupport"
 )
 
-func restoredSourceScan(t *testing.T, state string) (*sql.DB, string) {
+func restoredSourceScan(t *testing.T, state string) (dbapi.DB, string) {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "retrom.db")
 	db, err := testsupport.OpenDatabase(t.Context(), path, func() time.Time { return time.UnixMilli(10) })
@@ -81,7 +81,7 @@ func TestRestoreSourceScanCleanupRollsBackWithEnclosingRestore(t *testing.T) {
 	}
 	var state string
 	var items, metadata int
-	err = db.QueryRowContext(t.Context(), `SELECT state,(SELECT count(*) FROM source_import_items),
+	err = dbapi.QueryRowContext(t.Context(), db, `SELECT state,(SELECT count(*) FROM source_import_items),
 (SELECT count(*) FROM source_import_metadata_files) FROM source_imports WHERE id='import'`).Scan(
 		&state,
 		&items,
@@ -109,7 +109,7 @@ func TestRestoreClosesUnpublishedSourceScanWithoutLeavingPartialItems(t *testing
 			}
 			var planState, jobState string
 			var rows int
-			err = db.QueryRowContext(t.Context(), `SELECT plan.state,job.state,
+			err = dbapi.QueryRowContext(t.Context(), db, `SELECT plan.state,job.state,
 (SELECT count(*) FROM source_import_items)+(SELECT count(*) FROM source_import_metadata_files)
 FROM source_imports plan JOIN jobs job ON job.id=plan.scan_job_id WHERE plan.id='import'`).Scan(
 				&planState,

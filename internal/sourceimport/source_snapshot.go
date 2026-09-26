@@ -8,8 +8,8 @@ import (
 	"io"
 
 	"retrom/internal/cleanup"
-	emulationstationmeta "retrom/internal/importformat/emulationstation/meta"
-	pegasusmeta "retrom/internal/importformat/pegasus/meta"
+	emulationstationmeta "retrom/internal/format/emulationstation/meta"
+	pegasusmeta "retrom/internal/format/pegasus/meta"
 	"retrom/internal/serversource"
 	application "retrom/internal/service/sourceimport"
 )

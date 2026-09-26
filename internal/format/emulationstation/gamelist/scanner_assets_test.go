@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	emulationstationmeta "retrom/internal/importformat/emulationstation/meta"
+	emulationstationmeta "retrom/internal/format/emulationstation/meta"
 	"retrom/internal/mediaasset"
 )
 

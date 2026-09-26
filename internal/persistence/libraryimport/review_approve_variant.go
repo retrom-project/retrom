@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/recordstore"
 	"retrom/internal/profilemodel"
 	application "retrom/internal/service/libraryimport"
@@ -11,7 +12,7 @@ import (
 
 func (records reviewApprovalRecords) NextEmulatorID(ctx context.Context) (int64, error) {
 	var id int64
-	if err := records.transaction.QueryRowContext(ctx,
+	if err := dbapi.QueryRowContext(ctx, records.transaction,
 		`SELECT COALESCE(MAX(emulator_game_id),1000)+1 FROM game_variants`).Scan(&id); err != nil {
 		return 0, fmt.Errorf("read next emulator game number: %w", err)
 	}

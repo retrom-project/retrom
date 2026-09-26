@@ -16,7 +16,7 @@ import (
 
 func TestRealDATStatisticsMatchManifest(t *testing.T) {
 	t.Parallel()
-	manifestPath := filepath.Join("..", "..", "data", "dat", "emulatorjs", "4.2.3", "manifest.json")
+	manifestPath := filepath.Join("..", "..", "..", "data", "dat", "emulatorjs", "4.2.3", "manifest.json")
 	contents, err := os.ReadFile(manifestPath)
 	testassert.Falsef(t, err != nil, "read manifest: %v", err)
 	var manifest struct {

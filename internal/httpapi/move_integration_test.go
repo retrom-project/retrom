@@ -22,14 +22,14 @@ import (
 	validationpersistence "retrom/internal/persistence/corevalidation"
 	validationservice "retrom/internal/service/corevalidation"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/blobcatalog"
 
 	"github.com/google/uuid"
 
 	"retrom/internal/authn"
 	"retrom/internal/cleanup"
-	"retrom/internal/corevalidation"
+	corevalidation "retrom/internal/core/validation"
 	"retrom/internal/launch"
 	"retrom/internal/payloadrelease"
 	"retrom/internal/testassert"
@@ -158,7 +158,7 @@ updated_at_ms) VALUES(?,
 	testassert.Falsef(t, testassert.Any(func() bool { return committed.Code != http.StatusOK }, func() bool { return committed.Header().Get("ETag") != `"v2"` }), "move commit = %d %s", committed.Code, committed.Body.String())
 	var storedTarget, storedContent string
 	var version, variantCount, auditCount int64
-	if err := server.database.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, server.database, `
 SELECT platform_instance_id,
 id,
 version,
@@ -239,7 +239,7 @@ func TestPlatformInstanceVisibilityAndNonEmptyDeletionBoundaries(t *testing.T) {
 	testassert.Falsef(t, testassert.Any(func() bool { return restoredGames.Code != http.StatusOK }, func() bool { return !strings.Contains(restoredGames.Body.String(), gameID) }), "re-enabled platform missing from user games = %d %s", restoredGames.Code, restoredGames.Body.String())
 
 	var ownerID string
-	if err := server.database.QueryRowContext(context.Background(), `SELECT platform_instance_id FROM games WHERE id=?`, gameID).Scan(&ownerID); err != nil ||
+	if err := dbapi.QueryRowContext(context.Background(), server.database, `SELECT platform_instance_id FROM games WHERE id=?`, gameID).Scan(&ownerID); err != nil ||
 		ownerID != sourceID {
 		t.Fatalf("game owner = %s, error=%v", ownerID, err)
 	}
@@ -409,7 +409,7 @@ func TestGameMetadataCurrentStateProjectionAndOptimisticEdit(t *testing.T) {
 	var sourceRef sql.NullString
 	var storedContent, ownerID string
 	var version, auditCount int64
-	if err := server.database.QueryRowContext(context.Background(), `
+	if err := dbapi.QueryRowContext(context.Background(), server.database, `
 SELECT g.title,
 g.title_initial,
 g.metadata_source_kind,
@@ -488,7 +488,7 @@ VALUES(?,?,'payload-history-admin','Payload History Admin','ADMIN','ENABLED',1,1
 		t.Fatalf("launch game resource = %#v", gameResource)
 	}
 	var blobID string
-	if err := server.database.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, server.database, `
 SELECT f.blob_id
 FROM games g
 JOIN game_variants v ON v.game_id=g.id AND v.core_id='gambatte'
@@ -567,7 +567,7 @@ SELECT profile_id,?,? FROM launch_sessions WHERE id=?
 	deadline := time.Now().Add(3 * time.Second)
 	for {
 		var payloadState string
-		if err := server.database.QueryRowContext(ctx, `SELECT payload_state FROM games WHERE id=?`, gameID).Scan(&payloadState); err != nil {
+		if err := dbapi.QueryRowContext(ctx, server.database, `SELECT payload_state FROM games WHERE id=?`, gameID).Scan(&payloadState); err != nil {
 			t.Fatal(err)
 		}
 		if payloadState == "RELEASED" {
@@ -575,7 +575,7 @@ SELECT profile_id,?,? FROM launch_sessions WHERE id=?
 		}
 		if time.Now().After(deadline) {
 			var jobState, jobError, payloadError sql.NullString
-			_ = server.database.QueryRowContext(ctx, `
+			_ = dbapi.QueryRowContext(ctx, server.database, `
 SELECT job.state,job.error_code,game.payload_last_error_code
 FROM games game LEFT JOIN jobs job ON job.id=game.payload_release_job_id
 WHERE game.id=?`, gameID).Scan(&jobState, &jobError, &payloadError)
@@ -587,7 +587,7 @@ WHERE game.id=?`, gameID).Scan(&jobState, &jobError, &payloadError)
 	var status, payloadState, launchState string
 	var deletedAt sql.NullInt64
 	var version, saveCount, gameCount, contentFileCount, variantCount, variantFileCount, auditCount int64
-	if err := server.database.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, server.database, `
 SELECT g.status,
 g.payload_state,
 g.deleted_at_ms,
@@ -652,7 +652,7 @@ WHERE g.id=?
 		func() bool { return !strings.Contains(recentHistory.Body.String(), `"coverUrl":null`) },
 	), "deleted recent tombstone = %d %s", recentHistory.Code, recentHistory.Body.String())
 	var protectedBlob, prematureCandidate int64
-	if err := server.database.QueryRowContext(ctx, `SELECT
+	if err := dbapi.QueryRowContext(ctx, server.database, `SELECT
 (SELECT count(*) FROM blobs WHERE id=?),
 (SELECT count(*) FROM blob_gc_candidates WHERE blob_id=?)`, blobID, blobID).
 		Scan(&protectedBlob, &prematureCandidate); err != nil || protectedBlob != 1 || prematureCandidate != 0 {
@@ -668,19 +668,19 @@ WHERE g.id=?
 	}
 	waitForPayloadState(t, server.database, sharedGameID, "RELEASED")
 	var candidateCount int64
-	if err := server.database.QueryRowContext(ctx,
+	if err := dbapi.QueryRowContext(ctx, server.database,
 		`SELECT count(*) FROM blob_gc_candidates WHERE blob_id=?`, blobID,
 	).Scan(&candidateCount); err != nil || candidateCount != 1 {
 		t.Fatalf("last shared release candidate = %d, error=%v", candidateCount, err)
 	}
 }
 
-func waitForPayloadState(t *testing.T, database *sql.DB, gameID, expected string) {
+func waitForPayloadState(t *testing.T, database dbapi.DB, gameID, expected string) {
 	t.Helper()
 	deadline := time.Now().Add(3 * time.Second)
 	for {
 		var state string
-		if err := database.QueryRowContext(context.Background(), `SELECT payload_state FROM games WHERE id=?`, gameID).Scan(&state); err != nil {
+		if err := dbapi.QueryRowContext(context.Background(), database, `SELECT payload_state FROM games WHERE id=?`, gameID).Scan(&state); err != nil {
 			t.Fatal(err)
 		}
 		if state == expected {
@@ -688,7 +688,7 @@ func waitForPayloadState(t *testing.T, database *sql.DB, gameID, expected string
 		}
 		if time.Now().After(deadline) {
 			var jobState, jobError, payloadError sql.NullString
-			_ = database.QueryRowContext(context.Background(), `
+			_ = dbapi.QueryRowContext(context.Background(), database, `
 SELECT job.state,job.error_code,game.payload_last_error_code
 FROM games game LEFT JOIN jobs job ON job.id=game.payload_release_job_id
 WHERE game.id=?`, gameID).Scan(&jobState, &jobError, &payloadError)
@@ -733,7 +733,7 @@ func seedMovableGame(t *testing.T, server *Server) (string, string) {
 	now := time.Now().UnixMilli()
 	transaction, err := server.database.BeginTx(ctx, nil)
 	testassert.False(t, err != nil, err)
-	defer dbexec.Rollback(transaction)
+	defer dbapi.Rollback(transaction)
 	statements := []struct {
 		query string
 		args  []any
@@ -781,7 +781,7 @@ func cloneMovableGame(
 	ctx := context.Background()
 	transaction, err := server.database.BeginTx(ctx, nil)
 	testassert.False(t, err != nil, err)
-	defer dbexec.Rollback(transaction)
+	defer dbapi.Rollback(transaction)
 	if _, err := transaction.ExecContext(ctx, `PRAGMA defer_foreign_keys=ON`); err != nil {
 		t.Fatal(err)
 	}
@@ -827,13 +827,13 @@ WHERE game_id=? AND core_id='gambatte'
 	}
 }
 
-func seedProductSave(t *testing.T, database *sql.DB, saveID, launchID, name string) {
+func seedProductSave(t *testing.T, database dbapi.DB, saveID, launchID, name string) {
 	t.Helper()
 	var profileID, gameID string
 	var checkpointFormat, payloadBlobID, payloadSHA256 string
 	var dosEntryPath sql.NullString
 	var payloadSize int64
-	if err := database.QueryRowContext(context.Background(), `
+	if err := dbapi.QueryRowContext(context.Background(), database, `
 SELECT launch.profile_id,launch.game_id,
  json_extract(target.checkpoint_json,'$.writeFormat'),
  content.blob_id,blob.sha256,blob.size_bytes,
@@ -868,7 +868,7 @@ VALUES(?,?,?,?,?,?,?,?,NULL,?,0,1,?,?,?,NULL)
 
 func validationFixture(
 	t *testing.T,
-	database *sql.DB,
+	database dbapi.DB,
 	target testsupport.RuntimeTargetIdentity,
 	contentID, logicalName string,
 ) (string, string) {
@@ -893,17 +893,16 @@ func mustSuffixInt(t *testing.T, value string) int64 {
 	return result
 }
 
-func waitForHTTPJob(t *testing.T, database interface {
-	QueryRowContext(context.Context, string, ...any) *sql.Row
-}, jobID, expected string,
+func waitForHTTPJob(t *testing.T, database dbapi.Queryer, jobID, expected string,
 ) {
 	t.Helper()
 	deadline := time.Now().Add(5 * time.Second)
 	for {
 		var state string
 		var errorCode sql.NullString
-		if err := database.QueryRowContext(
-			context.Background(), "SELECT state,error_code FROM jobs WHERE id=?", jobID,
+		if err := dbapi.QueryRowContext(
+			context.Background(), database,
+			"SELECT state,error_code FROM jobs WHERE id=?", jobID,
 		).Scan(&state, &errorCode); err != nil {
 			t.Fatal(err)
 		}

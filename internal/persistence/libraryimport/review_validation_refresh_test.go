@@ -1,11 +1,11 @@
 package libraryimport
 
 import (
-	"database/sql"
 	"strings"
 	"testing"
 
-	"retrom/internal/corevalidation"
+	corevalidation "retrom/internal/core/validation"
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/libraryimport"
 	"retrom/internal/testsupport"
 )
@@ -15,7 +15,7 @@ func TestReviewValidationRefreshRepositoryLoadsTypedInputsAndCandidates(t *testi
 	database := metadataDatabase(t)
 	instance := testsupport.MustPlatformInstanceID(t, database, "gba/mgba")
 	var coreID, providerID, targetID string
-	if err := database.QueryRowContext(t.Context(), `
+	if err := dbapi.QueryRowContext(t.Context(), database, `
 SELECT instance.default_core_id,binding.provider_id,binding.target_id
 FROM platform_instances instance
 JOIN runtime_target_bindings binding ON binding.core_id=instance.default_core_id
@@ -28,7 +28,7 @@ WHERE instance.id=? LIMIT 1`, instance).Scan(&coreID, &providerID, &targetID); e
 	assertRefreshCandidates(t, repository, instance, coreID, providerID, targetID)
 }
 
-func insertRefreshSource(t *testing.T, database *sql.DB, instance, coreID, providerID, targetID string) {
+func insertRefreshSource(t *testing.T, database dbapi.DB, instance, coreID, providerID, targetID string) {
 	t.Helper()
 	digest := strings.Repeat("a", 64)
 	metadataExec(t, database, `
@@ -83,7 +83,7 @@ func TestReviewValidationRefreshRepositoryWritesValidationAndBIOSFiles(t *testin
 	database := metadataDatabase(t)
 	instance := testsupport.MustPlatformInstanceID(t, database, "gba/mgba")
 	var coreID, providerID, targetID string
-	if err := database.QueryRowContext(t.Context(), `
+	if err := dbapi.QueryRowContext(t.Context(), database, `
 SELECT instance.default_core_id,binding.provider_id,binding.target_id
 FROM platform_instances instance
 JOIN runtime_target_bindings binding ON binding.core_id=instance.default_core_id
@@ -125,7 +125,7 @@ VALUES('bios-blob',?,?,?,?,?,?,1)`, digest, 1, strings.Repeat("c", 32), strings.
 		t.Fatal(err)
 	}
 	var role, logicalName, storedBlob string
-	if err := database.QueryRowContext(t.Context(), `
+	if err := dbapi.QueryRowContext(t.Context(), database, `
 SELECT role,logical_name,blob_id FROM import_item_validation_files
 WHERE import_item_core_validation_id=?`, newID).Scan(&role, &logicalName, &storedBlob); err != nil {
 		t.Fatal(err)

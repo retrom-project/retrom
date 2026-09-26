@@ -2,29 +2,28 @@ package payloadrelease
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/payloadrelease"
 )
 
-type ImpactQueries struct{ database *sql.DB }
+type ImpactQueries struct{ database dbapi.DB }
 
-func NewImpactQueries(database *sql.DB) *ImpactQueries { return &ImpactQueries{database: database} }
+func NewImpactQueries(database dbapi.DB) *ImpactQueries { return &ImpactQueries{database: database} }
 
-type impactRecords struct{ executor dbexec.Executor }
+type impactRecords struct{ executor dbapi.Executor }
 
-func BindImpact(executor dbexec.Executor) application.ImpactReader {
+func BindImpact(executor dbapi.Executor) application.ImpactReader {
 	return impactRecords{executor: executor}
 }
 
 func (repository *ImpactQueries) ReadImpact(ctx context.Context, gameID string) (application.ImpactSnapshot, error) {
-	tx, err := repository.database.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+	tx, err := repository.database.BeginTx(ctx, &dbapi.TxOptions{ReadOnly: true})
 	if err != nil {
 		return application.ImpactSnapshot{}, fmt.Errorf("begin game impact snapshot: %w", err)
 	}
-	defer dbexec.Rollback(tx)
+	defer dbapi.Rollback(tx)
 	result, err := BindImpact(tx).ReadImpact(ctx, gameID)
 	if err != nil {
 		return application.ImpactSnapshot{}, fmt.Errorf("read game impact snapshot: %w", err)
@@ -62,7 +61,8 @@ UNION SELECT content_source_kind FROM games WHERE id=? ORDER BY 1`, gameID, game
 
 func (records impactRecords) blob(ctx context.Context, gameID, id string) (application.ImpactBlob, error) {
 	result := application.ImpactBlob{ID: id}
-	err := records.executor.QueryRowContext(ctx, `SELECT size_bytes FROM blobs WHERE id=?`, id).Scan(&result.SizeBytes)
+	err := dbapi.QueryRowContext(
+		ctx, records.executor, `SELECT size_bytes FROM blobs WHERE id=?`, id).Scan(&result.SizeBytes)
 	if err != nil {
 		return application.ImpactBlob{}, fmt.Errorf("read impact blob size: %w", err)
 	}

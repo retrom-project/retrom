@@ -2,8 +2,9 @@
 package libraryimport
 
 import (
-	"database/sql"
 	"time"
+
+	dbapi "retrom/internal/database"
 
 	"retrom/internal/blobstore"
 	"retrom/internal/core/scummvm"
@@ -21,14 +22,14 @@ type CreationOptions struct {
 	MultiDiscEnabled bool
 }
 
-func NewCreations(database *sql.DB, now func() time.Time, options CreationOptions) *application.ImportCreations {
+func NewCreations(database dbapi.DB, now func() time.Time, options CreationOptions) *application.ImportCreations {
 	return application.NewImportCreations(
 		repository.NewImportCreations(database), NewPreparation(database, options), options.Tags, options.Scraper,
 		application.ImportCreationSettings{Now: now, MultiDiscEnabled: options.MultiDiscEnabled},
 	)
 }
 
-func NewPreparation(database *sql.DB, options CreationOptions) *application.ImportPreparation {
+func NewPreparation(database dbapi.DB, options CreationOptions) *application.ImportPreparation {
 	return application.NewImportPreparation(
 		repository.BindImportFacts(database), repository.BindPreparationCatalog(database),
 		options.Blobs, application.ImportPreparationOptions{

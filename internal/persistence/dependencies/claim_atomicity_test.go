@@ -2,16 +2,17 @@ package dependencies
 
 import (
 	"context"
-	"database/sql"
 	"testing"
 
+	dbapi "retrom/internal/database"
+	dbsqlite "retrom/internal/database/sqlite"
 	service "retrom/internal/service/dependencies"
 
 	_ "modernc.org/sqlite"
 )
 
 func TestDATClaimEventFailureRollsBackState(t *testing.T) {
-	database, err := sql.Open("sqlite", ":memory:")
+	database, err := dbsqlite.Open(":memory:", dbsqlite.Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -44,11 +45,11 @@ INSERT INTO dat_versions(id,parse_status,version) VALUES('dat','PENDING',1);
 	}
 	var state, parseStatus string
 	var attempt, jobVersion, datVersion int64
-	if err := database.QueryRowContext(t.Context(), "SELECT state,attempt_count,version FROM jobs WHERE id='job'").
+	if err := dbapi.QueryRowContext(t.Context(), database, "SELECT state,attempt_count,version FROM jobs WHERE id='job'").
 		Scan(&state, &attempt, &jobVersion); err != nil {
 		t.Fatal(err)
 	}
-	if err := database.QueryRowContext(t.Context(), "SELECT parse_status,version FROM dat_versions WHERE id='dat'").
+	if err := dbapi.QueryRowContext(t.Context(), database, "SELECT parse_status,version FROM dat_versions WHERE id='dat'").
 		Scan(&parseStatus, &datVersion); err != nil {
 		t.Fatal(err)
 	}

@@ -4,6 +4,8 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+
+	dbapi "retrom/internal/database"
 )
 
 func TestFreshDatabaseHasNoRuntimeProofWorkflow(t *testing.T) {
@@ -20,7 +22,7 @@ func TestFreshDatabaseHasNoRuntimeProofWorkflow(t *testing.T) {
 		}
 	})
 	var count int
-	if err := database.SQL.QueryRowContext(t.Context(), `
+	if err := dbapi.QueryRowContext(t.Context(), database.SQL, `
 SELECT count(*) FROM sqlite_schema
 WHERE name LIKE 'rpgmaker_runtime_validation%'`).Scan(&count); err != nil {
 		t.Fatal(err)

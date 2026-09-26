@@ -3,7 +3,6 @@ package serverimport_test
 import (
 	"archive/zip"
 	"context"
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"hash/crc32"
@@ -13,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
 	firmwarepersistence "retrom/internal/persistence/firmware"
 	firmwareservice "retrom/internal/service/firmware"
 
@@ -33,7 +33,7 @@ func TestServerArchiveImportFreezesMembersAndRecoversEvaluations(t *testing.T) {
 	}
 }
 
-func archiveImportFixture(t *testing.T) (*Service, *sql.DB, string) {
+func archiveImportFixture(t *testing.T) (*Service, dbapi.DB, string) {
 	t.Helper()
 	ctx := context.Background()
 	dir := t.TempDir()
@@ -143,7 +143,7 @@ func testServerArchiveImport(t *testing.T, complete bool) {
 	}
 	service.ExecuteForTest(ctx, unit)
 	var state string
-	if err := database.QueryRowContext(ctx, `SELECT state FROM server_bios_import_items WHERE server_import_id=?`, created.ID).Scan(&state); err != nil {
+	if err := dbapi.QueryRowContext(ctx, database, `SELECT state FROM server_bios_import_items WHERE server_import_id=?`, created.ID).Scan(&state); err != nil {
 		t.Fatal(err)
 	}
 	want := "IMPORTED_MATCHED"
@@ -155,7 +155,7 @@ func testServerArchiveImport(t *testing.T, complete bool) {
 	}
 	assertRecoveredArchive(t, service, created.ID, complete)
 	var installed int
-	if err := database.QueryRowContext(ctx, `SELECT count(*) FROM bios_installations WHERE is_active=1`).Scan(&installed); err != nil {
+	if err := dbapi.QueryRowContext(ctx, database, `SELECT count(*) FROM bios_installations WHERE is_active=1`).Scan(&installed); err != nil {
 		t.Fatal(err)
 	}
 	wantInstalled := 0

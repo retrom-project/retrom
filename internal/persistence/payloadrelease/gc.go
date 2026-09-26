@@ -5,20 +5,20 @@ import (
 	"database/sql"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/payloadrelease"
 )
 
-type GC struct{ database *sql.DB }
+type GC struct{ database dbapi.DB }
 
-func NewGC(database *sql.DB) *GC { return &GC{database: database} }
+func NewGC(database dbapi.DB) *GC { return &GC{database: database} }
 
 func (repository *GC) WithGC(ctx context.Context, run func(application.GCScope) error) error {
 	tx, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin GC transaction: %w", err)
 	}
-	defer dbexec.Rollback(tx)
+	defer dbapi.Rollback(tx)
 	if err := run(BindGC(tx)); err != nil {
 		return err
 	}
@@ -28,9 +28,9 @@ func (repository *GC) WithGC(ctx context.Context, run func(application.GCScope) 
 	return nil
 }
 
-type gcRecords struct{ executor dbexec.Executor }
+type gcRecords struct{ executor dbapi.Executor }
 
-func BindGC(executor dbexec.Executor) application.GCScope {
+func BindGC(executor dbapi.Executor) application.GCScope {
 	records := gcRecords{executor: executor}
 	return application.GCScope{Read: records, Write: records}
 }

@@ -3,12 +3,13 @@ package uploads_test
 import (
 	"bytes"
 	"crypto/sha256"
-	"database/sql"
 	"encoding/base64"
 	"errors"
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
+	dbsqlite "retrom/internal/database/sqlite"
 	uploadpersistence "retrom/internal/persistence/uploads"
 
 	"retrom/internal/service/uploads"
@@ -51,17 +52,17 @@ func digest(data []byte) string {
 	return "sha-256=:" + base64.StdEncoding.EncodeToString(sum[:]) + ":"
 }
 
-func assertNoPartProgress(t *testing.T, database *sql.DB, session uploads.Session, state string) {
+func assertNoPartProgress(t *testing.T, database dbapi.DB, session uploads.Session, state string) {
 	t.Helper()
 	var count, received int64
 	var actual string
-	if err := database.QueryRowContext(t.Context(), `SELECT count(*) FROM upload_parts`).Scan(&count); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), database, `SELECT count(*) FROM upload_parts`).Scan(&count); err != nil {
 		t.Fatal(err)
 	}
-	if err := database.QueryRowContext(t.Context(), `SELECT received_size_bytes FROM upload_files WHERE id=?`, session.Files[0].ID).Scan(&received); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), database, `SELECT received_size_bytes FROM upload_files WHERE id=?`, session.Files[0].ID).Scan(&received); err != nil {
 		t.Fatal(err)
 	}
-	if err := database.QueryRowContext(t.Context(), `SELECT state FROM upload_sessions WHERE id=?`, session.ID).Scan(&actual); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), database, `SELECT state FROM upload_sessions WHERE id=?`, session.ID).Scan(&actual); err != nil {
 		t.Fatal(err)
 	}
 	if count != 0 || received != 0 || actual != state {
@@ -69,9 +70,9 @@ func assertNoPartProgress(t *testing.T, database *sql.DB, session uploads.Sessio
 	}
 }
 
-func partFixture(t *testing.T, allowProgress bool) (*uploads.Service, *sql.DB, uploads.Session) {
+func partFixture(t *testing.T, allowProgress bool) (*uploads.Service, dbapi.DB, uploads.Session) {
 	t.Helper()
-	database, err := sql.Open("sqlite", ":memory:")
+	database, err := dbsqlite.Open(":memory:", dbsqlite.Options{})
 	if err != nil {
 		t.Fatal(err)
 	}

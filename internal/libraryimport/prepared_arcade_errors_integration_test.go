@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"retrom/internal/blobstore"
+	dbapi "retrom/internal/database"
 	uploadpersistence "retrom/internal/persistence/uploads"
 	"retrom/internal/service/uploads"
 	"retrom/internal/testsupport"
@@ -44,7 +45,7 @@ func TestPreparedArcadeCatalogFailuresPrecedeCreationWrites(t *testing.T) {
 				t.Fatalf("operation=%s reads=%d writes=%d result=%+v err=%v", operation, reads, writes, result, err)
 			}
 			var imports int
-			if err := importer.database.QueryRowContext(t.Context(), `SELECT count(*) FROM import_jobs`).Scan(&imports); err != nil {
+			if err := dbapi.QueryRowContext(t.Context(), importer.database, `SELECT count(*) FROM import_jobs`).Scan(&imports); err != nil {
 				t.Fatal(err)
 			}
 			if imports != 0 {

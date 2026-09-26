@@ -3,7 +3,6 @@ package uploads
 import (
 	"bytes"
 	"crypto/sha256"
-	"database/sql"
 	"encoding/base64"
 	"os"
 	"path/filepath"
@@ -11,6 +10,7 @@ import (
 	"time"
 
 	"retrom/internal/blobstore"
+	dbapi "retrom/internal/database"
 	uploadservice "retrom/internal/service/uploads"
 	"retrom/internal/store"
 )
@@ -37,7 +37,7 @@ func TestFinalizerRejectsPartWhoseStoredBytesChanged(t *testing.T) {
 		t.Fatal(err)
 	}
 	var key string
-	if err := database.SQL.QueryRowContext(t.Context(), `SELECT storage_key FROM upload_parts WHERE upload_file_id=?`, upload.Files[0].ID).Scan(&key); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), database.SQL, `SELECT storage_key FROM upload_parts WHERE upload_file_id=?`, upload.Files[0].ID).Scan(&key); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(root, "tmp", "uploads", filepath.FromSlash(key)), []byte("wrong"), 0o600); err != nil {
@@ -53,7 +53,7 @@ func TestFinalizerRejectsPartWhoseStoredBytesChanged(t *testing.T) {
 	}
 	awaitFinalizeState(t, database.SQL, job, "FAILED")
 	var code string
-	if err := database.SQL.QueryRowContext(t.Context(), "SELECT error_code FROM jobs WHERE id=?", job).Scan(&code); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), database.SQL, "SELECT error_code FROM jobs WHERE id=?", job).Scan(&code); err != nil {
 		t.Fatal(err)
 	}
 	if code != "UPLOAD_PART_CORRUPT" {
@@ -62,7 +62,7 @@ func TestFinalizerRejectsPartWhoseStoredBytesChanged(t *testing.T) {
 	assertCorruptPartRepair(t, service, database.SQL, upload, job, header)
 }
 
-func assertCorruptPartRepair(t *testing.T, service *uploadservice.Service, database *sql.DB, upload uploadservice.Session, job, header string) {
+func assertCorruptPartRepair(t *testing.T, service *uploadservice.Service, database dbapi.DB, upload uploadservice.Session, job, header string) {
 	t.Helper()
 	if err := service.PutPart(t.Context(), upload.ID, upload.Files[0].ID, 0, "bytes 0-4/5", header, bytes.NewReader([]byte("bytes"))); err != nil {
 		t.Fatal(err)
@@ -81,7 +81,7 @@ func assertCorruptPartRepair(t *testing.T, service *uploadservice.Service, datab
 	awaitFinalizeState(t, database, repairedJob, "SUCCEEDED")
 	awaitFinalizeState(t, database, job, "FAILED")
 	var partCount int
-	if err := database.QueryRowContext(t.Context(), "SELECT count(*) FROM upload_parts WHERE upload_file_id=?", upload.Files[0].ID).Scan(&partCount); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), database, "SELECT count(*) FROM upload_parts WHERE upload_file_id=?", upload.Files[0].ID).Scan(&partCount); err != nil {
 		t.Fatal(err)
 	}
 	if partCount != 0 {
@@ -89,12 +89,12 @@ func assertCorruptPartRepair(t *testing.T, service *uploadservice.Service, datab
 	}
 }
 
-func awaitFinalizeState(t *testing.T, database *sql.DB, job, expected string) {
+func awaitFinalizeState(t *testing.T, database dbapi.DB, job, expected string) {
 	t.Helper()
 	deadline := time.Now().Add(3 * time.Second)
 	for {
 		var state string
-		if err := database.QueryRowContext(t.Context(), "SELECT state FROM jobs WHERE id=?", job).Scan(&state); err != nil {
+		if err := dbapi.QueryRowContext(t.Context(), database, "SELECT state FROM jobs WHERE id=?", job).Scan(&state); err != nil {
 			t.Fatal(err)
 		}
 		if state == expected {

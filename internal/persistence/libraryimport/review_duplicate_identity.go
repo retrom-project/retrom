@@ -6,19 +6,19 @@ import (
 	"fmt"
 
 	"retrom/internal/cleanup"
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/libraryimport"
 )
 
-type ContentDuplicates struct{ executor dbexec.Executor }
+type ContentDuplicates struct{ executor dbapi.Executor }
 
-func BindContentDuplicates(executor dbexec.Executor) *ContentDuplicates {
+func BindContentDuplicates(executor dbapi.Executor) *ContentDuplicates {
 	return &ContentDuplicates{executor: executor}
 }
 
 func (records *ContentDuplicates) Snapshot(ctx context.Context, itemID string) (application.ContentSnapshot, error) {
 	var result application.ContentSnapshot
-	err := records.executor.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, records.executor, `
 SELECT snapshot.id,snapshot.content_kind FROM import_item_source_snapshots snapshot
 WHERE snapshot.id=COALESCE(
  (SELECT draft.effective_source_snapshot_id FROM import_items draft WHERE draft.id=?),
@@ -33,7 +33,7 @@ WHERE snapshot.id=COALESCE(
 
 func (records *ContentDuplicates) ReviewPlatform(ctx context.Context, itemID string) (string, error) {
 	var result string
-	err := records.executor.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, records.executor, `
 SELECT instance.platform_id FROM import_items item
 JOIN import_items draft ON draft.id=item.id
 JOIN platform_instances instance ON instance.id=draft.target_platform_instance_id

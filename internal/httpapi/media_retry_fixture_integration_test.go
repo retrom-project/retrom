@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"retrom/internal/blobstore"
+	dbapi "retrom/internal/database"
 	"retrom/internal/hasheous"
 	metadatapersistence "retrom/internal/persistence/metadatascrape"
 	"retrom/internal/service/metadatascrape"
@@ -64,7 +65,7 @@ func newMediaRetryFixture(t *testing.T) validationRetryFixture {
 	if err := metadata.Run(t.Context(), "media-run"); err != nil {
 		t.Fatal(err)
 	}
-	if err := database.QueryRowContext(t.Context(), `SELECT id FROM jobs WHERE kind='MEDIA_FETCH'`).Scan(&fixture.jobID); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), database, `SELECT id FROM jobs WHERE kind='MEDIA_FETCH'`).Scan(&fixture.jobID); err != nil {
 		t.Fatal(err)
 	}
 	validationRetrySQL(t, database, `UPDATE jobs SET state='FAILED',error_code='MEDIA_BLOB_FAILED',error_retryable=1,finished_at_ms=? WHERE id=?`, now, fixture.jobID)

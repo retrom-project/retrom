@@ -2,13 +2,12 @@ package payloadrelease
 
 import (
 	"bytes"
-	"database/sql"
 	"encoding/json"
 	"testing"
 	"time"
 
 	"retrom/internal/blobstore"
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 )
 
 func TestImmediateGCManualRetryStartsANewExecutionBudget(t *testing.T) {
@@ -33,7 +32,7 @@ func TestImmediateGCManualRetryStartsANewExecutionBudget(t *testing.T) {
 		t.Fatal(err)
 	}
 	var id string
-	if err := database.QueryRowContext(t.Context(), `SELECT gc_job_id FROM blob_gc_candidates WHERE blob_id='manual-gc-blob'`).Scan(&id); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), database, `SELECT gc_job_id FROM blob_gc_candidates WHERE blob_id='manual-gc-blob'`).Scan(&id); err != nil {
 		t.Fatal(err)
 	}
 	_, err = database.ExecContext(t.Context(), `UPDATE jobs SET state='FAILED',attempt_count=4,
@@ -58,13 +57,13 @@ func TestImmediateGCManualRetryStartsANewExecutionBudget(t *testing.T) {
 	}
 }
 
-func seedManualGC(t *testing.T, database *sql.DB, metadata blobstore.Metadata) {
+func seedManualGC(t *testing.T, database dbapi.DB, metadata blobstore.Metadata) {
 	t.Helper()
 	tx, err := database.BeginTx(t.Context(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer dbexec.Rollback(tx)
+	defer dbapi.Rollback(tx)
 	if _, err := tx.ExecContext(t.Context(), `INSERT INTO profiles(id,display_name,created_at_ms)
  VALUES('manual-gc-profile','GC',1)`); err != nil {
 		t.Fatal(err)
@@ -83,11 +82,11 @@ func seedManualGC(t *testing.T, database *sql.DB, metadata blobstore.Metadata) {
 	}
 }
 
-func assertNewManualGCBudget(t *testing.T, database *sql.DB, id string) {
+func assertNewManualGCBudget(t *testing.T, database dbapi.DB, id string) {
 	t.Helper()
 	authority := releaseJobAuthority(t, database, id)
 	var execution, inputExecution int64
-	err := database.QueryRowContext(t.Context(), `SELECT execution_no,json_extract(payload_json,'$.inputExecutionNo')
+	err := dbapi.QueryRowContext(t.Context(), database, `SELECT execution_no,json_extract(payload_json,'$.inputExecutionNo')
  FROM jobs WHERE id=?`, id).Scan(&execution, &inputExecution)
 	if err != nil || authority.State != "QUEUED" || authority.Attempt != 0 || authority.Started.Valid || authority.Deadline.Valid ||
 		execution != 2 || inputExecution != 2 {
@@ -95,7 +94,7 @@ func assertNewManualGCBudget(t *testing.T, database *sql.DB, id string) {
 			authority, execution, inputExecution, err)
 	}
 	var original, current string
-	err = database.QueryRowContext(t.Context(), `SELECT old.input_json,current.input_json
+	err = dbapi.QueryRowContext(t.Context(), database, `SELECT old.input_json,current.input_json
  FROM job_input_snapshots old JOIN job_input_snapshots current ON current.job_id=old.job_id
  WHERE old.job_id=? AND old.execution_no=1 AND current.execution_no=2`, id).Scan(&original, &current)
 	var before, after scheduleInput

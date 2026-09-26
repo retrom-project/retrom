@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
+
 	"github.com/google/uuid"
 )
 
@@ -16,7 +18,7 @@ func seedHTTPSourceScan(t *testing.T, server *Server, running bool) (string, str
 	server.sourceImports.Close()
 	planID, jobID := uuid.NewString(), uuid.NewString()
 	var actorID string
-	if err := server.database.QueryRowContext(t.Context(), `SELECT id FROM users WHERE role='ADMIN' LIMIT 1`).Scan(
+	if err := dbapi.QueryRowContext(t.Context(), server.database, `SELECT id FROM users WHERE role='ADMIN' LIMIT 1`).Scan(
 		&actorID,
 	); err != nil {
 		t.Fatal(err)
@@ -100,7 +102,7 @@ func TestJobHTTPScanCancellationChangesSourcePlanInSameCommit(t *testing.T) {
 			}
 			var planState, jobState string
 			var jobVersion int64
-			err := server.database.QueryRowContext(t.Context(), `SELECT plan.state,job.state,job.version
+			err := dbapi.QueryRowContext(t.Context(), server.database, `SELECT plan.state,job.state,job.version
 FROM source_imports plan JOIN jobs job ON job.id=plan.scan_job_id WHERE plan.id=?`, planID).Scan(
 				&planState,
 				&jobState,

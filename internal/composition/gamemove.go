@@ -1,7 +1,7 @@
 package composition
 
 import (
-	"database/sql"
+	dbapi "retrom/internal/database"
 
 	validationpersistence "retrom/internal/persistence/corevalidation"
 	gamemovepersistence "retrom/internal/persistence/gamemove"
@@ -11,7 +11,7 @@ import (
 
 // NewGameMove wires the game move application service to its persistence
 // adapter and the shared core validation service.
-func NewGameMove(database *sql.DB) *gamemove.Service {
+func NewGameMove(database dbapi.DB) *gamemove.Service {
 	return gamemove.New(
 		gamemovepersistence.New(database),
 		validationservice.New(validationpersistence.New(database)),

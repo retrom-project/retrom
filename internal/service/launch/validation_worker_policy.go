@@ -7,11 +7,11 @@ import (
 	"reflect"
 	"strings"
 
-	"retrom/internal/arcadedat"
 	contentprofile "retrom/internal/content/profile"
 	daphne "retrom/internal/core/daphne/detector"
 	"retrom/internal/core/scummvm"
-	"retrom/internal/corevalidation"
+	corevalidation "retrom/internal/core/validation"
+	"retrom/internal/format/arcadedat"
 )
 
 // EvaluateValidation is shared by the asynchronous attempt and its final

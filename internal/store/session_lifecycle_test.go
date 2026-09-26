@@ -6,12 +6,13 @@ import (
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/recordstore"
 
 	"retrom/internal/persistence/sessionstore"
 )
 
-func lifecycleDatabase(t *testing.T) *sql.DB {
+func lifecycleDatabase(t *testing.T) dbapi.DB {
 	t.Helper()
 	database, err := Open(t.Context(), filepath.Join(t.TempDir(), "retrom.db"), func() time.Time {
 		return time.UnixMilli(1786000000000)
@@ -29,7 +30,7 @@ func lifecycleDatabase(t *testing.T) *sql.DB {
 	return database.SQL
 }
 
-func lifecycleTransaction(t *testing.T, database *sql.DB) *sql.Tx {
+func lifecycleTransaction(t *testing.T, database dbapi.DB) dbapi.Tx {
 	t.Helper()
 	tx, err := database.BeginTx(t.Context(), nil)
 	if err != nil {
@@ -48,7 +49,7 @@ func TestLaunchCreationSchedulesRetirementWithoutTriggers(t *testing.T) {
 		t.Fatal(err)
 	}
 	var due int64
-	if err := tx.QueryRowContext(t.Context(), `SELECT due_at_ms FROM launch_payload_retirements
+	if err := dbapi.QueryRowContext(t.Context(), tx, `SELECT due_at_ms FROM launch_payload_retirements
 WHERE launch_session_id='current-launch'`).Scan(&due); err != nil || due != 10 {
 		t.Fatalf("creation retirement deadline = %d, error = %v", due, err)
 	}
@@ -60,7 +61,7 @@ WHERE launch_session_id='current-launch'`).Scan(&due); err != nil || due != 10 {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if err := tx.QueryRowContext(t.Context(), `SELECT due_at_ms FROM launch_payload_retirements
+	if err := dbapi.QueryRowContext(t.Context(), tx, `SELECT due_at_ms FROM launch_payload_retirements
 WHERE launch_session_id='current-launch'`).Scan(&due); err != nil || due != 20 {
 		t.Fatalf("active retirement deadline = %d, error = %v", due, err)
 	}
@@ -101,7 +102,7 @@ WHERE launch_session_id='current-launch'`); err != nil {
 	}
 	var idle sql.NullInt64
 	var due, hard int64
-	if err := db.QueryRowContext(t.Context(), `SELECT launch.idle_expires_at_ms,retirement.due_at_ms,launch.hard_expires_at_ms
+	if err := dbapi.QueryRowContext(t.Context(), db, `SELECT launch.idle_expires_at_ms,retirement.due_at_ms,launch.hard_expires_at_ms
 FROM launch_sessions launch JOIN launch_payload_retirements retirement ON retirement.launch_session_id=launch.id
 WHERE launch.id='current-launch'`).Scan(&idle, &due, &hard); err != nil {
 		t.Fatal(err)
@@ -124,7 +125,7 @@ func TestSaveCreationInitializesDataVersionWithoutTriggers(t *testing.T) {
 		t.Fatal(err)
 	}
 	var version int64
-	if err := tx.QueryRowContext(t.Context(), `SELECT data_version FROM game_save_versions
+	if err := dbapi.QueryRowContext(t.Context(), tx, `SELECT data_version FROM game_save_versions
 WHERE save_state_id='current-save'`).Scan(&version); err != nil || version != 1 {
 		t.Fatalf("new save data version = %d, error = %v", version, err)
 	}
@@ -159,7 +160,7 @@ FROM launch_sessions WHERE id='current-launch'`
 	}
 	var blob string
 	var version int64
-	if err := tx.QueryRowContext(t.Context(), `SELECT restore_payload_blob_id,expected_data_version
+	if err := dbapi.QueryRowContext(t.Context(), tx, `SELECT restore_payload_blob_id,expected_data_version
 FROM launch_game_save_bindings WHERE launch_session_id='restoring-launch'`).Scan(&blob, &version); err != nil || blob != "current-save-payload" || version != 1 {
 		t.Fatalf("frozen restore = %q/%d, error = %v", blob, version, err)
 	}
@@ -172,7 +173,7 @@ FROM launch_game_save_bindings WHERE launch_session_id='restoring-launch'`).Scan
 		t.Fatal(err)
 	}
 	var released int
-	if err := tx.QueryRowContext(t.Context(), `SELECT count(*) FROM launch_game_save_bindings
+	if err := dbapi.QueryRowContext(t.Context(), tx, `SELECT count(*) FROM launch_game_save_bindings
 WHERE launch_session_id='restoring-launch' AND restore_payload_blob_id IS NULL
 AND restore_checkpoint_format IS NULL`).Scan(&released); err != nil || released != 1 {
 		t.Fatalf("released restore count = %d, error = %v", released, err)

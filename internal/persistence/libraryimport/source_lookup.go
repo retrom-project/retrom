@@ -6,13 +6,13 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/libraryimport"
 )
 
-type OwnedSources struct{ executor dbexec.Executor }
+type OwnedSources struct{ executor dbapi.Executor }
 
-func BindOwnedSources(executor dbexec.Executor) *OwnedSources {
+func BindOwnedSources(executor dbapi.Executor) *OwnedSources {
 	return &OwnedSources{executor: executor}
 }
 
@@ -26,7 +26,7 @@ func (records *OwnedSources) Lookup(
 	}
 	var result application.OwnedSourceLookup
 	var linkedJob, linkedItem, importID string
-	err = records.executor.QueryRowContext(ctx, `
+	err = dbapi.QueryRowContext(ctx, records.executor, `
 SELECT COALESCE(source.library_import_job_id,''),COALESCE(source.library_import_item_id,''),
 COALESCE(imported.id,''),COALESCE(group_job.id,''),COALESCE(imported.state,''),COALESCE(imported.total_item_count,0),
 COALESCE(imported.target_platform_instance_id,''),

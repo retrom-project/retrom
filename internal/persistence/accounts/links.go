@@ -7,16 +7,16 @@ import (
 	"fmt"
 
 	"retrom/internal/cleanup"
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/service/accounts"
 )
 
 type (
-	LinkRepository struct{ database *sql.DB }
+	LinkRepository struct{ database dbapi.DB }
 	linkRecords    struct{ accountOperations }
 )
 
-func NewLinks(database *sql.DB) *LinkRepository { return &LinkRepository{database} }
+func NewLinks(database dbapi.DB) *LinkRepository { return &LinkRepository{database} }
 func (repository *LinkRepository) Current(ctx context.Context, id string) (accounts.LinkRecord, bool, error) {
 	return (linkRecords{accountOperations{repository.database}}).Current(ctx, id)
 }
@@ -26,7 +26,7 @@ func (repository *LinkRepository) WithWrite(ctx context.Context, work func(accou
 	if err != nil {
 		return fmt.Errorf("begin account link change: %w", err)
 	}
-	defer dbexec.Rollback(tx)
+	defer dbapi.Rollback(tx)
 	records := linkRecords{accountOperations{tx}}
 	if err := work(accounts.LinkScope{Read: records, Write: records}); err != nil {
 		return err
@@ -44,7 +44,8 @@ const accountLinkProjection = `SELECT link.id,link.kind,link.invited_role,link.t
  LEFT JOIN users target ON target.id=link.target_user_id`
 
 func (records linkRecords) Current(ctx context.Context, id string) (accounts.LinkRecord, bool, error) {
-	record, err := scanAccountLink(records.executor.QueryRowContext(ctx, accountLinkProjection+` WHERE link.id=?`, id))
+	record, err := scanAccountLink(dbapi.QueryRowContext(
+		ctx, records.executor, accountLinkProjection+` WHERE link.id=?`, id))
 	if errors.Is(err, sql.ErrNoRows) {
 		return record, false, nil
 	}
@@ -75,7 +76,7 @@ func (repository *LinkRepository) List(ctx context.Context, query accounts.LinkQ
 	return records, nil
 }
 
-func scanAccountLink(scanner dbexec.Scanner) (accounts.LinkRecord, error) {
+func scanAccountLink(scanner dbapi.Scanner) (accounts.LinkRecord, error) {
 	var record accounts.LinkRecord
 	var creator accounts.LinkCreator
 	item := &record.Link

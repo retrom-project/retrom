@@ -6,13 +6,13 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/launch"
 )
 
-type ContentQueries struct{ executor dbexec.Executor }
+type ContentQueries struct{ executor dbapi.Executor }
 
-func NewContentQueries(executor dbexec.Executor) *ContentQueries {
+func NewContentQueries(executor dbapi.Executor) *ContentQueries {
 	return &ContentQueries{executor: executor}
 }
 
@@ -25,7 +25,7 @@ func (repository *ContentQueries) ProductContent(
 	if folded {
 		foldedFlag = 1
 	}
-	return scanContent(repository.executor.QueryRowContext(ctx, `
+	return scanContent(dbapi.QueryRowContext(ctx, repository.executor, `
 SELECT l.credential_sha256,
 l.state,
 l.hard_expires_at_ms,
@@ -67,7 +67,7 @@ func (repository *ContentQueries) PreviewContent(
 	ctx context.Context,
 	id, logicalName string,
 ) (application.ContentRecord, bool, error) {
-	return scanContent(repository.executor.QueryRowContext(ctx, `
+	return scanContent(dbapi.QueryRowContext(ctx, repository.executor, `
 SELECT preview.credential_sha256,preview.state,preview.hard_expires_at_ms,blob.sha256,
 preview.content_format,binding.core_id,preview.provider_id,preview.target_id,
 preview.bundle_sha256,platform.id,preview.default_dos_entry,
@@ -86,7 +86,7 @@ func (repository *ContentQueries) PreviewProject(
 	id, logicalName string,
 	folded bool,
 ) (application.ContentRecord, bool, error) {
-	return scanContent(repository.executor.QueryRowContext(ctx, `
+	return scanContent(dbapi.QueryRowContext(ctx, repository.executor, `
 WITH preview_files AS (
  SELECT id AS preview_session_id,content_logical_name AS logical_name,content_blob_id AS blob_id
  FROM review_preview_sessions WHERE id=?
@@ -112,7 +112,7 @@ WHERE preview.id=?
 `, id, id, logicalName, folded, logicalName, logicalName, logicalName, id))
 }
 
-func scanContent(row dbexec.Scanner) (application.ContentRecord, bool, error) {
+func scanContent(row dbapi.Scanner) (application.ContentRecord, bool, error) {
 	var result application.ContentRecord
 	var dosEntry sql.NullString
 	session, content := &result.Session, &result.Content

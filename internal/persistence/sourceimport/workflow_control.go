@@ -8,13 +8,13 @@ import (
 
 	payload "retrom/internal/persistence/payloadrelease"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/sourceimport"
 )
 
-type WorkflowControl struct{ database *sql.DB }
+type WorkflowControl struct{ database dbapi.DB }
 
-func NewWorkflowControl(database *sql.DB) *WorkflowControl {
+func NewWorkflowControl(database dbapi.DB) *WorkflowControl {
 	return &WorkflowControl{database: database}
 }
 
@@ -23,7 +23,7 @@ func (repository *WorkflowControl) WithControl(ctx context.Context, work func(ap
 	if err != nil {
 		return fmt.Errorf("begin Source workflow control: %w", err)
 	}
-	defer dbexec.Rollback(tx)
+	defer dbapi.Rollback(tx)
 	records := workflowRecords{transaction: tx}
 	if err := work(application.WorkflowScope{
 		Payload: payload.BindReleases(tx), Read: records, Write: records,
@@ -36,7 +36,7 @@ func (repository *WorkflowControl) WithControl(ctx context.Context, work func(ap
 	return nil
 }
 
-type workflowRecords struct{ transaction *sql.Tx }
+type workflowRecords struct{ transaction dbapi.Tx }
 
 func (records workflowRecords) Current(ctx context.Context, id string) (application.WorkflowSnapshot, error) {
 	summary, err := (&Queries{database: records.transaction}).Get(ctx, id)
@@ -45,7 +45,7 @@ func (records workflowRecords) Current(ctx context.Context, id string) (applicat
 	}
 	result := application.WorkflowSnapshot{Summary: summary}
 	jobID, kind := workflowJob(summary)
-	err = records.transaction.QueryRowContext(ctx, `
+	err = dbapi.QueryRowContext(ctx, records.transaction, `
 SELECT state,version,execution_no FROM jobs WHERE id=? AND scope_type='SOURCE_IMPORT'
 AND scope_id=? AND kind=?`, jobID, id, kind).
 		Scan(&result.JobState, &result.JobVersion, &result.Execution)
@@ -55,7 +55,7 @@ AND scope_id=? AND kind=?`, jobID, id, kind).
 	if summary.ImportJobID == nil {
 		return result, nil
 	}
-	err = records.transaction.QueryRowContext(ctx, `
+	err = dbapi.QueryRowContext(ctx, records.transaction, `
 SELECT EXISTS(SELECT 1 FROM source_imports WHERE id<>?
 AND import_job_id IS NOT NULL AND state IN ('QUEUED','RUNNING','CANCEL_REQUESTED')),
 (SELECT count(*) FROM source_import_items WHERE import_id=? AND retryable=1
@@ -76,7 +76,7 @@ func workflowJob(summary application.Summary) (string, string) {
 
 func (records workflowRecords) CurrentJob(ctx context.Context, jobID string) (application.WorkflowSnapshot, error) {
 	var importID string
-	err := records.transaction.QueryRowContext(ctx, `SELECT plan.id FROM jobs job
+	err := dbapi.QueryRowContext(ctx, records.transaction, `SELECT plan.id FROM jobs job
 JOIN source_imports plan ON plan.id=job.scope_id WHERE job.id=? AND job.scope_type='SOURCE_IMPORT'
 AND ((job.kind='IMPORT_SCAN' AND plan.scan_job_id=job.id AND plan.import_job_id IS NULL)
 OR(job.kind='IMPORT_RECEIVE' AND plan.import_job_id=job.id))`, jobID).Scan(&importID)

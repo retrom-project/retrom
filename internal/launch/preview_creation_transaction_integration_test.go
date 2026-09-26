@@ -4,7 +4,6 @@ package launch
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"reflect"
@@ -13,6 +12,7 @@ import (
 	"time"
 
 	"retrom/internal/cleanup"
+	dbapi "retrom/internal/database"
 	persistence "retrom/internal/persistence/launch"
 	application "retrom/internal/service/launch"
 
@@ -53,7 +53,7 @@ func (scope previewWriteFaultScope) Create(ctx context.Context, plan application
 	return scope.PreviewCreationScope.Create(ctx, plan)
 }
 
-func previewCreationRows(t *testing.T, database *sql.DB) map[string]string {
+func previewCreationRows(t *testing.T, database dbapi.DB) map[string]string {
 	t.Helper()
 	result := playRows(t, database)
 	rows, err := database.QueryContext(t.Context(), `SELECT preview_session_id,role,logical_name,blob_id,sort_order,COALESCE(virtual_path,'') FROM review_preview_files ORDER BY preview_session_id,role,logical_name`)
@@ -175,7 +175,7 @@ func TestPreviewCreationReplaysTwoSimultaneousProductRequests(t *testing.T) {
 		t.Fatalf("concurrent creation: first=%q second=%q errors=%v / %v", first.result.PreviewID, second.result.PreviewID, first.err, second.err)
 	}
 	var count int
-	if err := fixture.database.QueryRowContext(t.Context(), `SELECT count(*) FROM review_preview_sessions WHERE actor_user_id=? AND idempotency_key=?`, request.ActorUserID, request.IdempotencyKey).Scan(&count); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT count(*) FROM review_preview_sessions WHERE actor_user_id=? AND idempotency_key=?`, request.ActorUserID, request.IdempotencyKey).Scan(&count); err != nil {
 		t.Fatal(err)
 	}
 	if count != 1 {

@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	"retrom/internal/cleanup"
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/blobregistry"
 	"retrom/internal/service/maintenance"
 	"retrom/internal/store"
@@ -15,7 +15,7 @@ import (
 
 type (
 	Repository struct{}
-	writes     struct{ transaction *sql.Tx }
+	writes     struct{ transaction dbapi.Tx }
 )
 
 func New() *Repository { return &Repository{} }
@@ -27,7 +27,7 @@ func (repository *Repository) CurrentLineage() (maintenance.Lineage, error) {
 	return maintenance.Lineage{Version: lineage.Version, Digest: lineage.Digest}, nil
 }
 
-func inspectLineage(ctx context.Context, database *sql.DB) (maintenance.Lineage, error) {
+func inspectLineage(ctx context.Context, database dbapi.DB) (maintenance.Lineage, error) {
 	if err := checkDatabase(ctx, database); err != nil {
 		return maintenance.Lineage{}, err
 	}
@@ -45,12 +45,12 @@ func inspectLineage(ctx context.Context, database *sql.DB) (maintenance.Lineage,
 }
 
 func (repository *Repository) Checkpoint(ctx context.Context, path string) error {
-	return withDatabase(ctx, path, func(database *sql.DB) error {
+	return withDatabase(ctx, path, func(database dbapi.DB) error {
 		if _, err := inspectLineage(ctx, database); err != nil {
 			return err
 		}
 		var busy, frames, checkpointed int
-		err := database.QueryRowContext(ctx, `PRAGMA wal_checkpoint(TRUNCATE)`).Scan(&busy, &frames, &checkpointed)
+		err := dbapi.QueryRowContext(ctx, database, `PRAGMA wal_checkpoint(TRUNCATE)`).Scan(&busy, &frames, &checkpointed)
 		if err != nil {
 			return fmt.Errorf("checkpoint backup database: %w", err)
 		}
@@ -63,7 +63,7 @@ func (repository *Repository) Checkpoint(ctx context.Context, path string) error
 
 func (repository *Repository) Inspect(ctx context.Context, path string) (maintenance.Snapshot, error) {
 	var snapshot maintenance.Snapshot
-	err := withDatabase(ctx, path, func(database *sql.DB) error {
+	err := withDatabase(ctx, path, func(database dbapi.DB) error {
 		var err error
 		snapshot.Lineage, err = inspectLineage(ctx, database)
 		if err != nil {
@@ -82,12 +82,12 @@ func (repository *Repository) Inspect(ctx context.Context, path string) (mainten
 func (repository *Repository) WithRestore(
 	ctx context.Context, path string, work func(maintenance.RestoreRecords) error,
 ) error {
-	return withDatabase(ctx, path, func(database *sql.DB) error {
+	return withDatabase(ctx, path, func(database dbapi.DB) error {
 		tx, err := database.BeginTx(ctx, nil)
 		if err != nil {
 			return fmt.Errorf("begin restore security boundary: %w", err)
 		}
-		defer dbexec.Rollback(tx)
+		defer dbapi.Rollback(tx)
 		if err := work(writes{tx}); err != nil {
 			return err
 		}
@@ -98,7 +98,7 @@ func (repository *Repository) WithRestore(
 	})
 }
 
-func withDatabase(ctx context.Context, path string, work func(*sql.DB) error) error {
+func withDatabase(ctx context.Context, path string, work func(dbapi.DB) error) error {
 	database, err := openDatabase(ctx, path)
 	if err != nil {
 		return err

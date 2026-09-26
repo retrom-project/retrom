@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"testing"
 
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/sourceimport"
 )
 
@@ -16,7 +17,7 @@ func TestWorkerFailureCannotCloseReplacedExecution(t *testing.T) {
 		t.Fatalf("stale owner error=%v", err)
 	}
 	var state string
-	if err := service.database.QueryRowContext(t.Context(), `SELECT state FROM source_imports WHERE id='import'`).Scan(
+	if err := dbapi.QueryRowContext(t.Context(), service.database, `SELECT state FROM source_imports WHERE id='import'`).Scan(
 		&state,
 	); err != nil {
 		t.Fatal(err)
@@ -34,7 +35,7 @@ func TestWorkerFailureRollsBackWhenEventCannotBeWritten(t *testing.T) {
 		t.Fatal("event failure was not returned")
 	}
 	var state string
-	if err := service.database.QueryRowContext(t.Context(), `SELECT state FROM source_imports WHERE id='import'`).Scan(
+	if err := dbapi.QueryRowContext(t.Context(), service.database, `SELECT state FROM source_imports WHERE id='import'`).Scan(
 		&state,
 	); err != nil {
 		t.Fatal(err)
@@ -100,7 +101,7 @@ type settledReviewOutcome struct {
 func assertSettledReview(t *testing.T, service *Service, cancel bool) {
 	t.Helper()
 	var actual settledReviewOutcome
-	err := service.database.QueryRowContext(t.Context(), `SELECT plan.state,job.state,plan.review_pending_item_count,
+	err := dbapi.QueryRowContext(t.Context(), service.database, `SELECT plan.state,job.state,plan.review_pending_item_count,
 plan.failed_item_count,plan.cancelled_item_count,item.execution_state,item.payload_state,unfinished.execution_state,
 unfinished.retryable FROM source_imports plan JOIN jobs job ON job.id=plan.import_job_id
 JOIN source_import_items item ON item.id='item' JOIN source_import_items unfinished ON unfinished.id='unfinished'
@@ -127,7 +128,7 @@ WHERE plan.id='import'`).Scan(&actual.Parent, &actual.Job, &actual.Pending, &act
 		t.Fatalf("settlement=%#v want=%#v", actual, expected)
 	}
 	var title string
-	if err := service.database.QueryRowContext(t.Context(), `SELECT json_extract(metadata_json,'$.title') FROM import_items WHERE id='handoff-item'`).Scan(
+	if err := dbapi.QueryRowContext(t.Context(), service.database, `SELECT json_extract(metadata_json,'$.title') FROM import_items WHERE id='handoff-item'`).Scan(
 		&title,
 	); err != nil {
 		t.Fatal(

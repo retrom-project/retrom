@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"strings"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/contentquery"
 	"retrom/internal/persistence/recordstore"
 	application "retrom/internal/service/libraryimport"
@@ -16,13 +16,13 @@ import (
 // ArcadeParentAttachments owns the transaction used while an uploaded parent
 // ROM is admitted into the review queue. The legacy libraryimport package
 // keeps the domain checks and only supplies typed values to this repository.
-type ArcadeParentAttachments struct{ database *sql.DB }
+type ArcadeParentAttachments struct{ database dbapi.DB }
 
-type arcadeParentAttachmentAdmissionRecords struct{ executor dbexec.Executor }
+type arcadeParentAttachmentAdmissionRecords struct{ executor dbapi.Executor }
 
 var _ application.ArcadeParentAttachmentAdmissionRepository = (*ArcadeParentAttachments)(nil)
 
-func NewArcadeParentAttachments(database *sql.DB) *ArcadeParentAttachments {
+func NewArcadeParentAttachments(database dbapi.DB) *ArcadeParentAttachments {
 	return &ArcadeParentAttachments{database: database}
 }
 
@@ -34,7 +34,7 @@ func (repository *ArcadeParentAttachments) WithAdmission(
 	if err != nil {
 		return fmt.Errorf("begin arcade parent attachment admission: %w", err)
 	}
-	defer dbexec.Rollback(tx)
+	defer dbapi.Rollback(tx)
 	records := arcadeParentAttachmentAdmissionRecords{executor: tx}
 	if err := work(application.ArcadeParentAttachmentAdmissionScope{Read: records, Write: records}); err != nil {
 		return err
@@ -50,7 +50,7 @@ func (records arcadeParentAttachmentAdmissionRecords) Draft(
 ) (application.ArcadeParentAttachmentDraft, bool, error) {
 	var result application.ArcadeParentAttachmentDraft
 	var datID sql.NullString
-	err := records.executor.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, records.executor, `
 SELECT draft.id,item.state,draft.review_version,draft.target_platform_instance_id,
   draft.effective_source_snapshot_id,platform.platform_id,platform.version,
   platform.default_core_id,target.provider_id,target.target_id,
@@ -89,7 +89,7 @@ func (records arcadeParentAttachmentAdmissionRecords) Validation(
 ) (application.ArcadeParentAttachmentValidation, bool, error) {
 	var result application.ArcadeParentAttachmentValidation
 	var datID sql.NullString
-	err := records.executor.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, records.executor, `
 SELECT target_platform_instance_id,core_id,provider_id,target_id,
   dat_version_id,source_snapshot_id,
   dependency_snapshot_json
@@ -114,7 +114,7 @@ func (records arcadeParentAttachmentAdmissionRecords) Upload(
 ) (application.ArcadeParentAttachmentUpload, bool, error) {
 	var result application.ArcadeParentAttachmentUpload
 	var wholeSessionConsumed int64
-	err := records.executor.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, records.executor, `
 SELECT session.id,session.state,'COMPLETE',file.relative_path,file.blob_id,
   blob.sha256,blob.size_bytes,
   EXISTS(SELECT 1 FROM upload_consumptions consumption
@@ -139,7 +139,7 @@ WHERE file.id=?
 
 func (records arcadeParentAttachmentAdmissionRecords) HasActive(ctx context.Context, itemID string) (bool, error) {
 	var count int64
-	if err := records.executor.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, records.executor, `
 SELECT count(*) FROM review_arcade_parent_attachments
 WHERE import_item_id=? AND state IN ('QUEUED','RUNNING')
 `, itemID).Scan(&count); err != nil {

@@ -5,20 +5,21 @@ import (
 	"database/sql"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/service/metadatascrape"
 )
 
 type (
-	WorkerRepository struct{ database *sql.DB }
-	workerRecords    struct{ transaction *sql.Tx }
+	WorkerRepository struct{ database dbapi.DB }
+	workerRecords    struct{ transaction dbapi.Tx }
 )
 
-func NewWorker(database *sql.DB) *WorkerRepository { return &WorkerRepository{database} }
+func NewWorker(database dbapi.DB) *WorkerRepository { return &WorkerRepository{database} }
 func (repository *WorkerRepository) Run(ctx context.Context, id string) (metadatascrape.WorkerRun, error) {
 	var run metadatascrape.WorkerRun
-	err := repository.database.QueryRowContext(
-		ctx,
+	err := dbapi.QueryRowContext(
+		ctx, repository.database,
+
 		`SELECT r.id,r.job_id,r.provider,r.state,j.state,j.payload_json,j.execution_no,
  j.version,j.attempt_count,j.max_attempts,
  COALESCE(j.execution_deadline_at_ms,0),COALESCE(j.leased_until_ms,0),j.available_at_ms
@@ -38,7 +39,7 @@ func (repository *WorkerRepository) WithWrite(ctx context.Context, work func(met
 	if err != nil {
 		return fmt.Errorf("begin metadata execution: %w", err)
 	}
-	defer dbexec.Rollback(tx)
+	defer dbapi.Rollback(tx)
 	records := workerRecords{tx}
 	if err := work(
 		metadatascrape.WorkerScope{

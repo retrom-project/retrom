@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/testassert"
 
 	"retrom/internal/store"
@@ -23,14 +24,14 @@ func TestRetryableCurrentFailureCanBeRecheckedWithoutRescanning(t *testing.T) {
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return queued.State != "QUEUED" }), "queued summary = %#v, error=%v", queued, err)
 	var state string
 	var code, details sql.NullString
-	if err := database.QueryRowContext(context.Background(),
+	if err := dbapi.QueryRowContext(context.Background(), database,
 		`SELECT execution_state,error_code,error_details_json FROM source_import_items WHERE id='item'`,
 	).Scan(&state, &code, &details); err != nil || state != "PENDING" || code.Valid || details.Valid {
 		t.Fatalf("retried item = state:%q code:%#v details:%#v error:%v", state, code, details, err)
 	}
 }
 
-func newSourceRetryDatabase(t *testing.T) *sql.DB {
+func newSourceRetryDatabase(t *testing.T) dbapi.DB {
 	t.Helper()
 	owner, err := store.Open(t.Context(), filepath.Join(t.TempDir(), "retry.db"), time.Now)
 	if err != nil {

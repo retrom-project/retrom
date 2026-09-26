@@ -7,14 +7,14 @@ import (
 	"fmt"
 
 	"retrom/internal/cleanup"
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/recordstore"
 	application "retrom/internal/service/launch"
 )
 
-type ProductExternals struct{ executor dbexec.Executor }
+type ProductExternals struct{ executor dbapi.Executor }
 
-func NewProductExternals(executor dbexec.Executor) *ProductExternals {
+func NewProductExternals(executor dbapi.Executor) *ProductExternals {
 	return &ProductExternals{executor: executor}
 }
 
@@ -23,7 +23,7 @@ func (repository *ProductExternals) Snapshot(
 	launchID, variantID string,
 ) (application.ProductExternalSnapshot, bool, error) {
 	var snapshot application.ProductExternalSnapshot
-	err := repository.executor.QueryRowContext(ctx, `SELECT variant.dependency_snapshot_json,content.logical_name
+	err := dbapi.QueryRowContext(ctx, repository.executor, `SELECT variant.dependency_snapshot_json,content.logical_name
 FROM game_variants variant JOIN launch_content_files content ON content.launch_session_id=?
 WHERE variant.id=? ORDER BY content.logical_name LIMIT 1`, launchID, variantID).Scan(
 		&snapshot.DependencySnapshot,

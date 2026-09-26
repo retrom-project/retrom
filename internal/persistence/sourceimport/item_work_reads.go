@@ -8,13 +8,14 @@ import (
 	"fmt"
 
 	"retrom/internal/cleanup"
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/sourceimport"
 )
 
 func (records itemWorkRecords) Current(ctx context.Context, id string) (application.OwnedItem, error) {
 	var result application.OwnedItem
 	var jobID string
-	err := records.tx.QueryRowContext(ctx, `SELECT item.id,item.import_id,item.execution_state,item.version,
+	err := dbapi.QueryRowContext(ctx, records.tx, `SELECT item.id,item.import_id,item.execution_state,item.version,
 COALESCE(item.library_import_job_id,''),COALESCE(item.library_import_item_id,''),COALESCE(plan.import_job_id,'')
 FROM source_import_items item JOIN source_imports plan ON plan.id=item.import_id WHERE item.id=?`, id).Scan(
 		&result.Item.ID, &result.Item.ImportID, &result.Item.State, &result.Item.Version,
@@ -35,7 +36,7 @@ FROM source_import_items item JOIN source_imports plan ON plan.id=item.import_id
 func (records itemWorkRecords) Next(ctx context.Context, importID string) (application.ExecutionItem, bool, error) {
 	var item application.ExecutionItem
 	var tags string
-	err := records.tx.QueryRowContext(ctx, `SELECT item.id,item.import_id,item.execution_state,item.version,
+	err := dbapi.QueryRowContext(ctx, records.tx, `SELECT item.id,item.import_id,item.execution_state,item.version,
 collection.target_platform_instance_id,collection.target_platform_id,COALESCE(collection.target_dat_version_id,''),
 item.metadata_json,collection.tag_snapshot_json,COALESCE(item.library_import_job_id,''),
 COALESCE(item.library_import_item_id,'')

@@ -6,13 +6,13 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/launch"
 )
 
 func productCreationSave(
 	ctx context.Context,
-	executor dbexec.Executor,
+	executor dbapi.Executor,
 	command application.ProductCreateCommand,
 ) (*application.ProductSave, bool, error) {
 	if command.Request.SaveStateID == nil {
@@ -20,7 +20,7 @@ func productCreationSave(
 	}
 	var save application.ProductSave
 	var readable bool
-	err := executor.QueryRowContext(ctx, `SELECT save.id,save.profile_id,save.game_id,source.core_id,
+	err := dbapi.QueryRowContext(ctx, executor, `SELECT save.id,save.profile_id,save.game_id,source.core_id,
  COALESCE(save.payload_blob_id,''),save.checkpoint_format,COALESCE(save.payload_sha256,''),
  COALESCE(save.payload_size_bytes,0),save.dos_entry_path,save.disc_index,
  EXISTS(SELECT 1 FROM game_variants variant
@@ -56,7 +56,7 @@ WHERE save.id=? AND save.game_id=? AND save.profile_id=? AND save.deleted_at_ms 
 
 func productCreationDOS(
 	ctx context.Context,
-	executor dbexec.Executor,
+	executor dbapi.Executor,
 	gameID string,
 	entry *string,
 ) (application.ProductDOSEntry, error) {
@@ -64,7 +64,7 @@ func productCreationDOS(
 		return application.ProductDOSEntry{}, nil
 	}
 	var safe int
-	err := executor.QueryRowContext(ctx, `SELECT direct_launch_safe FROM dos_entries
+	err := dbapi.QueryRowContext(ctx, executor, `SELECT direct_launch_safe FROM dos_entries
 WHERE game_id=? AND normalized_path=? AND enabled=1`, gameID, *entry).Scan(&safe)
 	if errors.Is(err, sql.ErrNoRows) {
 		return application.ProductDOSEntry{}, nil

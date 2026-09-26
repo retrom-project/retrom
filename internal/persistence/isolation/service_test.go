@@ -4,12 +4,12 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
-	"database/sql"
 	"encoding/base64"
 	"errors"
 	"testing"
 	"time"
 
+	dbsqlite "retrom/internal/database/sqlite"
 	"retrom/internal/service/isolation"
 
 	_ "modernc.org/sqlite"
@@ -164,7 +164,7 @@ func newIsolationPreviewFixture(t *testing.T) isolationFixture {
 
 func newIsolationFixtureForSession(t *testing.T, preview bool) isolationFixture {
 	t.Helper()
-	database, err := sql.Open("sqlite", ":memory:")
+	database, err := dbsqlite.Open(":memory:", dbsqlite.Options{})
 	if err != nil {
 		t.Fatal(err)
 	}

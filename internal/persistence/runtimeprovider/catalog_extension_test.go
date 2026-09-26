@@ -1,12 +1,12 @@
 package runtimeprovider
 
 import (
-	"database/sql"
 	"encoding/json"
 	"strings"
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
 	service "retrom/internal/service/runtimeprovider"
 
 	runtimebundle "retrom/internal/runtime/bundle"
@@ -27,7 +27,7 @@ VALUES('custom','gbc','gambatte','My custom folder','custom','Keep my settings',
 		t.Fatal(err)
 	}
 	var schemaBefore string
-	if err := database.SQL.QueryRowContext(t.Context(), `SELECT group_concat(sql,';') FROM sqlite_schema WHERE sql IS NOT NULL`).Scan(&schemaBefore); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), database.SQL, `SELECT group_concat(sql,';') FROM sqlite_schema WHERE sql IS NOT NULL`).Scan(&schemaBefore); err != nil {
 		t.Fatal(err)
 	}
 	// The extension is a declaration using existing ROM delivery, not a SQL seed.
@@ -63,17 +63,17 @@ VALUES('custom','gbc','gambatte','My custom folder','custom','Keep my settings',
 	assertExtensionPreservesFolder(t, database.SQL, schemaBefore)
 }
 
-func assertExtensionPreservesFolder(t *testing.T, database *sql.DB, schemaBefore string) {
+func assertExtensionPreservesFolder(t *testing.T, database dbapi.DB, schemaBefore string) {
 	t.Helper()
 	var schemaAfter, folderName, coreID string
 	var enabled, order, schemaVersion int
-	if err := database.QueryRowContext(t.Context(), `SELECT group_concat(sql,';') FROM sqlite_schema WHERE sql IS NOT NULL`).Scan(&schemaAfter); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), database, `SELECT group_concat(sql,';') FROM sqlite_schema WHERE sql IS NOT NULL`).Scan(&schemaAfter); err != nil {
 		t.Fatal(err)
 	}
-	if err := database.QueryRowContext(t.Context(), `SELECT name,default_core_id,enabled,sort_order FROM platform_instances WHERE id='custom'`).Scan(&folderName, &coreID, &enabled, &order); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), database, `SELECT name,default_core_id,enabled,sort_order FROM platform_instances WHERE id='custom'`).Scan(&folderName, &coreID, &enabled, &order); err != nil {
 		t.Fatal(err)
 	}
-	if err := database.QueryRowContext(t.Context(), `SELECT max(version) FROM schema_migrations`).Scan(&schemaVersion); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), database, `SELECT max(version) FROM schema_migrations`).Scan(&schemaVersion); err != nil {
 		t.Fatal(err)
 	}
 	if schemaAfter != schemaBefore || schemaVersion != 15 || folderName != "My custom folder" || coreID != "gambatte" || enabled != 0 || order != 42 {
@@ -81,7 +81,7 @@ func assertExtensionPreservesFolder(t *testing.T, database *sql.DB, schemaBefore
 	}
 }
 
-func reconcileCatalogExtension(t *testing.T, database *sql.DB, initial service.Projection, catalog runtimecatalog.Catalog) error {
+func reconcileCatalogExtension(t *testing.T, database dbapi.DB, initial service.Projection, catalog runtimecatalog.Catalog) error {
 	t.Helper()
 	provider := initial.Providers[0].Active
 	provider.ProviderVersion = "1.1.0"
@@ -127,7 +127,7 @@ func TestDeclaredCoreRemovalCannotOrphanUserConfiguration(t *testing.T) {
 		t.Fatal("omitting a referenced core was silently accepted")
 	}
 	var version, core string
-	if err := database.SQL.QueryRowContext(t.Context(), `SELECT (SELECT provider_version FROM runtime_providers WHERE provider_id='fixture'),default_core_id FROM platform_instances WHERE id='custom'`).Scan(&version, &core); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), database.SQL, `SELECT (SELECT provider_version FROM runtime_providers WHERE provider_id='fixture'),default_core_id FROM platform_instances WHERE id='custom'`).Scan(&version, &core); err != nil {
 		t.Fatal(err)
 	}
 	if version != "1.0.0" || core != "gambatte" {
@@ -148,7 +148,7 @@ func TestUnusedProductDefinitionCanBeRemovedWithoutSchemaChange(t *testing.T) {
 		t.Fatal(err)
 	}
 	var count int
-	if err := database.SQL.QueryRowContext(t.Context(), `SELECT count(*) FROM cores WHERE id='dormant'`).Scan(&count); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), database.SQL, `SELECT count(*) FROM cores WHERE id='dormant'`).Scan(&count); err != nil {
 		t.Fatal(err)
 	}
 	if count != 0 {

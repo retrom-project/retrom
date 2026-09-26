@@ -1,11 +1,11 @@
 package sourceimport
 
 import (
-	"database/sql"
 	"errors"
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/sourceimport"
 )
 
@@ -61,7 +61,7 @@ func TestCreationFinalInsertCannotBypassPendingScanCapacity(t *testing.T) {
 	assertScanCapacityCounts(t, database, 20, 1)
 }
 
-func pendingScanCapacityDatabase(t *testing.T) *sql.DB {
+func pendingScanCapacityDatabase(t *testing.T) dbapi.DB {
 	t.Helper()
 	database := creationDatabase(t)
 	repository := NewCreation(database)
@@ -88,7 +88,7 @@ heartbeat_at_ms=2,execution_started_at_ms=2,execution_deadline_at_ms=100 WHERE i
 	return database
 }
 
-func assertScanCapacityCounts(t *testing.T, database *sql.DB, plans, cancellations int) {
+func assertScanCapacityCounts(t *testing.T, database dbapi.DB, plans, cancellations int) {
 	t.Helper()
 	queries := map[string]int{
 		`SELECT count(*) FROM source_imports`:                                    plans,
@@ -99,7 +99,7 @@ func assertScanCapacityCounts(t *testing.T, database *sql.DB, plans, cancellatio
 	}
 	for query, expected := range queries {
 		var count int
-		if err := database.QueryRowContext(t.Context(), query).Scan(&count); err != nil {
+		if err := dbapi.QueryRowContext(t.Context(), database, query).Scan(&count); err != nil {
 			t.Fatal(err)
 		}
 		if count != expected {

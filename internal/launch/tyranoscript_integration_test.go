@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
-	"database/sql"
 	"encoding/base64"
 	"fmt"
 	"image"
@@ -18,6 +17,7 @@ import (
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
 	uploadpersistence "retrom/internal/persistence/uploads"
 
 	dependencypersistence "retrom/internal/persistence/dependencies"
@@ -120,7 +120,7 @@ VALUES(?,'tyrano-preview-profile','tyrano-preview-admin','Tyrano Admin','ADMIN',
 		t.Fatalf("authenticate TyranoScript preview=%#v, %v", authorized, err)
 	}
 	var lockedPreviewID string
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT preview_id FROM isolated_runtime_bootstrap_tickets WHERE preview_id=?
 `, preview.PreviewID).Scan(&lockedPreviewID); err != nil || lockedPreviewID != preview.PreviewID {
 		t.Fatalf("TyranoScript preview bootstrap ticket=%q, %v", lockedPreviewID, err)
@@ -189,7 +189,7 @@ SELECT preview_id FROM isolated_runtime_bootstrap_tickets WHERE preview_id=?
 	assertTyranoScriptPreviewIsolationCleanup(t, database.SQL, preview.PreviewID, now)
 }
 
-func assertTyranoScriptPreviewIsolationCleanup(t *testing.T, database *sql.DB, previewID string, clock func() time.Time) {
+func assertTyranoScriptPreviewIsolationCleanup(t *testing.T, database dbapi.DB, previewID string, clock func() time.Time) {
 	t.Helper()
 	ctx := t.Context()
 	now := clock().UnixMilli()
@@ -211,7 +211,7 @@ WHERE id=? AND state IN ('CREATED','ACTIVE')`, []any{now, now, previewID}},
 		}
 	}
 	var retained int
-	if err := database.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database, `
 SELECT (SELECT count(*) FROM isolated_runtime_bootstrap_tickets WHERE preview_id=?)+
        (SELECT count(*) FROM isolated_runtime_capabilities WHERE preview_id=?)
 `, previewID, previewID).Scan(&retained); err != nil || retained != 0 {
@@ -230,7 +230,7 @@ SELECT (SELECT count(*) FROM isolated_runtime_bootstrap_tickets WHERE preview_id
 func createTyranoScriptReviewItem(
 	t *testing.T,
 	ctx context.Context,
-	database *sql.DB,
+	database dbapi.DB,
 	blobs *blobstore.Store,
 	dataDir string,
 	now func() time.Time,
@@ -274,8 +274,9 @@ func createTyranoScriptReviewItem(
 		t.Fatal(err)
 	}
 	var itemID string
-	if err := database.QueryRowContext(
-		ctx, `SELECT id FROM import_items WHERE import_job_id=?`, created.ImportJobID,
+	if err := dbapi.QueryRowContext(
+		ctx, database,
+		`SELECT id FROM import_items WHERE import_job_id=?`, created.ImportJobID,
 	).Scan(&itemID); err != nil {
 		t.Fatal(err)
 	}

@@ -2,9 +2,11 @@ package runtimeprovider
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"testing"
+
+	dbapi "retrom/internal/database"
+	dbsqlite "retrom/internal/database/sqlite"
 
 	service "retrom/internal/service/runtimeprovider"
 )
@@ -22,7 +24,7 @@ func TestCheckpointGuardProtectsOnlyDurableSaves(t *testing.T) {
 		{"another provider", "other", "target", "state-v1", nil, false},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			database, err := sql.Open("sqlite", ":memory:")
+			database, err := dbsqlite.Open(":memory:", dbsqlite.Options{})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -62,7 +64,7 @@ INSERT INTO game_variants VALUES('game','fixture','target','alternative');
 }
 
 func validateCheckpointFormats(
-	ctx context.Context, tx *sql.Tx, providerID string, target service.TargetProjection,
+	ctx context.Context, tx dbapi.Tx, providerID string, target service.TargetProjection,
 ) error {
 	formats, err := (catalogRecords{executor: tx}).CheckpointFormats(ctx, service.TargetIdentity{ProviderID: providerID, TargetID: target.Target.ID})
 	if err != nil {

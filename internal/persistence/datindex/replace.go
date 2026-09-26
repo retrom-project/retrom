@@ -2,14 +2,15 @@ package datindex
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 
-	"retrom/internal/arcadedat"
+	dbapi "retrom/internal/database"
+
 	"retrom/internal/cleanup"
+	"retrom/internal/format/arcadedat"
 )
 
-func Replace(ctx context.Context, transaction *sql.Tx, datID string, catalog arcadedat.Catalog) error {
+func Replace(ctx context.Context, transaction dbapi.Tx, datID string, catalog arcadedat.Catalog) error {
 	if _, err := transaction.ExecContext(ctx, `
 DELETE
 FROM dat_machines
@@ -45,13 +46,13 @@ WHERE dat_version_id=?
 }
 
 type replacementStatements struct {
-	machine *sql.Stmt
-	bios    *sql.Stmt
-	rom     *sql.Stmt
-	disk    *sql.Stmt
+	machine dbapi.Stmt
+	bios    dbapi.Stmt
+	rom     dbapi.Stmt
+	disk    dbapi.Stmt
 }
 
-func prepareReplacementStatements(ctx context.Context, transaction *sql.Tx) (replacementStatements, error) {
+func prepareReplacementStatements(ctx context.Context, transaction dbapi.Tx) (replacementStatements, error) {
 	var statements replacementStatements
 	machineStatement, err := transaction.PrepareContext(
 		ctx,
@@ -152,7 +153,7 @@ status) VALUES(?,
 }
 
 func (statements replacementStatements) close() {
-	for _, statement := range []*sql.Stmt{statements.machine, statements.bios, statements.rom, statements.disk} {
+	for _, statement := range []dbapi.Stmt{statements.machine, statements.bios, statements.rom, statements.disk} {
 		if statement != nil {
 			cleanup.Error("close", statement.Close())
 		}

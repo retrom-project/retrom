@@ -4,12 +4,12 @@ package launch
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"reflect"
 	"testing"
 
+	dbapi "retrom/internal/database"
 	persistence "retrom/internal/persistence/launch"
 	retromruntime "retrom/internal/runtime"
 	application "retrom/internal/service/launch"
@@ -29,7 +29,7 @@ func (repository failPlayAfterWork) WithPlay(ctx context.Context, work func(appl
 	})
 }
 
-func playRows(t *testing.T, database *sql.DB) map[string]string {
+func playRows(t *testing.T, database dbapi.DB) map[string]string {
 	t.Helper()
 	result := make(map[string]string)
 	for _, table := range []string{
@@ -41,7 +41,7 @@ func playRows(t *testing.T, database *sql.DB) map[string]string {
 	return result
 }
 
-func playTableRows(t *testing.T, database *sql.DB, table string) string {
+func playTableRows(t *testing.T, database dbapi.DB, table string) string {
 	t.Helper()
 	rows, err := database.QueryContext(t.Context(), "SELECT * FROM "+table+" ORDER BY 1,2")
 	if err != nil {
@@ -195,11 +195,11 @@ func TestPlayFinishRevokesCapabilityAndPreservesLoadingIdempotency(t *testing.T)
 				t.Fatalf("repeat finish=%#v error=%v", second, err)
 			}
 			var revoked int64
-			if err := fixture.database.QueryRowContext(t.Context(), `SELECT revoked_at_ms FROM isolated_runtime_capabilities`).Scan(&revoked); err != nil || revoked != fixture.now.UnixMilli() {
+			if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT revoked_at_ms FROM isolated_runtime_capabilities`).Scan(&revoked); err != nil || revoked != fixture.now.UnixMilli() {
 				t.Fatalf("revoked=%d error=%v", revoked, err)
 			}
 			var count int
-			if err := fixture.database.QueryRowContext(t.Context(), `SELECT count(*) FROM play_sessions`).Scan(&count); err != nil || count != 0 {
+			if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT count(*) FROM play_sessions`).Scan(&count); err != nil || count != 0 {
 				t.Fatalf("loading created play rows=%d error=%v", count, err)
 			}
 		})

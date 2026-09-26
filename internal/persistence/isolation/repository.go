@@ -6,23 +6,23 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/recordstore"
 	"retrom/internal/service/isolation"
 )
 
 type (
-	Repository struct{ database *sql.DB }
-	tickets    struct{ executor dbexec.Executor }
+	Repository struct{ database dbapi.DB }
+	tickets    struct{ executor dbapi.Executor }
 )
 
-func New(database *sql.DB) *Repository { return &Repository{database: database} }
+func New(database dbapi.DB) *Repository { return &Repository{database: database} }
 func (repository *Repository) WithWrite(ctx context.Context, work func(isolation.Tickets) error) error {
 	tx, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("isolation/begin: %w", err)
 	}
-	defer dbexec.Rollback(tx)
+	defer dbapi.Rollback(tx)
 	if err := work(tickets{executor: tx}); err != nil {
 		return err
 	}
@@ -42,7 +42,7 @@ func (store tickets) Bootstrap(ctx context.Context, query isolation.TicketQuery)
 	if query.Digest != nil {
 		digest = query.Digest[:]
 	}
-	err := store.executor.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, store.executor, `
 SELECT ticket.profile_id,ticket.expires_at_ms,ticket.consumed_at_ms IS NOT NULL,
  COALESCE(preview.content_format,(SELECT min(file.format_version) FROM launch_content_files file
                                  WHERE file.launch_session_id=launch.id),''),
@@ -110,7 +110,7 @@ func (repository *Repository) Capability(
 	query isolation.CredentialQuery,
 ) (isolation.Capability, error) {
 	var result isolation.Capability
-	err := repository.database.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, repository.database, `
 SELECT capability.profile_id,capability.expires_at_ms,capability.revoked_at_ms IS NOT NULL,
  COALESCE(preview.content_format,(SELECT min(file.format_version) FROM launch_content_files file
                                  WHERE file.launch_session_id=launch.id),''),

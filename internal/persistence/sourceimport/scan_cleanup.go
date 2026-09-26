@@ -2,17 +2,18 @@ package sourceimport
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
+
+	dbapi "retrom/internal/database"
 
 	application "retrom/internal/service/sourceimport"
 )
 
 // ClearUnpublishedScan is called after the enclosing transaction fences the scan job.
 // Permanent review, payload and mapping ownership must never be erased by scan cleanup.
-func ClearUnpublishedScan(ctx context.Context, tx *sql.Tx, importID string) error {
+func ClearUnpublishedScan(ctx context.Context, tx dbapi.Tx, importID string) error {
 	var eligible bool
-	err := tx.QueryRowContext(ctx, `SELECT import_job_id IS NULL AND scan_completed_at_ms IS NULL
+	err := dbapi.QueryRowContext(ctx, tx, `SELECT import_job_id IS NULL AND scan_completed_at_ms IS NULL
 AND state IN ('SCANNING','CANCEL_REQUESTED')
 AND NOT EXISTS(SELECT 1 FROM source_import_items i WHERE i.import_id=plan.id
  AND (i.library_import_item_id IS NOT NULL OR i.library_import_job_id IS NOT NULL OR i.execution_state<>'PENDING'))

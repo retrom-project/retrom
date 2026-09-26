@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"time"
 
-	"retrom/internal/arcadedat"
 	"retrom/internal/authn"
 	"retrom/internal/dependencies"
+	"retrom/internal/format/arcadedat"
 	"retrom/internal/service/datindex"
 
 	"github.com/google/uuid"

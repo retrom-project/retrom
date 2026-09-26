@@ -4,7 +4,6 @@ package launch
 
 import (
 	"bytes"
-	"database/sql"
 	"errors"
 	"mime/multipart"
 	"net/http"
@@ -13,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
 	savepersistence "retrom/internal/persistence/saves"
 
 	"retrom/internal/blobstore"
@@ -25,7 +25,7 @@ import (
 )
 
 type reviewCheckpointFixture struct {
-	database *sql.DB
+	database dbapi.DB
 	launcher *Service
 	saver    *saves.Service
 	releaser *payloadrelease.Service
@@ -115,7 +115,7 @@ func TestOrdinaryReviewPlayerCanReplaceItsTemporaryCheckpoint(t *testing.T) {
 		}
 	}
 	var products int
-	if err := fixture.database.QueryRowContext(t.Context(), `SELECT (SELECT count(*) FROM games)+(SELECT count(*) FROM save_states)`).Scan(&products); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT (SELECT count(*) FROM games)+(SELECT count(*) FROM save_states)`).Scan(&products); err != nil {
 		t.Fatal(err)
 	}
 	if products != 0 {
@@ -214,7 +214,7 @@ func TestReviewCheckpointIsScopedExpiringAndReleasedByOrdinaryGC(t *testing.T) {
 		t.Fatal(err)
 	}
 	var remaining int
-	if err := fixture.database.QueryRowContext(t.Context(), `
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `
 SELECT count(*) FROM review_preview_sessions WHERE id IN (?,?)
  AND (state<>'EXPIRED' OR checkpoint_payload_blob_id IS NOT NULL OR restore_payload_blob_id IS NOT NULL)
 `, original.PreviewID, restored.PreviewID).Scan(&remaining); err != nil || remaining != 0 {
@@ -248,7 +248,7 @@ func TestPublishingReviewReleasesAllTemporaryPreviewOwners(t *testing.T) {
 	}
 	var previews, productSaves int
 	var payloadState string
-	if err := fixture.database.QueryRowContext(t.Context(), `
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `
 SELECT (SELECT count(*) FROM review_preview_sessions WHERE id=?),
  (SELECT count(*) FROM save_states),payload_state FROM import_items WHERE id=?`,
 		fixture.itemID, fixture.itemID).Scan(&previews, &productSaves, &payloadState); err != nil {

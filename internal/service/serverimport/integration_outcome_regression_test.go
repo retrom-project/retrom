@@ -4,6 +4,7 @@ import (
 	"math"
 	"testing"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/firmware"
 	jobpersistence "retrom/internal/persistence/jobs"
 	jobservice "retrom/internal/service/jobs"
@@ -18,7 +19,7 @@ func TestItemOutcomeRejectsUnencodableEvidence(t *testing.T) {
 	candidate.Details["bad"] = math.NaN()
 	service.CompleteItemForTest(t.Context(), unit, candidate.Item.RequirementID, "COMMIT_FAILED", candidate, "INTERNAL_ERROR")
 	var state string
-	if err := database.QueryRowContext(t.Context(), `SELECT state FROM server_bios_import_items WHERE server_import_id=?`, unit.ImportID).Scan(&state); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), database, `SELECT state FROM server_bios_import_items WHERE server_import_id=?`, unit.ImportID).Scan(&state); err != nil {
 		t.Fatal(err)
 	}
 	if state != "EVALUATING" {
@@ -31,7 +32,7 @@ func TestRepeatedItemOutcomeDoesNotAppendDuplicateEvent(t *testing.T) {
 	service.CompleteItemForTest(t.Context(), unit, candidate.Item.RequirementID, "NOT_FOUND", nil, "BIOS_CANDIDATE_NOT_FOUND")
 	service.CompleteItemForTest(t.Context(), unit, candidate.Item.RequirementID, "NOT_FOUND", nil, "BIOS_CANDIDATE_NOT_FOUND")
 	var events int64
-	if err := database.QueryRowContext(t.Context(), `SELECT count(*) FROM job_events WHERE job_id=? AND event_type='PROGRESS'`, unit.JobID).Scan(&events); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), database, `SELECT count(*) FROM job_events WHERE job_id=? AND event_type='PROGRESS'`, unit.JobID).Scan(&events); err != nil {
 		t.Fatal(err)
 	}
 	if events != 1 {

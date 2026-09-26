@@ -10,7 +10,7 @@ import (
 	"testing"
 )
 
-func TestSQLExecutorHasOneDefinition(t *testing.T) {
+func TestSQLExecutionInterfacesBelongToDatabase(t *testing.T) {
 	t.Parallel()
 	definitions := 0
 	err := filepath.WalkDir("..", func(path string, entry fs.DirEntry, err error) error {
@@ -30,9 +30,7 @@ func TestSQLExecutorHasOneDefinition(t *testing.T) {
 				return true
 			}
 			definitions++
-			if path != filepath.Join("..", "dbexec", "executor.go") {
-				t.Errorf("%s redeclares SQL execution; reuse dbexec.Executor", path)
-			}
+			validateSQLInterface(t, path, contract)
 			return false
 		})
 		return nil
@@ -40,8 +38,22 @@ func TestSQLExecutorHasOneDefinition(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if definitions != 1 {
-		t.Fatalf("SQL execution interface definitions = %d, want 1", definitions)
+	if definitions == 0 {
+		t.Fatal("database SQL execution interfaces are missing")
+	}
+}
+
+func validateSQLInterface(t *testing.T, path string, contract *ast.InterfaceType) {
+	t.Helper()
+	if !strings.HasPrefix(path, filepath.Join("..", "database")+string(filepath.Separator)) {
+		t.Errorf("%s declares SQL execution; reuse an internal/database interface", path)
+	}
+	for _, method := range contract.Methods.List {
+		for _, name := range method.Names {
+			if name.Name == "QueryRowContext" {
+				t.Errorf("%s exposes QueryRowContext as a method; use database.QueryRowContext", path)
+			}
+		}
 	}
 }
 
@@ -52,5 +64,5 @@ func sqlExecutionMethods(contract *ast.InterfaceType) bool {
 			names[name.Name] = true
 		}
 	}
-	return names["ExecContext"] && names["QueryContext"] && names["QueryRowContext"]
+	return names["ExecContext"] || names["QueryContext"] || names["QueryRowContext"]
 }

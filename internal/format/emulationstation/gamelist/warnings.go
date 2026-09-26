@@ -1,6 +1,6 @@
 package gamelist
 
-import emulationstationmeta "retrom/internal/importformat/emulationstation/meta"
+import emulationstationmeta "retrom/internal/format/emulationstation/meta"
 
 func BoundedWarnings(values []map[string]any) []map[string]any {
 	if len(values) <= emulationstationmeta.MaxWarnings {

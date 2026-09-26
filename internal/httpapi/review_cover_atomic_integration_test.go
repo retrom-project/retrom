@@ -14,6 +14,7 @@ import (
 
 	"retrom/internal/blobstore"
 	"retrom/internal/composition"
+	dbapi "retrom/internal/database"
 	repository "retrom/internal/persistence/libraryimport"
 	application "retrom/internal/service/libraryimport"
 	"retrom/internal/testsupport"
@@ -96,7 +97,7 @@ func TestReviewCoverRechecksRealSourceAndDraftAfterCASPreparation(t *testing.T) 
 				t.Fatalf("preparation drift accepted: changed=%v result=%+v err=%v", changed, result, err)
 			}
 			var retained int
-			if err := server.database.QueryRowContext(t.Context(), `SELECT COUNT(*) FROM review_uploaded_assets WHERE import_item_id=?`, itemID).Scan(&retained); err != nil {
+			if err := dbapi.QueryRowContext(t.Context(), server.database, `SELECT COUNT(*) FROM review_uploaded_assets WHERE import_item_id=?`, itemID).Scan(&retained); err != nil {
 				t.Fatal(err)
 			}
 			if retained != 0 {

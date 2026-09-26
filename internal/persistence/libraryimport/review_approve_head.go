@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/contentquery"
 	"retrom/internal/persistence/storequery"
 	application "retrom/internal/service/libraryimport"
@@ -15,7 +16,7 @@ func (records reviewApprovalRecords) Head(
 	ctx context.Context, itemID string,
 ) (application.ReviewApprovalHead, bool, error) {
 	var h application.ReviewApprovalHead
-	err := records.transaction.QueryRowContext(ctx, approvalHeadQuery, itemID).Scan(
+	err := dbapi.QueryRowContext(ctx, records.transaction, approvalHeadQuery, itemID).Scan(
 		&h.DraftID, &h.State, &h.ImportID, &h.PlatformID, &h.PlatformInstanceID, &h.ValidationID,
 		&h.ValidationStatus, &h.MetadataJSON,
 		&h.SourceSnapshotID, &h.SourceManifestJSON, &h.SourceManifestDigest, &h.ContentKind, &h.CoreID,

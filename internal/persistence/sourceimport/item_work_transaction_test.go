@@ -1,16 +1,16 @@
 package sourceimport
 
 import (
-	"database/sql"
 	"errors"
 	"reflect"
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/sourceimport"
 )
 
-func itemWorkDatabase(t *testing.T) *sql.DB {
+func itemWorkDatabase(t *testing.T) dbapi.DB {
 	t.Helper()
 	db := recoveryDatabase(t)
 	if _, err := db.ExecContext(t.Context(), `UPDATE jobs SET leased_until_ms=100 WHERE id='work'`); err != nil {
@@ -99,7 +99,7 @@ func TestItemWorkFinishRecordsCurrentOutcomeOnce(t *testing.T) {
 	}
 	var state, code string
 	var failed, events int64
-	if err := db.QueryRowContext(t.Context(), `SELECT item.execution_state,item.error_code,plan.failed_item_count,
+	if err := dbapi.QueryRowContext(t.Context(), db, `SELECT item.execution_state,item.error_code,plan.failed_item_count,
 (SELECT count(*) FROM job_events WHERE job_id='work' AND event_type='PROGRESS')
 FROM source_import_items item JOIN source_imports plan ON plan.id=item.import_id WHERE item.id='item-0'`).Scan(&state, &code, &failed, &events); err != nil {
 		t.Fatal(err)

@@ -7,19 +7,19 @@ import (
 	"fmt"
 
 	"retrom/internal/cleanup"
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/payloadrelease"
 )
 
-type Worker struct{ database *sql.DB }
+type Worker struct{ database dbapi.DB }
 
-func NewWorker(database *sql.DB) *Worker { return &Worker{database: database} }
+func NewWorker(database dbapi.DB) *Worker { return &Worker{database: database} }
 func (repository *Worker) WithWorker(ctx context.Context, run func(application.WorkerScope) error) error {
 	tx, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin release worker transaction: %w", err)
 	}
-	defer dbexec.Rollback(tx)
+	defer dbapi.Rollback(tx)
 	if err := run(BindWorker(tx)); err != nil {
 		return err
 	}
@@ -29,9 +29,9 @@ func (repository *Worker) WithWorker(ctx context.Context, run func(application.W
 	return nil
 }
 
-type workerRecords struct{ executor dbexec.Executor }
+type workerRecords struct{ executor dbapi.Executor }
 
-func BindWorker(executor dbexec.Executor) application.WorkerScope {
+func BindWorker(executor dbapi.Executor) application.WorkerScope {
 	records := workerRecords{executor: executor}
 	return application.WorkerScope{Read: records, Write: records, Owners: BindScheduling(executor)}
 }
@@ -47,13 +47,13 @@ const workSQL = `SELECT ` + workColumns + `
  FROM jobs job LEFT JOIN job_input_snapshots input ON input.job_id=job.id AND input.execution_no=job.execution_no `
 
 func (records workerRecords) Next(ctx context.Context, now int64) (application.Work, bool, error) {
-	return readWork(records.executor.QueryRowContext(ctx, workSQL+`
+	return readWork(dbapi.QueryRowContext(ctx, records.executor, workSQL+`
  WHERE job.kind IN ('PAYLOAD_RELEASE','BLOB_GC') AND job.state='QUEUED' AND job.available_at_ms<=?
  ORDER BY job.available_at_ms,job.created_at_ms,job.id LIMIT 1`, now))
 }
 
 func (records workerRecords) Current(ctx context.Context, id string) (application.Work, bool, error) {
-	return readWork(records.executor.QueryRowContext(ctx, workSQL+` WHERE job.id=?`, id))
+	return readWork(dbapi.QueryRowContext(ctx, records.executor, workSQL+` WHERE job.id=?`, id))
 }
 
 func (records workerRecords) Interrupted(ctx context.Context, now int64, limit int) ([]application.Work, error) {

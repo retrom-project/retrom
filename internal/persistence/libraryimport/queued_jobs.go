@@ -5,18 +5,18 @@ import (
 	"fmt"
 
 	"retrom/internal/cleanup"
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/libraryimport"
 )
 
 // QueuedJobs reads the scheduling rows used to resume workers after startup.
 // Keeping this query here prevents worker lifecycle code from depending on the
 // physical jobs table.
-type QueuedJobs struct{ executor dbexec.Executor }
+type QueuedJobs struct{ executor dbapi.Executor }
 
 var _ application.QueuedJobReader = (*QueuedJobs)(nil)
 
-func NewQueuedJobs(executor dbexec.Executor) *QueuedJobs {
+func NewQueuedJobs(executor dbapi.Executor) *QueuedJobs {
 	return &QueuedJobs{executor: executor}
 }
 

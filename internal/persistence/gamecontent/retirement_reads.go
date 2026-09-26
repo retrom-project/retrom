@@ -7,14 +7,14 @@ import (
 
 	"retrom/internal/cleanup"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	payloadrepo "retrom/internal/persistence/payloadrelease"
 	"retrom/internal/service/gamecontent"
 )
 
-type retirementRecords struct{ executor dbexec.Executor }
+type retirementRecords struct{ executor dbapi.Executor }
 
-func BindRetirement(executor dbexec.Executor) gamecontent.RetirementScope {
+func BindRetirement(executor dbapi.Executor) gamecontent.RetirementScope {
 	records := retirementRecords{executor}
 	return gamecontent.RetirementScope{
 		Read: records, Write: records, GC: payloadrepo.BindGC(executor),
@@ -91,7 +91,7 @@ UNION ALL SELECT 'VARIANT',id,status,version,NULL,NULL FROM game_variants WHERE 
 
 func (records retirementRecords) Consumption(ctx context.Context, jobID string) (string, error) {
 	var id string
-	err := records.executor.QueryRowContext(ctx, `SELECT id FROM upload_consumptions
+	err := dbapi.QueryRowContext(ctx, records.executor, `SELECT id FROM upload_consumptions
 WHERE consumer_type='GAME_CONTENT_REPLACE_JOB' AND consumer_id=?`, jobID).Scan(&id)
 	if err != nil {
 		return "", fmt.Errorf("query replacement consumption: %w", err)

@@ -1,8 +1,9 @@
 package libraryimport
 
 import (
-	"database/sql"
 	"time"
+
+	dbapi "retrom/internal/database"
 
 	repository "retrom/internal/persistence/libraryimport"
 	application "retrom/internal/service/libraryimport"
@@ -13,7 +14,7 @@ import (
 // repository. Validation callbacks are kept as typed ports while the legacy
 // validation slice is migrated independently.
 func NewReviewDrafts(
-	database *sql.DB,
+	database dbapi.DB,
 	tags *tagging.Service,
 	now func() time.Time,
 	refresh repository.DraftValidationRefresher,

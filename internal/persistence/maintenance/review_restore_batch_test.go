@@ -2,13 +2,13 @@ package maintenance
 
 import (
 	"context"
-	"database/sql"
 	"database/sql/driver"
 	"fmt"
 	"strings"
 	"sync/atomic"
 	"testing"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/testsupport"
 )
 
@@ -38,7 +38,7 @@ WHERE id='import'`); err != nil {
 		t.Fatal(err)
 	}
 	var pending, failed, drafts, progress, games int
-	err := db.QueryRowContext(t.Context(), `SELECT review_pending_item_count,failed_item_count,
+	err := dbapi.QueryRowContext(t.Context(), db, `SELECT review_pending_item_count,failed_item_count,
 (SELECT sum(review_version-1) FROM import_items),(SELECT count(*) FROM job_events WHERE event_type='PROGRESS'),
 (SELECT count(*) FROM games) FROM source_imports WHERE id='import'`).Scan(
 		&pending, &failed, &drafts, &progress, &games)
@@ -48,7 +48,7 @@ WHERE id='import'`); err != nil {
 	}
 }
 
-func addRestoredSourceReview(t *testing.T, db *sql.DB, number int) {
+func addRestoredSourceReview(t *testing.T, db dbapi.DB, number int) {
 	t.Helper()
 	id := fmt.Sprintf("copy-%04d", number)
 	statements := []struct {

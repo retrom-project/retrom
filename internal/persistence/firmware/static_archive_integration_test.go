@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/firmware"
 	firmwareservice "retrom/internal/service/firmware"
 
@@ -84,7 +85,7 @@ VALUES('fixture','same_cdi',?,?,'STATIC','fixture.zip','REQUIRED',?,'retrom:test
 					t.Fatalf("missing archive diagnostics: %v", err)
 				}
 				var count int
-				if queryErr := database.SQL.QueryRowContext(ctx, "SELECT count(*) FROM bios_installations").Scan(&count); queryErr != nil || count != 0 {
+				if queryErr := dbapi.QueryRowContext(ctx, database.SQL, "SELECT count(*) FROM bios_installations").Scan(&count); queryErr != nil || count != 0 {
 					t.Fatalf("invalid archive was installed: %d/%v", count, queryErr)
 				}
 				return

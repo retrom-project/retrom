@@ -3,13 +3,14 @@ package uploads
 import (
 	"bytes"
 	"crypto/sha256"
-	"database/sql"
 	"encoding/base64"
 	"fmt"
 	"io"
 	"path/filepath"
 	"testing"
 	"time"
+
+	dbapi "retrom/internal/database"
 
 	"retrom/internal/blobstore"
 	uploadservice "retrom/internal/service/uploads"
@@ -18,7 +19,7 @@ import (
 
 type finalizationFixture struct {
 	root     string
-	database *sql.DB
+	database dbapi.DB
 	blobs    *blobstore.Store
 	service  *uploadservice.Service
 }

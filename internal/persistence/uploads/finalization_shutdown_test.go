@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"retrom/internal/blobstore"
+	dbapi "retrom/internal/database"
 	jobpersistence "retrom/internal/persistence/jobs"
 	jobservice "retrom/internal/service/jobs"
 	uploadservice "retrom/internal/service/uploads"
@@ -64,7 +65,7 @@ func TestFinalizationPersistentCancelStopsSingleFileRead(t *testing.T) {
 		t.Fatal("reader not reached")
 	}
 	var version int64
-	if err := fixture.database.QueryRowContext(t.Context(), `SELECT version FROM jobs WHERE id=?`, job).Scan(&version); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT version FROM jobs WHERE id=?`, job).Scan(&version); err != nil {
 		t.Fatal(err)
 	}
 	_, pending, err := jobservice.New(jobpersistence.New(fixture.database), finalizationNow).Cancel(t.Context(), job, version, "stop read")

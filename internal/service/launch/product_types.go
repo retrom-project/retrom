@@ -7,7 +7,7 @@ import (
 	"time"
 
 	contentcapability "retrom/internal/content/capability"
-	"retrom/internal/corevalidation"
+	corevalidation "retrom/internal/core/validation"
 	validation "retrom/internal/service/corevalidation"
 )
 

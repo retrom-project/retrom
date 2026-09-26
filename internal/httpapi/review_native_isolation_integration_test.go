@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
 	dependencypersistence "retrom/internal/persistence/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 
@@ -198,7 +199,7 @@ func newNativeReviewIsolationFixture(t *testing.T, engine string) (*Server, stri
 		t.Fatal(err)
 	}
 	var itemID string
-	if err := server.database.QueryRowContext(t.Context(), `SELECT id FROM import_items WHERE import_job_id=?`, created.ImportJobID).Scan(&itemID); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), server.database, `SELECT id FROM import_items WHERE import_job_id=?`, created.ImportJobID).Scan(&itemID); err != nil {
 		t.Fatal(err)
 	}
 	return server, itemID

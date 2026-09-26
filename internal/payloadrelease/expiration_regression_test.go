@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/testsupport"
 )
 
@@ -52,7 +53,7 @@ func TestProviderExpirationRollsBackUnconfirmedRelease(t *testing.T) {
 	count, err := service.releaseExpiredProviderPayloadBatch(t.Context())
 	var state string
 	var caches, candidates int
-	readErr := fixture.database.QueryRowContext(t.Context(), `SELECT raw_payload_state,
+	readErr := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT raw_payload_state,
 (SELECT count(*) FROM metadata_provider_cache WHERE current_response_id='expiry-response'),
 (SELECT count(*) FROM blob_gc_candidates WHERE blob_id='manual-gc-blob')
 FROM metadata_provider_responses WHERE id='expiry-response'`).Scan(&state, &caches, &candidates)

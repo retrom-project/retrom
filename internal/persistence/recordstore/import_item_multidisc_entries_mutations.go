@@ -4,11 +4,11 @@ import (
 	"context"
 	"database/sql"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 )
 
 func UpdateImportItemMultidiscEntries(
-	ctx context.Context, db dbexec.Executor, change Update,
+	ctx context.Context, db dbapi.Executor, change Update,
 ) (sql.Result, error) {
 	return updateRecords(
 		ctx,
@@ -39,7 +39,7 @@ FROM import_item_multidisc_entries candidate CROSS JOIN previous
 WHERE candidate.source_snapshot_id=previous.source_snapshot_id AND candidate.ordinal=previous.ordinal`
 
 func DeleteImportItemMultidiscEntries(
-	ctx context.Context, db dbexec.Executor, scope Scope,
+	ctx context.Context, db dbapi.Executor, scope Scope,
 ) (sql.Result, error) {
 	return deleteRecords(
 		ctx,

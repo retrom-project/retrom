@@ -15,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
 	uploadpersistence "retrom/internal/persistence/uploads"
 
 	dependencypersistence "retrom/internal/persistence/dependencies"
@@ -80,7 +81,7 @@ VALUES(?,'review-preview-profile','review-preview-admin','Review Preview Admin',
 		testassert.False(t, completeErr != nil, completeErr)
 		for deadline := time.Now().Add(3 * time.Second); ; {
 			var state string
-			if queryErr := database.SQL.QueryRowContext(ctx, `SELECT state FROM jobs WHERE id=?`, jobID).Scan(&state); queryErr != nil {
+			if queryErr := dbapi.QueryRowContext(ctx, database.SQL, `SELECT state FROM jobs WHERE id=?`, jobID).Scan(&state); queryErr != nil {
 				t.Fatal(queryErr)
 			}
 			if state == "SUCCEEDED" {
@@ -94,7 +95,7 @@ VALUES(?,'review-preview-profile','review-preview-admin','Review Preview Admin',
 		})
 		testassert.False(t, importErr != nil, importErr)
 		var itemID string
-		if queryErr := database.SQL.QueryRowContext(ctx, `
+		if queryErr := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT id FROM import_items WHERE import_job_id=?
 `, created.ImportJobID).Scan(&itemID); queryErr != nil {
 			t.Fatal(queryErr)
@@ -109,7 +110,7 @@ SELECT id FROM import_items WHERE import_job_id=?
 	parentBlobID, err := blobcatalog.EnsureRecord(ctx, database.SQL, parentMetadata, "application/zip", time.Now().UnixMilli())
 	testassert.False(t, err != nil, err)
 	var baseValidationID, sourceSnapshotID, datVersionID string
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT draft.selected_validation_id,draft.effective_source_snapshot_id,(SELECT id FROM dat_versions ORDER BY id LIMIT 1)
 FROM import_items draft WHERE draft.id=?
 `, readyItemID).Scan(&baseValidationID, &sourceSnapshotID, &datVersionID); err != nil {
@@ -196,7 +197,7 @@ WHERE id=? AND effective_source_snapshot_id=?
 	approved, err := importService.Approve(ctx, blockedItemID, 1)
 	testassert.Falsef(t, err != nil, "approve blocked screenshot override: %v", err)
 	var compatibilityCode string
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT variant.compatibility_code
 FROM games game
 JOIN game_variants variant ON variant.game_id=game.id
@@ -209,7 +210,7 @@ WHERE game.id=?
 		`{"schemaVersion":1,"kind":"ARCADE","machine":"review-blocked","datVersionId":%q,"closure":[],"dependencies":[{"kind":"BIOS_OR_BASE","machine":"review-bios","state":"SATISFIED_EXTERNAL","requiredEntries":[]}],"missingEntries":[],"mismatchedEntries":[],"warnings":[]}`,
 		datVersionID,
 	)
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 UPDATE game_variants SET dat_version_id=?,status='READY',compatibility_code='REVIEW_SCREENSHOT_OVERRIDE',
 dependency_snapshot_json=?,version=version+1,updated_at_ms=updated_at_ms+1
 WHERE game_id=? RETURNING id

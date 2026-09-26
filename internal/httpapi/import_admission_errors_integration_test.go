@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"retrom/internal/composition"
+	dbapi "retrom/internal/database"
 	libraryservice "retrom/internal/service/libraryimport"
 	"retrom/internal/testsupport"
 )
@@ -22,7 +23,7 @@ func TestImportAdmissionStorageFailureReturns500(t *testing.T) {
 	server := newTestServer(t)
 	itemID := createReviewSnapshotItem(t, server)
 	var uploadID, targetID string
-	err := server.database.QueryRowContext(t.Context(), `SELECT parent.upload_session_id,parent.target_platform_instance_id
+	err := dbapi.QueryRowContext(t.Context(), server.database, `SELECT parent.upload_session_id,parent.target_platform_instance_id
  FROM import_items item JOIN import_jobs parent ON parent.id=item.import_job_id WHERE item.id=?`, itemID).Scan(&uploadID, &targetID)
 	if err != nil {
 		t.Fatal(err)

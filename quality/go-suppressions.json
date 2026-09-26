@@ -2,6 +2,15 @@
   "version": 1,
   "exceptions": [
     {
+      "path": "internal/database/database.go",
+      "line": 26,
+      "symbol": "type DB interface",
+      "linter": "interfacebloat",
+      "reason": "The database resource contract includes execution, transaction, pool, and lifecycle operations used across the application.",
+      "invariant": "A single DB handle must expose the capabilities required for transaction ownership and pool lifecycle without leaking database/sql handles.",
+      "reviewAfter": "2027-09-27"
+    },
+    {
       "path": "internal/core/rpgmaker/materializer/mkxpz.go",
       "line": 70,
       "symbol": "func StoreZIPHeader(name string) *zip.FileHeader",
@@ -39,7 +48,7 @@
     },
     {
       "path": "internal/persistence/auditevents/audit.go",
-      "line": 46,
+      "line": 45,
       "symbol": "func nullableJSON(value any) (any, error)",
       "linter": "nilnil",
       "reason": "Audit JSON projections use a nil value to persist SQL NULL for absent optional data.",
@@ -48,7 +57,7 @@
     },
     {
       "path": "internal/persistence/gamelist/repository.go",
-      "line": 176,
+      "line": 178,
       "symbol": "func (repository *Repository) defaultDOSEntry(ctx context.Context, gameID string) (*string, error)",
       "linter": "nilnil",
       "reason": "Games without a DOS default entry are represented by a nil optional projection.",

@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/recordstore"
 	"retrom/internal/persistence/sessionstore"
 
@@ -25,7 +26,7 @@ func TestFreshBIOSRetirementTracksLaunchesAndIndexesPendingWork(t *testing.T) {
 	testassert.False(t, tx.Commit() != nil, "commit launch")
 	var due int64
 	var released sql.NullInt64
-	err = current.SQL.QueryRowContext(t.Context(), `SELECT due_at_ms,released_at_ms FROM launch_payload_retirements WHERE launch_session_id='current-launch'`).Scan(&due, &released)
+	err = dbapi.QueryRowContext(t.Context(), current.SQL, `SELECT due_at_ms,released_at_ms FROM launch_payload_retirements WHERE launch_session_id='current-launch'`).Scan(&due, &released)
 	testassert.False(t, err != nil, err)
 	testassert.True(t, due == 10 && !released.Valid, "creation lost pending bootstrap")
 	_, err = sessionstore.ChangeLaunch(t.Context(), current.SQL, recordstore.Update{
@@ -37,7 +38,7 @@ state='ACTIVE',activated_at_ms=2,idle_expires_at_ms=15,updated_at_ms=2,version=v
 		},
 	})
 	testassert.False(t, err != nil, err)
-	err = current.SQL.QueryRowContext(t.Context(), `SELECT due_at_ms FROM launch_payload_retirements WHERE launch_session_id='current-launch'`).Scan(&due)
+	err = dbapi.QueryRowContext(t.Context(), current.SQL, `SELECT due_at_ms FROM launch_payload_retirements WHERE launch_session_id='current-launch'`).Scan(&due)
 	testassert.False(t, err != nil, err)
 	testassert.True(t, due == 20, "active launch did not use hard retirement deadline")
 	for _, query := range []struct{ sql, index string }{
@@ -50,7 +51,7 @@ state='ACTIVE',activated_at_ms=2,idle_expires_at_ms=15,updated_at_ms=2,version=v
 	testassert.False(t, current.IntegrityCheck(t.Context()) != nil, "fresh integrity")
 }
 
-func assertRetirementIndex(t *testing.T, database *sql.DB, query, index string) {
+func assertRetirementIndex(t *testing.T, database dbapi.DB, query, index string) {
 	t.Helper()
 	rows, err := database.QueryContext(t.Context(), "EXPLAIN QUERY PLAN "+query)
 	testassert.False(t, err != nil, err)

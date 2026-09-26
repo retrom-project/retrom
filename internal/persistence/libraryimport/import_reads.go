@@ -7,19 +7,19 @@ import (
 	"path"
 
 	"retrom/internal/cleanup"
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/libraryimport"
 )
 
 type ImportReads struct {
-	executor dbexec.Executor
+	executor dbapi.Executor
 }
 
-func NewImportReads(database *sql.DB) *ImportReads {
+func NewImportReads(database dbapi.DB) *ImportReads {
 	return BindImportReads(database)
 }
 
-func BindImportReads(executor dbexec.Executor) *ImportReads {
+func BindImportReads(executor dbapi.Executor) *ImportReads {
 	return &ImportReads{executor: executor}
 }
 
@@ -67,7 +67,7 @@ SELECT
 
 func (repository *ImportReads) Summary(ctx context.Context) (application.ImportOverviewSummary, error) {
 	var result application.ImportOverviewSummary
-	err := repository.executor.QueryRowContext(ctx, importOverviewSummarySQL).Scan(
+	err := dbapi.QueryRowContext(ctx, repository.executor, importOverviewSummarySQL).Scan(
 		&result.Running,
 		&result.ReviewPending,
 		&result.PublishedItems,
@@ -219,7 +219,7 @@ func (repository *ImportReads) Detail(
 	var configJSON string
 	var datID, payloadReleaseJobID, errorCode, cancelReason, reconfiguredFrom sql.NullString
 	var rejected, resolvedRejected int64
-	err := repository.executor.QueryRowContext(ctx, importDetailSQL, importJobID).Scan(
+	err := dbapi.QueryRowContext(ctx, repository.executor, importDetailSQL, importJobID).Scan(
 		&result.ImportJobID,
 		&result.UploadID,
 		&result.TargetPlatformInstance.ID,

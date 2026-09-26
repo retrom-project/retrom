@@ -13,6 +13,7 @@ import (
 
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
+	dbapi "retrom/internal/database"
 	"retrom/internal/dependencies"
 	dependencypersistence "retrom/internal/persistence/dependencies"
 	retromruntime "retrom/internal/runtime"
@@ -29,7 +30,7 @@ func TestProductIsolationCreationRollsBackTicketFilesAndReceipt(t *testing.T) {
 		t.Fatalf("isolated create status=%d launch=%q error=%v", created.Status, created.Created.LaunchID, err)
 	}
 	var tickets, files, receipts int
-	err = service.database.QueryRowContext(t.Context(), `SELECT (SELECT count(*) FROM isolated_runtime_bootstrap_tickets WHERE launch_id=?),(SELECT count(*) FROM launch_content_files WHERE launch_session_id=?),(SELECT count(*) FROM idempotency_records WHERE principal_id=? AND key=?)`, created.Created.LaunchID, created.Created.LaunchID, command.ActorID, command.Key).Scan(&tickets, &files, &receipts)
+	err = dbapi.QueryRowContext(t.Context(), service.database, `SELECT (SELECT count(*) FROM isolated_runtime_bootstrap_tickets WHERE launch_id=?),(SELECT count(*) FROM launch_content_files WHERE launch_session_id=?),(SELECT count(*) FROM idempotency_records WHERE principal_id=? AND key=?)`, created.Created.LaunchID, created.Created.LaunchID, command.ActorID, command.Key).Scan(&tickets, &files, &receipts)
 	if err != nil || tickets != 1 || files == 0 || receipts != 1 {
 		t.Fatalf("isolated records tickets=%d files=%d receipts=%d error=%v", tickets, files, receipts, err)
 	}

@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"testing"
 
+	dbapi "retrom/internal/database"
 	persistence "retrom/internal/persistence/launch"
 	retromruntime "retrom/internal/runtime"
 	runtimelaunch "retrom/internal/runtime/launch"
@@ -207,13 +208,13 @@ func TestConfigRetryDoesNotStartIdleOrPlaytime(t *testing.T) {
 	}
 	var idle *int64
 	var plays int
-	if err := fixture.database.QueryRowContext(t.Context(), `SELECT idle_expires_at_ms FROM launch_sessions WHERE id=?`, created.LaunchID).Scan(
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT idle_expires_at_ms FROM launch_sessions WHERE id=?`, created.LaunchID).Scan(
 
 		&idle,
 	); err != nil {
 		t.Fatal(err)
 	}
-	if err := fixture.database.QueryRowContext(t.Context(), `SELECT count(*) FROM play_sessions WHERE launch_session_id=?`, created.LaunchID).Scan(
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT count(*) FROM play_sessions WHERE launch_session_id=?`, created.LaunchID).Scan(
 
 		&plays,
 	); err != nil {

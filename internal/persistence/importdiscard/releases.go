@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	dbapi "retrom/internal/database"
 	payloadpersistence "retrom/internal/persistence/payloadrelease"
 	"retrom/internal/service/importdiscard"
 )
@@ -15,14 +16,15 @@ func (writes writes) Releases(ctx context.Context, key importdiscard.Key) (impor
 	}
 	items := table[:len(table)-1] + "_items"
 	var result importdiscard.ReleaseFacts
-	err = writes.transaction.QueryRowContext(ctx, `SELECT count(*) FROM `+items+` WHERE import_id=?
+	err = dbapi.QueryRowContext(ctx, writes.transaction, `SELECT count(*) FROM `+items+` WHERE import_id=?
  AND payload_state IN ('RELEASING','FAILED')
  AND execution_state NOT IN ('PUBLISHED','SKIPPED_EXISTING','REVIEW_DISCARDED')`, key.ID).Scan(&result.Releasing)
 	if err != nil {
 		return result, fmt.Errorf("read source release count: %w", err)
 	}
-	err = writes.transaction.QueryRowContext(
-		ctx,
+	err = dbapi.QueryRowContext(
+		ctx, writes.transaction,
+
 		`SELECT count(*) FROM `+items+` item
  JOIN jobs job ON job.id=item.payload_release_job_id WHERE item.import_id=? AND job.state='FAILED'`,
 		key.ID,

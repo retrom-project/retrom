@@ -5,7 +5,6 @@ package launch
 import (
 	"bytes"
 	"context"
-	"database/sql"
 	"errors"
 	"path/filepath"
 	"runtime"
@@ -19,7 +18,7 @@ import (
 	validationpersistence "retrom/internal/persistence/corevalidation"
 	validationservice "retrom/internal/service/corevalidation"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/blobcatalog"
 	launchpersistence "retrom/internal/persistence/launch"
 	launchservice "retrom/internal/service/launch"
@@ -70,7 +69,7 @@ func exerciseMelonDSBIOSSwitch(t *testing.T, manualOverride bool) {
 		t.Fatal(err)
 	}
 	var platformInstanceID string
-	if err := database.SQL.QueryRowContext(ctx, `SELECT id FROM platform_instances WHERE platform_id='nds' AND enabled=1`).Scan(&platformInstanceID); err != nil {
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `SELECT id FROM platform_instances WHERE platform_id='nds' AND enabled=1`).Scan(&platformInstanceID); err != nil {
 		t.Fatal(err)
 	}
 	requirements := readMelonDSRequirements(ctx, t, database.SQL, target.ProviderID, target.TargetID)
@@ -113,7 +112,7 @@ VALUES(?,?,?,?,?,?,?,?,?,'HASH_WARNING','{}',?,1,?,?)
 	now := time.Now().UnixMilli()
 	transaction, err := database.SQL.BeginTx(ctx, nil)
 	testassert.False(t, err != nil, err)
-	defer dbexec.Rollback(transaction)
+	defer dbapi.Rollback(transaction)
 	statements := []struct {
 		query string
 		args  []any
@@ -224,7 +223,7 @@ func assertMelonDSLaunch(
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return len(bundle) != 0 }), "external BIOS leaked into bundle = %#v, error=%v", bundle, err)
 }
 
-func readMelonDSRequirements(ctx context.Context, t *testing.T, database *sql.DB, providerID, targetID string) []melondsRequirement {
+func readMelonDSRequirements(ctx context.Context, t *testing.T, database dbapi.DB, providerID, targetID string) []melondsRequirement {
 	t.Helper()
 	requirements := make([]melondsRequirement, 0, 3)
 	rows, err := database.QueryContext(ctx, `
@@ -249,11 +248,11 @@ ORDER BY logical_name
 	return requirements
 }
 
-func waitForProductBIOSValidation(ctx context.Context, t *testing.T, database *sql.DB, jobID string) {
+func waitForProductBIOSValidation(ctx context.Context, t *testing.T, database dbapi.DB, jobID string) {
 	t.Helper()
 	for deadline := time.Now().Add(3 * time.Second); ; {
 		var state string
-		if err := database.QueryRowContext(ctx, `SELECT state FROM jobs WHERE id=?`, jobID).Scan(&state); err != nil {
+		if err := dbapi.QueryRowContext(ctx, database, `SELECT state FROM jobs WHERE id=?`, jobID).Scan(&state); err != nil {
 			t.Fatal(err)
 		}
 		if state == "SUCCEEDED" {

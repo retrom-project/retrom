@@ -1,8 +1,9 @@
 package libraryimport
 
 import (
-	"database/sql"
 	"time"
+
+	dbapi "retrom/internal/database"
 
 	repository "retrom/internal/persistence/libraryimport"
 	application "retrom/internal/service/libraryimport"
@@ -13,7 +14,7 @@ type WorkerBundle struct {
 	Worker     *application.ImportWorker
 }
 
-func NewWorker(database *sql.DB, now func() time.Time, options CreationOptions, report func(error)) WorkerBundle {
+func NewWorker(database dbapi.DB, now func() time.Time, options CreationOptions, report func(error)) WorkerBundle {
 	executions := application.NewImportExecutions(repository.NewImportExecutions(database), now)
 	worker := application.NewImportWorker(
 		application.ImportWorkerDependencies{

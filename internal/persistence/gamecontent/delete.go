@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/auditevents"
 	payloadpersistence "retrom/internal/persistence/payloadrelease"
 	"retrom/internal/persistence/recordstore"
@@ -23,7 +24,7 @@ func (writes writes) LoadDeleteGameState(
 ) (application.DeleteGameState, error) {
 	var state application.DeleteGameState
 	var releaseJobID sql.NullString
-	err := writes.transaction.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, writes.transaction, `
 SELECT title,status,payload_state,payload_release_job_id,version
 FROM games
 WHERE id=?
@@ -52,7 +53,7 @@ WHERE principal_id=? AND operation_id=? AND key=? AND expires_at_ms<=?
 		return application.DeleteGameReplay{}, false, fmt.Errorf("expire game deletion replay: %w", err)
 	}
 	var replay application.DeleteGameReplay
-	err := writes.transaction.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, writes.transaction, `
 SELECT request_digest,http_status,response_headers_json,response_body
 FROM idempotency_records
 WHERE principal_id=? AND operation_id=? AND key=?

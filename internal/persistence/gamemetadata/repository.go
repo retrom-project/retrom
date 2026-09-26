@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"retrom/internal/cleanup"
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/gametitle"
 	"retrom/internal/persistence/payloadrelease"
 	"retrom/internal/persistence/recordstore"
@@ -19,11 +19,11 @@ import (
 )
 
 type Repository struct {
-	database *sql.DB
+	database dbapi.DB
 	gc       payloadservice.GCStager
 }
 
-func New(database *sql.DB, gc payloadservice.GCStager) *Repository {
+func New(database dbapi.DB, gc payloadservice.GCStager) *Repository {
 	return &Repository{database: database, gc: gc}
 }
 
@@ -34,7 +34,7 @@ func (repository *Repository) WithCandidateApply(
 	if err != nil {
 		return fmt.Errorf("begin scrape candidate apply: %w", err)
 	}
-	defer dbexec.Rollback(transaction)
+	defer dbapi.Rollback(transaction)
 	scope := candidateApplyScope{transaction: transaction, gc: repository.gc}
 	if err := work(scope); err != nil {
 		return err
@@ -46,7 +46,7 @@ func (repository *Repository) WithCandidateApply(
 }
 
 type candidateApplyScope struct {
-	transaction *sql.Tx
+	transaction dbapi.Tx
 	gc          payloadservice.GCStager
 }
 
@@ -55,7 +55,7 @@ func (scope candidateApplyScope) Load(
 ) (application.CandidateApplySnapshot, error) {
 	var snapshot application.CandidateApplySnapshot
 	var players, releaseYear sql.NullInt64
-	err := scope.transaction.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, scope.transaction, `
 SELECT g.version,
 g.title,
 g.description,
@@ -140,7 +140,7 @@ func (scope candidateApplyScope) CreateSelectedGameAssets(
 	for _, choice := range selected {
 		var blobID, kind, mediaType string
 		var width, height int64
-		err := scope.transaction.QueryRowContext(ctx, `
+		err := dbapi.QueryRowContext(ctx, scope.transaction, `
 SELECT blob_id,kind_hint,width_px,height_px,media_type
 FROM scrape_candidate_assets
 WHERE id=? AND scrape_candidate_id=? AND status='READY'

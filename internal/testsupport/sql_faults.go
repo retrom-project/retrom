@@ -2,15 +2,19 @@ package testsupport
 
 import (
 	"context"
-	"database/sql"
 	"database/sql/driver"
 	"errors"
 	"fmt"
 	"testing"
+
+	dbapi "retrom/internal/database"
+	dbsqlite "retrom/internal/database/sqlite"
+
+	moderncsqlite "modernc.org/sqlite"
 )
 
 // SQLFaultHooks inject failures at the driver boundary while repositories still
-// receive a real *sql.Tx. Hooks may run concurrently and must synchronize state.
+// receive a transaction interface. Hooks may run concurrently and must synchronize state.
 // A hook must match the intended statement and bound arguments, never all writes.
 type SQLFaultHooks struct {
 	BeforeQuery func(context.Context, string, []driver.NamedValue) error
@@ -22,21 +26,21 @@ type SQLFaultHooks struct {
 // OpenSQLFaultDatabase opens another connection pool to a file-backed test database.
 // It does not register a process-global driver, mutate the schema, or replace the
 // original pool. The caller wires this pool only into the consumer under test.
-func OpenSQLFaultDatabase(t testing.TB, source *sql.DB, hooks SQLFaultHooks) *sql.DB {
+func OpenSQLFaultDatabase(t testing.TB, source dbapi.DB, hooks SQLFaultHooks) dbapi.DB {
 	t.Helper()
 	var sequence int
 	var name, filename string
-	if err := source.QueryRowContext(t.Context(), `PRAGMA database_list`).Scan(&sequence, &name, &filename); err != nil {
+	if err := dbapi.QueryRowContext(
+		t.Context(), source, `PRAGMA database_list`).Scan(&sequence, &name, &filename); err != nil {
 		t.Fatal(err)
 	}
 	if name != "main" || filename == "" {
 		t.Fatal("SQL fault injection requires a file-backed test database")
 	}
 	connector := sqlFaultConnector{
-		base: source.Driver(), dsn: filename + "?_pragma=foreign_keys(1)&_pragma=busy_timeout(5000)", hooks: hooks,
+		base: &moderncsqlite.Driver{}, dsn: filename + "?_pragma=foreign_keys(1)&_pragma=busy_timeout(5000)", hooks: hooks,
 	}
-	database := sql.OpenDB(connector)
-	database.SetMaxOpenConns(1)
+	database := dbsqlite.OpenConnector(connector, dbsqlite.Options{MaxOpenConns: 1})
 	t.Cleanup(func() {
 		if err := database.Close(); err != nil {
 			t.Error(err)

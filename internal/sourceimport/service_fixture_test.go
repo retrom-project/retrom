@@ -2,9 +2,10 @@ package sourceimport
 
 import (
 	"context"
-	"database/sql"
 	"sync"
 	"time"
+
+	dbapi "retrom/internal/database"
 
 	"retrom/internal/blobstore"
 	"retrom/internal/libraryimport"
@@ -18,7 +19,7 @@ import (
 
 type Service struct {
 	sourceReader func(context.Context) (func(), error)
-	database     *sql.DB
+	database     dbapi.DB
 	blobs        *blobstore.Store
 	importer     *libraryimport.Service
 	roots        map[string]Root
@@ -30,7 +31,7 @@ type Service struct {
 
 type work = application.Work
 
-func New(database *sql.DB, blobs *blobstore.Store, importer *libraryimport.Service, credentials *retromruntime.Credentials, configured []serversource.Root, now func() time.Time) *Service {
+func New(database dbapi.DB, blobs *blobstore.Store, importer *libraryimport.Service, credentials *retromruntime.Credentials, configured []serversource.Root, now func() time.Time) *Service {
 	sources := NewSources(blobs, credentials, configured)
 	return &Service{database: database, blobs: blobs, importer: importer, roots: sources.roots, now: now, tags: tagging.New(tagpersistence.New(database), now)}
 }

@@ -4,11 +4,12 @@ package launch
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"reflect"
 	"testing"
+
+	dbapi "retrom/internal/database"
 
 	"modernc.org/sqlite"
 
@@ -49,7 +50,7 @@ func (scope productWriteFaultScope) Create(ctx context.Context, plan application
 	return scope.ProductCreationScope.Create(ctx, plan)
 }
 
-func productCreationRows(t *testing.T, database *sql.DB) map[string]string {
+func productCreationRows(t *testing.T, database dbapi.DB) map[string]string {
 	t.Helper()
 	result := playRows(t, database)
 	for _, table := range []string{"launch_content_files", "launch_external_files", "idempotency_records", "variant_files"} {
@@ -93,7 +94,7 @@ func TestProductCreationRollsBackEveryOwner(t *testing.T) {
 	assertProductCreationRollback(t, fixture.launcher, application.ProductCreateCommand{ProfileID: "local", Request: request})
 }
 
-func productTableRows(t *testing.T, database *sql.DB, table string) []byte {
+func productTableRows(t *testing.T, database dbapi.DB, table string) []byte {
 	t.Helper()
 	rows, err := database.QueryContext(t.Context(), `SELECT * FROM `+table+` ORDER BY rowid`)
 	if err != nil {

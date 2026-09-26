@@ -2,7 +2,11 @@
 
 package libraryimport
 
-import "testing"
+import (
+	"testing"
+
+	dbapi "retrom/internal/database"
+)
 
 func TestApproveKeepsUnfinishedImportAggregate(t *testing.T) {
 	t.Parallel()
@@ -53,7 +57,7 @@ func assertApprovedAggregate(t *testing.T, fixture deduplicateFixture, importID,
 	var state, payload string
 	var completed *int64
 	var gotPending, published int
-	if err := fixture.database.QueryRowContext(t.Context(), `SELECT state,completed_at_ms,
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT state,completed_at_ms,
  review_pending_item_count,published_item_count,payload_state FROM import_jobs WHERE id=?`, importID).
 		Scan(&state, &completed, &gotPending, &published, &payload); err != nil {
 		t.Fatal(err)

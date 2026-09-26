@@ -2,14 +2,13 @@ package composition
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"time"
 
 	"retrom/internal/blobstore"
 	payloadcomposition "retrom/internal/composition/payloadrelease"
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	gameassetspersistence "retrom/internal/persistence/gameassets"
 	gameassetsservice "retrom/internal/service/gameassets"
 )
@@ -22,7 +21,7 @@ var (
 // NewGameAssets wires the game asset application service to its database and
 // the caller-owned payload release scheduler.
 func NewGameAssets(
-	database *sql.DB,
+	database dbapi.DB,
 	blobs *blobstore.Store,
 	now func() time.Time,
 	payloadReleases *payloadcomposition.Service,
@@ -39,9 +38,9 @@ type gameAssetPayloadReleases struct {
 }
 
 func (releases gameAssetPayloadReleases) transaction(
-	executor dbexec.Executor,
-) (*sql.Tx, error) {
-	tx, ok := executor.(*sql.Tx)
+	executor dbapi.Executor,
+) (dbapi.Tx, error) {
+	tx, ok := executor.(dbapi.Tx)
 	if !ok {
 		return nil, errGameAssetTransactionUnavailable
 	}
@@ -52,7 +51,7 @@ func (releases gameAssetPayloadReleases) transaction(
 }
 
 func (releases gameAssetPayloadReleases) StageCandidates(
-	ctx context.Context, executor dbexec.Executor, ids []string,
+	ctx context.Context, executor dbapi.Executor, ids []string,
 ) error {
 	tx, err := releases.transaction(executor)
 	if err != nil {
@@ -65,7 +64,7 @@ func (releases gameAssetPayloadReleases) StageCandidates(
 }
 
 func (releases gameAssetPayloadReleases) ScheduleConsumption(
-	ctx context.Context, executor dbexec.Executor, id string, now int64,
+	ctx context.Context, executor dbapi.Executor, id string, now int64,
 ) error {
 	tx, err := releases.transaction(executor)
 	if err != nil {
