@@ -1,6 +1,6 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { HorizontalRail, PlatformRail, type HomePlatform } from "./home-rails";
 
 vi.mock("@/features/auth/auth-provider", () => ({ useAuth: () => ({ context: { user: { userId: "user-1" } } }) }));
@@ -13,6 +13,17 @@ const platforms: HomePlatform[] = [
 
 describe("home rails", () => {
   beforeEach(() => localStorage.clear());
+  afterEach(cleanup);
+
+  it("leaves the platform illustration slot empty when the local asset fails", () => {
+    const { container } = render(<PlatformRail platforms={[platforms[1]!]} />);
+    const image = container.querySelector("img")!;
+    expect(new URL(image.getAttribute("src")!, window.location.href).pathname).toBe("/images/platforms/gba.svg");
+    fireEvent.error(image);
+    expect(container.querySelector("img")).toBeNull();
+    expect(container.querySelector(".home-platform-art")).toBeInTheDocument();
+    expect(screen.getByRole("link")).toHaveAttribute("href", "/library?platformId=gba");
+  });
 
   it("moves a horizontally overflowing rail with the vertical mouse wheel", () => {
     const { container } = render(<HorizontalRail label="recent"><span>item</span></HorizontalRail>);

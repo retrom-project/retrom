@@ -1,5 +1,5 @@
 import { expect, type Page, type TestInfo } from "@playwright/test";
-import { expectNaturalHomeFlow } from "./home-layout-support";
+import { expectHomeHero, expectNaturalHomeFlow } from "./home-layout-support";
 import { evidencePath, expectHomeCoverRatios, expectNoTextArrowsInInteractiveControls, noPageOverflow, pageCanvasGaps, pngDimensions, type HorizontalGaps } from "./acceptance-support";
 
 export async function verifyUserDesktopLayouts(page: Page, testInfo: TestInfo) {
@@ -11,32 +11,15 @@ export async function verifyUserDesktopLayouts(page: Page, testInfo: TestInfo) {
 
 export async function verifyCompactFeaturedHome(page: Page, testInfo: TestInfo) {
   await page.setViewportSize({ width: 2086, height: 920 });
-  await expectHomeCoverRatios(page);
   await expectNoTextArrowsInInteractiveControls(page);
   await expect(page.locator(".home-featured-details")).toBeVisible();
   await expect(page.locator(".home-featured-actions")).toBeVisible();
-  const layout = await page.evaluate(() => {
-    const rectangle = (selector: string) => document.querySelector<HTMLElement>(selector)?.getBoundingClientRect() ?? null;
-    const media = rectangle(".home-featured-media");
-    const cover = rectangle(".home-featured-cover");
-    const copy = rectangle(".home-featured-copy");
-    const actions = rectangle(".home-featured-actions");
-    if (!media || !cover || !copy || !actions) {return null;}
-    return {
-      media: { top: media.top, bottom: media.bottom, height: media.height },
-      cover: { top: cover.top, bottom: cover.bottom },
-      copy: { top: copy.top, bottom: copy.bottom },
-      actionsBottom: actions.bottom,
-    };
-  });
-  expect(layout).not.toBeNull();
-  if (!layout) {throw new Error("ACCEPTANCE_COMPACT_FEATURED_LAYOUT_UNAVAILABLE");}
-  expect(layout.media.height).toBeGreaterThanOrEqual(160);
-  expect(layout.cover.top).toBeGreaterThanOrEqual(layout.media.top);
-  expect(layout.cover.bottom).toBeLessThanOrEqual(layout.media.bottom + 1);
-  expect(layout.copy.top).toBeGreaterThanOrEqual(layout.media.top - 1);
-  expect(layout.copy.bottom).toBeLessThanOrEqual(layout.media.bottom + 1);
-  expect(layout.actionsBottom).toBeLessThanOrEqual(layout.media.bottom + 1);
+  await expectHomeHero(page);
+  await expect(page.locator(".home-featured-media")).toBeVisible();
+  await expect(page.locator(".home-featured-art.is-ready")).toBeVisible();
+  expect(await page.locator(".home-featured-art").evaluate((image: HTMLImageElement) => image.naturalWidth > image.naturalHeight)).toBe(true);
+  const media = (await page.locator(".home-featured-media").boundingBox())!;
+  expect(media.height).toBeGreaterThanOrEqual(300);
   await expectNaturalHomeFlow(page);
   await page.screenshot({ path: evidencePath(testInfo, "home-2086x920-css-equivalent.png"), fullPage: true });
 }
@@ -44,22 +27,15 @@ export async function verifyCompactFeaturedHome(page: Page, testInfo: TestInfo) 
 export async function verifyMobileSavedFeaturedHome(page: Page, testInfo: TestInfo) {
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.locator(".phone-continue-card")).toBeVisible();
-  const layout = await page.evaluate(() => {
-    const rectangle = (selector: string) => document.querySelector<HTMLElement>(selector)?.getBoundingClientRect();
-    const card = rectangle(".phone-continue-card");
-    const cover = rectangle(".phone-continue-card .phone-game-poster");
-    const copy = rectangle(".phone-continue-copy");
-    const action = rectangle(".phone-continue-copy .button");
-    if (!card || !cover || !copy || !action) {return null;}
-    return { cardRight: card.right, coverRight: cover.right, copyLeft: copy.left,
-      actionRight: action.right, actionHeight: action.height, coverRatio: cover.width / cover.height };
-  });
-  expect(layout).not.toBeNull();
-  if (!layout) {throw new Error("ACCEPTANCE_MOBILE_SAVED_FEATURED_LAYOUT_UNAVAILABLE");}
-  expect(layout.coverRight).toBeLessThanOrEqual(layout.copyLeft);
-  expect(layout.actionRight).toBeLessThanOrEqual(layout.cardRight + 1);
-  expect(layout.actionHeight).toBeGreaterThanOrEqual(44);
-  expect(layout.coverRatio).toBeCloseTo(5 / 7, 2);
+  const card = page.locator(".phone-continue-card");
+  await expect(card.locator("img, .home-featured-media")).toHaveCount(0);
+  await expect(card.locator(".home-featured-panel")).toHaveCSS("border-radius", "8px");
+  const bounds = (await card.boundingBox())!;
+  const action = (await card.getByRole("button", { name: "从存档继续", exact: true }).boundingBox())!;
+  expect(action.x).toBeGreaterThanOrEqual(bounds.x);
+  expect(action.x + action.width).toBeLessThanOrEqual(bounds.x + bounds.width);
+  expect(action.y + action.height).toBeLessThanOrEqual(bounds.y + bounds.height);
+  expect(action.height).toBeGreaterThanOrEqual(44);
   await expect(page.getByRole("button", { name: "从存档继续", exact: true })).toBeVisible();
   await noPageOverflow(page);
   await page.screenshot({ path: evidencePath(testInfo, "home-mobile-saved-featured.png"), fullPage: true });
@@ -90,7 +66,7 @@ async function verifyPageLayouts(page: Page) {
 
 async function verifyHomeLayout(page: Page, testInfo: TestInfo) {
   await page.goto("/");
-  await expect(page.locator("[data-home-layer]")).toHaveCount(4);
+  await expect(page.locator("[data-home-layer]")).toHaveCount(5);
   await expectHomeCoverRatios(page);
   await expect(page.getByText("我的资料库", { exact: true })).toBeVisible();
   if (testInfo.project.name === "chrome-1280") {await page.screenshot({ path: evidencePath(testInfo, "home-layout.png"), fullPage: true });}

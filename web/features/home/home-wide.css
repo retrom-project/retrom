@@ -1,18 +1,16 @@
-/* Wider screens add room within the featured card; page height follows content. */
+/* Media availability never changes desktop copy or card geometry. */
 @media (min-width: 1800px) {
-  /* Preserve the reference horizontal card proportions without viewport-height tracks. */
-  .home-recent-card { height: auto; aspect-ratio: 2 / 1; }
-  .home-first-layer { grid-template-columns: minmax(0, 1fr) 380px; gap: var(--space-4); align-items: stretch; }
-  .home-featured-media { height: auto; min-height: 272px; container-type: size; padding: var(--space-5); display: grid; grid-template-columns: auto minmax(0, 1fr) minmax(240px, min(34%, 560px)); gap: var(--space-5); align-items: center; }
-  .home-featured-media:not(.has-session-save) { grid-template-columns: auto minmax(0, 1fr); }
-  .home-featured-cover { grid-column: 1; grid-row: 1; position: relative; inset: auto; width: auto; height: 100cqh; aspect-ratio: 5 / 7; transform: none; }
-  .home-featured-copy, .home-featured-media.has-session-save .home-featured-copy { grid-column: 2; grid-row: 1; position: relative; inset: auto; min-height: 224px; align-self: stretch; transform: none; }
-  .home-featured-save-preview { grid-column: 3; grid-row: 1; position: relative; inset: auto; width: 100%; transform: none; }
+  .home-featured-panel { min-height: 350px; }
+  .home-featured-copy { padding: 40px var(--space-7); }
+  .home-featured-copy h2 { font-size: var(--text-mark); }
+  .home-recent-rail { gap: var(--space-5); grid-auto-columns: clamp(148px, calc((100% - 120px) / 6), 240px); }
+  .home-favorites-list { grid-template-columns: repeat(3, minmax(0, 400px)); gap: var(--space-5); }
 }
-
-@media (min-width: 1280px) and (max-width: 1799px) {
-  .home-featured-media { min-height: 270px; container-type: size; }
-  .home-featured-cover { width: auto; height: calc(100cqh - 46px); aspect-ratio: 5 / 7; }
-  .home-featured-copy { left: calc((100cqh - 46px) * 5 / 7 + 52px); }
-  .home-launch-note { min-width: 0; }
+@media (max-width: 1279px) {
+  .home-featured-panel { min-height: 0; }
+  .home-featured-copy { width: 100%; }
+  .home-featured-media { display: none; }
+  .home-favorites-list { grid-template-columns: repeat(3, minmax(210px, 1fr)); overflow-x: auto; padding-bottom: var(--space-2); }
+  .home-favorite-game { padding: var(--space-3); }
+  .home-favorite-cover { width: 56px; }
 }
