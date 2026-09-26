@@ -323,7 +323,15 @@ async function runtimeCanvas(page) {
       if (!await canvas.isVisible().catch(() => false)) {continue;}
       await focusRuntimeCanvas(canvas);
       const layout = await canvasLayoutEvidence(canvas).catch(() => null);
-      if (validCanvasLayout(layout)) {return canvas;}
+      if (validCanvasLayout(layout)) {
+        // API-created Launches have no trusted gesture from the launch button.
+        // Activate audio after its listeners exist, outside all menu targets.
+        await frame.waitForFunction(() => typeof AL !== "undefined" &&
+          Object.values(AL.contexts ?? {}).some(value => value.audioCtx), null, {timeout: 30_000});
+        const box = await canvas.boundingBox();
+        await page.mouse.click(box.x + 8, box.y + 100);
+        return canvas;
+      }
     }
     await page.waitForTimeout(100);
   }

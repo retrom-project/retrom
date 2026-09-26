@@ -39,6 +39,16 @@ class KiriKiriProductAcceptanceTests(unittest.TestCase):
             contents,
         )
 
+    def test_api_created_launch_activates_audio_after_listeners_exist(self) -> None:
+        contents = DRIVER_PATH.read_text(encoding="utf-8")
+        start = contents.index("async function runtimeCanvas(page)")
+        end = contents.index("async function advanceKag(canvas)", start)
+        setup = contents[start:end]
+        self.assertIn('typeof AL !== "undefined"', setup)
+        self.assertLess(setup.index("await frame.waitForFunction"), setup.index("await page.mouse.click"))
+        self.assertIn("box.x + 8, box.y + 100", setup)
+        self.assertLess(setup.index("await page.mouse.click"), setup.index("return canvas"))
+
     def test_import_wait_accepts_the_terminal_completed_state(self) -> None:
         contents = DRIVER_PATH.read_text(encoding="utf-8")
         self.assertIn('["REVIEW_PENDING", "COMPLETED"].includes(job.state)', contents)
