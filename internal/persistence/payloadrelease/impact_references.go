@@ -34,12 +34,6 @@ SELECT count(*) FROM (
  WHERE save.game_id=?1 AND save.payload_blob_id=?2
  UNION ALL SELECT save.id FROM save_states save
  WHERE save.game_id=?1 AND save.screenshot_blob_id=?2
- UNION ALL SELECT file.launch_session_id FROM launch_content_files file
- JOIN launch_sessions launch ON launch.id=file.launch_session_id
- WHERE launch.game_id=?1 AND file.blob_id=?2
- UNION ALL SELECT file.rowid FROM launch_external_files file
- JOIN launch_sessions launch ON launch.id=file.launch_session_id
- WHERE launch.game_id=?1 AND file.blob_id=?2
  UNION ALL SELECT evidence.id FROM content_hash_evidence evidence
  JOIN metadata_scrape_runs run ON run.id=evidence.scrape_run_id
  WHERE run.game_id=?1 AND evidence.blob_id=?2

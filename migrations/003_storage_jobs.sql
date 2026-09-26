@@ -8,7 +8,7 @@ CREATE TABLE blobs (
   sha1 TEXT NOT NULL CHECK(length(sha1) = 40 AND sha1 = lower(sha1)),
   crc32 TEXT NOT NULL CHECK(length(crc32) = 8 AND crc32 = lower(crc32)),
   media_type TEXT NOT NULL,
-  ref_count INTEGER NOT NULL DEFAULT 0 CHECK(ref_count >= 0),
+  ref_count INTEGER NOT NULL DEFAULT 0 CHECK(typeof(ref_count)='integer' AND ref_count >= 0),
   created_at_ms INTEGER NOT NULL CHECK(created_at_ms >= 0)
 );
 

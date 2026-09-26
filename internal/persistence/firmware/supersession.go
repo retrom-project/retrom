@@ -62,14 +62,18 @@ func (records supersessionRecords) Deactivate(
 	})); err != nil {
 		return err
 	}
-	return records.revokeBIOSLaunches(ctx, before.BlobID, now)
+	return records.revokeBIOSLaunches(ctx, before.ID, before.BlobID, now)
 }
 
-func (records supersessionRecords) revokeBIOSLaunches(ctx context.Context, blobID string, now int64) error {
+func (records supersessionRecords) revokeBIOSLaunches(
+	ctx context.Context, installationID, blobID string, now int64,
+) error {
 	rows, err := records.executor.QueryContext(ctx, `
 SELECT DISTINCT launch.id FROM launch_sessions launch
 JOIN launch_external_files file ON file.launch_session_id=launch.id
-WHERE file.blob_id=? AND file.kind='BIOS_BUNDLE'`, blobID)
+WHERE file.blob_id=? AND file.kind IN ('BIOS','BIOS_BUNDLE')
+AND EXISTS(SELECT 1 FROM json_each(launch.dependency_snapshot_json,'$.bios') dependency
+ WHERE json_extract(dependency.value,'$.installationId')=?)`, blobID, installationID)
 	if err != nil {
 		return fmt.Errorf("find launches using superseded BIOS: %w", err)
 	}

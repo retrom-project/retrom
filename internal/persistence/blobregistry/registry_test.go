@@ -62,22 +62,21 @@ func TestReferenceCountsTrackOwnersAndArchiveMembers(t *testing.T) {
 	t.Cleanup(func() { _ = database.Close() })
 	for index, id := range []string{"archive", "member", "other"} {
 		value := index + 1
-		_, err := database.SQL.ExecContext(t.Context(), `INSERT INTO blobs
+		mustReferenceCountExec(t, database.SQL, `INSERT INTO blobs
 (id,sha256,size_bytes,md5,sha1,crc32,media_type,created_at_ms)
 VALUES(?,?,?,?,?,?,?,1)`, id, fmt.Sprintf("%064x", value), 1,
 			fmt.Sprintf("%032x", value), fmt.Sprintf("%040x", value), fmt.Sprintf("%08x", value), "application/octet-stream")
-		if err != nil {
-			t.Fatal(err)
-		}
 	}
-	_, err = database.SQL.ExecContext(t.Context(), `INSERT INTO archive_entries
+	mustReferenceCountExec(t, database.SQL, `INSERT INTO archive_entries
 (archive_blob_id,ordinal,original_relative_path,normalized_path,ascii_casefold_path,
 archive_format,compression_profile,uncompressed_size_bytes,crc32,md5,sha1,sha256,materialized_blob_id,created_at_ms)
 VALUES('archive',0,'member','member','member','ZIP','STORE',1,?,?,?,?, 'member',1)`,
 		strings.Repeat("1", 8), strings.Repeat("1", 32), strings.Repeat("1", 40), strings.Repeat("1", 64))
-	if err != nil {
-		t.Fatal(err)
-	}
+	mustReferenceCountExec(t, database.SQL, `INSERT INTO archive_entries
+(archive_blob_id,ordinal,original_relative_path,normalized_path,ascii_casefold_path,
+archive_format,compression_profile,uncompressed_size_bytes,crc32,md5,sha1,sha256,materialized_blob_id,created_at_ms)
+VALUES('archive',1,'self','self','self','ZIP','STORE',1,?,?,?,?, 'archive',1)`,
+		strings.Repeat("2", 8), strings.Repeat("2", 32), strings.Repeat("2", 40), strings.Repeat("2", 64))
 	check := func(archive, member, other int) {
 		t.Helper()
 		var a, m, o int
@@ -92,18 +91,18 @@ VALUES('archive',0,'member','member','member','ZIP','STORE',1,?,?,?,?, 'member',
 		}
 	}
 	check(0, 0, 0)
-	_, err = database.SQL.ExecContext(t.Context(), `INSERT INTO metadata_provider_responses
+	mustReferenceCountExec(t, database.SQL, `INSERT INTO metadata_provider_responses
 (id,provider,request_digest,http_status,outcome,raw_response_blob_id,raw_payload_state,fetched_at_ms,expires_at_ms)
 VALUES('owner','HASHEOUS',?,200,'HIT','archive','RETAINED',1,2)`, strings.Repeat("a", 64))
-	if err != nil {
-		t.Fatal(err)
-	}
 	check(1, 1, 0)
-	_, err = database.SQL.ExecContext(t.Context(), `UPDATE metadata_provider_responses
+	mustReferenceCountExec(t, database.SQL, `INSERT INTO metadata_provider_responses
+(id,provider,request_digest,http_status,outcome,raw_response_blob_id,raw_payload_state,fetched_at_ms,expires_at_ms)
+VALUES('second-owner','HASHEOUS',?,200,'HIT','archive','RETAINED',1,2)`, strings.Repeat("b", 64))
+	check(2, 1, 0)
+	mustReferenceCountExec(t, database.SQL, `UPDATE metadata_provider_responses
 SET raw_response_blob_id='other' WHERE id='owner'`)
-	if err != nil {
-		t.Fatal(err)
-	}
+	check(1, 1, 1)
+	mustReferenceCountExec(t, database.SQL, `DELETE FROM metadata_provider_responses WHERE id='second-owner'`)
 	check(0, 0, 1)
 	tx, err := database.SQL.BeginTx(t.Context(), nil)
 	if err != nil {
@@ -116,4 +115,11 @@ SET raw_response_blob_id='other' WHERE id='owner'`)
 		t.Fatal(err)
 	}
 	check(0, 0, 1)
+}
+
+func mustReferenceCountExec(t *testing.T, database dbapi.Executor, query string, args ...any) {
+	t.Helper()
+	if _, err := database.ExecContext(t.Context(), query, args...); err != nil {
+		t.Fatal(err)
+	}
 }

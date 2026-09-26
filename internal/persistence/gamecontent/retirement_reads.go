@@ -33,13 +33,7 @@ UNION ALL
 SELECT save.payload_blob_id FROM save_states save WHERE save.game_id=?
 UNION ALL
 SELECT save.screenshot_blob_id FROM save_states save WHERE save.game_id=?
-UNION ALL
-SELECT file.blob_id FROM launch_content_files file
-JOIN launch_sessions launch ON launch.id=file.launch_session_id WHERE launch.game_id=?
-UNION ALL
-SELECT file.blob_id FROM launch_external_files file
-JOIN launch_sessions launch ON launch.id=file.launch_session_id WHERE launch.game_id=?
-`, gameID, gameID, gameID, gameID, gameID, gameID, gameID)
+`, gameID, gameID, gameID, gameID, gameID)
 	if err != nil {
 		return nil, fmt.Errorf("query replacement blobs: %w", err)
 	}

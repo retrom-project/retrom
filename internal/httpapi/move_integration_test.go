@@ -667,11 +667,12 @@ WHERE g.id=?
 		t.Fatalf("delete last shared game = %d %s", sharedDeleted.Code, sharedDeleted.Body.String())
 	}
 	waitForPayloadState(t, server.database, sharedGameID, "RELEASED")
-	var candidateCount int64
-	if err := dbapi.QueryRowContext(ctx, server.database,
-		`SELECT count(*) FROM blob_gc_candidates WHERE blob_id=?`, blobID,
-	).Scan(&candidateCount); err != nil || candidateCount != 1 {
-		t.Fatalf("last shared release candidate = %d, error=%v", candidateCount, err)
+	var candidateCount, remainingBlob int64
+	if err := dbapi.QueryRowContext(ctx, server.database, `SELECT
+(SELECT count(*) FROM blob_gc_candidates WHERE blob_id=?),
+(SELECT count(*) FROM blobs WHERE id=?)`, blobID, blobID,
+	).Scan(&candidateCount, &remainingBlob); err != nil || remainingBlob == 1 && candidateCount != 1 {
+		t.Fatalf("last shared release = blobs:%d candidate:%d error=%v", remainingBlob, candidateCount, err)
 	}
 }
 

@@ -472,8 +472,10 @@ WHEN OLD.ref_count=0 AND NEW.ref_count>0 BEGIN
   UPDATE blobs SET ref_count=ref_count+(
     SELECT count(*) FROM archive_entries entry
     WHERE entry.archive_blob_id=NEW.id AND entry.materialized_blob_id=blobs.id
+    AND entry.materialized_blob_id<>entry.archive_blob_id
   ) WHERE id IN (SELECT materialized_blob_id FROM archive_entries
-    WHERE archive_blob_id=NEW.id AND materialized_blob_id IS NOT NULL);
+    WHERE archive_blob_id=NEW.id AND materialized_blob_id IS NOT NULL
+    AND materialized_blob_id<>archive_blob_id);
 END;
 
 CREATE TRIGGER count_archive_members_remove AFTER UPDATE OF ref_count ON blobs
@@ -481,26 +483,34 @@ WHEN OLD.ref_count>0 AND NEW.ref_count=0 BEGIN
   UPDATE blobs SET ref_count=ref_count-(
     SELECT count(*) FROM archive_entries entry
     WHERE entry.archive_blob_id=NEW.id AND entry.materialized_blob_id=blobs.id
+    AND entry.materialized_blob_id<>entry.archive_blob_id
   ) WHERE id IN (SELECT materialized_blob_id FROM archive_entries
-    WHERE archive_blob_id=NEW.id AND materialized_blob_id IS NOT NULL);
+    WHERE archive_blob_id=NEW.id AND materialized_blob_id IS NOT NULL
+    AND materialized_blob_id<>archive_blob_id);
 END;
 
 CREATE TRIGGER count_archive_entry_insert AFTER INSERT ON archive_entries
-WHEN NEW.materialized_blob_id IS NOT NULL BEGIN
+WHEN NEW.materialized_blob_id IS NOT NULL
+ AND NEW.materialized_blob_id<>NEW.archive_blob_id BEGIN
   UPDATE blobs SET ref_count=ref_count+1 WHERE id=NEW.materialized_blob_id
+    AND NEW.materialized_blob_id<>NEW.archive_blob_id
     AND (SELECT ref_count FROM blobs WHERE id=NEW.archive_blob_id)>0;
 END;
 
 CREATE TRIGGER count_archive_entry_delete AFTER DELETE ON archive_entries
-WHEN OLD.materialized_blob_id IS NOT NULL BEGIN
+WHEN OLD.materialized_blob_id IS NOT NULL
+ AND OLD.materialized_blob_id<>OLD.archive_blob_id BEGIN
   UPDATE blobs SET ref_count=ref_count-1 WHERE id=OLD.materialized_blob_id
+    AND OLD.materialized_blob_id<>OLD.archive_blob_id
     AND (SELECT ref_count FROM blobs WHERE id=OLD.archive_blob_id)>0;
 END;
 
 CREATE TRIGGER count_archive_entry_update AFTER UPDATE OF materialized_blob_id,archive_blob_id ON archive_entries
 WHEN OLD.materialized_blob_id IS NOT NEW.materialized_blob_id OR OLD.archive_blob_id IS NOT NEW.archive_blob_id BEGIN
   UPDATE blobs SET ref_count=ref_count-1 WHERE id=OLD.materialized_blob_id
+    AND OLD.materialized_blob_id<>OLD.archive_blob_id
     AND (SELECT ref_count FROM blobs WHERE id=OLD.archive_blob_id)>0;
   UPDATE blobs SET ref_count=ref_count+1 WHERE id=NEW.materialized_blob_id
+    AND NEW.materialized_blob_id<>NEW.archive_blob_id
     AND (SELECT ref_count FROM blobs WHERE id=NEW.archive_blob_id)>0;
 END;

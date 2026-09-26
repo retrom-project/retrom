@@ -104,3 +104,54 @@ func TestBIOSSupersessionReadFailuresRollBackCurrentInstallation(t *testing.T) {
 		})
 	}
 }
+
+func TestBIOSSupersessionOnlyRevokesLaunchesUsingReplacedInstallation(t *testing.T) {
+	db, releases, now := retirementFixture(t)
+	t.Cleanup(releases.Close)
+	var blobID string
+	if err := dbapi.QueryRowContext(t.Context(), db, `SELECT blob_id FROM launch_external_files
+WHERE launch_session_id='firmware-launch' AND kind='BIOS_BUNDLE'`).Scan(&blobID); err != nil {
+		t.Fatal(err)
+	}
+	_, err := db.ExecContext(t.Context(), `INSERT INTO launch_sessions(
+id,profile_id,game_id,core_id,provider_id,target_id,bundle_sha256,content_kind,
+dependency_snapshot_json,compatibility_code,return_to,credential_sha256,state,
+bootstrap_expires_at_ms,idle_expires_at_ms,activated_at_ms,hard_expires_at_ms,created_at_ms,updated_at_ms)
+SELECT 'unrelated-launch',profile_id,game_id,core_id,provider_id,target_id,bundle_sha256,content_kind,
+replace(dependency_snapshot_json,'retirement-installation','other-installation'),
+compatibility_code,return_to,credential_sha256,state,
+bootstrap_expires_at_ms,idle_expires_at_ms,activated_at_ms,hard_expires_at_ms,created_at_ms,updated_at_ms
+FROM launch_sessions WHERE id='firmware-launch'`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = db.ExecContext(t.Context(), `INSERT INTO launch_external_files(
+launch_session_id,virtual_path,logical_name,blob_id,created_at_ms,kind)
+SELECT 'unrelated-launch',virtual_path,logical_name,blob_id,created_at_ms,kind
+FROM launch_external_files WHERE launch_session_id='firmware-launch'`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tx, err := db.BeginTx(t.Context(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer dbapi.Rollback(tx)
+	if err := (supersessionRecords{executor: tx}).revokeBIOSLaunches(
+		t.Context(), "retirement-installation", blobID, now,
+	); err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.Commit(); err != nil {
+		t.Fatal(err)
+	}
+	var affected, unrelated string
+	if err := dbapi.QueryRowContext(t.Context(), db, `SELECT
+(SELECT state FROM launch_sessions WHERE id='firmware-launch'),
+(SELECT state FROM launch_sessions WHERE id='unrelated-launch')`).Scan(&affected, &unrelated); err != nil {
+		t.Fatal(err)
+	}
+	if affected != "REVOKED" || unrelated != "ACTIVE" {
+		t.Fatalf("shared BIOS supersession affected %s/%s", affected, unrelated)
+	}
+}
