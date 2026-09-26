@@ -2609,3 +2609,44 @@ Worker 的 L2、持久存储、同步 SAB 和物化计数；一旦收到 Host �
 方向＋确认状态断言通过后分别标记首帧与输入就绪，再单独计量实际退出。
 它拒绝未完成、多个 Session、只有传输观测、失败 CLOSE、缺失真实峰值或最终字段的样本。
 进程内存和 Wasm heap 由实际 Case 提供；不能把观测器单元测试或空白浏览器测试算作游戏性能。
+
+### ACC-LUTRO-001：Lutro 原生存档与新 Launch 恢复
+
+- 输入：`testdata/public-roms/lutro-smoke/lutro-smoke.lutro` 是项目自有 MIT 卡带，
+  `build.py` 可重现固定 SHA-256。本 Case 的通过结论只覆盖该卡带；其他游戏须
+  经操作者授权单独验证，私有游戏的字节与路径不进入仓库。
+- 在同一持久 PFB 复跑完整导入审核时，用 fixture 的 `build.py --marker` 生成
+  带无行为 Lua 注释的独立卡带，保持文件名 `lutro-smoke.lutro`，将输出放在忽略的
+  验收目录并记录 SHA-256。复用已发布游戏的复测必须把跳过的导入、预览阶段标为复用，
+  不得冒充本次候选的完整链路。
+- 入口：在该 PFB 的 Retrom worktree 运行 `scripts/acceptance/lutro_product.mjs`，显式传入
+  `RETROM_ACCEPTANCE_BASE_URL`、`RETROM_ACCEPTANCE_USERNAME/PASSWORD`、
+  `RETROM_CHROME_EXECUTABLE` 和独立的 `RETROM_ACCEPTANCE_CASE_DIR`。凭据仅通过进程环境传入，
+  不写入证据。输出 `product.json`、预览/保存/恢复截图及当前 Provider/Target 身份。
+- 验证：经上传、导入、审核预览、发布和产品 Launch 产生真实帧；标准手柄方向改变方块位置，
+  底部确认键让游戏写入 `progress.txt`。Host 在浏览器本地暂存原生文件；用户显式选择
+  “存档并退出”后，服务器回传 `lutro-native-v1-storage-v1`。检查完整字节摘要、单层 gzip、
+  卡带身份和保存位置。不同 Launch 选择该存档后恢复方块位置并继续响应方向输入；
+  不选存档的新 Launch 从初始位置开始。产品检查必须证明游戏实际读入原生文件，
+  单靠序列化单测、静止画面或保存接口成功不足以通过。
+- 限制：`GAME_SAVE` 只保留游戏自己写出的数据。没有原生保存行为的卡带不能创建存档；
+  设置/分数文件不能外推为该游戏能恢复关卡进度。正式发布后需固定来源并重跑同一 Case。
+
+### ACC-DAPHNE-001：Interstellar 投币、开始、方向输入与声音
+
+- 输入：操作者授权的 `interstellar.daphne` 目录，包含 ZIP ROM、TXT framefile、M2V 和可选小文件。
+  目录只放在忽略的验收位置，不提交游戏字节。完整导入使用新的 Case 目录与尚未导入的内容身份；
+  复用已发布游戏时须明确标记跳过的上传和审核预览阶段。
+- 入口：在该 PFB 的 Retrom worktree 运行 `scripts/acceptance/daphne_product.mjs`，设置
+  `RETROM_ACCEPTANCE_BASE_URL`、`RETROM_ACCEPTANCE_USERNAME/PASSWORD`、
+  `RETROM_CHROME_EXECUTABLE`、`RETROM_DAPHNE_GAME_DIR` 和独立的
+  `RETROM_ACCEPTANCE_CASE_DIR`，硬超时 180 秒。凭据、游戏字节与本机来源路径不进入证据。
+- 验证：真实目录上传、导入、Review Preview、批准和 Product Launch。分别等到 Game Over
+  画面出现，再用标准手柄 Select 投币、Start 开始；Game Over 字样必须消失，三架生命图标出现。
+  产品 Launch 还须用方向键使玩家飞船移动，不能以播放中的吸引模式视频充当开局。
+  浏览器实际启动的音频缓冲中至少有一个包含可听 PCM 样本，不能只以 OGG 文件存在
+  或核心声明的采样率认定声音正常。
+  检查 M2V 使用有界 `206 Range` 请求、没有整包物化，浏览器无核心致命错误；Host 显示
+  “不支持存档”且禁用创建存档。保留当次结构化结果和开始前后截图，逐图复核。
+- 范围：只证明这个单视频 framefile 样本。多视频、无 ZIP 与其他 Daphne 游戏不由此推断通过；
+  候选结果不替代正式 Provider 发布后的同案复验。

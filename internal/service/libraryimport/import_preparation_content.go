@@ -26,7 +26,7 @@ func (service *ImportPreparation) prepareContent(
 		)
 	case contentcapability.ModeONSProject, contentcapability.ModeKiriKiriProject, contentcapability.ModeNXEngineProject,
 		contentcapability.ModeButterscotchProject, contentcapability.ModeTyranoScriptProject,
-		contentcapability.ModeScummVMProject:
+		contentcapability.ModeScummVMProject, contentcapability.ModeDaphneProject:
 		return service.prepareEngineProject(ctx, plan)
 	case contentcapability.ModeStandard:
 		plan.Dispositions, plan.Groups, plan.Archives, err = service.PrepareImportFiles(
@@ -79,6 +79,11 @@ func (service *ImportPreparation) prepareEngineProject(ctx context.Context, plan
 			return ErrInvalid
 		}
 		plan.Dispositions, plan.Groups, plan.Archives, err = service.PrepareScummVMProject(ctx, plan.SourceType, plan.Files)
+	case contentcapability.ModeDaphneProject:
+		if plan.Target.PlatformID != "daphne" {
+			return ErrInvalid
+		}
+		plan.Dispositions, plan.Groups, plan.Archives, err = service.PrepareDaphneProject(ctx, plan.SourceType, plan.Files)
 	default:
 		return ErrInvalid
 	}

@@ -1,6 +1,6 @@
 "use client";
 
-import type {CheckpointSemantics} from "./checkpoint-semantics";
+import {noSaveStatusText, type CheckpointSemantics} from "./checkpoint-semantics";
 
 import {useEffect, type Dispatch, type RefObject, type SetStateAction} from "react";
 import {getImmersiveAudioPreferences} from "@/features/immersive/immersive-audio-preferences";
@@ -139,8 +139,12 @@ function applyEnvelope(params: PlayerBootstrapParams, envelope: LaunchEnvelopeV1
   params.setWarnings(envelope.session.warnings);
   params.setGameTitle(envelope.session.title);
   params.setCoreName(envelope.session.coreName);
-  params.setCheckpointSemantics?.(envelope.runtime.checkpoint?.semantics ?? "INSTANT");
-  if (envelope.runtime.checkpoint?.semantics === "GAME_SAVE") {
+  params.setCheckpointSemantics?.(envelope.runtime.checkpoint === null ? "NO_SAVE" : envelope.runtime.checkpoint.semantics ?? "INSTANT");
+  if (envelope.runtime.checkpoint === null) {
+    params.manualSaveAvailableRef.current = false;
+    params.setManualSaveAvailable(false);
+    params.setSyncText(noSaveStatusText);
+  } else if (envelope.runtime.checkpoint.semantics === "GAME_SAVE") {
     params.manualSaveAvailableRef.current = false;
     params.setManualSaveAvailable(false);
     params.setSyncText("请在游戏内保存");
@@ -226,6 +230,7 @@ function handleRuntimeEvent(event: RuntimeEventV1, params: PlayerBootstrapParams
 }
 
 function updateCheckpointAvailability(params: PlayerBootstrapParams, available: boolean) {
+  if (params.envelope.current?.runtime.checkpoint === null) {return;}
   if (params.envelope.current?.runtime.checkpoint?.semantics === "GAME_SAVE") {return;}
   params.manualSaveAvailableRef.current = available;
   params.setManualSaveAvailable(available);

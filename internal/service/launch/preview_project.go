@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	butter "retrom/internal/butterscotch/detector"
+	daphne "retrom/internal/daphne/detector"
 	kiri "retrom/internal/kirikiri/detector"
 	nx "retrom/internal/nxengine/detector"
 	ons "retrom/internal/ons/detector"
@@ -54,6 +55,9 @@ func previewProjectMarker(snapshot PreviewSnapshot) (string, error) {
 		return previewMarkerResult(profile.MarkerPath, err)
 	case "NXENGINE_PROJECT":
 		profile, err := nx.ParseSnapshot(raw)
+		return previewMarkerResult(profile.MarkerPath, err)
+	case "DAPHNE_PROJECT":
+		profile, err := daphne.ParseSnapshot(raw)
 		return previewMarkerResult(profile.MarkerPath, err)
 	case "BUTTERSCOTCH_PROJECT":
 		profile, err := butter.ParseSnapshot(raw)

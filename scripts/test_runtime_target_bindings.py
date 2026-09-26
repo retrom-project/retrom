@@ -26,7 +26,7 @@ class RuntimeTargetBindingsTest(unittest.TestCase):
             ROOT / "data/runtime-target-bindings/v1/catalog.json"
         )
         self.assertNotIn("catalogVersion", catalog)
-        self.assertEqual(len(catalog["bindings"]), 98)
+        self.assertEqual(len(catalog["bindings"]), 102)
         self.assertEqual(
             {item["providerId"] for item in catalog["bindings"]},
             {"emulatorjs", "retrom-runtime"},
@@ -75,6 +75,8 @@ class RuntimeTargetBindingsTest(unittest.TestCase):
             "vice-xvic": ("vice_xvic", ["vic20"]),
             "virtualjaguar": ("virtualjaguar", ["atarijaguar"]),
             "supermodel": ("supermodel", ["model3"]),
+            "gearboy": ("gearboy", ["sgb"]),
+            "lutro": ("lutro", ["lutro"]),
         }
         for target_id, (core_id, platform_ids) in expected_single_file_targets.items():
             binding = by_target[("emulatorjs", target_id)]
@@ -89,6 +91,7 @@ class RuntimeTargetBindingsTest(unittest.TestCase):
         self.assertEqual(by_target[("emulatorjs", "snes9x")]["platformIds"],
                          ["satellaview", "snes"])
         self.assertEqual(by_target[("retrom-runtime", "j2me")]["detectorProfile"], "J2ME_JAR")
+        self.assertEqual(by_target[("retrom-runtime", "apple2-apple2js")]["platformIds"], ["apple2"])
         self.assertEqual(by_target[("retrom-runtime", "scummvm")]["detectorProfile"], "SCUMMVM_PROJECT")
         self.assertEqual(by_target[("retrom-runtime", "scummvm")]["acceptedContentKinds"], ["SCUMMVM_PROJECT"])
         self.assertEqual(by_target[("retrom-runtime", "j2me")]["acceptedContentKinds"], ["SINGLE_FILE"])

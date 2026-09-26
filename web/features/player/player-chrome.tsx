@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type Dispatch, type KeyboardEvent as ReactKeyboardEvent, type SetStateAction, type RefObject } from "react";
 import {PlayerInputDebug} from "./player-input-debug";
 import {CheckpointHelp} from "./checkpoint-help";
-import {checkpointSyncText, gameSaveInstructions, nativeSaveInstructions, type NativeSaveCapabilities, type CheckpointSemantics} from "./checkpoint-semantics";
+import {checkpointSyncText, gameSaveInstructions, nativeSaveInstructions, noSaveInstructions, type NativeSaveCapabilities, type CheckpointSemantics} from "./checkpoint-semantics";
 import { AppIcon } from "@/components/app-icon";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import type { EmulatorSettingsPanel } from "./emulator-settings";
@@ -47,6 +47,7 @@ export type PlayerChromeProps = {
 };
 
 function exitDescriptionFor(saveAvailable: boolean, dosProgramMenu: boolean, state: ExitSaveState, semantics: CheckpointSemantics) {
+  if (semantics === "NO_SAVE") {return noSaveInstructions;}
   if (semantics === "GAME_SAVE") {return "请先在游戏内保存，再确认存档并退出；平台不保存当前画面的即时进度。";}
   if (!saveAvailable) {return dosProgramMenu
     ? "当前从 DOS 程序菜单启动，无法创建可恢复存档；直接退出不会保存当前位置。"
@@ -307,7 +308,7 @@ function nativeCaptureBlocked(props: ToolbarProps) {
 }
 
 function PlayerContextActions({ props }: { props: ToolbarProps }) {
-  return <><button className={`player-control player-save-button player-context-action${props.actionLayout.primary === "save" ? " is-primary" : ""}`} type="button" disabled={nativeCaptureBlocked(props) || !props.running || !props.saveAvailable} title={!props.saveAvailable ? props.checkpointSemantics === "GAME_SAVE" ? nativeSaveInstructions(props.nativeSave) : props.dosProgramMenu ? "请退出后从游戏详情选择具体 DOS 程序再开始" : "当前场景暂时无法创建存档，请继续游戏后重试" : undefined} onClick={props.onSave}><AppIcon name="save" />创建存档</button><button className="player-control is-icon" type="button" aria-label={props.paused ? "已暂停，点击游戏画面继续" : "暂停"} title={props.paused ? "点击游戏画面继续" : "暂停"} aria-pressed={props.paused} disabled={!props.running}><AppIcon name="pause" /></button></>;
+  return <><button className={`player-control player-save-button player-context-action${props.actionLayout.primary === "save" ? " is-primary" : ""}`} type="button" disabled={props.checkpointSemantics === "NO_SAVE" || nativeCaptureBlocked(props) || !props.running || !props.saveAvailable} title={props.checkpointSemantics === "NO_SAVE" ? noSaveInstructions : !props.saveAvailable ? props.checkpointSemantics === "GAME_SAVE" ? nativeSaveInstructions(props.nativeSave) : props.dosProgramMenu ? "请退出后从游戏详情选择具体 DOS 程序再开始" : "当前场景暂时无法创建存档，请继续游戏后重试" : undefined} onClick={props.onSave}><AppIcon name="save" />创建存档</button><button className="player-control is-icon" type="button" aria-label={props.paused ? "已暂停，点击游戏画面继续" : "暂停"} title={props.paused ? "点击游戏画面继续" : "暂停"} aria-pressed={props.paused} disabled={!props.running}><AppIcon name="pause" /></button></>;
 }
 
 function PlayerToolbar(props: ToolbarProps) {
@@ -345,5 +346,5 @@ function EmulatorToolbar({ open, volume, muted, renderingMode, onHold, onOpenPan
 
 function ExitGameDialog({ checkpointSemantics, open, description, running, saveAvailable, dosProgramMenu, saveState, onSave, onCancel, onConfirm }: { checkpointSemantics: CheckpointSemantics; open: boolean; description: string; running: boolean; saveAvailable: boolean; dosProgramMenu: boolean; saveState: ExitSaveState; onSave: () => void; onCancel: () => void; onConfirm: () => void }) {
   const leadingLabel = saveState === "saved" ? "已创建存档" : saveState === "error" ? "重试创建存档" : "创建存档";
-  return <ConfirmDialog open={open} title="退出游戏？" description={description} leadingLabel={leadingLabel} leadingBusy={saveState === "saving"} leadingBusyLabel="正在创建…" leadingDisabled={checkpointSemantics === "GAME_SAVE" || !running || !saveAvailable || saveState === "saved"} confirmLabel="退出游戏" tone="danger" onLeading={onSave} onCancel={onCancel} onConfirm={onConfirm}>{checkpointSemantics === "GAME_SAVE" ? <span>{gameSaveInstructions}</span> : saveAvailable ? <span>只有点击“创建存档”才会保存当前位置；直接退出只结束本次游玩记录。</span> : dosProgramMenu ? <span>请退出后从游戏详情选择一个具体 DOS 程序再开始，届时即可创建并恢复存档。</span> : <span>请继续游戏，等待当前场景允许创建存档后再重试。</span>}</ConfirmDialog>;
+  return <ConfirmDialog open={open} title="退出游戏？" description={description} leadingLabel={leadingLabel} leadingBusy={saveState === "saving"} leadingBusyLabel="正在创建…" leadingDisabled={checkpointSemantics === "NO_SAVE" || checkpointSemantics === "GAME_SAVE" || !running || !saveAvailable || saveState === "saved"} confirmLabel="退出游戏" tone="danger" onLeading={onSave} onCancel={onCancel} onConfirm={onConfirm}>{checkpointSemantics === "NO_SAVE" ? <span>{noSaveInstructions}</span> : checkpointSemantics === "GAME_SAVE" ? <span>{gameSaveInstructions}</span> : saveAvailable ? <span>只有点击“创建存档”才会保存当前位置；直接退出只结束本次游玩记录。</span> : dosProgramMenu ? <span>请退出后从游戏详情选择一个具体 DOS 程序再开始，届时即可创建并恢复存档。</span> : <span>请继续游戏，等待当前场景允许创建存档后再重试。</span>}</ConfirmDialog>;
 }

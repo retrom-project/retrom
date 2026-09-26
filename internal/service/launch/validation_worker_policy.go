@@ -10,6 +10,7 @@ import (
 	"retrom/internal/arcadedat"
 	"retrom/internal/contentprofile"
 	"retrom/internal/corevalidation"
+	daphne "retrom/internal/daphne/detector"
 	"retrom/internal/scummvm"
 )
 
@@ -39,6 +40,9 @@ func EvaluateValidation(inputs ValidationInputs, facts ValidationFacts) (Validat
 	if source.ContentKind == "SCUMMVM_PROJECT" && source.ProviderID == "retrom-runtime" && source.TargetID == "scummvm" {
 		return validationScummVMOutcome(inputs, facts, bios)
 	}
+	if isDaphneValidationTarget(source.ContentKind, source.ProviderID, source.TargetID) {
+		return validationDaphneOutcome(facts, status, code, evidence)
+	}
 
 	encoded, err := evidence.JSON()
 	if err != nil {
@@ -54,6 +58,23 @@ func EvaluateValidation(inputs ValidationInputs, facts ValidationFacts) (Validat
 			return ValidationOutcome{}, err
 		}
 		dependency = source.DependencySnapshot
+	}
+	if status == "READY" {
+		status, code = validationContentStatus(facts)
+	}
+	return ValidationOutcome{Status: status, Code: code, DependencyJSON: dependency, BIOS: evidence}, nil
+}
+
+func isDaphneValidationTarget(contentKind, providerID, targetID string) bool {
+	return contentKind == "DAPHNE_PROJECT" && providerID == "emulatorjs" && targetID == "daphne"
+}
+
+func validationDaphneOutcome(
+	facts ValidationFacts, status, code string, evidence corevalidation.Snapshot,
+) (ValidationOutcome, error) {
+	dependency := facts.Content.Source.DependencySnapshot
+	if _, err := daphne.ParseSnapshot(dependency); err != nil {
+		return ValidationOutcome{}, fmt.Errorf("parse Daphne dependency snapshot: %w", err)
 	}
 	if status == "READY" {
 		status, code = validationContentStatus(facts)

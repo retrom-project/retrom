@@ -461,6 +461,18 @@ it("explains native save and game-menu restore without promising an execution sn
   expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
 });
 
+it("explains NO_SAVE and never offers a save action", async () => {
+  const values = props({checkpointSemantics: "NO_SAVE", saveAvailable: false});
+  render(<PlayerChrome {...values} />);
+  const save = screen.getByRole("button", {name: "创建存档"});
+  expect(save).toBeDisabled();
+  expect(save).toHaveAttribute("title", expect.stringContaining("不支持存档"));
+  expect(screen.getByText("不支持存档")).toBeVisible();
+  await userEvent.setup().click(screen.getByRole("button", {name: "返回并退出游戏"}));
+  expect(screen.getByRole("alertdialog")).toHaveTextContent("退出后无法恢复本次进度");
+  expect(values.onSave).not.toHaveBeenCalled();
+});
+
 it("disables unchanged native saves in the toolbar and exit dialog with a readable status", async () => {
   const user = userEvent.setup();
   render(<PlayerChrome {...props({checkpointSemantics: "GAME_SAVE", saveAvailable: false, syncText: "原生存档已同步"})} />);

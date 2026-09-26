@@ -32,6 +32,24 @@ type staticBIOS struct {
 
 var staticBIOSCatalog = append(pc88BIOSCatalog(), []staticBIOS{
 	{
+		coreID: "apple2js", logical: "AppleIIe.rom", mode: "REQUIRED", size: 16384,
+		md5: "38063e08c778503fc03ecebb979769e9", sha256: "aab38a03ca8deabbb2f868733148c2efd6f655a59cd9c5d058ef3e0b7aa86a1a",
+		sourceURL: "https://github.com/whscullin/apple2js/tree/ee0aed25f73c69d0245e86a2a5fccb3324c3056c/js/roms",
+		delivery:  "EXTERNAL_FILE", emulatorPath: "/roms/AppleIIe.rom",
+	},
+	{
+		coreID: "apple2js", logical: "apple2e-character.rom", mode: "REQUIRED", size: 4096,
+		md5: "9123fff3442c0e688cc6816be88dd4ab", sha256: "52c3b87900ac939f6525402cab1ccfd8f8259290fc6df54da48fb4c98ae3ed0f",
+		sourceURL: "https://github.com/whscullin/apple2js/tree/ee0aed25f73c69d0245e86a2a5fccb3324c3056c/js/roms",
+		delivery:  "EXTERNAL_FILE", emulatorPath: "/roms/apple2e-character.rom",
+	},
+	{
+		coreID: "apple2js", logical: "AppleIIe_DiskII.rom", mode: "REQUIRED", size: 256,
+		md5: "2020aa1413ff77fe29353f3ee72dc295", sha256: "de1e3e035878bab43d0af8fe38f5839c527e9548647036598ee6fe7ec74d2a7d",
+		sourceURL: "https://github.com/whscullin/apple2js/tree/ee0aed25f73c69d0245e86a2a5fccb3324c3056c/js/roms",
+		delivery:  "EXTERNAL_FILE", emulatorPath: "/roms/AppleIIe_DiskII.rom",
+	},
+	{
 		coreID: "genesis_plus_gx", logical: "bios_CD_E.bin", mode: "CONDITIONAL", condition: "SEGA_CD_CONTENT", size: 131072,
 		md5: "e66fa1dc5820d254611fdcdba0662372", sourceURL: "https://emulatorjs.org/docs/systems/sega-cd/",
 		providerID: "emulatorjs", targetID: "genesis-plus-gx-cd",

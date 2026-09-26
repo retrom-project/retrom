@@ -13,7 +13,7 @@ import {observeExpansion, openExpansion, pictureExpansion, pressExpansion, holdE
 const env = process.env, platform = process.argv[2], base = env.RETROM_ACCEPTANCE_BASE_URL;
 const cores = {gamegear: "genesis_plus_gx", sg1000: "genesis_plus_gx", multivision: "genesis_plus_gx",
   pico: "picodrive", sega32x: "picodrive", supergrafx: "mednafen_pce", gx4000: "cap32", neogeo: "fbneo",
-  segacd: "genesis_plus_gx", amiga: "puae", amigacd32: "puae", satellaview: "snes9x"};
+  sgb: "gearboy", segacd: "genesis_plus_gx", amiga: "puae", amigacd32: "puae", satellaview: "snes9x"};
 const biosFiles = {segacd: ["bios_CD_E.bin", "bios_CD_U.bin", "bios_CD_J.bin"],
   amiga: ["kick34005.A500", "kick40068.A1200"],
   amigacd32: ["kick40060.CD32", "kick40060.CD32.ext"], satellaview: ["BS-X.bin"]};

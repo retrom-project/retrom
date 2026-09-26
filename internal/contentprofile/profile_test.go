@@ -14,6 +14,7 @@ func TestProfilesAcceptExactCaseInsensitiveExtensions(t *testing.T) {
 		"intellivision": {".int", ".rom", ".bin"},
 		"nes":           {"game.nes", "game.UNIF", "disk.FDS"}, "fds": {"disk.fds"}, "snes": {"game.sfc"},
 		"gbc": {"game.gb", "game.GBC"}, "gba": {"game.gba"}, "nds": {"game.nds"},
+		"lutro":     {"game.lutro", "game.LUTRO"},
 		"atari5200": {"game.a52"}, "psx": {"game.chd"}, "lynx": {"game.lnx"},
 		"saturn": {"game.chd"}, "megadrive": {"game.md", "game.smd", "game.SMD", "game.bin", "game.BIN"}, "n64": {"game.z64"},
 		"3do": {"game.chd"}, "atari7800": {"game.a78"}, "atari2600": {"game.a26"},
@@ -181,6 +182,9 @@ func TestMultiDiscContentKindIsExplicitlyLimitedToSaturn(t *testing.T) {
 		case "scummvm":
 			testassert.CheckTruef(t, AllowsContentKind(platformID, ContentKindScummVMProject), "ScummVM project support missing")
 			testassert.CheckFalsef(t, AllowsContentKind(platformID, ContentKindSingleFile), "ScummVM accepted SINGLE_FILE")
+		case "daphne":
+			testassert.CheckTruef(t, AllowsContentKind(platformID, ContentKindDaphneProject), "Daphne project support missing")
+			testassert.CheckFalsef(t, AllowsContentKind(platformID, ContentKindSingleFile), "Daphne accepted SINGLE_FILE")
 		case "ons":
 			testassert.CheckTruef(t, AllowsContentKind(platformID, ContentKindONSProject), "ONS project support missing")
 			testassert.CheckFalsef(t, AllowsContentKind(platformID, ContentKindSingleFile), "ONS accepted SINGLE_FILE")

@@ -155,6 +155,54 @@ libretro/nxengine-libretro 的固定源码，由独立 fork 构建 Emscripten �
 未选择存档的新 Launch 保持空保存目录。产品准入用例为 `ACC-NXENGINE-001`。
 正式 runtime tag 固定已发布的核心和聚合包；发布后复跑同一产品用例。
 
+### Lutro
+
+`lutro` 推荐目录只接收原始 `.lutro` 卡带。它是由核心自己读取的 ZIP 容器，
+EmulatorJS 4.2.3 不得在传给核心之前解开为 `main.lua`。Provider Target 的存档语义为
+`GAME_SAVE`，格式为 `lutro-native-v1-storage-v1`，只导出游戏通过
+`lutro.filesystem.write` 写下的原生文件。选择存档启动时，Provider 在核心启动前导入
+文件；不选择存档时清空该游戏的原生保存目录。Provider 按文件内容摘要报告变更，
+Host 上传成功后才确认该版本已经持久化。最多 256 个文件、16 MiB，公共存储层只压缩一次。
+
+声明的 `dataKind` 是 `STORAGE`：Lutro 游戏可能只写设置或分数，也可能写进度；
+不把任意游戏的当前运行位置说成即时快照。`ACC-LUTRO-001` 用项目自有、确实写入关卡位置的
+卡带验证新 Launch 恢复。其他 `.lutro` 游戏的兼容性须单独验证，当前结论只覆盖固定样本。
+未写原生文件的卡带不能创建可恢复存档，该样本不得算通过本 Target 的存档准入。
+
+### Apple II / Apple2JS
+
+`apple2-apple2js` 的标准手柄方向映射到 Apple II 摇杆轴，A/B 映射到摇杆按钮 0/1。
+标准手柄的 Start（Button 9）单独发送键盘 `1`；已验证的《Donkey Kong》从标题动画按一次 Start 进入人数选择，
+再按一次 Start 选择单人并进入关卡。Select/Back（Button 8）单独发送 Escape。
+真实键盘仍可独立操作，其他游戏的菜单按键需要逐样本验证。输入诊断观察 Apple2JS
+实际读取手柄的内层 iframe，显示按钮按下与松开；观测记录不代表核心已执行该动作。
+
+### Daphne 接入
+
+Daphne fork 的 `retro_serialize_size()` 返回零，保存与恢复接口均返回失败；已有的
+NVRAM/分数文件不能重建正在游玩的场景。用户已明确允许 Daphne 使用 `NO_SAVE`，
+因此仅 Daphne 的 Target 声明 `checkpoint: null` 和 `capabilities.checkpoint: false`，
+宿主不提供创建或恢复存档。其他平台的存档要求保持不变。
+
+Target `emulatorjs/daphne` 使用 `DAPHNE_PROJECT` 和 `FILE_TREE`。项目检测当前接受
+根目录中 3–16 个文件：一个 ZIP ROM、同名 TXT framefile、一个被 framefile 引用的 M2V，
+以及可选的 DAT/OGG 等小文件。ZIP、TXT、DAT、OGG 经公共 Content I/O 完整读取；
+M2V 通过公共 Range reader 按需读取。核心的 MPEG 解码运行在 pthread；线程的同步
+`fd_read` 必须等待主线程的 Content I/O Promise 完成，不能让 Asyncify 提前返回零字节。
+
+在命名 PFB 中使用 `interstellar.daphne` 验证了目录上传、Review Preview、批准和
+Product Launch。该街机游戏须先按手柄 Select 投币，再按 Start 开始；仅按 Start 无法从
+Game Over 开局。修复后的核心将 Select、Start、方向键和两个动作键交给游戏驱动；
+产品验收从 Game Over 画面按 Select、Start 后确认 Game Over 消失、生命图标出现，
+再按方向键确认玩家飞船移动。M2V 请求为有界 206 Range，未整包下载。该验证只覆盖
+单视频 framefile 的这个样本。Daphne 核心每帧从原生混音器取得 735 帧、44.1 kHz
+双声道 PCM，并通过 libretro 音频回调交给浏览器；验收必须在实际 Product Launch
+中观察到非静音音频缓冲，不能仅凭 OGG 文件存在认定声音可用。多视频项目、无 ZIP
+项目和其他 Daphne 游戏尚未获得准入。
+Apple2JS、Lutro、Daphne 和 Gearboy 的正式核心资产由 retrom-runtime 的
+`v0.49.0` Release 固定；Retrom 的 `data/runtime-providers/release.json` 固定该
+Provider 版本。发布验收须用正式包重跑各平台的审核预览、产品启动、输入与适用的存档链路。
+
 ## 6. 升级验证
 
 Provider 升级必须在同一数据库上顺序启动旧版与更高版本，证明：

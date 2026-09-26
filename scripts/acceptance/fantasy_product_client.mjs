@@ -69,7 +69,7 @@ export async function saveCart(page, launchId, core) {
   const response = page.waitForResponse((entry) => entry.request().method() === "POST" &&
     entry.url().includes(`/runtime/launches/${launchId}/save-states`), {timeout: 30000})
     .then((value) => ({value}), (error) => ({error}));
-  if (core === "tic80") {
+  if (["tic80", "lutro"].includes(core)) {
     await page.getByRole("button", {name: "返回并退出游戏", exact: true}).click();
     await page.getByRole("button", {name: "存档并退出", exact: true}).click();
   } else {await page.getByRole("button", {name: "创建存档", exact: true}).click();}

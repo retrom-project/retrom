@@ -23,6 +23,7 @@ type markerProjectDefinition struct {
 	contentKind       string
 	compatibilityCode string
 	markers           []string
+	markerSuffixes    []string
 	electronASAR      bool
 	archiveFormat     func(string) (contentprofile.ArchiveFormat, string)
 	detect            func([]fileset.SourceFile, map[int]string) ([]byte, error)
@@ -181,7 +182,7 @@ func (service *ImportPreparation) prepareMarkerProjectDirectory(
 	definition markerProjectDefinition,
 ) ([]PreparedDisposition, PreparedGroup, error) {
 	input := directoryProjectInput(files)
-	project, err := fileset.NormalizeProjectWithMarkers(input, definition.markers)
+	project, err := normalizeMarkerProject(input, definition)
 	if err != nil {
 		return nil, PreparedGroup{}, fmt.Errorf("normalize %s directory: %w", definition.name, err)
 	}
@@ -396,11 +397,25 @@ func normalizeArchiveProject(
 		})
 		entryByOrdinal[entry.Ordinal] = entry
 	}
-	project, err := fileset.NormalizeProjectWithMarkers(input, definition.markers)
+	project, err := normalizeMarkerProject(input, definition)
 	if err != nil {
 		return fileset.Project{}, nil, fmt.Errorf("normalize %s archive: %w", definition.name, err)
 	}
 	return project, entryByOrdinal, nil
+}
+
+func normalizeMarkerProject(input []fileset.SourceFile, definition markerProjectDefinition) (fileset.Project, error) {
+	var project fileset.Project
+	var err error
+	if len(definition.markerSuffixes) > 0 {
+		project, err = fileset.NormalizeProjectWithMarkerSuffixes(input, definition.markerSuffixes)
+	} else {
+		project, err = fileset.NormalizeProjectWithMarkers(input, definition.markers)
+	}
+	if err != nil {
+		return fileset.Project{}, fmt.Errorf("normalize %s project: %w", definition.name, err)
+	}
+	return project, nil
 }
 
 func archiveProjectEntries(

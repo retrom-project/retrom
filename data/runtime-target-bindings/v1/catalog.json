@@ -143,6 +143,20 @@
       "launchPolicy": "SUPPORTED"
     },
     {
+      "id": "emulatorjs-daphne",
+      "coreId": "daphne",
+      "providerId": "emulatorjs",
+      "targetId": "daphne",
+      "platformIds": [
+        "daphne"
+      ],
+      "acceptedContentKinds": [
+        "DAPHNE_PROJECT"
+      ],
+      "detectorProfile": "DAPHNE_PROJECT",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
       "id": "emulatorjs-desmume",
       "coreId": "desmume",
       "providerId": "emulatorjs",
@@ -368,6 +382,20 @@
       "launchPolicy": "SUPPORTED"
     },
     {
+      "id": "emulatorjs-gearboy",
+      "coreId": "gearboy",
+      "providerId": "emulatorjs",
+      "targetId": "gearboy",
+      "platformIds": [
+        "sgb"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "EMULATORJS_SINGLE_FILE",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
       "id": "emulatorjs-gearcoleco",
       "coreId": "gearcoleco",
       "providerId": "emulatorjs",
@@ -443,6 +471,20 @@
       "targetId": "hatarib",
       "platformIds": [
         "atarist"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "EMULATORJS_SINGLE_FILE",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
+      "id": "emulatorjs-lutro",
+      "coreId": "lutro",
+      "providerId": "emulatorjs",
+      "targetId": "lutro",
+      "platformIds": [
+        "lutro"
       ],
       "acceptedContentKinds": [
         "SINGLE_FILE"
@@ -1006,6 +1048,20 @@
       "launchPolicy": "SUPPORTED"
     },
     {
+      "id": "retrom-runtime-apple2-apple2js",
+      "coreId": "apple2js",
+      "providerId": "retrom-runtime",
+      "targetId": "apple2-apple2js",
+      "platformIds": [
+        "apple2"
+      ],
+      "acceptedContentKinds": [
+        "SINGLE_FILE"
+      ],
+      "detectorProfile": "RUNTIME_SINGLE_FILE",
+      "launchPolicy": "SUPPORTED"
+    },
+    {
       "id": "retrom-runtime-bbc-jsbeeb",
       "coreId": "jsbeeb",
       "providerId": "retrom-runtime",
@@ -1411,6 +1467,12 @@
         "enabled": true
       },
       {
+        "id": "apple2",
+        "name": "Apple II",
+        "sortOrder": 712,
+        "enabled": true
+      },
+      {
         "id": "arcade",
         "name": "Arcade",
         "sortOrder": 60,
@@ -1519,6 +1581,12 @@
         "enabled": true
       },
       {
+        "id": "daphne",
+        "name": "Daphne",
+        "sortOrder": 714,
+        "enabled": true
+      },
+      {
         "id": "doom",
         "name": "Doom",
         "sortOrder": 330,
@@ -1588,6 +1656,12 @@
         "id": "kirikiri",
         "name": "KiriKiri",
         "sortOrder": 77,
+        "enabled": true
+      },
+      {
+        "id": "lutro",
+        "name": "Lutro",
+        "sortOrder": 714,
         "enabled": true
       },
       {
@@ -1825,6 +1899,12 @@
         "enabled": true
       },
       {
+        "id": "sgb",
+        "name": "Super Game Boy",
+        "sortOrder": 45,
+        "enabled": true
+      },
+      {
         "id": "snes",
         "name": "SNES",
         "sortOrder": 30,
@@ -1933,6 +2013,11 @@
         "enabled": true
       },
       {
+        "id": "apple2js",
+        "name": "Apple2JS",
+        "enabled": true
+      },
+      {
         "id": "ardens",
         "name": "Ardens",
         "enabled": true
@@ -1975,6 +2060,11 @@
       {
         "id": "crocods",
         "name": "CrocoDS",
+        "enabled": true
+      },
+      {
+        "id": "daphne",
+        "name": "Daphne",
         "enabled": true
       },
       {
@@ -2068,6 +2158,11 @@
         "enabled": true
       },
       {
+        "id": "gearboy",
+        "name": "Gearboy (Super Game Boy)",
+        "enabled": true
+      },
+      {
         "id": "gearcoleco",
         "name": "Gearcoleco",
         "enabled": true
@@ -2105,6 +2200,11 @@
       {
         "id": "kirikiri2",
         "name": "KiriKiri2",
+        "enabled": true
+      },
+      {
+        "id": "lutro",
+        "name": "Lutro",
         "enabled": true
       },
       {
@@ -2380,6 +2480,7 @@
     ],
     "contentKinds": [
       "BUTTERSCOTCH_PROJECT",
+      "DAPHNE_PROJECT",
       "DOS_BUNDLE",
       "KIRIKIRI_PROJECT",
       "MULTI_DISC",

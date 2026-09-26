@@ -11,14 +11,14 @@ export const directoryCategories: ReadonlyArray<{ id: DirectoryCategory; label: 
 
 // A directory inherits its category from its base platform, including custom directories.
 const platformCategory: Record<string, DirectoryCategory> = {
-  "3do": "console", amiga: "computer", amigacd32: "console", amstradcpc: "computer", arcade: "arcade", arduboy: "handheld",
+  "3do": "console", amiga: "computer", amigacd32: "console", amstradcpc: "computer", apple2: "computer", arcade: "arcade", arduboy: "handheld",
   atari2600: "console", atari5200: "console", atari7800: "console", atari800: "computer",
   atarijaguar: "console", atarist: "computer", atomiswave: "arcade", bbc: "computer", bbkrpg: "computer",
   butterscotch: "runtime", c128: "computer", c64: "computer", cavestory: "runtime",
-  cdi: "console", channelf: "console", colecovision: "console", doom: "runtime",
+  cdi: "console", channelf: "console", colecovision: "console", daphne: "arcade", doom: "runtime",
   dos: "computer", dreamcast: "console", fds: "console", flash: "runtime",
   gamegear: "handheld", gba: "handheld", gbc: "handheld", gx4000: "console",
-  intellivision: "console", j2me: "runtime", kirikiri: "runtime", lynx: "handheld",
+  intellivision: "console", j2me: "runtime", kirikiri: "runtime", lutro: "runtime", lynx: "handheld",
   mastersystem: "console", megadrive: "console", megaduck: "handheld", model3: "arcade",
   msx: "computer", multivision: "console", n64: "console", naomi: "arcade", naomi2: "arcade",
   nds: "handheld", neogeocd: "console", nes: "console",
@@ -27,7 +27,7 @@ const platformCategory: Record<string, DirectoryCategory> = {
   pcfx: "console", pet: "computer", pico: "console", pico8: "runtime",
   plus4: "computer", pokemini: "handheld", ps2: "console", psp: "handheld",
   psx: "console", rpgmaker: "runtime", samcoupe: "computer", satellaview: "console", saturn: "console", scummvm: "runtime",
-  sega32x: "console", segacd: "console", sg1000: "console", snes: "console", supergrafx: "console",
+  sega32x: "console", segacd: "console", sg1000: "console", sgb: "handheld", snes: "console", supergrafx: "console",
   supervision: "handheld", thomson: "computer", tic80: "runtime", tyranoscript: "runtime",
   uzebox: "console", vectrex: "console",
   vic20: "computer", virtualboy: "console", wasm4: "runtime", wonderswan: "handheld",

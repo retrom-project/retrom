@@ -292,7 +292,7 @@ def _installation_proof(lock: dict[str, Any]) -> dict[str, Any]:
 
 
 def _media_type(path: str) -> str:
-    if path == "assets/jsbeeb/site/index.html":
+    if path in {"assets/jsbeeb/site/index.html", "assets/apple2js/site/index.html"}:
         return "text/html; charset=utf-8"
     if path.endswith((".js", ".mjs")):
         return "text/javascript; charset=utf-8"

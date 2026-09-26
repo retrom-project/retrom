@@ -980,6 +980,7 @@ components:
             - BUTTERSCOTCH_PROJECT
             - NXENGINE_PROJECT
             - TYRANOSCRIPT_PROJECT
+            - DAPHNE_PROJECT
           default: STANDARD
     ApplyCandidateRequest:
       type: object

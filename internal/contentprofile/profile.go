@@ -36,6 +36,7 @@ const (
 	ContentKindButterscotchProject ContentKind = "BUTTERSCOTCH_PROJECT"
 	ContentKindTyranoScriptProject ContentKind = "TYRANOSCRIPT_PROJECT"
 	ContentKindScummVMProject      ContentKind = "SCUMMVM_PROJECT"
+	ContentKindDaphneProject       ContentKind = "DAPHNE_PROJECT"
 )
 
 var (
@@ -59,6 +60,8 @@ var registry = map[string]Profile{
 	"xegs":        single("xegs", ".atr", ".atx", ".xex", ".car", ".rom", ".bin"),
 	"atarist":     single("atarist", ".st", ".msa", ".stx", ".ipf"),
 	"bbc":         single("bbc", ".ssd", ".dsd", ".adf", ".hfe"),
+	"apple2":      single("apple2", ".2mg", ".d13", ".do", ".dsk", ".po", ".nib", ".woz"),
+	"lutro":       raw("lutro", ".lutro"),
 	"channelf":    single("channelf", ".bin", ".rom"),
 	"megaduck":    single("megaduck", ".bin", ".md"),
 	"samcoupe":    single("samcoupe", ".dsk", ".mgt", ".sad", ".sbt"),
@@ -87,6 +90,7 @@ var registry = map[string]Profile{
 	"fds":           single("fds", ".fds"),
 	"snes":          single("snes", ".sfc", ".smc", ".swc", ".fig"),
 	"gbc":           single("gbc", ".gb", ".gbc", ".dmg"),
+	"sgb":           single("sgb", ".gb", ".gbc", ".dmg"),
 	"gba":           single("gba", ".gba"),
 	"nds":           single("nds", ".nds"),
 	"atari5200":     single("atari5200", ".a52"),
@@ -140,6 +144,7 @@ var registry = map[string]Profile{
 
 	"cavestory":    project("cavestory", ContentKindNXEngineProject),
 	"scummvm":      project("scummvm", ContentKindScummVMProject),
+	"daphne":       project("daphne", ContentKindDaphneProject),
 	"rpgmaker":     project("rpgmaker", ContentKindRPGMakerProject),
 	"ons":          project("ons", ContentKindONSProject),
 	"kirikiri":     project("kirikiri", ContentKindKiriKiriProject),
