@@ -72,7 +72,7 @@ Provider 是核心生命周期的唯一所有者，不包装第二个 controller
 
 Player Host 只消费 `PlayerRuntimeV1` 的标准能力和事件，不按 Provider、Target 或游戏类型分支。暂停、音量、输入过滤、视频模式、换盘、截图、帧计数、checkpoint 和退出由 Provider 实现。退出、异常与 React 卸载共用 exactly-once cleanup；Host 先等待 Provider `exit()`，再撤销 frame、MessagePort、observer 和请求 signal。加载期间退出也必须取消当前 bootstrap 并等待其终止，再完成会话与导航；尚未返回 runtime controller 不表示没有启动任务。取消后晚到的 runtime 只执行清理，不得 mount 或重新开始游戏。
 
-运行时可选提供 `getGameEditor()`，Host 据此显示“游戏修改”入口。RPG Maker MV/MZ 的实现通过隔离 iframe 的现有 MessageChannel 调用引擎公开数据 API；不将游戏数据搬入 Host，也不向 Host 暴露 iframe 的全局对象。接口只读类别与分页条目，并对当前游戏状态执行逐项写入；一期限制在金币、道具数量、变量、开关和常规角色属性。
+运行时可选提供 `getGameEditor()`，Host 据此显示“游戏修改”入口。RPG Maker MV/MZ 的实现通过隔离 iframe 的现有 MessageChannel 调用引擎公开数据 API；不将游戏数据搬入 Host，也不向 Host 暴露 iframe 的全局对象。接口只读类别与分页条目，并对当前游戏状态执行逐项写入；范围限制在金币、道具/武器/护甲数量、变量、开关、队伍角色常规属性和队伍角色的主动学习技能。技能类别带有当前队伍的人物分组；Host 以人物名标签切换，并将选中分组的 ID 传给 `entries` 和 `set`，每页仅返回该人物的技能。技能状态读取 `isLearnedSkill`，写入调用 `learnSkill`/`forgetSkill`；职业或装备通过特性附加的技能不计入主动学习状态，技能能否在游戏内使用仍受技能类型等游戏规则约束。
 
 除独立 origin 的 Web 项目外，会挂载 DOM/canvas 的运行时都在 Provider 创建的同源空白 frame 内执行。Provider 负责满尺寸 surface、原始宽高比最大内接、居中和 resize observer；Host 不给单个核心补 CSS。该边界同时防止核心全局变量、异常和样式污染 Next.js document，并保证普通与沉浸 Player 一致。
 

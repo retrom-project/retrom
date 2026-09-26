@@ -104,4 +104,43 @@ describe("GameEditorPanel", () => {
     await waitFor(() => expect(panel.getByText("护甲 41")).toBeVisible());
     expect(entries).toHaveBeenCalledTimes(3);
   });
+
+  it("shows one actor's skills per tab with direct learn and forget actions", async () => {
+    let learned = false;
+    const entry = () => ({id: "1:2", label: "Fire", value: learned, valueType: "boolean" as const});
+    const set = vi.fn(async (_category: string, _id: string, value: number | string | boolean) => {
+      learned = value === true;
+      return entry();
+    });
+    const entries = vi.fn(async (category: string) => ({entries: category === "skills:1" ? [entry()]
+      : [{id: "2:3", label: "Cure", value: true, valueType: "boolean" as const}], nextOffset: null}));
+    const editor: RuntimeGameEditorV1 = {categories: async () => [{id: "skills", label: "技能",
+      groups: [{id: "skills:1", label: "Hero"}, {id: "skills:2", label: "Mage"}]}], entries, set};
+    const view = render(<GameEditorPanel editor={editor} onClose={vi.fn()} />);
+    const panel = within(view.container);
+    await waitFor(() => expect(panel.getByText("Fire")).toBeVisible());
+    expect(entries).toHaveBeenCalledWith("skills:1", "", 0, 40);
+    expect(panel.getByRole("tab", {name: "Hero"})).toHaveAttribute("aria-selected", "true");
+    expect(panel.getByText("当前：未学会")).toBeVisible();
+    fireEvent.click(panel.getByRole("button", {name: /Fire.*点击学习/u}));
+    await waitFor(() => expect(set).toHaveBeenCalledWith("skills:1", "1:2", true));
+    expect(panel.getByText("当前：已学会")).toBeVisible();
+    fireEvent.click(panel.getByRole("button", {name: /Fire.*点击遗忘/u}));
+    await waitFor(() => expect(set).toHaveBeenCalledWith("skills:1", "1:2", false));
+    fireEvent.click(panel.getByRole("button", {name: /^查找$/u}));
+    const searchInput = view.container.querySelector<HTMLInputElement>('input[type="search"]');
+    expect(searchInput).not.toBeNull();
+    fireEvent.change(searchInput!, {target: {value: "Fire"}});
+    fireEvent.click(panel.getByRole("button", {name: /^查找$/u}));
+    await waitFor(() => expect(entries).toHaveBeenCalledWith("skills:1", "Fire", 0, 40));
+    const list = view.container.querySelector<HTMLElement>(".game-editor-list")!;
+    list.scrollTop = 120;
+    fireEvent.click(panel.getByRole("tab", {name: "Mage"}));
+    await waitFor(() => expect(panel.getByText("Cure")).toBeVisible());
+    expect(panel.queryByText("Fire")).toBeNull();
+    expect(view.container.querySelector('input[type="search"]')).toBeNull();
+    expect(list.scrollTop).toBe(0);
+    expect(entries).toHaveBeenCalledWith("skills:2", "", 0, 40);
+    expect(panel.getByRole("tab", {name: "Mage"})).toHaveAttribute("aria-selected", "true");
+  });
 });

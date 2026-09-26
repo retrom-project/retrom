@@ -99,8 +99,14 @@ export type RuntimeGameEditEntryV1 = {
   max?: number;
 };
 export type RuntimeGameEditPageV1 = {entries: RuntimeGameEditEntryV1[]; nextOffset: number | null};
+export type RuntimeGameEditCategoryV1 = {
+  id: string;
+  label: string;
+  /** Optional named scopes; pass a scope ID to entries/set. */
+  groups?: Array<{id: string; label: string}>;
+};
 export interface RuntimeGameEditorV1 {
-  categories(): Promise<Array<{id: string; label: string}>>;
+  categories(): Promise<RuntimeGameEditCategoryV1[]>;
   entries(category: string, query: string, offset: number, limit: number): Promise<RuntimeGameEditPageV1>;
   set(category: string, id: string, value: Exclude<RuntimeGameEditValueV1, null>): Promise<RuntimeGameEditEntryV1>;
 }

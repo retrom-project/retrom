@@ -23,6 +23,8 @@
 .button svg { width: 18px; height: 18px; flex-shrink: 0; }
 .game-editor-categories .button.secondary { border-radius: 999px; background: var(--surface-subtle); }
 .game-editor-categories .button.secondary.is-active { border-color: var(--purple); background: var(--purple-soft); color: var(--ink); }
+.game-editor-actor-tabs .button.secondary { border-radius: 999px; background: var(--surface-subtle); }
+.game-editor-actor-tabs .button.secondary[aria-selected="true"] { border-color: var(--purple); background: var(--purple-soft); color: var(--ink); }
 
 /* Native semantics, keyboard interaction and option selection are retained. */
 select, .import-directory-trigger {
