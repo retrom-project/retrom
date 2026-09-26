@@ -1,4 +1,4 @@
-package architecture
+package libraryimport
 
 import (
 	"go/ast"
@@ -13,7 +13,7 @@ import (
 func TestLibraryImportFacadeDoesNotOwnSQLExecution(t *testing.T) {
 	t.Parallel()
 	set := token.NewFileSet()
-	err := filepath.WalkDir("../libraryimport", func(path string, entry fs.DirEntry, err error) error {
+	err := filepath.WalkDir(".", func(path string, entry fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}

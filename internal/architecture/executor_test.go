@@ -13,7 +13,7 @@ import (
 func TestSQLExecutionInterfacesBelongToDatabase(t *testing.T) {
 	t.Parallel()
 	definitions := 0
-	err := filepath.WalkDir("..", func(path string, entry fs.DirEntry, err error) error {
+	err := filepath.WalkDir(sourceRoot(t), func(path string, entry fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -45,7 +45,7 @@ func TestSQLExecutionInterfacesBelongToDatabase(t *testing.T) {
 
 func validateSQLInterface(t *testing.T, path string, contract *ast.InterfaceType) {
 	t.Helper()
-	if !strings.HasPrefix(path, filepath.Join("..", "database")+string(filepath.Separator)) {
+	if !strings.HasPrefix(path, filepath.Join(sourceRoot(t), "database")+string(filepath.Separator)) {
 		t.Errorf("%s declares SQL execution; reuse an internal/database interface", path)
 	}
 	for _, method := range contract.Methods.List {

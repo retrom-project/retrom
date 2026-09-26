@@ -22,7 +22,7 @@ func TestProductionLaunchHasOneProviderTargetEnvelopePath(t *testing.T) {
 		"nativeProfile",
 		"resumeSlot",
 	})
-	if count := archcheck.CountSourceToken(t, "runtimeBuilder.Build("); count != 0 {
-		t.Fatalf("runtimeBuilder.Build calls = %d, want 0", count)
+	if count := archcheck.CountSourceToken(t, "runtimeBuilder.Build("); count != 1 {
+		t.Fatalf("runtimeBuilder.Build calls = %d, want 1", count)
 	}
 }

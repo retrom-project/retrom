@@ -1,4 +1,4 @@
-package architecture
+package httpapi
 
 import (
 	"go/parser"
@@ -11,7 +11,7 @@ import (
 )
 
 func TestServerImportHTTPUsesApplicationService(t *testing.T) {
-	entries, err := os.ReadDir("../httpapi")
+	entries, err := os.ReadDir(".")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -19,7 +19,7 @@ func TestServerImportHTTPUsesApplicationService(t *testing.T) {
 		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".go") || strings.HasSuffix(entry.Name(), "_test.go") {
 			continue
 		}
-		name := filepath.Join("../httpapi", entry.Name())
+		name := filepath.Join(".", entry.Name())
 		file, err := parser.ParseFile(token.NewFileSet(), name, nil, parser.ImportsOnly)
 		if err != nil {
 			t.Fatal(err)
