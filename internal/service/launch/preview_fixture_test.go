@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/runtimebundle"
+	runtimebundle "retrom/internal/runtime/bundle"
 )
 
 const previewTestID = "01a00000-0000-7000-8000-000000000001"

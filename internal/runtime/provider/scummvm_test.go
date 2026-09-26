@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"retrom/internal/runtimebundle"
+	runtimebundle "retrom/internal/runtime/bundle"
 )
 
 func TestScummVMToolUsesVerifiedInstallationAndPrivateExecutableCopy(t *testing.T) {

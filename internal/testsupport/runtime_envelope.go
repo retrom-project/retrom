@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"retrom/internal/runtimebundle"
+	runtimebundle "retrom/internal/runtime/bundle"
 )
 
 // RuntimeEnvelope decodes and closed-validates a launch response for

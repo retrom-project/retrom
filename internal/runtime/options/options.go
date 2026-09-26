@@ -9,8 +9,8 @@ import (
 	"retrom/internal/core/kirikiri/detector"
 	onsdetection "retrom/internal/core/ons/detector"
 	"retrom/internal/core/scummvm"
-	"retrom/internal/runtimebundle"
-	"retrom/internal/runtimecatalog"
+	runtimebundle "retrom/internal/runtime/bundle"
+	runtimecatalog "retrom/internal/runtime/catalog"
 )
 
 var (

@@ -12,8 +12,8 @@ import (
 
 	"retrom/internal/blobstore"
 	retromruntime "retrom/internal/runtime"
-	"retrom/internal/runtimebundle"
-	"retrom/internal/runtimelaunch"
+	runtimebundle "retrom/internal/runtime/bundle"
+	runtimelaunch "retrom/internal/runtime/launch"
 	application "retrom/internal/service/launch"
 )
 

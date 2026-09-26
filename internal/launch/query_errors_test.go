@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/runtimelaunch"
+	runtimelaunch "retrom/internal/runtime/launch"
 
 	_ "modernc.org/sqlite" // Register the driver for cancellation regression queries.
 )

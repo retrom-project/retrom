@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"retrom/internal/dependencies"
-	"retrom/internal/runtimecatalog"
+	runtimecatalog "retrom/internal/runtime/catalog"
 )
 
 var (

@@ -80,7 +80,7 @@ catalog 中的 content kind、detector/delivery profile、launch/review policy �
 
 Provider 安装和数据库 reconcile 在对外 ready 之前完成。激活事务登记 Bundle 与 Target、验证所有当前 binding 和 checkpoint 格式引用，然后一次切换 active identity。
 
-安装资源读取与完整性检查位于 `internal/runtimeprovider`；激活候选校验、版本比较、引用保护和 checkpoint 兼容性规则位于 `internal/service/runtimeprovider`。`internal/persistence/runtimeprovider` 提供当前目录事实和事务内的写入能力。Service 在同一个事务范围内完成兼容性判断、发布新目录及写入审计；候选未变化时不重复写入。任一步失败时目录与审计共同回滚。
+安装资源读取与完整性检查位于 `internal/runtime/provider`；激活候选校验、版本比较、引用保护和 checkpoint 兼容性规则位于 `internal/service/runtimeprovider`。`internal/persistence/runtimeprovider` 提供当前目录事实和事务内的写入能力。Service 在同一个事务范围内完成兼容性判断、发布新目录及写入审计；候选未变化时不重复写入。任一步失败时目录与审计共同回滚。
 
 系统只支持向前升级：
 

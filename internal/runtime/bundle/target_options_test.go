@@ -8,7 +8,7 @@ import (
 
 func TestSharedTargetOptionsSchemaFixtures(t *testing.T) {
 	t.Parallel()
-	contents, err := os.ReadFile(filepath.Join("..", "..", "api", "runtime-provider", "v1", "fixtures",
+	contents, err := os.ReadFile(filepath.Join("..", "..", "..", "api", "runtime-provider", "v1", "fixtures",
 		"target-options", "schema-validation.json"))
 	if err != nil {
 		t.Fatal(err)

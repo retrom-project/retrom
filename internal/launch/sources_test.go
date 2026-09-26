@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	"retrom/internal/runtimelaunch"
+	runtimelaunch "retrom/internal/runtime/launch"
 )
 
 func TestSourcesWithoutProviderRemainUnavailable(t *testing.T) {

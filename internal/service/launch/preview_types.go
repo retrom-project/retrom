@@ -5,7 +5,7 @@ import (
 	"errors"
 	"time"
 
-	"retrom/internal/runtimebundle"
+	runtimebundle "retrom/internal/runtime/bundle"
 )
 
 var (

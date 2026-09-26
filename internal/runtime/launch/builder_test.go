@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"retrom/internal/runtimebundle"
-	"retrom/internal/runtimecatalog"
+	runtimebundle "retrom/internal/runtime/bundle"
+	runtimecatalog "retrom/internal/runtime/catalog"
 )
 
 func TestBuilderProducesClosedEnvelopeFromActiveProviderTarget(t *testing.T) {

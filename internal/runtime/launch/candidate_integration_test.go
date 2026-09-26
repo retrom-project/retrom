@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"retrom/internal/runtimebundle"
-	"retrom/internal/runtimecatalog"
+	runtimebundle "retrom/internal/runtime/bundle"
+	runtimecatalog "retrom/internal/runtime/catalog"
 )
 
 func TestInstalledCandidateBuildsDeterministicEnvelopeForAll56Bindings(t *testing.T) {
@@ -30,7 +30,7 @@ func TestInstalledCandidateBuildsDeterministicEnvelopeForAll56Bindings(t *testin
 	if err != nil {
 		t.Fatal(err)
 	}
-	catalogContents, err := os.ReadFile(filepath.Join("..", "..", "data", "runtime-target-bindings", "v1", "catalog.json"))
+	catalogContents, err := os.ReadFile(filepath.Join("..", "..", "..", "data", "runtime-target-bindings", "v1", "catalog.json"))
 	if err != nil {
 		t.Fatal(err)
 	}

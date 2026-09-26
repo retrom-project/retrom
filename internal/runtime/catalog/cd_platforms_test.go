@@ -10,7 +10,7 @@ import (
 
 func TestDiscAndBroadcastPlatformsHaveRecommendedBindings(t *testing.T) {
 	t.Parallel()
-	contents, err := os.ReadFile(filepath.Join("..", "..", "data", "runtime-target-bindings", "v1", "catalog.json"))
+	contents, err := os.ReadFile(filepath.Join("..", "..", "..", "data", "runtime-target-bindings", "v1", "catalog.json"))
 	if err != nil {
 		t.Fatal(err)
 	}

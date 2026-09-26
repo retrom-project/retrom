@@ -7,14 +7,14 @@ import (
 	"time"
 
 	"retrom/internal/cleanup"
+	runtimecatalog "retrom/internal/runtime/catalog"
+	runtimelaunch "retrom/internal/runtime/launch"
 
 	application "retrom/internal/service/launch"
 
 	"retrom/internal/blobstore"
 	"retrom/internal/dependencies"
 	retromruntime "retrom/internal/runtime"
-	"retrom/internal/runtimecatalog"
-	"retrom/internal/runtimelaunch"
 )
 
 type Service struct {

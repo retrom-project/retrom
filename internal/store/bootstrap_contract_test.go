@@ -9,7 +9,7 @@ import (
 
 	runtimecatalogpersistence "retrom/internal/persistence/runtimecatalog"
 
-	"retrom/internal/runtimecatalog"
+	runtimecatalog "retrom/internal/runtime/catalog"
 )
 
 func TestBootstrapCreatesFinalSchemaWithoutLegacyConversion(t *testing.T) {

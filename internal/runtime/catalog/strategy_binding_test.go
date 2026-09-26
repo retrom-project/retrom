@@ -8,7 +8,7 @@ import (
 
 func TestBindingSelectsStrategyWithoutRepeatingFixedFacts(t *testing.T) {
 	t.Parallel()
-	contents, err := os.ReadFile("../../data/runtime-target-bindings/v1/catalog.json")
+	contents, err := os.ReadFile("../../../data/runtime-target-bindings/v1/catalog.json")
 	if err != nil {
 		t.Fatal(err)
 	}

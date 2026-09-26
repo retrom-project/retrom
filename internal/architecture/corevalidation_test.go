@@ -6,5 +6,5 @@ func TestCoreValidationUsesBusinessPorts(t *testing.T) {
 	t.Parallel()
 	assertBusinessImports(t, "../service/corevalidation")
 	assertBusinessImports(t, "../corevalidation")
-	assertBusinessImports(t, "../runtimecatalog")
+	assertBusinessImports(t, "../runtime/catalog")
 }

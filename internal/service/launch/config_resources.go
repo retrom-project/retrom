@@ -3,7 +3,7 @@ package launch
 import (
 	"errors"
 
-	"retrom/internal/runtimebundle"
+	runtimebundle "retrom/internal/runtime/bundle"
 )
 
 var errConfigInputMissing = errors.New("launch input absent")

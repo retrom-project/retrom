@@ -9,8 +9,8 @@ import (
 
 	"golang.org/x/mod/semver"
 
-	"retrom/internal/runtimebundle"
-	"retrom/internal/runtimecatalog"
+	runtimebundle "retrom/internal/runtime/bundle"
+	runtimecatalog "retrom/internal/runtime/catalog"
 )
 
 var (

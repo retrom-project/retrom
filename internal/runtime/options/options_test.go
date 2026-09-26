@@ -5,8 +5,8 @@ import (
 	"reflect"
 	"testing"
 
-	"retrom/internal/runtimebundle"
-	"retrom/internal/runtimecatalog"
+	runtimebundle "retrom/internal/runtime/bundle"
+	runtimecatalog "retrom/internal/runtime/catalog"
 )
 
 func TestRegisteredEmulatorStrategyBuildsOnlyRelevantCurrentOptions(t *testing.T) {

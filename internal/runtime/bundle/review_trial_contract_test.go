@@ -9,7 +9,7 @@ import (
 
 func TestOrdinaryReviewEnvelopeDoesNotRequireProofProtocol(t *testing.T) {
 	t.Parallel()
-	contents, err := os.ReadFile(filepath.Join("..", "..", "api", "runtime-provider", "v1", "fixtures", "valid", "single-minimal.json"))
+	contents, err := os.ReadFile(filepath.Join("..", "..", "..", "api", "runtime-provider", "v1", "fixtures", "valid", "single-minimal.json"))
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -12,7 +12,7 @@ import (
 	"strings"
 	"testing"
 
-	"retrom/internal/runtimebundle"
+	runtimebundle "retrom/internal/runtime/bundle"
 )
 
 func TestStaticHandlerServesOnlyVerifiedActivePublicFiles(t *testing.T) {

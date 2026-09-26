@@ -5,7 +5,7 @@ import (
 	"errors"
 
 	"retrom/internal/blobstore"
-	"retrom/internal/runtimebundle"
+	runtimebundle "retrom/internal/runtime/bundle"
 )
 
 type Repository interface {

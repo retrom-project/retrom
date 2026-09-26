@@ -16,7 +16,7 @@ import (
 
 	"retrom/internal/cleanup"
 	"retrom/internal/core/scummvm"
-	"retrom/internal/runtimebundle"
+	runtimebundle "retrom/internal/runtime/bundle"
 )
 
 const scummVMAssets = "assets/scummvm/"

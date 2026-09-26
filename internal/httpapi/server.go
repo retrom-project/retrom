@@ -45,7 +45,7 @@ import (
 	mediapersistence "retrom/internal/persistence/mediaaccess"
 	platformpersistence "retrom/internal/persistence/platforminstance"
 	retromruntime "retrom/internal/runtime"
-	"retrom/internal/runtimelaunch"
+	runtimelaunch "retrom/internal/runtime/launch"
 	"retrom/internal/serversource"
 	"retrom/internal/service/accounts"
 	biosservice "retrom/internal/service/bios"

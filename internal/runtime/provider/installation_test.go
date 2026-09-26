@@ -18,9 +18,9 @@ import (
 	providerservice "retrom/internal/service/runtimeprovider"
 
 	"retrom/internal/cleanup"
-	"retrom/internal/runtimebundle"
-	"retrom/internal/runtimecatalog"
-	"retrom/internal/runtimelaunch"
+	runtimebundle "retrom/internal/runtime/bundle"
+	runtimecatalog "retrom/internal/runtime/catalog"
+	runtimelaunch "retrom/internal/runtime/launch"
 	"retrom/internal/store"
 )
 

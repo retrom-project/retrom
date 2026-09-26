@@ -30,8 +30,8 @@ def commands(quality: bool = False) -> list[list[str]]:
          "scripts.acceptance.tests.test_content_io_product_process",
          "scripts.acceptance.tests.test_rpgmaker_policy_fixture", "scripts.acceptance.tests.test_rpgmaker_resource_policy"],
         ["go", "test", "-tags", "integration", "./internal/httpapi/...", "./internal/launch/...",
-         "./internal/platformcatalog/...", "./internal/runtimebundle/...", "./internal/runtimecatalog/...",
-         "./internal/runtimelaunch/...", "./internal/runtimeoptions/...", "-count=1"],
+         "./internal/platformcatalog/...", "./internal/runtime/bundle/...", "./internal/runtime/catalog/...",
+         "./internal/runtime/launch/...", "./internal/runtime/options/...", "-count=1"],
         ["make", "web-lint", "web-typecheck", "web-test"],
     ]
 

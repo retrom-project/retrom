@@ -11,8 +11,8 @@ import (
 
 	service "retrom/internal/service/runtimeprovider"
 
-	"retrom/internal/runtimebundle"
-	"retrom/internal/runtimecatalog"
+	runtimebundle "retrom/internal/runtime/bundle"
+	runtimecatalog "retrom/internal/runtime/catalog"
 	"retrom/internal/store"
 )
 

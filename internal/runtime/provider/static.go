@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"retrom/internal/cleanup"
-	"retrom/internal/runtimebundle"
+	runtimebundle "retrom/internal/runtime/bundle"
 )
 
 var ErrInstallationInvalid = errors.New("RUNTIME_PROVIDER_INSTALLATION_INVALID")

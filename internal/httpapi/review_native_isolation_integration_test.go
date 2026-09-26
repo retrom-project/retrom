@@ -18,7 +18,7 @@ import (
 	isolationpersistence "retrom/internal/persistence/isolation"
 
 	"retrom/internal/libraryimport"
-	"retrom/internal/runtimelaunch"
+	runtimelaunch "retrom/internal/runtime/launch"
 	"retrom/internal/service/isolation"
 	"retrom/internal/testsupport"
 )

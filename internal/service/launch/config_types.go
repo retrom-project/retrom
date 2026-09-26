@@ -6,8 +6,8 @@ import (
 	"slices"
 	"time"
 
-	"retrom/internal/runtimebundle"
-	"retrom/internal/runtimelaunch"
+	runtimebundle "retrom/internal/runtime/bundle"
+	runtimelaunch "retrom/internal/runtime/launch"
 )
 
 // Config holds the single closed-validated Provider envelope.

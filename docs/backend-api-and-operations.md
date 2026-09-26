@@ -56,16 +56,18 @@ internal/firmware/        BIOS 文件与归档匹配、候选质量比较
 internal/firmware/manifest/ 带来源记录的固件清单、生成资源与校验
 internal/service/firmware/ BIOS 安装、替换决策与归档检查
 internal/persistence/firmware/ BIOS 事实查询及安装、消费、替换与进度记录事务
-internal/runtimeprovider/ Provider Bundle 安装、激活、静态文件与只前进升级校验
-internal/runtimecatalog/  产品 Core 到 Provider Target 的纯 catalog 解析与类型
+internal/runtime/         运行时凭据与播放器适配器
+internal/runtime/bundle/  Bundle 与 Launch Envelope V1 的闭合解析/语义校验
+internal/runtime/catalog/ 产品 Core 到 Provider Target 的纯 catalog 解析与类型
+internal/runtime/launch/  Provider-neutral Launch Envelope 投影
+internal/runtime/options/ Target 选项解析与校验
+internal/runtime/provider/ Provider Bundle 安装、激活、静态文件与只前进升级校验
 internal/persistence/runtimecatalog/ 已验证目录定义的事务投影
 internal/corevalidation/  BIOS/多盘快照、格式校验与确定性摘要
 internal/service/corevalidation/ 静态 BIOS 适用性、可用性与阻断判定
 internal/persistence/corevalidation/ BIOS 目录及安装事实查询
 internal/service/datindex/ DAT BIOS 需求身份、摘要与同步编排
 internal/persistence/datindex/ DAT 索引与需求记录写入
-internal/runtimebundle/   Bundle 与 Launch Envelope V1 的闭合解析/语义校验
-internal/runtimelaunch/   Provider-neutral Launch Envelope 投影
 internal/launch/          Provider、凭据/隔离签名、内容与截图文件适配器
 internal/service/launch/ 启动应用入口、内容授权、Preview/Product、截图、游玩与校验 worker 生命周期
 internal/persistence/launch/ 授权与内容快照、会话/响应收据/截图/游玩事务与校验任务调度

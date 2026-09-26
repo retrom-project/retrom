@@ -7,7 +7,7 @@ import (
 )
 
 func TestCatalogRejectsRetiredAssetPackDeclarations(t *testing.T) {
-	contents, err := os.ReadFile("../../data/runtime-target-bindings/v1/catalog.json")
+	contents, err := os.ReadFile("../../../data/runtime-target-bindings/v1/catalog.json")
 	if err != nil {
 		t.Fatal(err)
 	}

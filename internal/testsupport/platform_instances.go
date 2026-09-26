@@ -18,7 +18,7 @@ import (
 	"github.com/google/uuid"
 
 	"retrom/internal/platformcatalog"
-	"retrom/internal/runtimecatalog"
+	runtimecatalog "retrom/internal/runtime/catalog"
 	"retrom/internal/service/platforminstance"
 	"retrom/internal/store"
 )

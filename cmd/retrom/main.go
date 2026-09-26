@@ -39,7 +39,7 @@ import (
 	platformpersistence "retrom/internal/persistence/platforminstance"
 	"retrom/internal/processlock"
 	retromruntime "retrom/internal/runtime"
-	"retrom/internal/runtimeprovider"
+	runtimeprovider "retrom/internal/runtime/provider"
 	"retrom/internal/service/accounts"
 	"retrom/internal/service/maintenance"
 	"retrom/internal/service/platforminstance"

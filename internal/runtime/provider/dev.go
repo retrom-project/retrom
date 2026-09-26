@@ -7,7 +7,7 @@ import (
 	"io"
 	"path/filepath"
 
-	"retrom/internal/runtimebundle"
+	runtimebundle "retrom/internal/runtime/bundle"
 )
 
 // A dev descriptor embeds base64 core assets as well as metadata.

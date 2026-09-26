@@ -13,7 +13,7 @@ import (
 )
 
 func TestSharedLaunchEnvelopeFixtures(t *testing.T) {
-	root := filepath.Join("..", "..", "api", "runtime-provider", "v1", "fixtures")
+	root := filepath.Join("..", "..", "..", "api", "runtime-provider", "v1", "fixtures")
 	for _, test := range []struct {
 		directory string
 		valid     bool
@@ -42,7 +42,7 @@ func TestSharedLaunchEnvelopeFixtures(t *testing.T) {
 }
 
 func TestJSONSchemaAgreesWithSharedLaunchEnvelopeFixtures(t *testing.T) {
-	root := filepath.Join("..", "..", "api", "runtime-provider", "v1")
+	root := filepath.Join("..", "..", "..", "api", "runtime-provider", "v1")
 	schema := compileLaunchEnvelopeSchema(t, root)
 	fixtureRoot := filepath.Join(root, "fixtures")
 	for _, test := range []struct {
