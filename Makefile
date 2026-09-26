@@ -59,7 +59,7 @@ API_GO_GENERATED := internal/httpapi/generated/models.gen.go internal/httpapi/ge
 
 .PHONY: fmt fmt-check quality-structure-check install-deps install-go-formatters install-golangci-lint prepare-go prepare-node prepare-e2e-browser \
 	build test lint-go backend-check web-install web-lint web-typecheck web-test web-build web-check integration-test api-bundle api-generate-go api-generate api-check \
-	public-fixtures-generate public-fixtures-check web-e2e data-check prepare-deps deps-check release-input-digest ci dev build-backend-image \
+	public-fixtures-generate public-fixtures-check web-e2e data-check prepare-deps deps-check release-input-digest ci ci-contracts dev build-backend-image \
 	build-web-image build-images acceptance-prepare acceptance-case acceptance-report \
 	runtime-provider-prepare runtime-provider-prepare-candidate runtime-provider-check runtime-provider-pin-release runtime-provider-verify-upgrade \
 	runtime-provider-prepare-auto \
@@ -248,6 +248,8 @@ release-input-digest:
 workspace-check:
 	@python3 workspace/catalog.py
 	@python3 -m unittest discover -s workspace -p 'test_*.py'
+
+ci-contracts: workspace-check quality-structure-check api-check data-check
 
 ci: workspace-check quality-structure-check api-check backend-check web-check integration-test data-check
 

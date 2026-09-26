@@ -83,6 +83,7 @@ Provider 的 checkpoint 压缩依赖由 `retrom-runtime` 自己固定和审计�
 | `make retrom-runtime-dev-unlink` | 移除本地 runtime override，以固定 manifest 重新物化 aggregate Release 并恢复锁文件声明的 Web package | 会重建被忽略的依赖目录 |
 | `make release-input-digest` | 离线计算依赖专题规定的源码/依赖发布输入指纹，stdout 只输出 64 位小写 SHA-256 | 否 |
 | `make workspace-check` | 离线校验开发仓库清单、依赖闭包与 runtime 仓库覆盖，并运行清单解析器回归 | 否 |
+| `make ci-contracts` | `workspace-check + quality-structure-check + api-check + data-check`；供 PR 的契约与数据 job 使用 | 仅依赖产物 |
 | `make ci` | `workspace-check + quality-structure-check + api-check + backend-check + web-check + integration-test + data-check` | 仅依赖/构建产物与被忽略的 Go 生成物 |
 | `make dev` | 先生成被忽略的 Go API 文件并执行 `prepare-deps + web-install`；设置绝对路径 `RETROM_RUNTIME_DEV_ROOT` 时再应用显式本地 runtime link，随后在宿主机启动 Go/Next.js 并统一处理退出信号；不使用 Docker | 会写本地依赖/开发数据缓存与被忽略的 Go 生成物 |
 | `make pfb-init/validate/status` | 确定性建立或只读检查 PFB ID、严格 spec、registry、worktree、工具链、Chrome、workspace 与 开发 provider 模块摘要；不操作 Git、不启动容器 | `init` 写 worktree `.pfb/` 与根工作区被忽略、owner-only 的 `.pfb/registry-v1.json`，其余只读 |
@@ -100,7 +101,7 @@ Provider 的 checkpoint 压缩依赖由 `retrom-runtime` 自己固定和审计�
 
 补充规则：
 
-- UI 变更必须通过 `make web-ui-check` 与 `make acceptance-case CASE=ACC-UI-011`；后者在 PR CI 的 quality job 中独立必跑，覆盖真实页面、桌面/手机/物理 4K 150% 与当前截图。失败不能通过删除断言、缩小 viewport 矩阵或添加历史豁免绕过。设计变更必须更新唯一设计源并人工复核，自动化不代替审美判断。
+- UI 变更必须通过 `make web-ui-check` 与 `make acceptance-case CASE=ACC-UI-011`；后者在 PR CI 的 `browser-ui` job 中独立必跑，覆盖真实页面、桌面/手机/物理 4K 150% 与当前截图。失败不能通过删除断言、缩小 viewport 矩阵或添加历史豁免绕过。设计变更必须更新唯一设计源并人工复核，自动化不代替审美判断。
 - `make ci` 包含全部可复现的仓库内单元、集成与数据检查；没有合法公开 fixture 的核心启动兼容性不在自动化测试中冒充已覆盖。
 - 全新 checkout 的统一初始化入口是 `make install-deps`。它允许在测试或服务启动前联网下载锁定依赖；正确缓存后 `prepare-go`、`prepare-node`、`prepare-deps` 与 `prepare-e2e-browser` 均幂等复用。Go/Node 工具链、浏览器缓存和运行时 payload 不进入 Git 或镜像；固定版本的宿主 Go 可由 `auto` 模式直接复用，PFB 镜像中的固定工具链使用 `system` 模式。
 - 自动化测试不得读取操作者私有 ROM/BIOS。可提交 ROM/项目必须由项目所有或有明确再分发许可、保留可审查的唯一生成源，并由 `data-check`、`public-fixtures-check` 和实际产品消费者共同逐字节校验；当前实例是 `testdata/public-roms/gba-smoke/`、`testdata/public-roms/nes-smoke/`、`testdata/public-roms/snes-smoke/`、`testdata/public-roms/arcade-smoke/` 与 `testdata/public-roms/rpgmaker-smoke/`。RPG Maker 目录只含 Retrom 自有生成内容和清单锁定的 MIT MV CoreScript；ignored MZ 官方样例不属于可提交 fixture。
@@ -120,7 +121,7 @@ Provider 的 checkpoint 压缩依赖由 `retrom-runtime` 自己固定和审计�
 
 ### 3.1 全仓源码结构门禁
 
-所有 Git 已跟踪及尚未提交但未被 ignore 的手写新旧源码执行同一规则；不建立存量 baseline、旧文件 allowlist、“只禁止继续增长”或按本次 diff 跳过的历史豁免。`make quality-structure-check` 在完整 lint 和测试前快速失败，并由 `make backend-check`、`make web-check`、`make ci` 及 CI quality job 调用同一实现。
+所有 Git 已跟踪及尚未提交但未被 ignore 的手写新旧源码执行同一规则；不建立存量 baseline、旧文件 allowlist、“只禁止继续增长”或按本次 diff 跳过的历史豁免。`make quality-structure-check` 由 `make backend-check`、`make web-check`、`make ci` 及 PR 的 `contracts` job 调用同一实现；PR 各 job 并行执行，结构检查失败会使汇总 `quality` 失败。
 
 文件以格式化后的物理行计数，包含空行与注释；无末尾换行的最后一行仍计一行。硬门槛为：Go 生产文件 1,000 行、Go `*_test.go` 1,200 行、前端生产 `.ts/.tsx/.js/.jsx/.mjs` 600 行、前端测试与 `web/e2e/**` 800 行、手写 CSS 800 行。非阻断设计目标依次为 600、800、400、500、500 行。不得通过压缩代码、删除必要注释、合并语句、缩短可读命名或把逻辑机械移动到无职责的 `part1/part2/helpers` 文件规避计数。
 
@@ -423,7 +424,7 @@ RPG Maker fixture 必须遵守同一再分发规则：生成源、许可、固�
 
 ### Phase Q2：CI 与浏览器门禁
 
-1. `.github/workflows/ci.yml` 在所有 pull request 上设置 Go、Node/npm、仓库固定 Node 工具链及物化 runtime 缓存；随后先执行幂等且逐字节校验的 `make prepare-deps`，再运行 `make ci`。固定 golangci-lint 由 Makefile 依赖自动安装，同一 PR 的旧运行由 concurrency 取消。
+1. `.github/workflows/ci.yml` 在所有 pull request 上并行运行 `contracts`（`make ci-contracts`）、`backend`（`make backend-check`）、`integration`（`make integration-test`）、`web`（`make web-check`）及 `browser-ui`（`ACC-UI-011`）；每个 job 在自己的 runner 上准备所需 Go、Node/npm、Python 和缓存。使用运行时 payload 的 job 先执行幂等且逐字节校验的 `make prepare-deps`。汇总 `quality` 只在五项全部成功时通过；本地完整串行入口仍为 `make ci`。固定 golangci-lint 由 Makefile 依赖自动安装，同一 PR 的旧运行由 concurrency 取消。
 2. CI 使用锁文件和固定 manifest 安装依赖；runtime/core/DAT/许可 payload 可以由 `prepare-deps` 从锁定来源物化并按 hash 校验，测试阶段不下载第三方 ROM/BIOS、不访问真实 Hasheous，也不依赖开发机浏览器；仓库自有公开测试 ROM 直接从 checkout 读取并验证生成一致性。
 3. Linux CI 在浏览器验收前运行 `scripts/prepare-e2e-fonts.sh`，并将 `FONTCONFIG_FILE` 指向 checkout 内的 `.cache/tools/e2e-fonts/fonts.conf`；本地可使用相同命令复现。脚本从 Ubuntu 官方归档下载固定版本的 Droid Sans Fallback 和 DejaVu Sans 包，校验包与字体 SHA-256，保留各自许可说明，只在忽略的缓存中解包，不安装系统软件、不提交或分发字体二进制。Fontconfig 固定 Linux 默认无衬线字体及中文后备字体，避免宿主字体指标变化影响像素级回归；这只作用于测试环境，不改变产品字体栈。浏览器环境必须能区分渲染不同汉字；缺字方框不能作为布局、对比度或文字居中的有效证据。
 4. 建立 `web/e2e/` 的 Chrome 配置和关键路径；按改动范围或发布流程运行 `make web-e2e`。
@@ -435,7 +436,7 @@ RPG Maker fixture 必须遵守同一再分发规则：生成源、许可、固�
 2. 新增 `web/Dockerfile`，用多阶段构建生成前端镜像 `retrom-web`；采用 Next.js production/standalone 产物，最终镜像不包含开发依赖和构建缓存。
 3. 新增 `.dockerignore` 与 `web/.dockerignore`，排除 `.git`、缓存、`node_modules`、`.next`、coverage、E2E 报告、公开测试 ROM、本地 runtime 结果和运行数据；构建阶段只通过版本化脚本下载并校验允许进入镜像的固定 runtime artifact。
 4. 在 Makefile 实现三个 image targets 和共用 `release-input-digest` helper；两镜像都写入 `io.retrom.release-input-sha256`，组合 target 以 inspect 确认一致。构建完成后立即返回，不创建容器、不建立网络、不挂载卷、不 push registry。
-5. PR 的 quality check 统一执行 `make ci`；独立的 `branch-image/build` 在 GitHub runner 上执行 `make build-images` 并发布同仓库 PR 的分支测试镜像。涉及 Dockerfile、依赖锁文件、静态/runtime 资产或发布脚本时必须在合并前确认该检查通过，不要求开发机执行生产镜像构建。分支镜像不能被提升或标记为生产镜像。
+5. PR 的 `quality` 汇总检查要求上述五个独立 job 全部通过；独立的 `branch-image/build` 在 GitHub runner 上执行 `make build-images` 并发布同仓库 PR 的分支测试镜像。涉及 Dockerfile、依赖锁文件、静态/runtime 资产或发布脚本时必须在合并前确认镜像检查通过，不要求开发机执行生产镜像构建。分支镜像不能被提升或标记为生产镜像。
 6. `.github/workflows/docker-image.yml` 在 Retrom tag push 时独立执行 `make build-images`；该命令通过镜像内的确定性依赖物化、`data-check`、release-input digest 和双镜像 label 复核完成发布输入校验。两个镜像校验完成后才允许登录 Docker Hub 并推送生产镜像，流程不等待 Environment 人工批准，也不能用 Action 重新拼装或绕过 Makefile 的发布输入校验。
 
 ### 10.1 预期文件
@@ -450,7 +451,7 @@ RPG Maker fixture 必须遵守同一再分发规则：生成源、许可、固�
 | `/.golangci.yml` | Go lint、formatter、排除与 depguard |
 | `/quality/go-suppressions.json`、`/scripts/quality_structure.py` | 非结构性 Go suppression 中央清单与全仓源码结构门禁 |
 | `/Makefile` | 本地与 CI 的统一命令入口 |
-| `/.github/workflows/ci.yml` | 调用 `make ci` 的 required check |
+| `/.github/workflows/ci.yml` | 并行运行五项 PR 检查并汇总为 `quality` |
 | `/.github/workflows/branch-image.yml` | PR 的双镜像构建与 GHCR 分支测试镜像；不发布生产镜像 |
 | `/.github/workflows/docker-image.yml` | tag 的双镜像构建校验与 Docker Hub 发布门禁；不重复 PR quality job |
 | `/web/eslint.config.mjs` | Next.js/TypeScript lint 基线 |
