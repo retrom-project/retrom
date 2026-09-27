@@ -2544,16 +2544,18 @@ ACC-RPG-004/005/006 可通过 `rpgmaker_run_fixture.py create` 复制对应仓�
 `runId/caseId/status`，不接受缺原始记录的汇总；任一未执行场景、旧运行、不同资产、缺样本或失败断言均非零。该证明格式只描述真实
 Case 需要产出的证据，不能在原程序外根据历史 PASS 补造场景结果。
 
-性能的 baseline Bundle 和 Module 必须匹配环境中冻结的生产基线；以
+性能的 baseline Bundle 和 Module 默认匹配环境中冻结的生产基线；以
 `Bundle SHA-256 + Module SHA-256` 识别实际实现，不能将同一实现作为两种变体。
 PFB 可以在同一已安装 Bundle 上比较正式 Module 与开发 Module，但必须分别核验实际返回的
 模块字节，不能伪造不同的 Bundle 摘要。基线已有公共 Content I/O 时同样校验其资源峰值和关闭归零。
+若 DOSBox 验收需要本地核心修复，按 ACC-DOSBOX-001 的可复现构建步骤将同一候选核心用于两组；
+冻结重建后的基线 Module 和来源回执，明确区分于原生产 Module，不修改 production lock。
 `browserSha256` 是解析符号链接后实际 Chrome 可执行文件的 SHA-256，版本探针还必须匹配
 preflight；比较使用同一浏览器和运行配置。`sourceSha256` 是来源回执按 key 排序、无多余空白 JSON 的 SHA-256。
 最终 `make content-io-evidence-check IO_ENV=<绝对环境文件>` 调用同一 PFB 的 Runtime 校验器，
 只有 S00–S21 全部当前证据通过才输出 `CANDIDATE_VERIFIED`，不包括发布授权。
 
-当前完整场景证明已接入 WASM-4、TIC-80 和 FAKE-08 原产品入口；Ruffle 提供独立性能入口，
+当前完整场景证明已接入 WASM-4、TIC-80、FAKE-08、BBC、SAM Coupé 和 DOSBox 原产品入口；Ruffle 提供独立性能入口，
 其余原产品入口的普通生命周期报告不等于完整 Content I/O 场景证明。全矩阵入口仍保留严格
 校验，缺证明会失败。若任务明确缩减验证范围，交付记录必须分别列出实际版本和来源对应的
 已验证项、历史证据及未运行项；不得把范围缩减改写为完整矩阵或 `CANDIDATE_VERIFIED` 通过。
@@ -2564,8 +2566,9 @@ preflight；比较使用同一浏览器和运行配置。`sourceSha256` 是来�
 `tests/fixtures/content-io/product-cases.json` 为这些受管 Target 登记输入角色、来源回执、
 原产品入口、存档语义和必需场景。每个场景都有操作、可观察等待条件、最大等待预算、断言和
 失败码。Flycast 的普通及 Arcade Target 均使用 RANGE；Daphne 的 NO_SAVE 场景检查输入和退出，不要求不支持的存档操作。
-BBC 与 SAM Coupé 的真实产品生命周期入口见 ACC-BBC-001、ACC-SAMCOUPE-001；普通产品报告仍须补齐全部
-场景证明和性能样本，才可通过 Content I/O 矩阵。缺少入口时 `existingAcceptanceEntry: null` 仍输出
+BBC、SAM Coupé、DOSBox 的真实产品链和完整场景入口分别见 ACC-BBC-001、ACC-SAMCOUPE-001、
+ACC-DOSBOX-001；必须实际运行全部场景并保留性能样本，普通生命周期报告不能替代矩阵通过。
+缺少入口时 `existingAcceptanceEntry: null` 仍输出
 `CONTENT_IO_PRODUCT_DRIVER_MISSING` / BLOCKED，不能跳过或算作 PASS。既有 DOS 功能还有 ACC-RUN-005 的独立验收。
 清单只保存逻辑输入名；操作者路径和实际游戏留在本地验收目录。
 `scripts/acceptance/content_io_catalog.py` 校验完整 Target/Provider/模式集合、动作覆盖和场景集合，
