@@ -50,7 +50,7 @@ VALUES(?,?,?,'Bulk Admin','ADMIN','ENABLED',1,1)`, actorID, profileID, "bulk-"+a
 		fixture.execute(t, `UPDATE import_items SET metadata_json=json_set(metadata_json,'$.title',?) WHERE id=?`,
 			title, itemID)
 	}
-	approvals := fixture.service.reviewApprovals()
+	approvals := fixture.service.approvals
 	if _, err := approvals.Approve(ctx, application.ReviewApprovalRequest{
 		ItemID: itemID, ExpectedVersion: version,
 	}); !errors.Is(err, application.ErrInvalid) {

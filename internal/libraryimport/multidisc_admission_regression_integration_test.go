@@ -64,7 +64,7 @@ func TestMultiDiscAdmissionRejectsUnconfirmedRecords(t *testing.T) {
 					return result, nil
 				},
 			})
-			_, err = New(fault, time.Now).WithFileStore(blobs).CreateMultiDiscAttachment(ctx, itemID, 1, MultiDiscAttachmentRequest{UploadID: missing})
+			_, err = newTestImporter(t, fault, blobs, testImportOptions{Now: time.Now}).CreateMultiDiscAttachment(ctx, itemID, 1, MultiDiscAttachmentRequest{UploadID: missing})
 			if err == nil || cause != nil && !errors.Is(err, cause) || hits.Load() != 1 {
 				t.Fatalf("unconfirmed admission: hits=%d err=%v", hits.Load(), err)
 			}

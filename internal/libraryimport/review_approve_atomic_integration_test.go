@@ -84,9 +84,9 @@ func verifyApprovalLateFailure(t *testing.T, stage string) {
 	ctx := prepareApprovalSelections(t, fixture, itemID)
 	before := approvalDatabaseRows(t, fixture.database)
 	fault := &approvalTransactionFault{stage: stage, cause: errors.New("late approval store failure")}
-	fixture.service.database = testsupport.OpenSQLFaultDatabase(t, fixture.database, testsupport.SQLFaultHooks{
+	fixture.service = newTestImporter(t, testsupport.OpenSQLFaultDatabase(t, fixture.database, testsupport.SQLFaultHooks{
 		BeforeExec: fault.beforeExec, AfterExec: fault.afterExec,
-	})
+	}), fixture.service.blobs, testImportOptions{Now: fixture.service.now, MultiDiscEnabled: fixture.service.multiDiscImportEnabled})
 	result, err := fixture.service.Approve(ctx, itemID, 1)
 	if !errors.Is(err, fault.cause) || result != (Approved{}) || fault.hits != 1 || fault.games != 1 {
 		t.Fatalf("result=%+v err=%v fault=%+v", result, err, fault)
@@ -112,7 +112,7 @@ func verifyApprovalLateFailure(t *testing.T, stage string) {
 	before["content_identity_claims"] = approvalTableRows(t, fixture.database, "content_identity_claims")
 	before["import_items"] = approvalTableRows(t, fixture.database, "import_items")
 	assertApprovalRowsUnchanged(t, fixture.database, before)
-	fixture.service.database = fixture.database
+	fixture.service = newTestImporter(t, fixture.database, fixture.service.blobs, testImportOptions{Now: fixture.service.now, MultiDiscEnabled: fixture.service.multiDiscImportEnabled})
 	approved, err := fixture.service.Approve(ctx, itemID, 1)
 	if err != nil || approved.GameID != gameID || approved.Status != "PUBLISHED" {
 		t.Fatalf("retry=%+v err=%v", approved, err)

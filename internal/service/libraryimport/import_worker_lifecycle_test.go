@@ -156,6 +156,7 @@ func TestImportWorkerConcurrentNotificationsRegisterOnePreparation(t *testing.T)
 	fixture := newManagedImportFixture()
 	worker := fixture.worker()
 	t.Cleanup(func() { fixture.release(); worker.Close() })
+	worker.Start()
 	var notify sync.WaitGroup
 	for range 20 {
 		notify.Go(func() { worker.NotifyImportGroup(context.Background(), "job") })
@@ -214,5 +215,32 @@ func TestImportWorkerCloseJoinsClaimedWorkBeforeRunRegistration(t *testing.T) {
 	awaitImportSignal(t, closed)
 	if fixture.prepares.Load() != 0 || fixture.finishes.Load() != 1 {
 		t.Fatalf("claim handoff: prepares=%d finishes=%d", fixture.prepares.Load(), fixture.finishes.Load())
+	}
+}
+
+func TestImportWorkerNotificationsRequireStart(t *testing.T) {
+	fixture := newManagedImportFixture()
+	worker := fixture.worker()
+	t.Cleanup(func() { fixture.release(); worker.Close() })
+	worker.NotifyImportGroup(t.Context(), "job")
+	worker.Resume(t.Context())
+	if worker.started {
+		t.Fatal("notification started the worker")
+	}
+	if err := worker.Recover(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	if worker.started {
+		t.Fatal("recovery started the worker")
+	}
+	worker.Start()
+	worker.Start()
+	awaitImportSignal(t, fixture.entered)
+	fixture.release()
+	worker.Close()
+	worker.Start()
+	worker.NotifyImportGroup(t.Context(), "job")
+	if fixture.prepares.Load() != 1 {
+		t.Fatalf("preparations=%d", fixture.prepares.Load())
 	}
 }

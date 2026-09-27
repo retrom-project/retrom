@@ -10,7 +10,8 @@ import (
 	"strings"
 	"testing"
 
-	"retrom/internal/composition"
+	librarycomposition "retrom/internal/composition/libraryimport"
+
 	dbapi "retrom/internal/database"
 	"retrom/internal/testsupport"
 )
@@ -37,7 +38,7 @@ func TestReviewCoverConsumptionFailureRemainsServerError(t *testing.T) {
 			return nil
 		},
 	})
-	server.reviewCoverUploads = composition.NewLibraryReviewCoverUploads(faultDB, server.blobs, server.now)
+	server.reviewCoverUploads = librarycomposition.NewReviewCoverUploads(faultDB, server.blobs, server.now)
 	response := requestReviewCover(t, server, itemID, fileID)
 	if response.Code != http.StatusInternalServerError || inserted != 1 || failed != 1 {
 		t.Fatalf("consumption SQL failure misclassified: status=%d inserted=%d failed=%d body=%s", response.Code, inserted, failed, response.Body.String())

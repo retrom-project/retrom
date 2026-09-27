@@ -18,7 +18,7 @@ import (
 func ownedSourceFixture(t *testing.T) (deduplicateFixture, application.OwnedServerSourceRequest) {
 	t.Helper()
 	fixture := newDeduplicateFixture(t)
-	fixture.service.now = ownedSourceNow
+	fixture.service = newTestImporter(t, fixture.service.database, fixture.service.blobs, testImportOptions{Now: ownedSourceNow, MultiDiscEnabled: fixture.service.multiDiscImportEnabled})
 	metadata, err := fixture.blobs.Put(bytes.NewBufferString("owned server source bytes"))
 	if err != nil {
 		t.Fatal(err)

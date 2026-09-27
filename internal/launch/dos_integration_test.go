@@ -16,6 +16,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/testsupport/importfixture"
+
 	variantrepository "retrom/internal/persistence/gamevariant"
 	gamevariant "retrom/internal/service/gamevariant"
 
@@ -90,7 +92,7 @@ WHERE id=?
 			func() bool { return time.Now().After(deadline) }), "DOS upload finalize = %s", state)
 		time.Sleep(10 * time.Millisecond)
 	}
-	importService := libraryimport.New(database.SQL, time.Now).WithFileStore(blobs)
+	importService := importfixture.New(t, database.SQL, blobs, importfixture.Options{Now: time.Now})
 	dosID := testsupport.MustPlatformInstanceID(t, database.SQL, "dos/dosbox_pure")
 	createdImport, err := importService.Create(
 		ctx,

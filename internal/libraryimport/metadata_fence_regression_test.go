@@ -74,7 +74,7 @@ func assertMetadataDraftCAS(t *testing.T, phase string) {
 			t.Error(err)
 		}
 	})
-	fixture.service.database = intercepted
+	fixture.service = newTestImporter(t, intercepted, fixture.service.blobs, testImportOptions{Now: fixture.service.now, MultiDiscEnabled: fixture.service.multiDiscImportEnabled})
 	version, _, err := fixture.service.SeedServerReviewMetadata(fixture.ctx, itemID, ServerMetadata{Title: "Changed"})
 	expected := cause
 	if expected == nil {

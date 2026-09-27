@@ -51,7 +51,7 @@ VALUES(?,?,?,'Bulk Admin','ADMIN','ENABLED',1,1)`, actorID, profileID, "bulk-"+a
 	}
 	ctx := authn.WithPrincipal(fixture.ctx, authn.Principal{UserID: actorID, ProfileID: profileID, Role: "ADMIN"})
 	approve := func(worker string) error {
-		_, err := fixture.service.reviewApprovals().Approve(ctx, application.ReviewApprovalRequest{
+		_, err := fixture.service.approvals.Approve(ctx, application.ReviewApprovalRequest{
 			ItemID: itemID, ExpectedVersion: version,
 			Bulk: &application.BulkPublicationIntent{
 				BulkID: bulkID, JobID: jobID, WorkerID: worker,
@@ -84,7 +84,7 @@ VALUES(?,?,?,'Bulk Admin','ADMIN','ENABLED',1,1)`, actorID, profileID, "bulk-"+a
 	if games != 1 || published != 0 || scanned != 0 {
 		t.Fatalf("commit games=%d published=%d scanned=%d", games, published, scanned)
 	}
-	bulkService := librarycomposition.NewReviewBulk(fixture.database, fixture.service.reviewApprovals(), time.Now)
+	bulkService := librarycomposition.NewReviewBulk(fixture.database, fixture.service.approvals, time.Now)
 	t.Cleanup(bulkService.Close)
 	if err := bulkService.Start(context.WithoutCancel(ctx)); err != nil {
 		t.Fatal(err)
@@ -130,7 +130,7 @@ VALUES(?,?,?,'Bulk Admin','ADMIN','ENABLED',1,1)`, actorID, profileID, "bulk-"+a
 		t.Fatal(err)
 	}
 	fixture.execute(t, `UPDATE import_items SET review_version=review_version+1,review_updated_at_ms=? WHERE id=?`, createdAt+1, itemID)
-	bulkService := librarycomposition.NewReviewBulk(fixture.database, fixture.service.reviewApprovals(), time.Now)
+	bulkService := librarycomposition.NewReviewBulk(fixture.database, fixture.service.approvals, time.Now)
 	t.Cleanup(bulkService.Close)
 	if err := bulkService.Start(fixture.ctx); err != nil {
 		t.Fatal(err)

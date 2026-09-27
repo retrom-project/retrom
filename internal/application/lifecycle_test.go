@@ -50,6 +50,12 @@ func TestConstructionDoesNotRecoverAndStartupReportsRecoveryFailure(t *testing.T
 	if err := services.Start(t.Context()); err == nil {
 		t.Fatal("startup concealed missing worker tables")
 	}
+	if !services.closed {
+		t.Fatal("failed startup did not close services")
+	}
+	if err := services.Start(t.Context()); !errors.Is(err, ErrClosed) {
+		t.Fatalf("restart after failure=%v", err)
+	}
 	services.Close()
 }
 
@@ -60,5 +66,25 @@ func TestCancelledStartupPreservesTheCauseAndCanClose(t *testing.T) {
 	if err := services.Start(ctx); !errors.Is(err, context.Canceled) {
 		t.Fatalf("cancelled startup=%v", err)
 	}
+	if !services.closed {
+		t.Fatal("failed startup did not close services")
+	}
+	if err := services.Start(t.Context()); !errors.Is(err, ErrClosed) {
+		t.Fatalf("restart after failure=%v", err)
+	}
 	services.Close()
+}
+
+func TestCloseBeforeStartPreventsBackgroundWork(t *testing.T) {
+	services := newLifecycleFixture(t)
+	services.Close()
+	if err := services.Start(t.Context()); !errors.Is(err, ErrClosed) {
+		t.Fatalf("start after Close=%v", err)
+	}
+}
+
+func TestMissingApplicationDependenciesReturnConstructionError(t *testing.T) {
+	if services, err := New(Inputs{}); err == nil || services != nil {
+		t.Fatalf("missing inputs accepted: %v", err)
+	}
 }

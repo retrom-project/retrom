@@ -165,7 +165,7 @@ NULL,
 
 	fixture := arcadeGroupingFixture{
 		database: database, blobs: blobs, datID: datID,
-		service: (&Service{database: database.SQL}).WithFileStore(blobs),
+		service: newTestImporter(t, database.SQL, blobs, testImportOptions{}),
 	}
 	fixture.files = fixture.createArchives(ctx, t)
 	return fixture

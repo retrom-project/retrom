@@ -10,7 +10,7 @@ import (
 
 func (service *Service) arcadeRequirements(ctx context.Context, datID, machine string,
 ) ([]arcadeROMRequirement, bool, error) {
-	requirements, hasDisk, err := service.importPreparation().ArcadeRequirements(ctx, datID, machine)
+	requirements, hasDisk, err := service.preparation.ArcadeRequirements(ctx, datID, machine)
 	return requirements, hasDisk, legacyPreparationError(err)
 }
 
@@ -26,7 +26,7 @@ func (service *Service) prepareArcadeFiles(
 	files []importSourceFile,
 	datID sql.NullString,
 ) ([]preparedDisposition, []preparedGroup, []preparedArchive, error) {
-	dispositions, groups, archives, err := service.importPreparation().PrepareArcadeFiles(ctx, files, datID.String)
+	dispositions, groups, archives, err := service.preparation.PrepareArcadeFiles(ctx, files, datID.String)
 	return dispositions, groups, archives, legacyPreparationError(err)
 }
 

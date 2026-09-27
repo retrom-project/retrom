@@ -112,7 +112,7 @@ func TestSevenZipImportMaterializesSingleROMAndPreservesEvidence(t *testing.T) {
 		testassert.Falsef(t, time.Now().After(deadline), "upload finalization = %s", state)
 		time.Sleep(10 * time.Millisecond)
 	}
-	created, err := New(database.SQL, time.Now).WithFileStore(blobs).Create(ctx, CreateRequest{
+	created, err := newTestImporter(t, database.SQL, blobs, testImportOptions{Now: time.Now}).Create(ctx, CreateRequest{
 		UploadID:                 upload.ID,
 		TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(t, database.SQL, "atari2600/stella2014"),
 		MetadataProvider:         "NONE",
@@ -159,7 +159,7 @@ WHERE i.import_job_id=?
 		"materialized source = archive:%s ordinal:%d content:%s name:%s format:%s/%s sha:%s",
 		sourceArchiveFileRecord, sourceOrdinal, contentFileRecord, logicalName, archiveFormat,
 		compressionProfile, contentSHA)
-	approved, err := New(database.SQL, time.Now).WithFileStore(blobs).Approve(ctx, itemID, 1)
+	approved, err := newTestImporter(t, database.SQL, blobs, testImportOptions{Now: time.Now}).Approve(ctx, itemID, 1)
 	testassert.False(t, err != nil, err)
 	var publishedFileRecord string
 	var publishedArchiveID sql.NullString
@@ -255,10 +255,7 @@ VALUES(?,?,'import.tag.admin','Import Tag Admin','ADMIN','ENABLED',1,1)
 		testassert.Falsef(t, time.Now().After(deadline), "upload finalization = %s", state)
 		time.Sleep(10 * time.Millisecond)
 	}
-	created, err := New(
-		database.SQL,
-		time.Now,
-	).WithFileStore(blobs).
+	created, err := newTestImporter(t, database.SQL, blobs, testImportOptions{Now: time.Now}).
 		Create(ctx, CreateRequest{
 			UploadID:                 upload.ID,
 			TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(t, database.SQL, "gba/mgba"),
@@ -299,7 +296,7 @@ WHERE job.id=?
 		inheritedDrafts != 2 || !strings.Contains(initialConfigSnapshot, `"name":"待通关"`) {
 		t.Fatalf("default tag inheritance = drafts:%d config:%s error:%v", inheritedDrafts, initialConfigSnapshot, err)
 	}
-	importer := New(database.SQL, time.Now).WithFileStore(blobs)
+	importer := newTestImporter(t, database.SQL, blobs, testImportOptions{Now: time.Now})
 	transientTag, err := tagging.New(tagpersistence.New(database.SQL), time.Now).Create(ctx, adminID, "删除失效")
 	testassert.False(t, err != nil, err)
 	transientDraft, err := importer.PatchDraft(ctx, discardItemID, 1, DraftPatch{

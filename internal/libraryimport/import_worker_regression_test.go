@@ -67,7 +67,7 @@ func TestImportWorkerProgressRejectsStaleExecution(t *testing.T) {
 
 func TestImportWorkerRecoveryPreservesOtherLiveOwner(t *testing.T) {
 	service, work := workerAuthorityFixture(t)
-	recovered := New(service.database, service.now).WithFileStore(service.blobs)
+	recovered := newTestImporter(t, service.database, service.blobs, testImportOptions{Now: service.now})
 	if err := recovered.testExecutions().Recover(t.Context()); err != nil {
 		t.Fatal(err)
 	}
@@ -104,7 +104,7 @@ func TestImportWorkerClaimPreservesRowsAffectedCause(t *testing.T) {
 				}
 				cause := errors.New("worker claim count unavailable")
 				written := int64(0)
-				service.database = testsupport.OpenSQLFaultDatabase(
+				service = newTestImporter(t, testsupport.OpenSQLFaultDatabase(
 					t,
 					service.database,
 					testsupport.SQLFaultHooks{
@@ -121,7 +121,7 @@ func TestImportWorkerClaimPreservesRowsAffectedCause(t *testing.T) {
 							return result, nil
 						},
 					},
-				)
+				), service.blobs, testImportOptions{Now: service.now, MultiDiscEnabled: service.multiDiscImportEnabled})
 				work, err := service.claimImportGroup(t.Context(), created.JobID)
 				if !errors.Is(err, cause) || written != 1 || work.jobID != "" {
 					t.Fatalf("claim %s cause lost: work=%+v written=%d error=%v", table, work, written, err)
@@ -163,7 +163,7 @@ func TestImportWorkerFailureAndReleaseSchedulingAreAtomic(t *testing.T) {
 	service, work := workerAuthorityFixture(t)
 	cause := errors.New("payload scheduling unavailable")
 	terminal, release := int64(0), 0
-	service.database = testsupport.OpenSQLFaultDatabase(
+	service = newTestImporter(t, testsupport.OpenSQLFaultDatabase(
 		t,
 		service.database,
 		testsupport.SQLFaultHooks{
@@ -186,7 +186,7 @@ func TestImportWorkerFailureAndReleaseSchedulingAreAtomic(t *testing.T) {
 				return result, nil
 			},
 		},
-	)
+	), service.blobs, testImportOptions{Now: service.now, MultiDiscEnabled: service.multiDiscImportEnabled})
 	err := service.testExecutions().Fail(t.Context(), *work.creationIntent(), ErrInvalid)
 	if !errors.Is(err, cause) {
 		t.Fatalf("release failure cause lost: %v", err)

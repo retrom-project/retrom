@@ -30,18 +30,15 @@ func gateImportWorker(t *testing.T, service *Service) func() {
 	release := make(chan struct{})
 	var once sync.Once
 	unblock := func() { once.Do(func() { close(release) }) }
-	bundle := composition.NewWorker(service.database, service.now, service.creationDependencies(), nil, nil)
-	bundle.Worker = application.NewImportWorker(
-		application.ImportWorkerDependencies{
-			Queue:       importQueueGate{ImportExecutionQueue: bundle.Executions, release: release},
-			Control:     bundle.Executions,
-			Recovery:    bundle.Executions,
-			Preparation: service.importPreparation(),
-			Creations:   service.importCreations(),
-		},
-		application.ImportWorkerSettings{Now: service.now},
-	)
-	service.worker = &bundle
+	service.worker.Close()
+	service.worker = application.NewImportWorker(application.ImportWorkerDependencies{
+		Queue:   importQueueGate{ImportExecutionQueue: service.executions, release: release},
+		Control: service.executions, Recovery: service.executions, Preparation: service.preparation, Creations: service.creations,
+	}, application.ImportWorkerSettings{Now: service.now})
+	service.admissions = composition.NewImportAdmissions(service.database, service.worker, service.tags,
+		application.ImportAdmissionOptions{Now: service.now, MultiDiscEnabled: service.multiDiscImportEnabled})
+
+	service.Start()
 	t.Cleanup(func() { service.Close(); unblock() })
 	return unblock
 }

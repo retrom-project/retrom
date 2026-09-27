@@ -53,7 +53,7 @@ effective_source_snapshot_id FROM import_items WHERE id=?) LIMIT 1`, itemID).Sca
 		t.Fatal(err)
 	}
 	// A fresh application service reads the durable decision without the original request actor.
-	if err := fixture.service.reviewApprovals().Recover(t.Context()); err != nil {
+	if err := fixture.service.approvals.Recover(t.Context()); err != nil {
 		t.Fatal(err)
 	}
 	approved, err := fixture.service.Approve(ctx, itemID, 1)

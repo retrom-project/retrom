@@ -114,7 +114,6 @@ func createMultiDiscHTTPLaunch(t *testing.T, server *Server) (launch.Created, st
 		dependencypersistence.New(server.database)).BootstrapCatalogs(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
-	server.importer.WithMultiDiscImportEnabled(true)
 	seedMultiDiscHTTPBIOS(t, server)
 	uploadID := completeMultiDiscHTTPUpload(t, server, "DIRECTORY", []multiDiscHTTPFile{
 		{path: "game/game.m3u", contents: []byte("one.chd\ntwo.chd\n")},
@@ -211,7 +210,7 @@ func assertImmutableRuntimeGETAndHEAD(
 }
 
 func TestRuntimeContentIsPrivateImmutableRevalidatesAndRevokes(t *testing.T) {
-	server := newTestServer(t)
+	server := newTestServerWithPlatformFixtures(t, true, []string{"4.2.3"}, true)
 	created, gameID := createMultiDiscHTTPLaunch(t, server)
 	addParentBundleToLaunch(t, server, created)
 	handler := server.Handler()
@@ -348,7 +347,7 @@ func TestRuntimeContentIsPrivateImmutableRevalidatesAndRevokes(t *testing.T) {
 }
 
 func TestMultiDiscAttachmentHTTPContractAndProviderUpgradeProjection(t *testing.T) {
-	server := newTestServer(t)
+	server := newTestServerWithPlatformFixtures(t, true, []string{"4.2.3"}, true)
 	ctx := context.Background()
 	if err := dependencyservice.New(server.dependencies,
 		dependencypersistence.New(server.database)).Bootstrap(ctx, time.Now()); err != nil {
@@ -358,7 +357,6 @@ func TestMultiDiscAttachmentHTTPContractAndProviderUpgradeProjection(t *testing.
 		dependencypersistence.New(server.database)).BootstrapCatalogs(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
-	server.importer.WithMultiDiscImportEnabled(true)
 	seedMultiDiscHTTPBIOS(t, server)
 	baseUploadID := completeMultiDiscHTTPUpload(t, server, "DIRECTORY", []multiDiscHTTPFile{
 		{path: "game/game.m3u", contents: []byte("one.chd\ntwo.chd\nthree.chd\n")},
@@ -472,7 +470,7 @@ WHERE provider_id=(
 }
 
 func TestMultiDiscPlayerEventHTTPContract(t *testing.T) {
-	server := newTestServer(t)
+	server := newTestServerWithPlatformFixtures(t, true, []string{"4.2.3"}, true)
 	ctx := context.Background()
 	if err := dependencyservice.New(server.dependencies,
 		dependencypersistence.New(server.database)).Bootstrap(ctx, time.Now()); err != nil {
@@ -482,7 +480,6 @@ func TestMultiDiscPlayerEventHTTPContract(t *testing.T) {
 		dependencypersistence.New(server.database)).BootstrapCatalogs(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
-	server.importer.WithMultiDiscImportEnabled(true)
 	seedMultiDiscHTTPBIOS(t, server)
 	uploadID := completeMultiDiscHTTPUpload(t, server, "DIRECTORY", []multiDiscHTTPFile{
 		{path: "game/game.m3u", contents: []byte("one.chd\ntwo.chd\n")},

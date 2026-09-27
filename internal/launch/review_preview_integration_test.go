@@ -15,6 +15,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/testsupport/importfixture"
+
 	"retrom/internal/persistence/recordstore"
 
 	dbapi "retrom/internal/database"
@@ -61,7 +63,7 @@ VALUES(?,'review-preview-profile','review-preview-admin','Review Preview Admin',
 	blobs, err := filestore.Open(dataDir)
 	testassert.False(t, err != nil, err)
 	uploadService := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
-	importService := libraryimport.New(database.SQL, time.Now).WithFileStore(blobs)
+	importService := importfixture.New(t, database.SQL, blobs, importfixture.Options{Now: time.Now})
 	createReview := func(name string, contents []byte, targetID string) string {
 		t.Helper()
 		upload, createErr := uploadService.Create(ctx, uploads.CreateRequest{

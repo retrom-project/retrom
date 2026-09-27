@@ -11,7 +11,6 @@ import (
 	"path"
 	"time"
 
-	composition "retrom/internal/composition/libraryimport"
 	repository "retrom/internal/persistence/libraryimport"
 	application "retrom/internal/service/libraryimport"
 
@@ -65,7 +64,7 @@ func (service *Service) readAttachedMultiDiscBase(
 	ctx context.Context,
 	candidate *multiDiscAttachmentCandidate,
 ) error {
-	base, err := composition.NewMultiDiscAttachmentSources(service.database).BaseFiles(
+	base, err := service.attachmentSources.BaseFiles(
 		ctx, candidate.input.BaseSourceSnapshotID,
 	)
 	if err != nil {
@@ -99,7 +98,7 @@ func (service *Service) readMultiDiscAttachmentUploads(
 	ctx context.Context,
 	candidate *multiDiscAttachmentCandidate,
 ) error {
-	upload, err := composition.NewMultiDiscAttachmentSources(service.database).UploadFiles(
+	upload, err := service.attachmentSources.UploadFiles(
 		ctx, candidate.input.UploadSessionID,
 	)
 	if err != nil {

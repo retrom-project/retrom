@@ -241,12 +241,12 @@ func TestGameMetadataPatchDistinguishesNullFromAbsent(t *testing.T) {
 }
 
 func newTestServer(t *testing.T) *Server {
-	return newTestServerWithPlatformFixtures(t, true, []string{"4.2.3"})
+	return newTestServerWithPlatformFixtures(t, true, []string{"4.2.3"}, false)
 }
 
 func newRecommendationTestServer(t *testing.T) *Server {
 	t.Helper()
-	server := newTestServerWithPlatformFixtures(t, false, []string{"4.2.3", "4.3.0-pre"})
+	server := newTestServerWithPlatformFixtures(t, false, []string{"4.2.3", "4.3.0-pre"}, false)
 	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database)).Bootstrap(t.Context(), time.Now()); err != nil {
 		t.Fatalf("bootstrap recommendation dependencies: %v", err)
 	}
@@ -254,7 +254,7 @@ func newRecommendationTestServer(t *testing.T) *Server {
 	return server
 }
 
-func newTestServerWithPlatformFixtures(t *testing.T, seedDirectories bool, versions []string) *Server {
+func newTestServerWithPlatformFixtures(t *testing.T, seedDirectories bool, versions []string, multiDisc bool) *Server {
 	t.Helper()
 	repositoryRoot, err := filepath.Abs(filepath.Join("..", ".."))
 	testassert.Falsef(t, err != nil, "repository root: %v", err)
@@ -290,7 +290,7 @@ VALUES('01980000-0000-7000-8000-000000009999','local','test-admin','Test Admin',
 	testassert.Falsef(t, err != nil, "create credentials: %v", err)
 	runtimeBuilder, err := testsupport.NewRuntimeBuilder(context.Background(), database.SQL)
 	testassert.Falsef(t, err != nil, "build runtime Provider fixture: %v", err)
-	settings := config.Config{PublicOrigin: origin, ActiveEJSVersion: "4.2.3", DataDir: dataDir}
+	settings := config.Config{PublicOrigin: origin, ActiveEJSVersion: "4.2.3", DataDir: dataDir, MultiDiscImportEnabled: multiDisc}
 	services, err := application.New(application.Inputs{
 		Config: settings, Database: database.SQL, ReadinessDatabase: database.ReadOnly,
 		Dependencies: dependencySet, Files: blobs, Credentials: credentials, Now: time.Now,

@@ -67,7 +67,7 @@ func TestDOSDirectoryGroupingProducesDeterministicBundleAndSafePrograms(t *testi
 			},
 		)
 	}
-	service := (&Service{}).WithFileStore(blobs)
+	service := newTestImporter(t, nil, blobs, testImportOptions{})
 	dispositions, groups, _ := service.prepareDOSFiles(context.Background(), "DIRECTORY", files)
 	testassert.Falsef(t, testassert.Any(func() bool { return len(dispositions) != 4 },
 		func() bool { return len(groups) != 1 }, func() bool { return len(groups[0].Sources) != 4 },
@@ -324,7 +324,7 @@ VALUES('01990000-0000-7000-8000-000000000203',?,?,?, ?,?,?,?,1,?,'{}',1,1,?,?)
 		testassert.Falsef(t, time.Now().After(deadline), "upload finalization = %s", state)
 		time.Sleep(10 * time.Millisecond)
 	}
-	importService := New(database.SQL, time.Now).WithFileStore(blobs)
+	importService := newTestImporter(t, database.SQL, blobs, testImportOptions{Now: time.Now})
 	created, err := importService.Create(ctx, CreateRequest{
 		UploadID:                 upload.ID,
 		TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(t, database.SQL, "arcade/fbneo"),

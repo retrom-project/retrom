@@ -19,6 +19,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/testsupport/importfixture"
+
 	dbapi "retrom/internal/database"
 	savepersistence "retrom/internal/persistence/saves"
 
@@ -357,7 +359,7 @@ func createONSReviewItem(
 		t.Fatal(err)
 	}
 	waitForONSReviewJob(t, ctx, database, jobID)
-	importService := libraryimport.New(database, time.Now).WithFileStore(blobs)
+	importService := importfixture.New(t, database, blobs, importfixture.Options{Now: time.Now})
 	created, err := importService.Create(ctx, libraryimport.CreateRequest{
 		UploadID:                 upload.ID,
 		TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(t, database, "ons/onscripter_yuri"),

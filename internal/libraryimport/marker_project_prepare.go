@@ -11,7 +11,7 @@ import (
 func (service *Service) prepareButterscotchProject(ctx context.Context, sourceType string,
 	files []importSourceFile,
 ) ([]preparedDisposition, []preparedGroup, []preparedArchive, error) {
-	dispositions, groups, archives, err := service.importPreparation().
+	dispositions, groups, archives, err := service.preparation.
 		PrepareButterscotchProject(ctx, sourceType, files)
 	return dispositions, groups, archives, legacyPreparationError(err)
 }
@@ -21,7 +21,7 @@ func (service *Service) prepareONSProject(
 	sourceType string,
 	files []importSourceFile,
 ) ([]preparedDisposition, []preparedGroup, []preparedArchive, error) {
-	dispositions, groups, archives, err := service.importPreparation().PrepareONSProject(ctx, sourceType, files)
+	dispositions, groups, archives, err := service.preparation.PrepareONSProject(ctx, sourceType, files)
 	return dispositions, groups, archives, legacyPreparationError(err)
 }
 
@@ -30,7 +30,7 @@ func (service *Service) prepareTyranoScriptProject(
 	sourceType string,
 	files []importSourceFile,
 ) ([]preparedDisposition, []preparedGroup, []preparedArchive, error) {
-	dispositions, groups, archives, err := service.importPreparation().
+	dispositions, groups, archives, err := service.preparation.
 		PrepareTyranoScriptProject(ctx, sourceType, files)
 	return dispositions, groups, archives, legacyPreparationError(err)
 }

@@ -34,7 +34,7 @@ func TestPreparedCreationBuildsRPGArtifactBeforeFirstWrite(t *testing.T) {
 	cause := errors.New("stop at prepared creation write")
 	artifactReady := false
 	writes := 0
-	service.database = testsupport.OpenSQLFaultDatabase(t, service.database, testsupport.SQLFaultHooks{
+	service = newTestImporter(t, testsupport.OpenSQLFaultDatabase(t, service.database, testsupport.SQLFaultHooks{
 		BeforeExec: func(_ context.Context, query string, _ []driver.NamedValue) error {
 			verb := strings.ToUpper(strings.TrimSpace(query))
 			if !strings.HasPrefix(verb, "INSERT ") && !strings.HasPrefix(verb, "UPDATE ") &&
@@ -45,7 +45,7 @@ func TestPreparedCreationBuildsRPGArtifactBeforeFirstWrite(t *testing.T) {
 			artifactReady = preparedDigestExists(t, artifactRoot, digest)
 			return cause
 		},
-	})
+	}), service.blobs, testImportOptions{Now: service.now, MultiDiscEnabled: service.multiDiscImportEnabled})
 	result, err := service.Create(t.Context(), request)
 	if !errors.Is(err, cause) || result != (Created{}) || writes != 1 {
 		t.Fatalf("result=%+v error=%v writes=%d", result, err, writes)

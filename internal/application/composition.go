@@ -2,6 +2,7 @@ package application
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 
 	"retrom/internal/composition"
 	payloadcomposition "retrom/internal/composition/cleanupjobs"
+	"retrom/internal/composition/importworkflow"
 	librarycomposition "retrom/internal/composition/libraryimport"
 
 	firmwarepersistence "retrom/internal/persistence/firmware"
@@ -52,7 +54,6 @@ import (
 	"retrom/internal/service/immersive"
 	"retrom/internal/service/isolation"
 	"retrom/internal/service/jobs"
-	libraryservice "retrom/internal/service/libraryimport"
 	"retrom/internal/service/mediaaccess"
 	"retrom/internal/service/platforminstance"
 	"retrom/internal/service/saves"
@@ -72,8 +73,13 @@ type Inputs struct {
 	RuntimeProvider             *runtimelaunch.Builder
 }
 
+var ErrInvalidInputs = errors.New("application requires database, files, credentials and public origin")
+
 // New assembles services without starting background work.
 func New(input Inputs) (*Services, error) {
+	if input.Database == nil || input.Files == nil || input.Credentials == nil || input.Config.PublicOrigin == nil {
+		return nil, ErrInvalidInputs
+	}
 	config, database, dependencySet := input.Config, input.Database, input.Dependencies
 	blobs, credentials, accountService, now := input.Files, input.Credentials, input.Accounts, input.Now
 	if now == nil {
@@ -90,14 +96,15 @@ func New(input Inputs) (*Services, error) {
 	variants := variantcomposition.New(database, launchSources, now)
 
 	launcher := launchcomposition.New(database, launchSources, config.PublicOrigin.String(), now, variants.Dispatch)
-	importer := libraryimport.New(database, now, scraper).
-		WithFileStore(blobs).
-		WithMultiDiscImportEnabled(config.MultiDiscImportEnabled)
-	if input.ScummVMDetector != nil {
-		importer.WithScummVMDetector(input.ScummVMDetector)
-	}
+	tagService := tagging.New(tagpersistence.New(database), now)
+	importer, importDeps := importworkflow.New(importworkflow.Inputs{
+		Database: database, Files: blobs, Tags: tagService, Now: now, Scraper: scraper,
+		ScummVMDetector: input.ScummVMDetector, MultiDiscEnabled: config.MultiDiscImportEnabled,
+	})
 
-	firmwareService := firmwareservice.New(firmwareservice.Dependencies{Repository: firmwarepersistence.New(database), Files: blobs, Cleanup: payloadReleaseService}, now)
+	firmwareService := firmwareservice.New(firmwareservice.Dependencies{
+		Repository: firmwarepersistence.New(database), Files: blobs, Cleanup: payloadReleaseService,
+	}, now)
 	serverImportService := composition.NewServerImports(
 		database,
 		blobs,
@@ -111,7 +118,6 @@ func New(input Inputs) (*Services, error) {
 		database, blobs, importer, credentials, serversource.FilesystemRoots(), now,
 	)
 
-	tagService := tagging.New(tagpersistence.New(database), now)
 	server := &Services{
 		Database:          database,
 		ReadinessDatabase: database,
@@ -138,34 +144,32 @@ func New(input Inputs) (*Services, error) {
 		DiagnosticsService:  composition.NewDiagnostics(database),
 		PlatformDirectories: platforminstance.New(platformpersistence.New(database), now),
 		Metadata:            scraper,
-		GameContent:         gamecontent.New(gamecontent.Dependencies{Repository: gamecontentpersistence.New(database), Files: blobs, Cleanup: payloadReleaseService}, gamecontent.Options{Now: now, MultiDiscEnabled: config.MultiDiscImportEnabled}),
-		GameImpact:          gamecontent.NewImpactQueries(gamecontentpersistence.NewImpactQueries(database)),
-		GameListService:     composition.NewGameList(database),
-		HomeService:         composition.NewHome(database, tagService),
-		GameAssets:          composition.NewGameAssets(database, blobs, now, payloadReleaseService),
-		GameMetadata:        composition.NewGameMetadata(database, blobs, payloadReleaseService, now),
-		SaveService:         saves.New(savepersistence.New(database), blobs, now),
-		RpgIsolation:        isolation.New(isolationpersistence.New(database), config.RPGRuntimeOriginTemplate, now),
-		FavoriteService:     favorites.New(favoritepersistence.New(database), now),
-		TagService:          tagService,
+		GameContent: gamecontent.New(gamecontent.Dependencies{
+			Repository: gamecontentpersistence.New(database), Files: blobs, Cleanup: payloadReleaseService,
+		}, gamecontent.Options{Now: now, MultiDiscEnabled: config.MultiDiscImportEnabled}),
+		GameImpact:      gamecontent.NewImpactQueries(gamecontentpersistence.NewImpactQueries(database)),
+		GameListService: composition.NewGameList(database),
+		HomeService:     composition.NewHome(database, tagService),
+		GameAssets:      composition.NewGameAssets(database, blobs, now, payloadReleaseService),
+		GameMetadata:    composition.NewGameMetadata(database, blobs, payloadReleaseService, now),
+		SaveService:     saves.New(savepersistence.New(database), blobs, now),
+		RpgIsolation:    isolation.New(isolationpersistence.New(database), config.RPGRuntimeOriginTemplate, now),
+		FavoriteService: favorites.New(favoritepersistence.New(database), now),
+		TagService:      tagService,
 
 		IdempotencyService: idempotencyservice.New(idempotencypersistence.New(database)),
 	}
-	server.ReviewQueue = composition.NewLibraryReviewQueue(database, server.TagService)
-	server.ReviewDetails = composition.NewLibraryReviewDetails(database)
-	server.ReviewScreenshots = composition.NewLibraryReviewScreenshots(database, blobs, now)
-	server.ReviewCoverUploads = composition.NewLibraryReviewCoverUploads(database, blobs, now)
-	server.ReviewDiscards = composition.NewLibraryReviewDiscards(database, now)
-	server.ReviewApprovals = composition.NewLibraryReviewApprovals(database, now, blobs)
+	server.ReviewQueue = librarycomposition.NewReviewQueue(database, server.TagService)
+	server.ReviewDetails = librarycomposition.NewReviewDetails(database)
+	server.ReviewScreenshots = importworkflow.NewReviewScreenshots(database, blobs, now)
+	server.ReviewCoverUploads = librarycomposition.NewReviewCoverUploads(database, blobs, now)
+	server.ReviewDiscards = importDeps.Discards
+	server.ReviewApprovals = importDeps.Approvals
 	server.ReviewBulkApprovals = librarycomposition.NewReviewBulk(database, server.ReviewApprovals, now)
 
-	server.ImportAdmissions = composition.NewLibraryImportAdmissions(
-		database, importer, libraryservice.ImportAdmissionOptions{
-			Now: now, MultiDiscEnabled: config.MultiDiscImportEnabled, MetadataScraperAvailable: true,
-		},
-	)
+	server.ImportAdmissions = importDeps.Admissions
 	server.JobService = composition.WithSourceJobCancellation(server.JobService, sourceImportService)
-	server.JobService = librarycomposition.WithJobCancellation(server.JobService, database, now)
+	server.JobService = librarycomposition.WithJobCancellation(server.JobService, importDeps.Executions)
 	server.MediaAccess = mediaaccess.New(mediapersistence.New(database))
 	server.MetadataEvidence = composition.NewMetadataEvidenceQueries(database)
 	server.ImportDiscards = composition.NewImportDiscard(

@@ -1,6 +1,8 @@
 package application
 
 import (
+	"sync"
+
 	gamevariant "retrom/internal/service/gamevariant"
 
 	dbapi "retrom/internal/database"
@@ -44,6 +46,8 @@ import (
 
 // Services owns the process services shared by transports and background work.
 type Services struct {
+	lifecycleMu         sync.Mutex
+	started, closed     bool
 	Database            dbapi.DB
 	ReadinessDatabase   dbapi.DB
 	ReadinessService    *readinessservice.Service

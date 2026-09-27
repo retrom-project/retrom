@@ -24,7 +24,7 @@ func TestPreparedArcadeCatalogFailuresPrecedeCreationWrites(t *testing.T) {
 			importer, request := preparedArcadeErrorFixture(t)
 			cause := errors.New("arcade preparation catalog unavailable")
 			reads, writes := 0, 0
-			importer.database = testsupport.OpenSQLFaultDatabase(t, importer.database, testsupport.SQLFaultHooks{
+			importer = newTestImporter(t, testsupport.OpenSQLFaultDatabase(t, importer.database, testsupport.SQLFaultHooks{
 				BeforeQuery: func(_ context.Context, query string, _ []driver.NamedValue) error {
 					if matchesPreparationCatalogRead(operation, query) {
 						reads++
@@ -39,7 +39,7 @@ func TestPreparedArcadeCatalogFailuresPrecedeCreationWrites(t *testing.T) {
 					}
 					return nil
 				},
-			})
+			}), importer.blobs, testImportOptions{Now: importer.now, MultiDiscEnabled: importer.multiDiscImportEnabled})
 			result, err := importer.Create(t.Context(), request)
 			if !errors.Is(err, cause) || result != (Created{}) || reads == 0 || writes != 0 {
 				t.Fatalf("operation=%s reads=%d writes=%d result=%+v err=%v", operation, reads, writes, result, err)
@@ -89,6 +89,6 @@ func preparedArcadeErrorFixture(t *testing.T) (*Service, CreateRequest) {
 	insertArcadeParentCatalog(t, database.SQL)
 	uploader := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
 	upload := uploadCompleteFile(t, t.Context(), database.SQL, uploader, "a.zip", arcadeZIP(t, "a.bin", []byte("child")))
-	importer := New(database.SQL, time.Now).WithFileStore(blobs)
+	importer := newTestImporter(t, database.SQL, blobs, testImportOptions{Now: time.Now})
 	return importer, CreateRequest{UploadID: upload.uploadID, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(t, database.SQL, "arcade/fbneo"), MetadataProvider: "NONE"}
 }

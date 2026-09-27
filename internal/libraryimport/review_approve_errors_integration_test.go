@@ -20,7 +20,7 @@ func TestApprovePreservesEvidenceReadFailure(t *testing.T) {
 	before := captureDeduplicatePage(t, fixture, created.Created.ImportJobID)
 	cause := errors.New("approval evidence unavailable")
 	hits := 0
-	fixture.service.database = testsupport.OpenSQLFaultDatabase(t, fixture.database, testsupport.SQLFaultHooks{
+	fixture.service = newTestImporter(t, testsupport.OpenSQLFaultDatabase(t, fixture.database, testsupport.SQLFaultHooks{
 		BeforeQuery: func(_ context.Context, query string, _ []driver.NamedValue) error {
 			if strings.Contains(query, "FROM import_items i") && strings.Contains(query, "JOIN import_items d") {
 				hits++
@@ -28,7 +28,7 @@ func TestApprovePreservesEvidenceReadFailure(t *testing.T) {
 			}
 			return nil
 		},
-	})
+	}), fixture.service.blobs, testImportOptions{Now: fixture.service.now, MultiDiscEnabled: fixture.service.multiDiscImportEnabled})
 	result, err := fixture.service.Approve(t.Context(), created.Items[0].ItemID, 1)
 	if !errors.Is(err, cause) || errors.Is(err, ErrInvalid) || result != (Approved{}) || hits != 1 {
 		t.Fatalf("approval evidence failure lost cause: result=%+v err=%v hits=%d", result, err, hits)

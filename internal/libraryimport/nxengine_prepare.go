@@ -7,6 +7,6 @@ import (
 func (service *Service) prepareNXEngineProject(
 	ctx context.Context, sourceType string, files []importSourceFile,
 ) ([]preparedDisposition, []preparedGroup, []preparedArchive, error) {
-	dispositions, groups, archives, err := service.importPreparation().PrepareNXEngineProject(ctx, sourceType, files)
+	dispositions, groups, archives, err := service.preparation.PrepareNXEngineProject(ctx, sourceType, files)
 	return dispositions, groups, archives, legacyPreparationError(err)
 }

@@ -20,11 +20,11 @@ func TestImportWorkerLateLeaseFailureRollsBackTerminalAndRelease(t *testing.T) {
 	service, work := workerAuthorityFixture(t)
 	var clock atomic.Int64
 	clock.Store(service.now().UnixMilli())
-	service.now = func() time.Time { return time.UnixMilli(clock.Load()) }
+	service = newTestImporter(t, service.database, service.blobs, testImportOptions{Now: func() time.Time { return time.UnixMilli(clock.Load()) }, MultiDiscEnabled: service.multiDiscImportEnabled})
 	source := service.database
 	before := creationEffectCounts(t, source)
 	writes := int64(0)
-	service.database = testsupport.OpenSQLFaultDatabase(
+	service = newTestImporter(t, testsupport.OpenSQLFaultDatabase(
 		t,
 		source,
 		testsupport.SQLFaultHooks{
@@ -41,7 +41,7 @@ func TestImportWorkerLateLeaseFailureRollsBackTerminalAndRelease(t *testing.T) {
 				return result, nil
 			},
 		},
-	)
+	), service.blobs, testImportOptions{Now: service.now, MultiDiscEnabled: service.multiDiscImportEnabled})
 	err := service.testExecutions().Fail(t.Context(), *work.creationIntent(), ErrInvalid)
 	if !errors.Is(err, ErrVersionConflict) || writes != 1 {
 		t.Fatalf("late lease fence: writes=%d error=%v", writes, err)
@@ -58,7 +58,7 @@ func TestImportWorkerLateLeaseFailureRollsBackTerminalAndRelease(t *testing.T) {
 
 func TestImportWorkerRecoveryRetainsAlreadyCreatedResults(t *testing.T) {
 	service, plan := preparedCommitFixture(t)
-	result, err := service.importCreations().CommitPrepared(t.Context(), plan, application.ImportCreationOptions{})
+	result, err := service.creations.CommitPrepared(t.Context(), plan, application.ImportCreationOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -118,7 +118,7 @@ func TestImportWorkerRecoveryRetainsResolvedFilesWithoutItems(t *testing.T) {
 		plan.Dispositions[index].Disposition = "REJECTED"
 		plan.Dispositions[index].Reason = "UNSUPPORTED_CONTENT_FORMAT"
 	}
-	result, err := service.importCreations().CommitPrepared(t.Context(), plan, application.ImportCreationOptions{})
+	result, err := service.creations.CommitPrepared(t.Context(), plan, application.ImportCreationOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}

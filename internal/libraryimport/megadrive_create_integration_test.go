@@ -45,7 +45,7 @@ func TestMegaDriveROMImportPreservesPayloadAndReachesReview(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			service := New(database.SQL, time.Now).WithFileStore(blobs)
+			service := newTestImporter(t, database.SQL, blobs, testImportOptions{Now: time.Now})
 			result, err := service.CreateServerSource(ctx,
 				testsupport.MustPlatformInstanceID(t, database.SQL, "megadrive/genesis_plus_gx"),
 				contentcapability.ModeStandard,

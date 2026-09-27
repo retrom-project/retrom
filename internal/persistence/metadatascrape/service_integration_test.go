@@ -25,6 +25,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/testsupport/importfixture"
+
 	"retrom/internal/composition"
 
 	metadatapersistence "retrom/internal/persistence/metadatascrape"
@@ -144,7 +146,7 @@ WHERE id=?
 	scraper := composition.NewMetadata(database.SQL, blobs, hasheous.New(client, resolver,
 		mediaFixtureNow), mediaFixtureNow)
 	t.Cleanup(scraper.Close)
-	importer := libraryimport.New(database.SQL, mediaFixtureNow, scraper).WithFileStore(blobs)
+	importer := importfixture.New(t, database.SQL, blobs, importfixture.Options{Now: mediaFixtureNow, Scraper: scraper})
 	created, err := importer.Create(
 		ctx,
 		libraryimport.CreateRequest{
@@ -713,7 +715,7 @@ WHERE id=?
 	scraper := composition.NewMetadata(database.SQL, blobs, hasheous.New(client, resolver,
 		mediaFixtureNow), mediaFixtureNow)
 	t.Cleanup(scraper.Close)
-	importer := libraryimport.New(database.SQL, mediaFixtureNow, scraper).WithFileStore(blobs)
+	importer := importfixture.New(t, database.SQL, blobs, importfixture.Options{Now: mediaFixtureNow, Scraper: scraper})
 	created, err := importer.Create(
 		ctx,
 		libraryimport.CreateRequest{

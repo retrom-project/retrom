@@ -121,7 +121,7 @@ func TestOwnedSourceRollsBackImportAndBindingOnTransactionFailure(t *testing.T) 
 					t.Error(err)
 				}
 			})
-			fixture.service.database = intercepted
+			fixture.service = newTestImporter(t, intercepted, fixture.service.blobs, testImportOptions{Now: fixture.service.now, MultiDiscEnabled: fixture.service.multiDiscImportEnabled})
 			result, err := fixture.service.CreateOwnedServerSource(fixture.ctx, request)
 			expected := cause
 			if phase == "zero" {

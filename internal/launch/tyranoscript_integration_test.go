@@ -17,6 +17,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/testsupport/importfixture"
+
 	dbapi "retrom/internal/database"
 	uploadpersistence "retrom/internal/persistence/uploads"
 
@@ -263,7 +265,7 @@ func createTyranoScriptReviewItem(
 		t.Fatal(err)
 	}
 	waitForONSReviewJob(t, ctx, database, jobID)
-	importService := libraryimport.New(database, now).WithFileStore(blobs)
+	importService := importfixture.New(t, database, blobs, importfixture.Options{Now: now})
 	created, err := importService.Create(ctx, libraryimport.CreateRequest{
 		UploadID: upload.ID, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(
 			t, database, "tyranoscript/tyranoscript",

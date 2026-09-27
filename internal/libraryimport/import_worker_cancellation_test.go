@@ -63,7 +63,7 @@ func TestImportWorkerDomainCancelRollsBackFailedPayloadScheduling(t *testing.T) 
 			},
 		},
 	)
-	handler := composition.WithJobCancellation(jobs.New(jobpersistence.New(fault), service.now), fault, service.now)
+	handler := composition.WithJobCancellation(jobs.New(jobpersistence.New(fault), service.now), composition.NewExecutions(fault, service.now))
 	result, pending, err := handler.Cancel(t.Context(), created.JobID, 1, "operator request")
 	if !errors.Is(err, cause) || result != (jobs.Result{}) || pending || writes != 1 || attempts != 1 {
 		t.Fatalf(
@@ -76,7 +76,7 @@ func TestImportWorkerDomainCancelRollsBackFailedPayloadScheduling(t *testing.T) 
 		)
 	}
 	assertImportCancellationState(t, service, created, "QUEUED", "QUEUED", "RETAINED", 1)
-	handler = composition.WithJobCancellation(jobs.New(jobpersistence.New(source), service.now), source, service.now)
+	handler = composition.WithJobCancellation(jobs.New(jobpersistence.New(source), service.now), composition.NewExecutions(source, service.now))
 	result, pending, err = handler.Cancel(t.Context(), created.JobID, 1, "operator request")
 	if err != nil || pending || result.State != "CANCELLED" || result.Version != 2 {
 		t.Fatalf("cancel retry=%+v pending=%t error=%v", result, pending, err)

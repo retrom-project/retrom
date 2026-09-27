@@ -6,8 +6,9 @@ import (
 	"errors"
 	"testing"
 
+	"retrom/internal/testsupport/importfixture"
+
 	dbapi "retrom/internal/database"
-	"retrom/internal/libraryimport"
 	application "retrom/internal/service/launch"
 
 	"github.com/google/uuid"
@@ -18,7 +19,7 @@ func newProductPlayFixture(t *testing.T, activate bool) (reviewCheckpointFixture
 	t.Helper()
 	fixture := newReviewCheckpointFixture(t)
 	mustRPGLaunchSQL(t, fixture.database, `UPDATE import_items SET metadata_json='{"title":"Play lifecycle"}' WHERE id=?`, fixture.itemID)
-	importer := libraryimport.New(fixture.database, fixture.launcher.now).WithFileStore(fixture.files)
+	importer := importfixture.New(t, fixture.database, fixture.files, importfixture.Options{Now: fixture.launcher.now})
 	published, err := importer.Approve(t.Context(), fixture.itemID, 2)
 	if err != nil {
 		t.Fatal(err)

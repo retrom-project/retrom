@@ -30,7 +30,7 @@ func newDeduplicateFixture(t *testing.T) deduplicateFixture {
 	ctx := t.Context()
 	database, blobs, _ := openImportGroupFixture(t, ctx)
 	return deduplicateFixture{
-		ctx, database.SQL, New(database.SQL, time.Now).WithFileStore(blobs), blobs,
+		ctx, database.SQL, newTestImporter(t, database.SQL, blobs, testImportOptions{Now: time.Now}), blobs,
 		testsupport.MustPlatformInstanceID(t, database.SQL, "gba/mgba"),
 	}
 }
@@ -136,7 +136,7 @@ func TestReviewDeduplicateRollsBackPageOnDiscardFailure(t *testing.T) {
 		t.Fatal(err)
 	}
 	before := captureDeduplicatePage(t, fixture, copies.Created.ImportJobID)
-	fault := newDeduplicateDiscardFault(t, fixture, copies)
+	fault := newDeduplicateDiscardFault(t, &fixture, copies)
 	request := ReviewDeduplicateRequest{Scope: ReviewBulkScope{ImportJobID: copies.Created.ImportJobID}}
 	failed, err := fixture.service.DeduplicateReviews(fixture.ctx, request)
 	if !errors.Is(err, errDeduplicateDiscard) || !reflect.DeepEqual(failed, ReviewDeduplicateResult{}) {
@@ -155,7 +155,7 @@ func TestReviewDeduplicateRollsBackPageOnDiscardFailure(t *testing.T) {
 	if count != 0 {
 		t.Fatalf("rolled back discard events = %d", count)
 	}
-	fixture.service.database = fixture.database
+	fixture.service = newTestImporter(t, fixture.database, fixture.service.blobs, testImportOptions{Now: fixture.service.now, MultiDiscEnabled: fixture.service.multiDiscImportEnabled})
 	result, err := fixture.service.DeduplicateReviews(fixture.ctx, request)
 	if err != nil || result.DiscardedCount != 2 {
 		t.Fatalf("retry = %#v, %v", result, err)

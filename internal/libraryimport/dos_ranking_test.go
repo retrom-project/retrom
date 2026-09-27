@@ -78,7 +78,7 @@ func TestPrepareDOSFilesInspectsLauncherBatchForDirectoryAndZIP(t *testing.T) {
 	dataDir := t.TempDir()
 	blobs, err := filestore.Open(dataDir)
 	testassert.False(t, err != nil, err)
-	service := (&Service{}).WithFileStore(blobs)
+	service := newTestImporter(t, nil, blobs, testImportOptions{})
 	files := map[string][]byte{
 		"PAL/PLAY.BAT": []byte("@echo\r\nJS3 PAL.JS3\r\nPAL\r\n"),
 		"PAL/JS3.EXE":  []byte("helper"),

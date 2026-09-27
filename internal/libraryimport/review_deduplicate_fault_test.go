@@ -25,15 +25,15 @@ type deduplicateDiscardFault struct {
 	rejectedLast    int
 }
 
-func newDeduplicateDiscardFault(t *testing.T, fixture deduplicateFixture, copies ServerImportResult) *deduplicateDiscardFault {
+func newDeduplicateDiscardFault(t *testing.T, fixture *deduplicateFixture, copies ServerImportResult) *deduplicateDiscardFault {
 	t.Helper()
 	ids := []string{copies.Items[0].ItemID, copies.Items[1].ItemID}
 	sort.Strings(ids)
 	fault := &deduplicateDiscardFault{firstID: ids[0], lastID: ids[1]}
-	fixture.service.database = testsupport.OpenSQLFaultDatabase(t, fixture.database, testsupport.SQLFaultHooks{
+	fixture.service = newTestImporter(t, testsupport.OpenSQLFaultDatabase(t, fixture.database, testsupport.SQLFaultHooks{
 		BeforeExec: fault.before,
 		AfterExec:  fault.after,
-	})
+	}), fixture.service.blobs, testImportOptions{Now: fixture.service.now, MultiDiscEnabled: fixture.service.multiDiscImportEnabled})
 	return fault
 }
 

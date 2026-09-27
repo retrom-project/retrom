@@ -27,7 +27,7 @@ WHERE file.upload_session_id=?`, uploadID).Scan(&file.RelativePath, &file.FileRe
 		t.Fatal(err)
 	}
 	target := testsupport.MustPlatformInstanceID(t, database.SQL, "rpgmaker/rpgmaker")
-	service := New(database.SQL, time.Now).WithFileStore(blobs)
+	service := newTestImporter(t, database.SQL, blobs, testImportOptions{Now: time.Now})
 	result, err := service.CreateServerSourceOnce(ctx, "project-path-fixture", target,
 		contentcapability.ModeStandard, []ServerSourceFile{file}, nil, "")
 	if err != nil || len(result.Items) != 1 {

@@ -12,7 +12,8 @@ import (
 	"strings"
 	"testing"
 
-	"retrom/internal/composition"
+	librarycomposition "retrom/internal/composition/libraryimport"
+
 	dbapi "retrom/internal/database"
 	"retrom/internal/filestore"
 	repository "retrom/internal/persistence/libraryimport"
@@ -32,7 +33,7 @@ func TestReviewCoverRollbackPreservesCauseAndCanReplay(t *testing.T) {
 	faultDB := testsupport.OpenSQLFaultDatabase(t, server.database, testsupport.SQLFaultHooks{
 		AfterQuery: fault.afterQuery, BeforeQuery: fault.beforeQuery,
 	})
-	service := composition.NewLibraryReviewCoverUploads(faultDB, server.blobs, server.now)
+	service := librarycomposition.NewReviewCoverUploads(faultDB, server.blobs, server.now)
 	request := application.ReviewCoverRequest{ItemID: itemID, UploadFileID: fileID, Kind: "COVER", ExpectedVersion: 1}
 	result, err := service.Upload(t.Context(), request)
 	if !errors.Is(err, fault.cause) || errors.Is(err, application.ErrReviewCoverConsumed) ||

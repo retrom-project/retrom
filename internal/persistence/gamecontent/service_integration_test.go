@@ -17,6 +17,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/testsupport/importfixture"
+
 	"retrom/internal/persistence/recordstore"
 
 	"retrom/internal/service/gamecontent"
@@ -60,7 +62,7 @@ func TestRPGMakerReplacementKeepsPublishedGeneration(t *testing.T) {
 	uploadService := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
 	rpg2000 := rpgMakerFixtureFiles(t, filepath.Join(repositoryRoot, "testdata/public-roms/rpgmaker-smoke/rpg2000"))
 	initialUpload := completeRPGMakerDirectoryUpload(t, ctx, database.SQL, uploadService, rpg2000)
-	importer := libraryimport.New(database.SQL, time.Now).WithFileStore(blobs)
+	importer := importfixture.New(t, database.SQL, blobs, importfixture.Options{Now: time.Now})
 	created, err := importer.Create(ctx, libraryimport.CreateRequest{
 		UploadID: initialUpload, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(
 			t, database.SQL, "rpgmaker/rpgmaker",
@@ -286,7 +288,7 @@ func TestReplacementPublishesAtomicallyAndFailureKeepsCurrent(t *testing.T) {
 	uploadService := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
 	initialUpload := completeUpload(t, ctx, database.SQL, uploadService, "original.gba", []byte("original"))
 	gbaID := testsupport.MustPlatformInstanceID(t, database.SQL, "gba/mgba")
-	createdImport, err := libraryimport.New(database.SQL, time.Now).WithFileStore(blobs).
+	createdImport, err := importfixture.New(t, database.SQL, blobs, importfixture.Options{Now: time.Now}).
 		Create(ctx, libraryimport.CreateRequest{
 			UploadID:                 initialUpload,
 			TargetPlatformInstanceID: gbaID, MetadataProvider: "NONE",
@@ -300,7 +302,7 @@ WHERE import_job_id=?
 `, createdImport.ImportJobID).Scan(&itemID); err != nil {
 		t.Fatal(err)
 	}
-	published, err := libraryimport.New(database.SQL, time.Now).WithFileStore(blobs).Approve(ctx, itemID, 1)
+	published, err := importfixture.New(t, database.SQL, blobs, importfixture.Options{Now: time.Now}).Approve(ctx, itemID, 1)
 	testassert.False(t, err != nil, err)
 	var originalContent, originalFileRecord string
 	var initialVersion int64
@@ -460,7 +462,7 @@ func TestMultiDiscReplacementPublishesCompleteContentAndRejectsMissingDisc(t *te
 	installSaturnBIOS(t, ctx, database.SQL, blobs)
 	uploadService := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
 	initialUpload := completeUpload(t, ctx, database.SQL, uploadService, "original.chd", fakeReplacementCHD("original"))
-	importer := libraryimport.New(database.SQL, time.Now).WithFileStore(blobs)
+	importer := importfixture.New(t, database.SQL, blobs, importfixture.Options{Now: time.Now})
 	saturnID := testsupport.MustPlatformInstanceID(t, database.SQL, "saturn/yabause")
 	createdImport, err := importer.Create(ctx, libraryimport.CreateRequest{
 		UploadID: initialUpload, TargetPlatformInstanceID: saturnID,

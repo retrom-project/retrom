@@ -12,7 +12,8 @@ import (
 	"strings"
 	"testing"
 
-	"retrom/internal/composition"
+	librarycomposition "retrom/internal/composition/libraryimport"
+
 	dbapi "retrom/internal/database"
 	libraryservice "retrom/internal/service/libraryimport"
 	"retrom/internal/testsupport"
@@ -38,7 +39,7 @@ func TestImportAdmissionStorageFailureReturns500(t *testing.T) {
 			return nil
 		},
 	})
-	server.importAdmissions = composition.NewLibraryImportAdmissions(database, nil, libraryservice.ImportAdmissionOptions{Now: server.now})
+	server.importAdmissions = librarycomposition.NewImportAdmissions(database, nil, server.tagService, libraryservice.ImportAdmissionOptions{Now: server.now})
 	body := fmt.Sprintf(`{"uploadId":%q,"targetPlatformInstanceId":%q,"metadataProvider":"NONE","tagIds":[]}`, uploadID, targetID)
 	request := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/admin/imports", strings.NewReader(body))
 	request.Header.Set("Content-Type", "application/json")

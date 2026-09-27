@@ -88,7 +88,7 @@ func testCreateTyranoScriptInputReachesTrialRequiredReview(t *testing.T, inputNa
 		t.Fatal(err)
 	}
 	waitForRPGUploadFinalization(t, ctx, database.SQL, jobID)
-	created, err := New(database.SQL, time.Now).WithFileStore(blobs).Create(ctx, CreateRequest{
+	created, err := newTestImporter(t, database.SQL, blobs, testImportOptions{Now: time.Now}).Create(ctx, CreateRequest{
 		UploadID: upload.ID, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(
 			t, database.SQL, "tyranoscript/tyranoscript",
 		),

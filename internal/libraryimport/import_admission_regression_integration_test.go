@@ -18,7 +18,7 @@ func admissionFixture(t *testing.T) (*Service, CreateRequest) {
 	t.Helper()
 	database, blobs, dataDir := openImportGroupFixture(t, t.Context())
 	uploadID := completeImportGroupUpload(t, t.Context(), database.SQL, blobs, dataDir, onsProjectArchive(t))
-	service := New(database.SQL, time.Now).WithFileStore(blobs)
+	service := newTestImporter(t, database.SQL, blobs, testImportOptions{Now: time.Now})
 	return service, CreateRequest{
 		UploadID:                 uploadID,
 		TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(t, database.SQL, "ons/onscripter_yuri"),
@@ -35,7 +35,7 @@ func TestImportAdmissionPreservesReadFailure(t *testing.T) {
 			service, request := admissionFixture(t)
 			cause := errors.New("admission facts unavailable")
 			hits := 0
-			service.database = testsupport.OpenSQLFaultDatabase(t, service.database, testsupport.SQLFaultHooks{
+			service = newTestImporter(t, testsupport.OpenSQLFaultDatabase(t, service.database, testsupport.SQLFaultHooks{
 				BeforeQuery: func(_ context.Context, query string, _ []driver.NamedValue) error {
 					if strings.Contains(query, match) {
 						hits++
@@ -43,7 +43,7 @@ func TestImportAdmissionPreservesReadFailure(t *testing.T) {
 					}
 					return nil
 				},
-			})
+			}), service.blobs, testImportOptions{Now: service.now, MultiDiscEnabled: service.multiDiscImportEnabled})
 			result, err := service.QueueCreate(t.Context(), request)
 			if !errors.Is(err, cause) || errors.Is(err, ErrInvalid) || result != (Created{}) || hits != 1 {
 				t.Fatalf("result=%+v err=%v hits=%d", result, err, hits)
@@ -57,7 +57,7 @@ func TestImportAdmissionRejectsTargetDisabledBeforeQueueWrite(t *testing.T) {
 	sourceDB := service.database
 	hits := 0
 	var queued string
-	service.database = testsupport.OpenSQLFaultDatabase(
+	service = newTestImporter(t, testsupport.OpenSQLFaultDatabase(
 		t,
 		sourceDB,
 		testsupport.SQLFaultHooks{
@@ -74,7 +74,7 @@ func TestImportAdmissionRejectsTargetDisabledBeforeQueueWrite(t *testing.T) {
 				return err
 			},
 		},
-	)
+	), service.blobs, testImportOptions{Now: service.now, MultiDiscEnabled: service.multiDiscImportEnabled})
 	release := gateImportWorker(t, service)
 	t.Cleanup(func() {
 		release()

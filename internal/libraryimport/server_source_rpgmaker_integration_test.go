@@ -26,7 +26,7 @@ WHERE file.upload_session_id=?
 		t.Fatal(err)
 	}
 	targetID := testsupport.MustPlatformInstanceID(t, database.SQL, "rpgmaker/rpgmaker")
-	service := New(database.SQL, time.Now).WithFileStore(blobs)
+	service := newTestImporter(t, database.SQL, blobs, testImportOptions{Now: time.Now})
 	first, err := service.CreateServerSourceOnce(ctx, "fixture-source-item", targetID,
 		contentcapability.ModeStandard, []ServerSourceFile{file}, nil, "")
 	if err != nil {

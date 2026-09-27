@@ -84,7 +84,7 @@ VALUES(?,?,?,'FAILED_RETRYABLE','{}',?,'retry.gba','SCRAPING','PROVIDER_TIMEOUT'
 `, retryItemID, retryImportID, strings.Repeat("b", 64), digest); err != nil {
 		t.Fatal(err)
 	}
-	service := New(database.SQL, func() time.Time { return time.UnixMilli(2_000) })
+	service := newTestImporter(t, database.SQL, nil, testImportOptions{Now: func() time.Time { return time.UnixMilli(2_000) }})
 	retried, err := service.RetryItem(ctx, retryItemID, 1)
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil },
 		func() bool { return retried.State != "QUEUED" },
@@ -200,7 +200,7 @@ func TestDuplicateContentIsSkippedDuringIdentificationAndConfirmedDuringReview(t
 	blobs, err := filestore.Open(dataDir)
 	testassert.False(t, err != nil, err)
 	uploader := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
-	importer := New(database.SQL, time.Now).WithFileStore(blobs)
+	importer := newTestImporter(t, database.SQL, blobs, testImportOptions{Now: time.Now})
 	contents := []byte("duplicate-content-identity-fixture")
 	platformInstanceID := testsupport.MustPlatformInstanceID(t, database.SQL, "gba/mgba")
 
@@ -367,7 +367,7 @@ func TestImportGroupsSingleArchiveMemberAndReportsEveryFile(t *testing.T) {
 	jobID, _, err := uploadService.Complete(ctx, upload.ID, current.Version)
 	testassert.False(t, err != nil, err)
 	waitForJob(t, database, jobID)
-	importer := New(database.SQL, time.Now).WithFileStore(blobs)
+	importer := newTestImporter(t, database.SQL, blobs, testImportOptions{Now: time.Now})
 	created, err := importer.Create(
 		ctx,
 		CreateRequest{

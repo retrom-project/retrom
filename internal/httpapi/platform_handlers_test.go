@@ -10,14 +10,15 @@ import (
 	"testing"
 	"time"
 
+	librarycomposition "retrom/internal/composition/libraryimport"
+	"retrom/internal/testsupport/importfixture"
+
 	"retrom/internal/filestore"
 
 	"retrom/internal/persistence/recordstore"
 
 	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/importfiles"
-
-	"retrom/internal/composition"
 
 	dependencypersistence "retrom/internal/persistence/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
@@ -182,12 +183,11 @@ func TestCreateImportQueuesContentInspectionAndMapsImmediateAdmissionErrors(t *t
 		t.Fatal(err)
 	}
 	server.importer.Close()
-	server.importer = libraryimport.New(server.database, server.now, server.metadata).
-		WithFileStore(server.blobs).WithMultiDiscImportEnabled(true)
+	server.importer = importfixture.New(t, server.database, server.blobs, importfixture.Options{Now: server.now, MultiDiscEnabled: true, Scraper: server.metadata})
 	t.Cleanup(server.importer.Close)
 	server.importer.Start()
-	server.importAdmissions = composition.NewLibraryImportAdmissions(server.database,
-		server.importer, libraryservice.ImportAdmissionOptions{
+	server.importAdmissions = librarycomposition.NewImportAdmissions(server.database,
+		server.importer, server.tagService, libraryservice.ImportAdmissionOptions{
 			Now: server.now, MultiDiscEnabled: true, MetadataScraperAvailable: true,
 		})
 	createUpload := func(uploadID, fileID string) {

@@ -14,11 +14,12 @@ import (
 	"strings"
 	"testing"
 
+	librarycomposition "retrom/internal/composition/libraryimport"
+
 	"retrom/internal/filestore"
 
 	"retrom/internal/persistence/recordstore"
 
-	"retrom/internal/composition"
 	"retrom/internal/testsupport"
 )
 
@@ -43,7 +44,7 @@ func TestReviewCoverSQLFailuresRemainServerErrors(t *testing.T) {
 					return nil
 				},
 			})
-			server.reviewCoverUploads = composition.NewLibraryReviewCoverUploads(faultDB, server.blobs, server.now)
+			server.reviewCoverUploads = librarycomposition.NewReviewCoverUploads(faultDB, server.blobs, server.now)
 			response := requestReviewCover(t, server, itemID, fileID)
 			if response.Code != http.StatusInternalServerError || hits != 1 {
 				t.Fatalf("SQL failure mapped as domain rejection: status=%d hits=%d body=%s",

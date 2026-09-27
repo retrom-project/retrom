@@ -1,4 +1,4 @@
-package composition
+package libraryimport
 
 import (
 	"context"
@@ -13,7 +13,7 @@ import (
 	application "retrom/internal/service/libraryimport"
 )
 
-func NewLibraryReviewCoverUploads(
+func NewReviewCoverUploads(
 	database dbapi.DB, blobs *filestore.Store, now func() time.Time,
 ) *application.ReviewCoverUploads {
 	return application.NewReviewCoverUploads(repository.NewReviewCoverUploads(database), reviewCoverBlobs{blobs}, now)

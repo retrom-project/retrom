@@ -22,9 +22,11 @@ type CreationOptions struct {
 	MultiDiscEnabled bool
 }
 
-func NewCreations(database dbapi.DB, now func() time.Time, options CreationOptions) *application.ImportCreations {
+func NewCreations(database dbapi.DB, now func() time.Time,
+	preparation *application.ImportPreparation, options CreationOptions,
+) *application.ImportCreations {
 	return application.NewImportCreations(
-		repository.NewImportCreations(database), NewPreparation(database, options), options.Tags, options.Scraper,
+		repository.NewImportCreations(database), preparation, options.Tags, options.Scraper,
 		application.ImportCreationSettings{Now: now, MultiDiscEnabled: options.MultiDiscEnabled},
 	)
 }

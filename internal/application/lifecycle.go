@@ -2,12 +2,31 @@ package application
 
 import (
 	"context"
+	"errors"
 	"fmt"
 )
 
-// Start runs recovery before accepting HTTP traffic. Its caller owns Close even
-// when startup fails, so partially started services are always stopped.
+var ErrClosed = errors.New("application is closed")
+
+// Start owns partial-startup cleanup. A failed or closed graph cannot restart.
 func (services *Services) Start(ctx context.Context) error {
+	services.lifecycleMu.Lock()
+	defer services.lifecycleMu.Unlock()
+	if services.closed {
+		return ErrClosed
+	}
+	if services.started {
+		return nil
+	}
+	if err := services.start(ctx); err != nil {
+		services.close()
+		return err
+	}
+	services.started = true
+	return nil
+}
+
+func (services *Services) start(ctx context.Context) error {
 	if err := ctx.Err(); err != nil {
 		return fmt.Errorf("start application: %w", err)
 	}
@@ -34,6 +53,16 @@ func (services *Services) Start(ctx context.Context) error {
 }
 
 func (services *Services) Close() {
+	services.lifecycleMu.Lock()
+	defer services.lifecycleMu.Unlock()
+	services.close()
+}
+
+func (services *Services) close() {
+	if services.closed {
+		return
+	}
+	services.closed = true
 	services.ImportDiscards.Close()
 	services.SourceImports.Close()
 	services.ServerImports.Close()

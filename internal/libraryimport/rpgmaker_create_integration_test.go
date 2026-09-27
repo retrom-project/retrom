@@ -79,7 +79,7 @@ func TestCreateRPGMakerMVArchiveReachesReviewPending(t *testing.T) {
 	}
 	waitForRPGUploadFinalization(t, ctx, database.SQL, jobID)
 
-	created, err := New(database.SQL, time.Now).WithFileStore(blobs).Create(ctx, CreateRequest{
+	created, err := newTestImporter(t, database.SQL, blobs, testImportOptions{Now: time.Now}).Create(ctx, CreateRequest{
 		UploadID: upload.ID, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(
 			t, database.SQL, "rpgmaker/rpgmaker",
 		),
@@ -176,7 +176,7 @@ WHERE provider_id='retrom-runtime'
 `, replacementBundle); err != nil {
 		t.Fatal(err)
 	}
-	validationCurrent, err := New(database.SQL, time.Now).ReviewValidationCurrent(ctx, validationID)
+	validationCurrent, err := newTestImporter(t, database.SQL, nil, testImportOptions{Now: time.Now}).ReviewValidationCurrent(ctx, validationID)
 	if err != nil || !validationCurrent {
 		t.Fatalf("review validation after provider bundle upgrade = %t, error=%v", validationCurrent, err)
 	}
@@ -205,7 +205,7 @@ WHERE draft.id=?
 	if validationCount != 1 {
 		t.Fatalf("provider bundle upgrade created redundant review validations: %d", validationCount)
 	}
-	approved, err := New(database.SQL, time.Now).WithFileStore(blobs).Approve(ctx, itemID, draftVersion)
+	approved, err := newTestImporter(t, database.SQL, blobs, testImportOptions{Now: time.Now}).Approve(ctx, itemID, draftVersion)
 	if err != nil || approved.GameID == "" {
 		t.Fatalf("READY RPG review must approve without a runtime proof session: %+v %v", approved, err)
 	}

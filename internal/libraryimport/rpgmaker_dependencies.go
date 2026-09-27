@@ -40,7 +40,7 @@ func (state *draftValidationRefresh) resolveRPGDependencies() (draftDependencySt
 		return draftDependencyState{}, err
 	}
 	if err := repository.BindReviewValidation(state.transaction).UpdateRPGDependencyDigest(
-		state.ctx, state.draftID, digest, state.service.now().UnixMilli(),
+		state.ctx, state.draftID, digest, state.validator.now().UnixMilli(),
 	); err != nil {
 		return draftDependencyState{}, fmt.Errorf("libraryimport/RPG dependency digest: %w", err)
 	}

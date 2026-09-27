@@ -10,9 +10,7 @@ import (
 	"retrom/internal/service/tagging"
 )
 
-// NewReviewDrafts wires the review draft application command to its SQL
-// repository. Validation callbacks are kept as typed ports while the legacy
-// validation slice is migrated independently.
+// NewReviewDrafts binds each validation callback to the active review transaction.
 func NewReviewDrafts(
 	database dbapi.DB,
 	tags *tagging.Service,

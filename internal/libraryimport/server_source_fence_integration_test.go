@@ -43,7 +43,7 @@ item_id='018fbe68-0000-7000-8000-000000000021'`,
 					t.Error(err)
 				}
 			})
-			fixture.service.database = intercepted
+			fixture.service = newTestImporter(t, intercepted, fixture.service.blobs, testImportOptions{Now: fixture.service.now, MultiDiscEnabled: fixture.service.multiDiscImportEnabled})
 			result, err := fixture.service.CreateOwnedServerSource(fixture.ctx, request)
 			if !errors.Is(err, ErrVersionConflict) || result.Created.ImportJobID != "" || result.Items != nil {
 				t.Fatalf("%s changed during prepare: %#v %v", name, result, err)

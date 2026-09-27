@@ -71,7 +71,7 @@ func TestPrepareTyranoScriptNWJSExecutableExtractsAppendedProject(t *testing.T) 
 	file := importSourceFile{
 		ID: "game", Path: "game.exe", FileRecord: metadata.Record, SHA256: metadata.SHA256, Size: metadata.Size,
 	}
-	dispositions, groups, archives, err := New(nil, nil).WithFileStore(blobs).prepareTyranoScriptProject(
+	dispositions, groups, archives, err := newTestImporter(t, nil, blobs, testImportOptions{Now: nil}).prepareTyranoScriptProject(
 		context.Background(), "FILES", []importSourceFile{file},
 	)
 	if err != nil {
@@ -104,7 +104,7 @@ func TestPrepareTyranoScriptWrappedNWJSArchiveExtractsAppendedProject(t *testing
 		ID: "wrapped-nwjs", Path: "wrapped-nwjs.zip", FileRecord: metadata.Record,
 		SHA256: metadata.SHA256, Size: metadata.Size,
 	}
-	dispositions, groups, archives, err := New(nil, nil).WithFileStore(blobs).prepareTyranoScriptProject(
+	dispositions, groups, archives, err := newTestImporter(t, nil, blobs, testImportOptions{Now: nil}).prepareTyranoScriptProject(
 		context.Background(), "FILES", []importSourceFile{file},
 	)
 	if err != nil {
@@ -150,7 +150,7 @@ func TestPrepareTyranoScriptWrappedNWJSArchiveRejectsMultipleExecutables(t *test
 	file := importSourceFile{
 		ID: "ambiguous", Path: "ambiguous.zip", FileRecord: metadata.Record, SHA256: metadata.SHA256, Size: metadata.Size,
 	}
-	_, _, _, err = New(nil, nil).WithFileStore(blobs).prepareTyranoScriptProject(
+	_, _, _, err = newTestImporter(t, nil, blobs, testImportOptions{Now: nil}).prepareTyranoScriptProject(
 		context.Background(), "FILES", []importSourceFile{file},
 	)
 	if !errors.Is(err, importing.ErrArchiveUnsafe) {
@@ -172,7 +172,7 @@ func TestPrepareTyranoScriptElectronArchiveExtractsASARProject(t *testing.T) {
 	file := importSourceFile{
 		ID: "electron", Path: "electron.zip", FileRecord: metadata.Record, SHA256: metadata.SHA256, Size: metadata.Size,
 	}
-	dispositions, groups, archives, err := New(nil, nil).WithFileStore(blobs).prepareTyranoScriptProject(
+	dispositions, groups, archives, err := newTestImporter(t, nil, blobs, testImportOptions{Now: nil}).prepareTyranoScriptProject(
 		context.Background(), "FILES", []importSourceFile{file},
 	)
 	if err != nil {
@@ -231,7 +231,7 @@ func tyranoScriptImportFixture(t *testing.T) (*Service, []importSourceFile) {
 			ID: name, Path: name, FileRecord: metadata.Record, SHA256: metadata.SHA256, Size: metadata.Size,
 		})
 	}
-	return New(nil, nil).WithFileStore(blobs), files
+	return newTestImporter(t, nil, blobs, testImportOptions{Now: nil}), files
 }
 
 func tyranoScriptNWJSExecutable(t *testing.T) []byte {

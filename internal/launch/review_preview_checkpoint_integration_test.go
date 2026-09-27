@@ -12,13 +12,14 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/testsupport/importfixture"
+
 	dbapi "retrom/internal/database"
 	savepersistence "retrom/internal/persistence/saves"
 
 	"retrom/internal/cleanup"
 	"retrom/internal/composition/cleanupjobs"
 	"retrom/internal/filestore"
-	"retrom/internal/libraryimport"
 	retromruntime "retrom/internal/runtime"
 	"retrom/internal/service/saves"
 	"retrom/internal/testsupport"
@@ -232,8 +233,7 @@ func TestPublishingReviewReleasesAllTemporaryPreviewOwners(t *testing.T) {
 	}
 	mustRPGLaunchSQL(t, fixture.database,
 		`UPDATE import_items SET metadata_json='{"title":"Published trial"}' WHERE id=?`, fixture.itemID)
-	approved, err := libraryimport.New(fixture.database,
-		func() time.Time { return *fixture.now }).WithFileStore(fixture.files).
+	approved, err := importfixture.New(t, fixture.database, fixture.files, importfixture.Options{Now: func() time.Time { return *fixture.now }}).
 		Approve(t.Context(), fixture.itemID, 2)
 	if err != nil || approved.GameID == "" {
 		t.Fatalf("publish ordinary review: %+v %v", approved, err)

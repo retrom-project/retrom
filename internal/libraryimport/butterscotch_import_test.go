@@ -120,5 +120,5 @@ func butterscotchImportFixture(t *testing.T) (*Service, []importSourceFile) {
 			ID: name, Path: name, FileRecord: metadata.Record, SHA256: metadata.SHA256, Size: metadata.Size,
 		})
 	}
-	return New(nil, nil).WithFileStore(blobs), files
+	return newTestImporter(t, nil, blobs, testImportOptions{Now: nil}), files
 }

@@ -16,10 +16,11 @@ import (
 	"sync"
 	"testing"
 
+	librarycomposition "retrom/internal/composition/libraryimport"
+
 	"retrom/internal/filestore"
 
 	"retrom/internal/authn"
-	"retrom/internal/composition"
 	dbapi "retrom/internal/database"
 	"retrom/internal/libraryimport"
 	libraryservice "retrom/internal/service/libraryimport"
@@ -61,7 +62,7 @@ SELECT json_extract(metadata_json,'$.title'),version FROM import_items WHERE id=
 			return mutationErr
 		},
 	})
-	server.reviewDetails = composition.NewLibraryReviewDetails(database)
+	server.reviewDetails = librarycomposition.NewReviewDetails(database)
 	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/admin/reviews/"+itemID, nil)
 	request.SetPathValue("importItemId", itemID)
 	recorder := httptest.NewRecorder()
@@ -137,7 +138,7 @@ func TestReviewDetailInvisibleHeadlinePrecedesChildReads(t *testing.T) {
 			return nil
 		},
 	})
-	server.reviewDetails = composition.NewLibraryReviewDetails(database)
+	server.reviewDetails = librarycomposition.NewReviewDetails(database)
 	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/admin/reviews/"+itemID, nil)
 	request.SetPathValue("importItemId", itemID)
 	response := httptest.NewRecorder()
@@ -162,7 +163,7 @@ func TestReviewDetailPreservesLateSQLFailureAndClearsProjection(t *testing.T) {
 			return nil
 		},
 	})
-	reader := composition.NewLibraryReviewDetails(database)
+	reader := librarycomposition.NewReviewDetails(database)
 	result, err := reader.Get(t.Context(), itemID)
 	if !errors.Is(err, cause) || !reflect.DeepEqual(result, libraryservice.ReviewDetail{}) || calls != 1 {
 		t.Fatalf("late SQL failure: calls=%d result=%+v err=%v", calls, result, err)

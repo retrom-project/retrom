@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/testsupport/importfixture"
+
 	"retrom/internal/composition"
 	dbapi "retrom/internal/database"
 	"retrom/internal/service/importdiscard"
@@ -63,7 +65,7 @@ func newFixture(t *testing.T) *fixture {
 	f.exec(t, `INSERT INTO profiles(id,display_name,created_at_ms) VALUES('discard-profile','Discard',0);
 INSERT INTO users(id,profile_id,username,display_name,role,status,created_at_ms,updated_at_ms)
 VALUES(?,'discard-profile','discard-admin','Discard','ADMIN','ENABLED',0,0)`, adminID)
-	f.importer = libraryimport.New(f.db, now).WithFileStore(blobs)
+	f.importer = importfixture.New(t, f.db, blobs, importfixture.Options{Now: now})
 	f.service = composition.NewImportDiscard(f.db, libraryimport.NewDiscardWorkflow(f.importer), nil, now)
 	f.releases, err = cleanupjobs.New(t.Context(), f.db, blobs, now)
 	if err != nil {

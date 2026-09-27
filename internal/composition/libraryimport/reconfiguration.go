@@ -1,7 +1,6 @@
 package libraryimport
 
 import (
-	"context"
 	"time"
 
 	dbapi "retrom/internal/database"
@@ -11,24 +10,9 @@ import (
 	application "retrom/internal/service/libraryimport"
 )
 
-func NewReconfigurations(
-	database dbapi.DB,
-	now func() time.Time,
-	options CreationOptions,
+func NewReconfigurations(database dbapi.DB, now func() time.Time,
+	files *filestore.Store, creations *application.ImportCreations,
 ) *application.Reconfigurations {
-	creations := NewCreations(database, now, options)
-	var copyFile func(context.Context, string, string, string) (filestore.Metadata, error)
-	var removePath func(context.Context, string) error
-	if options.Blobs != nil {
-		copyFile = options.Blobs.CopyTo
-		removePath = options.Blobs.RemovePath
-	}
-	return application.NewReconfigurations(
-		repository.NewReconfigurations(database),
-		func(ctx context.Context, request application.ImportRequest,
-			creationOptions application.ImportCreationOptions,
-		) (application.ImportCreationResult, error) {
-			return creations.Create(ctx, request, creationOptions)
-		}, copyFile, removePath, now,
-	)
+	return application.NewReconfigurations(repository.NewReconfigurations(database),
+		creations.Create, files.CopyTo, files.RemovePath, now)
 }

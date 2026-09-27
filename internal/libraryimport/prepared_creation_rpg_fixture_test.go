@@ -52,7 +52,7 @@ func preparedRPGFixture(t *testing.T) (*Service, CreateRequest, string) {
 		t.Fatal(err)
 	}
 	waitForRPGUploadFinalization(t, t.Context(), database.SQL, jobID)
-	service := New(database.SQL, time.Now).WithFileStore(blobs)
+	service := newTestImporter(t, database.SQL, blobs, testImportOptions{Now: time.Now})
 	request := CreateRequest{
 		UploadID:                 upload.ID,
 		TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(t, database.SQL, "rpgmaker/rpgmaker"),

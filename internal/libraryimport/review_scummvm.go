@@ -9,7 +9,7 @@ import (
 	dbapi "retrom/internal/database"
 )
 
-func (service *Service) selectScummVMCandidate(
+func (validator *DraftValidator) SelectScummVM(
 	ctx context.Context,
 	transaction dbapi.Executor,
 	itemID, targetID string,
@@ -17,7 +17,7 @@ func (service *Service) selectScummVMCandidate(
 	candidateID string,
 ) (string, error) {
 	state := draftValidationRefresh{
-		service: service, ctx: ctx, transaction: transaction,
+		validator: validator, ctx: ctx, transaction: transaction,
 		itemID: itemID, targetID: targetID, dosEntry: dosEntry,
 	}
 	if err := state.loadInputs(); err != nil {

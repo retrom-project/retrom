@@ -13,6 +13,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/testsupport/importfixture"
+
 	"retrom/internal/composition"
 	"retrom/internal/dependencies"
 	"retrom/internal/filestore"
@@ -73,7 +75,7 @@ func createMediaImportFixture(t *testing.T, client hasheous.HTTPDoer) mediaImpor
 		mediaFixtureNow), mediaFixtureNow)
 	t.Cleanup(scraper.Close)
 	uploadID := uploadMediaContent(t, database, blobs, root)
-	importer := libraryimport.New(database.SQL, mediaFixtureNow, scraper).WithFileStore(blobs)
+	importer := importfixture.New(t, database.SQL, blobs, importfixture.Options{Now: mediaFixtureNow, Scraper: scraper})
 	created, err := importer.Create(t.Context(), libraryimport.CreateRequest{
 		UploadID:                 uploadID,
 		TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(t, database.SQL, "gba/mgba"),

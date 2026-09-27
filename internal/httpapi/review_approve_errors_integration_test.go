@@ -11,7 +11,8 @@ import (
 	"strings"
 	"testing"
 
-	"retrom/internal/composition"
+	librarycomposition "retrom/internal/composition/libraryimport"
+
 	"retrom/internal/testsupport"
 )
 
@@ -33,7 +34,7 @@ func TestReviewApproveSQLFailuresAreServerErrors(t *testing.T) {
 			}
 			database := testsupport.OpenSQLFaultDatabase(t, server.database,
 				testsupport.SQLFaultHooks{BeforeQuery: fault, BeforeExec: fault})
-			server.reviewApprovals = composition.NewLibraryReviewApprovals(database, server.now, server.blobs)
+			server.reviewApprovals = librarycomposition.NewReviewApprovals(database, server.now, server.blobs, server.tagService)
 			response := requestReviewApprove(t, server, itemID, `"v1"`, `{}`)
 			if response.Code != http.StatusInternalServerError || hits != 1 {
 				t.Fatalf("approval SQL failure became conflict: status=%d hits=%d body=%s", response.Code,

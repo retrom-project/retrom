@@ -1,4 +1,4 @@
-package composition
+package importworkflow
 
 import (
 	"time"
@@ -11,7 +11,7 @@ import (
 	application "retrom/internal/service/libraryimport"
 )
 
-func NewLibraryReviewScreenshots(
+func NewReviewScreenshots(
 	database dbapi.DB, files *filestore.Store, now func() time.Time,
 ) *application.ScreenshotSaver {
 	return application.NewScreenshotSaver(

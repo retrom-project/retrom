@@ -13,6 +13,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/testsupport/importfixture"
+
 	"retrom/internal/composition/cleanupjobs"
 	dbapi "retrom/internal/database"
 	"retrom/internal/dependencies"
@@ -60,7 +62,7 @@ func contentRetirementFixture(t *testing.T) retirementFixture {
 	uploadService := uploads.New(uploadpersistence.New(database.SQL), blobs, dir, time.Now)
 	t.Cleanup(uploadService.Close)
 	uploadID := completeUpload(t, t.Context(), database.SQL, uploadService, "retirement.gba", []byte("original retirement content"))
-	importer := libraryimport.New(database.SQL, time.Now).WithFileStore(blobs)
+	importer := importfixture.New(t, database.SQL, blobs, importfixture.Options{Now: time.Now})
 	created, err := importer.Create(t.Context(), libraryimport.CreateRequest{UploadID: uploadID, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(t, database.SQL, "gba/mgba"), MetadataProvider: "NONE"})
 	if err != nil {
 		t.Fatal(err)

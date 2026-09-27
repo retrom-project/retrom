@@ -1,4 +1,4 @@
-package composition
+package libraryimport
 
 import (
 	dbapi "retrom/internal/database"
@@ -8,10 +8,10 @@ import (
 	"retrom/internal/service/tagging"
 )
 
-func NewLibraryReviewQueue(database dbapi.DB, tags *tagging.Service) *application.ReviewQueue {
+func NewReviewQueue(database dbapi.DB, tags *tagging.Service) *application.ReviewQueue {
 	return application.NewReviewQueue(repository.NewReviewQueue(database), tags)
 }
 
-func NewLibraryReviewDetails(database dbapi.DB) *application.ReviewDetails {
+func NewReviewDetails(database dbapi.DB) *application.ReviewDetails {
 	return application.NewReviewDetails(repository.NewReviewDetail(database))
 }

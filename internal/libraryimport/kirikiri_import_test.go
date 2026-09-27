@@ -20,7 +20,7 @@ func TestPrepareKiriKiriDirectoryNormalizesWrapperAndRequiresRuntimeTrial(t *tes
 		"Fixture/data.xp3":    []byte("fixture XP3"),
 		"Fixture/.DS_Store":   []byte("noise"),
 	})
-	service := New(nil, nil).WithFileStore(blobs)
+	service := newTestImporter(t, nil, blobs, testImportOptions{Now: nil})
 	dispositions, groups, archives, err := service.prepareKiriKiriProject(context.Background(), "DIRECTORY", files)
 	if err != nil {
 		t.Fatal(err)

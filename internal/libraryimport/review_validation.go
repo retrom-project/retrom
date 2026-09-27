@@ -21,14 +21,14 @@ import (
 )
 
 // Keep immutable validation refresh branches together for auditability.
-func (service *Service) ensureCompatibleDraftValidation(
+func (validator *DraftValidator) Refresh(
 	ctx context.Context,
 	transaction dbapi.Executor,
 	itemID, targetID string,
 	dosEntry sql.NullString,
 ) (string, error) {
 	state := draftValidationRefresh{
-		service: service, ctx: ctx, transaction: transaction,
+		validator: validator, ctx: ctx, transaction: transaction,
 		itemID: itemID, targetID: targetID, dosEntry: dosEntry,
 	}
 	if err := state.loadInputs(); err != nil {
@@ -51,7 +51,7 @@ func (service *Service) ensureCompatibleDraftValidation(
 }
 
 type draftValidationRefresh struct {
-	service                 *Service
+	validator               *DraftValidator
 	ctx                     context.Context
 	transaction             dbapi.Executor
 	itemID                  string
@@ -204,7 +204,7 @@ func (state *draftValidationRefresh) resolveDependencies() error {
 
 func (state *draftValidationRefresh) insertValidation() (string, error) {
 	createdID, _ := uuid.NewV7()
-	now := state.service.now().UnixMilli()
+	now := state.validator.now().UnixMilli()
 	digest := prepublishDigest(state.digestInput())
 	repository := repository.BindReviewValidation(state.transaction)
 	err := repository.Create(state.ctx, application.ReviewValidationRefreshCreate{

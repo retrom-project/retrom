@@ -131,6 +131,13 @@ flowchart LR
 
 进程入口通过 `internal/application` 组装服务，在依赖和 Runtime Provider 配置完整后显式恢复并启动后台工作，退出或启动失败时统一关闭和等待。HTTP 服务接收已组装的服务，只承担协议与路由，不在构造时启动或恢复任务。Game、Import、SourceImport 和 Upload 各自维护清理资格、状态转换和业务记录清理；`cleanupjobs` 提供任务事务围栏、租约、重试和物理删除，通过固定领域处理器执行，不解释跨领域清理计划。
 
+组装使用显式 Go 构造函数，不引入 DI 容器。`internal/application` 选择跨领域共享实例并管理 `New → Start → Close`；领域组装放在 `internal/composition/<domain>`，业务方法不导入 composition。必需仓库和文件服务在构造时一次性传入；缺少必需依赖属于组装错误，不能延迟到第一次请求才发现。功能开关在构造选项中固定，清理队列的唤醒信号可省略，因为清理任务已经持久化。
+
+导入流程由 `composition/importworkflow` 一次组装，Importer、HTTP、批量审批和发布恢复共用审批实例；创建、重配与队列 Worker 共用准备及创建服务，标签服务由应用统一提供。审核草稿校验器独立于 Importer；每次校验只使用当前事务传入的 executor。`WithApproval`、`BindReviewApproval(tx)` 等事务作用域仍在事务内建立，不能缓存进长期服务。请求工作状态保持为局部值。
+
+构造不启动后台任务。导入队列通知只发送唤醒信号，`Start` 才启动 Worker；`Close` 取消并等待所属任务，关闭后不可重启。应用启动失败自动关闭已经构造或启动的服务，调用方仍可幂等调用 `Close`。
+
+
 一期的后端仍是单个 Go 模块化单体，负责 API、进程内持久任务队列、Provider Bundle 服务、受控内容端点、SQLite 与本地独立文件存储；前端作为独立 Next.js 进程提供 UI、Provider dispatcher 与 Player Shell。构建分别产出后端镜像 `retrom` 和前端镜像 `retrom-web`，前后端分镜像不等于把后端领域拆成微服务。
 
 生产环境由已有 NG（Nginx/网关/反向代理）对外暴露同一个 HTTPS origin，再通过明文 HTTP 路由至两个应用。Retrom 不加载证书、不监听 HTTPS，也不负责 TLS 跳转或 HSTS。开发环境的 `make dev` 直接启动宿主机 Go 与 Next.js 进程，不使用 Docker。

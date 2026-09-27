@@ -51,7 +51,7 @@ func testDiscardLateFailure(t *testing.T, stage string) {
 	finishOwnedReviewHandoff(t, fixture, request)
 	before := captureDeduplicatePage(t, fixture, created.Created.ImportJobID)
 	ownerBefore := captureDiscardOwner(t, fixture, request.Intent.ItemID)
-	fault := newReviewDiscardFault(t, fixture, itemID, stage)
+	fault := newReviewDiscardFault(t, &fixture, itemID, stage)
 	ctx := authn.WithPrincipal(t.Context(), authn.Principal{UserID: "owner-actor"})
 	result, err := fixture.service.Discard(ctx, itemID, 1, "Requested discard")
 	if !errors.Is(err, fault.cause) || result != (DecisionResult{}) || fault.itemWrites != 1 || fault.faults != 1 {
@@ -61,7 +61,7 @@ func testDiscardLateFailure(t *testing.T, stage string) {
 		t.Fatalf("late fault did not follow actual source write: %d", fault.sourceWrites)
 	}
 	assertDiscardRollback(t, fixture, created.Created.ImportJobID, itemID, request.Intent.ItemID, before, ownerBefore)
-	fixture.service.database = fixture.database
+	fixture.service = newTestImporter(t, fixture.database, fixture.service.blobs, testImportOptions{Now: fixture.service.now, MultiDiscEnabled: fixture.service.multiDiscImportEnabled})
 	result, err = fixture.service.Discard(ctx, itemID, 1, "Requested discard")
 	if err != nil || result.Status != "DISCARDED" || result.ItemID == "" {
 		t.Fatalf("retry=%+v err=%v", result, err)
@@ -85,7 +85,7 @@ func TestDiscardBatchKeepsPerItemTransactions(t *testing.T) {
 	t.Parallel()
 	fixture := newDeduplicateFixture(t)
 	created := fixture.create(t, "Batch discard", "Retrom owned batch discard fixture", 2)
-	fault := newDeduplicateDiscardFault(t, fixture, created)
+	fault := newDeduplicateDiscardFault(t, &fixture, created)
 	done, err := fixture.service.DiscardBatchReviews(t.Context(), created.Created.ImportJobID)
 	if !errors.Is(err, errDeduplicateDiscard) || done {
 		t.Fatalf("batch failure=%v done=%v", err, done)
@@ -93,7 +93,7 @@ func TestDiscardBatchKeepsPerItemTransactions(t *testing.T) {
 	fault.assertReached(t)
 	assertDeduplicateItemState(t, fixture, fault.firstID, "DISCARDED")
 	assertDeduplicateItemState(t, fixture, fault.lastID, "REVIEW_PENDING")
-	fixture.service.database = fixture.database
+	fixture.service = newTestImporter(t, fixture.database, fixture.service.blobs, testImportOptions{Now: fixture.service.now, MultiDiscEnabled: fixture.service.multiDiscImportEnabled})
 	done, err = fixture.service.DiscardBatchReviews(t.Context(), created.Created.ImportJobID)
 	if err != nil || !done {
 		t.Fatalf("batch retry=%v done=%v", err, done)

@@ -78,7 +78,7 @@ VALUES(?,?,'arcade.bulk.admin','Arcade Bulk Admin','ADMIN','ENABLED',1,1)
 	insertArcadeParentCatalog(t, database.SQL)
 	uploadService := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
 	root := uploadCompleteFile(t, ctx, database.SQL, uploadService, "c.zip", arcadeZIP(t, "c.bin", []byte("root")))
-	importer := New(database.SQL, time.Now).WithFileStore(blobs)
+	importer := newTestImporter(t, database.SQL, blobs, testImportOptions{Now: time.Now})
 	arcadeID := testsupport.MustPlatformInstanceID(t, database.SQL, "arcade/fbneo")
 	created, err := importer.Create(ctx, CreateRequest{
 		UploadID: root.uploadID, TargetPlatformInstanceID: arcadeID,
@@ -93,7 +93,7 @@ SELECT status,dependency_snapshot_json FROM import_item_core_validations WHERE i
 		t.Fatal(err)
 	}
 	testassert.Falsef(t, testassert.Any(func() bool { return validationStatus != "READY" }, func() bool { return !strings.Contains(dependencySnapshot, `"kind":"ARCADE"`) }), "arcade validation = %s %s", validationStatus, dependencySnapshot)
-	bulkService := librarycomposition.NewReviewBulk(database.SQL, importer.reviewApprovals(), time.Now)
+	bulkService := librarycomposition.NewReviewBulk(database.SQL, importer.approvals, time.Now)
 	t.Cleanup(bulkService.Close)
 	bulk, err := bulkService.Create(ctx)
 	testassert.False(t, err != nil, err)
@@ -143,7 +143,7 @@ func testArcadeParentAttachmentsAdvanceImmutableSnapshotsUntilReadyAndPublish(t 
 	})
 	wrongZIP := arcadeZIP(t, "wrong.bin", []byte("wrong"))
 	child := uploadCompleteFile(t, ctx, database.SQL, uploadService, "a.zip", childZIP)
-	importer := New(database.SQL, time.Now).WithFileStore(blobs)
+	importer := newTestImporter(t, database.SQL, blobs, testImportOptions{Now: time.Now})
 	arcadeID := testsupport.MustPlatformInstanceID(t, database.SQL, "arcade/fbneo")
 	created, err := importer.Create(ctx, CreateRequest{
 		UploadID: child.uploadID, TargetPlatformInstanceID: arcadeID,

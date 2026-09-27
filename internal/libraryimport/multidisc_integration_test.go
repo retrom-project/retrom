@@ -156,7 +156,7 @@ VALUES(?,?,?,?,?,?,?,?,?,'HASH_WARNING','{}',1,1,?,?)
 `, installationID, requirementID, biosFileRecord, "saturn_bios.bin", bios.Size, bios.MD5, bios.SHA1, bios.SHA256, requirementVersion, time.Now().UnixMilli(), time.Now().UnixMilli()); err != nil {
 		t.Fatal(err)
 	}
-	importer := New(database.SQL, time.Now).WithFileStore(blobs).WithMultiDiscImportEnabled(true)
+	importer := newTestImporter(t, database.SQL, blobs, testImportOptions{Now: time.Now, MultiDiscEnabled: true})
 	return ctx, dataDir, database, blobs, importer
 }
 

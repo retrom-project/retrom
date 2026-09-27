@@ -19,9 +19,10 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/testsupport/importfixture"
+
 	dbapi "retrom/internal/database"
 	"retrom/internal/filestore"
-	"retrom/internal/libraryimport"
 	idempotencypersistence "retrom/internal/persistence/idempotency"
 	jobpersistence "retrom/internal/persistence/jobs"
 	uploadpersistence "retrom/internal/persistence/uploads"
@@ -69,7 +70,7 @@ func newUploadRetryFixture(t *testing.T) uploadRetryFixture {
 	server := &Server{
 		idempotencyService: idempotencyservice.New(idempotencypersistence.New(database.SQL)),
 		database:           database.SQL, now: now, uploads: uploader, jobService: jobs.New(jobpersistence.New(database.SQL), now),
-		importer: libraryimport.New(database.SQL, now),
+		importer: importfixture.New(t, database.SQL, nil, importfixture.Options{Now: now}),
 	}
 	server.idempotencyQueueDrained = sync.NewCond(&server.idempotencyQueueMu)
 	t.Cleanup(server.importer.Close)

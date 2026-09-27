@@ -132,7 +132,7 @@ func TestTypedImportWorkerFailureAndPayloadShareTransaction(t *testing.T) {
 	cause := errors.New("payload scheduling unavailable")
 	writes, release := int64(0), 0
 	source := service.database
-	service.database = testsupport.OpenSQLFaultDatabase(
+	service = newTestImporter(t, testsupport.OpenSQLFaultDatabase(
 		t,
 		source,
 		testsupport.SQLFaultHooks{
@@ -155,7 +155,7 @@ func TestTypedImportWorkerFailureAndPayloadShareTransaction(t *testing.T) {
 				return result, nil
 			},
 		},
-	)
+	), service.blobs, testImportOptions{Now: service.now, MultiDiscEnabled: service.multiDiscImportEnabled})
 	err := typedImportExecutions(service).Fail(t.Context(), *work.creationIntent(), ErrInvalid)
 	if !errors.Is(err, cause) || writes != 1 || release != 1 {
 		t.Fatalf("atomic failure: writes=%d release=%d err=%v", writes, release, err)
@@ -177,7 +177,7 @@ func TestTypedImportWorkerFailureAndPayloadShareTransaction(t *testing.T) {
 	if state != "RUNNING" || parent != "RUNNING" || payload != "RETAINED" {
 		t.Fatalf("partial failure: %s/%s/%s", state, parent, payload)
 	}
-	service.database = source
+	service = newTestImporter(t, source, service.blobs, testImportOptions{Now: service.now, MultiDiscEnabled: service.multiDiscImportEnabled})
 	if err := typedImportExecutions(service).Fail(t.Context(), *work.creationIntent(), ErrInvalid); err != nil {
 		t.Fatal(err)
 	}

@@ -10,8 +10,9 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/testsupport/importfixture"
+
 	"retrom/internal/cleanup"
-	"retrom/internal/libraryimport"
 	retromruntime "retrom/internal/runtime"
 	"retrom/internal/testsupport"
 )
@@ -34,8 +35,7 @@ func TestRPGProductLaunchUsesCurrentBundleAfterProviderUpgrade(t *testing.T) {
 		t.Fatal(err)
 	}
 	launcher := newRPGReviewLaunchService(t, ctx, database.SQL, credentials, func() time.Time { return now })
-	approved, err := libraryimport.New(database.SQL,
-		func() time.Time { return now }).WithFileStore(fixture.files).Approve(ctx, fixture.itemID, 2)
+	approved, err := importfixture.New(t, database.SQL, fixture.files, importfixture.Options{Now: func() time.Time { return now }}).Approve(ctx, fixture.itemID, 2)
 	if err != nil {
 		t.Fatalf("approve RPG review: %v", err)
 	}
@@ -81,8 +81,7 @@ func TestRPGProjectContentUsesOnlyUniqueASCIICaseFoldFallback(t *testing.T) {
 	}
 	service := newRPGReviewLaunchService(t, ctx, database.SQL, credentials, func() time.Time { return now })
 	mustRPGLaunchSQL(t, database.SQL, `UPDATE import_items SET metadata_json='{"title":"RPG content"}' WHERE id=?`, fixture.itemID)
-	published, err := libraryimport.New(database.SQL,
-		func() time.Time { return now }).WithFileStore(fixture.files).Approve(ctx, fixture.itemID, 2)
+	published, err := importfixture.New(t, database.SQL, fixture.files, importfixture.Options{Now: func() time.Time { return now }}).Approve(ctx, fixture.itemID, 2)
 	if err != nil {
 		t.Fatal(err)
 	}

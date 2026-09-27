@@ -15,6 +15,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/testsupport/importfixture"
+
 	variantcomposition "retrom/internal/composition/gamevariant"
 	variantrepository "retrom/internal/persistence/gamevariant"
 	gamevariant "retrom/internal/service/gamevariant"
@@ -24,7 +26,6 @@ import (
 	dbapi "retrom/internal/database"
 	"retrom/internal/dependencies"
 	"retrom/internal/launch"
-	"retrom/internal/libraryimport"
 	dependencypersistence "retrom/internal/persistence/dependencies"
 	idempotencypersistence "retrom/internal/persistence/idempotency"
 	jobpersistence "retrom/internal/persistence/jobs"
@@ -63,7 +64,7 @@ func newValidationRetryFixture(t *testing.T) validationRetryFixture {
 		idempotencyService: idempotencyservice.New(idempotencypersistence.New(database.SQL)),
 		variants:           variants,
 		database:           database.SQL, now: now, jobService: jobs.New(jobpersistence.New(database.SQL), now),
-		importer: libraryimport.New(database.SQL, now), launcher: launchcomposition.New(database.SQL,
+		importer: importfixture.New(t, database.SQL, nil, importfixture.Options{Now: now}), launcher: launchcomposition.New(database.SQL,
 			launch.NewSources(nil, nil), "", now, variants.Dispatch),
 	}
 	server.idempotencyQueueDrained = sync.NewCond(&server.idempotencyQueueMu)

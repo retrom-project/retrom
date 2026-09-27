@@ -77,13 +77,11 @@ func (worker *ImportWorker) background(parent context.Context, key string, run f
 	go func() { defer done(); run(ctx) }()
 }
 
-func (worker *ImportWorker) NotifyImportGroup(ctx context.Context, _ string) {
-	worker.start(context.WithoutCancel(ctx))
+func (worker *ImportWorker) NotifyImportGroup(_ context.Context, _ string) {
 	worker.signal()
 }
 
-func (worker *ImportWorker) Resume(ctx context.Context) {
-	worker.start(context.WithoutCancel(ctx))
+func (worker *ImportWorker) Resume(_ context.Context) {
 	worker.signal()
 }
 
@@ -124,7 +122,6 @@ func (worker *ImportWorker) Recover(parent context.Context) error {
 	if err := worker.dependencies.Recovery.Recover(ctx); err != nil {
 		return fmt.Errorf("recover import queue: %w", err)
 	}
-	worker.start(context.WithoutCancel(ctx))
 	worker.signal()
 	return nil
 }

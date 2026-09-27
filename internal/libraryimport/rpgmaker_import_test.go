@@ -187,7 +187,7 @@ func TestPrepareRPGMakerArchiveMaterializesNestedEntryWithoutExpandingIt(t *test
 	archiveFile := importSourceFile{
 		ID: "archive", Path: "fixture.zip", FileRecord: metadata.Record, SHA256: metadata.SHA256, Size: metadata.Size,
 	}
-	_, groups, archives, err := New(nil, nil).WithFileStore(blobs).prepareRPGMakerProject(
+	_, groups, archives, err := newTestImporter(t, nil, blobs, testImportOptions{Now: nil}).prepareRPGMakerProject(
 		context.Background(), "FILES", []importSourceFile{archiveFile}, "rpgmaker_mv",
 	)
 	if err != nil {
@@ -266,7 +266,7 @@ func rpgMakerMVImportFixture(t *testing.T) (*Service, []importSourceFile) {
 			ID: name, Path: name, FileRecord: metadata.Record, SHA256: metadata.SHA256, Size: metadata.Size,
 		})
 	}
-	return New(nil, nil).WithFileStore(blobs), files
+	return newTestImporter(t, nil, blobs, testImportOptions{Now: nil}), files
 }
 
 func rpgMakerMVArchiveWithMToolSidecar(t *testing.T) []byte {

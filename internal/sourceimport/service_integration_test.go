@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/testsupport/importfixture"
+
 	dependencypersistence "retrom/internal/persistence/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 
@@ -20,7 +22,6 @@ import (
 	dbapi "retrom/internal/database"
 	"retrom/internal/dependencies"
 	"retrom/internal/filestore"
-	"retrom/internal/libraryimport"
 	tagpersistence "retrom/internal/persistence/tagging"
 	retromruntime "retrom/internal/runtime"
 	"retrom/internal/serversource"
@@ -95,7 +96,7 @@ VALUES('01980000-0000-7000-8000-000000000800','source-profile','source-test','So
 	testassert.False(t, err != nil, err)
 	credentials, err := retromruntime.LoadOrCreateCredentials(dataDir)
 	testassert.False(t, err != nil, err)
-	importer := libraryimport.New(database.SQL, time.Now).WithFileStore(blobs)
+	importer := importfixture.New(t, database.SQL, blobs, importfixture.Options{Now: time.Now})
 	service := New(
 		database.SQL,
 		blobs,

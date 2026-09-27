@@ -14,6 +14,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/testsupport/importfixture"
+
 	"retrom/internal/cleanup"
 	dbapi "retrom/internal/database"
 	"retrom/internal/dependencies"
@@ -61,7 +63,7 @@ func newProductRPGFixture(t *testing.T, generation string) productRPGFixture {
 		t.Fatal(err)
 	}
 	uploadID := uploadProductRPGFixture(t, database.SQL, blobs, dataDir, generation, now)
-	importer := libraryimport.New(database.SQL, now).WithFileStore(blobs)
+	importer := importfixture.New(t, database.SQL, blobs, importfixture.Options{Now: now})
 	created, err := importer.Create(ctx, libraryimport.CreateRequest{
 		UploadID: uploadID, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(t, database.SQL, "rpgmaker/rpgmaker"),
 		MetadataProvider: "NONE", ContentMode: "RPG_MAKER_PROJECT",

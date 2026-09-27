@@ -18,6 +18,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/testsupport/importfixture"
+
 	dbapi "retrom/internal/database"
 	dependencypersistence "retrom/internal/persistence/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
@@ -41,7 +43,7 @@ SELECT id FROM platform_instances WHERE catalog_template_key='rpgmaker/rpgmaker'
 `).Scan(&platformInstanceID); err != nil {
 		t.Fatal(err)
 	}
-	created, err := libraryimport.New(server.database, time.Now).WithFileStore(server.blobs).Create(
+	created, err := importfixture.New(t, server.database, server.blobs, importfixture.Options{Now: time.Now}).Create(
 		ctx,
 		libraryimport.CreateRequest{
 			UploadID: uploadID, TargetPlatformInstanceID: platformInstanceID,

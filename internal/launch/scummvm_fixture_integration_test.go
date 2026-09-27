@@ -16,6 +16,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/testsupport/importfixture"
+
 	dbapi "retrom/internal/database"
 	uploadpersistence "retrom/internal/persistence/uploads"
 
@@ -70,7 +72,7 @@ func newScummVMFixtureAt(t *testing.T, roots []string, now func() time.Time) scu
 	if err != nil {
 		t.Fatal(err)
 	}
-	importer := libraryimport.New(database.SQL, now).WithFileStore(blobs).WithScummVMDetector(scummVMFixtureDetector(t, roots))
+	importer := importfixture.New(t, database.SQL, blobs, importfixture.Options{Now: now, ScummVMDetector: scummVMFixtureDetector(t, roots)})
 	itemID := uploadScummVMFixture(t, database.SQL, blobs, dir, importer, now)
 	credentials, err := retromruntime.LoadOrCreateCredentials(dir)
 	if err != nil {

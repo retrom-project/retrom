@@ -13,6 +13,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/testsupport/importfixture"
+
 	variantcomposition "retrom/internal/composition/gamevariant"
 
 	"retrom/internal/cleanup"
@@ -88,7 +90,7 @@ VALUES(?,?,'assembly','Assembly','ADMIN','ENABLED',?,?)`,
 	variants := variantcomposition.New(database.SQL, source, now)
 	service := composition.New(database.SQL, source, "http://localhost:3000", now, variants.Dispatch)
 	t.Cleanup(variants.Close)
-	importer := libraryimport.New(database.SQL, now).WithFileStore(blobs)
+	importer := importfixture.New(t, database.SQL, blobs, importfixture.Options{Now: now})
 	itemID := uploadAssemblyROM(t, database.SQL, blobs, dir, importer, now)
 	return assemblyFixture{database.SQL, source, service, importer, itemID, now}
 }

@@ -16,6 +16,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/testsupport/importfixture"
+
 	gamevariant "retrom/internal/service/gamevariant"
 
 	"retrom/internal/persistence/recordstore"
@@ -90,7 +92,7 @@ func TestPublishedGameLaunchLocksContentAndCredential(t *testing.T) {
 		testassert.Falsef(t, time.Now().After(deadline), "finalization = %s", state)
 		time.Sleep(10 * time.Millisecond)
 	}
-	importService := libraryimport.New(database.SQL, time.Now).WithFileStore(blobs)
+	importService := importfixture.New(t, database.SQL, blobs, importfixture.Options{Now: time.Now})
 	gbaID := testsupport.MustPlatformInstanceID(t, database.SQL, "gba/mgba")
 	createdImport, err := importService.Create(
 		ctx,

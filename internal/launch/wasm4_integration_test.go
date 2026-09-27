@@ -15,6 +15,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/testsupport/importfixture"
+
 	dbapi "retrom/internal/database"
 	uploadpersistence "retrom/internal/persistence/uploads"
 
@@ -116,7 +118,7 @@ VALUES(?,'wasm4-profile','wasm4-admin','WASM-4 Admin','ADMIN','ENABLED',0,0);
 	}
 	waitForWASM4Job(t, database.SQL, jobID)
 
-	importService := libraryimport.New(database.SQL, time.Now).WithFileStore(blobs)
+	importService := importfixture.New(t, database.SQL, blobs, importfixture.Options{Now: time.Now})
 	createdImport, err := importService.Create(ctx, libraryimport.CreateRequest{
 		UploadID:                 upload.ID,
 		TargetPlatformInstanceID: createSingleBlobDirectory(t, database.SQL, input, actorID),

@@ -9,8 +9,9 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"retrom/internal/testsupport/importfixture"
+
 	dbapi "retrom/internal/database"
-	"retrom/internal/libraryimport"
 	"retrom/internal/persistence/recordstore"
 	repository "retrom/internal/persistence/sourceimport"
 	libraryservice "retrom/internal/service/libraryimport"
@@ -48,7 +49,7 @@ review_version=1,review_created_at_ms=1,review_updated_at_ms=1 WHERE id='018fbe6
  UPDATE source_import_items SET execution_state='VALIDATING',library_import_job_id='handoff-job',
  library_import_item_id='018fbe68-0000-7000-8000-000000000011',metadata_json='{"Title":"Changed"}',
 completed_at_ms=NULL;`)
-	service.importer = libraryimport.New(db, service.now)
+	service.importer = importfixture.New(t, db, nil, importfixture.Options{Now: service.now})
 	return service, work{JobID: "work", ImportID: "import", WorkerID: "source-import-worker", ExecutionNo: 1, Attempt: 1}, executionItem{ID: "018fbe68-0000-7000-8000-000000000010", MetadataJSON: `{"Title":"Changed"}`}
 }
 

@@ -32,10 +32,11 @@ func TestQueuedImportGroupReturnsBeforePreparationAndPublishesProgress(t *testin
 	ctx := context.Background()
 	database, blobs, dataDir := openImportGroupFixture(t, ctx)
 	uploadID := completeImportGroupUpload(t, ctx, database.SQL, blobs, dataDir, onsProjectArchive(t))
-	service := New(database.SQL, time.Now).WithFileStore(blobs)
+	service := newTestImporter(t, database.SQL, blobs, testImportOptions{Now: time.Now})
 	t.Cleanup(service.Close)
 	release := gateImportWorker(t, service)
 
+	service.Start()
 	created, err := service.QueueCreate(ctx, CreateRequest{
 		UploadID: uploadID, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(
 			t, database.SQL, "ons/onscripter_yuri",
@@ -105,8 +106,9 @@ func TestQueuedImportGroupReportsInvalidProjectAsTerminalFailure(t *testing.T) {
 	ctx := context.Background()
 	database, blobs, dataDir := openImportGroupFixture(t, ctx)
 	uploadID := completeImportGroupUpload(t, ctx, database.SQL, blobs, dataDir, invalidONSArchive(t))
-	service := New(database.SQL, time.Now).WithFileStore(blobs)
+	service := newTestImporter(t, database.SQL, blobs, testImportOptions{Now: time.Now})
 	t.Cleanup(service.Close)
+	service.Start()
 	created, err := service.QueueCreate(ctx, CreateRequest{
 		UploadID: uploadID, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(
 			t, database.SQL, "ons/onscripter_yuri",
@@ -132,9 +134,10 @@ func TestQueuedImportGroupCanBeCancelledBeforePreparation(t *testing.T) {
 	ctx := context.Background()
 	database, blobs, dataDir := openImportGroupFixture(t, ctx)
 	uploadID := completeImportGroupUpload(t, ctx, database.SQL, blobs, dataDir, onsProjectArchive(t))
-	service := New(database.SQL, time.Now).WithFileStore(blobs)
+	service := newTestImporter(t, database.SQL, blobs, testImportOptions{Now: time.Now})
 	t.Cleanup(service.Close)
 	release := gateImportWorker(t, service)
+	service.Start()
 	created, err := service.QueueCreate(ctx, onsImportGroupRequest(t, database.SQL, uploadID))
 	if err != nil {
 		t.Fatal(err)
@@ -162,8 +165,9 @@ func TestRunningImportGroupIsRecoveredAfterProcessRestart(t *testing.T) {
 	ctx := context.Background()
 	database, blobs, dataDir := openImportGroupFixture(t, ctx)
 	uploadID := completeImportGroupUpload(t, ctx, database.SQL, blobs, dataDir, onsProjectArchive(t))
-	original := New(database.SQL, time.Now).WithFileStore(blobs)
+	original := newTestImporter(t, database.SQL, blobs, testImportOptions{Now: time.Now})
 	release := gateImportWorker(t, original)
+	original.Start()
 	created, err := original.QueueCreate(ctx, onsImportGroupRequest(t, database.SQL, uploadID))
 	if err != nil {
 		t.Fatal(err)
@@ -174,9 +178,10 @@ func TestRunningImportGroupIsRecoveredAfterProcessRestart(t *testing.T) {
 	if _, err := database.SQL.ExecContext(ctx, `UPDATE jobs SET leased_until_ms=1 WHERE id=?`, created.JobID); err != nil {
 		t.Fatal(err)
 	}
-	recovered := New(database.SQL, time.Now).WithFileStore(blobs)
+	recovered := newTestImporter(t, database.SQL, blobs, testImportOptions{Now: time.Now})
 	t.Cleanup(recovered.Close)
 	recovered.RecoverImportGroupJobs(ctx)
+	recovered.Start()
 	waitForImportGroupTerminal(t, ctx, database.SQL, created.JobID, "SUCCEEDED")
 	var importState string
 	var attempts int
@@ -220,8 +225,9 @@ func TestQueuedKiriKiriAndRPGMakerProjectsResolveInBackground(t *testing.T) {
 			uploadID := completeProjectUpload(
 				t, ctx, database.SQL, blobs, dataDir, test.purpose, test.archive(t),
 			)
-			service := New(database.SQL, time.Now).WithFileStore(blobs)
+			service := newTestImporter(t, database.SQL, blobs, testImportOptions{Now: time.Now})
 			t.Cleanup(service.Close)
+			service.Start()
 			created, err := service.QueueCreate(ctx, CreateRequest{
 				UploadID: uploadID, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(
 					t, database.SQL, test.catalogKey,

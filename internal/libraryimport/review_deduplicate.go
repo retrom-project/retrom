@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 
-	librarycomposition "retrom/internal/composition/libraryimport"
 	libraryservice "retrom/internal/service/libraryimport"
 
 	"github.com/google/uuid"
@@ -59,7 +58,7 @@ func (service *Service) DeduplicateReviews(
 	if err != nil {
 		return result, err
 	}
-	value, err := librarycomposition.NewReviewDeduplicator(service.database, service.now).Deduplicate(
+	value, err := service.deduplicator.Deduplicate(
 		ctx, libraryservice.ReviewDeduplicateRequest{
 			Scope: libraryservice.ReviewBulkScope{
 				Q: request.Scope.Q, TagID: request.Scope.TagID, ImportJobID: request.Scope.ImportJobID,

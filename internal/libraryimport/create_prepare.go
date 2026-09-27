@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	composition "retrom/internal/composition/libraryimport"
-
 	repository "retrom/internal/persistence/libraryimport"
 	application "retrom/internal/service/libraryimport"
 )
@@ -14,10 +12,6 @@ type creationTarget = application.ImportTarget
 
 type creationOptions struct {
 	sourceCreation *ownedSourceCreation
-}
-
-func (service *Service) importPreparation() *application.ImportPreparation {
-	return composition.NewPreparation(service.database, service.creationDependencies())
 }
 
 func normalizeTargetCreateRequest(

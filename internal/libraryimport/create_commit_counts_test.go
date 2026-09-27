@@ -18,7 +18,7 @@ func TestImportCreationRejectsMissingReturnedIdentity(t *testing.T) {
 		t.Run(table, func(t *testing.T) {
 			service, plan := preparedCommitFixture(t)
 			inserted := 0
-			service.database = testsupport.OpenSQLFaultDatabase(t, service.database, testsupport.SQLFaultHooks{
+			service = newTestImporter(t, testsupport.OpenSQLFaultDatabase(t, service.database, testsupport.SQLFaultHooks{
 				AfterQuery: func(_ context.Context, query string, _ []driver.NamedValue, rows driver.Rows) (driver.Rows, error) {
 					if !strings.HasPrefix(strings.TrimSpace(query), "INSERT INTO "+table+"(") {
 						return rows, nil
@@ -31,7 +31,7 @@ func TestImportCreationRejectsMissingReturnedIdentity(t *testing.T) {
 					inserted++
 					return creationEmptyRows{Rows: rows}, nil
 				},
-			})
+			}), service.blobs, testImportOptions{Now: service.now, MultiDiscEnabled: service.multiDiscImportEnabled})
 			before := creationEffectCounts(t, service.database)
 			result, err := commitPreparedFixture(t.Context(), service, plan, nil)
 			if err == nil || result != (Created{}) || inserted != 1 {
@@ -70,7 +70,7 @@ func assertCreationCountFault(t *testing.T, table, mode string) {
 		injected = cause
 	}
 	preceding, writes := 0, 0
-	service.database = testsupport.OpenSQLFaultDatabase(t, service.database, testsupport.SQLFaultHooks{
+	service = newTestImporter(t, testsupport.OpenSQLFaultDatabase(t, service.database, testsupport.SQLFaultHooks{
 		AfterQuery: func(_ context.Context, query string, _ []driver.NamedValue, rows driver.Rows) (driver.Rows, error) {
 			if !strings.HasPrefix(strings.TrimSpace(query), "INSERT INTO "+table+"(") {
 				return rows, nil
@@ -103,7 +103,7 @@ func assertCreationCountFault(t *testing.T, table, mode string) {
 			writes += int(count)
 			return creationFaultResult{Result: result, cause: injected}, nil
 		},
-	})
+	}), service.blobs, testImportOptions{Now: service.now, MultiDiscEnabled: service.multiDiscImportEnabled})
 	before := creationEffectCounts(t, service.database)
 	result, err := commitPreparedFixture(t.Context(), service, plan, nil)
 	if err == nil || result != (Created{}) || preceding != 1 || writes < 1 || mode == "cause" && !errors.Is(err, cause) {
