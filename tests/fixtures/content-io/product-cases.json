@@ -3654,7 +3654,11 @@
         "size-boundaries",
         "warm-new-launch"
       ],
-      "existingAcceptanceEntry": null,
+      "existingAcceptanceEntry": {
+        "path": "scripts/acceptance/bbc_product.mjs",
+        "arguments": [],
+        "timeoutSeconds": 1200
+      },
       "actions": [
         {
           "scenario": "cache-denied",
@@ -3780,7 +3784,11 @@
         "size-boundaries",
         "warm-new-launch"
       ],
-      "existingAcceptanceEntry": null,
+      "existingAcceptanceEntry": {
+        "path": "scripts/acceptance/samcoupe_product.mjs",
+        "arguments": [],
+        "timeoutSeconds": 1200
+      },
       "actions": [
         {
           "scenario": "cache-denied",

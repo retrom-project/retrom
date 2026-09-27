@@ -2564,8 +2564,9 @@ preflight；比较使用同一浏览器和运行配置。`sourceSha256` 是来�
 `tests/fixtures/content-io/product-cases.json` 为这些受管 Target 登记输入角色、来源回执、
 原产品入口、存档语义和必需场景。每个场景都有操作、可观察等待条件、最大等待预算、断言和
 失败码。Flycast 的普通及 Arcade Target 均使用 RANGE；Daphne 的 NO_SAVE 场景检查输入和退出，不要求不支持的存档操作。
-BBC、SAM Coupé 与 DOSBox 暂无完整 Content I/O 专用产品驱动，`existingAcceptanceEntry: null` 明确记录缺口；执行器输出
-`CONTENT_IO_PRODUCT_DRIVER_MISSING` / BLOCKED，不能跳过或算作 PASS。既有 DOS 功能仍有 ACC-RUN-005 的独立验收。
+BBC 与 SAM Coupé 的真实产品生命周期入口见 ACC-BBC-001、ACC-SAMCOUPE-001；普通产品报告仍须补齐全部
+场景证明和性能样本，才可通过 Content I/O 矩阵。缺少入口时 `existingAcceptanceEntry: null` 仍输出
+`CONTENT_IO_PRODUCT_DRIVER_MISSING` / BLOCKED，不能跳过或算作 PASS。既有 DOS 功能还有 ACC-RUN-005 的独立验收。
 清单只保存逻辑输入名；操作者路径和实际游戏留在本地验收目录。
 `scripts/acceptance/content_io_catalog.py` 校验完整 Target/Provider/模式集合、动作覆盖和场景集合，
 包括 Range 故障、原生桥、工作目录、已退役 RTP 产品边界与五轮 cold/warm 性能比较；删除这些场景不能使检查通过。
@@ -2648,3 +2649,32 @@ Worker 的 L2、持久存储、同步 SAB 和物化计数；一旦收到 Host �
   “不支持存档”且禁用创建存档。保留当次结构化结果和开始前后截图，逐图复核。
 - 范围：只证明这个单视频 framefile 样本。多视频、无 ZIP 与其他 Daphne 游戏不由此推断通过；
   候选结果不替代正式 Provider 发布后的同案复验。
+
+### ACC-BBC-001：BBC Micro 真实游戏、即时存档与内容复用
+
+入口：`node scripts/acceptance/bbc_product.mjs`，普通产品生命周期硬超时 300 秒。
+使用共同的 `RETROM_ACCEPTANCE_BASE_URL/USERNAME/PASSWORD/CASE_DIR`、`RETROM_CHROME_EXECUTABLE`；
+`RETROM_BBC_DISK` 指向含 Bat 'n' Ball 的 Welcome SSD，`RETROM_BBC_BIOS` 为逻辑名
+`os.rom`、`BASIC.ROM`、`DFS-1.2.rom` 到操作者文件的 JSON 映射。使用尚未发布的输入；
+重复导入已发布内容会明确失败，不能据此省略审核链路。
+
+通过标准：真实上传、导入、审核预览、发布后启动；通过核心正常键盘粘贴入口选择游戏，标准
+Start 完成游戏内确认，方向键改变原生 BASIC 挡板坐标。暂停并由 Player 创建非空即时存档，
+不同 Launch 经公共恢复流程还原相同原生 checkpoint 字节与 RAM 摘要，随后方向键仍能移动挡板。
+同一浏览器 context 的新 Launch 不重新请求已缓存游戏或三份 BIOS。记录各阶段实际 Bundle、Module、
+资源及脚本字节摘要、整个 context 的内容请求和关闭资源计数，关闭后公共资源必须归零。
+
+### ACC-SAMCOUPE-001：SAM Coupé 实机游戏与原生磁盘保存
+
+入口：`node scripts/acceptance/samcoupe_product.mjs`，普通产品生命周期硬超时 300 秒。
+共同参数同 ACC-BBC-001；`RETROM_SAM_GAME` 指向 Safari Sam，`RETROM_SAM_WRITABLE_DISK` 指向
+可从 SAMDOS 启动到 BASIC 的可写 DSK，`RETROM_SAM_BIOS` 指向 32768 字节机器 ROM。
+Safari Sam 与可写磁盘都必须分别走真实导入、预览、发布；不得将软件磁盘误标为游戏可玩性证据。
+
+Safari Sam 使用标准确认进入关卡，游戏自身的 SAM F2 切换方向键控制（模拟器对应主机 Numpad2），
+方向输入前后蓝色裤子的玩家像素坐标必须实际移动，不能只比较整帧变化。
+[游戏作者的操作说明](https://www.martinfitzpatrick.com/safari-sam/)说明了该控制选择。
+原生保存用键盘输入自有 BASIC 程序 `10 PRINT 1`，由标准确认执行 `SAVE CHR$ 82`；必须观察到
+核心刷新后的磁盘 SHA-256 改变。即时存档按钮保持不可用；使用 Player 的“存档并退出”导出
+GAME_SAVE。新 Launch 启动前恢复整盘，在核心内 `LOAD CHR$ 82` 后 `RUN`，比较程序输出区域
+像素摘要与原来相同且非空。游戏与磁盘重复启动均验证缓存复用及关闭资源归零。
