@@ -48,7 +48,7 @@ STORAGE_CASES = {"ACC-SAVE-004"}
 BBKRPG_CASES = {"ACC-BBKRPG-001"}
 UZEBOX_CASES = {"ACC-UZEBOX-001"}
 O2EM_CASES = {"ACC-O2EM-001"}
-COMPUTER_CASES = {"ACC-BBC-001", "ACC-SAMCOUPE-001"}
+COMPUTER_CASES = {"ACC-BBC-001", "ACC-SAMCOUPE-001", "ACC-DOSBOX-001"}
 PRODUCT_CASES = WASM4_CASES | BBKRPG_CASES | UZEBOX_CASES | O2EM_CASES | PSP_CASES | NXENGINE_CASES | POKEMINI_CASES | OPENBOR_CASES | MSX_CASES | FLASH_CASES | STORAGE_CASES | PC98_CASES | PC88_CASES | PS2_CASES | FANTASY_CASES | RPG_CASES | ONS_CASES | KIRIKIRI_CASES | BUTTERSCOTCH_CASES | TYRANOSCRIPT_CASES | SCUMMVM_CASES
 PRODUCT_CASES |= COMPUTER_CASES
 
@@ -464,6 +464,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
         for case_id in RPG_CASES
     },
     "ACC-WASM4-001": (300, ".cache/tools/node-v24.18.0-linux-x64/bin/node scripts/acceptance/wasm4_product.mjs"),
+    "ACC-DOSBOX-001": (300, ".cache/tools/node-v24.18.0-linux-x64/bin/node scripts/acceptance/dosbox_product.mjs"),
     "ACC-BBC-001": (300, ".cache/tools/node-v24.18.0-linux-x64/bin/node scripts/acceptance/bbc_product.mjs"),
     "ACC-SAMCOUPE-001": (300, ".cache/tools/node-v24.18.0-linux-x64/bin/node scripts/acceptance/samcoupe_product.mjs"),
     "ACC-TIC-001": (300, ".cache/tools/node-v24.18.0-linux-x64/bin/node scripts/acceptance/fantasy_product.mjs tic80"),

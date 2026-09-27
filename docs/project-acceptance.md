@@ -2697,3 +2697,34 @@ BIOS 使用 `operator:samcoupe`；磁盘 role 为 `game`，BIOS role 为 `extern
 BIOS、浏览器和网络设置。各采集五个独立 context 的 cold/warm 新 Launch 对，不额外执行未计入样本的完整启动，保留全部
 20 份观测、内存不可用原因和公共关闭计数。BBC 性能批次硬超时 600 秒、SAM 900 秒，完整 Case
 仍为 1200 秒；这些是含真实机器开机及游戏操作的批次预算，性能通过阈值仍为基线中位数 × 1.15 + 100 ms。
+
+### ACC-DOSBOX-001：DOSBox 真实游戏、即时恢复与 Range 矩阵
+
+入口：`node scripts/acceptance/dosbox_product.mjs`，普通生命周期硬超时 300 秒。共同参数同
+ACC-BBC-001；`RETROM_DOS_GAME` 指向操作者的 Doom II ZIP，`RETROM_DOS_ENTRY` 指向审核条目中
+安全且可启用的 `DOOM2/DOOM2.EXE`。矩阵来源使用 `operator:dosbox-pure`，role 为 `game`。
+
+真实上传、导入、设置审核默认入口、预览并发布后，通过标准 Start 确认进入第一关；方向输入必须
+改变固定墙面区域，主动作必须使弹药数字变化。暂停并由 Player 保存原生 checkpoint，退出后在
+不同 Launch 恢复；原生传入字节摘要、弹药及视角必须匹配，恢复后转向和射击仍有效。
+记录 Host 虚拟 ZIP 的内容索引身份及整个 context 的 Range 请求；普通启动不能完整下载游戏，
+重复 Launch 必须复用已有窗口，关闭后的公共资源计数归零。
+
+定向矩阵命令沿用上述 `--pfb` 入口，选择 `--case ACC-DOSBOX-001`。开发 Provider 应为
+`emulatorjs`；BBC/SAM 与 DOS 的不同 Provider 批次串行运行。完整 Case 硬超时 1200 秒，
+性能子批次为 600 秒，保留五轮基线／候选冷、热启动的全部 20 份记录和原有中位数阈值。
+
+范围读取验收通过实际挂载的 `Module.retromContentFdRead` 执行固定种子的 10000 次读取，包含
+空读取、EOF、非对齐和跨块读取；独立 APIRequestContext 获取虚拟 ZIP 作为字节 oracle，明确
+标为测试侧读取，不计入 Player 网络。元数据访问不得触发文件 body，重叠读取只使用一次传输，
+取消一个公共 Reader 调用不能取消其余原生调用。故障用例在实际核心启动后拒绝可选持久缓存，
+通过 CDP 清空真实 L1/L2 缓存模拟缓存逐出，再注入 200、412、短响应、挂起后退出及 Worker 终止。
+每次原生操作必须在 30 秒内失败且无部分成功。
+
+CDP 仅在验证过摘要的实际脚本上观察对象，不替换 Provider、Worker 或原生读取实现。412 用例
+在 Player 进行整体故障清理前暂停拥有者，确认 Worker 内同对象的缓存、空读取与后续读取均撤销，
+同 Session 的独立已授权核心资源仍可读取，然后恢复正常清理。缓存损坏用例修改真实 OPFS 数据，
+保留原校验记录；未发布的块须在新 Launch 校验后重取。随后通过公共物化接口对同一游戏身份创建
+持有租约的完整 Blob，损坏完整代后须隔离该代并撤销对象，不能就地重写租约仍引用的文件；
+这一步单独验证共享缓存契约，不改变 DOS 核心的 RANGE 输入策略。所有场景必须留下原始报告，
+严格 proof 校验全部 16 个场景后才能给出完整矩阵 PASS。

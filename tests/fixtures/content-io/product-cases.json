@@ -3920,7 +3920,11 @@
         "warm-new-launch",
         "worker-termination"
       ],
-      "existingAcceptanceEntry": null,
+      "existingAcceptanceEntry": {
+        "path": "scripts/acceptance/dosbox_product.mjs",
+        "arguments": [],
+        "timeoutSeconds": 1200
+      },
       "actions": [
         {
           "scenario": "cache-corruption",
@@ -3998,7 +4002,7 @@
           "scenario": "performance-five-cold-warm",
           "operation": "Run five isolated cold/warm pairs for the baseline and candidate using the same input, browser and network settings",
           "waitFor": "Every bounded repetition produces timing, network, memory and exit records",
-          "maxWaitMs": 300000,
+          "maxWaitMs": 600000,
           "assertion": "Compare medians; firstFrame and inputReady stay within baseline * 1.15 + 100 ms; retain all repetitions",
           "failureCode": "CONTENT_IO_PERFORMANCE_FIVE_COLD_WARM_FAILED"
         },
