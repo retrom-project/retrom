@@ -41,6 +41,17 @@ test("Content IO rejects changed bytes and a candidate reused as baseline", asyn
   await writeFile(join(f.base, "assets/core.wasm"), "tampered");
   await assert.rejects(readPFBProvider(f.root, f.providerId, f.targetId));
 });
+test("An explicit shared candidate core comparison records both native identities", async t => {
+  const f = await fixture(t);
+  f.development.files.push(f.replacement("assets/core.wasm", "fixed native")); await f.publish();
+  const result = await readPFBProvider(f.root, f.providerId, f.targetId, {nativeBaseline: "candidate"});
+  assert.equal(result.nativeBaseline, "candidate");
+  assert.equal(result.installedNativeAssets[0].sha256, proofDigest("native"));
+  assert.equal(result.nativeAssets[0].sha256, proofDigest("fixed native"));
+  assert.deepEqual(result.files.baseline.get("assets/core.wasm"), result.files.candidate.get("assets/core.wasm"));
+  assert.equal(result.identities.baseline.moduleSha256, proofDigest("baseline"));
+  assert.equal(result.identities.candidate.moduleSha256, proofDigest("candidate"));
+});
 test("Frozen Provider responses preserve the Player module content-type contract", async t => {
   const f = await fixture(t), provider = await readPFBProvider(f.root, f.providerId, f.targetId);
   const routes = [];

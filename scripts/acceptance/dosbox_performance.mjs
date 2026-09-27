@@ -11,14 +11,16 @@ import {readPFBProvider, selectFrozenProvider} from "./content_io_pfb_provider.m
 import {proofDigest, sourceReceiptDigest} from "./content_io_case_proof.mjs";
 import {compareContentIOPerformance} from "./content_io_performance.mjs";
 import {measureDOS, dosObservation} from "./dosbox_content_measurement.mjs";
+import {selectDOSPerformanceBaseline} from "./dosbox_performance_baseline.mjs";
 
 const env = process.env, base = env.RETROM_ACCEPTANCE_BASE_URL, directory = resolve(env.RETROM_ACCEPTANCE_CASE_DIR);
 await mkdir(directory, {recursive: false});
 const input = JSON.parse(await readFile(env.RETROM_CONTENT_IO_DOS_INPUT, "utf8"));
-const provider = await readPFBProvider(process.cwd(), "emulatorjs", "dosbox-pure");
+const provider = await readPFBProvider(process.cwd(), "emulatorjs", "dosbox-pure", {nativeBaseline: "candidate"});
+const baseline = await selectDOSPerformanceBaseline(provider, env.RETROM_DOS_PERFORMANCE_BASELINE);
 const report = {schemaVersion: 1, caseId: "ACC-DOSBOX-001", runId: env.RETROM_CONTENT_IO_RUN_ID, status: "FAIL",
-  samples: [], warmup: [], observationId: dosObservation,
-  provider: {identities: provider.identities, nativeAssets: provider.nativeAssets, developmentSha256: provider.developmentSha256}};
+  samples: [], warmup: [], observationId: dosObservation, baseline,
+  provider: {identities: provider.identities, nativeAssets: provider.nativeAssets, nativeBaseline: provider.nativeBaseline, installedNativeAssets: provider.installedNativeAssets, developmentSha256: provider.developmentSha256}};
 let browser, proxy;
 const chromeArgs = ["--autoplay-policy=no-user-gesture-required", "--use-angle=swiftshader", "--enable-unsafe-swiftshader"];
 async function profile(variant) {
@@ -58,7 +60,7 @@ try {
   }
   report.comparison = compareContentIOPerformance(report.caseId, report.samples);
   assert.equal(report.comparison.status, "PASS", "DOS_PERFORMANCE_REGRESSION");
-  assert.equal((await readPFBProvider(process.cwd(), "emulatorjs", "dosbox-pure")).developmentSha256, provider.developmentSha256);
+  assert.equal((await readPFBProvider(process.cwd(), "emulatorjs", "dosbox-pure", {nativeBaseline: "candidate"})).developmentSha256, provider.developmentSha256);
   report.status = "PASS";
 } catch (error) {report.errorCode = error.message; report.stack = error.stack; process.exitCode = 1;}
 finally {

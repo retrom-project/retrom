@@ -11,7 +11,7 @@ import {observeContentStoreEvents} from "./content_store_events.mjs";
 import {pictureComputer, pauseComputer, closeComputer} from "./computer_product_browser.mjs";
 import {openDOS, observeDOSStates} from "./dosbox_product_browser.mjs";
 import {completeDOSContentProof} from "./dosbox_content_proof.mjs";
-import {bootDoom, moveAndFireDoom, doomScene} from "./dosbox_doom_actions.mjs";
+import {bootDoom, moveAndFireDoom, doomScene, resumeDoom} from "./dosbox_doom_actions.mjs";
 
 const env = process.env, base = env.RETROM_ACCEPTANCE_BASE_URL;
 const directory = resolve(env.RETROM_ACCEPTANCE_CASE_DIR ?? ".artifacts/dosbox-product"); await mkdir(directory, {recursive: true});
@@ -51,6 +51,7 @@ try {
   const opened = active = await openDOS(context, base, launch);
   assert.equal(opened.contentDigest, report.content.contentDigest);
   report.boot = await bootDoom(opened); report.input = await moveAndFireDoom(opened);
+  await pauseComputer(opened); report.freshResume = await resumeDoom(opened);
   await pauseComputer(opened); report.savedScene = await doomScene(opened);
   report.savedScreenshot = await pictureComputer(opened, directory, "saved");
   report.save = await saveCart(opened.page, launch.launchId, "dosbox_pure");
@@ -69,8 +70,7 @@ try {
   report.restoredScene = await doomScene(restored); report.restoredScreenshot = await pictureComputer(restored, directory, "restored");
   assert.deepEqual(report.restoredScene.ammo, report.savedScene.ammo, "DOS_RESTORED_AMMUNITION_MISMATCH");
   assert.deepEqual(report.restoredScene.wall, report.savedScene.wall, "DOS_RESTORED_VIEW_MISMATCH");
-  await restored.page.getByRole("button", {name: "继续游戏", exact: true}).click();
-  await restored.canvas.click();
+  report.restoredResume = await resumeDoom(restored);
   report.restoredInput = await moveAndFireDoom(restored, 14);
   await restored.network.flush(); assert.equal(restored.network.requests.length, 0, "DOS_WARM_BODY_REQUESTS");
   report.launches.push(await closeComputer(restored, base, collector)); report.status = "PASS";

@@ -48,6 +48,18 @@ export async function openDOS(context, base, launch, preparePage = async () => {
   source.url = new URL(source.url, new URL(tree.indexUrl, base)).href;
   const network = observeContentIO(context, contentSourceMatcher([source], base)); await network.ready;
   const page = await context.newPage(), errors = [], assets = [], pending = []; let workerAssetPath;
+  // Chrome may discard a no-store worker response before Network.getResponseBody.
+  // Observe the real core response before delivering the exact same bytes. This
+  // route never handles game.zip and does not replace the Content I/O transport.
+  const corePattern = "**/runtime/providers/emulatorjs/*/assets/4.3.0-pre/data/cores/dosbox_pure-thread-wasm.data";
+  const coreRoute = async route => {
+    const response = await route.fetch(), bytes = await response.body();
+    assert.equal(response.status(), 200);
+    assets.push({path: new URL(route.request().url()).pathname, sha256: proofDigest(bytes), sizeBytes: bytes.length,
+      observation: "FORWARDED_REAL_RESPONSE"});
+    await route.fulfill({response, body: bytes});
+  };
+  await context.route(corePattern, coreRoute);
   page.on("pageerror", error => errors.push(error.message.split("\n")[0].slice(0, 200)));
   const listener = response => {
     const path = new URL(response.url()).pathname;
@@ -55,9 +67,10 @@ export async function openDOS(context, base, launch, preparePage = async () => {
       pending.push(response.json().then(value => {config = value;})); return;
     }
     if (!path.startsWith("/runtime/providers/") || !/\.(?:mjs|js|wasm|data)$/u.test(path)) return;
+    if (path.endsWith("/dosbox_pure-thread-wasm.data")) return;
     if (path.endsWith("/assets/content-io/worker.mjs")) {workerAssetPath = path; return;}
     pending.push(response.body().then(bytes => assets.push({path, sha256: proofDigest(bytes), sizeBytes: bytes.length}),
-      () => errors.push(`DOS_PROVIDER_BODY_UNAVAILABLE:${path}`)));
+      error => errors.push(`DOS_PROVIDER_BODY_UNAVAILABLE:${path}:${response.status()}:${error.message}`)));
   };
   context.on("response", listener);
   await preparePage(page, source);
@@ -82,5 +95,5 @@ export async function openDOS(context, base, launch, preparePage = async () => {
     network, assets, errors, startedAt,
     async flush() {await network.flush(); await Promise.all(pending); assert.deepEqual(errors, []);},
     rangeSummary: () => rangeSummary(network.requests, source),
-    dispose() {network.close(); context.off("response", listener);}};
+    async dispose() {network.close(); context.off("response", listener); await context.unroute(corePattern, coreRoute);}};
 }

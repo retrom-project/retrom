@@ -56,3 +56,17 @@ export async function moveAndFireDoom(opened, direction = 15) {
   assert.ok(fired.ammo.redPixels > 30, "DOS_DOOM_HUD_MISSING");
   return {direction, action: 0, before, moved, fired};
 }
+
+export async function resumeDoom(opened) {
+  // Observe real native frames, including the threaded core's pause boundary.
+  await opened.page.waitForTimeout(100);
+  const paused = await opened.frame.evaluate(() => EJS_emulator.gameManager.getFrameNum());
+  await opened.page.waitForTimeout(200);
+  const stillPaused = await opened.frame.evaluate(() => EJS_emulator.gameManager.getFrameNum());
+  assert.equal(stillPaused, paused, "DOS_PAUSE_ADVANCED_EMULATION");
+  await opened.page.getByRole("button", {name: "继续游戏", exact: true}).click();
+  await opened.canvas.click();
+  await opened.frame.waitForFunction(value => EJS_emulator.gameManager.getFrameNum() > value + 2, paused, {timeout: 5000});
+  const resumed = await opened.frame.evaluate(() => EJS_emulator.gameManager.getFrameNum());
+  return {paused, stillPaused, resumed};
+}

@@ -108,5 +108,5 @@ export async function collectComputerExit(opened, collector) {
   const result = {launchId: opened.launch.launchId, runtime: {
     bundleSha256: opened.config.runtime.bundleSha256, moduleSha256: opened.config.runtime.moduleSha256},
     assets: opened.assets, requests: opened.network.requests, sessions, metrics};
-  opened.dispose(); await opened.page.close(); return result;
+  await opened.dispose(); await opened.page.close(); return result;
 }

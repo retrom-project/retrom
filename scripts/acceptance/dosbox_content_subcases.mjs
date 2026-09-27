@@ -22,7 +22,7 @@ const env = process.env, base = env.RETROM_ACCEPTANCE_BASE_URL, scenario = proce
 assert.ok(["trace", "cache-denied", "fault-range-200", "fault-identity-412", "fault-short-body", "read-exit", "worker-termination"].includes(scenario));
 const input = JSON.parse(await readFile(env.RETROM_CONTENT_IO_DOS_INPUT, "utf8")), directory = resolve(env.RETROM_ACCEPTANCE_CASE_DIR);
 await mkdir(directory, {recursive: true});
-const provider = await readPFBProvider(process.cwd(), "emulatorjs", "dosbox-pure");
+const provider = await readPFBProvider(process.cwd(), "emulatorjs", "dosbox-pure", {nativeBaseline: "candidate"});
 const report = {schemaVersion: 1, caseId: "ACC-DOSBOX-001", runId: env.RETROM_CONTENT_IO_RUN_ID, status: "FAIL", scenario, launches: []};
 let browser, proxy, active, worker, owner, failure;
 try {
@@ -68,7 +68,7 @@ try {
     report.worker = await worker.finish(); worker = null;
     report.launches.push(await (scenario === "read-exit" ? collectComputerExit(active, collector) : closeComputer(active, base, collector)));
   }
-  assert.equal((await readPFBProvider(process.cwd(), "emulatorjs", "dosbox-pure")).developmentSha256, provider.developmentSha256);
+  assert.equal((await readPFBProvider(process.cwd(), "emulatorjs", "dosbox-pure", {nativeBaseline: "candidate"})).developmentSha256, provider.developmentSha256);
   report.status = "PASS";
 } catch (error) {
   report.errorCode = error.message; report.stack = error.stack; process.exitCode = 1;

@@ -48,6 +48,8 @@ export async function completeDOSContentProof(directory, product) {
   await add("save-restore-input", ["product"], [["native checkpoint bytes", product.nativeSave, product.nativeRestore],
     ["restored ammunition", product.savedScene.ammo, product.restoredScene.ammo],
     ["restored view", product.savedScene.wall, product.restoredScene.wall],
+    ["native pause and resume on fresh and restored instances", true,
+      [product.freshResume, product.restoredResume].every(row => row.paused === row.stillPaused && row.resumed > row.paused + 2)],
     ["restored input fires", true, product.restoredInput.moved.ammo.sha256 !== product.restoredInput.fired.ammo.sha256]]);
   await add("exit", ["product"], [["resources released", true, product.launches.every(row => Object.values(row.metrics.closed).every(value => value === 0))]]);
   await add("metadata-no-body", ["trace"], [["native stat size", product.content.sizeBytes, raw.trace.report.metadata.sizeBytes],

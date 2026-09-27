@@ -4,7 +4,8 @@ import {resolve, join} from "node:path";
 import {proofDigest} from "./content_io_case_proof.mjs";
 
 // Freeze only the selected Target's real Provider files; game capabilities remain on the live Host.
-export async function readPFBProvider(root, providerId, targetId) {
+export async function readPFBProvider(root, providerId, targetId, {nativeBaseline = "installed"} = {}) {
+  assert.ok(["installed", "candidate"].includes(nativeBaseline));
   const providers = join(root, ".pfb/workspace/providers");
   const active = JSON.parse(await readFile(join(providers, "active.json"), "utf8"));
   const installed = active.providers.find(row => row.providerId === providerId); assert.ok(installed, "CONTENT_IO_PROVIDER_NOT_INSTALLED");
@@ -40,9 +41,15 @@ export async function readPFBProvider(root, providerId, targetId) {
   assert.notEqual(identities.baseline.moduleSha256, identities.candidate.moduleSha256, "CONTENT_IO_BASELINE_IS_CANDIDATE");
   const native = variant => [...files[variant]].filter(([path]) => path !== "client.mjs" && !path.startsWith("assets/content-io/"))
     .map(([path, bytes]) => ({path, sha256: proofDigest(bytes), sizeBytes: bytes.length}));
+  const installedNativeAssets = native("baseline");
+  // A necessary core fix is held constant in both adapter measurements. This
+  // is explicitly a shared candidate core comparison, not a released bundle.
+  if (nativeBaseline === "candidate") for (const {path} of installedNativeAssets) {
+    files.baseline.set(path, files.candidate.get(path));
+  }
   assert.deepEqual(native("baseline"), native("candidate"), "CONTENT_IO_PERFORMANCE_NATIVE_CORE_CHANGED");
   return {providerId, targetId, files, identities, developmentSha256: proofDigest(developmentBytes),
-    nativeAssets: native("candidate")};
+    nativeAssets: native("candidate"), nativeBaseline, installedNativeAssets};
 }
 
 export async function selectFrozenProvider(context, base, provider, variant) {

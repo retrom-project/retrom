@@ -19,7 +19,7 @@ import {observeDOSFailure} from "./dosbox_failure_observation.mjs";
 const env = process.env, base = env.RETROM_ACCEPTANCE_BASE_URL, directory = resolve(env.RETROM_ACCEPTANCE_CASE_DIR);
 await mkdir(directory, {recursive: true});
 const input = JSON.parse(await readFile(env.RETROM_CONTENT_IO_DOS_INPUT, "utf8"));
-const provider = await readPFBProvider(process.cwd(), "emulatorjs", "dosbox-pure");
+const provider = await readPFBProvider(process.cwd(), "emulatorjs", "dosbox-pure", {nativeBaseline: "candidate"});
 const report = {schemaVersion: 1, caseId: "ACC-DOSBOX-001", runId: env.RETROM_CONTENT_IO_RUN_ID,
   scenario: "cache-corruption", status: "FAIL", launches: []};
 let browser, proxy, active, worker, owner, failure;

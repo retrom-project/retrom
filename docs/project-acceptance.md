@@ -2714,6 +2714,13 @@ ACC-BBC-001；`RETROM_DOS_GAME` 指向操作者的 Doom II ZIP，`RETROM_DOS_ENT
 `emulatorjs`；BBC/SAM 与 DOS 的不同 Provider 批次串行运行。完整 Case 硬超时 1200 秒，
 性能子批次为 600 秒，保留五轮基线／候选冷、热启动的全部 20 份记录和原有中位数阈值。
 
+若此 PFB 带有 DOSBox 核心修复，两组性能样本必须使用同一个候选核心。先在该 PFB 容器中运行
+`node scripts/acceptance/dosbox_baseline_prepare.mjs /workspace/runtime <fresh-output-directory>`，再将
+宿主可见的输出目录传给 `RETROM_DOS_PERFORMANCE_BASELINE`。该步骤从已安装 Provider 对应的
+runtime tag 提取源码，先逐字节重现已发布 module，再仅替换核心输入重新构建基线 module。
+快照和原始性能报告保留源码提交、构建器、依赖锁、原 module、重建 module 和候选核心摘要；
+这组结果描述旧、新适配器在同一候选核心上的对比，不代表正式发布 Bundle 已通过复验。
+
 范围读取验收通过实际挂载的 `Module.retromContentFdRead` 执行固定种子的 10000 次读取，包含
 空读取、EOF、非对齐和跨块读取；独立 APIRequestContext 获取虚拟 ZIP 作为字节 oracle，明确
 标为测试侧读取，不计入 Player 网络。元数据访问不得触发文件 body，重叠读取只使用一次传输，
