@@ -72,6 +72,7 @@ def expected_identity(case: dict, snapshot: dict, receipts: list[dict], environm
     source_bytes = json.dumps(receipts, sort_keys=True, separators=(",", ":")).encode()
     return {"bundleSha256": provider["bundleSha256"], "moduleSha256": provider["moduleSha256"], "workerSha256": provider["workerSha256"],
             "baselineBundleSha256": environment["productionPins"][case["providerId"]]["lock"]["bundleSha256"],
+            "baselineModuleSha256": environment["productionPins"][case["providerId"]]["lock"]["moduleSha256"],
             "sourceSha256": hashlib.sha256(source_bytes).hexdigest(),
             "browserSha256": snapshot["browser"]["sha256"]}
 

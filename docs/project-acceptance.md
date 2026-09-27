@@ -2544,7 +2544,10 @@ ACC-RPG-004/005/006 可通过 `rpgmaker_run_fixture.py create` 复制对应仓�
 `runId/caseId/status`，不接受缺原始记录的汇总；任一未执行场景、旧运行、不同资产、缺样本或失败断言均非零。该证明格式只描述真实
 Case 需要产出的证据，不能在原程序外根据历史 PASS 补造场景结果。
 
-性能的 baseline Bundle 必须匹配环境中冻结的生产基线，且不能与候选 Bundle 相同。
+性能的 baseline Bundle 和 Module 必须匹配环境中冻结的生产基线；以
+`Bundle SHA-256 + Module SHA-256` 识别实际实现，不能将同一实现作为两种变体。
+PFB 可以在同一已安装 Bundle 上比较正式 Module 与开发 Module，但必须分别核验实际返回的
+模块字节，不能伪造不同的 Bundle 摘要。基线已有公共 Content I/O 时同样校验其资源峰值和关闭归零。
 `browserSha256` 是解析符号链接后实际 Chrome 可执行文件的 SHA-256，版本探针还必须匹配
 preflight；比较使用同一浏览器和运行配置。`sourceSha256` 是来源回执按 key 排序、无多余空白 JSON 的 SHA-256。
 最终 `make content-io-evidence-check IO_ENV=<绝对环境文件>` 调用同一 PFB 的 Runtime 校验器，
@@ -2579,7 +2582,7 @@ fixture 的通过也不能替代真实产品操作。
 
 `scripts/acceptance/content_io_performance.mjs` 按单个 Case 校验并比较 20 份样本：旧实现和候选
 分别五轮 cold/warm。每轮 cold 使用独立浏览器 context，warm 在该 context 中创建新的 Launch；
-输入、Chrome、网络配置和预先定义的首帧/可输入观察事件必须一致，同一变体的 Bundle 不能变化。
+输入、Chrome、网络配置和预先定义的首帧/可输入观察事件必须一致，同一变体的 Bundle 与 Module 不能变化。
 首帧和可输入耗时分别按 cold/warm 中位数比较，候选上限为基线的 1.15 倍加 100 ms。
 任意一项超限均失败，不能跨游戏平均。公共缓存、临时/输出池、SAB 和活动资源计数还必须符合预算，
 Session 关闭后归零。进程总内存不可取得时填 null 并注明原因，不能填零。校验器单元测试的合成

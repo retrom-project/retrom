@@ -81,7 +81,7 @@ try {
       assert.equal(measured.runtime.moduleSha256, spec[variant].moduleSha256);
       const runId = randomUUID(); await writeFile(join(directory, `${runId}.json`), JSON.stringify(measured, null, 2) + "\n");
       report.samples.push({caseId: report.caseId, runId, variant, cacheState, repetition, launchId: measured.launchId, contextId,
-        sourceSha256, browserSha256, networkSettingsSha256, providerBundleSha256: measured.runtime.bundleSha256,
+        sourceSha256, browserSha256, networkSettingsSha256, providerBundleSha256: measured.runtime.bundleSha256, providerModuleSha256: measured.runtime.moduleSha256,
         observationId: ruffleObservation, metrics: measured.metrics});
       await writeFile(join(directory, "performance.json"), JSON.stringify(report, null, 2) + "\n");
       console.log(`${variant} ${cacheState} ${repetition}: frame=${measured.metrics.firstFrameMs.toFixed(1)} input=${measured.metrics.inputReadyMs.toFixed(1)}`);
