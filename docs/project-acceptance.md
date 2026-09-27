@@ -2694,6 +2694,6 @@ BIOS 使用 `operator:samcoupe`；磁盘 role 为 `game`，BIOS role 为 `extern
 
 性能对照只在测试浏览器内选择已安装正式 Provider 和 PFB 开发 Provider 的固定文件，逐文件校验
 摘要、长度和实际浏览器响应。原生核心资源必须相同，Module 必须不同；两组使用同一 Host、游戏、
-BIOS、浏览器和网络设置。每组先预热，再采集五个独立 context 的 cold/warm 新 Launch 对，保留全部
+BIOS、浏览器和网络设置。各采集五个独立 context 的 cold/warm 新 Launch 对，不额外执行未计入样本的完整启动，保留全部
 20 份观测、内存不可用原因和公共关闭计数。BBC 性能批次硬超时 600 秒、SAM 900 秒，完整 Case
 仍为 1200 秒；这些是含真实机器开机及游戏操作的批次预算，性能通过阈值仍为基线中位数 × 1.15 + 100 ms。
