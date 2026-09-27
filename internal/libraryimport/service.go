@@ -16,7 +16,12 @@ import (
 	"retrom/internal/service/tagging"
 )
 
+type MultiDiscAttachmentCreator interface {
+	Create(context.Context, string, int64, MultiDiscAttachmentRequest) (MultiDiscAttachmentCreated, error)
+}
+
 type Dependencies struct {
+	AttachmentCreator   MultiDiscAttachmentCreator
 	Database            dbapi.DB
 	Files               *filestore.Store
 	Tags                *tagging.Service
@@ -45,6 +50,7 @@ type Options struct {
 }
 
 type Service struct {
+	attachmentCreator      MultiDiscAttachmentCreator
 	database               dbapi.DB
 	blobs                  *filestore.Store
 	now                    func() time.Time
@@ -80,7 +86,8 @@ func New(deps Dependencies, options Options) *Service {
 		options.Now = time.Now
 	}
 	return &Service{
-		database: deps.Database, blobs: deps.Files, tags: deps.Tags, now: options.Now,
+		attachmentCreator: deps.AttachmentCreator,
+		database:          deps.Database, blobs: deps.Files, tags: deps.Tags, now: options.Now,
 		multiDiscImportEnabled: options.MultiDiscEnabled,
 		preparation:            deps.Preparation, creations: deps.Creations, reconfigurations: deps.Reconfigurations,
 		approvals: deps.Approvals, reviewDrafts: deps.Drafts, discards: deps.Discards,
@@ -94,6 +101,7 @@ func New(deps Dependencies, options Options) *Service {
 
 func (deps Dependencies) validate() {
 	for _, missing := range []bool{
+		deps.AttachmentCreator == nil,
 		deps.Database == nil, deps.Files == nil, deps.Tags == nil, deps.Preparation == nil,
 		deps.Creations == nil, deps.Reconfigurations == nil, deps.Approvals == nil, deps.Drafts == nil,
 		deps.Discards == nil, deps.BatchDiscards == nil, deps.Retries == nil, deps.Cancellations == nil,

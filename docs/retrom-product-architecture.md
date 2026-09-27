@@ -133,9 +133,9 @@ flowchart LR
 
 组装使用显式 Go 构造函数，不引入 DI 容器。`internal/application` 选择跨领域共享实例并管理 `New → Start → Close`；领域组装放在 `internal/composition/<domain>`，业务方法不导入 composition。必需仓库和文件服务在构造时一次性传入；缺少必需依赖属于组装错误，不能延迟到第一次请求才发现。功能开关在构造选项中固定，清理队列的唤醒信号可省略，因为清理任务已经持久化。
 
-导入流程由 `composition/importworkflow` 一次组装，Importer、HTTP、批量审批和发布恢复共用审批实例；创建、重配与队列 Worker 共用准备及创建服务，标签服务由应用统一提供。审核草稿校验器独立于 Importer；每次校验只使用当前事务传入的 executor。`WithApproval`、`BindReviewApproval(tx)` 等事务作用域仍在事务内建立，不能缓存进长期服务。请求工作状态保持为局部值。
+导入流程由 `composition/importworkflow` 一次组装，Importer、HTTP、批量审批和发布恢复共用审批实例；创建、重配与队列 Worker 共用准备及创建服务，标签服务由应用统一提供。审核草稿校验器独立于 Importer；每次校验只使用当前事务传入的 executor。`WithApproval`、`BindReviewApproval(tx)` 等事务作用域仍在事务内建立，不能缓存进长期服务。请求工作状态保持为局部值。跨领域协作采用消费者定义的小接口，导入只接收所需标签操作及元数据调度能力。
 
-构造不启动后台任务。导入队列通知只发送唤醒信号，`Start` 才启动 Worker；`Close` 取消并等待所属任务，关闭后不可重启。应用启动失败自动关闭已经构造或启动的服务，调用方仍可幂等调用 `Close`。
+构造不启动后台任务。导入队列通知只发送唤醒信号，`Start` 才启动 Worker；`Close` 取消并等待所属任务，关闭后不可重启。新建与恢复的附件任务都注册到 Importer 生命周期，显式发布恢复也受 Worker 的取消与等待约束。应用启动失败自动关闭已经构造或启动的服务，调用方仍可幂等调用 `Close`。
 
 
 一期的后端仍是单个 Go 模块化单体，负责 API、进程内持久任务队列、Provider Bundle 服务、受控内容端点、SQLite 与本地独立文件存储；前端作为独立 Next.js 进程提供 UI、Provider dispatcher 与 Player Shell。构建分别产出后端镜像 `retrom` 和前端镜像 `retrom-web`，前后端分镜像不等于把后端领域拆成微服务。

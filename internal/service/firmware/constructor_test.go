@@ -11,7 +11,7 @@ func TestConstructorRejectsMissingDependencies(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, deps := range []Dependencies{{}, {Files: files}} {
+	for _, deps := range []Dependencies{{}, {Files: files}, {Repository: &installMemory{}}} {
 		t.Run("missing dependency", func(t *testing.T) {
 			defer func() {
 				if recover() == nil {

@@ -17,14 +17,14 @@ import (
 type ImportCreations struct {
 	repository  ImportCreationRepository
 	preparation *ImportPreparation
-	tags        *tagging.Service
-	scraper     *metadatascrape.Service
+	tags        ImportCreationTags
+	scraper     ImportMetadata
 	settings    ImportCreationSettings
 	newID       func() (string, error)
 }
 
 func NewImportCreations(repository ImportCreationRepository, preparation *ImportPreparation,
-	tags *tagging.Service, scraper *metadatascrape.Service, settings ImportCreationSettings,
+	tags ImportCreationTags, scraper ImportMetadata, settings ImportCreationSettings,
 ) *ImportCreations {
 	if settings.Now == nil {
 		settings.Now = time.Now

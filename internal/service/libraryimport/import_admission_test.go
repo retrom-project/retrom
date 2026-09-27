@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/service/tagging"
+
 	contentcapability "retrom/internal/content/capability"
 )
 
@@ -35,7 +37,7 @@ func admissionServiceFixture() (*ImportAdmissions, *admissionMemory, ImportReque
 			TargetID: "target", Policy: contentcapability.NewPolicy("SINGLE_FILE"),
 		}},
 	}
-	service := NewImportAdmissions(memory, memory, nil,
+	service := NewImportAdmissions(memory, memory, tagging.New(nil, time.Now),
 		ImportAdmissionOptions{Now: func() time.Time { return time.UnixMilli(500) }})
 	return service, memory, ImportRequest{
 		UploadID:                 "upload",

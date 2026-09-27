@@ -11,6 +11,7 @@ import (
 	dbsqlite "retrom/internal/database/sqlite"
 	"retrom/internal/filestore"
 	retromruntime "retrom/internal/runtime"
+	"retrom/internal/service/metadatascrape"
 )
 
 func newLifecycleFixture(t *testing.T) *Services {
@@ -50,6 +51,9 @@ func TestConstructionDoesNotRecoverAndStartupReportsRecoveryFailure(t *testing.T
 	if err := services.Start(t.Context()); err == nil {
 		t.Fatal("startup concealed missing worker tables")
 	}
+	if err := services.Metadata.Recover(t.Context()); !errors.Is(err, metadatascrape.ErrWorkerClosed) {
+		t.Fatalf("metadata worker survived failed startup: %v", err)
+	}
 	if !services.closed {
 		t.Fatal("failed startup did not close services")
 	}
@@ -65,6 +69,9 @@ func TestCancelledStartupPreservesTheCauseAndCanClose(t *testing.T) {
 	cancel()
 	if err := services.Start(ctx); !errors.Is(err, context.Canceled) {
 		t.Fatalf("cancelled startup=%v", err)
+	}
+	if err := services.Metadata.Recover(t.Context()); !errors.Is(err, metadatascrape.ErrWorkerClosed) {
+		t.Fatalf("metadata worker survived failed startup: %v", err)
 	}
 	if !services.closed {
 		t.Fatal("failed startup did not close services")

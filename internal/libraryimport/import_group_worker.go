@@ -30,7 +30,6 @@ func (service *Service) ResumeImportGroupJobs(ctx context.Context) {
 }
 
 func (service *Service) RecoverImportGroupJobs(ctx context.Context) {
-	cleanup.Error("recover game publications", service.approvals.Recover(ctx))
 	cleanup.Error("recover ordinary imports", service.worker.Recover(ctx))
 }
 func (service *Service) CancelImportGroupJob(id string) { service.worker.Cancel(id) }

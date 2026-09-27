@@ -8,20 +8,18 @@ import (
 	"retrom/internal/filestore"
 
 	"github.com/google/uuid"
-
-	"retrom/internal/service/tagging"
 )
 
 type ReviewApprovals struct {
 	files      *filestore.Store
 	repository ReviewApprovalRepository
-	tags       *tagging.Service
+	tags       ReviewApprovalTags
 	now        func() time.Time
 	newID      func() (string, error)
 }
 
 func NewReviewApprovals(
-	repository ReviewApprovalRepository, tags *tagging.Service, now func() time.Time, files *filestore.Store,
+	repository ReviewApprovalRepository, tags ReviewApprovalTags, now func() time.Time, files *filestore.Store,
 ) *ReviewApprovals {
 	return &ReviewApprovals{files: files, repository: repository, tags: tags, now: now, newID: newReviewApprovalID}
 }

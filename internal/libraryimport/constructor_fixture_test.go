@@ -90,6 +90,7 @@ func assembleTestDependencies(input testImportOptions) Dependencies {
 		Retries:             commands.NewImportItemRetries(database, now),
 		Cancellations:       commands.NewImportBatchCancellations(database, now),
 		Deduplicator:        commands.NewReviewDeduplicator(database, now),
+		AttachmentCreator:   commands.NewMultiDiscAttachments(database, now),
 		AttachmentSources:   commands.NewMultiDiscAttachmentSources(database),
 		AttachmentCommits:   commands.NewMultiDiscAttachmentCommits(database, now),
 		AttachmentTerminals: commands.NewMultiDiscAttachmentTerminals(database, now),

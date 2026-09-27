@@ -25,8 +25,12 @@ type CreationOptions struct {
 func NewCreations(database dbapi.DB, now func() time.Time,
 	preparation *application.ImportPreparation, options CreationOptions,
 ) *application.ImportCreations {
+	var scraper application.ImportMetadata
+	if options.Scraper != nil {
+		scraper = options.Scraper
+	}
 	return application.NewImportCreations(
-		repository.NewImportCreations(database), preparation, options.Tags, options.Scraper,
+		repository.NewImportCreations(database), preparation, options.Tags, scraper,
 		application.ImportCreationSettings{Now: now, MultiDiscEnabled: options.MultiDiscEnabled},
 	)
 }

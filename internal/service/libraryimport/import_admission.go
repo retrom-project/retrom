@@ -9,20 +9,19 @@ import (
 
 	"retrom/internal/authn"
 	contentcapability "retrom/internal/content/capability"
-	"retrom/internal/service/tagging"
 )
 
 type ImportAdmissions struct {
 	repository ImportAdmissionRepository
 	notifier   ImportGroupNotifier
-	tags       *tagging.Service
+	tags       ImportTagReferences
 	options    ImportAdmissionOptions
 	newID      func() (string, error)
 }
 
 func NewImportAdmissions(
 	repository ImportAdmissionRepository, notifier ImportGroupNotifier,
-	tags *tagging.Service, options ImportAdmissionOptions,
+	tags ImportTagReferences, options ImportAdmissionOptions,
 ) *ImportAdmissions {
 	if options.Now == nil {
 		options.Now = time.Now

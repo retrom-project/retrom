@@ -28,3 +28,8 @@ func NewMultiDiscAttachmentTerminals(
 func NewMultiDiscAttachmentSources(database dbapi.DB) *application.MultiDiscAttachmentSources {
 	return application.NewMultiDiscAttachmentSources(repository.NewMultiDiscAttachmentWorker(database))
 }
+
+func NewMultiDiscAttachments(database dbapi.DB, now func() time.Time) *application.MultiDiscAttachments {
+	return application.NewMultiDiscAttachments(repository.NewMultiDiscAttachments(database),
+		application.MultiDiscAttachmentOptions{Now: now, StorageAvailable: true})
+}

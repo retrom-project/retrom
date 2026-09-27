@@ -119,10 +119,15 @@ func (worker *ImportWorker) Recover(parent context.Context) error {
 		return err
 	}
 	defer done()
-	if err := worker.dependencies.Recovery.Recover(ctx); err != nil {
-		return fmt.Errorf("recover import queue: %w", err)
+	var publicationErr error
+	if worker.settings.RecoverPublications != nil {
+		publicationErr = worker.settings.RecoverPublications(ctx)
 	}
+	queueErr := worker.dependencies.Recovery.Recover(ctx)
 	worker.signal()
+	if err := errors.Join(publicationErr, queueErr); err != nil {
+		return fmt.Errorf("recover imports and publications: %w", err)
+	}
 	return nil
 }
 
