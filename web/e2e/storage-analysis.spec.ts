@@ -75,7 +75,7 @@ test("ACC-STOR-001 registered CAS analysis is exact, private, responsive, and ex
     if (await cleanup.isEnabled()) {
       await cleanup.click();
       const dialog = page.getByRole("alertdialog", { name: "立即清理未引用数据？" });
-      await expect(dialog).toContainText("删除前仍会重新检查是否已被引用");
+      await expect(dialog).toContainText("删除前仍会重新检查引用计数");
       await expect(dialog.getByRole("textbox")).toHaveCount(0);
       await dialog.getByRole("button", { name: "取消" }).click();
     }
