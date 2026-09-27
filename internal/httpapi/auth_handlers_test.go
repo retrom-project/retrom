@@ -12,11 +12,12 @@ import (
 
 	"retrom/internal/composition"
 
+	"retrom/internal/application"
 	"retrom/internal/authn"
-	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	"retrom/internal/config"
 	"retrom/internal/dependencies"
+	"retrom/internal/filestore"
 	retromruntime "retrom/internal/runtime"
 	"retrom/internal/store"
 	"retrom/internal/testassert"
@@ -48,15 +49,17 @@ func newAuthHTTPServer(t *testing.T, mode config.Mode) *Server {
 	if err := testsupport.SeedRuntimeProviders(context.Background(), database.SQL, dependencySet.RuntimeCatalog); err != nil {
 		t.Fatal(err)
 	}
-	blobs, err := blobstore.Open(root)
+	blobs, err := filestore.Open(root)
 	testassert.False(t, err != nil, err)
 	origin, _ := url.Parse("http://localhost:3000")
-	server := New(
-		config.Config{
-			Mode: mode, PublicOrigin: origin, ActiveEJSVersion: "4.2.3", DataDir: root,
-		},
-		database.SQL, dependencySet, blobs, credentials, accountService, accountService, now,
-	)
+	settings := config.Config{Mode: mode, PublicOrigin: origin, ActiveEJSVersion: "4.2.3", DataDir: root}
+	services, err := application.New(application.Inputs{
+		Config: settings, Database: database.SQL, Dependencies: dependencySet, Files: blobs,
+		Credentials: credentials, Accounts: accountService, Now: now,
+	})
+	testassert.False(t, err != nil, err)
+	t.Cleanup(services.Close)
+	server := New(settings, services, accountService, now)
 	server.startupReady.Store(true)
 	return server
 }

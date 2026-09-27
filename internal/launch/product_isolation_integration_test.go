@@ -11,9 +11,10 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
+	dbapi "retrom/internal/database"
 	"retrom/internal/dependencies"
+	"retrom/internal/filestore"
 	dependencypersistence "retrom/internal/persistence/dependencies"
 	retromruntime "retrom/internal/runtime"
 	dependencyservice "retrom/internal/service/dependencies"
@@ -29,7 +30,7 @@ func TestProductIsolationCreationRollsBackTicketFilesAndReceipt(t *testing.T) {
 		t.Fatalf("isolated create status=%d launch=%q error=%v", created.Status, created.Created.LaunchID, err)
 	}
 	var tickets, files, receipts int
-	err = service.database.QueryRowContext(t.Context(), `SELECT (SELECT count(*) FROM isolated_runtime_bootstrap_tickets WHERE launch_id=?),(SELECT count(*) FROM launch_content_files WHERE launch_session_id=?),(SELECT count(*) FROM idempotency_records WHERE principal_id=? AND key=?)`, created.Created.LaunchID, created.Created.LaunchID, command.ActorID, command.Key).Scan(&tickets, &files, &receipts)
+	err = dbapi.QueryRowContext(t.Context(), service.database, `SELECT (SELECT count(*) FROM isolated_runtime_bootstrap_tickets WHERE launch_id=?),(SELECT count(*) FROM launch_content_files WHERE launch_session_id=?),(SELECT count(*) FROM idempotency_records WHERE principal_id=? AND key=?)`, created.Created.LaunchID, created.Created.LaunchID, command.ActorID, command.Key).Scan(&tickets, &files, &receipts)
 	if err != nil || tickets != 1 || files == 0 || receipts != 1 {
 		t.Fatalf("isolated records tickets=%d files=%d receipts=%d error=%v", tickets, files, receipts, err)
 	}
@@ -60,7 +61,7 @@ VALUES(?,'tyrano-profile','tyrano-admin','Tyrano Admin','ADMIN','ENABLED',0,0)`,
 	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, now()); err != nil {
 		t.Fatal(err)
 	}
-	blobs, err := blobstore.Open(dataDir)
+	blobs, err := filestore.Open(dataDir)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -73,7 +74,7 @@ VALUES(?,'tyrano-profile','tyrano-admin','Tyrano Admin','ADMIN','ENABLED',0,0)`,
 	if err != nil {
 		t.Fatal(err)
 	}
-	service := New(database.SQL, dependencySet, credentials, now).WithBlobStore(blobs).
+	service := New(database.SQL, dependencySet, credentials, now).WithFileStore(blobs).
 		WithRPGRuntimeOriginTemplate("https://{launchId}.rpg-runtime.example").
 		WithRuntimeProvider(dependencySet.RuntimeCatalog, builder)
 	approveProductIsolationPreview(t, service, itemID, actorID)

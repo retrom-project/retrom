@@ -4,6 +4,7 @@ import (
 	"errors"
 	"testing"
 
+	dbapi "retrom/internal/database"
 	repository "retrom/internal/persistence/sourceimport"
 	application "retrom/internal/service/sourceimport"
 )
@@ -24,13 +25,16 @@ func TestItemCompletionRejectsReplacedWorker(t *testing.T) {
 	service, unit, item := handoffFixture(t)
 	mustExecSourceTest(t.Context(), t, service.database, `UPDATE jobs SET worker_id='new-worker' WHERE id='work'`)
 	err := application.NewItemWork(repository.NewItemWork(service.database), service.now).Finish(
-		t.Context(), unit.Identity(), item.ID, application.ItemOutcome{State: "COMMIT_FAILED", Code: "INTERNAL_ERROR", Retryable: true},
+		t.Context(), unit.Identity(), item.ID, application.ItemOutcome{
+			State: "COMMIT_FAILED",
+			Code:  "INTERNAL_ERROR", Retryable: true,
+		},
 	)
 	if !errors.Is(err, ErrVersionConflict) {
 		t.Fatalf("replaced worker outcome error=%v", err)
 	}
 	var state string
-	if err := service.database.QueryRowContext(t.Context(), `SELECT execution_state FROM source_import_items WHERE id='item'`).Scan(&state); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), service.database, `SELECT execution_state FROM source_import_items WHERE id='018fbe68-0000-7000-8000-000000000010'`).Scan(&state); err != nil {
 		t.Fatal(err)
 	}
 	if state != "VALIDATING" {
@@ -42,7 +46,8 @@ func TestClaimNextItemRejectsPreviousExecution(t *testing.T) {
 	t.Parallel()
 	service, unit, _ := handoffFixture(t)
 	mustExecSourceTest(t.Context(), t, service.database, `UPDATE jobs SET execution_no=2,attempt_count=2 WHERE id='work';
-UPDATE source_import_items SET execution_state='PENDING',library_import_job_id=NULL,library_import_item_id=NULL WHERE id='item';`)
+UPDATE source_import_items SET execution_state='PENDING',library_import_job_id=NULL,
+library_import_item_id=NULL WHERE id='018fbe68-0000-7000-8000-000000000010';`)
 	_, found, err := service.nextItem(t.Context(), unit)
 	if err == nil || found {
 		t.Fatalf("stale worker claimed item: found=%v err=%v", found, err)

@@ -1,6 +1,6 @@
 import { expectPhoneAdminNotice } from "./admin-phone-support";
 import { createHash, randomUUID } from "node:crypto";
-import { mkdirSync } from "node:fs";
+import { mkdirSync, existsSync } from "node:fs";
 import path from "node:path";
 import axe from "axe-core";
 import { selectServerSource, serverSourcePath } from "./server-directory-support";
@@ -43,12 +43,6 @@ type ImportItem = {
   executionState: string;
   payloadState: string;
   reviewItemId: string | null;
-};
-
-type StorageSnapshot = {
-  totals: { unreferencedBytes: string };
-  categories: Array<{ code: string; bytes: string; blobCount: number }>;
-  details: { cleanupCandidates: { blobCount: number; bytes: string } };
 };
 
 test.beforeEach(async ({ page }) => {
@@ -151,18 +145,6 @@ async function expectVideoMetadata(video: Locator) {
     }
     return `${player.videoWidth}x${player.videoHeight}`;
   }), { timeout: 10_000 }).toBe("160x112");
-}
-
-async function readStorageSnapshot(page: Page) {
-  const response = await page.request.get("/api/v1/admin/storage-analysis");
-  expect(response.ok(), await response.text()).toBe(true);
-  return await response.json() as StorageSnapshot;
-}
-
-function unreferencedCategory(snapshot: StorageSnapshot) {
-  const category = snapshot.categories.find((entry) => entry.code === "UNREFERENCED");
-  expect(category).toBeTruthy();
-  return category!;
 }
 
 async function scanPublicSource(page: Page) {
@@ -344,6 +326,11 @@ async function verifyFullProductLifecycle(page: Page, testInfo: TestInfo) {
     items: Array<{ itemId: string }>;
   };
   expect(reviewList.items).toHaveLength(1);
+  // The Source can release its own bytes while this item is still awaiting review.
+  await expect.poll(
+    async () => (await readItems(page, plan.id))[0]?.payloadState,
+    { timeout: 30_000 },
+  ).toBe("RELEASED");
   const reviewDetailAPI = await page.request.get(
     `/api/v1/admin/reviews/${reviewList.items[0].itemId}`,
   );
@@ -475,7 +462,11 @@ async function verifyFullProductLifecycle(page: Page, testInfo: TestInfo) {
     deleteImpact: { sourceKinds: string[] };
   };
   expect(adminGame.deleteImpact.sourceKinds).toContain("SERVER_SCAN");
-  const storageBeforeDelete = await readStorageSnapshot(page);
+  const dataRoot = process.env.RETROM_ACCEPTANCE_DATA_DIR;
+  const gameDirectory = dataRoot ? path.join(dataRoot, "files", gameId.slice(-2), gameId) : null;
+  if (gameDirectory) {
+    expect(existsSync(gameDirectory)).toBe(true);
+  }
   await page.goto(`/admin/games/${gameId}`);
   await expect(
     page.getByRole("heading", { level: 1, name: title }),
@@ -496,31 +487,9 @@ async function verifyFullProductLifecycle(page: Page, testInfo: TestInfo) {
     return `${game.status}:${game.payloadState}`;
   }, { timeout: 60_000 }).toBe("DELETED:RELEASED");
 
-  const releasedBytes = BigInt(
-    romFixture.size + coverFixture.size + videoFixture.size,
-  );
-  const beforeUnreferenced = unreferencedCategory(storageBeforeDelete);
-  await expect.poll(async () => {
-    const after = await readStorageSnapshot(page);
-    const afterUnreferenced = unreferencedCategory(after);
-    return {
-      totalBytes: BigInt(after.totals.unreferencedBytes)
-        - BigInt(storageBeforeDelete.totals.unreferencedBytes),
-      categoryBytes: BigInt(afterUnreferenced.bytes)
-        - BigInt(beforeUnreferenced.bytes),
-      categoryCount: afterUnreferenced.blobCount - beforeUnreferenced.blobCount,
-      candidateBytes: BigInt(after.details.cleanupCandidates.bytes)
-        - BigInt(storageBeforeDelete.details.cleanupCandidates.bytes),
-      candidateCount: after.details.cleanupCandidates.blobCount
-        - storageBeforeDelete.details.cleanupCandidates.blobCount,
-    };
-  }, { timeout: 60_000 }).toEqual({
-    totalBytes: releasedBytes,
-    categoryBytes: releasedBytes,
-    categoryCount: 3,
-    candidateBytes: releasedBytes,
-    candidateCount: 3,
-  });
+  if (gameDirectory) {
+    await expect.poll(() => existsSync(gameDirectory), { timeout: 60_000 }).toBe(false);
+  }
 
   expect((await page.request.get(`/api/v1/games/${gameId}`)).ok()).toBe(false);
   expect((await page.request.get(configURL)).ok()).toBe(false);

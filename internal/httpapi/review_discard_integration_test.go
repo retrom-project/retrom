@@ -12,7 +12,9 @@ import (
 	"strings"
 	"testing"
 
-	"retrom/internal/composition"
+	librarycomposition "retrom/internal/composition/libraryimport"
+
+	dbapi "retrom/internal/database"
 	"retrom/internal/testsupport"
 )
 
@@ -35,7 +37,7 @@ func TestReviewDiscardSQLFailuresAreServerErrors(t *testing.T) {
 				return nil
 			}
 			database := testsupport.OpenSQLFaultDatabase(t, server.database, testsupport.SQLFaultHooks{BeforeQuery: fault, BeforeExec: fault})
-			server.reviewDiscards = composition.NewLibraryReviewDiscards(database, server.now)
+			server.reviewDiscards = librarycomposition.NewReviewDiscards(database, server.now)
 			response := requestReviewDiscard(t, server, itemID, `"v1"`)
 			if response.Code != http.StatusInternalServerError || hits != 1 {
 				t.Fatalf("SQL failure became decision conflict: status=%d hits=%d body=%s", response.Code, hits, response.Body.String())
@@ -78,7 +80,7 @@ func TestReviewDiscardSuccessAndVersionConflict(t *testing.T) {
 		t.Fatalf("terminal review accepted second decision: status=%d body=%s", repeated.Code, repeated.Body.String())
 	}
 	var count int
-	if err := server.database.QueryRowContext(t.Context(), `SELECT COUNT(*) FROM import_items WHERE id=? AND state='DISCARDED'`, itemID).Scan(&count); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), server.database, `SELECT COUNT(*) FROM import_items WHERE id=? AND state='DISCARDED'`, itemID).Scan(&count); err != nil {
 		t.Fatal(err)
 	}
 	if count != 1 {

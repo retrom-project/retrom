@@ -6,7 +6,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
-	"database/sql"
 	"encoding/hex"
 	"errors"
 	"image"
@@ -29,16 +28,15 @@ import (
 	validationpersistence "retrom/internal/persistence/corevalidation"
 	validationservice "retrom/internal/service/corevalidation"
 
-	"retrom/internal/dbexec"
-	"retrom/internal/persistence/blobcatalog"
+	dbapi "retrom/internal/database"
 
 	"retrom/internal/persistence/recordstore"
 
 	"github.com/google/uuid"
 
-	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	"retrom/internal/dependencies"
+	"retrom/internal/filestore"
 	"retrom/internal/persistence/sessionstore"
 	retromruntime "retrom/internal/runtime"
 	"retrom/internal/store"
@@ -49,7 +47,7 @@ import (
 type saveFixture struct {
 	ctx         context.Context
 	database    *store.DB
-	blobs       *blobstore.Store
+	blobs       *filestore.Store
 	saves       *saveservice.Service
 	gameID      string
 	now         *time.Time
@@ -77,32 +75,31 @@ func newSaveFixture(t *testing.T) *saveFixture {
 	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", "..", ".."))
 	dependencySet, err := dependencies.Load(filepath.Join(repositoryRoot, "data"), []string{"4.2.3"}, "4.2.3")
 	testassert.False(t, err != nil, err)
-	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, clock()); err != nil {
+	if err := dependencyservice.New(dependencySet,
+		dependencypersistence.New(database.SQL)).Bootstrap(ctx, clock()); err != nil {
 		t.Fatal(err)
 	}
-	blobs, err := blobstore.Open(dataDir)
+	blobs, err := filestore.Open(dataDir)
 	testassert.False(t, err != nil, err)
 	content, err := blobs.Put(bytes.NewReader([]byte("save-fixture-gba")))
 	testassert.False(t, err != nil, err)
-	contentBlobID, err := blobcatalog.EnsureRecord(
-		ctx,
-		database.SQL,
-		content,
-		"application/octet-stream",
-		clock().UnixMilli(),
-	)
+	contentFileRecord, err := filestore.FileRecord(content, "application/octet-stream")
 	testassert.False(t, err != nil, err)
 	target, err := testsupport.LookupRuntimeTarget(ctx, database.SQL, "mgba")
 	testassert.False(t, err != nil, err)
 	gameID := uuid.NewString()
 	variantID := uuid.NewString()
-	dependencySnapshot, status, _, err := validationservice.New(validationpersistence.New(database.SQL)).ResolveBIOS(ctx, target.ProviderID, target.TargetID, "save.gba")
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return status != "READY" }), "save fixture dependencies = %#v/%s, error=%v", dependencySnapshot, status, err)
+	dependencySnapshot, status, _,
+		err := validationservice.New(validationpersistence.New(database.SQL)).ResolveBIOS(ctx,
+		target.ProviderID, target.TargetID, "save.gba")
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil },
+		func() bool { return status != "READY" }), "save fixture dependencies = %#v/%s, error=%v",
+		dependencySnapshot, status, err)
 	dependencySnapshotJSON, err := dependencySnapshot.JSON()
 	testassert.False(t, err != nil, err)
 	transaction, err := database.SQL.BeginTx(ctx, nil)
 	testassert.False(t, err != nil, err)
-	defer dbexec.Rollback(transaction)
+	defer dbapi.Rollback(transaction)
 	if _, err := transaction.ExecContext(ctx, `
 PRAGMA defer_foreign_keys=ON
 `); err != nil {
@@ -166,8 +163,8 @@ NULL,
 INSERT INTO game_files(game_id,
 role,
 logical_name,
-blob_id,
-source_archive_blob_id,
+file_record,
+source_archive_file_record,
 source_archive_entry_ordinal,
 sort_order) VALUES(?,
 'CONTENT',
@@ -177,7 +174,7 @@ NULL,
 NULL,
 0)
 `,
-			[]any{gameID, contentBlobID},
+			[]any{gameID, contentFileRecord},
 		},
 		{
 			`
@@ -245,29 +242,29 @@ func (fixture *saveFixture) createLaunchFromSave(t *testing.T, saveStateID *stri
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer dbexec.Rollback(tx)
+	defer dbapi.Rollback(tx)
 	now := fixture.now.UnixMilli()
 	_, err = sessionstore.CreateLaunch(fixture.ctx, tx, `
 INSERT INTO launch_sessions(
  id,profile_id,game_id,core_id,provider_id,target_id,bundle_sha256,
  content_kind,dependency_snapshot_json,compatibility_code,save_state_id,
  return_to,credential_sha256,state,bootstrap_expires_at_ms,
- idle_expires_at_ms,activated_at_ms,hard_expires_at_ms,created_at_ms,updated_at_ms)
+ activated_at_ms,hard_expires_at_ms,created_at_ms,updated_at_ms)
 SELECT ?, 'local',game.id,variant.core_id,variant.provider_id,variant.target_id,
  provider.bundle_sha256,game.content_kind,variant.dependency_snapshot_json,
- variant.compatibility_code,?,?,?,'ACTIVE',?,?,?, ?,?,?
+ variant.compatibility_code,?,?,?,'ACTIVE',?,?,?,?,?
 FROM games game
 JOIN game_variants variant ON variant.game_id=game.id
 JOIN runtime_providers provider ON provider.provider_id=variant.provider_id
 WHERE game.id=?
 	`, launchUUID.String(), saveStateID, "/games/"+fixture.gameID, capabilityHash[:],
-		now+300_000, now+120_000, now, now+28_800_000, now, now, fixture.gameID)
+		now+300_000, now, now+28_800_000, now, now, fixture.gameID)
 	if err != nil {
 		t.Fatal(err)
 	}
 	_, err = tx.ExecContext(fixture.ctx, `
-INSERT INTO launch_content_files(launch_session_id,logical_name,blob_id,format_version,created_at_ms)
-SELECT ?,file.logical_name,file.blob_id,'SOURCE_V1',?
+INSERT INTO launch_content_files(launch_session_id,logical_name,file_record,format_version,created_at_ms)
+SELECT ?,file.logical_name,file.file_record,'SOURCE_V1',?
 FROM games game JOIN game_files file
  ON file.game_id=game.id AND file.role='CONTENT'
 WHERE game.id=?
@@ -363,16 +360,18 @@ func TestManualStateRequiresAtomicNonEmptyStateAndScreenshot(t *testing.T) {
 		key,
 		manualRequest(t, "存档一", state, screenshot),
 	)
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return replayed }, func() bool { return result.SaveStateID == "" }), "manual state = %#v, replayed=%v, error=%v", result, replayed, err)
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil },
+		func() bool { return replayed }, func() bool { return result.SaveStateID == "" }),
+		"manual state = %#v, replayed=%v, error=%v", result, replayed, err)
 	var sourceLaunchID string
 	var stateSize, screenshotSize int64
-	if err := fixture.database.SQL.QueryRowContext(fixture.ctx, `
+	if err := dbapi.QueryRowContext(fixture.ctx, fixture.database.SQL, `
 SELECT s.source_launch_session_id,
-state_blob.size_bytes,
-screenshot_blob.size_bytes
+json_extract(state_blob.value, '$.size_bytes'),
+json_extract(screenshot_blob.value, '$.size_bytes')
 FROM save_states s
-JOIN blobs state_blob ON state_blob.id=s.payload_blob_id
-JOIN blobs screenshot_blob ON screenshot_blob.id=s.screenshot_blob_id
+JOIN json_each(json_array(s.payload_file_record)) state_blob ON state_blob.value IS NOT NULL
+JOIN json_each(json_array(s.screenshot_file_record)) screenshot_blob ON screenshot_blob.value IS NOT NULL
 WHERE s.id=?
 `, result.SaveStateID).Scan(&sourceLaunchID, &stateSize, &screenshotSize); err != nil ||
 		sourceLaunchID != created.LaunchID ||
@@ -387,15 +386,19 @@ WHERE s.id=?
 		key,
 		manualRequest(t, "存档一", state, screenshot),
 	)
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return !replayed }, func() bool { return replay.SaveStateID != result.SaveStateID }), "manual replay = %#v, replayed=%v, error=%v", replay, replayed, err)
-	if _, _, err := fixture.saves.CreateManual(fixture.ctx, created.LaunchID, created.Capability, uuid.NewString(), manualRequest(t, "空状态", nil, screenshot)); !errors.Is(
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil },
+		func() bool { return !replayed },
+		func() bool { return replay.SaveStateID != result.SaveStateID }),
+		"manual replay = %#v, replayed=%v, error=%v", replay, replayed, err)
+	if _, _, err := fixture.saves.CreateManual(fixture.ctx, created.LaunchID, created.Capability,
+		uuid.NewString(), manualRequest(t, "空状态", nil, screenshot)); !errors.Is(
 		err,
 		saveservice.ErrCheckpointInvalid,
 	) {
 		t.Fatalf("empty state error = %v", err)
 	}
 	var count int
-	if err := fixture.database.SQL.QueryRowContext(fixture.ctx, `
+	if err := dbapi.QueryRowContext(fixture.ctx, fixture.database.SQL, `
 SELECT count(*)
 FROM save_states
 `).Scan(&count); err != nil ||
@@ -500,17 +503,17 @@ func TestProductCheckpointAllowsOptionalScreenshotAndRestoresExactBinding(t *tes
 	mustUpdateLaunch(t, fixture.database.SQL, recordstore.Update{Set: `state='FINISHED',finished_at_ms=?,updated_at_ms=?,version=version+1`, Scope: recordstore.Scope{Where: `id=?`, Args: []any{original.LaunchID}}, Values: []any{now, now}})
 
 	restored := fixture.createLaunchFromSave(t, &result.SaveStateID)
-	digest, err := fixture.saves.StateDigest(fixture.ctx, restored.LaunchID, restored.Capability)
+	digest, err := fixture.saves.StateFile(fixture.ctx, restored.LaunchID, restored.Capability)
 	expectedDigest := sha256.Sum256(payload)
-	if err != nil || digest != hex.EncodeToString(expectedDigest[:]) {
-		t.Fatalf("restore digest=%s error=%v", digest, err)
+	if err != nil || digest.Digest != hex.EncodeToString(expectedDigest[:]) {
+		t.Fatalf("restore digest=%s error=%v", digest.Digest, err)
 	}
 	if _, err := fixture.database.SQL.ExecContext(fixture.ctx, `
 UPDATE save_states SET checkpoint_format='unreadable-checkpoint-v1' WHERE id=?
 `, result.SaveStateID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := fixture.saves.StateDigest(
+	if _, err := fixture.saves.StateFile(
 		fixture.ctx, restored.LaunchID, restored.Capability,
 	); !errors.Is(err, saveservice.ErrCheckpointIncompatible) {
 		t.Fatalf("binding drift error=%v", err)
@@ -527,20 +530,20 @@ func TestCheckpointRejectsDuplicateMetadataKeys(t *testing.T) {
 	}
 }
 
-func mustSaveSQL(t *testing.T, database *sql.DB, query string, arguments ...any) {
+func mustSaveSQL(t *testing.T, database dbapi.DB, query string, arguments ...any) {
 	t.Helper()
-	if _, err := database.Exec(query, arguments...); err != nil {
+	if _, err := database.ExecContext(t.Context(), query, arguments...); err != nil {
 		t.Fatalf("save fixture SQL: %v\n%s", err, query)
 	}
 }
 
-func mustUpdateLaunch(t *testing.T, database *sql.DB, change recordstore.Update) {
+func mustUpdateLaunch(t *testing.T, database dbapi.DB, change recordstore.Update) {
 	t.Helper()
 	tx, err := database.BeginTx(t.Context(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer dbexec.Rollback(tx)
+	defer dbapi.Rollback(tx)
 	if _, err := sessionstore.ChangeLaunch(t.Context(), tx, change); err != nil {
 		t.Fatal(err)
 	}

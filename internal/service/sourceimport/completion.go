@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	payload "retrom/internal/service/payloadrelease"
+	sourcecleanup "retrom/internal/service/sourceimport/payloadpolicy"
 )
 
 type (
@@ -20,7 +20,7 @@ type (
 		NowMS       int64
 	}
 	CompletionRecords interface {
-		Payload() payload.ReleaseScope
+		Payload() sourcecleanup.ReleaseScope
 		Current(context.Context, string) (ExecutionSnapshot, error)
 		Counts(context.Context, string) (CompletionCounts, error)
 		Complete(context.Context, CompletionChange) error

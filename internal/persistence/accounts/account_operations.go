@@ -6,19 +6,20 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/service/accounts"
 )
 
-type accountOperations struct{ executor dbexec.Executor }
+type accountOperations struct{ executor dbapi.Executor }
 
 func (records accountOperations) Replay(
 	ctx context.Context,
 	operation accounts.AccountOperation,
 ) (accounts.AccountReplay, error) {
 	var replay accounts.AccountReplay
-	err := records.executor.QueryRowContext(
-		ctx,
+	err := dbapi.QueryRowContext(
+		ctx, records.executor,
+
 		`SELECT request_digest,response_body FROM idempotency_records
  WHERE principal_id=? AND operation_id=? AND key=? AND expires_at_ms>?`,
 		operation.PrincipalID,

@@ -8,19 +8,15 @@ import (
 	"io"
 	"slices"
 
-	"retrom/internal/blobstore"
-	"retrom/internal/rpgmaker/detector"
-	"retrom/internal/rpgmaker/materializer"
+	"retrom/internal/core/rpgmaker/detector"
+	"retrom/internal/core/rpgmaker/materializer"
+	"retrom/internal/filestore"
 )
 
 // ImportArtifactBlobs stores immutable bytes during preparation, before a writer is acquired.
 type ImportArtifactBlobs interface {
-	OpenDigest(string) (io.ReadCloser, error)
-	Put(io.Reader) (blobstore.Metadata, error)
-}
-
-type ImportArtifactWriter interface {
-	Register(context.Context, blobstore.Metadata, int64) (string, error)
+	OpenRecord(string) (io.ReadCloser, error)
+	Put(io.Reader) (filestore.Metadata, error)
 }
 
 type ImportArtifacts struct{ blobs ImportArtifactBlobs }
@@ -84,7 +80,7 @@ func (service *ImportArtifacts) rpgSources(
 ) ([]materializer.SourceFile, error) {
 	result := make([]materializer.SourceFile, 0, len(sources))
 	for _, source := range sources {
-		digest, size, err := preparedSourceIdentity(source, archives)
+		_, size, err := preparedSourceIdentity(source, archives)
 		if err != nil {
 			return nil, err
 		}
@@ -94,7 +90,16 @@ func (service *ImportArtifacts) rpgSources(
 				if err := ctx.Err(); err != nil {
 					return nil, fmt.Errorf("open RPG source: %w", err)
 				}
-				file, err := service.blobs.OpenDigest(digest)
+				id := source.File.FileRecord
+				if source.ArchiveOrdinal != nil {
+					for _, archive := range archives {
+						if archive.FileRecord == source.ArchiveFileRecord {
+							id = archive.Materialized[*source.ArchiveOrdinal].Record
+							break
+						}
+					}
+				}
+				file, err := service.blobs.OpenRecord(id)
 				if err != nil {
 					return nil, fmt.Errorf("read RPG source: %w", err)
 				}
@@ -113,7 +118,7 @@ func preparedSourceIdentity(source PreparedSource, archives []PreparedArchive) (
 		return source.File.SHA256, source.File.Size, nil
 	}
 	for _, archive := range archives {
-		if archive.BlobID != source.ArchiveBlobID {
+		if archive.FileRecord != source.ArchiveFileRecord {
 			continue
 		}
 		metadata, present := archive.Materialized[*source.ArchiveOrdinal]
@@ -130,7 +135,7 @@ type preparedMKXPZResult struct {
 	err    error
 }
 
-func (service *ImportArtifacts) writeMKXPZ(sources []materializer.SourceFile) (blobstore.Metadata, error) {
+func (service *ImportArtifacts) writeMKXPZ(sources []materializer.SourceFile) (filestore.Metadata, error) {
 	reader, writer := io.Pipe()
 	completed := make(chan preparedMKXPZResult, 1)
 	go func() {
@@ -142,10 +147,10 @@ func (service *ImportArtifacts) writeMKXPZ(sources []materializer.SourceFile) (b
 	closeErr := reader.CloseWithError(putErr)
 	build := <-completed
 	if err := errors.Join(putErr, closeErr, build.err); err != nil {
-		return blobstore.Metadata{}, fmt.Errorf("materialize RPG MKXPZ: %w", err)
+		return filestore.Metadata{}, fmt.Errorf("materialize RPG MKXPZ: %w", err)
 	}
 	if metadata.SHA256 != build.result.SHA256 || metadata.Size != build.result.SizeBytes {
-		return blobstore.Metadata{}, ErrInvalid
+		return filestore.Metadata{}, ErrInvalid
 	}
 	return metadata, nil
 }
@@ -165,17 +170,17 @@ func rpgArtifactIdentity(generation detector.Generation) (string, string, error)
 
 func (service *ImportArtifacts) buildRPGArtifact(
 	role string, sources []materializer.SourceFile,
-) (blobstore.Metadata, error) {
+) (filestore.Metadata, error) {
 	if role != "RPG_EASYRPG_INDEX" {
 		return service.writeMKXPZ(sources)
 	}
 	index, err := materializer.BuildEasyRPGIndex(sources)
 	if err != nil {
-		return blobstore.Metadata{}, fmt.Errorf("build EasyRPG index: %w", err)
+		return filestore.Metadata{}, fmt.Errorf("build EasyRPG index: %w", err)
 	}
 	metadata, err := service.blobs.Put(bytes.NewReader(index.Contents))
 	if err != nil {
-		return blobstore.Metadata{}, fmt.Errorf("store EasyRPG index: %w", err)
+		return filestore.Metadata{}, fmt.Errorf("store EasyRPG index: %w", err)
 	}
 	return metadata, nil
 }

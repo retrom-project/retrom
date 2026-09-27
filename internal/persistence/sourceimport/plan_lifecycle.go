@@ -7,20 +7,21 @@ import (
 	"fmt"
 
 	"retrom/internal/cleanup"
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/recordstore"
 	application "retrom/internal/service/sourceimport"
 )
 
-type PlanLifecycle struct{ database *sql.DB }
+type PlanLifecycle struct{ database dbapi.DB }
 
-func NewPlanLifecycle(database *sql.DB) *PlanLifecycle { return &PlanLifecycle{database: database} }
+func NewPlanLifecycle(database dbapi.DB) *PlanLifecycle { return &PlanLifecycle{database: database} }
+
 func (repository *PlanLifecycle) WithPlanWrite(ctx context.Context, work func(application.PlanRecords) error) error {
 	tx, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin Source plan write: %w", err)
 	}
-	defer dbexec.Rollback(tx)
+	defer dbapi.Rollback(tx)
 	if err := work(planRecords{executor: tx}); err != nil {
 		return err
 	}
@@ -69,7 +70,7 @@ WHERE state='AWAITING_MAPPING' AND expires_at_ms<=? ORDER BY expires_at_ms,id LI
 	return result, nil
 }
 
-type planRecords struct{ executor dbexec.Executor }
+type planRecords struct{ executor dbapi.Executor }
 
 func (records planRecords) Get(
 	ctx context.Context,
@@ -96,13 +97,12 @@ JOIN source_import_collections collection ON collection.id=relation.collection_i
 `, plan.ActorID, plan.NowMS, plan.Before.ID); err != nil {
 		return fmt.Errorf("touch deleted Source tag relations: %w", err)
 	}
+	if err := clearPlanPayload(ctx, records.executor, plan.Before.ID); err != nil {
+		return err
+	}
 	for _, statement := range []string{
 		`DELETE FROM source_collection_tags
 WHERE collection_id IN (SELECT id FROM source_import_collections WHERE import_id=?)`,
-
-		`DELETE FROM source_import_item_assets WHERE item_id IN (SELECT id FROM source_import_items WHERE import_id=?)`,
-
-		`DELETE FROM source_import_item_files WHERE item_id IN (SELECT id FROM source_import_items WHERE import_id=?)`,
 
 		`DELETE FROM source_import_items WHERE import_id=?`,
 

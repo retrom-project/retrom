@@ -16,7 +16,7 @@ export interface paths {
         };
         get: operations["getAdminImportBatchDiscard"];
         put?: never;
-        /** @description Idempotently stop this batch and discard all unpublished content, including rejected inputs. Published games and shared blobs remain protected. One durable disposition survives page closure and process restarts; failed reconciliation can be retried here. Payload release and delayed GC use their existing workers. */
+        /** @description Idempotently stop this batch and discard all unpublished content, including rejected inputs. Published games retain their independently owned files. One durable disposition survives page closure and process restarts; failed reconciliation can be retried here. Domain cleanup and immediate file deletion use durable workers. */
         post: operations["postAdminImportBatchDiscard"];
         delete?: never;
         options?: never;
@@ -720,7 +720,7 @@ export interface paths {
         /** @description Cursor-paged browser/reconfigure ImportJobs. Per-game ImportJobs created internally by organized source review handoff are excluded; aggregate server-import history is available from `/api/v1/admin/source-imports`. */
         get: operations["getAdminImports"];
         put?: never;
-        /** @description Performs bounded admission, persists an immutable IMPORT_GROUP input, and returns 202 while archive inspection, project detection, hashing, CAS materialization, and grouping continue in the background. Admission reads and fences the upload, complete file set, target and tags in one transaction. Invalid or stale input returns 409; storage failures return 500. Content-dependent failures are reported by the ImportJob and JobEvent projections rather than holding this request open. */
+        /** @description Performs bounded admission, persists an immutable IMPORT_GROUP input, and returns 202 while archive inspection, project detection, hashing, independent file materialization, and grouping continue in the background. Admission reads and fences the upload, complete file set, target and tags in one transaction. Invalid or stale input returns 409; storage failures return 500. Content-dependent failures are reported by the ImportJob and JobEvent projections rather than holding this request open. */
         post: operations["postAdminImport"];
         delete?: never;
         options?: never;
@@ -1099,7 +1099,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Publishes a current READY validation, or a current blocked validation that has a five-second runtime screenshot captured by its matching review preview. Screenshot overrides remain explicit in immutable review evidence and the published Variant compatibility code. */
+        /** @description Freezes an eligible review decision and Game UUID, moves the prepared directory, then commits the game. Interrupted publication resumes from the PUBLISHING item; retries after publication return the same Game UUID. A blocked validation requires a matching review screenshot for explicit override, recorded in the published Variant compatibility code. */
         post: operations["postAdminReviewApprove"];
         delete?: never;
         options?: never;
@@ -1243,7 +1243,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Replaces the selected current media slot and stages newly unreferenced payload for retention-aware GC. */
+        /** @description Replaces the selected current media slot and queues newly unreferenced payload for asynchronous GC. */
         post: operations["postAdminGameAsset"];
         delete?: never;
         options?: never;
@@ -1264,7 +1264,7 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** @description Removes the selected media kind from the game's current media set and stages newly unreferenced payload for retention-aware GC. */
+        /** @description Removes the selected media kind from the game's current media set and queues newly unreferenced payload for asynchronous GC. */
         delete: operations["deleteAdminGameAsset"];
         options?: never;
         head?: never;
@@ -1857,40 +1857,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/admin/storage-analysis": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** @description Returns one read-only snapshot of registered CAS payload usage. Byte quantities are decimal strings. */
-        get: operations["getAdminStorageAnalysis"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/storage-cleanups": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** @description Skips the retention delay for all registered CAS payload that is still unreferenced when scheduled. Every Blob is rechecked against the protection registry before deletion. */
-        post: operations["postAdminStorageCleanup"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/content/assets/{assetId}": {
         parameters: {
             query?: never;
@@ -2005,42 +1971,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/runtime/launches/{launchId}/start": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                launchId: components["parameters"]["LaunchID"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["postRuntimeLaunchStart"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/runtime/launches/{launchId}/heartbeat": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                launchId: components["parameters"]["LaunchID"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["postRuntimeLaunchHeartbeat"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/runtime/launches/{launchId}/progress": {
         parameters: {
             query?: never;
@@ -2071,7 +2001,8 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: operations["postRuntimeLaunchFinish"];
+        /** @description Idempotently close a review preview and revoke its content grants. Product launches cannot use this operation. */
+        post: operations["finishRuntimeReviewPreview"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2282,8 +2213,6 @@ export interface components {
         DiagnosticsCounts: {
             games: components["schemas"]["DiagnosticsGameCounts"];
             saveStates: components["schemas"]["DiagnosticsLifecycleCounts"];
-            /** Format: int64 */
-            blobs: number;
             jobs: components["schemas"]["DiagnosticsJobCounts"];
             datVersions: components["schemas"]["DiagnosticsDATCounts"];
         };
@@ -2324,54 +2253,6 @@ export interface components {
             failed: number;
             /** Format: int64 */
             cancelled: number;
-        };
-        StorageAnalysis: {
-            /** @enum {string} */
-            scope: "REGISTERED_CAS_PAYLOAD_V1";
-            /** Format: int64 */
-            generatedAtMs: number;
-            totals: components["schemas"]["StorageAnalysisTotals"];
-            categories: components["schemas"]["StorageAnalysisCategory"][];
-            details: components["schemas"]["StorageAnalysisDetails"];
-            excluded: ("DATABASE_FILES" | "UPLOAD_PARTS" | "JOB_SCRATCH" | "DEPENDENCY_ROOT" | "FILESYSTEM_OVERHEAD" | "UNREGISTERED_ORPHANS" | "VOLUME_FREE_SPACE")[];
-        };
-        StorageAnalysisTotals: {
-            registeredBytes: string;
-            protectedBytes: string;
-            unreferencedBytes: string;
-            /** Format: int64 */
-            blobCount: number;
-        };
-        StorageAnalysisCategory: {
-            /** @enum {string} */
-            code: "GAME_CONTENT" | "BIOS" | "SAVES" | "MEDIA" | "WORKFLOW" | "RUNTIME_SNAPSHOT" | "SHARED_DURABLE" | "OTHER_REFERENCED" | "UNREFERENCED";
-            bytes: string;
-            /** Format: int64 */
-            blobCount: number;
-        };
-        StorageAnalysisDetails: {
-            saveStates: components["schemas"]["StorageAnalysisSaveStates"];
-            cleanupCandidates: components["schemas"]["StorageAnalysisCleanupCandidates"];
-        };
-        StorageAnalysisSaveStates: {
-            /** Format: int64 */
-            activeCount: number;
-            /** Format: int64 */
-            deletedCount: number;
-            stateReferenceBytes: string;
-            screenshotReferenceBytes: string;
-        };
-        StorageAnalysisCleanupCandidates: {
-            /** Format: int64 */
-            blobCount: number;
-            bytes: string;
-        };
-        StorageCleanupResult: {
-            /** Format: int64 */
-            scheduledBlobCount: number;
-            scheduledBytes: string;
-            /** Format: int64 */
-            acceptedAtMs: number;
         };
         ImportOverviewSummary: {
             /**
@@ -2610,9 +2491,7 @@ export interface components {
         AdminGameDeleteImpact: {
             impactDigest: string;
             registeredBytes: string;
-            exclusiveBytes: string;
-            sharedBytes: string;
-            blobCount: number;
+            fileCount: number;
             saveStateCount: number;
             assetCount: number;
             contentFileCount: number;
@@ -3875,17 +3754,6 @@ export interface components {
             items: components["schemas"]["BIOSRequirementSummary"][];
             nextCursor: string | null;
         };
-        PlayEventRequest: {
-            /** Format: int64 */
-            clientSequence: number;
-            /** Format: int64 */
-            clientObservedAtMs: number;
-            previousInterval: {
-                running: boolean;
-                visible: boolean;
-                paused: boolean;
-            } | null;
-        };
         PlayProgressRequest: {
             /** Format: int64 */
             activeDurationMs: number;
@@ -3910,7 +3778,7 @@ export interface components {
             /** @enum {string} */
             status: "not_ready";
             /** @enum {string} */
-            reasonCode: "DATABASE_UNAVAILABLE" | "CAS_UNAVAILABLE" | "DEPENDENCY_INVALID" | "DEPENDENCY_DAT_PARSE_FAILED" | "DEPENDENCY_INDEXING";
+            reasonCode: "DATABASE_UNAVAILABLE" | "FILE_STORAGE_UNAVAILABLE" | "DEPENDENCY_INVALID" | "DEPENDENCY_DAT_PARSE_FAILED" | "DEPENDENCY_INDEXING";
         };
         AuthUser: {
             /** Format: uuid */
@@ -4046,7 +3914,6 @@ export interface components {
             expiresAtMs: number;
         };
         JSONObject: {
-            acceptedDurationMs?: unknown;
             action?: unknown;
             activatedAtMs?: unknown;
             active?: unknown;
@@ -4090,7 +3957,6 @@ export interface components {
             bios?: unknown;
             biosSetCount?: unknown;
             biosUrl?: unknown;
-            blobCount?: unknown;
             blocked?: unknown;
             blockedCount?: unknown;
             blockerCode?: unknown;
@@ -4112,8 +3978,6 @@ export interface components {
             canRetry?: unknown;
             clientCapabilities?: unknown;
             clientFileId?: unknown;
-            clientObservedAtMs?: unknown;
-            clientSequence?: unknown;
             cloneof?: unknown;
             code?: unknown;
             column?: unknown;
@@ -4296,7 +4160,6 @@ export interface components {
             playUrl?: unknown;
             player?: unknown;
             players?: unknown;
-            previousInterval?: unknown;
             presentDiscCount?: unknown;
             protected?: unknown;
             provider?: unknown;
@@ -4580,24 +4443,6 @@ export interface components {
             };
             content: {
                 "application/json": components["schemas"]["DiagnosticsSnapshot"];
-            };
-        };
-        /** @description Registered CAS payload capacity snapshot */
-        StorageAnalysisResponse: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["StorageAnalysis"];
-            };
-        };
-        /** @description Registered CAS payload accepted for immediate retention-aware garbage collection */
-        StorageCleanupResponse: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["StorageCleanupResult"];
             };
         };
         /** @description Recommended platform/core directory catalog and current coverage */
@@ -5358,11 +5203,6 @@ export interface components {
         SourceImportStart: {
             content: {
                 "application/json": components["schemas"]["SourceImportStartRequest"];
-            };
-        };
-        PlayEvent: {
-            content: {
-                "application/json": components["schemas"]["PlayEventRequest"];
             };
         };
         PlayProgress: {
@@ -7606,33 +7446,6 @@ export interface operations {
             200: components["responses"]["DiagnosticsResponse"];
         };
     };
-    getAdminStorageAnalysis: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: components["responses"]["StorageAnalysisResponse"];
-        };
-    };
-    postAdminStorageCleanup: {
-        parameters: {
-            query?: never;
-            header: {
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-                "X-Retrom-Csrf": components["parameters"]["CSRFToken"];
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            202: components["responses"]["StorageCleanupResponse"];
-        };
-    };
     getContentAsset: {
         parameters: {
             query?: never;
@@ -7805,34 +7618,6 @@ export interface operations {
             200: components["responses"]["LaunchConfigResponse"];
         };
     };
-    postRuntimeLaunchStart: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                launchId: components["parameters"]["LaunchID"];
-            };
-            cookie?: never;
-        };
-        requestBody: components["requestBodies"]["PlayEvent"];
-        responses: {
-            200: components["responses"]["JSONResponse"];
-        };
-    };
-    postRuntimeLaunchHeartbeat: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                launchId: components["parameters"]["LaunchID"];
-            };
-            cookie?: never;
-        };
-        requestBody: components["requestBodies"]["PlayEvent"];
-        responses: {
-            200: components["responses"]["JSONResponse"];
-        };
-    };
     postRuntimeLaunchProgress: {
         parameters: {
             query?: never;
@@ -7848,7 +7633,7 @@ export interface operations {
             401: components["responses"]["JSONResponse"];
         };
     };
-    postRuntimeLaunchFinish: {
+    finishRuntimeReviewPreview: {
         parameters: {
             query?: never;
             header?: never;
@@ -7857,9 +7642,16 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody: components["requestBodies"]["PlayEvent"];
+        requestBody?: never;
         responses: {
-            200: components["responses"]["JSONResponse"];
+            /** @description Review preview closed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["JSONResponse"];
         };
     };
     postRuntimeMultiDiscPlayerEvent: {

@@ -3,8 +3,8 @@ package libraryimport
 import (
 	"context"
 
-	"retrom/internal/contentcapability"
-	"retrom/internal/corevalidation"
+	contentcapability "retrom/internal/content/capability"
+	corevalidation "retrom/internal/core/validation"
 )
 
 type ReviewValidationEvidence struct {

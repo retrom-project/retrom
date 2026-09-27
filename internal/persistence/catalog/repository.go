@@ -6,15 +6,17 @@ import (
 	"fmt"
 	"strings"
 
+	dbapi "retrom/internal/database"
+
 	"retrom/internal/cleanup"
-	"retrom/internal/contentcapability"
+	contentcapability "retrom/internal/content/capability"
 	"retrom/internal/persistence/contentquery"
 	application "retrom/internal/service/catalog"
 )
 
-type Repository struct{ database *sql.DB }
+type Repository struct{ database dbapi.DB }
 
-func New(database *sql.DB) *Repository { return &Repository{database: database} }
+func New(database dbapi.DB) *Repository { return &Repository{database: database} }
 
 func (repository *Repository) Platforms(ctx context.Context) ([]application.PlatformRow, error) {
 	rows, err := repository.database.QueryContext(ctx, `

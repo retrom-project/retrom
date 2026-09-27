@@ -6,8 +6,10 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/contentcapability"
-	"retrom/internal/runtimebundle"
+	gamevariant "retrom/internal/service/gamevariant"
+
+	contentcapability "retrom/internal/content/capability"
+	runtimebundle "retrom/internal/runtime/bundle"
 )
 
 type productTestRepository struct {
@@ -18,9 +20,9 @@ type productTestRepository struct {
 	transactions, loads                                                                 int
 	writes                                                                              []ProductCreatePlan
 	receipts                                                                            []ProductReceipt
-	variants                                                                            []ProductVariantWrite
+	variants                                                                            []gamevariant.VariantWrite
 	pending                                                                             []string
-	jobs                                                                                validationJobMemory
+	jobs                                                                                productValidationMemory
 	afterCommit                                                                         func()
 }
 
@@ -65,21 +67,23 @@ func (repository *productTestRepository) Create(_ context.Context, plan ProductC
 	return repository.writeErr
 }
 
-func (repository *productTestRepository) StoreReceipt(_ context.Context, command ProductCreateCommand, receipt ProductReceipt) error {
+func (repository *productTestRepository) StoreReceipt(_ context.Context,
+	command ProductCreateCommand, receipt ProductReceipt,
+) error {
 	receipt.Digest = command.Digest
 	repository.receipts = append(repository.receipts, receipt)
 	return repository.receiptErr
 }
-func (repository *productTestRepository) Validation() ProductValidationScope { return repository }
-func (repository *productTestRepository) Find(ctx context.Context, key string) (ValidationJob, bool, error) {
+func (repository *productTestRepository) Validation() gamevariant.WriteScope { return repository }
+func (repository *productTestRepository) Find(ctx context.Context, key string) (gamevariant.ValidationJob, bool, error) {
 	return repository.jobs.Find(ctx, key)
 }
 
-func (repository *productTestRepository) Write(ctx context.Context, plan ValidationJobWrite) error {
+func (repository *productTestRepository) Write(ctx context.Context, plan gamevariant.ValidationJobWrite) error {
 	return repository.jobs.Write(ctx, plan)
 }
 
-func (repository *productTestRepository) CreateVariant(_ context.Context, plan ProductVariantWrite) error {
+func (repository *productTestRepository) CreateVariant(_ context.Context, plan gamevariant.VariantWrite) error {
 	repository.variants = append(repository.variants, plan)
 	return repository.writeErr
 }
@@ -102,15 +106,26 @@ func cloneProductSnapshot(t *testing.T, source ProductSnapshot) ProductSnapshot 
 	return result
 }
 
-func productFixture(t *testing.T) (*ProductCreator, *productTestRepository, *previewTestProvider, ProductCreateCommand) {
+func productFixture(t *testing.T) (*ProductCreator, *productTestRepository,
+	*previewTestProvider, ProductCreateCommand,
+) {
 	t.Helper()
-	source := ProductSource{
+	source := gamevariant.Source{
 		GameID: "game", InstanceID: "instance", PlatformID: "platform", CoreID: "core", BindingID: "binding",
-		ProviderID: "provider", TargetID: "target", BundleSHA256: "bundle", DeliveryProfile: "ROM_BLOB", ContentKind: "SINGLE_FILE",
-		ContentLogicalName: "game.bin", ValidationLogicalName: "game.bin", SourceManifestDigest: "frozen-content", GameVersion: 1,
-		VariantID: previewTestID, VariantStatus: "READY", DependencySnapshot: "{}", CompatibilityCode: "READY", ContentPolicy: contentcapability.NewPolicy("SINGLE_FILE"),
+		ProviderID: "provider", TargetID: "target", BundleSHA256: "bundle",
+		DeliveryProfile: "ROM_BLOB", ContentKind: "SINGLE_FILE",
+		ContentLogicalName: "game.bin", ValidationLogicalName: "game.bin",
+		SourceManifestDigest: "frozen-content", GameVersion: 1,
+		VariantID: previewTestID, VariantStatus: "READY", DependencySnapshot: "{}",
+		CompatibilityCode: "READY", ContentPolicy: contentcapability.NewPolicy("SINGLE_FILE"),
 	}
-	before := ProductSnapshot{Found: true, Source: source, GameFiles: []ProductFile{{Role: "CONTENT", BlobID: "content", LogicalName: "game.bin", Digest: "content-digest", SizeBytes: 8}}}
+	before := ProductSnapshot{
+		Found: true, Source: source,
+		GameFiles: []gamevariant.File{{
+			Role: "CONTENT", FileRecord: "content", LogicalName: "game.bin",
+			Digest: "content-digest", SizeBytes: 8,
+		}},
+	}
 	repository := &productTestRepository{before: before, current: cloneProductSnapshot(t, before)}
 	provider := &previewTestProvider{target: runtimebundle.Target{}}
 	provider.before = func() {
@@ -118,7 +133,18 @@ func productFixture(t *testing.T) (*ProductCreator, *productTestRepository, *pre
 			t.Fatal("provider lookup entered product writer")
 		}
 	}
-	environment := ProductEnvironment{Now: func() time.Time { return time.UnixMilli(1000) }, NewID: func() (string, error) { return previewTestID, nil }, SignCapability: func(string) (string, []byte, error) { return "private-cookie-material", make([]byte, 32), nil }}
-	command := ProductCreateCommand{ProfileID: "profile", ActorID: "actor", Key: "key", Digest: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", Request: CreateRequest{GameID: "game", ReturnTo: "/games/game"}}
+	environment := ProductEnvironment{
+		Now:   func() time.Time { return time.UnixMilli(1000) },
+		NewID: func() (string, error) { return previewTestID, nil },
+		SignCapability: func(string) (string, []byte, error) {
+			return "private-cookie-material",
+				make([]byte, 32), nil
+		},
+	}
+	command := ProductCreateCommand{
+		ProfileID: "profile", ActorID: "actor", Key: "key",
+		Digest:  "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+		Request: CreateRequest{GameID: "game", ReturnTo: "/games/game"},
+	}
 	return NewProductCreator(repository, provider, nil, environment), repository, provider, command
 }

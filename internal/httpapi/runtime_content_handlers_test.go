@@ -21,8 +21,8 @@ func TestLaunchBundleBytesAreCanonicalAcrossInputOrder(t *testing.T) {
 		t.Fatal(err)
 	}
 	files := []launch.BundleFile{
-		{LogicalName: "z-bios.bin", SHA256: secondMetadata.SHA256},
-		{LogicalName: "a-bios.bin", SHA256: firstMetadata.SHA256},
+		{LogicalName: "z-bios.bin", FileRecord: secondMetadata.Record, SHA256: secondMetadata.SHA256},
+		{LogicalName: "a-bios.bin", FileRecord: firstMetadata.Record, SHA256: firstMetadata.SHA256},
 	}
 	readBundle := func(input []launch.BundleFile) []byte {
 		t.Helper()

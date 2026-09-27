@@ -10,7 +10,7 @@ import (
 
 	"retrom/internal/authn"
 	"retrom/internal/cleanup"
-	"retrom/internal/contentcapability"
+	contentcapability "retrom/internal/content/capability"
 
 	"github.com/google/uuid"
 )

@@ -2,22 +2,23 @@ package readiness
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
+
+	dbapi "retrom/internal/database"
 
 	application "retrom/internal/service/readiness"
 )
 
-type Repository struct{ database *sql.DB }
+type Repository struct{ database dbapi.DB }
 
-func New(database *sql.DB) *Repository { return &Repository{database: database} }
+func New(database dbapi.DB) *Repository { return &Repository{database: database} }
 
 func (repository *Repository) Check(ctx context.Context) (application.Status, error) {
 	if err := repository.database.PingContext(ctx); err != nil {
 		return application.Status{}, fmt.Errorf("ping readiness database: %w", err)
 	}
 	var missing int64
-	if err := repository.database.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, repository.database, `
 SELECT count(*)
 FROM runtime_target_bindings binding
 WHERE binding.launch_policy<>'DISABLED'
@@ -33,7 +34,7 @@ AND NOT EXISTS(
 		return application.Status{}, nil
 	}
 	var failed int64
-	if err := repository.database.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, repository.database, `
 SELECT count(*)
 FROM runtime_target_bindings binding
 WHERE binding.launch_policy<>'DISABLED'

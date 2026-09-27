@@ -8,6 +8,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"time"
+
+	"retrom/internal/cleanup"
+	"retrom/internal/filestore"
 )
 
 func (service *Service) CreateManual(ctx context.Context, id, capability, key string,
@@ -41,7 +44,17 @@ func (service *Service) persistManualSave(ctx context.Context, id, key, digest s
 ) (ManualResult, bool, error) {
 	var result ManualResult
 	var replayed bool
-	err := service.repository.WithWrite(ctx, func(scope WriteScope) error {
+	parsed, err := service.prepareSaveDirectory(ctx, id, launch, parsed)
+	if err != nil {
+		return ManualResult{}, false, err
+	}
+	committed := false
+	defer func() {
+		if !committed {
+			cleanup.Error("discard unused checkpoint", service.blobs.RemovePath(context.WithoutCancel(ctx), parsed.directory))
+		}
+	}()
+	err = service.repository.WithWrite(ctx, func(scope WriteScope) error {
 		now := service.now().UnixMilli()
 		var err error
 		result, replayed, err = replayManualSave(ctx, scope.Idempotency,
@@ -52,7 +65,7 @@ func (service *Service) persistManualSave(ctx context.Context, id, key, digest s
 		if err := service.ensureWritable(ctx, scope.Launches, id, launch, parsed.payload.Size); err != nil {
 			return err
 		}
-		payloadID, err := scope.Blobs.Ensure(ctx, parsed.payload, "application/octet-stream", now)
+		payloadID, err := filestore.FileRecord(parsed.payload, "application/octet-stream")
 		if err != nil {
 			return fmt.Errorf("register checkpoint payload: %w", err)
 		}
@@ -86,6 +99,8 @@ func (service *Service) persistManualSave(ctx context.Context, id, key, digest s
 	if err != nil {
 		return ManualResult{}, false, fmt.Errorf("commit checkpoint: %w", err)
 	}
+	committed = !replayed && !result.unchangedPayload && (result.ResourceKind != "SAVE_STATE" ||
+		result.SaveStateID == parsed.saveID)
 	return result, replayed, nil
 }
 

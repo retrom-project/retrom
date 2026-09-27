@@ -4,15 +4,15 @@ import (
 	"context"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 )
 
 // ReviewDraftAssets contains the storage predicates used while applying a
 // draft patch. The caller owns the transaction so validation and the eventual
 // draft update observe one snapshot.
-type ReviewDraftAssets struct{ executor dbexec.Executor }
+type ReviewDraftAssets struct{ executor dbapi.Executor }
 
-func BindReviewDraftAssets(executor dbexec.Executor) ReviewDraftAssets {
+func BindReviewDraftAssets(executor dbapi.Executor) ReviewDraftAssets {
 	return ReviewDraftAssets{executor: executor}
 }
 
@@ -20,7 +20,7 @@ func (records ReviewDraftAssets) ValidCandidate(
 	ctx context.Context, itemID, assetID string,
 ) (bool, error) {
 	var count int
-	err := records.executor.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, records.executor, `
 SELECT count(*)
 FROM scrape_candidate_assets a
 JOIN scrape_candidates c ON c.id=a.scrape_candidate_id
@@ -37,7 +37,7 @@ func (records ReviewDraftAssets) ValidUploaded(
 	ctx context.Context, itemID, assetID string,
 ) (bool, error) {
 	var count int
-	err := records.executor.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, records.executor, `
 SELECT count(*) FROM review_uploaded_assets
 WHERE id=? AND import_item_id=? AND kind='COVER'
 `, assetID, itemID).Scan(&count)

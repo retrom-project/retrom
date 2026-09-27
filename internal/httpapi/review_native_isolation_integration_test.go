@@ -12,13 +12,14 @@ import (
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
 	dependencypersistence "retrom/internal/persistence/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 
 	isolationpersistence "retrom/internal/persistence/isolation"
 
 	"retrom/internal/libraryimport"
-	"retrom/internal/runtimelaunch"
+	runtimelaunch "retrom/internal/runtime/launch"
 	"retrom/internal/service/isolation"
 	"retrom/internal/testsupport"
 )
@@ -155,7 +156,8 @@ func newNativeReviewIsolationFixture(t *testing.T, engine string) (*Server, stri
 	if err != nil {
 		t.Fatal(err)
 	}
-	server.WithRuntimeProvider(builder, http.NotFoundHandler())
+	server.launchSources.WithRuntimeProvider(builder)
+	server.WithRuntimeProviderHandler(http.NotFoundHandler())
 	// The installed Provider handler is not part of this HTTP authorization test.
 	server.runtimeProvider = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !strings.HasSuffix(r.URL.Path, "/native/bridge.js") {
@@ -198,7 +200,7 @@ func newNativeReviewIsolationFixture(t *testing.T, engine string) (*Server, stri
 		t.Fatal(err)
 	}
 	var itemID string
-	if err := server.database.QueryRowContext(t.Context(), `SELECT id FROM import_items WHERE import_job_id=?`, created.ImportJobID).Scan(&itemID); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), server.database, `SELECT id FROM import_items WHERE import_job_id=?`, created.ImportJobID).Scan(&itemID); err != nil {
 		t.Fatal(err)
 	}
 	return server, itemID

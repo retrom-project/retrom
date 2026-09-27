@@ -7,7 +7,7 @@ import (
 	"io"
 	"time"
 
-	"retrom/internal/blobstore"
+	"retrom/internal/filestore"
 )
 
 const (
@@ -29,11 +29,11 @@ var (
 
 type Service struct {
 	repository Repository
-	blobs      *blobstore.Store
+	blobs      *filestore.Store
 	now        func() time.Time
 }
 
-func New(repository Repository, blobs *blobstore.Store, now func() time.Time) *Service {
+func New(repository Repository, blobs *filestore.Store, now func() time.Time) *Service {
 	return &Service{repository: repository, blobs: blobs, now: now}
 }
 
@@ -44,6 +44,7 @@ type ManualUpload struct {
 }
 
 type ManualResult struct {
+	unchangedPayload bool
 	ResourceKind     string
 	SaveStateID      string
 	PreviewID        string

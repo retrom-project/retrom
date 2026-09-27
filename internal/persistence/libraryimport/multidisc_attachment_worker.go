@@ -6,16 +6,18 @@ import (
 	"encoding/json"
 	"fmt"
 
+	dbapi "retrom/internal/database"
+
 	"retrom/internal/cleanup"
 	"retrom/internal/persistence/recordstore"
 	application "retrom/internal/service/libraryimport"
 )
 
 type MultiDiscAttachmentWorker struct {
-	database *sql.DB
+	database dbapi.DB
 }
 
-func NewMultiDiscAttachmentWorker(database *sql.DB) *MultiDiscAttachmentWorker {
+func NewMultiDiscAttachmentWorker(database dbapi.DB) *MultiDiscAttachmentWorker {
 	return &MultiDiscAttachmentWorker{database: database}
 }
 
@@ -32,7 +34,7 @@ func (repository *MultiDiscAttachmentWorker) Claim(
 
 func loadMultiDiscAttachmentClaim(
 	ctx context.Context,
-	tx *sql.Tx,
+	tx dbapi.Tx,
 	jobID, workerID string,
 ) (application.MultiDiscAttachmentWorkerClaim, error) {
 	input, startedAtMS, err := readMultiDiscAttachmentInput(ctx, tx, jobID)
@@ -56,12 +58,12 @@ func loadMultiDiscAttachmentClaim(
 
 func readMultiDiscAttachmentInput(
 	ctx context.Context,
-	tx *sql.Tx,
+	tx dbapi.Tx,
 	jobID string,
 ) (application.MultiDiscAttachmentInput, int64, error) {
 	var inputJSON string
 	var startedAtMS int64
-	if err := tx.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, tx, `
 SELECT input.input_json,job.execution_started_at_ms
 FROM job_input_snapshots input
 JOIN jobs job ON job.id=input.job_id AND job.execution_no=input.execution_no
@@ -86,11 +88,11 @@ type multiDiscAttachmentRecord struct {
 
 func readMultiDiscAttachmentRecord(
 	ctx context.Context,
-	tx *sql.Tx,
+	tx dbapi.Tx,
 	jobID string,
 ) (multiDiscAttachmentRecord, error) {
 	var record multiDiscAttachmentRecord
-	if err := tx.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, tx, `
 SELECT id,import_item_id,review_draft_id,requested_by_user_id,base_source_snapshot_id,
 upload_session_id,expected_set_digest,state
 FROM review_multidisc_attachments WHERE job_id=?
@@ -110,7 +112,7 @@ func (record multiDiscAttachmentRecord) matches(input application.MultiDiscAttac
 		record.UploadID == input.UploadSessionID && record.ExpectedDigest == input.ExpectedSetDigest
 }
 
-func claimMultiDiscAttachmentRecords(ctx context.Context, tx *sql.Tx, jobID, workerID string, now int64) error {
+func claimMultiDiscAttachmentRecords(ctx context.Context, tx dbapi.Tx, jobID, workerID string, now int64) error {
 	result, err := tx.ExecContext(ctx, `
 UPDATE jobs SET state='RUNNING',attempt_count=attempt_count+1,worker_id=?,
 execution_started_at_ms=COALESCE(execution_started_at_ms,?),
@@ -168,9 +170,10 @@ func (repository *MultiDiscAttachmentWorker) BaseFiles(
 	ctx context.Context, snapshotID string,
 ) (application.MultiDiscAttachmentBaseFiles, error) {
 	rows, err := repository.database.QueryContext(ctx, `
-SELECT file.role,file.logical_name,file.upload_file_id,file.blob_id,blob.sha256,blob.size_bytes,file.sort_order
+SELECT file.role,file.logical_name,file.upload_file_id,file.file_record,json_extract(blob.value,
+'$.sha256'),json_extract(blob.value, '$.size_bytes'),file.sort_order
 FROM import_item_source_snapshot_files file
-JOIN blobs blob ON blob.id=file.blob_id
+JOIN json_each(json_array(file.file_record)) blob ON blob.value IS NOT NULL
 WHERE file.source_snapshot_id=? AND file.role IN ('PLAYLIST_SOURCE','DISC')
 ORDER BY file.role,file.sort_order
 `, snapshotID)
@@ -183,7 +186,7 @@ ORDER BY file.role,file.sort_order
 		var file application.MultiDiscAttachmentFile
 		var uploadFileID sql.NullString
 		if err := rows.Scan(
-			&file.Role, &file.LogicalName, &uploadFileID, &file.BlobID,
+			&file.Role, &file.LogicalName, &uploadFileID, &file.FileRecord,
 			&file.BlobSHA, &file.BlobSize, &file.SortOrder,
 		); err != nil {
 			return application.MultiDiscAttachmentBaseFiles{}, fmt.Errorf("scan multi-disc base file: %w", err)
@@ -209,7 +212,7 @@ func (repository *MultiDiscAttachmentWorker) UploadFiles(
 ) (application.MultiDiscAttachmentUploadFiles, error) {
 	var result application.MultiDiscAttachmentUploadFiles
 	var consumed int
-	if err := repository.database.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, repository.database, `
 SELECT state,source_type,EXISTS(
   SELECT 1 FROM upload_consumptions consumption
   WHERE consumption.upload_session_id=upload_sessions.id AND consumption.upload_file_id IS NULL
@@ -220,9 +223,10 @@ FROM upload_sessions WHERE id=?
 	}
 	result.Consumed = consumed != 0
 	rows, err := repository.database.QueryContext(ctx, `
-SELECT file.relative_path,file.id,file.blob_id,blob.sha256,blob.size_bytes
+SELECT file.relative_path,file.id,file.file_record,json_extract(blob.value, '$.sha256'),
+json_extract(blob.value, '$.size_bytes')
 FROM import_files file
-JOIN blobs blob ON blob.id=file.blob_id
+JOIN json_each(json_array(file.file_record)) blob ON blob.value IS NOT NULL
 WHERE file.upload_session_id=? AND file.released_at_ms IS NULL
 ORDER BY file.relative_path,file.id
 `, sessionID)
@@ -234,7 +238,8 @@ ORDER BY file.relative_path,file.id
 	for rows.Next() {
 		var file application.MultiDiscAttachmentFile
 		file.Role = "DISC"
-		if err := rows.Scan(&file.LogicalName, &file.UploadFileID, &file.BlobID, &file.BlobSHA, &file.BlobSize); err != nil {
+		if err := rows.Scan(&file.LogicalName, &file.UploadFileID, &file.FileRecord, &file.BlobSHA,
+			&file.BlobSize); err != nil {
 			return application.MultiDiscAttachmentUploadFiles{}, fmt.Errorf("scan multi-disc upload file: %w", err)
 		}
 		result.Files = append(result.Files, file)

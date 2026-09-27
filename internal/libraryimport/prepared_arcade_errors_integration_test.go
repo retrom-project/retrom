@@ -11,7 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/blobstore"
+	dbapi "retrom/internal/database"
+	"retrom/internal/filestore"
 	uploadpersistence "retrom/internal/persistence/uploads"
 	"retrom/internal/service/uploads"
 	"retrom/internal/testsupport"
@@ -23,7 +24,7 @@ func TestPreparedArcadeCatalogFailuresPrecedeCreationWrites(t *testing.T) {
 			importer, request := preparedArcadeErrorFixture(t)
 			cause := errors.New("arcade preparation catalog unavailable")
 			reads, writes := 0, 0
-			importer.database = testsupport.OpenSQLFaultDatabase(t, importer.database, testsupport.SQLFaultHooks{
+			importer = newTestImporter(t, testsupport.OpenSQLFaultDatabase(t, importer.database, testsupport.SQLFaultHooks{
 				BeforeQuery: func(_ context.Context, query string, _ []driver.NamedValue) error {
 					if matchesPreparationCatalogRead(operation, query) {
 						reads++
@@ -38,13 +39,13 @@ func TestPreparedArcadeCatalogFailuresPrecedeCreationWrites(t *testing.T) {
 					}
 					return nil
 				},
-			})
+			}), importer.blobs, testImportOptions{Now: importer.now, MultiDiscEnabled: importer.multiDiscImportEnabled})
 			result, err := importer.Create(t.Context(), request)
 			if !errors.Is(err, cause) || result != (Created{}) || reads == 0 || writes != 0 {
 				t.Fatalf("operation=%s reads=%d writes=%d result=%+v err=%v", operation, reads, writes, result, err)
 			}
 			var imports int
-			if err := importer.database.QueryRowContext(t.Context(), `SELECT count(*) FROM import_jobs`).Scan(&imports); err != nil {
+			if err := dbapi.QueryRowContext(t.Context(), importer.database, `SELECT count(*) FROM import_jobs`).Scan(&imports); err != nil {
 				t.Fatal(err)
 			}
 			if imports != 0 {
@@ -81,13 +82,13 @@ func preparedArcadeErrorFixture(t *testing.T) (*Service, CreateRequest) {
 			t.Error(err)
 		}
 	})
-	blobs, err := blobstore.Open(dataDir)
+	blobs, err := filestore.Open(dataDir)
 	if err != nil {
 		t.Fatal(err)
 	}
 	insertArcadeParentCatalog(t, database.SQL)
 	uploader := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
 	upload := uploadCompleteFile(t, t.Context(), database.SQL, uploader, "a.zip", arcadeZIP(t, "a.bin", []byte("child")))
-	importer := New(database.SQL, time.Now).WithBlobStore(blobs)
+	importer := newTestImporter(t, database.SQL, blobs, testImportOptions{Now: time.Now})
 	return importer, CreateRequest{UploadID: upload.uploadID, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(t, database.SQL, "arcade/fbneo"), MetadataProvider: "NONE"}
 }

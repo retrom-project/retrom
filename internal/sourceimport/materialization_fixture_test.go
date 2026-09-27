@@ -4,13 +4,13 @@ import (
 	"context"
 	"fmt"
 
-	"retrom/internal/blobstore"
+	"retrom/internal/filestore"
 	repository "retrom/internal/persistence/sourceimport"
 	application "retrom/internal/service/sourceimport"
 )
 
 func (service *Service) materialization() *application.Materialization {
-	return application.NewMaterialization(repository.NewMaterialization(service.database), service.now)
+	return application.NewMaterialization(repository.NewMaterialization(service.database), service.blobs, service.now)
 }
 
 func (service *Service) recordCopiedFile(
@@ -18,7 +18,7 @@ func (service *Service) recordCopiedFile(
 	unit work,
 	itemID string,
 	file executionFile,
-	metadata blobstore.Metadata,
+	metadata filestore.Metadata,
 ) (string, error) {
 	result, err := service.materialization().Copy(ctx, unit.Identity(), application.MaterialSource{
 		Key:  application.MaterialKey{ItemID: itemID, Ordinal: file.Ordinal},
@@ -35,7 +35,7 @@ func (service *Service) recordCopiedAsset(
 	unit work,
 	itemID string,
 	asset executionAsset,
-	metadata blobstore.Metadata,
+	metadata filestore.Metadata,
 ) (string, error) {
 	result, err := service.materialization().Copy(
 		ctx,

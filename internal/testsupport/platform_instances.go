@@ -3,7 +3,6 @@ package testsupport
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"os"
@@ -12,13 +11,15 @@ import (
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
+
 	platformpersistence "retrom/internal/persistence/platforminstance"
 	"retrom/internal/persistence/recordstore"
 
 	"github.com/google/uuid"
 
 	"retrom/internal/platformcatalog"
-	"retrom/internal/runtimecatalog"
+	runtimecatalog "retrom/internal/runtime/catalog"
 	"retrom/internal/service/platforminstance"
 	"retrom/internal/store"
 )
@@ -47,7 +48,7 @@ func OpenDatabase(ctx context.Context, path string, now func() time.Time) (*stor
 
 // BuildPlatformInstances creates the current recommendation catalog with fresh identities and returns
 // references keyed by catalog template key. Every invocation creates fresh UUIDv7 identities.
-func BuildPlatformInstances(ctx context.Context, database *sql.DB) (PlatformInstanceReferences, error) {
+func BuildPlatformInstances(ctx context.Context, database dbapi.DB) (PlatformInstanceReferences, error) {
 	if err := SeedRuntimeProviders(ctx, database, currentRuntimeCatalog()); err != nil {
 		return nil, err
 	}
@@ -78,7 +79,7 @@ INSERT INTO platform_instances(
 }
 
 // SeedPlatformInstances is a convenience for tests that only need a populated current catalog.
-func SeedPlatformInstances(ctx context.Context, database *sql.DB) error {
+func SeedPlatformInstances(ctx context.Context, database dbapi.DB) error {
 	_, err := BuildPlatformInstances(ctx, database)
 	return err
 }
@@ -102,9 +103,9 @@ func currentRuntimeCatalog() runtimecatalog.Catalog {
 	return catalog
 }
 
-func PlatformInstanceID(ctx context.Context, database *sql.DB, templateKey string) (string, error) {
+func PlatformInstanceID(ctx context.Context, database dbapi.DB, templateKey string) (string, error) {
 	var id string
-	if err := database.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database, `
 SELECT id FROM platform_instances
 WHERE catalog_template_key=? AND deleted_at_ms IS NULL
 `, templateKey).Scan(&id); err != nil {
@@ -113,7 +114,7 @@ WHERE catalog_template_key=? AND deleted_at_ms IS NULL
 	return id, nil
 }
 
-func MustPlatformInstanceID(t testing.TB, database *sql.DB, templateKey string) string {
+func MustPlatformInstanceID(t testing.TB, database dbapi.DB, templateKey string) string {
 	t.Helper()
 	id, err := PlatformInstanceID(t.Context(), database, templateKey)
 	if err != nil {
@@ -122,7 +123,7 @@ func MustPlatformInstanceID(t testing.TB, database *sql.DB, templateKey string) 
 	return id
 }
 
-func fixturePlatformSlug(ctx context.Context, database *sql.DB, platformID, name string) (string, error) {
+func fixturePlatformSlug(ctx context.Context, database dbapi.DB, platformID, name string) (string, error) {
 	base := platforminstance.SlugBase(name, platformID)
 	var slugs []string
 	err := platformpersistence.New(database).WithRead(ctx, func(reader platforminstance.Reader) error {

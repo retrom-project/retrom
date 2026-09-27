@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/sourceimport"
 )
 
@@ -121,13 +122,13 @@ func TestWorkflowRetryPreservesFrozenInputsAndOnlyRestartsRetryableItems(t *test
 	}
 }
 
-func assertRetriedItems(t *testing.T, db *sql.DB) {
+func assertRetriedItems(t *testing.T, db dbapi.DB) {
 	t.Helper()
 	for i, want := range []string{"PENDING", "COMMIT_FAILED", "REVIEW_PENDING", "SKIPPED_MAPPING"} {
 		var state, metadata, manifest string
 		var code, details sql.NullString
 		var version int64
-		if err := db.QueryRowContext(t.Context(), `SELECT execution_state,metadata_json,source_manifest_json,error_code,error_details_json,version
+		if err := dbapi.QueryRowContext(t.Context(), db, `SELECT execution_state,metadata_json,source_manifest_json,error_code,error_details_json,version
 FROM source_import_items WHERE game_ordinal=?`, i).Scan(&state, &metadata, &manifest, &code, &details, &version); err != nil {
 			t.Fatal(err)
 		}
@@ -144,11 +145,11 @@ FROM source_import_items WHERE game_ordinal=?`, i).Scan(&state, &metadata, &mani
 	}
 }
 
-func assertNewManualExecution(t *testing.T, db *sql.DB) {
+func assertNewManualExecution(t *testing.T, db dbapi.DB) {
 	t.Helper()
 	var execution, attempt, available, version int64
 	var reset bool
-	if err := db.QueryRowContext(t.Context(), `SELECT execution_no,attempt_count,available_at_ms,version,
+	if err := dbapi.QueryRowContext(t.Context(), db, `SELECT execution_no,attempt_count,available_at_ms,version,
 execution_started_at_ms IS NULL AND execution_deadline_at_ms IS NULL AND leased_until_ms IS NULL
 AND heartbeat_at_ms IS NULL AND finished_at_ms IS NULL AND worker_id IS NULL AND error_code IS NULL
 AND error_retryable IS NULL AND cancel_requested_at_ms IS NULL AND cancel_reason IS NULL
@@ -159,7 +160,7 @@ FROM jobs WHERE id='work'`).Scan(&execution, &attempt, &available, &version, &re
 		t.Fatalf("manual execution: %d %d %d %d reset=%v", execution, attempt, available, version, reset)
 	}
 	var old, input, digest, actor string
-	if err := db.QueryRowContext(t.Context(), `SELECT
+	if err := dbapi.QueryRowContext(t.Context(), db, `SELECT
 (SELECT input_json FROM job_input_snapshots WHERE job_id='work' AND execution_no=1),input_json,input_digest,
 (SELECT actor_user_id FROM audit_events WHERE action='SOURCE_IMPORT_RETRIED')
 FROM job_input_snapshots WHERE job_id='work' AND execution_no=2`).Scan(&old, &input, &digest, &actor); err != nil {
@@ -195,8 +196,8 @@ func TestQueuedCancellationKeepsReviewItemsAndSchedulesTerminalPayloads(t *testi
 	}
 	var state, payload string
 	var version, releases int
-	if err := db.QueryRowContext(t.Context(), `SELECT execution_state,payload_state,version,
-(SELECT count(*) FROM jobs WHERE kind='PAYLOAD_RELEASE') FROM source_import_items WHERE id='item-2'`).Scan(&state, &payload, &version, &releases); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), db, `SELECT execution_state,payload_state,version,
+(SELECT count(*) FROM jobs WHERE kind='OWNER_CLEANUP') FROM source_import_items WHERE id='item-2'`).Scan(&state, &payload, &version, &releases); err != nil {
 		t.Fatal(err)
 	}
 	if state != "REVIEW_PENDING" || payload != "RETAINED" || version != 1 || releases != 3 {

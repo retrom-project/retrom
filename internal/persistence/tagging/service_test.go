@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"retrom/internal/cleanup"
+	dbapi "retrom/internal/database"
 	tagpersistence "retrom/internal/persistence/tagging"
 	"retrom/internal/service/tagging"
 	"retrom/internal/store"
@@ -165,8 +166,9 @@ func TestTagLifecycleAndNameReuse(t *testing.T) {
 		err,
 	)
 	var audits int
-	if err := database.SQL.QueryRowContext(
-		context.Background(),
+	if err := dbapi.QueryRowContext(
+		context.Background(), database.SQL,
+
 		`SELECT count(*) FROM audit_events WHERE resource_type='TAG'`,
 	).Scan(
 		&audits,
@@ -198,7 +200,7 @@ func TestEnsureCommonTagsIsAtomicAndIdempotent(t *testing.T) {
 	), "second ensure = %#v, %v", second, err)
 
 	var activeCount, auditCount int
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT
   (SELECT count(*) FROM tags WHERE status='ACTIVE'),
   (SELECT count(*) FROM audit_events WHERE action='TAG_CREATED')
@@ -268,8 +270,9 @@ func TestReplaceGameTagsAndDeleteInvalidatesGameVersion(t *testing.T) {
 		t.Fatal(err)
 	}
 	var gameVersion int64
-	if err := database.SQL.QueryRowContext(
-		context.Background(),
+	if err := dbapi.QueryRowContext(
+		context.Background(), database.SQL,
+
 		`SELECT version FROM games WHERE id=?`,
 		testGameID,
 	).Scan(
@@ -340,8 +343,9 @@ FROM sequence
 	}
 	for _, name := range tagging.CommonTagNames() {
 		var count int
-		if err := database.SQL.QueryRowContext(
-			ctx,
+		if err := dbapi.QueryRowContext(
+			ctx, database.SQL,
+
 			`SELECT count(*) FROM tags WHERE status='ACTIVE' AND name=?`,
 			name,
 		).Scan(

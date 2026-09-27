@@ -3,7 +3,7 @@ package libraryimport
 import (
 	"encoding/json"
 
-	"retrom/internal/corevalidation"
+	corevalidation "retrom/internal/core/validation"
 )
 
 type ArcadeDraftDependency struct {

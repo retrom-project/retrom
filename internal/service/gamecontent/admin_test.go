@@ -46,7 +46,7 @@ func TestAdminGameReadsCompleteProjectionThroughRepository(t *testing.T) {
 		Assets:   []AdminGameAsset{{ID: "asset"}},
 		Variants: []AdminGameVariant{{ID: "variant"}},
 	}}
-	service := New(repository, func() time.Time { return time.UnixMilli(100) })
+	service := New(Dependencies{Repository: repository, Files: constructorFiles(t)}, Options{Now: func() time.Time { return time.UnixMilli(100) }})
 
 	detail, err := service.AdminGame(t.Context(), "game")
 	if err != nil {
@@ -65,7 +65,7 @@ func TestPatchAdminGameAppliesFieldsAndKeepsAtomicPort(t *testing.T) {
 		Status: "PUBLISHED", Version: 4,
 		Metadata: AdminGameMetadata{Title: oldTitle, Developer: "Dev"},
 	}}
-	service := New(repository, func() time.Time { return time.UnixMilli(100) })
+	service := New(Dependencies{Repository: repository, Files: constructorFiles(t)}, Options{Now: func() time.Time { return time.UnixMilli(100) }})
 
 	result, err := service.PatchAdminGame(t.Context(), AdminGamePatchRequest{
 		GameID: "game", ExpectedVersion: 4, Title: &newTitle,
@@ -96,7 +96,7 @@ func TestPatchAdminGameRejectsStaleOrNonPublishedState(t *testing.T) {
 				Status: test.status, Version: test.version,
 				Metadata: AdminGameMetadata{Title: "Fixture"},
 			}}
-			service := New(repository, time.Now)
+			service := New(Dependencies{Repository: repository, Files: constructorFiles(t)}, Options{Now: time.Now})
 			title := "Changed"
 			_, err := service.PatchAdminGame(t.Context(), AdminGamePatchRequest{
 				GameID: "game", ExpectedVersion: 4, Title: &title,

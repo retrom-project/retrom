@@ -6,26 +6,24 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	"retrom/internal/filestore"
+
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/libraryimport"
 )
 
-type ServerSourceUploads struct{ database *sql.DB }
+type ServerSourceUploads struct{ database dbapi.DB }
 
-func NewServerSourceUploads(database *sql.DB) *ServerSourceUploads {
+func NewServerSourceUploads(database dbapi.DB) *ServerSourceUploads {
 	return &ServerSourceUploads{database: database}
 }
 
-func (repository *ServerSourceUploads) BlobSize(ctx context.Context, blobID string) (int64, bool, error) {
-	var size int64
-	err := repository.database.QueryRowContext(ctx, `SELECT size_bytes FROM blobs WHERE id=?`, blobID).Scan(&size)
-	if errors.Is(err, sql.ErrNoRows) {
-		return 0, false, nil
-	}
+func (repository *ServerSourceUploads) BlobSize(_ context.Context, fileRecord string) (int64, bool, error) {
+	file, err := filestore.ParseRecord(fileRecord)
 	if err != nil {
-		return 0, false, fmt.Errorf("query server source blob: %w", err)
+		return 0, false, fmt.Errorf("blob size: %w", err)
 	}
-	return size, true, nil
+	return file.Size, true, nil
 }
 
 func (repository *ServerSourceUploads) Insert(
@@ -40,7 +38,7 @@ func (repository *ServerSourceUploads) Insert(
 	if err != nil {
 		return fmt.Errorf("begin server source upload: %w", err)
 	}
-	defer dbexec.Rollback(transaction)
+	defer dbapi.Rollback(transaction)
 	if err := InsertClonedUpload(ctx, transaction, uploadID, sourceType, files, digest, now); err != nil {
 		return err
 	}
@@ -66,7 +64,7 @@ func (repository *ServerSourceUploads) Present(
 	var state, storedSourceType, storedDigest string
 	var storedFiles int
 	var storedBytes int64
-	err := repository.database.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, repository.database, `
 SELECT state,source_type,total_files,total_bytes,manifest_digest
 FROM upload_sessions WHERE id=?
 `, uploadID).Scan(&state, &storedSourceType, &storedFiles, &storedBytes, &storedDigest)
@@ -88,7 +86,7 @@ func (repository *ServerSourceUploads) Creation(
 	uploadID, targetPlatformInstanceID, contentMode string,
 ) (application.ServerCreated, bool, error) {
 	var created application.ServerCreated
-	err := repository.database.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, repository.database, `
 SELECT import_job.id,job.id,import_job.state,import_job.total_item_count
 FROM import_jobs import_job
 JOIN jobs job ON job.scope_type='IMPORT_GROUP' AND job.scope_id=import_job.id AND job.kind='IMPORT_GROUP'
@@ -100,7 +98,7 @@ WHERE import_job.upload_session_id=?
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		var count int
-		if err := repository.database.QueryRowContext(ctx,
+		if err := dbapi.QueryRowContext(ctx, repository.database,
 			`SELECT count(*) FROM import_jobs WHERE upload_session_id=?`, uploadID,
 		).Scan(&count); err != nil {
 			return application.ServerCreated{}, false, fmt.Errorf("query server source creations: %w", err)

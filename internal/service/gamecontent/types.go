@@ -1,8 +1,8 @@
 package gamecontent
 
 import (
-	"retrom/internal/blobstore"
-	"retrom/internal/contentcapability"
+	contentcapability "retrom/internal/content/capability"
+	"retrom/internal/filestore"
 )
 
 type JobSnapshot struct {
@@ -31,22 +31,25 @@ type JobSnapshot struct {
 }
 
 type UploadedFile struct {
-	LogicalName, BlobID, SHA256 string
-	SizeBytes                   int64
+	LogicalName, FileRecord, SHA256 string
+	SizeBytes                       int64
 }
 
 type ReplacementFile struct {
-	Role, LogicalName, BlobID, SHA256 string
-	SizeBytes                         int64
-	SortOrder                         int
+	Role, LogicalName, FileRecord, SHA256 string
+	SizeBytes                             int64
+	SortOrder                             int
 }
 
+type FileCopy struct{ Source, Target string }
+
 type PreparedReplacement struct {
+	FileCopies              []FileCopy
 	ContentKind             string
 	Files                   []ReplacementFile
 	Manifest                []byte
 	ManifestDigest          string
-	CanonicalPlaylist       blobstore.Metadata
+	CanonicalPlaylist       filestore.Metadata
 	OrderedDiscSHA256       []string
 	FirstContentLogicalName string
 	RPGMaker                *PreparedRPGMakerReplacement

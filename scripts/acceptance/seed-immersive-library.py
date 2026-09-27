@@ -8,6 +8,7 @@ import json
 import sqlite3
 import sys
 from pathlib import Path
+from fixture_files import own_rows
 
 
 GAME_COUNT = 52
@@ -82,9 +83,9 @@ INSERT INTO games(
     database.execute(
         """
 INSERT INTO game_files(
- game_id,role,logical_name,blob_id,source_archive_blob_id,source_archive_entry_ordinal,sort_order
+ game_id,role,logical_name,file_record,source_archive_file_record,source_archive_entry_ordinal,sort_order
 )
-SELECT ?,role,logical_name,blob_id,source_archive_blob_id,source_archive_entry_ordinal,sort_order
+SELECT ?,role,logical_name,file_record,source_archive_file_record,source_archive_entry_ordinal,sort_order
 FROM game_files WHERE game_id=?
 """,
         (game_id, base["id"]),
@@ -102,6 +103,7 @@ INSERT INTO game_variants(
             base["dependency_snapshot_json"], base["default_dos_entry"], 1, now_ms, now_ms,
         ),
     )
+    own_rows(database, "game_files", "game_id", game_id, "GAME", game_id)
     return game_id, variant_id
 
 
@@ -120,9 +122,9 @@ def seed_play(
 INSERT INTO launch_sessions(
  id,profile_id,game_id,core_id,provider_id,target_id,bundle_sha256,content_kind,
  dependency_snapshot_json,compatibility_code,return_to,credential_sha256,state,
- bootstrap_expires_at_ms,idle_expires_at_ms,activated_at_ms,finished_at_ms,hard_expires_at_ms,
+ bootstrap_expires_at_ms,activated_at_ms,finished_at_ms,hard_expires_at_ms,
  created_at_ms,updated_at_ms,version,initial_disc_index
-) VALUES(?,?,?,?,?,?,?,?,?,?,'/immersive',?,'FINISHED',?,NULL,?,?,?,?,?,1,0)
+) VALUES(?,?,?,?,?,?,?,?,?,?,'/immersive',?,'FINISHED',?,?,?,?,?,?,1,0)
 """,
         (
             launch_id, profile_id, game_id, base["core_id"], base["provider_id"],
@@ -136,9 +138,9 @@ INSERT INTO launch_sessions(
     database.execute(
         """
 INSERT INTO play_sessions(
- id,launch_session_id,profile_id,game_id,started_at_ms,last_heartbeat_at_ms,ended_at_ms,
- active_duration_ms,last_client_sequence,state,version,created_at_ms,updated_at_ms
-) VALUES(?,?,?,?,?,?,?,1000,1,'FINISHED',1,?,?)
+ id,launch_session_id,profile_id,game_id,started_at_ms,last_reported_at_ms,ended_at_ms,
+ active_duration_ms,state,version,created_at_ms,updated_at_ms
+) VALUES(?,?,?,?,?,?,?,1000,'FINISHED',1,?,?)
 """,
         (
             play_id, launch_id, profile_id, game_id, started_at_ms,

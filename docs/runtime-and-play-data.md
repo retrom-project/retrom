@@ -15,7 +15,7 @@
 
 ### 1.1 产品目录与数据库解耦
 
-复用 `data/runtime-target-bindings/v1/catalog.json` 与 `internal/runtimecatalog`，将平台、核心、平台/核心关系、可接收内容分类及产品 binding 汇入同一 Host 声明目录。Provider manifest 仍独占 Target 能力、私有 options schema、当前 checkpoint 格式与实现资产；推荐目录模板只负责用户目录的创建建议，不另立核心接入注册中心。
+复用 `data/runtime-target-bindings/v1/catalog.json` 与 `internal/runtime/catalog`，将平台、核心、平台/核心关系、可接收内容分类及产品 binding 汇入同一 Host 声明目录。Provider manifest 仍独占 Target 能力、私有 options schema、当前 checkpoint 格式与实现资产；推荐目录模板只负责用户目录的创建建议，不另立核心接入注册中心。
 
 目录只保留当前 `schemaVersion` 和内容摘要，不设独立 `catalogVersion`、revision 或算法代际。新增现有平台的核心/Target，或采用已注册存储/检测/交付策略接入时，只修改声明及对应 Provider 产物，不修改 SQL 或清库。新增真正的持久化业务结构才需要 migration。
 
@@ -45,9 +45,9 @@ Launch options 按声明绑定的明确接入策略一次组装，再接受 Prov
 
 通用 Job retry 成功后的校验唤醒等待幂等收据持久化，重放响应不重复启动；收据写入失败不发出本次唤醒。现有 retry 与通用 HTTP 收据仍是独立事务，收据失败时已经入队的执行保留。后台执行脱离请求取消后仍归属进程生命周期，不能在数据库关闭后继续访问。
 
-`providerId` 与 `targetId` 是跨升级稳定的语义身份。Provider 当前版本和 manifest 投影可以前移，但已创建的 `launch_sessions` 会冻结当次 `bundleSha256`、内容文件、外部依赖文件、Target、options 和恢复输入。Bundle 升级不会让现有审核结果或已发布 Variant 自动 stale；只有来源内容、Core/Target、DAT、依赖闭包、项目证据或其他真实验证输入改变时才需要重新检查。
+`providerId` 与 `targetId` 是跨升级稳定的语义身份。Provider 当前版本和 manifest 投影可以前移，但已创建的 `launch_sessions` 会冻结当次 `bundleSha256`、内容文件标识、外部依赖文件标识、Target 和 options；恢复输入从当前 SaveState 按绑定版本读取。Bundle 升级不会让现有审核结果或已发布 Variant 自动 stale；只有来源内容、Core/Target、DAT、依赖闭包、项目证据或其他真实验证输入改变时才需要重新检查。
 
-内容替换是破坏性的 current-state 切换：新内容必须先完整准备并验证，事务提交时撤销旧 Launch、结束游玩、删除旧存档和旧派生文件，再原子写入当前文件、profile 与 Variant；失败时旧当前态保持不变。BIOS 替换仅原子切换当前安装；已创建的 Launch/Play 保留冻结的旧 BIOS 文件与授权直到各自结束或过期，game-scoped 存档继续保留。新启动（包括从存档继续）按需核对当前 BIOS，变化时先重验；创建事务再次核对快照，避免并发替换混用版本。人工截图放行的 Variant 保留放行状态，在新 Launch 事务中只刷新已安装的受管 BIOS；不清除手动提供的无关 Arcade 文件。
+内容替换是破坏性的 current-state 切换：新内容必须先完整准备并验证，事务提交时撤销旧 Launch、结束游玩、删除旧存档和旧派生文件，再原子写入当前文件、profile 与 Variant；失败时旧当前态保持不变。BIOS 替换原子切换当前安装并撤销使用旧 BIOS 的 Launch/Play；game-scoped 存档继续保留。新启动（包括从存档继续）按需核对当前 BIOS，变化时先重验；创建事务再次核对快照，避免并发替换混用版本。人工截图放行的 Variant 保留放行状态，在新 Launch 事务中只刷新已安装的受管 BIOS；不清除手动提供的无关 Arcade 文件。
 
 内容替换由 `internal/service/gamecontent` 编排，`internal/persistence/gamecontent` 负责查询和写事务。执行读取并校验持久化输入摘要，首次领取时以 6 小时预算设置持久化截止时间和执行 context，领取任务时匹配游戏 scope、执行次数与输入摘要，使用每次独立的 worker 身份。发布事务重新核对未过期的租约和执行期限、当前绑定与内容身份，并在同一事务中解析 BIOS 引用、退役旧内容、发布新内容、推进任务和事件以及释放上传消费。取消请求由当前 worker 确认为取消；已终态或已更换执行身份的任务不接受旧 worker 的失败回调。释放信号只能在事务提交后发出。
 
@@ -62,7 +62,7 @@ Launch options 按声明绑定的明确接入策略一次组装，再接受 Prov
 - `targetOptions` 是由当前 Target 的闭合 `targetOptionsSchema` 校验后的 Provider 私有配置；
 - `restore` 是可空的标准恢复输入；生产 Envelope 不携带研发验证脚本或位置证明。
 
-配置签发由 `internal/service/launch.ConfigIssuer` 编排，Repository 先在只读快照内读取会话并交给 Service 校验 capability，授权通过后才读取资源。完整 Envelope 构建成功后，在短写事务内重新检查授权、bootstrap/hard/idle 期限、冻结输入和版本，再激活 CREATED 会话；提交成功才返回配置。构建、最终查询、激活或提交失败均不留下部分激活。已 ACTIVE 的配置重取不刷新 idle 或游玩时间；并发合法激活及 START/heartbeat 的版本推进可以继续签发，结束或撤销后的会话不能重新激活。可选资源只有实际缺失时可省略，存储故障与取消必须保留原因。
+配置签发由 `internal/service/launch.ConfigIssuer` 编排，Repository 先在只读快照内读取会话并交给 Service 校验 capability，授权通过后才读取资源。完整 Envelope 构建成功后，在短写事务内重新检查授权、bootstrap/hard 期限、冻结输入和版本，再激活 CREATED 会话；提交成功才返回配置。构建、最终查询、激活或提交失败均不留下部分激活。已 ACTIVE 的配置重取不延长 hard 期限或写入游玩统计；并发合法激活且冻结输入未改变、版本只向前推进时可以继续签发，结束或撤销后的会话不能重新激活。可选资源只有实际缺失时可省略，存储故障与取消必须保留原因。
 
 Go 在签发前验证 envelope 和 Target options；dispatcher 验证 JSON 边界、模块 URL、模块摘要、Provider 身份与 API 版本，然后只调用 `createRuntime(envelope, host)`。Provider 创建入口按自身声明验证外部 Envelope 与 Host，直接构造核心私有的最小类型参数，不再提供单独预检，也不在内部重复验证相同 Envelope 或转换后的通用 config。下载文件、解码 checkpoint、跨 origin 消息仍在各自信任边界校验；任一身份、摘要、schema、资源或能力不一致都 fail closed。
 
@@ -84,6 +84,8 @@ Host 区分运行时内部普通点击与暂停遮罩上的明确恢复：前者
 
 ## 5. 资源与项目运行时
 
+游戏运行配置由 `internal/service/gamevariant` 拥有：维护 GameVariant、校验输入、BIOS/内容证据、任务调度、执行、重试与恢复；`internal/persistence/gamevariant` 保存其数据库操作。游戏移动和任务重试直接调用该领域，进程独立管理校验 worker 的生命周期。Launch 消费配置与校验结果，保留浏览器能力检查、启动前依赖新鲜度检查、会话授权和冻结资源；需要校验时，任务和启动幂等响应仍在同一事务提交，提交后再派发 worker。
+
 内容与会话读取由 `internal/service/launch` 判断 capability、状态、硬到期、资源类型及项目路径；`internal/persistence/launch` 只读取冻结会话、内容成员和授权事实。普通与预览 Bundle 的授权和成员必须来自同一数据库快照，包括合法空集合。RPG Maker 原生 Web 项目资源的请求路径先经过安全校验，再规范化为导入时使用的 NFC 文件名；项目仅在精确路径不存在时尝试唯一的大小写匹配。项目资源可在浏览器私有缓存保存，但每次使用前需以 ETag 重新验证会话授权，命中时返回无正文的 304，存档恢复数据仍不可缓存。存储失败或取消必须保留原因，不能触发路径回退或误报凭据无效。Provider 资源仍按冻结的 Provider/Target/Bundle 和唯一 manifest 路径选择，不重新解释核心或内容配置。
 
 Provider 静态文件只从 `/runtime/providers/{providerId}/{bundleSha256}/{runtimePath}` 提供，并同时受 closed allowlist、大小和 SHA-256 约束。静态响应包含 `Cache-Control: no-transform`，防止代理压缩使 Content I/O 的原始字节与长度校验失败；PFB 开发文件同样禁止变换。游戏、BIOS、parent、多盘、项目文件和 cart 不属于 Provider Bundle，通过 envelope resources 授权；Provider 不得根据扩展名、标题或 Core 名称猜测输入。
@@ -98,7 +100,7 @@ Retrom 不再生成 RTP resources、安装文件索引或包下载地址，审�
 
 Checkpoint 对 Host 是不透明字节。Target declaration 的 `writeFormat`、`readFormats[]` 和 `maxBytes` 是唯一格式规则。创建存档时，来源 Launch 必须属于同一 Profile/Game 且允许存档，格式必须位于 `readFormats`、大小和 SHA-256 必须闭合；Host 不解析 Provider payload。
 
-`internal/service/saves` 统一编排写入授权、格式与大小判断、幂等重放和 GAME_SAVE 版本冲突；`internal/persistence/saves` 只读取事实并提交记录。请求体接收及 CAS 文件写入在数据库写事务之外执行；提交前重新读取当前会话、归属、到期时间及 Target 格式与大小上限。Blob 登记、存档/预览 checkpoint、GAME_SAVE 数据版本与 Launch 绑定、幂等响应必须在同一个短事务中提交，任何一步失败均回滚。相同 payload 不递增数据版本，不覆盖用户命名；本地草稿沿用账号归属及 GAME_SAVE 绑定规则，允许已结束或到期会话，不复用运行 capability 的存活要求。
+`internal/service/saves` 统一编排写入授权、格式与大小判断、幂等重放和 GAME_SAVE 版本冲突；`internal/persistence/saves` 只读取事实并提交记录。请求体接收及独立文件存储文件写入在数据库写事务之外执行；提交前重新读取当前会话、归属、到期时间及 Target 格式与大小上限。所属领域的文件记录、存档/预览 checkpoint、GAME_SAVE 数据版本与 Launch 绑定、幂等响应必须在同一个短事务中提交，任何一步失败均回滚。相同 payload 不递增数据版本，不覆盖用户命名；本地草稿沿用账号归属及 GAME_SAVE 绑定规则，允许已结束或到期会话，不复用运行 capability 的存活要求。
 
 checkpoint 可选 `semantics` 声明恢复方式。省略或 `INSTANT` 表示直接恢复执行状态；`GAME_SAVE` 表示游戏原生存档；运行时可显式创建新原生存档，也可要求用户在游戏中完成保存，导入后可能还需通过游戏菜单读档。Player 根据该公共声明展示提示，不按 Core、Target 或格式名称分支。GAME_SAVE 使用公共 availability revision 检测原生数据变化，按当前游玩会话暂存到浏览器，并在退出确认后提交。两种语义共用 Save API、完整性校验、授权与跨 Launch 恢复机制；Provider 必须在启动游戏前导入原生存档并支持读档后的继续输入。RMS 备份不构成即时快照能力，既有即时恢复回归仍保持原断言。
 
@@ -118,6 +120,8 @@ Provider 可在存档边界无损压缩完整原生 checkpoint，格式仍由 Ta
 
 所有内容类型均使用普通审核 preview 和同一 Player，流程为“运行游戏 → 试玩 → 返回审核 → 管理员通过/拒绝”。RPG Maker 的 generation、项目 fingerprint、来源、Provider/Target 和依赖摘要仍用于真实检测及资源装配，但不创建另一套运行验证或人工证明状态机。试运行不创建 Game 或 Variant，不计入已发布游戏的游玩记录。
 
+审核截图由 `internal/service/libraryimport` 负责接收、图片校验与证据登记，数据库操作由 `internal/persistence/libraryimport` 负责，图片读取由审核文件适配器提供。写入前须在同一事务复核 Preview 授权、Item 当前来源、校验结果与运行目标，旧来源的截图不能登记为新来源证据。截图保留在 Item 的 scratch 目录，随其终态清理。
+
 试运行可使用标准截图与 checkpoint。临时 checkpoint 只归属创建它的审核会话和操作者；恢复创建普通的新 preview，要求当前审核来源、目标与 checkpoint 可读格式匹配，不要求特定原会话/恢复会话事件顺序。临时数据在过期或审核 payload 释放时清理，不进入用户存档列表，也不参与 Provider 升级预检。已存在的持久用户存档继续受到 `readFormats` 升级门槛保护。
 
 退出、关闭、失败和加载取消都走相同 Player/Provider 清理并撤销试运行授权；可重复试运行，不维护 gate、序列、机器证明或独立 PASS/FAIL 决定。精确帧、输入、画面及跨会话位置恢复断言仅存在于研发验收，不能为测试保留生产探针 API、fixtureState 或 A/B/C 证明协议。
@@ -128,7 +132,7 @@ Provider 可在存档边界无损压缩完整原生 checkpoint，格式仍由 Ta
 
 PRODUCT Player 在核心真正开始后累计可见、未暂停的运行时间，每 30 秒向 `progress` 上报累计毫秒数；首次成功上报才创建 PlaySession，重复或乱序样本只保留最大值。统计失败不阻断运行、存档或退出，也不撤销 Launch 权限。退出时停止时钟并尽力提交最后一份累计值；加载中退出先取消 Provider 加载，不产生统计请求。PRODUCT 内容授权与回收独立遵循 hard expiry、明确撤销和游戏删除，具体协议见 HTTP 与数据模型契约。
 
-`start/heartbeat/finish` 连续事件仅为旧客户端及审核 Preview 保留，新 PRODUCT Player 不调用它们。旧事件由 `internal/service/launch.PlayController` 校验权限、连续序号与精确重放，在同一事务更新会话、事件及权限状态。审核 Preview 不计入产品统计，退出和加载取消仍通过 `finish` 关闭授权；重复 finish 幂等。未知事件和已撤销会话不能借重放绕过校验。
+审核 Preview 只通过无请求体的 `finish` 结束，成功返回 204；重复结束幂等，不创建 PlaySession。正式游玩只上报累计 `progress`，不保留 start/heartbeat、连续事件序号、区间重放或事件表。统计写入与 Preview 结束分别由独立用例处理。
 
 ## 10. 验证与发布门禁
 
@@ -156,7 +160,7 @@ Player 在当前账号、Launch 范围内将数据包、截图和固定幂等请
 不在本地暂存时调用 acknowledgeCheckpoint，保留启动数据作为比较基准；最终数据回到启动值时清理草稿，退出时仍提示确认。当前具备主动保存能力时仍可创建新的原生存档；没有主动保存能力且数据未变化时不提供保存操作。
 
 无 saveStateId 的 Launch 必须从空原生数据启动。服务端历史存档、此前本地草稿以及其他运行实例均不能作为隐式恢复输入。
-只有显式选择存档时导入冻结恢复包。本地草稿数据库不向 runtime 提供启动数据，不自动合并、恢复或清除其他 Launch 的草稿。
+只有显式选择存档时才读取当前 SaveState 的恢复包，绑定的数据版本变化后旧 Launch 必须重新启动。本地草稿数据库不向 runtime 提供启动数据，不自动合并、恢复或清除其他 Launch 的草稿。
 
 正常退出先暂停并等候稳定数据，结合实例当前主动保存能力与数据变化显示确认弹窗。没有提供主动保存能力的游戏保留游戏内保存流程；即时快照退出流程不变。
 有变化时提示数据已变更，并提醒用户确保本次在游戏中主动执行过“保存游戏”，避免异常数据变更覆盖此前存档；

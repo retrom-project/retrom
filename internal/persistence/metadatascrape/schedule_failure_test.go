@@ -25,7 +25,8 @@ func TestScheduleStorageFailureIsNotVersionConflict(t *testing.T) {
 	if _, err := database.SQL.ExecContext(t.Context(), `DROP TABLE games`); err != nil {
 		t.Fatal(err)
 	}
-	_, _, err = metadatascrape.New(metadatapersistence.NewScheduler(database.SQL), nil, time.Now).ScheduleGame(t.Context(), "game", 1)
+	_, _, err = metadatascrape.New(metadatapersistence.NewScheduler(database.SQL), nil,
+		time.Now).ScheduleGame(t.Context(), "018fbe68-0000-7000-8000-000000000002", 1)
 	if err == nil || errors.Is(err, metadatascrape.ErrGameVersionConflict) {
 		t.Fatalf("storage failure mapped to version conflict: %v", err)
 	}

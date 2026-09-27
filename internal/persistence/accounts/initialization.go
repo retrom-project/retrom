@@ -2,20 +2,19 @@ package accounts
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 
 	"retrom/internal/cleanup"
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/service/accounts"
 )
 
 type (
-	InitializationRepository struct{ database *sql.DB }
-	initializationRecords    struct{ executor dbexec.Executor }
+	InitializationRepository struct{ database dbapi.DB }
+	initializationRecords    struct{ executor dbapi.Executor }
 )
 
-func NewInitialization(database *sql.DB) *InitializationRepository {
+func NewInitialization(database dbapi.DB) *InitializationRepository {
 	return &InitializationRepository{database}
 }
 
@@ -31,7 +30,7 @@ func (repository *InitializationRepository) WithWrite(
 	if err != nil {
 		return fmt.Errorf("begin account initialization: %w", err)
 	}
-	defer dbexec.Rollback(tx)
+	defer dbapi.Rollback(tx)
 	records := initializationRecords{tx}
 	if err := work(accounts.InitializationScope{Read: records, Write: records}); err != nil {
 		return err
@@ -44,8 +43,9 @@ func (repository *InitializationRepository) WithWrite(
 
 func (records initializationRecords) State(ctx context.Context) (accounts.InitializationState, error) {
 	var state accounts.InitializationState
-	err := records.executor.QueryRowContext(
-		ctx,
+	err := dbapi.QueryRowContext(
+		ctx, records.executor,
+
 		`SELECT state,test_default_password_active,(SELECT count(*) FROM users),(SELECT count(*) FROM profiles),
  (SELECT count(*) FROM users WHERE role='ADMIN' AND status='ENABLED'),
  (SELECT count(*) FROM profiles p LEFT JOIN users u ON u.profile_id=p.id WHERE u.id IS NULL)

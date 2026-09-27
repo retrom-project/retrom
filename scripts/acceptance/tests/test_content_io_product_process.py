@@ -13,6 +13,14 @@ from scripts.acceptance import content_io_product_check as check
 
 
 class ContentIOProductProcessTests(unittest.TestCase):
+    def test_missing_dedicated_driver_is_blocked_and_never_passes(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            output = Path(temporary) / "output"
+            record = check.execute_case({"caseId": "ACC-BBC-001", "existingAcceptanceEntry": None}, {}, {}, output, "run", [], {})
+            self.assertEqual(record["status"], "BLOCKED")
+            self.assertEqual(record["errorCode"], "CONTENT_IO_PRODUCT_DRIVER_MISSING")
+            self.assertEqual(json.loads((output / "command.json").read_text()), record)
+
     def test_completed_failed_case_kills_its_remaining_descendants(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

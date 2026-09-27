@@ -1,27 +1,5 @@
 -- Pre-release bootstrap: create the current domain model directly.
 
-CREATE TABLE blobs (
-  id TEXT PRIMARY KEY,
-  sha256 TEXT NOT NULL UNIQUE CHECK(length(sha256) = 64 AND sha256 = lower(sha256)),
-  size_bytes INTEGER NOT NULL CHECK(size_bytes >= 0),
-  md5 TEXT NOT NULL CHECK(length(md5) = 32 AND md5 = lower(md5)),
-  sha1 TEXT NOT NULL CHECK(length(sha1) = 40 AND sha1 = lower(sha1)),
-  crc32 TEXT NOT NULL CHECK(length(crc32) = 8 AND crc32 = lower(crc32)),
-  media_type TEXT NOT NULL,
-  created_at_ms INTEGER NOT NULL CHECK(created_at_ms >= 0)
-);
-
-CREATE TABLE blob_gc_candidates (
-  blob_id TEXT PRIMARY KEY REFERENCES blobs(id),
-  gc_job_id TEXT NOT NULL UNIQUE REFERENCES jobs(id),
-  first_unreferenced_at_ms INTEGER NOT NULL CHECK(first_unreferenced_at_ms >= 0),
-  scheduled_at_ms INTEGER NOT NULL CHECK(scheduled_at_ms >= first_unreferenced_at_ms),
-  deleted_at_ms INTEGER,
-  last_failed_at_ms INTEGER,
-  error_code TEXT,
-  attempt_count INTEGER NOT NULL DEFAULT 0 CHECK(attempt_count >= 0)
-);
-
 CREATE TABLE "job_events" (
   id INTEGER PRIMARY KEY,
   job_id TEXT NOT NULL REFERENCES jobs(id),
@@ -64,7 +42,7 @@ CREATE TABLE "audit_events" (
   actor_kind TEXT NOT NULL CHECK(actor_kind IN ('USER','SYSTEM')),
   actor_user_id TEXT REFERENCES users(id),
   actor_label TEXT CHECK(actor_label IN (
-    'release-setup','offline-recovery','startup-test-bootstrap','restore-security-fence',
+    'release-setup','startup-test-bootstrap',
     'payload-release-worker','runtime-provider-reconciliation'
   )),
   action TEXT NOT NULL,
@@ -87,10 +65,10 @@ CREATE TABLE "jobs" (
   scope_id TEXT NOT NULL,
   kind TEXT NOT NULL CHECK(kind IN (
     'UPLOAD_FINALIZE','IMPORT_GROUP','IMPORT_ITEM_PIPELINE','DAT_PARSE','VARIANT_VALIDATE',
-    'METADATA_SCRAPE','MEDIA_FETCH','GAME_CONTENT_REPLACE','BLOB_GC','UPLOAD_CLEANUP',
+    'METADATA_SCRAPE','MEDIA_FETCH','GAME_CONTENT_REPLACE','PATH_DELETE','UPLOAD_CLEANUP',
     'REVIEW_ARCADE_PARENT_VALIDATE','REVIEW_MULTI_DISC_VALIDATE','SERVER_BIOS_IMPORT',
     'IMPORT_SCAN','IMPORT_RECEIVE',
-    'REVIEW_BULK_APPROVE','PAYLOAD_RELEASE'
+    'REVIEW_BULK_APPROVE','OWNER_CLEANUP'
   )),
   dedupe_key TEXT NOT NULL CHECK(length(dedupe_key)=64),
   execution_no INTEGER NOT NULL CHECK(execution_no>=1),
@@ -120,9 +98,9 @@ CREATE TABLE "jobs" (
   CHECK(kind<>'SERVER_BIOS_IMPORT' OR scope_type='SERVER_IMPORT'),
   CHECK(kind NOT IN ('IMPORT_SCAN','IMPORT_RECEIVE') OR scope_type='SOURCE_IMPORT'),
   CHECK(kind<>'REVIEW_BULK_APPROVE' OR scope_type='REVIEW_BULK_APPROVAL'),
-  CHECK(kind<>'PAYLOAD_RELEASE' OR scope_type IN (
+  CHECK(kind<>'OWNER_CLEANUP' OR scope_type IN (
     'IMPORT_ITEM','IMPORT_JOB','SOURCE_IMPORT_ITEM','UPLOAD_CONSUMPTION','GAME'
   )),
-  CHECK(kind<>'PAYLOAD_RELEASE' OR (cancellable=0 AND max_attempts=4)),
-  CHECK(kind<>'BLOB_GC' OR (scope_type='BLOB' AND cancellable=0 AND max_attempts=4))
+  CHECK(kind<>'OWNER_CLEANUP' OR (cancellable=0 AND max_attempts=4)),
+  CHECK(kind<>'PATH_DELETE' OR (scope_type='STORAGE_PATH' AND cancellable=0 AND max_attempts=4))
 );

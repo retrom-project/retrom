@@ -10,7 +10,11 @@ import (
 	"testing"
 	"time"
 
+	variantcomposition "retrom/internal/composition/gamevariant"
+	gamevariant "retrom/internal/service/gamevariant"
+
 	composition "retrom/internal/composition/launch"
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/launch"
 	"retrom/internal/testsupport"
 )
@@ -64,8 +68,9 @@ func TestAssemblyProductDispatchSharesCloseLifetimeAfterReceipt(t *testing.T) {
 		}
 		return nil
 	}})
-	service := composition.New(fault, fixture.source, "http://localhost:3000", fixture.now)
-	t.Cleanup(service.Close)
+	variants := variantcomposition.New(fault, fixture.source, fixture.now)
+	service := composition.New(fault, fixture.source, "http://localhost:3000", fixture.now, variants.Dispatch)
+	t.Cleanup(variants.Close)
 	core := "nestopia"
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
@@ -79,17 +84,17 @@ func TestAssemblyProductDispatchSharesCloseLifetimeAfterReceipt(t *testing.T) {
 		t.Fatal("composition worker did not reach facts")
 	}
 	var receipts int
-	if err := fixture.database.QueryRowContext(t.Context(), `SELECT count(*) FROM idempotency_records WHERE principal_id=? AND key=?`, assemblyActor, "assembly-worker").Scan(&receipts); err != nil || receipts != 1 {
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT count(*) FROM idempotency_records WHERE principal_id=? AND key=?`, assemblyActor, "assembly-worker").Scan(&receipts); err != nil || receipts != 1 {
 		t.Fatalf("dispatch preceded receipt: %d %v", receipts, err)
 	}
 	cancel()
-	service.Close()
-	if !errors.Is(<-ended, application.ErrValidationWorkerClosed) {
+	variants.Close()
+	if !errors.Is(<-ended, gamevariant.ErrValidationWorkerClosed) {
 		t.Fatal("background worker escaped process lifetime")
 	}
 	var state string
 	var attempts int
-	if err := fixture.database.QueryRowContext(t.Context(), `SELECT state,attempt_count FROM jobs WHERE id=?`, receipt.Created.JobID).Scan(&state, &attempts); err != nil || state != "FAILED" || attempts != 1 {
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT state,attempt_count FROM jobs WHERE id=?`, receipt.Created.JobID).Scan(&state, &attempts); err != nil || state != "FAILED" || attempts != 1 {
 		t.Fatalf("Close settlement %s/%d: %v", state, attempts, err)
 	}
 }

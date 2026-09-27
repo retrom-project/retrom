@@ -5,16 +5,16 @@ import (
 	"fmt"
 
 	"retrom/internal/cleanup"
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/libraryimport"
 )
 
 type ReviewDependencies struct {
 	*ArcadeRelations
-	executor dbexec.Executor
+	executor dbapi.Executor
 }
 
-func BindReviewDependencies(executor dbexec.Executor) *ReviewDependencies {
+func BindReviewDependencies(executor dbapi.Executor) *ReviewDependencies {
 	return &ReviewDependencies{ArcadeRelations: BindArcadeRelations(executor), executor: executor}
 }
 
@@ -23,7 +23,7 @@ func (records *ReviewDependencies) Head(
 	itemID string,
 ) (application.ReviewDependencyHead, error) {
 	var result application.ReviewDependencyHead
-	err := records.executor.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, records.executor, `
 SELECT draft.effective_source_snapshot_id,snapshot.content_kind,platform.platform_id,
 validation.status,validation.compatibility_code,validation.dependency_snapshot_json
 FROM import_items item JOIN import_items draft ON draft.id=item.id

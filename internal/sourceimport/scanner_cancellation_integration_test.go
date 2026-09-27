@@ -6,6 +6,8 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	dbapi "retrom/internal/database"
 )
 
 func TestScannerExecutionCancellationStopsReaderAndKeepsOwnership(t *testing.T) {
@@ -66,7 +68,7 @@ func TestScannerExecutionCancellationStopsReaderAndKeepsOwnership(t *testing.T) 
 func assertCancelledScannerOwnership(t *testing.T, service *Service, replacement bool) {
 	t.Helper()
 	var state, owner, plan string
-	err := service.database.QueryRowContext(t.Context(), `SELECT j.state,COALESCE(j.worker_id,''),p.state FROM jobs j
+	err := dbapi.QueryRowContext(t.Context(), service.database, `SELECT j.state,COALESCE(j.worker_id,''),p.state FROM jobs j
  JOIN source_imports p ON p.scan_job_id=j.id WHERE j.id='scan'`).Scan(&state, &owner, &plan)
 	if err != nil {
 		t.Fatal(err)

@@ -16,7 +16,7 @@ async function fixture(directory) {
     const bytes = JSON.stringify(value); await writeFile(join(directory, path), bytes);
     return {path, sha256: createHash("sha256").update(bytes).digest("hex")};
   };
-  await artifact("expected-identity.json", {...Object.fromEntries(Object.entries(identity).filter(([key]) => !["networkSettingsSha256", "observationId"].includes(key))), baselineBundleSha256: "0".repeat(64)});
+  await artifact("expected-identity.json", {...Object.fromEntries(Object.entries(identity).filter(([key]) => !["networkSettingsSha256", "observationId"].includes(key))), baselineBundleSha256: "0".repeat(64), baselineModuleSha256: "0".repeat(64)});
   const scenario = {schemaVersion: 1, runId, caseId: definition.caseId, scenario: "cold", status: "PASS",
     evidence: [await artifact("raw.json", {schemaVersion: 1, runId, caseId: definition.caseId, status: "PASS", observed: 7})],
     assertions: [{name: "synthetic validator assertion, not a game observation", expected: 7, observed: 7}]};
@@ -34,7 +34,7 @@ test("[HP-07] UNIT/product-evidence validates synthetic complete proof without c
     assert.equal(result.status, "PASS"); assert.equal(result.comparison.comparisons.length, 4);
   } finally {await rm(directory, {recursive: true});}
 });
-for (const corruption of ["old-run", "missing-scenario", "no-assertions", "failed-assertion", "tampered-report", "stale-module", "missing-performance", "wrong-baseline", "missing-raw", "tampered-raw", "old-raw-run"]) {
+for (const corruption of ["old-run", "missing-scenario", "no-assertions", "failed-assertion", "tampered-report", "stale-module", "missing-performance", "wrong-baseline", "wrong-baseline-module", "wrong-candidate-module", "missing-raw", "tampered-raw", "old-raw-run"]) {
   test(`[HP-07] UNIT/product-evidence rejects ${corruption} despite a top-level PASS`, async () => {
     const directory = await mkdtemp(join(tmpdir(), "content-product-validator-"));
     try {
@@ -61,6 +61,12 @@ for (const corruption of ["old-run", "missing-scenario", "no-assertions", "faile
         const samples = performanceFixture();
         if (corruption === "missing-performance") samples.pop();
         else for (const sample of samples.filter(row => row.variant === "baseline")) sample.providerBundleSha256 = "f".repeat(64);
+        proof.performance = await artifact("performance.json", samples);
+      }
+      if (["wrong-baseline-module", "wrong-candidate-module"].includes(corruption)) {
+        const samples = performanceFixture();
+        const variant = corruption === "wrong-baseline-module" ? "baseline" : "candidate";
+        for (const row of samples.filter(row => row.variant === variant)) row.providerModuleSha256 = "f".repeat(64);
         proof.performance = await artifact("performance.json", samples);
       }
       await artifact("content-io-product.json", proof);

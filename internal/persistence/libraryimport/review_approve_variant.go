@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/recordstore"
 	"retrom/internal/profilemodel"
 	application "retrom/internal/service/libraryimport"
@@ -11,7 +12,7 @@ import (
 
 func (records reviewApprovalRecords) NextEmulatorID(ctx context.Context) (int64, error) {
 	var id int64
-	if err := records.transaction.QueryRowContext(ctx,
+	if err := dbapi.QueryRowContext(ctx, records.transaction,
 		`SELECT COALESCE(MAX(emulator_game_id),1000)+1 FROM game_variants`).Scan(&id); err != nil {
 		return 0, fmt.Errorf("read next emulator game number: %w", err)
 	}
@@ -22,7 +23,8 @@ func (records reviewApprovalRecords) CreateVariant(ctx context.Context, v applic
 	result, err := recordstore.CreateGameVariants(ctx, records.transaction, `
 INSERT INTO game_variants(
  id,game_id,core_id,provider_id,target_id,dat_version_id,emulator_game_id,
- status,compatibility_code,dependency_snapshot_json,default_dos_entry,version,created_at_ms,updated_at_ms
+ status,compatibility_code,dependency_snapshot_json,default_dos_entry,version,created_at_ms,
+updated_at_ms
 ) VALUES(?,?,?,?,?,?,?,'READY',?,?,?,1,?,?)`,
 		v.ID, v.GameID, v.CoreID, v.ProviderID, v.TargetID, v.DATID, v.EmulatorGameID,
 		v.CompatibilityCode, v.DependencyJSON, v.DefaultDOS, v.NowMS, v.NowMS)
@@ -33,28 +35,48 @@ func (records reviewApprovalRecords) CopyValidationFiles(
 	ctx context.Context, source application.ApprovalValidationCopy,
 ) error {
 	result, err := recordstore.CreateVariantFiles(ctx, records.transaction, `
-INSERT INTO variant_files(game_variant_id,role,logical_name,blob_id,sort_order)
-SELECT ?,role,logical_name,blob_id,sort_order
-FROM import_item_validation_files WHERE import_item_core_validation_id=?`, source.VariantID, source.ValidationID)
+INSERT INTO variant_files(game_variant_id,role,logical_name,file_record,sort_order)
+SELECT ?,role,logical_name,CASE WHEN role='BIOS_BUNDLE' THEN file_record ELSE
+ json_set(file_record,'$.path','files/' || substr(?,-2) || '/' || ? || '/' ||
+ substr(json_extract(file_record,'$.path'),length('staging/items/' || ? || '/payload/')+1)) END,sort_order
+FROM import_item_validation_files WHERE import_item_core_validation_id=?
+`, source.VariantID, source.GameID, source.GameID, source.ItemID, source.ValidationID)
 	return approvalMutation(result, err, "copy approved validation files", false)
 }
 
 func (records reviewApprovalRecords) CreateDependency(
 	ctx context.Context, dep application.ApprovalVariantDependency,
 ) error {
-	result, err := records.transaction.ExecContext(ctx, `
+	result, err := records.transaction.ExecContext(
+		ctx,
+		`
 INSERT INTO variant_dependencies(
- game_variant_id,kind,logical_archive,dat_version_id,source_machine_name,required_entries_json,state,created_at_ms
+ game_variant_id,kind,logical_archive,dat_version_id,source_machine_name,required_entries_json,
+state,created_at_ms
 ) VALUES(?,?,?,?,?,?,?,?)`,
-		dep.VariantID, dep.Kind, dep.Machine+".zip", dep.DATID, dep.Machine, dep.RequiredEntriesJSON, dep.State, dep.NowMS)
+		dep.VariantID,
+		dep.Kind,
+		dep.Machine+".zip",
+		dep.DATID,
+		dep.Machine,
+		dep.RequiredEntriesJSON,
+		dep.State,
+		dep.NowMS,
+	)
 	return approvalMutation(result, err, "insert approved variant dependency", true)
 }
 
 func (records reviewApprovalRecords) CreateRPGVariant(
 	ctx context.Context, profile application.ApprovalRPGVariant,
 ) error {
-	encoded, err := profilemodel.Encode(profilemodel.Variant, profilemodel.RPGMakerProject,
-		&profilemodel.RPGVariant{Generation: profile.Generation, DependencySnapshotSHA256: profile.DependencyDigest})
+	encoded, err := profilemodel.Encode(
+		profilemodel.Variant,
+		profilemodel.RPGMakerProject,
+		&profilemodel.RPGVariant{
+			Generation:               profile.Generation,
+			DependencySnapshotSHA256: profile.DependencyDigest,
+		},
+	)
 	if err != nil {
 		return fmt.Errorf("encode approved RPG variant profile: %w", err)
 	}

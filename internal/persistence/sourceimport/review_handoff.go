@@ -7,15 +7,20 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	sourcecleanup "retrom/internal/service/sourceimport/payloadpolicy"
+
+	dbapi "retrom/internal/database"
 	library "retrom/internal/persistence/libraryimport"
 	"retrom/internal/persistence/recordstore"
+	payload "retrom/internal/persistence/sourceimport/sourcerelease"
+	payloadService "retrom/internal/service/cleanupjobs"
 	application "retrom/internal/service/sourceimport"
 )
 
-type ReviewHandoff struct{ database *sql.DB }
+type ReviewHandoff struct{ database dbapi.DB }
 
-func NewReviewHandoff(database *sql.DB) *ReviewHandoff { return &ReviewHandoff{database: database} }
+func NewReviewHandoff(database dbapi.DB) *ReviewHandoff { return &ReviewHandoff{database: database} }
+
 func (repository *ReviewHandoff) WithReviewHandoff(
 	ctx context.Context,
 	work func(application.ReviewHandoffScope) error,
@@ -24,7 +29,7 @@ func (repository *ReviewHandoff) WithReviewHandoff(
 	if err != nil {
 		return fmt.Errorf("begin Source review handoff: %w", err)
 	}
-	defer dbexec.Rollback(tx)
+	defer dbapi.Rollback(tx)
 	if err := work(
 		application.ReviewHandoffScope{Records: reviewHandoffRecords{tx}, Metadata: library.BindMetadata(tx)},
 	); err != nil {
@@ -36,7 +41,7 @@ func (repository *ReviewHandoff) WithReviewHandoff(
 	return nil
 }
 
-type reviewHandoffRecords struct{ executor dbexec.Executor }
+type reviewHandoffRecords struct{ executor dbapi.Executor }
 
 func (records reviewHandoffRecords) CurrentReviewHandoff(
 	ctx context.Context,
@@ -44,19 +49,43 @@ func (records reviewHandoffRecords) CurrentReviewHandoff(
 ) (application.ReviewHandoffSnapshot, error) {
 	var result application.ReviewHandoffSnapshot
 	var metadata, warnings string
-	err := records.executor.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(
+		ctx,
+		records.executor,
+		`
  SELECT item.id,item.import_id,import.import_job_id,COALESCE(item.library_import_job_id,''),
  COALESCE(item.library_import_item_id,''),job.execution_no,job.attempt_count,COALESCE(job.worker_id,''),
  item.execution_state,import.state,job.state,item.version,import.version,
- COALESCE(job.leased_until_ms,0),COALESCE(job.execution_deadline_at_ms,0),item.metadata_json,item.warnings_json
+ COALESCE(job.leased_until_ms,0),COALESCE(job.execution_deadline_at_ms,0),item.metadata_json,
+item.warnings_json
  FROM source_import_items item JOIN source_imports import ON import.id=item.import_id
  JOIN jobs job ON job.id=import.import_job_id AND job.scope_type='SOURCE_IMPORT'
  AND job.scope_id=import.id AND job.kind='IMPORT_RECEIVE'
- WHERE item.id=?`, id).Scan(&result.Identity.ItemID, &result.Identity.ImportID, &result.Identity.JobID,
-		&result.Identity.LibraryJobID, &result.Identity.LibraryItemID, &result.Identity.ExecutionNo, &result.Identity.Attempt,
-		&result.Identity.WorkerID, &result.State, &result.ImportState, &result.JobState,
-		&result.Version, &result.ImportVersion,
-		&result.LeaseUntilMS, &result.DeadlineMS, &metadata, &warnings)
+ WHERE item.id=?`,
+		id,
+	).Scan(
+		&result.Identity.ItemID,
+		&result.Identity.ImportID,
+		&result.Identity.JobID,
+
+		&result.Identity.LibraryJobID,
+		&result.Identity.LibraryItemID,
+		&result.Identity.ExecutionNo,
+		&result.Identity.Attempt,
+
+		&result.Identity.WorkerID,
+		&result.State,
+		&result.ImportState,
+		&result.JobState,
+
+		&result.Version,
+		&result.ImportVersion,
+
+		&result.LeaseUntilMS,
+		&result.DeadlineMS,
+		&metadata,
+		&warnings,
+	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return application.ReviewHandoffSnapshot{}, application.ErrNotFound
 	}
@@ -68,6 +97,10 @@ func (records reviewHandoffRecords) CurrentReviewHandoff(
 	}
 	if err := decodeArray(warnings, &result.Warnings); err != nil {
 		return application.ReviewHandoffSnapshot{}, fmt.Errorf("decode Source review warnings: %w", err)
+	}
+	result.Media, err = readReviewMedia(ctx, records.executor, id)
+	if err != nil {
+		return application.ReviewHandoffSnapshot{}, err
 	}
 	return result, nil
 }
@@ -90,7 +123,8 @@ func (records reviewHandoffRecords) FinishReviewHandoff(
  AND EXISTS(SELECT 1 FROM import_items WHERE id=? AND import_job_id=? AND state='REVIEW_PENDING')
  AND EXISTS(SELECT 1 FROM source_imports import JOIN jobs job ON job.id=import.import_job_id
  WHERE import.id=? AND import.version=? AND import.state=? AND job.id=?
- AND job.state=? AND job.execution_no=? AND job.attempt_count=? AND job.worker_id=? AND job.leased_until_ms>?
+ AND job.state=? AND job.execution_no=? AND job.attempt_count=? AND job.worker_id=? AND
+job.leased_until_ms>?
  AND job.execution_deadline_at_ms>?)`, Args: []any{
 			identity.ItemID, identity.ImportID, before.Version,
 			identity.LibraryJobID, identity.LibraryItemID, identity.LibraryItemID, identity.LibraryJobID,
@@ -101,6 +135,16 @@ func (records reviewHandoffRecords) FinishReviewHandoff(
 	})
 	if err := requireWorkflowChange(result, err, application.ErrVersionConflict); err != nil {
 		return err
+	}
+	if err := TransferReviewMedia(
+		ctx, records.executor, identity.LibraryItemID, change.Media, change.NowMS,
+	); err != nil {
+		return err
+	}
+	if _, err := sourcecleanup.TerminalSource(ctx, payloadService.NewScheduler(nil),
+		payload.BindScheduling(records.executor),
+		payloadService.Scope{Type: payloadService.ScopeSourceImportItem, ID: identity.ItemID}, change.NowMS); err != nil {
+		return fmt.Errorf("schedule handed-off Source release: %w", err)
 	}
 	return RefreshCountsAndEvent(
 		ctx,

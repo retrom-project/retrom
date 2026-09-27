@@ -5,11 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"retrom/internal/blobstore"
-	"retrom/internal/contentprofile"
+	contentprofile "retrom/internal/content/profile"
+	"retrom/internal/core/rpgmaker/fileset"
+	"retrom/internal/core/scummvm"
+	"retrom/internal/filestore"
 	"retrom/internal/importing"
-	"retrom/internal/rpgmaker/fileset"
-	"retrom/internal/scummvm"
 )
 
 func (service *ImportPreparation) PrepareScummVMProject(
@@ -35,11 +35,11 @@ func (service *ImportPreparation) prepareScummVMDirectory(
 	if err != nil {
 		return nil, PreparedGroup{}, fmt.Errorf("normalize ScummVM directory: %w", err)
 	}
-	metadata := make(map[int]blobstore.Metadata, len(project.Files))
+	metadata := make(map[int]filestore.Metadata, len(project.Files))
 	for _, file := range project.Files {
 		source := files[file.SourceIndex]
-		metadata[file.SourceIndex] = blobstore.Metadata{
-			Path: service.blobs.Path(source.SHA256), SHA256: source.SHA256, Size: source.Size,
+		metadata[file.SourceIndex] = filestore.Metadata{
+			Record: source.FileRecord, Path: service.blobs.Path(source.FileRecord), SHA256: source.SHA256, Size: source.Size,
 		}
 	}
 	snapshot, err := service.detectScummVMTree(ctx, project.Files, metadata, nil)
@@ -74,7 +74,10 @@ func (service *ImportPreparation) prepareScummVMArchive(
 	}
 	project, err := fileset.NormalizeTree(input)
 	if err != nil {
-		return PreparedDisposition{}, PreparedGroup{}, PreparedArchive{}, fmt.Errorf("normalize ScummVM archive: %w", err)
+		return PreparedDisposition{}, PreparedGroup{}, PreparedArchive{}, fmt.Errorf(
+			"normalize ScummVM archive: %w",
+			err,
+		)
 	}
 	selected := archiveProjectEntries(project.Files, entryByOrdinal)
 	metadata, err := service.projectArchiveReadMetadata(ctx, file, selected, candidates)
@@ -90,7 +93,7 @@ func (service *ImportPreparation) prepareScummVMArchive(
 		return PreparedDisposition{}, PreparedGroup{}, PreparedArchive{}, err
 	}
 	group, err := newScummVMGroup(archiveProjectSources(file, project.Files), snapshot, file.Path)
-	archive := PreparedArchive{BlobID: file.BlobID, Entries: entries, Materialized: materialized}
+	archive := PreparedArchive{FileRecord: file.FileRecord, Entries: entries, Materialized: materialized}
 	return sourceDisposition(file), group, archive, err
 }
 

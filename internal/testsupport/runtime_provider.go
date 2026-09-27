@@ -10,12 +10,14 @@ import (
 	"sort"
 	"strings"
 
+	dbapi "retrom/internal/database"
+
 	runtimecatalogpersistence "retrom/internal/persistence/runtimecatalog"
 
 	"retrom/internal/cleanup"
-	"retrom/internal/runtimebundle"
-	"retrom/internal/runtimecatalog"
-	"retrom/internal/runtimelaunch"
+	runtimebundle "retrom/internal/runtime/bundle"
+	runtimecatalog "retrom/internal/runtime/catalog"
+	runtimelaunch "retrom/internal/runtime/launch"
 )
 
 // RuntimeTargetIdentity is the immutable runtime identity persisted by domain
@@ -31,7 +33,7 @@ type RuntimeTargetIdentity struct {
 // NewRuntimeBuilder reconstructs the Provider-neutral launch builder from the
 // deterministic database projection. Integration tests use it to exercise the
 // same Envelope boundary as production without installing filesystem bundles.
-func NewRuntimeBuilder(ctx context.Context, database *sql.DB) (*runtimelaunch.Builder, error) {
+func NewRuntimeBuilder(ctx context.Context, database dbapi.DB) (*runtimelaunch.Builder, error) {
 	active, manifests, err := RuntimeProviderInputs(ctx, database)
 	if err != nil {
 		return nil, err
@@ -45,7 +47,7 @@ func NewRuntimeBuilder(ctx context.Context, database *sql.DB) (*runtimelaunch.Bu
 
 // RuntimeProviderInputs reads the deterministic integration fixture projection.
 // It is not a filesystem bundle reader and cannot be used as release evidence.
-func RuntimeProviderInputs(ctx context.Context, database *sql.DB) (
+func RuntimeProviderInputs(ctx context.Context, database dbapi.DB) (
 	runtimebundle.ActiveDescriptor, map[string]runtimebundle.Manifest, error,
 ) {
 	rows, err := database.QueryContext(ctx, `
@@ -105,13 +107,11 @@ ORDER BY provider.provider_id,target.target_id
 // Core in the deterministic test projection.
 func LookupRuntimeTarget(
 	ctx context.Context,
-	database interface {
-		QueryRowContext(context.Context, string, ...any) *sql.Row
-	},
+	database dbapi.Queryer,
 	coreID string,
 ) (RuntimeTargetIdentity, error) {
 	var identity RuntimeTargetIdentity
-	err := database.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, database, `
 SELECT binding.provider_id,provider.provider_version,binding.target_id,provider.bundle_sha256
 FROM runtime_target_bindings binding
 JOIN runtime_targets target
@@ -135,9 +135,9 @@ LIMIT 1
 // SeedRuntimeProviders installs a deterministic Provider projection for domain
 // tests. It intentionally contains no implementation or asset mapping; tests
 // that exercise the installation boundary use runtimeprovider fixtures instead.
-func SeedRuntimeProviders(ctx context.Context, database *sql.DB, catalog runtimecatalog.Catalog) error {
+func SeedRuntimeProviders(ctx context.Context, database dbapi.DB, catalog runtimecatalog.Catalog) error {
 	var existing int
-	if err := database.QueryRowContext(ctx, `SELECT count(*) FROM runtime_providers`).Scan(&existing); err != nil {
+	if err := dbapi.QueryRowContext(ctx, database, `SELECT count(*) FROM runtime_providers`).Scan(&existing); err != nil {
 		return fmt.Errorf("testsupport: inspect provider projection: %w", err)
 	}
 	if existing != 0 {
@@ -188,7 +188,7 @@ func runtimeProjectionFixtures(
 	return targets, providerIDs
 }
 
-func insertFixtureProviders(ctx context.Context, transaction *sql.Tx, providerIDs []string) error {
+func insertFixtureProviders(ctx context.Context, transaction dbapi.Tx, providerIDs []string) error {
 	for _, providerID := range providerIDs {
 		if _, err := transaction.ExecContext(ctx, `
 INSERT INTO runtime_providers(
@@ -205,7 +205,7 @@ INSERT INTO runtime_providers(
 
 func insertFixtureTargets(
 	ctx context.Context,
-	transaction *sql.Tx,
+	transaction dbapi.Tx,
 	targets map[string]runtimecatalog.Binding,
 ) error {
 	keys := make([]string, 0, len(targets))
@@ -248,7 +248,7 @@ INSERT INTO runtime_targets(
 
 func insertFixtureBindings(
 	ctx context.Context,
-	transaction *sql.Tx,
+	transaction dbapi.Tx,
 	bindings []runtimecatalog.Binding,
 ) error {
 	for _, binding := range bindings {
@@ -282,7 +282,7 @@ INSERT INTO runtime_binding_content_kinds(binding_id,content_kind) VALUES(?,?)
 	return nil
 }
 
-func insertFixtureCatalogState(ctx context.Context, transaction *sql.Tx) error {
+func insertFixtureCatalogState(ctx context.Context, transaction dbapi.Tx) error {
 	if _, err := transaction.ExecContext(ctx, `
 INSERT INTO runtime_catalog_state(singleton,catalog_sha256,activated_at_ms)
 VALUES(1,?,0)

@@ -4,19 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"retrom/internal/blobstore"
-	"retrom/internal/persistence/blobcatalog"
 	"retrom/internal/persistence/recordstore"
 	"retrom/internal/service/firmware"
 )
-
-func (store writes) Ensure(ctx context.Context, metadata blobstore.Metadata, now int64) (string, error) {
-	id, err := blobcatalog.EnsureRecord(ctx, store.transaction, metadata, "application/octet-stream", now)
-	if err != nil {
-		return "", fmt.Errorf("register BIOS blob: %w", err)
-	}
-	return id, nil
-}
 
 func (store writes) Create(ctx context.Context, value firmware.InstallationWrite) error {
 	return changed(
@@ -24,19 +14,19 @@ func (store writes) Create(ctx context.Context, value firmware.InstallationWrite
 			ctx,
 			store.transaction,
 			`
-INSERT INTO bios_installations(id,requirement_id,blob_id,original_filename,size_bytes,md5,sha1,sha256,
- validated_requirement_version,status,validation_details_json,is_active,version,created_at_ms,updated_at_ms,
+INSERT INTO bios_installations(id,requirement_id,file_record,original_filename,size_bytes,
+md5,sha1,sha256,
+ validated_requirement_version,status,validation_details_json,is_active,version,created_at_ms,
+updated_at_ms,
  source_kind,server_import_candidate_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,1,1,?,?,?,?)`,
-
 			value.ID,
 			value.RequirementID,
-			value.BlobID,
+			value.FileRecord,
 			value.Filename,
 			value.Size,
 			value.MD5,
 			value.SHA1,
 			value.SHA256,
-
 			value.RequirementVersion,
 			value.Status,
 			string(
@@ -52,7 +42,8 @@ INSERT INTO bios_installations(id,requirement_id,blob_id,original_filename,size_
 
 func (store writes) Consume(ctx context.Context, value firmware.Consumption) error {
 	return changed(recordstore.CreateUploadConsumptions(ctx, store.transaction, `
-INSERT INTO upload_consumptions(id,upload_session_id,upload_file_id,consumer_type,consumer_id,created_at_ms)
+INSERT INTO upload_consumptions(id,upload_session_id,upload_file_id,consumer_type,consumer_id,
+created_at_ms)
 VALUES(?,?,?,'BIOS_INSTALLATION',?,?)`, value.ID, value.UploadID, value.FileID, value.InstallationID, value.AtMS))
 }
 

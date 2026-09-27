@@ -1,10 +1,10 @@
 package store
 
 import (
-	"database/sql"
 	"strings"
 	"testing"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/recordstore"
 
 	"retrom/internal/persistence/sessionstore"
@@ -43,14 +43,14 @@ func TestLaunchRevocationUpdatesOnlyChangedSessionsAndPreservesPriorRevocation(t
 	}
 	for id, want := range map[string]int64{"current-launch": 3, "prior-launch": 2, "other-launch": 0} {
 		var actual int64
-		if err := tx.QueryRowContext(t.Context(), `SELECT COALESCE(revoked_at_ms,0)
+		if err := dbapi.QueryRowContext(t.Context(), tx, `SELECT COALESCE(revoked_at_ms,0)
 FROM isolated_runtime_capabilities WHERE launch_id=?`, id).Scan(&actual); err != nil || actual != want {
 			t.Fatalf("%s revocation = %d, want %d; error = %v", id, actual, want, err)
 		}
 	}
 }
 
-func seedLaunchCapability(t *testing.T, tx *sql.Tx, id string, seed byte) {
+func seedLaunchCapability(t *testing.T, tx dbapi.Tx, id string, seed byte) {
 	t.Helper()
 	digest := []byte(strings.Repeat(string([]byte{seed}), 32))
 	if _, err := tx.ExecContext(t.Context(), `INSERT INTO isolated_runtime_bootstrap_tickets(
@@ -80,7 +80,7 @@ func TestLaunchLifecycleRollbackDoesNotLeakRows(t *testing.T) {
 		t.Fatal(err)
 	}
 	var count int
-	if err := db.QueryRowContext(t.Context(), `SELECT count(*) FROM launch_sessions`).Scan(&count); err != nil || count != 0 {
+	if err := dbapi.QueryRowContext(t.Context(), db, `SELECT count(*) FROM launch_sessions`).Scan(&count); err != nil || count != 0 {
 		t.Fatalf("rolled back launch count = %d, error = %v", count, err)
 	}
 }
@@ -98,7 +98,7 @@ SET released_at_ms=2 WHERE launch_session_id='current-launch'`); err != nil {
 		t.Fatal(err)
 	}
 	result, err := sessionstore.ChangeLaunch(t.Context(), tx, recordstore.Update{
-		Set: `idle_expires_at_ms=15`,
+		Set: `updated_at_ms=3`,
 		Scope: recordstore.Scope{
 			Where: `id='current-launch' AND version=100`,
 		},
@@ -110,7 +110,7 @@ SET released_at_ms=2 WHERE launch_session_id='current-launch'`); err != nil {
 		t.Fatalf("stale update count = %d, error = %v", count, err)
 	}
 	if _, err := sessionstore.ChangeLaunch(t.Context(), tx, recordstore.Update{
-		Set: `idle_expires_at_ms=15,state='ACTIVE',activated_at_ms=3,updated_at_ms=3`,
+		Set: `state='ACTIVE',activated_at_ms=3,updated_at_ms=3`,
 		Scope: recordstore.Scope{
 			Where: `id='current-launch'`,
 		},
@@ -118,7 +118,7 @@ SET released_at_ms=2 WHERE launch_session_id='current-launch'`); err != nil {
 		t.Fatal(err)
 	}
 	var due, released int64
-	if err := tx.QueryRowContext(t.Context(), `SELECT due_at_ms,released_at_ms
+	if err := dbapi.QueryRowContext(t.Context(), tx, `SELECT due_at_ms,released_at_ms
 FROM launch_payload_retirements WHERE launch_session_id='current-launch'`).Scan(&due, &released); err != nil || due != 10 || released != 2 {
 		t.Fatalf("released retirement changed: due=%d released=%d error=%v", due, released, err)
 	}

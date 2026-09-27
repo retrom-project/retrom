@@ -5,19 +5,19 @@ import (
 	"database/sql"
 	"encoding/json"
 
-	"retrom/internal/dbexec"
-	"retrom/internal/scummvm"
+	"retrom/internal/core/scummvm"
+	dbapi "retrom/internal/database"
 )
 
-func (service *Service) selectScummVMCandidate(
+func (validator *DraftValidator) SelectScummVM(
 	ctx context.Context,
-	transaction dbexec.Executor,
+	transaction dbapi.Executor,
 	itemID, targetID string,
 	dosEntry sql.NullString,
 	candidateID string,
 ) (string, error) {
 	state := draftValidationRefresh{
-		service: service, ctx: ctx, transaction: transaction,
+		validator: validator, ctx: ctx, transaction: transaction,
 		itemID: itemID, targetID: targetID, dosEntry: dosEntry,
 	}
 	if err := state.loadInputs(); err != nil {

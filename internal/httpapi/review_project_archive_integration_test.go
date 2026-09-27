@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
 	dependencypersistence "retrom/internal/persistence/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 
@@ -61,8 +62,8 @@ func TestOrdinaryRGSSReviewServesDeclaredArchiveThroughAuthenticatedHTTP(t *test
 				}
 			}
 			finished := requestReviewCheckpointHTTP(t, server, preview.PreviewID, launchCookie, "POST", "finish",
-				strings.NewReader(`{"clientSequence":0,"clientObservedAtMs":1,"previousInterval":null}`), "application/json")
-			if finished.Code != http.StatusOK {
+				nil, "")
+			if finished.Code != http.StatusNoContent {
 				t.Fatalf("finish preview = %d %s", finished.Code, finished.Body.String())
 			}
 			if response := requestReviewArchiveHTTP(t, server, archiveURL, "HEAD", contentCookie, ""); response.Code != http.StatusUnauthorized {
@@ -87,7 +88,7 @@ func newProjectArchiveReviewHTTPFixture(t *testing.T, generation string) (*Serve
 		t.Fatal(err)
 	}
 	var itemID string
-	if err := server.database.QueryRowContext(t.Context(), `SELECT id FROM import_items WHERE import_job_id=?`,
+	if err := dbapi.QueryRowContext(t.Context(), server.database, `SELECT id FROM import_items WHERE import_job_id=?`,
 		created.ImportJobID).Scan(&itemID); err != nil {
 		t.Fatal(err)
 	}

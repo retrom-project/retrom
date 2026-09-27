@@ -168,7 +168,9 @@ class EvidenceContractTests(unittest.TestCase):
         self.assertNotIn("`${opaqueLaunch.runtimeOrigin}/__retrom/project/", source)
         self.assertIn("await finishPreview(opaqueLaunch.page, opaqueLaunch.launchId)", source)
         self.assertNotIn("await finishInspectionLaunch(client, opaqueLaunch.launchId)", source)
-        self.assertIn('headers: { Origin: baseUrl, "Content-Type": "application/json" }', source)
+        self.assertIn("headers: { Origin: baseUrl },", source)
+        self.assertIn('exact(response.status(), 204, "RPG_ACCEPTANCE_NESTED_LAUNCH_FINISH_STATUS")', source)
+        self.assertNotIn("clientSequence", source)
 
     def test_content_security_evidence_requires_opaque_launch_cleanup(self) -> None:
         payload = content_security_evidence_payload()

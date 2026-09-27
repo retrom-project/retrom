@@ -4,11 +4,13 @@ package libraryimport
 
 import (
 	"context"
-	"database/sql"
 	"database/sql/driver"
 	"errors"
 	"strings"
 	"testing"
+
+	dbapi "retrom/internal/database"
+	dbsqlite "retrom/internal/database/sqlite"
 
 	"modernc.org/sqlite"
 )
@@ -59,20 +61,20 @@ func assertMetadataDraftCAS(t *testing.T, phase string) {
 	fixture, itemID := metadataFixture(t)
 	var ordinal int
 	var name, path string
-	if err := fixture.database.QueryRowContext(fixture.ctx, `PRAGMA database_list`).Scan(&ordinal, &name, &path); err != nil {
+	if err := dbapi.QueryRowContext(fixture.ctx, fixture.database, `PRAGMA database_list`).Scan(&ordinal, &name, &path); err != nil {
 		t.Fatal(err)
 	}
 	var cause error
 	if phase == "affected count failure" {
 		cause = errors.New("affected row count unavailable")
 	}
-	intercepted := sql.OpenDB(metadataFaultConnector{path: path, countError: cause})
+	intercepted := dbsqlite.OpenConnector(metadataFaultConnector{path: path, countError: cause}, dbsqlite.Options{})
 	t.Cleanup(func() {
 		if err := intercepted.Close(); err != nil {
 			t.Error(err)
 		}
 	})
-	fixture.service.database = intercepted
+	fixture.service = newTestImporter(t, intercepted, fixture.service.blobs, testImportOptions{Now: fixture.service.now, MultiDiscEnabled: fixture.service.multiDiscImportEnabled})
 	version, _, err := fixture.service.SeedServerReviewMetadata(fixture.ctx, itemID, ServerMetadata{Title: "Changed"})
 	expected := cause
 	if expected == nil {
@@ -82,7 +84,7 @@ func assertMetadataDraftCAS(t *testing.T, phase string) {
 		t.Fatalf("%s ignored: version=%d error=%v", phase, version, err)
 	}
 	var changed int
-	if err := fixture.database.QueryRowContext(fixture.ctx, `SELECT version-1 FROM import_items WHERE id=?`, itemID).Scan(&changed); err != nil {
+	if err := dbapi.QueryRowContext(fixture.ctx, fixture.database, `SELECT version-1 FROM import_items WHERE id=?`, itemID).Scan(&changed); err != nil {
 		t.Fatal(err)
 	}
 	if changed != 0 {

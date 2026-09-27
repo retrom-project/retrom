@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/libraryimport"
 )
 
@@ -14,32 +15,32 @@ func (records ReviewMedia) SourceMedia(
 	itemID string,
 ) (application.ReviewSourceMedia, bool, error) {
 	var result application.ReviewSourceMedia
-	err := records.executor.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, records.executor, `
 SELECT source.id,source.import_id,'SOURCE',COALESCE(collection.name,''),
 COALESCE(json_extract(source.source_flags_json,'$.hidden'),0),
 COALESCE(json_extract(source.source_flags_json,'$.adult'),0),
 COALESCE(json_extract(source.source_flags_json,'$.kidGame'),0),
 EXISTS(
- SELECT 1 FROM source_import_item_assets asset
- WHERE asset.item_id=source.id
- AND asset.kind='COVER' AND asset.state='COPIED'
-AND asset.blob_id IS NOT NULL
+ SELECT 1 FROM import_item_assets asset
+ WHERE asset.import_item_id=source.library_import_item_id
+ AND asset.kind='COVER'
+AND asset.file_record IS NOT NULL
 ),
 (
- SELECT asset.width_px FROM source_import_item_assets asset
- WHERE asset.item_id=source.id
- AND asset.kind='COVER' AND asset.state='COPIED'
+ SELECT asset.width_px FROM import_item_assets asset
+ WHERE asset.import_item_id=source.library_import_item_id
+ AND asset.kind='COVER'
 ),
 (
- SELECT asset.height_px FROM source_import_item_assets asset
- WHERE asset.item_id=source.id
- AND asset.kind='COVER' AND asset.state='COPIED'
+ SELECT asset.height_px FROM import_item_assets asset
+ WHERE asset.import_item_id=source.library_import_item_id
+ AND asset.kind='COVER'
 ),
 EXISTS(
- SELECT 1 FROM source_import_item_assets asset
- WHERE asset.item_id=source.id
- AND asset.kind='VIDEO' AND asset.state='COPIED'
- AND asset.blob_id IS NOT NULL
+ SELECT 1 FROM import_item_assets asset
+ WHERE asset.import_item_id=source.library_import_item_id
+ AND asset.kind='VIDEO'
+ AND asset.file_record IS NOT NULL
 )
 FROM source_import_items source
 LEFT JOIN source_import_collections collection ON collection.id=source.collection_id

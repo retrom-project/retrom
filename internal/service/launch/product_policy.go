@@ -4,6 +4,8 @@ import (
 	"reflect"
 	"slices"
 
+	gamevariant "retrom/internal/service/gamevariant"
+
 	"retrom/internal/multidisc"
 )
 
@@ -96,13 +98,8 @@ func sameProductInputs(before, after ProductSnapshot, validation bool) bool {
 		return false
 	}
 	if validation {
-		before.Source.VariantID, after.Source.VariantID = "", ""
-		before.Source.VariantStatus, after.Source.VariantStatus = "", ""
-		before.Source.DependencySnapshot, after.Source.DependencySnapshot = "", ""
-		before.Source.CompatibilityCode, after.Source.CompatibilityCode = "", ""
-		before.Source.DATVersionID, after.Source.DATVersionID = nil, nil
-		before.VariantFiles, after.VariantFiles = nil, nil
-		before.BIOS, after.BIOS = ProductBIOSFacts{}, ProductBIOSFacts{}
+		return gamevariant.SameValidationInputs(before.VariantSnapshot(), after.VariantSnapshot()) &&
+			reflect.DeepEqual(before.Save, after.Save) && before.DOS == after.DOS
 	} else {
 		before.Source.GameVersion, after.Source.GameVersion = 0, 0
 	}

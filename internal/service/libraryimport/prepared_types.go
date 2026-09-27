@@ -1,10 +1,10 @@
 package libraryimport
 
 import (
-	"retrom/internal/blobstore"
-	"retrom/internal/corevalidation"
+	"retrom/internal/core/rpgmaker/detector"
+	corevalidation "retrom/internal/core/validation"
+	"retrom/internal/filestore"
 	"retrom/internal/importing"
-	"retrom/internal/rpgmaker/detector"
 )
 
 type PreparedDisposition struct {
@@ -14,26 +14,28 @@ type PreparedDisposition struct {
 }
 
 type PreparedSource struct {
-	File           ImportFile
-	Role           string
-	LogicalName    string
-	ArchiveBlobID  string
-	ArchiveOrdinal *int
-	SortOrder      *int
+	Payload           *filestore.Metadata
+	File              ImportFile
+	Role              string
+	LogicalName       string
+	ArchiveFileRecord string
+	ArchiveOrdinal    *int
+	SortOrder         *int
 }
 
 type PreparedArchive struct {
-	BlobID       string
+	FileRecord   string
 	Entries      []importing.ArchiveEntry
-	Materialized map[int]blobstore.Metadata
+	Materialized map[int]filestore.Metadata
 }
 
 type PreparedGroup struct {
+	ItemID              string
 	Sources             []PreparedSource
 	DOSEntries          []PreparedDOSEntry
 	DefaultDOSEntry     string
-	BundleBlobID        string
-	Bundle              *blobstore.Metadata
+	BundleFileRecord    string
+	Bundle              *filestore.Metadata
 	ValidationStatus    string
 	CompatibilityCode   string
 	DependencySnapshot  string
@@ -44,7 +46,7 @@ type PreparedGroup struct {
 	GroupKey            string
 	MultiEntries        []PreparedMultiDiscEntry
 	MultiDependency     *corevalidation.MultiDiscSnapshot
-	CanonicalPlaylist   *blobstore.Metadata
+	CanonicalPlaylist   *filestore.Metadata
 	RPGProfile          *detector.Profile
 	RPGProjectRoot      string
 	RPGRemovedFiles     []string
@@ -54,13 +56,13 @@ type PreparedMultiDiscEntry struct {
 	Ordinal                                             int
 	State                                               string
 	SourceReference, NormalizedReference, CanonicalName string
-	UploadFileID, BlobID, SourceLogicalName             string
+	UploadFileID, FileRecord, SourceLogicalName         string
 }
 
 type PreparedValidationFile struct {
-	Artifact                  *blobstore.Metadata
-	Role, LogicalName, BlobID string
-	SortOrder                 int
+	Artifact                      *filestore.Metadata
+	Role, LogicalName, FileRecord string
+	SortOrder                     int
 }
 
 type PreparedDOSEntry struct {
@@ -72,6 +74,6 @@ type PreparedDOSEntry struct {
 }
 
 type PreparedReusableUploadFile struct {
-	ID, Path, BlobID string
-	Size             int64
+	ID, Path, FileRecord string
+	Size                 int64
 }

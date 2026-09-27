@@ -1,15 +1,16 @@
 package sourceimport
 
 import (
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"testing"
 
+	dbapi "retrom/internal/database"
+
 	application "retrom/internal/service/sourceimport"
 )
 
-func workflowDatabase(t *testing.T) *sql.DB {
+func workflowDatabase(t *testing.T) dbapi.DB {
 	t.Helper()
 	db := creationDatabase(t)
 	if err := NewCreation(db).WithCreate(t.Context(), func(writer application.CreationWriter) error {
@@ -50,7 +51,7 @@ VALUES(?,'import-0','metadata.pegasus.txt',?,?,'Game','READY',?,'{"frozen":"meta
 	return db
 }
 
-func prepareQueuedCancellation(t *testing.T, db *sql.DB) {
+func prepareQueuedCancellation(t *testing.T, db dbapi.DB) {
 	t.Helper()
 	if _, err := db.ExecContext(t.Context(), `
 UPDATE source_imports SET state='QUEUED',completed_at_ms=NULL,failed_item_count=1 WHERE id='import-0';
@@ -61,7 +62,7 @@ UPDATE source_import_items SET execution_state='PENDING',completed_at_ms=NULL,re
 	}
 }
 
-func workflowRows(t *testing.T, db *sql.DB) map[string]string {
+func workflowRows(t *testing.T, db dbapi.DB) map[string]string {
 	t.Helper()
 	result := map[string]string{}
 	for _, table := range []string{"source_imports", "source_import_items", "jobs", "job_input_snapshots", "job_events", "audit_events"} {
@@ -70,7 +71,7 @@ func workflowRows(t *testing.T, db *sql.DB) map[string]string {
 	return result
 }
 
-func workflowTable(t *testing.T, db *sql.DB, table string) string {
+func workflowTable(t *testing.T, db dbapi.DB, table string) string {
 	t.Helper()
 	rows, err := db.QueryContext(t.Context(), "SELECT * FROM "+table+" ORDER BY 1,2")
 	if err != nil {

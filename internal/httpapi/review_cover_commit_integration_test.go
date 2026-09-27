@@ -10,7 +10,9 @@ import (
 	"strings"
 	"testing"
 
-	"retrom/internal/composition"
+	librarycomposition "retrom/internal/composition/libraryimport"
+
+	dbapi "retrom/internal/database"
 	"retrom/internal/testsupport"
 )
 
@@ -22,15 +24,11 @@ func TestReviewCoverConsumptionFailureRemainsServerError(t *testing.T) {
 	cause := errors.New("review cover consumption failed")
 	inserted, failed := 0, 0
 	faultDB := testsupport.OpenSQLFaultDatabase(t, server.database, testsupport.SQLFaultHooks{
-		AfterExec: func(_ context.Context, query string, _ []driver.NamedValue, result driver.Result) (driver.Result, error) {
+		AfterQuery: func(_ context.Context, query string, _ []driver.NamedValue, rows driver.Rows) (driver.Rows, error) {
 			if strings.Contains(query, "INSERT INTO review_uploaded_assets") {
-				count, err := result.RowsAffected()
-				if err != nil {
-					return nil, err
-				}
-				inserted += int(count)
+				inserted++
 			}
-			return result, nil
+			return rows, nil
 		},
 		BeforeQuery: func(_ context.Context, query string, _ []driver.NamedValue) error {
 			if strings.Contains(query, "INSERT INTO upload_consumptions") && strings.Contains(query, "'REVIEW_ASSET'") {
@@ -40,7 +38,7 @@ func TestReviewCoverConsumptionFailureRemainsServerError(t *testing.T) {
 			return nil
 		},
 	})
-	server.reviewCoverUploads = composition.NewLibraryReviewCoverUploads(faultDB, server.blobs, server.now)
+	server.reviewCoverUploads = librarycomposition.NewReviewCoverUploads(faultDB, server.blobs, server.now)
 	response := requestReviewCover(t, server, itemID, fileID)
 	if response.Code != http.StatusInternalServerError || inserted != 1 || failed != 1 {
 		t.Fatalf("consumption SQL failure misclassified: status=%d inserted=%d failed=%d body=%s", response.Code, inserted, failed, response.Body.String())
@@ -68,7 +66,7 @@ func assertReviewCoverCounts(t *testing.T, server *Server, itemID string, want i
 	var assets, consumptions int
 	var version int64
 	var selected bool
-	if err := server.database.QueryRowContext(t.Context(), `
+	if err := dbapi.QueryRowContext(t.Context(), server.database, `
 SELECT (SELECT COUNT(*) FROM review_uploaded_assets WHERE import_item_id=?),
 (SELECT COUNT(*) FROM upload_consumptions WHERE consumer_type='REVIEW_ASSET'),
 d.review_version,d.cover_uploaded_asset_id IS NOT NULL FROM import_items d WHERE d.id=?`, itemID, itemID).
@@ -99,7 +97,7 @@ func TestReviewCoverUploadCannotMoveBetweenReviews(t *testing.T) {
 	}
 	assertReviewCoverCounts(t, server, firstItemID, 1)
 	var count int
-	if err := server.database.QueryRowContext(t.Context(), `SELECT COUNT(*) FROM review_uploaded_assets WHERE id=?`, secondItemID).Scan(&count); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), server.database, `SELECT COUNT(*) FROM review_uploaded_assets WHERE id=?`, secondItemID).Scan(&count); err != nil {
 		t.Fatal(err)
 	}
 	if count != 0 {

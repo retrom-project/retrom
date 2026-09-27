@@ -9,18 +9,18 @@ import (
 	"retrom/internal/persistence/contentquery"
 	"retrom/internal/profilemodel"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/service/gamecontent"
 )
 
 func loadReplacementBinding(
 	ctx context.Context,
-	database dbexec.Executor,
+	database dbapi.Executor,
 	gameID string,
 ) (gamecontent.Binding, error) {
 	var binding gamecontent.Binding
 	var defaultCoreID string
-	err := database.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, database, `
 SELECT game.source_manifest_digest,game.platform_instance_id,instance.platform_id,
        instance.default_core_id,game.version,instance.version
 FROM games game
@@ -36,7 +36,7 @@ WHERE game.id=? AND game.status='PUBLISHED'
 	if binding.PlatformID == "rpgmaker" {
 		return loadRPGMakerReplacementBinding(ctx, database, gameID, binding)
 	}
-	err = database.QueryRowContext(ctx, `
+	err = dbapi.QueryRowContext(ctx, database, `
 SELECT binding.core_id,target.provider_id,target.target_id,`+contentquery.BindingPolicySQL+`,
        (SELECT id FROM dat_versions dat
         WHERE dat.provider_id=target.provider_id AND dat.target_id=target.target_id AND dat.is_active=1),
@@ -60,12 +60,12 @@ WHERE binding.core_id=? AND binding.launch_policy<>'DISABLED'
 
 func loadRPGMakerReplacementBinding(
 	ctx context.Context,
-	database dbexec.Executor,
+	database dbapi.Executor,
 	gameID string,
 	binding gamecontent.Binding,
 ) (gamecontent.Binding, error) {
 	var variantJSON, gameJSON string
-	err := database.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, database, `
 SELECT variant.core_id,variant.id,target.provider_id,target.target_id,`+contentquery.BindingPolicySQL+`,
        variant.runtime_profile_json,game.content_profile_json,
        variant.dependency_snapshot_json

@@ -3,7 +3,7 @@ package serverimport
 import (
 	"context"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/service/serverimport"
 )
 
@@ -18,7 +18,7 @@ const (
 // LockWorker serializes import writes with lease claims across repositories.
 func LockWorker(
 	ctx context.Context,
-	executor dbexec.Executor,
+	executor dbapi.Executor,
 	unit serverimport.Work,
 	now int64,
 	access WorkerAccess,

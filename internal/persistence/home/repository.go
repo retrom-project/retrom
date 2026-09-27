@@ -6,14 +6,16 @@ import (
 	"errors"
 	"fmt"
 
+	dbapi "retrom/internal/database"
+
 	"retrom/internal/cleanup"
 	"retrom/internal/persistence/storequery"
 	application "retrom/internal/service/home"
 )
 
-type Repository struct{ database *sql.DB }
+type Repository struct{ database dbapi.DB }
 
-func New(database *sql.DB) *Repository { return &Repository{database: database} }
+func New(database dbapi.DB) *Repository { return &Repository{database: database} }
 
 func (repository *Repository) Summary(ctx context.Context, profileID string) (application.Summary, error) {
 	var result application.Summary
@@ -50,7 +52,7 @@ JOIN platform_instances pi ON pi.id=g.platform_instance_id
 WHERE g.status='PUBLISHED' AND pi.enabled=1 AND ps.profile_id=?`, []any{profileID}, &result.ActiveDurationMS},
 	}
 	for _, item := range queries {
-		if err := repository.database.QueryRowContext(ctx, item.query, item.args...).Scan(item.dest); err != nil {
+		if err := dbapi.QueryRowContext(ctx, repository.database, item.query, item.args...).Scan(item.dest); err != nil {
 			return application.Summary{}, fmt.Errorf("query home summary: %w", err)
 		}
 	}
@@ -60,7 +62,7 @@ WHERE g.status='PUBLISHED' AND pi.enabled=1 AND ps.profile_id=?`, []any{profileI
 func (repository *Repository) RecentSaves(ctx context.Context, profileID string) ([]application.RecentSave, error) {
 	rows, err := repository.database.QueryContext(ctx, `
 SELECT s.id,s.game_id,m.title,s.name,s.created_at_ms,native.last_synced_at_ms,s.active_duration_ms,
-s.disc_index,s.screenshot_blob_id IS NOT NULL
+s.disc_index,s.screenshot_file_record IS NOT NULL
 FROM save_states s
 LEFT JOIN game_save_versions native ON native.save_state_id=s.id
 JOIN (`+storequery.SaveRuntimeCompatibility+`) runtime_compatibility
@@ -170,12 +172,13 @@ func (repository *Repository) FeaturedGame(
 ) (application.FeaturedGame, bool, error) {
 	var item application.FeaturedGame
 	var cover, defaultDOSEntry sql.NullString
-	err := repository.database.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, repository.database, `
 SELECT ps.launch_session_id,g.id,m.title,m.description,p.id,p.name,pi.id,pi.name,ps.started_at_ms,
 (SELECT COALESCE(sum(all_sessions.active_duration_ms),0)
  FROM play_sessions all_sessions
  WHERE all_sessions.game_id=g.id AND all_sessions.profile_id=?),
-(SELECT count(*) FROM play_sessions all_sessions WHERE all_sessions.game_id=g.id AND all_sessions.profile_id=?),
+(SELECT count(*) FROM play_sessions all_sessions WHERE all_sessions.game_id=g.id AND
+all_sessions.profile_id=?),
 (SELECT a.id FROM game_assets a WHERE a.game_id=g.id AND a.kind='COVER' ORDER BY a.ordinal,a.id LIMIT 1),
 (SELECT variant.default_dos_entry FROM game_variants variant
  WHERE variant.game_id=g.id AND variant.core_id='dosbox_pure'
@@ -196,8 +199,9 @@ ORDER BY ps.started_at_ms DESC,ps.id DESC LIMIT 1`, profileID, profileID, profil
 	}
 	item.CoverAssetID = stringPointer(cover)
 	item.DefaultDOSEntry = stringPointer(defaultDOSEntry)
-	if err := repository.database.QueryRowContext(
-		ctx, `
+	if err := dbapi.QueryRowContext(
+		ctx, repository.database,
+		`
 SELECT count(*) FROM save_states save JOIN (`+storequery.SaveRuntimeCompatibility+`) compatibility
  ON compatibility.save_state_id=save.id AND compatibility.status='AVAILABLE'
 WHERE save.game_id=? AND save.profile_id=? AND save.deleted_at_ms IS NULL`, item.GameID, profileID,
@@ -206,8 +210,9 @@ WHERE save.game_id=? AND save.profile_id=? AND save.deleted_at_ms IS NULL`, item
 	}
 	var save application.FeaturedSave
 	var disc sql.NullInt64
-	err = repository.database.QueryRowContext(ctx, `
-SELECT save.id,save.created_at_ms,save.active_duration_ms,save.disc_index,save.screenshot_blob_id IS NOT NULL
+	err = dbapi.QueryRowContext(ctx, repository.database, `
+SELECT save.id,save.created_at_ms,save.active_duration_ms,save.disc_index,save.screenshot_file_record IS
+NOT NULL
 FROM save_states save LEFT JOIN game_save_versions native ON native.save_state_id=save.id
 JOIN (`+storequery.SaveRuntimeCompatibility+`) compatibility
  ON compatibility.save_state_id=save.id AND compatibility.status='AVAILABLE'

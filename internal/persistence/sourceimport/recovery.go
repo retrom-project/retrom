@@ -6,23 +6,23 @@ import (
 	"errors"
 	"fmt"
 
-	payload "retrom/internal/persistence/payloadrelease"
+	payload "retrom/internal/persistence/sourceimport/sourcerelease"
 
 	"retrom/internal/cleanup"
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	library "retrom/internal/persistence/libraryimport"
 	application "retrom/internal/service/sourceimport"
 )
 
-type Recovery struct{ database *sql.DB }
+type Recovery struct{ database dbapi.DB }
 
-func NewRecovery(database *sql.DB) *Recovery { return &Recovery{database: database} }
+func NewRecovery(database dbapi.DB) *Recovery { return &Recovery{database: database} }
 func (repository *Recovery) WithRecovery(ctx context.Context, work func(application.RecoveryScope) error) error {
 	tx, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin Source recovery: %w", err)
 	}
-	defer dbexec.Rollback(tx)
+	defer dbapi.Rollback(tx)
 	if err := work(
 		application.RecoveryScope{
 			Payload: payload.BindReleases(tx), Records: recoveryRecords{tx},
@@ -73,7 +73,7 @@ ORDER BY job.leased_until_ms,job.id LIMIT ?`, now, now, limit)
 	return result, nil
 }
 
-func scanRecovery(scanner dbexec.Scanner) (application.RecoverySnapshot, error) {
+func scanRecovery(scanner dbapi.Scanner) (application.RecoverySnapshot, error) {
 	var value application.RecoverySnapshot
 	err := scanner.Scan(
 		&value.JobID,
@@ -100,10 +100,10 @@ func scanRecovery(scanner dbexec.Scanner) (application.RecoverySnapshot, error) 
 	return value, nil
 }
 
-type recoveryRecords struct{ tx *sql.Tx }
+type recoveryRecords struct{ tx dbapi.Tx }
 
 func (records recoveryRecords) Current(ctx context.Context, id string) (application.RecoverySnapshot, error) {
-	return scanRecovery(records.tx.QueryRowContext(ctx, recoverySnapshotSQL+` AND job.id=?`, id))
+	return scanRecovery(dbapi.QueryRowContext(ctx, records.tx, recoverySnapshotSQL+` AND job.id=?`, id))
 }
 
 func (records recoveryRecords) Reviews(

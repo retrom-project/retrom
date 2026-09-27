@@ -5,19 +5,19 @@ import (
 	"database/sql"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/service/serverimport"
 )
 
-type Control struct{ database *sql.DB }
+type Control struct{ database dbapi.DB }
 
-func NewControl(database *sql.DB) *Control { return &Control{database} }
+func NewControl(database dbapi.DB) *Control { return &Control{database} }
 func (repository *Control) WithWrite(ctx context.Context, work func(serverimport.ControlScope) error) error {
 	tx, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin server import control: %w", err)
 	}
-	defer dbexec.Rollback(tx)
+	defer dbapi.Rollback(tx)
 	records := controlRecords{tx}
 	if err := work(serverimport.ControlScope{Read: records, Write: records}); err != nil {
 		return err
@@ -28,7 +28,7 @@ func (repository *Control) WithWrite(ctx context.Context, work func(serverimport
 	return nil
 }
 
-type controlRecords struct{ executor dbexec.Executor }
+type controlRecords struct{ executor dbapi.Executor }
 
 func (records controlRecords) Current(ctx context.Context, id string) (serverimport.ControlSnapshot, error) {
 	summary, err := getSummary(ctx, records.executor, id)
@@ -36,8 +36,9 @@ func (records controlRecords) Current(ctx context.Context, id string) (serverimp
 		return serverimport.ControlSnapshot{}, err
 	}
 	snapshot := serverimport.ControlSnapshot{Summary: summary}
-	err = records.executor.QueryRowContext(
-		ctx,
+	err = dbapi.QueryRowContext(
+		ctx, records.executor,
+
 		`
 SELECT import.root_config_digest, import.catalog_snapshot_digest, job.state, job.version,
 job.execution_no, (SELECT count(*) FROM server_bios_import_items WHERE server_import_id=import.id AND

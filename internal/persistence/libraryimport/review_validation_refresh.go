@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/contentquery"
 	"retrom/internal/persistence/recordstore"
 	application "retrom/internal/service/libraryimport"
@@ -21,7 +22,7 @@ func (records *ReviewValidation) Inputs(
 	var result application.ReviewValidationRefreshInputs
 	var platformID, defaultCoreID string
 	var datVersionID sql.NullString
-	if err := records.executor.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, records.executor, `
 SELECT draft.id,snapshot.id,snapshot.source_manifest_digest,snapshot.content_kind
 FROM import_items draft
 JOIN import_item_source_snapshots snapshot ON snapshot.id=draft.effective_source_snapshot_id
@@ -31,7 +32,7 @@ WHERE draft.id=?
 	); err != nil {
 		return application.ReviewValidationRefreshInputs{}, application.ErrInvalid
 	}
-	if err := records.executor.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, records.executor, `
 SELECT version,platform_id,default_core_id
 FROM platform_instances
 WHERE id=? AND enabled=1 AND deleted_at_ms IS NULL
@@ -42,17 +43,28 @@ WHERE id=? AND enabled=1 AND deleted_at_ms IS NULL
 		return records.rpgInputs(ctx, itemID, targetID, result)
 	}
 	result.CoreID = defaultCoreID
-	if err := records.executor.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(
+		ctx,
+		records.executor,
+		`
 SELECT binding.provider_id,binding.target_id,
-  (SELECT id FROM dat_versions WHERE provider_id=binding.provider_id AND target_id=binding.target_id AND is_active=1),
+  (SELECT id FROM dat_versions WHERE provider_id=binding.provider_id AND target_id=binding.target_id AND
+is_active=1),
   `+contentquery.BindingPolicySQL+`
 FROM runtime_target_bindings binding
 JOIN runtime_binding_platforms binding_platform ON binding_platform.binding_id=binding.binding_id
  AND binding_platform.platform_id=?
 JOIN runtime_targets target ON target.provider_id=binding.provider_id AND target.target_id=binding.target_id
 WHERE binding.core_id=? AND binding.launch_policy!='DISABLED'
-	`, platformID, defaultCoreID).Scan(
-		&result.ProviderID, &result.RuntimeTargetID, &datVersionID,
+	`,
+		platformID,
+		defaultCoreID,
+	).Scan(
+
+		&result.ProviderID,
+		&result.RuntimeTargetID,
+		&datVersionID,
+
 		contentquery.ScanPolicy(&result.ContentPolicy),
 	); err != nil {
 		return application.ReviewValidationRefreshInputs{}, application.ErrInvalid
@@ -71,7 +83,10 @@ func (records *ReviewValidation) rpgInputs(
 		return application.ReviewValidationRefreshInputs{}, application.ErrInvalid
 	}
 	var datVersionID sql.NullString
-	if err := records.executor.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(
+		ctx,
+		records.executor,
+		`
 SELECT 'rpgmaker',target.provider_id,target.target_id,
  (SELECT id FROM dat_versions WHERE provider_id=target.provider_id
  AND target_id=target.target_id AND is_active=1),
@@ -81,9 +96,19 @@ JOIN runtime_targets target ON target.provider_id=? AND target.target_id=?
 JOIN runtime_target_bindings binding ON binding.provider_id=target.provider_id AND binding.target_id=target.target_id
  AND binding.core_id='rpgmaker' AND binding.launch_policy<>'DISABLED'
 WHERE draft.id=? AND draft.target_platform_instance_id=?
-	`, profile.ProviderID, profile.TargetID, itemID, targetID).Scan(
-		&result.CoreID, &result.ProviderID, &result.RuntimeTargetID,
-		&datVersionID, contentquery.ScanPolicy(&result.ContentPolicy),
+	`,
+		profile.ProviderID,
+		profile.TargetID,
+		itemID,
+		targetID,
+	).Scan(
+
+		&result.CoreID,
+		&result.ProviderID,
+		&result.RuntimeTargetID,
+
+		&datVersionID,
+		contentquery.ScanPolicy(&result.ContentPolicy),
 	); err != nil {
 		return application.ReviewValidationRefreshInputs{}, application.ErrInvalid
 	}
@@ -103,7 +128,7 @@ func (records *ReviewValidation) Exact(
 	ctx context.Context, lookup application.ReviewValidationRefreshLookup,
 ) (application.ReviewValidationRefreshRecord, bool, error) {
 	var result application.ReviewValidationRefreshRecord
-	err := records.executor.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, records.executor, `
 SELECT id,source_manifest_digest,prepublish_input_digest,status,
   compatibility_code,dependency_snapshot_json
 FROM import_item_core_validations
@@ -130,7 +155,7 @@ func (records *ReviewValidation) Fallback(
 	ctx context.Context, lookup application.ReviewValidationRefreshLookup,
 ) (application.ReviewValidationRefreshRecord, bool, error) {
 	var result application.ReviewValidationRefreshRecord
-	err := records.executor.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, records.executor, `
 SELECT validation.id,validation.source_manifest_digest,validation.prepublish_input_digest,
   validation.status,validation.compatibility_code,validation.dependency_snapshot_json
 FROM import_item_core_validations validation
@@ -146,7 +171,10 @@ ORDER BY validation.created_at_ms DESC,validation.id DESC LIMIT 1
 		return application.ReviewValidationRefreshRecord{}, false, nil
 	}
 	if err != nil {
-		return application.ReviewValidationRefreshRecord{}, false, fmt.Errorf("query fallback review validation: %w", err)
+		return application.ReviewValidationRefreshRecord{}, false, fmt.Errorf(
+			"query fallback review validation: %w",
+			err,
+		)
 	}
 	return result, true, nil
 }
@@ -175,11 +203,11 @@ INSERT INTO import_item_core_validations(
 func (records *ReviewValidation) CopyFiles(
 	ctx context.Context, value application.ReviewValidationRefreshFileCopy,
 ) error {
-	_, err := records.executor.ExecContext(ctx, `
+	_, err := recordstore.InsertRows(ctx, records.executor, "import_item_validation_files", `
 INSERT INTO import_item_validation_files(
-  import_item_core_validation_id,role,logical_name,blob_id,sort_order,created_at_ms
+  import_item_core_validation_id,role,logical_name,file_record,sort_order,created_at_ms
 )
-SELECT ?,role,logical_name,blob_id,sort_order,?
+SELECT ?,role,logical_name,file_record,sort_order,?
 FROM import_item_validation_files
 WHERE import_item_core_validation_id=? AND (?=0 OR role<>'BIOS_BUNDLE')
 `, value.ValidationID, value.CreatedAtMS, value.SourceValidationID, boolNumber(value.ReplaceBIOSBundle))
@@ -190,7 +218,7 @@ WHERE import_item_core_validation_id=? AND (?=0 OR role<>'BIOS_BUNDLE')
 		return nil
 	}
 	var sortOrder int
-	if err := records.executor.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, records.executor, `
 SELECT COALESCE(MAX(sort_order),-1)+1
 FROM import_item_validation_files
 WHERE import_item_core_validation_id=?
@@ -198,14 +226,14 @@ WHERE import_item_core_validation_id=?
 		return fmt.Errorf("query review validation file order: %w", err)
 	}
 	for _, dependency := range value.Dependencies {
-		if dependency.DeliveryKind != "BIOS_BUNDLE" || dependency.BlobID == nil {
+		if dependency.DeliveryKind != "BIOS_BUNDLE" || dependency.FileRecord == nil {
 			continue
 		}
-		if _, err := records.executor.ExecContext(ctx, `
+		if _, err := recordstore.InsertRows(ctx, records.executor, "import_item_validation_files", `
 INSERT INTO import_item_validation_files(
-  import_item_core_validation_id,role,logical_name,blob_id,sort_order,created_at_ms
+  import_item_core_validation_id,role,logical_name,file_record,sort_order,created_at_ms
 ) VALUES(?,'BIOS_BUNDLE',?,?,?,?)
-`, value.ValidationID, dependency.LogicalName, *dependency.BlobID, sortOrder, value.CreatedAtMS); err != nil {
+`, value.ValidationID, dependency.LogicalName, *dependency.FileRecord, sortOrder, value.CreatedAtMS); err != nil {
 			return fmt.Errorf("insert review validation BIOS file: %w", err)
 		}
 		sortOrder++
@@ -229,7 +257,7 @@ func reviewValidationArgument(value *string) any {
 
 func (records *ReviewValidation) ContentLogicalName(ctx context.Context, snapshotID string) (string, error) {
 	var logicalName string
-	err := records.executor.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, records.executor, `
 SELECT logical_name
 FROM import_item_source_snapshot_files
 WHERE source_snapshot_id=? AND role IN ('CONTENT','DISC','DOS_SOURCE')
@@ -265,7 +293,8 @@ func (records *ReviewValidation) UpdateRPGDependencyDigest(
 	ctx context.Context, draftID, digest string, nowMS int64,
 ) error {
 	if _, err := records.executor.ExecContext(ctx, `
-UPDATE import_items SET review_profile_json=json_set(review_profile_json,'$.data.dependencySnapshotSha256',?),
+UPDATE import_items SET
+review_profile_json=json_set(review_profile_json,'$.data.dependencySnapshotSha256',?),
  updated_at_ms=MAX(updated_at_ms,?)
 WHERE id=? AND review_profile_json IS NOT NULL
 `, digest, nowMS, draftID); err != nil {

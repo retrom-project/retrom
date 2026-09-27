@@ -8,9 +8,10 @@ import (
 	"reflect"
 	"testing"
 
+	dbapi "retrom/internal/database"
 	persistence "retrom/internal/persistence/launch"
 	retromruntime "retrom/internal/runtime"
-	"retrom/internal/runtimelaunch"
+	runtimelaunch "retrom/internal/runtime/launch"
 	application "retrom/internal/service/launch"
 )
 
@@ -110,11 +111,7 @@ func TestConfigFinishDuringEnvelopeBuildPreventsIssuance(t *testing.T) {
 			fixture, created := newPlaySourceFixture(t, preview, false)
 			var afterFinish map[string]string
 			builder := configBuildHook{ConfigBuilder: fixture.launcher.runtimeBuilder, after: func() {
-				result, err := fixture.launcher.RecordPlay(t.Context(), created.LaunchID, created.Capability, "finish",
-					PlayEvent{ClientObservedAtMS: fixture.now.UnixMilli()})
-				if err != nil || result.State != "FINISHED" {
-					t.Fatalf("concurrent finish: state=%s error=%v", result.State, err)
-				}
+				closeConfigSource(t, fixture, created, preview)
 				afterFinish = playRows(t, fixture.database)
 			}}
 			issuer := fixtureConfigIssuer(fixture, persistence.NewConfig(fixture.database), builder)
@@ -195,7 +192,7 @@ func TestConfigCancellationAfterBuildDoesNotActivate(t *testing.T) {
 	configDraftUnchanged(t, fixture, before)
 }
 
-func TestConfigRetryDoesNotStartIdleOrPlaytime(t *testing.T) {
+func TestConfigRetryDoesNotChangeLifetimeOrCreatePlaytime(t *testing.T) {
 	t.Parallel()
 	fixture, created := newPlaySourceFixture(t, false, true)
 	before := playRows(t, fixture.database)
@@ -205,21 +202,14 @@ func TestConfigRetryDoesNotStartIdleOrPlaytime(t *testing.T) {
 	if !reflect.DeepEqual(before, playRows(t, fixture.database)) {
 		t.Fatal("config retry changed play/activation state")
 	}
-	var idle *int64
 	var plays int
-	if err := fixture.database.QueryRowContext(t.Context(), `SELECT idle_expires_at_ms FROM launch_sessions WHERE id=?`, created.LaunchID).Scan(
-
-		&idle,
-	); err != nil {
-		t.Fatal(err)
-	}
-	if err := fixture.database.QueryRowContext(t.Context(), `SELECT count(*) FROM play_sessions WHERE launch_session_id=?`, created.LaunchID).Scan(
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT count(*) FROM play_sessions WHERE launch_session_id=?`, created.LaunchID).Scan(
 
 		&plays,
 	); err != nil {
 		t.Fatal(err)
 	}
-	if idle != nil || plays != 0 {
-		t.Fatal("config created an idle deadline or playtime")
+	if plays != 0 {
+		t.Fatal("config created playtime")
 	}
 }

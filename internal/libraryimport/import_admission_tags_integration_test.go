@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"retrom/internal/authn"
+	dbapi "retrom/internal/database"
 	repository "retrom/internal/persistence/libraryimport"
 	application "retrom/internal/service/libraryimport"
 	"retrom/internal/service/tagging"
@@ -37,7 +38,7 @@ func TestImportAdmissionFreezesValidatedTagsAndActor(t *testing.T) {
 		t.Fatal(err)
 	}
 	var actorID, document string
-	if err := service.database.QueryRowContext(ctx, `SELECT actor_user_id,request_json FROM import_group_requests WHERE import_job_id=?`, result.ImportJobID).Scan(&actorID, &document); err != nil {
+	if err := dbapi.QueryRowContext(ctx, service.database, `SELECT actor_user_id,request_json FROM import_group_requests WHERE import_job_id=?`, result.ImportJobID).Scan(&actorID, &document); err != nil {
 		t.Fatal(err)
 	}
 	var frozen application.QueuedImportRequest

@@ -6,8 +6,8 @@ import (
 )
 
 func TestRPGContentPlanRequiresAdapterDerivedPayload(t *testing.T) {
-	project := PreviewFile{BlobID: "project", LogicalName: "Data/Actors.rxdata", Role: "PROJECT_FILE"}
-	index := PreviewFile{BlobID: "index", LogicalName: "generated-index.json", Role: "RPG_EASYRPG_INDEX"}
+	project := PreviewFile{FileRecord: "project", LogicalName: "Data/Actors.rxdata", Role: "PROJECT_FILE"}
+	index := PreviewFile{FileRecord: "index", LogicalName: "generated-index.json", Role: "RPG_EASYRPG_INDEX"}
 	plan, err := RPGContentFiles([]PreviewFile{project, index}, "RPG_EASYRPG_INDEX", false)
 	if err != nil || len(plan) != 2 || plan[1].LogicalName != rpgEasyIndexName {
 		t.Fatalf("EasyRPG content plan = %#v, error=%v", plan, err)
@@ -15,7 +15,7 @@ func TestRPGContentPlanRequiresAdapterDerivedPayload(t *testing.T) {
 	if _, err := RPGContentFiles([]PreviewFile{project}, "RPG_EASYRPG_INDEX", false); !errors.Is(err, ErrBlocked) {
 		t.Fatalf("missing EasyRPG index error = %v", err)
 	}
-	reserved := PreviewFile{BlobID: "reserved", LogicalName: rpgEasyIndexName, Role: "PROJECT_FILE"}
+	reserved := PreviewFile{FileRecord: "reserved", LogicalName: rpgEasyIndexName, Role: "PROJECT_FILE"}
 	if _, err := RPGContentFiles([]PreviewFile{reserved, index}, "RPG_EASYRPG_INDEX", false); !errors.Is(err, ErrBlocked) {
 		t.Fatalf("reserved project path error = %v", err)
 	}
@@ -24,14 +24,14 @@ func TestRPGContentPlanRequiresAdapterDerivedPayload(t *testing.T) {
 func TestNativeRPGContentPlanPublishesOnlyWebRuntimeFiles(t *testing.T) {
 	t.Parallel()
 	files := []PreviewFile{
-		{BlobID: "entry", LogicalName: "index.html", Role: "PROJECT_FILE"},
-		{BlobID: "script", LogicalName: "js/main.js", Role: "PROJECT_FILE"},
-		{BlobID: "data", LogicalName: "data/System.json", Role: "PROJECT_FILE"},
-		{BlobID: "package", LogicalName: "package.json", Role: "PROJECT_FILE"},
-		{BlobID: "exe", LogicalName: "Game.exe", Role: "PROJECT_FILE"},
-		{BlobID: "dll", LogicalName: "nw.dll", Role: "PROJECT_FILE"},
-		{BlobID: "node", LogicalName: "plugin.node", Role: "PROJECT_FILE"},
-		{BlobID: "bat", LogicalName: "launcher.bat", Role: "PROJECT_FILE"},
+		{FileRecord: "entry", LogicalName: "index.html", Role: "PROJECT_FILE"},
+		{FileRecord: "script", LogicalName: "js/main.js", Role: "PROJECT_FILE"},
+		{FileRecord: "data", LogicalName: "data/System.json", Role: "PROJECT_FILE"},
+		{FileRecord: "package", LogicalName: "package.json", Role: "PROJECT_FILE"},
+		{FileRecord: "exe", LogicalName: "Game.exe", Role: "PROJECT_FILE"},
+		{FileRecord: "dll", LogicalName: "nw.dll", Role: "PROJECT_FILE"},
+		{FileRecord: "node", LogicalName: "plugin.node", Role: "PROJECT_FILE"},
+		{FileRecord: "bat", LogicalName: "launcher.bat", Role: "PROJECT_FILE"},
 	}
 	plan, err := RPGContentFiles(files, "", true)
 	if err != nil {

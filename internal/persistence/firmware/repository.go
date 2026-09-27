@@ -5,21 +5,21 @@ import (
 	"database/sql"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/service/firmware"
 )
 
 type (
-	Repository          struct{ database *sql.DB }
-	requirementRecords  struct{ executor dbexec.Executor }
-	uploadRecords       struct{ executor dbexec.Executor }
-	installationRecords struct{ executor dbexec.Executor }
-	archiveRecords      struct{ executor dbexec.Executor }
-	writes              struct{ transaction *sql.Tx }
+	Repository          struct{ database dbapi.DB }
+	requirementRecords  struct{ executor dbapi.Executor }
+	uploadRecords       struct{ executor dbapi.Executor }
+	installationRecords struct{ executor dbapi.Executor }
+	archiveRecords      struct{ executor dbapi.Executor }
+	writes              struct{ transaction dbapi.Tx }
 )
 
-func New(database *sql.DB) *Repository { return &Repository{database: database} }
-func readScope(executor dbexec.Executor) firmware.ReadScope {
+func New(database dbapi.DB) *Repository { return &Repository{database: database} }
+func readScope(executor dbapi.Executor) firmware.ReadScope {
 	return firmware.ReadScope{
 		Requirements: requirementRecords{executor}, Uploads: uploadRecords{executor},
 		Installations: installationRecords{executor}, Archives: archiveRecords{executor},
@@ -27,11 +27,11 @@ func readScope(executor dbexec.Executor) firmware.ReadScope {
 }
 
 func (repository *Repository) WithRead(ctx context.Context, work func(firmware.ReadScope) error) error {
-	transaction, err := repository.database.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+	transaction, err := repository.database.BeginTx(ctx, &dbapi.TxOptions{ReadOnly: true})
 	if err != nil {
 		return fmt.Errorf("begin BIOS snapshot: %w", err)
 	}
-	defer dbexec.Rollback(transaction)
+	defer dbapi.Rollback(transaction)
 	if err := work(readScope(transaction)); err != nil {
 		return err
 	}
@@ -46,11 +46,11 @@ func (repository *Repository) WithWrite(ctx context.Context, work func(firmware.
 	if err != nil {
 		return fmt.Errorf("begin BIOS write: %w", err)
 	}
-	defer dbexec.Rollback(transaction)
+	defer dbapi.Rollback(transaction)
 	bound := writes{transaction: transaction}
 	if err := work(firmware.WriteScope{
 		ReadScope: readScope(transaction), Archives: bound, Installations: bound,
-		Retirements: BindSupersession(transaction), Server: bound, Blobs: bound,
+		Retirements: BindSupersession(transaction), Server: bound,
 	}); err != nil {
 		return err
 	}

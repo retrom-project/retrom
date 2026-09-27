@@ -6,8 +6,8 @@ import (
 	"slices"
 	"strings"
 
-	"retrom/internal/contentcapability"
-	"retrom/internal/contentprofile"
+	contentcapability "retrom/internal/content/capability"
+	contentprofile "retrom/internal/content/profile"
 )
 
 var ErrMetadataScraperNotConfigured = errors.New("metadata scraper is not configured")

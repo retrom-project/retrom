@@ -6,7 +6,7 @@ import (
 	"reflect"
 	"testing"
 
-	"retrom/internal/service/payloadrelease"
+	"retrom/internal/service/cleanupjobs"
 )
 
 type discardReleaseRepository struct {
@@ -17,17 +17,17 @@ type discardReleaseRepository struct {
 func (fixture discardReleaseRepository) WithDiscard(_ context.Context, work func(ReviewDiscardScope) error) error {
 	return work(ReviewDiscardScope{
 		Reader: fixture.discardFixture, Tags: fixture.discardFixture, Writer: fixture.discardFixture,
-		Payload: payloadrelease.ReleaseScope{Scheduling: failedReviewScheduling{cause: fixture.cause}},
+		Payload: failedReviewScheduling{cause: fixture.cause},
 	})
 }
 
 type failedReviewScheduling struct {
-	payloadrelease.SchedulingScope
+	cleanupjobs.ItemSchedulingScope
 	cause error
 }
 
-func (scope failedReviewScheduling) Owner(context.Context, payloadrelease.Scope) (payloadrelease.Owner, error) {
-	return payloadrelease.Owner{}, scope.cause
+func (scope failedReviewScheduling) Owner(context.Context, cleanupjobs.Scope) (cleanupjobs.Owner, error) {
+	return cleanupjobs.Owner{}, scope.cause
 }
 
 func TestReviewDiscardUsesTypedPayloadScopeAndPreservesCause(t *testing.T) {
@@ -44,40 +44,28 @@ func TestReviewDiscardUsesTypedPayloadScopeAndPreservesCause(t *testing.T) {
 	}
 }
 
-func (fixture *discardFixture) releaseScope() payloadrelease.ReleaseScope {
+func (fixture *discardFixture) releaseScope() cleanupjobs.ItemSchedulingScope {
 	scope := discardReleaseScope{fixture: fixture}
-	return payloadrelease.ReleaseScope{Scheduling: scope, Links: scope}
+	return scope
 }
 
 type discardReleaseScope struct{ fixture *discardFixture }
 
-func (scope discardReleaseScope) Owner(_ context.Context, owner payloadrelease.Scope) (payloadrelease.Owner, error) {
+func (scope discardReleaseScope) Owner(_ context.Context, owner cleanupjobs.Scope) (cleanupjobs.Owner, error) {
 	state := "COMPLETED"
-	if owner.Type == payloadrelease.ScopeImportItem {
+	if owner.Type == cleanupjobs.ScopeImportItem {
 		if err := scope.fixture.step("payload"); err != nil {
-			return payloadrelease.Owner{}, err
+			return cleanupjobs.Owner{}, err
 		}
 		state = "DISCARDED"
 	}
-	return payloadrelease.Owner{Scope: owner, State: state, PayloadState: "RELEASED", Version: 1, ReleaseJobID: "release"}, nil
+	return cleanupjobs.Owner{Scope: owner, State: state, PayloadState: "RELEASED", Version: 1, ReleaseJobID: "release"}, nil
 }
 func (discardReleaseScope) PendingChildren(context.Context, string) (int64, error) { return 0, nil }
-func (discardReleaseScope) Consumption(context.Context, string) (payloadrelease.Consumption, error) {
-	return payloadrelease.Consumption{}, errors.New("unexpected consumption read")
-}
-
-func (discardReleaseScope) CreateJob(context.Context, payloadrelease.ScheduledJob) error {
+func (discardReleaseScope) CreateJob(context.Context, cleanupjobs.ScheduledJob) error {
 	return errors.New("unexpected release job creation")
 }
 
-func (discardReleaseScope) BeginRelease(context.Context, payloadrelease.OwnerRelease) error {
+func (discardReleaseScope) BeginRelease(context.Context, cleanupjobs.OwnerRelease) error {
 	return errors.New("unexpected release projection")
-}
-
-func (discardReleaseScope) RetainedSources(context.Context, payloadrelease.SourceBatch, string, int) ([]string, error) {
-	return nil, errors.New("unexpected source batch read")
-}
-
-func (discardReleaseScope) BoundSources(context.Context, string, payloadrelease.Scope, int) ([]payloadrelease.Scope, error) {
-	return nil, nil
 }

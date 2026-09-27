@@ -10,34 +10,34 @@ import (
 	"retrom/internal/cleanup"
 )
 
-func (service *Service) StateDigest(ctx context.Context, launchID, capability string) (string, error) {
+func (service *Service) StateFile(ctx context.Context, launchID, capability string) (Restore, error) {
 	if _, err := service.launch(ctx, launchID, capability); err != nil {
-		return "", err
+		return Restore{}, err
 	}
-	return service.stateDigestAuthorized(ctx, launchID)
+	return service.stateFileAuthorized(ctx, launchID)
 }
 
-func (service *Service) IsolatedStateDigest(ctx context.Context, launchID string) (string, error) {
-	return service.stateDigestAuthorized(ctx, launchID)
+func (service *Service) IsolatedStateFile(ctx context.Context, launchID string) (Restore, error) {
+	return service.stateFileAuthorized(ctx, launchID)
 }
 
-func (service *Service) stateDigestAuthorized(ctx context.Context, launchID string) (string, error) {
+func (service *Service) stateFileAuthorized(ctx context.Context, launchID string) (Restore, error) {
 	restore, err := service.repository.Restore(ctx, launchID)
 	if err != nil {
-		return "", fmt.Errorf("read checkpoint restore: %w", err)
+		return Restore{}, fmt.Errorf("read checkpoint restore: %w", err)
 	}
 	if !validRestore(restore) {
-		return "", ErrCheckpointIncompatible
+		return Restore{}, ErrCheckpointIncompatible
 	}
 	maximum := min(restore.Checkpoint.MaxBytes, maxStoredCheckpointBytes)
-	if _, err := service.readRestorePayload(restore.Digest, maximum, restore.Size); err != nil {
-		return "", err
+	if _, err := service.readRestorePayload(restore.FileRecord, restore.Digest, maximum, restore.Size); err != nil {
+		return Restore{}, err
 	}
-	return restore.Digest, nil
+	return restore, nil
 }
 
-func (service *Service) readRestorePayload(digest string, maximum, expectedSize int64) ([]byte, error) {
-	file, err := service.blobs.OpenDigest(digest)
+func (service *Service) readRestorePayload(id, digest string, maximum, expectedSize int64) ([]byte, error) {
+	file, err := service.blobs.OpenRecord(id)
 	if err != nil {
 		return nil, ErrCheckpointIncompatible
 	}

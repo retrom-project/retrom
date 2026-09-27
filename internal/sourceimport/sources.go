@@ -5,8 +5,8 @@ import (
 	"encoding/hex"
 	"fmt"
 
-	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
+	"retrom/internal/filestore"
 	retromruntime "retrom/internal/runtime"
 	"retrom/internal/serversource"
 	application "retrom/internal/service/sourceimport"
@@ -25,12 +25,12 @@ type Root struct {
 
 type Sources struct {
 	sourceReader func(context.Context) (func(), error)
-	blobs        *blobstore.Store
+	blobs        *filestore.Store
 	roots        map[string]Root
 }
 
 func NewSources(
-	blobs *blobstore.Store, credentials *retromruntime.Credentials, configured []serversource.Root,
+	blobs *filestore.Store, credentials *retromruntime.Credentials, configured []serversource.Root,
 ) *Sources {
 	roots := make(map[string]Root, len(configured))
 	for _, configuredRoot := range configured {

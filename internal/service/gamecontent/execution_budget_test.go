@@ -47,7 +47,7 @@ func TestReplacementKeepsSixHourExecutionBudget(t *testing.T) {
 	}
 	digest := sha256.Sum256(input)
 	repository := &budgetRepository{input: StoredInput{Contents: input, Digest: hex.EncodeToString(digest[:])}}
-	service := New(repository, func() time.Time { return time.UnixMilli(100) })
+	service := New(Dependencies{Repository: repository, Files: constructorFiles(t)}, Options{Now: func() time.Time { return time.UnixMilli(100) }})
 	if err := service.Run(t.Context(), "job", 1); err != nil {
 		t.Fatal(err)
 	}

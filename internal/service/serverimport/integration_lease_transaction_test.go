@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 
+	dbapi "retrom/internal/database"
 	importpersistence "retrom/internal/persistence/serverimport"
 	importservice "retrom/internal/service/serverimport"
 )
@@ -33,7 +34,7 @@ func TestLeaseClaimFailureRollsBackOwnerBudgetAndEvents(t *testing.T) {
 	}
 	var state string
 	var version, attempt, leases, deadlines, events int64
-	err = database.QueryRowContext(t.Context(), `SELECT state,version,attempt_count,worker_id IS NOT NULL,
+	err = dbapi.QueryRowContext(t.Context(), database, `SELECT state,version,attempt_count,worker_id IS NOT NULL,
 execution_deadline_at_ms IS NOT NULL,(SELECT count(*) FROM job_events WHERE job_id=jobs.id AND event_type='STARTED')
 FROM jobs WHERE id=?`, created.JobID).Scan(&state, &version, &attempt, &leases, &deadlines, &events)
 	if err != nil || state != "QUEUED" || version != 1 || attempt != 0 || leases != 0 || deadlines != 0 || events != 0 {
@@ -75,7 +76,7 @@ func TestProgressConflictRollsBackJobLeaseAndEvent(t *testing.T) {
 	}
 	importVersion, jobVersion := workerVersions(t, database, unit)
 	var lease, events int64
-	err = database.QueryRowContext(t.Context(), `SELECT leased_until_ms,
+	err = dbapi.QueryRowContext(t.Context(), database, `SELECT leased_until_ms,
 (SELECT count(*) FROM job_events WHERE job_id=jobs.id AND event_type='PROGRESS') FROM jobs WHERE id=?`, unit.JobID).Scan(&lease, &events)
 	if err != nil || importVersion != before.ImportVersion+1 || jobVersion != before.JobVersion || lease != *before.LeaseUntil || events != 0 {
 		t.Fatalf("partial progress: import=%d job=%d lease=%d events=%d %v", importVersion, jobVersion, lease, events, err)

@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/service/favorites"
 )
 
@@ -17,7 +18,7 @@ func encodedStringList(values []string) string {
 
 func (records gameRecords) Visible(ctx context.Context, gameID string) (bool, error) {
 	var found int
-	err := records.database.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, records.database, `
 SELECT 1
 FROM games g
 JOIN platform_instances pi ON pi.id=g.platform_instance_id
@@ -47,7 +48,7 @@ JOIN platform_instances pi ON pi.id=g.platform_instance_id
 WHERE g.id IN (SELECT value FROM json_each(?))
 AND g.status='PUBLISHED'
 AND pi.enabled=1`
-	if err := records.database.QueryRowContext(ctx, query, encodedStringList(gameIDs)).Scan(&count); err != nil {
+	if err := dbapi.QueryRowContext(ctx, records.database, query, encodedStringList(gameIDs)).Scan(&count); err != nil {
 		return fmt.Errorf("favorites: validate games: %w", err)
 	}
 	if count != len(gameIDs) {
@@ -65,8 +66,9 @@ func (records folderRecords) Require(ctx context.Context, profileID string, fold
 SELECT count(*)
 FROM favorite_folders
 WHERE profile_id=? AND id IN (SELECT value FROM json_each(?))`
-	if err := records.database.QueryRowContext(
-		ctx, query, profileID, encodedStringList(folderIDs),
+	if err := dbapi.QueryRowContext(
+		ctx, records.database,
+		query, profileID, encodedStringList(folderIDs),
 	).Scan(&count); err != nil {
 		return fmt.Errorf("favorites: validate folders: %w", err)
 	}
@@ -105,7 +107,7 @@ ORDER BY folder.created_at_ms,folder.id
 
 func (records gameRecords) State(ctx context.Context, profileID, gameID string) (favorites.State, bool, error) {
 	var createdAtMS int64
-	err := records.database.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, records.database, `
 SELECT created_at_ms FROM favorite_games WHERE profile_id=? AND game_id=?
 `, profileID, gameID).Scan(&createdAtMS)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -190,7 +192,7 @@ func (records folderRecords) RequireAvailableName(
 	profileID, nameKey, excludedFolderID string,
 ) error {
 	var count int
-	if err := records.database.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, records.database, `
 SELECT count(*)
 FROM favorite_folders
 WHERE profile_id=? AND name_key=? AND (?='' OR id<>?)
@@ -205,7 +207,7 @@ WHERE profile_id=? AND name_key=? AND (?='' OR id<>?)
 
 func (records folderRecords) Get(ctx context.Context, profileID, folderID string) (favorites.Folder, error) {
 	var folder favorites.Folder
-	err := records.database.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, records.database, `
 SELECT folder.id,folder.name,folder.version,folder.created_at_ms,folder.updated_at_ms,
        count(CASE WHEN game.status='DELETED' OR game.status='PUBLISHED' AND instance.enabled=1 THEN 1 END)
 FROM favorite_folders folder

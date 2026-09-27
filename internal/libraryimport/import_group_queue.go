@@ -4,23 +4,12 @@ import (
 	"context"
 	"fmt"
 
-	repository "retrom/internal/persistence/libraryimport"
 	application "retrom/internal/service/libraryimport"
 )
 
-// QueueCreate is the compatibility entry to the import admission use case.
+// QueueCreate admits work using the same queue and worker as the HTTP entry point.
 func (service *Service) QueueCreate(ctx context.Context, request CreateRequest) (Created, error) {
-	admissions := application.NewImportAdmissions(
-		repository.NewImportAdmissions(service.database),
-		service,
-		service.tags,
-		application.ImportAdmissionOptions{
-			Now:                      service.now,
-			MultiDiscEnabled:         service.multiDiscImportEnabled,
-			MetadataScraperAvailable: service.scraper != nil,
-		},
-	)
-	result, err := admissions.Queue(ctx, request)
+	result, err := service.admissions.Queue(ctx, request)
 	if err != nil {
 		return Created{}, fmt.Errorf("queue import: %w", err)
 	}

@@ -4,7 +4,6 @@ package saves
 
 import (
 	"crypto/sha256"
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -12,13 +11,14 @@ import (
 	"strings"
 	"testing"
 
+	dbapi "retrom/internal/database"
 	providerpersistence "retrom/internal/persistence/runtimeprovider"
 	providerservice "retrom/internal/service/runtimeprovider"
 
 	"github.com/google/uuid"
 
-	"retrom/internal/runtimebundle"
-	"retrom/internal/runtimecatalog"
+	runtimebundle "retrom/internal/runtime/bundle"
+	runtimecatalog "retrom/internal/runtime/catalog"
 	"retrom/internal/testsupport"
 )
 
@@ -55,13 +55,13 @@ func TestCatalogExtensionPreservesInitializedGamesReviewsSettingsAndSaves(t *tes
 		t.Fatalf("extension broke references: %#v", violations)
 	}
 	var count int
-	if err := fixture.database.SQL.QueryRowContext(fixture.ctx, `SELECT count(*) FROM runtime_target_bindings WHERE core_id='extension-core' AND target_id='extension-target'`).Scan(&count); err != nil || count != 1 {
+	if err := dbapi.QueryRowContext(fixture.ctx, fixture.database.SQL, `SELECT count(*) FROM runtime_target_bindings WHERE core_id='extension-core' AND target_id='extension-target'`).Scan(&count); err != nil || count != 1 {
 		t.Fatalf("extension binding count=%d err=%v", count, err)
 	}
 	restored := fixture.createLaunchFromSave(t, &saved.SaveStateID)
-	digest, err := fixture.saves.StateDigest(fixture.ctx, restored.LaunchID, restored.Capability)
-	if err != nil || digest != fmt.Sprintf("%x", sha256.Sum256([]byte("unchanged state"))) {
-		t.Fatalf("existing save no longer restores exact payload: %s %v", digest, err)
+	digest, err := fixture.saves.StateFile(fixture.ctx, restored.LaunchID, restored.Capability)
+	if err != nil || digest.Digest != fmt.Sprintf("%x", sha256.Sum256([]byte("unchanged state"))) {
+		t.Fatalf("existing save no longer restores exact payload: %s %v", digest.Digest, err)
 	}
 }
 
@@ -113,7 +113,7 @@ func extendFixtureProvider(t *testing.T, active *runtimebundle.ActiveDescriptor,
 	}
 }
 
-func catalogUserEvidence(t *testing.T, database *sql.DB) [32]byte {
+func catalogUserEvidence(t *testing.T, database dbapi.DB) [32]byte {
 	t.Helper()
 	queries := []string{
 		`SELECT sql FROM sqlite_schema WHERE sql IS NOT NULL ORDER BY name`,
@@ -134,7 +134,7 @@ func catalogUserEvidence(t *testing.T, database *sql.DB) [32]byte {
 	return sha256.Sum256(encoded)
 }
 
-func queryEvidence(t *testing.T, database *sql.DB, query string) [][]any {
+func queryEvidence(t *testing.T, database dbapi.DB, query string) [][]any {
 	t.Helper()
 	rows, err := database.QueryContext(t.Context(), query)
 	if err != nil {

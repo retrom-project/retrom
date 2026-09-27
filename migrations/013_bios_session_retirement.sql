@@ -1,10 +1,10 @@
 -- BIOS replacement preserves immutable running inputs. Retirement uses bounded,
 -- indexed work queues instead of traversing dependency JSON in the install transaction.
 CREATE INDEX bios_installations_retirement ON bios_installations(updated_at_ms,id)
-WHERE is_active=0 AND blob_id IS NOT NULL;
-CREATE INDEX variant_files_bios_blob ON variant_files(blob_id,game_variant_id,logical_name)
+WHERE is_active=0 AND file_record IS NOT NULL;
+CREATE INDEX variant_files_bios_blob ON variant_files(file_record,game_variant_id,logical_name)
 WHERE role='BIOS_BUNDLE';
-CREATE INDEX bios_installations_active_blob ON bios_installations(blob_id) WHERE is_active=1;
+CREATE INDEX bios_installations_active_blob ON bios_installations(file_record) WHERE is_active=1;
 
 -- Session writes maintain retirement deadlines in the same transaction.
 CREATE TABLE launch_payload_retirements (

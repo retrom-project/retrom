@@ -5,15 +5,15 @@ import (
 	"fmt"
 
 	"retrom/internal/cleanup"
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/launch"
 )
 
-const previewSourceFilesSQL = `SELECT role,logical_name,blob_id,NULL,sort_order
+const previewSourceFilesSQL = `SELECT role,logical_name,file_record,NULL,sort_order
 FROM import_item_source_snapshot_files
 WHERE source_snapshot_id=? AND role IN ('CONTENT','DISC','PROJECT_FILE') ORDER BY sort_order,logical_name`
 
-const previewValidationFilesSQL = `SELECT role,logical_name,blob_id,NULL,sort_order
+const previewValidationFilesSQL = `SELECT role,logical_name,file_record,NULL,sort_order
 FROM import_item_validation_files WHERE import_item_core_validation_id=?
  AND role IN ('DOS_LAUNCH_BUNDLE','MULTI_DISC_PLAYLIST','RPG_EASYRPG_INDEX','RPG_MAKER_LAUNCH_BUNDLE',
  'PARENT','BIOS_BUNDLE')
@@ -21,7 +21,7 @@ ORDER BY role,sort_order,logical_name`
 
 func previewInputFiles(
 	ctx context.Context,
-	executor dbexec.Executor,
+	executor dbapi.Executor,
 	id string,
 	validation bool,
 ) ([]application.PreviewFile, error) {
@@ -34,7 +34,7 @@ func previewInputFiles(
 
 func previewCreationFiles(
 	ctx context.Context,
-	executor dbexec.Executor,
+	executor dbapi.Executor,
 	query, id string,
 ) ([]application.PreviewFile, error) {
 	rows, err := executor.QueryContext(ctx, query, id)
@@ -56,9 +56,9 @@ func previewCreationFiles(
 	return files, nil
 }
 
-func scanPreviewCreationFile(row dbexec.Scanner) (application.PreviewFile, error) {
+func scanPreviewCreationFile(row dbapi.Scanner) (application.PreviewFile, error) {
 	var file application.PreviewFile
-	if err := row.Scan(&file.Role, &file.LogicalName, &file.BlobID, &file.VirtualPath, &file.SortOrder); err != nil {
+	if err := row.Scan(&file.Role, &file.LogicalName, &file.FileRecord, &file.VirtualPath, &file.SortOrder); err != nil {
 		return application.PreviewFile{}, fmt.Errorf("scan preview file: %w", err)
 	}
 	return file, nil

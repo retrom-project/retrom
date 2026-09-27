@@ -2,27 +2,28 @@ package launch
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"time"
 
+	gamevariant "retrom/internal/service/gamevariant"
+
+	dbapi "retrom/internal/database"
+
 	"retrom/internal/cleanup"
+	runtimecatalog "retrom/internal/runtime/catalog"
+	runtimelaunch "retrom/internal/runtime/launch"
 
-	application "retrom/internal/service/launch"
-
-	"retrom/internal/blobstore"
 	"retrom/internal/dependencies"
+	"retrom/internal/filestore"
 	retromruntime "retrom/internal/runtime"
-	"retrom/internal/runtimecatalog"
-	"retrom/internal/runtimelaunch"
 )
 
 type Service struct {
-	validationRuns           *application.ValidationSupervisor
-	database                 *sql.DB
+	validationRuns           *gamevariant.ValidationSupervisor
+	database                 dbapi.DB
 	dependencies             *dependencies.Set
 	credentials              *retromruntime.Credentials
-	blobs                    *blobstore.Store
+	blobs                    *filestore.Store
 	rpgRuntimeOriginTemplate string
 	now                      func() time.Time
 	runtimeCatalog           runtimecatalog.Catalog
@@ -40,7 +41,7 @@ func (service *Service) WithRuntimeProvider(
 }
 
 func New(
-	database *sql.DB,
+	database dbapi.DB,
 	dependencySet *dependencies.Set,
 	credentials *retromruntime.Credentials,
 	now func() time.Time,
@@ -51,11 +52,11 @@ func New(
 		credentials:  credentials,
 		now:          now,
 	}
-	service.validationRuns = application.NewValidationSupervisor(testValidationRunner{service}, func(err error) { cleanup.Error("variant validation", err) })
+	service.validationRuns = gamevariant.NewValidationSupervisor(testValidationRunner{service}, func(err error) { cleanup.Error("variant validation", err) })
 	return service
 }
 
-func (service *Service) WithBlobStore(blobs *blobstore.Store) *Service {
+func (service *Service) WithFileStore(blobs *filestore.Store) *Service {
 	service.blobs = blobs
 	return service
 }

@@ -130,7 +130,7 @@ func (server *Server) adminGame(writer http.ResponseWriter, request *http.Reques
 		server.databaseError(writer, request, err)
 		return
 	}
-	impact, err := server.payloadReleases.GameDeleteImpact(request.Context(), request.PathValue("gameId"))
+	impact, err := server.gameImpact.Game(request.Context(), request.PathValue("gameId"))
 	if err != nil {
 		server.databaseError(writer, request, err)
 		return
@@ -294,7 +294,7 @@ func (server *Server) patchAdminGame(writer http.ResponseWriter, request *http.R
 		server.databaseError(writer, request, err)
 		return
 	}
-	server.payloadReleases.Signal()
+	server.cleanupJobs.Signal()
 	writer.Header().Set("ETag", fmt.Sprintf(`"v%d"`, result.Version))
 	writeJSON(
 		writer,

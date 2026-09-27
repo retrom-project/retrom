@@ -5,13 +5,13 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/recordstore"
 )
 
 func RefreshCountsAndEvent(
 	ctx context.Context,
-	executor dbexec.Executor,
+	executor dbapi.Executor,
 	jobID, importID, itemID, outcome string,
 	now int64,
 ) error {
@@ -34,7 +34,7 @@ VALUES(?,'SOURCE_IMPORT',?,'PROGRESS',?,?)`,
 	return nil
 }
 
-func refreshCounts(ctx context.Context, executor dbexec.Executor, importID string, now int64) error {
+func refreshCounts(ctx context.Context, executor dbapi.Executor, importID string, now int64) error {
 	if _, err := recordstore.UpdateSourceImports(ctx, executor, recordstore.Update{
 		Set: `
 review_pending_item_count=(

@@ -95,7 +95,8 @@ func TestDisabledProviderCreatesCompletedTaskWithoutReadingEvidence(t *testing.T
 		t.Fatal(err)
 	}
 	plan := writer.plan
-	if !scheduled.Noop || plan.JobState != "SUCCEEDED" || plan.RunState != "COMPLETED" || plan.FinishedAt == nil || *plan.FinishedAt != 100 {
+	if !scheduled.Noop || plan.JobState != "SUCCEEDED" || plan.RunState != "COMPLETED" ||
+		plan.FinishedAt == nil || *plan.FinishedAt != 100 {
 		t.Fatalf("disabled scrape task: %+v / %+v", scheduled, plan)
 	}
 }
@@ -104,19 +105,20 @@ func TestRawAndArchiveEvidenceUseDifferentHashIdentities(t *testing.T) {
 	archive := "archive"
 	ordinal := int64(3)
 	source := evidenceMemory{files: []FileEvidence{
-		{Name: "unexpanded.ZIP", BlobID: "skip"},
-		{Name: "game.gba", BlobID: "raw"},
-		{Name: "member.gba", BlobID: "expanded", ArchiveBlobID: &archive, ArchiveOrdinal: &ordinal},
+		{Name: "unexpanded.ZIP", FileRecord: "skip"},
+		{Name: "game.gba", FileRecord: "raw"},
+		{Name: "member.gba", FileRecord: "expanded", ArchiveFileRecord: &archive, ArchiveOrdinal: &ordinal},
 	}}
 	result, err := contentEvidence(t.Context(), source, SchedulePlan{RunID: "run", Now: 100})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(result) != 2 || result[0].Profile != "RAW_FILE" || *result[0].BlobID != "raw" || result[0].Order != 0 {
+	if len(result) != 2 || result[0].Profile != "RAW_FILE" || *result[0].FileRecord != "raw" || result[0].Order != 0 {
 		t.Fatalf("raw evidence: %+v", result)
 	}
 	member := result[1]
-	if member.Profile != "SINGLE_ARCHIVE_MEMBER" || member.BlobID != nil || *member.ArchiveBlobID != archive || *member.ArchiveOrdinal != ordinal || member.Order != 1 {
+	if member.Profile != "SINGLE_ARCHIVE_MEMBER" || member.FileRecord != nil ||
+		*member.ArchiveFileRecord != archive || *member.ArchiveOrdinal != ordinal || member.Order != 1 {
 		t.Fatalf("archive evidence: %+v", member)
 	}
 }
@@ -126,7 +128,7 @@ func TestArcadeEvidencePrefersSHA1DeduplicatesAndCapsQueries(t *testing.T) {
 	crc := "crc"
 	entries = append(entries, ArcadeEvidence{Name: "crc-only", Size: 999, CRC32: &crc})
 	for _, name := range []string{"i", "h", "g", "f", "e", "d", "c", "b", "a"} {
-		entries = append(entries, ArcadeEvidence{Name: name, SHA1: &name, Size: 10, ArchiveBlobID: name})
+		entries = append(entries, ArcadeEvidence{Name: name, SHA1: &name, Size: 10, ArchiveFileRecord: name})
 	}
 	entries = append(entries, entries[9])
 	evidence, err := selectArcadeEvidence(entries, SchedulePlan{RunID: "run", Now: 100})
@@ -138,7 +140,8 @@ func TestArcadeEvidencePrefersSHA1DeduplicatesAndCapsQueries(t *testing.T) {
 	}
 	for index, item := range evidence {
 		want := string(rune('a' + index))
-		if item.Profile != "ARCADE_DAT_ENTRIES" || item.Order != index || item.SHA1 == nil || *item.SHA1 != want || item.BlobID != nil {
+		if item.Profile != "ARCADE_DAT_ENTRIES" || item.Order != index || item.SHA1 == nil ||
+			*item.SHA1 != want || item.FileRecord != nil {
 			t.Fatalf("arcade query %d: %+v", index, item)
 		}
 	}
@@ -150,7 +153,8 @@ func TestScheduleCommitFailureIsReturned(t *testing.T) {
 		Subjects: subjectMemory{found: true, game: GameSubject{Version: 1, PlatformID: "gba", ManifestDigest: "manifest"}},
 		Sources:  evidenceMemory{}, Writes: writer,
 	}, lateError: context.DeadlineExceeded}
-	_, _, err := NewScheduler(repository, nil, func() time.Time { return time.UnixMilli(100) }).ScheduleGame(t.Context(), "game", 1)
+	_, _, err := NewScheduler(repository, nil,
+		func() time.Time { return time.UnixMilli(100) }).ScheduleGame(t.Context(), "game", 1)
 	if !errors.Is(err, context.DeadlineExceeded) || repository.committed || writer.creates != 1 {
 		t.Fatalf("late scheduling failure: %v", err)
 	}

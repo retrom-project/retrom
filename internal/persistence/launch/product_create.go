@@ -2,22 +2,24 @@ package launch
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	variantrepository "retrom/internal/persistence/gamevariant"
+	gamevariant "retrom/internal/service/gamevariant"
+
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/launch"
 )
 
-type ProductCreation struct{ database *sql.DB }
+type ProductCreation struct{ database dbapi.DB }
 
-func NewProductCreation(database *sql.DB) *ProductCreation {
+func NewProductCreation(database dbapi.DB) *ProductCreation {
 	return &ProductCreation{database: database}
 }
 
 type productCreationRecords struct {
-	executor    dbexec.Executor
-	transaction *sql.Tx
+	executor    dbapi.Executor
+	transaction dbapi.Tx
 }
 
 func (repository *ProductCreation) Replay(
@@ -31,11 +33,11 @@ func (repository *ProductCreation) Snapshot(
 	ctx context.Context,
 	command application.ProductCreateCommand,
 ) (application.ProductSnapshot, error) {
-	tx, err := repository.database.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+	tx, err := repository.database.BeginTx(ctx, &dbapi.TxOptions{ReadOnly: true})
 	if err != nil {
 		return application.ProductSnapshot{}, fmt.Errorf("begin product snapshot: %w", err)
 	}
-	defer dbexec.Rollback(tx)
+	defer dbapi.Rollback(tx)
 	result, err := (productCreationRecords{executor: tx}).Snapshot(ctx, command)
 	if err != nil {
 		return application.ProductSnapshot{}, err
@@ -57,7 +59,7 @@ func (repository *ProductCreation) WithCreation(
 	if err != nil {
 		return fmt.Errorf("begin product creation: %w", err)
 	}
-	defer dbexec.Rollback(tx)
+	defer dbapi.Rollback(tx)
 	if err := work(productCreationRecords{executor: tx, transaction: tx}); err != nil {
 		return err
 	}
@@ -67,6 +69,6 @@ func (repository *ProductCreation) WithCreation(
 	return nil
 }
 
-func (records productCreationRecords) Validation() application.ProductValidationScope {
-	return productValidationRecords{ValidationJobs: NewValidationJobs(records.executor), executor: records.executor}
+func (records productCreationRecords) Validation() gamevariant.WriteScope {
+	return variantrepository.NewWriteScope(records.executor)
 }

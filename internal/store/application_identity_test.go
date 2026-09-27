@@ -4,6 +4,7 @@ import (
 	"errors"
 	"testing"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/recordstore"
 )
 
@@ -45,7 +46,7 @@ func TestApplicationUserWritesPreserveIdentityAndLastAdministrator(t *testing.T)
 				t.Fatal(err)
 			}
 			var role, username string
-			if err := db.QueryRowContext(t.Context(), "SELECT role,username FROM users WHERE id=?", fixture.userID).Scan(&role, &username); err != nil {
+			if err := dbapi.QueryRowContext(t.Context(), db, "SELECT role,username FROM users WHERE id=?", fixture.userID).Scan(&role, &username); err != nil {
 				t.Fatal(err)
 			}
 			if role != "ADMIN" || username != "schema-admin" {

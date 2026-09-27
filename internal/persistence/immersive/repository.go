@@ -5,21 +5,21 @@ import (
 	"database/sql"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/service/immersive"
 )
 
 type (
-	Repository      struct{ database *sql.DB }
-	platformRecords struct{ database dbexec.Executor }
-	libraryRecords  struct{ database dbexec.Executor }
-	saveRecords     struct{ database dbexec.Executor }
+	Repository      struct{ database dbapi.DB }
+	platformRecords struct{ database dbapi.Executor }
+	libraryRecords  struct{ database dbapi.Executor }
+	saveRecords     struct{ database dbapi.Executor }
 )
 
-func New(database *sql.DB) *Repository { return &Repository{database: database} }
+func New(database dbapi.DB) *Repository { return &Repository{database: database} }
 
 func (repository *Repository) WithRead(ctx context.Context, work func(immersive.ReadScope) error) error {
-	transaction, err := repository.database.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+	transaction, err := repository.database.BeginTx(ctx, &dbapi.TxOptions{ReadOnly: true})
 	if err != nil {
 		return fmt.Errorf("immersive: begin read snapshot: %w", err)
 	}

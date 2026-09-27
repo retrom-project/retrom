@@ -11,8 +11,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
+	"retrom/internal/filestore"
 	"retrom/internal/firmware"
 	"retrom/internal/importing"
 	"retrom/internal/serversource"
@@ -213,7 +213,7 @@ func failedCandidateResult(task candidateHashTask, code string) candidateHashRes
 func (service *Service) evaluateCandidateAssociations(
 	ctx context.Context,
 	task candidateHashTask,
-	metadata blobstore.Metadata,
+	metadata filestore.Metadata,
 	facts firmware.FileFacts,
 ) ([]*evaluatedCandidate, error) {
 	result := make([]*evaluatedCandidate, 0, len(task.associations))
@@ -275,7 +275,7 @@ func (index candidateIndex) associations(file discoveredFile) []association {
 }
 
 func (service *Service) evaluate(ctx context.Context, item catalogItem, association string, file discoveredFile,
-	metadata blobstore.Metadata, facts firmware.FileFacts,
+	metadata filestore.Metadata, facts firmware.FileFacts,
 ) (*evaluatedCandidate, error) {
 	id, _ := uuid.NewV7()
 	candidate := &evaluatedCandidate{
@@ -380,7 +380,7 @@ func markDuplicateBytes(candidates []*evaluatedCandidate) {
 	}
 }
 
-func sameMetadata(left, right blobstore.Metadata) bool {
+func sameMetadata(left, right filestore.Metadata) bool {
 	return left.Size == right.Size && left.MD5 == right.MD5 && left.SHA1 == right.SHA1 &&
 		left.SHA256 == right.SHA256 && left.CRC32 == right.CRC32
 }

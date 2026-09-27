@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/testsupport"
 )
 
@@ -20,7 +21,7 @@ func TestCandidateMediaJobAndFrozenInputRollbackWithResult(t *testing.T) {
 				return nil
 			}
 			input, ok := args[1].Value.(string)
-			if ok && strings.Contains(input, `"kind":"MEDIA_FETCH"`) && strings.Contains(input, `"id":"game"`) {
+			if ok && strings.Contains(input, `"kind":"MEDIA_FETCH"`) && strings.Contains(input, `"id":"018fbe68-0000-7000-8000-000000000002"`) {
 				hits++
 				return cause
 			}
@@ -32,7 +33,7 @@ func TestCandidateMediaJobAndFrozenInputRollbackWithResult(t *testing.T) {
 		t.Fatalf("candidate did not atomically freeze media job input: cause=%v hits=%d", err, hits)
 	}
 	var responses, candidates, assets, jobs, inputs, budgets int
-	err = fixture.database.QueryRowContext(t.Context(), `SELECT (SELECT count(*) FROM metadata_provider_responses),
+	err = dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT (SELECT count(*) FROM metadata_provider_responses),
  (SELECT count(*) FROM scrape_candidates),(SELECT count(*) FROM scrape_candidate_assets),
  (SELECT count(*) FROM jobs WHERE kind='MEDIA_FETCH'),(SELECT count(*) FROM job_input_snapshots),
  (SELECT count(*) FROM metadata_media_runs)`).Scan(&responses, &candidates, &assets, &jobs, &inputs, &budgets)

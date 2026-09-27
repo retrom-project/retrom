@@ -6,12 +6,13 @@ import (
 	"errors"
 	"fmt"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/service/saves"
 )
 
 func (store records) Replay(ctx context.Context, key saves.ReplayKey) (saves.Replay, bool, error) {
 	var replay saves.Replay
-	err := store.executor.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, store.executor, `
 SELECT request_digest,response_body FROM idempotency_records
 WHERE operation_id='postRuntimeSaveState' AND key=? AND principal_id=? AND expires_at_ms>?`,
 		key.Key, key.PrincipalID, key.AtMS).Scan(&replay.Digest, &replay.Body)

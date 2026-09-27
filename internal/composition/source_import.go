@@ -1,11 +1,12 @@
 package composition
 
 import (
-	"database/sql"
 	"log/slog"
 	"time"
 
-	"retrom/internal/blobstore"
+	dbapi "retrom/internal/database"
+
+	"retrom/internal/filestore"
 	"retrom/internal/persistence/dberrors"
 	repository "retrom/internal/persistence/sourceimport"
 	tagrepository "retrom/internal/persistence/tagging"
@@ -17,13 +18,13 @@ import (
 	"retrom/internal/sourceimport"
 )
 
-func NewSourceImport(database *sql.DB, blobs *blobstore.Store, importer application.ReviewSourceCreator,
+func NewSourceImport(database dbapi.DB, blobs *filestore.Store, importer application.ReviewSourceCreator,
 	credentials *retromruntime.Credentials, roots []serversource.Root, now func() time.Time,
 ) *application.Service {
 	source := sourceimport.NewSources(blobs, credentials, roots)
 	tags := tagging.New(tagrepository.New(database), now)
 	items := application.NewItemWork(repository.NewItemWork(database), now)
-	material := application.NewMaterialization(repository.NewMaterialization(database), now)
+	material := application.NewMaterialization(repository.NewMaterialization(database), blobs, now)
 	metadata := library.NewMetadataSeeder(nil, now)
 	settlement := application.NewWorkerSettlement(repository.NewWorkerSettlement(database), metadata, now)
 	lifecycle := application.NewPlanLifecycle(repository.NewPlanLifecycle(database), now)
@@ -34,8 +35,8 @@ func NewSourceImport(database *sql.DB, blobs *blobstore.Store, importer applicat
 		Import: application.ImportExecutorDependencies{
 			Items: items, Materials: material,
 			Reviews: application.NewReviewPreparation(importer, items,
-				application.NewReviewHandoff(repository.NewReviewHandoff(database), metadata, now)),
-			Companions: application.NewCompanions(repository.NewCompanions(database), now), Settlement: settlement,
+				application.NewReviewHandoff(repository.NewReviewHandoff(database), metadata, blobs, now)),
+			Companions: application.NewCompanions(repository.NewCompanions(database), blobs, now), Settlement: settlement,
 			Completion:  application.NewCompletion(repository.NewCompletion(database), now),
 			Diagnostics: pegasusDiagnostics{source},
 		},

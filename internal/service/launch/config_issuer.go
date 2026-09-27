@@ -110,8 +110,6 @@ func sameConfigInput(before, after ConfigAuthority) bool {
 	left, right := before.Source, after.Source
 	left.State, right.State = "", ""
 	left.Version, right.Version = 0, 0
-	// Heartbeats change idle deadlines but not the immutable configuration.
-	left.IdleEnd, right.IdleEnd = nil, nil
 	return reflect.DeepEqual(left, right) && before.Restore == after.Restore
 }
 

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/recordstore"
 	"retrom/internal/service/jobs"
 )
@@ -22,7 +23,7 @@ version=version+1,updated_at_ms=? WHERE job_id=? AND state='RUNNING'
 		return nil
 	}
 	var importID string
-	if err := store.executor.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, store.executor, `
 SELECT id
 FROM server_imports
 WHERE job_id=?

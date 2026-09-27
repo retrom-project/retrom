@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/runtimebundle"
+	runtimebundle "retrom/internal/runtime/bundle"
 )
 
 const previewTestID = "01a00000-0000-7000-8000-000000000001"
@@ -48,7 +48,9 @@ func (repository *previewTestRepository) WithCreation(_ context.Context, work fu
 	return repository.commitErr
 }
 
-func (repository *previewTestRepository) Current(context.Context, ReviewPreviewRequest) (PreviewSource, string, bool, error) {
+func (repository *previewTestRepository) Current(context.Context,
+	ReviewPreviewRequest,
+) (PreviewSource, string, bool, error) {
 	return repository.current, "profile", !repository.missingCurrent, repository.currentErr
 }
 
@@ -74,7 +76,9 @@ func (provider *previewTestProvider) Target(string, string) (runtimebundle.Targe
 	return provider.target, !provider.absent
 }
 func (*previewTestProvider) BundleSHA256(string, string) (string, bool) { return "bundle", true }
-func previewFixture(t *testing.T) (*PreviewCreator, *previewTestRepository, *previewTestProvider, ReviewPreviewRequest) {
+func previewFixture(t *testing.T) (*PreviewCreator, *previewTestRepository,
+	*previewTestProvider, ReviewPreviewRequest,
+) {
 	t.Helper()
 	dat := "dat"
 	source := PreviewSource{
@@ -82,7 +86,13 @@ func previewFixture(t *testing.T) (*PreviewCreator, *previewTestRepository, *pre
 		BundleSHA256: "bundle", CoreID: "core", DeliveryProfile: "ROM_BLOB", ContentKind: "SINGLE_FILE", DATVersionID: &dat,
 		ValidationID: "validation", ValidationStatus: "READY", DependencySnapshot: "frozen",
 	}
-	repository := &previewTestRepository{snapshot: PreviewSnapshot{Source: source, SourceFiles: []PreviewFile{{Role: "CONTENT", LogicalName: "game.bin", BlobID: "game"}}}, current: source}
+	repository := &previewTestRepository{
+		snapshot: PreviewSnapshot{
+			Source:      source,
+			SourceFiles: []PreviewFile{{Role: "CONTENT", LogicalName: "game.bin", FileRecord: "game"}},
+		},
+		current: source,
+	}
 	provider := &previewTestProvider{target: runtimebundle.Target{Inputs: []runtimebundle.Input{{Role: "game"}}}}
 	provider.before = func() {
 		if repository.inTransaction {
@@ -93,14 +103,17 @@ func previewFixture(t *testing.T) (*PreviewCreator, *previewTestRepository, *pre
 		Now: func() time.Time { return time.UnixMilli(1000) }, NewID: func() (string, error) { return previewTestID, nil },
 		SignCapability: func(string) (string, []byte, error) { return "test", make([]byte, 32), nil },
 	}
-	return NewPreviewCreator(repository, provider, environment), repository, provider, ReviewPreviewRequest{ImportItemID: "item", ActorUserID: "actor", IdempotencyKey: "key"}
+	return NewPreviewCreator(repository, provider, environment), repository, provider,
+		ReviewPreviewRequest{ImportItemID: "item", ActorUserID: "actor", IdempotencyKey: "key"}
 }
 
 func previewFixtureRestore(repository *previewTestRepository) PreviewRestore {
 	return PreviewRestore{
 		ActorID: "actor", ItemID: "item", SnapshotID: "source", ProviderID: "provider", TargetID: "target",
-		State: "ACTIVE", HardExpiresAtMS: 2000, ContentBlobID: "game", ContentName: "game.bin", ContentFormat: "SOURCE_V1",
-		DependencySnapshot: repository.current.DependencySnapshot, BlobID: "saved-B", Format: "checkpoint-v1", SizeBytes: 100,
+		State: "ACTIVE", HardExpiresAtMS: 2000, ContentFileRecord: "game", ContentName: "game.bin",
+		ContentFormat:      "SOURCE_V1",
+		DependencySnapshot: repository.current.DependencySnapshot, FileRecord: "saved-B",
+		Format: "checkpoint-v1", SizeBytes: 100,
 		MaximumBytes: 100, ReadFormats: []string{"checkpoint-v1"},
 	}
 }

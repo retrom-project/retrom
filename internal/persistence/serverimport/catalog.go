@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	"retrom/internal/cleanup"
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/recordstore"
 	"retrom/internal/service/serverimport"
 )
@@ -16,20 +16,23 @@ func (repository *Creation) Catalog(ctx context.Context) ([]serverimport.Catalog
 SELECT requirement.id,requirement.version,requirement.core_id,core.name,requirement.provider_id,
 requirement.target_id,requirement.source_kind,requirement.archive_members_json,
 requirement.logical_name,requirement.requirement_mode,
-requirement.condition_code,requirement.activation_options_json,requirement.delivery_kind,requirement.emulator_path,
+requirement.condition_code,requirement.activation_options_json,requirement.delivery_kind,
+requirement.emulator_path,
 requirement.source_version,requirement.catalog_digest,
 CASE WHEN requirement.source_kind='DAT_MACHINE' THEN dat.id END,requirement.dat_machine_name,
 requirement.size_bytes,requirement.md5,requirement.sha1,requirement.sha256,
-installation.id,installation.version,blob.sha256,installation.status,installation.validated_requirement_version,
+installation.id,installation.version,json_extract(blob.value, '$.sha256'),installation.status,
+installation.validated_requirement_version,
 dat.parse_status,dat.is_active
 FROM bios_requirements requirement
 JOIN cores core ON core.id=requirement.core_id
-JOIN runtime_targets target ON target.provider_id=requirement.provider_id AND target.target_id=requirement.target_id
+JOIN runtime_targets target ON target.provider_id=requirement.provider_id AND
+target.target_id=requirement.target_id
 LEFT JOIN dat_versions dat ON dat.id=requirement.source_version AND dat.provider_id=requirement.provider_id
  AND dat.target_id=requirement.target_id
 LEFT JOIN bios_installations installation ON installation.requirement_id=requirement.id
  AND installation.is_active=1
-LEFT JOIN blobs blob ON blob.id=installation.blob_id
+LEFT JOIN json_each(json_array(installation.file_record)) blob ON blob.value IS NOT NULL
 WHERE requirement.enabled=1
 ORDER BY requirement.id COLLATE BINARY
 `)
@@ -69,7 +72,7 @@ ORDER BY requirement.id COLLATE BINARY
 
 func insertCatalogItem(
 	ctx context.Context,
-	transaction dbexec.Executor,
+	transaction dbapi.Executor,
 	importID string,
 	item serverimport.CatalogItem,
 	now int64,

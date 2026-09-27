@@ -40,7 +40,7 @@ func (server *Server) readGameAssetUpload(
 			validation = &gameassets.ValidationError{Code: "ASSET_UPLOAD_INVALID", Message: "上传文件不可用"}
 		}
 		status := http.StatusUnprocessableEntity
-		if validation.Code == "CAS_UNAVAILABLE" {
+		if validation.Code == "FILE_STORAGE_UNAVAILABLE" {
 			status = http.StatusServiceUnavailable
 		}
 		writeError(writer, request, status, validation.Code, validation.Message, map[string]any{})
@@ -75,7 +75,7 @@ func (server *Server) createGameAsset(writer http.ResponseWriter, request *http.
 		server.databaseError(writer, request, err)
 		return
 	}
-	server.payloadReleases.Signal()
+	server.cleanupJobs.Signal()
 	writeCreatedGameAsset(writer, request, result)
 }
 
@@ -131,7 +131,7 @@ func (server *Server) deleteGameAsset(writer http.ResponseWriter, request *http.
 		server.databaseError(writer, request, err)
 		return
 	}
-	server.payloadReleases.Signal()
+	server.cleanupJobs.Signal()
 	writer.Header().Set("ETag", fmt.Sprintf(`"v%d"`, result.Version))
 	writer.WriteHeader(http.StatusNoContent)
 }
@@ -146,7 +146,7 @@ func (server *Server) contentAsset(writer http.ResponseWriter, request *http.Req
 		server.databaseError(writer, request, err)
 		return
 	}
-	server.serveBlob(writer, request, asset.Digest, asset.MediaType, false)
+	server.serveBlob(writer, request, asset.FileRecord, asset.Digest, asset.MediaType, false)
 }
 
 func (server *Server) saveStateScreenshot(writer http.ResponseWriter, request *http.Request) {
@@ -160,5 +160,5 @@ func (server *Server) saveStateScreenshot(writer http.ResponseWriter, request *h
 		server.databaseError(writer, request, err)
 		return
 	}
-	server.serveBlob(writer, request, asset.Digest, asset.MediaType, true)
+	server.serveBlob(writer, request, asset.FileRecord, asset.Digest, asset.MediaType, true)
 }

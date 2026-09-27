@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/hasheous"
 	"retrom/internal/service/metadatascrape"
 )
@@ -23,7 +24,8 @@ func TestMetadataReattemptUsesRemainingExecutionDeadline(t *testing.T) {
 		}
 		return 0, "", nil
 	})
-	if err := metadatascrape.NewWorker(NewWorker(database), processor, recoveryNow).Run(t.Context(), "run"); err != nil {
+	if err := metadatascrape.NewWorker(NewWorker(database), processor,
+		recoveryNow).Run(t.Context(), "018fbe68-0000-7000-8000-000000000001"); err != nil {
 		t.Fatal(err)
 	}
 	if !processed {
@@ -43,19 +45,19 @@ func TestMetadataExpiredLeaseResumesPersistedExecution(t *testing.T) {
 	})
 	clock := recoveryTime
 	worker := metadatascrape.NewWorker(NewWorker(database), processor, func() time.Time { return clock })
-	if err := worker.Run(t.Context(), "run"); err != nil {
+	if err := worker.Run(t.Context(), "018fbe68-0000-7000-8000-000000000001"); err != nil {
 		t.Fatal(err)
 	}
 	var state string
 	var available, deadline int64
-	if err := database.QueryRowContext(t.Context(), `SELECT state,available_at_ms,execution_deadline_at_ms FROM jobs WHERE id='job'`).Scan(&state, &available, &deadline); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), database, `SELECT state,available_at_ms,execution_deadline_at_ms FROM jobs WHERE id='job'`).Scan(&state, &available, &deadline); err != nil {
 		t.Fatal(err)
 	}
 	if state != "QUEUED" || available != now+1000 || deadline != now+10000 || processed {
 		t.Fatalf("recovery did not queue original execution: %s/%d/%d/%v", state, available, deadline, processed)
 	}
 	clock = clock.Add(time.Second)
-	if err := worker.Run(t.Context(), "run"); err != nil {
+	if err := worker.Run(t.Context(), "018fbe68-0000-7000-8000-000000000001"); err != nil {
 		t.Fatal(err)
 	}
 	if !processed {
@@ -65,7 +67,9 @@ func TestMetadataExpiredLeaseResumesPersistedExecution(t *testing.T) {
 
 type resumeLookup struct{ calls int }
 
-func (lookup *resumeLookup) Lookup(context.Context, hasheous.ContentHashes, bool) (metadatascrape.ResolvedLookup, error) {
+func (lookup *resumeLookup) Lookup(context.Context, hasheous.ContentHashes,
+	bool,
+) (metadatascrape.ResolvedLookup, error) {
 	lookup.calls++
 	return metadatascrape.ResolvedLookup{Result: hasheous.LookupResult{Outcome: hasheous.OutcomeMiss, RequestDigest: strings.Repeat("d", 64)}}, nil
 }
@@ -73,17 +77,20 @@ func (lookup *resumeLookup) Lookup(context.Context, hasheous.ContentHashes, bool
 func TestMetadataResumeSkipsTerminalEvidenceWithoutDuplicatingAttempt(t *testing.T) {
 	database := recoveryDatabase(t)
 	now := recoveryTime.UnixMilli()
-	recoveryExec(t, database, `INSERT INTO content_hash_evidence(id,scrape_run_id,profile,crc32,query_order,payload_released_at_ms,created_at_ms)
- VALUES('evidence','run','RAW_FILE','12345678',0,0,?)`, now)
+	recoveryExec(t, database, `INSERT INTO content_hash_evidence(id,scrape_run_id,profile,crc32,query_order,payload_released_at_ms,
+created_at_ms)
+ VALUES('evidence','018fbe68-0000-7000-8000-000000000001','RAW_FILE','12345678',0,0,?)`, now)
 	recoveryExec(t, database, `INSERT INTO metadata_provider_responses(id,provider,request_digest,outcome,raw_payload_state,
  fetched_at_ms,expires_at_ms) VALUES('response','HASHEOUS',?,'MISS','NONE',?,?)`, strings.Repeat("c", 64), now, now+1000)
 	recoveryExec(t, database, `INSERT INTO metadata_scrape_query_attempts(id,scrape_run_id,content_hash_evidence_id,
- provider_response_id,attempt_no,source,created_at_ms) VALUES('attempt','run','evidence','response',1,'NETWORK',?)`, now)
+ provider_response_id,attempt_no,source,created_at_ms) VALUES('attempt',
+'018fbe68-0000-7000-8000-000000000001','evidence','response',1,'NETWORK',?)`, now)
 	lookup := &resumeLookup{}
 	repository := NewWorker(database)
 	recorder := metadatascrape.NewRecorder(NewRecorder(database), nil, recoveryNow)
 	processor := metadatascrape.NewProcessor(repository, lookup, recorder)
-	if err := metadatascrape.NewWorker(repository, processor, recoveryNow).Run(t.Context(), "run"); err != nil {
+	if err := metadatascrape.NewWorker(repository, processor, recoveryNow).Run(t.Context(),
+		"018fbe68-0000-7000-8000-000000000001"); err != nil {
 		t.Fatalf("terminal evidence was replayed: %v", err)
 	}
 	if lookup.calls != 0 {
@@ -94,27 +101,34 @@ func TestMetadataResumeSkipsTerminalEvidenceWithoutDuplicatingAttempt(t *testing
 type resumeCachedLookup struct{}
 
 func (resumeCachedLookup) Lookup(context.Context, hasheous.ContentHashes, bool) (metadatascrape.ResolvedLookup, error) {
-	return metadatascrape.ResolvedLookup{CachedResponseID: "cached", Result: hasheous.LookupResult{Outcome: hasheous.OutcomeMiss}}, nil
+	return metadatascrape.ResolvedLookup{
+		CachedResponseID: "cached",
+		Result:           hasheous.LookupResult{Outcome: hasheous.OutcomeMiss},
+	}, nil
 }
 
 func TestMetadataResumedCacheHitKeepsNextAttemptNumber(t *testing.T) {
 	database := recoveryDatabase(t)
 	now := recoveryTime.UnixMilli()
-	recoveryExec(t, database, `INSERT INTO content_hash_evidence(id,scrape_run_id,profile,crc32,query_order,payload_released_at_ms,created_at_ms)
- VALUES('evidence','run','RAW_FILE','12345678',0,0,?)`, now)
+	recoveryExec(t, database, `INSERT INTO content_hash_evidence(id,scrape_run_id,profile,crc32,query_order,payload_released_at_ms,
+created_at_ms)
+ VALUES('evidence','018fbe68-0000-7000-8000-000000000001','RAW_FILE','12345678',0,0,?)`, now)
 	recoveryExec(t, database, `INSERT INTO metadata_provider_responses(id,provider,request_digest,outcome,raw_payload_state,
  fetched_at_ms,expires_at_ms) VALUES('response','HASHEOUS',?,'TIMEOUT','NONE',?,?)`, strings.Repeat("c", 64), now, now+1000)
 	recoveryExec(t, database, `INSERT INTO metadata_provider_responses(id,provider,request_digest,outcome,raw_payload_state,
  fetched_at_ms,expires_at_ms) VALUES('cached','HASHEOUS',?,'MISS','NONE',?,?)`, strings.Repeat("d", 64), now, now+1000)
 	recoveryExec(t, database, `INSERT INTO metadata_scrape_query_attempts(id,scrape_run_id,content_hash_evidence_id,
- provider_response_id,attempt_no,source,created_at_ms) VALUES('attempt','run','evidence','response',1,'NETWORK',?)`, now)
+ provider_response_id,attempt_no,source,created_at_ms) VALUES('attempt',
+'018fbe68-0000-7000-8000-000000000001','evidence','response',1,'NETWORK',?)`, now)
 	repository := NewWorker(database)
-	processor := metadatascrape.NewProcessor(repository, resumeCachedLookup{}, metadatascrape.NewRecorder(NewRecorder(database), nil, recoveryNow))
-	if err := metadatascrape.NewWorker(repository, processor, recoveryNow).Run(t.Context(), "run"); err != nil {
+	processor := metadatascrape.NewProcessor(repository, resumeCachedLookup{},
+		metadatascrape.NewRecorder(NewRecorder(database), nil, recoveryNow))
+	if err := metadatascrape.NewWorker(repository, processor, recoveryNow).Run(t.Context(),
+		"018fbe68-0000-7000-8000-000000000001"); err != nil {
 		t.Fatal(err)
 	}
 	var count, maximum int
-	if err := database.QueryRowContext(t.Context(), `SELECT count(*),max(attempt_no) FROM metadata_scrape_query_attempts WHERE content_hash_evidence_id='evidence'`).Scan(&count, &maximum); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), database, `SELECT count(*),max(attempt_no) FROM metadata_scrape_query_attempts WHERE content_hash_evidence_id='evidence'`).Scan(&count, &maximum); err != nil {
 		t.Fatal(err)
 	}
 	if count != 2 || maximum != 2 {

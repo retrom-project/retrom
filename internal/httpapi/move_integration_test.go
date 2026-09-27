@@ -16,22 +16,24 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/filestore"
+
+	"retrom/internal/persistence/recordstore"
+
 	dependencypersistence "retrom/internal/persistence/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 
 	validationpersistence "retrom/internal/persistence/corevalidation"
 	validationservice "retrom/internal/service/corevalidation"
 
-	"retrom/internal/dbexec"
-	"retrom/internal/persistence/blobcatalog"
+	dbapi "retrom/internal/database"
 
 	"github.com/google/uuid"
 
 	"retrom/internal/authn"
 	"retrom/internal/cleanup"
-	"retrom/internal/corevalidation"
+	corevalidation "retrom/internal/core/validation"
 	"retrom/internal/launch"
-	"retrom/internal/payloadrelease"
 	"retrom/internal/testassert"
 	"retrom/internal/testsupport"
 )
@@ -39,10 +41,12 @@ import (
 func TestGameMovePreviewQueuesTargetCoreValidationAndPreservesHistory(t *testing.T) {
 	server := newTestServer(t)
 	ctx := context.Background()
-	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database)).Bootstrap(ctx, time.Now()); err != nil {
+	if err := dependencyservice.New(server.dependencies,
+		dependencypersistence.New(server.database)).Bootstrap(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
-	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database)).BootstrapCatalogs(ctx, time.Now()); err != nil {
+	if err := dependencyservice.New(server.dependencies,
+		dependencypersistence.New(server.database)).BootstrapCatalogs(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	gameID, contentID := seedMovableGame(t, server)
@@ -127,7 +131,10 @@ updated_at_ms) VALUES(?,
 	waitForHTTPJob(t, server.database, jobIDs[0], "SUCCEEDED")
 
 	replayed := send("/api/v1/admin/games/"+gameID+"/move-preview", previewBody, keys[0], `"v1"`)
-	testassert.Falsef(t, testassert.Any(func() bool { return replayed.Code != http.StatusAccepted }, func() bool { return replayed.Body.String() != responses[0].Body.String() }), "old preview key was not replayed: %d %s", replayed.Code, replayed.Body.String())
+	testassert.Falsef(t,
+		testassert.Any(func() bool { return replayed.Code != http.StatusAccepted },
+			func() bool { return replayed.Body.String() != responses[0].Body.String() }),
+		"old preview key was not replayed: %d %s", replayed.Code, replayed.Body.String())
 	ready := send(
 		"/api/v1/admin/games/"+gameID+"/move-preview",
 		previewBody,
@@ -158,18 +165,23 @@ updated_at_ms) VALUES(?,
 	testassert.Falsef(t, testassert.Any(func() bool { return committed.Code != http.StatusOK }, func() bool { return committed.Header().Get("ETag") != `"v2"` }), "move commit = %d %s", committed.Code, committed.Body.String())
 	var storedTarget, storedContent string
 	var version, variantCount, auditCount int64
-	if err := server.database.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, server.database, `
 SELECT platform_instance_id,
 id,
 version,
 (SELECT count(*) FROM game_variants WHERE game_id=games.id),
-(SELECT count(*) FROM audit_events WHERE resource_type='GAME' AND resource_id=games.id AND action='GAME_MOVED')
+(SELECT count(*) FROM audit_events WHERE resource_type='GAME' AND resource_id=games.id AND
+action='GAME_MOVED')
 FROM games
 WHERE id=?
 `, gameID).Scan(&storedTarget, &storedContent, &version, &variantCount, &auditCount); err != nil {
 		t.Fatal(err)
 	}
-	testassert.Falsef(t, testassert.Any(func() bool { return storedTarget != targetID }, func() bool { return storedContent != contentID }, func() bool { return version != 2 }, func() bool { return variantCount != 2 }, func() bool { return auditCount != 1 }), "move state = target:%s content:%s version:%d variants:%d audits:%d", storedTarget, storedContent, version, variantCount, auditCount)
+	testassert.Falsef(t, testassert.Any(func() bool { return storedTarget != targetID },
+		func() bool { return storedContent != contentID }, func() bool { return version != 2 },
+		func() bool { return variantCount != 2 }, func() bool { return auditCount != 1 }),
+		"move state = target:%s content:%s version:%d variants:%d audits:%d", storedTarget,
+		storedContent, version, variantCount, auditCount)
 }
 
 func waitForIdempotencyQueue(t *testing.T, server *Server, expected int) {
@@ -189,10 +201,13 @@ func waitForIdempotencyQueue(t *testing.T, server *Server, expected int) {
 
 func TestPlatformInstanceVisibilityAndNonEmptyDeletionBoundaries(t *testing.T) {
 	server := newTestServer(t)
-	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database)).Bootstrap(context.Background(), time.Now()); err != nil {
+	if err := dependencyservice.New(server.dependencies,
+		dependencypersistence.New(server.database)).Bootstrap(context.Background(), time.Now()); err != nil {
 		t.Fatal(err)
 	}
-	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database)).BootstrapCatalogs(context.Background(), time.Now()); err != nil {
+	if err := dependencyservice.New(server.dependencies,
+		dependencypersistence.New(server.database)).BootstrapCatalogs(context.Background(),
+		time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	gameID, _ := seedMovableGame(t, server)
@@ -213,17 +228,25 @@ func TestPlatformInstanceVisibilityAndNonEmptyDeletionBoundaries(t *testing.T) {
 	disabled := send(http.MethodPatch, "/api/v1/admin/platform-instances/"+sourceID, `{"enabled":false}`, `"v1"`)
 	testassert.Falsef(t, testassert.Any(func() bool { return disabled.Code != http.StatusOK }, func() bool { return disabled.Header().Get("ETag") != `"v2"` }), "disable non-empty platform = %d %s", disabled.Code, disabled.Body.String())
 	userGames := httptest.NewRecorder()
-	handler.ServeHTTP(userGames, httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/games?limit=100", nil))
-	testassert.Falsef(t, testassert.Any(func() bool { return userGames.Code != http.StatusOK }, func() bool { return strings.Contains(userGames.Body.String(), gameID) }), "disabled platform leaked into user games = %d %s", userGames.Code, userGames.Body.String())
+	handler.ServeHTTP(userGames, httptest.NewRequestWithContext(context.Background(),
+		http.MethodGet, "/api/v1/games?limit=100", nil))
+	testassert.Falsef(t, testassert.Any(func() bool { return userGames.Code != http.StatusOK },
+		func() bool { return strings.Contains(userGames.Body.String(), gameID) }),
+		"disabled platform leaked into user games = %d %s", userGames.Code, userGames.Body.String())
 	home := httptest.NewRecorder()
 	handler.ServeHTTP(home, httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/home", nil))
 	testassert.Falsef(t, testassert.Any(func() bool { return home.Code != http.StatusOK }, func() bool { return !strings.Contains(home.Body.String(), `"gameCount":0`) }), "disabled platform leaked into home = %d %s", home.Code, home.Body.String())
 	adminGames := httptest.NewRecorder()
-	handler.ServeHTTP(adminGames, httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/admin/games?limit=100", nil))
-	testassert.Falsef(t, testassert.Any(func() bool { return adminGames.Code != http.StatusOK }, func() bool { return !strings.Contains(adminGames.Body.String(), gameID) }), "disabled platform missing from admin games = %d %s", adminGames.Code, adminGames.Body.String())
+	handler.ServeHTTP(adminGames, httptest.NewRequestWithContext(context.Background(),
+		http.MethodGet, "/api/v1/admin/games?limit=100", nil))
+	testassert.Falsef(t, testassert.Any(func() bool { return adminGames.Code != http.StatusOK },
+		func() bool { return !strings.Contains(adminGames.Body.String(), gameID) }),
+		"disabled platform missing from admin games = %d %s", adminGames.Code, adminGames.Body.String())
 	gameDetail := httptest.NewRecorder()
-	handler.ServeHTTP(gameDetail, httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/games/"+gameID, nil))
-	testassert.Falsef(t, gameDetail.Code != http.StatusNotFound, "disabled platform game detail = %d %s", gameDetail.Code, gameDetail.Body.String())
+	handler.ServeHTTP(gameDetail, httptest.NewRequestWithContext(context.Background(),
+		http.MethodGet, "/api/v1/games/"+gameID, nil))
+	testassert.Falsef(t, gameDetail.Code != http.StatusNotFound,
+		"disabled platform game detail = %d %s", gameDetail.Code, gameDetail.Body.String())
 	if _, err := server.launcher.Create(context.Background(), "local", launch.CreateRequest{
 		GameID: gameID, ReturnTo: "/games/" + gameID,
 		ClientCapabilities: launch.Capabilities{SecureContext: true, CrossOriginIsolated: true, SharedArrayBuffer: true},
@@ -235,11 +258,15 @@ func TestPlatformInstanceVisibilityAndNonEmptyDeletionBoundaries(t *testing.T) {
 	reenabled := send(http.MethodPatch, "/api/v1/admin/platform-instances/"+sourceID, `{"enabled":true}`, `"v2"`)
 	testassert.Falsef(t, testassert.Any(func() bool { return reenabled.Code != http.StatusOK }, func() bool { return reenabled.Header().Get("ETag") != `"v3"` }), "re-enable non-empty platform = %d %s", reenabled.Code, reenabled.Body.String())
 	restoredGames := httptest.NewRecorder()
-	handler.ServeHTTP(restoredGames, httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/games?limit=100", nil))
-	testassert.Falsef(t, testassert.Any(func() bool { return restoredGames.Code != http.StatusOK }, func() bool { return !strings.Contains(restoredGames.Body.String(), gameID) }), "re-enabled platform missing from user games = %d %s", restoredGames.Code, restoredGames.Body.String())
+	handler.ServeHTTP(restoredGames, httptest.NewRequestWithContext(context.Background(),
+		http.MethodGet, "/api/v1/games?limit=100", nil))
+	testassert.Falsef(t,
+		testassert.Any(func() bool { return restoredGames.Code != http.StatusOK },
+			func() bool { return !strings.Contains(restoredGames.Body.String(), gameID) }),
+		"re-enabled platform missing from user games = %d %s", restoredGames.Code, restoredGames.Body.String())
 
 	var ownerID string
-	if err := server.database.QueryRowContext(context.Background(), `SELECT platform_instance_id FROM games WHERE id=?`, gameID).Scan(&ownerID); err != nil ||
+	if err := dbapi.QueryRowContext(context.Background(), server.database, `SELECT platform_instance_id FROM games WHERE id=?`, gameID).Scan(&ownerID); err != nil ||
 		ownerID != sourceID {
 		t.Fatalf("game owner = %s, error=%v", ownerID, err)
 	}
@@ -266,10 +293,12 @@ func TestPlatformInstanceVisibilityAndNonEmptyDeletionBoundaries(t *testing.T) {
 func TestDefaultCoreImpactPaginationRejectsDriftAndPreservesSaveLaunch(t *testing.T) {
 	server := newTestServer(t)
 	ctx := context.Background()
-	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database)).Bootstrap(ctx, time.Now()); err != nil {
+	if err := dependencyservice.New(server.dependencies,
+		dependencypersistence.New(server.database)).Bootstrap(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
-	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database)).BootstrapCatalogs(ctx, time.Now()); err != nil {
+	if err := dependencyservice.New(server.dependencies,
+		dependencypersistence.New(server.database)).BootstrapCatalogs(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	gameID, _ := seedMovableGame(t, server)
@@ -281,7 +310,8 @@ func TestDefaultCoreImpactPaginationRejectsDriftAndPreservesSaveLaunch(t *testin
 		"local",
 		launch.CreateRequest{GameID: gameID, ReturnTo: "/games/" + gameID, ClientCapabilities: capabilities},
 	)
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return sourceLaunch.LaunchID == "" }), "source launch = %#v, error=%v", sourceLaunch, err)
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil },
+		func() bool { return sourceLaunch.LaunchID == "" }), "source launch = %#v, error=%v", sourceLaunch, err)
 
 	handler := server.Handler()
 	cookie, csrfToken := testSessionCredentials()
@@ -338,7 +368,8 @@ UPDATE games SET version=version+1,updated_at_ms=? WHERE id=?
 		if digest == "" {
 			digest = payload.ImpactDigest
 		} else {
-			testassert.Falsef(t, payload.ImpactDigest != digest, "impact digest drifted across pages: %s != %s", payload.ImpactDigest, digest)
+			testassert.Falsef(t, payload.ImpactDigest != digest,
+				"impact digest drifted across pages: %s != %s", payload.ImpactDigest, digest)
 		}
 		if _, duplicate := seen[payload.Items[0].GameID]; duplicate {
 			t.Fatalf("duplicate game across preview pages: %s", payload.Items[0].GameID)
@@ -346,7 +377,9 @@ UPDATE games SET version=version+1,updated_at_ms=? WHERE id=?
 		seen[payload.Items[0].GameID] = struct{}{}
 		cursorValue = payload.NextCursor
 	}
-	testassert.Falsef(t, testassert.Any(func() bool { return len(seen) != 3 }, func() bool { return cursorValue != nil }), "preview coverage = %d games, cursor=%v", len(seen), cursorValue)
+	testassert.Falsef(t, testassert.Any(func() bool { return len(seen) != 3 },
+		func() bool { return cursorValue != nil }), "preview coverage = %d games, cursor=%v",
+		len(seen), cursorValue)
 
 	requestBody := fmt.Sprintf(`{"coreId":"mgba","impactDigest":%q,"confirmBlocked":false}`, digest)
 	request := httptest.NewRequestWithContext(context.Background(),
@@ -363,13 +396,15 @@ UPDATE games SET version=version+1,updated_at_ms=? WHERE id=?
 	testassert.Falsef(t, testassert.Any(func() bool { return changed.Code != http.StatusOK }, func() bool { return changed.Header().Get("ETag") != `"v2"` }), "default core change = %d %s", changed.Code, changed.Body.String())
 
 	saveID := "01980000-0000-7000-8000-000000000191"
-	seedProductSave(t, server.database, saveID, sourceLaunch.LaunchID, "Old core save")
+	seedProductSave(t, server, saveID, sourceLaunch.LaunchID, "Old core save")
 	pending, err := server.launcher.Create(
 		ctx,
 		"local",
 		launch.CreateRequest{GameID: gameID, ReturnTo: "/games/" + gameID, ClientCapabilities: capabilities},
 	)
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return pending.Status != "VALIDATION_PENDING" }, func() bool { return pending.JobID == "" }), "new default core launch = %#v, error=%v", pending, err)
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil },
+		func() bool { return pending.Status != "VALIDATION_PENDING" },
+		func() bool { return pending.JobID == "" }), "new default core launch = %#v, error=%v", pending, err)
 	waitForHTTPJob(t, server.database, pending.JobID, "SUCCEEDED")
 	assertSavedCoreChoice(t, server, gameID, saveID, nil, "gambatte")
 	explicitCore := "mgba"
@@ -382,7 +417,8 @@ func TestGameMetadataCurrentStateProjectionAndOptimisticEdit(t *testing.T) {
 	handler, cookie, csrf := httpSession(t, server)
 
 	detail := httptest.NewRecorder()
-	detailRequest := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/admin/games/"+gameID, nil)
+	detailRequest := httptest.NewRequestWithContext(context.Background(), http.MethodGet,
+		"/api/v1/admin/games/"+gameID, nil)
 	handler.ServeHTTP(detail, detailRequest)
 	testassert.Falsef(t, testassert.Any(func() bool { return detail.Code != http.StatusOK }, func() bool { return detail.Header().Get("ETag") != `"v1"` }, func() bool { return !strings.Contains(detail.Body.String(), `"files"`) }, func() bool { return !strings.Contains(detail.Body.String(), `"variants"`) }, func() bool { return strings.Contains(detail.Body.String(), `"contentRevisions"`) }), "admin game projection = %d %s", detail.Code, detail.Body.String())
 
@@ -409,7 +445,7 @@ func TestGameMetadataCurrentStateProjectionAndOptimisticEdit(t *testing.T) {
 	var sourceRef sql.NullString
 	var storedContent, ownerID string
 	var version, auditCount int64
-	if err := server.database.QueryRowContext(context.Background(), `
+	if err := dbapi.QueryRowContext(context.Background(), server.database, `
 SELECT g.title,
 g.title_initial,
 g.metadata_source_kind,
@@ -417,7 +453,8 @@ g.metadata_source_ref_id,
 g.id,
 g.platform_instance_id,
 g.version,
-(SELECT count(*) FROM audit_events WHERE resource_type='GAME' AND resource_id=g.id AND action='GAME_METADATA_UPDATED')
+(SELECT count(*) FROM audit_events WHERE resource_type='GAME' AND resource_id=g.id AND
+action='GAME_METADATA_UPDATED')
 FROM games g
 WHERE g.id=?
 `, gameID).Scan(
@@ -439,7 +476,8 @@ WHERE g.id=?
 	), "metadata state = title:%s initial:%s source:%s/%v content:%s owner:%s version:%d audits:%d",
 		title, titleInitial, sourceKind, sourceRef, storedContent, ownerID, version, auditCount)
 	public := httptest.NewRecorder()
-	handler.ServeHTTP(public, httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/games/"+gameID, nil))
+	handler.ServeHTTP(public, httptest.NewRequestWithContext(context.Background(), http.MethodGet,
+		"/api/v1/games/"+gameID, nil))
 	testassert.Falsef(t, testassert.Any(func() bool { return public.Code != http.StatusOK }, func() bool { return !strings.Contains(public.Body.String(), `"title":"打击者1945"`) }), "public game metadata = %d %s", public.Code, public.Body.String())
 }
 
@@ -447,7 +485,7 @@ func TestGamePermanentDeleteIsIdempotentReleasesPayloadAndPreservesTombstone(t *
 	server := newReadyHTTPServer(t)
 	gameID, _ := seedMovableGame(t, server)
 	cloneMovableGame(t, server, gameID, "194", "195", "196", "197", "198")
-	sharedGameID := "01980000-0000-7000-8000-000000000194"
+	otherGameID := "01980000-0000-7000-8000-000000000194"
 	ctx := context.Background()
 	const historyUserID = "01980000-0000-7000-8000-000000009996"
 	const historyProfileID = "01980000-0000-7000-8000-000000009997"
@@ -458,7 +496,8 @@ func TestGamePermanentDeleteIsIdempotentReleasesPayloadAndPreservesTombstone(t *
 		t.Fatal(err)
 	}
 	if _, err := server.database.ExecContext(ctx, `
-INSERT INTO users(id,profile_id,username,display_name,role,status,session_version,version,created_at_ms,updated_at_ms)
+INSERT INTO users(id,profile_id,username,display_name,role,status,session_version,version,created_at_ms,
+updated_at_ms)
 VALUES(?,?,'payload-history-admin','Payload History Admin','ADMIN','ENABLED',1,1,0,0)
 `, historyUserID, historyProfileID); err != nil {
 		t.Fatal(err)
@@ -478,7 +517,9 @@ VALUES(?,?,'payload-history-admin','Payload History Admin','ADMIN','ENABLED',1,1
 			},
 		},
 	)
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return created.LaunchID == "" }), "create launch before deletion = %#v, error=%v", created, err)
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil },
+		func() bool { return created.LaunchID == "" }),
+		"create launch before deletion = %#v, error=%v", created, err)
 	launchConfiguration, err := server.launcher.Config(ctx, created.LaunchID, created.Capability)
 	testassert.False(t, err != nil, err)
 	launchEnvelope := testsupport.RuntimeEnvelope(t, launchConfiguration)
@@ -487,22 +528,23 @@ VALUES(?,?,'payload-history-admin','Payload History Admin','ADMIN','ENABLED',1,1
 	if !ok {
 		t.Fatalf("launch game resource = %#v", gameResource)
 	}
-	var blobID string
-	if err := server.database.QueryRowContext(ctx, `
-SELECT f.blob_id
+	var fileRecord string
+	if err := dbapi.QueryRowContext(ctx, server.database, `
+SELECT f.file_record
 FROM games g
 JOIN game_variants v ON v.game_id=g.id AND v.core_id='gambatte'
 JOIN game_files f ON f.game_id=g.id AND f.role='CONTENT'
 WHERE g.id=?
-`, gameID).Scan(&blobID); err != nil {
+`, gameID).Scan(&fileRecord); err != nil {
 		t.Fatal(err)
 	}
 	saveID := "01980000-0000-7000-8000-000000000193"
-	seedProductSave(t, server.database, saveID, created.LaunchID, "Delete fixture save")
+	seedProductSave(t, server, saveID, created.LaunchID, "Delete fixture save")
 	if _, err := server.database.ExecContext(ctx, `
 INSERT INTO play_sessions(id,launch_session_id,profile_id,game_id,
-started_at_ms,last_heartbeat_at_ms,active_duration_ms,last_client_sequence,state,version,created_at_ms,updated_at_ms)
-VALUES(?,?,(SELECT profile_id FROM launch_sessions WHERE id=?),?,?,?,60000,0,'ACTIVE',1,?,?)
+started_at_ms,last_reported_at_ms,active_duration_ms,state,version,created_at_ms,
+updated_at_ms)
+VALUES(?,?,(SELECT profile_id FROM launch_sessions WHERE id=?),?,?,?,60000,'ACTIVE',1,?,?)
 `, "01980000-0000-7000-8000-000000000192", created.LaunchID, created.LaunchID, gameID,
 		time.Now().UnixMilli(), time.Now().UnixMilli(), time.Now().UnixMilli(), time.Now().UnixMilli()); err != nil {
 		t.Fatal(err)
@@ -523,12 +565,12 @@ SELECT profile_id,?,? FROM launch_sessions WHERE id=?
 	handler.ServeHTTP(beforeDelete, beforeDeleteRequest)
 	testassert.Falsef(t, beforeDelete.Code != http.StatusOK,
 		"runtime content before delete = %d %s", beforeDelete.Code, beforeDelete.Body.String())
-	impact, err := payloadrelease.GameDeleteImpact(ctx, server.database, gameID)
+	impact, err := server.gameImpact.Game(ctx, gameID)
 	if err != nil {
 		t.Fatal(err)
 	}
 	secondSaveID := "01980000-0000-7000-8000-000000000199"
-	seedProductSave(t, server.database, secondSaveID, created.LaunchID, "Concurrent save")
+	seedProductSave(t, server, secondSaveID, created.LaunchID, "Concurrent save")
 	sendDelete := func(targetID, etag, title, digest, key string) *httptest.ResponseRecorder {
 		request := httptest.NewRequestWithContext(context.Background(),
 			http.MethodDelete,
@@ -546,8 +588,8 @@ SELECT profile_id,?,? FROM launch_sessions WHERE id=?
 	if response := sendDelete(gameID, `"v1"`, "Move fixture", impact.ImpactDigest, uuid.NewString()); response.Code != http.StatusConflict || !strings.Contains(response.Body.String(), `"code":"GAME_DELETE_IMPACT_STALE"`) {
 		t.Fatalf("stale impact delete = %d %s", response.Code, response.Body.String())
 	}
-	impact, err = payloadrelease.GameDeleteImpact(ctx, server.database, gameID)
-	if err != nil || impact.SharedBytes == "0" {
+	impact, err = server.gameImpact.Game(ctx, gameID)
+	if err != nil || impact.RegisteredBytes == "0" {
 		t.Fatalf("shared game impact = %#v, error=%v", impact, err)
 	}
 	if response := sendDelete(gameID, `"v2"`, "Move fixture", impact.ImpactDigest, uuid.NewString()); response.Code != http.StatusConflict {
@@ -561,33 +603,37 @@ SELECT profile_id,?,? FROM launch_sessions WHERE id=?
 	deleted := sendDelete(gameID, `"v1"`, "Move fixture", impact.ImpactDigest, key)
 	testassert.Falsef(t, testassert.Any(func() bool { return deleted.Code != http.StatusAccepted }, func() bool { return deleted.Header().Get("ETag") != `"v2"` }, func() bool { return !strings.Contains(deleted.Body.String(), `"payloadState":"RELEASING"`) }), "game delete = %d %s", deleted.Code, deleted.Body.String())
 	replayed := sendDelete(gameID, `"v1"`, "Move fixture", impact.ImpactDigest, key)
-	testassert.Falsef(t, testassert.Any(func() bool { return replayed.Code != http.StatusAccepted }, func() bool { return replayed.Header().Get("X-Retrom-Idempotent-Replay") != "true" }, func() bool { return replayed.Body.String() != deleted.Body.String() }), "game delete replay = %d %s", replayed.Code, replayed.Body.String())
+	testassert.Falsef(t,
+		testassert.Any(func() bool { return replayed.Code != http.StatusAccepted },
+			func() bool { return replayed.Header().Get("X-Retrom-Idempotent-Replay") != "true" },
+			func() bool { return replayed.Body.String() != deleted.Body.String() }),
+		"game delete replay = %d %s", replayed.Code, replayed.Body.String())
 	again := sendDelete(gameID, `"v2"`, "Move fixture", impact.ImpactDigest, uuid.NewString())
 	testassert.Falsef(t, testassert.Any(func() bool { return again.Code != http.StatusOK }, func() bool { return !strings.Contains(again.Body.String(), `"status":"DELETED"`) }), "second game delete = %d %s", again.Code, again.Body.String())
 	deadline := time.Now().Add(3 * time.Second)
 	for {
 		var payloadState string
-		if err := server.database.QueryRowContext(ctx, `SELECT payload_state FROM games WHERE id=?`, gameID).Scan(&payloadState); err != nil {
+		if err := dbapi.QueryRowContext(ctx, server.database, `SELECT payload_state FROM games WHERE id=?`, gameID).Scan(&payloadState); err != nil {
 			t.Fatal(err)
 		}
 		if payloadState == "RELEASED" {
 			break
 		}
 		if time.Now().After(deadline) {
-			var jobState, jobError, payloadError sql.NullString
-			_ = server.database.QueryRowContext(ctx, `
-SELECT job.state,job.error_code,game.payload_last_error_code
+			var jobState, jobError sql.NullString
+			_ = dbapi.QueryRowContext(ctx, server.database, `
+SELECT job.state,job.error_code
 FROM games game LEFT JOIN jobs job ON job.id=game.payload_release_job_id
-WHERE game.id=?`, gameID).Scan(&jobState, &jobError, &payloadError)
-			t.Fatalf("game payload state = %s, job=%s/%s, payloadError=%s",
-				payloadState, jobState.String, jobError.String, payloadError.String)
+WHERE game.id=?`, gameID).Scan(&jobState, &jobError)
+			t.Fatalf("game payload state = %s, job=%s/%s",
+				payloadState, jobState.String, jobError.String)
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
 	var status, payloadState, launchState string
 	var deletedAt sql.NullInt64
 	var version, saveCount, gameCount, contentFileCount, variantCount, variantFileCount, auditCount int64
-	if err := server.database.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, server.database, `
 SELECT g.status,
 g.payload_state,
 g.deleted_at_ms,
@@ -596,8 +642,10 @@ g.version,
 (SELECT count(*) FROM games current_game WHERE current_game.id=g.id),
 (SELECT count(*) FROM game_files file WHERE file.game_id=g.id),
 (SELECT count(*) FROM game_variants variant WHERE variant.game_id=g.id),
-(SELECT count(*) FROM variant_files file JOIN game_variants variant ON variant.id=file.game_variant_id WHERE variant.game_id=g.id),
-(SELECT count(*) FROM audit_events WHERE resource_type='GAME' AND resource_id=g.id AND action='GAME_PERMANENT_DELETE_REQUESTED'),
+(SELECT count(*) FROM variant_files file JOIN game_variants variant ON variant.id=file.game_variant_id
+WHERE variant.game_id=g.id),
+(SELECT count(*) FROM audit_events WHERE resource_type='GAME' AND resource_id=g.id AND
+action='GAME_PERMANENT_DELETE_REQUESTED'),
 (SELECT state FROM launch_sessions WHERE id=?)
 FROM games g
 WHERE g.id=?
@@ -616,7 +664,13 @@ WHERE g.id=?
 	); err != nil {
 		t.Fatal(err)
 	}
-	testassert.Falsef(t, testassert.Any(func() bool { return status != "DELETED" }, func() bool { return payloadState != "RELEASED" }, func() bool { return !deletedAt.Valid }, func() bool { return version != 3 }, func() bool { return saveCount != 0 }, func() bool { return gameCount != 1 }, func() bool { return contentFileCount != 0 }, func() bool { return variantCount != 1 }, func() bool { return variantFileCount != 0 }, func() bool { return auditCount != 1 }, func() bool { return launchState != "REVOKED" }), "deleted aggregate = %s/%s/%v v%d saves:%d games:%d content:%d variants:%d/%d audits:%d launch:%s", status, payloadState, deletedAt, version, saveCount, gameCount, contentFileCount, variantCount, variantFileCount, auditCount, launchState)
+	testassert.Falsef(t, testassert.Any(func() bool { return status != "DELETED" },
+		func() bool { return payloadState != "RELEASED" }, func() bool { return !deletedAt.Valid },
+		func() bool { return version != 3 }, func() bool { return saveCount != 0 },
+		func() bool { return gameCount != 1 }, func() bool { return contentFileCount != 0 },
+		func() bool { return variantCount != 1 }, func() bool { return variantFileCount != 0 },
+		func() bool { return auditCount != 1 }, func() bool { return launchState != "REVOKED" }),
+		"deleted aggregate = %s/%s/%v v%d saves:%d games:%d content:%d variants:%d/%d audits:%d launch:%s", status, payloadState, deletedAt, version, saveCount, gameCount, contentFileCount, variantCount, variantFileCount, auditCount, launchState)
 	afterDeleteRequest := httptest.NewRequestWithContext(ctx, http.MethodGet, gameURL, nil)
 	afterDeleteRequest.Header.Set("Cache-Control", "no-cache")
 	afterDeleteRequest.AddCookie(runtimeGrant)
@@ -626,10 +680,14 @@ WHERE g.id=?
 		!strings.Contains(afterDelete.Body.String(), `"code":"LAUNCH_CREDENTIAL_INVALID"`),
 		"runtime content after hard delete = %d %s", afterDelete.Code, afterDelete.Body.String())
 	publicList := httptest.NewRecorder()
-	handler.ServeHTTP(publicList, httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/games?limit=100", nil))
-	testassert.Falsef(t, testassert.Any(func() bool { return publicList.Code != http.StatusOK }, func() bool { return strings.Contains(publicList.Body.String(), gameID) }), "deleted game remained public = %d %s", publicList.Code, publicList.Body.String())
+	handler.ServeHTTP(publicList, httptest.NewRequestWithContext(context.Background(),
+		http.MethodGet, "/api/v1/games?limit=100", nil))
+	testassert.Falsef(t, testassert.Any(func() bool { return publicList.Code != http.StatusOK },
+		func() bool { return strings.Contains(publicList.Body.String(), gameID) }),
+		"deleted game remained public = %d %s", publicList.Code, publicList.Body.String())
 	admin := httptest.NewRecorder()
-	handler.ServeHTTP(admin, httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/admin/games/"+gameID, nil))
+	handler.ServeHTTP(admin, httptest.NewRequestWithContext(context.Background(), http.MethodGet,
+		"/api/v1/admin/games/"+gameID, nil))
 	testassert.Falsef(t, testassert.Any(func() bool { return admin.Code != http.StatusOK }, func() bool { return !strings.Contains(admin.Body.String(), `"status":"DELETED"`) }), "deleted admin history = %d %s", admin.Code, admin.Body.String())
 	favoritesHistory := httptest.NewRecorder()
 	favoritesRequest := httptest.NewRequestWithContext(ctx, http.MethodGet, "/api/v1/favorites", nil)
@@ -651,49 +709,46 @@ WHERE g.id=?
 		func() bool { return !strings.Contains(recentHistory.Body.String(), `"availability":"DELETED"`) },
 		func() bool { return !strings.Contains(recentHistory.Body.String(), `"coverUrl":null`) },
 	), "deleted recent tombstone = %d %s", recentHistory.Code, recentHistory.Body.String())
-	var protectedBlob, prematureCandidate int64
-	if err := server.database.QueryRowContext(ctx, `SELECT
-(SELECT count(*) FROM blobs WHERE id=?),
-(SELECT count(*) FROM blob_gc_candidates WHERE blob_id=?)`, blobID, blobID).
-		Scan(&protectedBlob, &prematureCandidate); err != nil || protectedBlob != 1 || prematureCandidate != 0 {
-		t.Fatalf("shared blob after first delete = blob:%d candidate:%d error:%v", protectedBlob, prematureCandidate, err)
+	var otherID string
+	if err := dbapi.QueryRowContext(ctx, server.database, `SELECT file_record FROM game_files WHERE game_id=?`, otherGameID).Scan(&otherID); err != nil {
+		t.Fatal(err)
 	}
-	sharedImpact, err := payloadrelease.GameDeleteImpact(ctx, server.database, sharedGameID)
+	if otherID == fileRecord {
+		t.Fatal("games share a physical file")
+	}
+	assertOwnedGameFile(t, server, otherGameID, otherID)
+	assertRetiredGameFile(t, server, fileRecord)
+	otherImpact, err := server.gameImpact.Game(ctx, otherGameID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	sharedDeleted := sendDelete(sharedGameID, `"v1"`, "Move fixture194", sharedImpact.ImpactDigest, uuid.NewString())
-	if sharedDeleted.Code != http.StatusAccepted {
-		t.Fatalf("delete last shared game = %d %s", sharedDeleted.Code, sharedDeleted.Body.String())
+	otherDeleted := sendDelete(otherGameID, `"v1"`, "Move fixture194", otherImpact.ImpactDigest, uuid.NewString())
+	if otherDeleted.Code != http.StatusAccepted {
+		t.Fatalf("delete last shared game = %d %s", otherDeleted.Code, otherDeleted.Body.String())
 	}
-	waitForPayloadState(t, server.database, sharedGameID, "RELEASED")
-	var candidateCount int64
-	if err := server.database.QueryRowContext(ctx,
-		`SELECT count(*) FROM blob_gc_candidates WHERE blob_id=?`, blobID,
-	).Scan(&candidateCount); err != nil || candidateCount != 1 {
-		t.Fatalf("last shared release candidate = %d, error=%v", candidateCount, err)
-	}
+	waitForPayloadState(t, server.database, otherGameID, "RELEASED")
+	assertRetiredGameFile(t, server, otherID)
 }
 
-func waitForPayloadState(t *testing.T, database *sql.DB, gameID, expected string) {
+func waitForPayloadState(t *testing.T, database dbapi.DB, gameID, expected string) {
 	t.Helper()
 	deadline := time.Now().Add(3 * time.Second)
 	for {
 		var state string
-		if err := database.QueryRowContext(context.Background(), `SELECT payload_state FROM games WHERE id=?`, gameID).Scan(&state); err != nil {
+		if err := dbapi.QueryRowContext(context.Background(), database, `SELECT payload_state FROM games WHERE id=?`, gameID).Scan(&state); err != nil {
 			t.Fatal(err)
 		}
 		if state == expected {
 			return
 		}
 		if time.Now().After(deadline) {
-			var jobState, jobError, payloadError sql.NullString
-			_ = database.QueryRowContext(context.Background(), `
-SELECT job.state,job.error_code,game.payload_last_error_code
+			var jobState, jobError sql.NullString
+			_ = dbapi.QueryRowContext(context.Background(), database, `
+SELECT job.state,job.error_code
 FROM games game LEFT JOIN jobs job ON job.id=game.payload_release_job_id
-WHERE game.id=?`, gameID).Scan(&jobState, &jobError, &payloadError)
-			t.Fatalf("game %s payload state = %s, job=%s/%s, payloadError=%s",
-				gameID, state, jobState.String, jobError.String, payloadError.String)
+WHERE game.id=?`, gameID).Scan(&jobState, &jobError)
+			t.Fatalf("game %s payload state = %s, job=%s/%s",
+				gameID, state, jobState.String, jobError.String)
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
@@ -702,10 +757,13 @@ WHERE game.id=?`, gameID).Scan(&jobState, &jobError, &payloadError)
 func newReadyHTTPServer(t *testing.T) *Server {
 	t.Helper()
 	server := newTestServer(t)
-	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database)).Bootstrap(context.Background(), time.Now()); err != nil {
+	if err := dependencyservice.New(server.dependencies,
+		dependencypersistence.New(server.database)).Bootstrap(context.Background(), time.Now()); err != nil {
 		t.Fatal(err)
 	}
-	if err := dependencyservice.New(server.dependencies, dependencypersistence.New(server.database)).BootstrapCatalogs(context.Background(), time.Now()); err != nil {
+	if err := dependencyservice.New(server.dependencies,
+		dependencypersistence.New(server.database)).BootstrapCatalogs(context.Background(),
+		time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	return server
@@ -725,7 +783,7 @@ func seedMovableGame(t *testing.T, server *Server) (string, string) {
 	contents := []byte("move-game")
 	metadata, err := server.blobs.Put(bytes.NewReader(contents))
 	testassert.False(t, err != nil, err)
-	blobID, err := blobcatalog.EnsureRecord(ctx, server.database, metadata, "application/octet-stream", time.Now().UnixMilli())
+	fileRecord, err := filestore.FileRecord(metadata, "application/octet-stream")
 	testassert.False(t, err != nil, err)
 	gameID := "01980000-0000-7000-8000-000000000176"
 	variantID := "01980000-0000-7000-8000-000000000179"
@@ -733,35 +791,38 @@ func seedMovableGame(t *testing.T, server *Server) (string, string) {
 	now := time.Now().UnixMilli()
 	transaction, err := server.database.BeginTx(ctx, nil)
 	testassert.False(t, err != nil, err)
-	defer dbexec.Rollback(transaction)
+	defer dbapi.Rollback(transaction)
 	statements := []struct {
-		query string
-		args  []any
+		query      string
+		args       []any
+		references string
 	}{
-		{`PRAGMA defer_foreign_keys=ON`, nil},
+		{`PRAGMA defer_foreign_keys=ON`, nil, ""},
 		{`
 INSERT INTO games(
  id,platform_instance_id,title,title_initial,description,developer,publisher,genre,players,release_year,
- metadata_source_kind,content_kind,content_source_kind,content_source_ref_id,source_manifest_json,source_manifest_digest,
+ metadata_source_kind,content_kind,content_source_kind,content_source_ref_id,source_manifest_json,
+source_manifest_digest,
  status,search_text,version,created_at_ms,updated_at_ms
 ) VALUES(?,(SELECT id FROM platform_instances WHERE catalog_template_key='gbc/gambatte'),
  'Move fixture','M','','','','',NULL,NULL,'ADMIN_EDIT','SINGLE_FILE','ADMIN_REPLACE','fixture','{}',?,
  'PUBLISHED','move fixture',1,?,?)
-`, []any{gameID, strings.Repeat("1", 64), now, now}},
+`, []any{gameID, strings.Repeat("1", 64), now, now}, ""},
 		{`
-INSERT INTO game_files(game_id, role, logical_name, blob_id, sort_order)
+INSERT INTO game_files(game_id, role, logical_name, file_record, sort_order)
 VALUES(?, 'CONTENT', 'move.gbc', ?, 0)
-`, []any{gameID, blobID}},
+`, []any{gameID, fileRecord}, "game_files"},
 		{`
 INSERT INTO game_variants(id,game_id,core_id,provider_id,target_id,dat_version_id,emulator_game_id,
  status,compatibility_code,dependency_snapshot_json,version,created_at_ms,updated_at_ms)
 VALUES(?,?,'gambatte',?,?,NULL,7001,'READY','READY',?,1,?,?)
 `, []any{
 			variantID, gameID, target.ProviderID, target.TargetID, dependencySnapshot, now, now,
-		}},
+		}, ""},
 	}
 	for _, statement := range statements {
-		if _, err := transaction.ExecContext(ctx, statement.query, statement.args...); err != nil {
+		if _, err := testsupport.ExecuteSeed(ctx, transaction, statement.references, statement.query,
+			statement.args...); err != nil {
 			t.Fatalf("seed movable game: %v", err)
 		}
 	}
@@ -779,34 +840,48 @@ func cloneMovableGame(
 	t.Helper()
 	id := func(suffix string) string { return "01980000-0000-7000-8000-000000000" + suffix }
 	ctx := context.Background()
+	var sourceID string
+	if err := dbapi.QueryRowContext(ctx, server.database, `SELECT file_record FROM game_files WHERE game_id=?`, sourceGameID).Scan(&sourceID); err != nil {
+		t.Fatal(err)
+	}
+	copied, err := server.blobs.Copy(ctx, sourceID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	copiedID, err := filestore.FileRecord(copied, "application/octet-stream")
+	if err != nil {
+		t.Fatal(err)
+	}
 	transaction, err := server.database.BeginTx(ctx, nil)
 	testassert.False(t, err != nil, err)
-	defer dbexec.Rollback(transaction)
+	defer dbapi.Rollback(transaction)
 	if _, err := transaction.ExecContext(ctx, `PRAGMA defer_foreign_keys=ON`); err != nil {
 		t.Fatal(err)
 	}
 	statements := []struct {
-		query string
-		args  []any
+		query      string
+		args       []any
+		references string
 	}{
 		{`
 INSERT INTO games(
  id,platform_instance_id,title,title_initial,description,developer,publisher,genre,players,release_year,
  metadata_source_kind,metadata_source_ref_id,content_kind,content_source_kind,content_source_ref_id,
  source_manifest_json,source_manifest_digest,status,search_text,version,created_at_ms,updated_at_ms)
-SELECT ?,platform_instance_id,title || ?,title_initial,description,developer,publisher,genre,players,release_year,
+SELECT ?,platform_instance_id,title || ?,title_initial,description,developer,publisher,genre,players,
+release_year,
  metadata_source_kind,metadata_source_ref_id,content_kind,content_source_kind,content_source_ref_id || ?,
  source_manifest_json,source_manifest_digest,status,search_text || ?,1,created_at_ms,updated_at_ms
 FROM games
 WHERE id=?
-`, []any{id(gameSuffix), gameSuffix, gameSuffix, gameSuffix, sourceGameID}},
+`, []any{id(gameSuffix), gameSuffix, gameSuffix, gameSuffix, sourceGameID}, ""},
 		{`
-INSERT INTO game_files(game_id, role, logical_name, blob_id, sort_order,
-source_archive_blob_id, source_archive_entry_ordinal)
-SELECT ?, role, logical_name, blob_id, sort_order, source_archive_blob_id, source_archive_entry_ordinal
+INSERT INTO game_files(game_id, role, logical_name, file_record, sort_order,
+source_archive_file_record, source_archive_entry_ordinal)
+SELECT ?, role, logical_name, ?, sort_order, source_archive_file_record, source_archive_entry_ordinal
 FROM game_files
 WHERE game_id=?
-`, []any{id(gameSuffix), sourceGameID}},
+`, []any{id(gameSuffix), copiedID, sourceGameID}, "game_files"},
 		{`
 INSERT INTO game_variants(
  id,game_id,core_id,provider_id,target_id,dat_version_id,emulator_game_id,status,
@@ -815,10 +890,11 @@ SELECT ?,?,core_id,provider_id,target_id,dat_version_id,emulator_game_id + ?,sta
  compatibility_code,dependency_snapshot_json,default_dos_entry,1,created_at_ms,updated_at_ms
 FROM game_variants
 WHERE game_id=? AND core_id='gambatte'
-`, []any{id(variantSuffix), id(gameSuffix), mustSuffixInt(t, gameSuffix), sourceGameID}},
+`, []any{id(variantSuffix), id(gameSuffix), mustSuffixInt(t, gameSuffix), sourceGameID}, ""},
 	}
 	for _, statement := range statements {
-		if _, err := transaction.ExecContext(ctx, statement.query, statement.args...); err != nil {
+		if _, err := testsupport.ExecuteSeed(ctx, transaction, statement.references, statement.query,
+			statement.args...); err != nil {
 			t.Fatalf("clone movable game: %v", err)
 		}
 	}
@@ -827,53 +903,62 @@ WHERE game_id=? AND core_id='gambatte'
 	}
 }
 
-func seedProductSave(t *testing.T, database *sql.DB, saveID, launchID, name string) {
+func seedProductSave(t *testing.T, server *Server, saveID, launchID, name string) {
 	t.Helper()
+	database := server.database
 	var profileID, gameID string
-	var checkpointFormat, payloadBlobID, payloadSHA256 string
+	var checkpointFormat, payloadFileRecord, payloadSHA256 string
 	var dosEntryPath sql.NullString
 	var payloadSize int64
-	if err := database.QueryRowContext(context.Background(), `
+	if err := dbapi.QueryRowContext(context.Background(), database, `
 SELECT launch.profile_id,launch.game_id,
  json_extract(target.checkpoint_json,'$.writeFormat'),
- content.blob_id,blob.sha256,blob.size_bytes,
+ content.file_record,json_extract(blob.value, '$.sha256'),json_extract(blob.value, '$.size_bytes'),
  launch.dos_entry_path
 FROM launch_sessions launch
 JOIN runtime_targets target ON target.provider_id=launch.provider_id AND target.target_id=launch.target_id
 JOIN game_files content
   ON content.game_id=launch.game_id AND content.role='CONTENT'
-JOIN blobs blob ON blob.id=content.blob_id
+JOIN json_each(json_array(content.file_record)) blob ON blob.value IS NOT NULL
 WHERE launch.id=?
 ORDER BY content.sort_order,content.logical_name
 LIMIT 1
 `, launchID).Scan(
 		&profileID, &gameID, &checkpointFormat,
-		&payloadBlobID, &payloadSHA256, &payloadSize, &dosEntryPath,
+		&payloadFileRecord, &payloadSHA256, &payloadSize, &dosEntryPath,
 	); err != nil {
 		t.Fatal(err)
 	}
+	copied, err := server.blobs.Copy(t.Context(), payloadFileRecord)
+	if err != nil {
+		t.Fatal(err)
+	}
+	payloadFileRecord, err = filestore.FileRecord(copied, "application/octet-stream")
+	if err != nil {
+		t.Fatal(err)
+	}
 	now := time.Now().UnixMilli()
-	if _, err := database.ExecContext(context.Background(), `
+	if _, err := recordstore.InsertRows(context.Background(), database, "save_states", `
 INSERT INTO save_states(
  id,profile_id,game_id,checkpoint_format,dos_entry_path,
- payload_blob_id,payload_sha256,payload_size_bytes,
- screenshot_blob_id,name,active_duration_ms,version,created_at_ms,updated_at_ms,
+ payload_file_record,payload_sha256,payload_size_bytes,
+ screenshot_file_record,name,active_duration_ms,version,created_at_ms,updated_at_ms,
  source_launch_session_id,disc_index)
 VALUES(?,?,?,?,?,?,?,?,NULL,?,0,1,?,?,?,NULL)
-`, saveID, profileID, gameID, checkpointFormat, dosEntryPath,
-		payloadBlobID, payloadSHA256, payloadSize, name, now, now, launchID); err != nil {
+`, saveID, profileID, gameID, checkpointFormat, dosEntryPath, payloadFileRecord, payloadSHA256, payloadSize, name, now, now, launchID); err != nil {
 		t.Fatal(err)
 	}
 }
 
 func validationFixture(
 	t *testing.T,
-	database *sql.DB,
+	database dbapi.DB,
 	target testsupport.RuntimeTargetIdentity,
 	contentID, logicalName string,
 ) (string, string) {
 	t.Helper()
-	snapshot, _, _, err := validationservice.New(validationpersistence.New(database)).ResolveBIOS(context.Background(), target.ProviderID, target.TargetID, logicalName)
+	snapshot, _, _,
+		err := validationservice.New(validationpersistence.New(database)).ResolveBIOS(context.Background(), target.ProviderID, target.TargetID, logicalName)
 	testassert.False(t, err != nil, err)
 	digest, err := corevalidation.ProviderValidationInputDigest(
 		target.ProviderID, target.TargetID, contentID, nil, snapshot,
@@ -893,24 +978,26 @@ func mustSuffixInt(t *testing.T, value string) int64 {
 	return result
 }
 
-func waitForHTTPJob(t *testing.T, database interface {
-	QueryRowContext(context.Context, string, ...any) *sql.Row
-}, jobID, expected string,
+func waitForHTTPJob(t *testing.T, database dbapi.Queryer, jobID, expected string,
 ) {
 	t.Helper()
 	deadline := time.Now().Add(5 * time.Second)
 	for {
 		var state string
 		var errorCode sql.NullString
-		if err := database.QueryRowContext(
-			context.Background(), "SELECT state,error_code FROM jobs WHERE id=?", jobID,
+		if err := dbapi.QueryRowContext(
+			context.Background(), database,
+			"SELECT state,error_code FROM jobs WHERE id=?", jobID,
 		).Scan(&state, &errorCode); err != nil {
 			t.Fatal(err)
 		}
 		if state == expected {
 			return
 		}
-		testassert.Falsef(t, testassert.Any(func() bool { return state == "FAILED" }, func() bool { return state == "CANCELLED" }, func() bool { return time.Now().After(deadline) }), "job %s state = %s error_code=%q, wanted %s", jobID, state, errorCode.String, expected)
+		testassert.Falsef(t, testassert.Any(func() bool { return state == "FAILED" },
+			func() bool { return state == "CANCELLED" },
+			func() bool { return time.Now().After(deadline) }),
+			"job %s state = %s error_code=%q, wanted %s", jobID, state, errorCode.String, expected)
 		time.Sleep(10 * time.Millisecond)
 	}
 }

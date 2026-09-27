@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
-	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
+	"retrom/internal/filestore"
 	firmwareservice "retrom/internal/service/firmware"
 )
 
@@ -24,7 +24,7 @@ type Root struct {
 type (
 	SourceRoot struct{ ID, Label, Path, Digest string }
 	BlobStore  interface {
-		Put(io.Reader) (blobstore.Metadata, error)
+		Put(io.Reader) (filestore.Metadata, error)
 		Path(string) string
 	}
 )
@@ -50,22 +50,25 @@ type Options struct {
 	Now      func() time.Time
 }
 type Service struct {
-	blobs       BlobStore
-	firmware    FirmwareInstaller
-	roots       map[string]Root
-	now         func() time.Time
-	queries     *Queries
-	creation    *Creation
-	control     *Control
-	recovery    *Recovery
-	discovery   *Discovery
-	leases      *Leases
-	outcomes    *Outcomes
-	wake        chan struct{}
-	stop        chan struct{}
-	stopOnce    sync.Once
-	archiveScan chan struct{}
-	scanLimits  scanLimits
+	blobs           BlobStore
+	firmware        FirmwareInstaller
+	roots           map[string]Root
+	now             func() time.Time
+	queries         *Queries
+	creation        *Creation
+	control         *Control
+	recovery        *Recovery
+	discovery       *Discovery
+	leases          *Leases
+	outcomes        *Outcomes
+	wake            chan struct{}
+	stop            chan struct{}
+	lifecycleMu     sync.Mutex
+	cancel          context.CancelFunc
+	started, closed bool
+	wait            sync.WaitGroup
+	archiveScan     chan struct{}
+	scanLimits      scanLimits
 }
 
 func New(repositories Repositories, options Options) *Service {
@@ -94,7 +97,10 @@ func New(repositories Repositories, options Options) *Service {
 			repositories.Recovery,
 			options.Blobs,
 		),
-		discovery: NewDiscovery(repositories.Discovery, options.Now), leases: NewLeases(repositories.Leases, options.Now),
+		discovery: NewDiscovery(
+			repositories.Discovery,
+			options.Now,
+		), leases: NewLeases(repositories.Leases, options.Now),
 		outcomes: NewOutcomes(
 			repositories.Outcomes,
 			options.Now,
@@ -109,8 +115,7 @@ func New(repositories Repositories, options Options) *Service {
 		), scanLimits: defaultScanLimits(),
 	}
 }
-func (service *Service) Start() { go service.runLoop(); service.signal() }
-func (service *Service) Close() { service.stopOnce.Do(func() { close(service.stop) }) }
+
 func (service *Service) Roots() []Root {
 	result := make([]Root, 0, len(service.roots))
 	for _, root := range service.roots {

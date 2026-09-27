@@ -6,34 +6,25 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/recordstore"
+	application "retrom/internal/service/libraryimport"
 )
 
-var ErrReviewBulkNotRunnable = errors.New("review bulk worker no longer owns task")
+type ReviewBulkWorker struct{ executor dbapi.Executor }
 
-type ReviewBulkScanItem struct {
-	ID                string
-	ReviewVersion     int64
-	ReviewUpdatedAtMS int64
-	ItemUpdatedAtMS   int64
-	CreatedAtMS       int64
-}
-
-type ReviewBulkWorker struct{ executor dbexec.Executor }
-
-func BindReviewBulkWorker(executor dbexec.Executor) *ReviewBulkWorker {
+func BindReviewBulkWorker(executor dbapi.Executor) *ReviewBulkWorker {
 	return &ReviewBulkWorker{executor: executor}
 }
 
 func (worker *ReviewBulkWorker) Claim(ctx context.Context, bulkID, workerID string, now int64) (string, string, error) {
 	var jobID, userID string
-	err := worker.executor.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, worker.executor, `
 SELECT bulk.job_id,bulk.created_by_user_id FROM review_bulk_approvals bulk
 JOIN jobs job ON job.id=bulk.job_id
 WHERE bulk.id=? AND bulk.state='QUEUED' AND job.state='QUEUED'`, bulkID).Scan(&jobID, &userID)
 	if errors.Is(err, sql.ErrNoRows) {
-		return "", "", ErrReviewBulkNotRunnable
+		return "", "", application.ErrReviewBulkNotRunnable
 	}
 	if err != nil {
 		return "", "", fmt.Errorf("read bulk claim: %w", err)
@@ -57,25 +48,28 @@ version=version+1,updated_at_ms=? WHERE id=? AND state='QUEUED'
 	return jobID, userID, nil
 }
 
-func (worker *ReviewBulkWorker) Next(ctx context.Context, bulkID, workerID string) (ReviewBulkScanItem, bool, error) {
-	var item ReviewBulkScanItem
-	err := worker.executor.QueryRowContext(ctx, `
+func (worker *ReviewBulkWorker) Next(ctx context.Context, bulkID,
+	workerID string,
+) (application.ReviewBulkScanItem, bool, error) {
+	var item application.ReviewBulkScanItem
+	err := dbapi.QueryRowContext(ctx, worker.executor, `
 SELECT item.id,item.review_version,item.review_updated_at_ms,item.updated_at_ms,bulk.created_at_ms
 FROM review_bulk_approvals bulk
 JOIN jobs job ON job.id=bulk.job_id
 JOIN import_items item ON item.id<=bulk.max_item_id
 WHERE bulk.id=? AND bulk.state='RUNNING' AND job.state='RUNNING' AND job.worker_id=?
-AND item.state='REVIEW_PENDING' AND item.review_version>0
+AND (item.state='REVIEW_PENDING' OR (item.state IN ('PUBLISHING','PUBLISHED') AND
+item.publication_bulk_id=bulk.id)) AND item.review_version>0
 AND item.created_at_ms<=bulk.created_at_ms
 AND (bulk.cursor_item_id IS NULL OR item.id>bulk.cursor_item_id)
 ORDER BY item.id LIMIT 1`, bulkID, workerID).Scan(
 		&item.ID, &item.ReviewVersion, &item.ReviewUpdatedAtMS, &item.ItemUpdatedAtMS, &item.CreatedAtMS,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
-		return ReviewBulkScanItem{}, false, nil
+		return application.ReviewBulkScanItem{}, false, nil
 	}
 	if err != nil {
-		return ReviewBulkScanItem{}, false, fmt.Errorf("read next review bulk item: %w", err)
+		return application.ReviewBulkScanItem{}, false, fmt.Errorf("read next review bulk item: %w", err)
 	}
 	return item, true, nil
 }
@@ -84,7 +78,7 @@ func (worker *ReviewBulkWorker) Skip(
 	ctx context.Context, bulkID, jobID, workerID, itemID, outcome string, now int64,
 ) error {
 	if outcome != "CHANGED" && outcome != "DUPLICATE" && outcome != "NOT_READY" {
-		return ErrReviewBulkNotRunnable
+		return application.ErrReviewBulkNotRunnable
 	}
 	result, err := recordstore.UpdateReviewBulkApprovals(ctx, worker.executor, recordstore.Update{
 		Set: `cursor_item_id=?,scanned_count=scanned_count+1,
@@ -198,7 +192,7 @@ func bulkMutation(result sql.Result, err error, action string) error {
 		return fmt.Errorf("%s rows: %w", action, err)
 	}
 	if changed != 1 {
-		return ErrReviewBulkNotRunnable
+		return application.ErrReviewBulkNotRunnable
 	}
 	return nil
 }

@@ -2,27 +2,26 @@ package launch
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/launch"
 )
 
-type Config struct{ database *sql.DB }
+type Config struct{ database dbapi.DB }
 
-func NewConfig(database *sql.DB) *Config { return &Config{database: database} }
+func NewConfig(database dbapi.DB) *Config { return &Config{database: database} }
 
 func (repository *Config) Load(
 	ctx context.Context,
 	ref application.SessionRef,
 	authorize application.ConfigAuthorization,
 ) (application.ConfigSnapshot, bool, error) {
-	tx, err := repository.database.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+	tx, err := repository.database.BeginTx(ctx, &dbapi.TxOptions{ReadOnly: true})
 	if err != nil {
 		return application.ConfigSnapshot{}, false, fmt.Errorf("begin config snapshot: %w", err)
 	}
-	defer dbexec.Rollback(tx)
+	defer dbapi.Rollback(tx)
 	source, found, err := configSource(ctx, tx, ref)
 	if err != nil || !found {
 		return application.ConfigSnapshot{}, false, err
@@ -50,7 +49,7 @@ func (repository *Config) WithActivation(ctx context.Context, work func(applicat
 	if err != nil {
 		return fmt.Errorf("begin config activation: %w", err)
 	}
-	defer dbexec.Rollback(tx)
+	defer dbapi.Rollback(tx)
 	if err := work(configRecords{executor: tx}); err != nil {
 		return err
 	}
@@ -60,7 +59,7 @@ func (repository *Config) WithActivation(ctx context.Context, work func(applicat
 	return nil
 }
 
-type configRecords struct{ executor dbexec.Executor }
+type configRecords struct{ executor dbapi.Executor }
 
 func (records configRecords) Current(
 	ctx context.Context,
@@ -76,7 +75,7 @@ func (records configRecords) Current(
 
 func configAuthority(
 	ctx context.Context,
-	executor dbexec.Executor,
+	executor dbapi.Executor,
 	ref application.SessionRef,
 	source application.ConfigSource,
 ) (application.ConfigAuthority, error) {
@@ -99,11 +98,11 @@ func (repository *Config) Project(
 	id string,
 	authorize application.ConfigAuthorization,
 ) (application.ConfigSnapshot, bool, error) {
-	tx, err := repository.database.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+	tx, err := repository.database.BeginTx(ctx, &dbapi.TxOptions{ReadOnly: true})
 	if err != nil {
 		return application.ConfigSnapshot{}, false, fmt.Errorf("begin project identity: %w", err)
 	}
-	defer dbexec.Rollback(tx)
+	defer dbapi.Rollback(tx)
 	ref := application.SessionRef{ID: id}
 	source, found, err := configSource(ctx, tx, ref)
 	if err != nil {

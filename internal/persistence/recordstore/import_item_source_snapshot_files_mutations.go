@@ -4,11 +4,11 @@ import (
 	"context"
 	"database/sql"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 )
 
 func UpdateImportItemSourceSnapshotFiles(
-	ctx context.Context, db dbexec.Executor, change Update,
+	ctx context.Context, db dbapi.Executor, change Update,
 ) (sql.Result, error) {
 	return updateRecords(
 		ctx,
@@ -31,7 +31,7 @@ WHERE candidate.source_snapshot_id=previous.source_snapshot_id AND candidate.rol
 candidate.logical_name=previous.logical_name`
 
 func DeleteImportItemSourceSnapshotFiles(
-	ctx context.Context, db dbexec.Executor, scope Scope,
+	ctx context.Context, db dbapi.Executor, scope Scope,
 ) (sql.Result, error) {
 	return deleteRecords(
 		ctx,
@@ -50,7 +50,7 @@ SELECT CASE
 WHEN (NOT EXISTS(
   SELECT 1 FROM import_item_source_snapshots snapshot JOIN import_items item ON
 item.id=snapshot.import_item_id
-  WHERE snapshot.id=previous.source_snapshot_id AND item.payload_state IN ('RELEASING','FAILED')
+  WHERE snapshot.id=previous.source_snapshot_id AND item.payload_state ='RELEASING'
 )) THEN 'immutable'
 ELSE '' END
 FROM previous`

@@ -7,13 +7,15 @@ import (
 	"fmt"
 	"strconv"
 
+	dbapi "retrom/internal/database"
+
 	"retrom/internal/service/favorites"
 	"retrom/internal/service/tagging"
 )
 
-func querySummary(ctx context.Context, transaction *sql.Tx, profileID string) (favorites.Summary, error) {
+func querySummary(ctx context.Context, transaction dbapi.Tx, profileID string) (favorites.Summary, error) {
 	var result favorites.Summary
-	err := transaction.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, transaction, `
 SELECT
   count(*),
   count(CASE WHEN NOT EXISTS(
@@ -37,7 +39,7 @@ AND (game.status='DELETED' OR instance.enabled=1)
 	return result, nil
 }
 
-func queryFolders(ctx context.Context, transaction *sql.Tx, profileID string) ([]favorites.Folder, error) {
+func queryFolders(ctx context.Context, transaction dbapi.Tx, profileID string) ([]favorites.Folder, error) {
 	rows, err := transaction.QueryContext(ctx, `
 SELECT folder.id,folder.name,folder.version,folder.created_at_ms,folder.updated_at_ms,
        count(CASE WHEN game.status='DELETED' OR game.status='PUBLISHED' AND instance.enabled=1 THEN 1 END)
@@ -73,7 +75,7 @@ ORDER BY folder.created_at_ms,folder.id
 
 func queryPlatforms(
 	ctx context.Context,
-	transaction *sql.Tx,
+	transaction dbapi.Tx,
 	profileID, scope, folderID string,
 ) ([]favorites.PlatformSummary, error) {
 	query := `
@@ -122,7 +124,7 @@ ORDER BY platform.name,platform.id`
 
 func queryTotal(
 	ctx context.Context,
-	transaction *sql.Tx,
+	transaction dbapi.Tx,
 	profileID string,
 	options favorites.ListOptions,
 ) (int64, error) {
@@ -155,8 +157,9 @@ AND (?='' OR instr(game.search_text,?)>0 OR EXISTS(
 ))
 AND (?='' OR platform.id=?)`
 	var count int64
-	if err := transaction.QueryRowContext(
-		ctx,
+	if err := dbapi.QueryRowContext(
+		ctx, transaction,
+
 		query,
 		profileID,
 		options.Scope,
@@ -367,7 +370,7 @@ func scanFavoriteGame(rows *sql.Rows) (favorites.GameItem, error) {
 
 func queryItems(
 	ctx context.Context,
-	transaction *sql.Tx,
+	transaction dbapi.Tx,
 	profileID string,
 	options favorites.ListOptions,
 ) ([]favorites.GameItem, error) {
@@ -411,7 +414,7 @@ func queryItems(
 
 func populateMemberships(
 	ctx context.Context,
-	transaction *sql.Tx,
+	transaction dbapi.Tx,
 	profileID string,
 	items []favorites.GameItem,
 ) error {
@@ -452,7 +455,7 @@ ORDER BY membership.game_id,folder.created_at_ms,folder.id`
 	return nil
 }
 
-func populateTags(ctx context.Context, transaction *sql.Tx, items []favorites.GameItem) error {
+func populateTags(ctx context.Context, transaction dbapi.Tx, items []favorites.GameItem) error {
 	if len(items) == 0 {
 		return nil
 	}
@@ -524,14 +527,14 @@ func (service *Repository) List(
 	profileID string,
 	options favorites.ListOptions,
 ) (favorites.ListResult, error) {
-	transaction, err := service.database.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+	transaction, err := service.database.BeginTx(ctx, &dbapi.TxOptions{ReadOnly: true})
 	if err != nil {
 		return favorites.ListResult{}, fmt.Errorf("favorites: begin read transaction: %w", err)
 	}
 	defer func() { _ = transaction.Rollback() }()
 	if options.Scope == favorites.ScopeFolder {
 		var found int
-		err := transaction.QueryRowContext(ctx, `
+		err := dbapi.QueryRowContext(ctx, transaction, `
 SELECT 1 FROM favorite_folders WHERE profile_id=? AND id=?
 `, profileID, options.FolderID).Scan(&found)
 		if errors.Is(err, sql.ErrNoRows) {

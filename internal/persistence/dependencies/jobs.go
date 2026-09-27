@@ -6,13 +6,14 @@ import (
 	"errors"
 	"fmt"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/dependencies"
 	service "retrom/internal/service/dependencies"
 )
 
 func (records jobRecords) Find(ctx context.Context, dedupe string) (service.Job, bool, error) {
 	var job service.Job
-	err := records.executor.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, records.executor, `
 SELECT id,
 state
 FROM jobs

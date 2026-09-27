@@ -5,26 +5,26 @@ import (
 	"database/sql"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	validation "retrom/internal/persistence/corevalidation"
 	"retrom/internal/service/gamecontent"
 )
 
 type Repository struct {
-	database *sql.DB
+	database dbapi.DB
 }
 type (
-	records struct{ executor dbexec.Executor }
+	records struct{ executor dbapi.Executor }
 	writes  struct {
-		transaction *sql.Tx
+		transaction dbapi.Tx
 	}
 )
 
-func New(database *sql.DB) *Repository {
+func New(database dbapi.DB) *Repository {
 	return &Repository{database: database}
 }
 
-func readScope(executor dbexec.Executor) gamecontent.ReadScope {
+func readScope(executor dbapi.Executor) gamecontent.ReadScope {
 	bound := records{executor}
 	return gamecontent.ReadScope{
 		Content: bound,
@@ -35,11 +35,11 @@ func readScope(executor dbexec.Executor) gamecontent.ReadScope {
 }
 
 func (repository *Repository) WithRead(ctx context.Context, work func(gamecontent.ReadScope) error) error {
-	tx, err := repository.database.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+	tx, err := repository.database.BeginTx(ctx, &dbapi.TxOptions{ReadOnly: true})
 	if err != nil {
 		return fmt.Errorf("begin content replacement read: %w", err)
 	}
-	defer dbexec.Rollback(tx)
+	defer dbapi.Rollback(tx)
 	if err := work(readScope(tx)); err != nil {
 		return err
 	}
@@ -54,7 +54,7 @@ func (repository *Repository) WithWrite(ctx context.Context, work func(gameconte
 	if err != nil {
 		return fmt.Errorf("begin content replacement write: %w", err)
 	}
-	defer dbexec.Rollback(tx)
+	defer dbapi.Rollback(tx)
 	bound := writes{tx}
 	if err := work(
 		gamecontent.WriteScope{

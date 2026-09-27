@@ -4,11 +4,11 @@ import (
 	"context"
 	"database/sql"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 )
 
 func UpdateMetadataProviderResponses(
-	ctx context.Context, db dbexec.Executor, change Update,
+	ctx context.Context, db dbapi.Executor, change Update,
 ) (sql.Result, error) {
 	return updateRecords(
 		ctx,
@@ -28,7 +28,7 @@ SELECT CASE
 -- provider_responses_immutable_update
 WHEN (NOT (
   previous.raw_payload_state='RETAINED' AND candidate.raw_payload_state='RELEASED'
-  AND candidate.raw_response_blob_id IS NULL AND candidate.raw_payload_released_at_ms IS NOT NULL
+  AND candidate.raw_response_file_record IS NULL AND candidate.raw_payload_released_at_ms IS NOT NULL
   AND candidate.id=previous.id AND candidate.provider=previous.provider AND
 candidate.request_digest=previous.request_digest
   AND candidate.http_status IS previous.http_status AND candidate.outcome=previous.outcome
@@ -39,7 +39,7 @@ FROM metadata_provider_responses candidate CROSS JOIN previous
 WHERE candidate.id=previous.id`
 
 func DeleteMetadataProviderResponses(
-	ctx context.Context, db dbexec.Executor, scope Scope,
+	ctx context.Context, db dbapi.Executor, scope Scope,
 ) (sql.Result, error) {
 	return deleteRecords(
 		ctx,

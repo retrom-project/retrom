@@ -4,22 +4,16 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"errors"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/recordstore"
 	application "retrom/internal/service/libraryimport"
 )
 
-var (
-	ErrReviewBulkEmpty    = errors.New("review bulk queue empty")
-	ErrReviewBulkTooLarge = errors.New("review bulk queue exceeds limit")
-)
+type ReviewBulkWrites struct{ executor dbapi.Executor }
 
-type ReviewBulkWrites struct{ executor dbexec.Executor }
-
-func BindReviewBulkWrites(executor dbexec.Executor) *ReviewBulkWrites {
+func BindReviewBulkWrites(executor dbapi.Executor) *ReviewBulkWrites {
 	return &ReviewBulkWrites{executor: executor}
 }
 
@@ -28,7 +22,7 @@ func (repository *ReviewBulkWrites) CreateGlobal(
 ) (application.ReviewBulkSummary, error) {
 	var count int
 	var maxID *string
-	err := repository.executor.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, repository.executor, `
 SELECT count(*),max(id) FROM (
  SELECT id FROM import_items WHERE state='REVIEW_PENDING' AND review_version>0
  ORDER BY id LIMIT 10001
@@ -37,10 +31,10 @@ SELECT count(*),max(id) FROM (
 		return application.ReviewBulkSummary{}, fmt.Errorf("bound review queue: %w", err)
 	}
 	if count == 0 || maxID == nil {
-		return application.ReviewBulkSummary{}, ErrReviewBulkEmpty
+		return application.ReviewBulkSummary{}, application.ErrReviewBulkEmpty
 	}
 	if count > 10000 {
-		return application.ReviewBulkSummary{}, ErrReviewBulkTooLarge
+		return application.ReviewBulkSummary{}, application.ErrReviewBulkTooLarge
 	}
 	dedupe := sha256.Sum256([]byte(bulkID))
 	if _, err = repository.executor.ExecContext(ctx, `

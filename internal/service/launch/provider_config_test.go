@@ -5,9 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"retrom/internal/contentprofile"
-
-	"retrom/internal/runtimebundle"
+	contentprofile "retrom/internal/content/profile"
+	runtimebundle "retrom/internal/runtime/bundle"
 )
 
 func TestUnsupportedTargetOptionsAreNotReportedAsInvalidCredentials(t *testing.T) {

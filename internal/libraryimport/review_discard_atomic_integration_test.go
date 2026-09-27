@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"retrom/internal/authn"
+	dbapi "retrom/internal/database"
 )
 
 type discardOwnerSnapshot struct {
@@ -19,7 +20,7 @@ type discardOwnerSnapshot struct {
 func captureDiscardOwner(t *testing.T, fixture deduplicateFixture, sourceID string) discardOwnerSnapshot {
 	t.Helper()
 	var result discardOwnerSnapshot
-	if err := fixture.database.QueryRowContext(t.Context(), `
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `
 SELECT i.execution_state,i.payload_state,i.version,i.updated_at_ms,i.payload_release_job_id,
 p.state,p.version,p.review_pending_item_count,p.review_discarded_item_count,p.published_item_count
 FROM source_import_items i JOIN source_imports p ON p.id=i.import_id WHERE i.id=?`, sourceID).
@@ -47,11 +48,10 @@ func testDiscardLateFailure(t *testing.T, stage string) {
 		t.Fatal(err)
 	}
 	itemID := created.Items[0].ItemID
-	fixture.execute(t, `UPDATE source_import_items SET execution_state='REVIEW_PENDING',completed_at_ms=? WHERE id=?`, ownedSourceNow().UnixMilli(), request.Intent.ItemID)
-	fixture.execute(t, `UPDATE source_imports SET review_pending_item_count=1 WHERE id=?`, request.Intent.ImportID)
+	finishOwnedReviewHandoff(t, fixture, request)
 	before := captureDeduplicatePage(t, fixture, created.Created.ImportJobID)
 	ownerBefore := captureDiscardOwner(t, fixture, request.Intent.ItemID)
-	fault := newReviewDiscardFault(t, fixture, itemID, stage)
+	fault := newReviewDiscardFault(t, &fixture, itemID, stage)
 	ctx := authn.WithPrincipal(t.Context(), authn.Principal{UserID: "owner-actor"})
 	result, err := fixture.service.Discard(ctx, itemID, 1, "Requested discard")
 	if !errors.Is(err, fault.cause) || result != (DecisionResult{}) || fault.itemWrites != 1 || fault.faults != 1 {
@@ -61,7 +61,7 @@ func testDiscardLateFailure(t *testing.T, stage string) {
 		t.Fatalf("late fault did not follow actual source write: %d", fault.sourceWrites)
 	}
 	assertDiscardRollback(t, fixture, created.Created.ImportJobID, itemID, request.Intent.ItemID, before, ownerBefore)
-	fixture.service.database = fixture.database
+	fixture.service = newTestImporter(t, fixture.database, fixture.service.blobs, testImportOptions{Now: fixture.service.now, MultiDiscEnabled: fixture.service.multiDiscImportEnabled})
 	result, err = fixture.service.Discard(ctx, itemID, 1, "Requested discard")
 	if err != nil || result.Status != "DISCARDED" || result.ItemID == "" {
 		t.Fatalf("retry=%+v err=%v", result, err)
@@ -76,7 +76,7 @@ func assertDiscardOwnerRetry(t *testing.T, fixture deduplicateFixture, itemID, s
 		t.Fatalf("discard owner was not finalized once: %+v", owner)
 	}
 	var state string
-	if err := fixture.database.QueryRowContext(t.Context(), "SELECT state FROM import_items WHERE id=?", itemID).Scan(&state); err != nil || state != "DISCARDED" {
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database, "SELECT state FROM import_items WHERE id=?", itemID).Scan(&state); err != nil || state != "DISCARDED" {
 		t.Fatalf("discard state=%s err=%v", state, err)
 	}
 }
@@ -85,7 +85,7 @@ func TestDiscardBatchKeepsPerItemTransactions(t *testing.T) {
 	t.Parallel()
 	fixture := newDeduplicateFixture(t)
 	created := fixture.create(t, "Batch discard", "Retrom owned batch discard fixture", 2)
-	fault := newDeduplicateDiscardFault(t, fixture, created)
+	fault := newDeduplicateDiscardFault(t, &fixture, created)
 	done, err := fixture.service.DiscardBatchReviews(t.Context(), created.Created.ImportJobID)
 	if !errors.Is(err, errDeduplicateDiscard) || done {
 		t.Fatalf("batch failure=%v done=%v", err, done)
@@ -93,14 +93,14 @@ func TestDiscardBatchKeepsPerItemTransactions(t *testing.T) {
 	fault.assertReached(t)
 	assertDeduplicateItemState(t, fixture, fault.firstID, "DISCARDED")
 	assertDeduplicateItemState(t, fixture, fault.lastID, "REVIEW_PENDING")
-	fixture.service.database = fixture.database
+	fixture.service = newTestImporter(t, fixture.database, fixture.service.blobs, testImportOptions{Now: fixture.service.now, MultiDiscEnabled: fixture.service.multiDiscImportEnabled})
 	done, err = fixture.service.DiscardBatchReviews(t.Context(), created.Created.ImportJobID)
 	if err != nil || !done {
 		t.Fatalf("batch retry=%v done=%v", err, done)
 	}
 	assertDeduplicateItemState(t, fixture, fault.lastID, "DISCARDED")
 	var count int
-	if err := fixture.database.QueryRowContext(t.Context(), `SELECT COUNT(*) FROM import_items WHERE state='DISCARDED'`).Scan(&count); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT COUNT(*) FROM import_items WHERE state='DISCARDED'`).Scan(&count); err != nil {
 		t.Fatal(err)
 	}
 	if count != 2 {
@@ -115,7 +115,7 @@ func assertDiscardRollback(t *testing.T, fixture deduplicateFixture, importID, i
 		t.Fatalf("owner changed on rollback: before=%+v after=%+v", ownerBefore, after)
 	}
 	var events int
-	if err := fixture.database.QueryRowContext(t.Context(), `SELECT COUNT(*) FROM import_items WHERE id=? AND state='DISCARDED'`, itemID).Scan(&events); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT COUNT(*) FROM import_items WHERE id=? AND state='DISCARDED'`, itemID).Scan(&events); err != nil {
 		t.Fatal(err)
 	}
 	if events != 0 {

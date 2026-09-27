@@ -6,14 +6,15 @@ import (
 	"errors"
 	"reflect"
 	"testing"
-	"time"
 
-	payloadcomposition "retrom/internal/composition/payloadrelease"
+	sourcecleanup "retrom/internal/service/sourceimport/payloadpolicy"
 
-	"retrom/internal/dbexec"
-	payloadpersistence "retrom/internal/persistence/payloadrelease"
+	payloadcomposition "retrom/internal/composition/cleanupjobs"
+
+	dbapi "retrom/internal/database"
+	payloadpersistence "retrom/internal/persistence/sourceimport/sourcerelease"
+	payloadservice "retrom/internal/service/cleanupjobs"
 	application "retrom/internal/service/libraryimport"
-	payloadservice "retrom/internal/service/payloadrelease"
 )
 
 func TestOwnedServerSourceCommitsUniquePrimaryAndPermanentBinding(t *testing.T) {
@@ -35,7 +36,8 @@ func TestOwnedServerSourceCommitsUniquePrimaryAndPermanentBinding(t *testing.T) 
 	}
 	changed := request
 	changed.TargetPlatformInstanceID = "other"
-	if result, err := fixture.service.CreateOwnedServerSource(fixture.ctx, changed); !errors.Is(err, ErrInvalid) || result.Created.ImportJobID != "" {
+	if result, err := fixture.service.CreateOwnedServerSource(fixture.ctx,
+		changed); !errors.Is(err, ErrInvalid) || result.Created.ImportJobID != "" {
 		t.Fatalf("changed target replay: %#v %v", result, err)
 	}
 }
@@ -44,7 +46,8 @@ func assertOwnedSourceBinding(t *testing.T, fixture deduplicateFixture, result S
 	t.Helper()
 	var state, jobID, itemID string
 	var version int64
-	if err := fixture.database.QueryRowContext(fixture.ctx, `SELECT execution_state,library_import_job_id,library_import_item_id,version FROM source_import_items WHERE id='unlinked-source'`).Scan(&state, &jobID, &itemID, &version); err != nil {
+	if err := dbapi.QueryRowContext(fixture.ctx, fixture.database, `SELECT execution_state,library_import_job_id,library_import_item_id,version FROM source_import_items
+WHERE id='018fbe68-0000-7000-8000-000000000021'`).Scan(&state, &jobID, &itemID, &version); err != nil {
 		t.Fatal(err)
 	}
 	if state != "VALIDATING" || jobID != result.Created.ImportJobID || itemID != result.Items[0].ItemID || version != 2 {
@@ -55,7 +58,9 @@ func assertOwnedSourceBinding(t *testing.T, fixture deduplicateFixture, result S
 func ownedImportCount(t *testing.T, fixture deduplicateFixture) int {
 	t.Helper()
 	var count int
-	if err := fixture.database.QueryRowContext(fixture.ctx, `SELECT count(*) FROM import_jobs imported JOIN server_import_upload_owners owner ON owner.upload_session_id=imported.upload_session_id WHERE owner.kind='SOURCE' AND owner.source_item_id='unlinked-source'`).Scan(&count); err != nil {
+	if err := dbapi.QueryRowContext(fixture.ctx, fixture.database, `SELECT count(*) FROM import_jobs imported JOIN server_import_upload_owners owner ON
+owner.upload_session_id=imported.upload_session_id WHERE owner.kind='SOURCE' AND
+owner.source_item_id='018fbe68-0000-7000-8000-000000000021'`).Scan(&count); err != nil {
 		t.Fatal(err)
 	}
 	return count
@@ -68,7 +73,8 @@ func TestOwnedServerSourceRejectsAdditionalIndependentReviewGroups(t *testing.T)
 	extra.RelativePath = "games/extra.gba"
 	request.Files = append(request.Files, extra)
 	result, err := fixture.service.CreateOwnedServerSource(fixture.ctx, request)
-	if !errors.Is(err, ErrInvalid) || !errors.Is(err, application.ErrSourceGrouping) || result.Created.ImportJobID != "" || ownedImportCount(t, fixture) != 0 {
+	if !errors.Is(err, ErrInvalid) || !errors.Is(err, application.ErrSourceGrouping) ||
+		result.Created.ImportJobID != "" || ownedImportCount(t, fixture) != 0 {
 		t.Fatalf("unowned review committed: %#v %v", result, err)
 	}
 }
@@ -104,21 +110,23 @@ func TestOwnedDuplicateReplaysByBindingAfterPayloadCleanup(t *testing.T) {
 	if err != nil || !found || len(replay.Items) != 1 {
 		t.Fatalf("released replay: %#v found=%v err=%v", replay, found, err)
 	}
-	if replay.Items[0].ItemID != result.Items[0].ItemID || replay.Items[0].State != "DISCARDED" || !reflect.DeepEqual(replay.Items[0].ExistingMatches, result.Items[0].ExistingMatches) {
+	if replay.Items[0].ItemID != result.Items[0].ItemID || replay.Items[0].State != "DISCARDED" ||
+		!reflect.DeepEqual(replay.Items[0].ExistingMatches, result.Items[0].ExistingMatches) {
 		t.Fatalf("released duplicate identity changed: %#v", replay)
 	}
 	if len(replay.Items[0].SourceRelativePaths) != 0 {
 		t.Fatalf("fixture did not release original paths: %#v", replay.Items[0].SourceRelativePaths)
 	}
 	repeated, err := fixture.service.CreateOwnedServerSource(fixture.ctx, request)
-	if err != nil || len(repeated.Items) != 1 || repeated.Items[0].ItemID != result.Items[0].ItemID || ownedImportCount(t, fixture) != 1 {
+	if err != nil || len(repeated.Items) != 1 ||
+		repeated.Items[0].ItemID != result.Items[0].ItemID || ownedImportCount(t, fixture) != 1 {
 		t.Fatalf("released create replay: %#v %v", repeated, err)
 	}
 }
 
 func releaseOwnedSourceFixture(t *testing.T, fixture deduplicateFixture) {
 	t.Helper()
-	releases, err := payloadcomposition.New(fixture.ctx, fixture.database, fixture.blobs, ownedSourceNow, 24*time.Hour)
+	releases, err := payloadcomposition.New(fixture.ctx, fixture.database, fixture.blobs, ownedSourceNow)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -135,16 +143,21 @@ func releaseOwnedSourceFixture(t *testing.T, fixture deduplicateFixture) {
 	t.Fatal("release fixture did not drain")
 }
 
-func TestOwnedSourceRejectsExistingUnboundLegacyCreation(t *testing.T) {
+func TestOwnedSourceRejectsExistingUnboundCreation(t *testing.T) {
 	t.Parallel()
 	fixture, request := ownedSourceFixture(t)
-	_, err := fixture.service.CreateServerSourceOnce(fixture.ctx, "IMPORT_RECEIVE:unlinked-source", fixture.platform, "STANDARD", request.Files, nil, "")
+	_, err := fixture.service.CreateServerSourceOnce(fixture.ctx,
+		"IMPORT_RECEIVE:"+request.Intent.ItemID, fixture.platform, "STANDARD", request.Files, nil, "")
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, found, err := fixture.service.LookupOwnedServerSource(fixture.ctx, application.SourceCreationIntent{Kind: application.SourceOwnerSource, ImportID: request.Intent.ImportID, ItemID: request.Intent.ItemID})
+	result, found, err := fixture.service.LookupOwnedServerSource(fixture.ctx,
+		application.SourceCreationIntent{
+			Kind:     application.SourceOwnerSource,
+			ImportID: request.Intent.ImportID, ItemID: request.Intent.ItemID,
+		})
 	if !errors.Is(err, ErrVersionConflict) || found || result.Created.ImportJobID != "" {
-		t.Fatalf("guessed legacy ownership: %#v found=%v err=%v", result, found, err)
+		t.Fatalf("guessed unrelated ownership: %#v found=%v err=%v", result, found, err)
 	}
 }
 
@@ -154,11 +167,17 @@ func finishOwnedDuplicateFixture(t *testing.T, fixture deduplicateFixture, gameI
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer dbexec.Rollback(tx)
-	if _, err := tx.ExecContext(fixture.ctx, `UPDATE source_import_items SET execution_state='SKIPPED_EXISTING',existing_game_id=?,completed_at_ms=?,version=version+1 WHERE id='unlinked-source'`, gameID, ownedSourceNow().UnixMilli()); err != nil {
+	defer dbapi.Rollback(tx)
+	if _, err := tx.ExecContext(fixture.ctx, `UPDATE source_import_items SET execution_state='SKIPPED_EXISTING',existing_game_id=?,completed_at_ms=?,
+version=version+1 WHERE id='018fbe68-0000-7000-8000-000000000021'`, gameID, ownedSourceNow().UnixMilli()); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := payloadservice.NewScheduler(nil).TerminalSource(fixture.ctx, payloadpersistence.BindScheduling(tx), payloadservice.Scope{Type: payloadservice.ScopeSourceImportItem, ID: "unlinked-source"}, ownedSourceNow().UnixMilli()); err != nil {
+	if _, err := sourcecleanup.TerminalSource(fixture.ctx, payloadservice.NewScheduler(nil),
+		payloadpersistence.BindScheduling(tx),
+		payloadservice.Scope{
+			Type: payloadservice.ScopeSourceImportItem,
+			ID:   "018fbe68-0000-7000-8000-000000000021",
+		}, ownedSourceNow().UnixMilli()); err != nil {
 		t.Fatal(err)
 	}
 	if err := tx.Commit(); err != nil {

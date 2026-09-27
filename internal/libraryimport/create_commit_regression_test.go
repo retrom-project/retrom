@@ -4,13 +4,13 @@ package libraryimport
 
 import (
 	"context"
-	"database/sql"
 	"database/sql/driver"
 	"errors"
 	"strings"
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
 	repository "retrom/internal/persistence/libraryimport"
 	application "retrom/internal/service/libraryimport"
 	"retrom/internal/testsupport"
@@ -22,7 +22,7 @@ func TestImportCreationPreservesCommitReadCause(t *testing.T) {
 			service, plan := preparedCommitFixture(t)
 			cause := errors.New("creation input unavailable")
 			reads := 0
-			service.database = testsupport.OpenSQLFaultDatabase(t, service.database, testsupport.SQLFaultHooks{
+			service = newTestImporter(t, testsupport.OpenSQLFaultDatabase(t, service.database, testsupport.SQLFaultHooks{
 				BeforeQuery: func(_ context.Context, query string, _ []driver.NamedValue) error {
 					if strings.Contains(query, "FROM "+table) {
 						reads++
@@ -30,7 +30,7 @@ func TestImportCreationPreservesCommitReadCause(t *testing.T) {
 					}
 					return nil
 				},
-			})
+			}), service.blobs, testImportOptions{Now: service.now, MultiDiscEnabled: service.multiDiscImportEnabled})
 			before := creationEffectCounts(t, service.database)
 			created, err := commitPreparedFixture(t.Context(), service, plan, nil)
 			if !errors.Is(err, cause) || created != (Created{}) || reads != 1 {
@@ -70,7 +70,7 @@ func TestImportCreationRejectsStaleQueuedExecution(t *testing.T) {
 			}
 			assertCreationEffectsUnchanged(t, service.database, before)
 			var state string
-			if err := service.database.QueryRowContext(t.Context(), `SELECT state FROM jobs WHERE id=?`, work.jobID).
+			if err := dbapi.QueryRowContext(t.Context(), service.database, `SELECT state FROM jobs WHERE id=?`, work.jobID).
 				Scan(&state); err != nil {
 				t.Fatal(err)
 			}
@@ -85,7 +85,7 @@ func preparedCommitFixture(t *testing.T) (*Service, creationPlan) {
 	t.Helper()
 	database, blobs, directory := openImportGroupFixture(t, t.Context())
 	uploadID := completeImportGroupUpload(t, t.Context(), database.SQL, blobs, directory, onsProjectArchive(t))
-	service := New(database.SQL, time.Now).WithBlobStore(blobs)
+	service := newTestImporter(t, database.SQL, blobs, testImportOptions{Now: time.Now})
 	plan, err := service.prepareCreation(t.Context(), onsImportGroupRequest(t, database.SQL, uploadID))
 	if err != nil {
 		t.Fatal(err)
@@ -100,11 +100,11 @@ func commitPreparedFixture(
 	if work != nil {
 		options.Queued = work.creationIntent()
 	}
-	result, err := service.importCreations().CommitPrepared(ctx, plan, options)
+	result, err := service.creations.CommitPrepared(ctx, plan, options)
 	return result.Created, err
 }
 
-func creationEffectCounts(t *testing.T, database *sql.DB) map[string]int64 {
+func creationEffectCounts(t *testing.T, database dbapi.DB) map[string]int64 {
 	t.Helper()
 	result := make(map[string]int64)
 	for _, table := range []string{
@@ -114,7 +114,7 @@ func creationEffectCounts(t *testing.T, database *sql.DB) map[string]int64 {
 		"import_item_dos_entries", "import_item_multidisc_entries", "import_item_duplicate_matches",
 	} {
 		var count int64
-		if err := database.QueryRowContext(t.Context(), `SELECT count(*) FROM `+table).Scan(&count); err != nil {
+		if err := dbapi.QueryRowContext(t.Context(), database, `SELECT count(*) FROM `+table).Scan(&count); err != nil {
 			t.Fatal(err)
 		}
 		result[table] = count
@@ -122,7 +122,7 @@ func creationEffectCounts(t *testing.T, database *sql.DB) map[string]int64 {
 	return result
 }
 
-func assertCreationEffectsUnchanged(t *testing.T, database *sql.DB, before map[string]int64) {
+func assertCreationEffectsUnchanged(t *testing.T, database dbapi.DB, before map[string]int64) {
 	t.Helper()
 	for table, count := range creationEffectCounts(t, database) {
 		if count != before[table] {

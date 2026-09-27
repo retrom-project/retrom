@@ -2,16 +2,15 @@ package sourceimport
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/sourceimport"
 )
 
-type Materialization struct{ database *sql.DB }
+type Materialization struct{ database dbapi.DB }
 
-func NewMaterialization(database *sql.DB) *Materialization {
+func NewMaterialization(database dbapi.DB) *Materialization {
 	return &Materialization{database: database}
 }
 
@@ -23,7 +22,7 @@ func (repository *Materialization) WithMaterialization(
 	if err != nil {
 		return fmt.Errorf("begin Source material transaction: %w", err)
 	}
-	defer dbexec.Rollback(tx)
+	defer dbapi.Rollback(tx)
 	records := materialRecords{tx: tx}
 	if err := work(application.MaterialScope{Read: records, Write: records}); err != nil {
 		return err
@@ -34,7 +33,7 @@ func (repository *Materialization) WithMaterialization(
 	return nil
 }
 
-type materialRecords struct{ tx *sql.Tx }
+type materialRecords struct{ tx dbapi.Tx }
 
 func (records materialRecords) Execution(ctx context.Context, id string) (application.ExecutionPhase, error) {
 	before, err := leaseRecords(records).Current(ctx, id)
@@ -42,7 +41,7 @@ func (records materialRecords) Execution(ctx context.Context, id string) (applic
 		return application.ExecutionPhase{}, err
 	}
 	result := application.ExecutionPhase{Execution: before}
-	if err := records.tx.QueryRowContext(ctx,
+	if err := dbapi.QueryRowContext(ctx, records.tx,
 		`SELECT COALESCE(phase,'') FROM source_imports WHERE id=?`, before.ImportID).Scan(
 		&result.Phase,
 	); err != nil {

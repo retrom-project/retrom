@@ -6,7 +6,6 @@ import (
 	"archive/zip"
 	"bytes"
 	"crypto/sha256"
-	"database/sql"
 	"encoding/base64"
 	"fmt"
 	"io/fs"
@@ -15,9 +14,12 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/blobstore"
+	"retrom/internal/testsupport/importfixture"
+
 	"retrom/internal/cleanup"
+	dbapi "retrom/internal/database"
 	"retrom/internal/dependencies"
+	"retrom/internal/filestore"
 	"retrom/internal/libraryimport"
 	dependencypersistence "retrom/internal/persistence/dependencies"
 	savepersistence "retrom/internal/persistence/saves"
@@ -31,8 +33,8 @@ import (
 
 type productRPGFixture struct {
 	service  *Service
-	database *sql.DB
-	blobs    *blobstore.Store
+	database dbapi.DB
+	blobs    *filestore.Store
 	gameID   string
 	now      func() time.Time
 }
@@ -56,12 +58,12 @@ func newProductRPGFixture(t *testing.T, generation string) productRPGFixture {
 	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, now()); err != nil {
 		t.Fatal(err)
 	}
-	blobs, err := blobstore.Open(dataDir)
+	blobs, err := filestore.Open(dataDir)
 	if err != nil {
 		t.Fatal(err)
 	}
 	uploadID := uploadProductRPGFixture(t, database.SQL, blobs, dataDir, generation, now)
-	importer := libraryimport.New(database.SQL, now).WithBlobStore(blobs)
+	importer := importfixture.New(t, database.SQL, blobs, importfixture.Options{Now: now})
 	created, err := importer.Create(ctx, libraryimport.CreateRequest{
 		UploadID: uploadID, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(t, database.SQL, "rpgmaker/rpgmaker"),
 		MetadataProvider: "NONE", ContentMode: "RPG_MAKER_PROJECT",
@@ -70,7 +72,7 @@ func newProductRPGFixture(t *testing.T, generation string) productRPGFixture {
 		t.Fatalf("import RPG fixture: %v", err)
 	}
 	var itemID string
-	if err := database.SQL.QueryRowContext(ctx, `SELECT id FROM import_items WHERE import_job_id=?`, created.ImportJobID).Scan(&itemID); err != nil {
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `SELECT id FROM import_items WHERE import_job_id=?`, created.ImportJobID).Scan(&itemID); err != nil {
 		t.Fatal(err)
 	}
 	title := "RPG variant " + generation
@@ -90,13 +92,13 @@ func newProductRPGFixture(t *testing.T, generation string) productRPGFixture {
 	if err != nil {
 		t.Fatal(err)
 	}
-	service := New(database.SQL, dependencySet, credentials, now).WithBlobStore(blobs).
+	service := New(database.SQL, dependencySet, credentials, now).WithFileStore(blobs).
 		WithRPGRuntimeOriginTemplate("https://{launchId}.rpg-runtime.example").
 		WithRuntimeProvider(dependencySet.RuntimeCatalog, builder)
 	return productRPGFixture{service: service, database: database.SQL, blobs: blobs, gameID: approved.GameID, now: now}
 }
 
-func uploadProductRPGFixture(t *testing.T, database *sql.DB, blobs *blobstore.Store, dataDir, generation string, now func() time.Time) string {
+func uploadProductRPGFixture(t *testing.T, database dbapi.DB, blobs *filestore.Store, dataDir, generation string, now func() time.Time) string {
 	t.Helper()
 	ctx := t.Context()
 	archive := productRPGArchive(t, generation)

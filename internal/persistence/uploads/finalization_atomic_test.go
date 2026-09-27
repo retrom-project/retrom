@@ -10,6 +10,7 @@ import (
 	"sync/atomic"
 	"testing"
 
+	dbapi "retrom/internal/database"
 	uploadservice "retrom/internal/service/uploads"
 	"retrom/internal/testsupport"
 )
@@ -25,7 +26,7 @@ func TestFinalizationBrokenPartCountFailureRollsBackRepairAndFailure(t *testing.
 	fixture := newFinalizationFixture(t)
 	session := fixture.upload(t, []byte("bytes"))
 	var key string
-	if err := fixture.database.QueryRowContext(t.Context(), `SELECT storage_key FROM upload_parts WHERE upload_file_id=?`, session.Files[0].ID).Scan(&key); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT storage_key FROM upload_parts WHERE upload_file_id=?`, session.Files[0].ID).Scan(&key); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(fixture.root, "tmp", "uploads", filepath.FromSlash(key)), []byte("wrong"), 0o600); err != nil {
@@ -55,7 +56,7 @@ func TestFinalizationBrokenPartCountFailureRollsBackRepairAndFailure(t *testing.
 		t.Fatalf("partial failure committed: %+v", current)
 	}
 	var state string
-	if err := fixture.database.QueryRowContext(t.Context(), `SELECT state FROM jobs WHERE id=?`, job).Scan(&state); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT state FROM jobs WHERE id=?`, job).Scan(&state); err != nil {
 		t.Fatal(err)
 	}
 	if state != "RUNNING" {

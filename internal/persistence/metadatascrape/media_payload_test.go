@@ -4,10 +4,14 @@ import (
 	"context"
 	"errors"
 	"testing"
-	"time"
 
+	gamecleanup "retrom/internal/service/gamecontent/payloadpolicy"
+
+	"retrom/internal/composition/cleanupjobs"
+	dbapi "retrom/internal/database"
 	"retrom/internal/hasheous"
-	"retrom/internal/payloadrelease"
+	payloadrepository "retrom/internal/persistence/gamecontent/gamerelease"
+	payloadapplication "retrom/internal/service/cleanupjobs"
 	"retrom/internal/service/metadatascrape"
 )
 
@@ -17,7 +21,9 @@ func TestGameDeletionCancelsMediaBeforeActualPayloadRelease(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = payloadrelease.ScheduleGameDeletion(t.Context(), tx, "game", 1, fixture.now.UnixMilli())
+	_, err = gamecleanup.DeleteGame(t.Context(), payloadapplication.NewScheduler(nil),
+		payloadrepository.BindScheduling(tx), "018fbe68-0000-7000-8000-000000000002", 1,
+		fixture.now.UnixMilli())
 	if err != nil {
 		_ = tx.Rollback()
 		t.Fatal(err)
@@ -36,7 +42,7 @@ func TestGameDeletionCancelsMediaBeforeActualPayloadRelease(t *testing.T) {
 	if snapshot.Job.State != "CANCELLED" || snapshot.Asset.Status != "CANCELLED" {
 		t.Fatalf("deleted media=%+v", snapshot)
 	}
-	release, err := payloadrelease.New(fixture.database, fixture.blobs, fixture.clock, 24*time.Hour)
+	release, err := cleanupjobs.New(t.Context(), fixture.database, fixture.blobs, fixture.clock)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -46,8 +52,8 @@ func TestGameDeletionCancelsMediaBeforeActualPayloadRelease(t *testing.T) {
 	}
 	var state string
 	var assets int
-	if err := fixture.database.QueryRowContext(t.Context(), `SELECT payload_state,(SELECT count(*) FROM scrape_candidate_assets)
- FROM games WHERE id='game'`).Scan(&state, &assets); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT payload_state,(SELECT count(*) FROM scrape_candidate_assets)
+ FROM games WHERE id='018fbe68-0000-7000-8000-000000000002'`).Scan(&state, &assets); err != nil {
 		t.Fatal(err)
 	}
 	if state != "RELEASED" || assets != 0 {

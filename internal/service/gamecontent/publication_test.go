@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/service/payloadrelease"
+	"retrom/internal/service/cleanupjobs"
 )
 
 type workflowRepository struct {
@@ -75,7 +75,7 @@ func TestPublicationRejectsChangedContentBeforeRetirement(t *testing.T) {
 				ReadScope: ReadScope{Content: workflowContent{binding: test.binding, identity: test.identity}},
 				Leases:    workflowLeases{current: test.current},
 			}}
-			service := New(repository, func() time.Time { return time.UnixMilli(100) })
+			service := New(Dependencies{Repository: repository, Files: constructorFiles(t)}, Options{Now: func() time.Time { return time.UnixMilli(100) }})
 			err := service.publish(t.Context(), Claim{}, JobSnapshot{}, PreparedReplacement{Files: []ReplacementFile{{Role: "CONTENT", SHA256: "same"}}})
 			if test.code == "GAME_CONTENT_EXECUTION_LOST" {
 				if !errors.Is(err, ErrExecutionLost) {
@@ -107,15 +107,15 @@ func (jobs *failureJobs) Fail(_ context.Context, outcome Outcome) (bool, error) 
 }
 
 type failureRetirements struct {
-	payloadrelease.SchedulingScope
+	cleanupjobs.ConsumptionSchedulingScope
 	releases int
 }
 
-func (records *failureRetirements) Consumption(context.Context, string) (payloadrelease.Consumption, error) {
-	return payloadrelease.Consumption{Version: 1}, nil
+func (records *failureRetirements) Consumption(context.Context, string) (cleanupjobs.Consumption, error) {
+	return cleanupjobs.Consumption{Version: 1}, nil
 }
 
-func (records *failureRetirements) CreateJob(context.Context, payloadrelease.ScheduledJob) error {
+func (records *failureRetirements) CreateJob(context.Context, cleanupjobs.ScheduledJob) error {
 	records.releases++
 	return nil
 }
@@ -155,7 +155,7 @@ func TestFailureSettlementHonorsCancellationAndOwnership(t *testing.T) {
 			jobs, retirements := &failureJobs{}, &failureRetirements{}
 			repository := &workflowRepository{scope: WriteScope{Leases: workflowLeases{state: test.state}, Jobs: jobs, Retirements: RetirementScope{Read: failureConsumption{}, Payload: retirements}}}
 			signal := &commitSignal{t: t, repository: repository}
-			service := New(repository, func() time.Time { return time.UnixMilli(100) }).WithPayloadRelease(signal)
+			service := New(Dependencies{Repository: repository, Files: constructorFiles(t), Cleanup: signal}, Options{Now: func() time.Time { return time.UnixMilli(100) }})
 			ctx, cancel := context.WithCancel(t.Context())
 			cancel()
 			if err := service.settleFailure(ctx, Claim{WorkerID: "owner"}, JobSnapshot{}, context.Canceled); err != nil {
@@ -178,7 +178,7 @@ func TestFailureSettlementPreservesLateErrorWithoutSignalling(t *testing.T) {
 	jobs, retirements := &failureJobs{}, &failureRetirements{}
 	repository := &workflowRepository{scope: WriteScope{Leases: workflowLeases{state: "RUNNING"}, Jobs: jobs, Retirements: RetirementScope{Read: failureConsumption{}, Payload: retirements}}, lateError: context.DeadlineExceeded}
 	signal := &commitSignal{t: t, repository: repository}
-	service := New(repository, func() time.Time { return time.UnixMilli(100) }).WithPayloadRelease(signal)
+	service := New(Dependencies{Repository: repository, Files: constructorFiles(t), Cleanup: signal}, Options{Now: func() time.Time { return time.UnixMilli(100) }})
 	cause := &replacementValidationError{code: "GAME_CONTENT_CHANGED"}
 	err := service.settleFailure(t.Context(), Claim{}, JobSnapshot{}, cause)
 	if !errors.Is(err, cause) || !errors.Is(err, context.DeadlineExceeded) {

@@ -12,7 +12,10 @@ import (
 	"strings"
 	"testing"
 
+	dbapi "retrom/internal/database"
+	idempotencypersistence "retrom/internal/persistence/idempotency"
 	uploadpersistence "retrom/internal/persistence/uploads"
+	idempotencyservice "retrom/internal/service/idempotency"
 	"retrom/internal/service/uploads"
 	"retrom/internal/testsupport"
 )
@@ -38,7 +41,7 @@ func TestUploadFinalizationRetryDispatchesAfterReceiptAndReplayKeepsExecution(t 
 		t.Fatal("replay created another upload execution")
 	}
 	var completed int
-	if err := fixture.server.database.QueryRowContext(t.Context(), `SELECT count(*) FROM upload_sessions WHERE finalize_job_id=? AND state='COMPLETE' AND finalization_no=1`, fixture.jobID).Scan(&completed); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), fixture.server.database, `SELECT count(*) FROM upload_sessions WHERE finalize_job_id=? AND state='COMPLETE' AND finalization_no=1`, fixture.jobID).Scan(&completed); err != nil {
 		t.Fatal(err)
 	}
 	if completed != 1 {
@@ -50,7 +53,7 @@ func TestUploadFinalizationRetryReceiptFailureDoesNotInvokeCurrentDispatch(t *te
 	fixture := newUploadRetryFixture(t)
 	hits := 0
 	cause := errors.New("upload receipt write unavailable")
-	fixture.server.database = testsupport.OpenSQLFaultDatabase(t, fixture.server.database, testsupport.SQLFaultHooks{
+	fault := testsupport.OpenSQLFaultDatabase(t, fixture.server.database, testsupport.SQLFaultHooks{
 		BeforeExec: func(_ context.Context, query string, args []driver.NamedValue) error {
 			if strings.Contains(query, "INSERT INTO idempotency_records") && len(args) > 1 && args[1].Value == "postAdminJobRetry" {
 				hits++
@@ -59,6 +62,7 @@ func TestUploadFinalizationRetryReceiptFailureDoesNotInvokeCurrentDispatch(t *te
 			return nil
 		},
 	})
+	fixture.server.idempotencyService = idempotencyservice.New(idempotencypersistence.New(fault))
 	response := httptest.NewRecorder()
 	fixture.request(t.Context(), response)
 	if response.Code != http.StatusInternalServerError || hits != 1 {
@@ -66,7 +70,7 @@ func TestUploadFinalizationRetryReceiptFailureDoesNotInvokeCurrentDispatch(t *te
 	}
 	var state string
 	var attempt int64
-	if err := fixture.server.database.QueryRowContext(t.Context(), `SELECT state,attempt_count FROM jobs WHERE id=?`, fixture.jobID).Scan(&state, &attempt); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), fixture.server.database, `SELECT state,attempt_count FROM jobs WHERE id=?`, fixture.jobID).Scan(&state, &attempt); err != nil {
 		t.Fatal(err)
 	}
 	if state != "QUEUED" || attempt != 0 {
@@ -105,7 +109,7 @@ func TestUploadCompletePreservesStorageFailureBoundary(t *testing.T) {
 	fixture := newUploadRetryFixture(t)
 	var uploadID string
 	var version int64
-	if err := fixture.server.database.QueryRowContext(t.Context(), `SELECT id,version FROM upload_sessions WHERE finalize_job_id=?`, fixture.jobID).Scan(&uploadID, &version); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), fixture.server.database, `SELECT id,version FROM upload_sessions WHERE finalize_job_id=?`, fixture.jobID).Scan(&uploadID, &version); err != nil {
 		t.Fatal(err)
 	}
 	cause := errors.New("upload completion read unavailable")

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 
+	dbapi "retrom/internal/database"
 	importpersistence "retrom/internal/persistence/serverimport"
 	importservice "retrom/internal/service/serverimport"
 )
@@ -31,7 +32,7 @@ func TestCreationLateFailureRollsBackTaskSnapshotItemsAndEvidence(t *testing.T) 
 		t.Fatalf("late creation failure: %+v %v", result, err)
 	}
 	var imports, jobs, inputs, items, events, audits int64
-	err = database.QueryRowContext(t.Context(), `SELECT
+	err = dbapi.QueryRowContext(t.Context(), database, `SELECT
 (SELECT count(*) FROM server_imports),
 (SELECT count(*) FROM jobs WHERE kind='SERVER_BIOS_IMPORT'),
 (SELECT count(*) FROM job_input_snapshots),
@@ -58,7 +59,7 @@ func TestCreateConflictDoesNotLeaveOrphanJob(t *testing.T) {
 		t.Fatalf("duplicate import: %+v %v", result, err)
 	}
 	var jobs, snapshots int64
-	err = database.QueryRowContext(t.Context(), `SELECT count(*),
+	err = dbapi.QueryRowContext(t.Context(), database, `SELECT count(*),
 (SELECT count(*) FROM job_input_snapshots input JOIN jobs job ON job.id=input.job_id WHERE job.kind='SERVER_BIOS_IMPORT')
 FROM jobs WHERE kind='SERVER_BIOS_IMPORT'`).Scan(&jobs, &snapshots)
 	if err != nil || jobs != 1 || snapshots != 1 {

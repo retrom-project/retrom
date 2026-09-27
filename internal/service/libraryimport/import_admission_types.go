@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"retrom/internal/contentcapability"
+	contentcapability "retrom/internal/content/capability"
 	"retrom/internal/service/tagging"
 )
 
@@ -17,8 +17,8 @@ type ImportRequest struct {
 }
 
 type ImportFile struct {
-	ID, Path, BlobID, SHA256 string
-	Size                     int64
+	ID, Path, FileRecord, SHA256 string
+	Size                         int64
 }
 type ImportUpload struct {
 	ID, Purpose, SourceType, State, ManifestDigest string

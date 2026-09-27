@@ -11,10 +11,11 @@ import (
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
 	uploadservice "retrom/internal/service/uploads"
 
-	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
+	"retrom/internal/filestore"
 	"retrom/internal/store"
 	"retrom/internal/testassert"
 )
@@ -33,7 +34,7 @@ func testUploadReception(t *testing.T, source string) {
 	database, err := store.Open(ctx, filepath.Join(dataDir, "retrom.db"), time.Now)
 	testassert.Falsef(t, err != nil, "open database: %v", err)
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
-	blobs, err := blobstore.Open(dataDir)
+	blobs, err := filestore.Open(dataDir)
 	testassert.Falsef(t, err != nil, "open blob store: %v", err)
 	service := uploadservice.New(New(database.SQL), blobs, dataDir, time.Now)
 	session, err := service.Create(
@@ -47,10 +48,12 @@ func testUploadReception(t *testing.T, source string) {
 	contents := []byte("retrom")[:5]
 	digest := sha256.Sum256(contents)
 	header := "sha-256=:" + base64.StdEncoding.EncodeToString(digest[:]) + ":"
-	if err := service.PutPart(ctx, session.ID, session.Files[0].ID, 0, "bytes 0-4/5", header, bytes.NewReader(contents)); err != nil {
+	if err := service.PutPart(ctx, session.ID, session.Files[0].ID, 0, "bytes 0-4/5", header,
+		bytes.NewReader(contents)); err != nil {
 		t.Fatalf("put part: %v", err)
 	}
-	if err := service.PutPart(ctx, session.ID, session.Files[0].ID, 0, "bytes 0-4/5", "sha-256=:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=:", bytes.NewReader(contents)); !errors.Is(
+	if err := service.PutPart(ctx, session.ID, session.Files[0].ID, 0, "bytes 0-4/5",
+		"sha-256=:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=:", bytes.NewReader(contents)); !errors.Is(
 		err,
 		uploadservice.ErrInvalid,
 	) {
@@ -63,30 +66,38 @@ func testUploadReception(t *testing.T, source string) {
 	deadline := time.Now().Add(3 * time.Second)
 	for {
 		var state string
-		if err := database.SQL.QueryRowContext(ctx, "SELECT state FROM jobs WHERE id=?", jobID).Scan(&state); err != nil {
+		if err := dbapi.QueryRowContext(ctx, database.SQL, "SELECT state FROM jobs WHERE id=?",
+			jobID).Scan(&state); err != nil {
 			t.Fatalf("read job: %v", err)
 		}
 		if state == "SUCCEEDED" {
 			break
 		}
-		testassert.Falsef(t, testassert.Any(func() bool { return state == "FAILED" }, func() bool { return time.Now().After(deadline) }), "finalization state = %s", state)
+		testassert.Falsef(t, testassert.Any(func() bool { return state == "FAILED" },
+			func() bool { return time.Now().After(deadline) }), "finalization state = %s", state)
 		time.Sleep(10 * time.Millisecond)
 	}
 	final, err := service.Get(ctx, session.ID)
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return final.State != "COMPLETE" }, func() bool { return final.Files[0].State != "COMPLETE" }), "final upload = %s/%s, error = %v", final.State, final.Files[0].State, err)
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil },
+		func() bool { return final.State != "COMPLETE" },
+		func() bool { return final.Files[0].State != "COMPLETE" }),
+		"final upload = %s/%s, error = %v", final.State, final.Files[0].State, err)
 	var count int
-	if err := database.SQL.QueryRowContext(ctx, "SELECT count(*) FROM blobs WHERE size_bytes=?", len(contents)).Scan(
+	if err := dbapi.QueryRowContext(ctx, database.SQL,
+		"SELECT count(*) FROM upload_files WHERE json_extract(final_file_record,'$.size_bytes')=?",
+		len(contents)).Scan(
 		&count,
 	); err != nil ||
 		count != 1 {
 		t.Fatalf("blob count = %d, error = %v", count, err)
 	}
 	var received int
-	if err := database.SQL.QueryRowContext(ctx, `SELECT count(*) FROM import_files WHERE upload_session_id=? AND relative_path='game.gba' AND size_bytes=5 AND blob_id IS NOT NULL`, session.ID).Scan(&received); err != nil || received != 1 {
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `SELECT count(*) FROM import_files WHERE upload_session_id=? AND relative_path='game.gba' AND
+size_bytes=5 AND file_record IS NOT NULL`, session.ID).Scan(&received); err != nil || received != 1 {
 		t.Fatalf("finalization did not publish normalized files: %d %v", received, err)
 	}
 	var started, inputs int
-	if err := database.SQL.QueryRowContext(ctx, `SELECT
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `SELECT
  (SELECT count(*) FROM job_events WHERE job_id=? AND event_type='STARTED'),
  (SELECT count(*) FROM job_input_snapshots WHERE job_id=? AND length(input_digest)=64)
  `, jobID, jobID).Scan(&started, &inputs); err != nil {
@@ -101,14 +112,17 @@ func TestCreateRejectsUnsafeAndDuplicatePaths(t *testing.T) {
 	t.Parallel()
 	for _, files := range [][]uploadservice.FileDeclaration{
 		{{ClientFileID: "f", RelativePath: "../game.gba", SizeBytes: 1}},
-		{{ClientFileID: "a", RelativePath: "game.gba", SizeBytes: 1}, {ClientFileID: "b", RelativePath: "game.gba", SizeBytes: 1}},
+		{{ClientFileID: "a", RelativePath: "game.gba", SizeBytes: 1}, {
+			ClientFileID: "b",
+			RelativePath: "game.gba", SizeBytes: 1,
+		}},
 	} {
 		t.Run(fmt.Sprint(len(files)), func(t *testing.T) {
 			dataDir := t.TempDir()
 			database, err := store.Open(context.Background(), filepath.Join(dataDir, "retrom.db"), time.Now)
 			testassert.False(t, err != nil, err)
 			defer func() { cleanup.Error("close", database.Close()) }()
-			blobs, _ := blobstore.Open(dataDir)
+			blobs, _ := filestore.Open(dataDir)
 			_, err = uploadservice.New(New(database.SQL),
 				blobs,
 				dataDir,
@@ -125,7 +139,7 @@ func TestCreateEnforcesProjectUploadPurposeShape(t *testing.T) {
 	database, err := store.Open(context.Background(), filepath.Join(dataDir, "retrom.db"), time.Now)
 	testassert.False(t, err != nil, err)
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
-	blobs, err := blobstore.Open(dataDir)
+	blobs, err := filestore.Open(dataDir)
 	testassert.False(t, err != nil, err)
 	service := uploadservice.New(New(database.SQL), blobs, dataDir, time.Now)
 
@@ -166,8 +180,20 @@ func TestCreateEnforcesProjectUploadPurposeShape(t *testing.T) {
 		{Purpose: "UNKNOWN", SourceType: "DIRECTORY", Files: []uploadservice.FileDeclaration{
 			{ClientFileID: "project", RelativePath: "game/Game.ini", SizeBytes: 1},
 		}},
-		{Purpose: "RPG_MAKER_PROJECT", SourceType: "FILES", Files: []uploadservice.FileDeclaration{{ClientFileID: "project", RelativePath: "game.exe", SizeBytes: 1}}},
-		{Purpose: "PROJECT", SourceType: "FILES", Files: []uploadservice.FileDeclaration{{ClientFileID: "project", RelativePath: "game.dat", SizeBytes: 1}}},
+		{
+			Purpose: "RPG_MAKER_PROJECT", SourceType: "FILES",
+			Files: []uploadservice.FileDeclaration{{
+				ClientFileID: "project", RelativePath: "game.exe",
+				SizeBytes: 1,
+			}},
+		},
+		{
+			Purpose: "PROJECT", SourceType: "FILES",
+			Files: []uploadservice.FileDeclaration{{
+				ClientFileID: "project", RelativePath: "game.dat",
+				SizeBytes: 1,
+			}},
+		},
 		{Purpose: "RUNTIME_ASSET_PACK", SourceType: "FILES", Files: []uploadservice.FileDeclaration{
 			{ClientFileID: "a", RelativePath: "a.zip", SizeBytes: 1},
 		}},
@@ -186,7 +212,7 @@ func TestCancelCreatedUploadIsVersionedAndTerminal(t *testing.T) {
 	database, err := store.Open(ctx, filepath.Join(dataDir, "retrom.db"), time.Now)
 	testassert.False(t, err != nil, err)
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
-	blobs, err := blobstore.Open(dataDir)
+	blobs, err := filestore.Open(dataDir)
 	testassert.False(t, err != nil, err)
 	service := uploadservice.New(New(database.SQL), blobs, dataDir, time.Now)
 	session, err := service.Create(
@@ -198,7 +224,10 @@ func TestCancelCreatedUploadIsVersionedAndTerminal(t *testing.T) {
 	)
 	testassert.False(t, err != nil, err)
 	canceled, pending, err := service.Cancel(ctx, session.ID, session.Version)
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return pending }, func() bool { return canceled.State != "CANCELLED" }, func() bool { return canceled.Version != session.Version+1 }), "cancel = %#v, pending=%v, error=%v", canceled, pending, err)
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil },
+		func() bool { return pending }, func() bool { return canceled.State != "CANCELLED" },
+		func() bool { return canceled.Version != session.Version+1 }),
+		"cancel = %#v, pending=%v, error=%v", canceled, pending, err)
 	if _, _, err := service.Cancel(ctx, session.ID, canceled.Version); !errors.Is(err, uploadservice.ErrInvalid) {
 		t.Fatalf("terminal cancel error = %v", err)
 	}

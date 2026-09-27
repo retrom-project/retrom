@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	repository "retrom/internal/persistence/libraryimport"
 	application "retrom/internal/service/libraryimport"
 )
@@ -23,7 +23,7 @@ func resolveRPGDependencies(profile rpgReviewBinding) (draftDependencyState, str
 	return state, resolved.Digest
 }
 
-func loadReviewRPGDependencies(ctx context.Context, transaction dbexec.Executor, draftID string) (
+func loadReviewRPGDependencies(ctx context.Context, transaction dbapi.Executor, draftID string) (
 	rpgReviewBinding, string, draftDependencyState, error,
 ) {
 	profile, err := loadRPGReviewBinding(ctx, transaction, draftID)
@@ -40,7 +40,7 @@ func (state *draftValidationRefresh) resolveRPGDependencies() (draftDependencySt
 		return draftDependencyState{}, err
 	}
 	if err := repository.BindReviewValidation(state.transaction).UpdateRPGDependencyDigest(
-		state.ctx, state.draftID, digest, state.service.now().UnixMilli(),
+		state.ctx, state.draftID, digest, state.validator.now().UnixMilli(),
 	); err != nil {
 		return draftDependencyState{}, fmt.Errorf("libraryimport/RPG dependency digest: %w", err)
 	}

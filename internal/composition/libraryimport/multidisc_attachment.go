@@ -1,15 +1,16 @@
 package libraryimport
 
 import (
-	"database/sql"
 	"time"
+
+	dbapi "retrom/internal/database"
 
 	repository "retrom/internal/persistence/libraryimport"
 	application "retrom/internal/service/libraryimport"
 )
 
 func NewMultiDiscAttachmentCommits(
-	database *sql.DB, now func() time.Time,
+	database dbapi.DB, now func() time.Time,
 ) *application.MultiDiscAttachmentCommits {
 	return application.NewMultiDiscAttachmentCommits(
 		repository.NewMultiDiscAttachmentFinalization(database), now,
@@ -17,13 +18,18 @@ func NewMultiDiscAttachmentCommits(
 }
 
 func NewMultiDiscAttachmentTerminals(
-	database *sql.DB, now func() time.Time,
+	database dbapi.DB, now func() time.Time,
 ) *application.MultiDiscAttachmentTerminals {
 	return application.NewMultiDiscAttachmentTerminals(
 		repository.NewMultiDiscAttachmentFinalization(database), now,
 	)
 }
 
-func NewMultiDiscAttachmentSources(database *sql.DB) *application.MultiDiscAttachmentSources {
+func NewMultiDiscAttachmentSources(database dbapi.DB) *application.MultiDiscAttachmentSources {
 	return application.NewMultiDiscAttachmentSources(repository.NewMultiDiscAttachmentWorker(database))
+}
+
+func NewMultiDiscAttachments(database dbapi.DB, now func() time.Time) *application.MultiDiscAttachments {
+	return application.NewMultiDiscAttachments(repository.NewMultiDiscAttachments(database),
+		application.MultiDiscAttachmentOptions{Now: now, StorageAvailable: true})
 }

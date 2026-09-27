@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/service/metadatascrape"
 	"retrom/internal/testsupport"
 )
@@ -23,7 +24,8 @@ func TestMissingScrapeSubjectRollsBackCreatedJob(t *testing.T) {
 	now := int64(100)
 	err = NewScheduler(database.SQL).WithWrite(t.Context(), func(scope metadatascrape.ScheduleScope) error {
 		return scope.Writes.Create(t.Context(), metadatascrape.SchedulePlan{
-			Subject: metadatascrape.Subject{Kind: "IMPORT_ITEM", ID: "missing"}, RunID: "run", JobID: "job", Provider: "NONE",
+			Subject: metadatascrape.Subject{Kind: "IMPORT_ITEM", ID: "missing"},
+			RunID:   "018fbe68-0000-7000-8000-000000000001", JobID: "job", Provider: "NONE",
 			Dedupe: strings.Repeat("a", 64), PayloadJSON: `{"provider":"NONE"}`, JobState: "SUCCEEDED", RunState: "COMPLETED", EventJSON: "{}", FinishedAt: &now, Now: now,
 		})
 	})
@@ -31,7 +33,7 @@ func TestMissingScrapeSubjectRollsBackCreatedJob(t *testing.T) {
 		t.Fatal("scheduled nonexistent import item")
 	}
 	var jobs int
-	if err := database.SQL.QueryRowContext(t.Context(), `SELECT count(*) FROM jobs`).Scan(&jobs); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), database.SQL, `SELECT count(*) FROM jobs`).Scan(&jobs); err != nil {
 		t.Fatal(err)
 	}
 	if jobs != 0 {

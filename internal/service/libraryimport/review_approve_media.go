@@ -85,13 +85,6 @@ func (run *reviewApprovalRun) appendExternalAssets() error {
 		return ErrInvalid
 	}
 	for _, asset := range selected {
-		found, err := run.scope.Media.BlobExists(run.ctx, asset.BlobID)
-		if err != nil {
-			return fmt.Errorf("read approval source asset: %w", err)
-		}
-		if !found {
-			return ErrInvalid
-		}
 		run.assets = append(run.assets, ApprovalAsset{ApprovalExternalAsset: asset})
 	}
 	return nil

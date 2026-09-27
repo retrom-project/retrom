@@ -2,25 +2,24 @@ package launch
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/launch"
 )
 
-type ProjectIndexes struct{ database *sql.DB }
+type ProjectIndexes struct{ database dbapi.DB }
 
-func NewProjectIndexes(database *sql.DB) *ProjectIndexes { return &ProjectIndexes{database: database} }
+func NewProjectIndexes(database dbapi.DB) *ProjectIndexes { return &ProjectIndexes{database: database} }
 
 func (repository *ProjectIndexes) ReadProjectIndex(
 	ctx context.Context, reference application.ProjectIndexReference, authorize application.ConfigAuthorization,
 ) (application.ProjectIndexSnapshot, bool, error) {
-	tx, err := repository.database.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+	tx, err := repository.database.BeginTx(ctx, &dbapi.TxOptions{ReadOnly: true})
 	if err != nil {
 		return application.ProjectIndexSnapshot{}, false, fmt.Errorf("begin project index: %w", err)
 	}
-	defer dbexec.Rollback(tx)
+	defer dbapi.Rollback(tx)
 	ref := application.SessionRef{ID: reference.ID, Preview: reference.PreviewOnly}
 	source, found, err := configSource(ctx, tx, ref)
 	if err != nil {

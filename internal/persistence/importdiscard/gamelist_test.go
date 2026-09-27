@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"retrom/internal/composition"
+	dbapi "retrom/internal/database"
 
 	"retrom/internal/libraryimport"
 	retromruntime "retrom/internal/runtime"
@@ -56,7 +57,7 @@ func (f *fixture) gamelistSource(t *testing.T, file libraryimport.ServerSourceFi
 	}
 	waitForGamelist(t, f, service, created.ID, "COMPLETED", "PARTIAL_FAILURE")
 	var itemID string
-	if err := f.db.QueryRowContext(f.ctx, `SELECT id FROM source_import_items WHERE import_id=?`, created.ID).Scan(&itemID); err != nil {
+	if err := dbapi.QueryRowContext(f.ctx, f.db, `SELECT id FROM source_import_items WHERE import_id=?`, created.ID).Scan(&itemID); err != nil {
 		t.Fatal(err)
 	}
 	return created.ID, itemID

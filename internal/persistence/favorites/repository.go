@@ -2,37 +2,28 @@ package favorites
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
+
+	dbapi "retrom/internal/database"
 
 	"retrom/internal/service/favorites"
 )
 
-type Repository struct{ database *sql.DB }
+type Repository struct{ database dbapi.DB }
 
-func New(database *sql.DB) *Repository { return &Repository{database: database} }
+func New(database dbapi.DB) *Repository { return &Repository{database: database} }
 func (service *Repository) WithWrite(ctx context.Context, work func(favorites.WriteScope) error) error {
-	connection, err := service.database.Conn(ctx)
+	transaction, err := service.database.BeginImmediate(ctx)
 	if err != nil {
-		return fmt.Errorf("favorites: acquire connection: %w", err)
-	}
-	defer func() { _ = connection.Close() }()
-	if _, err := connection.ExecContext(ctx, "BEGIN IMMEDIATE"); err != nil {
 		return fmt.Errorf("favorites: begin immediate: %w", err)
 	}
-	committed := false
-	defer func() {
-		if !committed {
-			_, _ = connection.ExecContext(context.WithoutCancel(ctx), "ROLLBACK")
-		}
-	}()
-	if err := work(writeScope(connection)); err != nil {
+	defer dbapi.Rollback(transaction)
+	if err := work(writeScope(transaction)); err != nil {
 		return err
 	}
-	if _, err := connection.ExecContext(ctx, "COMMIT"); err != nil {
+	if err := transaction.Commit(); err != nil {
 		return fmt.Errorf("favorites: commit: %w", err)
 	}
-	committed = true
 	return nil
 }
 

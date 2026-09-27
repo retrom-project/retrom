@@ -2,7 +2,6 @@ package favorites
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -13,6 +12,7 @@ import (
 	"time"
 
 	"retrom/internal/cleanup"
+	dbapi "retrom/internal/database"
 	"retrom/internal/gametitle"
 	"retrom/internal/service/favorites"
 	"retrom/internal/store"
@@ -30,7 +30,7 @@ const (
 	testGameC    = "01980000-0000-7000-8000-00000000f303"
 )
 
-func insertFavoriteTestGame(t *testing.T, transaction *sql.Tx, gameID, suffix, title string, year int64) {
+func insertFavoriteTestGame(t *testing.T, transaction dbapi.Tx, gameID, suffix, title string, year int64) {
 	t.Helper()
 	if _, err := transaction.ExecContext(context.Background(), `
 INSERT INTO games(
@@ -181,7 +181,7 @@ func TestServiceConcurrentFavoriteFolderConflictVersionAndLimit(t *testing.T) {
 		testassert.Falsef(t, state.FavoritedAtMS != 2000, "concurrent favorite state = %#v", state)
 	}
 	var favoriteRows int
-	queryErr := database.SQL.QueryRowContext(context.Background(),
+	queryErr := dbapi.QueryRowContext(context.Background(), database.SQL,
 		`SELECT count(*) FROM favorite_games WHERE profile_id=? AND game_id=?`, testProfileA, testGameA,
 	).Scan(&favoriteRows)
 	testassert.Falsef(t, testassert.Any(func() bool { return queryErr != nil }, func() bool { return favoriteRows != 1 }),
@@ -279,18 +279,18 @@ func TestOrganizeFaultRollsBackEveryFavoriteMembershipAndIdempotencyRecord(t *te
 	}
 	assertFault()
 	var favoriteCount, membershipCount int
-	if err := database.SQL.QueryRowContext(context.Background(), `
+	if err := dbapi.QueryRowContext(context.Background(), database.SQL, `
 SELECT count(*) FROM favorite_games WHERE profile_id=?
 `, testProfileA).Scan(&favoriteCount); err != nil || favoriteCount != 0 {
 		t.Fatalf("favorite rows = %d, error=%v", favoriteCount, err)
 	}
-	if err := database.SQL.QueryRowContext(context.Background(), `
+	if err := dbapi.QueryRowContext(context.Background(), database.SQL, `
 SELECT count(*) FROM favorite_folder_games WHERE profile_id=?
 `, testProfileA).Scan(&membershipCount); err != nil || membershipCount != 0 {
 		t.Fatalf("membership rows = %d, error=%v", membershipCount, err)
 	}
 	var failedRecordCount int
-	if err := database.SQL.QueryRowContext(context.Background(), `
+	if err := dbapi.QueryRowContext(context.Background(), database.SQL, `
 SELECT count(*) FROM idempotency_records
 WHERE operation_id='postFavoriteOrganize' AND key=?
 `, key).Scan(&failedRecordCount); err != nil || failedRecordCount != 0 {
@@ -381,7 +381,7 @@ func TestServiceListPaginationScopesAndVisibility(t *testing.T) {
 	hidden, err := service.List(context.Background(), alice, favorites.ListOptions{})
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return hidden.Summary.FavoriteCount != 0 }, func() bool { return hidden.TotalCount != 0 }, func() bool { return hidden.Folders[0].VisibleGameCount != 0 }), "hidden page = %#v, %v", hidden, err)
 	var rawCount int
-	if err := database.SQL.QueryRowContext(context.Background(), `SELECT count(*) FROM favorite_games WHERE profile_id=?`, testProfileA).Scan(&rawCount); err != nil || rawCount != 2 {
+	if err := dbapi.QueryRowContext(context.Background(), database.SQL, `SELECT count(*) FROM favorite_games WHERE profile_id=?`, testProfileA).Scan(&rawCount); err != nil || rawCount != 2 {
 		t.Fatalf("raw favorites = %d, %v", rawCount, err)
 	}
 }

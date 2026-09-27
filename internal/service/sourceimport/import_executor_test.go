@@ -48,14 +48,17 @@ func TestImportExecutorCopiesAndBindsBeforeCreatingReview(t *testing.T) {
 	if !reflect.DeepEqual(fake.events, expected) || len(fake.outcomes) != 0 {
 		t.Fatalf("flow=%v outcomes=%v", fake.events, fake.outcomes)
 	}
-	if len(fake.reviewFiles) != 1 || fake.reviewFiles[0].BlobID != "blob:game.gba" {
+	if len(fake.reviewFiles) != 1 || fake.reviewFiles[0].FileRecord != "blob:game.gba" {
 		t.Fatalf("review received unbound files: %+v", fake.reviewFiles)
 	}
 }
 
 func TestImportExecutorLostOwnershipCannotBecomeItemFailure(t *testing.T) {
 	t.Parallel()
-	for _, cause := range []error{ErrVersionConflict, library.ErrVersionConflict, context.Canceled, context.DeadlineExceeded} {
+	for _, cause := range []error{
+		ErrVersionConflict, library.ErrVersionConflict,
+		context.Canceled, context.DeadlineExceeded,
+	} {
 		t.Run(cause.Error(), func(t *testing.T) {
 			fake, executor := newImportExecutorFixture()
 			fake.failures["resume"] = cause
@@ -98,7 +101,8 @@ func TestImportExecutorMediaWarningsPreservePlayableSource(t *testing.T) {
 				code = "SOURCE_SOURCE_CHANGED"
 			}
 			if len(fake.outcomes) != 0 || fake.warning != code || len(fake.reviewFiles) != 1 {
-				t.Fatalf("media error blocked content: outcomes=%v warning=%s review=%v", fake.outcomes, fake.warning, fake.reviewFiles)
+				t.Fatalf("media error blocked content: outcomes=%v warning=%s review=%v", fake.outcomes,
+					fake.warning, fake.reviewFiles)
 			}
 		})
 	}
@@ -148,7 +152,7 @@ func TestImportExecutorCompanionsUseBoundIdentities(t *testing.T) {
 	if err := executor.Process(t.Context(), Work{}, item); err != nil {
 		t.Fatal(err)
 	}
-	if len(fake.reviewFiles) != 2 || fake.reviewFiles[1].BlobID != "companion:parent.zip" || len(fake.outcomes) != 0 {
+	if len(fake.reviewFiles) != 2 || fake.reviewFiles[1].FileRecord != "companion:parent.zip" || len(fake.outcomes) != 0 {
 		t.Fatalf("incorrect Arcade assembly: files=%v outcomes=%v", fake.reviewFiles, fake.outcomes)
 	}
 }

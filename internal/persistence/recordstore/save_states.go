@@ -4,16 +4,16 @@ import (
 	"context"
 	"database/sql"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 )
 
 func CreateSaveStates(
-	ctx context.Context, db dbexec.Executor, query string, args ...any,
+	ctx context.Context, db dbapi.Executor, query string, args ...any,
 ) (sql.Result, error) {
-	return create(ctx, db, query, args, "id", ValidateSaveStates)
+	return create(ctx, db, query, args, "save_states", "id", ValidateSaveStates)
 }
 
-func ValidateSaveStates(ctx context.Context, db dbexec.Executor, keys ...any) error {
+func ValidateSaveStates(ctx context.Context, db dbapi.Executor, keys ...any) error {
 	return validate(ctx, db, save_statesOwnership, keys)
 }
 

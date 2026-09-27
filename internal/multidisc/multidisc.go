@@ -58,7 +58,7 @@ type File struct {
 	Basename     string
 	LogicalName  string
 	UploadFileID string
-	BlobID       string
+	FileRecord   string
 	BlobSHA256   string
 	SizeBytes    int64
 	Header       []byte

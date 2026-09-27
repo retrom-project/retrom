@@ -29,8 +29,8 @@ type (
 		AssignedByUserID                      string
 	}
 	ServerSourceFile struct {
-		RelativePath, BlobID string
-		SizeBytes            int64
+		RelativePath, FileRecord string
+		SizeBytes                int64
 	}
 	ServerCreated struct {
 		ImportJobID string `json:"importJobId"`

@@ -4,16 +4,16 @@ import (
 	"context"
 	"database/sql"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 )
 
 func CreateLaunchSessions(
-	ctx context.Context, db dbexec.Executor, query string, args ...any,
+	ctx context.Context, db dbapi.Executor, query string, args ...any,
 ) (sql.Result, error) {
-	return create(ctx, db, query, args, "id", ValidateLaunchSessions)
+	return create(ctx, db, query, args, "launch_sessions", "id", ValidateLaunchSessions)
 }
 
-func ValidateLaunchSessions(ctx context.Context, db dbexec.Executor, keys ...any) error {
+func ValidateLaunchSessions(ctx context.Context, db dbapi.Executor, keys ...any) error {
 	return validate(ctx, db, launch_sessionsOwnership, keys)
 }
 

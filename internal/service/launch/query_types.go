@@ -9,17 +9,17 @@ import (
 var ErrCredential = errors.New("LAUNCH_CREDENTIAL_INVALID")
 
 type ContentView struct {
-	Digest, Format, CoreID, ProviderID, TargetID, BundleSHA256 string
-	DOSEntry                                                   *string
-	PlatformKey                                                string
-	DiscCount                                                  int
-}
-type ExternalView struct {
-	Digest, Kind, PlatformKey, CoreKey, ProviderID, TargetID, BundleSHA256 string
+	FileRecord, Digest, Format, CoreID, ProviderID, TargetID, BundleSHA256 string
+	DOSEntry                                                               *string
+	PlatformKey                                                            string
 	DiscCount                                                              int
 }
+type ExternalView struct {
+	FileRecord, Digest, Kind, PlatformKey, CoreKey, ProviderID, TargetID, BundleSHA256 string
+	DiscCount                                                                          int
+}
 type (
-	BundleFile                   struct{ LogicalName, SHA256 string }
+	BundleFile                   struct{ FileRecord, LogicalName, SHA256 string }
 	MultiDiscTelemetryDimensions struct {
 		PlatformKey, TargetKey, BundleDigest string
 		DiscCount                            int

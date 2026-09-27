@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 )
 
 func TestGameCoreOptionsAllowPendingDependencyRevalidation(t *testing.T) {
@@ -16,7 +16,7 @@ func TestGameCoreOptionsAllowPendingDependencyRevalidation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer dbexec.Rollback(transaction)
+	defer dbapi.Rollback(transaction)
 	const gameID = "01980000-0000-7000-8000-000000000201"
 	const variantID = "01980000-0000-7000-8000-000000000206"
 	fixture := gameDetailSeed{now: time.Now().UnixMilli()}

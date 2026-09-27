@@ -8,16 +8,18 @@ import (
 	"strconv"
 	"strings"
 
+	dbapi "retrom/internal/database"
+
 	"retrom/internal/cleanup"
 	"retrom/internal/persistence/storequery"
 	application "retrom/internal/service/gamelist"
 )
 
 type Repository struct {
-	database *sql.DB
+	database dbapi.DB
 }
 
-func New(database *sql.DB) *Repository {
+func New(database dbapi.DB) *Repository {
 	return &Repository{database: database}
 }
 
@@ -27,7 +29,7 @@ func (repository *Repository) Detail(
 	var detail application.Detail
 	var players, releaseYear sql.NullInt64
 	var coverAssetID, videoAssetID sql.NullString
-	err := repository.database.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, repository.database, `
 SELECT g.id,
 g.title,
 g.description,
@@ -167,7 +169,7 @@ func (repository *Repository) defaultDOSEntry(
 	ctx context.Context, gameID string,
 ) (*string, error) {
 	var entry sql.NullString
-	err := repository.database.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, repository.database, `
 SELECT variant.default_dos_entry
 FROM game_variants variant
 WHERE variant.game_id=? AND variant.core_id='dosbox_pure'
@@ -185,7 +187,7 @@ func (repository *Repository) saveStateCount(
 	ctx context.Context, gameID, profileID string,
 ) (int64, error) {
 	var count int64
-	if err := repository.database.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, repository.database, `
 SELECT count(*)
 FROM save_states save
 LEFT JOIN game_save_versions native ON native.save_state_id=save.id
@@ -211,7 +213,7 @@ native.last_synced_at_ms,
 source_launch.core_id,
 c.name,
 s.disc_index,
-s.screenshot_blob_id IS NOT NULL
+s.screenshot_file_record IS NOT NULL
 FROM save_states s
 LEFT JOIN game_save_versions native ON native.save_state_id=s.id
 JOIN launch_sessions source_launch ON source_launch.id=s.source_launch_session_id
@@ -284,7 +286,8 @@ JOIN cores c ON c.id=pc.core_id
 AND c.enabled=1
 LEFT JOIN game_variants v ON v.game_id=g.id
 AND (v.core_id=c.id OR pi.platform_id='rpgmaker')
-LEFT JOIN runtime_targets bound_target ON bound_target.provider_id=v.provider_id AND bound_target.target_id=v.target_id
+LEFT JOIN runtime_targets bound_target ON bound_target.provider_id=v.provider_id AND
+bound_target.target_id=v.target_id
 WHERE g.id=?
 ORDER BY c.name,
 c.id

@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/service/accounts"
 	"retrom/internal/testsupport"
 )
@@ -34,7 +35,7 @@ func TestBootstrapLateFailureRollsBackIdentitySessionStateAndAudit(t *testing.T)
 	}
 	var state string
 	var users, profiles, credentials, sessions, audit int
-	if err := database.SQL.QueryRowContext(t.Context(), `SELECT state,(SELECT count(*) FROM users),(SELECT count(*) FROM profiles),(SELECT count(*) FROM user_credentials),(SELECT count(*) FROM auth_sessions),(SELECT count(*) FROM audit_events) FROM instance_state WHERE id=1`).Scan(&state, &users, &profiles, &credentials, &sessions, &audit); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), database.SQL, `SELECT state,(SELECT count(*) FROM users),(SELECT count(*) FROM profiles),(SELECT count(*) FROM user_credentials),(SELECT count(*) FROM auth_sessions),(SELECT count(*) FROM audit_events) FROM instance_state WHERE id=1`).Scan(&state, &users, &profiles, &credentials, &sessions, &audit); err != nil {
 		t.Fatal(err)
 	}
 	if state != "PENDING" || users != 0 || profiles != 0 || credentials != 0 || sessions != 0 || audit != 0 {

@@ -6,12 +6,15 @@ import (
 	"errors"
 	"fmt"
 
+	gamecleanup "retrom/internal/service/gamecontent/payloadpolicy"
+
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/auditevents"
-	payloadpersistence "retrom/internal/persistence/payloadrelease"
+	payloadpersistence "retrom/internal/persistence/gamecontent/gamerelease"
 	"retrom/internal/persistence/recordstore"
 	"retrom/internal/persistence/sessionstore"
+	payloadservice "retrom/internal/service/cleanupjobs"
 	application "retrom/internal/service/gamecontent"
-	payloadservice "retrom/internal/service/payloadrelease"
 
 	"github.com/google/uuid"
 )
@@ -23,7 +26,7 @@ func (writes writes) LoadDeleteGameState(
 ) (application.DeleteGameState, error) {
 	var state application.DeleteGameState
 	var releaseJobID sql.NullString
-	err := writes.transaction.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, writes.transaction, `
 SELECT title,status,payload_state,payload_release_job_id,version
 FROM games
 WHERE id=?
@@ -52,7 +55,7 @@ WHERE principal_id=? AND operation_id=? AND key=? AND expires_at_ms<=?
 		return application.DeleteGameReplay{}, false, fmt.Errorf("expire game deletion replay: %w", err)
 	}
 	var replay application.DeleteGameReplay
-	err := writes.transaction.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, writes.transaction, `
 SELECT request_digest,http_status,response_headers_json,response_body
 FROM idempotency_records
 WHERE principal_id=? AND operation_id=? AND key=?
@@ -71,32 +74,18 @@ WHERE principal_id=? AND operation_id=? AND key=?
 func (writes writes) DeleteGameImpact(
 	ctx context.Context, gameID string,
 ) (application.DeleteGameImpact, error) {
-	impact, err := payloadservice.NewImpactQueries(
-		payloadpersistence.BindImpact(writes.transaction),
-	).Game(ctx, gameID)
+	impact, err := application.NewImpactQueries(BindImpact(writes.transaction)).Game(ctx, gameID)
 	if err != nil {
 		return application.DeleteGameImpact{}, fmt.Errorf("read game deletion impact: %w", err)
 	}
-	return application.DeleteGameImpact{
-		ImpactDigest:      impact.ImpactDigest,
-		RegisteredBytes:   impact.RegisteredBytes,
-		ExclusiveBytes:    impact.ExclusiveBytes,
-		SharedBytes:       impact.SharedBytes,
-		BlobCount:         impact.BlobCount,
-		SaveStateCount:    impact.SaveStateCount,
-		AssetCount:        impact.AssetCount,
-		ContentFileCount:  impact.ContentFileCount,
-		ActiveLaunchCount: impact.ActiveLaunchCount,
-		SourceKinds:       impact.SourceKinds,
-	}, nil
+	return impact, nil
 }
 
 func (writes writes) ScheduleGameDeletion(
 	ctx context.Context, gameID string, version, now int64,
 ) (string, error) {
-	jobID, err := payloadservice.NewScheduler(nil).DeleteGame(
-		ctx, payloadpersistence.BindScheduling(writes.transaction), gameID, version, now,
-	)
+	jobID, err := gamecleanup.DeleteGame(ctx, payloadservice.NewScheduler(nil),
+		payloadpersistence.BindScheduling(writes.transaction), gameID, version, now)
 	if err != nil {
 		return "", fmt.Errorf("schedule game payload release: %w", err)
 	}

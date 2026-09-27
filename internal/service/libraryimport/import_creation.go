@@ -6,23 +6,25 @@ import (
 	"slices"
 	"time"
 
+	importcleanup "retrom/internal/service/libraryimport/payloadpolicy"
+
 	"retrom/internal/authn"
+	"retrom/internal/service/cleanupjobs"
 	"retrom/internal/service/metadatascrape"
-	"retrom/internal/service/payloadrelease"
 	"retrom/internal/service/tagging"
 )
 
 type ImportCreations struct {
 	repository  ImportCreationRepository
 	preparation *ImportPreparation
-	tags        *tagging.Service
-	scraper     *metadatascrape.Service
+	tags        ImportCreationTags
+	scraper     ImportMetadata
 	settings    ImportCreationSettings
 	newID       func() (string, error)
 }
 
 func NewImportCreations(repository ImportCreationRepository, preparation *ImportPreparation,
-	tags *tagging.Service, scraper *metadatascrape.Service, settings ImportCreationSettings,
+	tags ImportCreationTags, scraper ImportMetadata, settings ImportCreationSettings,
 ) *ImportCreations {
 	if settings.Now == nil {
 		settings.Now = time.Now
@@ -50,6 +52,12 @@ func (service *ImportCreations) Create(ctx context.Context, request ImportReques
 func (service *ImportCreations) CommitPrepared(ctx context.Context, plan PreparedImport,
 	options ImportCreationOptions,
 ) (ImportCreationResult, error) {
+	committed := false
+	defer func() {
+		if !committed {
+			service.preparation.removePreparedDirectories(ctx, plan)
+		}
+	}()
 	run, err := service.prepareCommit(plan, options)
 	if err != nil {
 		return ImportCreationResult{}, creationError("commit prepared", err)
@@ -58,6 +66,7 @@ func (service *ImportCreations) CommitPrepared(ctx context.Context, plan Prepare
 	if err != nil {
 		return ImportCreationResult{}, fmt.Errorf("commit import creation: %w", err)
 	}
+	committed = true
 	for _, scheduled := range run.scheduled {
 		if !scheduled.IsNoop() {
 			service.scraper.Dispatch(ctx, scheduled.ScrapeRunID())
@@ -149,7 +158,7 @@ func (run *creationCommit) commit(ctx context.Context, scope ImportCreationScope
 		if err != nil {
 			return fmt.Errorf("catalog prepared archive: %w", err)
 		}
-		run.materialized[archive.BlobID] = materialized
+		run.materialized[archive.FileRecord] = materialized
 	}
 	for index := range run.groups {
 		if err := run.persistGroup(ctx, scope, &run.groups[index]); err != nil {
@@ -261,7 +270,8 @@ func cloneCreationGroup(group PreparedGroup) PreparedGroup {
 }
 
 func (run *creationCommit) schedulePayload(ctx context.Context, scope ImportCreationScope) error {
-	_, err := payloadrelease.NewScheduler(nil).TerminalImport(ctx, scope.Payload, run.header.ImportID, run.header.NowMS)
+	_, err := importcleanup.TerminalImport(ctx, cleanupjobs.NewScheduler(nil), scope.Payload,
+		run.header.ImportID, run.header.NowMS)
 	if err != nil {
 		return fmt.Errorf("schedule creation payload: %w", err)
 	}

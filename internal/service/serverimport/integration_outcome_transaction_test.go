@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 
+	dbapi "retrom/internal/database"
 	importpersistence "retrom/internal/persistence/serverimport"
 	importservice "retrom/internal/service/serverimport"
 )
@@ -46,7 +47,7 @@ func TestOutcomeLateFailureRollsBackItemRetryAndFailure(t *testing.T) {
 			}
 			var itemState, jobState, importState string
 			var events int64
-			err = database.QueryRowContext(t.Context(), `SELECT item.state,job.state,import.state,
+			err = dbapi.QueryRowContext(t.Context(), database, `SELECT item.state,job.state,import.state,
  (SELECT count(*) FROM job_events WHERE job_id=job.id AND event_type<>'QUEUED' AND event_type<>'STARTED')
  FROM server_bios_import_items item JOIN server_imports import ON import.id=item.server_import_id
  JOIN jobs job ON job.id=import.job_id WHERE import.id=?`, unit.ImportID).Scan(&itemState, &jobState, &importState, &events)

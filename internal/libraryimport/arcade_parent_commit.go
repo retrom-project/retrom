@@ -23,6 +23,9 @@ func (service *Service) commitAcceptedParentAttachment(
 	validation preparedGroup,
 	diagnostics map[string]any,
 ) error {
+	if err := service.prepareParentDirectory(ctx, &candidate, files, &validation); err != nil {
+		return err
+	}
 	diagnosticsJSON, _ := json.Marshal(diagnostics)
 	now := service.now().UnixMilli()
 	repository := librarypersistence.NewArcadeParentCommitRepository(service.database)
@@ -32,7 +35,7 @@ func (service *Service) commitAcceptedParentAttachment(
 			BaseSnapshotID: candidate.baseSnapshotID, Machine: candidate.machine,
 			ProviderID: candidate.providerID, TargetID: candidate.targetID, DATID: candidate.datID,
 			UploadFileID: candidate.uploadFileID, UploadSessionID: candidate.uploadSessionID,
-			BlobID: candidate.blobID, BlobSHA: candidate.blobSHA, BlobSize: candidate.blobSize,
+			FileRecord: candidate.fileRecord, BlobSHA: candidate.blobSHA, BlobSize: candidate.blobSize,
 			ContentPolicyDigest: candidate.contentPolicyDigest,
 		},
 		JobID: jobID, WorkerID: workerID, Entries: entries,
@@ -54,10 +57,10 @@ func (service *Service) commitAcceptedParentAttachment(
 func arcadeParentSourceFiles(files []attachedSourceFile) []application.ArcadeParentSourceFile {
 	result := make([]application.ArcadeParentSourceFile, 0, len(files))
 	for _, file := range files {
-		var archiveBlobID *string
-		if file.archiveBlobID.Valid {
-			value := file.archiveBlobID.String
-			archiveBlobID = &value
+		var archiveFileRecord *string
+		if file.archiveFileRecord.Valid {
+			value := file.archiveFileRecord.String
+			archiveFileRecord = &value
 		}
 		var archiveOrdinal *int
 		if file.archiveOrdinal.Valid {
@@ -66,8 +69,8 @@ func arcadeParentSourceFiles(files []attachedSourceFile) []application.ArcadePar
 		}
 		result = append(result, application.ArcadeParentSourceFile{
 			Role: file.role, LogicalName: file.logicalName, UploadFileID: file.uploadFileID,
-			BlobID: file.blobID, BlobSHA: file.blobSHA, BlobSize: file.blobSize,
-			ArchiveBlobID: archiveBlobID, ArchiveOrdinal: archiveOrdinal, SortOrder: file.sortOrder,
+			FileRecord: file.fileRecord, BlobSHA: file.blobSHA, BlobSize: file.blobSize,
+			ArchiveFileRecord: archiveFileRecord, ArchiveOrdinal: archiveOrdinal, SortOrder: file.sortOrder,
 		})
 	}
 	return result
@@ -77,7 +80,7 @@ func arcadeParentValidationFiles(files []preparedValidationFile) []application.A
 	result := make([]application.ArcadeParentValidationFile, 0, len(files))
 	for _, file := range files {
 		result = append(result, application.ArcadeParentValidationFile{
-			Role: file.Role, LogicalName: file.LogicalName, BlobID: file.BlobID, SortOrder: file.SortOrder,
+			Role: file.Role, LogicalName: file.LogicalName, FileRecord: file.FileRecord, SortOrder: file.SortOrder,
 		})
 	}
 	return result

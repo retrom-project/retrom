@@ -1,17 +1,18 @@
 package sourceimport
 
 import (
-	"database/sql"
 	"errors"
 	"reflect"
 	"strings"
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
+
 	application "retrom/internal/service/sourceimport"
 )
 
-func publicationDatabase(t *testing.T) (*sql.DB, application.ExecutionIdentity, application.ScanProjection) {
+func publicationDatabase(t *testing.T) (dbapi.DB, application.ExecutionIdentity, application.ScanProjection) {
 	t.Helper()
 	db := creationDatabase(t)
 	if err := NewCreation(db).WithCreate(t.Context(), func(writer application.CreationWriter) error {
@@ -50,7 +51,7 @@ leased_until_ms=90,heartbeat_at_ms=2,execution_started_at_ms=2,execution_deadlin
 	return db, id, projection
 }
 
-func publicationRows(t *testing.T, db *sql.DB) map[string]string {
+func publicationRows(t *testing.T, db dbapi.DB) map[string]string {
 	t.Helper()
 	result := workflowRows(t, db)
 	for _, table := range []string{
@@ -112,7 +113,7 @@ func assertScanPublicationFence(t *testing.T, stage, field string) {
 
 func stagePublication(
 	t *testing.T,
-	db *sql.DB,
+	db dbapi.DB,
 	id application.ExecutionIdentity,
 	projection application.ScanProjection,
 ) {

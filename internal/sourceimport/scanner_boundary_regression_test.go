@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"retrom/internal/pegasusmeta"
+	pegasusmeta "retrom/internal/format/pegasus/meta"
 
 	"github.com/google/uuid"
 )
@@ -37,12 +37,17 @@ func TestScannerCollectionAndItemIDsPreserveEntropyFailure(t *testing.T) {
 	for _, preceding := range []int{0, 16} {
 		name := "collection"
 		if preceding != 0 {
-			name = "item"
+			name = "018fbe68-0000-7000-8000-000000000010"
 		}
 		t.Run(name, func(t *testing.T) {
 			root := scannerBoundarySource(t)
 			uuid.SetRand(io.MultiReader(strings.NewReader(strings.Repeat("x", preceding)), unavailableCreationEntropy{}))
-			result, err := func() (scanResult, error) { defer uuid.SetRand(nil); return (&Service{}).scan(t.Context(), root, "") }()
+			result, err := func() (scanResult,
+				error,
+			) {
+				defer uuid.SetRand(nil)
+				return (&Service{}).scan(t.Context(), root, "")
+			}()
 			if !errors.Is(err, errCreationEntropy) || len(result.Items) != 0 {
 				t.Fatalf("%s identity failure ignored: %v", name, err)
 			}

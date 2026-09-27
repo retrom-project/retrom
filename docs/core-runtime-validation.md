@@ -302,7 +302,7 @@ WebAssembly 构建与浏览器前端由 `retrom-project/ppsspp` 维护，宿主�
 游戏通过独立 I/O Worker 按 256 KiB Range 读取，内存缓存有界，持久分块缓存按文件摘要、
 长度和块位置跨实例复用。不得启动前整包下载，不把未请求的全游戏字节作为 LOAD_PROGRESS。
 响应必须为 206，区间、长度及 SHA-256 身份 ETag 与冻结内容一致；本地块摘要检测缓存损坏，
-源内容身份依赖服务端不可变 CAS，不能声称客户端提前验证了全盘摘要。核心代码资源仍完整
+源内容身份依赖服务端不可变独立文件存储，不能声称客户端提前验证了全盘摘要。核心代码资源仍完整
 校验摘要。要求 Chrome 的 WebGL2、OffscreenCanvas、SharedArrayBuffer 与 cross-origin isolation。
 
 新存档为 `ppsspp-state-v1-storage-v1`，公共 gzip 内含完整执行状态和记忆棒文件，解压上限

@@ -11,6 +11,9 @@ import (
 	"strings"
 	"testing"
 
+	dbapi "retrom/internal/database"
+	idempotencypersistence "retrom/internal/persistence/idempotency"
+	idempotencyservice "retrom/internal/service/idempotency"
 	"retrom/internal/testsupport"
 )
 
@@ -35,7 +38,7 @@ func TestMediaRetryDispatchesAfterReceiptAndReplayKeepsExecution(t *testing.T) {
 		t.Fatal("replay created another media execution")
 	}
 	var assets int
-	if err := fixture.server.database.QueryRowContext(t.Context(), `SELECT count(*) FROM scrape_candidate_assets WHERE media_fetch_job_id=? AND status='READY'`, fixture.jobID).Scan(&assets); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), fixture.server.database, `SELECT count(*) FROM scrape_candidate_assets WHERE media_fetch_job_id=? AND status='READY'`, fixture.jobID).Scan(&assets); err != nil {
 		t.Fatal(err)
 	}
 	if assets != 1 {
@@ -47,7 +50,7 @@ func TestMediaRetryReceiptFailureDoesNotInvokeCurrentDispatch(t *testing.T) {
 	fixture := newMediaRetryFixture(t)
 	hits := 0
 	cause := errors.New("media receipt write unavailable")
-	fixture.server.database = testsupport.OpenSQLFaultDatabase(t, fixture.server.database, testsupport.SQLFaultHooks{
+	fault := testsupport.OpenSQLFaultDatabase(t, fixture.server.database, testsupport.SQLFaultHooks{
 		BeforeExec: func(_ context.Context, query string, args []driver.NamedValue) error {
 			if strings.Contains(query, "INSERT INTO idempotency_records") && len(args) > 1 && args[1].Value == "postAdminJobRetry" {
 				hits++
@@ -56,6 +59,7 @@ func TestMediaRetryReceiptFailureDoesNotInvokeCurrentDispatch(t *testing.T) {
 			return nil
 		},
 	})
+	fixture.server.idempotencyService = idempotencyservice.New(idempotencypersistence.New(fault))
 	response := httptest.NewRecorder()
 	fixture.request(t.Context(), response)
 	if response.Code != http.StatusInternalServerError || hits != 1 {
@@ -63,7 +67,7 @@ func TestMediaRetryReceiptFailureDoesNotInvokeCurrentDispatch(t *testing.T) {
 	}
 	var state string
 	var attempt int64
-	if err := fixture.server.database.QueryRowContext(t.Context(), `SELECT state,attempt_count FROM jobs WHERE id=?`, fixture.jobID).Scan(&state, &attempt); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), fixture.server.database, `SELECT state,attempt_count FROM jobs WHERE id=?`, fixture.jobID).Scan(&state, &attempt); err != nil {
 		t.Fatal(err)
 	}
 	if state != "QUEUED" || attempt != 0 {

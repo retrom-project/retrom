@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"time"
+
+	"retrom/internal/filestore"
 )
 
 var (
@@ -35,6 +37,7 @@ type SelectedAssets struct {
 }
 
 type ApplyCandidateRequest struct {
+	prepared        []CandidateAssetSelection
 	GameID          string
 	CandidateID     string
 	ExpectedVersion int64
@@ -43,10 +46,10 @@ type ApplyCandidateRequest struct {
 }
 
 type ApplyCandidateResult struct {
-	AssetIDs        []string
-	ReplacedBlobIDs []string
-	Version         int64
-	UpdatedAtMS     int64
+	AssetIDs            []string
+	ReplacedFileRecords []string
+	Version             int64
+	UpdatedAtMS         int64
 }
 
 type CandidateApplySnapshot struct {
@@ -56,9 +59,10 @@ type CandidateApplySnapshot struct {
 }
 
 type CandidateAssetSelection struct {
-	ID      string
-	Kind    string
-	Ordinal int64
+	SourceFile, File, AssetID string
+	ID                        string
+	Kind                      string
+	Ordinal                   int64
 }
 
 type GameMetadataUpdate struct {
@@ -77,21 +81,26 @@ type CandidateApplyScope interface {
 	ReplaceGameAssets(context.Context, string, string) ([]string, error)
 	CreateSelectedGameAssets(context.Context, string, string, []CandidateAssetSelection, int64) ([]string, error)
 	UpdateGameMetadata(context.Context, GameMetadataUpdate) (bool, error)
-	StageCandidates(context.Context, []string) error
+	StageCandidates(context.Context, string, []string, int64) error
 }
 
 type CandidateApplyRepository interface {
+	SelectedFiles(context.Context, string, []CandidateAssetSelection) ([]CandidateAssetSelection, error)
 	WithCandidateApply(context.Context, func(CandidateApplyScope) error) error
 }
 
 type Service struct {
 	repository CandidateApplyRepository
+	files      *filestore.Store
 	now        func() time.Time
 }
 
-func New(repository CandidateApplyRepository, now func() time.Time) *Service {
+func New(repository CandidateApplyRepository, files *filestore.Store, now func() time.Time) *Service {
+	if repository == nil || files == nil {
+		panic("gamemetadata: repository and files are required")
+	}
 	if now == nil {
 		now = time.Now
 	}
-	return &Service{repository: repository, now: now}
+	return &Service{repository: repository, files: files, now: now}
 }

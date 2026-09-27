@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	dbapi "retrom/internal/database"
 	repository "retrom/internal/persistence/sourceimport"
 	library "retrom/internal/service/libraryimport"
 	application "retrom/internal/service/sourceimport"
@@ -18,7 +19,9 @@ type handoffTransactionFailure struct {
 	cause      error
 }
 
-func (failure handoffTransactionFailure) WithReviewHandoff(ctx context.Context, work func(application.ReviewHandoffScope) error) error {
+func (failure handoffTransactionFailure) WithReviewHandoff(ctx context.Context,
+	work func(application.ReviewHandoffScope) error,
+) error {
 	return failure.repository.WithReviewHandoff(ctx, func(scope application.ReviewHandoffScope) error {
 		scope.Records = handoffWriteFailure{ReviewHandoffRecords: scope.Records, stage: failure.stage, cause: failure.cause}
 		return work(scope)
@@ -31,9 +34,11 @@ type handoffWriteFailure struct {
 	cause error
 }
 
-func (failure handoffWriteFailure) FinishReviewHandoff(ctx context.Context, change application.ReviewHandoffChange) error {
+func (failure handoffWriteFailure) FinishReviewHandoff(ctx context.Context,
+	change application.ReviewHandoffChange,
+) error {
 	switch failure.stage {
-	case "item":
+	case "018fbe68-0000-7000-8000-000000000010":
 		change.Before.Version++
 	case "parent":
 		change.Before.ImportVersion++
@@ -53,36 +58,53 @@ func (failure handoffWriteFailure) FinishReviewHandoff(ctx context.Context, chan
 type handoffStoredState struct {
 	Metadata, Search, State, Warnings                         string
 	DraftVersion, ItemVersion, ParentVersion, Pending, Events int64
+	Media, References, ReleaseJobs                            int64
 }
 
 func readHandoffState(t *testing.T, service *Service) handoffStoredState {
 	t.Helper()
 	var result handoffStoredState
-	if err := service.database.QueryRowContext(t.Context(), `SELECT d.metadata_json,d.review_version,i.search_text,p.execution_state,p.warnings_json,p.version,
- parent.version,parent.review_pending_item_count,(SELECT count(*) FROM job_events)
+	if err := dbapi.QueryRowContext(t.Context(), service.database, `SELECT d.metadata_json,d.review_version,i.search_text,p.execution_state,p.warnings_json,p.version,
+ parent.version,parent.review_pending_item_count,(SELECT count(*) FROM job_events),
+ (SELECT count(*) FROM import_item_assets WHERE import_item_id=d.id),
+ (SELECT count(DISTINCT file_record) FROM import_item_assets WHERE
+import_item_id='018fbe68-0000-7000-8000-000000000011'),
+ (SELECT count(*) FROM jobs WHERE kind='OWNER_CLEANUP')
  FROM import_items d JOIN import_items i ON i.id=d.id
- JOIN source_import_items p ON p.library_import_item_id=i.id JOIN source_imports parent ON parent.id=p.import_id
- WHERE p.id='item'`).Scan(&result.Metadata, &result.DraftVersion, &result.Search, &result.State, &result.Warnings, &result.ItemVersion,
-		&result.ParentVersion, &result.Pending, &result.Events); err != nil {
+ JOIN source_import_items p ON p.library_import_item_id=i.id JOIN source_imports parent ON
+parent.id=p.import_id
+ WHERE p.id='018fbe68-0000-7000-8000-000000000010'`).Scan(&result.Metadata, &result.DraftVersion, &result.Search, &result.State, &result.Warnings, &result.ItemVersion,
+		&result.ParentVersion, &result.Pending, &result.Events, &result.Media, &result.References,
+		&result.ReleaseJobs); err != nil {
 		t.Fatal(err)
 	}
 	return result
 }
 
 func handoffRequest(unit work) application.ReviewHandoffRequest {
-	return application.ReviewHandoffRequest{ItemID: "item", ImportID: unit.ImportID, JobID: unit.JobID, LibraryJobID: "handoff-job", LibraryItemID: "handoff-item", ExecutionNo: unit.ExecutionNo, Attempt: unit.Attempt, WorkerID: unit.WorkerID}
+	return application.ReviewHandoffRequest{
+		ItemID:   "018fbe68-0000-7000-8000-000000000010",
+		ImportID: unit.ImportID, JobID: unit.JobID, LibraryJobID: "handoff-job",
+		LibraryItemID: "018fbe68-0000-7000-8000-000000000011", ExecutionNo: unit.ExecutionNo,
+		Attempt: unit.Attempt, WorkerID: unit.WorkerID,
+	}
 }
 
 func TestReviewHandoffTransactionRollsBackEveryProjection(t *testing.T) {
 	t.Parallel()
-	for _, stage := range []string{"item", "parent", "execution", "attempt", "library", "late callback"} {
+	for _, stage := range []string{
+		"018fbe68-0000-7000-8000-000000000010", "parent", "execution",
+		"attempt", "library", "late callback",
+	} {
 		t.Run(stage, func(t *testing.T) {
 			t.Parallel()
 			service, unit, _ := handoffFixture(t)
+			seedHandoffMedia(t, service)
 			before := readHandoffState(t, service)
 			cause := errors.New("late handoff failure")
 			storage := handoffTransactionFailure{repository: repository.NewReviewHandoff(service.database), stage: stage, cause: cause}
-			handoff := application.NewReviewHandoff(storage, library.NewMetadataSeeder(nil, service.now), service.now)
+			handoff := application.NewReviewHandoff(storage, library.NewMetadataSeeder(nil,
+				service.now), service.blobs, service.now)
 			err := handoff.Complete(t.Context(), handoffRequest(unit))
 			if err == nil || stage == "late callback" && !errors.Is(err, cause) {
 				t.Fatalf("failed %s handoff: %v", stage, err)
@@ -97,16 +119,22 @@ func TestReviewHandoffTransactionRollsBackEveryProjection(t *testing.T) {
 func TestReviewHandoffCommitsMetadataWarningsCountsAndEventOnce(t *testing.T) {
 	t.Parallel()
 	service, unit, _ := handoffFixture(t)
+	seedHandoffMedia(t, service)
 	metadata := `{"Title":"Changed","Developer":"` + strings.Repeat("开", 201) + `"}`
-	mustExecSourceTest(t.Context(), t, service.database, `UPDATE source_import_items SET metadata_json=?,warnings_json='[{"code":"SOURCE_WARNING","field":"file"}]' WHERE id='item'`, metadata)
+	mustExecSourceTest(t.Context(), t, service.database, `UPDATE source_import_items SET metadata_json=?,
+warnings_json='[{"code":"SOURCE_WARNING","field":"file"}]' WHERE id='018fbe68-0000-7000-8000-000000000010'`, metadata)
 	before := readHandoffState(t, service)
-	handoff := application.NewReviewHandoff(repository.NewReviewHandoff(service.database), library.NewMetadataSeeder(nil, service.now), service.now)
+	handoff := application.NewReviewHandoff(repository.NewReviewHandoff(service.database),
+		library.NewMetadataSeeder(nil, service.now), service.blobs, service.now)
 	request := handoffRequest(unit)
 	if err := handoff.Complete(t.Context(), request); err != nil {
 		t.Fatal(err)
 	}
 	after := readHandoffState(t, service)
-	if after.State != "REVIEW_PENDING" || after.DraftVersion != before.DraftVersion+1 || after.ItemVersion != before.ItemVersion+1 || after.ParentVersion != before.ParentVersion+1 || after.Pending != 1 || after.Events != before.Events+1 {
+	if after.State != "REVIEW_PENDING" || after.DraftVersion != before.DraftVersion+1 ||
+		after.ItemVersion != before.ItemVersion+2 || after.ParentVersion != before.ParentVersion+1 ||
+		after.Media != 2 || after.References != before.References+2 ||
+		after.ReleaseJobs != before.ReleaseJobs+1 || after.Pending != 1 || after.Events != before.Events+2 {
 		t.Fatalf("handoff projections: before=%#v after=%#v", before, after)
 	}
 	expected := `[{"code":"SOURCE_WARNING","field":"file"},{"code":"FIELD_TRUNCATED","field":"developer"}]`

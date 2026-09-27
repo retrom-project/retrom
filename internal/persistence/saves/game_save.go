@@ -6,13 +6,16 @@ import (
 	"errors"
 	"fmt"
 
+	"retrom/internal/persistence/filedeletion"
+
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/recordstore"
 	"retrom/internal/service/saves"
 )
 
 func (store records) Binding(ctx context.Context, id string) (saves.GameSaveBinding, bool, error) {
 	var binding saves.GameSaveBinding
-	err := store.executor.QueryRowContext(ctx, `SELECT save_state_id,expected_data_version
+	err := dbapi.QueryRowContext(ctx, store.executor, `SELECT save_state_id,expected_data_version
 FROM launch_game_save_bindings WHERE launch_session_id=?`, id).Scan(&binding.ID, &binding.ExpectedVersion)
 	if errors.Is(err, sql.ErrNoRows) {
 		return saves.GameSaveBinding{}, false, nil
@@ -25,10 +28,11 @@ FROM launch_game_save_bindings WHERE launch_session_id=?`, id).Scan(&binding.ID,
 
 func (store records) Saved(ctx context.Context, id string) (saves.StoredSave, bool, error) {
 	var saved saves.StoredSave
-	err := store.executor.QueryRowContext(ctx, `SELECT save.id,save.name,save.created_at_ms,save.version,
- save.active_duration_ms,save.payload_sha256,native.data_version,save.screenshot_blob_id,
+	err := dbapi.QueryRowContext(ctx, store.executor, `SELECT save.id,save.name,save.created_at_ms,save.version,
+ save.active_duration_ms,save.payload_sha256,native.data_version,save.screenshot_file_record,
  save.profile_id,save.game_id,save.checkpoint_format,save.deleted_at_ms
-FROM save_states save JOIN game_save_versions native ON native.save_state_id=save.id WHERE save.id=?`, id).
+FROM save_states save JOIN game_save_versions native ON native.save_state_id=save.id WHERE
+save.id=?`, id).
 		Scan(&saved.Result.SaveStateID, &saved.Result.Name, &saved.Result.CreatedAtMS, &saved.Result.Version,
 			&saved.Result.ActiveDurationMS, &saved.Digest, &saved.DataVersion, &saved.ScreenshotID, &saved.ProfileID,
 			&saved.GameID, &saved.Format, &saved.DeletedAtMS)
@@ -54,6 +58,22 @@ SET save_state_id=?,expected_data_version=? WHERE launch_session_id=?`, saveID, 
 }
 
 func (store records) UpdateSave(ctx context.Context, update saves.SaveUpdate) error {
+	old, err := dbapi.QueryStrings(ctx, store.executor, `
+SELECT payload_file_record FROM save_states WHERE id=?1 AND payload_file_record IS NOT NULL
+ UNION SELECT screenshot_file_record FROM save_states WHERE id=?1 AND screenshot_file_record IS NOT NULL
+`, update.SaveID)
+	if err != nil {
+		return fmt.Errorf("update save: %w", err)
+	}
+	for _, value := range old {
+		if value == update.PayloadID || value == update.ScreenshotID {
+			continue
+		}
+		if err := filedeletion.QueueFile(ctx, store.executor, value, update.AtMS); err != nil {
+			return fmt.Errorf("update save: %w", err)
+		}
+	}
+
 	if err := changed(recordstore.UpdateGameSaveVersions(ctx, store.executor, recordstore.Update{
 		Set: `last_synced_at_ms=?,last_writer_launch_session_id=?,data_version=data_version+1`,
 		Scope: recordstore.Scope{
@@ -68,7 +88,7 @@ func (store records) UpdateSave(ctx context.Context, update saves.SaveUpdate) er
 		return err
 	}
 	return changed(recordstore.UpdateSaveStates(ctx, store.executor, recordstore.Update{
-		Set: `payload_blob_id=?,payload_sha256=?,payload_size_bytes=?,screenshot_blob_id=?,
+		Set: `payload_file_record=?,payload_sha256=?,payload_size_bytes=?,screenshot_file_record=?,
 updated_at_ms=?,active_duration_ms=?,version=version+1`,
 		Scope: recordstore.Scope{Where: `id=? AND deleted_at_ms IS NULL`, Args: []any{update.SaveID}},
 		Values: []any{

@@ -6,7 +6,7 @@ import (
 	"errors"
 	"testing"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/recordstore"
 	"retrom/internal/persistence/sessionstore"
 )
@@ -18,7 +18,7 @@ func TestApplicationAtomicCancellationRollsBackContinuingTransaction(t *testing.
 	tx := lifecycleTransaction(t, db)
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
-	_, err := recordstore.Atomic(ctx, tx, func(connection dbexec.Executor) (sql.Result, error) {
+	_, err := recordstore.Atomic(ctx, tx, func(connection dbapi.Executor) (sql.Result, error) {
 		result, writeErr := connection.ExecContext(ctx,
 			"INSERT INTO profiles(id,display_name,created_at_ms) VALUES('cancelled-profile','Cancelled',1)")
 		cancel()
@@ -31,7 +31,7 @@ func TestApplicationAtomicCancellationRollsBackContinuingTransaction(t *testing.
 		t.Fatal(err)
 	}
 	var count int
-	if err := db.QueryRowContext(t.Context(), "SELECT count(*) FROM profiles WHERE id='cancelled-profile'").Scan(&count); err != nil || count != 0 {
+	if err := dbapi.QueryRowContext(t.Context(), db, "SELECT count(*) FROM profiles WHERE id='cancelled-profile'").Scan(&count); err != nil || count != 0 {
 		t.Fatalf("cancelled write retained %d profiles, error = %v", count, err)
 	}
 }
@@ -54,7 +54,7 @@ func TestInvalidSessionCreationDoesNotLeakIntoContinuingTransaction(t *testing.T
 		t.Fatal(err)
 	}
 	var count int
-	if err := db.QueryRowContext(t.Context(), `SELECT count(*) FROM launch_sessions launch
+	if err := dbapi.QueryRowContext(t.Context(), db, `SELECT count(*) FROM launch_sessions launch
  JOIN launch_payload_retirements retirement ON retirement.launch_session_id=launch.id
  WHERE launch.id='retry-launch' AND launch.target_id='target-a'`).Scan(&count); err != nil || count != 1 {
 		t.Fatalf("committed valid launch and retirement = %d, error = %v", count, err)
@@ -82,7 +82,7 @@ func TestBatchAdminDowngradeRollsBackEverySelectedUser(t *testing.T) {
 		t.Fatal(err)
 	}
 	var count int
-	if err := db.QueryRowContext(t.Context(), "SELECT count(*) FROM users WHERE role='ADMIN' AND status='ENABLED'").Scan(&count); err != nil || count != 2 {
+	if err := dbapi.QueryRowContext(t.Context(), db, "SELECT count(*) FROM users WHERE role='ADMIN' AND status='ENABLED'").Scan(&count); err != nil || count != 2 {
 		t.Fatalf("surviving admins = %d, error = %v", count, err)
 	}
 }

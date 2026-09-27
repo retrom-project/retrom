@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/blobstore"
+	"retrom/internal/filestore"
 	"retrom/internal/hasheous"
 )
 
@@ -79,12 +79,12 @@ type responseBlobs struct {
 	calls   int
 }
 
-func (blobs *responseBlobs) Put(io.Reader) (blobstore.Metadata, error) {
+func (blobs *responseBlobs) Put(io.Reader) (filestore.Metadata, error) {
 	if blobs.records.inTransaction {
 		blobs.t.Fatal("raw response file written inside SQL transaction")
 	}
 	blobs.calls++
-	return blobstore.Metadata{SHA256: "raw", Size: 3}, nil
+	return filestore.Metadata{SHA256: "raw", Size: 3}, nil
 }
 
 func TestRawResponseIsPreparedBeforeResultTransaction(t *testing.T) {
@@ -98,7 +98,9 @@ func TestRawResponseIsPreparedBeforeResultTransaction(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if created || blobs.calls != 1 || records.responses != 1 || !records.response.Cacheable || records.response.ExpiresAt != 100+86400000 || records.attempt.Source != "NETWORK" || records.attempt.AttemptNo != 2 {
+	if created || blobs.calls != 1 || records.responses != 1 || !records.response.Cacheable ||
+		records.response.ExpiresAt != 100+86400000 || records.attempt.Source != "NETWORK" ||
+		records.attempt.AttemptNo != 2 {
 		t.Fatalf("response recording: %+v attempt=%+v", records.response, records.attempt)
 	}
 }
@@ -111,13 +113,18 @@ func TestCachedCandidateHitReusesResponseAndDoesNotDuplicateAssets(t *testing.T)
 		Claim: WorkerClaim{RunID: "run"}, EvidenceID: "evidence", AttemptNo: 3, AllowCandidate: true,
 		Lookup: ResolvedLookup{CachedResponseID: "cached", Result: hasheous.LookupResult{
 			Outcome: hasheous.OutcomeHit, RawResponse: []byte("raw"),
-			Candidate: &hasheous.Candidate{ProviderGameID: "provider-game", Metadata: map[string]any{"title": "title"}, Assets: []hasheous.AssetRef{{ProviderAssetID: "asset"}}},
+			Candidate: &hasheous.Candidate{
+				ProviderGameID: "provider-game",
+				Metadata:       map[string]any{"title": "title"}, Assets: []hasheous.AssetRef{{ProviderAssetID: "asset"}},
+			},
 		}},
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if created || blobs.calls != 0 || records.responses != 0 || records.attempt.ResponseID != "cached" || records.attempt.Source != "CACHE" || records.attempt.AttemptNo != 3 || records.hit.CandidateID != "existing" || len(records.assets) != 0 {
+	if created || blobs.calls != 0 || records.responses != 0 ||
+		records.attempt.ResponseID != "cached" || records.attempt.Source != "CACHE" ||
+		records.attempt.AttemptNo != 3 || records.hit.CandidateID != "existing" || len(records.assets) != 0 {
 		t.Fatalf("cached hit: %+v / %+v", records.attempt, records.hit)
 	}
 	if records.hit.HashesJSON != `{"sha1":"sha1"}` {
@@ -128,9 +135,12 @@ func TestCachedCandidateHitReusesResponseAndDoesNotDuplicateAssets(t *testing.T)
 func TestInvalidCandidateCannotReachPersistence(t *testing.T) {
 	records := &resultMemory{readable: true}
 	recorder := NewRecorder(records, &responseBlobs{t: t, records: records}, time.Now)
-	_, err := recorder.Record(t.Context(), LookupAttempt{AllowCandidate: true, Lookup: ResolvedLookup{Result: hasheous.LookupResult{
-		Candidate: &hasheous.Candidate{Metadata: map[string]any{"invalid": math.NaN()}},
-	}}})
+	_, err := recorder.Record(t.Context(), LookupAttempt{
+		AllowCandidate: true,
+		Lookup: ResolvedLookup{Result: hasheous.LookupResult{
+			Candidate: &hasheous.Candidate{Metadata: map[string]any{"invalid": math.NaN()}},
+		}},
+	})
 	var invalid *json.UnsupportedValueError
 	if !errors.As(err, &invalid) || records.calls != 0 {
 		t.Fatalf("invalid candidate persisted: calls=%d error=%v", records.calls, err)
@@ -138,11 +148,17 @@ func TestInvalidCandidateCannotReachPersistence(t *testing.T) {
 }
 
 func TestResultCommitFailureDoesNotReportCreatedCandidate(t *testing.T) {
-	records := &resultMemory{readable: true, candidate: CandidateIdentity{Created: true}, lateError: context.DeadlineExceeded}
+	records := &resultMemory{
+		readable: true, candidate: CandidateIdentity{Created: true},
+		lateError: context.DeadlineExceeded,
+	}
 	recorder := NewRecorder(records, &responseBlobs{t: t, records: records}, time.Now)
 	created, err := recorder.Record(t.Context(), LookupAttempt{
 		Claim: WorkerClaim{RunID: "run"}, EvidenceID: "evidence", AttemptNo: 1, AllowCandidate: true,
-		Lookup: ResolvedLookup{CachedResponseID: "cached", Result: hasheous.LookupResult{Candidate: &hasheous.Candidate{ProviderGameID: "game"}}},
+		Lookup: ResolvedLookup{
+			CachedResponseID: "cached",
+			Result:           hasheous.LookupResult{Candidate: &hasheous.Candidate{ProviderGameID: "game"}},
+		},
 	})
 	if created || !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatalf("failed commit returned success: %t / %v", created, err)
@@ -156,3 +172,9 @@ func (memory *resultMemory) Subject(context.Context, string) (Subject, error) {
 	return Subject{Kind: "IMPORT_ITEM", ID: "item"}, nil
 }
 func (memory *resultMemory) Enqueue(context.Context, MediaJobPlan) error { return nil }
+
+func (blobs *responseBlobs) CopyTo(context.Context, string, string, string) (filestore.Metadata, error) {
+	return filestore.Metadata{SHA256: "digest"}, nil
+}
+
+func (blobs *responseBlobs) RemovePath(context.Context, string) error { return nil }

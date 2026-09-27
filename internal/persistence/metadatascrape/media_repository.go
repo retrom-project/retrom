@@ -5,23 +5,23 @@ import (
 	"database/sql"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/service/metadatascrape"
 )
 
 type (
-	MediaRepository struct{ database *sql.DB }
-	mediaRecords    struct{ executor dbexec.Executor }
+	MediaRepository struct{ database dbapi.DB }
+	mediaRecords    struct{ executor dbapi.Executor }
 )
 
-func NewMedia(database *sql.DB) *MediaRepository { return &MediaRepository{database} }
+func NewMedia(database dbapi.DB) *MediaRepository { return &MediaRepository{database} }
 
 func (repository *MediaRepository) WithWrite(ctx context.Context, work func(metadatascrape.MediaScope) error) error {
 	tx, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin media transaction: %w", err)
 	}
-	defer dbexec.Rollback(tx)
+	defer dbapi.Rollback(tx)
 	records := mediaRecords{tx}
 	if err := work(metadatascrape.MediaScope{Read: records, Leases: records, Assets: records}); err != nil {
 		return err

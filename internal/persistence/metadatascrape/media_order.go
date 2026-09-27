@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"retrom/internal/cleanup"
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/service/metadatascrape"
 )
 
@@ -53,7 +53,7 @@ UPDATE metadata_media_runs SET order_frozen_at_ms=?,
  AND EXISTS(SELECT 1 FROM metadata_scrape_runs r WHERE r.id=scrape_run_id AND r.state<>'RUNNING')`, now, now, id))
 }
 
-func scanMediaOrder(row dbexec.Scanner) (metadatascrape.MediaOrder, error) {
+func scanMediaOrder(row dbapi.Scanner) (metadatascrape.MediaOrder, error) {
 	var asset metadatascrape.MediaOrder
 	if err := row.Scan(&asset.ID, &asset.GameID, &asset.Kind, &asset.Ordinal, &asset.Hits, &asset.QueryOrder); err != nil {
 		return asset, fmt.Errorf("scan media ranking facts: %w", err)

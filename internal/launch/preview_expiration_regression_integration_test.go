@@ -11,8 +11,9 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/blobstore"
-	"retrom/internal/payloadrelease"
+	"retrom/internal/composition/cleanupjobs"
+	dbapi "retrom/internal/database"
+	"retrom/internal/filestore"
 	"retrom/internal/testsupport"
 )
 
@@ -33,7 +34,7 @@ func TestPreviewExpirationRollsBackUnconfirmedRelease(t *testing.T) {
 	}
 	var beforeState, checkpointID string
 	var beforeVersion int64
-	if err := fixture.database.QueryRowContext(t.Context(), `SELECT state,version,checkpoint_payload_blob_id
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT state,version,checkpoint_payload_file_record
 FROM review_preview_sessions WHERE id=?`, preview.PreviewID).Scan(&beforeState, &beforeVersion, &checkpointID); err != nil {
 		t.Fatal(err)
 	}
@@ -41,9 +42,11 @@ FROM review_preview_sessions WHERE id=?`, preview.PreviewID).Scan(&beforeState, 
 	cause := errors.New("preview expiry count failure")
 	var hits atomic.Int64
 	fault := testsupport.OpenSQLFaultDatabase(t, fixture.database, testsupport.SQLFaultHooks{
-		AfterExec: func(_ context.Context, query string, args []driver.NamedValue, result driver.Result) (driver.Result, error) {
+		AfterExec: func(_ context.Context, query string, args []driver.NamedValue,
+			result driver.Result,
+		) (driver.Result, error) {
 			if strings.HasPrefix(strings.Join(strings.Fields(query), " "), "UPDATE review_preview_sessions SET") &&
-				strings.Contains(query, "checkpoint_payload_blob_id=NULL") {
+				strings.Contains(query, "checkpoint_payload_file_record=NULL") {
 				for _, arg := range args {
 					if arg.Value == preview.PreviewID {
 						hits.Add(1)
@@ -54,21 +57,22 @@ FROM review_preview_sessions WHERE id=?`, preview.PreviewID).Scan(&beforeState, 
 			return result, nil
 		},
 	})
-	blobs, err := blobstore.Open(t.TempDir())
+	blobs, err := filestore.Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
-	releaser, err := payloadrelease.New(fault, blobs, func() time.Time { return *fixture.now }, 24*time.Hour)
+	releaser, err := cleanupjobs.New(t.Context(), fault, blobs, func() time.Time { return *fixture.now })
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer releaser.Close()
-	err = releaser.ReconcileGC(t.Context())
+	err = releaser.ReconcileDeletion(t.Context())
 	var state string
 	var version int64
 	var retained, candidates int
-	readErr := fixture.database.QueryRowContext(t.Context(), `SELECT state,version,checkpoint_payload_blob_id IS NOT NULL,
-(SELECT count(*) FROM blob_gc_candidates WHERE blob_id=?)
+	readErr := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT state,version,checkpoint_payload_file_record IS NOT NULL,
+(SELECT count(*) FROM job_input_snapshots WHERE json_extract(?,'$.path') LIKE json_extract(input_json,
+'$.inputs.relativePath') || '/%')
 FROM review_preview_sessions WHERE id=?`, checkpointID, preview.PreviewID).Scan(&state, &version, &retained, &candidates)
 	if !errors.Is(err, cause) || hits.Load() != 1 || readErr != nil || state != beforeState || version != beforeVersion ||
 		retained != 1 || candidates != 0 {

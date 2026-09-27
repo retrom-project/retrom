@@ -6,8 +6,13 @@ import (
 	"errors"
 	"fmt"
 
+	"retrom/internal/filestore"
+	"retrom/internal/persistence/filedeletion"
+
+	"retrom/internal/persistence/recordstore"
+
 	"retrom/internal/cleanup"
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/importfiles"
 	"retrom/internal/persistence/storequery"
 	application "retrom/internal/service/libraryimport"
@@ -15,9 +20,9 @@ import (
 	"github.com/google/uuid"
 )
 
-type Reconfigurations struct{ database *sql.DB }
+type Reconfigurations struct{ database dbapi.DB }
 
-func NewReconfigurations(database *sql.DB) *Reconfigurations {
+func NewReconfigurations(database dbapi.DB) *Reconfigurations {
 	return &Reconfigurations{database: database}
 }
 
@@ -29,13 +34,22 @@ func (repository *Reconfigurations) Source(
 	var source application.ReconfigurationSource
 	var state string
 	var version int64
-	err := repository.database.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(
+		ctx,
+		repository.database,
+		`
 SELECT upload.source_type,import_job.state,import_job.version
 FROM import_jobs import_job
 JOIN upload_sessions upload ON upload.id=import_job.upload_session_id
 WHERE import_job.id=?
   AND NOT EXISTS(SELECT 1 FROM (`+storequery.DiscardedImportJobs+`) discarded WHERE discarded.import_id=import_job.id)
-`, sourceImportJobID).Scan(&source.SourceType, &state, &version)
+`,
+		sourceImportJobID,
+	).Scan(
+		&source.SourceType,
+		&state,
+		&version,
+	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return application.ReconfigurationSource{}, false, nil
@@ -46,7 +60,7 @@ WHERE import_job.id=?
 		return application.ReconfigurationSource{}, false, nil
 	}
 	rows, err := repository.database.QueryContext(ctx, `
-SELECT upload_file.id,upload_file.relative_path,upload_file.size_bytes,upload_file.blob_id
+SELECT upload_file.id,upload_file.relative_path,upload_file.size_bytes,upload_file.file_record
 FROM import_job_files import_file
 JOIN import_files upload_file ON upload_file.id=import_file.upload_file_id
 LEFT JOIN import_job_file_resolutions resolution
@@ -63,13 +77,19 @@ ORDER BY upload_file.relative_path,upload_file.id
 	defer func() { cleanup.Error("close reconfiguration files", rows.Close()) }()
 	for rows.Next() {
 		var file application.PreparedReusableUploadFile
-		if err := rows.Scan(&file.ID, &file.Path, &file.Size, &file.BlobID); err != nil {
-			return application.ReconfigurationSource{}, false, fmt.Errorf("scan reconfiguration file: %w", err)
+		if err := rows.Scan(&file.ID, &file.Path, &file.Size, &file.FileRecord); err != nil {
+			return application.ReconfigurationSource{}, false, fmt.Errorf(
+				"scan reconfiguration file: %w",
+				err,
+			)
 		}
 		source.Files = append(source.Files, file)
 	}
 	if err := rows.Err(); err != nil {
-		return application.ReconfigurationSource{}, false, fmt.Errorf("iterate reconfiguration files: %w", err)
+		return application.ReconfigurationSource{}, false, fmt.Errorf(
+			"iterate reconfiguration files: %w",
+			err,
+		)
 	}
 	return source, true, nil
 }
@@ -81,10 +101,10 @@ func (repository *Reconfigurations) Clone(
 	if err != nil {
 		return fmt.Errorf("begin reconfiguration clone: %w", err)
 	}
-	defer dbexec.Rollback(transaction)
+	defer dbapi.Rollback(transaction)
 	var state string
 	var version int64
-	err = transaction.QueryRowContext(ctx, `
+	err = dbapi.QueryRowContext(ctx, transaction, `
 SELECT state,version FROM import_jobs WHERE id=?
 `, clone.SourceImportJobID).Scan(&state, &version)
 	if errors.Is(err, sql.ErrNoRows) || state != "PARTIAL_FAILURE" || version != clone.ExpectedVersion {
@@ -92,6 +112,11 @@ SELECT state,version FROM import_jobs WHERE id=?
 	}
 	if err != nil {
 		return fmt.Errorf("verify reconfiguration source: %w", err)
+	}
+	for _, metadata := range clone.Metadata {
+		if _, err := filestore.FileRecord(metadata, "application/octet-stream"); err != nil {
+			return fmt.Errorf("register replacement upload file: %w", err)
+		}
 	}
 	if err := InsertClonedUpload(ctx, transaction, clone.UploadID, clone.SourceType, clone.Files,
 		clone.ManifestDigest, clone.NowMS); err != nil {
@@ -105,14 +130,15 @@ SELECT state,version FROM import_jobs WHERE id=?
 
 func InsertClonedUpload(
 	ctx context.Context,
-	executor dbexec.Executor,
+	executor dbapi.Executor,
 	uploadID, sourceType string,
 	files []application.PreparedReusableUploadFile,
 	manifestDigest string,
 	now int64,
 ) error {
 	if _, err := executor.ExecContext(ctx, `
-INSERT INTO upload_sessions(id,state,source_type,total_files,total_bytes,manifest_digest,version,
+INSERT INTO upload_sessions(id,state,source_type,total_files,total_bytes,manifest_digest,
+version,
 expires_at_ms,created_at_ms,updated_at_ms)
 VALUES(?,'COMPLETE',?,?,?,?,1,?,?,?)
 `, uploadID, sourceType, len(files), totalUploadBytes(files), manifestDigest,
@@ -120,15 +146,18 @@ VALUES(?,'COMPLETE',?,?,?,?,1,?,?,?)
 		return fmt.Errorf("insert cloned upload session: %w", err)
 	}
 	for _, file := range files {
+		// Fresh programmatic inputs become this upload's files; already owned source
+		// inputs remain with their source owner until review preparation copies them.
+
 		fileID, err := uuid.NewV7()
 		if err != nil {
 			return fmt.Errorf("allocate cloned upload file ID: %w", err)
 		}
-		if _, err := executor.ExecContext(ctx, `
+		if _, err := recordstore.InsertRows(ctx, executor, "upload_files", `
 INSERT INTO upload_files(id,upload_session_id,relative_path,declared_size_bytes,received_size_bytes,
-final_blob_id,state,created_at_ms,updated_at_ms)
+final_file_record,state,created_at_ms,updated_at_ms)
 VALUES(?,?,?,?,?,?,'COMPLETE',?,?)
-`, fileID.String(), uploadID, file.Path, file.Size, file.Size, file.BlobID, now, now); err != nil {
+`, fileID.String(), uploadID, file.Path, file.Size, file.Size, file.FileRecord, now, now); err != nil {
 			return fmt.Errorf("insert cloned upload file: %w", err)
 		}
 	}
@@ -146,14 +175,14 @@ func totalUploadBytes(files []application.PreparedReusableUploadFile) int64 {
 	return total
 }
 
-func (repository *Reconfigurations) RemoveUnused(ctx context.Context, uploadID string) error {
+func (repository *Reconfigurations) RemoveUnused(ctx context.Context, uploadID string, now int64) error {
 	transaction, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin remove cloned upload: %w", err)
 	}
-	defer dbexec.Rollback(transaction)
+	defer dbapi.Rollback(transaction)
 	var consumptionCount int
-	if err := transaction.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, transaction, `
 SELECT count(*) FROM upload_consumptions WHERE upload_session_id=?
 `, uploadID).Scan(&consumptionCount); err != nil {
 		return fmt.Errorf("check cloned upload use: %w", err)
@@ -161,7 +190,23 @@ SELECT count(*) FROM upload_consumptions WHERE upload_session_id=?
 	if consumptionCount != 0 {
 		return nil
 	}
-	if _, err := transaction.ExecContext(ctx, `DELETE FROM upload_files WHERE upload_session_id=?`, uploadID); err != nil {
+	if err := filedeletion.QueuePath(ctx, transaction, "staging/uploads/"+uploadID, now); err != nil {
+		return fmt.Errorf("retire unused replacement upload: %w", err)
+	}
+	if _, err := recordstore.DeleteRows(
+		ctx,
+		transaction,
+		"import_files",
+		recordstore.Scope{Where: "upload_session_id=?", Args: []any{uploadID}},
+	); err != nil {
+		return fmt.Errorf("release normalized upload: %w", err)
+	}
+	if _, err := recordstore.DeleteRows(
+		ctx,
+		transaction,
+		"upload_files",
+		recordstore.Scope{Where: "upload_session_id=?", Args: []any{uploadID}},
+	); err != nil {
 		return fmt.Errorf("delete cloned upload files: %w", err)
 	}
 	if _, err := transaction.ExecContext(ctx, `DELETE FROM upload_sessions WHERE id=?`, uploadID); err != nil {

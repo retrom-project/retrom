@@ -5,22 +5,23 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/google/uuid"
+	"retrom/internal/filestore"
 
-	"retrom/internal/service/tagging"
+	"github.com/google/uuid"
 )
 
 type ReviewApprovals struct {
+	files      *filestore.Store
 	repository ReviewApprovalRepository
-	tags       *tagging.Service
+	tags       ReviewApprovalTags
 	now        func() time.Time
 	newID      func() (string, error)
 }
 
 func NewReviewApprovals(
-	repository ReviewApprovalRepository, tags *tagging.Service, now func() time.Time,
+	repository ReviewApprovalRepository, tags ReviewApprovalTags, now func() time.Time, files *filestore.Store,
 ) *ReviewApprovals {
-	return &ReviewApprovals{repository: repository, tags: tags, now: now, newID: newReviewApprovalID}
+	return &ReviewApprovals{files: files, repository: repository, tags: tags, now: now, newID: newReviewApprovalID}
 }
 
 func newReviewApprovalID() (string, error) {
@@ -38,31 +39,24 @@ func (service *ReviewApprovals) Approve(
 	if err != nil {
 		return ReviewApproved{}, err
 	}
-	var result ReviewApproved
-	err = service.repository.WithApproval(ctx, func(scope ReviewApprovalScope) error {
-		var approvalErr error
-		result, approvalErr = service.ApproveInScope(ctx, scope, request)
-		return approvalErr
-	})
-	if err != nil {
-		return ReviewApproved{}, fmt.Errorf("commit review approval: %w", err)
+	if service.files == nil {
+		return ReviewApproved{}, ErrInvalid
 	}
-	return result, nil
-}
-
-// ApproveInScope publishes through the caller's transaction. The result is durable only after its commit.
-func (service *ReviewApprovals) ApproveInScope(
-	ctx context.Context, scope ReviewApprovalScope, request ReviewApprovalRequest,
-) (ReviewApproved, error) {
-	request, err := normalizeReviewApproval(request)
+	unlock := service.files.LockPublication()
+	defer unlock()
+	state, err := service.preparePublication(ctx, request)
 	if err != nil {
 		return ReviewApproved{}, err
 	}
-	run := reviewApprovalRun{ctx: ctx, service: service, scope: scope, request: request}
-	for _, step := range []func() error{run.load, run.prepare, run.claimDuplicates, run.publish} {
-		if err := step(); err != nil {
-			return ReviewApproved{}, err
-		}
+	if state.State == "PUBLISHED" {
+		return ReviewApproved{GameID: state.GameID, Status: "PUBLISHED"}, nil
 	}
-	return run.result(), nil
+	if state.Intent == nil {
+		return ReviewApproved{}, ErrInvalid
+	}
+	assets, err := service.publishDirectory(ctx, *state.Intent)
+	if err != nil {
+		return ReviewApproved{}, err
+	}
+	return service.completePublication(ctx, *state.Intent, assets)
 }

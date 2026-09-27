@@ -3,7 +3,7 @@ import {revealPreviewToolbar} from "./rpgmaker_preview_actions.mjs";
 
 export async function performContentIOPlayerExit(page, base, launch, action) {
   const finished = page.waitForResponse(response => response.request().method() === "POST" &&
-    new URL(response.url()).pathname === `/runtime/launches/${launch.launchId}/finish`, {timeout: 30000})
+    new URL(response.url()).pathname === `/runtime/launches/${launch.launchId}/progress`, {timeout: 30000})
     .then(response => ({response}), error => ({error}));
   const result = await action(), observed = await finished;
   if (observed.error) throw observed.error;

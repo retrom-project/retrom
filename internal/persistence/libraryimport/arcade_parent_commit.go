@@ -6,8 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"retrom/internal/contentcapability"
-	"retrom/internal/dbexec"
+	contentcapability "retrom/internal/content/capability"
+	dbapi "retrom/internal/database"
 	"retrom/internal/importing"
 	"retrom/internal/persistence/contentquery"
 	"retrom/internal/persistence/recordstore"
@@ -20,11 +20,11 @@ import (
 // an arcade parent attachment. Each public operation owns its transaction so
 // the application worker can keep validation and storage orchestration
 // separate while retaining atomic state transitions.
-type ArcadeParentCommitRepository struct{ database *sql.DB }
+type ArcadeParentCommitRepository struct{ database dbapi.DB }
 
 var _ application.ArcadeParentCommitRepository = (*ArcadeParentCommitRepository)(nil)
 
-func NewArcadeParentCommitRepository(database *sql.DB) *ArcadeParentCommitRepository {
+func NewArcadeParentCommitRepository(database dbapi.DB) *ArcadeParentCommitRepository {
 	return &ArcadeParentCommitRepository{database: database}
 }
 
@@ -36,7 +36,7 @@ func (repository *ArcadeParentCommitRepository) CommitAccepted(
 	if err != nil {
 		return arcadeParentCommitStoreError("begin accepted commit", err)
 	}
-	defer dbexec.Rollback(transaction)
+	defer dbapi.Rollback(transaction)
 	target, err := loadArcadeParentCommitTarget(ctx, transaction, request.Candidate)
 	if err != nil {
 		return err
@@ -44,6 +44,7 @@ func (repository *ArcadeParentCommitRepository) CommitAccepted(
 	if err := validateArcadeParentCommitJob(ctx, transaction, request.JobID, request.WorkerID); err != nil {
 		return err
 	}
+
 	artifacts, err := insertArcadeParentCommitArtifacts(
 		ctx, transaction, request.Candidate, request.Entries, request.Files,
 		request.ManifestJSON, request.ManifestDigest, request.Validation, target, request.NowMS,
@@ -59,7 +60,7 @@ func (repository *ArcadeParentCommitRepository) CommitAccepted(
 	consumptionID, _ := uuid.NewV7()
 	result, err := recordstore.UpdateReviewArcadeParentAttachments(ctx, transaction, recordstore.Update{
 		Set: `
-state='ACCEPTED',accepted_blob_id=?,
+state='ACCEPTED',accepted_file_record=?,
 result_source_snapshot_id=?,observed_size_bytes=?,observed_sha256=?,diagnostics_json=?,error_code=NULL,
 finished_at_ms=?,version=version+1,updated_at_ms=?
 `,
@@ -68,7 +69,7 @@ finished_at_ms=?,version=version+1,updated_at_ms=?
 			Args:  []any{request.Candidate.AttachmentID},
 		},
 		Values: []any{
-			request.Candidate.BlobID,
+			request.Candidate.FileRecord,
 			artifacts.snapshotID,
 			request.Candidate.BlobSize,
 			request.Candidate.BlobSHA,
@@ -80,11 +81,20 @@ finished_at_ms=?,version=version+1,updated_at_ms=?
 	if err := requireArcadeParentCommitChange(result, err, "accept attachment"); err != nil {
 		return err
 	}
-	if _, err := recordstore.CreateUploadConsumptions(ctx, transaction, `
+	if _, err := recordstore.CreateUploadConsumptions(
+		ctx,
+		transaction,
+		`
 INSERT INTO upload_consumptions(id,upload_session_id,upload_file_id,consumer_type,consumer_id,created_at_ms)
 VALUES(?,?,?,'REVIEW_ARCADE_PARENT',?,?)
-	`, consumptionID.String(), request.Candidate.UploadSessionID, request.Candidate.UploadFileID,
-		request.Candidate.AttachmentID, request.NowMS); err != nil {
+	`,
+		consumptionID.String(),
+		request.Candidate.UploadSessionID,
+		request.Candidate.UploadFileID,
+
+		request.Candidate.AttachmentID,
+		request.NowMS,
+	); err != nil {
 		return arcadeParentCommitStoreError("consume parent upload", err)
 	}
 	result, err = recordstore.UpdateReviewItems(ctx, transaction, recordstore.Update{
@@ -112,19 +122,39 @@ review_version=review_version+1,review_updated_at_ms=?
 		return arcadeParentCommitStoreError("advance import item", err)
 	}
 
-	if _, err := transaction.ExecContext(ctx, `
+	if _, err := transaction.ExecContext(
+		ctx,
+		`
 INSERT INTO job_events(job_id,scope_type,scope_id,event_type,data_json,created_at_ms) VALUES
 (?,'IMPORT_ITEM',?,'ARCHIVE_SCANNED','{}',?),
 (?,'IMPORT_ITEM',?,'PARENT_MATCHED','{}',?),
 (?,'IMPORT_ITEM',?,'SOURCE_SNAPSHOT_CREATED',?,?),
 (?,'IMPORT_ITEM',?,'CORE_VALIDATION_COMPLETED',?,?),
 (?,'IMPORT_ITEM',?,'SUCCEEDED','{}',?)
-`, request.JobID, request.Candidate.ItemID, request.NowMS,
-		request.JobID, request.Candidate.ItemID, request.NowMS,
-		request.JobID, request.Candidate.ItemID, fmt.Sprintf(`{"sourceSnapshotId":%q}`, artifacts.snapshotID), request.NowMS,
-		request.JobID, request.Candidate.ItemID,
-		fmt.Sprintf(`{"validationId":%q,"status":%q}`, artifacts.validationID, request.Validation.Status), request.NowMS,
-		request.JobID, request.Candidate.ItemID, request.NowMS); err != nil {
+`,
+		request.JobID,
+		request.Candidate.ItemID,
+		request.NowMS,
+
+		request.JobID,
+		request.Candidate.ItemID,
+		request.NowMS,
+
+		request.JobID,
+		request.Candidate.ItemID,
+		fmt.Sprintf(`{"sourceSnapshotId":%q}`, artifacts.snapshotID),
+		request.NowMS,
+
+		request.JobID,
+		request.Candidate.ItemID,
+
+		fmt.Sprintf(`{"validationId":%q,"status":%q}`, artifacts.validationID, request.Validation.Status),
+		request.NowMS,
+
+		request.JobID,
+		request.Candidate.ItemID,
+		request.NowMS,
+	); err != nil {
 		return arcadeParentCommitStoreError("record accepted job events", err)
 	}
 	result, err = transaction.ExecContext(ctx, `
@@ -148,18 +178,31 @@ func (repository *ArcadeParentCommitRepository) FinishRejected(
 	if err != nil {
 		return arcadeParentCommitStoreError("begin rejected attachment", err)
 	}
-	defer dbexec.Rollback(transaction)
-	if _, err := recordstore.UpdateReviewArcadeParentAttachments(ctx, transaction, recordstore.Update{
-		Set: `
+	defer dbapi.Rollback(transaction)
+	if _, err := recordstore.UpdateReviewArcadeParentAttachments(
+		ctx,
+		transaction,
+		recordstore.Update{
+			Set: `
 state='REJECTED',error_code=?,diagnostics_json=?,
 observed_size_bytes=?,observed_sha256=?,finished_at_ms=?,version=version+1,updated_at_ms=?
 `,
-		Scope: recordstore.Scope{
-			Where: `id=? AND state='RUNNING'`,
-			Args:  []any{request.AttachmentID},
+
+			Scope: recordstore.Scope{
+				Where: `id=? AND state='RUNNING'`,
+				Args:  []any{request.AttachmentID},
+			},
+
+			Values: []any{
+				request.Code,
+				request.DiagnosticsJSON,
+				request.BlobSize,
+				request.BlobSHA,
+				request.NowMS,
+				request.NowMS,
+			},
 		},
-		Values: []any{request.Code, request.DiagnosticsJSON, request.BlobSize, request.BlobSHA, request.NowMS, request.NowMS},
-	}); err != nil {
+	); err != nil {
 		return arcadeParentCommitStoreError("reject attachment", err)
 	}
 	if _, err := transaction.ExecContext(ctx, `
@@ -191,19 +234,32 @@ func (repository *ArcadeParentCommitRepository) FinishRetryable(
 	if err != nil {
 		return arcadeParentCommitStoreError("begin retryable attachment", err)
 	}
-	defer dbexec.Rollback(transaction)
-	if _, err := recordstore.UpdateReviewArcadeParentAttachments(ctx, transaction, recordstore.Update{
-		Set: `
+	defer dbapi.Rollback(transaction)
+	if _, err := recordstore.UpdateReviewArcadeParentAttachments(
+		ctx,
+		transaction,
+		recordstore.Update{
+			Set: `
 state='FAILED_RETRYABLE',error_code=?,
 diagnostics_json=?,observed_size_bytes=?,observed_sha256=?,finished_at_ms=?,version=version+1,
 updated_at_ms=?
 `,
-		Scope: recordstore.Scope{
-			Where: `id=? AND state='RUNNING'`,
-			Args:  []any{request.AttachmentID},
+
+			Scope: recordstore.Scope{
+				Where: `id=? AND state='RUNNING'`,
+				Args:  []any{request.AttachmentID},
+			},
+
+			Values: []any{
+				request.Code,
+				request.DiagnosticsJSON,
+				request.BlobSize,
+				request.BlobSHA,
+				request.NowMS,
+				request.NowMS,
+			},
 		},
-		Values: []any{request.Code, request.DiagnosticsJSON, request.BlobSize, request.BlobSHA, request.NowMS, request.NowMS},
-	}); err != nil {
+	); err != nil {
 		return arcadeParentCommitStoreError("mark retryable attachment", err)
 	}
 	if _, err := transaction.ExecContext(ctx, `
@@ -255,7 +311,7 @@ func (repository *ArcadeParentCommitRepository) FinishCancellation(
 	request application.ArcadeParentAttachmentCancellation,
 ) (bool, error) {
 	var state string
-	if err := repository.database.QueryRowContext(ctx,
+	if err := dbapi.QueryRowContext(ctx, repository.database,
 		`SELECT state FROM jobs WHERE id=? AND worker_id=?`, request.JobID, request.WorkerID).
 		Scan(&state); err != nil {
 		return false, arcadeParentCommitStoreError("read cancellation job", err)
@@ -267,7 +323,7 @@ func (repository *ArcadeParentCommitRepository) FinishCancellation(
 	if err != nil {
 		return false, arcadeParentCommitStoreError("begin cancellation", err)
 	}
-	defer dbexec.Rollback(transaction)
+	defer dbapi.Rollback(transaction)
 	result, err := recordstore.UpdateReviewArcadeParentAttachments(ctx, transaction, recordstore.Update{
 		Set: `
 state='CANCELLED',error_code='CANCELLED',
@@ -328,7 +384,7 @@ type arcadeParentCommitTarget struct {
 
 func insertArcadeParentCommitArtifacts(
 	ctx context.Context,
-	transaction *sql.Tx,
+	transaction dbapi.Tx,
 	candidate application.ArcadeParentCommitCandidate,
 	entries []importing.ArchiveEntry,
 	files []application.ArcadeParentSourceFile,
@@ -352,7 +408,7 @@ INSERT INTO import_item_source_snapshots(
 	if err := insertArcadeParentSnapshotFiles(ctx, transaction, artifacts.snapshotID, files, now); err != nil {
 		return arcadeParentCommitArtifacts{}, err
 	}
-	if err := insertArcadeParentArchiveEntries(ctx, transaction, candidate.BlobID, entries, now); err != nil {
+	if err := insertArcadeParentArchiveEntries(ctx, transaction, candidate.FileRecord, entries, now); err != nil {
 		return arcadeParentCommitArtifacts{}, err
 	}
 	if err := insertArcadeParentCoreValidation(
@@ -366,7 +422,7 @@ INSERT INTO import_item_source_snapshots(
 
 func insertArcadeParentCoreValidation(
 	ctx context.Context,
-	transaction *sql.Tx,
+	transaction dbapi.Tx,
 	candidate application.ArcadeParentCommitCandidate,
 	snapshotID, validationID, manifestDigest string,
 	validation application.ArcadeParentValidation,
@@ -400,11 +456,11 @@ INSERT INTO import_item_core_validations(
 		return arcadeParentCommitStoreError("insert source validation", err)
 	}
 	for _, file := range validation.Files {
-		if _, err := transaction.ExecContext(ctx, `
+		if _, err := recordstore.InsertRows(ctx, transaction, "import_item_validation_files", `
 INSERT INTO import_item_validation_files(
-  import_item_core_validation_id,role,logical_name,blob_id,sort_order,created_at_ms
+  import_item_core_validation_id,role,logical_name,file_record,sort_order,created_at_ms
 ) VALUES(?,?,?,?,?,?)
-`, validationID, file.Role, file.LogicalName, file.BlobID, file.SortOrder, now); err != nil {
+`, validationID, file.Role, file.LogicalName, file.FileRecord, file.SortOrder, now); err != nil {
 			return arcadeParentCommitStoreError("insert validation file", err)
 		}
 	}
@@ -413,13 +469,16 @@ INSERT INTO import_item_validation_files(
 
 func loadArcadeParentCommitTarget(
 	ctx context.Context,
-	transaction *sql.Tx,
+	transaction dbapi.Tx,
 	candidate application.ArcadeParentCommitCandidate,
 ) (arcadeParentCommitTarget, error) {
 	var target arcadeParentCommitTarget
 	var itemState, currentSnapshotID string
 	var activeDATID sql.NullString
-	err := transaction.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(
+		ctx,
+		transaction,
+		`
 SELECT item.state,draft.effective_source_snapshot_id,draft.target_platform_instance_id,
 source_snapshot.content_kind,platform.version,platform.default_core_id,
 target.provider_id,target.target_id,
@@ -438,10 +497,23 @@ JOIN runtime_binding_platforms platform_binding ON platform_binding.binding_id=b
 JOIN runtime_targets target ON target.provider_id=binding.provider_id
   AND target.target_id=binding.target_id
 WHERE item.id=?
-`, candidate.DraftID, candidate.ItemID).Scan(
-		&itemState, &currentSnapshotID, &target.targetID, &target.contentKind,
-		&target.platformVersion, &target.coreID, &target.providerID, &target.runtimeTargetID,
-		contentquery.ScanPolicy(&target.contentPolicy), &activeDATID,
+`,
+		candidate.DraftID,
+		candidate.ItemID,
+	).Scan(
+
+		&itemState,
+		&currentSnapshotID,
+		&target.targetID,
+		&target.contentKind,
+
+		&target.platformVersion,
+		&target.coreID,
+		&target.providerID,
+		&target.runtimeTargetID,
+
+		contentquery.ScanPolicy(&target.contentPolicy),
+		&activeDATID,
 	)
 	valid := err == nil && itemState == "REVIEW_PENDING" && currentSnapshotID == candidate.BaseSnapshotID &&
 		target.providerID == candidate.ProviderID && target.runtimeTargetID == candidate.TargetID &&
@@ -455,11 +527,11 @@ WHERE item.id=?
 
 func validateArcadeParentCommitJob(
 	ctx context.Context,
-	transaction *sql.Tx,
+	transaction dbapi.Tx,
 	jobID, workerID string,
 ) error {
 	var state, currentWorker string
-	err := transaction.QueryRowContext(ctx, `SELECT state,worker_id FROM jobs WHERE id=?`, jobID).
+	err := dbapi.QueryRowContext(ctx, transaction, `SELECT state,worker_id FROM jobs WHERE id=?`, jobID).
 		Scan(&state, &currentWorker)
 	if err != nil || state != "RUNNING" || currentWorker != workerID {
 		return application.ErrInvalid
@@ -469,26 +541,39 @@ func validateArcadeParentCommitJob(
 
 func insertArcadeParentSnapshotFiles(
 	ctx context.Context,
-	transaction *sql.Tx,
+	transaction dbapi.Tx,
 	snapshotID string,
 	files []application.ArcadeParentSourceFile,
 	now int64,
 ) error {
 	for _, file := range files {
-		var archiveBlobID, archiveOrdinal any
-		if file.ArchiveBlobID != nil {
-			archiveBlobID = *file.ArchiveBlobID
+		var archiveFileRecord, archiveOrdinal any
+		if file.ArchiveFileRecord != nil {
+			archiveFileRecord = *file.ArchiveFileRecord
 		}
 		if file.ArchiveOrdinal != nil {
 			archiveOrdinal = *file.ArchiveOrdinal
 		}
-		if _, err := transaction.ExecContext(ctx, `
+		if _, err := recordstore.InsertRows(
+			ctx,
+			transaction,
+			"import_item_source_snapshot_files",
+			`
 INSERT INTO import_item_source_snapshot_files(
-  source_snapshot_id,role,logical_name,upload_file_id,blob_id,source_archive_blob_id,
+  source_snapshot_id,role,logical_name,upload_file_id,file_record,source_archive_file_record,
   source_archive_entry_ordinal,sort_order,created_at_ms
 ) VALUES(?,?,?,?,?,?,?,?,?)
-`, snapshotID, file.Role, file.LogicalName, file.UploadFileID, file.BlobID,
-			archiveBlobID, archiveOrdinal, file.SortOrder, now); err != nil {
+`,
+			snapshotID,
+			file.Role,
+			file.LogicalName,
+			file.UploadFileID,
+			file.FileRecord,
+			archiveFileRecord,
+			archiveOrdinal,
+			file.SortOrder,
+			now,
+		); err != nil {
 			return arcadeParentCommitStoreError("insert source snapshot file", err)
 		}
 	}
@@ -497,21 +582,37 @@ INSERT INTO import_item_source_snapshot_files(
 
 func insertArcadeParentArchiveEntries(
 	ctx context.Context,
-	transaction *sql.Tx,
-	archiveBlobID string,
+	transaction dbapi.Tx,
+	archiveFileRecord string,
 	entries []importing.ArchiveEntry,
 	now int64,
 ) error {
 	for _, entry := range entries {
-		if _, err := transaction.ExecContext(ctx, `
+		if _, err := recordstore.InsertRows(
+			ctx,
+			transaction,
+			"archive_entries",
+			`
 INSERT OR IGNORE INTO archive_entries(
-  archive_blob_id,ordinal,original_relative_path,normalized_path,ascii_casefold_path,
+  archive_file_record,ordinal,original_relative_path,normalized_path,ascii_casefold_path,
   archive_format,compression_profile,uncompressed_size_bytes,crc32,md5,sha1,sha256,
-  materialized_blob_id,created_at_ms
-) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,NULL,?)
-`, archiveBlobID, entry.Ordinal, entry.OriginalPath, entry.NormalizedPath,
-			entry.ASCIICasefoldPath, entry.ArchiveFormat, entry.CompressionProfile, entry.Size,
-			entry.CRC32, entry.MD5, entry.SHA1, entry.SHA256, now); err != nil {
+  created_at_ms
+) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)
+`,
+			archiveFileRecord,
+			entry.Ordinal,
+			entry.OriginalPath,
+			entry.NormalizedPath,
+			entry.ASCIICasefoldPath,
+			entry.ArchiveFormat,
+			entry.CompressionProfile,
+			entry.Size,
+			entry.CRC32,
+			entry.MD5,
+			entry.SHA1,
+			entry.SHA256,
+			now,
+		); err != nil {
 			return arcadeParentCommitStoreError("insert source archive entry", err)
 		}
 	}

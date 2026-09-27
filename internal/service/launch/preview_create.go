@@ -142,7 +142,7 @@ func (service *PreviewCreator) commit(
 		if err := validatePreviewRestore(restore, plan); err != nil {
 			return ReviewPreviewCreated{}, err
 		}
-		plan.RestoreBlobID, plan.RestoreFormat = &restore.BlobID, &restore.Format
+		plan.RestoreFileRecord, plan.RestoreFormat = &restore.FileRecord, &restore.Format
 	}
 	if plan.Isolation != nil && profileID == "" {
 		return ReviewPreviewCreated{}, ErrReviewPreviewUnavailable

@@ -10,8 +10,9 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/testsupport/importfixture"
+
 	"retrom/internal/cleanup"
-	"retrom/internal/libraryimport"
 	retromruntime "retrom/internal/runtime"
 	"retrom/internal/testsupport"
 )
@@ -34,7 +35,7 @@ func TestRPGProductLaunchUsesCurrentBundleAfterProviderUpgrade(t *testing.T) {
 		t.Fatal(err)
 	}
 	launcher := newRPGReviewLaunchService(t, ctx, database.SQL, credentials, func() time.Time { return now })
-	approved, err := libraryimport.New(database.SQL, func() time.Time { return now }).Approve(ctx, fixture.itemID, 2)
+	approved, err := importfixture.New(t, database.SQL, fixture.files, importfixture.Options{Now: func() time.Time { return now }}).Approve(ctx, fixture.itemID, 2)
 	if err != nil {
 		t.Fatalf("approve RPG review: %v", err)
 	}
@@ -44,7 +45,8 @@ func TestRPGProductLaunchUsesCurrentBundleAfterProviderUpgrade(t *testing.T) {
 UPDATE runtime_providers SET provider_version='1.1.0',bundle_sha256=?,activated_at_ms=activated_at_ms+1
 WHERE provider_id='retrom-runtime'
 `, upgradedBundle)
-	launcher = newRPGReviewLaunchService(t, ctx, database.SQL, credentials, func() time.Time { return now.Add(time.Second) })
+	launcher = newRPGReviewLaunchService(t, ctx, database.SQL, credentials,
+		func() time.Time { return now.Add(time.Second) })
 	created, err := launcher.Create(ctx, "local", CreateRequest{
 		GameID: approved.GameID, ReturnTo: "/games/" + approved.GameID,
 	})
@@ -65,7 +67,8 @@ func TestRPGProjectContentUsesOnlyUniqueASCIICaseFoldFallback(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	now := time.UnixMilli(1_786_000_000_000)
-	database, err := testsupport.OpenDatabase(ctx, filepath.Join(t.TempDir(), "retrom.db"), func() time.Time { return now })
+	database, err := testsupport.OpenDatabase(ctx, filepath.Join(t.TempDir(), "retrom.db"),
+		func() time.Time { return now })
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -78,11 +81,14 @@ func TestRPGProjectContentUsesOnlyUniqueASCIICaseFoldFallback(t *testing.T) {
 	}
 	service := newRPGReviewLaunchService(t, ctx, database.SQL, credentials, func() time.Time { return now })
 	mustRPGLaunchSQL(t, database.SQL, `UPDATE import_items SET metadata_json='{"title":"RPG content"}' WHERE id=?`, fixture.itemID)
-	published, err := libraryimport.New(database.SQL, func() time.Time { return now }).Approve(ctx, fixture.itemID, 2)
+	published, err := importfixture.New(t, database.SQL, fixture.files, importfixture.Options{Now: func() time.Time { return now }}).Approve(ctx, fixture.itemID, 2)
 	if err != nil {
 		t.Fatal(err)
 	}
-	created, err := service.Create(ctx, "local", CreateRequest{GameID: published.GameID, ReturnTo: "/games/" + published.GameID})
+	created, err := service.Create(ctx, "local", CreateRequest{
+		GameID:   published.GameID,
+		ReturnTo: "/games/" + published.GameID,
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -103,11 +109,12 @@ func TestRPGProjectContentUsesOnlyUniqueASCIICaseFoldFallback(t *testing.T) {
 	}
 
 	mustRPGLaunchSQL(t, database.SQL, `
-	INSERT INTO launch_content_files(launch_session_id,logical_name,blob_id,format_version,created_at_ms)
-	SELECT launch_session_id,'rpg_rt.ldb',blob_id,format_version,created_at_ms
+	INSERT INTO launch_content_files(launch_session_id,logical_name,file_record,format_version,created_at_ms)
+	SELECT launch_session_id,'rpg_rt.ldb',file_record,format_version,created_at_ms
 FROM launch_content_files
 WHERE launch_session_id=? AND logical_name='RPG_RT.ldb'`, created.LaunchID)
-	if _, err := service.RPGProjectContentAuthorized(ctx, created.LaunchID, "RpG_Rt.LdB", false); !errors.Is(err, ErrCredential) {
+	if _, err := service.RPGProjectContentAuthorized(ctx, created.LaunchID, "RpG_Rt.LdB",
+		false); !errors.Is(err, ErrCredential) {
 		t.Fatalf("ambiguous folded RPG content accepted: %v", err)
 	}
 }

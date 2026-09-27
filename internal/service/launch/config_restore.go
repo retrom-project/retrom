@@ -3,7 +3,7 @@ package launch
 import (
 	"slices"
 
-	"retrom/internal/runtimebundle"
+	runtimebundle "retrom/internal/runtime/bundle"
 )
 
 func providerRestore(id string, restore ConfigRestore, target runtimebundle.Target) (any, bool, error) {

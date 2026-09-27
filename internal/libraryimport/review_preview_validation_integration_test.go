@@ -3,22 +3,26 @@
 package libraryimport
 
 import (
-	"database/sql"
 	"encoding/json"
 	"strings"
 	"testing"
 
+	dbapi "retrom/internal/database"
+
 	"github.com/google/uuid"
 )
 
-func assertPreviewRefreshesLegacyBIOS(t *testing.T, database *sql.DB, importer *Service, itemID, biosBlobID string) int64 {
+func assertPreviewRefreshesLegacyBIOS(t *testing.T, database dbapi.DB, importer *Service,
+	itemID, biosFileRecord string,
+) int64 {
 	t.Helper()
 	ctx := t.Context()
 	var validationID, snapshotJSON string
 	var version int64
-	if err := database.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database, `
 SELECT draft.selected_validation_id,validation.dependency_snapshot_json,draft.review_version
-FROM import_items draft JOIN import_item_core_validations validation ON validation.id=draft.selected_validation_id
+FROM import_items draft JOIN import_item_core_validations validation ON
+validation.id=draft.selected_validation_id
 WHERE draft.id=?
 `, itemID).Scan(&validationID, &snapshotJSON, &version); err != nil {
 		t.Fatal(err)
@@ -38,7 +42,8 @@ WHERE draft.id=?
 	// Seed the immutable evidence produced before missing-entry uploads were usable.
 	legacyID := uuid.NewString()
 	if _, err := database.ExecContext(ctx, `
-INSERT INTO import_item_core_validations(id,import_item_id,target_platform_instance_id,platform_instance_version,
+INSERT INTO import_item_core_validations(id,import_item_id,target_platform_instance_id,
+platform_instance_version,
 core_id,provider_id,target_id,dat_version_id,default_dos_entry,source_manifest_digest,source_snapshot_id,
 prepublish_input_digest,status,compatibility_code,dependency_snapshot_json,created_at_ms)
 SELECT ?,import_item_id,target_platform_instance_id,platform_instance_version,core_id,provider_id,target_id,
@@ -55,19 +60,23 @@ dat_version_id,default_dos_entry,source_manifest_digest,source_snapshot_id,prepu
 	}
 	var selected, status, actualBlob, actualMetadata string
 	var nextVersion int64
-	if err := database.QueryRowContext(ctx, `
-SELECT draft.selected_validation_id,validation.status,file.blob_id,draft.metadata_json,draft.review_version
-FROM import_items draft JOIN import_item_core_validations validation ON validation.id=draft.selected_validation_id
-JOIN import_item_validation_files file ON file.import_item_core_validation_id=validation.id AND file.role='BIOS_BUNDLE'
+	if err := dbapi.QueryRowContext(ctx, database, `
+SELECT draft.selected_validation_id,validation.status,file.file_record,draft.metadata_json,
+draft.review_version
+FROM import_items draft JOIN import_item_core_validations validation ON
+validation.id=draft.selected_validation_id
+JOIN import_item_validation_files file ON file.import_item_core_validation_id=validation.id AND
+file.role='BIOS_BUNDLE'
 WHERE draft.id=?
 `, itemID).Scan(&selected, &status, &actualBlob, &actualMetadata, &nextVersion); err != nil {
 		t.Fatal(err)
 	}
-	if selected == legacyID || status != "READY" || actualBlob != biosBlobID || actualMetadata != metadata || nextVersion != version+1 {
-		t.Fatalf("preview refresh: selected=%s status=%s blob=%s version=%d expectedVersion=%d blobEqual=%t metadataEqual=%t", selected, status, actualBlob, nextVersion, version+1, actualBlob == biosBlobID, actualMetadata == metadata)
+	if selected == legacyID || status != "READY" || actualBlob != biosFileRecord ||
+		actualMetadata != metadata || nextVersion != version+1 {
+		t.Fatalf("preview refresh: selected=%s status=%s blob=%s version=%d expectedVersion=%d blobEqual=%t metadataEqual=%t", selected, status, actualBlob, nextVersion, version+1, actualBlob == biosFileRecord, actualMetadata == metadata)
 	}
 	var oldJSON string
-	if err := database.QueryRowContext(ctx, `SELECT dependency_snapshot_json FROM import_item_core_validations WHERE id=?`, legacyID).Scan(&oldJSON); err != nil {
+	if err := dbapi.QueryRowContext(ctx, database, `SELECT dependency_snapshot_json FROM import_item_core_validations WHERE id=?`, legacyID).Scan(&oldJSON); err != nil {
 		t.Fatal(err)
 	}
 	if oldJSON != string(legacyJSON) {
@@ -77,7 +86,7 @@ WHERE draft.id=?
 		t.Fatal(err)
 	}
 	var repeatedVersion int64
-	if err := database.QueryRowContext(ctx, `SELECT review_version FROM import_items WHERE id=?`, itemID).Scan(&repeatedVersion); err != nil {
+	if err := dbapi.QueryRowContext(ctx, database, `SELECT review_version FROM import_items WHERE id=?`, itemID).Scan(&repeatedVersion); err != nil {
 		t.Fatal(err)
 	}
 	if repeatedVersion != nextVersion {

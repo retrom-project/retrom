@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
-	"database/sql"
 	"encoding/base64"
 	"io"
 	"net/http"
@@ -13,6 +12,9 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	dbapi "retrom/internal/database"
+	dbsqlite "retrom/internal/database/sqlite"
 
 	isolationpersistence "retrom/internal/persistence/isolation"
 
@@ -168,7 +170,7 @@ UPDATE launch_content_files SET format_version='TYRANOSCRIPT_PROJECT'
 	now := func() time.Time { return time.UnixMilli(*nowMS) }
 	server := &Server{
 		database: database, rpgIsolation: isolationService,
-		launcher: launchcomposition.New(database, launch.NewSources(nil, nil), "", now), now: now,
+		launcher: launchcomposition.New(database, launch.NewSources(nil, nil), "", now, nil), now: now,
 	}
 	request := httptest.NewRequestWithContext(
 		t.Context(), http.MethodHead,
@@ -308,7 +310,10 @@ func TestBootstrapPageReusesOnlyAuthenticatedRuntimeCapability(t *testing.T) {
 	}{
 		{name: "missing cookie", access: access},
 		{name: "forged cookie", access: access, credential: "forged"},
-		{name: "wrong host origin", access: isolation.Access{LaunchID: launchID, Origin: "https://wrong.example"}, credential: credential},
+		{name: "wrong host origin", access: isolation.Access{
+			LaunchID: launchID,
+			Origin:   "https://wrong.example",
+		}, credential: credential},
 	} {
 		t.Run(denied.name, func(t *testing.T) {
 			response := bootstrapPageRequest(t, server, denied.access, denied.credential)
@@ -332,7 +337,8 @@ func bootstrapPageRequest(
 	credential string,
 ) *httptest.ResponseRecorder {
 	t.Helper()
-	request := httptest.NewRequestWithContext(context.Background(), http.MethodGet, access.Origin+"/__retrom/bootstrap", nil)
+	request := httptest.NewRequestWithContext(context.Background(), http.MethodGet,
+		access.Origin+"/__retrom/bootstrap", nil)
 	if credential != "" {
 		request.AddCookie(&http.Cookie{Name: rpgRuntimeCookieName, Value: credential})
 	}
@@ -343,9 +349,9 @@ func bootstrapPageRequest(
 
 func newBootstrapReloadFixture(
 	t *testing.T,
-) (*sql.DB, *isolation.Service, *int64, string, string, string) {
+) (dbapi.DB, *isolation.Service, *int64, string, string, string) {
 	t.Helper()
-	database, err := sql.Open("sqlite", ":memory:")
+	database, err := dbsqlite.Open(":memory:", dbsqlite.Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -362,14 +368,15 @@ CREATE TABLE launch_content_files(
  launch_session_id TEXT,logical_name TEXT,format_version TEXT
 );
 CREATE TABLE review_preview_sessions(
- actor_user_id TEXT DEFAULT 'isolation-actor', id TEXT PRIMARY KEY,state TEXT,hard_expires_at_ms INTEGER,content_format TEXT
+ actor_user_id TEXT DEFAULT 'isolation-actor', id TEXT PRIMARY KEY,state TEXT,hard_expires_at_ms INTEGER,
+content_format TEXT
 );
 CREATE TABLE isolated_runtime_bootstrap_tickets(
- ticket_sha256 BLOB,launch_id TEXT,preview_id TEXT,profile_id TEXT,expected_origin TEXT,
+ ticket_sha256 STORAGE_PATH,launch_id TEXT,preview_id TEXT,profile_id TEXT,expected_origin TEXT,
  expires_at_ms INTEGER,consumed_at_ms INTEGER
 );
 CREATE TABLE isolated_runtime_capabilities(
- credential_sha256 BLOB,launch_id TEXT,preview_id TEXT,profile_id TEXT,expected_origin TEXT,
+ credential_sha256 STORAGE_PATH,launch_id TEXT,preview_id TEXT,profile_id TEXT,expected_origin TEXT,
  issued_at_ms INTEGER,expires_at_ms INTEGER,revoked_at_ms INTEGER
 );`); err != nil {
 		t.Fatal(err)
@@ -392,8 +399,9 @@ CREATE TABLE isolated_runtime_capabilities(
 			t.Fatal(err)
 		}
 	}
-	service := isolation.New(isolationpersistence.New(database), "https://{launchId}.rpg-runtime.example", func() time.Time {
-		return time.UnixMilli(nowMS)
-	})
+	service := isolation.New(isolationpersistence.New(database),
+		"https://{launchId}.rpg-runtime.example", func() time.Time {
+			return time.UnixMilli(nowMS)
+		})
 	return database, service, &nowMS, launchID, origin, ticket
 }

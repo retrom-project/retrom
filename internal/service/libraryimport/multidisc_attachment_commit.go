@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"retrom/internal/corevalidation"
+	corevalidation "retrom/internal/core/validation"
 	"retrom/internal/multidisc"
 	validationservice "retrom/internal/service/corevalidation"
 
@@ -95,10 +95,10 @@ func (service *MultiDiscAttachmentCommits) resolveValidation(
 	}
 	files := make([]PreparedValidationFile, 0, len(snapshot.BIOS))
 	for _, dependency := range snapshot.BIOS {
-		if dependency.DeliveryKind == "BIOS_BUNDLE" && dependency.BlobID != nil {
+		if dependency.DeliveryKind == "BIOS_BUNDLE" && dependency.FileRecord != nil {
 			files = append(files, PreparedValidationFile{
 				Role: "BIOS_BUNDLE", LogicalName: dependency.LogicalName,
-				BlobID: *dependency.BlobID, SortOrder: len(files),
+				FileRecord: *dependency.FileRecord, SortOrder: len(files),
 			})
 		}
 	}

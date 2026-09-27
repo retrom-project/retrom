@@ -38,7 +38,8 @@ VALUES(?,'root','Root','',?,'PARTIAL_FAILURE',?,1,1,?,?,?,?,?`+extraValues+`)`,
 	f.exec(t, `INSERT INTO jobs(id,scope_type,scope_id,kind,dedupe_key,execution_no,payload_json,
 cancellable,state,attempt_count,max_attempts,available_at_ms,finished_at_ms,created_at_ms,updated_at_ms)
 VALUES(?,'SOURCE_IMPORT',?,'IMPORT_RECEIVE',?,1,'{}',1,'SUCCEEDED',1,4,?,?,?,?)`,
-		execution.String(), batch.String(), strings.ReplaceAll(execution.String(), "-", "")+strings.ReplaceAll(execution.String(), "-", ""), now, now, now, now)
+		execution.String(), batch.String(), strings.ReplaceAll(execution.String(), "-",
+			"")+strings.ReplaceAll(execution.String(), "-", ""), now, now, now, now)
 	f.exec(t, `UPDATE source_imports SET import_job_id=? WHERE id=?`, execution.String(), batch.String())
 	collection := f.sourceCollection(t, batch.String())
 	pathColumn := "metadata_relative_path"
@@ -46,9 +47,12 @@ VALUES(?,'SOURCE_IMPORT',?,'IMPORT_RECEIVE',?,1,'{}',1,'SUCCEEDED',1,4,?,?,?,?)`
 discovery_state,execution_state,metadata_json,source_manifest_json,source_manifest_digest,error_code,
 created_at_ms,updated_at_ms,completed_at_ms)
 VALUES(?,?,?,'metadata',0,?,'Rejected','BLOCKED_CONTENT','BLOCKED_CONTENT','{}','{}',?, ?,?,?,?)`,
-		item.String(), batch.String(), collection, strings.Repeat("d", 64), strings.Repeat("e", 64), "PEGASUS_CONTENT_FORMAT_UNSUPPORTED", now, now, now)
-	f.exec(t, `INSERT INTO `+table[:len(table)-1]+`_item_files(item_id,ordinal,declared_kind,relative_path,size_bytes,
-blob_id,state,created_at_ms,updated_at_ms) VALUES(?,0,'FILE',?,?,?,'COPIED',?,?)`, item.String(), file.RelativePath, file.SizeBytes, file.BlobID, now, now)
+		item.String(), batch.String(), collection, strings.Repeat("d", 64), strings.Repeat("e", 64),
+		"PEGASUS_CONTENT_FORMAT_UNSUPPORTED", now, now, now)
+	if _, err := recordstore.InsertRows(t.Context(), f.db, "source_import_item_files", `INSERT INTO `+table[:len(table)-1]+`_item_files(item_id,ordinal,declared_kind,relative_path,size_bytes,
+file_record,state,created_at_ms,updated_at_ms) VALUES(?,0,'FILE',?,?,?,'COPIED',?,?)`, item.String(), file.RelativePath, file.SizeBytes, file.FileRecord, now, now); err != nil {
+		t.Fatal(err)
+	}
 	return batch.String(), item.String()
 }
 
@@ -59,7 +63,8 @@ func TestDiscardSourceRejectedBeforeReviewReleasesInternalEnvelope(t *testing.T)
 			file := f.file(t, "unsupported.txt", 11)
 			batch, item := f.source(t, kind, file)
 			result, err := f.importer.CreateServerSourceOnce(f.ctx, "IMPORT_RECEIVE:"+item,
-				testsupport.MustPlatformInstanceID(t, f.db, "nes/fceumm"), "STANDARD", []libraryimport.ServerSourceFile{file}, nil, adminID)
+				testsupport.MustPlatformInstanceID(t, f.db, "nes/fceumm"), "STANDARD",
+				[]libraryimport.ServerSourceFile{file}, nil, adminID)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -74,7 +79,7 @@ func TestDiscardSourceRejectedBeforeReviewReleasesInternalEnvelope(t *testing.T)
 			if n := f.count(t, `SELECT count(*) FROM `+table[:len(table)-1]+`_items WHERE import_id=? AND execution_state='REVIEW_DISCARDED' AND error_code=?`, batch, "PEGASUS_CONTENT_FORMAT_UNSUPPORTED"); n != 1 {
 				t.Fatal("source error evidence or discarded outcome lost")
 			}
-			if n := f.count(t, `SELECT count(*) FROM upload_files WHERE final_blob_id=?`, file.BlobID); n != 0 {
+			if n := f.count(t, `SELECT count(*) FROM upload_files WHERE final_file_record=?`, file.FileRecord); n != 0 {
 				t.Fatal("internal envelope still protects rejected blob")
 			}
 			restart := recordstore.UpdateSourceImports
@@ -98,7 +103,8 @@ func (f *fixture) sourceCollection(t *testing.T, batch string) string {
 	f.exec(t, `INSERT INTO source_import_collections(id,import_id,metadata_relative_path,segment_ordinal,
 name,game_count,mapping_action,target_platform_instance_id,target_platform_instance_version,
 target_platform_id,target_default_core_id,target_provider_id,target_id,created_at_ms,updated_at_ms)
-SELECT ?,?,'metadata',0,'Source',1,'IMPORT',instance.id,instance.version,instance.platform_id,instance.default_core_id,
+SELECT ?,?,'metadata',0,'Source',1,'IMPORT',instance.id,instance.version,instance.platform_id,
+instance.default_core_id,
 binding.provider_id,binding.target_id,?,? FROM platform_instances instance
 JOIN runtime_target_bindings binding ON binding.core_id=instance.default_core_id WHERE instance.id=?`,
 		collection.String(), batch, now, now, testsupport.MustPlatformInstanceID(t, f.db, "nes/fceumm"))

@@ -13,11 +13,11 @@ func (records records) Files(ctx context.Context, uploadID string) ([]gameconten
 		ctx,
 		`
 SELECT f.relative_path,
-f.final_blob_id,
-b.SHA256,
-b.size_bytes
+f.final_file_record,
+json_extract(b.value, '$.sha256'),
+json_extract(b.value, '$.size_bytes')
 FROM upload_files f
-JOIN blobs b ON b.id=f.final_blob_id
+JOIN json_each(json_array(f.final_file_record)) b ON b.value IS NOT NULL
 WHERE f.upload_session_id=?
 AND f.state='COMPLETE'
 ORDER BY f.relative_path,
@@ -32,7 +32,7 @@ f.id
 	files := make([]gamecontent.UploadedFile, 0)
 	for rows.Next() {
 		var value gamecontent.UploadedFile
-		if err := rows.Scan(&value.LogicalName, &value.BlobID, &value.SHA256, &value.SizeBytes); err != nil {
+		if err := rows.Scan(&value.LogicalName, &value.FileRecord, &value.SHA256, &value.SizeBytes); err != nil {
 			return nil, fmt.Errorf("scan upload file: %w", err)
 		}
 		files = append(files, value)

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"testing"
 
+	dbapi "retrom/internal/database"
 	repository "retrom/internal/persistence/sourceimport"
 	application "retrom/internal/service/sourceimport"
 )
@@ -23,7 +24,7 @@ func TestArcadeCompanionsRejectReplacedOwnerBeforeRegisteringCAS(t *testing.T) {
 		t.Fatalf("old worker got companions=%#v err=%v", result, err)
 	}
 	var count int
-	if err := service.database.QueryRowContext(t.Context(), `SELECT count(*) FROM blobs`).Scan(&count); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), service.database, `SELECT count(*) FROM source_import_item_companions`).Scan(&count); err != nil {
 		t.Fatal(err)
 	}
 	if count != 0 {
@@ -43,7 +44,7 @@ func TestArcadeCompanionRechecksOwnerAndCandidateAfterPhysicalCopy(t *testing.T)
 	} {
 		t.Run(change.name, func(t *testing.T) {
 			service, unit, root, item := arcadeCompanionFixture(t)
-			companions := application.NewCompanions(repository.NewCompanions(service.database), service.now)
+			companions := application.NewCompanions(repository.NewCompanions(service.database), service.blobs, service.now)
 			candidates, err := companions.Find(t.Context(), unit.Identity(), item.ID)
 			if err != nil || len(candidates) != 1 {
 				t.Fatalf("candidates=%v err=%v", candidates, err)
@@ -57,12 +58,12 @@ func TestArcadeCompanionRechecksOwnerAndCandidateAfterPhysicalCopy(t *testing.T)
 			if _, err := service.database.ExecContext(t.Context(), change.query); err != nil {
 				t.Fatal(err)
 			}
-			blobID, err := companions.Record(t.Context(), unit.Identity(), item.ID, candidate, verifiedMaterial(metadata))
-			if err == nil || blobID != "" {
-				t.Fatalf("changed %s accepted blob=%s err=%v", change.name, blobID, err)
+			fileRecord, err := companions.Record(t.Context(), unit.Identity(), item.ID, candidate, verifiedMaterial(metadata))
+			if err == nil || fileRecord != "" {
+				t.Fatalf("changed %s accepted blob=%s err=%v", change.name, fileRecord, err)
 			}
 			var count int
-			if err := service.database.QueryRowContext(t.Context(), `SELECT count(*) FROM blobs`).Scan(&count); err != nil {
+			if err := dbapi.QueryRowContext(t.Context(), service.database, `SELECT count(*) FROM source_import_item_companions`).Scan(&count); err != nil {
 				t.Fatal(err)
 			}
 			if count != 0 {
@@ -78,7 +79,8 @@ func TestArcadeCompanionClosureHandlesCycleAndDeepRelations(t *testing.T) {
 	// UNION terminates cycles and the query has no 64-node cutoff.
 	if _, err := service.database.ExecContext(
 		t.Context(),
-		`UPDATE dat_machines SET cloneof='depth-0' WHERE machine_name='child';UPDATE dat_machines SET romof='child' WHERE machine_name='parent'`,
+		`UPDATE dat_machines SET cloneof='depth-0' WHERE machine_name='child';UPDATE dat_machines SET
+romof='child' WHERE machine_name='parent'`,
 	); err != nil {
 		t.Fatal(err)
 	}
@@ -96,9 +98,30 @@ func TestArcadeCompanionClosureHandlesCycleAndDeepRelations(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	companions := application.NewCompanions(repository.NewCompanions(service.database), service.now)
+	companions := application.NewCompanions(repository.NewCompanions(service.database), service.blobs, service.now)
 	result, err := companions.Find(t.Context(), unit.Identity(), item.ID)
 	if err != nil || len(result) != 1 || result[0].File.Path != "parent.zip" {
 		t.Fatalf("deep cyclic closure=%#v err=%v", result, err)
+	}
+}
+
+func TestCopiedCompanionHasIdempotentSourceOwnership(t *testing.T) {
+	t.Parallel()
+	service, unit, root, item := arcadeCompanionFixture(t)
+	for range 2 {
+		files, err := service.importExecutor(root).CompanionFiles(t.Context(), unit, item)
+		if err != nil || len(files) != 1 {
+			t.Fatalf("files=%v err=%v", files, err)
+		}
+		var count, refs int
+		if err := dbapi.QueryRowContext(t.Context(), service.database, `SELECT
+   (SELECT count(*) FROM source_import_item_companions WHERE item_id='018fbe68-0000-7000-8000-000000000012'),
+   (SELECT count(*) FROM source_import_item_companions WHERE
+item_id='018fbe68-0000-7000-8000-000000000012' AND file_record=?)`, files[0].FileRecord).Scan(&count, &refs); err != nil {
+			t.Fatal(err)
+		}
+		if count != 1 || refs != 1 {
+			t.Fatalf("companion owner=%d refs=%d", count, refs)
+		}
 	}
 }

@@ -7,13 +7,14 @@ import (
 	"math"
 	"strings"
 
-	"retrom/internal/corevalidation"
-	"retrom/internal/scummvm"
+	"retrom/internal/core/scummvm"
+	corevalidation "retrom/internal/core/validation"
 	"retrom/internal/service/importprogress"
 	"retrom/internal/service/tagging"
 )
 
 type reviewApprovalRun struct {
+	identityDigest        string
 	ctx                   context.Context
 	service               *ReviewApprovals
 	scope                 ReviewApprovalScope
@@ -32,10 +33,6 @@ type reviewApprovalRun struct {
 	publication           ApprovalPublication
 	publishedTags         []tagging.Reference
 	duplicateGames        []DuplicateGame
-}
-
-func (run *reviewApprovalRun) result() ReviewApproved {
-	return ReviewApproved{GameID: run.gameID, Status: "PUBLISHED"}
 }
 
 func (run *reviewApprovalRun) load() error {
@@ -63,7 +60,7 @@ func (run *reviewApprovalRun) prepare() error {
 		return fmt.Errorf("decode approval metadata: %w", err)
 	}
 	run.metadata.Title = strings.TrimSpace(run.metadata.Title)
-	if run.metadata.Title == "" {
+	if run.metadata.Title == "" || !validField(run.metadata.Title, reviewShortFieldMaximumRunes, false) {
 		return ErrInvalid
 	}
 	for _, step := range []func() error{run.prepareValidation, run.prepareOrigin, run.prepareAssets} {
@@ -147,7 +144,7 @@ func (run *reviewApprovalRun) prepareScreenshotOverride() error {
 	filtered := make([]corevalidation.BIOSDependency, 0, len(snapshot.BIOS))
 	for _, dependency := range snapshot.BIOS {
 		if dependency.DeliveryKind != "EXTERNAL_FILE" ||
-			(dependency.EmulatorPath != nil && dependency.BlobID != nil &&
+			(dependency.EmulatorPath != nil && dependency.FileRecord != nil &&
 				dependency.InstallationStatus != nil && corevalidation.BIOSInstallationUsable(*dependency.InstallationStatus)) {
 			filtered = append(filtered, dependency)
 		}
@@ -196,6 +193,7 @@ func (run *reviewApprovalRun) allocateIDs() error {
 			return fmt.Errorf("allocate approved asset identity: %w", err)
 		}
 		run.assets[index].ID, run.assets[index].GameID, run.assets[index].NowMS = id, run.gameID, run.now
+		run.assets[index].ItemID = run.request.ItemID
 	}
 	return nil
 }
@@ -213,6 +211,7 @@ func (run *reviewApprovalRun) claimDuplicates() error {
 	if err != nil {
 		return fmt.Errorf("read approval duplicates: %w", err)
 	}
+	run.identityDigest = digest
 	decision := run.request.Decision
 	if len(run.duplicateGames) > 0 && (decision.DuplicatePolicy != "ALLOW_NEW" ||
 		!SameApprovalDuplicateIDs(run.duplicateGames, decision.AcknowledgedGameIDs)) {

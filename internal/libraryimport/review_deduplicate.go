@@ -5,11 +5,14 @@ import (
 	"errors"
 	"fmt"
 
-	librarycomposition "retrom/internal/composition/libraryimport"
 	libraryservice "retrom/internal/service/libraryimport"
 
 	"github.com/google/uuid"
 )
+
+type ReviewBulkScope = libraryservice.ReviewBulkScope
+
+var ErrReviewBulkInvalidScope = libraryservice.ErrReviewBulkQuery
 
 type ReviewDeduplicateRequest struct {
 	Scope         ReviewBulkScope `json:"scope"`
@@ -26,9 +29,9 @@ type ReviewDeduplicateResult struct {
 }
 
 func normalizeReviewDeduplicateRequest(request ReviewDeduplicateRequest) (ReviewDeduplicateRequest, error) {
-	scope, err := normalizeReviewBulkScope(request.Scope)
+	scope, err := libraryservice.NormalizeReviewBulkScope(request.Scope)
 	if err != nil {
-		return request, err
+		return request, fmt.Errorf("normalize review scope: %w", err)
 	}
 	request.Scope = scope
 	for _, value := range []string{request.AfterItemID, request.ThroughItemID} {
@@ -55,7 +58,7 @@ func (service *Service) DeduplicateReviews(
 	if err != nil {
 		return result, err
 	}
-	value, err := librarycomposition.NewReviewDeduplicator(service.database, service.now).Deduplicate(
+	value, err := service.deduplicator.Deduplicate(
 		ctx, libraryservice.ReviewDeduplicateRequest{
 			Scope: libraryservice.ReviewBulkScope{
 				Q: request.Scope.Q, TagID: request.Scope.TagID, ImportJobID: request.Scope.ImportJobID,

@@ -38,7 +38,7 @@ export type PlayerBootstrapParams = {
   pausedRef: Mutable<boolean>;
   started: Mutable<boolean>;
   finishing: Mutable<boolean>;
-  heartbeat: Mutable<number | null>;
+  progressTimer: Mutable<number | null>;
   progressClock: Mutable<PlayProgressClock>;
   toastTimer: Mutable<number | null>;
   setMessage: Dispatch<SetStateAction<string>>;
@@ -208,7 +208,7 @@ async function completeSingleStart(params: PlayerBootstrapParams) {
   const canSave = availability.available;
   updateCheckpointAvailability(params, canSave);
   void params.reportProgress();
-  params.heartbeat.current = window.setInterval(() => {void params.reportProgress();}, 30_000);
+  params.progressTimer.current = window.setInterval(() => {void params.reportProgress();}, 30_000);
 }
 
 function handleRuntimeEvent(event: RuntimeEventV1, params: PlayerBootstrapParams) {
@@ -288,7 +288,7 @@ async function cleanupBootstrap(params: PlayerBootstrapParams, resources: Bootst
   resources.surfaceControlsCleanup?.();
   resources.inputSubscription?.();
   resources.e2eDiagnosticsCleanup?.();
-  if (params.heartbeat.current !== null) {window.clearInterval(params.heartbeat.current); params.heartbeat.current = null;}
+  if (params.progressTimer.current !== null) {window.clearInterval(params.progressTimer.current); params.progressTimer.current = null;}
   params.progressClock.current.stop(performance.now());
   params.started.current = false;
   if (params.toastTimer.current !== null) {window.clearTimeout(params.toastTimer.current); params.toastTimer.current = null;}

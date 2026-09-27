@@ -4,11 +4,11 @@ import (
 	"context"
 	"database/sql"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 )
 
 func UpdateImportItemSourceFiles(
-	ctx context.Context, db dbexec.Executor, change Update,
+	ctx context.Context, db dbapi.Executor, change Update,
 ) (sql.Result, error) {
 	return updateRecords(
 		ctx,
@@ -31,7 +31,7 @@ WHERE candidate.import_item_id=previous.import_item_id AND candidate.role=previo
 candidate.logical_name=previous.logical_name`
 
 func DeleteImportItemSourceFiles(
-	ctx context.Context, db dbexec.Executor, scope Scope,
+	ctx context.Context, db dbapi.Executor, scope Scope,
 ) (sql.Result, error) {
 	return deleteRecords(
 		ctx,
@@ -47,7 +47,7 @@ const ImportItemSourceFilesDeleteRule = `
 WITH previous(import_item_id,role,logical_name) AS (VALUES(?,?,?))
 SELECT CASE
 -- import_item_source_files_immutable_delete
-WHEN (NOT EXISTS(SELECT 1 FROM import_items WHERE id=previous.import_item_id AND payload_state IN
-('RELEASING','FAILED'))) THEN 'immutable'
+WHEN (NOT EXISTS(SELECT 1 FROM import_items WHERE id=previous.import_item_id AND payload_state
+='RELEASING')) THEN 'immutable'
 ELSE '' END
 FROM previous`

@@ -29,7 +29,7 @@ p.name,
 pi.id,
 pi.name,
 s.disc_index,
-s.screenshot_blob_id IS NOT NULL,
+s.screenshot_file_record IS NOT NULL,
 runtime_compatibility.status
 FROM save_states s
 LEFT JOIN game_save_versions native ON native.save_state_id=s.id

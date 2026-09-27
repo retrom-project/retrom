@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/contentcapability"
+	contentcapability "retrom/internal/content/capability"
 	library "retrom/internal/service/libraryimport"
 )
 
@@ -48,7 +48,7 @@ func sourceIntent(unit Work, item ExecutionItem) library.SourceCreationIntent {
 	}
 }
 
-// Resume precedes host/CAS reads, so retained identities can be replayed after payload cleanup.
+// Resume precedes host/file reads, so retained identities can be replayed after payload cleanup.
 func (service *ReviewPreparation) Resume(ctx context.Context, unit Work, item ExecutionItem) (bool, error) {
 	result, found, err := service.sources.LookupOwnedServerSource(ctx, sourceIntent(unit, item))
 	if err != nil {

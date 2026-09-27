@@ -3,7 +3,7 @@
 CREATE TABLE "launch_content_files" (
   launch_session_id TEXT NOT NULL REFERENCES launch_sessions(id),
   logical_name TEXT NOT NULL CHECK(length(logical_name) BETWEEN 1 AND 512),
-  blob_id TEXT NOT NULL REFERENCES blobs(id),
+  file_record TEXT NOT NULL,
   format_version TEXT NOT NULL CHECK(
     length(format_version) BETWEEN 2 AND 64 AND format_version=upper(format_version)
     AND format_version NOT GLOB '*[^A-Z0-9_]*'
@@ -39,22 +39,6 @@ CREATE TABLE isolated_runtime_capabilities (
   CHECK((launch_id IS NULL) <> (preview_id IS NULL))
 );
 
-CREATE TABLE play_session_events (
-  play_session_id TEXT NOT NULL REFERENCES play_sessions(id),
-  client_sequence INTEGER NOT NULL CHECK(client_sequence >= 0),
-  event_kind TEXT NOT NULL CHECK(event_kind IN ('START','HEARTBEAT','FINISH')),
-  client_observed_at_ms INTEGER NOT NULL,
-  server_received_at_ms INTEGER NOT NULL,
-  running INTEGER NOT NULL CHECK(running IN (0,1)),
-  visible INTEGER NOT NULL CHECK(visible IN (0,1)),
-  paused INTEGER NOT NULL CHECK(paused IN (0,1)),
-  accepted_duration_ms INTEGER NOT NULL CHECK(accepted_duration_ms BETWEEN 0 AND 45000),
-  created_at_ms INTEGER NOT NULL,
-  PRIMARY KEY(play_session_id, client_sequence),
-  CHECK((event_kind = 'START') = (client_sequence = 0)),
-  CHECK(event_kind != 'START' OR accepted_duration_ms = 0)
-);
-
 CREATE TABLE "launch_sessions" (
   id TEXT PRIMARY KEY,
   profile_id TEXT NOT NULL REFERENCES profiles(id),
@@ -72,7 +56,6 @@ CREATE TABLE "launch_sessions" (
   credential_sha256 BLOB NOT NULL CHECK(length(credential_sha256) = 32),
   state TEXT NOT NULL CHECK(state IN ('CREATED','ACTIVE','FINISHED','EXPIRED','REVOKED')),
   bootstrap_expires_at_ms INTEGER NOT NULL,
-  idle_expires_at_ms INTEGER,
   activated_at_ms INTEGER,
   finished_at_ms INTEGER,
   hard_expires_at_ms INTEGER NOT NULL,
@@ -90,7 +73,7 @@ CREATE TABLE "launch_external_files" (
   launch_session_id TEXT NOT NULL REFERENCES launch_sessions(id),
   virtual_path TEXT NOT NULL CHECK(length(virtual_path) BETWEEN 1 AND 512),
   logical_name TEXT NOT NULL CHECK(length(logical_name) BETWEEN 1 AND 255),
-  blob_id TEXT NOT NULL REFERENCES blobs(id),
+  file_record TEXT NOT NULL,
   created_at_ms INTEGER NOT NULL CHECK(created_at_ms >= 0), kind TEXT NOT NULL DEFAULT 'BIOS' CHECK(kind IN ('BIOS','BIOS_BUNDLE','PARENT','DISC')),
   PRIMARY KEY(launch_session_id, virtual_path),
   UNIQUE(launch_session_id, logical_name),
@@ -115,10 +98,10 @@ CREATE TABLE "save_states" (
   profile_id TEXT NOT NULL REFERENCES profiles(id),
   game_id TEXT NOT NULL REFERENCES games(id),
   checkpoint_format TEXT NOT NULL CHECK(length(checkpoint_format) BETWEEN 1 AND 128),
-  payload_blob_id TEXT NOT NULL REFERENCES blobs(id),
+  payload_file_record TEXT NOT NULL,
   payload_sha256 TEXT NOT NULL CHECK(length(payload_sha256)=64 AND payload_sha256=lower(payload_sha256)),
   payload_size_bytes INTEGER NOT NULL CHECK(payload_size_bytes BETWEEN 1 AND 268435456),
-  screenshot_blob_id TEXT REFERENCES blobs(id),
+  screenshot_file_record TEXT,
   name TEXT NOT NULL,
   active_duration_ms INTEGER NOT NULL CHECK(active_duration_ms >= 0),
   dos_entry_path TEXT,
@@ -136,10 +119,9 @@ CREATE TABLE "play_sessions" (
   profile_id TEXT NOT NULL REFERENCES profiles(id),
   game_id TEXT NOT NULL REFERENCES games(id),
   started_at_ms INTEGER NOT NULL,
-  last_heartbeat_at_ms INTEGER NOT NULL,
+  last_reported_at_ms INTEGER NOT NULL,
   ended_at_ms INTEGER,
   active_duration_ms INTEGER NOT NULL DEFAULT 0 CHECK(active_duration_ms >= 0),
-  last_client_sequence INTEGER NOT NULL DEFAULT 0 CHECK(last_client_sequence >= 0),
   state TEXT NOT NULL CHECK(state IN ('ACTIVE','FINISHED','ABANDONED')),
   version INTEGER NOT NULL DEFAULT 1,
   created_at_ms INTEGER NOT NULL,

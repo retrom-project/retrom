@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"strings"
 
-	"retrom/internal/service/payloadrelease"
+	importcleanup "retrom/internal/service/libraryimport/payloadpolicy"
+
+	"retrom/internal/service/cleanupjobs"
 
 	"retrom/internal/authn"
 	"retrom/internal/gametitle"
@@ -17,14 +19,7 @@ func (run *reviewApprovalRun) publish() error {
 			return err
 		}
 	}
-	if run.request.Bulk != nil {
-		if err := run.scope.Bulk.RecordPublished(run.ctx, BulkPublication{
-			Intent: *run.request.Bulk, ItemID: run.request.ItemID, Result: run.result(), NowMS: run.now,
-			ReviewVersion: run.request.ExpectedVersion, LeasedUntilMS: run.now + 60_000,
-		}); err != nil {
-			return fmt.Errorf("record bulk published review: %w", err)
-		}
-	}
+
 	return nil
 }
 
@@ -91,7 +86,7 @@ func (run *reviewApprovalRun) publishVariant() error {
 		return fmt.Errorf("publish game variant: %w", err)
 	}
 	if err := run.scope.Variants.CopyValidationFiles(run.ctx, ApprovalValidationCopy{
-		VariantID: run.variantID, ValidationID: run.head.ValidationID,
+		VariantID: run.variantID, ValidationID: run.head.ValidationID, ItemID: run.request.ItemID, GameID: run.gameID,
 	}); err != nil {
 		return fmt.Errorf("publish variant files: %w", err)
 	}
@@ -150,13 +145,12 @@ func (run *reviewApprovalRun) publishDecision() error {
 	}); err != nil {
 		return fmt.Errorf("publish review source owner: %w", err)
 	}
-	if err := payloadrelease.NewScheduler(nil).Review(
-		run.ctx,
+	if err := importcleanup.Review(run.ctx, cleanupjobs.NewScheduler(nil),
 		run.scope.Payload,
-		payloadrelease.ReviewRelease{
+		importcleanup.ReviewRelease{
 			ItemID:   run.request.ItemID,
 			ImportID: run.head.ImportID,
-			Reason:   payloadrelease.ReasonImportPublished,
+			Reason:   cleanupjobs.ReasonImportPublished,
 			NowMS:    run.now,
 		},
 	); err != nil {

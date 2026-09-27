@@ -4,17 +4,31 @@ import (
 	"context"
 	"database/sql"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 )
 
 func CreateReviewRuntimeScreenshots(
-	ctx context.Context, db dbexec.Executor, query string, args ...any,
+	ctx context.Context, db dbapi.Executor, query string, args ...any,
 ) (sql.Result, error) {
-	return create(ctx, db, query, args, "id", ValidateReviewRuntimeScreenshots)
+	return create(ctx, db, query, args, "review_runtime_screenshots", "id", ValidateReviewRuntimeScreenshots)
 }
 
-func ValidateReviewRuntimeScreenshots(ctx context.Context, db dbexec.Executor, keys ...any) error {
+func ValidateReviewRuntimeScreenshots(ctx context.Context, db dbapi.Executor, keys ...any) error {
 	return validate(ctx, db, review_runtime_screenshotsOwnership, keys)
+}
+
+func UpsertReviewRuntimeScreenshots(
+	ctx context.Context, db dbapi.Executor, query string, args ...any,
+) (sql.Result, error) {
+	return upsertRecords(
+		ctx,
+		db,
+		"review_runtime_screenshots",
+		query,
+		args,
+		"id",
+		ValidateReviewRuntimeScreenshots,
+	)
 }
 
 const review_runtime_screenshotsOwnership = `

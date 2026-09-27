@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"retrom/internal/contentcapability"
-	"retrom/internal/contentprofile"
+	contentcapability "retrom/internal/content/capability"
+	contentprofile "retrom/internal/content/profile"
 )
 
 type Service struct {

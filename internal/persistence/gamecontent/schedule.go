@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/recordstore"
 	"retrom/internal/service/gamecontent"
 )
@@ -52,8 +53,9 @@ func (writes writes) Load(ctx context.Context, principal, key string, now int64)
 		return gamecontent.Replay{}, false, fmt.Errorf("expire replacement replay: %w", err)
 	}
 	var result gamecontent.Replay
-	err = writes.transaction.QueryRowContext(
-		ctx,
+	err = dbapi.QueryRowContext(
+		ctx, writes.transaction,
+
 		`SELECT request_digest,response_body FROM idempotency_records
  WHERE operation_id='postAdminGameContentReplacement' AND principal_id=? AND key=?`,
 		principal,

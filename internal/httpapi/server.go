@@ -2,51 +2,29 @@ package httpapi
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"net/http"
 	"sync"
 	"sync/atomic"
 	"time"
 
-	gamecontentpersistence "retrom/internal/persistence/gamecontent"
+	"retrom/internal/application"
 
-	"retrom/internal/composition"
-	librarycomposition "retrom/internal/composition/libraryimport"
-	payloadcomposition "retrom/internal/composition/payloadrelease"
+	gamevariant "retrom/internal/service/gamevariant"
 
-	firmwarepersistence "retrom/internal/persistence/firmware"
+	dbapi "retrom/internal/database"
+
+	payloadcomposition "retrom/internal/composition/cleanupjobs"
+
 	firmwareservice "retrom/internal/service/firmware"
 
-	savepersistence "retrom/internal/persistence/saves"
-
-	uploadpersistence "retrom/internal/persistence/uploads"
-
-	isolationpersistence "retrom/internal/persistence/isolation"
-
-	jobpersistence "retrom/internal/persistence/jobs"
-
-	immersivepersistence "retrom/internal/persistence/immersive"
-	storagepersistence "retrom/internal/persistence/storageanalysis"
-
-	tagpersistence "retrom/internal/persistence/tagging"
-
-	"retrom/internal/blobstore"
-	launchcomposition "retrom/internal/composition/launch"
 	"retrom/internal/config"
 	"retrom/internal/cursor"
 	"retrom/internal/dependencies"
-	"retrom/internal/hasheous"
+	"retrom/internal/filestore"
 	"retrom/internal/launch"
 	"retrom/internal/libraryimport"
-	favoritepersistence "retrom/internal/persistence/favorites"
-	idempotencypersistence "retrom/internal/persistence/idempotency"
-	mediapersistence "retrom/internal/persistence/mediaaccess"
-	platformpersistence "retrom/internal/persistence/platforminstance"
 	retromruntime "retrom/internal/runtime"
-	"retrom/internal/runtimelaunch"
-	"retrom/internal/scummvm"
-	"retrom/internal/serversource"
 	"retrom/internal/service/accounts"
 	biosservice "retrom/internal/service/bios"
 	catalogservice "retrom/internal/service/catalog"
@@ -71,7 +49,6 @@ import (
 	"retrom/internal/service/saves"
 	"retrom/internal/service/serverimport"
 	"retrom/internal/service/sourceimport"
-	"retrom/internal/service/storageanalysis"
 	"retrom/internal/service/tagging"
 	"retrom/internal/service/uploads"
 )
@@ -104,19 +81,21 @@ const requestIDKey contextKey = "request-id"
 
 type Server struct {
 	config                  config.Config
-	database                *sql.DB
-	readinessDatabase       *sql.DB
+	database                dbapi.DB
+	readinessDatabase       dbapi.DB
 	readinessService        *readinessservice.Service
 	startupReadinessMu      sync.Mutex
 	startupReady            atomic.Bool
 	dependencies            *dependencies.Set
-	blobs                   *blobstore.Store
+	blobs                   *filestore.Store
 	credentials             *retromruntime.Credentials
 	cursors                 *cursor.Codec
 	uploads                 *uploads.Service
 	importer                *libraryimport.Service
 	importDiscards          *importdiscard.Service
 	launcher                *launchservice.Service
+	variants                *gamevariant.Service
+	reviewScreenshots       *libraryservice.ScreenshotSaver
 	launchSources           *launch.Sources
 	jobService              *jobs.Service
 	immersive               *immersive.Service
@@ -126,6 +105,7 @@ type Server struct {
 	mediaAccess             *mediaaccess.Service
 	metadata                *metadatascrape.Service
 	gameContent             *gamecontent.Service
+	gameImpact              *gamecontent.ImpactQueries
 	gameListService         *gamelistservice.Service
 	homeService             *homeservice.Service
 	gameAssets              *gameassetsservice.Service
@@ -139,13 +119,13 @@ type Server struct {
 	reviewCoverUploads      *libraryservice.ReviewCoverUploads
 	reviewDiscards          *libraryservice.ReviewDiscards
 	reviewApprovals         *libraryservice.ReviewApprovals
+	reviewBulkApprovals     *libraryservice.ReviewBulk
 	importAdmissions        *libraryservice.ImportAdmissions
 	metadataEvidence        *metadatascrape.EvidenceQueries
 	serverImports           *serverimport.Service
 	sourceImports           *sourceimport.Service
-	payloadReleases         *payloadcomposition.Service
+	cleanupJobs             *payloadcomposition.Service
 	platformDirectories     *platforminstance.Service
-	storageAnalysis         *storageanalysis.Service
 	now                     func() time.Time
 	sseHeartbeat            time.Duration
 	idempotency             sync.Mutex
@@ -166,158 +146,65 @@ func (server *Server) WithRuntimeProviderHandler(handler http.Handler) *Server {
 	return server
 }
 
-func (server *Server) WithRuntimeProvider(
-	builder *runtimelaunch.Builder,
-	handler http.Handler,
-) *Server {
-	server.launchSources.WithRuntimeProvider(builder)
-	return server.WithRuntimeProviderHandler(handler)
-}
-
-func (server *Server) WithReadinessDatabase(database *sql.DB) *Server {
-	if database != nil {
-		server.readinessDatabase = database
-		server.readinessService = composition.NewReadiness(database)
-		server.storageAnalysis = storageanalysis.New(storagepersistence.New(database), server.now)
-	}
-	return server
-}
-
-func (server *Server) idempotencyRecords() *idempotencyservice.Service {
-	if server.idempotencyService != nil {
-		return server.idempotencyService
-	}
-	return idempotencyservice.New(idempotencypersistence.New(server.database))
-}
-
 type Authenticator interface {
 	Authenticate(context.Context, string) (accounts.Session, error)
 }
 
-func New(
-	config config.Config,
-	database *sql.DB,
-	dependencySet *dependencies.Set,
-	blobs *blobstore.Store,
-	credentials *retromruntime.Credentials,
-	authenticator Authenticator,
-	accountService *accounts.Service,
-	now func() time.Time,
-	scummVMDetector ...*scummvm.Detector,
+func New(settings config.Config, services *application.Services,
+	authenticator Authenticator, now func() time.Time,
 ) *Server {
-	payloadReleaseService, err := payloadcomposition.New(context.Background(), database, blobs, now, 7*24*time.Hour)
-	if err != nil {
-		panic(err)
-	}
-	scraper := composition.NewMetadata(database, blobs, hasheous.New(nil, nil, now), now)
-	scraper.Start(context.Background())
-	launchSources := launch.NewSources(blobs, credentials).WithRPGRuntimeOriginTemplate(config.RPGRuntimeOriginTemplate)
-	launcher := launchcomposition.New(database, launchSources, config.PublicOrigin.String(), now)
-	launcher.ResumeQueuedValidationJobs()
-	importer := libraryimport.New(database, now, scraper).
-		WithBlobStore(blobs).
-		WithMultiDiscImportEnabled(config.MultiDiscImportEnabled)
-	if len(scummVMDetector) > 0 {
-		importer.WithScummVMDetector(scummVMDetector[0])
-	}
-	importer.Start()
-	importer.ResumeParentAttachmentJobs(context.Background())
-	importer.ResumeMultiDiscAttachmentJobs(context.Background())
-	importer.ResumeReviewBulkJobs(context.Background())
-	firmwareService := firmwareservice.New(firmwarepersistence.New(database), now).WithBlobStore(blobs).
-		WithPayloadRelease(payloadReleaseService)
-	serverImportService := composition.NewServerImports(
-		database,
-		blobs,
-		firmwareService,
-		credentials,
-		serversource.FilesystemRoots(),
-		now,
-	)
-	serverImportService.Start()
-	sourceImportService := composition.NewSourceImport(
-		database, blobs, importer, credentials, serversource.FilesystemRoots(), now,
-	)
-	sourceImportService.Start()
-	tagService := tagging.New(tagpersistence.New(database), now)
 	server := &Server{
-		config:              config,
-		database:            database,
-		readinessDatabase:   database,
-		readinessService:    composition.NewReadiness(database),
-		dependencies:        dependencySet,
-		blobs:               blobs,
-		credentials:         credentials,
-		authenticator:       authenticator,
-		accounts:            accountService,
-		cursors:             cursor.New(credentials.CursorKey(), now),
-		uploads:             uploads.New(uploadpersistence.New(database), blobs, config.DataDir, now),
-		importer:            importer,
-		launcher:            launcher,
-		launchSources:       launchSources,
-		jobService:          jobs.New(jobpersistence.New(database), now),
-		immersive:           immersive.New(immersivepersistence.New(database)),
-		firmware:            firmwareService,
-		biosService:         composition.NewBIOS(database),
-		catalogService:      composition.NewCatalog(database),
-		serverImports:       serverImportService,
-		sourceImports:       sourceImportService,
-		payloadReleases:     payloadReleaseService,
-		diagnosticsService:  composition.NewDiagnostics(database),
-		platformDirectories: platforminstance.New(platformpersistence.New(database), now),
-		metadata:            scraper,
-		gameContent: gamecontent.New(gamecontentpersistence.New(database), now).WithBlobStore(blobs).
-			WithPayloadRelease(payloadReleaseService).WithGCStager(payloadReleaseService).
-			WithMultiDiscImportEnabled(config.MultiDiscImportEnabled),
-		gameListService:    composition.NewGameList(database),
-		homeService:        composition.NewHome(database, tagService),
-		gameAssets:         composition.NewGameAssets(database, blobs, now, payloadReleaseService),
-		gameMetadata:       composition.NewGameMetadata(database, payloadReleaseService, now),
-		saveService:        saves.New(savepersistence.New(database), blobs, now),
-		rpgIsolation:       isolation.New(isolationpersistence.New(database), config.RPGRuntimeOriginTemplate, now),
-		favoriteService:    favorites.New(favoritepersistence.New(database), now),
-		tagService:         tagService,
-		now:                now,
-		sseHeartbeat:       15 * time.Second,
-		idempotencyService: idempotencyservice.New(idempotencypersistence.New(database)),
-		runtimeProvider:    http.NotFoundHandler(),
+		config: settings, authenticator: authenticator, now: now,
+		cursors:      cursor.New(services.Credentials.CursorKey(), now),
+		sseHeartbeat: 15 * time.Second, runtimeProvider: http.NotFoundHandler(),
+		database:            services.Database,
+		readinessDatabase:   services.ReadinessDatabase,
+		readinessService:    services.ReadinessService,
+		dependencies:        services.Dependencies,
+		blobs:               services.Blobs,
+		credentials:         services.Credentials,
+		uploads:             services.Uploads,
+		importer:            services.Importer,
+		importDiscards:      services.ImportDiscards,
+		launcher:            services.Launcher,
+		variants:            services.Variants,
+		reviewScreenshots:   services.ReviewScreenshots,
+		launchSources:       services.LaunchSources,
+		jobService:          services.JobService,
+		immersive:           services.Immersive,
+		firmware:            services.Firmware,
+		biosService:         services.BiosService,
+		catalogService:      services.CatalogService,
+		mediaAccess:         services.MediaAccess,
+		metadata:            services.Metadata,
+		gameContent:         services.GameContent,
+		gameImpact:          services.GameImpact,
+		gameListService:     services.GameListService,
+		homeService:         services.HomeService,
+		gameAssets:          services.GameAssets,
+		gameMetadata:        services.GameMetadata,
+		saveService:         services.SaveService,
+		rpgIsolation:        services.RpgIsolation,
+		favoriteService:     services.FavoriteService,
+		tagService:          services.TagService,
+		reviewQueue:         services.ReviewQueue,
+		reviewDetails:       services.ReviewDetails,
+		reviewCoverUploads:  services.ReviewCoverUploads,
+		reviewDiscards:      services.ReviewDiscards,
+		reviewApprovals:     services.ReviewApprovals,
+		reviewBulkApprovals: services.ReviewBulkApprovals,
+		importAdmissions:    services.ImportAdmissions,
+		metadataEvidence:    services.MetadataEvidence,
+		serverImports:       services.ServerImports,
+		sourceImports:       services.SourceImports,
+		cleanupJobs:         services.CleanupJobs,
+		platformDirectories: services.PlatformDirectories,
+		accounts:            services.Accounts,
+		diagnosticsService:  services.DiagnosticsService,
+		idempotencyService:  services.IdempotencyService,
 	}
-	server.reviewQueue = composition.NewLibraryReviewQueue(database, server.tagService)
-	server.reviewDetails = composition.NewLibraryReviewDetails(database)
-	server.reviewCoverUploads = composition.NewLibraryReviewCoverUploads(database, blobs, now)
-	server.reviewDiscards = composition.NewLibraryReviewDiscards(database, now)
-	server.reviewApprovals = composition.NewLibraryReviewApprovals(database, now)
-	server.importAdmissions = composition.NewLibraryImportAdmissions(
-		database, importer, libraryservice.ImportAdmissionOptions{
-			Now: now, MultiDiscEnabled: config.MultiDiscImportEnabled, MetadataScraperAvailable: true,
-		},
-	)
-	server.jobService = composition.WithSourceJobCancellation(server.jobService, sourceImportService)
-	server.jobService = librarycomposition.WithJobCancellation(server.jobService, database, now)
-	server.mediaAccess = mediaaccess.New(mediapersistence.New(database))
-	server.metadataEvidence = composition.NewMetadataEvidenceQueries(database)
-	server.importDiscards = composition.NewImportDiscard(
-		database,
-		libraryimport.NewDiscardWorkflow(importer),
-		sourceImportService,
-		now,
-	)
-	server.importDiscards.Start()
 	server.idempotencyQueueDrained = sync.NewCond(&server.idempotencyQueueMu)
-	payloadReleaseService.Start()
-	server.uploads.Start(context.Background())
 	return server
-}
-
-func (server *Server) Close() {
-	server.uploads.Close()
-	server.launcher.Close()
-	server.importDiscards.Close()
-	server.importer.Close()
-	server.serverImports.Close()
-	server.sourceImports.Close()
-	server.metadata.Close()
-	server.payloadReleases.Close()
 }
 
 // Contract branches stay contiguous for a single auditable decision.
@@ -500,8 +387,6 @@ func (server *Server) registerAdminLibraryRoutes(mux *http.ServeMux) {
 		{"POST /api/v1/admin/games/{gameId}/scrape-candidates/{candidateId}/apply", server.applyGameScrapeCandidate},
 		{"POST /api/v1/admin/games/{gameId}/move-preview", server.previewGameMove},
 		{"POST /api/v1/admin/games/{gameId}/move", server.moveGame},
-		{"GET /api/v1/admin/storage-analysis", server.adminStorageAnalysis},
-		{"POST /api/v1/admin/storage-cleanups", server.adminStorageCleanup},
 	}
 	for _, route := range routes {
 		mux.HandleFunc(route.pattern, route.handler)
@@ -532,8 +417,6 @@ func (server *Server) registerRuntimeRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("HEAD /runtime/content/bios/{contentIdentity}/bundle.zip", server.launchBIOSBundle)
 	mux.HandleFunc("GET /runtime/content/parent/{contentIdentity}/bundle.zip", server.launchParentBundle)
 	mux.HandleFunc("HEAD /runtime/content/parent/{contentIdentity}/bundle.zip", server.launchParentBundle)
-	mux.HandleFunc("POST /runtime/launches/{launchId}/start", server.launchStart)
-	mux.HandleFunc("POST /runtime/launches/{launchId}/heartbeat", server.launchHeartbeat)
 	mux.HandleFunc("POST /runtime/launches/{launchId}/progress", server.launchProgress)
 	mux.HandleFunc("POST /runtime/launches/{launchId}/finish", server.launchFinish)
 	mux.HandleFunc("POST /runtime/launches/{launchId}/player-events", server.multiDiscPlayerEvent)

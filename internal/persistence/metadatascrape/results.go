@@ -2,28 +2,31 @@ package metadatascrape
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 
-	"retrom/internal/dbexec"
-	"retrom/internal/persistence/blobcatalog"
+	"retrom/internal/filestore"
+
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/recordstore"
 	"retrom/internal/service/metadatascrape"
 )
 
 type (
-	ResultRepository struct{ database *sql.DB }
-	resultRecords    struct{ transaction *sql.Tx }
+	ResultRepository struct{ database dbapi.DB }
+	resultRecords    struct{ transaction dbapi.Tx }
 )
 
-func NewRecorder(database *sql.DB) *ResultRepository { return &ResultRepository{database: database} }
+func NewRecorder(database dbapi.DB) *ResultRepository { return &ResultRepository{database: database} }
 
-func (repository *ResultRepository) WithWrite(ctx context.Context, work func(metadatascrape.ResultScope) error) error {
+func (repository *ResultRepository) WithWrite(
+	ctx context.Context,
+	work func(metadatascrape.ResultScope) error,
+) error {
 	transaction, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin scrape result: %w", err)
 	}
-	defer dbexec.Rollback(transaction)
+	defer dbapi.Rollback(transaction)
 	records := resultRecords{transaction}
 	if err := work(metadatascrape.ResultScope{Read: records, Write: records, Media: records}); err != nil {
 		return err
@@ -36,11 +39,15 @@ func (repository *ResultRepository) WithWrite(ctx context.Context, work func(met
 
 func (records resultRecords) Writable(ctx context.Context, claim metadatascrape.WorkerClaim) (bool, error) {
 	var allowed bool
-	err := records.transaction.QueryRowContext(
-		ctx,
+	err := dbapi.QueryRowContext(
+		ctx, records.transaction,
 		`SELECT EXISTS(SELECT 1 FROM metadata_scrape_runs r
- JOIN jobs j ON j.id=r.job_id LEFT JOIN games g ON g.id=r.game_id WHERE r.id=? AND j.id=? AND j.execution_no=?
- AND j.worker_id=? AND j.state='RUNNING' AND r.state='RUNNING' AND j.leased_until_ms>? AND j.execution_deadline_at_ms>?
+ JOIN jobs j ON j.id=r.job_id LEFT JOIN games g ON g.id=r.game_id WHERE r.id=? AND j.id=?
+AND
+j.execution_no=?
+ AND j.worker_id=? AND j.state='RUNNING' AND r.state='RUNNING' AND j.leased_until_ms>?
+AND
+j.execution_deadline_at_ms>?
  AND (r.game_id IS NULL OR g.status='PUBLISHED'))`,
 		claim.RunID,
 		claim.JobID,
@@ -59,8 +66,8 @@ func (records resultRecords) Writable(ctx context.Context, claim metadatascrape.
 
 func (records resultRecords) Hashes(ctx context.Context, id string) (metadatascrape.Hashes, error) {
 	var hashes metadatascrape.Hashes
-	err := records.transaction.QueryRowContext(
-		ctx,
+	err := dbapi.QueryRowContext(
+		ctx, records.transaction,
 		`SELECT crc32,md5,sha1,sha256 FROM content_hash_evidence WHERE id=?`,
 		id,
 	).
@@ -72,30 +79,34 @@ func (records resultRecords) Hashes(ctx context.Context, id string) (metadatascr
 }
 
 func (records resultRecords) Response(ctx context.Context, value metadatascrape.ResponseRecord) error {
-	var blobID *string
+	var fileRecord *string
 	state := "NONE"
 	if value.Blob != nil {
-		id, err := blobcatalog.EnsureRecord(ctx, records.transaction, *value.Blob, "application/json", value.Now)
+		id, err := filestore.FileRecord(*value.Blob, "application/json")
 		if err != nil {
 			return fmt.Errorf("register raw provider response: %w", err)
 		}
-		blobID = &id
+
+		fileRecord = &id
 		state = "RETAINED"
 	}
 	var status *int
 	if value.HTTPStatus != 0 {
 		status = &value.HTTPStatus
 	}
-	_, err := records.transaction.ExecContext(
+	_, err := recordstore.InsertRows(
 		ctx,
+		records.transaction,
+		"metadata_provider_responses",
 		`INSERT INTO metadata_provider_responses
- (id,provider,request_digest,http_status,outcome,raw_response_blob_id,raw_payload_state,fetched_at_ms,expires_at_ms)
+ (id,provider,request_digest,http_status,outcome,raw_response_file_record,raw_payload_state,
+fetched_at_ms,expires_at_ms)
  VALUES(?,'HASHEOUS',?,?,?,?,?,?,?)`,
 		value.ID,
 		value.RequestDigest,
 		status,
 		value.Outcome,
-		blobID,
+		fileRecord,
 		state,
 		value.Now,
 		value.ExpiresAt,
@@ -110,7 +121,8 @@ func (records resultRecords) Response(ctx context.Context, value metadatascrape.
 		ctx,
 		records.transaction,
 		`INSERT INTO metadata_provider_cache
- (provider,request_digest,current_response_id,expires_at_ms,updated_at_ms) VALUES('HASHEOUS',?,?,?,?)
+ (provider,request_digest,current_response_id,expires_at_ms,updated_at_ms) VALUES('HASHEOUS',
+?,?,?,?)
  ON CONFLICT(provider,request_digest) DO UPDATE SET current_response_id=excluded.current_response_id,
  expires_at_ms=excluded.expires_at_ms,updated_at_ms=excluded.updated_at_ms`,
 		value.RequestDigest,

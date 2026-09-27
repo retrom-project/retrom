@@ -2,7 +2,6 @@ package sourceimport
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"reflect"
@@ -10,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
 	tagrepository "retrom/internal/persistence/tagging"
 	application "retrom/internal/service/sourceimport"
 	"retrom/internal/service/tagging"
@@ -17,7 +17,7 @@ import (
 
 const skippedStartCollection = "019b0000-0000-7000-8000-000000000004"
 
-func startDatabase(t *testing.T) *sql.DB {
+func startDatabase(t *testing.T) dbapi.DB {
 	t.Helper()
 	db := mappingDatabase(t)
 	instance := seedMappingTarget(t, db)
@@ -102,7 +102,7 @@ func invalidateStartPlan(plan *application.StartPlan, failure string) {
 	}
 }
 
-type verifiedStartSource struct{ database *sql.DB }
+type verifiedStartSource struct{ database dbapi.DB }
 
 func (source verifiedStartSource) Select(_ context.Context, id, _ string) (application.SelectedRoot, error) {
 	return application.SelectedRoot{ID: id, Digest: strings.Repeat("a", 64)}, nil
@@ -116,7 +116,7 @@ func (source verifiedStartSource) VerifyMetadata(ctx context.Context, _, _ strin
 		return errors.New("metadata evidence missing")
 	}
 	var value int
-	if err := source.database.QueryRowContext(ctx, `SELECT 1`).Scan(&value); err != nil {
+	if err := dbapi.QueryRowContext(ctx, source.database, `SELECT 1`).Scan(&value); err != nil {
 		return fmt.Errorf("verification database availability: %w", err)
 	}
 	return nil
@@ -144,11 +144,11 @@ func TestStartQueuesFrozenInputAndTerminalPayloadsExactlyOnce(t *testing.T) {
 	}
 }
 
-func assertStartItemsAndEvidence(t *testing.T, db *sql.DB, jobID string) {
+func assertStartItemsAndEvidence(t *testing.T, db dbapi.DB, jobID string) {
 	t.Helper()
 	for i, want := range []string{"BLOCKED_SOURCE", "SKIPPED_MAPPING", "PENDING"} {
 		var state, payload string
-		if err := db.QueryRowContext(t.Context(), `SELECT execution_state,payload_state FROM source_import_items WHERE id=?`, fmt.Sprintf("start-item-%d", i)).Scan(&state, &payload); err != nil {
+		if err := dbapi.QueryRowContext(t.Context(), db, `SELECT execution_state,payload_state FROM source_import_items WHERE id=?`, fmt.Sprintf("start-item-%d", i)).Scan(&state, &payload); err != nil {
 			t.Fatal(err)
 		}
 		wantPayload := "RELEASING"
@@ -162,10 +162,10 @@ func assertStartItemsAndEvidence(t *testing.T, db *sql.DB, jobID string) {
 	var root, actor string
 	var version int
 	var releases int
-	if err := db.QueryRowContext(t.Context(), `SELECT json_extract(input_json,'$.inputs.rootConfigDigest'),
+	if err := dbapi.QueryRowContext(t.Context(), db, `SELECT json_extract(input_json,'$.inputs.rootConfigDigest'),
 json_extract(input_json,'$.inputs.sourceSnapshotVersion'),
 (SELECT actor_user_id FROM audit_events WHERE action='SOURCE_IMPORT_STARTED'),
-(SELECT count(*) FROM jobs WHERE kind='PAYLOAD_RELEASE')
+(SELECT count(*) FROM jobs WHERE kind='OWNER_CLEANUP')
 FROM job_input_snapshots WHERE job_id=? AND execution_no=1`, jobID).Scan(&root, &version, &actor, &releases); err != nil {
 		t.Fatal(err)
 	}

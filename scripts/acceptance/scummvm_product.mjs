@@ -101,7 +101,8 @@ async function ordinaryScummvm(context, gameId) {
   const first = [...firstTraffic];
   firstTraffic.stop();
   const restoreTraffic = await trackScummvmTraffic(page, baseUrl);
-  await page.getByRole("button", {name: "▶ 从这里继续", exact: true}).click();
+  await page.getByRole("complementary", {name: "启动游戏", exact: true})
+    .getByRole("button", {name: "从存档继续", exact: true}).click();
   await page.waitForURL(/\/play\//u); await readyScummvm(page);
   const restoredLaunchId = new URL(page.url()).pathname.split("/").at(-1);
   assert.notEqual(restoredLaunchId, originalLaunchId);

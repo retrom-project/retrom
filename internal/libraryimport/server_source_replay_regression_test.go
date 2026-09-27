@@ -43,7 +43,7 @@ func TestOwnedSourceReplayRejectsMissingPersistentPathsWithoutContentClassificat
 	if err != nil {
 		t.Fatal(err)
 	}
-	fixture.execute(t, `DELETE FROM source_import_item_files WHERE item_id='unlinked-source'`)
+	fixture.execute(t, `DELETE FROM source_import_item_files WHERE item_id='018fbe68-0000-7000-8000-000000000021'`)
 	result, err := fixture.service.CreateOwnedServerSource(fixture.ctx, request)
 	if !errors.Is(err, ErrVersionConflict) || errors.Is(err, application.ErrSourceGrouping) ||
 		!reflect.DeepEqual(result, ServerImportResult{}) || ownedImportCount(t, fixture) != 1 {

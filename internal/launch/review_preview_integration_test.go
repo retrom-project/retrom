@@ -15,16 +15,19 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/testsupport/importfixture"
+
+	"retrom/internal/persistence/recordstore"
+
+	dbapi "retrom/internal/database"
 	uploadpersistence "retrom/internal/persistence/uploads"
 
 	dependencypersistence "retrom/internal/persistence/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 
-	"retrom/internal/persistence/blobcatalog"
-
-	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	"retrom/internal/dependencies"
+	"retrom/internal/filestore"
 	"retrom/internal/libraryimport"
 	retromruntime "retrom/internal/runtime"
 	"retrom/internal/service/uploads"
@@ -53,13 +56,14 @@ VALUES(?,'review-preview-profile','review-preview-admin','Review Preview Admin',
 		filepath.Join(repositoryRoot, "data"), []string{"4.2.3", "4.3.0-pre"}, "4.2.3",
 	)
 	testassert.False(t, err != nil, err)
-	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, time.Now()); err != nil {
+	if err := dependencyservice.New(dependencySet,
+		dependencypersistence.New(database.SQL)).Bootstrap(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
-	blobs, err := blobstore.Open(dataDir)
+	blobs, err := filestore.Open(dataDir)
 	testassert.False(t, err != nil, err)
 	uploadService := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
-	importService := libraryimport.New(database.SQL, time.Now)
+	importService := importfixture.New(t, database.SQL, blobs, importfixture.Options{Now: time.Now})
 	createReview := func(name string, contents []byte, targetID string) string {
 		t.Helper()
 		upload, createErr := uploadService.Create(ctx, uploads.CreateRequest{
@@ -80,13 +84,14 @@ VALUES(?,'review-preview-profile','review-preview-admin','Review Preview Admin',
 		testassert.False(t, completeErr != nil, completeErr)
 		for deadline := time.Now().Add(3 * time.Second); ; {
 			var state string
-			if queryErr := database.SQL.QueryRowContext(ctx, `SELECT state FROM jobs WHERE id=?`, jobID).Scan(&state); queryErr != nil {
+			if queryErr := dbapi.QueryRowContext(ctx, database.SQL, `SELECT state FROM jobs WHERE id=?`, jobID).Scan(&state); queryErr != nil {
 				t.Fatal(queryErr)
 			}
 			if state == "SUCCEEDED" {
 				break
 			}
-			testassert.Falsef(t, testassert.Any(func() bool { return state == "FAILED" }, func() bool { return time.Now().After(deadline) }), "review preview upload finalization = %s", state)
+			testassert.Falsef(t, testassert.Any(func() bool { return state == "FAILED" },
+				func() bool { return time.Now().After(deadline) }), "review preview upload finalization = %s", state)
 			time.Sleep(10 * time.Millisecond)
 		}
 		created, importErr := importService.Create(ctx, libraryimport.CreateRequest{
@@ -94,7 +99,7 @@ VALUES(?,'review-preview-profile','review-preview-admin','Review Preview Admin',
 		})
 		testassert.False(t, importErr != nil, importErr)
 		var itemID string
-		if queryErr := database.SQL.QueryRowContext(ctx, `
+		if queryErr := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT id FROM import_items WHERE import_job_id=?
 `, created.ImportJobID).Scan(&itemID); queryErr != nil {
 			t.Fatal(queryErr)
@@ -102,15 +107,18 @@ SELECT id FROM import_items WHERE import_job_id=?
 		return itemID
 	}
 
-	readyItemID := createReview("ready.gba", []byte("review-preview-ready"), testsupport.MustPlatformInstanceID(t, database.SQL, "gba/mgba"))
-	blockedItemID := createReview("blocked.fds", []byte("review-preview-blocked"), testsupport.MustPlatformInstanceID(t, database.SQL, "nes/fceumm"))
+	readyItemID := createReview("ready.gba", []byte("review-preview-ready"),
+		testsupport.MustPlatformInstanceID(t, database.SQL, "gba/mgba"))
+	blockedItemID := createReview("blocked.fds", []byte("review-preview-blocked"),
+		testsupport.MustPlatformInstanceID(t, database.SQL, "nes/fceumm"))
 	parentMetadata, err := blobs.Put(bytes.NewReader([]byte("review-preview-parent")))
 	testassert.False(t, err != nil, err)
-	parentBlobID, err := blobcatalog.EnsureRecord(ctx, database.SQL, parentMetadata, "application/zip", time.Now().UnixMilli())
+	parentFileRecord, err := filestore.FileRecord(parentMetadata, "application/zip")
 	testassert.False(t, err != nil, err)
 	var baseValidationID, sourceSnapshotID, datVersionID string
-	if err := database.SQL.QueryRowContext(ctx, `
-SELECT draft.selected_validation_id,draft.effective_source_snapshot_id,(SELECT id FROM dat_versions ORDER BY id LIMIT 1)
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
+SELECT draft.selected_validation_id,draft.effective_source_snapshot_id,(SELECT id FROM dat_versions
+ORDER BY id LIMIT 1)
 FROM import_items draft WHERE draft.id=?
 `, readyItemID).Scan(&baseValidationID, &sourceSnapshotID, &datVersionID); err != nil {
 		t.Fatal(err)
@@ -129,10 +137,11 @@ FROM import_item_core_validations WHERE id=?
 `, arcadeValidationID, datVersionID, strings.Repeat("a", 64), arcadeSnapshot, baseValidationID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := database.SQL.ExecContext(ctx, `
-INSERT INTO import_item_validation_files(import_item_core_validation_id,role,logical_name,blob_id,sort_order,created_at_ms)
+	if _, err := recordstore.InsertRows(ctx, database.SQL, "import_item_validation_files", `
+INSERT INTO import_item_validation_files(import_item_core_validation_id,role,logical_name,file_record,
+sort_order,created_at_ms)
 VALUES(?,'PARENT','review-parent.zip',?,0,0)
-`, arcadeValidationID, parentBlobID); err != nil {
+`, arcadeValidationID, parentFileRecord); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := database.SQL.ExecContext(ctx, `
@@ -145,7 +154,7 @@ WHERE id=? AND effective_source_snapshot_id=?
 	testassert.False(t, err != nil, err)
 	runtimeBuilder, err := testsupport.NewRuntimeBuilder(ctx, database.SQL)
 	testassert.False(t, err != nil, err)
-	service := New(database.SQL, dependencySet, credentials, time.Now).WithBlobStore(blobs).
+	service := New(database.SQL, dependencySet, credentials, time.Now).WithFileStore(blobs).
 		WithRuntimeProvider(dependencySet.RuntimeCatalog, runtimeBuilder)
 	capabilities := Capabilities{SecureContext: true, CrossOriginIsolated: true, SharedArrayBuffer: true}
 	ready, err := service.CreateReviewPreview(ctx, ReviewPreviewRequest{
@@ -157,7 +166,10 @@ WHERE id=? AND effective_source_snapshot_id=?
 		ImportItemID: readyItemID, ActorUserID: actorID, IdempotencyKey: "ready-preview-1",
 		ClientCapabilities: capabilities,
 	})
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return replayed.PreviewID != ready.PreviewID }, func() bool { return replayed.Capability != ready.Capability }), "replayed review preview = %#v, error=%v", replayed, err)
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil },
+		func() bool { return replayed.PreviewID != ready.PreviewID },
+		func() bool { return replayed.Capability != ready.Capability }),
+		"replayed review preview = %#v, error=%v", replayed, err)
 	configuration, err := service.ReviewPreviewConfig(ctx, ready.PreviewID, ready.Capability)
 	testassert.False(t, err != nil, err)
 	readyEnvelope := testsupport.RuntimeEnvelope(t, configuration)
@@ -168,11 +180,19 @@ WHERE id=? AND effective_source_snapshot_id=?
 		func() bool { return parentResource["url"] == "" },
 	), "ready review envelope = %#v", readyEnvelope)
 	content, err := service.ReviewPreviewContent(ctx, ready.PreviewID, ready.Capability, "ready.gba")
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return content.Digest == "" }, func() bool { return content.Format != "SOURCE_V1" }), "ready review content = %#v, error=%v", content, err)
-	pngBody, err := base64.StdEncoding.DecodeString("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=")
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil },
+		func() bool { return content.Digest == "" },
+		func() bool { return content.Format != "SOURCE_V1" }), "ready review content = %#v, error=%v",
+		content, err)
+	pngBody,
+		err := base64.StdEncoding.DecodeString("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=")
 	testassert.False(t, err != nil, err)
 	screenshot, err := service.StoreReviewScreenshot(ctx, ready.PreviewID, ready.Capability, bytes.NewReader(pngBody))
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return screenshot.ImportItemID != readyItemID }, func() bool { return screenshot.WidthPX != 1 }, func() bool { return screenshot.HeightPX != 1 }), "stored review screenshot = %#v, error=%v", screenshot, err)
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil },
+		func() bool { return screenshot.ImportItemID != readyItemID },
+		func() bool { return screenshot.WidthPX != 1 },
+		func() bool { return screenshot.HeightPX != 1 }), "stored review screenshot = %#v, error=%v",
+		screenshot, err)
 	assertRepeatedPreviewKeepsScreenshot(t, database.SQL, service, importService, actorID, screenshot, pngBody)
 
 	blocked, err := service.CreateReviewPreview(ctx, ReviewPreviewRequest{
@@ -191,12 +211,14 @@ WHERE id=? AND effective_source_snapshot_id=?
 	blockedScreenshot, err := service.StoreReviewScreenshot(
 		ctx, blocked.PreviewID, blocked.Capability, bytes.NewReader(pngBody),
 	)
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return blockedScreenshot.ImportItemID != blockedItemID }), "blocked screenshot = %#v, error=%v", blockedScreenshot, err)
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil },
+		func() bool { return blockedScreenshot.ImportItemID != blockedItemID }),
+		"blocked screenshot = %#v, error=%v", blockedScreenshot, err)
 	assertRepeatedPreviewKeepsScreenshot(t, database.SQL, service, importService, actorID, blockedScreenshot, pngBody)
 	approved, err := importService.Approve(ctx, blockedItemID, 1)
 	testassert.Falsef(t, err != nil, "approve blocked screenshot override: %v", err)
 	var compatibilityCode string
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT variant.compatibility_code
 FROM games game
 JOIN game_variants variant ON variant.game_id=game.id
@@ -209,17 +231,17 @@ WHERE game.id=?
 		`{"schemaVersion":1,"kind":"ARCADE","machine":"review-blocked","datVersionId":%q,"closure":[],"dependencies":[{"kind":"BIOS_OR_BASE","machine":"review-bios","state":"SATISFIED_EXTERNAL","requiredEntries":[]}],"missingEntries":[],"mismatchedEntries":[],"warnings":[]}`,
 		datVersionID,
 	)
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 UPDATE game_variants SET dat_version_id=?,status='READY',compatibility_code='REVIEW_SCREENSHOT_OVERRIDE',
 dependency_snapshot_json=?,version=version+1,updated_at_ms=updated_at_ms+1
 WHERE game_id=? RETURNING id
 `, datVersionID, arcadeOverrideSnapshot, approved.GameID).Scan(&arcadeOverrideVariantID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := database.SQL.ExecContext(ctx, `
-INSERT INTO variant_files(game_variant_id,role,logical_name,blob_id,sort_order)
+	if _, err := recordstore.InsertRows(ctx, database.SQL, "variant_files", `
+INSERT INTO variant_files(game_variant_id,role,logical_name,file_record,sort_order)
 VALUES(?,'BIOS_BUNDLE','review-bios.zip',?,0)
-`, arcadeOverrideVariantID, parentBlobID); err != nil {
+`, arcadeOverrideVariantID, parentFileRecord); err != nil {
 		t.Fatal(err)
 	}
 	createdLaunch, err := service.Create(ctx, "review-preview-profile", CreateRequest{
@@ -238,7 +260,11 @@ VALUES(?,'BIOS_BUNDLE','review-bios.zip',?,0)
 	publishedBIOS, err := service.BundleFiles(
 		ctx, createdLaunch.LaunchID, createdLaunch.Capability, "BIOS_BUNDLE",
 	)
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return len(publishedBIOS) != 1 }, func() bool { return publishedBIOS[0].LogicalName != "review-bios.zip" }, func() bool { return publishedBIOS[0].SHA256 != parentMetadata.SHA256 }), "screenshot-approved Arcade BIOS = %#v, error=%v", publishedBIOS, err)
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil },
+		func() bool { return len(publishedBIOS) != 1 },
+		func() bool { return publishedBIOS[0].LogicalName != "review-bios.zip" },
+		func() bool { return publishedBIOS[0].SHA256 != parentMetadata.SHA256 }),
+		"screenshot-approved Arcade BIOS = %#v, error=%v", publishedBIOS, err)
 }
 
 func ptr(value string) *string { return &value }

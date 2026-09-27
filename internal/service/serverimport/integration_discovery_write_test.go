@@ -1,16 +1,16 @@
 package serverimport_test
 
 import (
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"math"
 	"testing"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/firmware"
 )
 
-func discoveryWriteFixture(t *testing.T) (*Service, *sql.DB, work, *evaluatedCandidate) {
+func discoveryWriteFixture(t *testing.T) (*Service, dbapi.DB, work, *evaluatedCandidate) {
 	t.Helper()
 	service, database, _ := archiveImportFixture(t)
 	created, err := service.Create(t.Context(), CreateRequest{Kind: "BIOS_DIRECTORY", RootID: "bios-root"}, controlActorID)
@@ -38,7 +38,7 @@ func TestDiscoveryRejectsUnencodableEvidenceWithoutPartialWrites(t *testing.T) {
 		t.Errorf("unencodable evidence: %v", err)
 	}
 	var candidates int64
-	if err := database.QueryRowContext(t.Context(), `SELECT count(*) FROM server_bios_import_candidates WHERE server_import_id=?`, unit.ImportID).Scan(&candidates); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), database, `SELECT count(*) FROM server_bios_import_candidates WHERE server_import_id=?`, unit.ImportID).Scan(&candidates); err != nil {
 		t.Fatal(err)
 	}
 	if candidates != 0 {
@@ -54,7 +54,7 @@ func TestDiscoveryPreservesUnsafeArchiveEvidence(t *testing.T) {
 		t.Fatal(err)
 	}
 	var safe bool
-	if err := database.QueryRowContext(t.Context(), `SELECT safe_archive FROM server_bios_import_candidates WHERE id=?`, candidate.ID).Scan(&safe); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), database, `SELECT safe_archive FROM server_bios_import_candidates WHERE id=?`, candidate.ID).Scan(&safe); err != nil {
 		t.Fatal(err)
 	}
 	if safe {

@@ -156,6 +156,7 @@ func TestImportWorkerConcurrentNotificationsRegisterOnePreparation(t *testing.T)
 	fixture := newManagedImportFixture()
 	worker := fixture.worker()
 	t.Cleanup(func() { fixture.release(); worker.Close() })
+	worker.Start()
 	var notify sync.WaitGroup
 	for range 20 {
 		notify.Go(func() { worker.NotifyImportGroup(context.Background(), "job") })
@@ -214,5 +215,87 @@ func TestImportWorkerCloseJoinsClaimedWorkBeforeRunRegistration(t *testing.T) {
 	awaitImportSignal(t, closed)
 	if fixture.prepares.Load() != 0 || fixture.finishes.Load() != 1 {
 		t.Fatalf("claim handoff: prepares=%d finishes=%d", fixture.prepares.Load(), fixture.finishes.Load())
+	}
+}
+
+func TestImportWorkerNotificationsRequireStart(t *testing.T) {
+	fixture := newManagedImportFixture()
+	worker := fixture.worker()
+	t.Cleanup(func() { fixture.release(); worker.Close() })
+	worker.NotifyImportGroup(t.Context(), "job")
+	worker.Resume(t.Context())
+	if worker.started {
+		t.Fatal("notification started the worker")
+	}
+	if err := worker.Recover(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	if worker.started {
+		t.Fatal("recovery started the worker")
+	}
+	worker.Start()
+	worker.Start()
+	awaitImportSignal(t, fixture.entered)
+	fixture.release()
+	worker.Close()
+	worker.Start()
+	worker.NotifyImportGroup(t.Context(), "job")
+	if fixture.prepares.Load() != 1 {
+		t.Fatalf("preparations=%d", fixture.prepares.Load())
+	}
+}
+
+func TestImportWorkerJoinsPublicationRecoveryAndRejectsRecoveryAfterClose(t *testing.T) {
+	fixture := newManagedImportFixture()
+	entered, cancelled, release := make(chan struct{}), make(chan struct{}), make(chan struct{})
+	var once sync.Once
+	unblock := func() { once.Do(func() { close(release) }) }
+	worker := NewImportWorker(ImportWorkerDependencies{Recovery: fixture}, ImportWorkerSettings{
+		RecoverPublications: func(ctx context.Context) error {
+			close(entered)
+			<-ctx.Done()
+			close(cancelled)
+			<-release
+			return ctx.Err()
+		},
+	})
+	t.Cleanup(func() { unblock(); worker.Close() })
+	recovered := make(chan error, 1)
+	go func() { recovered <- worker.Recover(t.Context()) }()
+	awaitImportSignal(t, entered)
+	closed := make(chan struct{})
+	go func() { worker.Close(); close(closed) }()
+	awaitImportSignal(t, cancelled)
+	select {
+	case <-closed:
+		t.Fatal("Close did not join publication recovery")
+	default:
+	}
+	unblock()
+	awaitImportSignal(t, closed)
+	if err := <-recovered; !errors.Is(err, context.Canceled) {
+		t.Fatalf("recovery cancellation=%v", err)
+	}
+	if err := worker.Recover(t.Context()); !errors.Is(err, ErrImportWorkerClosed) {
+		t.Fatalf("recovery after Close=%v", err)
+	}
+}
+
+type importRecoveryFunc func(context.Context) error
+
+func (recovery importRecoveryFunc) Recover(ctx context.Context) error { return recovery(ctx) }
+
+func TestPublicationRecoveryFailureDoesNotSkipImportRecovery(t *testing.T) {
+	cause := errors.New("publication recovery unavailable")
+	recovered := false
+	worker := NewImportWorker(ImportWorkerDependencies{
+		Recovery: importRecoveryFunc(func(context.Context) error { recovered = true; return nil }),
+	}, ImportWorkerSettings{RecoverPublications: func(context.Context) error { return cause }})
+	t.Cleanup(worker.Close)
+	if err := worker.Recover(t.Context()); !errors.Is(err, cause) {
+		t.Fatalf("publication recovery cause lost: %v", err)
+	}
+	if !recovered {
+		t.Fatal("publication failure skipped ordinary import recovery")
 	}
 }

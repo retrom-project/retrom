@@ -70,56 +70,6 @@ func ParseMode(value string) (Mode, error) {
 	return mode, nil
 }
 
-type Maintenance struct {
-	DataDir            string
-	DBPath             string
-	DependencyRoot     string
-	DependencyVersions []string
-	ActiveEJSVersion   string
-}
-
-func loadDependencyMaintenance() (Maintenance, error) {
-	if err := rejectUnknownVariables(os.Environ()); err != nil {
-		return Maintenance{}, err
-	}
-	dependencyRoot, err := checkedExistingDir("RETROM_DEPENDENCY_ROOT", os.Getenv("RETROM_DEPENDENCY_ROOT"))
-	if err != nil {
-		return Maintenance{}, err
-	}
-	versions, err := parseVersions(os.Getenv("RETROM_DEPENDENCY_VERSIONS"))
-	if err != nil {
-		return Maintenance{}, err
-	}
-	active := os.Getenv("RETROM_ACTIVE_EMULATORJS_VERSION")
-	if !slices.Contains(versions, active) {
-		return Maintenance{}, fmt.Errorf("%w: RETROM_ACTIVE_EMULATORJS_VERSION", errInvalidConfig)
-	}
-	return Maintenance{DependencyRoot: dependencyRoot, DependencyVersions: versions, ActiveEJSVersion: active}, nil
-}
-
-func LoadBackupMaintenance() (Maintenance, error) {
-	result, err := loadDependencyMaintenance()
-	if err != nil {
-		return Maintenance{}, err
-	}
-	result.DataDir, err = checkedDataDir(os.Getenv("RETROM_DATA_DIR"))
-	if err != nil {
-		return Maintenance{}, err
-	}
-	result.DBPath = os.Getenv("RETROM_DB_PATH")
-	if result.DBPath == "" {
-		result.DBPath = filepath.Join(result.DataDir, "retrom.db")
-	}
-	if !filepath.IsAbs(result.DBPath) || !pathWithin(result.DataDir, result.DBPath) || result.DBPath == result.DataDir {
-		return Maintenance{}, fmt.Errorf("%w: RETROM_DB_PATH", errInvalidConfig)
-	}
-	return result, nil
-}
-
-func LoadRestoreMaintenance() (Maintenance, error) {
-	return loadDependencyMaintenance()
-}
-
 // Independent environment checks stay in one ordered fail-fast startup boundary.
 func Load(mode Mode) (Config, error) {
 	if mode != ModeRelease && mode != ModeTest {

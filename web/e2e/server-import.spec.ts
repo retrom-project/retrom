@@ -225,7 +225,14 @@ test("ACC-PEG-005 three-step Source import recovers and remains bounded at deskt
   await expect(resultTable).toContainText("Acceptance Game");
   await expect(resultTable).toContainText(batchTagName);
   await expect(resultTable).toContainText("待管理员审核");
-  await expect(resultTable).toContainText("视频 READY");
+  await expect.poll(async () => {
+    const response = await page.request.get(`/api/v1/admin/source-imports/${createdPlan.id}/items?limit=20`);
+    expect(response.ok()).toBe(true);
+    const result = await response.json() as { items: Array<{ payloadState: string; media: { video: string } }> };
+    expect(result.items).toHaveLength(1);
+    return result.items[0];
+  }).toMatchObject({ payloadState: "RELEASED", media: { video: "READY" } });
+  await expect(resultTable).toContainText("源文件已清理");
   const adminGamesResponse = await page.request.get("/api/v1/admin/games?q=Acceptance%20Game&limit=100");
   expect(adminGamesResponse.ok()).toBe(true);
   const adminGames = await adminGamesResponse.json() as { items: Array<{ title: string }> };
@@ -236,6 +243,18 @@ test("ACC-PEG-005 three-step Source import recovers and remains bounded at deskt
   await page.waitForURL(new RegExp(`/admin/reviews\\?sourceImportId=${createdPlan.id}$`), { timeout: 30_000 });
   await expect(page.getByRole("heading", { name: "审核这批来源游戏" })).toBeVisible();
   await expect(page.getByRole("heading", { name: /^Acceptance Game/ })).toBeVisible();
+  const reviews = await (await page.request.get(`/api/v1/admin/reviews?sourceImportId=${createdPlan.id}&limit=20`)).json() as {
+    items: Array<{ itemId: string }>;
+  };
+  expect(reviews.items).toHaveLength(1);
+  const review = await (await page.request.get(`/api/v1/admin/reviews/${reviews.items[0].itemId}`)).json() as {
+    sourceMedia: { videoUrl: string | null };
+  };
+  expect(review.sourceMedia.videoUrl).toBeTruthy();
+  const video = await page.request.get(review.sourceMedia.videoUrl!);
+  expect(video.status()).toBe(200);
+  expect(video.headers()["content-type"]).toContain("video/mp4");
+  expect((await video.body()).length).toBe(24);
   await page.goto(`/admin/imports/server/source/${createdPlan.id}`);
   await page.getByRole("searchbox", { name: "搜索标题" }).fill("Acceptance");
   await page.getByRole("button", { name: "应用筛选" }).click();

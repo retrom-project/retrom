@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/hasheous"
 	"retrom/internal/service/metadatascrape"
 )
@@ -77,7 +78,7 @@ func TestMediaStaticCancellationReconcilesAsset(t *testing.T) {
 		t.Fatalf("cancel=%+v", snapshot)
 	}
 	var count int
-	if err := fixture.database.QueryRowContext(t.Context(), `SELECT count(*) FROM job_events WHERE job_id=?`, fixture.jobID).Scan(&count); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT count(*) FROM job_events WHERE job_id=?`, fixture.jobID).Scan(&count); err != nil {
 		t.Fatal(err)
 	}
 	if count != 1 {

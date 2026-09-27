@@ -6,19 +6,19 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/service/serverimport"
 )
 
-type Leases struct{ database *sql.DB }
+type Leases struct{ database dbapi.DB }
 
-func NewLeases(database *sql.DB) *Leases { return &Leases{database} }
+func NewLeases(database dbapi.DB) *Leases { return &Leases{database} }
 func (repository *Leases) WithWrite(ctx context.Context, work func(serverimport.LeaseRecords) error) error {
 	tx, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin import lease: %w", err)
 	}
-	defer dbexec.Rollback(tx)
+	defer dbapi.Rollback(tx)
 	if err := work(leaseRecords{tx}); err != nil {
 		return err
 	}
@@ -28,7 +28,7 @@ func (repository *Leases) WithWrite(ctx context.Context, work func(serverimport.
 	return nil
 }
 
-type leaseRecords struct{ executor dbexec.Executor }
+type leaseRecords struct{ executor dbapi.Executor }
 
 const leaseProjection = `SELECT import.id,import.job_id,import.root_id,import.source_relative_path,
 import.root_config_digest,import.catalog_snapshot_digest,import.replace_if_better,job.execution_no,
@@ -37,7 +37,7 @@ job.max_attempts,job.available_at_ms,job.leased_until_ms,job.execution_deadline_
 FROM server_imports import JOIN jobs job ON job.id=import.job_id `
 
 func (records leaseRecords) Next(ctx context.Context, now int64) (serverimport.LeaseSnapshot, bool, error) {
-	value, err := scanLease(records.executor.QueryRowContext(ctx, leaseProjection+`
+	value, err := scanLease(dbapi.QueryRowContext(ctx, records.executor, leaseProjection+`
 WHERE import.state IN ('QUEUED','RUNNING') AND job.attempt_count<job.max_attempts AND (
 (job.state='QUEUED' AND job.available_at_ms<=?) OR
 (job.state='RUNNING' AND job.leased_until_ms IS NOT NULL AND job.leased_until_ms<=?))
@@ -52,14 +52,14 @@ ORDER BY import.created_at_ms,import.id LIMIT 1`, now, now))
 }
 
 func (records leaseRecords) Current(ctx context.Context, jobID string) (serverimport.LeaseSnapshot, error) {
-	value, err := scanLease(records.executor.QueryRowContext(ctx, leaseProjection+`WHERE job.id=?`, jobID))
+	value, err := scanLease(dbapi.QueryRowContext(ctx, records.executor, leaseProjection+`WHERE job.id=?`, jobID))
 	if errors.Is(err, sql.ErrNoRows) {
 		return serverimport.LeaseSnapshot{}, serverimport.ErrLeaseLost
 	}
 	return value, err
 }
 
-func scanLease(row dbexec.Scanner) (serverimport.LeaseSnapshot, error) {
+func scanLease(row dbapi.Scanner) (serverimport.LeaseSnapshot, error) {
 	var value serverimport.LeaseSnapshot
 	err := row.Scan(&value.Work.ImportID, &value.Work.JobID, &value.Work.RootID, &value.Work.RelativePath,
 		&value.Work.RootDigest, &value.Work.CatalogDigest, &value.Work.ReplaceIfBetter, &value.Work.Execution,

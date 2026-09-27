@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/google/uuid"
+	"retrom/internal/filestore"
 )
 
 func (service *Service) persistProductCheckpoint(ctx context.Context, scope WriteScope, id string,
@@ -48,7 +48,7 @@ func (service *Service) insertProductSave(ctx context.Context, scope WriteScope,
 ) (ManualResult, error) {
 	var screenshotID *string
 	if parsed.screenshot != nil {
-		value, err := scope.Blobs.Ensure(ctx, *parsed.screenshot, parsed.screenshotMediaType, now)
+		value, err := filestore.FileRecord(*parsed.screenshot, parsed.screenshotMediaType)
 		if err != nil {
 			return ManualResult{}, fmt.Errorf("register save screenshot: %w", err)
 		}
@@ -58,12 +58,9 @@ func (service *Service) insertProductSave(ctx context.Context, scope WriteScope,
 	if err != nil {
 		return ManualResult{}, fmt.Errorf("read save duration: %w", err)
 	}
-	generated, err := uuid.NewV7()
-	if err != nil {
-		return ManualResult{}, fmt.Errorf("generate save identifier: %w", err)
-	}
+
 	result := ManualResult{
-		ResourceKind: "SAVE_STATE", SaveStateID: generated.String(),
+		ResourceKind: "SAVE_STATE", SaveStateID: parsed.saveID,
 		CheckpointFormat: launch.Checkpoint.WriteFormat, CreatedAtMS: now, Name: parsed.metadata.Name,
 		DiscIndex: parsed.metadata.DiscIndex, Version: 1, ActiveDurationMS: duration.ActiveMS,
 	}
@@ -84,7 +81,8 @@ func (service *Service) updateGameSave(ctx context.Context, scope WriteScope, id
 	if err != nil {
 		return ManualResult{}, 0, fmt.Errorf("load saved slot: %w", err)
 	}
-	if !found || saved.DataVersion != binding.ExpectedVersion || saved.ProfileID != launch.ProfileID ||
+	if !found || saved.Result.SaveStateID != parsed.saveID ||
+		saved.DataVersion != binding.ExpectedVersion || saved.ProfileID != launch.ProfileID ||
 		saved.GameID != launch.GameID || saved.Format != launch.Checkpoint.WriteFormat || saved.DeletedAtMS != nil {
 		return ManualResult{}, 0, ErrSyncConflict
 	}
@@ -93,9 +91,10 @@ func (service *Service) updateGameSave(ctx context.Context, scope WriteScope, id
 	result.CheckpointFormat = saved.Format
 	result.ScreenshotURL = screenshotURL(result.SaveStateID, saved.ScreenshotID)
 	if saved.Digest == parsed.payload.SHA256 {
+		result.unchangedPayload = true
 		return result, saved.DataVersion, nil
 	}
-	imageID, err := scope.Blobs.Ensure(ctx, *parsed.screenshot, parsed.screenshotMediaType, now)
+	imageID, err := filestore.FileRecord(*parsed.screenshot, parsed.screenshotMediaType)
 	if err != nil {
 		return ManualResult{}, 0, fmt.Errorf("register game save image: %w", err)
 	}

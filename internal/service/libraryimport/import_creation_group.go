@@ -10,17 +10,19 @@ import (
 	"slices"
 	"strings"
 
-	"retrom/internal/contentmanifest"
+	importcleanup "retrom/internal/service/libraryimport/payloadpolicy"
+
+	contentmanifest "retrom/internal/content/manifest"
 	"retrom/internal/multidisc"
-	"retrom/internal/service/payloadrelease"
+	"retrom/internal/service/cleanupjobs"
 )
 
 func (service *ImportCreations) prepareGroup(
 	group PreparedGroup,
 	archives []PreparedArchive,
 ) (creationGroup, error) {
-	record := creationGroup{group: cloneCreationGroup(group), kind: PreparedGroupContentKind(group)}
-	for _, destination := range []*string{&record.itemID, &record.snapshotID, &record.validationID} {
+	record := creationGroup{itemID: group.ItemID, group: cloneCreationGroup(group), kind: PreparedGroupContentKind(group)}
+	for _, destination := range []*string{&record.snapshotID, &record.validationID} {
 		if err := service.allocate(destination); err != nil {
 			return creationGroup{}, creationError("prepare group", err)
 		}
@@ -34,7 +36,7 @@ func (service *ImportCreations) prepareGroup(
 		}
 		var archiveSHA *string
 		if source.ArchiveOrdinal != nil {
-			if source.ArchiveBlobID != source.File.BlobID {
+			if source.ArchiveFileRecord != source.File.FileRecord {
 				return creationGroup{}, ErrInvalid
 			}
 			archiveSHA = &source.File.SHA256
@@ -150,18 +152,21 @@ func (run *creationCommit) sourceChange(record *creationGroup) (CreationSource, 
 		NowMS:          run.header.NowMS,
 	}
 	for index, source := range record.group.Sources {
-		blobID := source.File.BlobID
+		fileRecord := source.File.FileRecord
 		if source.ArchiveOrdinal != nil {
-			blobID = run.materialized[source.ArchiveBlobID][*source.ArchiveOrdinal]
+			fileRecord = run.materialized[source.ArchiveFileRecord][*source.ArchiveOrdinal]
 		}
-		if blobID == "" {
+		if source.Payload != nil {
+			fileRecord = source.Payload.Record
+		}
+		if fileRecord == "" {
 			return CreationSource{}, ErrInvalid
 		}
 		order := index
 		if source.SortOrder != nil {
 			order = *source.SortOrder
 		}
-		value.Files = append(value.Files, CreationSourceFile{PreparedSource: source, BlobID: blobID, Order: order})
+		value.Files = append(value.Files, CreationSourceFile{PreparedSource: source, FileRecord: fileRecord, Order: order})
 	}
 	return value, nil
 }
@@ -188,11 +193,10 @@ func (run *creationCommit) discardDuplicate(
 	); err != nil {
 		return false, creationError("discard duplicate", err)
 	}
-	if _, err := payloadrelease.NewScheduler(nil).TerminalItem(
-		ctx,
+	if _, err := importcleanup.TerminalItem(ctx, cleanupjobs.NewScheduler(nil),
 		scope.Payload,
 		record.itemID,
-		payloadrelease.ReasonImportDiscarded,
+		cleanupjobs.ReasonImportDiscarded,
 		run.header.NowMS,
 	); err != nil {
 		return false, creationError("discard duplicate", err)

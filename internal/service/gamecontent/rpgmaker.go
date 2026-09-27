@@ -12,12 +12,12 @@ import (
 	"os"
 	"sort"
 
-	"retrom/internal/blobstore"
-	"retrom/internal/contentmanifest"
-	"retrom/internal/contentprofile"
-	"retrom/internal/rpgmaker/detector"
-	"retrom/internal/rpgmaker/fileset"
-	"retrom/internal/rpgmaker/materializer"
+	contentmanifest "retrom/internal/content/manifest"
+	contentprofile "retrom/internal/content/profile"
+	"retrom/internal/core/rpgmaker/detector"
+	"retrom/internal/core/rpgmaker/fileset"
+	"retrom/internal/core/rpgmaker/materializer"
+	"retrom/internal/filestore"
 )
 
 type PreparedRPGMakerReplacement struct {
@@ -34,13 +34,13 @@ type PreparedRPGMakerReplacement struct {
 
 type PreparedRPGMakerVariantFile struct {
 	Role, LogicalName string
-	Metadata          blobstore.Metadata
+	Metadata          filestore.Metadata
 }
 
 type rpgReplacementIndex struct {
 	sourceFiles []detector.File
-	digests     map[string]string
-	blobs       *blobstore.Store
+	fileIDs     map[string]string
+	blobs       *filestore.Store
 }
 
 func (index rpgReplacementIndex) Files() []detector.File {
@@ -48,11 +48,11 @@ func (index rpgReplacementIndex) Files() []detector.File {
 }
 
 func (index rpgReplacementIndex) Open(logicalPath string) (io.ReadCloser, error) {
-	digest, exists := index.digests[logicalPath]
+	digest, exists := index.fileIDs[logicalPath]
 	if !exists {
 		return nil, os.ErrNotExist
 	}
-	reader, err := index.blobs.OpenDigest(digest)
+	reader, err := index.blobs.OpenRecord(digest)
 	if err != nil {
 		return nil, fmt.Errorf("open RPG replacement file: %w", err)
 	}
@@ -126,14 +126,14 @@ func (service *Service) detectRPGMakerReplacement(
 	}
 	detectionIndex := rpgReplacementIndex{
 		sourceFiles: make([]detector.File, 0, len(project.Files)),
-		digests:     make(map[string]string, len(project.Files)), blobs: service.blobs,
+		fileIDs:     make(map[string]string, len(project.Files)), blobs: service.blobs,
 	}
 	for _, projectFile := range project.Files {
 		source := files[projectFile.SourceIndex]
 		detectionIndex.sourceFiles = append(detectionIndex.sourceFiles, detector.File{
 			Path: projectFile.Path, Size: projectFile.SizeBytes,
 		})
-		detectionIndex.digests[projectFile.Path] = source.SHA256
+		detectionIndex.fileIDs[projectFile.Path] = source.FileRecord
 	}
 	profile, err := detector.Detect(detector.VirtualCoreID, detectionIndex)
 	if err != nil {
@@ -145,7 +145,7 @@ func (service *Service) detectRPGMakerReplacement(
 func buildRPGMakerReplacementFiles(
 	files []UploadedFile,
 	projectFiles []fileset.SourceFile,
-	blobs *blobstore.Store,
+	blobs *filestore.Store,
 ) (PreparedReplacement, []materializer.SourceFile, []contentmanifest.File) {
 	replacement := PreparedReplacement{ContentKind: string(contentprofile.ContentKindRPGMakerProject)}
 	replacement.Files = make([]ReplacementFile, 0, len(projectFiles))
@@ -154,13 +154,13 @@ func buildRPGMakerReplacementFiles(
 	for index, projectFile := range projectFiles {
 		source := files[projectFile.SourceIndex]
 		replacement.Files = append(replacement.Files, ReplacementFile{
-			Role: "PROJECT_FILE", LogicalName: projectFile.Path, BlobID: source.BlobID,
+			Role: "PROJECT_FILE", LogicalName: projectFile.Path, FileRecord: source.FileRecord,
 			SHA256: source.SHA256, SizeBytes: source.SizeBytes, SortOrder: index,
 		})
-		digest := source.SHA256
+		digest := source.FileRecord
 		materializerSources = append(materializerSources, materializer.SourceFile{
 			Path: projectFile.Path, Size: source.SizeBytes,
-			Open: func() (io.ReadCloser, error) { return blobs.OpenDigest(digest) },
+			Open: func() (io.ReadCloser, error) { return blobs.OpenRecord(digest) },
 		})
 		manifestFiles = append(manifestFiles, contentmanifest.File{
 			Role: "PROJECT_FILE", LogicalName: projectFile.Path,
@@ -208,7 +208,7 @@ func (service *Service) materializeRPGMakerReplacement(
 
 func (service *Service) writeRPGMakerReplacementArchive(
 	files []materializer.SourceFile,
-) (blobstore.Metadata, error) {
+) (filestore.Metadata, error) {
 	reader, writer := io.Pipe()
 	type buildResult struct {
 		result materializer.Result
@@ -228,7 +228,7 @@ func (service *Service) writeRPGMakerReplacementArchive(
 	built := <-finished
 	if putErr != nil || built.err != nil || metadata.SHA256 != built.result.SHA256 ||
 		metadata.Size != built.result.SizeBytes {
-		return blobstore.Metadata{}, fmt.Errorf(
+		return filestore.Metadata{}, fmt.Errorf(
 			"materialize RPG replacement archive: %w",
 			errors.Join(putErr, built.err, materializer.ErrInvalid),
 		)

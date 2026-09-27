@@ -8,6 +8,9 @@ import (
 	"fmt"
 	"time"
 
+	"retrom/internal/cleanup"
+	"retrom/internal/filestore"
+
 	"github.com/google/uuid"
 )
 
@@ -26,6 +29,7 @@ type ReconfigurationClone struct {
 	ExpectedVersion   int64
 	SourceType        string
 	Files             []PreparedReusableUploadFile
+	Metadata          []filestore.Metadata
 	ManifestDigest    string
 	NowMS             int64
 }
@@ -41,7 +45,7 @@ type ReconfigurationRequest struct {
 type ReconfigurationRepository interface {
 	Source(context.Context, string, int64) (ReconfigurationSource, bool, error)
 	Clone(context.Context, ReconfigurationClone) error
-	RemoveUnused(context.Context, string) error
+	RemoveUnused(context.Context, string, int64) error
 }
 
 type ReconfigurationCreate func(context.Context, ImportRequest, ImportCreationOptions) (ImportCreationResult, error)
@@ -51,6 +55,8 @@ type ReconfigurationCreate func(context.Context, ImportRequest, ImportCreationOp
 type Reconfigurations struct {
 	repository ReconfigurationRepository
 	create     ReconfigurationCreate
+	copyFile   func(context.Context, string, string, string) (filestore.Metadata, error)
+	removePath func(context.Context, string) error
 	now        func() time.Time
 	newID      func() (string, error)
 }
@@ -58,6 +64,8 @@ type Reconfigurations struct {
 func NewReconfigurations(
 	repository ReconfigurationRepository,
 	create ReconfigurationCreate,
+	copyFile func(context.Context, string, string, string) (filestore.Metadata, error),
+	removePath func(context.Context, string) error,
 	now func() time.Time,
 ) *Reconfigurations {
 	if now == nil {
@@ -66,6 +74,8 @@ func NewReconfigurations(
 	return &Reconfigurations{
 		repository: repository,
 		create:     create,
+		copyFile:   copyFile,
+		removePath: removePath,
 		now:        now,
 		newID:      newReconfigurationID,
 	}
@@ -100,6 +110,13 @@ func (service *Reconfigurations) Reconfigure(
 	if err != nil {
 		return ImportCreationResult{}, err
 	}
+	cloned := false
+	defer func() {
+		if !cloned && service.removePath != nil {
+			cleanup.Error("remove uncommitted replacement upload",
+				service.removePath(context.WithoutCancel(ctx), "staging/uploads/"+uploadID))
+		}
+	}()
 	clone := ReconfigurationClone{
 		UploadID:          uploadID,
 		SourceImportJobID: request.SourceImportJobID,
@@ -111,9 +128,13 @@ func (service *Reconfigurations) Reconfigure(
 		),
 		NowMS: service.now().UnixMilli(),
 	}
+	if err := service.prepareCloneFiles(ctx, &clone); err != nil {
+		return ImportCreationResult{}, err
+	}
 	if err := service.repository.Clone(ctx, clone); err != nil {
 		return ImportCreationResult{}, fmt.Errorf("clone reconfiguration upload: %w", err)
 	}
+	cloned = true
 	created, err := service.create(ctx, ImportRequest{
 		UploadID:                 uploadID,
 		TargetPlatformInstanceID: request.TargetPlatformInstance,
@@ -125,7 +146,7 @@ func (service *Reconfigurations) Reconfigure(
 		FileIDs:  reconfigurationFileIDs(source.Files),
 	}})
 	if err != nil {
-		_ = service.repository.RemoveUnused(context.WithoutCancel(ctx), uploadID)
+		_ = service.repository.RemoveUnused(context.WithoutCancel(ctx), uploadID, service.now().UnixMilli())
 		return ImportCreationResult{}, err
 	}
 	return created, nil
@@ -150,7 +171,7 @@ func ReconfigurationManifestDigest(
 			"sourceUploadFileId": file.ID,
 			"relativePath":       file.Path,
 			"sizeBytes":          file.Size,
-			"blobId":             file.BlobID,
+			"fileRecord":         file.FileRecord,
 		})
 	}
 	manifest, _ := json.Marshal(map[string]any{

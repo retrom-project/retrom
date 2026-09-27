@@ -36,12 +36,13 @@ type (
 	}
 	Companions struct {
 		repository CompanionRepository
+		files      MaterialFiles
 		now        func() time.Time
 	}
 )
 
-func NewCompanions(repository CompanionRepository, now func() time.Time) *Companions {
-	return &Companions{repository: repository, now: now}
+func NewCompanions(repository CompanionRepository, files MaterialFiles, now func() time.Time) *Companions {
+	return &Companions{repository: repository, files: files, now: now}
 }
 
 func (service *Companions) Find(
@@ -74,8 +75,13 @@ func (service *Companions) Record(
 	if blob.Size != candidate.File.Size || blob.Size < 0 || blob.SHA256 == "" {
 		return "", ErrInvalid
 	}
+	file, err := service.files.CopyTo(ctx, blob.ID, "staging/sources/"+itemID, "companions/"+candidate.ItemID)
+	if err != nil {
+		return "", fmt.Errorf("record: %w", err)
+	}
+	blob.ID, blob.StoragePath = file.Record, file.Path
 	var result string
-	err := service.repository.WithCompanions(ctx, func(scope CompanionScope) error {
+	err = service.repository.WithCompanions(ctx, func(scope CompanionScope) error {
 		before, now, err := service.owner(ctx, scope.Read, id, itemID)
 		if err != nil {
 			return err

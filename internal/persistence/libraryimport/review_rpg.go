@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/libraryimport"
 )
 
@@ -26,7 +27,7 @@ func (records *ReviewValidation) Profile(
 		SelfContainedOverride: profile.SelfContainedOverride != 0,
 		DependencySHA256:      profile.DependencySnapshotSHA256, AnalysisJSON: string(profile.Analysis),
 	}
-	err = records.executor.QueryRowContext(ctx, `
+	err = dbapi.QueryRowContext(ctx, records.executor, `
 SELECT core_id FROM runtime_target_bindings WHERE provider_id=? AND target_id=?`,
 		profile.ProviderID, profile.TargetID).Scan(&result.SelectedCoreID)
 	if err != nil {

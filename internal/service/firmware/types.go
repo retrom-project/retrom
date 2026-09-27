@@ -1,7 +1,7 @@
 package firmware
 
 import (
-	"retrom/internal/blobstore"
+	"retrom/internal/filestore"
 	"retrom/internal/firmware"
 	"retrom/internal/importing"
 )
@@ -29,6 +29,7 @@ type ArchiveInspection struct {
 }
 
 type ServerInstallRequest struct {
+	InstallationID     string
 	ServerImportID     string
 	JobID              string
 	WorkerID           string
@@ -44,7 +45,7 @@ type ServerInstallRequest struct {
 	ArchiveMembersJSON *string
 	LogicalName        string
 	OriginalFilename   string
-	Metadata           blobstore.Metadata
+	Metadata           filestore.Metadata
 	Status             string
 	MatchMethod        string
 	Details            map[string]any

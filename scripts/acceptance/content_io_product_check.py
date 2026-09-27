@@ -20,6 +20,10 @@ from scripts.pfb.spec import load_spec
 
 def execute_case(case: dict, environment: dict, inputs: dict, output: Path, run_id: str, receipts: list[dict], identity: dict) -> dict:
     output.mkdir()
+    if case["existingAcceptanceEntry"] is None:
+        record = {"caseId": case["caseId"], "status": "BLOCKED", "errorCode": "CONTENT_IO_PRODUCT_DRIVER_MISSING"}
+        (output / "command.json").write_text(json.dumps(record, indent=2) + "\n")
+        return record
     selected = inputs["cases"][case["caseId"]]
     (output / "input-receipts.json").write_text(json.dumps(receipts, indent=2) + "\n")
     (output / "expected-identity.json").write_text(json.dumps(identity, indent=2) + "\n")
@@ -29,7 +33,8 @@ def execute_case(case: dict, environment: dict, inputs: dict, output: Path, run_
     child_env = {**os.environ, **selected["environment"], "RETROM_ACCEPTANCE_BASE_URL": environment["pfb"]["hostOrigin"],
                  "RETROM_ACCEPTANCE_CASE_DIR": str(output), "RETROM_CHROME_EXECUTABLE": environment["tools"]["chrome"]["path"],
                  "RETROM_ACCEPTANCE_USERNAME": inputs["authentication"]["username"],
-                 "RETROM_ACCEPTANCE_PASSWORD": inputs["authentication"]["password"], "RETROM_CONTENT_IO_RUN_ID": run_id}
+                 "RETROM_ACCEPTANCE_PASSWORD": inputs["authentication"]["password"], "RETROM_CONTENT_IO_RUN_ID": run_id,
+                 "RETROM_CONTENT_IO_FULL_PROOF": "1"}
     child_env.pop("NODE_TEST_CONTEXT", None)
     record = {"caseId": case["caseId"], "command": command, "startedAt": datetime.datetime.now(datetime.timezone.utc).isoformat(),
               "exitCode": None, "timedOut": False, "status": "FAIL"}
@@ -68,15 +73,28 @@ def expected_identity(case: dict, snapshot: dict, receipts: list[dict], environm
     source_bytes = json.dumps(receipts, sort_keys=True, separators=(",", ":")).encode()
     return {"bundleSha256": provider["bundleSha256"], "moduleSha256": provider["moduleSha256"], "workerSha256": provider["workerSha256"],
             "baselineBundleSha256": environment["productionPins"][case["providerId"]]["lock"]["bundleSha256"],
+            "baselineModuleSha256": environment["productionPins"][case["providerId"]]["lock"]["moduleSha256"],
             "sourceSha256": hashlib.sha256(source_bytes).hexdigest(),
             "browserSha256": snapshot["browser"]["sha256"]}
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--env", type=Path, required=True)
+    mode = parser.add_mutually_exclusive_group(required=True)
+    mode.add_argument("--env", type=Path)
+    mode.add_argument("--pfb", action="store_true")
+    parser.add_argument("--case", action="append")
+    parser.add_argument("--inputs", type=Path)
+    parser.add_argument("--chrome", type=Path)
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
+    if args.pfb:
+        if not args.case or not args.inputs or not args.chrome:
+            parser.error("--pfb requires --case, --inputs and --chrome")
+        from scripts.acceptance.content_io_pfb_product_check import run_pfb_product
+        return run_pfb_product(args)
+    if args.case or args.inputs or args.chrome:
+        parser.error("case selection is available only with --pfb")
     run_id = str(uuid.uuid4())
     output = args.output or ROOT / ".pfb/workspace/content-io/products" / run_id
     environment = validate_paths(args.env, output)
@@ -85,6 +103,9 @@ def main() -> int:
         raise ValueError("CONTENT_IO_PRODUCT_PFB_MISMATCH")
     if not environment["tools"]["chrome"] or not app_container_running(compose_project(spec["id"])) or app_container_health(compose_project(spec["id"])) != "healthy":
         raise ValueError("CONTENT_IO_PRODUCT_BLOCKED_ENV")
+    subprocess.run([environment["tools"]["node"]["path"], "scripts/content-io/target-catalog.mjs", "--check",
+                    str(ROOT / "tests/fixtures/content-io/target-declarations.json")],
+                   cwd=environment["repositories"]["runtime"]["root"], check=True, timeout=30)
     cases = load_catalog()
     input_path = ROOT / ".pfb/workspace/content-io/operator-inputs.json"
     inputs = read_operator_inputs(input_path, spec["id"], cases)

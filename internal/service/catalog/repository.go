@@ -3,7 +3,7 @@ package catalog
 import (
 	"context"
 
-	"retrom/internal/contentcapability"
+	contentcapability "retrom/internal/content/capability"
 )
 
 type Repository interface {

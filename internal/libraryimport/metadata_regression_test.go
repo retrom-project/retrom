@@ -12,7 +12,7 @@ func metadataFixture(t *testing.T) (deduplicateFixture, string) {
 	t.Helper()
 	fixture := newDeduplicateFixture(t)
 	result := fixture.create(t, "metadata", "server metadata fixture", 1)
-	fixture.service.now = func() time.Time { return time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC) }
+	fixture.service = newTestImporter(t, fixture.service.database, fixture.service.blobs, testImportOptions{Now: func() time.Time { return time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC) }, MultiDiscEnabled: fixture.service.multiDiscImportEnabled})
 	return fixture, result.Items[0].ItemID
 }
 

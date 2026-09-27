@@ -6,19 +6,19 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/libraryimport"
 )
 
-type PreparationCatalog struct{ executor dbexec.Executor }
+type PreparationCatalog struct{ executor dbapi.Executor }
 
-func BindPreparationCatalog(executor dbexec.Executor) *PreparationCatalog {
+func BindPreparationCatalog(executor dbapi.Executor) *PreparationCatalog {
 	return &PreparationCatalog{executor: executor}
 }
 
 func (records *PreparationCatalog) ActiveDAT(ctx context.Context, providerID, targetID string) (string, error) {
 	var id string
-	err := records.executor.QueryRowContext(ctx,
+	err := dbapi.QueryRowContext(ctx, records.executor,
 		`SELECT id FROM dat_versions WHERE provider_id=? AND target_id=? AND is_active=1`,
 		providerID, targetID).Scan(&id)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -34,7 +34,7 @@ func (records *PreparationCatalog) MachineClassification(
 	ctx context.Context, datID, machine string,
 ) (string, bool, error) {
 	var classification string
-	err := records.executor.QueryRowContext(ctx,
+	err := dbapi.QueryRowContext(ctx, records.executor,
 		`SELECT classification FROM dat_machines WHERE dat_version_id=? AND machine_name=?`,
 		datID, machine).Scan(&classification)
 	if errors.Is(err, sql.ErrNoRows) {

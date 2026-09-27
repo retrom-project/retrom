@@ -3,6 +3,8 @@ package sourceimport
 import (
 	"testing"
 	"time"
+
+	dbapi "retrom/internal/database"
 )
 
 func TestDeleteMappedPlanRemovesTagRelationsAndPreservesTag(t *testing.T) {
@@ -24,7 +26,7 @@ func TestDeleteMappedPlanRemovesTagRelationsAndPreservesTag(t *testing.T) {
 	}
 	for _, query := range []string{`SELECT count(*) FROM source_imports`, `SELECT count(*) FROM source_import_collections`, `SELECT count(*) FROM source_collection_tags`} {
 		var count int
-		if err := db.QueryRowContext(t.Context(), query).Scan(&count); err != nil {
+		if err := dbapi.QueryRowContext(t.Context(), db, query).Scan(&count); err != nil {
 			t.Fatal(err)
 		}
 		if count != 0 {
@@ -32,21 +34,21 @@ func TestDeleteMappedPlanRemovesTagRelationsAndPreservesTag(t *testing.T) {
 		}
 	}
 	var version int64
-	if err := db.QueryRowContext(t.Context(), `SELECT version FROM tags WHERE id='019b0000-0000-7000-8000-000000000001'`).Scan(&version); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), db, `SELECT version FROM tags WHERE id='019b0000-0000-7000-8000-000000000001'`).Scan(&version); err != nil {
 		t.Fatal(err)
 	}
 	if version != 2 {
 		t.Fatalf("tag relationship version=%d", version)
 	}
 	var audits int
-	if err := db.QueryRowContext(t.Context(), `SELECT count(*) FROM audit_events WHERE action='SOURCE_IMPORT_DELETED' AND actor_user_id='user' AND resource_id='import'`).Scan(&audits); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), db, `SELECT count(*) FROM audit_events WHERE action='SOURCE_IMPORT_DELETED' AND actor_user_id='user' AND resource_id='import'`).Scan(&audits); err != nil {
 		t.Fatal(err)
 	}
 	if audits != 1 {
 		t.Fatalf("deletion audit count=%d", audits)
 	}
 	var jobs int
-	if err := db.QueryRowContext(t.Context(), `SELECT count(*) FROM jobs`).Scan(&jobs); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), db, `SELECT count(*) FROM jobs`).Scan(&jobs); err != nil {
 		t.Fatal(err)
 	}
 	if jobs != 2 {

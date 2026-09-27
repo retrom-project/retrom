@@ -2,13 +2,9 @@ package main
 
 import (
 	"context"
-	"database/sql"
-	"encoding/json"
 	"errors"
-	"flag"
 	"fmt"
 	"log/slog"
-	"math"
 	"net/http"
 	"os"
 	"os/signal"
@@ -16,6 +12,8 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	dbapi "retrom/internal/database"
 
 	"retrom/internal/composition"
 
@@ -25,34 +23,27 @@ import (
 	dependencypersistence "retrom/internal/persistence/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 
-	"golang.org/x/term"
-
+	"retrom/internal/application"
 	"retrom/internal/authn"
-	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	"retrom/internal/config"
+	"retrom/internal/core/scummvm"
 	"retrom/internal/dependencies"
+	"retrom/internal/filestore"
 	"retrom/internal/httpapi"
 	"retrom/internal/importing"
-	maintenancepersistence "retrom/internal/persistence/maintenance"
 	platformpersistence "retrom/internal/persistence/platforminstance"
 	"retrom/internal/processlock"
 	retromruntime "retrom/internal/runtime"
-	"retrom/internal/runtimeprovider"
-	"retrom/internal/scummvm"
+	runtimeprovider "retrom/internal/runtime/provider"
 	"retrom/internal/service/accounts"
-	"retrom/internal/service/maintenance"
 	"retrom/internal/service/platforminstance"
 	"retrom/internal/store"
 )
 
 var (
-	errBackupArgument  = errors.New("BACKUP_ARGUMENT_INVALID")
-	errRestoreArgument = errors.New("RESTORE_ARGUMENT_INVALID")
-	errAdminArgument   = errors.New("ADMIN_RESET_ARGUMENT_INVALID")
-	errCommand         = errors.New("COMMAND_INVALID")
-	errTerminal        = errors.New("TERMINAL_DESCRIPTOR_INVALID")
-	errProduction      = errors.New("PRODUCTION_PROVIDER_REQUIRED")
+	errCommand    = errors.New("COMMAND_INVALID")
+	errProduction = errors.New("PRODUCTION_PROVIDER_REQUIRED")
 )
 
 func main() {
@@ -63,11 +54,6 @@ func main() {
 }
 
 func execute(arguments []string) error {
-	return executeWithPasswordReader(arguments, readPasswordFromTTY)
-}
-
-// Each CLI command owns an explicit argument contract.
-func executeWithPasswordReader(arguments []string, readPassword func(string) (string, error)) error {
 	worker, err := importing.RunArchiveWorker(arguments)
 	if worker {
 		if err != nil {
@@ -85,170 +71,7 @@ func executeWithPasswordReader(arguments []string, readPassword func(string) (st
 		}
 		return run(mode)
 	}
-	switch arguments[0] {
-	case "admin-reset":
-		return executeAdminReset(arguments[1:], readPassword)
-	case "backup":
-		return executeBackup(arguments[1:])
-	case "restore":
-		return executeRestore(arguments[1:])
-	default:
-		return errCommand
-	}
-}
-
-func executeAdminReset(arguments []string, readPassword func(string) (string, error)) error {
-	flags := flag.NewFlagSet("retrom admin-reset", flag.ContinueOnError)
-	username := flags.String("username", "", "existing non-deleted administrator username")
-	if err := flags.Parse(arguments); err != nil || *username == "" || flags.NArg() != 0 {
-		return errAdminArgument
-	}
-	configuration, err := config.LoadBackupMaintenance()
-	if err != nil {
-		return fmt.Errorf("retrom/main: %w", err)
-	}
-	if err := resetOfflineAdmin(context.Background(), configuration, *username, readPassword); err != nil {
-		return fmt.Errorf("retrom/main: %w", err)
-	}
-	return writeCommandResult(map[string]any{"status": "admin_reset_complete", "username": *username})
-}
-
-func executeBackup(arguments []string) error {
-	flags := flag.NewFlagSet("retrom backup", flag.ContinueOnError)
-	output := flags.String("output", "", "absolute path for a new backup bundle")
-	if err := flags.Parse(arguments); err != nil || *output == "" || flags.NArg() != 0 {
-		return errBackupArgument
-	}
-	configuration, err := config.LoadBackupMaintenance()
-	if err != nil {
-		return fmt.Errorf("retrom/main: %w", err)
-	}
-	manifest, err := maintenance.New(
-		maintenancepersistence.New(),
-		time.Now,
-	).Backup(
-		context.Background(),
-		configuration,
-		*output,
-	)
-	if err != nil {
-		return fmt.Errorf("retrom/main: %w", err)
-	}
-	return writeCommandResult(map[string]any{
-		"status": "backup_complete", "output": *output, "fileCount": manifest.Counts.FileCount,
-	})
-}
-
-func executeRestore(arguments []string) error {
-	flags := flag.NewFlagSet("retrom restore", flag.ContinueOnError)
-	input := flags.String("input", "", "absolute path to a backup bundle")
-	output := flags.String("output-data-dir", "", "absolute path for a new data root")
-	if err := flags.Parse(arguments); err != nil || *input == "" || *output == "" || flags.NArg() != 0 {
-		return errRestoreArgument
-	}
-	configuration, err := config.LoadRestoreMaintenance()
-	if err != nil {
-		return fmt.Errorf("retrom/main: %w", err)
-	}
-	manifest, err := maintenance.New(
-		maintenancepersistence.New(),
-		time.Now,
-	).Restore(
-		context.Background(),
-		configuration,
-		*input,
-		*output,
-	)
-	if err != nil {
-		return fmt.Errorf("retrom/main: %w", err)
-	}
-	return writeCommandResult(map[string]any{
-		"status": "restore_complete", "outputDataDir": *output,
-		"requiredDependencyVersions":      manifest.DependencyVersions,
-		"requiredActiveEmulatorjsVersion": manifest.ActiveEmulatorjsVersion,
-	})
-}
-
-func resetOfflineAdmin(
-	ctx context.Context,
-	configuration config.Maintenance,
-	username string,
-	readPassword func(string) (string, error),
-) error {
-	lock, err := processlock.Acquire(configuration.DataDir)
-	if err != nil {
-		return fmt.Errorf("acquire offline recovery lock: %w", err)
-	}
-	defer func() { cleanup.Error("close", lock.Close()) }()
-	password, err := readPassword("New password: ")
-	if err != nil {
-		return fmt.Errorf("read offline recovery password: %w", err)
-	}
-	confirmation, err := readPassword("Confirm new password: ")
-	if err != nil {
-		return fmt.Errorf("read offline recovery confirmation: %w", err)
-	}
-	database, err := store.Open(ctx, configuration.DBPath, time.Now)
-	if err != nil {
-		return fmt.Errorf("open offline recovery database: %w", err)
-	}
-	defer func() { cleanup.Error("close", database.Close()) }()
-	credentials, err := retromruntime.LoadCredentials(configuration.DataDir)
-	if err != nil {
-		return fmt.Errorf("load offline recovery credentials: %w", err)
-	}
-	blocklist, err := authn.LoadBlocklist(configuration.DependencyRoot)
-	if err != nil {
-		return fmt.Errorf("load offline recovery password blocklist: %w", err)
-	}
-	accountService, err := composition.NewAccounts(
-		ctx, database.SQL, credentials, config.ModeRelease, blocklist, time.Now,
-	)
-	if err != nil {
-		return fmt.Errorf("initialize offline account service: %w", err)
-	}
-	if err := accountService.OfflineAdminReset(ctx, username, password, confirmation); err != nil {
-		return fmt.Errorf("reset offline administrator: %w", err)
-	}
-	return nil
-}
-
-func readPasswordFromTTY(prompt string) (string, error) {
-	tty, err := os.OpenFile("/dev/tty", os.O_RDWR, 0)
-	if err != nil {
-		return "", fmt.Errorf("open controlling terminal: %w", err)
-	}
-	defer func() { cleanup.Error("close", tty.Close()) }()
-	if _, err := fmt.Fprint(tty, prompt); err != nil {
-		return "", fmt.Errorf("write password prompt: %w", err)
-	}
-	descriptor, err := terminalDescriptor(tty)
-	if err != nil {
-		return "", err
-	}
-	password, err := term.ReadPassword(descriptor)
-	_, _ = fmt.Fprintln(tty)
-	if err != nil {
-		return "", fmt.Errorf("read terminal password: %w", err)
-	}
-	return string(password), nil
-}
-
-func terminalDescriptor(file *os.File) (int, error) {
-	descriptor := file.Fd()
-	if uint64(descriptor) > uint64(math.MaxInt) {
-		return 0, errTerminal
-	}
-	return int(descriptor), nil
-}
-
-func writeCommandResult(value any) error {
-	encoder := json.NewEncoder(os.Stdout)
-	encoder.SetEscapeHTML(false)
-	if err := encoder.Encode(value); err != nil {
-		return fmt.Errorf("encode command result: %w", err)
-	}
-	return nil
+	return errCommand
 }
 
 // Process bootstrap branches are independent fail-fast checks kept in startup order.
@@ -274,15 +97,21 @@ func run(mode config.Mode) error {
 	}
 	cancelCatalogs := startCatalogBootstrap(resources)
 	defer cancelCatalogs()
-	apiServer := httpapi.New(
-		configuration, resources.database.SQL, resources.dependencies, resources.blobs,
-		resources.credentials, accountService, accountService, time.Now, resources.scummVMDetector,
-	).WithReadinessDatabase(resources.database.ReadOnly)
-	apiServer.WithRuntimeProvider(
-		resources.runtimeProviders.Builder,
-		resources.runtimeProviders.Handler,
-	)
-	defer apiServer.Close()
+	services, err := application.New(application.Inputs{
+		Config: configuration, Database: resources.database.SQL, ReadinessDatabase: resources.database.ReadOnly,
+		Dependencies: resources.dependencies, Files: resources.blobs, Credentials: resources.credentials,
+		Accounts: accountService, Now: time.Now, ScummVMDetector: resources.scummVMDetector,
+		RuntimeProvider: resources.runtimeProviders.Builder,
+	})
+	if err != nil {
+		return fmt.Errorf("compose application: %w", err)
+	}
+	defer services.Close()
+	if err := services.Start(startupContext); err != nil {
+		return fmt.Errorf("start application: %w", err)
+	}
+	apiServer := httpapi.New(configuration, services, accountService, time.Now).
+		WithRuntimeProviderHandler(resources.runtimeProviders.Handler)
 	return serveHTTP(configuration, apiServer)
 }
 
@@ -305,7 +134,7 @@ type serverResources struct {
 	lock             *processlock.Lock
 	dependencies     *dependencies.Set
 	database         *store.DB
-	blobs            *blobstore.Store
+	blobs            *filestore.Store
 	credentials      *retromruntime.Credentials
 	runtimeProviders runtimeprovider.Installation
 	scummVMDetector  *scummvm.Detector
@@ -365,7 +194,7 @@ func bootstrapServerResources(
 	if err := openAndBootstrapDatabase(ctx, configuration, &result); err != nil {
 		return result, err
 	}
-	result.blobs, err = blobstore.Open(configuration.DataDir)
+	result.blobs, err = filestore.Open(configuration.DataDir)
 	if err != nil {
 		return result, fmt.Errorf("open blob store: %w", err)
 	}
@@ -440,7 +269,7 @@ func startCatalogBootstrap(resources serverResources) context.CancelFunc {
 	return cancel
 }
 
-func bootstrapCatalogs(ctx context.Context, dependencySet *dependencies.Set, database *sql.DB) {
+func bootstrapCatalogs(ctx context.Context, dependencySet *dependencies.Set, database dbapi.DB) {
 	dependencies := dependencyservice.New(dependencySet, dependencypersistence.New(database))
 	if err := dependencies.BootstrapCatalogs(ctx, time.Now()); err != nil {
 		slog.Error("background DAT indexing failed", "error", err)

@@ -86,7 +86,7 @@ try {
   }
   assert.ok(evidence.events.includes("stop-loop"));
   assert.equal(page.frames().length, 1, "PSP_RUNTIME_FRAME_LEAKED");
-  assert.ok(evidence.requests.includes(`/runtime/launches/${launch.launchId}/finish`));
+  assert.ok(evidence.requests.includes(`/runtime/launches/${launch.launchId}/progress`));
   assert.ok(!evidence.requests.some(path => path.endsWith("/save-states") || path.endsWith("/start") || path === "/api/v1/launches"));
   assert.deepEqual((await client.json("GET", savesPath)).items.map(item => item.saveStateId).sort(), beforeSaves);
   assert.deepEqual(evidence.errors, []);

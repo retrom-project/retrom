@@ -15,7 +15,10 @@ func (executor *ImportExecutor) sourceFiles(
 ) ([]library.ServerSourceFile, error) {
 	files := make([]library.ServerSourceFile, 0, len(item.Files))
 	for _, file := range item.Files {
-		files = append(files, library.ServerSourceFile{RelativePath: file.Path, BlobID: file.BlobID, SizeBytes: file.Size})
+		files = append(files, library.ServerSourceFile{
+			RelativePath: file.Path,
+			FileRecord:   file.FileRecord, SizeBytes: file.Size,
+		})
 	}
 	if item.TargetPlatformKind != "arcade" || len(item.Files) != 1 ||
 		!strings.EqualFold(path.Ext(item.Files[0].Path), ".zip") {
@@ -47,12 +50,12 @@ func (executor *ImportExecutor) CompanionFiles(
 		if err != nil {
 			return nil, fmt.Errorf("copy Source companion: %w", err)
 		}
-		blobID, err := executor.dependencies.Companions.Record(ctx, unit.Identity(), item.ID, candidate, blob)
+		fileRecord, err := executor.dependencies.Companions.Record(ctx, unit.Identity(), item.ID, candidate, blob)
 		if err != nil {
 			return nil, fmt.Errorf("bind Source companion: %w", err)
 		}
 		files = append(files, library.ServerSourceFile{
-			RelativePath: candidate.File.Path, BlobID: blobID, SizeBytes: candidate.File.Size,
+			RelativePath: candidate.File.Path, FileRecord: fileRecord, SizeBytes: candidate.File.Size,
 		})
 	}
 	return files, nil

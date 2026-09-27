@@ -4,11 +4,11 @@ import (
 	"context"
 	"database/sql"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 )
 
 func UpdateImportItemValidationFiles(
-	ctx context.Context, db dbexec.Executor, change Update,
+	ctx context.Context, db dbapi.Executor, change Update,
 ) (sql.Result, error) {
 	return updateRecords(
 		ctx,
@@ -31,7 +31,7 @@ WHERE candidate.import_item_core_validation_id=previous.import_item_core_validat
 candidate.role=previous.role AND candidate.logical_name=previous.logical_name`
 
 func DeleteImportItemValidationFiles(
-	ctx context.Context, db dbexec.Executor, scope Scope,
+	ctx context.Context, db dbapi.Executor, scope Scope,
 ) (sql.Result, error) {
 	return deleteRecords(
 		ctx,
@@ -50,8 +50,7 @@ SELECT CASE
 WHEN (NOT EXISTS(
   SELECT 1 FROM import_item_core_validations validation JOIN import_items item ON
 item.id=validation.import_item_id
-  WHERE validation.id=previous.import_item_core_validation_id AND item.payload_state IN ('RELEASING',
-'FAILED')
+  WHERE validation.id=previous.import_item_core_validation_id AND item.payload_state ='RELEASING'
 )) THEN 'immutable'
 ELSE '' END
 FROM previous`

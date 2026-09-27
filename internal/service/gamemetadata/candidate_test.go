@@ -3,11 +3,15 @@ package gamemetadata
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
+
+	"retrom/internal/filestore"
 )
 
 type candidateApplyMemory struct {
+	files          *filestore.Store
 	snapshot       CandidateApplySnapshot
 	loadErr        error
 	replaceErr     error
@@ -60,14 +64,20 @@ func (memory *candidateApplyMemory) UpdateGameMetadata(
 }
 
 func (memory *candidateApplyMemory) StageCandidates(
-	_ context.Context, ids []string,
+	_ context.Context, _ string, ids []string, _ int64,
 ) error {
 	memory.stagedIDs = append([]string(nil), ids...)
 	return memory.stageErr
 }
 
-func candidateApplyService(memory *candidateApplyMemory) *Service {
-	return New(memory, func() time.Time { return time.UnixMilli(1234) })
+func candidateApplyService(t *testing.T, memory *candidateApplyMemory) *Service {
+	t.Helper()
+	var err error
+	memory.files, err = filestore.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	return New(memory, memory.files, func() time.Time { return time.UnixMilli(1234) })
 }
 
 func TestValidCandidateFieldsRejectsUnknownAndDuplicateFields(t *testing.T) {
@@ -83,7 +93,8 @@ func TestValidCandidateFieldsRejectsUnknownAndDuplicateFields(t *testing.T) {
 
 func TestApplyCandidateRejectsInvalidRequestBeforeTransaction(t *testing.T) {
 	memory := &candidateApplyMemory{}
-	_, err := candidateApplyService(memory).ApplyCandidate(t.Context(), ApplyCandidateRequest{GameID: "game"})
+	_, err := candidateApplyService(t, memory).ApplyCandidate(t.Context(),
+		ApplyCandidateRequest{GameID: "018fbe68-0000-7000-8000-000000000001"})
 	if !errors.Is(err, ErrInvalid) || memory.transactions != 0 {
 		t.Fatalf("error=%v transactions=%d", err, memory.transactions)
 	}
@@ -99,8 +110,8 @@ func TestApplyCandidateCoordinatesMetadataAssetsAndPayloadStaging(t *testing.T) 
 		changed: true,
 	}
 	cover := "candidate-cover"
-	result, err := candidateApplyService(memory).ApplyCandidate(t.Context(), ApplyCandidateRequest{
-		GameID: "game", CandidateID: "candidate", ExpectedVersion: 2,
+	result, err := candidateApplyService(t, memory).ApplyCandidate(t.Context(), ApplyCandidateRequest{
+		GameID: "018fbe68-0000-7000-8000-000000000001", CandidateID: "candidate", ExpectedVersion: 2,
 		Fields:         []string{"title", "players", "releaseYear"},
 		SelectedAssets: SelectedAssets{CoverCandidateAssetID: &cover},
 	})
@@ -114,8 +125,8 @@ func TestApplyCandidateCoordinatesMetadataAssetsAndPayloadStaging(t *testing.T) 
 func assertCandidateApplyResult(t *testing.T, result ApplyCandidateResult) {
 	t.Helper()
 	if result.Version != 3 || result.UpdatedAtMS != 1234 || len(result.AssetIDs) != 1 ||
-		result.AssetIDs[0] != "asset-id" || len(result.ReplacedBlobIDs) != 1 ||
-		result.ReplacedBlobIDs[0] != "old-blob" {
+		result.AssetIDs[0] != "asset-id" || len(result.ReplacedFileRecords) != 1 ||
+		result.ReplacedFileRecords[0] != "old-blob" {
 		t.Fatalf("result=%+v", result)
 	}
 }
@@ -138,10 +149,21 @@ func TestApplyCandidateMapsStaleAndInvalidEvidence(t *testing.T) {
 		mutate func(*candidateApplyMemory)
 		want   error
 	}{
-		{name: "stale version", mutate: func(memory *candidateApplyMemory) { memory.snapshot.Version = 3 }, want: ErrCandidateStale},
-		{name: "malformed metadata", mutate: func(memory *candidateApplyMemory) { memory.snapshot.CandidateMetadataJSON = "{" }, want: ErrCandidateMetadata},
+		{
+			name:   "stale version",
+			mutate: func(memory *candidateApplyMemory) { memory.snapshot.Version = 3 }, want: ErrCandidateStale,
+		},
+		{
+			name:   "malformed metadata",
+			mutate: func(memory *candidateApplyMemory) { memory.snapshot.CandidateMetadataJSON = "{" },
+			want:   ErrCandidateMetadata,
+		},
 		{name: "empty title", mutate: func(memory *candidateApplyMemory) { memory.snapshot.CandidateMetadataJSON = `{"title":"  "}` }, want: ErrMetadataInvalid},
-		{name: "asset mismatch", mutate: func(memory *candidateApplyMemory) { memory.createErr = ErrCandidateAsset }, want: ErrCandidateAsset},
+		{
+			name:   "asset mismatch",
+			mutate: func(memory *candidateApplyMemory) { memory.createErr = ErrCandidateAsset },
+			want:   ErrCandidateAsset,
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -151,8 +173,9 @@ func TestApplyCandidateMapsStaleAndInvalidEvidence(t *testing.T) {
 				changed:  true,
 			}
 			test.mutate(memory)
-			_, err := candidateApplyService(memory).ApplyCandidate(t.Context(), ApplyCandidateRequest{
-				GameID: "game", CandidateID: "candidate", ExpectedVersion: 2, Fields: []string{"title"},
+			_, err := candidateApplyService(t, memory).ApplyCandidate(t.Context(), ApplyCandidateRequest{
+				GameID: "018fbe68-0000-7000-8000-000000000001", CandidateID: "candidate",
+				ExpectedVersion: 2, Fields: []string{"title"},
 				SelectedAssets: SelectedAssets{CoverCandidateAssetID: &cover},
 			})
 			if !errors.Is(err, test.want) {
@@ -160,4 +183,17 @@ func TestApplyCandidateMapsStaleAndInvalidEvidence(t *testing.T) {
 			}
 		})
 	}
+}
+
+func (memory *candidateApplyMemory) SelectedFiles(_ context.Context, _ string,
+	selected []CandidateAssetSelection,
+) ([]CandidateAssetSelection, error) {
+	for i := range selected {
+		file, err := memory.files.Put(strings.NewReader(selected[i].ID))
+		if err != nil {
+			return nil, err
+		}
+		selected[i].SourceFile = file.Record
+	}
+	return selected, nil
 }

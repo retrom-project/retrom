@@ -3,7 +3,7 @@ package serverimport
 import (
 	"sort"
 
-	"retrom/internal/blobstore"
+	"retrom/internal/filestore"
 	"retrom/internal/firmware"
 	"retrom/internal/importing"
 	"retrom/internal/serversource"
@@ -14,7 +14,7 @@ type EvaluatedCandidate struct {
 	Item               CatalogItem
 	File               serversource.File
 	Association        string
-	Metadata           blobstore.Metadata
+	Metadata           filestore.Metadata
 	ArchiveEntries     []importing.ArchiveEntry
 	Static             *firmware.StaticEvaluation
 	DAT                *firmware.DATEvaluation

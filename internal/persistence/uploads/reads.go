@@ -7,19 +7,19 @@ import (
 	"fmt"
 
 	"retrom/internal/cleanup"
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	service "retrom/internal/service/uploads"
 )
 
 func (repository *Repository) Snapshot(ctx context.Context, id string) (service.Session, error) {
-	tx, err := repository.database.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+	tx, err := repository.database.BeginTx(ctx, &dbapi.TxOptions{ReadOnly: true})
 	if err != nil {
 		return service.Session{}, fmt.Errorf("uploads/begin snapshot: %w", err)
 	}
-	defer dbexec.Rollback(tx)
+	defer dbapi.Rollback(tx)
 	var result service.Session
 	var job sql.NullString
-	err = tx.QueryRowContext(ctx, `
+	err = dbapi.QueryRowContext(ctx, tx, `
 SELECT id,state,purpose,source_type,total_bytes,finalization_no,finalize_job_id,version,expires_at_ms
 FROM upload_sessions WHERE id=?
 `, id).Scan(&result.ID, &result.State, &result.Purpose, &result.SourceType, &result.TotalBytes, &result.FinalizationNo,
@@ -30,7 +30,7 @@ FROM upload_sessions WHERE id=?
 	if err != nil {
 		return service.Session{}, fmt.Errorf("uploads/read snapshot: %w", err)
 	}
-	result.FinalizeJobID = dbexec.StringPointer(job)
+	result.FinalizeJobID = dbapi.StringPointer(job)
 	result.Files, err = snapshotFiles(ctx, tx, id)
 	if err != nil {
 		return service.Session{}, err
@@ -44,7 +44,7 @@ FROM upload_sessions WHERE id=?
 	return result, nil
 }
 
-func snapshotFiles(ctx context.Context, executor dbexec.Executor, id string) ([]service.File, error) {
+func snapshotFiles(ctx context.Context, executor dbapi.Executor, id string) ([]service.File, error) {
 	rows, err := executor.QueryContext(ctx, `
 SELECT id,relative_path,declared_size_bytes,received_size_bytes,state FROM upload_files
 WHERE upload_session_id=? ORDER BY relative_path,id
@@ -68,7 +68,7 @@ WHERE upload_session_id=? ORDER BY relative_path,id
 	return files, nil
 }
 
-func snapshotParts(ctx context.Context, executor dbexec.Executor, id string, files []service.File) error {
+func snapshotParts(ctx context.Context, executor dbapi.Executor, id string, files []service.File) error {
 	rows, err := executor.QueryContext(ctx, `
 SELECT part.upload_file_id,part.part_no FROM upload_parts part
 JOIN upload_files file ON file.id=part.upload_file_id WHERE file.upload_session_id=? ORDER BY

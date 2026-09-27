@@ -4,18 +4,18 @@ from pathlib import Path
 import tempfile
 import unittest
 from scripts.acceptance.content_io_catalog import CATALOG, ROOT, load_catalog
+from scripts.acceptance.content_io_cases import TARGET_DECLARATIONS, TARGET_MODES
 
 
 class ContentIOCatalogTests(unittest.TestCase):
     def test_fixed_managed_target_matrix_and_real_entrypoints(self):
         cases = load_catalog()
-        self.assertEqual({case["targetId"] for case in cases}, {
-            "neocd", "scummvm", "ppsspp", "play-ps2", "rpgmaker-xp", "rpgmaker-vx", "rpgmaker-vx-ace", "kirikiri2-kag",
-            "flycast", "np2kai-pc98", "px68k", "gbe-pokemini", "openbor", "msx-webmsx", "flash-ruffle", "tic80", "fake08", "wasm4",
-            "onscripter-yuri", "butterscotch-gamemaker", "nxengine",
-        })
+        self.assertEqual({case["targetId"] for case in cases}, set(TARGET_DECLARATIONS))
+        self.assertEqual(TARGET_MODES["flycast"], "RANGE")
+        self.assertEqual(TARGET_DECLARATIONS["daphne"]["checkpointSemantics"], "NO_SAVE")
+        self.assertNotIn("save-restore-input", next(case for case in cases if case["targetId"] == "daphne")["requiredScenarios"])
         ranges = [case for case in cases if case["networkPolicy"]["mode"] == "RANGE"]
-        self.assertEqual(len(ranges), 8)
+        self.assertEqual(len(ranges), sum(mode == "RANGE" for mode in TARGET_MODES.values()))
         self.assertTrue(all("trace-10000" in case["requiredScenarios"] for case in ranges))
         rpg = [case for case in ranges if case["targetId"].startswith("rpgmaker")]
         self.assertTrue(all("retired-rtp-boundary" in case["requiredScenarios"] for case in rpg))

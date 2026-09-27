@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/blobstore"
+	"retrom/internal/filestore"
 	"retrom/internal/hasheous"
 )
 
@@ -35,7 +35,9 @@ func (provider *lookupProvider) LookupByHash(context.Context, hasheous.ContentHa
 	return hasheous.LookupResult{Outcome: hasheous.OutcomeMiss}, nil
 }
 
-func (provider *lookupProvider) RestoreCached(_ hasheous.ContentHashes, outcome hasheous.ProviderOutcome, _ int, _ []byte) (hasheous.LookupResult, error) {
+func (provider *lookupProvider) RestoreCached(_ hasheous.ContentHashes,
+	outcome hasheous.ProviderOutcome, _ int, _ []byte,
+) (hasheous.LookupResult, error) {
 	provider.restored++
 	return hasheous.LookupResult{Outcome: outcome}, provider.restoreErr
 }
@@ -54,7 +56,10 @@ func TestMetadataCacheUsesValidResponseOrFallsBackToProvider(t *testing.T) {
 		{name: "cached miss", found: true, outcome: hasheous.OutcomeMiss, restored: 1},
 		{name: "cached hit", found: true, raw: true, outcome: hasheous.OutcomeHit, restored: 1},
 		{name: "missing raw", found: true, outcome: hasheous.OutcomeHit, network: 1},
-		{name: "corrupt response", found: true, raw: true, corrupt: true, outcome: hasheous.OutcomeHit, network: 1, restored: 1},
+		{
+			name: "corrupt response", found: true, raw: true, corrupt: true,
+			outcome: hasheous.OutcomeHit, network: 1, restored: 1,
+		},
 	} {
 		t.Run(test.name, func(t *testing.T) { assertCacheScenario(t, test) })
 	}
@@ -72,7 +77,7 @@ func TestMetadataCacheStorageFailureDoesNotBecomeMiss(t *testing.T) {
 func assertCacheScenario(t *testing.T, test cacheScenario) {
 	t.Helper()
 
-	blobs, err := blobstore.Open(t.TempDir())
+	blobs, err := filestore.Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -82,7 +87,7 @@ func assertCacheScenario(t *testing.T, test cacheScenario) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		cache.value.RawSHA256 = metadata.SHA256
+		cache.value.RawFileID = metadata.Record
 	}
 	provider := &lookupProvider{}
 	if test.corrupt {
@@ -96,7 +101,9 @@ func assertCacheScenario(t *testing.T, test cacheScenario) {
 	assertCacheOutcome(t, test, provider, cache, result)
 }
 
-func assertCacheOutcome(t *testing.T, test cacheScenario, provider *lookupProvider, cache *memoryCache, result ResolvedLookup) {
+func assertCacheOutcome(t *testing.T, test cacheScenario, provider *lookupProvider,
+	cache *memoryCache, result ResolvedLookup,
+) {
 	t.Helper()
 	if provider.network != test.network || provider.restored != test.restored {
 		t.Fatalf("network=%d restore=%d", provider.network, provider.restored)

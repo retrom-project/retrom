@@ -2,26 +2,25 @@ package libraryimport
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"time"
+
+	dbapi "retrom/internal/database"
 
 	repository "retrom/internal/persistence/libraryimport"
 	"retrom/internal/service/jobs"
 	application "retrom/internal/service/libraryimport"
 )
 
-func WithJobCancellation(service *jobs.Service, database *sql.DB, now func() time.Time) *jobs.Service {
+func WithJobCancellation(service *jobs.Service, executions *application.ImportExecutions) *jobs.Service {
 	return service.WithDomainCancellation(map[string]jobs.DomainCanceller{"IMPORT_GROUP": importCancellation{
-		executions: application.NewImportExecutions(repository.NewImportExecutions(database), now),
+		executions: executions,
 	}})
 }
 
-// NewImportBatchCancellations composes the aggregate cancellation use case
-// with the persistence adapter. The legacy libraryimport facade uses this
-// constructor while callers migrate to the application port.
-func NewImportBatchCancellations(database *sql.DB, now func() time.Time) *application.ImportBatchCancellations {
+// NewImportBatchCancellations binds the aggregate cancellation use case.
+func NewImportBatchCancellations(database dbapi.DB, now func() time.Time) *application.ImportBatchCancellations {
 	return application.NewImportBatchCancellations(repository.NewImportBatchCancellations(database), now)
 }
 

@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/service/favorites"
 )
 
@@ -20,7 +21,7 @@ WHERE principal_id=? AND operation_id=? AND key=? AND expires_at_ms<=?`,
 	}
 	var record favorites.IdempotencyRecord
 	var headers string
-	err := records.database.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, records.database, `
 SELECT request_digest,http_status,response_headers_json,response_body,created_at_ms,expires_at_ms
 FROM idempotency_records WHERE principal_id=? AND operation_id=? AND key=?`, key.PrincipalID, key.Operation, key.Key).
 		Scan(&record.Digest, &record.Response.Status, &headers,

@@ -7,7 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/contentcapability"
+	contentcapability "retrom/internal/content/capability"
+	dbapi "retrom/internal/database"
 	"retrom/internal/testsupport"
 )
 
@@ -17,14 +18,15 @@ func TestServerRPGArchiveHandoffReplaysCanonicalImport(t *testing.T) {
 	archive := rpgMakerMVArchiveWithMToolSidecar(t)
 	uploadID := completeProjectUpload(t, ctx, database.SQL, blobs, dataDir, "GENERAL", archive)
 	var file ServerSourceFile
-	if err := database.SQL.QueryRowContext(ctx, `
-SELECT file.relative_path,file.final_blob_id,blob.size_bytes
-FROM upload_files file JOIN blobs blob ON blob.id=file.final_blob_id WHERE file.upload_session_id=?
-`, uploadID).Scan(&file.RelativePath, &file.BlobID, &file.SizeBytes); err != nil {
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
+SELECT file.relative_path,file.final_file_record,json_extract(blob.value, '$.size_bytes')
+FROM upload_files file JOIN json_each(json_array(file.final_file_record)) blob ON blob.value IS NOT NULL
+WHERE file.upload_session_id=?
+`, uploadID).Scan(&file.RelativePath, &file.FileRecord, &file.SizeBytes); err != nil {
 		t.Fatal(err)
 	}
 	targetID := testsupport.MustPlatformInstanceID(t, database.SQL, "rpgmaker/rpgmaker")
-	service := New(database.SQL, time.Now).WithBlobStore(blobs)
+	service := newTestImporter(t, database.SQL, blobs, testImportOptions{Now: time.Now})
 	first, err := service.CreateServerSourceOnce(ctx, "fixture-source-item", targetID,
 		contentcapability.ModeStandard, []ServerSourceFile{file}, nil, "")
 	if err != nil {
@@ -42,7 +44,7 @@ FROM upload_files file JOIN blobs blob ON blob.id=file.final_blob_id WHERE file.
 	}
 	var count int
 	var mode string
-	if err := database.SQL.QueryRowContext(ctx,
+	if err := dbapi.QueryRowContext(ctx, database.SQL,
 		"SELECT count(*),json_extract(config_snapshot_json,'$.contentMode') FROM import_jobs",
 	).Scan(&count, &mode); err != nil {
 		t.Fatal(err)

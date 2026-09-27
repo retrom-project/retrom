@@ -6,13 +6,13 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/libraryimport"
 )
 
-type ArcadeRelations struct{ executor dbexec.Executor }
+type ArcadeRelations struct{ executor dbapi.Executor }
 
-func BindArcadeRelations(executor dbexec.Executor) *ArcadeRelations {
+func BindArcadeRelations(executor dbapi.Executor) *ArcadeRelations {
 	return &ArcadeRelations{executor: executor}
 }
 
@@ -21,7 +21,7 @@ func (records *ArcadeRelations) MachineRelation(
 	datID, machine string,
 ) (application.ArcadeMachineRelation, bool, error) {
 	var result application.ArcadeMachineRelation
-	err := records.executor.QueryRowContext(ctx,
+	err := dbapi.QueryRowContext(ctx, records.executor,
 		`SELECT COALESCE(cloneof,
 ''),
 COALESCE(romof,

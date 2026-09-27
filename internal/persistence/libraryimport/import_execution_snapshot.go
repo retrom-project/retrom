@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/libraryimport"
 )
 
@@ -17,8 +18,9 @@ func (records importExecutionRecords) Current(
 	c := &result.Creation
 	e := &c.Execution
 	counts := &result.Counts
-	err := records.executor.QueryRowContext(
-		ctx,
+	err := dbapi.QueryRowContext(
+		ctx, records.executor,
+
 		`
 SELECT job.id,job.scope_id,COALESCE(job.worker_id,''),COALESCE(request.actor_user_id,''),
 job.execution_no,job.attempt_count,job.execution_started_at_ms,

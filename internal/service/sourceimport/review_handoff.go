@@ -6,6 +6,8 @@ import (
 	"math"
 	"time"
 
+	"retrom/internal/filestore"
+
 	library "retrom/internal/service/libraryimport"
 )
 
@@ -14,7 +16,12 @@ type (
 		ItemID, ImportID, JobID, LibraryJobID, LibraryItemID, WorkerID string
 		ExecutionNo, Attempt                                           int64
 	}
+	ReviewMedia struct {
+		Kind, File, MediaType string
+		Width, Height         *int64
+	}
 	ReviewHandoffSnapshot struct {
+		Media                                            []ReviewMedia
 		Identity                                         ReviewHandoffRequest
 		State, ImportState, JobState                     string
 		Version, ImportVersion, LeaseUntilMS, DeadlineMS int64
@@ -22,6 +29,7 @@ type (
 		Warnings                                         []map[string]any
 	}
 	ReviewHandoffChange struct {
+		Media    []ReviewMedia
 		Before   ReviewHandoffSnapshot
 		Warnings []map[string]any
 		NowMS    int64
@@ -45,6 +53,7 @@ type (
 	ReviewHandoff struct {
 		repository ReviewHandoffRepository
 		metadata   ReviewMetadataSeeder
+		files      MaterialFiles
 		now        func() time.Time
 	}
 )
@@ -52,13 +61,18 @@ type (
 func NewReviewHandoff(
 	repository ReviewHandoffRepository,
 	metadata ReviewMetadataSeeder,
+	files MaterialFiles,
 	now func() time.Time,
 ) *ReviewHandoff {
-	return &ReviewHandoff{repository: repository, metadata: metadata, now: now}
+	return &ReviewHandoff{repository: repository, metadata: metadata, files: files, now: now}
 }
 
 func (service *ReviewHandoff) Complete(ctx context.Context, request ReviewHandoffRequest) error {
-	err := service.repository.WithReviewHandoff(ctx, func(scope ReviewHandoffScope) error {
+	media, err := service.prepareMedia(ctx, request)
+	if err != nil {
+		return err
+	}
+	err = service.repository.WithReviewHandoff(ctx, func(scope ReviewHandoffScope) error {
 		before, err := scope.Records.CurrentReviewHandoff(ctx, request.ItemID)
 		if err != nil {
 			return fmt.Errorf("read Source review handoff: %w", err)
@@ -84,6 +98,7 @@ func (service *ReviewHandoff) Complete(ctx context.Context, request ReviewHandof
 			return fmt.Errorf("seed Source review metadata: %w", err)
 		}
 		change := ReviewHandoffChange{
+			Media:    media,
 			Before:   before,
 			Warnings: mergeReviewMetadataWarnings(before.Warnings, warnings),
 			NowMS:    now.UnixMilli(),
@@ -130,4 +145,38 @@ func mergeReviewMetadataWarnings(
 		}
 	}
 	return result
+}
+
+func (service *ReviewHandoff) prepareMedia(ctx context.Context, request ReviewHandoffRequest) ([]ReviewMedia, error) {
+	var before ReviewHandoffSnapshot
+	err := service.repository.WithReviewHandoff(ctx, func(scope ReviewHandoffScope) error {
+		var err error
+		before, err = scope.Records.CurrentReviewHandoff(ctx, request.ItemID)
+		if err != nil {
+			return fmt.Errorf("prepare media: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("prepare media: %w", err)
+	}
+	if before.Identity != request {
+		return nil, ErrVersionConflict
+	}
+	if before.State == "REVIEW_PENDING" {
+		return nil, nil
+	}
+	media := append([]ReviewMedia(nil), before.Media...)
+	for i := range media {
+		file, err := service.files.CopyTo(ctx, media[i].File,
+			filestore.ItemDirectory(request.LibraryItemID)+"/scratch/source-media", media[i].Kind)
+		if err != nil {
+			return nil, fmt.Errorf("prepare media: %w", err)
+		}
+		media[i].File, err = filestore.FileRecord(file, media[i].MediaType)
+		if err != nil {
+			return nil, fmt.Errorf("prepare media: %w", err)
+		}
+	}
+	return media, nil
 }

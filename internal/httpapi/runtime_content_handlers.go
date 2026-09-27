@@ -17,12 +17,12 @@ import (
 	"strings"
 	"time"
 
-	"retrom/internal/contentprofile"
+	contentprofile "retrom/internal/content/profile"
 
 	"retrom/internal/cleanup"
+	"retrom/internal/core/rpgmaker/materializer"
 	"retrom/internal/dosbundle"
 	"retrom/internal/launch"
-	"retrom/internal/rpgmaker/materializer"
 )
 
 func (server *Server) launchGame(writer http.ResponseWriter, request *http.Request) {
@@ -35,22 +35,22 @@ func (server *Server) launchGame(writer http.ResponseWriter, request *http.Reque
 		return
 	}
 	isMultiDisc := content.Format == "RETROM_MULTIDISC_M3U_V1" && content.DiscCount >= 2
-	file, err := server.blobs.OpenDigest(content.Digest)
+	file, err := server.blobs.OpenRecord(content.FileRecord)
 	if err != nil {
 		if isMultiDisc {
 			logMultiDiscContentResponse(
 				request.Context(), authorizedLaunchID, content.PlatformKey, content.TargetID,
 				content.BundleSHA256, content.DiscCount, "PLAYLIST", http.StatusServiceUnavailable, 0,
-				"CAS_UNAVAILABLE",
+				"FILE_STORAGE_UNAVAILABLE",
 			)
 		}
-		writeError(writer, request, http.StatusServiceUnavailable, "CAS_UNAVAILABLE", "游戏内容不可用", map[string]any{})
+		writeError(writer, request, http.StatusServiceUnavailable, "FILE_STORAGE_UNAVAILABLE", "游戏内容不可用", map[string]any{})
 		return
 	}
 	defer func() { cleanup.Error("close", file.Close()) }()
 	stat, err := file.Stat()
 	if err != nil {
-		writeError(writer, request, http.StatusServiceUnavailable, "CAS_UNAVAILABLE", "游戏内容不可用", map[string]any{})
+		writeError(writer, request, http.StatusServiceUnavailable, "FILE_STORAGE_UNAVAILABLE", "游戏内容不可用", map[string]any{})
 		return
 	}
 	mediaType := mime.TypeByExtension(filepath.Ext(request.PathValue("logicalName")))
@@ -62,18 +62,25 @@ func (server *Server) launchGame(writer http.ResponseWriter, request *http.Reque
 	}
 	body, etag, err := launchGameBody(file, stat.Size(), content)
 	if err != nil {
-		writeError(writer, request, http.StatusServiceUnavailable, "CAS_UNAVAILABLE", "游戏内容不可用", map[string]any{})
+		writeError(writer, request, http.StatusServiceUnavailable, "FILE_STORAGE_UNAVAILABLE", "游戏内容不可用", map[string]any{})
 		return
 	}
 	if request.PathValue("logicalName") == "index.json" {
 		if content.Format != "RETROM_DOS_DIRECT_ZIP_V1" {
-			writeError(writer, request, http.StatusUnauthorized, "LAUNCH_CREDENTIAL_INVALID", "启动内容不可用", map[string]any{})
+			writeError(
+				writer,
+				request,
+				http.StatusUnauthorized,
+				"LAUNCH_CREDENTIAL_INVALID",
+				"启动内容不可用",
+				map[string]any{},
+			)
 			return
 		}
 		size, sizeErr := body.Seek(0, io.SeekEnd)
 		index, indexErr := dosGameIndex(content, size)
 		if sizeErr != nil || indexErr != nil {
-			writeError(writer, request, http.StatusServiceUnavailable, "CAS_UNAVAILABLE", "游戏内容不可用", map[string]any{})
+			writeError(writer, request, http.StatusServiceUnavailable, "FILE_STORAGE_UNAVAILABLE", "游戏内容不可用", map[string]any{})
 			return
 		}
 		digest := sha256.Sum256(index)
@@ -125,9 +132,9 @@ func (server *Server) launchProjectFile(writer http.ResponseWriter, request *htt
 		)
 		return
 	}
-	file, err := server.blobs.OpenDigest(content.Digest)
+	file, err := server.blobs.OpenRecord(content.FileRecord)
 	if err != nil {
-		writeError(writer, request, http.StatusServiceUnavailable, "CAS_UNAVAILABLE", "项目内容不可用", map[string]any{})
+		writeError(writer, request, http.StatusServiceUnavailable, "FILE_STORAGE_UNAVAILABLE", "项目内容不可用", map[string]any{})
 		return
 	}
 	defer func() { cleanup.Error("close", file.Close()) }()
@@ -159,7 +166,12 @@ func (server *Server) projectContent(
 		return content, nil
 	}
 	// Both session types freeze generated archives under the same reserved name.
-	content, err = server.launcher.ReviewPreviewProjectContent(request.Context(), launchID, capability, contentLogicalName)
+	content, err = server.launcher.ReviewPreviewProjectContent(
+		request.Context(),
+		launchID,
+		capability,
+		contentLogicalName,
+	)
 	if err != nil && contentLogicalName != logicalName {
 		content, err = server.launcher.ReviewPreviewProjectContent(request.Context(), launchID, capability, logicalName)
 	}
@@ -311,7 +323,7 @@ func (server *Server) launchExternalFile(writer http.ResponseWriter, request *ht
 		writeError(writer, request, http.StatusUnauthorized, "LAUNCH_CREDENTIAL_INVALID", "启动外部文件不可用", map[string]any{})
 		return
 	}
-	file, err := server.blobs.OpenDigest(content.Digest)
+	file, err := server.blobs.OpenRecord(content.FileRecord)
 	if err != nil {
 		writeError(writer, request, http.StatusUnauthorized, "LAUNCH_CREDENTIAL_INVALID", "启动外部文件不可用", map[string]any{})
 		return
@@ -390,16 +402,16 @@ func (server *Server) populateLaunchBundle(archiveWriter *zip.Writer, files []la
 	for _, entry := range ordered {
 		destination, err := archiveWriter.CreateHeader(materializer.StoreZIPHeader(entry.LogicalName))
 		if err != nil {
-			return "CAS_UNAVAILABLE", "无法装配启动依赖"
+			return "FILE_STORAGE_UNAVAILABLE", "无法装配启动依赖"
 		}
-		source, err := server.blobs.OpenDigest(entry.SHA256)
+		source, err := server.blobs.OpenRecord(entry.FileRecord)
 		if err != nil {
-			return "CAS_UNAVAILABLE", "启动依赖不可用"
+			return "FILE_STORAGE_UNAVAILABLE", "启动依赖不可用"
 		}
 		_, copyErr := io.Copy(destination, source)
 		cleanup.Error("close", source.Close())
 		if copyErr != nil {
-			return "CAS_UNAVAILABLE", "无法读取启动依赖"
+			return "FILE_STORAGE_UNAVAILABLE", "无法读取启动依赖"
 		}
 	}
 	return "", ""
@@ -420,7 +432,7 @@ func (server *Server) launchBundle(writer http.ResponseWriter, request *http.Req
 	}
 	temporary, err := server.createLaunchBundle(files)
 	if err != nil {
-		writeError(writer, request, http.StatusServiceUnavailable, "CAS_UNAVAILABLE", "无法装配启动依赖", map[string]any{})
+		writeError(writer, request, http.StatusServiceUnavailable, "FILE_STORAGE_UNAVAILABLE", "无法装配启动依赖", map[string]any{})
 		return
 	}
 	temporaryPath := temporary.Name()
@@ -428,11 +440,11 @@ func (server *Server) launchBundle(writer http.ResponseWriter, request *http.Req
 	defer func() { cleanup.Error("close", temporary.Close()) }()
 	digest := sha256.New()
 	if _, err := io.Copy(digest, temporary); err != nil {
-		writeError(writer, request, http.StatusServiceUnavailable, "CAS_UNAVAILABLE", "无法校验启动依赖", map[string]any{})
+		writeError(writer, request, http.StatusServiceUnavailable, "FILE_STORAGE_UNAVAILABLE", "无法校验启动依赖", map[string]any{})
 		return
 	}
 	if _, err := temporary.Seek(0, io.SeekStart); err != nil {
-		writeError(writer, request, http.StatusServiceUnavailable, "CAS_UNAVAILABLE", "无法读取启动依赖", map[string]any{})
+		writeError(writer, request, http.StatusServiceUnavailable, "FILE_STORAGE_UNAVAILABLE", "无法读取启动依赖", map[string]any{})
 		return
 	}
 	writer.Header().Set("Content-Type", "application/zip")
@@ -446,7 +458,7 @@ func (server *Server) createLaunchBundle(files []launch.BundleFile) (*os.File, e
 	if len(files) == 0 {
 		return nil, launch.ErrBlocked
 	}
-	temporary, err := os.CreateTemp(filepath.Join(server.config.DataDir, "tmp", "jobs"), ".launch-bundle-")
+	temporary, err := os.CreateTemp(filepath.Join(server.config.DataDir, "staging", "writes"), ".launch-bundle-")
 	if err != nil {
 		return nil, fmt.Errorf("create launch bundle: %w", err)
 	}

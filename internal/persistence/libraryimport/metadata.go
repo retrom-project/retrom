@@ -6,21 +6,21 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/recordstore"
 	application "retrom/internal/service/libraryimport"
 )
 
-type Metadata struct{ database *sql.DB }
+type Metadata struct{ database dbapi.DB }
 
-func NewMetadata(database *sql.DB) *Metadata { return &Metadata{database: database} }
+func NewMetadata(database dbapi.DB) *Metadata { return &Metadata{database: database} }
 
 func (repository *Metadata) WithMetadata(ctx context.Context, work func(application.MetadataScope) error) error {
 	tx, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin server review metadata: %w", err)
 	}
-	defer dbexec.Rollback(tx)
+	defer dbapi.Rollback(tx)
 	if err := work(BindMetadata(tx)); err != nil {
 		return err
 	}
@@ -30,17 +30,17 @@ func (repository *Metadata) WithMetadata(ctx context.Context, work func(applicat
 	return nil
 }
 
-type metadataRecords struct{ executor dbexec.Executor }
+type metadataRecords struct{ executor dbapi.Executor }
 
 // BindMetadata joins a caller-owned transaction; the caller commits or rolls
 // back the complete business operation, including any source handoff.
-func BindMetadata(executor dbexec.Executor) application.MetadataScope {
+func BindMetadata(executor dbapi.Executor) application.MetadataScope {
 	return metadataRecords{executor: executor}
 }
 
 func (records metadataRecords) CurrentMetadata(ctx context.Context, itemID string) (application.MetadataDraft, error) {
 	var result application.MetadataDraft
-	err := records.executor.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, records.executor, `
 SELECT draft.metadata_json,draft.review_version FROM import_items draft
 JOIN import_items item ON item.id=draft.id
 WHERE draft.id=? AND item.state='REVIEW_PENDING'`, itemID).

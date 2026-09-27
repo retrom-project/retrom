@@ -25,19 +25,19 @@ type ScheduleReader interface {
 type (
 	Hashes       struct{ CRC32, MD5, SHA1, SHA256 *string }
 	FileEvidence struct {
-		Name, BlobID string
+		Name, FileRecord string
 		Hashes
-		ArchiveBlobID  *string
-		ArchiveOrdinal *int64
+		ArchiveFileRecord *string
+		ArchiveOrdinal    *int64
 	}
 )
 
 type (
 	DATBinding     struct{ ID, SnapshotJSON string }
 	ArcadeEvidence struct {
-		ArchiveBlobID, Name string
-		Ordinal, Size       int64
-		CRC32, SHA1         *string
+		ArchiveFileRecord, Name string
+		Ordinal, Size           int64
+		CRC32, SHA1             *string
 	}
 )
 
@@ -47,9 +47,9 @@ type ScheduleEvidenceReader interface {
 	Arcade(context.Context, Subject, string, string) ([]ArcadeEvidence, error)
 }
 type HashEvidence struct {
-	ID, RunID, Profile    string
-	BlobID, ArchiveBlobID *string
-	ArchiveOrdinal        *int64
+	ID, RunID, Profile            string
+	FileRecord, ArchiveFileRecord *string
+	ArchiveOrdinal                *int64
 	Hashes
 	Order int
 	Now   int64

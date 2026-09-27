@@ -3,7 +3,7 @@ package contentquery
 import (
 	"testing"
 
-	"retrom/internal/contentcapability"
+	contentcapability "retrom/internal/content/capability"
 )
 
 func TestPolicyScanClearsPreviousRowAndConstructsDerivedFacts(t *testing.T) {

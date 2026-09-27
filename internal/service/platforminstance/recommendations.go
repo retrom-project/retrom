@@ -1,7 +1,7 @@
 package platforminstance
 
 import (
-	"retrom/internal/contentprofile"
+	contentprofile "retrom/internal/content/profile"
 	"retrom/internal/platformcatalog"
 )
 

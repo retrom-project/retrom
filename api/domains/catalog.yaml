@@ -129,7 +129,7 @@ paths:
       - $ref: ../components/common.yaml#/components/parameters/GameID
     post:
       operationId: postAdminGameAsset
-      description: Replaces the selected current media slot and stages newly unreferenced payload for retention-aware GC.
+      description: Replaces the selected current media slot and queues newly unreferenced payload for asynchronous GC.
       parameters:
         - $ref: ../components/common.yaml#/components/parameters/IfMatch
         - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
@@ -144,7 +144,7 @@ paths:
       - $ref: '#/components/parameters/GameAssetKind'
     delete:
       operationId: deleteAdminGameAsset
-      description: Removes the selected media kind from the game's current media set and stages newly unreferenced payload for retention-aware GC.
+      description: Removes the selected media kind from the game's current media set and queues newly unreferenced payload for asynchronous GC.
       parameters:
         - $ref: ../components/common.yaml#/components/parameters/IfMatch
         - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
@@ -679,9 +679,7 @@ components:
       required:
         - impactDigest
         - registeredBytes
-        - exclusiveBytes
-        - sharedBytes
-        - blobCount
+        - fileCount
         - saveStateCount
         - assetCount
         - contentFileCount
@@ -694,13 +692,7 @@ components:
         registeredBytes:
           type: string
           pattern: ^[0-9]+$
-        exclusiveBytes:
-          type: string
-          pattern: ^[0-9]+$
-        sharedBytes:
-          type: string
-          pattern: ^[0-9]+$
-        blobCount:
+        fileCount:
           type: integer
           minimum: 0
         saveStateCount:

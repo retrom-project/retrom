@@ -14,14 +14,15 @@ import (
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/firmware"
 	firmwareservice "retrom/internal/service/firmware"
 
 	uploadpersistence "retrom/internal/persistence/uploads"
 
-	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
-	"retrom/internal/firmwaremanifest"
+	"retrom/internal/filestore"
+	firmwaremanifest "retrom/internal/firmware/manifest"
 	"retrom/internal/legacychecksum"
 	"retrom/internal/service/uploads"
 	"retrom/internal/testsupport"
@@ -58,7 +59,7 @@ VALUES('fixture','same_cdi',?,?,'STATIC','fixture.zip','REQUIRED',?,'retrom:test
 			if err != nil {
 				t.Fatal(err)
 			}
-			blobs, err := blobstore.Open(dir)
+			blobs, err := filestore.Open(dir)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -76,7 +77,7 @@ VALUES('fixture','same_cdi',?,?,'STATIC','fixture.zip','REQUIRED',?,'retrom:test
 				t.Fatal(err)
 			}
 			fileID := completeFirmwareUpload(t, ctx, database.SQL, upload, "fixture.zip", archive.Bytes())
-			service := firmwareservice.New(New(database.SQL), time.Now).WithBlobStore(blobs)
+			service := firmwareservice.New(firmwareservice.Dependencies{Repository: New(database.SQL), Files: blobs}, time.Now)
 			installed, err := service.Install(ctx, "fixture", 1, firmwareservice.InstallRequest{UploadFileID: fileID})
 			if test.status == "INVALID" {
 				var invalid *firmware.ArchiveContentError
@@ -84,7 +85,7 @@ VALUES('fixture','same_cdi',?,?,'STATIC','fixture.zip','REQUIRED',?,'retrom:test
 					t.Fatalf("missing archive diagnostics: %v", err)
 				}
 				var count int
-				if queryErr := database.SQL.QueryRowContext(ctx, "SELECT count(*) FROM bios_installations").Scan(&count); queryErr != nil || count != 0 {
+				if queryErr := dbapi.QueryRowContext(ctx, database.SQL, "SELECT count(*) FROM bios_installations").Scan(&count); queryErr != nil || count != 0 {
 					t.Fatalf("invalid archive was installed: %d/%v", count, queryErr)
 				}
 				return

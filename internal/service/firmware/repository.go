@@ -3,7 +3,6 @@ package firmware
 import (
 	"context"
 
-	"retrom/internal/blobstore"
 	"retrom/internal/firmware"
 	"retrom/internal/importing"
 )
@@ -24,7 +23,6 @@ type WriteScope struct {
 	Installations InstallationWriter
 	Retirements   SupersessionScope
 	Server        ServerRecords
-	Blobs         BlobRecords
 }
 type RequirementRecords interface {
 	Get(context.Context, string) (Requirement, bool, error)
@@ -55,9 +53,7 @@ type ServerExecution struct {
 	ImportID, JobID, WorkerID string
 	ExecutionNo, AtMS         int64
 }
-type BlobRecords interface {
-	Ensure(context.Context, blobstore.Metadata, int64) (string, error)
-}
+
 type ReleaseSignal interface{ Signal() }
 
 type Requirement struct {
@@ -69,18 +65,19 @@ type Requirement struct {
 	MD5, SHA1, SHA256, ArchiveMembersJSON              *string
 }
 type Upload struct {
-	ID, SessionID, RelativePath, State, BlobID, MD5, SHA1, SHA256 string
-	Size                                                          int64
+	ID, SessionID, RelativePath, State, FileRecord, MD5, SHA1, SHA256 string
+	Size                                                              int64
 }
 type ActiveInstallation struct {
-	ID, BlobID, Filename, MD5, SHA1, SHA256, Status string
-	Size, ValidatedVersion                          int64
+	ID, FileRecord, Filename, MD5, SHA1, SHA256, Status string
+	Size, ValidatedVersion                              int64
 }
 type InstallationWrite struct {
-	ID, RequirementID, BlobID, Filename, MD5, SHA1, SHA256, Status, SourceKind string
-	Size, RequirementVersion, AtMS                                             int64
-	DetailsJSON                                                                []byte
-	CandidateID                                                                *string
+	UploadSessionID                                                                string
+	ID, RequirementID, FileRecord, Filename, MD5, SHA1, SHA256, Status, SourceKind string
+	Size, RequirementVersion, AtMS                                                 int64
+	DetailsJSON                                                                    []byte
+	CandidateID                                                                    *string
 }
 type Consumption struct {
 	ID, UploadID, FileID, InstallationID string

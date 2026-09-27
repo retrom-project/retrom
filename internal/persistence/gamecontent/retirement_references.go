@@ -14,18 +14,18 @@ import (
 func retirementReferenceQuery(kind gamecontent.RetirementReferenceKind) string {
 	switch kind {
 	case gamecontent.RetirementSave:
-		return `SELECT game_id,id,'',payload_blob_id,screenshot_blob_id FROM save_states
+		return `SELECT game_id,id,'',payload_file_record,screenshot_file_record FROM save_states
 WHERE game_id=? ORDER BY id LIMIT ?`
 	case gamecontent.RetirementLaunchContent:
-		return `SELECT file.launch_session_id,file.logical_name,'',file.blob_id,NULL FROM launch_content_files file
+		return `SELECT file.launch_session_id,file.logical_name,'',file.file_record,NULL FROM launch_content_files file
 JOIN launch_sessions launch ON launch.id=file.launch_session_id WHERE launch.game_id=?
 ORDER BY file.launch_session_id,file.logical_name LIMIT ?`
 	case gamecontent.RetirementLaunchExternal:
-		return `SELECT file.launch_session_id,file.virtual_path,'',file.blob_id,NULL FROM launch_external_files file
+		return `SELECT file.launch_session_id,file.virtual_path,'',file.file_record,NULL FROM launch_external_files file
 JOIN launch_sessions launch ON launch.id=file.launch_session_id WHERE launch.game_id=?
 ORDER BY file.launch_session_id,file.virtual_path LIMIT ?`
 	case gamecontent.RetirementVariantFile:
-		return `SELECT file.game_variant_id,file.logical_name,file.role,file.blob_id,NULL FROM variant_files file
+		return `SELECT file.game_variant_id,file.logical_name,file.role,file.file_record,NULL FROM variant_files file
 JOIN game_variants variant ON variant.id=file.game_variant_id WHERE variant.game_id=?
 ORDER BY file.game_variant_id,file.role,file.logical_name LIMIT ?`
 	case gamecontent.RetirementVariantDependency:
@@ -56,7 +56,7 @@ func (records retirementRecords) References(
 		if err := rows.Scan(&reference.OwnerID, &reference.Key, &reference.Qualifier, &blob, &extra); err != nil {
 			return nil, fmt.Errorf("scan replacement reference: %w", err)
 		}
-		reference.BlobID, reference.ExtraBlobID = blob.String, extra.String
+		reference.FileRecord, reference.ExtraFileRecord = blob.String, extra.String
 		result = append(result, reference)
 	}
 	if err := rows.Err(); err != nil {
@@ -84,26 +84,26 @@ func (records retirementRecords) remove(
 	switch kind {
 	case gamecontent.RetirementSave:
 		return requireChanged(recordstore.DeleteSaveStates(ctx, records.executor, recordstore.Scope{
-			Where: `id=? AND game_id=? AND payload_blob_id=? AND COALESCE(screenshot_blob_id,'')=?`,
-			Args:  []any{ref.Key, gameID, ref.BlobID, ref.ExtraBlobID},
+			Where: `id=? AND game_id=? AND payload_file_record=? AND COALESCE(screenshot_file_record,'')=?`,
+			Args:  []any{ref.Key, gameID, ref.FileRecord, ref.ExtraFileRecord},
 		}))
 	case gamecontent.RetirementLaunchContent:
 		return requireChanged(recordstore.DeleteLaunchContentFiles(ctx, records.executor, recordstore.Scope{
-			Where: `launch_session_id=? AND logical_name=? AND blob_id=?
+			Where: `launch_session_id=? AND logical_name=? AND file_record=?
 AND launch_session_id IN (SELECT id FROM launch_sessions WHERE game_id=?)`,
-			Args: []any{ref.OwnerID, ref.Key, ref.BlobID, gameID},
+			Args: []any{ref.OwnerID, ref.Key, ref.FileRecord, gameID},
 		}))
 	case gamecontent.RetirementLaunchExternal:
 		return requireChanged(recordstore.DeleteLaunchExternalFiles(ctx, records.executor, recordstore.Scope{
-			Where: `launch_session_id=? AND virtual_path=? AND blob_id=?
+			Where: `launch_session_id=? AND virtual_path=? AND file_record=?
 AND launch_session_id IN (SELECT id FROM launch_sessions WHERE game_id=?)`,
-			Args: []any{ref.OwnerID, ref.Key, ref.BlobID, gameID},
+			Args: []any{ref.OwnerID, ref.Key, ref.FileRecord, gameID},
 		}))
 	case gamecontent.RetirementVariantFile:
 		return requireChanged(recordstore.DeleteVariantFiles(ctx, records.executor, recordstore.Scope{
-			Where: `game_variant_id=? AND logical_name=? AND role=? AND blob_id=?
+			Where: `game_variant_id=? AND logical_name=? AND role=? AND file_record=?
 AND game_variant_id IN (SELECT id FROM game_variants WHERE game_id=?)`,
-			Args: []any{ref.OwnerID, ref.Key, ref.Qualifier, ref.BlobID, gameID},
+			Args: []any{ref.OwnerID, ref.Key, ref.Qualifier, ref.FileRecord, gameID},
 		}))
 	case gamecontent.RetirementVariantDependency:
 		return requireChanged(recordstore.DeleteVariantDependencies(ctx, records.executor, recordstore.Scope{

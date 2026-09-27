@@ -11,18 +11,20 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/blobstore"
+	dbapi "retrom/internal/database"
+	"retrom/internal/filestore"
 	uploadservice "retrom/internal/service/uploads"
 )
 
 func TestFinalizationClaimFreezesWorkerLeaseAndDeadline(t *testing.T) {
 	fixture := newFinalizationFixture(t)
 	entered, release := make(chan struct{}), make(chan struct{})
-	fixture.service = uploadservice.New(New(fixture.database), finalizationBlobs{put: func(reader io.Reader) (blobstore.Metadata, error) {
-		close(entered)
-		<-release
-		return fixture.blobs.Put(reader)
-	}}, fixture.root, finalizationNow)
+	fixture.service = uploadservice.New(New(fixture.database),
+		finalizationBlobs{store: fixture.blobs, put: func(reader io.Reader) (filestore.Metadata, error) {
+			close(entered)
+			<-release
+			return fixture.blobs.Put(reader)
+		}}, fixture.root, finalizationNow)
 	session := fixture.upload(t, []byte("bytes"))
 	job := fixture.complete(t, session)
 	select {
@@ -32,7 +34,7 @@ func TestFinalizationClaimFreezesWorkerLeaseAndDeadline(t *testing.T) {
 	}
 	var worker sql.NullString
 	var lease, deadline sql.NullInt64
-	err := fixture.database.QueryRowContext(t.Context(), `SELECT worker_id,leased_until_ms,execution_deadline_at_ms FROM jobs WHERE id=?`, job).
+	err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT worker_id,leased_until_ms,execution_deadline_at_ms FROM jobs WHERE id=?`, job).
 		Scan(&worker, &lease, &deadline)
 	close(release)
 	awaitFinalizeState(t, fixture.database, job, "SUCCEEDED")
@@ -48,13 +50,14 @@ func TestFinalizationClaimFreezesWorkerLeaseAndDeadline(t *testing.T) {
 func TestFinalizationIOFailureAllowsSameJobRetry(t *testing.T) {
 	fixture := newFinalizationFixture(t)
 	failure := errors.New("temporary CAS write unavailable")
-	fixture.service = uploadservice.New(New(fixture.database), finalizationBlobs{put: func(io.Reader) (blobstore.Metadata, error) {
-		return blobstore.Metadata{}, failure
-	}}, fixture.root, finalizationNow)
+	fixture.service = uploadservice.New(New(fixture.database),
+		finalizationBlobs{store: fixture.blobs, put: func(io.Reader) (filestore.Metadata, error) {
+			return filestore.Metadata{}, failure
+		}}, fixture.root, finalizationNow)
 	job := fixture.complete(t, fixture.upload(t, []byte("bytes")))
 	awaitFinalizeState(t, fixture.database, job, "FAILED")
 	var retryable bool
-	if err := fixture.database.QueryRowContext(t.Context(), `SELECT error_retryable FROM jobs WHERE id=?`, job).Scan(&retryable); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT error_retryable FROM jobs WHERE id=?`, job).Scan(&retryable); err != nil {
 		t.Fatal(err)
 	}
 	if !retryable {
@@ -67,11 +70,12 @@ func TestFinalizationCorruptionRemovesOnlyFailedPart(t *testing.T) {
 	data := append(bytes.Repeat([]byte{'x'}, int(uploadservice.PartSize)), []byte("bytes")...)
 	session := fixture.upload(t, data)
 	var key string
-	if err := fixture.database.QueryRowContext(t.Context(), `SELECT storage_key FROM upload_parts WHERE upload_file_id=? AND part_no=1`, session.Files[0].ID).
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT storage_key FROM upload_parts WHERE upload_file_id=? AND part_no=1`, session.Files[0].ID).
 		Scan(&key); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(fixture.root, "tmp", "uploads", filepath.FromSlash(key)), []byte("wrong"), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(fixture.root, "tmp", "uploads", filepath.FromSlash(key)),
+		[]byte("wrong"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	job := fixture.complete(t, session)

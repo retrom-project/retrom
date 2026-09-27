@@ -4,13 +4,13 @@ package libraryimport
 
 import (
 	"context"
-	"database/sql"
 	"database/sql/driver"
 	"errors"
 	"reflect"
 	"strings"
 	"testing"
 
+	dbapi "retrom/internal/database"
 	repository "retrom/internal/persistence/libraryimport"
 	application "retrom/internal/service/libraryimport"
 	"retrom/internal/testsupport"
@@ -51,14 +51,16 @@ func TestImportAdmissionLateEventFailureRollsBackAllRecords(t *testing.T) {
 	admissions := application.NewImportAdmissions(repository.NewImportAdmissions(faulty), notification, service.tags,
 		application.ImportAdmissionOptions{Now: service.now})
 	result, err := admissions.Queue(t.Context(), request)
-	if !errors.Is(err, cause) || result != (Created{}) || eventHits != 1 || pendingWrites != 1 || len(notification.jobs) != 0 {
+	if !errors.Is(err, cause) || result != (Created{}) || eventHits != 1 || pendingWrites != 1 ||
+		len(notification.jobs) != 0 {
 		t.Fatalf("result=%+v err=%v events=%d writes=%d notify=%v", result, err, eventHits, pendingWrites, notification.jobs)
 	}
 	after := admissionDatabaseRows(t, service.database)
 	if !reflect.DeepEqual(before, after) {
 		t.Fatalf("failed admission changed database before=%v after=%v", before, after)
 	}
-	admissions = application.NewImportAdmissions(repository.NewImportAdmissions(service.database), notification, service.tags,
+	admissions = application.NewImportAdmissions(repository.NewImportAdmissions(service.database),
+		notification, service.tags,
 		application.ImportAdmissionOptions{Now: service.now})
 	result, err = admissions.Queue(t.Context(), request)
 	if err != nil || result.JobID == "" || len(notification.jobs) != 1 || notification.jobs[0] != result.JobID {
@@ -67,19 +69,23 @@ func TestImportAdmissionLateEventFailureRollsBackAllRecords(t *testing.T) {
 	assertAdmittedImportRecords(t, service.database, result)
 }
 
-func admissionDatabaseRows(t *testing.T, database *sql.DB) map[string]string {
+func admissionDatabaseRows(t *testing.T, database dbapi.DB) map[string]string {
 	t.Helper()
 	result := map[string]string{}
-	for _, table := range []string{"jobs", "job_events", "job_input_snapshots", "import_jobs", "import_items", "import_group_requests", "import_job_files", "upload_consumptions", "upload_sessions", "upload_files", "blobs", "blob_gc_candidates"} {
+	for _, table := range []string{
+		"jobs", "job_events", "job_input_snapshots", "import_jobs",
+		"import_items", "import_group_requests", "import_job_files", "upload_consumptions",
+		"upload_sessions", "upload_files",
+	} {
 		result[table] = approvalTableRows(t, database, table)
 	}
 	return result
 }
 
-func assertAdmittedImportRecords(t *testing.T, database *sql.DB, result Created) {
+func assertAdmittedImportRecords(t *testing.T, database dbapi.DB, result Created) {
 	t.Helper()
 	var jobs, imports, inputs, requests, files, consumptions, events, items int
-	err := database.QueryRowContext(t.Context(), `SELECT
+	err := dbapi.QueryRowContext(t.Context(), database, `SELECT
  (SELECT count(*) FROM jobs WHERE kind='IMPORT_GROUP'),(SELECT count(*) FROM import_jobs),
  (SELECT count(*) FROM job_input_snapshots WHERE job_id=?),(SELECT count(*) FROM import_group_requests),
  (SELECT count(*) FROM import_job_files),(SELECT count(*) FROM upload_consumptions),
@@ -88,8 +94,10 @@ func assertAdmittedImportRecords(t *testing.T, database *sql.DB, result Created)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if jobs != 1 || imports != 1 || inputs != 1 || requests != 1 || files != 1 || consumptions != 1 || events != 1 || items != 0 {
-		t.Fatalf("jobs/imports/input/request/files/consumption/events/items=%d/%d/%d/%d/%d/%d/%d/%d", jobs, imports, inputs, requests, files, consumptions, events, items)
+	if jobs != 1 || imports != 1 || inputs != 1 || requests != 1 || files != 1 ||
+		consumptions != 1 || events != 1 || items != 0 {
+		t.Fatalf("jobs/imports/input/request/files/consumption/events/items=%d/%d/%d/%d/%d/%d/%d/%d",
+			jobs, imports, inputs, requests, files, consumptions, events, items)
 	}
 }
 
@@ -108,7 +116,8 @@ func TestImportAdmissionAffectedRowsFailureKeepsCause(t *testing.T) {
 			return result, nil
 		},
 	})
-	admissions := application.NewImportAdmissions(repository.NewImportAdmissions(faulty), nil, service.tags, application.ImportAdmissionOptions{Now: service.now})
+	admissions := application.NewImportAdmissions(repository.NewImportAdmissions(faulty), nil,
+		service.tags, application.ImportAdmissionOptions{Now: service.now})
 	result, err := admissions.Queue(t.Context(), request)
 	if !errors.Is(err, cause) || errors.Is(err, ErrVersionConflict) || result != (Created{}) || hits != 1 {
 		t.Fatalf("result=%+v err=%v hits=%d", result, err, hits)
@@ -127,7 +136,9 @@ func TestImportAdmissionLostFenceRollsBack(t *testing.T) {
 			before := admissionDatabaseRows(t, service.database)
 			hits := 0
 			faulty := testsupport.OpenSQLFaultDatabase(t, service.database, testsupport.SQLFaultHooks{
-				AfterExec: func(_ context.Context, query string, _ []driver.NamedValue, result driver.Result) (driver.Result, error) {
+				AfterExec: func(_ context.Context, query string, _ []driver.NamedValue,
+					result driver.Result,
+				) (driver.Result, error) {
 					if strings.Contains(query, "UPDATE "+table+" SET version=version") {
 						hits++
 						return driver.RowsAffected(0), nil

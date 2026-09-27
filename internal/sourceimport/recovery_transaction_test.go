@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 
+	dbapi "retrom/internal/database"
 	repository "retrom/internal/persistence/sourceimport"
 	library "retrom/internal/service/libraryimport"
 	application "retrom/internal/service/sourceimport"
@@ -39,7 +40,7 @@ func TestRecoveryRollsBackSeededReviewAndParentOnLateFailure(t *testing.T) {
 		t.Fatalf("partial review recovery: before=%#v after=%#v", before, after)
 	}
 	var state string
-	if err := service.database.QueryRowContext(t.Context(), `SELECT state FROM jobs WHERE id='work'`).Scan(&state); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), service.database, `SELECT state FROM jobs WHERE id='work'`).Scan(&state); err != nil {
 		t.Fatal(err)
 	}
 	if state != "RUNNING" {

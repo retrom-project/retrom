@@ -6,7 +6,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
-	"database/sql"
 	"encoding/base64"
 	"fmt"
 	"os"
@@ -14,10 +13,15 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/blobstore"
+	"retrom/internal/testsupport/importfixture"
+
+	variantcomposition "retrom/internal/composition/gamevariant"
+
 	"retrom/internal/cleanup"
 	composition "retrom/internal/composition/launch"
+	dbapi "retrom/internal/database"
 	"retrom/internal/dependencies"
+	"retrom/internal/filestore"
 	"retrom/internal/launch"
 	"retrom/internal/libraryimport"
 	dependencypersistence "retrom/internal/persistence/dependencies"
@@ -35,7 +39,7 @@ const (
 )
 
 type assemblyFixture struct {
-	database *sql.DB
+	database dbapi.DB
 	source   *launch.Sources
 	service  *application.Service
 	importer *libraryimport.Service
@@ -70,7 +74,7 @@ VALUES(?,?,'assembly','Assembly','ADMIN','ENABLED',?,?)`,
 	if err := dependencyservice.New(deps, dependencypersistence.New(database.SQL)).Bootstrap(t.Context(), now()); err != nil {
 		t.Fatal(err)
 	}
-	blobs, err := blobstore.Open(dir)
+	blobs, err := filestore.Open(dir)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -83,14 +87,15 @@ VALUES(?,?,'assembly','Assembly','ADMIN','ENABLED',?,?)`,
 		t.Fatal(err)
 	}
 	source := launch.NewSources(blobs, credentials).WithRuntimeProvider(builder)
-	service := composition.New(database.SQL, source, "http://localhost:3000", now)
-	t.Cleanup(service.Close)
-	importer := libraryimport.New(database.SQL, now).WithBlobStore(blobs)
+	variants := variantcomposition.New(database.SQL, source, now)
+	service := composition.New(database.SQL, source, "http://localhost:3000", now, variants.Dispatch)
+	t.Cleanup(variants.Close)
+	importer := importfixture.New(t, database.SQL, blobs, importfixture.Options{Now: now})
 	itemID := uploadAssemblyROM(t, database.SQL, blobs, dir, importer, now)
 	return assemblyFixture{database.SQL, source, service, importer, itemID, now}
 }
 
-func uploadAssemblyROM(t *testing.T, database *sql.DB, blobs *blobstore.Store, dir string, importer *libraryimport.Service, now func() time.Time) string {
+func uploadAssemblyROM(t *testing.T, database dbapi.DB, blobs *filestore.Store, dir string, importer *libraryimport.Service, now func() time.Time) string {
 	t.Helper()
 	contents, err := os.ReadFile(filepath.Join("..", "..", "..", "testdata", "public-roms", "nes-smoke", "nes-smoke.nes"))
 	if err != nil {
@@ -119,13 +124,13 @@ func uploadAssemblyROM(t *testing.T, database *sql.DB, blobs *blobstore.Store, d
 		t.Fatal(err)
 	}
 	var item string
-	if err := database.QueryRowContext(t.Context(), `SELECT id FROM import_items WHERE import_job_id=?`, imported.ImportJobID).Scan(&item); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), database, `SELECT id FROM import_items WHERE import_job_id=?`, imported.ImportJobID).Scan(&item); err != nil {
 		t.Fatal(err)
 	}
 	return item
 }
 
-func waitAssemblyUpload(t *testing.T, database *sql.DB, id string) {
+func waitAssemblyUpload(t *testing.T, database dbapi.DB, id string) {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(t.Context(), 3*time.Second)
 	defer cancel()
@@ -133,7 +138,7 @@ func waitAssemblyUpload(t *testing.T, database *sql.DB, id string) {
 	defer ticker.Stop()
 	for {
 		var state string
-		if err := database.QueryRowContext(ctx, `SELECT state FROM jobs WHERE id=?`, id).Scan(&state); err != nil {
+		if err := dbapi.QueryRowContext(ctx, database, `SELECT state FROM jobs WHERE id=?`, id).Scan(&state); err != nil {
 			t.Fatal(err)
 		}
 		if state == "SUCCEEDED" {

@@ -7,7 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"retrom/internal/service/payloadrelease"
+	importcleanup "retrom/internal/service/libraryimport/payloadpolicy"
+
+	"retrom/internal/service/cleanupjobs"
 )
 
 type ReviewDiscards struct {
@@ -112,13 +114,12 @@ func persistReviewDiscard(
 	}); err != nil {
 		return fmt.Errorf("transition discarded review owner: %w", err)
 	}
-	if err := payloadrelease.NewScheduler(nil).Review(
-		ctx,
+	if err := importcleanup.Review(ctx, cleanupjobs.NewScheduler(nil),
 		scope.Payload,
-		payloadrelease.ReviewRelease{
+		importcleanup.ReviewRelease{
 			ItemID:   request.ItemID,
 			ImportID: change.ImportID,
-			Reason:   payloadrelease.ReasonImportDiscarded,
+			Reason:   cleanupjobs.ReasonImportDiscarded,
 			NowMS:    now,
 		},
 	); err != nil {

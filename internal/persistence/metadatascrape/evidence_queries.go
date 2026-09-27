@@ -6,13 +6,13 @@ import (
 	"fmt"
 
 	"retrom/internal/cleanup"
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/metadatascrape"
 )
 
-type EvidenceQueries struct{ executor dbexec.Executor }
+type EvidenceQueries struct{ executor dbapi.Executor }
 
-func BindEvidenceQueries(executor dbexec.Executor) *EvidenceQueries {
+func BindEvidenceQueries(executor dbapi.Executor) *EvidenceQueries {
 	return &EvidenceQueries{executor: executor}
 }
 

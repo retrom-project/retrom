@@ -2,8 +2,8 @@ package uploads
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
-	"database/sql"
 	"encoding/base64"
 	"fmt"
 	"io"
@@ -11,15 +11,17 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/blobstore"
+	dbapi "retrom/internal/database"
+
+	"retrom/internal/filestore"
 	uploadservice "retrom/internal/service/uploads"
 	"retrom/internal/store"
 )
 
 type finalizationFixture struct {
 	root     string
-	database *sql.DB
-	blobs    *blobstore.Store
+	database dbapi.DB
+	blobs    *filestore.Store
 	service  *uploadservice.Service
 }
 
@@ -37,7 +39,7 @@ func newFinalizationFixture(t *testing.T) *finalizationFixture {
 			t.Error(err)
 		}
 	})
-	blobs, err := blobstore.Open(root)
+	blobs, err := filestore.Open(root)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -51,9 +53,10 @@ func newFinalizationFixture(t *testing.T) *finalizationFixture {
 
 func (fixture *finalizationFixture) upload(t *testing.T, data []byte) uploadservice.Session {
 	t.Helper()
-	session, err := fixture.service.Create(t.Context(), uploadservice.CreateRequest{SourceType: "FILES", Files: []uploadservice.FileDeclaration{
-		{ClientFileID: "file", RelativePath: "fixture.bin", SizeBytes: int64(len(data))},
-	}})
+	session, err := fixture.service.Create(t.Context(),
+		uploadservice.CreateRequest{SourceType: "FILES", Files: []uploadservice.FileDeclaration{
+			{ClientFileID: "file", RelativePath: "fixture.bin", SizeBytes: int64(len(data))},
+		}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -90,9 +93,14 @@ func (fixture *finalizationFixture) complete(t *testing.T, session uploadservice
 }
 
 type finalizationBlobs struct {
-	put func(io.Reader) (blobstore.Metadata, error)
+	store *filestore.Store
+	put   func(io.Reader) (filestore.Metadata, error)
 }
 
-func (blobs finalizationBlobs) Put(reader io.Reader) (blobstore.Metadata, error) {
+func (blobs finalizationBlobs) Put(reader io.Reader) (filestore.Metadata, error) {
 	return blobs.put(reader)
+}
+
+func (blobs finalizationBlobs) CopyTo(ctx context.Context, value, directory, name string) (filestore.Metadata, error) {
+	return blobs.store.CopyTo(ctx, value, directory, name)
 }

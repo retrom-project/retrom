@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+
+	"retrom/internal/cleanup"
 )
 
 var candidateFieldNames = map[string]struct{}{
@@ -33,14 +35,29 @@ func (service *Service) ApplyCandidate(
 		!ValidCandidateFields(request.Fields) {
 		return ApplyCandidateResult{}, ErrInvalid
 	}
+	prepared, err := service.prepareAssets(ctx, request)
+	if err != nil {
+		return ApplyCandidateResult{}, err
+	}
+	request.prepared = prepared
+	committed := false
+	defer func() {
+		if !committed {
+			for _, asset := range prepared {
+				cleanup.Error("discard candidate media",
+					service.files.RemovePath(context.WithoutCancel(ctx), gameMediaDirectory(request.GameID, asset.AssetID)))
+			}
+		}
+	}()
 	now := service.now().UnixMilli()
 	var result ApplyCandidateResult
-	err := service.repository.WithCandidateApply(ctx, func(scope CandidateApplyScope) error {
+	err = service.repository.WithCandidateApply(ctx, func(scope CandidateApplyScope) error {
 		return service.applyCandidateInScope(ctx, scope, request, now, &result)
 	})
 	if err != nil {
 		return ApplyCandidateResult{}, fmt.Errorf("apply scrape candidate: %w", err)
 	}
+	committed = true
 	return result, nil
 }
 
@@ -79,7 +96,7 @@ func (service *Service) applyCandidateInScope(
 	if !changed {
 		return ErrVersionConflict
 	}
-	if err := scope.StageCandidates(ctx, result.ReplacedBlobIDs); err != nil {
+	if err := scope.StageCandidates(ctx, request.GameID, result.ReplacedFileRecords, now); err != nil {
 		return fmt.Errorf("stage replaced candidate assets: %w", err)
 	}
 	result.Version = request.ExpectedVersion + 1
@@ -94,13 +111,13 @@ func (service *Service) applyCandidateAssets(
 	now int64,
 	result *ApplyCandidateResult,
 ) error {
-	selected := selectedCandidateAssets(request.SelectedAssets)
+	selected := request.prepared
 	for _, kind := range selectedAssetKinds(request.SelectedAssets) {
-		blobIDs, err := scope.ReplaceGameAssets(ctx, request.GameID, kind)
+		fileRecords, err := scope.ReplaceGameAssets(ctx, request.GameID, kind)
 		if err != nil {
 			return fmt.Errorf("replace game assets: %w", ErrCandidateAsset)
 		}
-		result.ReplacedBlobIDs = append(result.ReplacedBlobIDs, blobIDs...)
+		result.ReplacedFileRecords = append(result.ReplacedFileRecords, fileRecords...)
 	}
 	if len(selected) == 0 {
 		return nil

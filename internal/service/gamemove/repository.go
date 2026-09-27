@@ -3,7 +3,7 @@ package gamemove
 import (
 	"context"
 
-	corevalidation "retrom/internal/corevalidation"
+	corevalidation "retrom/internal/core/validation"
 )
 
 // Repository exposes the reads and atomic writes needed by the game move

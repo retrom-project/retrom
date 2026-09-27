@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	"retrom/internal/cleanup"
 	"retrom/internal/hasheous"
 )
 
@@ -79,8 +80,18 @@ func (worker *MediaWorker) fetch(ctx context.Context, execution mediaExecution) 
 	if err != nil {
 		return AssetPublication{}, "MEDIA_BLOB_FAILED", fmt.Errorf("store media bytes: %w", err)
 	}
+	writeID, err := scheduleID()
+	if err != nil {
+		return AssetPublication{}, "MEDIA_FILE_FAILED", err
+	}
+	directory := "scrapes/" + execution.Asset.RunID + "/media/" + execution.Asset.ID + "/" + writeID
+	blob, err = worker.blobs.CopyTo(ctx, blob.Record, directory, "asset")
+	if err != nil {
+		cleanup.Error("remove incomplete media", worker.blobs.RemovePath(context.WithoutCancel(ctx), directory))
+		return AssetPublication{}, "MEDIA_FILE_FAILED", fmt.Errorf("fetch: %w", err)
+	}
 	publication := AssetPublication{
-		ID: execution.Asset.ID, Blob: blob, MediaType: data.MediaType,
+		ID: execution.Asset.ID, Directory: directory, Blob: blob, MediaType: data.MediaType,
 		Width: data.Width, Height: data.Height,
 	}
 	return publication, "", nil

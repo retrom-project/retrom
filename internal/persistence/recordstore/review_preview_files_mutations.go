@@ -4,11 +4,11 @@ import (
 	"context"
 	"database/sql"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 )
 
 func UpdateReviewPreviewFiles(
-	ctx context.Context, db dbexec.Executor, change Update,
+	ctx context.Context, db dbapi.Executor, change Update,
 ) (sql.Result, error) {
 	return updateRecords(
 		ctx,
@@ -31,7 +31,7 @@ WHERE candidate.preview_session_id=previous.preview_session_id AND candidate.rol
 candidate.logical_name=previous.logical_name`
 
 func DeleteReviewPreviewFiles(
-	ctx context.Context, db dbexec.Executor, scope Scope,
+	ctx context.Context, db dbapi.Executor, scope Scope,
 ) (sql.Result, error) {
 	return deleteRecords(
 		ctx,
@@ -49,7 +49,7 @@ SELECT CASE
 -- review_preview_files_immutable_delete
 WHEN (NOT EXISTS(
   SELECT 1 FROM review_preview_sessions preview JOIN import_items item ON item.id=preview.import_item_id
-  WHERE preview.id=previous.preview_session_id AND item.payload_state IN ('RELEASING','FAILED')
+  WHERE preview.id=previous.preview_session_id AND item.payload_state ='RELEASING'
 )) THEN 'immutable'
 ELSE '' END
 FROM previous`

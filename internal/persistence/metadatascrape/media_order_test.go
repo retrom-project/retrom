@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 
+	dbapi "retrom/internal/database"
 	jobpersistence "retrom/internal/persistence/jobs"
 	"retrom/internal/service/jobs"
 	"retrom/internal/service/metadatascrape"
@@ -16,7 +17,7 @@ func TestMediaRunSerializesFrozenPositions(t *testing.T) {
 	fixture := newMediaFixture(t, hasheous.AssetRef{ProviderAssetID: "first", Kind: "COVER", Path: "/api/v1/images/first"},
 		hasheous.AssetRef{ProviderAssetID: "second", Kind: "COVER", Ordinal: 1, Path: "/api/v1/images/second"})
 	var second string
-	if err := fixture.database.QueryRowContext(t.Context(), `SELECT media_fetch_job_id FROM scrape_candidate_assets WHERE ordinal=1`).Scan(&second); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT media_fetch_job_id FROM scrape_candidate_assets WHERE ordinal=1`).Scan(&second); err != nil {
 		t.Fatal(err)
 	}
 	entered, release, completed := make(chan struct{}), make(chan struct{}), make(chan error, 1)
@@ -33,7 +34,7 @@ func TestMediaRunSerializesFrozenPositions(t *testing.T) {
 		t.Fatal(err)
 	}
 	var attempt int
-	if err := fixture.database.QueryRowContext(t.Context(), `SELECT attempt_count FROM jobs WHERE id=?`, second).Scan(&attempt); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT attempt_count FROM jobs WHERE id=?`, second).Scan(&attempt); err != nil {
 		t.Fatal(err)
 	}
 	close(release)
@@ -56,7 +57,7 @@ func TestManualMediaRetryWaitsForCurrentlyRunningLaterPosition(t *testing.T) {
 	fixture := newMediaFixture(t, hasheous.AssetRef{ProviderAssetID: "first", Kind: "COVER", Path: "/api/v1/images/first"},
 		hasheous.AssetRef{ProviderAssetID: "second", Kind: "COVER", Ordinal: 1, Path: "/api/v1/images/second"})
 	var second string
-	if err := fixture.database.QueryRowContext(t.Context(), `SELECT media_fetch_job_id FROM scrape_candidate_assets WHERE ordinal=1`).Scan(&second); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT media_fetch_job_id FROM scrape_candidate_assets WHERE ordinal=1`).Scan(&second); err != nil {
 		t.Fatal(err)
 	}
 	entered, release, completed := make(chan struct{}), make(chan struct{}), make(chan error, 1)

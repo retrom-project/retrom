@@ -9,7 +9,7 @@ import (
 	"sort"
 	"strings"
 
-	"retrom/internal/corevalidation"
+	corevalidation "retrom/internal/core/validation"
 	"retrom/internal/importing"
 )
 
@@ -189,7 +189,7 @@ func (service *ImportPreparation) prepareArcadeArchive(
 		candidate.reason = "UNSUPPORTED_CONTENT_FORMAT"
 		return candidate, nil, nil
 	}
-	entries, err := importing.ScanZIP(ctx, service.blobs.Path(file.SHA256), importing.DefaultArchiveLimits())
+	entries, err := importing.ScanZIP(ctx, service.blobs.Path(file.FileRecord), importing.DefaultArchiveLimits())
 	if err != nil {
 		candidate.reason = ArchiveReason(err)
 		return candidate, nil, nil
@@ -199,7 +199,7 @@ func (service *ImportPreparation) prepareArcadeArchive(
 	for _, entry := range entries {
 		candidate.entryByName[entry.NormalizedPath] = entry
 	}
-	archive := &PreparedArchive{BlobID: file.BlobID, Entries: entries}
+	archive := &PreparedArchive{FileRecord: file.FileRecord, Entries: entries}
 	if datID == "" {
 		candidate.reason = "ARCADE_DAT_UNAVAILABLE"
 		return candidate, archive, nil
@@ -473,7 +473,7 @@ func (builder *arcadeGroupBuilder) recordExternalDependency(
 		File: companion.file, Role: "COMPANION", LogicalName: name + ".zip",
 	})
 	builder.validationFiles = append(builder.validationFiles, PreparedValidationFile{
-		Role: role, LogicalName: name + ".zip", BlobID: companion.file.BlobID,
+		Role: role, LogicalName: name + ".zip", FileRecord: companion.file.FileRecord,
 		SortOrder: len(builder.validationFiles),
 	})
 	builder.appendDependency(node, name, kind, state, requiredEntries)

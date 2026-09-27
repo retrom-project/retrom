@@ -8,7 +8,7 @@ import (
 	"net/url"
 	"testing"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 
 	"retrom/internal/authn"
 	"retrom/internal/testassert"
@@ -57,7 +57,7 @@ func seedImmersiveFavoriteAndSave(
 	t.Helper()
 	transaction, err := server.database.BeginTx(context.Background(), nil)
 	testassert.False(t, err != nil, err)
-	defer dbexec.Rollback(transaction)
+	defer dbapi.Rollback(transaction)
 	mustExecHTTPTest(t, transaction, `
 INSERT INTO favorite_games(profile_id,game_id,created_at_ms) VALUES(?,?,7000)
 `, profileID, favoriteGameID)
@@ -70,10 +70,11 @@ INSERT INTO favorite_folder_games(profile_id,folder_id,game_id,created_at_ms)
 VALUES(?,?,?,7000)
 `, profileID, folderID, favoriteGameID)
 	statePayload := []byte("state")
-	stateBlobID := seedImmersiveBlob(t, server, transaction, string(statePayload), "application/octet-stream", 7000)
-	screenshotBlobID := seedImmersiveBlob(t, server, transaction, "screenshot", "image/png", 7000)
+	stateFileRecord := seedImmersiveBlob(t, server, transaction, savedGameID,
+		string(statePayload), "application/octet-stream", 7000)
+	screenshotFileRecord := seedImmersiveBlob(t, server, transaction, savedGameID, "screenshot", "image/png", 7000)
 	var launchID string
-	err = transaction.QueryRowContext(t.Context(), `
+	err = dbapi.QueryRowContext(t.Context(), transaction, `
 SELECT launch.id
 FROM launch_sessions launch
 WHERE launch.game_id=?
@@ -81,14 +82,14 @@ ORDER BY launch.created_at_ms DESC LIMIT 1
 `, savedGameID).Scan(&launchID)
 	testassert.False(t, err != nil, err)
 	payloadDigest := sha256.Sum256(statePayload)
-	mustExecHTTPTest(t, transaction, `
+	mustCreateHTTPReferences(t, transaction, "save_states", `
 INSERT INTO save_states(
- id,profile_id,game_id,checkpoint_format,payload_blob_id,payload_sha256,payload_size_bytes,
- screenshot_blob_id,name,active_duration_ms,version,created_at_ms,updated_at_ms,deleted_at_ms,
+ id,profile_id,game_id,checkpoint_format,payload_file_record,payload_sha256,payload_size_bytes,
+ screenshot_file_record,name,active_duration_ms,version,created_at_ms,updated_at_ms,deleted_at_ms,
  source_launch_session_id,disc_index
 ) VALUES(?, ?, ?, 'test-checkpoint-v1', ?, ?, ?, ?, '第一章', 100, 1, 7000, 7000, NULL, ?, NULL)
-`, saveStateID, profileID, savedGameID, stateBlobID,
-		hex.EncodeToString(payloadDigest[:]), len(statePayload), screenshotBlobID, launchID)
+`, saveStateID, profileID, savedGameID, stateFileRecord,
+		hex.EncodeToString(payloadDigest[:]), len(statePayload), screenshotFileRecord, launchID)
 	mustCommitHTTPTest(t, transaction)
 }
 
@@ -112,7 +113,8 @@ func assertImmersiveSortedLibraries(t *testing.T, server *Server, recentGameID s
 	t.Helper()
 	firstResponse := immersiveGET(t, server, "/api/v1/immersive/libraries/all/games?limit=2")
 	first := decodeImmersiveResponse[immersiveLibraryResponse](t, firstResponse)
-	testassert.Falsef(t, firstResponse.Code != http.StatusOK, "all first = %d %s", firstResponse.Code, firstResponse.Body.String())
+	testassert.Falsef(t, firstResponse.Code != http.StatusOK, "all first = %d %s",
+		firstResponse.Code, firstResponse.Body.String())
 	testassert.Falsef(t, len(first.Items) != 2, "all first items = %#v", first.Items)
 	testassert.Falsef(t, first.Items[0].Title != "1994" || first.Items[0].TitleInitial != "1",
 		"numeric title = %#v", first.Items[0])
@@ -122,7 +124,8 @@ func assertImmersiveSortedLibraries(t *testing.T, server *Server, recentGameID s
 	secondResponse := immersiveGET(t, server, "/api/v1/immersive/libraries/all/games?limit=2&cursor="+
 		url.QueryEscape(*first.NextCursor))
 	second := decodeImmersiveResponse[immersiveLibraryResponse](t, secondResponse)
-	testassert.Falsef(t, secondResponse.Code != http.StatusOK, "all second = %d %s", secondResponse.Code, secondResponse.Body.String())
+	testassert.Falsef(t, secondResponse.Code != http.StatusOK, "all second = %d %s",
+		secondResponse.Code, secondResponse.Body.String())
 	testassert.Falsef(t, len(second.Items) != 1, "all second items = %#v", second.Items)
 	testassert.Falsef(t, second.Items[0].Title != "我的世界" || second.Items[0].TitleInitial != "W",
 		"Chinese title = %#v", second.Items[0])
@@ -156,9 +159,10 @@ func assertImmersiveFavoriteAndSaveLibraries(
 	actualSave := saves.Items[0].SaveStates[0]
 	testassert.Falsef(t, actualSave.SaveStateID != saveStateID, "save = %#v", actualSave)
 	testassert.Falsef(t, actualSave.SizeBytes != 5, "save size = %#v", actualSave)
-	testassert.Falsef(t, actualSave.ScreenshotURL == nil || *actualSave.ScreenshotURL != "/content/save-states/"+saveStateID+"/screenshot",
+	testassert.Falsef(t, actualSave.ScreenshotURL == nil ||
+		*actualSave.ScreenshotURL != "/content/save-states/"+saveStateID+"/screenshot",
 		"save screenshot = %#v", actualSave)
-	mustExecHTTPTest(t, server.database, "UPDATE save_states SET screenshot_blob_id=NULL WHERE id=?", saveStateID)
+	mustExecHTTPTest(t, server.database, "UPDATE save_states SET screenshot_file_record=NULL WHERE id=?", saveStateID)
 	withoutScreenshot := decodeImmersiveResponse[immersiveLibraryResponse](t,
 		immersiveGET(t, server, "/api/v1/immersive/libraries/saves/games"))
 	testassert.Falsef(t, withoutScreenshot.Items[0].SaveStates[0].ScreenshotURL != nil,
@@ -171,7 +175,8 @@ func assertImmersiveFavoriteAndSaveLibraries(
 func TestImmersiveDestinationsAndProfileLibraries(t *testing.T) {
 	server := newTestServer(t)
 	profileID := "01980000-0000-7000-8000-00000000f101"
-	mustExecHTTPTest(t, server.database, "INSERT INTO profiles(id,display_name,created_at_ms) VALUES(?,'Player',0)", profileID)
+	mustExecHTTPTest(t, server.database,
+		"INSERT INTO profiles(id,display_name,created_at_ms) VALUES(?,'Player',0)", profileID)
 	server.authenticator = fixedAuthenticator{Principal: authn.Principal{
 		UserID: "01980000-0000-7000-8000-00000000f102", ProfileID: profileID,
 		Username: "player", DisplayName: "Player", Role: "USER",

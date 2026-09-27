@@ -8,14 +8,14 @@ import (
 	"fmt"
 
 	"retrom/internal/cleanup"
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/recordstore"
 	application "retrom/internal/service/gamemove"
 )
 
-type Repository struct{ database *sql.DB }
+type Repository struct{ database dbapi.DB }
 
-func New(database *sql.DB) *Repository { return &Repository{database: database} }
+func New(database dbapi.DB) *Repository { return &Repository{database: database} }
 
 func nullableString(value *string) any {
 	if value == nil {
@@ -29,7 +29,7 @@ func (repository *Repository) ImpactSubject(
 ) (application.ImpactSubject, error) {
 	var subject application.ImpactSubject
 	var datID sql.NullString
-	err := repository.database.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, repository.database, `
 SELECT g.id,
 g.platform_instance_id,
 src.platform_id,
@@ -89,7 +89,7 @@ func (repository *Repository) Variant(
 	ctx context.Context, query application.VariantQuery,
 ) (application.VariantState, bool, error) {
 	var state application.VariantState
-	err := repository.database.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, repository.database, `
 SELECT status,
 compatibility_code
 FROM game_variants
@@ -111,7 +111,7 @@ AND dat_version_id IS ?
 
 func (repository *Repository) QueuedJobState(ctx context.Context, jobID string) (string, error) {
 	var state string
-	if err := repository.database.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, repository.database, `
 SELECT state
 FROM jobs
 WHERE id=?
@@ -125,7 +125,7 @@ func (repository *Repository) LatestScrapeRun(
 	ctx context.Context, gameID string,
 ) (string, bool, error) {
 	var runID string
-	err := repository.database.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, repository.database, `
 SELECT r.id
 FROM metadata_scrape_runs r
 JOIN games g ON g.id=r.game_id AND g.status='PUBLISHED'
@@ -193,7 +193,7 @@ func (repository *Repository) WithMove(
 	if err != nil {
 		return fmt.Errorf("begin game move: %w", err)
 	}
-	defer dbexec.Rollback(transaction)
+	defer dbapi.Rollback(transaction)
 	if err := work(moveScope{transaction: transaction}); err != nil {
 		return err
 	}
@@ -203,7 +203,7 @@ func (repository *Repository) WithMove(
 	return nil
 }
 
-type moveScope struct{ transaction *sql.Tx }
+type moveScope struct{ transaction dbapi.Tx }
 
 func (scope moveScope) UpdateGame(
 	ctx context.Context, gameID, targetID string, expectedVersion, nowMS int64,

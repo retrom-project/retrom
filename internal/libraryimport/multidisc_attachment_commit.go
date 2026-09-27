@@ -4,14 +4,13 @@ import (
 	"context"
 	"errors"
 
-	composition "retrom/internal/composition/libraryimport"
 	application "retrom/internal/service/libraryimport"
 )
 
 func applicationMultiDiscAttachmentFile(file attachedMultiDiscFile) application.MultiDiscAttachmentFile {
 	return application.MultiDiscAttachmentFile{
 		Role: file.role, LogicalName: file.logicalName, UploadFileID: file.uploadFileID,
-		BlobID: file.blobID, BlobSHA: file.blobSHA, BlobSize: file.blobSize, SortOrder: file.sortOrder,
+		FileRecord: file.fileRecord, BlobSHA: file.blobSHA, BlobSize: file.blobSize, SortOrder: file.sortOrder,
 	}
 }
 
@@ -30,11 +29,14 @@ func (service *Service) commitAcceptedMultiDiscAttachment(
 	ctx context.Context,
 	candidate *multiDiscAttachmentCandidate,
 ) error {
+	if err := service.prepareMultiDiscDirectory(ctx, candidate); err != nil {
+		return err
+	}
 	baseFiles := make([]application.MultiDiscAttachmentFile, 0, len(candidate.baseFiles))
 	for _, file := range candidate.baseFiles {
 		baseFiles = append(baseFiles, applicationMultiDiscAttachmentFile(file))
 	}
-	err := composition.NewMultiDiscAttachmentCommits(service.database, service.now).CommitAccepted(
+	err := service.attachmentCommits.CommitAccepted(
 		ctx,
 		application.MultiDiscAttachmentCommitRequest{
 			Input: candidate.input, JobID: candidate.jobID, WorkerID: candidate.workerID,
@@ -105,7 +107,7 @@ func (service *Service) finishRejectedMultiDiscAttachment(
 	code string,
 	cause error,
 ) {
-	_ = composition.NewMultiDiscAttachmentTerminals(service.database, service.now).Reject(
+	_ = service.attachmentTerminals.Reject(
 		ctx,
 		application.MultiDiscAttachmentRejectRequest{
 			Target: applicationMultiDiscAttachmentTarget(candidate), Actor: multiDiscAttachmentActor(ctx),
@@ -120,7 +122,7 @@ func (service *Service) finishRetryableMultiDiscAttachment(
 	code string,
 	_ error,
 ) {
-	result, err := composition.NewMultiDiscAttachmentTerminals(service.database, service.now).Retry(
+	result, err := service.attachmentTerminals.Retry(
 		ctx,
 		application.MultiDiscAttachmentRetryRequest{
 			Target: applicationMultiDiscAttachmentTarget(candidate), Code: code,
@@ -132,14 +134,14 @@ func (service *Service) finishRetryableMultiDiscAttachment(
 }
 
 func (service *Service) SyncMultiDiscAttachmentCancellation(ctx context.Context, jobID string) {
-	_ = composition.NewMultiDiscAttachmentTerminals(service.database, service.now).SyncCancellation(ctx, jobID)
+	_ = service.attachmentTerminals.SyncCancellation(ctx, jobID)
 }
 
 func (service *Service) finishMultiDiscAttachmentCancellation(
 	ctx context.Context,
 	candidate multiDiscAttachmentCandidate,
 ) bool {
-	result, err := composition.NewMultiDiscAttachmentTerminals(service.database, service.now).FinishCancellation(
+	result, err := service.attachmentTerminals.FinishCancellation(
 		ctx,
 		application.MultiDiscAttachmentCancellationRequest{
 			Target: applicationMultiDiscAttachmentTarget(candidate),

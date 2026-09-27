@@ -19,7 +19,7 @@ func TestProductCreatorRejectsFinalInputChanges(t *testing.T) {
 		{"core selection", func(s *ProductSnapshot) { s.Source.CoreID = "other" }},
 		{"provider upgrade", func(s *ProductSnapshot) { s.Source.BundleSHA256 = "other" }},
 		{"source replacement", func(s *ProductSnapshot) { s.Source.SourceManifestDigest = "other" }},
-		{"content bytes", func(s *ProductSnapshot) { s.GameFiles[0].BlobID = "other" }},
+		{"content bytes", func(s *ProductSnapshot) { s.GameFiles[0].FileRecord = "other" }},
 		{"variant evidence", func(s *ProductSnapshot) { s.Source.DependencySnapshot = "different" }},
 		{"target contract", func(s *ProductSnapshot) { s.Source.ReadFormats = []string{"changed"} }},
 	} {
@@ -27,8 +27,10 @@ func TestProductCreatorRejectsFinalInputChanges(t *testing.T) {
 			creator, repository, _, command := productFixture(t)
 			test.change(&repository.current)
 			result, err := creator.Create(t.Context(), command)
-			if !errors.Is(err, ErrBlocked) || result.Created.LaunchID != "" || len(repository.writes) != 0 || len(repository.receipts) != 0 {
-				t.Fatalf("launch=%q error=%v writes=%d receipts=%d", result.Created.LaunchID, err, len(repository.writes), len(repository.receipts))
+			if !errors.Is(err, ErrBlocked) || result.Created.LaunchID != "" ||
+				len(repository.writes) != 0 || len(repository.receipts) != 0 {
+				t.Fatalf("launch=%q error=%v writes=%d receipts=%d", result.Created.LaunchID, err,
+					len(repository.writes), len(repository.receipts))
 			}
 		})
 	}
@@ -39,9 +41,12 @@ func TestProductCreatorAllowsUnrelatedMetadataVersion(t *testing.T) {
 	repository.current.Source.GameVersion += 7
 	result, err := creator.Create(t.Context(), command)
 	if err != nil || result.Status != 201 || len(repository.writes) != 1 || len(repository.receipts) != 1 {
-		t.Fatalf("status=%d error=%v writes=%d receipts=%d", result.Status, err, len(repository.writes), len(repository.receipts))
+		t.Fatalf("status=%d error=%v writes=%d receipts=%d", result.Status, err,
+			len(repository.writes), len(repository.receipts))
 	}
-	if result.Created.BootstrapExpiresAtMS != 301_000 || result.Created.HardExpiresAtMS != 86_401_000 || bytes.Contains(result.Body, []byte(result.Created.Capability)) {
+	if result.Created.BootstrapExpiresAtMS != 301_000 ||
+		result.Created.HardExpiresAtMS != 86_401_000 || bytes.Contains(result.Body,
+		[]byte(result.Created.Capability)) {
 		t.Fatal("product receipt expired incorrectly or persisted capability")
 	}
 }

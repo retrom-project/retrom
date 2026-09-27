@@ -18,8 +18,8 @@ import (
 	"golang.org/x/text/unicode/norm"
 
 	"retrom/internal/cleanup"
+	"retrom/internal/core/rpgmaker/nativeweb"
 	"retrom/internal/launch"
-	"retrom/internal/rpgmaker/nativeweb"
 	"retrom/internal/service/isolation"
 	"retrom/internal/service/saves"
 )
@@ -74,7 +74,14 @@ func (server *Server) rpgBootstrapPage(
 	}
 	inspected, err := server.rpgIsolation.InspectBootstrap(request.Context(), access.LaunchID, access.Origin)
 	if err != nil || inspected.ContentFormat != "RPG_MAKER_PROJECT" {
-		writeError(writer, request, http.StatusGone, "RPG_RUNTIME_BOOTSTRAP_EXPIRED", "RPG Maker 启动凭据已过期", map[string]any{})
+		writeError(
+			writer,
+			request,
+			http.StatusGone,
+			"RPG_RUNTIME_BOOTSTRAP_EXPIRED",
+			"RPG Maker 启动凭据已过期",
+			map[string]any{},
+		)
 		return
 	}
 	nonce, err := rpgRuntimeNonce()
@@ -114,7 +121,14 @@ func (server *Server) rpgBootstrapConsume(
 		request.Context(), access.LaunchID, access.Origin, body.Ticket,
 	)
 	if err != nil || consumed.ContentFormat != "RPG_MAKER_PROJECT" {
-		writeError(writer, request, http.StatusGone, "RPG_RUNTIME_BOOTSTRAP_EXPIRED", "RPG Maker 启动凭据已过期", map[string]any{})
+		writeError(
+			writer,
+			request,
+			http.StatusGone,
+			"RPG_RUNTIME_BOOTSTRAP_EXPIRED",
+			"RPG Maker 启动凭据已过期",
+			map[string]any{},
+		)
 		return
 	}
 	setIsolatedRuntimeCookie(writer, consumed, credential)
@@ -254,7 +268,7 @@ func (server *Server) rpgRuntimeProject(
 		http.NotFound(writer, request)
 		return
 	}
-	server.serveRPGBlob(writer, request, content.Digest, mediaType, "private, no-cache")
+	server.serveRPGBlob(writer, request, content.FileRecord, content.Digest, mediaType, "private, no-cache")
 }
 
 func isRPGServiceWorkerRequest(request *http.Request) bool {
@@ -271,7 +285,7 @@ func (server *Server) rpgRuntimeRestorePayload(
 		http.NotFound(writer, request)
 		return
 	}
-	digest, err := server.saveService.IsolatedStateDigest(request.Context(), access.LaunchID)
+	digest, err := server.saveService.IsolatedStateFile(request.Context(), access.LaunchID)
 	if err != nil {
 		status := http.StatusConflict
 		code := "RPG_CHECKPOINT_INCOMPATIBLE"
@@ -281,11 +295,11 @@ func (server *Server) rpgRuntimeRestorePayload(
 		writeError(writer, request, status, code, "RPG Maker 恢复数据不可用", map[string]any{})
 		return
 	}
-	server.serveRPGBlob(writer, request, digest, "application/octet-stream", "private, no-store")
+	server.serveRPGBlob(writer, request, digest.FileRecord, digest.Digest, "application/octet-stream", "private, no-store")
 }
 
 func (server *Server) readRPGContent(content launch.ContentView, maximum int64) ([]byte, error) {
-	file, err := server.blobs.OpenDigest(content.Digest)
+	file, err := server.blobs.OpenRecord(content.FileRecord)
 	if err != nil {
 		return nil, fmt.Errorf("open RPG entry: %w", err)
 	}
@@ -304,14 +318,21 @@ func (server *Server) readRPGContent(content launch.ContentView, maximum int64) 
 func (server *Server) serveRPGBlob(
 	writer http.ResponseWriter,
 	request *http.Request,
-	digest, mediaType, cacheControl string,
+	id, digest, mediaType, cacheControl string,
 ) {
 	if rejectMultipleRanges(writer, request) {
 		return
 	}
-	file, err := server.blobs.OpenDigest(digest)
+	file, err := server.blobs.OpenRecord(id)
 	if err != nil {
-		writeError(writer, request, http.StatusServiceUnavailable, "CAS_UNAVAILABLE", "RPG Maker 内容不可用", map[string]any{})
+		writeError(
+			writer,
+			request,
+			http.StatusServiceUnavailable,
+			"FILE_STORAGE_UNAVAILABLE",
+			"RPG Maker 内容不可用",
+			map[string]any{},
+		)
 		return
 	}
 	defer func() { cleanup.Error("close", file.Close()) }()

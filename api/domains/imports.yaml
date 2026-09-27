@@ -24,7 +24,7 @@ paths:
                 $ref: '#/components/schemas/ImportBatchDiscard'
     post:
       operationId: postAdminImportBatchDiscard
-      description: Idempotently stop this batch and discard all unpublished content, including rejected inputs. Published games and shared blobs remain protected. One durable disposition survives page closure and process restarts; failed reconciliation can be retried here. Payload release and delayed GC use their existing workers.
+      description: Idempotently stop this batch and discard all unpublished content, including rejected inputs. Published games retain their independently owned files. One durable disposition survives page closure and process restarts; failed reconciliation can be retried here. Domain cleanup and immediate file deletion use durable workers.
       parameters:
         - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
       requestBody:
@@ -138,7 +138,7 @@ paths:
           $ref: ../components/common.yaml#/components/responses/JSONResponse
     post:
       operationId: postAdminImport
-      description: Performs bounded admission, persists an immutable IMPORT_GROUP input, and returns 202 while archive inspection, project detection, hashing, CAS materialization, and grouping continue in the background. Admission reads and fences the upload, complete file set, target and tags in one transaction. Invalid or stale input returns 409; storage failures return 500. Content-dependent failures are reported by the ImportJob and JobEvent projections rather than holding this request open.
+      description: Performs bounded admission, persists an immutable IMPORT_GROUP input, and returns 202 while archive inspection, project detection, hashing, independent file materialization, and grouping continue in the background. Admission reads and fences the upload, complete file set, target and tags in one transaction. Invalid or stale input returns 409; storage failures return 500. Content-dependent failures are reported by the ImportJob and JobEvent projections rather than holding this request open.
       parameters:
         - $ref: ../components/common.yaml#/components/parameters/IdempotencyKey
       requestBody:

@@ -49,15 +49,20 @@ func (memory *handoffMemory) SaveMetadata(_ context.Context, change library.Meta
 func handoffClock() time.Time { return time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC) }
 func readyHandoffMemory() *handoffMemory {
 	return &handoffMemory{before: ReviewHandoffSnapshot{
-		Identity: ReviewHandoffRequest{ItemID: "item", ImportID: "import", JobID: "job", LibraryJobID: "library-job", LibraryItemID: "library-item", ExecutionNo: 2, Attempt: 3, WorkerID: "worker"},
-		State:    "VALIDATING", ImportState: "RUNNING", JobState: "RUNNING", Version: 4, ImportVersion: 8,
+		Identity: ReviewHandoffRequest{
+			ItemID: "item", ImportID: "import", JobID: "job",
+			LibraryJobID: "library-job", LibraryItemID: "library-item", ExecutionNo: 2, Attempt: 3,
+			WorkerID: "worker",
+		},
+		State: "VALIDATING", ImportState: "RUNNING", JobState: "RUNNING", Version: 4, ImportVersion: 8,
 		LeaseUntilMS: handoffClock().UnixMilli() + 60_000, DeadlineMS: handoffClock().UnixMilli() + 120_000,
-		Metadata: library.ServerMetadata{Title: "Frozen title"}, Warnings: []map[string]any{{"code": "SOURCE_WARNING", "field": "file"}},
+		Metadata: library.ServerMetadata{Title: "Frozen title"},
+		Warnings: []map[string]any{{"code": "SOURCE_WARNING", "field": "file"}},
 	}, draft: library.MetadataDraft{Version: 1, MetadataJSON: `{"title":"Original"}`}}
 }
 
 func newHandoffMemoryService(memory *handoffMemory) *ReviewHandoff {
-	return NewReviewHandoff(memory, library.NewMetadataSeeder(nil, handoffClock), handoffClock)
+	return NewReviewHandoff(memory, library.NewMetadataSeeder(nil, handoffClock), nil, handoffClock)
 }
 
 func TestReviewHandoffSeedsFrozenMetadataInTheSameScope(t *testing.T) {
@@ -65,22 +70,29 @@ func TestReviewHandoffSeedsFrozenMetadataInTheSameScope(t *testing.T) {
 	memory := readyHandoffMemory()
 	year := 1900
 	memory.before.Metadata.ReleaseYear = &year
-	memory.before.Warnings = append(memory.before.Warnings, map[string]any{"code": "FIELD_VALUE_INVALID", "field": "releaseYear"})
+	memory.before.Warnings = append(memory.before.Warnings,
+		map[string]any{"code": "FIELD_VALUE_INVALID", "field": "releaseYear"})
 	beforeWarnings := append([]map[string]any(nil), memory.before.Warnings...)
 	if err := newHandoffMemoryService(memory).Complete(t.Context(), memory.before.Identity); err != nil {
 		t.Fatal(err)
 	}
-	if memory.writes != 1 || memory.seeds != 1 || memory.seeded.ItemID != "library-item" || memory.seeded.SearchText != "frozen title" {
+	if memory.writes != 1 || memory.seeds != 1 || memory.seeded.ItemID != "library-item" ||
+		memory.seeded.SearchText != "frozen title" {
 		t.Fatalf("handoff writes=%d seeds=%d metadata=%#v", memory.writes, memory.seeds, memory.seeded)
 	}
-	if !reflect.DeepEqual(memory.change.Warnings, beforeWarnings) || !reflect.DeepEqual(memory.before.Warnings, beforeWarnings) || memory.change.NowMS != handoffClock().UnixMilli() {
+	if !reflect.DeepEqual(memory.change.Warnings, beforeWarnings) ||
+		!reflect.DeepEqual(memory.before.Warnings, beforeWarnings) ||
+		memory.change.NowMS != handoffClock().UnixMilli() {
 		t.Fatalf("handoff warnings or clock changed: %#v", memory.change)
 	}
 }
 
 func TestReviewHandoffRejectsStaleSourceAndExecutionBeforeSeeding(t *testing.T) {
 	t.Parallel()
-	for _, name := range []string{"execution", "attempt", "library identity", "state", "version", "overflow", "parent version", "parent overflow", "parent state", "job state", "lease", "deadline"} {
+	for _, name := range []string{
+		"execution", "attempt", "library identity", "state", "version",
+		"overflow", "parent version", "parent overflow", "parent state", "job state", "lease", "deadline",
+	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			memory := readyHandoffMemory()
@@ -150,7 +162,8 @@ func TestReviewHandoffPreservesFailuresAndSkipsRepeatedSeeding(t *testing.T) {
 	memory := readyHandoffMemory()
 	memory.before.State = "REVIEW_PENDING"
 	memory.before.JobState = "SUCCEEDED"
-	if err := newHandoffMemoryService(memory).Complete(t.Context(), memory.before.Identity); err != nil || memory.seeds != 0 || memory.writes != 0 {
+	if err := newHandoffMemoryService(memory).Complete(t.Context(),
+		memory.before.Identity); err != nil || memory.seeds != 0 || memory.writes != 0 {
 		t.Fatalf("repeated handoff: %v writes=%d seeds=%d", err, memory.writes, memory.seeds)
 	}
 }
@@ -160,7 +173,8 @@ func TestReviewHandoffCompletesAlreadyCreatedReviewDuringCancellation(t *testing
 	memory := readyHandoffMemory()
 	memory.before.ImportState = "CANCEL_REQUESTED"
 	memory.before.JobState = "CANCEL_REQUESTED"
-	if err := newHandoffMemoryService(memory).Complete(t.Context(), memory.before.Identity); err != nil || memory.writes != 1 {
+	if err := newHandoffMemoryService(memory).Complete(t.Context(),
+		memory.before.Identity); err != nil || memory.writes != 1 {
 		t.Fatalf("cancelled in-flight handoff lost review: %v", err)
 	}
 }

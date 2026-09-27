@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
-	"database/sql"
 	"encoding/base64"
 	"fmt"
 	"path/filepath"
@@ -15,14 +14,15 @@ import (
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
 	uploadpersistence "retrom/internal/persistence/uploads"
 
 	dependencypersistence "retrom/internal/persistence/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 
-	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	"retrom/internal/dependencies"
+	"retrom/internal/filestore"
 	"retrom/internal/service/uploads"
 	"retrom/internal/store"
 	"retrom/internal/testsupport"
@@ -32,10 +32,11 @@ func TestQueuedImportGroupReturnsBeforePreparationAndPublishesProgress(t *testin
 	ctx := context.Background()
 	database, blobs, dataDir := openImportGroupFixture(t, ctx)
 	uploadID := completeImportGroupUpload(t, ctx, database.SQL, blobs, dataDir, onsProjectArchive(t))
-	service := New(database.SQL, time.Now).WithBlobStore(blobs)
+	service := newTestImporter(t, database.SQL, blobs, testImportOptions{Now: time.Now})
 	t.Cleanup(service.Close)
 	release := gateImportWorker(t, service)
 
+	service.Start()
 	created, err := service.QueueCreate(ctx, CreateRequest{
 		UploadID: uploadID, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(
 			t, database.SQL, "ons/onscripter_yuri",
@@ -50,7 +51,7 @@ func TestQueuedImportGroupReturnsBeforePreparationAndPublishesProgress(t *testin
 	}
 	var importState, jobState, bindingState, inputScopeType string
 	var itemCount int
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT import.state,job.state,json_extract(import.config_snapshot_json,'$.bindingState'),
  (SELECT count(*) FROM import_items WHERE import_job_id=import.id),
  json_extract(input.input_json,'$.scope.type')
@@ -72,7 +73,7 @@ WHERE import.id=?
 
 	release()
 	waitForImportGroupTerminal(t, ctx, database.SQL, created.JobID, "SUCCEEDED")
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT state,total_item_count FROM import_jobs WHERE id=?
 `, created.ImportJobID).Scan(&importState, &itemCount); err != nil {
 		t.Fatal(err)
@@ -105,8 +106,9 @@ func TestQueuedImportGroupReportsInvalidProjectAsTerminalFailure(t *testing.T) {
 	ctx := context.Background()
 	database, blobs, dataDir := openImportGroupFixture(t, ctx)
 	uploadID := completeImportGroupUpload(t, ctx, database.SQL, blobs, dataDir, invalidONSArchive(t))
-	service := New(database.SQL, time.Now).WithBlobStore(blobs)
+	service := newTestImporter(t, database.SQL, blobs, testImportOptions{Now: time.Now})
 	t.Cleanup(service.Close)
+	service.Start()
 	created, err := service.QueueCreate(ctx, CreateRequest{
 		UploadID: uploadID, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(
 			t, database.SQL, "ons/onscripter_yuri",
@@ -118,7 +120,7 @@ func TestQueuedImportGroupReportsInvalidProjectAsTerminalFailure(t *testing.T) {
 	}
 	waitForImportGroupTerminal(t, ctx, database.SQL, created.JobID, "FAILED")
 	var importState, errorCode string
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT state,last_error_code FROM import_jobs WHERE id=?
 `, created.ImportJobID).Scan(&importState, &errorCode); err != nil {
 		t.Fatal(err)
@@ -132,9 +134,10 @@ func TestQueuedImportGroupCanBeCancelledBeforePreparation(t *testing.T) {
 	ctx := context.Background()
 	database, blobs, dataDir := openImportGroupFixture(t, ctx)
 	uploadID := completeImportGroupUpload(t, ctx, database.SQL, blobs, dataDir, onsProjectArchive(t))
-	service := New(database.SQL, time.Now).WithBlobStore(blobs)
+	service := newTestImporter(t, database.SQL, blobs, testImportOptions{Now: time.Now})
 	t.Cleanup(service.Close)
 	release := gateImportWorker(t, service)
+	service.Start()
 	created, err := service.QueueCreate(ctx, onsImportGroupRequest(t, database.SQL, uploadID))
 	if err != nil {
 		t.Fatal(err)
@@ -145,7 +148,7 @@ func TestQueuedImportGroupCanBeCancelledBeforePreparation(t *testing.T) {
 	}
 	var importState, jobState string
 	var itemCount int
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT import.state,job.state,(SELECT count(*) FROM import_items WHERE import_job_id=import.id)
 FROM import_jobs import JOIN jobs job ON job.scope_id=import.id AND job.kind='IMPORT_GROUP'
 WHERE import.id=?
@@ -162,8 +165,9 @@ func TestRunningImportGroupIsRecoveredAfterProcessRestart(t *testing.T) {
 	ctx := context.Background()
 	database, blobs, dataDir := openImportGroupFixture(t, ctx)
 	uploadID := completeImportGroupUpload(t, ctx, database.SQL, blobs, dataDir, onsProjectArchive(t))
-	original := New(database.SQL, time.Now).WithBlobStore(blobs)
+	original := newTestImporter(t, database.SQL, blobs, testImportOptions{Now: time.Now})
 	release := gateImportWorker(t, original)
+	original.Start()
 	created, err := original.QueueCreate(ctx, onsImportGroupRequest(t, database.SQL, uploadID))
 	if err != nil {
 		t.Fatal(err)
@@ -174,13 +178,14 @@ func TestRunningImportGroupIsRecoveredAfterProcessRestart(t *testing.T) {
 	if _, err := database.SQL.ExecContext(ctx, `UPDATE jobs SET leased_until_ms=1 WHERE id=?`, created.JobID); err != nil {
 		t.Fatal(err)
 	}
-	recovered := New(database.SQL, time.Now).WithBlobStore(blobs)
+	recovered := newTestImporter(t, database.SQL, blobs, testImportOptions{Now: time.Now})
 	t.Cleanup(recovered.Close)
 	recovered.RecoverImportGroupJobs(ctx)
+	recovered.Start()
 	waitForImportGroupTerminal(t, ctx, database.SQL, created.JobID, "SUCCEEDED")
 	var importState string
 	var attempts int
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT import.state,job.attempt_count
 FROM import_jobs import JOIN jobs job ON job.scope_id=import.id AND job.kind='IMPORT_GROUP'
 WHERE import.id=?
@@ -220,8 +225,9 @@ func TestQueuedKiriKiriAndRPGMakerProjectsResolveInBackground(t *testing.T) {
 			uploadID := completeProjectUpload(
 				t, ctx, database.SQL, blobs, dataDir, test.purpose, test.archive(t),
 			)
-			service := New(database.SQL, time.Now).WithBlobStore(blobs)
+			service := newTestImporter(t, database.SQL, blobs, testImportOptions{Now: time.Now})
 			t.Cleanup(service.Close)
+			service.Start()
 			created, err := service.QueueCreate(ctx, CreateRequest{
 				UploadID: uploadID, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(
 					t, database.SQL, test.catalogKey,
@@ -233,7 +239,7 @@ func TestQueuedKiriKiriAndRPGMakerProjectsResolveInBackground(t *testing.T) {
 			}
 			waitForImportGroupTerminal(t, ctx, database.SQL, created.JobID, "SUCCEEDED")
 			var state, contentMode string
-			if err := database.SQL.QueryRowContext(ctx, `
+			if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT state,json_extract(config_snapshot_json,'$.contentMode') FROM import_jobs WHERE id=?
 `, created.ImportJobID).Scan(&state, &contentMode); err != nil {
 				t.Fatal(err)
@@ -248,7 +254,7 @@ SELECT state,json_extract(config_snapshot_json,'$.contentMode') FROM import_jobs
 	}
 }
 
-func onsImportGroupRequest(t *testing.T, database *sql.DB, uploadID string) CreateRequest {
+func onsImportGroupRequest(t *testing.T, database dbapi.DB, uploadID string) CreateRequest {
 	t.Helper()
 	return CreateRequest{
 		UploadID: uploadID, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(
@@ -261,7 +267,7 @@ func onsImportGroupRequest(t *testing.T, database *sql.DB, uploadID string) Crea
 func openImportGroupFixture(
 	t *testing.T,
 	ctx context.Context,
-) (*store.DB, *blobstore.Store, string) {
+) (*store.DB, *filestore.Store, string) {
 	t.Helper()
 	dataDir := t.TempDir()
 	database, err := testsupport.OpenDatabase(ctx, filepath.Join(dataDir, "retrom.db"), time.Now)
@@ -278,7 +284,7 @@ func openImportGroupFixture(
 	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
-	blobs, err := blobstore.Open(dataDir)
+	blobs, err := filestore.Open(dataDir)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -288,8 +294,8 @@ func openImportGroupFixture(
 func completeImportGroupUpload(
 	t *testing.T,
 	ctx context.Context,
-	database *sql.DB,
-	blobs *blobstore.Store,
+	database dbapi.DB,
+	blobs *filestore.Store,
 	dataDir string,
 	archive []byte,
 ) string {
@@ -299,8 +305,8 @@ func completeImportGroupUpload(
 func completeProjectUpload(
 	t *testing.T,
 	ctx context.Context,
-	database *sql.DB,
-	blobs *blobstore.Store,
+	database dbapi.DB,
+	blobs *filestore.Store,
 	dataDir, purpose string,
 	archive []byte,
 ) string {
@@ -355,13 +361,13 @@ func invalidONSArchive(t *testing.T) []byte {
 func waitForImportGroupTerminal(
 	t *testing.T,
 	ctx context.Context,
-	database *sql.DB,
+	database dbapi.DB,
 	jobID, wanted string,
 ) {
 	t.Helper()
 	for deadline := time.Now().Add(10 * time.Second); ; {
 		var state string
-		if err := database.QueryRowContext(ctx, `SELECT state FROM jobs WHERE id=?`, jobID).Scan(&state); err != nil {
+		if err := dbapi.QueryRowContext(ctx, database, `SELECT state FROM jobs WHERE id=?`, jobID).Scan(&state); err != nil {
 			t.Fatal(err)
 		}
 		if state == wanted {

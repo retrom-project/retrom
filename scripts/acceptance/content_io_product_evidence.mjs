@@ -57,8 +57,8 @@ export async function verifyProductEvidence(directory, definition, runId) {
   const observed = await artifact(directory, proof.observedIdentity);
   assert.deepEqual(observed, proof.identity, "CONTENT_IO_PRODUCT_IDENTITY_MISMATCH");
   const expected = await regularJSON(resolve(directory, "expected-identity.json"));
-  exact(expected, ["bundleSha256", "baselineBundleSha256", "moduleSha256", "workerSha256", "sourceSha256", "browserSha256"]);
-  for (const key of Object.keys(expected).filter(key => key !== "baselineBundleSha256")) assert.equal(proof.identity[key], expected[key], "CONTENT_IO_PRODUCT_IDENTITY_STALE");
+  exact(expected, ["bundleSha256", "baselineBundleSha256", "baselineModuleSha256", "moduleSha256", "workerSha256", "sourceSha256", "browserSha256"]);
+  for (const key of Object.keys(expected).filter(key => !key.startsWith("baseline"))) assert.equal(proof.identity[key], expected[key], "CONTENT_IO_PRODUCT_IDENTITY_STALE");
   assert.ok(Array.isArray(proof.scenarios), "CONTENT_IO_PRODUCT_SCENARIOS_MISSING");
   assert.deepEqual(proof.scenarios.map(row => row.id).sort(), [...definition.requiredScenarios].sort(), "CONTENT_IO_PRODUCT_SCENARIOS_MISSING");
   for (const row of proof.scenarios) {
@@ -67,8 +67,14 @@ export async function verifyProductEvidence(directory, definition, runId) {
   const samples = await artifact(directory, proof.performance);
   for (const sample of samples) {
     for (const key of ["browserSha256", "sourceSha256", "networkSettingsSha256", "observationId"]) assert.equal(sample[key], proof.identity[key], "CONTENT_IO_PRODUCT_PERFORMANCE_IDENTITY");
-    if (sample.variant === "candidate") assert.equal(sample.providerBundleSha256, proof.identity.bundleSha256, "CONTENT_IO_PRODUCT_PERFORMANCE_IDENTITY");
-    if (sample.variant === "baseline") assert.equal(sample.providerBundleSha256, expected.baselineBundleSha256, "CONTENT_IO_PRODUCT_PERFORMANCE_BASELINE_STALE");
+    if (sample.variant === "candidate") {
+      assert.equal(sample.providerBundleSha256, proof.identity.bundleSha256, "CONTENT_IO_PRODUCT_PERFORMANCE_IDENTITY");
+      assert.equal(sample.providerModuleSha256, proof.identity.moduleSha256, "CONTENT_IO_PRODUCT_PERFORMANCE_IDENTITY");
+    }
+    if (sample.variant === "baseline") {
+      assert.equal(sample.providerBundleSha256, expected.baselineBundleSha256, "CONTENT_IO_PRODUCT_PERFORMANCE_BASELINE_STALE");
+      assert.equal(sample.providerModuleSha256, expected.baselineModuleSha256, "CONTENT_IO_PRODUCT_PERFORMANCE_BASELINE_STALE");
+    }
   }
   const comparison = compareContentIOPerformance(proof.caseId, samples);
   assert.equal(comparison.status, "PASS", "CONTENT_IO_PRODUCT_PERFORMANCE_REGRESSION");

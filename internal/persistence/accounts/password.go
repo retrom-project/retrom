@@ -6,16 +6,16 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/service/accounts"
 )
 
 type (
-	PasswordRepository struct{ database *sql.DB }
-	passwordRecords    struct{ executor dbexec.Executor }
+	PasswordRepository struct{ database dbapi.DB }
+	passwordRecords    struct{ executor dbapi.Executor }
 )
 
-func NewPasswords(database *sql.DB) *PasswordRepository { return &PasswordRepository{database} }
+func NewPasswords(database dbapi.DB) *PasswordRepository { return &PasswordRepository{database} }
 func (repository *PasswordRepository) Current(
 	ctx context.Context,
 	actor accounts.PasswordActor,
@@ -29,7 +29,7 @@ func (repository *PasswordRepository) WithWrite(ctx context.Context, work func(a
 	if err != nil {
 		return fmt.Errorf("begin password rotation: %w", err)
 	}
-	defer dbexec.Rollback(tx)
+	defer dbapi.Rollback(tx)
 	records := passwordRecords{tx}
 	if err := work(accounts.PasswordScope{Read: records, Write: records}); err != nil {
 		return err
@@ -47,8 +47,9 @@ func (records passwordRecords) Current(
 ) (accounts.PasswordState, bool, error) {
 	var state accounts.PasswordState
 	value := &state.Credential
-	err := records.executor.QueryRowContext(
-		ctx,
+	err := dbapi.QueryRowContext(
+		ctx, records.executor,
+
 		`SELECT u.id,u.profile_id,u.username,u.display_name,u.role,u.status,u.session_version,c.password_hash,
  EXISTS(SELECT 1 FROM auth_sessions s WHERE s.id=? AND s.user_id=u.id AND s.user_session_version=u.session_version
  AND s.revoked_at_ms IS NULL AND s.idle_expires_at_ms>? AND s.absolute_expires_at_ms>?)

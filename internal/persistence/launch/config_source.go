@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/launch"
 )
 
@@ -17,7 +17,7 @@ SELECT launch.credential_sha256,launch.state,launch.version,launch.provider_id,l
  'PRODUCT',game.title,platform.name,launch.return_to,
  launch.content_kind,launch.dependency_snapshot_json,launch.compatibility_code,
  launch.save_state_id,launch.dos_entry_path,
- launch.bootstrap_expires_at_ms,launch.hard_expires_at_ms,launch.idle_expires_at_ms,
+ launch.bootstrap_expires_at_ms,launch.hard_expires_at_ms,
  launch.initial_disc_index
 FROM launch_sessions launch
 JOIN cores core ON core.id=launch.core_id
@@ -35,7 +35,7 @@ SELECT preview.credential_sha256,preview.state,preview.version,preview.provider_
  'REVIEW_PREVIEW',preview.title,instance.name,
  '/admin/reviews/' || preview.import_item_id,preview.content_kind,preview.dependency_snapshot_json,'',
 	 NULL,preview.default_dos_entry,
- preview.bootstrap_expires_at_ms,preview.hard_expires_at_ms,NULL,0
+ preview.bootstrap_expires_at_ms,preview.hard_expires_at_ms,0
 FROM review_preview_sessions preview
 JOIN platform_instances instance ON instance.id=preview.target_platform_instance_id
 JOIN runtime_target_bindings binding ON binding.provider_id=preview.provider_id AND binding.target_id=preview.target_id
@@ -45,17 +45,17 @@ WHERE preview.id=?
 
 func configSource(
 	ctx context.Context,
-	executor dbexec.Executor,
+	executor dbapi.Executor,
 	ref application.SessionRef,
 ) (application.ConfigSource, bool, error) {
 	query := productConfigSQL
 	if ref.Preview {
 		query = previewConfigSQL
 	}
-	return scanConfigSource(executor.QueryRowContext(ctx, query, ref.ID))
+	return scanConfigSource(dbapi.QueryRowContext(ctx, executor, query, ref.ID))
 }
 
-func scanConfigSource(row dbexec.Scanner) (application.ConfigSource, bool, error) {
+func scanConfigSource(row dbapi.Scanner) (application.ConfigSource, bool, error) {
 	var source application.ConfigSource
 	err := row.Scan(
 		&source.CredentialHash, &source.State, &source.Version, &source.ProviderID, &source.TargetID,
@@ -63,7 +63,7 @@ func scanConfigSource(row dbexec.Scanner) (application.ConfigSource, bool, error
 		&source.DetectorProfile, &source.Delivery, &source.Purpose, &source.Title, &source.PlatformName, &source.ReturnTo,
 		&source.ContentKind, &source.DependencyJSON, &source.Compatibility, &source.SaveID,
 		&source.DOSEntry, &source.BootstrapEnd, &source.HardEnd,
-		&source.IdleEnd, &source.InitialDisc,
+		&source.InitialDisc,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return application.ConfigSource{}, false, nil

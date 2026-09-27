@@ -2,25 +2,24 @@ package sourceimport
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 
-	payload "retrom/internal/persistence/payloadrelease"
+	payload "retrom/internal/persistence/sourceimport/sourcerelease"
 
 	"retrom/internal/cleanup"
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/sourceimport"
 )
 
-type Starter struct{ database *sql.DB }
+type Starter struct{ database dbapi.DB }
 
-func NewStarter(database *sql.DB) *Starter { return &Starter{database: database} }
+func NewStarter(database dbapi.DB) *Starter { return &Starter{database: database} }
 func (repository *Starter) Inspect(ctx context.Context, id string) (application.StartSnapshot, error) {
-	tx, err := repository.database.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+	tx, err := repository.database.BeginTx(ctx, &dbapi.TxOptions{ReadOnly: true})
 	if err != nil {
 		return application.StartSnapshot{}, fmt.Errorf("begin Source start inspection: %w", err)
 	}
-	defer dbexec.Rollback(tx)
+	defer dbapi.Rollback(tx)
 	result, err := (startRecords{transaction: tx}).Current(ctx, id)
 	if err != nil {
 		return application.StartSnapshot{}, err
@@ -36,7 +35,7 @@ func (repository *Starter) WithStart(ctx context.Context, work func(application.
 	if err != nil {
 		return fmt.Errorf("begin Source start: %w", err)
 	}
-	defer dbexec.Rollback(tx)
+	defer dbapi.Rollback(tx)
 	records := startRecords{transaction: tx}
 	if err := work(application.StartScope{Payload: payload.BindReleases(tx), Read: records, Write: records}); err != nil {
 		return err
@@ -47,7 +46,7 @@ func (repository *Starter) WithStart(ctx context.Context, work func(application.
 	return nil
 }
 
-type startRecords struct{ transaction *sql.Tx }
+type startRecords struct{ transaction dbapi.Tx }
 
 func (records startRecords) Current(ctx context.Context, id string) (application.StartSnapshot, error) {
 	summary, err := (&Queries{database: records.transaction}).Get(ctx, id)
@@ -55,7 +54,7 @@ func (records startRecords) Current(ctx context.Context, id string) (application
 		return application.StartSnapshot{}, err
 	}
 	result := application.StartSnapshot{Summary: summary}
-	err = records.transaction.QueryRowContext(ctx, `
+	err = dbapi.QueryRowContext(ctx, records.transaction, `
 SELECT root_config_digest,COALESCE(source_snapshot_digest,''),
 NOT EXISTS(SELECT 1 FROM source_import_collections collection JOIN json_each(collection.tag_snapshot_json) entry
 LEFT JOIN tags tag ON tag.id=json_extract(entry.value,'$.tagId') AND tag.status='ACTIVE'

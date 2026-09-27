@@ -7,6 +7,7 @@ import (
 	"errors"
 	"testing"
 
+	dbapi "retrom/internal/database"
 	persistence "retrom/internal/persistence/launch"
 	application "retrom/internal/service/launch"
 
@@ -41,7 +42,7 @@ func TestConfigFinalAuthorityReadPreservesStorageCause(t *testing.T) {
 	}
 	assertNoConfig(t, configuration, err, storageError)
 	var state string
-	if err := fixture.database.QueryRowContext(t.Context(), `SELECT state FROM unavailable_launch_sessions WHERE id=?`, created.LaunchID).Scan(&state); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT state FROM unavailable_launch_sessions WHERE id=?`, created.LaunchID).Scan(&state); err != nil {
 		t.Fatal(err)
 	}
 	if state != "CREATED" {

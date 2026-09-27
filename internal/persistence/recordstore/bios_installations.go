@@ -4,16 +4,16 @@ import (
 	"context"
 	"database/sql"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 )
 
 func CreateBiosInstallations(
-	ctx context.Context, db dbexec.Executor, query string, args ...any,
+	ctx context.Context, db dbapi.Executor, query string, args ...any,
 ) (sql.Result, error) {
-	return create(ctx, db, query, args, "id", ValidateBiosInstallations)
+	return create(ctx, db, query, args, "bios_installations", "id", ValidateBiosInstallations)
 }
 
-func ValidateBiosInstallations(ctx context.Context, db dbexec.Executor, keys ...any) error {
+func ValidateBiosInstallations(ctx context.Context, db dbapi.Executor, keys ...any) error {
 	return validate(ctx, db, bios_installationsOwnership, keys)
 }
 

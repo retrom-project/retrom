@@ -21,6 +21,13 @@ import (
 	"testing"
 	"time"
 
+	variantcomposition "retrom/internal/composition/gamevariant"
+	librarypersistence "retrom/internal/persistence/libraryimport"
+	application "retrom/internal/service/libraryimport"
+
+	"retrom/internal/persistence/recordstore"
+
+	dbapi "retrom/internal/database"
 	savepersistence "retrom/internal/persistence/saves"
 
 	uploadpersistence "retrom/internal/persistence/uploads"
@@ -28,13 +35,11 @@ import (
 	dependencypersistence "retrom/internal/persistence/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 
-	"retrom/internal/persistence/blobcatalog"
-
 	"retrom/internal/authn"
-	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	launchcomposition "retrom/internal/composition/launch"
 	"retrom/internal/dependencies"
+	"retrom/internal/filestore"
 	"retrom/internal/launch"
 	retromruntime "retrom/internal/runtime"
 	"retrom/internal/service/saves"
@@ -53,7 +58,7 @@ func completeMultiDiscUpload(
 	t *testing.T,
 	ctx context.Context,
 	database *store.DB,
-	blobs *blobstore.Store,
+	blobs *filestore.Store,
 	dataDir string,
 	sourceType string,
 	files []multiDiscUploadFile,
@@ -94,7 +99,7 @@ func completeMultiDiscDirectory(
 	t *testing.T,
 	ctx context.Context,
 	database *store.DB,
-	blobs *blobstore.Store,
+	blobs *filestore.Store,
 	dataDir string,
 	files []multiDiscUploadFile,
 ) string {
@@ -102,7 +107,7 @@ func completeMultiDiscDirectory(
 	return completeMultiDiscUpload(t, ctx, database, blobs, dataDir, "DIRECTORY", files)
 }
 
-func newMultiDiscImportFixture(t *testing.T) (context.Context, string, *store.DB, *blobstore.Store, *Service) {
+func newMultiDiscImportFixture(t *testing.T) (context.Context, string, *store.DB, *filestore.Store, *Service) {
 	t.Helper()
 	ctx := context.Background()
 	dataDir := t.TempDir()
@@ -125,33 +130,33 @@ VALUES('01980000-0000-7000-8000-000000009991','multi-disc-profile','multi-disc-a
 	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
 	dependencySet, err := dependencies.Load(filepath.Join(repositoryRoot, "data"), []string{"4.2.3"}, "4.2.3")
 	testassert.False(t, err != nil, err)
-	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, time.Now()); err != nil {
+	if err := dependencyservice.New(dependencySet,
+		dependencypersistence.New(database.SQL)).Bootstrap(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
-	blobs, err := blobstore.Open(dataDir)
+	blobs, err := filestore.Open(dataDir)
 	testassert.False(t, err != nil, err)
 	bios, err := blobs.Put(bytes.NewReader([]byte("deterministic invalid Saturn BIOS fixture")))
 	testassert.False(t, err != nil, err)
-	biosBlobID, err := blobcatalog.EnsureRecord(ctx, database.SQL, bios, "application/octet-stream", time.Now().UnixMilli())
+	biosFileRecord, err := filestore.FileRecord(bios, "application/octet-stream")
 	testassert.False(t, err != nil, err)
 	var requirementID string
 	var requirementVersion int64
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT id,version FROM bios_requirements
 WHERE core_id='yabause' AND logical_name='saturn_bios.bin' AND enabled=1
 `).Scan(&requirementID, &requirementVersion); err != nil {
 		t.Fatal(err)
 	}
 	installationID := "01990000-0000-7000-8000-" + requirementID[len(requirementID)-12:]
-	if _, err := database.SQL.ExecContext(ctx, `
-INSERT INTO bios_installations(id,requirement_id,blob_id,original_filename,size_bytes,md5,sha1,sha256,
+	if _, err := recordstore.InsertRows(ctx, database.SQL, "bios_installations", `
+INSERT INTO bios_installations(id,requirement_id,file_record,original_filename,size_bytes,md5,sha1,sha256,
 validated_requirement_version,status,validation_details_json,is_active,version,created_at_ms,updated_at_ms)
 VALUES(?,?,?,?,?,?,?,?,?,'HASH_WARNING','{}',1,1,?,?)
-`, installationID, requirementID, biosBlobID, "saturn_bios.bin", bios.Size, bios.MD5, bios.SHA1, bios.SHA256,
-		requirementVersion, time.Now().UnixMilli(), time.Now().UnixMilli()); err != nil {
+`, installationID, requirementID, biosFileRecord, "saturn_bios.bin", bios.Size, bios.MD5, bios.SHA1, bios.SHA256, requirementVersion, time.Now().UnixMilli(), time.Now().UnixMilli()); err != nil {
 		t.Fatal(err)
 	}
-	importer := New(database.SQL, time.Now).WithBlobStore(blobs).WithMultiDiscImportEnabled(true)
+	importer := newTestImporter(t, database.SQL, blobs, testImportOptions{Now: time.Now, MultiDiscEnabled: true})
 	return ctx, dataDir, database, blobs, importer
 }
 
@@ -208,9 +213,10 @@ func TestMultiDiscDirectoryCreatesOrderedItemsAndPublishesCanonicalContent(t *te
 		UploadID: uploadID, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(t, database.SQL, "saturn/yabause"),
 		MetadataProvider: "NONE", ContentMode: "MULTI_DISC",
 	})
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return created.ItemCount != 2 }), "Create() = %#v, error=%v", created, err)
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil },
+		func() bool { return created.ItemCount != 2 }), "Create() = %#v, error=%v", created, err)
 	var importEventData string
-	if err := database.SQL.QueryRowContext(context.Background(), `
+	if err := dbapi.QueryRowContext(context.Background(), database.SQL, `
 SELECT data_json FROM job_events
 WHERE job_id=? AND scope_type='IMPORT_GROUP' AND event_type='SUCCEEDED'
 `, created.JobID).Scan(&importEventData); err != nil ||
@@ -228,7 +234,7 @@ WHERE item.import_job_id=? ORDER BY item.group_key
 `, created.ImportJobID)
 	testassert.Falsef(t, len(items) != 2, "items = %#v", items)
 	var firstItemID, firstSnapshotID string
-	if err := database.SQL.QueryRowContext(context.Background(), `
+	if err := dbapi.QueryRowContext(context.Background(), database.SQL, `
 SELECT item.id,snapshot.id
 FROM import_items item
 JOIN import_items draft ON draft.id=item.id
@@ -247,24 +253,27 @@ AND EXISTS(
 SELECT printf('%d:%s:%s:%s',ordinal,state,normalized_reference,canonical_name)
 FROM import_item_multidisc_entries WHERE source_snapshot_id=? ORDER BY ordinal
 `, firstSnapshotID)
-	testassert.Falsef(t, fmt.Sprint(entries) != "[0:PRESENT:disc one.chd:disc-001.chd 1:PRESENT:disc two.chd:disc-002.chd]", "entries = %v", entries)
-	var playlistSHA string
-	if err := database.SQL.QueryRowContext(context.Background(), `
-SELECT blob.sha256
+	testassert.Falsef(t,
+		fmt.Sprint(entries) != "[0:PRESENT:disc one.chd:disc-001.chd 1:PRESENT:disc two.chd:disc-002.chd]", "entries = %v", entries)
+	var playlistID string
+	if err := dbapi.QueryRowContext(context.Background(), database.SQL, `
+SELECT blob.value
 FROM import_item_core_validations validation
 JOIN import_item_validation_files file ON file.import_item_core_validation_id=validation.id
-JOIN blobs blob ON blob.id=file.blob_id
+JOIN json_each(json_array(file.file_record)) blob ON blob.value IS NOT NULL
 WHERE validation.source_snapshot_id=? AND file.role='MULTI_DISC_PLAYLIST'
-`, firstSnapshotID).Scan(&playlistSHA); err != nil {
+`, firstSnapshotID).Scan(&playlistID); err != nil {
 		t.Fatal(err)
 	}
-	reader, err := blobs.OpenDigest(playlistSHA)
+	reader, err := blobs.OpenRecord(playlistID)
 	testassert.False(t, err != nil, err)
 	canonical, err := io.ReadAll(reader)
 	cleanup.Error("close", reader.Close())
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return string(canonical) != "disc-001.chd\ndisc-002.chd\n" }), "canonical playlist = %q, error=%v", canonical, err)
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil },
+		func() bool { return string(canonical) != "disc-001.chd\ndisc-002.chd\n" }),
+		"canonical playlist = %q, error=%v", canonical, err)
 	var ignored int
-	if err := database.SQL.QueryRowContext(context.Background(), `
+	if err := dbapi.QueryRowContext(context.Background(), database.SQL, `
 SELECT count(*) FROM import_job_files WHERE import_job_id=?
 AND disposition='IGNORED' AND reason_code='NOT_REFERENCED_BY_PLAYLIST'
 	`, created.ImportJobID).Scan(&ignored); err != nil || ignored != 2 {
@@ -283,9 +292,10 @@ WHERE game.id=? ORDER BY file.role,file.sort_order
 	testassert.False(t, err != nil, err)
 	runtimeBuilder, err := testsupport.NewRuntimeBuilder(ctx, database.SQL)
 	testassert.False(t, err != nil, err)
-	launcher := launchcomposition.New(database.SQL,
-		launch.NewSources(blobs, credentials).WithRuntimeProvider(runtimeBuilder), "", time.Now)
-	t.Cleanup(launcher.Close)
+	runtimeSource := launch.NewSources(blobs, credentials).WithRuntimeProvider(runtimeBuilder)
+	variants := variantcomposition.New(database.SQL, runtimeSource, time.Now)
+	t.Cleanup(variants.Close)
+	launcher := launchcomposition.New(database.SQL, runtimeSource, "", time.Now, variants.Dispatch)
 	createdLaunch, err := launcher.Create(ctx, "multi-disc-profile", launch.CreateRequest{
 		GameID: approved.GameID, ReturnTo: "/games/" + approved.GameID,
 		ClientCapabilities: launch.Capabilities{
@@ -298,19 +308,35 @@ WHERE game.id=? ORDER BY file.role,file.sort_order
 	envelope := testsupport.RuntimeEnvelope(t, configuration)
 	discSet := testsupport.RuntimeEnvelopeResource(t, envelope, "discs")
 	discEntries, ok := discSet["entries"].([]any)
-	testassert.Falsef(t, testassert.Any(func() bool { return discSet["kind"] != "MULTI_DISC" }, func() bool { return fmt.Sprint(discSet["initialDiscIndex"]) != "0" }, func() bool { return !ok }, func() bool { return len(discEntries) != 2 }), "multi-disc launch resource = %#v", discSet)
+	testassert.Falsef(t, testassert.Any(func() bool { return discSet["kind"] != "MULTI_DISC" },
+		func() bool { return fmt.Sprint(discSet["initialDiscIndex"]) != "0" },
+		func() bool { return !ok }, func() bool { return len(discEntries) != 2 }),
+		"multi-disc launch resource = %#v", discSet)
 	dimensions, err := launcher.MultiDiscTelemetryDimensions(ctx, createdLaunch.LaunchID, createdLaunch.Capability)
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return dimensions.PlatformKey != "saturn" }, func() bool { return dimensions.TargetKey != "yabause" }, func() bool { return len(dimensions.BundleDigest) != 64 }, func() bool { return dimensions.DiscCount != 2 }), "multi-disc telemetry dimensions = %#v, error=%v", dimensions, err)
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil },
+		func() bool { return dimensions.PlatformKey != "saturn" },
+		func() bool { return dimensions.TargetKey != "yabause" },
+		func() bool { return len(dimensions.BundleDigest) != 64 },
+		func() bool { return dimensions.DiscCount != 2 }),
+		"multi-disc telemetry dimensions = %#v, error=%v", dimensions, err)
 	for index, rawEntry := range discEntries {
 		entry, entryOK := rawEntry.(map[string]any)
 		expectedName := fmt.Sprintf("disc-%03d.chd", index+1)
 		view, viewErr := launcher.External(ctx, createdLaunch.LaunchID, createdLaunch.Capability, expectedName)
 		entryURL, entryURLOK := entry["url"].(string)
-		testassert.Falsef(t, testassert.Any(func() bool { return !entryOK }, func() bool { return fmt.Sprint(entry["index"]) != fmt.Sprint(index) }, func() bool { return !entryURLOK || !strings.HasSuffix(entryURL, "/"+expectedName) }, func() bool { return viewErr != nil }), "disc entry %d = %#v", index, entry)
+		testassert.Falsef(t, testassert.Any(func() bool { return !entryOK },
+			func() bool { return fmt.Sprint(entry["index"]) != fmt.Sprint(index) },
+			func() bool { return !entryURLOK || !strings.HasSuffix(entryURL, "/"+expectedName) },
+			func() bool { return viewErr != nil }), "disc entry %d = %#v", index, entry)
 		if _, err := launcher.ExternalBlob(ctx, createdLaunch.LaunchID, createdLaunch.Capability, expectedName); err != nil {
 			t.Fatalf("locked disc %d: %v", index, err)
 		}
-		testassert.Falsef(t, testassert.Any(func() bool { return viewErr != nil }, func() bool { return view.Kind != "DISC" }, func() bool { return view.PlatformKey != "saturn" }, func() bool { return view.TargetID != "yabause" }, func() bool { return view.DiscCount != 2 }, func() bool { return view.BundleSHA256 != dimensions.BundleDigest }), "observable disc %d = %#v, error=%v", index, view, viewErr)
+		testassert.Falsef(t, testassert.Any(func() bool { return viewErr != nil },
+			func() bool { return view.Kind != "DISC" },
+			func() bool { return view.PlatformKey != "saturn" },
+			func() bool { return view.TargetID != "yabause" }, func() bool { return view.DiscCount != 2 },
+			func() bool { return view.BundleSHA256 != dimensions.BundleDigest }),
+			"observable disc %d = %#v, error=%v", index, view, viewErr)
 	}
 	if _, err := launcher.ExternalBlob(
 		ctx, createdLaunch.LaunchID, createdLaunch.Capability, "Disc One.CHD",
@@ -322,7 +348,10 @@ WHERE game.id=? ORDER BY file.role,file.sort_order
 		ctx, createdLaunch.LaunchID, createdLaunch.Capability, "multi-disc-save-1",
 		multiDiscSaveRequest(t, 1),
 	)
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return replayed }, func() bool { return saved.DiscIndex == nil }, func() bool { return *saved.DiscIndex != 1 }), "multi-disc save = %#v replayed=%t error=%v", saved, replayed, err)
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil },
+		func() bool { return replayed }, func() bool { return saved.DiscIndex == nil },
+		func() bool { return *saved.DiscIndex != 1 }), "multi-disc save = %#v replayed=%t error=%v",
+		saved, replayed, err)
 	restoredLaunch, err := launcher.Create(ctx, "multi-disc-profile", launch.CreateRequest{
 		GameID: approved.GameID, SaveStateID: &saved.SaveStateID, ReturnTo: "/games/" + approved.GameID,
 		ClientCapabilities: launch.Capabilities{
@@ -334,7 +363,8 @@ WHERE game.id=? ORDER BY file.role,file.sort_order
 	testassert.False(t, err != nil, err)
 	restoredEnvelope := testsupport.RuntimeEnvelope(t, restoredConfig)
 	restoredDiscSet := testsupport.RuntimeEnvelopeResource(t, restoredEnvelope, "discs")
-	testassert.Falsef(t, fmt.Sprint(restoredDiscSet["initialDiscIndex"]) != "1", "restored multi-disc resource = %#v", restoredDiscSet)
+	testassert.Falsef(t, fmt.Sprint(restoredDiscSet["initialDiscIndex"]) != "1",
+		"restored multi-disc resource = %#v", restoredDiscSet)
 }
 
 func TestMultiDiscMissingDiscIsBlockedWithoutPlaceholderBlob(t *testing.T) {
@@ -349,13 +379,14 @@ func TestMultiDiscMissingDiscIsBlockedWithoutPlaceholderBlob(t *testing.T) {
 		UploadID: uploadID, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(t, database.SQL, "saturn/yabause"),
 		MetadataProvider: "NONE", ContentMode: "MULTI_DISC",
 	})
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return created.ItemCount != 1 }), "Create() = %#v, error=%v", created, err)
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil },
+		func() bool { return created.ItemCount != 1 }), "Create() = %#v, error=%v", created, err)
 	var itemID, validationStatus, compatibilityCode string
 	var selectedValidationID *string
-	var missingBlobID, missingUploadID *string
-	if err := database.SQL.QueryRowContext(context.Background(), `
+	var missingFileRecord, missingUploadID *string
+	if err := dbapi.QueryRowContext(context.Background(), database.SQL, `
 SELECT item.id,validation.status,validation.compatibility_code,draft.selected_validation_id,
-entry.blob_id,entry.upload_file_id
+entry.file_record,entry.upload_file_id
 FROM import_items item
 JOIN import_items draft ON draft.id=item.id
 JOIN import_item_source_snapshots snapshot ON snapshot.id=draft.effective_source_snapshot_id
@@ -363,25 +394,45 @@ JOIN import_item_core_validations validation ON validation.source_snapshot_id=sn
 JOIN import_item_multidisc_entries entry ON entry.source_snapshot_id=snapshot.id AND entry.state='MISSING'
 WHERE item.import_job_id=?
 `, created.ImportJobID).Scan(
-		&itemID, &validationStatus, &compatibilityCode, &selectedValidationID, &missingBlobID, &missingUploadID,
+		&itemID, &validationStatus, &compatibilityCode, &selectedValidationID, &missingFileRecord, &missingUploadID,
 	); err != nil {
 		t.Fatal(err)
 	}
-	testassert.Falsef(t, testassert.Any(func() bool { return validationStatus != "BLOCKED" }, func() bool { return compatibilityCode != "MULTI_DISC_FILE_MISSING" }, func() bool { return selectedValidationID != nil }, func() bool { return missingBlobID != nil }, func() bool { return missingUploadID != nil }), "blocked item = %s/%s selected=%v blob=%v upload=%v", validationStatus, compatibilityCode, selectedValidationID, missingBlobID, missingUploadID)
+	testassert.Falsef(t, testassert.Any(func() bool { return validationStatus != "BLOCKED" },
+		func() bool { return compatibilityCode != "MULTI_DISC_FILE_MISSING" },
+		func() bool { return selectedValidationID != nil },
+		func() bool { return missingFileRecord != nil },
+		func() bool { return missingUploadID != nil }),
+		"blocked item = %s/%s selected=%v blob=%v upload=%v", validationStatus, compatibilityCode,
+		selectedValidationID, missingFileRecord, missingUploadID)
 	if _, err := importer.Approve(ctx, itemID, 1); !errors.Is(err, ErrInvalid) {
 		t.Fatalf("blocked approve error = %v", err)
 	}
 	baseSnapshotID := ""
-	if err := database.SQL.QueryRowContext(context.Background(), `
+	if err := dbapi.QueryRowContext(context.Background(), database.SQL, `
 SELECT effective_source_snapshot_id FROM import_items WHERE id=?
 	`, itemID).Scan(&baseSnapshotID); err != nil {
 		t.Fatal(err)
 	}
-	initialReview, hasMultiDisc, err := importer.ReviewMultiDisc(ctx, itemID)
-	initialProjection, projectionOK := initialReview.(map[string]any)
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return !hasMultiDisc }, func() bool { return !projectionOK }, func() bool { return initialProjection["discCount"] != 3 }, func() bool { return initialProjection["presentDiscCount"] != 2 }, func() bool { return initialProjection["missingDiscCount"] != 1 }, func() bool { return initialProjection["canAttachMissingDiscs"] != true }), "initial multi-disc review = %#v, present=%v, error=%v", initialReview, hasMultiDisc, err)
+	initialDetail, err := application.NewReviewDetails(librarypersistence.NewReviewDetail(database.SQL)).Get(ctx, itemID)
+	testassert.False(t, err != nil, err)
+	initialReview := initialDetail.MultiDisc
+	testassert.True(t, initialReview != nil, "multi-disc detail missing")
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil },
+
+		func() bool { return initialReview.DiscCount != 3 },
+		func() bool { return initialReview.PresentDiscCount != 2 },
+		func() bool { return initialReview.MissingDiscCount != 1 },
+		func() bool { return initialReview.CanAttachMissingDiscs != true }),
+		"initial multi-disc review = %#v, error=%v", initialReview, err)
 	encodedReview, _ := json.Marshal(initialReview)
-	testassert.Falsef(t, testassert.Any(func() bool { return bytes.Contains(encodedReview, []byte("blobId")) }, func() bool { return !bytes.Contains(encodedReview, []byte("playlist")) }), "initial review leaked storage identity or omitted playlist: %s", encodedReview)
+	testassert.Falsef(t, testassert.Any(func() bool {
+		return bytes.Contains(encodedReview,
+			[]byte("fileRecord"))
+	}, func() bool {
+		return !bytes.Contains(encodedReview,
+			[]byte("playlist"))
+	}), "initial review leaked storage identity or omitted playlist: %s", encodedReview)
 	attachmentUploadID := completeMultiDiscUpload(
 		t, ctx, database, blobs, dataDir, "FILES",
 		[]multiDiscUploadFile{{path: "three.chd", contents: fakeCHD("three")}},
@@ -389,10 +440,13 @@ SELECT effective_source_snapshot_id FROM import_items WHERE id=?
 	attachment, err := importer.CreateMultiDiscAttachment(ctx, itemID, 1, MultiDiscAttachmentRequest{
 		UploadID: attachmentUploadID,
 	})
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return attachment.State != "QUEUED" }, func() bool { return attachment.ReviewVersion != 2 }), "CreateMultiDiscAttachment() = %#v, error=%v", attachment, err)
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil },
+		func() bool { return attachment.State != "QUEUED" },
+		func() bool { return attachment.ReviewVersion != 2 }),
+		"CreateMultiDiscAttachment() = %#v, error=%v", attachment, err)
 	waitParentJob(t, database.SQL, attachment.JobID, "SUCCEEDED")
 	var terminalEventData string
-	if err := database.SQL.QueryRowContext(context.Background(), `
+	if err := dbapi.QueryRowContext(context.Background(), database.SQL, `
 SELECT data_json FROM job_events WHERE job_id=? AND event_type='SUCCEEDED'
 ORDER BY id DESC LIMIT 1
 `, attachment.JobID).Scan(&terminalEventData); err != nil ||
@@ -403,33 +457,50 @@ ORDER BY id DESC LIMIT 1
 	}
 	var resultSnapshotID, selectedID string
 	var version int64
-	if err := database.SQL.QueryRowContext(context.Background(), `
+	if err := dbapi.QueryRowContext(context.Background(), database.SQL, `
 SELECT effective_source_snapshot_id,selected_validation_id,review_version
 FROM import_items WHERE id=?
 `, itemID).Scan(&resultSnapshotID, &selectedID, &version); err != nil {
 		t.Fatal(err)
 	}
-	testassert.Falsef(t, testassert.Any(func() bool { return resultSnapshotID == baseSnapshotID }, func() bool { return selectedID == "" }, func() bool { return version != 3 }), "accepted draft snapshot=%s selected=%s version=%d", resultSnapshotID, selectedID, version)
+	testassert.Falsef(t, testassert.Any(func() bool { return resultSnapshotID == baseSnapshotID },
+		func() bool { return selectedID == "" }, func() bool { return version != 3 }),
+		"accepted draft snapshot=%s selected=%s version=%d", resultSnapshotID, selectedID, version)
 	oldEntries := queryAttachmentStrings(t, database.SQL, `
 SELECT state FROM import_item_multidisc_entries WHERE source_snapshot_id=? ORDER BY ordinal
 `, baseSnapshotID)
 	newEntries := queryAttachmentStrings(t, database.SQL, `
 SELECT state FROM import_item_multidisc_entries WHERE source_snapshot_id=? ORDER BY ordinal
 `, resultSnapshotID)
-	testassert.Falsef(t, testassert.Any(func() bool { return fmt.Sprint(oldEntries) != "[PRESENT PRESENT MISSING]" }, func() bool { return fmt.Sprint(newEntries) != "[PRESENT PRESENT PRESENT]" }), "old/new entries = %v / %v", oldEntries, newEntries)
+	testassert.Falsef(t,
+		testassert.Any(func() bool { return fmt.Sprint(oldEntries) != "[PRESENT PRESENT MISSING]" },
+			func() bool { return fmt.Sprint(newEntries) != "[PRESENT PRESENT PRESENT]" }),
+		"old/new entries = %v / %v", oldEntries, newEntries)
 	var requestedBy, attachmentState string
-	if err := database.SQL.QueryRowContext(context.Background(), `
+	if err := dbapi.QueryRowContext(context.Background(), database.SQL, `
 SELECT attachment.requested_by_user_id,attachment.state
 FROM review_multidisc_attachments attachment
 WHERE attachment.id=?
 `, attachment.AttachmentID).Scan(&requestedBy, &attachmentState); err != nil {
 		t.Fatal(err)
 	}
-	testassert.Falsef(t, testassert.Any(func() bool { return requestedBy != "01980000-0000-7000-8000-000000009991" }, func() bool { return attachmentState != "ACCEPTED" }), "attachment actor/state = %s/%s", requestedBy, attachmentState)
-	acceptedReview, hasMultiDisc, err := importer.ReviewMultiDisc(ctx, itemID)
-	acceptedProjection, projectionOK := acceptedReview.(map[string]any)
-	latest, latestOK := acceptedProjection["latestAttachment"].(map[string]any)
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return !hasMultiDisc }, func() bool { return !projectionOK }, func() bool { return !latestOK }, func() bool { return latest["state"] != "ACCEPTED" }, func() bool { return acceptedProjection["presentDiscCount"] != 3 }, func() bool { return acceptedProjection["missingDiscCount"] != 0 }, func() bool { return acceptedProjection["canAttachMissingDiscs"] != false }), "accepted multi-disc review = %#v, present=%v, error=%v", acceptedReview, hasMultiDisc, err)
+	testassert.Falsef(t,
+		testassert.Any(func() bool { return requestedBy != "01980000-0000-7000-8000-000000009991" },
+			func() bool { return attachmentState != "ACCEPTED" }), "attachment actor/state = %s/%s",
+		requestedBy, attachmentState)
+	acceptedDetail, err := application.NewReviewDetails(librarypersistence.NewReviewDetail(database.SQL)).Get(ctx, itemID)
+	testassert.False(t, err != nil, err)
+	acceptedReview := acceptedDetail.MultiDisc
+	testassert.True(t, acceptedReview != nil, "multi-disc detail missing")
+	latest := acceptedReview.LatestAttachment
+	testassert.True(t, latest != nil, "latest attachment missing")
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil },
+
+		func() bool { return latest.State != "ACCEPTED" },
+		func() bool { return acceptedReview.PresentDiscCount != 3 },
+		func() bool { return acceptedReview.MissingDiscCount != 0 },
+		func() bool { return acceptedReview.CanAttachMissingDiscs != false }),
+		"accepted multi-disc review = %#v, error=%v", acceptedReview, err)
 	if _, err := importer.Approve(ctx, itemID, version); err != nil {
 		t.Fatalf("Approve() after attachment: %v", err)
 	}
@@ -444,12 +515,13 @@ func TestMultiDiscAttachmentRejectsNonExactSetWithoutAdvancingDraft(t *testing.T
 		{path: "game/two.chd", contents: fakeCHD("two")},
 	})
 	created, err := importer.Create(ctx, CreateRequest{
-		UploadID: baseUploadID, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(t, database.SQL, "saturn/yabause"),
+		UploadID: baseUploadID, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(t,
+			database.SQL, "saturn/yabause"),
 		MetadataProvider: "NONE", ContentMode: "MULTI_DISC",
 	})
 	testassert.False(t, err != nil, err)
 	var itemID, baseSnapshotID string
-	if err := database.SQL.QueryRowContext(context.Background(), `
+	if err := dbapi.QueryRowContext(context.Background(), database.SQL, `
 SELECT item.id,draft.effective_source_snapshot_id
 FROM import_items item JOIN import_items draft ON draft.id=item.id
 WHERE item.import_job_id=?
@@ -468,7 +540,7 @@ WHERE item.import_job_id=?
 	waitParentJob(t, database.SQL, attachment.JobID, "FAILED")
 	var state, errorCode, currentSnapshotID string
 	var selectedID sql.NullString
-	if err := database.SQL.QueryRowContext(context.Background(), `
+	if err := dbapi.QueryRowContext(context.Background(), database.SQL, `
 SELECT attachment.state,attachment.error_code,draft.effective_source_snapshot_id,draft.selected_validation_id
 FROM review_multidisc_attachments attachment
 JOIN import_items draft ON draft.id=attachment.review_draft_id
@@ -476,9 +548,13 @@ WHERE attachment.id=?
 `, attachment.AttachmentID).Scan(&state, &errorCode, &currentSnapshotID, &selectedID); err != nil {
 		t.Fatal(err)
 	}
-	testassert.Falsef(t, testassert.Any(func() bool { return state != "REJECTED" }, func() bool { return errorCode != MultiDiscAttachmentErrorSetMismatch }, func() bool { return currentSnapshotID != baseSnapshotID }, func() bool { return selectedID.Valid }), "rejected attachment = %s/%s snapshot=%s selected=%v", state, errorCode, currentSnapshotID, selectedID)
+	testassert.Falsef(t, testassert.Any(func() bool { return state != "REJECTED" },
+		func() bool { return errorCode != MultiDiscAttachmentErrorSetMismatch },
+		func() bool { return currentSnapshotID != baseSnapshotID },
+		func() bool { return selectedID.Valid }),
+		"rejected attachment = %s/%s snapshot=%s selected=%v", state, errorCode, currentSnapshotID, selectedID)
 	var consumptions int
-	if err := database.SQL.QueryRowContext(context.Background(), `
+	if err := dbapi.QueryRowContext(context.Background(), database.SQL, `
 SELECT count(*) FROM upload_consumptions WHERE upload_session_id=?
 `, attachmentUploadID).Scan(&consumptions); err != nil || consumptions != 0 {
 		t.Fatalf("rejected upload consumptions = %d, error=%v", consumptions, err)
@@ -491,7 +567,7 @@ SELECT count(*) FROM upload_consumptions WHERE upload_session_id=?
 	bad, err := importer.CreateMultiDiscAttachment(ctx, itemID, 2, MultiDiscAttachmentRequest{UploadID: badUploadID})
 	testassert.False(t, err != nil, err)
 	waitParentJob(t, database.SQL, bad.JobID, "FAILED")
-	if err := database.SQL.QueryRowContext(context.Background(), `
+	if err := dbapi.QueryRowContext(context.Background(), database.SQL, `
 SELECT state,error_code FROM review_multidisc_attachments WHERE id=?
 `, bad.AttachmentID).Scan(&state, &errorCode); err != nil ||
 		state != "REJECTED" || errorCode != MultiDiscAttachmentErrorContentInvalid {
@@ -518,7 +594,7 @@ func TestMultiDiscAdmissionRejectsMissingPlaylistAndUnsupportedTargetWithoutCons
 		t.Fatalf("unsupported target error = %v", err)
 	}
 	var imports, consumptions int
-	if err := database.SQL.QueryRowContext(context.Background(), `
+	if err := dbapi.QueryRowContext(context.Background(), database.SQL, `
 SELECT (SELECT count(*) FROM import_jobs WHERE upload_session_id=?),
        (SELECT count(*) FROM upload_consumptions WHERE upload_session_id=?)
 `, uploadID, uploadID).Scan(&imports, &consumptions); err != nil || imports != 0 || consumptions != 0 {

@@ -3,6 +3,7 @@ package libraryimport
 import (
 	"context"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 
@@ -27,7 +28,7 @@ type (
 	ServerMetadataWarning = libraryservice.ServerMetadataWarning
 )
 
-// CreateServerSource adopts already verified CAS blobs into the established
+// CreateServerSource receives already verified source files into the established
 // import/content-profile pipeline. It creates an internal COMPLETE upload
 // envelope so all archive, DAT, BIOS, multi-disc, and duplicate invariants stay
 // identical to browser imports.
@@ -129,13 +130,13 @@ func (service *Service) validateServerFiles(
 	var totalBytes int64
 	for index, file := range sorted {
 		folded := strings.ToLower(file.RelativePath)
-		if file.RelativePath == "" || file.BlobID == "" || file.SizeBytes < 0 {
+		if file.RelativePath == "" || file.FileRecord == "" || file.SizeBytes < 0 {
 			return nil, nil, 0, ErrInvalid
 		}
 		if _, exists := seen[folded]; exists {
 			return nil, nil, 0, ErrInvalid
 		}
-		size, found, err := librarypersistence.NewServerSourceUploads(service.database).BlobSize(ctx, file.BlobID)
+		size, found, err := librarypersistence.NewServerSourceUploads(service.database).BlobSize(ctx, file.FileRecord)
 		if err != nil {
 			return nil, nil, 0, fmt.Errorf("read reusable upload blob: %w", err)
 		}
@@ -148,7 +149,7 @@ func (service *Service) validateServerFiles(
 		seen[folded] = struct{}{}
 		totalBytes += file.SizeBytes
 		reusable = append(reusable, reusableUploadFile{
-			ID: fmt.Sprintf("server-%d", index), Path: file.RelativePath, BlobID: file.BlobID, Size: file.SizeBytes,
+			ID: fmt.Sprintf("server-%d", index), Path: file.RelativePath, FileRecord: file.FileRecord, Size: file.SizeBytes,
 		})
 	}
 	return sorted, reusable, totalBytes, nil
@@ -162,6 +163,14 @@ func (service *Service) insertServerUpload(
 	now, _ int64,
 	ownerKind, ownerItemID string,
 ) error {
+	files = slices.Clone(files)
+	for i := range files {
+		copied, err := service.blobs.CopyTo(ctx, files[i].FileRecord, "staging/uploads/"+uploadID, files[i].Path)
+		if err != nil {
+			return fmt.Errorf("insert server upload: %w", err)
+		}
+		files[i].FileRecord = copied.Record
+	}
 	if err := librarypersistence.NewServerSourceUploads(service.database).Insert(
 		ctx, uploadID, sourceType, files, digest, now, ownerKind, ownerItemID,
 	); err != nil {

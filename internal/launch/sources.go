@@ -5,27 +5,26 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
-	"io"
 	"strings"
 
 	"github.com/google/uuid"
 
-	"retrom/internal/blobstore"
+	"retrom/internal/filestore"
 	retromruntime "retrom/internal/runtime"
-	"retrom/internal/runtimebundle"
-	"retrom/internal/runtimelaunch"
+	runtimebundle "retrom/internal/runtime/bundle"
+	runtimelaunch "retrom/internal/runtime/launch"
 	application "retrom/internal/service/launch"
 )
 
 // Sources supplies host IO and credentials to the application. Configure it before serving requests.
 type Sources struct {
-	blobs          *blobstore.Store
+	blobs          *filestore.Store
 	credentials    *retromruntime.Credentials
 	builder        *runtimelaunch.Builder
 	originTemplate string
 }
 
-func NewSources(blobs *blobstore.Store, credentials *retromruntime.Credentials) *Sources {
+func NewSources(blobs *filestore.Store, credentials *retromruntime.Credentials) *Sources {
 	return &Sources{blobs: blobs, credentials: credentials}
 }
 
@@ -62,10 +61,6 @@ func (source *Sources) AssetPaths(provider, target string) ([]string, bool) {
 
 func (source *Sources) Verify(ctx context.Context, check application.ProductBlobCheck) error {
 	return (productBlobVerifier{blobs: source.blobs}).Verify(ctx, check)
-}
-
-func (source *Sources) Read(ctx context.Context, reader io.Reader) (application.ScreenshotImage, error) {
-	return (screenshotImages{blobs: source.blobs}).Read(ctx, reader)
 }
 
 func (source *Sources) SignCapability(id string) (string, []byte, error) {

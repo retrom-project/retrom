@@ -3,26 +3,25 @@
 package libraryimport
 
 import (
-	"database/sql"
 	"errors"
 	"testing"
 
+	dbapi "retrom/internal/database"
+	dbsqlite "retrom/internal/database/sqlite"
 	repository "retrom/internal/persistence/libraryimport"
 	application "retrom/internal/service/libraryimport"
-
-	_ "modernc.org/sqlite"
 )
 
 func TestReviewReadHelpersPreserveDatabaseFailure(t *testing.T) {
 	t.Parallel()
-	database, err := sql.Open("sqlite", ":memory:")
+	database, err := dbsqlite.Open(":memory:", dbsqlite.Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if err := database.Close(); err != nil {
 		t.Fatal(err)
 	}
-	cause := database.QueryRowContext(t.Context(), "SELECT 1").Err()
+	cause := errors.Unwrap(dbapi.QueryRowContext(t.Context(), database, "SELECT 1").Err())
 	if cause == nil {
 		t.Fatal("closed database did not fail")
 	}
@@ -34,7 +33,10 @@ func TestReviewReadHelpersPreserveDatabaseFailure(t *testing.T) {
 			_, err := application.NewContentDuplicates(repository.BindContentDuplicates(database)).Identity(t.Context(), "item")
 			return err
 		}},
-		{"duplicate matches", func() error { _, err := findDuplicateGames(t.Context(), database, "item", "gba"); return err }},
+		{"duplicate matches", func() error {
+			_, err := application.NewContentDuplicates(repository.BindContentDuplicates(database)).Matches(t.Context(), "item", "gba")
+			return err
+		}},
 		{"arcade relations", func() error {
 			_, _, err := application.LoadArcadeClosure(t.Context(), repository.BindArcadeRelations(database), "dat", "machine")
 			return err

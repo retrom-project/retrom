@@ -9,6 +9,7 @@ import (
 
 	"retrom/internal/authn"
 	"retrom/internal/config"
+	dbapi "retrom/internal/database"
 	accountservice "retrom/internal/service/accounts"
 	"retrom/internal/testassert"
 
@@ -54,7 +55,7 @@ func TestLoginRateLimitIsAtomicHashedAndExpiresWithInjectedClock(t *testing.T) {
 	}
 
 	var rows, hashBytes int
-	if err := fixture.database.SQL.QueryRowContext(context.Background(), `
+	if err := dbapi.QueryRowContext(context.Background(), fixture.database.SQL, `
 SELECT count(*),min(length(subject_hash)) FROM auth_rate_limits
 `).Scan(&rows, &hashBytes); err != nil || rows != 2 || hashBytes != 32 {
 		t.Fatalf("rate-limit storage = rows=%d hashBytes=%d error=%v", rows, hashBytes, err)
@@ -67,13 +68,13 @@ SELECT count(*),min(length(subject_hash)) FROM auth_rate_limits
 	}
 	accountHash := fixture.credentials.RateLimitSubject("LOGIN_ACCOUNT", "test")
 	var accountRows int
-	if err := fixture.database.SQL.QueryRowContext(context.Background(), `
+	if err := dbapi.QueryRowContext(context.Background(), fixture.database.SQL, `
 SELECT count(*) FROM auth_rate_limits WHERE scope='LOGIN_ACCOUNT' AND subject_hash=?
 `, accountHash[:]).Scan(&accountRows); err != nil || accountRows != 0 {
 		t.Fatalf("successful account bucket clear = %d, %v", accountRows, err)
 	}
 	var ipRows int
-	if err := fixture.database.SQL.QueryRowContext(context.Background(), `
+	if err := dbapi.QueryRowContext(context.Background(), fixture.database.SQL, `
 SELECT count(*) FROM auth_rate_limits WHERE scope='LOGIN_IP'
 `).Scan(&ipRows); err != nil || ipRows != 1 {
 		t.Fatalf("successful login cleared IP bucket = %d, %v", ipRows, err)

@@ -6,6 +6,8 @@ import (
 	"errors"
 	"reflect"
 	"testing"
+
+	dbapi "retrom/internal/database"
 )
 
 type (
@@ -42,7 +44,7 @@ func verifyDiscardAttachment(t *testing.T, test discardAttachmentCase) {
 	fixture.execute(t, `UPDATE source_imports SET review_pending_item_count=1 WHERE id=?`, request.Intent.ImportID)
 	seedDiscardAttachment(t, fixture, itemID, test)
 	before := readDiscardAttachment(t, fixture, test.kind)
-	fault := newReviewDiscardFault(t, fixture, itemID, "item")
+	fault := newReviewDiscardFault(t, &fixture, itemID, "item")
 	result, err := fixture.service.Discard(t.Context(), itemID, 1, "")
 	if !errors.Is(err, fault.cause) || result != (DecisionResult{}) || fault.itemWrites != 1 || fault.faults != 1 {
 		t.Fatalf("attachment fault missed decision write: result=%+v err=%v writes=%d hits=%d", result, err, fault.itemWrites, fault.faults)
@@ -50,7 +52,7 @@ func verifyDiscardAttachment(t *testing.T, test discardAttachmentCase) {
 	if after := readDiscardAttachment(t, fixture, test.kind); !reflect.DeepEqual(before, after) {
 		t.Fatalf("attachment changed on rollback: before=%+v after=%+v", before, after)
 	}
-	fixture.service.database = fixture.database
+	fixture.service = newTestImporter(t, fixture.database, fixture.service.blobs, testImportOptions{Now: fixture.service.now, MultiDiscEnabled: fixture.service.multiDiscImportEnabled})
 	if _, err := fixture.service.Discard(t.Context(), itemID, 1, ""); err != nil {
 		t.Fatal(err)
 	}
@@ -103,7 +105,7 @@ func readDiscardAttachment(t *testing.T, fixture deduplicateFixture, kind string
 		table = "review_multidisc_attachments"
 	}
 	var result discardAttachmentSnapshot
-	if err := fixture.database.QueryRowContext(t.Context(), `
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `
 SELECT a.state,a.version,a.finished_at_ms,a.error_code,j.state,j.version,j.finished_at_ms,j.cancel_requested_at_ms,j.cancel_reason
 FROM `+table+` a JOIN jobs j ON j.id=a.job_id WHERE a.id='discard-attachment'`).Scan(&result.State, &result.Version, &result.FinishedAt, &result.ErrorCode,
 		&result.JobState, &result.JobVersion, &result.JobFinishedAt, &result.CancelRequestedAt, &result.JobReason); err != nil {

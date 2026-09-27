@@ -12,7 +12,7 @@ import (
 	"strings"
 
 	"retrom/internal/cleanup"
-	"retrom/internal/runtimecatalog"
+	runtimecatalog "retrom/internal/runtime/catalog"
 )
 
 var ErrInvalid = errors.New("DEPENDENCY_INVALID")

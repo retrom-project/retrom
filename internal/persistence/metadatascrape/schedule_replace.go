@@ -4,6 +4,11 @@ import (
 	"context"
 	"fmt"
 
+	dbapi "retrom/internal/database"
+	"retrom/internal/persistence/filedeletion"
+
+	"retrom/internal/persistence/recordstore"
+
 	application "retrom/internal/service/metadatascrape"
 )
 
@@ -25,6 +30,31 @@ func (writes scheduleWrites) replaceCurrent(ctx context.Context, plan applicatio
 		plan.Now, plan.Now, plan.Now, plan.Subject.ID, plan.Subject.ID)
 	if err != nil {
 		return fmt.Errorf("cancel replaced scrape jobs: %w", err)
+	}
+	ids, err := dbapi.QueryStrings(ctx, writes.transaction, current, plan.Subject.ID)
+	if err != nil {
+		return fmt.Errorf("read replaced scrape directories: %w", err)
+	}
+	for _, id := range ids {
+		if err := filedeletion.QueuePath(ctx, writes.transaction, "scrapes/"+id, plan.Now); err != nil {
+			return fmt.Errorf("replace current: %w", err)
+		}
+	}
+
+	if _, err := recordstore.DeleteScrapeCandidateAssets(
+		ctx,
+		writes.transaction,
+		recordstore.Scope{
+			Where: "scrape_candidate_id IN (SELECT id FROM scrape_candidates WHERE scrape_run_id IN (" + current + "))",
+			Args:  []any{plan.Subject.ID},
+		},
+	); err != nil {
+		return fmt.Errorf("release replaced scrape media: %w", err)
+	}
+	if _, err := recordstore.DeleteRows(ctx, writes.transaction, "content_hash_evidence", recordstore.Scope{
+		Where: "scrape_run_id IN (" + current + ")", Args: []any{plan.Subject.ID},
+	}); err != nil {
+		return fmt.Errorf("release replaced scrape evidence: %w", err)
 	}
 	_, err = writes.transaction.ExecContext(ctx, "DELETE FROM metadata_scrape_runs WHERE "+predicate, plan.Subject.ID)
 	if err != nil {

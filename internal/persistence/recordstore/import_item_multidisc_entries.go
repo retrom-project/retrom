@@ -4,16 +4,24 @@ import (
 	"context"
 	"database/sql"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 )
 
 func CreateImportItemMultidiscEntries(
-	ctx context.Context, db dbexec.Executor, query string, args ...any,
+	ctx context.Context, db dbapi.Executor, query string, args ...any,
 ) (sql.Result, error) {
-	return create(ctx, db, query, args, "source_snapshot_id,ordinal", ValidateImportItemMultidiscEntries)
+	return create(
+		ctx,
+		db,
+		query,
+		args,
+		"import_item_multidisc_entries",
+		"source_snapshot_id,ordinal",
+		ValidateImportItemMultidiscEntries,
+	)
 }
 
-func ValidateImportItemMultidiscEntries(ctx context.Context, db dbexec.Executor, keys ...any) error {
+func ValidateImportItemMultidiscEntries(ctx context.Context, db dbapi.Executor, keys ...any) error {
 	return validate(ctx, db, import_item_multidisc_entriesOwnership, keys)
 }
 
@@ -26,7 +34,7 @@ WHEN (NOT EXISTS(
 OR candidate.state='PRESENT' AND NOT EXISTS(
   SELECT 1 FROM import_item_source_snapshot_files file
   WHERE file.source_snapshot_id=candidate.source_snapshot_id AND file.role='DISC'
-  AND file.upload_file_id=candidate.upload_file_id AND file.blob_id=candidate.blob_id
+  AND file.upload_file_id=candidate.upload_file_id AND file.file_record=candidate.file_record
   AND file.logical_name=candidate.source_logical_name AND file.sort_order=candidate.ordinal
 )) THEN 'invalid multi-disc entry owner'
 ELSE '' END

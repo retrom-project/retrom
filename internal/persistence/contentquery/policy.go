@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"strings"
 
-	"retrom/internal/contentcapability"
+	contentcapability "retrom/internal/content/capability"
 )
 
 // BindingPolicySQL is a scalar column for queries whose selected Host binding

@@ -4,7 +4,9 @@ import (
 	"errors"
 	"testing"
 
-	"retrom/internal/corevalidation"
+	gamevariant "retrom/internal/service/gamevariant"
+
+	corevalidation "retrom/internal/core/validation"
 )
 
 func TestProductContentSelectsDeclaredDeliveryFiles(t *testing.T) {
@@ -13,28 +15,38 @@ func TestProductContentSelectsDeclaredDeliveryFiles(t *testing.T) {
 		variant, blocked                         bool
 	}{
 		{"single", "ROM_BLOB", "SINGLE_FILE", "CONTENT", "game.bin", "SOURCE_V1", false, false},
-		{"DOS bundle", "EMULATORJS_CONTENT", "DOS_BUNDLE", "DOS_LAUNCH_BUNDLE", "game.zip", "RETROM_DOS_DIRECT_ZIP_V1", true, false},
+		{
+			"DOS bundle", "EMULATORJS_CONTENT", "DOS_BUNDLE", "DOS_LAUNCH_BUNDLE", "game.zip",
+			"RETROM_DOS_DIRECT_ZIP_V1", true, false,
+		},
 		{"DOS source cannot launch", "EMULATORJS_CONTENT", "DOS_BUNDLE", "DOS_SOURCE", "game.zip", "", false, true},
 		{"DOS bundle name", "EMULATORJS_CONTENT", "DOS_BUNDLE", "DOS_LAUNCH_BUNDLE", "wrong.zip", "", true, true},
-		{"native project", "FILE_TREE_PROJECT", "NXENGINE_PROJECT_V1", "PROJECT_FILE", "data/game.bin", "NXENGINE_PROJECT_V1", false, false},
-		{"isolated project", "ISOLATED_WEB_PROJECT", "TYRANOSCRIPT_PROJECT_V1", "PROJECT_FILE", "index.html", "TYRANOSCRIPT_PROJECT_V1", false, false},
+		{
+			"native project", "FILE_TREE_PROJECT", "NXENGINE_PROJECT_V1", "PROJECT_FILE",
+			"data/game.bin", "NXENGINE_PROJECT_V1", false, false,
+		},
+		{
+			"isolated project", "ISOLATED_WEB_PROJECT", "TYRANOSCRIPT_PROJECT_V1", "PROJECT_FILE",
+			"index.html", "TYRANOSCRIPT_PROJECT_V1", false, false,
+		},
 		{"missing content", "ROM_BLOB", "SINGLE_FILE", "PROJECT_FILE", "game.bin", "", false, true},
 		{"unsupported delivery", "UNKNOWN", "SINGLE_FILE", "CONTENT", "game.bin", "", false, true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			snapshot := ProductSnapshot{Source: ProductSource{DeliveryProfile: test.delivery, ContentKind: test.kind}}
-			file := ProductFile{Role: test.role, BlobID: "blob", LogicalName: test.file}
+			snapshot := ProductSnapshot{Source: gamevariant.Source{DeliveryProfile: test.delivery, ContentKind: test.kind}}
+			file := gamevariant.File{Role: test.role, FileRecord: "blob", LogicalName: test.file}
 			if test.variant {
-				snapshot.VariantFiles = []ProductFile{file}
+				snapshot.VariantFiles = []gamevariant.File{file}
 			} else {
-				snapshot.GameFiles = []ProductFile{file}
+				snapshot.GameFiles = []gamevariant.File{file}
 			}
 			content, err := BuildProductContent(snapshot)
 			if test.blocked {
 				if !errors.Is(err, ErrBlocked) || len(content.Files) != 0 {
 					t.Fatalf("files=%+v error=%v", content.Files, err)
 				}
-			} else if err != nil || len(content.Files) != 1 || content.Files[0].Format != test.format || content.Files[0].BlobID != "blob" {
+			} else if err != nil || len(content.Files) != 1 || content.Files[0].Format != test.format ||
+				content.Files[0].FileRecord != "blob" {
 				t.Fatalf("files=%+v error=%v", content.Files, err)
 			}
 		})
@@ -56,7 +68,7 @@ func TestProductExternalBIOSRetainsOptionalAndCollisionPolicy(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			dependency := corevalidation.BIOSDependency{BIOSCatalogEntry: corevalidation.BIOSCatalogEntry{LogicalName: test.logical, RequirementMode: test.mode, DeliveryKind: "EXTERNAL_FILE", EmulatorPath: &virtual}}
 			if test.present {
-				dependency.BlobID, dependency.InstallationStatus = &blob, &status
+				dependency.FileRecord, dependency.InstallationStatus = &blob, &status
 			}
 			files, err := productExternalBIOS("game.bin", nil, []corevalidation.BIOSDependency{dependency}, test.allowedMissing)
 			if errors.Is(err, ErrBlocked) != test.blocked || (test.present && !test.blocked) != (len(files) == 1) {
@@ -82,19 +94,19 @@ func TestComputerProductsIncludeExternalBIOS(t *testing.T) {
 						LogicalName: test.bios, RequirementMode: "REQUIRED",
 						DeliveryKind: "EXTERNAL_FILE", EmulatorPath: &test.virtual,
 					},
-					BlobID: &blob, InstallationStatus: &status,
+					FileRecord: &blob, InstallationStatus: &status,
 				}},
 			}).JSON()
 			if err != nil {
 				t.Fatal(err)
 			}
 			content := ProductContent{Files: []ProductContentFile{{LogicalName: test.game}}}
-			snapshot := ProductSnapshot{Source: ProductSource{
+			snapshot := ProductSnapshot{Source: gamevariant.Source{
 				ProviderID: "retrom-runtime", TargetID: test.target, DeliveryProfile: "ROM_BLOB",
 				DependencySnapshot: string(snapshotJSON),
 			}}
 			files, err := productExternalFiles(snapshot, content)
-			if err != nil || len(files) != 1 || files[0].BlobID != blob || files[0].VirtualPath != test.virtual {
+			if err != nil || len(files) != 1 || files[0].FileRecord != blob || files[0].VirtualPath != test.virtual {
 				t.Fatalf("external files=%+v error=%v", files, err)
 			}
 		})

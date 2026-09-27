@@ -2,21 +2,21 @@ package sourceimport
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"fmt"
 
-	payload "retrom/internal/persistence/payloadrelease"
-	payloadService "retrom/internal/service/payloadrelease"
+	sourcecleanup "retrom/internal/service/sourceimport/payloadpolicy"
 
-	"retrom/internal/dbexec"
+	payload "retrom/internal/persistence/sourceimport/sourcerelease"
+
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/recordstore"
 	application "retrom/internal/service/sourceimport"
 )
 
-type Completion struct{ database *sql.DB }
+type Completion struct{ database dbapi.DB }
 
-func NewCompletion(database *sql.DB) *Completion { return &Completion{database: database} }
+func NewCompletion(database dbapi.DB) *Completion { return &Completion{database: database} }
 func (repository *Completion) WithCompletion(
 	ctx context.Context,
 	work func(application.CompletionRecords) error,
@@ -25,7 +25,7 @@ func (repository *Completion) WithCompletion(
 	if err != nil {
 		return fmt.Errorf("begin Source completion: %w", err)
 	}
-	defer dbexec.Rollback(tx)
+	defer dbapi.Rollback(tx)
 	if err := work(completionRecords{tx}); err != nil {
 		return err
 	}
@@ -35,7 +35,7 @@ func (repository *Completion) WithCompletion(
 	return nil
 }
 
-type completionRecords struct{ tx *sql.Tx }
+type completionRecords struct{ tx dbapi.Tx }
 
 func (records completionRecords) Current(ctx context.Context, id string) (application.ExecutionSnapshot, error) {
 	return leaseRecords(records).Current(ctx, id)
@@ -43,7 +43,7 @@ func (records completionRecords) Current(ctx context.Context, id string) (applic
 
 func (records completionRecords) Counts(ctx context.Context, id string) (application.CompletionCounts, error) {
 	var result application.CompletionCounts
-	err := records.tx.QueryRowContext(ctx, `SELECT
+	err := dbapi.QueryRowContext(ctx, records.tx, `SELECT
 count(*) FILTER(WHERE execution_state IN ('BLOCKED_SOURCE','BLOCKED_CONTENT')),
 count(*) FILTER(WHERE execution_state IN ('SOURCE_CHANGED','READ_FAILED','COMMIT_FAILED')),
 count(*) FILTER(WHERE execution_state='REVIEW_PENDING'),count(*) FILTER(WHERE execution_state='PUBLISHED'),
@@ -60,7 +60,9 @@ FROM source_import_items WHERE import_id=?`, id).Scan(&result.Blocked, &result.F
 
 func (records completionRecords) Complete(ctx context.Context, change application.CompletionChange) error {
 	before, counts := change.Before, change.Counts
-	result, err := records.tx.ExecContext(ctx, `UPDATE jobs SET state='SUCCEEDED',finished_at_ms=?,leased_until_ms=NULL,
+	result, err := records.tx.ExecContext(
+		ctx,
+		`UPDATE jobs SET state='SUCCEEDED',finished_at_ms=?,leased_until_ms=NULL,
 heartbeat_at_ms=NULL,worker_id=NULL,version=version+1,updated_at_ms=?
 WHERE id=? AND version=? AND state='RUNNING' AND execution_no=? AND attempt_count=? AND worker_id=?
 AND leased_until_ms=? AND leased_until_ms>? AND execution_deadline_at_ms=? AND execution_deadline_at_ms>?
@@ -68,9 +70,22 @@ AND NOT EXISTS(SELECT 1 FROM source_import_items WHERE import_id=?
 AND execution_state IN ('PENDING','COPYING','VALIDATING'))
 AND EXISTS(SELECT 1 FROM source_imports plan WHERE plan.id=? AND plan.import_job_id=jobs.id
 AND plan.version=? AND plan.state=?)`,
-		change.NowMS, change.NowMS, before.JobID, before.JobVersion, before.ExecutionNo, before.Attempt, before.WorkerID,
-		before.LeaseUntilMS, change.NowMS, before.DeadlineMS, change.NowMS, before.ImportID,
-		before.ImportID, before.ImportVersion, before.ImportState)
+		change.NowMS,
+		change.NowMS,
+		before.JobID,
+		before.JobVersion,
+		before.ExecutionNo,
+		before.Attempt,
+		before.WorkerID,
+		before.LeaseUntilMS,
+		change.NowMS,
+		before.DeadlineMS,
+		change.NowMS,
+		before.ImportID,
+		before.ImportID,
+		before.ImportVersion,
+		before.ImportState,
+	)
 	if err := requireWorkflowChange(result, err, application.ErrVersionConflict); err != nil {
 		return err
 	}
@@ -119,6 +134,6 @@ VALUES(?,'SOURCE_IMPORT',?,'SUCCEEDED',?,?)`,
 	return nil
 }
 
-func (records completionRecords) Payload() payloadService.ReleaseScope {
+func (records completionRecords) Payload() sourcecleanup.ReleaseScope {
 	return payload.BindReleases(records.tx)
 }

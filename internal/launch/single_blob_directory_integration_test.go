@@ -3,15 +3,16 @@
 package launch
 
 import (
-	"database/sql"
 	"testing"
 	"time"
+
+	dbapi "retrom/internal/database"
 
 	platformpersistence "retrom/internal/persistence/platforminstance"
 	"retrom/internal/service/platforminstance"
 )
 
-func createSingleBlobDirectory(t *testing.T, database *sql.DB, input singleBlobCase, actorID string) string {
+func createSingleBlobDirectory(t *testing.T, database dbapi.DB, input singleBlobCase, actorID string) string {
 	t.Helper()
 	service := platforminstance.New(platformpersistence.New(database), time.Now)
 	directory, err := service.Create(t.Context(), platforminstance.AuditActor{

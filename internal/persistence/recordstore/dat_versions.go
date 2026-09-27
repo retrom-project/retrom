@@ -4,16 +4,16 @@ import (
 	"context"
 	"database/sql"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 )
 
 func CreateDatVersions(
-	ctx context.Context, db dbexec.Executor, query string, args ...any,
+	ctx context.Context, db dbapi.Executor, query string, args ...any,
 ) (sql.Result, error) {
-	return create(ctx, db, query, args, "id", ValidateDatVersions)
+	return create(ctx, db, query, args, "dat_versions", "id", ValidateDatVersions)
 }
 
-func ValidateDatVersions(ctx context.Context, db dbexec.Executor, keys ...any) error {
+func ValidateDatVersions(ctx context.Context, db dbapi.Executor, keys ...any) error {
 	return validate(ctx, db, dat_versionsOwnership, keys)
 }
 

@@ -15,12 +15,13 @@ import (
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
 	dependencypersistence "retrom/internal/persistence/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 
-	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	"retrom/internal/dependencies"
+	"retrom/internal/filestore"
 	"retrom/internal/importing"
 	"retrom/internal/store"
 	"retrom/internal/testassert"
@@ -39,7 +40,7 @@ func TestArcadeGroupingBuildsCoreScopedParentAndBIOSClosure(t *testing.T) {
 
 type arcadeGroupingFixture struct {
 	database *store.DB
-	blobs    *blobstore.Store
+	blobs    *filestore.Store
 	service  *Service
 	datID    string
 	files    []importSourceFile
@@ -55,10 +56,11 @@ func newArcadeGroupingFixture(ctx context.Context, t *testing.T) arcadeGroupingF
 	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
 	dependencySet, err := dependencies.Load(filepath.Join(repositoryRoot, "data"), []string{"4.2.3"}, "4.2.3")
 	testassert.False(t, err != nil, err)
-	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, time.Now()); err != nil {
+	if err := dependencyservice.New(dependencySet,
+		dependencypersistence.New(database.SQL)).Bootstrap(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
-	blobs, err := blobstore.Open(dataDir)
+	blobs, err := filestore.Open(dataDir)
 	testassert.False(t, err != nil, err)
 	dummy, err := blobs.Put(bytes.NewReader([]byte("synthetic dat")))
 	testassert.False(t, err != nil, err)
@@ -161,7 +163,10 @@ NULL,
 		t.Fatal(err)
 	}
 
-	fixture := arcadeGroupingFixture{database: database, blobs: blobs, datID: datID, service: (&Service{database: database.SQL}).WithBlobStore(blobs)}
+	fixture := arcadeGroupingFixture{
+		database: database, blobs: blobs, datID: datID,
+		service: newTestImporter(t, database.SQL, blobs, testImportOptions{}),
+	}
 	fixture.files = fixture.createArchives(ctx, t)
 	return fixture
 }
@@ -184,14 +189,16 @@ func (fixture arcadeGroupingFixture) createArchives(ctx context.Context, t *test
 		metadata, putErr := blobs.Put(bytes.NewReader(archiveBytes))
 		testassert.False(t, putErr != nil, putErr)
 		fixtures[index].file = importSourceFile{
-			ID:     fixtures[index].id,
-			Path:   fixtures[index].name,
-			BlobID: "blob-" + fixtures[index].id,
-			SHA256: metadata.SHA256,
+			ID:         fixtures[index].id,
+			Path:       fixtures[index].name,
+			FileRecord: metadata.Record,
+			SHA256:     metadata.SHA256,
 		}
 		entryDigest := sha256.Sum256(fixtures[index].body)
-		entries, scanErr := importing.ScanZIP(ctx, blobs.Path(metadata.SHA256), importing.DefaultArchiveLimits())
-		testassert.Falsef(t, testassert.Any(func() bool { return scanErr != nil }, func() bool { return len(entries) != 1 }), "scan %s = %#v, error=%v", fixtures[index].name, entries, scanErr)
+		entries, scanErr := importing.ScanZIP(ctx, blobs.Path(metadata.Record), importing.DefaultArchiveLimits())
+		testassert.Falsef(t, testassert.Any(func() bool { return scanErr != nil },
+			func() bool { return len(entries) != 1 }), "scan %s = %#v, error=%v", fixtures[index].name,
+			entries, scanErr)
 		machine := strings.TrimSuffix(fixtures[index].name, ".zip")
 		if _, err := database.SQL.ExecContext(ctx, `
 INSERT INTO dat_rom_entries(dat_version_id,
@@ -228,13 +235,21 @@ status) VALUES(?,
 func (fixture arcadeGroupingFixture) assertExternalDependencies(ctx context.Context, t *testing.T) {
 	t.Helper()
 	service, files, datID := fixture.service, fixture.files, fixture.datID
-	dispositions, groups, archives, preparationErr := service.prepareArcadeFiles(ctx, files, sql.NullString{String: datID, Valid: true})
+	dispositions, groups, archives, preparationErr := service.prepareArcadeFiles(ctx, files,
+		sql.NullString{String: datID, Valid: true})
 	if preparationErr != nil {
 		t.Fatal(preparationErr)
 	}
-	testassert.Falsef(t, testassert.Any(func() bool { return len(dispositions) != 3 }, func() bool { return len(groups) != 1 }, func() bool { return len(archives) != 3 }), "arcade grouping counts = dispositions:%#v groups:%#v archives:%d", dispositions, groups, len(archives))
+	testassert.Falsef(t, testassert.Any(func() bool { return len(dispositions) != 3 },
+		func() bool { return len(groups) != 1 }, func() bool { return len(archives) != 3 }),
+		"arcade grouping counts = dispositions:%#v groups:%#v archives:%d", dispositions, groups, len(archives))
 	child := groups[0]
-	testassert.Falsef(t, testassert.Any(func() bool { return child.ValidationStatus != "READY" }, func() bool { return len(child.Sources) != 3 }, func() bool { return len(child.ValidationFiles) != 2 }, func() bool { return child.ValidationFiles[0].Role != "PARENT" }, func() bool { return child.ValidationFiles[1].Role != "BIOS_BUNDLE" }), "child dependency closure = %#v", child)
+	testassert.Falsef(t, testassert.Any(func() bool { return child.ValidationStatus != "READY" },
+		func() bool { return len(child.Sources) != 3 },
+		func() bool { return len(child.ValidationFiles) != 2 },
+		func() bool { return child.ValidationFiles[0].Role != "PARENT" },
+		func() bool { return child.ValidationFiles[1].Role != "BIOS_BUNDLE" }),
+		"child dependency closure = %#v", child)
 	for _, disposition := range dispositions {
 		testassert.Falsef(t, disposition.Disposition != "SOURCE", "referenced archive disposition = %#v", disposition)
 	}
@@ -246,10 +261,12 @@ func (fixture arcadeGroupingFixture) assertExternalDependencies(ctx context.Cont
 	if preparationErr != nil {
 		t.Fatal(preparationErr)
 	}
-	testassert.Falsef(t, testassert.Any(func() bool { return len(missingDispositions) != 1 }, func() bool { return len(missingGroups) != 1 }, func() bool { return missingGroups[0].ValidationStatus != "BLOCKED" }, func() bool {
-		return missingGroups[0].CompatibilityCode != "LAUNCH_BIOS_MISSING" &&
-			missingGroups[0].CompatibilityCode != "LAUNCH_PARENT_MISSING"
-	}), "missing dependency = dispositions:%#v groups:%#v", missingDispositions, missingGroups)
+	testassert.Falsef(t, testassert.Any(func() bool { return len(missingDispositions) != 1 },
+		func() bool { return len(missingGroups) != 1 },
+		func() bool { return missingGroups[0].ValidationStatus != "BLOCKED" }, func() bool {
+			return missingGroups[0].CompatibilityCode != "LAUNCH_BIOS_MISSING" &&
+				missingGroups[0].CompatibilityCode != "LAUNCH_PARENT_MISSING"
+		}), "missing dependency = dispositions:%#v groups:%#v", missingDispositions, missingGroups)
 }
 
 func (fixture arcadeGroupingFixture) assertSelfContainedGroups(ctx context.Context, t *testing.T) {
@@ -263,13 +280,17 @@ func (fixture arcadeGroupingFixture) assertSelfContainedGroups(ctx context.Conte
 	testassert.False(t, err != nil, err)
 	_, fullGroups, _, preparationErr := service.prepareArcadeFiles(
 		ctx,
-		[]importSourceFile{{ID: "full", Path: "child.zip", BlobID: "full-blob", SHA256: fullMetadata.SHA256}},
+		[]importSourceFile{{ID: "full", Path: "child.zip", FileRecord: fullMetadata.Record, SHA256: fullMetadata.SHA256}},
 		sql.NullString{String: datID, Valid: true},
 	)
 	if preparationErr != nil {
 		t.Fatal(preparationErr)
 	}
-	testassert.Falsef(t, testassert.Any(func() bool { return len(fullGroups) != 1 }, func() bool { return fullGroups[0].ValidationStatus != "READY" }, func() bool { return len(fullGroups[0].Sources) != 1 }, func() bool { return len(fullGroups[0].ValidationFiles) != 0 }), "full non-merged closure = %#v", fullGroups)
+	testassert.Falsef(t, testassert.Any(func() bool { return len(fullGroups) != 1 },
+		func() bool { return fullGroups[0].ValidationStatus != "READY" },
+		func() bool { return len(fullGroups[0].Sources) != 1 },
+		func() bool { return len(fullGroups[0].ValidationFiles) != 0 }),
+		"full non-merged closure = %#v", fullGroups)
 	fullWithCloneExtraBytes := makeZIP(
 		t,
 		map[string][]byte{
@@ -284,7 +305,7 @@ func (fixture arcadeGroupingFixture) assertSelfContainedGroups(ctx context.Conte
 	_, fullWithCloneExtraGroups, _, preparationErr := service.prepareArcadeFiles(
 		ctx,
 		[]importSourceFile{{
-			ID: "full-with-clone-extra", Path: "child.zip", BlobID: "full-with-clone-extra-blob",
+			ID: "full-with-clone-extra", Path: "child.zip", FileRecord: fullWithCloneExtraMetadata.Record,
 			SHA256: fullWithCloneExtraMetadata.SHA256,
 		}},
 		sql.NullString{String: datID, Valid: true},
@@ -292,7 +313,10 @@ func (fixture arcadeGroupingFixture) assertSelfContainedGroups(ctx context.Conte
 	if preparationErr != nil {
 		t.Fatal(preparationErr)
 	}
-	testassert.Falsef(t, testassert.Any(func() bool { return len(fullWithCloneExtraGroups) != 1 }, func() bool { return fullWithCloneExtraGroups[0].ValidationStatus != "READY" }, func() bool { return fullWithCloneExtraGroups[0].CompatibilityCode != "READY" }), "full non-merged closure with clone extra = %#v", fullWithCloneExtraGroups)
+	testassert.Falsef(t, testassert.Any(func() bool { return len(fullWithCloneExtraGroups) != 1 },
+		func() bool { return fullWithCloneExtraGroups[0].ValidationStatus != "READY" },
+		func() bool { return fullWithCloneExtraGroups[0].CompatibilityCode != "READY" }),
+		"full non-merged closure with clone extra = %#v", fullWithCloneExtraGroups)
 }
 
 func (fixture arcadeGroupingFixture) assertMergedGroups(ctx context.Context, t *testing.T) {
@@ -303,13 +327,19 @@ func (fixture arcadeGroupingFixture) assertMergedGroups(ctx context.Context, t *
 	testassert.False(t, err != nil, err)
 	_, mergedGroups, _, preparationErr := service.prepareArcadeFiles(
 		ctx,
-		[]importSourceFile{{ID: "merged", Path: "child.zip", BlobID: "merged-blob", SHA256: mergedMetadata.SHA256}},
+		[]importSourceFile{{
+			ID: "merged", Path: "child.zip", FileRecord: mergedMetadata.Record,
+			SHA256: mergedMetadata.SHA256,
+		}},
 		sql.NullString{String: datID, Valid: true},
 	)
 	if preparationErr != nil {
 		t.Fatal(preparationErr)
 	}
-	testassert.Falsef(t, testassert.Any(func() bool { return len(mergedGroups) != 1 }, func() bool { return mergedGroups[0].ValidationStatus != "BLOCKED" }, func() bool { return mergedGroups[0].CompatibilityCode != "UNSUPPORTED_MERGED_ROMSET" }), "merged ROM set = %#v", mergedGroups)
+	testassert.Falsef(t, testassert.Any(func() bool { return len(mergedGroups) != 1 },
+		func() bool { return mergedGroups[0].ValidationStatus != "BLOCKED" },
+		func() bool { return mergedGroups[0].CompatibilityCode != "UNSUPPORTED_MERGED_ROMSET" }),
+		"merged ROM set = %#v", mergedGroups)
 	nestedMismatchBytes := makeZIP(
 		t,
 		map[string][]byte{"c.bin": []byte("child"), "parent/p.bin": []byte("not-the-parent-rom")},
@@ -319,7 +349,7 @@ func (fixture arcadeGroupingFixture) assertMergedGroups(ctx context.Context, t *
 	_, nestedMismatchGroups, _, preparationErr := service.prepareArcadeFiles(
 		ctx,
 		[]importSourceFile{{
-			ID: "nested-mismatch", Path: "child.zip", BlobID: "nested-mismatch-blob",
+			ID: "nested-mismatch", Path: "child.zip", FileRecord: nestedMismatchMetadata.Record,
 			SHA256: nestedMismatchMetadata.SHA256,
 		}},
 		sql.NullString{String: datID, Valid: true},
@@ -327,7 +357,10 @@ func (fixture arcadeGroupingFixture) assertMergedGroups(ctx context.Context, t *
 	if preparationErr != nil {
 		t.Fatal(preparationErr)
 	}
-	testassert.Falsef(t, testassert.Any(func() bool { return len(nestedMismatchGroups) != 1 }, func() bool { return nestedMismatchGroups[0].ValidationStatus != "BLOCKED" }, func() bool { return nestedMismatchGroups[0].CompatibilityCode != "LAUNCH_PARENT_MISSING" }), "nested name-only match must remain a missing parent = %#v", nestedMismatchGroups)
+	testassert.Falsef(t, testassert.Any(func() bool { return len(nestedMismatchGroups) != 1 },
+		func() bool { return nestedMismatchGroups[0].ValidationStatus != "BLOCKED" },
+		func() bool { return nestedMismatchGroups[0].CompatibilityCode != "LAUNCH_PARENT_MISSING" }),
+		"nested name-only match must remain a missing parent = %#v", nestedMismatchGroups)
 }
 
 func (fixture arcadeGroupingFixture) assertUnsupportedDisk(ctx context.Context, t *testing.T) {
@@ -352,7 +385,10 @@ status) VALUES(?,
 	if preparationErr != nil {
 		t.Fatal(preparationErr)
 	}
-	testassert.Falsef(t, testassert.Any(func() bool { return len(diskGroups) == 0 }, func() bool { return diskGroups[0].ValidationStatus != "INCOMPATIBLE" }, func() bool { return diskGroups[0].CompatibilityCode != "UNSUPPORTED_CHD" }), "CHD compatibility = %#v", diskGroups)
+	testassert.Falsef(t, testassert.Any(func() bool { return len(diskGroups) == 0 },
+		func() bool { return diskGroups[0].ValidationStatus != "INCOMPATIBLE" },
+		func() bool { return diskGroups[0].CompatibilityCode != "UNSUPPORTED_CHD" }),
+		"CHD compatibility = %#v", diskGroups)
 }
 
 func makeZIP(t *testing.T, files map[string][]byte) []byte {
@@ -385,7 +421,7 @@ func waitForJob(t *testing.T, database *store.DB, jobID string) {
 	deadline := time.Now().Add(3 * time.Second)
 	for {
 		var state string
-		if err := database.SQL.QueryRowContext(context.Background(), `
+		if err := dbapi.QueryRowContext(context.Background(), database.SQL, `
 SELECT state
 FROM jobs
 WHERE id=?
@@ -395,7 +431,8 @@ WHERE id=?
 		if state == "SUCCEEDED" {
 			return
 		}
-		testassert.Falsef(t, testassert.Any(func() bool { return state == "FAILED" }, func() bool { return time.Now().After(deadline) }), "job %s state = %s", jobID, state)
+		testassert.Falsef(t, testassert.Any(func() bool { return state == "FAILED" },
+			func() bool { return time.Now().After(deadline) }), "job %s state = %s", jobID, state)
 		time.Sleep(10 * time.Millisecond)
 	}
 }

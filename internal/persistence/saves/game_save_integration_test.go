@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
 	saveservice "retrom/internal/service/saves"
 
 	"github.com/google/uuid"
@@ -46,13 +47,13 @@ func TestGameSaveUpdatesOneSlotAndKeepsUserName(t *testing.T) {
 	var count int
 	var name string
 	var created, updated int64
-	if err := f.database.SQL.QueryRowContext(t.Context(), `SELECT name,created_at_ms,updated_at_ms FROM save_states WHERE id=?`, a.SaveStateID).Scan(&name, &created, &updated); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), f.database.SQL, `SELECT name,created_at_ms,updated_at_ms FROM save_states WHERE id=?`, a.SaveStateID).Scan(&name, &created, &updated); err != nil {
 		t.Fatal(err)
 	}
 	if name != "我的周目" || updated <= created {
 		t.Fatalf("name/time changed incorrectly: %s %d %d", name, created, updated)
 	}
-	if err := f.database.SQL.QueryRowContext(t.Context(), `SELECT count(*) FROM save_states WHERE game_id=?`, f.gameID).Scan(&count); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), f.database.SQL, `SELECT count(*) FROM save_states WHERE game_id=?`, f.gameID).Scan(&count); err != nil {
 		t.Fatal(err)
 	}
 	if count != 1 {
@@ -64,7 +65,7 @@ func TestGameSaveUpdatesOneSlotAndKeepsUserName(t *testing.T) {
 	}
 }
 
-func TestGameSaveRestoreUpdatesSelectedSlotAndFreezesInput(t *testing.T) {
+func TestGameSaveRestoreUsesCurrentSelectedSlot(t *testing.T) {
 	f := newGameSaveFixture(t)
 	a := syncGameData(t, f, f.createLaunch(t), "first")
 	session := f.createLaunchFromSave(t, &a.SaveStateID)
@@ -72,16 +73,16 @@ func TestGameSaveRestoreUpdatesSelectedSlotAndFreezesInput(t *testing.T) {
 	if b.SaveStateID != a.SaveStateID {
 		t.Fatal("restore did not update selected slot")
 	}
-	digest, err := f.saves.StateDigest(f.ctx, session.LaunchID, session.Capability)
-	expected := sha256.Sum256([]byte("first"))
-	if err != nil || digest != hex.EncodeToString(expected[:]) {
-		t.Fatalf("restore input drifted: %s %v", digest, err)
+	digest, err := f.saves.StateFile(f.ctx, session.LaunchID, session.Capability)
+	expected := sha256.Sum256([]byte("second"))
+	if err != nil || digest.Digest != hex.EncodeToString(expected[:]) {
+		t.Fatalf("restore did not use current slot: %s %v", digest.Digest, err)
 	}
 	next := f.createLaunchFromSave(t, &a.SaveStateID)
-	digest, err = f.saves.StateDigest(f.ctx, next.LaunchID, next.Capability)
+	digest, err = f.saves.StateFile(f.ctx, next.LaunchID, next.Capability)
 	expected = sha256.Sum256([]byte("second"))
-	if err != nil || digest != hex.EncodeToString(expected[:]) {
-		t.Fatalf("next restore is stale: %s %v", digest, err)
+	if err != nil || digest.Digest != hex.EncodeToString(expected[:]) {
+		t.Fatalf("next restore is stale: %s %v", digest.Digest, err)
 	}
 }
 
@@ -91,6 +92,9 @@ func TestGameSaveRejectsStaleWriterAndDeletedSlot(t *testing.T) {
 	stale := f.createLaunchFromSave(t, &a.SaveStateID)
 	active := f.createLaunchFromSave(t, &a.SaveStateID)
 	syncGameData(t, f, active, "newer")
+	if _, err := f.saves.StateFile(f.ctx, stale.LaunchID, stale.Capability); !errors.Is(err, saveservice.ErrCheckpointIncompatible) {
+		t.Fatalf("stale launch restored a changed save: %v", err)
+	}
 	_, _, err := f.saves.CreateManual(f.ctx, stale.LaunchID, stale.Capability, uuid.NewString(), manualRequest(t, "stale", []byte("older"), screenshotPNG(t)))
 	if !errors.Is(err, saveservice.ErrSyncConflict) {
 		t.Fatal("stale writer replaced newer data")
@@ -111,12 +115,12 @@ func TestGameSaveRequiresScreenshotAndDeduplicatesPayload(t *testing.T) {
 	}
 	a := syncGameData(t, f, session, "first")
 	var before, after int64
-	if err = f.database.SQL.QueryRowContext(t.Context(), `SELECT version FROM save_states WHERE id=?`, a.SaveStateID).Scan(&before); err != nil {
+	if err = dbapi.QueryRowContext(t.Context(), f.database.SQL, `SELECT version FROM save_states WHERE id=?`, a.SaveStateID).Scan(&before); err != nil {
 		t.Fatal(err)
 	}
 	*f.now = f.now.Add(time.Second)
 	b := syncGameData(t, f, session, "first")
-	if err = f.database.SQL.QueryRowContext(t.Context(), `SELECT version FROM save_states WHERE id=?`, a.SaveStateID).Scan(&after); err != nil {
+	if err = dbapi.QueryRowContext(t.Context(), f.database.SQL, `SELECT version FROM save_states WHERE id=?`, a.SaveStateID).Scan(&after); err != nil {
 		t.Fatal(err)
 	}
 	if a.SaveStateID != b.SaveStateID || before != after {

@@ -5,12 +5,12 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"hash"
 	"io"
 	"path"
 	"time"
 
-	composition "retrom/internal/composition/libraryimport"
 	repository "retrom/internal/persistence/libraryimport"
 	application "retrom/internal/service/libraryimport"
 
@@ -20,11 +20,16 @@ import (
 	"retrom/internal/multidisc"
 )
 
-func (service *Service) ResumeMultiDiscAttachmentJobs(ctx context.Context) {
+func (service *Service) ResumeMultiDiscAttachmentJobs(ctx context.Context) error {
 	now := service.now().UnixMilli()
-	for _, job := range service.queuedJobRuns(ctx, "REVIEW_MULTI_DISC_VALIDATE") {
-		service.scheduleMultiDiscAttachmentRun(ctx, job.id, time.Duration(job.availableAt-now)*time.Millisecond)
+	jobs, err := repository.NewQueuedJobs(service.database).Queued(ctx, "REVIEW_MULTI_DISC_VALIDATE")
+	if err != nil {
+		return fmt.Errorf("resume multi-disc attachments: %w", err)
 	}
+	for _, job := range jobs {
+		service.scheduleMultiDiscAttachmentRun(ctx, job.ID, time.Duration(job.AvailableAtMS-now)*time.Millisecond)
+	}
+	return nil
 }
 
 func (service *Service) scheduleMultiDiscAttachmentRun(
@@ -32,12 +37,9 @@ func (service *Service) scheduleMultiDiscAttachmentRun(
 	jobID string,
 	delay time.Duration,
 ) {
-	workerContext := context.WithoutCancel(ctx)
-	if delay <= 0 {
-		go service.runMultiDiscAttachment(workerContext, jobID)
-		return
-	}
-	time.AfterFunc(delay, func() { service.runMultiDiscAttachment(workerContext, jobID) })
+	service.scheduleAttachment(ctx, delay, func(worker context.Context) {
+		service.runMultiDiscAttachment(worker, jobID)
+	})
 }
 
 func (service *Service) claimMultiDiscAttachment(
@@ -62,7 +64,7 @@ func (service *Service) readAttachedMultiDiscBase(
 	ctx context.Context,
 	candidate *multiDiscAttachmentCandidate,
 ) error {
-	base, err := composition.NewMultiDiscAttachmentSources(service.database).BaseFiles(
+	base, err := service.attachmentSources.BaseFiles(
 		ctx, candidate.input.BaseSourceSnapshotID,
 	)
 	if err != nil {
@@ -85,7 +87,7 @@ func attachedMultiDiscFileFromApplication(file application.MultiDiscAttachmentFi
 		role:         file.Role,
 		logicalName:  file.LogicalName,
 		uploadFileID: file.UploadFileID,
-		blobID:       file.BlobID,
+		fileRecord:   file.FileRecord,
 		blobSHA:      file.BlobSHA,
 		blobSize:     file.BlobSize,
 		sortOrder:    file.SortOrder,
@@ -96,7 +98,7 @@ func (service *Service) readMultiDiscAttachmentUploads(
 	ctx context.Context,
 	candidate *multiDiscAttachmentCandidate,
 ) error {
-	upload, err := composition.NewMultiDiscAttachmentSources(service.database).UploadFiles(
+	upload, err := service.attachmentSources.UploadFiles(
 		ctx, candidate.input.UploadSessionID,
 	)
 	if err != nil {
@@ -168,7 +170,7 @@ func (service *Service) multiDiscFileForValidation(
 	if err := service.heartbeatMultiDiscAttachment(ctx, candidate); err != nil {
 		return multidisc.File{}, err
 	}
-	reader, err := service.blobs.OpenDigest(file.blobSHA)
+	reader, err := service.blobs.OpenRecord(file.fileRecord)
 	if err != nil {
 		return multidisc.File{}, multiDiscAttachmentStoreError("open disc", err)
 	}
@@ -202,7 +204,7 @@ func (service *Service) multiDiscFileForValidation(
 	}
 	return multidisc.File{
 		Basename: file.logicalName, LogicalName: file.logicalName,
-		UploadFileID: file.uploadFileID, BlobID: file.blobID, BlobSHA256: file.blobSHA,
+		UploadFileID: file.uploadFileID, FileRecord: file.fileRecord, BlobSHA256: file.blobSHA,
 		SizeBytes: file.blobSize, Header: header,
 	}, nil
 }

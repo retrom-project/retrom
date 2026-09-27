@@ -6,13 +6,13 @@ import (
 	"io"
 	"time"
 
-	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
+	"retrom/internal/filestore"
 	"retrom/internal/hasheous"
 )
 
 type CachedResponse struct {
-	ID, RawSHA256 string
+	ID, RawFileID string
 	Outcome       hasheous.ProviderOutcome
 	HTTPStatus    int
 }
@@ -29,14 +29,14 @@ type ResolvedLookup struct {
 }
 type LookupService struct {
 	records  CacheReader
-	blobs    *blobstore.Store
+	blobs    *filestore.Store
 	provider LookupProvider
 	now      func() time.Time
 }
 
 func NewLookup(
 	records CacheReader,
-	blobs *blobstore.Store,
+	blobs *filestore.Store,
 	provider LookupProvider,
 	now func() time.Time,
 ) *LookupService {
@@ -80,7 +80,7 @@ func (service *LookupService) cached(
 	if !found {
 		return ResolvedLookup{}, false, nil
 	}
-	raw := service.readCachedResponse(entry.RawSHA256)
+	raw := service.readCachedResponse(entry.RawFileID)
 	if entry.Outcome != hasheous.OutcomeMiss && len(raw) == 0 {
 		return ResolvedLookup{}, false, nil
 	}
@@ -95,7 +95,7 @@ func (service *LookupService) readCachedResponse(digest string) []byte {
 	if digest == "" {
 		return nil
 	}
-	file, err := service.blobs.OpenDigest(digest)
+	file, err := service.blobs.OpenRecord(digest)
 	if err != nil {
 		return nil
 	}

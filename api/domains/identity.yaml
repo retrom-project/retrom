@@ -394,7 +394,7 @@ components:
           type: string
           enum:
             - DATABASE_UNAVAILABLE
-            - CAS_UNAVAILABLE
+            - FILE_STORAGE_UNAVAILABLE
             - DEPENDENCY_INVALID
             - DEPENDENCY_DAT_PARSE_FAILED
             - DEPENDENCY_INDEXING

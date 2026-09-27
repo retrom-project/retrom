@@ -6,13 +6,13 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/libraryimport"
 )
 
-type ImportItemRetries struct{ database *sql.DB }
+type ImportItemRetries struct{ database dbapi.DB }
 
-func NewImportItemRetries(database *sql.DB) *ImportItemRetries {
+func NewImportItemRetries(database dbapi.DB) *ImportItemRetries {
 	return &ImportItemRetries{database: database}
 }
 
@@ -23,7 +23,7 @@ func (repository *ImportItemRetries) WithRetry(
 	if err != nil {
 		return fmt.Errorf("begin import item retry: %w", err)
 	}
-	defer dbexec.Rollback(tx)
+	defer dbapi.Rollback(tx)
 	if err := work(importItemRetryScope{executor: tx}); err != nil {
 		return err
 	}
@@ -33,13 +33,13 @@ func (repository *ImportItemRetries) WithRetry(
 	return nil
 }
 
-type importItemRetryScope struct{ executor dbexec.Executor }
+type importItemRetryScope struct{ executor dbapi.Executor }
 
 func (scope importItemRetryScope) Current(
 	ctx context.Context, itemID string,
 ) (application.ImportItemRetrySnapshot, bool, error) {
 	var result application.ImportItemRetrySnapshot
-	err := scope.executor.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, scope.executor, `
 SELECT import_job_id,failed_stage,source_manifest_digest,version,state
 FROM import_items WHERE id=?
 `, itemID).Scan(&result.ImportID, &result.Stage, &result.ManifestDigest, &result.Version, &result.State)

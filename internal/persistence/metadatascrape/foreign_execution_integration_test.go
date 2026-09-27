@@ -3,13 +3,13 @@
 package metadatascrape_test
 
 import (
-	"database/sql"
 	"testing"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/service/metadatascrape"
 )
 
-func assertForeignMetadataExecutionIsUntouched(t *testing.T, database *sql.DB, scraper *metadatascrape.Service, runID, jobID string) {
+func assertForeignMetadataExecutionIsUntouched(t *testing.T, database dbapi.DB, scraper *metadatascrape.Service, runID, jobID string) {
 	t.Helper()
 	now := mediaFixtureNow().UnixMilli()
 	if _, err := database.ExecContext(t.Context(), `UPDATE jobs SET state='RUNNING',worker_id='another-worker',
@@ -21,7 +21,7 @@ func assertForeignMetadataExecutionIsUntouched(t *testing.T, database *sql.DB, s
 	}
 	var state, worker string
 	var events int
-	if err := database.QueryRowContext(t.Context(), `SELECT state,worker_id,(SELECT count(*) FROM job_events WHERE job_id=jobs.id AND event_type<>'QUEUED') FROM jobs WHERE id=?`, jobID).Scan(&state, &worker, &events); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), database, `SELECT state,worker_id,(SELECT count(*) FROM job_events WHERE job_id=jobs.id AND event_type<>'QUEUED') FROM jobs WHERE id=?`, jobID).Scan(&state, &worker, &events); err != nil {
 		t.Fatal(err)
 	}
 	if state != "RUNNING" || worker != "another-worker" || events != 0 {

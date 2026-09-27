@@ -9,9 +9,9 @@ import (
 	"strings"
 	"testing"
 
-	"retrom/internal/blobstore"
+	"retrom/internal/core/rpgmaker/detector"
+	"retrom/internal/filestore"
 	"retrom/internal/importing"
-	"retrom/internal/rpgmaker/detector"
 )
 
 func TestPrepareRPGMakerDirectoryKeepsOneNormalizedProject(t *testing.T) {
@@ -175,7 +175,7 @@ func TestPrepareRPGMakerRootProjectPreservesDesktopPayloadInSourceFiles(t *testi
 func TestPrepareRPGMakerArchiveMaterializesNestedEntryWithoutExpandingIt(t *testing.T) {
 	t.Parallel()
 	dataDir := t.TempDir()
-	blobs, err := blobstore.Open(dataDir)
+	blobs, err := filestore.Open(dataDir)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -185,9 +185,9 @@ func TestPrepareRPGMakerArchiveMaterializesNestedEntryWithoutExpandingIt(t *test
 		t.Fatal(err)
 	}
 	archiveFile := importSourceFile{
-		ID: "archive", Path: "fixture.zip", BlobID: "archive", SHA256: metadata.SHA256, Size: metadata.Size,
+		ID: "archive", Path: "fixture.zip", FileRecord: metadata.Record, SHA256: metadata.SHA256, Size: metadata.Size,
 	}
-	_, groups, archives, err := New(nil, nil).WithBlobStore(blobs).prepareRPGMakerProject(
+	_, groups, archives, err := newTestImporter(t, nil, blobs, testImportOptions{Now: nil}).prepareRPGMakerProject(
 		context.Background(), "FILES", []importSourceFile{archiveFile}, "rpgmaker_mv",
 	)
 	if err != nil {
@@ -230,7 +230,7 @@ func TestPrepareStaticBIOSDependenciesLeavesRPGMakerValidationToProjectResources
 func rpgMakerMVImportFixture(t *testing.T) (*Service, []importSourceFile) {
 	t.Helper()
 	dataDir := t.TempDir()
-	blobs, err := blobstore.Open(dataDir)
+	blobs, err := filestore.Open(dataDir)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -263,10 +263,10 @@ func rpgMakerMVImportFixture(t *testing.T) (*Service, []importSourceFile) {
 			t.Fatal(putErr)
 		}
 		files = append(files, importSourceFile{
-			ID: name, Path: name, BlobID: name, SHA256: metadata.SHA256, Size: metadata.Size,
+			ID: name, Path: name, FileRecord: metadata.Record, SHA256: metadata.SHA256, Size: metadata.Size,
 		})
 	}
-	return New(nil, nil).WithBlobStore(blobs), files
+	return newTestImporter(t, nil, blobs, testImportOptions{Now: nil}), files
 }
 
 func rpgMakerMVArchiveWithMToolSidecar(t *testing.T) []byte {
@@ -327,6 +327,6 @@ func appendRPGMakerFixtureFile(
 		t.Fatal(err)
 	}
 	return append(files, importSourceFile{
-		ID: name, Path: name, BlobID: name, SHA256: metadata.SHA256, Size: metadata.Size,
+		ID: name, Path: name, FileRecord: metadata.Record, SHA256: metadata.SHA256, Size: metadata.Size,
 	})
 }

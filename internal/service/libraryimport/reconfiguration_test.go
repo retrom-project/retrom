@@ -5,6 +5,8 @@ import (
 	"errors"
 	"testing"
 	"time"
+
+	"retrom/internal/filestore"
 )
 
 type reconfigurationRepositoryStub struct {
@@ -28,17 +30,19 @@ func (stub *reconfigurationRepositoryStub) Clone(_ context.Context, clone Reconf
 	return stub.cloneErr
 }
 
-func (stub *reconfigurationRepositoryStub) RemoveUnused(_ context.Context, uploadID string) error {
+func (stub *reconfigurationRepositoryStub) RemoveUnused(_ context.Context, uploadID string, _ int64) error {
 	stub.removed = uploadID
 	return stub.removeErr
 }
 
 func TestReconfigurationsRejectsMissingSourceFiles(t *testing.T) {
 	stub := &reconfigurationRepositoryStub{found: true}
-	service := NewReconfigurations(stub, func(context.Context, ImportRequest, ImportCreationOptions) (ImportCreationResult, error) {
+	service := NewReconfigurations(stub, func(context.Context, ImportRequest,
+		ImportCreationOptions,
+	) (ImportCreationResult, error) {
 		t.Fatal("create should not be called")
 		return ImportCreationResult{}, nil
-	}, time.Now)
+	}, reconfigurationCopy(1), nil, time.Now)
 	if _, err := service.Reconfigure(context.Background(), ReconfigurationRequest{
 		SourceImportJobID: "source", ExpectedVersion: 1,
 	}); !errors.Is(err, ErrInvalid) {
@@ -47,16 +51,18 @@ func TestReconfigurationsRejectsMissingSourceFiles(t *testing.T) {
 }
 
 func TestReconfigurationsClonesAndCreatesReplacement(t *testing.T) {
-	files := []PreparedReusableUploadFile{{ID: "file", Path: "rejected.rom", BlobID: "blob", Size: 7}}
+	files := []PreparedReusableUploadFile{{ID: "file", Path: "rejected.rom", FileRecord: "blob", Size: 7}}
 	stub := &reconfigurationRepositoryStub{found: true, source: ReconfigurationSource{
 		SourceType: "FILES", Files: files,
 	}}
 	var gotRequest ImportRequest
 	var gotOptions ImportCreationOptions
-	service := NewReconfigurations(stub, func(_ context.Context, request ImportRequest, options ImportCreationOptions) (ImportCreationResult, error) {
+	service := NewReconfigurations(stub, func(_ context.Context, request ImportRequest,
+		options ImportCreationOptions,
+	) (ImportCreationResult, error) {
 		gotRequest, gotOptions = request, options
 		return ImportCreationResult{Created: ServerCreated{ImportJobID: "replacement"}}, nil
-	}, func() time.Time { return time.UnixMilli(1234) })
+	}, reconfigurationCopy(7), nil, func() time.Time { return time.UnixMilli(1234) })
 
 	result, err := service.Reconfigure(context.Background(), ReconfigurationRequest{
 		SourceImportJobID: "source", ExpectedVersion: 3, TargetPlatformInstance: "target",
@@ -77,18 +83,67 @@ func TestReconfigurationsClonesAndCreatesReplacement(t *testing.T) {
 		stub.clone.ManifestDigest == "" {
 		t.Fatalf("clone = %#v", stub.clone)
 	}
+	assertReconfiguredCopy(t, files, stub.clone)
+}
+
+func assertReconfiguredCopy(t *testing.T, files []PreparedReusableUploadFile, clone ReconfigurationClone) {
+	t.Helper()
+	if files[0].FileRecord != "blob" || clone.Files[0].FileRecord != "independent-copy" || len(clone.Metadata) != 1 {
+		t.Fatalf("replacement did not copy independently or mutated the source: source=%#v clone=%#v", files, clone)
+	}
 }
 
 func TestReconfigurationsCleansCloneAfterCreationFailure(t *testing.T) {
 	stub := &reconfigurationRepositoryStub{found: true, source: ReconfigurationSource{
-		SourceType: "FILES", Files: []PreparedReusableUploadFile{{ID: "file", Path: "a", BlobID: "blob", Size: 1}},
+		SourceType: "FILES", Files: []PreparedReusableUploadFile{{ID: "file", Path: "a", FileRecord: "blob", Size: 1}},
 	}}
 	wantErr := errors.New("create failed")
-	service := NewReconfigurations(stub, func(context.Context, ImportRequest, ImportCreationOptions) (ImportCreationResult, error) {
+	service := NewReconfigurations(stub, func(context.Context, ImportRequest,
+		ImportCreationOptions,
+	) (ImportCreationResult, error) {
 		return ImportCreationResult{}, wantErr
-	}, time.Now)
-	_, err := service.Reconfigure(context.Background(), ReconfigurationRequest{SourceImportJobID: "source", ExpectedVersion: 1})
+	}, reconfigurationCopy(1), nil, time.Now)
+	_, err := service.Reconfigure(context.Background(),
+		ReconfigurationRequest{SourceImportJobID: "source", ExpectedVersion: 1})
 	if !errors.Is(err, wantErr) || stub.removed == "" {
 		t.Fatalf("error/removed = %v/%q", err, stub.removed)
+	}
+}
+
+func reconfigurationCopy(size int64) func(context.Context, string, string, string) (filestore.Metadata, error) {
+	return func(context.Context, string, string, string) (filestore.Metadata, error) {
+		return filestore.Metadata{Record: "independent-copy", Size: size}, nil
+	}
+}
+
+func TestReconfigurationRejectsFailedOrInvalidCopiesBeforeClone(t *testing.T) {
+	cause := errors.New("source disappeared")
+	for _, test := range []struct {
+		name     string
+		metadata filestore.Metadata
+		copyErr  error
+		wantErr  error
+	}{
+		{name: "read failure", copyErr: cause, wantErr: cause},
+		{name: "missing identity", wantErr: ErrVersionConflict},
+		{name: "reused identity", metadata: filestore.Metadata{Record: "original", Size: 1}, wantErr: ErrVersionConflict},
+		{name: "changed size", metadata: filestore.Metadata{Record: "new", Size: 2}, wantErr: ErrVersionConflict},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			stub := &reconfigurationRepositoryStub{found: true, source: ReconfigurationSource{
+				SourceType: "FILES", Files: []PreparedReusableUploadFile{{FileRecord: "original", Size: 1}},
+			}}
+			service := NewReconfigurations(stub,
+				func(context.Context, ImportRequest, ImportCreationOptions) (ImportCreationResult, error) {
+					t.Fatal("invalid copies must not create an import")
+					return ImportCreationResult{}, nil
+				}, func(context.Context, string, string, string) (filestore.Metadata, error) {
+					return test.metadata, test.copyErr
+				}, nil, time.Now)
+			_, err := service.Reconfigure(t.Context(), ReconfigurationRequest{SourceImportJobID: "source", ExpectedVersion: 1})
+			if !errors.Is(err, test.wantErr) || stub.clone.UploadID != "" {
+				t.Fatalf("invalid copy reached transaction: error=%v clone=%#v", err, stub.clone)
+			}
+		})
 	}
 }

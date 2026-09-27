@@ -4,13 +4,13 @@ package libraryimport
 
 import (
 	"bytes"
-	"database/sql"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/testsupport"
 )
 
@@ -19,7 +19,7 @@ func TestRPGReviewRequiresExplicitSelfContainedConfirmation(t *testing.T) {
 	ctx := t.Context()
 	database, blobs, dataDir := openImportGroupFixture(t, ctx)
 	uploadID := completeProjectUpload(t, ctx, database.SQL, blobs, dataDir, "GENERAL", requiredRPGPackArchive(t))
-	importer := New(database.SQL, time.Now).WithBlobStore(blobs)
+	importer := newTestImporter(t, database.SQL, blobs, testImportOptions{Now: time.Now})
 	created, err := importer.Create(ctx, CreateRequest{
 		UploadID: uploadID, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(t, database.SQL, "rpgmaker/rpgmaker"),
 		MetadataProvider: "NONE", ContentMode: "STANDARD", TagIDs: []string{},
@@ -28,7 +28,7 @@ func TestRPGReviewRequiresExplicitSelfContainedConfirmation(t *testing.T) {
 		t.Fatal(err)
 	}
 	var itemID string
-	if err := database.SQL.QueryRowContext(ctx, "SELECT id FROM import_items WHERE import_job_id=?", created.ImportJobID).Scan(&itemID); err != nil {
+	if err := dbapi.QueryRowContext(ctx, database.SQL, "SELECT id FROM import_items WHERE import_job_id=?", created.ImportJobID).Scan(&itemID); err != nil {
 		t.Fatal(err)
 	}
 	assertRPGDependencyStatus(t, database.SQL, itemID, "BLOCKED", "RPG_EXTERNAL_RTP_REQUIRED")
@@ -72,10 +72,10 @@ func refreshRPGDraft(t *testing.T, importer *Service, itemID string, version int
 	return current
 }
 
-func assertRPGDependencyStatus(t *testing.T, database *sql.DB, itemID, status, code string) string {
+func assertRPGDependencyStatus(t *testing.T, database dbapi.DB, itemID, status, code string) string {
 	t.Helper()
 	var id, gotStatus, gotCode string
-	if err := database.QueryRowContext(t.Context(), `
+	if err := dbapi.QueryRowContext(t.Context(), database, `
 SELECT id,status,compatibility_code FROM import_item_core_validations WHERE import_item_id=?
 ORDER BY created_at_ms DESC,id DESC LIMIT 1`, itemID).Scan(&id, &gotStatus, &gotCode); err != nil {
 		t.Fatal(err)

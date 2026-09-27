@@ -59,8 +59,15 @@ done
 import_body="$(jq -nc --arg upload "$upload_id" --arg platformInstance "$platform_instance_id" '{uploadId:$upload,targetPlatformInstanceId:$platformInstance,metadataProvider:"NONE",tagIds:[]}')"
 imported="$(curl --fail --silent --show-error "${common[@]}" "${write[@]}" -H "Content-Type: application/json" -H "Idempotency-Key: $(new_id)" -d "$import_body" "$backend/api/v1/admin/imports")"
 import_id="$(jq -r .importJobId <<<"$imported")"
-reviews="$(curl --fail --silent --show-error "${common[@]}" "$backend/api/v1/admin/reviews?importJobId=$import_id")"
-item_id="$(jq -r '.items[0].itemId' <<<"$reviews")"
+# Import preparation runs asynchronously. Wait for its real review publication.
+item_id=""
+for _ in $(seq 1 100); do
+  reviews="$(curl --fail --silent --show-error "${common[@]}" "$backend/api/v1/admin/reviews?importJobId=$import_id")"
+  item_id="$(jq -r '.items[0].itemId // empty' <<<"$reviews")"
+  [[ -n "$item_id" ]] && break
+  sleep 0.1
+done
+[[ -n "$item_id" ]] || { echo "import did not produce a review" >&2; exit 1; }
 review_detail="$(curl --fail --silent --show-error "${common[@]}" "$backend/api/v1/admin/reviews/$item_id")"
 long_description="Retrom 的项目自有测试游戏，用于验证客厅距离下的完整简介阅读体验。"
 long_description+=" 玩家可以在数独棋盘中逐格填写数字，并随时检查当前选择与同行、同列和宫格的关系。"

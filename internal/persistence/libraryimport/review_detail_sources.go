@@ -5,29 +5,31 @@ import (
 	"fmt"
 
 	"retrom/internal/cleanup"
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/libraryimport"
 )
 
-type ReviewSources struct{ executor dbexec.Executor }
+type ReviewSources struct{ executor dbapi.Executor }
 
 func (records ReviewSources) Files(ctx context.Context, snapshotID string) ([]application.ReviewSourceRecord, error) {
 	rows, err := records.executor.QueryContext(ctx, `
-SELECT f.id,f.relative_path,b.size_bytes,b.sha256,b.md5,b.crc32,
-MAX(CASE WHEN s.source_archive_blob_id IS NOT NULL OR EXISTS(
-  SELECT 1 FROM archive_entries ae WHERE ae.archive_blob_id=f.blob_id
+SELECT f.id,f.relative_path,json_extract(b.value, '$.size_bytes'),json_extract(b.value, '$.sha256'),
+json_extract(b.value, '$.md5'),json_extract(b.value, '$.crc32'),
+MAX(CASE WHEN s.source_archive_file_record IS NOT NULL OR EXISTS(
+  SELECT 1 FROM archive_entries ae WHERE ae.archive_file_record=b.value
 ) THEN 1 ELSE 0 END),
 COALESCE(
-  MAX(s.source_archive_blob_id),
+  MAX(s.source_archive_file_record),
   MAX(CASE WHEN EXISTS(
-    SELECT 1 FROM archive_entries ae WHERE ae.archive_blob_id=f.blob_id
-  ) THEN f.blob_id END)
+    SELECT 1 FROM archive_entries ae WHERE ae.archive_file_record=b.value
+  ) THEN b.value END)
 )
 FROM import_item_source_snapshot_files s
 JOIN import_files f ON f.id=s.upload_file_id
-JOIN blobs b ON b.id=f.blob_id
+JOIN json_each(json_array(COALESCE(s.source_archive_file_record,s.file_record))) b ON b.value IS NOT NULL
 WHERE s.source_snapshot_id=?
-GROUP BY f.id,f.relative_path,b.size_bytes,b.sha256,b.md5,b.crc32
+GROUP BY f.id,f.relative_path,json_extract(b.value, '$.size_bytes'),json_extract(b.value, '$.sha256'),
+json_extract(b.value, '$.md5'),json_extract(b.value, '$.crc32')
 ORDER BY min(s.sort_order),f.relative_path,f.id
 `, snapshotID)
 	if err != nil {
@@ -44,7 +46,7 @@ ORDER BY min(s.sort_order),f.relative_path,f.id
 			&row.MD5,
 			&row.CRC32,
 			&row.Archive,
-			&row.ArchiveBlobID); err != nil {
+			&row.ArchiveFileRecord); err != nil {
 			return nil, fmt.Errorf("scan review source file: %w", err)
 		}
 		result = append(result, row)
@@ -57,14 +59,14 @@ ORDER BY min(s.sort_order),f.relative_path,f.id
 
 func (records ReviewSources) ArchiveEntries(
 	ctx context.Context,
-	archiveBlobID string,
+	archiveFileRecord string,
 ) (application.ReviewArchive, error) {
 	rows, err := records.executor.QueryContext(ctx, `
 SELECT original_relative_path,uncompressed_size_bytes,crc32,archive_format
 FROM archive_entries
-WHERE archive_blob_id=?
+WHERE archive_file_record=?
 ORDER BY ordinal
-`, archiveBlobID)
+`, archiveFileRecord)
 	if err != nil {
 		return application.ReviewArchive{}, fmt.Errorf("query review archive entries: %w", err)
 	}

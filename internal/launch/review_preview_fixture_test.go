@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"io"
 
-	persistence "retrom/internal/persistence/launch"
+	libraryimport "retrom/internal/libraryimport"
+	reviewrepository "retrom/internal/persistence/libraryimport"
 	retromruntime "retrom/internal/runtime"
 	application "retrom/internal/service/launch"
+	reviewservice "retrom/internal/service/libraryimport"
 )
 
 func (service *Service) ReviewPreviewConfig(ctx context.Context, id, capability string) (Config, error) {
@@ -22,22 +24,22 @@ func (service *Service) StoreReviewScreenshot(
 	ctx context.Context,
 	previewID, capability string,
 	reader io.Reader,
-) (ReviewScreenshot, error) {
-	result, err := service.screenshotSaver(persistence.NewScreenshots(service.database)).Store(
+) (reviewservice.ReviewScreenshot, error) {
+	result, err := service.screenshotSaver(reviewrepository.NewScreenshots(service.database)).Store(
 		ctx, previewID, capability, reader,
 	)
 	if err != nil {
-		return ReviewScreenshot{}, fmt.Errorf("store review screenshot: %w", err)
+		return reviewservice.ReviewScreenshot{}, fmt.Errorf("store review screenshot: %w", err)
 	}
 	return result, nil
 }
 
-func (service *Service) screenshotSaver(repository application.ScreenshotRepository) *application.ScreenshotSaver {
-	var images application.ScreenshotImages
+func (service *Service) screenshotSaver(repository reviewservice.ScreenshotRepository) *reviewservice.ScreenshotSaver {
+	var images reviewservice.ScreenshotImages
 	if service.blobs != nil {
-		images = screenshotImages{blobs: service.blobs}
+		images = libraryimport.NewReviewScreenshotImages(service.blobs)
 	}
-	return application.NewScreenshotSaver(repository, images, application.ScreenshotEnvironment{
+	return reviewservice.NewScreenshotSaver(repository, images, reviewservice.ScreenshotEnvironment{
 		Now: service.now, Matches: retromruntime.MatchesCapability,
 	})
 }

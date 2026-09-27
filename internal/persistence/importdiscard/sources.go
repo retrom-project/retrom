@@ -2,13 +2,16 @@ package importdiscard
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 
-	payloadpersistence "retrom/internal/persistence/payloadrelease"
+	sourcecleanup "retrom/internal/service/sourceimport/payloadpolicy"
+
+	dbapi "retrom/internal/database"
+
 	"retrom/internal/persistence/recordstore"
+	payloadpersistence "retrom/internal/persistence/sourceimport/sourcerelease"
+	payloadservice "retrom/internal/service/cleanupjobs"
 	"retrom/internal/service/importdiscard"
-	payloadservice "retrom/internal/service/payloadrelease"
 )
 
 func (writes writes) Complete(ctx context.Context, key importdiscard.Key, now int64) error {
@@ -31,7 +34,7 @@ import_id=? AND execution_state NOT IN ('PUBLISHED','SKIPPED_EXISTING','REVIEW_D
 	}); err != nil {
 		return fmt.Errorf("importdiscard/discard source items: %w", err)
 	}
-	ids, err := payloadpersistence.CollectScopeIDs(ctx, tx, `
+	ids, err := dbapi.QueryStrings(ctx, tx, `
 SELECT id FROM `+itemsTable+` WHERE import_id=? AND payload_state='RETAINED'`, id)
 	if err != nil {
 		return fmt.Errorf("importdiscard/list source releases: %w", err)
@@ -54,11 +57,10 @@ SELECT id FROM `+itemsTable+` WHERE import_id=? AND payload_state='RETAINED'`, i
 	return nil
 }
 
-func scheduleSourceRelease(ctx context.Context, tx *sql.Tx, kind, id string, now int64) error {
+func scheduleSourceRelease(ctx context.Context, tx dbapi.Tx, kind, id string, now int64) error {
 	var err error
 	if kind == "SOURCE" {
-		_, err = payloadservice.NewScheduler(nil).TerminalSource(
-			ctx,
+		_, err = sourcecleanup.TerminalSource(ctx, payloadservice.NewScheduler(nil),
 			payloadpersistence.BindScheduling(tx),
 			payloadservice.Scope{Type: payloadservice.ScopeSourceImportItem, ID: id},
 			now,

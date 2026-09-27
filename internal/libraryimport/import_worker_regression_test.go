@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	dbapi "retrom/internal/database"
 	repository "retrom/internal/persistence/libraryimport"
 	application "retrom/internal/service/libraryimport"
 	"retrom/internal/testsupport"
@@ -46,8 +47,9 @@ func TestImportWorkerProgressRejectsStaleExecution(t *testing.T) {
 				}
 				err := service.recordImportGroupProgress(t.Context(), work, "PERSISTING", 1)
 				var count int
-				if queryErr := service.database.QueryRowContext(
-					t.Context(),
+				if queryErr := dbapi.QueryRowContext(
+					t.Context(), service.database,
+
 					`SELECT count(*) FROM job_events WHERE job_id=? AND event_type='PROGRESS'`,
 					work.jobID,
 				).Scan(
@@ -65,14 +67,15 @@ func TestImportWorkerProgressRejectsStaleExecution(t *testing.T) {
 
 func TestImportWorkerRecoveryPreservesOtherLiveOwner(t *testing.T) {
 	service, work := workerAuthorityFixture(t)
-	recovered := New(service.database, service.now).WithBlobStore(service.blobs)
+	recovered := newTestImporter(t, service.database, service.blobs, testImportOptions{Now: service.now})
 	if err := recovered.testExecutions().Recover(t.Context()); err != nil {
 		t.Fatal(err)
 	}
 	var state, owner string
 	var attempt int
-	if err := service.database.QueryRowContext(
-		t.Context(),
+	if err := dbapi.QueryRowContext(
+		t.Context(), service.database,
+
 		`SELECT state,COALESCE(worker_id,''),attempt_count FROM jobs WHERE id=?`,
 		work.jobID,
 	).Scan(
@@ -101,7 +104,7 @@ func TestImportWorkerClaimPreservesRowsAffectedCause(t *testing.T) {
 				}
 				cause := errors.New("worker claim count unavailable")
 				written := int64(0)
-				service.database = testsupport.OpenSQLFaultDatabase(
+				service = newTestImporter(t, testsupport.OpenSQLFaultDatabase(
 					t,
 					service.database,
 					testsupport.SQLFaultHooks{
@@ -118,13 +121,13 @@ func TestImportWorkerClaimPreservesRowsAffectedCause(t *testing.T) {
 							return result, nil
 						},
 					},
-				)
+				), service.blobs, testImportOptions{Now: service.now, MultiDiscEnabled: service.multiDiscImportEnabled})
 				work, err := service.claimImportGroup(t.Context(), created.JobID)
 				if !errors.Is(err, cause) || written != 1 || work.jobID != "" {
 					t.Fatalf("claim %s cause lost: work=%+v written=%d error=%v", table, work, written, err)
 				}
 				var state string
-				if err := service.database.QueryRowContext(t.Context(), `SELECT state FROM jobs WHERE id=?`, created.JobID).Scan(&state); err != nil {
+				if err := dbapi.QueryRowContext(t.Context(), service.database, `SELECT state FROM jobs WHERE id=?`, created.JobID).Scan(&state); err != nil {
 					t.Fatal(err)
 				}
 				if state != "QUEUED" {
@@ -160,12 +163,12 @@ func TestImportWorkerFailureAndReleaseSchedulingAreAtomic(t *testing.T) {
 	service, work := workerAuthorityFixture(t)
 	cause := errors.New("payload scheduling unavailable")
 	terminal, release := int64(0), 0
-	service.database = testsupport.OpenSQLFaultDatabase(
+	service = newTestImporter(t, testsupport.OpenSQLFaultDatabase(
 		t,
 		service.database,
 		testsupport.SQLFaultHooks{
 			BeforeExec: func(_ context.Context, query string, _ []driver.NamedValue) error {
-				if strings.HasPrefix(strings.TrimSpace(query), "INSERT INTO jobs(") && strings.Contains(query, "'PAYLOAD_RELEASE'") {
+				if strings.HasPrefix(strings.TrimSpace(query), "INSERT INTO jobs(") && strings.Contains(query, "'OWNER_CLEANUP'") {
 					release++
 					return cause
 				}
@@ -183,14 +186,15 @@ func TestImportWorkerFailureAndReleaseSchedulingAreAtomic(t *testing.T) {
 				return result, nil
 			},
 		},
-	)
+	), service.blobs, testImportOptions{Now: service.now, MultiDiscEnabled: service.multiDiscImportEnabled})
 	err := service.testExecutions().Fail(t.Context(), *work.creationIntent(), ErrInvalid)
 	if !errors.Is(err, cause) {
 		t.Fatalf("release failure cause lost: %v", err)
 	}
 	var jobState, parentState, payloadState string
-	if err := service.database.QueryRowContext(
-		t.Context(),
+	if err := dbapi.QueryRowContext(
+		t.Context(), service.database,
+
 		`SELECT job.state,parent.state,parent.payload_state FROM jobs job JOIN import_jobs parent ON
  parent.id=job.scope_id WHERE job.id=?`,
 		work.jobID,

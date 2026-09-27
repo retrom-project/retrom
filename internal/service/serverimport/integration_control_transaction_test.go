@@ -3,19 +3,19 @@ package serverimport_test
 import (
 	"context"
 	"crypto/sha256"
-	"database/sql"
 	"errors"
 	"fmt"
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
 	importpersistence "retrom/internal/persistence/serverimport"
 	importservice "retrom/internal/service/serverimport"
 )
 
 const controlActorID = "01980000-0000-7000-8000-00000000b001"
 
-func failedControlImport(t *testing.T) (*Service, *sql.DB, Summary) {
+func failedControlImport(t *testing.T) (*Service, dbapi.DB, Summary) {
 	t.Helper()
 	service, database, _ := archiveImportFixture(t)
 	created, err := service.Create(t.Context(), CreateRequest{Kind: "BIOS_DIRECTORY", RootID: "bios-root"}, controlActorID)
@@ -57,7 +57,7 @@ func TestRetryWriteRejectsSnapshotChangedAfterPreparation(t *testing.T) {
 	}
 	assertControlUnchanged(t, database, created.ID, "FAILED", created.Version+1)
 	var itemState string
-	if err := database.QueryRowContext(t.Context(), `SELECT state FROM server_bios_import_items WHERE server_import_id=?`, created.ID).Scan(&itemState); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), database, `SELECT state FROM server_bios_import_items WHERE server_import_id=?`, created.ID).Scan(&itemState); err != nil {
 		t.Fatal(err)
 	}
 	if itemState != "READ_FAILED" {
@@ -103,11 +103,11 @@ func TestImportControlLateFailureRollsBackEveryWrite(t *testing.T) {
 	})
 }
 
-func assertControlUnchanged(t *testing.T, database *sql.DB, id, state string, version int64) {
+func assertControlUnchanged(t *testing.T, database dbapi.DB, id, state string, version int64) {
 	t.Helper()
 	var importState, jobState string
 	var actualVersion, execution, snapshots, audits, events int64
-	err := database.QueryRowContext(t.Context(), `SELECT import.state,import.version,job.state,job.execution_no,(SELECT count(*) FROM job_input_snapshots WHERE job_id=job.id),(SELECT count(*) FROM audit_events WHERE action IN ('SERVER_IMPORT_RETRIED','SERVER_IMPORT_CANCEL_REQUESTED')),(SELECT count(*) FROM job_events WHERE event_type IN ('MANUAL_RETRY','CANCEL_REQUESTED')) FROM server_imports import JOIN jobs job ON job.id=import.job_id WHERE import.id=?`, id).Scan(&importState, &actualVersion, &jobState, &execution, &snapshots, &audits, &events)
+	err := dbapi.QueryRowContext(t.Context(), database, `SELECT import.state,import.version,job.state,job.execution_no,(SELECT count(*) FROM job_input_snapshots WHERE job_id=job.id),(SELECT count(*) FROM audit_events WHERE action IN ('SERVER_IMPORT_RETRIED','SERVER_IMPORT_CANCEL_REQUESTED')),(SELECT count(*) FROM job_events WHERE event_type IN ('MANUAL_RETRY','CANCEL_REQUESTED')) FROM server_imports import JOIN jobs job ON job.id=import.job_id WHERE import.id=?`, id).Scan(&importState, &actualVersion, &jobState, &execution, &snapshots, &audits, &events)
 	if err != nil {
 		t.Fatal(err)
 	}

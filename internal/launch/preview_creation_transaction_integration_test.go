@@ -4,7 +4,6 @@ package launch
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"reflect"
@@ -13,11 +12,13 @@ import (
 	"time"
 
 	"retrom/internal/cleanup"
+	dbapi "retrom/internal/database"
 	persistence "retrom/internal/persistence/launch"
 	application "retrom/internal/service/launch"
 
+	"retrom/internal/persistence/recordstore"
+
 	"github.com/google/uuid"
-	"modernc.org/sqlite"
 )
 
 type previewWriteFaultRepository struct {
@@ -27,7 +28,9 @@ type previewWriteFaultRepository struct {
 	reached bool
 }
 
-func (repository *previewWriteFaultRepository) WithCreation(ctx context.Context, work func(application.PreviewCreationScope) error) error {
+func (repository *previewWriteFaultRepository) WithCreation(ctx context.Context,
+	work func(application.PreviewCreationScope) error,
+) error {
 	return repository.PreviewCreationRepository.WithCreation(ctx, func(scope application.PreviewCreationScope) error {
 		err := work(previewWriteFaultScope{PreviewCreationScope: scope, change: repository.change})
 		if err != nil {
@@ -53,10 +56,11 @@ func (scope previewWriteFaultScope) Create(ctx context.Context, plan application
 	return scope.PreviewCreationScope.Create(ctx, plan)
 }
 
-func previewCreationRows(t *testing.T, database *sql.DB) map[string]string {
+func previewCreationRows(t *testing.T, database dbapi.DB) map[string]string {
 	t.Helper()
 	result := playRows(t, database)
-	rows, err := database.QueryContext(t.Context(), `SELECT preview_session_id,role,logical_name,blob_id,sort_order,COALESCE(virtual_path,'') FROM review_preview_files ORDER BY preview_session_id,role,logical_name`)
+	rows, err := database.QueryContext(t.Context(), `SELECT preview_session_id,role,logical_name,file_record,sort_order,COALESCE(virtual_path,'') FROM
+review_preview_files ORDER BY preview_session_id,role,logical_name`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -95,11 +99,13 @@ func assertPreviewCreationRollback(t *testing.T, service *Service, request Revie
 	}
 	repository.after = nil
 	repository.change = func(plan *application.PreviewCreatePlan) {
-		plan.Content.Files = append(plan.Content.Files, application.PreviewFile{Role: "PROJECT_FILE", LogicalName: "late-failure.bin", BlobID: "does-not-exist"})
+		plan.Content.Files = append(plan.Content.Files, application.PreviewFile{
+			Role:        "PROJECT_FILE",
+			LogicalName: "late-failure.bin", FileRecord: "does-not-exist",
+		})
 	}
 	result, err = service.previewCreator(repository).Create(t.Context(), request)
-	var storage *sqlite.Error
-	if !errors.As(err, &storage) || result != (ReviewPreviewCreated{}) {
+	if !errors.Is(err, recordstore.ErrInvariant) || result != (ReviewPreviewCreated{}) {
 		t.Fatalf("late file failure lost cause: id=%q error=%v", result.PreviewID, err)
 	}
 	if !reflect.DeepEqual(before, previewCreationRows(t, service.database)) {
@@ -110,7 +116,8 @@ func assertPreviewCreationRollback(t *testing.T, service *Service, request Revie
 func TestPreviewCreationRollsBackEveryProductIndependentOwner(t *testing.T) {
 	t.Parallel()
 	fixture := newReviewCheckpointFixture(t)
-	assertPreviewCreationRollback(t, fixture.launcher, ReviewPreviewRequest{ImportItemID: fixture.itemID, ActorUserID: "reviewer", IdempotencyKey: "rollback"})
+	assertPreviewCreationRollback(t, fixture.launcher,
+		ReviewPreviewRequest{ImportItemID: fixture.itemID, ActorUserID: "reviewer", IdempotencyKey: "rollback"})
 }
 
 func TestPreviewCreationRejectsEntropyFailureBeforeWrites(t *testing.T) {
@@ -120,7 +127,8 @@ func TestPreviewCreationRejectsEntropyFailureBeforeWrites(t *testing.T) {
 	result, err := func() (ReviewPreviewCreated, error) {
 		uuid.SetRand(playEntropyFailure{cause: cause})
 		defer uuid.SetRand(nil)
-		return fixture.launcher.CreateReviewPreview(t.Context(), ReviewPreviewRequest{ImportItemID: fixture.itemID, ActorUserID: "reviewer", IdempotencyKey: "entropy"})
+		return fixture.launcher.CreateReviewPreview(t.Context(),
+			ReviewPreviewRequest{ImportItemID: fixture.itemID, ActorUserID: "reviewer", IdempotencyKey: "entropy"})
 	}()
 	if !errors.Is(err, cause) || result != (ReviewPreviewCreated{}) {
 		t.Fatalf("unchecked preview identity: id=%q error=%v", result.PreviewID, err)
@@ -172,10 +180,11 @@ func TestPreviewCreationReplaysTwoSimultaneousProductRequests(t *testing.T) {
 	releaseBoth()
 	first, second := <-results, <-results
 	if first.err != nil || second.err != nil || first.result.PreviewID == "" || first.result != second.result {
-		t.Fatalf("concurrent creation: first=%q second=%q errors=%v / %v", first.result.PreviewID, second.result.PreviewID, first.err, second.err)
+		t.Fatalf("concurrent creation: first=%q second=%q errors=%v / %v", first.result.PreviewID,
+			second.result.PreviewID, first.err, second.err)
 	}
 	var count int
-	if err := fixture.database.QueryRowContext(t.Context(), `SELECT count(*) FROM review_preview_sessions WHERE actor_user_id=? AND idempotency_key=?`, request.ActorUserID, request.IdempotencyKey).Scan(&count); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT count(*) FROM review_preview_sessions WHERE actor_user_id=? AND idempotency_key=?`, request.ActorUserID, request.IdempotencyKey).Scan(&count); err != nil {
 		t.Fatal(err)
 	}
 	if count != 1 {

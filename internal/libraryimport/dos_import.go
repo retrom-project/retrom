@@ -24,7 +24,7 @@ func (service *Service) prepareDOSFiles(
 	sourceType string,
 	files []importSourceFile,
 ) ([]preparedDisposition, []preparedGroup, []preparedArchive) {
-	return service.importPreparation().PrepareDOSFiles(ctx, sourceType, files)
+	return service.preparation.PrepareDOSFiles(ctx, sourceType, files)
 }
 
 var (

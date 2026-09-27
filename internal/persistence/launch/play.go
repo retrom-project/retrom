@@ -6,19 +6,19 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/launch"
 )
 
-type Play struct{ database *sql.DB }
+type Play struct{ database dbapi.DB }
 
-func NewPlay(database *sql.DB) *Play { return &Play{database: database} }
+func NewPlay(database dbapi.DB) *Play { return &Play{database: database} }
 func (repository *Play) WithPlay(ctx context.Context, work func(application.PlayScope) error) error {
 	tx, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin play transaction: %w", err)
 	}
-	defer dbexec.Rollback(tx)
+	defer dbapi.Rollback(tx)
 	records := playRecords{transaction: tx}
 	if err := work(application.PlayScope{Read: records, Write: records}); err != nil {
 		return err
@@ -29,62 +29,35 @@ func (repository *Play) WithPlay(ctx context.Context, work func(application.Play
 	return nil
 }
 
-type playRecords struct{ transaction *sql.Tx }
+type playRecords struct{ transaction dbapi.Tx }
 
 func (records playRecords) Source(ctx context.Context, id string) (application.PlaySource, bool, error) {
 	var source application.PlaySource
-	var idle sql.NullInt64
-	err := records.transaction.QueryRowContext(ctx, `
-SELECT id,0,credential_sha256,state,profile_id,game_id,hard_expires_at_ms,idle_expires_at_ms,version
-FROM launch_sessions WHERE id=?
-UNION ALL
-SELECT id,1,credential_sha256,state,'','',hard_expires_at_ms,NULL,version
-FROM review_preview_sessions WHERE id=?`, id, id).Scan(
-		&source.Ref.ID, &source.Ref.Preview, &source.Session.CredentialHash, &source.Session.State,
-		&source.ProfileID, &source.GameID, &source.Session.HardExpiresAtMS, &idle, &source.Version)
+	err := dbapi.QueryRowContext(ctx, records.transaction, `
+SELECT id,credential_sha256,state,profile_id,game_id,hard_expires_at_ms
+FROM launch_sessions WHERE id=?`, id).Scan(
+		&source.LaunchID, &source.Session.CredentialHash, &source.Session.State,
+		&source.ProfileID, &source.GameID, &source.Session.HardExpiresAtMS)
 	if errors.Is(err, sql.ErrNoRows) {
 		return application.PlaySource{}, false, nil
 	}
 	if err != nil {
 		return application.PlaySource{}, false, fmt.Errorf("query play source: %w", err)
 	}
-	if idle.Valid {
-		source.IdleExpiresAtMS = &idle.Int64
-	}
 	return source, true, nil
 }
 
 func (records playRecords) Current(ctx context.Context, id string) (application.PlayRecord, bool, error) {
 	var result application.PlayRecord
-	err := records.transaction.QueryRowContext(ctx, `
-SELECT id,state,version,last_client_sequence,last_heartbeat_at_ms,active_duration_ms
+	err := dbapi.QueryRowContext(ctx, records.transaction, `
+SELECT id,state,version,active_duration_ms
 FROM play_sessions WHERE launch_session_id=?`, id).Scan(&result.ID, &result.State, &result.Version,
-		&result.LastSequence, &result.LastHeartbeatAtMS, &result.ActiveDurationMS)
+		&result.ActiveDurationMS)
 	if errors.Is(err, sql.ErrNoRows) {
 		return application.PlayRecord{}, false, nil
 	}
 	if err != nil {
 		return application.PlayRecord{}, false, fmt.Errorf("query current play: %w", err)
-	}
-	return result, true, nil
-}
-
-func (records playRecords) Event(
-	ctx context.Context,
-	id string,
-	sequence int64,
-) (application.StoredPlayEvent, bool, error) {
-	var result application.StoredPlayEvent
-	err := records.transaction.QueryRowContext(ctx, `
-SELECT event_kind,client_observed_at_ms,accepted_duration_ms,running,visible,paused
-FROM play_session_events WHERE play_session_id=? AND client_sequence=?`, id, sequence).
-		Scan(&result.Kind, &result.ClientObservedAtMS, &result.AcceptedDurationMS,
-			&result.Interval.Running, &result.Interval.Visible, &result.Interval.Paused)
-	if errors.Is(err, sql.ErrNoRows) {
-		return application.StoredPlayEvent{}, false, nil
-	}
-	if err != nil {
-		return application.StoredPlayEvent{}, false, fmt.Errorf("query prior play event: %w", err)
 	}
 	return result, true, nil
 }

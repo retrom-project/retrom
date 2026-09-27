@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"retrom/internal/blobstore"
+	"retrom/internal/filestore"
 	application "retrom/internal/service/sourceimport"
 )
 
@@ -33,12 +33,13 @@ func (source importSource) CopyAsset(
 	return verifiedMaterial(blob), valid, nil
 }
 
-func verifiedMaterial(metadata blobstore.Metadata) application.VerifiedBlob {
+func verifiedMaterial(metadata filestore.Metadata) application.VerifiedBlob {
 	return application.VerifiedBlob{
-		SHA256: metadata.SHA256,
-		MD5:    metadata.MD5,
-		SHA1:   metadata.SHA1,
-		CRC32:  metadata.CRC32,
-		Size:   metadata.Size,
+		ID: metadata.Record, SHA256: metadata.SHA256,
+		StoragePath: metadata.Path,
+		MD5:         metadata.MD5,
+		SHA1:        metadata.SHA1,
+		CRC32:       metadata.CRC32,
+		Size:        metadata.Size,
 	}
 }

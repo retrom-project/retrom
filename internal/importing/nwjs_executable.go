@@ -28,7 +28,7 @@ func ScanNWJSExecutable(
 	return scanZIP(ctx, path, limits, nil)
 }
 
-// ScanNWJSExecutableWithConsumer preserves the one-pass CAS staging behavior
+// ScanNWJSExecutableWithConsumer preserves the one-pass file staging behavior
 // used by project archives after validating the executable container.
 func ScanNWJSExecutableWithConsumer(
 	ctx context.Context,

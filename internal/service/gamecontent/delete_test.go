@@ -98,7 +98,7 @@ func TestDeleteAdminGamePersistsAtomicWorkflowAndSignalsRelease(t *testing.T) {
 		impact: DeleteGameImpact{ImpactDigest: "impact", RegisteredBytes: "42", SourceKinds: []string{"USER_UPLOAD"}},
 	}
 	signal := &deleteGameTestSignal{}
-	service := New(repository, func() time.Time { return time.UnixMilli(100) }).WithPayloadRelease(signal)
+	service := New(Dependencies{Repository: repository, Files: constructorFiles(t), Cleanup: signal}, Options{Now: func() time.Time { return time.UnixMilli(100) }})
 
 	result, err := service.DeleteAdminGame(t.Context(), validDeleteGameRequest())
 	if err != nil {
@@ -141,7 +141,7 @@ func TestDeleteAdminGameRejectsStaleConfirmationBeforeSideEffects(t *testing.T) 
 		state:  DeleteGameState{Title: "Fixture", Status: "PUBLISHED", Version: 1},
 		impact: DeleteGameImpact{ImpactDigest: "impact"},
 	}
-	service := New(repository, time.Now)
+	service := New(Dependencies{Repository: repository, Files: constructorFiles(t)}, Options{Now: time.Now})
 	request := validDeleteGameRequest()
 	request.ConfirmTitle = "Other"
 
@@ -162,7 +162,7 @@ func TestDeleteAdminGameReplaysDurableResponseBeforeReadingGame(t *testing.T) {
 			RequestDigest: "digest", HTTPStatus: 202, HeadersJSON: `{"ETag":"v2"}`, Body: []byte(`{}\n`),
 		},
 	}
-	service := New(repository, time.Now)
+	service := New(Dependencies{Repository: repository, Files: constructorFiles(t)}, Options{Now: time.Now})
 
 	result, err := service.DeleteAdminGame(t.Context(), validDeleteGameRequest())
 	if err != nil {

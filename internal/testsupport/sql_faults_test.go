@@ -2,13 +2,15 @@ package testsupport
 
 import (
 	"context"
-	"database/sql"
 	"database/sql/driver"
 	"errors"
 	"io"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	dbapi "retrom/internal/database"
+	dbsqlite "retrom/internal/database/sqlite"
 
 	_ "modernc.org/sqlite"
 )
@@ -38,7 +40,7 @@ func TestSQLFaultPoolRollsBackActualPriorWriteWithoutChangingOriginalPool(t *tes
 		t.Fatalf("injection=%v first=%d hits=%d", err, first, hits)
 	}
 	var count int
-	if err := db.QueryRowContext(t.Context(), `SELECT count(*) FROM values_under_test`).Scan(&count); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), db, `SELECT count(*) FROM values_under_test`).Scan(&count); err != nil {
 		t.Fatal(err)
 	}
 	if count != 0 {
@@ -52,9 +54,9 @@ func TestSQLFaultPoolRollsBackActualPriorWriteWithoutChangingOriginalPool(t *tes
 	}
 }
 
-func sqlFaultTestDatabase(t *testing.T) *sql.DB {
+func sqlFaultTestDatabase(t *testing.T) dbapi.DB {
 	t.Helper()
-	db, err := sql.Open("sqlite", filepath.Join(t.TempDir(), "faults.db"))
+	db, err := dbsqlite.Open(filepath.Join(t.TempDir(), "faults.db"), dbsqlite.Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -69,7 +71,7 @@ func sqlFaultTestDatabase(t *testing.T) *sql.DB {
 	return db
 }
 
-func writeTwoFaultValues(t *testing.T, db *sql.DB) error {
+func writeTwoFaultValues(t *testing.T, db dbapi.DB) error {
 	t.Helper()
 	tx, err := db.BeginTx(t.Context(), nil)
 	if err != nil {
@@ -100,11 +102,11 @@ func TestSQLFaultQueryHookPreservesCauseAndBoundArguments(t *testing.T) {
 		return nil
 	}})
 	var value string
-	err := fault.QueryRowContext(t.Context(), "SELECT value FROM values_under_test WHERE value=?", "blocked").Scan(&value)
+	err := dbapi.QueryRowContext(t.Context(), fault, "SELECT value FROM values_under_test WHERE value=?", "blocked").Scan(&value)
 	if !errors.Is(err, cause) || hits != 1 {
 		t.Fatalf("query cause=%v hits=%d", err, hits)
 	}
-	if err := fault.QueryRowContext(t.Context(), "SELECT 'available'").Scan(&value); err != nil || value != "available" {
+	if err := dbapi.QueryRowContext(t.Context(), fault, "SELECT 'available'").Scan(&value); err != nil || value != "available" {
 		t.Fatalf("unrelated query=%s %v", value, err)
 	}
 }

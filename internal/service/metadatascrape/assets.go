@@ -1,10 +1,11 @@
 package metadatascrape
 
 import (
+	"context"
 	"errors"
 	"io"
 
-	"retrom/internal/blobstore"
+	"retrom/internal/filestore"
 )
 
 var (
@@ -14,11 +15,14 @@ var (
 
 type AssetPublication struct {
 	ID            string
-	Blob          blobstore.Metadata
+	Directory     string
+	Blob          filestore.Metadata
 	MediaType     string
 	Width, Height int
 	Now           int64
 }
 type AssetBlobs interface {
-	Put(io.Reader) (blobstore.Metadata, error)
+	Put(io.Reader) (filestore.Metadata, error)
+	CopyTo(context.Context, string, string, string) (filestore.Metadata, error)
+	RemovePath(context.Context, string) error
 }

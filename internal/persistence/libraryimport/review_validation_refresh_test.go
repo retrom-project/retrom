@@ -1,11 +1,11 @@
 package libraryimport
 
 import (
-	"database/sql"
 	"strings"
 	"testing"
 
-	"retrom/internal/corevalidation"
+	corevalidation "retrom/internal/core/validation"
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/libraryimport"
 	"retrom/internal/testsupport"
 )
@@ -15,7 +15,7 @@ func TestReviewValidationRefreshRepositoryLoadsTypedInputsAndCandidates(t *testi
 	database := metadataDatabase(t)
 	instance := testsupport.MustPlatformInstanceID(t, database, "gba/mgba")
 	var coreID, providerID, targetID string
-	if err := database.QueryRowContext(t.Context(), `
+	if err := dbapi.QueryRowContext(t.Context(), database, `
 SELECT instance.default_core_id,binding.provider_id,binding.target_id
 FROM platform_instances instance
 JOIN runtime_target_bindings binding ON binding.core_id=instance.default_core_id
@@ -28,13 +28,14 @@ WHERE instance.id=? LIMIT 1`, instance).Scan(&coreID, &providerID, &targetID); e
 	assertRefreshCandidates(t, repository, instance, coreID, providerID, targetID)
 }
 
-func insertRefreshSource(t *testing.T, database *sql.DB, instance, coreID, providerID, targetID string) {
+func insertRefreshSource(t *testing.T, database dbapi.DB, instance, coreID, providerID, targetID string) {
 	t.Helper()
 	digest := strings.Repeat("a", 64)
 	metadataExec(t, database, `
 INSERT INTO import_item_core_validations(
 id,import_item_id,target_platform_instance_id,platform_instance_version,core_id,provider_id,target_id,
-source_manifest_digest,prepublish_input_digest,status,compatibility_code,dependency_snapshot_json,created_at_ms,source_snapshot_id
+source_manifest_digest,prepublish_input_digest,status,compatibility_code,dependency_snapshot_json,
+created_at_ms,source_snapshot_id
 )
 VALUES('refresh-source','item',?,?,?,?,?,?,?,'READY','READY','{}',2,'snapshot')`,
 		instance, 1, coreID, providerID, targetID, digest, digest)
@@ -83,7 +84,7 @@ func TestReviewValidationRefreshRepositoryWritesValidationAndBIOSFiles(t *testin
 	database := metadataDatabase(t)
 	instance := testsupport.MustPlatformInstanceID(t, database, "gba/mgba")
 	var coreID, providerID, targetID string
-	if err := database.QueryRowContext(t.Context(), `
+	if err := dbapi.QueryRowContext(t.Context(), database, `
 SELECT instance.default_core_id,binding.provider_id,binding.target_id
 FROM platform_instances instance
 JOIN runtime_target_bindings binding ON binding.core_id=instance.default_core_id
@@ -91,17 +92,14 @@ WHERE instance.id=? LIMIT 1`, instance).Scan(&coreID, &providerID, &targetID); e
 		t.Fatal(err)
 	}
 	sourceDigest := strings.Repeat("a", 64)
-	digest := strings.Repeat("b", 64)
 	metadataExec(t, database, `
 INSERT INTO import_item_core_validations(
 id,import_item_id,target_platform_instance_id,platform_instance_version,core_id,provider_id,target_id,
-source_manifest_digest,prepublish_input_digest,status,compatibility_code,dependency_snapshot_json,created_at_ms,source_snapshot_id
+source_manifest_digest,prepublish_input_digest,status,compatibility_code,dependency_snapshot_json,
+created_at_ms,source_snapshot_id
 )
 VALUES('refresh-source','item',?,?,?,?,?,?,?,'READY','READY','{}',2,'snapshot')`,
 		instance, 1, coreID, providerID, targetID, sourceDigest, sourceDigest)
-	metadataExec(t, database, `
-INSERT INTO blobs(id,sha256,size_bytes,md5,sha1,crc32,media_type,created_at_ms)
-VALUES('bios-blob',?,?,?,?,?,?,1)`, digest, 1, strings.Repeat("c", 32), strings.Repeat("d", 40), strings.Repeat("e", 8), "application/octet-stream")
 	newID := "refresh-created"
 	repository := BindReviewValidation(database)
 	if err := repository.Create(t.Context(), application.ReviewValidationRefreshCreate{
@@ -113,24 +111,24 @@ VALUES('bios-blob',?,?,?,?,?,?,1)`, digest, 1, strings.Repeat("c", 32), strings.
 	}); err != nil {
 		t.Fatal(err)
 	}
-	blobID := "bios-blob"
+	fileRecord := testsupport.FileMetadata("bios").Record
 	if err := repository.CopyFiles(t.Context(), application.ReviewValidationRefreshFileCopy{
 		ValidationID: newID, SourceValidationID: "refresh-source", CreatedAtMS: 3,
 		ReplaceBIOSBundle: true,
 		Dependencies: []corevalidation.BIOSDependency{{
 			BIOSCatalogEntry: corevalidation.BIOSCatalogEntry{LogicalName: "bios.bin", DeliveryKind: "BIOS_BUNDLE"},
-			BlobID:           &blobID,
+			FileRecord:       &fileRecord,
 		}},
 	}); err != nil {
 		t.Fatal(err)
 	}
 	var role, logicalName, storedBlob string
-	if err := database.QueryRowContext(t.Context(), `
-SELECT role,logical_name,blob_id FROM import_item_validation_files
+	if err := dbapi.QueryRowContext(t.Context(), database, `
+SELECT role,logical_name,file_record FROM import_item_validation_files
 WHERE import_item_core_validation_id=?`, newID).Scan(&role, &logicalName, &storedBlob); err != nil {
 		t.Fatal(err)
 	}
-	if role != "BIOS_BUNDLE" || logicalName != "bios.bin" || storedBlob != blobID {
+	if role != "BIOS_BUNDLE" || logicalName != "bios.bin" || storedBlob != fileRecord {
 		t.Fatalf("validation file=%s/%s/%s", role, logicalName, storedBlob)
 	}
 }
@@ -138,15 +136,13 @@ WHERE import_item_core_validation_id=?`, newID).Scan(&role, &logicalName, &store
 func TestReviewValidationRefreshRepositoryOrdersContentIdentity(t *testing.T) {
 	t.Parallel()
 	database := metadataDatabase(t)
-	digest := strings.Repeat("f", 64)
 	metadataExec(t, database, `
-INSERT INTO blobs(id,sha256,size_bytes,md5,sha1,crc32,media_type,created_at_ms)
-VALUES('content-blob',?,?,?,?,?,?,1)`, digest, 1, strings.Repeat("a", 32), strings.Repeat("b", 40), strings.Repeat("c", 8), "application/octet-stream")
-	metadataExec(t, database, `
-INSERT INTO upload_files(id,upload_session_id,relative_path,declared_size_bytes,received_size_bytes,final_blob_id,state,created_at_ms,updated_at_ms)
+INSERT INTO upload_files(id,upload_session_id,relative_path,declared_size_bytes,received_size_bytes,
+final_file_record,state,created_at_ms,updated_at_ms)
 VALUES('content-file','upload','game.gba',1,1,'content-blob','COMPLETE',1,1)`)
 	metadataExec(t, database, `
-INSERT INTO import_item_source_snapshot_files(source_snapshot_id,role,logical_name,upload_file_id,blob_id,sort_order,created_at_ms)
+INSERT INTO import_item_source_snapshot_files(source_snapshot_id,role,logical_name,upload_file_id,
+file_record,sort_order,created_at_ms)
 VALUES('snapshot','DOS_SOURCE','dos.exe','content-file','content-blob',0,1),
 ('snapshot','CONTENT','game.gba','content-file','content-blob',1,1)`)
 	logicalName, err := BindReviewValidation(database).ContentLogicalName(t.Context(), "snapshot")

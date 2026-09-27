@@ -3,6 +3,7 @@ package sourceimport
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 )
 
@@ -15,17 +16,26 @@ func (service *Materialization) Copy(
 	if blob.Size < 0 || blob.Size != source.Size || blob.SHA256 == "" {
 		return "", ErrInvalid
 	}
+	name := "content/" + strconv.FormatInt(source.Key.Ordinal, 10)
+	if source.Key.Kind != "" {
+		name = "media/" + source.Key.Kind
+	}
+	file, err := service.files.CopyTo(ctx, blob.ID, "staging/sources/"+source.Key.ItemID, name)
+	if err != nil {
+		return "", fmt.Errorf("copy: %w", err)
+	}
+	blob.ID, blob.StoragePath = file.Record, file.Path
 	var result string
-	err := service.repository.WithMaterialization(ctx, func(scope MaterialScope) error {
+	err = service.repository.WithMaterialization(ctx, func(scope MaterialScope) error {
 		before, now, err := service.source(ctx, scope.Read, id, source)
 		if err != nil {
 			return err
 		}
 		if before.State == "COPIED" {
-			if before.BlobID == "" || before.Blob != blob {
+			if before.FileRecord == "" || before.Blob != blob {
 				return ErrVersionConflict
 			}
-			result = before.BlobID
+			result = before.FileRecord
 			return nil
 		}
 		if before.State != "DISCOVERED" {

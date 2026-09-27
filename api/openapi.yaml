@@ -218,10 +218,6 @@ paths:
     $ref: ./domains/server-imports.yaml#/paths/~1api~1v1~1admin~1bios~1{requirementId}~1entries
   /api/v1/admin/diagnostics:
     $ref: ./domains/operations.yaml#/paths/~1api~1v1~1admin~1diagnostics
-  /api/v1/admin/storage-analysis:
-    $ref: ./domains/operations.yaml#/paths/~1api~1v1~1admin~1storage-analysis
-  /api/v1/admin/storage-cleanups:
-    $ref: ./domains/operations.yaml#/paths/~1api~1v1~1admin~1storage-cleanups
   /content/assets/{assetId}:
     $ref: ./domains/runtime.yaml#/paths/~1content~1assets~1{assetId}
   /content/save-states/{saveStateId}/screenshot:
@@ -234,10 +230,6 @@ paths:
     $ref: ./domains/runtime.yaml#/paths/~1runtime~1content~1project~1{contentIdentity}~1{projectPath}
   /runtime/launches/{launchId}/config:
     $ref: ./domains/runtime.yaml#/paths/~1runtime~1launches~1{launchId}~1config
-  /runtime/launches/{launchId}/start:
-    $ref: ./domains/runtime.yaml#/paths/~1runtime~1launches~1{launchId}~1start
-  /runtime/launches/{launchId}/heartbeat:
-    $ref: ./domains/runtime.yaml#/paths/~1runtime~1launches~1{launchId}~1heartbeat
   /runtime/launches/{launchId}/progress:
     $ref: ./domains/runtime.yaml#/paths/~1runtime~1launches~1{launchId}~1progress
   /runtime/launches/{launchId}/finish:
@@ -281,20 +273,6 @@ components:
       $ref: ./domains/operations.yaml#/components/schemas/DiagnosticsJobCounts
     DiagnosticsDATCounts:
       $ref: ./domains/operations.yaml#/components/schemas/DiagnosticsDATCounts
-    StorageAnalysis:
-      $ref: ./domains/operations.yaml#/components/schemas/StorageAnalysis
-    StorageAnalysisTotals:
-      $ref: ./domains/operations.yaml#/components/schemas/StorageAnalysisTotals
-    StorageAnalysisCategory:
-      $ref: ./domains/operations.yaml#/components/schemas/StorageAnalysisCategory
-    StorageAnalysisDetails:
-      $ref: ./domains/operations.yaml#/components/schemas/StorageAnalysisDetails
-    StorageAnalysisSaveStates:
-      $ref: ./domains/operations.yaml#/components/schemas/StorageAnalysisSaveStates
-    StorageAnalysisCleanupCandidates:
-      $ref: ./domains/operations.yaml#/components/schemas/StorageAnalysisCleanupCandidates
-    StorageCleanupResult:
-      $ref: ./domains/operations.yaml#/components/schemas/StorageCleanupResult
     ImportOverviewSummary:
       $ref: ./domains/imports.yaml#/components/schemas/ImportOverviewSummary
     AuthInitializeRequest:
@@ -597,8 +575,6 @@ components:
       $ref: ./domains/catalog.yaml#/components/schemas/BIOSRequirementSummary
     BIOSListResponseBody:
       $ref: ./domains/catalog.yaml#/components/schemas/BIOSListResponseBody
-    PlayEventRequest:
-      $ref: ./domains/runtime.yaml#/components/schemas/PlayEventRequest
     PlayProgressRequest:
       $ref: ./domains/runtime.yaml#/components/schemas/PlayProgressRequest
     MultiDiscPlayerEventRequest:
@@ -748,8 +724,6 @@ components:
       $ref: ./domains/source-imports.yaml#/components/requestBodies/SourceCollectionMappings
     SourceImportStart:
       $ref: ./domains/source-imports.yaml#/components/requestBodies/SourceImportStart
-    PlayEvent:
-      $ref: ./domains/runtime.yaml#/components/requestBodies/PlayEvent
     PlayProgress:
       $ref: ./domains/runtime.yaml#/components/requestBodies/PlayProgress
     MultiDiscPlayerEvent:
@@ -781,10 +755,6 @@ components:
       $ref: ./components/common.yaml#/components/responses/RpgUnprocessableResponse
     DiagnosticsResponse:
       $ref: ./domains/operations.yaml#/components/responses/DiagnosticsResponse
-    StorageAnalysisResponse:
-      $ref: ./domains/operations.yaml#/components/responses/StorageAnalysisResponse
-    StorageCleanupResponse:
-      $ref: ./domains/operations.yaml#/components/responses/StorageCleanupResponse
     PlatformInstanceRecommendationsResponse:
       $ref: ./domains/catalog.yaml#/components/responses/PlatformInstanceRecommendationsResponse
     PlatformInstanceRecommendationsApplyResponse:

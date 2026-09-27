@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"retrom/internal/cleanup"
+	dbapi "retrom/internal/database"
 	service "retrom/internal/service/runtimeprovider"
 )
 
@@ -20,8 +21,9 @@ func (records catalogRecords) Current(ctx context.Context) (service.CurrentState
 		return service.CurrentState{}, err
 	}
 	var digest string
-	err = records.executor.QueryRowContext(
-		ctx,
+	err = dbapi.QueryRowContext(
+		ctx, records.executor,
+
 		`SELECT catalog_sha256 FROM runtime_catalog_state WHERE singleton=1`,
 	).Scan(
 		&digest,

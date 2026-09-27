@@ -4,7 +4,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 import re
-from scripts.acceptance.content_io_cases import TARGET_MODES, required_scenarios
+from scripts.acceptance.content_io_cases import TARGET_DECLARATIONS, TARGET_MODES, required_scenarios
 
 ROOT = Path(__file__).resolve().parents[2]
 CATALOG = ROOT / "tests/fixtures/content-io/product-cases.json"
@@ -22,7 +22,10 @@ def require(condition: bool, code: str) -> None:
         raise ValueError("CONTENT_IO_CATALOG_" + code)
 
 
-def validate_entry(value: dict, root: Path) -> None:
+def validate_entry(value: dict | None, root: Path) -> None:
+    # An absent dedicated driver is an explicit coverage gap, never a successful case.
+    if value is None:
+        return
     require(isinstance(value, dict) and set(value) == {"path", "arguments", "timeoutSeconds"}, "ENTRY_INVALID")
     path = value["path"]
     require(isinstance(path, str) and bool(re.fullmatch(r"scripts/acceptance/[a-z0-9_]+\.(?:mjs|py)", path)), "ENTRY_INVALID")
@@ -37,7 +40,8 @@ def validate_actions(actions: object, scenarios: list[str]) -> None:
     for action in actions:
         require(isinstance(action, dict) and set(action) == {"scenario", "operation", "waitFor", "maxWaitMs", "assertion", "failureCode"}, "ACTION_INVALID")
         require(all(isinstance(action[key], str) and action[key].strip() for key in ["scenario", "operation", "waitFor", "assertion", "failureCode"]), "ACTION_INVALID")
-        require(action["scenario"] in scenarios and type(action["maxWaitMs"]) is int and 0 < action["maxWaitMs"] <= 300000, "ACTION_INVALID")
+        budget = 900000 if action["scenario"] == "performance-five-cold-warm" else 300000
+        require(action["scenario"] in scenarios and type(action["maxWaitMs"]) is int and 0 < action["maxWaitMs"] <= budget, "ACTION_INVALID")
         require(bool(re.fullmatch(r"CONTENT_IO_[A-Z_]+", action["failureCode"])), "ACTION_INVALID")
         names.append(action["scenario"])
     require(len(set(names)) == len(names) and set(names) == set(scenarios), "ACTION_COVERAGE")
@@ -48,11 +52,11 @@ def validate_case(case: dict, root: Path) -> None:
     require(isinstance(case["caseId"], str) and bool(re.fullmatch(r"ACC-[A-Z0-9]+-\d{3}", case["caseId"])), "CASE_ID")
     require(case["providerId"] in {"retrom-runtime", "emulatorjs"} and isinstance(case["targetId"], str) and bool(re.fullmatch(r"[a-z0-9-]+", case["targetId"])), "TARGET_INVALID")
     require(case["targetId"] in TARGET_MODES, "TARGET_COVERAGE")
-    require(case["providerId"] == ("emulatorjs" if case["targetId"] in {"neocd", "flycast"} else "retrom-runtime"), "PROVIDER_INVALID")
+    require(case["providerId"] == TARGET_DECLARATIONS[case["targetId"]]["providerId"], "PROVIDER_INVALID")
     require(strings(case["inputRoles"]) and strings(case["fixtureRef"]), "INPUTS_INVALID")
     require(all(re.fullmatch(r"(?:owned|operator):[a-z0-9-]+", ref) for ref in case["fixtureRef"]), "PRIVATE_PATH")
     require(case["fixtureAvailability"] in {"OPERATOR_REQUIRED", "AVAILABLE", "MISSING"}, "AVAILABILITY_INVALID")
-    require(case["checkpointSemantics"] in {"INSTANT", "GAME_SAVE"}, "CHECKPOINT_INVALID")
+    require(case["checkpointSemantics"] in {"INSTANT", "GAME_SAVE", "NO_SAVE"}, "CHECKPOINT_INVALID")
     require(case["sourceIdentity"] in [{"kind": kind, "receiptRequired": True} for kind in ["FILE_SHA256", "INDEX_ENTRY"]], "IDENTITY_INVALID")
     scenarios = case["requiredScenarios"]
     require(strings(scenarios) and required_scenarios(case["targetId"]) == set(scenarios), "SCENARIOS_INVALID")
@@ -64,6 +68,7 @@ def validate_case(case: dict, root: Path) -> None:
     require(case["expectedObservations"] == {"firstFrame": "CASE_SPECIFIC_NONEMPTY_SCENE", "inputReady": "GAMEPAD_DIRECTION_AND_CONFIRM_STATE_CHANGE", "checkpointSemantics": case["checkpointSemantics"], "runtimeIdentity": "OBSERVED_ENVELOPE_AND_ASSET_BYTES"}, "OBSERVATIONS_INVALID")
     if case["targetId"].startswith("rpgmaker-"):
         require(case["inputRoles"] == ["game"] and all(ref.startswith("owned:") for ref in case["fixtureRef"]), "RETIRED_RTP_BOUNDARY")
+    require(case["checkpointSemantics"] == TARGET_DECLARATIONS[case["targetId"]]["checkpointSemantics"], "CHECKPOINT_DECLARATION")
     validate_entry(case["existingAcceptanceEntry"], root)
     validate_actions(case["actions"], scenarios)
 
@@ -72,7 +77,7 @@ def load_catalog(path: Path = CATALOG, root: Path = ROOT) -> list[dict]:
     value = json.loads(path.read_text(encoding="utf-8"))
     require(isinstance(value, dict) and set(value) == {"schemaVersion", "cases"} and type(value["schemaVersion"]) is int and value["schemaVersion"] == 1, "SCHEMA")
     cases = value["cases"]
-    require(isinstance(cases, list) and len(cases) == 21, "TARGET_COVERAGE")
+    require(isinstance(cases, list) and len(cases) == len(TARGET_MODES), "TARGET_COVERAGE")
     for case in cases:
         validate_case(case, root)
     require(len({case["caseId"] for case in cases}) == len(cases), "DUPLICATE_CASE")

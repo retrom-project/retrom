@@ -2,33 +2,40 @@
 package libraryimport
 
 import (
-	"database/sql"
 	"time"
 
-	"retrom/internal/blobstore"
+	dbapi "retrom/internal/database"
+
+	"retrom/internal/core/scummvm"
+	"retrom/internal/filestore"
 	repository "retrom/internal/persistence/libraryimport"
-	"retrom/internal/scummvm"
 	application "retrom/internal/service/libraryimport"
 	"retrom/internal/service/metadatascrape"
 	"retrom/internal/service/tagging"
 )
 
 type CreationOptions struct {
-	Blobs            *blobstore.Store
+	Blobs            *filestore.Store
 	Tags             *tagging.Service
 	Scraper          *metadatascrape.Service
 	ScummVMDetector  *scummvm.Detector
 	MultiDiscEnabled bool
 }
 
-func NewCreations(database *sql.DB, now func() time.Time, options CreationOptions) *application.ImportCreations {
+func NewCreations(database dbapi.DB, now func() time.Time,
+	preparation *application.ImportPreparation, options CreationOptions,
+) *application.ImportCreations {
+	var scraper application.ImportMetadata
+	if options.Scraper != nil {
+		scraper = options.Scraper
+	}
 	return application.NewImportCreations(
-		repository.NewImportCreations(database), NewPreparation(database, options), options.Tags, options.Scraper,
+		repository.NewImportCreations(database), preparation, options.Tags, scraper,
 		application.ImportCreationSettings{Now: now, MultiDiscEnabled: options.MultiDiscEnabled},
 	)
 }
 
-func NewPreparation(database *sql.DB, options CreationOptions) *application.ImportPreparation {
+func NewPreparation(database dbapi.DB, options CreationOptions) *application.ImportPreparation {
 	return application.NewImportPreparation(
 		repository.BindImportFacts(database), repository.BindPreparationCatalog(database),
 		options.Blobs, application.ImportPreparationOptions{

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"retrom/internal/cleanup"
 	"retrom/internal/service/jobs"
 )
 
@@ -99,15 +100,15 @@ func (server *Server) retryJob(writer http.ResponseWriter, request *http.Request
 		return
 	}
 	writer.Header().Set("ETag", fmt.Sprintf(`"v%d"`, result.Version))
-	server.importer.ResumeParentAttachmentJobs(request.Context())
-	server.importer.ResumeMultiDiscAttachmentJobs(request.Context())
+	cleanup.Error("resume arcade attachments", server.importer.ResumeParentAttachmentJobs(request.Context()))
+	cleanup.Error("resume multi-disc attachments", server.importer.ResumeMultiDiscAttachmentJobs(request.Context()))
 	server.importer.ResumeImportGroupJobs(request.Context())
 	writeJSON(writer, http.StatusAccepted, result)
 	ctx := context.WithoutCancel(request.Context())
 	afterIdempotencyCommit(writer, func() {
 		switch result.Kind {
 		case "VARIANT_VALIDATE":
-			go server.launcher.ResumeValidationJob(ctx, result.JobID)
+			go server.variants.Resume(ctx, result.JobID)
 		case "UPLOAD_FINALIZE":
 			server.uploads.Resume(ctx, result.JobID)
 		case "MEDIA_FETCH":

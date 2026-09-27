@@ -10,8 +10,8 @@ import hashlib
 import importlib.util
 import sqlite3
 import sys
-import zlib
 from pathlib import Path
+from fixture_files import own_rows, put_owned, retire_save
 from ui_layout_state import validate_database
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -30,8 +30,10 @@ def seed(database_path: Path, state: str) -> None:
     with sqlite3.connect(database_path) as database:
         database.row_factory = sqlite3.Row
         database.execute("PRAGMA foreign_keys=ON")
+        database.execute("BEGIN IMMEDIATE")
         profile = database.execute("SELECT profile_id FROM users WHERE username='test'").fetchone()[0]
         game = module.base_game(database)
+        retire_save(database, "id=?", (SAVE_ID,))
         database.execute("DELETE FROM save_states WHERE id=?", (SAVE_ID,))
         for index in (INDEX, INDEX + 1):
             database.execute("DELETE FROM play_sessions WHERE id=?", (module.identifier(5, index),))
@@ -54,22 +56,14 @@ def seed(database_path: Path, state: str) -> None:
             raise ValueError("UI fixture target must support checkpoints")
         screenshot = (ROOT / "testdata/public-roms/gba-smoke/emulationstation-smoke-cover.png").read_bytes()
         digest = hashlib.sha256(screenshot).hexdigest()
-        target = database_path.parent / "blobs/sha256" / digest[:2] / digest[2:4] / digest
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_bytes(screenshot)
+        file_record = put_owned(database, screenshot, "SAVE_STATE", SAVE_ID, "image/png")
         database.execute(
-            "INSERT OR IGNORE INTO blobs(id,sha256,size_bytes,md5,sha1,crc32,media_type,created_at_ms) "
-            "VALUES(?,?,?,?,?,?,'image/png',?)",
-            (BLOB_ID, digest, len(screenshot), hashlib.md5(screenshot).hexdigest(),
-             hashlib.sha1(screenshot).hexdigest(), f"{zlib.crc32(screenshot):08x}", timestamp),
-        )
-        blob_id = database.execute("SELECT id FROM blobs WHERE sha256=?", (digest,)).fetchone()[0]
-        database.execute(
-            "INSERT INTO save_states(id,profile_id,game_id,checkpoint_format,payload_blob_id,payload_sha256,"
-            "payload_size_bytes,screenshot_blob_id,source_launch_session_id,name,active_duration_ms,version,created_at_ms,updated_at_ms) "
+            "INSERT INTO save_states(id,profile_id,game_id,checkpoint_format,payload_file_record,payload_sha256,"
+            "payload_size_bytes,screenshot_file_record,source_launch_session_id,name,active_duration_ms,version,created_at_ms,updated_at_ms) "
             "VALUES(?,?,?,?,?,?,?,?,?,'UI layout fixture',1000,1,?,?)",
-            (SAVE_ID, profile, game["id"], checkpoint_format, blob_id, digest, len(screenshot), blob_id, launch_id, timestamp, timestamp),
+            (SAVE_ID, profile, game["id"], checkpoint_format, file_record, digest, len(screenshot), file_record, launch_id, timestamp, timestamp),
         )
+
 
 
 def seed_recent_poster(database, module, profile, game, timestamp):
@@ -93,11 +87,12 @@ def seed_recent_poster(database, module, profile, game, timestamp):
         database, game, index, "Homepage poster acceptance", "H", timestamp - 2000, index,
     )
     database.execute(
-        "INSERT INTO game_assets(id,game_id,blob_id,kind,ordinal,width_px,height_px,media_type,created_at_ms) "
-        "SELECT ?,?,blob_id,kind,ordinal,width_px,height_px,media_type,created_at_ms "
+        "INSERT INTO game_assets(id,game_id,file_record,kind,ordinal,width_px,height_px,media_type,created_at_ms) "
+        "SELECT ?,?,file_record,kind,ordinal,width_px,height_px,media_type,created_at_ms "
         "FROM game_assets WHERE game_id=? AND kind='COVER' AND ordinal=0",
         (module.identifier(7, index), recent_id, game["id"]),
     )
+    own_rows(database, "game_assets", "game_id", recent_id, "GAME", recent_id)
     module.seed_play(database, profile, recent_id, game, index, timestamp - 2000)
 
 

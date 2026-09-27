@@ -2,10 +2,10 @@ package libraryimport
 
 import (
 	"context"
-	"database/sql"
 	"path/filepath"
 	"testing"
 
+	dbsqlite "retrom/internal/database/sqlite"
 	"retrom/internal/testassert"
 
 	_ "modernc.org/sqlite"
@@ -13,7 +13,7 @@ import (
 
 func TestServerImportResultKeepsLatestBlockedValidationWhenDraftHasNoSelection(t *testing.T) {
 	t.Parallel()
-	database, err := sql.Open("sqlite", filepath.Join(t.TempDir(), "server-source.db"))
+	database, err := dbsqlite.Open(filepath.Join(t.TempDir(), "server-source.db"), dbsqlite.Options{})
 	testassert.False(t, err != nil, err)
 	t.Cleanup(func() { _ = database.Close() })
 	if _, err := database.ExecContext(context.Background(), `

@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"retrom/internal/config"
+	dbapi "retrom/internal/database"
 )
 
 const initialAdminBody = `{"username":"admin","displayName":"Administrator","password":"A1!x2z","passwordConfirmation":"A1!x2z"}`
@@ -79,7 +80,7 @@ func assertInitialAdministratorSession(t *testing.T, handler http.Handler, initi
 func assertInitializationRows(t *testing.T, server *Server, expected int) {
 	t.Helper()
 	var users, admins, profiles, credentials, sessions, audits int
-	err := server.database.QueryRowContext(t.Context(), `
+	err := dbapi.QueryRowContext(t.Context(), server.database, `
 SELECT (SELECT count(*) FROM users),
  (SELECT count(*) FROM users WHERE role='ADMIN' AND status='ENABLED'),
  (SELECT count(*) FROM profiles),

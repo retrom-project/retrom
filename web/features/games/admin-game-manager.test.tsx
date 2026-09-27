@@ -32,8 +32,8 @@ const game: AdminGame = {
   updatedAtMs: 200,
   generatedAtMs: 500,
   deleteImpact: {
-    impactDigest: "d".repeat(64), registeredBytes: "5242880", exclusiveBytes: "4194304",
-    sharedBytes: "1048576", blobCount: 4, saveStateCount: 44, assetCount: 2,
+    impactDigest: "d".repeat(64), registeredBytes: "5242880",
+    fileCount: 4, saveStateCount: 44, assetCount: 2,
     contentFileCount: 1, activeLaunchCount: 0, sourceKinds: ["USER_UPLOAD"],
   },
   assets: [],

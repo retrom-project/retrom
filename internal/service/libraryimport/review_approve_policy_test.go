@@ -42,7 +42,13 @@ func TestReviewApprovalDecisionRequiresCompleteAuthority(t *testing.T) {
 		{"unknown origin", ReviewApprovalDecision{SourceKind: "USER", SourceRefID: "source"}},
 		{"origin without ref", ReviewApprovalDecision{SourceKind: "IMPORT_RECEIVE"}},
 		{"ref without origin", ReviewApprovalDecision{SourceRefID: "source"}},
-		{"media without origin", ReviewApprovalDecision{ExternalAssets: []ApprovalExternalAsset{{Kind: "VIDEO", BlobID: "blob", MediaType: "video/mp4"}}}},
+		{
+			"media without origin",
+			ReviewApprovalDecision{ExternalAssets: []ApprovalExternalAsset{{
+				Kind:       "VIDEO",
+				FileRecord: "blob", MediaType: "video/mp4",
+			}}},
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -61,8 +67,11 @@ func TestReviewApprovalDecisionRequiresCompleteAuthority(t *testing.T) {
 
 func TestReviewApprovalExternalAssetBoundaries(t *testing.T) {
 	positive, zero := int64(1), int64(0)
-	cover := ApprovalExternalAsset{Kind: "COVER", BlobID: "cover", MediaType: "image/webp", WidthPX: &positive, HeightPX: &positive}
-	video := ApprovalExternalAsset{Kind: "VIDEO", BlobID: "video", MediaType: "video/webm"}
+	cover := ApprovalExternalAsset{
+		Kind: "COVER", FileRecord: "cover", MediaType: "image/webp",
+		WidthPX: &positive, HeightPX: &positive,
+	}
+	video := ApprovalExternalAsset{Kind: "VIDEO", FileRecord: "video", MediaType: "video/webm"}
 	if !ValidApprovalExternalAssets([]ApprovalExternalAsset{cover, video}) {
 		t.Fatal("valid cover/video rejected")
 	}
@@ -72,10 +81,19 @@ func TestReviewApprovalExternalAssetBoundaries(t *testing.T) {
 	}{
 		{"duplicate kind", []ApprovalExternalAsset{cover, cover}},
 		{"empty blob", []ApprovalExternalAsset{{Kind: "VIDEO", MediaType: "video/mp4"}}},
-		{"unsupported type", []ApprovalExternalAsset{{Kind: "VIDEO", BlobID: "blob", MediaType: "application/octet-stream"}}},
-		{"video dimensions", []ApprovalExternalAsset{{Kind: "VIDEO", BlobID: "blob", MediaType: "video/mp4", WidthPX: &positive}}},
-		{"empty dimensions", []ApprovalExternalAsset{{Kind: "COVER", BlobID: "blob", MediaType: "image/png", WidthPX: &zero, HeightPX: &positive}}},
-		{"unknown kind", []ApprovalExternalAsset{{Kind: "SCREENSHOT", BlobID: "blob", MediaType: "image/png"}}},
+		{"unsupported type", []ApprovalExternalAsset{{
+			Kind: "VIDEO", FileRecord: "blob",
+			MediaType: "application/octet-stream",
+		}}},
+		{"video dimensions", []ApprovalExternalAsset{{
+			Kind: "VIDEO", FileRecord: "blob",
+			MediaType: "video/mp4", WidthPX: &positive,
+		}}},
+		{"empty dimensions", []ApprovalExternalAsset{{
+			Kind: "COVER", FileRecord: "blob",
+			MediaType: "image/png", WidthPX: &zero, HeightPX: &positive,
+		}}},
+		{"unknown kind", []ApprovalExternalAsset{{Kind: "SCREENSHOT", FileRecord: "blob", MediaType: "image/png"}}},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -113,7 +131,10 @@ func TestReviewApprovalRequiresExactDuplicateAcknowledgment(t *testing.T) {
 }
 
 func TestBulkPublicationRequiresEveryFrozenIdentity(t *testing.T) {
-	complete := BulkPublicationIntent{BulkID: "bulk", JobID: "job", WorkerID: "worker", ValidationID: "validation", SourceSnapshotID: "source"}
+	complete := BulkPublicationIntent{
+		BulkID: "bulk", JobID: "job", WorkerID: "worker",
+		ValidationID: "validation", SourceSnapshotID: "source",
+	}
 	if !validBulkPublicationIntent(nil) || !validBulkPublicationIntent(&complete) {
 		t.Fatal("valid identity rejected")
 	}

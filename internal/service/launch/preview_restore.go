@@ -41,9 +41,9 @@ func previewRestoreOwner(restore PreviewRestore, plan PreviewCreatePlan) bool {
 }
 
 func previewRestoreContent(restore PreviewRestore, plan PreviewCreatePlan) bool {
-	return restore.ContentBlobID == plan.Content.BlobID && restore.ContentName == plan.Content.LogicalName &&
+	return restore.ContentFileRecord == plan.Content.FileRecord && restore.ContentName == plan.Content.LogicalName &&
 		restore.ContentFormat == plan.Content.Format && restore.DependencySnapshot == plan.Source.DependencySnapshot &&
-		restore.BlobID != ""
+		restore.FileRecord != ""
 }
 
 type previewFileIdentity struct {
@@ -52,7 +52,7 @@ type previewFileIdentity struct {
 }
 
 func previewFileKey(file PreviewFile) previewFileIdentity {
-	key := previewFileIdentity{role: file.Role, name: file.LogicalName, blob: file.BlobID, order: file.SortOrder}
+	key := previewFileIdentity{role: file.Role, name: file.LogicalName, blob: file.FileRecord, order: file.SortOrder}
 	if file.VirtualPath != nil {
 		key.path = *file.VirtualPath
 	}

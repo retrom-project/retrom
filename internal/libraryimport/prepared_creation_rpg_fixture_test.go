@@ -14,8 +14,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/core/rpgmaker/materializer"
 	uploadpersistence "retrom/internal/persistence/uploads"
-	"retrom/internal/rpgmaker/materializer"
 	"retrom/internal/service/uploads"
 	"retrom/internal/testsupport"
 )
@@ -52,7 +52,7 @@ func preparedRPGFixture(t *testing.T) (*Service, CreateRequest, string) {
 		t.Fatal(err)
 	}
 	waitForRPGUploadFinalization(t, t.Context(), database.SQL, jobID)
-	service := New(database.SQL, time.Now).WithBlobStore(blobs)
+	service := newTestImporter(t, database.SQL, blobs, testImportOptions{Now: time.Now})
 	request := CreateRequest{
 		UploadID:                 upload.ID,
 		TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(t, database.SQL, "rpgmaker/rpgmaker"),

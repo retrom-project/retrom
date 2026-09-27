@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/gameassets"
 )
 
@@ -14,16 +14,16 @@ import (
 // game asset mutation. The composition layer adapts the running release
 // service to this persistence port.
 type ReleaseScheduler interface {
-	StageCandidates(context.Context, dbexec.Executor, []string) error
-	ScheduleConsumption(context.Context, dbexec.Executor, string, int64) error
+	StageCandidates(context.Context, dbapi.Executor, []string) error
+	ScheduleConsumption(context.Context, dbapi.Executor, string, int64) error
 }
 
 type Repository struct {
-	database *sql.DB
+	database dbapi.DB
 	releases ReleaseScheduler
 }
 
-func New(database *sql.DB, releases ReleaseScheduler) *Repository {
+func New(database dbapi.DB, releases ReleaseScheduler) *Repository {
 	return &Repository{database: database, releases: releases}
 }
 
@@ -31,16 +31,16 @@ func (repository *Repository) Upload(
 	ctx context.Context, uploadFileID string,
 ) (application.UploadedFile, bool, error) {
 	var upload application.UploadedFile
-	err := repository.database.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, repository.database, `
 SELECT f.upload_session_id,
-b.id,
-b.sha256,
-b.size_bytes
+b.value,
+json_extract(b.value, '$.sha256'),
+json_extract(b.value, '$.size_bytes')
 FROM upload_files f
-JOIN blobs b ON b.id=f.final_blob_id
+JOIN json_each(json_array(f.final_file_record)) b ON b.value IS NOT NULL
 WHERE f.id=?
 AND f.state='COMPLETE'
-`, uploadFileID).Scan(&upload.UploadID, &upload.BlobID, &upload.Digest, &upload.SizeBytes)
+`, uploadFileID).Scan(&upload.UploadID, &upload.FileRecord, &upload.Digest, &upload.SizeBytes)
 	if errors.Is(err, sql.ErrNoRows) {
 		return application.UploadedFile{}, false, nil
 	}
@@ -57,7 +57,7 @@ func (repository *Repository) WithWrite(
 	if err != nil {
 		return fmt.Errorf("begin game asset write: %w", err)
 	}
-	defer dbexec.Rollback(tx)
+	defer dbapi.Rollback(tx)
 	if err := work(writeScope{executor: tx, releases: repository.releases}); err != nil {
 		return err
 	}

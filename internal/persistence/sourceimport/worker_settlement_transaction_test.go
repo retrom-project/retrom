@@ -1,15 +1,16 @@
 package sourceimport
 
 import (
-	"database/sql"
 	"errors"
 	"reflect"
 	"testing"
 
+	dbapi "retrom/internal/database"
+
 	application "retrom/internal/service/sourceimport"
 )
 
-func workerSettlementDatabase(t *testing.T, cancel bool) *sql.DB {
+func workerSettlementDatabase(t *testing.T, cancel bool) dbapi.DB {
 	t.Helper()
 	db := itemWorkDatabase(t)
 	if cancel {

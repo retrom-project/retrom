@@ -6,8 +6,8 @@ import (
 	"math"
 	"testing"
 
-	"retrom/internal/contentcapability"
-	"retrom/internal/corevalidation"
+	contentcapability "retrom/internal/content/capability"
+	corevalidation "retrom/internal/core/validation"
 )
 
 type approvalValidationStub struct {
@@ -35,7 +35,13 @@ func TestReviewApprovalScreenshotStillRequiresCurrentValidation(t *testing.T) {
 		if stale {
 			reader.evidence.InputDigest = "stale"
 		}
-		run := reviewApprovalRun{ctx: t.Context(), scope: ReviewApprovalScope{Validation: reader}, head: ReviewApprovalHead{ValidationID: "validation", ValidationStatus: "BLOCKED", ScreenshotID: &screenshot, DependencyJSON: evidence.DependencyJSON}}
+		run := reviewApprovalRun{
+			ctx: t.Context(), scope: ReviewApprovalScope{Validation: reader},
+			head: ReviewApprovalHead{
+				ValidationID: "validation", ValidationStatus: "BLOCKED",
+				ScreenshotID: &screenshot, DependencyJSON: evidence.DependencyJSON,
+			},
+		}
 		err := run.prepareValidation()
 		if stale {
 			if !errors.Is(err, ErrInvalid) {
@@ -49,7 +55,10 @@ func TestReviewApprovalScreenshotStillRequiresCurrentValidation(t *testing.T) {
 
 func TestReviewApprovalCurrentValidationPreservesFailure(t *testing.T) {
 	cause := errors.New("current validation read failed")
-	run := reviewApprovalRun{ctx: t.Context(), scope: ReviewApprovalScope{Validation: approvalValidationStub{cause: cause}}}
+	run := reviewApprovalRun{
+		ctx:   t.Context(),
+		scope: ReviewApprovalScope{Validation: approvalValidationStub{cause: cause}},
+	}
 	if err := run.prepareValidation(); !errors.Is(err, cause) {
 		t.Fatal(err)
 	}
@@ -59,8 +68,14 @@ func TestReviewApprovalScreenshotDropsOnlyUnavailableExternalBIOS(t *testing.T) 
 	path, blob, usable, bad := "bios.bin", "blob", "MATCHED", "INVALID"
 	snapshot := corevalidation.Snapshot{SchemaVersion: 1, Kind: "STATIC", BIOS: []corevalidation.BIOSDependency{
 		{BIOSCatalogEntry: corevalidation.BIOSCatalogEntry{DeliveryKind: "PROVIDER_BUNDLED"}},
-		{BIOSCatalogEntry: corevalidation.BIOSCatalogEntry{DeliveryKind: "EXTERNAL_FILE", EmulatorPath: &path}, BlobID: &blob, InstallationStatus: &usable},
-		{BIOSCatalogEntry: corevalidation.BIOSCatalogEntry{DeliveryKind: "EXTERNAL_FILE", EmulatorPath: &path}, BlobID: &blob, InstallationStatus: &bad},
+		{BIOSCatalogEntry: corevalidation.BIOSCatalogEntry{
+			DeliveryKind: "EXTERNAL_FILE",
+			EmulatorPath: &path,
+		}, FileRecord: &blob, InstallationStatus: &usable},
+		{BIOSCatalogEntry: corevalidation.BIOSCatalogEntry{
+			DeliveryKind: "EXTERNAL_FILE",
+			EmulatorPath: &path,
+		}, FileRecord: &blob, InstallationStatus: &bad},
 		{BIOSCatalogEntry: corevalidation.BIOSCatalogEntry{DeliveryKind: "EXTERNAL_FILE"}},
 	}}
 	encoded, err := snapshot.JSON()
@@ -72,14 +87,18 @@ func TestReviewApprovalScreenshotDropsOnlyUnavailableExternalBIOS(t *testing.T) 
 		t.Fatal(err)
 	}
 	actual, err := corevalidation.ParseSnapshot(run.runtimeDependencyJSON)
-	if err != nil || len(actual.BIOS) != 2 || actual.BIOS[0].DeliveryKind != "PROVIDER_BUNDLED" || actual.BIOS[1].BlobID == nil {
+	if err != nil || len(actual.BIOS) != 2 || actual.BIOS[0].DeliveryKind != "PROVIDER_BUNDLED" ||
+		actual.BIOS[1].FileRecord == nil {
 		t.Fatalf("snapshot=%+v err=%v", actual, err)
 	}
 }
 
 func validApprovalDisc(ordinal int, size int64) ApprovalDisc {
 	blob, name, index := "blob", "disc.chd", int64(ordinal)
-	return ApprovalDisc{Ordinal: ordinal, State: "PRESENT", LogicalName: name, BlobID: &blob, SourceBlobID: &blob, SourceLogicalName: &name, SourceOrdinal: &index, SizeBytes: &size}
+	return ApprovalDisc{
+		Ordinal: ordinal, State: "PRESENT", LogicalName: name, FileRecord: &blob,
+		SourceFileRecord: &blob, SourceLogicalName: &name, SourceOrdinal: &index, SizeBytes: &size,
+	}
 }
 
 func TestReviewApprovalDiscIdentityAndOverflow(t *testing.T) {
@@ -98,9 +117,9 @@ func TestReviewApprovalDiscIdentityAndOverflow(t *testing.T) {
 			case "source ordinal":
 				disc.SourceOrdinal = nil
 			case "source blob":
-				disc.SourceBlobID = nil
+				disc.SourceFileRecord = nil
 			case "blob":
-				disc.BlobID = nil
+				disc.FileRecord = nil
 			case "name":
 				name := "changed"
 				disc.SourceLogicalName = &name
@@ -112,7 +131,10 @@ func TestReviewApprovalDiscIdentityAndOverflow(t *testing.T) {
 			}
 		})
 	}
-	if total, err := approvalDiscTotal([]ApprovalDisc{validApprovalDisc(0, math.MaxInt64), validApprovalDisc(1, 8)}); !errors.Is(err, ErrInvalid) || total != 0 {
+	if total, err := approvalDiscTotal([]ApprovalDisc{
+		validApprovalDisc(0, math.MaxInt64),
+		validApprovalDisc(1, 8),
+	}); !errors.Is(err, ErrInvalid) || total != 0 {
 		t.Fatalf("overflow total=%d err=%v", total, err)
 	}
 }

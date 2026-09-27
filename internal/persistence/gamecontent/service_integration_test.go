@@ -6,7 +6,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
-	"database/sql"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -18,6 +17,10 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/testsupport/importfixture"
+
+	"retrom/internal/persistence/recordstore"
+
 	"retrom/internal/service/gamecontent"
 
 	uploadpersistence "retrom/internal/persistence/uploads"
@@ -25,16 +28,15 @@ import (
 	dependencypersistence "retrom/internal/persistence/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 
-	"retrom/internal/dbexec"
-	"retrom/internal/persistence/blobcatalog"
+	dbapi "retrom/internal/database"
 
 	"github.com/google/uuid"
 
-	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
+	"retrom/internal/composition/cleanupjobs"
 	"retrom/internal/dependencies"
+	"retrom/internal/filestore"
 	"retrom/internal/libraryimport"
-	"retrom/internal/payloadrelease"
 	"retrom/internal/service/uploads"
 	"retrom/internal/testassert"
 	"retrom/internal/testsupport"
@@ -51,15 +53,16 @@ func TestRPGMakerReplacementKeepsPublishedGeneration(t *testing.T) {
 	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", "..", ".."))
 	dependencySet, err := dependencies.Load(filepath.Join(repositoryRoot, "data"), []string{"4.2.3"}, "4.2.3")
 	testassert.False(t, err != nil, err)
-	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, time.Now()); err != nil {
+	if err := dependencyservice.New(dependencySet,
+		dependencypersistence.New(database.SQL)).Bootstrap(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
-	blobs, err := blobstore.Open(dataDir)
+	blobs, err := filestore.Open(dataDir)
 	testassert.False(t, err != nil, err)
 	uploadService := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
 	rpg2000 := rpgMakerFixtureFiles(t, filepath.Join(repositoryRoot, "testdata/public-roms/rpgmaker-smoke/rpg2000"))
 	initialUpload := completeRPGMakerDirectoryUpload(t, ctx, database.SQL, uploadService, rpg2000)
-	importer := libraryimport.New(database.SQL, time.Now).WithBlobStore(blobs)
+	importer := importfixture.New(t, database.SQL, blobs, importfixture.Options{Now: time.Now})
 	created, err := importer.Create(ctx, libraryimport.CreateRequest{
 		UploadID: initialUpload, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(
 			t, database.SQL, "rpgmaker/rpgmaker",
@@ -72,15 +75,15 @@ func TestRPGMakerReplacementKeepsPublishedGeneration(t *testing.T) {
 	testassert.False(t, err != nil, err)
 	var originalContent string
 	var gameVersion int64
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT id,version FROM games WHERE id=?
 `, published.GameID).Scan(&originalContent, &gameVersion); err != nil {
 		t.Fatal(err)
 	}
-	releases, err := payloadrelease.New(database.SQL, blobs, time.Now, 7*24*time.Hour)
+	releases, err := cleanupjobs.New(t.Context(), database.SQL, blobs, time.Now)
 	testassert.False(t, err != nil, err)
 	t.Cleanup(releases.Close)
-	service := gamecontent.New(New(database.SQL), time.Now).WithBlobStore(blobs).WithPayloadRelease(releases).WithGCStager(releases)
+	service := gamecontent.New(gamecontent.Dependencies{Repository: New(database.SQL), Files: blobs, Cleanup: releases}, gamecontent.Options{Now: time.Now})
 	if binding, bindingErr := loadReplacementBinding(ctx, database.SQL, published.GameID); bindingErr != nil {
 		t.Fatalf("load RPG replacement binding: %v", bindingErr)
 	} else if binding.RPGGeneration != "RPG2000" {
@@ -97,10 +100,11 @@ SELECT id,version FROM games WHERE id=?
 	sameGenerationUpload := completeRPGMakerDirectoryUpload(t, ctx, database.SQL, uploadService, rpg2000)
 	uploadValidationTx, err := database.SQL.BeginTx(ctx, nil)
 	testassert.False(t, err != nil, err)
-	if validationErr := validateUploadFixture(ctx, uploadValidationTx, sameGenerationUpload, "RPG_MAKER_PROJECT", "rpgmaker"); validationErr != nil {
+	if validationErr := validateUploadFixture(ctx, uploadValidationTx, sameGenerationUpload,
+		"RPG_MAKER_PROJECT", "rpgmaker"); validationErr != nil {
 		t.Fatalf("validate RPG replacement upload: %v", validationErr)
 	}
-	dbexec.Rollback(uploadValidationTx)
+	dbapi.Rollback(uploadValidationTx)
 	sameGeneration, err := service.ScheduleMode(
 		ctx, published.GameID, sameGenerationUpload, "RPG_MAKER_PROJECT", gameVersion,
 	)
@@ -108,7 +112,7 @@ SELECT id,version FROM games WHERE id=?
 	waitForJob(t, ctx, database.SQL, sameGeneration.JobID, "SUCCEEDED")
 	var replacementContent, generation string
 	var replacementVersion int64
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT game.id,game.version,json_extract(game.content_profile_json,'$.data.evidenceGeneration')
 FROM games game
 JOIN game_variants variant ON variant.game_id=game.id
@@ -139,13 +143,13 @@ WHERE game.id=? AND variant.core_id='rpgmaker' AND variant.runtime_profile_json 
 	)
 }
 
-func installRPGMakerRuntimeUpgrade(t *testing.T, ctx context.Context, database *sql.DB) {
+func installRPGMakerRuntimeUpgrade(t *testing.T, ctx context.Context, database dbapi.DB) {
 	t.Helper()
 	transaction, err := database.BeginTx(ctx, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer dbexec.Rollback(transaction)
+	defer dbapi.Rollback(transaction)
 	now := time.Now().UnixMilli()
 	bundle := sha256.Sum256([]byte("RPG Maker replacement forward Provider Bundle fixture"))
 	if _, err := transaction.ExecContext(ctx, `
@@ -185,9 +189,7 @@ func rpgMakerFixtureFiles(t *testing.T, root string) map[string][]byte {
 func completeRPGMakerDirectoryUpload(
 	t *testing.T,
 	ctx context.Context,
-	database interface {
-		QueryRowContext(context.Context, string, ...any) *sql.Row
-	},
+	database dbapi.Queryer,
 	service *uploads.Service,
 	contents map[string][]byte,
 ) string {
@@ -227,10 +229,10 @@ func completeRPGMakerDirectoryUpload(
 	return session.ID
 }
 
-func importItemID(t *testing.T, ctx context.Context, database *sql.DB, jobID string) string {
+func importItemID(t *testing.T, ctx context.Context, database dbapi.DB, jobID string) string {
 	t.Helper()
 	var itemID string
-	if err := database.QueryRowContext(ctx, `SELECT id FROM import_items WHERE import_job_id=?`, jobID).
+	if err := dbapi.QueryRowContext(ctx, database, `SELECT id FROM import_items WHERE import_job_id=?`, jobID).
 		Scan(&itemID); err != nil {
 		t.Fatal(err)
 	}
@@ -240,30 +242,28 @@ func importItemID(t *testing.T, ctx context.Context, database *sql.DB, jobID str
 func installSaturnBIOS(
 	t *testing.T,
 	ctx context.Context,
-	database *sql.DB,
-	blobs *blobstore.Store,
+	database dbapi.DB,
+	blobs *filestore.Store,
 ) {
 	t.Helper()
 	metadata, err := blobs.Put(bytes.NewReader([]byte("replacement Saturn BIOS fixture")))
 	testassert.False(t, err != nil, err)
-	blobID, err := blobcatalog.EnsureRecord(ctx, database, metadata, "application/octet-stream", time.Now().UnixMilli())
+	fileRecord, err := filestore.FileRecord(metadata, "application/octet-stream")
 	testassert.False(t, err != nil, err)
 	var requirementID string
 	var requirementVersion int64
-	if err := database.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database, `
 SELECT id,version FROM bios_requirements
 WHERE core_id='yabause' AND logical_name='saturn_bios.bin' AND enabled=1
 `).Scan(&requirementID, &requirementVersion); err != nil {
 		t.Fatal(err)
 	}
 	installationID, _ := uuid.NewV7()
-	if _, err := database.ExecContext(ctx, `
-INSERT INTO bios_installations(id,requirement_id,blob_id,original_filename,size_bytes,md5,sha1,sha256,
+	if _, err := recordstore.InsertRows(ctx, database, "bios_installations", `
+INSERT INTO bios_installations(id,requirement_id,file_record,original_filename,size_bytes,md5,sha1,sha256,
 validated_requirement_version,status,validation_details_json,is_active,version,created_at_ms,updated_at_ms)
 VALUES(?,?,?,?,?,?,?,?,?,'HASH_WARNING','{}',1,1,?,?)
-`, installationID.String(), requirementID, blobID, "saturn_bios.bin", metadata.Size,
-		metadata.MD5, metadata.SHA1, metadata.SHA256, requirementVersion,
-		time.Now().UnixMilli(), time.Now().UnixMilli()); err != nil {
+`, installationID.String(), requirementID, fileRecord, "saturn_bios.bin", metadata.Size, metadata.MD5, metadata.SHA1, metadata.SHA256, requirementVersion, time.Now().UnixMilli(), time.Now().UnixMilli()); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -279,41 +279,45 @@ func TestReplacementPublishesAtomicallyAndFailureKeepsCurrent(t *testing.T) {
 	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", "..", ".."))
 	dependencySet, err := dependencies.Load(filepath.Join(repositoryRoot, "data"), []string{"4.2.3"}, "4.2.3")
 	testassert.False(t, err != nil, err)
-	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, time.Now()); err != nil {
+	if err := dependencyservice.New(dependencySet,
+		dependencypersistence.New(database.SQL)).Bootstrap(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
-	blobs, err := blobstore.Open(dataDir)
+	blobs, err := filestore.Open(dataDir)
 	testassert.False(t, err != nil, err)
 	uploadService := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
 	initialUpload := completeUpload(t, ctx, database.SQL, uploadService, "original.gba", []byte("original"))
 	gbaID := testsupport.MustPlatformInstanceID(t, database.SQL, "gba/mgba")
-	createdImport, err := libraryimport.New(database.SQL, time.Now).
-		Create(ctx, libraryimport.CreateRequest{UploadID: initialUpload, TargetPlatformInstanceID: gbaID, MetadataProvider: "NONE"})
+	createdImport, err := importfixture.New(t, database.SQL, blobs, importfixture.Options{Now: time.Now}).
+		Create(ctx, libraryimport.CreateRequest{
+			UploadID:                 initialUpload,
+			TargetPlatformInstanceID: gbaID, MetadataProvider: "NONE",
+		})
 	testassert.False(t, err != nil, err)
 	var itemID string
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT id
 FROM import_items
 WHERE import_job_id=?
 `, createdImport.ImportJobID).Scan(&itemID); err != nil {
 		t.Fatal(err)
 	}
-	published, err := libraryimport.New(database.SQL, time.Now).Approve(ctx, itemID, 1)
+	published, err := importfixture.New(t, database.SQL, blobs, importfixture.Options{Now: time.Now}).Approve(ctx, itemID, 1)
 	testassert.False(t, err != nil, err)
-	var originalContent, originalBlobID string
+	var originalContent, originalFileRecord string
 	var initialVersion int64
-	if err := database.SQL.QueryRowContext(ctx, `
-SELECT game.id,game.version,file.blob_id
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
+SELECT game.id,game.version,file.file_record
 FROM games game JOIN game_files file ON file.game_id=game.id
 WHERE game.id=? ORDER BY file.sort_order LIMIT 1
-`, published.GameID).Scan(&originalContent, &initialVersion, &originalBlobID); err != nil {
+`, published.GameID).Scan(&originalContent, &initialVersion, &originalFileRecord); err != nil {
 		t.Fatal(err)
 	}
 
-	releaseService, err := payloadrelease.New(database.SQL, blobs, time.Now, 7*24*time.Hour)
+	releaseService, err := cleanupjobs.New(t.Context(), database.SQL, blobs, time.Now)
 	testassert.False(t, err != nil, err)
 	t.Cleanup(releaseService.Close)
-	service := gamecontent.New(New(database.SQL), time.Now).WithBlobStore(blobs).WithPayloadRelease(releaseService).WithGCStager(releaseService)
+	service := gamecontent.New(gamecontent.Dependencies{Repository: New(database.SQL), Files: blobs, Cleanup: releaseService}, gamecontent.Options{Now: time.Now})
 	saveID, launchID, savePayloads := seedReplacementSave(
 		t, ctx, database.SQL, blobs, published.GameID,
 	)
@@ -327,7 +331,7 @@ WHERE game.id=? ORDER BY file.sort_order LIMIT 1
 	)
 
 	assertLatePublicationRollback(t, database.SQL, blobs, uploadService, releaseService,
-		published.GameID, initialVersion, originalBlobID, saveID)
+		published.GameID, initialVersion, originalFileRecord, saveID)
 
 	replacementUpload := completeUpload(t, ctx, database.SQL, uploadService, "replacement.gba", []byte("replacement"))
 	idempotencyKey := "01980000-0000-7000-8000-000000000099"
@@ -340,7 +344,9 @@ WHERE game.id=? ORDER BY file.sort_order LIMIT 1
 		idempotencyKey,
 		requestDigest,
 	)
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return replayed }, func() bool { return scheduled.Version != initialVersion }), "schedule = %#v, error=%v", scheduled, err)
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil },
+		func() bool { return replayed }, func() bool { return scheduled.Version != initialVersion }),
+		"schedule = %#v, error=%v", scheduled, err)
 	replayedSchedule, replayed, err := service.ScheduleIdempotent(
 		ctx,
 		published.GameID,
@@ -349,8 +355,13 @@ WHERE game.id=? ORDER BY file.sort_order LIMIT 1
 		idempotencyKey,
 		requestDigest,
 	)
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return !replayed }, func() bool { return replayedSchedule.JobID != scheduled.JobID }), "idempotent replay = %#v, replayed=%v, error=%v", replayedSchedule, replayed, err)
-	if _, _, err := service.ScheduleIdempotent(ctx, published.GameID, replacementUpload, initialVersion, idempotencyKey, "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"); !errors.Is(
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil },
+		func() bool { return !replayed },
+		func() bool { return replayedSchedule.JobID != scheduled.JobID }),
+		"idempotent replay = %#v, replayed=%v, error=%v", replayedSchedule, replayed, err)
+	if _, _, err := service.ScheduleIdempotent(ctx, published.GameID, replacementUpload,
+		initialVersion, idempotencyKey,
+		"abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"); !errors.Is(
 		err,
 		gamecontent.ErrIdempotencyKeyReused,
 	) {
@@ -359,7 +370,7 @@ WHERE game.id=? ORDER BY file.sort_order LIMIT 1
 	waitForJob(t, ctx, database.SQL, scheduled.JobID, "SUCCEEDED")
 	var replacementContent string
 	var replacedVersion int64
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT id,
 version
 FROM games
@@ -367,9 +378,12 @@ WHERE id=?
 `, published.GameID).Scan(&replacementContent, &replacedVersion); err != nil {
 		t.Fatal(err)
 	}
-	testassert.Falsef(t, testassert.Any(func() bool { return replacementContent != originalContent }, func() bool { return replacedVersion != initialVersion+1 }), "content/version = %s/%d, wanted stable/%d", replacementContent, replacedVersion, initialVersion+1)
+	testassert.Falsef(t,
+		testassert.Any(func() bool { return replacementContent != originalContent },
+			func() bool { return replacedVersion != initialVersion+1 }),
+		"content/version = %s/%d, wanted stable/%d", replacementContent, replacedVersion, initialVersion+1)
 	var sourceKind, sourceRef, variantContent string
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT c.content_source_kind,
 c.content_source_ref_id,
 v.game_id
@@ -379,11 +393,14 @@ WHERE c.id=?
 `, replacementContent).Scan(&sourceKind, &sourceRef, &variantContent); err != nil {
 		t.Fatal(err)
 	}
-	testassert.Falsef(t, testassert.Any(func() bool { return sourceKind != "ADMIN_REPLACE" }, func() bool { return sourceRef != scheduled.JobID }, func() bool { return variantContent != replacementContent }), "published content = %s/%s/%s", sourceKind, sourceRef, variantContent)
+	testassert.Falsef(t, testassert.Any(func() bool { return sourceKind != "ADMIN_REPLACE" },
+		func() bool { return sourceRef != scheduled.JobID },
+		func() bool { return variantContent != replacementContent }), "published content = %s/%s/%s",
+		sourceKind, sourceRef, variantContent)
 	assertSupersededContentReleased(
 		t, ctx, database.SQL, published.GameID, originalContent, saveID, launchID, savePayloads,
 	)
-	assertBlobReferenceState(t, ctx, database.SQL, originalBlobID, false)
+	assertBlobReferenceState(t, ctx, database.SQL, originalFileRecord, false)
 	retainedSaveID, _, _ := seedReplacementSave(t, ctx, database.SQL, blobs, published.GameID)
 
 	if _, err := database.SQL.ExecContext(ctx, `
@@ -400,22 +417,24 @@ WHERE id=?
 	testassert.False(t, err != nil, err)
 	waitForJob(t, ctx, database.SQL, failed.JobID, "FAILED")
 	var afterFailure string
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT id
 FROM games
 WHERE id=?
 `, published.GameID).Scan(&afterFailure); err != nil {
 		t.Fatal(err)
 	}
-	testassert.Falsef(t, afterFailure != replacementContent, "failed replacement changed current content: %s != %s", afterFailure, replacementContent)
+	testassert.Falsef(t, afterFailure != replacementContent,
+		"failed replacement changed current content: %s != %s", afterFailure, replacementContent)
 	var retainedSaveCount int
-	if err := database.SQL.QueryRowContext(
-		ctx, `SELECT count(*) FROM save_states WHERE id=?`, retainedSaveID,
+	if err := dbapi.QueryRowContext(
+		ctx, database.SQL,
+		`SELECT count(*) FROM save_states WHERE id=?`, retainedSaveID,
 	).Scan(&retainedSaveCount); err != nil || retainedSaveCount != 1 {
 		t.Fatalf("failed replacement retained save count = %d, error=%v", retainedSaveCount, err)
 	}
 	var failedReplacementCount int
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT count(*) FROM games WHERE content_source_ref_id=?
 `, failed.JobID).Scan(&failedReplacementCount); err != nil ||
 		failedReplacementCount != 0 {
@@ -434,15 +453,16 @@ func TestMultiDiscReplacementPublishesCompleteContentAndRejectsMissingDisc(t *te
 	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", "..", ".."))
 	dependencySet, err := dependencies.Load(filepath.Join(repositoryRoot, "data"), []string{"4.2.3"}, "4.2.3")
 	testassert.False(t, err != nil, err)
-	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, time.Now()); err != nil {
+	if err := dependencyservice.New(dependencySet,
+		dependencypersistence.New(database.SQL)).Bootstrap(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
-	blobs, err := blobstore.Open(dataDir)
+	blobs, err := filestore.Open(dataDir)
 	testassert.False(t, err != nil, err)
 	installSaturnBIOS(t, ctx, database.SQL, blobs)
 	uploadService := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
 	initialUpload := completeUpload(t, ctx, database.SQL, uploadService, "original.chd", fakeReplacementCHD("original"))
-	importer := libraryimport.New(database.SQL, time.Now).WithBlobStore(blobs)
+	importer := importfixture.New(t, database.SQL, blobs, importfixture.Options{Now: time.Now})
 	saturnID := testsupport.MustPlatformInstanceID(t, database.SQL, "saturn/yabause")
 	createdImport, err := importer.Create(ctx, libraryimport.CreateRequest{
 		UploadID: initialUpload, TargetPlatformInstanceID: saturnID,
@@ -450,19 +470,19 @@ func TestMultiDiscReplacementPublishesCompleteContentAndRejectsMissingDisc(t *te
 	})
 	testassert.False(t, err != nil, err)
 	var itemID string
-	if err := database.SQL.QueryRowContext(ctx, `SELECT id FROM import_items WHERE import_job_id=?`,
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `SELECT id FROM import_items WHERE import_job_id=?`,
 		createdImport.ImportJobID).Scan(&itemID); err != nil {
 		t.Fatal(err)
 	}
 	published, err := importer.Approve(ctx, itemID, 1)
 	testassert.False(t, err != nil, err)
-	var originalContentID, originalBlobID string
+	var originalContentID, originalFileRecord string
 	var gameVersion int64
-	if err := database.SQL.QueryRowContext(ctx, `
-SELECT game.id,game.version,file.blob_id
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
+SELECT game.id,game.version,file.file_record
 FROM games game JOIN game_files file ON file.game_id=game.id
 WHERE game.id=? ORDER BY file.sort_order LIMIT 1
-`, published.GameID).Scan(&originalContentID, &gameVersion, &originalBlobID); err != nil {
+`, published.GameID).Scan(&originalContentID, &gameVersion, &originalFileRecord); err != nil {
 		t.Fatal(err)
 	}
 	replacementUpload := completeDirectoryUpload(t, ctx, database.SQL, uploadService, map[string][]byte{
@@ -471,11 +491,10 @@ WHERE game.id=? ORDER BY file.sort_order LIMIT 1
 		"replacement/two.chd":    fakeReplacementCHD("two"),
 		"replacement/readme.txt": []byte("ignored"),
 	})
-	releaseService, err := payloadrelease.New(database.SQL, blobs, time.Now, 7*24*time.Hour)
+	releaseService, err := cleanupjobs.New(t.Context(), database.SQL, blobs, time.Now)
 	testassert.False(t, err != nil, err)
 	t.Cleanup(releaseService.Close)
-	service := gamecontent.New(New(database.SQL), time.Now).WithBlobStore(blobs).
-		WithPayloadRelease(releaseService).WithGCStager(releaseService).WithMultiDiscImportEnabled(true)
+	service := gamecontent.New(gamecontent.Dependencies{Repository: New(database.SQL), Files: blobs, Cleanup: releaseService}, gamecontent.Options{Now: time.Now, MultiDiscEnabled: true})
 	scheduled, err := service.ScheduleMode(
 		ctx, published.GameID, replacementUpload, "MULTI_DISC", gameVersion,
 	)
@@ -483,17 +502,21 @@ WHERE game.id=? ORDER BY file.sort_order LIMIT 1
 	waitForJob(t, ctx, database.SQL, scheduled.JobID, "SUCCEEDED")
 	var currentContentID, contentKind string
 	var replacedVersion int64
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT game.id,game.version,content.content_kind
 FROM games game JOIN games content ON content.id=game.id
 WHERE game.id=?
 `, published.GameID).Scan(&currentContentID, &replacedVersion, &contentKind); err != nil {
 		t.Fatal(err)
 	}
-	testassert.Falsef(t, testassert.Any(func() bool { return currentContentID != originalContentID }, func() bool { return replacedVersion != gameVersion+1 }, func() bool { return contentKind != "MULTI_DISC" }), "replacement = %s/%d/%s", currentContentID, replacedVersion, contentKind)
-	assertBlobReferenceState(t, ctx, database.SQL, originalBlobID, false)
+	testassert.Falsef(t,
+		testassert.Any(func() bool { return currentContentID != originalContentID },
+			func() bool { return replacedVersion != gameVersion+1 },
+			func() bool { return contentKind != "MULTI_DISC" }), "replacement = %s/%d/%s",
+		currentContentID, replacedVersion, contentKind)
+	assertBlobReferenceState(t, ctx, database.SQL, originalFileRecord, false)
 	var discCount, playlistCount int
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT (SELECT count(*) FROM game_files WHERE game_id=? AND role='DISC'),
        (SELECT count(*) FROM game_variants variant
         JOIN variant_files file ON file.game_variant_id=variant.id
@@ -512,15 +535,18 @@ SELECT (SELECT count(*) FROM game_files WHERE game_id=? AND role='DISC'),
 	testassert.False(t, err != nil, err)
 	waitForJob(t, ctx, database.SQL, failed.JobID, "FAILED")
 	var errorCode, afterFailure string
-	if err := database.SQL.QueryRowContext(ctx, `SELECT error_code FROM jobs WHERE id=?`, failed.JobID).
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `SELECT error_code FROM jobs WHERE id=?`, failed.JobID).
 		Scan(&errorCode); err != nil {
 		t.Fatal(err)
 	}
-	if err := database.SQL.QueryRowContext(ctx, `SELECT id FROM games WHERE id=?`,
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `SELECT id FROM games WHERE id=?`,
 		published.GameID).Scan(&afterFailure); err != nil {
 		t.Fatal(err)
 	}
-	testassert.Falsef(t, testassert.Any(func() bool { return errorCode != "MULTI_DISC_FILE_MISSING" }, func() bool { return afterFailure != currentContentID }), "failed replacement = code=%s content=%s", errorCode, afterFailure)
+	testassert.Falsef(t,
+		testassert.Any(func() bool { return errorCode != "MULTI_DISC_FILE_MISSING" },
+			func() bool { return afterFailure != currentContentID }),
+		"failed replacement = code=%s content=%s", errorCode, afterFailure)
 
 	unchangedUpload := completeDirectoryUpload(t, ctx, database.SQL, uploadService, map[string][]byte{
 		"same/game.m3u": []byte("one.chd\ntwo.chd\n"),
@@ -537,14 +563,14 @@ SELECT (SELECT count(*) FROM game_files WHERE game_id=? AND role='DISC'),
 		currentContentID, "",
 	)
 
-	var sharedDiscBlobID, retiredDiscBlobID string
-	if err := database.SQL.QueryRowContext(ctx, `
+	var unchangedDiscOldID, retiredDiscFileRecord string
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT
- (SELECT blob_id FROM game_files WHERE game_id=? AND role='DISC'
+ (SELECT file_record FROM game_files WHERE game_id=? AND role='DISC'
   ORDER BY sort_order LIMIT 1),
- (SELECT blob_id FROM game_files WHERE game_id=? AND role='DISC'
+ (SELECT file_record FROM game_files WHERE game_id=? AND role='DISC'
   ORDER BY sort_order LIMIT 1 OFFSET 1)
-`, currentContentID, currentContentID).Scan(&sharedDiscBlobID, &retiredDiscBlobID); err != nil {
+`, currentContentID, currentContentID).Scan(&unchangedDiscOldID, &retiredDiscFileRecord); err != nil {
 		t.Fatal(err)
 	}
 	partialChangeUpload := completeDirectoryUpload(t, ctx, database.SQL, uploadService, map[string][]byte{
@@ -558,13 +584,13 @@ SELECT
 	testassert.False(t, err != nil, err)
 	waitForJob(t, ctx, database.SQL, changed.JobID, "SUCCEEDED")
 	var latestContentID string
-	if err := database.SQL.QueryRowContext(ctx, `SELECT id FROM games WHERE id=?`,
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `SELECT id FROM games WHERE id=?`,
 		published.GameID).Scan(&latestContentID); err != nil {
 		t.Fatal(err)
 	}
 	assertContentPayloadCount(t, ctx, database.SQL, latestContentID, 3)
-	assertBlobReferenceState(t, ctx, database.SQL, sharedDiscBlobID, true)
-	assertBlobReferenceState(t, ctx, database.SQL, retiredDiscBlobID, false)
+	assertBlobReferenceState(t, ctx, database.SQL, unchangedDiscOldID, false)
+	assertBlobReferenceState(t, ctx, database.SQL, retiredDiscFileRecord, false)
 }
 
 func fakeReplacementCHD(payload string) []byte {
@@ -574,9 +600,7 @@ func fakeReplacementCHD(payload string) []byte {
 func completeDirectoryUpload(
 	t *testing.T,
 	ctx context.Context,
-	database interface {
-		QueryRowContext(context.Context, string, ...any) *sql.Row
-	},
+	database dbapi.Queryer,
 	service *uploads.Service,
 	contents map[string][]byte,
 ) string {
@@ -614,9 +638,8 @@ func completeDirectoryUpload(
 	return session.ID
 }
 
-func completeUpload(t *testing.T, ctx context.Context, database interface {
-	QueryRowContext(context.Context, string, ...any) *sql.Row
-}, service *uploads.Service, name string, contents []byte,
+func completeUpload(t *testing.T, ctx context.Context, database dbapi.Queryer,
+	service *uploads.Service, name string, contents []byte,
 ) string {
 	t.Helper()
 	session, err := service.Create(
@@ -637,7 +660,8 @@ func completeUpload(t *testing.T, ctx context.Context, database interface {
 		int64(len(contents)),
 		10,
 	)
-	if err := service.PutPart(ctx, session.ID, session.Files[0].ID, 0, contentRange, "sha-256=:"+base64.StdEncoding.EncodeToString(digest[:])+":", bytes.NewReader(contents)); err != nil {
+	if err := service.PutPart(ctx, session.ID, session.Files[0].ID, 0, contentRange,
+		"sha-256=:"+base64.StdEncoding.EncodeToString(digest[:])+":", bytes.NewReader(contents)); err != nil {
 		t.Fatal(err)
 	}
 	current, err := service.Get(ctx, session.ID)
@@ -648,14 +672,12 @@ func completeUpload(t *testing.T, ctx context.Context, database interface {
 	return session.ID
 }
 
-func waitForJob(t *testing.T, ctx context.Context, database interface {
-	QueryRowContext(context.Context, string, ...any) *sql.Row
-}, jobID, expected string,
+func waitForJob(t *testing.T, ctx context.Context, database dbapi.Queryer, jobID, expected string,
 ) {
 	t.Helper()
 	for deadline := time.Now().Add(3 * time.Second); ; {
 		var state, errorCode string
-		if err := database.QueryRowContext(ctx, `
+		if err := dbapi.QueryRowContext(ctx, database, `
 SELECT state,COALESCE(error_code,'')
 FROM jobs
 WHERE id=?
@@ -665,7 +687,10 @@ WHERE id=?
 		if state == expected {
 			return
 		}
-		testassert.Falsef(t, testassert.Any(func() bool { return state == "FAILED" }, func() bool { return state == "CANCELLED" }, func() bool { return time.Now().After(deadline) }), "job %s state = %s/%s, wanted %s", jobID, state, errorCode, expected)
+		testassert.Falsef(t, testassert.Any(func() bool { return state == "FAILED" },
+			func() bool { return state == "CANCELLED" },
+			func() bool { return time.Now().After(deadline) }), "job %s state = %s/%s, wanted %s", jobID,
+			state, errorCode, expected)
 		time.Sleep(10 * time.Millisecond)
 	}
 }

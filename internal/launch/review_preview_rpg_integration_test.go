@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"retrom/internal/cleanup"
+	dbapi "retrom/internal/database"
 	retromruntime "retrom/internal/runtime"
 	"retrom/internal/testsupport"
 )
@@ -39,7 +40,7 @@ VALUES('rpg-reviewer','local','rpg-reviewer','Reviewer','ADMIN','ENABLED',0,0)`)
 		t.Fatalf("RPG Maker cannot use the ordinary review trial: %+v, %v", created, err)
 	}
 	var games, previews int
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT (SELECT count(*) FROM games),(SELECT count(*) FROM review_preview_sessions WHERE id=?)`,
 		created.PreviewID).Scan(&games, &previews); err != nil {
 		t.Fatal(err)
@@ -61,20 +62,14 @@ SELECT (SELECT count(*) FROM games),(SELECT count(*) FROM review_preview_session
 			t.Fatalf("ordinary preview cannot serve frozen RPG content %s: %v", logicalName, err)
 		}
 	}
-	started, err := launcher.RecordPlay(ctx, created.PreviewID, created.Capability, "start", PlayEvent{
-		ClientSequence: 0, ClientObservedAtMS: now().UnixMilli(),
-	})
-	if err != nil || started.State != "ACTIVE" || started.PlaySessionID != nil {
-		t.Fatalf("ordinary Player cannot start a review trial without play statistics: %+v %v", started, err)
-	}
 	for range 2 {
-		finished, err := launcher.RecordPlay(ctx, created.PreviewID, created.Capability, "finish", PlayEvent{
-			ClientSequence: 1, ClientObservedAtMS: now().UnixMilli(),
-			PreviousInterval: &Interval{Running: true, Visible: true},
-		})
-		if err != nil || finished.State != "FINISHED" || finished.PlaySessionID != nil {
-			t.Fatalf("ordinary Player cannot idempotently close a review trial: %+v %v", finished, err)
+		if err := launcher.FinishReviewPreview(ctx, created.PreviewID, created.Capability); err != nil {
+			t.Fatalf("close preview: %v", err)
 		}
+	}
+	var plays int
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `SELECT count(*) FROM play_sessions`).Scan(&plays); err != nil || plays != 0 {
+		t.Fatalf("preview created play statistics: count=%d error=%v", plays, err)
 	}
 	if _, err := launcher.ReviewPreviewConfig(ctx, created.PreviewID, created.Capability); err == nil {
 		t.Fatal("closed trial still authorizes runtime configuration")

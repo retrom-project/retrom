@@ -6,13 +6,13 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/launch"
 )
 
-type SessionQueries struct{ executor dbexec.Executor }
+type SessionQueries struct{ executor dbapi.Executor }
 
-func NewSessionQueries(executor dbexec.Executor) *SessionQueries {
+func NewSessionQueries(executor dbapi.Executor) *SessionQueries {
 	return &SessionQueries{executor: executor}
 }
 
@@ -26,11 +26,11 @@ func (repository *SessionQueries) Session(
 		query = `SELECT credential_sha256,state,hard_expires_at_ms,provider_id,target_id,bundle_sha256
  FROM review_preview_sessions WHERE id=?`
 	}
-	return scanSession(repository.executor.QueryRowContext(ctx, query, ref.ID))
+	return scanSession(dbapi.QueryRowContext(ctx, repository.executor, query, ref.ID))
 }
 
 func (repository *SessionQueries) SaveSession(ctx context.Context, id string) (application.SessionRecord, bool, error) {
-	return scanSession(repository.executor.QueryRowContext(ctx, `
+	return scanSession(dbapi.QueryRowContext(ctx, repository.executor, `
  SELECT credential_sha256,state,hard_expires_at_ms,provider_id,target_id,bundle_sha256
  FROM launch_sessions WHERE id=?
  UNION ALL
@@ -39,7 +39,7 @@ func (repository *SessionQueries) SaveSession(ctx context.Context, id string) (a
  `, id, id))
 }
 
-func scanSession(row dbexec.Scanner) (application.SessionRecord, bool, error) {
+func scanSession(row dbapi.Scanner) (application.SessionRecord, bool, error) {
 	var result application.SessionRecord
 	err := row.Scan(&result.CredentialHash, &result.State, &result.HardExpiresAtMS,
 		&result.ProviderID, &result.TargetID, &result.BundleSHA256)
@@ -55,7 +55,7 @@ func scanSession(row dbexec.Scanner) (application.SessionRecord, bool, error) {
 func (repository *SessionQueries) MultiDisc(ctx context.Context, id string) (application.MultiDiscRecord, bool, error) {
 	var result application.MultiDiscRecord
 	session, dimensions := &result.Session, &result.Dimensions
-	err := repository.executor.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, repository.executor, `
 SELECT launch.credential_sha256,launch.state,launch.hard_expires_at_ms,platform.id,
  launch.target_id,launch.bundle_sha256,
  (SELECT count(*) FROM launch_external_files file WHERE file.launch_session_id=launch.id AND file.kind='DISC')

@@ -6,7 +6,7 @@ describe("review validation guidance", () => {
   afterEach(cleanup);
 
   it("turns a missing BIOS blocker into a named action", () => {
-    render(<ReviewValidationGuidance status="BLOCKED" compatibilityCode="LAUNCH_BIOS_MISSING" snapshot={{ bios: [{ logicalName: "panafz10.bin", requirementMode: "REQUIRED", blobId: null }] }} />);
+    render(<ReviewValidationGuidance status="BLOCKED" compatibilityCode="LAUNCH_BIOS_MISSING" snapshot={{ bios: [{ logicalName: "panafz10.bin", requirementMode: "REQUIRED", fileRecord: null }] }} />);
 
     expect(screen.getByText("缺少必需 BIOS 文件")).toBeVisible();
     expect(screen.getByText("panafz10.bin")).toBeVisible();

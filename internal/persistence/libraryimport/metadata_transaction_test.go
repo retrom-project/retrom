@@ -2,7 +2,6 @@ package libraryimport
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"path/filepath"
 	"strings"
@@ -10,12 +9,12 @@ import (
 	"time"
 
 	"retrom/internal/authn"
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/libraryimport"
 	"retrom/internal/testsupport"
 )
 
-func metadataDatabase(t *testing.T) *sql.DB {
+func metadataDatabase(t *testing.T) dbapi.DB {
 	t.Helper()
 	owner, err := testsupport.OpenDatabase(t.Context(), filepath.Join(t.TempDir(), "metadata.db"), time.Now)
 	if err != nil {
@@ -45,7 +44,7 @@ VALUES('snapshot','item','{}',?,'IDENTIFICATION',1)`, digest)
 	return db
 }
 
-func metadataExec(t *testing.T, executor dbexec.Executor, query string, args ...any) {
+func metadataExec(t *testing.T, executor dbapi.Executor, query string, args ...any) {
 	t.Helper()
 	if _, err := executor.ExecContext(t.Context(), query, args...); err != nil {
 		t.Fatal(err)
@@ -59,10 +58,10 @@ type metadataState struct {
 	Version, Updated, Changes int64
 }
 
-func readMetadataState(t *testing.T, db *sql.DB) metadataState {
+func readMetadataState(t *testing.T, db dbapi.DB) metadataState {
 	t.Helper()
 	var result metadataState
-	err := db.QueryRowContext(t.Context(), `SELECT metadata_json,search_text,state,review_version,review_updated_at_ms,review_version-7 FROM import_items WHERE id='item'`).Scan(&result.JSON, &result.Search, &result.State, &result.Version, &result.Updated, &result.Changes)
+	err := dbapi.QueryRowContext(t.Context(), db, `SELECT metadata_json,search_text,state,review_version,review_updated_at_ms,review_version-7 FROM import_items WHERE id='item'`).Scan(&result.JSON, &result.Search, &result.State, &result.Version, &result.Updated, &result.Changes)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -117,7 +116,7 @@ func TestMetadataTransactionRollsBackLateFailureWithoutSuccessResult(t *testing.
 
 type metadataDrift struct {
 	application.MetadataScope
-	executor  dbexec.Executor
+	executor  dbapi.Executor
 	statement string
 }
 
@@ -151,7 +150,7 @@ func assertMetadataFence(t *testing.T, statement string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer dbexec.Rollback(tx)
+	defer dbapi.Rollback(tx)
 	scope := metadataDrift{MetadataScope: BindMetadata(tx), executor: tx, statement: statement}
 	version, _, err := application.NewMetadataSeeder(nil, metadataNow).SeedInScope(t.Context(), scope, "item", application.ServerMetadata{Title: "Changed"}, 2027)
 	if !errors.Is(err, application.ErrVersionConflict) || version != 0 {

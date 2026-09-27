@@ -6,7 +6,7 @@ import (
 	"io"
 	"testing"
 
-	"retrom/internal/blobstore"
+	"retrom/internal/filestore"
 	"retrom/internal/hasheous"
 )
 
@@ -17,7 +17,9 @@ type assetFetcher struct {
 	limit int64
 }
 
-func (provider *assetFetcher) FetchAssetBounded(_ context.Context, _ hasheous.AssetRef, limit int64) (hasheous.AssetData, error) {
+func (provider *assetFetcher) FetchAssetBounded(_ context.Context, _ hasheous.AssetRef,
+	limit int64,
+) (hasheous.AssetData, error) {
 	provider.calls++
 	provider.limit = limit
 	return provider.data, provider.err
@@ -29,14 +31,14 @@ type assetBytes struct {
 	err   error
 }
 
-func (blobs *assetBytes) Put(reader io.Reader) (blobstore.Metadata, error) {
+func (blobs *assetBytes) Put(reader io.Reader) (filestore.Metadata, error) {
 	data, err := io.ReadAll(reader)
 	if err != nil {
-		return blobstore.Metadata{}, err
+		return filestore.Metadata{}, err
 	}
 	blobs.calls++
 	blobs.bytes = string(data)
-	return blobstore.Metadata{SHA256: "digest", Size: int64(len(data))}, blobs.err
+	return filestore.Metadata{SHA256: "digest", Size: int64(len(data))}, blobs.err
 }
 
 func TestAssetBudgetPreventsDownloadOrPublication(t *testing.T) {
@@ -59,7 +61,8 @@ func TestAssetBudgetPreventsDownloadOrPublication(t *testing.T) {
 			if !errors.Is(err, hasheous.ErrAssetReadLimit) {
 				t.Fatalf("budget cause=%v", err)
 			}
-			if provider.calls != test.calls || blobs.calls != 0 || memory.publication.ID != "" || memory.outcome.Code != "ASSET_RUN_BUDGET_EXCEEDED" {
+			if provider.calls != test.calls || blobs.calls != 0 || memory.publication.ID != "" ||
+				memory.outcome.Code != "ASSET_RUN_BUDGET_EXCEEDED" {
 				t.Fatalf("budget calls=%d publication=%+v outcome=%+v", provider.calls, memory.publication, memory.outcome)
 			}
 		})
@@ -71,7 +74,10 @@ func TestAssetPublicationUsesPreparedBytesAndOneTimestamp(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	provider := &assetFetcher{data: hasheous.AssetData{Bytes: []byte("image"), ReceivedBytes: 5, MediaType: "image/png", Width: 4, Height: 3}}
+	provider := &assetFetcher{data: hasheous.AssetData{
+		Bytes: []byte("image"), ReceivedBytes: 5,
+		MediaType: "image/png", Width: 4, Height: 3,
+	}}
 	blobs := &assetBytes{}
 	if err := NewMediaWorker(memory, provider, blobs, mediaUnitNow).Run(t.Context(), memory.snapshot.Job.ID); err != nil {
 		t.Fatal(err)
@@ -118,7 +124,8 @@ func TestMediaCASFailureKeepsReceivedBytesCharged(t *testing.T) {
 	provider := &assetFetcher{data: hasheous.AssetData{Bytes: []byte("image"), ReceivedBytes: 5}}
 	cause := errors.New("CAS unavailable")
 	err = NewMediaWorker(memory, provider, &assetBytes{err: cause}, mediaUnitNow).Run(t.Context(), memory.snapshot.Job.ID)
-	if !errors.Is(err, cause) || memory.snapshot.Charged != 5 || memory.snapshot.Asset.Reserved != 0 || memory.outcome.State != "FAILED" {
+	if !errors.Is(err, cause) || memory.snapshot.Charged != 5 ||
+		memory.snapshot.Asset.Reserved != 0 || memory.outcome.State != "FAILED" {
 		t.Fatalf("CAS failure reset budget: charged=%d outcome=%+v cause=%v", memory.snapshot.Charged, memory.outcome, err)
 	}
 }
@@ -137,8 +144,15 @@ func TestMediaCancellationBeforeSourceRefundsUnreadReservation(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 	_, _, cause := worker.fetch(ctx, execution)
-	if !errors.Is(cause, context.Canceled) || source.calls != 0 || memory.snapshot.Charged != 0 || memory.snapshot.Asset.Reserved != 0 {
+	if !errors.Is(cause, context.Canceled) || source.calls != 0 || memory.snapshot.Charged != 0 ||
+		memory.snapshot.Asset.Reserved != 0 {
 		t.Fatalf("unread cancellation charged bytes: calls=%d charged=%d reserved=%d cause=%v", source.calls,
 			memory.snapshot.Charged, memory.snapshot.Asset.Reserved, cause)
 	}
 }
+
+func (blobs *assetBytes) CopyTo(context.Context, string, string, string) (filestore.Metadata, error) {
+	return filestore.Metadata{SHA256: "digest", Size: int64(len(blobs.bytes))}, blobs.err
+}
+
+func (blobs *assetBytes) RemovePath(context.Context, string) error { return nil }

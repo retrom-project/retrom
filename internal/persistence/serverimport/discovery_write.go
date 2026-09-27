@@ -2,23 +2,22 @@ package serverimport
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/recordstore"
 	"retrom/internal/service/serverimport"
 )
 
-type Discovery struct{ database *sql.DB }
+type Discovery struct{ database dbapi.DB }
 
-func NewDiscovery(database *sql.DB) *Discovery { return &Discovery{database} }
+func NewDiscovery(database dbapi.DB) *Discovery { return &Discovery{database} }
 func (repository *Discovery) WithWrite(ctx context.Context, work func(serverimport.DiscoveryRecords) error) error {
 	tx, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin discovery write: %w", err)
 	}
-	defer dbexec.Rollback(tx)
+	defer dbapi.Rollback(tx)
 	if err := work(discoveryRecords{tx}); err != nil {
 		return err
 	}
@@ -28,7 +27,7 @@ func (repository *Discovery) WithWrite(ctx context.Context, work func(serverimpo
 	return nil
 }
 
-type discoveryRecords struct{ executor dbexec.Executor }
+type discoveryRecords struct{ executor dbapi.Executor }
 
 func (records discoveryRecords) Reset(ctx context.Context, unit serverimport.Work, now int64) error {
 	if err := LockWorker(ctx, records.executor, unit, now, RunningWorker); err != nil {

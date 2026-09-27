@@ -2,11 +2,12 @@ package sourceimport
 
 import (
 	"context"
-	"database/sql"
 	"sync"
 	"time"
 
-	"retrom/internal/blobstore"
+	dbapi "retrom/internal/database"
+
+	"retrom/internal/filestore"
 	"retrom/internal/libraryimport"
 	repository "retrom/internal/persistence/sourceimport"
 	tagpersistence "retrom/internal/persistence/tagging"
@@ -18,8 +19,8 @@ import (
 
 type Service struct {
 	sourceReader func(context.Context) (func(), error)
-	database     *sql.DB
-	blobs        *blobstore.Store
+	database     dbapi.DB
+	blobs        *filestore.Store
 	importer     *libraryimport.Service
 	roots        map[string]Root
 	now          func() time.Time
@@ -30,7 +31,7 @@ type Service struct {
 
 type work = application.Work
 
-func New(database *sql.DB, blobs *blobstore.Store, importer *libraryimport.Service, credentials *retromruntime.Credentials, configured []serversource.Root, now func() time.Time) *Service {
+func New(database dbapi.DB, blobs *filestore.Store, importer *libraryimport.Service, credentials *retromruntime.Credentials, configured []serversource.Root, now func() time.Time) *Service {
 	sources := NewSources(blobs, credentials, configured)
 	return &Service{database: database, blobs: blobs, importer: importer, roots: sources.roots, now: now, tags: tagging.New(tagpersistence.New(database), now)}
 }
@@ -61,7 +62,7 @@ func (service *Service) sanitizeTechnicalDetail(err error) string {
 	return service.sources().Sanitize(err)
 }
 
-func (service *Service) copySource(ctx context.Context, root Root, selectedPath, relativePath string, size int64, facts string) (blobstore.Metadata, error) {
+func (service *Service) copySource(ctx context.Context, root Root, selectedPath, relativePath string, size int64, facts string) (filestore.Metadata, error) {
 	return service.sources().copySource(ctx, root, selectedPath, relativePath, size, facts)
 }
 

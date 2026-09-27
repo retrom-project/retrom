@@ -4,14 +4,14 @@ import (
 	"context"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/contentquery"
 	application "retrom/internal/service/libraryimport"
 )
 
-type ReviewValidation struct{ executor dbexec.Executor }
+type ReviewValidation struct{ executor dbapi.Executor }
 
-func BindReviewValidation(executor dbexec.Executor) *ReviewValidation {
+func BindReviewValidation(executor dbapi.Executor) *ReviewValidation {
 	return &ReviewValidation{executor: executor}
 }
 
@@ -20,7 +20,7 @@ func (records *ReviewValidation) Evidence(
 	validationID string,
 ) (application.ReviewValidationEvidence, error) {
 	var value application.ReviewValidationEvidence
-	err := records.executor.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, records.executor, `
 SELECT validation.platform_instance_version,
 validation.source_snapshot_id,
 validation.target_platform_instance_id,validation.core_id,validation.provider_id,validation.target_id,

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/service/metadatascrape"
 )
 
@@ -70,8 +71,9 @@ func (records workerRecords) Status(
 	now int64,
 ) (metadatascrape.WorkerStatus, error) {
 	var status metadatascrape.WorkerStatus
-	err := records.transaction.QueryRowContext(
-		ctx,
+	err := dbapi.QueryRowContext(
+		ctx, records.transaction,
+
 		`SELECT j.state,COALESCE(j.leased_until_ms<=? OR j.execution_deadline_at_ms<=?,1),
  EXISTS(SELECT 1 FROM import_items i JOIN import_jobs p ON p.id=i.import_job_id
  WHERE i.id=r.import_item_id AND p.cancel_requested_at_ms IS NOT NULL)

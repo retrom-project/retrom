@@ -4,11 +4,11 @@ import (
 	"context"
 	"database/sql"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 )
 
 func UpdateContentHashEvidence(
-	ctx context.Context, db dbexec.Executor, change Update,
+	ctx context.Context, db dbapi.Executor, change Update,
 ) (sql.Result, error) {
 	return updateRecords(
 		ctx,
@@ -28,7 +28,7 @@ SELECT CASE
 -- content_hash_evidence_immutable_update
 WHEN (NOT (
   previous.payload_released_at_ms IS NULL AND candidate.payload_released_at_ms IS NOT NULL
-  AND candidate.blob_id IS NULL AND candidate.archive_blob_id IS NULL AND
+  AND candidate.file_record IS NULL AND candidate.archive_file_record IS NULL AND
 candidate.archive_entry_ordinal IS NULL
   AND candidate.id=previous.id AND candidate.scrape_run_id=previous.scrape_run_id AND
 candidate.profile=previous.profile
@@ -40,7 +40,7 @@ previous.sha1 AND candidate.sha256 IS previous.sha256
     LEFT JOIN import_items item ON item.id=run.import_item_id
     LEFT JOIN games game ON game.id=run.game_id
     WHERE run.id=previous.scrape_run_id
-      AND (item.payload_state IN ('RELEASING','FAILED') OR game.payload_state IN ('RELEASING','FAILED'))
+      AND (item.payload_state ='RELEASING' OR game.payload_state ='RELEASING')
   )
 )) THEN 'immutable'
 ELSE '' END
@@ -48,7 +48,7 @@ FROM content_hash_evidence candidate CROSS JOIN previous
 WHERE candidate.id=previous.id`
 
 func DeleteContentHashEvidence(
-	ctx context.Context, db dbexec.Executor, scope Scope,
+	ctx context.Context, db dbapi.Executor, scope Scope,
 ) (sql.Result, error) {
 	return deleteRecords(
 		ctx,

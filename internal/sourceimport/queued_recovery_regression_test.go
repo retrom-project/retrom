@@ -1,6 +1,10 @@
 package sourceimport
 
-import "testing"
+import (
+	"testing"
+
+	dbapi "retrom/internal/database"
+)
 
 func TestRecoveryClosesQueuedExecutionWithSpentBudget(t *testing.T) {
 	t.Parallel()
@@ -18,7 +22,7 @@ func TestRecoveryClosesQueuedExecutionWithSpentBudget(t *testing.T) {
 				t.Fatal(err)
 			}
 			var state, actual string
-			if err := service.database.QueryRowContext(t.Context(), `SELECT state,COALESCE(error_code,'') FROM jobs WHERE id='work'`).Scan(&state, &actual); err != nil {
+			if err := dbapi.QueryRowContext(t.Context(), service.database, `SELECT state,COALESCE(error_code,'') FROM jobs WHERE id='work'`).Scan(&state, &actual); err != nil {
 				t.Fatal(err)
 			}
 			if state != "FAILED" || actual != code {

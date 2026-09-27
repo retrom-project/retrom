@@ -96,7 +96,7 @@ export function PlayerShell({launchId, experience = "standard"}: {launchId: stri
   const started = useRef(false);
   const finishing = useRef(false);
   const cancelBootstrap = useRef<(() => Promise<void>) | null>(null);
-  const heartbeat = useRef<number | null>(null);
+  const progressTimer = useRef<number | null>(null);
   const saveUploadQueue = useRef(Promise.resolve());
   const manualSaveAvailableRef = useRef(true);
   const dosProgramMenuRef = useRef(false);
@@ -192,7 +192,7 @@ export function PlayerShell({launchId, experience = "standard"}: {launchId: stri
   }, [showControls, showToast]);
   const handleGameSurfaceInteraction = useCallback(() => resumeFromSurface("runtime"), [resumeFromSurface]);
   const sessionParams = useMemo(() => ({
-    launchId, runtime, envelope, progressClock, started, finishing, heartbeat, saveUploadQueue,
+    launchId, runtime, envelope, progressClock, started, finishing, progressTimer, saveUploadQueue,
     orientationStateRef, returnTo, setOrientationState, setSaveUploadProgress,
     setSyncText, setSyncTone, showToast, replaceImmersiveRoute,
   }), [launchId, replaceImmersiveRoute, showToast]);
@@ -228,7 +228,7 @@ export function PlayerShell({launchId, experience = "standard"}: {launchId: stri
   const bootstrapParams = useMemo(() => ({
     launchId, experience, immersiveGamepadFilter: immersive.filter, stage, runtime, runtimeController, envelope,
     returnTo, manualSaveAvailableRef, dosProgramMenuRef, orientationStateRef, videoRenderingModeRef,
-    pausedRef, started, finishing, heartbeat, progressClock, toastTimer,
+    pausedRef, started, finishing, progressTimer, progressClock, toastTimer,
     setMessage, setLoadProgress, setState, setManualSaveAvailable, setDosProgramMenu,
     setWarnings, setGameTitle, setCheckpointSemantics, setCoreName, setPlatformName, setDebugRuntime, setDiscState, setOrientationState,
     setSyncText, setSyncTone, setEmulatorVolume, setEmulatorMuted, setPaused,

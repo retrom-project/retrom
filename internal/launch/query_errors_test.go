@@ -2,19 +2,19 @@ package launch
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"testing"
 	"time"
 
-	"retrom/internal/runtimelaunch"
+	dbsqlite "retrom/internal/database/sqlite"
+	runtimelaunch "retrom/internal/runtime/launch"
 
 	_ "modernc.org/sqlite" // Register the driver for cancellation regression queries.
 )
 
 func TestResourceQueriesPreserveCancellation(t *testing.T) {
 	t.Parallel()
-	database, err := sql.Open("sqlite", ":memory:")
+	database, err := dbsqlite.Open(":memory:", dbsqlite.Options{})
 	if err != nil {
 		t.Fatal(err)
 	}

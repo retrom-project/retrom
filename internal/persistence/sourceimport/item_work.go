@@ -2,24 +2,23 @@ package sourceimport
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 
-	payload "retrom/internal/persistence/payloadrelease"
+	payload "retrom/internal/persistence/sourceimport/sourcerelease"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/sourceimport"
 )
 
-type ItemWork struct{ database *sql.DB }
+type ItemWork struct{ database dbapi.DB }
 
-func NewItemWork(database *sql.DB) *ItemWork { return &ItemWork{database: database} }
+func NewItemWork(database dbapi.DB) *ItemWork { return &ItemWork{database: database} }
 func (repository *ItemWork) WithItemWork(ctx context.Context, work func(application.ItemWorkScope) error) error {
 	tx, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin Source item work: %w", err)
 	}
-	defer dbexec.Rollback(tx)
+	defer dbapi.Rollback(tx)
 	records := itemWorkRecords{tx}
 	if err := work(application.ItemWorkScope{
 		Payload: payload.BindReleases(tx), Read: records, Write: records,
@@ -32,10 +31,10 @@ func (repository *ItemWork) WithItemWork(ctx context.Context, work func(applicat
 	return nil
 }
 
-type itemWorkRecords struct{ tx *sql.Tx }
+type itemWorkRecords struct{ tx dbapi.Tx }
 
 func (records itemWorkRecords) Execution(ctx context.Context, id string) (application.ExecutionSnapshot, error) {
-	return scanRecovery(records.tx.QueryRowContext(ctx, recoverySnapshotSQL+` AND job.id=?`, id))
+	return scanRecovery(dbapi.QueryRowContext(ctx, records.tx, recoverySnapshotSQL+` AND job.id=?`, id))
 }
 
 const itemExecutionFence = ` AND EXISTS(SELECT 1 FROM source_imports plan JOIN jobs job ON job.id=plan.import_job_id

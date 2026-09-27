@@ -87,7 +87,7 @@ CREATE TABLE favorite_folder_games (
 CREATE TABLE "game_assets" (
   id TEXT PRIMARY KEY,
   game_id TEXT NOT NULL REFERENCES games(id),
-  blob_id TEXT NOT NULL REFERENCES blobs(id),
+  file_record TEXT NOT NULL,
   kind TEXT NOT NULL CHECK(kind IN ('COVER','BACKGROUND','SCREENSHOT','VIDEO')),
   ordinal INTEGER NOT NULL CHECK(ordinal BETWEEN 0 AND 31),
   width_px INTEGER,
@@ -148,10 +148,9 @@ CREATE TABLE "games" (
   source_manifest_digest TEXT NOT NULL CHECK(length(source_manifest_digest)=64),
   content_profile_json TEXT CHECK(CASE WHEN content_profile_json IS NULL THEN 1 WHEN json_valid(content_profile_json) THEN COALESCE(json_type(content_profile_json,'$.kind')='text' AND json_type(content_profile_json,'$.data')='object',0) ELSE 0 END),
   status TEXT NOT NULL CHECK(status IN ('PUBLISHED','DELETED')),
-  payload_state TEXT NOT NULL DEFAULT 'RETAINED' CHECK(payload_state IN ('RETAINED','RELEASING','RELEASED','FAILED')),
+  payload_state TEXT NOT NULL DEFAULT 'RETAINED' CHECK(payload_state IN ('RETAINED','RELEASING','RELEASED')),
   payload_release_job_id TEXT UNIQUE REFERENCES jobs(id),
   payload_released_at_ms INTEGER,
-  payload_last_error_code TEXT,
   search_text TEXT NOT NULL,
   version INTEGER NOT NULL DEFAULT 1 CHECK(version>=1),
   created_at_ms INTEGER NOT NULL CHECK(created_at_ms>=0),
@@ -159,12 +158,11 @@ CREATE TABLE "games" (
   deleted_at_ms INTEGER,
   CHECK((status='DELETED')=(deleted_at_ms IS NOT NULL)),
   CHECK(status<>'PUBLISHED' OR payload_state='RETAINED'),
-  CHECK(status<>'DELETED' OR payload_state IN ('RELEASING','RELEASED','FAILED')),
+  CHECK(status<>'DELETED' OR payload_state IN ('RELEASING','RELEASED')),
   CHECK(
-    payload_state='RETAINED' AND payload_release_job_id IS NULL AND payload_released_at_ms IS NULL AND payload_last_error_code IS NULL OR
-    payload_state='RELEASING' AND payload_release_job_id IS NOT NULL AND payload_released_at_ms IS NULL AND payload_last_error_code IS NULL OR
-    payload_state='RELEASED' AND payload_release_job_id IS NOT NULL AND payload_released_at_ms IS NOT NULL AND payload_last_error_code IS NULL OR
-    payload_state='FAILED' AND payload_release_job_id IS NOT NULL AND payload_released_at_ms IS NULL AND payload_last_error_code IS NOT NULL
+    payload_state='RETAINED' AND payload_release_job_id IS NULL AND payload_released_at_ms IS NULL OR
+    payload_state='RELEASING' AND payload_release_job_id IS NOT NULL AND payload_released_at_ms IS NULL OR
+    payload_state='RELEASED' AND payload_release_job_id IS NOT NULL AND payload_released_at_ms IS NOT NULL
   ),
   CHECK((metadata_source_kind='ADMIN_EDIT')=(metadata_source_ref_id IS NULL))
 );
@@ -189,7 +187,7 @@ CREATE TABLE "variant_files" (
     'RPG_EASYRPG_INDEX','RPG_MAKER_LAUNCH_BUNDLE'
   )),
   logical_name TEXT NOT NULL,
-  blob_id TEXT NOT NULL REFERENCES blobs(id),
+  file_record TEXT NOT NULL,
   sort_order INTEGER NOT NULL CHECK(sort_order>=0),
   PRIMARY KEY(game_variant_id,role,logical_name)
 );
@@ -201,13 +199,12 @@ CREATE TABLE "game_files" (
     'RPG_EASYRPG_INDEX','RPG_MAKER_LAUNCH_BUNDLE'
   )),
   logical_name TEXT NOT NULL,
-  blob_id TEXT NOT NULL REFERENCES blobs(id),
-  source_archive_blob_id TEXT,
+  file_record TEXT NOT NULL,
+  source_archive_file_record TEXT,
   source_archive_entry_ordinal INTEGER,
   sort_order INTEGER NOT NULL CHECK(sort_order>=0),
   PRIMARY KEY(game_id,role,logical_name),
-  FOREIGN KEY(source_archive_blob_id,source_archive_entry_ordinal) REFERENCES archive_entries(archive_blob_id,ordinal),
-  CHECK((source_archive_blob_id IS NULL)=(source_archive_entry_ordinal IS NULL))
+  CHECK((source_archive_file_record IS NULL)=(source_archive_entry_ordinal IS NULL))
 );
 
 CREATE INDEX game_files_game ON game_files(game_id,sort_order,logical_name);

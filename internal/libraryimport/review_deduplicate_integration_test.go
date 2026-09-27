@@ -5,24 +5,23 @@ package libraryimport
 import (
 	"bytes"
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"reflect"
 	"testing"
 	"time"
 
-	"retrom/internal/persistence/blobcatalog"
+	dbapi "retrom/internal/database"
 
-	"retrom/internal/blobstore"
+	"retrom/internal/filestore"
 	"retrom/internal/testsupport"
 )
 
 type deduplicateFixture struct {
 	ctx      context.Context
-	database *sql.DB
+	database dbapi.DB
 	service  *Service
-	blobs    *blobstore.Store
+	blobs    *filestore.Store
 	platform string
 }
 
@@ -31,7 +30,7 @@ func newDeduplicateFixture(t *testing.T) deduplicateFixture {
 	ctx := t.Context()
 	database, blobs, _ := openImportGroupFixture(t, ctx)
 	return deduplicateFixture{
-		ctx, database.SQL, New(database.SQL, time.Now).WithBlobStore(blobs), blobs,
+		ctx, database.SQL, newTestImporter(t, database.SQL, blobs, testImportOptions{Now: time.Now}), blobs,
 		testsupport.MustPlatformInstanceID(t, database.SQL, "gba/mgba"),
 	}
 }
@@ -42,13 +41,16 @@ func (fixture deduplicateFixture) create(t *testing.T, name, contents string, co
 	if err != nil {
 		t.Fatal(err)
 	}
-	blobID, err := blobcatalog.EnsureRecord(fixture.ctx, fixture.database, metadata, "application/octet-stream", time.Now().UnixMilli())
+	fileRecord, err := filestore.FileRecord(metadata, "application/octet-stream")
 	if err != nil {
 		t.Fatal(err)
 	}
 	files := make([]ServerSourceFile, count)
 	for index := range files {
-		files[index] = ServerSourceFile{RelativePath: fmt.Sprintf("%03d/%s.gba", index, name), BlobID: blobID, SizeBytes: metadata.Size}
+		files[index] = ServerSourceFile{
+			RelativePath: fmt.Sprintf("%03d/%s.gba", index, name),
+			FileRecord:   fileRecord, SizeBytes: metadata.Size,
+		}
 	}
 	result, err := fixture.service.CreateServerSource(fixture.ctx, fixture.platform, "STANDARD", files, nil, "")
 	if err != nil {
@@ -98,7 +100,7 @@ func TestReviewDeduplicateDiscardsOnlyPublishedContentAcrossPages(t *testing.T) 
 		}
 	}
 	var games, events, discarded, pending int
-	if err := fixture.database.QueryRowContext(fixture.ctx, `
+	if err := dbapi.QueryRowContext(fixture.ctx, fixture.database, `
 SELECT (SELECT count(*) FROM games WHERE status='PUBLISHED'),
  (SELECT count(*) FROM import_items WHERE state='DISCARDED'),
  discarded_item_count,review_pending_item_count FROM import_jobs WHERE id=?`, copies.Created.ImportJobID).
@@ -117,7 +119,8 @@ SELECT (SELECT count(*) FROM games WHERE status='PUBLISHED'),
 func assertDeduplicateItemState(t *testing.T, fixture deduplicateFixture, itemID, expected string) {
 	t.Helper()
 	var actual string
-	if err := fixture.database.QueryRowContext(fixture.ctx, "SELECT state FROM import_items WHERE id=?", itemID).Scan(&actual); err != nil {
+	if err := dbapi.QueryRowContext(fixture.ctx, fixture.database,
+		"SELECT state FROM import_items WHERE id=?", itemID).Scan(&actual); err != nil {
 		t.Fatal(err)
 	}
 	if actual != expected {
@@ -133,7 +136,7 @@ func TestReviewDeduplicateRollsBackPageOnDiscardFailure(t *testing.T) {
 		t.Fatal(err)
 	}
 	before := captureDeduplicatePage(t, fixture, copies.Created.ImportJobID)
-	fault := newDeduplicateDiscardFault(t, fixture, copies)
+	fault := newDeduplicateDiscardFault(t, &fixture, copies)
 	request := ReviewDeduplicateRequest{Scope: ReviewBulkScope{ImportJobID: copies.Created.ImportJobID}}
 	failed, err := fixture.service.DeduplicateReviews(fixture.ctx, request)
 	if !errors.Is(err, errDeduplicateDiscard) || !reflect.DeepEqual(failed, ReviewDeduplicateResult{}) {
@@ -145,13 +148,14 @@ func TestReviewDeduplicateRollsBackPageOnDiscardFailure(t *testing.T) {
 		assertDeduplicateItemState(t, fixture, item.ItemID, "REVIEW_PENDING")
 	}
 	var count int
-	if err := fixture.database.QueryRowContext(fixture.ctx, "SELECT count(*) FROM import_items WHERE state='DISCARDED'").Scan(&count); err != nil {
+	if err := dbapi.QueryRowContext(fixture.ctx, fixture.database,
+		"SELECT count(*) FROM import_items WHERE state='DISCARDED'").Scan(&count); err != nil {
 		t.Fatal(err)
 	}
 	if count != 0 {
 		t.Fatalf("rolled back discard events = %d", count)
 	}
-	fixture.service.database = fixture.database
+	fixture.service = newTestImporter(t, fixture.database, fixture.service.blobs, testImportOptions{Now: fixture.service.now, MultiDiscEnabled: fixture.service.multiDiscImportEnabled})
 	result, err := fixture.service.DeduplicateReviews(fixture.ctx, request)
 	if err != nil || result.DiscardedCount != 2 {
 		t.Fatalf("retry = %#v, %v", result, err)
@@ -177,7 +181,8 @@ func TestReviewDeduplicateSkipsActiveAttachmentsAndOtherPlatforms(t *testing.T) 
  'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',1,'{}',1,'QUEUED',0,2,1,1,1)`, itemID)
 	fixture.execute(t, `INSERT INTO review_arcade_parent_attachments(id,import_item_id,review_draft_id,
  base_source_snapshot_id,dependency_machine,expected_logical_name,required_by_machine,depth,
- provider_id,target_id,dat_version_id,original_filename,state,diagnostics_json,job_id,created_at_ms,updated_at_ms)
+ provider_id,target_id,dat_version_id,original_filename,state,diagnostics_json,job_id,created_at_ms,
+updated_at_ms)
  SELECT 'deduplicate-attachment',draft.id,draft.id,draft.effective_source_snapshot_id,
  'b','b.zip','a',1,dat.provider_id,dat.target_id,dat.id,'b.zip','QUEUED','{}','deduplicate-attachment-job',1,1
  FROM import_items draft JOIN dat_versions dat ON dat.id='attachment-dat' WHERE draft.id=?`, itemID)
@@ -188,7 +193,8 @@ func TestReviewDeduplicateSkipsActiveAttachmentsAndOtherPlatforms(t *testing.T) 
 	assertDeduplicateItemState(t, fixture, itemID, "REVIEW_PENDING")
 	assertDeduplicateItemState(t, fixture, otherPlatform.Items[0].ItemID, "REVIEW_PENDING")
 	var state string
-	if err := fixture.database.QueryRowContext(fixture.ctx, "SELECT state FROM review_arcade_parent_attachments WHERE id='deduplicate-attachment'").Scan(&state); err != nil {
+	if err := dbapi.QueryRowContext(fixture.ctx, fixture.database,
+		"SELECT state FROM review_arcade_parent_attachments WHERE id='deduplicate-attachment'").Scan(&state); err != nil {
 		t.Fatal(err)
 	}
 	if state != "QUEUED" {

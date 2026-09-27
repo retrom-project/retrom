@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
 	uploadpersistence "retrom/internal/persistence/uploads"
 	"retrom/internal/service/uploads"
 )
@@ -37,7 +38,7 @@ func TestConcurrentPartReplaysCountBytesOnce(t *testing.T) {
 		t.Fatalf("replays advanced state more than once: %+v", current)
 	}
 	var parts int
-	if err := database.QueryRowContext(t.Context(), "SELECT count(*) FROM upload_parts").Scan(&parts); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), database, "SELECT count(*) FROM upload_parts").Scan(&parts); err != nil {
 		t.Fatal(err)
 	}
 	if parts != 1 {

@@ -6,7 +6,7 @@ import (
 	"errors"
 	"io"
 
-	"retrom/internal/contentmanifest"
+	contentmanifest "retrom/internal/content/manifest"
 	"retrom/internal/multidisc"
 )
 
@@ -51,7 +51,7 @@ func (service *Service) multiDiscAttachmentValidationFiles(
 	files := make([]multidisc.File, 0, len(candidate.baseEntries))
 	for _, file := range candidate.baseFiles {
 		if file.role == "PLAYLIST_SOURCE" {
-			if playlist.blobID != "" {
+			if playlist.fileRecord != "" {
 				return attachedMultiDiscFile{}, nil,
 					multiDiscAttachmentError(MultiDiscAttachmentErrorInputStale, ErrInvalid)
 			}
@@ -71,7 +71,7 @@ func (service *Service) multiDiscAttachmentValidationFiles(
 		}
 		files = append(files, validated)
 	}
-	if playlist.blobID == "" || playlist.blobSize > multidisc.MaxPlaylistBytes {
+	if playlist.fileRecord == "" || playlist.blobSize > multidisc.MaxPlaylistBytes {
 		return attachedMultiDiscFile{}, nil,
 			multiDiscAttachmentError(MultiDiscAttachmentErrorInputStale, ErrInvalid)
 	}
@@ -79,7 +79,7 @@ func (service *Service) multiDiscAttachmentValidationFiles(
 }
 
 func (service *Service) readMultiDiscAttachmentPlaylist(playlist attachedMultiDiscFile) ([]byte, error) {
-	reader, err := service.blobs.OpenDigest(playlist.blobSHA)
+	reader, err := service.blobs.OpenRecord(playlist.fileRecord)
 	if err != nil {
 		return nil, multiDiscAttachmentStoreError("open playlist", err)
 	}
@@ -115,7 +115,7 @@ func (service *Service) buildMultiDiscAttachmentManifest(
 	for _, entry := range candidate.resultEntries {
 		file := attachedMultiDiscFile{
 			role: "DISC", logicalName: entry.File.LogicalName, uploadFileID: entry.File.UploadFileID,
-			blobID: entry.File.BlobID, blobSHA: entry.File.BlobSHA256,
+			fileRecord: entry.File.FileRecord, blobSHA: entry.File.BlobSHA256,
 			blobSize: entry.File.SizeBytes, sortOrder: entry.Ordinal,
 		}
 		files = append(files, file)

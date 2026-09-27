@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"retrom/internal/blobstore"
+	"retrom/internal/filestore"
 	"retrom/internal/multidisc"
 	validationservice "retrom/internal/service/corevalidation"
 )
@@ -12,9 +12,9 @@ import (
 // MultiDiscAttachmentFile is the storage metadata needed when an accepted
 // attachment becomes a new immutable source snapshot.
 type MultiDiscAttachmentFile struct {
-	Role, LogicalName, UploadFileID, BlobID, BlobSHA string
-	BlobSize                                         int64
-	SortOrder                                        int
+	Role, LogicalName, UploadFileID, FileRecord, BlobSHA string
+	BlobSize                                             int64
+	SortOrder                                            int
 }
 
 type MultiDiscAttachmentValidation struct {
@@ -28,7 +28,7 @@ type MultiDiscAttachmentCommitRequest struct {
 	ExecutionStartedAtMS int64
 	BaseFiles            []MultiDiscAttachmentFile
 	ResultEntries        []multidisc.Entry
-	CanonicalPlaylist    blobstore.Metadata
+	CanonicalPlaylist    filestore.Metadata
 	ResultManifestJSON   string
 	ResultManifestDigest string
 	Validation           MultiDiscAttachmentValidation

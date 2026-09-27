@@ -9,6 +9,7 @@ import sqlite3
 import sys
 import time
 from pathlib import Path
+from fixture_files import own_rows
 
 
 CORE_TITLES = {
@@ -90,9 +91,9 @@ INSERT INTO games(
     connection.execute(
         """
 INSERT INTO game_files(
- game_id,role,logical_name,blob_id,source_archive_blob_id,source_archive_entry_ordinal,sort_order
+ game_id,role,logical_name,file_record,source_archive_file_record,source_archive_entry_ordinal,sort_order
 )
-SELECT ?,role,logical_name,blob_id,source_archive_blob_id,source_archive_entry_ordinal,sort_order
+SELECT ?,role,logical_name,file_record,source_archive_file_record,source_archive_entry_ordinal,sort_order
 FROM game_files WHERE game_id=?
 """,
         (game_id, source["id"]),
@@ -112,8 +113,8 @@ INSERT INTO game_variants(
     )
     connection.execute(
         """
-INSERT INTO variant_files(game_variant_id,role,logical_name,blob_id,sort_order)
-SELECT ?,role,logical_name,blob_id,sort_order FROM variant_files WHERE game_variant_id=?
+INSERT INTO variant_files(game_variant_id,role,logical_name,file_record,sort_order)
+SELECT ?,role,logical_name,file_record,sort_order FROM variant_files WHERE game_variant_id=?
 """,
         (variant_id, source["variant_id"]),
     )
@@ -127,6 +128,8 @@ FROM variant_dependencies WHERE game_variant_id=?
 """,
         (variant_id, now, source["variant_id"]),
     )
+    own_rows(connection, "game_files", "game_id", game_id, "GAME", game_id)
+    own_rows(connection, "variant_files", "game_variant_id", variant_id, "GAME", game_id, extra="AND role<>'BIOS_BUNDLE'")
     connection.commit()
     foreign_keys = connection.execute("PRAGMA foreign_key_check").fetchall()
     if foreign_keys:

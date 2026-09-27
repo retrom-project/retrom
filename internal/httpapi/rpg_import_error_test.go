@@ -4,9 +4,9 @@ import (
 	"net/http"
 	"testing"
 
+	"retrom/internal/core/rpgmaker/detector"
+	"retrom/internal/core/rpgmaker/fileset"
 	"retrom/internal/importing"
-	"retrom/internal/rpgmaker/detector"
-	"retrom/internal/rpgmaker/fileset"
 )
 
 func TestImportCreationErrorPreservesRPGMakerTypedFailures(t *testing.T) {

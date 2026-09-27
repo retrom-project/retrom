@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
 	persistence "retrom/internal/persistence/launch"
 	application "retrom/internal/service/launch"
 
@@ -38,7 +39,7 @@ func TestPreviewCreationReplaysAConcurrentCommittedRequest(t *testing.T) {
 		t.Fatalf("same-key request lost committed receipt: created=%q winner=%q error=%v", created.PreviewID, winner.PreviewID, err)
 	}
 	var count int
-	if err := fixture.database.QueryRowContext(t.Context(), `SELECT count(*) FROM review_preview_sessions`).Scan(&count); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT count(*) FROM review_preview_sessions`).Scan(&count); err != nil {
 		t.Fatal(err)
 	}
 	if count != 1 {
@@ -50,7 +51,7 @@ func TestPreviewCreationRechecksPlatformEnabledAtCommit(t *testing.T) {
 	t.Parallel()
 	fixture := newReviewCheckpointFixture(t)
 	var instanceID string
-	if err := fixture.database.QueryRowContext(t.Context(), `SELECT target_platform_instance_id FROM import_items WHERE id=?`, fixture.itemID).Scan(&instanceID); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT target_platform_instance_id FROM import_items WHERE id=?`, fixture.itemID).Scan(&instanceID); err != nil {
 		t.Fatal(err)
 	}
 	originalClock := fixture.launcher.now
@@ -69,7 +70,7 @@ func TestPreviewCreationRechecksPlatformEnabledAtCommit(t *testing.T) {
 		t.Fatalf("preview accepted a platform disabled after selection: created=%q error=%v", created.PreviewID, err)
 	}
 	var count int
-	if err := fixture.database.QueryRowContext(t.Context(), `SELECT count(*) FROM review_preview_sessions`).Scan(&count); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT count(*) FROM review_preview_sessions`).Scan(&count); err != nil {
 		t.Fatal(err)
 	}
 	if count != 0 {

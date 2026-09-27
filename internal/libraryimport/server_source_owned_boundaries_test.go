@@ -9,7 +9,8 @@ import (
 	"slices"
 	"testing"
 
-	"retrom/internal/persistence/blobcatalog"
+	"retrom/internal/filestore"
+
 	application "retrom/internal/service/libraryimport"
 )
 
@@ -28,7 +29,8 @@ func TestOwnedSourceKeepsAllDuplicateMatchesInOneBoundItem(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	duplicate, err := fixture.service.ApproveWithDecision(fixture.ctx, second.Items[0].ItemID, 1, ApprovalDecision{DuplicatePolicy: "ALLOW_NEW", AcknowledgedGameIDs: []string{original.GameID}})
+	duplicate, err := fixture.service.ApproveWithDecision(fixture.ctx, second.Items[0].ItemID, 1,
+		ApprovalDecision{DuplicatePolicy: "ALLOW_NEW", AcknowledgedGameIDs: []string{original.GameID}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -53,7 +55,8 @@ func TestOwnedServerSourceRejectsUndeclaredPrimaryWithoutReview(t *testing.T) {
 	fixture, request := ownedSourceFixture(t)
 	request.Files[0].RelativePath = "games/companion.gba"
 	result, err := fixture.service.CreateOwnedServerSource(fixture.ctx, request)
-	if !errors.Is(err, ErrVersionConflict) || errors.Is(err, application.ErrSourceGrouping) || result.Created.ImportJobID != "" || ownedImportCount(t, fixture) != 0 {
+	if !errors.Is(err, ErrVersionConflict) || errors.Is(err, application.ErrSourceGrouping) ||
+		result.Created.ImportJobID != "" || ownedImportCount(t, fixture) != 0 {
 		t.Fatalf("companion became unowned review: %#v %v", result, err)
 	}
 }
@@ -65,11 +68,11 @@ func TestOwnedSourceRejectsDifferentCopiedBlobAtDeclaredPath(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	blobID, err := blobcatalog.EnsureRecord(fixture.ctx, fixture.database, different, "application/octet-stream", ownedSourceNow().UnixMilli())
+	fileRecord, err := filestore.FileRecord(different, "application/octet-stream")
 	if err != nil {
 		t.Fatal(err)
 	}
-	request.Files[0].BlobID = blobID
+	request.Files[0].FileRecord = fileRecord
 	request.Files[0].SizeBytes = different.Size
 	result, err := fixture.service.CreateOwnedServerSource(fixture.ctx, request)
 	if !errors.Is(err, ErrVersionConflict) || result.Created.ImportJobID != "" || ownedImportCount(t, fixture) != 0 {
@@ -80,11 +83,13 @@ func TestOwnedSourceRejectsDifferentCopiedBlobAtDeclaredPath(t *testing.T) {
 func TestOwnedSourceRejectsZeroContentGroupsWithoutReview(t *testing.T) {
 	t.Parallel()
 	fixture, request := ownedSourceFixture(t)
-	fixture.execute(t, `UPDATE source_import_item_files SET relative_path='unsupported.txt' WHERE item_id='unlinked-source'`)
+	fixture.execute(t, `UPDATE source_import_item_files SET relative_path='unsupported.txt' WHERE
+item_id='018fbe68-0000-7000-8000-000000000021'`)
 	request.Intent.PrimaryPaths = []string{"unsupported.txt"}
 	request.Files[0].RelativePath = "unsupported.txt"
 	result, err := fixture.service.CreateOwnedServerSource(fixture.ctx, request)
-	if !errors.Is(err, ErrInvalid) || !errors.Is(err, application.ErrSourceGrouping) || result.Created.ImportJobID != "" || ownedImportCount(t, fixture) != 0 {
+	if !errors.Is(err, ErrInvalid) || !errors.Is(err, application.ErrSourceGrouping) ||
+		result.Created.ImportJobID != "" || ownedImportCount(t, fixture) != 0 {
 		t.Fatalf("rejected source created review: %#v %v", result, err)
 	}
 }

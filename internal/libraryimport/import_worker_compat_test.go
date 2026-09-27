@@ -81,7 +81,7 @@ type (
 )
 
 func (service *Service) prepareCreation(ctx context.Context, request CreateRequest) (creationPlan, error) {
-	prepared, err := service.importPreparation().Prepare(ctx, request)
+	prepared, err := service.preparation.Prepare(ctx, request)
 	if err != nil {
 		return creationPlan{}, fmt.Errorf("prepare import creation: %w", err)
 	}

@@ -32,8 +32,11 @@ func TestMaterializationRejectsFailedOrZeroAffectedRowsAfterActualBinding(t *tes
 				t,
 				db,
 				testsupport.SQLFaultHooks{
-					AfterExec: func(_ context.Context, query string, args []driver.NamedValue, result driver.Result) (driver.Result, error) {
-						if strings.HasPrefix(query, "UPDATE source_import_item_files SET blob_id=") && len(args) > 2 && args[2].Value == key.ItemID {
+					AfterExec: func(_ context.Context, query string, args []driver.NamedValue,
+						result driver.Result,
+					) (driver.Result, error) {
+						if strings.HasPrefix(query, "UPDATE source_import_item_files SET file_record=") &&
+							len(args) > 2 && args[2].Value == key.ItemID {
 							writes++
 							if mode == "error" {
 								return materialAffectedFailure{Result: result, cause: cause}, nil
@@ -45,7 +48,8 @@ func TestMaterializationRejectsFailedOrZeroAffectedRowsAfterActualBinding(t *tes
 				},
 			)
 			before := materialRows(t, db)
-			service := application.NewMaterialization(NewMaterialization(fault), func() time.Time { return time.UnixMilli(10) })
+			service := application.NewMaterialization(NewMaterialization(fault), materialTestFiles{},
+				func() time.Time { return time.UnixMilli(10) })
 			source := readMaterialSource(t, NewMaterialization(db), key)
 			id, err := service.Copy(t.Context(), materialIdentity(), source, blob)
 			expected := cause
@@ -102,7 +106,8 @@ func (repository materialCommitFailure) WithMaterialization(
 		tx := records.tx
 		if _, err := tx.ExecContext(
 			ctx,
-			`CREATE TABLE material_commit_failure(owner TEXT REFERENCES blobs(id) DEFERRABLE INITIALLY DEFERRED)`,
+			`CREATE TABLE material_commit_failure(owner TEXT REFERENCES source_import_items(id) DEFERRABLE INITIALLY
+DEFERRED)`,
 		); err != nil {
 			return err
 		}
@@ -117,7 +122,7 @@ func TestMaterializationCommitFailureDiscardsResponseAndCatalog(t *testing.T) {
 	before := materialRows(t, db)
 	source := readMaterialSource(t, NewMaterialization(db), key)
 	service := application.NewMaterialization(
-		materialCommitFailure{NewMaterialization(db)},
+		materialCommitFailure{NewMaterialization(db)}, materialTestFiles{},
 		func() time.Time { return time.UnixMilli(10) },
 	)
 	id, err := service.Copy(t.Context(), materialIdentity(), source, blob)

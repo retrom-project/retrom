@@ -5,21 +5,15 @@ import (
 	"errors"
 	"fmt"
 
-	librarycomposition "retrom/internal/composition/libraryimport"
-	librarypersistence "retrom/internal/persistence/libraryimport"
 	libraryservice "retrom/internal/service/libraryimport"
 )
 
 type DecisionResult = libraryservice.ReviewDecisionResult
 
-func (service *Service) reviewDiscards() *libraryservice.ReviewDiscards {
-	return libraryservice.NewReviewDiscards(librarypersistence.NewReviewDiscards(service.database), service.now)
-}
-
 func (service *Service) Discard(
 	ctx context.Context, itemID string, expectedVersion int64, reason string,
 ) (DecisionResult, error) {
-	result, err := service.reviewDiscards().Discard(ctx, libraryservice.ReviewDiscardRequest{
+	result, err := service.discards.Discard(ctx, libraryservice.ReviewDiscardRequest{
 		ItemID: itemID, ExpectedVersion: expectedVersion, Reason: reason, Mode: libraryservice.ReviewDiscardSingle,
 	})
 	if err != nil {
@@ -37,7 +31,7 @@ type RetryResult struct {
 
 // Retry eligibility, execution creation, event emission, and aggregate update share one transaction.
 func (service *Service) RetryItem(ctx context.Context, itemID string, expectedVersion int64) (RetryResult, error) {
-	result, err := librarycomposition.NewImportItemRetries(service.database, service.now).Retry(ctx,
+	result, err := service.retries.Retry(ctx,
 		libraryservice.ImportItemRetryRequest{ItemID: itemID, ExpectedVersion: expectedVersion})
 	if err != nil {
 		if errors.Is(err, libraryservice.ErrInvalid) {
@@ -73,7 +67,7 @@ func (service *Service) CancelForDiscard(
 func (service *Service) cancelImport(
 	ctx context.Context, importID string, expectedVersion int64, reason string, preserveReviews bool,
 ) (CancelResult, bool, error) {
-	result, err := librarycomposition.NewImportBatchCancellations(service.database, service.now).Cancel(ctx,
+	result, err := service.cancellations.Cancel(ctx,
 		libraryservice.ImportBatchCancellationRequest{
 			ImportID: importID, ExpectedVersion: expectedVersion,
 			Reason: reason, PreserveReviews: preserveReviews,

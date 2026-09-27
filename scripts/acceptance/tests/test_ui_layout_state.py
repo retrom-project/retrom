@@ -1,10 +1,12 @@
 import importlib.util
 import sqlite3
+import sys
 import tempfile
 import unittest
 from pathlib import Path
 
 SCRIPT = Path(__file__).resolve().parents[1] / "ui_layout_state.py"
+sys.path.insert(0, str(SCRIPT.parent))
 SPEC = importlib.util.spec_from_file_location("ui_layout_state", SCRIPT)
 STATE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(STATE)
@@ -22,7 +24,7 @@ class UILayoutStateTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 STATE.validate_database(escaped / "data/retrom.db")
 
-    def test_restores_history_events_saves_and_descriptions_without_touching_other_profiles(self):
+    def test_restores_history_saves_and_descriptions_without_touching_other_profiles(self):
         with tempfile.TemporaryDirectory(prefix="retrom-web-e2e.") as root:
             path = Path(root) / "data/retrom.db"
             path.parent.mkdir()
@@ -31,15 +33,13 @@ class UILayoutStateTests(unittest.TestCase):
                     CREATE TABLE profiles(id TEXT PRIMARY KEY,display_name TEXT,created_at_ms INTEGER);
                     CREATE TABLE users(username TEXT,profile_id TEXT);
                     CREATE TABLE play_sessions(id TEXT PRIMARY KEY,profile_id TEXT REFERENCES profiles(id));
-                    CREATE TABLE play_session_events(play_session_id TEXT REFERENCES play_sessions(id),client_sequence INTEGER);
-                    CREATE TABLE save_states(id TEXT PRIMARY KEY,profile_id TEXT REFERENCES profiles(id));
+                    CREATE TABLE save_states(id TEXT PRIMARY KEY,profile_id TEXT REFERENCES profiles(id),payload_file_record TEXT,screenshot_file_record TEXT);
                     CREATE TABLE launches(id TEXT PRIMARY KEY,save_state_id TEXT REFERENCES save_states(id));
                     CREATE TABLE games(id TEXT PRIMARY KEY,description TEXT);
                     INSERT INTO profiles VALUES('p','Test',0),('q','Other',0);
                     INSERT INTO users VALUES('test','p');
                     INSERT INTO play_sessions VALUES('play','p'),('other','q');
-                    INSERT INTO play_session_events VALUES('play',1),('other',2);
-                    INSERT INTO save_states VALUES('save','p'),('other-save','q');
+                    INSERT INTO save_states VALUES('save','p','blob','blob'),('other-save','q','other-blob','other-blob');
                     INSERT INTO launches VALUES('restored','save');
                     INSERT INTO games VALUES('game','original');
                 """)
@@ -51,13 +51,12 @@ class UILayoutStateTests(unittest.TestCase):
                 self.assertEqual(db.execute("SELECT id FROM save_states WHERE profile_id='p'").fetchall(), [])
                 self.assertEqual(db.execute("SELECT id FROM save_states WHERE profile_id='q'").fetchall(), [("other-save",)])
                 db.execute("INSERT INTO play_sessions VALUES('layout','p')")
-                db.execute("INSERT INTO save_states VALUES('layout-save','p')")
+                db.execute("INSERT INTO save_states VALUES('018fbe68-0000-7000-8000-000000000001','p','layout-blob','layout-blob')")
                 db.execute("UPDATE games SET description='layout'")
             STATE.restore(path)
             STATE.restore(path)
             with sqlite3.connect(path) as db:
                 self.assertEqual(db.execute("SELECT id FROM play_sessions ORDER BY id").fetchall(), [("other",), ("play",)])
-                self.assertEqual(db.execute("SELECT play_session_id FROM play_session_events ORDER BY play_session_id").fetchall(), [("other",), ("play",)])
                 self.assertEqual(db.execute("SELECT id FROM save_states ORDER BY id").fetchall(), [("other-save",), ("save",)])
                 self.assertEqual(db.execute("SELECT description FROM games").fetchone(), ("original",))
                 self.assertEqual(db.execute("SELECT save_state_id FROM launches").fetchone(), ("save",))

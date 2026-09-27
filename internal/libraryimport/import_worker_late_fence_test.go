@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/libraryimport"
 	"retrom/internal/testsupport"
 )
@@ -19,11 +20,11 @@ func TestImportWorkerLateLeaseFailureRollsBackTerminalAndRelease(t *testing.T) {
 	service, work := workerAuthorityFixture(t)
 	var clock atomic.Int64
 	clock.Store(service.now().UnixMilli())
-	service.now = func() time.Time { return time.UnixMilli(clock.Load()) }
+	service = newTestImporter(t, service.database, service.blobs, testImportOptions{Now: func() time.Time { return time.UnixMilli(clock.Load()) }, MultiDiscEnabled: service.multiDiscImportEnabled})
 	source := service.database
 	before := creationEffectCounts(t, source)
 	writes := int64(0)
-	service.database = testsupport.OpenSQLFaultDatabase(
+	service = newTestImporter(t, testsupport.OpenSQLFaultDatabase(
 		t,
 		source,
 		testsupport.SQLFaultHooks{
@@ -40,14 +41,14 @@ func TestImportWorkerLateLeaseFailureRollsBackTerminalAndRelease(t *testing.T) {
 				return result, nil
 			},
 		},
-	)
+	), service.blobs, testImportOptions{Now: service.now, MultiDiscEnabled: service.multiDiscImportEnabled})
 	err := service.testExecutions().Fail(t.Context(), *work.creationIntent(), ErrInvalid)
 	if !errors.Is(err, ErrVersionConflict) || writes != 1 {
 		t.Fatalf("late lease fence: writes=%d error=%v", writes, err)
 	}
 	assertCreationEffectsUnchanged(t, source, before)
 	var state string
-	if err := source.QueryRowContext(t.Context(), `SELECT state FROM jobs WHERE id=?`, work.jobID).Scan(&state); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), source, `SELECT state FROM jobs WHERE id=?`, work.jobID).Scan(&state); err != nil {
 		t.Fatal(err)
 	}
 	if state != "RUNNING" {
@@ -57,7 +58,7 @@ func TestImportWorkerLateLeaseFailureRollsBackTerminalAndRelease(t *testing.T) {
 
 func TestImportWorkerRecoveryRetainsAlreadyCreatedResults(t *testing.T) {
 	service, plan := preparedCommitFixture(t)
-	result, err := service.importCreations().CommitPrepared(t.Context(), plan, application.ImportCreationOptions{})
+	result, err := service.creations.CommitPrepared(t.Context(), plan, application.ImportCreationOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -90,8 +91,9 @@ execution_deadline_at_ms=?,version=version+1 WHERE id=?`,
 		}
 	}
 	var job, parent string
-	if err := service.database.QueryRowContext(
-		t.Context(),
+	if err := dbapi.QueryRowContext(
+		t.Context(), service.database,
+
 		`SELECT job.state,parent.state FROM jobs job JOIN import_jobs parent ON parent.id=job.scope_id WHERE job.id=?`,
 		id,
 	).Scan(
@@ -116,7 +118,7 @@ func TestImportWorkerRecoveryRetainsResolvedFilesWithoutItems(t *testing.T) {
 		plan.Dispositions[index].Disposition = "REJECTED"
 		plan.Dispositions[index].Reason = "UNSUPPORTED_CONTENT_FORMAT"
 	}
-	result, err := service.importCreations().CommitPrepared(t.Context(), plan, application.ImportCreationOptions{})
+	result, err := service.creations.CommitPrepared(t.Context(), plan, application.ImportCreationOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -136,8 +138,9 @@ func TestImportWorkerRecoveryRetainsResolvedFilesWithoutItems(t *testing.T) {
 	}
 	var job, parent string
 	var rejected int
-	if err := service.database.QueryRowContext(
-		t.Context(),
+	if err := dbapi.QueryRowContext(
+		t.Context(), service.database,
+
 		`SELECT job.state,parent.state,parent.rejected_file_count FROM jobs job JOIN import_jobs parent ON
  parent.id=job.scope_id WHERE job.id=?`,
 		result.Created.JobID,

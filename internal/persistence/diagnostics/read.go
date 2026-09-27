@@ -4,12 +4,13 @@ import (
 	"context"
 	"fmt"
 
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/diagnostics"
 )
 
 func (reader records) SchemaVersion(ctx context.Context) (int64, error) {
 	var version int64
-	if err := reader.executor.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, reader.executor, `
 SELECT COALESCE(MAX(version),0)
 FROM schema_migrations
 `).Scan(&version); err != nil {
@@ -20,13 +21,12 @@ FROM schema_migrations
 
 func (reader records) Counts(ctx context.Context) (application.Counts, error) {
 	var counts application.Counts
-	err := reader.executor.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, reader.executor, `
 SELECT
 (SELECT count(*) FROM games WHERE status='PUBLISHED'),
 (SELECT count(*) FROM games WHERE status='DELETED'),
 (SELECT count(*) FROM save_states WHERE deleted_at_ms IS NULL),
 (SELECT count(*) FROM save_states WHERE deleted_at_ms IS NOT NULL),
-(SELECT count(*) FROM blobs),
 (SELECT count(*) FROM jobs WHERE state='QUEUED'),
 (SELECT count(*) FROM jobs WHERE state='RUNNING'),
 (SELECT count(*) FROM jobs WHERE state='CANCEL_REQUESTED'),
@@ -40,7 +40,7 @@ SELECT
 (SELECT count(*) FROM dat_versions WHERE parse_status='CANCELLED')
 `).Scan(
 		&counts.PublishedGames, &counts.DeletedGames, &counts.ActiveSaves, &counts.DeletedSaves,
-		&counts.Blobs, &counts.QueuedJobs, &counts.RunningJobs, &counts.CancelRequestedJobs,
+		&counts.QueuedJobs, &counts.RunningJobs, &counts.CancelRequestedJobs,
 		&counts.SucceededJobs, &counts.FailedJobs, &counts.CancelledJobs,
 		&counts.PendingDATs, &counts.ParsingDATs, &counts.ReadyDATs, &counts.FailedDATs,
 		&counts.CancelledDATs,

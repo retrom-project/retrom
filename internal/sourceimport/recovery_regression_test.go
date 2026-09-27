@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"testing"
 	"time"
+
+	dbapi "retrom/internal/database"
 )
 
 func recoveryFixture(t *testing.T) *Service {
@@ -11,9 +13,12 @@ func recoveryFixture(t *testing.T) *Service {
 	db := newSourceRetryDatabase(t)
 	if _, err := db.ExecContext(t.Context(), `
 UPDATE jobs SET state='RUNNING',finished_at_ms=NULL,attempt_count=1,leased_until_ms=5,
-execution_started_at_ms=1,execution_deadline_at_ms=100,heartbeat_at_ms=1,worker_id='lost-worker' WHERE id='work';
-UPDATE source_imports SET state='RUNNING',phase='COPYING_CONTENT',completed_at_ms=NULL,failed_item_count=0,retryable=0;
-UPDATE source_import_items SET execution_state='COPYING',completed_at_ms=NULL,error_code=NULL,error_details_json=NULL,retryable=0;
+execution_started_at_ms=1,execution_deadline_at_ms=100,heartbeat_at_ms=1,worker_id='lost-worker' WHERE
+id='work';
+UPDATE source_imports SET state='RUNNING',phase='COPYING_CONTENT',completed_at_ms=NULL,
+failed_item_count=0,retryable=0;
+UPDATE source_import_items SET execution_state='COPYING',completed_at_ms=NULL,error_code=NULL,
+error_details_json=NULL,retryable=0;
 `); err != nil {
 		t.Fatal(err)
 	}
@@ -33,7 +38,7 @@ UPDATE source_imports SET state='CANCEL_REQUESTED',cancel_reason='Stop';
 		t.Fatal(err)
 	}
 	var jobState, planState, itemState string
-	if err := service.database.QueryRowContext(t.Context(), `SELECT job.state,plan.state,item.execution_state
+	if err := dbapi.QueryRowContext(t.Context(), service.database, `SELECT job.state,plan.state,item.execution_state
 FROM source_imports plan JOIN jobs job ON job.id=plan.import_job_id
 JOIN source_import_items item ON item.import_id=plan.id WHERE plan.id='import'`).Scan(&jobState, &planState, &itemState); err != nil {
 		t.Fatal(err)
@@ -53,7 +58,7 @@ func TestRecoveryPreservesTimeoutReasonOnUnfinishedItems(t *testing.T) {
 		t.Fatal(err)
 	}
 	var jobCode, itemCode string
-	if err := service.database.QueryRowContext(t.Context(), `SELECT job.error_code,item.error_code FROM jobs job
+	if err := dbapi.QueryRowContext(t.Context(), service.database, `SELECT job.error_code,item.error_code FROM jobs job
 JOIN source_import_items item ON item.import_id=job.scope_id WHERE job.id='work'`).Scan(&jobCode, &itemCode); err != nil {
 		t.Fatal(err)
 	}
@@ -77,8 +82,9 @@ UPDATE source_import_items SET execution_state='PENDING';
 	var state string
 	var code sql.NullString
 	var failed int
-	if err := service.database.QueryRowContext(t.Context(), `SELECT item.execution_state,item.error_code,plan.failed_item_count
-FROM source_import_items item JOIN source_imports plan ON plan.id=item.import_id WHERE item.id='item'`).Scan(&state, &code, &failed); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), service.database, `SELECT item.execution_state,item.error_code,plan.failed_item_count
+FROM source_import_items item JOIN source_imports plan ON plan.id=item.import_id WHERE
+item.id='018fbe68-0000-7000-8000-000000000010'`).Scan(&state, &code, &failed); err != nil {
 		t.Fatal(err)
 	}
 	if state != "COMMIT_FAILED" || !code.Valid || code.String != "SOURCE_WORKER_ATTEMPTS_EXHAUSTED" || failed != 1 {

@@ -4,7 +4,6 @@ package gamecontent
 
 import (
 	"context"
-	"database/sql"
 	"database/sql/driver"
 	"errors"
 	"path/filepath"
@@ -14,11 +13,13 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/blobstore"
-	"retrom/internal/dbexec"
+	"retrom/internal/testsupport/importfixture"
+
+	"retrom/internal/composition/cleanupjobs"
+	dbapi "retrom/internal/database"
 	"retrom/internal/dependencies"
+	"retrom/internal/filestore"
 	"retrom/internal/libraryimport"
-	"retrom/internal/payloadrelease"
 	dependencypersistence "retrom/internal/persistence/dependencies"
 	uploadpersistence "retrom/internal/persistence/uploads"
 	dependencyservice "retrom/internal/service/dependencies"
@@ -28,8 +29,8 @@ import (
 )
 
 type retirementFixture struct {
-	db                                  *sql.DB
-	releases                            *payloadrelease.Service
+	db                                  dbapi.DB
+	releases                            *cleanupjobs.Service
 	gameID, variantID, saveID, launchID string
 }
 
@@ -54,14 +55,14 @@ func contentRetirementFixture(t *testing.T) retirementFixture {
 	if err := dependencyservice.New(catalog, dependencypersistence.New(database.SQL)).Bootstrap(t.Context(), time.Now()); err != nil {
 		t.Fatal(err)
 	}
-	blobs, err := blobstore.Open(dir)
+	blobs, err := filestore.Open(dir)
 	if err != nil {
 		t.Fatal(err)
 	}
 	uploadService := uploads.New(uploadpersistence.New(database.SQL), blobs, dir, time.Now)
 	t.Cleanup(uploadService.Close)
 	uploadID := completeUpload(t, t.Context(), database.SQL, uploadService, "retirement.gba", []byte("original retirement content"))
-	importer := libraryimport.New(database.SQL, time.Now)
+	importer := importfixture.New(t, database.SQL, blobs, importfixture.Options{Now: time.Now})
 	created, err := importer.Create(t.Context(), libraryimport.CreateRequest{UploadID: uploadID, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(t, database.SQL, "gba/mgba"), MetadataProvider: "NONE"})
 	if err != nil {
 		t.Fatal(err)
@@ -71,13 +72,13 @@ func contentRetirementFixture(t *testing.T) retirementFixture {
 		t.Fatal(err)
 	}
 	saveID, launchID, _ := seedReplacementSave(t, t.Context(), database.SQL, blobs, published.GameID)
-	releases, err := payloadrelease.New(database.SQL, blobs, time.Now, 24*time.Hour)
+	releases, err := cleanupjobs.New(t.Context(), database.SQL, blobs, time.Now)
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(releases.Close)
 	var variantID string
-	if err := database.SQL.QueryRowContext(t.Context(), `SELECT id FROM game_variants WHERE game_id=?`, published.GameID).Scan(&variantID); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), database.SQL, `SELECT id FROM game_variants WHERE game_id=?`, published.GameID).Scan(&variantID); err != nil {
 		t.Fatal(err)
 	}
 	return retirementFixture{database.SQL, releases, published.GameID, variantID, saveID, launchID}
@@ -126,7 +127,7 @@ func TestContentRetirementRejectsUnconfirmedMutation(t *testing.T) {
 			if err == nil {
 				err = tx.Commit()
 			} else {
-				dbexec.Rollback(tx)
+				dbapi.Rollback(tx)
 			}
 			if err == nil || cause != nil && !errors.Is(err, cause) || hits.Load() != 1 {
 				t.Fatalf("unconfirmed retirement committed: hits=%d err=%v", hits.Load(), err)
@@ -140,7 +141,7 @@ func (fixture retirementFixture) assertUnchanged(t *testing.T) {
 	t.Helper()
 	var saves, files int
 	var state string
-	err := fixture.db.QueryRowContext(t.Context(), `SELECT
+	err := dbapi.QueryRowContext(t.Context(), fixture.db, `SELECT
  (SELECT count(*) FROM save_states WHERE id=?),
  (SELECT count(*) FROM launch_content_files WHERE launch_session_id=?),
  (SELECT state FROM launch_sessions WHERE id=?)`, fixture.saveID, fixture.launchID, fixture.launchID).Scan(&saves, &files, &state)

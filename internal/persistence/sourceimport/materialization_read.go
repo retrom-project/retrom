@@ -7,6 +7,9 @@ import (
 	"errors"
 	"fmt"
 
+	"retrom/internal/filestore"
+
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/sourceimport"
 )
 
@@ -30,11 +33,14 @@ func (records materialRecords) Source(
 	if err != nil {
 		return application.MaterialSnapshot{}, fmt.Errorf("read Source material source: %w", err)
 	}
-	if result.BlobID != "" {
-		if err := records.tx.QueryRowContext(ctx,
-			`SELECT sha256,md5,sha1,crc32,size_bytes FROM blobs WHERE id=?`, result.BlobID).Scan(
-			&result.Blob.SHA256, &result.Blob.MD5, &result.Blob.SHA1, &result.Blob.CRC32, &result.Blob.Size); err != nil {
-			return application.MaterialSnapshot{}, fmt.Errorf("read Source material blob: %w", err)
+	if result.FileRecord != "" {
+		file, err := filestore.ParseRecord(result.FileRecord)
+		if err != nil {
+			return application.MaterialSnapshot{}, fmt.Errorf("source: %w", err)
+		}
+		result.Blob = application.VerifiedBlob{
+			ID: result.FileRecord, SHA256: file.SHA256,
+			MD5: file.MD5, SHA1: file.SHA1, CRC32: file.CRC32, Size: file.Size,
 		}
 	}
 	return result, nil
@@ -42,9 +48,10 @@ func (records materialRecords) Source(
 
 func (records materialRecords) file(ctx context.Context, result *application.MaterialSnapshot) error {
 	source := &result.Source
-	err := records.tx.QueryRowContext(ctx, `SELECT relative_path,size_bytes,source_facts_digest,state,COALESCE(blob_id,'')
+	err := dbapi.QueryRowContext(
+		ctx, records.tx, `SELECT relative_path,size_bytes,source_facts_digest,state,COALESCE(file_record,'')
 FROM source_import_item_files WHERE item_id=? AND ordinal=?`, source.Key.ItemID, source.Key.Ordinal).Scan(
-		&source.Path, &source.Size, &source.Facts, &result.State, &result.BlobID)
+		&source.Path, &source.Size, &source.Facts, &result.State, &result.FileRecord)
 	if err != nil {
 		return fmt.Errorf("read source file: %w", err)
 	}
@@ -54,23 +61,30 @@ FROM source_import_item_files WHERE item_id=? AND ordinal=?`, source.Key.ItemID,
 func (records materialRecords) asset(ctx context.Context, result *application.MaterialSnapshot) error {
 	source := &result.Source
 	var warnings string
-	err := records.tx.QueryRowContext(ctx, `SELECT asset.relative_path,asset.size_bytes,asset.source_facts_digest,
-COALESCE(asset.media_type,''),asset.width_px,asset.height_px,asset.state,COALESCE(asset.blob_id,''),
+	err := dbapi.QueryRowContext(
+		ctx,
+		records.tx,
+		`SELECT asset.relative_path,asset.size_bytes,asset.source_facts_digest,
+COALESCE(asset.media_type,''),asset.width_px,asset.height_px,asset.state,COALESCE(asset.file_record,
+''),
 COALESCE(asset.warning_code,''),item.warnings_json
 FROM source_import_item_assets asset JOIN source_import_items item ON item.id=asset.item_id
-WHERE asset.item_id=? AND asset.kind=?`, source.Key.ItemID, source.Key.Kind).Scan(
-
-		&source.Path,
-		&source.Size,
-		&source.Facts,
-		&source.MediaType,
-		&source.Width,
-		&source.Height,
-		&result.State,
-		&result.BlobID,
-		&result.WarningCode,
-		&warnings,
-	)
+WHERE asset.item_id=? AND asset.kind=?`,
+		source.Key.ItemID,
+		source.Key.Kind,
+	).
+		Scan(
+			&source.Path,
+			&source.Size,
+			&source.Facts,
+			&source.MediaType,
+			&source.Width,
+			&source.Height,
+			&result.State,
+			&result.FileRecord,
+			&result.WarningCode,
+			&warnings,
+		)
 	if err != nil {
 		return fmt.Errorf("read source asset: %w", err)
 	}

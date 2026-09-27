@@ -6,19 +6,19 @@ import (
 	"fmt"
 
 	"retrom/internal/cleanup"
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/recordstore"
 	service "retrom/internal/service/datindex"
 )
 
-type Records struct{ executor dbexec.Executor }
+type Records struct{ executor dbapi.Executor }
 
 // Bind joins requirement publication to the caller's transaction without committing it.
-func Bind(transaction *sql.Tx) Records { return Records{executor: transaction} }
+func Bind(transaction dbapi.Tx) Records { return Records{executor: transaction} }
 
 func (store Records) Definition(ctx context.Context, datID string) (service.Definition, error) {
 	var definition service.Definition
-	if err := store.executor.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, store.executor, `
 SELECT core_id,
 provider_id,
 target_id,
@@ -108,10 +108,10 @@ ORDER BY r.ordinal
 			return nil, fmt.Errorf("datindex/replace: %w", err)
 		}
 		entries = append(entries, service.Entry{
-			BIOSName: dbexec.StringPointer(biosName), CRC32: dbexec.StringPointer(crc32Value),
-			MergeName: dbexec.StringPointer(
+			BIOSName: dbapi.StringPointer(biosName), CRC32: dbapi.StringPointer(crc32Value),
+			MergeName: dbapi.StringPointer(
 				mergeName,
-			), Name: name, SHA1: dbexec.StringPointer(
+			), Name: name, SHA1: dbapi.StringPointer(
 				sha1Value,
 			), SizeBytes: size, Status: status,
 		})

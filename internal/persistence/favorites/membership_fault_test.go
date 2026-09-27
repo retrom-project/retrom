@@ -2,15 +2,16 @@ package favorites
 
 import (
 	"context"
-	"database/sql"
 	"database/sql/driver"
 	"strings"
 	"testing"
 
+	dbapi "retrom/internal/database"
+
 	"retrom/internal/testsupport"
 )
 
-func favoriteMembershipFault(t *testing.T, db *sql.DB, cause error) (*sql.DB, func()) {
+func favoriteMembershipFault(t *testing.T, db dbapi.DB, cause error) (dbapi.DB, func()) {
 	t.Helper()
 	first, hits := 0, 0
 	match := func(query string, args []driver.NamedValue, gameID string) bool {

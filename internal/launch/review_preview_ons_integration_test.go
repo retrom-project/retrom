@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
-	"database/sql"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -20,6 +19,9 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/testsupport/importfixture"
+
+	dbapi "retrom/internal/database"
 	savepersistence "retrom/internal/persistence/saves"
 
 	uploadpersistence "retrom/internal/persistence/uploads"
@@ -29,9 +31,9 @@ import (
 
 	"retrom/internal/persistence/storequery"
 
-	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	"retrom/internal/dependencies"
+	"retrom/internal/filestore"
 	"retrom/internal/libraryimport"
 	retromruntime "retrom/internal/runtime"
 	retromsaves "retrom/internal/service/saves"
@@ -64,7 +66,7 @@ VALUES(?,'ons-preview-profile','ons-preview-admin','ONS Admin','ADMIN','ENABLED'
 	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
-	blobs, err := blobstore.Open(dataDir)
+	blobs, err := filestore.Open(dataDir)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -77,7 +79,7 @@ VALUES(?,'ons-preview-profile','ons-preview-admin','ONS Admin','ADMIN','ENABLED'
 	if err != nil {
 		t.Fatal(err)
 	}
-	service := New(database.SQL, dependencySet, credentials, time.Now).WithBlobStore(blobs).
+	service := New(database.SQL, dependencySet, credentials, time.Now).WithFileStore(blobs).
 		WithRuntimeProvider(dependencySet.RuntimeCatalog, runtimeBuilder)
 	preview, err := service.CreateReviewPreview(ctx, ReviewPreviewRequest{
 		ImportItemID: itemID, ActorUserID: actorID, IdempotencyKey: "ons-preview-1",
@@ -154,7 +156,7 @@ VALUES(?,'ons-preview-profile','ons-preview-admin','ONS Admin','ADMIN','ENABLED'
 		t.Fatalf("Approve(ONS) error = %v", err)
 	}
 	var contentKind, compatibilityCode string
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT game.content_kind,variant.compatibility_code
 FROM games game
 JOIN game_variants variant ON variant.game_id=game.id
@@ -172,8 +174,8 @@ func assertONSProductRoundTrip(
 	t *testing.T,
 	ctx context.Context,
 	service *Service,
-	database *sql.DB,
-	blobs *blobstore.Store,
+	database dbapi.DB,
+	blobs *filestore.Store,
 	gameID string,
 	screenshot []byte,
 ) {
@@ -216,7 +218,7 @@ func assertONSProductRoundTrip(
 		t.Fatalf("CreateManual(ONS) = %#v, replayed=%v, err=%v", result, replayed, err)
 	}
 	var providerID, targetID, checkpointFormat string
-	if err := database.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database, `
 SELECT launch.provider_id,launch.target_id,save.checkpoint_format
 FROM launch_sessions launch
 JOIN save_states save ON save.source_launch_session_id=launch.id
@@ -244,10 +246,10 @@ WHERE launch.id=? AND save.id=?
 		restoreGame["indexUrl"] != productGame["indexUrl"] {
 		t.Fatalf("ONS restore envelope = %#v", restoreEnvelope)
 	}
-	digest, err := saveService.StateDigest(ctx, restored.LaunchID, restored.Capability)
+	digest, err := saveService.StateFile(ctx, restored.LaunchID, restored.Capability)
 	expected := sha256.Sum256(checkpoint)
-	if err != nil || digest != fmt.Sprintf("%x", expected) {
-		t.Fatalf("StateDigest(ONS restore) = %s, %v", digest, err)
+	if err != nil || digest.Digest != fmt.Sprintf("%x", expected) {
+		t.Fatalf("StateDigest(ONS restore) = %s, %v", digest.Digest, err)
 	}
 	if _, err := database.ExecContext(ctx, `
 UPDATE runtime_targets SET checkpoint_json='{"writeFormat":"replacement-v2","readFormats":["replacement-v2"],"maxBytes":268435456}'
@@ -263,7 +265,7 @@ WHERE provider_id=? AND target_id=?
 		t.Fatalf("Create(ONS after incompatible save upgrade) error = %v", err)
 	}
 	var launchCount int
-	if err := database.QueryRowContext(ctx, `SELECT count(*) FROM launch_sessions`).Scan(&launchCount); err != nil {
+	if err := dbapi.QueryRowContext(ctx, database, `SELECT count(*) FROM launch_sessions`).Scan(&launchCount); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := service.Create(ctx, "ons-preview-profile", CreateRequest{
@@ -274,10 +276,10 @@ WHERE provider_id=? AND target_id=?
 	}
 	var launchCountAfter int
 	var compatibilityStatus string
-	if err := database.QueryRowContext(ctx, `SELECT count(*) FROM launch_sessions`).Scan(&launchCountAfter); err != nil {
+	if err := dbapi.QueryRowContext(ctx, database, `SELECT count(*) FROM launch_sessions`).Scan(&launchCountAfter); err != nil {
 		t.Fatal(err)
 	}
-	if err := database.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database, `
 SELECT status FROM (`+storequery.SaveRuntimeCompatibility+`) WHERE save_state_id=?
 `, result.SaveStateID).Scan(&compatibilityStatus); err != nil || launchCountAfter != launchCount ||
 		compatibilityStatus != "INCOMPATIBLE_RUNTIME" {
@@ -325,8 +327,8 @@ func onsManualRequest(t *testing.T, checkpoint, screenshot []byte) retromsaves.M
 func createONSReviewItem(
 	t *testing.T,
 	ctx context.Context,
-	database *sql.DB,
-	blobs *blobstore.Store,
+	database dbapi.DB,
+	blobs *filestore.Store,
 	dataDir string,
 ) (string, *libraryimport.Service) {
 	t.Helper()
@@ -357,7 +359,7 @@ func createONSReviewItem(
 		t.Fatal(err)
 	}
 	waitForONSReviewJob(t, ctx, database, jobID)
-	importService := libraryimport.New(database, time.Now).WithBlobStore(blobs)
+	importService := importfixture.New(t, database, blobs, importfixture.Options{Now: time.Now})
 	created, err := importService.Create(ctx, libraryimport.CreateRequest{
 		UploadID:                 upload.ID,
 		TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(t, database, "ons/onscripter_yuri"),
@@ -367,18 +369,18 @@ func createONSReviewItem(
 		t.Fatal(err)
 	}
 	var itemID string
-	if err := database.QueryRowContext(ctx, `SELECT id FROM import_items WHERE import_job_id=?`, created.ImportJobID).
+	if err := dbapi.QueryRowContext(ctx, database, `SELECT id FROM import_items WHERE import_job_id=?`, created.ImportJobID).
 		Scan(&itemID); err != nil {
 		t.Fatal(err)
 	}
 	return itemID, importService
 }
 
-func waitForONSReviewJob(t *testing.T, ctx context.Context, database *sql.DB, jobID string) {
+func waitForONSReviewJob(t *testing.T, ctx context.Context, database dbapi.DB, jobID string) {
 	t.Helper()
 	for deadline := time.Now().Add(3 * time.Second); ; {
 		var state string
-		if err := database.QueryRowContext(ctx, `SELECT state FROM jobs WHERE id=?`, jobID).Scan(&state); err != nil {
+		if err := dbapi.QueryRowContext(ctx, database, `SELECT state FROM jobs WHERE id=?`, jobID).Scan(&state); err != nil {
 			t.Fatal(err)
 		}
 		if state == "SUCCEEDED" {

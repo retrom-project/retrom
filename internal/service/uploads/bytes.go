@@ -48,23 +48,23 @@ func (service *Service) finalizeCandidate(ctx context.Context, run Run, file Can
 	if err != nil {
 		return false, fmt.Errorf("%w: read upload parts: %w", errFinalizeIO, err)
 	}
-	metadata, err := service.assembleFile(ctx, file, parts)
+	metadata, err := service.assembleFile(ctx, file, parts, run.UploadID)
 	if err != nil {
 		return false, err
 	}
 	stopped, err := service.finalizeWrite(ctx, run, func(scope WriteScope, _ SessionState) error {
 		now := service.now().UnixMilli()
-		blobID, err := scope.Blobs.Ensure(ctx, metadata, now)
+		fileRecord, err := scope.Blobs.Ensure(ctx, metadata, now)
 		if err != nil {
 			return fmt.Errorf("register finalized upload: %w", err)
 		}
 		if err := scope.Files.Publish(
 			ctx,
 			FilePublication{
-				Run:    run,
-				FileID: file.ID,
-				BlobID: blobID,
-				AtMS:   now,
+				Run:        run,
+				FileID:     file.ID,
+				FileRecord: fileRecord,
+				AtMS:       now,
 			},
 		); err != nil {
 			return fmt.Errorf("publish upload file: %w", err)

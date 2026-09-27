@@ -19,13 +19,14 @@ func (records materialRecords) Bind(ctx context.Context, change application.Mate
 	if source.Key.Kind == "" {
 		mediaType = "application/octet-stream"
 	}
-	blobID, err := registerVerifiedMaterial(ctx, records.tx, change.Blob, mediaType, change.NowMS)
+	fileRecord, err := registerVerifiedMaterial(ctx, records.tx, change.Blob, mediaType, change.NowMS)
 	if err != nil {
 		return "", err
 	}
+
 	update := recordstore.Update{
-		Set:    `blob_id=?,state='COPIED',updated_at_ms=?`,
-		Values: []any{blobID, change.NowMS},
+		Set:    `file_record=?,state='COPIED',updated_at_ms=?`,
+		Values: []any{fileRecord, change.NowMS},
 		Scope:  materialScope(change.Before, change.NowMS),
 	}
 	if source.Key.Kind == "" {
@@ -39,7 +40,7 @@ func (records materialRecords) Bind(ctx context.Context, change application.Mate
 			return "", err
 		}
 	}
-	return blobID, nil
+	return fileRecord, nil
 }
 
 func materialScope(before application.MaterialSnapshot, now int64) recordstore.Scope {
@@ -57,10 +58,10 @@ func materialScope(before application.MaterialSnapshot, now int64) recordstore.S
 		source.Size,
 		source.Facts,
 		before.State,
-		optionalText(before.BlobID),
+		optionalText(before.FileRecord),
 	}
 	where += ` AND relative_path=? AND size_bytes=? AND source_facts_digest=?
-AND state=? AND blob_id IS ? AND state='DISCOVERED'`
+AND state=? AND file_record IS ? AND state='DISCOVERED'`
 	if source.Key.Kind != "" {
 		where += ` AND COALESCE(media_type,'')=? AND width_px IS ? AND height_px IS ?`
 		args = append(args, source.MediaType, source.Width, source.Height)

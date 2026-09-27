@@ -4,7 +4,6 @@ package httpapi
 
 import (
 	"context"
-	"database/sql"
 	"database/sql/driver"
 	"errors"
 	"fmt"
@@ -16,17 +15,23 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/testsupport/importfixture"
+
+	variantcomposition "retrom/internal/composition/gamevariant"
+	variantrepository "retrom/internal/persistence/gamevariant"
+	gamevariant "retrom/internal/service/gamevariant"
+
 	"retrom/internal/cleanup"
 	launchcomposition "retrom/internal/composition/launch"
+	dbapi "retrom/internal/database"
 	"retrom/internal/dependencies"
 	"retrom/internal/launch"
-	"retrom/internal/libraryimport"
 	dependencypersistence "retrom/internal/persistence/dependencies"
+	idempotencypersistence "retrom/internal/persistence/idempotency"
 	jobpersistence "retrom/internal/persistence/jobs"
-	launchpersistence "retrom/internal/persistence/launch"
 	dependencyservice "retrom/internal/service/dependencies"
+	idempotencyservice "retrom/internal/service/idempotency"
 	"retrom/internal/service/jobs"
-	launchservice "retrom/internal/service/launch"
 	"retrom/internal/testsupport"
 )
 
@@ -50,17 +55,23 @@ func newValidationRetryFixture(t *testing.T) validationRetryFixture {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := dependencyservice.New(catalog, dependencypersistence.New(database.SQL)).Bootstrap(t.Context(), now()); err != nil {
+	if err := dependencyservice.New(catalog,
+		dependencypersistence.New(database.SQL)).Bootstrap(t.Context(), now()); err != nil {
 		t.Fatal(err)
 	}
+	variants := variantcomposition.New(database.SQL, launch.NewSources(nil, nil), now)
 	server := &Server{
-		database: database.SQL, now: now, jobService: jobs.New(jobpersistence.New(database.SQL), now),
-		importer: libraryimport.New(database.SQL, now), launcher: launchcomposition.New(database.SQL, launch.NewSources(nil, nil), "", now),
+		idempotencyService: idempotencyservice.New(idempotencypersistence.New(database.SQL)),
+		variants:           variants,
+		database:           database.SQL, now: now, jobService: jobs.New(jobpersistence.New(database.SQL), now),
+		importer: importfixture.New(t, database.SQL, nil, importfixture.Options{Now: now}), launcher: launchcomposition.New(database.SQL,
+			launch.NewSources(nil, nil), "", now, variants.Dispatch),
 	}
 	server.idempotencyQueueDrained = sync.NewCond(&server.idempotencyQueueMu)
 	fixture := validationRetryFixture{server: server, now: now}
 	fixture.jobID = seedValidationRetry(t, fixture)
-	t.Cleanup(server.launcher.Close)
+	t.Cleanup(server.variants.Close)
+	t.Cleanup(server.importer.Close)
 	return fixture
 }
 
@@ -70,18 +81,23 @@ func seedValidationRetry(t *testing.T, fixture validationRetryFixture) string {
 	now := fixture.now().UnixMilli()
 	gameID, variantID := "01980000-0000-7000-8000-000000000191", "01980000-0000-7000-8000-000000000192"
 	// The worker only needs relational content evidence; no runtime Provider build runs here.
-	validationRetrySQL(t, database, `INSERT INTO games(id,platform_instance_id,title,title_initial,description,developer,publisher,genre,metadata_source_kind,content_kind,content_source_kind,content_source_ref_id,source_manifest_json,source_manifest_digest,status,search_text,version,created_at_ms,updated_at_ms)
- VALUES(?,(SELECT id FROM platform_instances WHERE catalog_template_key='gbc/gambatte'),'Worker fixture','W','','','','','ADMIN_EDIT','SINGLE_FILE','ADMIN_REPLACE','fixture','{}',?,'PUBLISHED','worker fixture',1,?,?)`, gameID, strings.Repeat("1", 64), now, now)
-	validationRetrySQL(t, database, `INSERT INTO blobs(id,sha256,size_bytes,md5,sha1,crc32,media_type,created_at_ms) VALUES(?,?,1,?,?,?,'application/octet-stream',?)`, "01980000-0000-7000-8000-000000000193", strings.Repeat("2", 64), strings.Repeat("2", 32), strings.Repeat("2", 40), strings.Repeat("2", 8), now)
-	validationRetrySQL(t, database, `INSERT INTO game_files(game_id,role,logical_name,blob_id,sort_order) VALUES(?,'CONTENT','worker.gbc','01980000-0000-7000-8000-000000000193',0)`, gameID)
-	validationRetrySQL(t, database, `INSERT INTO game_variants(id,game_id,core_id,provider_id,target_id,status,compatibility_code,dependency_snapshot_json,version,created_at_ms,updated_at_ms)
- SELECT ?,?,'gambatte',provider_id,target_id,'BLOCKED','VALIDATION_PENDING','{}',1,?,? FROM runtime_target_bindings WHERE core_id='gambatte' LIMIT 1`, variantID, gameID, now, now)
-	provisional := launchservice.ValidationInputs{GameID: gameID, GameVariantID: variantID}
-	facts, err := launchpersistence.NewValidationWorker(database).Facts(t.Context(), provisional)
+	validationRetrySQL(t, database, `INSERT INTO games(id,platform_instance_id,title,title_initial,description,developer,publisher,genre,
+metadata_source_kind,content_kind,content_source_kind,content_source_ref_id,source_manifest_json,
+source_manifest_digest,status,search_text,version,created_at_ms,updated_at_ms)
+ VALUES(?,(SELECT id FROM platform_instances WHERE catalog_template_key='gbc/gambatte'),'Worker fixture',
+'W','','','','','ADMIN_EDIT','SINGLE_FILE','ADMIN_REPLACE','fixture','{}',?,'PUBLISHED','worker fixture',
+1,?,?)`, gameID, strings.Repeat("1", 64), now, now)
+	validationRetrySQL(t, database, `INSERT INTO game_files(game_id,role,logical_name,file_record,sort_order) VALUES(?,'CONTENT','worker.gbc',?,0)`, gameID, testsupport.FileMetadata("worker").Record)
+	validationRetrySQL(t, database, `INSERT INTO game_variants(id,game_id,core_id,provider_id,target_id,status,compatibility_code,
+dependency_snapshot_json,version,created_at_ms,updated_at_ms)
+ SELECT ?,?,'gambatte',provider_id,target_id,'BLOCKED','VALIDATION_PENDING','{}',1,?,? FROM
+runtime_target_bindings WHERE core_id='gambatte' LIMIT 1`, variantID, gameID, now, now)
+	provisional := gamevariant.ValidationInputs{GameID: gameID, GameVariantID: variantID}
+	facts, err := variantrepository.NewValidationWorker(database).Facts(t.Context(), provisional)
 	if err != nil {
 		t.Fatal(err)
 	}
-	inputs, err := launchservice.ProductValidationInputs(facts.Content, variantID)
+	inputs, err := gamevariant.Inputs(facts.Content, variantID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -89,7 +105,9 @@ func seedValidationRetry(t *testing.T, fixture validationRetryFixture) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	queued, err := launchservice.NewValidationScheduler(launchpersistence.NewValidationJobs(transaction), launchservice.ValidationEnvironment{Now: fixture.now}).Queue(t.Context(), inputs)
+	queued,
+		err := gamevariant.NewValidationScheduler(variantrepository.NewValidationJobs(transaction),
+		gamevariant.ValidationEnvironment{Now: fixture.now}).Queue(t.Context(), inputs)
 	if err != nil {
 		_ = transaction.Rollback()
 		t.Fatal(err)
@@ -97,11 +115,12 @@ func seedValidationRetry(t *testing.T, fixture validationRetryFixture) string {
 	if err := transaction.Commit(); err != nil {
 		t.Fatal(err)
 	}
-	validationRetrySQL(t, database, `UPDATE jobs SET state='FAILED',error_code='LAUNCH_CORE_VALIDATION_UNAVAILABLE',error_retryable=1,finished_at_ms=? WHERE id=?`, now, queued.JobID)
+	validationRetrySQL(t, database, `UPDATE jobs SET state='FAILED',error_code='LAUNCH_CORE_VALIDATION_UNAVAILABLE',error_retryable=1,
+finished_at_ms=? WHERE id=?`, now, queued.JobID)
 	return queued.JobID
 }
 
-func validationRetrySQL(t *testing.T, database *sql.DB, statement string, args ...any) {
+func validationRetrySQL(t *testing.T, database dbapi.DB, statement string, args ...any) {
 	t.Helper()
 	if _, err := database.ExecContext(t.Context(), statement, args...); err != nil {
 		t.Fatal(err)
@@ -127,7 +146,7 @@ func waitValidationRetry(t *testing.T, fixture validationRetryFixture) (string, 
 	for {
 		var state string
 		var execution, attempt int64
-		if err := fixture.server.database.QueryRowContext(t.Context(), `SELECT state,execution_no,attempt_count FROM jobs WHERE id=?`, fixture.jobID).Scan(&state, &execution, &attempt); err != nil {
+		if err := dbapi.QueryRowContext(t.Context(), fixture.server.database, `SELECT state,execution_no,attempt_count FROM jobs WHERE id=?`, fixture.jobID).Scan(&state, &execution, &attempt); err != nil {
 			t.Fatal(err)
 		}
 		if state == "SUCCEEDED" || state == "FAILED" {
@@ -170,13 +189,18 @@ func TestValidationRetryReceiptFailureDoesNotDispatch(t *testing.T) {
 	hits := 0
 	cause := errors.New("receipt write failed")
 	source := fixture.server.database
-	fixture.server.database = testsupport.OpenSQLFaultDatabase(t, source, testsupport.SQLFaultHooks{BeforeExec: func(_ context.Context, query string, args []driver.NamedValue) error {
-		if strings.Contains(query, "INSERT INTO idempotency_records") && len(args) > 1 && args[1].Value == "postAdminJobRetry" {
-			hits++
-			return cause
-		}
-		return nil
-	}})
+	fault := testsupport.OpenSQLFaultDatabase(t, source,
+		testsupport.SQLFaultHooks{BeforeExec: func(_ context.Context, query string,
+			args []driver.NamedValue,
+		) error {
+			if strings.Contains(query, "INSERT INTO idempotency_records") && len(args) > 1 &&
+				args[1].Value == "postAdminJobRetry" {
+				hits++
+				return cause
+			}
+			return nil
+		}})
+	fixture.server.idempotencyService = idempotencyservice.New(idempotencypersistence.New(fault))
 	response := httptest.NewRecorder()
 	fixture.request(t.Context(), response)
 	if response.Code != http.StatusInternalServerError || hits != 1 {
@@ -184,7 +208,7 @@ func TestValidationRetryReceiptFailureDoesNotDispatch(t *testing.T) {
 	}
 	var state string
 	var attempt int64
-	if err := fixture.server.database.QueryRowContext(t.Context(), `SELECT state,attempt_count FROM jobs WHERE id=?`, fixture.jobID).Scan(&state, &attempt); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), fixture.server.database, `SELECT state,attempt_count FROM jobs WHERE id=?`, fixture.jobID).Scan(&state, &attempt); err != nil {
 		t.Fatal(err)
 	}
 	if state != "QUEUED" || attempt != 0 {

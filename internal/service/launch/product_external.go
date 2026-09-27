@@ -5,7 +5,9 @@ import (
 	"path"
 	"strings"
 
-	"retrom/internal/corevalidation"
+	gamevariant "retrom/internal/service/gamevariant"
+
+	corevalidation "retrom/internal/core/validation"
 )
 
 func productExternalFiles(snapshot ProductSnapshot, content ProductContent) ([]ProductExternalFile, error) {
@@ -13,7 +15,10 @@ func productExternalFiles(snapshot ProductSnapshot, content ProductContent) ([]P
 	for _, disc := range content.Discs {
 		files = append(
 			files,
-			ProductExternalFile{Kind: "DISC", BlobID: disc.BlobID, LogicalName: disc.LogicalName, VirtualPath: disc.VirtualPath},
+			ProductExternalFile{
+				Kind: "DISC", FileRecord: disc.FileRecord,
+				LogicalName: disc.LogicalName, VirtualPath: disc.VirtualPath,
+			},
 		)
 	}
 	if snapshot.Source.DeliveryProfile == "EMULATORJS_CONTENT" ||
@@ -32,7 +37,7 @@ func productExternalFiles(snapshot ProductSnapshot, content ProductContent) ([]P
 	return append(files, ProductBundleFiles(snapshot.VariantFiles)...), nil
 }
 
-func ProductBundleFiles(inputs []ProductFile) []ProductExternalFile {
+func ProductBundleFiles(inputs []gamevariant.File) []ProductExternalFile {
 	files := make([]ProductExternalFile, 0)
 	for _, file := range inputs {
 		if file.Role != "BIOS_BUNDLE" && file.Role != "PARENT" {
@@ -41,7 +46,10 @@ func ProductBundleFiles(inputs []ProductFile) []ProductExternalFile {
 		virtual := fmt.Sprintf("/__retrom__/%s/%02d/%s", strings.ToLower(file.Role), file.SortOrder, file.LogicalName)
 		files = append(
 			files,
-			ProductExternalFile{Kind: file.Role, BlobID: file.BlobID, LogicalName: file.LogicalName, VirtualPath: virtual},
+			ProductExternalFile{
+				Kind: file.Role, FileRecord: file.FileRecord,
+				LogicalName: file.LogicalName, VirtualPath: virtual,
+			},
 		)
 	}
 	return files
@@ -92,7 +100,7 @@ func productExternalBIOS(
 			files,
 			ProductExternalFile{
 				Kind:        "BIOS",
-				BlobID:      *dependency.BlobID,
+				FileRecord:  *dependency.FileRecord,
 				LogicalName: dependency.LogicalName,
 				VirtualPath: *dependency.EmulatorPath,
 			},

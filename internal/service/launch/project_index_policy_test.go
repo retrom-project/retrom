@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/scummvm"
+	"retrom/internal/core/scummvm"
 )
 
 func TestProjectIndexesPreservesFormatDocumentsAndPreviewOrder(t *testing.T) {

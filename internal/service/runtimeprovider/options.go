@@ -3,9 +3,9 @@ package runtimeprovider
 import (
 	"fmt"
 
-	"retrom/internal/runtimebundle"
-	"retrom/internal/runtimecatalog"
-	"retrom/internal/runtimeoptions"
+	runtimebundle "retrom/internal/runtime/bundle"
+	runtimecatalog "retrom/internal/runtime/catalog"
+	runtimeoptions "retrom/internal/runtime/options"
 )
 
 func validateHostOptionStrategies(catalog runtimecatalog.Catalog, providers []ProviderProjection) error {

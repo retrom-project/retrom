@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/arcadedat"
 	"retrom/internal/dependencies"
-	"retrom/internal/runtimecatalog"
+	"retrom/internal/format/arcadedat"
+	runtimecatalog "retrom/internal/runtime/catalog"
 )
 
 func TestTargetRequiresUniqueProviderBinding(t *testing.T) {

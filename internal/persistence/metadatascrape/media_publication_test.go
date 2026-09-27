@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/hasheous"
 	"retrom/internal/service/metadatascrape"
 	"retrom/internal/testsupport"
@@ -18,7 +19,8 @@ func TestMediaFinalEventFailureRollsBackBlobAndReadyAsset(t *testing.T) {
 	hits := 0
 	faulted := testsupport.OpenSQLFaultDatabase(t, fixture.database, testsupport.SQLFaultHooks{
 		BeforeExec: func(_ context.Context, query string, args []driver.NamedValue) error {
-			if strings.Contains(query, "INSERT INTO job_events") && len(args) == 4 && args[0].Value == "SUCCEEDED" && args[3].Value == fixture.jobID {
+			if strings.Contains(query, "INSERT INTO job_events") && len(args) == 4 &&
+				args[0].Value == "SUCCEEDED" && args[3].Value == fixture.jobID {
 				hits++
 				return cause
 			}
@@ -33,11 +35,12 @@ func TestMediaFinalEventFailureRollsBackBlobAndReadyAsset(t *testing.T) {
 		t.Fatalf("final cause=%v hits=%d", err, hits)
 	}
 	snapshot := fixture.snapshot(t)
-	if snapshot.Asset.Status != "FETCHING" || snapshot.Job.State != "RUNNING" || snapshot.Charged != 5 || snapshot.Asset.Reserved != 0 {
+	if snapshot.Asset.Status != "FETCHING" || snapshot.Job.State != "RUNNING" ||
+		snapshot.Charged != 5 || snapshot.Asset.Reserved != 0 {
 		t.Fatalf("partial publication or lost bytes: %+v", snapshot)
 	}
 	var count int
-	if err := fixture.database.QueryRowContext(t.Context(), `SELECT count(*) FROM blobs`).Scan(&count); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT count(*) FROM scrape_candidate_assets WHERE file_record IS NOT NULL`).Scan(&count); err != nil {
 		t.Fatal(err)
 	}
 	if count != 0 {

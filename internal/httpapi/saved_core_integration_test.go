@@ -5,6 +5,7 @@ package httpapi
 import (
 	"testing"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/launch"
 )
 
@@ -18,7 +19,7 @@ func assertSavedCoreChoice(t *testing.T, server *Server, gameID, saveID string, 
 		t.Fatalf("saved launch = %+v, error=%v", saved, err)
 	}
 	var core string
-	if err := server.database.QueryRowContext(t.Context(), `SELECT core_id FROM launch_sessions WHERE id=?`, saved.LaunchID).Scan(&core); err != nil || core != expected {
+	if err := dbapi.QueryRowContext(t.Context(), server.database, `SELECT core_id FROM launch_sessions WHERE id=?`, saved.LaunchID).Scan(&core); err != nil || core != expected {
 		t.Fatalf("saved launch core = %q, want %q, error=%v", core, expected, err)
 	}
 }

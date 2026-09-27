@@ -4,11 +4,10 @@ package auditevents
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 )
 
 type Event struct {
@@ -19,7 +18,7 @@ type Event struct {
 	CreatedAtMS                                     int64
 }
 
-func Insert(ctx context.Context, executor dbexec.Executor, event Event) error {
+func Insert(ctx context.Context, executor dbapi.Executor, event Event) error {
 	before, err := nullableJSON(event.Before)
 	if err != nil {
 		return fmt.Errorf("auditevents: encode before: %w", err)
@@ -52,4 +51,4 @@ func nullableJSON(value any) (any, error) {
 	return string(encoded), nil
 }
 
-var _ dbexec.Executor = (*sql.Tx)(nil)
+var _ dbapi.Executor = dbapi.Tx(nil)

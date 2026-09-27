@@ -7,21 +7,21 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/recordstore"
 	tagrepository "retrom/internal/persistence/tagging"
 	application "retrom/internal/service/sourceimport"
 )
 
-type Mappings struct{ database *sql.DB }
+type Mappings struct{ database dbapi.DB }
 
-func NewMappings(database *sql.DB) *Mappings { return &Mappings{database: database} }
+func NewMappings(database dbapi.DB) *Mappings { return &Mappings{database: database} }
 func (repository *Mappings) WithMappings(ctx context.Context, work func(application.MappingScope) error) error {
 	tx, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin Source mappings: %w", err)
 	}
-	defer dbexec.Rollback(tx)
+	defer dbapi.Rollback(tx)
 	records := mappingRecords{executor: tx}
 	if err := work(application.MappingScope{Read: records, Write: records, Tags: tagrepository.Bind(tx)}); err != nil {
 		return err
@@ -32,7 +32,7 @@ func (repository *Mappings) WithMappings(ctx context.Context, work func(applicat
 	return nil
 }
 
-type mappingRecords struct{ executor dbexec.Executor }
+type mappingRecords struct{ executor dbapi.Executor }
 
 func (records mappingRecords) Import(ctx context.Context, id string) (application.Summary, error) {
 	return (&Queries{database: records.executor}).Get(ctx, id)
@@ -40,7 +40,8 @@ func (records mappingRecords) Import(ctx context.Context, id string) (applicatio
 
 func (records mappingRecords) CollectionOwner(ctx context.Context, id string) (string, error) {
 	var result string
-	err := records.executor.QueryRowContext(ctx, `SELECT import_id FROM source_import_collections WHERE id=?`, id).Scan(
+	err := dbapi.QueryRowContext(
+		ctx, records.executor, `SELECT import_id FROM source_import_collections WHERE id=?`, id).Scan(
 		&result,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -54,7 +55,7 @@ func (records mappingRecords) CollectionOwner(ctx context.Context, id string) (s
 
 func (records mappingRecords) EligibleTarget(ctx context.Context, id string) (application.MappingTarget, bool, error) {
 	var result application.MappingTarget
-	err := records.executor.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, records.executor, `
 SELECT instance.id,instance.version,instance.platform_id,instance.default_core_id,target.provider_id,target.target_id,
 (SELECT id FROM dat_versions WHERE provider_id=target.provider_id AND target_id=target.target_id AND is_active=1)
 FROM platform_instances instance

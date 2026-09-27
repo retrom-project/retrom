@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"retrom/internal/persistence/recordstore"
+
 	"retrom/internal/cleanup"
 	"retrom/internal/firmware"
 	"retrom/internal/importing"
@@ -41,7 +43,7 @@ func (store archiveRecords) Entries(ctx context.Context, id string) ([]importing
 		ctx,
 		`SELECT ordinal,original_relative_path,normalized_path,ascii_casefold_path,
  archive_format,compression_profile,uncompressed_size_bytes,crc32,md5,sha1,sha256
-FROM archive_entries WHERE archive_blob_id=? ORDER BY ordinal`,
+FROM archive_entries WHERE archive_file_record=? ORDER BY ordinal`,
 		id,
 	)
 	if err != nil {
@@ -77,19 +79,19 @@ FROM archive_entries WHERE archive_blob_id=? ORDER BY ordinal`,
 
 func (store writes) Put(ctx context.Context, id string, entries []importing.ArchiveEntry, now int64) error {
 	for _, entry := range entries {
-		if _, err := store.transaction.ExecContext(
+		if _, err := recordstore.InsertRows(
 			ctx,
-			`INSERT INTO archive_entries(archive_blob_id,ordinal,
+			store.transaction,
+			"archive_entries",
+			`INSERT INTO archive_entries(archive_file_record,ordinal,
 original_relative_path,normalized_path,ascii_casefold_path,archive_format,compression_profile,
-uncompressed_size_bytes,crc32,md5,sha1,sha256,materialized_blob_id,created_at_ms)
-VALUES(?,?,?,?,?,?,?,?,?,?,?,?,NULL,?) ON CONFLICT(archive_blob_id,ordinal) DO NOTHING`,
-
+uncompressed_size_bytes,crc32,md5,sha1,sha256,created_at_ms)
+VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(archive_file_record,ordinal) DO NOTHING`,
 			id,
 			entry.Ordinal,
 			entry.OriginalPath,
 			entry.NormalizedPath,
 			entry.ASCIICasefoldPath,
-
 			entry.ArchiveFormat,
 			entry.CompressionProfile,
 			entry.Size,

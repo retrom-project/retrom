@@ -3,7 +3,7 @@ package metadatascrape
 import (
 	"context"
 
-	"retrom/internal/blobstore"
+	"retrom/internal/filestore"
 	"retrom/internal/hasheous"
 )
 
@@ -18,7 +18,7 @@ type ResponseRecord struct {
 	ID, RequestDigest string
 	Outcome           hasheous.ProviderOutcome
 	HTTPStatus        int
-	Blob              *blobstore.Metadata
+	Blob              *filestore.Metadata
 	Cacheable         bool
 	Now, ExpiresAt    int64
 }

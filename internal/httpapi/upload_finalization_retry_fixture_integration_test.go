@@ -19,10 +19,14 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/blobstore"
-	"retrom/internal/libraryimport"
+	"retrom/internal/testsupport/importfixture"
+
+	dbapi "retrom/internal/database"
+	"retrom/internal/filestore"
+	idempotencypersistence "retrom/internal/persistence/idempotency"
 	jobpersistence "retrom/internal/persistence/jobs"
 	uploadpersistence "retrom/internal/persistence/uploads"
+	idempotencyservice "retrom/internal/service/idempotency"
 	"retrom/internal/service/jobs"
 	"retrom/internal/service/uploads"
 	"retrom/internal/testsupport"
@@ -33,13 +37,13 @@ type uploadRetryFixture struct {
 	version int64
 }
 type retryUploadBlobs struct {
-	blobs *blobstore.Store
+	blobs *filestore.Store
 	calls atomic.Int64
 }
 
-func (source *retryUploadBlobs) Put(reader io.Reader) (blobstore.Metadata, error) {
+func (source *retryUploadBlobs) Put(reader io.Reader) (filestore.Metadata, error) {
 	if source.calls.Add(1) == 1 {
-		return blobstore.Metadata{}, errors.New("temporary upload CAS failure")
+		return filestore.Metadata{}, errors.New("temporary upload CAS failure")
 	}
 	return source.blobs.Put(reader)
 }
@@ -57,26 +61,32 @@ func newUploadRetryFixture(t *testing.T) uploadRetryFixture {
 			t.Error(err)
 		}
 	})
-	blobs, err := blobstore.Open(root)
+	blobs, err := filestore.Open(root)
 	if err != nil {
 		t.Fatal(err)
 	}
 	uploader := uploads.New(uploadpersistence.New(database.SQL), &retryUploadBlobs{blobs: blobs}, root, now)
 	t.Cleanup(uploader.Close)
 	server := &Server{
-		database: database.SQL, now: now, uploads: uploader, jobService: jobs.New(jobpersistence.New(database.SQL), now),
-		importer: libraryimport.New(database.SQL, now),
+		idempotencyService: idempotencyservice.New(idempotencypersistence.New(database.SQL)),
+		database:           database.SQL, now: now, uploads: uploader, jobService: jobs.New(jobpersistence.New(database.SQL), now),
+		importer: importfixture.New(t, database.SQL, nil, importfixture.Options{Now: now}),
 	}
 	server.idempotencyQueueDrained = sync.NewCond(&server.idempotencyQueueMu)
-	session, err := uploader.Create(t.Context(), uploads.CreateRequest{SourceType: "FILES", Files: []uploads.FileDeclaration{
-		{ClientFileID: "fixture", RelativePath: "fixture.bin", SizeBytes: 5},
-	}})
+	t.Cleanup(server.importer.Close)
+	session, err := uploader.Create(t.Context(), uploads.CreateRequest{
+		SourceType: "FILES",
+		Files: []uploads.FileDeclaration{
+			{ClientFileID: "fixture", RelativePath: "fixture.bin", SizeBytes: 5},
+		},
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	sum := sha256.Sum256([]byte("bytes"))
 	digest := "sha-256=:" + base64.StdEncoding.EncodeToString(sum[:]) + ":"
-	if err := uploader.PutPart(t.Context(), session.ID, session.Files[0].ID, 0, "bytes 0-4/5", digest, bytes.NewBufferString("bytes")); err != nil {
+	if err := uploader.PutPart(t.Context(), session.ID, session.Files[0].ID, 0, "bytes 0-4/5",
+		digest, bytes.NewBufferString("bytes")); err != nil {
 		t.Fatal(err)
 	}
 	current, err := uploader.Get(t.Context(), session.ID)
@@ -92,7 +102,7 @@ func newUploadRetryFixture(t *testing.T) uploadRetryFixture {
 	if state != "FAILED" {
 		t.Fatalf("initial upload=%s", state)
 	}
-	if err := database.SQL.QueryRowContext(t.Context(), `SELECT version FROM jobs WHERE id=?`, id).Scan(&fixture.version); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), database.SQL, `SELECT version FROM jobs WHERE id=?`, id).Scan(&fixture.version); err != nil {
 		t.Fatal(err)
 	}
 	return fixture
@@ -106,4 +116,8 @@ func (fixture uploadRetryFixture) request(ctx context.Context, writer http.Respo
 	request.Header.Set("Idempotency-Key", validationRetryKey)
 	request.Header.Set("If-Match", fmt.Sprintf(`"v%d"`, fixture.version))
 	fixture.server.idempotencyHandler(http.HandlerFunc(fixture.server.retryJob)).ServeHTTP(writer, request)
+}
+
+func (source *retryUploadBlobs) CopyTo(ctx context.Context, value, directory, name string) (filestore.Metadata, error) {
+	return source.blobs.CopyTo(ctx, value, directory, name)
 }

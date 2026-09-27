@@ -6,8 +6,8 @@ import (
 	"slices"
 	"time"
 
-	"retrom/internal/runtimebundle"
-	"retrom/internal/runtimelaunch"
+	runtimebundle "retrom/internal/runtime/bundle"
+	runtimelaunch "retrom/internal/runtime/launch"
 )
 
 // Config holds the single closed-validated Provider envelope.
@@ -29,7 +29,6 @@ type ConfigSource struct {
 	ContentKind, DependencyJSON, Compatibility                        string
 	SaveID, DOSEntry                                                  *string
 	BootstrapEnd, HardEnd, InitialDisc                                int64
-	IdleEnd                                                           *int64
 }
 
 type ConfigFile struct {

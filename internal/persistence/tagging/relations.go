@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	"retrom/internal/cleanup"
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/recordstore"
 	"retrom/internal/service/tagging"
 )
@@ -112,7 +112,7 @@ func encodedIDs(values []string) string {
 
 func activeReferences(
 	ctx context.Context,
-	database dbexec.Executor,
+	database dbapi.Executor,
 	relationTable, ownerColumn, ownerID string,
 ) ([]tagging.Reference, error) {
 	query := `SELECT tag.id,tag.name FROM ` + relationTable + ` relation
@@ -137,7 +137,7 @@ WHERE relation.` + ownerColumn + `=? ORDER BY tag.name_key,tag.id`
 	return result, nil
 }
 
-func createOwnerTag(ctx context.Context, db dbexec.Executor, table, query string, args ...any) (sql.Result, error) {
+func createOwnerTag(ctx context.Context, db dbapi.Executor, table, query string, args ...any) (sql.Result, error) {
 	var result sql.Result
 	var err error
 
@@ -160,7 +160,7 @@ func createOwnerTag(ctx context.Context, db dbexec.Executor, table, query string
 
 func deleteOwnerTag(
 	ctx context.Context,
-	db dbexec.Executor,
+	db dbapi.Executor,
 	table string,
 	scope recordstore.Scope,
 ) (sql.Result, error) {

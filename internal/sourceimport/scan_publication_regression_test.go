@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/sourceimport"
 )
 
@@ -125,7 +126,7 @@ func TestRecoveredScanClearsPartialProjectionBeforeRetry(t *testing.T) {
 func assertEmptyScanProjection(t *testing.T, service *Service) {
 	t.Helper()
 	var count int
-	err := service.database.QueryRowContext(t.Context(), `SELECT
+	err := dbapi.QueryRowContext(t.Context(), service.database, `SELECT
 (SELECT count(*) FROM source_import_metadata_files WHERE import_id='import')+
 (SELECT count(*) FROM source_import_items WHERE import_id='import')`).Scan(&count)
 	if err != nil || count != 0 {

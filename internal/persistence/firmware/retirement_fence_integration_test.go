@@ -7,9 +7,10 @@ import (
 	"sync/atomic"
 	"testing"
 
-	retirement "retrom/internal/persistence/payloadrelease"
+	"retrom/internal/persistence/firmware/payloadbios"
+	"retrom/internal/persistence/launch/payloadlaunch"
 	"retrom/internal/persistence/recordstore"
-	application "retrom/internal/service/payloadrelease"
+	application "retrom/internal/service/cleanupjobs"
 )
 
 func TestRetirementRejectsReactivatedBIOS(t *testing.T) {
@@ -17,9 +18,9 @@ func TestRetirementRejectsReactivatedBIOS(t *testing.T) {
 	db, releases, now := retirementFixture(t)
 	t.Cleanup(releases.Close)
 	seedRetiringInstallation(t, db, "returning-installation", 0, now)
-	repo := retirement.NewRetirement(db)
+	repo := payloadbios.New(db)
 	var before application.BIOSRetirement
-	err := repo.WithRetirement(t.Context(), func(scope application.RetirementScope) error {
+	err := repo.WithBIOSRetirement(t.Context(), func(scope application.BIOSRetirementScope) error {
 		var err error
 		before, err = scope.Read.BIOS(t.Context(), 200)
 		return err
@@ -31,7 +32,7 @@ func TestRetirementRejectsReactivatedBIOS(t *testing.T) {
 WHERE id='returning-installation'`); err != nil {
 		t.Fatal(err)
 	}
-	err = repo.WithRetirement(t.Context(), func(scope application.RetirementScope) error {
+	err = repo.WithBIOSRetirement(t.Context(), func(scope application.BIOSRetirementScope) error {
 		if err := scope.BIOS.FenceBIOS(t.Context(), before); err != nil {
 			return err
 		}
@@ -51,9 +52,9 @@ func TestRetirementRejectsRenewedLaunchAndIncompleteFileDrain(t *testing.T) {
 			db, releases, now := retirementFixture(t)
 			t.Cleanup(releases.Close)
 			seedExpiringFirmwarePlay(t, db, now)
-			repo := retirement.NewRetirement(db)
+			repo := payloadlaunch.New(db)
 			var before application.LaunchRetirement
-			err := repo.WithRetirement(t.Context(), func(scope application.RetirementScope) error {
+			err := repo.WithLaunchRetirement(t.Context(), func(scope application.LaunchRetirementScope) error {
 				var err error
 				before, err = scope.Read.Launch(t.Context(), now, 200)
 				return err
@@ -68,14 +69,14 @@ func TestRetirementRejectsRenewedLaunchAndIncompleteFileDrain(t *testing.T) {
 				})
 			} else {
 				_, err = db.ExecContext(t.Context(), `INSERT INTO launch_external_files(
-launch_session_id,virtual_path,logical_name,blob_id,created_at_ms,kind)
-SELECT launch_session_id,'/bios/later.bin','later.bin',blob_id,created_at_ms,kind
+launch_session_id,virtual_path,logical_name,file_record,created_at_ms,kind)
+SELECT launch_session_id,'/bios/later.bin','later.bin',file_record,created_at_ms,kind
 FROM launch_external_files WHERE launch_session_id='firmware-launch' AND logical_name='gba_bios.bin'`)
 			}
 			if err != nil {
 				t.Fatal(err)
 			}
-			err = repo.WithRetirement(t.Context(), func(scope application.RetirementScope) error {
+			err = repo.WithLaunchRetirement(t.Context(), func(scope application.LaunchRetirementScope) error {
 				if err := scope.Launch.FenceLaunch(t.Context(), before); err != nil {
 					return err
 				}
@@ -87,7 +88,8 @@ FROM launch_external_files WHERE launch_session_id='firmware-launch' AND logical
 				if err := scope.Launch.ReleaseLaunchFiles(t.Context(), before); err != nil {
 					return err
 				}
-				return scope.Launch.CompleteLaunch(t.Context(), application.RetirementCompletion{ID: before.ID, DueMS: now, NowMS: now})
+				return scope.Launch.CompleteLaunch(t.Context(),
+					application.RetirementCompletion{ID: before.ID, DueMS: now, NowMS: now})
 			})
 			if !errors.Is(err, application.ErrRetirementSnapshotChanged) {
 				t.Fatalf("stale retirement committed: %v", err)
@@ -113,14 +115,15 @@ func TestRetirementRejectsZeroCompletionRows(t *testing.T) {
 			prefix, fragment := "UPDATE launch_payload_retirements SET released_at_ms=", "WHERE"
 			if bios {
 				seedRetiringInstallation(t, db, "zero-installation", 0, now)
-				prefix, fragment = "UPDATE bios_installations SET", "blob_id=NULL"
+				prefix, fragment = "UPDATE bios_installations SET", "file_record=NULL"
 			} else {
 				seedExpiringFirmwarePlay(t, db, now)
 			}
 			var hits atomic.Int64
 			service := faultRetirementService(t, db, now, prefix, fragment, nil, &hits)
-			err := service.ReconcileGC(t.Context())
-			if !errors.Is(err, application.ErrRetirementSnapshotChanged) || hits.Load() != 1 {
+			err := service.ReconcileDeletion(t.Context())
+			expected := application.ErrRetirementSnapshotChanged
+			if !errors.Is(err, expected) || hits.Load() != 1 {
 				t.Fatalf("zero row count accepted: hits=%d err=%v", hits.Load(), err)
 			}
 			assertBIOSReferenceCounts(t, db, 1, 1)

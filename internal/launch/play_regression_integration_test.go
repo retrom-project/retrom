@@ -6,7 +6,10 @@ import (
 	"errors"
 	"testing"
 
-	"retrom/internal/libraryimport"
+	"retrom/internal/testsupport/importfixture"
+
+	dbapi "retrom/internal/database"
+	application "retrom/internal/service/launch"
 
 	"github.com/google/uuid"
 	"modernc.org/sqlite"
@@ -16,12 +19,13 @@ func newProductPlayFixture(t *testing.T, activate bool) (reviewCheckpointFixture
 	t.Helper()
 	fixture := newReviewCheckpointFixture(t)
 	mustRPGLaunchSQL(t, fixture.database, `UPDATE import_items SET metadata_json='{"title":"Play lifecycle"}' WHERE id=?`, fixture.itemID)
-	importer := libraryimport.New(fixture.database, fixture.launcher.now)
+	importer := importfixture.New(t, fixture.database, fixture.files, importfixture.Options{Now: fixture.launcher.now})
 	published, err := importer.Approve(t.Context(), fixture.itemID, 2)
 	if err != nil {
 		t.Fatal(err)
 	}
-	created, err := fixture.launcher.Create(t.Context(), "local", CreateRequest{GameID: published.GameID, ReturnTo: "/games/" + published.GameID})
+	created, err := fixture.launcher.Create(t.Context(), "local",
+		CreateRequest{GameID: published.GameID, ReturnTo: "/games/" + published.GameID})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -33,47 +37,23 @@ func newProductPlayFixture(t *testing.T, activate bool) (reviewCheckpointFixture
 	return fixture, created
 }
 
-func TestRecordPlayFinishDuringLoadingClosesCreatedLaunch(t *testing.T) {
-	t.Parallel()
-	fixture, created := newProductPlayFixture(t, false)
-	event := PlayEvent{ClientObservedAtMS: fixture.now.UnixMilli()}
-	result, err := fixture.launcher.RecordPlay(t.Context(), created.LaunchID, created.Capability, "finish", event)
-	if err != nil || result.State != "FINISHED" || result.PlaySessionID != nil || result.AcceptedDuration != 0 {
-		t.Fatalf("finish=%#v error=%v", result, err)
-	}
-	var state string
-	var playCount int
-	if err := fixture.database.QueryRowContext(t.Context(), `SELECT state FROM launch_sessions WHERE id=?`, created.LaunchID).Scan(&state); err != nil {
-		t.Fatal(err)
-	}
-	if err := fixture.database.QueryRowContext(t.Context(), `SELECT count(*) FROM play_sessions WHERE launch_session_id=?`, created.LaunchID).Scan(&playCount); err != nil {
-		t.Fatal(err)
-	}
-	if state != "FINISHED" || playCount != 0 {
-		t.Fatalf("loading finish left state=%s play sessions=%d", state, playCount)
-	}
-	if err := fixture.launcher.AuthorizeSave(t.Context(), created.LaunchID, created.Capability); !errors.Is(err, ErrCredential) {
-		t.Fatalf("finished capability remains usable: %v", err)
-	}
-}
-
 type playEntropyFailure struct{ cause error }
 
 func (failure playEntropyFailure) Read([]byte) (int, error) { return 0, failure.cause }
 
-func TestRecordPlayStartRejectsIdentityFailureAtomically(t *testing.T) {
+func TestPlaySnapshotRejectsIdentityFailureAtomically(t *testing.T) {
 	fixture, created := newProductPlayFixture(t, true)
 	cause := errors.New("play identity entropy unavailable")
-	result, err := func() (PlayResult, error) {
+	result, err := func() (application.PlaySnapshotResult, error) {
 		uuid.SetRand(playEntropyFailure{cause: cause})
 		defer uuid.SetRand(nil)
-		return fixture.launcher.RecordPlay(t.Context(), created.LaunchID, created.Capability, "start", PlayEvent{ClientObservedAtMS: fixture.now.UnixMilli()})
+		return fixture.launcher.RecordPlaySnapshot(t.Context(), created.LaunchID, created.Capability, PlaySnapshot{})
 	}()
-	if !errors.Is(err, cause) || result.PlaySessionID != nil {
+	if !errors.Is(err, cause) || result.PlaySessionID != "" {
 		t.Fatalf("entropy failure started play: %#v %v", result, err)
 	}
 	var count int
-	if err := fixture.database.QueryRowContext(t.Context(), `SELECT count(*) FROM play_sessions WHERE launch_session_id=?`, created.LaunchID).Scan(&count); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT count(*) FROM play_sessions WHERE launch_session_id=?`, created.LaunchID).Scan(&count); err != nil {
 		t.Fatal(err)
 	}
 	if count != 0 {
@@ -81,42 +61,28 @@ func TestRecordPlayStartRejectsIdentityFailureAtomically(t *testing.T) {
 	}
 }
 
-func TestRecordPlayRejectsUnknownKindWhenReplayingHeartbeat(t *testing.T) {
+func TestPlaySnapshotRejectsRevokedSession(t *testing.T) {
 	t.Parallel()
 	fixture, created := newProductPlayFixture(t, true)
-	start := PlayEvent{ClientObservedAtMS: fixture.now.UnixMilli()}
-	if _, err := fixture.launcher.RecordPlay(t.Context(), created.LaunchID, created.Capability, "start", start); err != nil {
-		t.Fatal(err)
-	}
-	heartbeat := PlayEvent{ClientSequence: 1, ClientObservedAtMS: fixture.now.UnixMilli(), PreviousInterval: &Interval{Running: true, Visible: true}}
-	if _, err := fixture.launcher.RecordPlay(t.Context(), created.LaunchID, created.Capability, "heartbeat", heartbeat); err != nil {
-		t.Fatal(err)
-	}
-	if result, err := fixture.launcher.RecordPlay(t.Context(), created.LaunchID, created.Capability, "unknown", heartbeat); !errors.Is(err, ErrBlocked) || result.PlaySessionID != nil {
-		t.Fatalf("unknown replay kind accepted: %#v %v", result, err)
-	}
-}
-
-func TestRecordPlayDoesNotReplayRevokedSession(t *testing.T) {
-	t.Parallel()
-	fixture, created := newProductPlayFixture(t, true)
-	event := PlayEvent{ClientObservedAtMS: fixture.now.UnixMilli()}
-	if _, err := fixture.launcher.RecordPlay(t.Context(), created.LaunchID, created.Capability, "start", event); err != nil {
+	event := PlaySnapshot{ActiveDurationMS: 1000}
+	if _, err := fixture.launcher.RecordPlaySnapshot(t.Context(), created.LaunchID, created.Capability,
+		event); err != nil {
 		t.Fatal(err)
 	}
 	mustRPGLaunchSQL(t, fixture.database, `UPDATE launch_sessions SET state='REVOKED',finished_at_ms=?,version=version+1 WHERE id=?`, fixture.now.UnixMilli(), created.LaunchID)
-	if result, err := fixture.launcher.RecordPlay(t.Context(), created.LaunchID, created.Capability, "start", event); !errors.Is(err, ErrCredential) || result.PlaySessionID != nil {
+	if result, err := fixture.launcher.RecordPlaySnapshot(t.Context(), created.LaunchID,
+		created.Capability, event); !errors.Is(err, ErrCredential) || result.PlaySessionID != "" {
 		t.Fatalf("revoked session replayed: %#v %v", result, err)
 	}
 }
 
-func TestRecordPlayPreservesSourceStorageError(t *testing.T) {
+func TestPlaySnapshotPreservesSourceStorageError(t *testing.T) {
 	t.Parallel()
 	fixture, created := newProductPlayFixture(t, true)
 	mustRPGLaunchSQL(t, fixture.database, `ALTER TABLE launch_sessions RENAME TO unavailable_launch_sessions`)
-	result, err := fixture.launcher.RecordPlay(t.Context(), created.LaunchID, created.Capability, "start", PlayEvent{ClientObservedAtMS: fixture.now.UnixMilli()})
+	result, err := fixture.launcher.RecordPlaySnapshot(t.Context(), created.LaunchID, created.Capability, PlaySnapshot{})
 	var storageError *sqlite.Error
-	if !errors.As(err, &storageError) || result.PlaySessionID != nil {
+	if !errors.As(err, &storageError) || result.PlaySessionID != "" {
 		t.Fatalf("source storage cause lost: %#v %v", result, err)
 	}
 }

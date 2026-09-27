@@ -7,13 +7,13 @@ import (
 	"fmt"
 
 	"retrom/internal/cleanup"
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/libraryimport"
 )
 
-func scanApprovalAsset(row dbexec.Scanner) (application.ApprovalExternalAsset, bool, error) {
+func scanApprovalAsset(row dbapi.Scanner) (application.ApprovalExternalAsset, bool, error) {
 	var asset application.ApprovalExternalAsset
-	err := row.Scan(&asset.BlobID, &asset.WidthPX, &asset.HeightPX, &asset.MediaType)
+	err := row.Scan(&asset.FileRecord, &asset.WidthPX, &asset.HeightPX, &asset.MediaType)
 	if errors.Is(err, sql.ErrNoRows) {
 		return application.ApprovalExternalAsset{}, false, nil
 	}
@@ -26,8 +26,8 @@ func scanApprovalAsset(row dbexec.Scanner) (application.ApprovalExternalAsset, b
 func (records reviewApprovalRecords) Candidate(
 	ctx context.Context, itemID, assetID string,
 ) (application.ApprovalExternalAsset, bool, error) {
-	return scanApprovalAsset(records.transaction.QueryRowContext(ctx, `
-SELECT a.blob_id,a.width_px,a.height_px,a.media_type
+	return scanApprovalAsset(dbapi.QueryRowContext(ctx, records.transaction, `
+SELECT a.file_record,a.width_px,a.height_px,a.media_type
 FROM scrape_candidate_assets a
 JOIN scrape_candidates c ON c.id=a.scrape_candidate_id
 JOIN metadata_scrape_runs r ON r.id=c.scrape_run_id
@@ -37,8 +37,8 @@ WHERE a.id=? AND a.status='READY' AND r.import_item_id=? AND r.state='COMPLETED'
 func (records reviewApprovalRecords) UploadedCover(
 	ctx context.Context, itemID, assetID string,
 ) (application.ApprovalExternalAsset, bool, error) {
-	return scanApprovalAsset(records.transaction.QueryRowContext(ctx, `
-SELECT blob_id,width_px,height_px,media_type FROM review_uploaded_assets
+	return scanApprovalAsset(dbapi.QueryRowContext(ctx, records.transaction, `
+SELECT file_record,width_px,height_px,media_type FROM review_uploaded_assets
 WHERE id=? AND import_item_id=? AND kind='COVER'`, assetID, itemID))
 }
 
@@ -46,20 +46,11 @@ func (records reviewApprovalRecords) Screenshots(ctx context.Context, itemID str
 	return (ReviewDrafts{executor: records.transaction}).ScreenshotIDs(ctx, itemID)
 }
 
-func (records reviewApprovalRecords) BlobExists(ctx context.Context, id string) (bool, error) {
-	var exists bool
-	if err := records.transaction.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM blobs WHERE id=?)`,
-		id).Scan(&exists); err != nil {
-		return false, fmt.Errorf("read approved source blob: %w", err)
-	}
-	return exists, nil
-}
-
 func (records reviewApprovalRecords) Origin(
 	ctx context.Context, itemID string,
 ) (application.ApprovalOrigin, bool, error) {
 	var origin application.ApprovalOrigin
-	err := records.transaction.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, records.transaction, `
 SELECT source_ref_id,source_kind FROM (
  SELECT id AS source_ref_id,'IMPORT_RECEIVE' AS source_kind FROM source_import_items
  WHERE library_import_item_id=? AND execution_state='REVIEW_PENDING'
@@ -70,7 +61,7 @@ SELECT source_ref_id,source_kind FROM (
 	if err != nil {
 		return application.ApprovalOrigin{}, false, fmt.Errorf("read approval source: %w", err)
 	}
-	assets, err := records.originAssets(ctx, origin)
+	assets, err := records.originAssets(ctx, itemID)
 	if err != nil {
 		return application.ApprovalOrigin{}, false, err
 	}
@@ -79,13 +70,13 @@ SELECT source_ref_id,source_kind FROM (
 }
 
 func (records reviewApprovalRecords) originAssets(
-	ctx context.Context, origin application.ApprovalOrigin,
+	ctx context.Context, itemID string,
 ) ([]application.ApprovalExternalAsset, error) {
-	table := "source_import_item_assets"
+	table := "import_item_assets"
 	rows, err := records.transaction.QueryContext(ctx, `
-SELECT kind,blob_id,media_type,width_px,height_px FROM `+table+`
-WHERE item_id=? AND state='COPIED' AND blob_id IS NOT NULL AND media_type IS NOT NULL
-ORDER BY CASE kind WHEN 'COVER' THEN 0 ELSE 1 END`, origin.RefID)
+SELECT kind,file_record,media_type,width_px,height_px FROM `+table+`
+WHERE import_item_id=?
+ORDER BY CASE kind WHEN 'COVER' THEN 0 ELSE 1 END`, itemID)
 	if err != nil {
 		return nil, fmt.Errorf("read approval source assets: %w", err)
 	}
@@ -93,7 +84,7 @@ ORDER BY CASE kind WHEN 'COVER' THEN 0 ELSE 1 END`, origin.RefID)
 	assets := make([]application.ApprovalExternalAsset, 0)
 	for rows.Next() {
 		var asset application.ApprovalExternalAsset
-		if err := rows.Scan(&asset.Kind, &asset.BlobID, &asset.MediaType, &asset.WidthPX,
+		if err := rows.Scan(&asset.Kind, &asset.FileRecord, &asset.MediaType, &asset.WidthPX,
 			&asset.HeightPX); err != nil {
 			return nil, fmt.Errorf("scan approval source asset: %w", err)
 		}

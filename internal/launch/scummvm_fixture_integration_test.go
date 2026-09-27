@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
-	"database/sql"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -17,17 +16,20 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/testsupport/importfixture"
+
+	dbapi "retrom/internal/database"
 	uploadpersistence "retrom/internal/persistence/uploads"
 
 	dependencypersistence "retrom/internal/persistence/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 
-	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
+	"retrom/internal/core/scummvm"
 	"retrom/internal/dependencies"
+	"retrom/internal/filestore"
 	"retrom/internal/libraryimport"
 	retromruntime "retrom/internal/runtime"
-	"retrom/internal/scummvm"
 	"retrom/internal/service/uploads"
 	"retrom/internal/testsupport"
 )
@@ -37,7 +39,7 @@ const scummVMActor = "01980000-0000-7000-8000-000000009975"
 type scummVMFixture struct {
 	service  *Service
 	importer *libraryimport.Service
-	database *sql.DB
+	database dbapi.DB
 	itemID   string
 }
 
@@ -66,11 +68,11 @@ func newScummVMFixtureAt(t *testing.T, roots []string, now func() time.Time) scu
 	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, now()); err != nil {
 		t.Fatal(err)
 	}
-	blobs, err := blobstore.Open(dir)
+	blobs, err := filestore.Open(dir)
 	if err != nil {
 		t.Fatal(err)
 	}
-	importer := libraryimport.New(database.SQL, now).WithBlobStore(blobs).WithScummVMDetector(scummVMFixtureDetector(t, roots))
+	importer := importfixture.New(t, database.SQL, blobs, importfixture.Options{Now: now, ScummVMDetector: scummVMFixtureDetector(t, roots)})
 	itemID := uploadScummVMFixture(t, database.SQL, blobs, dir, importer, now)
 	credentials, err := retromruntime.LoadOrCreateCredentials(dir)
 	if err != nil {
@@ -80,7 +82,7 @@ func newScummVMFixtureAt(t *testing.T, roots []string, now func() time.Time) scu
 	if err != nil {
 		t.Fatal(err)
 	}
-	service := New(database.SQL, dependencySet, credentials, now).WithBlobStore(blobs).WithRuntimeProvider(dependencySet.RuntimeCatalog, builder)
+	service := New(database.SQL, dependencySet, credentials, now).WithFileStore(blobs).WithRuntimeProvider(dependencySet.RuntimeCatalog, builder)
 	return scummVMFixture{service, importer, database.SQL, itemID}
 }
 
@@ -105,7 +107,7 @@ func scummVMFixtureDetector(t *testing.T, roots []string) *scummvm.Detector {
 	})
 }
 
-func uploadScummVMFixture(t *testing.T, database *sql.DB, blobs *blobstore.Store, dir string, importer *libraryimport.Service, now func() time.Time) string {
+func uploadScummVMFixture(t *testing.T, database dbapi.DB, blobs *filestore.Store, dir string, importer *libraryimport.Service, now func() time.Time) string {
 	t.Helper()
 	ctx := t.Context()
 	var body bytes.Buffer
@@ -146,7 +148,7 @@ func uploadScummVMFixture(t *testing.T, database *sql.DB, blobs *blobstore.Store
 		t.Fatal(err)
 	}
 	var itemID string
-	if err := database.QueryRowContext(ctx, `SELECT id FROM import_items WHERE import_job_id=?`, created.ImportJobID).Scan(&itemID); err != nil {
+	if err := dbapi.QueryRowContext(ctx, database, `SELECT id FROM import_items WHERE import_job_id=?`, created.ImportJobID).Scan(&itemID); err != nil {
 		t.Fatal(err)
 	}
 	return itemID
@@ -155,7 +157,7 @@ func uploadScummVMFixture(t *testing.T, database *sql.DB, blobs *blobstore.Store
 func (fixture scummVMFixture) snapshot(t *testing.T) (string, scummvm.Snapshot) {
 	t.Helper()
 	var id, raw string
-	err := fixture.database.QueryRowContext(t.Context(), `SELECT validation.id,validation.dependency_snapshot_json FROM import_item_core_validations validation WHERE validation.import_item_id=? ORDER BY validation.created_at_ms DESC,validation.id DESC LIMIT 1`, fixture.itemID).Scan(&id, &raw)
+	err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT validation.id,validation.dependency_snapshot_json FROM import_item_core_validations validation WHERE validation.import_item_id=? ORDER BY validation.created_at_ms DESC,validation.id DESC LIMIT 1`, fixture.itemID).Scan(&id, &raw)
 	if err != nil {
 		t.Fatal(err)
 	}

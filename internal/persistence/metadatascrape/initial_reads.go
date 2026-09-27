@@ -6,20 +6,22 @@ import (
 	"errors"
 	"fmt"
 
+	dbapi "retrom/internal/database"
+
 	"retrom/internal/cleanup"
 	"retrom/internal/service/metadatascrape"
 )
 
-type initialRecords struct{ transaction *sql.Tx }
+type initialRecords struct{ transaction dbapi.Tx }
 
-func BindInitialReview(transaction *sql.Tx) metadatascrape.InitialReviewScope {
+func BindInitialReview(transaction dbapi.Tx) metadatascrape.InitialReviewScope {
 	records := initialRecords{transaction}
 	return metadatascrape.InitialReviewScope{Read: records, Write: records}
 }
 
 func (records initialRecords) Import(ctx context.Context, id string) (metadatascrape.InitialImport, bool, error) {
 	var item metadatascrape.InitialImport
-	err := records.transaction.QueryRowContext(ctx, `SELECT i.id,i.import_job_id,i.state,j.running_item_count,
+	err := dbapi.QueryRowContext(ctx, records.transaction, `SELECT i.id,i.import_job_id,i.state,j.running_item_count,
  j.failed_item_count,j.rejected_file_count,j.version FROM metadata_scrape_runs r
  JOIN import_items i ON i.id=r.import_item_id JOIN import_jobs j ON j.id=i.import_job_id WHERE r.id=?`, id).
 		Scan(&item.ItemID, &item.ImportJobID, &item.ItemState, &item.Running, &item.Failed, &item.Rejected, &item.Version)
@@ -65,8 +67,9 @@ func (records initialRecords) Candidates(ctx context.Context, id string) ([]meta
 
 func (records initialRecords) Draft(ctx context.Context, id string) (metadatascrape.InitialDraft, error) {
 	var draft metadatascrape.InitialDraft
-	err := records.transaction.QueryRowContext(
-		ctx,
+	err := dbapi.QueryRowContext(
+		ctx, records.transaction,
+
 		`SELECT id,metadata_json FROM import_items WHERE id=?`,
 		id,
 	).Scan(

@@ -6,14 +6,16 @@ import (
 	"errors"
 	"fmt"
 
+	dbapi "retrom/internal/database"
+
 	application "retrom/internal/service/idempotency"
 )
 
 type Repository struct {
-	database *sql.DB
+	database dbapi.DB
 }
 
-func New(database *sql.DB) *Repository {
+func New(database dbapi.DB) *Repository {
 	return &Repository{database: database}
 }
 
@@ -36,7 +38,7 @@ func (repository *Repository) Find(
 	ctx context.Context, operationID, key, principalID string,
 ) (application.Receipt, bool, error) {
 	var receipt application.Receipt
-	err := repository.database.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, repository.database, `
 SELECT request_digest,http_status,response_headers_json,response_body
 FROM idempotency_records
 WHERE operation_id=?

@@ -58,7 +58,7 @@ linters:
         storage-layer:
           files:
             - "internal/store/**/*.go"
-            - "internal/blobstore/**/*.go"
+            - "internal/filestore/**/*.go"
           deny:
             - pkg: retrom/internal/httpapi
               desc: storage must not depend on HTTP
@@ -70,7 +70,7 @@ linters:
               desc: storage must not depend on application modules
         arcade-parser-layer:
           files:
-            - "internal/arcadedat/**/*.go"
+            - "internal/format/arcadedat/**/*.go"
           deny:
             - pkg: retrom/internal/httpapi
               desc: DAT parsing must remain protocol independent

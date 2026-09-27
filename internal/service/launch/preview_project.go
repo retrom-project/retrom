@@ -3,13 +3,13 @@ package launch
 import (
 	"fmt"
 
-	butter "retrom/internal/butterscotch/detector"
-	daphne "retrom/internal/daphne/detector"
-	kiri "retrom/internal/kirikiri/detector"
-	nx "retrom/internal/nxengine/detector"
-	ons "retrom/internal/ons/detector"
-	"retrom/internal/scummvm"
-	tyrano "retrom/internal/tyranoscript/detector"
+	butter "retrom/internal/core/butterscotch/detector"
+	daphne "retrom/internal/core/daphne/detector"
+	kiri "retrom/internal/core/kirikiri/detector"
+	nx "retrom/internal/core/nxengine/detector"
+	ons "retrom/internal/core/ons/detector"
+	"retrom/internal/core/scummvm"
+	tyrano "retrom/internal/core/tyranoscript/detector"
 )
 
 func previewProjectContent(snapshot PreviewSnapshot) (PreviewContent, error) {
@@ -30,7 +30,7 @@ func previewProjectContent(snapshot PreviewSnapshot) (PreviewContent, error) {
 			continue
 		}
 		if file.LogicalName == marker {
-			content.BlobID, content.LogicalName = file.BlobID, file.LogicalName
+			content.FileRecord, content.LogicalName = file.FileRecord, file.LogicalName
 			continue
 		}
 		if len(content.Files) >= maximum {
@@ -38,7 +38,7 @@ func previewProjectContent(snapshot PreviewSnapshot) (PreviewContent, error) {
 		}
 		content.Files = append(content.Files, file)
 	}
-	if content.BlobID == "" || (snapshot.Source.ContentKind == "ONS_PROJECT" && len(content.Files) == 0) {
+	if content.FileRecord == "" || (snapshot.Source.ContentKind == "ONS_PROJECT" && len(content.Files) == 0) {
 		return PreviewContent{}, ErrReviewPreviewUnavailable
 	}
 	return content, nil

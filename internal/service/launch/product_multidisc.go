@@ -5,7 +5,9 @@ import (
 	"encoding/hex"
 	"fmt"
 
-	"retrom/internal/corevalidation"
+	gamevariant "retrom/internal/service/gamevariant"
+
+	corevalidation "retrom/internal/core/validation"
 	"retrom/internal/multidisc"
 )
 
@@ -25,20 +27,22 @@ func productMultiDiscContent(snapshot ProductSnapshot) (ProductContent, error) {
 	if !validProductMultiDiscEvidence(locked.MultiDisc, discs, canonical, playlist) {
 		return ProductContent{}, ErrBlocked
 	}
-	checks := []ProductBlobCheck{{Digest: playlist.Digest, SizeBytes: playlist.SizeBytes, Exact: canonical}}
+	checks := []ProductBlobCheck{
+		{FileRecord: playlist.FileRecord, Digest: playlist.Digest, SizeBytes: playlist.SizeBytes, Exact: canonical},
+	}
 	for _, disc := range discs {
-		checks = append(checks, ProductBlobCheck{Digest: disc.Digest, SizeBytes: disc.SizeBytes})
+		checks = append(checks, ProductBlobCheck{FileRecord: disc.FileRecord, Digest: disc.Digest, SizeBytes: disc.SizeBytes})
 	}
 	return ProductContent{
 		Files: []ProductContentFile{
-			{BlobID: playlist.BlobID, LogicalName: "playlist.m3u", Format: "RETROM_MULTIDISC_M3U_V1"},
+			{FileRecord: playlist.FileRecord, LogicalName: "playlist.m3u", Format: "RETROM_MULTIDISC_M3U_V1"},
 		},
 		Discs:  discs,
 		Checks: checks,
 	}, nil
 }
 
-func productDiscs(files []ProductFile) ([]ProductDisc, []byte, error) {
+func productDiscs(files []gamevariant.File) ([]ProductDisc, []byte, error) {
 	discs := make([]ProductDisc, 0, multidisc.MaxDiscs)
 	canonical := make([]byte, 0, multidisc.MaxDiscs*13)
 	var total int64
@@ -55,7 +59,7 @@ func productDiscs(files []ProductFile) ([]ProductDisc, []byte, error) {
 			discs,
 			ProductDisc{
 				Index:       index,
-				BlobID:      file.BlobID,
+				FileRecord:  file.FileRecord,
 				Digest:      file.Digest,
 				SizeBytes:   file.SizeBytes,
 				LogicalName: name,
@@ -73,7 +77,7 @@ func validProductMultiDiscEvidence(
 	snapshot *corevalidation.MultiDiscSnapshot,
 	discs []ProductDisc,
 	canonical []byte,
-	playlist ProductFile,
+	playlist gamevariant.File,
 ) bool {
 	hash := sha256.Sum256(canonical)
 	digest := hex.EncodeToString(hash[:])

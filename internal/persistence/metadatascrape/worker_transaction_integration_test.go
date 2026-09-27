@@ -4,15 +4,15 @@ package metadatascrape_test
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"testing"
 
+	dbapi "retrom/internal/database"
 	workerpersistence "retrom/internal/persistence/metadatascrape"
 	workerservice "retrom/internal/service/metadatascrape"
 )
 
-func assertMetadataClaimAndCompletionRollback(t *testing.T, database *sql.DB, runID, jobID, itemID string) {
+func assertMetadataClaimAndCompletionRollback(t *testing.T, database dbapi.DB, runID, jobID, itemID string) {
 	t.Helper()
 	before := readInitialProgress(t, database, itemID)
 	claim := workerservice.WorkerClaim{RunID: runID, JobID: jobID, WorkerID: "transaction-test", ExecutionNo: 1, Now: mediaFixtureNow().UnixMilli()}
@@ -64,7 +64,7 @@ func assertMetadataClaimAndCompletionRollback(t *testing.T, database *sql.DB, ru
 	}
 	var state, runState string
 	var events int
-	if err := database.QueryRowContext(t.Context(), `SELECT j.state,r.state,(SELECT count(*) FROM job_events WHERE job_id=j.id AND event_type<>'QUEUED') FROM jobs j JOIN metadata_scrape_runs r ON r.job_id=j.id WHERE j.id=?`, jobID).Scan(&state, &runState, &events); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), database, `SELECT j.state,r.state,(SELECT count(*) FROM job_events WHERE job_id=j.id AND event_type<>'QUEUED') FROM jobs j JOIN metadata_scrape_runs r ON r.job_id=j.id WHERE j.id=?`, jobID).Scan(&state, &runState, &events); err != nil {
 		t.Fatal(err)
 	}
 	if state != "QUEUED" || runState != "RUNNING" || events != 0 {

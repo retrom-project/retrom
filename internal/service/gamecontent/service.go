@@ -5,9 +5,8 @@ import (
 	"errors"
 	"time"
 
-	"retrom/internal/blobstore"
-	"retrom/internal/contentcapability"
-	"retrom/internal/service/payloadrelease"
+	contentcapability "retrom/internal/content/capability"
+	"retrom/internal/filestore"
 )
 
 var (
@@ -24,30 +23,35 @@ type Scheduled struct {
 }
 type Service struct {
 	repository             Repository
-	blobs                  *blobstore.Store
-	payloadReleases        ReleaseSignal
-	gc                     payloadrelease.GCStager
+	blobs                  *filestore.Store
+	cleanupJobs            ReleaseSignal
 	multiDiscImportEnabled bool
 	now                    func() time.Time
 }
 
-func New(repository Repository, now func() time.Time) *Service {
-	return &Service{repository: repository, now: now}
+type Dependencies struct {
+	Repository Repository
+	Files      *filestore.Store
+	// Cleanup optionally wakes the durable cleanup queue.
+	Cleanup ReleaseSignal
 }
 
-func (service *Service) WithBlobStore(blobs *blobstore.Store) *Service {
-	service.blobs = blobs
-	return service
+type Options struct {
+	Now              func() time.Time
+	MultiDiscEnabled bool
 }
 
-func (service *Service) WithPayloadRelease(signal ReleaseSignal) *Service {
-	service.payloadReleases = signal
-	return service
-}
-
-func (service *Service) WithMultiDiscImportEnabled(enabled bool) *Service {
-	service.multiDiscImportEnabled = enabled
-	return service
+func New(deps Dependencies, options Options) *Service {
+	if deps.Repository == nil || deps.Files == nil {
+		panic("gamecontent: repository and files are required")
+	}
+	if options.Now == nil {
+		options.Now = time.Now
+	}
+	return &Service{
+		repository: deps.Repository, blobs: deps.Files, cleanupJobs: deps.Cleanup,
+		now: options.Now, multiDiscImportEnabled: options.MultiDiscEnabled,
+	}
 }
 
 type replacementValidationError struct{ code string }
@@ -118,9 +122,4 @@ func pointerText(value *string) string {
 		return ""
 	}
 	return *value
-}
-
-func (service *Service) WithGCStager(gc payloadrelease.GCStager) *Service {
-	service.gc = gc
-	return service
 }

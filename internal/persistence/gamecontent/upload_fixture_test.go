@@ -4,12 +4,13 @@ package gamecontent
 
 import (
 	"context"
-	"database/sql"
+
+	dbapi "retrom/internal/database"
 
 	"retrom/internal/service/gamecontent"
 )
 
-func validateUploadFixture(ctx context.Context, transaction *sql.Tx, id, mode, platform string) error {
+func validateUploadFixture(ctx context.Context, transaction dbapi.Tx, id, mode, platform string) error {
 	upload, err := (records{transaction}).Upload(ctx, id)
 	if err != nil {
 		return err

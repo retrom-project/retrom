@@ -17,12 +17,12 @@ afterEach(() => {
 });
 
 describe("Player page exit protection", () => {
-  it("finishes a review preview through ordinary events after queued saves, then closes its popup", async () => {
+  it("closes a review preview without an event body after queued saves", async () => {
     const order: string[] = [];
     let saved!: () => void;
     vi.stubGlobal("opener", {});
     vi.spyOn(window, "close").mockImplementation(() => {order.push("close"); vi.stubGlobal("closed", true);});
-    vi.spyOn(globalThis, "fetch").mockImplementation(async () => {order.push("finish"); return new Response("{}");});
+    const finish = vi.spyOn(globalThis, "fetch").mockImplementation(async () => {order.push("finish"); return new Response(null, {status: 204});});
     const params = sessionParams();
     params.envelope.current = {session: {purpose: "REVIEW_PREVIEW"}} as LaunchEnvelopeV1;
     params.started.current = true;
@@ -34,6 +34,7 @@ describe("Player page exit protection", () => {
     saved();
     await act(() => exiting);
     expect(order).toEqual(["finish", "close"]);
+    expect(finish).toHaveBeenCalledWith("/runtime/launches/launch-1/finish", {method: "POST", credentials: "same-origin", keepalive: true});
     expect(params.finishing.current).toBe(true);
   });
   it("blocks accidental unload only while a started session remains active", () => {
@@ -81,16 +82,16 @@ describe("Player page exit protection", () => {
 
   it("clears the progress timer when exit begins", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("{}", {status: 200}));
-    const clearHeartbeat = vi.spyOn(window, "clearInterval");
+    const clearProgressTimer = vi.spyOn(window, "clearInterval");
     const params = sessionParams();
     params.started.current = true;
-    params.heartbeat.current = 42;
+    params.progressTimer.current = 42;
     const { result } = renderHook(() => usePlayerSession(params));
 
     await act(() => result.current.exitStrict());
 
-    expect(clearHeartbeat).toHaveBeenCalledWith(42);
-    expect(params.heartbeat.current).toBeNull();
+    expect(clearProgressTimer).toHaveBeenCalledWith(42);
+    expect(params.progressTimer.current).toBeNull();
   });
 
   it("returns through the immersive route after a core exit even when finish reporting fails", async () => {
@@ -151,7 +152,7 @@ function sessionParams(): PlayerSessionParams {
     progressClock: {current: new PlayProgressClock()},
     started: { current: false },
     finishing: { current: false },
-    heartbeat: { current: null },
+    progressTimer: { current: null },
     saveUploadQueue: { current: Promise.resolve() },
     orientationStateRef: { current: initialPlayerOrientationState },
     returnTo: { current: "/library" },

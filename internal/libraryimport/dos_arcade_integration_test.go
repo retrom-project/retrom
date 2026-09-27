@@ -16,18 +16,21 @@ import (
 	"testing"
 	"time"
 
+	variantcomposition "retrom/internal/composition/gamevariant"
+
+	"retrom/internal/persistence/recordstore"
+
 	uploadpersistence "retrom/internal/persistence/uploads"
 
 	dependencypersistence "retrom/internal/persistence/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 
-	"retrom/internal/dbexec"
-	"retrom/internal/persistence/blobcatalog"
+	dbapi "retrom/internal/database"
 
-	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	launchcomposition "retrom/internal/composition/launch"
 	"retrom/internal/dependencies"
+	"retrom/internal/filestore"
 	"retrom/internal/importing"
 	"retrom/internal/launch"
 	retromruntime "retrom/internal/runtime"
@@ -39,7 +42,7 @@ import (
 func TestDOSDirectoryGroupingProducesDeterministicBundleAndSafePrograms(t *testing.T) {
 	t.Parallel()
 	dataDir := t.TempDir()
-	blobs, err := blobstore.Open(dataDir)
+	blobs, err := filestore.Open(dataDir)
 	testassert.False(t, err != nil, err)
 	inputs := []struct {
 		path     string
@@ -57,35 +60,64 @@ func TestDOSDirectoryGroupingProducesDeterministicBundleAndSafePrograms(t *testi
 		files = append(
 			files,
 			importSourceFile{
-				ID:     fmt.Sprintf("file-%d", index),
-				Path:   input.path,
-				BlobID: fmt.Sprintf("blob-%d", index),
-				SHA256: metadata.SHA256,
+				ID:         fmt.Sprintf("file-%d", index),
+				Path:       input.path,
+				FileRecord: metadata.Record,
+				SHA256:     metadata.SHA256,
 			},
 		)
 	}
-	service := (&Service{}).WithBlobStore(blobs)
+	service := newTestImporter(t, nil, blobs, testImportOptions{})
 	dispositions, groups, _ := service.prepareDOSFiles(context.Background(), "DIRECTORY", files)
-	testassert.Falsef(t, testassert.Any(func() bool { return len(dispositions) != 4 }, func() bool { return len(groups) != 1 }, func() bool { return len(groups[0].Sources) != 4 }, func() bool { return len(groups[0].DOSEntries) != 3 }, func() bool { return groups[0].DefaultDOSEntry != "GAME/DOOM.EXE" }, func() bool { return groups[0].Bundle == nil }), "DOS grouping = dispositions:%d groups:%#v", len(dispositions), groups)
-	testassert.Falsef(t, testassert.Any(func() bool { return !groups[0].DOSEntries[0].Safe }, func() bool { return groups[0].DOSEntries[1].Safe }, func() bool { return groups[0].DOSEntries[2].Path != "GAME/INSTALL.BAT" }, func() bool { return groups[0].DOSEntries[2].Rank != 2 }), "DOS direct safety = %#v", groups[0].DOSEntries)
+	testassert.Falsef(t, testassert.Any(func() bool { return len(dispositions) != 4 },
+		func() bool { return len(groups) != 1 }, func() bool { return len(groups[0].Sources) != 4 },
+		func() bool { return len(groups[0].DOSEntries) != 3 },
+		func() bool { return groups[0].DefaultDOSEntry != "GAME/DOOM.EXE" },
+		func() bool { return groups[0].Bundle == nil }), "DOS grouping = dispositions:%d groups:%#v",
+		len(dispositions), groups)
+	testassert.Falsef(t, testassert.Any(func() bool { return !groups[0].DOSEntries[0].Safe },
+		func() bool { return groups[0].DOSEntries[1].Safe },
+		func() bool { return groups[0].DOSEntries[2].Path != "GAME/INSTALL.BAT" },
+		func() bool { return groups[0].DOSEntries[2].Rank != 2 }), "DOS direct safety = %#v",
+		groups[0].DOSEntries)
 	_, repeated, _ := service.prepareDOSFiles(context.Background(), "DIRECTORY", files)
-	testassert.Falsef(t, testassert.Any(func() bool { return len(repeated) != 1 }, func() bool { return repeated[0].Bundle == nil }, func() bool { return repeated[0].Bundle.SHA256 != groups[0].Bundle.SHA256 }), "DOS bundle hash drift = %#v / %#v", groups[0].Bundle, repeated)
+	testassert.Falsef(t, testassert.Any(func() bool { return len(repeated) != 1 },
+		func() bool { return repeated[0].Bundle == nil },
+		func() bool { return repeated[0].Bundle.SHA256 != groups[0].Bundle.SHA256 }),
+		"DOS bundle hash drift = %#v / %#v", groups[0].Bundle, repeated)
 	multi, noGroups, _ := service.prepareDOSFiles(context.Background(), "FILES", files[:2])
-	testassert.Falsef(t, testassert.Any(func() bool { return len(noGroups) != 0 }, func() bool { return len(multi) != 2 }, func() bool { return multi[0].Reason != "AMBIGUOUS_DOS_BUNDLE" }, func() bool { return multi[1].Reason != "AMBIGUOUS_DOS_BUNDLE" }), "ambiguous DOS files = %#v / %#v", multi, noGroups)
+	testassert.Falsef(t, testassert.Any(func() bool { return len(noGroups) != 0 },
+		func() bool { return len(multi) != 2 },
+		func() bool { return multi[0].Reason != "AMBIGUOUS_DOS_BUNDLE" },
+		func() bool { return multi[1].Reason != "AMBIGUOUS_DOS_BUNDLE" }),
+		"ambiguous DOS files = %#v / %#v", multi, noGroups)
 	zipBytes := makeZIP(t, map[string][]byte{"GAME/DOOM.EXE": []byte("exe"), "GAME/DATA.WAD": []byte("wad")})
 	zipMetadata, err := blobs.Put(bytes.NewReader(zipBytes))
 	testassert.False(t, err != nil, err)
-	zipFile := importSourceFile{ID: "zip-file", Path: "Doom.zip", BlobID: "zip-blob", SHA256: zipMetadata.SHA256}
+	zipFile := importSourceFile{
+		ID: "zip-file", Path: "Doom.zip", FileRecord: zipMetadata.Record,
+		SHA256: zipMetadata.SHA256,
+	}
 	zipDispositions, zipGroups, archives := service.prepareDOSFiles(
 		context.Background(),
 		"FILES",
 		[]importSourceFile{zipFile},
 	)
-	testassert.Falsef(t, testassert.Any(func() bool { return len(zipDispositions) != 1 }, func() bool { return len(zipGroups) != 1 }, func() bool { return len(zipGroups[0].Sources) != 2 }, func() bool { return len(archives) != 1 }, func() bool { return len(archives[0].Materialized) != 2 }), "DOS ZIP grouping = dispositions:%#v groups:%#v archives:%#v", zipDispositions, zipGroups, archives)
+	testassert.Falsef(t, testassert.Any(func() bool { return len(zipDispositions) != 1 },
+		func() bool { return len(zipGroups) != 1 },
+		func() bool { return len(zipGroups[0].Sources) != 2 },
+		func() bool { return len(archives) != 1 },
+		func() bool { return len(archives[0].Materialized) != 2 }),
+		"DOS ZIP grouping = dispositions:%#v groups:%#v archives:%#v", zipDispositions, zipGroups, archives)
 	for _, source := range zipGroups[0].Sources {
-		testassert.Falsef(t, testassert.Any(func() bool { return source.Role != "DOS_SOURCE" }, func() bool { return source.ArchiveOrdinal == nil }, func() bool { return source.ArchiveBlobID != "zip-blob" }), "DOS ZIP source = %#v", source)
+		testassert.Falsef(t, testassert.Any(func() bool { return source.Role != "DOS_SOURCE" },
+			func() bool { return source.ArchiveOrdinal == nil },
+			func() bool { return source.ArchiveFileRecord != zipMetadata.Record }), "DOS ZIP source = %#v", source)
 	}
-	for _, unsafe := range []string{"GAME/100%.BAT", "GAME/QUOTE\".EXE", "GAME/TRAILING .EXE ", "GAME/TRAILING.EXE.", "游戏.EXE"} {
+	for _, unsafe := range []string{
+		"GAME/100%.BAT", "GAME/QUOTE\".EXE", "GAME/TRAILING .EXE ",
+		"GAME/TRAILING.EXE.", "游戏.EXE",
+	} {
 		testassert.Falsef(t, directDOSPathSafe(unsafe), "unsafe DOS path accepted: %q", unsafe)
 	}
 }
@@ -101,17 +133,18 @@ func TestArcadeDraftBIOSStateRefreshesInstalledDATMachineDependency(t *testing.T
 	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
 	dependencySet, err := dependencies.Load(filepath.Join(repositoryRoot, "data"), []string{"4.2.3"}, "4.2.3")
 	testassert.False(t, err != nil, err)
-	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, time.Now()); err != nil {
+	if err := dependencyservice.New(dependencySet,
+		dependencypersistence.New(database.SQL)).Bootstrap(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	target, err := testsupport.LookupRuntimeTarget(ctx, database.SQL, "fbneo")
 	testassert.False(t, err != nil, err)
-	blobs, err := blobstore.Open(dataDir)
+	blobs, err := filestore.Open(dataDir)
 	testassert.False(t, err != nil, err)
 	archive := makeZIP(t, map[string][]byte{"b.bin": []byte("bios")})
 	metadata, err := blobs.Put(bytes.NewReader(archive))
 	testassert.False(t, err != nil, err)
-	blobID, err := blobcatalog.EnsureRecord(ctx, database.SQL, metadata, "application/zip", time.Now().UnixMilli())
+	fileRecord, err := filestore.FileRecord(metadata, "application/zip")
 	testassert.False(t, err != nil, err)
 	const requirementID = "01990000-0000-7000-8000-000000000101"
 	if _, err := database.SQL.ExecContext(ctx, `
@@ -124,23 +157,29 @@ NULL,NULL,NULL,NULL,'test://bios','test',1,1,?,?,'BIOS_BUNDLE',NULL)
 		strings.Repeat("a", 64), time.Now().UnixMilli(), time.Now().UnixMilli()); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := database.SQL.ExecContext(ctx, `
-INSERT INTO bios_installations(id,requirement_id,blob_id,original_filename,size_bytes,md5,sha1,sha256,
+	if _, err := recordstore.InsertRows(ctx, database.SQL, "bios_installations", `
+INSERT INTO bios_installations(id,requirement_id,file_record,original_filename,size_bytes,md5,sha1,sha256,
 validated_requirement_version,status,validation_details_json,is_active,version,created_at_ms,updated_at_ms)
 VALUES('01990000-0000-7000-8000-000000000102',?,?,?, ?,?,?,?,1,'MATCHED','{}',1,1,?,?)
-`, requirementID, blobID, "bios.zip", metadata.Size, metadata.MD5, metadata.SHA1, metadata.SHA256,
-		time.Now().UnixMilli(), time.Now().UnixMilli()); err != nil {
+`, requirementID, fileRecord, "bios.zip", metadata.Size, metadata.MD5, metadata.SHA1, metadata.SHA256, time.Now().UnixMilli(), time.Now().UnixMilli()); err != nil {
 		t.Fatal(err)
 	}
 	previous := `{"schemaVersion":1,"kind":"ARCADE","machine":"child","datVersionId":"dat-test","closure":["child","bios"],"dependencies":[{"kind":"BIOS_OR_BASE","machine":"bios","state":"MISSING","requiredEntries":["b.bin"]}],"missingEntries":["bios.zip"],"mismatchedEntries":[],"warnings":[]}`
 	transaction, err := database.SQL.BeginTx(ctx, nil)
 	testassert.False(t, err != nil, err)
-	t.Cleanup(func() { dbexec.Rollback(transaction) })
+	t.Cleanup(func() { dbapi.Rollback(transaction) })
 	resolved, err := resolveArcadeDraftBIOSState(
 		ctx, transaction, target.ProviderID, target.TargetID, previous, "BLOCKED", "LAUNCH_BIOS_MISSING",
 	)
 	testassert.False(t, err != nil, err)
-	testassert.Falsef(t, testassert.Any(func() bool { return !resolved.tracked }, func() bool { return resolved.replaceBundle }, func() bool { return resolved.status != "READY" }, func() bool { return resolved.code != "READY" }, func() bool { return len(resolved.dependencies) != 1 }, func() bool { return resolved.dependencies[0].BlobID == nil }, func() bool { return *resolved.dependencies[0].BlobID != blobID }), "resolved arcade BIOS state = %#v", resolved)
+	testassert.Falsef(t, testassert.Any(func() bool { return !resolved.tracked },
+		func() bool { return resolved.replaceBundle },
+		func() bool { return resolved.status != "READY" },
+		func() bool { return resolved.code != "READY" },
+		func() bool { return len(resolved.dependencies) != 1 },
+		func() bool { return resolved.dependencies[0].FileRecord == nil },
+		func() bool { return *resolved.dependencies[0].FileRecord != fileRecord }),
+		"resolved arcade BIOS state = %#v", resolved)
 	var snapshot arcadeDraftSnapshot
 	if err := json.Unmarshal([]byte(resolved.snapshotJSON), &snapshot); err != nil || len(snapshot.MissingEntries) != 0 ||
 		len(snapshot.Dependencies) != 1 || snapshot.Dependencies[0].State != "SATISFIED_EXTERNAL" {
@@ -165,10 +204,11 @@ func testArcadeImportUsesInstalledBIOS(t *testing.T, installationStatus string) 
 	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
 	dependencySet, err := dependencies.Load(filepath.Join(repositoryRoot, "data"), []string{"4.2.3"}, "4.2.3")
 	testassert.False(t, err != nil, err)
-	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, time.Now()); err != nil {
+	if err := dependencyservice.New(dependencySet,
+		dependencypersistence.New(database.SQL)).Bootstrap(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
-	blobs, err := blobstore.Open(dataDir)
+	blobs, err := filestore.Open(dataDir)
 	testassert.False(t, err != nil, err)
 	target, err := testsupport.LookupRuntimeTarget(ctx, database.SQL, "fbneo")
 	if err != nil {
@@ -215,8 +255,9 @@ is_explicit_bios,classification) VALUES
 	} {
 		metadata, putErr := blobs.Put(bytes.NewReader(fixture.bytes))
 		testassert.False(t, putErr != nil, putErr)
-		entries, scanErr := importing.ScanZIP(ctx, blobs.Path(metadata.SHA256), importing.DefaultArchiveLimits())
-		testassert.Falsef(t, testassert.Any(func() bool { return scanErr != nil }, func() bool { return len(entries) != 1 }), "scan %s = %#v, error=%v", fixture.machine, entries, scanErr)
+		entries, scanErr := importing.ScanZIP(ctx, blobs.Path(metadata.Record), importing.DefaultArchiveLimits())
+		testassert.Falsef(t, testassert.Any(func() bool { return scanErr != nil },
+			func() bool { return len(entries) != 1 }), "scan %s = %#v, error=%v", fixture.machine, entries, scanErr)
 		if _, err := database.SQL.ExecContext(ctx, `
 INSERT INTO dat_rom_entries(dat_version_id,machine_name,ordinal,name,size_bytes,crc32,sha1,status)
 VALUES(?,?,0,?,?,?,?,'GOOD')
@@ -226,7 +267,7 @@ VALUES(?,?,0,?,?,?,?,'GOOD')
 	}
 	biosMetadata, err := blobs.Put(bytes.NewReader(biosArchive))
 	testassert.False(t, err != nil, err)
-	biosBlobID, err := blobcatalog.EnsureRecord(ctx, database.SQL, biosMetadata, "application/zip", now)
+	biosFileRecord, err := filestore.FileRecord(biosMetadata, "application/zip")
 	testassert.False(t, err != nil, err)
 	const requirementID = "01990000-0000-7000-8000-000000000202"
 	if _, err := database.SQL.ExecContext(ctx, `
@@ -239,12 +280,11 @@ VALUES(?,'fbneo',?,?,'DAT_MACHINE','codexbios','codexbios.zip','REQUIRED',
 		strings.Repeat("a", 64), datID, now, now); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := database.SQL.ExecContext(ctx, `
-INSERT INTO bios_installations(id,requirement_id,blob_id,original_filename,size_bytes,md5,sha1,sha256,
+	if _, err := recordstore.InsertRows(ctx, database.SQL, "bios_installations", `
+INSERT INTO bios_installations(id,requirement_id,file_record,original_filename,size_bytes,md5,sha1,sha256,
 validated_requirement_version,status,validation_details_json,is_active,version,created_at_ms,updated_at_ms)
 VALUES('01990000-0000-7000-8000-000000000203',?,?,?, ?,?,?,?,1,?,'{}',1,1,?,?)
-`, requirementID, biosBlobID, "codexbios.zip", biosMetadata.Size, biosMetadata.MD5, biosMetadata.SHA1,
-		biosMetadata.SHA256, installationStatus, now, now); err != nil {
+`, requirementID, biosFileRecord, "codexbios.zip", biosMetadata.Size, biosMetadata.MD5, biosMetadata.SHA1, biosMetadata.SHA256, installationStatus, now, now); err != nil {
 		t.Fatal(err)
 	}
 	uploadService := uploads.New(uploadpersistence.New(database.SQL), blobs, dataDir, time.Now)
@@ -274,7 +314,8 @@ VALUES('01990000-0000-7000-8000-000000000203',?,?,?, ?,?,?,?,1,?,'{}',1,1,?,?)
 	deadline := time.Now().Add(3 * time.Second)
 	for {
 		var state string
-		if err := database.SQL.QueryRowContext(ctx, "SELECT state FROM jobs WHERE id=?", jobID).Scan(&state); err != nil {
+		if err := dbapi.QueryRowContext(ctx, database.SQL, "SELECT state FROM jobs WHERE id=?",
+			jobID).Scan(&state); err != nil {
 			t.Fatal(err)
 		}
 		if state == "SUCCEEDED" {
@@ -283,7 +324,7 @@ VALUES('01990000-0000-7000-8000-000000000203',?,?,?, ?,?,?,?,1,?,'{}',1,1,?,?)
 		testassert.Falsef(t, time.Now().After(deadline), "upload finalization = %s", state)
 		time.Sleep(10 * time.Millisecond)
 	}
-	importService := New(database.SQL, time.Now).WithBlobStore(blobs)
+	importService := newTestImporter(t, database.SQL, blobs, testImportOptions{Now: time.Now})
 	created, err := importService.Create(ctx, CreateRequest{
 		UploadID:                 upload.ID,
 		TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(t, database.SQL, "arcade/fbneo"),
@@ -291,7 +332,7 @@ VALUES('01990000-0000-7000-8000-000000000203',?,?,?, ?,?,?,?,1,?,'{}',1,1,?,?)
 	})
 	testassert.False(t, err != nil, err)
 	var validationID, status, code, snapshotJSON string
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT draft.selected_validation_id,validation.status,validation.compatibility_code,
 validation.dependency_snapshot_json
 FROM import_items item
@@ -301,23 +342,26 @@ WHERE item.import_job_id=?
 `, created.ImportJobID).Scan(&validationID, &status, &code, &snapshotJSON); err != nil {
 		t.Fatal(err)
 	}
-	testassert.Falsef(t, testassert.Any(func() bool { return status != "READY" }, func() bool { return code != "READY" }), "initial validation = %s/%s", status, code)
+	testassert.Falsef(t, testassert.Any(func() bool { return status != "READY" },
+		func() bool { return code != "READY" }), "initial validation = %s/%s", status, code)
 	var snapshot arcadeDraftSnapshot
 	if err := json.Unmarshal([]byte(snapshotJSON), &snapshot); err != nil || len(snapshot.MissingEntries) != 0 ||
-		len(snapshot.Dependencies) != 1 || snapshot.Dependencies[0].State != installedBIOSDependencyState(installationStatus) {
+		len(snapshot.Dependencies) != 1 ||
+		snapshot.Dependencies[0].State != installedBIOSDependencyState(installationStatus) {
 		t.Fatalf("initial snapshot = %#v, error=%v", snapshot, err)
 	}
-	var validationBlobID string
-	if err := database.SQL.QueryRowContext(ctx, `
-SELECT blob_id FROM import_item_validation_files
+	var validationFileRecord string
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
+SELECT file_record FROM import_item_validation_files
 WHERE import_item_core_validation_id=? AND role='BIOS_BUNDLE' AND logical_name='codexbios.zip'
-`, validationID).Scan(&validationBlobID); err != nil {
+`, validationID).Scan(&validationFileRecord); err != nil {
 		t.Fatal(err)
 	}
-	testassert.Falsef(t, validationBlobID != biosBlobID, "initial BIOS blob = %s, want %s", validationBlobID, biosBlobID)
+	testassert.Falsef(t, validationFileRecord != biosFileRecord,
+		"initial BIOS blob = %s, want %s", validationFileRecord, biosFileRecord)
 	var itemID string
 	var draftVersion int64
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT item.id,draft.review_version
 FROM import_items item
 JOIN import_items draft ON draft.id=item.id
@@ -326,15 +370,13 @@ WHERE item.import_job_id=?
 		t.Fatal(err)
 	}
 	if installationStatus == "MISSING_ENTRY" {
-		draftVersion = assertPreviewRefreshesLegacyBIOS(t, database.SQL, importService, itemID, biosBlobID)
+		draftVersion = assertPreviewRefreshesLegacyBIOS(t, database.SQL, importService, itemID, biosFileRecord)
 	}
 	approved, err := importService.Approve(ctx, itemID, draftVersion)
 	testassert.False(t, err != nil, err)
 	replacementMetadata, err := blobs.Put(bytes.NewReader(append(biosArchive, []byte("replacement")...)))
 	testassert.False(t, err != nil, err)
-	replacementBlobID, err := blobcatalog.EnsureRecord(
-		ctx, database.SQL, replacementMetadata, "application/zip", now,
-	)
+	replacementFileRecord, err := filestore.FileRecord(replacementMetadata, "application/zip")
 	testassert.False(t, err != nil, err)
 	if _, err := database.SQL.ExecContext(ctx, `
 UPDATE bios_installations SET is_active=0,version=version+1,updated_at_ms=?
@@ -342,12 +384,11 @@ WHERE requirement_id=? AND is_active=1
 `, now+1, requirementID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := database.SQL.ExecContext(ctx, `
-INSERT INTO bios_installations(id,requirement_id,blob_id,original_filename,size_bytes,md5,sha1,sha256,
+	if _, err := recordstore.InsertRows(ctx, database.SQL, "bios_installations", `
+INSERT INTO bios_installations(id,requirement_id,file_record,original_filename,size_bytes,md5,sha1,sha256,
 validated_requirement_version,status,validation_details_json,is_active,version,created_at_ms,updated_at_ms)
 VALUES('01990000-0000-7000-8000-000000000204',?,?,?, ?,?,?,?,1,'HASH_WARNING','{}',1,1,?,?)
-`, requirementID, replacementBlobID, "codexbios.zip", replacementMetadata.Size, replacementMetadata.MD5,
-		replacementMetadata.SHA1, replacementMetadata.SHA256, now+1, now+1); err != nil {
+`, requirementID, replacementFileRecord, "codexbios.zip", replacementMetadata.Size, replacementMetadata.MD5, replacementMetadata.SHA1, replacementMetadata.SHA256, now+1, now+1); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := database.SQL.ExecContext(ctx, `
@@ -359,9 +400,10 @@ INSERT INTO profiles(id,display_name,created_at_ms) VALUES('local','Arcade BIOS 
 	testassert.False(t, err != nil, err)
 	runtimeBuilder, err := testsupport.NewRuntimeBuilder(ctx, database.SQL)
 	testassert.False(t, err != nil, err)
-	launcher := launchcomposition.New(database.SQL,
-		launch.NewSources(blobs, credentials).WithRuntimeProvider(runtimeBuilder), "", time.Now)
-	t.Cleanup(launcher.Close)
+	runtimeSource := launch.NewSources(blobs, credentials).WithRuntimeProvider(runtimeBuilder)
+	variants := variantcomposition.New(database.SQL, runtimeSource, time.Now)
+	t.Cleanup(variants.Close)
+	launcher := launchcomposition.New(database.SQL, runtimeSource, "", time.Now, variants.Dispatch)
 	coreID := "fbneo"
 	capabilities := launch.Capabilities{
 		SecureContext: true, CrossOriginIsolated: true, SharedArrayBuffer: true,
@@ -370,23 +412,27 @@ INSERT INTO profiles(id,display_name,created_at_ms) VALUES('local','Arcade BIOS 
 		GameID: approved.GameID, CoreID: &coreID, ReturnTo: "/games/" + approved.GameID,
 		ClientCapabilities: capabilities,
 	})
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return pending.Status != "VALIDATION_PENDING" }, func() bool { return pending.JobID == "" }), "Arcade BIOS revalidation = %#v, error=%v", pending, err)
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil },
+		func() bool { return pending.Status != "VALIDATION_PENDING" },
+		func() bool { return pending.JobID == "" }), "Arcade BIOS revalidation = %#v, error=%v", pending, err)
 	deadline = time.Now().Add(3 * time.Second)
 	for {
 		var state string
 		var errorCode sql.NullString
-		if err := database.SQL.QueryRowContext(ctx, `SELECT state,error_code FROM jobs WHERE id=?`, pending.JobID).
+		if err := dbapi.QueryRowContext(ctx, database.SQL, `SELECT state,error_code FROM jobs WHERE id=?`, pending.JobID).
 			Scan(&state, &errorCode); err != nil {
 			t.Fatal(err)
 		}
 		if state == "SUCCEEDED" {
 			break
 		}
-		testassert.Falsef(t, testassert.Any(func() bool { return state == "FAILED" }, func() bool { return time.Now().After(deadline) }), "Arcade BIOS revalidation = %s/%s", state, errorCode.String)
+		testassert.Falsef(t, testassert.Any(func() bool { return state == "FAILED" },
+			func() bool { return time.Now().After(deadline) }), "Arcade BIOS revalidation = %s/%s", state,
+			errorCode.String)
 		time.Sleep(10 * time.Millisecond)
 	}
 	var refreshedSnapshot string
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT variant.dependency_snapshot_json
 FROM game_variants variant
 WHERE variant.game_id=? AND variant.core_id='fbneo'
@@ -397,21 +443,28 @@ WHERE variant.game_id=? AND variant.core_id='fbneo'
 		SchemaVersion int    `json:"schemaVersion"`
 		Kind          string `json:"kind"`
 	}
-	if err := json.Unmarshal([]byte(refreshedSnapshot), &refreshedEnvelope); err != nil || refreshedEnvelope.SchemaVersion != 1 || refreshedEnvelope.Kind != "ARCADE" {
+	if err := json.Unmarshal([]byte(refreshedSnapshot), &refreshedEnvelope); err != nil ||
+		refreshedEnvelope.SchemaVersion != 1 || refreshedEnvelope.Kind != "ARCADE" {
 		t.Fatalf("refreshed Arcade dependency snapshot = %s, error=%v", refreshedSnapshot, err)
 	}
 	createdLaunch, err := launcher.Create(ctx, "local", launch.CreateRequest{
 		GameID: approved.GameID, CoreID: &coreID, ReturnTo: "/games/" + approved.GameID,
 		ClientCapabilities: capabilities,
 	})
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return createdLaunch.LaunchID == "" }), "Arcade BIOS launch after revalidation = %#v, error=%v", createdLaunch, err)
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil },
+		func() bool { return createdLaunch.LaunchID == "" }),
+		"Arcade BIOS launch after revalidation = %#v, error=%v", createdLaunch, err)
 	configuration, err := launcher.Config(ctx, createdLaunch.LaunchID, createdLaunch.Capability)
 	testassert.False(t, err != nil, err)
 	envelope := testsupport.RuntimeEnvelope(t, configuration)
 	bios := testsupport.RuntimeEnvelopeResource(t, envelope, "bios")
 	testassert.Falsef(t, bios["kind"] != "BIOS_BUNDLE", "Arcade BIOS launch resource = %#v", bios)
 	bundle, err := launcher.BundleFiles(ctx, createdLaunch.LaunchID, createdLaunch.Capability, "BIOS_BUNDLE")
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return len(bundle) != 1 }, func() bool { return bundle[0].LogicalName != "codexbios.zip" }, func() bool { return bundle[0].SHA256 != replacementMetadata.SHA256 }), "Arcade BIOS launch bundle = %#v, error=%v", bundle, err)
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil },
+		func() bool { return len(bundle) != 1 },
+		func() bool { return bundle[0].LogicalName != "codexbios.zip" },
+		func() bool { return bundle[0].SHA256 != replacementMetadata.SHA256 }),
+		"Arcade BIOS launch bundle = %#v, error=%v", bundle, err)
 }
 
 func installedBIOSDependencyState(status string) string {

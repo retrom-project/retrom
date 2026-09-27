@@ -5,7 +5,7 @@ import (
 	"errors"
 	"time"
 
-	"retrom/internal/runtimebundle"
+	runtimebundle "retrom/internal/runtime/bundle"
 )
 
 var (
@@ -30,13 +30,13 @@ type PreviewSource struct {
 	DefaultDOSEntry, SelectedValidationID, DATVersionID                    *string
 }
 type PreviewFile struct {
-	Role, LogicalName, BlobID string
-	VirtualPath               *string
-	SortOrder                 int
+	Role, LogicalName, FileRecord string
+	VirtualPath                   *string
+	SortOrder                     int
 }
 type PreviewContent struct {
-	BlobID, LogicalName, Format string
-	Files                       []PreviewFile
+	FileRecord, LogicalName, Format string
+	Files                           []PreviewFile
 }
 type PreviewSnapshot struct {
 	Source                       PreviewSource
@@ -47,22 +47,22 @@ type PreviewReceipt struct {
 	RestoreFromPreviewID *string
 }
 type PreviewRestore struct {
-	ActorID, ItemID, SnapshotID, ProviderID, TargetID, State      string
-	ContentBlobID, ContentName, ContentFormat, DependencySnapshot string
-	BlobID, Format                                                string
-	HardExpiresAtMS, SizeBytes, MaximumBytes                      int64
-	ReadFormats                                                   []string
-	Files                                                         []PreviewFile
+	ActorID, ItemID, SnapshotID, ProviderID, TargetID, State          string
+	ContentFileRecord, ContentName, ContentFormat, DependencySnapshot string
+	FileRecord, Format                                                string
+	HardExpiresAtMS, SizeBytes, MaximumBytes                          int64
+	ReadFormats                                                       []string
+	Files                                                             []PreviewFile
 }
 type PreviewCreatePlan struct {
-	Request                      ReviewPreviewRequest
-	Source                       PreviewSource
-	Content                      PreviewContent
-	ID, ProfileID                string
-	CredentialHash               []byte
-	NowMS, BootstrapEnd, HardEnd int64
-	RestoreBlobID, RestoreFormat *string
-	Isolation                    *IsolationTicket
+	Request                          ReviewPreviewRequest
+	Source                           PreviewSource
+	Content                          PreviewContent
+	ID, ProfileID                    string
+	CredentialHash                   []byte
+	NowMS, BootstrapEnd, HardEnd     int64
+	RestoreFileRecord, RestoreFormat *string
+	Isolation                        *IsolationTicket
 }
 type PreviewCreationScope interface {
 	Replay(context.Context, string, string) (PreviewReceipt, bool, error)

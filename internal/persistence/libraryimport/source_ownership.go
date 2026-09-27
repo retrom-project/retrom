@@ -7,14 +7,14 @@ import (
 	"fmt"
 
 	"retrom/internal/cleanup"
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/recordstore"
 	application "retrom/internal/service/libraryimport"
 )
 
-type sourceOwnership struct{ executor dbexec.Executor }
+type sourceOwnership struct{ executor dbapi.Executor }
 
-func BindSourceOwnership(executor dbexec.Executor) application.SourceOwnershipRecords {
+func BindSourceOwnership(executor dbapi.Executor) application.SourceOwnershipRecords {
 	return sourceOwnership{executor: executor}
 }
 
@@ -27,7 +27,8 @@ func (records sourceOwnership) ReadSource(
 	}
 	var value application.SourceCreationSnapshot
 	value.Kind = intent.Kind
-	err := records.executor.QueryRowContext(ctx, `SELECT source.id,source.import_id,job.id,COALESCE(job.worker_id,''),
+	err := dbapi.QueryRowContext(
+		ctx, records.executor, `SELECT source.id,source.import_id,job.id,COALESCE(job.worker_id,''),
 source.execution_state,plan.state,job.state,COALESCE(collection.mapping_action,''),
 source.version,plan.version,job.version,job.execution_no,job.attempt_count,
 COALESCE(job.leased_until_ms,0),COALESCE(job.execution_deadline_at_ms,0),
@@ -40,7 +41,8 @@ COALESCE(source.library_import_item_id,'')
 FROM source_import_items source JOIN source_imports plan ON plan.id=source.import_id
 JOIN jobs job ON job.id=plan.import_job_id AND job.scope_type='SOURCE_IMPORT' AND job.scope_id=plan.id
  AND job.kind='IMPORT_RECEIVE'
-LEFT JOIN source_import_collections collection ON collection.id=source.collection_id AND collection.import_id=plan.id
+LEFT JOIN source_import_collections collection ON collection.id=source.collection_id AND
+collection.import_id=plan.id
 LEFT JOIN server_import_upload_owners owner ON owner.kind='SOURCE' AND owner.source_item_id=source.id
 WHERE source.id=? AND source.import_id=?`, intent.ItemID, intent.ImportID).Scan(
 		&value.ItemID,
@@ -179,7 +181,7 @@ func (records sourceOwnership) sourceFiles(
 		return nil, err
 	}
 	rows, err := records.executor.QueryContext(ctx, `
-SELECT relative_path,COALESCE(blob_id,''),COALESCE(size_bytes,-1),state,
+SELECT relative_path,COALESCE(file_record,''),COALESCE(size_bytes,-1),state,
 COALESCE(source_facts_digest,'') FROM `+table+` WHERE item_id=? ORDER BY ordinal`, itemID)
 	if err != nil {
 		return nil, fmt.Errorf("query copied source files: %w", err)
@@ -189,7 +191,7 @@ COALESCE(source_facts_digest,'') FROM `+table+` WHERE item_id=? ORDER BY ordinal
 	for rows.Next() {
 		var file application.SourceCreationFile
 		if err := rows.Scan(
-			&file.File.RelativePath, &file.File.BlobID, &file.File.SizeBytes, &file.State, &file.FactsDigest,
+			&file.File.RelativePath, &file.File.FileRecord, &file.File.SizeBytes, &file.State, &file.FactsDigest,
 		); err != nil {
 			return nil, fmt.Errorf("read copied source file: %w", err)
 		}

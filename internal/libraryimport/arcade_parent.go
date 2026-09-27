@@ -11,10 +11,9 @@ import (
 	"path/filepath"
 	"strings"
 
+	contentcapability "retrom/internal/content/capability"
 	librarypersistence "retrom/internal/persistence/libraryimport"
 	application "retrom/internal/service/libraryimport"
-
-	"retrom/internal/contentcapability"
 
 	"github.com/google/uuid"
 )
@@ -84,7 +83,7 @@ type parentAttachmentCandidate struct {
 	attachmentID, itemID, draftID, baseSnapshotID    string
 	machine, requiredBy, providerID, targetID, datID string
 	uploadFileID, uploadSessionID, originalName      string
-	blobID, blobSHA                                  string
+	fileRecord, blobSHA                              string
 	blobSize                                         int64
 	contentPolicyDigest                              string
 	depth                                            int
@@ -128,7 +127,7 @@ func (service *Service) CreateArcadeParentAttachment(
 		}
 		return ParentAttachmentCreated{}, parentError(ParentErrorUnavailable, err)
 	}
-	go service.runParentAttachment(context.WithoutCancel(ctx), result.JobID)
+	service.scheduleAttachment(ctx, 0, func(worker context.Context) { service.runParentAttachment(worker, result.JobID) })
 	return result, nil
 }
 
@@ -164,7 +163,7 @@ type parentAttachmentSetup struct {
 	dependency          arcadeDraftDependency
 	uploadSessionID     string
 	originalName        string
-	blobID              string
+	fileRecord          string
 	blobSHA             string
 	blobSize            int64
 }
@@ -261,8 +260,8 @@ func (setup *parentAttachmentSetup) loadUpload() error {
 		return parentError(ParentErrorInvalid, ErrInvalid)
 	}
 	setup.uploadSessionID, setup.originalName = upload.UploadSessionID, upload.RelativePath
-	setup.blobID, setup.blobSHA, setup.blobSize = upload.BlobID, upload.BlobSHA, upload.BlobSize
-	info, err := os.Stat(setup.service.blobs.Path(setup.blobSHA))
+	setup.fileRecord, setup.blobSHA, setup.blobSize = upload.FileRecord, upload.BlobSHA, upload.BlobSize
+	info, err := os.Stat(setup.service.blobs.Path(setup.fileRecord))
 	if err != nil || !info.Mode().IsRegular() || info.Size() != setup.blobSize {
 		return parentError(ParentErrorInvalid, err)
 	}
@@ -352,13 +351,13 @@ func (service *Service) canonicalArcadeSnapshotWithQueryer(
 	return snapshot, nil
 }
 
-func (service *Service) ResumeParentAttachmentJobs(ctx context.Context) {
+func (service *Service) ResumeParentAttachmentJobs(ctx context.Context) error {
 	jobIDs, err := librarypersistence.NewReviewArcadeParentJobs(service.database).Queued(ctx)
 	if err != nil {
-		return
+		return fmt.Errorf("resume arcade attachments: %w", err)
 	}
-	workerContext := context.WithoutCancel(ctx)
 	for _, jobID := range jobIDs {
-		go service.runParentAttachment(workerContext, jobID)
+		service.scheduleAttachment(ctx, 0, func(worker context.Context) { service.runParentAttachment(worker, jobID) })
 	}
+	return nil
 }

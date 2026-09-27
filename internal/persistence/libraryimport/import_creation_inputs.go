@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/contentquery"
 	application "retrom/internal/service/libraryimport"
 )
@@ -58,13 +59,12 @@ WHERE id=? AND version=? AND platform_id=? AND default_core_id=? AND enabled=1 A
 			ctx,
 			`
 UPDATE import_files SET id=id WHERE id=? AND upload_session_id=? AND released_at_ms IS NULL
-AND relative_path=? AND blob_id=? AND EXISTS(SELECT 1 FROM blobs WHERE id=? AND sha256=? AND
- size_bytes=?)`,
+AND relative_path=? AND file_record=? AND json_extract(file_record,'$.sha256')=? AND
+ json_extract(file_record,'$.size_bytes')=?`,
 			file.ID,
 			upload.ID,
 			file.Path,
-			file.BlobID,
-			file.BlobID,
+			file.FileRecord,
 			file.SHA256,
 			file.Size,
 		)
@@ -97,7 +97,7 @@ AND `+contentquery.BindingPolicySQL+`=?`,
 		return err
 	}
 	var active string
-	err = records.transaction.QueryRowContext(ctx, `
+	err = dbapi.QueryRowContext(ctx, records.transaction, `
 SELECT COALESCE((SELECT id FROM dat_versions WHERE provider_id=? AND target_id=? AND is_active=1),'')`,
 		target.ProviderID, target.TargetID).Scan(&active)
 	if err != nil {

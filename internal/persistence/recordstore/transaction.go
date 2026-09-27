@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	"retrom/internal/cleanup"
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 )
 
 var (
@@ -18,18 +18,24 @@ var (
 	errTransactionRequired = errors.New("record write requires a database transaction")
 )
 
-type validator func(context.Context, dbexec.Executor, ...any) error
+type validator func(context.Context, dbapi.Executor, ...any) error
 
 func create(
-	ctx context.Context, db dbexec.Executor, query string, args []any, columns string, check validator,
+	ctx context.Context, db dbapi.Executor, query string, args []any, table, columns string, check validator,
 ) (sql.Result, error) {
-	return Atomic(ctx, db, func(tx dbexec.Executor) (sql.Result, error) {
-		keys, err := insertedKeys(ctx, tx, query, args, columns)
+	if !validTable(table) {
+		return nil, ErrInvariant
+	}
+	return Atomic(ctx, db, func(tx dbapi.Executor) (sql.Result, error) {
+		keys, err := insertedKeys(ctx, tx, query, args, "rowid,"+columns)
 		if err != nil {
 			return nil, err
 		}
 		for _, key := range keys {
-			if err := check(ctx, tx, key...); err != nil {
+			if check == nil {
+				continue
+			}
+			if err := check(ctx, tx, key[1:]...); err != nil {
 				return nil, err
 			}
 		}
@@ -37,7 +43,7 @@ func create(
 	})
 }
 
-func insertedKeys(ctx context.Context, tx dbexec.Executor, query string, args []any, columns string) ([][]any, error) {
+func insertedKeys(ctx context.Context, tx dbapi.Executor, query string, args []any, columns string) ([][]any, error) {
 	rows, err := tx.QueryContext(ctx, strings.TrimSuffix(strings.TrimSpace(query), ";")+" RETURNING "+columns, args...)
 	if err != nil {
 		return nil, fmt.Errorf("create record: %w", err)
@@ -65,12 +71,19 @@ func insertedKeys(ctx context.Context, tx dbexec.Executor, query string, args []
 	if err := rows.Close(); err != nil {
 		return nil, fmt.Errorf("close inserted keys: %w", err)
 	}
+	var affected int64
+	if err := dbapi.QueryRowContext(ctx, tx, `SELECT changes()`).Scan(&affected); err != nil {
+		return nil, fmt.Errorf("read inserted row count: %w", err)
+	}
+	if affected != int64(len(keys)) {
+		return nil, fmt.Errorf("%w: inserted %d records but received %d keys", ErrInvariant, affected, len(keys))
+	}
 	return keys, nil
 }
 
-func validate(ctx context.Context, db dbexec.Executor, query string, args []any) error {
+func validate(ctx context.Context, db dbapi.Executor, query string, args []any) error {
 	var message string
-	if err := db.QueryRowContext(ctx, query, args...).Scan(&message); err != nil {
+	if err := dbapi.QueryRowContext(ctx, db, query, args...).Scan(&message); err != nil {
 		return fmt.Errorf("validate record ownership: %w", err)
 	}
 	if message != "" {

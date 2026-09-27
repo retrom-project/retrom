@@ -6,15 +6,15 @@ import (
 	"fmt"
 
 	"retrom/internal/cleanup"
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/bios"
 )
 
 type Repository struct {
-	database *sql.DB
+	database dbapi.DB
 }
 
-func New(database *sql.DB) *Repository {
+func New(database dbapi.DB) *Repository {
 	return &Repository{database: database}
 }
 
@@ -25,11 +25,11 @@ func (repository *Repository) List(
 	ctx context.Context,
 	request application.ListRequest,
 ) (application.ListResult, error) {
-	transaction, err := repository.database.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+	transaction, err := repository.database.BeginTx(ctx, &dbapi.TxOptions{ReadOnly: true})
 	if err != nil {
 		return application.ListResult{}, fmt.Errorf("begin BIOS catalog snapshot: %w", err)
 	}
-	defer dbexec.Rollback(transaction)
+	defer dbapi.Rollback(transaction)
 
 	result, err := repository.list(ctx, transaction, request)
 	if err != nil {
@@ -43,7 +43,7 @@ func (repository *Repository) List(
 
 func (repository *Repository) list(
 	ctx context.Context,
-	executor dbexec.Executor,
+	executor dbapi.Executor,
 	request application.ListRequest,
 ) (application.ListResult, error) {
 	counts, err := scopeCounts(ctx, executor)
@@ -70,9 +70,9 @@ func (repository *Repository) list(
 	}, nil
 }
 
-func scopeCounts(ctx context.Context, executor dbexec.Executor) (application.ScopeCounts, error) {
+func scopeCounts(ctx context.Context, executor dbapi.Executor) (application.ScopeCounts, error) {
 	var result application.ScopeCounts
-	err := executor.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, executor, `
 SELECT COALESCE(sum(CASE WHEN `+scopeSQL(application.ScopeRequiredByLibrary)+` THEN 1 ELSE 0 END),0),count(*)
 FROM bios_requirements requirement WHERE requirement.enabled=1
 `).Scan(&result.RequiredByLibrary, &result.FullCatalog)
@@ -84,11 +84,11 @@ FROM bios_requirements requirement WHERE requirement.enabled=1
 
 func summary(
 	ctx context.Context,
-	executor dbexec.Executor,
+	executor dbapi.Executor,
 	scope string,
 ) (application.Summary, error) {
 	var result application.Summary
-	err := executor.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, executor, `
 SELECT count(*),
 COALESCE(sum(CASE WHEN requirement.requirement_mode<>'OPTIONAL' AND `+statusExpression+`
  IN ('MISSING','INVALID') THEN 1 ELSE 0 END),0),
@@ -117,12 +117,12 @@ LEFT JOIN bios_installations installation ON installation.requirement_id=require
 
 func filteredCount(
 	ctx context.Context,
-	executor dbexec.Executor,
+	executor dbapi.Executor,
 	request application.ListRequest,
 ) (int64, error) {
 	conditions, arguments := conditions(request, false)
 	var count int64
-	err := executor.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, executor, `
 SELECT count(*) FROM bios_requirements requirement JOIN cores core ON core.id=requirement.core_id
 LEFT JOIN bios_installations installation ON installation.requirement_id=requirement.id
 AND installation.is_active=1 WHERE `+joinConditions(conditions), arguments...).Scan(&count)
@@ -134,7 +134,7 @@ AND installation.is_active=1 WHERE `+joinConditions(conditions), arguments...).S
 
 func listItems(
 	ctx context.Context,
-	executor dbexec.Executor,
+	executor dbapi.Executor,
 	request application.ListRequest,
 ) ([]application.Item, error) {
 	conditions, arguments := conditions(request, true)
@@ -170,7 +170,7 @@ requirement.logical_name COLLATE BINARY,requirement.id COLLATE BINARY LIMIT ?`
 	return items, nil
 }
 
-func scanItem(scanner dbexec.Scanner) (application.Item, error) {
+func scanItem(scanner dbapi.Scanner) (application.Item, error) {
 	var item application.Item
 	var conditionCode, expectedMD5 sql.NullString
 	var installationID, installedMD5, installedSHA1, installedSHA256 sql.NullString

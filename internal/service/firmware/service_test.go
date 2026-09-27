@@ -3,8 +3,11 @@ package firmware
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
+
+	"retrom/internal/filestore"
 
 	"retrom/internal/firmware"
 	"retrom/internal/importing"
@@ -17,16 +20,17 @@ func TestInstallRechecksSourceBeforePublishing(t *testing.T) {
 	}{
 		{"changed requirement", func(memory *installMemory) { memory.current.Version++ }},
 		{"disabled", func(memory *installMemory) { memory.current.Enabled = false }},
-		{"changed blob", func(memory *installMemory) { memory.currentUpload.BlobID = "replacement" }},
+		{"changed blob", func(memory *installMemory) { memory.currentUpload.FileRecord = "replacement" }},
 		{"changed digest", func(memory *installMemory) { memory.currentUpload.SHA256 = "replacement" }},
 		{"unfinished upload", func(memory *installMemory) { memory.currentUpload.State = "FAILED" }},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			memory := installFixture()
+			memory := installFixture(t)
 			test.change(memory)
-			_, err := New(memory, time.Now).WithPayloadRelease(memory).Install(t.Context(), "requirement", 1,
+			_, err := New(Dependencies{Repository: memory, Files: memory.files, Cleanup: memory}, time.Now).Install(t.Context(), "requirement", 1,
 				InstallRequest{UploadFileID: "file"})
-			if !errors.Is(err, ErrInvalid) || memory.created != nil || memory.consumption != nil || memory.retired || memory.signals != 0 {
+			if !errors.Is(err, ErrInvalid) || memory.created != nil || memory.consumption != nil ||
+				memory.retired || memory.signals != 0 {
 				t.Fatalf("changed source published: memory=%+v error=%v", memory, err)
 			}
 		})
@@ -34,10 +38,10 @@ func TestInstallRechecksSourceBeforePublishing(t *testing.T) {
 }
 
 func TestInstallRecordsWarningAndSignalsAfterCommit(t *testing.T) {
-	memory := installFixture()
+	memory := installFixture(t)
 	expected := "expected"
 	memory.initial.SHA256, memory.current.SHA256 = &expected, &expected
-	result, err := New(memory, func() time.Time { return time.UnixMilli(1234) }).WithPayloadRelease(memory).
+	result, err := New(Dependencies{Repository: memory, Files: memory.files, Cleanup: memory}, func() time.Time { return time.UnixMilli(1234) }).
 		Install(t.Context(), "requirement", 1, InstallRequest{UploadFileID: "file"})
 	if err != nil || result.Status != "HASH_WARNING" || !result.Active || result.CreatedAtMS != 1234 {
 		t.Fatalf("installation=%+v error=%v", result, err)
@@ -68,6 +72,7 @@ func TestStaticArchivesRejectAliasesWhileDATRemainsAdvisory(t *testing.T) {
 }
 
 type installMemory struct {
+	files *filestore.Store
 	Repository
 	InstallationWriter
 	initial, current               Requirement
@@ -79,10 +84,22 @@ type installMemory struct {
 	insideWrite, signalInsideWrite bool
 }
 
-func installFixture() *installMemory {
+func installFixture(t *testing.T) *installMemory {
 	requirement := Requirement{ID: "requirement", Enabled: true, Version: 1, FileKind: "RAW", SourceKind: "STATIC"}
-	upload := Upload{ID: "file", SessionID: "upload", State: "COMPLETE", BlobID: "blob", SHA256: "digest"}
-	return &installMemory{initial: requirement, current: requirement, upload: upload, currentUpload: upload}
+	upload := Upload{ID: "file", SessionID: "upload", State: "COMPLETE", FileRecord: "blob", SHA256: "digest"}
+	result := &installMemory{initial: requirement, current: requirement, upload: upload, currentUpload: upload}
+	var err error
+	result.files, err = filestore.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := result.files.Put(strings.NewReader("BIOS fixture"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	result.upload.FileRecord, result.upload.SHA256 = data.Record, data.SHA256
+	result.currentUpload = result.upload
+	return result
 }
 
 func (memory *installMemory) WithRead(_ context.Context, work func(ReadScope) error) error {
@@ -134,6 +151,6 @@ func (records uploadMemory) Get(context.Context, string) (Upload, bool, error) {
 }
 
 func (memory *installMemory) Current(context.Context, string) (SupersededInstallation, bool, error) {
-	return SupersededInstallation{ID: "old", RequirementID: "requirement", BlobID: "blob", Version: 1}, true, nil
+	return SupersededInstallation{ID: "old", RequirementID: "requirement", FileRecord: "blob", Version: 1}, true, nil
 }
 func (memory *installMemory) Consumption(context.Context, string) (string, error) { return "", nil }

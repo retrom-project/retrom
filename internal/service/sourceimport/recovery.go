@@ -7,7 +7,7 @@ import (
 	"math"
 	"time"
 
-	payload "retrom/internal/service/payloadrelease"
+	sourcecleanup "retrom/internal/service/sourceimport/payloadpolicy"
 
 	library "retrom/internal/service/libraryimport"
 )
@@ -35,7 +35,7 @@ type (
 		Apply(context.Context, RecoveryChange) error
 	}
 	RecoveryScope struct {
-		Payload  payload.ReleaseScope
+		Payload  sourcecleanup.ReleaseScope
 		Records  RecoveryRecords
 		Metadata library.MetadataScope
 	}

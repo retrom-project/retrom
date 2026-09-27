@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/hasheous"
 	"retrom/internal/service/metadatascrape"
 	"retrom/internal/testsupport"
@@ -36,7 +37,7 @@ func TestResponseAndCacheRollbackTogether(t *testing.T) {
 		t.Fatalf("late response failure: %v", err)
 	}
 	var responses, cache int
-	if err := database.SQL.QueryRowContext(t.Context(), `SELECT (SELECT count(*) FROM metadata_provider_responses),(SELECT count(*) FROM metadata_provider_cache)`).Scan(&responses, &cache); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), database.SQL, `SELECT (SELECT count(*) FROM metadata_provider_responses),(SELECT count(*) FROM metadata_provider_cache)`).Scan(&responses, &cache); err != nil {
 		t.Fatal(err)
 	}
 	if responses != 0 || cache != 0 {

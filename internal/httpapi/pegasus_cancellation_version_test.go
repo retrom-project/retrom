@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"retrom/internal/composition"
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/sourceimport"
 )
 
@@ -53,7 +54,7 @@ func TestJobCancellationRetainsOriginalETagAfterGenericRead(t *testing.T) {
 	}
 	var planState, jobState string
 	var version int64
-	err := server.database.QueryRowContext(t.Context(), `SELECT plan.state,job.state,job.version
+	err := dbapi.QueryRowContext(t.Context(), server.database, `SELECT plan.state,job.state,job.version
 FROM source_imports plan JOIN jobs job ON job.id=plan.scan_job_id WHERE plan.id=?`, planID).Scan(
 		&planState,
 		&jobState,

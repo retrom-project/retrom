@@ -4,11 +4,11 @@ import (
 	"context"
 	"database/sql"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 )
 
 func UpdateReviewUploadedAssets(
-	ctx context.Context, db dbexec.Executor, change Update,
+	ctx context.Context, db dbapi.Executor, change Update,
 ) (sql.Result, error) {
 	return updateRecords(
 		ctx,
@@ -30,7 +30,7 @@ FROM review_uploaded_assets candidate CROSS JOIN previous
 WHERE candidate.id=previous.id`
 
 func DeleteReviewUploadedAssets(
-	ctx context.Context, db dbexec.Executor, scope Scope,
+	ctx context.Context, db dbapi.Executor, scope Scope,
 ) (sql.Result, error) {
 	return deleteRecords(
 		ctx,
@@ -46,7 +46,7 @@ const ReviewUploadedAssetsDeleteRule = `
 WITH previous(id,import_item_id) AS (VALUES(?,?))
 SELECT CASE
 -- review_uploaded_assets_immutable_delete
-WHEN (NOT EXISTS(SELECT 1 FROM import_items WHERE id=previous.import_item_id AND payload_state IN
-('RELEASING','FAILED'))) THEN 'immutable'
+WHEN (NOT EXISTS(SELECT 1 FROM import_items WHERE id=previous.import_item_id AND payload_state
+='RELEASING')) THEN 'immutable'
 ELSE '' END
 FROM previous`

@@ -3,7 +3,6 @@ package httpapi
 import (
 	"bytes"
 	"context"
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -13,8 +12,9 @@ import (
 	"testing"
 	"time"
 
-	"retrom/internal/dbexec"
-	"retrom/internal/persistence/blobcatalog"
+	"retrom/internal/filestore"
+
+	dbapi "retrom/internal/database"
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/google/uuid"
@@ -22,7 +22,6 @@ import (
 	"retrom/internal/authn"
 	"retrom/internal/gametitle"
 	"retrom/internal/httpapi/generated"
-	"retrom/internal/payloadrelease"
 	"retrom/internal/testassert"
 	"retrom/internal/testsupport"
 )
@@ -167,40 +166,43 @@ func TestImmersiveOpenAPIContractIsTypedAndBounded(t *testing.T) {
 func seedImmersiveBlob(
 	t *testing.T,
 	server *Server,
-	transaction *sql.Tx,
-	payload, mediaType string,
-	now int64,
+	_ dbapi.Tx,
+	ownerID, payload, mediaType string,
+	_ int64,
 ) string {
 	t.Helper()
 	metadata, err := server.blobs.Put(bytes.NewReader([]byte(payload)))
 	testassert.False(t, err != nil, err)
-	blobID, err := blobcatalog.EnsureRecord(t.Context(), transaction, metadata, mediaType, now)
+	metadata, err = server.blobs.CopyTo(t.Context(), metadata.Record,
+		filestore.GameDirectory(ownerID)+"/media/"+uuid.NewString(), "asset")
 	testassert.False(t, err != nil, err)
-	return blobID
+	fileRecord, err := filestore.FileRecord(metadata, mediaType)
+	testassert.False(t, err != nil, err)
+	return fileRecord
 }
 
 func seedImmersiveAssets(
 	t *testing.T,
 	server *Server,
-	transaction *sql.Tx,
+	transaction dbapi.Tx,
 	seed immersiveGameSeed,
 	coverPayload, videoPayload string,
 	now int64,
 ) {
 	t.Helper()
 	if seed.CoverID != "" {
-		coverBlobID := seedImmersiveBlob(t, server, transaction, coverPayload, "image/png", now)
-		mustExecHTTPTest(t, transaction, `
-INSERT INTO game_assets(id,game_id,blob_id,kind,ordinal,width_px,height_px,media_type,created_at_ms)
+		coverFileRecord := seedImmersiveBlob(t, server, transaction, seed.GameID, coverPayload, "image/png", now)
+		mustCreateHTTPReferences(t, transaction, "game_assets", `
+INSERT INTO game_assets(id,game_id,file_record,kind,ordinal,width_px,height_px,media_type,created_at_ms)
 VALUES(?,?,?,'COVER',0,500,700,'image/png',?)
-`, seed.CoverID, seed.GameID, coverBlobID, now)
+`, seed.CoverID, seed.GameID, coverFileRecord, now)
 	}
 	if seed.VideoID != "" {
-		videoBlobID := seedImmersiveBlob(t, server, transaction, videoPayload, "video/webm", now)
-		mustExecHTTPTest(t, transaction, `
-INSERT INTO game_assets(id,game_id,blob_id,kind,ordinal,width_px,height_px,media_type,created_at_ms)
+		videoFileRecord := seedImmersiveBlob(t, server, transaction, seed.GameID, videoPayload, "video/webm", now)
+		mustCreateHTTPReferences(t, transaction, "game_assets", `
+INSERT INTO game_assets(id,game_id,file_record,kind,ordinal,width_px,height_px,media_type,created_at_ms)
 VALUES(?,?,?,'VIDEO',0,NULL,NULL,'video/webm',?)
-`, seed.VideoID, seed.GameID, videoBlobID, now)
+`, seed.VideoID, seed.GameID, videoFileRecord, now)
 	}
 }
 
@@ -208,14 +210,16 @@ func seedImmersiveGame(t *testing.T, server *Server, seed immersiveGameSeed, now
 	t.Helper()
 	transaction, err := server.database.BeginTx(context.Background(), nil)
 	testassert.False(t, err != nil, err)
-	defer dbexec.Rollback(transaction)
+	defer dbapi.Rollback(transaction)
 	mustExecHTTPTest(t, transaction, "PRAGMA defer_foreign_keys=ON")
 	mustExecHTTPTest(t, transaction, `
 INSERT INTO games(
  id,platform_instance_id,title,title_initial,description,developer,publisher,genre,players,release_year,
- metadata_source_kind,content_kind,content_source_kind,content_source_ref_id,source_manifest_json,source_manifest_digest,
+ metadata_source_kind,content_kind,content_source_kind,content_source_ref_id,source_manifest_json,
+source_manifest_digest,
  status,search_text,version,created_at_ms,updated_at_ms
-) VALUES(?,(SELECT id FROM platform_instances WHERE catalog_template_key='gba/mgba'),?,?,?,'Retrom Studio','','Action',1,1999,
+) VALUES(?,(SELECT id FROM platform_instances WHERE catalog_template_key='gba/mgba'),?,?,?,
+'Retrom Studio','','Action',1,1999,
  'ADMIN_EDIT','SINGLE_FILE','ADMIN_REPLACE','immersive-test','[]',?,'PUBLISHED',lower(?),1,?,?)
 `, seed.GameID, seed.Title, gametitle.Initial(seed.Title), seed.Description,
 		strings.Repeat(seed.GameID[len(seed.GameID)-1:], 64), seed.Title, now, now)
@@ -233,7 +237,7 @@ func seedImmersivePlay(
 	t.Helper()
 	transaction, err := server.database.BeginTx(context.Background(), nil)
 	testassert.False(t, err != nil, err)
-	defer dbexec.Rollback(transaction)
+	defer dbapi.Rollback(transaction)
 	requireHTTPTestRuntimeTarget(t, transaction, "mgba")
 	target, err := testsupport.LookupRuntimeTarget(t.Context(), transaction, "mgba")
 	testassert.False(t, err != nil, err)
@@ -256,9 +260,9 @@ INSERT INTO launch_sessions(
 		startedAtMS+2000, startedAtMS, startedAtMS+500)
 	mustExecHTTPTest(t, transaction, `
 INSERT INTO play_sessions(
- id,launch_session_id,profile_id,game_id,started_at_ms,last_heartbeat_at_ms,
- ended_at_ms,active_duration_ms,last_client_sequence,state,version,created_at_ms,updated_at_ms
-) VALUES(?,?,?,?,?,?,?,100,1,'FINISHED',1,?,?)
+ id,launch_session_id,profile_id,game_id,started_at_ms,last_reported_at_ms,
+ ended_at_ms,active_duration_ms,state,version,created_at_ms,updated_at_ms
+) VALUES(?,?,?,?,?,?,?,100,'FINISHED',1,?,?)
 `, playID, launchID, profileID, seed.GameID, startedAtMS, startedAtMS+500,
 		startedAtMS+500, startedAtMS, startedAtMS+500)
 	mustCommitHTTPTest(t, transaction)
@@ -269,9 +273,25 @@ func TestImmersiveProjectionIsStableAndProfileIsolated(t *testing.T) {
 	fixedNow := time.UnixMilli(10_000)
 	server.now = func() time.Time { return fixedNow }
 	seeds := []immersiveGameSeed{
-		{GameID: "01980000-0000-7000-8000-00000000aa01", MetadataID: "01980000-0000-7000-8000-00000000ba01", ContentID: "01980000-0000-7000-8000-00000000ca01", Title: "alpha", Description: "Current alpha", CoverID: "01980000-0000-7000-8000-00000000da01", VideoID: "01980000-0000-7000-8000-00000000ea01"},
-		{GameID: "01980000-0000-7000-8000-00000000aa02", MetadataID: "01980000-0000-7000-8000-00000000ba02", ContentID: "01980000-0000-7000-8000-00000000ca02", Title: "Alpha", Description: "Second alpha", CoverID: "01980000-0000-7000-8000-00000000da02"},
-		{GameID: "01980000-0000-7000-8000-00000000aa03", MetadataID: "01980000-0000-7000-8000-00000000ba03", ContentID: "01980000-0000-7000-8000-00000000ca03", Title: "beta", Description: "Beta", CoverID: "01980000-0000-7000-8000-00000000da03"},
+		{
+			GameID:     "01980000-0000-7000-8000-00000000aa01",
+			MetadataID: "01980000-0000-7000-8000-00000000ba01",
+			ContentID:  "01980000-0000-7000-8000-00000000ca01", Title: "alpha",
+			Description: "Current alpha", CoverID: "01980000-0000-7000-8000-00000000da01",
+			VideoID: "01980000-0000-7000-8000-00000000ea01",
+		},
+		{
+			GameID:     "01980000-0000-7000-8000-00000000aa02",
+			MetadataID: "01980000-0000-7000-8000-00000000ba02",
+			ContentID:  "01980000-0000-7000-8000-00000000ca02", Title: "Alpha",
+			Description: "Second alpha", CoverID: "01980000-0000-7000-8000-00000000da02",
+		},
+		{
+			GameID:     "01980000-0000-7000-8000-00000000aa03",
+			MetadataID: "01980000-0000-7000-8000-00000000ba03",
+			ContentID:  "01980000-0000-7000-8000-00000000ca03", Title: "beta", Description: "Beta",
+			CoverID: "01980000-0000-7000-8000-00000000da03",
+		},
 	}
 	for index, seed := range seeds {
 		seedImmersiveGame(t, server, seed, int64(1000+index))
@@ -279,7 +299,8 @@ func TestImmersiveProjectionIsStableAndProfileIsolated(t *testing.T) {
 	seedImmersivePlay(t, server, seeds[0], "local", 4000, 101)
 	seedImmersivePlay(t, server, seeds[1], "local", 5000, 102)
 	otherProfile := "01980000-0000-7000-8000-00000000f002"
-	mustExecHTTPTest(t, server.database, "INSERT INTO profiles(id,display_name,created_at_ms) VALUES(?,'Other',0)", otherProfile)
+	mustExecHTTPTest(t, server.database,
+		"INSERT INTO profiles(id,display_name,created_at_ms) VALUES(?,'Other',0)", otherProfile)
 	seedImmersivePlay(t, server, seeds[2], otherProfile, 9000, 103)
 
 	platforms := immersiveGET(t, server, "/api/v1/immersive/platforms")
@@ -364,7 +385,7 @@ func TestImmersiveQueriesFailClosedAndUnavailablePlatformsDoNotLeak(t *testing.T
 	testassert.Falsef(t, invalidCursor.Code != http.StatusBadRequest ||
 		!strings.Contains(invalidCursor.Body.String(), `"code":"INVALID_CURSOR"`),
 		"invalid cursor = %d %s", invalidCursor.Code, invalidCursor.Body.String())
-	impact, err := payloadrelease.GameDeleteImpact(context.Background(), server.database, seed.GameID)
+	impact, err := server.gameImpact.Game(context.Background(), seed.GameID)
 	testassert.False(t, err != nil, err)
 	deleteRequest := httptest.NewRequestWithContext(
 		context.Background(),
@@ -406,7 +427,7 @@ func replaceImmersiveMetadata(t *testing.T, server *Server, game immersiveGameSe
 	t.Helper()
 	transaction, err := server.database.BeginTx(context.Background(), nil)
 	testassert.False(t, err != nil, err)
-	defer dbexec.Rollback(transaction)
+	defer dbapi.Rollback(transaction)
 	mustExecHTTPTest(t, transaction, "DELETE FROM game_assets WHERE game_id=?", game.GameID)
 	seedImmersiveAssets(t, server, transaction, replacement, "replacement-cover", "replacement-video", 2000)
 	mustExecHTTPTest(t, transaction, `

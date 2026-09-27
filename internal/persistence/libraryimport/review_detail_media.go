@@ -7,11 +7,11 @@ import (
 	"fmt"
 
 	"retrom/internal/cleanup"
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/libraryimport"
 )
 
-type ReviewMedia struct{ executor dbexec.Executor }
+type ReviewMedia struct{ executor dbapi.Executor }
 
 func (records ReviewMedia) UploadedAssets(
 	ctx context.Context,
@@ -46,7 +46,7 @@ func (records ReviewMedia) RuntimeScreenshot(
 	itemID, validationID string,
 ) (application.ReviewRuntimeScreenshot, bool, error) {
 	result := application.ReviewRuntimeScreenshot{ValidationID: validationID}
-	err := records.executor.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, records.executor, `
 SELECT screenshot.id,screenshot.provider_id,screenshot.target_id,
 screenshot.width_px,screenshot.height_px,screenshot.captured_at_ms
 FROM review_runtime_screenshots screenshot

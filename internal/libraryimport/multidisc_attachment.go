@@ -4,9 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"retrom/internal/blobstore"
+	"retrom/internal/filestore"
 	"retrom/internal/multidisc"
-	repository "retrom/internal/persistence/libraryimport"
 	application "retrom/internal/service/libraryimport"
 )
 
@@ -57,15 +56,15 @@ type multiDiscAttachmentCandidate struct {
 	baseEntries          []multidisc.Entry
 	resultEntries        []multidisc.Entry
 	uploadFiles          []attachedMultiDiscFile
-	canonicalPlaylist    blobstore.Metadata
+	canonicalPlaylist    filestore.Metadata
 	resultManifestJSON   string
 	resultManifestDigest string
 }
 
 type attachedMultiDiscFile struct {
-	role, logicalName, uploadFileID, blobID, blobSHA string
-	blobSize                                         int64
-	sortOrder                                        int
+	role, logicalName, uploadFileID, fileRecord, blobSHA string
+	blobSize                                             int64
+	sortOrder                                            int
 }
 
 func missingMultiDiscEntries(entries []multidisc.Entry) []multidisc.Entry {
@@ -84,15 +83,10 @@ func (service *Service) CreateMultiDiscAttachment(
 	version int64,
 	request MultiDiscAttachmentRequest,
 ) (MultiDiscAttachmentCreated, error) {
-	attachments := application.NewMultiDiscAttachments(
-		repository.NewMultiDiscAttachments(service.database), application.MultiDiscAttachmentOptions{
-			Now: service.now, StorageAvailable: service.blobs != nil,
-		},
-	)
-	result, err := attachments.Create(ctx, itemID, version, request)
+	result, err := service.attachmentCreator.Create(ctx, itemID, version, request)
 	if err != nil {
 		return MultiDiscAttachmentCreated{}, fmt.Errorf("create multi-disc attachment: %w", err)
 	}
-	go service.runMultiDiscAttachment(context.WithoutCancel(ctx), result.JobID)
+	service.scheduleMultiDiscAttachmentRun(ctx, result.JobID, 0)
 	return result, nil
 }

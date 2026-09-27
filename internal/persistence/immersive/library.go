@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/storequery"
 	"retrom/internal/service/immersive"
 )
@@ -75,7 +75,7 @@ WHERE game.status='PUBLISHED' AND instance.enabled=1 AND (` + condition + ")"
 	arguments := append([]any{profileID}, conditionArguments...)
 	var result immersive.Destination
 	var lastPlayedAtMS sql.NullInt64
-	if err := records.database.QueryRowContext(ctx, query, arguments...).Scan(
+	if err := dbapi.QueryRowContext(ctx, records.database, query, arguments...).Scan(
 		&result.GameCount,
 		&lastPlayedAtMS,
 	); err != nil {
@@ -154,7 +154,7 @@ func (records libraryRecords) Folder(
 		return nil, immersive.ErrFavoriteFolderNotFound
 	}
 	var folder immersive.FavoriteFolder
-	err := records.database.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, records.database, `
 SELECT folder.id,folder.name,count(CASE WHEN game.status='PUBLISHED' AND instance.enabled=1 THEN 1 END)
 FROM favorite_folders folder
 LEFT JOIN favorite_folder_games membership
@@ -299,7 +299,7 @@ WHERE game.status='PUBLISHED' AND instance.enabled=1 AND (` + condition + ")"
 	return result, nil
 }
 
-func scanLibraryGame(rows dbexec.Scanner) (immersive.Game, error) {
+func scanLibraryGame(rows dbapi.Scanner) (immersive.Game, error) {
 	var game immersive.Game
 	var releaseYear, lastPlayedAtMS sql.NullInt64
 	var coverAssetID, videoAssetID sql.NullString

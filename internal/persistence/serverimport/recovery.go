@@ -5,13 +5,15 @@ import (
 	"database/sql"
 	"fmt"
 
+	dbapi "retrom/internal/database"
+
 	"retrom/internal/cleanup"
 	"retrom/internal/service/serverimport"
 )
 
-type Recovery struct{ database *sql.DB }
+type Recovery struct{ database dbapi.DB }
 
-func NewRecovery(database *sql.DB) *Recovery { return &Recovery{database} }
+func NewRecovery(database dbapi.DB) *Recovery { return &Recovery{database} }
 func (repository *Recovery) Items(ctx context.Context, importID string) ([]serverimport.CatalogItem, error) {
 	rows, err := repository.database.QueryContext(ctx, `
 SELECT requirement_id,requirement_version,core_id,core_name_snapshot,provider_id,target_id,
@@ -50,7 +52,7 @@ FROM server_bios_import_items WHERE server_import_id=? ORDER BY requirement_id C
 
 func (repository *Recovery) Phase(ctx context.Context, importID string) (string, error) {
 	var phase sql.NullString
-	if err := repository.database.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, repository.database, `
 SELECT phase FROM server_imports WHERE id=?
 `, importID).Scan(&phase); err != nil {
 		return "", fmt.Errorf("read server import discovery phase: %w", err)

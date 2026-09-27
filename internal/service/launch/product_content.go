@@ -5,7 +5,9 @@ import (
 	"errors"
 	"slices"
 
-	"retrom/internal/corevalidation"
+	gamevariant "retrom/internal/service/gamevariant"
+
+	corevalidation "retrom/internal/core/validation"
 )
 
 func BuildProductContent(snapshot ProductSnapshot) (ProductContent, error) {
@@ -21,7 +23,10 @@ func BuildProductContent(snapshot ProductSnapshot) (ProductContent, error) {
 				return ProductContent{}, ErrBlocked
 			}
 			return ProductContent{
-				Files: []ProductContentFile{{BlobID: file.BlobID, LogicalName: "game.zip", Format: "RETROM_DOS_DIRECT_ZIP_V1"}},
+				Files: []ProductContentFile{{
+					FileRecord: file.FileRecord, LogicalName: "game.zip",
+					Format: "RETROM_DOS_DIRECT_ZIP_V1",
+				}},
 			}, nil
 		}
 		return productSingleContent(snapshot)
@@ -39,13 +44,13 @@ func BuildProductContent(snapshot ProductSnapshot) (ProductContent, error) {
 	}
 }
 
-func productFile(files []ProductFile, role, name string) (ProductFile, bool) {
+func productFile(files []gamevariant.File, role, name string) (gamevariant.File, bool) {
 	for _, file := range files {
 		if file.Role == role && (name == "" || file.LogicalName == name) {
 			return file, true
 		}
 	}
-	return ProductFile{}, false
+	return gamevariant.File{}, false
 }
 
 func productSingleContent(snapshot ProductSnapshot) (ProductContent, error) {
@@ -54,7 +59,7 @@ func productSingleContent(snapshot ProductSnapshot) (ProductContent, error) {
 		return ProductContent{}, ErrBlocked
 	}
 	return ProductContent{
-		Files: []ProductContentFile{{BlobID: file.BlobID, LogicalName: file.LogicalName, Format: "SOURCE_V1"}},
+		Files: []ProductContentFile{{FileRecord: file.FileRecord, LogicalName: file.LogicalName, Format: "SOURCE_V1"}},
 	}, nil
 }
 
@@ -69,7 +74,7 @@ func productProjectContent(snapshot ProductSnapshot) (ProductContent, error) {
 		}
 		files = append(
 			files,
-			ProductContentFile{BlobID: file.BlobID, LogicalName: file.LogicalName, Format: snapshot.Source.ContentKind},
+			ProductContentFile{FileRecord: file.FileRecord, LogicalName: file.LogicalName, Format: snapshot.Source.ContentKind},
 		)
 	}
 	if len(files) == 0 {
@@ -85,12 +90,12 @@ func productRPGContent(snapshot ProductSnapshot) (ProductContent, error) {
 	inputs := make([]PreviewFile, 0)
 	for _, file := range snapshot.GameFiles {
 		if file.Role == "PROJECT_FILE" {
-			inputs = append(inputs, PreviewFile{BlobID: file.BlobID, LogicalName: file.LogicalName, Role: file.Role})
+			inputs = append(inputs, PreviewFile{FileRecord: file.FileRecord, LogicalName: file.LogicalName, Role: file.Role})
 		}
 	}
 	for _, file := range snapshot.VariantFiles {
 		if file.Role == "RPG_EASYRPG_INDEX" || file.Role == "RPG_MAKER_LAUNCH_BUNDLE" {
-			inputs = append(inputs, PreviewFile{BlobID: file.BlobID, LogicalName: file.LogicalName, Role: file.Role})
+			inputs = append(inputs, PreviewFile{FileRecord: file.FileRecord, LogicalName: file.LogicalName, Role: file.Role})
 		}
 	}
 	slices.SortFunc(inputs, func(left, right PreviewFile) int { return cmp.Compare(left.LogicalName, right.LogicalName) })
@@ -106,7 +111,7 @@ func productRPGContent(snapshot ProductSnapshot) (ProductContent, error) {
 	for _, file := range prepared {
 		files = append(
 			files,
-			ProductContentFile{BlobID: file.BlobID, LogicalName: file.LogicalName, Format: snapshot.Source.ContentKind},
+			ProductContentFile{FileRecord: file.FileRecord, LogicalName: file.LogicalName, Format: snapshot.Source.ContentKind},
 		)
 	}
 	return ProductContent{Files: files}, nil

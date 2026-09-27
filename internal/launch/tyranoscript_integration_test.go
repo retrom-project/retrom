@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
-	"database/sql"
 	"encoding/base64"
 	"fmt"
 	"image"
@@ -18,6 +17,9 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/testsupport/importfixture"
+
+	dbapi "retrom/internal/database"
 	uploadpersistence "retrom/internal/persistence/uploads"
 
 	dependencypersistence "retrom/internal/persistence/dependencies"
@@ -25,9 +27,9 @@ import (
 
 	isolationpersistence "retrom/internal/persistence/isolation"
 
-	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	"retrom/internal/dependencies"
+	"retrom/internal/filestore"
 	"retrom/internal/libraryimport"
 	retromruntime "retrom/internal/runtime"
 	"retrom/internal/service/isolation"
@@ -61,7 +63,7 @@ VALUES(?,'tyrano-preview-profile','tyrano-preview-admin','Tyrano Admin','ADMIN',
 	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, now()); err != nil {
 		t.Fatal(err)
 	}
-	blobs, err := blobstore.Open(dataDir)
+	blobs, err := filestore.Open(dataDir)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -74,7 +76,7 @@ VALUES(?,'tyrano-preview-profile','tyrano-preview-admin','Tyrano Admin','ADMIN',
 	if err != nil {
 		t.Fatal(err)
 	}
-	service := New(database.SQL, dependencySet, credentials, now).WithBlobStore(blobs).
+	service := New(database.SQL, dependencySet, credentials, now).WithFileStore(blobs).
 		WithRPGRuntimeOriginTemplate("https://{launchId}.rpg-runtime.example").
 		WithRuntimeProvider(dependencySet.RuntimeCatalog, runtimeBuilder)
 	assertPreviewCreationRollback(t, service, ReviewPreviewRequest{ImportItemID: itemID, ActorUserID: actorID, IdempotencyKey: "isolated-rollback"})
@@ -120,7 +122,7 @@ VALUES(?,'tyrano-preview-profile','tyrano-preview-admin','Tyrano Admin','ADMIN',
 		t.Fatalf("authenticate TyranoScript preview=%#v, %v", authorized, err)
 	}
 	var lockedPreviewID string
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT preview_id FROM isolated_runtime_bootstrap_tickets WHERE preview_id=?
 `, preview.PreviewID).Scan(&lockedPreviewID); err != nil || lockedPreviewID != preview.PreviewID {
 		t.Fatalf("TyranoScript preview bootstrap ticket=%q, %v", lockedPreviewID, err)
@@ -189,7 +191,7 @@ SELECT preview_id FROM isolated_runtime_bootstrap_tickets WHERE preview_id=?
 	assertTyranoScriptPreviewIsolationCleanup(t, database.SQL, preview.PreviewID, now)
 }
 
-func assertTyranoScriptPreviewIsolationCleanup(t *testing.T, database *sql.DB, previewID string, clock func() time.Time) {
+func assertTyranoScriptPreviewIsolationCleanup(t *testing.T, database dbapi.DB, previewID string, clock func() time.Time) {
 	t.Helper()
 	ctx := t.Context()
 	now := clock().UnixMilli()
@@ -211,7 +213,7 @@ WHERE id=? AND state IN ('CREATED','ACTIVE')`, []any{now, now, previewID}},
 		}
 	}
 	var retained int
-	if err := database.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database, `
 SELECT (SELECT count(*) FROM isolated_runtime_bootstrap_tickets WHERE preview_id=?)+
        (SELECT count(*) FROM isolated_runtime_capabilities WHERE preview_id=?)
 `, previewID, previewID).Scan(&retained); err != nil || retained != 0 {
@@ -230,8 +232,8 @@ SELECT (SELECT count(*) FROM isolated_runtime_bootstrap_tickets WHERE preview_id
 func createTyranoScriptReviewItem(
 	t *testing.T,
 	ctx context.Context,
-	database *sql.DB,
-	blobs *blobstore.Store,
+	database dbapi.DB,
+	blobs *filestore.Store,
 	dataDir string,
 	now func() time.Time,
 ) (string, *libraryimport.Service) {
@@ -263,7 +265,7 @@ func createTyranoScriptReviewItem(
 		t.Fatal(err)
 	}
 	waitForONSReviewJob(t, ctx, database, jobID)
-	importService := libraryimport.New(database, now).WithBlobStore(blobs)
+	importService := importfixture.New(t, database, blobs, importfixture.Options{Now: now})
 	created, err := importService.Create(ctx, libraryimport.CreateRequest{
 		UploadID: upload.ID, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(
 			t, database, "tyranoscript/tyranoscript",
@@ -274,8 +276,9 @@ func createTyranoScriptReviewItem(
 		t.Fatal(err)
 	}
 	var itemID string
-	if err := database.QueryRowContext(
-		ctx, `SELECT id FROM import_items WHERE import_job_id=?`, created.ImportJobID,
+	if err := dbapi.QueryRowContext(
+		ctx, database,
+		`SELECT id FROM import_items WHERE import_job_id=?`, created.ImportJobID,
 	).Scan(&itemID); err != nil {
 		t.Fatal(err)
 	}

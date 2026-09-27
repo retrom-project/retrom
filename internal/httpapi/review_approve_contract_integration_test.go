@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/libraryimport"
 )
 
@@ -42,11 +43,11 @@ func TestReviewApprovalHTTPKeepsSuccessConflictAndDuplicateContracts(t *testing.
 		t.Fatalf("confirmed=%d %s", confirmed.Code, confirmed.Body.String())
 	}
 	repeat := requestReviewApprove(t, server, second, `"v1"`, `{}`)
-	if repeat.Code != http.StatusConflict {
+	if repeat.Code != http.StatusCreated {
 		t.Fatalf("repeat=%d %s", repeat.Code, repeat.Body.String())
 	}
 	var count int
-	if err := server.database.QueryRowContext(t.Context(), `SELECT count(*) FROM games`).Scan(&count); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), server.database, `SELECT count(*) FROM games`).Scan(&count); err != nil {
 		t.Fatal(err)
 	}
 	if count != 2 {
@@ -65,7 +66,9 @@ func assertApprovalDuplicateResponse(t *testing.T, duplicate *httptest.ResponseR
 	if err := json.Unmarshal(duplicate.Body.Bytes(), &conflict); err != nil {
 		t.Fatal(err)
 	}
-	if conflict.Error.Code != "DUPLICATE_GAME_CONFIRMATION_REQUIRED" || len(conflict.Error.Details.Games) != 1 || conflict.Error.Details.Games[0].GameID != gameID || len(conflict.Error.Details.ContentIdentityDigest) != 64 {
+	if conflict.Error.Code != "DUPLICATE_GAME_CONFIRMATION_REQUIRED" ||
+		len(conflict.Error.Details.Games) != 1 || conflict.Error.Details.Games[0].GameID != gameID ||
+		len(conflict.Error.Details.ContentIdentityDigest) != 64 {
 		t.Fatalf("duplicate response=%s", duplicate.Body.String())
 	}
 }

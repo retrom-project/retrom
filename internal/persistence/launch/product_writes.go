@@ -14,16 +14,39 @@ func (records productCreationRecords) Create(ctx context.Context, plan applicati
 		return err
 	}
 	source := plan.Source
-	if _, err := sessionstore.CreateLaunch(ctx, records.transaction, `INSERT INTO launch_sessions(
+	if _, err := sessionstore.CreateLaunch(
+		ctx,
+		records.transaction,
+		`INSERT INTO launch_sessions(
  id,profile_id,game_id,core_id,provider_id,target_id,bundle_sha256,content_kind,dependency_snapshot_json,
  compatibility_code,save_state_id,dos_entry_path,initial_disc_index,return_to,credential_sha256,state,
  bootstrap_expires_at_ms,hard_expires_at_ms,created_at_ms,updated_at_ms)
-VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'CREATED',?,?,?,?)`, plan.ID, plan.Command.ProfileID, source.GameID, source.CoreID,
-		source.ProviderID, source.TargetID, source.BundleSHA256, source.ContentKind,
-		source.DependencySnapshot, source.CompatibilityCode,
-		plan.Command.Request.SaveStateID, plan.SelectedDOSEntry, plan.InitialDiscIndex,
-		plan.Command.Request.ReturnTo, plan.CredentialHash,
-		plan.BootstrapEnd, plan.HardEnd, plan.NowMS, plan.NowMS); err != nil {
+VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'CREATED',?,?,?,?)`,
+		plan.ID,
+		plan.Command.ProfileID,
+		source.GameID,
+		source.CoreID,
+
+		source.ProviderID,
+		source.TargetID,
+		source.BundleSHA256,
+		source.ContentKind,
+
+		source.DependencySnapshot,
+		source.CompatibilityCode,
+
+		plan.Command.Request.SaveStateID,
+		plan.SelectedDOSEntry,
+		plan.InitialDiscIndex,
+
+		plan.Command.Request.ReturnTo,
+		plan.CredentialHash,
+
+		plan.BootstrapEnd,
+		plan.HardEnd,
+		plan.NowMS,
+		plan.NowMS,
+	); err != nil {
 		return fmt.Errorf("create product launch: %w", err)
 	}
 	if plan.Isolation != nil {
@@ -46,10 +69,10 @@ VALUES(?,?,?,?,?,NULL)`,
 			ctx,
 			records.executor,
 			`INSERT INTO launch_content_files(
-launch_session_id,logical_name,blob_id,format_version,created_at_ms) VALUES(?,?,?,?,?)`,
+launch_session_id,logical_name,file_record,format_version,created_at_ms) VALUES(?,?,?,?,?)`,
 			plan.ID,
 			file.LogicalName,
-			file.BlobID,
+			file.FileRecord,
 			file.Format,
 			plan.NowMS,
 		); err != nil {
@@ -61,11 +84,11 @@ launch_session_id,logical_name,blob_id,format_version,created_at_ms) VALUES(?,?,
 			ctx,
 			records.executor,
 			`INSERT INTO launch_external_files(
-launch_session_id,virtual_path,logical_name,blob_id,created_at_ms,kind) VALUES(?,?,?,?,?,?)`,
+launch_session_id,virtual_path,logical_name,file_record,created_at_ms,kind) VALUES(?,?,?,?,?,?)`,
 			plan.ID,
 			file.VirtualPath,
 			file.LogicalName,
-			file.BlobID,
+			file.FileRecord,
 			plan.NowMS,
 			file.Kind,
 		); err != nil {
@@ -93,19 +116,27 @@ func (records productCreationRecords) refreshApprovedBIOS(
 		return fmt.Errorf("refresh approved product BIOS snapshot: %w", err)
 	}
 	for index, dependency := range plan.OverrideBIOS.BIOS {
-		if dependency.DeliveryKind != "BIOS_BUNDLE" || dependency.BlobID == nil {
+		if dependency.DeliveryKind != "BIOS_BUNDLE" || dependency.FileRecord == nil {
 			continue
 		}
-		if _, err := recordstore.CreateVariantFiles(
+		if _, err := recordstore.UpsertVariantFiles(
+
 			ctx,
+
 			records.executor,
+
 			`INSERT INTO variant_files(
- game_variant_id,role,logical_name,blob_id,sort_order) VALUES(?,'BIOS_BUNDLE',?,?,?)
-ON CONFLICT(game_variant_id,role,logical_name) DO UPDATE SET blob_id=excluded.blob_id,sort_order=excluded.sort_order
-WHERE variant_files.blob_id<>excluded.blob_id`,
+ game_variant_id,role,logical_name,file_record,sort_order) VALUES(?,'BIOS_BUNDLE',?,?,?)
+ON CONFLICT(game_variant_id,role,logical_name) DO UPDATE SET
+file_record=excluded.file_record,sort_order=excluded.sort_order
+WHERE variant_files.file_record<>excluded.file_record`,
+
 			plan.Source.VariantID,
+
 			dependency.LogicalName,
-			*dependency.BlobID,
+
+			*dependency.FileRecord,
+
 			index,
 		); err != nil {
 			return fmt.Errorf("refresh approved product BIOS files: %w", err)

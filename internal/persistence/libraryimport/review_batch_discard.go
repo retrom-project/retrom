@@ -2,19 +2,20 @@ package libraryimport
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 
+	importcleanup "retrom/internal/service/libraryimport/payloadpolicy"
+
 	"retrom/internal/cleanup"
-	"retrom/internal/dbexec"
-	payloadpersistence "retrom/internal/persistence/payloadrelease"
+	dbapi "retrom/internal/database"
+	payloadpersistence "retrom/internal/persistence/libraryimport/itemrelease"
+	payloadservice "retrom/internal/service/cleanupjobs"
 	application "retrom/internal/service/libraryimport"
-	payloadservice "retrom/internal/service/payloadrelease"
 )
 
-type ReviewBatchDiscards struct{ database *sql.DB }
+type ReviewBatchDiscards struct{ database dbapi.DB }
 
-func NewReviewBatchDiscards(database *sql.DB) *ReviewBatchDiscards {
+func NewReviewBatchDiscards(database dbapi.DB) *ReviewBatchDiscards {
 	return &ReviewBatchDiscards{database: database}
 }
 
@@ -49,9 +50,9 @@ func (repository *ReviewBatchDiscards) Release(ctx context.Context, importID str
 	if err != nil {
 		return fmt.Errorf("begin discarded batch release: %w", err)
 	}
-	defer dbexec.Rollback(tx)
+	defer dbapi.Rollback(tx)
 	var pending int
-	if err := tx.QueryRowContext(ctx, `SELECT count(*) FROM import_items WHERE import_job_id=?
+	if err := dbapi.QueryRowContext(ctx, tx, `SELECT count(*) FROM import_items WHERE import_job_id=?
 AND state NOT IN ('PUBLISHED','DISCARDED','FAILED_FINAL','CANCELLED')`, importID).Scan(&pending); err != nil {
 		return fmt.Errorf("check discarded batch: %w", err)
 	}
@@ -63,19 +64,20 @@ cancel_requested_at_ms=COALESCE(cancel_requested_at_ms,?),completed_at_ms=COALES
 updated_at_ms=?,version=version+1 WHERE id=? AND payload_state='RETAINED'`, now, now, now, importID); err != nil {
 		return fmt.Errorf("close discarded batch: %w", err)
 	}
-	ids, err := payloadpersistence.CollectScopeIDs(ctx, tx, `
+	ids, err := dbapi.QueryStrings(ctx, tx, `
 SELECT id FROM import_items WHERE import_job_id=? AND payload_state='RETAINED'`, importID)
 	if err != nil {
 		return fmt.Errorf("list discarded children: %w", err)
 	}
 	scheduler := payloadservice.NewScheduler(nil)
 	for _, id := range ids {
-		if _, err := scheduler.TerminalItem(ctx, payloadpersistence.BindScheduling(tx), id,
+		if _, err := importcleanup.TerminalItem(ctx, scheduler, payloadpersistence.BindScheduling(tx), id,
 			payloadservice.ReasonImportDiscarded, now); err != nil {
 			return fmt.Errorf("release discarded child: %w", err)
 		}
 	}
-	if _, err := scheduler.TerminalImport(ctx, payloadpersistence.BindScheduling(tx), importID, now); err != nil {
+	if _, err := importcleanup.TerminalImport(ctx, scheduler, payloadpersistence.BindScheduling(tx),
+		importID, now); err != nil {
 		return fmt.Errorf("release discarded batch: %w", err)
 	}
 	if err := tx.Commit(); err != nil {

@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"retrom/internal/libraryimport"
+	libraryimport "retrom/internal/service/libraryimport"
 )
 
 func writeReviewBulkError(writer http.ResponseWriter, request *http.Request, err error) {
@@ -41,7 +41,7 @@ func (server *Server) createReviewBulk(writer http.ResponseWriter, request *http
 		writeError(writer, request, http.StatusBadRequest, "INVALID_REQUEST", "快速审批请求无效", map[string]any{})
 		return
 	}
-	created, err := server.importer.CreateReviewBulk(request.Context())
+	created, err := server.reviewBulkApprovals.Create(request.Context())
 	if err != nil {
 		writeReviewBulkError(writer, request, err)
 		return
@@ -51,7 +51,7 @@ func (server *Server) createReviewBulk(writer http.ResponseWriter, request *http
 }
 
 func (server *Server) activeReviewBulk(writer http.ResponseWriter, request *http.Request) {
-	active, found, err := server.importer.GetActiveReviewBulk(request.Context())
+	active, found, err := server.reviewBulkApprovals.Active(request.Context())
 	if err != nil {
 		writeReviewBulkError(writer, request, err)
 		return
@@ -64,7 +64,7 @@ func (server *Server) activeReviewBulk(writer http.ResponseWriter, request *http
 }
 
 func (server *Server) reviewBulk(writer http.ResponseWriter, request *http.Request) {
-	summary, err := server.importer.GetReviewBulk(request.Context(), request.PathValue("bulkApprovalId"))
+	summary, err := server.reviewBulkApprovals.Get(request.Context(), request.PathValue("bulkApprovalId"))
 	if err != nil {
 		writeReviewBulkError(writer, request, err)
 		return

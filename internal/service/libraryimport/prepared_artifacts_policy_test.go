@@ -9,8 +9,8 @@ import (
 	"io"
 	"testing"
 
-	"retrom/internal/blobstore"
-	"retrom/internal/rpgmaker/detector"
+	"retrom/internal/core/rpgmaker/detector"
+	"retrom/internal/filestore"
 )
 
 func TestPreparedArtifactsUseGenerationSpecificValidationRole(t *testing.T) {
@@ -28,19 +28,24 @@ func TestPreparedArtifactsUseGenerationSpecificValidationRole(t *testing.T) {
 		t.Run(string(test.generation), func(t *testing.T) {
 			blobs := &preparedArtifactMemory{}
 			input := []PreparedGroup{{
-				RPGProfile:      &detector.Profile{ExpectedGeneration: test.generation},
-				Sources:         []PreparedSource{{File: ImportFile{SHA256: "source", Size: 3}, LogicalName: "Data/game.bin"}},
-				ValidationFiles: []PreparedValidationFile{{Role: "BIOS_BUNDLE", BlobID: "bios"}},
+				RPGProfile: &detector.Profile{ExpectedGeneration: test.generation},
+				Sources: []PreparedSource{{File: ImportFile{
+					FileRecord: "source-file",
+					SHA256:     "source", Size: 3,
+				}, LogicalName: "Data/game.bin"}},
+				ValidationFiles: []PreparedValidationFile{{Role: "BIOS_BUNDLE", FileRecord: "bios"}},
 			}}
 			output, err := NewImportArtifacts(blobs).Prepare(t.Context(), input, nil)
 			if err != nil || len(output) != 1 || len(output[0].ValidationFiles) != 2 {
 				t.Fatalf("output=%+v err=%v", output, err)
 			}
 			artifact := output[0].ValidationFiles[1]
-			if artifact.Role != test.role || artifact.LogicalName != test.name || artifact.SortOrder != 1 || artifact.Artifact == nil || artifact.Artifact.Size == 0 || artifact.BlobID != "" {
+			if artifact.Role != test.role || artifact.LogicalName != test.name ||
+				artifact.SortOrder != 1 || artifact.Artifact == nil || artifact.Artifact.Size == 0 ||
+				artifact.FileRecord != "" {
 				t.Fatalf("wrong prepared artifact: %+v", artifact)
 			}
-			if len(input[0].ValidationFiles) != 1 || output[0].ValidationFiles[0].BlobID != "bios" {
+			if len(input[0].ValidationFiles) != 1 || output[0].ValidationFiles[0].FileRecord != "bios" {
 				t.Fatal("preparation changed existing validation")
 			}
 		})
@@ -51,17 +56,31 @@ func TestPreparedArtifactsRequireSelectedArchiveMaterialization(t *testing.T) {
 	ordinal := 7
 	groups := []PreparedGroup{{
 		RPGProfile: &detector.Profile{ExpectedGeneration: detector.RPGXP},
-		Sources:    []PreparedSource{{File: ImportFile{SHA256: "archive"}, LogicalName: "game.bin", ArchiveBlobID: "zip", ArchiveOrdinal: &ordinal}},
+		Sources: []PreparedSource{{
+			File: ImportFile{SHA256: "archive"}, LogicalName: "game.bin",
+			ArchiveFileRecord: "zip", ArchiveOrdinal: &ordinal,
+		}},
 	}}
-	for _, archives := range [][]PreparedArchive{nil, {{BlobID: "zip"}}, {{BlobID: "other", Materialized: map[int]blobstore.Metadata{7: {SHA256: "entry", Size: 3}}}}} {
+	for _, archives := range [][]PreparedArchive{
+		nil,
+		{{FileRecord: "zip"}},
+		{{FileRecord: "other", Materialized: map[int]filestore.Metadata{7: {
+			Record: "entry-file",
+			SHA256: "entry", Size: 3,
+		}}}},
+	} {
 		result, err := NewImportArtifacts(&preparedArtifactMemory{}).Prepare(t.Context(), groups, archives)
 		if !errors.Is(err, ErrInvalid) || result != nil {
 			t.Fatalf("unmaterialized source result=%+v err=%v", result, err)
 		}
 	}
 	blobs := &preparedArtifactMemory{}
-	_, err := NewImportArtifacts(blobs).Prepare(t.Context(), groups, []PreparedArchive{{BlobID: "zip", Materialized: map[int]blobstore.Metadata{7: {SHA256: "entry", Size: 3}}}})
-	if err != nil || blobs.opened != "entry" {
+	_, err := NewImportArtifacts(blobs).Prepare(t.Context(), groups,
+		[]PreparedArchive{{
+			FileRecord:   "zip",
+			Materialized: map[int]filestore.Metadata{7: {Record: "entry-file", SHA256: "entry", Size: 3}},
+		}})
+	if err != nil || blobs.opened != "entry-file" {
 		t.Fatalf("opened=%s err=%v", blobs.opened, err)
 	}
 }
@@ -69,7 +88,8 @@ func TestPreparedArtifactsRequireSelectedArchiveMaterialization(t *testing.T) {
 func TestPreparedArtifactsSkipNativeProjectsAndRejectUnknownOrCancelled(t *testing.T) {
 	service := NewImportArtifacts(nil)
 	for _, generation := range []detector.Generation{detector.RPGMV, detector.RPGMZ} {
-		result, err := service.Prepare(t.Context(), []PreparedGroup{{RPGProfile: &detector.Profile{ExpectedGeneration: generation}}}, nil)
+		result, err := service.Prepare(t.Context(),
+			[]PreparedGroup{{RPGProfile: &detector.Profile{ExpectedGeneration: generation}}}, nil)
 		if err != nil || len(result[0].ValidationFiles) != 0 {
 			t.Fatalf("native artifact=%+v err=%v", result, err)
 		}
@@ -87,16 +107,16 @@ func TestPreparedArtifactsSkipNativeProjectsAndRejectUnknownOrCancelled(t *testi
 
 type preparedArtifactMemory struct{ opened string }
 
-func (blobs *preparedArtifactMemory) OpenDigest(digest string) (io.ReadCloser, error) {
+func (blobs *preparedArtifactMemory) OpenRecord(digest string) (io.ReadCloser, error) {
 	blobs.opened = digest
 	return io.NopCloser(bytes.NewReader([]byte("abc"))), nil
 }
 
-func (*preparedArtifactMemory) Put(reader io.Reader) (blobstore.Metadata, error) {
+func (*preparedArtifactMemory) Put(reader io.Reader) (filestore.Metadata, error) {
 	contents, err := io.ReadAll(reader)
 	if err != nil {
-		return blobstore.Metadata{}, err
+		return filestore.Metadata{}, err
 	}
 	digest := sha256.Sum256(contents)
-	return blobstore.Metadata{SHA256: hex.EncodeToString(digest[:]), Size: int64(len(contents))}, nil
+	return filestore.Metadata{SHA256: hex.EncodeToString(digest[:]), Size: int64(len(contents))}, nil
 }

@@ -14,22 +14,22 @@ type ArcadeParentCommitCandidate struct {
 	AttachmentID, ItemID, DraftID, BaseSnapshotID string
 	Machine, ProviderID, TargetID, DATID          string
 	UploadFileID, UploadSessionID                 string
-	BlobID, BlobSHA                               string
+	FileRecord, BlobSHA                           string
 	BlobSize                                      int64
 	ContentPolicyDigest                           string
 }
 
 type ArcadeParentSourceFile struct {
-	Role, LogicalName, UploadFileID, BlobID, BlobSHA string
-	BlobSize                                         int64
-	ArchiveBlobID                                    *string
-	ArchiveOrdinal                                   *int
-	SortOrder                                        int
+	Role, LogicalName, UploadFileID, FileRecord, BlobSHA string
+	BlobSize                                             int64
+	ArchiveFileRecord                                    *string
+	ArchiveOrdinal                                       *int
+	SortOrder                                            int
 }
 
 type ArcadeParentValidationFile struct {
-	Role, LogicalName, BlobID string
-	SortOrder                 int
+	Role, LogicalName, FileRecord string
+	SortOrder                     int
 }
 
 type ArcadeParentValidation struct {

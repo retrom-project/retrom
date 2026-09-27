@@ -7,13 +7,13 @@ import (
 	"fmt"
 
 	"retrom/internal/cleanup"
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/launch"
 )
 
 func configRestore(
 	ctx context.Context,
-	executor dbexec.Executor,
+	executor dbapi.Executor,
 	ref application.SessionRef,
 	source application.ConfigSource,
 ) (application.ConfigRestore, error) {
@@ -24,12 +24,15 @@ func configRestore(
 		return application.ConfigRestore{}, nil
 	}
 	result := application.ConfigRestore{Required: true}
-	err := executor.QueryRowContext(ctx, `
-SELECT save.checkpoint_format,blob.sha256,blob.size_bytes
+	err := dbapi.QueryRowContext(ctx, executor, `
+SELECT save.checkpoint_format,json_extract(blob.value, '$.sha256'),json_extract(blob.value, '$.size_bytes')
 FROM save_states save
 LEFT JOIN launch_game_save_bindings binding ON binding.launch_session_id=?
-JOIN blobs blob ON blob.id=COALESCE(binding.restore_payload_blob_id,save.payload_blob_id)
-WHERE save.id=? AND save.deleted_at_ms IS NULL`, ref.ID, *source.SaveID).
+LEFT JOIN game_save_versions native ON native.save_state_id=save.id
+JOIN json_each(json_array(save.payload_file_record)) blob ON blob.value IS NOT NULL
+WHERE save.id=? AND save.deleted_at_ms IS NULL
+AND (binding.launch_session_id IS NULL OR
+ (binding.save_state_id=save.id AND binding.expected_data_version=native.data_version))`, ref.ID, *source.SaveID).
 		Scan(&result.Format, &result.Digest, &result.Size)
 	if errors.Is(err, sql.ErrNoRows) {
 		return result, nil
@@ -41,12 +44,14 @@ WHERE save.id=? AND save.deleted_at_ms IS NULL`, ref.ID, *source.SaveID).
 	return result, nil
 }
 
-func configPreviewRestore(ctx context.Context, executor dbexec.Executor, id string) (application.ConfigRestore, error) {
+func configPreviewRestore(ctx context.Context, executor dbapi.Executor, id string) (application.ConfigRestore, error) {
 	var payload, format, digest sql.NullString
 	var size sql.NullInt64
-	err := executor.QueryRowContext(ctx, `
-SELECT preview.restore_payload_blob_id,preview.restore_checkpoint_format,blob.sha256,blob.size_bytes
-FROM review_preview_sessions preview LEFT JOIN blobs blob ON blob.id=preview.restore_payload_blob_id
+	err := dbapi.QueryRowContext(ctx, executor, `
+SELECT preview.restore_payload_file_record,preview.restore_checkpoint_format,json_extract(blob.value,
+'$.sha256'),json_extract(blob.value, '$.size_bytes')
+FROM review_preview_sessions preview LEFT JOIN
+json_each(json_array(preview.restore_payload_file_record)) blob ON blob.value IS NOT NULL
 WHERE preview.id=?`, id).Scan(&payload, &format, &digest, &size)
 	if err != nil {
 		return application.ConfigRestore{}, fmt.Errorf("read preview config restore: %w", err)
@@ -59,7 +64,7 @@ WHERE preview.id=?`, id).Scan(&payload, &format, &digest, &size)
 
 func configIsolation(
 	ctx context.Context,
-	executor dbexec.Executor,
+	executor dbapi.Executor,
 	ref application.SessionRef,
 ) ([]application.IsolationGrant, error) {
 	column := "launch_id"

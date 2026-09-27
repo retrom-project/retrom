@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	"retrom/internal/cleanup"
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/recordstore"
 	application "retrom/internal/service/gameassets"
 )
@@ -15,13 +15,13 @@ import (
 var errReleaseSchedulerUnavailable = errors.New("game asset payload release scheduler unavailable")
 
 type writeScope struct {
-	executor dbexec.Executor
+	executor dbapi.Executor
 	releases ReleaseScheduler
 }
 
 func (scope writeScope) GameVersion(ctx context.Context, gameID string) (int64, error) {
 	var version int64
-	err := scope.executor.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, scope.executor, `
 SELECT g.version
 FROM games g
 WHERE g.id=?
@@ -34,7 +34,7 @@ AND g.status='PUBLISHED'`, gameID).Scan(&version)
 
 func (scope writeScope) AssetExists(ctx context.Context, gameID, kind string) (bool, error) {
 	var exists int
-	err := scope.executor.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, scope.executor, `
 SELECT 1
 FROM game_assets
 WHERE game_id=?
@@ -50,39 +50,43 @@ AND ordinal=0`, gameID, kind).Scan(&exists)
 }
 
 func (scope writeScope) RemoveSlot(
-	ctx context.Context, gameID, kind string, ordinal int64,
+	ctx context.Context, gameID, kind string, ordinal, _ int64,
 ) ([]string, error) {
 	rows, err := scope.executor.QueryContext(ctx, `
-SELECT blob_id FROM game_assets WHERE game_id=? AND kind=? AND ordinal=? ORDER BY id
+SELECT file_record FROM game_assets WHERE game_id=? AND kind=? AND ordinal=? ORDER BY id
 `, gameID, kind, ordinal)
 	if err != nil {
 		return nil, fmt.Errorf("list replaced game assets: %w", err)
 	}
 	defer func() { cleanup.Error("close replaced game assets", rows.Close()) }()
-	blobIDs := make([]string, 0, 1)
+	fileRecords := make([]string, 0, 1)
 	for rows.Next() {
-		var blobID string
-		if err := rows.Scan(&blobID); err != nil {
+		var fileRecord string
+		if err := rows.Scan(&fileRecord); err != nil {
 			return nil, fmt.Errorf("scan replaced game asset: %w", err)
 		}
-		blobIDs = append(blobIDs, blobID)
+		fileRecords = append(fileRecords, fileRecord)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("iterate replaced game assets: %w", err)
 	}
-	if _, err := scope.executor.ExecContext(ctx, `
-DELETE FROM game_assets WHERE game_id=? AND kind=? AND ordinal=?
-`, gameID, kind, ordinal); err != nil {
+
+	if _, err := recordstore.DeleteRows(
+		ctx,
+		scope.executor,
+		"game_assets",
+		recordstore.Scope{Where: "game_id=? AND kind=? AND ordinal=?", Args: []any{gameID, kind, ordinal}},
+	); err != nil {
 		return nil, fmt.Errorf("delete replaced game asset: %w", err)
 	}
-	return blobIDs, nil
+	return fileRecords, nil
 }
 
 func (scope writeScope) Create(ctx context.Context, asset application.AssetRecord) error {
 	if _, err := recordstore.CreateGameAssets(ctx, scope.executor, `
 INSERT INTO game_assets(id,
 game_id,
-blob_id,
+file_record,
 kind,
 ordinal,
 width_px,
@@ -91,7 +95,7 @@ media_type,
 created_at_ms) VALUES(?,?,?,?,?,?,?,?,?)`,
 		asset.ID,
 		asset.GameID,
-		asset.BlobID,
+		asset.FileRecord,
 		asset.Kind,
 		asset.Ordinal,
 		asset.WidthPX,

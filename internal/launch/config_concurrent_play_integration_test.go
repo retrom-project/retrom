@@ -6,54 +6,48 @@ import (
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
 	persistence "retrom/internal/persistence/launch"
 	application "retrom/internal/service/launch"
 )
 
 func TestConfigConcurrentActivationThenPlayKeepsValidIssuance(t *testing.T) {
 	t.Parallel()
-	for _, heartbeat := range []bool{false, true} {
-		name := "start"
-		if heartbeat {
-			name = "heartbeat"
+	for _, reportAgain := range []bool{false, true} {
+		name := "first-sample"
+		if reportAgain {
+			name = "next-sample"
 		}
 		t.Run(name, func(t *testing.T) {
 			fixture, created := newPlaySourceFixture(t, false, false)
 			var beforeVersion, currentVersion int64
-			if err := fixture.database.QueryRowContext(t.Context(),
+			if err := dbapi.QueryRowContext(t.Context(), fixture.database,
 				`SELECT version FROM launch_sessions WHERE id=?`, created.LaunchID).Scan(&beforeVersion); err != nil {
 				t.Fatal(err)
 			}
 			var advanced map[string]string
 			builder := configBuildHook{ConfigBuilder: fixture.launcher.runtimeBuilder, after: func() {
 				// Issuer A already read CREATED. Issuer B activates, and its
-				// ordinary Player performs real START and optionally HEARTBEAT.
+				// ordinary Player performs cumulative statistics before and after a reporting interval.
 				if err := configDraftFetch(t, fixture, created, false); err != nil {
 					t.Fatal(err)
 				}
 				productPlayStart(t, fixture, created)
-				if heartbeat {
+				if reportAgain {
 					*fixture.now = fixture.now.Add(time.Second)
-					result, err := fixture.launcher.RecordPlay(t.Context(), created.LaunchID, created.Capability,
-						"heartbeat", PlayEvent{
-							ClientSequence: 1, ClientObservedAtMS: fixture.now.UnixMilli(),
-							PreviousInterval: &Interval{Running: true, Visible: true},
-						})
-					if err != nil || result.State != "ACTIVE" || result.AcceptedDuration != 1000 {
-						t.Fatalf("legitimate heartbeat: state=%s duration=%d error=%v", result.State, result.AcceptedDuration, err)
+					result, err := fixture.launcher.RecordPlaySnapshot(t.Context(), created.LaunchID, created.Capability, PlaySnapshot{ActiveDurationMS: 1000})
+					if err != nil || result.ActiveDurationMS != 1000 {
+						t.Fatalf("progress=%#v error=%v", result, err)
 					}
 				}
 				if err := fixture.launcher.AuthorizeSave(t.Context(), created.LaunchID, created.Capability); err != nil {
 					t.Fatalf("current capability unexpectedly invalid: %v", err)
 				}
-				if err := fixture.database.QueryRowContext(t.Context(),
+				if err := dbapi.QueryRowContext(t.Context(), fixture.database,
 					`SELECT version FROM launch_sessions WHERE id=?`, created.LaunchID).Scan(&currentVersion); err != nil {
 					t.Fatal(err)
 				}
-				advance := int64(2)
-				if heartbeat {
-					advance++
-				}
+				advance := int64(1)
 				if currentVersion != beforeVersion+advance {
 					t.Fatalf("real version progression: before=%d after=%d want increment=%d", beforeVersion, currentVersion, advance)
 				}

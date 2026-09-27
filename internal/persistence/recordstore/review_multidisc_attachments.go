@@ -4,16 +4,16 @@ import (
 	"context"
 	"database/sql"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 )
 
 func CreateReviewMultidiscAttachments(
-	ctx context.Context, db dbexec.Executor, query string, args ...any,
+	ctx context.Context, db dbapi.Executor, query string, args ...any,
 ) (sql.Result, error) {
-	return create(ctx, db, query, args, "id", ValidateReviewMultidiscAttachments)
+	return create(ctx, db, query, args, "review_multidisc_attachments", "id", ValidateReviewMultidiscAttachments)
 }
 
-func ValidateReviewMultidiscAttachments(ctx context.Context, db dbexec.Executor, keys ...any) error {
+func ValidateReviewMultidiscAttachments(ctx context.Context, db dbapi.Executor, keys ...any) error {
 	return validate(ctx, db, review_multidisc_attachmentsOwnership, keys)
 }
 

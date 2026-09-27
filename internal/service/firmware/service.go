@@ -7,7 +7,8 @@ import (
 	"fmt"
 	"time"
 
-	"retrom/internal/blobstore"
+	"retrom/internal/cleanup"
+	"retrom/internal/filestore"
 	"retrom/internal/firmware"
 	"retrom/internal/importing"
 
@@ -22,23 +23,27 @@ var (
 
 type Service struct {
 	repository Repository
-	blobs      *blobstore.Store
+	blobs      *filestore.Store
 	releases   ReleaseSignal
 	now        func() time.Time
 }
 
-func New(repository Repository, now func() time.Time) *Service {
-	return &Service{repository: repository, now: now}
+// Dependencies are fixed for the lifetime of the service. Cleanup only wakes
+// the durable cleanup queue and may be omitted.
+type Dependencies struct {
+	Repository Repository
+	Files      *filestore.Store
+	Cleanup    ReleaseSignal
 }
 
-func (service *Service) WithBlobStore(blobs *blobstore.Store) *Service {
-	service.blobs = blobs
-	return service
-}
-
-func (service *Service) WithPayloadRelease(releases ReleaseSignal) *Service {
-	service.releases = releases
-	return service
+func New(deps Dependencies, now func() time.Time) *Service {
+	if deps.Repository == nil || deps.Files == nil {
+		panic("firmware: repository and files are required")
+	}
+	if now == nil {
+		now = time.Now
+	}
+	return &Service{repository: deps.Repository, blobs: deps.Files, releases: deps.Cleanup, now: now}
 }
 
 type installSnapshot struct {
@@ -89,13 +94,10 @@ func (service *Service) prepareInstall(
 		return preparedInstall{}, fmt.Errorf("prepare BIOS installation: %w", err)
 	}
 	if prepared.snapshot.Requirement.FileKind == "ARCHIVE" {
-		if service.blobs == nil {
-			return preparedInstall{}, ErrInvalid
-		}
 		entries, err := importing.ScanZIP(
 			ctx,
 			service.blobs.Path(
-				prepared.snapshot.Upload.SHA256,
+				prepared.snapshot.Upload.FileRecord,
 			),
 			importing.DefaultArchiveLimits(),
 		)
@@ -117,6 +119,21 @@ func (service *Service) Install(
 	if err != nil {
 		return Installation{}, err
 	}
+	installationID, err := uuid.NewV7()
+	if err != nil {
+		return Installation{}, fmt.Errorf("install: %w", err)
+	}
+	directory := "bios/" + installationID.String()
+	file, err := service.blobs.CopyTo(ctx, prepared.snapshot.Upload.FileRecord, directory, "payload")
+	if err != nil {
+		return Installation{}, fmt.Errorf("install: %w", err)
+	}
+	committed := false
+	defer func() {
+		if !committed {
+			cleanup.Error("discard BIOS candidate", service.blobs.RemovePath(context.WithoutCancel(ctx), directory))
+		}
+	}()
 	var result Installation
 	err = service.repository.WithWrite(ctx, func(scope WriteScope) error {
 		current, err := readInstallSnapshot(ctx, scope.ReadScope, id, request.UploadFileID, version)
@@ -134,17 +151,19 @@ func (service *Service) Install(
 			return &firmware.ArchiveContentError{Details: details}
 		}
 		now := service.now().UnixMilli()
+		current.Upload.FileRecord = file.Record
 		if current.Requirement.FileKind == "ARCHIVE" {
-			if err := scope.Archives.Put(ctx, current.Upload.BlobID, prepared.entries, now); err != nil {
+			if err := scope.Archives.Put(ctx, current.Upload.FileRecord, prepared.entries, now); err != nil {
 				return fmt.Errorf("record BIOS archive facts: %w", err)
 			}
 		}
-		result, err = persistBrowserInstallation(ctx, scope, current, status, details, now)
+		result, err = persistBrowserInstallation(ctx, scope, current, installationID.String(), status, details, now)
 		return err
 	})
 	if err != nil {
 		return Installation{}, fmt.Errorf("install BIOS: %w", err)
 	}
+	committed = true
 	service.signalRelease()
 	return result, nil
 }
@@ -152,16 +171,17 @@ func (service *Service) Install(
 func sameInstallSource(current, prepared installSnapshot) bool {
 	return current.Requirement.SourceKind == prepared.Requirement.SourceKind &&
 		current.Requirement.FileKind == prepared.Requirement.FileKind &&
-		current.Upload.BlobID == prepared.Upload.BlobID && current.Upload.SHA256 == prepared.Upload.SHA256
+		current.Upload.FileRecord == prepared.Upload.FileRecord && current.Upload.SHA256 == prepared.Upload.SHA256
 }
 
-func persistBrowserInstallation(ctx context.Context, scope WriteScope, snapshot installSnapshot, status string,
-	details map[string]any, now int64,
+func persistBrowserInstallation(
+	ctx context.Context,
+	scope WriteScope,
+	snapshot installSnapshot,
+	id, status string,
+	details map[string]any,
+	now int64,
 ) (Installation, error) {
-	id, err := uuid.NewV7()
-	if err != nil {
-		return Installation{}, fmt.Errorf("generate BIOS installation ID: %w", err)
-	}
 	consumption, err := uuid.NewV7()
 	if err != nil {
 		return Installation{}, fmt.Errorf("generate BIOS consumption ID: %w", err)
@@ -175,20 +195,21 @@ func persistBrowserInstallation(ctx context.Context, scope WriteScope, snapshot 
 		return Installation{}, fmt.Errorf("retire BIOS: %w", err)
 	}
 	if err := scope.Installations.Create(ctx, InstallationWrite{
-		ID: id.String(), RequirementID: requirement.ID, BlobID: upload.BlobID, Filename: upload.RelativePath,
-		MD5: upload.MD5, SHA1: upload.SHA1, SHA256: upload.SHA256, Size: upload.Size, Status: status,
+		ID: id, RequirementID: requirement.ID, FileRecord: upload.FileRecord, UploadSessionID: upload.SessionID,
+		Filename: upload.RelativePath,
+		MD5:      upload.MD5, SHA1: upload.SHA1, SHA256: upload.SHA256, Size: upload.Size, Status: status,
 		RequirementVersion: requirement.Version, DetailsJSON: encoded, AtMS: now, SourceKind: "BROWSER_UPLOAD",
 	}); err != nil {
 		return Installation{}, fmt.Errorf("persist BIOS installation: %w", err)
 	}
 	if err := scope.Installations.Consume(ctx, Consumption{
 		ID: consumption.String(), UploadID: upload.SessionID,
-		FileID: upload.ID, InstallationID: id.String(), AtMS: now,
+		FileID: upload.ID, InstallationID: id, AtMS: now,
 	}); err != nil {
 		return Installation{}, fmt.Errorf("consume BIOS upload: %w", err)
 	}
 	return Installation{
-		InstallationID: id.String(), RequirementID: requirement.ID, Status: status, Active: true,
+		InstallationID: id, RequirementID: requirement.ID, Status: status, Active: true,
 		ValidatedRequirementVersion: requirement.Version, ValidationDetails: details, CreatedAtMS: now,
 	}, nil
 }

@@ -2,16 +2,16 @@ package sourceimport
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"reflect"
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/sourceimport"
 )
 
-func completionDatabase(t *testing.T) *sql.DB {
+func completionDatabase(t *testing.T) dbapi.DB {
 	t.Helper()
 	db := workflowDatabase(t)
 	if _, err := db.ExecContext(t.Context(), `UPDATE jobs SET state='RUNNING',attempt_count=1,finished_at_ms=NULL WHERE id='work';
@@ -88,7 +88,7 @@ func TestCompletionCountsAndFinalEventCommitOnlyOnce(t *testing.T) {
 	}
 	var job, plan string
 	var failed, pending, events int64
-	if err := db.QueryRowContext(t.Context(), `SELECT job.state,plan.state,plan.failed_item_count,plan.review_pending_item_count,
+	if err := dbapi.QueryRowContext(t.Context(), db, `SELECT job.state,plan.state,plan.failed_item_count,plan.review_pending_item_count,
 (SELECT count(*) FROM job_events WHERE job_id='work' AND event_type='SUCCEEDED')
 FROM jobs job JOIN source_imports plan ON plan.id=job.scope_id WHERE job.id='work'`).Scan(&job, &plan, &failed, &pending, &events); err != nil {
 		t.Fatal(err)

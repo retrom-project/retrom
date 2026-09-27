@@ -4,7 +4,6 @@ package launch
 
 import (
 	"bytes"
-	"database/sql"
 	"errors"
 	"mime/multipart"
 	"net/http"
@@ -13,22 +12,25 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/testsupport/importfixture"
+
+	dbapi "retrom/internal/database"
 	savepersistence "retrom/internal/persistence/saves"
 
-	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
-	"retrom/internal/libraryimport"
-	"retrom/internal/payloadrelease"
+	"retrom/internal/composition/cleanupjobs"
+	"retrom/internal/filestore"
 	retromruntime "retrom/internal/runtime"
 	"retrom/internal/service/saves"
 	"retrom/internal/testsupport"
 )
 
 type reviewCheckpointFixture struct {
-	database *sql.DB
+	files    *filestore.Store
+	database dbapi.DB
 	launcher *Service
 	saver    *saves.Service
-	releaser *payloadrelease.Service
+	releaser *cleanupjobs.Service
 	now      *time.Time
 	itemID   string
 }
@@ -52,15 +54,13 @@ VALUES('reviewer','local','reviewer','Reviewer','ADMIN','ENABLED',0,0)`)
 	if err != nil {
 		t.Fatal(err)
 	}
-	blobs, err := blobstore.Open(dataDir)
-	if err != nil {
-		t.Fatal(err)
-	}
-	releaser, err := payloadrelease.New(database.SQL, blobs, clock, 7*24*time.Hour)
+	blobs := source.files
+	releaser, err := cleanupjobs.New(t.Context(), database.SQL, blobs, clock)
 	if err != nil {
 		t.Fatal(err)
 	}
 	return reviewCheckpointFixture{
+		files:    blobs,
 		database: database.SQL, now: &now, itemID: source.itemID,
 		launcher: newRPGReviewLaunchService(t, t.Context(), database.SQL, credentials, clock),
 		saver:    saves.New(savepersistence.New(database.SQL), blobs, clock), releaser: releaser,
@@ -115,7 +115,7 @@ func TestOrdinaryReviewPlayerCanReplaceItsTemporaryCheckpoint(t *testing.T) {
 		}
 	}
 	var products int
-	if err := fixture.database.QueryRowContext(t.Context(), `SELECT (SELECT count(*) FROM games)+(SELECT count(*) FROM save_states)`).Scan(&products); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT (SELECT count(*) FROM games)+(SELECT count(*) FROM save_states)`).Scan(&products); err != nil {
 		t.Fatal(err)
 	}
 	if products != 0 {
@@ -150,9 +150,9 @@ func TestReviewRestoreFreezesTheCheckpointWithoutAnOriginalCloseGate(t *testing.
 		"point-C", reviewCheckpointRequest(t, "point-C")); err != nil {
 		t.Fatal(err)
 	}
-	digest, err := fixture.saver.StateDigest(t.Context(), restored.PreviewID, restored.Capability)
-	if err != nil || digest != restore["sha256"] {
-		t.Fatalf("new preview followed mutable original checkpoint instead of frozen B: %s %v", digest, err)
+	digest, err := fixture.saver.StateFile(t.Context(), restored.PreviewID, restored.Capability)
+	if err != nil || digest.Digest != restore["sha256"] {
+		t.Fatalf("new preview followed mutable original checkpoint instead of frozen B: %s %v", digest.Digest, err)
 	}
 }
 
@@ -210,13 +210,14 @@ func TestReviewCheckpointIsScopedExpiringAndReleasedByOrdinaryGC(t *testing.T) {
 		"expired", reviewCheckpointRequest(t, "point-C")); !errors.Is(err, saves.ErrCredential) {
 		t.Fatalf("expired trial can write checkpoint: %v", err)
 	}
-	if err := fixture.releaser.ReconcileGC(t.Context()); err != nil {
+	if err := fixture.releaser.ReconcileDeletion(t.Context()); err != nil {
 		t.Fatal(err)
 	}
 	var remaining int
-	if err := fixture.database.QueryRowContext(t.Context(), `
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `
 SELECT count(*) FROM review_preview_sessions WHERE id IN (?,?)
- AND (state<>'EXPIRED' OR checkpoint_payload_blob_id IS NOT NULL OR restore_payload_blob_id IS NOT NULL)
+ AND (state<>'EXPIRED' OR checkpoint_payload_file_record IS NOT NULL OR restore_payload_file_record IS
+NOT NULL)
 `, original.PreviewID, restored.PreviewID).Scan(&remaining); err != nil || remaining != 0 {
 		t.Fatalf("expired trial retained checkpoint references: %d %v", remaining, err)
 	}
@@ -232,7 +233,7 @@ func TestPublishingReviewReleasesAllTemporaryPreviewOwners(t *testing.T) {
 	}
 	mustRPGLaunchSQL(t, fixture.database,
 		`UPDATE import_items SET metadata_json='{"title":"Published trial"}' WHERE id=?`, fixture.itemID)
-	approved, err := libraryimport.New(fixture.database, func() time.Time { return *fixture.now }).
+	approved, err := importfixture.New(t, fixture.database, fixture.files, importfixture.Options{Now: func() time.Time { return *fixture.now }}).
 		Approve(t.Context(), fixture.itemID, 2)
 	if err != nil || approved.GameID == "" {
 		t.Fatalf("publish ordinary review: %+v %v", approved, err)
@@ -248,13 +249,14 @@ func TestPublishingReviewReleasesAllTemporaryPreviewOwners(t *testing.T) {
 	}
 	var previews, productSaves int
 	var payloadState string
-	if err := fixture.database.QueryRowContext(t.Context(), `
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `
 SELECT (SELECT count(*) FROM review_preview_sessions WHERE id=?),
  (SELECT count(*) FROM save_states),payload_state FROM import_items WHERE id=?`,
 		fixture.itemID, fixture.itemID).Scan(&previews, &productSaves, &payloadState); err != nil {
 		t.Fatal(err)
 	}
 	if previews != 0 || productSaves != 0 || payloadState != "RELEASED" {
-		t.Fatalf("publication retained temporary owners: previews=%d saves=%d payload=%s", previews, productSaves, payloadState)
+		t.Fatalf("publication retained temporary owners: previews=%d saves=%d payload=%s", previews,
+			productSaves, payloadState)
 	}
 }

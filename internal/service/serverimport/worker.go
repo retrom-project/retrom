@@ -23,7 +23,7 @@ type work = Work
 
 type evaluatedCandidate = EvaluatedCandidate
 
-func (service *Service) runLoop() {
+func (service *Service) runLoop(ctx context.Context) {
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
 	for {
@@ -34,7 +34,10 @@ func (service *Service) runLoop() {
 		case <-ticker.C:
 		}
 		for {
-			handled, err := service.outcomes.Reconcile(context.Background())
+			if ctx.Err() != nil {
+				return
+			}
+			handled, err := service.outcomes.Reconcile(ctx)
 			if err != nil {
 				service.workerError("reconcile", err)
 				break
@@ -42,12 +45,12 @@ func (service *Service) runLoop() {
 			if handled {
 				continue
 			}
-			workUnit, ok, err := service.claim(context.Background())
+			workUnit, ok, err := service.claim(ctx)
 			if err != nil || !ok {
 				service.workerError("claim", err)
 				break
 			}
-			service.execute(context.Background(), workUnit)
+			service.execute(ctx, workUnit)
 		}
 	}
 }
@@ -71,9 +74,9 @@ func (service *Service) execute(ctx context.Context, unit work) {
 		ctx, cancel = context.WithDeadline(ctx, time.UnixMilli(unit.DeadlineAtMS))
 		defer cancel()
 	}
-	heartbeatDone := make(chan struct{})
-	go service.heartbeatLoop(ctx, unit, heartbeatDone)
-	defer close(heartbeatDone)
+	heartbeatStop, heartbeatDone := make(chan struct{}), make(chan struct{})
+	go func() { defer close(heartbeatDone); service.heartbeatLoop(ctx, unit, heartbeatStop) }()
+	defer func() { close(heartbeatStop); <-heartbeatDone }()
 	root, exists := service.roots[unit.RootID]
 	if !exists || root.digest != unit.RootDigest {
 		service.failTask(ctx, unit, "SERVER_IMPORT_ROOT_CHANGED")

@@ -7,19 +7,19 @@ import (
 	"fmt"
 
 	"retrom/internal/cleanup"
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/service/serverimport"
 )
 
-type Outcomes struct{ database *sql.DB }
+type Outcomes struct{ database dbapi.DB }
 
-func NewOutcomes(database *sql.DB) *Outcomes { return &Outcomes{database} }
+func NewOutcomes(database dbapi.DB) *Outcomes { return &Outcomes{database} }
 func (repository *Outcomes) WithWrite(ctx context.Context, work func(serverimport.OutcomeScope) error) error {
 	tx, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin import outcome: %w", err)
 	}
-	defer dbexec.Rollback(tx)
+	defer dbapi.Rollback(tx)
 	records := outcomeRecords{tx}
 	if err := work(serverimport.OutcomeScope{Read: records, Write: records}); err != nil {
 		return err
@@ -30,7 +30,7 @@ func (repository *Outcomes) WithWrite(ctx context.Context, work func(serverimpor
 	return nil
 }
 
-type outcomeRecords struct{ executor dbexec.Executor }
+type outcomeRecords struct{ executor dbapi.Executor }
 
 func (records outcomeRecords) Lock(
 	ctx context.Context,
@@ -43,8 +43,9 @@ func (records outcomeRecords) Lock(
 
 func (repository *Outcomes) Recovery(ctx context.Context, now int64) (serverimport.RecoveryWork, bool, error) {
 	var result serverimport.RecoveryWork
-	err := repository.database.QueryRowContext(
-		ctx,
+	err := dbapi.QueryRowContext(
+		ctx, repository.database,
+
 		`SELECT import.id,import.job_id,job.execution_no,
  COALESCE(job.worker_id,''),job.state='CANCEL_REQUESTED'
  FROM server_imports import JOIN jobs job ON job.id=import.job_id
@@ -72,8 +73,9 @@ func (repository *Outcomes) Recovery(ctx context.Context, now int64) (serverimpo
 
 func (records outcomeRecords) Budget(ctx context.Context, unit serverimport.Work) (serverimport.RetryBudget, error) {
 	var result serverimport.RetryBudget
-	err := records.executor.QueryRowContext(
-		ctx,
+	err := dbapi.QueryRowContext(
+		ctx, records.executor,
+
 		`SELECT attempt_count,max_attempts,COALESCE(execution_deadline_at_ms,0)
  FROM jobs WHERE id=? AND execution_no=? AND worker_id=? AND state='RUNNING'`,
 		unit.JobID,

@@ -16,9 +16,9 @@ import (
 	"strings"
 	"time"
 
-	_ "modernc.org/sqlite" // Register the modernc SQLite driver used by Open.
-
 	"retrom/internal/cleanup"
+	dbapi "retrom/internal/database"
+	"retrom/internal/database/sqlite"
 	"retrom/migrations"
 )
 
@@ -49,14 +49,9 @@ type migrationSource struct {
 	contents []byte
 }
 
-type MigrationLineage struct {
-	Version int64
-	Digest  string
-}
-
 type DB struct {
-	SQL      *sql.DB
-	ReadOnly *sql.DB
+	SQL      dbapi.DB
+	ReadOnly dbapi.DB
 }
 
 func Open(ctx context.Context, path string, now func() time.Time) (*DB, error) {
@@ -66,14 +61,12 @@ func Open(ctx context.Context, path string, now func() time.Time) (*DB, error) {
 	if err := ensureParent(path); err != nil {
 		return nil, err
 	}
-	database, err := sql.Open("sqlite", path)
+	database, err := sqlite.Open(path, sqlite.Options{MaxOpenConns: 1, MaxIdleConns: 1, Now: now})
 	if err != nil {
 		return nil, fmt.Errorf("open sqlite: %w", err)
 	}
 	// Retrom has one write handle. Serializing it prevents per-connection PRAGMA drift
 	// and follows the documented single-writer SQLite contract.
-	database.SetMaxOpenConns(1)
-	database.SetMaxIdleConns(1)
 	for _, pragma := range []string{
 		"PRAGMA foreign_keys = ON",
 		"PRAGMA journal_mode = WAL",
@@ -97,20 +90,18 @@ func Open(ctx context.Context, path string, now func() time.Time) (*DB, error) {
 	return &DB{SQL: database, ReadOnly: readOnly}, nil
 }
 
-func openReadOnlyDatabase(ctx context.Context, path string) (*sql.DB, error) {
+func openReadOnlyDatabase(ctx context.Context, path string) (dbapi.DB, error) {
 	query := url.Values{}
 	query.Set("mode", "ro")
 	query.Add("_pragma", "foreign_keys(1)")
 	query.Add("_pragma", "busy_timeout(5000)")
 	dsn := (&url.URL{Scheme: "file", Path: filepath.ToSlash(path), RawQuery: query.Encode()}).String()
-	database, err := sql.Open("sqlite", dsn)
+	database, err := sqlite.Open(dsn, sqlite.Options{MaxOpenConns: 4, MaxIdleConns: 4})
 	if err != nil {
 		return nil, fmt.Errorf("open read-only sqlite: %w", err)
 	}
 	// Read traffic has a small independent pool so health probes and page reads
 	// cannot queue behind the single serialized writer connection.
-	database.SetMaxOpenConns(4)
-	database.SetMaxIdleConns(4)
 	if err := database.PingContext(ctx); err != nil {
 		cleanup.Error("close", database.Close())
 		return nil, fmt.Errorf("open read-only sqlite: %w", err)
@@ -134,13 +125,13 @@ func preflightExistingDatabase(ctx context.Context, path string) error {
 		return errDatabaseFilename
 	}
 	uri := "file:" + filepath.ToSlash(path) + "?mode=ro&immutable=1"
-	database, err := sql.Open("sqlite", uri)
+	database, err := sqlite.Open(uri, sqlite.Options{MaxOpenConns: 1, MaxIdleConns: 1})
 	if err != nil {
 		return fmt.Errorf("probe sqlite: %w", err)
 	}
 	defer func() { cleanup.Error("close", database.Close()) }()
 	var tableCount int
-	if err := database.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database, `
 SELECT count(*) FROM sqlite_schema WHERE type='table' AND name NOT LIKE 'sqlite_%'
 `).Scan(&tableCount); err != nil {
 		if cancellation := ctx.Err(); cancellation != nil {
@@ -151,7 +142,7 @@ SELECT count(*) FROM sqlite_schema WHERE type='table' AND name NOT LIKE 'sqlite_
 	return inspectMigrationHistory(ctx, database, tableCount)
 }
 
-func inspectMigrationHistory(ctx context.Context, database *sql.DB, tableCount int) error {
+func inspectMigrationHistory(ctx context.Context, database dbapi.DB, tableCount int) error {
 	migrationCatalogExists, err := migrationCatalogExists(ctx, database)
 	if err != nil {
 		return err
@@ -182,9 +173,9 @@ func inspectMigrationHistory(ctx context.Context, database *sql.DB, tableCount i
 	return validateMigrationRecords(ctx, database, sources)
 }
 
-func migrationCatalogExists(ctx context.Context, database *sql.DB) (bool, error) {
+func migrationCatalogExists(ctx context.Context, database dbapi.DB) (bool, error) {
 	var count int
-	if err := database.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database, `
 SELECT count(*) FROM sqlite_schema WHERE type='table' AND name='schema_migrations'
 `).Scan(&count); err != nil {
 		return false, fmt.Errorf("%w: migration catalog", ErrSchemaInvalid)
@@ -192,10 +183,10 @@ SELECT count(*) FROM sqlite_schema WHERE type='table' AND name='schema_migration
 	return count == 1, nil
 }
 
-func migrationHistoryBounds(ctx context.Context, database *sql.DB) (int, sql.NullInt64, sql.NullInt64, error) {
+func migrationHistoryBounds(ctx context.Context, database dbapi.DB) (int, sql.NullInt64, sql.NullInt64, error) {
 	var count int
 	var minimum, maximum sql.NullInt64
-	if err := database.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database, `
 SELECT count(*),min(version),max(version) FROM schema_migrations
 `).Scan(&count, &minimum, &maximum); err != nil {
 		return 0, sql.NullInt64{}, sql.NullInt64{}, fmt.Errorf("%w: migration catalog unreadable", ErrSchemaInvalid)
@@ -213,7 +204,7 @@ func validateMigrationHistoryBounds(count int, minimum, maximum sql.NullInt64, s
 	return nil
 }
 
-func validateMigrationRecords(ctx context.Context, database *sql.DB, sources []migrationSource) error {
+func validateMigrationRecords(ctx context.Context, database dbapi.DB, sources []migrationSource) error {
 	rows, err := database.QueryContext(ctx, `
 SELECT version,name,checksum FROM schema_migrations ORDER BY version
 `)
@@ -272,42 +263,6 @@ func migrationSources() ([]migrationSource, error) {
 	return sources, nil
 }
 
-func CurrentMigrationLineage() (MigrationLineage, error) {
-	sources, err := migrationSources()
-	if err != nil {
-		return MigrationLineage{}, err
-	}
-	digest := sha256.New()
-	for _, source := range sources {
-		_, _ = digest.Write([]byte(source.name))
-		_, _ = digest.Write([]byte{'\x00'})
-		_, _ = digest.Write([]byte(source.checksum))
-		_, _ = digest.Write([]byte{'\n'})
-	}
-	return MigrationLineage{
-		Version: int64(len(sources)),
-		Digest:  hex.EncodeToString(digest.Sum(nil)),
-	}, nil
-}
-
-func ValidateCurrentMigrationLineage(ctx context.Context, database *sql.DB) (MigrationLineage, error) {
-	lineage, err := CurrentMigrationLineage()
-	if err != nil {
-		return MigrationLineage{}, err
-	}
-	var count int64
-	if err := database.QueryRowContext(ctx, `SELECT count(*) FROM schema_migrations`).Scan(&count); err != nil {
-		return MigrationLineage{}, fmt.Errorf("%w: migration catalog unreadable", ErrSchemaInvalid)
-	}
-	if count != lineage.Version {
-		return MigrationLineage{}, fmt.Errorf("%w: incomplete migration lineage", ErrSchemaInvalid)
-	}
-	if err := inspectMigrationHistory(ctx, database, 2); err != nil {
-		return MigrationLineage{}, err
-	}
-	return lineage, nil
-}
-
 func (database *DB) Close() error {
 	var closeErrors []error
 	if database.ReadOnly != nil {
@@ -328,7 +283,7 @@ func (database *DB) Close() error {
 
 func (database *DB) IntegrityCheck(ctx context.Context) error {
 	var result string
-	if err := database.SQL.QueryRowContext(ctx, "PRAGMA integrity_check").Scan(&result); err != nil {
+	if err := dbapi.QueryRowContext(ctx, database.SQL, "PRAGMA integrity_check").Scan(&result); err != nil {
 		return fmt.Errorf("sqlite integrity check: %w", err)
 	}
 	if result != "ok" {
@@ -370,7 +325,7 @@ var (
 )
 
 // Contract branches stay contiguous for a single auditable decision.
-func applyMigrations(ctx context.Context, database *sql.DB, now func() time.Time) error {
+func applyMigrations(ctx context.Context, database dbapi.DB, now func() time.Time) error {
 	if _, err := database.ExecContext(ctx, migrationTable); err != nil {
 		return fmt.Errorf("create migration table: %w", err)
 	}
@@ -384,7 +339,8 @@ func applyMigrations(ctx context.Context, database *sql.DB, now func() time.Time
 		}
 	}
 	var maximum sql.NullInt64
-	if err := database.QueryRowContext(ctx, "SELECT MAX(version) FROM schema_migrations").Scan(&maximum); err != nil {
+	if err := dbapi.QueryRowContext(
+		ctx, database, "SELECT MAX(version) FROM schema_migrations").Scan(&maximum); err != nil {
 		return fmt.Errorf("read schema version: %w", err)
 	}
 	if maximum.Valid && maximum.Int64 > int64(len(sources)) {
@@ -398,12 +354,12 @@ func applyMigrations(ctx context.Context, database *sql.DB, now func() time.Time
 
 func applyMigration(
 	ctx context.Context,
-	database *sql.DB,
+	database dbapi.DB,
 	source migrationSource,
 	now func() time.Time,
 ) error {
 	var existingName, existingChecksum string
-	err := database.QueryRowContext(ctx,
+	err := dbapi.QueryRowContext(ctx, database,
 		"SELECT name,checksum FROM schema_migrations WHERE version = ?", source.version).
 		Scan(&existingName, &existingChecksum)
 	if err == nil {
@@ -426,44 +382,30 @@ func applyMigration(
 
 func runMigration(
 	ctx context.Context,
-	database *sql.DB,
+	database dbapi.DB,
 	source migrationSource,
 	now func() time.Time,
 ) error {
-	connection, err := database.Conn(ctx)
+	transaction, err := database.BeginImmediate(ctx)
 	if err != nil {
-		return fmt.Errorf("get migration connection: %w", err)
-	}
-	defer func() { cleanup.Error("close", connection.Close()) }()
-	if _, err := connection.ExecContext(ctx, "BEGIN IMMEDIATE"); err != nil {
 		return fmt.Errorf("begin migration %s: %w", source.name, err)
 	}
-	committed := false
-	defer func() {
-		if !committed {
-			_, _ = connection.ExecContext(context.WithoutCancel(ctx), "ROLLBACK")
-		}
-	}()
-	if _, err := connection.ExecContext(ctx, string(source.contents)); err != nil {
+	defer dbapi.Rollback(transaction)
+	if _, err := transaction.ExecContext(ctx, string(source.contents)); err != nil {
 		return fmt.Errorf("apply migration %s: %w", source.name, err)
 	}
-	if _, err := connection.ExecContext(ctx,
+	if _, err := transaction.ExecContext(ctx,
 		"INSERT INTO schema_migrations(version, name, checksum, applied_at_ms) VALUES(?,?,?,?)",
 		source.version, source.name, source.checksum, now().UTC().UnixMilli()); err != nil {
 		return fmt.Errorf("record migration %s: %w", source.name, err)
 	}
-	if _, err := connection.ExecContext(ctx, "COMMIT"); err != nil {
+	if err := transaction.Commit(); err != nil {
 		return fmt.Errorf("commit migration %s: %w", source.name, err)
 	}
-	committed = true
 	return nil
 }
 
-type foreignKeyQuerier interface {
-	QueryContext(context.Context, string, ...any) (*sql.Rows, error)
-}
-
-func verifyMigrationForeignKeys(ctx context.Context, database foreignKeyQuerier) error {
+func verifyMigrationForeignKeys(ctx context.Context, database dbapi.Queryer) error {
 	rows, err := database.QueryContext(ctx, "PRAGMA foreign_key_check")
 	if err != nil {
 		return fmt.Errorf("query foreign key check: %w", err)

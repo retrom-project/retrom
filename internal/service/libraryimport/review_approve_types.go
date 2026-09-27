@@ -4,9 +4,9 @@ import (
 	"context"
 	"errors"
 
-	"retrom/internal/service/payloadrelease"
+	contentcapability "retrom/internal/content/capability"
+	"retrom/internal/service/cleanupjobs"
 
-	"retrom/internal/contentcapability"
 	"retrom/internal/service/importprogress"
 	"retrom/internal/service/tagging"
 )
@@ -46,8 +46,8 @@ type BulkPublicationIntent struct {
 }
 
 type ApprovalExternalAsset struct {
-	Kind, BlobID, MediaType string
-	WidthPX, HeightPX       *int64
+	Kind, FileRecord, MediaType string
+	WidthPX, HeightPX           *int64
 }
 
 type ReviewApprovalHead struct {
@@ -69,11 +69,13 @@ type ApprovalOrigin struct {
 }
 
 type ReviewApprovalRepository interface {
+	PendingPublications(context.Context) ([]ReviewApprovalRequest, error)
 	WithApproval(context.Context, func(ReviewApprovalScope) error) error
 }
 
 type ReviewApprovalScope struct {
-	Payload      payloadrelease.ReleaseScope
+	Publications PublicationRecords
+	Payload      cleanupjobs.ItemSchedulingScope
 	Reader       ReviewApprovalReader
 	Media        ApprovalMediaReader
 	Validation   ReviewValidationReader
@@ -95,5 +97,4 @@ type ApprovalMediaReader interface {
 	Candidate(context.Context, string, string) (ApprovalExternalAsset, bool, error)
 	UploadedCover(context.Context, string, string) (ApprovalExternalAsset, bool, error)
 	Screenshots(context.Context, string) ([]string, error)
-	BlobExists(context.Context, string) (bool, error)
 }

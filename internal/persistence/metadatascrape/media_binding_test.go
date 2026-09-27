@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"errors"
 	"testing"
+
+	dbapi "retrom/internal/database"
 )
 
 func TestMediaScheduleRejectsParentJobWithForeignScope(t *testing.T) {
@@ -13,7 +15,7 @@ func TestMediaScheduleRejectsParentJobWithForeignScope(t *testing.T) {
 		t.Fatalf("foreign job scope accepted: %v", err)
 	}
 	var count int
-	if err := fixture.database.QueryRowContext(t.Context(), `SELECT count(*) FROM jobs WHERE kind='MEDIA_FETCH'`).Scan(&count); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT count(*) FROM jobs WHERE kind='MEDIA_FETCH'`).Scan(&count); err != nil {
 		t.Fatal(err)
 	}
 	if count != 0 {
@@ -32,7 +34,7 @@ func TestMediaJobAssociationIsUnique(t *testing.T) {
 		t.Fatal("two candidate assets shared one download Job")
 	}
 	var count int
-	if err := fixture.database.QueryRowContext(t.Context(), `SELECT count(*) FROM scrape_candidate_assets`).Scan(&count); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT count(*) FROM scrape_candidate_assets`).Scan(&count); err != nil {
 		t.Fatal(err)
 	}
 	if count != 1 {

@@ -4,7 +4,8 @@ import (
 	"context"
 	"fmt"
 	"math"
-	"time"
+
+	gamevariant "retrom/internal/service/gamevariant"
 )
 
 func (service *ProductCreator) commit(
@@ -58,45 +59,6 @@ func (service *ProductCreator) commit(
 	return productAttempt{receipt: receipt}, nil
 }
 
-func (service *ProductCreator) schedule(
-	ctx context.Context,
-	scope ProductValidationScope,
-	snapshot ProductSnapshot,
-	now int64,
-) (Created, bool, error) {
-	source := snapshot.Source
-	if source.VariantID == "" {
-		id, err := checkedProductID(service.environment.NewID)
-		if err != nil {
-			return Created{}, false, err
-		}
-		source.VariantID = id
-		if err := scope.CreateVariant(ctx, ProductVariantWrite{Source: source, NowMS: now}); err != nil {
-			return Created{}, false, fmt.Errorf("create validation variant: %w", err)
-		}
-	}
-	inputs, err := ProductValidationInputs(snapshot, source.VariantID)
-	if err != nil {
-		return Created{}, false, err
-	}
-	scheduler := NewValidationScheduler(
-		scope,
-		ValidationEnvironment{Now: func() time.Time { return time.UnixMilli(now) }, NewID: service.environment.NewID},
-	)
-	queued, err := scheduler.Queue(ctx, inputs)
-	if err != nil {
-		return Created{}, false, err
-	}
-	if queued.Queued {
-		if err := scope.MarkPending(ctx, source.VariantID, now); err != nil {
-			return Created{}, false, fmt.Errorf("update validation variant: %w", err)
-		}
-	} else if source.VariantStatus == "READY" {
-		return Created{Status: "READY"}, true, nil
-	}
-	return Created{Status: "VALIDATION_PENDING", JobID: queued.JobID, RetryAfterMS: 1000}, false, nil
-}
-
 func (service *ProductCreator) commitValidation(
 	ctx context.Context,
 	scope ProductCreationScope,
@@ -104,13 +66,16 @@ func (service *ProductCreator) commitValidation(
 	current ProductSnapshot,
 	now int64,
 ) (productAttempt, error) {
-	result, ready, err := service.schedule(ctx, scope.Validation(), current, now)
+	readiness, err := gamevariant.Schedule(
+		ctx, scope.Validation(), current.VariantSnapshot(), now, service.environment.NewID,
+	)
 	if err != nil {
-		return productAttempt{}, err
+		return productAttempt{}, fmt.Errorf("%w: %w", ErrBlocked, err)
 	}
-	if ready {
+	if readiness.Ready {
 		return productAttempt{ready: true}, nil
 	}
+	result := Created{Status: "VALIDATION_PENDING", JobID: readiness.JobID, RetryAfterMS: readiness.RetryAfterMS}
 	receipt, err := productReceipt(result, now)
 	if err != nil {
 		return productAttempt{}, err

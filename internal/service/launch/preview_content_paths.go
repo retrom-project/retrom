@@ -4,7 +4,7 @@ import (
 	"path"
 	"strings"
 
-	"retrom/internal/corevalidation"
+	corevalidation "retrom/internal/core/validation"
 	"retrom/internal/importing"
 )
 
@@ -24,7 +24,7 @@ func reviewPreviewExternalFiles(
 			return nil, ErrReviewPreviewUnavailable
 		}
 		files = append(files, PreviewFile{
-			Role: "EXTERNAL_FILE", LogicalName: dependency.LogicalName, BlobID: *dependency.BlobID,
+			Role: "EXTERNAL_FILE", LogicalName: dependency.LogicalName, FileRecord: *dependency.FileRecord,
 			VirtualPath: dependency.EmulatorPath, SortOrder: len(files),
 		})
 	}
@@ -32,7 +32,7 @@ func reviewPreviewExternalFiles(
 }
 
 func availableReviewPreviewExternal(dependency corevalidation.BIOSDependency) bool {
-	if dependency.DeliveryKind != "EXTERNAL_FILE" || dependency.EmulatorPath == nil || dependency.BlobID == nil ||
+	if dependency.DeliveryKind != "EXTERNAL_FILE" || dependency.EmulatorPath == nil || dependency.FileRecord == nil ||
 		dependency.InstallationStatus == nil {
 		return false
 	}

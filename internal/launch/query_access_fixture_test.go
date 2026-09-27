@@ -3,7 +3,7 @@ package launch
 import (
 	persistence "retrom/internal/persistence/launch"
 	retromruntime "retrom/internal/runtime"
-	"retrom/internal/runtimelaunch"
+	runtimelaunch "retrom/internal/runtime/launch"
 	application "retrom/internal/service/launch"
 )
 

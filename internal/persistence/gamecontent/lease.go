@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/service/gamecontent"
 )
 
@@ -52,7 +53,7 @@ func (writes writes) Refresh(ctx context.Context, claim gamecontent.Claim, now i
 
 func (writes writes) Current(ctx context.Context, claim gamecontent.Claim, now int64) (bool, error) {
 	var current bool
-	err := writes.transaction.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM jobs
+	err := dbapi.QueryRowContext(ctx, writes.transaction, `SELECT EXISTS(SELECT 1 FROM jobs
  WHERE id=? AND execution_no=? AND worker_id=? AND state='RUNNING'
  AND leased_until_ms>? AND execution_deadline_at_ms>?)`,
 		claim.JobID, claim.ExecutionNo, claim.WorkerID, now, now).Scan(&current)
@@ -64,7 +65,8 @@ func (writes writes) Current(ctx context.Context, claim gamecontent.Claim, now i
 
 func (writes writes) State(ctx context.Context, claim gamecontent.Claim) (string, error) {
 	var state string
-	err := writes.transaction.QueryRowContext(ctx, `SELECT state FROM jobs WHERE id=? AND execution_no=? AND worker_id=?`,
+	err := dbapi.QueryRowContext(
+		ctx, writes.transaction, `SELECT state FROM jobs WHERE id=? AND execution_no=? AND worker_id=?`,
 		claim.JobID, claim.ExecutionNo, claim.WorkerID).Scan(&state)
 	if errors.Is(err, sql.ErrNoRows) {
 		return "", nil

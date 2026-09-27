@@ -18,12 +18,12 @@ type reviewDiscardFault struct {
 	itemWrites, sourceWrites, faults int
 }
 
-func newReviewDiscardFault(t *testing.T, fixture deduplicateFixture, itemID, stage string) *reviewDiscardFault {
+func newReviewDiscardFault(t *testing.T, fixture *deduplicateFixture, itemID, stage string) *reviewDiscardFault {
 	t.Helper()
 	fault := &reviewDiscardFault{stage: stage, itemID: itemID, cause: errors.New("late discard transaction failure")}
-	fixture.service.database = testsupport.OpenSQLFaultDatabase(t, fixture.database, testsupport.SQLFaultHooks{
+	fixture.service = newTestImporter(t, testsupport.OpenSQLFaultDatabase(t, fixture.database, testsupport.SQLFaultHooks{
 		BeforeExec: fault.beforeExec, AfterExec: fault.afterExec,
-	})
+	}), fixture.service.blobs, testImportOptions{Now: fixture.service.now, MultiDiscEnabled: fixture.service.multiDiscImportEnabled})
 	return fault
 }
 

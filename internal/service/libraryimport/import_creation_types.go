@@ -5,12 +5,12 @@ import (
 	"time"
 
 	"retrom/internal/authn"
-	"retrom/internal/blobstore"
-	"retrom/internal/corevalidation"
+	corevalidation "retrom/internal/core/validation"
+	"retrom/internal/filestore"
+	"retrom/internal/service/cleanupjobs"
 	validation "retrom/internal/service/corevalidation"
 	"retrom/internal/service/importprogress"
 	"retrom/internal/service/metadatascrape"
-	"retrom/internal/service/payloadrelease"
 	"retrom/internal/service/tagging"
 )
 
@@ -63,7 +63,7 @@ type ImportCreationScope struct {
 	Claims     ApprovalDecisionWriter
 	Tags       tagging.WriteScope
 	Metadata   metadatascrape.ScheduleScope
-	Payload    payloadrelease.SchedulingScope
+	Payload    cleanupjobs.ItemSchedulingScope
 	Ownership  SourceOwnershipRecords
 	Results    CreationResultsReader
 }
@@ -103,14 +103,14 @@ type CreationHeader struct {
 	NowMS                                                               int64
 }
 type CreationArtifact struct {
-	Metadata  blobstore.Metadata
+	Metadata  filestore.Metadata
 	MediaType string
 	NowMS     int64
 }
 type CreationSourceFile struct {
 	PreparedSource
-	BlobID string
-	Order  int
+	FileRecord string
+	Order      int
 }
 type CreationSource struct {
 	ItemID         string

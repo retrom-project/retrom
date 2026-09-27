@@ -38,13 +38,13 @@ case "$CASE_ID" in
     ;;
   ACC-PROVIDER-002)
     python_test scripts/test_runtime_target_bindings.py
-    (cd "$ROOT" && "$GO" test ./internal/runtimecatalog -count=1)
+    (cd "$ROOT" && "$GO" test ./internal/runtime/catalog -count=1)
     runtime_test src/provider/declarations.test.ts src/providers/emulatorjs/catalog.test.ts \
       src/providers/retrom-runtime/target-adapter.test.ts tests/repository-boundary.test.ts
     ;;
   ACC-PROVIDER-003)
-    (cd "$ROOT" && "$GO" test ./internal/runtimeoptions -count=1)
-    (cd "$ROOT" && "$GO" test ./internal/runtimebundle ./internal/runtimelaunch ./internal/httpapi \
+    (cd "$ROOT" && "$GO" test ./internal/runtime/options -count=1)
+    (cd "$ROOT" && "$GO" test ./internal/runtime/bundle ./internal/runtime/launch ./internal/httpapi \
       -run 'Provider|LaunchEnvelope|RuntimeStatic|RuntimeAsset' -count=1)
     web_test features/player/runtime/envelope-fixtures.test.ts \
       features/player/runtime/provider-module-v1.test.ts features/player/runtime/runtime-controller.test.ts \
@@ -60,7 +60,7 @@ case "$CASE_ID" in
       features/player/player-checkpoint-availability.test.ts
     ;;
   ACC-PROVIDER-005)
-    (cd "$ROOT" && "$GO" test ./internal/runtimeprovider ./internal/service/runtimeprovider ./internal/persistence/runtimeprovider -count=1)
+    (cd "$ROOT" && "$GO" test ./internal/runtime/provider ./internal/service/runtimeprovider ./internal/persistence/runtimeprovider -count=1)
     (cd "$ROOT" && "$GO" test -tags=integration ./internal/service/saves ./internal/persistence/saves -run 'TestCatalogExtensionPreservesInitializedGamesReviewsSettingsAndSaves' -count=1)
     (cd "$ROOT" && "$GO" test -tags=integration ./internal/launch \
       -run 'TestReviewCheckpointIsScopedExpiringAndReleasedByOrdinaryGC|TestPublishingReviewReleasesAllTemporaryPreviewOwners' -count=1)
@@ -69,7 +69,7 @@ case "$CASE_ID" in
   ACC-PROVIDER-006)
     python_test scripts/test_pfb.py scripts/test_release_input_digest.py scripts/test_makefile.py \
       scripts/test_runtime_providers.py scripts/test_runtime_provider_release.py
-    (cd "$ROOT" && "$GO" test ./internal/runtimebundle -run TestProductionProviderVersionsFollowReleaseTag -count=1)
+    (cd "$ROOT" && "$GO" test ./internal/runtime/bundle -run TestProductionProviderVersionsFollowReleaseTag -count=1)
     runtime_test tests/provider-build-metadata.test.ts tests/provider-source-boundary.test.ts \
       tests/provider-release-build.test.ts tests/release-version.test.ts \
       tests/provider-client-build.test.ts tests/pfb-provider-dev.test.ts

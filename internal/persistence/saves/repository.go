@@ -5,22 +5,20 @@ import (
 	"database/sql"
 	"fmt"
 
-	"retrom/internal/blobstore"
-	"retrom/internal/dbexec"
-	"retrom/internal/persistence/blobcatalog"
+	dbapi "retrom/internal/database"
 	"retrom/internal/service/saves"
 )
 
 type (
-	Repository struct{ database *sql.DB }
-	records    struct{ executor dbexec.Executor }
+	Repository struct{ database dbapi.DB }
+	records    struct{ executor dbapi.Executor }
 	writes     struct {
 		records
-		transaction *sql.Tx
+		transaction dbapi.Tx
 	}
 )
 
-func New(database *sql.DB) *Repository { return &Repository{database: database} }
+func New(database dbapi.DB) *Repository { return &Repository{database: database} }
 func (repository *Repository) LoadLaunch(ctx context.Context, id string) (saves.Launch, error) {
 	return (records{executor: repository.database}).LoadLaunch(ctx, id)
 }
@@ -34,10 +32,10 @@ func (repository *Repository) WithWrite(ctx context.Context, work func(saves.Wri
 	if err != nil {
 		return fmt.Errorf("begin checkpoint transaction: %w", err)
 	}
-	defer dbexec.Rollback(transaction)
+	defer dbapi.Rollback(transaction)
 	bound := writes{records: records{executor: transaction}, transaction: transaction}
 	if err := work(saves.WriteScope{
-		Launches: bound, Idempotency: bound, Blobs: bound,
+		Launches: bound, Idempotency: bound,
 		Checkpoints: bound, GameSaves: bound,
 	}); err != nil {
 		return err
@@ -46,19 +44,6 @@ func (repository *Repository) WithWrite(ctx context.Context, work func(saves.Wri
 		return fmt.Errorf("commit checkpoint transaction: %w", err)
 	}
 	return nil
-}
-
-func (store records) Ensure(
-	ctx context.Context,
-	metadata blobstore.Metadata,
-	mediaType string,
-	now int64,
-) (string, error) {
-	id, err := blobcatalog.EnsureRecord(ctx, store.executor, metadata, mediaType, now)
-	if err != nil {
-		return "", fmt.Errorf("register checkpoint blob: %w", err)
-	}
-	return id, nil
 }
 
 func changed(result sql.Result, err error) error {

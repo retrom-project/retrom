@@ -20,7 +20,7 @@ type ApprovalGame struct {
 }
 
 type ApprovalAsset struct {
-	ID, GameID string
+	ID, GameID, ItemID string
 	ApprovalExternalAsset
 	Ordinal int
 	NowMS   int64
@@ -40,7 +40,7 @@ type ApprovalVariant struct {
 }
 
 type (
-	ApprovalValidationCopy    struct{ VariantID, ValidationID string }
+	ApprovalValidationCopy    struct{ VariantID, ValidationID, ItemID, GameID string }
 	ApprovalRPGVariant        struct{ VariantID, Generation, DependencyDigest string }
 	ApprovalVariantDependency struct {
 		VariantID, Kind, Machine, DATID, RequiredEntriesJSON, State string
@@ -86,5 +86,6 @@ type ApprovalDecisionWriter interface {
 }
 
 type BulkPublicationWriter interface {
+	CheckRequest(context.Context, ReviewApprovalRequest, int64) error
 	RecordPublished(context.Context, BulkPublication) error
 }

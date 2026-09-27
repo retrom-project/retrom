@@ -9,8 +9,9 @@ import (
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
 	persistence "retrom/internal/persistence/launch"
-	"retrom/internal/runtimelaunch"
+	runtimelaunch "retrom/internal/runtime/launch"
 	application "retrom/internal/service/launch"
 )
 
@@ -63,7 +64,7 @@ func TestConfigRechecksBootstrapAtActivation(t *testing.T) {
 			fixture, created := newPlaySourceFixture(t, preview, false)
 			var bootstrapEnd int64
 			query := "SELECT bootstrap_expires_at_ms FROM " + configDraftSourceTable(preview) + " WHERE id=?"
-			if err := fixture.database.QueryRowContext(t.Context(), query, created.LaunchID).Scan(&bootstrapEnd); err != nil {
+			if err := dbapi.QueryRowContext(t.Context(), fixture.database, query, created.LaunchID).Scan(&bootstrapEnd); err != nil {
 				t.Fatal(err)
 			}
 			before := playRows(t, fixture.database)
@@ -92,16 +93,12 @@ func TestConfigActivationRejectsAlreadyFinishedSource(t *testing.T) {
 			// Capture exactly the state field passed by today's public Config.
 			var staleVersion int64
 			query := "SELECT version FROM " + configDraftSourceTable(preview) + " WHERE id=?"
-			if err := fixture.database.QueryRowContext(t.Context(), query, created.LaunchID).Scan(&staleVersion); err != nil {
+			if err := dbapi.QueryRowContext(t.Context(), fixture.database, query, created.LaunchID).Scan(&staleVersion); err != nil {
 				t.Fatal(err)
 			}
-			result, err := fixture.launcher.RecordPlay(t.Context(), created.LaunchID, created.Capability,
-				"finish", PlayEvent{ClientObservedAtMS: fixture.now.UnixMilli()})
-			if err != nil || result.State != "FINISHED" {
-				t.Fatalf("fixture finish state=%s error=%v", result.State, err)
-			}
+			closeConfigSource(t, fixture, created, preview)
 			before := playRows(t, fixture.database)
-			err = persistence.NewConfig(fixture.database).WithActivation(
+			err := persistence.NewConfig(fixture.database).WithActivation(
 				t.Context(),
 				func(transaction application.ConfigActivation) error {
 					return transaction.Activate(t.Context(), application.ConfigActivationPlan{

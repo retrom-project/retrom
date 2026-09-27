@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"retrom/internal/cleanup"
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/service/serverimport"
 )
 
@@ -17,8 +17,8 @@ func (repository *Queries) Get(ctx context.Context, importID string) (serverimpo
 	return getSummary(ctx, repository.database, importID)
 }
 
-func getSummary(ctx context.Context, executor dbexec.Executor, importID string) (serverimport.Summary, error) {
-	result, err := scanSummary(executor.QueryRowContext(ctx, summaryQuery+` WHERE import.id=?`, importID))
+func getSummary(ctx context.Context, executor dbapi.Executor, importID string) (serverimport.Summary, error) {
+	result, err := scanSummary(dbapi.QueryRowContext(ctx, executor, summaryQuery+` WHERE import.id=?`, importID))
 	if errors.Is(err, sql.ErrNoRows) {
 		return serverimport.Summary{}, serverimport.ErrNotFound
 	}
@@ -35,12 +35,12 @@ import.job_id,import.created_by_user_id,user.display_name,import.last_error_code
 import.created_at_ms,import.updated_at_ms,import.completed_at_ms
 FROM server_imports import JOIN users user ON user.id=import.created_by_user_id`
 
-type Queries struct{ database *sql.DB }
+type Queries struct{ database dbapi.DB }
 
-func NewQueries(database *sql.DB) *Queries { return &Queries{database} }
+func NewQueries(database dbapi.DB) *Queries { return &Queries{database} }
 
 // The fixed aggregate projection is scanned in schema order for auditability.
-func scanSummary(row dbexec.Scanner) (serverimport.Summary, error) {
+func scanSummary(row dbapi.Scanner) (serverimport.Summary, error) {
 	var summary serverimport.Summary
 	var replace int
 	var catalog, candidates, evaluated, matched, warnings, missingEntry int64
@@ -201,7 +201,7 @@ func (repository *Queries) Candidates(
 	}
 
 	var exists int
-	if err := repository.database.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, repository.database, `
 SELECT 1 FROM server_bios_import_items WHERE server_import_id=? AND requirement_id=?
 `, importID, requirementID).Scan(&exists); errors.Is(
 		err,

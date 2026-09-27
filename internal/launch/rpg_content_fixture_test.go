@@ -13,12 +13,15 @@ const (
 	rpgMKXPArchivePublicName = application.MKXPArchivePublicName
 )
 
-type rpgLockedFile struct{ blobID, logicalName, role string }
+type rpgLockedFile struct{ fileRecord, logicalName, role string }
 
 func makeRPGContentPlan(files []rpgLockedFile, required string, native bool) (launchContentPlan, error) {
 	inputs := make([]application.PreviewFile, 0, len(files))
 	for _, file := range files {
-		inputs = append(inputs, application.PreviewFile{BlobID: file.blobID, LogicalName: file.logicalName, Role: file.role})
+		inputs = append(inputs, application.PreviewFile{
+			FileRecord:  file.fileRecord,
+			LogicalName: file.logicalName, Role: file.role,
+		})
 	}
 	prepared, err := application.RPGContentFiles(inputs, required, native)
 	if err != nil {
@@ -28,7 +31,7 @@ func makeRPGContentPlan(files []rpgLockedFile, required string, native bool) (la
 	for _, file := range prepared {
 		locked = append(
 			locked,
-			lockedContentFile{BlobID: file.BlobID, LogicalName: file.LogicalName, Format: rpgProjectFormat},
+			lockedContentFile{FileRecord: file.FileRecord, LogicalName: file.LogicalName, Format: rpgProjectFormat},
 		)
 	}
 	return launchContentPlan{ContentKind: rpgProjectFormat, Files: locked}, nil

@@ -5,16 +5,14 @@ import (
 	"fmt"
 	"math"
 
-	"retrom/internal/service/payloadrelease"
+	uploadcleanup "retrom/internal/service/uploads/payloadpolicy"
+
+	"retrom/internal/service/cleanupjobs"
 )
 
 func RetireInScope(
 	ctx context.Context, scope RetirementScope, gameID, selectedVariantID string, now int64,
 ) (RetirementImpact, error) {
-	blobs, err := scope.Read.Blobs(ctx, gameID)
-	if err != nil {
-		return RetirementImpact{}, fmt.Errorf("read replaced content blobs: %w", err)
-	}
 	owners, err := scope.Read.Owners(ctx, gameID)
 	if err != nil {
 		return RetirementImpact{}, fmt.Errorf("read replaced content runtime: %w", err)
@@ -31,7 +29,10 @@ func RetireInScope(
 			return RetirementImpact{}, fmt.Errorf("retire replaced content runtime: %w", err)
 		}
 	}
-	impact := RetirementImpact{CandidateBlobIDs: blobs}
+	if err := scope.Write.RetireContent(ctx, gameID, now); err != nil {
+		return RetirementImpact{}, fmt.Errorf("retirement: %w", err)
+	}
+	impact := RetirementImpact{}
 	for _, kind := range []RetirementReferenceKind{
 		RetirementSave, RetirementLaunchExternal, RetirementLaunchContent,
 		RetirementVariantFile, RetirementVariantDependency,
@@ -98,7 +99,7 @@ func releaseReplacementUpload(ctx context.Context, scope RetirementScope, jobID 
 	if err != nil {
 		return fmt.Errorf("read replacement upload consumption: %w", err)
 	}
-	if _, err := payloadrelease.NewScheduler(nil).Consumption(ctx, scope.Payload, id, now); err != nil {
+	if _, err := uploadcleanup.Consumption(ctx, cleanupjobs.NewScheduler(nil), scope.Payload, id, now); err != nil {
 		return fmt.Errorf("release replacement upload: %w", err)
 	}
 	return nil

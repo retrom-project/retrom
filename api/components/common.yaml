@@ -336,7 +336,6 @@ components:
       type: object
       additionalProperties: false
       properties:
-        acceptedDurationMs: {}
         action: {}
         activatedAtMs: {}
         active: {}
@@ -400,7 +399,6 @@ components:
         bios: {}
         biosSetCount: {}
         biosUrl: {}
-        blobCount: {}
         blocked: {}
         blockedCount: {}
         blockerCode: {}
@@ -422,8 +420,6 @@ components:
         canRetry: {}
         clientCapabilities: {}
         clientFileId: {}
-        clientObservedAtMs: {}
-        clientSequence: {}
         cloneof: {}
         code: {}
         column: {}
@@ -614,7 +610,6 @@ components:
         playUrl: {}
         player: {}
         players: {}
-        previousInterval: {}
         presentDiscCount: {}
         protected: {}
         provider: {}

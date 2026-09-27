@@ -4,11 +4,11 @@ import (
 	"context"
 	"database/sql"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 )
 
 func UpdateReviewBulkApprovals(
-	ctx context.Context, db dbexec.Executor, change Update,
+	ctx context.Context, db dbapi.Executor, change Update,
 ) (sql.Result, error) {
 	return updateRecords(ctx, db, change, "review_bulk_approvals",
 		"id,job_id,max_item_id,initial_pending_count,created_by_user_id,created_at_ms",

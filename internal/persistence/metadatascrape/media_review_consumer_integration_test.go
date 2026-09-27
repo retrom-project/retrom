@@ -3,28 +3,28 @@
 package metadatascrape_test
 
 import (
-	"database/sql"
 	"testing"
 
 	"retrom/internal/composition"
+	dbapi "retrom/internal/database"
 	"retrom/internal/libraryimport"
 	jobpersistence "retrom/internal/persistence/jobs"
 	"retrom/internal/service/jobs"
 )
 
-func waitMetadataMedia(t *testing.T, database *sql.DB, metadataJobID string) {
+func waitMetadataMedia(t *testing.T, database dbapi.DB, metadataJobID string) {
 	t.Helper()
 	var id string
-	err := database.QueryRowContext(t.Context(), `SELECT j.id FROM jobs j JOIN scrape_candidate_assets a ON a.media_fetch_job_id=j.id
+	err := dbapi.QueryRowContext(t.Context(), database, `SELECT j.id FROM jobs j JOIN scrape_candidate_assets a ON a.media_fetch_job_id=j.id
  JOIN scrape_candidates c ON c.id=a.scrape_candidate_id JOIN metadata_scrape_runs r ON r.id=c.scrape_run_id
  WHERE r.job_id=?`, metadataJobID).Scan(&id)
 	if err != nil {
 		t.Fatal(err)
 	}
-	waitForState(t, database.QueryRowContext, `SELECT state FROM jobs WHERE id=?`, id, "SUCCEEDED")
+	waitForState(t, database, `SELECT state FROM jobs WHERE id=?`, id, "SUCCEEDED")
 }
 
-func selectReadyReviewMedia(t *testing.T, database *sql.DB, importer *libraryimport.Service, itemID, importID, assetID string) int64 {
+func selectReadyReviewMedia(t *testing.T, database dbapi.DB, importer *libraryimport.Service, itemID, importID, assetID string) int64 {
 	t.Helper()
 	evidence, err := composition.NewMetadataEvidenceQueries(database).Review(t.Context(), itemID)
 	if err != nil {
@@ -46,7 +46,7 @@ func selectReadyReviewMedia(t *testing.T, database *sql.DB, importer *libraryimp
 		t.Fatal(err)
 	}
 	var completionID int64
-	if err := database.QueryRowContext(t.Context(), `SELECT e.id FROM job_events e JOIN scrape_candidate_assets a ON a.media_fetch_job_id=e.job_id WHERE a.id=? AND e.event_type='SUCCEEDED'`, assetID).Scan(&completionID); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), database, `SELECT e.id FROM job_events e JOIN scrape_candidate_assets a ON a.media_fetch_job_id=e.job_id WHERE a.id=? AND e.event_type='SUCCEEDED'`, assetID).Scan(&completionID); err != nil {
 		t.Fatal(err)
 	}
 	completed := false
@@ -65,7 +65,7 @@ func selectReadyReviewMedia(t *testing.T, database *sql.DB, importer *libraryimp
 		t.Fatal(err)
 	}
 	var selected string
-	if err := database.QueryRowContext(t.Context(), `SELECT cover_candidate_asset_id FROM import_items WHERE id=?`, itemID).Scan(&selected); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), database, `SELECT cover_candidate_asset_id FROM import_items WHERE id=?`, itemID).Scan(&selected); err != nil {
 		t.Fatal(err)
 	}
 	if selected != assetID {

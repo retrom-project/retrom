@@ -14,14 +14,15 @@ import (
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
 	uploadpersistence "retrom/internal/persistence/uploads"
 
 	dependencypersistence "retrom/internal/persistence/dependencies"
 	dependencyservice "retrom/internal/service/dependencies"
 
-	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	"retrom/internal/dependencies"
+	"retrom/internal/filestore"
 	"retrom/internal/service/uploads"
 	"retrom/internal/testsupport"
 )
@@ -43,7 +44,7 @@ func TestCreateKiriKiriArchiveReachesTrialRequiredReview(t *testing.T) {
 	if err := dependencyservice.New(dependencySet, dependencypersistence.New(database.SQL)).Bootstrap(ctx, time.Now()); err != nil {
 		t.Fatal(err)
 	}
-	blobs, err := blobstore.Open(dataDir)
+	blobs, err := filestore.Open(dataDir)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -75,7 +76,7 @@ func TestCreateKiriKiriArchiveReachesTrialRequiredReview(t *testing.T) {
 		t.Fatal(err)
 	}
 	waitForRPGUploadFinalization(t, ctx, database.SQL, jobID)
-	created, err := New(database.SQL, time.Now).WithBlobStore(blobs).Create(ctx, CreateRequest{
+	created, err := newTestImporter(t, database.SQL, blobs, testImportOptions{Now: time.Now}).Create(ctx, CreateRequest{
 		UploadID: upload.ID, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(
 			t, database.SQL, "kirikiri/kirikiri2",
 		),
@@ -89,7 +90,7 @@ func TestCreateKiriKiriArchiveReachesTrialRequiredReview(t *testing.T) {
 	}
 	var state, code, contentKind, metadataProvider, providerID, targetID string
 	var selectedValidation any
-	if err := database.SQL.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, database.SQL, `
 SELECT item.state,validation.compatibility_code,snapshot.content_kind,job.metadata_provider,
 	   validation.provider_id,validation.target_id,draft.selected_validation_id
 FROM import_items item

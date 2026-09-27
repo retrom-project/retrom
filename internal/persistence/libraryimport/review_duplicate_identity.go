@@ -6,19 +6,22 @@ import (
 	"fmt"
 
 	"retrom/internal/cleanup"
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/libraryimport"
 )
 
-type ContentDuplicates struct{ executor dbexec.Executor }
+type ContentDuplicates struct{ executor dbapi.Executor }
 
-func BindContentDuplicates(executor dbexec.Executor) *ContentDuplicates {
+func BindContentDuplicates(executor dbapi.Executor) *ContentDuplicates {
 	return &ContentDuplicates{executor: executor}
 }
 
-func (records *ContentDuplicates) Snapshot(ctx context.Context, itemID string) (application.ContentSnapshot, error) {
+func (records *ContentDuplicates) Snapshot(
+	ctx context.Context,
+	itemID string,
+) (application.ContentSnapshot, error) {
 	var result application.ContentSnapshot
-	err := records.executor.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, records.executor, `
 SELECT snapshot.id,snapshot.content_kind FROM import_item_source_snapshots snapshot
 WHERE snapshot.id=COALESCE(
  (SELECT draft.effective_source_snapshot_id FROM import_items draft WHERE draft.id=?),
@@ -33,7 +36,7 @@ WHERE snapshot.id=COALESCE(
 
 func (records *ContentDuplicates) ReviewPlatform(ctx context.Context, itemID string) (string, error) {
 	var result string
-	err := records.executor.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, records.executor, `
 SELECT instance.platform_id FROM import_items item
 JOIN import_items draft ON draft.id=item.id
 JOIN platform_instances instance ON instance.id=draft.target_platform_instance_id
@@ -49,9 +52,11 @@ func (records *ContentDuplicates) IdentityParts(
 	snapshotID string,
 ) ([]application.ContentIdentityPart, error) {
 	rows, err := records.executor.QueryContext(ctx, `
-SELECT source.role,blob.sha256,count(*) FROM import_item_source_snapshot_files source
-JOIN blobs blob ON blob.id=source.blob_id WHERE source.source_snapshot_id=?
-GROUP BY source.role,blob.sha256 ORDER BY source.role,blob.sha256`, snapshotID)
+SELECT source.role,json_extract(blob.value, '$.sha256'),count(*) FROM import_item_source_snapshot_files source
+JOIN json_each(json_array(source.file_record)) blob ON blob.value IS NOT NULL WHERE
+source.source_snapshot_id=?
+GROUP BY source.role,json_extract(blob.value, '$.sha256') ORDER BY source.role,json_extract(blob.value,
+'$.sha256')`, snapshotID)
 	if err != nil {
 		return nil, fmt.Errorf("query content identity parts: %w", err)
 	}
@@ -75,8 +80,10 @@ func (records *ContentDuplicates) OrderedDiscs(
 	snapshotID string,
 ) ([]application.ContentIdentityDisc, error) {
 	rows, err := records.executor.QueryContext(ctx, `
-SELECT entry.state,COALESCE(blob.sha256,'') FROM import_item_multidisc_entries entry
-LEFT JOIN blobs blob ON blob.id=entry.blob_id WHERE entry.source_snapshot_id=? ORDER BY entry.ordinal`, snapshotID)
+SELECT entry.state,COALESCE(json_extract(blob.value, '$.sha256'),'') FROM import_item_multidisc_entries entry
+LEFT JOIN json_each(json_array(entry.file_record)) blob ON blob.value IS NOT NULL WHERE
+entry.source_snapshot_id=?
+ORDER BY entry.ordinal`, snapshotID)
 	if err != nil {
 		return nil, fmt.Errorf("query ordered content identity: %w", err)
 	}

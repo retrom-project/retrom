@@ -25,16 +25,17 @@ function validateMetrics(metrics, variant) {
   assert.ok(metrics.serverSentBytes === null || count(metrics.serverSentBytes), "CONTENT_IO_PERFORMANCE_SERVER_BYTES");
   if (metrics.processMemoryBytes === null) assert.ok(typeof metrics.processMemoryUnavailableReason === "string" && metrics.processMemoryUnavailableReason.trim(), "CONTENT_IO_PERFORMANCE_MEMORY_REASON");
   else assert.ok(count(metrics.processMemoryBytes) && metrics.processMemoryBytes > 0 && metrics.processMemoryUnavailableReason === null, "CONTENT_IO_PERFORMANCE_MEMORY");
-  if (variant === "candidate") {validateContentResources(metrics.publicPeak, false); validateContentResources(metrics.closed, true);}
-  else assert.ok(metrics.publicPeak === null && metrics.closed === null, "CONTENT_IO_BASELINE_HAS_NO_PUBLIC_LAYER");
+  if (variant === "candidate" || metrics.publicPeak !== null || metrics.closed !== null) {
+    validateContentResources(metrics.publicPeak, false); validateContentResources(metrics.closed, true);
+  }
 }
 function validateSample(sample, caseId) {
-  exact(sample, ["caseId", "runId", "variant", "cacheState", "repetition", "launchId", "contextId", "sourceSha256", "browserSha256", "networkSettingsSha256", "providerBundleSha256", "observationId", "metrics"], "CONTENT_IO_PERFORMANCE_SAMPLE");
+  exact(sample, ["caseId", "runId", "variant", "cacheState", "repetition", "launchId", "contextId", "sourceSha256", "browserSha256", "networkSettingsSha256", "providerBundleSha256", "providerModuleSha256", "observationId", "metrics"], "CONTENT_IO_PERFORMANCE_SAMPLE");
   assert.equal(sample.caseId, caseId, "CONTENT_IO_PERFORMANCE_CASE");
   assert.ok(["baseline", "candidate"].includes(sample.variant) && ["cold", "warm"].includes(sample.cacheState), "CONTENT_IO_PERFORMANCE_VARIANT");
   assert.ok(Number.isInteger(sample.repetition) && sample.repetition >= 0 && sample.repetition < 5, "CONTENT_IO_PERFORMANCE_REPETITION");
   assert.ok([sample.runId, sample.launchId, sample.contextId].every(uuid), "CONTENT_IO_PERFORMANCE_ID");
-  assert.ok([sample.sourceSha256, sample.browserSha256, sample.networkSettingsSha256, sample.providerBundleSha256].every(digest), "CONTENT_IO_PERFORMANCE_IDENTITY");
+  assert.ok([sample.sourceSha256, sample.browserSha256, sample.networkSettingsSha256, sample.providerBundleSha256, sample.providerModuleSha256].every(digest), "CONTENT_IO_PERFORMANCE_IDENTITY");
   assert.ok(typeof sample.observationId === "string" && sample.observationId.length > 0, "CONTENT_IO_PERFORMANCE_OBSERVATION");
   validateMetrics(sample.metrics, sample.variant);
 }
@@ -42,8 +43,9 @@ const median = values => [...values].sort((a, b) => a - b)[2];
 export function compareContentIOPerformance(caseId, samples) {
   assert.ok(Array.isArray(samples) && samples.length === 20, "CONTENT_IO_PERFORMANCE_REPETITIONS_MISSING");
   for (const sample of samples) validateSample(sample, caseId);
-  assert.notEqual(samples.find(sample => sample.variant === "baseline")?.providerBundleSha256,
-    samples.find(sample => sample.variant === "candidate")?.providerBundleSha256, "CONTENT_IO_PERFORMANCE_BASELINE_IS_CANDIDATE");
+  const implementation = sample => `${sample?.providerBundleSha256}:${sample?.providerModuleSha256}`;
+  assert.notEqual(implementation(samples.find(sample => sample.variant === "baseline")),
+    implementation(samples.find(sample => sample.variant === "candidate")), "CONTENT_IO_PERFORMANCE_BASELINE_IS_CANDIDATE");
   for (const key of ["runId", "launchId"]) assert.equal(new Set(samples.map(sample => sample[key])).size, 20, "CONTENT_IO_PERFORMANCE_REUSED_RUN");
   for (const key of ["sourceSha256", "browserSha256", "networkSettingsSha256", "observationId"]) {
     assert.equal(new Set(samples.map(sample => sample[key])).size, 1, "CONTENT_IO_PERFORMANCE_INCOMPARABLE");
@@ -52,7 +54,7 @@ export function compareContentIOPerformance(caseId, samples) {
   for (const variant of ["baseline", "candidate"]) {
     const selected = samples.filter(sample => sample.variant === variant);
     assert.equal(selected.length, 10, "CONTENT_IO_PERFORMANCE_REPETITIONS_MISSING");
-    assert.equal(new Set(selected.map(sample => sample.providerBundleSha256)).size, 1, "CONTENT_IO_PERFORMANCE_CANDIDATE_CHANGED");
+    assert.equal(new Set(selected.map(implementation)).size, 1, "CONTENT_IO_PERFORMANCE_CANDIDATE_CHANGED");
     for (const state of ["cold", "warm"]) {
       const rows = selected.filter(sample => sample.cacheState === state).sort((a, b) => a.repetition - b.repetition);
       assert.deepEqual(rows.map(row => row.repetition), [0, 1, 2, 3, 4], "CONTENT_IO_PERFORMANCE_REPETITIONS_MISSING"); groups.set(`${variant}:${state}`, rows);

@@ -2,24 +2,23 @@ package libraryimport
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	metadatapersistence "retrom/internal/persistence/metadatascrape"
 	tagpersistence "retrom/internal/persistence/tagging"
 	application "retrom/internal/service/libraryimport"
 )
 
-type ReviewDetail struct{ database *sql.DB }
+type ReviewDetail struct{ database dbapi.DB }
 
-func NewReviewDetail(database *sql.DB) *ReviewDetail { return &ReviewDetail{database: database} }
+func NewReviewDetail(database dbapi.DB) *ReviewDetail { return &ReviewDetail{database: database} }
 func (repository *ReviewDetail) WithRead(ctx context.Context, work func(application.ReviewReadScope) error) error {
-	transaction, err := repository.database.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+	transaction, err := repository.database.BeginTx(ctx, &dbapi.TxOptions{ReadOnly: true})
 	if err != nil {
 		return fmt.Errorf("begin review detail snapshot: %w", err)
 	}
-	defer dbexec.Rollback(transaction)
+	defer dbapi.Rollback(transaction)
 	scope := application.ReviewReadScope{
 		Drafts: ReviewDrafts{transaction}, Media: ReviewMedia{transaction}, Sources: ReviewSources{transaction},
 		Validation:   BindReviewValidation(transaction),

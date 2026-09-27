@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
+	"retrom/internal/service/cleanupjobs"
 	"retrom/internal/service/importprogress"
-	"retrom/internal/service/payloadrelease"
 )
 
 const (
@@ -22,7 +22,7 @@ type ImportExecutionRepository interface {
 type ImportExecutionScope struct {
 	Records ImportExecutionRecords
 	Facts   ImportFactsReader
-	Payload payloadrelease.SchedulingScope
+	Payload cleanupjobs.ItemSchedulingScope
 }
 type ImportExecutionRecords interface {
 	Current(context.Context, string) (ImportWorkerSnapshot, bool, error)
@@ -73,8 +73,9 @@ type ImportWork struct {
 	Request   ImportRequest
 }
 type ImportWorkerSettings struct {
-	Now    func() time.Time
-	Report func(error)
+	RecoverPublications func(context.Context) error
+	Now                 func() time.Time
+	Report              func(error)
 }
 type ImportJobCancellation struct {
 	JobID, ImportID string

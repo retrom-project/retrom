@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"io"
 
-	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
+	"retrom/internal/filestore"
 	"retrom/internal/mediaasset"
 	"retrom/internal/serversource"
 )
@@ -17,10 +17,10 @@ func (service *Sources) copySource(
 	selectedPath, relativePath string,
 	size int64,
 	facts string,
-) (blobstore.Metadata, error) {
+) (filestore.Metadata, error) {
 	release, err := serversource.AcquireReader(ctx)
 	if err != nil {
-		return blobstore.Metadata{}, fmt.Errorf("sourceimport/acquire source reader: %w", err)
+		return filestore.Metadata{}, fmt.Errorf("sourceimport/acquire source reader: %w", err)
 	}
 	defer release()
 	handle, before, err := serversource.OpenRelativeFile(root.path, selectedPath, relativePath)
@@ -28,17 +28,17 @@ func (service *Sources) copySource(
 		if handle != nil {
 			cleanup.Error("close", handle.Close())
 		}
-		return blobstore.Metadata{}, ErrSourceChanged
+		return filestore.Metadata{}, ErrSourceChanged
 	}
 	metadata, putErr := service.blobs.Put(contextReader{ctx: ctx, reader: io.LimitReader(handle, size+1)})
 	after, statErr := handle.Stat()
 	cleanup.Error("close", handle.Close())
 	if putErr != nil {
-		return blobstore.Metadata{}, fmt.Errorf("sourceimport/copy source to CAS: %w", putErr)
+		return filestore.Metadata{}, fmt.Errorf("sourceimport/copy source to file storage: %w", putErr)
 	}
 	if statErr != nil || metadata.Size != size || !serversource.SameFileFacts(before, after) ||
 		serversource.FactsDigest(after) != facts {
-		return blobstore.Metadata{}, ErrSourceChanged
+		return filestore.Metadata{}, ErrSourceChanged
 	}
 	return metadata, nil
 }
@@ -48,10 +48,10 @@ func (service *Sources) copyAsset(
 	root Root,
 	selectedPath string,
 	asset executionAsset,
-) (blobstore.Metadata, bool, error) {
+) (filestore.Metadata, bool, error) {
 	release, err := serversource.AcquireReader(ctx)
 	if err != nil {
-		return blobstore.Metadata{}, false, fmt.Errorf("sourceimport/acquire asset reader: %w", err)
+		return filestore.Metadata{}, false, fmt.Errorf("sourceimport/acquire asset reader: %w", err)
 	}
 	defer release()
 	handle, before, err := serversource.OpenRelativeFile(root.path, selectedPath, asset.Path)
@@ -59,26 +59,26 @@ func (service *Sources) copyAsset(
 		if handle != nil {
 			cleanup.Error("close", handle.Close())
 		}
-		return blobstore.Metadata{}, false, ErrSourceChanged
+		return filestore.Metadata{}, false, ErrSourceChanged
 	}
 	valid := copiedAssetValid(handle, asset)
 	if !valid {
 		cleanup.Error("close", handle.Close())
-		return blobstore.Metadata{}, false, nil
+		return filestore.Metadata{}, false, nil
 	}
 	if _, err := handle.Seek(0, io.SeekStart); err != nil {
 		cleanup.Error("close", handle.Close())
-		return blobstore.Metadata{}, false, fmt.Errorf("sourceimport/rewind asset: %w", err)
+		return filestore.Metadata{}, false, fmt.Errorf("sourceimport/rewind asset: %w", err)
 	}
 	metadata, putErr := service.blobs.Put(contextReader{ctx: ctx, reader: io.LimitReader(handle, asset.Size+1)})
 	after, statErr := handle.Stat()
 	cleanup.Error("close", handle.Close())
 	if putErr != nil {
-		return blobstore.Metadata{}, false, fmt.Errorf("sourceimport/copy asset to CAS: %w", putErr)
+		return filestore.Metadata{}, false, fmt.Errorf("sourceimport/copy asset to file storage: %w", putErr)
 	}
 	if statErr != nil || metadata.Size != asset.Size || !serversource.SameFileFacts(before, after) ||
 		serversource.FactsDigest(after) != asset.Facts {
-		return blobstore.Metadata{}, false, ErrSourceChanged
+		return filestore.Metadata{}, false, ErrSourceChanged
 	}
 	return metadata, true, nil
 }

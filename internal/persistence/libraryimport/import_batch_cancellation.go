@@ -5,16 +5,18 @@ import (
 	"database/sql"
 	"fmt"
 
-	"retrom/internal/dbexec"
-	payloadpersistence "retrom/internal/persistence/payloadrelease"
+	importcleanup "retrom/internal/service/libraryimport/payloadpolicy"
+
+	dbapi "retrom/internal/database"
+	payloadpersistence "retrom/internal/persistence/libraryimport/itemrelease"
 	"retrom/internal/persistence/recordstore"
+	payloadservice "retrom/internal/service/cleanupjobs"
 	application "retrom/internal/service/libraryimport"
-	payloadservice "retrom/internal/service/payloadrelease"
 )
 
-type ImportBatchCancellations struct{ database *sql.DB }
+type ImportBatchCancellations struct{ database dbapi.DB }
 
-func NewImportBatchCancellations(database *sql.DB) *ImportBatchCancellations {
+func NewImportBatchCancellations(database dbapi.DB) *ImportBatchCancellations {
 	return &ImportBatchCancellations{database: database}
 }
 
@@ -31,7 +33,7 @@ func (repository *ImportBatchCancellations) Cancel(
 	if err != nil {
 		return application.ImportBatchCancellationResult{}, fmt.Errorf("begin import cancellation: %w", err)
 	}
-	defer dbexec.Rollback(tx)
+	defer dbapi.Rollback(tx)
 	evidence, err := loadImportCancellationEvidence(ctx, tx, request.ImportID, request.ExpectedVersion)
 	if err != nil {
 		return application.ImportBatchCancellationResult{}, err
@@ -79,13 +81,14 @@ WHERE id=?
 }
 
 func loadImportCancellationEvidence(
-	ctx context.Context, tx *sql.Tx, importID string, expectedVersion int64,
+	ctx context.Context, tx dbapi.Tx, importID string, expectedVersion int64,
 ) (importCancellationEvidence, error) {
 	var evidence importCancellationEvidence
-	err := tx.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, tx, `
 SELECT state,version,running_item_count,
 (SELECT count(*) FROM import_items WHERE import_job_id=import_jobs.id AND state='QUEUED'),
-(SELECT count(*) FROM import_items WHERE import_job_id=import_jobs.id AND state='REVIEW_PENDING'),
+(SELECT count(*) FROM import_items WHERE import_job_id=import_jobs.id AND state IN ('REVIEW_PENDING',
+'PUBLISHING')),
 (SELECT count(*) FROM import_items WHERE import_job_id=import_jobs.id AND state='FAILED_RETRYABLE'),
 (SELECT id FROM jobs WHERE scope_type='IMPORT_GROUP' AND scope_id=import_jobs.id AND kind='IMPORT_GROUP'),
 (SELECT state FROM jobs WHERE scope_type='IMPORT_GROUP' AND scope_id=import_jobs.id AND kind='IMPORT_GROUP')
@@ -102,7 +105,7 @@ FROM import_jobs WHERE id=?
 }
 
 func transitionImportGroupCancellation(
-	ctx context.Context, tx *sql.Tx, evidence importCancellationEvidence, reason string, now int64,
+	ctx context.Context, tx dbapi.Tx, evidence importCancellationEvidence, reason string, now int64,
 ) error {
 	if evidence.groupState.String == "QUEUED" || evidence.groupState.String == "FAILED" {
 		if _, err := tx.ExecContext(ctx, `
@@ -123,7 +126,8 @@ SELECT id,scope_type,scope_id,'CANCELLED',json_object('schemaVersion',1,'executi
 	}
 	if evidence.groupState.String == "RUNNING" {
 		if _, err := tx.ExecContext(ctx, `
-UPDATE jobs SET state='CANCEL_REQUESTED',cancel_requested_at_ms=?,cancel_reason=?,version=version+1,updated_at_ms=?
+UPDATE jobs SET state='CANCEL_REQUESTED',cancel_requested_at_ms=?,cancel_reason=?,version=version+1,
+updated_at_ms=?
 WHERE id=? AND state='RUNNING'
 `, now, reason, now, evidence.groupJobID.String); err != nil {
 			return fmt.Errorf("request import group cancellation: %w", err)
@@ -139,8 +143,8 @@ SELECT id,scope_type,scope_id,'CANCEL_REQUESTED',json_object('schemaVersion',1,'
 	return nil
 }
 
-func scheduleCancelledImportPayloads(ctx context.Context, tx *sql.Tx, importID string, now int64) error {
-	ids, err := payloadpersistence.CollectScopeIDs(ctx, tx, `
+func scheduleCancelledImportPayloads(ctx context.Context, tx dbapi.Tx, importID string, now int64) error {
+	ids, err := dbapi.QueryStrings(ctx, tx, `
 SELECT id FROM import_items WHERE import_job_id=? AND state='CANCELLED' AND payload_state='RETAINED'
 ORDER BY id`, importID)
 	if err != nil {
@@ -148,12 +152,13 @@ ORDER BY id`, importID)
 	}
 	scheduler := payloadservice.NewScheduler(nil)
 	for _, itemID := range ids {
-		if _, err := scheduler.TerminalItem(ctx, payloadpersistence.BindScheduling(tx), itemID,
+		if _, err := importcleanup.TerminalItem(ctx, scheduler, payloadpersistence.BindScheduling(tx), itemID,
 			payloadservice.ReasonImportCancelled, now); err != nil {
 			return fmt.Errorf("schedule cancelled import payload: %w", err)
 		}
 	}
-	if _, err := scheduler.TerminalImport(ctx, payloadpersistence.BindScheduling(tx), importID, now); err != nil {
+	if _, err := importcleanup.TerminalImport(ctx, scheduler, payloadpersistence.BindScheduling(tx),
+		importID, now); err != nil {
 		return fmt.Errorf("schedule cancelled import aggregate: %w", err)
 	}
 	return nil

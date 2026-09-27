@@ -3,10 +3,11 @@ package composition
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"time"
+
+	dbapi "retrom/internal/database"
 
 	discardpersistence "retrom/internal/persistence/importdiscard"
 	"retrom/internal/service/importdiscard"
@@ -14,7 +15,7 @@ import (
 	"retrom/internal/service/sourceimport"
 )
 
-func NewImportDiscard(database *sql.DB, importer importdiscard.ImportWorkflow, source *sourceimport.Service,
+func NewImportDiscard(database dbapi.DB, importer importdiscard.ImportWorkflow, source *sourceimport.Service,
 	now func() time.Time,
 ) *importdiscard.Service {
 	return importdiscard.New(

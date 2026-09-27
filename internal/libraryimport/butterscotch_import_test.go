@@ -9,9 +9,9 @@ import (
 	"strings"
 	"testing"
 
-	"retrom/internal/blobstore"
+	"retrom/internal/core/rpgmaker/fileset"
+	"retrom/internal/filestore"
 	"retrom/internal/importing"
-	"retrom/internal/rpgmaker/fileset"
 )
 
 func TestPrepareButterscotchDirectoryNormalizesWrapperAndRequiresRuntimeTrial(t *testing.T) {
@@ -90,14 +90,14 @@ func TestPrepareButterscotchDirectoryRejectsInvalidDataWin(t *testing.T) {
 func TestArchiveProjectPathsRejectsMissingMaterializedEntry(t *testing.T) {
 	t.Parallel()
 	files := []fileset.SourceFile{{Path: "data.win", SourceIndex: 7}}
-	if _, err := archiveProjectPaths(files, map[int]blobstore.Metadata{}); !errors.Is(err, importing.ErrArchiveUnsafe) {
+	if _, err := archiveProjectPaths(files, map[int]filestore.Metadata{}); !errors.Is(err, importing.ErrArchiveUnsafe) {
 		t.Fatalf("archiveProjectPaths() error=%v, want ARCHIVE_UNSAFE", err)
 	}
 }
 
 func butterscotchImportFixture(t *testing.T) (*Service, []importSourceFile) {
 	t.Helper()
-	blobs, err := blobstore.Open(t.TempDir())
+	blobs, err := filestore.Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -117,8 +117,8 @@ func butterscotchImportFixture(t *testing.T) (*Service, []importSourceFile) {
 			t.Fatal(putErr)
 		}
 		files = append(files, importSourceFile{
-			ID: name, Path: name, BlobID: name, SHA256: metadata.SHA256, Size: metadata.Size,
+			ID: name, Path: name, FileRecord: metadata.Record, SHA256: metadata.SHA256, Size: metadata.Size,
 		})
 	}
-	return New(nil, nil).WithBlobStore(blobs), files
+	return newTestImporter(t, nil, blobs, testImportOptions{Now: nil}), files
 }

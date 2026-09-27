@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/testsupport"
 )
 
@@ -44,7 +45,7 @@ func TestRecoveryLoopClosesLeaseThatExpiresAfterStartup(t *testing.T) {
 	defer tick.Stop()
 	for {
 		var state string
-		if err := service.database.QueryRowContext(t.Context(), `SELECT state FROM jobs WHERE id='work'`).Scan(&state); err != nil {
+		if err := dbapi.QueryRowContext(t.Context(), service.database, `SELECT state FROM jobs WHERE id='work'`).Scan(&state); err != nil {
 			t.Fatal(err)
 		}
 		if state == "FAILED" {

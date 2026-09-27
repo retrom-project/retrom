@@ -1,15 +1,15 @@
 package httpapi
 
 import (
-	"database/sql"
 	"testing"
 
 	"retrom/internal/cleanup"
+	dbsqlite "retrom/internal/database/sqlite"
 )
 
 func TestMultiDiscSummaryUsesSelectedSourceNotNewestEvidence(t *testing.T) {
 	t.Parallel()
-	database, err := sql.Open("sqlite", ":memory:")
+	database, err := dbsqlite.Open(":memory:", dbsqlite.Options{})
 	if err != nil {
 		t.Fatal(err)
 	}

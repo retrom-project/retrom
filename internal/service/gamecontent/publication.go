@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"slices"
 
-	"retrom/internal/corevalidation"
+	"retrom/internal/cleanup"
+
+	corevalidation "retrom/internal/core/validation"
 	"retrom/internal/multidisc"
 	validation "retrom/internal/service/corevalidation"
 )
@@ -16,8 +18,26 @@ func (service *Service) publish(
 	snapshot JobSnapshot,
 	prepared PreparedReplacement,
 ) error {
+	if err := service.repository.WithWrite(ctx, func(scope WriteScope) error {
+		_, err := publicationBinding(ctx, scope, claim, snapshot, prepared, service.now().UnixMilli())
+		return err
+	}); err != nil {
+		return fmt.Errorf("publish: %w", err)
+	}
+	committed := false
+	defer func() {
+		if !committed {
+			cleanup.Error("discard replacement workspace",
+				service.blobs.RemovePath(context.WithoutCancel(ctx), replacementDirectory(snapshot)))
+		}
+	}()
+	var err error
+	prepared, err = service.prepareDirectory(ctx, snapshot, prepared)
+	if err != nil {
+		return err
+	}
 	now := service.now().UnixMilli()
-	err := service.repository.WithWrite(ctx, func(scope WriteScope) error {
+	err = service.repository.WithWrite(ctx, func(scope WriteScope) error {
 		binding, err := publicationBinding(ctx, scope, claim, snapshot, prepared, now)
 		if err != nil {
 			return err
@@ -42,9 +62,7 @@ func (service *Service) publish(
 		); err != nil {
 			return fmt.Errorf("publish replacement content: %w", err)
 		}
-		if err := service.gc.StageInScope(ctx, scope.Retirements.GC, impact.CandidateBlobIDs); err != nil {
-			return fmt.Errorf("stage replaced blob candidates: %w", err)
-		}
+
 		if err := scope.Jobs.Succeed(ctx, Outcome{
 			Claim: claim, GameID: snapshot.GameID, ManifestDigest: prepared.ManifestDigest,
 			VariantID: snapshot.VariantID, RetiredSaveCount: impact.SaveStateCount, Now: now,
@@ -59,8 +77,9 @@ func (service *Service) publish(
 	if err != nil {
 		return fmt.Errorf("commit replacement publication: %w", err)
 	}
-	if service.payloadReleases != nil {
-		service.payloadReleases.Signal()
+	committed = true
+	if service.cleanupJobs != nil {
+		service.cleanupJobs.Signal()
 	}
 	return nil
 }

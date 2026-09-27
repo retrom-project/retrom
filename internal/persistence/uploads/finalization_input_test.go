@@ -7,6 +7,7 @@ import (
 	"errors"
 	"testing"
 
+	dbapi "retrom/internal/database"
 	uploadservice "retrom/internal/service/uploads"
 )
 
@@ -29,7 +30,7 @@ func TestFinalizationDamagedInputPreservesJSONCause(t *testing.T) {
 			}
 			awaitFinalizeState(t, fixture.database, job, "FAILED")
 			var count int
-			if err := fixture.database.QueryRowContext(t.Context(), `SELECT count(*) FROM blobs`).Scan(&count); err != nil {
+			if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT count(*) FROM upload_files WHERE final_file_record IS NOT NULL`).Scan(&count); err != nil {
 				t.Fatal(err)
 			}
 			if count != 0 {

@@ -4,20 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	composition "retrom/internal/composition/libraryimport"
 	application "retrom/internal/service/libraryimport"
 )
-
-func (service *Service) importCreations() *application.ImportCreations {
-	return composition.NewCreations(service.database, service.now, service.creationDependencies())
-}
-
-func (service *Service) creationDependencies() composition.CreationOptions {
-	return composition.CreationOptions{
-		Blobs: service.blobs, Tags: service.tags, Scraper: service.scraper,
-		ScummVMDetector: service.scummVMDetector, MultiDiscEnabled: service.multiDiscImportEnabled,
-	}
-}
 
 func (service *Service) Create(ctx context.Context, request CreateRequest) (Created, error) {
 	return service.create(ctx, request, nil)
@@ -47,7 +35,7 @@ func (service *Service) create(
 			intent.Source = &application.OwnedImportCreation{Intent: binding.intent, Before: binding.before}
 		}
 	}
-	result, err := service.importCreations().Create(ctx, request, intent)
+	result, err := service.creations.Create(ctx, request, intent)
 	if err != nil {
 		return Created{}, fmt.Errorf("create library import: %w", err)
 	}

@@ -2,7 +2,7 @@ package launch
 
 import "testing"
 
-func TestPlaySnapshotIsIndependentOfEventSequence(t *testing.T) {
+func TestPlaySnapshotKeepsCumulativeMaximum(t *testing.T) {
 	memory := newPlayMemory()
 	controller := newPlayController(memory)
 	first, err := controller.RecordSnapshot(t.Context(), "launch", "valid", PlaySnapshot{ActiveDurationMS: 30_000})
@@ -16,9 +16,6 @@ func TestPlaySnapshotIsIndependentOfEventSequence(t *testing.T) {
 		if err != nil || result.ActiveDurationMS != max(30_000, elapsed) {
 			t.Fatalf("snapshot %d=%#v error=%v", elapsed, result, err)
 		}
-	}
-	if memory.source.IdleExpiresAtMS != nil {
-		t.Fatal("play statistics set a launch idle deadline")
 	}
 }
 

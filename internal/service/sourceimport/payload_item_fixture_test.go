@@ -3,13 +3,15 @@ package sourceimport
 import (
 	"context"
 
-	payload "retrom/internal/service/payloadrelease"
+	sourcecleanup "retrom/internal/service/sourceimport/payloadpolicy"
+
+	payload "retrom/internal/service/cleanupjobs"
 )
 
 type payloadItemMemory struct{ memory *itemWorkFake }
 
-func payloadItemScope(memory *itemWorkFake) payload.ReleaseScope {
-	return payload.ReleaseScope{Scheduling: payloadItemMemory{memory: memory}}
+func payloadItemScope(memory *itemWorkFake) sourcecleanup.ReleaseScope {
+	return sourcecleanup.ReleaseScope{Scheduling: payloadItemMemory{memory: memory}}
 }
 
 func (records payloadItemMemory) Owner(_ context.Context, ref payload.Scope) (payload.Owner, error) {

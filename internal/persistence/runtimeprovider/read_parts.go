@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	service "retrom/internal/service/runtimeprovider"
 
 	"retrom/internal/cleanup"
@@ -12,7 +12,7 @@ import (
 
 func loadCurrentProviders(
 	ctx context.Context,
-	transaction dbexec.Executor,
+	transaction dbapi.Executor,
 ) (map[string]service.CurrentProvider, error) {
 	rows, err := transaction.QueryContext(ctx, `SELECT provider_id,provider_version,bundle_sha256 FROM runtime_providers`)
 	if err != nil {
@@ -53,7 +53,7 @@ func (records catalogRecords) TargetReferenced(ctx context.Context, target servi
 		query := fmt.Sprintf("SELECT EXISTS(SELECT 1 FROM %s WHERE %s=? AND %s=? LIMIT 1)",
 			reference.table, reference.providerColumn, reference.targetColumn)
 		var exists bool
-		if err := transaction.QueryRowContext(ctx, query, providerID, targetID).Scan(&exists); err != nil {
+		if err := dbapi.QueryRowContext(ctx, transaction, query, providerID, targetID).Scan(&exists); err != nil {
 			return false, fmt.Errorf("reconcile runtime providers: inspect %s: %w", reference.table, err)
 		}
 		if exists {
@@ -61,7 +61,7 @@ func (records catalogRecords) TargetReferenced(ctx context.Context, target servi
 		}
 	}
 	var reviewProfileReferenced bool
-	if err := transaction.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, transaction, `
 SELECT EXISTS(SELECT 1 FROM import_items
  WHERE json_extract(review_profile_json,'$.data.providerId')=?
  AND json_extract(review_profile_json,'$.data.targetId')=? LIMIT 1)`, providerID, targetID,

@@ -2,13 +2,14 @@ package sourceimport
 
 import (
 	"context"
-	"database/sql"
 	"database/sql/driver"
 	"errors"
 	"reflect"
 	"strings"
 	"testing"
 	"time"
+
+	dbapi "retrom/internal/database"
 
 	application "retrom/internal/service/sourceimport"
 	"retrom/internal/testsupport"
@@ -116,7 +117,7 @@ func TestScanCancellationRepositoryRejectsReplacedParentAndJobSnapshot(t *testin
 	}
 }
 
-func cancellationAuditFault(t *testing.T, db *sql.DB, importID string, cause error, deleted, audits *int) *sql.DB {
+func cancellationAuditFault(t *testing.T, db dbapi.DB, importID string, cause error, deleted, audits *int) dbapi.DB {
 	t.Helper()
 	return testsupport.OpenSQLFaultDatabase(t, db, testsupport.SQLFaultHooks{
 		AfterExec: func(_ context.Context, query string, args []driver.NamedValue, result driver.Result) (driver.Result, error) {

@@ -8,7 +8,7 @@ import (
 	"math"
 	"time"
 
-	payload "retrom/internal/service/payloadrelease"
+	sourcecleanup "retrom/internal/service/sourceimport/payloadpolicy"
 
 	"github.com/google/uuid"
 )
@@ -29,7 +29,7 @@ type (
 		TagsValid, OtherActive                 bool
 	}
 	StartScope struct {
-		Payload payload.ReleaseScope
+		Payload sourcecleanup.ReleaseScope
 		Read    StartReader
 		Write   StartWriter
 	}

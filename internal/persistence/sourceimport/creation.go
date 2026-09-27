@@ -3,25 +3,24 @@ package sourceimport
 import (
 	"context"
 	"crypto/sha256"
-	"database/sql"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/persistence/recordstore"
 	application "retrom/internal/service/sourceimport"
 )
 
-type Creation struct{ database *sql.DB }
+type Creation struct{ database dbapi.DB }
 
-func NewCreation(database *sql.DB) *Creation { return &Creation{database: database} }
+func NewCreation(database dbapi.DB) *Creation { return &Creation{database: database} }
 func (repository *Creation) WithCreate(ctx context.Context, work func(application.CreationWriter) error) error {
 	tx, err := repository.database.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin Source creation: %w", err)
 	}
-	defer dbexec.Rollback(tx)
+	defer dbapi.Rollback(tx)
 	if err := work(creationRecords{executor: tx}); err != nil {
 		return err
 	}
@@ -31,11 +30,11 @@ func (repository *Creation) WithCreate(ctx context.Context, work func(applicatio
 	return nil
 }
 
-type creationRecords struct{ executor dbexec.Executor }
+type creationRecords struct{ executor dbapi.Executor }
 
 func (records creationRecords) PendingPlans(ctx context.Context) (int, error) {
 	var count int
-	if err := records.executor.QueryRowContext(ctx, `
+	if err := dbapi.QueryRowContext(ctx, records.executor, `
 SELECT count(*) FROM source_imports WHERE state IN ('SCANNING','AWAITING_MAPPING')
 OR (state='CANCEL_REQUESTED' AND import_job_id IS NULL)
 `).Scan(
@@ -92,7 +91,7 @@ OR (state='CANCEL_REQUESTED' AND import_job_id IS NULL))<20
 	if err := records.insertCreationEvidence(ctx, plan); err != nil {
 		return application.Summary{}, err
 	}
-	return scanSummary(records.executor.QueryRowContext(ctx, summaryQuery+` WHERE import.id=?`, plan.ImportID))
+	return scanSummary(dbapi.QueryRowContext(ctx, records.executor, summaryQuery+` WHERE import.id=?`, plan.ImportID))
 }
 
 func (records creationRecords) insertScanJob(ctx context.Context, plan application.CreationPlan) error {

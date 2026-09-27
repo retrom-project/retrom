@@ -6,16 +6,16 @@ import (
 	"errors"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	"retrom/internal/service/accounts"
 )
 
 type (
-	RateLimits       struct{ database *sql.DB }
-	rateLimitRecords struct{ executor dbexec.Executor }
+	RateLimits       struct{ database dbapi.DB }
+	rateLimitRecords struct{ executor dbapi.Executor }
 )
 
-func NewRateLimits(database *sql.DB) *RateLimits { return &RateLimits{database} }
+func NewRateLimits(database dbapi.DB) *RateLimits { return &RateLimits{database} }
 func (repository *RateLimits) Read(
 	ctx context.Context,
 	key accounts.RateLimitKey,
@@ -41,7 +41,7 @@ func (repository *RateLimits) WithWrite(ctx context.Context, work func(accounts.
 	if err != nil {
 		return fmt.Errorf("begin authentication rate limits: %w", err)
 	}
-	defer dbexec.Rollback(tx)
+	defer dbapi.Rollback(tx)
 	if err := work(rateLimitRecords{tx}); err != nil {
 		return err
 	}
@@ -56,8 +56,9 @@ func (records rateLimitRecords) Read(
 	key accounts.RateLimitKey,
 ) (accounts.RateLimitBucket, bool, error) {
 	value := accounts.RateLimitBucket{Key: key}
-	err := records.executor.QueryRowContext(
-		ctx,
+	err := dbapi.QueryRowContext(
+		ctx, records.executor,
+
 		`SELECT window_started_at_ms,failure_count,blocked_until_ms,updated_at_ms
  FROM auth_rate_limits WHERE scope=? AND subject_hash=?`,
 		key.Scope,

@@ -7,12 +7,13 @@ import (
 	"fmt"
 
 	"retrom/internal/cleanup"
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/libraryimport"
 )
 
 func (records approvalDependencyRecords) LogicalName(ctx context.Context, snapshotID string) (string, error) {
 	var name string
-	err := records.executor.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, records.executor, `
 SELECT logical_name FROM import_item_source_snapshot_files
 WHERE source_snapshot_id=? AND role IN ('CONTENT','DISC','DOS_SOURCE')
 ORDER BY CASE role WHEN 'CONTENT' THEN 0 WHEN 'DISC' THEN 1 ELSE 2 END,sort_order,logical_name LIMIT 1`,
@@ -34,12 +35,12 @@ func (records approvalDependencyRecords) MultiDisc(
 ) (application.ApprovalMultiDisc, error) {
 	var facts application.ApprovalMultiDisc
 	rows, err := records.executor.QueryContext(ctx, `
-SELECT entry.ordinal,entry.state,entry.blob_id,entry.source_logical_name,
- file.blob_id,file.logical_name,file.sort_order,blob.size_bytes
+SELECT entry.ordinal,entry.state,entry.file_record,entry.source_logical_name,
+ file.file_record,file.logical_name,file.sort_order,json_extract(blob.value, '$.size_bytes')
 FROM import_item_multidisc_entries entry
 LEFT JOIN import_item_source_snapshot_files file ON file.source_snapshot_id=entry.source_snapshot_id
  AND file.role='DISC' AND file.sort_order=entry.ordinal
-LEFT JOIN blobs blob ON blob.id=entry.blob_id
+LEFT JOIN json_each(json_array(entry.file_record)) blob ON blob.value IS NOT NULL
 WHERE entry.source_snapshot_id=? ORDER BY entry.ordinal`, snapshotID)
 	if err != nil {
 		return facts, fmt.Errorf("query approval discs: %w", err)
@@ -47,8 +48,8 @@ WHERE entry.source_snapshot_id=? ORDER BY entry.ordinal`, snapshotID)
 	defer func() { cleanup.Error("close approval discs", rows.Close()) }()
 	for rows.Next() {
 		var disc application.ApprovalDisc
-		if err := rows.Scan(&disc.Ordinal, &disc.State, &disc.BlobID, &disc.LogicalName,
-			&disc.SourceBlobID, &disc.SourceLogicalName, &disc.SourceOrdinal, &disc.SizeBytes); err != nil {
+		if err := rows.Scan(&disc.Ordinal, &disc.State, &disc.FileRecord, &disc.LogicalName,
+			&disc.SourceFileRecord, &disc.SourceLogicalName, &disc.SourceOrdinal, &disc.SizeBytes); err != nil {
 			return application.ApprovalMultiDisc{}, fmt.Errorf("scan approval disc: %w", err)
 		}
 		facts.Discs = append(facts.Discs, disc)
@@ -59,7 +60,7 @@ WHERE entry.source_snapshot_id=? ORDER BY entry.ordinal`, snapshotID)
 	if err := rows.Close(); err != nil {
 		return application.ApprovalMultiDisc{}, fmt.Errorf("close approval discs: %w", err)
 	}
-	err = records.executor.QueryRowContext(ctx, `
+	err = dbapi.QueryRowContext(ctx, records.executor, `
 SELECT count(*) FILTER(WHERE role='PLAYLIST_SOURCE'),count(*) FILTER(WHERE role='DISC'),count(*),
  (SELECT count(*) FROM import_item_validation_files
   WHERE import_item_core_validation_id=? AND role='MULTI_DISC_PLAYLIST')
@@ -75,7 +76,7 @@ func (records approvalDependencyRecords) ArcadeRequirements(
 	ctx context.Context, datID, machine string,
 ) (application.ApprovalArcadeRequirements, error) {
 	var facts application.ApprovalArcadeRequirements
-	err := records.executor.QueryRowContext(ctx, `
+	err := dbapi.QueryRowContext(ctx, records.executor, `
 SELECT bios_name FROM dat_bios_sets WHERE dat_version_id=? AND machine_name=? AND is_default=1`, datID, machine).
 		Scan(&facts.DefaultBIOS)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
@@ -103,7 +104,7 @@ WHERE dat_version_id=? AND machine_name=? ORDER BY ordinal`, datID, machine)
 	if err := rows.Close(); err != nil {
 		return application.ApprovalArcadeRequirements{}, fmt.Errorf("close approval arcade ROMs: %w", err)
 	}
-	err = records.executor.QueryRowContext(ctx, `
+	err = dbapi.QueryRowContext(ctx, records.executor, `
 SELECT EXISTS(SELECT 1 FROM dat_disk_entries
  WHERE dat_version_id=? AND machine_name=? AND COALESCE(status,'GOOD')!='NODUMP')`,
 		datID, machine).Scan(&facts.HasDisk)
@@ -117,8 +118,9 @@ func (records approvalDependencyRecords) ExternalFileCount(
 	ctx context.Context, validationID, role, name string,
 ) (int64, error) {
 	var count int64
-	err := records.executor.QueryRowContext(ctx, `
-SELECT count(*) FROM import_item_validation_files WHERE import_item_core_validation_id=? AND role=? AND logical_name=?`,
+	err := dbapi.QueryRowContext(ctx, records.executor, `
+SELECT count(*) FROM import_item_validation_files WHERE import_item_core_validation_id=? AND role=? AND
+logical_name=?`,
 		validationID, role, name).Scan(&count)
 	if err != nil {
 		return 0, fmt.Errorf("read approval external file count: %w", err)

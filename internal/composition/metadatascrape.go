@@ -1,18 +1,19 @@
 package composition
 
 import (
-	"database/sql"
 	"time"
 
-	"retrom/internal/blobstore"
+	dbapi "retrom/internal/database"
+
+	"retrom/internal/filestore"
 	"retrom/internal/hasheous"
 	metadatapersistence "retrom/internal/persistence/metadatascrape"
 	"retrom/internal/service/metadatascrape"
 )
 
 func NewMetadata(
-	database *sql.DB,
-	blobs *blobstore.Store,
+	database dbapi.DB,
+	blobs *filestore.Store,
 	provider *hasheous.Provider,
 	now func() time.Time,
 ) *metadatascrape.Service {
@@ -25,6 +26,6 @@ func NewMetadata(
 	return metadatascrape.NewWithMedia(metadatapersistence.NewScheduler(database), worker, media, now)
 }
 
-func NewMetadataEvidenceQueries(database *sql.DB) *metadatascrape.EvidenceQueries {
+func NewMetadataEvidenceQueries(database dbapi.DB) *metadatascrape.EvidenceQueries {
 	return metadatascrape.NewEvidenceQueries(metadatapersistence.BindEvidenceQueries(database))
 }

@@ -2,9 +2,10 @@ package libraryimport
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"fmt"
+
+	dbapi "retrom/internal/database"
 
 	application "retrom/internal/service/libraryimport"
 )
@@ -48,7 +49,7 @@ WHERE id=? AND review_profile_json IS NOT NULL
 }
 
 func loadRPGReviewBinding(
-	ctx context.Context, transaction *sql.Tx, draftID string,
+	ctx context.Context, transaction dbapi.Tx, draftID string,
 ) (rpgReviewBinding, error) {
 	profile, err := readRPGReviewProfile(ctx, transaction, draftID)
 	if err != nil {

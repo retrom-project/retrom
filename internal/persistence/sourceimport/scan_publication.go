@@ -2,16 +2,15 @@ package sourceimport
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 
-	"retrom/internal/dbexec"
+	dbapi "retrom/internal/database"
 	application "retrom/internal/service/sourceimport"
 )
 
-type ScanPublication struct{ database *sql.DB }
+type ScanPublication struct{ database dbapi.DB }
 
-func NewScanPublication(database *sql.DB) *ScanPublication {
+func NewScanPublication(database dbapi.DB) *ScanPublication {
 	return &ScanPublication{database: database}
 }
 
@@ -20,7 +19,7 @@ func (repository *ScanPublication) WithScan(ctx context.Context, work func(appli
 	if err != nil {
 		return fmt.Errorf("begin Source scan publication: %w", err)
 	}
-	defer dbexec.Rollback(tx)
+	defer dbapi.Rollback(tx)
 	records := scanRecords{tx: tx}
 	if err := work(application.ScanScope{Read: records, Write: records}); err != nil {
 		return err
@@ -31,7 +30,7 @@ func (repository *ScanPublication) WithScan(ctx context.Context, work func(appli
 	return nil
 }
 
-type scanRecords struct{ tx *sql.Tx }
+type scanRecords struct{ tx dbapi.Tx }
 
 func (records scanRecords) Current(ctx context.Context, jobID string) (application.ExecutionSnapshot, error) {
 	return leaseRecords(records).Current(ctx, jobID)
@@ -60,7 +59,7 @@ func (records scanRecords) guard(ctx context.Context, owner application.ScanLeas
 
 func (records scanRecords) Shape(ctx context.Context, importID string) (application.ScanShape, error) {
 	var result application.ScanShape
-	err := records.tx.QueryRowContext(ctx, `SELECT
+	err := dbapi.QueryRowContext(ctx, records.tx, `SELECT
 (SELECT count(*) FROM source_import_metadata_files WHERE import_id=?),
 (SELECT count(*) FROM source_import_metadata_files WHERE import_id=? AND parse_state='INVALID'),
 (SELECT count(*) FROM source_import_collections WHERE import_id=?),

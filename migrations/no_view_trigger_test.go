@@ -7,7 +7,10 @@ import (
 	"testing"
 )
 
-var forbiddenViewOrTriggerDDL = regexp.MustCompile(`(?is)\b(?:create|alter|drop)\s+(?:view|trigger)\b`)
+var (
+	forbiddenViewDDL = regexp.MustCompile(`(?is)\b(?:create|alter|drop)\s+view\b`)
+	triggerDDL       = regexp.MustCompile(`(?is)\b(?:create|alter|drop)\s+trigger\b`)
+)
 
 func TestMigrationsDoNotDefineViewsOrTriggers(t *testing.T) {
 	t.Parallel()
@@ -20,8 +23,11 @@ func TestMigrationsDoNotDefineViewsOrTriggers(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if match := forbiddenViewOrTriggerDDL.Find(contents); match != nil {
-			t.Errorf("%s contains forbidden view/trigger DDL: %q", path, match)
+		if match := forbiddenViewDDL.Find(contents); match != nil {
+			t.Errorf("%s contains forbidden view DDL: %q", path, match)
+		}
+		if match := triggerDDL.Find(contents); match != nil {
+			t.Errorf("%s contains forbidden trigger DDL: %q", path, match)
 		}
 	}
 }

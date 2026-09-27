@@ -37,7 +37,7 @@ func TestApplicationSchemaHasNoTriggers(t *testing.T) {
 		}
 	})
 	names := queryStrings(t, database.SQL, "SELECT name FROM sqlite_schema WHERE type='trigger' ORDER BY name")
-	if len(names) > 0 {
-		t.Fatalf("business writes must be explicit; %d database triggers remain", len(names))
+	if len(names) != 0 {
+		t.Fatalf("unexpected database triggers: %v", names)
 	}
 }

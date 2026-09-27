@@ -105,7 +105,7 @@ func ScanZIP(ctx context.Context, path string, limits ArchiveLimits) ([]ArchiveE
 
 // ScanZIPWithConsumer validates the complete central directory first, then
 // decompresses each regular entry exactly once. The consumer can stream those
-// bytes directly into CAS and returns the hashes that become archive evidence.
+// bytes directly into independent files and returns the hashes that become archive evidence.
 func ScanZIPWithConsumer(
 	ctx context.Context,
 	path string,

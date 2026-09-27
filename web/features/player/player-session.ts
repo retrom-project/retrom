@@ -20,7 +20,7 @@ type SyncTone = "synced" | "busy" | "warning";
 export type PlayerSessionParams = {
   launchId: string; runtime: Mutable<PlayerRuntimeV1 | null>; envelope: Mutable<LaunchEnvelopeV1 | null>;
   progressClock: Mutable<PlayProgressClock>; started: Mutable<boolean>; finishing: Mutable<boolean>;
-  heartbeat: Mutable<number | null>; saveUploadQueue: Mutable<Promise<void>>;
+  progressTimer: Mutable<number | null>; saveUploadQueue: Mutable<Promise<void>>;
   orientationStateRef: Mutable<PlayerOrientationState>; returnTo: Mutable<string>;
   replaceImmersiveRoute: (url: string) => void;
   setOrientationState: Dispatch<SetStateAction<PlayerOrientationState>>; setSaveUploadProgress: Dispatch<SetStateAction<number | null>>;
@@ -82,9 +82,9 @@ async function sendPlayProgress(params: PlayerSessionParams, keepalive = false):
 function beginPlayerFinish(params: PlayerSessionParams) {
   params.finishing.current = true;
   params.progressClock.current.stop(performance.now());
-  if (params.heartbeat.current !== null) {
-    window.clearInterval(params.heartbeat.current);
-    params.heartbeat.current = null;
+  if (params.progressTimer.current !== null) {
+    window.clearInterval(params.progressTimer.current);
+    params.progressTimer.current = null;
   }
 }
 
@@ -267,8 +267,6 @@ function finishPreview(params: PlayerSessionParams) {
   if (params.envelope.current?.session.purpose !== "REVIEW_PREVIEW") {return;}
   void fetch(`/runtime/launches/${params.launchId}/finish`, {
     method: "POST", credentials: "same-origin", keepalive: true,
-    headers: {"Content-Type": "application/json"},
-    body: JSON.stringify({clientSequence: 0, clientObservedAtMs: Date.now(), previousInterval: null}),
   }).catch(() => undefined);
 }
 

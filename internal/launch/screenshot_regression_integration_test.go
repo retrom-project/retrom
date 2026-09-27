@@ -5,7 +5,6 @@ package launch
 import (
 	"bytes"
 	"context"
-	"database/sql"
 	"errors"
 	"image"
 	"image/png"
@@ -13,19 +12,22 @@ import (
 	"testing"
 	"time"
 
+	reviewservice "retrom/internal/service/libraryimport"
+
 	"modernc.org/sqlite"
 
-	"retrom/internal/blobstore"
+	dbapi "retrom/internal/database"
+	"retrom/internal/filestore"
 )
 
 func screenshotFixture(t *testing.T) (reviewCheckpointFixture, ReviewPreviewCreated, []byte) {
 	t.Helper()
 	fixture := newReviewCheckpointFixture(t)
-	blobs, err := blobstore.Open(t.TempDir())
+	blobs, err := filestore.Open(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
-	fixture.launcher.WithBlobStore(blobs)
+	fixture.launcher.WithFileStore(blobs)
 	preview := fixture.preview(t, "screenshot-regression")
 	var imageBytes bytes.Buffer
 	if err := png.Encode(&imageBytes, image.NewRGBA(image.Rect(0, 0, 2, 2))); err != nil {
@@ -34,10 +36,11 @@ func screenshotFixture(t *testing.T) (reviewCheckpointFixture, ReviewPreviewCrea
 	return fixture, preview, imageBytes.Bytes()
 }
 
-func screenshotCounts(t *testing.T, database *sql.DB) (int, int) {
+func screenshotCounts(t *testing.T, database dbapi.DB) (int, int) {
 	t.Helper()
 	var screenshots, blobs int
-	if err := database.QueryRowContext(t.Context(), `SELECT (SELECT count(*) FROM review_runtime_screenshots),(SELECT count(*) FROM blobs)`).Scan(&screenshots, &blobs); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), database, `SELECT (SELECT count(*) FROM review_runtime_screenshots),(SELECT count(DISTINCT file_record) FROM
+review_runtime_screenshots)`).Scan(&screenshots, &blobs); err != nil {
 		t.Fatal(err)
 	}
 	return screenshots, blobs
@@ -77,7 +80,8 @@ func TestScreenshotPreservesFinalAuthoritySQLCause(t *testing.T) {
 	fixture, preview, contents := screenshotFixture(t)
 	beforeShots, beforeBlobs := screenshotCounts(t, fixture.database)
 	mustRPGLaunchSQL(t, fixture.database, `ALTER TABLE import_items RENAME TO unavailable_screenshot_drafts`)
-	result, err := fixture.launcher.StoreReviewScreenshot(t.Context(), preview.PreviewID, preview.Capability, bytes.NewReader(contents))
+	result, err := fixture.launcher.StoreReviewScreenshot(t.Context(), preview.PreviewID,
+		preview.Capability, bytes.NewReader(contents))
 	var storage *sqlite.Error
 	if !errors.As(err, &storage) || result.ID != "" {
 		t.Fatalf("authority SQL id=%q error=%v", result.ID, err)
@@ -91,7 +95,8 @@ func TestScreenshotPreservesFinalAuthoritySQLCause(t *testing.T) {
 func TestScreenshotPreservesReaderCause(t *testing.T) {
 	fixture, preview, _ := screenshotFixture(t)
 	cause := errors.New("screenshot upload interrupted")
-	result, err := fixture.launcher.StoreReviewScreenshot(t.Context(), preview.PreviewID, preview.Capability, screenshotFaultReader{cause: cause})
+	result, err := fixture.launcher.StoreReviewScreenshot(t.Context(), preview.PreviewID,
+		preview.Capability, screenshotFaultReader{cause: cause})
 	if !errors.Is(err, cause) || result.ID != "" {
 		t.Fatalf("reader failure id=%q error=%v", result.ID, err)
 	}
@@ -101,10 +106,11 @@ func TestScreenshotRechecksDirectoryAfterImageRead(t *testing.T) {
 	fixture, preview, contents := screenshotFixture(t)
 	beforeShots, beforeBlobs := screenshotCounts(t, fixture.database)
 	reader := &screenshotHookReader{reader: bytes.NewReader(contents), before: func() {
-		mustRPGLaunchSQL(t, fixture.database, `UPDATE platform_instances SET enabled=0 WHERE id=(SELECT target_platform_instance_id FROM review_preview_sessions WHERE id=?)`, preview.PreviewID)
+		mustRPGLaunchSQL(t, fixture.database, `UPDATE platform_instances SET enabled=0 WHERE id=(SELECT target_platform_instance_id FROM
+review_preview_sessions WHERE id=?)`, preview.PreviewID)
 	}}
 	result, err := fixture.launcher.StoreReviewScreenshot(t.Context(), preview.PreviewID, preview.Capability, reader)
-	if !errors.Is(err, ErrCredential) || result.ID != "" {
+	if !errors.Is(err, reviewservice.ErrPreviewCredential) || result.ID != "" {
 		t.Fatalf("disabled directory id=%q error=%v", result.ID, err)
 	}
 	shots, blobs := screenshotCounts(t, fixture.database)
@@ -116,7 +122,7 @@ func TestScreenshotRechecksDirectoryAfterImageRead(t *testing.T) {
 func TestScreenshotCaptureTimestampCannotExceedAuthorizedLifetime(t *testing.T) {
 	fixture, preview, contents := screenshotFixture(t)
 	var hardEnd int64
-	if err := fixture.database.QueryRowContext(t.Context(), `SELECT hard_expires_at_ms FROM review_preview_sessions WHERE id=?`, preview.PreviewID).Scan(&hardEnd); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT hard_expires_at_ms FROM review_preview_sessions WHERE id=?`, preview.PreviewID).Scan(&hardEnd); err != nil {
 		t.Fatal(err)
 	}
 	calls := 0
@@ -127,8 +133,9 @@ func TestScreenshotCaptureTimestampCannotExceedAuthorizedLifetime(t *testing.T) 
 		}
 		return *fixture.now
 	}
-	result, err := fixture.launcher.StoreReviewScreenshot(t.Context(), preview.PreviewID, preview.Capability, bytes.NewReader(contents))
-	if err != nil && !errors.Is(err, ErrCredential) {
+	result, err := fixture.launcher.StoreReviewScreenshot(t.Context(), preview.PreviewID,
+		preview.Capability, bytes.NewReader(contents))
+	if err != nil && !errors.Is(err, reviewservice.ErrPreviewCredential) {
 		t.Fatal(err)
 	}
 	if err == nil && (result.ID == "" || result.CapturedAtMS >= hardEnd) {

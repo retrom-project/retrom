@@ -12,8 +12,8 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
+	"retrom/internal/filestore"
 )
 
 type manualMetadata struct {
@@ -24,9 +24,10 @@ type manualMetadata struct {
 }
 
 type parsedManual struct {
+	saveID, directory   string
 	metadata            manualMetadata
-	payload             blobstore.Metadata
-	screenshot          *blobstore.Metadata
+	payload             filestore.Metadata
+	screenshot          *filestore.Metadata
 	screenshotMediaType string
 }
 
@@ -108,16 +109,16 @@ func (service *Service) parseManualPart(
 	}
 }
 
-func (service *Service) readBounded(source io.Reader, maximum int64) (blobstore.Metadata, error) {
+func (service *Service) readBounded(source io.Reader, maximum int64) (filestore.Metadata, error) {
 	metadata, err := service.blobs.Put(io.LimitReader(source, maximum+1))
 	if err != nil {
-		return blobstore.Metadata{}, fmt.Errorf("saves/service: %w", err)
+		return filestore.Metadata{}, fmt.Errorf("saves/service: %w", err)
 	}
 	if metadata.Size > maximum {
-		return blobstore.Metadata{}, ErrTooLarge
+		return filestore.Metadata{}, ErrTooLarge
 	}
 	if metadata.Size == 0 {
-		return blobstore.Metadata{}, ErrCheckpointInvalid
+		return filestore.Metadata{}, ErrCheckpointInvalid
 	}
 	return metadata, nil
 }

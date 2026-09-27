@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	dbapi "retrom/internal/database"
 	"retrom/internal/testsupport"
 )
 
@@ -19,7 +20,7 @@ func TestDiscardPreservesEvidenceReadFailure(t *testing.T) {
 	itemID := created.Items[0].ItemID
 	cause := errors.New("discard evidence database unavailable")
 	hits := 0
-	fixture.service.database = testsupport.OpenSQLFaultDatabase(t, fixture.database, testsupport.SQLFaultHooks{
+	fixture.service = newTestImporter(t, testsupport.OpenSQLFaultDatabase(t, fixture.database, testsupport.SQLFaultHooks{
 		BeforeQuery: func(_ context.Context, query string, _ []driver.NamedValue) error {
 			if strings.Contains(query, "FROM import_items i") && strings.Contains(query, "JOIN import_items d") {
 				hits++
@@ -27,7 +28,7 @@ func TestDiscardPreservesEvidenceReadFailure(t *testing.T) {
 			}
 			return nil
 		},
-	})
+	}), fixture.service.blobs, testImportOptions{Now: fixture.service.now, MultiDiscEnabled: fixture.service.multiDiscImportEnabled})
 	result, err := fixture.service.Discard(t.Context(), itemID, 1, "")
 	if !errors.Is(err, cause) || errors.Is(err, ErrInvalid) || result != (DecisionResult{}) || hits != 1 {
 		t.Fatalf("discard evidence failure lost cause: result=%+v err=%v hits=%d", result, err, hits)
@@ -45,7 +46,7 @@ func TestDiscardRejectsSourceReviewBeforeHandoff(t *testing.T) {
 	itemID := created.Items[0].ItemID
 	before := captureDeduplicatePage(t, fixture, created.Created.ImportJobID)
 	var beforeState string
-	if err := fixture.database.QueryRowContext(t.Context(), `SELECT execution_state FROM source_import_items WHERE id=?`, request.Intent.ItemID).Scan(&beforeState); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT execution_state FROM source_import_items WHERE id=?`, request.Intent.ItemID).Scan(&beforeState); err != nil {
 		t.Fatal(err)
 	}
 	result, err := fixture.service.Discard(t.Context(), itemID, 1, "")
@@ -54,7 +55,7 @@ func TestDiscardRejectsSourceReviewBeforeHandoff(t *testing.T) {
 	}
 	assertDeduplicatePageUnchanged(t, fixture, created.Created.ImportJobID, before)
 	var state string
-	if err := fixture.database.QueryRowContext(t.Context(), `SELECT execution_state FROM source_import_items WHERE id=?`, request.Intent.ItemID).Scan(&state); err != nil {
+	if err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT execution_state FROM source_import_items WHERE id=?`, request.Intent.ItemID).Scan(&state); err != nil {
 		t.Fatal(err)
 	}
 	if state != beforeState {

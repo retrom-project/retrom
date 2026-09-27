@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	dbapi "retrom/internal/database"
 	persistence "retrom/internal/persistence/launch"
 	application "retrom/internal/service/launch"
 )
@@ -30,7 +31,7 @@ func TestRPGProductRepeatedNonDefaultTargetKeepsPublishedVariant(t *testing.T) {
 		})
 	}
 	var variants, jobs int
-	err := fixture.database.QueryRowContext(t.Context(), `SELECT (SELECT count(*) FROM game_variants WHERE game_id=? AND core_id='rpgmaker'),(SELECT count(*) FROM jobs WHERE kind='VARIANT_VALIDATE')`, fixture.gameID).Scan(&variants, &jobs)
+	err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT (SELECT count(*) FROM game_variants WHERE game_id=? AND core_id='rpgmaker'),(SELECT count(*) FROM jobs WHERE kind='VARIANT_VALIDATE')`, fixture.gameID).Scan(&variants, &jobs)
 	if err != nil || variants != 1 || jobs != 0 {
 		t.Fatalf("variants=%d jobs=%d error=%v", variants, jobs, err)
 	}
@@ -54,7 +55,7 @@ func productRPGCommand(gameID, mode, saveID string, attempt int) application.Pro
 func assertProductRPGTarget(t *testing.T, fixture productRPGFixture, created Created, target string, restore bool, saveID string) {
 	t.Helper()
 	var core, provider, selected, restored string
-	err := fixture.database.QueryRowContext(t.Context(), `SELECT core_id,provider_id,target_id,COALESCE(save_state_id,'') FROM launch_sessions WHERE id=?`, created.LaunchID).Scan(&core, &provider, &selected, &restored)
+	err := dbapi.QueryRowContext(t.Context(), fixture.database, `SELECT core_id,provider_id,target_id,COALESCE(save_state_id,'') FROM launch_sessions WHERE id=?`, created.LaunchID).Scan(&core, &provider, &selected, &restored)
 	if err != nil || core != "rpgmaker" || provider != "retrom-runtime" || selected != target || restore && restored != saveID || !restore && restored != "" {
 		t.Fatalf("launch identity=%s/%s/%s restore=%s error=%v", core, provider, selected, restored, err)
 	}
